@@ -12,12 +12,13 @@ RUN tar xvzf nginx.tar.gz
 RUN tar xvzf nginx-rtmp.tar.gz
 
 WORKDIR /build/nginx-1.9.5
-RUN ./configure
+RUN ./configure --add-module=/build/nginx-rtmp-module-1.1.7 --with-http_ssl_module
 RUN make
 RUN make install
 
 EXPOSE 80
-EXPOSE 443
+# rtmp
+EXPOSE 1934
 
 ADD nginx.conf /usr/local/nginx/conf/nginx.conf
 

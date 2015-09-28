@@ -22,4 +22,6 @@ EXPOSE 1934
 
 ADD nginx.conf /usr/local/nginx/conf/nginx.conf
 
+ADD static /static
+
 CMD /usr/local/nginx/sbin/nginx

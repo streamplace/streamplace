@@ -1,0 +1,19 @@
+{
+  "name": "pipeland",
+  "version": "0.0.0",
+  "description": "pipe! land!",
+  "main": "pipeland.js",
+  "scripts": {
+    "test": "pipeland.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@gitlab.com/streamplace/pipeland.git"
+  },
+  "author": "Eli Mallon",
+  "license": "SEE LICENSE IN your-butt",
+  "bugs": {
+    "url": "https://gitlab.com/streamplace/pipeland/issues"
+  },
+  "homepage": "https://gitlab.com/streamplace/pipeland#README"
+}

@@ -5,6 +5,7 @@ import morgan from "morgan";
 import bodyParser from "body-parser";
 import ffmpeg from "fluent-ffmpeg";
 import bunyan from "bunyan";
+import stream from "stream";
 
 const log = bunyan.createLogger({name: 'pipeland'});
 const app = express();
@@ -37,10 +38,18 @@ let streamCount = 0;
 
 const wrappedffmpeg = function(name) {
 
-  const streamLog = bunyan.createLogger({name: `${name} (${streamCount}`});
+  const streamLog = bunyan.createLogger({name: `${name} (${streamCount})`});
+  streamLog.level("trace");
   streamCount += 1;
 
-  return ffmpeg()
+  return ffmpeg({
+    logger: {
+      error: streamLog.error,
+      warning: streamLog.warn,
+      info: streamLog.info,
+      debug: streamLog.debug,
+    }
+  })
     .on('error', function(err, stdout, stderr) {
       streamLog.error('fired event: error');
       streamLog.error("err", err);
@@ -63,28 +72,64 @@ const wrappedffmpeg = function(name) {
     });
 };
 
+let outputStream;
+let oldInputProcess;
+let oldInputStream;
+
 const addSource = function(data) {
   const appPath = data.tcurl.split('/').pop();
   const inputUrl = `rtmp://localhost:1955/${appPath}/${data.name}`;
-  const outputUrl = `rtmp://localhost:1934/${appPath}/${data.name}`;
+  const outputUrl = `rtmp://localhost:1934/${appPath}/test`;
   log.info(`Streaming from ${inputUrl} to ${outputUrl}`);
 
-  const inputStream = wrappedffmpeg('input')
-    .input(inputUrl)
-    .videoCodec('copy')
-    .audioCodec('copy')
-    .outputFormat('flv')
-    .stream();
+  if (!outputStream) {
+    log.info("Setting up output stream");
+    outputStream = new stream.PassThrough();
 
-  wrappedffmpeg('output')
-    .input(inputStream)
+    wrappedffmpeg('output')
+      .input(outputStream)
+      .inputFormat('mpegts')
+      .inputOptions([
+        '-fflags +igndts',  
+        '-fflags +ignidx',
+      ])
+      // .inputFormat('ismv')
+      .videoCodec('copy')
+      .outputFormat('flv')
+      .noAudio()
+      .save(outputUrl);
+  }
+
+  const inputProcess = wrappedffmpeg('input')
+    .input(inputUrl)
+    .noAudio()
+    .inputFormat('flv')
+    .outputOptions(['-bsf:v h264_mp4toannexb'])
     .videoCodec('copy')
-    .audioCodec('copy')
-    .outputFormat('flv')
-    .save(outputUrl);
+    .outputFormat('mpegts')
+
+  const inputStream = inputProcess.stream();
+
+
+  log.info("Got new stream, will replace when we get data.");
+  let replaced = false;
+  
+  inputStream.on('data', function(chunk) {
+    if (!replaced) {
+      replaced = true;
+      if (oldInputProcess) {
+        oldInputStream.pause();
+        oldInputProcess.kill();
+      }
+      oldInputStream = inputStream;
+      oldInputProcess = inputProcess;
+    }
+    outputStream.push(chunk);
+  });
+
 };
 
-log.info("Started!");
+log.info("Pipeland booting up.");
 
 // const PORT = 1730;
 // const HOST = "drumstick.iame.li";

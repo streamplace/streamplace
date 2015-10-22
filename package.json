@@ -18,6 +18,7 @@
   "homepage": "https://gitlab.com/streamplace/pipeland#README",
   "dependencies": {
     "body-parser": "^1.14.1",
+    "bunyan": "^1.5.1",
     "express": "^4.13.3",
     "fluent-ffmpeg": "^2.0.1",
     "morgan": "^1.6.1"

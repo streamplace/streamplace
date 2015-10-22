@@ -22,7 +22,8 @@ app.use(bodyParser.urlencoded({
 
 app.post('*', function(req, res) {
   if (req.body) {
-    // console.log(req.body);
+    const data = req.body;
+    log.info(`nginx says: ${data.addr} is doing ${data.call} at ${data.tcurl}/${data.name} (${data.flashver})`);
     res.status(200).end();
     if (req.body.call === 'publish') {
       addSource(req.body);
@@ -63,7 +64,7 @@ const wrappedffmpeg = function(name) {
 };
 
 const addSource = function(data) {
-  const appPath = data.swfurl.split('/').pop();
+  const appPath = data.tcurl.split('/').pop();
   const inputUrl = `rtmp://localhost:1955/${appPath}/${data.name}`;
   const outputUrl = `rtmp://localhost:1934/${appPath}/${data.name}`;
   log.info(`Streaming from ${inputUrl} to ${outputUrl}`);

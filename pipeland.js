@@ -6,6 +6,9 @@ import bodyParser from "body-parser";
 import ffmpeg from "fluent-ffmpeg";
 import bunyan from "bunyan";
 import stream from "stream";
+import http from "http";
+import path from "path";
+import ioPackage from "socket.io";
 
 const log = bunyan.createLogger({name: 'pipeland'});
 const app = express();
@@ -32,14 +35,18 @@ app.post('*', function(req, res) {
   }
 });
 
-app.listen(3000);
+app.get('*', function(req, res) {
+  res.sendFile(path.resolve(__dirname, 'switcher.html'));
+});
+
+var server = require('http').Server(app);
+server.listen(3000);
 
 let streamCount = 0;
 
 const wrappedffmpeg = function(name) {
 
   const streamLog = bunyan.createLogger({name: `${name} (${streamCount})`});
-  streamLog.level("trace");
   streamCount += 1;
 
   return ffmpeg({
@@ -71,6 +78,17 @@ const wrappedffmpeg = function(name) {
       streamLog.info('command: ' + command);
     });
 };
+
+let currentStream = 0;
+let inputStreams = [];
+
+const io = ioPackage(server);
+io.on('connection', function(socket) {
+  socket.on('switch', function() {
+    currentStream = (currentStream + 1) % inputStreams.length;
+    log.info('Current stream is now ' + currentStream);
+  });
+});
 
 let outputStream;
 let oldInputProcess;
@@ -105,49 +123,28 @@ const addSource = function(data) {
     .outputFormat('mpegts')
 
   const inputStream = inputProcess.stream();
+  inputStreams.push(inputStream);
 
+  const myNumber = inputStreams.length - 1;
 
-  log.info("Got new stream, will replace when we get data.");
-  let replaced = false;
+  log.info("Got new stream, number is " + myNumber);
+  // let replaced = false;
 
   inputStream.on('data', function(chunk) {
-    if (!replaced) {
-      replaced = true;
-      if (oldInputProcess) {
-        oldInputStream.pause();
-        oldInputProcess.kill();
-      }
-      oldInputStream = inputStream;
-      oldInputProcess = inputProcess;
+    // if (!replaced) {
+    //   replaced = true;
+    //   if (oldInputProcess) {
+    //     oldInputStream.pause();
+    //     oldInputProcess.kill();
+    //   }
+    //   oldInputStream = inputStream;
+    //   oldInputProcess = inputProcess;
+    // }
+    if (currentStream === myNumber) {
+      outputStream.push(chunk);
     }
-    outputStream.push(chunk);
   });
 
 };
 
 log.info("Pipeland booting up.");
-
-// const PORT = 1730;
-// const HOST = "drumstick.iame.li";
-// const REMOTE_PORT = 1934;
-
-// const output = new net.Socket({
-//   readable: true,
-//   writable: true
-// });
-
-// const server = net.createServer(function(incoming) {
-//   console.log(`Opening connection to ${HOST}:${REMOTE_PORT}`);
-//   const outgoing = net.createConnection({
-//     readable: true,
-//     writable: true,
-//     host: HOST,
-//     port: REMOTE_PORT
-//   });
-//   incoming.pipe(outgoing);
-//   outgoing.pipe(incoming);
-// });
-
-// console.log(`Listening on ${PORT}`);
-// server.listen(PORT, "127.0.0.1");
-

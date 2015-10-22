@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+  <script src="https://cdn.socket.io/socket.io-1.3.7.js"></script>
+  <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.6.0/pure-min.css">
+  <link href="//vjs.zencdn.net/4.12/video-js.css" rel="stylesheet">
+  <script src="//vjs.zencdn.net/4.12/video.js"></script>
+  <style>
+    html, body {
+      height: 100%;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+    div {
+      margin: auto;
+    }
+    .big {
+      width: 400px;
+      height: 150px;
+      font-size: 3em;
+      margin: auto;
+    }
+  </style>
+  <script>
+    document.addEventListener("DOMContentLoaded", function(event) {
+      console.log("DOM fully loaded and parsed");
+      var socket = io.connect('http://drumstick.iame.li:3000');
+      document.querySelector('.big').addEventListener('click', function(){
+        socket.emit('switch');
+      });
+    });
+  </script>
+</head>
+<body>
+  <div>
+    <video id="really-cool-video" class="video-js vjs-default-skin" controls
+        preload="auto" width="1280" height="720"
+        data-setup='{}'>
+        <source src="http://drumstick.iame.li:8080/stream/test.m3u8" type='application/x-mpegURL'>
+        <source src="rtmp://drumstick.iame.li:1934/tv/test" type="rtmp/mp4">
+    </video>
+  </div>
+  <button class="pure-button pure-button-primary big">Do it!</button>
+</body>
+</html>

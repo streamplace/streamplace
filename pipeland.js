@@ -89,10 +89,6 @@ const addSource = function(data) {
     wrappedffmpeg('output')
       .input(outputStream)
       .inputFormat('mpegts')
-      .inputOptions([
-        '-fflags +igndts',  
-        '-fflags +ignidx',
-      ])
       // .inputFormat('ismv')
       .videoCodec('copy')
       .outputFormat('flv')
@@ -113,7 +109,7 @@ const addSource = function(data) {
 
   log.info("Got new stream, will replace when we get data.");
   let replaced = false;
-  
+
   inputStream.on('data', function(chunk) {
     if (!replaced) {
       replaced = true;

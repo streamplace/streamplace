@@ -81,18 +81,43 @@ const wrappedffmpeg = function(name) {
 
 let currentStream = 0;
 let inputStreams = [];
+const renderStreams = function() {
+  return inputStreams.map((obj) => {
+    return {
+      name: obj.name,
+    }
+  });
+};
 
+const sockets = [];
 const io = ioPackage(server);
 io.on('connection', function(socket) {
-  socket.on('switch', function() {
-    currentStream = (currentStream + 1) % inputStreams.length;
-    log.info('Current stream is now ' + currentStream);
+
+  socket.emit('streams', renderStreams());
+  socket.emit('activeStream', currentStream);
+
+  socket.on('switch', function(idx) {
+    idx = parseInt(idx);
+    console.log('Setting stream to ' + idx);
+    currentStream = idx;
+    notifyAll('activeStream', currentStream);
   });
+
+  socket.on('disconnect', function() {
+    sockets.splice(sockets.indexOf(socket), 1);
+  });
+
+  sockets.push(socket);
 });
 
+const notifyAll = function(...args) {
+  sockets.forEach(function (socket) {
+    socket.emit(...args);
+  });
+};
+
 let outputStream;
-let oldInputProcess;
-let oldInputStream;
+
 
 const addSource = function(data) {
   const appPath = data.tcurl.split('/').pop();
@@ -128,7 +153,12 @@ const addSource = function(data) {
     .outputFormat('mpegts')
 
   const inputStream = inputProcess.stream();
-  inputStreams.push(inputStream);
+  inputStreams.push({
+    stream: inputStream,
+    name: data.name,
+  });
+
+  notifyAll('streams', renderStreams());
 
   const myNumber = inputStreams.length - 1;
 

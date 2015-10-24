@@ -119,7 +119,12 @@ const addSource = function(data) {
     .noAudio()
     .inputFormat('flv')
     .outputOptions(['-bsf:v h264_mp4toannexb'])
-    .videoCodec('copy')
+    .videoCodec('libx264')
+    .outputOptions([
+      '-preset ultrafast',
+      '-tune zerolatency',
+      '-x264opts keyint=5:min-keyint='
+    ])
     .outputFormat('mpegts')
 
   const inputStream = inputProcess.stream();

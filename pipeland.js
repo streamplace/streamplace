@@ -12,12 +12,6 @@ import ioPackage from "socket.io";
 
 const log = bunyan.createLogger({name: 'pipeland'});
 const app = express();
-const LOG_LEVEL_NONE = 0;
-const LOG_LEVEL_ERROR = 1;
-const LOG_LEVEL_WARNING = 2;
-const LOG_LEVEL_INFO = 3;
-const LOG_LEVEL_DEBUG = 4;
-const LOG_LEVEL = LOG_LEVEL_DEBUG;
 
 app.use(morgan('combined'));
 app.use(bodyParser.urlencoded({
@@ -133,18 +127,21 @@ const addSource = function(data) {
       .input(outputStream)
       .inputFormat('mpegts')
       // .inputFormat('ismv')
+      .audioCodec('aac')
       .videoCodec('copy')
+      // .outputOptions([
+      //   '-bsf:a aac_adtstoasc'
+      // ])
       .outputFormat('flv')
-      .noAudio()
       .save(outputUrl);
   }
 
   const inputProcess = wrappedffmpeg('input')
     .input(inputUrl)
-    .noAudio()
     .inputFormat('flv')
     .outputOptions(['-bsf:v h264_mp4toannexb'])
     .videoCodec('libx264')
+    .audioCodec('libmp3lame')
     .outputOptions([
       '-preset ultrafast',
       '-tune zerolatency',

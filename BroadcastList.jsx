@@ -14,11 +14,14 @@ export default React.createClass({
       this.setState({broadcasts});
     });
   },
+  removeBroadcast: function(id) {
+    Broadcast.remove(id);
+  },
   render: function() {
     const broadcastNodes = this.state.broadcasts.map((broadcast) => {
       return (
         <li key={broadcast._id}>
-          {broadcast.slug} ({broadcast._id})
+          {broadcast.slug} (<a onClick={this.removeBroadcast.bind(null, broadcast._id)}>{broadcast._id}</a>)
         </li>
       )
     });

@@ -24,9 +24,22 @@ class Model {
     query.on('change', function(data) {
       console.log('change!', arguments);
       console.log('current state', JSON.stringify(query.result));
+      window.result = query.result;
       cb(query.result);
     })
     cb(query.result);
+  }
+
+  insert (...args) {
+    return this.collection.insert(...args);
+  }
+
+  update (...args) {
+    return this.collection.update(...args);
+  }
+
+  remove (...args) {
+    return this.collection.remove(...args);
   }
 }
 

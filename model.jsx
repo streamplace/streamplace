@@ -21,11 +21,16 @@ class Model {
 
   get (selector = {}, cb) {
     const query = this.collection.reactiveQuery(selector);
+    // This fires a few times per cycle. Let's keep a bit to stop that
+    let firing = false;
     query.on('change', function(data) {
-      console.log('change!', arguments);
-      console.log('current state', JSON.stringify(query.result));
-      window.result = query.result;
-      cb(query.result);
+      if (!firing) {
+        firing = true;
+        setTimeout(function() {
+          firing = false;
+          cb(query.result);
+        }, 0);
+      }
     })
     cb(query.result);
   }
@@ -43,4 +48,5 @@ class Model {
   }
 }
 
+window.Broadcast = Broadcast;
 export const Broadcast = new Model('broadcasts');

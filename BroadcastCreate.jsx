@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Broadcast } from "./model"
+import { Broadcast } from "bellamie";
 
 export default React.createClass({
   getInitialState() {

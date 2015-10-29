@@ -14,6 +14,7 @@
     "asteroid": "git://github.com/mondora/asteroid.git#c97869a973161b47aec2edb9aac0c1ba3ba230fa",
     "babel-core": "^5.8.29",
     "babel-loader": "^5.3.2",
+    "bellamie": "file:../bellamie",
     "css-loader": "^0.21.0",
     "ddp.js": "^1.1.0",
     "http-server": "^0.8.5",

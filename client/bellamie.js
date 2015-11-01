@@ -24,7 +24,7 @@ class Model {
     const query = this.collection.reactiveQuery(selector);
     // This fires a few times per cycle. Let's keep a bit to stop that
     let firing = false;
-    query.on('change', function(data) {
+    const handleChange = function(data) {
       if (!firing) {
         firing = true;
         setTimeout(function() {
@@ -32,8 +32,14 @@ class Model {
           cb(query.result);
         }, 0);
       }
-    })
+    }
+    query.on('change', handleChange);
     cb(query.result);
+    return {
+      stop: function() {
+        query.off('change', handleChange);
+      }
+    }
   }
 
   insert (...args) {

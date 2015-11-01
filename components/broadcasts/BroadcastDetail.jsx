@@ -5,14 +5,17 @@ import { Link } from 'react-router';
 import Loading from '../Loading';
 
 export default React.createClass({
-  displayName: 'BroadcastList',
+  displayName: 'BroadcastDetail',
   getInitialState() {
     return {broadcast: {}}
   },
   componentDidMount() {
-   Broadcast.get({}, (broadcasts) => {
+    this.broadcastHandle = Broadcast.get({_id: this.props.params.broadcastId}, (broadcasts) => {
       this.setState({broadcast: broadcasts[0]});
     });
+  },
+  componentWillUnmount() {
+    this.broadcastHandle.stop();
   },
   render() {
     if (!this.state.broadcast) {

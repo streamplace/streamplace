@@ -9,9 +9,12 @@ export default React.createClass({
     return {broadcasts: []}
   },
   componentDidMount() {
-   Broadcast.get({}, (broadcasts) => {
+    this.broadcastHandle = Broadcast.get({}, (broadcasts) => {
       this.setState({broadcasts});
     });
+  },
+  componentWillUnmount() {
+    this.broadcastHandle.stop();
   },
   removeBroadcast(id) {
     Broadcast.remove(id);

@@ -1,8 +1,7 @@
 
 import React from "react";
-import { Broadcast } from "bellamie"
-
-window.Broadcast = Broadcast;
+import { Broadcast } from "bellamie";
+import { Link } from 'react-router';
 
 export default React.createClass({
   displayName: 'BroadcastList',
@@ -21,7 +20,7 @@ export default React.createClass({
     const broadcastNodes = this.state.broadcasts.map((broadcast) => {
       return (
         <li key={broadcast._id}>
-          {broadcast.slug} {broadcast._id}
+          <Link to={`/broadcasts/${broadcast._id}`}>{broadcast.slug}</Link>
           <button className="pure-button button-error"
           onClick={this.removeBroadcast.bind(null, broadcast._id)}>
             delete

@@ -1,5 +1,17 @@
 
 import ReactDOM from 'react-dom';
-import Gort from "./Gort";
+import { Router, Route, Link } from 'react-router';
 
-ReactDOM.render(<Gort />, document.querySelector('main'));
+import BroadcastIndex from './components/broadcasts/BroadcastIndex';
+import BroadcastDetail from './components/broadcasts/BroadcastDetail';
+import NotFound from './components/NotFound';
+
+import {} from "./components/main.scss"
+
+ReactDOM.render((
+  <Router>
+    <Route path="/" component={BroadcastIndex} />
+    <Route path="/broadcasts/:broadcastId" component={BroadcastDetail} />
+    <Route path="*" component={NotFound} />
+  </Router>
+), document.querySelector('main'));

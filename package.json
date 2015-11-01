@@ -18,6 +18,7 @@
   "homepage": "https://gitlab.com/streamplace/bellamie#README",
   "dependencies": {
     "asteroid": "^0.6.1",
-    "babel": "^5.8.29"
+    "babel": "^5.8.29",
+    "faye-websocket": "^0.10.0"
   }
 }

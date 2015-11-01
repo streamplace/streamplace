@@ -3,8 +3,8 @@ let asteroid;
 
 if (typeof window !== 'undefined') {
   // browser.
-  window.DDP = require("ddp.js");
-  window.Q = require("q");
+  window.DDP = require("asteroid/node_modules/ddp.js/src/ddp.js");
+  window.Q = require("asteroid/node_modules/q/q.js");
   asteroid = require("asteroid/dist/asteroid.browser.js");
 }
 else {

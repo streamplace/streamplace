@@ -8,7 +8,7 @@ export default React.createClass({
   displayName: 'BroadcastIndex',
   render () {
     return (
-      <div>
+      <div className="center-column">
         <h1>streamprov studio</h1>
         <BroadcastList />
         <BroadcastCreate />

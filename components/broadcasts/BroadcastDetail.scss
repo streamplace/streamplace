@@ -1,0 +1,28 @@
+
+.backLink {
+
+}
+
+.verticalPanels {
+  flex-direction: column;
+
+  >* {
+    border-bottom: 1px solid black;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+}
+
+.header {
+  padding: 1em;
+  flex-grow: 0;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.backButton {
+  composes: buttonPrimary from "twixtykit/buttons.scss";
+}
+

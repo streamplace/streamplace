@@ -7,16 +7,34 @@ a {
   cursor: pointer;
 }
 
-html, body {
+html, body, main {
   height: 100%;
   background-color: #eee;
 }
 
 main {
+  display: flex;
+  flex-direction: column;
+}
+
+section {
+  display: flex;
+  flex-grow: 1;
+
+  &.vertical {
+    flex-direction: column;
+  }
+}
+
+.center-column {
   padding: 10px;
   height: 100%;
   width: 1000px;
+  height: 100%;
   margin: 0 auto;
+  border-left: 1px #ccc solid;
+  border-right: 1px #ccc solid;
+  flex-grow: 1;
 }
 
 .button-success,

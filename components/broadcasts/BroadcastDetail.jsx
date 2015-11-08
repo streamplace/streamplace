@@ -46,6 +46,7 @@ export default React.createClass({
     if (!this.state.broadcast) {
       return <Loading />
     }
+
     let bottomPanel;
     if (this.state.showNewMote) {
       bottomPanel = <MoteCreate />
@@ -53,6 +54,7 @@ export default React.createClass({
     else {
       bottomPanel = <MoteDetail mote={this.state.selectedMote} />
     }
+
     let closeBottomPanel;
     if (this.state.showNewMote || this.state.selectedMote !== null) {
       closeBottomPanel = (
@@ -61,6 +63,7 @@ export default React.createClass({
         </a>
       )
     }
+
     return (
       <section className={styles.verticalPanels}>
         <section className={styles.header}>

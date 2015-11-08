@@ -26,3 +26,20 @@
   composes: buttonPrimary from "twixtykit/buttons.scss";
 }
 
+.newMoteButton {
+  composes: buttonPrimary from "twixtykit/buttons.scss";
+  margin-left: auto;
+}
+
+.bottomPanel {
+  position: relative;
+  padding: 1em;
+}
+
+.closeBottomPanel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 1.5em;
+}
+

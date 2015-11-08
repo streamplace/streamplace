@@ -1,0 +1,11 @@
+{
+  "name": "twixtykit",
+  "version": "0.0.0",
+  "description": "Shared CSS stuff for Betwixt industries",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Eli Mallon",
+  "license": "ISC"
+}

@@ -1,0 +1,38 @@
+{
+  "name": "gort",
+  "version": "1.0.0",
+  "description": "Gort is the React frontend for stuff",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm run serve | npm run dev",
+    "serve": "./node_modules/.bin/http-server -p 5000",
+    "dev": "webpack-dev-server --progress --colors  --host 0.0.0.0 --port 5050"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "asteroid": "git://github.com/mondora/asteroid.git#2286f69a30dc081350b9248f65d63607b04ad73b",
+    "babel-core": "^5.8.29",
+    "babel-loader": "^5.3.2",
+    "bellamie": "file:../bellamie",
+    "css-loader": "^0.21.0",
+    "ddp.js": "git://github.com/mondora/ddp.js.git#374a8950cc6f783ef1c1c66b3a98e83299db87ff",
+    "file-loader": "^0.8.4",
+    "font-awesome-webpack": "0.0.4",
+    "http-server": "^0.8.5",
+    "node-sass": "^3.4.0",
+    "purecss": "^0.6.0",
+    "q": "^1.4.1",
+    "react": "^0.14.0",
+    "react-dom": "^0.14.0",
+    "react-router": "^1.0.0-rc3",
+    "sass-loader": "^3.0.0",
+    "style-loader": "^0.13.0",
+    "twixtykit": "file:../twixtykit",
+    "url-loader": "^0.5.6"
+  },
+  "devDependencies": {
+    "webpack": "^1.12.2",
+    "webpack-dev-server": "^1.12.1"
+  }
+}

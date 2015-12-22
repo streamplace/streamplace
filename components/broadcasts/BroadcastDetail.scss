@@ -24,6 +24,7 @@
 
 .backButton {
   composes: buttonPrimary from "twixtykit/buttons.scss";
+  margin: 0 1em;
 }
 
 .newMoteButton {

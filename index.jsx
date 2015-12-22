@@ -8,6 +8,7 @@ import NotFound from './components/NotFound';
 
 import {} from "./components/main.scss";
 import {} from "font-awesome-webpack";
+import {} from "twixtykit/base.scss";
 
 ReactDOM.render((
   <Router>

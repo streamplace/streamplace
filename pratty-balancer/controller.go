@@ -42,10 +42,18 @@ http {
   server_names_hash_max_size 512;
   server_names_hash_bucket_size 64;
 
+  server {
+    listen 80;
+    return 301 https://$host$request_uri;
+  }
+
 {{range $ing := .Items}}
 {{range $rule := $ing.Spec.Rules}}
   server {
-    listen 80;
+    listen 443;
+    ssl on;
+    ssl_certificate /keys/wildcard-ssl.crt;
+    ssl_certificate_key /keys/wildcard-ssl.key;
     server_name {{$rule.Host}};
 {{ range $path := $rule.HTTP.Paths }}
     location {{$path.Path}} {

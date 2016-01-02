@@ -12,9 +12,11 @@ Npm.depends({
 
 Package.on_use(function (api) {
   api.use('mongo');
+  api.use('ecmascript');
 
   api.add_files([
     'model.js',
     'broadcasts.js',
+    'motes.js',
   ], 'server');
 });

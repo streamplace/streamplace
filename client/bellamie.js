@@ -56,3 +56,4 @@ class Model {
 }
 
 export const Broadcast = new Model('broadcasts');
+export const Mote = new Model('motes');

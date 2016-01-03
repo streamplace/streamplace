@@ -1,0 +1,22 @@
+{
+  "name": "bellamie-server",
+  "version": "0.0.0",
+  "description": "Streamprov API Server",
+  "main": "app.js",
+  "scripts": {
+    "build": "babel -d lib src"
+  },
+  "author": "Dandiprat Industries",
+  "license": "SEE LICENSE IN your-butt",
+  "dependencies": {
+    "koa": "^1.1.2",
+    "koa-logger": "^1.3.0",
+    "koa-route": "^2.4.2",
+    "redis": "^2.4.2",
+    "winston": "^2.1.1"
+  },
+  "devDependencies": {
+    "babel-core": "^6.3.26",
+    "babel-preset-es2015": "^6.3.13"
+  }
+}

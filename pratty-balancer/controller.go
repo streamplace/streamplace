@@ -41,10 +41,26 @@ http {
   types_hash_max_size 2048;
   server_names_hash_max_size 512;
   server_names_hash_bucket_size 64;
+  # From https://raymii.org/s/tutorials/Strong_SSL_Security_On_nginx.html
+  ssl_ciphers 'EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH';
+  ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+  ssl_prefer_server_ciphers on;
+  ssl_session_cache shared:SSL:10m;
+  ssl_dhparam /dhparam/dhparam.pem;
 
   server {
     listen 80;
-    return 301 https://$host$request_uri;
+    location /.well-known {
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_pass http://letsencrypt.default.svc.cluster.local;
+    }
+
+    location / {
+      return 301 https://$host$request_uri;
+    }
   }
 
 {{range $ing := .Items}}
@@ -52,8 +68,8 @@ http {
   server {
     listen 443;
     ssl on;
-    ssl_certificate /keys/wildcard-ssl.crt;
-    ssl_certificate_key /keys/wildcard-ssl.key;
+    ssl_certificate /keys/certchain.pem;
+    ssl_certificate_key /keys/key.pem;
     server_name {{$rule.Host}};
 {{ range $path := $rule.HTTP.Paths }}
     location {{$path.Path}} {

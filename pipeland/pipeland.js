@@ -79,7 +79,7 @@ const renderStreams = function() {
   return inputStreams.map((obj) => {
     return {
       name: obj.name,
-    }
+    };
   });
 };
 
@@ -92,7 +92,7 @@ io.on("connection", function(socket) {
 
   socket.on("switch", function(idx) {
     idx = parseInt(idx);
-    console.log("Setting stream to " + idx);
+    // console.log("Setting stream to " + idx);
     currentStream = idx;
     notifyAll("activeStream", currentStream);
   });
@@ -147,7 +147,7 @@ const addSource = function(data) {
       "-tune zerolatency",
       "-x264opts keyint=5:min-keyint="
     ])
-    .outputFormat("mpegts")
+    .outputFormat("mpegts");
 
   const inputStream = inputProcess.stream();
   inputStreams.push({

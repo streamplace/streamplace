@@ -1,0 +1,21 @@
+{
+  "name": "pratty-apps",
+  "version": "0.0.0",
+  "description": "All Dandiprat applications",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {
+    "eslint": "^1.10.3",
+    "eslint-plugin-react": "^3.13.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "ssh://dandiprat-codecommit/v1/repos/pratty-apps"
+  },
+  "author": "Dandiprat Industries",
+  "license": "SEE LICENSE IN nope"
+}

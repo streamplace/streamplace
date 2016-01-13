@@ -10,30 +10,30 @@ import http from "http";
 import path from "path";
 import ioPackage from "socket.io";
 
-const log = bunyan.createLogger({name: 'pipeland'});
+const log = bunyan.createLogger({name: "pipeland"});
 const app = express();
 
-app.use(morgan('combined'));
+app.use(morgan("combined"));
 app.use(bodyParser.urlencoded({
   extended: false
 }));
 
-app.post('*', function(req, res) {
+app.post("*", function(req, res) {
   if (req.body) {
     const data = req.body;
     log.info(`nginx says: ${data.addr} is doing ${data.call} at ${data.tcurl}/${data.name} (${data.flashver})`);
     res.status(200).end();
-    if (req.body.call === 'publish') {
+    if (req.body.call === "publish") {
       addSource(req.body);
     }
   }
 });
 
-app.get('*', function(req, res) {
-  res.sendFile(path.resolve(__dirname, 'switcher.html'));
+app.get("*", function(req, res) {
+  res.sendFile(path.resolve(__dirname, "switcher.html"));
 });
 
-var server = require('http').Server(app);
+var server = require("http").Server(app);
 server.listen(3000);
 
 let streamCount = 0;
@@ -51,25 +51,25 @@ const wrappedffmpeg = function(name) {
       debug: streamLog.debug,
     }
   })
-    .on('error', function(err, stdout, stderr) {
-      streamLog.error('fired event: error');
+    .on("error", function(err, stdout, stderr) {
+      streamLog.error("fired event: error");
       streamLog.error("err", err);
       streamLog.error("stdout", stdout);
       streamLog.error("stderr", stderr);
     })
-    .on('codecData', function(data) {
-      streamLog.info('fired event: codecData', data);
+    .on("codecData", function(data) {
+      streamLog.info("fired event: codecData", data);
     })
-    .on('end', function() {
-      streamLog.info('fired event: end');
+    .on("end", function() {
+      streamLog.info("fired event: end");
     })
-    .on('progress', function(data) {
-      streamLog.trace('fired event: progress');
+    .on("progress", function(data) {
+      streamLog.trace("fired event: progress");
       streamLog.trace(data);
     })
-    .on('start', function(command) {
-      streamLog.info('fired event: start');
-      streamLog.info('command: ' + command);
+    .on("start", function(command) {
+      streamLog.info("fired event: start");
+      streamLog.info("command: " + command);
     });
 };
 
@@ -85,19 +85,19 @@ const renderStreams = function() {
 
 const sockets = [];
 const io = ioPackage(server);
-io.on('connection', function(socket) {
+io.on("connection", function(socket) {
 
-  socket.emit('streams', renderStreams());
-  socket.emit('activeStream', currentStream);
+  socket.emit("streams", renderStreams());
+  socket.emit("activeStream", currentStream);
 
-  socket.on('switch', function(idx) {
+  socket.on("switch", function(idx) {
     idx = parseInt(idx);
-    console.log('Setting stream to ' + idx);
+    console.log("Setting stream to " + idx);
     currentStream = idx;
-    notifyAll('activeStream', currentStream);
+    notifyAll("activeStream", currentStream);
   });
 
-  socket.on('disconnect', function() {
+  socket.on("disconnect", function() {
     sockets.splice(sockets.indexOf(socket), 1);
   });
 
@@ -114,7 +114,7 @@ let outputStream;
 
 
 const addSource = function(data) {
-  const appPath = data.tcurl.split('/').pop();
+  const appPath = data.tcurl.split("/").pop();
   const inputUrl = `rtmp://localhost:1955/${appPath}/${data.name}`;
   const outputUrl = `rtmp://localhost:1934/${appPath}/test`;
   log.info(`Streaming from ${inputUrl} to ${outputUrl}`);
@@ -123,31 +123,31 @@ const addSource = function(data) {
     log.info("Setting up output stream");
     outputStream = new stream.PassThrough();
 
-    wrappedffmpeg('output')
+    wrappedffmpeg("output")
       .input(outputStream)
-      .inputFormat('mpegts')
-      // .inputFormat('ismv')
-      .audioCodec('aac')
-      .videoCodec('copy')
+      .inputFormat("mpegts")
+      // .inputFormat("ismv")
+      .audioCodec("aac")
+      .videoCodec("copy")
       // .outputOptions([
-      //   '-bsf:a aac_adtstoasc'
+      //   "-bsf:a aac_adtstoasc"
       // ])
-      .outputFormat('flv')
+      .outputFormat("flv")
       .save(outputUrl);
   }
 
-  const inputProcess = wrappedffmpeg('input')
+  const inputProcess = wrappedffmpeg("input")
     .input(inputUrl)
-    .inputFormat('flv')
-    .outputOptions(['-bsf:v h264_mp4toannexb'])
-    .videoCodec('libx264')
-    .audioCodec('libmp3lame')
+    .inputFormat("flv")
+    .outputOptions(["-bsf:v h264_mp4toannexb"])
+    .videoCodec("libx264")
+    .audioCodec("libmp3lame")
     .outputOptions([
-      '-preset ultrafast',
-      '-tune zerolatency',
-      '-x264opts keyint=5:min-keyint='
+      "-preset ultrafast",
+      "-tune zerolatency",
+      "-x264opts keyint=5:min-keyint="
     ])
-    .outputFormat('mpegts')
+    .outputFormat("mpegts")
 
   const inputStream = inputProcess.stream();
   inputStreams.push({
@@ -155,14 +155,14 @@ const addSource = function(data) {
     name: data.name,
   });
 
-  notifyAll('streams', renderStreams());
+  notifyAll("streams", renderStreams());
 
   const myNumber = inputStreams.length - 1;
 
   log.info("Got new stream, number is " + myNumber);
   // let replaced = false;
 
-  inputStream.on('data', function(chunk) {
+  inputStream.on("data", function(chunk) {
     // if (!replaced) {
     //   replaced = true;
     //   if (oldInputProcess) {

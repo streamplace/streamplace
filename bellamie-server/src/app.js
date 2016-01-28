@@ -1,5 +1,4 @@
 
-import "babel-polyfill";
 import logger from "koa-logger";
 import route from "koa-route";
 import koa from "koa";

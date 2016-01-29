@@ -1,0 +1,292 @@
+# Hi
+swagger: '2.0'
+info:
+  title: Stream Kitchen API
+  description: Want to do some stuff what with the streaming video? This is an API for that!
+  version: "0.0.0-alpha1"
+# the domain of the service
+host: api.stream.kitchen
+# array of all schemes that your API supports
+schemes:
+  - https
+# will be prefixed to all paths
+basePath: /v0
+produces:
+  - application/json
+consumes:
+  - application/json
+
+definitions:
+  Broadcast:
+    type: object
+    properties:
+      id:
+        type: string
+        description: Unique ID of the Broadcast
+      title:
+        type: string
+        description: Name of the Broadcast
+  Vertex:
+    type: object
+    properties:
+      id:
+        type: string
+        description: Unique ID of the Vertex
+  Arc:
+    type: object
+    properties:
+      id:
+        type: string
+        description: Unique ID of the Arc
+  Error:
+    type: string
+    description: Something went wrong. This string is telling you so.
+
+
+paths:
+
+  ##############
+  # Broadcasts #
+  ##############
+
+  /broadcasts:
+    get:
+      summary: Get many broadcasts
+      description: TODO - Describe what broadcasts is
+      responses:
+        200:
+          description: An array of broadcasts
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Broadcast'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      summary: Create a broadcast
+      parameters:
+        - description: Broadcast to create
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Broadcast"
+      responses:
+        201:
+          description: Creation Sucessful
+          schema:
+            $ref: "#/definitions/Broadcast"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /broadcasts/{broadcastId}:
+    parameters:
+      - name: broadcastId
+        in: path
+        type: string
+        required: true
+    get:
+      summary: Get one broadcast
+      description: TODO - Describe what broadcasts is
+      responses:
+        200:
+          description: An array of broadcasts
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Broadcast'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      summary: Modify an existing broadcast
+      parameters:
+        - description: Broadcast to Modify
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Broadcast"
+      responses:
+        200:
+          description: Modification Sucessful
+          schema:
+            $ref: "#/definitions/Broadcast"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      summary: Delete an existing broadcast and everything in it!!!
+      responses:
+        204:
+          description: "You did it, it's gone"
+
+  #############
+  # Verticies #
+  #############
+
+  /verticies:
+    get:
+      summary: Get many verticies
+      description: TODO - Describe what a vertex is
+      responses:
+        200:
+          description: An array of verticies
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Vertex'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      summary: Create a broadcast
+      parameters:
+        - description: Broadcast to create
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Vertex"
+      responses:
+        201:
+          description: Creation Sucessful
+          schema:
+            $ref: "#/definitions/Vertex"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
+  /verticies/{vertexId}:
+    parameters:
+      - name: vertexId
+        in: path
+        type: string
+        required: true
+    get:
+      summary: Get one vertex
+      description: TODO - Describe what verticies is
+      responses:
+        200:
+          description: An array of verticies
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Vertex'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      summary: Modify an existing vertex
+      parameters:
+        - description: Vertex to Modify
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Vertex"
+      responses:
+        200:
+          description: Modification Sucessful
+          schema:
+            $ref: "#/definitions/Vertex"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      summary: Delete an existing vertex
+      responses:
+        204:
+          description: "You did it, it's gone"
+
+  ########
+  # Arcs #
+  ########
+
+  /arcs:
+    get:
+      summary: Get many arcs
+      description: TODO - Describe what a vertex is
+      responses:
+        200:
+          description: An array of arcs
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Arc'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      summary: Create a broadcast
+      parameters:
+        - description: Broadcast to create
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Arc"
+      responses:
+        201:
+          description: Creation Sucessful
+          schema:
+            $ref: "#/definitions/Arc"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+
+  /arcs/{arcId}:
+    parameters:
+      - name: arcId
+        in: path
+        type: string
+        required: true
+    get:
+      summary: Get one arc
+      description: TODO - Describe what arcs is
+      responses:
+        200:
+          description: An array of arcs
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Arc'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      summary: Modify an existing arc
+      parameters:
+        - description: Arc to Modify
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Arc"
+      responses:
+        200:
+          description: Modification Sucessful
+          schema:
+            $ref: "#/definitions/Arc"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      summary: Delete an existing arc
+      responses:
+        204:
+          description: "You did it, it's gone"
+         

@@ -82,9 +82,9 @@ paths:
           description: Unexpected error
           schema:
             $ref: '#/definitions/Error'
-  /broadcasts/{broadcastId}:
+  /broadcasts/{id}:
     parameters:
-      - name: broadcastId
+      - name: id
         in: path
         type: string
         required: true
@@ -164,9 +164,9 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /verticies/{vertexId}:
+  /verticies/{id}:
     parameters:
-      - name: vertexId
+      - name: id
         in: path
         type: string
         required: true
@@ -246,9 +246,9 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /arcs/{arcId}:
+  /arcs/{id}:
     parameters:
-      - name: arcId
+      - name: id
         in: path
         type: string
         required: true

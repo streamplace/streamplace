@@ -1,0 +1,15 @@
+{
+  "name": "skitchen-schema",
+  "version": "0.0.1",
+  "description": "Schema for Stream Kitchen",
+  "main": "schema.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "edit": "swagger project edit -s -p 4949 --host 0.0.0.0"
+  },
+  "author": "",
+  "license": "SEE LICENSE IN nope",
+  "devDependencies": {
+    "swagger": "^0.7.5"
+  }
+}

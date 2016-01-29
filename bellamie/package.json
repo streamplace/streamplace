@@ -1,0 +1,26 @@
+{
+  "name": "bellamie",
+  "version": "0.0.1",
+  "description": "API Server for Stream Kitchen",
+  "main": "ap.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/iameli/pratty-apps.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/iameli/pratty-apps/issues"
+  },
+  "homepage": "https://github.com/iameli/pratty-apps#readme",
+  "dependencies": {
+    "express": "^4.13.4",
+    "rethinkdb": "^2.2.1",
+    "swagger-parser": "^3.4.0",
+    "winston": "^2.1.1",
+    "skitchen-schema": "file:../skitchen-schema"
+  }
+}

@@ -11,5 +11,8 @@
   "license": "SEE LICENSE IN nope",
   "devDependencies": {
     "swagger": "^0.7.5"
+  },
+  "dependencies": {
+    "js-yaml": "^3.5.2"
   }
 }

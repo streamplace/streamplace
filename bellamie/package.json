@@ -20,9 +20,11 @@
   "dependencies": {
     "babel-polyfill": "^6.3.14",
     "express": "^4.13.4",
+    "morgan": "^1.6.1",
     "rethinkdb": "^2.2.1",
     "skitchen-schema": "file:../skitchen-schema",
     "swagger-parser": "^3.4.0",
+    "underscore": "^1.8.3",
     "winston": "^2.1.1"
   },
   "devDependencies": {

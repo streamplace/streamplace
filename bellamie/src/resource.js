@@ -2,6 +2,8 @@
 // "Base class" from which the individual resources "inherit". I mean. That's not how it actually 
 // works, but think about it that way.
 
+
+
 // Not much here yet
 export default class Resource {
 
@@ -10,7 +12,7 @@ export default class Resource {
   }
 
   get(req, res, next) {
-    res.send(`get on ${this.name}`);
+
   }
 
   post(req, res, next) {

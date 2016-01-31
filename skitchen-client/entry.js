@@ -1,4 +1,4 @@
 require("babel-register")({
   only: /src/,
 });
-require("./src/libskitchen");
+require("./src/skitchen-client");

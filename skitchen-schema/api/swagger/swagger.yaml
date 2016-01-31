@@ -53,6 +53,8 @@ paths:
     get:
       summary: Get many broadcasts
       description: TODO - Describe what broadcasts is
+      tags: ["broadcasts"]
+      operationId: find
       responses:
         200:
           description: An array of broadcasts
@@ -66,6 +68,8 @@ paths:
             $ref: '#/definitions/Error'
     post:
       summary: Create a broadcast
+      tags: ["broadcasts"]
+      operationId: create
       parameters:
         - description: Broadcast to create
           in: body
@@ -91,6 +95,8 @@ paths:
     get:
       summary: Get one broadcast
       description: TODO - Describe what broadcasts is
+      tags: ["broadcasts"]
+      operationId: findOne
       responses:
         200:
           description: An array of broadcasts
@@ -104,6 +110,8 @@ paths:
             $ref: '#/definitions/Error'
     put:
       summary: Modify an existing broadcast
+      tags: ["broadcasts"]
+      operationId: update
       parameters:
         - description: Broadcast to Modify
           in: body
@@ -122,6 +130,8 @@ paths:
             $ref: '#/definitions/Error'
     delete:
       summary: Delete an existing broadcast and everything in it!!!
+      tags: ["broadcasts"]
+      operationId: delete
       responses:
         204:
           description: "You did it, it's gone"
@@ -134,6 +144,8 @@ paths:
     get:
       summary: Get many vertices
       description: TODO - Describe what a vertex is
+      tags: ["vertices"]
+      operationId: find
       responses:
         200:
           description: An array of vertices
@@ -147,6 +159,8 @@ paths:
             $ref: '#/definitions/Error'
     post:
       summary: Create a broadcast
+      tags: ["vertices"]
+      operationId: create
       parameters:
         - description: Broadcast to create
           in: body
@@ -172,6 +186,8 @@ paths:
         required: true
     get:
       summary: Get one vertex
+      tags: ["vertices"]
+      operationId: findOne
       description: TODO - Describe what vertices is
       responses:
         200:
@@ -186,6 +202,8 @@ paths:
             $ref: '#/definitions/Error'
     put:
       summary: Modify an existing vertex
+      tags: ["vertices"]
+      operationId: update
       parameters:
         - description: Vertex to Modify
           in: body
@@ -204,6 +222,8 @@ paths:
             $ref: '#/definitions/Error'
     delete:
       summary: Delete an existing vertex
+      tags: ["vertices"]
+      operationId: delete
       responses:
         204:
           description: "You did it, it's gone"
@@ -216,6 +236,8 @@ paths:
     get:
       summary: Get many arcs
       description: TODO - Describe what a vertex is
+      tags: ["arcs"]
+      operationId: find
       responses:
         200:
           description: An array of arcs
@@ -229,6 +251,8 @@ paths:
             $ref: '#/definitions/Error'
     post:
       summary: Create a broadcast
+      tags: ["arcs"]
+      operationId: create
       parameters:
         - description: Broadcast to create
           in: body
@@ -255,6 +279,8 @@ paths:
     get:
       summary: Get one arc
       description: TODO - Describe what arcs is
+      tags: ["arcs"]
+      operationId: findOne
       responses:
         200:
           description: An array of arcs
@@ -268,6 +294,8 @@ paths:
             $ref: '#/definitions/Error'
     put:
       summary: Modify an existing arc
+      tags: ["arcs"]
+      operationId: update
       parameters:
         - description: Arc to Modify
           in: body
@@ -285,6 +313,8 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     delete:
+      tags: ["arcs"]
+      operationId: delete
       summary: Delete an existing arc
       responses:
         204:

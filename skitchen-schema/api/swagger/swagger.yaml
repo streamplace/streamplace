@@ -126,17 +126,17 @@ paths:
         204:
           description: "You did it, it's gone"
 
-  #############
-  # Verticies #
-  #############
+  ############
+  # vertices #
+  ############
 
-  /verticies:
+  /vertices:
     get:
-      summary: Get many verticies
+      summary: Get many vertices
       description: TODO - Describe what a vertex is
       responses:
         200:
-          description: An array of verticies
+          description: An array of vertices
           schema:
             type: array
             items:
@@ -164,7 +164,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
 
-  /verticies/{id}:
+  /vertices/{id}:
     parameters:
       - name: id
         in: path
@@ -172,10 +172,10 @@ paths:
         required: true
     get:
       summary: Get one vertex
-      description: TODO - Describe what verticies is
+      description: TODO - Describe what vertices is
       responses:
         200:
-          description: An array of verticies
+          description: An array of vertices
           schema:
             type: array
             items:

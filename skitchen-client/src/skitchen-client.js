@@ -1,10 +1,7 @@
 
+import url from "url";
 import Swagger from "swagger-client";
 import schema from "skitchen-schema";
-
-// Override the schema with our provided endpoint
-schema.host = "localhost";
-schema.schemes = ["http"];
 
 class Resource {
   constructor ({swaggerResource}) {
@@ -36,22 +33,27 @@ class Resource {
   }
 }
 
-var client = new Swagger({
-  spec: schema
-});
+export default function({server}) {
+  // Override the schema with our provided endpoint
+  const {protocol, host} = url.parse(server);
+  schema.host = host;
+  schema.schemes = [protocol.split(":")[0]];
 
-client.buildFromSpec(schema);
-
-const exports = {};
-
-// Look at all the resources available in the freshly-parsed schema and build a Resource for each 
-// one.
-client.apisArray.forEach(function(api) {
-  exports[api.name] = new Resource({
-    swaggerResource: client[api.name]
+  var client = new Swagger({
+    spec: schema
   });
-});
 
-client.usePromise = true;
+  client.buildFromSpec(schema);
 
-export default exports;
+  const exports = {};
+
+  // Look at all the resources available in the freshly-parsed schema and build a Resource for 
+  // each one.
+  client.apisArray.forEach((api) => {
+    this[api.name] = new Resource({
+      swaggerResource: client[api.name]
+    });
+  });
+
+  client.usePromise = true;
+}

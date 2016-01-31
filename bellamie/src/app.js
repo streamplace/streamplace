@@ -74,12 +74,12 @@ const ensureDatabaseExists = function(name, conn) {
 
 app.use(function(req, res, next) {
   r.connect(rethinkConfig).then(function(conn) {
-    winston.info("Connected to Rethink");
+    winston.debug("Connected to Rethink");
     req.conn = conn;
     next();
   })
   .catch(function(err) {
-    winston.error("Unable to connect to RethinkDB", err);
+    winston.debug("Unable to connect to RethinkDB", err);
     res.status(500);
     res.end();
   });
@@ -193,7 +193,7 @@ SwaggerParser.parse(schema)
 
 app.use(function(req, res, next) {
   req.conn.close().then(function() {
-    winston.info("Rethink connection closed");
+    winston.debug("Rethink connection closed");
     next();
   })
   .error(function(err) {

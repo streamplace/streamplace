@@ -2,17 +2,16 @@
 // "Base class" from which the individual resources "inherit". I mean. That's not how it actually 
 // works, but think about it that way.
 
+import r from "rethinkdb";
 
-
-// Not much here yet
 export default class Resource {
 
   index(req, res, next) {
-    res.send(`index on ${this.name}`);
+    res.json({id: "foo"});
   }
 
   get(req, res, next) {
-
+    req.send(req.params.id);
   }
 
   post(req, res, next) {

@@ -19,9 +19,11 @@
   "homepage": "https://github.com/iameli/pratty-apps#readme",
   "dependencies": {
     "babel-polyfill": "^6.3.14",
+    "body-parser": "^1.14.2",
     "express": "^4.13.4",
     "morgan": "^1.6.1",
     "rethinkdb": "^2.2.1",
+    "skitchen-client": "file:///home/root/code/pratty-apps/skitchen-client",
     "skitchen-schema": "file:../skitchen-schema",
     "swagger-parser": "^3.4.0",
     "underscore": "^1.8.3",

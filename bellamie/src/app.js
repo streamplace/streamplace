@@ -6,6 +6,7 @@ import SwaggerParser from "swagger-parser";
 import r from "rethinkdb";
 import morgan from "morgan";
 import _ from "underscore";
+import bodyParser from "body-parser";
 
 import ENV from "./env";
 
@@ -15,6 +16,8 @@ const app = express();
 winston.cli();
 
 app.use(morgan("combined"));
+
+app.use(bodyParser.json());
 
 const rethinkConfig = {
   host: ENV.RETHINK_HOST,
@@ -93,15 +96,22 @@ SwaggerParser.parse(schema)
     const actions = parsed.paths[path];
     const resourceName = path.split("/")[1];
     if (!resources[resourceName]) {
-      winston.info(`Resource: ${resourceName}`);
-      resources[resourceName] = require(`./resources/${resourceName}`).default;
+      winston.debug(`Resource: ${resourceName}`);
+      try {
+        resources[resourceName] = require(`./resources/${resourceName}`).default;
+      }
+      catch (err) {
+        winston.error("Caught error attempting to require resource. This probably means you " +
+          "added something in the schema, but didn't implement it in the ./resources directory.");
+        throw err;
+      }
     }
     const resource = resources[resourceName];
 
     // Paths can be either of the form /resource or /resource/{id}. For now.
     if (path === `/${resourceName}/{id}`) {
-      const expressPath = `/${resourceName}/:id`;
-      winston.info(`  Path ${expressPath}`);
+      const expressPath = `/v0/${resourceName}/:id`;
+      winston.debug(`  Path ${expressPath}`);
       Object.keys(actions).forEach(function(verb) {
         if (verb === "parameters") {
           // We don't care! Return.
@@ -122,8 +132,8 @@ SwaggerParser.parse(schema)
       });
     }
     else if (path === `/${resourceName}`) {
-      const expressPath = path;
-      winston.info(`  Path ${expressPath}`);
+      const expressPath = `/v0${path}`;
+      winston.debug(`  Path ${expressPath}`);
       Object.keys(actions).forEach(function(verb) {
         if (verb === "parameters") {
           // We don't care! Return.

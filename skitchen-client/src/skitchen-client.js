@@ -12,29 +12,27 @@ class Resource {
   }
 
   exec(action, ...args) {
-    return new Promise((resolve, reject) => {
-      this.resource[action](...args, resolve, reject);
-    });
+    return this.resource[action](...args);
   }
 
   find(...args) {
-    return this.exec('find', ...args);
+    return this.exec("find", ...args);
   }
 
   findOne(...args) {
-    return this.exec('findOne', ...args);
+    return this.exec("findOne", ...args);
   }
 
   insert(...args) {
-    return this.exec('insert', ...args);
+    return this.exec("insert", ...args);
   }
 
   update(...args) {
-    return this.exec('update', ...args);
+    return this.exec("update", ...args);
   }
 
   delete(...args) {
-    return this.exec('delete', ...args);
+    return this.exec("delete", ...args);
   }
 }
 
@@ -52,7 +50,8 @@ client.apisArray.forEach(function(api) {
   exports[api.name] = new Resource({
     swaggerResource: client[api.name]
   });
-  console.log('setting ' + api.name);
 });
+
+client.usePromise = true;
 
 export default exports;

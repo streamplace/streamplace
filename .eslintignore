@@ -1,4 +1,2 @@
 **/node_modules
-bellamie-legacy
-bellamie-server/lib
-bellamie-swagger
+**/**/node_modules

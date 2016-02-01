@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "babel-register": "^6.4.3",
-    "skitchen-schema": "file:../skitchen-schema",
+    "skitchen-schema": "file:../sk-schema",
     "swagger-client": "^2.1.11"
   },
   "devDependencies": {

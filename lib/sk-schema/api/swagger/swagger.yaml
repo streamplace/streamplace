@@ -92,12 +92,13 @@ paths:
           schema:
             $ref: '#/definitions/Error'
   /broadcasts/{id}:
-    parameters:
-      - name: id
-        in: path
-        type: string
-        required: true
     get:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
       summary: Get one broadcast
       description: TODO - Describe what broadcasts is
       tags: ["broadcasts"]
@@ -124,6 +125,11 @@ paths:
           required: true
           schema:
             $ref: "#/definitions/Broadcast"
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
       responses:
         200:
           description: Modification Sucessful
@@ -134,6 +140,12 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     delete:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
       summary: Delete an existing broadcast and everything in it!!!
       tags: ["broadcasts"]
       operationId: delete
@@ -184,12 +196,12 @@ paths:
             $ref: '#/definitions/Error'
 
   /vertices/{id}:
-    parameters:
-      - name: id
-        in: path
-        type: string
-        required: true
     get:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          required: true
       summary: Get one vertex
       tags: ["vertices"]
       operationId: findOne
@@ -210,6 +222,10 @@ paths:
       tags: ["vertices"]
       operationId: update
       parameters:
+        - name: id
+          in: path
+          type: string
+          required: true
         - description: Vertex to Modify
           in: body
           name: body
@@ -226,6 +242,11 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     delete:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          required: true
       summary: Delete an existing vertex
       tags: ["vertices"]
       operationId: delete
@@ -276,12 +297,12 @@ paths:
             $ref: '#/definitions/Error'
 
   /arcs/{id}:
-    parameters:
-      - name: id
-        in: path
-        type: string
-        required: true
     get:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          required: true
       summary: Get one arc
       description: TODO - Describe what arcs is
       tags: ["arcs"]
@@ -302,6 +323,10 @@ paths:
       tags: ["arcs"]
       operationId: update
       parameters:
+        - name: id
+          in: path
+          type: string
+          required: true
         - description: Arc to Modify
           in: body
           name: body
@@ -318,6 +343,11 @@ paths:
           schema:
             $ref: '#/definitions/Error'
     delete:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          required: true
       tags: ["arcs"]
       operationId: delete
       summary: Delete an existing arc

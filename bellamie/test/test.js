@@ -5,7 +5,7 @@ import expect from "expect.js";
 describe("broadcasts", function() {
   const SK = new SKClient({server: "http://localhost:80"});
 
-  let testBroadcastId;
+  let testBroadcastId = "nope";
   let testBroadcastName = "Test Broadcast";
 
   const fail = function(err) {
@@ -47,8 +47,9 @@ describe("broadcasts", function() {
   it("should find", function() {
     return SK.broadcasts.find().then(function(broadcasts) {
       expect(broadcasts).to.be.an(Array);
-      expect(broadcasts[0]).to.be.ok();
-      expect(broadcasts[0].name).to.be(testBroadcastName);
+      const myBroadcast = broadcasts.filter((b) => b.id === testBroadcastId)[0];
+      expect(myBroadcast).to.be.ok();
+      expect(myBroadcast.name).to.be(testBroadcastName);
     })
     .catch(fail);
   });
@@ -56,7 +57,6 @@ describe("broadcasts", function() {
   it("should delete", function() {
     return SK.broadcasts.delete(testBroadcastId)
     .then(function() {
-      expect(true).to.be(false);
       return SK.broadcasts.findOne(testBroadcastId).then(function() {
         throw new Error("Uh oh -- success on findOne after delete");
       })

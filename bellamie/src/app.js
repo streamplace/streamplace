@@ -10,6 +10,8 @@ import bodyParser from "body-parser";
 
 import ENV from "./env";
 
+winston.level = process.env.DEBUG_LEVEL || "info";
+
 const app = express();
 
 // Make winston output pretty
@@ -180,6 +182,17 @@ SwaggerParser.parse(schema)
 // Cool, start listening. //
 ////////////////////////////
 .then(function() {
+  app.use(function(req, res, next) {
+    req.conn.close().then(function() {
+      winston.debug("Rethink connection closed");
+      next();
+    })
+    .error(function(err) {
+      winston.error("Error closing Rethink connection", err);
+      // The user doesn't care about this, though. next() it anyway.
+      return next();
+    });
+  });
   if (!module.parent) {
     app.listen(ENV.PORT);
     winston.info("Bellamie starting up on port " + ENV.PORT);
@@ -191,15 +204,5 @@ SwaggerParser.parse(schema)
 });
 
 
-app.use(function(req, res, next) {
-  req.conn.close().then(function() {
-    winston.debug("Rethink connection closed");
-    next();
-  })
-  .error(function(err) {
-    winston.error("Error closing Rethink connection", err);
-    // The user doesn't care about this, though. next() it anyway.
-    return next();
-  });
-});
+
 

@@ -3,52 +3,112 @@
 // works, but think about it that way.
 
 import r from "rethinkdb";
+import winston from "winston";
 
 export default class Resource {
 
   index(req, res, next) {
-    res.status(501);
-    res.json({
-      code: "NOT_IMPLEMENTED",
-      message: "This thing doesn't do nothing yet."
+    r.table(this.name).run(req.conn)
+    .then(function(cursor) {
+      return cursor.toArray();
+    })
+    .then(function(docs) {
+      res.status(200);
+      res.json(docs);
+      next();
+    })
+    .catch(function(err) {
+      res.status(500);
+      res.json({
+        code: "DATABASE_ERROR",
+        message: JSON.stringify(err)
+      });
+      next();
     });
-    next();
   }
 
   get(req, res, next) {
-    res.status(501);
-    res.json({
-      code: "NOT_IMPLEMENTED",
-      message: "This thing doesn't do nothing yet."
+    r.table(this.name).get(req.params.id).run(req.conn)
+    .then(function(doc) {
+      if (doc) {
+        res.status(200);
+        res.json(doc);
+      }
+      else {
+        res.status(404);
+        res.json({
+          code: "NOT_FOUND",
+          message: "The specified resource was not found."
+        });
+      }
+      next();
+    })
+    .catch(function(err) {
+      res.status(500);
+      res.json({
+        code: "DATABASE_ERROR",
+        message: JSON.stringify(err)
+      });
+      next();
     });
-    next();
   }
 
   post(req, res, next) {
-    res.status(501);
-    res.json({
-      code: "NOT_IMPLEMENTED",
-      message: "This thing doesn't do nothing yet."
+    r.table(this.name).insert(req.body).run(req.conn)
+    .then(({generated_keys}) => {
+      // TODO: error handling
+      return r.table(this.name).get(generated_keys[0]).run(req.conn);
+    })
+    .then(function(doc) {
+      res.status(201);
+      res.json(doc);
+      next();
+    })
+    .catch(function(err) {
+      res.status(500);
+      res.json({
+        code: "DATABASE_ERROR",
+        message: JSON.stringify(err)
+      });
+      next();
     });
-    next();
   }
 
   put(req, res, next) {
-    res.status(501);
-    res.json({
-      code: "NOT_IMPLEMENTED",
-      message: "This thing doesn't do nothing yet."
+    r.table(this.name).get(req.params.id).update(req.body).run(req.conn)
+    .then((stuff) => {
+      return r.table(this.name).get(req.params.id).run(req.conn);
+    })
+    .then(function(stuff) {
+      res.status(200);
+      res.json(stuff);
+      next();
+    })
+    .catch(function(err) {
+      res.status(500);
+      res.json({
+        code: "DATABASE_ERROR",
+        message: JSON.stringify(err)
+      });
+      next();
     });
-    next();
   }
 
   delete(req, res, next) {
-    res.status(501);
-    res.json({
-      code: "NOT_IMPLEMENTED",
-      message: "This thing doesn't do nothing yet."
+    r.table(this.name).get(req.params.id).delete(req.body).run(req.conn)
+    .then(function(stuff) {
+      res.status(204);
+      res.end();
+      next();
+    })
+    .catch(function(err) {
+      res.status(500);
+      res.json({
+        code: "DATABASE_ERROR",
+        message: JSON.stringify(err)
+      });
+      next();
     });
-    next();
   }
 
   /**

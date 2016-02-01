@@ -1,6 +1,6 @@
 
-skitchen-schema
-===============
+sk-schema
+=========
 
 Schema for the Stream Kitchen API.
 

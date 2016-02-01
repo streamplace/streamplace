@@ -1,7 +1,7 @@
 
 .PHONY: app container push
 
-all: app container
+all: app container clean
 
 app: .
 	npm install
@@ -13,4 +13,6 @@ container: .
 push: .
 	docker push gcr.io/dandiprat-stuff/bellamie
 
-
+clean: .
+	mkdir -p dist
+	rm -rf dist

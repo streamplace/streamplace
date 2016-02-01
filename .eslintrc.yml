@@ -18,6 +18,9 @@ env:
   node: true
   browser: true
 extends: 'eslint:recommended'
+globals:
+  it: true
+  describe: true
 ecmaFeatures:
   modules: true
   jsx: true

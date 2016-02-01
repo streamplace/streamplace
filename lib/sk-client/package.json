@@ -1,5 +1,5 @@
 {
-  "name": "skitchen-client",
+  "name": "sk-client",
   "version": "0.0.0",
   "description": "JavaScript Client Library for Stream Kitchen",
   "main": "entry.js",
@@ -10,8 +10,8 @@
   "license": "ISC",
   "dependencies": {
     "babel-register": "^6.4.3",
-    "skitchen-schema": "file:../sk-schema",
-    "swagger-client": "^2.1.11"
+    "sk-schema": "file:../sk-schema",
+    "swagger-client": "swagger-api/swagger-js#bd0b8cbcb9daaff7b5ab437c795d6f941df92887"
   },
   "devDependencies": {
     "babel-cli": "^6.4.5",

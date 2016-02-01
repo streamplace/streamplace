@@ -1,7 +1,7 @@
 
 import express from "express";
 import winston from "winston";
-import schema from "skitchen-schema";
+import schema from "sk-schema";
 import SwaggerParser from "swagger-parser";
 import r from "rethinkdb";
 import morgan from "morgan";

@@ -4,7 +4,7 @@
   "description": "API Server for Stream Kitchen",
   "main": "ap.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "mocha --compilers js:babel-register",
     "build": "babel -d dist src",
     "dev": "PORT=80 RETHINK_HOST=localhost RETHINK_PORT=28015 RETHINK_DATABASE=dev nodemon -x babel-node src/app.js"
   },
@@ -24,8 +24,8 @@
     "express": "^4.13.4",
     "morgan": "^1.6.1",
     "rethinkdb": "^2.2.1",
-    "skitchen-client": "file:../lib/sk-client",
-    "skitchen-schema": "file:../lib/sk-schema",
+    "sk-client": "file:../lib/sk-client",
+    "sk-schema": "file:../lib/sk-schema",
     "swagger-parser": "^3.4.0",
     "underscore": "^1.8.3",
     "winston": "^2.1.1"
@@ -35,6 +35,9 @@
     "babel-core": "^6.4.5",
     "babel-plugin-transform-runtime": "^6.4.3",
     "babel-preset-es2015": "^6.3.13",
+    "babel-register": "^6.4.3",
+    "expect.js": "^0.3.1",
+    "mocha": "^2.4.5",
     "nodemon": "^1.8.1"
   }
 }

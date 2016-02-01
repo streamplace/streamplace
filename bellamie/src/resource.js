@@ -11,7 +11,7 @@ export default class Resource {
   }
 
   get(req, res, next) {
-    req.send(req.params.id);
+    res.send(req.params.id);
   }
 
   post(req, res, next) {

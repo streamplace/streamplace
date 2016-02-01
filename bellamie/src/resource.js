@@ -7,23 +7,43 @@ import r from "rethinkdb";
 export default class Resource {
 
   index(req, res, next) {
-    res.json({id: "foo"});
+    res.status(501);
+    res.json({
+      code: "NOT_IMPLEMENTED",
+      message: "This thing doesn't do nothing yet."
+    });
   }
 
   get(req, res, next) {
-    res.send(req.params.id);
+    res.status(501);
+    res.json({
+      code: "NOT_IMPLEMENTED",
+      message: "This thing doesn't do nothing yet."
+    });
   }
 
   post(req, res, next) {
-    res.send(`post on ${this.name}`);
+    res.status(501);
+    res.json({
+      code: "NOT_IMPLEMENTED",
+      message: "This thing doesn't do nothing yet."
+    });
   }
 
   put(req, res, next) {
-    res.send(`put on ${this.name}`);
+    res.status(501);
+    res.json({
+      code: "NOT_IMPLEMENTED",
+      message: "This thing doesn't do nothing yet."
+    });
   }
 
   delete(req, res, next) {
-    res.send(`delete on ${this.name}`);
+    res.status(501);
+    res.json({
+      code: "NOT_IMPLEMENTED",
+      message: "This thing doesn't do nothing yet."
+    });
   }
 
   /**

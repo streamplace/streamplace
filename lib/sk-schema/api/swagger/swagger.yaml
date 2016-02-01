@@ -39,8 +39,13 @@ definitions:
         type: string
         description: Unique ID of the Arc
   Error:
-    type: string
-    description: Something went wrong. This string is telling you so.
+    type: object
+    description: Something went wrong. This little guy tells you so.
+    properties:
+      message:
+        type: string
+      code:
+        type: string
 
 
 paths:

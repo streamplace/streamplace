@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "babel-register": "^6.4.3",
-    "skitchen-schema": "file:///home/root/code/pratty-apps/skitchen-schema",
+    "skitchen-schema": "file:../skitchen-schema",
     "swagger-client": "^2.1.11"
   },
   "devDependencies": {

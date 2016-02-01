@@ -12,6 +12,7 @@ export default class Resource {
       code: "NOT_IMPLEMENTED",
       message: "This thing doesn't do nothing yet."
     });
+    next();
   }
 
   get(req, res, next) {
@@ -20,6 +21,7 @@ export default class Resource {
       code: "NOT_IMPLEMENTED",
       message: "This thing doesn't do nothing yet."
     });
+    next();
   }
 
   post(req, res, next) {
@@ -28,6 +30,7 @@ export default class Resource {
       code: "NOT_IMPLEMENTED",
       message: "This thing doesn't do nothing yet."
     });
+    next();
   }
 
   put(req, res, next) {
@@ -36,6 +39,7 @@ export default class Resource {
       code: "NOT_IMPLEMENTED",
       message: "This thing doesn't do nothing yet."
     });
+    next();
   }
 
   delete(req, res, next) {
@@ -44,6 +48,7 @@ export default class Resource {
       code: "NOT_IMPLEMENTED",
       message: "This thing doesn't do nothing yet."
     });
+    next();
   }
 
   /**

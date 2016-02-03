@@ -1,5 +1,5 @@
 
-// "Base class" from which the individual resources "inherit". I mean. That's not how it actually 
+// "Base class" from which the individual resources "inherit". I mean. That's not how it actually
 // works, but think about it that way.
 
 import r from "rethinkdb";
@@ -77,10 +77,20 @@ export default class Resource {
   put(req, res, next) {
     r.table(this.name).get(req.params.id).update(req.body).run(req.conn)
     .then((stuff) => {
+      if (stuff.errors > 0) {
+        throw new Error("Error in r.update()");
+      }
+      if (stuff.skipped > 0) {
+        res.status(404);
+        return {
+          code: "NOT_FOUND",
+          message: "The specified resource was not found."
+        };
+      }
+      res.status(200);
       return r.table(this.name).get(req.params.id).run(req.conn);
     })
     .then(function(stuff) {
-      res.status(200);
       res.json(stuff);
       next();
     })
@@ -88,7 +98,7 @@ export default class Resource {
       res.status(500);
       res.json({
         code: "DATABASE_ERROR",
-        message: JSON.stringify(err)
+        message: err.message
       });
       next();
     });
@@ -97,6 +107,24 @@ export default class Resource {
   delete(req, res, next) {
     r.table(this.name).get(req.params.id).delete(req.body).run(req.conn)
     .then(function(stuff) {
+      if (stuff.errors > 0) {
+        res.status(500);
+        res.json({
+          code: "DATABASE_ERROR",
+          message: "Error when attempting to delete resource"
+        });
+        res.end();
+        return next();
+      }
+      if (stuff.skipped > 0) {
+        res.status(404);
+        res.json({
+          code: "NOT_FOUND",
+          message: "The specified resource was not found."
+        });
+        res.end();
+        return next();
+      }
       res.status(204);
       res.end();
       next();

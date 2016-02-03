@@ -11,7 +11,9 @@
   "dependencies": {
     "babel-register": "^6.4.3",
     "sk-schema": "file:../sk-schema",
-    "swagger-client": "swagger-api/swagger-js#bd0b8cbcb9daaff7b5ab437c795d6f941df92887"
+    "swagger-client": "swagger-api/swagger-js#bd0b8cbcb9daaff7b5ab437c795d6f941df92887",
+    "underscore": "^1.8.3",
+    "wolfy87-eventemitter": "^4.3.0"
   },
   "devDependencies": {
     "babel-cli": "^6.4.5",

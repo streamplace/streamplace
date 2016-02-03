@@ -66,49 +66,51 @@ describe("broadcasts", function() {
       return new Promise((resolve, reject) => {
         broadcastCursor.on(eventName, (...args) => {
           if (resolve) {
-            resolve([...args]);
+            resolve(args);
             resolve = null;
           }
         });
       });
     };
 
-    it("should watch", function(done) {
-      broadcastCursor = SK.broadcasts.watch({id: testBroadcastId}).then(function() {
+    it("should initalize", function(done) {
+      broadcastCursor = SK.broadcasts.watch().then(function() {
         done();
       });
       return broadcastCursor;
     });
 
 
-    it("should watch created", function() {
+    it("should recieve created events", function() {
       const createdEventPromise = eventPromise("created");
       const doCreatePromise = SK.broadcasts.create({name: watchBroadcastName});
-      return Promise.all([createdEventPromise, doCreatePromise]).then(function([docs], newDoc) {
-        expect(docs).to.equal([newDoc]);
-        watchBroadcastId = newDoc.id;
-      });
+      return Promise.all([createdEventPromise, doCreatePromise])
+        .then(function([[newDocs, createdIds], newDoc]) {
+          watchBroadcastId = newDoc.id;
+          expect(createdIds.indexOf(watchBroadcastId) > -1).to.be.ok;
+        });
     });
 
-    it("should watch updated", function() {
+    it("should recieve updated events", function() {
       // Same deal, now modify it
-      testBroadcastName = "Updated in Watch";
+      watchBroadcastName = "Updated in Watch";
       const updateEventPromise = eventPromise("updated");
-      const doUpdatePromise = SK.broadcasts.update(testBroadcastName, {name: testBroadcastName});
-      return Promise.all([updateEventPromise, doUpdatePromise]).then(function([docs], doc) {
-        expect(docs).to.equal([doc]);
-        expect(docs[0].name).to.equal(testBroadcastName);
-      });
-
+      const doUpdatePromise = SK.broadcasts.update(watchBroadcastId, {name: watchBroadcastName});
+      return Promise.all([updateEventPromise, doUpdatePromise])
+        .then(function([[newDocs, updatedIds], changedDoc]) {
+          expect(updatedIds).to.eql([watchBroadcastId]);
+          expect(newDocs.filter(doc => doc.id === watchBroadcastId)).to.eql([changedDoc]);
+        });
     });
 
-    it("should watch deleted", function() {
+    it("should recieve deleted events", function() {
       // Same deal, now delete it.
       const deleteEventPromise = eventPromise("deleted");
-      const doDeletePromise = SK.broadcasts.delete(testBroadcastName);
-      return Promise.all([deleteEventPromise, doDeletePromise]).then(function([ids]) {
-        expect(ids).to.equal([watchBroadcastId]);
-      });
+      const doDeletePromise = SK.broadcasts.delete(watchBroadcastId);
+      return Promise.all([deleteEventPromise, doDeletePromise])
+        .then(function([[newDocs, removedIds]]) {
+          expect(removedIds).to.eql([watchBroadcastId]);
+        });
     });
 
   });

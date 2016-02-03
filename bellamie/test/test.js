@@ -54,6 +54,63 @@ describe("broadcasts", function() {
     .catch(fail);
   });
 
+  it("should watch", function() {
+    let data;
+    let watchBroadcastName = "broadcast watch test";
+    let watchBroadcastId;
+
+    // Given a cursor and an eventName, return a promise that has resolved after the event has
+    // fired once.
+    let eventPromise = function(eventName) {
+      return new Promise((resolve, reject) => {
+        broadcastCursor.on(eventName, (...args) => {
+          if (resolve) {
+            resolve([...args]);
+            resolve = null;
+          }
+        });
+      });
+    };
+
+    let broadcastCursor = SK.broadcasts.watch({id: testBroadcastId})
+
+    .then(function() {
+      // Now we want to do a create, so we're going to send a PUT and register a "updated"
+      // handler. But those things do not necessarily to resolve in any particular order, so
+      // we'll do them both and handle it with a Promise.all
+      const createdEventPromise = eventPromise("created");
+      const doCreatePromise = SK.broadcasts.create({name: watchBroadcastName});
+      return Promise.all([createdEventPromise, doCreatePromise]);
+    })
+
+    .then(function([docs], newDoc) {
+      expect(docs).to.equal([newDoc]);
+      watchBroadcastId = newDoc.id;
+
+      // Same deal, now modify it
+      testBroadcastName = "Updated in Watch";
+      const updateEventPromise = eventPromise("updated");
+      const doUpdatePromise = SK.broadcasts.update(testBroadcastName, {name: testBroadcastName});
+      return Promise.all([updateEventPromise, doUpdatePromise]);
+    })
+
+    .then(function([docs], doc) {
+      expect(docs).to.equal([doc]);
+      expect(docs[0].name).to.equal(testBroadcastName);
+
+      // Same deal, now delete it.
+      const deleteEventPromise = eventPromise("deleted");
+      const doDeletePromise = SK.broadcasts.delete(testBroadcastName);
+      return Promise.all([deleteEventPromise, doDeletePromise]);
+    })
+
+    .then(function([ids]) {
+      expect(ids).to.equal([watchBroadcastId]);
+    });
+
+    return broadcastCursor;
+  });
+
   it("should delete", function() {
     return SK.broadcasts.delete(testBroadcastId)
     .then(function() {

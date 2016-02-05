@@ -1,7 +1,11 @@
 #!/bin/bash
 filesToLint="$(git diff --cached --name-only | grep "\.js$")"
 if [[ -n "$filesToLint" ]]; then
-  echo "$filesToLint" | xargs -L 1 eslint
+  for file in $filesToLint; do
+    if [[ -n "$(git ls-files :$file)" ]]; then
+      git show :"$file" | eslint --stdin --stdin-filename $file
+    fi
+  done
 else
   echo -en ""
 fi

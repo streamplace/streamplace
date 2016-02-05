@@ -2,8 +2,12 @@
 import SKClient from "sk-client";
 import expect from "expect.js";
 
+SKClient.log(true);
+
 describe("broadcasts", function() {
-  const SK = new SKClient({server: "http://localhost:80"});
+  const SK = new SKClient({
+    server: "http://localhost:80"
+  });
 
   let testBroadcastId = "nope";
   let testBroadcastName = "Test Broadcast";

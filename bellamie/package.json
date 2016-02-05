@@ -6,7 +6,8 @@
   "scripts": {
     "test": "mocha --compilers js:babel-register",
     "build": "babel -d dist src",
-    "dev": "PORT=80 RETHINK_HOST=localhost RETHINK_PORT=28015 RETHINK_DATABASE=dev nodemon -x babel-node src/app.js"
+    "dev": "PORT=80 RETHINK_HOST=localhost RETHINK_PORT=28015 RETHINK_DATABASE=dev nodemon -x babel-node src/app.js",
+    "debug": "PORT=80 RETHINK_HOST=localhost RETHINK_PORT=28015 RETHINK_DATABASE=dev npm run build && node-inspector --web-port 8989 dist/app.js"
   },
   "repository": {
     "type": "git",
@@ -38,6 +39,7 @@
     "babel-register": "^6.4.3",
     "expect.js": "^0.3.1",
     "mocha": "^2.4.5",
+    "node-inspector": "^0.12.5",
     "nodemon": "^1.8.1"
   }
 }

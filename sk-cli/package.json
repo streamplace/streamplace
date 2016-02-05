@@ -1,16 +1,17 @@
 {
-  "name": "pipeland",
+  "name": "sk-cli",
   "version": "0.0.0",
-  "description": "Pipeland!",
-  "main": "src/pipeland.js",
+  "description": "Command Line Client for Stream Kitchen",
+  "main": "src/app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "BELLAMIE_SERVER=http://localhost:8001 nodemon -x babel-node src/app.js"
+    "build": "babel -d dist src && chmod 755 dist/*"
   },
   "author": "Stream Kitchen",
   "license": "SEE LICENSE IN your-butt",
   "dependencies": {
     "babel-polyfill": "^6.3.14",
+    "commander": "^2.9.0",
     "sk-client": "file:../lib/sk-client",
     "winston": "^2.1.1"
   },

@@ -5,7 +5,7 @@
   "main": "src/pipeland.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "BELLAMIE_SERVER=http://localhost:8001 nodemon -x babel-node src/app.js"
+    "dev": "BELLAMIE_SERVER=http://localhost:8100 nodemon -x babel-node src/app.js"
   },
   "author": "Stream Kitchen",
   "license": "SEE LICENSE IN your-butt",

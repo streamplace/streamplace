@@ -1,2 +1,2 @@
 #!/bin/bash
-docker run -d --net host --name=shoko streamplace/shoko
+docker run -d -p 8200:80 -p 1934:1934 --name=shoko gcr.io/stream-kitchen/shoko

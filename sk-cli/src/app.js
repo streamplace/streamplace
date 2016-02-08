@@ -69,6 +69,10 @@ const parseJSON = function(str) {
   return parsed;
 };
 
+const isUUID = function(str) {
+  return /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/.test(str);
+};
+
 program
   .version("0.0.0")
   .usage("[action] [resource]")
@@ -86,7 +90,12 @@ program
       if (typeof query !== "string") {
         fatal("Need exactly two string arguments, please");
       }
-      SK[resource].findOne(query).then(spitJSON).catch(serverError);
+      if (isUUID(query)) {
+        SK[resource].findOne(query).then(spitJSON).catch(serverError);
+      }
+      else {
+        SK[resource].find(query).then(spitJSON).catch(serverError);
+      }
     }
 
     else if (cmd === "create") {

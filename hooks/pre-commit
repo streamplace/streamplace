@@ -1,16 +1,22 @@
 #!/bin/bash
-
-set -o errexit
-set -o nounset
-set -o pipefail
-
-filesToLint="$(git diff --cached --name-only | grep --silent "\.js$" || echo -en "")"
+filesToLint="$(git diff --cached --name-only | grep "\.js$")"
 if [[ -n "$filesToLint" ]]; then
+  status="happy"
   for file in $filesToLint; do
     if [[ -n "$(git ls-files :$file)" ]]; then
-      git show :"$file" | eslint --stdin --stdin-filename $file
+      contents=$(git show :"$file")
+      if [[ -n "$contents" ]]; then
+        if (echo "$contents" | eslint --stdin --stdin-filename $file); then
+          :
+        else
+          status="sad"
+        fi
+      fi
     fi
   done
+  if [[ "$status" == "sad" ]]; then
+    exit 1
+  fi
 else
   echo -en ""
 fi

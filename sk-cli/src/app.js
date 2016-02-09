@@ -129,7 +129,7 @@ program
         fatal("Need exactly two string arguments, please");
       }
       doc = parseJSON(doc);
-      SK[resource].create(doc).then(spitJSON).catch(serverError);
+      SK[resource].update(id, doc).then(spitJSON).catch(serverError);
     }
 
     else if (cmd === "delete") {

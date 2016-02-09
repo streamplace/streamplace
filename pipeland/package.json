@@ -11,7 +11,9 @@
   "license": "SEE LICENSE IN your-butt",
   "dependencies": {
     "babel-polyfill": "^6.3.14",
+    "fluent-ffmpeg": "^2.0.1",
     "sk-client": "file:../lib/sk-client",
+    "underscore": "^1.8.3",
     "winston": "^2.1.1"
   },
   "devDependencies": {

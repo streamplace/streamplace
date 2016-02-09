@@ -25,7 +25,7 @@ definitions:
         description: Unique ID of the Broadcast
       title:
         type: string
-        description: Name of the Broadcast
+        description: Name of the Broadcast test
   Vertex:
     type: object
     properties:
@@ -59,7 +59,7 @@ paths:
       summary: Get many broadcasts
       description: TODO - Describe what broadcasts is
       tags: ["broadcasts"]
-      operationId: find
+      operationId: findBroadcasts
       responses:
         200:
           description: An array of broadcasts
@@ -74,7 +74,7 @@ paths:
     post:
       summary: Create a broadcast
       tags: ["broadcasts"]
-      operationId: create
+      operationId: createBroadcasts
       parameters:
         - description: Broadcast to create
           in: body
@@ -102,7 +102,7 @@ paths:
       summary: Get one broadcast
       description: TODO - Describe what broadcasts is
       tags: ["broadcasts"]
-      operationId: findOne
+      operationId: findOneBroadcasts
       responses:
         200:
           description: An array of broadcasts
@@ -117,7 +117,7 @@ paths:
     put:
       summary: Modify an existing broadcast
       tags: ["broadcasts"]
-      operationId: update
+      operationId: updateBroadcasts
       parameters:
         - description: Broadcast to Modify
           in: body
@@ -148,7 +148,7 @@ paths:
           required: true
       summary: Delete an existing broadcast and everything in it!!!
       tags: ["broadcasts"]
-      operationId: delete
+      operationId: deleteBroadcasts
       responses:
         204:
           description: "You did it, it's gone"
@@ -162,7 +162,7 @@ paths:
       summary: Get many vertices
       description: TODO - Describe what a vertex is
       tags: ["vertices"]
-      operationId: find
+      operationId: findVertices
       responses:
         200:
           description: An array of vertices
@@ -177,7 +177,7 @@ paths:
     post:
       summary: Create a broadcast
       tags: ["vertices"]
-      operationId: create
+      operationId: createVertices
       parameters:
         - description: Broadcast to create
           in: body
@@ -204,7 +204,7 @@ paths:
           required: true
       summary: Get one vertex
       tags: ["vertices"]
-      operationId: findOne
+      operationId: findOneVertices
       description: TODO - Describe what vertices is
       responses:
         200:
@@ -220,7 +220,7 @@ paths:
     put:
       summary: Modify an existing vertex
       tags: ["vertices"]
-      operationId: update
+      operationId: updateVertices
       parameters:
         - name: id
           in: path
@@ -249,7 +249,7 @@ paths:
           required: true
       summary: Delete an existing vertex
       tags: ["vertices"]
-      operationId: delete
+      operationId: deleteVertices
       responses:
         204:
           description: "You did it, it's gone"
@@ -263,7 +263,7 @@ paths:
       summary: Get many arcs
       description: TODO - Describe what a vertex is
       tags: ["arcs"]
-      operationId: find
+      operationId: findArcs
       responses:
         200:
           description: An array of arcs
@@ -278,7 +278,7 @@ paths:
     post:
       summary: Create a broadcast
       tags: ["arcs"]
-      operationId: create
+      operationId: createArcs
       parameters:
         - description: Broadcast to create
           in: body
@@ -306,7 +306,7 @@ paths:
       summary: Get one arc
       description: TODO - Describe what arcs is
       tags: ["arcs"]
-      operationId: findOne
+      operationId: findOneArcs
       responses:
         200:
           description: An array of arcs
@@ -321,7 +321,7 @@ paths:
     put:
       summary: Modify an existing arc
       tags: ["arcs"]
-      operationId: update
+      operationId: updateArcs
       parameters:
         - name: id
           in: path
@@ -349,7 +349,7 @@ paths:
           type: string
           required: true
       tags: ["arcs"]
-      operationId: delete
+      operationId: deleteArcs
       summary: Delete an existing arc
       responses:
         204:

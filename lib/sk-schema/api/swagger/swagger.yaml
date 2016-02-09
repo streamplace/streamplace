@@ -169,6 +169,12 @@ paths:
       description: TODO - Describe what a vertex is
       tags: ["vertices"]
       operationId: findVertices
+      parameters:
+        - name: filter
+          in: query
+          description: Optional JSON string. Return only documents that match.
+          required: false
+          type: string
       responses:
         200:
           description: An array of vertices
@@ -270,6 +276,12 @@ paths:
       description: TODO - Describe what a vertex is
       tags: ["arcs"]
       operationId: findArcs
+      parameters:
+        - name: filter
+          in: query
+          description: Optional JSON string. Return only documents that match.
+          required: false
+          type: string
       responses:
         200:
           description: An array of arcs

@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-filesToLint="$(git diff --cached --name-only | grep -q "\.js$")"
+filesToLint="$(git diff --cached --name-only | grep --silent "\.js$" || echo -en "")"
 if [[ -n "$filesToLint" ]]; then
   for file in $filesToLint; do
     if [[ -n "$(git ls-files :$file)" ]]; then

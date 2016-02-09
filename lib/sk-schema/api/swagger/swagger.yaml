@@ -60,6 +60,12 @@ paths:
       description: TODO - Describe what broadcasts is
       tags: ["broadcasts"]
       operationId: findBroadcasts
+      parameters:
+        - name: filter
+          in: query
+          description: Optional JSON string. Return only documents that match.
+          required: false
+          type: string
       responses:
         200:
           description: An array of broadcasts

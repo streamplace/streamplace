@@ -70,6 +70,9 @@ const parseJSON = function(str) {
 };
 
 const isUUID = function(str) {
+  if (!str) {
+    return false;
+  }
   return /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/.test(str);
 };
 
@@ -86,15 +89,31 @@ program
     }
 
     if (cmd === "get") {
-      const [query] = args;
+      let [query] = args;
       if (typeof query !== "string") {
-        fatal("Need exactly two string arguments, please");
+        query = undefined;
       }
       if (isUUID(query)) {
         SK[resource].findOne(query).then(spitJSON).catch(serverError);
       }
       else {
-        SK[resource].find(query).then(spitJSON).catch(serverError);
+        // Could be a JSON selector, let's try that
+        let parsedQuery;
+        try {
+          parsedQuery = JSON.parse(query);
+        }
+        catch (e) {
+          // Okay, could be in this format foo=bar,bar=foo
+          if (query && query.indexOf("=") !== -1) {
+            parsedQuery = {};
+            let pairs = query.split(",");
+            pairs.forEach(function(pair) {
+              const [key, value] = pair.split("=");
+              parsedQuery[key] = value;
+            });
+          }
+        }
+        SK[resource].find(parsedQuery).then(spitJSON).catch(serverError);
       }
     }
 

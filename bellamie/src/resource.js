@@ -4,15 +4,36 @@
 
 import r from "rethinkdb";
 import winston from "winston";
+import _ from "underscore";
 
 export default class Resource {
 
+  // TODO: dumbest filtering implementation ever, it loads every single row then filters with
+  // underscore
   index(req, res, next) {
+    let filter;
+    if (req.query.filter) {
+      try {
+        filter = JSON.parse(req.query.filter);
+      }
+      catch (e) {
+        res.status(400);
+        res.json({
+          code: "MALFORMED_REQUEST",
+          message: "The 'filter' parameter must be in JSON format."
+        });
+        res.end();
+        return;
+      }
+    }
     r.table(this.name).run(req.conn)
     .then(function(cursor) {
       return cursor.toArray();
     })
     .then(function(docs) {
+      if (filter) {
+        docs = _(docs).where(filter);
+      }
       res.status(200);
       res.json(docs);
       next();

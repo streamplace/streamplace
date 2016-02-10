@@ -3,6 +3,7 @@ import ffmpeg from "fluent-ffmpeg";
 import stream from "stream";
 
 import SK from "../sk";
+import mpegts from "../mpegts-stream";
 import Base from "./Base";
 
 export default class Vertex extends Base {
@@ -13,6 +14,10 @@ export default class Vertex extends Base {
     this.info("initializing");
 
     this.pipes = {};
+
+    // We probably need one of these.
+    this.mpegts = mpegts();
+    this.mpegts.resume();
 
     // Watch my vertex, so I can respond appropriately.
     SK.vertices.watch({id: this.id})
@@ -70,12 +75,14 @@ export default class Vertex extends Base {
 class RTMPInputVertex extends Vertex {
   constructor({id}) {
     super({id});
-    this.pipes.default = new stream.PassThrough();
+    this.pipes.default = this.mpegts;
   }
 
   init() {
     this.inputStream = this.ffmpeg()
       .input(this.doc.rtmp.url)
+      .size("1280x720")
+      .autopad("black")
       .inputFormat("flv")
       .outputOptions(["-bsf:v h264_mp4toannexb"])
       .videoCodec("libx264")
@@ -83,10 +90,11 @@ class RTMPInputVertex extends Vertex {
       .outputOptions([
         "-preset ultrafast",
         "-tune zerolatency",
-        "-x264opts keyint=5:min-keyint="
+        "-x264opts keyint=5:min-keyint=",
+        "-pix_fmt yuv420p",
       ])
       .outputFormat("mpegts")
-      .pipe(this.pipes.default);
+      .pipe(this.mpegts);
 
     // We want it to start consuming data even if no arcs are listening yet. Fire away.
     this.inputStream.resume();

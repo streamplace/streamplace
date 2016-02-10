@@ -19,6 +19,14 @@ export default class Arc extends Base {
 
     .catch((err) => {
       this.error("Error on initial pull", err);
+    })
+
+    .on("updated", (docs) => {
+      this.doc = docs[0];
+      if (this.currentFrom && this.currentTo) {
+        this.currentFrom.unpipe(this.currentTo);
+        this.init();
+      }
     });
   }
 
@@ -28,7 +36,11 @@ export default class Arc extends Base {
     this.info(`Arcing vertex ${from.vertexId}:${from.pipe} to vertex ${to.vertexId}:${to.pipe}`);
     const fromVertex = this.broadcast.getVertex(from.vertexId);
     const toVertex = this.broadcast.getVertex(to.vertexId);
-    fromVertex.getPipe(from.pipe).pipe(toVertex.getPipe(to.pipe));
+
+    this.currentFrom = fromVertex.getPipe(from.pipe);
+    this.currentTo = toVertex.getPipe(to.pipe);
+
+    this.currentFrom.pipe(this.currentTo);
   }
 }
 

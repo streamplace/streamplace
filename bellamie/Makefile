@@ -11,7 +11,7 @@ container: .
 	cd $(shell pwd)/.. && docker build -f bellamie/Dockerfile -t gcr.io/stream-kitchen/bellamie .
 
 push: .
-	docker push gcr.io/dandiprat-stuff/bellamie
+	docker push gcr.io/stream-kitchen/bellamie
 
 clean: .
 	mkdir -p dist

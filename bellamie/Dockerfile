@@ -5,10 +5,13 @@ FROM node:5
 ENV PORT 80
 EXPOSE 80
 WORKDIR /app
-ADD lib /lib
-ADD bellamie/package.json /app/package.json
+ADD lib /app/lib
+ADD bellamie/package.json /app/build/package.json
 RUN \
+  cd /app/build && \
   npm install --production && \
-  rm -rf /lib
+  cd /app && \
+  mv /app/build/node_modules /app/node_modules && \
+  rm -rf /app/build
 ADD bellamie/dist /app/dist
 CMD ["node", "/app/dist/app.js"]

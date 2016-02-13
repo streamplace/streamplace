@@ -12,14 +12,10 @@ ADD sk-ffmpeg/build/ffmpeg /usr/bin/ffmpeg
 ADD sk-ffmpeg/build/ffserver /usr/bin/ffserver
 ADD sk-ffmpeg/build/ffprobe /usr/bin/ffprobe
 
-WORKDIR /app
+WORKDIR /app/build
 ADD lib /app/lib
 ADD pipeland/package.json /app/build/package.json
 RUN \
-  cd /app/build && \
-  npm install --production && \
-  cd /app && \
-  mv /app/build/node_modules /app/node_modules && \
-  rm -rf /app/build
-ADD pipeland/dist /app/dist
-CMD ["node", "/app/dist/app.js"]
+  npm install --production
+ADD pipeland/dist /app/build/dist
+CMD ["node", "/app/build/dist/app.js"]

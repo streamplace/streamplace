@@ -2,14 +2,14 @@
   "name": "sk-client",
   "version": "0.0.0",
   "description": "JavaScript Client Library for Stream Kitchen",
-  "main": "entry.js",
+  "main": "dist/sk-client.js",
   "scripts": {
+    "build": "babel -d dist src",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "babel-register": "^6.4.3",
     "sk-schema": "file:../sk-schema",
     "swagger-client": "swagger-api/swagger-js#bd0b8cbcb9daaff7b5ab437c795d6f941df92887",
     "underscore": "^1.8.3",

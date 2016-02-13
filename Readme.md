@@ -27,4 +27,4 @@ ffmpeg \
   -strict experimental \
   -b:a 192k \
   -f flv \
-  rtmp://drumstick.iame.li:1934/stream/image
+  rtmp://oregon.ingress.stream.kitchen:1934/stream/image

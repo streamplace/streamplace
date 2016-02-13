@@ -47,6 +47,10 @@ export default class Vertex extends Base {
     let logCounter = 0;
     return ffmpeg()
 
+    .outputOptions([
+
+    ])
+
     .on("error", (err, stdout, stderr) => {
       this.error("ffmpeg error", {err, stdout, stderr});
     })
@@ -110,18 +114,24 @@ class RTMPOutputVertex extends Vertex {
   init() {
     this.outputStream = this.ffmpeg()
       .input(this.pipes.default)
+      .inputOptions([
+        "-fflags +ignidx",
+        "-fflags +igndts",
+        "-fflags +discardcorrupt",
+      ])
       .inputFormat("mpegts")
       // .inputFormat("ismv")
       .audioCodec("aac")
       .videoCodec("copy")
       // .outputOptions([
-      //   "-bsf:a aac_adtstoasc"
+      //   "-fflags +genpts",
+      //   "-vsync drop",
       // ])
       .outputFormat("flv")
+      .videoCodec("libx264")
       .save(this.doc.rtmp.url);
       // .inputFormat("flv")
       // .outputOptions(["-bsf:v h264_mp4toannexb"])
-      // .videoCodec("libx264")
       // .audioCodec("libmp3lame")
       // .outputOptions([
       //   "-preset ultrafast",

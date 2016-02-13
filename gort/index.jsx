@@ -6,7 +6,7 @@ import BroadcastIndex from './components/broadcasts/BroadcastIndex';
 import BroadcastDetail from './components/broadcasts/BroadcastDetail';
 import NotFound from './components/NotFound';
 
-import {} from "./components/main.scss";
+import {} from "./components/main";
 import {} from "font-awesome-webpack";
 import {} from "twixtykit/base.scss";
 

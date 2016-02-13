@@ -1,7 +1,9 @@
 module.exports = {
-  entry: "./index.jsx",
+  context: __dirname,
+  entry: "./index",
   output: {
     filename: "bundle.js", //this is the default name, so you can skip it
+    path: "dist",
     //at this directory our bundle file will be available
     //make sure port 8090 is used when launching webpack-dev-server
     publicPath: "http://drumstick.iame.li:5050/assets/"
@@ -10,7 +12,10 @@ module.exports = {
     loaders: [{
       test: /\.jsx?$/,
       exclude: /(node_modules|bower_components)/,
-      loader: "babel"
+      loader: "babel",
+      query: {
+        presets: ["react", "es2015"]
+      }
     }, {
       test: /\.scss$/,
       loaders: ["style", "css?modules", "sass"]
@@ -28,6 +33,6 @@ module.exports = {
     "react": "React"
   },
   resolve: {
-    extensions: [".js", ".jsx"]
+    extensions: [".js", ".jsx", ".scss", ""]
   }
 };

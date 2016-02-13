@@ -5,7 +5,9 @@
   "main": "index",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "webpack-dev-server --progress --colors  --host 0.0.0.0 --port 5050"
+    "webpack-server": "webpack-dev-server --progress --colors  --host 0.0.0.0 --port 5050",
+    "static-server": "http-server -p 5000",
+    "dev": "npm run webpack-server | npm run static-server"
   },
   "author": "",
   "license": "ISC",

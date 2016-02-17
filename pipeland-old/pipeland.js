@@ -33,7 +33,7 @@ app.get("*", function(req, res) {
   res.sendFile(path.resolve(__dirname, "switcher.html"));
 });
 
-var server = require("http").Server(app);
+const server = require("http").Server(app);
 server.listen(3000);
 
 let streamCount = 0;

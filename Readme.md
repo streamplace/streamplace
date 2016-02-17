@@ -10,6 +10,14 @@ Dev Ports
 * 8200: Shoko HLS
 
 
+Rough Style Guide
+-----------------
+
+Javascript
+  * Needs to pass ESLint. Run `npm run lint` in the root directory to check.
+  * Try and use both `let` and `const` in whatever way makes the code most understandable.
+
+
 Useful ffmpeg commands
 ----------------------
 

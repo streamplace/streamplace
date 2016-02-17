@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+function run() {
+  name="$1"
+  path="$2"
+  color="$3"
+  cd "$DIR/../$path" && npm run dev 2>&1 | xargs -L 1 echo -e "\e[38;05;${color}m[$1]\e[38;05;231m" &
+  sleep 2
+}
+export NODE_PATH="$(realpath "$DIR/../lib")"
+run sk-client lib/sk-client 196
+run bellamie bellamie 201
+run gort gort 6
+run pipeland pipeland 40
+wait
+
+# for i in {0..255}; do echo -e "\e[38;05;${i}m\\\e[38;05;${i}m"; done

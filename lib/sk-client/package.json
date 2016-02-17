@@ -5,12 +5,12 @@
   "main": "dist/sk-client.js",
   "scripts": {
     "build": "babel -d dist src",
+    "dev": "nodemon -w src -x npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "sk-schema": "file:../sk-schema",
     "swagger-client": "swagger-api/swagger-js#bd0b8cbcb9daaff7b5ab437c795d6f941df92887",
     "underscore": "^1.8.3",
     "wolfy87-eventemitter": "^4.3.0"

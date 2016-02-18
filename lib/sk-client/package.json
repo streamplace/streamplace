@@ -2,7 +2,7 @@
   "name": "sk-client",
   "version": "0.0.0",
   "description": "JavaScript Client Library for Stream Kitchen",
-  "main": "dist/sk-client.js",
+  "main": "dist/SKClient.js",
   "scripts": {
     "build": "babel -d dist src",
     "dev": "nodemon -w src -x npm run build",

@@ -14,6 +14,7 @@ function run() {
   sleep 2
 }
 export NODE_PATH="$(realpath "$DIR/../lib")"
+export DEBUG_LEVEL="debug"
 run sk-client lib/sk-client 196
 run bellamie bellamie 201
 run gort gort 6

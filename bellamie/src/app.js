@@ -33,6 +33,17 @@ const rethinkConfig = {
 
 const io = SocketIO(server);
 
+io.on("connection", function(socket) {
+  socket.emit("hello");
+
+  const attr = socket.conn.remoteAddress;
+  winston.info(`${attr} open`);
+
+  socket.on("sub", function({id, resource, query}) {
+    winston.info(`${attr} sub[${id}] ${resource}(${JSON.stringify(query)})`);
+  });
+});
+
 ///////////////////////////////////////////////////////////////////////////////
 // Step 1: parse the swagger schema and use that to build our routing table. //
 ///////////////////////////////////////////////////////////////////////////////

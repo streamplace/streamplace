@@ -6,13 +6,16 @@ import SwaggerParser from "swagger-parser";
 import r from "rethinkdb";
 import morgan from "morgan";
 import _ from "underscore";
+import http from "http";
 import bodyParser from "body-parser";
+import SocketIO from "socket.io";
 
 import ENV from "./env";
 
 winston.level = process.env.DEBUG_LEVEL || "info";
 
 const app = express();
+const server = http.createServer(app);
 
 // Make winston output pretty
 winston.cli();
@@ -26,6 +29,8 @@ const rethinkConfig = {
   port: ENV.RETHINK_PORT,
   db: ENV.RETHINK_DATABASE
 };
+
+const io = SocketIO(server);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Step 1: parse the swagger schema and use that to build our routing table. //
@@ -194,7 +199,7 @@ SwaggerParser.parse(schema)
     });
   });
   if (!module.parent) {
-    app.listen(ENV.PORT);
+    server.listen(ENV.PORT);
     winston.info("Bellamie starting up on port " + ENV.PORT);
   }
 })

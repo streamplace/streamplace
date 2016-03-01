@@ -36,11 +36,26 @@ const io = SocketIO(server);
 io.on("connection", function(socket) {
   socket.emit("hello");
 
-  const attr = socket.conn.remoteAddress;
-  winston.info(`${attr} open`);
+  const addr = socket.conn.remoteAddress;
+  winston.info(`${addr} connect`);
+
+  const dbPromise = r.connect(rethinkConfig).catch(function(err) {
+    // TODO: error handling
+    winston.error("Unable to connect to RethinkDB", err);
+  });
 
   socket.on("sub", function({id, resource, query}) {
-    winston.info(`${attr} sub[${id}] ${resource}(${JSON.stringify(query)})`);
+    winston.info(`${addr} sub`, {resource, query});
+    dbPromise.then((conn) => {
+      return resources[resource].watch({query, conn, socket, addr, subId: id});
+    });
+  });
+
+  socket.on("disconnect", function() {
+    winston.info(`${addr} disconnect`);
+    dbPromise.then((conn) => {
+      conn.close();
+    });
   });
 });
 

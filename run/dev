@@ -6,11 +6,20 @@ set -o pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+prettylog() {
+  name="$1"
+  color="$2"
+  while IFS= read -r line; do
+    echo -en "\e[38;05;${color}m[${name}]\e[38;05;231m "
+    echo "$line"
+  done
+}
+
 function run() {
   name="$1"
   path="$2"
   color="$3"
-  cd "$DIR/../$path" && npm run dev 2>&1 | xargs -L 1 echo -e "\e[38;05;${color}m[$1]\e[38;05;231m" &
+  cd "$DIR/../$path" && npm run dev 2>&1 | prettylog "$name" "$color" &
   sleep 2
 }
 export NODE_PATH="$(realpath "$DIR/../lib")"

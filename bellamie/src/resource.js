@@ -161,6 +161,52 @@ export default class Resource {
   }
 
   /**
+   * Given a query, a rethink connection, a socket with a client, and an IP address, notify the
+   * client of changes.
+   * @param  {[type]} options.query  [description]
+   * @param  {[type]} options.conn   [description]
+   * @param  {[type]} options.socket [description]
+   * @param  {[type]} options.addr   [description]
+   * @return {[type]}                [description]
+   */
+  watch({query, conn, socket, addr, subId}) {
+    const logStr = JSON.stringify({addr, subId, resource: this.name, query});
+    return r.table(this.name).filter(query).run(conn)
+    .then((cursor) => {
+      return cursor.toArray();
+    })
+    .then((docs) => {
+      winston.info("suback", {addr, subId});
+      socket.emit("suback", {subId, docs});
+      return r.table(this.name).changes().filter(query).run(conn);
+    })
+    .then((feed) => {
+      feed.on("data", function(change) {
+        const newVal = change.new_val;
+        const oldVal = change.old_val;
+        if (oldVal === null) {
+          winston.debug("created", {addr, subId});
+          socket.emit("created", {subId, doc: newVal});
+        }
+        else if (newVal === null) {
+          winston.debug("deleted", {addr, subId});
+          socket.emit("deleted", {subId, id: oldVal.id});
+        }
+        else {
+          winston.debug("updated", {addr, subId});
+          socket.emit("updated", {subId, doc: newVal});
+        }
+      });
+      feed.on("error", function(...args) {
+        winston.error("error on resource watch", ...args);
+      });
+    })
+    .catch((err) => {
+      winston.error("Error in watch function", err);
+    });
+  }
+
+  /**
    * Real simple. Just takes an object of properties. This lets us "subclass" real easy.
    */
   constructor(props) {

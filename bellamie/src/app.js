@@ -6,13 +6,17 @@ import SwaggerParser from "swagger-parser";
 import r from "rethinkdb";
 import morgan from "morgan";
 import _ from "underscore";
+import http from "http";
 import bodyParser from "body-parser";
+import SocketIO from "socket.io";
 
+import {ensureTableExists, ensureDatabaseExists} from "./util";
 import ENV from "./env";
 
 winston.level = process.env.DEBUG_LEVEL || "info";
 
 const app = express();
+const server = http.createServer(app);
 
 // Make winston output pretty
 winston.cli();
@@ -27,6 +31,34 @@ const rethinkConfig = {
   db: ENV.RETHINK_DATABASE
 };
 
+const io = SocketIO(server);
+
+io.on("connection", function(socket) {
+  socket.emit("hello");
+
+  const addr = socket.conn.remoteAddress;
+  winston.info(`${addr} connect`);
+
+  const dbPromise = r.connect(rethinkConfig).catch(function(err) {
+    // TODO: error handling
+    winston.error("Unable to connect to RethinkDB", err);
+  });
+
+  socket.on("sub", function({id, resource, query}) {
+    winston.info(`${addr} sub`, {resource, query});
+    dbPromise.then((conn) => {
+      return resources[resource].watch({query, conn, socket, addr, subId: id});
+    });
+  });
+
+  socket.on("disconnect", function() {
+    winston.info(`${addr} disconnect`);
+    dbPromise.then((conn) => {
+      conn.close();
+    });
+  });
+});
+
 ///////////////////////////////////////////////////////////////////////////////
 // Step 1: parse the swagger schema and use that to build our routing table. //
 ///////////////////////////////////////////////////////////////////////////////
@@ -38,42 +70,6 @@ const fatal = function(msg) {
   throw new Error(msg);
 };
 
-const ensureTableExists = function(name, conn) {
-  return new Promise(function(resolve, reject) {
-    r.tableCreate(name).run(conn).then(function() {
-      winston.info(`Created table ${name}`);
-      resolve();
-    })
-    .catch(function(err) {
-      // Already exists, that's fine.
-      if (err.msg.indexOf("already exists") !== -1) {
-        resolve();
-      }
-      else {
-        reject(err);
-      }
-    });
-  });
-};
-
-const ensureDatabaseExists = function(name, conn) {
-  return new Promise(function(resolve, reject) {
-    r.dbCreate(name).run(conn).then(function() {
-      winston.info(`Created database ${name}`);
-      resolve();
-    })
-    .catch(function(err) {
-      // Already exists, that's fine.
-      if (err.msg.indexOf("already exists") !== -1) {
-        resolve();
-      }
-      else {
-        reject(err);
-      }
-    });
-  });
-};
-
 app.use(function(req, res, next) {
   r.connect(rethinkConfig).then(function(conn) {
     winston.debug("Connected to Rethink");
@@ -81,7 +77,7 @@ app.use(function(req, res, next) {
     next();
   })
   .catch(function(err) {
-    winston.debug("Unable to connect to RethinkDB", err);
+    winston.error("Unable to connect to RethinkDB", err);
     res.status(500);
     res.end();
   });
@@ -194,7 +190,7 @@ SwaggerParser.parse(schema)
     });
   });
   if (!module.parent) {
-    app.listen(ENV.PORT);
+    server.listen(ENV.PORT);
     winston.info("Bellamie starting up on port " + ENV.PORT);
   }
 })

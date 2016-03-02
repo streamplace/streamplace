@@ -3,7 +3,7 @@
 import ReactDOM from 'react-dom';
 import { Router, Route, Link, browserHistory } from 'react-router';
 
-// import BroadcastIndex from './components/broadcasts/BroadcastIndex';
+import BroadcastIndex from './components/broadcasts/BroadcastIndex';
 // import BroadcastDetail from './components/broadcasts/BroadcastDetail';
 import NotFound from './components/NotFound';
 
@@ -13,7 +13,7 @@ import {} from "twixtykit/base.scss";
 
 ReactDOM.render((
   <Router history={browserHistory}>
-    { /* <Route path="/" component={BroadcastIndex} /> */ }
+    <Route path="/" component={BroadcastIndex} />
     { /* <Route path="/broadcasts/:broadcastId" component={BroadcastDetail} /> */ }
     <Route path="*" component={NotFound} />
   </Router>

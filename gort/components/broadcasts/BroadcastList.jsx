@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Broadcast } from "bellamie";
+import SK from "../../SK";
 import { Link } from 'react-router';
 
 export default React.createClass({
@@ -9,7 +9,20 @@ export default React.createClass({
     return {broadcasts: []}
   },
   componentDidMount() {
-    this.broadcastHandle = Broadcast.get({}, (broadcasts) => {
+    this.broadcastHandle = SK.broadcasts.watch({})
+    .then((broadcasts) => {
+      this.setState({broadcasts});
+    })
+    .catch((err) => {
+      console.error(err);
+    })
+    .on("created", (broadcasts) => {
+      this.setState({broadcasts});
+    })
+    .on("updated", (broadcasts) => {
+      this.setState({broadcasts});
+    })
+    .on("deleted", (broadcasts) => {
       this.setState({broadcasts});
     });
   },
@@ -17,15 +30,15 @@ export default React.createClass({
     this.broadcastHandle.stop();
   },
   removeBroadcast(id) {
-    Broadcast.remove(id);
+    SK.broadcasts.delete(id);
   },
   render() {
     const broadcastNodes = this.state.broadcasts.map((broadcast) => {
       return (
-        <li key={broadcast._id}>
-          <Link to={`/broadcasts/${broadcast._id}`}>{broadcast.slug}</Link>
+        <li key={broadcast.id}>
+          <Link to={`/broadcasts/${broadcast.id}`}>{broadcast.id}</Link>
           <button className="pure-button button-error"
-          onClick={this.removeBroadcast.bind(null, broadcast._id)}>
+          onClick={this.removeBroadcast.bind(null, broadcast.id)}>
             delete
           </button>
         </li>

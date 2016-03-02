@@ -1,3 +1,7 @@
+
+/*eslint-disable no-var */
+var path = require("path");
+
 module.exports = {
   context: __dirname,
   entry: "./index",
@@ -14,11 +18,18 @@ module.exports = {
       exclude: /(node_modules|bower_components)/,
       loader: "babel",
       query: {
-        presets: ["react", "es2015"]
+        presets: [
+          // Weirdness here because of https://github.com/babel/babel-loader/issues/166
+          require.resolve("babel-preset-react"),
+          require.resolve("babel-preset-es2015")
+        ]
       }
     }, {
       test: /\.scss$/,
       loaders: ["style", "css?modules", "sass"]
+    }, {
+      test: /\.json$/,
+      loaders: ["json"]
     }, {
       test: /\.woff(2)?(\?v=[0-9]\.[0-9]\.[0-9])?$/,
       loader: "url-loader?limit=10000&minetype=application/font-woff"
@@ -33,6 +44,13 @@ module.exports = {
     "react": "React"
   },
   resolve: {
-    extensions: [".js", ".jsx", ".scss", ""]
+    root: [
+      path.resolve(__dirname),
+      path.resolve("../lib"),
+    ],
+    extensions: [".js", ".jsx", ".scss", "json", ""]
+  },
+  resolveLoader: {
+    root: path.join(__dirname, "node_modules")
   }
 };

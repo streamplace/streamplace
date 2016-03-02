@@ -2,17 +2,18 @@
   "name": "sk-schema",
   "version": "0.0.1",
   "description": "Schema for Stream Kitchen",
-  "main": "schema.js",
+  "main": "dist/schema.json",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "edit": "swagger project edit -s -p 4949 --host 0.0.0.0"
+    "edit": "swagger project edit -s -p 4949 --host 0.0.0.0",
+    "build": "js-yaml api/swagger/swagger.yaml > dist/schema.json",
+    "dev": "nodemon -w api -x npm run build"
   },
   "author": "",
   "license": "SEE LICENSE IN nope",
   "devDependencies": {
+    "js-yaml": "^3.5.2",
+    "nodemon": "^1.9.1",
     "swagger": "^0.7.5"
-  },
-  "dependencies": {
-    "js-yaml": "^3.5.2"
   }
 }

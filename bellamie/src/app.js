@@ -71,6 +71,13 @@ const fatal = function(msg) {
 };
 
 app.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Methods", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE, TRACE, CONNECT");
+  next();
+});
+
+app.use(function(req, res, next) {
   r.connect(rethinkConfig).then(function(conn) {
     winston.debug("Connected to Rethink");
     req.conn = conn;

@@ -37,5 +37,8 @@
     "url-loader": "^0.5.7",
     "webpack": "^1.12.13",
     "webpack-dev-server": "^1.14.1"
+  },
+  "devDependencies": {
+    "json-loader": "^0.5.4"
   }
 }

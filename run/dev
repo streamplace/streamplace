@@ -24,6 +24,7 @@ function run() {
 }
 export NODE_PATH="$(realpath "$DIR/../lib")"
 export DEBUG_LEVEL="debug"
+run sk-schema lib/sk-schema 4
 run sk-client lib/sk-client 196
 run bellamie bellamie 201
 run gort gort 6

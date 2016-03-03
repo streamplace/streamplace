@@ -4,15 +4,15 @@ import SK from "../../SK";
 
 export default React.createClass({
   getInitialState() {
-    return {slug: ""};
+    return {title: ""};
   },
   handleSubmit(e) {
     e.preventDefault();
-    SK.broadcasts.create({slug: this.state.slug});
-    this.setState({slug: ""});
+    SK.broadcasts.create({title: this.state.title});
+    this.setState({title: ""});
   },
   handleChange(e) {
-    this.setState({slug: e.target.value})
+    this.setState({title: e.target.value})
   },
   render() {
     return (
@@ -20,7 +20,7 @@ export default React.createClass({
         <fieldset>
           <legend>Add a broadcast</legend>
 
-          <input type="text" value={this.state.slug} onChange={this.handleChange} placeholder="broadcast-slug" />
+          <input type="text" value={this.state.title} onChange={this.handleChange} placeholder="Best Broadcast Ever" />
 
           <button type="submit" className="pure-button pure-button-primary">Create</button>
         </fieldset>

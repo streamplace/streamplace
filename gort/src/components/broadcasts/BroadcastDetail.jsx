@@ -23,15 +23,15 @@ export default React.createClass({
   componentDidMount() {
     const broadcastId = this.props.params.broadcastId;
     this.broadcastHandle = SK.broadcasts.watch({id: broadcastId})
-    .on("data", ({broadcasts}) => {
+    .on("data", (broadcasts) => {
       this.setState({broadcast: broadcasts[0]});
     })
     .catch((...args) => {
       console.error(args);
     });
 
-    this.vertexHandle = SK.verticies.watch({broadcastId})
-    .on("data", ({broadcasts}) => {
+    this.vertexHandle = SK.vertices.watch({broadcastId})
+    .on("data", (vertices) => {
       this.setState({vertices});
     })
     .catch((...args) => {
@@ -39,7 +39,7 @@ export default React.createClass({
     });
 
     this.arcHandle = SK.arcs.watch({broadcastId})
-    .on("data", ({arcs}) => {
+    .on("data", (arcs) => {
       this.setState({arcs});
     })
     .catch((...args) => {
@@ -86,21 +86,23 @@ export default React.createClass({
       )
     }
 
+        // <section className="grow">
+        //   <MoteGraph motes={this.state.motes} />
+        // </section>
+
     return (
       <section className={styles.verticalPanels}>
         <section className={styles.header}>
           <Link to="/" className={styles.backButton}>
             <i className="fa fa-chevron-left" />
           </Link>
-          <h1>Broadcast <em>{this.state.broadcast.slug}</em></h1>
+          <h1>Broadcast <em>{this.state.broadcast.title}</em></h1>
           <button className={styles.newMoteButton} onClick={this.handleNewMoteClick}>
             <i className="fa fa-plus-square" />
           </button>
         </section>
 
-        <section className="grow">
-          <MoteGraph motes={this.state.motes} />
-        </section>
+
 
         <section className={styles.bottomPanel}>
           {closeBottomPanel}

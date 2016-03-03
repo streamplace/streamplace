@@ -2,11 +2,13 @@
 import React from "react";
 // import { Broadcast, Mote } from "bellamie"
 import { Link } from 'react-router';
+
 // import MoteGraph from "../motes/MoteGraph";
 // import MoteDetail from "../motes/MoteDetail";
 // import MoteCreate from "../motes/MoteCreate";
 import Loading from '../Loading';
 import styles from "./BroadcastDetail.scss";
+import SK from "../../SK";
 
 export default React.createClass({
   displayName: 'BroadcastDetail',
@@ -19,16 +21,36 @@ export default React.createClass({
   },
 
   componentDidMount() {
-    this.broadcastHandle = Broadcast.get({_id: this.props.params.broadcastId}, (broadcasts) => {
+    const broadcastId = this.props.params.broadcastId;
+    this.broadcastHandle = SK.broadcasts.watch({id: broadcastId})
+    .on("data", ({broadcasts}) => {
       this.setState({broadcast: broadcasts[0]});
+    })
+    .catch((...args) => {
+      console.error(args);
     });
-    this.moteHandle = Mote.get({broadcastId: this.props.params.broadcastId}, (motes) => {
-      this.setState({motes});
+
+    this.vertexHandle = SK.verticies.watch({broadcastId})
+    .on("data", ({broadcasts}) => {
+      this.setState({vertices});
+    })
+    .catch((...args) => {
+      console.error(args);
+    });
+
+    this.arcHandle = SK.arcs.watch({broadcastId})
+    .on("data", ({arcs}) => {
+      this.setState({arcs});
+    })
+    .catch((...args) => {
+      console.error(args);
     });
   },
 
   componentWillUnmount() {
     this.broadcastHandle.stop();
+    this.arcHandle.stop();
+    this.moteHandle.stop();
   },
 
   handleNewMoteClick() {
@@ -49,10 +71,10 @@ export default React.createClass({
 
     let bottomPanel;
     if (this.state.showNewMote) {
-      bottomPanel = <MoteCreate />
+      // bottomPanel = <MoteCreate />
     }
     else {
-      bottomPanel = <MoteDetail mote={this.state.selectedMote} />
+      // bottomPanel = <MoteDetail mote={this.state.selectedMote} />
     }
 
     let closeBottomPanel;

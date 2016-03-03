@@ -4,7 +4,7 @@ var path = require("path");
 
 module.exports = {
   context: __dirname,
-  entry: "./index",
+  entry: "./src/index",
   output: {
     filename: "bundle.js", //this is the default name, so you can skip it
     path: "dist",

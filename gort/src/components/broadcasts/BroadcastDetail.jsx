@@ -1,24 +1,29 @@
 
 import React from "react";
 // import { Broadcast, Mote } from "bellamie"
-import { Link } from 'react-router';
+import { Link } from "react-router";
+import twixty from "twixtykit";
 
 // import MoteGraph from "../motes/MoteGraph";
 // import MoteDetail from "../motes/MoteDetail";
 // import MoteCreate from "../motes/MoteCreate";
 import VertexCreate from "../vertices/VertexCreate";
-import Loading from '../Loading';
+import Loading from "../Loading";
 import styles from "./BroadcastDetail.scss";
 import SK from "../../SK";
 
 export default React.createClass({
-  displayName: 'BroadcastDetail',
+  displayName: "BroadcastDetail",
   getInitialState() {
     return {
       broadcast: {},
       showNewVertex: false,
       selectedVertex: null,
-    }
+    };
+  },
+
+  propTypes: {
+    "params": React.PropTypes.object.isRequired
   },
 
   componentDidMount() {
@@ -28,7 +33,7 @@ export default React.createClass({
       this.setState({broadcast: broadcasts[0]});
     })
     .catch((...args) => {
-      console.error(args);
+      twixty.error(...args);
     });
 
     this.vertexHandle = SK.vertices.watch({broadcastId})
@@ -36,7 +41,7 @@ export default React.createClass({
       this.setState({vertices});
     })
     .catch((...args) => {
-      console.error(args);
+      twixty.error(...args);
     });
 
     this.arcHandle = SK.arcs.watch({broadcastId})
@@ -44,7 +49,7 @@ export default React.createClass({
       this.setState({arcs});
     })
     .catch((...args) => {
-      console.error(args);
+      twixty.error(...args);
     });
   },
 
@@ -67,12 +72,12 @@ export default React.createClass({
 
   render() {
     if (!this.state.broadcast) {
-      return <Loading />
+      return <Loading />;
     }
 
     let bottomPanel;
     if (this.state.showNewVertex) {
-      bottomPanel = <VertexCreate />
+      bottomPanel = <VertexCreate />;
     }
     else {
       // bottomPanel = <MoteDetail mote={this.state.selectedMote} />
@@ -84,7 +89,7 @@ export default React.createClass({
         <a className={styles.closeBottomPanel} onClick={this.handleCloseBottomPanelClick}>
           <i className="fa fa-times" />
         </a>
-      )
+      );
     }
 
     return (
@@ -106,6 +111,6 @@ export default React.createClass({
           {bottomPanel}
         </section>
       </section>
-    )
+    );
   }
-})
+});

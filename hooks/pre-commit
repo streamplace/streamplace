@@ -1,5 +1,10 @@
 #!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PATH="$PATH:$(realpath "$DIR/../node_modules/.bin")"
+
 filesToLint="$(git diff --cached --name-only | grep "\.js$")"
+filesToLint="$filesToLint $(git diff --cached --name-only | grep "\.jsx$")"
 if [[ -n "$filesToLint" ]]; then
   status="happy"
   for file in $filesToLint; do

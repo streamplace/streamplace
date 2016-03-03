@@ -9,6 +9,6 @@ export default React.createClass({
       <section>
         <span className={style.noMoteSelected}> - No Mote Selected - </span>
       </section>
-    )
+    );
   }
-})
+});

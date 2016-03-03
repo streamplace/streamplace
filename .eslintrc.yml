@@ -1,3 +1,8 @@
+plugins:
+  - react
+extends: 
+  - "eslint:recommended"
+  - "plugin:react/recommended"
 rules:
   "no-unused-vars": 0
   "comma-dangle": 0
@@ -14,13 +19,11 @@ env:
   es6: true
   node: true
   browser: true
-extends: 'eslint:recommended'
 globals:
   it: true
   describe: true
-ecmaFeatures:
-  modules: true
-  jsx: true
-  experimentalObjectRestSpread: true
-plugins:
-  - react
+parserOptions:
+  sourceType: module
+  ecmaFeatures:
+    jsx: true
+    experimentalObjectRestSpread: true

@@ -9,6 +9,6 @@ export default React.createClass({
       <section className={style.moteGraph}>
         Mote graph goes here.
       </section>
-    )
+    );
   }
-})
+});

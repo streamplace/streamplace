@@ -1,12 +1,12 @@
 
 import React from "react";
 import SK from "../../SK";
-import { Link } from 'react-router';
+import { Link } from "react-router";
 
 export default React.createClass({
-  displayName: 'BroadcastList',
+  displayName: "BroadcastList",
   getInitialState() {
-    return {broadcasts: []}
+    return {broadcasts: []};
   },
   componentDidMount() {
     this.broadcastHandle = SK.broadcasts.watch({})
@@ -30,12 +30,12 @@ export default React.createClass({
             delete
           </button>
         </li>
-      )
+      );
     });
     return (
       <ul>
         {broadcastNodes}
       </ul>
-    )
+    );
   }
-})
+});

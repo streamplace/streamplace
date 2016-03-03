@@ -12,7 +12,7 @@ export default React.createClass({
     this.setState({title: ""});
   },
   handleChange(e) {
-    this.setState({title: e.target.value})
+    this.setState({title: e.target.value});
   },
   render() {
     return (
@@ -25,6 +25,6 @@ export default React.createClass({
           <button type="submit" className="pure-button pure-button-primary">Create</button>
         </fieldset>
       </form>
-    )
+    );
   },
 });

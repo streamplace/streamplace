@@ -2,10 +2,10 @@
 import React from "react";
 
 export default React.createClass({
-  displayName: 'Loading',
+  displayName: "Loading",
   render() {
     return (
       <div>Loading...</div>
-    )
+    );
   },
 });

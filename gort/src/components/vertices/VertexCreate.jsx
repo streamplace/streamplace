@@ -7,7 +7,7 @@ export default React.createClass({
   getInitialState() {
     return {
       chosen: null
-    }
+    };
   },
   render() {
     const options = Object.keys(vertexCreators).map((name) => {
@@ -32,7 +32,7 @@ export default React.createClass({
         </div>
         <Chosen />
       </section>
-    )
+    );
   }
 });
 
@@ -47,7 +47,7 @@ const vertexCreators = {
             <input type="text" />
           </label>
         </div>
-      )
+      );
     }
   }),
   RTMPOutputVertex: React.createClass({
@@ -60,7 +60,7 @@ const vertexCreators = {
             <input type="text" />
           </label>
         </div>
-      )
+      );
     }
   })
 };

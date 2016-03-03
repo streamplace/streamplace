@@ -200,6 +200,14 @@ export default class Resource {
       feed.on("error", function(...args) {
         winston.error("error on resource watch", ...args);
       });
+      socket.on("unsub", function(params) {
+        if (params.subId === subId) {
+          feed.removeAllListeners("data");
+          feed.removeAllListeners("error");
+          feed.close();
+          // conn.close();
+        }
+      });
     })
     .catch((err) => {
       winston.error("Error in watch function", err);

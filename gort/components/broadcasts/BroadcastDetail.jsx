@@ -1,10 +1,10 @@
 
 import React from "react";
-import { Broadcast, Mote } from "bellamie"
+// import { Broadcast, Mote } from "bellamie"
 import { Link } from 'react-router';
-import MoteGraph from "../motes/MoteGraph";
-import MoteDetail from "../motes/MoteDetail";
-import MoteCreate from "../motes/MoteCreate";
+// import MoteGraph from "../motes/MoteGraph";
+// import MoteDetail from "../motes/MoteDetail";
+// import MoteCreate from "../motes/MoteCreate";
 import Loading from '../Loading';
 import styles from "./BroadcastDetail.scss";
 
@@ -13,8 +13,8 @@ export default React.createClass({
   getInitialState() {
     return {
       broadcast: {},
-      showNewMote: false,
-      selectedMote: null,
+      // showNewMote: false,
+      // selectedMote: null,
     }
   },
 

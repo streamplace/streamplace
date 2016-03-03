@@ -17,7 +17,7 @@ export default React.createClass({
     return {
       broadcast: {},
       showNewVertex: false,
-      // selectedMote: null,
+      selectedVertex: null,
     }
   },
 
@@ -79,7 +79,7 @@ export default React.createClass({
     }
 
     let closeBottomPanel;
-    if (this.state.showNewVertex || this.state.selectedMote !== null) {
+    if (this.state.showNewVertex || this.state.selectedVertex !== null) {
       closeBottomPanel = (
         <a className={styles.closeBottomPanel} onClick={this.handleCloseBottomPanelClick}>
           <i className="fa fa-times" />

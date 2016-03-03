@@ -6,54 +6,61 @@ export default React.createClass({
   displayName: "VertexCreate",
   getInitialState() {
     return {
-      chosen: <MoteCreateInput />
+      chosen: null
     }
   },
-  switchToInput() {
-    this.setState({chosen: <MoteCreateInput />});
-  },
-  switchToOutput() {
-    this.setState({chosen: <MoteCreateOutput />});
-  },
   render() {
+    const options = Object.keys(vertexCreators).map((name) => {
+      const pick = () => {
+        this.setState({chosen: name});
+      };
+      const className = this.state.chosen === name ? style.VertexCreatorSelected : "";
+      return (
+        <li key={name}>
+          <a className={className} onClick={pick}>{name}</a>
+        </li>
+      );
+    });
+    const Chosen = vertexCreators[this.state.chosen] || "br";
     return (
-      <section className={style.moteCreate}>
+      <section className={style.VertexCreate}>
         <div>
-          <h2>New Mote</h2>
-          <a onClick={this.switchToInput}>Input</a>
-          <a onClick={this.switchToOutput}>Output</a>
+          <h2>New Vertex</h2>
+          <ul>
+            {options}
+          </ul>
         </div>
-        {this.state.chosen}
+        <Chosen />
       </section>
     )
   }
-})
-
-const MoteCreateInput = React.createClass({
-  render() {
-    return (
-      <div>
-        <h4>Create Input Mote</h4>
-        <label>
-          <span>title</span>
-          <input type="text" />
-        </label>
-      </div>
-    )
-  }
 });
 
-
-const MoteCreateOutput = React.createClass({
-  render() {
-    return (
-      <div>
-        <h4>Create Output Mote</h4>
-        <label>
-          <span>RTMP URL</span>
-          <input type="text" />
-        </label>
-      </div>
-    )
-  }
-});
+const vertexCreators = {
+  RTMPInputVertex: React.createClass({
+    render() {
+      return (
+        <div>
+          <h4>Create Input Vertex</h4>
+          <label>
+            <span>title</span>
+            <input type="text" />
+          </label>
+        </div>
+      )
+    }
+  }),
+  RTMPOutputVertex: React.createClass({
+    render() {
+      return (
+        <div>
+          <h4>Create Output Vertex</h4>
+          <label>
+            <span>RTMP URL</span>
+            <input type="text" />
+          </label>
+        </div>
+      )
+    }
+  })
+};

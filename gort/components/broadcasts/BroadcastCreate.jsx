@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Broadcast } from "bellamie";
+import SK from "../../SK";
 
 export default React.createClass({
   getInitialState() {
@@ -8,7 +8,7 @@ export default React.createClass({
   },
   handleSubmit(e) {
     e.preventDefault();
-    Broadcast.insert({slug: this.state.slug});
+    SK.broadcasts.create({slug: this.state.slug});
     this.setState({slug: ""});
   },
   handleChange(e) {

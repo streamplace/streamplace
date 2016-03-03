@@ -2,7 +2,7 @@
 import React from "react";
 
 import BroadcastList from "./BroadcastList";
-// import BroadcastCreate from "./BroadcastCreate";
+import BroadcastCreate from "./BroadcastCreate";
 
 export default React.createClass({
   displayName: 'BroadcastIndex',
@@ -11,6 +11,7 @@ export default React.createClass({
       <div className="center-column">
         <h1>stream kitchen</h1>
         <BroadcastList />
+        <BroadcastCreate />
       </div>
     )
   }

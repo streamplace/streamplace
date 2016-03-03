@@ -87,11 +87,6 @@ export default React.createClass({
       )
     }
 
-        // <section className="grow">
-        //   <MoteGraph motes={this.state.motes} />
-        // </section>
-        //
-
     return (
       <section className={styles.verticalPanels}>
         <section className={styles.header}>

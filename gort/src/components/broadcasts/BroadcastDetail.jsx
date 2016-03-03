@@ -50,7 +50,7 @@ export default React.createClass({
   componentWillUnmount() {
     this.broadcastHandle.stop();
     this.arcHandle.stop();
-    this.moteHandle.stop();
+    this.vertexHandle.stop();
   },
 
   handleNewMoteClick() {

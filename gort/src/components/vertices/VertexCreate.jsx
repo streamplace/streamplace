@@ -1,10 +1,9 @@
 
 import React from "react";
-import { Mote } from "bellamie";
-import style from "./MoteCreate.scss";
+import style from "./VertexCreate.scss";
 
 export default React.createClass({
-  displayName: "MoteCreate",
+  displayName: "VertexCreate",
   getInitialState() {
     return {
       chosen: <MoteCreateInput />
@@ -36,7 +35,7 @@ const MoteCreateInput = React.createClass({
       <div>
         <h4>Create Input Mote</h4>
         <label>
-          <span>slug</span>
+          <span>title</span>
           <input type="text" />
         </label>
       </div>

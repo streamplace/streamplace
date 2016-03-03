@@ -6,6 +6,7 @@ import { Link } from 'react-router';
 // import MoteGraph from "../motes/MoteGraph";
 // import MoteDetail from "../motes/MoteDetail";
 // import MoteCreate from "../motes/MoteCreate";
+import VertexCreate from "../vertices/VertexCreate";
 import Loading from '../Loading';
 import styles from "./BroadcastDetail.scss";
 import SK from "../../SK";
@@ -15,7 +16,7 @@ export default React.createClass({
   getInitialState() {
     return {
       broadcast: {},
-      // showNewMote: false,
+      showNewVertex: false,
       // selectedMote: null,
     }
   },
@@ -54,12 +55,12 @@ export default React.createClass({
   },
 
   handleNewMoteClick() {
-    this.setState({showNewMote: true});
+    this.setState({showNewVertex: true});
   },
 
   handleCloseBottomPanelClick() {
     this.setState({
-      showNewMote: false,
+      showNewVertex: false,
       selectedMote: null,
     });
   },
@@ -70,15 +71,15 @@ export default React.createClass({
     }
 
     let bottomPanel;
-    if (this.state.showNewMote) {
-      // bottomPanel = <MoteCreate />
+    if (this.state.showNewVertex) {
+      bottomPanel = <VertexCreate />
     }
     else {
       // bottomPanel = <MoteDetail mote={this.state.selectedMote} />
     }
 
     let closeBottomPanel;
-    if (this.state.showNewMote || this.state.selectedMote !== null) {
+    if (this.state.showNewVertex || this.state.selectedMote !== null) {
       closeBottomPanel = (
         <a className={styles.closeBottomPanel} onClick={this.handleCloseBottomPanelClick}>
           <i className="fa fa-times" />
@@ -89,6 +90,7 @@ export default React.createClass({
         // <section className="grow">
         //   <MoteGraph motes={this.state.motes} />
         // </section>
+        //
 
     return (
       <section className={styles.verticalPanels}>
@@ -102,7 +104,7 @@ export default React.createClass({
           </button>
         </section>
 
-
+        <section className="grow" />
 
         <section className={styles.bottomPanel}>
           {closeBottomPanel}

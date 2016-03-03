@@ -10,19 +10,7 @@ export default React.createClass({
   },
   componentDidMount() {
     this.broadcastHandle = SK.broadcasts.watch({})
-    .then((broadcasts) => {
-      this.setState({broadcasts});
-    })
-    .catch((err) => {
-      console.error(err);
-    })
-    .on("created", (broadcasts) => {
-      this.setState({broadcasts});
-    })
-    .on("updated", (broadcasts) => {
-      this.setState({broadcasts});
-    })
-    .on("deleted", (broadcasts) => {
+    .on("data", (broadcasts) => {
       this.setState({broadcasts});
     });
   },

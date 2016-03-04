@@ -1,5 +1,7 @@
 
 import React from "react";
+import dot from "dot-object";
+
 import style from "./VertexCreate.scss";
 
 export default React.createClass({
@@ -38,14 +40,34 @@ export default React.createClass({
 
 const vertexCreators = {
   RTMPInputVertex: React.createClass({
+    getInitialState() {
+      return {
+        title: "",
+        rtmp: {
+          "test": "test",
+          url: ""
+        }
+      };
+    },
+    handleChange(field, e) {
+      this.setState(dot.object({[field]: e.target.value}));
+    },
+    handleCreate() {
+
+    },
     render() {
       return (
         <div>
-          <h4>Create Input Vertex</h4>
-          <label>
-            <span>title</span>
-            <input type="text" />
+          <h4>Create RTMP Input</h4>
+          <label className={style.BlockLabel}>
+            <span>Title</span>
+            <input type="text" value={this.state.title} onChange={this.handleChange.bind(this, "title")} />
           </label>
+          <label className={style.BlockLabel}>
+            <span>RTMP URL</span>
+            <input type="text" value={this.state.rtmp.url} onChange={this.handleChange.bind(this, "rtmp.url")} />
+          </label>
+          <button onClick={this.handleCreate}>Create</button>
         </div>
       );
     }

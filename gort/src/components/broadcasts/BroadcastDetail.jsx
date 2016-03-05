@@ -1,13 +1,11 @@
 
 import React from "react";
-// import { Broadcast, Mote } from "bellamie"
 import { Link } from "react-router";
 import twixty from "twixtykit";
 
-// import MoteGraph from "../motes/MoteGraph";
-// import MoteDetail from "../motes/MoteDetail";
-// import MoteCreate from "../motes/MoteCreate";
+import BroadcastGraph from "./BroadcastGraph";
 import VertexCreate from "../vertices/VertexCreate";
+import VertexDetail from "../vertices/VertexDetail";
 import Loading from "../Loading";
 import styles from "./BroadcastDetail.scss";
 import SK from "../../SK";
@@ -18,7 +16,7 @@ export default React.createClass({
     return {
       broadcast: {},
       showNewVertex: false,
-      selectedVertex: null,
+      selected: null,
     };
   },
 
@@ -35,28 +33,10 @@ export default React.createClass({
     .catch((...args) => {
       twixty.error(...args);
     });
-
-    this.vertexHandle = SK.vertices.watch({broadcastId})
-    .on("data", (vertices) => {
-      this.setState({vertices});
-    })
-    .catch((...args) => {
-      twixty.error(...args);
-    });
-
-    this.arcHandle = SK.arcs.watch({broadcastId})
-    .on("data", (arcs) => {
-      this.setState({arcs});
-    })
-    .catch((...args) => {
-      twixty.error(...args);
-    });
   },
 
   componentWillUnmount() {
     this.broadcastHandle.stop();
-    this.arcHandle.stop();
-    this.vertexHandle.stop();
   },
 
   handleNewMoteClick() {
@@ -66,8 +46,12 @@ export default React.createClass({
   handleCloseBottomPanelClick() {
     this.setState({
       showNewVertex: false,
-      selectedMote: null,
+      selected: null,
     });
+  },
+
+  handlePick(type, id) {
+    this.setState({selected: {type, id}});
   },
 
   render() {
@@ -79,12 +63,15 @@ export default React.createClass({
     if (this.state.showNewVertex) {
       bottomPanel = <VertexCreate />;
     }
+    else if (this.state.selected && this.state.selected.type === "vertex") {
+      bottomPanel = <VertexDetail vertexId={this.state.selected.id} />;
+    }
     else {
       // bottomPanel = <MoteDetail mote={this.state.selectedMote} />
     }
 
     let closeBottomPanel;
-    if (this.state.showNewVertex || this.state.selectedVertex !== null) {
+    if (this.state.showNewVertex || this.state.selected !== null) {
       closeBottomPanel = (
         <a className={styles.closeBottomPanel} onClick={this.handleCloseBottomPanelClick}>
           <i className="fa fa-times" />
@@ -104,7 +91,9 @@ export default React.createClass({
           </button>
         </section>
 
-        <section className="grow" />
+        <section className="grow">
+          <BroadcastGraph onPick={this.handlePick} broadcastId={this.props.params.broadcastId} />
+        </section>
 
         <section className={styles.bottomPanel}>
           {closeBottomPanel}

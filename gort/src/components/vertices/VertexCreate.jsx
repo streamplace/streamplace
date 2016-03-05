@@ -2,6 +2,8 @@
 import React from "react";
 import dot from "dot-object";
 
+import SK from "../../SK";
+import Twixty from "twixtykit";
 import style from "./VertexCreate.scss";
 
 export default React.createClass({
@@ -46,14 +48,28 @@ const vertexCreators = {
         rtmp: {
           "test": "test",
           url: ""
-        }
+        },
+        broadcastId: ""
       };
     },
     handleChange(field, e) {
       this.setState(dot.object({[field]: e.target.value}));
     },
     handleCreate() {
-
+      SK.vertices.create({
+        broadcastId: this.state.broadcastId,
+        title: this.state.title,
+        rtmp: {
+          url: this.state.rtmp.url,
+        },
+      })
+      .then((vertex) => {
+        Twixty.info(`Created vertex ${vertex.id}`);
+      })
+      .catch((err) => {
+        Twixty.error(err);
+      });
+      this.setState(this.getInitialState());
     },
     render() {
       return (
@@ -66,6 +82,10 @@ const vertexCreators = {
           <label className={style.BlockLabel}>
             <span>RTMP URL</span>
             <input type="text" value={this.state.rtmp.url} onChange={this.handleChange.bind(this, "rtmp.url")} />
+          </label>
+          <label className={style.BlockLabel}>
+            <span>Broadcast ID</span>
+            <input type="text" value={this.state.broadcastId} onChange={this.handleChange.bind(this, "broadcastId")} />
           </label>
           <button onClick={this.handleCreate}>Create</button>
         </div>

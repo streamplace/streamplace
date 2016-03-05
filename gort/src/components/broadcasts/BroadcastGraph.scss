@@ -1,0 +1,13 @@
+
+.GraphNode {
+  margin: 1em;
+  background-color: white;
+}
+
+.GraphVertex {
+  composes: GraphNode;
+  padding: 1em;
+  width: 300px;
+  border: 1px solid black;
+  border-radius: 5px;
+}

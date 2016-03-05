@@ -40,7 +40,12 @@ export default class BroadcastGraph extends React.Component {
   }
   render() {
     const vertices = this.state.vertices.map((v) => {
-      return <div onClick={this.handleClick.bind(this, "vertex", v.id)} className={style.GraphVertex} key={v.id}>Vertex {v.title}</div>;
+      return (
+        <div onClick={this.handleClick.bind(this, "vertex", v.id)} className={style.GraphVertex} key={v.id}>
+          <em>{v.type}</em>
+          <h5>{v.title}</h5>
+        </div>
+      );
     });
     return (
       <div>

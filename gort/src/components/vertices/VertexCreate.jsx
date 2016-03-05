@@ -59,6 +59,7 @@ const vertexCreators = {
       SK.vertices.create({
         broadcastId: this.state.broadcastId,
         title: this.state.title,
+        type: "RTMPInputVertex",
         rtmp: {
           url: this.state.rtmp.url,
         },

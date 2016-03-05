@@ -51,11 +51,14 @@ export default React.createClass({
   },
 
   handlePick(type, id) {
-    this.setState({selected: {type, id}});
+    this.setState({
+      showNewVertex: false,
+      selected: {type, id},
+    });
   },
 
   render() {
-    if (!this.state.broadcast) {
+    if (!this.state.broadcast.id) {
       return <Loading />;
     }
 
@@ -91,11 +94,11 @@ export default React.createClass({
           </button>
         </section>
 
-        <section className="grow">
+        <section className={styles.GraphPanel}>
           <BroadcastGraph onPick={this.handlePick} broadcastId={this.props.params.broadcastId} />
         </section>
 
-        <section className={styles.bottomPanel}>
+        <section className={styles.BottomPanel}>
           {closeBottomPanel}
           {bottomPanel}
         </section>

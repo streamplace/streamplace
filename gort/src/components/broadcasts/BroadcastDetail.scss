@@ -5,6 +5,7 @@
 
 .verticalPanels {
   flex-direction: column;
+  flex-grow: 1;
 
   >* {
     border-bottom: 1px solid black;
@@ -32,7 +33,14 @@
   margin-left: auto;
 }
 
-.bottomPanel {
+.GraphPanel {
+  flex-basis: 0px;
+  flex-grow: 1;
+}
+
+.BottomPanel {
+  flex-basis: 0px;
+  flex-grow: 1;
   position: relative;
   padding: 1em;
 }

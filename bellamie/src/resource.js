@@ -178,7 +178,7 @@ export default class Resource {
     .then((docs) => {
       winston.info("suback", {addr, subId});
       socket.emit("suback", {subId, docs});
-      return r.table(this.name).changes().filter(query).run(conn);
+      return r.table(this.name).filter(query).changes().run(conn);
     })
     .then((feed) => {
       feed.on("data", function(change) {
@@ -202,11 +202,17 @@ export default class Resource {
       });
       socket.on("unsub", function(params) {
         if (params.subId === subId) {
+          winston.debug("unsub", {subId, addr});
           feed.removeAllListeners("data");
           feed.removeAllListeners("error");
           feed.close();
           // conn.close();
         }
+      });
+      socket.on("disconnect", function() {
+        feed.removeAllListeners("data");
+        feed.removeAllListeners("error");
+        feed.close();
       });
     })
     .catch((err) => {

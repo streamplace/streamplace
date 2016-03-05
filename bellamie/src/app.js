@@ -54,6 +54,7 @@ io.on("connection", function(socket) {
   socket.on("disconnect", function() {
     winston.info(`${addr} disconnect`);
     dbPromise.then((conn) => {
+      winston.debug("closing websocket database connection");
       conn.close();
     });
   });

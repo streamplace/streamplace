@@ -108,15 +108,60 @@ RTMPInputVertex.propTypes = {
   broadcastId: React.PropTypes.string.isRequired
 };
 
+const RTMPOutputDefaultState = {
+  title: "",
+  rtmp: {
+    "test": "test",
+    url: ""
+  },
+  broadcastId: ""
+};
+
 class RTMPOutputVertex extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {...RTMPOutputDefaultState};
+  }
+
+  handleChange(field, e) {
+    this.setState(dot.object({[field]: e.target.value}));
+  }
+
+  handleCreate() {
+    SK.vertices.create({
+      broadcastId: this.props.broadcastId,
+      title: this.state.title,
+      type: "RTMPOutput",
+      rtmp: {
+        url: this.state.rtmp.url,
+      },
+    })
+    .then((vertex) => {
+      Twixty.info(`Created vertex ${vertex.id}`);
+    })
+    .catch((err) => {
+      Twixty.error(err);
+    });
+    this.setState({...RTMPOutputDefaultState} );
+  }
+
   render() {
     return (
       <div>
-        <h4>Create Output Vertex</h4>
-        <label>
-          <span>RTMP URL</span>
-          <input type="text" />
+        <h4>Create RTMP Output</h4>
+        <label className={style.BlockLabel}>
+          <span>Title</span>
+          <input type="text" value={this.state.title} onChange={this.handleChange.bind(this, "title")} />
         </label>
+        <label className={style.BlockLabel}>
+          <span>RTMP URL</span>
+          <input type="text" value={this.state.rtmp.url} onChange={this.handleChange.bind(this, "rtmp.url")} />
+        </label>
+        <label className={style.BlockLabel}>
+          <span>Broadcast ID</span>
+          <input type="text" disabled value={this.props.broadcastId} onChange={this.handleChange.bind(this, "broadcastId")} />
+        </label>
+        <button onClick={this.handleCreate.bind(this)}>Create</button>
       </div>
     );
   }

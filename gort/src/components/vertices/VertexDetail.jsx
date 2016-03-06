@@ -15,8 +15,7 @@ export default class VertexDetail extends React.Component {
       }
     };
   }
-  componentDidMount() {
-    const vertexId = this.props.vertexId;
+  doSubscribe(vertexId) {
     this.vertexHandle = SK.vertices.watch({id: vertexId})
     .on("data", (vertices) => {
       this.setState({vertex: vertices[0]});
@@ -24,6 +23,15 @@ export default class VertexDetail extends React.Component {
     .catch((err) => {
       twixty.error(err);
     });
+  }
+  componentWillMount() {
+    this.doSubscribe(this.props.vertexId);
+  }
+  componentWillReceiveProps(nextProps) {
+    if (this.vertexHandle) {
+      this.vertexHandle.stop();
+    }
+    this.doSubscribe(nextProps.vertexId);
   }
   componentWillUnmount() {
     this.vertexHandle.stop();

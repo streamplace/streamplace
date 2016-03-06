@@ -39,6 +39,7 @@
     "webpack-dev-server": "^1.14.1"
   },
   "devDependencies": {
+    "babel-plugin-transform-object-rest-spread": "^6.6.5",
     "express": "^4.13.4",
     "json-loader": "^0.5.4"
   }

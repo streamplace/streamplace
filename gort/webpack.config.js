@@ -22,6 +22,9 @@ module.exports = {
           // Weirdness here because of https://github.com/babel/babel-loader/issues/166
           require.resolve("babel-preset-react"),
           require.resolve("babel-preset-es2015")
+        ],
+        plugins: [
+          require.resolve("babel-plugin-transform-object-rest-spread")
         ]
       }
     }, {

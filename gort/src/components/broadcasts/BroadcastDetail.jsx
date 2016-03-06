@@ -64,7 +64,7 @@ export default React.createClass({
 
     let bottomPanel;
     if (this.state.showNewVertex) {
-      bottomPanel = <VertexCreate />;
+      bottomPanel = <VertexCreate broadcastId={this.props.params.broadcastId} />;
     }
     else if (this.state.selected && this.state.selected.type === "vertex") {
       bottomPanel = <VertexDetail vertexId={this.state.selected.id} />;

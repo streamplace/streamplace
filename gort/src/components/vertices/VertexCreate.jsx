@@ -1,9 +1,10 @@
 
 import React from "react";
 import dot from "dot-object";
-
-import SK from "../../SK";
 import Twixty from "twixtykit";
+
+import ArcCreate from "../arcs/ArcCreate";
+import SK from "../../SK";
 import style from "./VertexCreate.scss";
 
 export default class VertexCreate extends React.Component {
@@ -171,4 +172,4 @@ RTMPOutputVertex.propTypes = {
   broadcastId: React.PropTypes.string.isRequired
 };
 
-const vertexCreators = {RTMPInputVertex, RTMPOutputVertex};
+const vertexCreators = {RTMPInputVertex, RTMPOutputVertex, ArcCreate};

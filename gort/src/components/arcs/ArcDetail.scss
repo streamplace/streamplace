@@ -1,0 +1,60 @@
+
+.ArcPicker {
+  width: 100%;
+  align-items: stretch;
+  justify-content: space-between;
+  flex-grow: 1;
+  &>* {
+    margin: 1em;
+  }
+}
+
+.ArcList {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.ArcFrom {
+  composes: ArcList;
+}
+
+.ArcPointer {
+  align-self: center;
+  font-size: 2em;
+}
+
+.ArcTo {
+  composes: ArcList;
+}
+
+.ArcListItem {
+  user-select: none;
+  cursor: pointer;
+  width: 100%;
+  flex-grow: 1;
+  border: 1px solid black;
+  border-bottom: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: white;
+  &:last-child {
+    border-bottom: 1px solid black;
+  }
+}
+
+.ArcListItemTitle {
+  font-size: 3em;
+}
+
+.ArcListItemDetails {
+  font-size: 1.2em;
+  font-style: oblique;
+}
+
+.ArcListItemSelected {
+  composes: ArcListItem;
+  background-color: lightblue;
+}

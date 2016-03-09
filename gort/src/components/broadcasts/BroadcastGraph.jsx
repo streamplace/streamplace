@@ -3,6 +3,7 @@ import React from "react";
 import twixty from "twixtykit";
 
 import SK from "../../SK";
+import ArcGraphNode from "../arcs/ArcGraphNode";
 import style from "./BroadcastGraph.scss";
 
 export default class BroadcastGraph extends React.Component {
@@ -47,9 +48,13 @@ export default class BroadcastGraph extends React.Component {
         </div>
       );
     });
+    const arcs = this.state.arcs.map((arc) => {
+      return <ArcGraphNode arcId={arc.id} key={arc.id} />;
+    });
     return (
-      <div>
+      <div className={style.BroadcastGraph}>
         {vertices}
+        {arcs}
       </div>
     );
   }

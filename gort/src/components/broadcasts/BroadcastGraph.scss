@@ -1,11 +1,21 @@
 
+.BroadcastGraph {
+  overflow-y: auto;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+}
+
 .GraphNode {
-  margin: 1em;
-  background-color: white;
+  foo: bar;
 }
 
 .GraphVertex {
   composes: GraphNode;
+  margin: 1em;
+  padding: 1em;
+  background-color: white;
   padding: 1em;
   width: 300px;
   border: 1px solid black;

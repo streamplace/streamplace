@@ -37,9 +37,17 @@ export default class ArcGraphNode extends React.Component {
     this.arcHandle.stop();
   }
 
+  handleClick() {
+    this.props.onClick && this.props.onClick();
+  }
+
   render() {
+    let className = style.ArcNode;
+    if (this.props.selected) {
+      className = style.ArcNodeSelected;
+    }
     return (
-      <div className={style.ArcNode}>
+      <div className={className} onClick={this.handleClick.bind(this)}>
         <div className={style.ArcNodeContent}>
           {this.state.from.title}<br />
           {this.state.to.title}
@@ -51,4 +59,6 @@ export default class ArcGraphNode extends React.Component {
 
 ArcGraphNode.propTypes = {
   arcId: React.PropTypes.string.isRequired,
+  selected: React.PropTypes.bool,
+  onClick: React.PropTypes.func,
 };

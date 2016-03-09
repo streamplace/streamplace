@@ -12,6 +12,10 @@ export default class BroadcastGraph extends React.Component {
     this.state = {
       vertices: [],
       arcs: [],
+      selected: {
+        type: null,
+        id: null,
+      },
     };
   }
   componentDidMount() {
@@ -36,23 +40,39 @@ export default class BroadcastGraph extends React.Component {
     this.arcHandle.stop();
     this.vertexHandle.stop();
   }
-  handleClick(thing, id) {
-    this.props.onPick(thing, id);
+  handleClick(type, id) {
+    this.setState({selected: {type, id}});
+    this.props.onPick(type, id);
+  }
+  handleBackgroundClick(e) {
+    // If they clicked the background itself, deselect everything
+    if (e.target === e.currentTarget) {
+      this.setState({
+        selected: {type: null, id: null}
+      });
+      this.props.onPick(null, null);
+    }
   }
   render() {
     const vertices = this.state.vertices.map((v) => {
+      let className = style.GraphVertex;
+      if (this.state.selected.type === "vertex" && this.state.selected.id === v.id) {
+        className = style.GraphVertexSelected;
+      }
       return (
-        <div onClick={this.handleClick.bind(this, "vertex", v.id)} className={style.GraphVertex} key={v.id}>
+        <div onClick={this.handleClick.bind(this, "vertex", v.id)} className={className} key={v.id}>
           <em>{v.type}</em>
           <h5>{v.title}</h5>
         </div>
       );
     });
     const arcs = this.state.arcs.map((arc) => {
-      return <ArcGraphNode arcId={arc.id} key={arc.id} />;
+      const selected = this.state.selected.type === "arc" && this.state.selected.id === arc.id;
+      const onClick = this.handleClick.bind(this, "arc", arc.id);
+      return <ArcGraphNode onClick={onClick} selected={selected} arcId={arc.id} key={arc.id} />;
     });
     return (
-      <div className={style.BroadcastGraph}>
+      <div onClick={this.handleBackgroundClick.bind(this)} className={style.BroadcastGraph}>
         {vertices}
         {arcs}
       </div>

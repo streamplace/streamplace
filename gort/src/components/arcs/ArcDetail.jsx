@@ -1,8 +1,8 @@
 
 import React from "react";
 import twixty from "twixtykit";
-import SK from "../../SK";
 
+import SK from "../../SK";
 import style from "./ArcDetail.scss";
 
 export default class ArcDetail extends React.Component {
@@ -19,6 +19,18 @@ export default class ArcDetail extends React.Component {
   }
   componentDidMount() {
     this.doSubscriptions(this.props.broadcastId);
+    if (this.props.create !== true) {
+      if (!this.props.arcId) {
+        throw new Error("ArcDetail called with create false but no arcId.");
+      }
+      this.arcHandle = SK.arcs.watch({id: this.props.arcId})
+      .on("data", (arcs) => {
+        this.setState({arc: arcs[0]});
+      })
+      .catch((err) => {
+        twixty.error(err);
+      });
+    }
   }
   doSubscriptions(broadcastId) {
     this.vertexHandle = SK.vertices.watch({broadcastId})
@@ -40,6 +52,9 @@ export default class ArcDetail extends React.Component {
   componentWillUnmount() {
     // this.arcHandle.stop();
     this.vertexHandle.stop();
+    if (this.arcHandle) {
+      this.arcHandle.stop();
+    }
   }
   makeVertexList(field) {
     return this.state.vertices.map((v) => {
@@ -84,4 +99,6 @@ export default class ArcDetail extends React.Component {
 ArcDetail.propTypes = {
   broadcastId: React.PropTypes.string.isRequired,
   onChange: React.PropTypes.func.isRequired,
+  create: React.PropTypes.bool,
+  arcId: React.PropTypes.string,
 };

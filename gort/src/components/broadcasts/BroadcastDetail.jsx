@@ -6,6 +6,7 @@ import twixty from "twixtykit";
 import BroadcastGraph from "./BroadcastGraph";
 import VertexCreate from "../vertices/VertexCreate";
 import VertexDetail from "../vertices/VertexDetail";
+import ArcEdit from "../arcs/ArcEdit";
 import Loading from "../Loading";
 import styles from "./BroadcastDetail.scss";
 import SK from "../../SK";
@@ -44,16 +45,19 @@ export default React.createClass({
   },
 
   handleCloseBottomPanelClick() {
-    this.setState({
-      showNewVertex: false,
-      selected: null,
-    });
+
   },
 
   handlePick(type, id) {
     this.setState({
       showNewVertex: false,
       selected: {type, id},
+    });
+  },
+
+  clearSelection() {
+    this.setState({
+      selected: null,
     });
   },
 
@@ -69,8 +73,8 @@ export default React.createClass({
     else if (this.state.selected && this.state.selected.type === "vertex") {
       bottomPanel = <VertexDetail vertexId={this.state.selected.id} />;
     }
-    else {
-      // bottomPanel = <MoteDetail mote={this.state.selectedMote} />
+    else if (this.state.selected && this.state.selected.type === "arc") {
+      bottomPanel = <ArcEdit onDelete={this.clearSelection} broadcastId={this.props.params.broadcastId} arcId={this.state.selected.id} />;
     }
 
     let closeBottomPanel;

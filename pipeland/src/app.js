@@ -11,6 +11,7 @@ const broadcasts = {};
 winston.cli();
 winston.info("Pipeland starting up.");
 
+// Main loop. Watch for broadcasts that I'm supposed to manage.
 SK.broadcasts.watch({}).then(function(docs) {
   const ids = _(docs).pluck("id");
   winston.info(`Got ${ids.length} broadcasts in the initial pull.`);
@@ -21,6 +22,3 @@ SK.broadcasts.watch({}).then(function(docs) {
 .catch(function(err) {
   winston.error("Error getting broadcasts", err);
 });
-
-// Main loop. Watch for broadcasts that I'm supposed to manage.
-

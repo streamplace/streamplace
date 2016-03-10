@@ -10,12 +10,19 @@ export default class Base {
 
   }
 
+  displayName() {
+    if (this.doc && this.doc.title) {
+      return this.doc.title;
+    }
+    return this.id;
+  }
+
   info(first, ...args) {
     if (typeof first !== "string") {
       args = [first, ...args];
       first = "";
     }
-    winston.info(`[${this.constructor.name} ${this.id}] ${first}`, ...args);
+    winston.info(`[${this.constructor.name} ${this.displayName()}] ${first}`, ...args);
   }
 
   error(first, ...args) {
@@ -23,6 +30,6 @@ export default class Base {
       args = [first, ...args];
       first = "";
     }
-    winston.error(`[${this.constructor.name} ${this.id}] ${first}`, ...args);
+    winston.error(`[${this.constructor.name} ${this.displayName()}] ${first}`, ...args);
   }
 }

@@ -21,7 +21,7 @@ const server = http.createServer(app);
 // Make winston output pretty
 winston.cli();
 
-app.use(morgan("combined"));
+// app.use(morgan("combined"));
 
 app.use(bodyParser.json());
 

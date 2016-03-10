@@ -63,6 +63,7 @@ export default class BroadcastGraph extends React.Component {
         <div onClick={this.handleClick.bind(this, "vertex", v.id)} className={className} key={v.id}>
           <em>{v.type}</em>
           <h5>{v.title}</h5>
+          <p>{v.timemark}</p>
         </div>
       );
     });

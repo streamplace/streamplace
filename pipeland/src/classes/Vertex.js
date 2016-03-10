@@ -90,6 +90,7 @@ export default class Vertex extends Base {
       if (logCounter === 0) {
         this.info(data);
       }
+      SK.vertices.update(this.id, {timemark: data.timemark});
       logCounter = (logCounter + 1) % 15;
     })
 
@@ -112,7 +113,13 @@ class RTMPInputVertex extends Vertex {
         .size("1280x720")
         .autopad("black")
         .inputFormat("flv")
-        .outputOptions(["-bsf:v h264_mp4toannexb"])
+        .outputOptions([
+          // "-vsync drop",
+          // "-copyts",
+          "-bsf:v h264_mp4toannexb",
+          // "-vf",
+          // "setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'"
+        ])
         .videoCodec("libx264")
         .audioCodec("libmp3lame")
         .outputOptions([
@@ -145,16 +152,15 @@ class RTMPOutputVertex extends Vertex {
       this.outputStream = this.ffmpeg()
         .input(this.pipes.default)
         .inputOptions([
-          "-fflags +ignidx",
-          "-fflags +igndts",
-          "-fflags +discardcorrupt",
+          // "-fflags +ignidx",
+          // "-fflags +igndts",
+          // "-fflags +discardcorrupt",
         ])
         .inputFormat("mpegts")
         // .inputFormat("ismv")
         .audioCodec("aac")
         .videoCodec("copy")
         // .outputOptions([
-        //   "-fflags +genpts",
         //   "-vsync drop",
         // ])
         .outputFormat("flv")

@@ -170,12 +170,12 @@ class RTMPOutputVertex extends Vertex {
         .inputFormat("mpegts")
         // .inputFormat("ismv")
         .audioCodec("aac")
-        .videoCodec("copy")
+        .videoCodec("libx264")
         // .outputOptions([
         //   "-vsync drop",
         // ])
+        .videoFilters("setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'")
         .outputFormat("flv")
-        .videoCodec("libx264")
         .save(this.doc.rtmp.url);
         // .inputFormat("flv")
         // .outputOptions(["-bsf:v h264_mp4toannexb"])

@@ -6,18 +6,19 @@ import SK from "../sk";
 import mpegts from "../mpegts-stream";
 import Base from "./Base";
 
+const getRandomArbitrary = function(min, max) {
+  return Math.floor(Math.random() * (max - min) + min);
+};
+const randomPort = function() {
+  return getRandomArbitrary(40000, 50000);
+};
+
 export default class Vertex extends Base {
   constructor({id, broadcast}) {
     super();
     this.id = id;
     this.broadcast = broadcast;
     this.info("initializing");
-
-    this.pipes = {};
-
-    // We probably need one of these.
-    this.mpegts = mpegts();
-    this.mpegts.resume();
 
     // I dunno, retry counter or whatever?
     this.retryIntervals = [
@@ -42,11 +43,13 @@ export default class Vertex extends Base {
     });
   }
 
-  getPipe(name) {
-    if (this.pipes[name]) {
-      return this.pipes[name];
-    }
-    throw new Error(`Vertex ${this.id} doesn't have a pipe named ${name}`);
+  /**
+   * Get something that is hopefully a fresh UDP address.
+   * @return {[type]} [description]
+   */
+  getUDP() {
+    const ret = `udp://127.0.0.1:${randomPort()}?`;
+    return ret;
   }
 
   retry() {
@@ -103,12 +106,12 @@ export default class Vertex extends Base {
 class RTMPInputVertex extends Vertex {
   constructor({id}) {
     super({id});
-    this.pipes.default = this.mpegts;
   }
 
   init() {
     try {
-      this.inputStream = this.ffmpeg()
+      this.outputURL = this.getUDP();
+      this.currentFFMpeg = this.ffmpeg()
         .input(this.doc.rtmp.url)
         .size("1280x720")
         .autopad("black")
@@ -128,11 +131,14 @@ class RTMPInputVertex extends Vertex {
           "-x264opts keyint=5:min-keyint=",
           "-pix_fmt yuv420p",
         ])
-        .outputFormat("mpegts")
-        .pipe(this.mpegts);
+        .outputFormat("mpegts");
 
-      // We want it to start consuming data even if no arcs are listening yet. Fire away.
-      this.inputStream.resume();
+      this.currentFFMpeg.save(this.outputURL);
+      SK.vertices.update(this.doc.id, {
+        pipe: this.outputURL
+      }).catch((err) => {
+        this.error(err);
+      });
     }
     catch (err) {
       this.error(err);
@@ -144,13 +150,18 @@ class RTMPInputVertex extends Vertex {
 class RTMPOutputVertex extends Vertex {
   constructor({id}) {
     super({id});
-    this.pipes.default = new stream.PassThrough();
   }
 
   init() {
     try {
+      this.inputURL = this.getUDP() + "reuse=1";
+      SK.vertices.update(this.doc.id, {
+        pipe: this.inputURL
+      }).catch((err) => {
+        this.error(err);
+      });
       this.outputStream = this.ffmpeg()
-        .input(this.pipes.default)
+        .input(this.inputURL)
         .inputOptions([
           // "-fflags +ignidx",
           // "-fflags +igndts",

@@ -56,6 +56,7 @@ export default class VertexDetail extends React.Component {
         <h4>Title: {v.title}</h4>
         <p>id: {v.id}</p>
         <p>RTMP URL: {v.rtmp.url}</p>
+        <p>pipe: {v.pipe}</p>
         <button onClick={this.handleDelete.bind(this)}>Delete</button>
       </div>
     );

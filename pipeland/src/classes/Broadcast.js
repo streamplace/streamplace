@@ -29,14 +29,16 @@ export default class Broadcast extends Base {
     // Watch my vertices, so I can create and delete as necessary.
     SK.vertices.watch({broadcastId: this.id})
 
-    .then((vertices) => {
-      this.info(`initializing ${vertices.length} vertices`);
+    .on("data", (vertices) => {
       vertices.forEach((vertex) => {
-        this.vertices[vertex.id] = Vertex.create({
-          id: vertex.id,
-          type: vertex.type,
-          broadcast: this,
-        });
+        if (!this.vertices[vertex.id]) {
+          this.info(`initializing vertex ${vertex.id}`);
+          this.vertices[vertex.id] = Vertex.create({
+            id: vertex.id,
+            type: vertex.type,
+            broadcast: this,
+          });
+        }
       });
     })
 
@@ -47,13 +49,15 @@ export default class Broadcast extends Base {
     // Watch my vertices, so I can create and delete as necessary.
     SK.arcs.watch({broadcastId: this.id})
 
-    .then((arcs) => {
-      this.info(`initializing ${arcs.length} arcs`);
+    .on("data", (arcs) => {
       arcs.forEach((arc) => {
-        this.arcs[arc.id] = Arc.create({
-          id: arc.id,
-          broadcast: this,
-        });
+        if (!this.arcs[arc.id]) {
+          this.info(`initializing arc ${arc.id}`);
+          this.arcs[arc.id] = Arc.create({
+            id: arc.id,
+            broadcast: this,
+          });
+        }
       });
     })
 

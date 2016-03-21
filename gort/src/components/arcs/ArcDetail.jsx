@@ -21,6 +21,9 @@ export default class ArcDetail extends React.Component {
     this.doSubscriptions(this.props);
   }
   componentWillReceiveProps(newProps) {
+    if (newProps.arcId === this.props.arcId) {
+      return;
+    }
     if (this.vertexHandle) {
       this.vertexHandle.stop();
     }

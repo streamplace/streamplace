@@ -91,7 +91,7 @@ export default class Vertex extends Base {
 
     .on("progress", (data) => {
       if (logCounter === 0) {
-        this.info(data);
+        this.info(`[${data.timemark}] ${data.currentFps}FPS ${data.currentKbps}Kbps`);
       }
       SK.vertices.update(this.id, {timemark: data.timemark});
       logCounter = (logCounter + 1) % 15;

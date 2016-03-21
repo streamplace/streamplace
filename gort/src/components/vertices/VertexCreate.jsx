@@ -106,10 +106,6 @@ class RTMPInputVertex extends React.Component {
           <span>RTMP URL</span>
           <input type="text" value={this.state.params.rtmp.url} onChange={this.handleChange.bind(this, "params.rtmp.url")} />
         </label>
-        <label className={style.BlockLabel}>
-          <span>Broadcast ID</span>
-          <input type="text" disabled value={this.props.broadcastId} onChange={this.handleChange.bind(this, "broadcastId")} />
-        </label>
         <button onClick={this.handleCreate.bind(this)}>Create</button>
       </div>
     );
@@ -178,10 +174,6 @@ class RTMPOutputVertex extends React.Component {
           <span>RTMP URL</span>
           <input type="text" value={this.state.params.rtmp.url} onChange={this.handleChange.bind(this, "params.rtmp.url")} />
         </label>
-        <label className={style.BlockLabel}>
-          <span>Broadcast ID</span>
-          <input type="text" disabled value={this.props.broadcastId} onChange={this.handleChange.bind(this, "broadcastId")} />
-        </label>
         <button onClick={this.handleCreate.bind(this)}>Create</button>
       </div>
     );
@@ -192,4 +184,68 @@ RTMPOutputVertex.propTypes = {
   broadcastId: React.PropTypes.string.isRequired
 };
 
-const vertexCreators = {RTMPInputVertex, RTMPOutputVertex, ArcCreate};
+const Combine2x1DefaultState = {
+  title: "",
+  params: {},
+  inputs: {
+    left: {},
+    right: {}
+  },
+  outputs: {
+    default: {}
+  },
+  broadcastId: ""
+};
+
+class Combine2x1Vertex extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {...RTMPOutputDefaultState};
+  }
+
+  handleChange(field, e) {
+    this.setState(dot.object({[field]: e.target.value}));
+  }
+
+  handleCreate() {
+    SK.vertices.create({
+      broadcastId: this.props.broadcastId,
+      title: this.state.title,
+      type: "Combine2x1",
+      inputs: {
+        left: {},
+        right: {}
+      },
+      outputs: {
+        default: {}
+      },
+      params: {}
+    })
+    .then((vertex) => {
+      Twixty.info(`Created vertex ${vertex.id}`);
+    })
+    .catch((err) => {
+      Twixty.error(err);
+    });
+    this.setState({...RTMPOutputDefaultState} );
+  }
+
+  render() {
+    return (
+      <div>
+        <h4>Create 2x1 Combiner</h4>
+        <label className={style.BlockLabel}>
+          <span>Title</span>
+          <input type="text" value={this.state.title} onChange={this.handleChange.bind(this, "title")} />
+        </label>
+        <button onClick={this.handleCreate.bind(this)}>Create</button>
+      </div>
+    );
+  }
+}
+
+Combine2x1Vertex.propTypes = {
+  broadcastId: React.PropTypes.string.isRequired
+};
+
+const vertexCreators = {RTMPInputVertex, RTMPOutputVertex, Combine2x1Vertex, ArcCreate};

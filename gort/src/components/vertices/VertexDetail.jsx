@@ -54,7 +54,16 @@ export default class VertexDetail extends React.Component {
       return <div />;
     }
     const v = this.state.vertex;
-    const encodedURL = encodeURI(v.params.rtmp.url);
+    let previewLink;
+    if (v.params.rtmp && v.params.rtmp.url) {
+      const encodedURL = encodeURI(v.params.rtmp.url);
+      previewLink = (
+        <p>
+          RTMP URL: {v.params.rtmp.url}<br/>
+          <a href={`/preview.html?url=${encodedURL}`} target="_blank">Preview</a>
+        </p>
+      );
+    }
     const inputs = Object.keys(v.inputs).map((inputName) => {
       const input = v.inputs[inputName];
       return (
@@ -79,15 +88,12 @@ export default class VertexDetail extends React.Component {
       <div>
         <h4>Title: {v.title}</h4>
         <p>id: {v.id}</p>
-        <p>RTMP URL: {v.params.rtmp.url}</p>
         <p><strong>Inputs</strong></p>
         {inputs}
         <p><strong>Outputs</strong></p>
         {outputs}
         <button onClick={this.handleDelete.bind(this)}>Delete</button>
-        <p>
-          <a href={`/preview.html?url=${encodedURL}`} target="_blank">Preview</a>
-        </p>
+        {previewLink}
       </div>
     );
   }

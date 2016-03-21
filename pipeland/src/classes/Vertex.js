@@ -113,8 +113,6 @@ class RTMPInputVertex extends Vertex {
       this.outputURL = this.getUDP();
       this.currentFFMpeg = this.ffmpeg()
         .input(this.doc.params.rtmp.url)
-        .size("1280x720")
-        .autopad("black")
         .inputFormat("flv")
         .outputOptions([
           // "-vsync drop",
@@ -143,6 +141,58 @@ class RTMPInputVertex extends Vertex {
       }).catch((err) => {
         this.error(err);
       });
+    }
+    catch (err) {
+      this.error(err);
+      this.retry();
+    }
+  }
+}
+
+class Combine2x1Vertex extends Vertex {
+  constructor({id}) {
+    super({id});
+    this.outputURL = this.getUDP();
+    this.leftInputURL = this.getUDP() + "reuse=1";
+    this.rightInputURL = this.getUDP() + "reuse=1";
+    SK.vertices.update(id, {
+      inputs: {
+        left: {
+          socket: this.leftInputURL,
+        },
+        right: {
+          socket: this.rightInputURL,
+        }
+      },
+      outputs: {
+        default: {
+          socket: this.outputURL
+        }
+      },
+    }).catch((err) => {
+      this.error(err);
+    });
+  }
+
+  init() {
+    try {
+      this.currentFFMpeg = this.ffmpeg()
+        .input(this.leftInputURL)
+        .input(this.rightInputURL)
+        .outputOptions([
+        ])
+        .videoCodec("libx264")
+        .outputOptions([
+          "-filter_complex [0:v][1:v]hstack[output]",
+          "-map [output]",
+          "-preset ultrafast",
+          "-tune zerolatency",
+          "-x264opts keyint=5:min-keyint=",
+          "-pix_fmt yuv420p",
+        ])
+        .outputFormat("mpegts");
+
+      this.currentFFMpeg.save(this.outputURL);
     }
     catch (err) {
       this.error(err);
@@ -213,6 +263,9 @@ Vertex.create = function(params) {
   }
   else if (type === "RTMPOutput") {
     return new RTMPOutputVertex(params);
+  }
+  else if (type === "Combine2x1") {
+    return new Combine2x1Vertex(params);
   }
   else {
     throw new Error(`Unknown Vertex Type: ${type}`);

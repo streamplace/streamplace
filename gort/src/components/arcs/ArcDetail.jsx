@@ -18,12 +18,30 @@ export default class ArcDetail extends React.Component {
     };
   }
   componentDidMount() {
-    this.doSubscriptions(this.props.broadcastId);
-    if (this.props.create !== true) {
-      if (!this.props.arcId) {
+    this.doSubscriptions(this.props);
+  }
+  componentWillReceiveProps(newProps) {
+    if (this.vertexHandle) {
+      this.vertexHandle.stop();
+    }
+    if (this.arcHandle) {
+      this.arcHandle.stop();
+    }
+    this.doSubscriptions(newProps);
+  }
+  doSubscriptions(props) {
+    this.vertexHandle = SK.vertices.watch(props.broadcastId)
+    .on("data", (vertices) => {
+      this.setState({vertices});
+    })
+    .catch((...args) => {
+      twixty.error(...args);
+    });
+    if (props.create !== true) {
+      if (!props.arcId) {
         throw new Error("ArcDetail called with create false but no arcId.");
       }
-      this.arcHandle = SK.arcs.watch({id: this.props.arcId})
+      this.arcHandle = SK.arcs.watch({id: props.arcId})
       .on("data", (arcs) => {
         this.setState({arc: arcs[0]});
       })
@@ -31,15 +49,6 @@ export default class ArcDetail extends React.Component {
         twixty.error(err);
       });
     }
-  }
-  doSubscriptions(broadcastId) {
-    this.vertexHandle = SK.vertices.watch({broadcastId})
-    .on("data", (vertices) => {
-      this.setState({vertices});
-    })
-    .catch((...args) => {
-      twixty.error(...args);
-    });
 
     // this.arcHandle = SK.arcs.watch({broadcastId})
     // .on("data", (arcs) => {
@@ -82,7 +91,7 @@ export default class ArcDetail extends React.Component {
           this.props.onChange(newArc);
         };
         let className = style.ArcListItem;
-        if (this.state.arc[direction].vertexId === v.id) {
+        if (this.state.arc[direction].vertexId === v.id && name === this.state.arc[direction][arcField]) {
           className = style.ArcListItemSelected;
         }
         const key = v.id + name;

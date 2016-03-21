@@ -51,6 +51,7 @@ export default class VertexDetail extends React.Component {
       return <div />;
     }
     const v = this.state.vertex;
+    const encodedURL = encodeURI(v.rtmp.url);
     return (
       <div>
         <h4>Title: {v.title}</h4>
@@ -58,6 +59,9 @@ export default class VertexDetail extends React.Component {
         <p>RTMP URL: {v.rtmp.url}</p>
         <p>pipe: {v.pipe}</p>
         <button onClick={this.handleDelete.bind(this)}>Delete</button>
+        <p>
+          <a href={`/preview.html?url=${encodedURL}`} target="_blank">Preview</a>
+        </p>
       </div>
     );
   }

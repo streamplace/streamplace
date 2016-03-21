@@ -12,6 +12,7 @@ export default class ArcDetail extends React.Component {
     this.state = {
       vertices: [],
       arc: {
+        kind: "arc",
         from: {},
         to: {}
       },

@@ -66,7 +66,7 @@ export default React.createClass({
       return <Loading />;
     }
 
-    let bottomPanel;
+    let bottomPanel = null;
     if (this.state.showNewVertex) {
       bottomPanel = <VertexCreate broadcastId={this.props.params.broadcastId} />;
     }
@@ -77,15 +77,14 @@ export default React.createClass({
       bottomPanel = <ArcEdit onDelete={this.clearSelection} broadcastId={this.props.params.broadcastId} arcId={this.state.selected.id} />;
     }
 
-    let closeBottomPanel;
-    if (this.state.showNewVertex || this.state.selected !== null) {
-      closeBottomPanel = (
-        <a className={styles.closeBottomPanel} onClick={this.handleCloseBottomPanelClick}>
-          <i className="fa fa-times" />
-        </a>
+    // If we are to be rendering a bottom panel, add its wrapper to it.
+    if (bottomPanel !== null) {
+      bottomPanel = (
+        <section className={styles.BottomPanel}>
+          {bottomPanel}
+        </section>
       );
     }
-
     return (
       <section className={styles.verticalPanels}>
         <section className={styles.header}>
@@ -102,10 +101,8 @@ export default React.createClass({
           <BroadcastGraph onPick={this.handlePick} broadcastId={this.props.params.broadcastId} />
         </section>
 
-        <section className={styles.BottomPanel}>
-          {closeBottomPanel}
-          {bottomPanel}
-        </section>
+        {bottomPanel}
+
       </section>
     );
   }

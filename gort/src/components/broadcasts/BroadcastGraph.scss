@@ -3,28 +3,22 @@
   overflow-y: auto;
   flex-grow: 1;
   display: flex;
+  align-items: center;
+  justify-content: flex-start;
   flex-direction: column;
-  flex-wrap: wrap;
+}
+
+.BroadcastGraphGrouping {
+
+  display: flex;
+  align-items: center;
+}
+
+.BroadcastGraphColumn {
+
 }
 
 .GraphNode {
   foo: bar;
 }
 
-.GraphVertex {
-  composes: GraphNode;
-  margin: 1em;
-  padding: 1em;
-  background-color: white;
-  padding: 1em;
-  width: 150px;
-  border: 1px solid black;
-  border-radius: 5px;
-  cursor: pointer;
-  -webkit-user-select: none;
-}
-
-.GraphVertexSelected {
-  composes: GraphVertex;
-  background-color: lightblue;
-}

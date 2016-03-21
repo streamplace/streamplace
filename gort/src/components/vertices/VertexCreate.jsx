@@ -72,6 +72,7 @@ class RTMPInputVertex extends React.Component {
 
   handleCreate() {
     SK.vertices.create({
+      kind: "vertex",
       broadcastId: this.props.broadcastId,
       title: this.state.title,
       type: "RTMPInput",
@@ -140,6 +141,7 @@ class RTMPOutputVertex extends React.Component {
 
   handleCreate() {
     SK.vertices.create({
+      kind: "vertex",
       broadcastId: this.props.broadcastId,
       title: this.state.title,
       type: "RTMPOutput",
@@ -209,6 +211,7 @@ class Combine2x1Vertex extends React.Component {
 
   handleCreate() {
     SK.vertices.create({
+      kind: "vertex",
       broadcastId: this.props.broadcastId,
       title: this.state.title,
       type: "Combine2x1",

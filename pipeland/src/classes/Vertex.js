@@ -112,7 +112,7 @@ class RTMPInputVertex extends Vertex {
     try {
       this.outputURL = this.getUDP();
       this.currentFFMpeg = this.ffmpeg()
-        .input(this.doc.rtmp.url)
+        .input(this.doc.params.rtmp.url)
         .size("1280x720")
         .autopad("black")
         .inputFormat("flv")
@@ -135,7 +135,11 @@ class RTMPInputVertex extends Vertex {
 
       this.currentFFMpeg.save(this.outputURL);
       SK.vertices.update(this.doc.id, {
-        pipe: this.outputURL
+        outputs: {
+          default: {
+            socket: this.outputURL
+          }
+        }
       }).catch((err) => {
         this.error(err);
       });
@@ -156,7 +160,11 @@ class RTMPOutputVertex extends Vertex {
     try {
       this.inputURL = this.getUDP() + "reuse=1";
       SK.vertices.update(this.doc.id, {
-        pipe: this.inputURL
+        inputs: {
+          default: {
+            socket: this.inputURL
+          }
+        }
       }).catch((err) => {
         this.error(err);
       });
@@ -176,7 +184,7 @@ class RTMPOutputVertex extends Vertex {
         // ])
         .videoFilters("setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'")
         .outputFormat("flv")
-        .save(this.doc.rtmp.url);
+        .save(this.doc.params.rtmp.url);
         // .inputFormat("flv")
         // .outputOptions(["-bsf:v h264_mp4toannexb"])
         // .audioCodec("libmp3lame")

@@ -14,8 +14,8 @@ export default class Arc extends Base {
     this.broadcast = broadcast;
     SK.arcs.watch({id: this.id})
 
-    .on("data", (docs) => {
-      this.doc = docs[0];
+    .on("data", ([arc]) => {
+      this.doc = arc;
       this.info("Got initial pull.");
       this.init();
     })
@@ -31,7 +31,7 @@ export default class Arc extends Base {
     if (this.server) {
       this.server.close();
     }
-    const {port} = url.parse(this.fromPipe);
+    const {port} = url.parse(this.fromSocket);
     this.server = dgram.createSocket("udp4");
     this.server.on("error", (err) => {
       this.error(err);
@@ -46,7 +46,7 @@ export default class Arc extends Base {
   }
 
   setupToPipe() {
-    const {port} = url.parse(this.toPipe);
+    const {port} = url.parse(this.toSocket);
     this.sendPort = parseInt(port);
   }
 
@@ -59,8 +59,9 @@ export default class Arc extends Base {
     }
     this.fromHandle = SK.vertices.watch({id: this.doc.from.vertexId})
     .on("data", ([vertex]) => {
-      if (this.fromPipe !== vertex.pipe) {
-        this.fromPipe = vertex.pipe;
+      const fromSocket = vertex.outputs[this.doc.from.output].socket;
+      if (this.fromSocket !== fromSocket) {
+        this.fromSocket = fromSocket;
         this.setupFromPipe();
       }
     })
@@ -70,8 +71,9 @@ export default class Arc extends Base {
 
     this.toHandle = SK.vertices.watch({id: this.doc.to.vertexId})
     .on("data", ([vertex]) => {
-      if (this.toPipe !== vertex.pipe) {
-        this.toPipe = vertex.pipe;
+      const toSocket = vertex.inputs[this.doc.to.input].socket;
+      if (this.toSocket !== toSocket) {
+        this.toSocket = toSocket;
         this.setupToPipe();
       }
     })

@@ -56,40 +56,58 @@ export default class ArcDetail extends React.Component {
       this.arcHandle.stop();
     }
   }
-  makeVertexList(field) {
-    return this.state.vertices.map((v) => {
-      const onClick = () => {
-        const newArc = {...this.state.arc};
-        newArc[field] = {
-          vertexId: v.id,
-          pipe: "default"
+
+  makeList(direction) {
+    const ret = [];
+    // Ehhhhhhhhhhhhh
+    let vertexField;
+    let arcField;
+    if (direction === "from") {
+      vertexField = "outputs";
+      arcField = "output";
+    }
+    else if (direction === "to") {
+      vertexField = "inputs";
+      arcField = "input";
+    }
+    this.state.vertices.forEach((v) => {
+      Object.keys(v[vertexField]).forEach((name) => {
+        const onClick = () => {
+          const newArc = {...this.state.arc};
+          newArc[direction] = {
+            vertexId: v.id,
+            [arcField]: name
+          };
+          this.setState({arc: newArc});
+          this.props.onChange(newArc);
         };
-        this.setState({arc: newArc});
-        this.props.onChange(newArc);
-      };
-      let className = style.ArcListItem;
-      if (this.state.arc[field].vertexId === v.id) {
-        className = style.ArcListItemSelected;
-      }
-      return (
-        <div key={v.id} className={className} onClick={onClick}>
-          <span className={style.ArcListItemTitle}>{v.title}</span>
-          <span className={style.ArcListItemDetails}>{v.type}</span>
-        </div>
-      );
+        let className = style.ArcListItem;
+        if (this.state.arc[direction].vertexId === v.id) {
+          className = style.ArcListItemSelected;
+        }
+        const key = v.id + name;
+        ret.push(
+          <div key={key} className={className} onClick={onClick}>
+            <span className={style.ArcListItemTitle}>{v.title}</span>
+            <span className={style.ArcListItemDetails}>{name}</span>
+          </div>
+        );
+      });
     });
+    return ret;
   }
+
   render() {
     return (
       <section className={style.ArcPicker}>
         <div className={style.ArcFrom}>
-          {this.makeVertexList("from")}
+          {this.makeList("from")}
         </div>
         <div className={style.ArcPointer}>
           <span className="fa fa-caret-square-o-right" />
         </div>
         <div className={style.ArcTo}>
-          {this.makeVertexList("to")}
+          {this.makeList("to")}
         </div>
       </section>
     );

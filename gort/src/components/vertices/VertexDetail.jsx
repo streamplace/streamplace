@@ -9,7 +9,7 @@ export default class VertexDetail extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      unloading: false,
+      unloading: true,
       vertex: {
         rtmp: {}
       }
@@ -18,7 +18,10 @@ export default class VertexDetail extends React.Component {
   doSubscribe(vertexId) {
     this.vertexHandle = SK.vertices.watch({id: vertexId})
     .on("data", (vertices) => {
-      this.setState({vertex: vertices[0]});
+      this.setState({
+        unloading: false,
+        vertex: vertices[0]
+      });
     })
     .catch((err) => {
       twixty.error(err);
@@ -51,13 +54,36 @@ export default class VertexDetail extends React.Component {
       return <div />;
     }
     const v = this.state.vertex;
-    const encodedURL = encodeURI(v.rtmp.url);
+    const encodedURL = encodeURI(v.params.rtmp.url);
+    const inputs = Object.keys(v.inputs).map((inputName) => {
+      const input = v.inputs[inputName];
+      return (
+        <p key={inputName}>
+          Name: {inputName}<br/>
+          Type: {input.type}<br/>
+          Socket: {input.socket}
+        </p>
+      );
+    });
+    const outputs = Object.keys(v.outputs).map((outputName) => {
+      const output = v.outputs[outputName];
+      return (
+        <p key={outputName}>
+          Name: {outputName}<br/>
+          Type: {output.type}<br/>
+          Socket: {output.socket}
+        </p>
+      );
+    });
     return (
       <div>
         <h4>Title: {v.title}</h4>
         <p>id: {v.id}</p>
-        <p>RTMP URL: {v.rtmp.url}</p>
-        <p>pipe: {v.pipe}</p>
+        <p>RTMP URL: {v.params.rtmp.url}</p>
+        <p><strong>Inputs</strong></p>
+        {inputs}
+        <p><strong>Outputs</strong></p>
+        {outputs}
         <button onClick={this.handleDelete.bind(this)}>Delete</button>
         <p>
           <a href={`/preview.html?url=${encodedURL}`} target="_blank">Preview</a>

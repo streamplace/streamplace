@@ -48,9 +48,14 @@ VertexCreate.propTypes = {
 
 const RTMPInputDefaultState = {
   title: "",
-  rtmp: {
-    "test": "test",
-    url: ""
+  params: {
+    rtmp: {
+      url: ""
+    },
+  },
+  inputs: {},
+  outputs: {
+    default: {},
   },
   broadcastId: ""
 };
@@ -70,9 +75,15 @@ class RTMPInputVertex extends React.Component {
       broadcastId: this.props.broadcastId,
       title: this.state.title,
       type: "RTMPInput",
-      rtmp: {
-        url: this.state.rtmp.url,
+      inputs: {},
+      outputs: {
+        default: {},
       },
+      params: {
+        rtmp: {
+          url: this.state.params.rtmp.url,
+        },
+      }
     })
     .then((vertex) => {
       Twixty.info(`Created vertex ${vertex.id}`);
@@ -93,7 +104,7 @@ class RTMPInputVertex extends React.Component {
         </label>
         <label className={style.BlockLabel}>
           <span>RTMP URL</span>
-          <input type="text" value={this.state.rtmp.url} onChange={this.handleChange.bind(this, "rtmp.url")} />
+          <input type="text" value={this.state.params.rtmp.url} onChange={this.handleChange.bind(this, "params.rtmp.url")} />
         </label>
         <label className={style.BlockLabel}>
           <span>Broadcast ID</span>
@@ -111,10 +122,13 @@ RTMPInputVertex.propTypes = {
 
 const RTMPOutputDefaultState = {
   title: "",
-  rtmp: {
-    "test": "test",
-    url: ""
+  params: {
+    rtmp: {
+      url: ""
+    },
   },
+  inputs: {},
+  outputs: {},
   broadcastId: ""
 };
 
@@ -133,9 +147,15 @@ class RTMPOutputVertex extends React.Component {
       broadcastId: this.props.broadcastId,
       title: this.state.title,
       type: "RTMPOutput",
-      rtmp: {
-        url: this.state.rtmp.url,
+      inputs: {
+        default: {}
       },
+      outputs: {},
+      params: {
+        rtmp: {
+          url: this.state.params.rtmp.url,
+        },
+      }
     })
     .then((vertex) => {
       Twixty.info(`Created vertex ${vertex.id}`);
@@ -156,7 +176,7 @@ class RTMPOutputVertex extends React.Component {
         </label>
         <label className={style.BlockLabel}>
           <span>RTMP URL</span>
-          <input type="text" value={this.state.rtmp.url} onChange={this.handleChange.bind(this, "rtmp.url")} />
+          <input type="text" value={this.state.params.rtmp.url} onChange={this.handleChange.bind(this, "params.rtmp.url")} />
         </label>
         <label className={style.BlockLabel}>
           <span>Broadcast ID</span>

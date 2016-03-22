@@ -19,6 +19,12 @@ SK.broadcasts.watch({}).then(function(docs) {
     broadcasts[id] = Broadcast.create({id});
   });
 })
+.on("created", (docs) => {
+  docs.forEach((doc) => {
+    winston.info(`Initializing broadcast ${doc.id}`);
+    broadcasts[doc.id] = Broadcast.create({id: doc.id});
+  });
+})
 .catch(function(err) {
   winston.error("Error getting broadcasts", err);
 });

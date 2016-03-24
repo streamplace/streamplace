@@ -13,15 +13,21 @@ export default class RTMPInputCreator extends BaseCreator {
     v.params.rtmp = {
       url: ""
     };
+    v.params.offsetTime = 0;
     return v;
   }
 
   getFields(v) {
-    return super.getFields(v).concat([
+    return super.getFields(v).concat([(
       <label key="params.rtmp.url" className={style.BlockLabel}>
         <span>RTMP URL</span>
         <input type="text" value={v.params.rtmp.url} onChange={this.setField("params.rtmp.url")} />
       </label>
-    ]);
+    ),(
+      <label key="params.offsetTime" className={style.BlockLabel}>
+        <span>Offset Time (ms)</span>
+        <input type="text" value={v.params.offsetTime} onChange={this.setField("params.offsetTime")} />
+      </label>
+    )]);
   }
 }

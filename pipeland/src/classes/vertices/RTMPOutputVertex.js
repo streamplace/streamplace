@@ -19,7 +19,7 @@ export default class RTMPOutputVertex extends BaseVertex {
       }).catch((err) => {
         this.error(err);
       });
-      this.outputStream = this.ffmpeg()
+      this.ffmpeg = this.createffmpeg()
         .input(this.inputURL)
         .inputOptions([
           // "-fflags +ignidx",
@@ -33,7 +33,7 @@ export default class RTMPOutputVertex extends BaseVertex {
         // .outputOptions([
         //   "-vsync drop",
         // ])
-        .videoFilters("setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'")
+        // .videoFilters("setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'")
         .outputFormat("flv")
         .save(this.doc.params.rtmp.url);
         // .inputFormat("flv")

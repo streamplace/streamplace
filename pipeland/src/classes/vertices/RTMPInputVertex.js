@@ -9,20 +9,22 @@ export default class RTMPInputVertex extends BaseVertex {
 
   init() {
     try {
+      const offsetTime = (this.doc.params.offsetTime || 0) * 1000;
       this.outputURL = this.getUDP();
-      this.currentFFMpeg = this.ffmpeg()
+      this.ffmpeg = this.createffmpeg()
         .input(this.doc.params.rtmp.url)
         .inputFormat("flv")
         .outputOptions([
           // "-vsync drop",
           // "-copyts",
           "-bsf:v h264_mp4toannexb",
-          // "-vf",
-          // "setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'"
+          "-vf",
+          `setpts='(RTCTIME - RTCSTART + ${offsetTime}) / (TB * 1000000)'`
         ])
         .videoCodec("libx264")
         .audioCodec("libmp3lame")
         .outputOptions([
+          "-copyts",
           "-preset ultrafast",
           "-tune zerolatency",
           "-x264opts keyint=5:min-keyint=",
@@ -30,7 +32,7 @@ export default class RTMPInputVertex extends BaseVertex {
         ])
         .outputFormat("mpegts");
 
-      this.currentFFMpeg.save(this.outputURL);
+      this.ffmpeg.save(this.outputURL);
       SK.vertices.update(this.doc.id, {
         outputs: {
           default: {

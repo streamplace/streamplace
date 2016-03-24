@@ -29,11 +29,12 @@ export default class Combine2x1Vertex extends BaseVertex {
 
   init() {
     try {
-      this.currentFFMpeg = this.ffmpeg()
+      this.ffmpeg = this.createffmpeg()
         .input(this.leftInputURL)
         .input(this.rightInputURL)
-        .outputOptions([
-        ])
+        // .outputOptions([
+        //   "-copyts"
+        // ])
         .videoCodec("libx264")
         .outputOptions([
           "-filter_complex [0:v][1:v]hstack[output]",
@@ -45,7 +46,7 @@ export default class Combine2x1Vertex extends BaseVertex {
         ])
         .outputFormat("mpegts");
 
-      this.currentFFMpeg.save(this.outputURL);
+      this.ffmpeg.save(this.outputURL);
     }
     catch (err) {
       this.error(err);

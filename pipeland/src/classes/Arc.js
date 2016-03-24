@@ -19,6 +19,9 @@ export default class Arc extends Base {
       if (arc) {
         this.init();
       }
+      else {
+        this.cleanup();
+      }
     })
 
     .catch((err) => {
@@ -53,13 +56,20 @@ export default class Arc extends Base {
     this.sendPort = parseInt(port);
   }
 
-  init() {
+  cleanup() {
     if (this.fromHandle) {
       this.fromHandle.stop();
     }
     if (this.toHandle) {
       this.toHandle.stop();
     }
+    if (this.server) {
+      this.server.close();
+    }
+  }
+
+  init() {
+    this.cleanup();
     this.fromHandle = SK.vertices.watch({id: this.doc.from.vertexId})
     .on("data", ([vertex]) => {
       const fromSocket = vertex.outputs[this.doc.from.output].socket;

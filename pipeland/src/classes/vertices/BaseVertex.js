@@ -1,5 +1,5 @@
 
-import ffmpeg from "fluent-ffmpeg";
+import fluentffmpeg from "fluent-ffmpeg";
 
 import SK from "../../sk";
 import Base from "../Base";
@@ -28,26 +28,40 @@ export default class BaseVertex extends Base {
     this.retryIdx = 0;
 
     // Watch my vertex, so I can respond appropriately.
-    SK.vertices.watch({id: this.id})
+    this.vertexHandle = SK.vertices.watch({id: this.id})
 
-    .then((docs) => {
-      this.doc = docs[0];
+    .then(([doc]) => {
+      this.doc = doc;
       this.info("Got initial pull.");
       this.init();
     })
 
     .catch((err) => {
       this.error("Error on initial pull", err);
+    })
+
+    .on("deleted", () => {
+      this.cleanup();
     });
   }
 
   /**
    * Get something that is hopefully a fresh UDP address.
-   * @return {[type]} [description]
    */
   getUDP() {
     const ret = `udp://127.0.0.1:${randomPort()}?`;
     return ret;
+  }
+
+  cleanup() {
+    this.deleted = true;
+    if (this.ffmpeg) {
+      this.ffmpeg.kill("SIGKILL");
+    }
+    if (this.vertexHandle) {
+      this.vertexHandle.stop();
+    }
+    this.info("Cleaning up");
   }
 
   retry() {
@@ -57,23 +71,29 @@ export default class BaseVertex extends Base {
       this.retryIdx = this.retryIntervals.length - 1;
     }
     this.info(`Retrying in ${retryInterval / 1000} seconds`);
-    setTimeout(() => {
+    this.timeoutHandle = setTimeout(() => {
+      delete this.timeoutHandle;
       this.init();
     }, retryInterval);
   }
 
   /**
-   * Get a node-fluent-ffmpeg instance that does stuff we like
+   * Get a node-fluent-ffmpeg instance that does stuff we like. Also, hey. There is no good way to
+   * camelcase ffmpeg. I'm just going to leave this method all lower case. Deal.
+   * https://twitter.com/elimallon/status/713086603850178561
    */
-  ffmpeg() {
+  createffmpeg() {
     let logCounter = 0;
-    return ffmpeg()
+    return fluentffmpeg()
 
     .outputOptions([
 
     ])
 
     .on("error", (err, stdout, stderr) => {
+      if (this.deleted) {
+        return;
+      }
       this.error("ffmpeg error", {err: err.toString(), stdout, stderr});
       this.retry();
     })

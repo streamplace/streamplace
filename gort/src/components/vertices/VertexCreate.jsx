@@ -3,12 +3,14 @@ import React from "react";
 import dot from "dot-object";
 import Twixty from "twixtykit";
 
-import Combine2x1Creator from "./creators/Combine2x1Creator";
-import RTMPOutputCreator from "./creators/RTMPOutputCreator";
-import RTMPInputCreator from "./creators/RTMPInputCreator";
 import ArcCreate from "../arcs/ArcCreate";
 import SK from "../../SK";
 import style from "./VertexCreate.scss";
+
+import Combine2x1Creator from "./creators/Combine2x1Creator";
+import RTMPOutputCreator from "./creators/RTMPOutputCreator";
+import RTMPInputCreator from "./creators/RTMPInputCreator";
+import DelayCreator from "./creators/DelayCreator";
 
 export default class VertexCreate extends React.Component {
   constructor(params) {
@@ -45,7 +47,7 @@ export default class VertexCreate extends React.Component {
   }
 }
 
-const vertexCreators = {RTMPInputCreator, RTMPOutputCreator, Combine2x1Creator, ArcCreate};
+const vertexCreators = {RTMPInputCreator, RTMPOutputCreator, Combine2x1Creator, DelayCreator, ArcCreate};
 
 VertexCreate.propTypes = {
   broadcastId: React.PropTypes.string.isRequired

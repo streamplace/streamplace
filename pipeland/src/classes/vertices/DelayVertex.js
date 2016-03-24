@@ -30,11 +30,16 @@ export default class DelayVertex extends BaseVertex {
         // .inputOptions("-itsoffset 00:00:05")
         .outputOptions([
         ])
-        .videoCodec("copy")
+        .videoCodec("libx264")
         .outputOptions([
-          // "-filter_complex",
-          // "[0:v]setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'[output]",
-          // "-map [output]",
+          "-copyts",
+          "-preset ultrafast",
+          "-tune zerolatency",
+          "-x264opts keyint=5:min-keyint=",
+          "-pix_fmt yuv420p",
+          "-filter_complex",
+          "[0:v]setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'[output]",
+          "-map [output]",
         ])
         .outputFormat("mpegts");
 

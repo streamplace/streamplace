@@ -17,18 +17,18 @@ export default class RTMPInputVertex extends BaseVertex {
         .outputOptions([
           // "-vsync drop",
           // "-copyts",
-          "-bsf:v h264_mp4toannexb",
-          "-vf",
-          `setpts='(RTCTIME - RTCSTART + ${offsetTime}) / (TB * 1000000)'`
+          // "-bsf:v h264_mp4toannexb",
+          // "-vf",
+          // `setpts='(RTCTIME - RTCSTART + ${offsetTime}) / (TB * 1000000)'`
         ])
-        .videoCodec("libx264")
-        .audioCodec("libmp3lame")
+        .videoCodec("copy")
+        .noAudio()
         .outputOptions([
-          "-copyts",
-          "-preset ultrafast",
-          "-tune zerolatency",
-          "-x264opts keyint=5:min-keyint=",
-          "-pix_fmt yuv420p",
+          // "-copyts",
+          // "-preset ultrafast",
+          // "-tune zerolatency",
+          // "-x264opts keyint=5:min-keyint=",
+          // "-pix_fmt yuv420p",
         ])
         .outputFormat("mpegts");
 

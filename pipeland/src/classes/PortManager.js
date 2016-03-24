@@ -42,6 +42,7 @@ export default class PortManager extends EE {
     this.listeners -= 1;
     if (this.listeners < 1) {
       winston.info(`All listeners closed, closing port ${this.port}`);
+      delete PortManager.activeListens[`${this.port}`];
       this.server.close();
     }
   }

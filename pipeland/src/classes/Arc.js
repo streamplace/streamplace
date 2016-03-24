@@ -16,8 +16,9 @@ export default class Arc extends Base {
 
     .on("data", ([arc]) => {
       this.doc = arc;
-      this.info("Got initial pull.");
-      this.init();
+      if (arc) {
+        this.init();
+      }
     })
 
     .catch((err) => {
@@ -37,7 +38,9 @@ export default class Arc extends Base {
       this.error(err);
     });
     this.server.on("message", (msg, rinfo) => {
-      this.sendSocket.send(msg, 0, msg.length, this.sendPort, "127.0.0.1");
+      if (this.sendPort) {
+        this.sendSocket.send(msg, 0, msg.length, this.sendPort, "127.0.0.1");
+      }
     });
     this.server.on("listening", () => {
       this.info("listening");
@@ -60,7 +63,7 @@ export default class Arc extends Base {
     this.fromHandle = SK.vertices.watch({id: this.doc.from.vertexId})
     .on("data", ([vertex]) => {
       const fromSocket = vertex.outputs[this.doc.from.output].socket;
-      if (this.fromSocket !== fromSocket) {
+      if (fromSocket && this.fromSocket !== fromSocket) {
         this.fromSocket = fromSocket;
         this.setupFromPipe();
       }
@@ -72,7 +75,7 @@ export default class Arc extends Base {
     this.toHandle = SK.vertices.watch({id: this.doc.to.vertexId})
     .on("data", ([vertex]) => {
       const toSocket = vertex.inputs[this.doc.to.input].socket;
-      if (this.toSocket !== toSocket) {
+      if (toSocket && this.toSocket !== toSocket) {
         this.toSocket = toSocket;
         this.setupToPipe();
       }

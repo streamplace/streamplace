@@ -32,13 +32,12 @@ export default class DelayVertex extends BaseVertex {
         ])
         .videoCodec("libx264")
         .outputOptions([
-          "-copyts",
           "-preset ultrafast",
           "-tune zerolatency",
           "-x264opts keyint=5:min-keyint=",
           "-pix_fmt yuv420p",
           "-filter_complex",
-          "[0:v]setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'[output]",
+          `[0:v]setpts='(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)'[resize];[resize]scale=640:480[output]`,
           "-map [output]",
         ])
         .outputFormat("mpegts");

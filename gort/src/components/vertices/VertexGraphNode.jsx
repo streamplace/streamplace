@@ -38,11 +38,18 @@ export default class VertexGraphNode extends React.Component {
     if (this.props.selected) {
       className = style.VertexNodeSelected;
     }
+    let statusText;
+    if (v.status === "ACTIVE") {
+      statusText = <p>{v.timemark}</p>;
+    }
+    else {
+      statusText = <p>{v.status}</p>;
+    }
     return (
       <div onClick={this.handleClick.bind(this)} className={className}>
         <em>{v.type}</em>
         <h5>{v.title}</h5>
-        <p>{v.timemark}</p>
+        {statusText}
       </div>
     );
   }

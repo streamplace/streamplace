@@ -11,12 +11,17 @@ const randomPort = function() {
   return getRandomArbitrary(40000, 50000);
 };
 
+// This is used as the "00:00:00" point for keeping all streams in sync.
+const SERVER_START_TIME = (new Date()).getTime() * 1000;
+
 export default class BaseVertex extends Base {
   constructor({id, broadcast}) {
     super();
     this.id = id;
     this.broadcast = broadcast;
     this.info("initializing");
+
+    this.SERVER_START_TIME = SERVER_START_TIME;
 
     // I dunno, retry counter or whatever?
     this.retryIntervals = [
@@ -32,8 +37,16 @@ export default class BaseVertex extends Base {
 
     .then(([doc]) => {
       this.doc = doc;
+      SK.vertices.update(this.id, {
+        status: "WAITING",
+        timemark: ""
+      });
       this.info("Got initial pull.");
       this.init();
+    })
+
+    .on("updated", ([doc]) => {
+      this.doc = doc;
     })
 
     .catch((err) => {
@@ -100,6 +113,9 @@ export default class BaseVertex extends Base {
 
     .on("codecData", (data) => {
       this.info("ffmpeg codecData", data);
+      SK.vertices.update(this.id, {
+        status: "CODEC",
+      });
     })
 
     .on("end", () => {
@@ -111,7 +127,10 @@ export default class BaseVertex extends Base {
       if (logCounter === 0) {
         this.info(`[${data.timemark}] ${data.currentFps}FPS ${data.currentKbps}Kbps`);
       }
-      SK.vertices.update(this.id, {timemark: data.timemark});
+      SK.vertices.update(this.id, {
+        status: "ACTIVE",
+        timemark: data.timemark
+      });
       logCounter = (logCounter + 1) % 15;
     })
 

@@ -37,6 +37,8 @@ export default class Combine2x1Vertex extends BaseVertex {
         // ])
         .videoCodec("libx264")
         .outputOptions([
+          "-copyts",
+          "-vsync passthrough",
           "-filter_complex [0:v][1:v]hstack[output]",
           "-map [output]",
           "-preset ultrafast",

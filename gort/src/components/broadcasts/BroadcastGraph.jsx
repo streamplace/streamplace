@@ -108,7 +108,9 @@ export default class BroadcastGraph extends React.Component {
 
     this.arcHandle = SK.arcs.watch({broadcastId})
     .on("data", (arcs) => {
-      this.setState({arcs});
+      if (arcs.length !== this.state.arcs.length) {
+        this.setState({arcs});
+      }
     })
     .catch((...args) => {
       twixty.error(...args);

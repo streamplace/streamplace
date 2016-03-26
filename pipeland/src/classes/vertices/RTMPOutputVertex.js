@@ -5,20 +5,20 @@ import SK from "../../sk";
 export default class RTMPOutputVertex extends BaseVertex {
   constructor({id}) {
     super({id});
+    this.inputURL = this.getUDP() + "reuse=1";
+    SK.vertices.update(id, {
+      inputs: {
+        default: {
+          socket: this.inputURL
+        }
+      }
+    }).catch((err) => {
+      this.error(err);
+    });
   }
 
   init() {
     try {
-      this.inputURL = this.getUDP() + "reuse=1";
-      SK.vertices.update(this.doc.id, {
-        inputs: {
-          default: {
-            socket: this.inputURL
-          }
-        }
-      }).catch((err) => {
-        this.error(err);
-      });
       this.ffmpeg = this.createffmpeg()
         .input(this.inputURL)
         .inputOptions([

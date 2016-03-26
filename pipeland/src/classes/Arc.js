@@ -4,6 +4,7 @@ import url from "url";
 
 import PortManager from "./PortManager";
 import Base from "./Base";
+import UDPBuffer from "./UDPBuffer";
 import SK from "../sk";
 
 export default class Arc extends Base {
@@ -13,20 +14,35 @@ export default class Arc extends Base {
     const {id, broadcast} = params;
     this.id = id;
     this.broadcast = broadcast;
+
+    // Set up our UDP buffer
+    this.buffer = new UDPBuffer({delay: 0});
+
     // Bind all of our handlers, so that we can `.on` and `.removeListener` them with impunity
-    this.handleMessage = this.handleMessage.bind(this);
+    this.handleSocketMessage = this.handleSocketMessage.bind(this);
     this.handleError = this.handleError.bind(this);
+    this.handleBufferMessage = this.handleBufferMessage.bind(this);
+    this.handleBufferInfo = this.handleBufferInfo.bind(this);
+
+    this.buffer.on("message", this.handleBufferMessage);
+    this.buffer.on("info", this.handleBufferInfo);
 
     // Watch our arc!
     SK.arcs.watch({id: this.id})
     .on("data", ([arc]) => {
+      this.buffer.setDelay(arc.delay);
+      const shouldInit = !this.doc || arc.from.vertexId !== this.doc.from.vertexId ||
+        arc.to.vertexId !== this.doc.to.vertexId;
       this.doc = arc;
       if (arc) {
-        this.init();
+        if (shouldInit) {
+          this.init();
+        }
       }
       else {
         this.closeListener();
         this.cleanup();
+        this.buffer.removeListener("message", this.handleBufferMessage);
       }
     })
 
@@ -42,13 +58,13 @@ export default class Arc extends Base {
     const {port} = url.parse(this.fromSocket);
     this.server = PortManager.createSocket(port);
     this.server.on("error", this.handleError);
-    this.server.on("message", this.handleMessage);
+    this.server.on("message", this.handleSocketMessage);
   }
 
   closeListener() {
     if (this.server) {
       this.server.removeListener("error", this.handleError);
-      this.server.removeListener("message", this.handleMessage);
+      this.server.removeListener("message", this.handleSocketMessage);
       this.server.close();
       this.server = null;
     }
@@ -58,10 +74,18 @@ export default class Arc extends Base {
     this.error(err);
   }
 
-  handleMessage(msg, rinfo) {
+  handleSocketMessage(msg, rinfo) {
+    this.buffer.push(msg);
+  }
+
+  handleBufferMessage(msg) {
     if (this.sendPort) {
       this.sendSocket.send(msg, 0, msg.length, this.sendPort, "127.0.0.1");
     }
+  }
+
+  handleBufferInfo({size}) {
+    SK.arcs.update(this.id, {size});
   }
 
   setupToPipe() {

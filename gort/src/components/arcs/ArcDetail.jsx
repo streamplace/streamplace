@@ -14,7 +14,8 @@ export default class ArcDetail extends React.Component {
       arc: {
         kind: "arc",
         from: {},
-        to: {}
+        to: {},
+        delay: 0
       },
     };
   }
@@ -110,17 +111,32 @@ export default class ArcDetail extends React.Component {
     return ret;
   }
 
+  handleChange(field, e) {
+    const newArc = {...this.state.arc};
+    newArc[field] = e.target.value;
+    this.setState({arc: newArc});
+    this.props.onChange(newArc);
+  }
+
   render() {
+    if (!this.state.arc) {
+      return <br />;
+    }
     return (
-      <section className={style.ArcPicker}>
-        <div className={style.ArcFrom}>
-          {this.makeList("from")}
-        </div>
-        <div className={style.ArcPointer}>
-          <span className="fa fa-caret-square-o-right" />
-        </div>
-        <div className={style.ArcTo}>
-          {this.makeList("to")}
+      <section>
+        <section className={style.ArcPicker}>
+          <div className={style.ArcFrom}>
+            {this.makeList("from")}
+          </div>
+          <div className={style.ArcPointer}>
+            <span className="fa fa-caret-square-o-right" />
+          </div>
+          <div className={style.ArcTo}>
+            {this.makeList("to")}
+          </div>
+        </section>
+        <div>
+          <p>Delay: <input value={this.state.arc.delay} onChange={this.handleChange.bind(this, "delay")} /></p>
         </div>
       </section>
     );

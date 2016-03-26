@@ -50,7 +50,8 @@ export default class ArcGraphNode extends React.Component {
       <div className={className} onClick={this.handleClick.bind(this)}>
         <div className={style.ArcNodeContent}>
           {this.state.from.title}<br />
-          {this.state.to.title}
+          {this.state.to.title}<br />
+          {this.state.arc.size}
         </div>
       </div>
     );

@@ -73,7 +73,7 @@ export default class UDPBuffer extends EE {
   }
 }
 
-UDPBuffer.TICK_RATE = 30;
+UDPBuffer.TICK_RATE = 3;
 UDPBuffer.buffers = [];
 setInterval(function() {
   UDPBuffer.buffers.forEach(function(buffer) {

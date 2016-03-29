@@ -49,7 +49,7 @@ module.exports = {
   resolve: {
     root: [
       path.resolve(__dirname),
-      path.resolve("../lib"),
+      path.resolve(".."), // So we can resolve all our other packages
     ],
     extensions: [".js", ".jsx", ".scss", "json", ""]
   },

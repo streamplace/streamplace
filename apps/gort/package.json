@@ -33,7 +33,6 @@
     "react-router": "^2.0.0",
     "sass-loader": "^3.1.2",
     "style-loader": "^0.13.0",
-    "twixtykit": "../lib/twixtykit",
     "underscore": "^1.8.3",
     "url-loader": "^0.5.7",
     "webpack": "^1.12.13",
@@ -42,6 +41,7 @@
   "devDependencies": {
     "babel-plugin-transform-object-rest-spread": "^6.6.5",
     "express": "^4.13.4",
-    "json-loader": "^0.5.4"
+    "json-loader": "^0.5.4",
+    "morgan": "^1.7.0"
   }
 }

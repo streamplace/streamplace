@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "edit": "swagger project edit -s -p 4949 --host 0.0.0.0",
-    "build": "js-yaml api/swagger/swagger.yaml > dist/schema.json",
+    "build": "mkdir -p dist && js-yaml api/swagger/swagger.yaml > dist/schema.json",
     "dev": "nodemon -w api -x npm run build"
   },
   "author": "",

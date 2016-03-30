@@ -40,6 +40,7 @@ export default class BaseCreator extends React.Component {
     const newVertex = {...this.state.vertex};
     dot.set(field, e.target.value, newVertex);
     this.setState({vertex: newVertex});
+    return newVertex;
   }
 
   /**

@@ -29,21 +29,28 @@ export default class Arc extends Base {
 
     // Watch our arc!
     SK.arcs.watch({id: this.id})
-    .on("data", ([arc]) => {
-      const shouldInit = !this.doc || arc.from.vertexId !== this.doc.from.vertexId ||
+    .then(([arc]) => {
+      this.doc = arc;
+      this.buffer.setDelay(arc.delay);
+      this.init();
+    })
+    .on("updated", ([arc]) => {
+      if (this.doc.delay !== arc.delay) {
+        this.buffer.setDelay(arc.delay);
+      }
+      // If the vertices that we're connecting changed, reinit.
+      const shouldReinit =
+        arc.from.vertexId !== this.doc.from.vertexId ||
         arc.to.vertexId !== this.doc.to.vertexId;
       this.doc = arc;
-      if (arc) {
-        this.buffer.setDelay(arc.delay);
-        if (shouldInit) {
-          this.init();
-        }
+      if (shouldReinit) {
+        this.init();
       }
-      else {
-        this.closeListener();
-        this.cleanup();
-        this.buffer.removeListener("message", this.handleBufferMessage);
-      }
+    })
+    .on("deleted", () => {
+      this.closeListener();
+      this.cleanup();
+      this.buffer.removeListener("message", this.handleBufferMessage);
     })
 
     .catch((err) => {

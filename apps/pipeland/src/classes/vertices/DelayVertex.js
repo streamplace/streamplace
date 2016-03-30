@@ -36,12 +36,13 @@ export default class DelayVertex extends BaseVertex {
         .outputOptions([
         ])
         .videoCodec("libx264")
-        .audioCodec("pcm_s16le")
+        .audioCodec("libmp3lame")
         .outputOptions([
           "-preset ultrafast",
           "-tune zerolatency",
           "-x264opts keyint=5:min-keyint=",
           "-pix_fmt yuv420p",
+          "-probesize 25000000",
           "-filter_complex",
           [
             `[0:a]asetpts='(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)'[out_audio]`,

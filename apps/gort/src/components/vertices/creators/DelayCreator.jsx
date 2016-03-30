@@ -10,7 +10,8 @@ export default class DelayCreator extends BaseCreator {
     const v = super.getDefaultVertex(params);
     v.type = "Delay";
     v.inputs.default = {};
-    v.outputs.default = {};
+    v.outputs.video = {};
+    v.outputs.audio = {};
     v.params.delayTime = 0;
     return v;
   }

@@ -42,7 +42,7 @@ export default class BaseVertex extends Base {
         timemark: ""
       });
       this.info("Got initial pull.");
-      this.init();
+      this.handleInitialPull(doc);
     })
 
     .on("updated", ([doc]) => {
@@ -58,12 +58,20 @@ export default class BaseVertex extends Base {
     });
   }
 
+  handleInitialPull(doc) {
+    this.init();
+  }
+
   /**
    * Get something that is hopefully a fresh UDP address.
    */
   getUDP() {
     const ret = `udp://127.0.0.1:${randomPort()}?`;
     return ret;
+  }
+
+  getUDPInput() {
+    return this.getUDP() + "reuse=1&fifo_size=1000000&overrun_nonfatal=1";
   }
 
   cleanup() {
@@ -135,7 +143,13 @@ export default class BaseVertex extends Base {
     })
 
     .on("start", (command) => {
-      this.info("ffmpeg start: " + command);
+      const sanitizedCommand = command.split(" ").map((word) => {
+        if (word.indexOf("?") !== -1) {
+          return `"${word}"`;
+        }
+        return word;
+      }).join(" ");
+      this.info("ffmpeg start: " + sanitizedCommand);
     });
   }
 }

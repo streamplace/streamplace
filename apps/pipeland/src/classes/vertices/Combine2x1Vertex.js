@@ -39,7 +39,7 @@ export default class Combine2x1Vertex extends BaseVertex {
         .outputOptions([
           "-copyts",
           "-vsync passthrough",
-          "-filter_complex [0:v][1:v]hstack[output]",
+          "-filter_complex [0:v]scale=960:1080[resize0];[1:v]scale=960:1080[resize1];[resize0][resize1]hstack[output]",
           "-map [output]",
           "-preset ultrafast",
           "-tune zerolatency",

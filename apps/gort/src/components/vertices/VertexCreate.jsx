@@ -11,6 +11,7 @@ import Combine2x1Creator from "./creators/Combine2x1Creator";
 import RTMPOutputCreator from "./creators/RTMPOutputCreator";
 import RTMPInputCreator from "./creators/RTMPInputCreator";
 import DelayCreator from "./creators/DelayCreator";
+import AudioMixCreator from "./creators/AudioMixCreator";
 
 export default class VertexCreate extends React.Component {
   constructor(params) {
@@ -47,7 +48,14 @@ export default class VertexCreate extends React.Component {
   }
 }
 
-const vertexCreators = {RTMPInputCreator, RTMPOutputCreator, Combine2x1Creator, DelayCreator, ArcCreate};
+const vertexCreators = {
+  RTMPInputCreator,
+  RTMPOutputCreator,
+  Combine2x1Creator,
+  DelayCreator,
+  AudioMixCreator,
+  ArcCreate
+};
 
 VertexCreate.propTypes = {
   broadcastId: React.PropTypes.string.isRequired

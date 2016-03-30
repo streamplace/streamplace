@@ -84,7 +84,9 @@ export class SocketCursor extends Cursor {
       throw new Error("Got unknown message: " + type);
     }
     const knownDocsArr = _(this.knownDocs).values();
-    this.evt.emit(type, knownDocsArr, ids);
+    this.then(() => {
+      this.evt.emit(type, knownDocsArr, ids);
+    });
   }
 
   stop() {

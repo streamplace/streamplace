@@ -10,6 +10,7 @@ import RTMPInputVertex from "./vertices/RTMPInputVertex";
 import RTMPOutputVertex from "./vertices/RTMPOutputVertex";
 import Combine2x1Vertex from "./vertices/Combine2x1Vertex";
 import DelayVertex from "./vertices/DelayVertex";
+import AudioMixVertex from "./vertices/AudioMixVertex";
 
 const Vertex = {};
 
@@ -26,6 +27,9 @@ Vertex.create = function(params) {
   }
   else if (type === "Delay") {
     return new DelayVertex(params);
+  }
+  else if (type === "AudioMix") {
+    return new AudioMixVertex(params);
   }
   else {
     throw new Error(`Unknown Vertex Type: ${type}`);

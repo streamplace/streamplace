@@ -4,6 +4,7 @@
     <link href="//vjs.zencdn.net/4.12/video-js.css" rel="stylesheet">
     <script src="//vjs.zencdn.net/4.12/video.js"></script>
     <script src="https://code.jquery.com/jquery-2.2.2.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.0.0/normalize.min.css">
   </head>
   <script>
     $(function() {
@@ -25,9 +26,14 @@
       });
     });
   </script>
+  <style>
+    html, body {
+      height: 100%;
+    }
+  </style>
   <body>
     <video id="really-cool-video" autoplay class="video-js vjs-default-skin" controls
-      preload="auto" width="640" height="480"
+      preload="auto" width="100%" height="100%"
       data-setup='{}'>
     </video>
   </body>

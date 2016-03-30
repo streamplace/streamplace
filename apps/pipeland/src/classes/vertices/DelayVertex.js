@@ -45,8 +45,7 @@ export default class DelayVertex extends BaseVertex {
           "-filter_complex",
           [
             `[0:a]asetpts='(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)'[out_audio]`,
-            `[0:v]setpts='(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)'[resize]`,
-            "[resize]scale=640:480[out_video]",
+            `[0:v]setpts='(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)'[out_video]`,
           ].join(";")
         ])
 

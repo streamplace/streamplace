@@ -5,11 +5,15 @@ import SK from "../../sk";
 export default class RTMPOutputVertex extends BaseVertex {
   constructor({id}) {
     super({id});
-    this.inputURL = this.getUDP() + "reuse=1";
+    this.videoInputURL = this.getUDP() + "reuse=1";
+    this.audioInputURL = this.getUDP() + "reuse=1";
     SK.vertices.update(id, {
       inputs: {
-        default: {
-          socket: this.inputURL
+        video: {
+          socket: this.videoInputURL,
+        },
+        audio: {
+          socket: this.audioInputURL,
         }
       }
     }).catch((err) => {
@@ -20,19 +24,22 @@ export default class RTMPOutputVertex extends BaseVertex {
   init() {
     try {
       this.ffmpeg = this.createffmpeg()
-        .input(this.inputURL)
+        .input(this.videoInputURL)
         .inputOptions([
           // "-fflags +ignidx",
           // "-fflags +igndts",
           // "-fflags +discardcorrupt",
         ])
         .inputFormat("mpegts")
+        .input(this.audioInputURL)
+        .inputFormat("mpegts")
         // .inputFormat("ismv")
         .audioCodec("aac")
         .videoCodec("libx264")
-        // .outputOptions([
-        //   "-vsync drop",
-        // ])
+        .outputOptions([
+          "-copyts",
+          "-vsync passthrough",
+        ])
         // .videoFilters("setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'")
         .outputFormat("flv")
         .save(this.doc.params.rtmp.url);

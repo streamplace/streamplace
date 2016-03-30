@@ -30,11 +30,11 @@ export default class Arc extends Base {
     // Watch our arc!
     SK.arcs.watch({id: this.id})
     .on("data", ([arc]) => {
-      this.buffer.setDelay(arc.delay);
       const shouldInit = !this.doc || arc.from.vertexId !== this.doc.from.vertexId ||
         arc.to.vertexId !== this.doc.to.vertexId;
       this.doc = arc;
       if (arc) {
+        this.buffer.setDelay(arc.delay);
         if (shouldInit) {
           this.init();
         }

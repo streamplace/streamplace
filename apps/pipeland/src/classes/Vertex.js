@@ -9,6 +9,7 @@ import Base from "./Base";
 import RTMPInputVertex from "./vertices/RTMPInputVertex";
 import RTMPOutputVertex from "./vertices/RTMPOutputVertex";
 import Combine2x1Vertex from "./vertices/Combine2x1Vertex";
+import Combine2x2Vertex from "./vertices/Combine2x2Vertex";
 import DelayVertex from "./vertices/DelayVertex";
 import AudioMixVertex from "./vertices/AudioMixVertex";
 
@@ -24,6 +25,9 @@ Vertex.create = function(params) {
   }
   else if (type === "Combine2x1") {
     return new Combine2x1Vertex(params);
+  }
+  else if (type === "Combine2x2") {
+    return new Combine2x2Vertex(params);
   }
   else if (type === "Delay") {
     return new DelayVertex(params);

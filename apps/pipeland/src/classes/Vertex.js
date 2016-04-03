@@ -15,29 +15,22 @@ import AudioMixVertex from "./vertices/AudioMixVertex";
 
 const Vertex = {};
 
+const VertexMap = {
+  "RTMPInput": RTMPInputVertex,
+  "RTMPOutput": RTMPOutputVertex,
+  "Combine2x1": Combine2x1Vertex,
+  "Combine2x2": Combine2x2Vertex,
+  "Delay": DelayVertex,
+  "AudioMix": AudioMixVertex,
+};
+
 Vertex.create = function(params) {
   const {id, type} = params;
-  if (type === "RTMPInput") {
-    return new RTMPInputVertex(params);
-  }
-  else if (type === "RTMPOutput") {
-    return new RTMPOutputVertex(params);
-  }
-  else if (type === "Combine2x1") {
-    return new Combine2x1Vertex(params);
-  }
-  else if (type === "Combine2x2") {
-    return new Combine2x2Vertex(params);
-  }
-  else if (type === "Delay") {
-    return new DelayVertex(params);
-  }
-  else if (type === "AudioMix") {
-    return new AudioMixVertex(params);
-  }
-  else {
+  const VertexClass = VertexMap[type];
+  if (!VertexClass) {
     throw new Error(`Unknown Vertex Type: ${type}`);
   }
+  return new VertexClass(params);
 };
 
 export default Vertex;

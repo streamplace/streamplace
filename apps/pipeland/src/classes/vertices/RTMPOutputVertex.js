@@ -5,15 +5,11 @@ import SK from "../../sk";
 export default class RTMPOutputVertex extends BaseVertex {
   constructor({id}) {
     super({id});
-    this.videoInputURL = this.getUDPInput();
-    this.audioInputURL = this.getUDPInput();
+    this.inputURL = this.getUDPInput();
     SK.vertices.update(id, {
       inputs: {
-        video: {
+        default: {
           socket: this.videoInputURL,
-        },
-        audio: {
-          socket: this.audioInputURL,
         }
       }
     }).catch((err) => {
@@ -24,18 +20,11 @@ export default class RTMPOutputVertex extends BaseVertex {
   init() {
     try {
       this.ffmpeg = this.createffmpeg()
-        .input(this.videoInputURL)
-        .inputOptions([
-          // "-fflags +ignidx",
-          // "-fflags +igndts",
-          // "-fflags +discardcorrupt",
-        ])
-        .inputFormat("mpegts")
-        .input(this.audioInputURL)
+        .input(this.inputURL)
         .inputFormat("mpegts")
         // .inputFormat("ismv")
-        .audioCodec("aac")
-        .videoCodec("libx264")
+        // .audioCodec("copy")
+        .videoCodec("copy")
         .outputOptions([
           "-copyts",
           "-vsync passthrough",

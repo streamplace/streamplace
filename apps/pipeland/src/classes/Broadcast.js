@@ -33,11 +33,16 @@ export default class Broadcast extends Base {
       vertices.forEach((vertex) => {
         if (!this.vertices[vertex.id]) {
           this.info(`initializing vertex ${vertex.id}`);
-          this.vertices[vertex.id] = Vertex.create({
-            id: vertex.id,
-            type: vertex.type,
-            broadcast: this,
-          });
+          try {
+            this.vertices[vertex.id] = Vertex.create({
+              id: vertex.id,
+              type: vertex.type,
+              broadcast: this,
+            });
+          }
+          catch(e) {
+            winston.error(e);
+          }
         }
       });
     })

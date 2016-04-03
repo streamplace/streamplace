@@ -1,6 +1,7 @@
 
 import fluentffmpeg from "fluent-ffmpeg";
 
+import M from "../MagicFilters";
 import SK from "../../sk";
 import Base from "../Base";
 

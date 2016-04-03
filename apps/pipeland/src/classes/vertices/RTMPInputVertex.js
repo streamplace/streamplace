@@ -31,8 +31,8 @@ export default class RTMPInputVertex extends BaseVertex {
           // `setpts='(RTCTIME - RTCSTART + ${offsetTime}) / (TB * 1000000)'`
         ])
         .videoCodec("copy")
-        .audioCodec("copy")
-        // .noAudio()
+        // .audioCodec("copy")
+        .noAudio()
         .outputOptions([
           // "-copyts",
           // "-preset ultrafast",
@@ -40,9 +40,10 @@ export default class RTMPInputVertex extends BaseVertex {
           // "-x264opts keyint=5:min-keyint=",
           // "-pix_fmt yuv420p",
         ])
-        .outputFormat("mpegts");
+        .outputFormat("mpegts")
+        .output(this.outputURL);
 
-      this.ffmpeg.save(this.outputURL);
+      this.ffmpeg.run();
     }
     catch (err) {
       this.error(err);

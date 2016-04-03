@@ -9,7 +9,7 @@ export default class RTMPOutputVertex extends BaseVertex {
     SK.vertices.update(id, {
       inputs: {
         default: {
-          socket: this.videoInputURL,
+          socket: this.inputURL,
         }
       }
     }).catch((err) => {

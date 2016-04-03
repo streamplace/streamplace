@@ -12,6 +12,7 @@ import Combine2x1Vertex from "./vertices/Combine2x1Vertex";
 import Combine2x2Vertex from "./vertices/Combine2x2Vertex";
 import DelayVertex from "./vertices/DelayVertex";
 import AudioMixVertex from "./vertices/AudioMixVertex";
+import MagicVertex from "./vertices/MagicVertex";
 
 const Vertex = {};
 
@@ -22,6 +23,7 @@ const VertexMap = {
   "Combine2x2": Combine2x2Vertex,
   "Delay": DelayVertex,
   "AudioMix": AudioMixVertex,
+  "Magic": MagicVertex,
 };
 
 Vertex.create = function(params) {

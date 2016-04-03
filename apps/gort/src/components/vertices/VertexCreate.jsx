@@ -11,6 +11,7 @@ import Combine2x1Creator from "./creators/Combine2x1Creator";
 import Combine2x2Creator from "./creators/Combine2x2Creator";
 import RTMPOutputCreator from "./creators/RTMPOutputCreator";
 import RTMPInputCreator from "./creators/RTMPInputCreator";
+import MagicCreator from "./creators/MagicCreator";
 import DelayCreator from "./creators/DelayCreator";
 import AudioMixCreator from "./creators/AudioMixCreator";
 
@@ -56,6 +57,7 @@ const vertexCreators = {
   Combine2x2Creator,
   DelayCreator,
   AudioMixCreator,
+  MagicCreator,
   ArcCreate
 };
 

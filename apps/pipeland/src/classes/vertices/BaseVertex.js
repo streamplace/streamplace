@@ -147,6 +147,12 @@ export default class BaseVertex extends Base {
         if (word.indexOf("?") !== -1) {
           return `"${word}"`;
         }
+        if (word.indexOf(";") !== -1) {
+          return `"${word}"`;
+        }
+        if (word.indexOf("]") !== -1) {
+          return `"${word}"`;
+        }
         return word;
       }).join(" ");
       this.info("ffmpeg start: " + sanitizedCommand);

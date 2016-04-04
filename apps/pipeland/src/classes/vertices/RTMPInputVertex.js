@@ -26,6 +26,7 @@ export default class RTMPInputVertex extends BaseVertex {
         .outputOptions([
           // "-vsync drop",
           // "-copyts",
+          // "-start_at_zero",
           // "-bsf:v h264_mp4toannexb",
           // "-vf",
           // `setpts='(RTCTIME - RTCSTART + ${offsetTime}) / (TB * 1000000)'`
@@ -34,8 +35,12 @@ export default class RTMPInputVertex extends BaseVertex {
         // .audioCodec("copy")
         .noAudio()
         .outputOptions([
+          "-use_wallclock_as_timestamps 1",
+          "-mpegts_copyts 1",
           // "-copyts",
-          // "-preset ultrafast",
+          // "-start_at_zero",
+          // "-fflags +genpts",
+          // "-timestamp NOW",
           // "-tune zerolatency",
           // "-x264opts keyint=5:min-keyint=",
           // "-pix_fmt yuv420p",
@@ -43,6 +48,9 @@ export default class RTMPInputVertex extends BaseVertex {
         .outputFormat("mpegts")
         .output(this.outputURL);
 
+      if (this.doc.title === "iPad") {
+        this.ffmpeg.outputOptions(["-output_ts_offset 00:00:01"]);
+      }
       this.ffmpeg.run();
     }
     catch (err) {

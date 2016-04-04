@@ -45,7 +45,7 @@ export default class DelayVertex extends BaseVertex {
           "-probesize 25000000",
           "-filter_complex",
           [
-            `[0:a]asetpts='(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)'[out_audio]`,
+            // `[0:a]asetpts='(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)'[out_audio]`,
             `[0:v]setpts='(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)'[out_video]`,
           ].join(";")
         ])
@@ -58,11 +58,11 @@ export default class DelayVertex extends BaseVertex {
         .outputFormat("mpegts")
 
         // Audio output
-        .output(this.audioOutputURL)
-        .outputOptions([
-          "-map [out_audio]",
-        ])
-        .outputFormat("mpegts");
+        // .output(this.audioOutputURL)
+        // .outputOptions([
+        //   "-map [out_audio]",
+        // ])
+        // .outputFormat("mpegts");
 
       this.ffmpeg.run();
     }

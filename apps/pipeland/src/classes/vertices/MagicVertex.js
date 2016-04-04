@@ -6,11 +6,15 @@ import BaseVertex from "./BaseVertex";
 import SK from "../../sk";
 import m from "../MagicFilters";
 
+const MAIN_SWITCHER_LABEL = "mainSwitcher";
+const SPLIT_SCREEN_TOP_SWITCHER_LABEL = "splitScreenTopSwitcher";
+const SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL = "splitScreenBottomSwitcher";
+
 export default class MagicVertex extends BaseVertex {
   constructor({id}) {
     super({id});
     this.outputURL = this.getUDP();
-    // this.debug = true;
+    this.debug = true;
   }
 
   handleInitialPull() {
@@ -48,27 +52,81 @@ export default class MagicVertex extends BaseVertex {
           .inputFormat("mpegts")
           .magic(
             `${i}:v`,
+            // m.realtime({limit: 2000000}),
             m.setpts(`(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)`),
+            // m.setpts(`PTS-STARTPTS`),
             m.scale(1920, 1080),
-            inputName
-          );
+            m.split(3),
+            inputName + "default",
+            inputName + "splitTop",
+            inputName + "splitBottom"
+          )
+        .inputOptions([
+          "-thread_queue_size 512",
+          // "-avioflags direct",
+        ]);
       });
+
+      // Define splitscreen switcher
+      this.ffmpeg
+        .magic(
+          ...inputNames.map(name => name + "splitTop"),
+          m.streamselect({
+            inputs: inputNames.length,
+            map: 0,
+            _label: SPLIT_SCREEN_TOP_SWITCHER_LABEL
+          }),
+          m.crop({
+            w: 1920,
+            h: 540,
+            x: 0,
+            y: 270,
+          }),
+          "splitScreenTop"
+        )
+
+        .magic(
+          ...inputNames.map(name => name + "splitBottom"),
+          m.streamselect({
+            inputs: inputNames.length,
+            map: 1,
+            _label: SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL
+          }),
+          m.crop({
+            w: 1920,
+            h: 540,
+            x: 0,
+            y: 270,
+          }),
+          "splitScreenBottom"
+        )
+
+        .magic(
+          "splitScreenTop",
+          "splitScreenBottom",
+          m.vstack(),
+          "splitScreenOut"
+        )
 
       this.ffmpeg
         .outputOptions([
-          "-copyts",
-          // "-loglevel verbose",
+          // "-copyts",
+          "-vsync vfr",
+          "-use_wallclock_as_timestamps 1",
+          // "-fflags +genpts",
+          // "-loglevel debug",
         ])
         .magic(
-          ...inputNames,
-          m.streamselect({inputs: inputNames.length, map: 1}),
+          ...inputNames.map(name => name + "default"),
+          "splitScreenOut",
+          m.streamselect({inputs: inputNames.length + 1, map: 2, _label: MAIN_SWITCHER_LABEL}),
           m.zmq({bind_address: "tcp://0.0.0.0:5555"}),
           "output"
         )
         .outputOptions([
           "-map [output]",
           "-preset veryfast",
-          "-r 30",
+          "-frame_drop_threshold 60",
         ])
         .outputFormat("mpegts")
         .videoCodec("libx264")
@@ -76,12 +134,13 @@ export default class MagicVertex extends BaseVertex {
           const socket = zmq.socket("req");
           socket.on("connect", (fd, ep) => {
             let idx = 0;
+            let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
             setInterval(function() {
               idx += 1;
-              if (idx >= inputNames.length) {
+              if (idx >= inputNames.length + 1) {
                 idx = 0;
               }
-              socket.send(`Parsed_streamselect_4 map ${idx}`);
+              socket.send(`${label} map ${idx}`);
             }, 3000);
             this.info("connect, endpoint:", ep);
           });

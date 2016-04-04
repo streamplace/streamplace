@@ -47,6 +47,9 @@ export default class ArcDetail extends React.Component {
         throw new Error("ArcDetail called with create false but no arcId.");
       }
       this.arcHandle = SK.arcs.watch({id: props.arcId})
+      .then((arcs) => {
+        this.setState({initialDelay: arcs[0].delay})
+      })
       .on("data", (arcs) => {
         this.setState({arc: arcs[0]});
       })
@@ -114,7 +117,11 @@ export default class ArcDetail extends React.Component {
   handleChange(field, e) {
     const newArc = {...this.state.arc};
     newArc[field] = e.target.value;
+    if (field === "delay") {
+      this.setState({initialDelay: e.target.value});
+    }
     this.setState({arc: newArc});
+    newArc.delay = e.target.value;
     this.props.onChange(newArc);
   }
 
@@ -136,7 +143,7 @@ export default class ArcDetail extends React.Component {
           </div>
         </section>
         <div>
-          <p>Delay: <input value={this.state.arc.delay} onChange={this.handleChange.bind(this, "delay")} /></p>
+          <p>Delay: <input value={this.state.initialDelay} onChange={this.handleChange.bind(this, "delay")} /></p>
         </div>
       </section>
     );

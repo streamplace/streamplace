@@ -17,6 +17,8 @@ const isFilterNode = Symbol("isFilterNode");
 
 fluent.prototype.magic = function(...args) {
   if (!this._magicFilters) {
+    this._filterIdx = 0;
+    this.filterLabels = {};
     this._magicFilters = [];
     this._origRun = this.run;
     this.run = function(...args) {
@@ -55,6 +57,10 @@ fluent.prototype.magic = function(...args) {
     else if (arg[isFilterNode] === true) {
       doneWithInputs = true;
       filters.push(arg.toString());
+      if (arg.label) {
+        this.filterLabels[arg.label] = `Parsed_${arg.name}_${this._filterIdx}`;
+      }
+      this._filterIdx += 1;
     }
   }
   this._magicFilters.push([
@@ -99,7 +105,13 @@ class FilterNode {
       // If it's an object, add its k/v pairs to our named arguments.
       else if (_(arg).isObject()) {
         Object.keys(arg).forEach((k) => {
-          this.namedArgs[k] = escapeParam(arg[k]);
+          // Special case: _label is our internal label
+          if (k === "_label") {
+            this.label = arg[k];
+          }
+          else {
+            this.namedArgs[k] = escapeParam(arg[k]);
+          }
         });
       }
 

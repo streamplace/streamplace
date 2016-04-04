@@ -74,7 +74,7 @@ export default class BaseVertex extends Base {
   }
 
   getUDPInput() {
-    return this.getUDP() + "reuse=1&fifo_size=1000000&overrun_nonfatal=1";
+    return this.getUDP() + "reuse=1&fifo_size=1000000&buffer_size=1000000&overrun_nonfatal=1";
   }
 
   cleanup() {

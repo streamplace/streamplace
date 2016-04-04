@@ -1,5 +1,6 @@
 
 import fluentffmpeg from "fluent-ffmpeg";
+import {parse, quote} from "shell-quote";
 
 import M from "../MagicFilters";
 import SK from "../../sk";
@@ -21,6 +22,7 @@ export default class BaseVertex extends Base {
     this.id = id;
     this.broadcast = broadcast;
     this.info("initializing");
+    this.debug = false;
 
     this.SERVER_START_TIME = SERVER_START_TIME;
 
@@ -106,7 +108,7 @@ export default class BaseVertex extends Base {
    */
   createffmpeg() {
     let logCounter = 0;
-    return fluentffmpeg()
+    const ffmpeg = fluentffmpeg()
 
     .outputOptions([
 
@@ -144,19 +146,17 @@ export default class BaseVertex extends Base {
     })
 
     .on("start", (command) => {
-      const sanitizedCommand = command.split(" ").map((word) => {
-        if (word.indexOf("?") !== -1) {
-          return `"${word}"`;
-        }
-        if (word.indexOf(";") !== -1) {
-          return `"${word}"`;
-        }
-        if (word.indexOf("]") !== -1) {
-          return `"${word}"`;
-        }
-        return word;
-      }).join(" ");
+      const sanitizedCommand = command;
       this.info("ffmpeg start: " + sanitizedCommand);
+      if (this.debug === true) {
+        ffmpeg.ffmpegProc.stdout.on("data", (data) => {
+          this.info(data.toString());
+        });
+        ffmpeg.ffmpegProc.stderr.on("data", (data) => {
+          this.info(data.toString());
+        });
+      }
     });
+    return ffmpeg;
   }
 }

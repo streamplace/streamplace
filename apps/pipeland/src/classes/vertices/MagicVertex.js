@@ -1,5 +1,6 @@
 
 import winston from "winston";
+import zmq from "zmq";
 
 import BaseVertex from "./BaseVertex";
 import SK from "../../sk";
@@ -9,6 +10,7 @@ export default class MagicVertex extends BaseVertex {
   constructor({id}) {
     super({id});
     this.outputURL = this.getUDP();
+    // this.debug = true;
   }
 
   handleInitialPull() {
@@ -55,11 +57,12 @@ export default class MagicVertex extends BaseVertex {
       this.ffmpeg
         .outputOptions([
           "-copyts",
-          "-vsync passthrough",
+          // "-loglevel verbose",
         ])
         .magic(
           ...inputNames,
-          m.streamselect({inputs: inputNames.length, map: 0}),
+          m.streamselect({inputs: inputNames.length, map: 1}),
+          m.zmq({bind_address: "tcp://0.0.0.0:5555"}),
           "output"
         )
         .outputOptions([
@@ -69,6 +72,31 @@ export default class MagicVertex extends BaseVertex {
         ])
         .outputFormat("mpegts")
         .videoCodec("libx264")
+        .once("progress", () => {
+          const socket = zmq.socket("req");
+          socket.on("connect", (fd, ep) => {
+            let idx = 0;
+            setInterval(function() {
+              idx += 1;
+              if (idx >= inputNames.length) {
+                idx = 0;
+              }
+              socket.send(`Parsed_streamselect_4 map ${idx}`);
+            }, 3000);
+            this.info("connect, endpoint:", ep);
+          });
+          socket.on("connect_delay", (fd, ep) => {this.info("connect_delay, endpoint:", ep);});
+          socket.on("connect_retry", (fd, ep) => {this.info("connect_retry, endpoint:", ep);});
+          socket.on("listen", (fd, ep) => {this.info("listen, endpoint:", ep);});
+          socket.on("bind_error", (fd, ep) => {this.info("bind_error, endpoint:", ep);});
+          socket.on("accept", (fd, ep) => {this.info("accept, endpoint:", ep);});
+          socket.on("accept_error", (fd, ep) => {this.info("accept_error, endpoint:", ep);});
+          socket.on("close", (fd, ep) => {this.info("close, endpoint:", ep);});
+          socket.on("close_error", (fd, ep) => {this.info("close_error, endpoint:", ep);});
+          socket.on("disconnect", (fd, ep) => {this.info("disconnect, endpoint:", ep);});
+          socket.monitor(500, 0);
+          socket.connect("tcp://0.0.0.0:5555");
+        })
         .output(this.outputURL);
 
 

@@ -67,6 +67,15 @@ fluent.prototype.magic = function(...args) {
 
 export default class M {}
 
+const escapeParam = function(str) {
+  // We don't need no stinkin' numbers! Strings only!
+  if (_.isNumber(str)) {
+    str = `${str}`;
+  }
+  // Escape colons, they deliniate argument borders
+  return str.replace(/:/g, "\\\\:");
+};
+
 class FilterNode {
   constructor(name, args) {
     this[isFilterNode] = true;
@@ -76,25 +85,21 @@ class FilterNode {
 
     // Iterate over everything we were passed in.
     args.forEach((arg) => {
-      // We don't need no stinkin' numbers! Strings only!
-      if (_.isNumber(arg)) {
-        arg = `${arg}`;
-      }
       // If it's a string, add it to our positional list.
       // eg M.scale("1920", "1080")
-      if (_(arg).isString()) {
-        this.positionalArgs.push(arg);
+      if (_(arg).isString() || _(arg).isNumber()) {
+        this.positionalArgs.push(escapeParam(arg));
       }
 
       // If it's an array, append it to our positional arguments.
       else if (_(arg).isArray()) {
-        this.positionalArgs.push(...arg);
+        this.positionalArgs.push(...arg.map(escapeParam));
       }
 
       // If it's an object, add its k/v pairs to our named arguments.
       else if (_(arg).isObject()) {
         Object.keys(arg).forEach((k) => {
-          this.namedArgs[k] = arg[k];
+          this.namedArgs[k] = escapeParam(arg[k]);
         });
       }
 

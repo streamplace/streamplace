@@ -270,4 +270,6 @@ export default [
   "buffersink",
   "afifo",
   "fifo",
+  "zmq",
+  "azmq",
 ];

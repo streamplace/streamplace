@@ -5,6 +5,7 @@ import {parse, quote} from "shell-quote";
 import M from "../MagicFilters";
 import SK from "../../sk";
 import Base from "../Base";
+import {SERVER_START_TIME} from "../../constants";
 
 const getRandomArbitrary = function(min, max) {
   return Math.floor(Math.random() * (max - min) + min);
@@ -12,9 +13,6 @@ const getRandomArbitrary = function(min, max) {
 const randomPort = function() {
   return getRandomArbitrary(40000, 50000);
 };
-
-// This is used as the "00:00:00" point for keeping all streams in sync.
-const SERVER_START_TIME = (new Date()).getTime() * 1000;
 
 export default class BaseVertex extends Base {
   constructor({id, broadcast}) {
@@ -68,13 +66,16 @@ export default class BaseVertex extends Base {
   /**
    * Get something that is hopefully a fresh UDP address.
    */
+  _getUDPBase() {
+    return `udp://127.0.0.1:${randomPort()}?`;
+  }
+
   getUDP() {
-    const ret = `udp://127.0.0.1:${randomPort()}?`;
-    return ret;
+    return this._getUDPBase() + "pkt_size=1880";
   }
 
   getUDPInput() {
-    return this.getUDP() + "reuse=1&fifo_size=1000000&buffer_size=1000000&overrun_nonfatal=1";
+    return this._getUDPBase() + "reuse=1&fifo_size=1000000&buffer_size=1000000&overrun_nonfatal=1";
   }
 
   cleanup() {

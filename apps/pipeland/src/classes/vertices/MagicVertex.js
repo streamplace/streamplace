@@ -14,7 +14,6 @@ export default class MagicVertex extends BaseVertex {
   constructor({id}) {
     super({id});
     this.outputURL = this.getUDP();
-    this.debug = true;
   }
 
   handleInitialPull() {
@@ -53,7 +52,7 @@ export default class MagicVertex extends BaseVertex {
           .magic(
             `${i}:v`,
             // m.realtime({limit: 2000000}),
-            m.setpts(`(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)`),
+            // m.setpts(`(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)`),
             // m.setpts(`PTS-STARTPTS`),
             m.scale(1920, 1080),
             m.split(3),
@@ -76,12 +75,7 @@ export default class MagicVertex extends BaseVertex {
             map: 0,
             _label: SPLIT_SCREEN_TOP_SWITCHER_LABEL
           }),
-          m.crop({
-            w: 1920,
-            h: 540,
-            x: 0,
-            y: 270,
-          }),
+          m.scale(1920, 540),
           "splitScreenTop"
         )
 
@@ -92,12 +86,7 @@ export default class MagicVertex extends BaseVertex {
             map: 1,
             _label: SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL
           }),
-          m.crop({
-            w: 1920,
-            h: 540,
-            x: 0,
-            y: 270,
-          }),
+          m.scale(1920, 540),
           "splitScreenBottom"
         )
 
@@ -110,10 +99,11 @@ export default class MagicVertex extends BaseVertex {
 
       this.ffmpeg
         .outputOptions([
-          // "-copyts",
-          "-vsync vfr",
-          "-use_wallclock_as_timestamps 1",
-          // "-fflags +genpts",
+          "-copyts",
+          "-vsync passthrough",
+          "-probesize 2147483647",
+          // "-use_wallclock_as_timestamps 1",
+          "-fflags +igndts",
           // "-loglevel debug",
         ])
         .magic(
@@ -126,7 +116,7 @@ export default class MagicVertex extends BaseVertex {
         .outputOptions([
           "-map [output]",
           "-preset veryfast",
-          "-frame_drop_threshold 60",
+          // "-frame_drop_threshold 60",
         ])
         .outputFormat("mpegts")
         .videoCodec("libx264")
@@ -135,13 +125,13 @@ export default class MagicVertex extends BaseVertex {
           socket.on("connect", (fd, ep) => {
             let idx = 0;
             let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
-            setInterval(function() {
-              idx += 1;
-              if (idx >= inputNames.length + 1) {
-                idx = 0;
-              }
-              socket.send(`${label} map ${idx}`);
-            }, 3000);
+            // setInterval(function() {
+            //   idx += 1;
+            //   if (idx >= inputNames.length + 1) {
+            //     idx = 0;
+            //   }
+            //   socket.send(`${label} map ${idx}`);
+            // }, 3000);
             this.info("connect, endpoint:", ep);
           });
           socket.on("connect_delay", (fd, ep) => {this.info("connect_delay, endpoint:", ep);});

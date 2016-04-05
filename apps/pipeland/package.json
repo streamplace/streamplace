@@ -14,7 +14,7 @@
   "dependencies": {
     "babel-polyfill": "^6.3.14",
     "fluent-ffmpeg": "^2.0.1",
-    "mpegts_to_mp4": "^1.0.1",
+    "mpegts_to_mp4": "git://github.com/iameli/mpegts.git#d70619e1825155e02201634cf78f0f5d40084a70",
     "shell-quote": "^1.5.0",
     "underscore": "^1.8.3",
     "winston": "^2.1.1",

@@ -6,7 +6,7 @@ const SYNC_BYTE = 0x47; // 71 in decimal
 const PES_START_CODE_1 = 0x0;
 const PES_START_CODE_2 = 0x0;
 const PES_START_CODE_3 = 0x1;
-const MIN_LENGTH_PES_HEADER = 3;
+const MIN_LENGTH_PES_HEADER = 6; // Start Code (4) + PES Packet Length (2)
 const START_PES_HEADER_SEARCH = 3;
 
 const STREAM_ID_START = 0xC0;
@@ -41,6 +41,7 @@ class MpegMunger extends Transform {
         continue;
       }
       if (chunk.readUInt8(idx + 1) !== PES_START_CODE_2) {
+        idx += 1; // We already know next byte ain't a zero.
         continue;
       }
       if (chunk.readUInt8(idx + 2) !== PES_START_CODE_3) {
@@ -48,6 +49,7 @@ class MpegMunger extends Transform {
       }
       const streamId = chunk.readUInt8(idx + 3);
       if (streamId < STREAM_ID_START || streamId > STREAM_ID_END) {
+        idx += 3; // We can skip this whole dang sequence now
         continue;
       }
       this._rewriteHeader(chunk, idx);

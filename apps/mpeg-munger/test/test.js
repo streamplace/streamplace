@@ -2,11 +2,17 @@
 import expect from "expect.js";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 
 import munger from "../src/munger.js";
 
 const testFile = path.resolve(__dirname, "testvid.ts");
 const testFileOut = path.resolve(__dirname, "testvid.out.ts");
+
+const hashFile = function(filename) {
+  const data = fs.readFileSync(filename);
+  return crypto.createHmac("sha256", "").update(data).digest("hex");
+};
 
 describe("mpeg-munger", function(done) {
   afterEach(function() {
@@ -15,7 +21,7 @@ describe("mpeg-munger", function(done) {
     }
   });
 
-  it("should not modify file size", function(done) {
+  it("should keep streams intact if given no operation", function(done) {
     const readStream = fs.createReadStream(testFile);
     const writeStream = fs.createWriteStream(testFileOut);
     const mStream = munger();
@@ -25,6 +31,7 @@ describe("mpeg-munger", function(done) {
       const inStats = fs.statSync(testFile);
       const outStats = fs.statSync(testFileOut);
       expect(inStats.size).to.equal(outStats.size);
+      expect(hashFile(testFile)).to.equal(hashFile(testFileOut));
       done();
     });
   });

@@ -1,0 +1,11 @@
+{
+  "name": "mpeg-munger",
+  "version": "0.0.0",
+  "description": "Transform the PTS and DTS of an mpeg-ts stream",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha --compilers js:babel-register"
+  },
+  "author": "Stream Kitchen",
+  "license": "Apache-2.0"
+}

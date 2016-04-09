@@ -21,15 +21,11 @@ describe("mpeg-munger", function(done) {
     const mStream = munger();
     readStream.pipe(mStream);
     mStream.pipe(writeStream);
-    readStream.on("end", function() {
-      // Wait for the last IO to run, then...
-      setImmediate(function() {
-        const inStats = fs.statSync(testFile);
-        const outStats = fs.statSync(testFileOut);
-        expect(inStats.size).to.equal(outStats.size);
-        done();
-      });
+    writeStream.on("finish", function() {
+      const inStats = fs.statSync(testFile);
+      const outStats = fs.statSync(testFileOut);
+      expect(inStats.size).to.equal(outStats.size);
+      done();
     });
-    // mStream.pipe(writeStream);
   });
 });

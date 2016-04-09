@@ -35,4 +35,31 @@ describe("mpeg-munger", function(done) {
       done();
     });
   });
+
+  // Gonna do as much monkeypatching for testing as I can, so that every single line of code in
+  // the live-video code path is as lean as possible.
+  it("should get an accurate packet count", function(done) {
+    let packets = 0;
+    let headers = 0;
+    const mStream = munger();
+    const origRewrite = mStream._rewrite;
+    const origRewriteHeader = mStream._rewriteHeader;
+    mStream._rewrite = function(...args) {
+      packets += 1;
+      return origRewrite.call(mStream, ...args);
+    };
+    mStream._rewriteHeader = function(...args) {
+      headers += 1;
+      return origRewriteHeader.call(mStream, ...args);
+    };
+    const readStream = fs.createReadStream(testFile);
+    const writeStream = fs.createWriteStream(testFileOut);
+    readStream.pipe(mStream);
+    mStream.pipe(writeStream);
+    writeStream.on("finish", function() {
+      expect(packets).to.equal(2872);
+      expect(headers).to.equal(1800);
+      done();
+    });
+  });
 });

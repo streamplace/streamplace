@@ -3,6 +3,14 @@ import {Transform} from "stream";
 
 const PACKET_LENGTH = 188;
 const SYNC_BYTE = 0x47; // 71 in decimal
+const PES_START_CODE_1 = 0x0;
+const PES_START_CODE_2 = 0x0;
+const PES_START_CODE_3 = 0x1;
+const MIN_LENGTH_PES_HEADER = 3;
+const START_PES_HEADER_SEARCH = 3;
+
+const STREAM_ID_START = 0xC0;
+const STREAM_ID_END = 0xEF;
 
 // These will need to be better someday.
 const warn = function(str) {
@@ -26,6 +34,29 @@ class MpegMunger extends Transform {
     if (sync !== SYNC_BYTE) {
       throw new Error("MPEGTS appears to be out of sync.");
     }
+    let searchStartIdx = startIdx + START_PES_HEADER_SEARCH;
+    const endIdx = startIdx + PACKET_LENGTH - MIN_LENGTH_PES_HEADER;
+    for (let idx = searchStartIdx; idx < endIdx; idx+=1) {
+      if (chunk.readUInt8(idx) !== PES_START_CODE_1) {
+        continue;
+      }
+      if (chunk.readUInt8(idx + 1) !== PES_START_CODE_2) {
+        continue;
+      }
+      if (chunk.readUInt8(idx + 2) !== PES_START_CODE_3) {
+        continue;
+      }
+      const streamId = chunk.readUInt8(idx + 3);
+      if (streamId < STREAM_ID_START || streamId > STREAM_ID_END) {
+        continue;
+      }
+      this._rewriteHeader(chunk, idx);
+      return;
+    }
+  }
+
+  _rewriteHeader(chunk, startIdx) {
+
   }
 
   _transform(chunk, enc, next) {

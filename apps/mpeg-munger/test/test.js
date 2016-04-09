@@ -15,6 +15,14 @@ const hashFile = function(filename) {
 };
 
 describe("mpeg-munger", function(done) {
+  let readStream;
+  let writeStream;
+
+  beforeEach(function() {
+    readStream = fs.createReadStream(testFile);
+    writeStream = fs.createWriteStream(testFileOut);
+  });
+
   afterEach(function() {
     if (fs.existsSync(testFileOut)) {
       fs.unlinkSync(testFileOut);
@@ -22,8 +30,6 @@ describe("mpeg-munger", function(done) {
   });
 
   it("should keep streams intact if given no operation", function(done) {
-    const readStream = fs.createReadStream(testFile);
-    const writeStream = fs.createWriteStream(testFileOut);
     const mStream = munger();
     readStream.pipe(mStream);
     mStream.pipe(writeStream);
@@ -52,13 +58,44 @@ describe("mpeg-munger", function(done) {
       headers += 1;
       return origRewriteHeader.call(mStream, ...args);
     };
-    const readStream = fs.createReadStream(testFile);
-    const writeStream = fs.createWriteStream(testFileOut);
     readStream.pipe(mStream);
     mStream.pipe(writeStream);
     writeStream.on("finish", function() {
       expect(packets).to.equal(2872);
       expect(headers).to.equal(1800);
+      done();
+    });
+  });
+
+  // Manually checked from the file
+  // First: PTS: 132030, DTS: 126000
+  // Last: PTS: 5529060, DTS: 5523030
+  // Taking advantage of the fact that PTS is always parsed before DTS here.
+  it("should correctly parse PTS and DTS", function(done) {
+    let firstPTS;
+    let firstDTS;
+    let lastPTS;
+    let lastDTS;
+    const mStream = munger();
+    const origReadTimestamp = mStream._readTimestamp;
+    mStream._readTimestamp = function(...args) {
+      const result = origReadTimestamp.call(mStream, ...args);
+      if (!firstPTS) {
+        firstPTS = result;
+      }
+      else if (!firstDTS) {
+        firstDTS = result;
+      }
+      lastPTS = lastDTS;
+      lastDTS = result;
+    };
+    readStream.pipe(mStream);
+    mStream.pipe(writeStream);
+    writeStream.on("finish", function() {
+      expect(firstPTS).to.equal(132030);
+      expect(firstDTS).to.equal(126000);
+      expect(lastPTS).to.equal(5529060);
+      expect(lastDTS).to.equal(5523030);
       done();
     });
   });

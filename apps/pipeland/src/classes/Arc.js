@@ -43,7 +43,8 @@ export default class Arc extends Base {
         const timeOffset = ((new Date()).getTime() - SERVER_START_TIME) * 90;
         ptsOffset = timeOffset - pts;
       }
-      return pts + (parseInt(this.doc.delay) * 90);
+      const outputPTS = pts + ptsOffset + (parseInt(this.doc.delay) * 90);
+      return outputPTS;
     };
     this.mpegStream.transformDTS = (dts) => {
       if (this.doc.delay === "passthrough") {
@@ -54,7 +55,8 @@ export default class Arc extends Base {
         const timeOffset = ((new Date()).getTime() - SERVER_START_TIME) * 90;
         dtsOffset = timeOffset - dts;
       }
-      return dts + (parseInt(this.doc.delay) * 90);
+      const outputDTS = dts + ptsOffset + (parseInt(this.doc.delay) * 90);
+      return outputDTS;
     };
 
     // Watch our arc!

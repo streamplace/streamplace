@@ -13,7 +13,7 @@ const SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL = "splitScreenBottomSwitcher";
 export default class MagicVertex extends BaseVertex {
   constructor({id}) {
     super({id});
-    this.debug = true;
+    // this.debug = true;
     this.outputURL = this.getUDP();
   }
 
@@ -101,6 +101,7 @@ export default class MagicVertex extends BaseVertex {
       this.ffmpeg
         .outputOptions([
           "-copyts",
+          "-copytb 1",
           "-vsync passthrough",
           "-probesize 2147483647",
           "-pix_fmt yuv420p",
@@ -114,6 +115,7 @@ export default class MagicVertex extends BaseVertex {
           "splitScreenOut",
           m.streamselect({inputs: inputNames.length + 1, map: 2, _label: MAIN_SWITCHER_LABEL}),
           m.zmq({bind_address: this.zmqAddress}),
+          m.framerate("30"),
           "output"
         )
         .outputOptions([

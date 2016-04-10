@@ -99,4 +99,44 @@ describe("mpeg-munger", function(done) {
       done();
     });
   });
+
+  it("should correctly offset PTS and DTS", function(done) {
+    let firstPTS;
+    let firstDTS;
+    let lastPTS;
+    let lastDTS;
+
+    const mWriteStream = munger();
+    // Never actually do this, lol
+    mWriteStream.transformPTS = function(pts) {
+      return pts + 1000;
+    };
+    mWriteStream.transformDTS = function(dts) {
+      return dts - 1000;
+    };
+
+    const mReadStream = munger();
+    const origReadTimestamp = mReadStream._readTimestamp;
+    mReadStream._readTimestamp = function(...args) {
+      const result = origReadTimestamp.call(mReadStream, ...args);
+      if (!firstPTS) {
+        firstPTS = result;
+      }
+      else if (!firstDTS) {
+        firstDTS = result;
+      }
+      lastPTS = lastDTS;
+      lastDTS = result;
+    };
+    readStream.pipe(mWriteStream);
+    mWriteStream.pipe(mReadStream);
+    mReadStream.pipe(writeStream);
+    writeStream.on("finish", function() {
+      expect(firstPTS).to.equal(132030 + 1000);
+      expect(firstDTS).to.equal(126000 - 1000);
+      expect(lastPTS).to.equal(5529060 + 1000);
+      expect(lastDTS).to.equal(5523030 - 1000);
+      done();
+    });
+  });
 });

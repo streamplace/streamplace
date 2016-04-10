@@ -19,6 +19,10 @@ const PES_INDICATOR_RESULT_BOTH = 0b11000000;
 const PES_INDICATOR_RESULT_PTS = 0b10000000;
 const PES_INDICATOR_RESULT_NEITHER = 0b00000000;
 
+const PES_TIMESTAMP_START_CODE_PTS_ONLY = 0b0010;
+const PES_TIMESTAMP_START_CODE_PTS_BOTH = 0b0011;
+const PES_TIMESTAMP_START_CODE_DTS_BOTH = 0b0001;
+
 const STREAM_ID_START = 0xC0;
 const STREAM_ID_END = 0xEF;
 
@@ -91,11 +95,20 @@ class MpegMunger extends Transform {
     let pts;
     let dts;
     if (result === PES_INDICATOR_RESULT_BOTH) {
-      pts = this._readTimestamp(chunk, startIdx + PES_FIRST_TIMESTAMP_BYTE_OFFSET);
-      dts = this._readTimestamp(chunk, startIdx + PES_SECOND_TIMESTAMP_BYTE_OFFSET);
+      const ptsIdx = startIdx + PES_FIRST_TIMESTAMP_BYTE_OFFSET;
+      const dtsIdx = startIdx + PES_SECOND_TIMESTAMP_BYTE_OFFSET;
+      pts = this._readTimestamp(chunk, ptsIdx);
+      dts = this._readTimestamp(chunk, dtsIdx);
+      const newPTS = this.transformPTS(pts, dts);
+      const newDTS = this.transformDTS(dts, pts);
+      this._writeTimestamp(chunk, newPTS, ptsIdx, PES_TIMESTAMP_START_CODE_PTS_BOTH);
+      this._writeTimestamp(chunk, newDTS, dtsIdx, PES_TIMESTAMP_START_CODE_DTS_BOTH);
     }
     else if (result === PES_INDICATOR_RESULT_PTS) {
-      pts = this._readTimestamp(chunk, startIdx + PES_FIRST_TIMESTAMP_BYTE_OFFSET);
+      const ptsIdx = startIdx + PES_FIRST_TIMESTAMP_BYTE_OFFSET;
+      pts = this._readTimestamp(chunk, ptsIdx);
+      const newPTS = this.transformPTS(pts, null);
+      this._writeTimestamp(chunk, newPTS, ptsIdx, PES_TIMESTAMP_START_CODE_PTS_ONLY);
     }
     else if (result === PES_INDICATOR_RESULT_NEITHER) {
       // This doesn't happen in my use case, so far as I can tell.
@@ -112,7 +125,37 @@ class MpegMunger extends Transform {
     result = result | (raw >> 3) & (0x0007 << 30);
     result = result | (raw >> 2) & (0x7fff << 15);
     result = result | (raw >> 1) & (0x7fff << 0);
+    // const str = zeroPad(raw.toString(2), 40);
+    // console.log(`${str.slice(0, 8)} ${str.slice(8, 24)} ${str.slice(24, 40)}`)
     return result;
+  }
+
+  _writeTimestamp(chunk, value, idx, startCode) {
+    // Tricky because Node is limited to 32-bit bitwise operations. Yuck!
+    let hiPart = (value >>> 30) | (startCode << 4) | 0b1;
+    let midPart = (((value >>> 15) & ~(-1 << 15)) << 1) | 0b1;
+    let loPart = ((value & ~(-1 << 15)) << 1) | 0b1;
+    // const hiStr = zeroPad(hiPart.toString(2), 8);
+    // const midStr = zeroPad(midPart.toString(2), 16);
+    // const loStr = zeroPad(loPart.toString(2), 16);
+    // console.log(`${hiStr} ${midStr} ${loStr}`);
+    chunk.writeUIntBE(hiPart, idx, 1);
+    chunk.writeUIntBE(midPart, idx + 1, 2);
+    chunk.writeUIntBE(loPart, idx + 3, 2);
+  }
+
+  /**
+   * Default function -- no-op
+   */
+  transformPTS(oldPTS, oldDTS) {
+    return oldPTS;
+  }
+
+  /**
+   * Default function -- no-op
+   */
+  transformDTS(oldDTS, oldPTS) {
+    return oldDTS;
   }
 
   _transform(chunk, enc, next) {

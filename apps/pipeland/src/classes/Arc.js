@@ -1,10 +1,13 @@
 
 import dgram from "dgram";
 import url from "url";
+import munger from "mpeg-munger";
+import winston from "winston";
 
+import {SERVER_START_TIME} from "../constants";
 import PortManager from "./PortManager";
 import Base from "./Base";
-import UDPBuffer from "./UDPBuffer";
+// import UDPBuffer from "./UDPBuffer";
 import SK from "../sk";
 
 export default class Arc extends Base {
@@ -16,7 +19,8 @@ export default class Arc extends Base {
     this.broadcast = broadcast;
 
     // Set up our UDP buffer
-    this.buffer = new UDPBuffer({delay: 0});
+    // this.buffer = new UDPBuffer({delay: 0});
+    this.mpegStream = munger();
 
     // Bind all of our handlers, so that we can `.on` and `.removeListener` them with impunity
     this.handleSocketMessage = this.handleSocketMessage.bind(this);
@@ -24,19 +28,45 @@ export default class Arc extends Base {
     this.handleBufferMessage = this.handleBufferMessage.bind(this);
     this.handleBufferInfo = this.handleBufferInfo.bind(this);
 
-    this.buffer.on("message", this.handleBufferMessage);
-    this.buffer.on("info", this.handleBufferInfo);
+    // this.buffer.on("message", this.handleBufferMessage);
+    // this.buffer.on("info", this.handleBufferInfo);
+    this.mpegStream.on("data", this.handleBufferMessage);
+
+    let ptsOffset;
+    let dtsOffset;
+    this.mpegStream.transformPTS = (pts) => {
+      if (this.doc.delay === "passthrough") {
+        return pts;
+      }
+      if (!ptsOffset) {
+        // Normalize to the server's clock
+        const timeOffset = ((new Date()).getTime() - SERVER_START_TIME) * 90;
+        ptsOffset = timeOffset - pts;
+      }
+      return pts + ptsOffset + (parseInt(this.doc.delay) * 90);
+    };
+    this.mpegStream.transformDTS = (dts) => {
+      if (this.doc.delay === "passthrough") {
+        return dts;
+      }
+      if (!dtsOffset) {
+        // Normalize to the server's clock
+        const timeOffset = ((new Date()).getTime() - SERVER_START_TIME) * 90;
+        dtsOffset = timeOffset - dts;
+      }
+      return dts + dtsOffset + (parseInt(this.doc.delay) * 90);
+    };
 
     // Watch our arc!
     SK.arcs.watch({id: this.id})
     .then(([arc]) => {
       this.doc = arc;
-      this.buffer.setDelay(arc.delay);
+      // this.buffer.setDelay(arc.delay);
       this.init();
     })
     .on("updated", ([arc]) => {
       if (this.doc.delay !== arc.delay) {
-        this.buffer.setDelay(arc.delay);
+        // this.buffer.setDelay(arc.delay);
       }
       // If the vertices that we're connecting changed, reinit.
       const shouldReinit =
@@ -82,7 +112,7 @@ export default class Arc extends Base {
   }
 
   handleSocketMessage(msg, rinfo) {
-    this.buffer.push(msg);
+    this.mpegStream.write(msg);
   }
 
   handleBufferMessage(msg) {
@@ -138,5 +168,10 @@ export default class Arc extends Base {
 }
 
 Arc.create = function(params) {
-  return new Arc(params);
+  try {
+    return new Arc(params);
+  }
+  catch (e) {
+    winston.error(e);
+  }
 };

@@ -13,6 +13,7 @@ const SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL = "splitScreenBottomSwitcher";
 export default class MagicVertex extends BaseVertex {
   constructor({id}) {
     super({id});
+    // this.debug = true;
     this.outputURL = this.getUDP();
   }
 
@@ -95,7 +96,7 @@ export default class MagicVertex extends BaseVertex {
           "splitScreenBottom",
           m.vstack(),
           "splitScreenOut"
-        )
+        );
 
       this.ffmpeg
         .outputOptions([
@@ -125,13 +126,13 @@ export default class MagicVertex extends BaseVertex {
           socket.on("connect", (fd, ep) => {
             let idx = 0;
             let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
-            // setInterval(function() {
-            //   idx += 1;
-            //   if (idx >= inputNames.length + 1) {
-            //     idx = 0;
-            //   }
-            //   socket.send(`${label} map ${idx}`);
-            // }, 3000);
+            setInterval(function() {
+              idx += 1;
+              if (idx >= inputNames.length + 1) {
+                idx = 0;
+              }
+              socket.send(`${label} map ${idx}`);
+            }, 3000);
             this.info("connect, endpoint:", ep);
           });
           socket.on("connect_delay", (fd, ep) => {this.info("connect_delay, endpoint:", ep);});

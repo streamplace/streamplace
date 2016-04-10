@@ -32,7 +32,7 @@ export default class RTMPInputVertex extends BaseVertex {
           // `setpts='(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)'`
           // "setpts='print(TB)'"
         ])
-        .videoCodec("libx264")
+        // .videoCodec("libx264")
         .videoCodec("copy")
         // .audioCodec("copy")
         .noAudio()
@@ -40,7 +40,7 @@ export default class RTMPInputVertex extends BaseVertex {
           // "-use_wallclock_as_timestamps 1",
           // "-mpegts_copyts 1",
           "-copyts",
-          "-start_at_zero",
+          // "-start_at_zero",
           // "-fflags +genpts",
           // "-timestamp NOW",
           // "-tune zerolatency",

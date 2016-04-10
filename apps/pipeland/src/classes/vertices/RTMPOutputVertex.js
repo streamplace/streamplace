@@ -5,6 +5,7 @@ import SK from "../../sk";
 export default class RTMPOutputVertex extends BaseVertex {
   constructor({id}) {
     super({id});
+    // this.debug = true;
     this.inputURL = this.getUDPInput();
     SK.vertices.update(id, {
       inputs: {
@@ -28,6 +29,8 @@ export default class RTMPOutputVertex extends BaseVertex {
         .outputOptions([
           "-copyts",
           "-vsync passthrough",
+          "-maxrate 1984k",
+          "-bufsize 3968k"
         ])
         // .videoFilters("setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'")
         .outputFormat("flv")

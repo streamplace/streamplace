@@ -13,7 +13,7 @@ const SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL = "splitScreenBottomSwitcher";
 export default class MagicVertex extends BaseVertex {
   constructor({id}) {
     super({id});
-    // this.debug = true;
+    this.debug = true;
     this.outputURL = this.getUDP();
   }
 
@@ -42,7 +42,7 @@ export default class MagicVertex extends BaseVertex {
   init() {
     try {
       this.ffmpeg = this.createffmpeg();
-
+      this.zmqAddress = `tcp://0.0.0.0:${this.getTCP()}`;
       const inputNames = Object.keys(this.doc.inputs);
 
       inputNames.forEach((inputName, i) => {
@@ -103,6 +103,8 @@ export default class MagicVertex extends BaseVertex {
           "-copyts",
           "-vsync passthrough",
           "-probesize 2147483647",
+          "-pix_fmt yuv420p",
+          // "-profile:v baseline",
           // "-use_wallclock_as_timestamps 1",
           "-fflags +igndts",
           // "-loglevel debug",
@@ -111,12 +113,16 @@ export default class MagicVertex extends BaseVertex {
           ...inputNames.map(name => name + "default"),
           "splitScreenOut",
           m.streamselect({inputs: inputNames.length + 1, map: 2, _label: MAIN_SWITCHER_LABEL}),
-          m.zmq({bind_address: "tcp://0.0.0.0:5555"}),
+          m.zmq({bind_address: this.zmqAddress}),
           "output"
         )
         .outputOptions([
           "-map [output]",
           "-preset veryfast",
+          // "-b:v 4000k",
+          // "-minrate 4000k",
+          // "-maxrate 4000k",
+          // "-bufsize 1835k",
           // "-frame_drop_threshold 60",
         ])
         .outputFormat("mpegts")
@@ -126,13 +132,13 @@ export default class MagicVertex extends BaseVertex {
           socket.on("connect", (fd, ep) => {
             let idx = 0;
             let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
-            setInterval(function() {
-              idx += 1;
-              if (idx >= inputNames.length + 1) {
-                idx = 0;
-              }
-              socket.send(`${label} map ${idx}`);
-            }, 3000);
+            // setInterval(function() {
+            //   idx += 1;
+            //   if (idx >= inputNames.length + 1) {
+            //     idx = 0;
+            //   }
+            //   socket.send(`${label} map ${idx}`);
+            // }, 3000);
             this.info("connect, endpoint:", ep);
           });
           socket.on("connect_delay", (fd, ep) => {this.info("connect_delay, endpoint:", ep);});
@@ -145,7 +151,7 @@ export default class MagicVertex extends BaseVertex {
           socket.on("close_error", (fd, ep) => {this.info("close_error, endpoint:", ep);});
           socket.on("disconnect", (fd, ep) => {this.info("disconnect, endpoint:", ep);});
           socket.monitor(500, 0);
-          socket.connect("tcp://0.0.0.0:5555");
+          socket.connect(this.zmqAddress);
         })
         .output(this.outputURL);
 

@@ -14,6 +14,8 @@ const randomPort = function() {
   return getRandomArbitrary(40000, 50000);
 };
 
+let currentTCP = 5555;
+
 export default class BaseVertex extends Base {
   constructor({id, broadcast}) {
     super();
@@ -72,6 +74,12 @@ export default class BaseVertex extends Base {
 
   getUDP() {
     return this._getUDPBase() + "pkt_size=1880";
+  }
+
+  getTCP() {
+    const ret = currentTCP;
+    currentTCP += 1;
+    return ret;
   }
 
   getUDPInput() {

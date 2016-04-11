@@ -52,6 +52,7 @@ export default class MagicVertex extends BaseVertex {
           .inputFormat("mpegts")
           .magic(
             `${i}:v`,
+            m.framerate("30"),
             // m.realtime({limit: 2000000}),
             // m.setpts(`(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)`),
             // m.setpts(`PTS-STARTPTS`),
@@ -76,7 +77,12 @@ export default class MagicVertex extends BaseVertex {
             map: 0,
             _label: SPLIT_SCREEN_TOP_SWITCHER_LABEL
           }),
-          m.scale(1920, 540),
+          m.crop({
+            w: "iw",
+            h: "540",
+            x: "0",
+            y: "270",
+          }),
           "splitScreenTop"
         )
 
@@ -87,7 +93,12 @@ export default class MagicVertex extends BaseVertex {
             map: 1,
             _label: SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL
           }),
-          m.scale(1920, 540),
+          m.crop({
+            w: "iw",
+            h: "540",
+            x: "0",
+            y: "270",
+          }),
           "splitScreenBottom"
         )
 
@@ -108,7 +119,7 @@ export default class MagicVertex extends BaseVertex {
           // "-profile:v baseline",
           // "-use_wallclock_as_timestamps 1",
           "-fflags +igndts",
-          // "-loglevel debug",
+          // "-loglevel verbose",
         ])
         .magic(
           ...inputNames.map(name => name + "default"),
@@ -120,7 +131,7 @@ export default class MagicVertex extends BaseVertex {
         )
         .outputOptions([
           "-map [output]",
-          "-preset veryfast",
+          "-preset medium",
           // "-b:v 4000k",
           // "-minrate 4000k",
           // "-maxrate 4000k",
@@ -134,13 +145,13 @@ export default class MagicVertex extends BaseVertex {
           socket.on("connect", (fd, ep) => {
             let idx = 0;
             let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
-            // setInterval(function() {
-            //   idx += 1;
-            //   if (idx >= inputNames.length + 1) {
-            //     idx = 0;
-            //   }
-            //   socket.send(`${label} map ${idx}`);
-            // }, 3000);
+            setInterval(function() {
+              idx += 1;
+              if (idx >= inputNames.length + 1) {
+                idx = 0;
+              }
+              socket.send(`${label} map ${idx}`);
+            }, 3000);
             this.info("connect, endpoint:", ep);
           });
           socket.on("connect_delay", (fd, ep) => {this.info("connect_delay, endpoint:", ep);});

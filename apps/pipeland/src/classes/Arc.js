@@ -50,11 +50,6 @@ export default class Arc extends Base {
       if (this.doc.delay === "passthrough") {
         return dts;
       }
-      if (!dtsOffset) {
-        // Normalize to the server's clock
-        const timeOffset = ((new Date()).getTime() - SERVER_START_TIME) * 90;
-        dtsOffset = timeOffset - dts;
-      }
       const outputDTS = dts + ptsOffset + (parseInt(this.doc.delay) * 90);
       return outputDTS;
     };

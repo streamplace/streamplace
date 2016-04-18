@@ -48,7 +48,7 @@ export default class ArcDetail extends React.Component {
       }
       this.arcHandle = SK.arcs.watch({id: props.arcId})
       .then((arcs) => {
-        this.setState({initialDelay: arcs[0].delay})
+        this.setState({initialDelay: arcs[0].delay});
       })
       .on("data", (arcs) => {
         this.setState({arc: arcs[0]});

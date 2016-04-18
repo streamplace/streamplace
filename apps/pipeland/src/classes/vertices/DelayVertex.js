@@ -55,7 +55,7 @@ export default class DelayVertex extends BaseVertex {
         .outputOptions([
           "-map [out_video]",
         ])
-        .outputFormat("mpegts")
+        .outputFormat("mpegts");
 
         // Audio output
         // .output(this.audioOutputURL)

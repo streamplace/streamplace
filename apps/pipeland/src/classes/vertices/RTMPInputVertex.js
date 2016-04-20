@@ -5,11 +5,17 @@ import SK from "../../sk";
 export default class RTMPInputVertex extends BaseVertex {
   constructor({id}) {
     super({id});
-    this.outputURL = this.getUDP();
+    this.videoOutputURL = this.getUDPOutput();
+    this.audioOutputURL = this.getUDPOutput();
     SK.vertices.update(id, {
       outputs: {
-        default: {
-          socket: this.outputURL
+        video: {
+          socket: this.videoOutputURL,
+          type: "video"
+        },
+        audio: {
+          socket: this.audioOutputURL,
+          type: "audio"
         }
       }
     }).catch((err) => {
@@ -34,11 +40,10 @@ export default class RTMPInputVertex extends BaseVertex {
         ])
         // .videoCodec("libx264")
         .videoCodec("copy")
-        // .audioCodec("copy")
-        .noAudio()
         .outputOptions([
           // "-use_wallclock_as_timestamps 1",
           // "-mpegts_copyts 1",
+          "-map 0:v",
           "-copyts",
           "-start_at_zero",
           // "-fflags +genpts",
@@ -48,7 +53,15 @@ export default class RTMPInputVertex extends BaseVertex {
           // "-pix_fmt yuv420p",
         ])
         .outputFormat("mpegts")
-        .output(this.outputURL);
+        .output(this.videoOutputURL)
+
+        .output(this.audioOutputURL)
+        .outputOptions([
+          "-map 0:a",
+          "-copyts",
+          "-start_at_zero",
+        ])
+        .outputFormat("mpegts");
 
       this.ffmpeg.run();
     }

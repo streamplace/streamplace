@@ -109,7 +109,13 @@ export default class Arc extends Base {
   }
 
   handleSocketMessage(msg, rinfo) {
-    this.mpegStream.write(msg);
+    // If we're rewriting, pass to the rewriter. Otherwise just pass to the output.
+    if (this.doc.delay === "passthrough") {
+      this.handleBufferMessage(msg);
+    }
+    else {
+      this.mpegStream.write(msg);
+    }
   }
 
   handleBufferMessage(msg) {

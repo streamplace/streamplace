@@ -1,6 +1,7 @@
 
 import winston from "winston";
 import zmq from "zmq";
+import _ from "underscore";
 
 import BaseVertex from "./BaseVertex";
 import SK from "../../sk";
@@ -14,7 +15,8 @@ export default class MagicVertex extends BaseVertex {
   constructor({id}) {
     super({id});
     // this.debug = true;
-    this.outputURL = this.getUDP();
+    this.videoOutputURL = this.getUDPOutput();
+    this.audioOutputURL = this.getUDPOutput();
   }
 
   handleInitialPull() {
@@ -25,9 +27,14 @@ export default class MagicVertex extends BaseVertex {
     const newVertex = {
       inputs: this.doc.inputs,
       outputs: {
-        default: {
-          socket: this.outputURL,
-        }
+        video: {
+          socket: this.videoOutputURL,
+          type: "video",
+        },
+        audio: {
+          socket: this.audioOutputURL,
+          type: "audio",
+        },
       }
     };
     SK.vertices.update(this.doc.id, newVertex)
@@ -43,9 +50,19 @@ export default class MagicVertex extends BaseVertex {
     try {
       this.ffmpeg = this.createffmpeg();
       this.zmqAddress = `tcp://0.0.0.0:${this.getTCP()}`;
-      const inputNames = Object.keys(this.doc.inputs);
+      const videoInputNames = [];
+      const audioInputNames = [];
+      _(this.doc.inputs).each((details, name) => {
+        if (details.type === "video") {
+          videoInputNames.push(name);
+        }
+        else if (details.type === "audio") {
+          audioInputNames.push(name);
+        }
+      });
 
-      inputNames.forEach((inputName, i) => {
+      // Set up video input stuff
+      videoInputNames.forEach((inputName, i) => {
         const input = this.doc.inputs[inputName];
         this.ffmpeg
           .input(input.socket)
@@ -68,12 +85,29 @@ export default class MagicVertex extends BaseVertex {
         ]);
       });
 
+      const audioInputAdjustedNames = audioInputNames.map((inputName, i) => {
+        const input = this.doc.inputs[inputName];
+        const myIndex = i + videoInputNames.length; // wow that's ugly
+        const muxedName = `audio${myIndex}volume`;
+        this.ffmpeg
+          .input(input.socket)
+          .inputFormat("mpegts")
+          .magic(
+            `${myIndex}:a`,
+            m.volume({
+              _label: `audio${i}volume`,
+            }),
+            muxedName
+          );
+        return muxedName;
+      });
+
       // Define splitscreen switcher
       this.ffmpeg
         .magic(
-          ...inputNames.map(name => name + "splitTop"),
+          ...videoInputNames.map(name => name + "splitTop"),
           m.streamselect({
-            inputs: inputNames.length,
+            inputs: videoInputNames.length,
             map: 0,
             _label: SPLIT_SCREEN_TOP_SWITCHER_LABEL
           }),
@@ -87,9 +121,9 @@ export default class MagicVertex extends BaseVertex {
         )
 
         .magic(
-          ...inputNames.map(name => name + "splitBottom"),
+          ...videoInputNames.map(name => name + "splitBottom"),
           m.streamselect({
-            inputs: inputNames.length,
+            inputs: videoInputNames.length,
             map: 1,
             _label: SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL
           }),
@@ -122,15 +156,15 @@ export default class MagicVertex extends BaseVertex {
           // "-loglevel verbose",
         ])
         .magic(
-          ...inputNames.map(name => name + "default"),
+          ...videoInputNames.map(name => name + "default"),
           "splitScreenOut",
-          m.streamselect({inputs: inputNames.length + 1, map: 2, _label: MAIN_SWITCHER_LABEL}),
+          m.streamselect({inputs: videoInputNames.length + 1, map: 2, _label: MAIN_SWITCHER_LABEL}),
           m.zmq({bind_address: this.zmqAddress}),
           m.framerate("30"),
-          "output"
+          "videoOutput"
         )
         .outputOptions([
-          "-map [output]",
+          "-map [videoOutput]",
           "-preset medium",
           // "-b:v 4000k",
           // "-minrate 4000k",
@@ -138,21 +172,19 @@ export default class MagicVertex extends BaseVertex {
           // "-bufsize 1835k",
           // "-frame_drop_threshold 60",
         ])
-        .outputFormat("mpegts")
-        .videoCodec("libx264")
         .once("progress", () => {
           const socket = zmq.socket("req");
           socket.on("connect", (fd, ep) => {
             let idx = 0;
             let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
-            setInterval(function() {
-              idx += 1;
-              if (idx >= inputNames.length + 1) {
-                idx = 0;
-              }
-              socket.send(`${label} map ${idx}`);
-            }, 3000);
-            this.info("connect, endpoint:", ep);
+          //   setInterval(function() {
+          //     idx += 1;
+          //     if (idx >= videoInputNames.length + 1) {
+          //       idx = 0;
+          //     }
+          //     socket.send(`${label} map ${idx}`);
+          //   }, 3000);
+          //   this.info("connect, endpoint:", ep);
           });
           socket.on("connect_delay", (fd, ep) => {this.info("connect_delay, endpoint:", ep);});
           socket.on("connect_retry", (fd, ep) => {this.info("connect_retry, endpoint:", ep);});
@@ -166,7 +198,24 @@ export default class MagicVertex extends BaseVertex {
           socket.monitor(500, 0);
           socket.connect(this.zmqAddress);
         })
-        .output(this.outputURL);
+        .output(this.videoOutputURL)
+        .outputFormat("mpegts")
+        .videoCodec("libx264")
+
+        .magic(
+          ...audioInputAdjustedNames,
+          m.amix({
+            inputs: audioInputAdjustedNames.length
+          }),
+          "audioOutput"
+        )
+
+        .output(this.audioOutputURL)
+        .outputOptions([
+          "-map [audioOutput]"
+        ])
+        .outputFormat("mpegts")
+        .audioCodec("aac");
 
 
         // .input(this.inputURL)

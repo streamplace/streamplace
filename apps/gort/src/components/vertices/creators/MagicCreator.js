@@ -10,7 +10,13 @@ export default class MagicCreator extends BaseCreator {
   getDefaultVertex(params) {
     const v = super.getDefaultVertex(params);
     v.type = "Magic";
-    v.outputs.default = {};
+    v.outputs.video = {
+      type: "video"
+    };
+    v.outputs.audio = {
+      type: "audio"
+    };
+    v.params.selectedOutput = 0;
     return v;
   }
 
@@ -21,7 +27,12 @@ export default class MagicCreator extends BaseCreator {
       if (_(count).isNumber() && count >= 0) {
         newVertex.inputs = {};
         for (let i = 0; i < count; i++) {
-          newVertex.inputs[`input${i}`] = {};
+          newVertex.inputs[`input${i}video`] = {
+            type: "video",
+          };
+          newVertex.inputs[`input${i}audio`] = {
+            type: "audio",
+          };
         }
       }
     }

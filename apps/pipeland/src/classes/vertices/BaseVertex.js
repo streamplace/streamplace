@@ -72,7 +72,15 @@ export default class BaseVertex extends Base {
     return `udp://127.0.0.1:${randomPort()}?`;
   }
 
+  /**
+   * DEPRECATED, this is an alias to getUDPOutput()
+   * @return {[type]} [description]
+   */
   getUDP() {
+    return this.getUDPOutput();
+  }
+
+  getUDPOutput() {
     return this._getUDPBase() + "pkt_size=1880";
   }
 

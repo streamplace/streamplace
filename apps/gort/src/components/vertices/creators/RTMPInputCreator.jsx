@@ -9,7 +9,8 @@ export default class RTMPInputCreator extends BaseCreator {
   getDefaultVertex(params) {
     const v = super.getDefaultVertex(params);
     v.type = "RTMPInput";
-    v.outputs.default = {};
+    v.outputs.video = {};
+    v.outputs.audio = {};
     v.params.rtmp = {
       url: ""
     };

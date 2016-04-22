@@ -49,6 +49,7 @@ export default class ArcDetail extends React.Component {
       this.arcHandle = SK.arcs.watch({id: props.arcId})
       .then((arcs) => {
         this.setState({initialDelay: arcs[0].delay});
+        this.setState({initialType: arcs[0].type});
       })
       .on("data", (arcs) => {
         this.setState({arc: arcs[0]});
@@ -120,8 +121,10 @@ export default class ArcDetail extends React.Component {
     if (field === "delay") {
       this.setState({initialDelay: e.target.value});
     }
+    if (field === "type") {
+      this.setState({initialType: e.target.value});
+    }
     this.setState({arc: newArc});
-    newArc.delay = e.target.value;
     this.props.onChange(newArc);
   }
 
@@ -144,6 +147,9 @@ export default class ArcDetail extends React.Component {
         </section>
         <div>
           <p>Delay: <input value={this.state.initialDelay} onChange={this.handleChange.bind(this, "delay")} /></p>
+        </div>
+        <div>
+          <p>Type: <input value={this.state.initialType} onChange={this.handleChange.bind(this, "type")} /></p>
         </div>
       </section>
     );

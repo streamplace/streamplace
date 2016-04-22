@@ -17,7 +17,7 @@ const randomPort = function() {
 let currentTCP = 5555;
 
 export default class BaseVertex extends Base {
-  constructor({id, broadcast}) {
+  constructor({id, broadcast} = {}) {
     super();
     this.id = id;
     this.broadcast = broadcast;
@@ -35,6 +35,10 @@ export default class BaseVertex extends Base {
     ].map(x => x * 1000);
     this.retryIdx = 0;
 
+    if (!this.id) {
+      this.info("No ID provided, assuming we're a non-API backed vertex.");
+      return;
+    }
     // Watch my vertex, so I can respond appropriately.
     this.vertexHandle = SK.vertices.watch({id: this.id})
 
@@ -118,6 +122,17 @@ export default class BaseVertex extends Base {
     }, retryInterval);
   }
 
+  updateSelf(data) {
+    // If we're not backed by an API object, just return.
+    if (!this.id) {
+      return;
+    }
+    SK.vertices.update(this.id, data)
+    .catch((err) => {
+      this.error("Error updating API object", err);
+    });
+  }
+
   /**
    * Get a node-fluent-ffmpeg instance that does stuff we like. Also, hey. There is no good way to
    * camelcase ffmpeg. I'm just going to leave this method all lower case. Deal.
@@ -141,7 +156,7 @@ export default class BaseVertex extends Base {
 
     .on("codecData", (data) => {
       this.info("ffmpeg codecData", data);
-      SK.vertices.update(this.id, {
+      this.updateSelf({
         status: "CODEC",
       });
     })
@@ -155,7 +170,7 @@ export default class BaseVertex extends Base {
       if (logCounter === 0) {
         this.info(`[${data.timemark}] ${data.currentFps}FPS ${data.currentKbps}Kbps`);
       }
-      SK.vertices.update(this.id, {
+      this.updateSelf({
         status: "ACTIVE",
         timemark: data.timemark
       });

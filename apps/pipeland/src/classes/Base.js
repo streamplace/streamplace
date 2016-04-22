@@ -14,7 +14,10 @@ export default class Base {
     if (this.doc && this.doc.title) {
       return this.doc.title;
     }
-    return this.id;
+    if (this.id) {
+      return this.id;
+    }
+    return "";
   }
 
   info(first, ...args) {

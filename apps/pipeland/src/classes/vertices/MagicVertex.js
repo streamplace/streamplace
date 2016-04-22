@@ -14,7 +14,7 @@ const SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL = "splitScreenBottomSwitcher";
 export default class MagicVertex extends BaseVertex {
   constructor({id}) {
     super({id});
-    // this.debug = true;
+    this.debug = true;
     this.videoOutputURL = this.getUDPOutput();
     this.audioOutputURL = this.getUDPOutput();
   }

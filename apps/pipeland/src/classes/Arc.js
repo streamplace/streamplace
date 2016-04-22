@@ -1,4 +1,8 @@
 
+/**
+ * Most of this file is going away.
+ */
+
 import dgram from "dgram";
 import url from "url";
 import munger from "mpeg-munger";
@@ -9,6 +13,7 @@ import PortManager from "./PortManager";
 import Base from "./Base";
 // import UDPBuffer from "./UDPBuffer";
 import SK from "../sk";
+import NoSignalStream from "./NoSignalStream";
 
 export default class Arc extends Base {
   constructor(params) {
@@ -26,6 +31,7 @@ export default class Arc extends Base {
     this.handleSocketMessage = this.handleSocketMessage.bind(this);
     this.handleError = this.handleError.bind(this);
     this.handleBufferMessage = this.handleBufferMessage.bind(this);
+    this.handleNoSignalMessage = this.handleNoSignalMessage.bind(this);
     this.handleBufferInfo = this.handleBufferInfo.bind(this);
 
     // this.buffer.on("message", this.handleBufferMessage);
@@ -58,6 +64,13 @@ export default class Arc extends Base {
     SK.arcs.watch({id: this.id})
     .then(([arc]) => {
       this.doc = arc;
+      if (arc.delay !== "passthrough") {
+        this.noSignalStream = new NoSignalStream({
+          type: arc.type,
+          delay: 2000,
+        });
+        this.noSignalStream.on("data", this.handleNoSignalMessage);
+      }
       // this.buffer.setDelay(arc.delay);
       this.init();
     })
@@ -77,7 +90,6 @@ export default class Arc extends Base {
     .on("deleted", () => {
       this.closeListener();
       this.cleanup();
-      this.buffer.removeListener("message", this.handleBufferMessage);
     })
 
     .catch((err) => {
@@ -111,17 +123,25 @@ export default class Arc extends Base {
   handleSocketMessage(msg, rinfo) {
     // If we're rewriting, pass to the rewriter. Otherwise just pass to the output.
     if (this.doc.delay === "passthrough") {
-      this.handleBufferMessage(msg);
+      this.sendPacket(msg);
     }
     else {
       this.mpegStream.write(msg);
     }
   }
 
-  handleBufferMessage(msg) {
+  sendPacket(msg) {
     if (this.sendPort) {
       this.sendSocket.send(msg, 0, msg.length, this.sendPort, "127.0.0.1");
     }
+  }
+
+  handleBufferMessage(msg) {
+    this.noSignalStream.write(msg);
+  }
+
+  handleNoSignalMessage(msg) {
+    this.sendPacket(msg);
   }
 
   handleBufferInfo({size}) {

@@ -56,6 +56,7 @@ export default class RTMPInputVertex extends BaseVertex {
         .output(this.videoOutputURL)
 
         .output(this.audioOutputURL)
+        .audioCodec("copy")
         .outputOptions([
           "-map 0:a",
           "-copyts",

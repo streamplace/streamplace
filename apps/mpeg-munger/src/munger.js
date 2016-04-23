@@ -114,7 +114,7 @@ class MpegMunger extends Transform {
       // This doesn't happen in my use case, so far as I can tell.
     }
     else {
-      throw new Error("Unknown indicator result:" + result.toString(2));
+      throw new Error("Unknown indicator result:" + dumpByte(result));
     }
   }
 

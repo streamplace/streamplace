@@ -41,9 +41,6 @@ export default class Arc extends Base {
     let ptsOffset;
     let dtsOffset;
     this.mpegStream.transformPTS = (pts) => {
-      if (this.doc.delay === "passthrough") {
-        return pts;
-      }
       if (!ptsOffset) {
         // Normalize to the server's clock
         const timeOffset = ((new Date()).getTime() - SERVER_START_TIME) * 90;
@@ -53,9 +50,6 @@ export default class Arc extends Base {
       return outputPTS;
     };
     this.mpegStream.transformDTS = (dts) => {
-      if (this.doc.delay === "passthrough") {
-        return dts;
-      }
       const outputDTS = dts + ptsOffset + (parseInt(this.doc.delay) * 90);
       return outputDTS;
     };

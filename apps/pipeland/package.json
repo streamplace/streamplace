@@ -6,7 +6,7 @@
   "scripts": {
     "build": "babel -d dist src",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "BELLAMIE_SERVER=http://localhost:8100 nodemon -w src -w ../sk-client/dist -x ./rundev.sh",
+    "dev": "BELLAMIE_SERVER=http://localhost:8100 nodemon -w src -w ../sk-client/dist -w ../mpeg-munger/dist -x ./rundev.sh",
     "stage": "BELLAMIE_SERVER=https://api.stream.kitchen nodemon -x babel-node src/app.js"
   },
   "author": "Stream Kitchen",

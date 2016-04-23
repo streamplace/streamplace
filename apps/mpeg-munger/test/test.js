@@ -72,22 +72,24 @@ const testForFile = function(fileDetails) {
     // Last: PTS: 5529060, DTS: 5523030
     // Taking advantage of the fact that PTS is always parsed before DTS here.
     it("should correctly parse PTS and DTS", function(done) {
-      let firstPTS;
-      let firstDTS;
-      let lastPTS;
-      let lastDTS;
+      let firstPTS = null;
+      let firstDTS = null;
+      let lastPTS = null;
+      let lastDTS = null;
       const mStream = munger();
-      const origReadTimestamp = mStream._readTimestamp;
-      mStream._readTimestamp = function(...args) {
-        const result = origReadTimestamp.call(mStream, ...args);
-        if (!firstPTS) {
-          firstPTS = result;
+      mStream.transformPTS = function(pts) {
+        if (firstPTS === null) {
+          firstPTS = pts;
         }
-        else if (!firstDTS) {
-          firstDTS = result;
+        lastPTS = pts;
+        return pts;
+      };
+      mStream.transformDTS = function(dts) {
+        if (firstDTS === null) {
+          firstDTS = dts;
         }
-        lastPTS = lastDTS;
-        lastDTS = result;
+        lastDTS = dts;
+        return dts;
       };
       readStream.pipe(mStream);
       mStream.pipe(writeStream);
@@ -101,41 +103,41 @@ const testForFile = function(fileDetails) {
     });
 
     it("should correctly offset PTS and DTS", function(done) {
-      let firstPTS;
-      let firstDTS = 0;
-      let lastPTS;
-      let lastDTS = 0;
+      let firstPTS = null;
+      let firstDTS = null;
+      let lastPTS = null;
+      let lastDTS = null;
 
       const mWriteStream = munger();
       // Never actually do this, lol
       mWriteStream.transformPTS = function(pts) {
-        return pts + 1000;
+        pts += 1000;
+        if (firstPTS === null) {
+          firstPTS = pts;
+        }
+        lastPTS = pts;
+        return pts;
       };
       mWriteStream.transformDTS = function(dts) {
-        return dts - 1000;
+        dts -= 1000;
+        if (firstDTS === null) {
+          firstDTS = dts;
+        }
+        lastDTS = dts;
+        return dts;
       };
 
       const mReadStream = munger();
-      const origReadTimestamp = mReadStream._readTimestamp;
-      mReadStream._readTimestamp = function(...args) {
-        const result = origReadTimestamp.call(mReadStream, ...args);
-        if (!firstPTS) {
-          firstPTS = result;
-        }
-        else if (!firstDTS) {
-          firstDTS = result;
-        }
-        lastPTS = lastDTS;
-        lastDTS = result;
-      };
       readStream.pipe(mWriteStream);
       mWriteStream.pipe(mReadStream);
       mReadStream.pipe(writeStream);
       writeStream.on("finish", function() {
+        const expectedFirstDTS = fileDetails.firstDTS ? fileDetails.firstDTS - 1000 : null;
+        const expectedLastDTS = fileDetails.lastDTS ? fileDetails.lastDTS - 1000 : null;
         expect(firstPTS).to.equal(fileDetails.firstPTS + 1000);
-        expect(firstDTS).to.equal(fileDetails.firstDTS - 1000);
+        expect(firstDTS).to.equal(expectedFirstDTS);
         expect(lastPTS).to.equal(fileDetails.lastPTS + 1000);
-        expect(lastDTS).to.equal(fileDetails.lastDTS - 1000);
+        expect(lastDTS).to.equal(expectedLastDTS);
         done();
       });
     });
@@ -156,8 +158,8 @@ testForFile({
   name: "elis-face.ts",
   packets: 29900,
   headers: 1208,
-  firstPTS: 126000,
+  firstPTS: 128090,
   lastPTS: 2826017,
-  firstDTS: 0,
-  lastDTS: 0
+  firstDTS: null,
+  lastDTS: null
 });

@@ -19,12 +19,16 @@ const PES_INDICATOR_RESULT_BOTH = 0b11000000;
 const PES_INDICATOR_RESULT_PTS = 0b10000000;
 const PES_INDICATOR_RESULT_NEITHER = 0b00000000;
 
+const MPEGTS_PAYLOAD_UNIT_START_INDICATOR_MASK = 0b01000000;
+
 const PES_TIMESTAMP_START_CODE_PTS_ONLY = 0b0010;
 const PES_TIMESTAMP_START_CODE_PTS_BOTH = 0b0011;
 const PES_TIMESTAMP_START_CODE_DTS_BOTH = 0b0001;
 
-const STREAM_ID_START = 0xC0;
-const STREAM_ID_END = 0xEF;
+const STREAM_ID_AUDIO_START = 0xC0;
+const STREAM_ID_AUDIO_END = 0xDF;
+const STREAM_ID_VIDEO_START = 0xE0;
+const STREAM_ID_VIDEO_END = 0xEF;
 
 // These will need to be better someday.
 const warn = function(str) {
@@ -66,6 +70,11 @@ class MpegMunger extends Transform {
     if (sync !== SYNC_BYTE) {
       throw new Error("MPEGTS appears to be out of sync.");
     }
+    const payload = chunk.readUInt8(startIdx + 1) & MPEGTS_PAYLOAD_UNIT_START_INDICATOR_MASK;
+    if (payload === 0b00000000) {
+      // No payload in this packet, we can leave!
+      return;
+    }
     let searchStartIdx = startIdx + START_PES_HEADER_SEARCH;
     const endIdx = startIdx + PACKET_LENGTH - MIN_LENGTH_PES_HEADER;
     for (let idx = searchStartIdx; idx < endIdx; idx+=1) {
@@ -80,7 +89,9 @@ class MpegMunger extends Transform {
         continue;
       }
       const streamId = chunk.readUInt8(idx + 3);
-      if (streamId < STREAM_ID_START || streamId > STREAM_ID_END) {
+      const isVideo = streamId >= STREAM_ID_VIDEO_START && streamId <= STREAM_ID_VIDEO_END;
+      const isAudio = streamId >= STREAM_ID_AUDIO_START && streamId <= STREAM_ID_AUDIO_END;
+      if (!isVideo && !isAudio) {
         idx += 3; // We can skip this whole dang sequence now
         continue;
       }

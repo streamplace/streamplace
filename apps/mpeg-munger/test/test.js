@@ -157,7 +157,7 @@ testForFile({
 testForFile({
   name: "elis-face.ts",
   packets: 29900,
-  headers: 1208,
+  headers: 1206,
   firstPTS: 128090,
   lastPTS: 2826017,
   firstDTS: null,

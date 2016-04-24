@@ -165,7 +165,7 @@ export default class MagicVertex extends BaseVertex {
         )
         .outputOptions([
           "-map [videoOutput]",
-          "-preset medium",
+          "-preset veryfast",
           // "-b:v 4000k",
           // "-minrate 4000k",
           // "-maxrate 4000k",

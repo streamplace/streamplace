@@ -8,7 +8,7 @@ import url from "url";
 import munger from "mpeg-munger";
 import winston from "winston";
 
-import {SERVER_START_TIME} from "../constants";
+import {SERVER_START_TIME, TIME_BASE, PTS_OFFSET_RESET} from "../constants";
 import PortManager from "./PortManager";
 import Base from "./Base";
 // import UDPBuffer from "./UDPBuffer";
@@ -38,19 +38,19 @@ export default class Arc extends Base {
     // this.buffer.on("info", this.handleBufferInfo);
     this.mpegStream.on("data", this.handleBufferMessage);
 
-    let ptsOffset;
-    let dtsOffset;
+    let ptsOffset = 0;
     this.mpegStream.transformPTS = (pts) => {
-      if (!ptsOffset) {
+      const timeOffset = ((new Date()).getTime() - SERVER_START_TIME) * TIME_BASE;
+      const difference = Math.abs(pts + ptsOffset - timeOffset);
+      if (difference > PTS_OFFSET_RESET) {
         // Normalize to the server's clock
-        const timeOffset = ((new Date()).getTime() - SERVER_START_TIME) * 90;
         ptsOffset = timeOffset - pts;
       }
-      const outputPTS = pts + ptsOffset + (parseInt(this.doc.delay) * 90);
+      const outputPTS = pts + ptsOffset + (parseInt(this.doc.delay) * TIME_BASE);
       return outputPTS;
     };
     this.mpegStream.transformDTS = (dts) => {
-      const outputDTS = dts + ptsOffset + (parseInt(this.doc.delay) * 90);
+      const outputDTS = dts + ptsOffset + (parseInt(this.doc.delay) * TIME_BASE);
       return outputDTS;
     };
 

@@ -9,7 +9,7 @@ import munger from "mpeg-munger";
 import url from "url";
 import winston from "winston";
 
-import {SERVER_START_TIME} from "../constants";
+import {SERVER_START_TIME, TIME_BASE, PTS_OFFSET_RESET} from "../constants";
 import NoSignalVertex from "./vertices/NoSignalVertex";
 import PortManager from "./PortManager";
 
@@ -41,11 +41,12 @@ audioServer.on("message", function(msg) {
   mpegAudioStream.write(msg);
 });
 
-let ptsOffset;
+let ptsOffset = 0;
 const transformPTS = function(pts) {
-  if (!ptsOffset) {
+  const timeOffset = ((new Date()).getTime() - SERVER_START_TIME) * TIME_BASE;
+  const difference = Math.abs(pts + ptsOffset - timeOffset);
+  if (difference > PTS_OFFSET_RESET) {
     // Normalize to the server's clock
-    const timeOffset = ((new Date()).getTime() - SERVER_START_TIME) * 90;
     ptsOffset = timeOffset - pts;
   }
   const outputPTS = pts + ptsOffset;

@@ -77,8 +77,8 @@ export default class Resource {
       .catch(this.onError);
   }
 
-  watch(query = {}) {
-    const cursor = new SocketCursor({query: query, resource: this, SK: this.SK});
+  watch(query = {}, fields) {
+    const cursor = new SocketCursor({query, fields, resource: this, SK: this.SK});
     return cursor;
   }
 }

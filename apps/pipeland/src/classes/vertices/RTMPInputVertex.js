@@ -18,12 +18,18 @@ export default class RTMPInputVertex extends InputVertex {
           type: "audio"
         }]
       }]
-    }).catch((err) => {
+    })
+    .then((doc) => {
+      this.doc = doc;
+      this.init();
+    })
+    .catch((err) => {
       this.error(err);
     });
   }
 
   init() {
+    super.init();
     try {
       const offsetTime = (this.doc.params.offsetTime || 0) * 1000;
       this.ffmpeg = this.createffmpeg()

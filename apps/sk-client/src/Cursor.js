@@ -5,10 +5,11 @@ import _ from "underscore";
 class Cursor {
   constructor(params) {
     // Handle arguments
-    const {SK, resource, query} = params;
+    const {SK, resource, query, fields} = params;
     this.SK = SK;
     this.resource = resource;
     this.query = query;
+    this.fields = fields;
 
     // Set up our promise, save the handlers
     this.promise = new Promise((resolve, reject) => {

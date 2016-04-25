@@ -5,7 +5,7 @@ import SK from "../../sk";
 export default class RTMPOutputVertex extends BaseVertex {
   constructor({id}) {
     super({id});
-    // this.debug = true;
+    this.debug = true;
     this.videoInputURL = this.getUDPInput();
     this.audioInputURL = this.getUDPInput();
     SK.vertices.update(id, {
@@ -19,7 +19,11 @@ export default class RTMPOutputVertex extends BaseVertex {
           type: "audio"
         }]
       }]
-    }).catch((err) => {
+    })
+    .then(() => {
+      this.init();
+    })
+    .catch((err) => {
       this.error(err);
     });
   }
@@ -30,10 +34,10 @@ export default class RTMPOutputVertex extends BaseVertex {
         .input(this.videoInputURL)
         .inputFormat("mpegts")
         // .inputFormat("ismv")
-        // .audioCodec("copy")
         .input(this.audioInputURL)
         .inputFormat("mpegts")
         .videoCodec("copy")
+        // .audioCodec("copy")
         .outputOptions([
           "-copyts",
           "-vsync passthrough",

@@ -5,6 +5,7 @@ import SK from "../../sk";
 export default class RTMPInputVertex extends InputVertex {
   constructor({id}) {
     super({id});
+    this.rewriteStream = true;
     this.videoOutputURL = this.getUDPOutput();
     this.audioOutputURL = this.getUDPOutput();
     SK.vertices.update(id, {
@@ -45,7 +46,6 @@ export default class RTMPInputVertex extends InputVertex {
         .outputOptions([
           "-map 0:v",
           "-copyts",
-          "-start_at_zero",
         ])
         .outputFormat("mpegts")
 
@@ -55,7 +55,6 @@ export default class RTMPInputVertex extends InputVertex {
         .outputOptions([
           "-map 0:a",
           "-copyts",
-          "-start_at_zero",
         ])
         .outputFormat("mpegts");
 

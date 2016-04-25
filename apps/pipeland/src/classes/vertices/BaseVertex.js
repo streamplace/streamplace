@@ -49,6 +49,7 @@ export default class BaseVertex extends Base {
         timemark: ""
       });
       this.info("Got initial pull.");
+      this.handleInitialPull();
     })
 
     .on("updated", ([doc]) => {
@@ -65,6 +66,10 @@ export default class BaseVertex extends Base {
   }
 
   init() {
+
+  }
+
+  handleInitialPull() {
 
   }
 

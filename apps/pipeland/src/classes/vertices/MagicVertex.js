@@ -3,7 +3,7 @@ import winston from "winston";
 import zmq from "zmq";
 import _ from "underscore";
 
-import BaseVertex from "./BaseVertex";
+import InputVertex from "./InputVertex";
 import SK from "../../sk";
 import m from "../MagicFilters";
 
@@ -11,10 +11,11 @@ const MAIN_SWITCHER_LABEL = "mainSwitcher";
 const SPLIT_SCREEN_TOP_SWITCHER_LABEL = "splitScreenTopSwitcher";
 const SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL = "splitScreenBottomSwitcher";
 
-export default class MagicVertex extends BaseVertex {
+export default class MagicVertex extends InputVertex {
   constructor({id}) {
     super({id});
-    this.debug = true;
+    this.rewriteStream = false;
+    // this.debug = true;
     this.videoOutputURL = this.getUDPOutput();
     this.audioOutputURL = this.getUDPOutput();
   }
@@ -49,13 +50,14 @@ export default class MagicVertex extends BaseVertex {
   }
 
   init() {
+    super.init();
     try {
       this.ffmpeg = this.createffmpeg();
       this.zmqAddress = `tcp://0.0.0.0:${this.getTCP()}`;
 
       const videoInputSockets = [];
       const audioInputSockets = [];
-
+      let currentIdx = 0;
       this.doc.inputs.forEach((input, inputIdx) => {
         input.sockets.forEach((socket, socketIdx) => {
           socket.name = `${input.name}-${socketIdx}`;
@@ -71,7 +73,7 @@ export default class MagicVertex extends BaseVertex {
           if (socket.type === "video") {
             videoInputSockets.push(socket);
             this.ffmpeg.magic(
-              `${inputIdx}:v`,
+              `${currentIdx}:v`,
               m.framerate("30"),
               // m.realtime({limit: 2000000}),
               // m.setpts(`(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)`),
@@ -88,7 +90,7 @@ export default class MagicVertex extends BaseVertex {
           else if (socket.type === "audio") {
             audioInputSockets.push(socket);
             this.ffmpeg.magic(
-              `${inputIdx}:a`,
+              `${currentIdx}:a`,
               m.volume({
                 _label: `${socket.name}-volume`
               }),
@@ -99,6 +101,7 @@ export default class MagicVertex extends BaseVertex {
           else {
             throw new Error(`Unknown input type: ${input.type}`);
           }
+          currentIdx += 1;
         });
       });
 

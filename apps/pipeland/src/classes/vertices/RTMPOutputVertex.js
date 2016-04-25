@@ -9,16 +9,16 @@ export default class RTMPOutputVertex extends BaseVertex {
     this.videoInputURL = this.getUDPInput();
     this.audioInputURL = this.getUDPInput();
     SK.vertices.update(id, {
-      inputs: {
-        video: {
-          socket: this.videoInputURL,
+      inputs: [{
+        name: "default",
+        sockets: [{
+          url: this.videoInputURL,
           type: "video"
-        },
-        audio: {
-          socket: this.audioInputURL,
+        }, {
+          url: this.audioInputURL,
           type: "audio"
-        },
-      }
+        }]
+      }]
     }).catch((err) => {
       this.error(err);
     });

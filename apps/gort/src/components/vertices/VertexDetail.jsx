@@ -64,23 +64,25 @@ export default class VertexDetail extends React.Component {
         </p>
       );
     }
-    const inputs = Object.keys(v.inputs).map((inputName) => {
-      const input = v.inputs[inputName];
+    const inputs = v.inputs.map((input) => {
+      const sockets = input.sockets.map((socket) => {
+        return <span key={socket.url}>{socket.type}: {socket.url}<br/></span>;
+      });
       return (
-        <p key={inputName}>
-          Name: {inputName}<br/>
-          Type: {input.type}<br/>
-          Socket: {input.socket}
+        <p key={input.name}>
+          Name: {input.name}<br/>
+          {sockets}
         </p>
       );
     });
-    const outputs = Object.keys(v.outputs).map((outputName) => {
-      const output = v.outputs[outputName];
+    const outputs = v.outputs.map((output) => {
+      const sockets = output.sockets.map((socket) => {
+        return <span key={socket.url}>{socket.type}: {socket.url}<br/></span>;
+      });
       return (
-        <p key={outputName}>
-          Name: {outputName}<br/>
-          Type: {output.type}<br/>
-          Socket: {output.socket}
+        <p key={output.name}>
+          Name: {output.name}<br/>
+          {sockets}
         </p>
       );
     });

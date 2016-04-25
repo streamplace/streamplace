@@ -49,7 +49,6 @@ export default class ArcDetail extends React.Component {
       this.arcHandle = SK.arcs.watch({id: props.arcId})
       .then((arcs) => {
         this.setState({initialDelay: arcs[0].delay});
-        this.setState({initialType: arcs[0].type});
       })
       .on("data", (arcs) => {
         this.setState({arc: arcs[0]});
@@ -77,37 +76,34 @@ export default class ArcDetail extends React.Component {
 
   makeList(direction) {
     const ret = [];
-    // Ehhhhhhhhhhhhh
+    const currentConn = this.state.arc[direction];
     let vertexField;
-    let arcField;
     if (direction === "from") {
       vertexField = "outputs";
-      arcField = "output";
     }
     else if (direction === "to") {
       vertexField = "inputs";
-      arcField = "input";
     }
     this.state.vertices.forEach((v) => {
-      Object.keys(v[vertexField]).forEach((name) => {
+      v[vertexField].forEach((io) => {
         const onClick = () => {
           const newArc = {...this.state.arc};
           newArc[direction] = {
             vertexId: v.id,
-            [arcField]: name
+            ioName: io.name
           };
           this.setState({arc: newArc});
           this.props.onChange(newArc);
         };
         let className = style.ArcListItem;
-        if (this.state.arc[direction].vertexId === v.id && name === this.state.arc[direction][arcField]) {
+        if (currentConn.vertexId === v.id && currentConn.ioName === io.name) {
           className = style.ArcListItemSelected;
         }
-        const key = v.id + name;
+        const key = v.id + io.name;
         ret.push(
           <div key={key} className={className} onClick={onClick}>
             <span className={style.ArcListItemTitle}>{v.title}</span>
-            <span className={style.ArcListItemDetails}>{name}</span>
+            <span className={style.ArcListItemTitle}>{io.name}</span>
           </div>
         );
       });
@@ -120,9 +116,6 @@ export default class ArcDetail extends React.Component {
     newArc[field] = e.target.value;
     if (field === "delay") {
       this.setState({initialDelay: e.target.value});
-    }
-    if (field === "type") {
-      this.setState({initialType: e.target.value});
     }
     this.setState({arc: newArc});
     this.props.onChange(newArc);
@@ -147,9 +140,6 @@ export default class ArcDetail extends React.Component {
         </section>
         <div>
           <p>Delay: <input value={this.state.initialDelay} onChange={this.handleChange.bind(this, "delay")} /></p>
-        </div>
-        <div>
-          <p>Type: <input value={this.state.initialType} onChange={this.handleChange.bind(this, "type")} /></p>
         </div>
       </section>
     );

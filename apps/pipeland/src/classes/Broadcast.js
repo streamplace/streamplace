@@ -51,24 +51,24 @@ export default class Broadcast extends Base {
       this.error("Error on pulling vertices", err);
     });
 
-    // Watch my vertices, so I can create and delete as necessary.
-    SK.arcs.watch({broadcastId: this.id})
+    // // Watch my vertices, so I can create and delete as necessary.
+    // SK.arcs.watch({broadcastId: this.id})
 
-    .on("data", (arcs) => {
-      arcs.forEach((arc) => {
-        if (!this.arcs[arc.id]) {
-          this.info(`initializing arc ${arc.id}`);
-          this.arcs[arc.id] = Arc.create({
-            id: arc.id,
-            broadcast: this,
-          });
-        }
-      });
-    })
+    // .on("data", (arcs) => {
+    //   arcs.forEach((arc) => {
+    //     if (!this.arcs[arc.id]) {
+    //       this.info(`initializing arc ${arc.id}`);
+    //       this.arcs[arc.id] = Arc.create({
+    //         id: arc.id,
+    //         broadcast: this,
+    //       });
+    //     }
+    //   });
+    // })
 
-    .catch((err) => {
-      this.error("Error on pulling vertices", err);
-    });
+    // .catch((err) => {
+    //   this.error("Error on pulling vertices", err);
+    // });
   }
 
   getVertex(vertexId) {

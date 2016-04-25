@@ -1,23 +1,23 @@
 
-import BaseVertex from "./BaseVertex";
+import InputVertex from "./InputVertex";
 import SK from "../../sk";
 
-export default class RTMPInputVertex extends BaseVertex {
+export default class RTMPInputVertex extends InputVertex {
   constructor({id}) {
     super({id});
     this.videoOutputURL = this.getUDPOutput();
     this.audioOutputURL = this.getUDPOutput();
     SK.vertices.update(id, {
-      outputs: {
-        video: {
-          socket: this.videoOutputURL,
+      outputs: [{
+        name: "default",
+        sockets: [{
+          url: this.videoOutputURL,
           type: "video"
-        },
-        audio: {
-          socket: this.audioOutputURL,
+        }, {
+          url: this.audioOutputURL,
           type: "audio"
-        }
-      }
+        }]
+      }]
     }).catch((err) => {
       this.error(err);
     });
@@ -30,31 +30,20 @@ export default class RTMPInputVertex extends BaseVertex {
         .input(this.doc.params.rtmp.url)
         .inputFormat("flv")
         .outputOptions([
-          // "-vsync drop",
-          // "-copyts",
-          // "-start_at_zero",
           "-bsf:v h264_mp4toannexb",
-          // "-vf",
-          // `setpts='(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)'`
-          // "setpts='print(TB)'"
         ])
-        // .videoCodec("libx264")
+
+        // Video out
+        .output(this.videoOutputURL)
         .videoCodec("copy")
         .outputOptions([
-          // "-use_wallclock_as_timestamps 1",
-          // "-mpegts_copyts 1",
           "-map 0:v",
           "-copyts",
           "-start_at_zero",
-          // "-fflags +genpts",
-          // "-timestamp NOW",
-          // "-tune zerolatency",
-          // "-x264opts keyint=5:min-keyint=",
-          // "-pix_fmt yuv420p",
         ])
         .outputFormat("mpegts")
-        .output(this.videoOutputURL)
 
+        // Audio Out
         .output(this.audioOutputURL)
         .audioCodec("copy")
         .outputOptions([

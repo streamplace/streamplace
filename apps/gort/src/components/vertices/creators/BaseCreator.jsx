@@ -19,8 +19,8 @@ export default class BaseCreator extends React.Component {
       kind: "vertex",
       title: "",
       params: {},
-      inputs: {},
-      outputs: {},
+      inputs: [],
+      outputs: [],
       broadcastId: props.broadcastId
     };
   }

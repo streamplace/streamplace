@@ -57,9 +57,9 @@ export default class InputVertex extends BaseVertex {
         if (this.rewriteStream === true) {
           const syncStream = sync.streams[i];
           const noSignalStream = new NoSignalStream({delay: 2000, type: socket.type});
-          noSignalStream.pipe(syncStream);
-          dataInStream = noSignalStream;
-          dataOutStream = syncStream;
+          syncStream.pipe(noSignalStream);
+          dataInStream = syncStream;
+          dataOutStream = noSignalStream;
         }
         else {
           dataInStream = new PassThrough();

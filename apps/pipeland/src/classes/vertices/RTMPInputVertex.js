@@ -46,6 +46,7 @@ export default class RTMPInputVertex extends InputVertex {
         .outputOptions([
           "-map 0:v",
           "-copyts",
+          "-start_at_zero"
         ])
         .outputFormat("mpegts")
 
@@ -55,6 +56,7 @@ export default class RTMPInputVertex extends InputVertex {
         .outputOptions([
           "-map 0:a",
           "-copyts",
+          "-start_at_zero"
         ])
         .outputFormat("mpegts");
 

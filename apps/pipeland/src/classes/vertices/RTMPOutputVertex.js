@@ -33,11 +33,18 @@ export default class RTMPOutputVertex extends BaseVertex {
       this.ffmpeg = this.createffmpeg()
         .input(this.videoInputURL)
         .inputFormat("mpegts")
+        .inputOptions([
+          "-thread_queue_size 512",
+        ])
         // .inputFormat("ismv")
         .input(this.audioInputURL)
         .inputFormat("mpegts")
+        .inputOptions([
+          "-thread_queue_size 512",
+        ])
+
         .videoCodec("copy")
-        // .audioCodec("copy")
+        .audioCodec("aac")
         .outputOptions([
           "-copyts",
           "-vsync passthrough",

@@ -15,7 +15,7 @@ export default class MagicVertex extends InputVertex {
   constructor({id}) {
     super({id});
     this.rewriteStream = false;
-    // this.debug = true;
+    this.debug = true;
     this.videoOutputURL = this.getUDPOutput();
     this.audioOutputURL = this.getUDPOutput();
   }

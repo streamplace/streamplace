@@ -44,6 +44,7 @@ export default class InputVertex extends BaseVertex {
     this.info("Started multiplexing");
 
     this.outputStreams = [];
+    this.syncers = [];
 
     this.doc.outputs.forEach((output) => {
       const sync = syncer({
@@ -51,6 +52,7 @@ export default class InputVertex extends BaseVertex {
         offset: 0,
         startTime: SERVER_START_TIME,
       });
+      this.syncers.push(sync);
       output.sockets.forEach((socket, i) => {
         let dataInStream;
         let dataOutStream;
@@ -92,6 +94,12 @@ export default class InputVertex extends BaseVertex {
             return;
           }
           this.addArc(arc);
+        });
+      })
+      .on("data", ([arc]) => {
+        // For now we're just taking the delay from the first arc we see.
+        this.syncers.forEach((sync) => {
+          sync.setOffset(parseInt(arc.delay));
         });
       })
       .on("deleted", (arcs, deletedIds) => {

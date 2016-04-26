@@ -37,7 +37,7 @@ class Syncer {
   }
 
   setOffset(offset) {
-    this.additionalOffset = offset;
+    this.additionalOffset = offset * TIME_BASE;
   }
 
   /**

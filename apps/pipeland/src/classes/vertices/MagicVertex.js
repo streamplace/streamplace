@@ -15,7 +15,6 @@ export default class MagicVertex extends InputVertex {
   constructor({id}) {
     super({id});
     this.rewriteStream = false;
-    this.debug = true;
     this.videoOutputURL = this.getUDPOutput();
     this.audioOutputURL = this.getUDPOutput();
   }
@@ -58,6 +57,7 @@ export default class MagicVertex extends InputVertex {
       const videoInputSockets = [];
       const audioInputSockets = [];
       let currentIdx = 0;
+
       this.doc.inputs.forEach((input, inputIdx) => {
         input.sockets.forEach((socket, socketIdx) => {
           socket.name = `${input.name}-${socketIdx}`;
@@ -150,6 +150,7 @@ export default class MagicVertex extends InputVertex {
         .outputOptions([
           "-copyts",
           "-copytb 1",
+          "-async 1",
           "-vsync passthrough",
           "-probesize 2147483647",
           "-pix_fmt yuv420p",

@@ -5,6 +5,8 @@ import munger from "./munger";
 const TIME_BASE = 90; // actually 90000 but JS times are in millis
 const PTS_OFFSET_RESET = 500 * TIME_BASE; // if we're more than 500ms behind server time, resync.
 
+let syncerIdx = 0;
+
 class Syncer {
   /**
    * Create a syncer that rebases multiple mpeg streams onto the server's current time.
@@ -16,6 +18,8 @@ class Syncer {
     this.setOffset(offset);
     this.startTime = startTime;
     this.streams = [];
+    this.syncerIdx = syncerIdx;
+    syncerIdx += 1;
 
     // Start these out at zero, they'll by dynamically changed later.
     this.realTimeOffset = 0;
@@ -43,6 +47,7 @@ class Syncer {
     const timeOffset = ((new Date()).getTime() - this.startTime) * TIME_BASE;
     const difference = Math.abs(pts + this.realTimeOffset - timeOffset);
     if (difference > PTS_OFFSET_RESET) {
+      // console.log(`[Syncer ${this.syncerIdx}] doing resync`);
       // Normalize to the server's clock
       this.realTimeOffset = timeOffset - pts;
     }
@@ -51,7 +56,8 @@ class Syncer {
   }
 
   _transformPTSOther(pts) {
-    return pts + this.realTimeOffset + this.additionalOffset;
+    const outputPTS = pts + this.realTimeOffset + this.additionalOffset;
+    return outputPTS;
   }
 
   _transformDTS(dts) {

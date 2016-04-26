@@ -43,7 +43,7 @@ export default class RTMPOutputVertex extends BaseVertex {
         ])
 
         .videoCodec("copy")
-        .audioCodec("aac")
+        .audioCodec("aac") // yuck. see https://trello.com/c/rAT84es3/55-rtmpoutputvertex-shouldn-t-recode-audio
         .outputOptions([
           "-copyts",
           "-vsync passthrough",

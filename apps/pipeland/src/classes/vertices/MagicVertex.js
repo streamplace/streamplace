@@ -10,11 +10,14 @@ import m from "../MagicFilters";
 const MAIN_SWITCHER_LABEL = "mainSwitcher";
 const SPLIT_SCREEN_TOP_SWITCHER_LABEL = "splitScreenTopSwitcher";
 const SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL = "splitScreenBottomSwitcher";
+const SPLIT_SCREEN_BOTTOM_CROP_LABEL = "splitScreenBottomCrop";
+const SPLIT_SCREEN_BOTTOM_OVERLAY_LABEL = "splitScreenBottomOverlay";
 
 export default class MagicVertex extends InputVertex {
   constructor({id}) {
     super({id});
     this.rewriteStream = false;
+    this.debug = true;
     this.videoOutputURL = this.getUDPOutput();
     this.audioOutputURL = this.getUDPOutput();
   }
@@ -114,12 +117,12 @@ export default class MagicVertex extends InputVertex {
             map: 0,
             _label: SPLIT_SCREEN_TOP_SWITCHER_LABEL
           }),
-          m.crop({
-            w: "iw",
-            h: "540",
-            x: "0",
-            y: "270",
-          }),
+          // m.crop({
+          //   w: "iw",
+          //   h: "540",
+          //   x: "0",
+          //   y: "270",
+          // }),
           "splitScreenTop"
         )
 
@@ -130,11 +133,20 @@ export default class MagicVertex extends InputVertex {
             map: 1,
             _label: SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL
           }),
+          // m.crop({
+          //   w: "iw",
+          //   h: "540",
+          //   x: "0",
+          //   y: "270",
+          //   _label: SPLIT_SCREEN_BOTTOM_CROP_LABEL,
+          // }),
+          m.scale({
+            w: 924,
+            h: 693
+          }),
           m.crop({
-            w: "iw",
-            h: "540",
-            x: "0",
-            y: "270",
+            w: 924,
+            h: 674
           }),
           "splitScreenBottom"
         )
@@ -142,7 +154,11 @@ export default class MagicVertex extends InputVertex {
         .magic(
           "splitScreenTop",
           "splitScreenBottom",
-          m.vstack(),
+          m.overlay({
+            _label: SPLIT_SCREEN_BOTTOM_OVERLAY_LABEL,
+            x: 974,
+            y: 385
+          }),
           "splitScreenOut"
         );
 
@@ -152,6 +168,7 @@ export default class MagicVertex extends InputVertex {
           "-copytb 1",
           "-async 1",
           "-vsync passthrough",
+          // "-sws_flags +neighbor",
           "-probesize 2147483647",
           "-pix_fmt yuv420p",
           // "-profile:v baseline",
@@ -170,6 +187,7 @@ export default class MagicVertex extends InputVertex {
         .outputOptions([
           "-map [videoOutput]",
           "-preset veryfast",
+          // "-x264opts keyint=20:min-keyint=",
           // "-b:v 4000k",
           // "-minrate 4000k",
           // "-maxrate 4000k",

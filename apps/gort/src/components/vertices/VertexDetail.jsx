@@ -4,6 +4,7 @@ import twixty from "twixtykit";
 
 import SK from "../../SK";
 import style from "./VertexDetail.scss";
+import VertexPositionEditor from "./VertexPositionEditor";
 
 export default class VertexDetail extends React.Component {
   constructor(props) {
@@ -64,6 +65,10 @@ export default class VertexDetail extends React.Component {
         </p>
       );
     }
+    let positionEditor;
+    if (v.params.positions) {
+      positionEditor = <VertexPositionEditor vertexId={v.id} positions={v.params.positions} />;
+    }
     const inputs = v.inputs.map((input) => {
       const sockets = input.sockets.map((socket) => {
         return <span key={socket.url}>{socket.type}: {socket.url}<br/></span>;
@@ -90,6 +95,7 @@ export default class VertexDetail extends React.Component {
       <div>
         <h4>Title: {v.title}</h4>
         <p>id: {v.id}</p>
+        {positionEditor}
         <p><strong>Inputs</strong></p>
         {inputs}
         <p><strong>Outputs</strong></p>

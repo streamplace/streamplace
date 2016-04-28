@@ -70,3 +70,7 @@ export default class BaseCreator extends React.Component {
     );
   }
 }
+
+export class BaseDetail extends React.Component {
+
+}

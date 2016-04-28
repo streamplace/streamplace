@@ -17,12 +17,22 @@ export default class MagicVertex extends InputVertex {
   constructor({id}) {
     super({id});
     this.rewriteStream = false;
-    // this.debug = true;
+    this.debug = true;
     this.videoOutputURL = this.getUDPOutput();
     this.audioOutputURL = this.getUDPOutput();
   }
 
   handleInitialPull() {
+    this.currentPositions = this.doc.params.positions;
+    SK.vertices.watch({id: this.id}).on("updated", ([vertex]) => {
+      const newPositions = vertex.params.positions;
+      Object.keys(vertex.params.positions).forEach((inputName) => {
+        if (!_(this.currentPositions[inputName]).isEqual(newPositions[inputName])) {
+          this.doZMQUpdate(inputName);
+        }
+      });
+      this.currentPositions = newPositions;
+    });
     this.doc.inputs.forEach((input) => {
       input.sockets.forEach((socket) => {
         socket.url = this.getUDPInput();
@@ -51,6 +61,22 @@ export default class MagicVertex extends InputVertex {
     });
   }
 
+  doZMQUpdate(inputName) {
+    if (this.zmqSocket) {
+      const send = (msg) => {
+        this.info(`ZMQ: ${msg}`);
+        this.zmqSocket.send(msg);
+      };
+      const pos = this.doc.params.positions[inputName];
+      const overlayLabel = this.ffmpeg.filterLabels[`${inputName}-overlay`];
+      const scaleLabel = this.ffmpeg.filterLabels[`${inputName}-scale`];
+      send(`${overlayLabel} x ${pos.x}`);
+      send(`${overlayLabel} y ${pos.y}`);
+      send(`${scaleLabel} width ${pos.width}`);
+      send(`${scaleLabel} height ${pos.height}`);
+    }
+  }
+
   init() {
     super.init();
     try {
@@ -64,6 +90,7 @@ export default class MagicVertex extends InputVertex {
       this.doc.inputs.forEach((input, inputIdx) => {
         input.sockets.forEach((socket, socketIdx) => {
           socket.name = `${input.name}-${socketIdx}`;
+          socket.inputName = input.name;
           this.ffmpeg
             .input(socket.url)
             .inputFormat("mpegts")
@@ -84,10 +111,11 @@ export default class MagicVertex extends InputVertex {
               );
             }
             else {
+              const pos = this.doc.params.positions[input.name];
               this.ffmpeg.magic(
                 `${currentIdx}:v`,
                 m.framerate("30"),
-                m.scale(640, 480),
+                m.scale([pos.width, pos.height], {_label: `${input.name}-scale`}),
                 `${socket.name}`
               );
             }
@@ -120,12 +148,14 @@ export default class MagicVertex extends InputVertex {
           return;
         }
         const newOverlayBG = `${socket.name}-overlay`;
+        const pos = this.doc.params.positions[socket.inputName];
         this.ffmpeg.magic(
           currentOverlayBG,
           socket.name,
           m.overlay({
-            x: 640 * i,
-            y: 0
+            x: pos.x,
+            y: pos.y,
+            _label: `${socket.inputName}-overlay`
           }),
           newOverlayBG
         );
@@ -165,6 +195,7 @@ export default class MagicVertex extends InputVertex {
         ])
         .once("progress", () => {
           const socket = zmq.socket("req");
+          this.zmqSocket = socket;
           socket.on("connect", (fd, ep) => {
             let idx = 0;
             let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];

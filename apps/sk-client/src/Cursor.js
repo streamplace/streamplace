@@ -86,7 +86,12 @@ export class SocketCursor extends Cursor {
     }
     const knownDocsArr = _(this.knownDocs).values();
     this.then(() => {
-      this.evt.emit(type, knownDocsArr, ids);
+      try {
+        this.evt.emit(type, knownDocsArr, ids);
+      }
+      catch(e) {
+        this.log("Error emitting event:" + e.stack);
+      }
     });
   }
 

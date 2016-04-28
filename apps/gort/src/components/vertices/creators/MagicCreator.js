@@ -3,6 +3,7 @@ import React from "react";
 import _ from "underscore";
 
 import BaseCreator from "./BaseCreator";
+import VertexDetail from "../VertexDetail";
 import style from "../VertexCreate.scss";
 
 export default class MagicCreator extends BaseCreator {
@@ -17,7 +18,8 @@ export default class MagicCreator extends BaseCreator {
       }, {
         type: "audio"
       }]
-    }];
+    }],
+    v.params.positions = {};
     return v;
   }
 
@@ -41,6 +43,12 @@ export default class MagicCreator extends BaseCreator {
               type: "audio"
             }]
           });
+          newVertex.params.positions[`input${i}`] = {
+            x: 0,
+            y: 0,
+            width: 640,
+            height: 480,
+          };
         }
       }
     }

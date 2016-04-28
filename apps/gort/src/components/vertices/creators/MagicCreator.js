@@ -26,7 +26,12 @@ export default class MagicCreator extends BaseCreator {
     if (field === "params.inputCount") {
       const count = parseInt(e.target.value);
       if (_(count).isNumber() && count >= 0) {
-        newVertex.inputs = [];
+        newVertex.inputs = [{
+          name: "background",
+          sockets: [{
+            type: "video"
+          }]
+        }];
         for (let i = 0; i < count; i++) {
           newVertex.inputs.push({
             name: `input${i}`,

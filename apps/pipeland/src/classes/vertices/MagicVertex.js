@@ -17,7 +17,7 @@ export default class MagicVertex extends InputVertex {
   constructor({id}) {
     super({id});
     this.rewriteStream = false;
-    this.debug = true;
+    // this.debug = true;
     this.videoOutputURL = this.getUDPOutput();
     this.audioOutputURL = this.getUDPOutput();
   }
@@ -75,18 +75,22 @@ export default class MagicVertex extends InputVertex {
           // Set up video input
           if (socket.type === "video") {
             videoInputSockets.push(socket);
-            this.ffmpeg.magic(
-              `${currentIdx}:v`,
-              m.framerate("30"),
-              // m.realtime({limit: 2000000}),
-              // m.setpts(`(RTCTIME - ${this.SERVER_START_TIME}) / (TB * 1000000)`),
-              // m.setpts(`PTS-STARTPTS`),
-              m.scale(1920, 1080),
-              m.split(3),
-              `${socket.name}-default`,
-              `${socket.name}-splitTop`,
-              `${socket.name}-splitBottom`
-            );
+            if (input.name === "background") {
+              this.ffmpeg.magic(
+                `${currentIdx}:v`,
+                m.framerate("30"),
+                m.scale(1920, 1080),
+                `${socket.name}`
+              );
+            }
+            else {
+              this.ffmpeg.magic(
+                `${currentIdx}:v`,
+                m.framerate("30"),
+                m.scale(640, 480),
+                `${socket.name}`
+              );
+            }
           }
 
           // Set up audio input
@@ -108,59 +112,26 @@ export default class MagicVertex extends InputVertex {
         });
       });
 
-      // Define splitscreen switcher
-      this.ffmpeg
-        .magic(
-          ...videoInputSockets.map(s => `${s.name}-splitTop`),
-          m.streamselect({
-            inputs: videoInputSockets.length,
-            map: 0,
-            _label: SPLIT_SCREEN_TOP_SWITCHER_LABEL
-          }),
-          // m.crop({
-          //   w: "iw",
-          //   h: "540",
-          //   x: "0",
-          //   y: "270",
-          // }),
-          "splitScreenTop"
-        )
-
-        .magic(
-          ...videoInputSockets.map(s => `${s.name}-splitBottom`),
-          m.streamselect({
-            inputs: videoInputSockets.length,
-            map: 1,
-            _label: SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL
-          }),
-          // m.crop({
-          //   w: "iw",
-          //   h: "540",
-          //   x: "0",
-          //   y: "270",
-          //   _label: SPLIT_SCREEN_BOTTOM_CROP_LABEL,
-          // }),
-          m.scale({
-            w: 924,
-            h: 693
-          }),
-          m.crop({
-            w: 924,
-            h: 674
-          }),
-          "splitScreenBottom"
-        )
-
-        .magic(
-          "splitScreenTop",
-          "splitScreenBottom",
+      // Do a series of overlays for the input
+      let currentOverlayBG = "background-0";
+      videoInputSockets.forEach((socket, i) => {
+        if (socket.name === currentOverlayBG) {
+          // First one doesn't need to overlay onto nothing. Return.
+          return;
+        }
+        const newOverlayBG = `${socket.name}-overlay`;
+        this.ffmpeg.magic(
+          currentOverlayBG,
+          socket.name,
           m.overlay({
-            _label: SPLIT_SCREEN_BOTTOM_OVERLAY_LABEL,
-            x: 974,
-            y: 385
+            x: 640 * i,
+            y: 0
           }),
-          "splitScreenOut"
+          newOverlayBG
         );
+        currentOverlayBG = newOverlayBG;
+      });
+
 
       this.ffmpeg
         .outputOptions([
@@ -177,9 +148,7 @@ export default class MagicVertex extends InputVertex {
           // "-loglevel verbose",
         ])
         .magic(
-          ...videoInputSockets.map(s => `${s.name}-default`),
-          "splitScreenOut",
-          m.streamselect({inputs: videoInputSockets.length + 1, map: 2, _label: MAIN_SWITCHER_LABEL}),
+          currentOverlayBG,
           m.zmq({bind_address: this.zmqAddress}),
           m.framerate("30"),
           "videoOutput"

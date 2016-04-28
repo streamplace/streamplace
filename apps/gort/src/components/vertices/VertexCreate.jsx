@@ -14,6 +14,7 @@ import RTMPInputCreator from "./creators/RTMPInputCreator";
 import MagicCreator from "./creators/MagicCreator";
 import DelayCreator from "./creators/DelayCreator";
 import AudioMixCreator from "./creators/AudioMixCreator";
+import ImageInputCreator from "./creators/ImageInputCreator";
 
 export default class VertexCreate extends React.Component {
   constructor(params) {
@@ -58,7 +59,8 @@ const vertexCreators = {
   DelayCreator,
   AudioMixCreator,
   MagicCreator,
-  ArcCreate
+  ArcCreate,
+  ImageInputCreator
 };
 
 VertexCreate.propTypes = {

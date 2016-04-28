@@ -13,6 +13,7 @@ import Combine2x2Vertex from "./vertices/Combine2x2Vertex";
 import DelayVertex from "./vertices/DelayVertex";
 import AudioMixVertex from "./vertices/AudioMixVertex";
 import MagicVertex from "./vertices/MagicVertex";
+import ImpageInputVertex from "./vertices/ImageInputVertex";
 
 const Vertex = {};
 
@@ -24,6 +25,7 @@ const VertexMap = {
   "Delay": DelayVertex,
   "AudioMix": AudioMixVertex,
   "Magic": MagicVertex,
+  "ImageInput": ImpageInputVertex,
 };
 
 Vertex.create = function(params) {

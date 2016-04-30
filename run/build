@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+apps="sk-schema sk-client bellamie"
+
+function bigPrint() {
+  echo ""
+  echo "===================================="
+  echo " Building $1"
+  echo "===================================="
+  echo ""
+}
+
+for app in $apps; do
+  (
+    bigPrint "$app"
+    cd "$DIR/../apps/$app"
+    make
+    make push
+  )
+done

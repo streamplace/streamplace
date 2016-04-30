@@ -10,7 +10,7 @@ module.exports = {
     path: "dist",
     //at this directory our bundle file will be available
     //make sure port 8090 is used when launching webpack-dev-server
-    publicPath: "http://drumstick.iame.li:5050/assets/"
+    publicPath: "/dist/"
   },
   module: {
     loaders: [{

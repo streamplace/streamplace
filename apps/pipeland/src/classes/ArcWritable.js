@@ -56,7 +56,7 @@ export default class ArcWritable {
         this.vertexHandle.stop();
       }
       this.arcHandle.stop();
-    })
+    });
   }
 
   initVertex() {
@@ -72,12 +72,11 @@ export default class ArcWritable {
         });
       }
       catch (e) {
-        console.log(e.stack);
-        process.exit(1);
+        winston.error(e.stack);
       }
     })
     .on("deleted", () => {
       winston.error(`Vertex ${this.vertex.id} was deleted, but there's still an arc for it!`);
-    })
+    });
   }
 }

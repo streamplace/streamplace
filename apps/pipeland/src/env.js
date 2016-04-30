@@ -3,7 +3,7 @@ import winston from "winston";
 
 // Configurables here
 const ENV = {};
-ENV.BELLAMIE_SERVER = process.env.BELLAMIE_SERVER;
+ENV.API_SERVER_URL = process.env.API_SERVER_URL;
 
 let exit = false;
 Object.keys(ENV).forEach((key) => {

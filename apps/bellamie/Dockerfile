@@ -1,4 +1,4 @@
-FROM node:6
+FROM gcr.io/stream-kitchen/sk-node
 
 # To be run from the apps directory.
 

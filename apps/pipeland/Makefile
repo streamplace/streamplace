@@ -16,6 +16,3 @@ push: .
 clean: .
 	mkdir -p dist
 	rm -rf dist
-
-run: .
-	docker run -it --rm --name pipeland -e BELLAMIE_SERVER=https://api.stream.kitchen gcr.io/stream-kitchen/pipeland

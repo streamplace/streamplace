@@ -108,7 +108,6 @@ export default class BaseVertex extends Base {
       this.ffmpeg.kill("SIGKILL");
     }
     if (this.vertexHandle) {
-      process.exit(1);
       this.vertexHandle.stop();
     }
     this.info("Cleaning up");

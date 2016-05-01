@@ -19,6 +19,6 @@ for app in $apps; do
   (
     bigPrint "$app"
     cd "$DIR/../apps/$app"
-    make
+    make push
   )
 done

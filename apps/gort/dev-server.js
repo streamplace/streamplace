@@ -13,7 +13,7 @@ app.use(express.static(__dirname));
 
 // Failing that, give 'em index.html
 app.use(function(req, res) {
-  res.sendFile(path.resolve(__dirname, "html", "index.html"));
+  res.sendFile(path.resolve(__dirname, "index.dev.html"));
 });
 
 app.listen(process.env.PORT);

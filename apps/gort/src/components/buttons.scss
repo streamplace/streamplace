@@ -1,9 +1,0 @@
-
-.button {
-  composes: pure-button from "../node_modules/purecss/build/buttons.css";
-}
-
-.buttonPrimary {
-  composes: button;
-  composes: pure-button-primary from "../node_modules/purecss/build/buttons.css";
-}

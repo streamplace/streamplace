@@ -4,8 +4,7 @@ import React from "react";
 import BroadcastList from "./BroadcastList";
 import BroadcastCreate from "./BroadcastCreate";
 
-export default React.createClass({
-  displayName: "BroadcastIndex",
+export default class BroadcastIndex extends React.Component{
   render () {
     return (
       <div className="center-column">
@@ -15,4 +14,4 @@ export default React.createClass({
       </div>
     );
   }
-});
+}

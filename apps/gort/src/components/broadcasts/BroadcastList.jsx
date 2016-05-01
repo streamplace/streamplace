@@ -3,23 +3,27 @@ import React from "react";
 import SK from "../../SK";
 import { Link } from "react-router";
 
-export default React.createClass({
-  displayName: "BroadcastList",
-  getInitialState() {
-    return {broadcasts: []};
-  },
+export default class BroadcastList extends React.Component {
+  constructor(params) {
+    super(params);
+    this.state = {broadcasts: []};
+  }
+
   componentDidMount() {
     this.broadcastHandle = SK.broadcasts.watch({})
     .on("data", (broadcasts) => {
       this.setState({broadcasts});
     });
-  },
+  }
+
   componentWillUnmount() {
     this.broadcastHandle.stop();
-  },
+  }
+
   removeBroadcast(id) {
     SK.broadcasts.delete(id);
-  },
+  }
+
   render() {
     const broadcastNodes = this.state.broadcasts.map((broadcast) => {
       return (
@@ -38,4 +42,4 @@ export default React.createClass({
       </ul>
     );
   }
-});
+}

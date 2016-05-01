@@ -1,11 +1,10 @@
 
 import React from "react";
 
-export default React.createClass({
-  displayName: "Loading",
+export default class Loading extends React.Component{
   render() {
     return (
       <div>Loading...</div>
     );
-  },
-});
+  }
+}

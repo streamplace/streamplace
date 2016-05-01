@@ -8,22 +8,18 @@ import VertexCreate from "../vertices/VertexCreate";
 import VertexDetail from "../vertices/VertexDetail";
 import ArcEdit from "../arcs/ArcEdit";
 import Loading from "../Loading";
-import styles from "./BroadcastDetail.scss";
+import style from "./BroadcastDetail.scss";
 import SK from "../../SK";
 
-export default React.createClass({
-  displayName: "BroadcastDetail",
-  getInitialState() {
-    return {
+export default class BroadcastDetail extends React.Component {
+  constructor(params) {
+    super(params);
+    this.state = {
       broadcast: {},
       showNewVertex: false,
       selected: null,
     };
-  },
-
-  propTypes: {
-    "params": React.PropTypes.object.isRequired
-  },
+  }
 
   componentDidMount() {
     const broadcastId = this.props.params.broadcastId;
@@ -34,32 +30,32 @@ export default React.createClass({
     .catch((...args) => {
       twixty.error(...args);
     });
-  },
+  }
 
   componentWillUnmount() {
     this.broadcastHandle.stop();
-  },
+  }
 
   handleNewMoteClick() {
     this.setState({showNewVertex: true});
-  },
+  }
 
   handleCloseBottomPanelClick() {
 
-  },
+  }
 
   handlePick(type, id) {
     this.setState({
       showNewVertex: false,
       selected: {type, id},
     });
-  },
+  }
 
   clearSelection() {
     this.setState({
       selected: null,
     });
-  },
+  }
 
   render() {
     if (!this.state.broadcast.id) {
@@ -80,24 +76,24 @@ export default React.createClass({
     // If we are to be rendering a bottom panel, add its wrapper to it.
     if (bottomPanel !== null) {
       bottomPanel = (
-        <section className={styles.BottomPanel}>
+        <section className={style.BottomPanel}>
           {bottomPanel}
         </section>
       );
     }
     return (
-      <section className={styles.verticalPanels}>
-        <section className={styles.header}>
-          <Link to="/" className={styles.backButton}>
+      <section className={style.verticalPanels}>
+        <section className={style.header}>
+          <Link to="/" className={style.backButton}>
             <i className="fa fa-chevron-left" />
           </Link>
           <h1>Broadcast <em>{this.state.broadcast.title}</em></h1>
-          <button className={styles.newMoteButton} onClick={this.handleNewMoteClick}>
+          <button className={style.newMoteButton} onClick={this.handleNewMoteClick}>
             <i className="fa fa-plus-square" />
           </button>
         </section>
 
-        <section className={styles.GraphPanel}>
+        <section className={style.GraphPanel}>
           <BroadcastGraph onPick={this.handlePick} broadcastId={this.props.params.broadcastId} />
         </section>
 
@@ -106,4 +102,8 @@ export default React.createClass({
       </section>
     );
   }
-});
+}
+
+BroadcastDetail.propTypes = {
+  "params": React.PropTypes.object.isRequired
+};

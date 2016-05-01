@@ -34,6 +34,9 @@ export default class VertexGraphNode extends React.Component {
 
   render() {
     const v = this.state.vertex;
+    if (!v.id) {
+      return <div/>;
+    }
     let className = style.VertexNode;
     if (this.props.selected) {
       className = style.VertexNodeSelected;

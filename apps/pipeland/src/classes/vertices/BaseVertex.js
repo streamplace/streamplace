@@ -17,10 +17,9 @@ const randomPort = function() {
 let currentTCP = 5555;
 
 export default class BaseVertex extends Base {
-  constructor({id, broadcast} = {}) {
+  constructor({id} = {}) {
     super();
     this.id = id;
-    this.broadcast = broadcast;
     this.info("initializing");
     this.debug = false;
 

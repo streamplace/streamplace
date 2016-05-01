@@ -7,13 +7,9 @@ import ArcCreate from "../arcs/ArcCreate";
 import SK from "../../SK";
 import style from "./VertexCreate.scss";
 
-import Combine2x1Creator from "./creators/Combine2x1Creator";
-import Combine2x2Creator from "./creators/Combine2x2Creator";
 import RTMPOutputCreator from "./creators/RTMPOutputCreator";
 import RTMPInputCreator from "./creators/RTMPInputCreator";
 import MagicCreator from "./creators/MagicCreator";
-import DelayCreator from "./creators/DelayCreator";
-import AudioMixCreator from "./creators/AudioMixCreator";
 import ImageInputCreator from "./creators/ImageInputCreator";
 
 export default class VertexCreate extends React.Component {
@@ -54,10 +50,6 @@ export default class VertexCreate extends React.Component {
 const vertexCreators = {
   RTMPInputCreator,
   RTMPOutputCreator,
-  Combine2x1Creator,
-  Combine2x2Creator,
-  DelayCreator,
-  AudioMixCreator,
   MagicCreator,
   ArcCreate,
   ImageInputCreator

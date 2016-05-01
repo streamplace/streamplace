@@ -36,6 +36,7 @@
 .GraphPanel {
   flex-basis: 0px;
   flex-grow: 1;
+  position: relative;
 }
 
 .BottomPanel {
@@ -52,3 +53,8 @@
   font-size: 1.5em;
 }
 
+.ToggleEnabledButton {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}

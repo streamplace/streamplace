@@ -57,6 +57,14 @@ export default class BroadcastDetail extends React.Component {
     });
   }
 
+  toggleEnabled() {
+    const enabled = !this.state.broadcast.enabled;
+    SK.broadcasts.update(this.state.broadcast.id, {enabled})
+    .catch((err) => {
+      twixty.error(err);
+    });
+  }
+
   render() {
     if (!this.state.broadcast.id) {
       return <Loading />;
@@ -81,6 +89,22 @@ export default class BroadcastDetail extends React.Component {
         </section>
       );
     }
+    let toggleEnabledButton;
+    const toggle = this.toggleEnabled.bind(this);
+    if (this.state.broadcast.enabled === true) {
+      toggleEnabledButton = (
+        <button onClick={toggle} className={style.ToggleEnabledButton}>
+          Stop Broadcast
+        </button>
+      );
+    }
+    else {
+      toggleEnabledButton = (
+        <button onClick={toggle} className={style.ToggleEnabledButton}>
+          Start Broadcast
+        </button>
+      );
+    }
     return (
       <section className={style.verticalPanels}>
         <section className={style.header}>
@@ -88,12 +112,13 @@ export default class BroadcastDetail extends React.Component {
             <i className="fa fa-chevron-left" />
           </Link>
           <h1>Broadcast <em>{this.state.broadcast.title}</em></h1>
-          <button className={style.newMoteButton} onClick={this.handleNewMoteClick}>
+          <button className={style.newMoteButton} onClick={this.handleNewMoteClick.bind(this)}>
             <i className="fa fa-plus-square" />
           </button>
         </section>
 
         <section className={style.GraphPanel}>
+          {toggleEnabledButton}
           <BroadcastGraph onPick={this.handlePick} broadcastId={this.props.params.broadcastId} />
         </section>
 

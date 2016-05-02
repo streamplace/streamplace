@@ -20,11 +20,11 @@ export default class BroadcastCreate extends React.Component{
 
   render() {
     return (
-      <form className="pure-form" onSubmit={this.handleSubmit}>
+      <form className="pure-form" onSubmit={this.handleSubmit.bind(this)}>
         <fieldset>
           <legend>Add a broadcast</legend>
 
-          <input type="text" value={this.state.title} onChange={this.handleChange} placeholder="Best Broadcast Ever" />
+          <input type="text" value={this.state.title} onChange={this.handleChange.bind(this)} placeholder="Best Broadcast Ever" />
 
           <button type="submit" className="pure-button pure-button-primary">Create</button>
         </fieldset>

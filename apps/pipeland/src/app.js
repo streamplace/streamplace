@@ -2,7 +2,7 @@
 import winston from "winston";
 import _ from "underscore";
 
-import Vertex from "./classes/Vertex";
+import Broadcast from "./classes/Broadcast";
 import ENV from "./env";
 import SK from "./sk";
 
@@ -13,18 +13,12 @@ const vertices = {};
 
 // Main loop. Eventually this will be replaced with a scheduler that allocates vertices onto
 // Kubernetes nodes. For now we just follow them all here.
-SK.vertices.watch({}).then(function(vertices) {
-  winston.info(`Got ${vertices.length} vertices in the initial pull.`);
-  vertices.forEach(function(vertex) {
-    vertices[vertex.id] = Vertex.create(vertex);
-  });
+const broadcasts = {};
+SK.broadcasts.watch({enabled: true})
+.on("newDoc", (broadcast) => {
+  broadcasts[broadcast.id] = new Broadcast(broadcast);
 })
-.on("created", (docs) => {
-  docs.forEach((doc) => {
-    winston.info(`Initializing vertex ${doc.id}`);
-    vertices[doc.id] = Vertex.create({id: doc.id});
-  });
-})
-.catch(function(err) {
-  winston.error("Error getting vertices", err);
+.on("deletedDoc", (id) => {
+  broadcasts[id].cleanup();
+  delete broadcasts[id];
 });

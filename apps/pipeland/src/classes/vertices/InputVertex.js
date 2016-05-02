@@ -135,6 +135,7 @@ export default class InputVertex extends BaseVertex {
   }
 
   cleanup() {
+    super.cleanup();
     this.arcHandle.stop();
     this._udpServers.forEach((server) => {
       server.close();

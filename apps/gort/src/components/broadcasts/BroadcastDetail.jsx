@@ -119,7 +119,7 @@ export default class BroadcastDetail extends React.Component {
 
         <section className={style.GraphPanel}>
           {toggleEnabledButton}
-          <BroadcastGraph onPick={this.handlePick} broadcastId={this.props.params.broadcastId} />
+          <BroadcastGraph onPick={this.handlePick.bind(this)} broadcastId={this.props.params.broadcastId} />
         </section>
 
         {bottomPanel}

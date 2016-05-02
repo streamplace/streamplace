@@ -57,10 +57,6 @@ export default class BaseVertex extends Base {
 
     .catch((err) => {
       this.error("Error on initial pull", err);
-    })
-
-    .on("deleted", () => {
-      this.cleanup();
     });
   }
 
@@ -165,11 +161,17 @@ export default class BaseVertex extends Base {
     })
 
     .on("end", () => {
+      if (this.deleted) {
+        return;
+      }
       this.info("ffmpeg end");
       this.retry();
     })
 
     .on("progress", (data) => {
+      if (this.deleted) {
+        return;
+      }
       if (logCounter === 0) {
         this.info(`[${data.timemark}] ${data.currentFps}FPS ${data.currentKbps}Kbps`);
       }

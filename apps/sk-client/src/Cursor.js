@@ -21,8 +21,9 @@ class Cursor {
     this.evt = new EE;
     this.knownDocs = {}; // Stored internally here as id --> doc
 
-    // Set up event aliases. "changed" will run on our initial event and on every subsequent
-    // change to the data
+    // Set up event aliases.
+    //
+    // "data" will run on our initial event and on every subsequent change to the data
     ["created", "updated", "deleted"].forEach((action) => {
       this.on(action, (...args) => {
         this.evt.emit("data", ...args);
@@ -30,6 +31,27 @@ class Cursor {
     });
     this.promise.then((...args) => {
       this.evt.emit("data", ...args);
+    });
+
+    // "newDoc" will run once for every document in the initial pull or subsequently created
+    this.promise.then((docs) => {
+      docs.forEach((doc) => {
+        this.evt.emit("newDoc", doc);
+      });
+    });
+    this.on("created", (docs, newIds) => {
+      docs.forEach((doc) => {
+        if (newIds.indexOf(doc.id) !== -1) {
+          this.evt.emit("newDoc", doc);
+        }
+      });
+    });
+
+    // "deletedDoc" is when documents are deleted, you rube.
+    this.on("deleted", (docs, deletedIds) => {
+      deletedIds.forEach((id) => {
+        this.evt.emit("deletedDoc", id);
+      });
     });
   }
 
@@ -90,7 +112,7 @@ export class SocketCursor extends Cursor {
         this.evt.emit(type, knownDocsArr, ids);
       }
       catch(e) {
-        this.log("Error emitting event:" + e.stack);
+        this.SK.log("Error emitting event:" + e.stack);
       }
     });
   }

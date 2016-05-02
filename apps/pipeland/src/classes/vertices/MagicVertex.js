@@ -196,7 +196,7 @@ export default class MagicVertex extends InputVertex {
         .outputOptions([
           "-map [videoOutput]",
           "-preset veryfast",
-          // "-x264opts keyint=20:min-keyint=",
+          "-x264opts keyint=60",
           // "-b:v 4000k",
           // "-minrate 4000k",
           // "-maxrate 4000k",

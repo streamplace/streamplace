@@ -35,7 +35,7 @@ export default class ArcDetail extends React.Component {
     this.doSubscriptions(newProps);
   }
   doSubscriptions(props) {
-    this.vertexHandle = SK.vertices.watch(props.broadcastId)
+    this.vertexHandle = SK.vertices.watch({broadcastId: props.broadcastId})
     .on("data", (vertices) => {
       this.setState({vertices});
     })

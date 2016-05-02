@@ -60,8 +60,8 @@ class Cursor {
       this.evt.emit(type, ...args);
     }
     catch (e) {
-      this.SK.error(`Error emitting ${type} event`);
-      this.SK.error(e.stack);
+      this.SK.log(`Error emitting ${type} event`);
+      this.SK.log(e.stack);
     }
   }
 

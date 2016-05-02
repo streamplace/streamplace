@@ -45,6 +45,7 @@ export default class InputVertex extends BaseVertex {
 
     this.outputStreams = [];
     this.syncers = [];
+    this.cleanupStreams = [];
 
     this.doc.outputs.forEach((output) => {
       const sync = syncer({
@@ -59,6 +60,7 @@ export default class InputVertex extends BaseVertex {
         if (this.rewriteStream === true) {
           const syncStream = sync.streams[i];
           const noSignalStream = new NoSignalStream({delay: 2000, type: socket.type});
+          this.cleanupStreams.push(noSignalStream);
           syncStream.pipe(noSignalStream);
           dataInStream = syncStream;
           dataOutStream = noSignalStream;
@@ -136,7 +138,15 @@ export default class InputVertex extends BaseVertex {
 
   cleanup() {
     super.cleanup();
-    this.arcHandle.stop();
+    if (this.arcHandle) {
+      this.arcHandle.stop();
+    }
+    if (this.vertexHandle) {
+      this.vertexHandle.stop();
+    }
+    this.cleanupStreams.forEach((stream) => {
+      stream.end();
+    });
     this._udpServers.forEach((server) => {
       server.close();
     });

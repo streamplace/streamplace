@@ -94,7 +94,12 @@ export default class NoSignalStream extends Transform {
       }
     });
 
-    setInterval(this.handleTick.bind(this), TICK_RATE);
+    this.intervalHandle = setInterval(this.handleTick.bind(this), TICK_RATE);
+  }
+
+  end(...args) {
+    super.end(...args);
+    clearInterval(this.intervalHandle);
   }
 
   setDelay(delay) {

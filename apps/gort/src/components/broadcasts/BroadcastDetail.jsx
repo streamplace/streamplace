@@ -78,7 +78,7 @@ export default class BroadcastDetail extends React.Component {
       bottomPanel = <VertexDetail vertexId={this.state.selected.id} />;
     }
     else if (this.state.selected && this.state.selected.type === "arc") {
-      bottomPanel = <ArcEdit onDelete={this.clearSelection} broadcastId={this.props.params.broadcastId} arcId={this.state.selected.id} />;
+      bottomPanel = <ArcEdit onDelete={this.clearSelection.bind(this)} broadcastId={this.props.params.broadcastId} arcId={this.state.selected.id} />;
     }
 
     // If we are to be rendering a bottom panel, add its wrapper to it.

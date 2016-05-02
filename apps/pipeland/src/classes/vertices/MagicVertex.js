@@ -17,14 +17,24 @@ export default class MagicVertex extends InputVertex {
   constructor({id}) {
     super({id});
     this.rewriteStream = false;
-    this.debug = true;
+    // this.debug = true;
     this.videoOutputURL = this.getUDPOutput();
     this.audioOutputURL = this.getUDPOutput();
   }
 
+  cleanup() {
+    super.cleanup();
+    this.positionVertexHandle.stop();
+
+    if (this.zmqSocket) {
+      this.zmqSocket.unmonitor();
+      this.zmqSocket.disconnect(this.zmqAddress);
+    }
+  }
+
   handleInitialPull() {
     this.currentPositions = this.doc.params.positions;
-    SK.vertices.watch({id: this.id}).on("updated", ([vertex]) => {
+    this.positionVertexHandle = SK.vertices.watch({id: this.id}).on("updated", ([vertex]) => {
       const newPositions = vertex.params.positions;
       Object.keys(vertex.params.positions).forEach((inputName) => {
         if (!_(this.currentPositions[inputName]).isEqual(newPositions[inputName])) {

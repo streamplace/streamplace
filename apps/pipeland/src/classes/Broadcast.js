@@ -14,7 +14,7 @@ export default class Broadcast extends Base {
     this.info("initializing");
 
     // Watch my vertices, so I can create and delete as necessary.
-    SK.vertices.watch({broadcastId: this.id})
+    this.vertexHandle = SK.vertices.watch({broadcastId: this.id})
 
     .on("newDoc", (vertex) => {
       this.info(`initializing vertex ${vertex.id}`);
@@ -33,6 +33,7 @@ export default class Broadcast extends Base {
 
   cleanup() {
     Object.keys(this.vertices).forEach((id) => {
+      this.vertexHandle.stop();
       this.vertices[id].cleanup();
       SK.vertices.update(id, {
         status: "INACTIVE",

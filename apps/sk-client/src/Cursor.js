@@ -26,23 +26,23 @@ class Cursor {
     // "data" will run on our initial event and on every subsequent change to the data
     ["created", "updated", "deleted"].forEach((action) => {
       this.on(action, (...args) => {
-        this.evt.emit("data", ...args);
+        this._emit("data", ...args);
       });
     });
     this.promise.then((...args) => {
-      this.evt.emit("data", ...args);
+      this._emit("data", ...args);
     });
 
     // "newDoc" will run once for every document in the initial pull or subsequently created
     this.promise.then((docs) => {
       docs.forEach((doc) => {
-        this.evt.emit("newDoc", doc);
+        this._emit("newDoc", doc);
       });
     });
     this.on("created", (docs, newIds) => {
       docs.forEach((doc) => {
         if (newIds.indexOf(doc.id) !== -1) {
-          this.evt.emit("newDoc", doc);
+          this._emit("newDoc", doc);
         }
       });
     });
@@ -50,9 +50,19 @@ class Cursor {
     // "deletedDoc" is when documents are deleted, you rube.
     this.on("deleted", (docs, deletedIds) => {
       deletedIds.forEach((id) => {
-        this.evt.emit("deletedDoc", id);
+        this._emit("deletedDoc", id);
       });
     });
+  }
+
+  _emit(type, ...args) {
+    try {
+      this.evt.emit(type, ...args);
+    }
+    catch (e) {
+      this.SK.error(`Error emitting ${type} event`);
+      this.SK.error(e.stack);
+    }
   }
 
   then(...args) {
@@ -109,7 +119,7 @@ export class SocketCursor extends Cursor {
     const knownDocsArr = _(this.knownDocs).values();
     this.then(() => {
       try {
-        this.evt.emit(type, knownDocsArr, ids);
+        this._emit(type, knownDocsArr, ids);
       }
       catch(e) {
         this.SK.log("Error emitting event:" + e.stack);
@@ -186,15 +196,15 @@ export class PollCursor extends Cursor {
       const knownDocsArr = _(this.knownDocs).values();
 
       if (createdIds.length > 0) {
-        this.evt.emit("created", knownDocsArr, createdIds);
+        this._emit("created", knownDocsArr, createdIds);
       }
 
       if (updatedIds.length > 0) {
-        this.evt.emit("updated", knownDocsArr, updatedIds);
+        this._emit("updated", knownDocsArr, updatedIds);
       }
 
       if (deletedIds.length > 0) {
-        this.evt.emit("deleted", knownDocsArr, deletedIds);
+        this._emit("deleted", knownDocsArr, deletedIds);
       }
     });
   }

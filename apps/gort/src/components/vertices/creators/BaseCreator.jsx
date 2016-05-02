@@ -21,7 +21,8 @@ export default class BaseCreator extends React.Component {
       params: {},
       inputs: [],
       outputs: [],
-      broadcastId: props.broadcastId
+      broadcastId: props.broadcastId,
+      status: "INACTIVE"
     };
   }
 

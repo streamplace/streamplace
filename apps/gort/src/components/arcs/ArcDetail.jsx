@@ -75,6 +75,9 @@ export default class ArcDetail extends React.Component {
   }
 
   makeList(direction) {
+    if (!this.state.vertices) {
+      return <div/>;
+    }
     const ret = [];
     const currentConn = this.state.arc[direction];
     let vertexField;

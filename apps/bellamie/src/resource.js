@@ -205,6 +205,7 @@ export default class Resource {
           winston.debug("unsub", {subId, addr});
           feed.removeAllListeners("data");
           feed.removeAllListeners("error");
+          // console.log("Closing cursor bc unsub");
           feed.close();
           // conn.close();
         }
@@ -212,6 +213,7 @@ export default class Resource {
       socket.on("disconnect", function() {
         feed.removeAllListeners("data");
         feed.removeAllListeners("error");
+        // console.log("Closing cursor bc disconnect");
         feed.close();
       });
     })

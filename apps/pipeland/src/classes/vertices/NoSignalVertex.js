@@ -67,7 +67,8 @@ export default class NoSignalVertex extends BaseVertex {
         .outputFormat("mpegts")
         .outputOptions([
           "-map 0:v",
-          "-preset ultrafast"
+          "-preset ultrafast",
+          "-x264opts keyint=60"
         ])
 
         // Audio Output

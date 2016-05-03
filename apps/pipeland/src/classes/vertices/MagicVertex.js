@@ -13,11 +13,16 @@ const SPLIT_SCREEN_BOTTOM_SWITCHER_LABEL = "splitScreenBottomSwitcher";
 const SPLIT_SCREEN_BOTTOM_CROP_LABEL = "splitScreenBottomCrop";
 const SPLIT_SCREEN_BOTTOM_OVERLAY_LABEL = "splitScreenBottomOverlay";
 
+// This is hacky as hell but it doesn't seem to work if I send all messages at once.
+const ZMQ_SEND_INTERVAL = 1000;
+
 export default class MagicVertex extends InputVertex {
   constructor({id}) {
     super({id});
     this.rewriteStream = false;
     // this.debug = true;
+    this.zmqQueue = [];
+    this.zmqIsRunning = false;
     this.videoOutputURL = this.getUDPOutput();
     this.audioOutputURL = this.getUDPOutput();
   }
@@ -38,6 +43,7 @@ export default class MagicVertex extends InputVertex {
       const newPositions = vertex.params.positions;
       Object.keys(vertex.params.positions).forEach((inputName) => {
         if (!_(this.currentPositions[inputName]).isEqual(newPositions[inputName])) {
+          this.currentPositions[inputName] = newPositions[inputName];
           this.doZMQUpdate(inputName);
         }
       });
@@ -71,19 +77,38 @@ export default class MagicVertex extends InputVertex {
     });
   }
 
+  _sendNextZMQMessage() {
+    // If there's nothing to do, we're not running anymore.
+    if (this.zmqQueue.length === 0) {
+      this.zmqIsRunning = false;
+      return;
+    }
+    // If we're not connected yet, chill. We'll get called again when we do.
+    if (!this.zmqSocket) {
+      this.zmqIsRunning = false;
+      return;
+    }
+    // Otherwise, send a message and queue the next one.
+    const msg = this.zmqQueue.pop();
+    this.info(`ZMQ: ${msg}`);
+    this.zmqSocket.send(msg);
+    this.zmqIsRunning = true;
+    setTimeout(this._sendNextZMQMessage.bind(this), ZMQ_SEND_INTERVAL);
+  }
+
   doZMQUpdate(inputName) {
-    if (this.zmqSocket) {
-      const send = (msg) => {
-        this.info(`ZMQ: ${msg}`);
-        this.zmqSocket.send(msg);
-      };
-      const pos = this.doc.params.positions[inputName];
-      const overlayLabel = this.ffmpeg.filterLabels[`${inputName}-overlay`];
-      const scaleLabel = this.ffmpeg.filterLabels[`${inputName}-scale`];
-      send(`${overlayLabel} x ${pos.x}`);
-      send(`${overlayLabel} y ${pos.y}`);
-      send(`${scaleLabel} width ${pos.width}`);
-      send(`${scaleLabel} height ${pos.height}`);
+    const send = (msg) => {
+      this.zmqQueue.push(msg);
+    };
+    const pos = this.currentPositions[inputName];
+    const overlayLabel = this.ffmpeg.filterLabels[`${inputName}-overlay`];
+    const scaleLabel = this.ffmpeg.filterLabels[`${inputName}-scale`];
+    send(`${overlayLabel} x ${pos.x}`);
+    send(`${overlayLabel} y ${pos.y}`);
+    send(`${scaleLabel} width ${pos.width}`);
+    send(`${scaleLabel} height ${pos.height}`);
+    if (!this.zmqIsRunning) {
+      this._sendNextZMQMessage();
     }
   }
 
@@ -91,7 +116,8 @@ export default class MagicVertex extends InputVertex {
     super.init();
     try {
       this.ffmpeg = this.createffmpeg();
-      this.zmqAddress = `tcp://0.0.0.0:${this.getTCP()}`;
+      this.zmqPort = this.getTCP();
+      this.zmqAddress = `tcp://*:${this.zmqPort}`;
 
       const videoInputSockets = [];
       const audioInputSockets = [];
@@ -125,7 +151,7 @@ export default class MagicVertex extends InputVertex {
               this.ffmpeg.magic(
                 `${currentIdx}:v`,
                 m.framerate("30"),
-                m.scale([pos.width, pos.height], {_label: `${input.name}-scale`}),
+                m.scale([pos.width, pos.height], {flags: "neighbor", _label: `${input.name}-scale`}),
                 `${socket.name}`
               );
             }
@@ -205,19 +231,15 @@ export default class MagicVertex extends InputVertex {
         ])
         .once("progress", () => {
           const socket = zmq.socket("req");
-          this.zmqSocket = socket;
           socket.on("connect", (fd, ep) => {
+            this.zmqSocket = socket;
+            if (!this.zmqIsRunning) {
+              this._sendNextZMQMessage();
+            }
             let idx = 0;
             let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
-          //   setInterval(function() {
-          //     idx += 1;
-          //     if (idx >= videoInputNames.length + 1) {
-          //       idx = 0;
-          //     }
-          //     socket.send(`${label} map ${idx}`);
-          //   }, 3000);
-          //   this.info("connect, endpoint:", ep);
           });
+          socket.on("connect", (fd, ep) => {this.info("connect, endpoint:", ep);});
           socket.on("connect_delay", (fd, ep) => {this.info("connect_delay, endpoint:", ep);});
           socket.on("connect_retry", (fd, ep) => {this.info("connect_retry, endpoint:", ep);});
           socket.on("listen", (fd, ep) => {this.info("listen, endpoint:", ep);});
@@ -227,8 +249,9 @@ export default class MagicVertex extends InputVertex {
           socket.on("close", (fd, ep) => {this.info("close, endpoint:", ep);});
           socket.on("close_error", (fd, ep) => {this.info("close_error, endpoint:", ep);});
           socket.on("disconnect", (fd, ep) => {this.info("disconnect, endpoint:", ep);});
+          socket.on("message", (msg) => {this.info("message: ", msg.toString());});
           socket.monitor(500, 0);
-          socket.connect(this.zmqAddress);
+          socket.connect(`tcp://127.0.0.1:${this.zmqPort}`);
         })
         .output(this.videoOutputURL)
         .outputFormat("mpegts")

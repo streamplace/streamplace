@@ -43,11 +43,17 @@ export default class InputVertex extends BaseVertex {
     this.startedMultiplexing = true;
     this.info("Started multiplexing");
 
-    this.outputStreams = [];
+    this.outputStreams = {};
+
+    // List of every syncer stream, so I can set all their offsets at once.
     this.syncers = [];
+
+    // List of all of my streams that I need to clean up when we're done.
     this.cleanupStreams = [];
 
     this.doc.outputs.forEach((output) => {
+      const streamsForThisOutput = {};
+      this.outputStreams[output.name] = streamsForThisOutput;
       const sync = syncer({
         count: output.sockets.length,
         offset: 0,
@@ -55,8 +61,12 @@ export default class InputVertex extends BaseVertex {
       });
       this.syncers.push(sync);
       output.sockets.forEach((socket, i) => {
-        let dataInStream;
-        let dataOutStream;
+
+        // The data we're producing gets passed through a series of streams.
+        let dataInStream; // We put our new data in this stream
+        let dataOutStream; // And then it comes out here when we're done.
+
+        // If we're an input-ish stream, we keep our input in sync and fill it with NoSignal.
         if (this.rewriteStream === true) {
           const syncStream = sync.streams[i];
           const noSignalStream = new NoSignalStream({delay: 2000, type: socket.type});
@@ -65,11 +75,14 @@ export default class InputVertex extends BaseVertex {
           dataInStream = syncStream;
           dataOutStream = noSignalStream;
         }
+
+        // Otherwise, we just go in one ear and out the other.
         else {
           dataInStream = new PassThrough();
           dataOutStream = dataInStream;
         }
-        this.outputStreams.push(dataOutStream);
+
+        // Cool, with those set up, let's make a UDP server that passes to the input stream.
         const {port} = url.parse(socket.url);
         const server = this._getServer();
         server.on("error", (...args) => {
@@ -79,34 +92,24 @@ export default class InputVertex extends BaseVertex {
           dataInStream.write(chunk);
         });
         server.bind(port);
+
+        // And let's save the output stream so we can pass it to all applicable arcs later.
+        streamsForThisOutput[socket.type] = dataOutStream;
       });
     });
 
     this.vertexHandle.then(() => {
       this.arcHandle = SK.arcs.watch({"from": {"vertexId": this.id}})
-      .then((arcs) => {
-        arcs.forEach((arc) => {
-          this.addArc(arc);
-        });
+      .on("newDoc", (arc) => {
+        this.addArc(arc);
       })
-      .on("created", (arcs, newIds) => {
-        // Only add arcs that are in the newIds array
-        arcs.forEach((arc) => {
-          if (newIds.indexOf(arc.id) === -1) {
-            return;
-          }
-          this.addArc(arc);
-        });
+      .on("deletedDoc", (id) => {
+        this.removeArc(id);
       })
       .on("data", ([arc]) => {
         // For now we're just taking the delay from the first arc we see.
         this.syncers.forEach((sync) => {
           sync.setOffset(parseInt(arc.delay));
-        });
-      })
-      .on("deleted", (arcs, deletedIds) => {
-        deletedIds.forEach((id) => {
-          this.removeArc(id);
         });
       })
       .catch((e) => {
@@ -116,17 +119,23 @@ export default class InputVertex extends BaseVertex {
   }
 
   addArc(arc) {
-    const arcWritable = new ArcWritable({arcId: arc.id, count: this.outputStreams.length});
+    const sockets = this.outputStreams[arc.from.ioName];
+    const arcWritable = new ArcWritable({
+      arcId: arc.id,
+      ioName: arc.from.ioName,
+      outputs: sockets
+    });
     this.arcStreams.push(arcWritable);
-    this.outputStreams.forEach((outputStream, i) => {
-      outputStream.pipe(arcWritable.streams[i]);
+    Object.keys(sockets).forEach((type) => {
+      sockets[type].pipe(arcWritable.streams[type]);
     });
   }
 
   removeArc(arcId) {
     const arcWritable = _(this.arcStreams).findWhere({arcId});
-    this.outputStreams.forEach((outputStream, i) => {
-      outputStream.unpipe(arcWritable.streams[i]);
+    const sockets = this.outputStreams[arcWritable.ioName];
+    Object.keys(sockets).forEach((type) => {
+      sockets[type].unpipe(arcWritable.streams[type]);
     });
   }
 

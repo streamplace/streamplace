@@ -32,8 +32,13 @@ export default class MagicVertex extends InputVertex {
     this.positionVertexHandle.stop();
 
     if (this.zmqSocket) {
-      this.zmqSocket.unmonitor();
-      this.zmqSocket.disconnect(this.zmqAddress);
+      try {
+        this.zmqSocket.unmonitor();
+        this.zmqSocket.disconnect(this.zmqAddress);
+      }
+      catch (e) {
+        this.error("Error disconnecting from ZMQ: ", e.stack);
+      }
     }
   }
 
@@ -131,7 +136,7 @@ export default class MagicVertex extends InputVertex {
             .input(socket.url)
             .inputFormat("mpegts")
             .inputOptions([
-              "-thread_queue_size 512",
+              "-thread_queue_size 1024",
               // "-avioflags direct",
             ]);
 
@@ -151,7 +156,7 @@ export default class MagicVertex extends InputVertex {
               this.ffmpeg.magic(
                 `${currentIdx}:v`,
                 m.framerate("30"),
-                m.scale([pos.width, pos.height], {flags: "neighbor", _label: `${input.name}-scale`}),
+                m.scale([pos.width, pos.height], {_label: `${input.name}-scale`}),
                 `${socket.name}`
               );
             }
@@ -211,7 +216,7 @@ export default class MagicVertex extends InputVertex {
           // "-profile:v baseline",
           // "-use_wallclock_as_timestamps 1",
           "-fflags +igndts",
-          // "-loglevel verbose",
+          "-loglevel verbose",
         ])
         .magic(
           currentOverlayBG,

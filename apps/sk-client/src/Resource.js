@@ -78,6 +78,12 @@ export default class Resource {
   }
 
   watch(query = {}, fields) {
+    Object.keys(query).forEach((key) => {
+      const value = query[key];
+      if (value === undefined) {
+        throw new Error(`Tried to watch for ${this.name} with ${key}=undefined. Stream Kitchen objects will never have undefined fields. Either you meant to watch for "null", or you're passing a value you expect to be defined.`);
+      }
+    });
     const cursor = new SocketCursor({query, fields, resource: this, SK: this.SK});
     return cursor;
   }

@@ -111,8 +111,8 @@ export default class Resource {
       res.status(200);
       return r.table(this.name).get(req.params.id).run(req.conn);
     })
-    .then(function(stuff) {
-      res.json(stuff);
+    .then(function(doc) {
+      res.json(doc);
       next();
     })
     .catch(function(err) {

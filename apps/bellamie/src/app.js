@@ -35,6 +35,7 @@ const io = SocketIO(server);
 
 io.on("connection", function(socket) {
   socket.emit("hello");
+  socket.setMaxListeners(100); // Otherwise it complains when we get to 11.
 
   const addr = socket.conn.remoteAddress;
   winston.info(`${addr} connect`);

@@ -120,7 +120,7 @@ export default class NoSignalStream extends Transform {
     this.buffers[this.inputIdx] = chunk;
     this.inputIdx += 1;
     if (this.state === STATE_EMPTY) {
-      this.state = STATE_BUFFERING;
+      this.setState(STATE_BUFFERING);
     }
     next();
   }

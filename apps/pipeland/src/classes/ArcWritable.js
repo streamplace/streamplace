@@ -3,32 +3,12 @@
  * An arc, to which vertices may write their output. Created by a vertex output multiplexer.
  */
 
-import {Writable} from "stream";
 import winston from "winston";
 import dgram from "dgram";
 import url from "url";
 
+import {UDPOutputStream} from "./UDPStreams";
 import SK from "../sk";
-
-class ArcWritableStream extends Writable {
-  constructor() {
-    super();
-    this.sendSocket = dgram.createSocket("udp4");
-  }
-
-  setURL(newURL) {
-    const {port, hostname} = url.parse(newURL);
-    this.port = port;
-    this.hostname = hostname;
-  }
-
-  _write(chunk, encoding, done) {
-    if (this.hostname && this.port) {
-      this.sendSocket.send(chunk, 0, chunk.length, this.port, this.hostname);
-    }
-    done();
-  }
-}
 
 export default class ArcWritable {
   constructor({arcId, outputs, ioName}) {
@@ -37,7 +17,7 @@ export default class ArcWritable {
     const outputTypes = Object.keys(outputs);
     this.streams = {};
     outputTypes.forEach((type) => {
-      this.streams[type] = new ArcWritableStream();
+      this.streams[type] = new UDPOutputStream();
     });
 
     this.arcHandle = SK.arcs.watch({id: this.arcId})

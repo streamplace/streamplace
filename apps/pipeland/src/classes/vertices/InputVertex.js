@@ -9,8 +9,8 @@ import dgram from "dgram";
 import url from "url";
 import {syncer} from "mpeg-munger";
 import _ from "underscore";
-import {PassThrough} from "stream";
 
+import {UDPInputStream} from "../UDPStreams";
 import {SERVER_START_TIME} from "../../constants";
 import ArcWritable from "../ArcWritable";
 import NoSignalStream from "../NoSignalStream";
@@ -63,7 +63,7 @@ export default class InputVertex extends BaseVertex {
       output.sockets.forEach((socket, i) => {
 
         // The data we're producing gets passed through a series of streams.
-        let dataInStream; // We put our new data in this stream
+        let dataInStream = new UDPInputStream({url: socket.url}); // We put our new data in this stream
         let dataOutStream; // And then it comes out here when we're done.
 
         // If we're an input-ish stream, we keep our input in sync and fill it with NoSignal.
@@ -71,29 +71,17 @@ export default class InputVertex extends BaseVertex {
           const syncStream = sync.streams[i];
           const noSignalStream = new NoSignalStream({delay: 2000, type: socket.type});
           this.cleanupStreams.push(noSignalStream);
+          dataInStream.pipe(syncStream);
           syncStream.pipe(noSignalStream);
-          dataInStream = syncStream;
           dataOutStream = noSignalStream;
         }
 
         // Otherwise, we just go in one ear and out the other.
         else {
-          dataInStream = new PassThrough();
           dataOutStream = dataInStream;
         }
 
-        // Cool, with those set up, let's make a UDP server that passes to the input stream.
-        const {port} = url.parse(socket.url);
-        const server = this._getServer();
-        server.on("error", (...args) => {
-          this.error(args);
-        });
-        server.on("message", (chunk, rdata) => {
-          dataInStream.write(chunk);
-        });
-        server.bind(port);
-
-        // And let's save the output stream so we can pass it to all applicable arcs later.
+        // Let's save the output stream so we can pass it to all applicable arcs later.
         streamsForThisOutput[socket.type] = dataOutStream;
       });
     });
@@ -106,10 +94,15 @@ export default class InputVertex extends BaseVertex {
       .on("deletedDoc", (id) => {
         this.removeArc(id);
       })
-      .on("data", ([arc]) => {
+      .on("data", (arcs) => {
         // For now we're just taking the delay from the first arc we see.
+        const arc = arcs[0];
+        if (!arc) {
+          return;
+        }
+        const offset = parseInt(arc.delay);
         this.syncers.forEach((sync) => {
-          sync.setOffset(parseInt(arc.delay));
+          sync.setOffset(offset);
         });
       })
       .catch((e) => {

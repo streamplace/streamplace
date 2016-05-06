@@ -105,6 +105,10 @@ export default class BaseVertex extends Base {
     if (this.vertexHandle) {
       this.vertexHandle.stop();
     }
+    if (this.timeoutHandle) {
+      clearTimeout(this.timeoutHandle);
+      delete this.timeoutHandle;
+    }
     this.info("Cleaning up");
   }
 

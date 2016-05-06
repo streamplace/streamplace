@@ -35,6 +35,13 @@ export class UDPInputStream extends Readable {
   _onError(err) {
     throw err;
   }
+
+  stop() {
+    if (this.server) {
+      this.server.close();
+      this.push(null);
+    }
+  }
 }
 
 /**

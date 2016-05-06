@@ -9,8 +9,6 @@ import SK from "./sk";
 winston.cli();
 winston.info("Pipeland starting up.");
 
-const vertices = {};
-
 // Main loop. Eventually this will be replaced with a scheduler that allocates vertices onto
 // Kubernetes nodes. For now we just follow them all here.
 const broadcasts = {};

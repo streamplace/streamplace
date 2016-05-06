@@ -10,6 +10,7 @@ import RTMPInputVertex from "./vertices/RTMPInputVertex";
 import RTMPOutputVertex from "./vertices/RTMPOutputVertex";
 import MagicVertex from "./vertices/MagicVertex";
 import ImageInputVertex from "./vertices/ImageInputVertex";
+import FileOutputVertex from "./vertices/FileOutputVertex";
 
 const Vertex = {};
 
@@ -18,6 +19,7 @@ const VertexMap = {
   "RTMPOutput": RTMPOutputVertex,
   "Magic": MagicVertex,
   "ImageInput": ImageInputVertex,
+  "FileOutput": FileOutputVertex,
 };
 
 Vertex.create = function(params) {

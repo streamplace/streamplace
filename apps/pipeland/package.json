@@ -6,12 +6,13 @@
   "scripts": {
     "build": "babel -d dist src",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "API_SERVER_URL=http://localhost:8100 nodemon -w src -w ../sk-client/dist -w ../mpeg-munger/dist -x ./rundev.sh",
+    "dev": "API_SERVER_URL=http://localhost:8100 nodemon -w src -w ../sk-client/dist -w ../mpeg-munger/dist -x babel-node src/app.js",
     "stage": "API_SERVER_URL=https://api.stream.kitchen nodemon -x babel-node src/app.js"
   },
   "author": "Stream Kitchen",
   "license": "SEE LICENSE IN your-butt",
   "dependencies": {
+    "aws-sdk": "^2.3.9",
     "babel-polyfill": "^6.3.14",
     "fluent-ffmpeg": "^2.0.1",
     "shell-quote": "^1.5.0",

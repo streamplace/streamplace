@@ -88,17 +88,21 @@ export default class NoSignalStream extends Transform {
     this.times = [];
     this.buffers = [];
 
-    this.stream.on("data", (chunk) => {
-      if (this.state !== STATE_ACTIVE) {
-        this.push(chunk);
-      }
-    });
+    this._onBackupStreamData = this._onBackupStreamData.bind(this);
+    this.stream.on("data", this._onBackupStreamData);
 
     this.intervalHandle = setInterval(this.handleTick.bind(this), TICK_RATE);
   }
 
+  _onBackupStreamData(chunk) {
+    if (this.state !== STATE_ACTIVE) {
+      this.push(chunk);
+    }
+  }
+
   end(...args) {
     super.end(...args);
+    this.stream.removeListener("data", this._onBackupStreamData);
     clearInterval(this.intervalHandle);
   }
 

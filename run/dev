@@ -19,6 +19,9 @@ function run() {
   name="$1"
   path="$name"
   color="$2"
+  if [[ -f "$SK_SECRET_DIRECTORY/$name.sh" ]]; then
+    source "$SK_SECRET_DIRECTORY/$name.sh"
+  fi
   cd "$DIR/../apps/$path" && npm run dev 2>&1 | prettylog "$name" "$color" &
   sleep 2
 }

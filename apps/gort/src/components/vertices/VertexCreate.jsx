@@ -11,6 +11,7 @@ import RTMPOutputCreator from "./creators/RTMPOutputCreator";
 import RTMPInputCreator from "./creators/RTMPInputCreator";
 import MagicCreator from "./creators/MagicCreator";
 import ImageInputCreator from "./creators/ImageInputCreator";
+import FileOutputCreator from "./creators/FileOutputCreator";
 
 export default class VertexCreate extends React.Component {
   constructor(params) {
@@ -52,7 +53,8 @@ const vertexCreators = {
   RTMPOutputCreator,
   MagicCreator,
   ArcCreate,
-  ImageInputCreator
+  ImageInputCreator,
+  FileOutputCreator,
 };
 
 VertexCreate.propTypes = {

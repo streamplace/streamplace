@@ -23,7 +23,7 @@ RUN cd ~ && \
 RUN cd ~ && \
   curl -LO https://github.com/cisco/openh264/archive/v1.5.0.tar.gz && \
   tar xzvf v1.5.0.tar.gz && \
-  cd openh264kill* && \
+  cd openh264* && \
   make && \
   make install
 

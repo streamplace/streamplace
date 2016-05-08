@@ -5,8 +5,9 @@ FROM gcr.io/stream-kitchen/sk-node
 # First line is libzmq dependencies, second is ffmpeg dependencies
 RUN \
   apt-get update && \
-  apt-get install -y python make g++ libtool autoconf automake pkg-config && \
+  apt-get install -y python make g++ libtool autoconf automake pkg-config curl && \
   apt-get install -y libvorbisenc2 libvorbis0a libtheora0 libfreetype6 libass5 && \
+  apt-get install -y nasm && \
   rm -rf /var/lib/apt/lists/*
 
 # We need a newer veresion of libzmq.
@@ -17,6 +18,13 @@ RUN cd ~ && \
   ./autogen.sh && \
   ./configure --prefix="/usr" && \
   make -j 4 && \
+  make install
+
+RUN cd ~ && \
+  curl -LO https://github.com/cisco/openh264/archive/v1.5.0.tar.gz && \
+  tar xzvf v1.5.0.tar.gz && \
+  cd openh264kill* && \
+  make && \
   make install
 
 WORKDIR /app

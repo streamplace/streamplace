@@ -20,7 +20,7 @@ export default class MagicVertex extends InputVertex {
   constructor({id}) {
     super({id});
     this.rewriteStream = false;
-    this.debug = true;
+    // this.debug = true;
     this.zmqQueue = [];
     this.zmqIsRunning = false;
     this.videoOutputURL = this.getUDPOutput();

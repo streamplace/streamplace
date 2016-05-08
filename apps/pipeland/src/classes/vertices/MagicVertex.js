@@ -20,7 +20,7 @@ export default class MagicVertex extends InputVertex {
   constructor({id}) {
     super({id});
     this.rewriteStream = false;
-    // this.debug = true;
+    this.debug = true;
     this.zmqQueue = [];
     this.zmqIsRunning = false;
     this.videoOutputURL = this.getUDPOutput();
@@ -136,7 +136,7 @@ export default class MagicVertex extends InputVertex {
             .input(socket.url)
             .inputFormat("mpegts")
             .inputOptions([
-              "-thread_queue_size 1024",
+              "-thread_queue_size 16384",
               // "-avioflags direct",
             ]);
 

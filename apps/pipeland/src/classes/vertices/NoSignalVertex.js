@@ -53,9 +53,11 @@ export default class NoSignalVertex extends BaseVertex {
   init() {
     try {
       this.ffmpeg = this.createffmpeg()
-        .input("testsrc=size=1920x1080:rate=30")
+        .input("testsrc=size=960x720:rate=30")
         .inputFormat("lavfi")
-        .inputOptions("-re")
+        .inputOptions([
+          "-re"
+        ])
 
         .input("sine=frequency=1000")
         .inputFormat("lavfi")
@@ -68,7 +70,9 @@ export default class NoSignalVertex extends BaseVertex {
         .outputOptions([
           "-map 0:v",
           "-preset ultrafast",
-          "-x264opts keyint=60"
+          "-x264opts keyint=60",
+          "-vsync passthrough",
+          "-pix_fmt yuv422p"
         ])
 
         // Audio Output
@@ -77,6 +81,7 @@ export default class NoSignalVertex extends BaseVertex {
         .outputFormat("mpegts")
         .outputOptions([
           "-map 1:a",
+          "-ac 2",
         ]);
 
       this.ffmpeg.run();

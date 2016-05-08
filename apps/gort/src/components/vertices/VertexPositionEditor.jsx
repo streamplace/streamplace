@@ -14,7 +14,11 @@ export default class VertexPositionEditor extends React.Component {
 
   handleChange(inputName, field, e) {
     const positions = {...this.state.positions};
-    positions[inputName][field] = parseInt(e.target.value);
+    let result = parseInt(e.target.value);
+    if (result !== result) { // NaN
+      result = e.target.value;
+    }
+    positions[inputName][field] = result;
     this.setState({positions});
   }
 

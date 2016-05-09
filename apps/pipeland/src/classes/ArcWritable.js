@@ -9,10 +9,9 @@
 
 import winston from "winston";
 import dgram from "dgram";
-import url from "url";
 import {PassThrough} from "stream";
 
-import * as udp from "./transports/UDPTransport";
+import {getTransportFromURL} from "./transports";
 import SK from "../sk";
 
 export default class ArcWritable {
@@ -71,14 +70,9 @@ export default class ArcWritable {
         }
         if (!this.outputStreams[socket.type]) {
           // It's our first time here! Create the output.
-          const {protocol} = url.parse(socket.url);
-          if (protocol === "udp:") {
-            this.outputStreams[socket.type] = new udp.OutputStream({url: socket.url});
-            this.streams[socket.type].pipe(this.outputStreams[socket.type]);
-          }
-          else {
-            throw new Error(`Trying to arc to an unknown protocol type: ${protocol}`);
-          }
+          const transport = getTransportFromURL(socket.url);
+          this.outputStreams[socket.type] = new transport.OutputStream({url: socket.url});
+          this.streams[socket.type].pipe(this.outputStreams[socket.type]);
         }
         this.outputStreams[socket.type].setURL(socket.url);
       });

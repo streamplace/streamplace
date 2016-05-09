@@ -13,7 +13,7 @@ import url from "url";
 import {syncer} from "mpeg-munger";
 import _ from "underscore";
 
-import * as udp from "../transports/UDPTransport";
+import {getTransportFromURL} from "../transports";
 import {SERVER_START_TIME} from "../../constants";
 import ArcWritable from "../ArcWritable";
 import NoSignalStream from "../NoSignalStream";
@@ -65,17 +65,10 @@ export default class InputVertex extends BaseVertex {
       this.syncers.push(sync);
       output.sockets.forEach((socket, i) => {
 
-        const {protocol} = url.parse(socket.url);
         // The data we're producing gets passed through a series of streams.
-        let dataInStream; // We put our new data in this stream
 
-        if (protocol === "udp:") {
-          dataInStream = new udp.InputStream({url: socket.url});
-        }
-        else {
-          throw new Error(`We don't know how to proxy streams for this protocol: ${protocol}`);
-        }
-
+        const transport = getTransportFromURL(socket.url);
+        let dataInStream = new transport.InputStream({url: socket.url});
 
         let dataOutStream; // And then it comes out here when we're done.
 
@@ -145,12 +138,6 @@ export default class InputVertex extends BaseVertex {
     });
   }
 
-  _getServer() {
-    const server = dgram.createSocket("udp4");
-    this._udpServers.push(server);
-    return server;
-  }
-
   cleanup() {
     super.cleanup();
     if (this.arcHandle) {
@@ -161,9 +148,6 @@ export default class InputVertex extends BaseVertex {
     }
     this.cleanupStreams.forEach((stream) => {
       stream.end();
-    });
-    this._udpServers.forEach((server) => {
-      server.close();
     });
   }
 }

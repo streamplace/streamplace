@@ -136,6 +136,10 @@ export default class MagicVertex extends InputVertex {
             .input(socket.url)
             .inputFormat("mpegts")
             .inputOptions([
+              "-analyzeduration 60000000",
+              "-noaccurate_seek", // Not really sure if this helps, but we certainly don't need
+                                  // any kind of accurate seek.
+              "-probesize 70000000000",
               "-thread_queue_size 16384",
               // "-avioflags direct",
             ]);
@@ -220,8 +224,6 @@ export default class MagicVertex extends InputVertex {
           // "-use_wallclock_as_timestamps 1",
           "-fflags +igndts",
           "-loglevel verbose",
-          "-analyzeduration 70000000000",
-          "-probesize 70000000000",
         ])
         .magic(
           currentOverlayBG,

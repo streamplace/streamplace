@@ -1,4 +1,5 @@
 
+import winston from "winston";
 import dgram from "dgram";
 import url from "url";
 import {Readable, Writable} from "stream";
@@ -33,7 +34,7 @@ export class UDPInputStream extends Readable {
   }
 
   _onError(err) {
-    throw err;
+    winston.error("UDP Error", err);
   }
 
   stop() {
@@ -54,12 +55,17 @@ export class UDPOutputStream extends Writable {
       this.setURL(params.url);
     }
     this.sendSocket = dgram.createSocket("udp4");
+    this.sendSocket.on("error", this._onError.bind(this));
   }
 
   setURL(newURL) {
     const {port, hostname} = url.parse(newURL);
     this.port = port;
     this.hostname = hostname;
+  }
+
+  _onError(err) {
+    winston.error("UDP Error", err);
   }
 
   _write(chunk, encoding, done) {

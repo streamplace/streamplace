@@ -6,8 +6,8 @@ export default class RTMPInputVertex extends InputVertex {
   constructor({id}) {
     super({id});
     this.rewriteStream = true;
-    this.videoOutputURL = this.getUDPOutput();
-    this.audioOutputURL = this.getUDPOutput();
+    this.videoOutputURL = this.transport.getOutputURL();
+    this.audioOutputURL = this.transport.getOutputURL();
     SK.vertices.update(id, {
       outputs: [{
         name: "default",

@@ -5,14 +5,8 @@ import {parse, quote} from "shell-quote";
 import M from "../MagicFilters";
 import SK from "../../sk";
 import Base from "../Base";
+import * as udp from "../transports/UDPTransport";
 import {SERVER_START_TIME} from "../../constants";
-
-const getRandomArbitrary = function(min, max) {
-  return Math.floor(Math.random() * (max - min) + min);
-};
-const randomPort = function() {
-  return getRandomArbitrary(40000, 50000);
-};
 
 let currentTCP = 5555;
 
@@ -22,6 +16,10 @@ export default class BaseVertex extends Base {
     this.id = id;
     this.info("initializing");
     this.debug = false;
+
+    // TODO: Make this a setting. For now if you want to control whether vertices use TCP or UDP
+    // sockets, you can do that here.
+    this.transport = udp;
 
     this.SERVER_START_TIME = SERVER_START_TIME;
 
@@ -69,32 +67,12 @@ export default class BaseVertex extends Base {
   }
 
   /**
-   * Get something that is hopefully a fresh UDP address.
+   * TODO: change this to use the TCPTransport once it exists.
    */
-  _getUDPBase() {
-    return `udp://127.0.0.1:${randomPort()}?`;
-  }
-
-  /**
-   * DEPRECATED, this is an alias to getUDPOutput()
-   * @return {[type]} [description]
-   */
-  getUDP() {
-    return this.getUDPOutput();
-  }
-
-  getUDPOutput() {
-    return this._getUDPBase() + "pkt_size=1880";
-  }
-
   getTCP() {
     const ret = currentTCP;
     currentTCP += 1;
     return ret;
-  }
-
-  getUDPInput() {
-    return this._getUDPBase() + "reuse=1&fifo_size=1000000&buffer_size=1000000&overrun_nonfatal=1";
   }
 
   cleanup() {

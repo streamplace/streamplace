@@ -5,8 +5,8 @@ import SK from "../../sk";
 export default class RTMPOutputVertex extends BaseVertex {
   constructor({id}) {
     super({id});
-    this.videoInputURL = this.getUDPInput();
-    this.audioInputURL = this.getUDPInput();
+    this.videoInputURL = this.transport.getInputURL();
+    this.audioInputURL = this.transport.getInputURL();
     SK.vertices.update(id, {
       inputs: [{
         name: "default",

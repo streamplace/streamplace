@@ -2,7 +2,6 @@
 import AWS from "aws-sdk";
 
 import BaseVertex from "./BaseVertex";
-import {UDPInputStream} from "../UDPStreams";
 import SK from "../../sk";
 import ENV from "../../env";
 
@@ -34,8 +33,8 @@ export default class FileOutputVertex extends BaseVertex {
       throw new Error("FileOutputVertex created, but missing required environment variables");
     }
     super({id});
-    this.videoInputURL = this.getUDPInput();
-    this.audioInputURL = this.getUDPInput();
+    this.videoInputURL = this.transport.getInputURL();
+    this.audioInputURL = this.transport.getInputURL();
     SK.vertices.update(id, {
       inputs: [{
         name: "default",
@@ -63,7 +62,7 @@ export default class FileOutputVertex extends BaseVertex {
       input.sockets.forEach((socket) => {
         const fileName = `${prefix}-${input.name}-${socket.type}.ts`;
         this.info(`Uploading to ${fileName}`);
-        const udpStream = new UDPInputStream({url: socket.url});
+        const udpStream = new this.transport.InputStream({url: socket.url});
         const uploadStream = s3Streamer.upload({
           Bucket: ENV.AWS_USER_UPLOAD_BUCKET,
           Key: ENV.AWS_USER_UPLOAD_PREFIX + fileName,

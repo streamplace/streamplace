@@ -1,6 +1,9 @@
 /**
- * Shared behavior of all inputs. This does a little too much right now... eventually the NoSignal
- * stuff will be on the recieving end.
+ * Shared behavior of all inputs. But not really. Really this should be its own module that runs
+ * on the same pod as a vertex that handles piping its data around. It's stuck here because I
+ * didn't realize that until I was finished writing it, but if you add any code here make sure you
+ * don't take too much advantage of the fact that you're part of the Vertex class 'cause we want
+ * this all to be moved out of this process real soon.
  *
  * TODO: handle changes on the vertices of our outputs.
  */
@@ -10,7 +13,7 @@ import url from "url";
 import {syncer} from "mpeg-munger";
 import _ from "underscore";
 
-import {UDPInputStream} from "../UDPStreams";
+import * as udp from "../transports/UDPTransport";
 import {SERVER_START_TIME} from "../../constants";
 import ArcWritable from "../ArcWritable";
 import NoSignalStream from "../NoSignalStream";
@@ -62,8 +65,18 @@ export default class InputVertex extends BaseVertex {
       this.syncers.push(sync);
       output.sockets.forEach((socket, i) => {
 
+        const {protocol} = url.parse(socket.url);
         // The data we're producing gets passed through a series of streams.
-        let dataInStream = new UDPInputStream({url: socket.url}); // We put our new data in this stream
+        let dataInStream; // We put our new data in this stream
+
+        if (protocol === "udp:") {
+          dataInStream = new udp.InputStream({url: socket.url});
+        }
+        else {
+          throw new Error(`We don't know how to proxy streams for this protocol: ${protocol}`);
+        }
+
+
         let dataOutStream; // And then it comes out here when we're done.
 
         // If we're an input-ish stream, we keep our input in sync and fill it with NoSignal.

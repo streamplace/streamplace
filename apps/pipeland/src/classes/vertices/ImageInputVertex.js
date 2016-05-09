@@ -35,7 +35,7 @@ export default class ImageInputVertex extends InputVertex {
     super({id});
     this.rewriteStream = true;
     // this.debug = true;
-    this.videoOutputURL = this.getUDPOutput();
+    this.videoOutputURL = this.transport.getOutputURL();
     SK.vertices.update(id, {
       outputs: [{
         name: "default",

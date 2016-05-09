@@ -10,8 +10,8 @@ import BaseVertex from "./BaseVertex";
 export default class NoSignalVertex extends BaseVertex {
   constructor(params) {
     super(params);
-    this.videoOutputURL = this.getUDPOutput();
-    this.audioOutputURL = this.getUDPOutput();
+    this.videoOutputURL = this.transport.getOutputURL();
+    this.audioOutputURL = this.transport.getOutputURL();
     this.init();
     // this.debug = true;
   }

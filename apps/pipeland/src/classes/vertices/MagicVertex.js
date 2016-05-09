@@ -23,8 +23,8 @@ export default class MagicVertex extends InputVertex {
     // this.debug = true;
     this.zmqQueue = [];
     this.zmqIsRunning = false;
-    this.videoOutputURL = this.getUDPOutput();
-    this.audioOutputURL = this.getUDPOutput();
+    this.videoOutputURL = this.transport.getOutputURL();
+    this.audioOutputURL = this.transport.getOutputURL();
   }
 
   cleanup() {
@@ -56,7 +56,7 @@ export default class MagicVertex extends InputVertex {
     });
     this.doc.inputs.forEach((input) => {
       input.sockets.forEach((socket) => {
-        socket.url = this.getUDPInput();
+        socket.url = this.transport.getInputURL();
       });
     });
     const newVertex = {
@@ -136,10 +136,10 @@ export default class MagicVertex extends InputVertex {
             .input(socket.url)
             .inputFormat("mpegts")
             .inputOptions([
-              "-analyzeduration 60000000",
+              "-analyzeduration 10000000",
               "-noaccurate_seek", // Not really sure if this helps, but we certainly don't need
                                   // any kind of accurate seek.
-              "-probesize 70000000000",
+              "-probesize 60000000",
               "-thread_queue_size 16384",
               // "-avioflags direct",
             ]);

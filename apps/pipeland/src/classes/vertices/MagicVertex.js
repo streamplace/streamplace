@@ -215,12 +215,13 @@ export default class MagicVertex extends InputVertex {
           "-copytb 1",
           "-vsync passthrough",
           // "-sws_flags +neighbor",
-          "-probesize 2147483647",
           "-pix_fmt yuv420p",
           // "-profile:v baseline",
           // "-use_wallclock_as_timestamps 1",
           "-fflags +igndts",
           "-loglevel verbose",
+          "-analyzeduration 70000000000",
+          "-probesize 70000000000",
         ])
         .magic(
           currentOverlayBG,

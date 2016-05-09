@@ -72,7 +72,7 @@ export default class ImageInputVertex extends InputVertex {
 
         // Video out
         .output(this.videoOutputURL)
-        .videoCodec("libx264")
+        .videoCodec("libopenh264")
         .outputOptions([
           "-map 0:v"
         ])

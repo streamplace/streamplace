@@ -167,6 +167,11 @@ export default class MagicVertex extends InputVertex {
             audioInputSockets.push(socket);
             this.ffmpeg.magic(
               `${currentIdx}:a`,
+              m.aresample({
+                async: 1,
+                min_hard_comp: 0.100000,
+                first_pts: 0
+              }),
               m.volume({
                 _label: `${socket.name}-volume`
               }),
@@ -207,9 +212,7 @@ export default class MagicVertex extends InputVertex {
       this.ffmpeg
         .outputOptions([
           "-copyts",
-          "-start_at_zero",
           "-copytb 1",
-          "-async 1",
           "-vsync passthrough",
           // "-sws_flags +neighbor",
           "-probesize 2147483647",

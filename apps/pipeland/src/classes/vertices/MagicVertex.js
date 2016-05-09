@@ -218,6 +218,10 @@ export default class MagicVertex extends InputVertex {
           "-copyts",
           "-copytb 1",
           "-vsync passthrough",
+
+          // I think this flag just causes it to discard the analysis buffer when the stream starts
+          "-fflags +nobuffer",
+
           // "-sws_flags +neighbor",
           "-pix_fmt yuv420p",
           // "-profile:v baseline",

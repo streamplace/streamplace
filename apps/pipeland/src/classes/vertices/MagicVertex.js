@@ -239,11 +239,11 @@ export default class MagicVertex extends InputVertex {
           "-map [videoOutput]",
           "-b:v 4000k",
           "-allow_skip_frames 1",
-          // "-preset veryfast",
-          // "-x264opts keyint=60",
-          // "-b:v 4000k",
-          // "-minrate 4000k",
-          // "-maxrate 4000k",
+          "-preset veryfast",
+          "-x264opts keyint=60",
+          "-b:v 4000k",
+          "-minrate 4000k",
+          "-maxrate 4000k",
           // "-bufsize 1835k",
           // "-frame_drop_threshold 60",
         ])
@@ -273,7 +273,7 @@ export default class MagicVertex extends InputVertex {
         })
         .output(this.videoOutputURL)
         .outputFormat("mpegts")
-        .videoCodec("libopenh264")
+        .videoCodec("libx264")
 
         .magic(
           ...audioInputSockets.map(s => `${s.name}-adjusted`),

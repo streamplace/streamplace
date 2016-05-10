@@ -5,7 +5,7 @@ import {parse, quote} from "shell-quote";
 import M from "../MagicFilters";
 import SK from "../../sk";
 import Base from "../Base";
-import * as udp from "../transports/UDPTransport";
+import * as tcp from "../transports/TCPTransport";
 import {SERVER_START_TIME} from "../../constants";
 
 let currentTCP = 5555;
@@ -19,7 +19,7 @@ export default class BaseVertex extends Base {
 
     // TODO: Make this a setting. For now if you want to control whether vertices use TCP or UDP
     // sockets, you can do that here.
-    this.transport = udp;
+    this.transport = tcp;
 
     this.SERVER_START_TIME = SERVER_START_TIME;
 

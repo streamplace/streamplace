@@ -2,9 +2,11 @@
 import url from "url";
 
 import * as udp from "./UDPTransport";
+import * as tcp from "./TCPTransport";
 
 const protocols = {
   "udp": udp,
+  "tcp": tcp,
 };
 
 export function getTransport(protocol) {

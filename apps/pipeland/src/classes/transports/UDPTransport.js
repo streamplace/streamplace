@@ -8,23 +8,7 @@ import dgram from "dgram";
 import url from "url";
 import {Readable, Writable} from "stream";
 
-/**
- * Get a random number between min and max. Inclusive of min, exclusive of max.
- * @param  {Number} min
- * @param  {Number} max
- * @return {Number}
- */
-const getRandomArbitrary = function(min, max) {
-  return Math.floor(Math.random() * (max - min) + min);
-};
-
-/**
- * Get a random port.
- * @return {[type]} [description]
- */
-const randomPort = function() {
-  return getRandomArbitrary(40000, 50000);
-};
+import {randomPort} from "./utils";
 
 /**
  * Get something that is hopefully a fresh UDP address.

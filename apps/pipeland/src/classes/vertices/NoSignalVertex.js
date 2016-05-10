@@ -6,10 +6,12 @@
 import path from "path";
 
 import BaseVertex from "./BaseVertex";
+import * as udp from "../transports/UDPTransport";
 
 export default class NoSignalVertex extends BaseVertex {
   constructor(params) {
     super(params);
+    this.transport = udp;
     this.videoOutputURL = this.transport.getOutputURL();
     this.audioOutputURL = this.transport.getOutputURL();
     this.init();

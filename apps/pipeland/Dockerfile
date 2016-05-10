@@ -29,7 +29,8 @@ RUN cd ~ && \
 
 WORKDIR /app
 ADD sk-ffmpeg/bin/ffmpeg /usr/local/bin/ffmpeg
-ADD sk-ffmpeg/bin/ffprobe /usr/local/bin/ffprobe
+# For some reason FFProbe breaks listen ports. A fluent-ffmpeg bug problably. Anyway, gone for now.
+# ADD sk-ffmpeg/bin/ffprobe /usr/local/bin/ffprobe
 
 ADD pipeland/package.json /app/package.json
 

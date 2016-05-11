@@ -20,6 +20,8 @@ import NoSignalStream from "../NoSignalStream";
 import BaseVertex from "./BaseVertex";
 import SK from "../../sk";
 
+const ASSUME_STREAM_IS_DEAD = 10000;
+
 export default class InputVertex extends BaseVertex {
   constructor(params) {
     super(params);
@@ -75,7 +77,7 @@ export default class InputVertex extends BaseVertex {
         // If we're an input-ish stream, we keep our input in sync and fill it with NoSignal.
         if (this.rewriteStream === true) {
           const syncStream = sync.streams[i];
-          const noSignalStream = new NoSignalStream({delay: 2000, type: socket.type});
+          const noSignalStream = new NoSignalStream({delay: ASSUME_STREAM_IS_DEAD, type: socket.type});
           this.cleanupStreams.push(noSignalStream);
           dataInStream.pipe(syncStream);
           syncStream.pipe(noSignalStream);

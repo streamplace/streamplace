@@ -106,6 +106,9 @@ export default class MagicVertex extends InputVertex {
       this.zmqQueue.push(msg);
     };
     const pos = this.currentPositions[inputName];
+    if (!pos) {
+      return;
+    }
     const overlayLabel = this.ffmpeg.filterLabels[`${inputName}-overlay`];
     const scaleLabel = this.ffmpeg.filterLabels[`${inputName}-scale`];
     send(`${overlayLabel} x ${pos.x}`);
@@ -254,6 +257,11 @@ export default class MagicVertex extends InputVertex {
             if (!this.zmqIsRunning) {
               this._sendNextZMQMessage();
             }
+            // Unfortunately if the filtergraph re-inits, our ZMQ changes don't get preserved. So
+            // as soon as ZMQ boots back up, go ahead and inform them of our changes again.
+            this.doc.inputs.forEach((input) => {
+              this.doZMQUpdate(input.name);
+            });
             let idx = 0;
             let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
           });

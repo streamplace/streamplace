@@ -18,6 +18,7 @@ const TYPE_AUDIO = "audio";
 const TICK_RATE = 3; // Rate (in ms) that we check to see if it's time to output stuff yet.
 
 // Different states that this can be in
+const STATE_WAITING = Symbol("waiting");
 const STATE_EMPTY = Symbol("empty"); // nothing in our buffer. we're outputting "no signal" data.
 const STATE_BUFFERING = Symbol("buffering"); // buffer is filling. wait until it's done.
 const STATE_ACTIVE = Symbol("active"); // cool, we good
@@ -81,7 +82,7 @@ export default class NoSignalStream extends Transform {
       throw new Error(`Unknown stream type: ${type}`);
     }
     // Buffer starts empty, obviously
-    this.state = STATE_ACTIVE;
+    this.state = STATE_WAITING;
 
     this.inputIdx = 0;
     this.outputIdx = 0;
@@ -95,7 +96,7 @@ export default class NoSignalStream extends Transform {
   }
 
   _onBackupStreamData(chunk) {
-    if (this.state !== STATE_ACTIVE) {
+    if (this.state !== STATE_ACTIVE && this.state !== STATE_WAITING) {
       this.push(chunk);
     }
   }

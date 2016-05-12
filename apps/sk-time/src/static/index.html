@@ -1,0 +1,136 @@
+<!doctype html>
+<html>
+  <head>
+    <title>SK Time</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/4.1.1/normalize.min.css">
+    <link rel="icon" href="https://s3-us-west-2.amazonaws.com/stream.kitchen/favicon.png">
+    <style>
+      html, body {
+        height: 100%;
+      }
+
+      body {
+        background-color: rgba(186, 234, 186, 0);
+        display: -webkit-flex;
+        display: flex;
+        font-family: "Menlo", "Consolas", monospace;
+      }
+
+      #clock {
+        margin: auto;
+        font-size: 40px;
+        background-color: black;
+        color: white;
+        width: 100%;
+        opacity: 0;
+        text-align: center;
+      }
+    </style>
+    <script src="/fittext.js"></script>
+    <script src="/dist/timesync.min.js"></script>
+  </head>
+  <body>
+    <div id="clock"><span id="h"></span>:<span id="m"></span>:<span id="s"></span>.<span id="ms"></span></div>
+    <script>
+      var offset = 0;
+      var ts = timesync.create({
+        server: '/timesync',
+        interval: 10000
+      });
+
+      var two = function(x) {
+        if (x < 10) {
+          return "0" + x;
+        }
+        return "" + x;
+      };
+
+      var three = function(x) {
+        if (x < 0) {
+          return "000";
+        }
+        if (x < 10) {
+          return "00" + x;
+        }
+        if (x < 100) {
+          return "0" + x;
+        }
+        return "" + x;
+      };
+
+      ms.innerHTML = "00";
+
+      var clockDiv = document.getElementById("clock");
+      var hourSpan = document.getElementById("h");
+      var minuteSpan = document.getElementById("m");
+      var secondSpan = document.getElementById("s");
+      var milliSpan = document.getElementById("ms");
+
+      var d;
+      var lastTimestamp;
+
+      var lastHour;
+      var lastMinute;
+      var lastSecond;
+      var lastMilli;
+
+      var offset = 0;
+      ts.on('change', function (newOffset) {
+        offset = Math.round(newOffset);
+      });
+
+      // Two loops. The slow one (500ms) makes sure we're in line with real time.
+      var slowSync = function() {
+        lastTimestamp = Date.now() + offset;
+        d = new Date(lastTimestamp);
+        lastHour = d.getHours();
+        lastMinute = d.getMinutes();
+        lastSecond = d.getSeconds();
+        lastMilli = d.getMilliseconds();
+
+        hourSpan.innerHTML = two(lastHour);
+        minuteSpan.innerHTML = two(lastMinute);
+        secondSpan.innerHTML = two(lastSecond);
+        // Don't set millis here. fastSync is better at it.
+      }
+
+      // Declare all fastsync variables here b/c fast.
+      var newTimestamp;
+      var diff;
+      var newMilli;
+
+      // The second one (every animation frame, so probably 60FPS) just spins what it needs to.
+      var fastSync = function() {
+        requestAnimationFrame(fastSync);
+        newTimestamp = Date.now() + offset;
+        diff = newTimestamp - lastTimestamp;
+        lastTimestamp = newTimestamp;
+        newMilli = lastMilli + diff;
+        lastMilli = newMilli;
+        if (newMilli < 1000) {
+          milliSpan.innerHTML = three(newMilli);
+          return;
+        }
+        lastMilli = newMilli % 1000;
+        milliSpan.innerHTML = three(lastMilli);
+        lastSecond += 1;
+        if (lastSecond >= 60) {
+          slowSync();
+        }
+        else {
+          secondSpan.innerHTML = two(lastSecond);
+        }
+      };
+
+      slowSync();
+      fastSync();
+      setInterval(slowSync, 500);
+
+      // Wait for the first write, then set the size.
+      setTimeout(function() {
+        window.fitText(clockDiv, 0.8);
+        clockDiv.style.opacity = 1;
+      }, 0);
+    </script>
+  </body>
+</html>

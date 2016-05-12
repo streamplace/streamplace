@@ -30,6 +30,7 @@ export NODE_PATH="$(realpath "$DIR/../apps")"
 run sk-schema 4
 run sk-client 196
 run mpeg-munger 214
+run sk-time 94
 run bellamie 201
 run gort 6
 run pipeland 40

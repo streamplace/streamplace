@@ -67,6 +67,34 @@ const testForFile = function(fileDetails) {
       });
     });
 
+    it("should handle packets less than and equal to 188 bytes in size", function(done) {
+      const mStream = munger();
+      readStream.on("data", function(chunk) {
+        let startIdx = 0;
+        let increment = 0;
+        while (startIdx < chunk.length) {
+          let endIdx = startIdx + increment;
+          if (endIdx > chunk.length) {
+            endIdx = chunk.length;
+          }
+          increment = (increment + 1) % 200;
+          mStream.write(chunk.slice(startIdx, endIdx));
+          startIdx = endIdx;
+        }
+      });
+      readStream.on("end", function() {
+        mStream.end();
+      });
+      mStream.pipe(writeStream);
+      writeStream.on("finish", function() {
+        const inStats = fs.statSync(testFile);
+        const outStats = fs.statSync(testFileOut);
+        expect(inStats.size).to.equal(outStats.size);
+        expect(hashFile(testFile)).to.equal(hashFile(testFileOut));
+        done();
+      });
+    });
+
     // Manually checked from the file
     // First: PTS: 132030, DTS: 126000
     // Last: PTS: 5529060, DTS: 5523030

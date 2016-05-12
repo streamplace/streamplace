@@ -178,16 +178,12 @@ class MpegMunger extends Transform {
     // Are we carrying around the remainder of the last chunk? If so, resolve that first.
     if (this.remainder !== null) {
       const lengthOfRemainderNeeded = PACKET_LENGTH - this.remainderLength;
-      // We need to be resiliant to a brand new stream coming in -- check the sync byte.
-      let postRemainderSync;
-      if (lengthOfRemainderNeeded === chunk.length) {
-        postRemainderSync = SYNC_BYTE;
-      }
-      else {
-        postRemainderSync = chunk.readUInt8(lengthOfRemainderNeeded);
-      }
-      if (postRemainderSync !== SYNC_BYTE) {
-        warn("MPEG-TS stream appears to have been interrupted. Proceeding under the assumption we have a new stream.");
+      if (chunk.length < lengthOfRemainderNeeded) {
+        // We didn't even get enough to copmlete a packet! Add what we got to the remainder and
+        // move on.
+        chunk.copy(this.remainder, this.remainderLength, 0, chunk.length);
+        this.remainderLength = this.remainderLength + chunk.length;
+        return next();
       }
       else {
         chunk.copy(this.remainder, this.remainderLength, 0, lengthOfRemainderNeeded);

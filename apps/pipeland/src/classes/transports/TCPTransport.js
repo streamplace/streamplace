@@ -67,6 +67,7 @@ export class InputStream extends Readable {
   }
 
   _onEnd() {
+    this.pushing = false;
     this.push(null);
   }
 
@@ -76,6 +77,7 @@ export class InputStream extends Readable {
   }
 
   stop() {
+    this.pushing = false;
     if (this.server) {
       this.server.close();
     }

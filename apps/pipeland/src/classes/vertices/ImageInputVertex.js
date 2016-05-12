@@ -33,7 +33,7 @@ const fetchFile = function(fileURL) {
 export default class ImageInputVertex extends InputVertex {
   constructor({id}) {
     super({id});
-    this.rewriteStream = true;
+    this.streamFilters = ["sync"];
     // this.debug = true;
     this.videoOutputURL = this.transport.getOutputURL();
     SK.vertices.update(id, {

@@ -5,7 +5,7 @@ import SK from "../../sk";
 export default class RTMPInputVertex extends InputVertex {
   constructor({id}) {
     super({id});
-    this.rewriteStream = true;
+    this.streamFilters = ["sync", "nosignal"];
     this.videoOutputURL = this.transport.getOutputURL();
     this.audioOutputURL = this.transport.getOutputURL();
     SK.vertices.update(id, {

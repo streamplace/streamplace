@@ -19,7 +19,7 @@ const ZMQ_SEND_INTERVAL = 1000;
 export default class MagicVertex extends InputVertex {
   constructor({id}) {
     super({id});
-    this.rewriteStream = false;
+    this.streamFilters = [];
     // this.debug = true;
     this.zmqQueue = [];
     this.zmqIsRunning = false;

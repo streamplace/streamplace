@@ -72,25 +72,24 @@ export default class InputVertex extends BaseVertex {
         const transport = getTransportFromURL(socket.url);
         let dataInStream = new transport.InputStream({url: socket.url});
 
-        let dataOutStream; // And then it comes out here when we're done.
+        let currentStream = dataInStream; // And then it comes out here when we're done.
 
         // If we're an input-ish stream, we keep our input in sync and fill it with NoSignal.
-        if (this.rewriteStream === true) {
-          const syncStream = sync.streams[i];
-          const noSignalStream = new NoSignalStream({delay: ASSUME_STREAM_IS_DEAD, type: socket.type});
-          this.cleanupStreams.push(noSignalStream);
-          dataInStream.pipe(syncStream);
-          syncStream.pipe(noSignalStream);
-          dataOutStream = noSignalStream;
-        }
-
-        // Otherwise, we just go in one ear and out the other.
-        else {
-          dataOutStream = dataInStream;
-        }
+        this.streamFilters.forEach((filter) => {
+          if (filter === "sync") {
+            const syncStream = sync.streams[i];
+            currentStream.pipe(syncStream);
+            currentStream = syncStream;
+          }
+          else if (filter === "nosignal") {
+            const noSignalStream = new NoSignalStream({delay: ASSUME_STREAM_IS_DEAD, type: socket.type});
+            currentStream.pipe(noSignalStream);
+            currentStream = noSignalStream;
+          }
+        });
 
         // Let's save the output stream so we can pass it to all applicable arcs later.
-        streamsForThisOutput[socket.type] = dataOutStream;
+        streamsForThisOutput[socket.type] = currentStream;
       });
     });
 

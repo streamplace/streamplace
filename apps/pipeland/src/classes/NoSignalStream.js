@@ -164,7 +164,9 @@ export default class NoSignalStream extends Transform {
       packetTime = this.times[this.outputIdx];
     }
     if (!packetTime) { // We're empty. That sucks.
-      this.setState(STATE_EMPTY);
+      if (this.state !== STATE_WAITING) {
+        this.setState(STATE_EMPTY);
+      }
     }
     else { // Cool, we output something and there's more in the buffer. We active.
       this.setState(STATE_ACTIVE);

@@ -71,13 +71,10 @@ export default class FileOutputVertex extends BaseVertex {
     const folder = date.replace(/-/g, "/");
     const prefix = `${folder}/${date}-${time}-${this.doc.title}`;
 
-    // Transport streams and upload streams have the same indices.
-    this.transportStreams = [];
-
     this.count = 0;
     this.doc.inputs.forEach((input) => {
       input.sockets.forEach((socket) => {
-        const filePrefix = `${prefix}-${input.name}-${socket.type}`;
+        const filePrefix = `${ENV.AWS_USER_UPLOAD_PREFIX}${prefix}-${input.name}-${socket.type}`;
         const transportStream = new this.transport.InputStream({url: socket.url});
         const mpegStream = munger(); // Just to make sure we cut files at 188-byte intervals.
         transportStream.pipe(mpegStream);
@@ -119,7 +116,7 @@ export default class FileOutputVertex extends BaseVertex {
       mpegStream.pipe(upload.passThroughStream);
       upload.uploadStream = s3Streamer.upload({
         Bucket: ENV.AWS_USER_UPLOAD_BUCKET,
-        Key: ENV.AWS_USER_UPLOAD_PREFIX + fileName,
+        Key:  fileName,
         Body: upload.passThroughStream
       });
       upload.uploadStream.on("httpUploadProgress", (data) => {
@@ -128,6 +125,9 @@ export default class FileOutputVertex extends BaseVertex {
           status: "ACTIVE",
           timemark: `${kb}k uploaded`
         });
+      });
+      upload.uploadStream.on("error", (err) => {
+        this.error("Error uploading to S3", err);
       });
       upload.uploadStream.send();
     });
@@ -140,9 +140,10 @@ export default class FileOutputVertex extends BaseVertex {
     if (this.chunkTimeoutHandle) {
       clearTimeout(this.chunkTimeoutHandle);
     }
-    this.transportStreams.forEach(({transportStream, passThroughStream}) => {
-      transportStream.stop();
+    this.uploads.forEach(({transportStream, passThroughStream, mpegStream}) => {
+      mpegStream.unpipe(passThroughStream);
       passThroughStream.end();
+      transportStream.stop();
     });
   }
 }

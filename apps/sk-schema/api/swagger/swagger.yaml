@@ -26,6 +26,7 @@ definitions:
       title:
         type: string
         description: Name of the Broadcast test
+
   Vertex:
     type: object
     properties:
@@ -45,12 +46,35 @@ definitions:
           url:
             type: string
             description: RTMP URL
+
   Arc:
     type: object
     properties:
       id:
         type: string
         description: Unique ID of the Arc
+
+  Input:
+    type: object
+    properties:
+      id:
+        type: string
+        description: Unique ID of the Arc
+
+  Output:
+    type: object
+    properties:
+      id:
+        type: string
+        description: Unique ID of the Arc
+
+  Output:
+    type: object
+    properties:
+      id:
+        type: string
+        description: Unique ID of the Arc
+
   Error:
     type: object
     description: Something went wrong. This little guy tells you so.
@@ -168,6 +192,333 @@ paths:
       summary: Delete an existing broadcast and everything in it!!!
       tags: ["broadcasts"]
       operationId: deleteBroadcasts
+      responses:
+        204:
+          description: "You did it, it's gone"
+
+  ##########
+  # Inputs #
+  ##########
+
+  /inputs:
+    get:
+      summary: Get many inputs
+      description: TODO - Describe what inputs is
+      tags: ["inputs"]
+      operationId: findInputs
+      parameters:
+        - name: filter
+          in: query
+          description: Optional JSON string. Return only documents that match.
+          required: false
+          type: string
+      responses:
+        200:
+          description: An array of inputs
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Input'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      summary: Create an input
+      tags: ["inputs"]
+      operationId: createInputs
+      parameters:
+        - description: Input to create
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Input"
+      responses:
+        201:
+          description: Creation Sucessful
+          schema:
+            $ref: "#/definitions/Input"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /inputs/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      summary: Get one input
+      description: TODO - Describe what inputs is
+      tags: ["inputs"]
+      operationId: findOneInputs
+      responses:
+        200:
+          description: An array of inputs
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Input'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      summary: Modify an existing input
+      tags: ["inputs"]
+      operationId: updateInputs
+      parameters:
+        - description: Input to Modify
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Input"
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      responses:
+        200:
+          description: Modification Sucessful
+          schema:
+            $ref: "#/definitions/Input"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      summary: Delete an existing input
+      tags: ["inputs"]
+      operationId: deleteInputs
+      responses:
+        204:
+          description: "You did it, it's gone"
+
+  ###########
+  # Outputs #
+  ##########
+
+  /outputs:
+    get:
+      summary: Get many outputs
+      description: TODO - Describe what outputs is
+      tags: ["outputs"]
+      operationId: findOutputs
+      parameters:
+        - name: filter
+          in: query
+          description: Optional JSON string. Return only documents that match.
+          required: false
+          type: string
+      responses:
+        200:
+          description: An array of outputs
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Output'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      summary: Create an output
+      tags: ["outputs"]
+      operationId: createOutputs
+      parameters:
+        - description: Output to create
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Output"
+      responses:
+        201:
+          description: Creation Sucessful
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /outputs/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      summary: Get one output
+      description: TODO - Describe what outputs is
+      tags: ["outputs"]
+      operationId: findOneOutputs
+      responses:
+        200:
+          description: An array of outputs
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Output'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      summary: Modify an existing output
+      tags: ["outputs"]
+      operationId: updateOutputs
+      parameters:
+        - description: Output to Modify
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Output"
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      responses:
+        200:
+          description: Modification Sucessful
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      summary: Delete an existing output
+      tags: ["outputs"]
+      operationId: deleteOutputs
+      responses:
+        204:
+          description: "You did it, it's gone"
+
+  ##########
+  # Scenes #
+  ##########
+
+  /scenes:
+    get:
+      summary: Get many scenes
+      description: TODO - Describe what scenes is
+      tags: ["scenes"]
+      operationId: findScenes
+      parameters:
+        - name: filter
+          in: query
+          description: Optional JSON string. Return only documents that match.
+          required: false
+          type: string
+      responses:
+        200:
+          description: An array of scenes
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Scene'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      summary: Create an scene
+      tags: ["scenes"]
+      operationId: createScenes
+      parameters:
+        - description: Scene to create
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Scene"
+      responses:
+        201:
+          description: Creation Sucessful
+          schema:
+            $ref: "#/definitions/Scene"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /scenes/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      summary: Get one scene
+      description: TODO - Describe what scenes is
+      tags: ["scenes"]
+      operationId: findOneScenes
+      responses:
+        200:
+          description: An array of scenes
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Scene'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      summary: Modify an existing scene
+      tags: ["scenes"]
+      operationId: updateScenes
+      parameters:
+        - description: Scene to Modify
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/Scene"
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      responses:
+        200:
+          description: Modification Sucessful
+          schema:
+            $ref: "#/definitions/Scene"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      summary: Delete an existing scene
+      tags: ["scenes"]
+      operationId: deleteScenes
       responses:
         204:
           description: "You did it, it's gone"
@@ -385,4 +736,4 @@ paths:
       responses:
         204:
           description: "You did it, it's gone"
-         
+

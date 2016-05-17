@@ -29,7 +29,7 @@ cat > "$1" << EOF
 </head>
 <body>
   <main></main>
-  <script type="text/javascript" src="/dist/bundle.js"></script>
+  <script type="text/javascript" src="/app/dist/bundle.js"></script>
 </body>
 </html>
 EOF

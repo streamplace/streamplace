@@ -1,6 +1,7 @@
 
 /*eslint-disable no-var */
 var path = require("path");
+var CopyWebpackPlugin = require("copy-webpack-plugin");
 
 module.exports = {
   context: __dirname,
@@ -8,10 +9,14 @@ module.exports = {
   output: {
     filename: "bundle.js", //this is the default name, so you can skip it
     path: "dist",
-    //at this directory our bundle file will be available
-    //make sure port 8090 is used when launching webpack-dev-server
-    publicPath: "/dist/"
+    publicPath: "/app/"
   },
+  plugins: [
+    new CopyWebpackPlugin([
+      // {output}/file.txt
+      { from: "src/*.mustache", to: ".", flatten: true },
+    ])
+  ],
   module: {
     loaders: [{
       test: /\.jsx?$/,
@@ -39,6 +44,14 @@ module.exports = {
     }, {
       test: /\.(ttf|eot|svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
       loader: "file-loader"
+    }, {
+      test: /\.mustache$/,
+      loaders: [
+        "file?name=[name]",
+        "val",
+        `apply?{obj: ${JSON.stringify(process.env)}}`,
+        "mustache"
+      ]
     }]
   },
   externals: {

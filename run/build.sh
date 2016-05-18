@@ -5,7 +5,7 @@ set -o nounset
 set -o pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-apps="twixtykit sk-node sk-schema sk-time sk-client sk-ffmpeg pipeland mpeg-munger bellamie gort shoko"
+apps="twixtykit sk-node sk-schema sk-static sk-time sk-client sk-ffmpeg pipeland mpeg-munger bellamie gort shoko"
 
 function bigPrint() {
   echo ""

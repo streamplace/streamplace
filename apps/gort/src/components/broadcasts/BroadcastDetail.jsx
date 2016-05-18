@@ -108,7 +108,7 @@ export default class BroadcastDetail extends React.Component {
     return (
       <section className={style.verticalPanels}>
         <section className={style.header}>
-          <Link to="/app" className={style.backButton}>
+          <Link to="/" className={style.backButton}>
             <i className="fa fa-chevron-left" />
           </Link>
           <h1>Broadcast <em>{this.state.broadcast.title}</em></h1>

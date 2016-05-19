@@ -59,21 +59,21 @@ definitions:
     properties:
       id:
         type: string
-        description: Unique ID of the Arc
+        description: Unique ID of the input
 
   Output:
     type: object
     properties:
       id:
         type: string
-        description: Unique ID of the Arc
+        description: Unique ID of the output
 
-  Output:
+  Scene:
     type: object
     properties:
       id:
         type: string
-        description: Unique ID of the Arc
+        description: Unique ID of the scene
 
   Error:
     type: object

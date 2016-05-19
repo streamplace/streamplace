@@ -17,7 +17,6 @@
 }
 
 .header {
-  padding: 1em;
   flex-grow: 0;
   align-items: center;
   justify-content: flex-start;
@@ -31,6 +30,7 @@
 .newMoteButton {
   composes: buttonPrimary from "twixtykit/buttons.scss";
   margin-left: auto;
+  margin-right: 1em;
 }
 
 .GraphPanel {
@@ -57,4 +57,28 @@
   position: absolute;
   top: 10px;
   right: 10px;
+}
+
+.TabContainer {
+  margin: 0 auto;
+  align-self: stretch;
+  display: flex;
+
+  a {
+    padding: 1em;
+    display: flex;
+    border-left: 1px solid #333;
+
+    span {
+      margin: auto;
+    }
+
+    &:last-child {
+      border-right: 1px solid #333;
+    }
+  }
+}
+
+.TabContainerSelected {
+  background-color: white;
 }

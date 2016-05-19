@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import twixty from "twixtykit";
 
 import BroadcastGraph from "./BroadcastGraph";
+import SceneEditor from "../scenes/SceneEditor";
 import VertexCreate from "../vertices/VertexCreate";
 import VertexDetail from "../vertices/VertexDetail";
 import ArcEdit from "../arcs/ArcEdit";
@@ -18,6 +19,7 @@ export default class BroadcastDetail extends React.Component {
       broadcast: {},
       showNewVertex: false,
       selected: null,
+      tab: "vertexGraph",
     };
   }
 
@@ -65,13 +67,27 @@ export default class BroadcastDetail extends React.Component {
     });
   }
 
+  switchTab(tab) {
+    this.setState({tab});
+  }
+
+  getSelected(tab) {
+    if (this.state.tab === tab) {
+      return style.TabContainerSelected;
+    }
+    return "";
+  }
+
   render() {
     if (!this.state.broadcast.id) {
       return <Loading />;
     }
 
     let bottomPanel = null;
-    if (this.state.showNewVertex) {
+    if (this.state.tab !== "vertexGraph") {
+      bottomPanel = null;
+    }
+    else if (this.state.showNewVertex) {
       bottomPanel = <VertexCreate broadcastId={this.props.params.broadcastId} />;
     }
     else if (this.state.selected && this.state.selected.type === "vertex") {
@@ -105,6 +121,14 @@ export default class BroadcastDetail extends React.Component {
         </button>
       );
     }
+
+    let mainContent;
+    if (this.state.tab === "vertexGraph") {
+      mainContent = <BroadcastGraph onPick={this.handlePick.bind(this)} broadcastId={this.props.params.broadcastId} />;
+    }
+    else {
+      mainContent = <SceneEditor broadcastId={this.state.broadcast.id} />;
+    }
     return (
       <section className={style.verticalPanels}>
         <section className={style.header}>
@@ -112,6 +136,14 @@ export default class BroadcastDetail extends React.Component {
             <i className="fa fa-chevron-left" />
           </Link>
           <h1>Broadcast <em>{this.state.broadcast.title}</em></h1>
+          <nav className={style.TabContainer}>
+            <a className={this.getSelected("vertexGraph")} onClick={this.switchTab.bind(this, "vertexGraph")}>
+              <span>Vertex Graph</span>
+            </a>
+            <a className={this.getSelected("sceneEditor")} onClick={this.switchTab.bind(this, "sceneEditor")}>
+              <span>Scene Editor</span>
+            </a>
+          </nav>
           <button className={style.newMoteButton} onClick={this.handleNewMoteClick.bind(this)}>
             <i className="fa fa-plus-square" />
           </button>
@@ -119,7 +151,7 @@ export default class BroadcastDetail extends React.Component {
 
         <section className={style.GraphPanel}>
           {toggleEnabledButton}
-          <BroadcastGraph onPick={this.handlePick.bind(this)} broadcastId={this.props.params.broadcastId} />
+          {mainContent}
         </section>
 
         {bottomPanel}

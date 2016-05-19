@@ -1,6 +1,9 @@
 
 import Resource from "../resource";
 
-export default new Resource({
-  name: "scenes"
-});
+export default class Scene extends Resource {
+  constructor() {
+    super();
+    this.name = "scenes";
+  }
+}

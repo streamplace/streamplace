@@ -75,7 +75,10 @@ export default class Resource {
   }
 
   post(req, res, next) {
-    r.table(this.name).insert(req.body).run(req.conn)
+    const newDoc = req.body;
+    this.beforeCreate(newDoc).then(() => {
+      return r.table(this.name).insert(req.body).run(req.conn);
+    })
     .then(({generated_keys}) => {
       // TODO: error handling
       return r.table(this.name).get(generated_keys[0]).run(req.conn);
@@ -223,15 +226,6 @@ export default class Resource {
   }
 
   /**
-   * Real simple. Just takes an object of properties. This lets us "subclass" real easy.
-   */
-  constructor(props) {
-    Object.keys(props).forEach((key) => {
-      this[key] = props[key];
-    });
-  }
-
-  /**
    * Make sure they're allowed to do the thing that they're doing.
    * @param  {[type]}   req  [description]
    * @param  {[type]}   res  [description]
@@ -246,8 +240,10 @@ export default class Resource {
     next();
   }
 
-  beforeSave (req, res, next) {
-    next();
+  beforeCreate(newDoc) {
+    return new Promise((resolve, reject) => {
+      resolve();
+    });
   }
 
   save (req, res, next) {

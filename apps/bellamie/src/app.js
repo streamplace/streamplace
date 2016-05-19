@@ -105,7 +105,7 @@ SwaggerParser.parse(schema)
     if (!resources[resourceName]) {
       winston.debug(`Resource: ${resourceName}`);
       try {
-        resources[resourceName] = require(`./resources/${resourceName}`).default;
+        resources[resourceName] = new (require(`./resources/${resourceName}`).default);
       }
       catch (err) {
         winston.error("Caught error attempting to require resource. This probably means you " +

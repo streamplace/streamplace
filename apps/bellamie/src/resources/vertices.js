@@ -1,6 +1,9 @@
 
 import Resource from "../resource";
 
-export default new Resource({
-  name: "vertices"
-});
+export default class Vertex extends Resource {
+  constructor() {
+    super();
+    this.name = "vertices";
+  }
+}

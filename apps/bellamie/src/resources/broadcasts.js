@@ -1,6 +1,9 @@
 
 import Resource from "../resource";
 
-export default new Resource({
-  name: "broadcasts"
-});
+export default class Broadcast extends Resource {
+  constructor() {
+    super();
+    this.name = "broadcasts";
+  }
+}

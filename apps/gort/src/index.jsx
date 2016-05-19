@@ -2,7 +2,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import createBrowserHistory from "history/lib/createBrowserHistory";
-import { Router, Route, Link, useRouterHistory, RouteHandler } from "react-router";
+import { Router, Route, Redirect, Link, useRouterHistory, RouteHandler } from "react-router";
 
 import Home from "./components/Home";
 import BroadcastDetail from "./components/broadcasts/BroadcastDetail";
@@ -50,6 +50,7 @@ Handler.propTypes = {
 ReactDOM.render((
   <Router history={browserHistory}>
     <Route path="" component={Handler}>
+      <Redirect from="" to="/" />
       <Route path="/" component={Home} />
       <Route path="/inputs/:inputId" component={InputDetail} />
       <Route path="/broadcasts/:broadcastId/" component={BroadcastDetail}>

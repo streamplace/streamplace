@@ -19,7 +19,7 @@ export default class SKField extends React.Component{
   }
 
   render () {
-    const value = dot.pick(this.props.field, this.props.data);
+    const value = dot.pick(this.props.field, this.props.data) || "";
     return (
       <div>
         <label htmlFor={this.id}>{this.props.label}</label>

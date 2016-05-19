@@ -28,7 +28,7 @@ export default class OutputList extends React.Component {
     const outputNodes = this.state.outputs.map((output) => {
       return (
         <li key={output.id}>
-          <Link to={`/outputs/${output.id}`}>{output.title}</Link>
+          <span>{output.title}</span>
           <button className="danger item-list-delete"
           onClick={this.removeOutput.bind(null, output.id)}>
             delete

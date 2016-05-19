@@ -13,13 +13,12 @@ import style from "./BroadcastDetail.scss";
 import SK from "../../SK";
 
 export default class BroadcastDetail extends React.Component {
-  constructor(params) {
-    super(params);
+  constructor(props) {
+    super(props);
     this.state = {
       broadcast: {},
       showNewVertex: false,
-      selected: null,
-      tab: "vertexGraph",
+      selected: null
     };
   }
 
@@ -38,25 +37,8 @@ export default class BroadcastDetail extends React.Component {
     this.broadcastHandle.stop();
   }
 
-  handleNewMoteClick() {
-    this.setState({showNewVertex: true});
-  }
-
   handleCloseBottomPanelClick() {
 
-  }
-
-  handlePick(type, id) {
-    this.setState({
-      showNewVertex: false,
-      selected: {type, id},
-    });
-  }
-
-  clearSelection() {
-    this.setState({
-      selected: null,
-    });
   }
 
   toggleEnabled() {
@@ -67,12 +49,9 @@ export default class BroadcastDetail extends React.Component {
     });
   }
 
-  switchTab(tab) {
-    this.setState({tab});
-  }
-
+  // Not sure if this is kosher. Works great though.
   getSelected(tab) {
-    if (this.state.tab === tab) {
+    if (this.props.routes[this.props.routes.length - 1].path === tab) {
       return style.TabContainerSelected;
     }
     return "";
@@ -83,28 +62,6 @@ export default class BroadcastDetail extends React.Component {
       return <Loading />;
     }
 
-    let bottomPanel = null;
-    if (this.state.tab !== "vertexGraph") {
-      bottomPanel = null;
-    }
-    else if (this.state.showNewVertex) {
-      bottomPanel = <VertexCreate broadcastId={this.props.params.broadcastId} />;
-    }
-    else if (this.state.selected && this.state.selected.type === "vertex") {
-      bottomPanel = <VertexDetail vertexId={this.state.selected.id} />;
-    }
-    else if (this.state.selected && this.state.selected.type === "arc") {
-      bottomPanel = <ArcEdit onDelete={this.clearSelection.bind(this)} broadcastId={this.props.params.broadcastId} arcId={this.state.selected.id} />;
-    }
-
-    // If we are to be rendering a bottom panel, add its wrapper to it.
-    if (bottomPanel !== null) {
-      bottomPanel = (
-        <section className={style.BottomPanel}>
-          {bottomPanel}
-        </section>
-      );
-    }
     let toggleEnabledButton;
     const toggle = this.toggleEnabled.bind(this);
     if (this.state.broadcast.enabled === true) {
@@ -122,45 +79,29 @@ export default class BroadcastDetail extends React.Component {
       );
     }
 
-    let mainContent;
-    if (this.state.tab === "vertexGraph") {
-      mainContent = <BroadcastGraph onPick={this.handlePick.bind(this)} broadcastId={this.props.params.broadcastId} />;
-    }
-    else {
-      mainContent = <SceneEditor broadcastId={this.state.broadcast.id} />;
-    }
     return (
       <section className={style.verticalPanels}>
         <section className={style.header}>
-          <Link to="/" className={style.backButton}>
-            <i className="fa fa-chevron-left" />
-          </Link>
-          <h1>Broadcast <em>{this.state.broadcast.title}</em></h1>
           <nav className={style.TabContainer}>
-            <a className={this.getSelected("vertexGraph")} onClick={this.switchTab.bind(this, "vertexGraph")}>
-              <span>Vertex Graph</span>
-            </a>
-            <a className={this.getSelected("sceneEditor")} onClick={this.switchTab.bind(this, "sceneEditor")}>
+            <Link className={this.getSelected("scenes")} to={`/broadcasts/${this.props.params.broadcastId}/scenes`}>
               <span>Scene Editor</span>
-            </a>
+            </Link>
+            <Link className={this.getSelected("graph")} to={`/broadcasts/${this.props.params.broadcastId}/graph`}>
+              <span>Graph View</span>
+            </Link>
           </nav>
-          <button className={style.newMoteButton} onClick={this.handleNewMoteClick.bind(this)}>
-            <i className="fa fa-plus-square" />
-          </button>
-        </section>
-
-        <section className={style.GraphPanel}>
+          <em className={style.BroadcastName}>{this.state.broadcast.title}</em>
           {toggleEnabledButton}
-          {mainContent}
         </section>
 
-        {bottomPanel}
-
+        {this.props.children}
       </section>
     );
   }
 }
 
 BroadcastDetail.propTypes = {
-  "params": React.PropTypes.object.isRequired
+  "params": React.PropTypes.object.isRequired,
+  "routes": React.PropTypes.object.isRequired,
+  "children": React.PropTypes.object.isRequired,
 };

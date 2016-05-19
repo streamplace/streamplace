@@ -11,7 +11,7 @@ export default class SceneEditor extends React.Component {
   }
 
   componentDidMount() {
-    const broadcastId = this.props.broadcastId;
+    const broadcastId = this.props.params.broadcastId;
     this.broadcastHandle = SK.broadcasts.watch({id: broadcastId})
     .on("data", (broadcasts) => {
       this.setState({broadcast: broadcasts[0]});
@@ -31,5 +31,6 @@ export default class SceneEditor extends React.Component {
 }
 
 SceneEditor.propTypes = {
-  "broadcastId": React.PropTypes.string.isRequired
+  "broadcastId": React.PropTypes.string.isRequired,
+  "params": React.PropTypes.object.isRequired
 };

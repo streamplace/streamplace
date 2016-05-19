@@ -4,7 +4,7 @@
   "description": "Shoko is SK's RTMP server",
   "main": "Dockerfile",
   "scripts": {
-    "dev": "docker run --rm -p 1935:1935 --name shoko gcr.io/stream-kitchen/shoko"
+    "dev": "docker run -i --rm -p 1935:1935 --name shoko gcr.io/stream-kitchen/shoko"
   },
   "author": "",
   "license": "Apache-2.0"

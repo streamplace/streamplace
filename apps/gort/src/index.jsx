@@ -6,6 +6,8 @@ import { Router, Route, Link, useRouterHistory, RouteHandler } from "react-route
 
 import Home from "./components/Home";
 import BroadcastDetail from "./components/broadcasts/BroadcastDetail";
+import BroadcastGraphView from "./components/broadcasts/BroadcastGraphView";
+import SceneEditor from "./components/scenes/SceneEditor";
 import InputDetail from "./components/inputs/InputDetail";
 import NotFound from "./components/NotFound";
 
@@ -29,7 +31,7 @@ const browserHistory = useRouterHistory(createBrowserHistory)({
 class Handler extends React.Component{
   render () {
     return (
-      <div>
+      <div className={style.RootContainer}>
         <header className={style.Header}>
           <Link to="/" className={style.backButton}>
             <img src={logoUrl} className={style.Logo} />
@@ -50,7 +52,10 @@ ReactDOM.render((
     <Route path="" component={Handler}>
       <Route path="/" component={Home} />
       <Route path="/inputs/:inputId" component={InputDetail} />
-      <Route path="/broadcasts/:broadcastId" component={BroadcastDetail} />
+      <Route path="/broadcasts/:broadcastId/" component={BroadcastDetail}>
+        <Route path="scenes" component={SceneEditor} />
+        <Route path="graph" component={BroadcastGraphView} />
+      </Route>
     </Route>
     <Route path="*" component={NotFound} />
   </Router>

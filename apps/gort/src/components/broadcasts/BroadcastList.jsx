@@ -28,7 +28,7 @@ export default class BroadcastList extends React.Component {
     const broadcastNodes = this.state.broadcasts.map((broadcast) => {
       return (
         <li key={broadcast.id}>
-          <Link to={`/broadcasts/${broadcast.id}`}>{broadcast.title}</Link>
+          <Link to={`/broadcasts/${broadcast.id}/scenes`}>{broadcast.title}</Link>
           <button className="danger item-list-delete"
           onClick={this.removeBroadcast.bind(null, broadcast.id)}>
             delete

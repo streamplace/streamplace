@@ -8,7 +8,7 @@
   flex-grow: 1;
 
   >* {
-    border-bottom: 1px solid black;
+    border-bottom: 1px solid #ccc;
 
     &:last-child {
       border-bottom: none;
@@ -19,7 +19,27 @@
 .header {
   flex-grow: 0;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
+  padding: 0 1em;
+}
+
+.TabContainer {
+  align-self: stretch;
+  display: flex;
+
+  a {
+    padding: 1em;
+    display: flex;
+
+
+    span {
+      margin: auto;
+    }
+
+    &:last-child {
+
+    }
+  }
 }
 
 .backButton {
@@ -27,10 +47,10 @@
   margin: 0 1em;
 }
 
-.newMoteButton {
-  composes: buttonPrimary from "twixtykit/buttons.scss";
-  margin-left: auto;
-  margin-right: 1em;
+.newVertexButton {
+  position: absolute;
+  right: 1em;
+  margin-top: 1em;
 }
 
 .GraphPanel {
@@ -54,31 +74,10 @@
 }
 
 .ToggleEnabledButton {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-}
-
-.TabContainer {
-  margin: 0 auto;
-  align-self: stretch;
-  display: flex;
-
-  a {
-    padding: 1em;
-    display: flex;
-    border-left: 1px solid #333;
-
-    span {
-      margin: auto;
-    }
-
-    &:last-child {
-      border-right: 1px solid #333;
-    }
-  }
+  margin-bottom: 0;
 }
 
 .TabContainerSelected {
-  background-color: white;
+  background-color: #eee;
+  color: black;
 }

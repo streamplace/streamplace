@@ -1,4 +1,10 @@
 
+.RootContainer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .Header {
   height: 50px;
   border-bottom: 1px solid #ccc;

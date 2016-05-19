@@ -23,12 +23,13 @@ function run() {
     source "$SK_SECRET_DIRECTORY/$name.sh"
   fi
   cd "$DIR/../apps/$path" && npm run dev 2>&1 | prettylog "$name" "$color" &
-  sleep 2
+  sleep 1
 }
 export NODE_PATH="$(realpath "$DIR/../apps")"
 # export DEBUG_LEVEL="debug"
 run sk-schema 4
 run sk-code 190
+run shoko 208
 run sk-client 196
 run corporate-bullshit 195
 run mpeg-munger 214

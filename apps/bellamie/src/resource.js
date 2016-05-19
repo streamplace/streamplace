@@ -27,10 +27,10 @@ export default class Resource {
       }
     }
     r.table(this.name).run(req.conn)
-    .then(function(cursor) {
+    .then((cursor) => {
       return cursor.toArray();
     })
-    .then(function(docs) {
+    .then((docs) => {
       if (filter) {
         docs = _(docs).where(filter);
       }
@@ -38,19 +38,14 @@ export default class Resource {
       res.json(docs);
       next();
     })
-    .catch(function(err) {
-      res.status(500);
-      res.json({
-        code: "DATABASE_ERROR",
-        message: JSON.stringify(err)
-      });
-      next();
+    .catch((err) => {
+      this.serverError(req, res, next, err);
     });
   }
 
   get(req, res, next) {
     r.table(this.name).get(req.params.id).run(req.conn)
-    .then(function(doc) {
+    .then((doc) => {
       if (doc) {
         res.status(200);
         res.json(doc);
@@ -64,13 +59,8 @@ export default class Resource {
       }
       next();
     })
-    .catch(function(err) {
-      res.status(500);
-      res.json({
-        code: "DATABASE_ERROR",
-        message: JSON.stringify(err)
-      });
-      next();
+    .catch((err) => {
+      this.serverError(req, res, next, err);
     });
   }
 
@@ -83,18 +73,13 @@ export default class Resource {
       // TODO: error handling
       return r.table(this.name).get(generated_keys[0]).run(req.conn);
     })
-    .then(function(doc) {
+    .then((doc) => {
       res.status(201);
       res.json(doc);
       next();
     })
-    .catch(function(err) {
-      res.status(500);
-      res.json({
-        code: "DATABASE_ERROR",
-        message: JSON.stringify(err)
-      });
-      next();
+    .catch((err) => {
+      this.serverError(req, res, next, err);
     });
   }
 
@@ -114,23 +99,18 @@ export default class Resource {
       res.status(200);
       return r.table(this.name).get(req.params.id).run(req.conn);
     })
-    .then(function(doc) {
+    .then((doc) => {
       res.json(doc);
       next();
     })
-    .catch(function(err) {
-      res.status(500);
-      res.json({
-        code: "DATABASE_ERROR",
-        message: err.message
-      });
-      next();
+    .catch((err) => {
+      this.serverError(req, res, next, err);
     });
   }
 
   delete(req, res, next) {
     r.table(this.name).get(req.params.id).delete(req.body).run(req.conn)
-    .then(function(stuff) {
+    .then((stuff) => {
       if (stuff.errors > 0) {
         res.status(500);
         res.json({
@@ -153,13 +133,8 @@ export default class Resource {
       res.end();
       next();
     })
-    .catch(function(err) {
-      res.status(500);
-      res.json({
-        code: "DATABASE_ERROR",
-        message: JSON.stringify(err)
-      });
-      next();
+    .catch((err) => {
+      this.serverError(req, res, next, err);
     });
   }
 
@@ -225,6 +200,16 @@ export default class Resource {
     });
   }
 
+  serverError(req, res, next, err) {
+    res.status(500);
+    winston.error(err);
+    res.json({
+      code: "DATABASE_ERROR",
+      message: JSON.stringify(err)
+    });
+    res.end();
+  }
+
   /**
    * Make sure they're allowed to do the thing that they're doing.
    * @param  {[type]}   req  [description]
@@ -242,7 +227,7 @@ export default class Resource {
 
   beforeCreate(newDoc) {
     return new Promise((resolve, reject) => {
-      resolve();
+      resolve(newDoc);
     });
   }
 

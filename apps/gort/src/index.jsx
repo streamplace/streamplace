@@ -4,9 +4,12 @@ import ReactDOM from "react-dom";
 import createBrowserHistory from "history/lib/createBrowserHistory";
 import { Router, Route, Link, useRouterHistory } from "react-router";
 
-import BroadcastIndex from "./components/broadcasts/BroadcastIndex";
+import Home from "./components/Home";
 import BroadcastDetail from "./components/broadcasts/BroadcastDetail";
 import NotFound from "./components/NotFound";
+
+import logoUrl from "./sk_small.svg";
+import style from "./index.scss";
 
 import {} from "./index.html.mustache";
 import {} from "./preview.html.mustache";
@@ -23,9 +26,14 @@ const browserHistory = useRouterHistory(createBrowserHistory)({
 });
 
 ReactDOM.render((
-  <Router history={browserHistory}>
-    <Route path="/" component={BroadcastIndex} />
-    <Route path="/broadcasts/:broadcastId" component={BroadcastDetail} />
-    <Route path="*" component={NotFound} />
-  </Router>
+  <div>
+    <header className={style.Header}>
+      <img src={logoUrl} className={style.Logo} />
+    </header>
+    <Router history={browserHistory}>
+      <Route path="/" component={Home} />
+      <Route path="/broadcasts/:broadcastId" component={BroadcastDetail} />
+      <Route path="*" component={NotFound} />
+    </Router>
+  </div>
 ), document.querySelector("main"));

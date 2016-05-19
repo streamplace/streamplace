@@ -62,7 +62,7 @@ module.exports = {
   resolve: {
     root: [
       path.resolve(__dirname),
-      path.resolve(".."), // So we can resolve all our other packages
+      path.resolve(__dirname, ".."), // So we can resolve all our other packages
     ],
     extensions: [".js", ".jsx", ".scss", "json", ""]
   },

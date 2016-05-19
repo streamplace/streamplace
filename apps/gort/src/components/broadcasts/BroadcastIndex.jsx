@@ -10,8 +10,7 @@ export default class BroadcastIndex extends React.Component{
       <div className="center-column">
         <h1>stream kitchen</h1>
         <BroadcastList />
-        <BroadcastCreate />
-      </div>
+              </div>
     );
   }
 }

@@ -1,0 +1,9 @@
+
+.Form {
+  composes: pure-form from "purecss/build/forms.css";
+}
+
+.StackedForm {
+  // composes: .pure-form from "purecss/build/forms.css";
+  // composes: .pure-form-stacked from "purecss/build/forms.css";
+}

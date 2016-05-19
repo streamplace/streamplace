@@ -40,7 +40,7 @@ const randomString = function (charsCount, alphabet) {
 
 export function randomID(charsCount) {
   if (charsCount === undefined) {
-    charsCount = 17;
+    charsCount = 19;
   }
 
   return randomString(charsCount, UNMISTAKABLE_CHARS);

@@ -29,7 +29,7 @@ export default class BroadcastList extends React.Component {
       return (
         <li key={broadcast.id}>
           <Link to={`/broadcasts/${broadcast.id}`}>{broadcast.title}</Link>
-          <button className="pure-button button-error"
+          <button className="danger item-list-delete"
           onClick={this.removeBroadcast.bind(null, broadcast.id)}>
             delete
           </button>
@@ -37,7 +37,7 @@ export default class BroadcastList extends React.Component {
       );
     });
     return (
-      <ul>
+      <ul className="item-list">
         {broadcastNodes}
       </ul>
     );

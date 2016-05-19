@@ -9,6 +9,7 @@
   "author": "Eli Mallon",
   "license": "ISC",
   "dependencies": {
+    "milligram": "git+ssh://git@github.com/streamkitchen/milligram.git#769682d18eafb905a93b2053b1648048b1b24582",
     "purecss": "^0.6.0"
   }
 }

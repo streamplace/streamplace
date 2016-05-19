@@ -1,0 +1,73 @@
+
+$color-primary: #2193E4;
+$color-sk-red: #a3240f;
+
+@import "./node_modules/milligram/src/milligram.sass";
+
+:global {
+  body {
+    font-family: "Open Sans", Helvetica, Roboto, sans-serif;
+  }
+
+  input[type=text] {
+    background-color: white;
+  }
+
+  button {
+    &.danger {
+      background-color: $color-sk-red;
+      border-color: $color-sk-red;
+      float: right;
+    }
+
+    &.small {
+
+    }
+  }
+
+  ul {
+    &.item-list {
+      li {
+        display: flex;
+        list-style: none;
+        border-bottom: 1px solid #999;
+        margin: 0;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        a {
+          flex-grow: 1;
+          padding-left: 1em;
+          vertical-align: middle;
+          display: flex;
+          align-items: center;
+        }
+
+        button.item-list-delete {
+          margin: auto auto auto 0;
+          visibility: hidden;
+          border-radius: 0;
+        }
+
+        &:hover button.item-list-delete {
+          visibility: visible;
+        }
+      }
+
+    }
+  }
+}
+
+.Form {
+
+}
+
+.StackedForm {
+
+}
+
+.DangerButton {
+
+}

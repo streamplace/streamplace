@@ -50,14 +50,13 @@ Handler.propTypes = {
 ReactDOM.render((
   <Router history={browserHistory}>
     <Route path="" component={Handler}>
-      <Redirect from="" to="/" />
       <Route path="/" component={Home} />
       <Route path="/inputs/:inputId" component={InputDetail} />
       <Route path="/broadcasts/:broadcastId/" component={BroadcastDetail}>
         <Route path="scenes" component={SceneEditor} />
         <Route path="graph" component={BroadcastGraphView} />
       </Route>
+      <Redirect from="*" to="/" />
     </Route>
-    <Route path="*" component={NotFound} />
   </Router>
 ), document.querySelector("main"));

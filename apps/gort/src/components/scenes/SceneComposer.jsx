@@ -36,6 +36,9 @@ export default class SceneComposer extends React.Component{
         this.setState({newTitle: scene.title});
       }
     })
+    .on("deleted", () => {
+      browserHistory.push(`/broadcasts/${this.props.params.broadcastId}/scenes/`);
+    })
     .catch(::twixty.error);
   }
 

@@ -64,7 +64,7 @@ export default class SceneComposer extends React.Component{
     SK.scenes.delete(this.props.params.sceneId);
   }
 
-  render () {
+  render() {
     if (!this.state.scene) {
       return <div className={style.Container}><Loading /></div>;
     }

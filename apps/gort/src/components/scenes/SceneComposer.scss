@@ -1,0 +1,16 @@
+
+.Container {
+  padding: 1em;
+}
+
+.Header {
+  flex-grow: 1;
+  justify-content: space-around;
+  text-align: center;
+}
+
+.SceneBox {
+  width: 100%;
+  padding-bottom: 56.25%;
+  background-color: black;
+}

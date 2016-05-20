@@ -21,7 +21,10 @@ export default class SceneCreate extends React.Component{
   render () {
     return (
       <div className={style.ButtonContainer}>
-        <button className="outline" onClick={::this.handleClick}>New Scene</button>
+        <button className="outline" onClick={::this.handleClick}>
+          <i className="fa fa-plus-square-o"></i>
+          New Scene
+        </button>
       </div>
     );
   }

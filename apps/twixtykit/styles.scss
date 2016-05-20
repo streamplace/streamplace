@@ -14,6 +14,14 @@ $color-sk-red: #a3240f;
   }
 
   button {
+
+    .fa {
+      font-size: 2em;
+      position: relative;
+      top: 0.17em;
+      margin-right: 0.4em;
+    }
+
     &.danger {
       background-color: $color-sk-red;
       border-color: $color-sk-red;

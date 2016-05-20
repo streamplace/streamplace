@@ -2,6 +2,7 @@
 import React from "react";
 import twixty from "twixtykit";
 
+import SceneRender from "./SceneRender";
 import browserHistory from "../../history";
 import Loading from "../Loading";
 import style from "./SceneComposer.scss";
@@ -85,17 +86,17 @@ export default class SceneComposer extends React.Component{
     this.setState({inputMenuOpen: false});
   }
 
-  handleAddInput(id) {
+  handleAddRegion(id) {
     this.setState({inputMenuOpen: false});
-    const inputs = [...this.state.scene.inputs];
-    inputs.push({
+    const regions = [...this.state.scene.regions];
+    regions.push({
       inputId: id,
       x: 0,
       y: 0,
       width: 640,
       height: 480,
     });
-    SK.scenes.update(this.state.scene.id, {inputs})
+    SK.scenes.update(this.state.scene.id, {regions})
     .catch(::twixty.error);
   }
 
@@ -105,7 +106,7 @@ export default class SceneComposer extends React.Component{
     }
     const inputs = this.state.inputs.map((input) => {
       return (
-        <li onMouseDown={this.handleAddInput.bind(this, input.id)} key={input.id}>
+        <li onMouseDown={this.handleAddRegion.bind(this, input.id)} key={input.id}>
           {input.title}
         </li>
       );
@@ -119,11 +120,11 @@ export default class SceneComposer extends React.Component{
     );
   }
 
-  renderInputs() {
-    const inputs = this.state.scene.inputs.map((input) => {
+  renderRegions() {
+    const regions = this.state.scene.regions.reverse().map((input) => {
       return <div key={input.inputId}>{input.inputId}</div>;
     });
-    return <div>{inputs}</div>;
+    return <div>{regions}</div>;
   }
 
   render() {
@@ -144,14 +145,16 @@ export default class SceneComposer extends React.Component{
             <button className="danger" onClick={::this.handleDelete}>Delete</button>
           </div>
         </section>
-        <div className={style.SceneBox}></div>
+
+        <SceneRender scene={this.state.scene} />
+
         <div>
-          <h5>Inputs</h5>
-          {this.renderInputs()}
+          <h5>Regions</h5>
+          {this.renderRegions()}
           <div className={style.InputMenuContainer}>
             {this.renderInputMenu()}
             <button onBlur={::this.handleInputButtonBlur} onClick={::this.handleOpenInputMenu}>
-              Add Input
+              Add Region
             </button>
           </div>
         </div>

@@ -17,7 +17,7 @@ export default class SceneCreate extends React.Component{
       broadcastId: this.props.broadcastId,
       width: 1920,
       height: 1080,
-      inputs: [],
+      regions: [],
     }).catch(::twixty.error);
   }
 

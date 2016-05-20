@@ -14,7 +14,10 @@ export default class SceneCreate extends React.Component{
   handleClick() {
     SK.scenes.create({
       title: "New Scene",
-      broadcastId: this.props.broadcastId
+      broadcastId: this.props.broadcastId,
+      width: 1920,
+      height: 1080,
+      inputs: [],
     }).catch(::twixty.error);
   }
 

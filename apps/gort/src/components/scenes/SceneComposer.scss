@@ -14,3 +14,31 @@
   padding-bottom: 56.25%;
   background-color: black;
 }
+
+.InputMenuContainer {
+  position: relative;
+  width: auto;
+  display: inline-block;
+}
+
+.InputMenu {
+  position: absolute;
+  background-color: white;
+  left: 50%;
+  width: 200%;
+  bottom: 100%;
+}
+
+.InputList {
+  margin-bottom: 0;
+
+  li {
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 0.6em;
+
+    &:hover {
+      background-color: #ccc;
+    }
+  }
+}

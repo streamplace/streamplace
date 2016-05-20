@@ -16,6 +16,11 @@ export default class SceneComposer extends React.Component{
   }
 
   componentDidMount() {
+    this.inputHandle = SK.inputs.watch({})
+    .on("data", (inputs) => {
+      this.setState({inputs});
+    })
+    .catch(::twixty.error);
     this.subscribeScene(this.props.params.sceneId);
   }
 
@@ -28,7 +33,11 @@ export default class SceneComposer extends React.Component{
       this.sceneHandle.stop();
     }
     this.editingTitle = false;
-    this.setState({scene: null, newTitle: ""});
+    this.setState({
+      scene: null,
+      newTitle: "",
+      inputMenuOpen: false
+    });
     this.sceneHandle = SK.scenes.watch({id: sceneId})
     .on("data", ([scene]) => {
       this.setState({scene});
@@ -67,6 +76,56 @@ export default class SceneComposer extends React.Component{
     SK.scenes.delete(this.props.params.sceneId);
   }
 
+  handleOpenInputMenu() {
+    this.setState({inputMenuOpen: !this.state.inputMenuOpen});
+  }
+
+  // Poor man's clickOutside
+  handleInputButtonBlur(e) {
+    this.setState({inputMenuOpen: false});
+  }
+
+  handleAddInput(id) {
+    this.setState({inputMenuOpen: false});
+    const inputs = [...this.state.scene.inputs];
+    inputs.push({
+      inputId: id,
+      x: 0,
+      y: 0,
+      width: 640,
+      height: 480,
+    });
+    SK.scenes.update(this.state.scene.id, {inputs})
+    .catch(::twixty.error);
+  }
+
+  renderInputMenu() {
+    if (this.state.inputMenuOpen !== true) {
+      return;
+    }
+    const inputs = this.state.inputs.map((input) => {
+      return (
+        <li onMouseDown={this.handleAddInput.bind(this, input.id)} key={input.id}>
+          {input.title}
+        </li>
+      );
+    });
+    return (
+      <div className={style.InputMenu}>
+        <ul className={`item-list ${style.InputList}`}>
+          {inputs}
+        </ul>
+      </div>
+    );
+  }
+
+  renderInputs() {
+    const inputs = this.state.scene.inputs.map((input) => {
+      return <div key={input.inputId}>{input.inputId}</div>;
+    });
+    return <div>{inputs}</div>;
+  }
+
   render() {
     if (!this.state.scene) {
       return <div className={style.Container}><Loading /></div>;
@@ -86,6 +145,16 @@ export default class SceneComposer extends React.Component{
           </div>
         </section>
         <div className={style.SceneBox}></div>
+        <div>
+          <h5>Inputs</h5>
+          {this.renderInputs()}
+          <div className={style.InputMenuContainer}>
+            {this.renderInputMenu()}
+            <button onBlur={::this.handleInputButtonBlur} onClick={::this.handleOpenInputMenu}>
+              Add Input
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

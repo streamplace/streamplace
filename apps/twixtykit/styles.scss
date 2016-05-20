@@ -20,8 +20,9 @@ $color-sk-red: #a3240f;
       float: right;
     }
 
-    &.small {
-
+    &.outline {
+      background-color: transparent;
+      color: $color-primary;
     }
   }
 

@@ -16,23 +16,6 @@ Rough Style Guide
 Javascript
   * Needs to pass ESLint. Run `npm run lint` in the root directory to check.
   * Try and use both `let` and `const` in whatever way makes the code most understandable.
-
-
-Useful ffmpeg commands
-----------------------
-
-Stream an image:
-
-ffmpeg \
-  -loop 1 \
-  -re \
-  -framerate 30 \
-  -i sk_1080p.png \
-  -f lavfi \
-  -i anullsrc \
-  -c:v libx264 \
-  -c:a aac \
-  -strict experimental \
-  -b:a 192k \
-  -f flv \
-  rtmp://oregon.ingress.stream.kitchen:1934/stream/image
+  * We've opted into two features that will be likely landing in ES2017:
+    * [the function bind operator ::](https://github.com/zenparsing/es-function-bind)
+    * [object rest/spread properties ({...obj})][https://github.com/sebmarkbage/ecmascript-rest-spread]

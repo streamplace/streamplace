@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "description": "All Dandiprat applications",
   "main": "index.js",
-  "dependencies": {},
+  "dependencies": {
+    "babel-eslint": "^6.0.4"
+  },
   "devDependencies": {
     "eslint": "^2.2.0",
     "eslint-plugin-react": "^4.1.0"

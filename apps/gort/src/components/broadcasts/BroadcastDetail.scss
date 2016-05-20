@@ -80,4 +80,8 @@
 .TabContainerSelected {
   background-color: #eee;
   color: black;
+
+  &:hover {
+    color: black;
+  }
 }

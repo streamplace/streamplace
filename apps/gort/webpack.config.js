@@ -29,7 +29,8 @@ module.exports = {
           require.resolve("babel-preset-es2015")
         ],
         plugins: [
-          require.resolve("babel-plugin-transform-object-rest-spread")
+          require.resolve("babel-plugin-transform-object-rest-spread"),
+          require.resolve("babel-plugin-transform-function-bind"),
         ]
       }
     }, {

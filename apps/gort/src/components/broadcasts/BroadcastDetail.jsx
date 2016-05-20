@@ -51,8 +51,10 @@ export default class BroadcastDetail extends React.Component {
 
   // Not sure if this is kosher. Works great though.
   getSelected(tab) {
-    if (this.props.routes[this.props.routes.length - 1].path === tab) {
-      return style.TabContainerSelected;
+    for (let i = 0; i < this.props.routes.length; i+=1) {
+      if (this.props.routes[i].path.indexOf(tab) === 0) {
+        return style.TabContainerSelected;
+      }
     }
     return "";
   }

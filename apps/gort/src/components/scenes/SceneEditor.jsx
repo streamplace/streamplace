@@ -36,10 +36,14 @@ export default class SceneEditor extends React.Component {
   }
 
   render() {
+    let currentScene = null;
+    if (this.props.children) {
+      currentScene = this.props.children.props.params.sceneId;
+    }
     return (
       <section className={style.TwoPanels}>
         <div className={style.LeftPanel}>
-          <SceneThumbnailList broadcastId={this.props.params.broadcastId} onPick={::this.handlePick} />
+          <SceneThumbnailList broadcastId={this.props.params.broadcastId} onPick={::this.handlePick} selectedScene={currentScene} />
           <SceneCreate broadcastId={this.props.params.broadcastId} />
         </div>
         <div className={style.RightPanel}>

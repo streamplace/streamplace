@@ -2,3 +2,8 @@
 .ThumbnailPicker {
   cursor: pointer;
 }
+
+.ThumbnailPickerActive {
+  composes: ThumbnailPicker;
+  background-color: #CCC;
+}

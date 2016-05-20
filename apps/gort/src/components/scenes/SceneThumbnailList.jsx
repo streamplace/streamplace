@@ -41,8 +41,9 @@ export default class SceneThumbnailList extends React.Component{
       return <Loading />;
     }
     const scenes = this.state.scenes.map((scene) => {
+      const className = this.props.selectedScene === scene.id ? style.ThumbnailPickerActive : style.ThumbnailPicker;
       return (
-        <li className={style.ThumbnailPicker} onClick={this.handleClick.bind(this, scene.id)}>
+        <li className={className} onClick={this.handleClick.bind(this, scene.id)}>
           <SceneThumbnail key={scene.id} sceneId={scene.id} />
         </li>
       );
@@ -59,5 +60,6 @@ export default class SceneThumbnailList extends React.Component{
 
 SceneThumbnailList.propTypes = {
   "broadcastId": React.PropTypes.string,
+  "selectedScene": React.PropTypes.string,
   "onPick": React.PropTypes.func.isRequired,
 };

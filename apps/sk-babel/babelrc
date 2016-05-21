@@ -20,6 +20,7 @@
     "transform-es2015-typeof-symbol",
     "transform-es2015-unicode-regex",
     "transform-strict-mode",
-    "transform-object-rest-spread"
+    "transform-object-rest-spread",
+    "transform-function-bind"
   ]
 }

@@ -1,10 +1,29 @@
 
-.ThumbnailPicker {
+.Thumbnail {
   cursor: pointer;
   padding-bottom: 1em;
+  position: relative;
 }
 
-.ThumbnailPickerActive {
-  composes: ThumbnailPicker;
+.ThumbnailSelected {
+  composes: Thumbnail;
+  background-color: #CCC;
+}
+
+.ThumbnailLive {
+  composes: Thumbnail;
+  &::after {
+    position: absolute;
+    content: "LIVE";
+    color: red;
+    font-weight: 600;
+    font-size: 1.3em;
+    top: 5px;
+    right: 1em;
+  }
+}
+
+.ThumbnailLiveSelected {
+  composes: ThumbnailLive;
   background-color: #CCC;
 }

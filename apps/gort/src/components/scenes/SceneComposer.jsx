@@ -23,6 +23,11 @@ export default class SceneComposer extends React.Component{
       this.setState({inputs});
     })
     .catch(::twixty.error);
+    this.broadcastHandle = SK.broadcasts.watch({id: this.props.params.broadcastId})
+    .on("data", ([broadcast]) => {
+      this.setState({broadcast});
+    })
+    .catch(::twixty.error);
     this.subscribeScene(this.props.params.sceneId);
   }
 
@@ -88,6 +93,11 @@ export default class SceneComposer extends React.Component{
     this.setState({inputMenuOpen: false});
   }
 
+  handleGoLive() {
+    SK.broadcasts.update(this.state.broadcast.id, {activeSceneId: this.state.scene.id})
+    .catch(::twixty.error);
+  }
+
   handleAddRegion(id) {
     this.setState({inputMenuOpen: false});
     const regions = [...this.state.scene.regions];
@@ -136,6 +146,21 @@ export default class SceneComposer extends React.Component{
     return <div>{regions}</div>;
   }
 
+  renderGoLive() {
+    if (this.state.broadcast.activeSceneId === this.state.scene.id) {
+      return (
+        <div>
+          <button disabled>Live!</button>
+        </div>
+      );
+    }
+    return (
+      <div>
+        <button onClick={::this.handleGoLive}>Go Live</button>
+      </div>
+    );
+  }
+
   render() {
     if (!this.state.scene) {
       return <div className={style.Container}><Loading /></div>;
@@ -144,9 +169,7 @@ export default class SceneComposer extends React.Component{
     return (
       <div className={style.Container}>
         <section className={style.Header}>
-          <div>
-            <button>Go Live</button>
-          </div>
+          {this.renderGoLive()}
           <h5>
             <input type="text" value={this.state.newTitle} onFocus={::this.handleFocusTitle} onBlur={::this.handleBlurTitle} onChange={::this.handleChangeTitle} />
           </h5>

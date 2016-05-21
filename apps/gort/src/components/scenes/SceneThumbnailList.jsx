@@ -18,6 +18,11 @@ export default class SceneThumbnailList extends React.Component{
     let filter = {};
     if (broadcastId) {
       filter = {broadcastId};
+      this.broadcastHandle = SK.broadcasts.watch({id: broadcastId})
+      .on("data", ([broadcast]) => {
+        this.setState({broadcast});
+      })
+      .catch(::twixty.error);
     }
     this.sceneHandle = SK.scenes.watch(filter)
     .on("data", (scenes) => {
@@ -30,6 +35,9 @@ export default class SceneThumbnailList extends React.Component{
 
   componentWillUnmount() {
     this.sceneHandle.stop();
+    if (this.broadcastHandle) {
+      this.broadcastHandle.stop();
+    }
   }
 
   handleClick(id) {
@@ -41,7 +49,21 @@ export default class SceneThumbnailList extends React.Component{
       return <Loading />;
     }
     const scenes = this.state.scenes.map((scene) => {
-      const className = this.props.selectedScene === scene.id ? style.ThumbnailPickerActive : style.ThumbnailPicker;
+      const isLive = this.state.broadcast && this.state.broadcast.activeSceneId === scene.id;
+      const isSelected = this.props.selectedScene === scene.id;
+      let className;
+      if (isLive && isSelected) {
+        className = style.ThumbnailLiveSelected;
+      }
+      else if (isLive) {
+        className = style.ThumbnailLive;
+      }
+      else if (isSelected) {
+        className = style.ThumbnailSelected;
+      }
+      else {
+        className = style.Thumbnail;
+      }
       return (
         <li className={className} onClick={this.handleClick.bind(this, scene.id)}>
           <SceneThumbnail key={scene.id} sceneId={scene.id} />

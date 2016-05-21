@@ -13,6 +13,7 @@
   position: relative;
   width: auto;
   display: inline-block;
+  align-self: center;
 }
 
 .InputMenu {
@@ -35,4 +36,15 @@
       background-color: #ccc;
     }
   }
+}
+
+.RegionsContainer {
+  flex-direction: column;
+  align-items: flex-start;
+  display: inline-flex;
+}
+
+.AddRegionButton {
+  margin: 0.5em auto;
+  align-self: center;
 }

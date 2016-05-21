@@ -180,16 +180,17 @@ export default class SceneComposer extends React.Component{
 
         <SceneRender scene={this.state.scene} />
 
-        <div>
+        <section className={style.RegionsContainer}>
           <h5>Regions</h5>
           {this.renderRegions()}
           <div className={style.InputMenuContainer}>
             {this.renderInputMenu()}
-            <button onBlur={::this.handleInputButtonBlur} onClick={::this.handleOpenInputMenu}>
+            <button className={`outline ${style.AddRegionButton}`} onBlur={::this.handleInputButtonBlur} onClick={::this.handleOpenInputMenu}>
+              <i className="fa fa-plus-square-o" />
               Add Region
             </button>
           </div>
-        </div>
+        </section>
       </div>
     );
   }

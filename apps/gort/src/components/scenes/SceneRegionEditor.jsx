@@ -73,11 +73,11 @@ export default class SceneRegionEditor extends React.Component{
       );
     });
     return (
-      <div>
-        <strong>{this.state.input.title}</strong>&nbsp;&nbsp;&nbsp;
+      <section className={style.RegionFieldContainer}>
+        <strong className={style.RegionName}>{this.state.input.title}</strong>&nbsp;&nbsp;&nbsp;
         {fields}
         <button onClick={::this.handleSave}>Save</button>
-      </div>
+      </section>
     );
   }
 }

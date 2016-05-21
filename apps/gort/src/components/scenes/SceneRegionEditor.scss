@@ -4,7 +4,32 @@
   margin-right: 5px;
 }
 
+.RegionFieldContainer {
+  align-items: center;
+  padding-top: 0.5em;
+  padding-bottom: 0.5em;
+  padding-left: 0.5em;
+  // border-bottom: 1px solid #ccc;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:nth-child(even) {
+    background-color: #ddd;
+  }
+
+  button {
+    margin-bottom: 0;
+  }
+}
+
+.RegionName {
+  min-width: 110px;
+}
+
 input[type=text].MicroInput {
   display: inline-block;
   width: 75px;
+  margin-bottom: 0;
 }

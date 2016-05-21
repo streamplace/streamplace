@@ -109,10 +109,16 @@ export default class Resource {
   }
 
   delete(req, res, next) {
-    r.table(this.name).get(req.params.id).delete(req.body).run(req.conn)
+    const id = req.params.id;
+    const conn = req.conn;
+    return this.beforeDelete(id, conn)
+    .then(() => {
+      return r.table(this.name).get(id).delete(req.body).run(conn);
+    })
     .then((stuff) => {
       if (stuff.errors > 0) {
         res.status(500);
+        winston.error(stuff.errors);
         res.json({
           code: "DATABASE_ERROR",
           message: "Error when attempting to delete resource"
@@ -228,6 +234,12 @@ export default class Resource {
   beforeCreate(newDoc) {
     return new Promise((resolve, reject) => {
       resolve(newDoc);
+    });
+  }
+
+  beforeDelete(id) {
+    return new Promise((resolve, reject) => {
+      resolve(id);
     });
   }
 

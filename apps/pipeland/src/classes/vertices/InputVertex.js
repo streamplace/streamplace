@@ -147,8 +147,10 @@ export default class InputVertex extends BaseVertex {
     if (this.vertexHandle) {
       this.vertexHandle.stop();
     }
-    this.cleanupStreams.forEach((stream) => {
-      stream.end();
-    });
+    if (this.cleanupStreams) {
+      this.cleanupStreams.forEach((stream) => {
+        stream.end();
+      });
+    }
   }
 }

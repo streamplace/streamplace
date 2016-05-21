@@ -3,6 +3,7 @@ import winston from "winston";
 import _ from "underscore";
 
 import Broadcast from "./classes/Broadcast";
+import BroadcastScheduler from "./classes/BroadcastScheduler";
 import ENV from "./env";
 import SK from "./sk";
 
@@ -20,3 +21,5 @@ SK.broadcasts.watch({enabled: true})
   broadcasts[id].cleanup();
   delete broadcasts[id];
 });
+
+const scheduler = new BroadcastScheduler();

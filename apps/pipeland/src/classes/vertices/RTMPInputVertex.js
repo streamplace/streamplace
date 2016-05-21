@@ -21,7 +21,22 @@ export default class RTMPInputVertex extends InputVertex {
       }]
     })
     .then((doc) => {
-      this.doc = doc;
+      if (this.doc.params.inputId) {
+        return SK.inputs.findOne(this.doc.params.inputId);
+      }
+      return null;
+    })
+    .then((input) => {
+      if (input !== null) {
+        this.doc.params.rtmp = {url: `rtmp://localhost/stream/${input.streamKey}`};
+        return SK.vertices.update(id, {
+          params: this.doc.params,
+          title: input.title,
+        });
+      }
+      return null;
+    })
+    .then(() => {
       this.init();
     })
     .catch((err) => {

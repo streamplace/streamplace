@@ -6,6 +6,8 @@ set -o pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+docker rm -f shoko > /dev/null || :;
+
 prettylog() {
   name="$1"
   color="$2"

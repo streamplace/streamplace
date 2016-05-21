@@ -3,6 +3,7 @@ import React from "react";
 import twixty from "twixtykit";
 
 import SceneRender from "./SceneRender";
+import SceneRegionEditor from "./SceneRegionEditor";
 import browserHistory from "../../history";
 import Loading from "../Loading";
 import style from "./SceneComposer.scss";
@@ -56,6 +57,7 @@ export default class SceneComposer extends React.Component{
     if (this.sceneHandle) {
       this.sceneHandle.stop();
     }
+    this.inputHandle.stop();
   }
 
   handleChangeTitle(e) {
@@ -100,6 +102,12 @@ export default class SceneComposer extends React.Component{
     .catch(::twixty.error);
   }
 
+  handleEditRegion(idx, newRegion) {
+    const newScene = {...this.state.scene};
+    newScene.regions[idx] = newRegion;
+    SK.scenes.update(this.state.scene.id, newScene).catch(::twixty.error);
+  }
+
   renderInputMenu() {
     if (this.state.inputMenuOpen !== true) {
       return;
@@ -121,9 +129,10 @@ export default class SceneComposer extends React.Component{
   }
 
   renderRegions() {
-    const regions = this.state.scene.regions.reverse().map((input) => {
-      return <div key={input.inputId}>{input.inputId}</div>;
-    });
+    const regions = this.state.scene.regions.map((region, i) => {
+      const handleEdit = this.handleEditRegion.bind(this, i);
+      return <SceneRegionEditor onChange={handleEdit} region={region} key={i}/>;
+    }).reverse(); // top-to-bottom, please.
     return <div>{regions}</div>;
   }
 

@@ -2,6 +2,7 @@
 import React from "react";
 import twixty from "twixtykit";
 
+import SceneRender from "./SceneRender";
 import style from "./SceneThumbnail.scss";
 import SK from "../../SK";
 
@@ -33,7 +34,7 @@ export default class SceneThumbnail extends React.Component{
     return (
       <div className={style.ThumbnailContainer}>
         <em>{this.state.scene.title}</em>
-        <div className={style.Thumbnail}></div>
+        <SceneRender scene={this.state.scene} />
       </div>
     );
   }

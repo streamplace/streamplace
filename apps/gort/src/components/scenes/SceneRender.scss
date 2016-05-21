@@ -8,7 +8,16 @@
 
 .Region {
   position: absolute;
+  display: flex;
   background-color: red;
   width: 10px;
   height: 10px;
+}
+
+$color-kindablack: rgba(0, 0, 0, 0.3);
+.RegionLabel {
+  margin: auto;
+  font-size: 1.4em;
+  color: white;
+  text-shadow: -1px 0 $color-kindablack, 0 1px $color-kindablack, 1px 0 $color-kindablack, 0 -1px $color-kindablack;
 }

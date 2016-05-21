@@ -12,10 +12,13 @@
   background-color: red;
   width: 10px;
   height: 10px;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 $color-kindablack: rgba(0, 0, 0, 0.3);
 .RegionLabel {
+  cursor: default;
   margin: auto;
   font-size: 1.4em;
   color: white;

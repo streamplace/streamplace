@@ -20,6 +20,24 @@ export default class RTMPOutputVertex extends BaseVertex {
       }]
     })
     .then(() => {
+      if (this.doc.params.outputId && this.doc.params.outputId !== "PREVIEW") {
+        return SK.outputs.findOne(this.doc.params.outputId);
+      }
+      return null;
+    })
+    .then((output) => {
+      if (output) {
+        this.doc.params.rtmp = {url: output.url};
+        return SK.vertices.update(id, {
+          params: this.doc.params,
+          title: output.title,
+        });
+      }
+      else {
+        return null;
+      }
+    })
+    .then(() => {
       this.init();
     })
     .catch((err) => {

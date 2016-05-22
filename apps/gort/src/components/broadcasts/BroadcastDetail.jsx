@@ -88,6 +88,9 @@ export default class BroadcastDetail extends React.Component {
             <Link className={this.getSelected("scenes")} to={`/broadcasts/${this.props.params.broadcastId}/scenes`}>
               <span>Scene Editor</span>
             </Link>
+            <Link className={this.getSelected("outputs")} to={`/broadcasts/${this.props.params.broadcastId}/outputs`}>
+              <span>Outputs</span>
+            </Link>
             <Link className={this.getSelected("graph")} to={`/broadcasts/${this.props.params.broadcastId}/graph`}>
               <span>Graph View</span>
             </Link>

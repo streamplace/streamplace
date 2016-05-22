@@ -1,0 +1,30 @@
+
+.Container {
+  flex-direction: column;
+  align-items: center;
+}
+
+.Row {
+  font-size: 3em;
+  align-items: center;
+}
+
+.Title {
+  margin-right: 2em;
+}
+
+.Button {
+  height: 50px;
+  width: 200px;
+  margin-bottom: 0;
+  font-size: 0.4em;
+  margin-left: auto;
+}
+
+.ActivateButton {
+  composes: Button;
+}
+
+.DeactivateButton {
+  composes: Button;
+}

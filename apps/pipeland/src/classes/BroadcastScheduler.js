@@ -70,6 +70,10 @@ export default class BroadcastScheduler {
    * This thing is designed to be all schedule-y and idempotent and all that fun stuff. Here's a
    * broadcast, make sure the API ecosystem reflects everything you want to be true about that
    * broadcast. Make no assumptions about whether it's live or whatever.
+   *
+   * This was all written over 16 hours the weekend before we wanted to start the Kickstarter so
+   * it has a lot of copy paste. The three sections of its logic will migrate to plugins as we get
+   * closer to the plugin API.
    */
   reconcileBroadcast(broadcast) {
     const scenes = _(this.scenes).filter({broadcastId: broadcast.id});
@@ -94,7 +98,10 @@ export default class BroadcastScheduler {
       });
     });
 
-    // Okay, active broadcast. Let's see what we need to make.
+    /**
+     * Inputs
+     */
+
     const creationQueue = [];
     inputIds.forEach((inputId) => {
       let inputVertices = vertices.filter((vertex) => {
@@ -133,6 +140,10 @@ export default class BroadcastScheduler {
     creationQueue.forEach((newVertex) => {
       SK.vertices.create(newVertex).catch(::this.error);
     });
+
+    /**
+     * Composite Vertex
+     */
 
     const compositeVertices = _(this.vertices).filter({type: "Composite"});
     let compositeVertex;
@@ -202,6 +213,91 @@ export default class BroadcastScheduler {
     else if (compositeVertices.length > 1) {
       this.error(`Found more than one composite vertex for broadcast ${broadcast.title}`);
     }
+
+    /**
+     * Outputs
+     */
+
+    const outputCreationQueue = [];
+    const outputIds = broadcast.outputIds.concat(["PREVIEW"]); // Add a magic "PREVIEW" on for now
+    const outputCompositeVertices = _(this.vertices).filter({type: "Composite"});
+
+    // Remove output vertices we don't want no more
+    vertices.filter(v => v.type === "RTMPOutput").forEach((vertex) => {
+      if (!_(outputIds).contains(vertex.params.outputId)) {
+        this.debug(`Removing output ${vertex.title} -- it left the broadcast.`);
+        SK.vertices.delete(vertex.id).catch(::this.error);
+      }
+    });
+
+    // Create new output vertices for newly-activated ones
+    outputIds.forEach((outputId) => {
+      let outputVertices = vertices.filter((vertex) => {
+        return vertex.params.outputId === outputId;
+      });
+      if (outputVertices.length === 0) {
+        this.debug(`Didn't find a vertex for output ${outputId}, creating one.`);
+        const newVertex = {
+          kind: "vertex",
+          type: "RTMPOutput",
+          broadcastId: broadcast.id,
+          title: `Output ${outputId}`,
+          status: "INACTIVE",
+          inputs: [{
+            name: "default",
+            sockets: [{
+              type: "video"
+            }, {
+              type: "audio"
+            }]
+          }],
+          outputs: [],
+          params: {
+            outputId: outputId,
+            rtmp: {}
+          }
+        };
+        if (outputId === "PREVIEW") {
+          newVertex.params.rtmp.url = `rtmp://127.0.0.1/stream/${broadcast.id}`;
+        }
+        outputCreationQueue.push(newVertex);
+      }
+      else if (outputVertices.length === 1) {
+        if (compositeVertices.length !== 1) {
+          this.debug(`Can't make arcs for output ${outputId} yet -- there are ${compositeVertices.length} composite vertices.`);
+          return;
+        }
+        const [compositeVertex] = compositeVertices;
+        const [outputVertex] = outputVertices;
+        this.debug(`Found vertex ${outputVertex.title} for output ${outputId}`);
+        let arcs = this.arcs.filter((arc) => {
+          return arc.from.vertexId === compositeVertex.id && arc.to.vertexId === outputVertex.id && arc.from.ioName === "default" && arc.to.ioName === "default";
+        });
+        if (arcs.length === 0) {
+          this.debug(`Creating arc from ${compositeVertex.title} to ${outputVertex.title}`);
+          SK.arcs.create({
+            kind: "arc",
+            broadcastId: broadcast.id,
+            delay: 0,
+            from: {
+              ioName: "default",
+              vertexId: compositeVertex.id,
+            },
+            to: {
+              ioName: "default",
+              vertexId: outputVertex.id
+            }
+          }).catch(::this.error);
+        }
+      }
+      else if (outputVertices.length > 1) {
+        this.error(`Found more than one output vertex for output ${outputId}`);
+      }
+    });
+
+    outputCreationQueue.forEach((newVertex) => {
+      SK.vertices.create(newVertex).catch(::this.error);
+    });
   }
 
   debug(msg, ...args) {

@@ -8,6 +8,7 @@ import browserHistory from "./history";
 import Home from "./components/Home";
 import BroadcastDetail from "./components/broadcasts/BroadcastDetail";
 import BroadcastGraphView from "./components/broadcasts/BroadcastGraphView";
+import BroadcastOutputs from "./components/broadcasts/BroadcastOutputs";
 import SceneEditor from "./components/scenes/SceneEditor";
 import SceneComposer from "./components/scenes/SceneComposer";
 import InputDetail from "./components/inputs/InputDetail";
@@ -56,6 +57,7 @@ ReactDOM.render((
           <Route path=":sceneId" component={SceneComposer}></Route>
         </Route>
         <Route path="graph" component={BroadcastGraphView} />
+        <Route path="outputs" component={BroadcastOutputs} />
       </Route>
     </Route>
     <Redirect from="/*" to="/*/" />

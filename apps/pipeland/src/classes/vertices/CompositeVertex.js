@@ -37,17 +37,14 @@ export default class CompositeVertex extends InputVertex {
   }
 
   handleInitialPull() {
-    this.currentPositions = this.doc.params.positions;
-    this.positionVertexHandle = SK.vertices.watch({id: this.id}).on("updated", ([vertex]) => {
-      const newPositions = vertex.params.positions;
-      Object.keys(vertex.params.positions).forEach((inputName) => {
-        if (!_(this.currentPositions[inputName]).isEqual(newPositions[inputName])) {
-          this.currentPositions[inputName] = newPositions[inputName];
-          this.doZMQUpdate(inputName);
-        }
+    this.sceneHandle = SK.scenes.watch({broadcastId: this.doc.broadcastId})
+    .on("data", (scenes) => {
+      this.scenes = scenes.sort(function(a, b) {
+        return a.id > b.id;
       });
-      this.currentPositions = newPositions;
-    });
+    })
+    .catch(::this.error);
+
     this.doc.inputs.forEach((input) => {
       input.sockets.forEach((socket) => {
         socket.url = this.transport.getInputURL();
@@ -69,7 +66,10 @@ export default class CompositeVertex extends InputVertex {
     };
     SK.vertices.update(this.doc.id, newVertex)
     .then(() => {
-      // this.init();
+      return this.sceneHandle;
+    })
+    .then((scenes) => {
+      this.init();
     })
     .catch((err) => {
       winston.error(err);
@@ -125,6 +125,10 @@ export default class CompositeVertex extends InputVertex {
       const audioInputSockets = [];
       let currentIdx = 0;
 
+      const sceneBackgroundIds = this.scenes.map((scene) => {
+        return `bg_${scene.id}`;
+      });
+
       this.doc.inputs.forEach((input, inputIdx) => {
         input.sockets.forEach((socket, socketIdx) => {
           socket.name = `${input.name}-${socketIdx}`;
@@ -143,24 +147,22 @@ export default class CompositeVertex extends InputVertex {
 
           // Set up video input
           if (socket.type === "video") {
+            const regionsForInput = [];
+            this.scenes.forEach((scene) => {
+              scene.regions.forEach((region, i) => {
+                if (region.inputId === input.name) {
+                  regionsForInput.push(`${scene.id}_${i}`);
+                }
+              });
+            });
             videoInputSockets.push(socket);
-            if (input.name === "background") {
-              this.ffmpeg.magic(
-                `${currentIdx}:v`,
-                m.framerate("30"),
-                m.scale(1920, 1080),
-                `${socket.name}`
-              );
-            }
-            else {
-              const pos = this.doc.params.positions[input.name];
-              this.ffmpeg.magic(
-                `${currentIdx}:v`,
-                m.framerate("30"),
-                m.scale([pos.width, pos.height], {_label: `${input.name}-scale`}),
-                `${socket.name}`
-              );
-            }
+
+            this.ffmpeg.magic(
+              `${currentIdx}:v`,
+              m.framerate("30"),
+              m.split(regionsForInput.length),
+              ...regionsForInput
+            );
           }
 
           // Set up audio input
@@ -187,28 +189,93 @@ export default class CompositeVertex extends InputVertex {
         });
       });
 
-      // Do a series of overlays for the input
-      let currentOverlayBG = "background-0";
-      videoInputSockets.forEach((socket, i) => {
-        if (socket.name === currentOverlayBG) {
-          // First one doesn't need to overlay onto nothing. Return.
-          return;
-        }
-        const newOverlayBG = `${socket.name}-overlay`;
-        const pos = this.doc.params.positions[socket.inputName];
+      currentIdx += 1;
+
+      let scenesForSelector = [];
+
+      this.scenes.forEach((scene) => {
+        const [firstRegion, ...otherRegions] = scene.regions;
+        let currentInput = `${scene.id}_0`;
         this.ffmpeg.magic(
-          currentOverlayBG,
-          socket.name,
-          m.overlay({
-            x: pos.x,
-            y: pos.y,
-            _label: `${socket.inputName}-overlay`
+          currentInput,
+          m.scale({
+            w: firstRegion.width,
+            h: firstRegion.height
           }),
-          newOverlayBG
+          m.pad({
+            width: 1920,
+            height: 1080,
+            x: firstRegion.x,
+            y: firstRegion.y,
+          }),
+          `${scene.id}_0_padded`
         );
-        currentOverlayBG = newOverlayBG;
+        currentInput = `${scene.id}_0_padded`;
+
+        otherRegions.forEach((region, i) => {
+          i = i + 1; // We already did the first one
+          const thisInput = `${scene.id}_${i}`;
+          const newOutput = `${thisInput}_overlay`;
+          this.ffmpeg.magic(
+            thisInput,
+            m.scale({
+              w: region.width,
+              h: region.height,
+            }),
+            `${thisInput}_scaled`
+          );
+          this.ffmpeg.magic(
+            currentInput,
+            `${thisInput}_scaled`,
+            m.overlay({
+              x: region.x,
+              y: region.y,
+            }),
+            newOutput
+          );
+          currentInput = newOutput;
+        });
+        scenesForSelector.push(currentInput);
       });
 
+      if (scenesForSelector.length > 1) {
+        this.ffmpeg.magic(
+          ...scenesForSelector,
+          m.streamselect({inputs: scenesForSelector.length, map: 0}),
+          m.framerate("30"),
+          "videoOutput"
+        );
+      }
+      else {
+        this.ffmpeg.magic(
+          ...scenesForSelector,
+          m.framerate("30"),
+          "videoOutput"
+        );
+      }
+
+      this.ffmpeg.magic(
+        ...audioInputSockets.map(s => `${s.name}-adjusted`),
+        m.amix({
+          inputs: audioInputSockets.length
+        }),
+        "audioOutput"
+      );
+
+      this.ffmpeg.output(this.audioOutputURL)
+        .outputOptions([
+          "-map [audioOutput]"
+        ])
+        .outputFormat("mpegts")
+        .audioCodec("aac");
+
+      this.ffmpeg
+        .output(this.videoOutputURL)
+        .outputOptions([
+          "-map [videoOutput]",
+        ])
+        .outputFormat("mpegts")
+        .videoCodec("libx264");
 
       this.ffmpeg
         .outputOptions([
@@ -226,71 +293,53 @@ export default class CompositeVertex extends InputVertex {
           "-fflags +igndts",
           "-loglevel verbose",
         ])
-        .magic(
-          currentOverlayBG,
-          m.zmq({bind_address: this.zmqAddress}),
-          m.framerate("30"),
-          "videoOutput"
-        )
+        // .magic(
+        //   currentOverlayBG,
+        //   m.zmq({bind_address: this.zmqAddress}),
+        //   m.framerate("30"),
+        //   "videoOutput"
+        // )
         .outputOptions([
-          "-map [videoOutput]",
           "-b:v 4000k",
           "-allow_skip_frames 1",
           "-preset veryfast",
           "-x264opts keyint=60",
           "-b:v 4000k",
-          "-minrate 4000k",
+          // "-minrate 4000k",
           "-maxrate 4000k",
           // "-bufsize 1835k",
           // "-frame_drop_threshold 60",
-        ])
-        .once("progress", () => {
-          const socket = zmq.socket("req");
-          socket.on("connect", (fd, ep) => {
-            this.zmqSocket = socket;
-            if (!this.zmqIsRunning) {
-              this._sendNextZMQMessage();
-            }
-            // Unfortunately if the filtergraph re-inits, our ZMQ changes don't get preserved. So
-            // as soon as ZMQ boots back up, go ahead and inform them of our changes again.
-            this.doc.inputs.forEach((input) => {
-              this.doZMQUpdate(input.name);
-            });
-            let idx = 0;
-            // let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
-          });
-          socket.on("connect", (fd, ep) => {this.info("connect, endpoint:", ep);});
-          socket.on("connect_delay", (fd, ep) => {this.info("connect_delay, endpoint:", ep);});
-          socket.on("connect_retry", (fd, ep) => {this.info("connect_retry, endpoint:", ep);});
-          socket.on("listen", (fd, ep) => {this.info("listen, endpoint:", ep);});
-          socket.on("bind_error", (fd, ep) => {this.info("bind_error, endpoint:", ep);});
-          socket.on("accept", (fd, ep) => {this.info("accept, endpoint:", ep);});
-          socket.on("accept_error", (fd, ep) => {this.info("accept_error, endpoint:", ep);});
-          socket.on("close", (fd, ep) => {this.info("close, endpoint:", ep);});
-          socket.on("close_error", (fd, ep) => {this.info("close_error, endpoint:", ep);});
-          socket.on("disconnect", (fd, ep) => {this.info("disconnect, endpoint:", ep);});
-          socket.on("message", (msg) => {this.info("message: ", msg.toString());});
-          socket.monitor(500, 0);
-          socket.connect(`tcp://127.0.0.1:${this.zmqPort}`);
-        })
-        .output(this.videoOutputURL)
-        .outputFormat("mpegts")
-        .videoCodec("libx264")
+        ]);
+        // .once("progress", () => {
+        //   const socket = zmq.socket("req");
+        //   socket.on("connect", (fd, ep) => {
+        //     this.zmqSocket = socket;
+        //     if (!this.zmqIsRunning) {
+        //       this._sendNextZMQMessage();
+        //     }
+        //     // Unfortunately if the filtergraph re-inits, our ZMQ changes don't get preserved. So
+        //     // as soon as ZMQ boots back up, go ahead and inform them of our changes again.
+        //     this.doc.inputs.forEach((input) => {
+        //       this.doZMQUpdate(input.name);
+        //     });
+        //     let idx = 0;
+        //     // let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
+        //   });
+        //   socket.on("connect", (fd, ep) => {this.info("connect, endpoint:", ep);});
+        //   socket.on("connect_delay", (fd, ep) => {this.info("connect_delay, endpoint:", ep);});
+        //   socket.on("connect_retry", (fd, ep) => {this.info("connect_retry, endpoint:", ep);});
+        //   socket.on("listen", (fd, ep) => {this.info("listen, endpoint:", ep);});
+        //   socket.on("bind_error", (fd, ep) => {this.info("bind_error, endpoint:", ep);});
+        //   socket.on("accept", (fd, ep) => {this.info("accept, endpoint:", ep);});
+        //   socket.on("accept_error", (fd, ep) => {this.info("accept_error, endpoint:", ep);});
+        //   socket.on("close", (fd, ep) => {this.info("close, endpoint:", ep);});
+        //   socket.on("close_error", (fd, ep) => {this.info("close_error, endpoint:", ep);});
+        //   socket.on("disconnect", (fd, ep) => {this.info("disconnect, endpoint:", ep);});
+        //   socket.on("message", (msg) => {this.info("message: ", msg.toString());});
+        //   socket.monitor(500, 0);
+        //   socket.connect(`tcp://127.0.0.1:${this.zmqPort}`);
+        // })
 
-        .magic(
-          ...audioInputSockets.map(s => `${s.name}-adjusted`),
-          m.amix({
-            inputs: audioInputSockets.length
-          }),
-          "audioOutput"
-        )
-
-        .output(this.audioOutputURL)
-        .outputOptions([
-          "-map [audioOutput]"
-        ])
-        .outputFormat("mpegts")
-        .audioCodec("aac");
 
 
         // .input(this.inputURL)

@@ -16,6 +16,9 @@ if (exit) {
   process.exit(1);
 }
 
+// #crash-on-start-hack
+ENV.CRASH_ON_BROADCAST_START = process.env.CRASH_ON_BROADCAST_START;
+
 // Optional Variables.
 ENV.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
 ENV.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;

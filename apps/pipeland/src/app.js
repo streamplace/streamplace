@@ -17,6 +17,12 @@ SK.broadcasts.watch({enabled: true})
 .on("newDoc", (broadcast) => {
   broadcasts[broadcast.id] = new Broadcast(broadcast);
 })
+.on("created", (broadcast) => {
+  // #crash-on-start-hack
+  if (ENV.CRASH_ON_BROADCAST_START) {
+    process.exit(0);
+  }
+})
 .on("deletedDoc", (id) => {
   broadcasts[id].cleanup();
   delete broadcasts[id];

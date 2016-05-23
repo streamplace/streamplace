@@ -9,7 +9,7 @@ module.exports = {
   output: {
     filename: "bundle.js", //this is the default name, so you can skip it
     path: "dist",
-    publicPath: "/"
+    publicPath: ""
   },
   plugins: [
     new CopyWebpackPlugin([

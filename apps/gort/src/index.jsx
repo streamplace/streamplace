@@ -33,7 +33,7 @@ class Handler extends React.Component{
       <div className={style.RootContainer}>
         <header className={style.Header}>
           <Link to="/" className={style.backButton}>
-            <img src={logoUrl} className={style.Logo} />
+            <img src={logoUrl.slice(1)} className={style.Logo} />
           </Link>
         </header>
         {this.props.children}

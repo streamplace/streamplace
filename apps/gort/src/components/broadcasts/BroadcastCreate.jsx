@@ -15,7 +15,8 @@ export default class BroadcastCreate extends React.Component{
       newBroadcast: {
         title: "",
         url: "",
-        enabled: false
+        enabled: false,
+        outputIds: [],
       }
     });
   }

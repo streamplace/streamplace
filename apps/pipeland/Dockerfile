@@ -48,7 +48,7 @@ RUN npm install --production /packages/mpeg-munger && \
   npm install --production /packages/sk-schema && \
   npm install --production && rm -rf /packages
 
+ADD pipeland/run.sh /run.sh
 ADD pipeland/dist /app/dist
-ADD run.sh /run.sh
 
 CMD ["/run.sh"]

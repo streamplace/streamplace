@@ -34,6 +34,10 @@ export default class ArcWritable {
     })
     .on("data", ([arc]) => {
       // If we're new or things changed, update our output.
+      if (!arc) {
+        // Just do nothing -- deleted event will take care of the rest.
+        return;
+      }
       const oldArc = this.doc;
       this.doc = arc;
       if (!oldArc || oldArc.to.vertexId !== arc.to.vertexId || oldArc.to.ioName !== arc.to.ioName) {

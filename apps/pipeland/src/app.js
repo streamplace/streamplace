@@ -26,6 +26,11 @@ SK.broadcasts.watch({enabled: true})
 .on("deletedDoc", (id) => {
   broadcasts[id].cleanup();
   delete broadcasts[id];
+  if (ENV.CRASH_ON_BROADCAST_START) {
+    setTimeout(function() {
+      process.exit(0);
+    }, 2000);
+  }
 });
 
 const scheduler = new BroadcastScheduler();

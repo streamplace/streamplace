@@ -8,6 +8,7 @@ export default class BroadcastCreate extends React.Component{
   constructor(params) {
     super(params);
     this.state = {};
+    this.reset();
   }
 
   reset() {

@@ -140,6 +140,9 @@ export default class CompositeVertex extends InputVertex {
   }
 
   getCurrentSceneIdx() {
+    if (!this.broadcast.activeSceneId) {
+      throw new Error("Broadcast has no active scene!");
+    }
     return this.switcherIdxByScene[this.broadcast.activeSceneId];
   }
 

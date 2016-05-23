@@ -4,6 +4,8 @@ import winston from "winston";
 // Required variables.
 const ENV = {};
 ENV.API_SERVER_URL = process.env.API_SERVER_URL;
+ENV.RTMP_URL_INTERNAL = process.env.RTMP_URL_INTERNAL;
+ENV.RTMP_URL_EXTERNAL = process.env.RTMP_URL_EXTERNAL;
 
 let exit = false;
 Object.keys(ENV).forEach((key) => {

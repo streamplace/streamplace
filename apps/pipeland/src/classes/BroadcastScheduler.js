@@ -6,6 +6,7 @@ import winston from "winston";
 import _ from "underscore";
 
 import SK from "../sk";
+import ENV from "../env";
 
 export default class BroadcastScheduler {
   constructor() {
@@ -258,7 +259,7 @@ export default class BroadcastScheduler {
           }
         };
         if (outputId === "PREVIEW") {
-          newVertex.params.rtmp.url = `rtmp://127.0.0.1/stream/${broadcast.id}`;
+          newVertex.params.rtmp.url = `${ENV.RTMP_URL_INTERNAL}${broadcast.id}`;
         }
         outputCreationQueue.push(newVertex);
       }

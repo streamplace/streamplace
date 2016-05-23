@@ -1,6 +1,7 @@
 
 import InputVertex from "./InputVertex";
 import SK from "../../sk";
+import ENV from "../../env";
 
 export default class RTMPInputVertex extends InputVertex {
   constructor({id}) {
@@ -28,7 +29,7 @@ export default class RTMPInputVertex extends InputVertex {
     })
     .then((input) => {
       if (input !== null) {
-        this.doc.params.rtmp = {url: `rtmp://localhost/stream/${input.streamKey}`};
+        this.doc.params.rtmp = {url: `${ENV.RTMP_URL_INTERNAL}${input.streamKey}`};
         return SK.vertices.update(id, {
           params: this.doc.params,
           title: input.title,

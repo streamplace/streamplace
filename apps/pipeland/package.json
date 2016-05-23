@@ -6,7 +6,7 @@
   "scripts": {
     "build": "babel -d dist src",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "API_SERVER_URL=http://localhost:8100 nodemon -w src -w ../sk-client/dist -w ../mpeg-munger/dist -x babel-node src/app.js",
+    "dev": "API_SERVER_URL=http://localhost:8100 RTMP_URL_INTERNAL='rtmp://localhost/stream/' RTMP_URL_EXTERNAL='rtmp://drumstick.iame.li/stream/' nodemon -w src -w ../sk-client/dist -w ../mpeg-munger/dist -x babel-node src/app.js",
     "stage": "API_SERVER_URL=https://api.stream.kitchen nodemon -x babel-node src/app.js"
   },
   "author": "Stream Kitchen",

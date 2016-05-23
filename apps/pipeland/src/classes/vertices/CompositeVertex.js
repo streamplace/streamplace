@@ -9,6 +9,7 @@ import m from "../MagicFilters";
 
 // This is hacky as hell but it doesn't seem to work if I send all messages at once.
 const ZMQ_SEND_INTERVAL = 1000;
+const MAIN_SWITCHER_LABEL = "MAIN_SWITCHER";
 
 export default class CompositeVertex extends InputVertex {
   constructor({id}) {
@@ -45,6 +46,16 @@ export default class CompositeVertex extends InputVertex {
     })
     .catch(::this.error);
 
+    this.broadcastHandle = SK.broadcasts.watch({id: this.doc.broadcastId})
+    .on("data", ([broadcast]) => {
+      if (this.broadcast && this.broadcast.activeSceneId !== broadcast.activeSceneId) {
+        this.broadcast = broadcast;
+        this.sendZMQ(MAIN_SWITCHER_LABEL, "map", this.getCurrentSceneIdx());
+      }
+      this.broadcast = broadcast;
+    })
+    .catch(::this.error);
+
     this.doc.inputs.forEach((input) => {
       input.sockets.forEach((socket) => {
         socket.url = this.transport.getInputURL();
@@ -67,6 +78,9 @@ export default class CompositeVertex extends InputVertex {
     SK.vertices.update(this.doc.id, newVertex)
     .then(() => {
       return this.sceneHandle;
+    })
+    .then(() => {
+      return this.broadcastHandle;
     })
     .then((scenes) => {
       this.init();
@@ -95,6 +109,17 @@ export default class CompositeVertex extends InputVertex {
     setTimeout(this._sendNextZMQMessage.bind(this), ZMQ_SEND_INTERVAL);
   }
 
+  sendZMQ(label, ...args) {
+    const filterLabel = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
+    if (!label) {
+      throw new Error(`Label ${label} not found.`);
+    }
+    this.zmqQueue.push(`${filterLabel} ${args.join(" ")}`);
+    if (!this.zmqIsRunning) {
+      this._sendNextZMQMessage();
+    }
+  }
+
   doZMQUpdate(inputName) {
     const send = (msg) => {
       this.zmqQueue.push(msg);
@@ -112,6 +137,10 @@ export default class CompositeVertex extends InputVertex {
     if (!this.zmqIsRunning) {
       this._sendNextZMQMessage();
     }
+  }
+
+  getCurrentSceneIdx() {
+    return this.switcherIdxByScene[this.broadcast.activeSceneId];
   }
 
   init() {
@@ -191,9 +220,10 @@ export default class CompositeVertex extends InputVertex {
 
       currentIdx += 1;
 
-      let scenesForSelector = [];
+      this.switcherIdxByScene = {};
+      let labelsByIdx = [];
 
-      this.scenes.forEach((scene) => {
+      this.scenes.forEach((scene, i) => {
         const [firstRegion, ...otherRegions] = scene.regions;
         let currentInput = `${scene.id}_0`;
         this.ffmpeg.magic(
@@ -235,21 +265,28 @@ export default class CompositeVertex extends InputVertex {
           );
           currentInput = newOutput;
         });
-        scenesForSelector.push(currentInput);
+        this.switcherIdxByScene[scene.id] = i;
+        labelsByIdx[i] = currentInput;
       });
 
-      if (scenesForSelector.length > 1) {
+      if (labelsByIdx.length > 1) {
         this.ffmpeg.magic(
-          ...scenesForSelector,
-          m.streamselect({inputs: scenesForSelector.length, map: 0}),
+          ...labelsByIdx,
+          m.streamselect({
+            inputs: labelsByIdx.length,
+            map: this.getCurrentSceneIdx(),
+            _label: MAIN_SWITCHER_LABEL
+          }),
+          m.zmq({bind_address: this.zmqAddress}),
           m.framerate("30"),
           "videoOutput"
         );
       }
       else {
         this.ffmpeg.magic(
-          ...scenesForSelector,
+          ...labelsByIdx,
           m.framerate("30"),
+          m.zmq({bind_address: this.zmqAddress}),
           "videoOutput"
         );
       }
@@ -309,38 +346,36 @@ export default class CompositeVertex extends InputVertex {
           "-maxrate 4000k",
           // "-bufsize 1835k",
           // "-frame_drop_threshold 60",
-        ]);
-        // .once("progress", () => {
-        //   const socket = zmq.socket("req");
-        //   socket.on("connect", (fd, ep) => {
-        //     this.zmqSocket = socket;
-        //     if (!this.zmqIsRunning) {
-        //       this._sendNextZMQMessage();
-        //     }
-        //     // Unfortunately if the filtergraph re-inits, our ZMQ changes don't get preserved. So
-        //     // as soon as ZMQ boots back up, go ahead and inform them of our changes again.
-        //     this.doc.inputs.forEach((input) => {
-        //       this.doZMQUpdate(input.name);
-        //     });
-        //     let idx = 0;
-        //     // let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
-        //   });
-        //   socket.on("connect", (fd, ep) => {this.info("connect, endpoint:", ep);});
-        //   socket.on("connect_delay", (fd, ep) => {this.info("connect_delay, endpoint:", ep);});
-        //   socket.on("connect_retry", (fd, ep) => {this.info("connect_retry, endpoint:", ep);});
-        //   socket.on("listen", (fd, ep) => {this.info("listen, endpoint:", ep);});
-        //   socket.on("bind_error", (fd, ep) => {this.info("bind_error, endpoint:", ep);});
-        //   socket.on("accept", (fd, ep) => {this.info("accept, endpoint:", ep);});
-        //   socket.on("accept_error", (fd, ep) => {this.info("accept_error, endpoint:", ep);});
-        //   socket.on("close", (fd, ep) => {this.info("close, endpoint:", ep);});
-        //   socket.on("close_error", (fd, ep) => {this.info("close_error, endpoint:", ep);});
-        //   socket.on("disconnect", (fd, ep) => {this.info("disconnect, endpoint:", ep);});
-        //   socket.on("message", (msg) => {this.info("message: ", msg.toString());});
-        //   socket.monitor(500, 0);
-        //   socket.connect(`tcp://127.0.0.1:${this.zmqPort}`);
-        // })
-
-
+        ])
+        .once("progress", () => {
+          const socket = zmq.socket("req");
+          socket.on("connect", (fd, ep) => {
+            this.zmqSocket = socket;
+            if (!this.zmqIsRunning) {
+              this._sendNextZMQMessage();
+            }
+            // Unfortunately if the filtergraph re-inits, our ZMQ changes don't get preserved. So
+            // as soon as ZMQ boots back up, go ahead and inform them of our changes again.
+            // this.doc.inputs.forEach((input) => {
+            //   this.doZMQUpdate(input.name);
+            // });
+            // let idx = 0;
+            // let label = this.ffmpeg.filterLabels[MAIN_SWITCHER_LABEL];
+          });
+          socket.on("connect", (fd, ep) => {this.info("connect, endpoint:", ep);});
+          socket.on("connect_delay", (fd, ep) => {this.info("connect_delay, endpoint:", ep);});
+          socket.on("connect_retry", (fd, ep) => {this.info("connect_retry, endpoint:", ep);});
+          socket.on("listen", (fd, ep) => {this.info("listen, endpoint:", ep);});
+          socket.on("bind_error", (fd, ep) => {this.info("bind_error, endpoint:", ep);});
+          socket.on("accept", (fd, ep) => {this.info("accept, endpoint:", ep);});
+          socket.on("accept_error", (fd, ep) => {this.info("accept_error, endpoint:", ep);});
+          socket.on("close", (fd, ep) => {this.info("close, endpoint:", ep);});
+          socket.on("close_error", (fd, ep) => {this.info("close_error, endpoint:", ep);});
+          socket.on("disconnect", (fd, ep) => {this.info("disconnect, endpoint:", ep);});
+          socket.on("message", (msg) => {this.info("message: ", msg.toString());});
+          socket.monitor(500, 0);
+          socket.connect(`tcp://127.0.0.1:${this.zmqPort}`);
+        });
 
         // .input(this.inputURL)
         // .inputFormat("mpegts")

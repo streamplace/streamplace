@@ -228,9 +228,15 @@ export default class CompositeVertex extends InputVertex {
 
       this.scenes.forEach((scene, i) => {
         const [firstRegion, ...otherRegions] = scene.regions;
+        let region = firstRegion;
         let currentInput = `${scene.id}_0`;
+        const outAspect = region.width / region.height;
         this.ffmpeg.magic(
           currentInput,
+          m.crop({
+            w: `if(gt(a, ${outAspect}),${outAspect}*ih,iw)`,
+            h: `if(lt(a, ${outAspect}),${1/outAspect}*iw,ih)`,
+          }),
           m.scale({
             w: firstRegion.width,
             h: firstRegion.height
@@ -249,8 +255,13 @@ export default class CompositeVertex extends InputVertex {
           i = i + 1; // We already did the first one
           const thisInput = `${scene.id}_${i}`;
           const newOutput = `${thisInput}_overlay`;
+          const outAspect = region.width / region.height;
           this.ffmpeg.magic(
             thisInput,
+            m.crop({
+              w: `if(gt(a, ${outAspect}),${outAspect}*ih,iw)`,
+              h: `if(lt(a, ${outAspect}),${1/outAspect}*iw,ih)`,
+            }),
             m.scale({
               w: region.width,
               h: region.height,

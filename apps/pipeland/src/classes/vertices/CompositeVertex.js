@@ -24,7 +24,6 @@ export default class CompositeVertex extends InputVertex {
 
   cleanup() {
     super.cleanup();
-    this.positionVertexHandle.stop();
 
     if (this.zmqSocket) {
       try {
@@ -386,7 +385,10 @@ export default class CompositeVertex extends InputVertex {
           socket.on("close", (fd, ep) => {this.info("close, endpoint:", ep);});
           socket.on("close_error", (fd, ep) => {this.info("close_error, endpoint:", ep);});
           socket.on("disconnect", (fd, ep) => {this.info("disconnect, endpoint:", ep);});
-          socket.on("message", (msg) => {this.info("message: ", msg.toString());});
+          socket.on("message", (msg) => {
+            this.info("message: ", msg.toString());
+            this._sendNextZMQMessage();
+          });
           socket.monitor(500, 0);
           socket.connect(`tcp://127.0.0.1:${this.zmqPort}`);
         });

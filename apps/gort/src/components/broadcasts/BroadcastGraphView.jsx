@@ -2,7 +2,7 @@
 import React from "react";
 import twixty from "twixtykit";
 
-import BroadcastGraph from "./BroadcastGraph";
+import CytoscapeBroadcastGraph from "./CytoscapeBroadcastGraph";
 import VertexCreate from "../vertices/VertexCreate";
 import VertexDetail from "../vertices/VertexDetail";
 import ArcEdit from "../arcs/ArcEdit";
@@ -67,24 +67,17 @@ export default class BroadcastGraphView extends React.Component {
       bottomPanel = <ArcEdit onDelete={this.clearSelection.bind(this)} broadcastId={this.props.params.broadcastId} arcId={this.state.selected.id} />;
     }
 
-    // If we are to be rendering a bottom panel, add its wrapper to it.
-    if (bottomPanel !== null) {
-      bottomPanel = (
+    // <button className={style.newVertexButton} onClick={this.handleNewVertexClick.bind(this)}>
+    //   <i className="fa fa-plus-square" />
+    // </button>
+    return (
+      <section className={style.HorizontalPanels}>
+        <section className={style.GraphPanel}>
+          <CytoscapeBroadcastGraph onPick={this.handlePick.bind(this)} broadcastId={this.props.params.broadcastId} />
+        </section>
         <section className={style.BottomPanel}>
           {bottomPanel}
         </section>
-      );
-    }
-
-    return (
-      <section className={style.verticalPanels}>
-        <section className={style.GraphPanel}>
-          <button className={style.newVertexButton} onClick={this.handleNewVertexClick.bind(this)}>
-            <i className="fa fa-plus-square" />
-          </button>
-          <BroadcastGraph onPick={this.handlePick.bind(this)} broadcastId={this.props.params.broadcastId} />
-        </section>
-        {bottomPanel}
       </section>
     );
   }

@@ -26,6 +26,12 @@ export default class SceneThumbnailList extends React.Component{
     }
     this.sceneHandle = SK.scenes.watch(filter)
     .on("data", (scenes) => {
+      scenes = scenes.sort((a, b) => {
+        if (a.title > b.title) {
+          return 1;
+        }
+        return -1;
+      });
       this.setState({scenes});
     })
     .catch((err) => {

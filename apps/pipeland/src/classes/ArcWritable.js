@@ -83,7 +83,7 @@ export default class ArcWritable {
     })
     .on("deleted", () => {
       // TODO: this should have a higher error class when such a thing exists.
-      winston.error(`Vertex ${this.vertex.id} was deleted, but it's still the destination of arc ${this.arcId}!`);
+      winston.error(`Vertex was deleted, but it's still the destination of arc ${this.arcId}!`);
     })
     .catch((e) => {
       winston.error(`Arc ${this.arcId} errored while looking for destinationVertex ${this.doc.to.vertexId}`);

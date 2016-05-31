@@ -299,6 +299,63 @@ export default class BroadcastScheduler {
     outputCreationQueue.forEach((newVertex) => {
       SK.vertices.create(newVertex).catch(::this.error);
     });
+
+    /**
+     * Make sure all vertices have exactly one fileOutputVertex
+     */
+    const fileOutputVertices = vertices.filter(v => v.type === "FileOutput");
+    const otherVertices = vertices.filter(v => v.type !== "FileOutput" && v.outputs.length > 0);
+    otherVertices.forEach((vertex) => {
+      const myFileVertices = fileOutputVertices.filter(v => v.params.vertexId === vertex.id);
+      if (myFileVertices.length === 0) {
+        this.info(`No FileOutput vertex found for ${vertex.title}, creating one.`);
+        const newVertex = {
+          kind: "vertex",
+          type: "FileOutput",
+          broadcastId: broadcast.id,
+          title: `${vertex.title}File`,
+          status: "INACTIVE",
+          inputs: [{
+            name: "default",
+            sockets: [{
+              type: "video"
+            }, {
+              type: "audio"
+            }]
+          }],
+          outputs: [],
+          params: {
+            vertexId: vertex.id
+          }
+        };
+        SK.vertices.create(newVertex).catch(::this.error);
+      }
+      if (myFileVertices.length === 1) {
+        const [fileVertex]= myFileVertices;
+        const relevantArcs = this.arcs.filter((arc) => {
+          return arc.from.vertexId === vertex.id &&
+            arc.to.vertexId === fileVertex.id &&
+            arc.from.ioName === "default" &&
+            arc.to.ioName === "default";
+        });
+        if (relevantArcs.length === 0) {
+          this.info(`Creating arc for ${vertex.title} outputVertex`);
+          SK.arcs.create({
+            kind: "arc",
+            broadcastId: broadcast.id,
+            delay: 0,
+            from: {
+              ioName: "default",
+              vertexId: vertex.id,
+            },
+            to: {
+              ioName: "default",
+              vertexId: fileVertex.id
+            }
+          }).catch(::this.error);
+        }
+      }
+    });
   }
 
   debug(msg, ...args) {

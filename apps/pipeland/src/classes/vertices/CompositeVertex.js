@@ -4,6 +4,7 @@ import zmq from "zmq";
 import _ from "underscore";
 
 import InputVertex from "./InputVertex";
+import {SERVER_START_TIME} from "../../constants";
 import SK from "../../sk";
 import m from "../MagicFilters";
 
@@ -14,12 +15,14 @@ const MAIN_SWITCHER_LABEL = "MAIN_SWITCHER";
 export default class CompositeVertex extends InputVertex {
   constructor({id}) {
     super({id});
-    this.streamFilters = [];
+    this.streamFilters = ["notifypts"];
     // this.debug = true;
     this.zmqQueue = [];
     this.zmqIsRunning = false;
     this.videoOutputURL = this.transport.getOutputURL();
     this.audioOutputURL = this.transport.getOutputURL();
+    this.ptsActionQueue = [];
+    this.lastPTS = 0;
   }
 
   cleanup() {
@@ -49,7 +52,7 @@ export default class CompositeVertex extends InputVertex {
     .on("data", ([broadcast]) => {
       if (this.broadcast && this.broadcast.activeSceneId !== broadcast.activeSceneId) {
         this.broadcast = broadcast;
-        this.sendZMQ(MAIN_SWITCHER_LABEL, "map", this.getCurrentSceneIdx());
+        this.queueSceneChange(this.getCurrentSceneIdx());
       }
       this.broadcast = broadcast;
     })
@@ -86,6 +89,56 @@ export default class CompositeVertex extends InputVertex {
     })
     .catch((err) => {
       winston.error(err);
+    });
+  }
+
+  notifyPTS(pts, type) {
+    if (type !== "video") {
+      return;
+    }
+    if (this._nextPTS) {
+      const diff = (pts - this._lastPTS);
+      if (pts >= this._nextPTS) {
+        this._doNextPTS(0);
+      }
+      else if (diff + pts > this._nextPTS) {
+        // Assuming we're getting PTS at a consistent interval, the next one will likely have
+        // passed our target. So, do our best to guess the right time with a setTimeout.
+        this._doNextPTS(Math.floor((this._nextPTS - pts) / 90));
+      }
+    }
+    this._lastPTS = pts;
+  }
+
+  _doNextPTS(time) {
+    this.info(`Switching scene in ${time}ms...`);
+    const {cb} = this.ptsActionQueue.shift();
+    if (this.ptsActionQueue.length > 0) {
+      this._nextPTS = this.ptsActionQueue[0].pts;
+    }
+    else {
+      this._nextPTS = null;
+    }
+    if (time === 0) {
+      cb();
+    }
+    else {
+      setTimeout(cb, time);
+    }
+  }
+
+  atPTS(pts, cb) {
+    this.ptsActionQueue.push({pts, cb});
+    this.ptsActionQueue = this.ptsActionQueue.sort((a, b) => {
+      return a.pts - b.pts;
+    });
+    // Cache so we don't need to perform an object lookup every time
+    this._nextPTS = this.ptsActionQueue[0].pts;
+  }
+
+  queueSceneChange(newScene) {
+    this.atPTS((Date.now() - SERVER_START_TIME) * 90, () => {
+      this.sendZMQ(MAIN_SWITCHER_LABEL, "map", newScene);
     });
   }
 
@@ -207,7 +260,8 @@ export default class CompositeVertex extends InputVertex {
                 first_pts: 0
               }),
               m.volume({
-                _label: `${socket.name}-volume`
+                _label: `${socket.name}-volume`,
+                volume: input.name === "d99ef33c-2ee0-4cc8-9db3-db666918b749" ? "1.0" : "0.0"
               }),
               `${socket.name}-adjusted`
             );

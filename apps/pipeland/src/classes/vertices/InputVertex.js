@@ -10,7 +10,7 @@
 
 import dgram from "dgram";
 import url from "url";
-import {syncer} from "mpeg-munger";
+import {syncer, munger} from "mpeg-munger";
 import _ from "underscore";
 
 import {getTransportFromURL} from "../transports";
@@ -85,6 +85,15 @@ export default class InputVertex extends BaseVertex {
             const noSignalStream = new NoSignalStream({delay: ASSUME_STREAM_IS_DEAD, type: socket.type});
             currentStream.pipe(noSignalStream);
             currentStream = noSignalStream;
+          }
+          else if (filter === "notifypts") {
+            const mpegStream = munger();
+            currentStream.pipe(mpegStream);
+            currentStream = mpegStream;
+            mpegStream.transformPTS = (pts) => {
+              this.notifyPTS(pts, socket.type);
+              return pts;
+            };
           }
         });
 

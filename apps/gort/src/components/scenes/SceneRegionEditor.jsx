@@ -32,9 +32,9 @@ export default class SceneRegionEditor extends React.Component{
     if (this.inputHandle) {
       this.inputHandle.stop();
     }
-    SK.inputs.watch({id: inputId})
-    .on("data", ([input]) => {
-      this.setState({input});
+    SK.inputs.watch({})
+    .on("data", (inputs) => {
+      this.setState({inputs});
     })
     .catch(::twixty.error);
   }
@@ -63,9 +63,12 @@ export default class SceneRegionEditor extends React.Component{
   }
 
   render () {
-    if (!this.state.input) {
+    if (!this.state.inputs) {
       return <div />;
     }
+    const options = this.state.inputs.map((input) => {
+      return <option value={input.id}>{input.title}</option>;
+    });
     const fields = ["x", "y", "width", "height"].map((param) => {
       const handleChange = this.handleChange.bind(this, param);
       const id = uid();
@@ -78,7 +81,9 @@ export default class SceneRegionEditor extends React.Component{
     });
     return (
       <section className={style.RegionFieldContainer}>
-        <strong className={style.RegionName}>{this.state.input.title}</strong>&nbsp;&nbsp;&nbsp;
+        <select onChange={this.handleChange.bind(this, "inputId")} className={style.InputSelector} value={this.state.region.inputId}>
+          {options}
+        </select>
         {fields}
         <button onClick={::this.handleSave}>Save</button>
         <button className="danger" onClick={::this.handleDelete}>Delete</button>

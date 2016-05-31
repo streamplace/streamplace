@@ -5,7 +5,7 @@
 }
 
 .RegionFieldContainer {
-  align-items: center;
+  align-items: flex-start;
   padding-top: 0.5em;
   padding-bottom: 0.5em;
   padding-left: 0.5em;
@@ -31,5 +31,12 @@
 input[type=text].MicroInput {
   display: inline-block;
   width: 75px;
+  margin-bottom: 0;
+}
+
+.InputSelector {
+  width: 250px;
+  margin-right: 1em;
+  background-color: white;
   margin-bottom: 0;
 }

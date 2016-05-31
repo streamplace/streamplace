@@ -63,6 +63,8 @@ export default class CompositeVertex extends InputVertex {
         socket.url = this.transport.getInputURL();
       });
     });
+    const newParams = this.doc.params;
+    newParams.cutOffset = 0;
     const newVertex = {
       inputs: this.doc.inputs,
       outputs: [{
@@ -74,8 +76,8 @@ export default class CompositeVertex extends InputVertex {
           url: this.audioOutputURL,
           type: "audio",
         }]
-      }]
-
+      }],
+      params: newParams,
     };
     SK.vertices.update(this.doc.id, newVertex)
     .then(() => {
@@ -137,7 +139,7 @@ export default class CompositeVertex extends InputVertex {
   }
 
   queueSceneChange(newScene) {
-    this.atPTS((Date.now() - SERVER_START_TIME) * 90, () => {
+    this.atPTS((Date.now() - SERVER_START_TIME + this.doc.params.cutOffset) * 90, () => {
       this.sendZMQ(MAIN_SWITCHER_LABEL, "map", newScene);
     });
   }

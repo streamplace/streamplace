@@ -19,6 +19,11 @@ export default class VertexDetail extends React.Component {
   }
   doSubscribe(vertexId) {
     this.vertexHandle = SK.vertices.watch({id: vertexId})
+    .then(([vertex]) => {
+      if (vertex.params.cutOffset !== undefined) {
+        this.setState({cutOffset: vertex.params.cutOffset});
+      }
+    })
     .on("data", (vertices) => {
       this.setState({
         unloading: false,
@@ -51,6 +56,20 @@ export default class VertexDetail extends React.Component {
       twixty.error(err);
     });
   }
+
+  handleChangeCutOffset(e) {
+    let value = parseInt(e.target.value);
+    if (value !== value) { // NaN
+      value = e.target.value;
+    }
+    else {
+      const newParams = {...this.state.vertex.params};
+      newParams.cutOffset = value;
+      SK.vertices.update(this.state.vertex.id, {params: newParams});
+    }
+    this.setState({cutOffset: value});
+  }
+
   render() {
     if (this.state.unloading) {
       return <div />;
@@ -72,6 +91,15 @@ export default class VertexDetail extends React.Component {
     let positionEditor;
     if (v.params.positions) {
       positionEditor = <VertexPositionEditor vertexId={v.id} positions={v.params.positions} />;
+    }
+    let cutOffsetEditor;
+    if (this.state.cutOffset !== undefined) {
+      cutOffsetEditor = (
+        <div>
+          <strong>Cut Offset</strong>
+          <input value={this.state.cutOffset} onChange={::this.handleChangeCutOffset} />
+        </div>
+      );
     }
     const inputs = v.inputs.map((input) => {
       const sockets = input.sockets.map((socket) => {
@@ -100,6 +128,7 @@ export default class VertexDetail extends React.Component {
         <h4>Title: {v.title}</h4>
         <p>id: {v.id}</p>
         {positionEditor}
+        {cutOffsetEditor}
         <p><strong>Inputs</strong></p>
         {inputs}
         <p><strong>Outputs</strong></p>

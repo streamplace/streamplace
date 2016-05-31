@@ -45,6 +45,12 @@ export default class SceneRegionEditor extends React.Component{
     }
   }
 
+  handleChangeInput (field, e) {
+    let val = e.target.value;
+    const newRegion = {...this.state.region, [field]: val};
+    this.setState({region: newRegion});
+  }
+
   handleChange(field, e) {
     let val = parseInt(e.target.value);
     if (val !== val) { // NaN
@@ -81,7 +87,7 @@ export default class SceneRegionEditor extends React.Component{
     });
     return (
       <section className={style.RegionFieldContainer}>
-        <select onChange={this.handleChange.bind(this, "inputId")} className={style.InputSelector} value={this.state.region.inputId}>
+        <select onChange={this.handleChangeInput.bind(this, "inputId")} className={style.InputSelector} value={this.state.region.inputId}>
           {options}
         </select>
         {fields}

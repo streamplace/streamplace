@@ -1,6 +1,7 @@
 
 import React from "react";
 import twixty from "twixtykit";
+import _ from "underscore";
 
 import SceneRender from "./SceneRender";
 import SceneRegionEditor from "./SceneRegionEditor";
@@ -118,6 +119,12 @@ export default class SceneComposer extends React.Component{
     SK.scenes.update(this.state.scene.id, newScene).catch(::twixty.error);
   }
 
+  handleDeleteRegion(idx) {
+    const newScene = {...this.state.scene};
+    newScene.regions = _(newScene.regions).without(newScene.regions[idx]);
+    SK.scenes.update(this.state.scene.id, newScene).catch(::twixty.error);
+  }
+
   renderInputMenu() {
     if (this.state.inputMenuOpen !== true) {
       return;
@@ -141,7 +148,8 @@ export default class SceneComposer extends React.Component{
   renderRegions() {
     const regions = this.state.scene.regions.map((region, i) => {
       const handleEdit = this.handleEditRegion.bind(this, i);
-      return <SceneRegionEditor onChange={handleEdit} region={region} key={i}/>;
+      const handleDelete = this.handleDeleteRegion.bind(this, i);
+      return <SceneRegionEditor onChange={handleEdit} onDelete={handleDelete} region={region} key={i}/>;
     }).reverse(); // top-to-bottom, please.
     return <div>{regions}</div>;
   }

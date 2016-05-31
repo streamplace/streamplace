@@ -58,6 +58,10 @@ export default class SceneRegionEditor extends React.Component{
     this.props.onChange(this.state.region);
   }
 
+  handleDelete() {
+    this.props.onDelete(this.state.region);
+  }
+
   render () {
     if (!this.state.input) {
       return <div />;
@@ -77,6 +81,7 @@ export default class SceneRegionEditor extends React.Component{
         <strong className={style.RegionName}>{this.state.input.title}</strong>&nbsp;&nbsp;&nbsp;
         {fields}
         <button onClick={::this.handleSave}>Save</button>
+        <button className="danger" onClick={::this.handleDelete}>Delete</button>
       </section>
     );
   }
@@ -85,4 +90,5 @@ export default class SceneRegionEditor extends React.Component{
 SceneRegionEditor.propTypes = {
   "region": React.PropTypes.object.isRequired,
   "onChange": React.PropTypes.func.isRequired,
+  "onDelete": React.PropTypes.func.isRequired,
 };

@@ -100,8 +100,8 @@ export default class CytoscapeBroadcastGraph extends React.Component{
       });
       this.runLayout();
     })
-    .on("deletedDoc", (vertex) => {
-      const elem = this.cy.getElementById(vertex.id);
+    .on("deletedDoc", (id) => {
+      const elem = this.cy.getElementById(id);
       this.cy.remove(elem);
     })
     .on("data", (vertices) => {

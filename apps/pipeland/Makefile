@@ -8,10 +8,10 @@ app: .
 	npm run-script build
 
 container: .
-	cd $(shell pwd)/.. && docker build -f pipeland/Dockerfile -t gcr.io/stream-kitchen/pipeland .
+	cd $(shell pwd)/.. && docker build -f pipeland/Dockerfile -t streamkitchen/pipeland .
 
 push: .
-	docker push gcr.io/stream-kitchen/pipeland
+	docker push streamkitchen/pipeland
 
 clean: .
 	mkdir -p dist

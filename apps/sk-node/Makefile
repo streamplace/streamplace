@@ -2,7 +2,7 @@
 .PHONY: all container push
 
 container: .
-	docker build -t gcr.io/stream-kitchen/sk-node .
+	docker build -t streamkitchen/sk-node .
 
 push:
-	docker push gcr.io/stream-kitchen/sk-node
+	docker push streamkitchen/sk-node

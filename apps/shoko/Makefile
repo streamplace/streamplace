@@ -4,7 +4,7 @@
 all: container
 
 container: .
-	docker build -t gcr.io/stream-kitchen/shoko .
+	docker build -t streamkitchen/shoko .
 
 push:
-	docker push gcr.io/stream-kitchen/shoko
+	docker push streamkitchen/shoko

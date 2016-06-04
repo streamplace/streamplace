@@ -1,3 +1,3 @@
-FROM gcr.io/stream-kitchen/sk-static
+FROM streamkitchen/sk-static
 
 ADD dist /webs

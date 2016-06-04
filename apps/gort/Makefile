@@ -8,7 +8,7 @@ app: .
 	npm run-script build
 
 container: .
-	docker build -t gcr.io/stream-kitchen/gort .
+	docker build -t streamkitchen/gort .
 
 push: .
-	docker push gcr.io/stream-kitchen/gort
+	docker push streamkitchen/gort

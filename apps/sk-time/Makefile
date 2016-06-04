@@ -8,10 +8,10 @@ app: .
 	npm run-script build
 
 container: .
-	docker build -t gcr.io/stream-kitchen/sk-time .
+	docker build -t streamkitchen/sk-time .
 
 push: .
-	docker push gcr.io/stream-kitchen/sk-time
+	docker push streamkitchen/sk-time
 
 clean: .
 	mkdir -p dist

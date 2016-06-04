@@ -4,7 +4,7 @@
 all: container
 
 container: .
-	docker build -t gcr.io/stream-kitchen/sk-static .
+	docker build -t streamkitchen/sk-static .
 
 push: .
-	docker push gcr.io/stream-kitchen/sk-static
+	docker push streamkitchen/sk-static

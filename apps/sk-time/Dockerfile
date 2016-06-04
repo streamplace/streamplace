@@ -1,4 +1,4 @@
-FROM gcr.io/stream-kitchen/sk-node
+FROM streamkitchen/sk-node
 
 WORKDIR /app
 ADD package.json package.json

@@ -1,4 +1,4 @@
-FROM gcr.io/stream-kitchen/sk-node
+FROM streamkitchen/sk-node
 
 # To be run from the apps directory.
 
@@ -28,9 +28,6 @@ RUN cd ~ && \
   make install PREFIX="/usr"
 
 WORKDIR /app
-ADD sk-ffmpeg/bin/ffmpeg /usr/local/bin/ffmpeg
-# For some reason FFProbe breaks listen ports. A fluent-ffmpeg bug problably. Anyway, gone for now.
-# ADD sk-ffmpeg/bin/ffprobe /usr/local/bin/ffprobe
 
 ADD pipeland/package.json /app/package.json
 

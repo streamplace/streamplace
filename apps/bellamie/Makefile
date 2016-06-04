@@ -8,10 +8,10 @@ app: .
 	npm run-script build
 
 container: .
-	cd $(shell pwd)/.. && docker build -f bellamie/Dockerfile -t gcr.io/stream-kitchen/bellamie .
+	cd $(shell pwd)/.. && docker build -f bellamie/Dockerfile -t streamkitchen/bellamie .
 
 push: .
-	docker push gcr.io/stream-kitchen/bellamie
+	docker push streamkitchen/bellamie
 
 clean: .
 	mkdir -p dist

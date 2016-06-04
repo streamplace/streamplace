@@ -14,7 +14,8 @@ addons:
     packages:
       - g++-4.8
 
-before_script:
+install:
+  - ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa
   - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
 
 script:

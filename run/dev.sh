@@ -30,10 +30,9 @@ function run() {
 export NODE_PATH="$(realpath "$DIR/../apps")"
 # export DEBUG_LEVEL="debug"
 run sk-schema 4
-run sk-code 190
+# run sk-code 190
 run shoko 208
 run sk-client 196
-run corporate-bullshit 195
 run mpeg-munger 214
 run sk-time 94
 run bellamie 201

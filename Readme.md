@@ -7,6 +7,12 @@
 <h3 align="center">Stream Kitchen</h3>
 
 <p align="center">
+  <a href="https://travis-ci.org/streamkitchen/streamkitchen">
+    <img src="https://travis-ci.org/streamkitchen/streamkitchen.svg?branch=master">
+  </a>
+</p>
+
+<p align="center">
   An open-source toolkit for compositing live video streams in the cloud.
 </p>
 

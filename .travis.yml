@@ -1,27 +1,12 @@
-language: node_js
-node_js:
-- "6"
+
+language: generic
 
 services:
   - docker
 
-env:
-  - CXX=g++-4.8
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      - g++-4.8
-
-install:
-  - run/install.sh
-
-after_install:
-  - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
-
 script:
-  - run/build.sh
+  - run/docker-build.sh
 
 after_success:
+  - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
   - run/push.sh

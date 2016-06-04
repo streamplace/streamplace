@@ -11,15 +11,8 @@ RUN \
   rm -rf /var/lib/apt/lists/*
 
 # We need a newer veresion of libzmq.
-ADD pipeland/get-zmq.sh /get-zmq.sh
+ADD sk-builder/get-zmq.sh /get-zmq.sh
 RUN cd ~ && PREFIX="/usr" /get-zmq.sh && rm /get-zmq.sh
-
-RUN cd ~ && \
-  curl -LO https://github.com/cisco/openh264/archive/v1.5.0.tar.gz && \
-  tar xzvf v1.5.0.tar.gz && \
-  cd openh264* && \
-  make && \
-  make install PREFIX="/usr"
 
 WORKDIR /app
 

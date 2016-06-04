@@ -1,0 +1,11 @@
+prefix=/home/root/code/streamkitchen/.lib
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libzmq
+Description: 0MQ c++ library
+Version: 4.2.0
+Libs: -L${libdir} -lzmq
+Libs.private: -lstdc++
+Cflags: -I${includedir}

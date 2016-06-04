@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://stream.kitchen/">
-    <img alt="Stream Kitchen" src="https://cloud.githubusercontent.com/assets/257909/15797920/2446bcae-29dc-11e6-8ea7-fbde5f56f408.png" width="267"><br>
+    <img alt="Stream Kitchen" src="https://cloud.githubusercontent.com/assets/257909/15797920/2446bcae-29dc-11e6-8ea7-fbde5f56f408.png" width="150">
   </a>
 </p>
 

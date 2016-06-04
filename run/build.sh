@@ -10,6 +10,7 @@ source "$DIR/common.sh"
 (
   cd "$DIR/.."
   npm install
+  npm run lint
 )
 
 for app in $APPS_TO_BUILD; do

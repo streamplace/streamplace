@@ -7,7 +7,7 @@
 <h3 align="center">Stream Kitchen</h3>
 
 <p align="center">
-  A toolkit for compositing live video streams in the cloud.
+  An open-source toolkit for compositing live video streams in the cloud.
 </p>
 
 Dev Ports

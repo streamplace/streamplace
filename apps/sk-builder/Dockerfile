@@ -12,5 +12,5 @@ RUN \
 ADD get-zmq.sh /get-zmq.sh
 RUN cd ~ && PREFIX="/usr" /get-zmq.sh && rm /get-zmq.sh
 
-RUN curl -L -o /usr/bin/docker https://get.docker.com/builds/Linux/x86_64/docker-1.10.3 && \
+RUN curl -L -o /usr/bin/docker https://get.docker.com/builds/Linux/x86_64/docker-1.9.1 && \
   chmod 755 /usr/bin/docker

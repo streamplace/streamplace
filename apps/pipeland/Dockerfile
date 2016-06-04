@@ -11,14 +11,8 @@ RUN \
   rm -rf /var/lib/apt/lists/*
 
 # We need a newer veresion of libzmq.
-RUN cd ~ && \
-  git clone https://github.com/zeromq/libzmq && \
-  cd libzmq && \
-  git checkout 464d3fd3f8cf606c99c1a03806fcb3230314b90b && \
-  ./autogen.sh && \
-  ./configure --prefix="/usr" && \
-  make -j 4 && \
-  make install
+ADD pipeland/get-zmq.sh /get-zmq.sh
+RUN cd ~ && PREFIX="/usr" /get-zmq.sh && rm /get-zmq.sh
 
 RUN cd ~ && \
   curl -LO https://github.com/cisco/openh264/archive/v1.5.0.tar.gz && \

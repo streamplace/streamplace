@@ -1,7 +1,7 @@
 {
-  "name": "pratty-apps",
+  "name": "streamkitchen",
   "version": "0.0.0",
-  "description": "All Dandiprat applications",
+  "description": "An open-source toolkit for compositing live video streams in the cloud",
   "main": "index.js",
   "dependencies": {
     "babel-eslint": "^6.0.4"
@@ -16,8 +16,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "ssh://dandiprat-codecommit/v1/repos/pratty-apps"
+    "url": "https://github.com/streamkitchen/streamkitchen"
   },
   "author": "Dandiprat Industries",
-  "license": "SEE LICENSE IN nope"
+  "license": "Apache-2.0"
 }

@@ -24,7 +24,7 @@
     "babel-preset-react": "^6.5.0",
     "copy-webpack-plugin": "^3.0.1",
     "css-loader": "^0.23.1",
-    "cytoscape": "git+ssh://git@github.com/cytoscape/cytoscape.js.git#e5d5d747a80bad5ecb72a3b78aeb23022c064030",
+    "cytoscape": "git+https://git@github.com/cytoscape/cytoscape.js.git#e5d5d747a80bad5ecb72a3b78aeb23022c064030",
     "dot-object": "^1.4.1",
     "file-loader": "^0.8.5",
     "font-awesome": "^4.6.3",

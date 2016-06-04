@@ -12,4 +12,4 @@ function bigPrint() {
   echo ""
 }
 
-export APPS_TO_BUILD="twixtykit corporate-bullshit mpeg-munger sk-node sk-schema sk-static sk-time sk-client sk-ffmpeg pipeland bellamie gort shoko"
+export APPS_TO_BUILD="twixtykit mpeg-munger sk-node sk-schema sk-static sk-time sk-client pipeland bellamie gort shoko"

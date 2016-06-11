@@ -2,7 +2,7 @@
 import React from "react";
 import twixty from "twixtykit";
 
-import ENV from "../../env";
+import config from "sk-config";
 import SK from "../../SK";
 import style from "./VertexDetail.scss";
 import VertexPositionEditor from "./VertexPositionEditor";
@@ -78,8 +78,8 @@ export default class VertexDetail extends React.Component {
     let previewLink;
     if (v.params.rtmp && v.params.rtmp.url) {
       let url = v.params.rtmp.url;
-      if (url.indexOf(ENV.RTMP_URL_INTERNAL) !== -1) {
-        url = url.replace(ENV.RTMP_URL_INTERNAL, ENV.RTMP_URL_EXTERNAL);
+      if (url.indexOf(config.RTMP_URL_INTERNAL) !== -1) {
+        url = url.replace(config.RTMP_URL_INTERNAL, config.PUBLIC_RTMP_URL_PREVIEW);
         previewLink = (
           <p>
             RTMP URL: {v.params.rtmp.url}<br/>

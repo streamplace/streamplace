@@ -7,13 +7,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css">
   <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700,300" rel="stylesheet" type="text/css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.0.2/react-with-addons.min.js"></script>
-  <base href="{{BASE_URL}}">
+  <base href="{{PUBLIC_GORT_BASE_PATH}}">
   <script>
-    window.SK_PARAMS = {
-      API_SERVER_URL: "{{API_SERVER_URL}}",
-      BASE_URL: "{{BASE_URL}}",
+    window.SK_CONFIG = {
+      PUBLIC_API_SERVER_URL: "{{PUBLIC_API_SERVER_URL}}",
+      PUBLIC_GORT_BASE_PATH: "{{PUBLIC_GORT_BASE_PATH}}",
       RTMP_URL_INTERNAL: "{{RTMP_URL_INTERNAL}}",
-      RTMP_URL_EXTERNAL: "{{RTMP_URL_EXTERNAL}}"
+      PUBLIC_RTMP_URL_PREVIEW: "{{PUBLIC_RTMP_URL_PREVIEW}}"
     };
   </script>
 </head>

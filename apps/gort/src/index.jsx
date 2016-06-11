@@ -23,10 +23,6 @@ import {} from "./components/main";
 import {} from "font-awesome-webpack";
 import {} from "twixtykit/base.scss";
 
-if (!window.SK_PARAMS || window.SK_PARAMS.BASE_URL === undefined) {
-  throw new Error("Missing required environment variable: BASE_URL");
-}
-
 class Handler extends React.Component{
   render () {
     return (

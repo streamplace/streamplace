@@ -1,11 +1,11 @@
-import SKClient from "sk-client";
 
-if (!window.SK_PARAMS || !window.SK_PARAMS.API_SERVER_URL) {
-  throw new Error("Missing required environment variable: API_SERVER_URL");
-}
+import SKClient from "sk-client";
+import config from "sk-config";
+
+const server = config.require("PUBLIC_API_SERVER_URL");
 
 const SK = new SKClient({
-  server: window.SK_PARAMS.API_SERVER_URL,
+  server: server,
   log: true
 });
 

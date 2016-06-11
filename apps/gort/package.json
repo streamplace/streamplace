@@ -5,7 +5,7 @@
   "main": "index",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "EXTRA_JS=\"/webpack-dev-server.js\" RTMP_URL_INTERNAL='rtmp://localhost/stream/' RTMP_URL_EXTERNAL='rtmp://drumstick.iame.li/stream/' webpack-dev-server --history-api-fallback --progress --colors  --host 0.0.0.0 --port 5000",
+    "dev": "webpack-dev-server --history-api-fallback --progress --colors  --host 0.0.0.0 --port 5000",
     "build": "webpack -p"
   },
   "author": "",

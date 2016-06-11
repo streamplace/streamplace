@@ -2,6 +2,7 @@
 /*eslint-disable no-var */
 var path = require("path");
 var CopyWebpackPlugin = require("copy-webpack-plugin");
+var config = require("sk-config").default;
 
 module.exports = {
   context: __dirname,
@@ -50,7 +51,7 @@ module.exports = {
       loaders: [
         "file?name=[name]",
         "val",
-        `apply?{obj: ${JSON.stringify(process.env)}}`,
+        `apply?{obj: ${JSON.stringify(config)}}`,
         "mustache"
       ]
     }]

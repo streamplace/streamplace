@@ -5,6 +5,7 @@ set -o nounset
 set -o pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+export SK_CONFIG="$DIR/../config.yaml";
 
 docker rm -f shoko > /dev/null || :;
 
@@ -21,14 +22,12 @@ function run() {
   name="$1"
   path="$name"
   color="$2"
-  if [[ -f "$SK_SECRET_DIRECTORY/$name.sh" ]]; then
-    source "$SK_SECRET_DIRECTORY/$name.sh"
-  fi
   cd "$DIR/../apps/$path" && npm run dev 2>&1 | prettylog "$name" "$color" &
   sleep 1
 }
 export NODE_PATH="$(realpath "$DIR/../apps")"
 # export DEBUG_LEVEL="debug"
+run sk-config 1
 run sk-schema 4
 # run sk-code 190
 run shoko 208

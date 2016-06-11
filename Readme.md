@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  An open-source toolkit for compositing live video streams in the cloud.
+  A toolkit for compositing live video streams in the cloud.
 </p>
 
 Hold up!

@@ -24,12 +24,16 @@ ADD mpeg-munger/dist /packages/mpeg-munger/dist
 ADD sk-schema/package.json /packages/sk-schema/package.json
 ADD sk-schema/dist /packages/sk-schema/dist
 
+ADD sk-schema/package.json /packages/sk-schema/package.json
+ADD sk-schema/dist /packages/sk-schema/dist
+
 ADD sk-client/package.json /packages/sk-client/package.json
 ADD sk-client/dist /packages/sk-client/dist
 
 RUN npm install --production /packages/mpeg-munger && \
   npm install --production /packages/sk-client && \
   npm install --production /packages/sk-schema && \
+  npm install --production /packages/sk-config && \
   npm install --production && rm -rf /packages
 
 ADD pipeland/run.sh /run.sh

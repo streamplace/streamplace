@@ -18,4 +18,4 @@ if (process.env.SK_CONFIG) {
   }
 }
 
-export default config;
+module.exports = config;

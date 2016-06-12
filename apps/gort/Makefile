@@ -5,7 +5,7 @@ all: app container
 
 app: .
 	npm install
-	npm run-script build
+	NODE_PATH=".." npm run-script build
 
 container: .
 	docker build -t streamkitchen/gort .

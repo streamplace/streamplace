@@ -30,6 +30,9 @@ ADD sk-schema/dist /packages/sk-schema/dist
 ADD sk-client/package.json /packages/sk-client/package.json
 ADD sk-client/dist /packages/sk-client/dist
 
+ADD sk-config/package.json /packages/sk-config/package.json
+ADD sk-config/dist /packages/sk-config/dist
+
 RUN npm install --production /packages/mpeg-munger && \
   npm install --production /packages/sk-client && \
   npm install --production /packages/sk-schema && \

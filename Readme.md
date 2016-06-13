@@ -10,6 +10,9 @@
   <a href="https://travis-ci.org/streamkitchen/streamkitchen">
     <img src="https://travis-ci.org/streamkitchen/streamkitchen.svg?branch=master">
   </a>
+  <a href="https://slack.stream.kitchen/">
+    <img src="https://slack.stream.kitchen/badge.svg">
+  </a>
 </p>
 
 <p align="center">

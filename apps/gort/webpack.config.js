@@ -2,7 +2,7 @@
 /*eslint-disable no-var */
 var path = require("path");
 var CopyWebpackPlugin = require("copy-webpack-plugin");
-var config = require("sk-config").default;
+var config = require("sk-config");
 
 module.exports = {
   context: __dirname,

@@ -263,7 +263,7 @@ export default class CompositeVertex extends InputVertex {
               }),
               m.volume({
                 _label: `${socket.name}-volume`,
-                volume: input.name === "d99ef33c-2ee0-4cc8-9db3-db666918b749" ? "1.0" : "0.0"
+                volume: 1.0
               }),
               `${socket.name}-adjusted`
             );

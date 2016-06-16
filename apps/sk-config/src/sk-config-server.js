@@ -18,4 +18,15 @@ if (process.env.SK_CONFIG) {
   }
 }
 
+const PREFIX = "SK_";
+
+Object.keys(process.env).forEach((key) => {
+  if (key.indexOf(PREFIX) !== 0) {
+    return;
+  }
+  const value = process.env[key];
+  key = key.slice(PREFIX.length);
+  config[key] = value;
+});
+
 module.exports = config;

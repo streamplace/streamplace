@@ -1,22 +1,12 @@
 
 import winston from "winston";
+import config from "sk-config";
 
 // Configurables here
 const ENV = {};
-ENV.PORT = process.env.PORT;
-ENV.RETHINK_HOST = process.env.RETHINK_HOST;
-ENV.RETHINK_PORT = process.env.RETHINK_PORT;
-ENV.RETHINK_DATABASE = process.env.RETHINK_DATABASE;
-
-let exit = false;
-Object.keys(ENV).forEach((key) => {
-  if (!ENV[key]) {
-    winston.error(`Missing required environment variable: ${key}`);
-    exit = true;
-  }
-});
-if (exit) {
-  process.exit(1);
-}
+ENV.RETHINK_HOST = config.require("RETHINK_HOST");
+ENV.RETHINK_PORT = config.require("RETHINK_PORT");
+ENV.RETHINK_DATABASE = config.require("RETHINK_DATABASE");
+ENV.PORT = config.require("BELLAMIE_PORT");
 
 export default ENV;

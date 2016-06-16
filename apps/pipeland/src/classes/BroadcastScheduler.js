@@ -46,7 +46,7 @@ export default class BroadcastScheduler {
     Promise.all([this.vertexHandle, this.sceneHandle, this.arcHandle, this.broadcastHandle])
     .then(() => {
       this.ready = true;
-      this.reconcile = _(::this.reconcile).throttle(500);
+      this.reconcile = _(::this.reconcile).throttle(3000);
       this.reconcile();
     })
     .catch(::this.error);

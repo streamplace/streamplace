@@ -407,7 +407,6 @@ export default class CompositeVertex extends InputVertex {
         // )
         .outputOptions([
           "-b:v 4000k",
-          "-allow_skip_frames 1",
           "-preset veryfast",
           "-x264opts keyint=60",
           "-b:v 4000k",

@@ -1,4 +1,4 @@
-FROM ubuntu:xenial
+FROM streamkitchen/sk-node
 
 RUN \
   apt-get update && \
@@ -6,9 +6,10 @@ RUN \
   rm -rf /var/lib/apt/lists/* && \
   chown -R www-data:www-data /var/lib/nginx
 
-ADD nginx.conf /etc/nginx/nginx.conf
-ADD bin/musta /usr/bin/musta
-ADD run.sh /run.sh
-RUN mkdir /webs
+ADD sk-config /packages/sk-config
+RUN npm install --production -g /packages/sk-config && rm -rf /packages
+
+ADD sk-static/nginx.conf /etc/nginx/nginx.conf
+ADD sk-static/run.sh /run.sh
 
 CMD ["/run.sh"]

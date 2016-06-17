@@ -8,10 +8,14 @@
     "dev": "nodemon -w src -x npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "bin": {
+    "sk-config": "./dist/cli.js"
+  },
   "author": "Stream Kitchen",
-  "license": "SEE LICENSE IN nope",
+  "license": "Apache-2.0",
   "dependencies": {
-    "js-yaml": "^3.6.1"
+    "js-yaml": "^3.6.1",
+    "mustache": "^2.2.1"
   },
   "devDependencies": {
     "babel-cli": "^6.10.0",

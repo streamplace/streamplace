@@ -1,3 +1,3 @@
 FROM streamkitchen/sk-static
 
-ADD dist /webs
+ADD dist /app/dist

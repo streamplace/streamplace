@@ -17,5 +17,9 @@ config.require = function(key) {
   return config[key];
 };
 
+config.optional = function(key) {
+  return config[key];
+};
+
 module.exports = config;
 

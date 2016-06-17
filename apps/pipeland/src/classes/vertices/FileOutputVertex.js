@@ -65,6 +65,9 @@ export default class FileOutputVertex extends BaseVertex {
   }
 
   init() {
+    if (!s3Streamer) {
+      this.info("Not saving file -- AWS_* environment variabes not set.");
+    }
     this.started = false;
     const date = dateStamp();
     const time = timeStamp();

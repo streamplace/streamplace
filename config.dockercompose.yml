@@ -1,10 +1,10 @@
 
 # URL of the Bellamie API server, used for SK services.
-API_SERVER_URL: "http://bellamie:8100"
+API_SERVER_URL: "http://localhost:80"
 
 # URL of the Bellamie API server, used for public React apps. If you're running on a local server
 # this is fine, if you're on a remote server it'll be different.
-PUBLIC_API_SERVER_URL: "http://localhost:8100"
+PUBLIC_API_SERVER_URL: "http://192.168.99.100:8100"
 
 # Base URL of the Gort user interface. This lets you run it at subdirectories, like "app".
 PUBLIC_GORT_BASE_PATH: "/"

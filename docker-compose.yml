@@ -4,20 +4,20 @@ services:
   rethink:
     image: rethinkdb:2.2
     volumes:
-      - ./config.yml:/config.yml
+      - ./config.dockercompose.yml:/config.yml
     restart: always
     ports:
       - "8080:8080"
     volumes:
       - ./rethinkdb_data:/data/rethinkdb_data
-      - ./config.yml:/config.yml
+      - ./config.dockercompose.yml:/config.yml
 
   shoko:
     image: streamkitchen/shoko:latest
     depends_on:
      - rethink
     volumes:
-      - ./config.yml:/config.yml
+      - ./config.dockercompose.yml:/config.yml
     restart: always
     ports:
       - "1935:1935"
@@ -32,7 +32,7 @@ services:
     ports:
       - "8100:80"
     volumes:
-      - ./config.yml:/config.yml
+      - ./config.dockercompose.yml:/config.yml
     restart: always
 
   pipeland:
@@ -45,11 +45,11 @@ services:
     image: streamkitchen/pipeland:latest
     restart: always
     volumes:
-      - ./config.yml:/config.yml
+      - ./config.dockercompose.yml:/config.yml
 
   gort:
     volumes:
-      - ./config.yml:/config.yml
+      - ./config.dockercompose.yml:/config.yml
     depends_on:
       - bellamie
     image: streamkitchen/gort:latest

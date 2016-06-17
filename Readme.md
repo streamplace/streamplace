@@ -19,6 +19,10 @@
   A toolkit for compositing live video streams in the cloud.
 </p>
 
+<p align="center">
+  <a href="https://www.kickstarter.com/projects/338091149/stream-kitchen">Check out our Kickstarter video for examples!</a>
+</p>
+
 Installation Instructions
 -------------------------
 

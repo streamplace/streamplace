@@ -3,3 +3,5 @@ npm-debug.log
 npm-debug.log*
 font.ttf
 config.yaml
+rethinkdb_data
+config.yml

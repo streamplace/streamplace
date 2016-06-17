@@ -19,7 +19,9 @@
   A toolkit for compositing live video streams in the cloud.
 </p>
 
-Hold up!
---------
+Installation Instructions
+-------------------------
 
-Nothing much to see yet. Installation instructions to come this week.
+Prerequisites:
+* docker 1.9+
+* docker-compose 1.7+

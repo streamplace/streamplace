@@ -35,9 +35,6 @@ const CHUNK_UPLOAD_INTERVAL = 5/* min*/ * 60/* sec*/ * 1000/*ms*/;
 
 export default class FileOutputVertex extends BaseVertex {
   constructor({id}) {
-    if (!s3Streamer) {
-      throw new Error("FileOutputVertex created, but missing required environment variables");
-    }
     super({id});
 
     this.uploads = [];
@@ -67,6 +64,7 @@ export default class FileOutputVertex extends BaseVertex {
   init() {
     if (!s3Streamer) {
       this.info("Not saving file -- AWS_* environment variabes not set.");
+      return;
     }
     this.started = false;
     const date = dateStamp();

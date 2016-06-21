@@ -413,7 +413,7 @@ export default class CompositeVertex extends InputVertex {
           // "-minrate 4000k",
           "-maxrate 4000k",
           // "-bufsize 1835k",
-          // "-frame_drop_threshold 60",
+          "-frame_drop_threshold 60",
         ])
         .once("progress", () => {
           const socket = zmq.socket("req");

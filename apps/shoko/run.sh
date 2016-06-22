@@ -1,2 +1,9 @@
 #!/bin/bash
-docker run -d -p 8200:80 -p 1934:1934 --name=shoko streamkitchen/shoko
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+mkfifo /log
+cat /log &
+/usr/local/nginx/sbin/nginx

@@ -2,10 +2,10 @@
   "name": "pipeland",
   "version": "0.0.0",
   "description": "Pipeland!",
-  "main": "src/pipeland.js",
+  "main": "dist/pipeland.js",
   "scripts": {
     "build": "babel -d dist src",
-    "dev": "nodemon -w src -w ../sk-client/dist -w ../mpeg-munger/dist -x babel-node src/app.js"
+    "dev": "nodemon -w src -w ../sk-client/dist -w ../mpeg-munger/dist -w ../sk-config/dist -x make dev"
   },
   "author": "Stream Kitchen",
   "license": "SEE LICENSE IN your-butt",

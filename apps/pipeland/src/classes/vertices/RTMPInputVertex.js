@@ -9,7 +9,11 @@ export default class RTMPInputVertex extends InputVertex {
     this.streamFilters = ["sync", "nosignal"];
     this.videoOutputURL = this.transport.getOutputURL();
     this.audioOutputURL = this.transport.getOutputURL();
-    SK.vertices.update(id, {
+  }
+
+  handleInitialPull() {
+    super.handleInitialPull();
+    SK.vertices.update(this.doc.id, {
       outputs: [{
         name: "default",
         sockets: [{
@@ -30,7 +34,7 @@ export default class RTMPInputVertex extends InputVertex {
     .then((input) => {
       if (input !== null) {
         this.doc.params.rtmp = {url: `${ENV.RTMP_URL_INTERNAL}${input.streamKey}`};
-        return SK.vertices.update(id, {
+        return SK.vertices.update(this.doc.id, {
           params: this.doc.params,
           title: input.title,
         });

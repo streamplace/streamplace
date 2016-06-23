@@ -10,6 +10,11 @@ app: .
 container: .
 	cd $(shell pwd)/.. && docker build -f pipeland/Dockerfile -t streamkitchen/pipeland .
 
+# Development container that can be easily spun up while working.
+dev: .
+	npm run-script build
+	docker build -f Dockerfile.dev -t streamkitchen/pipeland-dev .
+
 push: .
 	docker push streamkitchen/pipeland
 

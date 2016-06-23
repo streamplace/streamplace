@@ -1,25 +1,32 @@
 
-let config;
+class Config {
+  require(key) {
+    if (typeof this[key] === "undefined") {
+      throw new Error(`Missing required configuration parameter: ${key}`);
+    }
+    return this[key];
+  }
+
+  optional(key) {
+    return this[key];
+  }
+
+  add(obj) {
+    Object.keys(obj).forEach((key) => {
+      this[key] = obj[key];
+    });
+  }
+}
+
+let config = new Config();
 
 if (typeof window === "object") {
-  config = require("./sk-config-client");
+  config.add(require("./sk-config-client"));
 }
 else {
   // HACK so webpack doesn't webpack me. There's probably a better way.
   /*eslint-disable no-eval */
-  config = eval("require('./sk-config-server')");
+  config.add(eval("require('./sk-config-server')"));
 }
 
-config.require = function(key) {
-  if (typeof config[key] === "undefined") {
-    throw new Error(`Missing required configuration parameter: ${key}`);
-  }
-  return config[key];
-};
-
-config.optional = function(key) {
-  return config[key];
-};
-
 module.exports = config;
-

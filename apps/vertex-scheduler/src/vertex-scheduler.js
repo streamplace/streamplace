@@ -61,21 +61,20 @@ export default class VertexScheduler {
    * Create processors for new vertices.
    */
   _createNewProcessors(vertices, vertexProcessors) {
-    const vertexIds = vertices.map(v => v.id);
     const verticesWithProcessor = vertexProcessors.map(vp => vp.vertexId);
-    const createVertexIds = vertexIds.filter((v) => {
-      return !_(verticesWithProcessor).contains(v);
+    const createVertices = vertices.filter((v) => {
+      return !_(verticesWithProcessor).contains(v.id);
     });
 
-    if (createVertexIds.length) {
-      winston.info(`Creating ${createVertexIds.length} vertex processors.`);
+    if (createVertices.length) {
+      winston.info(`Creating ${createVertices.length} vertex processors.`);
     }
 
-    const promises = createVertexIds.map((vertexId) => {
-      return this.platform.createVertexProcessor({vertexId})
-        .then(({id}) => {
-          winston.info(`Created processor ${id} for vertex ${vertexId}`);
-        });
+    const promises = createVertices.map((vertex) => {
+      return this.platform.createVertexProcessor(vertex, {VERTEX_ID: vertex.id, ...config})
+      .then(({id}) => {
+        winston.info(`Created processor ${id} for vertex ${vertex.title}`);
+      });
     });
     return Promise.all(promises);
   }

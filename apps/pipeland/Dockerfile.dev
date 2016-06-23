@@ -1,0 +1,3 @@
+FROM streamkitchen/pipeland
+
+ADD dist /app/dist

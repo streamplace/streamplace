@@ -29,3 +29,6 @@ BELLAMIE_PORT: 8100
 RETHINK_HOST: "localhost"
 RETHINK_PORT: 28015
 RETHINK_DATABASE: dev
+
+# What Docker container should be used to run vertices?
+VERTEX_PROCESSOR_IMAGE: streamkitchen/pipeland-dev

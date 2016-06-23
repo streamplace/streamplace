@@ -39,35 +39,41 @@ export default class DockerPlatform {
     });
   }
 
-  _getContainer({vertexId}) {
-    if (!vertexId) {
-      throw new Error("Missing vertexId");
-    }
+  _getContainer(vertex, environment) {
     return {
-      Image: "streamkitchen/pipeland:latest", // vertexId!
-      Cmd: ["tail", "-f", "/dev/null"],
+      Image: vertex.image,
       Labels: {
         "kitchen.stream.vertex-processor": "true",
-        "kitchen.stream.vertex-id": vertexId,
+        "kitchen.stream.vertex-id": vertex.id,
       },
-      Env: [
-        `VERTEX_ID=${vertexId}`
-      ]
+      Env: Object.keys(environment).map((key) => {
+        const value = environment[key];
+        return `SK_${key}=${value}`;
+      }),
+      HostConfig: {
+        NetworkMode: "host"
+      },
     };
   }
 
-  createVertexProcessor({vertexId}) {
+  createVertexProcessor(vertex, environment) {
     return new Promise((resolve, reject) => {
-      const tmpl = this._getContainer({vertexId});
+      const tmpl = this._getContainer(vertex, environment);
       this.docker.createContainer(tmpl, (err, container) => {
         if (err) {
           return reject(err);
         }
-        container.start((err) => {
+        container.attach({stream: true, stdout: true, stderr: true}, (err, stream) => {
           if (err) {
-            return reject(err);
+            reject(err);
           }
-          resolve({id: container.id});
+          stream.pipe(process.stdout);
+          container.start((err) => {
+            if (err) {
+              return reject(err);
+            }
+            resolve({id: container.id});
+          });
         });
       });
     });

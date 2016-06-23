@@ -15,6 +15,7 @@ class SKClient {
     if (!server) {
       server = config.require("API_SERVER_URL");
     }
+    // test
     // Override the schema with our provided endpoint
     const {protocol, host} = url.parse(server);
     schema.host = host;

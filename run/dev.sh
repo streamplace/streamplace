@@ -36,6 +36,7 @@ run bellamie 201
 run gort 6
 run pipeland 40
 run vertex-scheduler 50
+run broadcast-scheduler 60
 wait
 
 # for i in {0..255}; do echo -e "\e[38;05;${i}m\\\e[38;05;${i}m"; done

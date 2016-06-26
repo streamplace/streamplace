@@ -13,7 +13,7 @@ export default class RTMPInputVertex extends InputVertex {
 
   handleInitialPull() {
     super.handleInitialPull();
-    SK.vertices.update(this.doc.id, {
+    this.vertexWithSockets = {
       outputs: [{
         name: "default",
         sockets: [{
@@ -24,7 +24,8 @@ export default class RTMPInputVertex extends InputVertex {
           type: "audio"
         }]
       }]
-    })
+    };
+    SK.vertices.update(this.doc.id, this.vertexWithSockets)
     .then((doc) => {
       if (this.doc.params.inputId) {
         return SK.inputs.findOne(this.doc.params.inputId);

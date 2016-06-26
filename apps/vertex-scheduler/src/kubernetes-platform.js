@@ -49,7 +49,7 @@ export default class KubernetesPlatform {
       apiVersion: "v1",
       kind: "Pod",
       metadata: {
-        generateName: "vertex-",
+        generateName: `vertex-${vertex.type.toLowerCase()}-`,
         labels: {
           "kitchen.stream.vertex-processor": "true",
           "kitchen.stream.vertex-id": vertex.id,
@@ -57,6 +57,7 @@ export default class KubernetesPlatform {
       },
       spec: {
         restartPolicy: "OnFailure",
+        terminationGracePeriodSeconds: 5,
         containers: [{
           name: "pipeland",
           image: vertex.image,
@@ -75,7 +76,8 @@ export default class KubernetesPlatform {
     return this._http("GET", "/pods").then((podList) => {
       return podList.items
       .filter((pod) => {
-        return pod.metadata.labels["kitchen.stream.vertex-processor"] === "true";
+        return pod.metadata.labels["kitchen.stream.vertex-processor"] === "true" &&
+          !pod.metadata.deletionTimestamp; // Ignore if we already deleted and it's spinning down
       })
       .map((pod) => {
         return {

@@ -61,6 +61,4 @@ RUN npm install --production /packages/mpeg-munger && \
 ADD pipeland/run.sh /run.sh
 ADD pipeland/dist /app/dist
 
-ENV SK_CONFIG /config.yml
-
 CMD ["node", "/app/dist/pipeland.js"]

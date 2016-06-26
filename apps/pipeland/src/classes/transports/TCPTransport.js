@@ -88,6 +88,7 @@ export class InputStream extends Readable {
 export class OutputStream extends Writable {
   constructor(params = {}) {
     super();
+    this.retryHandle = null;
     if (params.url) {
       this.setURL(params.url);
     }
@@ -96,16 +97,30 @@ export class OutputStream extends Writable {
   }
 
   _retry() {
-    this.conn = net.createConnection({port: this.port, hostname: this.hostname});
-    this.conn.on("error", this._onConnectionFailure.bind(this));
-    this.conn.on("connect", this._onConnect.bind(this));
-    this.conn.on("disconnect", this._onDisconnect.bind(this));
-    this.conn.on("end", this._onEnd.bind(this));
+    winston.info(`Attempting connection to ${this.hostname}:${this.port}`);
+    this.conn = net.createConnection({port: this.port, host: this.hostname});
+    this.conn.on("error", ::this._onError);
+    this.conn.on("connect", ::this._onConnect);
+    this.conn.on("end", ::this._onEnd);
+    this.conn.on("close", ::this._onClose);
+    this.conn.on("timeout", ::this._onTimeout);
     this.connected = false;
   }
 
-  _onConnectionFailure(err) {
+  _throttleRetry(timeout = 3000) {
+    if (this.retryHandle !== null) {
+      // We already know and are auto-retrying.
+      return;
+    }
     this.connected = false;
+    winston.info(`Retrying in ${timeout}ms`);
+    this.retryHandle = setTimeout(() => {
+      this.retryHandle = null;
+      this._retry();
+    }, timeout);
+  }
+
+  _onError(err) {
     // If it's refused we just assume they're not up yet and poll right away.
     let timeout = 3000;
     if (err.code === "ECONNREFUSED") {
@@ -114,27 +129,28 @@ export class OutputStream extends Writable {
     else {
       winston.error(err);
     }
-    setTimeout(() => {
-      this._retry();
-    }, timeout);
+    winston.debug("Connection failure.");
+    this._throttleRetry(timeout);
   }
 
-  _onListening() {
-    winston.log(`Listening on localhost:${this.port}`);
-  }
-
-  _onConnect(c) {
-    winston.info(`${this.port} connected`);
+  _onConnect(...args) {
+    winston.info(`${this.port} connected`, ...args);
     this.connected = true;
   }
 
-  _onDisconnect(c) {
-    const index = this.connections.indexOf(c);
-    this.connections.splice(index, 1);
+  _onEnd(...args) {
+    winston.debug("Connection ended.", ...args);
+    this._throttleRetry();
   }
 
-  _onEnd(c) {
-    this.connected = false;
+  _onClose(...args) {
+    winston.debug("Connection closed.", ...args);
+    this._throttleRetry();
+  }
+
+  _onTimeout(...args) {
+    winston.debug("Connection timed out.", ...args);
+    this._throttleRetry();
   }
 
   setURL(newURL) {
@@ -156,6 +172,14 @@ export class OutputStream extends Writable {
       this.conn.write(chunk);
     }
     done();
+  }
+
+  end(...args) {
+    super.end(...args);
+    this.conn.end();
+    if (this.retryHandle) {
+      clearTimeout(this.retryHandle);
+    }
   }
 }
 

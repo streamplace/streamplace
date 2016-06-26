@@ -18,6 +18,10 @@ export default class NoSignalVertex extends BaseVertex {
     // this.debug = true;
   }
 
+  info() {
+    // This thing is noisy, no thank you.
+  }
+
   // Old -- just copied from a file. Problems.
   // init() {
   //   try {

@@ -41,12 +41,18 @@ export default class BaseVertex extends Base {
 
     .then(([doc]) => {
       this.doc = doc;
+      this.info("Got initial pull.");
       SK.vertices.update(this.id, {
         status: "WAITING",
         timemark: ""
+      })
+      .then(() => {
+        this.handleInitialPull();
+      })
+      .catch((err) => {
+        this.error(err);
+        throw err;
       });
-      this.info("Got initial pull.");
-      this.handleInitialPull();
     })
 
     .on("updated", ([doc]) => {

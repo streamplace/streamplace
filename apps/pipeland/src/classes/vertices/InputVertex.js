@@ -56,7 +56,7 @@ export default class InputVertex extends BaseVertex {
     // List of all of my streams that I need to clean up when we're done.
     this.cleanupStreams = [];
 
-    this.doc.outputs.forEach((output) => {
+    this.vertexWithSockets.outputs.forEach((output) => {
       const streamsForThisOutput = {};
       this.outputStreams[output.name] = streamsForThisOutput;
       const sync = syncer({

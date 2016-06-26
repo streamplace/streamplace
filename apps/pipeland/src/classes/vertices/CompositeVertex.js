@@ -79,6 +79,7 @@ export default class CompositeVertex extends InputVertex {
       }],
       params: newParams,
     };
+    this.vertexWithSockets = newVertex;
     SK.vertices.update(this.doc.id, newVertex)
     .then(() => {
       return this.sceneHandle;

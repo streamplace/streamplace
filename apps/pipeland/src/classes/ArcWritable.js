@@ -61,6 +61,7 @@ export default class ArcWritable {
     this.outputTypes.forEach((type) => {
       if (this.outputStreams[type] !== null) {
         this.streams[type].unpipe(this.outputStreams[type]);
+        this.outputStreams[type].end();
         this.outputStreams[type] = null;
       }
       this.outputStreams[type] = null;
@@ -69,12 +70,17 @@ export default class ArcWritable {
     .on("data", ([vertex]) => {
       const [input] = vertex.inputs.filter(input => input.name === this.doc.to.ioName);
       input.sockets.forEach((socket, i) => {
+        if (!socket.url) {
+          // This vertex exists but doesn't have a URL yet. That's fine. Revisit later.
+          return;
+        }
         if (!this.streams[socket.type]) {
           return; // No problem -- our output takes more streams than our input has.
         }
         if (!this.outputStreams[socket.type]) {
           // It's our first time here! Create the output.
           const transport = getTransportFromURL(socket.url);
+          winston.info(`InputVertex sending my output to ${socket.url}`);
           this.outputStreams[socket.type] = new transport.OutputStream({url: socket.url});
           this.streams[socket.type].pipe(this.outputStreams[socket.type]);
         }

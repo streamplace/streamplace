@@ -9,12 +9,13 @@ import url from "url";
 import {Readable, Writable} from "stream";
 
 import {randomPort} from "./utils";
+import {MY_IP} from "../../constants";
 
 /**
  * Get something that is hopefully a fresh UDP address.
  */
 const getBaseURL = function() {
-  return `tcp://127.0.0.1:${randomPort()}`;
+  return `tcp://${MY_IP}:${randomPort()}`;
 };
 
 export function getInputURL() {

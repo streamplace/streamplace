@@ -11,6 +11,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "dockerode": "^2.2.10",
+    "request-promise": "^3.0.0",
     "underscore": "^1.8.3",
     "winston": "^2.2.0"
   },

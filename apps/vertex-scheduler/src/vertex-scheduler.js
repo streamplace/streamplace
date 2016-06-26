@@ -7,6 +7,9 @@ import winston from "winston";
 winston.cli();
 
 import DockerPlatform from "./docker-platform";
+import KubernetesPlatform from "./kubernetes-platform";
+
+const PLATFORM = config.require("PLATFORM");
 
 const SK = new SKClient();
 
@@ -16,7 +19,12 @@ const TIMEOUT = 2 * 60 * 1000; // 2m
 
 export default class VertexScheduler {
   constructor() {
-    this.platform = new DockerPlatform();
+    if (PLATFORM === "docker") {
+      this.platform = new DockerPlatform();
+    }
+    else if (PLATFORM === "kubernetes") {
+      this.platform = new KubernetesPlatform();
+    }
     // setInterval(::this.reconcile, 3000);
     this.reconcile();
   }

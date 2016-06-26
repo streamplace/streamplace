@@ -41,7 +41,11 @@ export default class FileOutputVertex extends BaseVertex {
     this.chunkIdx = 0;
     this.videoInputURL = this.transport.getInputURL();
     this.audioInputURL = this.transport.getInputURL();
-    SK.vertices.update(id, {
+  }
+
+  handleInitialPull() {
+    super.handleInitialPull();
+    SK.vertices.update(this.doc.id, {
       inputs: [{
         name: "default",
         sockets: [{

@@ -20,7 +20,4 @@ ENV.AWS_USER_UPLOAD_BUCKET = config.optional("AWS_USER_UPLOAD_BUCKET");
 ENV.AWS_USER_UPLOAD_PREFIX = config.optional("AWS_USER_UPLOAD_PREFIX");
 ENV.AWS_USER_UPLOAD_REGION = config.optional("AWS_USER_UPLOAD_REGION");
 
-// #crash-on-start-hack
-ENV.CRASH_ON_BROADCAST_START = process.env.CRASH_ON_BROADCAST_START;
-
 export default ENV;

@@ -4,7 +4,6 @@ import stream from "stream";
 
 import SK from "../sk";
 import mpegts from "../mpegts-stream";
-import Base from "./Base";
 
 import RTMPInputVertex from "./vertices/RTMPInputVertex";
 import RTMPOutputVertex from "./vertices/RTMPOutputVertex";

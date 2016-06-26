@@ -1,4 +1,13 @@
 
+# Allowed values: "docker", "kubernetes"
+PLATFORM: docker
+
+# Uncomment these if you're using Kubernetes
+# KUBE_HOST: https://cluster.example
+# KUBE_CA_FILE: /path/to/ca.pem
+# KUBE_TOKEN_FILE: /path/to/token
+# KUBE_NAMESPACE: default
+
 # URL of the Bellamie API server, used for SK services.
 API_SERVER_URL: "http://localhost:8100"
 
@@ -29,3 +38,6 @@ BELLAMIE_PORT: 8100
 RETHINK_HOST: "localhost"
 RETHINK_PORT: 28015
 RETHINK_DATABASE: dev
+
+# What Docker container should be used to run vertices?
+VERTEX_PROCESSOR_IMAGE: streamkitchen/pipeland-dev

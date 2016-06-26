@@ -7,7 +7,11 @@ export default class RTMPOutputVertex extends BaseVertex {
     super({id});
     this.videoInputURL = this.transport.getInputURL();
     this.audioInputURL = this.transport.getInputURL();
-    SK.vertices.update(id, {
+  }
+
+  handleInitialPull() {
+    super.handleInitialPull();
+    SK.vertices.update(this.doc.id, {
       inputs: [{
         name: "default",
         sockets: [{
@@ -28,7 +32,7 @@ export default class RTMPOutputVertex extends BaseVertex {
     .then((output) => {
       if (output) {
         this.doc.params.rtmp = {url: output.url};
-        return SK.vertices.update(id, {
+        return SK.vertices.update(this.doc.id, {
           params: this.doc.params,
           title: output.title,
         });

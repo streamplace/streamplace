@@ -1,4 +1,4 @@
-FROM debian:jessie
+FROM streamkitchen/sk-ffmpeg
 
 RUN apt-get update
 
@@ -20,8 +20,10 @@ EXPOSE 80
 # rtmp
 EXPOSE 1934
 
+ADD run.sh /run.sh
+
 ADD nginx.conf /usr/local/nginx/conf/nginx.conf
 
 ADD static /static
 
-CMD /usr/local/nginx/sbin/nginx
+CMD /run.sh

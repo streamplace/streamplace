@@ -63,4 +63,4 @@ ADD pipeland/dist /app/dist
 
 ENV SK_CONFIG /config.yml
 
-CMD ["node", "/app/dist/app.js"]
+CMD ["node", "/app/dist/pipeland.js"]

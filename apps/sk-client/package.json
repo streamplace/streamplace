@@ -5,7 +5,7 @@
   "main": "dist/SKClient.js",
   "scripts": {
     "build": "babel -d dist src",
-    "dev": "nodemon -w src -x npm run build",
+    "dev": "nodemon -w src -w ../sk-config/dist -x npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

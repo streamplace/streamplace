@@ -4,13 +4,18 @@ import Swagger from "swagger-client";
 import schema from "sk-schema";
 import _ from "underscore";
 import IO from "socket.io-client";
+import config from "sk-config";
 
 import Resource from "./Resource";
 
 class SKClient {
-  constructor({server, log}) {
+  constructor({server, log} = {}) {
     this.connected = false;
     this.shouldLog = log;
+    if (!server) {
+      server = config.require("API_SERVER_URL");
+    }
+    // test
     // Override the schema with our provided endpoint
     const {protocol, host} = url.parse(server);
     schema.host = host;

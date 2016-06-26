@@ -4,9 +4,10 @@
 
 import winston from "winston";
 import _ from "underscore";
+import config from "sk-config";
+import SKClient from "sk-client";
 
-import SK from "../sk";
-import ENV from "../env";
+const SK = new SKClient();
 
 export default class BroadcastScheduler {
   constructor() {
@@ -113,6 +114,7 @@ export default class BroadcastScheduler {
         creationQueue.push({
           kind: "vertex",
           type: "RTMPInput",
+          image: config.require("VERTEX_PROCESSOR_IMAGE"),
           broadcastId: broadcast.id,
           title: `Input ${inputId}`,
           status: "INACTIVE",
@@ -153,6 +155,7 @@ export default class BroadcastScheduler {
       const newVertex = {
         kind: "vertex",
         type: "Composite",
+        image: config.require("VERTEX_PROCESSOR_IMAGE"),
         broadcastId: broadcast.id,
         title: "Compositor",
         status: "INACTIVE",
@@ -241,6 +244,7 @@ export default class BroadcastScheduler {
         const newVertex = {
           kind: "vertex",
           type: "RTMPOutput",
+          image: config.require("VERTEX_PROCESSOR_IMAGE"),
           broadcastId: broadcast.id,
           title: `Output ${outputId}`,
           status: "INACTIVE",
@@ -259,7 +263,7 @@ export default class BroadcastScheduler {
           }
         };
         if (outputId === "PREVIEW") {
-          newVertex.params.rtmp.url = `${ENV.RTMP_URL_INTERNAL}${broadcast.id}`;
+          newVertex.params.rtmp.url = `${config.require("RTMP_URL_INTERNAL")}${broadcast.id}`;
         }
         outputCreationQueue.push(newVertex);
       }
@@ -312,6 +316,7 @@ export default class BroadcastScheduler {
         const newVertex = {
           kind: "vertex",
           type: "FileOutput",
+          image: config.require("VERTEX_PROCESSOR_IMAGE"),
           broadcastId: broadcast.id,
           title: `${vertex.title}File`,
           status: "INACTIVE",
@@ -369,4 +374,8 @@ export default class BroadcastScheduler {
   error(msg, ...args) {
     winston.error("[BroadcastScheduler]", msg, ...args);
   }
+}
+
+if (!module.parent) {
+  new BroadcastScheduler();
 }

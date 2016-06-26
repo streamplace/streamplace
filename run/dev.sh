@@ -5,7 +5,7 @@ set -o nounset
 set -o pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-export SK_CONFIG="$DIR/../config.yaml";
+export SK_CONFIG="$DIR/../config.yml";
 
 prettylog() {
   name="$1"
@@ -35,6 +35,8 @@ run sk-time 94
 run bellamie 201
 run gort 6
 run pipeland 40
+run vertex-scheduler 50
+run broadcast-scheduler 60
 wait
 
 # for i in {0..255}; do echo -e "\e[38;05;${i}m\\\e[38;05;${i}m"; done

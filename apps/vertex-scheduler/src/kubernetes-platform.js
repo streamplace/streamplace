@@ -62,7 +62,7 @@ export default class KubernetesPlatform {
           image: vertex.image,
           env: Object.keys(environment).map((key) => {
             return {
-              name: `${key}`,
+              name: `SK_${key}`,
               value: `${environment[key]}`,
             };
           }),

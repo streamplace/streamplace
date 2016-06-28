@@ -97,7 +97,7 @@ export class OutputStream extends Writable {
   }
 
   _retry() {
-    winston.info(`Attempting connection to ${this.hostname}:${this.port}`);
+    winston.debug(`Attempting connection to ${this.hostname}:${this.port}`);
     this.conn = net.createConnection({port: this.port, host: this.hostname});
     this.conn.on("error", ::this._onError);
     this.conn.on("connect", ::this._onConnect);
@@ -113,7 +113,7 @@ export class OutputStream extends Writable {
       return;
     }
     this.connected = false;
-    winston.info(`Retrying in ${timeout}ms`);
+    winston.debug(`Retrying in ${timeout}ms`);
     this.retryHandle = setTimeout(() => {
       this.retryHandle = null;
       this._retry();

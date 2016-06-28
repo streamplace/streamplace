@@ -17,6 +17,10 @@ services:
     ports:
       - "1935:1935"
 
+  pipeland:
+    image: streamkitchen/pipeland:latest
+    command: tail -f /dev/null
+
   bellamie:
     depends_on:
       - rethink
@@ -33,19 +37,36 @@ services:
       - SK_RETHINK_DATABASE=dev
       - SK_BELLAMIE_PORT=80
 
-  pipeland:
+  vertex-scheduler:
     depends_on:
       - shoko
       - bellamie
-    links:
-      - shoko
-      - bellamie
-    image: streamkitchen/pipeland:latest
+      - pipeland
+    image: streamkitchen/vertex-scheduler:latest
+    network_mode: "host"
     restart: always
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    environment:
+      - SK_API_SERVER_URL=http://localhost:8100
+      - SK_RTMP_URL_INTERNAL=rtmp://localhost/stream/
+      - SK_PUBLIC_RTMP_URL_PREVIEW=rtmp://localhost/stream/
+      - SK_PLATFORM=docker
+
+  broadcast-scheduler:
+    depends_on:
+      - bellamie
+    links:
+      - bellamie
+    image: streamkitchen/broadcast-scheduler:latest
+    restart: always
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
     environment:
       - SK_API_SERVER_URL=http://bellamie
+      - SK_VERTEX_PROCESSOR_IMAGE=docker.io/streamkitchen/pipeland:latest
       - SK_PUBLIC_RTMP_URL_PREVIEW=rtmp://localhost/stream/
-      - SK_RTMP_URL_INTERNAL=rtmp://shoko/stream/
+      - SK_RTMP_URL_INTERNAL=rtmp://localhost/stream/
 
   gort:
     depends_on:
@@ -57,5 +78,5 @@ services:
     environment:
       - SK_PUBLIC_API_SERVER_URL=http://localhost:8100
       - SK_PUBLIC_RTMP_URL_PREVIEW=rtmp://localhost/stream/
-      - SK_RTMP_URL_INTERNAL=rtmp://shoko/stream/
+      - SK_RTMP_URL_INTERNAL=rtmp://localhost/stream/
       - SK_PUBLIC_GORT_BASE_PATH=/

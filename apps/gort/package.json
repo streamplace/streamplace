@@ -10,7 +10,9 @@
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {},
+  "dependencies": {
+    "keymaster": "^1.6.2"
+  },
   "devDependencies": {
     "apply-loader": "^0.1.0",
     "babel-cli": "^6.9.0",

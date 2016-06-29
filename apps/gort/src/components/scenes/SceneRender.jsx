@@ -2,6 +2,7 @@
 import React from "react";
 import twixty from "twixtykit";
 import _ from "underscore";
+import key from "keymaster";
 
 import style from "./SceneRender.scss";
 import SK from "../../SK";
@@ -26,6 +27,7 @@ export default class SceneRender extends React.Component{
       this.setState({inputs});
     })
     .catch(::twixty.error);
+    this._doUpdate = _.throttle(::this._doUpdate, 1000);
   }
 
   componentDidMount() {
@@ -42,6 +44,7 @@ export default class SceneRender extends React.Component{
     if (this.sceneHandle) {
       this.sceneHandle.stop();
     }
+    this.unfocusRegion(); // so we unbind all our keys
   }
 
   renderLabel(inputId) {
@@ -55,8 +58,78 @@ export default class SceneRender extends React.Component{
     return <div className={style.RegionLabel}>{input.title}</div>;
   }
 
+  focusRegion(regionIdx) {
+    this.unfocusRegion();
+    this.setState({focusedRegionIdx: regionIdx});
+    key("shift+f", ::this.maximize);
+    key("up", ::this.nudgeUp);
+    key("down", ::this.nudgeDown);
+    key("left", ::this.nudgeLeft);
+    key("right", ::this.nudgeRight);
+  }
+
+  unfocusRegion() {
+    this.setState({focusedRegionIdx: null});
+    key.unbind("shift+f");
+    key.unbind("up");
+    key.unbind("down");
+    key.unbind("left");
+    key.unbind("right");
+  }
+
+  updateFocusedRegion(obj) {
+    const newScene = this.state.scene;
+    Object.assign(newScene.regions[this.state.focusedRegionIdx], obj);
+    this.setState({scene: newScene});
+    this._doUpdate();
+  }
+
+  /**
+   * Throttled version of an update so we don't DoS the server with nudges.
+   */
+  _doUpdate() {
+    SK.scenes.update(this.state.scene.id, this.state.scene).catch(::twixty.error);
+  }
+
+  // Make one region huge plz
+  maximize() {
+    this.updateFocusedRegion({
+      x: 0,
+      y: 0,
+      width: this.state.scene.width,
+      height: this.state.scene.height,
+    });
+  }
+
+  nudge(dx, dy) {
+    const {x, y} = this.state.scene.regions[this.state.focusedRegionIdx];
+    this.updateFocusedRegion({
+      x: x + dx,
+      y: y + dy,
+    });
+  }
+
+  nudgeUp() {
+    this.nudge(0, -1);
+  }
+
+  nudgeDown() {
+    this.nudge(0, 1);
+  }
+
+  nudgeLeft() {
+    this.nudge(-1, 0);
+  }
+
+  nudgeRight() {
+    this.nudge(1, 0);
+  }
+
   handleDragStart(region, regionIdx, e) {
     if (!this.props.draggable) {
+      return;
+    }
+    if (this.state.focusedRegionIdx !== regionIdx) {
       return;
     }
     e.dataTransfer.setDragImage(this.nullDragTarget, 0, 0);
@@ -101,6 +174,22 @@ export default class SceneRender extends React.Component{
     this.sceneBox = ref;
   }
 
+  handleRegionClick(region, regionIdx, e) {
+    if (!this.props.draggable) {
+      return;
+    }
+    e.stopPropagation();
+    this.focusRegion(regionIdx);
+  }
+
+  handleClick() {
+    this.unfocusRegion();
+  }
+
+  handleNullTargetRef(elem) {
+    this.nullDragTarget = elem;
+  }
+
   renderRegions() {
     if (!this.state.scene) {
       return;
@@ -115,31 +204,36 @@ export default class SceneRender extends React.Component{
         backgroundColor: COLORS[i % COLORS.length],
         zIndex: i,
       };
-      if (this.props.draggable) {
-        inlineStyle.cursor = "move";
+      if (!this.props.draggable) {
+        inlineStyle.cursor = "default";
       }
       let label;
       if (this.props.text) {
         label = this.renderLabel(input.inputId);
       }
       const handleDragStart = this.handleDragStart.bind(this, input, i);
+      const handleRegionClick = this.handleRegionClick.bind(this, input, i);
+      const isFocused =  i === this.state.focusedRegionIdx;
+      const className = isFocused ? style.RegionFocus : style.Region;
       return (
-        <div draggable={this.props.draggable} onDragStart={handleDragStart} onDrag={::this.handleDrag} onDragEnd={::this.handleDragEnd} style={inlineStyle} key={i} className={style.Region}>
+        <div onClick={handleRegionClick} draggable={isFocused} onDragStart={handleDragStart} onDrag={::this.handleDrag} onDragEnd={::this.handleDragEnd} style={inlineStyle} key={i} className={className}>
           {label}
         </div>
       );
     });
   }
 
-  handleNullTargetRef(elem) {
-    this.nullDragTarget = elem;
-  }
-
   render () {
+    const legendClassName = this.props.draggable ? style.Legend : style.LegendHidden;
     return (
-      <div ref={::this.handleRef} className={style.SceneBox}>
-        {this.renderRegions()}
-        <span style={{position: "absolute"}} ref={::this.handleNullTargetRef} />
+      <div>
+        <div ref={::this.handleRef} onClick={::this.handleClick} className={style.SceneBox}>
+          {this.renderRegions()}
+          <span style={{position: "absolute"}} ref={::this.handleNullTargetRef} />
+        </div>
+        <div className={legendClassName}>
+          <em>Hotkeys: shift+f (maximize), arrow keys (nudge)</em>
+        </div>
       </div>
     );
   }

@@ -20,6 +20,13 @@
   height: 10px;
   user-select: none;
   -webkit-user-select: none;
+  cursor: pointer;
+}
+
+.RegionFocus {
+  composes: Region;
+  cursor: move;
+  border: 2px dotted white;
 }
 
 $color-kindablack: rgba(0, 0, 0, 0.3);
@@ -30,4 +37,14 @@ $color-kindablack: rgba(0, 0, 0, 0.3);
   color: white;
   pointer-events: none;
   text-shadow: -1px 0 $color-kindablack, 0 1px $color-kindablack, 1px 0 $color-kindablack, 0 -1px $color-kindablack;
+}
+
+.LegendHidden {
+  display: none;
+}
+
+.Legend {
+  display: block;
+  padding: 1em 0;
+  text-align: center;
 }

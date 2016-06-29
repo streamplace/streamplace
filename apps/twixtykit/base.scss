@@ -2,4 +2,10 @@
   h1 {
     font-weight: 200;
   }
+
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
 }

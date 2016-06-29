@@ -1,9 +1,15 @@
 
+@mixin sixteenByNine($width) {
+  width: $width;
+  padding-bottom: $width * 9 / 16;
+}
+
 .SceneBox {
-  width: 100%;
-  padding-bottom: 56.25%;
+  @include sixteenByNine(60%);
   background-color: black;
   position: relative;
+  margin: 0 auto;
+  overflow: hidden;
 }
 
 .Region {
@@ -22,5 +28,6 @@ $color-kindablack: rgba(0, 0, 0, 0.3);
   margin: auto;
   font-size: 1.4em;
   color: white;
+  pointer-events: none;
   text-shadow: -1px 0 $color-kindablack, 0 1px $color-kindablack, 1px 0 $color-kindablack, 0 -1px $color-kindablack;
 }

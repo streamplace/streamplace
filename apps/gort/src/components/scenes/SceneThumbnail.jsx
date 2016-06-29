@@ -34,7 +34,7 @@ export default class SceneThumbnail extends React.Component{
     return (
       <div className={style.ThumbnailContainer}>
         <em>{this.state.scene.title}</em>
-        <SceneRender scene={this.state.scene} />
+        <SceneRender sceneId={this.state.scene.id} />
       </div>
     );
   }

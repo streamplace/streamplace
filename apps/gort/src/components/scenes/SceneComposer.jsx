@@ -107,7 +107,7 @@ export default class SceneComposer extends React.Component{
       x: 0,
       y: 0,
       width: 640,
-      height: 480,
+      height: 360,
     });
     SK.scenes.update(this.state.scene.id, {regions})
     .catch(::twixty.error);
@@ -186,7 +186,7 @@ export default class SceneComposer extends React.Component{
           </div>
         </section>
 
-        <SceneRender scene={this.state.scene} />
+        <SceneRender sceneId={this.state.scene.id} text={true} draggable={true} />
 
         <section className={style.RegionsContainer}>
           <h5>Regions</h5>

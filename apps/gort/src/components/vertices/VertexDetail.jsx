@@ -82,7 +82,6 @@ export default class VertexDetail extends React.Component {
         url = url.replace(config.RTMP_URL_INTERNAL, config.PUBLIC_RTMP_URL_PREVIEW);
         previewLink = (
           <p>
-            RTMP URL: {v.params.rtmp.url}<br/>
             <a href={`preview.html?url=${url}`} target="_blank">Preview</a>
           </p>
         );

@@ -111,7 +111,7 @@ export default class BroadcastScheduler {
       });
       if (inputVertices.length === 0) {
         this.debug(`Didn't find a vertex for input ${inputId}, creating one.`);
-        creationQueue.push({
+        const newVertex = {
           kind: "vertex",
           type: "RTMPInput",
           image: config.require("VERTEX_PROCESSOR_IMAGE"),
@@ -130,7 +130,12 @@ export default class BroadcastScheduler {
           params: {
             inputId: inputId
           }
-        });
+        };
+        SK.inputs.findOne(inputId).then((input) => {
+          newVertex.title = input.title;
+          return SK.vertices.create(newVertex);
+        })
+        .catch(::this.error);
       }
       else if (inputVertices.length === 1) {
         this.debug(`Found vertex ${inputVertices[0].title} for input ${inputId}`);
@@ -138,10 +143,6 @@ export default class BroadcastScheduler {
       else if (inputVertices.length > 1) {
         this.error(`Found more than one input vertex for input ${inputId}`);
       }
-    });
-
-    creationQueue.forEach((newVertex) => {
-      SK.vertices.create(newVertex).catch(::this.error);
     });
 
     /**
@@ -246,7 +247,6 @@ export default class BroadcastScheduler {
           type: "RTMPOutput",
           image: config.require("VERTEX_PROCESSOR_IMAGE"),
           broadcastId: broadcast.id,
-          title: `Output ${outputId}`,
           status: "INACTIVE",
           inputs: [{
             name: "default",
@@ -262,10 +262,17 @@ export default class BroadcastScheduler {
             rtmp: {}
           }
         };
+        const create = (output) => {
+          newVertex.title = output.title;
+          return SK.vertices.create(newVertex);
+        };
         if (outputId === "PREVIEW") {
           newVertex.params.rtmp.url = `${config.require("RTMP_URL_INTERNAL")}${broadcast.id}`;
+          create({title: "Preview"}).catch(::this.error);
         }
-        outputCreationQueue.push(newVertex);
+        else {
+          SK.outputs.findOne(outputId).then(create).catch(::this.error);
+        }
       }
       else if (outputVertices.length === 1) {
         if (compositeVertices.length !== 1) {
@@ -300,10 +307,6 @@ export default class BroadcastScheduler {
       }
     });
 
-    outputCreationQueue.forEach((newVertex) => {
-      SK.vertices.create(newVertex).catch(::this.error);
-    });
-
     /**
      * Make sure all vertices have exactly one fileOutputVertex
      */
@@ -318,7 +321,7 @@ export default class BroadcastScheduler {
           type: "FileOutput",
           image: config.require("VERTEX_PROCESSOR_IMAGE"),
           broadcastId: broadcast.id,
-          title: `${vertex.title}File`,
+          title: `${vertex.title} File`,
           status: "INACTIVE",
           inputs: [{
             name: "default",

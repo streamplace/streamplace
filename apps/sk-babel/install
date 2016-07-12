@@ -1,1 +1,0 @@
-npm install --save-dev babel-plugin-transform-function-bind babel-preset-es2015 babel-plugin-transform-object-rest-spread babel-cli babel-core

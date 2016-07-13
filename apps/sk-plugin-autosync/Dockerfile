@@ -3,7 +3,7 @@ FROM streamkitchen/sk-node
 # To be run from the apps directory.
 
 WORKDIR /app
-ADD broadcast-scheduler/package.json /app/package.json
+ADD sk-plugin-autosync/package.json /app/package.json
 RUN npm install --production
 
 ADD sk-schema/package.json /packages/sk-schema/package.json
@@ -20,6 +20,6 @@ RUN npm install --production /packages/sk-client
 
 RUN rm -rf /packages
 
-ADD broadcast-scheduler/dist /app/dist
+ADD sk-plugin-autosync/dist /app/dist
 
-CMD ["node", "/app/dist/broadcast-scheduler.js"]
+CMD ["node", "/app/dist/sk-plugin-autosync.js"]

@@ -1,0 +1,20 @@
+{
+  "name": "sk-plugin-autosync",
+  "version": "0.0.0",
+  "description": "Plugin to automatically sync SK inputs to real time.",
+  "main": "dist/autosync.js",
+  "scripts": {
+    "build": "babel -d dist src",
+    "dev": "nodemon -w src -w ../sk-client/dist -w ../sk-config/dist -x babel-node src/autosync.js"
+  },
+  "author": "Stream Kitchen",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "babel-cli": "^6.10.1",
+    "babel-core": "^6.10.4",
+    "babel-preset-streamkitchen": "0.0.1"
+  },
+  "dependencies": {
+    "winston": "^2.2.0"
+  }
+}

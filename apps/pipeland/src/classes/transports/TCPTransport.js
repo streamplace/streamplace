@@ -29,7 +29,7 @@ export function getOutputURL() {
 let listens = [];
 
 /**
- * UDPInputStream implements listening on a specified UDP port and piping all data recieved
+ * InputStream implements listening on a specified TCP port and piping all data recieved
  * somewhere.
  */
 export class InputStream extends Readable {

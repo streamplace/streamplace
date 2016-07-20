@@ -6,7 +6,7 @@ import ENV from "../../env";
 export default class RTMPInputVertex extends InputVertex {
   constructor({id}) {
     super({id});
-    this.streamFilters = ["sync", "nosignal"];
+    this.streamFilters = ["nosignal"];
     this.videoOutputURL = this.transport.getOutputURL();
     this.audioOutputURL = this.transport.getOutputURL();
   }

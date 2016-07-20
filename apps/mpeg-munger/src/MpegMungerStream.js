@@ -54,7 +54,7 @@ const dumpByte = function(byte) {
   return str;
 };
 
-class MpegMunger extends Transform {
+export default class MpegMungerStream extends Transform {
   constructor(params) {
     super(params);
 
@@ -213,8 +213,4 @@ class MpegMunger extends Transform {
     this.push(chunk.slice(startIdx, endIdx));
     next();
   }
-}
-
-export default function() {
-  return new MpegMunger();
 }

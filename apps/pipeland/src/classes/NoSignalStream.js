@@ -5,7 +5,7 @@
  */
 
 import {Transform} from "stream";
-import munger from "mpeg-munger";
+import MpegMungerStream from "mpeg-munger";
 import url from "url";
 import winston from "winston";
 
@@ -28,7 +28,7 @@ const vertex = new NoSignalVertex();
 
 const videoPort = url.parse(vertex.videoOutputURL).port;
 const videoServer = PortManager.createSocket(videoPort);
-const mpegVideoStream = munger();
+const mpegVideoStream = new MpegMungerStream();
 // videoServer.pipe(mpegVideoStream);
 videoServer.on("message", function(msg) {
   mpegVideoStream.write(msg);
@@ -36,7 +36,7 @@ videoServer.on("message", function(msg) {
 
 const audioPort = url.parse(vertex.audioOutputURL).port;
 const audioServer = PortManager.createSocket(audioPort);
-const mpegAudioStream = munger();
+const mpegAudioStream = new MpegMungerStream();
 // audioServer.pipe(mpegAudioStream);
 audioServer.on("message", function(msg) {
   mpegAudioStream.write(msg);

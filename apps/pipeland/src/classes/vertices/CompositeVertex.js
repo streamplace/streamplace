@@ -4,6 +4,7 @@ import zmq from "zmq";
 import _ from "underscore";
 
 import InputVertex from "./InputVertex";
+import SyncInputStream from "../SyncInputStream";
 import {SERVER_START_TIME} from "../../constants";
 import SK from "../../sk";
 import m from "../MagicFilters";
@@ -220,8 +221,18 @@ export default class CompositeVertex extends InputVertex {
         input.sockets.forEach((socket, socketIdx) => {
           socket.name = `${input.name}-${socketIdx}`;
           socket.inputName = input.name;
+          const inputStream = new this.transport.InputStream({url: socket.url});
+          const ffmpegInputURL = this.transport.getInputURL();
+          const syncInputStream = new SyncInputStream({
+            compositeVertexId: this.doc.id,
+            inputName: input.name,
+          });
+          inputStream.pipe(syncInputStream);
+
+          const ffmpegInputStream = new this.transport.OutputStream({url: ffmpegInputURL});
+          syncInputStream.pipe(ffmpegInputStream);
           this.ffmpeg
-            .input(socket.url)
+            .input(ffmpegInputURL)
             .inputFormat("mpegts")
             .inputOptions([
               "-analyzeduration 10000000",

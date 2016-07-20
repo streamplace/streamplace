@@ -15,15 +15,15 @@ import {getTransportFromURL} from "./transports";
 import SK from "../sk";
 
 export default class ArcWritable {
-  constructor({arcId, outputs, ioName}) {
+  constructor({arcId, outputs}) {
     this.arcId = arcId;
-    this.ioName = ioName;
     this.outputTypes = Object.keys(outputs);
     this.streams = {};
     this.outputStreams = {};
 
     this.outputTypes.forEach((type) => {
       this.streams[type] = new PassThrough();
+      this.streams[type].resume(); // Never ever ever buffer anything.
       this.outputStreams[type] = null;
     });
 

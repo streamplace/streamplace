@@ -54,20 +54,20 @@ export default class AutosyncScheduler {
 
   _reconcileStaleVertices(rtmpInputVertices, autosyncVertices) {
     return Promise.all(autosyncVertices.map((autosyncVertex) => {
-      const [inputVertex] = rtmpInputVertices.map((v) => {
+      const [inputVertex] = rtmpInputVertices.filter((v) => {
         return v.id === autosyncVertex.params.inputVertexId;
       });
 
       // Is our input vertex completely gone? Okay, no need to continue existing.
       if (!inputVertex) {
-        winston.info(`Deleting stale autosync vertex ${autosyncVertex.title}`);
+        winston.info(`Deleting stale autosync vertex ${autosyncVertex.title}, its input is gone`);
         return SK.vertices.delete(autosyncVertex.id);
       }
 
       // Does our input vertex a sync timestamp already? Neat, it can go die.
       if (inputVertex.autosyncTimestamp) {
-        winston.info(`Deleting stale autosync vertex ${autosyncVertex.title}`);
-        return SK.vertices.delete(autosyncVertex.id);
+        winston.info(`Deleting stale autosync vertex ${autosyncVertex.title}, it finished`);
+        // return SK.vertices.delete(autosyncVertex.id);
       }
 
       // Okay, you still get to exist.

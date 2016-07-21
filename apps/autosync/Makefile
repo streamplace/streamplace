@@ -8,10 +8,10 @@ app: .
 	npm run-script build
 
 container: .
-	cd $(shell pwd)/.. && docker build -f sk-plugin-autosync/Dockerfile -t streamkitchen/sk-plugin-autosync .
+	cd $(shell pwd)/.. && docker build -f autosync/Dockerfile -t streamkitchen/autosync .
 
 push: .
-	docker push streamkitchen/sk-plugin-autosync
+	docker push streamkitchen/autosync
 
 clean: .
 	mkdir -p dist

@@ -3,7 +3,7 @@ import AWS from "aws-sdk";
 import _ from "underscore";
 import leftPad from "left-pad";
 import {PassThrough} from "stream";
-import munger from "mpeg-munger";
+import MpegMungerStream from "mpeg-munger";
 
 import BaseVertex from "./BaseVertex";
 import SK from "../../sk";
@@ -81,7 +81,7 @@ export default class FileOutputVertex extends BaseVertex {
       input.sockets.forEach((socket) => {
         const filePrefix = `${ENV.AWS_USER_UPLOAD_PREFIX}${prefix}-${input.name}-${socket.type}`;
         const transportStream = new this.transport.InputStream({url: socket.url});
-        const mpegStream = munger(); // Just to make sure we cut files at 188-byte intervals.
+        const mpegStream = new MpegMungerStream(); // Just to make sure we cut files at 188-byte intervals.
         transportStream.pipe(mpegStream);
         mpegStream.once("readable", this.startIdempotent.bind(this));
         this.uploads.push({filePrefix, transportStream, mpegStream});

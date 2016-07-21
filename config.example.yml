@@ -18,6 +18,8 @@ PUBLIC_API_SERVER_URL: "http://localhost:8100"
 # Base URL of the Gort user interface. This lets you run it at subdirectories, like "app".
 PUBLIC_GORT_BASE_PATH: "/"
 
+PUBLIC_OVERLAY_BASE_PATH: "/"
+
 # Path for applications to get at the Shoko RTMP server from inside the application.
 RTMP_URL_INTERNAL: "rtmp://localhost/stream/"
 
@@ -41,3 +43,5 @@ RETHINK_DATABASE: dev
 
 # What Docker container should be used to run vertices?
 VERTEX_PROCESSOR_IMAGE: streamkitchen/pipeland-dev
+
+PUBLIC_TIMESYNC_SERVER_URL: http://localhost:9090/timesync

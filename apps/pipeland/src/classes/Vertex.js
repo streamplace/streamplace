@@ -11,6 +11,7 @@ import MagicVertex from "./vertices/MagicVertex";
 import ImageInputVertex from "./vertices/ImageInputVertex";
 import FileOutputVertex from "./vertices/FileOutputVertex";
 import CompositeVertex from "./vertices/CompositeVertex";
+import AutosyncVertex from "./vertices/AutosyncVertex";
 
 const Vertex = {};
 
@@ -21,6 +22,7 @@ const VertexMap = {
   "ImageInput": ImageInputVertex,
   "FileOutput": FileOutputVertex,
   "Composite": CompositeVertex,
+  "Autosync": AutosyncVertex,
 };
 
 Vertex.create = function(params) {

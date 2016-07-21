@@ -10,7 +10,7 @@
 
 import dgram from "dgram";
 import url from "url";
-import {syncer, munger} from "mpeg-munger";
+import MpegMungerStream from "mpeg-munger";
 import _ from "underscore";
 
 import {getTransportFromURL} from "../transports";
@@ -50,21 +50,12 @@ export default class InputVertex extends BaseVertex {
 
     this.outputStreams = {};
 
-    // List of every syncer stream, so I can set all their offsets at once.
-    this.syncers = [];
-
     // List of all of my streams that I need to clean up when we're done.
     this.cleanupStreams = [];
 
     this.vertexWithSockets.outputs.forEach((output) => {
       const streamsForThisOutput = {};
       this.outputStreams[output.name] = streamsForThisOutput;
-      const sync = syncer({
-        count: output.sockets.length,
-        offset: 0,
-        startTime: SERVER_START_TIME,
-      });
-      this.syncers.push(sync);
       output.sockets.forEach((socket, i) => {
 
         // The data we're producing gets passed through a series of streams.
@@ -74,20 +65,14 @@ export default class InputVertex extends BaseVertex {
 
         let currentStream = dataInStream; // And then it comes out here when we're done.
 
-        // If we're an input-ish stream, we keep our input in sync and fill it with NoSignal.
         this.streamFilters.forEach((filter) => {
-          if (filter === "sync") {
-            const syncStream = sync.streams[i];
-            currentStream.pipe(syncStream);
-            currentStream = syncStream;
-          }
-          else if (filter === "nosignal") {
+          if (filter === "nosignal") {
             const noSignalStream = new NoSignalStream({delay: ASSUME_STREAM_IS_DEAD, type: socket.type});
             currentStream.pipe(noSignalStream);
             currentStream = noSignalStream;
           }
           else if (filter === "notifypts") {
-            const mpegStream = munger();
+            const mpegStream = new MpegMungerStream();
             currentStream.pipe(mpegStream);
             currentStream = mpegStream;
             mpegStream.transformPTS = (pts) => {
@@ -117,9 +102,6 @@ export default class InputVertex extends BaseVertex {
           return;
         }
         const offset = parseInt(arc.delay);
-        this.syncers.forEach((sync) => {
-          sync.setOffset(offset);
-        });
       })
       .catch((e) => {
         this.error(e);

@@ -17,6 +17,9 @@ export default class BaseVertex extends Base {
     this.info("initializing");
     this.debug = false;
 
+    this.inputs = [];
+    this.outputs = [];
+
     // TODO: Make this a setting. For now if you want to control whether vertices use TCP or UDP
     // sockets, you can do that here.
     this.transport = tcp;

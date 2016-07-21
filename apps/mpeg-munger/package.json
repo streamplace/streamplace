@@ -2,7 +2,7 @@
   "name": "mpeg-munger",
   "version": "0.0.0",
   "description": "Transform the PTS and DTS of an mpeg-ts stream",
-  "main": "dist/index.js",
+  "main": "dist/MpegMungerStream.js",
   "scripts": {
     "build": "babel -d dist src",
     "dev": "nodemon -w src -x npm run build",

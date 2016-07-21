@@ -1,0 +1,14 @@
+:global {
+  body {
+  }
+  html, body, main {
+    height: 100%;
+  }
+  body {
+    background-color: rgba(0,0,0,0);
+    font-family: "Open Sans", sans-serif;
+  }
+  section {
+    display: flex;
+  }
+}

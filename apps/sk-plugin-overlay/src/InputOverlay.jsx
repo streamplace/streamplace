@@ -11,6 +11,7 @@ import style from "./InputOverlay.scss";
 /*eslint-disable no-undef */
 
 const PUBLIC_API_SERVER_URL = config.require("PUBLIC_API_SERVER_URL");
+const PUBLIC_TIMESYNC_SERVER_URL = config.require("PUBLIC_TIMESYNC_SERVER_URL");
 
 const SK = new SKClient({server: PUBLIC_API_SERVER_URL});
 
@@ -55,6 +56,17 @@ export default class InputOverlay extends React.Component{
       notFound: false,
       infoText: ""
     };
+
+    this.timeOffset = 0;
+
+    this.ts = timesync.create({
+      server: PUBLIC_TIMESYNC_SERVER_URL,
+      interval: 10000
+    });
+
+    this.ts.on("change", (offset) => {
+      this.timeOffset = offset;
+    });
   }
 
   componentDidMount() {
@@ -78,12 +90,20 @@ export default class InputOverlay extends React.Component{
     });
   }
 
+  now() {
+    return Date.now() + this.timeOffset;
+  }
+
   triggerSync(timestamp) {
     if (this.doneSyncFor[`${timestamp}`]) {
       // Already scheduled/performed this one
       return;
     }
     this.doneSyncFor[`${timestamp}`] = true;
+    if (timestamp < this.now()) {
+      // Nothing to be done, it already happened.
+      return;
+    }
     this.setState({infoText: `Syncing at ${timestamp}`});
     const buf = this._intToArray(timestamp);
     this._doAtExactTime(timestamp, () => {
@@ -105,7 +125,7 @@ export default class InputOverlay extends React.Component{
    * Need to make noises at the exact right time, so we have this helper function to hone in.
    */
   _doAtExactTime(timestamp, cb) {
-    const now = Date.now();
+    const now = this.now();
     if (now >= timestamp) {
       cb();
     }

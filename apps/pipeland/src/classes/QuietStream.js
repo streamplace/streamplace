@@ -39,7 +39,7 @@ import Module from "quiet-js";
 Module.Runtime.loadDynamicLibrary(path.resolve(__dirname, "../../node_modules/libfec/libfec.js"));
 
 export default class QuietStream extends Transform {
-  constructor({profile, sampleRate, sampleBufferSize = 16384, frameBufferSize} = {}) {
+  constructor({profile, sampleRate, sampleBufferSize = 1024, frameBufferSize} = {}) {
     super({highWaterMark: sampleBufferSize * 4});
 
     if (!profile) {
@@ -48,7 +48,7 @@ export default class QuietStream extends Transform {
 
     // Default parameters
     this.sampleRate = sampleRate || 44100;
-    this.sampleBufferSize = sampleBufferSize || 16384;
+    this.sampleBufferSize = sampleBufferSize || 1024;
     this.frameBufferSize = frameBufferSize || Math.pow(2, 14);
     this.arrayBufferSize = sampleBufferSize * 4;
 

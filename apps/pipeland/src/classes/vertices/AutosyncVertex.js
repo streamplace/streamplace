@@ -78,7 +78,7 @@ export default class AutosyncVertex extends BaseVertex {
     });
 
     // Haven't gotten one in fifteen seconds? Boo! Try again...
-    // setTimeout(::this._doNextSync, 15000);
+    setTimeout(::this._doNextSync, 15000);
   }
 
   _onReceiveSync(buf) {
@@ -87,7 +87,12 @@ export default class AutosyncVertex extends BaseVertex {
     this.info(`We appear to have started at ${startedAt}`);
     SK.vertices.update(this.doc.params.inputVertexId, {
       syncStartTime: startedAt,
-    });
+    })
+    .then(() => {
+      // Okay, we did our job. Bye!
+      SK.vertices.delete(this.doc.id);
+    })
+    .catch(::this.error);
   }
 
   init() {

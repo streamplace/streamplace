@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "libfec": "git+https://git@github.com/streamkitchen/libfec-js.git#master",
-    "quiet-js": "git+https://git@github.com/streamkitchen/quiet-js.git#master"
+    "quiet-js": "git+https://git@github.com/streamkitchen/quiet-js.git#master",
+    "timesync": "^0.2.1"
   }
 }

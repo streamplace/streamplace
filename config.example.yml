@@ -43,3 +43,5 @@ RETHINK_DATABASE: dev
 
 # What Docker container should be used to run vertices?
 VERTEX_PROCESSOR_IMAGE: streamkitchen/pipeland-dev
+
+PUBLIC_TIMESYNC_SERVER_URL: http://localhost:9090/timesync

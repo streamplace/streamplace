@@ -58,6 +58,8 @@ RUN npm install --production /packages/mpeg-munger && \
   npm install --production /packages/sk-config && \
   npm install --production && rm -rf /packages
 
+ADD pipeland/node_modules/quiet-js/quiet-emscripten.js.mem /app/quiet-emscripten.js.mem
+
 ADD pipeland/run.sh /run.sh
 ADD pipeland/dist /app/dist
 

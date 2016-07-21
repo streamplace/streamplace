@@ -1,4 +1,3 @@
 FROM streamkitchen/pipeland
 
 ADD dist /app/dist
-ADD node_modules/quiet-js/quiet-emscripten.js.mem /app/quiet-emscripten.js.mem

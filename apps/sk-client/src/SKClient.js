@@ -8,7 +8,7 @@ import config from "sk-config";
 
 import Resource from "./Resource";
 
-class SKClient {
+export default class SKClient {
   constructor({server, log} = {}) {
     this.connected = false;
     this.shouldLog = log;
@@ -108,8 +108,4 @@ class SKClient {
       }
     };
   }
-}
-
-export default function(params) {
-  return new SKClient(params);
 }

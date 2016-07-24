@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "babel -d dist --copy-files src",
-    "dev": "PORT=9090 nodemon -x babel-node src/sk-time.js"
+    "dev": "PORT=9090 babel-watch src/sk-time.js"
   },
   "author": "Stream Kitchen",
   "license": "Apache-2.0",
@@ -15,9 +15,7 @@
     "timesync": "^0.2.0"
   },
   "devDependencies": {
-    "babel-cli": "^6.8.0",
-    "babel-core": "^6.8.0",
-    "babel-preset-streamkitchen": "^0.0.1",
+    "babel-preset-streamkitchen": "*",
     "babel-preset-react": "^6.5.0",
     "nodemon": "^1.9.2"
   }

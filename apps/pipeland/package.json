@@ -27,7 +27,7 @@
   "devDependencies": {
     "babel-cli": "^6.4.5",
     "babel-core": "^6.4.5",
-    "babel-preset-streamkitchen": "^0.0.1",
+    "babel-preset-streamkitchen": "*",
     "babel-register": "^6.4.3",
     "nodemon": "^1.9.1"
   }

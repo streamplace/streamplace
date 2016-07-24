@@ -10,7 +10,7 @@
     "dev": "nodemon -w api -x npm run build"
   },
   "author": "",
-  "license": "SEE LICENSE IN nope",
+  "license": "Apache-2.0",
   "devDependencies": {
     "js-yaml": "^3.5.2",
     "nodemon": "^1.9.1",

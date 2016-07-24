@@ -11,9 +11,7 @@
   "author": "Stream Kitchen",
   "license": "Apache-2.0",
   "devDependencies": {
-    "babel-cli": "^6.7.5",
-    "babel-core": "^6.7.6",
-    "babel-preset-streamkitchen": "^0.0.1",
+    "babel-preset-streamkitchen": "*",
     "expect.js": "^0.3.1",
     "mocha": "^2.4.5",
     "nodemon": "^1.9.1"

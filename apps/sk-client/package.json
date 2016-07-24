@@ -5,11 +5,11 @@
   "main": "dist/SKClient.js",
   "scripts": {
     "build": "babel -d dist src",
-    "dev": "nodemon -w src -w ../sk-config/dist -x npm run build",
+    "dev": "nodemon -w src -x npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "dependencies": {
     "socket.io-client": "^1.4.5",
     "swagger-client": "swagger-api/swagger-js#bd0b8cbcb9daaff7b5ab437c795d6f941df92887",
@@ -17,9 +17,7 @@
     "wolfy87-eventemitter": "^4.3.0"
   },
   "devDependencies": {
-    "babel-cli": "^6.4.5",
-    "babel-core": "^6.4.5",
-    "babel-preset-streamkitchen": "^0.0.1",
+    "babel-preset-streamkitchen": "*",
     "nodemon": "^1.9.1"
   }
 }

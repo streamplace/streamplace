@@ -8,7 +8,7 @@ app: .
 	npm run-script build
 
 container: .
-	cd $(shell pwd)/.. && docker build -f autosync/Dockerfile -t streamkitchen/autosync .
+	docker build -t streamkitchen/autosync .
 
 push: .
 	docker push streamkitchen/autosync

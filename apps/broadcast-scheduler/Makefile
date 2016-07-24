@@ -8,7 +8,7 @@ app: .
 	npm run-script build
 
 container: .
-	cd $(shell pwd)/.. && docker build -f broadcast-scheduler/Dockerfile -t streamkitchen/broadcast-scheduler .
+	docker build -t streamkitchen/broadcast-scheduler .
 
 push: .
 	docker push streamkitchen/broadcast-scheduler

@@ -5,7 +5,7 @@
   "main": "dist/broadcast-scheduler.js",
   "scripts": {
     "build": "babel -d dist src",
-    "dev": "nodemon -w src -w ../sk-client/dist -w ../sk-config/dist -x babel-node src/broadcast-scheduler.js"
+    "dev": "babel-watch src/broadcast-scheduler.js"
   },
   "author": "Stream Kitchen LLC",
   "license": "Apache-2.0",
@@ -14,8 +14,6 @@
     "winston": "^2.2.0"
   },
   "devDependencies": {
-    "babel-cli": "^6.10.1",
-    "babel-core": "^6.9.1",
-    "babel-preset-streamkitchen": "^0.0.1"
+    "babel-preset-streamkitchen": "*"
   }
 }

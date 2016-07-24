@@ -8,7 +8,7 @@ app: .
 	npm run-script build
 
 container: .
-	cd $(shell pwd)/.. && docker build -f bellamie/Dockerfile -t streamkitchen/bellamie .
+	docker build -t streamkitchen/bellamie .
 
 push: .
 	docker push streamkitchen/bellamie

@@ -9,9 +9,14 @@ import _ from "underscore";
 import http from "http";
 import bodyParser from "body-parser";
 import SocketIO from "socket.io";
+import config from "sk-config";
 
 import {ensureTableExists, ensureDatabaseExists} from "./util";
-import ENV from "./env";
+
+const RETHINK_HOST = config.require("RETHINK_HOST");
+const RETHINK_PORT = config.require("RETHINK_PORT");
+const RETHINK_DATABASE = config.require("RETHINK_DATABASE");
+const BELLAMIE_PORT = config.require("BELLAMIE_PORT");
 
 winston.level = process.env.DEBUG_LEVEL || "info";
 
@@ -26,9 +31,9 @@ winston.cli();
 app.use(bodyParser.json());
 
 const rethinkConfig = {
-  host: ENV.RETHINK_HOST,
-  port: ENV.RETHINK_PORT,
-  db: ENV.RETHINK_DATABASE
+  host: RETHINK_HOST,
+  port: RETHINK_PORT,
+  db: RETHINK_DATABASE
 };
 
 const io = SocketIO(server);
@@ -173,7 +178,7 @@ SwaggerParser.parse(schema)
 
 .then(function(conn) {
   startupConn = conn;
-  return ensureDatabaseExists(ENV.RETHINK_DATABASE, startupConn);
+  return ensureDatabaseExists(RETHINK_DATABASE, startupConn);
 })
 
 .then(function() {
@@ -199,8 +204,8 @@ SwaggerParser.parse(schema)
     });
   });
   if (!module.parent) {
-    server.listen(ENV.PORT);
-    winston.info("Bellamie starting up on port " + ENV.PORT);
+    server.listen(BELLAMIE_PORT);
+    winston.info("Bellamie starting up on port " + BELLAMIE_PORT);
   }
 })
 

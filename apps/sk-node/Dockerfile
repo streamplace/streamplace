@@ -22,7 +22,7 @@ RUN set -ex \
   done
 
 ENV NPM_CONFIG_LOGLEVEL warn
-ENV NODE_VERSION 6.2.1
+ENV NODE_VERSION 6.3.0
 
 RUN curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz" \
   && curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt.asc" \
@@ -31,8 +31,28 @@ RUN curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-
   && tar -xJf "node-v$NODE_VERSION-linux-x64.tar.xz" -C /usr/local --strip-components=1 \
   && rm "node-v$NODE_VERSION-linux-x64.tar.xz" SHASUMS256.txt.asc SHASUMS256.txt
 
+# Super duper uber hack to fix building npm stuff in Docker.
+# https://github.com/npm/npm/issues/9863#issuecomment-194927143
 RUN cd $(npm root -g)/npm \
   && npm install fs-extra \
   && sed -i -e s/graceful-fs/fs-extra/ -e s/fs.rename/fs.move/ ./lib/utils/rename.js
 
+# Preload all of our shared libraries.
+
+ENV NODE_PATH /apps
+
+WORKDIR /apps
 CMD [ "node" ]
+
+ADD sk-schema/package.json /apps/sk-schema/package.json
+ADD sk-config/package.json /apps/sk-config/package.json
+ADD sk-client/package.json /apps/sk-client/package.json
+
+RUN \
+  cd /apps/sk-schema && npm install --production && \
+  cd /apps/sk-config && npm install --production && \
+  cd /apps/sk-client && npm install --production
+
+ADD sk-schema/dist /apps/sk-schema/dist
+ADD sk-config/dist /apps/sk-config/dist
+ADD sk-client/dist /apps/sk-client/dist

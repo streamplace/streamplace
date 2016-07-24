@@ -8,7 +8,7 @@ app: .
 	npm run-script build
 
 container: .
-	cd $(shell pwd)/.. && docker build -f vertex-scheduler/Dockerfile -t streamkitchen/vertex-scheduler .
+	docker build -t streamkitchen/vertex-scheduler .
 
 push: .
 	docker push streamkitchen/vertex-scheduler

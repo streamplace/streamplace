@@ -1,18 +1,23 @@
 
-.PHONY: app container push
+SK_DOCKER_APP = bellamie
+SK_DOCKER_REPO ?= docker.io/streamkitchen
+SK_DOCKER_VERSION ?= latest
+SK_DOCKER_TAG ?= $(SK_DOCKER_REPO)/$(SK_DOCKER_APP):$(SK_DOCKER_VERSION)
+
+.PHONY: app container push clean
 
 all: app container clean
 
 app: .
 	npm install
-	npm run-script build
+	NODE_PATH=".." npm run-script build
 
 container: .
-	docker build -t streamkitchen/bellamie .
+	docker build -t streamkitchen/$(SK_DOCKER_APP) .
+	docker tag streamkitchen/$(SK_DOCKER_APP) $(SK_DOCKER_TAG)
 
 push: .
-	docker push streamkitchen/bellamie
+	docker push $(SK_DOCKER_TAG)
 
 clean: .
-	mkdir -p dist
 	rm -rf dist

@@ -1,10 +1,19 @@
 
-.PHONY: all container push
+SK_DOCKER_APP = sk-static
+SK_DOCKER_REPO ?= docker.io/streamkitchen
+SK_DOCKER_VERSION ?= latest
+SK_DOCKER_TAG ?= $(SK_DOCKER_REPO)/$(SK_DOCKER_APP):$(SK_DOCKER_VERSION)
 
-all: container
+.PHONY: container push clean
+
+all: container clean
 
 container: .
-	docker build -t streamkitchen/sk-static .
+	docker build -t streamkitchen/$(SK_DOCKER_APP) .
+	docker tag streamkitchen/$(SK_DOCKER_APP) $(SK_DOCKER_TAG)
 
 push: .
-	docker push streamkitchen/sk-static
+	docker push $(SK_DOCKER_TAG)
+
+clean: .
+	rm -rf dist

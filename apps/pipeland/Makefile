@@ -1,23 +1,27 @@
 
-.PHONY: app container push run
+SK_DOCKER_APP = pipeland
+SK_DOCKER_REPO ?= docker.io/streamkitchen
+SK_DOCKER_VERSION ?= latest
+SK_DOCKER_TAG ?= $(SK_DOCKER_REPO)/$(SK_DOCKER_APP):$(SK_DOCKER_VERSION)
+
+.PHONY: app container push clean dev
 
 all: app container clean
 
 app: .
 	npm install
-	npm run-script build
+	NODE_PATH=".." npm run-script build
 
-container: .
-	cd $(shell pwd)/.. && docker build -f pipeland/Dockerfile -t streamkitchen/pipeland .
-
-# Development container that can be easily spun up while working.
 dev: .
 	npm run-script build
 	docker build -f Dockerfile.dev -t streamkitchen/pipeland-dev .
 
+container: .
+	cd $(shell pwd)/.. && docker build -f pipeland/Dockerfile -t streamkitchen/$(SK_DOCKER_APP) .
+	docker tag streamkitchen/$(SK_DOCKER_APP) $(SK_DOCKER_TAG)
+
 push: .
-	docker push streamkitchen/pipeland
+	docker push $(SK_DOCKER_TAG)
 
 clean: .
-	mkdir -p dist
 	rm -rf dist

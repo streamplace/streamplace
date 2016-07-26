@@ -23,6 +23,7 @@
     "body-parser": "^1.14.2",
     "express": "^4.13.4",
     "morgan": "^1.6.1",
+    "njwt": "^0.3.1",
     "rethinkdb": "2.2.1",
     "socket.io": "^1.4.5",
     "swagger-parser": "^3.4.0",

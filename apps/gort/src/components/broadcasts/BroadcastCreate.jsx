@@ -8,6 +8,9 @@ export default class BroadcastCreate extends React.Component{
   constructor(params) {
     super(params);
     this.state = {newBroadcast: this.initialBroadcast()};
+  }
+
+  componentWillMount() {
     this.reset();
   }
 

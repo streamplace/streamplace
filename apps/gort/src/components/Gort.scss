@@ -1,0 +1,85 @@
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  cursor: pointer;
+}
+
+html, body, main {
+  height: 100%;
+  background-color: #eee;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+}
+
+section {
+  display: flex;
+
+  &.vertical {
+    flex-direction: column;
+  }
+}
+
+.center-column {
+  padding: 10px;
+  height: 100%;
+  width: 1000px;
+  height: 100%;
+  margin: 0 auto;
+  border-left: 1px #ccc solid;
+  border-right: 1px #ccc solid;
+  flex-grow: 1;
+}
+
+.button-success,
+.button-error,
+.button-warning,
+.button-secondary {
+  color: white;
+  border-radius: 4px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.button-success {
+  background: rgb(28, 184, 65); /* this is a green */
+}
+
+.button-error {
+  background: rgb(202, 60, 60); /* this is a maroon */
+}
+
+.button-warning {
+  background: rgb(223, 117, 20); /* this is an orange */
+}
+
+.button-secondary {
+  background: rgb(66, 184, 221); /* this is a light blue */
+}
+
+
+.RootContainer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.Header {
+  height: 50px;
+  border-bottom: 1px solid #ccc;
+}
+
+.Logo {
+  width: 40px;
+  height: 40px;
+  margin-left: 1em;
+  margin-top: 5px;
+}
+
+.UserWidget {
+  margin-left: auto;
+}

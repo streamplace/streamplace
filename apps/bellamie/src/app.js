@@ -10,6 +10,9 @@ import http from "http";
 import bodyParser from "body-parser";
 import SocketIO from "socket.io";
 import config from "sk-config";
+import querystring from "querystring";
+import url from "url";
+import nJwt from "njwt";
 
 import {ensureTableExists, ensureDatabaseExists} from "./util";
 
@@ -17,16 +20,78 @@ const RETHINK_HOST = config.require("RETHINK_HOST");
 const RETHINK_PORT = config.require("RETHINK_PORT");
 const RETHINK_DATABASE = config.require("RETHINK_DATABASE");
 const BELLAMIE_PORT = config.require("BELLAMIE_PORT");
+const PUBLIC_AUTH_MODE = config.require("PUBLIC_AUTH_MODE");
+const PUBLIC_JWT_AUDIENCE = config.require("PUBLIC_JWT_AUDIENCE");
+
+const useJwt = PUBLIC_AUTH_MODE === "jwt";
+const JWT_SECRET = useJwt && config.require("JWT_SECRET");
+const JWT_SECRET_DECODED = useJwt && Buffer.from(JWT_SECRET, "base64");
 
 winston.level = process.env.DEBUG_LEVEL || "info";
 
 const app = express();
 const server = http.createServer(app);
 
-// Make winston output pretty
-winston.cli();
+const ERR_401_MISSING_HEADER = "401_MISSING_HEADER";
+const ERR_403_BAD_TOKEN = "403_BAD_TOKEN";
+const ERR_403_WRONG_AUDIENCE = "403_WRONG_AUDIENCE";
+
+app.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, SK-Auth-Token");
+  res.header("Access-Control-Allow-Methods", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE");
+  if (req.method === "OPTIONS") {
+    return res.end();
+  }
+  next();
+});
 
 // app.use(morgan("combined"));
+
+/**
+ * Parse the provided token, and return {code, message} if there's a problem.
+ */
+const jwtAuth = function(token) {
+  if (PUBLIC_AUTH_MODE === "jwt") {
+    if (!token) {
+      return {
+        code: 401,
+        message: ERR_401_MISSING_HEADER
+      };
+    }
+    let verifiedJwt;
+    try {
+      verifiedJwt = nJwt.verify(token, JWT_SECRET_DECODED);
+    }
+    catch (e) {
+      winston.error("Provided JWT failed verification", e);
+      return {
+        code: 403,
+        message: ERR_403_BAD_TOKEN
+      };
+    }
+    if (verifiedJwt.body.aud !== PUBLIC_JWT_AUDIENCE) {
+      winston.error(`Got a JWT, and the signature looks fine, but the audience is ${verifiedJwt.aud} instead of ${PUBLIC_JWT_AUDIENCE}. Weird, right?`);
+      return {
+        code: 403,
+        message: ERR_403_WRONG_AUDIENCE
+      };
+    }
+  }
+};
+
+app.use(function(req, res, next) {
+  const err = jwtAuth(req.headers["sk-auth-token"]);
+  if (err) {
+    res.status(err.code);
+    res.json(err);
+    return res.end();
+  }
+  next();
+});
+
+// Make winston output pretty
+winston.cli();
 
 app.use(bodyParser.json());
 
@@ -37,6 +102,16 @@ const rethinkConfig = {
 };
 
 const io = SocketIO(server);
+
+io.use(function(socket, next){
+  const {query} = url.parse(socket.request.url);
+  const {token} = querystring.parse(query);
+  const err = jwtAuth(token);
+  if (err) {
+    return next(new Error(JSON.stringify(err)));
+  }
+  next();
+});
 
 io.on("connection", function(socket) {
   socket.emit("hello");
@@ -76,13 +151,6 @@ const fatal = function(msg) {
   winston.error(msg);
   throw new Error(msg);
 };
-
-app.use(function(req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-  res.header("Access-Control-Allow-Methods", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE, TRACE, CONNECT");
-  next();
-});
 
 app.use(function(req, res, next) {
   r.connect(rethinkConfig).then(function(conn) {

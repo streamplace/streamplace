@@ -4,6 +4,10 @@ var path = require("path");
 var CopyWebpackPlugin = require("copy-webpack-plugin");
 var config = require("sk-config");
 
+var resolve = function(x) {
+  return path.resolve(x);
+};
+
 module.exports = {
   context: __dirname,
   entry: "./src/index",
@@ -40,7 +44,7 @@ module.exports = {
       test: /\.woff(2)?(\?v=[0-9]\.[0-9]\.[0-9])?$/,
       loader: "url-loader?limit=10000&minetype=application/font-woff"
     }, {
-      test: /\.(ttf|eot|svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
+      test: /\.(ttf|eot|svg|png)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
       loader: "file-loader"
     }, {
       test: /\.mustache$/,
@@ -58,10 +62,10 @@ module.exports = {
     "react": "React"
   },
   resolve: {
-    root: [
+    root: ([
       path.resolve(__dirname),
       path.resolve(__dirname, ".."), // So we can resolve all our other packages
-    ],
+    ]).concat(process.env.NODE_PATH.split(":").map(resolve)),
     extensions: [".js", ".jsx", ".scss", "json", ""]
   },
   resolveLoader: {

@@ -11,6 +11,7 @@
   "author": "",
   "license": "Apache-2.0",
   "dependencies": {
+    "njwt": "^0.3.1",
     "socket.io-client": "^1.4.5",
     "swagger-client": "swagger-api/swagger-js#bd0b8cbcb9daaff7b5ab437c795d6f941df92887",
     "underscore": "^1.8.3",

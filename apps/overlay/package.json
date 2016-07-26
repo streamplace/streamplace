@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "webpack-dev-server --history-api-fallback --progress --colors --inline --host 0.0.0.0 --port 5050",
-    "build": "webpack -p"
+    "build": "webpack -p --bail"
   },
   "author": "Stream Kitchen",
   "license": "Apache-2.0",

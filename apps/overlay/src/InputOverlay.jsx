@@ -1,8 +1,8 @@
 
 import React from "react";
-import SKClient from "sk-client";
 import config from "sk-config";
 import twixty from "twixtykit";
+import IO from "socket.io-client";
 
 import NotFound from "./NotFound";
 import style from "./InputOverlay.scss";
@@ -10,10 +10,8 @@ import style from "./InputOverlay.scss";
 // Quiet is global for now, so...
 /*eslint-disable no-undef */
 
-const PUBLIC_API_SERVER_URL = config.require("PUBLIC_API_SERVER_URL");
+// TODO: implement our own timesync so we don't have to use theirs
 const PUBLIC_TIMESYNC_SERVER_URL = config.require("PUBLIC_TIMESYNC_SERVER_URL");
-
-const SK = new SKClient({server: PUBLIC_API_SERVER_URL});
 
 const quietReady = new Promise((resolve, reject) => {
   Quiet.addReadyCallback(resolve, reject);
@@ -58,35 +56,38 @@ export default class InputOverlay extends React.Component{
     };
 
     this.timeOffset = 0;
-
-    this.ts = timesync.create({
-      server: PUBLIC_TIMESYNC_SERVER_URL,
-      interval: 10000
-    });
-
-    this.ts.on("change", (offset) => {
-      this.timeOffset = offset;
-    });
   }
 
   componentDidMount() {
     quietReady.then(() => {
       this.transmit = Quiet.transmitter(PROFILE);
-      const inputId = this.props.params.inputId;
-      this.inputHandle = SK.inputs.watch({id: inputId})
-      .on("data", ([input]) => {
-        if (!input) {
-          this.setState({notFound: true});
-          this.inputHandle.stop();
+      const overlayKey = this.props.params.overlayKey;
+      const socketServer = `${PUBLIC_TIMESYNC_SERVER_URL}?overlayKey=${overlayKey}`;
+      this.socket = IO(socketServer, {transports: ["websocket"]});
+      this.socket.on("hello", () => {
+        if (this.syncInterval) {
+          clearInterval(this.syncInterval);
         }
-        this.setState({input});
-        if (input.nextSync) {
-          this.triggerSync(input.nextSync);
-        }
-      })
-      .catch((...args) => {
-        twixty.error(...args);
+        this.setState({infoText: ""});
+        this.syncTime();
+        this.syncInterval = setInterval(::this.syncTime, 2500);
       });
+      this.socket.on("error", (err) => {
+        // Socket.io gives us a string here, just give it to em
+        this.setState({infoText: err});
+      });
+      this.socket.on("nextsync", (time) => {
+        this.triggerSync(time);
+      });
+    });
+  }
+
+  syncTime() {
+    const start = Date.now();
+    this.socket.emit("timesync", "test", (serverTime) => {
+      const end = Date.now();
+      const halfTime = Math.floor((end - start) / 2) + start;
+      this.timeOffset = serverTime - halfTime;
     });
   }
 

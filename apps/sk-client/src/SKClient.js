@@ -20,7 +20,7 @@ if (typeof window === "object") {
 
 let tokenGenerator;
 if (isNode) {
-  // Someone teach me a better way to have node do something but not webpack.
+  // Someone teach me a better wneway to have node do something but not webpack.
   /*eslint-disable no-eval */
   const TokenGenerator = eval("require('./TokenGenerator')").default;
   tokenGenerator = new TokenGenerator();

@@ -10,7 +10,7 @@ import InputOverlay from "./InputOverlay";
 
 ReactDOM.render((
   <Router history={browserHistory}>
-    <Route path="/:inputId" component={InputOverlay} />
+    <Route path="/:overlayKey" component={InputOverlay} />
     <Route path="*" component={NotFound} />
   </Router>
 ), document.querySelector("main"));

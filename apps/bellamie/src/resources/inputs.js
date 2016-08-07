@@ -11,6 +11,7 @@ export default class Input extends Resource {
   beforeCreate(newDoc) {
     return super.beforeCreate(newDoc).then((newDoc) => {
       newDoc.streamKey = randomID();
+      newDoc.overlayKey = randomID();
       return newDoc;
     });
   }

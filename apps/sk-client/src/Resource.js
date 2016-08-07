@@ -54,6 +54,9 @@ export default class Resource {
   }
 
   findOne(id) {
+    if (typeof id !== "string") {
+      throw new Error(`findOne takes a string, ${typeof id} provided.`);
+    }
     return this.resource.findOne({id})
       .then(this.onSuccess)
       .catch(this.onError);

@@ -9,6 +9,10 @@ const JWT_SECRET_DECODED = Buffer.from(JWT_SECRET, "base64");
 const JWT_EXPIRY = config.require("JWT_EXPIRY");
 
 export default class TokenGenerator {
+  constructor() {
+    this.expiry = JWT_EXPIRY;
+  }
+
   generate() {
     const claims = {
       iss: "https://stream.kitchen",

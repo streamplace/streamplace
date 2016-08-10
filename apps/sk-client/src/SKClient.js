@@ -62,6 +62,10 @@ export default class SKClient extends EE {
     // Generate a token if we can and we don't have one.
     if (!this.token && tokenGenerator) {
       this.token = tokenGenerator.generate();
+      // Generate new tokens when we're halfway to token expiration.
+      setInterval(() => {
+        this.token = tokenGenerator.generate();
+      }, Math.floor(tokenGenerator.expiry / 2));
     }
 
     // Set up HTTP connection based on Swagger schema

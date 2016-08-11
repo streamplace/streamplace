@@ -120,7 +120,6 @@ export default class AutosyncScheduler {
         return SK.arcs.create({
           kind: "arc",
           broadcastId: inputVertex.broadcastId,
-          delay: 0,
           from: {
             ioName: "default",
             vertexId: inputVertex.id

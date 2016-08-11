@@ -1,5 +1,6 @@
 
 import React from "react";
+import twixty from "twixtykit";
 
 import SK from "../../SK";
 import SKField from "../SKField";
@@ -17,7 +18,6 @@ export default class BroadcastCreate extends React.Component{
   initialBroadcast() {
     return {
       title: "",
-      url: "",
       enabled: false,
       outputIds: [],
     };
@@ -31,7 +31,7 @@ export default class BroadcastCreate extends React.Component{
 
   handleSubmit(e) {
     e.preventDefault();
-    SK.broadcasts.create(this.state.newBroadcast);
+    SK.broadcasts.create(this.state.newBroadcast).catch(::twixty.error);
     this.reset();
   }
 

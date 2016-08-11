@@ -4,10 +4,10 @@
 export default {
   info: function(...args) {
     /*eslint-disable no-console */
-    console.info(args);
+    console.info(...args);
   },
   error: function(...args) {
     /*eslint-disable no-console */
-    console.error(args);
+    console.error(...args);
   },
 };

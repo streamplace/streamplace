@@ -4,12 +4,9 @@ info:
   title: Stream Kitchen API
   description: Want to do some stuff what with the streaming video? This is an API for that!
   version: "0.0.0-alpha1"
-# the domain of the service
 host: api.stream.kitchen
-# array of all schemes that your API supports
 schemes:
   - https
-# will be prefixed to all paths
 basePath: /v0
 produces:
   - application/json
@@ -19,17 +16,38 @@ consumes:
 definitions:
   Broadcast:
     type: object
+    additionalProperties: false
+    required: [kind, title, enabled, outputIds]
     properties:
+      kind:
+        type: string
+        allowedValues: [broadcast]
       id:
         type: string
         description: Unique ID of the Broadcast
       title:
         type: string
-        description: Name of the Broadcast test
+        description: Human-reaadable name of the broadcast
+      activeSceneId:
+        type: string
+        description: Which scene is currently active on this broadcast?
+      enabled:
+        type: boolean
+        description: Is this broadcast currently running?
+      outputIds:
+        type: array
+        description: To which outputs should we be forwarding?
+        items:
+          type: string
 
   Vertex:
     type: object
+    additionalProperties: false
+    required: [kind, title, type, image]
     properties:
+      kind:
+        type: string
+        allowedValues: ["vertex"]
       id:
         type: string
         description: Unique ID of the Vertex
@@ -38,7 +56,7 @@ definitions:
         description: Human-readable title of this vertex
       type:
         description: The type of vertex that this is
-        enum: ["RTMPInput", "RTMPOutput"]
+        enum: ["RTMPInput", "RTMPOutput", "FileOutput", "Composite", "Autosync"]
       rtmp:
         type: object
         description: RTMP information for RTMPInput and RTMPOutput streams
@@ -46,37 +64,162 @@ definitions:
           url:
             type: string
             description: RTMP URL
+      image:
+        type: string
+        description: Docker image that this vertex should pull
+      broadcastId:
+        type: string
+        description: Broadcast ID that owns this vertex, if any
+      status:
+        type: string
+        description: Current status of this vertex
+        enum: [INACTIVE, WAITING, CODEC, ACTIVE]
+      params:
+        type: object
+        description: Type-specific vertex parameters
+      inputs:
+        type: array
+        description: Inputs provided by this vertex
+        items:
+          type: object
+      outputs:
+        type: array
+        description: Outputs provided by this vertex
+        items:
+          type: object
+      timemark:
+        type: string
+        description: |
+          Current timestamp of this vertex in 00:00:00 format. Use syncStartTime for anything more
+          complicated than that.
+      syncStartTime:
+        type: number
+        description: Unix epoch time of the first PTS of this input.
 
   Arc:
     type: object
+    additionalProperties: false
     properties:
+      kind:
+        type: string
+        allowedValues: ["arc"]
       id:
         type: string
         description: Unique ID of the Arc
+      broadcastId:
+        type: string
+        description: Broadcast this arc belongs to, if any
+      from:
+        type: object
+        additionalProperties: false
+        required: [vertexId, ioName]
+        properties:
+          vertexId:
+            type: string
+            description: ID of the vertex where this arc starts
+          ioName:
+            type: string
+            description: Name of the Vertex's output that we're connecting to
+      to:
+        type: object
+        additionalProperties: false
+        properties:
+          vertexId:
+            type: string
+            description: ID of the vertex where this arc starts
+          ioName:
+            type: string
+            description: Name of the Vertex's output that we're connecting to
 
   Input:
     type: object
+    additionalProperties: false
+    required: ["kind", "title", "overlayKey", "streamKey"]
     properties:
       id:
         type: string
         description: Unique ID of the input
+        readOnly: true
+      kind:
+        type: string
+        allowedValues: ["input"]
+      title:
+        type: string
+        description: Human-readable name of this input
+        minLength: 1
+      overlayKey:
+        $ref: "#/definitions/SecretKey"
+      streamKey:
+        $ref: "#/definitions/SecretKey"
 
   Output:
     type: object
+    additionalProperties: false
     properties:
+      kind:
+        type: string
+        allowedValues: ["output"]
       id:
         type: string
         description: Unique ID of the output
 
   Scene:
     type: object
+    additionalProperties: false
+    required: ["broadcastId", "title", "height", "width"]
     properties:
       id:
         type: string
         description: Unique ID of the scene
+      kind:
+        type: string
+        allowedValues: ["scene"]
+      title:
+        type: string
+        description: Human-readable name of this scene
+        minLength: 1
+      broadcastId:
+        type: string
+        description: ID of the broadcast where this scene exists
+      height:
+        type: number
+        allowedValues: [1080]
+        description: Height of this scene, in pixels
+      width:
+        type: number
+        allowedValues: [1920]
+        description: Width of this scene, in pixels
+      regions:
+        type: array
+        items:
+          type: object
+          additionalProperties: false
+          required: ["inputId", "x", "y", "width", "height"]
+          properties:
+            inputId:
+              type: string
+              description: Input to which this region cooresponds
+            x:
+              type: number
+              description: Horizontal location of this region in pixels
+            y:
+              type: number
+              description: Vertical location of this region in pixels
+            width:
+              type: number
+              description: Width of this region in pixels
+            height:
+              type: number
+              description: Height of this region in pixels
+
+  SecretKey:
+    type: string
+    readOnly: true
+    description: A secret key, used in things like RTMP urls.
 
   Error:
     type: object
+    additionalProperties: false
     description: Something went wrong. This little guy tells you so.
     properties:
       message:

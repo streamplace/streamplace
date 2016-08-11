@@ -5,8 +5,36 @@
 import r from "rethinkdb";
 import winston from "winston";
 import _ from "underscore";
+import schema from "sk-schema";
+import Ajv from "ajv";
+
+const ajv = new Ajv({
+  allErrors: true
+});
+
+ajv.addSchema(schema, "swagger.json");
 
 export default class Resource {
+
+  constructor(name) {
+    this.schema = schema.definitions[this.constructor.name];
+    this.name = name;
+  }
+
+  /**
+   * Use AJV to see if provided document is valid.
+   * @param  {Object} doc
+   * @return {Array|null} Returns an array of errors on failure.
+   */
+  _validator(doc) {
+    const valid = ajv.validate({$ref: `swagger.json#/definitions/${this.constructor.name}`}, doc);
+    if (valid) {
+      return null;
+    }
+    else {
+      return ajv.errors;
+    }
+  }
 
   // TODO: dumbest filtering implementation ever, it loads every single row then filters with
   // underscore
@@ -17,13 +45,11 @@ export default class Resource {
         filter = JSON.parse(req.query.filter);
       }
       catch (e) {
-        res.status(400);
-        res.json({
+        throw new Resource.APIError({
           code: "MALFORMED_REQUEST",
+          status: 400,
           message: "The 'filter' parameter must be in JSON format."
         });
-        res.end();
-        return;
       }
     }
     r.table(this.name).run(req.conn)
@@ -39,7 +65,7 @@ export default class Resource {
       next();
     })
     .catch((err) => {
-      this.serverError(req, res, next, err);
+      this._handleError(req, res, next, err);
     });
   }
 
@@ -51,23 +77,27 @@ export default class Resource {
         res.json(doc);
       }
       else {
-        res.status(404);
-        res.json({
-          code: "NOT_FOUND",
-          message: "The specified resource was not found."
-        });
+        throw new Resource.NotFoundError();
       }
       next();
     })
     .catch((err) => {
-      this.serverError(req, res, next, err);
+      this._handleError(req, res, next, err);
     });
   }
 
   post(req, res, next) {
-    const newDoc = req.body;
-    this.beforeCreate(newDoc).then(() => {
-      return r.table(this.name).insert(req.body).run(req.conn);
+    let newDoc = req.body;
+    return this.beforeCreate(newDoc)
+    .then((doc) => {
+      newDoc = doc;
+      return this.validate(newDoc);
+    })
+    .catch(({errs, doc}) => {
+      throw new Resource.ValidationError(errs, doc);
+    })
+    .then(() => {
+      return r.table(this.name).insert(newDoc).run(req.conn);
     })
     .then(({generated_keys}) => {
       // TODO: error handling
@@ -79,22 +109,41 @@ export default class Resource {
       next();
     })
     .catch((err) => {
-      this.serverError(req, res, next, err);
+      this._handleError(req, res, next, err);
     });
   }
 
   put(req, res, next) {
-    r.table(this.name).get(req.params.id).update(req.body).run(req.conn)
+    r.table(this.name).get(req.params.id).run(req.conn)
+    .then((doc) => {
+      if (!doc) {
+        throw new Resource.NotFoundError();
+      }
+      if (!req.body) {
+        throw new Resource.APIError({
+          status: 411,
+          code: "BODY_MISSING",
+          message: "Missing request body"
+        });
+      }
+      _.extend(doc, req.body);
+      return this.validate(doc);
+    })
+    .catch(({errs, doc}) => {
+      throw new Resource.ValidationError(errs, doc);
+    })
+    .then(() => {
+      return r.table(this.name).get(req.params.id).update(req.body).run(req.conn);
+    })
     .then((stuff) => {
       if (stuff.errors > 0) {
-        throw new Error("Error in r.update()");
+        throw new Resource.APIError({
+          message: "Unexpected error updating resource."
+        });
       }
       if (stuff.skipped > 0) {
-        res.status(404);
-        return {
-          code: "NOT_FOUND",
-          message: "The specified resource was not found."
-        };
+        // Should be rare, but not impossible someone deleted it after validation.
+        throw new Resource.NotFoundError();
       }
       res.status(200);
       return r.table(this.name).get(req.params.id).run(req.conn);
@@ -104,7 +153,7 @@ export default class Resource {
       next();
     })
     .catch((err) => {
-      this.serverError(req, res, next, err);
+      this._handleError(req, res, next, err);
     });
   }
 
@@ -117,30 +166,19 @@ export default class Resource {
     })
     .then((stuff) => {
       if (stuff.errors > 0) {
-        res.status(500);
-        winston.error(stuff.errors);
-        res.json({
-          code: "DATABASE_ERROR",
-          message: "Error when attempting to delete resource"
+        throw new Resource.APIError({
+          message: "Unexpected error deleting resource."
         });
-        res.end();
-        return next();
       }
       if (stuff.skipped > 0) {
-        res.status(404);
-        res.json({
-          code: "NOT_FOUND",
-          message: "The specified resource was not found."
-        });
-        res.end();
-        return next();
+        throw new Resource.NotFoundError();
       }
       res.status(204);
       res.end();
       next();
     })
     .catch((err) => {
-      this.serverError(req, res, next, err);
+      this._handleError(req, res, next, err);
     });
   }
 
@@ -206,33 +244,45 @@ export default class Resource {
     });
   }
 
-  serverError(req, res, next, err) {
-    res.status(500);
-    winston.error(err);
+  _handleError(req, res, next, err) {
+    let status;
+    if (typeof err.status === "number") {
+      status = err.status;
+    }
+    else {
+      status = 500;
+    }
+    res.status(status);
+    if (status >= 500) {
+      winston.error(err);
+    }
+    else {
+      winston.warn(err._descriptiveMessage || err.message);
+    }
     res.json({
-      code: "DATABASE_ERROR",
-      message: JSON.stringify(err)
+      errors: [{
+        code: err.code,
+        message: err._shortMessage || err.message
+      }]
     });
     res.end();
   }
 
-  /**
-   * Make sure they're allowed to do the thing that they're doing.
-   * @param  {[type]}   req  [description]
-   * @param  {[type]}   res  [description]
-   * @param  {Function} next [description]
-   * @return {[type]}        [description]
-   */
-  auth (req, res, next) {
-    next();
-  }
-
-  validate (req, res, next) {
-    next();
+  validate(newDoc) {
+    return new Promise((resolve, reject) => {
+      const errs = this._validator(newDoc);
+      if (errs === null) {
+        resolve();
+      }
+      else {
+        reject({errs, doc: newDoc});
+      }
+    });
   }
 
   beforeCreate(newDoc) {
     return new Promise((resolve, reject) => {
+      newDoc.kind = this.constructor.name.toLowerCase();
       resolve(newDoc);
     });
   }
@@ -251,3 +301,57 @@ export default class Resource {
     next();
   }
 }
+
+Resource.ajv = ajv;
+
+Resource.APIError = class APIError extends Error {
+  constructor({message, code, status}) {
+    if (!message || !code || !status) {
+      throw new Error("Missing required parameters");
+    }
+    if (typeof message !== "string") {
+      throw new Error("Invalid format for message");
+    }
+    if (typeof status !== "number" || status < 400 || status > 599) {
+      throw new Error("Invalid HTTP status");
+    }
+    const shortMessage = message;
+    const descriptiveMessage = `[${status}] ${code} - ${message}`;
+    super(`[${status}] ${code} - ${message}`);
+    this._shortMessage = shortMessage;
+    this._descriptiveMessage = descriptiveMessage;
+    this.code = code;
+    this.status = status;
+  }
+};
+
+Resource.ValidationError = class ValidationError extends Resource.APIError {
+  constructor(errs, doc) {
+    const message = errs.map((e) => {
+      if (e.keyword === "additionalProperties") {
+        let prop = e.params.additionalProperty;
+        if (e.dataPath && e.dataPath.length > 0) {
+          prop = `${e.dataPath}.${prop}`;
+        }
+        return `Unexpected property: ${prop}`;
+      }
+      return JSON.stringify(e);
+    }).join(", ");
+    super({
+      message: message,
+      status: 422,
+      code: "VALIDATION_FAILED"
+    });
+    this.errs = errs;
+  }
+};
+
+Resource.NotFoundError = class NotFoundError extends Resource.APIError {
+  constructor() {
+    super({
+      message: "Resource not found.",
+      status: 404,
+      code: "NOT_FOUND"
+    });
+  }
+};

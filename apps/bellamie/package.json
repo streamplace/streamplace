@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/iameli/pratty-apps#readme",
   "dependencies": {
+    "ajv": "^4.4.0",
     "babel-polyfill": "^6.3.14",
     "body-parser": "^1.14.2",
     "express": "^4.13.4",

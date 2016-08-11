@@ -5,8 +5,7 @@ import winston from "winston";
 
 export default class Vertex extends Resource {
   constructor() {
-    super();
-    this.name = "vertices";
+    super("vertices");
   }
 
   beforeDelete(id, conn) {

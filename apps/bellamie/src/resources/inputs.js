@@ -4,8 +4,7 @@ import {randomID} from "../random";
 
 export default class Input extends Resource {
   constructor() {
-    super();
-    this.name = "inputs";
+    super("inputs");
   }
 
   beforeCreate(newDoc) {

@@ -202,7 +202,6 @@ export default class BroadcastScheduler {
           SK.arcs.create({
             kind: "arc",
             broadcastId: broadcast.id,
-            delay: 0,
             from: {
               ioName: "default",
               vertexId: inputVertex.id,
@@ -290,7 +289,6 @@ export default class BroadcastScheduler {
           SK.arcs.create({
             kind: "arc",
             broadcastId: broadcast.id,
-            delay: 0,
             from: {
               ioName: "default",
               vertexId: compositeVertex.id,
@@ -351,7 +349,6 @@ export default class BroadcastScheduler {
           SK.arcs.create({
             kind: "arc",
             broadcastId: broadcast.id,
-            delay: 0,
             from: {
               ioName: "default",
               vertexId: vertex.id,

@@ -46,6 +46,19 @@ export default class Resource {
   transform(ctx, doc) {
     return Promise.resolve(doc);
   }
+
+  watch(ctx, query) {
+    return this._db.watch(ctx, query).then((feed) => {
+      feed.on("data", function({oldVal, newVal}) {
+        ctx.data({oldVal, newVal});
+      });
+      return {
+        stop: () => {
+          feed.close();
+        }
+      };
+    });
+  }
 }
 
 Resource.APIError = class APIError extends Error {

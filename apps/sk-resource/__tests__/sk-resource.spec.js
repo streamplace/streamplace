@@ -2,13 +2,24 @@
 import Resource from "../src/sk-resource";
 import _ from "underscore";
 import {v4} from "node-uuid";
+import EventEmitter from "events";
 
 let testResource;
 let ctx;
 let db;
 
-const mockDbDriver = {
-  find: function(ctx, selector) {
+const wait = function(ms) {
+  return new Promise((resolve, reject) => {
+    setTimeout(resolve, ms);
+  });
+};
+
+class MockDbDriver {
+  constructor() {
+    this.watching = {};
+  }
+
+  find(ctx, selector) {
     return new Promise((resolve, reject) => {
       const docs = _(db).chain()
         .values()
@@ -16,38 +27,87 @@ const mockDbDriver = {
         .value();
       resolve(docs);
     });
-  },
+  }
 
-  findOne: function(ctx, id) {
+  findOne(ctx, id) {
     return new Promise((resolve, reject) => {
       resolve(db[id]);
     });
-  },
+  }
 
-  upsert: function(ctx, doc) {
+  upsert(ctx, doc) {
     return new Promise((resolve, reject) => {
+      let newDoc = false;
       if (!doc.id) {
         doc.id = v4();
+        this._change(null, doc);
+      }
+      else {
+        this._change(db[doc.id], doc);
       }
       db[doc.id] = doc;
       resolve(doc);
     });
-  },
+  }
 
-  delete: function(ctx, id) {
+  delete(ctx, id) {
     return new Promise((resolve, reject) => {
+      if (!db[id]) {
+        throw new Error("I do not have that ID");
+      }
+      this._change(db[id], null);
       delete db[id];
       resolve();
     });
   }
-};
+
+  _change(oldVal, newVal) {
+    process.nextTick(() => {
+      _(this.watching).values().forEach(cb => cb({oldVal, newVal}));
+    });
+  }
+
+  watch(ctx, query) {
+    const me = v4();
+    const matchesQuery = function(doc) {
+      if (!doc) {
+        return false;
+      }
+      return _([doc]).where(query).length === 1;
+    };
+    const processor = (cb) => {
+      return ({oldVal, newVal}) => {
+        if (!matchesQuery(oldVal)) {
+          oldVal = null;
+        }
+        if (!matchesQuery(newVal)) {
+          newVal = null;
+        }
+        if (oldVal === null && newVal === null) {
+          return;
+        }
+        cb({oldVal, newVal});
+      };
+    };
+    return Promise.resolve({
+      on: (keyword, cb) => {
+        this.watching[me] = processor(cb);
+      },
+      close: () => {
+        delete this.watching[me];
+      },
+    });
+  }
+}
 
 beforeEach(() => {
-  ctx = {};
+  ctx = {
+    subscriptions: [],
+  };
   db = {};
   const TestResource = class extends Resource {};
   testResource = new TestResource({
-    db: mockDbDriver
+    db: new MockDbDriver()
   });
 });
 
@@ -160,3 +220,74 @@ it("should transform for all CRUD operations", () => {
   });
 });
 
+///////////////////////
+// tests for watch() //
+///////////////////////
+
+let watchCalledCount;
+let oldVal;
+let newVal;
+beforeEach(() => {
+  watchCalledCount = 0;
+
+  ctx.data = function(vals) {
+    watchCalledCount += 1;
+    oldVal = vals.oldVal;
+    newVal = vals.newVal;
+  };
+});
+
+it("should watch on CRUD operations", () => {
+  return testResource.watch(ctx, {}, v4())
+  .then(() => {
+    return testResource.create(ctx, {foo: "bar"});
+  })
+  .then(() => {
+    return wait(0);
+  })
+  .then(() => {
+    expect(watchCalledCount).toBe(1);
+    expect(oldVal).toBe(null);
+    expect(newVal.foo).toBe("bar");
+    return testResource.update(ctx, newVal.id, {foo: "baz"});
+  })
+  .then(() => {
+    return wait(0);
+  })
+  .then(() => {
+    expect(watchCalledCount).toBe(2);
+    expect(oldVal.foo).toBe("bar");
+    expect(newVal.foo).toBe("baz");
+    return testResource.delete(ctx, oldVal.id);
+  })
+  .then(() => {
+    return wait(0);
+  })
+  .then(() => {
+    expect(watchCalledCount).toBe(3);
+    expect(oldVal.foo).toBe("baz");
+    expect(newVal).toBe(null);
+  });
+});
+
+it("should stop watching", () => {
+  const subId = v4();
+  let handle;
+  return testResource.watch(ctx, {}, subId)
+  .then((newHandle) => {
+    handle = newHandle;
+    return wait(0);
+  })
+  .then(() => {
+    const p = testResource.create(ctx, {foo: "bar"});
+    handle.stop();
+    return p;
+  })
+  .then(() => {
+    return wait(0);
+  })
+  .then(() => {
+    expect(watchCalledCount).toBe(0);
+  });
+
+});

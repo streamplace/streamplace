@@ -4,8 +4,8 @@ export default class Resource {
 
   }
 
-  find(ctx, selector) {
-
+  find(ctx, selector = {}) {
+    return this._dbFind(ctx, selector);
   }
 
   findOne(ctx, id) {

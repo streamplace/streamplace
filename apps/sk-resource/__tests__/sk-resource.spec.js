@@ -18,7 +18,11 @@ beforeEach(() => {
 
     _dbFind(ctx, selector) {
       return new Promise((resolve, reject) => {
-        resolve(_(this._db).values().filter(selector));
+        const docs = _(db).chain()
+          .values()
+          .filter(selector)
+          .value();
+        resolve(docs);
       });
     }
 
@@ -50,6 +54,38 @@ beforeEach(() => {
 
 it("should initalize", () => {
   expect(testResource instanceof Resource).toBe(true);
+});
+
+
+it("should findOne", () => {
+  const testId = v4();
+  db[testId] = {id: testId, "foo": "bar"};
+  return testResource.findOne(ctx, testId)
+  .then((doc) => {
+    expect(doc).toEqual({id: testId, foo: "bar"});
+  });
+});
+
+it("should find", () => {
+  const pushDoc = () => {
+    const doc = {};
+    doc.id = v4();
+    doc.foo = v4();
+    db[doc.id] = doc;
+    return doc;
+  };
+  pushDoc();
+  pushDoc();
+  const testDoc = pushDoc();
+  testDoc.foo = "bar";
+  return testResource.find(ctx, {foo: "bar"})
+  .then((docs) => {
+    expect(docs).toEqual([testDoc]);
+    return testResource.find(ctx);
+  })
+  .then((docs) => {
+    expect(docs.length).toBe(3);
+  });
 });
 
 it("should create", () => {
@@ -100,11 +136,3 @@ it("should delete", () => {
   });
 });
 
-it("should findOne", () => {
-  const testId = v4();
-  db[testId] = {id: testId, "foo": "bar"};
-  return testResource.findOne(ctx, testId)
-  .then((doc) => {
-    expect(doc).toEqual({id: testId, foo: "bar"});
-  });
-});

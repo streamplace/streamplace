@@ -1,0 +1,22 @@
+{
+  "name": "sk-resource",
+  "version": "0.0.0",
+  "description": "Stream Kitchen base resources",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "Stream Kitchen",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "babel-jest": "^15.0.0",
+    "babel-polyfill": "^6.13.0",
+    "babel-preset-streamkitchen": "0.0.2",
+    "jest": "^15.1.1",
+    "node-uuid": "^1.4.7"
+  },
+  "dependencies": {
+    "continuation-local-storage": "^3.1.7",
+    "underscore": "^1.8.3"
+  }
+}

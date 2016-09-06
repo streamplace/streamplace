@@ -7,49 +7,48 @@ let testResource;
 let ctx;
 let db;
 
+const mockDbDriver = {
+  find: function(ctx, selector) {
+    return new Promise((resolve, reject) => {
+      const docs = _(db).chain()
+        .values()
+        .filter(selector)
+        .value();
+      resolve(docs);
+    });
+  },
+
+  findOne: function(ctx, id) {
+    return new Promise((resolve, reject) => {
+      resolve(db[id]);
+    });
+  },
+
+  upsert: function(ctx, doc) {
+    return new Promise((resolve, reject) => {
+      if (!doc.id) {
+        doc.id = v4();
+      }
+      db[doc.id] = doc;
+      resolve(doc);
+    });
+  },
+
+  delete: function(ctx, id) {
+    return new Promise((resolve, reject) => {
+      delete db[id];
+      resolve();
+    });
+  }
+};
+
 beforeEach(() => {
   ctx = {};
   db = {};
-  const TestResource = class extends Resource {
-    constructor(params) {
-      super(params);
-      this._db = db;
-    }
-
-    _dbFind(ctx, selector) {
-      return new Promise((resolve, reject) => {
-        const docs = _(db).chain()
-          .values()
-          .filter(selector)
-          .value();
-        resolve(docs);
-      });
-    }
-
-    _dbFindOne(ctx, id) {
-      return new Promise((resolve, reject) => {
-        resolve(this._db[id]);
-      });
-    }
-
-    _dbUpsert(ctx, doc) {
-      return new Promise((resolve, reject) => {
-        if (!doc.id) {
-          doc.id = v4();
-        }
-        this._db[doc.id] = doc;
-        resolve(doc);
-      });
-    }
-
-    _dbDelete(ctx, id) {
-      return new Promise((resolve, reject) => {
-        delete this._db[id];
-        resolve();
-      });
-    }
-  };
-  testResource = new TestResource();
+  const TestResource = class extends Resource {};
+  testResource = new TestResource({
+    db: mockDbDriver
+  });
 });
 
 it("should initalize", () => {
@@ -133,6 +132,31 @@ it("should delete", () => {
   return testResource.delete(ctx, testId)
   .then(() => {
     expect(db).toEqual({});
+  });
+});
+
+it("should transform for all CRUD operations", () => {
+  testResource.transform = function(ctx, doc) {
+    doc.transform = true;
+    return Promise.resolve(doc);
+  };
+  let id;
+  return testResource.create(ctx, {foo: "bar"})
+  .then((doc) => {
+    id = doc.id;
+    expect(doc.transform).toBe(true);
+    return testResource.update(ctx, id, {foo: "baz"});
+  })
+  .then((doc) => {
+    expect(doc.transform).toBe(true);
+    return testResource.findOne(ctx, id);
+  })
+  .then((doc) => {
+    expect(doc.transform).toBe(true);
+    return testResource.find(ctx, {id});
+  })
+  .then(([doc]) => {
+    expect(doc.transform).toBe(true);
   });
 });
 

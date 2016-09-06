@@ -1,16 +1,18 @@
 
 export default class Resource {
-  constructor() {
-
+  constructor({db}) {
+    this._db = db;
   }
 
   find(ctx, selector = {}) {
-    return this._dbFind(ctx, selector);
+    return this._db.find(ctx, selector).then((docs) => {
+      return Promise.all(docs.map(this.transform.bind(this, ctx)));
+    });
   }
 
   findOne(ctx, id) {
-    return this._dbFindOne(ctx, id).then((doc) => {
-      return doc;
+    return this._db.findOne(ctx, id).then((doc) => {
+      return this.transform(ctx, doc);
     });
   }
 
@@ -20,8 +22,8 @@ export default class Resource {
         message: "Cannot create with an extant ID"
       });
     }
-    return this._dbUpsert(ctx, doc).then((newDoc) => {
-      return newDoc;
+    return this._db.upsert(ctx, doc).then((newDoc) => {
+      return this.transform(ctx, newDoc);
     });
   }
 
@@ -32,29 +34,17 @@ export default class Resource {
       });
     }
     doc.id = id;
-    return this._dbUpsert(ctx, doc).then((newDoc) => {
-      return newDoc;
+    return this._db.upsert(ctx, doc).then((newDoc) => {
+      return this.transform(ctx, newDoc);
     });
   }
 
   delete(ctx, id) {
-    return this._dbDelete(ctx, id);
+    return this._db.delete(ctx, id);
   }
 
-  _dbFind(ctx, selector) {
-
-  }
-
-  _dbFindOne(ctx, id) {
-
-  }
-
-  _dbUpsert(ctx, doc) {
-
-  }
-
-  _dbDelete(ctx, id) {
-
+  transform(ctx, doc) {
+    return Promise.resolve(doc);
   }
 }
 

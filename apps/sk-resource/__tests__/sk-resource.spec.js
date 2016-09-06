@@ -59,15 +59,11 @@ it("should create", () => {
   });
 });
 
-// it("shouldn't let you create with an id", () => {
-//   return testResource.create(ctx, {foo: "bar", id: "nope"})
-//   .then(() => {
-//     throw new Error("Should have failed!");
-//   })
-//   .catch((err) => {
-//     expect(err.status).toBe(422);
-//   });
-// });
+it("shouldn't allow creates with an id", () => {
+  expect(() => {
+    return testResource.create(ctx, {foo: "bar", id: "nope"});
+  }).toThrowError(/VALIDATION_FAILED/);
+});
 
 it("should update", () => {
   const testId = v4();
@@ -76,6 +72,23 @@ it("should update", () => {
   .then(() => {
     expect(db[testId]).toEqual({id: testId, foo: "baz"});
   });
+});
+
+it("should update with a provided id", () => {
+  const testId = v4();
+  db[testId] = {"foo": "bar"};
+  return testResource.update(ctx, testId, {id: testId, foo: "baz"})
+  .then(() => {
+    expect(db[testId]).toEqual({id: testId, foo: "baz"});
+  });
+});
+
+it("shouldn't allow updates that change the id", () => {
+  const testId = v4();
+  db[testId] = {"foo": "bar"};
+  expect(() => {
+    return testResource.update(ctx, testId, {id: v4(), foo: "baz"});
+  }).toThrowError(/VALIDATION_FAILED/);
 });
 
 it("should delete", () => {

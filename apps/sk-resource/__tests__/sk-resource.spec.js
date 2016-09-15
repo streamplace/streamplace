@@ -3,10 +3,30 @@ import Resource from "../src/sk-resource";
 import _ from "underscore";
 import {v4} from "node-uuid";
 import EventEmitter from "events";
+import Ajv from "ajv";
 
+let TestResource;
 let testResource;
 let ctx;
 let db;
+let ajv;
+
+const testResourceSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["foo"],
+  properties: {
+    id: {
+      type: "string"
+    },
+    foo: {
+      type: "string"
+    },
+    transform: {
+      type: "boolean"
+    },
+  },
+};
 
 const wait = function(ms) {
   return new Promise((resolve, reject) => {
@@ -105,9 +125,15 @@ beforeEach(() => {
     subscriptions: [],
   };
   db = {};
-  const TestResource = class extends Resource {};
+  TestResource = class extends Resource {};
+  ajv = new Ajv({
+    allErrors: true
+  });
+  ajv.addSchema(testResourceSchema, "testResourceSchema");
+  TestResource.schema = "testResourceSchema";
   testResource = new TestResource({
-    db: new MockDbDriver()
+    db: new MockDbDriver(),
+    ajv: ajv
   });
 });
 
@@ -115,6 +141,11 @@ it("should initalize", () => {
   expect(testResource instanceof Resource).toBe(true);
 });
 
+it("should fail if no database is provided", () => {
+  expect(() => {
+    testResource = new TestResource({});
+  }).toThrowError();
+});
 
 it("should findOne", () => {
   const testId = v4();
@@ -290,4 +321,78 @@ it("should stop watching", () => {
     expect(watchCalledCount).toBe(0);
   });
 
+});
+
+////////////////
+// Validation //
+////////////////
+
+it("should fail if the schema is unknown", () => {
+  TestResource.schema = "does-not-exist";
+  expect(() => {
+    testResource = new TestResource({
+      db: new MockDbDriver(),
+      ajv: ajv
+    });
+  }).toThrowError();
+});
+
+const shouldFail = function() {
+  throw new Error("This should have failed.");
+};
+
+it("should disallow schema without additionalProperties: false", () => {
+  const badSchema = JSON.parse(JSON.stringify(testResourceSchema));
+  delete badSchema.additionalProperties;
+  ajv.addSchema(badSchema, "bad-schema");
+  TestResource.schema = "bad-schema";
+  expect(() => {
+    testResource = new TestResource({
+      db: new MockDbDriver(),
+      ajv: ajv
+    });
+  }).toThrowError();
+});
+
+it("should reject extra properties upon creation", (done) => {
+  testResource.create(ctx, {foo: "bar", extra: "property"}).then(shouldFail)
+  .catch((err) => {
+    expect(err.message).toMatch(/VALIDATION_FAILED/);
+    done();
+  });
+});
+
+it("should reject extra properties upon update", (done) => {
+  const testId = v4();
+  db[testId] = {"foo": "bar"};
+  testResource.update(ctx, testId, {extra: "property"}).then(shouldFail)
+  .catch((err) => {
+    done();
+  });
+});
+
+it("should reject incorrect values upon creation", (done) => {
+  testResource.create(ctx, {foo: false}).then(shouldFail)
+  .catch((err) => {
+    expect(err.message).toMatch(/VALIDATION_FAILED/);
+    done();
+  });
+});
+
+it("should reject incorrect values upon update", (done) => {
+  testResource.create(ctx, {foo: false}).then(shouldFail)
+  .catch((err) => {
+    expect(err.message).toMatch(/VALIDATION_FAILED/);
+    done();
+  });
+});
+
+it("should reject incorrect values upon update", (done) => {
+  const testId = v4();
+  db[testId] = {"foo": "bar"};
+  testResource.update(ctx, testId, {foo: 123456}).then(shouldFail)
+  .catch((err) => {
+    expect(err.message).toMatch(/VALIDATION_FAILED/);
+    done();
+  });
 });

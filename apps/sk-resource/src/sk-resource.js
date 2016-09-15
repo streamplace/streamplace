@@ -1,7 +1,41 @@
 
+// Eventually objects will have what Kubernets calls "strategic merge patch" here... we're not
+// that complicated yet so we're just using some rando npm package that got some nice real estate
+// on the word "merge"
+import merge from "merge";
+
 export default class Resource {
-  constructor({db}) {
+  constructor({db, ajv}) {
+    if (!db) {
+      throw new Error("no database provided");
+    }
+    if (!ajv) {
+      throw new Error("no ajv provided");
+    }
     this._db = db;
+    this.ajv = ajv;
+    this.validator = this.ajv.getSchema(this.constructor.schema);
+    if (!this.validator) {
+      throw new Error(`Schema ${this.constructor.schema} not found!`);
+    }
+    if (this.validator.schema.additionalProperties !== false) {
+      throw new Error(`Schema ${this.constructor.schema} lacks additionalProperties: false`);
+    }
+  }
+
+  validate(ctx, doc) {
+    return new Promise((resolve, reject) => {
+      const valid = this.validator(doc);
+      if (valid) {
+        resolve(doc);
+      }
+      else {
+        const err = new Resource.ValidationError(this.validator.errors);
+        setTimeout(function() {
+          reject(err);
+        }, 0);
+      }
+    });
   }
 
   find(ctx, selector = {}) {
@@ -22,7 +56,10 @@ export default class Resource {
         message: "Cannot create with an extant ID"
       });
     }
-    return this._db.upsert(ctx, doc).then((newDoc) => {
+    return this.validate(ctx, doc).then(() => {
+      return this._db.upsert(ctx, doc);
+    })
+    .then((newDoc) => {
       return this.transform(ctx, newDoc);
     });
   }
@@ -34,7 +71,20 @@ export default class Resource {
       });
     }
     doc.id = id;
-    return this._db.upsert(ctx, doc).then((newDoc) => {
+    return this._db.findOne(ctx, id)
+    .then((oldDoc) => {
+      if (!oldDoc) {
+        throw new Resource.NotFoundError();
+      }
+      const newDoc = {};
+      merge.recursive(newDoc, oldDoc);
+      merge.recursive(newDoc, doc);
+      return this.validate(ctx, newDoc);
+    })
+    .then((mergedDoc) => {
+      return this._db.upsert(ctx, mergedDoc);
+    })
+    .then((newDoc) => {
       return this.transform(ctx, newDoc);
     });
   }
@@ -83,11 +133,31 @@ Resource.APIError = class APIError extends Error {
 };
 
 Resource.ValidationError = class ValidationError extends Resource.APIError {
-  constructor({message = "Validation Error"} = {}) {
+  constructor(errors) {
+    if (!(errors instanceof Array)) {
+      errors = [errors];
+    }
+    const message = errors.map((err) => {
+      let msg = err.message;
+      if (err.params) {
+        msg += ` (${JSON.stringify(err.params)})`;
+      }
+      return msg;
+    }).join(", ");
     super({
       message: message,
       status: 422,
       code: "VALIDATION_FAILED"
+    });
+  }
+};
+
+Resource.NotFoundError = class NotFoundError extends Resource.APIError {
+  constructor({message = "Validation Error"} = {}) {
+    super({
+      message: "Resource not found",
+      status: 404,
+      code: "NOT_FOUND"
     });
   }
 };

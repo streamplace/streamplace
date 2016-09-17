@@ -19,6 +19,9 @@ const testResourceSchema = {
     id: {
       type: "string"
     },
+    userId: {
+      type: "string"
+    },
     foo: {
       type: "string"
     },
@@ -31,6 +34,12 @@ const testResourceSchema = {
 const wait = function(ms) {
   return new Promise((resolve, reject) => {
     setTimeout(resolve, ms);
+  });
+};
+
+const reversePromise = function(prom) {
+  return new Promise((resolve, reject) => {
+    prom.then(reject).catch(resolve);
   });
 };
 
@@ -125,7 +134,27 @@ beforeEach(() => {
     subscriptions: [],
   };
   db = {};
-  TestResource = class extends Resource {};
+  TestResource = class extends Resource {
+    authCreate(ctx, doc) {
+      return Promise.resolve(true);
+    }
+
+    authUpdate(ctx, oldDoc, newDoc) {
+      return Promise.resolve(true);
+    }
+
+    authDelete(ctx, doc) {
+      return Promise.resolve(true);
+    }
+
+    authFindOne(ctx, doc) {
+      return Promise.resolve(true);
+    }
+
+    authSelector(ctx, query) {
+      return Promise.resolve({});
+    }
+  };
   ajv = new Ajv({
     allErrors: true
   });
@@ -185,7 +214,7 @@ it("should create", () => {
   });
 });
 
-it("shouldn't allow creates with an id", () => {
+it("shouldn't auth creates with an id", () => {
   expect(() => {
     return testResource.create(ctx, {foo: "bar", id: "nope"});
   }).toThrowError(/VALIDATION_FAILED/);
@@ -209,7 +238,7 @@ it("should update with a provided id", () => {
   });
 });
 
-it("shouldn't allow updates that change the id", () => {
+it("shouldn't auth updates that change the id", () => {
   const testId = v4();
   db[testId] = {"foo": "bar"};
   expect(() => {
@@ -341,7 +370,7 @@ const shouldFail = function() {
   throw new Error("This should have failed.");
 };
 
-it("should disallow schema without additionalProperties: false", () => {
+it("should disauth schema without additionalProperties: false", () => {
   const badSchema = JSON.parse(JSON.stringify(testResourceSchema));
   delete badSchema.additionalProperties;
   ajv.addSchema(badSchema, "bad-schema");
@@ -394,5 +423,144 @@ it("should reject incorrect values upon update", (done) => {
   .catch((err) => {
     expect(err.message).toMatch(/VALIDATION_FAILED/);
     done();
+  });
+});
+
+////////////////
+// Auth tests //
+////////////////
+
+const setUser = () => {
+  ctx.userType = "user";
+  ctx.user = {
+    id: "test-id"
+  };
+};
+
+const setService = () => {
+  ctx.userType = "service";
+  ctx.user = null;
+};
+
+it("should make auth checks on modification", () => {
+  let createCalled = false;
+  let updateCalled = false;
+  let deleteCalled = false;
+  let findOneCalled = false;
+  TestResource.prototype.authCreate = function() {
+    createCalled = true;
+    return Promise.resolve(true);
+  };
+  TestResource.prototype.authUpdate = function() {
+    updateCalled = true;
+    return Promise.resolve(true);
+  };
+  TestResource.prototype.authDelete = function() {
+    deleteCalled = true;
+    return Promise.resolve(true);
+  };
+  TestResource.prototype.authFindOne = function() {
+    findOneCalled = true;
+    return Promise.resolve(true);
+  };
+  return testResource.create(ctx, {foo: "bar"})
+  .then(({id}) => {
+    expect(createCalled).toBe(true);
+    return testResource.update(ctx, id, {foo: "baz"});
+  })
+  .then(({id}) => {
+    expect(updateCalled).toBe(true);
+    return testResource.findOne(ctx, id);
+  })
+  .then(({id}) => {
+    return testResource.delete(ctx, id);
+  })
+  .then(() => {
+    expect(deleteCalled).toBe(true);
+  });
+});
+
+it("should disallow everything by default", () => {
+  delete TestResource.prototype.authCreate;
+  delete TestResource.prototype.authUpdate;
+  delete TestResource.prototype.authDelete;
+  delete TestResource.prototype.authFindOne;
+  const testId = v4();
+  db[testId] = {id: testId, "foo": "bar"};
+  return reversePromise(testResource.create(ctx, {foo: "bar"}))
+  .then((err) => {
+    expect(err.status).toBe(403);
+    return reversePromise(testResource.update(ctx, testId, {"foo": "baz"}));
+  })
+  .then((err) => {
+    expect(err.status).toBe(403);
+    return reversePromise(testResource.delete(ctx, testId));
+  })
+  .then((err) => {
+    expect(err.status).toBe(403);
+    return reversePromise(testResource.findOne(ctx, testId));
+  })
+  .then((err) => {
+    expect(err.status).toBe(403);
+  })
+  .catch(() => {
+    throw new Error("something succeeded! boo!");
+  });
+});
+
+describe("selectors", () => {
+  let doc1;
+  let doc2;
+  let docAuthorized;
+  let docUnauthorized;
+  let selectorCalledCount;
+  let watchCalledCount;
+  beforeEach(() => {
+    selectorCalledCount = 0;
+    watchCalledCount = 0;
+    doc1 = {id: v4(), "foo": "bar"};
+    doc2 = {id: v4(), "foo": "baz"};
+    docAuthorized = {id: v4(), foo: "bar", userId: "yup"};
+    docUnauthorized = {id: v4(), foo: "bar", userId: "nope"};
+    db[doc1.id] = doc1;
+    db[doc2.id] = doc2;
+    db[docAuthorized.id] = docAuthorized;
+    db[docUnauthorized.id] = docUnauthorized;
+    TestResource.prototype.authSelector = () => {
+      selectorCalledCount += 1;
+      return Promise.resolve({userId: "yup"});
+    };
+  });
+
+  it("should authorize selectors on find", () => {
+    return testResource.find(ctx, {foo: "bar"})
+    .then((docs) => {
+      expect(docs).toEqual([docAuthorized]);
+      expect(selectorCalledCount).toBe(1);
+    });
+  });
+
+  it("should authorize selectors on watch", () => {
+    ctx.data = function({oldVal, newVal}) {
+      expect(newVal.foo).toBe("bar");
+      watchCalledCount += 1;
+    };
+    TestResource.prototype.authSelector = function() {
+      selectorCalledCount += 1;
+      return Promise.resolve({userId: "nope"});
+    };
+    let handle;
+    return testResource.watch(ctx, {foo: "bar"})
+    .then((h) => {
+      handle = h;
+      return testResource.update(ctx, doc1.id, {userId: "whatever"});
+    })
+    .then(() => {
+      return wait();
+    })
+    .then(() => {
+      handle.stop();
+      expect(selectorCalledCount).toBe(1);
+    });
   });
 });

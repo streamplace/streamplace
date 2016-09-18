@@ -12,7 +12,7 @@ export default class Resource {
     if (!ajv) {
       throw new Error("no ajv provided");
     }
-    this._db = db;
+    this.db = db;
     this.ajv = ajv;
     this.validator = this.ajv.getSchema(this.constructor.schema);
     if (!this.validator) {
@@ -39,13 +39,13 @@ export default class Resource {
   }
 
   find(ctx, selector = {}) {
-    return this._db.find(ctx, selector).then((docs) => {
+    return this.db.find(ctx, selector).then((docs) => {
       return Promise.all(docs.map(this.transform.bind(this, ctx)));
     });
   }
 
   findOne(ctx, id) {
-    return this._db.findOne(ctx, id).then((doc) => {
+    return this.db.findOne(ctx, id).then((doc) => {
       return this.transform(ctx, doc);
     });
   }
@@ -57,7 +57,7 @@ export default class Resource {
       });
     }
     return this.validate(ctx, doc).then(() => {
-      return this._db.upsert(ctx, doc);
+      return this.db.upsert(ctx, doc);
     })
     .then((newDoc) => {
       return this.transform(ctx, newDoc);
@@ -71,7 +71,7 @@ export default class Resource {
       });
     }
     doc.id = id;
-    return this._db.findOne(ctx, id)
+    return this.db.findOne(ctx, id)
     .then((oldDoc) => {
       if (!oldDoc) {
         throw new Resource.NotFoundError();
@@ -82,7 +82,7 @@ export default class Resource {
       return this.validate(ctx, newDoc);
     })
     .then((mergedDoc) => {
-      return this._db.upsert(ctx, mergedDoc);
+      return this.db.upsert(ctx, mergedDoc);
     })
     .then((newDoc) => {
       return this.transform(ctx, newDoc);
@@ -90,7 +90,7 @@ export default class Resource {
   }
 
   delete(ctx, id) {
-    return this._db.delete(ctx, id);
+    return this.db.delete(ctx, id);
   }
 
   transform(ctx, doc) {
@@ -98,7 +98,7 @@ export default class Resource {
   }
 
   watch(ctx, query) {
-    return this._db.watch(ctx, query).then((feed) => {
+    return this.db.watch(ctx, query).then((feed) => {
       feed.on("data", function({oldVal, newVal}) {
         ctx.data({oldVal, newVal});
       });

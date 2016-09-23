@@ -1,5 +1,6 @@
 
 import Resource from "../src/sk-resource";
+import MockDbDriver from "../src/mock-db-driver";
 import _ from "underscore";
 import {v4} from "node-uuid";
 import EventEmitter from "events";
@@ -43,97 +44,11 @@ const reversePromise = function(prom) {
   });
 };
 
-class MockDbDriver {
-  constructor() {
-    this.watching = {};
-  }
-
-  find(ctx, query) {
-    return new Promise((resolve, reject) => {
-      const docs = _(db).chain()
-        .values()
-        .filter(query)
-        .value();
-      resolve(docs);
-    });
-  }
-
-  findOne(ctx, id) {
-    return new Promise((resolve, reject) => {
-      resolve(db[id]);
-    });
-  }
-
-  upsert(ctx, doc) {
-    return new Promise((resolve, reject) => {
-      let newDoc = false;
-      if (!doc.id) {
-        doc.id = v4();
-        this._change(null, doc);
-      }
-      else {
-        this._change(db[doc.id], doc);
-      }
-      db[doc.id] = doc;
-      resolve(doc);
-    });
-  }
-
-  delete(ctx, id) {
-    return new Promise((resolve, reject) => {
-      if (!db[id]) {
-        throw new Error("I do not have that ID");
-      }
-      this._change(db[id], null);
-      delete db[id];
-      resolve();
-    });
-  }
-
-  _change(oldVal, newVal) {
-    process.nextTick(() => {
-      _(this.watching).values().forEach(cb => cb({oldVal, newVal}));
-    });
-  }
-
-  watch(ctx, query) {
-    const me = v4();
-    const matchesQuery = function(doc) {
-      if (!doc) {
-        return false;
-      }
-      return _([doc]).where(query).length === 1;
-    };
-    const processor = (cb) => {
-      return ({oldVal, newVal}) => {
-        if (!matchesQuery(oldVal)) {
-          oldVal = null;
-        }
-        if (!matchesQuery(newVal)) {
-          newVal = null;
-        }
-        if (oldVal === null && newVal === null) {
-          return;
-        }
-        cb({oldVal, newVal});
-      };
-    };
-    return Promise.resolve({
-      on: (keyword, cb) => {
-        this.watching[me] = processor(cb);
-      },
-      close: () => {
-        delete this.watching[me];
-      },
-    });
-  }
-}
-
 beforeEach(() => {
   ctx = {
     subscriptions: [],
   };
-  db = {};
+  db = new MockDbDriver();
   TestResource = class extends Resource {
     auth(ctx, doc) {
       return Promise.resolve();
@@ -148,10 +63,7 @@ beforeEach(() => {
   });
   ajv.addSchema(testResourceSchema, "testResourceSchema");
   TestResource.schema = "testResourceSchema";
-  testResource = new TestResource({
-    db: new MockDbDriver(),
-    ajv: ajv
-  });
+  testResource = new TestResource({db, ajv});
 });
 
 it("should initalize", () => {
@@ -166,26 +78,32 @@ it("should fail if no database is provided", () => {
 
 it("should findOne", () => {
   const testId = v4();
-  db[testId] = {id: testId, "foo": "bar"};
-  return testResource.findOne(ctx, testId)
+  db.upsert(ctx, {id: testId, "foo": "bar"})
+  .then(() => {
+    return testResource.findOne(ctx, testId);
+  })
   .then((doc) => {
     expect(doc).toEqual({id: testId, foo: "bar"});
   });
 });
 
 it("should find", () => {
-  const pushDoc = () => {
+  const randoDoc = () => {
     const doc = {};
     doc.id = v4();
     doc.foo = v4();
-    db[doc.id] = doc;
     return doc;
   };
-  pushDoc();
-  pushDoc();
-  const testDoc = pushDoc();
+  const testDoc = randoDoc();
   testDoc.foo = "bar";
-  return testResource.find(ctx, {foo: "bar"})
+  return Promise.all([
+    db.upsert(ctx, randoDoc()),
+    db.upsert(ctx, testDoc),
+    db.upsert(ctx, randoDoc()),
+  ])
+  .then(() => {
+    return testResource.find(ctx, {foo: "bar"});
+  })
   .then((docs) => {
     expect(docs).toEqual([testDoc]);
     return testResource.find(ctx);
@@ -198,7 +116,10 @@ it("should find", () => {
 it("should create", () => {
   return testResource.create(ctx, {foo: "bar"})
   .then((doc) => {
-    expect(db[doc.id].foo).toBe("bar");
+    return db.findOne(ctx, doc.id);
+  })
+  .then((doc) => {
+    expect(doc.foo).toBe("bar");
   });
 });
 
@@ -210,19 +131,28 @@ it("shouldn't auth creates with an id", () => {
 
 it("should update", () => {
   const testId = v4();
-  db[testId] = {"foo": "bar"};
-  return testResource.update(ctx, testId, {foo: "baz"})
+  return db.upsert(ctx, {id: testId, "foo": "bar"})
   .then(() => {
-    expect(db[testId]).toEqual({id: testId, foo: "baz"});
+    return testResource.update(ctx, testId, {foo: "baz"});
+  })
+  .then(() => {
+    return db.findOne(ctx, testId);
+  })
+  .then((doc) => {
+    expect(doc).toEqual({id: testId, foo: "baz"});
   });
 });
 
 it("should update with a provided id", () => {
   const testId = v4();
-  db[testId] = {"foo": "bar"};
-  return testResource.update(ctx, testId, {id: testId, foo: "baz"})
+  return db.upsert(ctx, {id: testId, "foo": "bar"})
   .then(() => {
-    expect(db[testId]).toEqual({id: testId, foo: "baz"});
+    return testResource.update(ctx, testId, {id: testId, foo: "baz"});
+  })
+  .then(() => {
+    return db.findOne(ctx, testId);
+  }).then((doc) => {
+    expect(doc).toEqual({id: testId, foo: "baz"});
   });
 });
 
@@ -236,10 +166,15 @@ it("shouldn't auth updates that change the id", () => {
 
 it("should delete", () => {
   const testId = v4();
-  db[testId] = {"foo": "bar"};
-  return testResource.delete(ctx, testId)
+  return db.upsert(ctx, {id: testId, foo: "bar"})
   .then(() => {
-    expect(db).toEqual({});
+    return testResource.delete(ctx, testId);
+  })
+  .then(() => {
+    return db.find(ctx, {});
+  })
+  .then((docs) => {
+    expect(docs).toEqual([]);
   });
 });
 
@@ -396,21 +331,15 @@ it("should reject incorrect values upon creation", (done) => {
   });
 });
 
-it("should reject incorrect values upon update", (done) => {
-  testResource.create(ctx, {foo: false}).then(shouldFail)
-  .catch((err) => {
-    expect(err.message).toMatch(/VALIDATION_FAILED/);
-    done();
-  });
-});
-
-it("should reject incorrect values upon update", (done) => {
+it("should reject incorrect values upon update", () => {
   const testId = v4();
   db[testId] = {"foo": "bar"};
-  testResource.update(ctx, testId, {foo: 123456}).then(shouldFail)
-  .catch((err) => {
+  return db.upsert(ctx, {foo: "bar", id: testId})
+  .then(() => {
+    return reversePromise(testResource.update(ctx, testId, {foo: 123456}));
+  })
+  .then((err) => {
     expect(err.message).toMatch(/VALIDATION_FAILED/);
-    done();
   });
 });
 
@@ -471,8 +400,10 @@ it("should make auth checks on modification", () => {
 it("should disallow everything by default", () => {
   delete TestResource.prototype.auth;
   const testId = v4();
-  db[testId] = {id: testId, "foo": "bar"};
-  return reversePromise(testResource.create(ctx, {foo: "bar"}))
+  return db.upsert(ctx, {id: testId, "foo": "bar"})
+  .then(() => {
+    return reversePromise(testResource.create(ctx, {foo: "bar"}));
+  })
   .then((err) => {
     expect(err.status).toBe(403);
     return reversePromise(testResource.update(ctx, testId, {"foo": "baz"}));
@@ -503,18 +434,15 @@ describe("queries", () => {
   beforeEach(() => {
     selectorCalledCount = 0;
     watchCalledCount = 0;
-    doc1 = {id: v4(), "foo": "bar"};
-    doc2 = {id: v4(), "foo": "baz"};
-    docAuthorized = {id: v4(), foo: "bar", userId: "yup"};
-    docUnauthorized = {id: v4(), foo: "bar", userId: "nope"};
-    db[doc1.id] = doc1;
-    db[doc2.id] = doc2;
-    db[docAuthorized.id] = docAuthorized;
-    db[docUnauthorized.id] = docUnauthorized;
     TestResource.prototype.authQuery = () => {
       selectorCalledCount += 1;
       return Promise.resolve({userId: "yup"});
     };
+    doc1 = {id: v4(), "foo": "bar"};
+    doc2 = {id: v4(), "foo": "baz"};
+    docAuthorized = {id: v4(), foo: "bar", userId: "yup"};
+    docUnauthorized = {id: v4(), foo: "bar", userId: "nope"};
+    return Promise.all([doc1, doc2, docAuthorized, docUnauthorized].map(db.upsert.bind(db, ctx)));
   });
 
   it("should authorize query on find", () => {

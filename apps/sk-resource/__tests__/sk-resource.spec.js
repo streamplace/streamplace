@@ -48,11 +48,11 @@ class MockDbDriver {
     this.watching = {};
   }
 
-  find(ctx, selector) {
+  find(ctx, query) {
     return new Promise((resolve, reject) => {
       const docs = _(db).chain()
         .values()
-        .filter(selector)
+        .filter(query)
         .value();
       resolve(docs);
     });
@@ -135,23 +135,11 @@ beforeEach(() => {
   };
   db = {};
   TestResource = class extends Resource {
-    authCreate(ctx, doc) {
-      return Promise.resolve(true);
+    auth(ctx, doc) {
+      return Promise.resolve();
     }
 
-    authUpdate(ctx, oldDoc, newDoc) {
-      return Promise.resolve(true);
-    }
-
-    authDelete(ctx, doc) {
-      return Promise.resolve(true);
-    }
-
-    authFindOne(ctx, doc) {
-      return Promise.resolve(true);
-    }
-
-    authSelector(ctx, query) {
+    authQuery(ctx, query) {
       return Promise.resolve({});
     }
   };
@@ -481,10 +469,7 @@ it("should make auth checks on modification", () => {
 });
 
 it("should disallow everything by default", () => {
-  delete TestResource.prototype.authCreate;
-  delete TestResource.prototype.authUpdate;
-  delete TestResource.prototype.authDelete;
-  delete TestResource.prototype.authFindOne;
+  delete TestResource.prototype.auth;
   const testId = v4();
   db[testId] = {id: testId, "foo": "bar"};
   return reversePromise(testResource.create(ctx, {foo: "bar"}))
@@ -508,7 +493,7 @@ it("should disallow everything by default", () => {
   });
 });
 
-describe("selectors", () => {
+describe("queries", () => {
   let doc1;
   let doc2;
   let docAuthorized;
@@ -526,13 +511,13 @@ describe("selectors", () => {
     db[doc2.id] = doc2;
     db[docAuthorized.id] = docAuthorized;
     db[docUnauthorized.id] = docUnauthorized;
-    TestResource.prototype.authSelector = () => {
+    TestResource.prototype.authQuery = () => {
       selectorCalledCount += 1;
       return Promise.resolve({userId: "yup"});
     };
   });
 
-  it("should authorize selectors on find", () => {
+  it("should authorize query on find", () => {
     return testResource.find(ctx, {foo: "bar"})
     .then((docs) => {
       expect(docs).toEqual([docAuthorized]);
@@ -540,7 +525,7 @@ describe("selectors", () => {
     });
   });
 
-  it("should authorize selectors on watch", () => {
+  it("should authorize query on watch", () => {
     ctx.data = function({oldVal, newVal}) {
       expect(newVal.foo).toBe("bar");
       watchCalledCount += 1;

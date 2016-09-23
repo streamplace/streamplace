@@ -3,6 +3,7 @@
 // that complicated yet so we're just using some rando npm package that got some nice real estate
 // on the word "merge"
 import merge from "merge";
+import winston from "winston";
 
 export default class Resource {
   constructor({db, ajv}) {
@@ -38,14 +39,31 @@ export default class Resource {
     });
   }
 
-  find(ctx, selector = {}) {
-    return this.db.find(ctx, selector).then((docs) => {
+  find(ctx, query = {}) {
+    return this.authQuery(query, ctx)
+    .then((restrictedQuery) => {
+      merge(query, restrictedQuery);
+      return this.db.find(ctx, query);
+    })
+    .then((docs) => {
       return Promise.all(docs.map(this.transform.bind(this, ctx)));
     });
   }
 
   findOne(ctx, id) {
-    return this.db.findOne(ctx, id).then((doc) => {
+    let doc;
+    return this.db.findOne(ctx, id)
+    .then((foundDoc) => {
+      doc = foundDoc;
+      if (!doc) {
+        throw new Resource.NotFoundError();
+      }
+      return this.auth(ctx, doc);
+    })
+    .then(() => {
+      return this.authFindOne(ctx, doc);
+    })
+    .then(() => {
       return this.transform(ctx, doc);
     });
   }
@@ -56,7 +74,14 @@ export default class Resource {
         message: "Cannot create with an extant ID"
       });
     }
-    return this.validate(ctx, doc).then(() => {
+    return this.validate(ctx, doc)
+    .then(() => {
+      return this.auth(ctx, doc);
+    })
+    .then(() => {
+      return this.authCreate(ctx, doc);
+    })
+    .then((result) => {
       return this.db.upsert(ctx, doc);
     })
     .then((newDoc) => {
@@ -71,18 +96,27 @@ export default class Resource {
       });
     }
     doc.id = id;
+    let oldDoc;
+    let newDoc;
     return this.db.findOne(ctx, id)
-    .then((oldDoc) => {
-      if (!oldDoc) {
+    .then((old) => {
+      if (!old) {
         throw new Resource.NotFoundError();
       }
-      const newDoc = {};
+      oldDoc = old;
+      newDoc = {};
       merge.recursive(newDoc, oldDoc);
       merge.recursive(newDoc, doc);
       return this.validate(ctx, newDoc);
     })
-    .then((mergedDoc) => {
-      return this.db.upsert(ctx, mergedDoc);
+    .then(() => {
+      return this.auth(ctx, newDoc);
+    })
+    .then(() => {
+      return this.authUpdate(ctx, oldDoc, newDoc);
+    })
+    .then((result) => {
+      return this.db.upsert(ctx, newDoc);
     })
     .then((newDoc) => {
       return this.transform(ctx, newDoc);
@@ -90,7 +124,21 @@ export default class Resource {
   }
 
   delete(ctx, id) {
-    return this.db.delete(ctx, id);
+    let doc;
+    return this.db.findOne(ctx, id)
+    .then((docToDelete) => {
+      doc = docToDelete;
+      if (!doc) {
+        throw new Resource.NotFoundError();
+      }
+      return this.auth(ctx, doc);
+    })
+    .then(() => {
+      return this.authDelete(ctx, doc);
+    })
+    .then(() => {
+      return this.db.delete(ctx, id);
+    });
   }
 
   transform(ctx, doc) {
@@ -98,7 +146,12 @@ export default class Resource {
   }
 
   watch(ctx, query) {
-    return this.db.watch(ctx, query).then((feed) => {
+    return this.authQuery(ctx, query)
+    .then((restrictedQuery) => {
+      merge(query, restrictedQuery);
+      return this.db.watch(ctx, query);
+    })
+    .then((feed) => {
       feed.on("data", function({oldVal, newVal}) {
         ctx.data({oldVal, newVal});
       });
@@ -108,6 +161,44 @@ export default class Resource {
         }
       };
     });
+  }
+
+  ////////////////////
+  // Auth Functions //
+  ////////////////////
+
+  // These are all full blacklists by default. The minimum necessary for implementing classes is
+  // auth and authQuery.
+
+  /**
+   * Auth takes a document and returns whether or not we have access to it. If you need to
+   * implement something more complicated than that, use the authAction functions.
+   */
+  auth(ctx, doc) {
+    winston.warn(`${this.constructor.name} does not implement authQuery, disallowing.`);
+    throw new Resource.ForbiddenError();
+  }
+
+  authQuery(ctx, query) {
+    winston.warn(`${this.constructor.name} does not implement authQuery, returning nothing.`);
+    // This is kinda silly but it does keep any documents from being returned.
+    return Promise.resolve({FIELD_DOES_NOT_EXIST: true});
+  }
+
+  authFindOne(ctx, doc) {
+
+  }
+
+  authCreate(ctx, doc) {
+
+  }
+
+  authUpdate(ctx, oldDoc, newDoc) {
+
+  }
+
+  authDelete(ctx, doc) {
+
   }
 }
 
@@ -153,11 +244,21 @@ Resource.ValidationError = class ValidationError extends Resource.APIError {
 };
 
 Resource.NotFoundError = class NotFoundError extends Resource.APIError {
-  constructor({message = "Validation Error"} = {}) {
+  constructor() {
     super({
       message: "Resource not found",
       status: 404,
       code: "NOT_FOUND"
+    });
+  }
+};
+
+Resource.ForbiddenError = class ForbiddenError extends Resource.APIError {
+  constructor() {
+    super({
+      message: "You may not access this resource",
+      status: 403,
+      code: "UNAUTHORIZED"
     });
   }
 };

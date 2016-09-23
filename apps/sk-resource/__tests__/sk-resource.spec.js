@@ -78,7 +78,7 @@ it("should fail if no database is provided", () => {
 
 it("should findOne", () => {
   const testId = v4();
-  db.upsert(ctx, {id: testId, "foo": "bar"})
+  return db.upsert(ctx, {id: testId, "foo": "bar"})
   .then(() => {
     return testResource.findOne(ctx, testId);
   })

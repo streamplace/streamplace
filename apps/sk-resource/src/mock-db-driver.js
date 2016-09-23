@@ -11,7 +11,7 @@ const req = function() {
 };
 
 export default class MockDbDriver {
-  constructor() {
+  constructor({tableName}) {
     this.watching = {};
     this.data = {};
   }

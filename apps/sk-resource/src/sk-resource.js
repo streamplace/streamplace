@@ -6,16 +6,17 @@ import merge from "merge";
 import winston from "winston";
 
 export default class Resource {
-  constructor({db, ajv}) {
-    if (!db) {
+  constructor({dbDriver, ajv}) {
+    if (!dbDriver) {
       throw new Error("no database provided");
     }
     if (!ajv) {
       throw new Error("no ajv provided");
     }
-    this.db = db;
+
+    this.db = new dbDriver({tableName: this.constructor.tableName});
     this.ajv = ajv;
-    this.validator = this.ajv.getSchema(this.constructor.schema);
+    this.validator = this.ajv.getSchema(this.constructor.resourceName);
     if (!this.validator) {
       throw new Error(`Schema ${this.constructor.schema} not found!`);
     }

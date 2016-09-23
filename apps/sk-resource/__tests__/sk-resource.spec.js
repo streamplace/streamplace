@@ -1,6 +1,13 @@
 
+/**
+ * If you want to test this against actual rethink, make sure you're running jest --runInBand so
+ * they don't clobber each other
+ */
+
 import Resource from "../src/sk-resource";
 import MockDbDriver from "../src/mock-db-driver";
+import RethinkDbDriver from "../src/rethink-db-driver";
+import r from "rethinkdb";
 import _ from "underscore";
 import {v4} from "node-uuid";
 import EventEmitter from "events";
@@ -11,6 +18,11 @@ let testResource;
 let ctx;
 let db;
 let ajv;
+
+const useRethink = process.env.SK_TEST_DB_DRIVER === "rethink";
+const RETHINK_HOST = process.env.SK_TEST_DB_HOST;
+const RETHINK_PORT = process.env.SK_TEST_DB_PORT;
+const RETHINK_DATABASE = `test-${Date.now()}`;
 
 const testResourceSchema = {
   type: "object",
@@ -48,7 +60,13 @@ beforeEach(() => {
   ctx = {
     subscriptions: [],
   };
-  db = new MockDbDriver();
+  let dbDriver;
+  if (useRethink) {
+    dbDriver = RethinkDbDriver;
+  }
+  else {
+    dbDriver = MockDbDriver;
+  }
   TestResource = class extends Resource {
     auth(ctx, doc) {
       return Promise.resolve();
@@ -61,9 +79,27 @@ beforeEach(() => {
   ajv = new Ajv({
     allErrors: true
   });
-  ajv.addSchema(testResourceSchema, "testResourceSchema");
-  TestResource.schema = "testResourceSchema";
-  testResource = new TestResource({db, ajv});
+  TestResource.resourceName = "testResource";
+  TestResource.tableName = "testResources";
+  ajv.addSchema(testResourceSchema, "testResource");
+  testResource = new TestResource({dbDriver, ajv});
+  db = testResource.db;
+  if (useRethink) {
+    const rethinkConfig = {
+      host: RETHINK_HOST,
+      port: RETHINK_PORT,
+      db: RETHINK_DATABASE
+    };
+    return r.connect(rethinkConfig).then((conn) => {
+      ctx.conn = conn;
+    });
+  }
+});
+
+afterEach(() => {
+  if (useRethink) {
+    return ctx.conn.close();
+  }
 });
 
 it("should initalize", () => {

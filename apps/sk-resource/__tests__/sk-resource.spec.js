@@ -22,7 +22,7 @@ let ajv;
 const useRethink = process.env.SK_TEST_DB_DRIVER === "rethink";
 const RETHINK_HOST = process.env.SK_TEST_DB_HOST;
 const RETHINK_PORT = process.env.SK_TEST_DB_PORT;
-const RETHINK_DATABASE = `test-${Date.now()}`;
+const RETHINK_DATABASE = `test_${Date.now()}`;
 
 const testResourceSchema = {
   type: "object",
@@ -92,13 +92,17 @@ beforeEach(() => {
     };
     return r.connect(rethinkConfig).then((conn) => {
       ctx.conn = conn;
+      return r.dbCreate(RETHINK_DATABASE).run(conn);
     });
   }
 });
 
 afterEach(() => {
   if (useRethink) {
-    return ctx.conn.close();
+    return r.dbDrop(RETHINK_DATABASE).run(ctx.conn)
+    .then(() => {
+      return ctx.conn.close();
+    });
   }
 });
 
@@ -257,8 +261,10 @@ beforeEach(() => {
 });
 
 it("should watch on CRUD operations", () => {
+  let feed;
   return testResource.watch(ctx, {}, v4())
-  .then(() => {
+  .then((newFeed) => {
+    feed = newFeed;
     return testResource.create(ctx, {foo: "bar"});
   })
   .then(() => {
@@ -286,6 +292,7 @@ it("should watch on CRUD operations", () => {
     expect(watchCalledCount).toBe(3);
     expect(oldVal.foo).toBe("baz");
     expect(newVal).toBe(null);
+    return feed.stop();
   });
 });
 

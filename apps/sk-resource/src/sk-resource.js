@@ -153,12 +153,12 @@ export default class Resource {
       return this.db.watch(ctx, query);
     })
     .then((feed) => {
-      feed.on("data", function({oldVal, newVal}) {
-        ctx.data({oldVal, newVal});
+      feed.on("data", function({old_val, new_val}) {
+        ctx.data({oldVal: old_val, newVal: new_val});
       });
       return {
         stop: () => {
-          feed.close();
+          return feed.close();
         }
       };
     });

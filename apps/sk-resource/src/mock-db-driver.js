@@ -83,7 +83,7 @@ export default class MockDbDriver {
         if (oldVal === null && newVal === null) {
           return;
         }
-        cb({oldVal, newVal});
+        cb({old_val: oldVal, new_val: newVal});
       };
     };
     return Promise.resolve({

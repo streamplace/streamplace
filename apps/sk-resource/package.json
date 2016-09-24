@@ -2,10 +2,11 @@
   "name": "sk-resource",
   "version": "0.0.0",
   "description": "Stream Kitchen base resources",
-  "main": "index.js",
+  "main": "dist/sk-resource.js",
   "scripts": {
-    "test": "jest",
-    "test-rethink": "SK_TEST_DB_DRIVER=rethink SK_TEST_DB_HOST=localhost SK_TEST_DB_PORT=28019 jest"
+    "test": "jest --colors",
+    "build": "babel -d dist src",
+    "test-rethink": "SK_TEST_DB_DRIVER=rethink SK_TEST_DB_HOST=localhost SK_TEST_DB_PORT=28019 jest --colors"
   },
   "author": "Stream Kitchen",
   "license": "Apache-2.0",

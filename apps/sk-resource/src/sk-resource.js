@@ -176,7 +176,7 @@ export default class Resource {
    * implement something more complicated than that, use the authAction functions.
    */
   auth(ctx, doc) {
-    winston.warn(`${this.constructor.name} does not implement authQuery, disallowing.`);
+    winston.warn(`${this.constructor.name} does not implement auth, disallowing.`);
     throw new Resource.ForbiddenError();
   }
 

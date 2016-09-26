@@ -153,14 +153,25 @@ export default class Resource {
       return this.db.watch(ctx, query);
     })
     .then((feed) => {
-      feed.on("data", function({old_val, new_val}) {
-        ctx.data({oldVal: old_val, newVal: new_val});
-      });
-      return {
+      let resolved = false;
+      const handle = {
         stop: () => {
           return feed.close();
         }
       };
+      return new Promise((resolve, reject) => {
+        feed.on("data", function({old_val, new_val, type, state}) {
+          if (state) {
+            if (!resolved && state === "ready") {
+              resolved = true;
+              resolve(handle);
+            }
+          }
+          else {
+            ctx.data({oldVal: old_val, newVal: new_val});
+          }
+        });
+      });
     });
   }
 

@@ -74,13 +74,13 @@ export default class MockDbDriver {
     };
     const processor = (cb) => {
       return ({oldVal, newVal}) => {
-        if (!matchesQuery(oldVal)) {
+        if (oldVal !== undefined && !matchesQuery(oldVal)) {
           oldVal = null;
         }
         if (!matchesQuery(newVal)) {
           newVal = null;
         }
-        if (oldVal === null && newVal === null) {
+        if (!oldVal && !newVal) {
           return;
         }
         cb({old_val: oldVal, new_val: newVal});
@@ -88,7 +88,11 @@ export default class MockDbDriver {
     };
     return Promise.resolve({
       on: (keyword, cb) => {
-        this.watching[me] = processor(cb);
+        cb({state: "initalizing"});
+        const docProcessor = processor(cb);
+        _(this.data).values().forEach(doc => docProcessor({newVal: doc}));
+        this.watching[me] = docProcessor;
+        cb({state: "ready"});
       },
       close: () => {
         delete this.watching[me];

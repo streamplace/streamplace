@@ -84,7 +84,11 @@ export default class RethinkDbDriver {
   watch(ctx = req(), query = req()) {
     return this._init(ctx)
     .then(() => {
-      return r.table(this.name).filter(query).changes().run(ctx.conn);
+      return r.table(this.name).filter(query).changes({
+        includeTypes: true,
+        includeInitial: true,
+        includeStates: true
+      }).run(ctx.conn);
     });
   }
 }

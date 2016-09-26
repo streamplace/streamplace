@@ -296,10 +296,26 @@ it("should watch on CRUD operations", () => {
   });
 });
 
-it("should stop watching", () => {
-  const subId = v4();
+it("should get the initial documents", () => {
   let handle;
-  return testResource.watch(ctx, {}, subId)
+  let doc;
+  return testResource.create(ctx, {foo: "bar"})
+  .then((newDoc) => {
+    doc = newDoc;
+    return testResource.watch(ctx, {foo: "bar"});
+  })
+  .then((newHandle) => {
+    handle = newHandle;
+    expect(watchCalledCount).toBe(1);
+    expect(oldVal).toBe(undefined);
+    expect(newVal).toEqual(doc);
+    return handle.stop();
+  });
+});
+
+it("should stop watching", () => {
+  let handle;
+  return testResource.watch(ctx, {})
   .then((newHandle) => {
     handle = newHandle;
     return wait(0);

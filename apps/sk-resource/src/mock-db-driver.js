@@ -10,6 +10,13 @@ const req = function() {
   throw new Error("Missing required parameter");
 };
 
+const matchesQuery = function(query, doc) {
+  if (!doc) {
+    return false;
+  }
+  return _([doc]).where(query).length === 1;
+};
+
 export default class MockDbDriver {
   constructor({tableName}) {
     this.watching = {};
@@ -58,6 +65,15 @@ export default class MockDbDriver {
     });
   }
 
+  multiDelete(ctx = req(), query = req()) {
+    const proms = _(this.data).values()
+    .filter(matchesQuery.bind(undefined, query))
+    .map((doc) => {
+      return this.delete(ctx, doc.id);
+    });
+    return Promise.all(proms);
+  }
+
   _change(oldVal, newVal) {
     process.nextTick(() => {
       _(this.watching).values().forEach(cb => cb({oldVal, newVal}));
@@ -66,18 +82,12 @@ export default class MockDbDriver {
 
   watch(ctx = req(), query = req()) {
     const me = v4();
-    const matchesQuery = function(doc) {
-      if (!doc) {
-        return false;
-      }
-      return _([doc]).where(query).length === 1;
-    };
     const processor = (cb) => {
       return ({oldVal, newVal}) => {
-        if (oldVal !== undefined && !matchesQuery(oldVal)) {
+        if (oldVal !== undefined && !matchesQuery(query, oldVal)) {
           oldVal = null;
         }
-        if (!matchesQuery(newVal)) {
+        if (!matchesQuery(query, newVal)) {
           newVal = null;
         }
         if (!oldVal && !newVal) {

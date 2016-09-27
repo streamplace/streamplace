@@ -5,6 +5,9 @@
 import merge from "merge";
 import winston from "winston";
 
+import RethinkDbDriver from "./rethink-db-driver";
+export {RethinkDbDriver};
+
 export default class Resource {
   constructor({dbDriver, ajv}) {
     if (!dbDriver) {
@@ -16,7 +19,7 @@ export default class Resource {
 
     this.db = new dbDriver({tableName: this.constructor.tableName});
     this.ajv = ajv;
-    this.validator = this.ajv.getSchema(this.constructor.resourceName);
+    this.validator = this.ajv.getSchema(this.constructor.name);
     if (!this.validator) {
       throw new Error(`Schema ${this.constructor.schema} not found!`);
     }

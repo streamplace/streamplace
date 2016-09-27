@@ -79,9 +79,8 @@ beforeEach(() => {
   ajv = new Ajv({
     allErrors: true
   });
-  TestResource.resourceName = "testResource";
   TestResource.tableName = "testResources";
-  ajv.addSchema(testResourceSchema, "testResource");
+  ajv.addSchema(testResourceSchema, "TestResource");
   testResource = new TestResource({dbDriver, ajv});
   db = testResource.db;
   if (useRethink) {
@@ -533,6 +532,31 @@ describe("queries", () => {
     .then(() => {
       handle.stop();
       expect(selectorCalledCount).toBe(1);
+    });
+  });
+});
+
+/**
+ * Additional dbDriver functions that aren't necessarily tested through the resource itself.
+ * Arguably these shouldn't be in this file.
+ */
+describe("dbDriver", () => {
+  it("should multiDelete", () => {
+    return Promise.all([
+      db.upsert(ctx, {foo: "bar"}),
+      db.upsert(ctx, {foo: "bar"}),
+      db.upsert(ctx, {foo: "bar"}),
+      db.upsert(ctx, {foo: "baz"}),
+    ])
+    .then(() => {
+      return db.multiDelete(ctx, {foo: "bar"});
+    })
+    .then(() => {
+      return db.find(ctx, {});
+    })
+    .then((docs) => {
+      expect(docs.length).toBe(1);
+      expect(docs[0].foo).toBe("baz");
     });
   });
 });

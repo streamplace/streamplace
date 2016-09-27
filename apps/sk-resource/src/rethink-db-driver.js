@@ -81,6 +81,13 @@ export default class RethinkDbDriver {
     });
   }
 
+  multiDelete(ctx = req(), query = req()) {
+    return this._init(ctx)
+    .then(() => {
+      return r.table(this.name).filter(query).delete().run(ctx.conn);
+    });
+  }
+
   watch(ctx = req(), query = req()) {
     return this._init(ctx)
     .then(() => {

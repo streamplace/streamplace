@@ -2,11 +2,11 @@
   "name": "bellamie",
   "version": "0.0.1",
   "description": "API Server for Stream Kitchen",
-  "main": "dist/app.js",
+  "main": "dist/bellamie.js",
   "scripts": {
     "test": "mocha --compilers js:babel-register",
     "build": "babel -d dist src",
-    "dev": "babel-watch src/app.js"
+    "dev": "babel-watch src/bellamie.js"
   },
   "repository": {
     "type": "git",

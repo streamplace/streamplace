@@ -26,8 +26,11 @@ function run() {
 export NODE_PATH="${NODE_PATH:-}:$(realpath "$DIR/../apps")"
 # export DEBUG_LEVEL="debug"
 run sk-config 1
+run sk-resource 12
+run sk-utils 173
 run sk-schema 4
 # run sk-code 190
+run sk-plugin-core 96
 run shoko 208
 run sk-client 196
 run mpeg-munger 214
@@ -35,9 +38,9 @@ run sk-time 94
 run bellamie 201
 run gort 6
 run pipeland 40
-run vertex-scheduler 50
-run broadcast-scheduler 60
-run autosync 70
+# run vertex-scheduler 50
+# run broadcast-scheduler 60
+# run autosync 70
 run overlay 80
 wait
 

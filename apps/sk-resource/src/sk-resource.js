@@ -28,6 +28,10 @@ export default class Resource {
     }
   }
 
+  default(ctx) {
+    return Promise.resolve({kind: this.constructor.name});
+  }
+
   validate(ctx, doc) {
     return new Promise((resolve, reject) => {
       const valid = this.validator(doc);
@@ -72,13 +76,19 @@ export default class Resource {
     });
   }
 
-  create(ctx, doc) {
-    if (doc.id !== undefined) {
+  create(ctx, newDoc) {
+    let doc;
+    if (newDoc.id !== undefined) {
       throw new Resource.ValidationError({
         message: "Cannot create with an extant ID"
       });
     }
-    return this.validate(ctx, doc)
+    return this.default(ctx)
+    .then((defaultDoc) => {
+      doc = defaultDoc;
+      merge(doc, newDoc);
+      return this.validate(ctx, doc);
+    })
     .then(() => {
       return this.auth(ctx, doc);
     })

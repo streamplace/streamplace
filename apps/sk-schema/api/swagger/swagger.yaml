@@ -148,9 +148,9 @@ definitions:
         description: Human-readable name of this input
         minLength: 1
       overlayKey:
-        $ref: "#/definitions/SecretKey"
+        $ref: "SecretKey"
       streamKey:
-        $ref: "#/definitions/SecretKey"
+        $ref: "SecretKey"
 
   Output:
     type: object

@@ -1,5 +1,4 @@
 
-import r from "rethinkdb";
 import winston from "winston";
 
 const req = function() {
@@ -25,9 +24,9 @@ export default class RethinkDbDriver {
     if (!this._initCalled) {
       this._initCalled = true;
       const done = () => {
-        r.table(this.name).wait().run(ctx.conn).then(this._initResolve).catch(this._initReject);
+        ctx.rethink.table(this.name).wait().run(ctx.conn).then(this._initResolve).catch(this._initReject);
       };
-      r.tableCreate(this.name).run(ctx.conn).then(done)
+      ctx.rethink.tableCreate(this.name).run(ctx.conn).then(done)
       .catch((err) => {
         if (!err.msg || err.msg.indexOf("alreadyExists") !== -1) {
           return this._initReject(err);
@@ -41,7 +40,7 @@ export default class RethinkDbDriver {
   find(ctx = req(), query = req()) {
     return this._init(ctx)
     .then(() => {
-      return r.table(this.name).filter(query).run(ctx.conn);
+      return ctx.rethink.table(this.name).filter(query).run(ctx.conn);
     })
     .then((cursor) => {
       return cursor.toArray();
@@ -51,7 +50,7 @@ export default class RethinkDbDriver {
   findOne(ctx = req(), id = req()) {
     return this._init(ctx)
     .then(() => {
-      return r.table(this.name).get(id).run(ctx.conn);
+      return ctx.rethink.table(this.name).get(id).run(ctx.conn);
     });
   }
 
@@ -59,13 +58,13 @@ export default class RethinkDbDriver {
     return this._init(ctx)
     .then(() => {
       if (doc.id) {
-        return r.table(this.name).get(doc.id).replace(doc).run(ctx.conn)
+        return ctx.rethink.table(this.name).get(doc.id).replace(doc).run(ctx.conn)
         .then((response) => {
           return doc;
         });
       }
       else {
-        return r.table(this.name).insert(doc).run(ctx.conn)
+        return ctx.rethink.table(this.name).insert(doc).run(ctx.conn)
         .then(({generated_keys}) => {
           doc.id = generated_keys[0];
           return doc;
@@ -77,21 +76,21 @@ export default class RethinkDbDriver {
   delete(ctx = req(), id = req()) {
     return this._init(ctx)
     .then(() => {
-      return r.table(this.name).get(id).delete().run(ctx.conn);
+      return ctx.rethink.table(this.name).get(id).delete().run(ctx.conn);
     });
   }
 
   multiDelete(ctx = req(), query = req()) {
     return this._init(ctx)
     .then(() => {
-      return r.table(this.name).filter(query).delete().run(ctx.conn);
+      return ctx.rethink.table(this.name).filter(query).delete().run(ctx.conn);
     });
   }
 
   watch(ctx = req(), query = req()) {
     return this._init(ctx)
     .then(() => {
-      return r.table(this.name).filter(query).changes({
+      return ctx.rethink.table(this.name).filter(query).changes({
         includeTypes: true,
         includeInitial: true,
         includeStates: true

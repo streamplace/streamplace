@@ -59,6 +59,7 @@ const reversePromise = function(prom) {
 beforeEach(() => {
   ctx = {
     subscriptions: [],
+    rethink: r,
   };
   let dbDriver;
   if (useRethink) {

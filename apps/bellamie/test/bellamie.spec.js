@@ -9,7 +9,7 @@ describe("broadcasts", function() {
   });
 
   let testBroadcastId = "nope";
-  let testBroadcastName = "Test Broadcast";
+  let testBroadcastTitle = "Test Broadcast";
 
   const fail = function(err) {
     if (err instanceof Error) {
@@ -21,9 +21,9 @@ describe("broadcasts", function() {
   };
 
   it("should create", function() {
-    return SK.broadcasts.create({name: testBroadcastName}).then(function(broadcast) {
+    return SK.broadcasts.create({title: testBroadcastTitle}).then(function(broadcast) {
       expect(broadcast).to.be.ok();
-      expect(broadcast.name).to.be(testBroadcastName);
+      expect(broadcast.title).to.be(testBroadcastTitle);
       testBroadcastId = broadcast.id;
     })
     .catch(fail);
@@ -32,17 +32,17 @@ describe("broadcasts", function() {
   it("should findOne", function() {
     return SK.broadcasts.findOne(testBroadcastId).then(function(broadcast) {
       expect(broadcast).to.be.ok();
-      expect(broadcast.name).to.be(testBroadcastName);
+      expect(broadcast.title).to.be(testBroadcastTitle);
     })
     .catch(fail);
   });
 
   it("should update", function() {
-    testBroadcastName = "Altered Name";
-    return SK.broadcasts.update(testBroadcastId, {name: testBroadcastName})
+    testBroadcastTitle = "Altered Name";
+    return SK.broadcasts.update(testBroadcastId, {title: testBroadcastTitle})
     .then(function(broadcast) {
       expect(broadcast).to.be.ok();
-      expect(broadcast.name).to.be(testBroadcastName);
+      expect(broadcast.title).to.be(testBroadcastTitle);
     })
     .catch(fail);
   });
@@ -52,14 +52,14 @@ describe("broadcasts", function() {
       expect(broadcasts).to.be.an(Array);
       const myBroadcast = broadcasts.filter((b) => b.id === testBroadcastId)[0];
       expect(myBroadcast).to.be.ok();
-      expect(myBroadcast.name).to.be(testBroadcastName);
+      expect(myBroadcast.title).to.be(testBroadcastTitle);
     })
     .catch(fail);
   });
 
   describe("watch", function() {
     let data;
-    let watchBroadcastName = "broadcast watch test";
+    let watchBroadcastTitle = "broadcast watch test";
     let watchBroadcastId;
     let broadcastCursor;
 
@@ -86,7 +86,7 @@ describe("broadcasts", function() {
 
     it("should recieve created events", function() {
       const createdEventPromise = eventPromise("created");
-      const doCreatePromise = SK.broadcasts.create({name: watchBroadcastName});
+      const doCreatePromise = SK.broadcasts.create({title: watchBroadcastTitle});
       return Promise.all([createdEventPromise, doCreatePromise])
         .then(function([[newDocs, createdIds], newDoc]) {
           watchBroadcastId = newDoc.id;
@@ -96,9 +96,9 @@ describe("broadcasts", function() {
 
     it("should recieve updated events", function() {
       // Same deal, now modify it
-      watchBroadcastName = "Updated in Watch";
+      watchBroadcastTitle = "Updated in Watch";
       const updateEventPromise = eventPromise("updated");
-      const doUpdatePromise = SK.broadcasts.update(watchBroadcastId, {name: watchBroadcastName});
+      const doUpdatePromise = SK.broadcasts.update(watchBroadcastId, {title: watchBroadcastTitle});
       return Promise.all([updateEventPromise, doUpdatePromise])
         .then(function([[newDocs, updatedIds], changedDoc]) {
           expect(updatedIds).to.eql([watchBroadcastId]);

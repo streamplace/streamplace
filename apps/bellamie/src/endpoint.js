@@ -1,9 +1,8 @@
 
 import express from "express";
 import winston from "winston";
-import r from "rethinkdb";
+import Resource, {SKContext} from "sk-resource";
 import config from "sk-config";
-import Resource from "sk-resource";
 
 const RETHINK_HOST = config.require("RETHINK_HOST");
 const RETHINK_PORT = config.require("RETHINK_PORT");
@@ -30,19 +29,20 @@ export default function endpoint({resource}) {
       code: err.code || "UNEXPECTED_ERROR",
       stack: err.stack,
     });
-    next();
+    next && next();
   };
 
   app.use((req, res, next) => {
-    const rethinkConfig = {
-      host: RETHINK_HOST,
-      port: RETHINK_PORT,
-      db: RETHINK_DATABASE
-    };
-    return r.connect(rethinkConfig).then((conn) => {
-      req.ctx = {conn, rethink: r};
+    SKContext.createContext({
+      rethinkHost: RETHINK_HOST,
+      rethinkPort: RETHINK_PORT,
+      rethinkDatabase: RETHINK_DATABASE
+    })
+    .then((ctx) => {
+      req.ctx = ctx;
       next();
-    });
+    })
+    .catch(handleError.bind(this, req, res, null));
   });
 
   app.get("/", (req, res, next) => {

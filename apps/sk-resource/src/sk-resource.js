@@ -5,8 +5,10 @@
 import merge from "merge";
 import winston from "winston";
 
+import APIError from "./api-error";
 import RethinkDbDriver from "./rethink-db-driver";
-export {RethinkDbDriver};
+import SKContext from "./sk-context";
+export {RethinkDbDriver, SKContext, APIError};
 
 export default class Resource {
   constructor({dbDriver, ajv}) {
@@ -168,12 +170,12 @@ export default class Resource {
     .then((feed) => {
       let resolved = false;
       const handle = {
-        stop: () => {
+        close: () => {
           return feed.close();
         }
       };
       return new Promise((resolve, reject) => {
-        feed.on("data", function({old_val, new_val, type, state}) {
+        feed.on("data", ({old_val, new_val, type, state}) => {
           if (state) {
             if (!resolved && state === "ready") {
               resolved = true;
@@ -181,7 +183,7 @@ export default class Resource {
             }
           }
           else {
-            ctx.data({oldVal: old_val, newVal: new_val});
+            ctx.data(this.constructor.tableName, old_val, new_val);
           }
         });
       });
@@ -227,26 +229,7 @@ export default class Resource {
   }
 }
 
-Resource.APIError = class APIError extends Error {
-  constructor({message, code, status}) {
-    if (!message || !code || !status) {
-      throw new Error("Missing required parameters");
-    }
-    if (typeof message !== "string") {
-      throw new Error("Invalid format for message");
-    }
-    if (typeof status !== "number" || status < 400 || status > 599) {
-      throw new Error("Invalid HTTP status");
-    }
-    const shortMessage = message;
-    const descriptiveMessage = `[${status}] ${code} - ${message}`;
-    super(`[${status}] ${code} - ${message}`);
-    this._shortMessage = shortMessage;
-    this._descriptiveMessage = descriptiveMessage;
-    this.code = code;
-    this.status = status;
-  }
-};
+Resource.APIError = APIError;
 
 Resource.ValidationError = class ValidationError extends Resource.APIError {
   constructor(errors) {

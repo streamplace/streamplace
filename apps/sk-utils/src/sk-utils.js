@@ -38,7 +38,7 @@ const randomString = function (charsCount, alphabet) {
   return digits.join("");
 };
 
-export function randomID(charsCount) {
+export function randomId(charsCount) {
   if (charsCount === undefined) {
     charsCount = 19;
   }

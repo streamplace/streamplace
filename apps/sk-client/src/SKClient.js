@@ -94,10 +94,22 @@ export default class SKClient extends EE {
     });
     this.socket.on("hello", () => {
       this.connected = true;
-      _(this.activeSubscriptions).each( ({resource, query, cb}, id) => {
+      _(this.activeSubscriptions).each( ({resource, query, cb}, subId) => {
         this.log("sub", resource, query);
-        this.socket.emit("sub", {id, resource, query});
+        this.socket.emit("sub", {subId, resource, query});
       });
+    });
+
+
+    this.socket.on("data", ({tableName, id, doc}) => {
+      if (!this[tableName]) {
+        throw new Error(`Got data event for ${tableName}, but I dunno what that is.`);
+      }
+      this[tableName]._data(id, doc);
+    });
+
+    this.socket.on("suback", ({subId}) => {
+      this.activeSubscriptions[subId].cb();
     });
     this.subscriptionIdx = 0;
     this.activeSubscriptions = {};
@@ -158,21 +170,21 @@ export default class SKClient extends EE {
   }
 
   _subscriptionId() {
-    const id = `${this.subscriptionIdx}`;
+    const subId = `${this.subscriptionIdx}`;
     this.subscriptionIdx += 1;
-    return id;
+    return subId;
   }
 
   _subscribe(resource, query, cb) {
-    const id = this._subscriptionId();
-    this.activeSubscriptions[id] = {resource, query, cb};
+    const subId = this._subscriptionId();
+    this.activeSubscriptions[subId] = {resource, query, cb};
     if (this.connected) {
-      this.socket.emit("sub", {id, resource, query});
+      this.socket.emit("sub", {subId, resource, query});
     }
     return {
       stop: () => {
-        this.socket.emit("unsub", {subId: id});
-        delete this.activeSubscriptions[id];
+        this.socket.emit("unsub", {subId});
+        delete this.activeSubscriptions[subId];
       }
     };
   }

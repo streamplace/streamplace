@@ -1,13 +1,15 @@
 
 import winston from "winston";
 import Ajv from "ajv";
-import {RethinkDbDriver} from "sk-resource";
+import {SKContext, RethinkDbDriver} from "sk-resource";
 import express from "express";
 import morgan from "morgan";
 import config from "sk-config";
 import bodyParser from "body-parser";
+import http from "http";
 
 import endpoint from "./endpoint";
+import socketHandler from "./socket-handler";
 
 const BELLAMIE_PORT = config.require("BELLAMIE_PORT");
 
@@ -38,7 +40,6 @@ const SK_PLUGINS = ["sk-plugin-core"];
 
 const schemaNames = {};
 const resourceNames = {};
-const resources = {};
 SK_PLUGINS.forEach((pluginName) => {
   const plugin = require(pluginName);
   winston.info(`Loading ${pluginName}...`);
@@ -73,10 +74,13 @@ SK_PLUGINS.forEach((pluginName) => {
       dbDriver: RethinkDbDriver,
       ajv: ajv,
     });
-    resources[resourceName] = resource;
+    SKContext.addResource(resource);
     const resourceEndpoint = endpoint({resource});
     app.use(path, resourceEndpoint);
   });
 });
 
-app.listen(BELLAMIE_PORT);
+const server = http.createServer(app);
+socketHandler(server);
+server.listen(BELLAMIE_PORT);
+winston.info(`Bellamie listening on port ${BELLAMIE_PORT}`);

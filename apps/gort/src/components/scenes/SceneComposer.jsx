@@ -64,6 +64,7 @@ export default class SceneComposer extends React.Component{
       this.sceneHandle.stop();
     }
     this.inputHandle.stop();
+    this.broadcastHandle.stop();
   }
 
   handleChangeTitle(e) {

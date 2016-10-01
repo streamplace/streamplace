@@ -38,9 +38,9 @@ run sk-time 94
 run bellamie 201
 run gort 6
 run pipeland 40
-# run vertex-scheduler 50
-# run broadcast-scheduler 60
-# run autosync 70
+run vertex-scheduler 50
+run broadcast-scheduler 60
+run autosync 70
 run overlay 80
 wait
 

@@ -2,11 +2,11 @@
   "name": "bellamie",
   "version": "0.0.1",
   "description": "API Server for Stream Kitchen",
-  "main": "dist/app.js",
+  "main": "dist/bellamie.js",
   "scripts": {
     "test": "mocha --compilers js:babel-register",
     "build": "babel -d dist src",
-    "dev": "babel-watch src/app.js"
+    "dev": "babel-watch src/bellamie.js"
   },
   "repository": {
     "type": "git",
@@ -22,10 +22,11 @@
     "ajv": "^4.4.0",
     "babel-polyfill": "^6.3.14",
     "body-parser": "^1.14.2",
+    "debug": "^2.2.0",
     "express": "^4.13.4",
     "morgan": "^1.6.1",
     "njwt": "^0.3.1",
-    "rethinkdb": "2.2.1",
+    "rethinkdb": "^2.3.3",
     "socket.io": "^1.4.5",
     "swagger-parser": "^3.4.0",
     "underscore": "^1.8.3",

@@ -1,0 +1,29 @@
+{
+  "name": "sk-resource",
+  "version": "0.0.0",
+  "description": "Stream Kitchen base resources",
+  "main": "dist/sk-resource.js",
+  "scripts": {
+    "test": "jest --colors",
+    "build": "babel -d dist src",
+    "dev": "nodemon -w src -x npm run build",
+    "test-rethink": "SK_TEST_DB_DRIVER=rethink SK_TEST_DB_HOST=localhost SK_TEST_DB_PORT=28019 jest --colors"
+  },
+  "author": "Stream Kitchen",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "ajv": "^4.7.0",
+    "babel-jest": "^15.0.0",
+    "babel-polyfill": "^6.13.0",
+    "babel-preset-streamkitchen": "0.0.2",
+    "jest": "^15.1.1",
+    "node-uuid": "^1.4.7",
+    "underscore": "^1.8.3"
+  },
+  "dependencies": {
+    "merge": "^1.2.0",
+    "rethinkdb": "^2.3.3",
+    "underscore": "^1.8.3",
+    "winston": "^2.2.0"
+  }
+}

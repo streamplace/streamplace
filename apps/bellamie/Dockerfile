@@ -9,4 +9,4 @@ ADD dist dist
 
 ENV PORT 80
 EXPOSE 80
-CMD ["node", "dist/app.js"]
+CMD ["node", "dist/bellamie.js"]

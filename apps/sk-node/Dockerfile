@@ -44,6 +44,9 @@ ENV NODE_PATH /apps
 WORKDIR /apps
 CMD [ "node" ]
 
+ADD sk-resource/package.json /apps/sk-resource/package.json
+ADD sk-utils/package.json /apps/sk-utils/package.json
+ADD sk-plugin-core/package.json /apps/sk-plugin-core/package.json
 ADD sk-schema/package.json /apps/sk-schema/package.json
 ADD sk-config/package.json /apps/sk-config/package.json
 ADD sk-client/package.json /apps/sk-client/package.json
@@ -51,8 +54,14 @@ ADD sk-client/package.json /apps/sk-client/package.json
 RUN \
   cd /apps/sk-schema && npm install --production && \
   cd /apps/sk-config && npm install --production && \
+  cd /apps/sk-resource && npm install --production && \
+  cd /apps/sk-utils && npm install --production && \
+  cd /apps/sk-plugin-core && npm install --production && \
   cd /apps/sk-client && npm install --production
 
 ADD sk-schema/dist /apps/sk-schema/dist
+ADD sk-resource/dist /apps/sk-resource/dist
+ADD sk-utils/dist /apps/sk-utils/dist
+ADD sk-plugin-core/dist /apps/sk-plugin-core/dist
 ADD sk-config/dist /apps/sk-config/dist
 ADD sk-client/dist /apps/sk-client/dist

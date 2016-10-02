@@ -12,9 +12,12 @@ class Cursor {
     this.fields = fields;
 
     // Set up our promise, save the handlers
+    this.ready = false;
     this.promise = new Promise((resolve, reject) => {
       this._resolve = resolve;
-      this._reject = reject;
+    });
+    this.promise.then(() => {
+      this.ready = true;
     });
 
     // Instantiate some crud
@@ -55,6 +58,27 @@ class Cursor {
     });
   }
 
+  /**
+   * Returns true if the provided doc matches our query. Don't be doin' queries with weird
+   * prototypes, now, or I'll be very cross.
+   */
+  _matches(doc, query = this.query) {
+    if (!doc) {
+      return false;
+    }
+    for (let key in query) {
+      if (typeof query[key] === "object") {
+        if (!this._matches(doc[key], query[key])) {
+          return false;
+        }
+      }
+      else if (doc[key] !== query[key]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   _emit(type, ...args) {
     try {
       this.evt.emit(type, ...args);
@@ -85,132 +109,45 @@ export class SocketCursor extends Cursor {
   constructor(params) {
     super(params);
 
-    const handler = this._handleMessage.bind(this);
-    this.handle = this.SK._subscribe(this.resource.name, this.query, handler);
+    this.handle = this.SK._subscribe(this.resource.name, this.query, ::this._suback);
   }
 
-  _handleMessage(type, evt) {
-    let ids;
-    if (type === "suback") {
-      const {docs} = evt;
-      this.knownDocs = _(docs).indexBy("id");
-      this._resolve(docs);
+  _suback() {
+    this._resolve(_(this.knownDocs).values());
+  }
+
+  _data(id, doc) {
+    const matches = this._matches(doc);
+    const exists = !!this.knownDocs[id];
+    let type;
+    if (!matches && !exists) {
+      // We have nothing to do with this document. Return.
+      return;
     }
-    else if (type === "created") {
-      const {doc} = evt;
-      this.knownDocs[doc.id] = doc;
-      ids = [doc.id];
+    else if (matches && !exists) {
+      // New document, that's cool.
+      this.knownDocs[id] = doc;
+      type = "created";
     }
-    else if (type === "updated") {
-      const {doc} = evt;
-      this.knownDocs[doc.id] = doc;
-      ids = [doc.id];
+    else if (!matches && exists) {
+      // We know that ID, but now it doesn't match. Deleted.
+      delete this.knownDocs[id];
+      type = "deleted";
     }
-    else if (type === "deleted") {
-      const {id} = evt;
-      if (this.knownDocs[id]) {
-        delete this.knownDocs[id];
-      }
-      ids = [id];
+    else if (matches && exists) {
+      // Doc matches, and we've seen it before. Updated.
+      this.knownDocs[id] = doc;
+      type = "updated";
     }
-    else {
-      throw new Error("Got unknown message: " + type);
+    // Okay, now notify the user if we're ready.
+    if (this.ready) {
+      const knownDocsArr = _(this.knownDocs).values();
+      this._emit(type, knownDocsArr, [id]);
     }
-    const knownDocsArr = _(this.knownDocs).values();
-    this.then(() => {
-      try {
-        this._emit(type, knownDocsArr, ids);
-      }
-      catch(e) {
-        this.SK.log("Error emitting event:" + e.stack);
-      }
-    });
   }
 
   stop() {
     this.handle.stop();
-  }
-}
-
-export class PollCursor extends Cursor {
-  constructor(params) {
-    super(params);
-
-    this.POLL_INTERVAL = 1000;
-
-    this.promise = new Promise((resolve, reject) => {
-      this._startPolling();
-      this.resource.find(this.query).then(resolve).catch(reject);
-    });
-  }
-
-  /**
-   * Eventually this class will be awesome and use websockets. It is not yet awesome. It uses
-   * polling. Also, this is designed to be a fallback in case the user can't use websockets for
-   * whatever reason.
-   */
-  _startPolling() {
-    this.intervalHandle = setInterval(this._poll.bind(this), this.POLL_INTERVAL);
-  }
-
-  _stopPolling() {
-    clearInterval(this.intervalHandle);
-  }
-
-  _poll() {
-    this.resource.find(this.query).then((docsArr) => {
-      // If polling was turned off while our request was resolving, just stop.
-      if (!this.intervalHandle) {
-        return;
-      }
-
-      const newDocs = _(docsArr).indexBy("id");
-
-      const knownIds = Object.keys(this.knownDocs);
-      const newIds = Object.keys(newDocs);
-
-      // If we see an id we don't have before, it's created.
-      const createdIds = _(newIds).difference(knownIds);
-
-      // If we don't see an id that we had seen before, it's removed.
-      const deletedIds = _(knownIds).difference(newIds);
-
-      // For all the other docs that weren't created or removed, check to see if they changed.
-      const updatedIds = _(newIds).difference(createdIds, deletedIds).filter((id) => {
-        return !_(this.knownDocs[id]).isEqual(newDocs[id]);
-      });
-
-      // Okay, update our local cache.
-      _(createdIds).each((id) => {
-        this.knownDocs[id] = newDocs[id];
-      });
-
-      _(updatedIds).each((id) => {
-        this.knownDocs[id] = newDocs[id];
-      });
-
-      _(deletedIds).each((id) => {
-        delete this.knownDocs[id];
-      });
-
-      const knownDocsArr = _(this.knownDocs).values();
-
-      if (createdIds.length > 0) {
-        this._emit("created", knownDocsArr, createdIds);
-      }
-
-      if (updatedIds.length > 0) {
-        this._emit("updated", knownDocsArr, updatedIds);
-      }
-
-      if (deletedIds.length > 0) {
-        this._emit("deleted", knownDocsArr, deletedIds);
-      }
-    });
-  }
-
-
-  stop() {
-    this._stopPolling();
+    this._emit("stopped");
   }
 }

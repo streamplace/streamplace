@@ -1,10 +1,12 @@
 
+import _ from "underscore";
 import {SocketCursor} from "./Cursor";
 
 export default class Resource {
   constructor ({SK, swaggerResource}) {
     this.SK = SK;
     this.resource = swaggerResource;
+    this.cursors = [];
     this.name = this.resource.label;
     // Alias some stuff on the resource to make our lives easier
     const capLabel = this.resource.label.charAt(0).toUpperCase() + this.resource.label.slice(1);
@@ -19,7 +21,7 @@ export default class Resource {
 
   onError(err) {
     // Regular server error, we can dig it.
-    if (err.obj.errors) {
+    if (err.obj && err.obj.errors) {
       throw new Error(err.obj.errors.map(e => e.message).join(", "));
     }
     if (err.status && err.obj && err.obj.message) {
@@ -91,6 +93,17 @@ export default class Resource {
       }
     });
     const cursor = new SocketCursor({query, fields, resource: this, SK: this.SK});
+    this.cursors.push(cursor);
+    cursor.on("stopped", () => {
+      this.cursors.splice(this.cursors.indexOf(cursor), 1);
+    });
     return cursor;
+  }
+
+  /**
+   * Handle incoming data from a websocket
+   */
+  _data(id, doc) {
+    this.cursors.forEach(c => c._data(id, doc));
   }
 }

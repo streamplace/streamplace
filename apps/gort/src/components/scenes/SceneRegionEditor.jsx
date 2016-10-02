@@ -22,17 +22,13 @@ export default class SceneRegionEditor extends React.Component{
     this.subscribe(this.props);
   }
 
-  componentWillReceiveProps(props) {
-    this.subscribe(props);
-  }
-
   subscribe(props) {
     this.setState({region: props.region});
     const inputId = props.region.inputId;
     if (this.inputHandle) {
       this.inputHandle.stop();
     }
-    SK.inputs.watch({})
+    this.inputHandle = SK.inputs.watch({})
     .on("data", (inputs) => {
       this.setState({inputs});
     })

@@ -109,7 +109,7 @@ export default class SKClient extends EE {
     });
 
     this.socket.on("suback", ({subId}) => {
-      this.activeSubscriptions[subId].cb();
+      this.activeSubscriptions[subId] && this.activeSubscriptions[subId].cb();
     });
     this.subscriptionIdx = 0;
     this.activeSubscriptions = {};

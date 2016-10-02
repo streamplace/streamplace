@@ -12,4 +12,4 @@ function bigPrint() {
   echo ""
 }
 
-export APPS_TO_BUILD="sk-config sk-schema sk-client twixtykit mpeg-munger sk-node sk-static sk-time pipeland bellamie gort shoko broadcast-scheduler vertex-scheduler overlay autosync"
+export APPS_TO_BUILD="sk-utils sk-config sk-schema sk-client sk-resource sk-plugin-core twixtykit mpeg-munger sk-node sk-static sk-time pipeland bellamie gort shoko broadcast-scheduler vertex-scheduler overlay autosync"

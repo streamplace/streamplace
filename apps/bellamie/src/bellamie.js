@@ -8,7 +8,7 @@ import config from "sk-config";
 import bodyParser from "body-parser";
 import http from "http";
 
-import endpoint from "./endpoint";
+import httpHandler from "./http-handler";
 import socketHandler from "./socket-handler";
 
 const BELLAMIE_PORT = config.require("BELLAMIE_PORT");
@@ -75,8 +75,8 @@ SK_PLUGINS.forEach((pluginName) => {
       ajv: ajv,
     });
     SKContext.addResource(resource);
-    const resourceEndpoint = endpoint({resource});
-    app.use(path, resourceEndpoint);
+    const handler = httpHandler({resource});
+    app.use(path, handler);
   });
 });
 

@@ -8,7 +8,7 @@ const RETHINK_HOST = config.require("RETHINK_HOST");
 const RETHINK_PORT = config.require("RETHINK_PORT");
 const RETHINK_DATABASE = config.require("RETHINK_DATABASE");
 
-export default function endpoint({resource}) {
+export default function httpHandler({resource}) {
   const app = express();
 
   const handleError = function(req, res, next, err) {

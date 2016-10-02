@@ -36,7 +36,8 @@ export default function httpHandler({resource}) {
     SKContext.createContext({
       rethinkHost: RETHINK_HOST,
       rethinkPort: RETHINK_PORT,
-      rethinkDatabase: RETHINK_DATABASE
+      rethinkDatabase: RETHINK_DATABASE,
+      token: req.headers["sk-auth-token"],
     })
     .then((ctx) => {
       req.ctx = ctx;

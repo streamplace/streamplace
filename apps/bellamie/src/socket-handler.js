@@ -4,6 +4,8 @@ import {SKContext} from "sk-resource";
 import config from "sk-config";
 import winston from "winston";
 import _ from "underscore";
+import querystring from "querystring";
+import url from "url";
 
 const RETHINK_HOST = config.require("RETHINK_HOST");
 const RETHINK_PORT = config.require("RETHINK_PORT");
@@ -13,13 +15,10 @@ export default function(server) {
   const io = SocketIO(server);
 
   io.use(function(socket, next){
-    // const {query} = url.parse(socket.request.url);
-    // const {token} = querystring.parse(query);
-    // const err = jwtAuth(token);
-    // if (err) {
-    //   return next(new Error(JSON.stringify(err)));
-    // }
+    const {query} = url.parse(socket.request.url);
+    const {token} = querystring.parse(query);
     SKContext.createContext({
+      token: token,
       rethinkHost: RETHINK_HOST,
       rethinkPort: RETHINK_PORT,
       rethinkDatabase: RETHINK_DATABASE
@@ -28,7 +27,11 @@ export default function(server) {
       next();
     })
     .catch((err) => {
-      next(err);
+      next(new Error(JSON.stringify({
+        status: err.status,
+        code: err.code,
+        message: err.message,
+      })));
     });
   });
 

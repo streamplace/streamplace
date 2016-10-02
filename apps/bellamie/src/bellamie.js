@@ -7,11 +7,16 @@ import morgan from "morgan";
 import config from "sk-config";
 import bodyParser from "body-parser";
 import http from "http";
-
 import httpHandler from "./http-handler";
 import socketHandler from "./socket-handler";
 
 const BELLAMIE_PORT = config.require("BELLAMIE_PORT");
+const JWT_SECRET = config.require("JWT_SECRET");
+const JWT_SECRET_DECODED = Buffer.from(JWT_SECRET, "base64");
+const PUBLIC_JWT_AUDIENCE = config.require("PUBLIC_JWT_AUDIENCE");
+
+SKContext.jwtSecret = JWT_SECRET_DECODED;
+SKContext.jwtAudience = PUBLIC_JWT_AUDIENCE;
 
 winston.cli();
 winston.level = process.env.DEBUG_LEVEL || "info";

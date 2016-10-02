@@ -1,6 +1,11 @@
 
 import EE from "events";
 import r from "rethinkdb";
+import querystring from "querystring";
+import url from "url";
+import nJwt from "njwt";
+import winston from "winston";
+import APIError from "./api-error";
 
 export default class SKContext extends EE {
   constructor() {
@@ -40,14 +45,50 @@ SKContext.addResource = function(resource) {
   SKContext.resources[resource.constructor.tableName] = resource;
 };
 
+SKContext.jwtSecret = null;
+SKContext.jwtAudience = null;
+
 SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, token}) {
-  return r.connect({
-    host: rethinkHost,
-    port: rethinkPort,
-    db: rethinkDatabase,
+  const cxt = new SKContext();
+  return new Promise((resolve, reject) => {
+    if (!token) {
+      return reject(new APIError({
+        status: 401,
+        code: "MISSING_TOKEN",
+        message: "Missing authentication token"
+      }));
+    }
+    let verifiedJwt;
+    try {
+      verifiedJwt = nJwt.verify(token, SKContext.jwtSecret);
+    }
+    catch (e) {
+      winston.error("Provided JWT failed verification", e);
+      return reject(new APIError({
+        status: 403,
+        code: "ERR_TOKEN_INVALID",
+        message: "Provided JWT is invalid"
+      }));
+    }
+    if (verifiedJwt.body.aud !== SKContext.jwtAudience) {
+      winston.error(`Got a JWT, and the signature looks fine, but the audience is ${verifiedJwt.aud} instead of ${SKContext.jwtAudience}. Weird, right?`);
+      return reject(new APIError({
+        status: 403,
+        code: "ERR_TOKEN_INVALID",
+        message: "Provided JWT is invalid"
+      }));
+    }
+    cxt.token = token;
+    resolve();
+  })
+  .then(() => {
+    return r.connect({
+      host: rethinkHost,
+      port: rethinkPort,
+      db: rethinkDatabase,
+    });
   })
   .then((conn) => {
-    const cxt = new SKContext();
     cxt.rethink = r;
     cxt.conn = conn;
     return cxt;

@@ -5,6 +5,7 @@ import Input from "./Input";
 import Output from "./Output";
 import Scene from "./Scene";
 import Vertex from "./Vertex";
+import User from "./User";
 
 export {
   Arc,
@@ -13,4 +14,5 @@ export {
   Output,
   Scene,
   Vertex,
+  User,
 };

@@ -14,6 +14,36 @@ consumes:
   - application/json
 
 definitions:
+  User:
+    type: object
+    additionalProperties: false
+    required:
+      - kind
+      - authToken
+      - handle
+      - roles
+    properties:
+      kind:
+        type: string
+        allowedValues: ["User"]
+      id:
+        type: string
+        description: Unique ID of user
+      handle:
+        type: string
+        description: Human-readable name of user
+      authToken:
+        type: string
+        description: Authentication token, probably from a JWT subfield
+      roles:
+        type: array
+        description: What kind of things is this user?
+        items:
+          type: string
+          allowedValues:
+            - ADMIN
+            - SERVICE
+
   Broadcast:
     type: object
     additionalProperties: false
@@ -21,7 +51,7 @@ definitions:
     properties:
       kind:
         type: string
-        allowedValues: [broadcast]
+        allowedValues: ["Broadcast"]
       id:
         type: string
         description: Unique ID of the Broadcast
@@ -47,7 +77,7 @@ definitions:
     properties:
       kind:
         type: string
-        allowedValues: ["vertex"]
+        allowedValues: ["Vertex"]
       id:
         type: string
         description: Unique ID of the Vertex
@@ -102,7 +132,7 @@ definitions:
     properties:
       kind:
         type: string
-        allowedValues: ["arc"]
+        allowedValues: ["Arc"]
       id:
         type: string
         description: Unique ID of the Arc
@@ -142,7 +172,7 @@ definitions:
         readOnly: true
       kind:
         type: string
-        allowedValues: ["input"]
+        allowedValues: ["Input"]
       title:
         type: string
         description: Human-readable name of this input
@@ -175,7 +205,7 @@ definitions:
         description: Unique ID of the scene
       kind:
         type: string
-        allowedValues: ["scene"]
+        allowedValues: ["Scene"]
       title:
         type: string
         description: Human-readable name of this scene
@@ -337,6 +367,115 @@ paths:
       summary: Delete an existing broadcast and everything in it!!!
       tags: ["broadcasts"]
       operationId: deleteBroadcasts
+      responses:
+        204:
+          description: "You did it, it's gone"
+
+  #########
+  # Users #
+  #########
+
+  /users:
+    get:
+      summary: Get many users
+      description: TODO - Describe what users is
+      tags: ["users"]
+      operationId: findUsers
+      parameters:
+        - name: filter
+          in: query
+          description: Optional JSON string. Return only documents that match.
+          required: false
+          type: string
+      responses:
+        200:
+          description: An array of users
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/User'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    post:
+      summary: Create a user
+      tags: ["users"]
+      operationId: createUsers
+      parameters:
+        - description: User to create
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/User"
+      responses:
+        201:
+          description: Creation Sucessful
+          schema:
+            $ref: "#/definitions/User"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+  /users/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      summary: Get one user
+      description: TODO - Describe what users is
+      tags: ["users"]
+      operationId: findOneUsers
+      responses:
+        200:
+          description: An array of users
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/User'
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    put:
+      summary: Modify an existing user
+      tags: ["users"]
+      operationId: updateUsers
+      parameters:
+        - description: User to Modify
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/User"
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      responses:
+        200:
+          description: Modification Sucessful
+          schema:
+            $ref: "#/definitions/User"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          description: what
+          required: true
+      summary: Delete a user
+      tags: ["users"]
+      operationId: deleteUsers
       responses:
         204:
           description: "You did it, it's gone"

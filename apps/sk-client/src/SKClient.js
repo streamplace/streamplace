@@ -18,17 +18,17 @@ if (typeof window === "object") {
   isNode = false;
 }
 
-let tokenGenerator;
-if (isNode) {
-  // Someone teach me a better wneway to have node do something but not webpack.
-  /*eslint-disable no-eval */
-  const TokenGenerator = eval("require('./TokenGenerator')").default;
-  tokenGenerator = new TokenGenerator();
-}
 
 export default class SKClient extends EE {
-  constructor({server, log, start, token} = {}) {
+  constructor({server, log, start, token, app} = {}) {
     super();
+    if (isNode) {
+      // Someone teach me a better wneway to have node do something but not webpack.
+      /*eslint-disable no-eval */
+      const TokenGenerator = eval("require('./TokenGenerator')").default;
+      this.tokenGenerator = new TokenGenerator({app: this.app});
+    }
+    this.app = app || "skclient";
     this.shouldLog = log;
     this.server = server;
     this.token = token;
@@ -60,12 +60,12 @@ export default class SKClient extends EE {
     schema.schemes = [protocol.split(":")[0]];
 
     // Generate a token if we can and we don't have one.
-    if (!this.token && tokenGenerator) {
-      this.token = tokenGenerator.generate();
+    if (!this.token && this.tokenGenerator) {
+      this.token = this.tokenGenerator.generate();
       // Generate new tokens when we're halfway to token expiration.
       setInterval(() => {
-        this.token = tokenGenerator.generate();
-      }, Math.floor(tokenGenerator.expiry / 2));
+        this.token = this.tokenGenerator.generate();
+      }, Math.floor(this.tokenGenerator.expiry / 2));
     }
 
     // Set up HTTP connection based on Swagger schema

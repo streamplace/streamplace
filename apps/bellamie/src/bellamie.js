@@ -3,12 +3,13 @@ import winston from "winston";
 import Ajv from "ajv";
 import {SKContext, RethinkDbDriver} from "sk-resource";
 import express from "express";
-import morgan from "morgan";
 import config from "sk-config";
 import bodyParser from "body-parser";
 import http from "http";
 import httpHandler from "./http-handler";
 import socketHandler from "./socket-handler";
+import onFinished from "on-finished";
+import apiLog from "./api-log";
 
 const BELLAMIE_PORT = config.require("BELLAMIE_PORT");
 const JWT_SECRET = config.require("JWT_SECRET");
@@ -23,7 +24,18 @@ winston.level = process.env.DEBUG_LEVEL || "info";
 
 const app = express();
 
-app.use(morgan("dev"));
+app.use(function(req, res, next) {
+  const start = process.hrtime();
+  onFinished(req, () => {
+    const [small, big] = process.hrtime(start);
+    const ms = (small * 1e3 + big * 1e-6).toFixed(3);
+    const ctx = req.ctx || {remoteAddress: req.connection.remoteAddress};
+    const url = req.originalUrl || req.url;
+    const statusCode = res.statusCode;
+    apiLog(ctx, `${req.method} ${url} ${statusCode} ${ms}ms`);
+  });
+  next();
+});
 app.use(bodyParser.json());
 
 app.use(function(req, res, next) {

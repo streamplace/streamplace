@@ -48,8 +48,9 @@ SKContext.addResource = function(resource) {
 SKContext.jwtSecret = null;
 SKContext.jwtAudience = null;
 
-SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, token}) {
-  const cxt = new SKContext();
+SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, token, remoteAddress}) {
+  const ctx = new SKContext();
+  ctx.remoteAddress = remoteAddress;
   return new Promise((resolve, reject) => {
     if (!token) {
       return reject(new APIError({
@@ -78,7 +79,7 @@ SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, t
         message: "Provided JWT is invalid"
       }));
     }
-    cxt.token = token;
+    ctx.jwt = verifiedJwt.body;
     resolve();
   })
   .then(() => {
@@ -89,8 +90,12 @@ SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, t
     });
   })
   .then((conn) => {
-    cxt.rethink = r;
-    cxt.conn = conn;
-    return cxt;
+    ctx.rethink = r;
+    ctx.conn = conn;
+    return ctx.resources.users.findOrCreateFromContext(ctx);
+  })
+  .then((user) => {
+    ctx.user = user;
+    return ctx;
   });
 };

@@ -3,6 +3,8 @@ import express from "express";
 import winston from "winston";
 import Resource, {SKContext} from "sk-resource";
 import config from "sk-config";
+import onFinished from "on-finished";
+import apiLog from "./api-log";
 
 const RETHINK_HOST = config.require("RETHINK_HOST");
 const RETHINK_PORT = config.require("RETHINK_PORT");
@@ -33,13 +35,17 @@ export default function httpHandler({resource}) {
   };
 
   app.use((req, res, next) => {
+    let ctx;
+    const remoteAddress = req.connection.remoteAddress;
     SKContext.createContext({
       rethinkHost: RETHINK_HOST,
       rethinkPort: RETHINK_PORT,
       rethinkDatabase: RETHINK_DATABASE,
       token: req.headers["sk-auth-token"],
+      remoteAddress: remoteAddress,
     })
-    .then((ctx) => {
+    .then((c) => {
+      ctx = c;
       req.ctx = ctx;
       next();
     })

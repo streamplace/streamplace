@@ -1,6 +1,7 @@
 
 import yaml from "js-yaml";
 import fs from "fs";
+import path from "path";
 
 const config = {};
 
@@ -28,5 +29,8 @@ Object.keys(process.env).forEach((key) => {
   key = key.slice(PREFIX.length);
   config[key] = value;
 });
+
+// Automatically add my name, based on filename
+config.APP_NAME = path.basename(process.argv[1], ".js");
 
 module.exports = config;

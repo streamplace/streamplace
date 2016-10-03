@@ -6,6 +6,7 @@ import winston from "winston";
 import _ from "underscore";
 import querystring from "querystring";
 import url from "url";
+import apiLog from "./api-log";
 
 const RETHINK_HOST = config.require("RETHINK_HOST");
 const RETHINK_PORT = config.require("RETHINK_PORT");
@@ -17,11 +18,13 @@ export default function(server) {
   io.use(function(socket, next){
     const {query} = url.parse(socket.request.url);
     const {token} = querystring.parse(query);
+    const addr = socket.conn.remoteAddress;
     SKContext.createContext({
       token: token,
       rethinkHost: RETHINK_HOST,
       rethinkPort: RETHINK_PORT,
-      rethinkDatabase: RETHINK_DATABASE
+      rethinkDatabase: RETHINK_DATABASE,
+      remoteAddress: addr
     }).then((ctx) => {
       socket.ctx = ctx;
       next();
@@ -38,11 +41,10 @@ export default function(server) {
   io.on("connection", function(socket) {
     const ctx = socket.ctx;
     const handles = {};
-    const addr = socket.conn.remoteAddress;
-    winston.info(`HELLO ${addr}`);
+    apiLog(ctx, "HELLO");
     socket.emit("hello");
     socket.on("disconnect", () => {
-      winston.info(`DISCONNECT ${addr}`);
+      apiLog(ctx, "DISCONNECT");
       Promise.all(_(handles).values().map((handle) => {
         return handle.close();
       })).then(() => {
@@ -56,7 +58,7 @@ export default function(server) {
       if (!subId || handles[subId]) {
         throw new Error(`Invalid subId = ${subId}`);
       }
-      winston.info(`SUB (${subId}) ${addr} '${resource}' WHERE ${JSON.stringify(query)}`);
+      apiLog(ctx, `SUB (${subId}) '${resource}' WHERE ${JSON.stringify(query)}`);
       ctx.resources[resource].watch(ctx, query).then((handle) => {
         handles[subId] = handle;
         socket.emit("suback", {subId});
@@ -64,7 +66,7 @@ export default function(server) {
     });
 
     socket.on("unsub", function({subId}) {
-      winston.info(`UNSUB (${subId}) ${addr}`);
+      apiLog(ctx, `UNSUB (${subId})`);
       if (!handles[subId]) {
         return winston.error(`UNSUB on nonexistent subId ${subId}`);
       }

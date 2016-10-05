@@ -1,13 +1,19 @@
 
 import Resource from "sk-resource";
 import winston from "winston";
+import {v4} from "node-uuid";
 
 export default class User extends Resource {
   auth(ctx, doc) {
     return Promise.resolve();
   }
 
-  // Nope.
+  // Nope. Happens through the context method further down.
+  authCreate(ctx, doc) {
+    throw new Resource.APIError(403, "You may not create users");
+  }
+
+  // Also nope.
   authDelete(ctx, doc) {
     throw new Resource.APIError(403, "You may not delete users");
   }
@@ -20,7 +26,8 @@ export default class User extends Resource {
     return super.default().then((doc) => {
       return {
         ...doc,
-        handle: `new-user-${Math.round(Math.random() * 100000)}`,
+        id: v4(), // Necessary because authToken is our primary key
+        handle: `new-user-${Math.round(Math.random() * 1000000)}`,
       };
     });
   }
@@ -61,10 +68,27 @@ export default class User extends Resource {
         return this.validate(ctx, newUser);
       })
       .then(() => {
-        return this.db.upsert(ctx, newUser);
+        return new Promise((resolve, reject) => {
+          // Avoid a concurrency problem -- if multiple attempts happen, only let one succeed.
+          this.db.insert(ctx, newUser).then((user) => {
+            winston.info(`Created user ${user.handle} (${user.id}) for authToken ${authToken}`);
+            resolve(user);
+          })
+          .catch((err) => {
+            if (err.message.indexOf("Duplicate primary key") === -1) {
+              return reject(err);
+            }
+            // Okay, someone else created it, let's look at theirs...
+            this.db.find(ctx, {authToken}).catch(reject).then((docs) => {
+              if (docs.length === 1) {
+                return resolve(docs[0]);
+              }
+              throw new Error("MAYDAY: can't create a user, can't find a user?!?");
+            });
+          });
+        });
       })
       .then((user) => {
-        winston.info(`Created user ${user.handle} (${user.id}) for authToken ${authToken}`);
         return user;
       });
     });
@@ -72,3 +96,7 @@ export default class User extends Resource {
 }
 
 User.tableName = "users";
+User.primaryKey = "authToken";
+User.indices = [
+  "id",
+];

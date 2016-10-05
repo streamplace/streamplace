@@ -18,8 +18,11 @@ export default class Resource {
     if (!ajv) {
       throw new Error("no ajv provided");
     }
-
-    this.db = new dbDriver({tableName: this.constructor.tableName});
+    this.db = new dbDriver({
+      tableName: this.constructor.tableName,
+      primaryKey: this.constructor.primaryKey || "id",
+      indices: this.constructor.indices || [],
+    });
     this.ajv = ajv;
     this.validator = this.ajv.getSchema(this.constructor.name);
     if (!this.validator) {
@@ -98,7 +101,7 @@ export default class Resource {
       return this.authCreate(ctx, doc);
     })
     .then((result) => {
-      return this.db.upsert(ctx, doc);
+      return this.db.insert(ctx, doc);
     })
     .then((newDoc) => {
       return this.transform(ctx, newDoc);
@@ -132,7 +135,7 @@ export default class Resource {
       return this.authUpdate(ctx, oldDoc, newDoc);
     })
     .then((result) => {
-      return this.db.upsert(ctx, newDoc);
+      return this.db.replace(ctx, id, newDoc);
     })
     .then((newDoc) => {
       return this.transform(ctx, newDoc);

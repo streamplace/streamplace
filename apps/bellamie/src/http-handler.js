@@ -13,6 +13,19 @@ const RETHINK_DATABASE = config.require("RETHINK_DATABASE");
 export default function httpHandler({resource}) {
   const app = express();
 
+  app.use(function(req, res, next) {
+    const start = process.hrtime();
+    onFinished(res, () => {
+      const [small, big] = process.hrtime(start);
+      const ms = (small * 1e3 + big * 1e-6).toFixed(3);
+      const ctx = req.ctx || {remoteAddress: req.connection.remoteAddress};
+      const url = req.originalUrl || req.url;
+      const statusCode = res.statusCode;
+      apiLog(ctx, `${req.method} ${url} ${statusCode} ${ms}ms`);
+    });
+    next();
+  });
+
   const handleError = function(req, res, next, err) {
     if (!err) {
       err = {};

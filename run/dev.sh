@@ -29,7 +29,6 @@ run sk-config 1
 run sk-resource 12
 run sk-utils 173
 run sk-schema 4
-# run sk-code 190
 run sk-plugin-core 96
 run shoko 208
 run sk-client 196

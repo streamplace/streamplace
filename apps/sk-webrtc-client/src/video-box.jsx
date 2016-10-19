@@ -33,7 +33,7 @@ export default class VideoBox extends React.Component{
   render () {
     return (
       <div className={style.VideoBox}>
-        <video autoPlay ref={::this.ref} className={style.Video} muted={this.props.local} />
+        <video autoPlay ref={::this.ref} className={style.Video} muted />
       </div>
     );
   }

@@ -6,6 +6,7 @@ import _ from "underscore";
 import IO from "socket.io-client";
 import config from "sk-config";
 import EE from "wolfy87-eventemitter";
+import jwtDecode from "jwt-decode";
 
 import Resource from "./Resource";
 
@@ -145,6 +146,13 @@ export default class SKClient extends EE {
     });
 
     client.usePromise = true;
+  }
+
+  getUser() {
+    const decoded = jwtDecode(this.token);
+    return this.users.find({authToken: decoded.sub}).then(([user]) => {
+      return user;
+    });
   }
 
   _handleError(err) {

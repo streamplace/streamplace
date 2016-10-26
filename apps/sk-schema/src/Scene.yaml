@@ -1,0 +1,48 @@
+type: object
+tableName: scenes
+additionalProperties: false
+required: ["broadcastId", "title", "height", "width"]
+properties:
+  id:
+    type: string
+    description: Unique ID of the scene
+  kind:
+    type: string
+    allowedValues: ["Scene"]
+  title:
+    type: string
+    description: Human-readable name of this scene
+    minLength: 1
+  broadcastId:
+    type: string
+    description: ID of the broadcast where this scene exists
+  height:
+    type: number
+    allowedValues: [1080]
+    description: Height of this scene, in pixels
+  width:
+    type: number
+    allowedValues: [1920]
+    description: Width of this scene, in pixels
+  regions:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: ["inputId", "x", "y", "width", "height"]
+      properties:
+        inputId:
+          type: string
+          description: Input to which this region cooresponds
+        x:
+          type: number
+          description: Horizontal location of this region in pixels
+        y:
+          type: number
+          description: Vertical location of this region in pixels
+        width:
+          type: number
+          description: Width of this region in pixels
+        height:
+          type: number
+          description: Height of this region in pixels

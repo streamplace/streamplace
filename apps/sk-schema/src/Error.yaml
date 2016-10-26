@@ -1,0 +1,8 @@
+type: object
+additionalProperties: false
+description: Something went wrong. This little guy tells you so.
+properties:
+  message:
+    type: string
+  code:
+    type: string

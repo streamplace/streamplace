@@ -1,0 +1,29 @@
+type: object
+tableName: users
+additionalProperties: false
+required:
+  - kind
+  - authToken
+  - handle
+  - roles
+properties:
+  kind:
+    type: string
+    allowedValues: ["User"]
+  id:
+    type: string
+    description: Unique ID of user
+  handle:
+    type: string
+    description: Human-readable name of user
+  authToken:
+    type: string
+    description: Authentication token, probably from a JWT subfield
+  roles:
+    type: array
+    description: What kind of things is this user?
+    items:
+      type: string
+      allowedValues:
+        - ADMIN
+        - SERVICE

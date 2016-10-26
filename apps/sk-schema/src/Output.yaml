@@ -1,0 +1,10 @@
+type: object
+tableName: outputs
+additionalProperties: false
+properties:
+  kind:
+    type: string
+    allowedValues: ["output"]
+  id:
+    type: string
+    description: Unique ID of the output

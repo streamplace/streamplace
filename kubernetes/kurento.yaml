@@ -1,0 +1,33 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kurento
+spec:
+  template:
+    metadata:
+      labels:
+        app: kurento
+    spec:
+      hostNetwork: false
+      containers:
+        - name: kurento
+          image: kurento/kurento-media-server:6.6.0
+          env:
+            - name: KMS_TURN_URL
+              value: "streamplace:streamplace@52.35.98.123"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kurento
+spec:
+  clusterIP: 10.0.0.225
+  selector:
+    app: kurento
+  ports:
+    - name: kurento
+      protocol: TCP
+      port: 80
+      targetPort: 8888

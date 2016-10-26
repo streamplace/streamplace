@@ -6,12 +6,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "edit": "swagger project edit -s -p 4949 --host 0.0.0.0",
-    "build": "mkdir -p dist && js-yaml api/swagger/swagger.yaml > dist/schema_new.json && cat dist/schema_new.json > dist/schema.json && rm dist/schema_new.json",
-    "dev": "nodemon -w api/swagger/swagger.yaml -x npm run build"
+    "build": "mkdir -p dist && babel-node build.js > dist/schema.json",
+    "dev": "nodemon -w src -x npm run build"
   },
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
+    "babel-preset-streamkitchen": "0.0.2",
     "js-yaml": "^3.5.2",
     "nodemon": "^1.9.1"
   }

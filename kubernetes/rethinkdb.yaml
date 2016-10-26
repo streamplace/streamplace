@@ -1,0 +1,43 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: rethinkdb
+spec:
+  template:
+    metadata:
+      labels:
+        app: rethinkdb
+    spec:
+      volumes:
+      - name: data
+        hostPath:
+          path: /home/root/code/streamkitchen/data
+      containers:
+      - image: rethinkdb:2.3
+        name: rethinkdb
+        volumeMounts:
+        - name: data
+          mountPath: /data
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: rethinkdb
+spec:
+  clusterIP: 10.0.0.51
+  selector:
+    app: rethinkdb
+  type: NodePort
+  ports:
+    - name: rethinkdb
+      protocol: TCP
+      port: 28015
+      targetPort: 28015
+      nodePort: 31000
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+      nodePort: 30005

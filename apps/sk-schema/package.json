@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "edit": "swagger project edit -s -p 4949 --host 0.0.0.0",
     "build": "mkdir -p dist && babel-node build.js > dist/schema.json",
-    "dev": "nodemon -w src -x npm run build"
+    "dev": "nodemon -e yaml -w src -x npm run build"
   },
   "author": "",
   "license": "Apache-2.0",

@@ -88,7 +88,10 @@ export default class RethinkDbDriver {
   }
 
   insert(ctx = req(), doc = req()) {
-    return ctx.rethink.table(this.name).insert(doc).run(ctx.conn)
+    return this.init(ctx)
+    .then(() => {
+      return ctx.rethink.table(this.name).insert(doc).run(ctx.conn);
+    })
     .then((response) => {
       if (response.errors > 0) {
         throw new Error(response.first_error);
@@ -104,7 +107,10 @@ export default class RethinkDbDriver {
   }
 
   replace(ctx = req(), id = req(), doc = req()) {
-    return ctx.rethink.table(this.name).filter({id}).replace(doc).run(ctx.conn)
+    return this.init(ctx)
+    .then(() => {
+      return ctx.rethink.table(this.name).filter({id}).replace(doc).run(ctx.conn);
+    })
     .then((response) => {
       if (response.errors > 0) {
         throw new Error(response.first_error);

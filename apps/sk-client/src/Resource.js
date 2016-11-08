@@ -86,6 +86,9 @@ export default class Resource {
   }
 
   watch(query = {}, fields) {
+    if (typeof query !== "object" || query === null) {
+      throw new Error(`Invalid query value for watch: ${query}. First argument to watch needs to be an object with {key: value}`);
+    }
     Object.keys(query).forEach((key) => {
       const value = query[key];
       if (value === undefined) {

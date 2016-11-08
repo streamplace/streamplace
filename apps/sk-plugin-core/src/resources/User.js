@@ -8,6 +8,12 @@ export default class User extends Resource {
     return Promise.resolve();
   }
 
+  authUpdate(ctx, doc, newDoc) {
+    if (newDoc.handle.indexOf("new-user") !== -1) {
+      throw new Resource.APIError(422, "Your handle may not contain 'new-user'.");
+    }
+  }
+
   // Nope. Happens through the context method further down.
   authCreate(ctx, doc) {
     throw new Resource.APIError(403, "You may not create users");

@@ -113,7 +113,13 @@ export class SocketCursor extends Cursor {
   }
 
   _suback() {
-    this._resolve(_(this.knownDocs).values());
+    try {
+      this._resolve(_(this.knownDocs).values());
+    }
+    catch (e) {
+      this.SK.log("Error resolving cursor");
+      this.SK.log(e.stack);
+    }
   }
 
   _data(id, doc) {

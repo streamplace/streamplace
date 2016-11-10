@@ -146,6 +146,11 @@ export default class SKClient extends EE {
     });
 
     client.usePromise = true;
+
+    return this.getUser().then((user) => {
+      this.user = user;
+      this.emit("ready");
+    });
   }
 
   getUser() {

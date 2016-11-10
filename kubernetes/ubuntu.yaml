@@ -8,6 +8,7 @@ spec:
       labels:
         app: ubuntu
     spec:
+      hostNetwork: false
       containers:
         - name: ubuntu
           image: ubuntu:xenial
@@ -15,3 +16,4 @@ spec:
             - tail
             - -f
             - /dev/null
+

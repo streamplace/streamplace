@@ -6,7 +6,6 @@ import Output from "./Output";
 import Scene from "./Scene";
 import Vertex from "./Vertex";
 import User from "./User";
-import PeerConnection from "./PeerConnection";
 
 export {
   Arc,
@@ -16,5 +15,4 @@ export {
   Scene,
   Vertex,
   User,
-  PeerConnection,
 };

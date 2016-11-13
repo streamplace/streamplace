@@ -6,6 +6,7 @@ import express from "express";
 import config from "sk-config";
 import bodyParser from "body-parser";
 import http from "http";
+import schema from "sk-schema";
 import httpHandler from "./http-handler";
 import socketHandler from "./socket-handler";
 
@@ -13,6 +14,7 @@ const BELLAMIE_PORT = config.require("BELLAMIE_PORT");
 const JWT_SECRET = config.require("JWT_SECRET");
 const JWT_SECRET_DECODED = Buffer.from(JWT_SECRET, "base64");
 const PUBLIC_JWT_AUDIENCE = config.require("PUBLIC_JWT_AUDIENCE");
+const PLUGINS = config.require("PLUGINS").split(/\s+/).filter(p => p !== "");
 
 SKContext.jwtSecret = JWT_SECRET_DECODED;
 SKContext.jwtAudience = PUBLIC_JWT_AUDIENCE;
@@ -38,27 +40,23 @@ const ajv = new Ajv({
   allErrors: true
 });
 
-// Constant for now...
-const SK_PLUGINS = ["sk-plugin-core"];
-
 const schemaNames = {};
 const resourceNames = {};
-SK_PLUGINS.forEach((pluginName) => {
-  const plugin = require(pluginName);
-  winston.info(`Loading ${pluginName}...`);
 
-  // Add schemas
-  Object.keys(plugin.schema || {}).forEach((schemaName) => {
-    if (schemaNames[schemaName]) {
-      throw new Error(`Duplicate declaration of ${schemaName}`);
-    }
-    schemaNames[schemaName] = true;
-    const schema = plugin.schema[schemaName];
-    winston.debug(`[${pluginName}] Adding schema ${schemaName}`);
-    ajv.addSchema(schema, schemaName);
-  });
+Object.keys(schema.definitions).forEach((schemaName) => {
+  if (schemaNames[schemaName]) {
+    throw new Error(`Duplicate declaration of ${schemaName}`);
+  }
+  schemaNames[schemaName] = true;
+  const schemaObject = schema.definitions[schemaName];
+  winston.debug(`Adding schema ${schemaName}`);
+  ajv.addSchema(schemaObject, schemaName);
+});
 
+PLUGINS.forEach((pluginName) => {
   // Add resources
+  const plugin = require(pluginName);
+  winston.info(`Loading plugin ${pluginName}`);
   Object.keys(plugin.resources || {}).forEach((resourceName) => {
     if (!schemaNames[resourceName]) {
       throw new Error(`Found resource ${resourceName} but not its schema!`);

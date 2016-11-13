@@ -2,26 +2,17 @@
 import fs from "fs";
 import {resolve, basename} from "path";
 import yaml from "js-yaml";
+import config from "sk-config";
+import finder from "find-package-json";
+import chokidar from "chokidar";
+import winston from "winston";
+import _ from "underscore";
 
-const src = resolve(__dirname, "src");
-const files = fs.readdirSync(resolve(__dirname, "src"));
-const output = {
-  swagger: "2.0",
-  info: {
-    title: "Stream Kitchen API",
-    description: "An API for doing awesome stuff with live streaming video.",
-    version: "0.0.0-alpha1"
-  },
-  host: "api.stream.kitchen",
-  schemes: ["https"],
-  basePath: "/v0",
-  produces: ["application/json"],
-  consumes: ["application/json"],
-  definitions: {},
-  paths: {}
-};
+winston.cli();
 
-const addPath = function(name, obj) {
+const plugins = config.require("PLUGINS").split(/\s+/).filter(p => p !== "");
+
+const addPath = function(output, name, obj) {
   const {tableName} = obj;
   const [first, ...rest] = tableName;
   const tableNameUpper = first.toUpperCase() + rest.join("");
@@ -137,15 +128,72 @@ const addPath = function(name, obj) {
   };
 };
 
-files.forEach((file) => {
-  const name = basename(file, ".yaml");
-  const str = fs.readFileSync(resolve(src, file), "utf8");
-  const parsed = yaml.safeLoad(str);
-  output.definitions[name] = parsed;
-  if (typeof parsed.tableName !== "undefined") {
-    addPath(name, parsed);
-  }
-});
+const watchDirs = [];
 
-/*eslint-disable no-console */
-console.log(JSON.stringify(output, null, 2));
+const regenerate = function() {
+  const output = {
+    swagger: "2.0",
+    info: {
+      title: "Stream Kitchen API",
+      description: "An API for doing awesome stuff with live streaming video.",
+      version: "0.0.0-alpha1"
+    },
+    host: "api.stream.kitchen",
+    schemes: ["https"],
+    basePath: "/v0",
+    produces: ["application/json"],
+    consumes: ["application/json"],
+    definitions: {},
+    paths: {}
+  };
+
+  plugins.forEach((plugin) => {
+    const f = finder(require.resolve(plugin));
+    const value = f.next().value;
+    if (!value) {
+      throw new Error(`Couldn't find package.json for ${plugin}`);
+    }
+    const schemaPath = resolve(value.__path, "..", "schema");
+    watchDirs.push(schemaPath);
+    const files = fs.readdirSync(schemaPath);
+    files.forEach((file) => {
+      const name = basename(file, ".yaml");
+      const str = fs.readFileSync(resolve(schemaPath, file), "utf8");
+      const parsed = yaml.safeLoad(str);
+      output.definitions[name] = parsed;
+      if (typeof parsed.tableName !== "undefined") {
+        addPath(output, name, parsed);
+      }
+    });
+  });
+  const outPath = resolve(__dirname, "dist", "schema.json");
+  fs.writeFileSync(outPath, JSON.stringify(output, null, 2), "utf8");
+  winston.info(`Wrote ${outPath}`);
+};
+
+regenerate();
+
+if (!process.argv[2] || process.argv[2] !== "--watch") {
+  process.exit(0);
+}
+
+watchDirs.forEach((dir) => {
+  winston.info(`Watching ${dir}`);
+  const watcher = chokidar.watch(dir);
+  const regen = _.debounce(regenerate, 100);
+  watcher.on("ready", () => {
+    watcher
+      .on("add", (file) => {
+        winston.info(`${file} added`);
+        regen();
+      })
+      .on("change", (file) => {
+        winston.info(`${file} changed`);
+        regen();
+      })
+      .on("unlink", (file) => {
+        winston.info(`${file} deleted`);
+        regen();
+      });
+  });
+});

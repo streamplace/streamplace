@@ -6,14 +6,18 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "edit": "swagger project edit -s -p 4949 --host 0.0.0.0",
-    "build": "mkdir -p dist && babel-node build.js > dist/schema.json",
-    "dev": "nodemon -e yaml -w src -x npm run build"
+    "build": "babel-node build.js",
+    "dev": "babel-node build.js --watch"
   },
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
     "babel-preset-streamkitchen": "0.0.2",
+    "chokidar": "^1.6.1",
+    "find-package-json": "^1.0.0",
     "js-yaml": "^3.5.2",
-    "nodemon": "^1.9.1"
+    "nodemon": "^1.9.1",
+    "underscore": "^1.8.3",
+    "winston": "^2.3.0"
   }
 }

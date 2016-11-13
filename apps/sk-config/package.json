@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "babel-preset-streamkitchen": "*",
-    "nodemon": "^1.9.1"
+    "nodemon": "^1.9.1",
+    "underscore": "^1.8.3"
   }
 }

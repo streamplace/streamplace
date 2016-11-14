@@ -78,6 +78,9 @@ export default class RethinkDbDriver {
         return ctx.rethink.table(this.name).get(id).run(ctx.conn);
       }
       return ctx.rethink.table(this.name).filter({id}).run(ctx.conn)
+      .then((cursor) => {
+        return cursor.toArray();
+      })
       .then((docs) => {
         if (docs.length > 1) {
           throw new Error(`MAYDAY Data integrity violation Multiple ${this.name} with id ${id}`);

@@ -35,6 +35,28 @@ export default class SKContext extends EE {
       this.conn.close();
     }
   }
+
+  isService() {
+    if (!this.user) {
+      return false;
+    }
+    if (this.user.roles.indexOf("ADMIN") !== -1) {
+      return true;
+    }
+  }
+
+  isAdmin() {
+    if (!this.user) {
+      return false;
+    }
+    if (this.user.roles.indexOf("ADMIN") !== -1) {
+      return true;
+    }
+  }
+
+  isPrivileged() {
+    return this.isService() || this.isAdmin();
+  }
 }
 
 SKContext.resources = {};

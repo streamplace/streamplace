@@ -158,8 +158,21 @@ const regenerate = function() {
     const files = fs.readdirSync(schemaPath);
     files.forEach((file) => {
       const name = basename(file, ".yaml");
-      const str = fs.readFileSync(resolve(schemaPath, file), "utf8");
-      const parsed = yaml.safeLoad(str);
+      let str;
+      let parsed;
+      let err;
+      try {
+        str = fs.readFileSync(resolve(schemaPath, file), "utf8");
+        parsed = yaml.safeLoad(str);
+      }
+      catch (e) {
+        err = e;
+      }
+      if (err || !parsed) {
+        err && winston.error(err);
+        winston.error(`Error parsing ${file}, ignoring for now.`);
+        return;
+      }
       output.definitions[name] = parsed;
       if (typeof parsed.tableName !== "undefined") {
         addPath(output, name, parsed);

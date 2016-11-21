@@ -6,6 +6,7 @@ set -o pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export NODE_PATH="$DIR/../apps"
+export SK_CONFIG="${SK_CONFIG:-$DIR/../config.example.yaml}"
 
 function bigPrint() {
   echo ""

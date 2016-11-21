@@ -45,3 +45,5 @@ RETHINK_DATABASE: dev
 VERTEX_PROCESSOR_IMAGE: streamkitchen/pipeland-dev
 
 PUBLIC_TIMESYNC_SERVER_URL: http://localhost:9090/timesync
+
+PLUGINS: sk-plugin-core

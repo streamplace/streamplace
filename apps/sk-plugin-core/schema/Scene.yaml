@@ -1,11 +1,18 @@
 type: object
 tableName: scenes
 additionalProperties: false
-required: ["broadcastId", "title", "height", "width"]
+required:
+  - title
+  - height
+  - width
+  - userId
 properties:
   id:
     type: string
     description: Unique ID of the scene
+  userId:
+    type: string
+    description: Owner of this scene
   kind:
     type: string
     allowedValues: ["Scene"]
@@ -29,11 +36,21 @@ properties:
     items:
       type: object
       additionalProperties: false
-      required: ["inputId", "x", "y", "width", "height"]
+      required:
+        - userId
+        - x
+        - y
+        - width
+        - height
       properties:
         inputId:
-          type: string
           description: Input to which this region cooresponds
+          oneOf:
+            - type: string
+            - enum: [null]
+        userId:
+          type: string
+          description: User to which this region cooresponds.
         x:
           type: number
           description: Horizontal location of this region in pixels

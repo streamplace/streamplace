@@ -8,6 +8,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$DIR/common.sh"
 
 export NPM_CONFIG_LOGLEVEL="warn"
+export NODE_PATH="$DIR/../apps"
 
 (
   cd "$DIR/.."

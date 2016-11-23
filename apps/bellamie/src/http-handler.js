@@ -9,6 +9,9 @@ import apiLog from "./api-log";
 const RETHINK_HOST = config.require("RETHINK_HOST");
 const RETHINK_PORT = config.require("RETHINK_PORT");
 const RETHINK_DATABASE = config.require("RETHINK_DATABASE");
+const RETHINK_USER = config.optional("RETHINK_USER");
+const RETHINK_PASSWORD = config.optional("RETHINK_PASSWORD");
+const RETHINK_CA = config.optional("RETHINK_CA");
 
 export default function httpHandler({resource}) {
   const app = express();
@@ -54,6 +57,9 @@ export default function httpHandler({resource}) {
       rethinkHost: RETHINK_HOST,
       rethinkPort: RETHINK_PORT,
       rethinkDatabase: RETHINK_DATABASE,
+      rethinkUser: RETHINK_USER,
+      rethinkPassword: RETHINK_PASSWORD,
+      rethinkCA: RETHINK_CA,
       token: req.headers["sk-auth-token"],
       remoteAddress: remoteAddress,
     })

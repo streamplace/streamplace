@@ -70,7 +70,7 @@ SKContext.addResource = function(resource) {
 SKContext.jwtSecret = null;
 SKContext.jwtAudience = null;
 
-SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, token, remoteAddress}) {
+SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, rethinkUser, rethinkPassword, rethinkCA, token, remoteAddress}) {
   const ctx = new SKContext();
   ctx.remoteAddress = remoteAddress;
   return new Promise((resolve, reject) => {
@@ -105,11 +105,17 @@ SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, t
     resolve();
   })
   .then(() => {
-    return r.connect({
+    const params = {
       host: rethinkHost,
       port: rethinkPort,
       db: rethinkDatabase,
-    });
+      user: rethinkUser || "admin",
+      password: rethinkPassword || "",
+    };
+    if (rethinkCA) {
+      params.ssl = {ca: rethinkCA};
+    }
+    return r.connect(params);
   })
   .then((conn) => {
     ctx.rethink = r;

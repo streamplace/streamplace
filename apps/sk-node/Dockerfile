@@ -64,5 +64,6 @@ ADD sk-schema/dist /apps/sk-schema/dist
 ADD sk-resource/dist /apps/sk-resource/dist
 ADD sk-utils/dist /apps/sk-utils/dist
 ADD sk-plugin-core/dist /apps/sk-plugin-core/dist
+ADD sk-plugin-core/schema /apps/sk-plugin-core/schema
 ADD sk-config/dist /apps/sk-config/dist
 ADD sk-client/dist /apps/sk-client/dist

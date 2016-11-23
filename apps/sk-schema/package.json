@@ -12,13 +12,15 @@
   },
   "author": "",
   "license": "Apache-2.0",
-  "devDependencies": {
-    "babel-preset-streamkitchen": "0.0.2",
-    "chokidar": "^1.6.1",
+  "dependencies": {
     "find-package-json": "^1.0.0",
     "js-yaml": "^3.5.2",
-    "nodemon": "^1.9.1",
+    "chokidar": "^1.6.1",
     "underscore": "^1.8.3",
     "winston": "^2.3.0"
+  },
+  "devDependencies": {
+    "babel-preset-streamkitchen": "0.0.2",
+    "nodemon": "^1.9.1"
   }
 }

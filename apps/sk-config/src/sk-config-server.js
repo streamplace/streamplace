@@ -31,6 +31,11 @@ Object.keys(process.env).forEach((key) => {
 });
 
 // Automatically add my name, based on filename
-config.APP_NAME = path.basename(process.argv[1], ".js");
+if (process.argv[1]) {
+  config.APP_NAME = path.basename(process.argv[1], ".js");
+}
+else {
+  config.APP_NAME = "repl";
+}
 
 module.exports = config;

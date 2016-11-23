@@ -40,6 +40,7 @@ RUN cd $(npm root -g)/npm \
 # Preload all of our shared libraries.
 
 ENV NODE_PATH /apps
+ENV NODE_ENV production
 
 WORKDIR /apps
 CMD [ "node" ]

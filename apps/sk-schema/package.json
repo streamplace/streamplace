@@ -2,12 +2,13 @@
   "name": "sk-schema",
   "version": "0.0.1",
   "description": "Schema for Stream Kitchen",
-  "main": "dist/schema.json",
+  "main": "dist/sk-schema.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "edit": "swagger project edit -s -p 4949 --host 0.0.0.0",
-    "build": "babel-node build.js",
-    "dev": "babel-node build.js --watch"
+    "build": "babel -d dist src && node dist/build-schema.js",
+    "dev-watch": "babel -d dist src && node dist/build-schema.js --watch",
+    "dev": "nodemon -x 'npm run dev-watch' -w src"
   },
   "author": "",
   "license": "Apache-2.0",

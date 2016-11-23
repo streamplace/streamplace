@@ -179,34 +179,33 @@ const regenerate = function() {
       }
     });
   });
-  const outPath = resolve(__dirname, "dist", "schema.json");
+  const outPath = resolve(__dirname, "..", "dist", "schema.json");
   fs.writeFileSync(outPath, JSON.stringify(output, null, 2), "utf8");
   winston.info(`Wrote ${outPath}`);
 };
 
 regenerate();
 
-if (!process.argv[2] || process.argv[2] !== "--watch") {
-  process.exit(0);
+if (!module.parent && process.argv[2] && process.argv[2] === "--watch") {
+  watchDirs.forEach((dir) => {
+    winston.info(`Watching ${dir}`);
+    const watcher = chokidar.watch(dir);
+    const regen = _.debounce(regenerate, 100);
+    watcher.on("ready", () => {
+      watcher
+        .on("add", (file) => {
+          winston.info(`${file} added`);
+          regen();
+        })
+        .on("change", (file) => {
+          winston.info(`${file} changed`);
+          regen();
+        })
+        .on("unlink", (file) => {
+          winston.info(`${file} deleted`);
+          regen();
+        });
+    });
+  });
 }
 
-watchDirs.forEach((dir) => {
-  winston.info(`Watching ${dir}`);
-  const watcher = chokidar.watch(dir);
-  const regen = _.debounce(regenerate, 100);
-  watcher.on("ready", () => {
-    watcher
-      .on("add", (file) => {
-        winston.info(`${file} added`);
-        regen();
-      })
-      .on("change", (file) => {
-        winston.info(`${file} changed`);
-        regen();
-      })
-      .on("unlink", (file) => {
-        winston.info(`${file} deleted`);
-        regen();
-      });
-  });
-});

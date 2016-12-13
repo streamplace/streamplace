@@ -31,6 +31,47 @@ properties:
     type: number
     allowedValues: [1920]
     description: Width of this scene, in pixels
+  transition:
+    type: array
+    items:
+      type: object
+      required:
+        - transition
+        - scene
+        - key
+      additionalProperties: false
+      properties:
+        key:
+          type: string
+          description: Unique ID of transition
+        scene:
+          type: object
+          additionalProperties: false
+          properties:
+            height:
+              type: number
+              allowedValues: [1080]
+              description: Height of this scene, in pixels
+            width:
+              type: number
+              allowedValues: [1920]
+              description: Width of this scene, in pixels
+            regions:
+              type: array
+              items:
+                $ref: "Scene#/properties/regions/items"
+        transition:
+          type: object
+          properties:
+            duration:
+              type: number
+            bezier:
+              type: array
+              minItems: 4
+              maxItems: 4
+              items:
+                type: number
+
   regions:
     type: array
     items:
@@ -42,7 +83,11 @@ properties:
         - y
         - width
         - height
+        - key
       properties:
+        key:
+          description: Unique identifier of this region
+          type: string
         inputId:
           description: Input to which this region cooresponds
           oneOf:
@@ -63,3 +108,6 @@ properties:
         height:
           type: number
           description: Height of this region in pixels
+        zIndex:
+          type: number
+          description: z-index. Defaults to 5.

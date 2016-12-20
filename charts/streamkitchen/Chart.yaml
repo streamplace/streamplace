@@ -1,0 +1,10 @@
+name: streamkitchen
+apiVersion: v1
+description: open-source toolkit and CMS for live video
+version: 0.1.0
+home: https://stream.kitchen
+sources:
+  - https://github.com/streamkitchen/streamkitchen
+maintainers:
+  - name: Streamplace
+    email: stuff@stream.place

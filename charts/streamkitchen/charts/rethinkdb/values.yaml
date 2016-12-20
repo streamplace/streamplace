@@ -1,0 +1,6 @@
+# Default values for rethinkdb.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+persistence:
+  hostPath: /home/root/code/streamkitchen/data/rethinkdb

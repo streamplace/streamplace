@@ -2,6 +2,10 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+global:
+  domain: drumstick.iame.li
+  adminEmail: eli@stream.place
+
 rethinkdb:
   persistence:
     hostPath: /home/root/code/streamkitchen/data/rethink

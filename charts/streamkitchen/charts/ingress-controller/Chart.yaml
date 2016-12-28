@@ -1,0 +1,4 @@
+apiVersion: v1
+description: Gimmie some HTTP connections and send 'em to the right place, please
+name: ingress-lb
+version: 0.1.0

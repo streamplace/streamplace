@@ -1,4 +1,0 @@
-apiVersion: v1
-description: Serving version.json since 2016
-name: version-json
-version: 0.1.0

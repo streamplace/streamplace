@@ -1,0 +1,42 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+    spec:
+      containers:
+      - name: nginx
+        image: "gcr.io/google_containers/nginx-ingress-controller:0.8.3"
+        imagePullPolicy: Always
+        command:
+          - /nginx-ingress-controller
+        args:
+          - --default-backend-service
+          - default/{{ .Release.Name }}-default-backend
+          - --nginx-configmap=default/{{ template "fullname" . }}
+        ports:
+          - containerPort: 80
+            {{- if contains "NodePort" .Values.serviceType }}
+            hostPort: 80
+            {{- end }}
+          - containerPort: 443
+            {{- if contains "NodePort" .Values.serviceType }}
+            hostPort: 443
+            {{- end }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 10254
+            scheme: HTTP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 10254
+            scheme: HTTP

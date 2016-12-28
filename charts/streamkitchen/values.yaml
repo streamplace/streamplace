@@ -3,8 +3,10 @@
 # Declare variables to be passed into your templates.
 
 global:
-  domain: drumstick.iame.li
-  adminEmail: eli@stream.place
+  domain: streamkitchen.example.com
+  adminEmail: admin@example.com
+  repo: docker.io/streamkitchen
+  version: latest
 
 rethinkdb:
   persistence:

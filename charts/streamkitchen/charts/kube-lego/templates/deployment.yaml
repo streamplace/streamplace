@@ -10,7 +10,7 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ template "fullname" . }}
+        app: kube-lego
     spec:
       containers:
       - name: kube-lego
@@ -20,15 +20,13 @@ spec:
         - containerPort: 8080
         env:
         - name: LEGO_EMAIL
-          valueFrom:
-            configMapKeyRef:
-              name: {{ template "fullname" . }}
-              key: lego.email
+          value: "{{ .Values.global.adminEmail }}"
         - name: LEGO_URL
-          valueFrom:
-            configMapKeyRef:
-              name: {{ template "fullname" . }}
-              key: lego.url
+          value: "{{ .Values.acmeUrl }}"
+        - name: LEGO_SERVICE_NAME_NGINX
+          value: "{{ template "fullname" . }}-nginx"
+        - name: LEGO_INGRESS_NAME_NGINX
+          value: "{{ template "fullname" . }}-nginx"
         - name: LEGO_NAMESPACE
           valueFrom:
             fieldRef:

@@ -5,11 +5,15 @@ metadata:
   labels:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
 spec:
-  type: ClusterIP
   selector:
     app: {{ template "fullname" . }}
+  type: {{ .Values.serviceType }}
   ports:
   - port: 80
     targetPort: 80
     protocol: TCP
     name: http
+  - port: 443
+    targetPort: 443
+    protocol: TCP
+    name: https

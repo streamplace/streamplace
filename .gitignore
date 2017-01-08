@@ -7,4 +7,5 @@ rethinkdb_data
 config.yml
 rethinkdb_data
 ._*
+*-values.yaml
 values.yaml

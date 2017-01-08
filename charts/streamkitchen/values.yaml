@@ -9,5 +9,5 @@ global:
   version: latest
 
 rethinkdb:
-  persistence:
-    hostPath: /home/root/code/streamkitchen/data/rethink
+  # persistence:
+  #   hostPath: /home/root/code/streamkitchen/data/rethink

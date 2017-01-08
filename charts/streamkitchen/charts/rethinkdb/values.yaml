@@ -3,4 +3,4 @@
 # Declare variables to be passed into your templates.
 
 persistence:
-  hostPath: /home/root/code/streamkitchen/data/rethinkdb
+  # hostPath: /home/root/code/streamkitchen/data/rethinkdb

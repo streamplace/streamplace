@@ -6,6 +6,8 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
 spec:
   type: ClusterIP
+  selector:
+    app: {{ template "fullname" . }}
   ports:
     - name: rethinkdb
       protocol: TCP

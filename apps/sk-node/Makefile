@@ -10,7 +10,7 @@ all: container clean
 
 container: .
 	cd $(shell pwd)/.. && docker build -f sk-node/Dockerfile -t streamkitchen/sk-node .
-	docker tag -f streamkitchen/$(SK_DOCKER_APP) $(SK_DOCKER_TAG)
+	docker tag streamkitchen/$(SK_DOCKER_APP) $(SK_DOCKER_TAG)
 
 push: .
 	docker push $(SK_DOCKER_TAG)

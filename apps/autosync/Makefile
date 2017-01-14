@@ -14,7 +14,7 @@ app: .
 
 container: .
 	docker build -t streamkitchen/$(SK_DOCKER_APP) .
-	docker tag -f streamkitchen/$(SK_DOCKER_APP) $(SK_DOCKER_TAG)
+	docker tag streamkitchen/$(SK_DOCKER_APP) $(SK_DOCKER_TAG)
 
 push: .
 	docker push $(SK_DOCKER_TAG)

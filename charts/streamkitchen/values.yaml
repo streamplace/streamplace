@@ -11,3 +11,25 @@ global:
 rethinkdb:
   # persistence:
   #   hostPath: /home/root/code/streamkitchen/data/rethink
+
+sk-config:
+
+  # What's the name of your rethink DB?
+  RETHINK_DATABASE: streamkitchen
+
+  # Optional. Currently used for logging video files to S3.
+  # AWS_ACCESS_KEY_ID: "XXXXXXXXXXXXXXXXXXXX"
+  # AWS_SECRET_ACCESS_KEY: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  # AWS_USER_UPLOAD_BUCKET: "mybucket"
+  # AWS_USER_UPLOAD_REGION: "us-east-1"
+  # AWS_USER_UPLOAD_PREFIX: "dev/"
+
+  # What Docker container should be used to run vertices?
+  VERTEX_PROCESSOR_IMAGE: streamkitchen/pipeland-dev
+
+  JWT_SECRET: replace_me_with_a_long_secret_string
+  JWT_EXPIRY: "86400000" # 1 day in milliseconds
+
+  PLUGINS: |
+    sk-plugin-core
+    sp-plugin-core

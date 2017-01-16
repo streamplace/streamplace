@@ -1,0 +1,4 @@
+apiVersion: v1
+name: sk-config
+description: Where SK keeps configuration settings and such
+version: 0.1.0

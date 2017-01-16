@@ -1,0 +1,39 @@
+
+# This file mostly contains stuff that shouldn't be overridden. Ones that should be overridden
+# should be in the `values.yaml` for the `streamkitchen` file.
+
+# Allowed values: "kubernetes"
+PLATFORM: kubernetes
+
+# Uncomment these if you're using Kubernetes
+KUBE_HOST: https://kubernetes
+KUBE_CA_FILE: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+KUBE_TOKEN_FILE: /var/run/secrets/kubernetes.io/serviceaccount/token
+KUBE_NAMESPACE: default
+
+# Accepted values: none, jwt
+PUBLIC_AUTH_MODE: jwt
+
+# These are API credentials for S3 for the FileOutputVertex. Also other things, eventually.
+# AWS_ACCESS_KEY_ID: "XXXXXXXXXXXXXXXXXXXX"
+# AWS_SECRET_ACCESS_KEY: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+# AWS_USER_UPLOAD_BUCKET: "mybucket"
+# AWS_USER_UPLOAD_REGION: "us-east-1"
+# AWS_USER_UPLOAD_PREFIX: "dev/"
+
+# Port on which the Bellamie server oughta run.
+BELLAMIE_PORT: "80"
+
+# Where's your Rethink database?
+RETHINK_PORT: "28015"
+RETHINK_DATABASE: streamplace
+
+# What Docker container should be used to run vertices?
+VERTEX_PROCESSOR_IMAGE: streamkitchen/pipeland-dev
+
+JWT_SECRET: replacemewithabigsecretstring
+JWT_EXPIRY: "86400000" # 1 day in milliseconds
+
+PLUGINS: |-
+  sk-plugin-core
+  sp-plugin-core

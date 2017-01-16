@@ -6,13 +6,12 @@ metadata:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
 data:
   # Values that requrire derived values are here. Others are in values.yaml
-  API_SERVER_URL: http://{{ .Chart.Name }}-bellamie.{{ .Namespace }}.svc.cluster.local
+  API_SERVER_URL: http://{{ .Chart.Name }}-bellamie.{{ .Release.Namespace }}.svc.cluster.local
   PUBLIC_API_SERVER_URL: https://{{ .Values.global.domain }}/api
   # Path for applications to get at the Shoko RTMP server from inside the application.
-  RTMP_URL_INTERNAL: rtmp://{{ .Chart.Name }}-shoko.{{ .Namespace }}.svc.cluster.local/stream/
+  RTMP_URL_INTERNAL: rtmp://{{ .Chart.Name }}-shoko.{{ .Release.Namespace }}.svc.cluster.local/stream/
   # Path for external users to get at the Shoko RTMP server for the preview stream.
   PUBLIC_RTMP_URL_PREVIEW: rtmp://{{ .Values.global.domain }}/stream/
-  RETHINK_HOST: {{ .Chart.Name }}-rethinkdb.{{ .Namespace }}.svc.cluster.local
   PUBLIC_TIMESYNC_SERVER_URL: https://{{ .Values.global.domain }}/time
   PUBLIC_JWT_AUDIENCE: "https://{{ .Values.global.domain }}/"
 {{- range $key, $value := .Values }}

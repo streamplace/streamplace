@@ -1,0 +1,44 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    rollingUpdate:
+      maxSurge: 5
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: streamkitchen/bellamie:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        env:
+        - name: SK_BELLAMIE_PORT
+          value: "80"
+        - name: SK_JWT_SECRET
+          valueFrom:
+            configMapKeyRef:
+              name: "{{ .Release.Name }}-sk-config"
+              key: JWT_SECRET
+        - name: SK_PLUGINS
+          value: sk-plugin-core
+        - name: SK_PUBLIC_JWT_AUDIENCE
+          valueFrom:
+            configMapKeyRef:
+              name: "{{ .Release.Name }}-sk-config"
+              key: PUBLIC_JWT_AUDIENCE
+        - name: SK_RETHINK_DATABASE
+          value: {{ .Release.Name }}
+        - name: SK_RETHINK_HOST
+          value: {{ .Release.Name }}-rethinkdb.{{ .Release.Namespace }}.svc.cluster.local
+        - name: SK_RETHINK_PORT
+          value: "28015"

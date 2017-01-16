@@ -21,9 +21,6 @@ PUBLIC_AUTH_MODE: jwt
 # AWS_USER_UPLOAD_REGION: "us-east-1"
 # AWS_USER_UPLOAD_PREFIX: "dev/"
 
-# Port on which the Bellamie server oughta run.
-BELLAMIE_PORT: "80"
-
 # Where's your Rethink database?
 RETHINK_PORT: "28015"
 RETHINK_DATABASE: streamplace

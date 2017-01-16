@@ -10,7 +10,7 @@ metadata:
     kubernetes.io/ingress.class: "nginx"
 spec:
   tls:
-  - secretName: tls-{{ .Values.global.domain }}
+  - secretName: {{ .Values.global.domain }}
     hosts:
     - {{ .Values.global.domain }}
   rules:

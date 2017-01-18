@@ -1,10 +1,8 @@
 <p align="center">
   <a href="https://stream.kitchen/">
-    <img alt="Stream Kitchen" src="https://cloud.githubusercontent.com/assets/257909/15797920/2446bcae-29dc-11e6-8ea7-fbde5f56f408.png" width="150">
+    <img alt="streamplace" src="https://cloud.githubusercontent.com/assets/257909/22085092/7e32de3c-dd87-11e6-8209-26176f852912.png" width="700">
   </a>
 </p>
-
-<h3 align="center">Stream Kitchen</h3>
 
 <p align="center">
   <a href="https://travis-ci.org/streamkitchen/streamkitchen">

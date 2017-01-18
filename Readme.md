@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  A toolkit for compositing live video streams in the cloud.
+  An open-source CMS for live video.
 </p>
 
 <p align="center">

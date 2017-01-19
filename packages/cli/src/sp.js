@@ -21,7 +21,7 @@ const CONFIG_DEFAULT = {
 // const {version} = JSON.parse(pkg);
 export default program
   .version(pkg.version)
-  .option("--sp-config <file>", "Location of sp-config.yaml (Default $HOME/.streamplace/sp-config.yaml)", configDefault);
+  .option("--sp-config <file>", "location of sp-config.yaml (default $HOME/.streamplace/sp-config.yaml)", configDefault);
 
 const getConfig = function() {
   const {spConfig} = program;

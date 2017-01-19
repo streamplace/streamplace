@@ -1,0 +1,26 @@
+{
+  "name": "streamplace-cli",
+  "version": "0.0.1",
+  "description": "streamplace console command",
+  "main": "dist/index.js",
+  "bin": {
+    "sp": "dist/sp.js"
+  },
+  "scripts": {
+    "dev": "babel --watch --retainLines=true -d dist src",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Streamplace",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "babel-preset-streamplace": "0.0.1"
+  },
+  "dependencies": {
+    "commander": "^2.9.0",
+    "inquirer": "^2.0.0",
+    "js-yaml": "^3.7.0",
+    "mkdirp": "^0.5.1",
+    "mkdirp-promise": "^5.0.0",
+    "mz": "^2.6.0"
+  }
+}

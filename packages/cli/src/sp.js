@@ -21,7 +21,7 @@ const CONFIG_DEFAULT = {
 // const {version} = JSON.parse(pkg);
 export default program
   .version(pkg.version)
-  .option("--sp-config <file>", "Location of sp-config.yaml", configDefault);
+  .option("--sp-config <file>", "Location of sp-config.yaml (Default $HOME/.streamplace/sp-config.yaml)", configDefault);
 
 const getConfig = function() {
   const {spConfig} = program;
@@ -43,9 +43,10 @@ const getConfig = function() {
 };
 
 program
-  .command("login", "authenticate with your streamplace dev server")
+  .command("sync")
+  .description("Sync your plugin to the development server")
   .action(function(command, env) {
-    getConfig(env.options)
+    getConfig()
     .then((config) => {
       console.log(config);
       console.log("do login things now :)");
@@ -54,3 +55,7 @@ program
   });
 
 program.parse(process.argv);
+
+if (!process.argv.slice(2).length) {
+  program.outputHelp();
+}

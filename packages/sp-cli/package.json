@@ -2,9 +2,9 @@
   "name": "streamplace-cli",
   "version": "0.0.1",
   "description": "streamplace console command",
-  "main": "dist/index.js",
+  "main": "dist/sp-cli.js",
   "bin": {
-    "sp": "dist/sp.js"
+    "sp": "dist/sp-cli.js"
   },
   "scripts": {
     "dev": "babel --watch --retainLines=true -d dist src",

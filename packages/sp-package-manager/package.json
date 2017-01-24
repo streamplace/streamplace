@@ -4,7 +4,7 @@
   "description": "streamplace thing what builds stuff",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "babel --watch --retainLines=true -d dist src",
+    "dev": "PORT=8999 babel-watch -L src/sp-package-manager.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Streamplace",
@@ -13,7 +13,9 @@
     "babel-preset-streamplace": "0.0.1"
   },
   "dependencies": {
+    "bufferutil": "^1.3.0",
     "mz": "^2.6.0",
+    "utf-8-validate": "^2.0.0",
     "ws": "^1.1.1"
   }
 }

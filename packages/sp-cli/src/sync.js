@@ -4,8 +4,11 @@ import fs from "mz/fs";
 import {info, warn, error} from "./log";
 import WebSocket from "ws";
 import debugPkg from "debug";
+import vorpalPkg from "vorpal";
+import inquirer from "inquirer";
+import {terminal as term} from "terminal-kit";
 
-const debug = debugPkg("sp:cli-sync");
+term.fullscreen();
 
 let ignored = [];
 try {
@@ -19,37 +22,99 @@ catch (e) {
   warn("You don't have a .gitignore file, that's weird.");
 }
 
+term.moveTo(1, term.height);
+
+let underline = "";
+while (underline.length < term.width) {
+  underline += " ";
+}
+
+const debug = function(str) {
+  term.cyan("[debug] ");
+  term(str);
+  term("\n");
+  frame();
+};
+
+const frame = function() {
+  term.saveCursor();
+  term.moveTo(1, 1);
+  term(underline);
+  term.moveTo(1, 2);
+  term(underline);
+  term.moveTo(1, 1);
+  term.bgColorRgb(0, 0, 0).yellow(" Streamplace");
+  let statusString = conn ? "Connected" : "Disconnected";
+  const position = term.width - statusString.length ;
+  term.moveTo(position, 1);
+  if (conn) {
+    term.green("Connected\n");
+  }
+  else {
+    term.red("Disconnected\n");
+  }
+  term.underline(underline);
+  term.restoreCursor();
+};
+
+let conn = false;
+
+const connected = function(status) {
+  conn = status;
+  frame();
+};
+
 // TODO on this: Handle add/change/unlink events in quick succession
 export class FileSyncClient {
   constructor({directory, packageManagerUrl}) {
+    this.ready = false;
+    this.messageQueue = [];
+    this.initWs();
+  }
+
+  initWs() {
     this.ws = new WebSocket("ws://localhost:8999");
 
     this.ws.on("open", () => {
-      info("Connection established.");
+      debug("Connection established.");
       this.jsonMessage({event: "hello"});
       this.ready = true;
+      this.active = false;
       this._processNext();
+      connected(true);
     });
 
-    this.messageQueue = [];
-    this.ready = false;
+    this.ws.on("close", (code, reason) => {
+      debug("close", code, reason);
+      connected(false);
+    });
+
+    this.ws.on("error", (err) => {
+      debug("error", err);
+    });
+
+    this.ws.on("message", (err) => {
+      debug("message", err);
+    });
+
+    this.ws.on("ping", (data, flags) => {
+      debug("ping", data, flags);
+    });
+
+    this.ws.on("pong", (data, flags) => {
+      debug("pong", data, flags);
+    });
+
+    this.ws.on("unexpected-response", (request, response) => {
+      debug("unexpected-response", request, response);
+    });
   }
 
   /**
    * Add a monitored file event to the queue.
    */
   queue(event, path) {
-    if (event === "add" || event === "change") {
-      fs.readFile(path).then((buf) => {
-        debug(`Got ${buf.length} bytes for ${path}`);
-        this.messageQueue.push({event, path, buf});
-        this._processNext();
-      })
-      .catch((err) => {
-        error(err);
-      });
-    }
-
+    this.messageQueue.push({event, path});
     this._processNext();
   }
 
@@ -60,12 +125,23 @@ export class FileSyncClient {
     if (this.messageQueue.length === 0) {
       return;
     }
-    if (!this.ready) {
+    if (!this.ready || this.active) {
       return;
     }
     const {event, path, buf} = this.messageQueue.shift();
-    this.ws.send(JSON.stringify({event, path}));
-    this.ws.send(buf);
+    if (event === "add" || event === "change") {
+      this.active = true;
+      fs.readFile(path).then((buf) => {
+        debug(`Got ${buf.length} bytes for ${path}`);
+        this.jsonMessage({event, path}, buf);
+        this.active = false;
+        this._processNext();
+      })
+      .catch((err) => {
+        error(err);
+        process.exit(1);
+      });
+    }
   }
 
   /**
@@ -81,9 +157,6 @@ export class FileSyncClient {
     });
   }
 }
-
-
-
 
 export default function(config) {
   const fileSync = new FileSyncClient({

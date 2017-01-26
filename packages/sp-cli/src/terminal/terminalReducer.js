@@ -14,26 +14,15 @@ const initialState = {
     debug: {
       name: "debug",
       color: [0, 255, 255]
+    },
+    watcher: {
+      name: "watcher",
+      color: [100, 255, 100]
     }
   },
   entries: [],
 };
 
-function addEntry(state, category, text) {
-  return {
-    ...state,
-    entries: [
-      ...state.entries,
-      {category, text}
-    ],
-  };
-}
-
 export default function terminal(state = initialState, action) {
-  switch (action.type) {
-  case actions.STARTUP:
-    return addEntry(state, "debug", "Starting up...");
-  }
 
-  return state;
 }

@@ -19,12 +19,14 @@
   "dependencies": {
     "chokidar": "^1.6.1",
     "commander": "^2.9.0",
+    "find-package-json": "^1.0.0",
     "inquirer": "^2.0.0",
     "js-yaml": "^3.7.0",
     "mkdirp": "^0.5.1",
     "mkdirp-promise": "^5.0.0",
     "mz": "^2.6.0",
     "redux": "^3.6.0",
+    "redux-thunk": "^2.2.0",
     "terminal-kit": "^0.26.1",
     "vorpal": "^1.11.4",
     "ws": "^1.1.1"

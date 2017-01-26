@@ -2,10 +2,12 @@
 import {terminal as term} from "terminal-kit";
 
 export default function terminalRender(store) {
-  term.fullscreen();
+  // term.fullscreen();
+  term.alternateScreenBuffer();
 
   store.subscribe(() => {
     const {title, status, entries, categories} = store.getState().terminal;
+    term.clear();
 
     term.moveTo(1, term.height);
     entries.forEach((entry) => {

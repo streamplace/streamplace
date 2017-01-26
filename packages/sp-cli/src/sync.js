@@ -8,23 +8,18 @@
 // import inquirer from "inquirer";
 // import {terminal as term} from "terminal-kit";
 
-import {createStore, combineReducers} from "redux";
+import {createStore, combineReducers, applyMiddleware} from "redux";
+import thunk from "redux-thunk";
 
 import {STARTUP} from "./constants/actionNames";
 import terminalComponent from "./terminal/terminalComponent";
-import terminalReducer from "./terminal/terminalReducer";
+import watcherComponent from "./watcher/watcherComponent";
+import rootReducer from "./reducer";
 
 export default function() {
-  const rootReducer = combineReducers({
-    terminal: terminalReducer,
-  });
-
-  const store = createStore(rootReducer);
+  const store = createStore(rootReducer, applyMiddleware(thunk));
   terminalComponent(store);
-
-  store.dispatch({type: STARTUP});
-
-  setInterval(function() {}, 1000);
+  watcherComponent(store);
 }
 
 

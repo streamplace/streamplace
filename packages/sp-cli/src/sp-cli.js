@@ -7,6 +7,12 @@ import pkg from "../package.json";
 import {safeLoad as readYaml, safeDump as writeYaml} from "js-yaml";
 import mkdirp from "mkdirp-promise";
 import sync from "./sync";
+import {createStore, combineReducers, applyMiddleware} from "redux";
+import thunk from "redux-thunk";
+import terminalComponent from "./terminal/terminalComponent";
+import watcherComponent from "./watcher/watcherComponent";
+import rootReducer from "./reducer";
+import {terminalCommand} from "./terminal/terminalActions";
 
 const configDefault = resolve(process.env.HOME, ".streamplace", "sp-config.yaml");
 
@@ -43,13 +49,17 @@ const getConfig = function() {
   });
 };
 
+const store = createStore(rootReducer, applyMiddleware(thunk));
+
 program
   .command("sync")
   .description("Sync your plugin to the development server")
   .action(function(command, env) {
     getConfig()
     .then((config) => {
-      sync(config);
+      terminalComponent(store);
+      watcherComponent(store);
+      store.dispatch(terminalCommand("sync"));
     })
     .catch(die);
   });

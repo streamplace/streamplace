@@ -5,6 +5,7 @@ import * as actions from "./constants/actionNames";
 
 const initialState = {
   terminal: {
+    command: null,
     title: {
       color: [255, 207, 0],
       text: "Streamplace",
@@ -74,6 +75,15 @@ function upsertFile(state, action) {
 /*eslint indent: ["error", 2, { "SwitchCase": 1 }]*/
 export default function rootReducer(state = initialState, action) {
   switch (action.type) {
+
+    case actions.TERMINAL_COMMAND:
+      return {
+        ...state,
+        terminal: {
+          ...state.terminal,
+          command: action.command,
+        }
+      };
 
     case actions.WATCHER_READY:
       state = addEntry(state, "watcher", "Watcher ready!");

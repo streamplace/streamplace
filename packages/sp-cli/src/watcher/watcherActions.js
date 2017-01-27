@@ -1,4 +1,5 @@
 
+import chokidar from "chokidar";
 import fs from "mz/fs";
 import {
   WATCHER_READY,
@@ -9,7 +10,31 @@ import {
   WATCHER_LOAD_FILE_ERROR,
 } from "../constants/actionNames";
 
+const IGNORED = [
+  "node_modules",
+  "dist",
+];
 
+export const watcherWatch = () => dispatch => {
+  chokidar.watch(".", {ignored: IGNORED})
+  .on("ready", () => {
+    dispatch(watcherReady());
+  })
+  // Chokidar's funny and calls everything twice, with the stat block the second time. We only
+  // care then.
+  .on("add", (path, stat) => {
+    if (!stat) {
+      return;
+    }
+    dispatch(watcherAdd(path, stat));
+  })
+  .on("change", (path, stat) => {
+    if (!stat) {
+      return;
+    }
+    dispatch(watcherChange(path, stat));
+  });
+};
 
 export function watcherReady() {
   return {

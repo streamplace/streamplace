@@ -1,22 +1,30 @@
 
 import {terminal as term} from "terminal-kit";
 
+const hasPrinted = new Set();
+
 export default function terminalRender(store) {
   // term.fullscreen();
-  term.alternateScreenBuffer();
+  // term.alternateScreenBuffer();
 
   store.subscribe(() => {
     const {title, status, entries, categories} = store.getState().terminal;
-    term.clear();
+    // term.clear();
 
-    term.moveTo(1, term.height);
+    term.eraseDisplayBelow();
+
+    // term.moveTo(1, term.height);
     entries.forEach((entry) => {
+      if (hasPrinted.has(entry)) {
+        return;
+      }
+      hasPrinted.add(entry);
       const cat = categories[entry.category];
       term.colorRgb(...cat.color)(`${cat.name} `);
       term.colorRgb(255, 255, 255)(`${entry.text}\n`);
     });
 
-    term.saveCursor();
+    // term.saveCursor();
     // Set up top variables
     const titleText = ` ${title.text} `;
     const statusText = ` ${status.text} `;
@@ -25,13 +33,20 @@ export default function terminalRender(store) {
     while (spacing.length < neededSpacing) {
       spacing += " ";
     }
+    term("\n");
+    term.up(1);
 
-    // Print top bar
-    term.moveTo(1, 1);
+    term.down(1);
     term.underline.colorRgb(...title.color)(titleText);
     term.underline.colorRgb(255, 255, 255)(spacing);
     term.underline.colorRgb(...status.color)(statusText);
+    term.up(1);
+    term.column(1);
+    term.styleReset();
 
-    term.restoreCursor();
+    // // Print top bar
+
+
+    // term.restoreCursor();
   });
 }

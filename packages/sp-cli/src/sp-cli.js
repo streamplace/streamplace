@@ -7,11 +7,10 @@ import pkg from "../package.json";
 import {createStore, combineReducers, applyMiddleware} from "redux";
 import thunk from "redux-thunk";
 import terminalComponent from "./terminal/terminalComponent";
-import watcherComponent from "./watcher/watcherComponent";
 import rootReducer from "./reducer";
 import getConfig from "./config";
-import {terminalCommand} from "./terminal/terminalActions";
-import * as commands from "./constants/commands";
+import {commandSync} from "./command/commandActions";
+import * as actionNames from "./constants/actionNames";
 
 const configDefault = resolve(process.env.HOME, ".streamplace", "sp-config.yaml");
 // const {version} = JSON.parse(pkg);
@@ -20,19 +19,19 @@ export default program
   .option("--sp-config <file>", "location of sp-config.yaml (default $HOME/.streamplace/sp-config.yaml)", configDefault);
 
 const store = createStore(rootReducer, applyMiddleware(thunk));
+terminalComponent(store);
 
 program
-  .command(commands.SYNC)
+  .command(actionNames.COMMAND_SYNC.toLowerCase())
   .description("sync your plugin to a development server")
+  .option("--dev-server <url>", "url of your development server")
   .action(function(command, env) {
     const config = getConfig(program);
-    store.dispatch(terminalCommand("sync"));
-    terminalComponent(store);
-    watcherComponent(store);
+    store.dispatch(commandSync());
   });
 
 program
-  .command(commands.SERVE)
+  .command(actionNames.COMMAND_SERVE.toLowerCase())
   .description("[in-cluster only] run a development server");
 
 program.parse(process.argv);

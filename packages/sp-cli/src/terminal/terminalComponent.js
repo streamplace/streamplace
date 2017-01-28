@@ -9,11 +9,10 @@ export default function terminalRender(store) {
 
   store.subscribe(() => {
     const {title, status, entries, categories} = store.getState().terminal;
-    // term.clear();
 
     term.eraseDisplayBelow();
 
-    // term.moveTo(1, term.height);
+    // This is a memory leak, woo
     entries.forEach((entry) => {
       if (hasPrinted.has(entry)) {
         return;
@@ -24,8 +23,7 @@ export default function terminalRender(store) {
       term.colorRgb(255, 255, 255)(`${entry.text}\n`);
     });
 
-    // term.saveCursor();
-    // Set up top variables
+    // Set up bottom bar
     const titleText = ` ${title.text} `;
     const statusText = ` ${status.text} `;
     const neededSpacing = term.width - titleText.length - statusText.length;
@@ -43,10 +41,5 @@ export default function terminalRender(store) {
     term.up(1);
     term.column(1);
     term.styleReset();
-
-    // // Print top bar
-
-
-    // term.restoreCursor();
   });
 }

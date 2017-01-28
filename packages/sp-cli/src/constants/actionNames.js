@@ -1,7 +1,7 @@
 
-export const STARTUP = "STARTUP";
-
-export const TERMINAL_COMMAND = "TERMINAL_COMMAND";
+// These get special non-prefixed treatment so they can double as the CLI commands
+export const COMMAND_SYNC = "SYNC";
+export const COMMAND_SERVE = "SERVE";
 
 export const WATCHER_READY = "WATCHER_READY";
 export const WATCHER_ADD = "WATCHER_ADD";

@@ -7,7 +7,7 @@ import pkg from "../package.json";
 import {createStore, combineReducers, applyMiddleware} from "redux";
 import thunk from "redux-thunk";
 import terminalComponent from "./terminal/terminalComponent";
-import rootReducer from "./reducer";
+import rootReducer from "./rootReducer";
 import getConfig from "./config";
 import {commandSync} from "./command/commandActions";
 import * as actionNames from "./constants/actionNames";
@@ -32,7 +32,11 @@ program
 
 program
   .command(actionNames.COMMAND_SERVE.toLowerCase())
-  .description("[in-cluster only] run a development server");
+  .description("[in-cluster only] run a development server")
+  .option("--port <number>", "port that we oughta listen for connections on")
+  .action(function(command, env) {
+    // console.log("hi")
+  });
 
 program.parse(process.argv);
 

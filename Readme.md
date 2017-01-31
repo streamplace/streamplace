@@ -8,8 +8,8 @@
   <a href="https://travis-ci.org/streamkitchen/streamkitchen">
     <img src="https://travis-ci.org/streamkitchen/streamkitchen.svg?branch=master">
   </a>
-  <a href="https://slack.stream.kitchen/">
-    <img src="https://slack.stream.kitchen/badge.svg">
+  <a href="https://slack.stream.place/">
+    <img src="https://slack.stream.place/badge.svg">
   </a>
 </p>
 

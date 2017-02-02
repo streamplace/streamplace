@@ -22,6 +22,7 @@
     "find-package-json": "^1.0.0",
     "inquirer": "^2.0.0",
     "js-yaml": "^3.7.0",
+    "minimist": "^1.2.0",
     "mkdirp": "^0.5.1",
     "mkdirp-promise": "^5.0.0",
     "mz": "^2.6.0",

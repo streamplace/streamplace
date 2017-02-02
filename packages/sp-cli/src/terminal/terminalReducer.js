@@ -28,13 +28,21 @@ const initialState = {
     watcher: {
       name: "watcher",
       color: [100, 255, 100]
-    }
+    },
+    socket: {
+      name: "socket",
+      color: [100, 100, 255]
+    },
   },
+  bottomBar: false,
   entries: [],
 };
 
 export default function terminalReducer(state = initialState, action) {
   switch (action.type) {
+
+    case actions.COMMAND_SYNC:
+      return {...state, bottomBar: true};
 
     case actions.WATCHER_READY:
       return addEntry(state, "watcher", "Watcher ready!");
@@ -53,6 +61,36 @@ export default function terminalReducer(state = initialState, action) {
 
     case actions.WATCHER_LOAD_FILE_ERROR:
       return addEntry(state, "watcher", `Error loading file ${action.path}: ${JSON.stringify(action)}`);
+
+    case actions.SOCKET_LISTEN_SUCCESS:
+      return addEntry(state, "socket", `Streamplace dev server listening on port ${action.port}`);
+
+    case actions.SOCKET_CONNECT:
+      return addEntry(state, "socket", `Attempting connection to ${action.server}`);
+
+    case actions.SOCKET_CONNECT_SUCCESS:
+      state = addEntry(state, "socket", `Opened connection ${action.server}`);
+      return {
+        ...state,
+        status: {
+          color: [0, 255, 0],
+          text: "Connected",
+        },
+      };
+
+    case actions.SOCKET_ERROR:
+      state = addEntry(state, "socket", `Socket error ${action.error}`);
+      return {
+        ...state,
+        status: initialState.status,
+      };
+
+    case actions.SOCKET_CLOSE:
+      state = addEntry(state, "socket", `Connection to ${action.server} closed`);
+      return {
+        ...state,
+        status: initialState.status,
+      };
   }
 
   return state;

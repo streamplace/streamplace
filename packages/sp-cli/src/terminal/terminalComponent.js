@@ -8,7 +8,7 @@ export default function terminalRender(store) {
   // term.alternateScreenBuffer();
 
   store.subscribe(() => {
-    const {title, status, entries, categories} = store.getState().terminal;
+    const {title, status, entries, categories, bottomBar} = store.getState().terminal;
 
     term.eraseDisplayBelow();
 
@@ -22,6 +22,10 @@ export default function terminalRender(store) {
       term.colorRgb(...cat.color)(`${cat.name} `);
       term.colorRgb(255, 255, 255)(`${entry.text}\n`);
     });
+
+    if (bottomBar !== true) {
+      return;
+    }
 
     // Set up bottom bar
     const titleText = ` ${title.text} `;

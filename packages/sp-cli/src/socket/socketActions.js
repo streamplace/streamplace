@@ -1,8 +1,6 @@
 
 import WebSocket from "ws";
 import {
-  SOCKET_LISTEN,
-  SOCKET_LISTEN_SUCCESS,
   SOCKET_CONNECT,
   SOCKET_CONNECT_SUCCESS,
   SOCKET_CONNECT_ERROR,
@@ -13,26 +11,12 @@ import {
   SOCKET_PING,
   SOCKET_PONG,
   SOCKET_UNEXPECTED_RESPONSE,
+  SOCKET_SEND_FILE,
+  MESSAGE_FILE,
 } from "../constants/actionNames";
 
 const CONNECT_TIMEOUT = 3000;
 const CONNECT_RETRY = 3000;
-
-export const socketListen = () => (dispatch, getState) => {
-  const port = getState().socket.port;
-  dispatch({
-    type: SOCKET_LISTEN,
-    port: port,
-  });
-
-  const wss = new WebSocket.Server({port});
-  wss.on("listening", () => {
-    dispatch({
-      type: SOCKET_LISTEN_SUCCESS,
-      port: port,
-    });
-  });
-};
 
 export const socketConnect = () => (dispatch, getState) => {
   const server = getState().socket.devServer;
@@ -57,6 +41,7 @@ export const socketConnect = () => (dispatch, getState) => {
   ws.on("open", () => {
     clearTimeout(timeout);
     dispatch({
+      ws: ws,
       type: SOCKET_CONNECT_SUCCESS,
       server: server,
     });
@@ -96,5 +81,26 @@ export const socketConnect = () => (dispatch, getState) => {
       request: request,
       response: response,
     });
+  });
+};
+
+export const socketSendFile = (file) => (dispatch, getState) => {
+  if (!file.buffer) {
+    throw new Error("File is not loaded!");
+  }
+  const {connected, ws} = getState().socket;
+  if (!connected) {
+    // no-op
+    return;
+  }
+  ws.send(JSON.stringify({
+    type: MESSAGE_FILE,
+    path: file.path,
+    stat: file.stat,
+  }));
+  ws.send(file.buffer);
+  return dispatch({
+    type: SOCKET_SEND_FILE,
+    file: file
   });
 };

@@ -45,6 +45,9 @@ export default function watcherReducer(state = initialState, action) {
     case actions.WATCHER_CHANGE:
       return upsertFile(state, action);
 
+    case actions.WATCHER_LOAD_FILE_SUCCESS:
+      return upsertFile(state, action);
+
   }
 
   return state;

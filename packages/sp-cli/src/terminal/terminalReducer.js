@@ -60,9 +60,9 @@ export default function terminalReducer(state = initialState, action) {
       return addEntry(state, "watcher", `File loaded: ${action.path}`);
 
     case actions.WATCHER_LOAD_FILE_ERROR:
-      return addEntry(state, "watcher", `Error loading file ${action.path}: ${JSON.stringify(action)}`);
+      return addEntry(state, "watcher", `Error loading file ${action.path}: ${action.error}`);
 
-    case actions.SOCKET_LISTEN_SUCCESS:
+    case actions.SERVER_LISTEN_SUCCESS:
       return addEntry(state, "socket", `Streamplace dev server listening on port ${action.port}`);
 
     case actions.SOCKET_CONNECT:

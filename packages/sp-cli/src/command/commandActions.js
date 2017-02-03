@@ -1,7 +1,8 @@
 
 import {COMMAND_SYNC, COMMAND_SERVE} from "../constants/actionNames";
 import {watcherWatch} from "../watcher/watcherActions";
-import {socketListen, socketConnect} from "../socket/socketActions";
+import {socketConnect} from "../socket/socketActions";
+import {serverListen} from "../server/serverActions";
 
 export const commandSync = (config) => dispatch => {
   dispatch({
@@ -17,5 +18,5 @@ export const commandServe = (config) => dispatch => {
     type: COMMAND_SERVE,
     config: config,
   });
-  dispatch(socketListen());
+  dispatch(serverListen());
 };

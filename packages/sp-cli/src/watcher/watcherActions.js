@@ -1,6 +1,7 @@
 
 import chokidar from "chokidar";
 import fs from "mz/fs";
+import { socketSendFile } from "../socket/socketActions";
 import {
   WATCHER_READY,
   WATCHER_ADD,
@@ -50,7 +51,7 @@ export const watcherAdd = (path, stat) => dispatch => {
       path: path,
       stat: stat,
     });
-    return watcherLoadFile(path)(dispatch);
+    return dispatch(watcherLoadFile(path));
   });
 };
 
@@ -62,7 +63,7 @@ export const watcherChange = (path, stat) => dispatch => {
       path: path,
       stat: stat,
     });
-    return watcherLoadFile(path)(dispatch);
+    return dispatch(watcherLoadFile(path));
   });
 };
 
@@ -74,14 +75,16 @@ export const watcherUnlink = (path, stat) => {
   };
 };
 
-export const watcherLoadFile = (path) => dispatch => {
-  return fs.readFile(path, "utf8")
+export const watcherLoadFile = (path) => (dispatch, getState) => {
+  return fs.readFile(path)
   .then((buf) => {
-    return dispatch({
+    dispatch({
       type: WATCHER_LOAD_FILE_SUCCESS,
       path: path,
       buffer: buf,
     });
+    const file = getState().watcher.files[path];
+    dispatch(socketSendFile(file));
   })
   .catch((err) => {
     return dispatch({

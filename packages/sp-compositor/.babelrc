@@ -1,0 +1,6 @@
+{
+  "presets": [
+    "streamplace"
+  ],
+  "retainLines": true
+}

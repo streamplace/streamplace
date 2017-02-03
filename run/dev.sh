@@ -5,7 +5,7 @@ set -o nounset
 set -o pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-export SK_CONFIG="$DIR/../config.yml";
+export SK_CONFIG="$DIR/../config.yaml";
 
 prettylog() {
   name="$1"

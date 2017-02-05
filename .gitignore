@@ -8,3 +8,4 @@ config.yml
 rethinkdb_data
 ._*
 *-values.yaml
+lerna-debug.log

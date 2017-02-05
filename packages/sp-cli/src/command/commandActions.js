@@ -41,7 +41,7 @@ const spawnLog = function(command, args, options) {
     // Hack for https://github.com/yarnpkg/yarn/issues/2538
     const str = data.toString().trim();
     console.log(`stderr: ${str}`);
-    if (str.indexOf("Your lockfile needs to be updated")) {
+    if (str.indexOf("Your lockfile needs to be updated") !== -1) {
       throw new Error("needs lockfile update");
     }
   });
@@ -89,13 +89,19 @@ export const commandBuild = (config) => dispatch => {
     return spawn("yarn", "install", "--frozen-lockfile");
   })
 
-  .then(function() {
+  .then(() => {
+    if (pkg.scripts.build) {
+      return spawn("npm", "run", "build");
+    }
+  })
+
+  .then(() => {
     if (needsDocker) {
       return spawn("docker", "build", "-t", dockerName, ".");
     }
   })
 
-  .then(function() {
+  .then(() => {
     if (needsDocker) {
       return spawn("docker", "push", dockerName);
     }

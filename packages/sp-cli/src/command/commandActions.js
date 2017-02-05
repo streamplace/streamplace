@@ -23,7 +23,9 @@ export const commandServe = (config) => dispatch => {
 
 /**
  * HACK SECTION
- * This isn't reduxy yet but I really need building to work so here we are.
+ * This isn't reduxy yet but I really need building to work so here we are. What this should
+ * really do: first "load a package" the same way watch does. Then trigger all these other actions
+ * in order, but separate them out so that watch has access to them.
  */
 /* eslint-disable no-console */
 

@@ -9,7 +9,7 @@ import pkg from "../package.json";
 import terminalComponent from "./terminal/terminalComponent";
 import rootReducer from "./rootReducer";
 import getConfig from "./config";
-import {commandSync, commandServe} from "./command/commandActions";
+import {commandSync, commandServe, commandBuild} from "./command/commandActions";
 import * as actionNames from "./constants/actionNames";
 
 const configDefault = resolve(process.env.HOME, ".streamplace", "sp-config.yaml");
@@ -38,6 +38,20 @@ program
   .action(function(command) {
     store.dispatch(commandServe({
       port: command.port
+    }));
+  });
+
+program
+  .command(actionNames.COMMAND_BUILD.toLowerCase())
+  .description("build a streamplace plugin")
+  .option("--docker-prefix <name>", "prefix of built Docker images (default streamplace)", "streamplace")
+  .option("--docker-tag <name>", "tag of built Docker images (default latest)", "latest")
+  .option("--dev-server <url>", "url of your development server")
+  .action(function(command) {
+    store.dispatch(commandBuild({
+      dockerPrefix: command.dockerPrefix,
+      dockerTag: command.dockerTag,
+      directory: process.cwd(),
     }));
   });
 

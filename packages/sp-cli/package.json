@@ -7,8 +7,8 @@
     "sp": "dist/sp-cli.js"
   },
   "scripts": {
-    "build": "babel -p -d dist src",
-    "dev": "babel --watch --retainLines=true -d dist src",
+    "build": "babel -p --copy-files -d dist src",
+    "dev": "babel --watch --copy-files --retainLines=true -d dist src",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Streamplace",

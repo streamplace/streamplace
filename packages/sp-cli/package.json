@@ -1,6 +1,6 @@
 {
   "name": "streamplace-cli",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "streamplace console command",
   "main": "dist/sp-cli.js",
   "bin": {

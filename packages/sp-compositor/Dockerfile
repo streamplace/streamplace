@@ -42,4 +42,6 @@ RUN apt-get update && apt-get install -y libnss3 libxcursor1 libcups2 libasound2
 ENV NWJS_ARGS "--enable-node-worker /app"
 ADD . /app
 
+WORKDIR /app
+
 CMD    ["/usr/bin/supervisord"]

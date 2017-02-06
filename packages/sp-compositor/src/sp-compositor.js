@@ -53,12 +53,12 @@ const pollForElement = function(document, selector) {
 
 nw.Window.open(process.env.URL, windowOptions, function(new_win) {
   // And listen to new window's focus event
-  const document = new_win.window.document;
   const worker = new Worker("dist/worker.js");
   new_win.on("close", function() {
     process.exit(0);
   });
   new_win.on("loaded", function() {
+    const document = new_win.window.document;
     console.log(`Window loaded, polling for document.querySelector("${env.SELECTOR}")`);
     const start = Date.now();
     pollForElement(document, env.SELECTOR)

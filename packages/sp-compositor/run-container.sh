@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -f output.sock
+rm -f output/output.sock
 
 #Enumerate the sound devices in /dev/snd
 SNDDEVS=$(find /dev/snd -type c)
@@ -20,4 +20,7 @@ SNDFLAGS=$(j=""; for i in $SNDDEVS; do j+="--device=\"$i:$i\" "; done; echo $j)
 
 
 docker run --rm \
-  -p 5900:5900 -it --name sp-nw -v $(pwd):/app --privileged iameli/sp-nw $*
+  -e URL="https://streamplace.github.io/demo-video/" \
+  -e SELECTOR="canvas" \
+  -v $(pwd)/output:/app/output \
+  -p 5900:5900 -it --name sp-compositor --privileged streamplace/sp-compositor $*

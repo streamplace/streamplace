@@ -2,7 +2,8 @@
 .PHONY: all push
 
 all: .
-	docker build -t iameli/sp-nw .
+	npm run build
+	docker build -t streamplace/sp-compositor .
 
 push: .
-	docker push iameli/sp-nw
+	docker push streamplace/sp-compositor

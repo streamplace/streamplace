@@ -23,10 +23,7 @@ spec:
 
         - name: "sp-compositor"
           image: "streamplace/sp-compositor"
-          imagePullPolicy: Always
-          resources:
-            requests:
-              cpu: 6
+          imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
           env:
@@ -44,20 +41,20 @@ spec:
           command:
             - ffmpeg
             - -y
+            - -framerate
+            - "30"
             - -loglevel
             - verbose
             - -f
-            - rawvideo
-            - -pixel_format
-            - rgba
+            - x11grab
             - -video_size
             - 1920x1080
-            - -framerate
-            - "30"
             - -i
-            - unix:///output/output.sock
+            - "127.0.0.1:99"
             - -c:v
             - libx264
+            - -r
+            - "30"
             - -preset
             - ultrafast
             - -f
@@ -113,11 +110,11 @@ metadata:
     ingress.kubernetes.io/rewrite-target: /
 spec:
   tls:
-  - secretName: cdn.stream.place
+  - secretName: sneakers.iame.li
     hosts:
-    - cdn.stream.place
+    - sneakers.iame.li
   rules:
-  - host: cdn.stream.place
+  - host: sneakers.iame.li
     http:
       paths:
       - path: /cloudcube

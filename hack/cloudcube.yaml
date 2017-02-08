@@ -61,6 +61,8 @@ spec:
             - ultrafast
             - -f
             - hls
+            - -hls_flags
+            - delete_segments
             - /hls/cloudcube.m3u8
           volumeMounts:
             - name: output

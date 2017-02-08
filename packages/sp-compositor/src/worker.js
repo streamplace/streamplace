@@ -29,14 +29,17 @@ let frameCount = 0;
 let last = performance.now();
 setInterval(function() {
   let now = performance.now();
-  let mib = bytes/1024/1024;
-  let diff = (now - last) / 1000;
-  console.log(`${mib / diff} MiB/s`);
+  // let mib = bytes/1024/1024;
+  // let diff = (now - last) / 1000;
+  // console.log(`${mib / diff} MiB/s`);
   last = now;
   bytes = 0;
   if (startedEmitting) {
-    let desiredCount = ((now - startedEmitting) / 1000) * FRAMERATE;
-    console.log(`Diff expected frames: ${desiredCount - frameCount}`);
+    const desiredCount = ((now - startedEmitting) / 1000) * FRAMERATE;
+    const offset = desiredCount - frameCount;
+    if (Math.abs(offset) > 1.5) {
+      console.log(`Output framerate is off by ${offset}`);
+    }
   }
 }, 5000);
 

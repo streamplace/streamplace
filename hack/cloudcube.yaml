@@ -4,6 +4,7 @@ metadata:
   name: cloudcube
   namespace: default
 spec:
+  revisionHistoryLimit: 3
   strategy:
     type: Recreate
   template:
@@ -23,12 +24,15 @@ spec:
 
         - name: "sp-compositor"
           image: "streamplace/sp-compositor"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 6
           securityContext:
             privileged: true
           env:
             - name: URL
-              value: "https://streamplace.github.io/demo-video/"
+              value: "https://cdn.stream.place/demo-video/"
             - name: SELECTOR
               value: "canvas"
           volumeMounts:
@@ -37,24 +41,22 @@ spec:
 
         - name: "sp-ffmpeg"
           image: "streamplace/sp-ffmpeg"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command:
             - ffmpeg
             - -y
-            - -framerate
-            - "30"
-            - -loglevel
-            - verbose
             - -f
-            - x11grab
+            - rawvideo
+            - -pixel_format
+            - rgba
             - -video_size
             - 1920x1080
+            - -framerate
+            - "30"
             - -i
-            - "127.0.0.1:99"
+            - unix:///output/output.sock
             - -c:v
             - libx264
-            - -r
-            - "30"
             - -preset
             - ultrafast
             - -f
@@ -110,11 +112,11 @@ metadata:
     ingress.kubernetes.io/rewrite-target: /
 spec:
   tls:
-  - secretName: sneakers.iame.li
+  - secretName: cdn.stream.place
     hosts:
-    - sneakers.iame.li
+    - cdn.stream.place
   rules:
-  - host: sneakers.iame.li
+  - host: cdn.stream.place
     http:
       paths:
       - path: /cloudcube

@@ -33,11 +33,11 @@ ENV     DISPLAY :99
 ENV     XVFB_SCREENSIZE 1920x1080x16
 ENV     NWJS_ARGS ""
 
+RUN apt-get update && apt-get install -y libnss3 libxcursor1 libcups2 libasound2 libpangocairo-1.0-0 libatk1.0-0 libgdk-pixbuf2.0-0 libgtk2.0-0 xserver-xorg-video-intel libgl1-mesa-dri  libglapi-mesa  libosmesa6  mesa-utils
+
 ADD     supervisor/conf.d/ /etc/supervisor/conf.d/
 
 EXPOSE 5900
-
-RUN apt-get update && apt-get install -y libnss3 libxcursor1 libcups2 libasound2 libpangocairo-1.0-0 libatk1.0-0 libgdk-pixbuf2.0-0 libgtk2.0-0 xserver-xorg-video-intel libgl1-mesa-dri  libglapi-mesa  libosmesa6  mesa-utils
 
 ENV NWJS_ARGS "--enable-node-worker /app"
 ADD . /app

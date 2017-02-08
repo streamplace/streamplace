@@ -22,19 +22,49 @@ server.on("connection", function(s) {
   });
 });
 
-let last = Date.now();
+const FRAMERATE = 30;
+let startedEmitting;
+let frameCount = 0;
+
+let last = performance.now();
 setInterval(function() {
-  let now = Date.now();
+  let now = performance.now();
   let mib = bytes/1024/1024;
   let diff = (now - last) / 1000;
   console.log(`${mib / diff} MiB/s`);
   last = now;
   bytes = 0;
+  if (startedEmitting) {
+    let desiredCount = ((now - startedEmitting) / 1000) * FRAMERATE;
+    console.log(`Diff expected frames: ${desiredCount - frameCount}`);
+  }
 }, 5000);
 
+let frame;
+
+const run = function() {
+  setTimeout(run, 5);
+  if (!socket) {
+    return;
+  }
+  const now = performance.now();
+  if (!startedEmitting) {
+    startedEmitting = now;
+  }
+  let desiredCount = ((now - startedEmitting) / 1000) * FRAMERATE;
+  if (frameCount > desiredCount) {
+    return;
+  }
+  bytes += frame.length;
+  frameCount += 1;
+  socket.write(Buffer.from(frame));
+};
+
+let started = false;
 onmessage = function(e) {
-  bytes += e.data.length;
-  if (socket) {
-    socket.write(Buffer.from(e.data));
+  frame = e.data;
+  if (!started) {
+    started = true;
+    run();
   }
 };

@@ -64,12 +64,14 @@ nw.Window.open(process.env.URL, windowOptions, function(new_win) {
     pollForElement(document, env.SELECTOR)
     .then((elem) => {
       const gl = elem.getContext("experimental-webgl", {preserveDrawingBuffer: true});
+      const pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
       const run = function() {
-        // This works much better than setInterval for whatever reason.
-        setTimeout(run, 1000/30);
-        const pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
-        gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-        worker.postMessage(pixels);
+        setTimeout(run, 5);
+        if (new_win.window.newFrame === true) {
+          gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+          worker.postMessage(pixels);
+          new_win.window.newFrame = false;
+        }
       };
       run();
     })

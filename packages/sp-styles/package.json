@@ -1,0 +1,23 @@
+{
+  "name": "sp-styles",
+  "version": "0.1.0",
+  "description": "Styles for Streamplace, used in a few places",
+  "main": "dist/sp-styles.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack",
+    "start": "webpack --watch"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "babel-core": "^6.22.1",
+    "babel-loader": "^6.2.10",
+    "babel-preset-streamplace": "0.0.1",
+    "css-loader": "^0.26.1",
+    "node-sass": "^4.5.0",
+    "sass-loader": "^5.0.1",
+    "style-loader": "^0.13.1",
+    "webpack": "^2.2.1"
+  }
+}

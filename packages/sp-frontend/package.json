@@ -1,0 +1,19 @@
+{
+  "name": "sp-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "devDependencies": {
+    "react-scripts": "0.8.5"
+  },
+  "dependencies": {
+    "react": "^15.4.2",
+    "react-dom": "^15.4.2",
+    "sp-styles": "*"
+  },
+  "scripts": {
+    "start": "bash -c 'react-scripts start | cat'",
+    "build": "react-scripts build",
+    "test": "react-scripts test --env=jsdom",
+    "eject": "react-scripts eject"
+  }
+}

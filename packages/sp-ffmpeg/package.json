@@ -4,7 +4,8 @@
   "description": "Streamplace's FFMpeg bulid",
   "main": "Dockerfile",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "echo 'nothing to do'"
   },
   "repository": {
     "type": "git",

@@ -1,5 +1,5 @@
 
-FROM node:6
+FROM streamplace/sp-node
 
 WORKDIR /app
 ADD package.json /app/package.json

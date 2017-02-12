@@ -4,9 +4,9 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
-docker run -e FIX_OR_ERROR="ERR" -v "$DIR":/build streamplace/sp-dev:latest /build/run/lint.sh
+docker run -e FIX_OR_ERROR="ERR" -v "$ROOT":/build streamplace/sp-dev:latest /build/run/lint.sh
 
 THIS_IS_CI="${THIS_IS_CI:-}"
 
@@ -16,9 +16,5 @@ if [[ $THIS_IS_CI == "true" ]]; then
   mkdir -p ~/.docker
   echo "$DOCKER_CONFIG" | base64 --decode > ~/.docker/config.json
   echo "$NPMRC" | base64 --decode > ~/.npmrc
-  docker run \
-    -e FIX_OR_ERROR="FIX" \
-    -v ~/.docker/config.json:/root/.docker/config.json \
-    -v ~/.npmrc:/root/.npmrc \
-    -v "$DIR":/build streamplace/sp-dev:latest /build/run/full-build.sh
+  "$ROOT"/run/full-build.sh
 fi

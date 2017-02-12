@@ -1,0 +1,38 @@
+{{- $parent := . -}}
+{{- $domain := .Values.domain -}}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ template "fullname" $parent }}
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    kubernetes.io/tls-acme: "true"
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+  - secretName: {{ $domain }}
+    hosts:
+    - {{ $domain }}
+  {{- range .Values.developers }}
+  - secretName: {{ .username }}.{{ $domain }}
+    hosts:
+    - {{ .username }}.{{ $domain }}
+  {{- end}}
+  rules:
+  - host: {{ $domain }}
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: {{ template "fullname" $parent }}
+          servicePort: 80
+  {{- range .Values.developers }}
+  - host: {{ .username }}.{{ $domain }}
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: {{ template "fullname" $parent }}
+          servicePort: 80
+  {{- end}}

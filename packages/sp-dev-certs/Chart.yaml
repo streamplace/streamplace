@@ -1,0 +1,4 @@
+apiVersion: v1
+description: Automatically provisioned certs for Streamplace development
+name: sp-dev-certs
+version: 0.1.0

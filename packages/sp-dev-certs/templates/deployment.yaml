@@ -1,0 +1,39 @@
+{{- $domain := .Values.domain -}}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+    spec:
+      volumes:
+      {{- range .Values.developers}}
+        - name: {{ .username }}
+          secret:
+            secretName: {{ .username }}.{{ $domain }}
+      {{- end}}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "streamplace/sp-dev-certs"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        {{- range .Values.developers}}
+          - name: {{ .username }}
+            mountPath: /certs/{{ .username }}.{{ $domain }}
+        {{- end}}
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80

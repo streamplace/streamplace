@@ -8,6 +8,9 @@ ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 
 DOCKER_PREFIX=${DOCKER_PREFIX:-docker.io/streamplace}
 
+# Add node_modules to path
+export PATH="$PATH:$ROOT/node_modules/.bin"
+
 # If we're in a package, this gets our name, so...
 PACKAGE_NAME="$(basename $(realpath .))"
 

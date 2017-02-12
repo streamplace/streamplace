@@ -9,6 +9,7 @@ source "$ROOT/run/common.sh"
 
 cd "$ROOT"
 npm install
+lerna bootstrap
 
 # Linted. Cool, we're good to deploy.
 gitDescribe=$(git describe --tags)

@@ -9,11 +9,12 @@
   },
   "devDependencies": {
     "eslint": "^2.2.0",
-    "eslint-plugin-react": "^4.1.0"
+    "eslint-plugin-react": "^4.1.0",
+    "js-yaml": "^3.8.1"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint --color --ext=jsx --ext=js .",
+    "lint": "run/lint.sh",
     "start": "lerna --loglevel silly --no-sort --concurrency 999 exec npm run start"
   },
   "repository": {

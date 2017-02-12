@@ -1,7 +1,7 @@
 {
   "name": "sp-dev-certs",
-  "version": "0.1.0",
-  "description": "Automatically provisioned certs for Streamplace development",
+  "version": "0.0.2",
+  "description": "Automatically provisioned certs for Streamplace development!",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

@@ -1,5 +1,5 @@
 {
-  "name": "streamplace-cli",
+  "name": "sp-cli",
   "version": "0.0.2",
   "description": "streamplace console command",
   "main": "dist/sp-cli.js",

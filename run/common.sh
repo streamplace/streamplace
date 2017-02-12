@@ -6,6 +6,14 @@ set -o pipefail
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 
+# Realpath polyfill!
+if ! which 'realpath' &> /dev/null; then
+  realpath() {
+    (cd "$(dirname "$1")" && pwd)
+  }
+  export -f realpath
+fi
+
 DOCKER_PREFIX=${DOCKER_PREFIX:-docker.io/streamplace}
 THIS_IS_CI="${THIS_IS_CI:-}"
 

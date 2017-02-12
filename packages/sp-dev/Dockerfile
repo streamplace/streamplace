@@ -17,3 +17,5 @@ RUN set -x && curl -L -o /root/docker.tgz "https://get.docker.com/builds/Linux/x
   (cd /root && tar xzvf /root/docker.tgz) && \
   mv /root/docker/docker /usr/bin/docker && \
   rm -rf /root/docker /root/docker.tgz
+
+ENV NODE_ENV development

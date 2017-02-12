@@ -5,11 +5,6 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV NWJS_VERSION v0.20.1
 ENV NWJS_INSTALL_DIR /opt/nwjs
 
-RUN echo "deb mirror://mirrors.ubuntu.com/mirrors.txt xenial main restricted universe multiverse" > /etc/apt/sources.list && \
-    echo "deb mirror://mirrors.ubuntu.com/mirrors.txt xenial-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
-    echo "deb mirror://mirrors.ubuntu.com/mirrors.txt xenial-security main restricted universe multiverse" >> /etc/apt/sources.list && \
-    DEBIAN_FRONTEND=noninteractive apt-get update
-
 RUN apt-get update && \
   apt-get install build-essential ca-certificates xterm fluxbox eterm supervisor libexif12 libgconf-2-4 curl xvfb x11vnc -y  && \
   apt-get --reinstall install xfonts-base -y && \

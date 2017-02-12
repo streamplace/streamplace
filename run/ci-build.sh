@@ -10,6 +10,7 @@ source "$ROOT/run/common.sh"
 
 docker run \
   -e FIX_OR_ERROR="ERR" \
+  -e NPM_CONFIG_LOGLEVEL="warn" \
   -e THIS_IS_CI="$THIS_IS_CI" \
   -v "$ROOT":/build streamplace/sp-dev:latest /build/run/lint.sh
 
@@ -20,6 +21,7 @@ if [[ $THIS_IS_CI == "true" ]]; then
   echo "$NPMRC" | base64 --decode > ~/.npmrc
   docker run \
     -e FIX_OR_ERROR="FIX" \
+    -e NPM_CONFIG_LOGLEVEL="warn" \
     -v ~/.docker/config.json:/root/.docker/config.json \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v ~/.npmrc:/root/.npmrc \

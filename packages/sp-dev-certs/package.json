@@ -1,0 +1,23 @@
+{
+  "name": "sp-dev-certs",
+  "version": "0.1.0",
+  "description": "Automatically provisioned certs for Streamplace development",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "babel --retain-lines --copy-files -d dist src"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "babel-core": "^6.22.1",
+    "babel-preset-streamplace": "0.0.1"
+  },
+  "dependencies": {
+    "axios": "^0.15.3",
+    "express": "^4.14.1",
+    "morgan": "^1.8.1",
+    "mz": "^2.6.0",
+    "openpgp": "^2.3.6"
+  }
+}

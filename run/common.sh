@@ -7,6 +7,7 @@ set -o pipefail
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 
 DOCKER_PREFIX=${DOCKER_PREFIX:-docker.io/streamplace}
+THIS_IS_CI="${THIS_IS_CI:-}"
 
 # Add node_modules to path
 export PATH="$PATH:$ROOT/node_modules/.bin"

@@ -5,11 +5,13 @@ set -o nounset
 set -o pipefail
 set -x
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+source "$ROOT/run/common.sh"
 
-docker run -e FIX_OR_ERROR="ERR" -v "$DIR":/build streamplace/sp-dev:latest /build/run/lint.sh
-
-THIS_IS_CI="${THIS_IS_CI:-}"
+docker run \
+  -e FIX_OR_ERROR="ERR" \
+  -e THIS_IS_CI="$THIS_IS_CI" \
+  -v "$ROOT":/build streamplace/sp-dev:latest /build/run/lint.sh
 
 # This means we're authorized to build some docker images
 if [[ $THIS_IS_CI == "true" ]]; then
@@ -21,5 +23,5 @@ if [[ $THIS_IS_CI == "true" ]]; then
     -v ~/.docker/config.json:/root/.docker/config.json \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v ~/.npmrc:/root/.npmrc \
-    -v "$DIR":/build streamplace/sp-dev:latest /build/run/full-build.sh
+    -v "$ROOT":/build streamplace/sp-dev:latest /build/run/full-build.sh
 fi

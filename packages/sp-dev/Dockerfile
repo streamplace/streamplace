@@ -10,10 +10,3 @@ RUN apt-get update && \
   mv linux-amd64/helm /usr/bin/helm && \
   chmod 755 /usr/bin/helm && \
   rm -rf linux-amd64
-
-ENV DOCKER_VERSION 1.12.5
-
-RUN set -x && curl -L -o /root/docker.tgz "https://get.docker.com/builds/Linux/x86_64/docker-$DOCKER_VERSION.tgz" && \
-  (cd /root && tar xzvf /root/docker.tgz) && \
-  mv /root/docker/docker /usr/bin/docker && \
-  rm -rf /root/docker /root/docker.tgz

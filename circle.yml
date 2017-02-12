@@ -2,6 +2,10 @@ machine:
   services:
     - docker
 
+dependencies:
+  pre:
+    - sudo apt-get update; sudo apt-get install -y realpath jq curl
+
 test:
   override:
     - run/ci-build.sh

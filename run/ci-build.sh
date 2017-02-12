@@ -14,7 +14,7 @@ THIS_IS_CI="${THIS_IS_CI:-}"
 # This means we're authorized to build some docker images
 if [[ $THIS_IS_CI == "true" ]]; then
   mkdir -p ~/.docker
-  echo "$DOCKER_CONFIG" | base64 --decode > ~/.docker/config.json
+  echo "$DOCKER_CONFIG_JSON" | base64 --decode > ~/.docker/config.json
   echo "$NPMRC" | base64 --decode > ~/.npmrc
   docker run \
     -e FIX_OR_ERROR="FIX" \

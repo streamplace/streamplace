@@ -5,8 +5,4 @@ services:
   - docker
 
 script:
-  - run/docker-build.sh
-
-after_success:
-  - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
-  - run/push.sh
+  - run/ci-build.sh

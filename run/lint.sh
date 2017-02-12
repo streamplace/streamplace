@@ -9,5 +9,5 @@ source "$ROOT/run/common.sh"
 
 export FIX_OR_ERR=${FIX_OR_ERR:-FIX}
 cd "$ROOT"
-# eslint --color --ext=jsx --ext=js .
+eslint --color --ext=jsx --ext=js .
 lerna --concurrency=1 exec "$ROOT/run/package-lint.sh"

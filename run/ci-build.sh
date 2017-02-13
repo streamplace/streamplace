@@ -21,6 +21,9 @@ if [[ $THIS_IS_CI == "true" ]]; then
   docker run \
     -e FIX_OR_ERROR="FIX" \
     -e NPM_CONFIG_LOGLEVEL="warn" \
+    -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+    -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+    -e AWS_DEFAULT_REGION="us-west-2" \
     -v ~/.docker/config.json:/root/.docker/config.json \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v ~/.npmrc:/root/.npmrc \

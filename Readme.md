@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <a href="https://circleci.com/gh/streamplace/streamplace">
-    <img src="https://circleci.com/gh/streamplace/streamplace.svg?style=shield">
+  <a href="https://travis-ci.org/streamplace/streamplace">
+    <img src="https://travis-ci.org/streamplace/streamplace.svg?branch=master">
   </a>
   <a href="https://slack.stream.place/">
     <img src="https://slack.stream.place/badge.svg">

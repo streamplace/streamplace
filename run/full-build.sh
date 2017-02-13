@@ -24,14 +24,14 @@ if git tag | grep $gitDescribe; then
   # Hack around lerna bug(?) where it refuses to publish if it thinks the tag happened already
   git tag -d $gitDescribe
 else
-  npmTag="prerelease"
+  npmTag="latest"
 fi
 
-lerna publish --skip-git --skip-npm --force-publish true --yes --repo-version "$repoVersion" --npm-tag $npmTag
+lerna publish --skip-git --skip-npm --force-publish true --yes --repo-version "$repoVersion"
 # and now run the linting script that updates all the Chart.yaml files
 FIX_OR_ERR="FIX" lerna exec $(realpath "$ROOT/run/package-lint.sh")
 # Cool. With that, we're good to build. First publish the new version of the npm packages...
-lerna publish --skip-git --force-publish true --yes --repo-version "$repoVersion" --npm-tag $npmTag
+lerna publish --skip-git --force-publish true --yes --repo-version "$repoVersion"
 # Sweet, time for Docker!
 lerna exec --concurrency=99 $(realpath "$ROOT/run/package-docker-build.sh")
 lerna exec --concurrency=99 $(realpath "$ROOT/run/package-docker-push.sh")

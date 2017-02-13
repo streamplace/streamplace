@@ -9,6 +9,7 @@ source "$ROOT/run/common.sh"
 
 cd "$ROOT"
 npm install
+helm init --client-only
 mkdir -p "$ROOT/build_chart"
 rm -rf "$ROOT/build_chart/*"
 lerna exec "$ROOT/run/package-helm-chart.sh"

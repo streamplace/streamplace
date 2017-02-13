@@ -21,8 +21,6 @@ npmTag=""
 # Check if we're a tagged release version
 if git tag | grep $gitDescribe; then
   npmTag="latest"
-  # Hack around lerna bug(?) where it refuses to publish if it thinks the tag happened already
-  git tag -d $gitDescribe
 else
   npmTag="prerelase"
 fi

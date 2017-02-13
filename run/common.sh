@@ -32,6 +32,17 @@ function tweak() {
   echo "$json" | jq -r "$key = \"$value\""
 }
 
+# Easy reusable confirmation dialog
+function confirm() {
+  read -p "$1 " -n 1 -r
+  echo    # (optional) move to a new line
+  if [[ ! $REPLY =~ ^[Yy]$ ]]
+  then
+    echo "Exiting..."
+    exit 0
+  fi
+}
+
 # Lots of logging past this point...
 
 # Colors!

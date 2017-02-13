@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  An open-source CMS for live video.
+  An open-source compositor and CMS for live video.
 </p>
 
 <p align="center">

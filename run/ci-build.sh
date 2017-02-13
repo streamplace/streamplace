@@ -32,4 +32,4 @@ if [[ $THIS_IS_CI == "true" ]]; then
     -v "$ROOT":/build streamplace/sp-dev:latest /build/run/full-build.sh
 fi
 
-rm -rf "$ROOT/tmp/*"
+rm -rf "$ROOT/tmp"

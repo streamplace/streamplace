@@ -1,4 +1,9 @@
 
+# We don't wanna double-build version tags
+branches:
+  except:
+    - /^v[0-9]/
+
 language: generic
 
 services:

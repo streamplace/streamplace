@@ -24,7 +24,7 @@ if git tag | grep $gitDescribe; then
   # Hack around lerna bug(?) where it refuses to publish if it thinks the tag happened already
   git tag -d $gitDescribe
 else
-  npmTag="latest"
+  npmTag="prerelase"
 fi
 
 lerna publish --skip-git --skip-npm --force-publish '*' --yes --repo-version "$repoVersion"

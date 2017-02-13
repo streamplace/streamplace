@@ -9,3 +9,4 @@ rethinkdb_data
 ._*
 *-values.yaml
 lerna-debug.log
+build_chart*

@@ -24,3 +24,4 @@ lerna publish --skip-git --yes --repo-version "$repoVersion"
 # Sweet, time for Docker!
 lerna exec --concurrency=1 $(realpath "$ROOT/run/package-docker-build.sh")
 lerna exec --concurrency=1 $(realpath "$ROOT/run/package-docker-push.sh")
+"$ROOT/run/build-chart.sh"

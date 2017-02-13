@@ -19,5 +19,5 @@ lerna publish --skip-git --skip-npm --yes --repo-version "$newVersion"
 "$ROOT/run/lint.sh"
 git add .
 git commit -m "v$newVersion"
-git tag "$newVersion"
-git push --tags
+git tag "v$newVersion"
+git push --tags origin master

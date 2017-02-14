@@ -15,7 +15,7 @@ confirm "Sound good?"
 
 # Use a no-op lerna/lint operation to bump all the versions, then we do the git stuff manually.
 lerna bootstrap
-lerna publish --skip-git --skip-npm --yes --repo-version "$newVersion"
+lerna publish --skip-git --skip-npm --yes --repo-version "$newVersion" --force-publish '*'
 "$ROOT/run/lint.sh"
 git add .
 git commit -m "v$newVersion"

@@ -1,6 +1,6 @@
 {
   "name": "sp-frontend",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "devDependencies": {
     "react-scripts": "0.8.5"
@@ -8,7 +8,7 @@
   "dependencies": {
     "react": "^15.4.2",
     "react-dom": "^15.4.2",
-    "sp-styles": "^0.0.3"
+    "sp-styles": "^0.0.4"
   },
   "scripts": {
     "start": "bash -c 'react-scripts start | cat'",

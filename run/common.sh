@@ -21,7 +21,10 @@ THIS_IS_CI="${THIS_IS_CI:-}"
 export PATH="$PATH:$ROOT/node_modules/.bin"
 
 # If we're in a package, this gets our name, so...
-PACKAGE_NAME="$(basename $(realpath .))"
+my_dir="$(basename $(realpath .))"
+if [[ "$(pwd)" == "$ROOT/packages/$my_dir" ]]; then
+  PACKAGE_NAME="$my_dir"
+fi
 
 
 # Use jq to alter the specified JSON blob

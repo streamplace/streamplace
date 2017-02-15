@@ -31,6 +31,6 @@ FIX_OR_ERR="FIX" lerna exec $(realpath "$ROOT/run/package-lint.sh")
 # Cool. With that, we're good to build. First publish the new version of the npm packages...
 lerna publish --skip-git --force-publish '*' --yes --repo-version "$repoVersion" --npm-tag "$npmTag"
 # Sweet, time for Docker!
-lerna exec --concurrency=99 $(realpath "$ROOT/run/package-docker-build.sh")
-lerna exec --concurrency=99 $(realpath "$ROOT/run/package-docker-push.sh")
+npm run docker-build
+npm run docker-push
 "$ROOT/run/build-chart.sh"

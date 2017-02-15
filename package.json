@@ -15,7 +15,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "run/lint.sh",
-    "start": "lerna --loglevel silly --no-sort --concurrency 999 exec npm run start"
+    "start": "lerna --loglevel silly --no-sort --concurrency 999 exec npm run start",
+    "docker-build": "run/every-package.sh run/package-docker-build.sh --concurrency=999",
+    "docker-push": "run/every-package.sh run/package-docker-push.sh --concurrency=999"
   },
   "repository": {
     "type": "git",

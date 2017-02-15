@@ -7,4 +7,8 @@ set -o pipefail
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 source "$ROOT/run/common.sh"
 
-"$ROOT/run/every-package.sh" "$ROOT/run/package-docker-build.sh"
+script="$1"
+shift
+cmd="lerna exec $* $(realpath "$ROOT/run/package-log.sh") $(realpath $script)"
+echo "running $cmd"
+$cmd

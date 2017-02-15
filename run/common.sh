@@ -17,7 +17,7 @@ fi
 DOCKER_PREFIX=${DOCKER_PREFIX:-docker.io/streamplace}
 THIS_IS_CI="${THIS_IS_CI:-}"
 
-gitDescribe=$(git describe --tags)
+gitDescribe=$(cd "$ROOT" && git describe --tags)
 # strip the "v"
 export REPO_VERSION=${gitDescribe:1}
 # ask lerna nicely to update all of our package.json files

@@ -4,7 +4,8 @@
   "description": "Streamplace Development Container",
   "main": "Dockerfile",
   "scripts": {
-    "test": "echo \"nothing to do\""
+    "test": "echo 'nothing to do'",
+    "start": "echo 'nothing to do'"
   },
   "author": "Streamplace",
   "license": "Apache-2.0",

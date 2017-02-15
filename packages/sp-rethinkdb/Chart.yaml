@@ -1,4 +1,4 @@
 apiVersion: v1
 description: RethinkDB database server
-name: rethinkdb
-version: 0.1.0
+name: sp-rethinkdb
+version: 0.0.4

@@ -1,0 +1,4 @@
+apiVersion: v1
+description: Open-source compositor and CMS for live video
+name: streamplace
+version: 0.0.4

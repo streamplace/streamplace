@@ -12,10 +12,6 @@ npm install
 lerna bootstrap
 
 # Linted. Cool, we're good to deploy.
-gitDescribe=$(git describe --tags)
-# strip the "v"
-export repoVersion=${gitDescribe:1}
-# ask lerna nicely to update all of our package.json files
 
 npmTag=""
 # Check if we're a tagged release version
@@ -25,12 +21,14 @@ else
   npmTag="prerelase"
 fi
 
-lerna publish --skip-git --skip-npm --force-publish '*' --yes --repo-version "$repoVersion" --npm-tag "$npmTag"
+lerna publish --skip-git --skip-npm --force-publish '*' --yes --repo-version "$REPO_VERSION" --npm-tag "$npmTag"
 # and now run the linting script that updates all the Chart.yaml files
 FIX_OR_ERR="FIX" lerna exec $(realpath "$ROOT/run/package-lint.sh")
 # Cool. With that, we're good to build. First publish the new version of the npm packages...
-lerna publish --skip-git --force-publish '*' --yes --repo-version "$repoVersion" --npm-tag "$npmTag"
+lerna publish --skip-git --force-publish '*' --yes --repo-version "$REPO_VERSION" --npm-tag "$npmTag"
 # Sweet, time for Docker!
+helm init --client-only
 npm run docker-build
 npm run docker-push
+npm run helm-build
 "$ROOT/run/build-chart.sh"

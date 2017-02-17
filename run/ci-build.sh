@@ -7,6 +7,8 @@ set -o pipefail
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 source "$ROOT/run/common.sh"
 
+npm install
+
 docker run \
   -e FIX_OR_ERROR="ERR" \
   -e NPM_CONFIG_LOGLEVEL="warn" \

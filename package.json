@@ -10,7 +10,10 @@
   "devDependencies": {
     "eslint": "^2.2.0",
     "eslint-plugin-react": "^4.1.0",
-    "js-yaml": "^3.8.1"
+    "helm-cli": "^2.2.0",
+    "js-yaml": "^3.8.1",
+    "kubectl-cli": "^1.5.3-1",
+    "minikube-cli": "^0.16.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

@@ -2,3 +2,4 @@ apiVersion: v1
 description: Logs for Streamplace
 name: sp-logs
 version: 0.0.4
+

@@ -94,6 +94,7 @@ function fixOrErr() {
   echo -en "${RED}"
   echo -en "$1 "
   if [[ ${FIX_OR_ERR:-FIX} == "ERR" ]]; then
+    echo -e ""
     exit 1
   else
     echo -en "${GREEN}"

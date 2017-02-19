@@ -9,4 +9,4 @@ source "$ROOT/run/common.sh"
 
 helm init --upgrade
 npm run helm-build
-helm upgrade -i -f values-dev.yaml dev packages/streamplace
+helm upgrade -i --debug -f values-dev.yaml dev packages/streamplace

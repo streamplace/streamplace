@@ -55,4 +55,17 @@ if [[ -f "Chart.yaml" ]]; then
     fi
   fi
   echo "$newChart" | js-yaml > Chart.yaml
+
+  if ! cat .helmignore > /dev/null; then
+    fixOrErr "$PACKAGE_NAME has no .helmignore"
+    touch .helmignore
+  fi
+  requiredIgnores='node_modules /*.tgz package.json'
+  for ignore in $requiredIgnores; do
+    result=$(cat .helmignore | grep $ignore || "")
+    if [[ "$result" == "" ]]; then
+      fixOrErr ".helmignore is missing $ignore"
+      echo "$ignore" >> .helmignore
+    fi
+  done
 fi

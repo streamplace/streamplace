@@ -7,15 +7,23 @@ set -o pipefail
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 
 # Realpath polyfill!
-if ! which 'realpath' &> /dev/null; then
-  realpath() {
-    (cd "$(dirname "$1")" && pwd)
-  }
-  export -f realpath
-fi
+function realpath() {
+  resolve="$1"
+  realDir="$(cd "$(dirname "$1")" && pwd)"
+  if [[ -f "$resolve" ]]; then
+    echo -n "$realDir/$(basename $resolve)"
+  elif [[ -d "$resolve" ]]; then
+    echo -n "$realDir"
+  else
+    echo -n "realpath failed, $resolve does not exist" >&2
+    return 1
+  fi
+}
+export -f realpath
 
 DOCKER_PREFIX=${DOCKER_PREFIX:-docker.io/streamplace}
 THIS_IS_CI="${THIS_IS_CI:-}"
+export LOCAL_DEV="${LOCAL_DEV:-}"
 
 gitDescribe=$(cd "$ROOT" && git describe --tags)
 # strip the "v"
@@ -38,6 +46,10 @@ function tweak() {
   key="$2"
   value="$3"
   echo "$json" | jq -r "$key = \"$value\""
+}
+
+function jq() {
+  docker run --rm -i -e LOGSPOUT=ignore pinterb/jq "$@"
 }
 
 # Easy reusable confirmation dialog
@@ -102,3 +114,19 @@ function fixOrErr() {
   fi
   echo -e "${RESTORE}"
 }
+
+if [[ ! -f /var/run/docker.sock ]]; then
+  if [[ "${DOCKER_HOST:-}" == "" ]]; then
+    minikube_env="$ROOT/.tmp/minikube.env"
+    if [[ -f "$minikube_env" ]]; then
+      source "$minikube_env"
+    elif minikube status | grep Running > /dev/null; then
+      mkdir -p "$ROOT/.tmp"
+      minikube docker-env --shell bash > "$minikube_env"
+      source "$minikube_env"
+    elif ! docker ps > /dev/null; then
+      echo "No /var/run/docker.sock, no DOCKER_HOST environment variable, no running minikube, and docker ps errors. Not sure how to proceed. Perhaps you need to run 'minikube start'?"
+      exit 1
+    fi
+  fi
+fi

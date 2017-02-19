@@ -11,8 +11,7 @@ prettylog() {
   name="$PACKAGE_NAME"
   color="$(node "$ROOT/run/get-color.js" $name)"
   while IFS= read -r line; do
-    printf "\e[38;05;${color}m${name}\e[38;05;231m "
-    echo "$line"
+    printf "\e[38;05;${color}m${name}\e[38;05;231m %s\n" "$line"
   done
 }
 

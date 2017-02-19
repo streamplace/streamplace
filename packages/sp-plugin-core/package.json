@@ -1,7 +1,7 @@
 {
   "name": "sp-plugin-core",
   "version": "0.0.4",
-  "description": "Stream Kitchen core plugin",
+  "description": "Streamplace core plugin",
   "main": "dist/sp-plugin-core.js",
   "scripts": {
     "prepbulish": "babel -d dist src",

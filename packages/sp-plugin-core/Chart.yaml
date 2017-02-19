@@ -1,5 +1,4 @@
-apiVersion: v1
-description: Stream Kitchen core plugin
-name: sp-plugin-core
 version: 0.0.4
+name: sp-plugin-core
+description: Streamplace core plugin
 

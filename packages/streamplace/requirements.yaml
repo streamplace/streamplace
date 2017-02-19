@@ -9,3 +9,6 @@ dependencies:
   - name: sp-plugin-core
     version: 0.0.4
     repository: https://charts.stream.place
+  - name: sp-schema
+    version: 0.0.4
+    repository: https://charts.stream.place

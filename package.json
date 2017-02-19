@@ -13,17 +13,20 @@
     "helm-cli": "^2.2.0",
     "js-yaml": "^3.8.1",
     "kubectl-cli": "^1.5.3-1",
-    "minikube-cli": "^0.16.0"
+    "minikube-cli": "^0.16.0",
+    "nodemon": "^1.11.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "run/lint.sh",
-    "start": "run/every-package.sh npm run start --no-sort --concurrency 999",
+    "start": "run/start.sh",
+    "bootstrap": "run/bootstrap.sh",
     "docker-build": "run/every-package.sh run/package-docker-build.sh --concurrency=999",
     "docker-push": "run/every-package.sh run/package-docker-push.sh --concurrency=999",
     "helm-build": "run/every-package.sh run/package-helm-build.sh --concurrency=1",
-    "helm-lint": "run/every-package.sh run/package-lint.sh --concurrency=999",
-    "helm-dev": "run/helm-dev.sh"
+    "helm-lint": "run/every-package.sh run/helm-lint.sh --concurrency=999",
+    "helm-dev": "run/helm-dev.sh",
+    "helm-push": "run/helm-push.sh"
   },
   "repository": {
     "type": "git",

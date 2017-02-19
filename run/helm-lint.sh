@@ -9,12 +9,6 @@ source "$ROOT/run/common.sh"
 
 info "Linting $PACKAGE_NAME"
 
-# Have helm lint the chart
-if [[ -f "Chart.yaml" ]]; then
-  log "Running helm lint ."
-  helm lint .
-fi
-
 # Check to make sure all versions are correct
 correctVersion=$(cat $ROOT/lerna.json | jq -r '.version')
 correctName="$PACKAGE_NAME"
@@ -54,18 +48,25 @@ if [[ -f "Chart.yaml" ]]; then
       newChart=$(tweak "$newChart" ".description" "$packageDesc")
     fi
   fi
-  echo "$newChart" | js-yaml > Chart.yaml
+  # Echo -n 'cuz js-yaml adds its own newline
+  echo -n "$newChart" | js-yaml > Chart.yaml
 
-  if ! cat .helmignore > /dev/null; then
+  if [[ ! -f .helmignore ]]; then
     fixOrErr "$PACKAGE_NAME has no .helmignore"
     touch .helmignore
   fi
   requiredIgnores='node_modules /*.tgz package.json'
   for ignore in $requiredIgnores; do
-    result=$(cat .helmignore | grep $ignore || "")
+    result=$(cat .helmignore | grep $ignore || echo "")
     if [[ "$result" == "" ]]; then
       fixOrErr ".helmignore is missing $ignore"
       echo "$ignore" >> .helmignore
     fi
   done
+fi
+
+# Have helm lint the chart after we're cool with our linting of it
+if [[ -f "Chart.yaml" ]]; then
+  log "Running helm lint ."
+  helm lint .
 fi

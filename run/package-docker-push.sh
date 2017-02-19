@@ -12,7 +12,7 @@ if [[ ! -f Dockerfile ]]; then
 fi
 
 beforeContainer="streamplace/$PACKAGE_NAME:latest"
-taggedContainer="$DOCKER_PREFIX/$PACKAGE_NAME:v$repoVersion"
+taggedContainer="$DOCKER_PREFIX/$PACKAGE_NAME:v$REPO_VERSION"
 
 # Tag later, so the streamplace/whatever tag can be used to build other images.
 info "Tagging $beforeContainer as $taggedContainer"

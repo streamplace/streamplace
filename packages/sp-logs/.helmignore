@@ -19,3 +19,8 @@
 .project
 .idea/
 *.tmproj
+npm-debug.log
+package.json
+dev-stream.js
+node_modules
+/*.tgz

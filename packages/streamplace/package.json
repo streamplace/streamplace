@@ -11,5 +11,9 @@
     "streamplace"
   ],
   "author": "Streamplace",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "dependencies": {
+    "sp-rethinkdb": "^0.0.4",
+    "sp-logs": "^0.0.4"
+  }
 }

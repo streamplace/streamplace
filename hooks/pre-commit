@@ -1,10 +1,11 @@
 #!/bin/bash
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PATH="$PATH:$(realpath "$DIR/../node_modules/.bin")"
+ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../.. && pwd )"
+source "$ROOT/run/common.sh"
 
-filesToLint="$(git diff --cached --name-only | grep "\.js$")"
-filesToLint="$filesToLint $(git diff --cached --name-only | grep "\.jsx$")"
+(cd $ROOT && export FIX_OR_ERR=ERR && npm run helm-lint)
+filesToLint="$(git diff --cached --name-only | grep "\.js$" || echo "")"
+filesToLint="$filesToLint $(git diff --cached --name-only | grep "\.jsx$" || echo "")"
 if [[ -n "$filesToLint" ]]; then
   status="happy"
   for file in $filesToLint; do

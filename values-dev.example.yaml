@@ -1,0 +1,14 @@
+# Default values for streamkitchen.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  development: true
+  # Replace these with the path to your streamplace repo
+  streamplaceRootDev: /Users/example/git/streamplace
+  # Replace this with your Keybase username
+  domain: example.sp-dev.club
+  # Your email goes here!
+  adminEmail: admin@example.com
+  # In case you want to push your own images, this could be set to something else.
+  repo: docker.io/streamkitchen

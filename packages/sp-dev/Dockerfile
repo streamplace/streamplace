@@ -1,7 +1,7 @@
 
 FROM streamplace/sp-node:latest
 
-ENV HELM_VERSION v2.1.3
+ENV HELM_VERSION v2.2.0
 
 RUN apt-get update && \
   apt-get install -y jq realpath curl awscli && \

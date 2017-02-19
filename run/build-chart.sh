@@ -9,13 +9,12 @@ source "$ROOT/run/common.sh"
 
 cd "$ROOT"
 npm install
-helm init --client-only
 mkdir -p "$ROOT/build_chart"
 rm -rf "$ROOT/build_chart/*"
-lerna exec "$ROOT/run/package-helm-chart.sh"
 cd "$ROOT/build_chart"
+mv "$ROOT"/packages/*/*.tgz .
 oldIndex=$(mktemp).yaml
-curl -o $oldIndex "https://s3-us-west-2.amazonaws.com/charts.stream.place/index.yaml"
+curl -o $oldIndex "https://charts.stream.place/index.yaml"
 helm repo index --url https://charts.stream.place --merge $oldIndex .
 rm $oldIndex
 aws --region us-west-2 s3 sync . s3://charts.stream.place

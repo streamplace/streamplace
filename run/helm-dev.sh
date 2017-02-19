@@ -7,9 +7,6 @@ set -o pipefail
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 source "$ROOT/run/common.sh"
 
-if [[ ! -f Chart.yaml ]]; then
-  exit 0
-fi
-
-cd "$ROOT/build_chart"
-helm package "$ROOT/packages/$PACKAGE_NAME"
+helm init --upgrade
+npm run helm-build
+helm upgrade -i -f values-dev.yaml dev packages/streamplace

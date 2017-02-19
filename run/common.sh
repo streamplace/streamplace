@@ -17,6 +17,11 @@ fi
 DOCKER_PREFIX=${DOCKER_PREFIX:-docker.io/streamplace}
 THIS_IS_CI="${THIS_IS_CI:-}"
 
+gitDescribe=$(cd "$ROOT" && git describe --tags)
+# strip the "v"
+export REPO_VERSION=${gitDescribe:1}
+# ask lerna nicely to update all of our package.json files
+
 # Add node_modules to path
 export PATH="$PATH:$ROOT/node_modules/.bin"
 
@@ -89,6 +94,7 @@ function fixOrErr() {
   echo -en "${RED}"
   echo -en "$1 "
   if [[ ${FIX_OR_ERR:-FIX} == "ERR" ]]; then
+    echo -e ""
     exit 1
   else
     echo -en "${GREEN}"

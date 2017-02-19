@@ -13,14 +13,9 @@ spec:
     spec:
       volumes:
         - name: data
-          {{- if .Values.persistence.hostPath }}
+          {{- if .Values.global.development }}
           hostPath:
-            path: {{ .Values.persistence.hostPath }}
-          {{- end }}
-          {{- if .Values.persistence.awsElasticBlockStoreVolumeID }}
-          awsElasticBlockStore:
-            volumeID: {{ .Values.persistence.awsElasticBlockStoreVolumeID }}
-            fsType: ext4
+            path: {{ .Values.global.streamplaceRootDev }}/data/rethinkdb
           {{- end }}
       containers:
       - name: {{ .Chart.Name }}

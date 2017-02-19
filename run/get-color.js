@@ -10,12 +10,16 @@ const BLACKLIST = [
   16, 17, 18, 232, 233, 234, 235, 236, 237, 238, 239
 ];
 
-let input = process.argv[2];
-let color;
+module.exports = function(input) {
+  let color;
 
-while (!color || BLACKLIST.indexOf(color) !== -1) {
-  input = crypto.createHash("sha1").update(input).digest("hex");
-  color = parseInt(input.slice(8)) % 255;
+  while (!color || BLACKLIST.indexOf(color) !== -1) {
+    input = crypto.createHash("sha1").update(input).digest("hex");
+    color = parseInt(input.slice(8)) % 255;
+  }
+  return color;
+};
+
+if (!module.parent) {
+  console.log(module.exports(process.argv[2]));
 }
-
-console.log(color);

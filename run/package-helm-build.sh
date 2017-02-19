@@ -11,6 +11,10 @@ if [[ ! -f Chart.yaml ]]; then
   exit 0
 fi
 
+if [[ -d charts ]]; then
+  rm -rf charts/*
+fi
+
 if [[ -f requirements.yaml ]]; then
   mkdir -p charts
   requirementsJson="$(js-yaml requirements.yaml)"

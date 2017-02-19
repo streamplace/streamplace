@@ -13,6 +13,7 @@ shift
 if [[ -f "$script" ]]; then
   script="$(realpath $script)"
 fi
+# Give our scripts access to our top-level binaries
 cmd="lerna exec $(realpath "$ROOT/run/package-log.sh") $script $*"
 echo "running $cmd"
 $cmd

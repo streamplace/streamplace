@@ -12,7 +12,7 @@ winston.cli();
 
 const plugins = config.require("PLUGINS").split(/\s+/).filter(p => p !== "");
 
-const addPath = function(output, name, obj) {
+export const addPath = function(output, name, obj) {
   const {tableName} = obj;
   const [first, ...rest] = tableName;
   const tableNameUpper = first.toUpperCase() + rest.join("");

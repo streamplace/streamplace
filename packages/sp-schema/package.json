@@ -1,0 +1,27 @@
+{
+  "name": "sp-schema",
+  "version": "0.0.4",
+  "description": "Schema for Streamplace",
+  "main": "dist/sk-schema.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublish": "babel -d dist src",
+    "dev": "babel-watch -L src/sp-schema.js",
+    "start": "echo 'nothing to do'"
+  },
+  "author": "Streamplace",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "js-yaml": "^3.5.2",
+    "kubectl-cli": "^1.5.3-1",
+    "sp-node": "0.0.4",
+    "winston": "^2.3.0"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.23.0",
+    "babel-core": "^6.23.1",
+    "babel-preset-streamplace": "*",
+    "babel-watch": "^2.0.6",
+    "nodemon": "^1.9.1"
+  }
+}

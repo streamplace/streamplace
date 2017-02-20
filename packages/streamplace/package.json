@@ -13,7 +13,9 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "dependencies": {
+    "sp-logs": "^0.0.4",
+    "sp-plugin-core": "^0.0.4",
     "sp-rethinkdb": "^0.0.4",
-    "sp-logs": "^0.0.4"
+    "sp-schema": "^0.0.4"
   }
 }

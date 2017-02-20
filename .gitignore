@@ -14,3 +14,4 @@ packages/*/*.tgz
 requirements.lock
 /packages/*/charts
 values-dev.yaml
+.tmp

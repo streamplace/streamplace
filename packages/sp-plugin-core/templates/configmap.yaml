@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "fullname" . }}
+  annotations:
+    stream.place/sp-schema: "true"
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+data:
+{{- $files := .Files }}
+{{- range $path, $bytes := .Files.Glob "schema/**.yaml" }}
+  {{- $name := base $path | split "."}}
+  {{ $name._0 }}: |
+{{ $files.Get $path | indent 4 }}
+{{- end }}

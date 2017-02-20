@@ -12,12 +12,6 @@ RUN apt-get update && \
   apt-get autoremove --yes && \
   rm -rf /var/lib/{apt,dpkg,cache,log}/
 
-#install nodejs
-RUN     (curl -L https://deb.nodesource.com/setup_6.x | bash -) && \
-        apt-get install -y nodejs && \
-        ln -s /usr/bin/nodejs /usr/local/bin/node
-
-
 #install nwjs
 RUN mkdir -p ${NWJS_INSTALL_DIR} && \
     curl -L http://dl.nwjs.io/${NWJS_VERSION}/nwjs-sdk-${NWJS_VERSION}-linux-x64.tar.gz | tar -xz --strip=1 -C ${NWJS_INSTALL_DIR} && \

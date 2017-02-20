@@ -11,6 +11,11 @@ if [[ ! -f Dockerfile ]]; then
   exit 0
 fi
 
+if [[ ! -f "$DOCKER_CONFIG" ]]; then
+  echo "No DOCKER_CONFIG variable not found, not pushing images.";
+  exit 0
+fi
+
 beforeContainer="streamplace/$PACKAGE_NAME:latest"
 taggedContainer="$DOCKER_PREFIX/$PACKAGE_NAME:v$REPO_VERSION"
 

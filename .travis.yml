@@ -12,5 +12,8 @@ node_js:
 services:
   - docker
 
+before_install:
+  - npm config set //registry.npmjs.org/:_authToken $NPM_TOKEN
+
 script:
   - run/ci-build.sh

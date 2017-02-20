@@ -7,6 +7,4 @@ set -o pipefail
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 source "$ROOT/run/common.sh"
 
-helm init --upgrade
-npm run helm-build
-helm upgrade -i --debug -f values-dev.yaml dev packages/streamplace
+nodemon -w package.json -x npm run start

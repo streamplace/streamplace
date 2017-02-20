@@ -21,6 +21,11 @@ function realpath() {
 }
 export -f realpath
 
+function base64() {
+  node "$ROOT/run/base64.js"
+}
+export -f base64
+
 DOCKER_PREFIX=${DOCKER_PREFIX:-docker.io/streamplace}
 THIS_IS_CI="${THIS_IS_CI:-}"
 export LOCAL_DEV="${LOCAL_DEV:-}"

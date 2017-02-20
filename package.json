@@ -10,6 +10,7 @@
   "devDependencies": {
     "eslint": "^2.2.0",
     "eslint-plugin-react": "^4.1.0",
+    "get-stdin": "^5.0.1",
     "helm-cli": "^2.2.0",
     "js-yaml": "^3.8.1",
     "kubectl-cli": "^1.5.3-1",
@@ -26,7 +27,8 @@
     "helm-build": "run/every-package.sh run/package-helm-build.sh --concurrency=1",
     "helm-lint": "run/every-package.sh run/helm-lint.sh --concurrency=999",
     "helm-dev": "run/helm-dev.sh",
-    "helm-push": "run/helm-push.sh"
+    "helm-push": "run/helm-push.sh",
+    "update-cert": "run/update-cert.sh"
   },
   "repository": {
     "type": "git",

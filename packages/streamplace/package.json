@@ -1,6 +1,6 @@
 {
   "name": "streamplace",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "An open-source compositor and CMS for live video",
   "main": "dist/streamplace.js",
   "scripts": {
@@ -13,9 +13,9 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "dependencies": {
-    "sp-logs": "^0.0.4",
-    "sp-plugin-core": "^0.0.4",
-    "sp-rethinkdb": "^0.0.4",
-    "sp-schema": "^0.0.4"
+    "sp-logs": "^0.0.5",
+    "sp-plugin-core": "^0.0.5",
+    "sp-rethinkdb": "^0.0.5",
+    "sp-schema": "^0.0.5"
   }
 }

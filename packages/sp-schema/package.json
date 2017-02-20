@@ -1,6 +1,6 @@
 {
   "name": "sp-schema",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Schema for Streamplace",
   "main": "dist/sk-schema.js",
   "scripts": {
@@ -14,7 +14,7 @@
   "dependencies": {
     "js-yaml": "^3.5.2",
     "kubectl-cli": "^1.5.3-1",
-    "sp-node": "0.0.4",
+    "sp-node": "^0.0.5",
     "winston": "^2.3.0"
   },
   "devDependencies": {

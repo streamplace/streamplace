@@ -51,6 +51,17 @@ if [[ -f "Chart.yaml" ]]; then
   # Echo -n 'cuz js-yaml adds its own newline
   echo -n "$newChart" | js-yaml > Chart.yaml
 
+  # Validate requirements.yaml has the right versions
+  if [[ -f "requirements.yaml" ]]; then
+    requirementsJson="$(js-yaml requirements.yaml)"
+    if echo "$requirementsJson" | jq -r '.dependencies[].version' | grep -v "$correctVersion" > /dev/null; then
+      fixOrErr "requirements.yaml has the wrong package versions"
+      requirementsJson="$(echo "$requirementsJson" | jq ".dependencies = (.dependencies | map(.version = \"$correctVersion\"))")"
+      echo -n "$requirementsJson" | js-yaml > requirements.yaml
+    fi
+  fi
+
+
   if [[ ! -f .helmignore ]]; then
     fixOrErr "$PACKAGE_NAME has no .helmignore"
     touch .helmignore

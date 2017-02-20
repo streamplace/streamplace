@@ -11,8 +11,8 @@ if [[ ! -f Dockerfile ]]; then
   exit 0
 fi
 
-if [[ ! -f "$DOCKER_CONFIG" ]]; then
-  echo "No DOCKER_CONFIG variable not found, not pushing images.";
+if [[ ! -d "$DOCKER_CONFIG" ]]; then
+  echo "DOCKER_CONFIG variable not found, not pushing images.";
   exit 0
 fi
 

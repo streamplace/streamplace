@@ -30,4 +30,4 @@ docker run \
   -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
   -e AWS_DEFAULT_REGION="us-west-2" \
   cgswong/aws:aws -- \
-  s3 sync . s3://charts.stream.place/testing-delete-me
+  s3 sync . s3://charts.stream.place

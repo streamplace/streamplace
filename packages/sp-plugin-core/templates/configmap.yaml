@@ -4,6 +4,7 @@ metadata:
   name: {{ template "fullname" . }}
   annotations:
     stream.place/sp-schema: "true"
+    stream.place/sp-plugin: "sp-plugin-core"
   labels:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
 data:

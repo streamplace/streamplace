@@ -5,7 +5,7 @@
 global:
   development: true
   # Replace these with the path to your streamplace repo
-  streamplaceRootDev: /Users/example/git/streamplace
+  rootDirectory: /Users/example/git/streamplace
   # Replace this with your Keybase username
   domain: example.sp-dev.club
   # Your email goes here!

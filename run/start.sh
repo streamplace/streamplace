@@ -6,6 +6,8 @@ set -o pipefail
 
 export LOCAL_DEV="true"
 
+npm run bootstrap
+
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 source "$ROOT/run/common.sh"
 

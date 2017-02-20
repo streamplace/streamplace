@@ -29,7 +29,7 @@ spec:
         command:
           - bash
           - -c
-          - TMPDIR="/tmp" /app/node_modules/.bin/babel-watch /app/src/{{ .Chart.Name }}.js
+          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch --use-polling /app/src/{{ .Chart.Name }}.js
         volumeMounts:
           - name: app
             mountPath: /app

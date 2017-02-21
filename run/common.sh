@@ -22,7 +22,7 @@ function realpath() {
 export -f realpath
 
 function base64() {
-  node "$ROOT/run/base64.js"
+  node "$ROOT/run/base64.js" $*
 }
 export -f base64
 

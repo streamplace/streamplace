@@ -12,9 +12,11 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "dependencies": {
+    "express": "^4.14.1",
     "js-yaml": "^3.5.2",
     "kubectl-cli": "^1.5.3-1",
     "sp-node": "^0.0.6",
+    "mz": "^2.6.0",
     "winston": "^2.3.0"
   },
   "devDependencies": {

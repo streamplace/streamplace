@@ -1,4 +1,0 @@
-apiVersion: v1
-description: If all else fails, give the user a good ol' 404
-name: default-backend
-version: 0.1.0

@@ -21,8 +21,8 @@ fi
 domain="$(js-yaml "$ROOT/values-dev.yaml" | jq -r '.global.domain')"
 encrypted="$(curl https://sp-dev.club/$domain)"
 decrypted="$(echo "$encrypted" | keybase pgp decrypt)"
-cert="$(echo "$decrypted" | jq '.cert' | base64)"
-key="$(echo "$decrypted" | jq '.key' | base64)"
+cert="$(echo "$decrypted" | jq -r '.cert' | base64)"
+key="$(echo "$decrypted" | jq -r '.key' | base64)"
 
 kubectl apply -f - << EOF
 apiVersion: v1

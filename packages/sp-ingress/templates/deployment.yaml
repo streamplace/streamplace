@@ -19,15 +19,15 @@ spec:
           - /nginx-ingress-controller
         args:
           - --default-backend-service
-          - default/{{ .Release.Name }}-default-backend
+          - default/{{ .Release.Name }}-sp-default
           - --nginx-configmap=default/{{ template "fullname" . }}
         ports:
           - containerPort: 80
-            {{- if contains "NodePort" .Values.serviceType }}
+            {{- if .Values.global.development }}
             hostPort: 80
             {{- end }}
           - containerPort: 443
-            {{- if contains "NodePort" .Values.serviceType }}
+            {{- if .Values.global.development }}
             hostPort: 443
             {{- end }}
         readinessProbe:

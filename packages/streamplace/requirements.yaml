@@ -11,4 +11,9 @@ dependencies:
   - name: sp-schema
     version: 0.0.6
     repository: 'https://charts.stream.place'
-
+  - name: sp-ingress
+    version: 0.0.6
+    repository: 'https://charts.stream.place'
+  - name: sp-default
+    version: 0.0.6
+    repository: 'https://charts.stream.place'

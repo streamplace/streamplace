@@ -18,7 +18,7 @@ export class Schema {
       },
       host: "api.stream.place",
       schemes: ["https"],
-      basePath: "/api/v0",
+      basePath: "/api",
       produces: ["application/json"],
       consumes: ["application/json"],
       definitions: {},
@@ -32,6 +32,7 @@ export class Schema {
 
   add({plugin, name, yaml}) {
     const obj = parseYaml(yaml);
+    obj.plugin = plugin;
     this.schema.definitions[name] = obj;
     const {tableName} = obj;
     if (!tableName) {

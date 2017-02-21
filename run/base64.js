@@ -4,5 +4,10 @@ const getStdin = require("get-stdin");
 
 /* eslint-disable no-console */
 getStdin().then(str => {
-  console.log(Buffer.from(str).toString("base64"));
+  if (process.argv[2] === "--decode") {
+    process.stdout.write(Buffer.from(str, "base64").toString());
+  }
+  else {
+    process.stdout.write(Buffer.from(str).toString("base64"));
+  }
 });

@@ -29,7 +29,7 @@ You don't. Not yet. We're still making it.
 
 **Okay but I know some things about Javascript, can I boot up a development version?**
 
-Maybe. You'll need VirtualBox and Keybase. And you'll have to tell Eli your Keybase username on Slack. Once you've done that:
+Maybe. You'll need node, [VirtualBox](https://www.virtualbox.org/wiki/Downloads), and [Keybase](https://keybase.io/). And you'll have to tell Eli your Keybase username on Slack. Once you've done that:
 
 ```
 npm install -g minikube-cli

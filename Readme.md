@@ -40,7 +40,7 @@ npm install
 npm run bootstrap
 npm run docker-build # this step takes a LONG time, ~30min
 npm run helm-dev
-npm start
+npm run start
 ```
 
 And then you'll have a working dev version of Streamplace on your computer. I mean, it won't *do* anything yet, but you'll have it.

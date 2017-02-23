@@ -22,7 +22,7 @@ if [[ "${DOCKER_CONFIG_JSON:-}" != "" ]]; then
   echo "$DOCKER_CONFIG_JSON" | base64 --decode > "$tmp/config.json"
   export DOCKER_CONFIG="$tmp"
   # Fail fast if we're not properly docker logged in
-  docker pull streamplace/empty-image && docker push streamplace/empty-image
+  docker pull quay.io/streamplace/empty-image && docker push quay.io/streamplace/empty-image
 fi
 
 # This means we're authorized to build some docker images

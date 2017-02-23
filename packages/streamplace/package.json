@@ -17,6 +17,7 @@
     "sp-plugin-core": "^0.0.6",
     "sp-rethinkdb": "^0.0.6",
     "sp-schema": "^0.0.6",
+    "sp-api-server": "^0.0.6",
     "sp-ingress": "^0.0.6",
     "sp-default": "^0.0.6"
   }

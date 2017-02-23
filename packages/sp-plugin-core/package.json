@@ -10,7 +10,8 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "devDependencies": {
-    "babel-cli": "^6.14.0",
+    "babel-cli": "^6.23.0",
+    "babel-core": "^6.23.1",
     "babel-preset-streamkitchen": "0.0.2",
     "jest": "^15.1.1",
     "sp-node": "0.0.6",

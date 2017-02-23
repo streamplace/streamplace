@@ -13,7 +13,8 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "ajv": "^4.7.0",
-    "babel-cli": "^6.16.0",
+    "babel-cli": "^6.23.0",
+    "babel-core": "^6.23.1",
     "babel-jest": "^15.0.0",
     "babel-polyfill": "^6.13.0",
     "babel-preset-streamkitchen": "0.0.2",

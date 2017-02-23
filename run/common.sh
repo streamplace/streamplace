@@ -26,7 +26,7 @@ function base64() {
 }
 export -f base64
 
-DOCKER_PREFIX=${DOCKER_PREFIX:-docker.io/streamplace}
+DOCKER_PREFIX=${DOCKER_PREFIX:-quay.io/streamplace}
 THIS_IS_CI="${THIS_IS_CI:-}"
 export LOCAL_DEV="${LOCAL_DEV:-}"
 

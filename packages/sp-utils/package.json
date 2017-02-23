@@ -1,0 +1,18 @@
+{
+  "name": "sp-utils",
+  "version": "0.0.6",
+  "description": "Rando shared SP utilities",
+  "main": "dist/sk-utils",
+  "scripts": {
+    "prepublish": "babel -d dist src",
+    "start": "nodemon -w src -x npm run build"
+  },
+  "author": "Stream Kitchen",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "babel-cli": "^6.14.0",
+    "babel-preset-streamplace": "*",
+    "nodemon": "^1.10.2"
+  },
+  "dependencies": {}
+}

@@ -1,12 +1,12 @@
 {
-  "name": "sk-resource",
-  "version": "0.0.0",
-  "description": "Stream Kitchen base resources",
-  "main": "dist/sk-resource.js",
+  "name": "sp-resource",
+  "version": "0.0.6",
+  "description": "Streamplace resource class for plugins",
+  "main": "dist/sp-resource.js",
   "scripts": {
     "test": "jest --colors",
     "build": "babel -d dist src",
-    "dev": "nodemon -w src -x npm run build",
+    "start": "nodemon -w src -x npm run build",
     "test-rethink": "SK_TEST_DB_DRIVER=rethink SK_TEST_DB_HOST=localhost SK_TEST_DB_PORT=28019 jest --colors"
   },
   "author": "Stream Kitchen",

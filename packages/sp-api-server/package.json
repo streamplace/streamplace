@@ -1,25 +1,26 @@
 {
-  "name": "bellamie",
-  "version": "0.0.1",
-  "description": "API Server for Stream Kitchen",
-  "main": "dist/bellamie.js",
+  "name": "sp-api-server",
+  "version": "0.0.6",
+  "description": "API Server for Streamplace",
+  "main": "dist/sp-api-server.js",
   "scripts": {
     "test": "mocha --compilers js:babel-register",
-    "build": "babel -d dist src",
-    "dev": "babel-watch src/bellamie.js"
+    "prepublish": "babel -d dist src",
+    "start": "echo 'nothing to do'"
   },
   "repository": {
     "type": "git",
     "url": "git+https://git@github.com/iameli/pratty-apps.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Streamplace",
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/iameli/pratty-apps/issues"
   },
   "homepage": "https://github.com/iameli/pratty-apps#readme",
   "dependencies": {
     "ajv": "^4.4.0",
+    "axios": "^0.15.3",
     "babel-polyfill": "^6.3.14",
     "body-parser": "^1.14.2",
     "colors": "^1.1.2",
@@ -30,16 +31,17 @@
     "on-finished": "^2.3.0",
     "rethinkdb": "^2.3.3",
     "socket.io": "^1.4.5",
+    "sp-configuration": "^0.0.6",
+    "sp-resource": "^0.0.6",
     "swagger-parser": "^3.4.0",
     "underscore": "^1.8.3",
     "winston": "^2.1.1"
   },
   "devDependencies": {
-    "babel-preset-streamkitchen": "*",
+    "babel-preset-streamplace": "*",
     "babel-register": "^6.4.3",
     "expect.js": "^0.3.1",
     "mocha": "^2.4.5",
-    "node-inspector": "^0.12.5",
     "nodemon": "^1.8.1"
   }
 }

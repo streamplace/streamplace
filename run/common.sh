@@ -8,16 +8,27 @@ ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 
 # Realpath polyfill!
 function realpath() {
-  resolve="$1"
-  realDir="$(cd "$(dirname "$1")" && pwd)"
-  if [[ -f "$resolve" ]]; then
-    echo -n "$realDir/$(basename $resolve)"
-  elif [[ -d "$resolve" ]]; then
-    echo -n "$realDir"
-  else
-    echo -n "realpath failed, $resolve does not exist" >&2
-    return 1
-  fi
+  # resolve="$1"
+  # realDir="$(cd "$(dirname "$1")" && pwd)"
+  # if [[ -f "$resolve" ]]; then
+  #   echo -n "$realDir/$(basename $resolve)"
+  # elif [[ -d "$resolve" ]]; then
+  #   echo -n "$realDir"
+  # else
+  #   echo -n "realpath failed, $resolve does not exist" >&2
+  #   return 1
+  # fi
+  for file in "$@"; do
+    while [ -h "$file" ]; do
+      l=`readlink $file`
+      case "$l" in
+        /*) file="$l";;
+        *) file=`dirname "$file"`/"$l"
+      esac
+    done
+    #echo $file
+    python -c "import os,sys; print os.path.abspath(sys.argv[1])" "$file"
+  done
 }
 export -f realpath
 

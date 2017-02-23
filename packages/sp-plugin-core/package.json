@@ -4,8 +4,8 @@
   "description": "Streamplace core plugin",
   "main": "dist/sp-plugin-core.js",
   "scripts": {
-    "prepbulish": "babel -d dist src",
-    "start": "nodemon -w src -x npm run prepbulish"
+    "prepublish": "babel -d dist src",
+    "start": "nodemon -w src -x npm run prepublish"
   },
   "author": "Streamplace",
   "license": "Apache-2.0",

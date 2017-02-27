@@ -14,7 +14,6 @@
     "helm-cli": "^2.2.0",
     "js-yaml": "^3.8.1",
     "kubectl-cli": "^1.5.3-1",
-    "minikube-cli": "^0.16.0",
     "nodemon": "^1.11.0"
   },
   "scripts": {
@@ -28,7 +27,9 @@
     "helm-lint": "run/every-package.sh run/helm-lint.sh --concurrency=999",
     "helm-dev": "run/helm-dev.sh",
     "helm-push": "run/helm-push.sh",
-    "update-cert": "run/update-cert.sh"
+    "kube-init": "run/kube-init.sh",
+    "update-cert": "run/update-cert.sh",
+    "link-deps": "run/link-deps.sh"
   },
   "repository": {
     "type": "git",

@@ -35,7 +35,7 @@ data:
   tls.key: $key
 EOF
 
-hostsLine="$(minikube ip) $domain"
+hostsLine="127.0.0.1 $domain"
 if ! cat /etc/hosts | grep "$hostsLine" > /dev/null; then
   info "Need to update /etc/hosts"
   info "Please give me sudo powers to run this command:"

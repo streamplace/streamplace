@@ -30,7 +30,7 @@ if ! cat /etc/hosts | grep "$hostsLine" > /dev/null; then
   sudo bash -c "$cmd"
 fi
 
-if ! docker inspect kubelet > /dev/null; then
+if ! docker ps | grep kubelet > /dev/null; then
   echo "kubelet doesn't appear to be running."
   echo "We will now use https://github.com/streamplace/kube-for-mac to spin up a local Kubernetes"
   confirm "cluster running on Docker for Mac. That sound good?"

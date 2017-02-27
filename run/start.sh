@@ -9,9 +9,10 @@ export LOCAL_DEV="true"
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 source "$ROOT/run/common.sh"
 
-npm run link-deps
+npm run build-values-dev
 npm run kube-init
 npm run update-cert
+npm run link-deps
 npm run docker-build
 npm run helm-dev
 

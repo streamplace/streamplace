@@ -4,19 +4,23 @@
   "description": "Streamplace core plugin",
   "main": "dist/sp-plugin-core.js",
   "scripts": {
-    "prepbulish": "babel -d dist src",
-    "start": "nodemon -w src -x npm run prepbulish"
+    "prepublish": "babel -d dist src",
+    "start": "nodemon -w src -x npm run prepublish"
   },
   "author": "Streamplace",
   "license": "Apache-2.0",
   "devDependencies": {
-    "babel-cli": "^6.14.0",
+    "babel-cli": "^6.23.0",
+    "babel-core": "^6.23.1",
     "babel-preset-streamkitchen": "0.0.2",
     "jest": "^15.1.1",
+    "sp-node": "0.0.6",
     "sp-schema": "^0.0.6"
   },
   "dependencies": {
     "node-uuid": "^1.4.7",
+    "sp-resource": "0.0.6",
+    "sp-utils": "0.0.6",
     "winston": "^2.2.0"
   }
 }

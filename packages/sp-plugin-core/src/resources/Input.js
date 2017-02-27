@@ -1,6 +1,6 @@
 
-import Resource from "sk-resource";
-import {randomId} from "sk-utils";
+import Resource from "sp-resource";
+import {randomId} from "sp-utils";
 
 export default class Input extends Resource {
   auth(ctx, doc) {

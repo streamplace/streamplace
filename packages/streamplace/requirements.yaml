@@ -17,3 +17,6 @@ dependencies:
   - name: sp-default
     version: 0.0.6
     repository: 'https://charts.stream.place'
+  - name: sp-api-server
+    version: 0.0.6
+    repository: 'https://charts.stream.place'

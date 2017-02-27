@@ -15,5 +15,3 @@ global:
   jwt:
     audience: dev
     secret: QjAzNEMwMEUtQkY5Qi00OTQyLUJEQUEtMEYxNEZENUVERERE
-  plugins:
-    - sp-plugin-core

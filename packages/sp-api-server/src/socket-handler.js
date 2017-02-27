@@ -1,7 +1,7 @@
 
 import SocketIO from "socket.io";
-import {SKContext} from "sk-resource";
-import config from "sk-config";
+import {SKContext} from "sp-resource";
+import config from "sp-configuration";
 import winston from "winston";
 import _ from "underscore";
 import querystring from "querystring";

@@ -25,6 +25,12 @@ spec:
             path: {{ .Values.global.rootDirectory }}/packages/{{ .Chart.Name }}
         - name: tmp
           emptyDir: {}
+      {{- $rootDirectory := .Values.global.rootDirectory }}
+      {{- range .Values.global.plugins }}
+        - name: {{ . }}
+          hostPath:
+            path: {{ $rootDirectory }}/packages/{{ . }}
+      {{- end }}
       {{- end }}
       containers:
       - name: {{ .Chart.Name }}
@@ -41,7 +47,26 @@ spec:
             mountPath: {{ .Values.global.rootDirectory }}
           - name: tmp
             mountPath: /tmp
+        {{- range .Values.global.plugins }}
+          - name: {{ . }}
+            mountPath: /plugins/{{ . }}
+        {{- end }}
         {{- else }}
         image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:v{{ .Chart.Version }}"
         {{- end }}
         imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
+        env:
+        - name: NODE_PATH
+          value: "/plugins:/app/node_modules"
+        - name: SP_JWT_SECRET
+          value: "{{ .Values.global.jwt.secret }}"
+        - name: SP_PUBLIC_JWT_AUDIENCE
+          value: "{{ .Values.global.jwt.audience }}"
+        - name: SP_RETHINK_DATABASE
+          value: {{ .Release.Name }}
+        - name: SP_RETHINK_HOST
+          value: {{ .Release.Name }}-sp-rethinkdb.{{ .Release.Namespace }}.svc.cluster.local
+        - name: SP_SCHEMA_URL
+          value: http://{{ .Release.Name }}-sp-schema.{{ .Release.Namespace }}.svc.cluster.local/schema.json
+        - name: SP_RETHINK_PORT
+          value: "28015"

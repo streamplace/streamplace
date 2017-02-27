@@ -1,19 +1,20 @@
 {
-  "name": "sk-resource",
-  "version": "0.0.0",
-  "description": "Stream Kitchen base resources",
-  "main": "dist/sk-resource.js",
+  "name": "sp-resource",
+  "version": "0.0.6",
+  "description": "Streamplace resource class for plugins",
+  "main": "dist/sp-resource.js",
   "scripts": {
     "test": "jest --colors",
     "build": "babel -d dist src",
-    "dev": "nodemon -w src -x npm run build",
+    "start": "nodemon -w src -x npm run build",
     "test-rethink": "SK_TEST_DB_DRIVER=rethink SK_TEST_DB_HOST=localhost SK_TEST_DB_PORT=28019 jest --colors"
   },
   "author": "Stream Kitchen",
   "license": "Apache-2.0",
   "devDependencies": {
     "ajv": "^4.7.0",
-    "babel-cli": "^6.16.0",
+    "babel-cli": "^6.23.0",
+    "babel-core": "^6.23.1",
     "babel-jest": "^15.0.0",
     "babel-polyfill": "^6.13.0",
     "babel-preset-streamkitchen": "0.0.2",

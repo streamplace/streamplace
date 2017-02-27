@@ -1,5 +1,5 @@
 
-import Resource from "sk-resource";
+import Resource from "sp-resource";
 
 export default class Vertex extends Resource {
   auth(ctx, doc) {

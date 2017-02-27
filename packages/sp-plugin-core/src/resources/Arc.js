@@ -1,5 +1,5 @@
 
-import Resource from "sk-resource";
+import Resource from "sp-resource";
 import winston from "winston";
 
 export default class Arc extends Resource {

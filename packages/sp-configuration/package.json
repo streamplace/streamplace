@@ -1,17 +1,14 @@
 {
-  "name": "sk-config",
-  "version": "1.0.0",
-  "description": "Stream Kitchen shared runtime configuration",
-  "main": "dist/sk-config.js",
+  "name": "sp-configuration",
+  "version": "0.0.6",
+  "description": "Streamplace shared runtime configuration",
+  "main": "dist/sp-configuration.js",
   "scripts": {
-    "build": "babel -d dist src",
-    "dev": "nodemon -w src -x npm run build",
+    "prepublish": "babel -d dist src",
+    "start": "nodemon -w src -x npm run prepublish",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "bin": {
-    "sk-config": "./dist/cli.js"
-  },
-  "author": "Stream Kitchen",
+  "author": "Streamplace",
   "license": "Apache-2.0",
   "dependencies": {
     "js-yaml": "^3.6.1",

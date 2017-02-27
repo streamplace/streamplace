@@ -29,18 +29,22 @@ You don't. Not yet. We're still making it.
 
 **Okay but I know some things about Javascript, can I boot up a development version?**
 
-Maybe. You'll need node, [VirtualBox](https://www.virtualbox.org/wiki/Downloads), and [Keybase](https://keybase.io/). And you'll have to tell Eli your Keybase username on Slack. Once you've done that:
+Maybe. You'll need:
+
+* node 6+
+* [Docker for Mac](https://www.docker.com/products/docker). (Untested on Linux, but I think it'll
+  work.)
+* Tell Eli your Keybase username on [Slack](https://slack.stream.place/) so that you get an
+  `sp-dev.club` domain.
 
 ```
-npm install -g minikube-cli
-minikube start
 git clone git@github.com:streamplace/streamplace.git
 cd streamplace
 npm install
-npm run bootstrap
-npm run docker-build # this step takes a LONG time, ~30min
-npm run helm-dev
 npm run start
 ```
+
+Follow the prompts. The first run will take a long time, as it has to build all of Streamplace's
+Docker images from scratch.
 
 And then you'll have a working dev version of Streamplace on your computer. I mean, it won't *do* anything yet, but you'll have it.

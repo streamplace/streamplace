@@ -132,17 +132,11 @@ function fixOrErr() {
 }
 
 if [[ ! -f /var/run/docker.sock ]]; then
-  if [[ "${DOCKER_HOST:-}" == "" ]]; then
-    minikube_env="$ROOT/.tmp/minikube.env"
-    if [[ -f "$minikube_env" ]]; then
-      source "$minikube_env"
-    elif minikube status | grep Running > /dev/null; then
-      mkdir -p "$ROOT/.tmp"
-      minikube docker-env --shell bash > "$minikube_env"
-      source "$minikube_env"
-    elif ! docker ps > /dev/null; then
-      echo "No /var/run/docker.sock, no DOCKER_HOST environment variable, no running minikube, and docker ps errors. Not sure how to proceed. Perhaps you need to run 'minikube start'?"
-      exit 1
-    fi
+  if ! docker ps > /dev/null; then
+    echo "No /var/run/docker.sock, and 'docker ps' is failing. Get Docker working first!"
+    exit 1
   fi
 fi
+
+localKubeconfig="$(realpath "$ROOT/hack/local-kubeconfig")"
+export KUBECONFIG="${KUBECONFIG:-$localKubeconfig}"

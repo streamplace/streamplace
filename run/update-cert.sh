@@ -34,12 +34,3 @@ data:
   tls.crt: $cert
   tls.key: $key
 EOF
-
-hostsLine="127.0.0.1 $domain"
-if ! cat /etc/hosts | grep "$hostsLine" > /dev/null; then
-  info "Need to update /etc/hosts"
-  info "Please give me sudo powers to run this command:"
-  cmd="echo $hostsLine >> /etc/hosts"
-  echo "$cmd"
-  sudo bash -c "$cmd"
-fi

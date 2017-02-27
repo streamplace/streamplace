@@ -20,6 +20,16 @@ if ! docker ps > /dev/null; then
   exit 1
 fi
 
+domain="$(js-yaml "$ROOT/values-dev.yaml" | jq -r '.global.domain')"
+hostsLine="127.0.0.1 $domain"
+if ! cat /etc/hosts | grep "$hostsLine" > /dev/null; then
+  info "Need to update /etc/hosts"
+  info "Please give me sudo powers to run this command:"
+  cmd="echo $hostsLine >> /etc/hosts"
+  echo "$cmd"
+  sudo bash -c "$cmd"
+fi
+
 if ! docker inspect kubelet > /dev/null; then
   echo "kubelet doesn't appear to be running."
   echo "We will now use https://github.com/streamplace/kube-for-mac to spin up a local Kubernetes"

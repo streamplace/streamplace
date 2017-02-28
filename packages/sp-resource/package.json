@@ -1,6 +1,6 @@
 {
   "name": "sp-resource",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Streamplace resource class for plugins",
   "main": "dist/sp-resource.js",
   "scripts": {

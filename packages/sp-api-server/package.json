@@ -1,6 +1,6 @@
 {
   "name": "sp-api-server",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "API Server for Streamplace",
   "main": "dist/sp-api-server.js",
   "scripts": {
@@ -31,8 +31,8 @@
     "on-finished": "^2.3.0",
     "rethinkdb": "^2.3.3",
     "socket.io": "^1.4.5",
-    "sp-configuration": "^0.0.6",
-    "sp-resource": "^0.0.6",
+    "sp-configuration": "^0.0.7",
+    "sp-resource": "^0.0.7",
     "swagger-parser": "^3.4.0",
     "underscore": "^1.8.3",
     "winston": "^2.1.1"

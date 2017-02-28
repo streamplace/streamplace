@@ -1,6 +1,6 @@
 {
   "name": "sp-utils",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Rando shared SP utilities",
   "main": "dist/sk-utils",
   "scripts": {

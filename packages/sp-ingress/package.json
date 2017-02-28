@@ -1,6 +1,6 @@
 {
   "name": "sp-ingress",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Incoming connections get routed here!",
   "main": "package.json",
   "scripts": {

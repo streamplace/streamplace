@@ -34,8 +34,6 @@ Maybe. You'll need:
 * node 6+
 * [Docker for Mac](https://www.docker.com/products/docker). (Untested on Linux, but I think it'll
   work.)
-* Tell Eli your Keybase username on [Slack](https://slack.stream.place/) so that you get an
-  `sp-dev.club` domain.
 
 ```
 git clone git@github.com:streamplace/streamplace.git

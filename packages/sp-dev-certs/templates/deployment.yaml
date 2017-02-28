@@ -20,7 +20,7 @@ spec:
       {{- end}}
       containers:
       - name: {{ .Chart.Name }}
-        image: "streamplace/sp-dev-certs:v{{ .Chart.Version }}"
+        image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:v{{ .Chart.Version }}"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80

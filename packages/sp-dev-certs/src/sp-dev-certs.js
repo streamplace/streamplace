@@ -22,6 +22,22 @@ app.listen(port);
 console.log(`FCFE listening on port ${port}`);
 /* eslint-enable no-console */
 
+const getCertFiles = function(domain) {
+  return Promise.all([
+    fs.readFile(`/certs/${domain}/tls.crt`, "utf8"),
+    fs.readFile(`/certs/${domain}/tls.key`, "utf8"),
+  ])
+  .catch((err) => {
+    if (err !== "ENOENT") {
+      throw err;
+    }
+    return Promise.all([
+      fs.readFile("/certs/wild-card/tls.crt", "utf8"),
+      fs.readFile("/certs/wild-card/tls.key", "utf8"),
+    ]);
+  });
+};
+
 app.get("/:domain", function(req, res) {
   const split = req.params.domain.split(".");
   if (split.length !== 3) {
@@ -33,10 +49,7 @@ app.get("/:domain", function(req, res) {
   let cert;
   let key;
 
-  Promise.all([
-    fs.readFile(`/certs/${domain}/tls.crt`, "utf8"),
-    fs.readFile(`/certs/${domain}/tls.key`, "utf8"),
-  ])
+  getCertFiles(domain)
   .then(([c, k]) => {
     cert = c;
     key = k;

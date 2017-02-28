@@ -1,4 +1,6 @@
 
+global:
+  repo: quay.io/streamplace
 domain: example.com
 developers:
   - username: iameli

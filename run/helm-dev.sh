@@ -12,4 +12,4 @@ while ! helm list > /dev/null; do
   echo "Waiting for Tiller to be ready..."
 done
 npm run helm-build
-helm upgrade -i --debug -f values-dev.yaml dev packages/streamplace
+helm upgrade -i -f values-dev.yaml dev packages/streamplace

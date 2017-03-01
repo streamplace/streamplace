@@ -8,6 +8,7 @@ import {resolve} from "path";
 import morgan from "morgan";
 import fs from "mz/fs";
 import axios from "axios";
+import winston from "winston";
 // This fella doesn't like being an ES6 package ¯\_(ツ)_/¯
 const openpgp = require("openpgp");
 
@@ -18,9 +19,8 @@ app.use(express.static(resolve(__dirname, "static")));
 
 const port = process.env.PORT || 80;
 app.listen(port);
-/* eslint-disable no-console */
-console.log(`FCFE listening on port ${port}`);
-/* eslint-enable no-console */
+
+winston.info(`FCFE listening on port ${port}`);
 
 const getCertFiles = function(domain) {
   return Promise.all([
@@ -28,12 +28,13 @@ const getCertFiles = function(domain) {
     fs.readFile(`/certs/${domain}/tls.key`, "utf8"),
   ])
   .catch((err) => {
-    if (err !== "ENOENT") {
+    if (err.code !== "ENOENT") {
       throw err;
     }
+    const suffix = domain.split(".").slice(1).join(".");
     return Promise.all([
-      fs.readFile("/certs/wild-card/tls.crt", "utf8"),
-      fs.readFile("/certs/wild-card/tls.key", "utf8"),
+      fs.readFile(`/certs/wild-card.${suffix}/tls.crt`, "utf8"),
+      fs.readFile(`/certs/wild-card.${suffix}/tls.key`, "utf8"),
     ]);
   });
 };
@@ -55,14 +56,6 @@ app.get("/:domain", function(req, res) {
     key = k;
     return axios.get(`https://keybase.io/_/api/1.0/user/lookup.json?usernames=${username}`);
   })
-  .catch((err) => {
-    if (err !== "ENOENT") {
-      res.sendStatus(500);
-      throw err;
-    }
-    // Ok, we don't have theirs, send 'em a 404
-    res.sendStatus(404);
-  })
   .then((response) => {
     const data = response.data;
     if (data.status.code !== 0) {
@@ -83,8 +76,13 @@ app.get("/:domain", function(req, res) {
     res.status(200).end(cyphertext.data);
   })
   .catch((err) => {
-    res.sendStatus(500);
-    throw err;
+    winston.error(err);
+    if (err.code === "ENOENT") {
+      res.sendStatus(404);
+    }
+    else {
+      res.sendStatus(500);
+    }
   });
 
 });

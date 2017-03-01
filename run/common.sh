@@ -64,9 +64,11 @@ function tweak() {
   echo "$json" | jq -r "$key = \"$value\""
 }
 
-function jq() {
-  docker run --rm -i -e LOGSPOUT=ignore pinterb/jq "$@"
-}
+if ! which jq > /dev/null; then
+  function jq() {
+    docker run --rm -i -e LOGSPOUT=ignore pinterb/jq "$@"
+  }
+fi
 
 # Easy reusable confirmation dialog
 function confirm() {

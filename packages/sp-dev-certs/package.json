@@ -7,14 +7,15 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "babel --retain-lines --copy-files -d dist src",
     "prepublish": "npm run build",
-    "start": "babel --watch --retain-lines --copy-files -d dist src"
+    "start": "echo 'nothing to do'"
   },
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
     "babel-cli": "^6.22.2",
     "babel-core": "^6.22.1",
-    "babel-preset-streamplace": "0.0.1"
+    "babel-preset-streamplace": "0.0.1",
+    "babel-watch": "^2.0.6"
   },
   "dependencies": {
     "axios": "^0.15.3",
@@ -22,6 +23,7 @@
     "morgan": "^1.8.1",
     "mz": "^2.6.0",
     "openpgp": "^2.3.6",
-    "sp-node": "^0.0.7"
+    "sp-node": "^0.0.7",
+    "winston": "^2.3.1"
   }
 }

@@ -17,3 +17,6 @@ global:
     secret: QjAzNEMwMEUtQkY5Qi00OTQyLUJEQUEtMEYxNEZENUVERERE
   plugins:
     - sp-plugin-core
+
+sp-dev-certs:
+  enabled: false

@@ -1,3 +1,4 @@
+{{- if .Values.enabled }}
 {{- $domain := .Values.domain -}}
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -13,22 +14,60 @@ spec:
         app: {{ template "fullname" . }}
     spec:
       volumes:
+      {{- if .Values.global.development }}
+        - name: streamplace
+          hostPath:
+            path: {{ .Values.global.rootDirectory }}
+        - name: app
+          hostPath:
+            path: {{ .Values.global.rootDirectory }}/packages/{{ .Chart.Name }}
+        - name: tmp
+          emptyDir: {}
+      {{- end }}
       {{- range .Values.developers}}
         - name: {{ .username }}
           secret:
             secretName: {{ .username }}.{{ $domain }}
-      {{- end}}
+      {{- end }}
+        - name: wild-card
+          secret:
+            secretName: wild-card.{{ $domain }}
       containers:
       - name: {{ .Chart.Name }}
+        {{- if .Values.global.development }}
+        image: "streamplace/{{ .Chart.Name }}:latest"
+        command:
+          - bash
+          - -c
+          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch --use-polling /app/src/{{ .Chart.Name }}.js
+        volumeMounts:
+          - name: app
+            mountPath: /app
+          - name: streamplace
+            mountPath: {{ .Values.global.rootDirectory }}
+          - name: tmp
+            mountPath: /tmp
+        {{- else }}
         image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:v{{ .Chart.Version }}"
+        {{- end }}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
         volumeMounts:
+        {{- if .Values.global.development }}
+          - name: app
+            mountPath: /app
+          - name: streamplace
+            mountPath: {{ .Values.global.rootDirectory }}
+          - name: tmp
+            mountPath: /tmp
+        {{- end }}
         {{- range .Values.developers}}
           - name: {{ .username }}
             mountPath: /certs/{{ .username }}.{{ $domain }}
         {{- end}}
+          - name: wild-card
+            mountPath: /certs/wild-card.{{ $domain }}
         livenessProbe:
           httpGet:
             path: /
@@ -37,3 +76,4 @@ spec:
           httpGet:
             path: /
             port: 80
+{{- end }}

@@ -24,3 +24,7 @@ package.json
 dev-stream.js
 node_modules
 /*.tgz
+dist
+src
+public
+Dockerfile

@@ -1,0 +1,11 @@
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "fullname" . }}
+  annotations:
+    stream.place/sp-plugin: sp-auth
+data:
+  domain: "{{ .Values.domain }}"
+  auth0Domain: "{{ .Values.auth0Domain }}"
+  auth0Audience: "{{ .Values.auth0Audience }}"

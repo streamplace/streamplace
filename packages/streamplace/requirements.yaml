@@ -23,3 +23,6 @@ dependencies:
   - name: sp-dev-certs
     version: 0.0.7
     repository: 'https://charts.stream.place'
+  - name: sp-auth-frontend
+    version: 0.0.7
+    repository: 'https://charts.stream.place'

@@ -66,7 +66,7 @@ if [[ -f "Chart.yaml" ]]; then
     fixOrErr "$PACKAGE_NAME has no .helmignore"
     touch .helmignore
   fi
-  requiredIgnores='node_modules /*.tgz package.json'
+  requiredIgnores='node_modules /*.tgz package.json dist src public Dockerfile'
   for ignore in $requiredIgnores; do
     result=$(cat .helmignore | grep $ignore || echo "")
     if [[ "$result" == "" ]]; then

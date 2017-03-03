@@ -6,7 +6,7 @@ ENV NODE_VERSION 6.9.5
 RUN \
   apt-get update && \
   apt-get dist-upgrade -y && \
-  apt-get install -y curl xz-utils git apt-transport-https && \
+  apt-get install -y curl xz-utils git apt-transport-https inotify-tools && \
   curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
   echo "deb https://dl.yarnpkg.com/debian/ stable main" >> /etc/apt/sources.list.d/yarn.list && \
   apt-get update && \

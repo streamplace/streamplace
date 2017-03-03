@@ -16,7 +16,8 @@ const RETHINK_PASSWORD = config.optional("RETHINK_PASSWORD");
 const RETHINK_CA = config.optional("RETHINK_CA");
 
 export default function(server) {
-  const io = SocketIO(server);
+  let io = SocketIO(server);
+  io = io.of("/api");
 
   io.use(function(socket, next){
     const {query} = url.parse(socket.request.url);

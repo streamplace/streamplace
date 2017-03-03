@@ -4,6 +4,9 @@ import yaml from "js-yaml";
 import winston from "winston";
 import {safeLoad as parseYaml} from "js-yaml";
 import pkg from "../package.json";
+import config from "sp-configuration";
+
+const DOMAIN = config.require("DOMAIN");
 
 winston.cli();
 
@@ -16,7 +19,8 @@ export class Schema {
         description: "An API for doing awesome stuff with live streaming video.",
         version: pkg.version
       },
-      host: "api.stream.place",
+      plugins: {},
+      host: DOMAIN,
       schemes: ["https"],
       basePath: "/api",
       produces: ["application/json"],
@@ -30,8 +34,20 @@ export class Schema {
     return this.schema;
   }
 
-  add({plugin, name, yaml}) {
+  addConfiguration({plugin, data}) {
+    if (!this.schema.plugins[plugin]) {
+      this.schema.plugins[plugin] = {};
+    }
+    Object.keys(data).forEach((key) => {
+      this.schema.plugins[plugin][key] = data[key];
+    });
+  }
+
+  addSchema({plugin, name, yaml}) {
     const obj = parseYaml(yaml);
+    if (!this.schema.plugins[plugin]) {
+      this.schema.plugins[plugin] = {};
+    }
     obj.plugin = plugin;
     this.schema.definitions[name] = obj;
     const {tableName} = obj;

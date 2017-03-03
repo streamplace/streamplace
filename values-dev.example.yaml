@@ -17,6 +17,10 @@ global:
     secret: QjAzNEMwMEUtQkY5Qi00OTQyLUJEQUEtMEYxNEZENUVERERE
   plugins:
     - sp-plugin-core
+  authUrl: https://auth.stream.place
 
 sp-dev-certs:
+  enabled: false
+
+sp-auth:
   enabled: false

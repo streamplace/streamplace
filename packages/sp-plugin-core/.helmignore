@@ -24,3 +24,5 @@ src
 dist
 package.json
 /*.tgz
+public
+Dockerfile

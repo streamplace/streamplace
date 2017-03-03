@@ -70,6 +70,26 @@ SKContext.addResource = function(resource) {
 SKContext.jwtSecret = null;
 SKContext.jwtAudience = null;
 
+/**
+ * Singleton promise that ensures our database exists before we do anything else.
+ */
+SKContext.dbCreatePromise = null;
+SKContext.ensureDbExists = function(ctx) {
+  if (!SKContext.dbCreatePromise) {
+    SKContext.dbCreatePromise = r.dbCreate(ctx.conn.db).run(ctx.conn)
+    .then(() => {
+      winston.info(`Created database ${ctx.conn.db}`);
+    })
+    .catch((err) => {
+      // If it already exists, that's chill. Otherwise throw an error.
+      if (err.name !== "ReqlOpFailedError") {
+        throw err;
+      }
+    });
+  }
+  return SKContext.dbCreatePromise;
+};
+
 SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, rethinkUser, rethinkPassword, rethinkCA, token, remoteAddress}) {
   const ctx = new SKContext();
   ctx.remoteAddress = remoteAddress;
@@ -94,7 +114,7 @@ SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, r
       }));
     }
     if (verifiedJwt.body.aud !== SKContext.jwtAudience) {
-      winston.error(`Got a JWT, and the signature looks fine, but the audience is ${verifiedJwt.aud} instead of ${SKContext.jwtAudience}. Weird, right?`);
+      winston.error(`Got a JWT, and the signature looks fine, but the audience is ${verifiedJwt.body.aud} instead of ${SKContext.jwtAudience}. Weird, right?`);
       return reject(new APIError({
         status: 403,
         code: "ERR_TOKEN_INVALID",
@@ -120,6 +140,9 @@ SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, r
   .then((conn) => {
     ctx.rethink = r;
     ctx.conn = conn;
+    return SKContext.ensureDbExists(ctx);
+  })
+  .then(() => {
     return ctx.resources.users.findOrCreateFromContext(ctx);
   })
   .then((user) => {

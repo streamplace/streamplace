@@ -15,12 +15,15 @@ if [[ -d charts ]]; then
   rm -rf charts/*
 fi
 
+# Clean out old, stale charts
+rm -rf *.tgz
+rm -rf charts
+
 if [[ -f requirements.yaml ]]; then
   mkdir -p charts
   requirementsJson="$(js-yaml requirements.yaml)"
   requirements="$(echo $requirementsJson | jq -r '.dependencies[].name')"
   for req in $requirements; do
-    echo "$req"
     cp -v "$ROOT"/packages/$req/*.tgz charts
   done
 fi

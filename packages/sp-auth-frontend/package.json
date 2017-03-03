@@ -1,0 +1,24 @@
+{
+  "name": "sp-auth-frontend",
+  "version": "0.0.7",
+  "description": "frontend for auth.stream.place",
+  "devDependencies": {
+    "auth0-lock": "^10.11.0",
+    "react-scripts": "0.9.3",
+    "sp-configuration": "0.0.7",
+    "sp-node": "0.0.7"
+  },
+  "dependencies": {
+    "react": "^15.4.2",
+    "react-dom": "^15.4.2",
+    "sp-client": "^0.0.7"
+  },
+  "scripts": {
+    "start": "echo 'nothing to do'",
+    "dev": "bash -c 'PORT=80 react-scripts start | cat'",
+    "prepublish": "react-scripts build && rm -rf dist && mv build dist",
+    "test": "react-scripts test --env=jsdom",
+    "eject": "react-scripts eject"
+  },
+  "license": "Apache-2.0"
+}

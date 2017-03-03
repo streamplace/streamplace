@@ -75,7 +75,7 @@ axios.get(SCHEMA_URL).then((response) => {
         throw new Error(`Resource ${resourceName} lacks a tableName`);
       }
       const path = `/${Resource.tableName}`;
-      winston.debug(`[${pluginName}] Adding resource ${resourceName} at ${path}`);
+      winston.info(`[${pluginName}] Adding resource ${resourceName} at ${path}`);
       const resource = new Resource({
         dbDriver: RethinkDbDriver,
         ajv: ajv,

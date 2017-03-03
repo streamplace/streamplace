@@ -10,6 +10,7 @@ source "$ROOT/run/common.sh"
 helm init --upgrade
 while ! helm list > /dev/null; do
   echo "Waiting for Tiller to be ready..."
+  sleep 1
 done
 npm run helm-build
 helm upgrade -i -f values-dev.yaml dev packages/streamplace

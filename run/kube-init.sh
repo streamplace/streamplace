@@ -34,6 +34,7 @@ if ! docker ps | grep kubelet > /dev/null; then
   echo "kubelet doesn't appear to be running."
   echo "We will now use https://github.com/streamplace/kube-for-mac to spin up a local Kubernetes"
   confirm "cluster running on Docker for Mac. That sound good?"
+  docker pull streamplace/kube-for-mac
   docker run --rm --privileged -v /:/rootfs streamplace/kube-for-mac
   echo "Adding local kubernetes cluster to $HOME/.kube/config"
   mkdir -p "$HOME/.kube"

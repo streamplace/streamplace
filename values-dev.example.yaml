@@ -19,7 +19,8 @@ global:
     expiration: 30d
   plugins:
     - sp-plugin-core
-  authIssuer: https://auth.stream.place
+  authIssuer: https://stream.place/
+  loginUrl: https://auth.stream.place/
 
 sp-dev-certs:
   enabled: false

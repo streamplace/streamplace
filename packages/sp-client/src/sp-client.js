@@ -170,8 +170,17 @@ export class SPClient extends EE {
   }
 
   getUser() {
+    const beforeToken = this.token;
     const decoded = jwtDecode(this.token);
-    return this.users.find({authToken: decoded.sub}).then(([user]) => {
+    return this.users.find({identity: decoded.sub}).then(([user]) => {
+      // If we didn't find one and our token changed, the server gently let us know we're actually
+      // someone else. Try again!
+      if (!user) {
+        if (this.token !== beforeToken) {
+          return this.getUser();
+        }
+        throw new Error(`Cannot find user with identity="${decoded.sub}"`);
+      }
       return user;
     });
   }

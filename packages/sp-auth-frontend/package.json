@@ -8,6 +8,7 @@
     "sp-configuration": "0.0.7",
     "sp-node": "0.0.7"
   },
+  "homepage": ".",
   "dependencies": {
     "react": "^15.4.2",
     "react-dom": "^15.4.2",

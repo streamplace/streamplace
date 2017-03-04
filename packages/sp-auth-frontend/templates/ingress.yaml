@@ -1,5 +1,5 @@
 {{- if .Values.enabled }}
-{{- $domain := .Values.global.authIssuer | split "//" }}
+{{- $domain := .Values.global.loginUrl | split "/" }}
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
@@ -11,18 +11,18 @@ metadata:
     kubernetes.io/ingress.class: "nginx"
 spec:
   tls:
-  - secretName: {{ $domain._1 }}
+  - secretName: {{ $domain._2 }}
     hosts:
-    - {{ $domain._1 }}
+    - {{ $domain._2 }}
   rules:
-  - host: {{ $domain._1 }}
+  - host: {{ $domain._2 }}
     http:
       paths:
       - path: /
         backend:
           serviceName: {{ template "fullname" . }}
           servicePort: 80
-  - host: {{ $domain._1 }}
+  - host: {{ $domain._2 }}
     http:
       paths:
       - path: /schema.json

@@ -60,8 +60,11 @@ export default function httpHandler({resource}) {
       rethinkUser: RETHINK_USER,
       rethinkPassword: RETHINK_PASSWORD,
       rethinkCA: RETHINK_CA,
-      token: req.headers["sk-auth-token"],
+      token: req.headers["sp-auth-token"],
       remoteAddress: remoteAddress,
+      replaceToken: (newToken) => {
+        res.header("sp-auth-token", newToken);
+      },
     })
     .then((c) => {
       ctx = c;

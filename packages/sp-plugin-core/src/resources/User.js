@@ -2,6 +2,8 @@
 import Resource from "sp-resource";
 import winston from "winston";
 import {v4} from "node-uuid";
+import config from "sp-configuration";
+import {parse as parseUrl} from "url";
 
 export default class User extends Resource {
   auth(ctx, doc) {
@@ -45,31 +47,38 @@ export default class User extends Resource {
     if (!ctx.jwt || typeof ctx.jwt.sub !== "string") {
       throw new Error("don't have ctx.jwt.sub");
     }
-    const authToken = ctx.jwt.sub;
-    return this.db.find(ctx, {authToken})
+    // TODO this should really be thought through more... for now this handles the normalization
+    // of auth0 tokens to streamplace tokens.
+    let identity = ctx.jwt.sub;
+
+    return this.db.find(ctx, {identity})
     .then((users) => {
       if (users.length === 1) {
         return Promise.resolve(users[0]);
       }
       if (users.length > 1) {
-        throw new Error(`Data integrity violation: multiple users iwth authToken ${authToken}`);
+        throw new Error(`Data integrity violation: multiple users with identity ${identity}`);
       }
 
-      // Okay, zero matches, need to create a user.
-      const [userType, authId, ...rest] = authToken.split("|");
-      if (!userType || !authId || rest.length > 0) {
-        throw new Resource.APIError(422, "jwt.sub must be in the form 'userType|id'");
+      // Okay, zero matches, need to create a user. By this point, the API server has made sure
+      // that we have something of the form https://stream.place/users/uuid-goes-here, so let's
+      // sanity check that and proceed.
+      const identity = ctx.jwt.sub;
+      const {path} = parseUrl(identity);
+      const [apiPath, usersPath, newId, ...rest] = path.split("/").filter(s => s !== "");
+      if (apiPath !== "api" || usersPath !== "users" || !newId || rest.length > 0) {
+        throw new Error(`Unknown form for user identity: ${ctx.jwt.sub}`);
       }
       let newUser;
       return this.default().then((def) => {
         newUser = {
           ...def,
-          authToken: authToken,
+          id: newId,
+          identity: identity,
           roles: [],
         };
-        if (userType === "service") {
-          newUser.roles.push("SERVICE");
-          newUser.handle = `service|${authId}`;
+        if (ctx.jwt.roles) {
+          newUser.roles = ctx.jwt.roles;
         }
         return this.validate(ctx, newUser);
       })
@@ -77,7 +86,7 @@ export default class User extends Resource {
         return new Promise((resolve, reject) => {
           // Avoid a concurrency problem -- if multiple attempts happen, only let one succeed.
           this.db.insert(ctx, newUser).then((user) => {
-            winston.info(`Created user ${user.handle} (${user.id}) for authToken ${authToken}`);
+            winston.info(`Created user ${user.handle} (${user.id}) for identity ${identity}`);
             resolve(user);
           })
           .catch((err) => {
@@ -85,7 +94,7 @@ export default class User extends Resource {
               return reject(err);
             }
             // Okay, someone else created it, let's look at theirs...
-            this.db.find(ctx, {authToken}).catch(reject).then((docs) => {
+            this.db.find(ctx, {identity}).catch(reject).then((docs) => {
               if (docs.length === 1) {
                 return resolve(docs[0]);
               }
@@ -101,8 +110,7 @@ export default class User extends Resource {
   }
 }
 
-User.tableName = "users";
-User.primaryKey = "authToken";
+User.primaryKey = "identity";
 User.indices = [
   "id",
 ];

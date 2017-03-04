@@ -74,27 +74,23 @@ export class SPClient extends EE {
         return Promise.reject("no API token specified");
       }
 
-      const authorizations = {};
-      if (this.token) {
-        authorizations.sk = new Swagger.ApiKeyAuthorization("SK-Auth-Token", this.token, "header");
-      }
-
-      const client = new Swagger({
-        spec: this.schema,
-        authorizations
+      this.client = new Swagger({
+        spec: this.schema
       });
-      client.buildFromSpec(this.schema);
+      this.client.buildFromSpec(this.schema);
+
+      this.newToken(this.token);
 
       // Look at all the resources available in the freshly-parsed schema and build a Resource for
       // each one.
-      client.apisArray.forEach((api) => {
+      this.client.apisArray.forEach((api) => {
         this[api.name] = new Resource({
           SK: this,
-          swaggerResource: client[api.name]
+          swaggerResource: this.client[api.name]
         });
       });
 
-      client.usePromise = true;
+      this.client.usePromise = true;
 
       return this.getUser();
     })
@@ -162,6 +158,17 @@ export class SPClient extends EE {
     });
   }
 
+  newToken(token) {
+    this.token = token;
+    this.client.clientAuthorizations.add("SP",
+      new Swagger.ApiKeyAuthorization(
+        "sp-auth-token",
+        token,
+        "header"
+      )
+    );
+  }
+
   getUser() {
     const decoded = jwtDecode(this.token);
     return this.users.find({authToken: decoded.sub}).then(([user]) => {
@@ -217,6 +224,12 @@ export class SPClient extends EE {
   }
 }
 
-export default new SPClient({
+const SP = new SPClient({
   start: false
 });
+
+if (!isNode) {
+  window.SP = SP;
+}
+
+export default SP;

@@ -53,7 +53,7 @@ export default class Resource {
   }
 
   find(ctx, query = {}) {
-    return this.authQuery(query, ctx)
+    return this.authQuery(ctx, query)
     .then((restrictedQuery) => {
       merge(query, restrictedQuery);
       return this.db.find(ctx, query);

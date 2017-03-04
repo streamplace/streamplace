@@ -58,6 +58,12 @@ export class Schema {
     const [first, ...rest] = tableName;
     const tableNameUpper = first.toUpperCase() + rest.join("");
     const schemaRef = {"$ref": `$/definitions/${name}`};
+    const responseHeaders = {
+      "SP-Auth-Token": {
+        description: "The server providing this means they are instructing you to replace your current token with this one.",
+        type: "string"
+      }
+    };
     this.schema.paths[`/${tableName}`] = {
       get: {
         summary: `Get many ${tableName}`,
@@ -77,7 +83,8 @@ export class Schema {
             schema: {
               type: "array",
               items: schemaRef
-            }
+            },
+            headers: responseHeaders
           }
         }
       },
@@ -97,7 +104,8 @@ export class Schema {
             description: "Creation Successful",
             schema: schemaRef
           }
-        }
+        },
+        headers: responseHeaders
       }
     };
 
@@ -119,7 +127,8 @@ export class Schema {
             description: `One retrieved ${name}`,
             schema: schemaRef
           }
-        }
+        },
+        headers: responseHeaders
       },
 
       put: {
@@ -144,7 +153,8 @@ export class Schema {
             description: "Modification Successful",
             schema: schemaRef
           }
-        }
+        },
+        headers: responseHeaders
       },
 
       delete: {
@@ -163,7 +173,8 @@ export class Schema {
           204: {
             description: "You did it, it's gone"
           }
-        }
+        },
+        headers: responseHeaders
       },
     };
   }

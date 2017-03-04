@@ -1,4 +1,5 @@
 
+{{- if .Values.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,3 +10,4 @@ data:
   domain: "{{ .Values.domain }}"
   auth0Domain: "{{ .Values.auth0Domain }}"
   auth0Audience: "{{ .Values.auth0Audience }}"
+{{- end }}

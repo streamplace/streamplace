@@ -8,6 +8,9 @@ dependencies:
   - name: sp-plugin-core
     version: 0.0.7
     repository: 'https://charts.stream.place'
+  - name: sp-plugin-auth
+    version: 0.0.7
+    repository: 'https://charts.stream.place'
   - name: sp-schema
     version: 0.0.7
     repository: 'https://charts.stream.place'

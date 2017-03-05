@@ -10,6 +10,7 @@
   },
   "homepage": ".",
   "dependencies": {
+    "qs": "^6.3.1",
     "react": "^15.4.2",
     "react-dom": "^15.4.2",
     "sp-client": "^0.0.7"

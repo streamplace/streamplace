@@ -212,6 +212,15 @@ export class SPClient extends EE {
     }
   }
 
+  // Couple of shortcuts. Might be complex client-side reporting in the future, who knows?
+  info(...args) {
+    console.info(...args);
+  }
+
+  error(...args) {
+    console.info(...args);
+  }
+
   _subscriptionId() {
     const subId = `${this.subscriptionIdx}`;
     this.subscriptionIdx += 1;

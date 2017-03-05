@@ -10,6 +10,7 @@ import dove from "dove-jwt";
 
 dove.useSystemCertAuthorities();
 
+// Download correct TLS cert from kubernetes.
 let stderr;
 let cert;
 let key;

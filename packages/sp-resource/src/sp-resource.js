@@ -186,7 +186,9 @@ export default class Resource {
             }
           }
           else {
-            ctx.data(this.constructor.tableName, old_val, new_val);
+            this.transform(ctx, new_val).then((transformedVal) => {
+              ctx.data(this.constructor.tableName, old_val, transformedVal);
+            });
           }
         });
       });

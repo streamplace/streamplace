@@ -20,6 +20,8 @@
     "wolfy87-eventemitter": "^4.3.0"
   },
   "devDependencies": {
+    "babel-cli": "^6.23.0",
+    "babel-core": "^6.23.1",
     "babel-preset-streamplace": "*",
     "nodemon": "^1.9.1"
   }

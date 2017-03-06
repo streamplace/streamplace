@@ -1,6 +1,5 @@
 
 import React, { Component } from "react";
-import logo from "./logo.svg";
 import "./App.css";
 import spStyles from "sp-styles";
 import SP from "sp-client";
@@ -54,7 +53,6 @@ class SPFrontend extends Component {
   handleLoginBtn(e) {
     e.preventDefault();
     const loginWindow = window.open(this.state.loginUrl, "StreamplaceLogin");
-    const myOrigin = `https://${window.location.hostname}`;
     const theirOrigin = this.state.loginOrigin;
     const interval = setInterval(() => {
       loginWindow.postMessage("hello", theirOrigin);

@@ -1,6 +1,8 @@
 
 import React from "react";
 import Auth0Lock from "auth0-lock";
+import "./Auth0Login.css";
+import logoUrl from "./streamplace_tight.png";
 
 export default class Auth0Login extends React.Component{
   constructor() {
@@ -11,7 +13,7 @@ export default class Auth0Login extends React.Component{
   componentDidMount() {
     this.lock = new Auth0Lock(this.props.auth0Audience, this.props.auth0Domain, {
       theme: {
-        // logo: logoURL,
+        logo: logoUrl,
         primaryColor: "#333333"
       },
       languageDictionary: {
@@ -23,7 +25,8 @@ export default class Auth0Login extends React.Component{
       auth: {
         sso: false,
         redirect: false
-      }
+      },
+      usernameStyle: "email",
     });
     this.lock.show();
     this.lock.on("authenticated", ({idToken}) => {

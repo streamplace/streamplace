@@ -43,18 +43,10 @@ export default class AuthorizeServer extends React.Component{
   }
 
   redirect(token) {
-    let query;
     if (token) {
-      query = qs.stringify({SPToken: token});
+      this.props.onToken(token);
     }
-    else {
-      query.qs.stringify({authRejected: true});
-    }
-    const redirectUrl = `https://${this.props.server}/?${query}`;
-    this.setState({redirectUrl});
-    if (!this.props.noRedirect) {
-      window.location = redirectUrl;
-    }
+    this.props.onRejected();
   }
 
   handleYeah() {
@@ -80,10 +72,10 @@ export default class AuthorizeServer extends React.Component{
     if (!this.state.ready) {
       return <div>Loading...</div>;
     }
-    if (this.state.needAuth === false && this.props.noRedirect) {
+    if (this.state.needAuth === false) {
       return (
         <div>
-          <a href={this.state.redirectUrl}>Logged in! Click to return.</a>
+          <div>Logged in! Returning you to {this.state.server}</div>
         </div>
       );
     }
@@ -101,5 +93,6 @@ export default class AuthorizeServer extends React.Component{
 AuthorizeServer.propTypes = {
   "server": React.PropTypes.string.isRequired,
   "returnPath": React.PropTypes.string.isRequired,
-  "noRedirect": React.PropTypes.bool,
+  "onToken": React.PropTypes.func.isRequired,
+  "onRejected": React.PropTypes.func.isRequired,
 };

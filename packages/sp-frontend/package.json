@@ -6,13 +6,16 @@
     "react-scripts": "0.8.5"
   },
   "dependencies": {
+    "qs": "^6.3.1",
     "react": "^15.4.2",
     "react-dom": "^15.4.2",
+    "sp-client": "^0.0.7",
     "sp-styles": "^0.0.7"
   },
   "scripts": {
-    "start": "bash -c 'react-scripts start | cat'",
-    "build": "react-scripts build",
+    "start": "echo 'nothing to do'",
+    "dev": "bash -c 'PORT=80 react-scripts start | cat'",
+    "prepublish": "react-scripts build && rm -rf dist && mv build dist",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject"
   }

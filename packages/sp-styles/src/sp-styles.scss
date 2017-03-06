@@ -1,10 +1,25 @@
 
 :global {
+  html, body, main {
+    height: 100%;
+  }
+
+  main {
+    display: flex;
+  }
+
   a {
-    background-color: red;
+    cursor: pointer;
+    color: green;
+    text-decoration: none;
   }
 }
 
-.sweet-link {
+.bigCentered {
+  margin: auto;
+  font-size: 3em;
+}
+
+.sweet-link2 {
   background-color: orange;
 }

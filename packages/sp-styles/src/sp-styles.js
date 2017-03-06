@@ -1,4 +1,6 @@
 
-import styles from "./sp-styles.scss";
+import login from "./login.scss";
 
-export default styles;
+export default login;
+
+// export default styles;

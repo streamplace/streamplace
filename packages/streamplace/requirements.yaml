@@ -29,3 +29,6 @@ dependencies:
   - name: sp-auth-frontend
     version: 0.0.7
     repository: 'https://charts.stream.place'
+  - name: sp-frontend
+    version: 0.0.7
+    repository: 'https://charts.stream.place'

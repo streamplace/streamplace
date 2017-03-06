@@ -1,0 +1,48 @@
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 5
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+    spec:
+      {{- if .Values.global.development }}
+      volumes:
+        - name: streamplace
+          hostPath:
+            path: {{ .Values.global.rootDirectory }}
+        - name: app
+          hostPath:
+            path: {{ .Values.global.rootDirectory }}/packages/{{ .Chart.Name }}
+        - name: tmp
+          emptyDir: {}
+      {{- end }}
+      containers:
+      - name: {{ .Chart.Name }}
+        {{- if .Values.global.development }}
+        image: "streamplace/{{ .Chart.Name }}:latest"
+        command:
+          - npm
+          - run
+          - dev
+        volumeMounts:
+          - name: app
+            mountPath: /app
+          - name: streamplace
+            mountPath: {{ .Values.global.rootDirectory }}
+          - name: tmp
+            mountPath: /tmp
+        {{- else }}
+        image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:v{{ .Chart.Version }}"
+        {{- end }}
+        imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}

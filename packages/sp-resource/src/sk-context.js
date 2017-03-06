@@ -12,6 +12,8 @@ import config from "sp-configuration";
 import ms from "ms";
 import aguid from "aguid";
 
+dove.useSystemCertAuthorities();
+
 const DOMAIN = config.require("DOMAIN");
 const JWT_ISSUER = `https://${DOMAIN}/`;
 const JWT_SECRET = Buffer.from(config.require("JWT_SECRET"), "base64");
@@ -51,9 +53,11 @@ export default class SKContext extends EE {
 
       // You have a token. Let's see if it checks out in one of our ways.
       let header;
+      let unsafePayload;
       try {
         const unsafeDecoded = jwt.decode(token, {complete: true});
         header = unsafeDecoded.header;
+        unsafePayload = unsafeDecoded.payload;
       }
       catch(e) {
         winston.error("Error decoding JWT", e);
@@ -72,22 +76,45 @@ export default class SKContext extends EE {
           winston.error("Provided JWT failed verification", e);
           throw tokenErr();
         }
+
+        // jwt looks broadly okay. Does the audience match?
+        if (payload.aud !== JWT_AUDIENCE) {
+          winston.error(`JWT aud wrong: got ${payload.aud} expected ${SKContext.jwtAudience}.`);
+          throw tokenErr();
+        }
       }
+
+      // Second way -- it could be a dove-jwt, signed by our trusted authIssuer. Let's check.
+      else if (header.alg === "RS256" && unsafePayload.iss === AUTH_ISSUER) {
+        try {
+          payload = dove.verify(token);
+        }
+        catch (e) {
+          winston.error("Error verifying dove-jwt", e);
+          throw tokenErr();
+        }
+
+        if (payload.aud !== `https://${DOMAIN}/`) {
+          winston.error(`JWT aud wrong: got ${payload.aud} expected https://${DOMAIN}/.`);
+          throw tokenErr();
+        }
+
+
+      }
+
+      // Yuck!
       else {
         winston.error(`JWT uses unknown algorithm: ${header.alg}`);
         throw tokenErr();
       }
 
-      // jwt looks broadly okay. Does the audience match?
-      if (payload.aud !== JWT_AUDIENCE) {
-        winston.error(`JWT aud wrong: got ${payload.body.aud} expected ${SKContext.jwtAudience}.`);
-        throw tokenErr();
-      }
-
       this.jwt = payload;
 
-      // jwt looks great, but let's check if it came from an external issuer. we'll reissue if so.
-      if (payload.iss !== JWT_ISSUER) {
+      // jwt looks great! there are a few circumstances where we might re-issue one. it could be
+      // - from an external issuer (Auth0)
+      // - a dove-jwt (auth.stream.place)
+      // - past halfway into its expiration time
+      if (payload.iss !== JWT_ISSUER || header.alg !== "HS256") {
         this.issueNewToken(payload.sub);
       }
     });

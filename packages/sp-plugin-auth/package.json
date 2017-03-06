@@ -18,7 +18,7 @@
     "sp-schema": "^0.0.7"
   },
   "dependencies": {
-    "dove-jwt": "0.0.2",
+    "dove-jwt": "0.0.4",
     "mz": "^2.6.0",
     "node-uuid": "^1.4.7",
     "sp-resource": "^0.0.7",

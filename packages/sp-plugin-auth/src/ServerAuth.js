@@ -15,6 +15,7 @@ let stderr;
 let cert;
 let key;
 const AUTH_ISSUER = config.require("AUTH_ISSUER");
+
 try {
   const {hostname} = parse(AUTH_ISSUER);
   const results = spawnSync("kubectl", ["get", "secret", "-o", "json", hostname]);
@@ -62,7 +63,11 @@ export default class ServerAuth extends Resource {
    */
   transform(ctx, doc) {
     return super.transform(ctx, doc).then((doc) => {
-      const jwt = dove.sign({foo: "bar"}, key, cert);
+      const jwt = dove.sign({}, key, cert, {
+        audience: `https://${doc.server}/`,
+        expiresIn: "3m", // Expires really quick 'cuz it should get used right away
+        subject: `${AUTH_ISSUER}api/users/${ctx.user.id}`,
+      });
       return {...doc, jwt};
     });
   }

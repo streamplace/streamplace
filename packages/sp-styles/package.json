@@ -5,8 +5,8 @@
   "main": "dist/sp-styles.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack",
-    "start": "nodemon -w src -x npm run build"
+    "prepublish": "webpack",
+    "start": "nodemon -w src -x npm run prepublish"
   },
   "author": "",
   "license": "Apache-2.0",

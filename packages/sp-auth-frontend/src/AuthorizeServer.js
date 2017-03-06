@@ -1,7 +1,6 @@
 
 import React from "react";
 import SP from "sp-client";
-import qs from "qs";
 
 // If you're working on this, this snippet will likely be helpful.
 // SP.serverauths.find().then(auths => auths.forEach(auth => SP.serverauths.delete(auth.id)))

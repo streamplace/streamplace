@@ -6,9 +6,9 @@
     "auth0-lock": "^10.11.0",
     "react-scripts": "0.9.3",
     "sp-configuration": "0.0.7",
-    "sp-node": "0.0.7"
+    "sp-node": "0.0.7",
+    "sp-static": "0.0.7"
   },
-  "homepage": ".",
   "dependencies": {
     "qs": "^6.3.1",
     "react": "^15.4.2",

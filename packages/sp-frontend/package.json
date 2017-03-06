@@ -3,7 +3,8 @@
   "version": "0.0.7",
   "private": true,
   "devDependencies": {
-    "react-scripts": "0.8.5"
+    "react-scripts": "0.8.5",
+    "sp-static": "0.0.7"
   },
   "dependencies": {
     "qs": "^6.3.1",

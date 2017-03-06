@@ -1,3 +1,3 @@
-FROM streamplace/sp-node
+FROM streamplace/sp-static
 
 ADD dist /app/dist

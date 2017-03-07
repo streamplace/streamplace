@@ -12,3 +12,5 @@ global:
   adminEmail: admin@example.com
   # In case you want to push your own images, this could be set to something else.
   repo: docker.io/streamkitchen
+
+disableIngress: false

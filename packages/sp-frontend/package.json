@@ -1,17 +1,17 @@
 {
   "name": "sp-frontend",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "private": true,
   "devDependencies": {
     "react-scripts": "0.8.5",
-    "sp-static": "0.0.7"
+    "sp-static": "^0.0.8"
   },
   "dependencies": {
     "qs": "^6.3.1",
     "react": "^15.4.2",
     "react-dom": "^15.4.2",
-    "sp-client": "^0.0.7",
-    "sp-styles": "^0.0.7"
+    "sp-client": "^0.0.8",
+    "sp-styles": "^0.0.8"
   },
   "scripts": {
     "start": "echo 'nothing to do'",

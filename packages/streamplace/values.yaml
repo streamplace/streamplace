@@ -1,0 +1,21 @@
+global:
+  development: false
+  repo: quay.io/streamplace
+  jwt:
+    audience: hZU06VmfYz2JLZCkjtJ7ltEy5SOsvmBA
+    secret: _yByCFfdH3fHh4i3S09rN4aCy_iye6fQniez5z06QmY2XM8boSH1ePIOHPt2iw0r
+    expiration: 30d
+  plugins:
+    - sp-plugin-core
+    - sp-plugin-auth
+  domain: iameli.sp-dev.club
+  adminEmail: eli@stream.place
+  authIssuer: 'https://iameli.sp-dev.club/'
+  loginUrl: https://auth-dev.sp-dev.club/
+  imagePullPolicy: Never
+sp-dev-certs:
+  enabled: false
+sp-auth-frontend:
+  enabled: true
+  auth0Domain: streamkitchen.auth0.com
+  auth0Audience: hZU06VmfYz2JLZCkjtJ7ltEy5SOsvmBA

@@ -2,7 +2,7 @@
   "name": "sp-utils",
   "version": "0.0.8",
   "description": "Rando shared SP utilities",
-  "main": "dist/sp-utils",
+  "main": "dist/sp-utils.js",
   "scripts": {
     "prepublish": "babel -d dist src",
     "start": "babel --watch -d dist src"

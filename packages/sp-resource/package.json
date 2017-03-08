@@ -5,7 +5,7 @@
   "main": "dist/sp-resource.js",
   "scripts": {
     "test": "jest --colors",
-    "build": "babel -d dist src",
+    "prepublish": "babel -d dist src",
     "start": "babel --watch -d dist src",
     "test-rethink": "SK_TEST_DB_DRIVER=rethink SK_TEST_DB_HOST=localhost SK_TEST_DB_PORT=28019 jest --colors"
   },

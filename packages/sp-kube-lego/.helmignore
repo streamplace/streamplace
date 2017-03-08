@@ -19,3 +19,10 @@
 .project
 .idea/
 *.tmproj
+node_modules
+/*.tgz
+package.json
+dist
+src
+public
+Dockerfile

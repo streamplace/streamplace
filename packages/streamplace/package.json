@@ -22,6 +22,7 @@
     "sp-default": "^0.0.8",
     "sp-dev-certs": "^0.0.8",
     "sp-auth-frontend": "^0.0.8",
+    "sp-kube-lego": "^0.0.8",
     "sp-frontend": "^0.0.8"
   }
 }

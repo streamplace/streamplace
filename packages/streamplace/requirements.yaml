@@ -32,4 +32,6 @@ dependencies:
   - name: sp-frontend
     version: 0.0.8
     repository: 'https://charts.stream.place'
-
+  - name: sp-kube-lego
+    version: 0.0.8
+    repository: 'https://charts.stream.place'

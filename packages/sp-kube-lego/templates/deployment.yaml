@@ -1,4 +1,5 @@
 
+{{- if .Values.enabled }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -41,3 +42,4 @@ spec:
             port: 8080
           initialDelaySeconds: 5
           timeoutSeconds: 1
+{{- end }}

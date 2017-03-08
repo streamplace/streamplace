@@ -1,3 +1,3 @@
 - name: build
   service: streamplace
-  command: run/ci-build.sh
+  command: bash -c run/ci-build.sh

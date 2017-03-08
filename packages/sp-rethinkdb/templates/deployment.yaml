@@ -13,9 +13,11 @@ spec:
     spec:
       volumes:
         - name: data
-          {{- if .Values.global.development }}
+          {{- if .Values.persistence }}
+{{ .Values.persistence | toYaml | indent 10 }}
+          {{- else if .Values.global.development }}
           hostPath:
-            path: {{ .Values.global.streamplaceRootDev }}/data/rethinkdb
+            path: {{ .Values.global.rootDirectory }}/data/rethinkdb
           {{- end }}
       containers:
       - name: {{ .Chart.Name }}

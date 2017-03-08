@@ -39,7 +39,7 @@ spec:
         command:
           - bash
           - -c
-          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch --use-polling /app/src/{{ .Chart.Name }}.js
+          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch /app/src/{{ .Chart.Name }}.js
         volumeMounts:
           - name: app
             mountPath: /app
@@ -58,10 +58,16 @@ spec:
         env:
         - name: NODE_PATH
           value: "/plugins:/app/node_modules"
+        - name: SP_DOMAIN
+          value: "{{ .Values.global.domain }}"
         - name: SP_JWT_SECRET
           value: "{{ .Values.global.jwt.secret }}"
-        - name: SP_PUBLIC_JWT_AUDIENCE
+        - name: SP_JWT_AUDIENCE
           value: "{{ .Values.global.jwt.audience }}"
+        - name: SP_JWT_EXPIRATION
+          value: "{{ .Values.global.jwt.expiration }}"
+        - name: SP_AUTH_ISSUER
+          value: "{{ .Values.global.authIssuer }}"
         - name: SP_RETHINK_DATABASE
           value: {{ .Release.Name }}
         - name: SP_RETHINK_HOST

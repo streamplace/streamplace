@@ -1,0 +1,4 @@
+version: 0.0.7
+name: sp-plugin-auth
+description: Streamplace auth plugin
+

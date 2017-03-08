@@ -1,0 +1,23 @@
+{
+  "name": "sp-app",
+  "version": "0.0.7",
+  "description": "Streamplace Desktop App",
+  "main": "dist/sp-app.js",
+  "scripts": {
+    "prepublish": "babel --keep-lines --copy-files -d dist src",
+    "start-electron": "npm run prepublish && electron .",
+    "start": "nodemon -w src -x npm run start-electron",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Streamplace",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "babel-cli": "^6.23.0",
+    "babel-core": "^6.23.1",
+    "babel-preset-streamplace": "0.0.1",
+    "nodemon": "^1.11.0"
+  },
+  "dependencies": {
+    "electron": "^1.4.15"
+  }
+}

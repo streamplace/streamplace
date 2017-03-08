@@ -13,14 +13,23 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: "gcr.io/google_containers/nginx-ingress-controller:0.8.3"
+        image: "gcr.io/google_containers/nginx-ingress-controller:0.9.0-beta.2"
         imagePullPolicy: Always
         command:
           - /nginx-ingress-controller
         args:
           - --default-backend-service
-          - default/{{ .Release.Name }}-sp-default
-          - --nginx-configmap=default/{{ template "fullname" . }}
+          - {{ .Release.Namespace }}/{{ .Release.Name }}-sp-default
+          - --configmap={{ .Release.Namespace }}/{{ template "fullname" . }}
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
         ports:
           - containerPort: 80
             {{- if .Values.global.development }}
@@ -36,6 +45,8 @@ spec:
             port: 10254
             scheme: HTTP
         livenessProbe:
+          initialDelaySeconds: 10
+          timeoutSeconds: 1
           httpGet:
             path: /healthz
             port: 10254

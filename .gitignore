@@ -11,6 +11,7 @@ rethinkdb_data
 lerna-debug.log
 build_chart*
 packages/*/*.tgz
+packages/*/dist
 requirements.lock
 /packages/*/charts
 values-dev.yaml

@@ -1,9 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import App from "./App";
+import SPFrontend from "./sp-frontend";
 import "./index.css";
 
 ReactDOM.render(
-  <App />,
-  document.getElementById("root")
+  <SPFrontend />,
+  document.querySelector("main")
 );

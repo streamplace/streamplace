@@ -1,0 +1,8 @@
+
+global:
+  development: false
+  repo: quay.io/streamplace
+enabled: false
+domain: auth.stream.place
+auth0Domain: streamplace.auth0.com
+auth0Audience: hZU06VmfYz2JLZCkjtJ7ltEy5SOsvmBA

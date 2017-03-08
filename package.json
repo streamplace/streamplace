@@ -5,7 +5,9 @@
   "main": "index.js",
   "dependencies": {
     "babel-eslint": "^6.0.4",
-    "lerna": "2.0.0-beta.37"
+    "lerna": "2.0.0-beta.37",
+    "superagent": "^3.5.0",
+    "swagger-client": "^2.1.32"
   },
   "devDependencies": {
     "dot-object": "^1.5.4",

@@ -6,7 +6,7 @@
   "scripts": {
     "test": "jest --colors",
     "build": "babel -d dist src",
-    "start": "nodemon -w src -x npm run build",
+    "start": "babel --watch -d dist src",
     "test-rethink": "SK_TEST_DB_DRIVER=rethink SK_TEST_DB_HOST=localhost SK_TEST_DB_PORT=28019 jest --colors"
   },
   "author": "Stream Kitchen",
@@ -23,10 +23,16 @@
     "underscore": "^1.8.3"
   },
   "dependencies": {
+    "aguid": "^2.0.0",
+    "dove-jwt": "0.0.2",
+    "jsonwebtoken": "^7.3.0",
     "merge": "^1.2.0",
+    "ms": "^0.7.2",
     "njwt": "^0.3.1",
     "rethinkdb": "^2.3.3",
+    "sp-configuration": "0.0.7",
     "underscore": "^1.8.3",
+    "uuid": "^3.0.1",
     "winston": "^2.2.0"
   }
 }

@@ -15,8 +15,9 @@
     "express": "^4.14.1",
     "js-yaml": "^3.5.2",
     "kubectl-cli": "^1.5.3-1",
-    "sp-node": "^0.0.7",
     "mz": "^2.6.0",
+    "sp-configuration": "0.0.7",
+    "sp-node": "^0.0.7",
     "winston": "^2.3.0"
   },
   "devDependencies": {

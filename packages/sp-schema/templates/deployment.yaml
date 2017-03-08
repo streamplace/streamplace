@@ -33,7 +33,7 @@ spec:
         command:
           - bash
           - -c
-          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch --use-polling /app/src/{{ .Chart.Name }}.js
+          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch /app/src/{{ .Chart.Name }}.js
         volumeMounts:
           - name: app
             mountPath: /app
@@ -45,3 +45,6 @@ spec:
         image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:v{{ .Chart.Version }}"
         {{- end }}
         imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
+        env:
+          - name: SP_DOMAIN
+            value: "{{ .Values.global.domain }}"

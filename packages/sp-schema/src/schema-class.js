@@ -4,6 +4,9 @@ import yaml from "js-yaml";
 import winston from "winston";
 import {safeLoad as parseYaml} from "js-yaml";
 import pkg from "../package.json";
+import config from "sp-configuration";
+
+const DOMAIN = config.require("DOMAIN");
 
 winston.cli();
 
@@ -16,7 +19,8 @@ export class Schema {
         description: "An API for doing awesome stuff with live streaming video.",
         version: pkg.version
       },
-      host: "api.stream.place",
+      plugins: {},
+      host: DOMAIN,
       schemes: ["https"],
       basePath: "/api",
       produces: ["application/json"],
@@ -30,8 +34,20 @@ export class Schema {
     return this.schema;
   }
 
-  add({plugin, name, yaml}) {
+  addConfiguration({plugin, data}) {
+    if (!this.schema.plugins[plugin]) {
+      this.schema.plugins[plugin] = {};
+    }
+    Object.keys(data).forEach((key) => {
+      this.schema.plugins[plugin][key] = data[key];
+    });
+  }
+
+  addSchema({plugin, name, yaml}) {
     const obj = parseYaml(yaml);
+    if (!this.schema.plugins[plugin]) {
+      this.schema.plugins[plugin] = {};
+    }
     obj.plugin = plugin;
     this.schema.definitions[name] = obj;
     const {tableName} = obj;
@@ -42,6 +58,12 @@ export class Schema {
     const [first, ...rest] = tableName;
     const tableNameUpper = first.toUpperCase() + rest.join("");
     const schemaRef = {"$ref": `$/definitions/${name}`};
+    const responseHeaders = {
+      "SP-Auth-Token": {
+        description: "The server providing this means they are instructing you to replace your current token with this one.",
+        type: "string"
+      }
+    };
     this.schema.paths[`/${tableName}`] = {
       get: {
         summary: `Get many ${tableName}`,
@@ -61,7 +83,8 @@ export class Schema {
             schema: {
               type: "array",
               items: schemaRef
-            }
+            },
+            headers: responseHeaders
           }
         }
       },
@@ -81,7 +104,8 @@ export class Schema {
             description: "Creation Successful",
             schema: schemaRef
           }
-        }
+        },
+        headers: responseHeaders
       }
     };
 
@@ -103,7 +127,8 @@ export class Schema {
             description: `One retrieved ${name}`,
             schema: schemaRef
           }
-        }
+        },
+        headers: responseHeaders
       },
 
       put: {
@@ -128,7 +153,8 @@ export class Schema {
             description: "Modification Successful",
             schema: schemaRef
           }
-        }
+        },
+        headers: responseHeaders
       },
 
       delete: {
@@ -147,7 +173,8 @@ export class Schema {
           204: {
             description: "You did it, it's gone"
           }
-        }
+        },
+        headers: responseHeaders
       },
     };
   }

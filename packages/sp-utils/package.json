@@ -2,10 +2,10 @@
   "name": "sp-utils",
   "version": "0.0.7",
   "description": "Rando shared SP utilities",
-  "main": "dist/sk-utils",
+  "main": "dist/sp-utils",
   "scripts": {
     "prepublish": "babel -d dist src",
-    "start": "nodemon -w src -x npm run build"
+    "start": "babel --watch -d dist src"
   },
   "author": "Stream Kitchen",
   "license": "Apache-2.0",

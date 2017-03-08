@@ -7,6 +7,5 @@ RUN \
   chown -R www-data:www-data /var/lib/nginx
 
 ADD nginx.conf /etc/nginx/nginx.conf
-ADD run.sh /run.sh
 
 CMD ["/run.sh"]

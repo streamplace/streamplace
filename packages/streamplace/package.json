@@ -20,6 +20,8 @@
     "sp-api-server": "^0.0.7",
     "sp-ingress": "^0.0.7",
     "sp-default": "^0.0.7",
-    "sp-dev-certs": "^0.0.7"
+    "sp-dev-certs": "^0.0.7",
+    "sp-auth-frontend": "^0.0.7",
+    "sp-frontend": "^0.0.7"
   }
 }

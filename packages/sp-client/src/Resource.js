@@ -8,6 +8,8 @@ export default class Resource {
     this.resource = swaggerResource;
     this.cursors = [];
     this.name = this.resource.label;
+    this.onSuccess = ::this.onSuccess;
+    this.onError = ::this.onError;
     // Alias some stuff on the resource to make our lives easier
     const capLabel = this.resource.label.charAt(0).toUpperCase() + this.resource.label.slice(1);
     ["find", "findOne", "create", "update", "delete"].forEach((action) => {
@@ -16,6 +18,10 @@ export default class Resource {
   }
 
   onSuccess(response) {
+    // Set our new auth token if the server gave us one
+    if (response.headers["sp-auth-token"]) {
+      this.SK.newToken(response.headers["sp-auth-token"]);
+    }
     return response.obj;
   }
 

@@ -3,7 +3,7 @@ tableName: users
 additionalProperties: false
 required:
   - kind
-  - authToken
+  - identity
   - handle
   - roles
 properties:
@@ -16,9 +16,10 @@ properties:
   handle:
     type: string
     description: Human-readable name of user
-  authToken:
+  identity:
     type: string
-    description: Authentication token, probably from a JWT subfield
+    description: |
+      Canonical upstream identity of this user, usually of the form https://stream.place/users/:id
   roles:
     type: array
     description: What kind of things is this user?

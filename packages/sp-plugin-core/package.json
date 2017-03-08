@@ -5,7 +5,7 @@
   "main": "dist/sp-plugin-core.js",
   "scripts": {
     "prepublish": "babel -d dist src",
-    "start": "nodemon -w src -x npm run prepublish"
+    "start": "babel --watch -d dist src"
   },
   "author": "Streamplace",
   "license": "Apache-2.0",

@@ -11,13 +11,8 @@ import httpHandler from "./http-handler";
 import socketHandler from "./socket-handler";
 
 const BELLAMIE_PORT = process.env.PORT || 80;
-const JWT_SECRET = config.require("JWT_SECRET");
 const SCHEMA_URL = config.require("SCHEMA_URL");
-const JWT_SECRET_DECODED = Buffer.from(JWT_SECRET, "base64");
-const PUBLIC_JWT_AUDIENCE = config.require("PUBLIC_JWT_AUDIENCE");
-
-SKContext.jwtSecret = JWT_SECRET_DECODED;
-SKContext.jwtAudience = PUBLIC_JWT_AUDIENCE;
+// Authorized upstream jwt issuer, e.g. auth.stream.place
 
 winston.cli();
 winston.level = process.env.DEBUG_LEVEL || "info";
@@ -28,7 +23,8 @@ app.use(bodyParser.json());
 
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, SK-Auth-Token");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, SP-Auth-Token");
+  res.header("Access-Control-Expose-Headers", "SP-Auth-Token");
   res.header("Access-Control-Allow-Methods", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE");
   if (req.method === "OPTIONS") {
     return res.end();
@@ -71,11 +67,12 @@ axios.get(SCHEMA_URL).then((response) => {
       }
       resourceNames[resourceName] = true;
       const Resource = plugin.resources[resourceName];
+      Resource.tableName = schema.definitions[resourceName].tableName;
       if (!Resource.tableName) {
         throw new Error(`Resource ${resourceName} lacks a tableName`);
       }
       const path = `/${Resource.tableName}`;
-      winston.debug(`[${pluginName}] Adding resource ${resourceName} at ${path}`);
+      winston.info(`[${pluginName}] Adding resource ${resourceName} at ${path}`);
       const resource = new Resource({
         dbDriver: RethinkDbDriver,
         ajv: ajv,
@@ -84,12 +81,12 @@ axios.get(SCHEMA_URL).then((response) => {
       const handler = httpHandler({resource});
       app.use(path, handler);
     });
-
-    const server = http.createServer(app);
-    socketHandler(server);
-    server.listen(BELLAMIE_PORT);
-    winston.info(`Bellamie listening on port ${BELLAMIE_PORT}`);
   });
+
+  const server = http.createServer(app);
+  socketHandler(server);
+  server.listen(BELLAMIE_PORT);
+  winston.info(`Bellamie listening on port ${BELLAMIE_PORT}`);
 })
 .catch((err) => {
   winston.error(err);

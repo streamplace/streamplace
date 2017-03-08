@@ -53,7 +53,7 @@ export default class Resource {
   }
 
   find(ctx, query = {}) {
-    return this.authQuery(query, ctx)
+    return this.authQuery(ctx, query)
     .then((restrictedQuery) => {
       merge(query, restrictedQuery);
       return this.db.find(ctx, query);
@@ -186,7 +186,9 @@ export default class Resource {
             }
           }
           else {
-            ctx.data(this.constructor.tableName, old_val, new_val);
+            this.transform(ctx, new_val).then((transformedVal) => {
+              ctx.data(this.constructor.tableName, old_val, transformedVal);
+            });
           }
         });
       });

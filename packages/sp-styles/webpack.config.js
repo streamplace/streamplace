@@ -5,8 +5,7 @@ module.exports = {
   output: {
     filename: "sp-styles.js",
     path: "dist",
-    library: "spStyles",
-    libraryTarget: "commonjs"
+    libraryTarget: "umd"
   },
   module: {
     loaders: [{

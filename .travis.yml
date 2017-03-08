@@ -3,6 +3,7 @@
 branches:
   except:
     - /^v[0-9]/
+    - codeship
 
 language: node_js
 

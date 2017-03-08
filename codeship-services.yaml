@@ -1,0 +1,3 @@
+streamplace:
+  image: node:6
+  add_docker: true

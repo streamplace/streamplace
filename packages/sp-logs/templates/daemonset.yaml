@@ -18,6 +18,10 @@ spec:
         - name: logspout
           imagePullPolicy: Always
           image: gliderlabs/logspout:latest
+          {{- if .Values.logServer }}
+          args:
+            - {{ .Values.logServer }}
+          {{- end }}
           volumeMounts:
             - name: dockersock
               mountPath: /var/run/docker.sock

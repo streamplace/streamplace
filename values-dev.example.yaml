@@ -22,8 +22,13 @@ global:
   authIssuer: https://stream.place/
   loginUrl: https://auth.stream.place/
 
+# Disable lots of features that we don't need in dev
+
 sp-dev-certs:
   enabled: false
 
 sp-auth-frontend:
+  enabled: false
+
+sp-kube-lego:
   enabled: false

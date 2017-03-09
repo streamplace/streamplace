@@ -3,13 +3,15 @@
 # Declare variables to be passed into your templates.
 
 global:
-  development: true
+  development: false
   # Replace these with the path to your streamplace repo
   rootDirectory: /Users/example/git/streamplace
   # Replace this with your Keybase username
   domain: example.sp-dev.club
   # Your email goes here!
   adminEmail: admin@example.com
+  plugins:
+    - sp-plugin-core
   # In case you want to push your own images, this could be set to something else.
   repo: quay.io/streamplace
   jwt:

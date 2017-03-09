@@ -1,0 +1,11 @@
+{
+  "name": "sp-kube-lego",
+  "version": "0.0.8",
+  "description": "Kube-Lego for Streamplace",
+  "main": "package.json",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Streamplace",
+  "license": "Apache-2.0"
+}

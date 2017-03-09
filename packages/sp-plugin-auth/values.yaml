@@ -1,0 +1,4 @@
+
+global:
+  plugins:
+    - sp-plugin-auth

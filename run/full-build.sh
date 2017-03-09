@@ -22,14 +22,14 @@ else
 fi
 
 if npm whoami; then
-  lerna publish --skip-git --skip-npm --force-publish '*' --yes --repo-version "$REPO_VERSION" --npm-tag "$npmTag"
+  lerna publish --exact --skip-git --skip-npm --force-publish '*' --yes --repo-version "$REPO_VERSION" --npm-tag "$npmTag"
   # and now run the linting script that updates all the Chart.yaml files
   FIX_OR_ERR="FIX" "$ROOT/run/every-package.sh" "$ROOT/run/helm-lint.sh" --concurrency=1
   # Cool. With that, we're good to build. First publish the new version of the npm packages...
-  lerna publish --skip-git --force-publish '*' --yes --repo-version "$REPO_VERSION" --npm-tag "$npmTag"
+  lerna publish --exact --skip-git --force-publish '*' --yes --repo-version "$REPO_VERSION" --npm-tag "$npmTag"
 else
   echo "No npm auth found, not bumping package versions 'cuz I can't publish. But I'll make sure prepublish works."
-  lerna run prepublish
+  lerna run prepublish --exact
 fi
 # Sweet, time for Docker!
 helm init --client-only

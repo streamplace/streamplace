@@ -4,6 +4,3 @@
 
 global:
   development: false
-
-persistence:
-  # hostPath: /home/root/code/streamkitchen/data/rethinkdb

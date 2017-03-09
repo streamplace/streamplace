@@ -76,6 +76,19 @@ if [[ -f "Chart.yaml" ]]; then
   done
 fi
 
+if [[ ! -f .npmignore ]]; then
+  fixOrErr "$PACKAGE_NAME has no .npmignore"
+  touch .npmignore
+fi
+requiredIgnores='src templates Chart.yaml requirements.yaml'
+for ignore in $requiredIgnores; do
+  result=$(cat .npmignore | grep $ignore || echo "")
+  if [[ "$result" == "" ]]; then
+    fixOrErr ".npmignore is missing $ignore"
+    echo "$ignore" >> .npmignore
+  fi
+done
+
 # Have helm lint the chart after we're cool with our linting of it
 if [[ -f "Chart.yaml" ]]; then
   log "Running helm lint ."

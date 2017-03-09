@@ -1,3 +1,7 @@
+{{ $root := . }}
+{{ range .Values.global.plugins }}
+{{- if eq . $root.Chart.Name }}
+{{- with $root }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,4 +17,7 @@ data:
   {{- $name := base $path | split "."}}
   {{ $name._0 }}: |
 {{ $files.Get $path | indent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}
 {{- end }}

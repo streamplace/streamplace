@@ -1,20 +1,20 @@
 {
   "name": "sp-auth-frontend",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "frontend for auth.stream.place",
   "devDependencies": {
     "auth0-lock": "^10.11.0",
     "react-scripts": "0.9.3",
-    "sp-configuration": "^0.0.8",
-    "sp-node": "^0.0.8",
-    "sp-static": "^0.0.8"
+    "sp-configuration": "^0.0.9",
+    "sp-node": "^0.0.9",
+    "sp-static": "^0.0.9"
   },
   "dependencies": {
     "qs": "^6.3.1",
     "react": "^15.4.2",
     "react-dom": "^15.4.2",
-    "sp-client": "^0.0.8",
-    "sp-styles": "^0.0.8"
+    "sp-client": "^0.0.9",
+    "sp-styles": "^0.0.9"
   },
   "scripts": {
     "start": "echo 'nothing to do'",

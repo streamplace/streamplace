@@ -4,6 +4,7 @@ import SP from "sp-client";
 import qs from "qs";
 import Auth0Login from "./Auth0Login";
 import AuthorizeServer from "./AuthorizeServer";
+import "./App.css";
 
 /**
  * Pretty messy right now, but secure and gets the job done.
@@ -81,7 +82,7 @@ class App extends Component {
     .then((user) => {
       this.setState({phase: LOGGED_IN});
       // Not going with this for now. Tokens persist on clients.
-      // window.localStorage.setItem("SP_AUTH_TOKEN", SP.token);
+      window.localStorage.setItem("SP_AUTH_TOKEN", SP.token);
     })
     .catch((err) => {
       SP.error(err);

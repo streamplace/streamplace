@@ -23,10 +23,26 @@ const Canvas = styled.canvas`
 `;
 
 export default class SPChannel extends Component {
+  static propTypes = {
+    "width": React.PropTypes.number.isRequired,
+    "height": React.PropTypes.number.isRequired,
+    "children": React.PropTypes.oneOfType([
+      React.PropTypes.arrayOf(React.PropTypes.node),
+      React.PropTypes.node
+    ]),
+  };
+
+  static childContextTypes = {
+    scene: React.PropTypes.object,
+    canvasWidth: React.PropTypes.number,
+    canvasHeight: React.PropTypes.number,
+  };
+
   constructor(props) {
     super();
     this.state = {
       scale: 1,
+      ready: false,
     };
     this.containerProm = new Promise((resolve, reject) => {
       this._resolveContainer = resolve;
@@ -35,13 +51,7 @@ export default class SPChannel extends Component {
       this._resolveCanvas = resolve;
     });
     this.canvasProm.then((canvas) => {
-      const interval = setInterval(() => {
-        const video = document.getElementById("the-video");
-        if (video) {
-          clearInterval(interval);
-          this.start(canvas, video);
-        }
-      }, 100);
+      this.start(canvas);
     });
     Promise.all([this.containerProm, this.canvasProm]).then(([container, canvas]) => {
       this.handleResize(container, canvas);
@@ -51,6 +61,7 @@ export default class SPChannel extends Component {
   }
 
   componentWillUnmount() {
+    this.done = true;
     if (this.windowListner) {
       window.removeEventListener(this.windowListener);
     }
@@ -58,6 +69,14 @@ export default class SPChannel extends Component {
 
   containerRef(container) {
     this._resolveContainer(container);
+  }
+
+  getChildContext() {
+    return {
+      scene: this.scene,
+      canvasWidth: this.props.width,
+      canvasHeight: this.props.height,
+    };
   }
 
   handleResize(container, canvas) {
@@ -81,24 +100,25 @@ export default class SPChannel extends Component {
     this._resolveCanvas(canvas);
   }
 
-  start(canvas, video) {
-    const scene = new THREE.Scene();
+  start(canvas) {
+    this.scene = new THREE.Scene();
 
+        // const camera = new THREE.OrthographicCamera(this.props.width / -2, this.props.width / 2, this.props.height / 2, this.props.height / -2, 1, 1000);
     const camera = new THREE.OrthographicCamera(this.props.width / -2, this.props.width / 2, this.props.height / 2, this.props.height / -2, 1, 1000);
     camera.position.z = 1000;
 
-    const geometry = new THREE.PlaneGeometry(960, 540);
+    // const geometry = new THREE.PlaneGeometry(960, 540);
 
-    const texture = new THREE.VideoTexture( video );
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.format = THREE.RGBFormat;
+    // const texture = new THREE.VideoTexture( video );
+    // texture.minFilter = THREE.LinearFilter;
+    // texture.magFilter = THREE.LinearFilter;
+    // texture.format = THREE.RGBFormat;
 
-    const material = new THREE.MeshBasicMaterial( { map: texture } );
+    // const material = new THREE.MeshBasicMaterial( { map: texture } );
 
-    const mesh = new THREE.Mesh( geometry, material );
-    mesh.position.set( -480, 270, 0 );
-    scene.add( mesh );
+    // const mesh = new THREE.Mesh( geometry, material );
+    // mesh.position.set( -480, 270, 0 );
+    // this.scene.add( mesh );
 
     const renderer = new THREE.WebGLRenderer({
       canvas,
@@ -109,11 +129,16 @@ export default class SPChannel extends Component {
     renderer.setSize( this.props.width, this.props.height );
 
     const animate = () => {
+      if (this.done) {
+        return;
+      }
       requestAnimationFrame( animate );
-      renderer.render( scene, camera );
+      renderer.render( this.scene, camera );
     };
 
     animate();
+
+    this.setState({ready: true});
   }
 
   render () {
@@ -124,19 +149,18 @@ export default class SPChannel extends Component {
       marginTop: `-${this.props.height / 2}px`,
       transform: `scale(${this.state.scale})`,
     };
+    let children;
+    if (this.state.ready) {
+      children = this.props.children;
+    }
+
     return (
       <ChannelContainer innerRef={this.containerRef.bind(this)}>
         <Canvas style={canvasStyle} innerRef={this.ref.bind(this)} />
         <ChannelContents>
-          {this.props.children}
+          {children}
         </ChannelContents>
       </ChannelContainer>
     );
   }
 }
-
-SPChannel.propTypes = {
-  "width": React.PropTypes.number.isRequired,
-  "height": React.PropTypes.number.isRequired,
-  "children": React.PropTypes.object,
-};

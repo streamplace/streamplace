@@ -45,3 +45,17 @@ export function randomId(charsCount) {
 
   return randomString(charsCount, UNMISTAKABLE_CHARS);
 }
+
+/**
+ * Converts (0, 0, 960, 520, 1920, 1080) to (-480, 270).
+ *
+ * I know that this depends on the projection matrix, but that's really confusing so here we are
+ */
+export function relativeCoords(x, y, myWidth, myHeight, canvasWidth, canvasHeight) {
+  x += myWidth / 2;
+  x -= canvasWidth / 2;
+  y += myHeight / 2;
+  y -= canvasHeight / 2;
+  y = y * -1;
+  return [x, y];
+}

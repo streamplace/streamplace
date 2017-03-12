@@ -25,9 +25,9 @@ export default class Home extends Component{
     return (
       <FlexContainer>
         <SPChannel width={1920} height={1080}>
-          <SPView x={0} y={0} width={1920} height={1080}>
-            <SPCamera userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
-          </SPView>
+          <SPCamera x={0} y={0} width={960} height={270} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
+          <SPCamera x={960} y={0} width={960} height={1080} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
+          <SPCamera x={0} y={270} width={960} height={810} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
         </SPChannel>
       </FlexContainer>
     );

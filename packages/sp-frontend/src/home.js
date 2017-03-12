@@ -1,7 +1,6 @@
 
 import React, { Component } from "react";
 import SPChannel from "./sp-channel";
-import SPView from "./sp-view";
 import SPCamera from "./sp-camera";
 import styled from "styled-components";
 
@@ -9,10 +8,6 @@ const FlexContainer = styled.div`
   width: 100%;
   height: 100%;
   display: flex;
-`;
-
-const Centered = styled.div`
-  margin: auto;
 `;
 
 export default class Home extends Component{

@@ -12,9 +12,9 @@
     "react-dom": "^15.4.2",
     "react-router": "^4.0.0-beta.8",
     "react-router-dom": "^4.0.0-beta.8",
-    "sp-client": "^0.0.8",
-    "sp-utils": "^0.0.8",
-    "sp-styles": "^0.0.8",
+    "sp-client": "0.0.9",
+    "sp-utils": "0.0.9",
+    "sp-styles": "0.0.9",
     "styled-components": "^1.4.4",
     "three": "^0.84.0"
   },

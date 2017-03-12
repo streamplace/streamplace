@@ -1,9 +1,9 @@
 
 import React, { Component } from "react";
 import "./App.css";
-import spStyles from "sp-styles";
 import SP from "sp-client";
 import qs from "qs";
+import SPRouter from "./sp-router";
 
 const START = Symbol();
 const LOGGED_IN = Symbol();
@@ -82,32 +82,22 @@ class SPFrontend extends Component {
     window.location = window.location;
   }
 
-  renderInner() {
+  render() {
     if (this.state.phase === START) {
       return <div>Loading...</div>;
     }
     if (this.state.phase === LOGGED_IN) {
       return (
-        <div>
-          <p>Logged in as {this.state.user.handle}</p>
-          <p><a onClick={this.handleLogout.bind(this)}>Log out</a></p>
-        </div>
+        <SPRouter />
       );
     }
     if (this.state.phase === LOGGED_OUT) {
       return (
         <div>
-          <a onClick={this.handleLoginBtn.bind(this)} href={this.state.loginUrl}>Log in?</a></div>
+          <a onClick={this.handleLoginBtn.bind(this)} href={this.state.loginUrl}>Log in?</a>
+        </div>
       );
     }
-  }
-
-  render() {
-    return (
-      <div className={spStyles.bigCentered}>
-        {this.renderInner()}
-      </div>
-    );
   }
 }
 

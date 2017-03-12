@@ -13,7 +13,7 @@
   "dependencies": {
     "jwt-decode": "^2.1.0",
     "njwt": "^0.3.1",
-    "socket.io-client": "^1.4.5",
+    "socket.io-client": "^1.7.3",
     "sp-configuration": "^0.0.9",
     "swagger-client": "^2.1.32",
     "underscore": "^1.8.3",

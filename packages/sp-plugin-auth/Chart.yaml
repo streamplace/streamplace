@@ -1,4 +1,5 @@
 version: 0.0.9
 name: sp-plugin-auth
 description: Streamplace auth plugin
+icon: 'https://charts.stream.place/icon.svg'
 

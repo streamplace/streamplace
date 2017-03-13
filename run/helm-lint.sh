@@ -12,6 +12,7 @@ info "Linting $PACKAGE_NAME"
 # Check to make sure all versions are correct
 correctVersion=$(cat $ROOT/lerna.json | jq -r '.version')
 correctName="$PACKAGE_NAME"
+correctIcon="https://charts.stream.place/icon.svg"
 
 if [[ -f "package.json" ]]; then
   newPackage="$(cat package.json)"
@@ -32,14 +33,23 @@ if [[ -f "Chart.yaml" ]]; then
   newChart="$(cat Chart.yaml | js-yaml)"
   chartVersion="$(echo $newChart | jq -r .version)"
   chartName="$(echo $newChart | jq -r .name)"
+  chartIcon="$(echo $newChart | jq -r .icon)"
+
   if [[ "$chartVersion" != "$correctVersion" ]]; then
     fixOrErr "$correctName: Chart.yaml has version $chartVersion instead of $correctVersion"
     newChart=$(tweak "$newChart" ".version" "$correctVersion")
   fi
+
   if [[ "$chartName" != "$correctName" ]]; then
     fixOrErr "$correctName: Chart.yaml has name $chartName instead of $correctName"
     newChart=$(tweak "$newChart" ".name" "$correctName")
   fi
+
+  if [[ "$chartIcon" != "$correctIcon" ]]; then
+    fixOrErr "$correctName: Chart.yaml has icon $chartIcon instead of $correctIcon"
+    newChart=$(tweak "$newChart" ".icon" "$correctIcon")
+  fi
+
   if [[ -f "package.json" ]]; then
     packageDesc="$(cat package.json | jq -r .description)"
     chartDesc="$(echo $newChart | jq -r ".description")"

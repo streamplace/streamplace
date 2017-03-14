@@ -3,28 +3,56 @@ import React, { Component } from "react";
 import SPChannel from "./sp-channel";
 import SPCamera from "./sp-camera";
 import styled from "styled-components";
+import {subscribe} from "./sp-binding";
+import CreateMyChannel from "./create-my-channel";
 
 const FlexContainer = styled.div`
   width: 100%;
   height: 100%;
+  flex-grow: 1;
   display: flex;
 `;
 
-export default class Home extends Component{
+const NoChannel = styled.p`
+  font-style: oblique;
+`;
+
+const ChannelSelect = styled.div`
+  margin: auto;
+  font-size: 1.4em;
+  font-weight: 200;
+  opacity: 0.8;
+`;
+
+export class Home extends Component{
   constructor() {
     super();
     this.state = {};
   }
 
+  text() {
+    if (!this.props.ready) {
+      return <p>Loading...</p>
+    }
+    if (this.props.channels.length < 1) {
+      return <CreateMyChannel />
+    }
+    return <NoChannel>no channel selected</NoChannel>
+  }
+
   render () {
     return (
       <FlexContainer>
-        <SPChannel width={1920} height={1080}>
-          <SPCamera x={0} y={0} width={960} height={270} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
-          <SPCamera x={960} y={0} width={960} height={1080} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
-          <SPCamera x={0} y={270} width={960} height={810} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
-        </SPChannel>
+        <ChannelSelect>
+          {this.text()}
+        </ChannelSelect>
       </FlexContainer>
     );
   }
 }
+
+export default subscribe(Home, (props, SP) => {
+  return {
+    channels: SP.channels.watch({id: SP.user.id}),
+  }
+});

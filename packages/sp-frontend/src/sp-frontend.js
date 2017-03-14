@@ -1,9 +1,11 @@
 
 import React, { Component } from "react";
+import "normalize.css";
 import "./App.css";
 import SP from "sp-client";
 import qs from "qs";
 import SPRouter from "./sp-router";
+import Streamplace from "./streamplace";
 
 const START = Symbol();
 const LOGGED_IN = Symbol();
@@ -88,7 +90,9 @@ class SPFrontend extends Component {
     }
     if (this.state.phase === LOGGED_IN) {
       return (
-        <SPRouter />
+        <Streamplace SP={SP}>
+          <SPRouter foo="bar" />
+        </Streamplace>
       );
     }
     if (this.state.phase === LOGGED_OUT) {

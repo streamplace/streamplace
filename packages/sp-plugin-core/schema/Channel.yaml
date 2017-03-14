@@ -1,0 +1,20 @@
+type: object
+tableName: channels
+additionalProperties: false
+required:
+  - kind
+  - slug
+  - userId
+properties:
+  kind:
+    type: string
+    allowedValues: ["Channel"]
+  id:
+    type: string
+    description: Unique ID of channel
+  userId:
+    type: string
+    description: Who's the user who owns this channel?
+  slug:
+    type: string
+    description: Channel URL slug, as of this writing same as user handle

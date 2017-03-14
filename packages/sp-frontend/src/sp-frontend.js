@@ -6,6 +6,13 @@ import SP from "sp-client";
 import qs from "qs";
 import SPRouter from "./sp-router";
 import Streamplace from "./streamplace";
+import {injectGlobal} from "styled-components";
+
+injectGlobal`
+  a {
+    text-decoration: none;
+  }
+`;
 
 const START = Symbol();
 const LOGGED_IN = Symbol();

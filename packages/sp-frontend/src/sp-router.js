@@ -3,12 +3,14 @@ import React, { Component } from "react";
 import {
   BrowserRouter as Router,
   Route,
-  // Link
+  NavLink,
+  matchPath,
 } from "react-router-dom";
 import Home from "./home";
 import icon from "./icon.svg";
 import {subscribe} from "./sp-binding";
 import styled from "styled-components";
+import ChannelRoute from "./channel-route";
 
 const AppContainer = styled.div`
   height: 100%;
@@ -20,10 +22,41 @@ const Sidebar = styled.header`
   background-color: #333;
 `;
 
-const ChannelIcon = styled.img`
-  opacity: 0.8;
-  margin: 0.2em;
+const oColor = "#cccccc";
+const oSize = "3px";
+
+const ChannelIcon = styled(NavLink)`
   width: 3em;
+  height: 3em;
+  display: block;
+  cursor: pointer;
+  border-radius: 0.4em;
+  margin: 1.2em;
+  background-color: ${props => props.icon ? "transparent" : "white"};
+  color: black;
+  overflow: hidden;
+  display: flex;
+  user-select: none;
+  align-items: center;
+  background-image: ${props => props.icon ? `url("${props.icon}")` : "none"};
+  background-size: contain;
+  opacity: 0.5;
+
+  &:hover {
+    box-shadow: ${oSize} ${oSize} 0px ${oColor}, -${oSize} -${oSize} 0px ${oColor}, ${oSize} -${oSize} 0px ${oColor}, -${oSize} ${oSize} 0px ${oColor};
+  }
+
+  &.active {
+    opacity: 1;
+  }
+`;
+
+const ChannelIconText = styled.span`
+  font-size: 2em;
+`;
+
+const ChannelImage = styled.img`
+
 `;
 
 export class SPRouter extends Component {
@@ -32,16 +65,26 @@ export class SPRouter extends Component {
     this.state = {};
   }
 
+  renderChannelIcon(channel) {
+    return (
+      <ChannelIcon activeClassName="active" icon={channel.icon} key={channel.id} to={`/${channel.slug}`}>
+        <ChannelIconText>{channel.slug}</ChannelIconText>
+      </ChannelIcon>
+    );
+  }
+
   render () {
     return (
-      <AppContainer>
-        <Sidebar>
-          <ChannelIcon src={icon} />
-        </Sidebar>
-        <Router>
+      <Router>
+        <AppContainer>
+          <Sidebar>
+            {this.renderChannelIcon({slug: "", icon: icon, id: "home"})}
+            {this.props.channels.map(c => this.renderChannelIcon(c))}
+          </Sidebar>
           <Route exact path="/" component={Home} />
-        </Router>
-      </AppContainer>
+          <Route path="/:slug" component={ChannelRoute} />
+        </AppContainer>
+      </Router>
     );
   }
 }
@@ -50,5 +93,6 @@ export class SPRouter extends Component {
 export default subscribe(SPRouter, (props, SP) => {
   return {
     users: SP.users.watch({id: SP.user.id}),
+    channels: SP.channels.watch(),
   }
 });

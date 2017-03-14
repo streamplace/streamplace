@@ -53,6 +53,6 @@ export class Home extends Component{
 
 export default subscribe(Home, (props, SP) => {
   return {
-    channels: SP.channels.watch({id: SP.user.id}),
+    channels: SP.channels.watch({userId: SP.user.id}),
   }
 });

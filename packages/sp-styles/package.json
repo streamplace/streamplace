@@ -11,14 +11,14 @@
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
-    "babel-core": "^6.22.1",
-    "babel-loader": "^6.2.10",
-    "babel-preset-streamplace": "0.0.1",
+    "babel-cli": "^6.24.0",
+    "babel-core": "^6.24.0",
+    "babel-preset-react": "^6.23.0",
+    "babel-preset-streamplace": "*",
     "css-loader": "^0.26.1",
     "node-sass": "^4.5.0",
     "sass-loader": "^5.0.1",
     "style-loader": "^0.13.1",
-    "babel-preset-react": "^6.23.0",
     "webpack": "^2.2.1"
   },
   "dependencies": {

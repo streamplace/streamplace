@@ -31,6 +31,18 @@ const Sidebar = styled.header`
   -webkit-app-region: drag;
 `;
 
+const PageContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+`;
+
+const TopBar = styled.header`
+  background-color: white;
+  border-bottom: 1px solid #ccc;
+  height: 50px;
+`;
+
 const oColor = "#cccccc";
 const oSize = "3px";
 
@@ -90,8 +102,13 @@ export class SPRouter extends Component {
             {this.renderChannelIcon({slug: "", icon: icon, id: "home"})}
             {this.props.channels.map(c => this.renderChannelIcon(c))}
           </Sidebar>
-          <Route exact path="/" component={Home} />
-          <Route path="/:slug" component={ChannelRoute} />
+          <PageContainer>
+            <TopBar>
+              <i className="fa fa-gear" />
+            </TopBar>
+            <Route exact path="/" component={Home} />
+            <Route path="/:slug" component={ChannelRoute} />
+          </PageContainer>
         </AppContainer>
       </Router>
     );

@@ -7,6 +7,8 @@
     "sp-static": "^0.0.9"
   },
   "dependencies": {
+    "cookie": "^0.3.1",
+    "font-awesome": "^4.7.0",
     "normalize.css": "^5.0.0",
     "qs": "^6.3.1",
     "react": "^15.4.2",

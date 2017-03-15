@@ -7,6 +7,17 @@ import qs from "qs";
 import SPRouter from "./sp-router";
 import Streamplace from "./streamplace";
 import styled, {injectGlobal} from "styled-components";
+import "font-awesome/css/font-awesome.css";
+import cookie from "cookie";
+
+// We want a few things to behave differently if we're an app, so let's get a CSS class to make
+// that easy.
+if (typeof document !== "undefined" && document.cookie) {
+  const cookies = cookie.parse(document.cookie);
+  if (cookies.appMode === "true") {
+    document.body.className = "app";
+  }
+}
 
 /* eslint-disable no-unused-expressions */
 injectGlobal`

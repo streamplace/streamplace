@@ -10,6 +10,7 @@ import icon from "./icon.svg";
 import {subscribe} from "./sp-binding";
 import styled from "styled-components";
 import ChannelRoute from "./channel-route";
+import TopBar from "./topbar.js";
 
 const AppContainer = styled.div`
   height: 100%;
@@ -35,12 +36,6 @@ const PageContainer = styled.div`
   display: flex;
   flex-direction: column;
   flex-grow: 1;
-`;
-
-const TopBar = styled.header`
-  background-color: white;
-  border-bottom: 1px solid #ccc;
-  height: 50px;
 `;
 
 const oColor = "#cccccc";
@@ -79,6 +74,7 @@ const ChannelIconText = styled.span`
 export class SPRouter extends Component {
   static propTypes = {
     channels: React.PropTypes.array,
+    onLogout: React.PropTypes.func.isRequired,
   };
 
   constructor(props) {
@@ -103,9 +99,7 @@ export class SPRouter extends Component {
             {this.props.channels.map(c => this.renderChannelIcon(c))}
           </Sidebar>
           <PageContainer>
-            <TopBar>
-              <i className="fa fa-gear" />
-            </TopBar>
+            <TopBar onLogout={this.props.onLogout} />
             <Route exact path="/" component={Home} />
             <Route path="/:slug" component={ChannelRoute} />
           </PageContainer>

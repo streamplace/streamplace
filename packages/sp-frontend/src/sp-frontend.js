@@ -6,13 +6,34 @@ import SP from "sp-client";
 import qs from "qs";
 import SPRouter from "./sp-router";
 import Streamplace from "./streamplace";
-import {injectGlobal} from "styled-components";
+import styled, {injectGlobal} from "styled-components";
 
 /* eslint-disable no-unused-expressions */
 injectGlobal`
   a {
     text-decoration: none;
   }
+`;
+
+const Everything = styled.div`
+  height: 100%;
+`;
+
+const DragBar = styled.div`
+  position: fixed;
+  left: 0px;
+  top: 0px;
+  width: 100%;
+  height: 50px;
+  -webkit-user-select: none;
+  -webkit-app-region: drag;
+`;
+
+const Centered = styled.div`
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const START = Symbol();
@@ -92,7 +113,7 @@ class SPFrontend extends Component {
     window.location = window.location;
   }
 
-  render() {
+  renderInner() {
     if (this.state.phase === START) {
       return <div>Loading...</div>;
     }
@@ -105,11 +126,21 @@ class SPFrontend extends Component {
     }
     if (this.state.phase === LOGGED_OUT) {
       return (
-        <div>
+        <Centered>
           <a onClick={this.handleLoginBtn.bind(this)} href={this.state.loginUrl}>Log in?</a>
-        </div>
+        </Centered>
       );
     }
+  }
+
+
+  render() {
+    return (
+      <Everything>
+        <DragBar />
+        {this.renderInner()}
+      </Everything>
+    );
   }
 }
 

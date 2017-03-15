@@ -17,8 +17,18 @@ const AppContainer = styled.div`
   flex-direction: row;
 `;
 
+// Ordinarily for a sidebar I'd use `em`s and the size of the icons for the width, but we want
+// this sidebar to line up exactly with Mac OS control icons. So here we are.
 const Sidebar = styled.header`
   background-color: #333;
+  padding-top: 1em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 82px;
+  -webkit-user-select: none;
+  -webkit-app-region: drag;
 `;
 
 const oColor = "#cccccc";
@@ -30,7 +40,7 @@ const ChannelIcon = styled(NavLink)`
   display: block;
   cursor: pointer;
   border-radius: 0.4em;
-  margin: 1.2em;
+  margin: 1.2em 0;
   background-color: ${props => props.icon ? "transparent" : "white"};
   color: black;
   overflow: hidden;

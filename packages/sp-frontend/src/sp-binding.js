@@ -41,6 +41,12 @@ export function subscribe(BoundComponent, subscriptionFunc = noop) {
       this.setState({handles});
     }
 
+    componentWillUnmount() {
+      Object.keys(this.state.handles).forEach((name) => {
+        this.state.handles[name].stop();
+      });
+    }
+
     render () {
       const combined = {SP: this.context.SP, ...this.state, ...this.props};
       return (

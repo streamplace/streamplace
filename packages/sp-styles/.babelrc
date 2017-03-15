@@ -1,0 +1,6 @@
+{
+  "presets": [
+    "babel-preset-streamplace",
+    "babel-preset-react"
+  ]
+}

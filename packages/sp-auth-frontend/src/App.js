@@ -82,7 +82,7 @@ class App extends Component {
     .then((user) => {
       this.setState({phase: LOGGED_IN});
       // Not going with this for now. Tokens persist on clients.
-      window.localStorage.setItem("SP_AUTH_TOKEN", SP.token);
+      // window.localStorage.setItem("SP_AUTH_TOKEN", SP.token);
     })
     .catch((err) => {
       SP.error(err);

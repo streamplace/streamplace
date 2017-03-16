@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://stream.kitchen/">
+  <a href="https://stream.place/">
     <img alt="streamplace" src="https://crap.stream.place/icon.svg" width="200">
   </a>
 </p>

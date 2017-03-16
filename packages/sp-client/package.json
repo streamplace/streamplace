@@ -1,6 +1,6 @@
 {
   "name": "sp-client",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Streamplace Javascript Client",
   "main": "dist/sp-client.js",
   "scripts": {
@@ -14,7 +14,7 @@
     "jwt-decode": "^2.1.0",
     "njwt": "^0.3.1",
     "socket.io-client": "^1.7.3",
-    "sp-configuration": "^0.0.9",
+    "sp-configuration": "^0.0.10",
     "swagger-client": "^2.1.32",
     "underscore": "^1.8.3",
     "wolfy87-eventemitter": "^4.3.0"

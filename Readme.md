@@ -1,8 +1,10 @@
 <p align="center">
   <a href="https://stream.kitchen/">
-    <img alt="streamplace" src="https://cloud.githubusercontent.com/assets/257909/22085092/7e32de3c-dd87-11e6-8209-26176f852912.png" width="700">
+    <img alt="streamplace" src="https://crap.stream.place/icon.svg" width="200">
   </a>
 </p>
+
+<h1 align="center">Streamplace</h1>
 
 <p align="center">
   <a href="https://travis-ci.org/streamplace/streamplace">

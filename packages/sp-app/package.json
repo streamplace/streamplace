@@ -2,12 +2,19 @@
   "name": "sp-app",
   "version": "0.0.9",
   "description": "Streamplace Desktop App",
-  "main": "dist/sp-app.js",
+  "main": "compiled/sp-app.js",
+  "build": {
+    "appId": "stream.place",
+    "mac": {
+      "category": "public.app-category.video"
+    }
+  },
   "scripts": {
-    "prepublish": "babel --keep-lines --copy-files -d dist src",
-    "start-electron": "npm run prepublish && electron .",
+    "prepublish": "babel --keep-lines --copy-files -d compiled src",
+    "start-electron": "npm run prepublish && SP_URL=$(cat ../../values-dev.yaml  | grep domain | sed 's/^.*://' | sed 's/ //') electron .",
     "start": "nodemon -w src -x npm run start-electron",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "electron-builder": "build"
   },
   "author": "Streamplace",
   "license": "Apache-2.0",
@@ -15,9 +22,8 @@
     "babel-cli": "^6.23.0",
     "babel-core": "^6.23.1",
     "babel-preset-streamplace": "0.0.1",
-    "nodemon": "^1.11.0"
-  },
-  "dependencies": {
+    "electron-builder": "^15.4.3",
+    "nodemon": "^1.11.0",
     "electron": "^1.4.15"
   }
 }

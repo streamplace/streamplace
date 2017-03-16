@@ -10,6 +10,7 @@ import icon from "./icon.svg";
 import {subscribe} from "./sp-binding";
 import styled from "styled-components";
 import ChannelRoute from "./channel-route";
+import TopBar from "./topbar.js";
 
 const AppContainer = styled.div`
   height: 100%;
@@ -17,8 +18,24 @@ const AppContainer = styled.div`
   flex-direction: row;
 `;
 
+// Ordinarily for a sidebar I'd use `em`s and the size of the icons for the width, but we want
+// this sidebar to line up exactly with Mac OS control icons. So here we are.
 const Sidebar = styled.header`
   background-color: #333;
+  padding-top: 1em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 82px;
+  -webkit-user-select: none;
+  -webkit-app-region: drag;
+`;
+
+const PageContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 `;
 
 const oColor = "#cccccc";
@@ -30,7 +47,7 @@ const ChannelIcon = styled(NavLink)`
   display: block;
   cursor: pointer;
   border-radius: 0.4em;
-  margin: 1.2em;
+  margin: 1.2em 0;
   background-color: ${props => props.icon ? "transparent" : "white"};
   color: black;
   overflow: hidden;
@@ -57,6 +74,7 @@ const ChannelIconText = styled.span`
 export class SPRouter extends Component {
   static propTypes = {
     channels: React.PropTypes.array,
+    onLogout: React.PropTypes.func.isRequired,
   };
 
   constructor(props) {
@@ -80,8 +98,11 @@ export class SPRouter extends Component {
             {this.renderChannelIcon({slug: "", icon: icon, id: "home"})}
             {this.props.channels.map(c => this.renderChannelIcon(c))}
           </Sidebar>
-          <Route exact path="/" component={Home} />
-          <Route path="/:slug" component={ChannelRoute} />
+          <PageContainer>
+            <TopBar onLogout={this.props.onLogout} />
+            <Route exact path="/" component={Home} />
+            <Route path="/:slug" component={ChannelRoute} />
+          </PageContainer>
         </AppContainer>
       </Router>
     );

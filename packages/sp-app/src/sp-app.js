@@ -1,26 +1,68 @@
 
-const {app, BrowserWindow} = require("electron");
+const {app, BrowserWindow, session} = require("electron");
 const path = require("path");
 const url = require("url");
+/* eslint-disable no-console */
 
 // Keep a global reference of the window object, if you don"t, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let win;
 
+const spUrl = process.env.SP_URL || "stream.place";
+
 function createWindow () {
+
   // Create the browser window.
   win = new BrowserWindow({
     width: 1920,
     height: 1080,
-    title: "Streamplace"
+    title: "Streamplace",
+    titleBarStyle: "hidden-inset",
+    show: false,
   });
 
-  // and load the index.html of the app.
-  win.loadURL(url.format({
-    pathname: path.join(__dirname, "index.html"),
-    protocol: "file:",
-    slashes: true
-  }));
+  win.once("ready-to-show", () => {
+    win.show();
+  });
+
+  // Little old-school async method here to set all our cookies before loading the page
+  const cookies = [{
+    url: `https://${spUrl}`,
+    name: "streamplace",
+    value: "w00t",
+    hostOnly: false,
+    expirationDate: 32503680000000, // i've been to the year 3000
+  }, {
+    url: `https://${spUrl}`,
+    name: "appMode",
+    value: "true",
+    hostOnly: false,
+    expirationDate: 32503680000000, // i've been to the year 3000
+  }];
+
+  const done = () => {
+    win.loadURL(url.format({
+      pathname: spUrl,
+      protocol: "https:",
+      slashes: true
+    }));
+  };
+
+  const setCookie = () => {
+    if (cookies.length === 0) {
+      return done();
+    }
+    const cookie = cookies.pop();
+    win.webContents.session.cookies.set(cookie, (error) => {
+      if (error) {
+        console.error(error);
+        throw error;
+      }
+      setCookie();
+    });
+  };
+
+  setCookie();
 
   // Open the DevTools.
   // win.webContents.openDevTools()

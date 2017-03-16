@@ -6,13 +6,35 @@ import SP from "sp-client";
 import qs from "qs";
 import SPRouter from "./sp-router";
 import Streamplace from "./streamplace";
-import {injectGlobal} from "styled-components";
+import styled, {injectGlobal} from "styled-components";
+import "font-awesome/css/font-awesome.css";
+import cookie from "cookie";
+
+// We want a few things to behave differently if we're an app, so let's get a CSS class to make
+// that easy.
+if (typeof document !== "undefined" && document.cookie) {
+  const cookies = cookie.parse(document.cookie);
+  if (cookies.appMode === "true") {
+    document.body.className = "app";
+  }
+}
 
 /* eslint-disable no-unused-expressions */
 injectGlobal`
   a {
     text-decoration: none;
   }
+`;
+
+const Everything = styled.div`
+  height: 100%;
+`;
+
+const Centered = styled.div`
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const START = Symbol();
@@ -29,6 +51,11 @@ class SPFrontend extends Component {
     };
   }
 
+/**
+ * Even if we don't have a token in localStorage, we still attempt login because that process has
+ * sp-client download the schema for the server, populating the `loginUrl` parameter that we can
+ * use to log the user in.
+ */
   componentWillMount() {
     this.tryLogin(window.localStorage.getItem("SP_AUTH_TOKEN"));
   }
@@ -46,23 +73,27 @@ class SPFrontend extends Component {
     })
     .catch((err) => {
       SP.error(err);
-      const loginOrigin = SP.schema.plugins["sp-plugin-core"].loginUrl.slice(0, -1);
-      const loginUrl = loginOrigin + "?" + qs.stringify({
-        server: window.location.hostname,
-        returnPath: "/"
-      });
-      this.setState({
-        phase: LOGGED_OUT,
-        loginOrigin: loginOrigin,
-        loginUrl: loginUrl,
-      });
-      window.localStorage.removeItem("SP_AUTH_TOKEN");
+      this.handleLogout();
     });
+  }
+
+  handleLogout() {
+    const loginOrigin = SP.schema.plugins["sp-plugin-core"].loginUrl.slice(0, -1);
+    const loginUrl = loginOrigin + "?" + qs.stringify({
+      server: window.location.hostname,
+      returnPath: "/"
+    });
+    this.setState({
+      phase: LOGGED_OUT,
+      loginOrigin: loginOrigin,
+      loginUrl: loginUrl,
+    });
+    window.localStorage.removeItem("SP_AUTH_TOKEN");
   }
 
   handleLoginBtn(e) {
     e.preventDefault();
-    const loginWindow = window.open(this.state.loginUrl, "StreamplaceLogin");
+    const loginWindow = window.open(this.state.loginUrl);
     const theirOrigin = this.state.loginOrigin;
     const interval = setInterval(() => {
       loginWindow.postMessage("hello", theirOrigin);
@@ -87,29 +118,33 @@ class SPFrontend extends Component {
     window.addEventListener("message", handleReply);
   }
 
-  handleLogout() {
-    window.localStorage.removeItem("SP_AUTH_TOKEN");
-    window.location = window.location;
-  }
-
-  render() {
+  renderInner() {
     if (this.state.phase === START) {
       return <div>Loading...</div>;
     }
     if (this.state.phase === LOGGED_IN) {
       return (
         <Streamplace SP={SP}>
-          <SPRouter foo="bar" />
+          <SPRouter onLogout={() => this.handleLogout()} foo="bar" />
         </Streamplace>
       );
     }
     if (this.state.phase === LOGGED_OUT) {
       return (
-        <div>
+        <Centered>
           <a onClick={this.handleLoginBtn.bind(this)} href={this.state.loginUrl}>Log in?</a>
-        </div>
+        </Centered>
       );
     }
+  }
+
+
+  render() {
+    return (
+      <Everything>
+        {this.renderInner()}
+      </Everything>
+    );
   }
 }
 

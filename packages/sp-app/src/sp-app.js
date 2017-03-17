@@ -1,5 +1,6 @@
 
-const {app, BrowserWindow, session} = require("electron");
+import menu from "./menu.js";
+const {app, BrowserWindow, session, Menu} = require("electron");
 const path = require("path");
 const url = require("url");
 /* eslint-disable no-console */
@@ -11,6 +12,7 @@ let win;
 const spUrl = process.env.SP_URL || "stream.place";
 
 function createWindow () {
+  Menu.setApplicationMenu(menu);
 
   // Create the browser window.
   win = new BrowserWindow({
@@ -62,7 +64,13 @@ function createWindow () {
     });
   };
 
-  setCookie();
+  // For now we're just gonna operate with no cache on load
+  win.webContents.session.clearCache((err) => {
+    if (err) {
+      throw err;
+    }
+    setCookie();
+  });
 
   // Open the DevTools.
   // win.webContents.openDevTools()

@@ -22,12 +22,4 @@ oldIndex=$(mktemp).yaml
 curl -o $oldIndex "https://charts.stream.place/index.yaml"
 helm repo index --url https://charts.stream.place --merge $oldIndex .
 rm $oldIndex
-docker run \
-  --rm \
-  -v "$(pwd)":"$(pwd)" \
-  -w "$(pwd)" \
-  -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
-  -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
-  -e AWS_DEFAULT_REGION="us-west-2" \
-  cgswong/aws:aws -- \
-  s3 sync . s3://charts.stream.place
+aws s3 --region us-west-2 sync . s3://charts.stream.place

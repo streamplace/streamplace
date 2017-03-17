@@ -38,12 +38,9 @@ function base64() {
 export -f base64
 
 DOCKER_PREFIX=${DOCKER_PREFIX:-quay.io/streamplace}
-THIS_IS_CI="${THIS_IS_CI:-}"
 export LOCAL_DEV="${LOCAL_DEV:-}"
 
-gitDescribe=$(cd "$ROOT" && git describe --tags)
-# strip the "v"
-export REPO_VERSION=${gitDescribe:1}
+export REPO_VERSION="$(node "$ROOT/run/repo-version.js")"
 # ask lerna nicely to update all of our package.json files
 
 # Add node_modules to path
@@ -134,9 +131,11 @@ function fixOrErr() {
 }
 
 if [[ ! -f /var/run/docker.sock ]]; then
-  if ! docker ps > /dev/null; then
-    echo "No /var/run/docker.sock, and 'docker ps' is failing. Get Docker working first!"
-    exit 1
+  if [[ "${TRAVIS_BRANCH:-}" == "" ]]; then
+    if ! docker ps > /dev/null; then
+      echo "No /var/run/docker.sock, and 'docker ps' is failing. Get Docker working first!"
+      exit 1
+    fi
   fi
 fi
 

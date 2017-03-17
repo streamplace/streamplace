@@ -2,5 +2,3 @@ src
 templates
 Chart.yaml
 requirements.yaml
-build
-dist

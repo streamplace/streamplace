@@ -31,6 +31,12 @@ else
   echo "No npm auth found, not bumping package versions 'cuz I can't publish. But I'll make sure prepublish works."
   lerna run prepublish --exact
 fi
+
+# Done prepublishing. If we're CI, let's tell the apps to build.
+if [[ "${CI_TRIGGER_APP_BUILDS:-}" == "true" ]]; then
+  "$ROOT/run/ci-trigger-app-builds.sh"
+fi
+
 # Sweet, time for Docker!
 helm init --client-only
 npm run docker-build

@@ -57,7 +57,21 @@ class SPFrontend extends Component {
  * use to log the user in.
  */
   componentWillMount() {
-    this.tryLogin(window.localStorage.getItem("SP_AUTH_TOKEN"));
+    const query = qs.parse(document.location.search.slice(1));
+    let token = window.localStorage.getItem("SP_AUTH_TOKEN");
+    // If we have a token in our URL, use it to log in and clear it from the URL
+    if (query.token) {
+      token = query.token;
+      delete query.token;
+      const queryString = qs.stringify(query);
+      let newUrl = window.location.origin + window.location.pathname;
+      // If there were other params in the query string, keep them around
+      if (queryString !== "") {
+        newUrl += `?${queryString}`;
+      }
+      window.history.replaceState({}, "", newUrl);
+    }
+    this.tryLogin(token);
   }
 
   tryLogin(token) {
@@ -83,44 +97,50 @@ class SPFrontend extends Component {
       server: window.location.hostname,
       returnPath: "/"
     });
-    this.setState({
-      phase: LOGGED_OUT,
-      loginOrigin: loginOrigin,
-      loginUrl: loginUrl,
-    });
     window.localStorage.removeItem("SP_AUTH_TOKEN");
+    window.location = loginUrl;
+    // this.setState({
+    //   phase: LOGGED_OUT,
+    //   loginOrigin: loginOrigin,
+    //   loginUrl: loginUrl,
+    // });
   }
 
   handleLoginBtn(e) {
-    e.preventDefault();
-    const loginWindow = window.open(this.state.loginUrl);
-    const theirOrigin = this.state.loginOrigin;
-    const interval = setInterval(() => {
-      loginWindow.postMessage("hello", theirOrigin);
-    }, 10);
-    const handleReply = (e) => {
-      if (e.origin !== theirOrigin) {
-        SP.error(`Rejected message from unknown origin ${e.origin}`);
-        return;
-      }
-      if (e.data === "hello") {
-        clearInterval(interval);
-        SP.info(`Bidirectional communication with ${theirOrigin} established.`);
-      }
-      if (e.data.type === "token") {
-        SP.info("Received token!");
-        this.tryLogin(e.data.token);
-      }
-      else {
-        SP.error(`Unknown message from ${theirOrigin}`, e.data);
-      }
-    };
-    window.addEventListener("message", handleReply);
+    // Hello other developers. This thing used to work with iframe postmessages. It was kind of
+    // cool, but also kind of silly? Now it works with redirects, which is easier, but kind of
+    // less badass? Let me know if you have smarter ideas for how this should operate.
+
+    // e.preventDefault();
+    // const loginWindow = window.open(this.state.loginUrl, "SPLogin");
+
+    // const theirOrigin = this.state.loginOrigin;
+    // const interval = setInterval(() => {
+    //   loginWindow.postMessage("hello", theirOrigin);
+    // }, 10);
+    // const handleReply = (e) => {
+    //   if (e.origin !== theirOrigin) {
+    //     SP.error(`Rejected message from unknown origin ${e.origin}`);
+    //     return;
+    //   }
+    //   if (e.data === "hello") {
+    //     clearInterval(interval);
+    //     SP.info(`Bidirectional communication with ${theirOrigin} established.`);
+    //   }
+    //   if (e.data.type === "token") {
+    //     SP.info("Received token!");
+    //     this.tryLogin(e.data.token);
+    //   }
+    //   else {
+    //     SP.error(`Unknown message from ${theirOrigin}`, e.data);
+    //   }
+    // };
+    // window.addEventListener("message", handleReply);
   }
 
   renderInner() {
     if (this.state.phase === START) {
-      return <div>Loading...</div>;
+      return <div></div>;
     }
     if (this.state.phase === LOGGED_IN) {
       return (
@@ -132,7 +152,7 @@ class SPFrontend extends Component {
     if (this.state.phase === LOGGED_OUT) {
       return (
         <Centered>
-          <a onClick={this.handleLoginBtn.bind(this)} href={this.state.loginUrl}>Log in?</a>
+          <a onClick={this.handleLoginBtn.bind(this)} href={this.state.loginUrl}>Log in NAOW</a>
         </Centered>
       );
     }

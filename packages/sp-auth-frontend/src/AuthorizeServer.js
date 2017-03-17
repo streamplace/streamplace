@@ -137,13 +137,12 @@ export default class AuthorizeServer extends React.Component{
 
   renderInner () {
     if (!this.state.ready) {
-      return <div>Loading...</div>;
+      return <div></div>;
     }
     if (this.state.needAuth === false) {
+      // We're in the process of redirecting, just sit tight.
       return (
-        <div>
-          <div>Logged in! Returning you to {this.state.server}</div>
-        </div>
+        <div></div>
       );
     }
     return (

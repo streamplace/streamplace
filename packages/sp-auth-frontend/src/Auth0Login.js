@@ -7,7 +7,11 @@ import logoUrl from "./streamplace_tight.png";
 export default class Auth0Login extends React.Component{
   constructor() {
     super();
-    this.state = {};
+    this.state = {
+      done: false,
+    };
+    this.handleAuthSuccess = this.handleAuthSuccess.bind(this);
+    this.handleAuthError = this.handleAuthError.bind(this);
   }
 
   componentDidMount() {
@@ -28,16 +32,23 @@ export default class Auth0Login extends React.Component{
       },
       usernameStyle: "email",
     });
+    window.lock = this.lock;
+    this.lock.on("authenticated", this.handleAuthSuccess);
+    this.lock.on("authorization_error", this.handleAuthError);
     this.lock.show();
-    this.lock.on("authenticated", ({idToken}) => {
-      this.props.onLogin(idToken);
-    });
-    this.lock.on("authorization_error", (err) => {
-      throw new Error(err);
-    });
+  }
+
+  handleAuthSuccess({idToken}) {
+    this.props.onLogin(idToken);
+  }
+
+  handleAuthError(err) {
+    // console.error(err);
   }
 
   componentWillUnmount() {
+    this.lock.removeListener("authenticated", this.handleAuthSuccess);
+    this.lock.removeListener("authorization_error", this.handleAuthError);
     this.lock.hide();
   }
 

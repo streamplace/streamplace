@@ -1,4 +1,0 @@
-name: coturn
-description: Coturn is a STUN/TURN server for proxying WebRTC connections
-apiVersion: v1
-version: 0.1.0

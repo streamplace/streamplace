@@ -7,7 +7,9 @@
     "babel-eslint": "^6.0.4",
     "lerna": "2.0.0-beta.37",
     "superagent": "^3.5.0",
-    "swagger-client": "^2.1.32"
+    "swagger-client": "^2.1.32",
+    "temp": "^0.8.3",
+    "tmp-promise": "^1.0.3"
   },
   "devDependencies": {
     "dot-object": "^1.5.4",
@@ -18,6 +20,7 @@
     "inquirer": "^3.0.4",
     "js-yaml": "^3.8.1",
     "kubectl-cli": "^1.5.3-1",
+    "mkdirp": "^0.5.1",
     "nodemon": "^1.11.0",
     "winston": "^2.3.1"
   },
@@ -30,6 +33,7 @@
     "docker-push": "run/every-package.sh run/package-docker-push.sh --concurrency=999",
     "helm-build": "run/every-package.sh run/package-helm-build.sh --concurrency=1",
     "helm-lint": "run/every-package.sh run/helm-lint.sh --concurrency=999",
+    "ci-build-app": "run/ci-build-app.sh",
     "helm-dev": "run/helm-dev.sh",
     "helm-push": "run/helm-push.sh",
     "kube-init": "run/kube-init.sh",

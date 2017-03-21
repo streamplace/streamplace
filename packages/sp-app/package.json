@@ -14,7 +14,7 @@
     "start-electron": "npm run prepublish && SP_URL=$(cat ../../values-dev.yaml  | grep domain | sed 's/^.*://' | sed 's/ //') electron .",
     "start": "nodemon -w src -x npm run start-electron",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "electron-builder": "build",
+    "electron-builder": "build --publish never",
     "electron-publish": "build -mw --publish always"
   },
   "author": "Streamplace",
@@ -30,6 +30,7 @@
     "nodemon": "^1.11.0"
   },
   "dependencies": {
+    "electron-log": "^2.0.0",
     "electron-updater": "^1.10.4"
   }
 }

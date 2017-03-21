@@ -1,10 +1,10 @@
 {
   "name": "sp-frontend",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "private": true,
   "devDependencies": {
     "react-scripts": "0.8.5",
-    "sp-static": "^0.0.11"
+    "sp-static": "^0.0.12"
   },
   "dependencies": {
     "cookie": "^0.3.1",
@@ -15,9 +15,9 @@
     "react-dom": "^15.4.2",
     "react-router": "^4.0.0-beta.8",
     "react-router-dom": "^4.0.0-beta.8",
-    "sp-client": "^0.0.11",
-    "sp-styles": "^0.0.11",
-    "sp-utils": "^0.0.11",
+    "sp-client": "^0.0.12",
+    "sp-styles": "^0.0.12",
+    "sp-utils": "^0.0.12",
     "styled-components": "^1.4.4",
     "three": "^0.84.0",
     "url": "^0.11.0"

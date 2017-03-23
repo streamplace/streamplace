@@ -28,6 +28,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "run/lint.sh",
     "start": "run/start.sh",
+    "dev": "npm run start",
     "build-values-dev": "node run/build-values-dev.js",
     "docker-build": "run/every-package.sh run/package-docker-build.sh --concurrency=999",
     "docker-push": "run/every-package.sh run/package-docker-push.sh --concurrency=999",

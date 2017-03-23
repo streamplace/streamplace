@@ -35,7 +35,7 @@ if ! docker ps | grep kubelet > /dev/null; then
   echo "We will now use https://github.com/streamplace/kube-for-mac to spin up a local Kubernetes"
   confirm "cluster running on Docker for Mac. That sound good?"
   docker pull streamplace/kube-for-mac
-  docker run --rm --privileged -v /:/rootfs streamplace/kube-for-mac
+  docker run --rm --privileged -v /:/rootfs -v /Users:/Users -d streamplace/kube-for-mac
   echo "Adding local kubernetes cluster to $HOME/.kube/config"
   mkdir -p "$HOME/.kube"
   KUBECONFIG="$ROOT/hack/local-kubeconfig:$HOME/.kube/config" kubectl config view > "$HOME/.kube/config"

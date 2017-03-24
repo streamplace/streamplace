@@ -4,14 +4,8 @@ import SPChannel from "./sp-channel";
 import SPCamera from "./sp-camera";
 import styled from "styled-components";
 import {subscribe} from "./sp-binding";
-
-const FlexContainer = styled.div`
-  width: 100%;
-  height: 100%;
-  flex-grow: 1;
-  display: flex;
-  position: relative;
-`;
+import {FlexContainer} from "./shared.style";
+import {UserBar} from "./channel-route.style";
 
 /**
  * Hacky. Yuck. But it gets the title of the channel up there on the title bar, so I'm fine with
@@ -53,11 +47,14 @@ export class ChannelRoute extends Component {
         <TitleBar>
           📹 <ChannelName>{channel.slug}</ChannelName>
         </TitleBar>
-        <SPChannel width={1920} height={1080}>
-          <SPCamera x={0} y={0} width={960} height={270} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
-          <SPCamera x={960} y={0} width={960} height={1080} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
-          <SPCamera x={0} y={270} width={960} height={810} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
-        </SPChannel>
+        <FlexContainer>
+          <SPChannel width={1920} height={1080}>
+            <SPCamera x={0} y={0} width={960} height={270} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
+            <SPCamera x={960} y={0} width={960} height={1080} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
+            <SPCamera x={0} y={270} width={960} height={810} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
+          </SPChannel>
+          <UserBar />
+        </FlexContainer>
       </FlexContainer>
     );
   }

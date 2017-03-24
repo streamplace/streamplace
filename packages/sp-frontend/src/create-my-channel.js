@@ -46,7 +46,11 @@ export class CreateMyChannel extends Component {
   handleSubmit(e) {
     e.preventDefault();
     this.setState({creating: true});
-    this.props.SP.channels.create({slug: this.state.slug})
+    // Set your handle to the slug and create the channel
+    this.props.SP.users.update(this.props.SP.user.id, {handle: this.state.slug})
+    .then(() => {
+      return this.props.SP.channels.create({slug: this.state.slug});
+    })
     .catch((err) => {
       this.props.SP.error(err);
       this.setState({creating: false});

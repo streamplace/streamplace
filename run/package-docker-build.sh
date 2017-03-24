@@ -19,7 +19,8 @@ docker build -t $container .
 if [[ "$LOCAL_DEV" == "true" ]]; then
   info "Deploying all pods that utilize $container"
   query=".items[] | select(.spec.containers[].image == \"$container\") | .metadata.name"
-  kubectl get -o json pods | \
-    jq -r "$query" | \
-    xargs -L 1 kubectl delete pod
+  pods="$(kubectl get -o json pods | jq -r "$query")"
+  for pod in $pods; do
+    kubectl delete pod $pod
+  done
 fi

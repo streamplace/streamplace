@@ -3,6 +3,8 @@ productName: Streamplace
 appId: place.stream
 mac:
   category: "public.app-category.video"
+win:
+  publisherName: Eli Mallon
 directories:
   output: apps
 publish:

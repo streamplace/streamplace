@@ -15,10 +15,10 @@ lerna bootstrap
 
 npmTag=""
 # Check if we're a tagged release version
-if git tag | grep $gitDescribe; then
-  npmTag="latest"
+if git "$REPO_VERSION" | grep '-'; then
+  npmTag="next"
 else
-  npmTag="prerelase"
+  npmTag="latest"
 fi
 
 if npm whoami; then

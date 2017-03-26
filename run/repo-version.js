@@ -20,5 +20,10 @@ else {
 module.exports = {repoVersion, repoBranch};
 
 if (!module.parent) {
-  process.stdout.write(module.exports.repoVersion);
+  if (process.argv[2] === "--branch") {
+    process.stdout.write(module.exports.repoBranch);
+  }
+  else {
+    process.stdout.write(module.exports.repoVersion);
+  }
 }

@@ -40,8 +40,20 @@ export -f base64
 DOCKER_PREFIX=${DOCKER_PREFIX:-quay.io/streamplace}
 export LOCAL_DEV="${LOCAL_DEV:-}"
 
+# Repo version gets exported from the git tag
 export REPO_VERSION="$(node "$ROOT/run/repo-version.js")"
-# ask lerna nicely to update all of our package.json files
+export REPO_BRANCH="$(node "$ROOT/run/repo-version.js" --branch)"
+# Now we're figuring out our dist-tag.
+if ! echo "$REPO_VERSION" | grep -- '-' > /dev/null; then
+  # If there's no dash in our repo version, we're a tagged release version. Sweet.
+  export REPO_DIST_TAG="latest"
+elif [[ "$REPO_BRANCH" == "master" ]]; then
+  # If we're the "master" branch, we can safely call that "next".
+  export REPO_DIST_TAG="next"
+else
+  # Otherwise, the dist tag is the branch name.
+  export REPO_DIST_TAG="$REPO_BRANCH"
+fi
 
 # Add node_modules to path
 export PATH="$PATH:$ROOT/node_modules/.bin"

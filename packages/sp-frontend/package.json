@@ -18,6 +18,10 @@
     "sp-client": "^0.0.14",
     "sp-styles": "^0.0.14",
     "sp-utils": "^0.0.14",
+    "sp-client": "^0.0.14",
+    "sp-peer-stream": "^0.0.14",
+    "sp-styles": "^0.0.14",
+    "sp-utils": "^0.0.14",
     "styled-components": "^1.4.4",
     "three": "^0.84.0",
     "url": "^0.11.0"

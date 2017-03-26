@@ -3,6 +3,7 @@ import React, { Component } from "react";
 import SP from "sp-client";
 import {relativeCoords} from "sp-utils";
 import * as THREE from "three";
+import {getPeer} from "sp-peer-stream";
 
 export default class SPCamera extends Component {
   static propTypes = {
@@ -36,13 +37,8 @@ export default class SPCamera extends Component {
   componentWillMount() {
     let stream;
     let video;
-    navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: {
-        width: {min: 1280},
-        height: {min: 720},
-      },
-    })
+    const peer = getPeer(this.props.userId);
+    peer.getStream()
     .then((s) => {
       stream = s;
       return this.getRef;
@@ -101,10 +97,6 @@ export default class SPCamera extends Component {
     const [x, y] = relativeCoords(this.props.x, this.props.y, this.props.width, this.props.height, this.context.canvasWidth, this.context.canvasHeight);
     mesh.position.set( x, y, 0 );
     this.context.scene.add(mesh);
-  }
-
-  getThreeObject() {
-    return "this";
   }
 
   render () {

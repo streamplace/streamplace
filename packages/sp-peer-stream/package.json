@@ -1,0 +1,25 @@
+{
+  "name": "sp-peer-stream",
+  "version": "0.0.13",
+  "description": "Video Peer Connections made easy-ish",
+  "main": "dist/sp-peer-stream.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublish": "babel -d dist src",
+    "start": "babel -w -d dist src"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "babel-cli": "^6.24.0",
+    "babel-core": "^6.24.0",
+    "babel-preset-streamplace": "0.0.1",
+    "json-loader": "^0.5.4"
+  },
+  "dependencies": {
+    "debug": "^2.6.3",
+    "kurento-utils": "^6.6.1",
+    "sp-client": "0.0.12",
+    "wolfy87-eventemitter": "^5.1.0"
+  }
+}

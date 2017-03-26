@@ -35,4 +35,6 @@ dependencies:
   - name: sp-kube-lego
     version: 0.0.14
     repository: 'https://charts.stream.place'
-
+  - name: sp-coturn
+    version: 0.0.13
+    repository: 'https://charts.stream.place'

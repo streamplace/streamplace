@@ -1,0 +1,64 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+spec:
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+    spec:
+      hostNetwork: {{ if .Values.global.development }}false{{ else }}true{{ end }}
+      volumes:
+      - name: coturn-command
+        configMap:
+          name: {{ template "fullname" . }}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "ianblenke/coturn:latest"
+        imagePullPolicy: Always
+        command:
+        - /bin/sh
+        args:
+        - "/coturn.sh"
+        volumeMounts:
+        - name: coturn-command
+          mountPath: /coturn.sh
+          subPath: coturn.sh
+        ports:
+        - containerPort: 3478
+          protocol: TCP
+          {{- if .Values.global.development }}
+          hostPort: 3478
+          {{- end }}
+        - containerPort: 3478
+          protocol: UDP
+          {{- if .Values.global.development }}
+          hostPort: 3478
+          {{- end }}
+        # In proudction, we're hostNetwork: true, so it can allocate whichever UDP ports it wants
+        # to proxy connections. In development, we have to allocate them one at a time here... so
+        # we allocate 100. coturn's okay at garbage collecting them, so hopefully you'll never run
+        # out in the dev environment.
+        {{- if .Values.global.development }}
+        {{- range .Files.Lines "dev-ports.txt" }}
+        - containerPort: {{.}}
+          hostPort: {{.}}
+          protocol: UDP
+        {{- end }}
+        {{- end }}
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: MIN_PORT
+          value: "50000"
+        - name: MAX_PORT
+          {{- if .Values.global.development }}
+          value: "50099"
+          {{- else }}
+          value: "65535"
+          {{- end }}

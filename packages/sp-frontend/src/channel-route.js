@@ -1,6 +1,6 @@
 
 import React, { Component } from "react";
-import SPChannel from "./sp-channel";
+import SPCanvas from "./sp-canvas";
 import SPCamera from "./sp-camera";
 import styled from "styled-components";
 import {subscribe} from "./sp-binding";
@@ -20,7 +20,7 @@ const TitleBar = styled.div`
   margin-top: -42px;
   font-size: 2em;
   font-weight: 200;
-  margin-left: 0.3em;
+  padding-left: 0.3em;
 `;
 
 const ChannelName = styled.strong`
@@ -48,11 +48,11 @@ export class ChannelRoute extends Component {
           📹 <ChannelName>{channel.slug}</ChannelName>
         </TitleBar>
         <FlexContainer>
-          <SPChannel width={1920} height={1080}>
+          <SPCanvas width={1920} height={1080}>
             <SPCamera x={0} y={0} width={960} height={270} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
             <SPCamera x={960} y={0} width={960} height={1080} userId="12006157-fa7e-4262-8152-abda9acae2f6"></SPCamera>
             <SPCamera x={0} y={270} width={960} height={810} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
-          </SPChannel>
+          </SPCanvas>
           <UserBar />
         </FlexContainer>
       </FlexContainer>

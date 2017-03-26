@@ -28,7 +28,7 @@ const Canvas = styled.canvas`
   top: 50%;
 `;
 
-export default class SPChannel extends Component {
+export default class SPCanvas extends Component {
   static propTypes = {
     "width": React.PropTypes.number.isRequired,
     "height": React.PropTypes.number.isRequired,

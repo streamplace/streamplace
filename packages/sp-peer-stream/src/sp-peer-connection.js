@@ -49,7 +49,6 @@ const PEER_CONNECTION_EVENTS = [
 export default class SPPeerConnection extends EE {
   constructor({targetUserId, stream}) {
     super();
-    log("test");
     this.isShutDown = false;
     this.targetUserId = targetUserId;
     this.videoStream = stream;

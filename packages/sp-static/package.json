@@ -1,6 +1,6 @@
 {
   "name": "sp-static",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "For hosting static files with Streamplace",
   "main": "index.js",
   "scripts": {
@@ -9,6 +9,6 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "devDependencies": {
-    "sp-node": "^0.0.13"
+    "sp-node": "^0.0.14"
   }
 }

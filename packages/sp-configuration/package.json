@@ -1,6 +1,6 @@
 {
   "name": "sp-configuration",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "Streamplace shared runtime configuration",
   "main": "dist/sp-configuration.js",
   "scripts": {

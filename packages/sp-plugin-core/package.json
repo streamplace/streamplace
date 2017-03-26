@@ -1,6 +1,6 @@
 {
   "name": "sp-plugin-core",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "Streamplace core plugin",
   "main": "dist/sp-plugin-core.js",
   "scripts": {
@@ -14,13 +14,13 @@
     "babel-core": "^6.23.1",
     "babel-preset-streamkitchen": "0.0.2",
     "jest": "^15.1.1",
-    "sp-node": "^0.0.13",
-    "sp-schema": "^0.0.13"
+    "sp-node": "^0.0.14",
+    "sp-schema": "^0.0.14"
   },
   "dependencies": {
     "node-uuid": "^1.4.7",
-    "sp-resource": "^0.0.13",
-    "sp-utils": "^0.0.13",
+    "sp-resource": "^0.0.14",
+    "sp-utils": "^0.0.14",
     "winston": "^2.2.0"
   }
 }

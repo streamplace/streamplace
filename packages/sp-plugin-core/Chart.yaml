@@ -1,4 +1,4 @@
-version: 0.0.12
+version: 0.0.13
 name: sp-plugin-core
 description: Streamplace core plugin
 icon: 'https://charts.stream.place/icon.svg'

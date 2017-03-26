@@ -1,6 +1,6 @@
 {
   "name": "sp-utils",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "Rando shared SP utilities",
   "main": "dist/sp-utils.js",
   "scripts": {

@@ -1,6 +1,6 @@
 {
   "name": "sp-node",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "Base container for all Streamplace node.js stuff",
   "main": "Dockerfile",
   "scripts": {

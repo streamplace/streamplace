@@ -5,6 +5,7 @@ required:
   - kind
   - slug
   - userId
+  - users
 properties:
   kind:
     type: string
@@ -18,3 +19,19 @@ properties:
   slug:
     type: string
     description: Channel URL slug, as of this writing same as user handle
+  users:
+    type: array
+    description: Users currently part of this channel
+    items:
+      type: object
+      additionalProperties: false
+      required:
+        - userId
+        - muted
+      properties:
+        userId:
+          type: string
+          description: ID of user in channel
+        muted:
+          type: boolean
+          description: Is this user muted?

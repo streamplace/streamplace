@@ -160,8 +160,21 @@ export default class Resource {
     });
   }
 
+  /**
+   * Transform the document on the way out to the user. One of the things we do here in all cases
+   * is ensure that the outgoing document has a value for every field present in the "defaults"
+   * block. This makes a common data migration case -- adding a new value to an object -- really
+   * really easy.
+   */
   transform(ctx, doc) {
-    return Promise.resolve(doc);
+    return this.default(ctx).then((defaultDoc) => {
+      Object.keys(defaultDoc).forEach((key) => {
+        if (doc[key] === undefined) {
+          doc[key] = defaultDoc[key];
+        }
+      });
+      return doc;
+    });
   }
 
   watch(ctx, query) {

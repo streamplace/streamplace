@@ -9,7 +9,7 @@ import Home from "./home";
 import icon from "./icon.svg";
 import {subscribe} from "./sp-binding";
 import styled from "styled-components";
-import ChannelRoute from "./channel-route";
+import Channel from "./channel";
 import TopBar from "./topbar.js";
 
 const AppContainer = styled.div`
@@ -101,7 +101,7 @@ export class SPRouter extends Component {
           <PageContainer>
             <TopBar onLogout={this.props.onLogout} />
             <Route exact path="/" component={Home} />
-            <Route path="/:slug" component={ChannelRoute} />
+            <Route path="/:slug" component={Channel} />
           </PageContainer>
         </AppContainer>
       </Router>

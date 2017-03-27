@@ -1,32 +1,13 @@
 
 import React, { Component } from "react";
-import styled from "styled-components";
 import * as THREE from "three";
-
-const OuterContainer = styled.div`
-  flex-grow: 1;
-  padding: 1em;
-  display: flex;
-`;
-
-const ChannelContainer = styled.div`
-  flex-grow: 1;
-  overflow: hidden;
-  position: relative;
-`;
-
-// Channel contents is all position: none, 'cuz we manually grab stuff and render with WebGL
-const ChannelContents = styled.div`
-  position: absolute;
-  display: none;
-`;
-
-const Canvas = styled.canvas`
-  background-color: black;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-`;
+import {
+  OuterContainer,
+  CanvasContainer,
+  ChannelContents,
+  Canvas,
+  AutoShrink,
+} from "./sp-canvas.style";
 
 export default class SPCanvas extends Component {
   static propTypes = {
@@ -162,12 +143,14 @@ export default class SPCanvas extends Component {
 
     return (
       <OuterContainer>
-        <ChannelContainer innerRef={this.containerRef.bind(this)}>
-          <Canvas style={canvasStyle} innerRef={this.ref.bind(this)} />
-          <ChannelContents>
-            {children}
-          </ChannelContents>
-        </ChannelContainer>
+        <CanvasContainer innerRef={this.containerRef.bind(this)}>
+          <AutoShrink style={canvasStyle}>
+            <Canvas innerRef={this.ref.bind(this)} />
+            <ChannelContents>
+              {children}
+            </ChannelContents>
+          </AutoShrink>
+        </CanvasContainer>
       </OuterContainer>
     );
   }

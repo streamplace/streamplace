@@ -167,14 +167,15 @@ export default class Resource {
    * really easy.
    */
   transform(ctx, doc) {
-    return this.default(ctx).then((defaultDoc) => {
-      Object.keys(defaultDoc).forEach((key) => {
-        if (doc[key] === undefined) {
-          doc[key] = defaultDoc[key];
-        }
-      });
-      return doc;
-    });
+    // return this.default(ctx).then((defaultDoc) => {
+    //   Object.keys(defaultDoc).forEach((key) => {
+    //     if (doc[key] === undefined) {
+    //       doc[key] = defaultDoc[key];
+    //     }
+    //   });
+    //   return doc;
+    // });
+    return Promise.resolve(doc);
   }
 
   watch(ctx, query) {

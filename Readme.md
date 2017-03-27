@@ -51,3 +51,13 @@ Follow the prompts. The first run will take a long time, as it has to build all 
 Docker images from scratch.
 
 And then you'll have a working dev version of Streamplace on your computer. I mean, it won't *do* anything yet, but you'll have it.
+
+### Development Environment Known Issues
+
+1. Sometimes stuff just doesn't come up.
+   
+   * Usually it's `sp-api-server` or `sp-schema` for whatever reason. Usually it can be resolved with a `kubectl get pods` and `kubectl delete pod [malfunctioning-pod-name]`.
+
+1. Sometimes `sp-frontend` takes a ton of time to compile and makes the computer's fan spin like crazy.
+
+   * Yup. This one is currently a mystery to me. Deleting the `sp-frontend` pod usually speeds it back up. If we can track this one down, potentially we can file a bug with Docker for Mac or create-react-app.

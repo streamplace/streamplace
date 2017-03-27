@@ -21,6 +21,7 @@ global:
     - sp-plugin-core
   authIssuer: https://stream.place/
   loginUrl: https://auth.stream.place/
+  externalIP: "0.0.0.0"
 
 # Disable lots of features that we don't need in dev
 

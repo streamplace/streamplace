@@ -5,6 +5,7 @@ const inquirer = require("inquirer");
 const path = require("path");
 const winston = require("winston");
 const dot = require("dot-object");
+const os = require("os");
 
 winston.cli();
 
@@ -40,6 +41,33 @@ Object.keys(exampleDot).forEach(function(key) {
       winston.info(`Setting ${key}=${rootDirectory}`);
       valuesDot[key] = rootDirectory;
     }
+  }
+  else if (key === "global.externalIP") {
+    const ifaces = os.networkInterfaces();
+    const addresses = [];
+    Object.keys(ifaces).forEach((ifaceName) => {
+      ifaces[ifaceName].forEach((address) => {
+        if (address.family !== "IPv4") {
+          return;
+        }
+        addresses.push(address.address);
+      });
+    });
+    // If our current value is one of our current IP addresses, cool. We're fine.
+    if (addresses.includes(valuesDot[key])) {
+      return;
+    }
+    // Otherwise, ask which IP they want to use.
+    prompt.push({
+      type: "list",
+      name: key,
+      choices: addresses,
+      message: [
+        "Which IP would you like to use as the external IP of this development machine? Only",
+        "pick 127.0.0.1 if you don't want to do any LAN testing with different computers",
+        "connecting to your dev environment."
+      ].join("\n"),
+    });
   }
   // Everything past this point will be ok as long as it's set
   else if (valuesDot[key] !== undefined) {

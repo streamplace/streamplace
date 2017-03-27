@@ -54,6 +54,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        {{- if .Values.global.development }}
+        - name: EXTERNAL_IP
+          value: "{{ .Values.global.externalIP }}"
+        {{- end }}
         - name: MIN_PORT
           value: "50000"
         - name: MAX_PORT

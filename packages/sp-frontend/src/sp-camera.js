@@ -20,10 +20,6 @@ export default class SPCamera extends Component {
     canvasHeight: React.PropTypes.number.isRequired,
   };
 
-  constructor(props) {
-    super(props);
-  }
-
   getRef(elem) {
     if (!elem) {
       return;
@@ -38,7 +34,7 @@ export default class SPCamera extends Component {
 
   start() {
     // Retrieve is like "on" but immediately resolves if we already have one.
-    this.peer.retrieve("stream", (stream, ...rest) => {
+    this.peer.retrieve("stream", (stream) => {
       this.ref.srcObject = stream;
       return new Promise((resolve, reject) => {
         const handler = () => {

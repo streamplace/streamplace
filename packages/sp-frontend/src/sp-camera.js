@@ -22,47 +22,44 @@ export default class SPCamera extends Component {
 
   constructor(props) {
     super(props);
-    this.getRef = new Promise((resolve, reject) => {
-      this._refResolve = resolve;
-    });
   }
 
-  ref(elem) {
+  getRef(elem) {
     if (!elem) {
       return;
     }
-    this._refResolve(elem);
+    this.ref = elem;
+    this.start();
   }
 
   componentWillMount() {
-    let stream;
-    let video;
-    const peer = getPeer(this.props.userId);
-    peer.getStream()
-    .then((s) => {
-      stream = s;
-      return this.getRef;
-    })
-    .then((v) => {
-      video = v;
-      video.srcObject = stream;
+    this.peer = getPeer(this.props.userId);
+  }
+
+  start() {
+    // Retrieve is like "on" but immediately resolves if we already have one.
+    this.peer.retrieve("stream", (stream, ...rest) => {
+      this.ref.srcObject = stream;
       return new Promise((resolve, reject) => {
         const handler = () => {
-          video.removeEventListener("loadedmetadata", handler);
+          this.ref.removeEventListener("loadedmetadata", handler);
           resolve();
         };
-        video.addEventListener("loadedmetadata", handler);
+        this.ref.addEventListener("loadedmetadata", handler);
+      })
+      .then(() => {
+        this.initThree(this.ref);
+      })
+      .catch((err) => {
+        SP.error(err);
       });
-    })
-    .then(() => {
-      this.initThree(video);
-    })
-    .catch((err) => {
-      SP.error(err);
     });
   }
 
   initThree(video) {
+    if (this.mesh) {
+      this.context.scene.remove(this.mesh);
+    }
     const geometry = new THREE.PlaneGeometry(this.props.width, this.props.height);
 
     const {videoWidth, videoHeight} = video;
@@ -93,15 +90,15 @@ export default class SPCamera extends Component {
 
     const material = new THREE.MeshBasicMaterial({ map: texture });
 
-    const mesh = new THREE.Mesh(geometry, material);
+    this.mesh = new THREE.Mesh(geometry, material);
     const [x, y] = relativeCoords(this.props.x, this.props.y, this.props.width, this.props.height, this.context.canvasWidth, this.context.canvasHeight);
-    mesh.position.set( x, y, 0 );
-    this.context.scene.add(mesh);
+    this.mesh.position.set( x, y, 0 );
+    this.context.scene.add(this.mesh);
   }
 
   render () {
     return (
-      <video autoPlay ref={this.ref.bind(this)} muted />
+      <video autoPlay ref={this.getRef.bind(this)} muted />
     );
   }
 }

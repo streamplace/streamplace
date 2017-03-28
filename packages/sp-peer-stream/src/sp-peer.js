@@ -51,6 +51,10 @@ export default class SPPeer extends EE {
       this.connection.getStream().then((stream) => {
         this.emit("stream", stream);
       });
+      this.connection.on("disconnected", () => {
+        this.stream = null;
+        this.startRemoteStream();
+      });
     });
   }
 
@@ -68,5 +72,17 @@ export default class SPPeer extends EE {
         });
       });
     }
+  }
+
+  /**
+   * Like "on", but also runs the callback immediately if we already have the property in question.
+   */
+  retrieve(prop, cb) {
+    if (this[prop]) {
+      setTimeout(() => {
+        cb(this[prop]);
+      }, 0);
+    }
+    this.on(prop, cb);
   }
 }

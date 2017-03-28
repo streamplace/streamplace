@@ -68,7 +68,7 @@ data:
 
     trap _term SIGTERM
 
-    /app/bin/turnserver -v -a -u streamplace:streamplace -r stream.place -l stdout &
+    /app/bin/turnserver -a -u streamplace:streamplace -r stream.place -l stdout &
 
     child=$!
     wait "$child"

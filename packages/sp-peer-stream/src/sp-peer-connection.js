@@ -21,7 +21,7 @@ if (typeof RTCPeerConnection === "undefined") {
   }
 }
 
-const TURN_URL = window.location.hostname;
+const TURN_URL = "192.168.1.202";
 
 const log = debug("sp:sp-peer-connection");
 
@@ -56,7 +56,6 @@ export default class SPPeerConnection extends EE {
     this.remoteIceCandidatesChecked = [];
     this.processedOffer = false;
     this.options = {
-      localVideo: stream,
       mediaConstraints: {
         audio: true,
         video: {
@@ -87,12 +86,48 @@ export default class SPPeerConnection extends EE {
     else {
       this.waitForOffer();
     }
+
+    // Set a timeout that retries everything if nothing's worked. And do it randomly, so you don't
+    // get two peers timing out and retrying at the same time.
+    this.timeoutMs = 5000 + Math.floor(Math.random() * 5000);
+    this.resetTimeout();
+    this.shouldTimeout = true;
   }
 
+  /**
+   * Reset the auto-retry timeout
+   */
+  resetTimeout() {
+    if (!this.shouldTimeout) {
+      return;
+    }
+    if (this.timeoutHandle) {
+      clearTimeout(this.timeoutHandle);
+    }
+    this.timeoutHandle = setTimeout(() => {
+      log(`Hit timeout of ${this.timeoutMs}ms, aborting connection.`);
+      this.shutdown();
+    }, this.timeoutMs);
+  }
+
+  /**
+   * Stop the auto-retry timeout
+   */
+  stopTimeout() {
+    if (this.timeoutHandle) {
+      clearTimeout(this.timeoutHandle);
+    }
+    this.shouldTimeout = false;
+  }
+
+  /**
+   * Stop everything about this connection and clean everything up.
+   */
   shutdown() {
     if (this.isShutDown === true) {
       return;
     }
+    this.stopTimeout();
     this.webRtcPeer.dispose();
     this.isShutDown = true;
     this.peerHandle && this.peerHandle.stop();
@@ -115,7 +150,11 @@ export default class SPPeerConnection extends EE {
   handleConnectionChange(e) {
     const state = e.currentTarget.iceConnectionState;
     log(`ICE Connection State: ${state}`);
+    if (state === "connected") {
+      this.stopTimeout();
+    }
     if (state === "completed") {
+      this.stopTimeout();
       // Cool, we're connected, no reason to keep that peerconnection around anymore
       this.peerHandle.stop();
       if (this.isPrimaryUser) {
@@ -145,6 +184,7 @@ export default class SPPeerConnection extends EE {
       });
     })
     .then((offer) => {
+      this.resetTimeout();
       log("Creating peerconnection");
       return SP.peerconnections.create({
         userId: SP.user.id,
@@ -154,6 +194,7 @@ export default class SPPeerConnection extends EE {
       });
     })
     .then((ice) => {
+      this.resetTimeout();
       log(`Created peerconnection ${ice.id}`);
       return new Promise((resolve, reject) => {
         const handle = SP.peerconnections.watch({id: ice.id})
@@ -175,11 +216,13 @@ export default class SPPeerConnection extends EE {
       });
     })
     .then((peer) => {
+      this.resetTimeout();
       log(`Got peer ${peer.id}`);
       this.peerHandle = SP.peerconnections.watch({id: peer.id}).on("data", ::this.peerUpdate);
       return this.peerHandle;
     })
     .then((peer) => {
+      this.resetTimeout();
       return SP.peerconnections.update(this.peer.id, {userIceCandidates: this.localIceCandidates});
     })
     .catch((err) => {
@@ -195,6 +238,7 @@ export default class SPPeerConnection extends EE {
     let handle;
     this._generateKurentoPeer()
     .then(() => {
+      this.resetTimeout();
       log(`Waiting for offer from ${this.targetUserId}`);
       handle = SP.peerconnections.watch({
         userId: this.targetUserId,
@@ -221,14 +265,13 @@ export default class SPPeerConnection extends EE {
       });
     })
     .then((peer) => {
+      this.resetTimeout();
       log(`Got peer ${peer.id}`);
       this.peerHandle = SP.peerconnections.watch({id: peer.id}).on("data", ::this.peerUpdate);
       return this.peerHandle;
     })
-    .then((peer) => {
-
-    })
     .then(() => {
+      this.resetTimeout();
       return new Promise((resolve, reject) => {
         this.webRtcPeer.processOffer(this.peer.sdpOffer, (err, answer) => {
           if (err) {
@@ -240,6 +283,7 @@ export default class SPPeerConnection extends EE {
       });
     })
     .then((answer) => {
+      this.resetTimeout();
       return SP.peerconnections.update(this.peer.id, {
         sdpAnswer: answer,
         targetUserIceCandidates: this.localIceCandidates
@@ -249,6 +293,7 @@ export default class SPPeerConnection extends EE {
   }
 
   peerUpdate([doc]) {
+    this.resetTimeout();
     log("update", doc);
     this.peer = doc;
     // If we're waiting on their answer and haven't processed it yet...

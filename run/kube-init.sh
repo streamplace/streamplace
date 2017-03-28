@@ -21,7 +21,8 @@ if ! docker ps > /dev/null; then
 fi
 
 domain="$(js-yaml "$ROOT/values-dev.yaml" | jq -r '.global.domain')"
-hostsLine="127.0.0.1 $domain"
+ip="$(js-yaml "$ROOT/values-dev.yaml" | jq -r '.global.externalIP')"
+hostsLine="$ip $domain"
 if ! cat /etc/hosts | grep "$hostsLine" > /dev/null; then
   info "Need to update /etc/hosts"
   info "Please give me sudo powers to run this command:"

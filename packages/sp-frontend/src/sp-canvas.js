@@ -142,16 +142,14 @@ export default class SPCanvas extends Component {
     }
 
     return (
-      <OuterContainer>
-        <CanvasContainer innerRef={this.containerRef.bind(this)}>
-          <AutoShrink style={canvasStyle}>
-            <Canvas innerRef={this.ref.bind(this)} />
-            <ChannelContents>
-              {children}
-            </ChannelContents>
-          </AutoShrink>
-        </CanvasContainer>
-      </OuterContainer>
+      <CanvasContainer innerRef={this.containerRef.bind(this)}>
+        <AutoShrink style={canvasStyle}>
+          <Canvas innerRef={this.ref.bind(this)} />
+          <ChannelContents>
+            {children}
+          </ChannelContents>
+        </AutoShrink>
+      </CanvasContainer>
     );
   }
 }

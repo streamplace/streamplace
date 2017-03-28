@@ -197,19 +197,19 @@ export default class SPPeerConnection extends EE {
       this.resetTimeout();
       log(`Created peerconnection ${ice.id}`);
       return new Promise((resolve, reject) => {
-        const handle = SP.peerconnections.watch({id: ice.id})
+        this.peerHandle = SP.peerconnections.watch({id: ice.id})
         .catch(log)
         .on("data", ([doc]) => {
           if (!doc) {
             // Hmm, our candidate is just gone. Annoying and mysterious. Well, start the process
             // over again.
             log(`Peer connection ${ice.id} was deleted, retrying.`);
-            handle.stop();
+            this.peerHandle.stop();
             // FIXME: we now just have a promise sitting around? does that matter?
             this.createOffer();
           }
           if (doc.sdpAnswer) {
-            handle.stop();
+            this.peerHandle.stop();
             resolve(doc);
           }
         });
@@ -235,16 +235,15 @@ export default class SPPeerConnection extends EE {
    * @return {[type]} [description]
    */
   waitForOffer() {
-    let handle;
     this._generateKurentoPeer()
     .then(() => {
       this.resetTimeout();
       log(`Waiting for offer from ${this.targetUserId}`);
-      handle = SP.peerconnections.watch({
+      this.peerHandle = SP.peerconnections.watch({
         userId: this.targetUserId,
         targetUserId: SP.user.id
       });
-      return handle;
+      return this.peerHandle;
     })
     .then((docs) => {
       // Hack: for now, delete all the other requests that were here when we got here...
@@ -258,8 +257,8 @@ export default class SPPeerConnection extends EE {
         .catch(log);
       });
       return new Promise((resolve, reject) => {
-        handle.on("newDoc", (data) => {
-          handle.stop();
+        this.peerHandle.on("newDoc", (data) => {
+          this.peerHandle.stop();
           resolve(data);
         });
       });

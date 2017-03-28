@@ -53,9 +53,8 @@ export default class SPCamera extends Component {
   }
 
   initThree(video) {
-    if (this.mesh) {
-      this.context.scene.remove(this.mesh);
-    }
+    this.cleanupThree();
+
     const geometry = new THREE.PlaneGeometry(this.props.width, this.props.height);
 
     const {videoWidth, videoHeight} = video;
@@ -90,6 +89,13 @@ export default class SPCamera extends Component {
     const [x, y] = relativeCoords(this.props.x, this.props.y, this.props.width, this.props.height, this.context.canvasWidth, this.context.canvasHeight);
     this.mesh.position.set( x, y, 0 );
     this.context.scene.add(this.mesh);
+  }
+
+  cleanupThree() {
+    if (this.mesh) {
+      this.context.scene.remove(this.mesh);
+    }
+    this.mesh = null;
   }
 
   render () {

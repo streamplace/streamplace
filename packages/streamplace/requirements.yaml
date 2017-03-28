@@ -38,3 +38,6 @@ dependencies:
   - name: sp-coturn
     version: 0.0.13
     repository: 'https://charts.stream.place'
+  - name: sp-channel-manager
+    version: 0.0.13
+    repository: 'https://charts.stream.place'

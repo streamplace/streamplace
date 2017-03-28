@@ -4,8 +4,7 @@
   "description": "RethinkDB server for Streamplace",
   "main": "Chart.yaml",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "echo 'nothing to do'"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Streamplace",
   "license": "Apache-2.0"

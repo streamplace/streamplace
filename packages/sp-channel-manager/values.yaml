@@ -1,0 +1,35 @@
+# Default values for streamkitchen.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  development: true
+  # Replace these with the path to your streamplace repo
+  rootDirectory: /Users/example/git/streamplace
+  # Replace this with your Keybase username
+  domain: example.sp-dev.club
+  # Your email goes here!
+  adminEmail: admin@example.com
+  # In case you want to push your own images, this could be set to something else.
+  repo: quay.io/streamplace
+  jwt:
+    audience: dev
+    secret: QjAzNEMwMEUtQkY5Qi00OTQyLUJEQUEtMEYxNEZENUVERERE
+    # If someone hasn't logged in for this long, they won't be.
+    expiration: 30d
+  plugins:
+    - sp-plugin-core
+  authIssuer: https://stream.place/
+  loginUrl: https://auth.stream.place/
+  externalIP: "0.0.0.0"
+
+# Disable lots of features that we don't need in dev
+
+sp-dev-certs:
+  enabled: false
+
+sp-auth-frontend:
+  enabled: false
+
+sp-kube-lego:
+  enabled: false

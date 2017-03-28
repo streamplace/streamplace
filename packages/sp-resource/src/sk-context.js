@@ -79,7 +79,7 @@ export default class SKContext extends EE {
 
         // jwt looks broadly okay. Does the audience match?
         if (payload.aud !== JWT_AUDIENCE) {
-          winston.error(`JWT aud wrong: got ${payload.aud} expected ${SKContext.jwtAudience}.`);
+          winston.error(`JWT aud wrong: got ${payload.aud} expected ${JWT_AUDIENCE}.`);
           throw tokenErr();
         }
       }

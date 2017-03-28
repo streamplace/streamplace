@@ -7,8 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "run/dev.sh",
     "build": "babel -d dist src",
-    "prepublish": "npm run build",
-    "start": "echo 'nothing to do'"
+    "prepublish": "npm run build"
   },
   "author": "",
   "chromium-args": "--no-sandbox --disable-gpu-sandbox --enable-webgl --ignore-gpu-blacklist --enable-logging=stderr",

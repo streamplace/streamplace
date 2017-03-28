@@ -103,6 +103,11 @@ class Cursor {
     this.evt.on(eventName, cb);
     return this;
   }
+
+  off(eventName, cb) {
+    this.evt.off(eventName, cb);
+    return this;
+  }
 }
 
 export class SocketCursor extends Cursor {

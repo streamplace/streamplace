@@ -9,40 +9,66 @@ import SP from "sp-client";
 import request from "request-promise";
 import getMyIp from "./get-my-ip";
 
+// These credentials are hardcoded for now, but eventually I'll be in charge of creating them and
+// interfacing with Coturn. Cool!
+const CREDENTIALS = "streamplace:streamplace";
+
 export default class ChannelManager {
   constructor() {
     getMyIp().then((ip) => {
       winston.info(`ChannelManager booting up. My IP is ${ip}`);
       this.myIp = ip;
-      this.channelHandle = SP.channels.watch({})
-      .on("data", (channels) => {
-        this.channels = channels;
+      this.properTurnUrls = [
+        `turn://${CREDENTIALS}@${this.myIp}`
+      ];
+      this.peerHandle = SP.peerconnections.watch({})
+      .on("data", (peerConnections) => {
+        this.peerConnections = peerConnections;
         this.reconcile();
+      })
+      .catch((err) => {
+        winston.error(err);
+        process.exit(1);
       });
-      return this.channelHandle;
+      return this.peerHandle;
     })
     .catch(::winston.error);
   }
 
   cleanup() {
-    this.channelHandle.stop();
+    this.peerHandle.stop();
   }
 
   reconcile() {
-    this.channels.forEach(::this.reconcileChannel);
+    winston.info(`Got ${this.peerConnections.length} peers.`);
+    this.peerConnections.forEach(::this.reconcilePeer);
   }
 
-  reconcileChannel(channel) {
-    if (channel.turnUrl !== this.myIp) {
-      SP.channels.update(channel.id, {turnUrl: this.myIp}).then(() => {
-        winston.info(`Updated turnUrl for channel "${channel.slug}" (${channel.id})`);
+  reconcilePeer(peer) {
+    if (!_(peer.turnUrls).isEqual(this.properTurnUrls)) {
+      SP.peerconnections.update(peer.id, {
+        turnUrls: this.properTurnUrls,
       })
-      .catch(::winston.error);
+      .then(() => {
+        winston.info(`Added TURN URLs to PeerConnection ${peer.id}`);
+      })
+      .catch((err) => {
+        winston.error(err);
+      });
     }
+    // if (channel.turnUrl !== this.myIp) {
+    //   SP.channels.update(channel.id, {turnUrl: this.myIp}).then(() => {
+    //     winston.info(`Updated turnUrl for channel "${channel.slug}" (${channel.id})`);
+    //   })
+    //   .catch(::winston.error);
+    // }
   }
 }
 
 if (!module.parent) {
+  SP.on("error", (err) => {
+    winston.error(err);
+  });
   SP.connect()
   .then(() => {
     new ChannelManager();

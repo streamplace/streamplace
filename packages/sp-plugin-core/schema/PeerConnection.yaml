@@ -5,8 +5,6 @@ required:
   - kind
   - userId
   - targetUserId
-  - sdpOffer
-  - userIceCandidates
 properties:
   id:
     type: string
@@ -32,3 +30,6 @@ properties:
   targetUserIceCandidates:
     type: array
     description: ICE candidates, provided by targetUserId
+  turnUrls:
+    type: array
+    description: Array of server-proivded TURN urls for this connection

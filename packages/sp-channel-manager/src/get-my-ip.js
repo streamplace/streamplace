@@ -7,13 +7,16 @@ import config from "sp-configuration";
 
 const DEV_EXTERNAL_IP = config.optional("DEV_EXTERNAL_IP");
 
-const prom = request("https://icanhazip.com").then((data) => {
-  return data.replace(/\s/g, "");
-});
+let prom;
 
 export default function getMyIp() {
   if (DEV_EXTERNAL_IP) {
     return Promise.resolve(DEV_EXTERNAL_IP);
+  }
+  if (!prom) {
+    prom = request("https://icanhazip.com").then((data) => {
+      return data.replace(/\s/g, "");
+    });
   }
   return prom;
 }

@@ -88,7 +88,7 @@ class SPFrontend extends Component {
     .catch((err) => {
       // TODO: right now we log the user out on every error. this is silly.
       SP.error("test" + err);
-      this.handleLogout();
+      // this.handleLogout();
     });
   }
 

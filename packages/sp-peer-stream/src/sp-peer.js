@@ -53,6 +53,7 @@ export default class SPPeer extends EE {
       });
       this.connection.on("disconnected", () => {
         this.stream = null;
+        // TODO: add throttling
         this.startRemoteStream();
       });
     });

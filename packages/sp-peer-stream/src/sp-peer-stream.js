@@ -4,6 +4,7 @@
  */
 
 import SPPeer from "./sp-peer";
+import SPPeerConnection from "./sp-peer-connection";
 
 const peers = {};
 
@@ -17,4 +18,14 @@ export function getPeer(userId) {
   }
 
   return peers[userId];
+}
+
+/**
+ * We learned about an new TURN url available to us! How splendid. Add it to our list that we'll
+ * use to try and connect to people.
+ *
+ * Streamplace doesn't fuck with STUN URLs. We don't have to. TURN takes case of it.
+ */
+export function addTurnUrl(turnUrl) {
+  SPPeerConnection.addTurnUrl(turnUrl);
 }

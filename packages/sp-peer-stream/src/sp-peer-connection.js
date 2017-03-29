@@ -154,12 +154,12 @@ export default class SPPeerConnection extends EE {
       this.stopTimeout();
     }
     if (state === "completed") {
-      this.stopTimeout();
       // Cool, we're connected, no reason to keep that peerconnection around anymore
       this.peerHandle.stop();
-      if (this.isPrimaryUser) {
-        SP.peerconnections.delete(this.peer.id).catch(log);
-      }
+      // Commented for now; needs work. Things get deleted at the wrong time and cycle.
+      // if (this.isPrimaryUser) {
+      //   SP.peerconnections.delete(this.peer.id).catch(log);
+      // }
     }
     if (state === "failed" || state === "disconnected" || state === "closed") {
       this.shutdown();

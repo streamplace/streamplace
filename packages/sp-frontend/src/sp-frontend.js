@@ -59,7 +59,7 @@ class SPFrontend extends Component {
   componentWillMount() {
     const query = qs.parse(document.location.search.slice(1));
     let token = window.localStorage.getItem("SP_AUTH_TOKEN");
-    // If we have a token in our URL, use it to log in and clear it from the URL
+    // If we have a token in our URL, use it to log in a nd clear it from the URL
     if (query.token) {
       token = query.token;
       delete query.token;
@@ -86,8 +86,9 @@ class SPFrontend extends Component {
       });
     })
     .catch((err) => {
-      // TODO: right now we log the user out on every error. this is silly.
-      SP.error("test" + err);
+      // This is kinda interesting, it's the highest level catch() in the app. It catches a lot of
+      // things in development, 'cuz if you typo anywhere it ends up here.
+      SP.error(err);
       // this.handleLogout();
     });
   }

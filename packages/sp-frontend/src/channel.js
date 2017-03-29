@@ -2,15 +2,26 @@
 import React, { Component } from "react";
 import SPCanvas from "./sp-canvas";
 import SPCamera from "./sp-camera";
-import {subscribe} from "./sp-binding";
+import {bindComponent, watch} from "./sp-binding";
 import {FlexContainer} from "./shared.style";
 import ChannelUsers from "./channel-users";
 import {TitleBar, ChannelName, CanvasWrapper} from "./channel.style";
 
 export class Channel extends Component {
   static propTypes = {
-    channels: React.PropTypes.array,
+    channel: React.PropTypes.object,
   };
+
+  static contextTypes = {
+    SP: React.PropTypes.object.isRequired,
+  };
+
+  static subscribe(props) {
+    return {
+      channel: watch.one("channels", {slug: props.match.params.slug}),
+      scenes: props.channel && watch("scenes", {channelId: props.channel.id}),
+    };
+  }
 
   constructor() {
     super();
@@ -18,7 +29,7 @@ export class Channel extends Component {
   }
 
   render () {
-    const channel = this.props.channels[0];
+    const channel = this.props.channel;
     if (!channel) {
       return <FlexContainer />;
     }
@@ -42,8 +53,4 @@ export class Channel extends Component {
   }
 }
 
-export default subscribe(Channel, function(props, SP) {
-  return {
-    channels: SP.channels.watch({slug: props.match.params.slug}),
-  };
-});
+export default bindComponent(Channel);

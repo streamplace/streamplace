@@ -1,0 +1,33 @@
+
+anyOf:
+  - $ref: '#/definitions/SPCamera'
+
+definitions:
+  SPCamera:
+    type: object
+    additionalProperties: false
+    properties:
+      kind:
+        type: string
+        allowedValues: "SPChannel"
+      id:
+        type: string
+        description: Unique ID of this camera
+      userId:
+        type: string
+        description: Which user is this camera portraying?
+      "x":
+        type: number
+        description: x coordinate of this camera in pixels
+      "y":
+        type: number
+        description: y coordinate of this camera in pixels
+      "width":
+        type: number
+        description: width of this camera in pixels
+      "height":
+        type: number
+        description: height of this camera in pixels
+      zIndex:
+        type: number
+        description: z index of this camera relative to other things

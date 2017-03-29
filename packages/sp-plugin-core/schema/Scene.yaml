@@ -2,27 +2,29 @@ type: object
 tableName: scenes
 additionalProperties: false
 required:
+  - userId
+  - channelId
   - title
   - height
   - width
-  - userId
+  - children
 properties:
+  kind:
+    type: string
+    allowedValues: ["Scene"]
   id:
     type: string
     description: Unique ID of the scene
   userId:
     type: string
     description: Owner of this scene
-  kind:
+  channelId:
     type: string
-    allowedValues: ["Scene"]
+    description: Channel that owns this scene
   title:
     type: string
     description: Human-readable name of this scene
     minLength: 1
-  broadcastId:
-    type: string
-    description: ID of the broadcast where this scene exists
   height:
     type: number
     allowedValues: [1080]
@@ -31,83 +33,7 @@ properties:
     type: number
     allowedValues: [1920]
     description: Width of this scene, in pixels
-  transition:
+  children:
     type: array
     items:
-      type: object
-      required:
-        - transition
-        - scene
-        - key
-      additionalProperties: false
-      properties:
-        key:
-          type: string
-          description: Unique ID of transition
-        scene:
-          type: object
-          additionalProperties: false
-          properties:
-            height:
-              type: number
-              allowedValues: [1080]
-              description: Height of this scene, in pixels
-            width:
-              type: number
-              allowedValues: [1920]
-              description: Width of this scene, in pixels
-            regions:
-              type: array
-              items:
-                $ref: "Scene#/properties/regions/items"
-        transition:
-          type: object
-          properties:
-            duration:
-              type: number
-            bezier:
-              type: array
-              minItems: 4
-              maxItems: 4
-              items:
-                type: number
-
-  regions:
-    type: array
-    items:
-      type: object
-      additionalProperties: false
-      required:
-        - userId
-        - x
-        - y
-        - width
-        - height
-        - key
-      properties:
-        key:
-          description: Unique identifier of this region
-          type: string
-        inputId:
-          description: Input to which this region cooresponds
-          oneOf:
-            - type: string
-            - enum: [null]
-        userId:
-          type: string
-          description: User to which this region cooresponds.
-        x:
-          type: number
-          description: Horizontal location of this region in pixels
-        y:
-          type: number
-          description: Vertical location of this region in pixels
-        width:
-          type: number
-          description: Width of this region in pixels
-        height:
-          type: number
-          description: Height of this region in pixels
-        zIndex:
-          type: number
-          description: z-index. Defaults to 5.
+      $ref: "SPComponent"

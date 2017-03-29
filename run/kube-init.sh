@@ -46,3 +46,14 @@ while ! kubectl get nodes > /dev/null; do
   echo "Waiting for kubectl to be responsive..."
   sleep 2
 done
+
+while ! kubectl get deployment -n kube-system kubernetes-dashboard > /dev/null;
+  echo "Waiting for kubernetes-dashboard pod..."
+  sleep 2
+done
+
+patch="$(
+  jq -n '.spec.template.spec.containers[0].ports[0] = {"hostPort": 9090, "containerPort": 9090}' |
+  jq '.spec.template.spec.containers[0].name = "kubernetes-dashboard"'
+)"
+kubectl -n kube-system patch deployment kubernetes-dashboard -p "$patch"

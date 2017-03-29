@@ -47,7 +47,7 @@ while ! kubectl get nodes > /dev/null; do
   sleep 2
 done
 
-while ! kubectl get deployment -n kube-system kubernetes-dashboard > /dev/null;
+while ! kubectl get deployment -n kube-system kubernetes-dashboard > /dev/null; do
   echo "Waiting for kubernetes-dashboard pod..."
   sleep 2
 done

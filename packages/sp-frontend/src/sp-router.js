@@ -36,8 +36,8 @@ export class SPRouter extends Component {
 
   renderChannelIcon(channel) {
     return (
-      <ChannelIcon activeClassName="active" icon={channel.icon} key={channel.id} to={`/${channel.slug}`}>
-        <ChannelIconText>{channel.slug}</ChannelIconText>
+      <ChannelIcon slug={channel.slug} activeClassName="active" icon={channel.icon} key={channel.id} to={`/${channel.slug}`}>
+        <ChannelIconText>{channel.slug.slice(0, 1)}</ChannelIconText>
       </ChannelIcon>
     );
   }

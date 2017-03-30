@@ -8,6 +8,14 @@ import _ from "underscore";
 import SP from "sp-client";
 import request from "request-promise";
 import getMyIp from "./get-my-ip";
+import express from "express";
+
+// Health check
+const app = express();
+app.get("/healthz", (req, res) => {
+  res.sendStatus(200);
+});
+app.listen(80);
 
 // These credentials are hardcoded for now, but eventually I'll be in charge of creating them and
 // interfacing with Coturn. Cool!

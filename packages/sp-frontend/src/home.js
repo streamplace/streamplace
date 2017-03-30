@@ -1,32 +1,20 @@
 
 import React, { Component } from "react";
-import styled from "styled-components";
-import {subscribe} from "./sp-binding";
+import {bindComponent, watch} from "./sp-binding";
 import CreateMyChannel from "./create-my-channel";
-
-const FlexContainer = styled.div`
-  width: 100%;
-  height: 100%;
-  flex-grow: 1;
-  display: flex;
-`;
-
-const NoChannel = styled.p`
-  font-style: oblique;
-`;
-
-const ChannelSelect = styled.div`
-  margin: auto;
-  font-size: 1.4em;
-  font-weight: 200;
-  opacity: 0.8;
-`;
+import {FlexContainer, NoChannel, ChannelSelect} from "./home.style";
 
 export class Home extends Component {
   static propTypes = {
     channels: React.PropTypes.array,
     ready: React.PropTypes.bool,
   };
+
+  static subscribe(props) {
+    return {
+      channels: watch("channels", {userId: props.SP.user.id})
+    };
+  }
 
   constructor() {
     super();
@@ -44,7 +32,8 @@ export class Home extends Component {
   }
 
   render () {
-    return (      <FlexContainer>
+    return (
+      <FlexContainer>
         <ChannelSelect>
           {this.text()}
         </ChannelSelect>
@@ -53,8 +42,4 @@ export class Home extends Component {
   }
 }
 
-export default subscribe(Home, (props, SP) => {
-  return {
-    channels: SP.channels.watch({userId: SP.user.id}),
-  };
-});
+export default bindComponent(Home);

@@ -1,6 +1,6 @@
 
 import React, { Component } from "react";
-import {subscribe} from "./sp-binding";
+import {bindComponent, watch} from "./sp-binding";
 import SPCanvas from "./sp-canvas";
 import SPCamera from "./sp-camera";
 import {UserFrame, UserTitle, RemoveButton} from "./channel-user-frame.style";
@@ -8,11 +8,18 @@ import {UserFrame, UserTitle, RemoveButton} from "./channel-user-frame.style";
 export class ChannelUserFrame extends Component {
   static propTypes = {
     "userId": React.PropTypes.string.isRequired,
-    "users": React.PropTypes.array,
+    "user": React.PropTypes.object,
     "channelId": React.PropTypes.string.isRequired,
-    "channels": React.PropTypes.array,
+    "channel": React.PropTypes.object,
     "SP": React.PropTypes.object,
   };
+
+  static subscribe(props) {
+    return {
+      user: watch.one("users", {id: props.userId}),
+      channel: watch.one("channels", {id: props.channelId}),
+    };
+  }
 
   constructor() {
     super();
@@ -20,9 +27,7 @@ export class ChannelUserFrame extends Component {
   }
 
   handleRemove() {
-    const {SP} = this.props;
-    const [channel] = this.props.channels;
-    const [user] = this.props.users;
+    const {SP, channel, user} = this.props;
     // Not loaded yet, we're SOL
     if (!channel || !user) {
       return;
@@ -32,7 +37,7 @@ export class ChannelUserFrame extends Component {
   }
 
   render () {
-    const [user] = this.props.users;
+    const {user} = this.props;
     if (!user) {
       return <div>Loading</div>;
     }
@@ -50,9 +55,4 @@ export class ChannelUserFrame extends Component {
   }
 }
 
-export default subscribe(ChannelUserFrame, (props, SP) => {
-  return {
-    users: SP.users.watch({id: props.userId}),
-    channels: SP.channels.watch({id: props.channelId}),
-  };
-});
+export default bindComponent(ChannelUserFrame);

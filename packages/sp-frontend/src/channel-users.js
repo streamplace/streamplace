@@ -1,15 +1,21 @@
 
 import React, { Component } from "react";
 import {UserBar, JoinButton} from "./channel-users.style";
-import {subscribe} from "./sp-binding";
+import {watch, bindComponent} from "./sp-binding";
 import SP from "sp-client";
 import ChannelUserFrame from "./channel-user-frame";
 
 export class ChannelUsers extends Component {
   static propTypes = {
     "channelId": React.PropTypes.string.isRequired,
-    "channels": React.PropTypes.array,
+    "channel": React.PropTypes.object,
   };
+
+  static subscribe(props) {
+    return {
+      channel: watch.one("channels", {id: props.channelId})
+    };
+  }
 
   constructor() {
     super();
@@ -17,7 +23,7 @@ export class ChannelUsers extends Component {
   }
 
   handleJoin() {
-    const [channel] = this.props.channels;
+    const {channel} = this.props;
     SP.channels.update(this.props.channelId, {
       users: [
         ...channel.users,
@@ -33,12 +39,11 @@ export class ChannelUsers extends Component {
   }
 
   amInChannel() {
-    const [channel] = this.props.channels;
-    return !!channel.users.find(u => u.userId === SP.user.id);
+    return !!this.props.channel.users.find(u => u.userId === SP.user.id);
   }
 
   render () {
-    const [channel] = this.props.channels;
+    const {channel} = this.props;
     if (!channel) {
       return <UserBar />;
     }
@@ -51,8 +56,4 @@ export class ChannelUsers extends Component {
   }
 }
 
-export default subscribe(ChannelUsers, (props, SP) => {
-  return {
-    channels: SP.channels.watch({id: props.channelId}),
-  };
-});
+export default bindComponent(ChannelUsers);

@@ -11,52 +11,6 @@
 
 import React, { Component } from "react";
 
-const noop = () => {
-  return {};
-};
-
-export function subscribe(BoundComponent, subscriptionFunc = noop) {
-  class Binding extends Component {
-    static contextTypes = {
-      SP: React.PropTypes.object.isRequired,
-    };
-
-    constructor() {
-      super();
-      this.state = {};
-    }
-
-    componentWillMount() {
-      const handles = subscriptionFunc(this.props, this.context.SP);
-      const allPromises = Object.keys(handles).map((key) => {
-        this.setState({[key]: []});
-        handles[key].on("data", (newData) => {
-          this.setState({[key]: newData});
-        });
-        return handles[key];
-      });
-      Promise.all(allPromises).then(() => {
-        this.setState({ready: true});
-      });
-      this.setState({handles});
-    }
-
-    componentWillUnmount() {
-      Object.keys(this.state.handles).forEach((name) => {
-        this.state.handles[name].stop();
-      });
-    }
-
-    render () {
-      const combined = {SP: this.context.SP, ...this.state, ...this.props};
-      return (
-        <BoundComponent {...combined} />
-      );
-    }
-  }
-  return Binding;
-}
-
 /**
  * This maintains all of our watcher singletons. They're hashed by a simple string representation
  * of their arguments.
@@ -154,6 +108,9 @@ export class SPBinding extends Component {
       // If it exists now, subscribe to a new changefeed.
       if (newWatch[key]) {
         const {resource, filter, options} = newWatch[key];
+        if (!SP[resource]) {
+          throw new Error(`Tried to watch ${resource} but I've never heard of that resource`);
+        }
         this.handles[key] = SP[resource].watch(filter)
         .on("data", (data) => {
           // This line right here is why this code needs to be so dang fast
@@ -193,7 +150,14 @@ export class SPBinding extends Component {
 
 }
 
+const noop = function() {
+  return {};
+};
+
 export function bindComponent (BoundComponent) {
+  if (!BoundComponent.subscribe) {
+    BoundComponent.subscribe = noop;
+  }
   return class Binding extends SPBinding {
     static BoundComponent = BoundComponent;
   };

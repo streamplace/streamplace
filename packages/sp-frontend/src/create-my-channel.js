@@ -1,6 +1,6 @@
 
 import React, { Component } from "react";
-import {subscribe} from "./sp-binding";
+import {bindComponent} from "./sp-binding";
 import styled from "styled-components";
 import {parse as parseUrl} from "url";
 import {GoodButton} from "sp-styles";
@@ -77,4 +77,4 @@ export class CreateMyChannel extends Component {
   }
 }
 
-export default subscribe(CreateMyChannel);
+export default bindComponent(CreateMyChannel);

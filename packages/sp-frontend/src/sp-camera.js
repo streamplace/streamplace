@@ -3,6 +3,7 @@ import React, { Component } from "react";
 import SP from "sp-client";
 import {relativeCoords} from "sp-utils";
 import * as THREE from "three";
+import {getPeer} from "sp-peer-stream";
 
 export default class SPCamera extends Component {
   static propTypes = {
@@ -19,60 +20,64 @@ export default class SPCamera extends Component {
     canvasHeight: React.PropTypes.number.isRequired,
   };
 
-  constructor(props) {
-    super(props);
-    this.getRef = new Promise((resolve, reject) => {
-      this._refResolve = resolve;
-    });
+  constructor() {
+    super();
+    this.initStream = this.initStream.bind(this);
   }
 
-  ref(elem) {
+  getRef(elem) {
     if (!elem) {
       return;
     }
-    this._refResolve(elem);
+    this.ref = elem;
+    this.start();
   }
 
   componentWillMount() {
-    let stream;
-    let video;
-    navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: {
-        width: {min: 1280},
-        height: {min: 720},
-      },
-    })
-    .then((s) => {
-      stream = s;
-      return this.getRef;
-    })
-    .then((v) => {
-      video = v;
-      video.srcObject = stream;
-      return new Promise((resolve, reject) => {
-        const handler = () => {
-          video.removeEventListener("loadedmetadata", handler);
-          resolve();
-        };
-        video.addEventListener("loadedmetadata", handler);
-      });
+    this.peer = getPeer(this.props.userId);
+  }
+
+  componentWillUnmount() {
+    this.peer.off("stream", this.initStream);
+    this.cleanupThree();
+  }
+
+  start() {
+    // Retrieve is like "on" but immediately resolves if we already have one.
+    this.peer.retrieve("stream", this.initStream);
+  }
+
+  initStream(stream) {
+    if (this.ref.srcObject === stream) {
+      return;
+    }
+    this.ref.srcObject = stream;
+    return new Promise((resolve, reject) => {
+      const handler = () => {
+        this.ref.removeEventListener("loadedmetadata", handler);
+        resolve();
+      };
+      this.ref.addEventListener("loadedmetadata", handler);
     })
     .then(() => {
-      this.initThree(video);
+      this.initThree(this.props);
     })
     .catch((err) => {
       SP.error(err);
     });
   }
 
-  initThree(video) {
-    const geometry = new THREE.PlaneGeometry(this.props.width, this.props.height);
+  initThree(props) {
+    this.cleanupThree();
+
+    const video = this.ref;
+
+    const geometry = new THREE.PlaneGeometry(props.width, props.height);
 
     const {videoWidth, videoHeight} = video;
 
     const videoAspect = videoWidth / videoHeight;
-    const myAspect = this.props.width / this.props.height;
+    const myAspect = props.width / props.height;
 
     const texture = new THREE.VideoTexture(video);
     texture.mapping = THREE.CubeReflectionMapping;
@@ -97,19 +102,32 @@ export default class SPCamera extends Component {
 
     const material = new THREE.MeshBasicMaterial({ map: texture });
 
-    const mesh = new THREE.Mesh(geometry, material);
-    const [x, y] = relativeCoords(this.props.x, this.props.y, this.props.width, this.props.height, this.context.canvasWidth, this.context.canvasHeight);
-    mesh.position.set( x, y, 0 );
-    this.context.scene.add(mesh);
+    this.mesh = new THREE.Mesh(geometry, material);
+    const [x, y] = relativeCoords(props.x, props.y, props.width, props.height, this.context.canvasWidth, this.context.canvasHeight);
+    this.mesh.position.set( x, y, 0 );
+    this.context.scene.add(this.mesh);
   }
 
-  getThreeObject() {
-    return "this";
+  /**
+   * Bad! Should dynamically move around, not reboot the whole dang mesh.
+   */
+  componentWillReceiveProps(newProps) {
+    const {x, y, width, height} = newProps;
+    if (x !== this.props.x || y !== this.props.y || width !== this.props.width || height !== this.props.height) {
+      this.initThree(newProps);
+    }
+  }
+
+  cleanupThree() {
+    if (this.mesh) {
+      this.context.scene.remove(this.mesh);
+    }
+    this.mesh = null;
   }
 
   render () {
     return (
-      <video autoPlay ref={this.ref.bind(this)} muted />
+      <video autoPlay ref={this.getRef.bind(this)} muted />
     );
   }
 }

@@ -28,12 +28,26 @@ spec:
       {{- end }}
       containers:
       - name: {{ .Chart.Name }}
+        readinessProbe:
+          httpGet:
+            path: /schema.json
+            port: 80
+          initialDelaySeconds: 3
+          timeoutSeconds: 5
+          periodSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /schema.json
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
         {{- if .Values.global.development }}
         image: "streamplace/{{ .Chart.Name }}:latest"
         command:
           - bash
           - -c
-          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch /app/src/{{ .Chart.Name }}.js
+          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch -o 'app/src/*' /app/src/{{ .Chart.Name }}.js
         volumeMounts:
           - name: app
             mountPath: /app

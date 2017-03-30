@@ -5,6 +5,12 @@
       window.SP_CONFIG = {
         API_SERVER_URL: "https://" + window.location.host,
       };
+
+      // Big hack to take control of kurento-utils logger, see also sp-peer-connection.js
+      window.Logger = {};
+      Object.keys(console).forEach((key) => {
+        window.Logger[key] = console[key];
+      });
     </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

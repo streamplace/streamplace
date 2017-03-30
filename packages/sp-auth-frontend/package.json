@@ -19,7 +19,6 @@
     "styled-components": "^1.4.4"
   },
   "scripts": {
-    "start": "echo 'nothing to do'",
     "dev": "bash -c 'PORT=80 react-scripts start | cat'",
     "prepublish": "react-scripts build && rm -rf dist && mv build dist",
     "test": "react-scripts test --env=jsdom",

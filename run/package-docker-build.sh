@@ -15,6 +15,7 @@ container="streamplace/$PACKAGE_NAME:latest"
 
 info "Building container for $PACKAGE_NAME"
 docker build -t $container .
+containerID="$(docker inspect "$container" | jq -r '.[].Id')"
 
 if [[ "$LOCAL_DEV" == "true" ]]; then
   info "Deploying all pods that utilize $container"

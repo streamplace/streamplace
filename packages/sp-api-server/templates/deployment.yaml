@@ -59,12 +59,33 @@ spec:
       {{- end }}
       containers:
       - name: {{ .Chart.Name }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+            httpHeaders:
+              - name: Kube-Probe
+                value: readiness
+          initialDelaySeconds: 3
+          periodSeconds: 3
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+            httpHeaders:
+              - name: Kube-Probe
+                value: liveness
+          initialDelaySeconds: 5
+          failureThreshold: 5
+          timeoutSeconds: 5
+          periodSeconds: 5
         {{- if .Values.global.development }}
         image: "streamplace/{{ .Chart.Name }}:latest"
         command:
           - bash
           - -c
-          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch /app/src/{{ .Chart.Name }}.js
+          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch -o '/app/src/*' /app/src/{{ .Chart.Name }}.js
         volumeMounts:
           - name: app
             mountPath: /app

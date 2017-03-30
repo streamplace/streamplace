@@ -19,6 +19,10 @@ winston.level = process.env.DEBUG_LEVEL || "info";
 
 const app = express();
 
+app.get("/healthz", (req, res) => {
+  res.sendStatus(200);
+});
+
 app.use(bodyParser.json());
 
 app.use(function(req, res, next) {

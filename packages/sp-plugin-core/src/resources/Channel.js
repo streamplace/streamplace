@@ -8,6 +8,7 @@ export default class Channel extends Resource {
       return {
         ...doc,
         userId: ctx.user.id,
+        users: [],
       };
     });
   }

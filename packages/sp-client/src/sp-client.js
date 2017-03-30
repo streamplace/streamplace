@@ -18,6 +18,16 @@ if (typeof window === "object") {
   isNode = false;
 }
 
+/**
+ * We use HTTP error codes to know how to handle our errors usually, so here's a little helper for
+ * that.
+ */
+const apiError = function(code, message) {
+  const err = new Error(message);
+  err.code = code;
+  return err;
+};
+
 export class SPClient extends EE {
   constructor({server, log, start, token, app} = {}) {
     super();
@@ -28,7 +38,7 @@ export class SPClient extends EE {
       this.tokenGenerator = new TokenGenerator({app: this.app});
     }
     this.app = app || "spclient";
-    this.shouldLog = log;
+    this.shouldLog = true;
     this.server = server;
     this.token = token;
     if (start !== false) {
@@ -38,7 +48,7 @@ export class SPClient extends EE {
 
   connect({server, log, token} = {}) {
     this.connected = false;
-    this.shouldLog = log;
+    this.shouldLog = true;
     this.token = token || this.token;
     if (!server) {
       server = this.server;
@@ -65,13 +75,9 @@ export class SPClient extends EE {
       // Generate a token if we can and we don't have one.
       if (!this.token && this.tokenGenerator) {
         this.token = this.tokenGenerator.generate();
-        // Generate new tokens when we're halfway to token expiration.
-        setInterval(() => {
-          this.token = this.tokenGenerator.generate();
-        }, Math.floor(this.tokenGenerator.expiry / 2));
       }
       if (!this.token) {
-        return Promise.reject("no API token specified");
+        return Promise.reject(apiError(401, "No token provided"));
       }
 
       this.client = new Swagger({

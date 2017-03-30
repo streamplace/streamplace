@@ -16,8 +16,8 @@
     "eslint": "^2.2.0",
     "eslint-plugin-react": "^4.3.0",
     "get-stdin": "^5.0.1",
-    "git-hooks": "^1.1.8",
     "helm-cli": "^2.2.1",
+    "husky": "^0.13.3",
     "inquirer": "^3.0.4",
     "js-yaml": "^3.8.1",
     "kubectl-cli": "^1.6.0-1",
@@ -41,7 +41,8 @@
     "helm-push": "run/helm-push.sh",
     "kube-init": "run/kube-init.sh",
     "update-cert": "run/update-cert.sh",
-    "link-deps": "run/link-deps.sh"
+    "link-deps": "run/link-deps.sh",
+    "precommit": "run/pre-commit.sh"
   },
   "repository": {
     "type": "git",

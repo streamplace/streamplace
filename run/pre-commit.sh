@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../.. && pwd )"
+ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 source "$ROOT/run/common.sh"
 
 packageDirs="$(find "$ROOT/packages" -maxdepth 1 -mindepth 1 | xargs -L 1 basename)"

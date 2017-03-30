@@ -17,7 +17,7 @@ spec:
 {{ .Values.persistence | toYaml | indent 10 }}
           {{- else if .Values.global.development }}
           hostPath:
-            path: {{ .Values.global.rootDirectory }}/data/rethinkdb
+            path: /opt/streamplace/rethinkdb
           {{- end }}
       containers:
       - name: {{ .Chart.Name }}

@@ -2,7 +2,6 @@
 import React, { Component } from "react";
 import * as THREE from "three";
 import {
-  OuterContainer,
   CanvasContainer,
   ChannelContents,
   Canvas,

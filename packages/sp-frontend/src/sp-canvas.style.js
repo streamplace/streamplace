@@ -1,12 +1,6 @@
 
 import styled from "styled-components";
 
-export const OuterContainer = styled.div`
-  flex-grow: 1;
-  padding: 1em;
-  display: flex;
-`;
-
 export const CanvasContainer = styled.div`
   flex-grow: 1;
   overflow: hidden;

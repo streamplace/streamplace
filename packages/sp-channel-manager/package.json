@@ -1,6 +1,6 @@
 {
   "name": "sp-channel-manager",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "Route WebRTC connections as is appropriate for a channel",
   "main": "dist/sp-channel-manager.js",
   "scripts": {

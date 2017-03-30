@@ -22,7 +22,7 @@ export class Home extends Component {
   }
 
   text() {
-    if (!this.props.ready) {
+    if (!this.props.channels) {
       return <p>Loading...</p>;
     }
     if (this.props.channels.length < 1) {

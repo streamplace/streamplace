@@ -57,15 +57,14 @@ export class SPBinding extends Component {
     SP: React.PropTypes.object.isRequired,
   };
 
-  constructor() {
+  constructor(props, {SP}) {
     super();
     this.previousWatchers = {};
     this.handles = {};
+    this.state = {SP};
   }
 
   componentWillMount() {
-    const {SP} = this.context;
-    this.setState({SP});
     this.resubscribe(this.props);
   }
 
@@ -96,6 +95,9 @@ export class SPBinding extends Component {
     }
 
     const {SP} = this.context;
+    if (!SP) {
+      throw new Error("Missing SP in context somehow. This shouldn't happen.");
+    }
 
     changedKeys.forEach((key) => {
       // If it existed before, unsubscribe from that changefeed.

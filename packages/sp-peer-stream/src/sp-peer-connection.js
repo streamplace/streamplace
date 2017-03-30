@@ -7,6 +7,18 @@
 import debug from "debug";
 import SP from "sp-client";
 import EE from "wolfy87-eventemitter";
+
+const log = debug("sp:sp-peer-connection");
+const kurentoLog = debug("sp:sp-peer-kurento");
+
+// This is the only way we get any control of Kurento's logger... see also index.html
+if (typeof window.Logger === "object") {
+  Object.keys(console).forEach((key) => {
+    window.Logger[key] = kurentoLog;
+  });
+}
+
+
 import KurentoUtils from "kurento-utils";
 import {parse as parseUrl} from "url";
 
@@ -21,8 +33,6 @@ if (typeof RTCPeerConnection === "undefined") {
     SP.error("No RTCPeerConnection implementation found");
   }
 }
-
-const log = debug("sp:sp-peer-connection");
 
 const PEER_CONNECTION_EVENTS = [
   "addstream",

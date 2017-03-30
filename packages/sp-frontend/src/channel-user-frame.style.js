@@ -23,3 +23,11 @@ export const RemoveButton = styled.a`
   right: 1em;
   bottom: 0.8em;
 `;
+
+export const SceneToggleButton = styled.a`
+  cursor: pointer;
+  position: absolute;
+  left: 1em;
+  bottom: 0.8em;
+`;
+

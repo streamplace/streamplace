@@ -88,8 +88,12 @@ class SPFrontend extends Component {
     .catch((err) => {
       // This is kinda interesting, it's the highest level catch() in the app. It catches a lot of
       // things in development, 'cuz if you typo anywhere it ends up here.
-      SP.error(err);
-      // this.handleLogout();
+      if (err.code === 401 || err.code === 403) {
+        this.handleLogout();
+      }
+      else {
+        SP.error("Unhandled exception upon login", err);
+      }
     });
   }
 

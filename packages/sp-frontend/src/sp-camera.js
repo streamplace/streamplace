@@ -12,6 +12,7 @@ export default class SPCamera extends Component {
     y: React.PropTypes.number.isRequired,
     width: React.PropTypes.number.isRequired,
     height: React.PropTypes.number.isRequired,
+    muted: React.PropTypes.bool,
   };
 
   static contextTypes = {
@@ -127,7 +128,7 @@ export default class SPCamera extends Component {
 
   render () {
     return (
-      <video autoPlay ref={this.getRef.bind(this)} muted />
+      <video autoPlay ref={this.getRef.bind(this)} muted={!(this.props.muted === false)} />
     );
   }
 }

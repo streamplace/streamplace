@@ -81,8 +81,8 @@ export class SPBinding extends Component {
    *
    * yeah, yeah, do as I say, not as I do, etc
    */
-  resubscribe(props = this.props) {
-    const newWatch = this.constructor.BoundComponent.subscribe({...props, ...this.state});
+  resubscribe(props = this.props, state = this.state) {
+    const newWatch = this.constructor.BoundComponent.subscribe({...props, ...state});
     const oldWatch = this.previousWatchers;
 
 
@@ -116,11 +116,14 @@ export class SPBinding extends Component {
         this.handles[key] = SP[resource].watch(filter)
         .on("data", (data) => {
           // This line right here is why this code needs to be so dang fast
-          this.resubscribe();
           if (options.one) {
             data = data[0];
           }
-          this.setState({[key]: data});
+          // setState isn't sync, but we need to call resubscribe right away with the new data, so
+          // here we are.
+          const mod = {[key]: data};
+          this.setState(mod);
+          this.resubscribe(this.props, {...this.state, ...mod});
         })
         .catch((err) => {
           SP.error("Error setting up watch", err);

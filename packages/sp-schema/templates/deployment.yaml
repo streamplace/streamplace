@@ -33,6 +33,7 @@ spec:
             path: /schema.json
             port: 80
           initialDelaySeconds: 3
+          timeoutSeconds: 5
           periodSeconds: 3
         livenessProbe:
           httpGet:
@@ -40,6 +41,7 @@ spec:
             port: 80
           initialDelaySeconds: 5
           periodSeconds: 5
+          timeoutSeconds: 5
         {{- if .Values.global.development }}
         image: "streamplace/{{ .Chart.Name }}:latest"
         command:

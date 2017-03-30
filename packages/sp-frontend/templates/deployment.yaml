@@ -33,13 +33,13 @@ spec:
           httpGet:
             path: /
             port: 80
-          initialDelaySeconds: 3
+          initialDelaySeconds: 15
           periodSeconds: 3
         livenessProbe:
           httpGet:
             path: /
             port: 80
-          initialDelaySeconds: 5
+          initialDelaySeconds: 15
           periodSeconds: 5
         {{- if .Values.global.development }}
         image: "streamplace/{{ .Chart.Name }}:latest"

@@ -70,6 +70,7 @@ spec:
             path: /healthz
             port: 80
           initialDelaySeconds: 5
+          failureThreshold: 5
           periodSeconds: 5
         {{- if .Values.global.development }}
         image: "streamplace/{{ .Chart.Name }}:latest"

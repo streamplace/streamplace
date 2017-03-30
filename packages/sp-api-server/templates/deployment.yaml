@@ -77,9 +77,9 @@ spec:
               - name: Kube-Probe
                 value: liveness
           initialDelaySeconds: 5
-          failureThreshold: 5
+          failureThreshold: 3
           timeoutSeconds: 5
-          periodSeconds: 5
+          periodSeconds: 3
         {{- if .Values.global.development }}
         image: "streamplace/{{ .Chart.Name }}:latest"
         command:

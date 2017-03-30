@@ -5,11 +5,20 @@ anyOf:
 definitions:
   SPCamera:
     type: object
+    required:
+      - kind
+      - id
+      - userId
+      - x
+      - y
+      - width
+      - height
+      - zIndex
     additionalProperties: false
     properties:
       kind:
         type: string
-        allowedValues: "SPChannel"
+        allowedValues: ["SPChannel"]
       id:
         type: string
         description: Unique ID of this camera

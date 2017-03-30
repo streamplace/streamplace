@@ -54,6 +54,7 @@ export class ChannelUserFrame extends Component {
       children: [
         ...scene.children,
         {
+          id: `${Math.round(Math.random() * 100000000)}`, // someday, server-generated plz
           kind: "SPCamera",
           x: 0,
           y: 0,

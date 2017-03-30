@@ -1,7 +1,7 @@
 
 import React, { Component } from "react";
 import SPCanvas from "./sp-canvas";
-import SPCamera from "./sp-camera";
+import SPScene from "./sp-scene";
 import {bindComponent, watch} from "./sp-binding";
 import {FlexContainer} from "./shared.style";
 import ChannelUsers from "./channel-users";
@@ -30,7 +30,7 @@ export class Channel extends Component {
 
   render () {
     const channel = this.props.channel;
-    if (!channel) {
+    if (!channel || !channel.activeSceneId) {
       return <FlexContainer />;
     }
     return (
@@ -41,9 +41,7 @@ export class Channel extends Component {
         <FlexContainer>
           <CanvasWrapper>
             <SPCanvas width={1920} height={1080}>
-              <SPCamera x={0} y={0} width={960} height={270} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
-              <SPCamera x={960} y={0} width={960} height={1080} userId="12006157-fa7e-4262-8152-abda9acae2f6"></SPCamera>
-              <SPCamera x={0} y={270} width={960} height={810} userId="8145ebde-cf2d-44e9-8462-92aac7fe0074"></SPCamera>
+              <SPScene sceneId={channel.activeSceneId} />
             </SPCanvas>
           </CanvasWrapper>
           <ChannelUsers channelId={channel.id} />

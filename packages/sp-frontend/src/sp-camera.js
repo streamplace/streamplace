@@ -20,6 +20,11 @@ export default class SPCamera extends Component {
     canvasHeight: React.PropTypes.number.isRequired,
   };
 
+  constructor() {
+    super();
+    this.initStream = this.initStream.bind(this);
+  }
+
   getRef(elem) {
     if (!elem) {
       return;
@@ -32,23 +37,33 @@ export default class SPCamera extends Component {
     this.peer = getPeer(this.props.userId);
   }
 
+  componentWillUnmount() {
+    this.peer.off("stream", this.initStream);
+    this.cleanupThree();
+  }
+
   start() {
     // Retrieve is like "on" but immediately resolves if we already have one.
-    this.peer.retrieve("stream", (stream) => {
-      this.ref.srcObject = stream;
-      return new Promise((resolve, reject) => {
-        const handler = () => {
-          this.ref.removeEventListener("loadedmetadata", handler);
-          resolve();
-        };
-        this.ref.addEventListener("loadedmetadata", handler);
-      })
-      .then(() => {
-        this.initThree(this.ref);
-      })
-      .catch((err) => {
-        SP.error(err);
-      });
+    this.peer.retrieve("stream", this.initStream);
+  }
+
+  initStream(stream) {
+    if (this.ref.srcObject === stream) {
+      return;
+    }
+    this.ref.srcObject = stream;
+    return new Promise((resolve, reject) => {
+      const handler = () => {
+        this.ref.removeEventListener("loadedmetadata", handler);
+        resolve();
+      };
+      this.ref.addEventListener("loadedmetadata", handler);
+    })
+    .then(() => {
+      this.initThree(this.ref);
+    })
+    .catch((err) => {
+      SP.error(err);
     });
   }
 

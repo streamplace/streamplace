@@ -115,7 +115,6 @@ export class SPBinding extends Component {
         }
         this.handles[key] = SP[resource].watch(filter)
         .on("data", (data) => {
-          // This line right here is why this code needs to be so dang fast
           if (options.one) {
             data = data[0];
           }
@@ -123,6 +122,7 @@ export class SPBinding extends Component {
           // here we are.
           const mod = {[key]: data};
           this.setState(mod);
+          // This line right here is why this code needs to be so dang fast
           this.resubscribe(this.props, {...this.state, ...mod});
         })
         .catch((err) => {

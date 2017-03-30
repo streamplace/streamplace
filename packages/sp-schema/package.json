@@ -14,7 +14,7 @@
   "dependencies": {
     "express": "^4.14.1",
     "js-yaml": "^3.5.2",
-    "kubectl-cli": "^1.5.3-1",
+    "kubectl-cli": "^1.6.0-1",
     "mz": "^2.6.0",
     "sp-configuration": "^0.0.14",
     "sp-node": "^0.0.14",

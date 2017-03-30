@@ -60,22 +60,24 @@ export default class SPCamera extends Component {
       this.ref.addEventListener("loadedmetadata", handler);
     })
     .then(() => {
-      this.initThree(this.ref);
+      this.initThree(this.props);
     })
     .catch((err) => {
       SP.error(err);
     });
   }
 
-  initThree(video) {
+  initThree(props) {
     this.cleanupThree();
 
-    const geometry = new THREE.PlaneGeometry(this.props.width, this.props.height);
+    const video = this.ref;
+
+    const geometry = new THREE.PlaneGeometry(props.width, props.height);
 
     const {videoWidth, videoHeight} = video;
 
     const videoAspect = videoWidth / videoHeight;
-    const myAspect = this.props.width / this.props.height;
+    const myAspect = props.width / props.height;
 
     const texture = new THREE.VideoTexture(video);
     texture.mapping = THREE.CubeReflectionMapping;
@@ -101,9 +103,19 @@ export default class SPCamera extends Component {
     const material = new THREE.MeshBasicMaterial({ map: texture });
 
     this.mesh = new THREE.Mesh(geometry, material);
-    const [x, y] = relativeCoords(this.props.x, this.props.y, this.props.width, this.props.height, this.context.canvasWidth, this.context.canvasHeight);
+    const [x, y] = relativeCoords(props.x, props.y, props.width, props.height, this.context.canvasWidth, this.context.canvasHeight);
     this.mesh.position.set( x, y, 0 );
     this.context.scene.add(this.mesh);
+  }
+
+  /**
+   * Bad! Should dynamically move around, not reboot the whole dang mesh.
+   */
+  componentWillReceiveProps(newProps) {
+    const {x, y, width, height} = newProps;
+    if (x !== this.props.x || y !== this.props.y || width !== this.props.width || height !== this.props.height) {
+      this.initThree(newProps);
+    }
   }
 
   cleanupThree() {

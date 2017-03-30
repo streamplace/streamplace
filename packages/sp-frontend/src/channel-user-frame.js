@@ -3,6 +3,7 @@ import React, { Component } from "react";
 import {bindComponent, watch} from "./sp-binding";
 import SPCanvas from "./sp-canvas";
 import SPCamera from "./sp-camera";
+import {normalizeRegions} from "./boring-1080p-regions";
 import {
   UserFrame,
   UserTitle,
@@ -50,22 +51,20 @@ export class ChannelUserFrame extends Component {
    */
   addToScene() {
     const {SP, scene, userId} = this.props;
-    SP.scenes.update(scene.id, {
-      children: [
-        ...scene.children,
-        {
-          id: `${Math.round(Math.random() * 100000000)}`, // someday, server-generated plz
-          kind: "SPCamera",
-          x: 0,
-          y: 0,
-          width: 1920,
-          height: 1080,
-          zIndex: 0,
-          userId: userId,
-        }
-      ]
-    })
-    .catch(SP.error);
+    const children = normalizeRegions([
+      ...scene.children,
+      {
+        id: `${Math.round(Math.random() * 100000000)}`, // someday, server-generated plz
+        kind: "SPCamera",
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1080,
+        zIndex: 0,
+        userId: userId,
+      }
+    ]);
+    SP.scenes.update(scene.id, {children}).catch(SP.error);
   }
 
   /**
@@ -73,9 +72,8 @@ export class ChannelUserFrame extends Component {
    */
   removeFromScene() {
     const {SP, scene, userId} = this.props;
-    SP.scenes.update(scene.id, {
-      children: scene.children.filter((child) => child.userId !== userId)
-    });
+    const children = normalizeRegions(scene.children.filter((child) => child.userId !== userId));
+    SP.scenes.update(scene.id, {children}).catch(SP.error);
   }
 
   render () {

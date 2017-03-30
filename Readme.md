@@ -8,10 +8,10 @@
 
 <p align="center">
   <a href="https://travis-ci.org/streamplace/streamplace">
-    <img src="https://img.shields.io/travis/streamplace/streamplace.svg?label=Travis">
+    <img src="https://img.shields.io/travis/streamplace/streamplace/master.svg?label=Travis">
   </a>
   <a href="https://circleci.com/gh/streamplace/streamplace">
-    <img src="https://img.shields.io/circleci/project/github/streamplace/streamplace.svg?label=CircleCI">
+    <img src="https://img.shields.io/circleci/project/github/streamplace/streamplace/master.svg?label=CircleCI">
   </a>
   <a href="https://slack.stream.place/">
     <img src="https://slack.stream.place/badge.svg">

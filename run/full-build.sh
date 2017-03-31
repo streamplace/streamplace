@@ -13,20 +13,12 @@ lerna bootstrap
 
 # Linted. Cool, we're good to deploy.
 
-npmTag=""
-# Check if we're a tagged release version
-if git "$REPO_VERSION" | grep '-'; then
-  npmTag="next"
-else
-  npmTag="latest"
-fi
-
 if npm whoami; then
-  lerna publish --exact --skip-git --skip-npm --force-publish '*' --yes --repo-version "$REPO_VERSION" --npm-tag "$npmTag"
+  lerna publish --exact --skip-git --skip-npm --force-publish '*' --yes --repo-version "$REPO_VERSION" --npm-tag "$REPO_DIST_TAG"
   # and now run the linting script that updates all the Chart.yaml files
   FIX_OR_ERR="FIX" "$ROOT/run/every-package.sh" "$ROOT/run/helm-lint.sh" --concurrency=1
   # Cool. With that, we're good to build. First publish the new version of the npm packages...
-  lerna publish --exact --skip-git --force-publish '*' --yes --repo-version "$REPO_VERSION" --npm-tag "$npmTag"
+  lerna publish --exact --skip-git --force-publish '*' --yes --repo-version "$REPO_VERSION" --npm-tag "$REPO_DIST_TAG"
 else
   echo "No npm auth found, not bumping package versions 'cuz I can't publish. But I'll make sure prepublish works."
   lerna run prepublish --exact

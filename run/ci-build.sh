@@ -36,3 +36,6 @@ npm whoami # so we error if that thing didn't work properly
 CI_TRIGGER_APP_BUILDS="true" FIX_OR_ERROR="FIX" "$ROOT/run/full-build.sh"
 
 rm -rf "$ROOT/tmp"
+
+message="Version *v$REPO_VERSION* (branch $REPO_BRANCH) is cooked and ready to go. ❤️"
+curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$message\"}" "$SLACK_URL"

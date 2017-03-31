@@ -76,7 +76,7 @@ spec:
             httpHeaders:
               - name: Kube-Probe
                 value: liveness
-          initialDelaySeconds: 5
+          initialDelaySeconds: 30
           failureThreshold: 5
           timeoutSeconds: 5
           periodSeconds: 5

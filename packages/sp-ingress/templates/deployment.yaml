@@ -45,7 +45,7 @@ spec:
             port: 10254
             scheme: HTTP
         livenessProbe:
-          initialDelaySeconds: 10
+          initialDelaySeconds: 30
           timeoutSeconds: 1
           httpGet:
             path: /healthz

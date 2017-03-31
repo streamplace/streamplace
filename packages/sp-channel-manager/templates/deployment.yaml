@@ -39,7 +39,7 @@ spec:
           httpGet:
             path: /healthz
             port: 80
-          initialDelaySeconds: 5
+          initialDelaySeconds: 30
           periodSeconds: 5
           timeoutSeconds: 5
         {{- if .Values.global.development }}

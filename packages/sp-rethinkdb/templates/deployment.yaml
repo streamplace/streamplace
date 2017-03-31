@@ -25,6 +25,10 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 28015
+        {{- if .Values.global.development }}
+        - containerPort: 8080
+          hostPort: 9999
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /

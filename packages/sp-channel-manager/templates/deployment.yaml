@@ -71,7 +71,7 @@ spec:
           - name: SP_AUTH_ISSUER
             value: "{{ .Values.global.authIssuer }}"
           - name: SP_API_SERVER_URL
-            value: https://iameli.sp-dev.club
+            value: https://{{ .Values.global.domain }}
           {{- if .Values.global.development }}
           - name: SP_DEV_EXTERNAL_IP
             value: "{{ .Values.global.externalIP }}"

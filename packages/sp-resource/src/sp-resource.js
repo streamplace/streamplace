@@ -124,6 +124,10 @@ export default class Resource {
       }
       oldDoc = old;
       newDoc = {};
+      return this.default(ctx);
+    })
+    .then((defaultDoc) => {
+      merge.recursive(newDoc, defaultDoc);
       merge.recursive(newDoc, oldDoc);
       merge.recursive(newDoc, doc);
       return this.validate(ctx, newDoc);

@@ -13,7 +13,7 @@ function auditPackageVersions(dir) {
     throw new Error("Missing directory!");
   }
   const problems = [];
-  const correctVersion = "^" + require(resolve(dir, "package.json")).version;
+  const correctVersion = "^" + require(resolve(dir, "lerna.json")).version;
   const packages = fs.readdirSync(resolve(dir, "packages"));
   packages.forEach((pkgName) => {
     const pkgJson = resolve(dir, "packages", pkgName, "package.json");

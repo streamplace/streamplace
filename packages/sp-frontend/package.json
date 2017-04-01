@@ -1,7 +1,6 @@
 {
   "name": "sp-frontend",
   "version": "0.0.15",
-  "private": true,
   "devDependencies": {
     "react-scripts": "0.8.5",
     "sp-static": "^0.0.15"

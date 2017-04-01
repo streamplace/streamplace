@@ -5,25 +5,20 @@
   "main": "dist/sp-compositor.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "run/dev.sh",
-    "build": "babel -d dist src",
-    "prepublish": "npm run build"
+    "start": "nodemon -w src -x npm run build-dev",
+    "build-dev": "npm run prepublish && electron .",
+    "prepublish": "babel -d dist src"
   },
-  "author": "",
-  "chromium-args": "--no-sandbox --disable-gpu-sandbox --enable-webgl --ignore-gpu-blacklist --enable-logging=stderr",
-  "window": {
-    "title": "Streamplace Compositor",
-    "width": 1920,
-    "height": 1080,
-    "min_width": 1920,
-    "min_height": 1080,
-    "resizable": true,
-    "frame": true
-  },
+  "author": "Streamplace",
   "license": "Apache-2.0",
   "devDependencies": {
     "babel-cli": "^6.22.2",
     "babel-core": "^6.22.1",
-    "babel-preset-streamplace": "0.0.1"
+    "babel-preset-streamplace": "0.0.1",
+    "nodemon": "^1.11.0"
+  },
+  "dependencies": {
+    "electron": "^1.6.2",
+    "sp-frontend": "^0.0.15"
   }
 }

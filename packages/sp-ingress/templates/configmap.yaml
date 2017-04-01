@@ -8,3 +8,6 @@ data:
   large-client-header-buffers: "12 16k"
   ssl-buffer-size: 16k
   use-http2: "false"
+  {{- if .Values.global.development }}
+  log-format-upstream: '$request_method $uri $status [$proxy_upstream_name]'
+  {{- end }}

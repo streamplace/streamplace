@@ -1,6 +1,6 @@
 {
   "name": "sp-plugin-auth",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "Streamplace auth plugin",
   "main": "dist/sp-plugin-auth.js",
   "scripts": {
@@ -14,15 +14,15 @@
     "babel-core": "^6.23.1",
     "babel-preset-streamplace": "*",
     "jest": "^15.1.1",
-    "sp-node": "^0.0.14",
-    "sp-schema": "^0.0.14"
+    "sp-node": "^0.0.15",
+    "sp-schema": "^0.0.15"
   },
   "dependencies": {
     "dove-jwt": "0.0.4",
     "mz": "^2.6.0",
     "node-uuid": "^1.4.7",
-    "sp-resource": "^0.0.14",
-    "sp-utils": "^0.0.14",
+    "sp-resource": "^0.0.15",
+    "sp-utils": "^0.0.15",
     "winston": "^2.2.0"
   }
 }

@@ -7,6 +7,8 @@ set -o pipefail
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 source "$ROOT/run/common.sh"
 
+node "$ROOT/run/audit-package-versions.js" "$ROOT"
+
 cd "$ROOT"
 
 export FIX_OR_ERR=${FIX_OR_ERR:-FIX}

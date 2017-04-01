@@ -19,7 +19,7 @@
   "dependencies": {
     "debug": "^2.6.3",
     "kurento-utils": "^6.6.1",
-    "sp-client": "0.0.12",
+    "sp-client": "^0.0.14",
     "wolfy87-eventemitter": "^5.1.0"
   }
 }

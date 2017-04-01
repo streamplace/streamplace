@@ -3,6 +3,8 @@
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 source "$ROOT/run/common.sh"
 
+node "$ROOT/run/audit-package-versions.js" "$ROOT"
+
 packageDirs="$(find "$ROOT/packages" -maxdepth 1 -mindepth 1 | xargs -L 1 basename)"
 
 changedFiles=$(git diff --cached --name-only)

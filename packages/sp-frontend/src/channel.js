@@ -41,7 +41,10 @@ export class Channel extends Component {
 
   componentWillUnmount() {
     this.isAdding = true;
-    const {channel, SP} = this.props;
+    const { channel, SP } = this.props;
+    if (!channel) {
+      return;
+    }
     SP.channels.update(channel.id, {
       users: channel.users.filter(u => u.userId !== SP.user.id)
     })
@@ -98,20 +101,22 @@ export class Channel extends Component {
       });
     }
 
+    const broadcastActive = !(broadcasts && broadcasts.length === 0);
     let goLive;
-    if (broadcasts && broadcasts.length === 0) {
-      goLive = <GoLiveButton onClick={() => this.goLive()}>GO LIVE</GoLiveButton>;
+    if (broadcastActive) {
+      goLive = <GoLiveButton active onClick={() => this.stopLive()}>STOP</GoLiveButton>;
     }
     else {
-      goLive = <GoLiveButton active onClick={() => this.stopLive()}>STOP</GoLiveButton>;
+      goLive = <GoLiveButton onClick={() => this.goLive()}>GO LIVE</GoLiveButton>;
     }
 
     return (
       <FlexContainer>
-        <TitleBar>
+        <TitleBar active={broadcastActive}>
           <div>
             <ChannelName>{channel.slug}</ChannelName>
           </div>
+          {broadcastActive && <div>LIVE</div>}
           {goLive}
         </TitleBar>
         <FlexContainer>

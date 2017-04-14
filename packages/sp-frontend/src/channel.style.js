@@ -1,7 +1,7 @@
 
 import styled from "styled-components";
 import { FlexContainer } from "./shared.style";
-import { Button } from "sp-styles";
+import { Button, colorLive, colorLiveLight } from "sp-styles";
 
 export const UserBar = styled.div`
   background-color: #eee;
@@ -28,22 +28,26 @@ export const TitleBar = styled.div`
   font-weight: 200;
   padding: 0 0.3em;
   align-items: center;
+  background-color: ${props => props.active ? colorLiveLight : "white"};
+  color: ${props => props.active ? "white" : "#333"};
+  justify-content: space-between;
 `;
 
 export const GoLiveButton = styled(Button)`
-  margin: 0 0 0 auto;
+  margin: 0;
   cursor: pointer;
   height: 80%;
+  width: 115px;
   font-size: 0.7em;
   -webkit-app-region: no-drag;
   padding: 0.2em 0.5em;
-  background-color: rgba(225, 0, 0, 1);
-  border-color: rgba(225, 0, 0, 1);
-  color: white;
+  background-color: ${props => props.active ? "white" : colorLive};
+  border: none;
+  color: ${props => props.active ? "#333" : "white"};
   border-radius: 5px;
 
   &:hover {
-    background-color: rgba(255, 0, 0, 1);
+    background-color: ${props => props.active ? "#ddd" : colorLiveLight};
   }
 `;
 

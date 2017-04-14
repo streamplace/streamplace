@@ -6,7 +6,7 @@ import {
 } from "react-router-dom";
 import Home from "./home";
 import icon from "./icon.svg";
-import {watch, bindComponent} from "./sp-binding";
+import {watch, bindComponent} from "sp-components";
 import Channel from "./channel";
 import TopBar from "./topbar.js";
 import {

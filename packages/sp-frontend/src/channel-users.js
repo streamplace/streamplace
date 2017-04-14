@@ -1,7 +1,7 @@
 
 import React, { Component } from "react";
 import {UserBar} from "./channel-users.style";
-import {watch, bindComponent} from "./sp-binding";
+import {watch, bindComponent} from "sp-components";
 import SP from "sp-client";
 import ChannelUserFrame from "./channel-user-frame";
 

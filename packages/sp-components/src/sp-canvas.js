@@ -49,7 +49,7 @@ export default class SPCanvas extends Component {
 
   componentWillUnmount() {
     this.done = true;
-    if (this.windowListner) {
+    if (this.windowListener) {
       window.removeEventListener(this.windowListener);
     }
   }

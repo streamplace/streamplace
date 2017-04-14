@@ -1,0 +1,9 @@
+{
+  "presets": [
+    "streamplace",
+    "react"
+  ],
+  "plugins": [
+    "transform-class-properties"
+  ]
+}

@@ -1,8 +1,11 @@
 
 import React, { Component } from "react";
-import SPCanvas from "./sp-canvas";
-import SPScene from "./sp-scene";
-import {bindComponent, watch} from "./sp-binding";
+import {
+  SPCanvas,
+  bindComponent,
+  watch,
+  SPScene,
+} from "sp-components";
 import {FlexContainer} from "./shared.style";
 import ChannelUsers from "./channel-users";
 import {TitleBar, ChannelName, CanvasWrapper} from "./channel.style";

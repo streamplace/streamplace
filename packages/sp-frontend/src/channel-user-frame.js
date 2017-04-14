@@ -1,8 +1,11 @@
 
 import React, { Component } from "react";
-import {bindComponent, watch} from "./sp-binding";
-import SPCanvas from "./sp-canvas";
-import SPCamera from "./sp-camera";
+import {
+  SPCanvas,
+  SPCamera,
+  bindComponent,
+  watch,
+} from "sp-components";
 import {normalizeRegions} from "./boring-1080p-regions";
 import {
   CanvasWrapper,

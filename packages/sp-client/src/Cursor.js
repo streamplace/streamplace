@@ -67,7 +67,7 @@ class Cursor {
       return false;
     }
     for (let key in query) {
-      if (typeof query[key] === "object") {
+      if (typeof query[key] === "object" && query[key] !== null) {
         if (!this._matches(doc[key], query[key])) {
           return false;
         }

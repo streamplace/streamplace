@@ -1,4 +1,8 @@
 // Place your settings in this file to overwrite default and user settings.
 {
-  "cSpell.enabled": true
+  "cSpell.enabled": true,
+  // The folders to exclude when doing a full text search in the workspace.
+  "search.exclude": {
+    "packages/*/dist": true
+  }
 }

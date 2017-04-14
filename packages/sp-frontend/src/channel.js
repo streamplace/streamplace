@@ -8,18 +8,28 @@ import {
 } from "sp-components";
 import {FlexContainer} from "./shared.style";
 import ChannelUsers from "./channel-users";
-import {TitleBar, ChannelName, CanvasWrapper} from "./channel.style";
+import {
+  TitleBar,
+  ChannelName,
+  CanvasWrapper,
+  GoLiveButton,
+} from "./channel.style";
 
 export class Channel extends Component {
   static propTypes = {
     channel: React.PropTypes.object,
+    broadcasts: React.PropTypes.array,
     SP: React.PropTypes.object.isRequired,
   };
 
   static subscribe(props) {
     return {
       channel: watch.one("channels", {slug: props.match.params.slug}),
-      scenes: props.channel && watch("scenes", {channelId: props.channel.id}),
+      scenes: props.channel && watch("scenes", { channelId: props.channel.id }),
+      broadcasts: props.channel && watch("broadcasts", {
+        channelId: props.channel.id,
+        stopTime: null,
+      }),
     };
   }
 
@@ -40,8 +50,30 @@ export class Channel extends Component {
     });
   }
 
-  render () {
-    const {channel, SP} = this.props;
+  goLive() {
+    const { channel, SP } = this.props;
+    SP.broadcasts.create({
+      channelId: channel.id,
+      startTime: new Date(),
+    })
+    .catch((err) => {
+      SP.error(err);
+    });
+  }
+
+  stopLive() {
+    const { broadcasts, SP } = this.props;
+    // You really shouldn't be able to have more than one broadcast, but w/e
+    const proms = broadcasts.map((broadcast) => {
+      return SP.broadcasts.update(broadcast.id, { stopTime: new Date() });
+    });
+    Promise.all(proms).catch((err) => {
+      SP.error(err);
+    });
+  }
+
+  render() {
+    const {channel, broadcasts, SP} = this.props;
     if (!channel || !channel.activeSceneId) {
       return <FlexContainer />;
     }
@@ -66,10 +98,21 @@ export class Channel extends Component {
       });
     }
 
+    let goLive;
+    if (broadcasts && broadcasts.length === 0) {
+      goLive = <GoLiveButton onClick={() => this.goLive()}>GO LIVE</GoLiveButton>;
+    }
+    else {
+      goLive = <GoLiveButton active onClick={() => this.stopLive()}>STOP</GoLiveButton>;
+    }
+
     return (
       <FlexContainer>
         <TitleBar>
-          📹 <ChannelName>{channel.slug}</ChannelName>
+          <div>
+            <ChannelName>{channel.slug}</ChannelName>
+          </div>
+          {goLive}
         </TitleBar>
         <FlexContainer>
           <CanvasWrapper>

@@ -15,7 +15,8 @@ correctName="$PACKAGE_NAME"
 correctIcon="https://charts.stream.place/icon.svg"
 
 if [[ -f "package.json" ]]; then
-  newPackage="$(cat package.json)"
+  oldPackage="$(cat package.json)"
+  newPackage="$oldPackage"
   packageVersion=$(echo $newPackage | jq -r .version)
   packageName=$(echo $newPackage | jq -r .name)
   if [[ "$packageVersion" != "$correctVersion" ]]; then
@@ -26,7 +27,9 @@ if [[ -f "package.json" ]]; then
     fixOrErr "$correctName: package.json has name $packageName instead of $correctName"
     newPackage=$(tweak "$newPackage" ".name" "$correctName")
   fi
-  echo "$newPackage" > package.json
+  if [[ "$oldPackage" != "$newPackage" ]]; then
+    echo "$newPackage" > package.json
+  fi
 fi
 
 if [[ -f "Chart.yaml" ]]; then

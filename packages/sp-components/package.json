@@ -1,0 +1,28 @@
+{
+  "name": "sp-components",
+  "version": "0.0.15",
+  "description": "Streamplace React Components",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "babel -s -w -d dist src",
+    "prepublish": "babel -s -d dist src"
+  },
+  "author": "Streamplace",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-core": "^6.24.1",
+    "babel-plugin-transform-class-properties": "^6.24.1",
+    "babel-preset-react": "^6.24.1",
+    "babel-preset-streamplace": "0.0.1"
+  },
+  "dependencies": {
+    "react": "^15.5.4",
+    "sp-client": "^0.0.15",
+    "sp-peer-stream": "^0.0.15",
+    "sp-utils": "^0.0.15",
+    "styled-components": "^1.4.4",
+    "three": "^0.84.0"
+  }
+}

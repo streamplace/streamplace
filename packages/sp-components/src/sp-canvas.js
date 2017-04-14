@@ -10,6 +10,7 @@ import {
 
 export default class SPCanvas extends Component {
   static propTypes = {
+    "className": React.PropTypes.string,
     "width": React.PropTypes.number.isRequired,
     "height": React.PropTypes.number.isRequired,
     "children": React.PropTypes.oneOfType([
@@ -48,8 +49,8 @@ export default class SPCanvas extends Component {
 
   componentWillUnmount() {
     this.done = true;
-    if (this.windowListner) {
-      window.removeEventListener(this.windowListener);
+    if (this.windowListener) {
+      window.removeEventListener("resize", this.windowListener);
     }
   }
 
@@ -143,7 +144,7 @@ export default class SPCanvas extends Component {
     return (
       <CanvasContainer innerRef={this.containerRef.bind(this)}>
         <AutoShrink style={canvasStyle}>
-          <Canvas innerRef={this.ref.bind(this)} />
+          <Canvas className={this.props.className} innerRef={this.ref.bind(this)} />
           <ChannelContents>
             {children}
           </ChannelContents>

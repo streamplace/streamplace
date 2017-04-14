@@ -7,8 +7,8 @@ export default class Broadcast extends Resource {
     return super.default().then((doc) => {
       return {
         ...doc,
-        outputIds: [],
-        enabled: false,
+        startTime: Date.now(),
+        stopTime: null,
       };
     });
   }
@@ -21,5 +21,3 @@ export default class Broadcast extends Resource {
     return Promise.resolve({});
   }
 }
-
-Broadcast.tableName = "broadcasts";

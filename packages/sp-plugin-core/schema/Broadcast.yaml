@@ -1,7 +1,10 @@
 type: object
 tableName: broadcasts
 additionalProperties: false
-required: [kind, title, enabled, outputIds]
+required:
+  - kind
+  - channelId
+  - startTime
 properties:
   kind:
     type: string
@@ -9,17 +12,17 @@ properties:
   id:
     type: string
     description: Unique ID of the Broadcast
-  title:
+  channelId:
     type: string
     description: Human-reaadable name of the broadcast
-  activeSceneId:
+  startTime:
     type: string
-    description: Which scene is currently active on this broadcast?
-  enabled:
-    type: boolean
-    description: Is this broadcast currently running?
-  outputIds:
-    type: array
-    description: To which outputs should we be forwarding?
-    items:
-      type: string
+    format: date-time
+    description: When did this broadcast start?
+  stopTime:
+    anyOf:
+      - type: "null"
+        allowedValues: [null]
+      - type: string
+        format: date-time
+        description: When did this broadcast end?

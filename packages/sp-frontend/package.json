@@ -1,7 +1,6 @@
 {
   "name": "sp-frontend",
   "version": "0.0.15",
-  "private": true,
   "devDependencies": {
     "react-scripts": "0.8.5",
     "sp-static": "^0.0.15"
@@ -12,14 +11,13 @@
     "font-awesome": "^4.7.0",
     "normalize.css": "^5.0.0",
     "qs": "^6.3.1",
-    "react": "^15.4.2",
+    "react": "^15.5.4",
     "react-dom": "^15.4.2",
     "react-router": "^4.0.0-beta.8",
     "react-router-dom": "^4.0.0-beta.8",
     "sp-client": "^0.0.15",
-    "sp-peer-stream": "^0.0.15",
+    "sp-components": "^0.0.15",
     "sp-styles": "^0.0.15",
-    "sp-utils": "^0.0.15",
     "styled-components": "^1.4.4",
     "three": "^0.84.0",
     "url": "^0.11.0"

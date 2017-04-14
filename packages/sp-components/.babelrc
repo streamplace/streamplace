@@ -3,5 +3,7 @@
     "streamplace",
     "react"
   ],
-  "retainLines": true
+  "plugins": [
+    "transform-class-properties"
+  ]
 }

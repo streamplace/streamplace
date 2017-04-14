@@ -1,7 +1,7 @@
 
 import React, { Component } from "react";
-import {UserBar, JoinButton} from "./channel-users.style";
-import {watch, bindComponent} from "./sp-binding";
+import {UserBar} from "./channel-users.style";
+import {watch, bindComponent} from "sp-components";
 import SP from "sp-client";
 import ChannelUserFrame from "./channel-user-frame";
 
@@ -38,10 +38,6 @@ export class ChannelUsers extends Component {
     });
   }
 
-  amInChannel() {
-    return !!this.props.channel.users.find(u => u.userId === SP.user.id);
-  }
-
   render () {
     const {channel} = this.props;
     if (!channel) {
@@ -50,7 +46,6 @@ export class ChannelUsers extends Component {
     return (
       <UserBar>
         {channel.users.map(u => <ChannelUserFrame key={u.userId} userId={u.userId} channelId={this.props.channelId}>{u.userId}</ChannelUserFrame>)}
-        {this.amInChannel() ? "" : <JoinButton onClick={() => this.handleJoin()}>Join Channel</JoinButton>}
       </UserBar>
     );
   }

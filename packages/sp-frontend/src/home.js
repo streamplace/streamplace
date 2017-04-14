@@ -1,6 +1,6 @@
 
 import React, { Component } from "react";
-import {bindComponent, watch} from "./sp-binding";
+import {bindComponent, watch} from "sp-components";
 import CreateMyChannel from "./create-my-channel";
 import {FlexContainer, NoChannel, ChannelSelect} from "./home.style";
 

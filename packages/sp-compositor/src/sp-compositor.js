@@ -1,83 +1,31 @@
+const {app, BrowserWindow} = require("electron");
 
-/* eslint-disable no-console */
-/* global nw */
+app.commandLine.appendSwitch("js-flags", "--harmony-sharedarraybuffer");
+app.commandLine.appendSwitch("enable-blink-feature", "SharedArrayBuffer");
 
-const env = {
-  URL: null,
-  SELECTOR: null,
-  POLL_TIMEOUT: "60000",
-};
+let win;
 
-const windowOptions = {
-  "title": "Streamplace Compositor",
-  "width": 1920,
-  "height": 1080,
-  "min_width": 1920,
-  "min_height": 1080,
-  "resizable": true,
-  "frame": true
-};
+app.on("ready", () => {
 
-let quit = false;
-Object.keys(env).forEach((key) => {
-  if (process.env[key]) {
-    env[key] = process.env[key];
-  }
-  if (!env[key]) {
-    quit = true;
-    console.error(`Missing required environment variable: ${key}`);
-  }
-});
-if (quit) {
-  process.exit(1);
-}
+  // // Create the browser window.
+  // win = new BrowserWindow({
+  //   width: 1920,
+  //   height: 1080,
+  //   title: "Streamplace Compositor",
+  //   show: true,
+  // });
 
-const pollForElement = function(document, selector) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-      reject(`Couldn't find document.querySelector("${selector}") in ${env.POLL_TIMEOUT}ms!`);
-    }, parseInt(env.POLL_TIMEOUT));
-    const poll = () => {
-      const elem = document.querySelector(selector);
-      if (elem) {
-        clearTimeout(timeout);
-        clearInterval(interval);
-        resolve(elem);
-      }
-    };
-    const interval = setInterval(poll, 10);
-    poll();
-  });
-};
+  // win.loadURL("about:blank");
 
-nw.Window.open(process.env.URL, windowOptions, function(new_win) {
-  // And listen to new window's focus event
-  const worker = new Worker("dist/worker.js");
-  new_win.on("close", function() {
-    process.exit(0);
-  });
-  new_win.on("loaded", function() {
-    const document = new_win.window.document;
-    console.log(`Window loaded, polling for document.querySelector("${env.SELECTOR}")`);
-    const start = Date.now();
-    pollForElement(document, env.SELECTOR)
-    .then((elem) => {
-      const gl = elem.getContext("experimental-webgl", {preserveDrawingBuffer: true});
-      const pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
-      const run = function() {
-        setTimeout(run, 5);
-        if (new_win.window.newFrame === true) {
-          gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-          worker.postMessage(pixels);
-          new_win.window.newFrame = false;
-        }
-      };
-      run();
-    })
-    .catch((err) => {
-      console.error(err);
-      process.exit(1);
-    });
-  });
+
+  // // Open the DevTools.
+  // // win.webContents.openDevTools()
+
+  // // Emitted when the window is closed.
+  // win.on("closed", () => {
+  //   // Dereference the window object, usually you would store windows
+  //   // in an array if your app supports multi windows, this is the time
+  //   // when you should delete the corresponding element.
+  //   win = null;
+  // });
 });

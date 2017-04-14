@@ -1,6 +1,6 @@
 
 import React, { Component } from "react";
-import {bindComponent} from "./sp-binding";
+import {bindComponent} from "sp-components";
 import styled from "styled-components";
 import {parse as parseUrl} from "url";
 import {GoodButton} from "sp-styles";

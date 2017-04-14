@@ -7,13 +7,14 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon -w src -x npm run build-dev",
     "build-dev": "npm run prepublish && electron .",
-    "prepublish": "babel -d dist src"
+    "prepublish": "babel -s --copy-files -d dist src"
   },
   "author": "Streamplace",
   "license": "Apache-2.0",
   "devDependencies": {
     "babel-cli": "^6.22.2",
     "babel-core": "^6.22.1",
+    "babel-preset-react": "^6.24.1",
     "babel-preset-streamplace": "0.0.1",
     "nodemon": "^1.11.0"
   },

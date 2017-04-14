@@ -39,6 +39,11 @@ export const PageContainer = styled.div`
 const oColor = "#cccccc";
 const oSize = "3px";
 
+const optionsStyles = () => `
+  margin-top: auto;
+  background-color: #444;
+`;
+
 export const ChannelIcon = styled(NavLink)`
   width: 3em;
   height: 3em;
@@ -46,7 +51,7 @@ export const ChannelIcon = styled(NavLink)`
   cursor: pointer;
   border-radius: 0.4em;
   margin: 1.2em 0;
-  background-color: ${props => props.icon ? "transparent" : getColor(props.slug)};
+  background-color: ${props => props.icon ? "transparent" : getColor(props.id)};
   color: white;
   overflow: hidden;
   display: flex;
@@ -56,6 +61,8 @@ export const ChannelIcon = styled(NavLink)`
   background-image: ${props => props.icon ? `url("${props.icon}")` : "none"};
   background-size: contain;
   opacity: 0.5;
+
+  ${props => props.id === "channel-options" && optionsStyles()}
 
   &:hover {
     box-shadow: ${oSize} ${oSize} 0px ${oColor}, -${oSize} -${oSize} 0px ${oColor}, ${oSize} -${oSize} 0px ${oColor}, -${oSize} ${oSize} 0px ${oColor};

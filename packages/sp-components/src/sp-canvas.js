@@ -50,7 +50,7 @@ export default class SPCanvas extends Component {
   componentWillUnmount() {
     this.done = true;
     if (this.windowListener) {
-      window.removeEventListener(this.windowListener);
+      window.removeEventListener("resize", this.windowListener);
     }
   }
 

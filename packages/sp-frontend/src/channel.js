@@ -77,7 +77,7 @@ export class Channel extends Component {
 
   render() {
     const {channel, broadcasts, SP} = this.props;
-    if (!channel || !channel.activeSceneId) {
+    if (!channel || !channel.activeSceneId || !broadcasts) {
       return <FlexContainer />;
     }
 

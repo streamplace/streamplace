@@ -13,3 +13,4 @@ requirements.lock
 /packages/*/charts
 values-dev.yaml
 .tmp
+yarn-error.log

@@ -1,0 +1,6 @@
+
+port: 3005
+packages:
+  - packages/*
+
+env: {}

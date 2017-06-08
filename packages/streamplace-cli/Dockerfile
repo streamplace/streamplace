@@ -1,5 +1,5 @@
 
-FROM streamplace/sp-node
+FROM quay.io/streamplace/sp-node
 
 ENV DOCKER_VERSION 1.12.5
 WORKDIR /app

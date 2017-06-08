@@ -4,3 +4,6 @@ packages:
   - packages/*
 
 env: {}
+
+docker:
+  prefix: quay.io/streamplace

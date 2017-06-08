@@ -1,4 +1,4 @@
-FROM streamplace/sp-node
+FROM quay.io/streamplace/sp-node
 
 RUN \
   apt-get update && \

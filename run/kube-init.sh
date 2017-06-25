@@ -26,7 +26,7 @@ hostsLine="$ip $domain"
 if ! cat /etc/hosts | grep "$hostsLine" > /dev/null; then
   info "Need to update /etc/hosts"
   info "Please give me sudo powers to run this command:"
-  cmd="echo $hostsLine >> /etc/hosts"
+  cmd="$ROOT/node_modules/.bin/hostile set $ip $domain"
   echo "$cmd"
   sudo bash -c "$cmd"
 fi
@@ -35,6 +35,7 @@ if ! docker ps | grep kubelet > /dev/null; then
   echo "kubelet doesn't appear to be running."
   echo "We will now use https://github.com/streamplace/kube-for-mac to spin up a local Kubernetes"
   confirm "cluster running on Docker for Mac. That sound good?"
+  docker rm -f "/run-docker-kube-for-mac-start" || echo -n ""
   curl https://raw.githubusercontent.com/streamplace/kube-for-mac/master/run-docker-kube-for-mac.sh | bash -s start
   echo "Adding local kubernetes cluster to $HOME/.kube/config"
   mkdir -p "$HOME/.kube"

@@ -1,5 +1,5 @@
 {
-  "name": "sp-rtmp-server",
+  "name": "sp-rtmp-nginx",
   "version": "0.0.15",
   "description": "Streamplace RTMP Server",
   "main": "package.json",

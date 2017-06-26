@@ -1,6 +1,6 @@
 {
   "name": "sp-utils",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "Rando shared SP utilities",
   "main": "dist/sp-utils.js",
   "scripts": {
@@ -13,6 +13,5 @@
     "babel-cli": "^6.14.0",
     "babel-preset-streamplace": "*",
     "nodemon": "^1.10.2"
-  },
-  "dependencies": {}
+  }
 }

@@ -1,6 +1,6 @@
 {
   "name": "sp-rethinkdb",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "RethinkDB server for Streamplace",
   "main": "Chart.yaml",
   "scripts": {

@@ -1,6 +1,6 @@
 apiVersion: v1
 description: Route WebRTC connections as is appropriate for a channel
 name: sp-channel-manager
-version: 0.0.15
+version: 0.0.16
 icon: 'https://charts.stream.place/icon.svg'
 

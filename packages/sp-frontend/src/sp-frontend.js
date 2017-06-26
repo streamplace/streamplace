@@ -1,4 +1,3 @@
-
 import React, { Component } from "react";
 import "normalize.css";
 import "./App.css";
@@ -6,7 +5,7 @@ import SP from "sp-client";
 import qs from "qs";
 import SPRouter from "./sp-router";
 import Streamplace from "./streamplace";
-import styled, {injectGlobal} from "styled-components";
+import styled, { injectGlobal } from "styled-components";
 import "font-awesome/css/font-awesome.css";
 import cookie from "cookie";
 
@@ -47,11 +46,11 @@ class SPFrontend extends Component {
     this.state = {
       ready: false,
       user: null,
-      phase: START,
+      phase: START
     };
   }
 
-/**
+  /**
  * Even if we don't have a token in localStorage, we still attempt login because that process has
  * sp-client download the schema for the server, populating the `loginUrl` parameter that we can
  * use to log the user in.
@@ -77,32 +76,37 @@ class SPFrontend extends Component {
   tryLogin(token) {
     // This SPClient might not succeed in connection to the server 'cuz we're the login page, but
     // that's fine because we're just using it to get the schema.
-    return SP.connect({token})
-    .then((user) => {
-      window.localStorage.setItem("SP_AUTH_TOKEN", SP.token);
-      this.setState({
-        phase: LOGGED_IN,
-        user: user,
+    return SP.connect({ token })
+      .then(user => {
+        window.localStorage.setItem("SP_AUTH_TOKEN", SP.token);
+        this.setState({
+          phase: LOGGED_IN,
+          user: user
+        });
+      })
+      .catch(err => {
+        // This is kinda interesting, it's the highest level catch() in the app. It catches a lot of
+        // things in development, 'cuz if you typo anywhere it ends up here.
+        if (err.code === 401 || err.code === 403) {
+          this.handleLogout();
+        } else {
+          SP.error("Unhandled exception upon login", err);
+        }
       });
-    })
-    .catch((err) => {
-      // This is kinda interesting, it's the highest level catch() in the app. It catches a lot of
-      // things in development, 'cuz if you typo anywhere it ends up here.
-      if (err.code === 401 || err.code === 403) {
-        this.handleLogout();
-      }
-      else {
-        SP.error("Unhandled exception upon login", err);
-      }
-    });
   }
 
   handleLogout() {
-    const loginOrigin = SP.schema.plugins["sp-plugin-core"].loginUrl.slice(0, -1);
-    const loginUrl = loginOrigin + "?" + qs.stringify({
-      server: window.location.hostname,
-      returnPath: "/"
-    });
+    const loginOrigin = SP.schema.plugins["sp-plugin-core"].loginUrl.slice(
+      0,
+      -1
+    );
+    const loginUrl =
+      loginOrigin +
+      "?" +
+      qs.stringify({
+        server: window.location.hostname,
+        returnPath: "/"
+      });
     window.localStorage.removeItem("SP_AUTH_TOKEN");
     window.location = loginUrl;
     // this.setState({
@@ -116,10 +120,8 @@ class SPFrontend extends Component {
     // Hello other developers. This thing used to work with iframe postmessages. It was kind of
     // cool, but also kind of silly? Now it works with redirects, which is easier, but kind of
     // less badass? Let me know if you have smarter ideas for how this should operate.
-
     // e.preventDefault();
     // const loginWindow = window.open(this.state.loginUrl, "SPLogin");
-
     // const theirOrigin = this.state.loginOrigin;
     // const interval = setInterval(() => {
     //   loginWindow.postMessage("hello", theirOrigin);
@@ -146,7 +148,7 @@ class SPFrontend extends Component {
 
   renderInner() {
     if (this.state.phase === START) {
-      return <div></div>;
+      return <div />;
     }
     if (this.state.phase === LOGGED_IN) {
       return (
@@ -158,12 +160,16 @@ class SPFrontend extends Component {
     if (this.state.phase === LOGGED_OUT) {
       return (
         <Centered>
-          <a onClick={this.handleLoginBtn.bind(this)} href={this.state.loginUrl}>Log in NAOW</a>
+          <a
+            onClick={this.handleLoginBtn.bind(this)}
+            href={this.state.loginUrl}
+          >
+            Log in NAOW
+          </a>
         </Centered>
       );
     }
   }
-
 
   render() {
     return (

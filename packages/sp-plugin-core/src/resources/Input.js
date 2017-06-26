@@ -1,6 +1,5 @@
-
 import Resource from "sp-resource";
-import {randomId} from "sp-utils";
+import { randomId } from "sp-utils";
 
 export default class Input extends Resource {
   auth(ctx, doc) {

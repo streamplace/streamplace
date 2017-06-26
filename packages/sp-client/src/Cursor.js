@@ -1,11 +1,10 @@
-
 import EE from "wolfy87-eventemitter";
 import _ from "underscore";
 
 class Cursor {
   constructor(params) {
     // Handle arguments
-    const {SK, resource, query, fields} = params;
+    const { SK, resource, query, fields } = params;
     this.SK = SK;
     this.resource = resource;
     this.query = query;
@@ -21,13 +20,13 @@ class Cursor {
     });
 
     // Instantiate some crud
-    this.evt = new EE;
+    this.evt = new EE();
     this.knownDocs = {}; // Stored internally here as id --> doc
 
     // Set up event aliases.
     //
     // "data" will run on our initial event and on every subsequent change to the data
-    ["created", "updated", "deleted"].forEach((action) => {
+    ["created", "updated", "deleted"].forEach(action => {
       this.on(action, (...args) => {
         this._emit("data", ...args);
       });
@@ -37,13 +36,13 @@ class Cursor {
     });
 
     // "newDoc" will run once for every document in the initial pull or subsequently created
-    this.promise.then((docs) => {
-      docs.forEach((doc) => {
+    this.promise.then(docs => {
+      docs.forEach(doc => {
         this._emit("newDoc", doc);
       });
     });
     this.on("created", (docs, newIds) => {
-      docs.forEach((doc) => {
+      docs.forEach(doc => {
         if (newIds.indexOf(doc.id) !== -1) {
           this._emit("newDoc", doc);
         }
@@ -52,7 +51,7 @@ class Cursor {
 
     // "deletedDoc" is when documents are deleted, you rube.
     this.on("deleted", (docs, deletedIds) => {
-      deletedIds.forEach((id) => {
+      deletedIds.forEach(id => {
         this._emit("deletedDoc", id);
       });
     });
@@ -71,8 +70,7 @@ class Cursor {
         if (!this._matches(doc[key], query[key])) {
           return false;
         }
-      }
-      else if (doc[key] !== query[key]) {
+      } else if (doc[key] !== query[key]) {
         return false;
       }
     }
@@ -82,8 +80,7 @@ class Cursor {
   _emit(type, ...args) {
     try {
       this.evt.emit(type, ...args);
-    }
-    catch (e) {
+    } catch (e) {
       this.SK.log(`Error emitting ${type} event`);
       this.SK.log(e.stack);
     }
@@ -114,14 +111,17 @@ export class SocketCursor extends Cursor {
   constructor(params) {
     super(params);
 
-    this.handle = this.SK._subscribe(this.resource.name, this.query, ::this._suback);
+    this.handle = this.SK._subscribe(
+      this.resource.name,
+      this.query,
+      ::this._suback
+    );
   }
 
   _suback() {
     try {
       this._resolve(_(this.knownDocs).values());
-    }
-    catch (e) {
+    } catch (e) {
       this.SK.log("Error resolving cursor");
       this.SK.log(e.stack);
     }
@@ -134,18 +134,15 @@ export class SocketCursor extends Cursor {
     if (!matches && !exists) {
       // We have nothing to do with this document. Return.
       return;
-    }
-    else if (matches && !exists) {
+    } else if (matches && !exists) {
       // New document, that's cool.
       this.knownDocs[id] = doc;
       type = "created";
-    }
-    else if (!matches && exists) {
+    } else if (!matches && exists) {
       // We know that ID, but now it doesn't match. Deleted.
       delete this.knownDocs[id];
       type = "deleted";
-    }
-    else if (matches && exists) {
+    } else if (matches && exists) {
       // Doc matches, and we've seen it before. Updated.
       this.knownDocs[id] = doc;
       type = "updated";

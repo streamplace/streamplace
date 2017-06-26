@@ -1,4 +1,3 @@
-
 import WebSocket from "ws";
 import {
   SOCKET_CONNECT,
@@ -12,7 +11,7 @@ import {
   SOCKET_PONG,
   SOCKET_UNEXPECTED_RESPONSE,
   SOCKET_SEND_FILE,
-  MESSAGE_FILE,
+  MESSAGE_FILE
 } from "../constants/actionNames";
 
 const CONNECT_TIMEOUT = 3000;
@@ -22,7 +21,7 @@ export const socketConnect = () => (dispatch, getState) => {
   const server = getState().socket.devServer;
   dispatch({
     type: SOCKET_CONNECT,
-    server: server,
+    server: server
   });
 
   const ws = new WebSocket(server);
@@ -31,7 +30,7 @@ export const socketConnect = () => (dispatch, getState) => {
     ws.close();
     dispatch({
       type: SOCKET_CONNECT_TIMEOUT,
-      server: server,
+      server: server
     });
     setTimeout(() => {
       socketConnect()(dispatch, getState);
@@ -43,7 +42,7 @@ export const socketConnect = () => (dispatch, getState) => {
     dispatch({
       ws: ws,
       type: SOCKET_CONNECT_SUCCESS,
-      server: server,
+      server: server
     });
   });
 
@@ -52,26 +51,26 @@ export const socketConnect = () => (dispatch, getState) => {
     dispatch({
       type: SOCKET_CLOSE,
       server: server,
-      reason: reason,
+      reason: reason
     });
     setTimeout(() => {
       socketConnect()(dispatch, getState);
     }, CONNECT_RETRY);
   });
 
-  ws.on("error", (err) => {
+  ws.on("error", err => {
     dispatch({
       type: SOCKET_ERROR,
       server: server,
-      error: err,
+      error: err
     });
   });
 
-  ws.on("message", (message) => {
+  ws.on("message", message => {
     dispatch({
       type: SOCKET_MESSAGE,
       message: message,
-      server: server,
+      server: server
     });
   });
 
@@ -79,25 +78,27 @@ export const socketConnect = () => (dispatch, getState) => {
     dispatch({
       type: SOCKET_UNEXPECTED_RESPONSE,
       request: request,
-      response: response,
+      response: response
     });
   });
 };
 
-export const socketSendFile = (file) => (dispatch, getState) => {
+export const socketSendFile = file => (dispatch, getState) => {
   if (!file.buffer) {
     throw new Error("File is not loaded!");
   }
-  const {connected, ws} = getState().socket;
+  const { connected, ws } = getState().socket;
   if (!connected) {
     // no-op
     return;
   }
-  ws.send(JSON.stringify({
-    type: MESSAGE_FILE,
-    path: file.path,
-    stat: file.stat,
-  }));
+  ws.send(
+    JSON.stringify({
+      type: MESSAGE_FILE,
+      path: file.path,
+      stat: file.stat
+    })
+  );
   ws.send(file.buffer);
   return dispatch({
     type: SOCKET_SEND_FILE,

@@ -1,9 +1,8 @@
-
 import React, { Component } from "react";
 import SP from "sp-client";
-import {relativeCoords} from "sp-utils";
+import { relativeCoords } from "sp-utils";
 import * as THREE from "three";
-import {getPeer} from "sp-peer-stream";
+import { getPeer } from "sp-peer-stream";
 
 export default class SPCamera extends Component {
   static propTypes = {
@@ -12,13 +11,13 @@ export default class SPCamera extends Component {
     y: React.PropTypes.number.isRequired,
     width: React.PropTypes.number.isRequired,
     height: React.PropTypes.number.isRequired,
-    muted: React.PropTypes.bool,
+    muted: React.PropTypes.bool
   };
 
   static contextTypes = {
     scene: React.PropTypes.object.isRequired,
     canvasWidth: React.PropTypes.number.isRequired,
-    canvasHeight: React.PropTypes.number.isRequired,
+    canvasHeight: React.PropTypes.number.isRequired
   };
 
   constructor() {
@@ -60,12 +59,12 @@ export default class SPCamera extends Component {
       };
       this.ref.addEventListener("loadedmetadata", handler);
     })
-    .then(() => {
-      this.initThree(this.props);
-    })
-    .catch((err) => {
-      SP.error(err);
-    });
+      .then(() => {
+        this.initThree(this.props);
+      })
+      .catch(err => {
+        SP.error(err);
+      });
   }
 
   initThree(props) {
@@ -75,7 +74,7 @@ export default class SPCamera extends Component {
 
     const geometry = new THREE.PlaneGeometry(props.width, props.height);
 
-    const {videoWidth, videoHeight} = video;
+    const { videoWidth, videoHeight } = video;
 
     const videoAspect = videoWidth / videoHeight;
     const myAspect = props.width / props.height;
@@ -92,9 +91,8 @@ export default class SPCamera extends Component {
       texture.repeat.x = textureAdjustment;
       const cutOffPixels = videoWidth - newWidth;
       texture.offset.x = cutOffPixels / videoWidth / 2;
-    }
-    else if (videoAspect < myAspect) {
-      const newHeight = (1 / myAspect) * videoWidth;
+    } else if (videoAspect < myAspect) {
+      const newHeight = 1 / myAspect * videoWidth;
       const textureAdjustment = newHeight / videoHeight;
       texture.repeat.y = textureAdjustment;
       const cutOffPixels = videoHeight - newHeight;
@@ -104,8 +102,15 @@ export default class SPCamera extends Component {
     const material = new THREE.MeshBasicMaterial({ map: texture });
 
     this.mesh = new THREE.Mesh(geometry, material);
-    const [x, y] = relativeCoords(props.x, props.y, props.width, props.height, this.context.canvasWidth, this.context.canvasHeight);
-    this.mesh.position.set( x, y, 0 );
+    const [x, y] = relativeCoords(
+      props.x,
+      props.y,
+      props.width,
+      props.height,
+      this.context.canvasWidth,
+      this.context.canvasHeight
+    );
+    this.mesh.position.set(x, y, 0);
     this.context.scene.add(this.mesh);
   }
 
@@ -113,8 +118,13 @@ export default class SPCamera extends Component {
    * Bad! Should dynamically move around, not reboot the whole dang mesh.
    */
   componentWillReceiveProps(newProps) {
-    const {x, y, width, height} = newProps;
-    if (x !== this.props.x || y !== this.props.y || width !== this.props.width || height !== this.props.height) {
+    const { x, y, width, height } = newProps;
+    if (
+      x !== this.props.x ||
+      y !== this.props.y ||
+      width !== this.props.width ||
+      height !== this.props.height
+    ) {
       this.initThree(newProps);
     }
   }
@@ -126,9 +136,13 @@ export default class SPCamera extends Component {
     this.mesh = null;
   }
 
-  render () {
+  render() {
     return (
-      <video autoPlay ref={this.getRef.bind(this)} muted={!(this.props.muted === false)} />
+      <video
+        autoPlay
+        ref={this.getRef.bind(this)}
+        muted={!(this.props.muted === false)}
+      />
     );
   }
 }

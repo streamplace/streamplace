@@ -1,5 +1,4 @@
-
-import {terminal as term} from "terminal-kit";
+import { terminal as term } from "terminal-kit";
 
 const hasPrinted = new Set();
 
@@ -8,12 +7,18 @@ export default function terminalRender(store) {
   // term.alternateScreenBuffer();
 
   store.subscribe(() => {
-    const {title, status, entries, categories, bottomBar} = store.getState().terminal;
+    const {
+      title,
+      status,
+      entries,
+      categories,
+      bottomBar
+    } = store.getState().terminal;
 
     term.eraseDisplayBelow();
 
     // This is a memory leak, woo
-    entries.forEach((entry) => {
+    entries.forEach(entry => {
       if (hasPrinted.has(entry)) {
         return;
       }

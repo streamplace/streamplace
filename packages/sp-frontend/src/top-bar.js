@@ -1,4 +1,3 @@
-
 import React, { Component } from "react";
 import styled from "styled-components";
 
@@ -13,10 +12,7 @@ const Bar = styled.header`
 `;
 
 export default class TopBar extends Component {
-
-  render () {
-    return (
-      <Bar />
-    );
+  render() {
+    return <Bar />;
   }
 }

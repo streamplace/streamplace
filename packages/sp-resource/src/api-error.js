@@ -1,8 +1,6 @@
-
 const DEFAULT_CODES = {
   403: "FORBIDDEN"
 };
-
 
 /**
  * Can be called as
@@ -18,16 +16,18 @@ const DEFAULT_CODES = {
  */
 export default class APIError extends Error {
   constructor(...args) {
-    let {message, code, status} = args[0];
+    let { message, code, status } = args[0];
     if (args.length === 1 && typeof args[0] === "object") {
       if (!message || !code || !status) {
         throw new Error("Missing required parameters");
       }
-    }
-    else if (args.length > 1 && typeof args[0] === "number" && typeof args[1] === "string") {
+    } else if (
+      args.length > 1 &&
+      typeof args[0] === "number" &&
+      typeof args[1] === "string"
+    ) {
       [status, message, code] = args;
-    }
-    else {
+    } else {
       throw new Error("Invalid invocation of APIError", args);
     }
     if (typeof message !== "string") {

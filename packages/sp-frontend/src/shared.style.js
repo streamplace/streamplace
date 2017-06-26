@@ -1,4 +1,3 @@
-
 import styled from "styled-components";
 
 export const FlexContainer = styled.div`
@@ -8,5 +7,5 @@ export const FlexContainer = styled.div`
   display: flex;
   position: relative;
 
-  flex-direction: ${props => props.column ? "column" : "row"};
+  flex-direction: ${props => (props.column ? "column" : "row")};
 `;

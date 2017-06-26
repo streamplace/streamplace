@@ -1,8 +1,7 @@
-
 /* eslint-disable no-console */
 /* global onmessage */
 
-import {resolve} from "path";
+import { resolve } from "path";
 import net from "net";
 
 console.log("Worker process started.");
@@ -35,7 +34,7 @@ setInterval(function() {
   last = now;
   bytes = 0;
   if (startedEmitting) {
-    const desiredCount = ((now - startedEmitting) / 1000) * FRAMERATE;
+    const desiredCount = (now - startedEmitting) / 1000 * FRAMERATE;
     const offset = desiredCount - frameCount;
     if (Math.abs(offset) > 1.5) {
       console.log(`Output framerate is off by ${offset}`);
@@ -54,7 +53,7 @@ const run = function() {
   if (!startedEmitting) {
     startedEmitting = now;
   }
-  let desiredCount = ((now - startedEmitting) / 1000) * FRAMERATE;
+  let desiredCount = (now - startedEmitting) / 1000 * FRAMERATE;
   if (frameCount > desiredCount) {
     return;
   }

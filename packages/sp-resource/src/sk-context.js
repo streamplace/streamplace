@@ -1,4 +1,3 @@
-
 import EE from "events";
 import r from "rethinkdb";
 import querystring from "querystring";
@@ -32,7 +31,7 @@ const tokenErr = function() {
 };
 
 export default class SKContext extends EE {
-  constructor({remoteAddress, replaceToken}) {
+  constructor({ remoteAddress, replaceToken }) {
     super();
     this.remoteAddress = remoteAddress;
     this._replaceToken = replaceToken;
@@ -40,8 +39,7 @@ export default class SKContext extends EE {
   }
 
   useToken(token) {
-    return Promise.resolve()
-    .then(() => {
+    return Promise.resolve().then(() => {
       // Before anything else, you need a token.
       if (!token) {
         throw new APIError({
@@ -55,11 +53,10 @@ export default class SKContext extends EE {
       let header;
       let unsafePayload;
       try {
-        const unsafeDecoded = jwt.decode(token, {complete: true});
+        const unsafeDecoded = jwt.decode(token, { complete: true });
         header = unsafeDecoded.header;
         unsafePayload = unsafeDecoded.payload;
-      }
-      catch(e) {
+      } catch (e) {
         winston.error("Error decoding JWT", e);
         throw tokenErr();
       }
@@ -70,40 +67,36 @@ export default class SKContext extends EE {
       // means it's us, we trust it.
       if (header.alg === "HS256") {
         try {
-          payload = jwt.verify(token, JWT_SECRET, {algorithms: "HS256"});
-        }
-        catch (e) {
+          payload = jwt.verify(token, JWT_SECRET, { algorithms: "HS256" });
+        } catch (e) {
           winston.error("Provided JWT failed verification", e);
           throw tokenErr();
         }
 
         // jwt looks broadly okay. Does the audience match?
         if (payload.aud !== JWT_AUDIENCE) {
-          winston.error(`JWT aud wrong: got ${payload.aud} expected ${JWT_AUDIENCE}.`);
+          winston.error(
+            `JWT aud wrong: got ${payload.aud} expected ${JWT_AUDIENCE}.`
+          );
           throw tokenErr();
         }
-      }
-
-      // Second way -- it could be a dove-jwt, signed by our trusted authIssuer. Let's check.
-      else if (header.alg === "RS256" && unsafePayload.iss === AUTH_ISSUER) {
+      } else if (header.alg === "RS256" && unsafePayload.iss === AUTH_ISSUER) {
+        // Second way -- it could be a dove-jwt, signed by our trusted authIssuer. Let's check.
         try {
           payload = dove.verify(token);
-        }
-        catch (e) {
+        } catch (e) {
           winston.error("Error verifying dove-jwt", e);
           throw tokenErr();
         }
 
         if (payload.aud !== `https://${DOMAIN}/`) {
-          winston.error(`JWT aud wrong: got ${payload.aud} expected https://${DOMAIN}/.`);
+          winston.error(
+            `JWT aud wrong: got ${payload.aud} expected https://${DOMAIN}/.`
+          );
           throw tokenErr();
         }
-
-
-      }
-
-      // Yuck!
-      else {
+      } else {
+        // Yuck!
         winston.error(`JWT uses unknown algorithm: ${header.alg}`);
         throw tokenErr();
       }
@@ -127,8 +120,7 @@ export default class SKContext extends EE {
         id: oldVal.id,
         doc: null
       });
-    }
-    else {
+    } else {
       this.emit("data", {
         tableName,
         id: newVal.id,
@@ -181,7 +173,7 @@ export default class SKContext extends EE {
       expiresIn: `${JWT_EXPIRATION}ms`,
       audience: JWT_AUDIENCE,
       issuer: JWT_ISSUER,
-      subject: subject,
+      subject: subject
     });
     this.jwt = jwt.decode(newToken);
     this._replaceToken(newToken);
@@ -202,46 +194,59 @@ SKContext.addResource = function(resource) {
 SKContext.dbCreatePromise = null;
 SKContext.ensureDbExists = function(ctx) {
   if (!SKContext.dbCreatePromise) {
-    SKContext.dbCreatePromise = r.dbCreate(ctx.conn.db).run(ctx.conn)
-    .then(() => {
-      winston.info(`Created database ${ctx.conn.db}`);
-    })
-    .catch((err) => {
-      // If it already exists, that's chill. Otherwise throw an error.
-      if (err.name !== "ReqlOpFailedError") {
-        throw err;
-      }
-    });
+    SKContext.dbCreatePromise = r
+      .dbCreate(ctx.conn.db)
+      .run(ctx.conn)
+      .then(() => {
+        winston.info(`Created database ${ctx.conn.db}`);
+      })
+      .catch(err => {
+        // If it already exists, that's chill. Otherwise throw an error.
+        if (err.name !== "ReqlOpFailedError") {
+          throw err;
+        }
+      });
   }
   return SKContext.dbCreatePromise;
 };
 
-SKContext.createContext = function({rethinkHost, rethinkPort, rethinkDatabase, rethinkUser, rethinkPassword, rethinkCA, token, remoteAddress, replaceToken}) {
-  const ctx = new SKContext({remoteAddress, replaceToken});
-  return ctx.useToken(token)
-  .then(() => {
-    const params = {
-      host: rethinkHost,
-      port: rethinkPort,
-      db: rethinkDatabase,
-      user: rethinkUser || "admin",
-      password: rethinkPassword || "",
-    };
-    if (rethinkCA) {
-      params.ssl = {ca: rethinkCA};
-    }
-    return r.connect(params);
-  })
-  .then((conn) => {
-    ctx.rethink = r;
-    ctx.conn = conn;
-    return SKContext.ensureDbExists(ctx);
-  })
-  .then(() => {
-    return ctx.resources.users.findOrCreateFromContext(ctx);
-  })
-  .then((user) => {
-    ctx.user = user;
-    return ctx;
-  });
+SKContext.createContext = function({
+  rethinkHost,
+  rethinkPort,
+  rethinkDatabase,
+  rethinkUser,
+  rethinkPassword,
+  rethinkCA,
+  token,
+  remoteAddress,
+  replaceToken
+}) {
+  const ctx = new SKContext({ remoteAddress, replaceToken });
+  return ctx
+    .useToken(token)
+    .then(() => {
+      const params = {
+        host: rethinkHost,
+        port: rethinkPort,
+        db: rethinkDatabase,
+        user: rethinkUser || "admin",
+        password: rethinkPassword || ""
+      };
+      if (rethinkCA) {
+        params.ssl = { ca: rethinkCA };
+      }
+      return r.connect(params);
+    })
+    .then(conn => {
+      ctx.rethink = r;
+      ctx.conn = conn;
+      return SKContext.ensureDbExists(ctx);
+    })
+    .then(() => {
+      return ctx.resources.users.findOrCreateFromContext(ctx);
+    })
+    .then(user => {
+      ctx.user = user;
+      return ctx;
+    });
 };

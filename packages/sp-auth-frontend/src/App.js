@@ -1,4 +1,3 @@
-
 import React, { Component } from "react";
 import SP from "sp-client";
 import qs from "qs";
@@ -24,24 +23,27 @@ class App extends Component {
       server: query.server || "stream.place",
       returnPath: query.returnPath || "/",
       noRedirect: query.noRedirect === "true",
-      parentOrigin: `https://${query.server || "stream.place"}`,
+      parentOrigin: `https://${query.server || "stream.place"}`
     };
     if (this.state.logout) {
       window.location = `https://${this.state.server}${this.state.returnPath}`;
       return;
     }
     this.communicationPromise = new Promise((resolve, reject) => {
-      window.addEventListener("message", (e) => {
+      window.addEventListener("message", e => {
         if (e.origin !== this.state.parentOrigin) {
           SP.error(`Rejected message from unknown origin ${e.origin}`);
           return;
         }
         if (e.data === "hello") {
           this.setState({
-            parentWindow: e.source,
+            parentWindow: e.source
           });
           this.tellParent("hello");
-          SP.info(`Bidirectional communication with ${this.state.parentOrigin} established.`);
+          SP.info(
+            `Bidirectional communication with ${this.state
+              .parentOrigin} established.`
+          );
           resolve();
         }
       });
@@ -61,32 +63,31 @@ class App extends Component {
     // This SPClient might not succeed in connection to the server 'cuz we're the login page, but
     // that's fine because we're just using it to get the schema.
     SP.connect()
-    .then((user) => {
-      this.setState({phase: LOGGED_IN});
-    })
-    .catch((err) => {
-      this.setState({phase: LOGGED_OUT});
-    });
+      .then(user => {
+        this.setState({ phase: LOGGED_IN });
+      })
+      .catch(err => {
+        this.setState({ phase: LOGGED_OUT });
+      });
   }
 
-  componentDidMount() {
-
-  }
+  componentDidMount() {}
 
   handleLogin(token) {
-    this.setState({phase: START});
-    SP.connect({token})
-    .then((user) => {
-      this.setState({phase: LOGGED_IN});
-    })
-    .catch((err) => {
-      SP.error(err);
-      this.setState({phase: LOGGED_OUT});
-    });
+    this.setState({ phase: START });
+    SP.connect({ token })
+      .then(user => {
+        this.setState({ phase: LOGGED_IN });
+      })
+      .catch(err => {
+        SP.error(err);
+        this.setState({ phase: LOGGED_OUT });
+      });
   }
 
   handleToken(token) {
-    window.location = `https://${this.state.server}${this.state.returnPath}?${qs.stringify({token})}`;
+    window.location = `https://${this.state.server}${this.state
+      .returnPath}?${qs.stringify({ token })}`;
   }
 
   handleRejected() {
@@ -95,22 +96,24 @@ class App extends Component {
 
   render() {
     if (this.state.phase === START) {
-      return <div></div>;
-    }
-    else if (this.state.phase === LOGGED_IN) {
-      return <AuthorizeServer
-        server={this.state.server}
-        returnPath={this.state.returnPath}
-        onToken={this.handleToken.bind(this)}
-        onRejected={this.handleRejected.bind(this)} />;
-    }
-    else if (this.state.phase === LOGGED_OUT) {
-      const {auth0Audience, auth0Domain} = SP.schema.plugins["sp-auth"];
+      return <div />;
+    } else if (this.state.phase === LOGGED_IN) {
+      return (
+        <AuthorizeServer
+          server={this.state.server}
+          returnPath={this.state.returnPath}
+          onToken={this.handleToken.bind(this)}
+          onRejected={this.handleRejected.bind(this)}
+        />
+      );
+    } else if (this.state.phase === LOGGED_OUT) {
+      const { auth0Audience, auth0Domain } = SP.schema.plugins["sp-auth"];
       return (
         <Auth0Login
           auth0Audience={auth0Audience}
           auth0Domain={auth0Domain}
-          onLogin={this.handleLogin.bind(this)} />
+          onLogin={this.handleLogin.bind(this)}
+        />
       );
     }
   }

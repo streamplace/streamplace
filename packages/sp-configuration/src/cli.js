@@ -20,8 +20,7 @@ if (!fileName) {
 let fileData;
 try {
   fileData = fs.readFileSync(fileName, "utf8");
-}
-catch (e) {
+} catch (e) {
   console.error(e.stack);
   process.exit(1);
 }

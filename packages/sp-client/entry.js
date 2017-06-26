@@ -1,4 +1,4 @@
 require("babel-register")({
-  only: /src/,
+  only: /src/
 });
 module.exports = require("./src/sk-client");

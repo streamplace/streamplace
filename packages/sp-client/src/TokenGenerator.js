@@ -1,4 +1,3 @@
-
 import nJwt from "njwt";
 import config from "sp-configuration";
 import os from "os";
@@ -11,7 +10,7 @@ const APP_NAME = config.require("APP_NAME");
 const AUTH_ISSUER = config.require("AUTH_ISSUER");
 
 export default class TokenGenerator {
-  constructor({app}) {
+  constructor({ app }) {
     this.expiry = JWT_EXPIRATION;
   }
 
@@ -20,10 +19,10 @@ export default class TokenGenerator {
       iss: APP_NAME,
       sub: `auth0|${APP_NAME}`,
       aud: JWT_AUDIENCE,
-      roles: ["SERVICE"],
+      roles: ["SERVICE"]
     };
     const jwt = nJwt.create(claims, JWT_SECRET_DECODED);
-    jwt.setExpiration(Date.now() + (24 * 60 * 60 * 1000)); // One day, plz
+    jwt.setExpiration(Date.now() + 24 * 60 * 60 * 1000); // One day, plz
     return jwt.compact();
   }
 }

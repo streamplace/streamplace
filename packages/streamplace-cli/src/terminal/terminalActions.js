@@ -1,7 +1,4 @@
-
-import {
-  TERMINAL_COMMAND
-} from "../constants/actionNames";
+import { TERMINAL_COMMAND } from "../constants/actionNames";
 
 export function terminalCommand(command) {
   return {

@@ -1,4 +1,3 @@
-
 import url from "url";
 import Swagger from "swagger-client";
 import _ from "underscore";
@@ -29,24 +28,24 @@ const apiError = function(code, message) {
 };
 
 export class SPClient extends EE {
-  constructor({server, log, start, token, app} = {}) {
+  constructor({ server, log, start, token, app } = {}) {
     super();
     if (isNode) {
       // Someone teach me a better wneway to have node do something but not webpack.
       /*eslint-disable no-eval */
       const TokenGenerator = eval("require('./TokenGenerator')").default;
-      this.tokenGenerator = new TokenGenerator({app: this.app});
+      this.tokenGenerator = new TokenGenerator({ app: this.app });
     }
     this.app = app || "spclient";
     this.shouldLog = true;
     this.server = server;
     this.token = token;
     if (start !== false) {
-      this.connect({server, log});
+      this.connect({ server, log });
     }
   }
 
-  connect({server, log, token} = {}) {
+  connect({ server, log, token } = {}) {
     this.connected = false;
     this.shouldLog = true;
     this.token = token || this.token;
@@ -60,7 +59,9 @@ export class SPClient extends EE {
       server = PUBLIC_API_SERVER_URL;
     }
     if (!server) {
-      throw new Error("Tried to instantate SPClient with no server provided explicitly. API_SERVER_URL and PUBLIC_API_SERVER_URL are also both unset.");
+      throw new Error(
+        "Tried to instantate SPClient with no server provided explicitly. API_SERVER_URL and PUBLIC_API_SERVER_URL are also both unset."
+      );
     }
     this.server = server;
     // Kill trailing slash if present
@@ -68,117 +69,116 @@ export class SPClient extends EE {
       this.server = this.server.slice(0, this.server.length - 1);
     }
     return request(`${this.server}/schema.json`)
-    .then((res) => {
-      const schema = res.body;
-      this.schema = schema;
+      .then(res => {
+        const schema = res.body;
+        this.schema = schema;
 
-      // Generate a token if we can and we don't have one.
-      if (!this.token && this.tokenGenerator) {
-        this.token = this.tokenGenerator.generate();
-      }
-      if (!this.token) {
-        return Promise.reject(apiError(401, "No token provided"));
-      }
-
-      this.client = new Swagger({
-        spec: this.schema
-      });
-      this.client.buildFromSpec(this.schema);
-
-      this.newToken(this.token);
-
-      // Look at all the resources available in the freshly-parsed schema and build a Resource for
-      // each one.
-      this.client.apisArray.forEach((api) => {
-        this[api.name] = new Resource({
-          SK: this,
-          swaggerResource: this.client[api.name]
-        });
-      });
-
-      this.client.usePromise = true;
-
-      return this.getUser();
-    })
-    .then((user) => {
-      // Set up HTTP connection based on Swagger schema
-      const serverURL = `${this.schema.schemes[0]}://${this.schema.host}`;
-      this.log(`SPClient initalizing for server ${serverURL}`);
-
-      this.user = user;
-      let socketServer = `${serverURL}${this.schema.basePath}`;
-      if (this.token) {
-        socketServer = `${socketServer}?token=${this.token}`;
-      }
-
-      // Set up websocket connection
-      this.socket = IO(socketServer, {
-        path: this.schema.basePath + "/socket.io",
-        transports: ["websocket"]
-      });
-      this.socket.on("hello", () => {
-        this.connected = true;
-        _(this.activeSubscriptions).each( ({resource, query, cb}, subId) => {
-          this.log("sub", resource, query);
-          this.socket.emit("sub", {subId, resource, query});
-        });
-      });
-
-
-      this.socket.on("data", ({tableName, id, doc}) => {
-        if (!this[tableName]) {
-          throw new Error(`Got data event for ${tableName}, but I dunno what that is.`);
+        // Generate a token if we can and we don't have one.
+        if (!this.token && this.tokenGenerator) {
+          this.token = this.tokenGenerator.generate();
         }
-        this[tableName]._data(id, doc);
+        if (!this.token) {
+          return Promise.reject(apiError(401, "No token provided"));
+        }
+
+        this.client = new Swagger({
+          spec: this.schema
+        });
+        this.client.buildFromSpec(this.schema);
+
+        this.newToken(this.token);
+
+        // Look at all the resources available in the freshly-parsed schema and build a Resource for
+        // each one.
+        this.client.apisArray.forEach(api => {
+          this[api.name] = new Resource({
+            SK: this,
+            swaggerResource: this.client[api.name]
+          });
+        });
+
+        this.client.usePromise = true;
+
+        return this.getUser();
+      })
+      .then(user => {
+        // Set up HTTP connection based on Swagger schema
+        const serverURL = `${this.schema.schemes[0]}://${this.schema.host}`;
+        this.log(`SPClient initalizing for server ${serverURL}`);
+
+        this.user = user;
+        let socketServer = `${serverURL}${this.schema.basePath}`;
+        if (this.token) {
+          socketServer = `${socketServer}?token=${this.token}`;
+        }
+
+        // Set up websocket connection
+        this.socket = IO(socketServer, {
+          path: this.schema.basePath + "/socket.io",
+          transports: ["websocket"]
+        });
+        this.socket.on("hello", () => {
+          this.connected = true;
+          _(this.activeSubscriptions).each(({ resource, query, cb }, subId) => {
+            this.log("sub", resource, query);
+            this.socket.emit("sub", { subId, resource, query });
+          });
+        });
+
+        this.socket.on("data", ({ tableName, id, doc }) => {
+          if (!this[tableName]) {
+            throw new Error(
+              `Got data event for ${tableName}, but I dunno what that is.`
+            );
+          }
+          this[tableName]._data(id, doc);
+        });
+
+        this.socket.on("suback", ({ subId }) => {
+          this.activeSubscriptions[subId] &&
+            this.activeSubscriptions[subId].cb();
+        });
+        this.subscriptionIdx = 0;
+        this.activeSubscriptions = {};
+
+        const handler = this._handleMessage.bind(this);
+        [
+          "hello",
+          "suback",
+          "created",
+          "updated",
+          "deleted",
+          "connect",
+          "connect_error",
+          "connect_timeout",
+          "reconnect",
+          "reconnect_attempt",
+          "reconnecting",
+          "reconnect_error",
+          "reconnect_failed"
+        ].forEach(msg => {
+          this.socket.on(msg, this._handleMessage(msg));
+        });
+
+        this.socket.on("error", ::this._handleError);
+
+        this.emit("ready");
+        return this.user;
       });
-
-      this.socket.on("suback", ({subId}) => {
-        this.activeSubscriptions[subId] && this.activeSubscriptions[subId].cb();
-      });
-      this.subscriptionIdx = 0;
-      this.activeSubscriptions = {};
-
-      const handler = this._handleMessage.bind(this);
-      ([
-        "hello",
-        "suback",
-        "created",
-        "updated",
-        "deleted",
-        "connect",
-        "connect_error",
-        "connect_timeout",
-        "reconnect",
-        "reconnect_attempt",
-        "reconnecting",
-        "reconnect_error",
-        "reconnect_failed",
-      ]).forEach((msg) => {
-        this.socket.on(msg, this._handleMessage(msg));
-      });
-
-      this.socket.on("error", ::this._handleError);
-
-      this.emit("ready");
-      return this.user;
-    });
   }
 
   newToken(token) {
     this.token = token;
-    this.client.clientAuthorizations.add("SP",
-      new Swagger.ApiKeyAuthorization(
-        "sp-auth-token",
-        token,
-        "header"
-      )
+    this.client.clientAuthorizations.add(
+      "SP",
+      new Swagger.ApiKeyAuthorization("sp-auth-token", token, "header")
     );
   }
 
   getUser() {
     const beforeToken = this.token;
     const decoded = jwtDecode(this.token);
-    return this.users.find({identity: decoded.sub}).then(([user]) => {
+    return this.users.find({ identity: decoded.sub }).then(([user]) => {
       // If we didn't find one and our token changed, the server gently let us know we're actually
       // someone else. Try again!
       if (!user) {
@@ -194,8 +194,7 @@ export class SPClient extends EE {
   _handleError(err) {
     try {
       err = JSON.parse(err);
-    }
-    catch (e) {
+    } catch (e) {
       err = new Error(err);
     }
     this.log(err);
@@ -235,13 +234,13 @@ export class SPClient extends EE {
 
   _subscribe(resource, query, cb) {
     const subId = this._subscriptionId();
-    this.activeSubscriptions[subId] = {resource, query, cb};
+    this.activeSubscriptions[subId] = { resource, query, cb };
     if (this.connected) {
-      this.socket.emit("sub", {subId, resource, query});
+      this.socket.emit("sub", { subId, resource, query });
     }
     return {
       stop: () => {
-        this.socket.emit("unsub", {subId});
+        this.socket.emit("unsub", { subId });
         delete this.activeSubscriptions[subId];
       }
     };

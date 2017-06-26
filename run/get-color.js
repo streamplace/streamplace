@@ -6,9 +6,7 @@
 
 const crypto = require("crypto");
 
-const BLACKLIST = [
-  7, 8, 16, 17, 18, 232, 233, 234, 235, 236, 237, 238, 239
-];
+const BLACKLIST = [7, 8, 16, 17, 18, 232, 233, 234, 235, 236, 237, 238, 239];
 
 const memoized = {};
 

@@ -1,20 +1,16 @@
-
 import * as actions from "../constants/actionNames";
 
 function addEntry(state, category, text) {
   return {
     ...state,
-    entries: [
-      ...state.entries,
-      {category, text}
-    ],
+    entries: [...state.entries, { category, text }]
   };
 }
 
 const initialState = {
   title: {
     color: [255, 207, 0],
-    text: "Streamplace",
+    text: "Streamplace"
   },
   status: {
     color: [255, 0, 0],
@@ -32,17 +28,16 @@ const initialState = {
     socket: {
       name: "socket",
       color: [100, 100, 255]
-    },
+    }
   },
   bottomBar: false,
-  entries: [],
+  entries: []
 };
 
 export default function terminalReducer(state = initialState, action) {
   switch (action.type) {
-
     case actions.COMMAND_SYNC:
-      return {...state, bottomBar: true};
+      return { ...state, bottomBar: true };
 
     case actions.WATCHER_READY:
       return addEntry(state, "watcher", "Watcher ready!");
@@ -60,13 +55,25 @@ export default function terminalReducer(state = initialState, action) {
       return addEntry(state, "watcher", `File loaded: ${action.path}`);
 
     case actions.WATCHER_LOAD_FILE_ERROR:
-      return addEntry(state, "watcher", `Error loading file ${action.path}: ${action.error}`);
+      return addEntry(
+        state,
+        "watcher",
+        `Error loading file ${action.path}: ${action.error}`
+      );
 
     case actions.SERVER_LISTEN_SUCCESS:
-      return addEntry(state, "socket", `Streamplace dev server listening on port ${action.port}`);
+      return addEntry(
+        state,
+        "socket",
+        `Streamplace dev server listening on port ${action.port}`
+      );
 
     case actions.SOCKET_CONNECT:
-      return addEntry(state, "socket", `Attempting connection to ${action.server}`);
+      return addEntry(
+        state,
+        "socket",
+        `Attempting connection to ${action.server}`
+      );
 
     case actions.SOCKET_CONNECT_SUCCESS:
       state = addEntry(state, "socket", `Opened connection ${action.server}`);
@@ -74,22 +81,26 @@ export default function terminalReducer(state = initialState, action) {
         ...state,
         status: {
           color: [0, 255, 0],
-          text: "Connected",
-        },
+          text: "Connected"
+        }
       };
 
     case actions.SOCKET_ERROR:
       state = addEntry(state, "socket", `Socket error ${action.error}`);
       return {
         ...state,
-        status: initialState.status,
+        status: initialState.status
       };
 
     case actions.SOCKET_CLOSE:
-      state = addEntry(state, "socket", `Connection to ${action.server} closed`);
+      state = addEntry(
+        state,
+        "socket",
+        `Connection to ${action.server} closed`
+      );
       return {
         ...state,
-        status: initialState.status,
+        status: initialState.status
       };
   }
 

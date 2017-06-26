@@ -1,5 +1,4 @@
-
-import {app, Menu, prompt} from "electron";
+import { app, Menu, prompt } from "electron";
 
 const template = [
   {
@@ -79,7 +78,9 @@ const template = [
     submenu: [
       {
         label: "Learn More",
-        click () { require("electron").shell.openExternal("http://electron.atom.io"); }
+        click() {
+          require("electron").shell.openExternal("http://electron.atom.io");
+        }
       }
     ]
   }

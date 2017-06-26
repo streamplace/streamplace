@@ -1,7 +1,6 @@
-
-import {safeLoad as readYaml, safeDump as writeYaml} from "js-yaml";
-import {sync as mkdirp} from "mkdirp-promise";
-import {dirname} from "path";
+import { safeLoad as readYaml, safeDump as writeYaml } from "js-yaml";
+import { sync as mkdirp } from "mkdirp-promise";
+import { dirname } from "path";
 import fs from "mz/fs";
 
 const CONFIG_DEFAULT = {
@@ -9,12 +8,11 @@ const CONFIG_DEFAULT = {
 };
 
 export default function getConfig(program) {
-  const {spConfig} = program;
+  const { spConfig } = program;
   let stat;
   try {
     stat = fs.statSync(spConfig);
-  }
-  catch(e) {
+  } catch (e) {
     // Create if it doesn't exist.
     if (e.code !== "ENOENT") {
       throw e;

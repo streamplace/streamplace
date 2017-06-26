@@ -1,18 +1,17 @@
-
 import React, { Component } from "react";
-import {bindComponent, watch} from "sp-components";
+import { bindComponent, watch } from "sp-components";
 import CreateMyChannel from "./create-my-channel";
-import {FlexContainer, NoChannel, ChannelSelect} from "./home.style";
+import { FlexContainer, NoChannel, ChannelSelect } from "./home.style";
 
 export class Home extends Component {
   static propTypes = {
     channels: React.PropTypes.array,
-    ready: React.PropTypes.bool,
+    ready: React.PropTypes.bool
   };
 
   static subscribe(props) {
     return {
-      channels: watch("channels", {userId: props.SP.user.id})
+      channels: watch("channels", { userId: props.SP.user.id })
     };
   }
 
@@ -31,7 +30,7 @@ export class Home extends Component {
     return <NoChannel>no channel selected</NoChannel>;
   }
 
-  render () {
+  render() {
     return (
       <FlexContainer>
         <ChannelSelect>

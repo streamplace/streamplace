@@ -1,4 +1,3 @@
-
 module.exports = {
   context: __dirname,
   entry: "./src/sp-styles.scss",
@@ -8,18 +7,19 @@ module.exports = {
     libraryTarget: "umd"
   },
   module: {
-    loaders: [{
-      test: /\.jsx?$/,
-      exclude: /(node_modules|bower_components)/,
-      loader: "babel-loader",
-      query: {
-        presets: [
-          "streamplace"
-        ]
+    loaders: [
+      {
+        test: /\.jsx?$/,
+        exclude: /(node_modules|bower_components)/,
+        loader: "babel-loader",
+        query: {
+          presets: ["streamplace"]
+        }
+      },
+      {
+        test: /\.scss$/,
+        loaders: ["style-loader", "css-loader?modules", "sass-loader"]
       }
-    }, {
-      test: /\.scss$/,
-      loaders: ["style-loader", "css-loader?modules", "sass-loader"]
-    }]
-  },
+    ]
+  }
 };

@@ -1,4 +1,3 @@
-
 import Resource from "sp-resource";
 
 export default class Output extends Resource {

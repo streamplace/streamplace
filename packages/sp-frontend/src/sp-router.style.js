@@ -1,11 +1,10 @@
-
 import styled from "styled-components";
-import {NavLink} from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import ColorHash from "color-hash";
 
 const colorHash = new ColorHash();
 
-const getColor = (string) => {
+const getColor = string => {
   const [r, g, b] = colorHash.rgb(string);
   return `rgb(${r}, ${g}, ${b})`;
 };
@@ -51,14 +50,15 @@ export const ChannelIcon = styled(NavLink)`
   cursor: pointer;
   border-radius: 0.4em;
   margin: 1.2em 0;
-  background-color: ${props => props.icon ? "transparent" : getColor(props.id)};
+  background-color: ${props =>
+    props.icon ? "transparent" : getColor(props.id)};
   color: white;
   overflow: hidden;
   display: flex;
   user-select: none;
   align-items: center;
   justify-content: center;
-  background-image: ${props => props.icon ? `url("${props.icon}")` : "none"};
+  background-image: ${props => (props.icon ? `url("${props.icon}")` : "none")};
   background-size: contain;
   opacity: 0.5;
 

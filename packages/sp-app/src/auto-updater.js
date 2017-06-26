@@ -2,7 +2,7 @@
 // See LICENSE for details.
 
 const log = require("electron-log");
-const {autoUpdater} = require("electron-updater");
+const { autoUpdater } = require("electron-updater");
 
 function sendStatusToWindow(text) {
   log.info(text);
@@ -29,7 +29,7 @@ export default function(app) {
     autoUpdater.quitAndInstall();
   });
 
-  app.on("ready", function()  {
+  app.on("ready", function() {
     autoUpdater.checkForUpdates();
   });
 }

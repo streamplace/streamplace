@@ -1,13 +1,11 @@
-
 import Resource from "sp-resource";
 
 export default class PeerConnection extends Resource {
-
   default(ctx) {
-    return super.default().then((doc) => {
+    return super.default().then(doc => {
       return {
         ...doc,
-        userId: ctx.user.id,
+        userId: ctx.user.id
       };
     });
   }
@@ -18,7 +16,8 @@ export default class PeerConnection extends Resource {
         throw new Resource.APIError({
           status: 422,
           code: "USERID_GREATER_THAN_TARGETUSERID",
-          message: "All PeerConnection requests must be from the smaller user to the larger user"
+          message:
+            "All PeerConnection requests must be from the smaller user to the larger user"
         });
       }
     });

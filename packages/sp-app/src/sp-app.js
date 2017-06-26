@@ -1,7 +1,6 @@
-
 import menu from "./menu.js";
 import autoUpdater from "./auto-updater";
-const {app, BrowserWindow, session, Menu} = require("electron");
+const { app, BrowserWindow, session, Menu } = require("electron");
 const path = require("path");
 const url = require("url");
 /* eslint-disable no-console */
@@ -14,7 +13,7 @@ let win;
 
 const spUrl = process.env.SP_URL || "stream.place";
 
-function createWindow () {
+function createWindow() {
   Menu.setApplicationMenu(menu);
 
   // Create the browser window.
@@ -23,7 +22,7 @@ function createWindow () {
     height: 1080,
     title: "Streamplace",
     titleBarStyle: "hidden-inset",
-    show: false,
+    show: false
   });
 
   win.once("ready-to-show", () => {
@@ -31,26 +30,31 @@ function createWindow () {
   });
 
   // Little old-school async method here to set all our cookies before loading the page
-  const cookies = [{
-    url: `https://${spUrl}`,
-    name: "streamplace",
-    value: "w00t",
-    hostOnly: false,
-    expirationDate: 32503680000000, // i've been to the year 3000
-  }, {
-    url: `https://${spUrl}`,
-    name: "appMode",
-    value: "true",
-    hostOnly: false,
-    expirationDate: 32503680000000, // i've been to the year 3000
-  }];
+  const cookies = [
+    {
+      url: `https://${spUrl}`,
+      name: "streamplace",
+      value: "w00t",
+      hostOnly: false,
+      expirationDate: 32503680000000 // i've been to the year 3000
+    },
+    {
+      url: `https://${spUrl}`,
+      name: "appMode",
+      value: "true",
+      hostOnly: false,
+      expirationDate: 32503680000000 // i've been to the year 3000
+    }
+  ];
 
   const done = () => {
-    win.loadURL(url.format({
-      pathname: spUrl,
-      protocol: "https:",
-      slashes: true
-    }));
+    win.loadURL(
+      url.format({
+        pathname: spUrl,
+        protocol: "https:",
+        slashes: true
+      })
+    );
   };
 
   const setCookie = () => {
@@ -58,7 +62,7 @@ function createWindow () {
       return done();
     }
     const cookie = cookies.pop();
-    win.webContents.session.cookies.set(cookie, (error) => {
+    win.webContents.session.cookies.set(cookie, error => {
       if (error) {
         console.error(error);
         throw error;
@@ -68,7 +72,7 @@ function createWindow () {
   };
 
   // For now we're just gonna operate with no cache on load
-  win.webContents.session.clearCache((err) => {
+  win.webContents.session.clearCache(err => {
     if (err) {
       throw err;
     }

@@ -1,4 +1,3 @@
-
 import React from "react";
 import SP from "sp-client";
 import styled from "styled-components";
@@ -73,36 +72,36 @@ const BadButton = styled(Button)`
 // If you're working on this, this snippet will likely be helpful.
 // SP.serverauths.find().then(auths => auths.forEach(auth => SP.serverauths.delete(auth.id)))
 
-export default class AuthorizeServer extends React.Component{
+export default class AuthorizeServer extends React.Component {
   constructor(props) {
     super();
     this.state = {
       server: props.server,
       ready: false,
-      needAuth: false,
+      needAuth: false
     };
   }
 
   componentWillMount() {
-    this.serverAuthSub = SP.serverauths.watch({
-      userId: SP.user.id,
-      server: this.state.server,
-    })
-    .on("data", ([auth]) => {
-      if (auth) {
-        this.setState({
-          ready: true,
-          needAuth: false
-        });
-        this.redirect(auth.jwt);
-      }
-      else {
-        this.setState({
-          ready: true,
-          needAuth: true
-        });
-      }
-    });
+    this.serverAuthSub = SP.serverauths
+      .watch({
+        userId: SP.user.id,
+        server: this.state.server
+      })
+      .on("data", ([auth]) => {
+        if (auth) {
+          this.setState({
+            ready: true,
+            needAuth: false
+          });
+          this.redirect(auth.jwt);
+        } else {
+          this.setState({
+            ready: true,
+            needAuth: true
+          });
+        }
+      });
   }
 
   componentWillUnmount() {
@@ -119,15 +118,16 @@ export default class AuthorizeServer extends React.Component{
   handleYeah() {
     this.setState({
       ready: false,
-      needAuth: false,
+      needAuth: false
     });
-    SP.serverauths.create({
-      userId: SP.user.id,
-      server: this.state.server,
-    })
-    .catch((err) => {
-      SP.error(err);
-    });
+    SP.serverauths
+      .create({
+        userId: SP.user.id,
+        server: this.state.server
+      })
+      .catch(err => {
+        SP.error(err);
+      });
   }
 
   handleNah() {
@@ -135,15 +135,13 @@ export default class AuthorizeServer extends React.Component{
     window.location = `${this.state.returnUrl}?authRejected=true`;
   }
 
-  renderInner () {
+  renderInner() {
     if (!this.state.ready) {
-      return <div></div>;
+      return <div />;
     }
     if (this.state.needAuth === false) {
       // We're in the process of redirecting, just sit tight.
-      return (
-        <div></div>
-      );
+      return <div />;
     }
     return (
       <div>
@@ -152,7 +150,10 @@ export default class AuthorizeServer extends React.Component{
           <Emphasis>{this.state.server}</Emphasis>
           using your Streamplace account?
         </Big>
-        <Aside>All this means is that they get to see your email address. If we need other permissions, we'll ask again later.</Aside>
+        <Aside>
+          All this means is that they get to see your email address. If we need
+          other permissions, we'll ask again later.
+        </Aside>
         <GoodButton onClick={this.handleYeah.bind(this)}>Yeah</GoodButton>
         <BadButton onClick={this.handleNah.bind(this)}>Nah</BadButton>
       </div>
@@ -169,8 +170,8 @@ export default class AuthorizeServer extends React.Component{
 }
 
 AuthorizeServer.propTypes = {
-  "server": React.PropTypes.string.isRequired,
-  "returnPath": React.PropTypes.string.isRequired,
-  "onToken": React.PropTypes.func.isRequired,
-  "onRejected": React.PropTypes.func.isRequired,
+  server: React.PropTypes.string.isRequired,
+  returnPath: React.PropTypes.string.isRequired,
+  onToken: React.PropTypes.func.isRequired,
+  onRejected: React.PropTypes.func.isRequired
 };

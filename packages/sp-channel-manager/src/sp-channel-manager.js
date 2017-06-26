@@ -1,4 +1,3 @@
-
 /**
  * This guy will eventually run probably as a vertex, one per node.
  */
@@ -23,31 +22,30 @@ const CREDENTIALS = "streamplace:streamplace";
 
 export default class ChannelManager {
   constructor() {
-    getMyIp().then((ip) => {
-      this.activeChannels = {};
-      winston.info(`ChannelManager booting up. My IP is ${ip}`);
-      this.myIp = ip;
-      this.properTurnUrls = [
-        `turn://${CREDENTIALS}@${this.myIp}`
-      ];
-      this.peerHandle = SP.peerconnections.watch({})
-      .on("data", (peerConnections) => {
-        this.peerConnections = peerConnections;
-        this.reconcilePeers();
+    getMyIp()
+      .then(ip => {
+        this.activeChannels = {};
+        winston.info(`ChannelManager booting up. My IP is ${ip}`);
+        this.myIp = ip;
+        this.properTurnUrls = [`turn://${CREDENTIALS}@${this.myIp}`];
+        this.peerHandle = SP.peerconnections
+          .watch({})
+          .on("data", peerConnections => {
+            this.peerConnections = peerConnections;
+            this.reconcilePeers();
+          });
+        return this.peerHandle;
+      })
+      .then(() => {
+        this.channelHandle = SP.channels.watch({}).on("data", channels => {
+          this.channels = channels;
+          this.reconcileChannels();
+        });
+      })
+      .catch(err => {
+        winston.error(err);
+        process.exit(1);
       });
-      return this.peerHandle;
-    })
-    .then(() => {
-      this.channelHandle = SP.channels.watch({})
-      .on("data", (channels) => {
-        this.channels = channels;
-        this.reconcileChannels();
-      });
-    })
-    .catch((err) => {
-      winston.error(err);
-      process.exit(1);
-    });
   }
 
   cleanup() {
@@ -71,50 +69,52 @@ export default class ChannelManager {
   reconcileChannel(channel) {
     if (!channel.activeSceneId) {
       winston.info(`${channel.slug} has no scene, creating`);
-      SP.scenes.create({
-        userId: channel.userId,
-        channelId: channel.id,
-        title: `${channel.slug} scene`,
-        width: 1920,
-        height: 1080,
-        children: [],
-      })
-      .then((scene) => {
-        winston.info(`Created scene ${scene.id} for channel ${channel.slug}`);
-        return SP.channels.update(channel.id, {activeSceneId: scene.id});
-      })
-      .catch((err) => {
-        winston.error(`Error creating scene for ${channel.slug}`);
-        winston.error(err);
-      });
+      SP.scenes
+        .create({
+          userId: channel.userId,
+          channelId: channel.id,
+          title: `${channel.slug} scene`,
+          width: 1920,
+          height: 1080,
+          children: []
+        })
+        .then(scene => {
+          winston.info(`Created scene ${scene.id} for channel ${channel.slug}`);
+          return SP.channels.update(channel.id, { activeSceneId: scene.id });
+        })
+        .catch(err => {
+          winston.error(`Error creating scene for ${channel.slug}`);
+          winston.error(err);
+        });
     }
   }
 
   reconcilePeer(peer) {
     if (!_(peer.turnUrls).isEqual(this.properTurnUrls)) {
-      SP.peerconnections.update(peer.id, {
-        turnUrls: this.properTurnUrls,
-      })
-      .then(() => {
-        winston.info(`Added TURN URLs to PeerConnection ${peer.id}`);
-      })
-      .catch((err) => {
-        winston.error(err);
-      });
+      SP.peerconnections
+        .update(peer.id, {
+          turnUrls: this.properTurnUrls
+        })
+        .then(() => {
+          winston.info(`Added TURN URLs to PeerConnection ${peer.id}`);
+        })
+        .catch(err => {
+          winston.error(err);
+        });
     }
   }
 }
 
 if (!module.parent) {
-  SP.on("error", (err) => {
+  SP.on("error", err => {
     winston.error(err);
   });
   SP.connect()
-  .then(() => {
-    new ChannelManager();
-  })
-  .catch((err) => {
-    winston.error(err);
-    process.exit(1);
-  });
+    .then(() => {
+      new ChannelManager();
+    })
+    .catch(err => {
+      winston.error(err);
+      process.exit(1);
+    });
 }

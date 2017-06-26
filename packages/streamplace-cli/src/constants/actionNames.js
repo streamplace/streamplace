@@ -1,4 +1,3 @@
-
 // These get special non-prefixed treatment so they can double as the CLI commands
 export const COMMAND_SYNC = "SYNC";
 export const COMMAND_SERVE = "SERVE";

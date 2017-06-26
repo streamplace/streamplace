@@ -1,16 +1,15 @@
-
 import * as actions from "../constants/actionNames";
 
 const initialState = {
   ready: false,
-  files: {},
+  files: {}
 };
 
 function upsertFile(state, action) {
-  const {path} = action;
+  const { path } = action;
   const oldFile = state.files[path] || {};
   const newFile = {
-    ...oldFile,
+    ...oldFile
   };
   if (action.stat) {
     newFile.stat = action.stat;
@@ -32,7 +31,6 @@ function upsertFile(state, action) {
 
 export default function watcherReducer(state = initialState, action) {
   switch (action.type) {
-
     case actions.WATCHER_READY:
       return {
         ...state,
@@ -47,7 +45,6 @@ export default function watcherReducer(state = initialState, action) {
 
     case actions.WATCHER_LOAD_FILE_SUCCESS:
       return upsertFile(state, action);
-
   }
 
   return state;

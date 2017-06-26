@@ -1,4 +1,3 @@
-
 import styled from "styled-components";
 
 export const UserFrame = styled.div`

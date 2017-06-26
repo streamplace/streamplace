@@ -1,4 +1,3 @@
-
 /**
  * Wrapper for Kurento's PeerConnection, which in turn wraps and abstracts the actual WebRTC
  * interfaces.
@@ -13,23 +12,20 @@ const kurentoLog = debug("sp:sp-peer-kurento");
 
 // This is the only way we get any control of Kurento's logger... see also index.html
 if (typeof window.Logger === "object") {
-  Object.keys(console).forEach((key) => {
+  Object.keys(console).forEach(key => {
     window.Logger[key] = kurentoLog;
   });
 }
 
-
 import KurentoUtils from "kurento-utils";
-import {parse as parseUrl} from "url";
+import { parse as parseUrl } from "url";
 
 if (typeof RTCPeerConnection === "undefined") {
   if (typeof webkitRTCPeerConnection !== "undefined") {
     window.RTCPeerConnection = window.webkitRTCPeerConnection;
-  }
-  else if (typeof mozRTCPeerConnection !== "undefined") {
+  } else if (typeof mozRTCPeerConnection !== "undefined") {
     window.RTCPeerConnection = window.mozRTCPeerConnection;
-  }
-  else {
+  } else {
     SP.error("No RTCPeerConnection implementation found");
   }
 }
@@ -52,12 +48,11 @@ const PEER_CONNECTION_EVENTS = [
   "idpassertionerror",
   "idpvalidationerror",
   "peeridentity",
-  "isolationchange",
+  "isolationchange"
 ];
 
 export default class SPPeerConnection extends EE {
-
-  constructor({targetUserId, stream}) {
+  constructor({ targetUserId, stream }) {
     super();
     this.isShutDown = false;
     this.targetUserId = targetUserId;
@@ -74,7 +69,7 @@ export default class SPPeerConnection extends EE {
           height: 720
         }
       },
-      onicecandidate : ::this.onIceCandidate,
+      onicecandidate: ::this.onIceCandidate,
       configuration: {
         iceTransportPolicy: "relay"
       }
@@ -88,8 +83,7 @@ export default class SPPeerConnection extends EE {
     this.isPrimaryUser = SP.user.id < targetUserId;
     if (this.isPrimaryUser) {
       this.createOffer();
-    }
-    else {
+    } else {
       this.waitForOffer();
     }
 
@@ -146,14 +140,20 @@ export default class SPPeerConnection extends EE {
   _generateKurentoPeer() {
     return new Promise((resolve, reject) => {
       log("Creating Kurento peer");
-      this.webRtcPeer = KurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(this.options, (error) => {
-        this.webRtcPeer.peerConnection.addEventListener("iceconnectionstatechange", ::this.handleConnectionChange);
-        if (error) {
-          return reject(error);
+      this.webRtcPeer = KurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(
+        this.options,
+        error => {
+          this.webRtcPeer.peerConnection.addEventListener(
+            "iceconnectionstatechange",
+            ::this.handleConnectionChange
+          );
+          if (error) {
+            return reject(error);
+          }
+          this.kurentoIsSetup = true;
+          resolve();
         }
-        this.kurentoIsSetup = true;
-        resolve();
-      });
+      );
     });
   }
 
@@ -181,72 +181,78 @@ export default class SPPeerConnection extends EE {
    */
   createOffer() {
     log("Creating peerconnection");
-    return SP.peerconnections.create({
-      userId: SP.user.id,
-      targetUserId: this.targetUserId,
-    })
-    .then((peer) => {
-      this.resetTimeout();
-      this.peer = peer;
-      this.peerHandle = SP.peerconnections.watch({id: peer.id});
-      this.peerHandle.on("data", ::this.peerUpdate);
-      return this.setupTurnUrls();
-    })
-    .then(() => {
-      this.resetTimeout();
-      log("Generating offer");
-      return new Promise((resolve, reject) => {
-        this.localIceCandidates = [];
-        this.webRtcPeer.generateOffer((err, offer) => {
-          if (err) {
-            return reject(err);
-          }
-          resolve(offer);
+    return SP.peerconnections
+      .create({
+        userId: SP.user.id,
+        targetUserId: this.targetUserId
+      })
+      .then(peer => {
+        this.resetTimeout();
+        this.peer = peer;
+        this.peerHandle = SP.peerconnections.watch({ id: peer.id });
+        this.peerHandle.on("data", ::this.peerUpdate);
+        return this.setupTurnUrls();
+      })
+      .then(() => {
+        this.resetTimeout();
+        log("Generating offer");
+        return new Promise((resolve, reject) => {
+          this.localIceCandidates = [];
+          this.webRtcPeer.generateOffer((err, offer) => {
+            if (err) {
+              return reject(err);
+            }
+            resolve(offer);
+          });
         });
-      });
-    })
-    .then((offer) => {
-      this.resetTimeout();
-      return SP.peerconnections.update(this.peer.id, {
-        sdpOffer: offer,
-        userIceCandidates: this.localIceCandidates,
-      });
-    })
-    .then((peer) => {
-      this.resetTimeout();
-      log(`Created peerconnection ${peer.id}`);
-      return new Promise((resolve, reject) => {
-        this.peerHandle = SP.peerconnections.watch({id: peer.id})
-        .catch(log)
-        .on("data", ([doc]) => {
-          if (!doc) {
-            // Hmm, our candidate is just gone. Annoying and mysterious. Well, start the process
-            // over again.
-            log(`Peer connection ${peer.id} was deleted, retrying.`);
-            this.peerHandle.stop();
-            // FIXME: we now just have a promise sitting around? does that matter?
-            this.createOffer();
-          }
-          if (doc.sdpAnswer) {
-            this.peerHandle.stop();
-            resolve(doc);
-          }
+      })
+      .then(offer => {
+        this.resetTimeout();
+        return SP.peerconnections.update(this.peer.id, {
+          sdpOffer: offer,
+          userIceCandidates: this.localIceCandidates
         });
+      })
+      .then(peer => {
+        this.resetTimeout();
+        log(`Created peerconnection ${peer.id}`);
+        return new Promise((resolve, reject) => {
+          this.peerHandle = SP.peerconnections
+            .watch({ id: peer.id })
+            .catch(log)
+            .on("data", ([doc]) => {
+              if (!doc) {
+                // Hmm, our candidate is just gone. Annoying and mysterious. Well, start the process
+                // over again.
+                log(`Peer connection ${peer.id} was deleted, retrying.`);
+                this.peerHandle.stop();
+                // FIXME: we now just have a promise sitting around? does that matter?
+                this.createOffer();
+              }
+              if (doc.sdpAnswer) {
+                this.peerHandle.stop();
+                resolve(doc);
+              }
+            });
+        });
+      })
+      .then(peer => {
+        this.resetTimeout();
+        log(`Got peer ${peer.id}`);
+        this.peerHandle = SP.peerconnections
+          .watch({ id: peer.id })
+          .on("data", ::this.peerUpdate);
+        return this.peerHandle;
+      })
+      .then(peer => {
+        this.resetTimeout();
+        return SP.peerconnections.update(this.peer.id, {
+          userIceCandidates: this.localIceCandidates
+        });
+      })
+      .catch(err => {
+        log(err);
       });
-    })
-    .then((peer) => {
-      this.resetTimeout();
-      log(`Got peer ${peer.id}`);
-      this.peerHandle = SP.peerconnections.watch({id: peer.id}).on("data", ::this.peerUpdate);
-      return this.peerHandle;
-    })
-    .then((peer) => {
-      this.resetTimeout();
-      return SP.peerconnections.update(this.peer.id, {userIceCandidates: this.localIceCandidates});
-    })
-    .catch((err) => {
-      log(err);
-    });
   }
 
   /**
@@ -260,35 +266,38 @@ export default class SPPeerConnection extends EE {
       targetUserId: SP.user.id
     });
     return this.peerHandle
-    .then((docs) => {
-      // Hack: for now, delete all the other requests that were here when we got here...
-      // This will change once we have a better API notion of what it means to have one user
-      // with multiple browsers open
-      docs.forEach((doc) => {
-        SP.peerconnections.delete(doc.id)
-        .then(() => {
-          log(`deleted stale icecandidate ${doc.id}`);
-        })
-        .catch(log);
-      });
-      return new Promise((resolve, reject) => {
-        this.peerHandle.on("newDoc", (data) => {
-          this.peerHandle.stop();
-          resolve(data);
+      .then(docs => {
+        // Hack: for now, delete all the other requests that were here when we got here...
+        // This will change once we have a better API notion of what it means to have one user
+        // with multiple browsers open
+        docs.forEach(doc => {
+          SP.peerconnections
+            .delete(doc.id)
+            .then(() => {
+              log(`deleted stale icecandidate ${doc.id}`);
+            })
+            .catch(log);
         });
-      });
-    })
-    .then((peer) => {
-      this.resetTimeout();
-      this.peer = peer;
-      log(`Got peer ${peer.id}`);
-      this.peerHandle = SP.peerconnections.watch({id: this.peer.id}).on("data", ::this.peerUpdate);
-      return this.setupTurnUrls();
-    })
-    .catch(log);
+        return new Promise((resolve, reject) => {
+          this.peerHandle.on("newDoc", data => {
+            this.peerHandle.stop();
+            resolve(data);
+          });
+        });
+      })
+      .then(peer => {
+        this.resetTimeout();
+        this.peer = peer;
+        log(`Got peer ${peer.id}`);
+        this.peerHandle = SP.peerconnections
+          .watch({ id: this.peer.id })
+          .on("data", ::this.peerUpdate);
+        return this.setupTurnUrls();
+      })
+      .catch(log);
   }
 
- /**
+  /**
    * Wait on this.peerHandle until we've been assigned turnUrls from the server.
    */
   setupTurnUrls() {
@@ -308,21 +317,21 @@ export default class SPPeerConnection extends EE {
       };
       this.peerHandle.on("data", onData);
     })
-    .then((turnUrls) => {
-      this.options.configuration.iceServers = turnUrls.map((turnUrl) => {
-        const {protocol, auth, host} = parseUrl(turnUrl);
-        const [username, credential] = auth.split(":");
-        return {
-          "url": `${protocol}${host}`,
-          "credential": credential,
-          "username": username,
-        };
+      .then(turnUrls => {
+        this.options.configuration.iceServers = turnUrls.map(turnUrl => {
+          const { protocol, auth, host } = parseUrl(turnUrl);
+          const [username, credential] = auth.split(":");
+          return {
+            url: `${protocol}${host}`,
+            credential: credential,
+            username: username
+          };
+        });
+        return this._generateKurentoPeer();
+      })
+      .then(() => {
+        this.peerUpdate([this.peer]);
       });
-      return this._generateKurentoPeer();
-    })
-    .then(() => {
-      this.peerUpdate([this.peer]);
-    });
   }
 
   /**
@@ -338,13 +347,15 @@ export default class SPPeerConnection extends EE {
     if (this.kurentoIsSetup && !this.processedOffer) {
       if (this.isPrimaryUser && this.peer.sdpAnswer) {
         this.processedOffer = true;
-        return this.webRtcPeer.processAnswer(this.peer.sdpAnswer, (err, answer) => {
-          const remoteStream = this.webRtcPeer.getRemoteStream();
-          log("Remote stream", remoteStream);
-          this._streamResolve(remoteStream);
-        });
-      }
-      else if (!this.isPrimaryUser && this.peer.sdpOffer) {
+        return this.webRtcPeer.processAnswer(
+          this.peer.sdpAnswer,
+          (err, answer) => {
+            const remoteStream = this.webRtcPeer.getRemoteStream();
+            log("Remote stream", remoteStream);
+            this._streamResolve(remoteStream);
+          }
+        );
+      } else if (!this.isPrimaryUser && this.peer.sdpOffer) {
         this.processedOffer = true;
         return new Promise((resolve, reject) => {
           this.webRtcPeer.processOffer(this.peer.sdpOffer, (err, answer) => {
@@ -355,21 +366,23 @@ export default class SPPeerConnection extends EE {
             resolve(answer);
           });
         })
-        .then((answer) => {
-          this.resetTimeout();
-          return SP.peerconnections.update(this.peer.id, {
-            sdpAnswer: answer,
-            targetUserIceCandidates: this.localIceCandidates
+          .then(answer => {
+            this.resetTimeout();
+            return SP.peerconnections.update(this.peer.id, {
+              sdpAnswer: answer,
+              targetUserIceCandidates: this.localIceCandidates
+            });
+          })
+          .catch(err => {
+            log(err);
+            this.shutdown();
           });
-        })
-        .catch((err) => {
-          log(err);
-          this.shutdown();
-        });
       }
     }
     if (this.kurentoIsSetup) {
-      const field = this.isPrimaryUser ? "targetUserIceCandidates" : "userIceCandidates";
+      const field = this.isPrimaryUser
+        ? "targetUserIceCandidates"
+        : "userIceCandidates";
       doc[field] && doc[field].forEach(::this.onRemoteIceCandidate);
     }
   }
@@ -381,8 +394,12 @@ export default class SPPeerConnection extends EE {
     if (!this.peer) {
       return;
     }
-    const field = this.isPrimaryUser ? "userIceCandidates" : "targetUserIceCandidates";
-    SP.peerconnections.update(this.peer.id, {[field]: this.localIceCandidates}).catch(log);
+    const field = this.isPrimaryUser
+      ? "userIceCandidates"
+      : "targetUserIceCandidates";
+    SP.peerconnections
+      .update(this.peer.id, { [field]: this.localIceCandidates })
+      .catch(log);
   }
 
   onRemoteIceCandidate(candidate) {

@@ -1,6 +1,5 @@
-
 import SocketIO from "socket.io";
-import {SKContext} from "sp-resource";
+import { SKContext } from "sp-resource";
 import config from "sp-configuration";
 import winston from "winston";
 import _ from "underscore";
@@ -19,9 +18,9 @@ export default function(server) {
   let io = SocketIO(server);
   io = io.of("/api");
 
-  io.use(function(socket, next){
-    const {query} = url.parse(socket.request.url);
-    const {token} = querystring.parse(query);
+  io.use(function(socket, next) {
+    const { query } = url.parse(socket.request.url);
+    const { token } = querystring.parse(query);
     const addr = socket.conn.remoteAddress;
     SKContext.createContext({
       token: token,
@@ -32,17 +31,22 @@ export default function(server) {
       rethinkPassword: RETHINK_PASSWORD,
       rethinKCA: RETHINK_CA,
       remoteAddress: addr
-    }).then((ctx) => {
-      socket.ctx = ctx;
-      next();
     })
-    .catch((err) => {
-      next(new Error(JSON.stringify({
-        status: err.status,
-        code: err.code,
-        message: err.message,
-      })));
-    });
+      .then(ctx => {
+        socket.ctx = ctx;
+        next();
+      })
+      .catch(err => {
+        next(
+          new Error(
+            JSON.stringify({
+              status: err.status,
+              code: err.code,
+              message: err.message
+            })
+          )
+        );
+      });
   });
 
   io.on("connection", function(socket) {
@@ -52,27 +56,32 @@ export default function(server) {
     socket.emit("hello");
     socket.on("disconnect", () => {
       apiLog(ctx, "DISCONNECT");
-      Promise.all(_(handles).values().map((handle) => {
-        return handle.close();
-      })).then(() => {
+      Promise.all(
+        _(handles).values().map(handle => {
+          return handle.close();
+        })
+      ).then(() => {
         socket.ctx.cleanup();
       });
     });
 
     ctx.on("data", socket.emit.bind(socket, "data"));
 
-    socket.on("sub", function({subId, resource, query = {}}) {
+    socket.on("sub", function({ subId, resource, query = {} }) {
       if (!subId || handles[subId]) {
         throw new Error(`Invalid subId = ${subId}`);
       }
-      apiLog(ctx, `SUB (${subId}) '${resource}' WHERE ${JSON.stringify(query)}`);
-      ctx.resources[resource].watch(ctx, query).then((handle) => {
+      apiLog(
+        ctx,
+        `SUB (${subId}) '${resource}' WHERE ${JSON.stringify(query)}`
+      );
+      ctx.resources[resource].watch(ctx, query).then(handle => {
         handles[subId] = handle;
-        socket.emit("suback", {subId});
+        socket.emit("suback", { subId });
       });
     });
 
-    socket.on("unsub", function({subId}) {
+    socket.on("unsub", function({ subId }) {
       apiLog(ctx, `UNSUB (${subId})`);
       if (!handles[subId]) {
         return winston.error(`UNSUB on nonexistent subId ${subId}`);

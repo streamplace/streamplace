@@ -1,14 +1,12 @@
-
 import Resource from "sp-resource";
 
 export default class Broadcast extends Resource {
-
   default() {
-    return super.default().then((doc) => {
+    return super.default().then(doc => {
       return {
         ...doc,
         startTime: Date.now(),
-        stopTime: null,
+        stopTime: null
       };
     });
   }

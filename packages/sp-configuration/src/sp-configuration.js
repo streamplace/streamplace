@@ -1,4 +1,3 @@
-
 class Config {
   require(key) {
     if (typeof this[key] === "undefined") {
@@ -12,7 +11,7 @@ class Config {
   }
 
   add(obj) {
-    Object.keys(obj).forEach((key) => {
+    Object.keys(obj).forEach(key => {
       this[key] = obj[key];
     });
   }
@@ -22,8 +21,7 @@ let config = new Config();
 
 if (typeof window === "object") {
   config.add(require("./sk-config-client"));
-}
-else {
+} else {
   // HACK so webpack doesn't webpack me. There's probably a better way.
   /*eslint-disable no-eval */
   config.add(eval("require('./sk-config-server')"));

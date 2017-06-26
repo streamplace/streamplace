@@ -1,12 +1,8 @@
-
 import React, { Component } from "react";
-import {
-  BrowserRouter as Router,
-  Route,
-} from "react-router-dom";
+import { BrowserRouter as Router, Route } from "react-router-dom";
 import Home from "./home";
 import icon from "./icon.svg";
-import {watch, bindComponent} from "sp-components";
+import { watch, bindComponent } from "sp-components";
 import Channel from "./channel";
 import TopBar from "./top-bar.js";
 import Options from "./options";
@@ -15,13 +11,13 @@ import {
   Sidebar,
   PageContainer,
   ChannelIcon,
-  ChannelIconText,
+  ChannelIconText
 } from "./sp-router.style";
 
 export class SPRouter extends Component {
   static propTypes = {
     channels: React.PropTypes.array,
-    onLogout: React.PropTypes.func.isRequired,
+    onLogout: React.PropTypes.func.isRequired
   };
 
   static subscribe(props) {
@@ -37,20 +33,32 @@ export class SPRouter extends Component {
 
   renderChannelIcon(channel) {
     return (
-      <ChannelIcon id={`channel-${channel.id}`} activeClassName="active" icon={channel.icon} key={channel.id} to={`/${channel.slug}`}>
+      <ChannelIcon
+        id={`channel-${channel.id}`}
+        activeClassName="active"
+        icon={channel.icon}
+        key={channel.id}
+        to={`/${channel.slug}`}
+      >
         <ChannelIconText>{channel.slug.slice(0, 1)}</ChannelIconText>
       </ChannelIcon>
     );
   }
 
-  render () {
+  render() {
     return (
       <Router>
         <AppContainer>
           <Sidebar>
-            {this.renderChannelIcon({slug: "", icon: icon, id: "home"})}
-            {this.props.channels && this.props.channels.map(c => this.renderChannelIcon(c))}
-            <ChannelIcon id="channel-options" activeClassName="active" key="options" to="/streamplace:options">
+            {this.renderChannelIcon({ slug: "", icon: icon, id: "home" })}
+            {this.props.channels &&
+              this.props.channels.map(c => this.renderChannelIcon(c))}
+            <ChannelIcon
+              id="channel-options"
+              activeClassName="active"
+              key="options"
+              to="/streamplace:options"
+            >
               <ChannelIconText>
                 <i className="fa fa-gear" />
               </ChannelIconText>
@@ -59,7 +67,10 @@ export class SPRouter extends Component {
           <PageContainer>
             <TopBar onLogout={this.props.onLogout} />
             <Route exact path="/" component={Home} />
-            <Route path="/streamplace\:options" render={() => <Options onLogout={this.props.onLogout} />} />
+            <Route
+              path="/streamplace\:options"
+              render={() => <Options onLogout={this.props.onLogout} />}
+            />
             <Route path="/:slug" component={Channel} />
           </PageContainer>
         </AppContainer>

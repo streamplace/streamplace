@@ -1,3 +1,2 @@
-
 import ServerAuth from "./ServerAuth";
-export const resources = {ServerAuth};
+export const resources = { ServerAuth };

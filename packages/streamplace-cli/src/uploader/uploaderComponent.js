@@ -1,6 +1,3 @@
+import { terminal as term } from "terminal-kit";
 
-import {terminal as term} from "terminal-kit";
-
-export default function uploaderComponent(store) {
-
-}
+export default function uploaderComponent(store) {}

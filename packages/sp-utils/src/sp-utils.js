@@ -1,4 +1,3 @@
-
 // I rather like Meteor's random ids, so we're using them here. MIT-licensed as follows.
 
 // Copyright (C) 2011--2016 Meteor Development Group
@@ -18,19 +17,19 @@
 // DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-const UNMISTAKABLE_CHARS = "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz";
+const UNMISTAKABLE_CHARS =
+  "23456789ABCDEFGHJKLMNPQRSTWXYZabcdefghijkmnopqrstuvwxyz";
 
-const choice = function (arrayOrString) {
+const choice = function(arrayOrString) {
   const index = Math.floor(Math.random() * arrayOrString.length);
   if (typeof arrayOrString === "string") {
     return arrayOrString.substr(index, 1);
-  }
-  else {
+  } else {
     return arrayOrString[index];
   }
 };
 
-const randomString = function (charsCount, alphabet) {
+const randomString = function(charsCount, alphabet) {
   const digits = [];
   for (let i = 0; i < charsCount; i++) {
     digits[i] = choice(alphabet);
@@ -51,7 +50,14 @@ export function randomId(charsCount) {
  *
  * I know that this depends on the projection matrix, but that's really confusing so here we are
  */
-export function relativeCoords(x, y, myWidth, myHeight, canvasWidth, canvasHeight) {
+export function relativeCoords(
+  x,
+  y,
+  myWidth,
+  myHeight,
+  canvasWidth,
+  canvasHeight
+) {
   x += myWidth / 2;
   x -= canvasWidth / 2;
   y += myHeight / 2;

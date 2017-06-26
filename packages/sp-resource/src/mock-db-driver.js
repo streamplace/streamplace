@@ -1,10 +1,9 @@
-
 /**
  * Dummy, in-memory driver used instead of Rethink for testing.
  */
 
 import _ from "underscore";
-import {v4} from "node-uuid";
+import { v4 } from "node-uuid";
 
 const req = function() {
   throw new Error("Missing required parameter");
@@ -18,17 +17,14 @@ const matchesQuery = function(query, doc) {
 };
 
 export default class MockDbDriver {
-  constructor({tableName}) {
+  constructor({ tableName }) {
     this.watching = {};
     this.data = {};
   }
 
   find(ctx = req(), query = req()) {
     return new Promise((resolve, reject) => {
-      const docs = _(this.data).chain()
-        .values()
-        .filter(query)
-        .value();
+      const docs = _(this.data).chain().values().filter(query).value();
       resolve(docs);
     });
   }
@@ -45,8 +41,7 @@ export default class MockDbDriver {
       if (!doc.id) {
         doc.id = v4();
         this._change(null, doc);
-      }
-      else {
+      } else {
         this._change(this.data[doc.id], doc);
       }
       this.data[doc.id] = doc;
@@ -66,24 +61,25 @@ export default class MockDbDriver {
   }
 
   multiDelete(ctx = req(), query = req()) {
-    const proms = _(this.data).values()
-    .filter(matchesQuery.bind(undefined, query))
-    .map((doc) => {
-      return this.delete(ctx, doc.id);
-    });
+    const proms = _(this.data)
+      .values()
+      .filter(matchesQuery.bind(undefined, query))
+      .map(doc => {
+        return this.delete(ctx, doc.id);
+      });
     return Promise.all(proms);
   }
 
   _change(oldVal, newVal) {
     process.nextTick(() => {
-      _(this.watching).values().forEach(cb => cb({oldVal, newVal}));
+      _(this.watching).values().forEach(cb => cb({ oldVal, newVal }));
     });
   }
 
   watch(ctx = req(), query = req()) {
     const me = v4();
-    const processor = (cb) => {
-      return ({oldVal, newVal}) => {
+    const processor = cb => {
+      return ({ oldVal, newVal }) => {
         if (oldVal !== undefined && !matchesQuery(query, oldVal)) {
           oldVal = null;
         }
@@ -93,20 +89,20 @@ export default class MockDbDriver {
         if (!oldVal && !newVal) {
           return;
         }
-        cb({old_val: oldVal, new_val: newVal});
+        cb({ old_val: oldVal, new_val: newVal });
       };
     };
     return Promise.resolve({
       on: (keyword, cb) => {
-        cb({state: "initalizing"});
+        cb({ state: "initalizing" });
         const docProcessor = processor(cb);
-        _(this.data).values().forEach(doc => docProcessor({newVal: doc}));
+        _(this.data).values().forEach(doc => docProcessor({ newVal: doc }));
         this.watching[me] = docProcessor;
-        cb({state: "ready"});
+        cb({ state: "ready" });
       },
       close: () => {
         delete this.watching[me];
-      },
+      }
     });
   }
 }

@@ -1,4 +1,3 @@
-
 import styled from "styled-components";
 import { FlexContainer } from "./shared.style";
 import { Button, colorLive, colorLiveLight } from "sp-styles";
@@ -28,8 +27,8 @@ export const TitleBar = styled.div`
   font-weight: 200;
   padding: 0 0.3em;
   align-items: center;
-  background-color: ${props => props.active ? colorLiveLight : "white"};
-  color: ${props => props.active ? "white" : "#333"};
+  background-color: ${props => (props.active ? colorLiveLight : "white")};
+  color: ${props => (props.active ? "white" : "#333")};
   justify-content: space-between;
 `;
 
@@ -41,13 +40,13 @@ export const GoLiveButton = styled(Button)`
   font-size: 0.7em;
   -webkit-app-region: no-drag;
   padding: 0.2em 0.5em;
-  background-color: ${props => props.active ? "white" : colorLive};
+  background-color: ${props => (props.active ? "white" : colorLive)};
   border: none;
-  color: ${props => props.active ? "#333" : "white"};
+  color: ${props => (props.active ? "#333" : "white")};
   border-radius: 5px;
 
   &:hover {
-    background-color: ${props => props.active ? "#ddd" : colorLiveLight};
+    background-color: ${props => (props.active ? "#ddd" : colorLiveLight)};
   }
 `;
 

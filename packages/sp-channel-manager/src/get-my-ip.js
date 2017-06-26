@@ -1,4 +1,3 @@
-
 // i wonder how much of the internet breaks if icanhazip.com stops working? if this file scares
 // you and you want to write some fallbacks, be my guest.
 
@@ -14,7 +13,7 @@ export default function getMyIp() {
     return Promise.resolve(DEV_EXTERNAL_IP);
   }
   if (!prom) {
-    prom = request("https://icanhazip.com").then((data) => {
+    prom = request("https://icanhazip.com").then(data => {
       return data.replace(/\s/g, "");
     });
   }

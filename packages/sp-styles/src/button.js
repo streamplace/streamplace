@@ -1,7 +1,6 @@
-
 import styled from "styled-components";
 import color from "color";
-import {colorGold, colorGoldLight, colorBackground} from "./colors";
+import { colorGold, colorGoldLight, colorBackground } from "./colors";
 
 export const Button = styled.button`
   font-size: 1.3em;

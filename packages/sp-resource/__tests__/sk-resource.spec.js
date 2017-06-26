@@ -1,4 +1,3 @@
-
 /**
  * If you want to test this against actual rethink, make sure you're running jest --runInBand so
  * they don't clobber each other
@@ -9,7 +8,7 @@ import MockDbDriver from "../src/mock-db-driver";
 import RethinkDbDriver from "../src/rethink-db-driver";
 import r from "rethinkdb";
 import _ from "underscore";
-import {v4} from "node-uuid";
+import { v4 } from "node-uuid";
 import EventEmitter from "events";
 import Ajv from "ajv";
 
@@ -40,8 +39,8 @@ const testResourceSchema = {
     },
     transform: {
       type: "boolean"
-    },
-  },
+    }
+  }
 };
 
 const wait = function(ms) {
@@ -59,13 +58,12 @@ const reversePromise = function(prom) {
 beforeEach(() => {
   ctx = {
     subscriptions: [],
-    rethink: r,
+    rethink: r
   };
   let dbDriver;
   if (useRethink) {
     dbDriver = RethinkDbDriver;
-  }
-  else {
+  } else {
     dbDriver = MockDbDriver;
   }
   TestResource = class extends Resource {
@@ -82,7 +80,7 @@ beforeEach(() => {
   });
   TestResource.tableName = "testResources";
   ajv.addSchema(testResourceSchema, "TestResource");
-  testResource = new TestResource({dbDriver, ajv});
+  testResource = new TestResource({ dbDriver, ajv });
   db = testResource.db;
   if (useRethink) {
     const rethinkConfig = {
@@ -90,7 +88,7 @@ beforeEach(() => {
       port: RETHINK_PORT,
       db: RETHINK_DATABASE
     };
-    return r.connect(rethinkConfig).then((conn) => {
+    return r.connect(rethinkConfig).then(conn => {
       ctx.conn = conn;
       return r.dbCreate(RETHINK_DATABASE).run(conn);
     });
@@ -99,8 +97,7 @@ beforeEach(() => {
 
 afterEach(() => {
   if (useRethink) {
-    return r.dbDrop(RETHINK_DATABASE).run(ctx.conn)
-    .then(() => {
+    return r.dbDrop(RETHINK_DATABASE).run(ctx.conn).then(() => {
       return ctx.conn.close();
     });
   }
@@ -118,13 +115,14 @@ it("should fail if no database is provided", () => {
 
 it("should findOne", () => {
   const testId = v4();
-  return db.upsert(ctx, {id: testId, "foo": "bar"})
-  .then(() => {
-    return testResource.findOne(ctx, testId);
-  })
-  .then((doc) => {
-    expect(doc).toEqual({id: testId, foo: "bar"});
-  });
+  return db
+    .upsert(ctx, { id: testId, foo: "bar" })
+    .then(() => {
+      return testResource.findOne(ctx, testId);
+    })
+    .then(doc => {
+      expect(doc).toEqual({ id: testId, foo: "bar" });
+    });
 });
 
 it("should find", () => {
@@ -139,83 +137,88 @@ it("should find", () => {
   return Promise.all([
     db.upsert(ctx, randoDoc()),
     db.upsert(ctx, testDoc),
-    db.upsert(ctx, randoDoc()),
+    db.upsert(ctx, randoDoc())
   ])
-  .then(() => {
-    return testResource.find(ctx, {foo: "bar"});
-  })
-  .then((docs) => {
-    expect(docs).toEqual([testDoc]);
-    return testResource.find(ctx);
-  })
-  .then((docs) => {
-    expect(docs.length).toBe(3);
-  });
+    .then(() => {
+      return testResource.find(ctx, { foo: "bar" });
+    })
+    .then(docs => {
+      expect(docs).toEqual([testDoc]);
+      return testResource.find(ctx);
+    })
+    .then(docs => {
+      expect(docs.length).toBe(3);
+    });
 });
 
 it("should create", () => {
-  return testResource.create(ctx, {foo: "bar"})
-  .then((doc) => {
-    return db.findOne(ctx, doc.id);
-  })
-  .then((doc) => {
-    expect(doc.foo).toBe("bar");
-  });
+  return testResource
+    .create(ctx, { foo: "bar" })
+    .then(doc => {
+      return db.findOne(ctx, doc.id);
+    })
+    .then(doc => {
+      expect(doc.foo).toBe("bar");
+    });
 });
 
 it("shouldn't auth creates with an id", () => {
   expect(() => {
-    return testResource.create(ctx, {foo: "bar", id: "nope"});
+    return testResource.create(ctx, { foo: "bar", id: "nope" });
   }).toThrowError(/VALIDATION_FAILED/);
 });
 
 it("should update", () => {
   const testId = v4();
-  return db.upsert(ctx, {id: testId, "foo": "bar"})
-  .then(() => {
-    return testResource.update(ctx, testId, {foo: "baz"});
-  })
-  .then(() => {
-    return db.findOne(ctx, testId);
-  })
-  .then((doc) => {
-    expect(doc).toEqual({id: testId, foo: "baz"});
-  });
+  return db
+    .upsert(ctx, { id: testId, foo: "bar" })
+    .then(() => {
+      return testResource.update(ctx, testId, { foo: "baz" });
+    })
+    .then(() => {
+      return db.findOne(ctx, testId);
+    })
+    .then(doc => {
+      expect(doc).toEqual({ id: testId, foo: "baz" });
+    });
 });
 
 it("should update with a provided id", () => {
   const testId = v4();
-  return db.upsert(ctx, {id: testId, "foo": "bar"})
-  .then(() => {
-    return testResource.update(ctx, testId, {id: testId, foo: "baz"});
-  })
-  .then(() => {
-    return db.findOne(ctx, testId);
-  }).then((doc) => {
-    expect(doc).toEqual({id: testId, foo: "baz"});
-  });
+  return db
+    .upsert(ctx, { id: testId, foo: "bar" })
+    .then(() => {
+      return testResource.update(ctx, testId, { id: testId, foo: "baz" });
+    })
+    .then(() => {
+      return db.findOne(ctx, testId);
+    })
+    .then(doc => {
+      expect(doc).toEqual({ id: testId, foo: "baz" });
+    });
 });
 
 it("shouldn't auth updates that change the id", () => {
   const testId = v4();
-  db[testId] = {"foo": "bar"};
+  db[testId] = { foo: "bar" };
   expect(() => {
-    return testResource.update(ctx, testId, {id: v4(), foo: "baz"});
+    return testResource.update(ctx, testId, { id: v4(), foo: "baz" });
   }).toThrowError(/VALIDATION_FAILED/);
 });
 
 it("should delete", () => {
   const testId = v4();
-  return db.upsert(ctx, {id: testId, foo: "bar"})
-  .then(() => {
-    return testResource.delete(ctx, testId);
-  })
-  .then(() => {
-    return db.find(ctx, {});
-  })
-  .then((docs) => {
-    expect(docs).toEqual([]);
-  });
+  return db
+    .upsert(ctx, { id: testId, foo: "bar" })
+    .then(() => {
+      return testResource.delete(ctx, testId);
+    })
+    .then(() => {
+      return db.find(ctx, {});
+    })
+    .then(docs => {
+      expect(docs).toEqual([]);
+    });
 });
 
 it("should transform for all CRUD operations", () => {
@@ -224,23 +227,24 @@ it("should transform for all CRUD operations", () => {
     return Promise.resolve(doc);
   };
   let id;
-  return testResource.create(ctx, {foo: "bar"})
-  .then((doc) => {
-    id = doc.id;
-    expect(doc.transform).toBe(true);
-    return testResource.update(ctx, id, {foo: "baz"});
-  })
-  .then((doc) => {
-    expect(doc.transform).toBe(true);
-    return testResource.findOne(ctx, id);
-  })
-  .then((doc) => {
-    expect(doc.transform).toBe(true);
-    return testResource.find(ctx, {id});
-  })
-  .then(([doc]) => {
-    expect(doc.transform).toBe(true);
-  });
+  return testResource
+    .create(ctx, { foo: "bar" })
+    .then(doc => {
+      id = doc.id;
+      expect(doc.transform).toBe(true);
+      return testResource.update(ctx, id, { foo: "baz" });
+    })
+    .then(doc => {
+      expect(doc.transform).toBe(true);
+      return testResource.findOne(ctx, id);
+    })
+    .then(doc => {
+      expect(doc.transform).toBe(true);
+      return testResource.find(ctx, { id });
+    })
+    .then(([doc]) => {
+      expect(doc.transform).toBe(true);
+    });
 });
 
 ///////////////////////
@@ -262,76 +266,78 @@ beforeEach(() => {
 
 it("should watch on CRUD operations", () => {
   let feed;
-  return testResource.watch(ctx, {}, v4())
-  .then((newFeed) => {
-    feed = newFeed;
-    return testResource.create(ctx, {foo: "bar"});
-  })
-  .then(() => {
-    return wait(0);
-  })
-  .then(() => {
-    expect(watchCalledCount).toBe(1);
-    expect(oldVal).toBe(null);
-    expect(newVal.foo).toBe("bar");
-    return testResource.update(ctx, newVal.id, {foo: "baz"});
-  })
-  .then(() => {
-    return wait(0);
-  })
-  .then(() => {
-    expect(watchCalledCount).toBe(2);
-    expect(oldVal.foo).toBe("bar");
-    expect(newVal.foo).toBe("baz");
-    return testResource.delete(ctx, oldVal.id);
-  })
-  .then(() => {
-    return wait(0);
-  })
-  .then(() => {
-    expect(watchCalledCount).toBe(3);
-    expect(oldVal.foo).toBe("baz");
-    expect(newVal).toBe(null);
-    return feed.stop();
-  });
+  return testResource
+    .watch(ctx, {}, v4())
+    .then(newFeed => {
+      feed = newFeed;
+      return testResource.create(ctx, { foo: "bar" });
+    })
+    .then(() => {
+      return wait(0);
+    })
+    .then(() => {
+      expect(watchCalledCount).toBe(1);
+      expect(oldVal).toBe(null);
+      expect(newVal.foo).toBe("bar");
+      return testResource.update(ctx, newVal.id, { foo: "baz" });
+    })
+    .then(() => {
+      return wait(0);
+    })
+    .then(() => {
+      expect(watchCalledCount).toBe(2);
+      expect(oldVal.foo).toBe("bar");
+      expect(newVal.foo).toBe("baz");
+      return testResource.delete(ctx, oldVal.id);
+    })
+    .then(() => {
+      return wait(0);
+    })
+    .then(() => {
+      expect(watchCalledCount).toBe(3);
+      expect(oldVal.foo).toBe("baz");
+      expect(newVal).toBe(null);
+      return feed.stop();
+    });
 });
 
 it("should get the initial documents", () => {
   let handle;
   let doc;
-  return testResource.create(ctx, {foo: "bar"})
-  .then((newDoc) => {
-    doc = newDoc;
-    return testResource.watch(ctx, {foo: "bar"});
-  })
-  .then((newHandle) => {
-    handle = newHandle;
-    expect(watchCalledCount).toBe(1);
-    expect(oldVal).toBe(undefined);
-    expect(newVal).toEqual(doc);
-    return handle.stop();
-  });
+  return testResource
+    .create(ctx, { foo: "bar" })
+    .then(newDoc => {
+      doc = newDoc;
+      return testResource.watch(ctx, { foo: "bar" });
+    })
+    .then(newHandle => {
+      handle = newHandle;
+      expect(watchCalledCount).toBe(1);
+      expect(oldVal).toBe(undefined);
+      expect(newVal).toEqual(doc);
+      return handle.stop();
+    });
 });
 
 it("should stop watching", () => {
   let handle;
-  return testResource.watch(ctx, {})
-  .then((newHandle) => {
-    handle = newHandle;
-    return wait(0);
-  })
-  .then(() => {
-    const p = testResource.create(ctx, {foo: "bar"});
-    handle.stop();
-    return p;
-  })
-  .then(() => {
-    return wait(0);
-  })
-  .then(() => {
-    expect(watchCalledCount).toBe(0);
-  });
-
+  return testResource
+    .watch(ctx, {})
+    .then(newHandle => {
+      handle = newHandle;
+      return wait(0);
+    })
+    .then(() => {
+      const p = testResource.create(ctx, { foo: "bar" });
+      handle.stop();
+      return p;
+    })
+    .then(() => {
+      return wait(0);
+    })
+    .then(() => {
+      expect(watchCalledCount).toBe(0);
+    });
 });
 
 ////////////////
@@ -365,26 +371,29 @@ it("should disauth schema without additionalProperties: false", () => {
   }).toThrowError();
 });
 
-it("should reject extra properties upon creation", (done) => {
-  testResource.create(ctx, {foo: "bar", extra: "property"}).then(shouldFail)
-  .catch((err) => {
-    expect(err.message).toMatch(/VALIDATION_FAILED/);
-    done();
-  });
+it("should reject extra properties upon creation", done => {
+  testResource
+    .create(ctx, { foo: "bar", extra: "property" })
+    .then(shouldFail)
+    .catch(err => {
+      expect(err.message).toMatch(/VALIDATION_FAILED/);
+      done();
+    });
 });
 
-it("should reject extra properties upon update", (done) => {
+it("should reject extra properties upon update", done => {
   const testId = v4();
-  db[testId] = {"foo": "bar"};
-  testResource.update(ctx, testId, {extra: "property"}).then(shouldFail)
-  .catch((err) => {
-    done();
-  });
+  db[testId] = { foo: "bar" };
+  testResource
+    .update(ctx, testId, { extra: "property" })
+    .then(shouldFail)
+    .catch(err => {
+      done();
+    });
 });
 
-it("should reject incorrect values upon creation", (done) => {
-  testResource.create(ctx, {foo: false}).then(shouldFail)
-  .catch((err) => {
+it("should reject incorrect values upon creation", done => {
+  testResource.create(ctx, { foo: false }).then(shouldFail).catch(err => {
     expect(err.message).toMatch(/VALIDATION_FAILED/);
     done();
   });
@@ -392,14 +401,15 @@ it("should reject incorrect values upon creation", (done) => {
 
 it("should reject incorrect values upon update", () => {
   const testId = v4();
-  db[testId] = {"foo": "bar"};
-  return db.upsert(ctx, {foo: "bar", id: testId})
-  .then(() => {
-    return reversePromise(testResource.update(ctx, testId, {foo: 123456}));
-  })
-  .then((err) => {
-    expect(err.message).toMatch(/VALIDATION_FAILED/);
-  });
+  db[testId] = { foo: "bar" };
+  return db
+    .upsert(ctx, { foo: "bar", id: testId })
+    .then(() => {
+      return reversePromise(testResource.update(ctx, testId, { foo: 123456 }));
+    })
+    .then(err => {
+      expect(err.message).toMatch(/VALIDATION_FAILED/);
+    });
 });
 
 ////////////////
@@ -439,48 +449,50 @@ it("should make auth checks on modification", () => {
     findOneCalled = true;
     return Promise.resolve(true);
   };
-  return testResource.create(ctx, {foo: "bar"})
-  .then(({id}) => {
-    expect(createCalled).toBe(true);
-    return testResource.update(ctx, id, {foo: "baz"});
-  })
-  .then(({id}) => {
-    expect(updateCalled).toBe(true);
-    return testResource.findOne(ctx, id);
-  })
-  .then(({id}) => {
-    return testResource.delete(ctx, id);
-  })
-  .then(() => {
-    expect(deleteCalled).toBe(true);
-  });
+  return testResource
+    .create(ctx, { foo: "bar" })
+    .then(({ id }) => {
+      expect(createCalled).toBe(true);
+      return testResource.update(ctx, id, { foo: "baz" });
+    })
+    .then(({ id }) => {
+      expect(updateCalled).toBe(true);
+      return testResource.findOne(ctx, id);
+    })
+    .then(({ id }) => {
+      return testResource.delete(ctx, id);
+    })
+    .then(() => {
+      expect(deleteCalled).toBe(true);
+    });
 });
 
 it("should disallow everything by default", () => {
   delete TestResource.prototype.auth;
   const testId = v4();
-  return db.upsert(ctx, {id: testId, "foo": "bar"})
-  .then(() => {
-    return reversePromise(testResource.create(ctx, {foo: "bar"}));
-  })
-  .then((err) => {
-    expect(err.status).toBe(403);
-    return reversePromise(testResource.update(ctx, testId, {"foo": "baz"}));
-  })
-  .then((err) => {
-    expect(err.status).toBe(403);
-    return reversePromise(testResource.delete(ctx, testId));
-  })
-  .then((err) => {
-    expect(err.status).toBe(403);
-    return reversePromise(testResource.findOne(ctx, testId));
-  })
-  .then((err) => {
-    expect(err.status).toBe(403);
-  })
-  .catch(() => {
-    throw new Error("something succeeded! boo!");
-  });
+  return db
+    .upsert(ctx, { id: testId, foo: "bar" })
+    .then(() => {
+      return reversePromise(testResource.create(ctx, { foo: "bar" }));
+    })
+    .then(err => {
+      expect(err.status).toBe(403);
+      return reversePromise(testResource.update(ctx, testId, { foo: "baz" }));
+    })
+    .then(err => {
+      expect(err.status).toBe(403);
+      return reversePromise(testResource.delete(ctx, testId));
+    })
+    .then(err => {
+      expect(err.status).toBe(403);
+      return reversePromise(testResource.findOne(ctx, testId));
+    })
+    .then(err => {
+      expect(err.status).toBe(403);
+    })
+    .catch(() => {
+      throw new Error("something succeeded! boo!");
+    });
 });
 
 describe("queries", () => {
@@ -495,45 +507,47 @@ describe("queries", () => {
     watchCalledCount = 0;
     TestResource.prototype.authQuery = () => {
       selectorCalledCount += 1;
-      return Promise.resolve({userId: "yup"});
+      return Promise.resolve({ userId: "yup" });
     };
-    doc1 = {id: v4(), "foo": "bar"};
-    doc2 = {id: v4(), "foo": "baz"};
-    docAuthorized = {id: v4(), foo: "bar", userId: "yup"};
-    docUnauthorized = {id: v4(), foo: "bar", userId: "nope"};
-    return Promise.all([doc1, doc2, docAuthorized, docUnauthorized].map(db.upsert.bind(db, ctx)));
+    doc1 = { id: v4(), foo: "bar" };
+    doc2 = { id: v4(), foo: "baz" };
+    docAuthorized = { id: v4(), foo: "bar", userId: "yup" };
+    docUnauthorized = { id: v4(), foo: "bar", userId: "nope" };
+    return Promise.all(
+      [doc1, doc2, docAuthorized, docUnauthorized].map(db.upsert.bind(db, ctx))
+    );
   });
 
   it("should authorize query on find", () => {
-    return testResource.find(ctx, {foo: "bar"})
-    .then((docs) => {
+    return testResource.find(ctx, { foo: "bar" }).then(docs => {
       expect(docs).toEqual([docAuthorized]);
       expect(selectorCalledCount).toBe(1);
     });
   });
 
   it("should authorize query on watch", () => {
-    ctx.data = function({oldVal, newVal}) {
+    ctx.data = function({ oldVal, newVal }) {
       expect(newVal.foo).toBe("bar");
       watchCalledCount += 1;
     };
     TestResource.prototype.authSelector = function() {
       selectorCalledCount += 1;
-      return Promise.resolve({userId: "nope"});
+      return Promise.resolve({ userId: "nope" });
     };
     let handle;
-    return testResource.watch(ctx, {foo: "bar"})
-    .then((h) => {
-      handle = h;
-      return testResource.update(ctx, doc1.id, {userId: "whatever"});
-    })
-    .then(() => {
-      return wait();
-    })
-    .then(() => {
-      handle.stop();
-      expect(selectorCalledCount).toBe(1);
-    });
+    return testResource
+      .watch(ctx, { foo: "bar" })
+      .then(h => {
+        handle = h;
+        return testResource.update(ctx, doc1.id, { userId: "whatever" });
+      })
+      .then(() => {
+        return wait();
+      })
+      .then(() => {
+        handle.stop();
+        expect(selectorCalledCount).toBe(1);
+      });
   });
 });
 
@@ -544,20 +558,20 @@ describe("queries", () => {
 describe("dbDriver", () => {
   it("should multiDelete", () => {
     return Promise.all([
-      db.upsert(ctx, {foo: "bar"}),
-      db.upsert(ctx, {foo: "bar"}),
-      db.upsert(ctx, {foo: "bar"}),
-      db.upsert(ctx, {foo: "baz"}),
+      db.upsert(ctx, { foo: "bar" }),
+      db.upsert(ctx, { foo: "bar" }),
+      db.upsert(ctx, { foo: "bar" }),
+      db.upsert(ctx, { foo: "baz" })
     ])
-    .then(() => {
-      return db.multiDelete(ctx, {foo: "bar"});
-    })
-    .then(() => {
-      return db.find(ctx, {});
-    })
-    .then((docs) => {
-      expect(docs.length).toBe(1);
-      expect(docs[0].foo).toBe("baz");
-    });
+      .then(() => {
+        return db.multiDelete(ctx, { foo: "bar" });
+      })
+      .then(() => {
+        return db.find(ctx, {});
+      })
+      .then(docs => {
+        expect(docs.length).toBe(1);
+        expect(docs[0].foo).toBe("baz");
+      });
   });
 });

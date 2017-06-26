@@ -1,4 +1,3 @@
-
 import Resource from "sp-resource";
 import winston from "winston";
 
@@ -19,12 +18,15 @@ export default class Arc extends Resource {
       throw new Error("Missing vertexId in handleVertexDeletion");
     }
     return Promise.all([
-      this.db.multiDelete(ctx, {from: {vertexId}}),
-      this.db.multiDelete(ctx, {to: {vertexId}}),
-    ])
-    .then(([r1, r2]) => {
-      winston.info(`Deleted ${r1.deleted} arcs that connected from vertex ${vertexId}`);
-      winston.info(`Deleted ${r2.deleted} arcs that connected to vertex ${vertexId}`);
+      this.db.multiDelete(ctx, { from: { vertexId } }),
+      this.db.multiDelete(ctx, { to: { vertexId } })
+    ]).then(([r1, r2]) => {
+      winston.info(
+        `Deleted ${r1.deleted} arcs that connected from vertex ${vertexId}`
+      );
+      winston.info(
+        `Deleted ${r2.deleted} arcs that connected to vertex ${vertexId}`
+      );
     });
   }
 }

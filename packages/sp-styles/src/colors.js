@@ -1,4 +1,3 @@
-
 import color from "color";
 
 export const colorBackground = "#333333";

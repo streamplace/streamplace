@@ -1,0 +1,7 @@
+node_modules
+/*.tgz
+package.json
+dist
+src
+public
+Dockerfile

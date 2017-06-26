@@ -41,4 +41,6 @@ dependencies:
   - name: sp-channel-manager
     version: 0.0.15
     repository: 'https://charts.stream.place'
-
+  - name: sp-rtmp-server
+    version: 0.0.15
+    repository: 'https://charts.stream.place'

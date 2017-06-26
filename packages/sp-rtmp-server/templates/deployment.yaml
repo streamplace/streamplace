@@ -27,6 +27,28 @@ spec:
           emptyDir: {}
       {{- end }}
       containers:
+      - name: {{ .Chart.Name }}-nginx
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 3
+          timeoutSeconds: 5
+          periodSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+        {{- if .Values.global.development }}
+        image: "streamplace/sp-rtmp-nginx:latest"
+        {{- else }}
+        image: "{{ .Values.global.repo }}/sp-rtmp-nginx:v{{ .Chart.Version }}"
+        {{- end }}
+        imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
+
       - name: {{ .Chart.Name }}
         readinessProbe:
           httpGet:

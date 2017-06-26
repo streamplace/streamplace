@@ -4,7 +4,8 @@
   "description": "Makes nginx-rtmp and Streamplace play nice together",
   "main": "dist/sp-rtmp-server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublish": "babel -d dist sr"
   },
   "repository": {
     "type": "git",
@@ -19,7 +20,8 @@
   "devDependencies": {
     "babel-cli": "^6.24.1",
     "babel-core": "^6.25.0",
-    "babel-preset-streamplace": "0.0.3"
+    "babel-preset-streamplace": "0.0.3",
+    "babel-watch": "^2.0.6"
   },
   "dependencies": {
     "express": "^4.15.3",

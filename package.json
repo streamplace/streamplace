@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "dot-object": "^1.5.4",
-    "eslint": "^2.2.0",
+    "eslint": "^2.13.1",
     "eslint-plugin-react": "^4.3.0",
     "get-stdin": "^5.0.1",
     "helm-cli": "^2.5.0-1",

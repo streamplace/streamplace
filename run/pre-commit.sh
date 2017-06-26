@@ -22,26 +22,3 @@ for package in $changedPackages; do
     "$ROOT/run/helm-lint.sh"
   )
 done
-
-filesToLint="$(git diff --cached --name-only | grep "\.js$" || echo "")"
-filesToLint="$filesToLint $(git diff --cached --name-only | grep "\.jsx$" || echo "")"
-if [[ -n "$filesToLint" ]]; then
-  status="happy"
-  for file in $filesToLint; do
-    if [[ -n "$(git ls-files :$file)" ]]; then
-      contents=$(git show :"$file")
-      if [[ -n "$contents" ]]; then
-        if (echo "$contents" | eslint --stdin --stdin-filename $file); then
-          :
-        else
-          status="sad"
-        fi
-      fi
-    fi
-  done
-  if [[ "$status" == "sad" ]]; then
-    exit 1
-  fi
-else
-  echo -en ""
-fi

@@ -1,10 +1,12 @@
 parser: babel-eslint
 plugins:
   - react
+  - prettier
 extends:
   - "eslint:recommended"
   - "plugin:react/recommended"
 rules:
+  prettier/prettier: "error"
   "no-unused-vars": 0
   "comma-dangle": 0
   "no-var": 2

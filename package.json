@@ -5,12 +5,26 @@
   "main": "index.js",
   "dependencies": {
     "babel-eslint": "^6.0.4",
+    "eslint-plugin-prettier": "^2.1.2",
     "hostile": "^1.3.0",
     "lerna": "2.0.0-beta.37",
+    "lint-staged": "^4.0.0",
+    "prettier": "^1.4.4",
     "superagent": "^3.5.0",
     "swagger-client": "^2.1.32",
     "temp": "^0.8.3",
     "tmp-promise": "^1.0.3"
+  },
+  "lint-staged": {
+    "*.js": [
+      "prettier --write",
+      "git add",
+      "eslint"
+    ],
+    "*.css": [
+      "prettier --write",
+      "git add"
+    ]
   },
   "devDependencies": {
     "dot-object": "^1.5.4",
@@ -43,7 +57,7 @@
     "kube-init": "run/kube-init.sh",
     "update-cert": "run/update-cert.sh",
     "link-deps": "run/link-deps.sh",
-    "precommit": "run/pre-commit.sh"
+    "precommit": "lint-staged && run/pre-commit.sh"
   },
   "repository": {
     "type": "git",

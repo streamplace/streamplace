@@ -1,11 +1,11 @@
 {
-  "name": "sp-rtmp-nginx",
+  "name": "sp-rtmp-server",
   "version": "0.0.15",
-  "description": "Streamplace RTMP Server",
-  "main": "package.json",
+  "description": "Makes nginx-rtmp and Streamplace play nice together",
+  "main": "dist/sp-rtmp-server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "postinstall": "! which docker && exit 0 || docker build -f build.Dockerfile -t nginx-rtmp-build . && docker run -d --name nginx-rtmp-build nginx-rtmp-build && docker cp nginx-rtmp-build:/usr/local/nginx/sbin/nginx ./nginx && docker rm -f nginx-rtmp-build"
+    "prepublish": "babel -d dist src"
   },
   "repository": {
     "type": "git",
@@ -17,7 +17,16 @@
     "url": "https://github.com/streamplace/streamplace/issues"
   },
   "homepage": "https://github.com/streamplace/streamplace#readme",
+  "devDependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-core": "^6.25.0",
+    "babel-preset-streamplace": "0.0.3",
+    "babel-watch": "^2.0.6"
+  },
   "dependencies": {
-    "sp-node": "^0.0.15"
+    "express": "^4.15.3",
+    "morgan": "^1.8.2",
+    "sp-node": "^0.0.15",
+    "sp-rtmp-nginx": "^0.0.15"
   }
 }

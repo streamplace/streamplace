@@ -1,0 +1,96 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 5
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+    spec:
+      {{- if .Values.global.development }}
+      volumes:
+        - name: streamplace
+          hostPath:
+            path: {{ .Values.global.rootDirectory }}
+        - name: app
+          hostPath:
+            path: {{ .Values.global.rootDirectory }}/packages/{{ .Chart.Name }}
+        - name: tmp
+          emptyDir: {}
+      {{- end }}
+      containers:
+      - name: {{ .Chart.Name }}-nginx
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 3
+          timeoutSeconds: 5
+          periodSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+        {{- if .Values.global.development }}
+        image: "streamplace/sp-rtmp-nginx:latest"
+        {{- else }}
+        image: "{{ .Values.global.repo }}/sp-rtmp-nginx:v{{ .Chart.Version }}"
+        {{- end }}
+        imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
+
+      - name: {{ .Chart.Name }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 3
+          timeoutSeconds: 5
+          periodSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+        {{- if .Values.global.development }}
+        image: "streamplace/{{ .Chart.Name }}:latest"
+        command:
+          - bash
+          - -c
+          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch -o '/app/src/*' /app/src/{{ .Chart.Name }}.js
+        volumeMounts:
+          - name: app
+            mountPath: /app
+          - name: streamplace
+            mountPath: {{ .Values.global.rootDirectory }}
+          - name: tmp
+            mountPath: /tmp
+        {{- else }}
+        image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:v{{ .Chart.Version }}"
+        {{- end }}
+        imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
+        env:
+          - name: SP_DOMAIN
+            value: "{{ .Values.global.domain }}"
+          - name: SP_JWT_SECRET
+            value: "{{ .Values.global.jwt.secret }}"
+          - name: SP_JWT_AUDIENCE
+            value: "{{ .Values.global.jwt.audience }}"
+          - name: SP_JWT_EXPIRATION
+            value: "{{ .Values.global.jwt.expiration }}"
+          - name: SP_AUTH_ISSUER
+            value: "{{ .Values.global.authIssuer }}"
+          - name: SP_API_SERVER_URL
+            value: https://{{ .Values.global.domain }}

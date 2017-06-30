@@ -29,6 +29,7 @@ spec:
       {{- end }}
       containers:
       - name: {{ .Chart.Name }}
+        {{- if .Values.global.development }}{{- else }}
         readinessProbe:
           httpGet:
             path: /
@@ -43,6 +44,7 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 5
           timeoutSeconds: 5
+        {{- end }}
         {{- if .Values.global.development }}
         image: "streamplace/{{ .Chart.Name }}:latest"
         command:

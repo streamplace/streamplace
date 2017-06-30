@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+spec:
+  type: {{ if .Values.global.development }}ClusterIP{{ else }}LoadBalancer{{end}}
+  selector:
+    app: {{ template "fullname" . }}
+  ports:
+  - name: rtmp
+    port: 1935
+    targetPort: 1935
+    protocol: TCP

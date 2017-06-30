@@ -1,8 +1,5 @@
-FROM ubuntu:xenial
+FROM streamplace/sp-node
 
-RUN \
-  apt-get update && \
-  apt-get dist-upgrade -y && \
-  apt-get install -y ffmpeg
+RUN apt-get update && apt-get install -y ffmpeg
 
 CMD [ "ffmpeg" ]

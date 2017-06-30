@@ -1,16 +1,20 @@
 {
-  "name": "sp-rtmp-server",
+  "name": "sp-streams",
   "version": "0.0.16",
-  "description": "Makes nginx-rtmp and Streamplace play nice together",
-  "main": "dist/sp-rtmp-server.js",
+  "description": "Streamplace Streams for Piping Video Around and Stuff",
+  "main": "dist/sp-streams.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "babel -d dist -s -w src",
     "prepublish": "babel -d dist src"
   },
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/streamplace/streamplace.git"
   },
+  "keywords": [
+    "Streamplace"
+  ],
   "author": "Streamplace",
   "license": "Apache-2.0",
   "bugs": {
@@ -20,18 +24,10 @@
   "devDependencies": {
     "babel-cli": "^6.24.1",
     "babel-core": "^6.25.0",
-    "babel-preset-streamplace": "0.0.3",
-    "babel-watch": "^2.0.6"
+    "babel-preset-streamplace": "0.0.3"
   },
   "dependencies": {
-    "body-parser": "^1.17.2",
     "debug": "^2.6.8",
-    "express": "^4.15.3",
-    "fluent-ffmpeg": "^2.1.2",
-    "morgan": "^1.8.2",
-    "sp-client": "^0.0.16",
-    "sp-streams": "^0.0.16",
-    "sp-node": "^0.0.16",
-    "sp-rtmp-nginx": "^0.0.16"
+    "fluent-ffmpeg": "^2.1.2"
   }
 }

@@ -1,5 +1,5 @@
 
-FROM streamplace/sp-node
+FROM streamplace/sp-ffmpeg
 
 WORKDIR /app
 ADD package.json /app/package.json

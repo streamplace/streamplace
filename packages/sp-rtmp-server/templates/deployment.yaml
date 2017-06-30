@@ -28,16 +28,21 @@ spec:
       {{- end }}
       containers:
       - name: {{ .Chart.Name }}-nginx
+        ports:
+          - containerPort: 1935
+            {{- if .Values.global.development }}
+            hostPort: 1935
+            {{- end }}
         readinessProbe:
           httpGet:
-            path: /
+            path: /healthz
             port: 8080
           initialDelaySeconds: 3
           timeoutSeconds: 5
           periodSeconds: 3
         livenessProbe:
           httpGet:
-            path: /
+            path: /healthz
             port: 8080
           initialDelaySeconds: 30
           periodSeconds: 5
@@ -84,6 +89,8 @@ spec:
         env:
           - name: SP_DOMAIN
             value: "{{ .Values.global.domain }}"
+          - name: DEBUG
+            value: "sp:*"
           - name: SP_JWT_SECRET
             value: "{{ .Values.global.jwt.secret }}"
           - name: SP_JWT_AUDIENCE

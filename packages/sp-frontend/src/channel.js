@@ -22,10 +22,10 @@ export class Channel extends Component {
       scenes: props.channel && watch("scenes", { channelId: props.channel.id }),
       broadcasts:
         props.channel &&
-          watch("broadcasts", {
-            channelId: props.channel.id,
-            stopTime: null
-          })
+        watch("broadcasts", {
+          channelId: props.channel.id,
+          stopTime: null
+        })
     };
   }
 
@@ -104,7 +104,9 @@ export class Channel extends Component {
     let goLive;
     if (broadcastActive) {
       goLive = (
-        <GoLiveButton active onClick={() => this.stopLive()}>STOP</GoLiveButton>
+        <GoLiveButton active onClick={() => this.stopLive()}>
+          STOP
+        </GoLiveButton>
       );
     } else {
       goLive = (
@@ -116,7 +118,9 @@ export class Channel extends Component {
       <FlexContainer>
         <TitleBar active={broadcastActive}>
           <div>
-            <ChannelName>{channel.slug}</ChannelName>
+            <ChannelName>
+              {channel.slug}
+            </ChannelName>
           </div>
           {broadcastActive && <div>LIVE</div>}
           {goLive}

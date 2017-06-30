@@ -73,6 +73,4 @@ export const ChannelIcon = styled(NavLink)`
   }
 `;
 
-export const ChannelIconText = styled.span`
-  font-size: 2em;
-`;
+export const ChannelIconText = styled.span`font-size: 2em;`;

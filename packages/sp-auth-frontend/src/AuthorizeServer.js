@@ -24,9 +24,7 @@ const Centered = styled.div`
   padding: 1em;
 `;
 
-const Big = styled.h1`
-  font-weight: 200;
-`;
+const Big = styled.h1`font-weight: 200;`;
 
 const Aside = styled.aside`
   font-style: oblique;
@@ -163,7 +161,9 @@ export default class AuthorizeServer extends React.Component {
   render() {
     return (
       <Container>
-        <Centered>{this.renderInner()}</Centered>
+        <Centered>
+          {this.renderInner()}
+        </Centered>
       </Container>
     );
   }

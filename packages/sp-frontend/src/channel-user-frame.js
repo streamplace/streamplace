@@ -25,7 +25,7 @@ export class ChannelUserFrame extends Component {
       channel: watch.one("channels", { id: props.channelId }),
       scene:
         props.channel &&
-          watch.one("scenes", { id: props.channel.activeSceneId })
+        watch.one("scenes", { id: props.channel.activeSceneId })
     };
   }
 
@@ -161,7 +161,9 @@ export class ChannelUserFrame extends Component {
             <i className="fa fa-remove" />
           </ActionButton>
         </ActionBar>
-        <UserTitle>{user.handle}</UserTitle>
+        <UserTitle>
+          {user.handle}
+        </UserTitle>
       </UserFrame>
     );
   }

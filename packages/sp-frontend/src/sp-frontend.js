@@ -25,9 +25,7 @@ injectGlobal`
   }
 `;
 
-const Everything = styled.div`
-  height: 100%;
-`;
+const Everything = styled.div`height: 100%;`;
 
 const Centered = styled.div`
   height: 100%;

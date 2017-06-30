@@ -40,7 +40,9 @@ export class SPRouter extends Component {
         key={channel.id}
         to={`/${channel.slug}`}
       >
-        <ChannelIconText>{channel.slug.slice(0, 1)}</ChannelIconText>
+        <ChannelIconText>
+          {channel.slug.slice(0, 1)}
+        </ChannelIconText>
       </ChannelIcon>
     );
   }

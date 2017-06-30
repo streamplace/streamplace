@@ -4,20 +4,17 @@ import styled from "styled-components";
 import { parse as parseUrl } from "url";
 import { GoodButton } from "sp-styles";
 
-const ServerEntry = styled.div`
-  font-size: 1.6em;
-`;
+const ServerEntry = styled.div`font-size: 1.6em;`;
 
-const Hostname = styled.span`
-
-`;
+const Hostname = styled.span``;
 
 const SlugInput = styled.input`
   border: none;
   border-bottom: 2px solid #333;
   background-color: transparent;
 
-  &:focus, &:active {
+  &:focus,
+  &:active {
     border-bottom-color: #00b8ff;
     outline: none;
   }
@@ -68,7 +65,9 @@ export class CreateMyChannel extends Component {
         <form onSubmit={this.handleSubmit}>
           <p>Create your channel:</p>
           <ServerEntry>
-            <Hostname>{hostname}/</Hostname>
+            <Hostname>
+              {hostname}/
+            </Hostname>
             <SlugInput
               innerRef={elem => (this.slugInput = elem)}
               placeholder="my-channel"

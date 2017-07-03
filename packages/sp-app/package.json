@@ -22,15 +22,15 @@
   "devDependencies": {
     "babel-cli": "^6.23.0",
     "babel-core": "^6.23.1",
-    "babel-preset-streamplace": "0.0.1",
+    "babel-preset-streamplace": "0.0.3",
     "electron": "^1.4.15",
-    "electron-builder": "^15.6.2",
-    "electron-publisher-s3": "^15.6.3",
+    "electron-builder": "^19.11.1",
+    "electron-publisher-s3": "^19.11.0",
     "js-yaml": "^3.8.2",
     "nodemon": "^1.11.0"
   },
   "dependencies": {
     "electron-log": "^2.0.0",
-    "electron-updater": "^1.10.4"
+    "electron-updater": "^2.4.3"
   }
 }

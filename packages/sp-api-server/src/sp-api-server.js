@@ -105,3 +105,7 @@ axios
     winston.error(err);
     process.exit(1);
   });
+
+process.on("SIGTERM", function() {
+  process.exit(0);
+});

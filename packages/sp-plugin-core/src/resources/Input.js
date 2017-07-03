@@ -2,6 +2,15 @@ import Resource from "sp-resource";
 import { randomId } from "sp-utils";
 
 export default class Input extends Resource {
+  default(ctx) {
+    return super.default().then(doc => {
+      return {
+        ...doc,
+        userId: ctx.user.id
+      };
+    });
+  }
+
   auth(ctx, doc) {
     return Promise.resolve();
   }
@@ -12,7 +21,6 @@ export default class Input extends Resource {
 
   create(ctx, newDoc) {
     newDoc.streamKey = randomId();
-    newDoc.overlayKey = randomId();
     return super.create(ctx, newDoc);
   }
 }

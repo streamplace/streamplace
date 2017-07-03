@@ -49,9 +49,9 @@ class SPFrontend extends Component {
   }
 
   /**
- * Even if we don't have a token in localStorage, we still attempt login because that process has
- * sp-client download the schema for the server, populating the `loginUrl` parameter that we can
- * use to log the user in.
+ * Even if we don't have a token in localStorage, we still attempt login because
+ * that process has sp-client download the schema for the server, populating the
+ * `loginUrl` parameter that we can use to log the user in.
  */
   componentWillMount() {
     const query = qs.parse(document.location.search.slice(1));
@@ -72,8 +72,9 @@ class SPFrontend extends Component {
   }
 
   tryLogin(token) {
-    // This SPClient might not succeed in connection to the server 'cuz we're the login page, but
-    // that's fine because we're just using it to get the schema.
+    // This SPClient might not succeed in connection to the server 'cuz we're
+    // the login page, but that's fine because we're just using it to get the
+    // schema.
     return SP.connect({ token })
       .then(user => {
         window.localStorage.setItem("SP_AUTH_TOKEN", SP.token);
@@ -83,9 +84,10 @@ class SPFrontend extends Component {
         });
       })
       .catch(err => {
-        // This is kinda interesting, it's the highest level catch() in the app. It catches a lot of
-        // things in development, 'cuz if you typo anywhere it ends up here.
-        if (err.code === 401 || err.code === 403) {
+        // This is kinda interesting, it's the highest level catch() in the app.
+        // It catches a lot of things in development, 'cuz if you typo anywhere
+        // it ends up here.
+        if (err.status === 401 || err.status === 403) {
           this.handleLogout();
         } else {
           SP.error("Unhandled exception upon login", err);

@@ -1,22 +1,20 @@
 type: object
 tableName: inputs
 additionalProperties: false
-required: ["kind", "title", "overlayKey", "streamKey"]
+required:
+  - kind
+  - streamKey
 properties:
+  kind:
+    type: string
+    allowedValues: ["Input"]
+  userId:
+    type: string
+    description: User who owns this input
   id:
     type: string
     description: Unique ID of the input
     readOnly: true
-  kind:
-    type: string
-    allowedValues: ["Input"]
-  title:
-    type: string
-    description: Human-readable name of this input
-    minLength: 1
-  overlayKey:
-    $ref: "SecretKey"
   streamKey:
     $ref: "SecretKey"
-  nextSync:
-    type: number
+    description: Secret code in the stream URL, i.e. rtmp://rtmp.server.streamplace.example/stream/$streamKey

@@ -29,14 +29,25 @@ app.post("/play", (req, res, next) => {
 
 app.post("/publish", (req, res, next) => {
   const { app, name } = req.body;
-  const stream = rtmpInputStream({
-    rtmpUrl: `rtmp://127.0.0.1/${app}/${name}`
-  });
-  stream.once("data", chunk => {
-    log("got data");
-  });
-
-  res.sendStatus(200);
+  SP.inputs
+    .find({ streamKey: name })
+    .then(([input]) => {
+      if (!input) {
+        log(`Unknown stream key received: ${name}`);
+        return res.sendStatus(404);
+      }
+      res.sendStatus(200);
+      const stream = rtmpInputStream({
+        rtmpUrl: `rtmp://127.0.0.1/${app}/${name}`
+      });
+      stream.once("data", chunk => {
+        log("got data");
+      });
+    })
+    .catch(err => {
+      log("Error connecting to API server", err);
+      res.sendStatus(500);
+    });
 });
 
 app.post("/done", (req, res, next) => {
@@ -64,4 +75,8 @@ SP.connect().then(() => {
   app.listen(80, function() {
     log("sp-rtmp-server listening on 80");
   });
+});
+
+process.on("SIGTERM", function() {
+  process.exit(0);
 });

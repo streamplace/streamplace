@@ -1,5 +1,4 @@
 type: object
-tableName: outputs
 additionalProperties: false
 properties:
   kind:
@@ -8,3 +7,6 @@ properties:
   id:
     type: string
     description: Unique ID of the output
+  url:
+    type: string
+    description: RTMP URL of this output

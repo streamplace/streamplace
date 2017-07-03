@@ -6,18 +6,14 @@ extends:
   - "eslint:recommended"
   - "plugin:react/recommended"
 rules:
-  prettier/prettier: "error"
   "no-unused-vars": 0
   "comma-dangle": 0
   "no-var": 2
   "no-cond-assign": [2, "always"]
-  "dot-location": [2, "property"]
   "eqeqeq": 2
-  "indent": [2, 2, { "SwitchCase": 1 }]
-  "quotes": [2, "double"]
   "linebreak-style": [2, "unix"]
-  "semi": [2, "always"]
   "no-eval": 2
+  prettier/prettier: "error"
 env:
   es6: true
   node: true

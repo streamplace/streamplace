@@ -14,5 +14,8 @@
     "FFMpeg"
   ],
   "author": "Streamplace Inc.",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "sp-node": "^0.0.16"
+  }
 }

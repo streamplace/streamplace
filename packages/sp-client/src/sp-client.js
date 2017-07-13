@@ -11,6 +11,7 @@ import Resource from "./Resource";
 
 const API_SERVER_URL = config.optional("API_SERVER_URL");
 const PUBLIC_API_SERVER_URL = config.optional("PUBLIC_API_SERVER_URL");
+const SCHEMA_URL = config.optional("SCHEMA_URL");
 
 let isNode = true;
 if (typeof window === "object") {
@@ -68,9 +69,18 @@ export class SPClient extends EE {
     if (this.server.slice(-1) === "/") {
       this.server = this.server.slice(0, this.server.length - 1);
     }
-    return request(`${this.server}/schema.json`)
+    const schemaUrl = SCHEMA_URL || this.server;
+    return request(`${schemaUrl}/schema.json`)
       .then(res => {
         const schema = res.body;
+        // If we have API_SERVER_URL, we're in a cluster, and should trust it over the schema
+        if (API_SERVER_URL) {
+          let { protocol, host, path } = url.parse(API_SERVER_URL);
+          protocol = protocol.slice(0, -1);
+          schema.host = host;
+          schema.schemes = [protocol];
+          schema.basePath = path;
+        }
         this.schema = schema;
 
         // Generate a token if we can and we don't have one.
@@ -164,6 +174,10 @@ export class SPClient extends EE {
 
         this.emit("ready");
         return this.user;
+      })
+      .catch(err => {
+        this.log(err);
+        process.exit(1);
       });
   }
 

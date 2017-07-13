@@ -71,7 +71,9 @@ spec:
           - name: SP_AUTH_ISSUER
             value: "{{ .Values.global.authIssuer }}"
           - name: SP_API_SERVER_URL
-            value: https://{{ .Values.global.domain }}
+            value: http://{{.Release.Name}}-sp-api-server.{{.Release.Namespace}}.svc.cluster.local
+          - name: SP_SCHEMA_URL
+            value: http://{{.Release.Name}}-sp-schema.{{.Release.Namespace}}.svc.cluster.local
           {{- if .Values.global.development }}
           - name: SP_DEV_EXTERNAL_IP
             value: "{{ .Values.global.externalIP }}"

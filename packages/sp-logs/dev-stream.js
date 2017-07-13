@@ -41,6 +41,9 @@ const makeAttempt = function() {
         term("log stream ended\n");
         retry();
       })
+      .on("response", function() {
+        term("log stream opened\n");
+      })
       .pipe(JSONStream.parse())
       .on("data", function(obj) {
         let hostname = obj.Container.Config.Hostname;

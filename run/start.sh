@@ -9,6 +9,10 @@ export LOCAL_DEV="true"
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. && pwd )"
 source "$ROOT/run/common.sh"
 
+# Clean up all subprocesses on exit, we have many
+trap "exit" INT TERM
+trap "kill 0" EXIT
+
 npm run build-values-dev
 npm run kube-init
 npm run update-cert

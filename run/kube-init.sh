@@ -11,10 +11,6 @@ source "$ROOT/run/common.sh"
 
 os="$(uname)"
 
-if [[ "$os" != "Darwin" ]]; then
-  confirm "This script is untested on non-macs. Continue?"
-fi
-
 if ! docker ps > /dev/null; then
   echo "Docker doesn't appear to be running. Make sure 'docker ps' works and try again."
   exit 1
@@ -31,15 +27,17 @@ if ! cat /etc/hosts | grep "$hostsLine" > /dev/null; then
   sudo bash -c "$cmd"
 fi
 
-if ! docker ps | grep kubelet > /dev/null; then
-  echo "kubelet doesn't appear to be running."
-  echo "We will now use https://github.com/streamplace/kube-for-mac to spin up a local Kubernetes"
-  confirm "cluster running on Docker for Mac. That sound good?"
-  docker rm -f "/run-docker-kube-for-mac-start" || echo -n ""
-  curl https://raw.githubusercontent.com/streamplace/kube-for-mac/master/run-docker-kube-for-mac.sh | bash -s start
-  echo "Adding local kubernetes cluster to $HOME/.kube/config"
-  mkdir -p "$HOME/.kube"
-  KUBECONFIG="$ROOT/hack/local-kubeconfig:$HOME/.kube/config" kubectl config view > "$HOME/.kube/config"
+if [[ "$os" == "Darwin" ]]; then
+  if ! docker ps | grep kubelet > /dev/null; then
+    echo "kubelet doesn't appear to be running."
+    echo "We will now use https://github.com/streamplace/kube-for-mac to spin up a local Kubernetes"
+    confirm "cluster running on Docker for Mac. That sound good?"
+    docker rm -f "/run-docker-kube-for-mac-start" || echo -n ""
+    curl https://raw.githubusercontent.com/streamplace/kube-for-mac/master/run-docker-kube-for-mac.sh | bash -s start
+    echo "Adding local kubernetes cluster to $HOME/.kube/config"
+    mkdir -p "$HOME/.kube"
+    KUBECONFIG="$ROOT/hack/local-kubeconfig:$HOME/.kube/config" kubectl config view > "$HOME/.kube/config"
+  fi
 fi
 
 while ! kubectl get nodes > /dev/null; do
@@ -47,13 +45,24 @@ while ! kubectl get nodes > /dev/null; do
   sleep 2
 done
 
-while ! kubectl get deployment -n kube-system kubernetes-dashboard > /dev/null; do
-  echo "Waiting for kubernetes-dashboard pod..."
-  sleep 2
-done
+kubectl replace -f - << EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-dns
+  namespace: kube-system
+data:
+  upstreamNameservers: |
+    ["8.8.8.8", "8.8.4.4"]
+EOF
 
-patch="$(
-  jq -n '.spec.template.spec.containers[0].ports[0] = {"hostPort": 9090, "containerPort": 9090}' |
-  jq '.spec.template.spec.containers[0].name = "kubernetes-dashboard"'
-)"
-kubectl -n kube-system patch deployment kubernetes-dashboard -p "$patch"
+# while ! kubectl get deployment -n kube-system kubernetes-dashboard > /dev/null; do
+#   echo "Waiting for kubernetes-dashboard pod..."
+#   sleep 2
+# done
+
+# patch="$(
+#   jq -n '.spec.template.spec.containers[0].ports[0] = {"hostPort": 9090, "containerPort": 9090}' |
+#   jq '.spec.template.spec.containers[0].name = "kubernetes-dashboard"'
+# )"
+# kubectl -n kube-system patch deployment kubernetes-dashboard -p "$patch"

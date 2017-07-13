@@ -1,7 +1,7 @@
 FROM ubuntu:xenial
 
 ENV NPM_CONFIG_LOGLEVEL warn
-ENV NODE_VERSION 6.9.5
+ENV NODE_VERSION 6.11.1
 
 RUN \
   apt-get update && \

@@ -4,7 +4,7 @@
   "description": "Streamplace Streams for Piping Video Around and Stuff",
   "main": "dist/sp-streams.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "DEBUG='sp:*' jest --forceExit",
     "start": "babel -d dist -s -w src",
     "prepublish": "babel -d dist src"
   },
@@ -12,9 +12,7 @@
     "type": "git",
     "url": "git+ssh://git@github.com/streamplace/streamplace.git"
   },
-  "keywords": [
-    "Streamplace"
-  ],
+  "keywords": ["Streamplace"],
   "author": "Streamplace",
   "license": "Apache-2.0",
   "bugs": {
@@ -24,7 +22,8 @@
   "devDependencies": {
     "babel-cli": "^6.24.1",
     "babel-core": "^6.25.0",
-    "babel-preset-streamplace": "0.0.3"
+    "babel-preset-streamplace": "0.0.3",
+    "jest": "^20.0.4"
   },
   "dependencies": {
     "debug": "^2.6.8",

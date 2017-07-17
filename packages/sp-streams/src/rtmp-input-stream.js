@@ -1,12 +1,12 @@
 import ffmpeg from "fluent-ffmpeg";
-import socketServerStream from "./socket-server-stream";
+import socketIngressStream from "./socket-ingress-stream";
 import mpegMungerStream from "./mpeg-munger-stream";
 import debug from "debug";
 
 const log = debug("sp:rtmp-input-stream");
 
 export default function({ rtmpUrl }) {
-  const socketServer = new socketServerStream();
+  const socketServer = new socketIngressStream();
   const mpegMunger = new mpegMungerStream();
   let logCounter = 0;
   const instance = ffmpeg()

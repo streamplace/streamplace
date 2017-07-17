@@ -4,7 +4,7 @@ import stream from "stream";
 import { resolve } from "path";
 import debug from "debug";
 
-const log = debug("sp:socket-server-stream");
+const log = debug("sp:socket-ingress-stream");
 
 export default function() {
   const tmpDir = os.tmpdir();

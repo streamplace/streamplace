@@ -42,6 +42,7 @@ class SPFrontend extends Component {
   constructor() {
     super();
     this.state = {
+      unexpectedError: false,
       ready: false,
       user: null,
       phase: START
@@ -91,6 +92,7 @@ class SPFrontend extends Component {
           this.handleLogout();
         } else {
           SP.error("Unhandled exception upon login", err);
+          this.setState({ unexpectedError: true });
         }
       });
   }
@@ -172,6 +174,21 @@ class SPFrontend extends Component {
   }
 
   render() {
+    if (this.state.unexpectedError) {
+      return (
+        <p>
+          Unexpected error.&nbsp;
+          <a
+            href="#"
+            onClick={() => {
+              this.handleLogout();
+            }}
+          >
+            Log out?
+          </a>
+        </p>
+      );
+    }
     return (
       <Everything>
         {this.renderInner()}

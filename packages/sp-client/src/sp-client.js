@@ -177,7 +177,7 @@ export class SPClient extends EE {
       })
       .catch(err => {
         this.log(err);
-        process.exit(1);
+        throw err;
       });
   }
 

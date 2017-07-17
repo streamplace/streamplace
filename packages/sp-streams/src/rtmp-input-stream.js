@@ -1,11 +1,13 @@
 import ffmpeg from "fluent-ffmpeg";
 import socketServerStream from "./socket-server-stream";
+import mpegMungerStream from "./mpeg-munger-stream";
 import debug from "debug";
 
 const log = debug("sp:rtmp-input-stream");
 
 export default function({ rtmpUrl }) {
   const socketServer = new socketServerStream();
+  const mpegMunger = new mpegMungerStream();
   let logCounter = 0;
   const instance = ffmpeg()
     .on("error", (err, stdout, stderr) => {
@@ -42,5 +44,7 @@ export default function({ rtmpUrl }) {
     // Video out
     .output(`unix://${socketServer.path}`)
     .run();
-  return socketServer;
+
+  socketServer.pipe(mpegMunger);
+  return mpegMunger;
 }

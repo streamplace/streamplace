@@ -11,7 +11,7 @@ export default function() {
   const socketName = `sp-sock-${Date.now()}-${Math.round(
     Math.random() * 1000
   )}.sock`;
-  const socketPath = resolve(os.tmpdir(), socketName);
+  const socketPath = resolve(tmpDir, socketName);
 
   const server = net.createServer(c => {
     // 'connection' listener

@@ -36,7 +36,6 @@ if [[ "$os" == "Darwin" ]]; then
     curl https://raw.githubusercontent.com/streamplace/kube-for-mac/master/run-docker-kube-for-mac.sh | bash -s start
     echo "Adding local kubernetes cluster to $HOME/.kube/config"
     mkdir -p "$HOME/.kube"
-    KUBECONFIG="$ROOT/hack/local-kubeconfig:$HOME/.kube/config" kubectl config view > "$HOME/.kube/config"
   fi
 fi
 

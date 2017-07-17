@@ -4,7 +4,7 @@
   "description": "Streamplace Streams for Piping Video Around and Stuff",
   "main": "dist/sp-streams.js",
   "scripts": {
-    "test": "DEBUG='sp:*' jest --forceExit",
+    "test": "jest -i --forceExit",
     "start": "babel -d dist -s -w src",
     "prepublish": "babel -d dist src"
   },

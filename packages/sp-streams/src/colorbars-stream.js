@@ -1,6 +1,7 @@
 import ffmpeg from "./ffmpeg";
 import { PassThrough } from "stream";
 import socketIngressStream from "./socket-ingress-stream";
+import mpegMungerStream from "./mpeg-munger-stream";
 
 export function colorBarsFfmpeg() {
   return ffmpeg()
@@ -15,11 +16,14 @@ export function colorBarsFfmpeg() {
 
 export default function colorbarsStream() {
   const socketIngress = socketIngressStream();
+  const mpegMunger = mpegMungerStream();
 
   colorBarsFfmpeg()
     .output(`unix://${socketIngress.path}`)
     .outputFormat("mpegts")
     .run();
 
-  return socketIngress;
+  socketIngress.pipe(mpegMunger);
+
+  return mpegMunger;
 }

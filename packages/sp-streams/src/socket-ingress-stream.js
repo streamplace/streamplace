@@ -16,6 +16,9 @@ export default function() {
   const server = net.createServer(c => {
     // 'connection' listener
     log("client connected");
+    c.on("error", () => {
+      log("client errored");
+    });
     c.on("end", () => {
       log("client disconnected");
     });
@@ -24,6 +27,7 @@ export default function() {
   });
 
   server.on("error", err => {
+    socketStream.end();
     throw err;
   });
 

@@ -67,7 +67,8 @@ export class MpegMungerStream extends Transform {
   _rewrite(chunk, startIdx) {
     const sync = chunk.readUInt8(startIdx);
     if (sync !== SYNC_BYTE) {
-      throw new Error("MPEGTS appears to be out of sync.");
+      this.end();
+      // throw new Error("MPEGTS appears to be out of sync.");
     }
     const payload =
       chunk.readUInt8(startIdx + 1) & MPEGTS_PAYLOAD_UNIT_START_INDICATOR_MASK;

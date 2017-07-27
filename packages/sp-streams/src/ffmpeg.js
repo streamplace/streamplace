@@ -13,6 +13,9 @@ export default function ffmpeg() {
   let logCounter = 0;
   const thisFfmpeg = fluent()
     .on("error", (err, stdout, stderr) => {
+      if (err.toString() === "Error: ffmpeg was killed with signal SIGKILL") {
+        return;
+      }
       log("ffmpeg error", { err: err.toString(), stdout, stderr });
     })
     .on("codecData", data => {

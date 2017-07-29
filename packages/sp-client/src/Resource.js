@@ -27,6 +27,9 @@ export default class Resource {
   }
 
   onError(err) {
+    if (err.errObj) {
+      err = err.errObj;
+    }
     // Regular server error, we can dig it.
     if (err.obj && err.obj.errors) {
       throw new Error(err.obj.errors.map(e => e.message).join(", "));

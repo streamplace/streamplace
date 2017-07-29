@@ -10,6 +10,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "express": "^4.15.2",
+    "kubernetes-client": "^3.12.0",
     "request": "^2.79.0",
     "request-promise": "^4.1.1",
     "sp-client": "^0.0.16",

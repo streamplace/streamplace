@@ -100,6 +100,6 @@ spec:
           - name: SP_AUTH_ISSUER
             value: "{{ .Values.global.authIssuer }}"
           - name: SP_API_SERVER_URL
-            value: http://{{.Release.Name}}-sp-api-server.{{.Release.Namespace}}.svc.cluster.local
+            value: http://{{.Release.Name}}-sp-api-server.{{.Release.Namespace}}.svc.cluster.local/api
           - name: SP_SCHEMA_URL
             value: http://{{.Release.Name}}-sp-schema.{{.Release.Namespace}}.svc.cluster.local

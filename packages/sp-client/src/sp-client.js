@@ -13,6 +13,18 @@ const API_SERVER_URL = config.optional("API_SERVER_URL");
 const PUBLIC_API_SERVER_URL = config.optional("PUBLIC_API_SERVER_URL");
 const SCHEMA_URL = config.optional("SCHEMA_URL");
 
+const IMPORTANT_EVENTS = [
+  "hello",
+  "connect",
+  "connect_error",
+  "connect_timeout",
+  "reconnect",
+  "reconnect_attempt",
+  "reconnecting",
+  "reconnect_error",
+  "reconnect_failed"
+];
+
 let isNode = true;
 if (typeof window === "object") {
   isNode = false;
@@ -117,14 +129,16 @@ export class SPClient extends EE {
         this.log(`SPClient initalizing for server ${serverURL}`);
 
         this.user = user;
-        let socketServer = `${serverURL}${this.schema.basePath}`;
+        let socketServer = `${serverURL}/`;
         if (this.token) {
           socketServer = `${socketServer}?token=${this.token}`;
         }
 
+        let socketPath = this.schema.basePath + "/socket/socket.io";
+
         // Set up websocket connection
         this.socket = IO(socketServer, {
-          path: this.schema.basePath + "/socket.io",
+          path: socketPath,
           transports: ["websocket"]
         });
         this.socket.on("hello", () => {
@@ -217,7 +231,9 @@ export class SPClient extends EE {
 
   _handleMessage(eventName) {
     return (evt = {}) => {
-      // this.log(`socket ${eventName} ${JSON.stringify({subId: evt.subId})}`);
+      if (IMPORTANT_EVENTS.includes(eventName)) {
+        this.log(`socket ${eventName} ${JSON.stringify({ subId: evt.subId })}`);
+      }
       if (evt.subId && this.activeSubscriptions[evt.subId]) {
         this.activeSubscriptions[evt.subId].cb(eventName, evt);
       }

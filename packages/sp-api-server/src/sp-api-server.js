@@ -82,7 +82,7 @@ axios
         if (!Resource.tableName) {
           throw new Error(`Resource ${resourceName} lacks a tableName`);
         }
-        const path = `/${Resource.tableName}`;
+        const path = `/api/${Resource.tableName}`;
         winston.info(
           `[${pluginName}] Adding resource ${resourceName} at ${path}`
         );

@@ -1,0 +1,32 @@
+{
+  "name": "sp-broadcaster",
+  "version": "0.0.16",
+  "description": "I'm the container that runs Streamplace broadcasts!",
+  "main": "dist/sp-broadcaster.js",
+  "scripts": {
+    "prepublish": "babel -s -d dist src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/streamplace/streamplace.git"
+  },
+  "keywords": ["Streamplace"],
+  "author": "Streamplace Inc.",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/streamplace/streamplace/issues"
+  },
+  "homepage": "https://github.com/streamplace/streamplace#readme",
+  "dependencies": {
+    "sp-client": "^0.0.16",
+    "sp-configuration": "^0.0.16",
+    "winston": "^2.3.1"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-core": "^6.25.0",
+    "babel-preset-streamplace": "0.0.3",
+    "babel-watch": "^2.0.7",
+    "sp-node": "^0.0.16"
+  }
+}

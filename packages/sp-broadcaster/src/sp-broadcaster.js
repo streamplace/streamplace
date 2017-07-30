@@ -5,6 +5,8 @@ import winston from "winston";
 export default class SPBroadcaster {
   constructor({ broadcastId }) {
     winston.info(`sp-broadcaster running for broadcast ${broadcastId}`);
+    // Do nothing forever plz
+    setInterval(function() {}, 1000);
   }
 }
 
@@ -19,3 +21,7 @@ if (!module.parent) {
       process.exit(1);
     });
 }
+
+process.on("SIGTERM", function() {
+  process.exit(0);
+});

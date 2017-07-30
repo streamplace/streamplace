@@ -30,7 +30,7 @@
     "eslint": "^2.13.1",
     "eslint-plugin-react": "^4.3.0",
     "get-stdin": "^5.0.1",
-    "helm-cli": "^2.5.0-1",
+    "helm-cli": "^2.5.1",
     "husky": "^0.13.3",
     "inquirer": "^3.0.4",
     "js-yaml": "^3.8.1",

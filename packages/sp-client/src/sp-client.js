@@ -36,7 +36,7 @@ if (typeof window === "object") {
  */
 const apiError = function(code, message) {
   const err = new Error(message);
-  err.code = code;
+  err.status = code;
   return err;
 };
 

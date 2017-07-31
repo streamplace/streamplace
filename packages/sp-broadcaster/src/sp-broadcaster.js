@@ -2,15 +2,24 @@ import SP from "sp-client";
 import config from "sp-configuration";
 import winston from "winston";
 
+const getTableName = objName => {
+  const definition = SP.schema.definitions[objName];
+  if (!definition) {
+    throw new Error(`I've never heard of an ${objName}, can't watch it`);
+  }
+  return definition.tableName;
+};
+
 export default class SPBroadcaster {
   constructor({ broadcastId }) {
     winston.info(`sp-broadcaster running for broadcast ${broadcastId}`);
-    // Do nothing forever plz
-    setInterval(function() {}, 1000);
+    this.sourceHandles = {};
+    this.sources = {};
     const broadcastHandle = SP.broadcasts
       .watch({ id: broadcastId })
       .on("data", ([broadcast]) => {
         this.broadcast = broadcast;
+        this.watchSources();
       });
     const outputHandle = SP.outputs
       .watch({ broadcastId })
@@ -19,6 +28,33 @@ export default class SPBroadcaster {
       });
     Promise.all([broadcastHandle, outputHandle]).then(() => {
       this.reconcile();
+    });
+  }
+
+  watchSources() {
+    const sourcesShouldWatch = this.broadcast.sources.map(({ kind, id }) => {
+      return `${kind}/${id}`;
+    });
+    const sourcesCurrentlyWatching = Object.keys(this.sourceHandles);
+    const startWatching = sourcesShouldWatch.filter(
+      s => !sourcesCurrentlyWatching.includes(s)
+    );
+    const stopWatching = sourcesCurrentlyWatching.filter(
+      s => !sourcesShouldWatch.includes(s)
+    );
+    startWatching.forEach(s => {
+      const [kind, id] = s.split("/");
+      const tableName = getTableName(kind);
+      this.sourceHandles[s] = SP[tableName]
+        .watch({ id })
+        .on("data", ([source]) => {
+          this.sources[id] = source;
+        });
+    });
+    stopWatching.forEach(s => {
+      const [kind, id] = s.split("/");
+      this.sourceHandles[s].stop();
+      delete this.sourceHandles[s];
     });
   }
 

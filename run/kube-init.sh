@@ -32,10 +32,7 @@ if [[ "$os" == "Darwin" ]]; then
     echo "kubelet doesn't appear to be running."
     echo "We will now use https://github.com/streamplace/kube-for-mac to spin up a local Kubernetes"
     confirm "cluster running on Docker for Mac. That sound good?"
-    docker rm -f "/docker-kube-for-mac-start" || echo -n ""
-    curl https://raw.githubusercontent.com/streamplace/kube-for-mac/master/run-docker-kube-for-mac.sh | bash -s start
-    echo "Adding local kubernetes cluster to $HOME/.kube/config"
-    mkdir -p "$HOME/.kube"
+    kube-for-mac start
   fi
 fi
 

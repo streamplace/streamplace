@@ -3,8 +3,8 @@ import { SKContext } from "sp-resource";
 import config from "sp-configuration";
 import winston from "winston";
 import _ from "underscore";
-import querystring from "querystring";
 import url from "url";
+import querystring from "querystring";
 import apiLog from "./api-log";
 
 const RETHINK_HOST = config.require("RETHINK_HOST");
@@ -15,8 +15,9 @@ const RETHINK_PASSWORD = config.optional("RETHINK_PASSWORD");
 const RETHINK_CA = config.optional("RETHINK_CA");
 
 export default function(server) {
-  let io = SocketIO(server);
-  io = io.of("/api");
+  let io = SocketIO(server, {
+    path: "/api/socket"
+  });
 
   io.use(function(socket, next) {
     const { query } = url.parse(socket.request.url);

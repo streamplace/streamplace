@@ -53,7 +53,7 @@ const dumpByte = function(byte) {
   return str;
 };
 
-export default class MpegMungerStream extends Transform {
+export class MpegMungerStream extends Transform {
   constructor(params) {
     super(params);
 
@@ -67,7 +67,8 @@ export default class MpegMungerStream extends Transform {
   _rewrite(chunk, startIdx) {
     const sync = chunk.readUInt8(startIdx);
     if (sync !== SYNC_BYTE) {
-      throw new Error("MPEGTS appears to be out of sync.");
+      this.end();
+      // throw new Error("MPEGTS appears to be out of sync.");
     }
     const payload =
       chunk.readUInt8(startIdx + 1) & MPEGTS_PAYLOAD_UNIT_START_INDICATOR_MASK;
@@ -231,4 +232,8 @@ export default class MpegMungerStream extends Transform {
     this.push(chunk.slice(startIdx, endIdx));
     next();
   }
+}
+
+export default function mpegMungerStream(...args) {
+  return new MpegMungerStream();
 }

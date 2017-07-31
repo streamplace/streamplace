@@ -4,7 +4,7 @@ import stream from "stream";
 import { resolve } from "path";
 import debug from "debug";
 
-const log = debug("sp:socket-server-stream");
+const log = debug("sp:socket-egress-stream");
 
 export default function() {
   const tmpDir = os.tmpdir();
@@ -18,9 +18,10 @@ export default function() {
     log("client connected");
     c.on("end", () => {
       log("client disconnected");
+      socketStream.unpipe(c);
     });
     c.write("hello\r\n");
-    c.pipe(socketStream);
+    socketStream.pipe(c);
   });
 
   server.on("error", err => {

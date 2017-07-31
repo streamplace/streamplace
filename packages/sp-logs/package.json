@@ -5,13 +5,14 @@
   "main": "package.json",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node dev-stream.js"
+    "start": "nodemon dev-stream.js"
   },
   "author": "Streamplace",
   "license": "Apache-2.0",
   "devDependencies": {
     "JSONStream": "^1.3.0",
     "js-yaml": "^3.8.1",
+    "nodemon": "^1.11.0",
     "request": "^2.79.0",
     "terminal-kit": "^0.26.1"
   }

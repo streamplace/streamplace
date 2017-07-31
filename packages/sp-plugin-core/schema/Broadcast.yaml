@@ -3,8 +3,8 @@ tableName: broadcasts
 additionalProperties: false
 required:
   - kind
-  - channelId
-  - startTime
+  - sources
+  - active
 properties:
   kind:
     type: string
@@ -12,17 +12,20 @@ properties:
   id:
     type: string
     description: Unique ID of the Broadcast
-  channelId:
-    type: string
-    description: Human-reaadable name of the broadcast
-  startTime:
-    type: string
-    format: date-time
-    description: When did this broadcast start?
-  stopTime:
-    anyOf:
-      - type: "null"
-        allowedValues: [null]
-      - type: string
-        format: date-time
-        description: When did this broadcast end?
+  active:
+    type: boolean
+    description: is this broadcast currently running?
+  sources:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - id
+      properties:
+        kind:
+          type: string
+          allowedValues: ["Input"]
+        id:
+          type: string

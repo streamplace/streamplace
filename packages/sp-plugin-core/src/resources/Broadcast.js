@@ -4,9 +4,7 @@ export default class Broadcast extends Resource {
   default() {
     return super.default().then(doc => {
       return {
-        ...doc,
-        startTime: Date.now(),
-        stopTime: null
+        ...doc
       };
     });
   }

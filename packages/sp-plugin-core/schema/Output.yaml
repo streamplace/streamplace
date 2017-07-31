@@ -1,5 +1,10 @@
 type: object
 additionalProperties: false
+tableName: outputs
+required:
+  - kind
+  - url
+  - broadcastId
 properties:
   kind:
     type: string
@@ -10,3 +15,7 @@ properties:
   url:
     type: string
     description: RTMP URL of this output
+  broadcastId:
+    type:
+      - "null"
+      - "string"

@@ -71,9 +71,21 @@ spec:
           - name: SP_AUTH_ISSUER
             value: "{{ .Values.global.authIssuer }}"
           - name: SP_API_SERVER_URL
-            value: http://{{.Release.Name}}-sp-api-server.{{.Release.Namespace}}.svc.cluster.local
+            value: http://{{.Release.Name}}-sp-api-server.{{.Release.Namespace}}.svc.cluster.local/api
           - name: SP_SCHEMA_URL
             value: http://{{.Release.Name}}-sp-schema.{{.Release.Namespace}}.svc.cluster.local
+          {{- if .Values.global.development }}
+          - name: SP_DEV_ROOT_DIRECTORY
+            value: {{ .Values.global.rootDirectory }}
+          {{- end }}
+          - name: SP_BROADCASTER_IMAGE
+            {{- if .Values.global.development }}
+            value: "streamplace/sp-broadcaster:latest"
+            {{- else }}
+            value: "{{ .Values.global.repo }}/sp-broadcaster:v{{ .Chart.Version }}"
+            {{- end }}
+          - name: SP_IMAGE_PULL_POLICY
+            value: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
           {{- if .Values.global.development }}
           - name: SP_DEV_EXTERNAL_IP
             value: "{{ .Values.global.externalIP }}"

@@ -50,6 +50,9 @@ const makeAttempt = function() {
         if (BLACKLIST.indexOf(hostname) !== -1) {
           return;
         }
+        if (hostname.includes("kube-dns")) {
+          return;
+        }
         // Parse out the correct color from the pod name if we can
         let color;
         if (hostname.indexOf("dev-") === 0) {

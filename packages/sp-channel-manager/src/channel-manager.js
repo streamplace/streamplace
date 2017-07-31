@@ -8,8 +8,8 @@ import SP from "sp-client";
 import request from "request-promise";
 import getMyIp from "./get-my-ip";
 
-// These credentials are hardcoded for now, but eventually I'll be in charge of creating them and
-// interfacing with Coturn. Cool!
+// These credentials are hardcoded for now, but eventually I'll be in charge of
+// creating them and interfacing with Coturn. Cool!
 const CREDENTIALS = "streamplace:streamplace";
 
 export default class ChannelManager {

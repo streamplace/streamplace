@@ -4,6 +4,7 @@ additionalProperties: false
 required:
   - kind
   - sources
+  - active
 properties:
   kind:
     type: string

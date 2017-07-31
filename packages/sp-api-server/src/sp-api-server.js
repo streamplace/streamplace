@@ -24,6 +24,18 @@ app.get("/healthz", (req, res) => {
 
 app.use(bodyParser.json());
 
+// Pretty-print our JSON
+app.use((req, res, next) => {
+  res.json = function(body) {
+    // content-type
+    if (!res.get("Content-Type")) {
+      res.set("Content-Type", "application/json");
+    }
+    res.send(JSON.stringify(body, null, 2));
+  };
+  next();
+});
+
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
   res.header(

@@ -30,8 +30,10 @@
     "fluent-ffmpeg": "^2.1.2",
     "morgan": "^1.8.2",
     "sp-client": "^0.0.16",
-    "sp-streams": "^0.0.16",
+    "sp-configuration": "^0.0.16",
     "sp-node": "^0.0.16",
-    "sp-rtmp-nginx": "^0.0.16"
+    "sp-rtmp-nginx": "^0.0.16",
+    "sp-streams": "^0.0.16",
+    "winston": "^2.3.1"
   }
 }

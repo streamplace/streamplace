@@ -18,14 +18,4 @@ properties:
   sources:
     type: array
     items:
-      type: object
-      additionalProperties: false
-      required:
-        - kind
-        - id
-      properties:
-        kind:
-          type: string
-          allowedValues: ["Input"]
-        id:
-          type: string
+      $ref: 'StreamSource'

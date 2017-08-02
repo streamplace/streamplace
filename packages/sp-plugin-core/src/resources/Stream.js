@@ -1,12 +1,11 @@
 import Resource from "sp-resource";
 import { randomId } from "sp-utils";
 
-export default class Input extends Resource {
+export default class Stream extends Resource {
   default(ctx) {
     return super.default().then(doc => {
       return {
-        ...doc,
-        userId: ctx.user.id
+        ...doc
       };
     });
   }
@@ -17,10 +16,5 @@ export default class Input extends Resource {
 
   authQuery(ctx, query) {
     return Promise.resolve({});
-  }
-
-  create(ctx, newDoc) {
-    newDoc.streamKey = randomId();
-    return super.create(ctx, newDoc);
   }
 }

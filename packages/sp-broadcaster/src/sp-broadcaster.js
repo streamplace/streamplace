@@ -11,7 +11,8 @@ const getTableName = objName => {
 };
 
 export default class SPBroadcaster {
-  constructor({ broadcastId }) {
+  constructor({ broadcastId, podIp }) {
+    this.podIp = podIp;
     winston.info(`sp-broadcaster running for broadcast ${broadcastId}`);
     this.sourceHandles = {};
     this.sources = {};
@@ -65,9 +66,10 @@ export default class SPBroadcaster {
 
 if (!module.parent) {
   const BROADCAST_ID = config.require("BROADCAST_ID");
+  const POD_IP = config.require("POD_IP");
   SP.connect()
     .then(() => {
-      new SPBroadcaster({ broadcastId: BROADCAST_ID });
+      new SPBroadcaster({ broadcastId: BROADCAST_ID, podIp: POD_IP });
     })
     .catch(err => {
       winston.error(err);

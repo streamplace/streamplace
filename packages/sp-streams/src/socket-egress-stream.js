@@ -20,7 +20,6 @@ export default function() {
       log("client disconnected");
       socketStream.unpipe(c);
     });
-    c.write("hello\r\n");
     socketStream.pipe(c);
   });
 

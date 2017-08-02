@@ -156,6 +156,14 @@ export default class BroadcastScheduler {
                 {
                   name: "SP_BROADCAST_ID",
                   value: broadcast.id
+                },
+                {
+                  name: "SP_POD_IP",
+                  valueFrom: {
+                    fieldRef: {
+                      fieldPath: "status.podIP"
+                    }
+                  }
                 }
               ])
           }

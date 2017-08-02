@@ -2,8 +2,12 @@ import express from "express";
 import morgan from "morgan";
 import bodyParser from "body-parser";
 import SP from "sp-client";
-import { rtmpInputStream } from "sp-streams";
+import { rtmpInputStream, tcpEgressStream } from "sp-streams";
 import debug from "debug";
+import config from "sp-configuration";
+import winston from "winston";
+
+const POD_IP = config.require("POD_IP");
 
 const log = debug("sp:rtmp-server");
 const app = express();
@@ -29,24 +33,53 @@ app.post("/play", (req, res, next) => {
 
 app.post("/publish", (req, res, next) => {
   const { app, name } = req.body;
+  let input;
   SP.inputs
     .find({ streamKey: name })
-    .then(([input]) => {
+    .then(([_input]) => {
+      input = _input;
       if (!input) {
         log(`Unknown stream key received: ${name}`);
-        return res.sendStatus(404);
+        const err = new Error("Unknown Stream Key");
+        err.status = 404;
+        return Promise.reject(err);
       }
       res.sendStatus(200);
-      const stream = rtmpInputStream({
+      const rtmpInput = rtmpInputStream({
         rtmpUrl: `rtmp://127.0.0.1/${app}/${name}`
       });
-      stream.once("data", chunk => {
+      rtmpInput.once("data", chunk => {
         log("got data");
+      });
+      const tcpEgress = tcpEgressStream();
+      rtmpInput.pipe(tcpEgress);
+      return tcpEgress.getPort();
+    })
+    .then(port => {
+      return SP.streams.create({
+        source: {
+          kind: "Input",
+          id: input.id
+        },
+        format: "mpegts",
+        url: `tcp://${POD_IP}:${port}`,
+        streams: [
+          {
+            media: "video"
+          },
+          {
+            media: "audio"
+          }
+        ]
       });
     })
     .catch(err => {
-      log("Error connecting to API server", err);
-      res.sendStatus(500);
+      winston.error(err);
+      const status = err.status || 500;
+      if (status === 500) {
+        log("Error connecting to API server", err);
+      }
+      res.sendStatus(status);
     });
 });
 

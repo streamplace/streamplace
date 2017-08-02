@@ -31,7 +31,7 @@ spec:
         ports:
           - containerPort: 1935
             {{- if .Values.global.development }}
-            hostPort: 1935
+            hostPort: 1936
             {{- end }}
         readinessProbe:
           httpGet:
@@ -103,3 +103,7 @@ spec:
             value: http://{{.Release.Name}}-sp-api-server.{{.Release.Namespace}}.svc.cluster.local/api
           - name: SP_SCHEMA_URL
             value: http://{{.Release.Name}}-sp-schema.{{.Release.Namespace}}.svc.cluster.local
+          - name: SP_POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP

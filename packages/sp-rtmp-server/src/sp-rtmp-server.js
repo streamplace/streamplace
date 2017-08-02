@@ -2,12 +2,11 @@ import express from "express";
 import morgan from "morgan";
 import bodyParser from "body-parser";
 import SP from "sp-client";
-import { rtmpInputStream, tcpEgressStream } from "sp-streams";
 import debug from "debug";
-import config from "sp-configuration";
 import winston from "winston";
+import RTMPInputManager from "./rtmp-input-manager";
 
-const POD_IP = config.require("POD_IP");
+const managers = {};
 
 const log = debug("sp:rtmp-server");
 const app = express();
@@ -33,45 +32,23 @@ app.post("/play", (req, res, next) => {
 
 app.post("/publish", (req, res, next) => {
   const { app, name } = req.body;
-  let input;
   SP.inputs
     .find({ streamKey: name })
-    .then(([_input]) => {
-      input = _input;
+    .then(([input]) => {
       if (!input) {
         log(`Unknown stream key received: ${name}`);
         const err = new Error("Unknown Stream Key");
         err.status = 404;
         return Promise.reject(err);
       }
-      res.sendStatus(200);
-      const rtmpInput = rtmpInputStream({
+      if (managers[name]) {
+        throw new Error(`Mayday! I already have a manager for ${name}`);
+      }
+      managers[name] = new RTMPInputManager({
+        inputId: input.id,
         rtmpUrl: `rtmp://127.0.0.1/${app}/${name}`
       });
-      rtmpInput.once("data", chunk => {
-        log("got data");
-      });
-      const tcpEgress = tcpEgressStream();
-      rtmpInput.pipe(tcpEgress);
-      return tcpEgress.getPort();
-    })
-    .then(port => {
-      return SP.streams.create({
-        source: {
-          kind: "Input",
-          id: input.id
-        },
-        format: "mpegts",
-        url: `tcp://${POD_IP}:${port}`,
-        streams: [
-          {
-            media: "video"
-          },
-          {
-            media: "audio"
-          }
-        ]
-      });
+      return res.sendStatus(200);
     })
     .catch(err => {
       winston.error(err);
@@ -92,7 +69,15 @@ app.post("/play_done", (req, res, next) => {
 });
 
 app.post("/publish_done", (req, res, next) => {
+  const manager = managers[req.body.name];
+  if (!manager) {
+    return winston.warn(
+      `Got done for ${req.body.name} but I'm not managing it??`
+    );
+  }
   res.sendStatus(200);
+  delete managers[req.body.name];
+  manager.notify("publish_done", req.body);
 });
 
 app.post("/record_done", (req, res, next) => {

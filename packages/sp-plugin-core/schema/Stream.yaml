@@ -6,6 +6,7 @@ required:
   - source
   - format
   - url
+  - timestamp
   - streams
 properties:
   kind:
@@ -19,6 +20,17 @@ properties:
   format:
     type: string
     allowedValues: ["mpegts"]
+  timestamp:
+    type: object
+    additionalProperties: false
+    required:
+      - pts
+      - time
+    properties:
+      pts:
+        type: number
+      time:
+        type: number
   url:
     type: string
     description: |

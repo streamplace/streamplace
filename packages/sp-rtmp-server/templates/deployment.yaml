@@ -31,7 +31,7 @@ spec:
         ports:
           - containerPort: 1935
             {{- if .Values.global.development }}
-            hostPort: 1936
+            hostPort: 1935
             {{- end }}
         readinessProbe:
           httpGet:
@@ -55,6 +55,7 @@ spec:
         imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
 
       - name: {{ .Chart.Name }}
+        {{- if .Values.global.development }}{{- else }}
         readinessProbe:
           httpGet:
             path: /healthz
@@ -69,6 +70,7 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 5
           timeoutSeconds: 5
+        {{- end }}
         {{- if .Values.global.development }}
         image: "streamplace/{{ .Chart.Name }}:latest"
         command:

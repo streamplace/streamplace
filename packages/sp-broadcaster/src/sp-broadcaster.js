@@ -46,15 +46,22 @@ export default class SPBroadcaster {
     startWatching.forEach(s => {
       const [kind, id] = s.split("/");
       const tableName = getTableName(kind);
-      this.sourceHandles[s] = SP[tableName]
-        .watch({ id })
-        .on("data", ([source]) => {
+      const handles = [];
+      handles.push(
+        SP[tableName].watch({ id }).on("data", ([source]) => {
           this.sources[id] = source;
-        });
+        }),
+        SP.streams.watch({ source: { id } }).on("newDoc", stream => {
+          winston.info(
+            `Boy howdy I should download some data from ${stream.url}`
+          );
+        })
+      );
+      this.sourceHandles[s] = handles;
     });
     stopWatching.forEach(s => {
       const [kind, id] = s.split("/");
-      this.sourceHandles[s].stop();
+      this.sourceHandles[s].forEach(handle => handle.stop());
       delete this.sourceHandles[s];
     });
   }

@@ -38,5 +38,8 @@ export default function() {
   passThrough.on("data", chunk => {
     clients.forEach(c => c.write(chunk));
   });
+  passThrough.on("end", () => {
+    server.close();
+  });
   return passThrough;
 }

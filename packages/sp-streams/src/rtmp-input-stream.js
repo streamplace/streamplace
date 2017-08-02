@@ -6,7 +6,7 @@ import ffmpeg from "./ffmpeg";
 const log = debug("sp:rtmp-input-stream");
 
 export default function({ rtmpUrl }) {
-  const socketServer = new socketIngressStream();
+  const socketIngress = new socketIngressStream();
   const mpegMunger = new mpegMungerStream();
   const instance = ffmpeg()
     .input(rtmpUrl)
@@ -16,9 +16,16 @@ export default function({ rtmpUrl }) {
     .audioCodec("copy")
     .outputFormat("mpegts")
     // Video out
-    .output(`unix://${socketServer.path}`)
-    .run();
+    .output(`unix://${socketIngress.path}`);
+  instance.run();
 
-  socketServer.pipe(mpegMunger);
+  socketIngress.pipe(mpegMunger);
+  mpegMunger.notifyPTS = function(pts) {
+    mpegMunger.currentPTS = pts;
+  };
+  mpegMunger.on("end", () => {
+    instance.kill();
+    socketIngress.destroy();
+  });
   return mpegMunger;
 }

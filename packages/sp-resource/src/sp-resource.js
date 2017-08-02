@@ -261,6 +261,9 @@ Resource.ValidationError = class ValidationError extends Resource.APIError {
     const message = errors
       .map(err => {
         let msg = err.message;
+        if (err.dataPath) {
+          msg = `'${err.dataPath}' ${msg}`;
+        }
         if (err.params) {
           msg += ` (${JSON.stringify(err.params)})`;
         }

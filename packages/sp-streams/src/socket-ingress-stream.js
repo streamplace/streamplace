@@ -36,6 +36,9 @@ export default function() {
   });
 
   const socketStream = new stream.PassThrough();
+  socketStream.destroy = function() {
+    server.close();
+  };
   socketStream.server = server;
   socketStream.path = socketPath;
   return socketStream;

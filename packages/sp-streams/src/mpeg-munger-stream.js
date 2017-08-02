@@ -114,6 +114,7 @@ export class MpegMungerStream extends Transform {
       pts = this._readTimestamp(chunk, ptsIdx);
       dts = this._readTimestamp(chunk, dtsIdx);
       const newPTS = this.transformPTS(pts, dts);
+      this.notifyPTS(newPTS);
       const newDTS = this.transformDTS(dts, pts);
       this._writeTimestamp(
         chunk,
@@ -131,6 +132,7 @@ export class MpegMungerStream extends Transform {
       const ptsIdx = startIdx + PES_FIRST_TIMESTAMP_BYTE_OFFSET;
       pts = this._readTimestamp(chunk, ptsIdx);
       const newPTS = this.transformPTS(pts, null);
+      this.notifyPTS(newPTS);
       this._writeTimestamp(
         chunk,
         newPTS,
@@ -169,6 +171,11 @@ export class MpegMungerStream extends Transform {
     chunk.writeUIntBE(midPart, idx + 1, 2);
     chunk.writeUIntBE(loPart, idx + 3, 2);
   }
+
+  /**
+   * Replace this function if you want to learn about the PTS when it happens
+   */
+  notifyPTS(pts) {}
 
   /**
    * Default function -- no-op

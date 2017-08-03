@@ -16,7 +16,9 @@ export default function ffmpeg() {
       if (err.toString() === "Error: ffmpeg was killed with signal SIGKILL") {
         return;
       }
-      log("ffmpeg error", { err: err.toString(), stdout, stderr });
+      log("ffmpeg error", { err: err.toString() });
+      log(stdout);
+      log(stderr);
     })
     .on("codecData", data => {
       log("ffmpeg codecData", data);

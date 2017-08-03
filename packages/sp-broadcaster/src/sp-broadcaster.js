@@ -1,6 +1,12 @@
 import SP from "sp-client";
 import config from "sp-configuration";
 import winston from "winston";
+import {
+  tcpIngressStream,
+  rtmpOutputStream,
+  mpegMungerStream
+} from "sp-streams";
+import { PassThrough } from "stream";
 
 const getTableName = objName => {
   const definition = SP.schema.definitions[objName];
@@ -13,9 +19,12 @@ const getTableName = objName => {
 export default class SPBroadcaster {
   constructor({ broadcastId, podIp }) {
     this.podIp = podIp;
+    this.mainStream = mpegMungerStream();
+    this.mainStream.resume();
     winston.info(`sp-broadcaster running for broadcast ${broadcastId}`);
     this.sourceHandles = {};
     this.sources = {};
+    this.outputStreams = {};
     const broadcastHandle = SP.broadcasts
       .watch({ id: broadcastId })
       .on("data", ([broadcast]) => {
@@ -24,8 +33,17 @@ export default class SPBroadcaster {
       });
     const outputHandle = SP.outputs
       .watch({ broadcastId })
-      .on("data", outputs => {
-        this.outputs = outputs;
+      .on("newDoc", output => {
+        const outputStream = rtmpOutputStream({
+          rtmpUrl: output.url
+        });
+        this.outputStreams[output.id] = outputStream;
+        this.mainStream.pipe(outputStream);
+      })
+      .on("deletedDoc", id => {
+        this.mainStream.unpipe(this.outputStreams[id]);
+        this.outputStreams[id].end();
+        delete this.outputStreams[id];
       });
     Promise.all([broadcastHandle, outputHandle]).then(() => {
       this.reconcile();
@@ -55,6 +73,8 @@ export default class SPBroadcaster {
           winston.info(
             `Boy howdy I should download some data from ${stream.url}`
           );
+          const tcpIngress = tcpIngressStream({ url: stream.url });
+          tcpIngress.pipe(this.mainStream);
         })
       );
       this.sourceHandles[s] = handles;

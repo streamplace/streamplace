@@ -72,9 +72,11 @@ export default class RTMPInputManager {
     if (this.interval) {
       clearInterval(this.interval);
     }
-    SP.streams.delete(this.stream.id).catch(err => {
-      winston.error("Error cleaning up rtmp input stream", err);
-    });
+    if (this.stream) {
+      SP.streams.delete(this.stream.id).catch(err => {
+        winston.error("Error cleaning up rtmp input stream", err);
+      });
+    }
   }
 
   notify(event, details) {

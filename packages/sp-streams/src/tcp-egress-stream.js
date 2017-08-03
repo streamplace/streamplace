@@ -14,6 +14,10 @@ export default function() {
     clients.push(c);
     // 'connection' listener
     log("client connected");
+    c.on("error", () => {
+      log("client errored");
+      clients = clients.filter(client => client !== c);
+    });
     c.on("end", () => {
       log("client disconnected");
       clients = clients.filter(client => client !== c);

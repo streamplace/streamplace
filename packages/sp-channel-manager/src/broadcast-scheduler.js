@@ -158,6 +158,10 @@ export default class BroadcastScheduler {
                   value: broadcast.id
                 },
                 {
+                  name: "DEBUG",
+                  value: "sp:*"
+                },
+                {
                   name: "SP_POD_IP",
                   valueFrom: {
                     fieldRef: {

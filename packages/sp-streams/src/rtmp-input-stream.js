@@ -10,7 +10,8 @@ export default function({ rtmpUrl }) {
   const mpegMunger = new mpegMungerStream();
   const instance = ffmpeg()
     .input(rtmpUrl)
-    .inputFormat("flv")
+    .inputFormat("live_flv")
+    .inputOptions(["-probesize 60000000", "-analyzeduration 10000000"])
     .outputOptions(["-bsf:v h264_mp4toannexb", "-copyts", "-start_at_zero"])
     .videoCodec("copy")
     .audioCodec("copy")

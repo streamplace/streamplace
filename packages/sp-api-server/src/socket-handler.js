@@ -76,10 +76,15 @@ export default function(server) {
         ctx,
         `SUB (${subId}) '${resource}' WHERE ${JSON.stringify(query)}`
       );
-      ctx.resources[resource].watch(ctx, query).then(handle => {
-        handles[subId] = handle;
-        socket.emit("suback", { subId });
-      });
+      ctx.resources[resource]
+        .watch(ctx, query)
+        .then(handle => {
+          handles[subId] = handle;
+          socket.emit("suback", { subId });
+        })
+        .catch(err => {
+          socket.emit("suberr", { err });
+        });
     });
 
     socket.on("unsub", function({ subId }) {

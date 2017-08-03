@@ -107,7 +107,10 @@ export default class SKContext extends EE {
       // - from an external issuer (Auth0)
       // - a dove-jwt (auth.stream.place)
       // - past halfway into its expiration time
-      if (payload.iss !== JWT_ISSUER || header.alg !== "HS256") {
+      if (
+        (!payload.roles || !payload.roles.includes("SERVICE")) && // If we're not a service...
+        (payload.iss !== JWT_ISSUER || header.alg !== "HS256")
+      ) {
         this.issueNewToken(payload.sub);
       }
     });

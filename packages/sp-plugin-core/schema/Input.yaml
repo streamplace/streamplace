@@ -4,6 +4,7 @@ additionalProperties: false
 required:
   - kind
   - streamKey
+  - userId
 properties:
   kind:
     type: string

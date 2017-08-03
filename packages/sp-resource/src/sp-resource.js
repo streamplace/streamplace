@@ -9,6 +9,11 @@ import RethinkDbDriver from "./rethink-db-driver";
 import SKContext from "./sk-context";
 export { RethinkDbDriver, SKContext, APIError };
 
+// Magic key that will never exist for queries we can't access
+const DISALLOWED_QUERY_SELECTOR = {
+  QUERY_NOT_ALLOWED: true
+};
+
 export default class Resource {
   constructor({ dbDriver, ajv }) {
     if (!dbDriver) {
@@ -187,6 +192,10 @@ export default class Resource {
 
   watch(ctx, query) {
     return this.authQuery(ctx, query)
+      .catch(err => {
+        // If authQuery produced an error we just allow the sub but it's empty
+        return DISALLOWED_QUERY_SELECTOR;
+      })
       .then(restrictedQuery => {
         merge(query, restrictedQuery);
         return this.db.watch(ctx, query);

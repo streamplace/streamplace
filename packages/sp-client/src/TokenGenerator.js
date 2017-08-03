@@ -7,7 +7,9 @@ const JWT_AUDIENCE = config.require("JWT_AUDIENCE");
 const JWT_SECRET_DECODED = Buffer.from(JWT_SECRET, "base64");
 const JWT_EXPIRATION = config.require("JWT_EXPIRATION");
 const APP_NAME = config.require("APP_NAME");
-const AUTH_ISSUER = config.require("AUTH_ISSUER");
+const DOMAIN = config.require("DOMAIN");
+
+const myIdentity = `https://${DOMAIN}/api/users/${APP_NAME}`;
 
 export default class TokenGenerator {
   constructor({ app }) {
@@ -16,8 +18,8 @@ export default class TokenGenerator {
 
   generate() {
     const claims = {
-      iss: APP_NAME,
-      sub: `auth0|${APP_NAME}`,
+      iss: myIdentity,
+      sub: myIdentity,
       aud: JWT_AUDIENCE,
       roles: ["SERVICE"]
     };

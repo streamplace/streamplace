@@ -55,6 +55,7 @@ spec:
         imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
 
       - name: {{ .Chart.Name }}
+        {{- if .Values.global.development }}{{- else }}
         readinessProbe:
           httpGet:
             path: /healthz
@@ -69,6 +70,7 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 5
           timeoutSeconds: 5
+        {{- end }}
         {{- if .Values.global.development }}
         image: "streamplace/{{ .Chart.Name }}:latest"
         command:
@@ -103,3 +105,7 @@ spec:
             value: http://{{.Release.Name}}-sp-api-server.{{.Release.Namespace}}.svc.cluster.local/api
           - name: SP_SCHEMA_URL
             value: http://{{.Release.Name}}-sp-schema.{{.Release.Namespace}}.svc.cluster.local
+          - name: SP_POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP

@@ -1,0 +1,57 @@
+type: object
+additionalProperties: false
+tableName: streams
+required:
+  - kind
+  - source
+  - format
+  - url
+  - timestamp
+  - streams
+properties:
+  kind:
+    type: string
+    allowedValues: ["stream"]
+  id:
+    type: string
+    description: Unique ID of this stream
+  source:
+    $ref: 'StreamSource'
+  format:
+    type: string
+    allowedValues: ["mpegts"]
+  timestamp:
+    type: object
+    additionalProperties: false
+    required:
+      - pts
+      - time
+    properties:
+      pts:
+        type: number
+      time:
+        type: number
+  url:
+    type: string
+    description: |
+      Where can Streamplace internally get at this stream? ex tcp://10.10.10.10:9999
+  streams:
+    type: array
+    items:
+      anyOf:
+      - type: object
+        additionalProperies: false
+        required:
+          - media
+        properties:
+          media:
+            type: string
+            allowedValues: ["video"]
+      - type: object
+        additionalProperies: false
+        required:
+          - media
+        properties:
+          media:
+            type: string
+            allowedValues: ["audio"]

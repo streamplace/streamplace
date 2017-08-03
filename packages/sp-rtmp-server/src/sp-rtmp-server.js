@@ -2,8 +2,11 @@ import express from "express";
 import morgan from "morgan";
 import bodyParser from "body-parser";
 import SP from "sp-client";
-import { rtmpInputStream } from "sp-streams";
 import debug from "debug";
+import winston from "winston";
+import RTMPInputManager from "./rtmp-input-manager";
+
+const managers = {};
 
 const log = debug("sp:rtmp-server");
 const app = express();
@@ -34,19 +37,26 @@ app.post("/publish", (req, res, next) => {
     .then(([input]) => {
       if (!input) {
         log(`Unknown stream key received: ${name}`);
-        return res.sendStatus(404);
+        const err = new Error("Unknown Stream Key");
+        err.status = 404;
+        return Promise.reject(err);
       }
-      res.sendStatus(200);
-      const stream = rtmpInputStream({
+      if (managers[name]) {
+        throw new Error(`Mayday! I already have a manager for ${name}`);
+      }
+      managers[name] = new RTMPInputManager({
+        inputId: input.id,
         rtmpUrl: `rtmp://127.0.0.1/${app}/${name}`
       });
-      stream.once("data", chunk => {
-        log("got data");
-      });
+      return res.sendStatus(200);
     })
     .catch(err => {
-      log("Error connecting to API server", err);
-      res.sendStatus(500);
+      winston.error(err);
+      const status = err.status || 500;
+      if (status === 500) {
+        log("Error connecting to API server", err);
+      }
+      res.sendStatus(status);
     });
 });
 
@@ -59,7 +69,15 @@ app.post("/play_done", (req, res, next) => {
 });
 
 app.post("/publish_done", (req, res, next) => {
+  const manager = managers[req.body.name];
+  if (!manager) {
+    return winston.warn(
+      `Got done for ${req.body.name} but I'm not managing it??`
+    );
+  }
   res.sendStatus(200);
+  delete managers[req.body.name];
+  manager.notify("publish_done", req.body);
 });
 
 app.post("/record_done", (req, res, next) => {

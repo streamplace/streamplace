@@ -17,7 +17,7 @@ spec:
 {{ .Values.persistence | toYaml | indent 10 }}
           {{- else if .Values.global.development }}
           hostPath:
-            path: /opt/streamplace/rethinkdb
+            path: {{ .Values.global.rootDirectory }}/data/rethinkdb
           {{- end }}
       containers:
       - name: {{ .Chart.Name }}
@@ -27,7 +27,6 @@ spec:
         - containerPort: 28015
         {{- if .Values.global.development }}
         - containerPort: 8080
-          hostPort: 9999
         {{- end }}
         livenessProbe:
           httpGet:

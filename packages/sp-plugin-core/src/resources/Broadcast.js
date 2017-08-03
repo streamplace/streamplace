@@ -1,19 +1,32 @@
 import Resource from "sp-resource";
 
 export default class Broadcast extends Resource {
-  default() {
+  default(ctx) {
     return super.default().then(doc => {
       return {
-        ...doc
+        ...doc,
+        userId: ctx.user.id
       };
     });
   }
 
   auth(ctx, doc) {
+    if (ctx.isPrivileged()) {
+      return Promise.resolve();
+    }
+    if (doc.userId !== ctx.user.id) {
+      throw new Resource.APIError(
+        403,
+        "You may only access your own broadcasts"
+      );
+    }
     return Promise.resolve();
   }
 
   authQuery(ctx, query) {
-    return Promise.resolve({});
+    if (ctx.isPrivileged()) {
+      return Promise.resolve({});
+    }
+    return Promise.resolve({ userId: ctx.user.id });
   }
 }

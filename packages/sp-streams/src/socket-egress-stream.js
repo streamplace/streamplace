@@ -20,7 +20,10 @@ export default function() {
       log("client disconnected");
       socketStream.unpipe(c);
     });
-    c.write("hello\r\n");
+    c.on("error", () => {
+      log("client errored");
+      socketStream.unpipe(c);
+    });
     socketStream.pipe(c);
   });
 
@@ -28,11 +31,15 @@ export default function() {
     throw err;
   });
 
-  server.listen(socketPath, () => {
-    log("server bound to " + socketPath);
+  const pathProm = new Promise((resolve, reject) => {
+    server.listen(socketPath, () => {
+      log("server bound to " + socketPath);
+      resolve(socketPath);
+    });
   });
 
   const socketStream = new stream.PassThrough();
+  socketStream.getPath = () => pathProm;
   socketStream.server = server;
   socketStream.path = socketPath;
   return socketStream;

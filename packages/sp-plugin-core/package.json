@@ -21,6 +21,7 @@
     "node-uuid": "^1.4.7",
     "sp-resource": "^0.0.16",
     "sp-utils": "^0.0.16",
+    "uuid-validate": "0.0.2",
     "winston": "^2.2.0"
   }
 }

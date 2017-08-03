@@ -6,19 +6,27 @@ import ffmpeg from "./ffmpeg";
 const log = debug("sp:rtmp-input-stream");
 
 export default function({ rtmpUrl }) {
-  const socketServer = new socketIngressStream();
+  const socketIngress = new socketIngressStream();
   const mpegMunger = new mpegMungerStream();
   const instance = ffmpeg()
     .input(rtmpUrl)
-    .inputFormat("flv")
+    .inputFormat("live_flv")
+    .inputOptions(["-probesize 60000000", "-analyzeduration 10000000"])
     .outputOptions(["-bsf:v h264_mp4toannexb", "-copyts", "-start_at_zero"])
     .videoCodec("copy")
     .audioCodec("copy")
     .outputFormat("mpegts")
     // Video out
-    .output(`unix://${socketServer.path}`)
-    .run();
+    .output(`unix://${socketIngress.path}`);
+  instance.run();
 
-  socketServer.pipe(mpegMunger);
+  socketIngress.pipe(mpegMunger);
+  mpegMunger.notifyPTS = function(pts) {
+    mpegMunger.currentPTS = pts;
+  };
+  mpegMunger.on("end", () => {
+    instance.kill();
+    socketIngress.destroy();
+  });
   return mpegMunger;
 }

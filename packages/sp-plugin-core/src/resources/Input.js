@@ -12,11 +12,20 @@ export default class Input extends Resource {
   }
 
   auth(ctx, doc) {
+    if (ctx.isPrivileged()) {
+      return Promise.resolve();
+    }
+    if (doc.userId !== ctx.user.id) {
+      throw new Resource.APIError(403, "You may only access your own inputs");
+    }
     return Promise.resolve();
   }
 
   authQuery(ctx, query) {
-    return Promise.resolve({});
+    if (ctx.isPrivileged()) {
+      return Promise.resolve({});
+    }
+    return Promise.resolve({ userId: ctx.user.id });
   }
 
   create(ctx, newDoc) {
@@ -24,5 +33,3 @@ export default class Input extends Resource {
     return super.create(ctx, newDoc);
   }
 }
-
-Input.tableName = "inputs";

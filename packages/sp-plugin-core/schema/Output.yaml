@@ -5,6 +5,7 @@ required:
   - kind
   - url
   - broadcastId
+  - userId
 properties:
   kind:
     type: string
@@ -12,6 +13,9 @@ properties:
   id:
     type: string
     description: Unique ID of the output
+  userId:
+    type: string
+    description: Owner of this output
   url:
     type: string
     description: RTMP URL of this output

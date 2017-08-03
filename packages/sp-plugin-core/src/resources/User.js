@@ -1,6 +1,7 @@
 import Resource from "sp-resource";
 import winston from "winston";
 import { v4 } from "node-uuid";
+import uuidCheck from "uuid-validate";
 import config from "sp-configuration";
 import { parse as parseUrl } from "url";
 
@@ -84,12 +85,19 @@ export default class User extends Resource {
         .then(def => {
           newUser = {
             ...def,
-            id: newId,
             identity: identity,
             roles: []
           };
-          if (ctx.jwt.roles) {
+          if (uuidCheck(newId)) {
+            newUser.id = newId; // Regular users already have one, services get a random one
+          } else if (ctx.jwt.roles && ctx.jwt.roles.includes("SERVICE")) {
             newUser.roles = ctx.jwt.roles;
+            newUser.handle = newId;
+          } else {
+            winston.error(
+              "MAYDAY we're supposed to create a user but it's not a service and doesn't have a UUID?"
+            );
+            throw new Error("User creation failed");
           }
           return this.validate(ctx, newUser);
         })

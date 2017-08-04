@@ -1,6 +1,6 @@
 {
   "name": "sp-app",
-  "version": "0.0.16",
+  "version": "0.1.0",
   "description": "Streamplace Desktop App",
   "main": "dist/sp-app.js",
   "build": {

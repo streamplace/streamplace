@@ -1,6 +1,6 @@
 {
   "name": "sp-streams",
-  "version": "0.0.16",
+  "version": "0.1.0",
   "description": "Streamplace Streams for Piping Video Around and Stuff",
   "main": "dist/sp-streams.js",
   "scripts": {
@@ -12,7 +12,9 @@
     "type": "git",
     "url": "git+ssh://git@github.com/streamplace/streamplace.git"
   },
-  "keywords": ["Streamplace"],
+  "keywords": [
+    "Streamplace"
+  ],
   "author": "Streamplace",
   "license": "Apache-2.0",
   "bugs": {

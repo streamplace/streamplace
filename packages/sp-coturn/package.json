@@ -1,6 +1,6 @@
 {
   "name": "sp-coturn",
-  "version": "0.0.16",
+  "version": "0.1.0",
   "description": "Coturn for Streamplace servers",
   "main": "package.json",
   "scripts": {

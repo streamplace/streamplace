@@ -1,6 +1,6 @@
 {
   "name": "sp-components",
-  "version": "0.0.16",
+  "version": "0.1.0",
   "description": "Streamplace React Components",
   "main": "dist/index.js",
   "scripts": {
@@ -19,9 +19,9 @@
   },
   "dependencies": {
     "react": "^15.5.4",
-    "sp-client": "^0.0.16",
-    "sp-peer-stream": "^0.0.16",
-    "sp-utils": "^0.0.16",
+    "sp-client": "^0.1.0",
+    "sp-peer-stream": "^0.1.0",
+    "sp-utils": "^0.1.0",
     "styled-components": "^1.4.4",
     "three": "^0.84.0"
   }

@@ -1,15 +1,16 @@
 os:
 - osx
+- linux
 branches:
   except:
   - /^v[0-9]/
 language: node_js
 node_js:
-- '6'
-before_install:
-- brew install wine
+- '8'
 script:
 - npm run ci-build-app
 notifications:
   slack:
     secure: R3P6lAl5t2XCGaCipxYbldAqkd+dzyBNiHQ/4GxR0M78dk+/hGtDss6eBcrXb7IY62Be3lemwb5Nk72upeMCiJSMd5+WrgtXQmNBkirTjIdtFqrAHnArYSQiP3h0RBNMdqdHZY1tp8vsnnGFvDWX22C5+JW3D30jcbwMNEHCId88nxKqpvWlnZwC2FFLhWk8Kg2Ee84Gvj2vLLi5yBP1IijrXjtTFVKp8VahAhdTgHmoPdyBO8cp3eeRlRI3S1KOD+pcnrMSXns1clsJgFKzPGxEvsqtTLNC1ouM0QjYHlziVWa0KU5wx1+tzSf3cmHwkiUbSoL77045MQzWwjq1m19PRjgDYQUMv14A/PoBzsbXCSiIuDs7U0oP/GMRtRl4StYUhnlb6x/7t9Dmi1Xc4Ge53yYXQ4XQPAI3DV7VG21UKwS0oEivikdMdQarfkFbmi5PNdXye5VmbqFvLnTnirDPF4igV9PWB+evasriBA95zLLVgIqDgcC+qfM4ot3g3HGnmFPZ1zbz7SYxH6NTAVHJ8qlu4jjEtxeWm9y/y8wQAI+BKrz+SQ1dnod+aMtFCmm3a5HhpUiIPeh5JORBY5aqtYv/HLsFsgu/KkuO74P01u2bhm7HwcXv19h7TcpelaaHwyQ2I8yK+T2PjUyregOa1roukKampO59iqbmA+U=
+services:
+  - docker

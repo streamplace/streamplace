@@ -2,20 +2,33 @@
   "name": "sp-app",
   "version": "0.1.0",
   "description": "Streamplace Desktop App",
-  "main": "dist/sp-app.js",
-  "build": {
-    "appId": "stream.place",
-    "mac": {
-      "category": "public.app-category.video"
-    }
-  },
+  "main": "compiled/sp-app.js",
   "scripts": {
-    "prepublish": "babel --keep-lines --copy-files -d dist src",
+    "prepublish": "babel --keep-lines --copy-files -d compiled src && rm -rf package-lock.json",
     "start-electron": "npm run prepublish && SP_URL=$(cat ../../values-dev.yaml  | grep domain | sed 's/^.*://' | sed 's/ //') electron .",
     "start": "nodemon -w src -x npm run start-electron",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "electron-builder": "build --publish never",
-    "electron-publish": "build -mw --publish always"
+    "build": "npm run prepublish && npm run electron-builder-local",
+    "electron-builder-local": "ELECTRON_CHANNEL=\"${ELECTRON_CHANNEL:-dev}\" electron-builder --publish never",
+    "electron-publish-windows": "electron-builder -w --publish always",
+    "electron-publish-mac": "electron-builder -m --publish always"
+  },
+  "build": {
+    "appId": "place.stream",
+    "mac": {
+      "category": "public.app-category.video"
+    },
+    "productName": "Streamplace",
+    "publish": {
+      "bucket": "crap.stream.place",
+      "channel": "${env.ELECTRON_CHANNEL}",
+      "path": "apps",
+      "provider": "s3",
+      "region": "us-west-2"
+    },
+    "win": {
+      "publisherName": "Eli Mallon"
+    }
   },
   "author": "Streamplace",
   "license": "Apache-2.0",
@@ -24,9 +37,9 @@
     "babel-core": "^6.23.1",
     "babel-preset-streamplace": "0.0.3",
     "electron": "^1.4.15",
-    "electron-builder": "^19.11.1",
-    "electron-publisher-s3": "^19.11.0",
+    "electron-publisher-s3": "^19.19.0",
     "js-yaml": "^3.8.2",
+    "electron-builder": "^19.19.1",
     "nodemon": "^1.11.0"
   },
   "dependencies": {

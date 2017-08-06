@@ -1,3 +1,7 @@
 dist
 compiled
 apps
+app-dist
+compiled
+built-apps
+package-lock.json

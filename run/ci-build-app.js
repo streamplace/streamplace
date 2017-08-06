@@ -9,6 +9,7 @@ const { spawn } = require("child_process");
 const { repoVersion, repoBranch } = require("./repo-version");
 const mkdirp = require("mkdirp");
 const tmp = require("tmp-promise");
+const os = require("os");
 
 tmp.setGracefulCleanup();
 
@@ -56,7 +57,11 @@ tmp
     return run("npm", "install");
   })
   .then(() => {
-    return run("npm", "run", "electron-publish");
+    if (os.platform() === "darwin") {
+      return run("npm", "run", "electron-publish-mac");
+    } else {
+      return run("npm", "run", "electron-publish-windows");
+    }
   })
   .catch(err => {
     console.error(err);

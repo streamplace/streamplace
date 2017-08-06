@@ -1,6 +1,6 @@
 {
   "name": "sp-dev-certs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Automatically provisioned certs for Streamplace development!",
   "main": "index.js",
   "scripts": {
@@ -22,7 +22,7 @@
     "morgan": "^1.8.1",
     "mz": "^2.6.0",
     "openpgp": "^2.3.6",
-    "sp-node": "^0.1.0",
+    "sp-node": "^0.1.1",
     "winston": "^2.3.1"
   }
 }

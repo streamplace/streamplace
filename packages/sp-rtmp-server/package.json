@@ -1,6 +1,6 @@
 {
   "name": "sp-rtmp-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Makes nginx-rtmp and Streamplace play nice together",
   "main": "dist/sp-rtmp-server.js",
   "scripts": {
@@ -29,11 +29,11 @@
     "express": "^4.15.3",
     "fluent-ffmpeg": "^2.1.2",
     "morgan": "^1.8.2",
-    "sp-client": "^0.1.0",
-    "sp-configuration": "^0.1.0",
-    "sp-node": "^0.1.0",
-    "sp-rtmp-nginx": "^0.1.0",
-    "sp-streams": "^0.1.0",
+    "sp-client": "^0.1.1",
+    "sp-configuration": "^0.1.1",
+    "sp-node": "^0.1.1",
+    "sp-rtmp-nginx": "^0.1.1",
+    "sp-streams": "^0.1.1",
     "winston": "^2.3.1"
   }
 }

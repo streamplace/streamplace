@@ -1,6 +1,6 @@
 {
   "name": "streamplace-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "streamplace console command",
   "main": "dist/sp-cli.js",
   "bin": {
@@ -31,7 +31,7 @@
     "mz": "^2.6.0",
     "redux": "^3.6.0",
     "redux-thunk": "^2.2.0",
-    "sp-node": "^0.1.0",
+    "sp-node": "^0.1.1",
     "terminal-kit": "^0.26.1",
     "vorpal": "^1.11.4",
     "ws": "^1.1.1"

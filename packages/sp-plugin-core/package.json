@@ -12,7 +12,7 @@
   "devDependencies": {
     "babel-cli": "^6.23.0",
     "babel-core": "^6.23.1",
-    "babel-preset-streamkitchen": "0.0.2",
+    "babel-preset-streamplace": "*",
     "jest": "^15.1.1",
     "sp-node": "^0.1.1",
     "sp-schema": "^0.1.1"

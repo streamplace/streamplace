@@ -1,6 +1,6 @@
 {
   "name": "sp-streams",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Streamplace Streams for Piping Video Around and Stuff",
   "main": "dist/sp-streams.js",
   "scripts": {

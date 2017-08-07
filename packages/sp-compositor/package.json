@@ -1,6 +1,6 @@
 {
   "name": "sp-compositor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "",
   "main": "dist/sp-compositor.js",
   "scripts": {
@@ -20,6 +20,6 @@
   },
   "dependencies": {
     "electron": "^1.6.2",
-    "sp-frontend": "^0.1.1"
+    "sp-frontend": "^0.1.2"
   }
 }

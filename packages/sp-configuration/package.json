@@ -6,16 +6,23 @@
   "scripts": {
     "prepublish": "babel -d dist src",
     "start": "nodemon -w src -x npm run prepublish",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
+  },
+  "jest": {
+    "bail": true,
+    "testEnvironment": "node"
   },
   "author": "Streamplace",
   "license": "Apache-2.0",
   "dependencies": {
+    "dot-object": "^1.6.0",
     "js-yaml": "^3.6.1",
-    "mustache": "^2.2.1"
+    "mustache": "^2.2.1",
+    "yargs": "^8.0.2"
   },
   "devDependencies": {
     "babel-preset-streamkitchen": "*",
+    "jest": "^20.0.4",
     "nodemon": "^1.9.1",
     "underscore": "^1.8.3"
   }

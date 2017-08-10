@@ -1,6 +1,7 @@
 import yaml from "js-yaml";
 import fs from "fs";
 import path from "path";
+import dot from "dot-object";
 
 const config = {};
 
@@ -30,6 +31,19 @@ Object.keys(process.env).forEach(key => {
   key = key.slice(PREFIX.length);
   config[key] = value;
 });
+
+config.loadValuesFile = function(valuesPath) {
+  const doc = yaml.safeLoad(fs.readFileSync(valuesPath, "utf8"));
+  const flat = dot.dot(doc);
+  Object.keys(flat).forEach(key => {
+    const capitalKey = key
+      .replace(/([A-Z])/g, "_$1")
+      .toUpperCase()
+      .replace(/\./g, "_")
+      .replace(/^GLOBAL_/, "");
+    this[capitalKey] = flat[key];
+  });
+};
 
 // Automatically add my name, based on filename
 if (process.argv[1]) {

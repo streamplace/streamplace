@@ -12,6 +12,9 @@ class Config {
 
   add(obj) {
     Object.keys(obj).forEach(key => {
+      if (typeof obj[key] === "function") {
+        this[key] = obj[key].bind(this);
+      }
       this[key] = obj[key];
     });
   }

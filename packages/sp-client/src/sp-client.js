@@ -195,6 +195,10 @@ export class SPClient extends EE {
       });
   }
 
+  disconnect() {
+    this.socket.close();
+  }
+
   newToken(token) {
     this.token = token;
     this.client.clientAuthorizations.add(

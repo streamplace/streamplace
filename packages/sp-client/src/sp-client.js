@@ -11,6 +11,7 @@ import Resource from "./Resource";
 
 const API_SERVER_URL = config.optional("API_SERVER_URL");
 const PUBLIC_API_SERVER_URL = config.optional("PUBLIC_API_SERVER_URL");
+const DOMAIN = config.optional("DOMAIN");
 const SCHEMA_URL = config.optional("SCHEMA_URL");
 
 const IMPORTANT_EVENTS = [
@@ -41,7 +42,7 @@ const apiError = function(code, message) {
 };
 
 export class SPClient extends EE {
-  constructor({ server, log, start, token, app } = {}) {
+  constructor({ server, log, token, app } = {}) {
     super();
     if (isNode) {
       // Someone teach me a better wneway to have node do something but not webpack.
@@ -53,9 +54,6 @@ export class SPClient extends EE {
     this.shouldLog = true;
     this.server = server;
     this.token = token;
-    if (start !== false) {
-      this.connect({ server, log });
-    }
   }
 
   connect({ server, log, token } = {}) {
@@ -70,6 +68,9 @@ export class SPClient extends EE {
     }
     if (!server) {
       server = PUBLIC_API_SERVER_URL;
+    }
+    if (!server && DOMAIN) {
+      server = `https://${DOMAIN}`;
     }
     if (!server) {
       throw new Error(
@@ -281,9 +282,7 @@ export class SPClient extends EE {
   }
 }
 
-const SP = new SPClient({
-  start: false
-});
+const SP = new SPClient({});
 
 if (!isNode) {
   window.SP = SP;

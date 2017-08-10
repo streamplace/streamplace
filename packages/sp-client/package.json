@@ -6,7 +6,7 @@
   "scripts": {
     "prepublish": "babel -d dist src",
     "start": "babel --watch --preserve-lines -d dist src",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node __test__/shutdown-test/shutdown-test.js"
   },
   "author": "",
   "license": "Apache-2.0",

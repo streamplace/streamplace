@@ -45,6 +45,11 @@ config.loadValuesFile = function(valuesPath) {
   });
 };
 
+// Special case: load values from a Helm values file if it exists
+if (process.env.SP_VALUES_FILE) {
+  config.loadValuesFile(process.env.SP_VALUES_FILE);
+}
+
 // Automatically add my name, based on filename
 if (process.argv[1]) {
   config.APP_NAME = path.basename(process.argv[1], ".js");

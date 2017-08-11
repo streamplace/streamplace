@@ -30,9 +30,6 @@ spec:
       - name: {{ .Chart.Name }}-nginx
         ports:
           - containerPort: 1935
-            {{- if .Values.global.development }}
-            hostPort: 1935
-            {{- end }}
         readinessProbe:
           httpGet:
             path: /healthz

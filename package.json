@@ -19,12 +19,22 @@
   },
   "jest": {
     "bail": true,
-    "testPathIgnorePatterns": ["/node_modules/", "/packages/"],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/packages/"
+    ],
     "testEnvironment": "node"
   },
   "lint-staged": {
-    "*.js": ["prettier --write", "git add", "eslint"],
-    "*.css": ["prettier --write", "git add"]
+    "*.js": [
+      "prettier --write",
+      "git add",
+      "eslint"
+    ],
+    "*.css": [
+      "prettier --write",
+      "git add"
+    ]
   },
   "devDependencies": {
     "dot-object": "^1.5.4",

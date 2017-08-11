@@ -142,18 +142,14 @@ export default class SKContext extends EE {
     if (!this.user) {
       return false;
     }
-    if (this.user.roles.indexOf("ADMIN") !== -1) {
-      return true;
-    }
+    return this.user.roles.includes("SERVICE");
   }
 
   isAdmin() {
     if (!this.user) {
       return false;
     }
-    if (this.user.roles.indexOf("ADMIN") !== -1) {
-      return true;
-    }
+    return this.user.roles.includes("ADMIN");
   }
 
   isPrivileged() {

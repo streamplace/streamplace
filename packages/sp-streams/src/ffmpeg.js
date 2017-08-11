@@ -36,10 +36,10 @@ export default function ffmpeg() {
     .on("start", command => {
       const sanitizedCommand = command;
       log("ffmpeg start: " + sanitizedCommand);
-      // instance.ffmpegProc.stdout.on("data", data => {
+      // thisFfmpeg.ffmpegProc.stdout.on("data", data => {
       //   log(data.toString());
       // });
-      // instance.ffmpegProc.stderr.on("data", data => {
+      // thisFfmpeg.ffmpegProc.stderr.on("data", data => {
       //   log(data.toString());
       // });
     });

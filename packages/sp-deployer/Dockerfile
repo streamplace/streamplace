@@ -1,8 +1,4 @@
 
-FROM streamplace/sp-node
+FROM jenkinsci/jnlp-slave:2.62
 
-RUN npm install -g --unsafe-perm helm-cli \
-  && npm install -g --unsafe-perm kubectl-cli \
-  && helm init --client-only
-
-RUN helm repo add streamplace https://charts.stream.place
+USER root

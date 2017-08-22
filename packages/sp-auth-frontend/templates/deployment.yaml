@@ -16,6 +16,10 @@ spec:
       labels:
         app: {{ template "fullname" . }}
     spec:
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.global.imagePullSecrets | indent 8 }}
+      {{- end }}
       {{- if .Values.global.development }}
       volumes:
         - name: streamplace
@@ -30,7 +34,7 @@ spec:
       containers:
       - name: {{ .Chart.Name }}
         {{- if .Values.global.development }}
-        image: "streamplace/{{ .Chart.Name }}:latest"
+        image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:latest"
         command:
           - npm
           - run
@@ -43,7 +47,7 @@ spec:
           - name: tmp
             mountPath: /tmp
         {{- else }}
-        image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:v{{ .Chart.Version }}"
+        image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:{{ .Chart.Version }}"
         {{- end }}
         imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
 {{- end }}

@@ -5,7 +5,7 @@ metadata:
   labels:
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
 spec:
-  type: {{ if .Values.global.development }}ClusterIP{{ else }}LoadBalancer{{end}}
+  type: {{ .Values.serviceType }}
   selector:
     app: {{ template "fullname" . }}
   ports:

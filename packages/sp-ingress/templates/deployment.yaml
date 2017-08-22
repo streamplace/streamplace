@@ -11,6 +11,9 @@ spec:
       labels:
         app: {{ template "fullname" . }}
     spec:
+      {{- if .Values.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
       containers:
       - name: nginx
         image: "gcr.io/google_containers/nginx-ingress-controller:0.9.0-beta.3"
@@ -20,6 +23,7 @@ spec:
         args:
           - --default-backend-service
           - {{ .Release.Namespace }}/{{ .Release.Name }}-sp-default
+          - --tcp-services-configmap={{ .Release.Namespace }}/{{ template "fullname" . }}-tcp
           - --configmap={{ .Release.Namespace }}/{{ template "fullname" . }}
         env:
           - name: POD_NAME

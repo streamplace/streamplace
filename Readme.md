@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  An open-source compositor and CMS for live video.
+  An open-source compositor and CMS for live video!
 </p>
 
 <p align="center">
@@ -55,7 +55,7 @@ And then you'll have a working dev version of Streamplace on your computer. I me
 ### Development Environment Known Issues
 
 1. Sometimes stuff just doesn't come up.
-   
+
    * Usually it's `sp-api-server` or `sp-schema` for whatever reason. Usually it can be resolved with a `kubectl get pods` and `kubectl delete pod [malfunctioning-pod-name]`.
 
 1. Sometimes `sp-frontend` takes a ton of time to compile and makes the computer's fan spin like crazy.

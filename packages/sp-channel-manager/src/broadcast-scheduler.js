@@ -14,6 +14,11 @@ import config from "sp-configuration";
 const BROADCASTER_IMAGE = config.require("BROADCASTER_IMAGE");
 const IMAGE_PULL_POLICY = config.require("IMAGE_PULL_POLICY");
 const DEV_ROOT_DIRECTORY = config.optional("DEV_ROOT_DIRECTORY");
+const IMAGE_PULL_SECRETS = config.optional("IMAGE_PULL_SECRETS");
+let imagePullSecrets = [];
+if (IMAGE_PULL_SECRETS) {
+  imagePullSecrets = JSON.parse(IMAGE_PULL_SECRETS);
+}
 
 const ROLE_ANNOTATION = "stream.place/role";
 const MY_ROLE = "broadcaster";
@@ -48,6 +53,10 @@ export default class BroadcastScheduler {
       const podIds = [];
       pods.forEach(pod => {
         // Only delete once for each podId
+        if (!pod.metadata.annotations) {
+          winston.info(`${pod.name} has no annotations, that's weird`);
+          return;
+        }
         const podId = pod.metadata.annotations[BROADCAST_ID_ANNOTATION];
         if (podIds.includes(podId)) {
           return;
@@ -71,7 +80,7 @@ export default class BroadcastScheduler {
         }
         data = data.items.filter(pod => {
           const annotations = pod.metadata.annotations;
-          return annotations[ROLE_ANNOTATION] === MY_ROLE;
+          return annotations && annotations[ROLE_ANNOTATION] === MY_ROLE;
         });
         resolve(data);
       });
@@ -118,7 +127,9 @@ export default class BroadcastScheduler {
     return this.getPods().then(pods => {
       const [currentPod, ...rest] = pods.filter(pod => {
         const annotations = pod.metadata.annotations;
-        return annotations[BROADCAST_ID_ANNOTATION] === broadcastId;
+        return (
+          annotations && annotations[BROADCAST_ID_ANNOTATION] === broadcastId
+        );
       });
       if (rest.length > 0) {
         winston.warn(
@@ -140,6 +151,7 @@ export default class BroadcastScheduler {
         }
       },
       spec: {
+        imagePullSecrets: imagePullSecrets,
         containers: [
           {
             name: "broadcaster",

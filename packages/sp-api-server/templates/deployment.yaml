@@ -22,7 +22,7 @@ spec:
         {{- range $index, $plugin := .Values.global.plugins }}
           {
             "name": "{{ $plugin }}",
-            "image": "{{ $values.global.repo }}/{{ $plugin }}:v{{ $chart.Version }}",
+            "image": "{{ $values.global.repo }}/{{ $plugin }}:{{ $chart.Version }}",
             "command": ["cp", "-R", "/app", "/plugins/{{ $plugin }}"],
             "imagePullPolicy": "Always",
             "volumeMounts": [{
@@ -36,6 +36,10 @@ spec:
       labels:
         app: {{ template "fullname" . }}
     spec:
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.global.imagePullSecrets | indent 8 }}
+      {{- end }}
       {{- if .Values.global.development }}
       volumes:
         - name: streamplace
@@ -81,7 +85,7 @@ spec:
           timeoutSeconds: 5
           periodSeconds: 5
         {{- if .Values.global.development }}
-        image: "streamplace/{{ .Chart.Name }}:latest"
+        image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:latest"
         command:
           - bash
           - -c
@@ -98,7 +102,7 @@ spec:
             mountPath: /plugins/{{ . }}
         {{- end }}
         {{- else }}
-        image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:v{{ .Chart.Version }}"
+        image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:{{ .Chart.Version }}"
         volumeMounts:
           - name: plugins
             mountPath: /plugins

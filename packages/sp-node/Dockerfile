@@ -1,16 +1,13 @@
 FROM ubuntu:xenial
 
 ENV NPM_CONFIG_LOGLEVEL warn
-ENV NODE_VERSION 6.11.1
+ENV NODE_VERSION 8.4.0
 
 RUN \
   apt-get update && \
   apt-get dist-upgrade -y && \
   apt-get install -y curl xz-utils git apt-transport-https inotify-tools && \
-  curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
-  echo "deb https://dl.yarnpkg.com/debian/ stable main" >> /etc/apt/sources.list.d/yarn.list && \
   apt-get update && \
-  apt-get install -y yarn && \
   rm -rf /var/lib/apt/lists/*
 
 # Stolen from https://github.com/nodejs/docker-node
@@ -36,14 +33,11 @@ RUN curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-
   && tar -xJf "node-v$NODE_VERSION-linux-x64.tar.xz" -C /usr/local --strip-components=1 \
   && rm "node-v$NODE_VERSION-linux-x64.tar.xz" SHASUMS256.txt.asc SHASUMS256.txt
 
-# npm5!
-RUN yarn global add npm
-
-# Super duper uber hack to fix building npm stuff in Docker.
-# https://github.com/npm/npm/issues/9863#issuecomment-194927143
-RUN cd $(npm root -g)/npm \
-  && npm install fs-extra \
-  && sed -i -e s/graceful-fs/fs-extra/ -e s/fs.rename/fs.move/ ./lib/utils/rename.js
+# # Super duper uber hack to fix building npm stuff in Docker.
+# # https://github.com/npm/npm/issues/9863#issuecomment-194927143
+# RUN cd $(npm root -g)/npm \
+#   && npm install fs-extra \
+#   && sed -i -e s/graceful-fs/fs-extra/ -e s/fs.rename/fs.move/ ./lib/utils/rename.js
 
 # Preload all of our shared libraries.
 

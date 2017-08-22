@@ -1,4 +1,4 @@
-FROM streamplace/sp-node:latest
+FROM quay.io/streamplace/sp-node:latest
 
 ADD package.json /app/package.json
 RUN npm install -g kubectl-cli --unsafe-perm

@@ -1,5 +1,5 @@
 
-FROM streamplace/sp-ffmpeg
+FROM quay.io/streamplace/sp-ffmpeg
 
 WORKDIR /app
 ADD package.json /app/package.json

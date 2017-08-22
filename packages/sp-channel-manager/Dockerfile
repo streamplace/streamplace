@@ -1,5 +1,5 @@
 
-FROM streamplace/sp-node
+FROM quay.io/streamplace/sp-node
 
 WORKDIR /app
 ADD package.json /app/package.json

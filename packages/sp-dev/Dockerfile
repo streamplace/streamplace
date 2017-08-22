@@ -1,5 +1,5 @@
 
-FROM streamplace/sp-node:latest
+FROM quay.io/streamplace/sp-node:latest
 
 ENV HELM_VERSION v2.2.0
 

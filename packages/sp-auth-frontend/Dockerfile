@@ -1,3 +1,3 @@
-FROM streamplace/sp-static
+FROM quay.io/streamplace/sp-static
 
 ADD dist /app/dist

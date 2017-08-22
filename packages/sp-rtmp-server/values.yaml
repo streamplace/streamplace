@@ -23,13 +23,4 @@ global:
   loginUrl: https://auth.stream.place/
   externalIP: "0.0.0.0"
 
-# Disable lots of features that we don't need in dev
-
-sp-dev-certs:
-  enabled: false
-
-sp-auth-frontend:
-  enabled: false
-
-sp-kube-lego:
-  enabled: false
+serviceType: ClusterIP

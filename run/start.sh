@@ -16,10 +16,9 @@ trap "kill 0" EXIT
 npm run build-values-dev
 npm run kube-init
 npm run update-cert
-npm run link-deps
-npm run docker-build
-npm run helm-dev
+wheelhouse link
+wheelhouse build
 
-nodemon -w 'packages/**/Dockerfile' --on-change-only -x npm run docker-build &
+nodemon -w 'packages/**/Dockerfile' --on-change-only -x wheelhouse build docker &
 run/every-package.sh run/package-start.sh --no-sort --concurrency 999
 wait

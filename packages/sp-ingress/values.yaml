@@ -5,6 +5,7 @@
 global:
   development: false
   serviceType: ClusterIP
+  hostNetwork: false
 
 # This is one generated just for SP stuff, which is superior to using the default nginx one. Even
 # better, generate your own and put it here!

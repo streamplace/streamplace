@@ -29,9 +29,4 @@ if [[ "${CI_TRIGGER_APP_BUILDS:-}" == "true" ]]; then
   "$ROOT/run/ci-trigger-app-builds.sh"
 fi
 
-# Sweet, time for Docker!
-helm init --client-only
-npm run docker-build
-npm run docker-push
-npm run helm-build
-npm run helm-push
+wheelhouse bulid docker helm

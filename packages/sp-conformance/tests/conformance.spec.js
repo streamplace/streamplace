@@ -50,12 +50,8 @@ describe("conformance", () => {
           .videoCodec("copy")
           .audioCodec("copy")
           .outputFormat("mpegts")
-          .once("error", function(err) {
-            if (!err.message.includes("SIGKILL")) {
-              clearInterval(interval);
-              reject(err);
-              throw err;
-            }
+          .on("error", function(err) {
+            // Ignore for now.
           })
           .output(passThrough);
         proc.run();
@@ -132,7 +128,7 @@ describe("conformance", () => {
           input2 = input;
           return SP.outputs.create({
             broadcastId: broadcast.id,
-            url: `rtmp://dev-sp-rtmp-server.default.svc.cluster.local/stream/${input2.streamKey}`
+            url: `rtmp://${DOMAIN}/stream/${input2.streamKey}`
           });
         })
         .then(output => {

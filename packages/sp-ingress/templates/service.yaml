@@ -17,3 +17,7 @@ spec:
     targetPort: 443
     protocol: TCP
     name: https
+  - port: 1935
+    targetPort: 1935
+    protocol: TCP
+    name: rtmp

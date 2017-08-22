@@ -6,6 +6,7 @@ required:
   - url
   - broadcastId
   - userId
+  - title
 properties:
   kind:
     type: string
@@ -23,3 +24,6 @@ properties:
     type:
       - "null"
       - "string"
+  title:
+    type: string
+    description: Human-readable title of this output

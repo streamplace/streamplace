@@ -6,7 +6,8 @@ export default class Output extends Resource {
       return {
         ...doc,
         broadcastId: null,
-        userId: ctx.user.id
+        userId: ctx.user.id,
+        title: "New Output"
       };
     });
   }

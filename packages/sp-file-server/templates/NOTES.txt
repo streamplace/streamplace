@@ -1,0 +1,3 @@
+Hi I am a local dev file server not intended to be used in production
+
+You should use S3 or Google's S3 or whatever instead

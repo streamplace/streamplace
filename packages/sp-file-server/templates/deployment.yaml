@@ -1,0 +1,55 @@
+{{- if .Values.enabled }}
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    app: {{ template "name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      annotations:
+        pod.beta.kubernetes.io/init-containers: '[{
+          "name": "make-bucket",
+          "image": "busybox",
+          "command": ["mkdir", "-p", "/data/{{ .Values.global.s3.bucket }}"],
+          "imagePullPolicy": "IfNotPresent",
+          "volumeMounts": [{
+            "name": "data",
+            "mountPath": "/data"
+          }]
+        }]'
+      labels:
+        app: {{ template "name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      volumes:
+        - name: data
+          {{- if .Values.persistence }}
+{{ .Values.persistence | toYaml | indent 10 }}
+          {{- else if .Values.global.development }}
+          hostPath:
+            path: {{ .Values.global.rootDirectory }}/data/minio
+          {{- end }}
+      containers:
+        - name: minio
+          image: minio/minio:latest
+          imagePullPolicy: Always
+          args:
+            - server
+            - --address
+            - ":80"
+            - /data
+          env:
+            - name: MINIO_ACCESS_KEY
+              value: {{ .Values.global.s3.accessKeyId | quote }}
+            - name: MINIO_SECRET_KEY
+              value: {{ .Values.global.s3.secretAccessKey | quote }}
+          volumeMounts:
+          - name: data
+            mountPath: /data
+{{- end }}

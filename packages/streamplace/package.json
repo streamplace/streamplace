@@ -6,9 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [
-    "streamplace"
-  ],
+  "keywords": ["streamplace"],
   "author": "Streamplace",
   "license": "Apache-2.0",
   "dependencies": {
@@ -17,6 +15,7 @@
     "sp-coturn": "^0.1.2",
     "sp-default": "^0.1.2",
     "sp-dev-certs": "^0.1.2",
+    "sp-file-server": "^0.1.2",
     "sp-frontend": "^0.1.2",
     "sp-ingress": "^0.1.2",
     "sp-kube-lego": "^0.1.2",

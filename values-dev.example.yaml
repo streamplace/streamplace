@@ -22,6 +22,11 @@ global:
   authIssuer: https://stream.place/
   loginUrl: https://auth.stream.place/
   externalIP: "0.0.0.0"
+  s3:
+    accessKeyId: DEV_ACCESS_KEY
+    secretAccessKey: DEV_SECRET_KEY
+    host: http://dev-sp-file-server.default.svc.cluster.local
+    bucket: dev-files
 
 # Disable lots of features that we don't need in dev
 
@@ -33,3 +38,6 @@ sp-auth-frontend:
 
 sp-kube-lego:
   enabled: false
+
+sp-file-server:
+  enabled: true

@@ -193,7 +193,7 @@ export class BroadcastDetail extends Component {
                           {...provided.dragHandleProps}
                           style={provided.draggableStyle}
                         >
-                          <StackItem>
+                          <StackItem kind={source.kind}>
                             {this.getSource(source.id).title ||
                               this.getSource(source.id).name}
                           </StackItem>
@@ -228,7 +228,7 @@ export class BroadcastDetail extends Component {
                           {...provided.dragHandleProps}
                           style={provided.draggableStyle}
                         >
-                          <StackItem>
+                          <StackItem kind="Input">
                             {input.title}
                           </StackItem>
                         </StackDragWrapper>
@@ -245,7 +245,7 @@ export class BroadcastDetail extends Component {
                           {...provided.dragHandleProps}
                           style={provided.draggableStyle}
                         >
-                          <StackItem>
+                          <StackItem kind="File">
                             {file.name}
                           </StackItem>
                         </StackDragWrapper>

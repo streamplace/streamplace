@@ -7,6 +7,7 @@ import {
   mpegMungerStream
 } from "sp-streams";
 import { PassThrough } from "stream";
+import FileStreamer from "./file-streamer";
 
 const getTableName = objName => {
   const definition = SP.schema.definitions[objName];
@@ -97,6 +98,8 @@ if (!module.parent) {
   SP.connect()
     .then(() => {
       new SPBroadcaster({ broadcastId: BROADCAST_ID, podIp: POD_IP });
+      // TODO: this should be a separate pod
+      new FileStreamer({ broadcastId: BROADCAST_ID, podIp: POD_IP });
     })
     .catch(err => {
       winston.error(err);

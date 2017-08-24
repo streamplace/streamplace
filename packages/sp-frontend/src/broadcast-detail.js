@@ -17,6 +17,7 @@ import {
 import BroadcastStackItem from "./broadcast-stack-item";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import OutputCreate from "./output-create";
+import Loading from "./loading";
 
 export class BroadcastDetail extends Component {
   static propTypes = {
@@ -25,6 +26,7 @@ export class BroadcastDetail extends Component {
     broadcast: React.PropTypes.object,
     inputs: React.PropTypes.array,
     outputs: React.PropTypes.array,
+    files: React.PropTypes.array,
     SP: React.PropTypes.object
   };
 
@@ -32,7 +34,8 @@ export class BroadcastDetail extends Component {
     return {
       broadcast: watch.one("broadcasts", { id: props.broadcastId }),
       inputs: watch("inputs", { userId: props.SP.user.id }),
-      outputs: watch("outputs", { userId: props.SP.user.id })
+      outputs: watch("outputs", { userId: props.SP.user.id }),
+      files: watch("files", { userId: props.SP.user.id })
     };
   }
 
@@ -67,8 +70,8 @@ export class BroadcastDetail extends Component {
     }
     const { SP } = this.props;
     const { broadcast } = this.state;
-    const inputId = e.draggableId;
-    const isActive = broadcast.sources.map(s => s.id).includes(inputId);
+    const sourceId = e.draggableId;
+    const isActive = broadcast.sources.map(s => s.id).includes(sourceId);
     let activeIdx = broadcast.sources.length;
     const newIdx = e.destination.index;
     if (isActive && activeIdx >= newIdx) {
@@ -76,14 +79,14 @@ export class BroadcastDetail extends Component {
     }
     let newSources = [...this.state.broadcast.sources];
     if (newIdx <= activeIdx) {
-      newSources = broadcast.sources.filter(s => s.id !== inputId);
+      newSources = broadcast.sources.filter(s => s.id !== sourceId);
       newSources.splice(newIdx, 0, {
-        kind: "Input",
-        id: inputId
+        kind: this.getSource(sourceId).kind,
+        id: sourceId
       });
     } else {
       // Deactivate, or... reorder inputs? tbh idk about that one
-      newSources = broadcast.sources.filter(s => s.id !== inputId);
+      newSources = broadcast.sources.filter(s => s.id !== sourceId);
     }
     SP.broadcasts
       .update(broadcast.id, {
@@ -103,8 +106,16 @@ export class BroadcastDetail extends Component {
     return this.props.inputs.filter(input => !inputSet.includes(input.id));
   }
 
-  getInput(id) {
-    return this.props.inputs.find(i => i.id === id);
+  inactiveFiles() {
+    const fileSet = this.state.broadcast.sources.map(source => source.id);
+    return this.props.files.filter(input => !fileSet.includes(input.id));
+  }
+
+  getSource(id) {
+    return (
+      this.props.inputs.find(i => i.id === id) ||
+      this.props.files.find(s => s.id === id)
+    );
   }
 
   toggleOutput(output) {
@@ -135,8 +146,13 @@ export class BroadcastDetail extends Component {
   }
 
   render() {
-    if (!this.state.broadcast || !this.props.inputs || !this.props.outputs) {
-      return <p>Loading...</p>;
+    if (
+      !this.state.broadcast ||
+      !this.props.inputs ||
+      !this.props.outputs ||
+      !this.props.files
+    ) {
+      return <Loading />;
     }
     const { broadcast } = this.state;
     const active = broadcast.active;
@@ -178,7 +194,8 @@ export class BroadcastDetail extends Component {
                           style={provided.draggableStyle}
                         >
                           <StackItem>
-                            {this.getInput(source.id).title}
+                            {this.getSource(source.id).title ||
+                              this.getSource(source.id).name}
                           </StackItem>
                         </StackDragWrapper>
                         {provided.placeholder}
@@ -213,6 +230,23 @@ export class BroadcastDetail extends Component {
                         >
                           <StackItem>
                             {input.title}
+                          </StackItem>
+                        </StackDragWrapper>
+                        {provided.placeholder}
+                      </div>}
+                  </Draggable>
+                )}
+                {this.inactiveFiles().map(file =>
+                  <Draggable key={file.id} draggableId={file.id}>
+                    {(provided, snapshot) =>
+                      <div>
+                        <StackDragWrapper
+                          innerRef={provided.innerRef}
+                          {...provided.dragHandleProps}
+                          style={provided.draggableStyle}
+                        >
+                          <StackItem>
+                            {file.name}
                           </StackItem>
                         </StackDragWrapper>
                         {provided.placeholder}

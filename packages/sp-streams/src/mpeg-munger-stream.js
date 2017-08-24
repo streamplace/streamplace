@@ -98,12 +98,12 @@ export class MpegMungerStream extends Transform {
         idx += 3; // We can skip this whole dang sequence now
         continue;
       }
-      this._rewriteHeader(chunk, idx);
+      this._rewriteHeader(chunk, idx, streamId);
       return;
     }
   }
 
-  _rewriteHeader(chunk, startIdx) {
+  _rewriteHeader(chunk, startIdx, streamId) {
     const indicator = chunk.readUInt8(startIdx + PES_INDICATOR_BYTE_OFFSET);
     const result = indicator & PES_INDICATOR_COMPARATOR;
     let pts;
@@ -144,6 +144,7 @@ export class MpegMungerStream extends Transform {
     } else {
       throw new Error("Unknown indicator result:" + dumpByte(result));
     }
+    this.emit("pts", { pts, streamId });
   }
 
   _readTimestamp(chunk, startIdx) {

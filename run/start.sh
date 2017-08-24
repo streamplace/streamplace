@@ -18,6 +18,7 @@ npm run kube-init
 npm run update-cert
 wheelhouse link
 wheelhouse build
+npm run helm-dev
 
 nodemon -w 'packages/**/Dockerfile' --on-change-only -x wheelhouse build docker &
 run/every-package.sh run/package-start.sh --no-sort --concurrency 999

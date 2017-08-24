@@ -74,6 +74,14 @@ spec:
             value: "{{ .Values.global.jwt.expiration }}"
           - name: SP_AUTH_ISSUER
             value: "{{ .Values.global.authIssuer }}"
+          - name: SP_S3_ACCESS_KEY_ID
+            value: {{ .Values.global.s3.accessKeyId | quote }}
+          - name: SP_S3_SECRET_ACCESS_KEY
+            value: {{ .Values.global.s3.secretAccessKey | quote }}
+          - name: SP_S3_HOST
+            value: {{ .Values.global.s3.host | quote }}
+          - name: SP_S3_BUCKET
+            value: {{ .Values.global.s3.bucket | quote }}
           - name: SP_API_SERVER_URL
             value: http://{{.Release.Name}}-sp-api-server.{{.Release.Namespace}}.svc.cluster.local/api
           - name: SP_SCHEMA_URL

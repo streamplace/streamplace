@@ -5,6 +5,7 @@ import icon from "./icon.svg";
 import { watch, bindComponent } from "sp-components";
 import Channel from "./channel";
 import TopBar from "./top-bar.js";
+import BroadcastDetail from "./broadcast-detail";
 import Options from "./options";
 import {
   AppContainer,
@@ -53,8 +54,16 @@ export class SPRouter extends Component {
         <AppContainer>
           <Sidebar>
             {this.renderChannelIcon({ slug: "", icon: icon, id: "home" })}
-            {this.props.channels &&
-              this.props.channels.map(c => this.renderChannelIcon(c))}
+            <ChannelIcon
+              id="channel-inputs"
+              activeClassName="active"
+              key="inputs"
+              to="/streamplace:inputs"
+            >
+              <ChannelIconText>
+                <i className="fa fa-gear" />
+              </ChannelIconText>
+            </ChannelIcon>
             <ChannelIcon
               id="channel-options"
               activeClassName="active"
@@ -73,7 +82,11 @@ export class SPRouter extends Component {
               path="/streamplace\:options"
               render={() => <Options onLogout={this.props.onLogout} />}
             />
-            <Route path="/:slug" component={Channel} />
+            <Route
+              path="/\:broadcasts/:broadcastId"
+              render={({ match }) =>
+                <BroadcastDetail broadcastId={match.params.broadcastId} />}
+            />
           </PageContainer>
         </AppContainer>
       </Router>

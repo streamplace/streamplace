@@ -25,6 +25,7 @@ export const Sidebar = styled.header`
   align-items: center;
   justify-content: flex-start;
   width: 82px;
+  flex-shrink: 0;
   -webkit-user-select: none;
   -webkit-app-region: drag;
 `;

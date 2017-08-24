@@ -5,7 +5,10 @@ export default class Broadcast extends Resource {
     return super.default().then(doc => {
       return {
         ...doc,
-        userId: ctx.user.id
+        userId: ctx.user.id,
+        title: "New Broadcast",
+        sources: [],
+        active: false
       };
     });
   }

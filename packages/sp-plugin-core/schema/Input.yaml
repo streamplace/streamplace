@@ -5,6 +5,7 @@ required:
   - kind
   - streamKey
   - userId
+  - title
 properties:
   kind:
     type: string
@@ -16,6 +17,10 @@ properties:
     type: string
     description: Unique ID of the input
     readOnly: true
+  title:
+    type: string
+    description: Human-readable input title
+    minLength: 1
   streamKey:
     $ref: "SecretKey"
     description: Secret code in the stream URL, i.e. rtmp://rtmp.server.streamplace.example/stream/$streamKey

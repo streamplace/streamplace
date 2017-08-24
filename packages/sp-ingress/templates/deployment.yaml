@@ -43,6 +43,10 @@ spec:
             {{- if .Values.global.development }}
             hostPort: 443
             {{- end }}
+          - containerPort: 1935
+            {{- if .Values.global.development }}
+            hostPort: 1935
+            {{- end }}
         readinessProbe:
           httpGet:
             path: /healthz

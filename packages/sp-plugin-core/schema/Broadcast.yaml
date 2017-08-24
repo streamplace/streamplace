@@ -6,6 +6,7 @@ required:
   - sources
   - active
   - userId
+  - title
 properties:
   kind:
     type: string
@@ -13,6 +14,9 @@ properties:
   id:
     type: string
     description: Unique ID of the Broadcast
+  title:
+    type: string
+    description: Human-readable name of this broadcast
   userId:
     type: string
     description: Owner of this broadcast

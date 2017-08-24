@@ -12,6 +12,7 @@
     "normalize.css": "^5.0.0",
     "qs": "^6.3.1",
     "react": "^15.5.4",
+    "react-beautiful-dnd": "^2.0.0",
     "react-dom": "^15.4.2",
     "react-router": "^4.0.0-beta.8",
     "react-router-dom": "^4.0.0-beta.8",

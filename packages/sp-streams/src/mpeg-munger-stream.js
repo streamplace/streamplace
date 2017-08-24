@@ -29,6 +29,14 @@ const STREAM_ID_AUDIO_END = 0xdf;
 const STREAM_ID_VIDEO_START = 0xe0;
 const STREAM_ID_VIDEO_END = 0xef;
 
+export const streamIsVideo = streamId => {
+  return streamId >= STREAM_ID_VIDEO_START && streamId <= STREAM_ID_VIDEO_END;
+};
+
+export const streamIsAudio = streamId => {
+  return streamId >= STREAM_ID_AUDIO_START && streamId <= STREAM_ID_AUDIO_END;
+};
+
 // These will need to be better someday.
 const warn = function(str) {
   /*eslint-disable no-console */
@@ -144,6 +152,7 @@ export class MpegMungerStream extends Transform {
     } else {
       throw new Error("Unknown indicator result:" + dumpByte(result));
     }
+    this.currentPTS = pts;
     this.emit("pts", { pts, streamId });
   }
 

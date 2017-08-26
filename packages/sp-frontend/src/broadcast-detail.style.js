@@ -19,6 +19,7 @@ export const Stack = styled.div`
 export const StackTitle = styled.h4`
   text-align: center;
   position: relative;
+  margin-bottom: 0;
 `;
 
 export const StackDragWrapper = styled.div`padding: 1em;`;

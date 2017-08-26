@@ -12,18 +12,22 @@ import { NoChannel, ChannelSelect } from "./home.style";
 import { TitleBar, ChannelName } from "./channel.style.js";
 import Loading from "./loading";
 import { Link } from "react-router-dom";
+import InputCreate from "./input-create";
+import InputListItem from "./input-list-item";
 
 export class Home extends Component {
   static propTypes = {
     channels: React.PropTypes.array,
     ready: React.PropTypes.bool,
     SP: React.PropTypes.object,
-    broadcasts: React.PropTypes.array
+    broadcasts: React.PropTypes.array,
+    inputs: React.PropTypes.array
   };
 
   static subscribe(props) {
     return {
-      broadcasts: watch("broadcasts", { userId: props.SP.user.id })
+      broadcasts: watch("broadcasts", { userId: props.SP.user.id }),
+      inputs: watch("inputs", { userId: props.SP.user.id })
     };
   }
 
@@ -83,9 +87,10 @@ export class Home extends Component {
   }
 
   render() {
-    if (!this.props.broadcasts) {
+    if (!this.props.broadcasts || !this.props.inputs) {
       return <Loading />;
     }
+    const { broadcasts, inputs, SP } = this.props;
     return (
       <FlexContainer padded>
         <TitleBar>
@@ -95,7 +100,7 @@ export class Home extends Component {
         </TitleBar>
         <div>
           <ul>
-            {this.props.broadcasts.map(broadcast =>
+            {broadcasts.map(broadcast =>
               <li key={broadcast.id}>
                 <Link to={`/:broadcasts/${broadcast.id}`}>
                   {broadcast.title}
@@ -105,6 +110,11 @@ export class Home extends Component {
           </ul>
           {this.renderForm()}
         </div>
+        <FlexContainer column padded>
+          <h3>Your Inputs</h3>
+          {inputs.map(input => <InputListItem key={input.id} input={input} />)}
+          <InputCreate />
+        </FlexContainer>
       </FlexContainer>
     );
   }

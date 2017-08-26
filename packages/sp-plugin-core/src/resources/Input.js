@@ -7,8 +7,7 @@ export default class Input extends Resource {
       return {
         ...doc,
         userId: ctx.user.id,
-        title: "New Input",
-        streamTime: null
+        title: "New Input"
       };
     });
   }

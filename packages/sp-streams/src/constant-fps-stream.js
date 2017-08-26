@@ -12,7 +12,7 @@ export default function constantFpsStream({ fps }) {
   const mpegMunger = mpegMungerStream();
   let frames = 0;
   let firstFrameTime;
-  mpegMunger.on("pts", ({ streamId }) => {
+  mpegMunger.on("pts", ({ pts, streamId }) => {
     if (!streamIsVideo(streamId)) {
       return;
     }

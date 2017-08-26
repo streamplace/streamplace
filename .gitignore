@@ -16,3 +16,4 @@ values-dev.yaml
 yarn-error.log
 .wheelhouse
 package-lock.json
+.DS_Store

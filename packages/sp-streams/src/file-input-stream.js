@@ -1,6 +1,9 @@
 import { Client as MinioClient } from "@streamplace/minio";
 import url from "url";
 import mpegMungerStream from "./mpeg-munger-stream";
+import debug from "debug";
+
+const log = debug("sp:file-input-stream");
 
 /**
  * Implements the file API described in sp-plugin-core's File.yaml. UUID prefixes are concatenated
@@ -27,10 +30,12 @@ export default function(params) {
   let objects;
   // Pipe the next chunk to myself.
   const processNext = () => {
+    log(`processNext with length of ${objects.length}`);
     if (objects.length === 0) {
+      log("ending mpegmunger");
       return mpegMunger.end();
     }
-    const obj = objects.pop();
+    const obj = objects.shift();
     minio
       .getObject(bucket, obj.name)
       .then(s3Stream => {
@@ -39,7 +44,10 @@ export default function(params) {
           .on("error", err => {
             throw err;
           })
-          .on("end", processNext);
+          .on("end", () => {
+            log("s3Stream ended");
+            processNext();
+          });
       })
       .catch(err => {
         throw err;
@@ -53,7 +61,7 @@ export default function(params) {
       .on("data", obj => objects.push(obj))
       .on("end", () => resolve(objects));
   }).then(s3Objects => {
-    objects = s3Objects;
+    objects = s3Objects.filter(({ name }) => name !== ".DS_Store"); // dont make fun of me
     processNext();
     return mpegMunger;
   });

@@ -1,5 +1,6 @@
 import Resource from "sp-resource";
 import config from "sp-configuration";
+import { randomId } from "sp-utils";
 
 const S3_HOST = config.require("S3_HOST");
 const S3_BUCKET = config.require("S3_BUCKET");
@@ -11,7 +12,8 @@ export default class File extends Resource {
         ...doc,
         userId: ctx.user.id,
         host: S3_HOST,
-        bucket: S3_BUCKET
+        bucket: S3_BUCKET,
+        state: "AWAITING_UPLOAD"
       };
     });
   }
@@ -34,6 +36,7 @@ export default class File extends Resource {
   }
 
   create(ctx, newDoc) {
+    newDoc.uploadKey = randomId();
     return super.create(ctx, newDoc);
   }
 }

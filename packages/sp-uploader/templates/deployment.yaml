@@ -1,0 +1,94 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 5
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: {{ template "fullname" . }}
+    spec:
+      {{- if .Values.global.development }}
+      volumes:
+        - name: streamplace
+          hostPath:
+            path: {{ .Values.global.rootDirectory }}
+        - name: app
+          hostPath:
+            path: {{ .Values.global.rootDirectory }}/packages/{{ .Chart.Name }}
+        - name: tmp
+          emptyDir: {}
+      {{- end }}
+      {{- if .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.global.imagePullSecrets | indent 8 }}
+      {{- end }}
+      containers:
+      - name: {{ .Chart.Name }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 3
+          timeoutSeconds: 5
+          periodSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+        {{- if .Values.global.development }}
+        image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:latest"
+        command:
+          - bash
+          - -c
+          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch -o '/app/src/*' /app/src/{{ .Chart.Name }}.js
+        volumeMounts:
+          - name: app
+            mountPath: /app
+          - name: streamplace
+            mountPath: {{ .Values.global.rootDirectory }}
+          - name: tmp
+            mountPath: /tmp
+        {{- else }}
+        image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:{{ .Chart.Version }}"
+        {{- end }}
+        imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
+        env:
+          - name: DEBUG
+            value: "sp:*"
+          - name: SP_DOMAIN
+            value: "{{ .Values.global.domain }}"
+          - name: SP_JWT_SECRET
+            value: "{{ .Values.global.jwt.secret }}"
+          - name: SP_JWT_AUDIENCE
+            value: "{{ .Values.global.jwt.audience }}"
+          - name: SP_JWT_EXPIRATION
+            value: "{{ .Values.global.jwt.expiration }}"
+          - name: SP_AUTH_ISSUER
+            value: "{{ .Values.global.authIssuer }}"
+          - name: SP_S3_ACCESS_KEY_ID
+            value: {{ .Values.global.s3.accessKeyId | quote }}
+          - name: SP_S3_SECRET_ACCESS_KEY
+            value: {{ .Values.global.s3.secretAccessKey | quote }}
+          - name: SP_S3_HOST
+            value: {{ .Values.global.s3.host | quote }}
+          - name: SP_S3_BUCKET
+            value: {{ .Values.global.s3.bucket | quote }}
+          - name: SP_API_SERVER_URL
+            value: http://{{.Release.Name}}-sp-api-server.{{.Release.Namespace}}.svc.cluster.local/api
+          - name: SP_SCHEMA_URL
+            value: http://{{.Release.Name}}-sp-schema.{{.Release.Namespace}}.svc.cluster.local
+          {{- if .Values.global.development }}
+          - name: SP_DEV_ROOT_DIRECTORY
+            value: {{ .Values.global.rootDirectory }}
+          {{- end }}

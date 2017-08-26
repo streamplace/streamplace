@@ -12,6 +12,7 @@ required:
   - userId
   - host
   - bucket
+  - state
   - name
 properties:
   kind:
@@ -29,6 +30,13 @@ properties:
   bucket:
     type: string
     description: Bucket that this file is in
+  state:
+    type: string
+    description: What's going on with this File, anyway?
+    allowedValues: ["AWAITING_UPLOAD", "READY"]
+  uploadKey:
+    type: string
+    description: Secret key that sllows you to upload this file
   name:
     type: string
     description: |

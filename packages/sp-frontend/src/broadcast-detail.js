@@ -18,6 +18,7 @@ import BroadcastStackItem from "./broadcast-stack-item";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import OutputCreate from "./output-create";
 import Loading from "./loading";
+import FileUploader from "./file-uploader";
 
 export class BroadcastDetail extends Component {
   static propTypes = {
@@ -35,7 +36,7 @@ export class BroadcastDetail extends Component {
       broadcast: watch.one("broadcasts", { id: props.broadcastId }),
       inputs: watch("inputs", { userId: props.SP.user.id }),
       outputs: watch("outputs", { userId: props.SP.user.id }),
-      files: watch("files", { userId: props.SP.user.id })
+      files: watch("files", { userId: props.SP.user.id, state: "READY" })
     };
   }
 
@@ -253,6 +254,9 @@ export class BroadcastDetail extends Component {
                       </div>}
                   </Draggable>
                 )}
+                <FlexContainer padded>
+                  <FileUploader />
+                </FlexContainer>
               </Stack>}
           </Droppable>
         </DragDropContext>

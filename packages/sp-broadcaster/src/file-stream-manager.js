@@ -65,7 +65,7 @@ export default class FileStreamManager {
           secretAccessKey: this.S3_SECRET_ACCESS_KEY,
           host: file.host,
           bucket: file.bucket,
-          prefix: file.prefix
+          prefix: file.id
         });
       })
       .then(fileInput => {
@@ -76,6 +76,10 @@ export default class FileStreamManager {
           log("fileInput ended");
           this.streamFile();
         });
+      })
+      .catch(err => {
+        winston.error(`Error streaming file ${this.fileId}`, err);
+        throw err;
       });
   }
 

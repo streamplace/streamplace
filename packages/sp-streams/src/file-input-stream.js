@@ -11,6 +11,17 @@ const log = debug("sp:file-input-stream");
  */
 export default function(params) {
   const { accessKeyId, secretAccessKey, host, bucket, prefix } = params;
+  [
+    "accessKeyId",
+    "secretAccessKey",
+    "host",
+    "bucket",
+    "prefix"
+  ].forEach(key => {
+    if (!params[key]) {
+      throw new Error(`Missing required parameter ${key}`);
+    }
+  });
   const parsed = url.parse(host);
   const secure = parsed.protocol === "https:";
   const mpegMunger = mpegMungerStream();
@@ -61,6 +72,7 @@ export default function(params) {
       .on("data", obj => objects.push(obj))
       .on("end", () => resolve(objects));
   }).then(s3Objects => {
+    log(`Got ${JSON.stringify(s3Objects)} for prefix ${prefix}`);
     objects = s3Objects.filter(({ name }) => name !== ".DS_Store"); // dont make fun of me
     processNext();
     return mpegMunger;

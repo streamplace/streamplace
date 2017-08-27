@@ -19,6 +19,9 @@ export default class FileStreamManager {
     this.S3_SECRET_ACCESS_KEY = config.require("S3_SECRET_ACCESS_KEY");
     this.tcpEgress = tcpEgressStream();
     this.constantFps = constantFpsStream({ fps: 30 });
+    this.constantFps.on("pts", ({ pts }) => {
+      this.currentPts = pts;
+    });
     this.constantFps.pipe(this.tcpEgress, { end: false });
     this.tcpEgress
       .getPort()
@@ -69,11 +72,14 @@ export default class FileStreamManager {
         });
       })
       .then(fileInput => {
+        this.fileStream = fileInput;
         winston.info(`File ${this.fileId} is looping.`);
         this.fileInput = fileInput;
         this.fileInput.pipe(this.constantFps, { end: false });
         this.fileInput.on("end", () => {
           log("fileInput ended");
+          this.currentPts = 0;
+          this.updateStream();
           this.streamFile();
         });
       })
@@ -84,14 +90,14 @@ export default class FileStreamManager {
   }
 
   updateStream() {
-    if (!this.fileStream) {
+    if (!this.currentPts) {
       return;
     }
     SP.streams
       .update(this.stream.id, {
         timestamp: {
           time: Date.now(),
-          pts: this.rtmpInput.currentPTS
+          pts: this.currentPts
         }
       })
       .catch(err => winston.error(err));

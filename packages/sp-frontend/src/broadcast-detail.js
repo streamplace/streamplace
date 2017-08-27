@@ -4,6 +4,7 @@ import CreateMyChannel from "./create-my-channel";
 import { FlexContainer } from "./shared.style";
 import { NoChannel, ChannelSelect } from "./home.style";
 import { TitleBar, ChannelName, GoLiveButton } from "./channel.style.js";
+import StreamCard from "./stream-card";
 import {
   Column,
   Stack,
@@ -194,10 +195,7 @@ export class BroadcastDetail extends Component {
                           {...provided.dragHandleProps}
                           style={provided.draggableStyle}
                         >
-                          <StackItem kind={source.kind}>
-                            {this.getSource(source.id).title ||
-                              this.getSource(source.id).name}
-                          </StackItem>
+                          <StreamCard kind={source.kind} id={source.id} />
                         </StackDragWrapper>
                         {provided.placeholder}
                       </div>}
@@ -229,9 +227,7 @@ export class BroadcastDetail extends Component {
                           {...provided.dragHandleProps}
                           style={provided.draggableStyle}
                         >
-                          <StackItem kind="Input">
-                            {input.title}
-                          </StackItem>
+                          <StreamCard kind="Input" id={input.id} />
                         </StackDragWrapper>
                         {provided.placeholder}
                       </div>}
@@ -246,9 +242,7 @@ export class BroadcastDetail extends Component {
                           {...provided.dragHandleProps}
                           style={provided.draggableStyle}
                         >
-                          <StackItem kind="File">
-                            {file.name}
-                          </StackItem>
+                          <StreamCard kind="File" id={file.id} />
                         </StackDragWrapper>
                         {provided.placeholder}
                       </div>}

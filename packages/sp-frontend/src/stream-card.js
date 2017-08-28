@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 import { watch, bindComponent } from "sp-components";
 import { Card } from "./stream-card.style";
+import { FlexContainer } from "./shared.style";
 import Loading from "./loading";
 import Timecode from "./timecode";
 
@@ -47,12 +48,18 @@ export class StreamCard extends Component {
     });
     return (
       <Card {...this.props}>
-        {this.props.kind} {this.props.id}
-        {streams.map(stream =>
-          <div key={stream.id}>
-            <Timecode pts={stream.timestamp.pts} time={stream.timestamp.time} />
-          </div>
-        )}
+        <FlexContainer justifyContent="space-between">
+          {this.props.source.title || this.props.source.name}
+          {streams.map(stream =>
+            <div key={stream.id}>
+              <Timecode
+                pts={stream.timestamp.pts}
+                time={stream.timestamp.time}
+              />
+            </div>
+          )}
+          {streams.length === 0 && <div>Offline</div>}
+        </FlexContainer>
       </Card>
     );
   }

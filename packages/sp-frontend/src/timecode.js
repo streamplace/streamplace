@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import pad from "left-pad";
+import { TimecodeBox } from "./timecode.style.js";
 
 const TIME_BASE = 90000 / 60;
 /**
@@ -98,9 +99,9 @@ export default class Timecode extends Component {
     let hours = Math.floor(minutes / 60);
     minutes -= hours * 60;
     return (
-      <span>
+      <TimecodeBox>
         {pad(hours, 2, 0)}:{pad(minutes, 2, 0)}:{pad(seconds, 2, 0)}.{pad(millis, 3, 0)}
-      </span>
+      </TimecodeBox>
     );
   }
 }

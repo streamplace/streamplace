@@ -1,6 +1,15 @@
-import styled from "styled-components";
+import styled, { injectGlobal } from "styled-components";
 
 export const activeColor = "#00b8ff";
+
+/* eslint-disable no-unused-expressions */
+injectGlobal`
+  a {
+    text-decoration: none;
+    cursor: pointer;
+    color: ${activeColor};
+  }
+`;
 
 export const FlexContainer = styled.div`
   width: 100%;
@@ -10,7 +19,8 @@ export const FlexContainer = styled.div`
   position: relative;
 
   flex-direction: ${props => (props.column ? "column" : "row")};
-  ${props => (props.padded ? "padding: 1em;" : "")};
+  justify-content: ${props => props.justifyContent || "flex-start"}
+    ${props => (props.padded ? "padding: 1em;" : "")};
 `;
 
 export const NiceForm = styled.form`

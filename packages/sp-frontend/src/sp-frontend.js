@@ -18,13 +18,6 @@ if (typeof document !== "undefined" && document.cookie) {
   }
 }
 
-/* eslint-disable no-unused-expressions */
-injectGlobal`
-  a {
-    text-decoration: none;
-  }
-`;
-
 const Everything = styled.div`height: 100%;`;
 
 const Centered = styled.div`

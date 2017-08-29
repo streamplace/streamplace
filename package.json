@@ -16,7 +16,7 @@
     "swagger-client": "^2.1.32",
     "temp": "^0.8.3",
     "tmp-promise": "^1.0.3",
-    "wheelhouse": "^0.3.0-5"
+    "wheelhouse": "^0.3.0-6"
   },
   "jest": {
     "bail": true,
@@ -58,6 +58,7 @@
     "lint": "run/lint.sh",
     "start": "run/start.sh",
     "dev": "npm run start",
+    "postinstall": "wheelhouse install",
     "build-values-dev": "node run/build-values-dev.js",
     "docker-build": "run/every-package.sh run/package-docker-build.sh --concurrency=999",
     "docker-push": "run/every-package.sh run/package-docker-push.sh --concurrency=999",

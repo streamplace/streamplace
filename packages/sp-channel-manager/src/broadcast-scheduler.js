@@ -152,6 +152,7 @@ export default class BroadcastScheduler {
       },
       spec: {
         imagePullSecrets: imagePullSecrets,
+        terminationGracePeriodSeconds: 5,
         containers: [
           {
             name: "broadcaster",

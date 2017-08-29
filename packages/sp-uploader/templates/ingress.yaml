@@ -1,0 +1,23 @@
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ template "fullname" . }}
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    ingress.kubernetes.io/proxy-body-size: 4096m
+spec:
+  tls:
+  - secretName: {{ .Values.global.domain }}
+    hosts:
+    - {{ .Values.global.domain }}
+  rules:
+  - host: {{ .Values.global.domain }}
+    http:
+      paths:
+      - path: /upload
+        backend:
+          serviceName: {{ template "fullname" . }}
+          servicePort: 80

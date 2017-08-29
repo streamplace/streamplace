@@ -28,7 +28,9 @@
     "jest": "^20.0.4"
   },
   "dependencies": {
+    "@streamplace/minio": "^3.1.4",
     "debug": "^2.6.8",
-    "fluent-ffmpeg": "^2.1.2"
+    "fluent-ffmpeg": "^2.1.2",
+    "minio": "^3.1.3"
   }
 }

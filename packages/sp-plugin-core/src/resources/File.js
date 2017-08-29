@@ -1,13 +1,19 @@
 import Resource from "sp-resource";
+import config from "sp-configuration";
 import { randomId } from "sp-utils";
 
-export default class Input extends Resource {
+const S3_HOST = config.require("S3_HOST");
+const S3_BUCKET = config.require("S3_BUCKET");
+
+export default class File extends Resource {
   default(ctx) {
     return super.default().then(doc => {
       return {
         ...doc,
         userId: ctx.user.id,
-        title: "New Input"
+        host: S3_HOST,
+        bucket: S3_BUCKET,
+        state: "AWAITING_UPLOAD"
       };
     });
   }
@@ -17,7 +23,7 @@ export default class Input extends Resource {
       return Promise.resolve();
     }
     if (doc.userId !== ctx.user.id) {
-      throw new Resource.APIError(403, "You may only access your own inputs");
+      throw new Resource.APIError(403, "You may only access your own files");
     }
     return Promise.resolve();
   }
@@ -30,7 +36,7 @@ export default class Input extends Resource {
   }
 
   create(ctx, newDoc) {
-    newDoc.streamKey = randomId();
+    newDoc.uploadKey = randomId();
     return super.create(ctx, newDoc);
   }
 }

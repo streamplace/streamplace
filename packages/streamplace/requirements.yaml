@@ -47,3 +47,6 @@ dependencies:
   - name: sp-file-server
     version: 0.1.2
     repository: 'https://charts.stream.place'
+  - name: sp-uploader
+    version: 0.1.2
+    repository: 'https://charts.stream.place'

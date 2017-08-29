@@ -1,0 +1,44 @@
+type: object
+tableName: files
+description: |
+  Files in Streamplace are pretty simple. We assume the existence of an S3-compatible file server,
+  which is pretty easy these days (see Google Cloud Storage, minio, etc...). Within that we have a
+  bucket. Within that bucket we have folders, named for the uuids of our files. The content of a
+  file is everything within that folder, in ASCII order, concatenated. Simple stuff like images can
+  just be one file, but this pattern works well for mpegts streams.
+additionalProperties: false
+required:
+  - kind
+  - userId
+  - host
+  - bucket
+  - state
+  - name
+properties:
+  kind:
+    type: string
+    allowedValues: ["File"]
+  id:
+    type: string
+    description: Unique ID of the file
+  userId:
+    type: string
+    description: User that owns this file
+  host:
+    type: string
+    description: S3-compatible server that's hosting this file
+  bucket:
+    type: string
+    description: Bucket that this file is in
+  state:
+    type: string
+    description: What's going on with this File, anyway?
+    allowedValues: ["AWAITING_UPLOAD", "READY"]
+  uploadKey:
+    type: string
+    description: Secret key that sllows you to upload this file
+  name:
+    type: string
+    description: |
+      filename. I was going to call it "filename" but I didn't want to get in a fight with anyone
+      about whether that should be camelCased.

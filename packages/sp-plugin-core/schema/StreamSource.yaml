@@ -1,11 +1,23 @@
-type: object
-additionalProperties: false
-required:
-  - kind
-  - id
-properties:
-  kind:
-    type: string
-    allowedValues: ["Input"]
-  id:
-    type: string
+anyOf:
+- type: object
+  additionalProperties: false
+  required:
+    - kind
+    - id
+  properties:
+    kind:
+      type: string
+      allowedValues: ["Input"]
+    id:
+      type: string
+- type: object
+  additionalProperties: false
+  required:
+    - kind
+    - id
+  properties:
+    kind:
+      type: string
+      allowedValues: ["File"]
+    id:
+      type: string

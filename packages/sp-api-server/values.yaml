@@ -17,3 +17,8 @@ global:
   jwt:
     audience: dev
     secret: QjAzNEMwMEUtQkY5Qi00OTQyLUJEQUEtMEYxNEZENUVERERE
+  s3:
+    accessKeyId: DEV_ACCESS_KEY
+    secretAccessKey: DEV_SECRET_KEY
+    host: http://dev-sp-file-server.default.svc.cluster.local
+    bucket: dev-files

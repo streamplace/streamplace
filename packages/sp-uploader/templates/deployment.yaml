@@ -64,6 +64,8 @@ spec:
         {{- end }}
         imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
         env:
+          - name: DEBUG
+            value: "sp:*"
           - name: SP_DOMAIN
             value: "{{ .Values.global.domain }}"
           - name: SP_JWT_SECRET
@@ -89,20 +91,4 @@ spec:
           {{- if .Values.global.development }}
           - name: SP_DEV_ROOT_DIRECTORY
             value: {{ .Values.global.rootDirectory }}
-          {{- end }}
-          - name: SP_BROADCASTER_IMAGE
-            {{- if .Values.global.development }}
-            value: "{{ .Values.global.repo }}/sp-broadcaster:latest"
-            {{- else }}
-            value: "{{ .Values.global.repo }}/sp-broadcaster:{{ .Chart.Version }}"
-            {{- end }}
-          - name: SP_IMAGE_PULL_POLICY
-            value: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
-          {{- if .Values.global.imagePullSecrets }}
-          - name: SP_IMAGE_PULL_SECRETS
-            value: {{ toJson .Values.global.imagePullSecrets | quote }}
-          {{- end }}
-          {{- if .Values.global.development }}
-          - name: SP_DEV_EXTERNAL_IP
-            value: "{{ .Values.global.externalIP }}"
           {{- end }}

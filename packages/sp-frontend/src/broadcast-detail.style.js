@@ -19,14 +19,26 @@ export const Stack = styled.div`
 export const StackTitle = styled.h4`
   text-align: center;
   position: relative;
+  margin-bottom: 0;
 `;
 
 export const StackDragWrapper = styled.div`padding: 1em;`;
+
+const streamKinds = {
+  Input: `
+    background-color: #ffbfbf;
+  `,
+  File: `
+    background-color: #c3c3ff;
+  `
+};
 
 export const StackItem = styled.div`
   background-color: white;
   border: 1px solid #333;
   padding: 1em;
+
+  ${props => streamKinds[props.kind]};
 `;
 
 export const OutputTitle = styled.strong``;

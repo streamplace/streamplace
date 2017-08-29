@@ -4,9 +4,11 @@ import winston from "winston";
 import {
   tcpIngressStream,
   rtmpOutputStream,
-  mpegMungerStream
+  mpegMungerStream,
+  ptsNormalizerStream
 } from "sp-streams";
 import { PassThrough } from "stream";
+import FileStreamer from "./file-streamer";
 
 const getTableName = objName => {
   const definition = SP.schema.definitions[objName];
@@ -19,7 +21,10 @@ const getTableName = objName => {
 export default class SPBroadcaster {
   constructor({ broadcastId, podIp }) {
     this.podIp = podIp;
-    this.mainStream = mpegMungerStream();
+    this.mainStream = ptsNormalizerStream();
+    // this.mainStream.on("pts", ({ pts }) => {
+    //   console.log(pts);
+    // });
     this.mainStream.resume();
     winston.info(`sp-broadcaster running for broadcast ${broadcastId}`);
     this.sourceHandles = {};
@@ -74,7 +79,7 @@ export default class SPBroadcaster {
             `Boy howdy I should download some data from ${stream.url}`
           );
           const tcpIngress = tcpIngressStream({ url: stream.url });
-          tcpIngress.pipe(this.mainStream);
+          tcpIngress.pipe(this.mainStream, { end: false });
         })
       );
       this.sourceHandles[s] = handles;
@@ -97,6 +102,8 @@ if (!module.parent) {
   SP.connect()
     .then(() => {
       new SPBroadcaster({ broadcastId: BROADCAST_ID, podIp: POD_IP });
+      // TODO: this should be a separate pod
+      new FileStreamer({ broadcastId: BROADCAST_ID, podIp: POD_IP });
     })
     .catch(err => {
       winston.error(err);

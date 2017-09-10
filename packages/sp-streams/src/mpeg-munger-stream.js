@@ -153,7 +153,12 @@ export class MpegMungerStream extends Transform {
       throw new Error("Unknown indicator result:" + dumpByte(result));
     }
     this.currentPTS = pts;
-    this.emit("pts", { pts, streamId });
+    this.emit("pts", {
+      pts: pts,
+      streamId: streamId,
+      isVideo: streamIsVideo(streamId),
+      isAudio: streamIsAudio(streamId)
+    });
   }
 
   _readTimestamp(chunk, startIdx) {

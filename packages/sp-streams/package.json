@@ -1,36 +1,36 @@
-{
-  "name": "sp-streams",
-  "version": "0.1.2",
-  "description": "Streamplace Streams for Piping Video Around and Stuff",
-  "main": "dist/sp-streams.js",
-  "scripts": {
-    "test": "jest -i --forceExit",
-    "start": "babel -d dist -s -w src",
-    "prepublish": "babel -d dist src"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@github.com/streamplace/streamplace.git"
-  },
-  "keywords": [
-    "Streamplace"
-  ],
-  "author": "Streamplace",
-  "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/streamplace/streamplace/issues"
-  },
-  "homepage": "https://github.com/streamplace/streamplace#readme",
-  "devDependencies": {
-    "babel-cli": "^6.24.1",
-    "babel-core": "^6.25.0",
-    "babel-preset-streamplace": "0.0.3",
-    "jest": "^20.0.4"
-  },
-  "dependencies": {
-    "@streamplace/minio": "^3.1.4",
-    "debug": "^2.6.8",
-    "fluent-ffmpeg": "^2.1.2",
-    "minio": "^3.1.3"
-  }
-}
+                          {
+                            "name": "sp-streams",
+                            "version": "0.1.2",
+                            "description": "Streamplace Streams for Piping Video Around and Stuff",
+                            "main": "dist/sp-streams.js",
+                            "scripts": {
+                              "test": "jest -i --forceExit",
+                              "start": "babel -d dist -s -w src",
+                              "prepublish": "babel -d dist src"
+                            },
+                            "repository": {
+                              "type": "git",
+                              "url": "git+ssh://git@github.com/streamplace/streamplace.git"
+                            },
+                            "keywords": [
+                              "Streamplace"
+                            ],
+                            "author": "Streamplace",
+                            "license": "Apache-2.0",
+                            "bugs": {
+                              "url": "https://github.com/streamplace/streamplace/issues"
+                            },
+                            "homepage": "https://github.com/streamplace/streamplace#readme",
+                            "devDependencies": {
+                              "babel-cli": "^6.24.1",
+                              "babel-core": "^6.25.0",
+                              "babel-preset-streamplace": "0.0.3",
+                              "jest": "^20.0.4"
+                            },
+                            "dependencies": {
+                              "@streamplace/minio": "^3.1.4",
+                              "debug": "^2.6.8",
+                              "fluent-ffmpeg": "^2.1.2",
+                              "minio": "^3.1.3"
+                            }
+                          }

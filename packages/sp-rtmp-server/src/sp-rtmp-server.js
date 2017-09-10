@@ -5,6 +5,8 @@ import SP from "sp-client";
 import debug from "debug";
 import winston from "winston";
 import RTMPInputManager from "./rtmp-input-manager";
+import axios from "axios";
+import parser from "xml2js-parser";
 
 const managers = {};
 
@@ -19,19 +21,7 @@ app.use((req, res, next) => {
   return next();
 });
 
-app.use(morgan("dev"));
-app.use(bodyParser.urlencoded({ extended: false }));
-
-app.post("/connect", (req, res, next) => {
-  res.sendStatus(200);
-});
-
-app.post("/play", (req, res, next) => {
-  res.sendStatus(200);
-});
-
-app.post("/publish", (req, res, next) => {
-  const { app, name } = req.body;
+const registerInput = (req, res, app, name) => {
   SP.inputs
     .find({ streamKey: name })
     .then(([input]) => {
@@ -58,6 +48,22 @@ app.post("/publish", (req, res, next) => {
       }
       res.sendStatus(status);
     });
+};
+
+app.use(morgan("dev"));
+app.use(bodyParser.urlencoded({ extended: false }));
+
+app.post("/connect", (req, res, next) => {
+  res.sendStatus(200);
+});
+
+app.post("/play", (req, res, next) => {
+  res.sendStatus(200);
+});
+
+app.post("/publish", (req, res, next) => {
+  const { app, name } = req.body;
+  registerInput(req, res, app, name);
 });
 
 app.post("/done", (req, res, next) => {
@@ -89,11 +95,20 @@ app.post("/update", (req, res, next) => {
   res.sendStatus(200);
 });
 
-SP.connect().then(() => {
-  app.listen(80, function() {
-    log("sp-rtmp-server listening on 80");
-  });
-});
+SP.connect()
+  .then(() => {
+    app.listen(80, function() {
+      log("sp-rtmp-server listening on 80");
+    });
+    return axios.get("http://localhost:8080");
+  })
+  .then(res => {
+    // Currently-inoperative feature where in dev we can pick up existing
+    // streams... apparently nginx-rtmp is pretty bad at reporting its current
+    // stream status.
+    const doc = parser.parseStringSync(res.data);
+  })
+  .catch(err => winston.error(err));
 
 process.on("SIGTERM", function() {
   process.exit(0);

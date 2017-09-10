@@ -24,16 +24,19 @@
     "babel-watch": "^2.0.6"
   },
   "dependencies": {
+    "axios": "^0.16.2",
     "body-parser": "^1.17.2",
     "debug": "^2.6.8",
     "express": "^4.15.3",
     "fluent-ffmpeg": "^2.1.2",
+    "kubectl-cli": "^1.7.5",
     "morgan": "^1.8.2",
     "sp-client": "^0.1.2",
     "sp-configuration": "^0.1.2",
     "sp-node": "^0.1.2",
     "sp-rtmp-nginx": "^0.1.2",
     "sp-streams": "^0.1.2",
-    "winston": "^2.3.1"
+    "winston": "^2.3.1",
+    "xml2js-parser": "^1.1.1"
   }
 }

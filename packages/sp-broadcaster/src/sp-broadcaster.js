@@ -5,7 +5,8 @@ import {
   tcpIngressStream,
   rtmpOutputStream,
   mpegMungerStream,
-  ptsNormalizerStream
+  ptsNormalizerStream,
+  bufferStack
 } from "sp-streams";
 import { PassThrough } from "stream";
 import FileStreamer from "./file-streamer";
@@ -21,11 +22,7 @@ const getTableName = objName => {
 export default class SPBroadcaster {
   constructor({ broadcastId, podIp }) {
     this.podIp = podIp;
-    this.mainStream = ptsNormalizerStream();
-    // this.mainStream.on("pts", ({ pts }) => {
-    //   console.log(pts);
-    // });
-    this.mainStream.resume();
+    this.stack = bufferStack({ delay: 6000 });
     winston.info(`sp-broadcaster running for broadcast ${broadcastId}`);
     this.sourceHandles = {};
     this.sources = {};
@@ -34,7 +31,7 @@ export default class SPBroadcaster {
       .watch({ id: broadcastId })
       .on("data", ([broadcast]) => {
         this.broadcast = broadcast;
-        this.watchSources();
+        this.reconcile();
       });
     const outputHandle = SP.outputs
       .watch({ broadcastId })
@@ -43,10 +40,10 @@ export default class SPBroadcaster {
           rtmpUrl: output.url
         });
         this.outputStreams[output.id] = outputStream;
-        this.mainStream.pipe(outputStream);
+        this.stack.pipe(outputStream);
       })
       .on("deletedDoc", id => {
-        this.mainStream.unpipe(this.outputStreams[id]);
+        this.stack.unpipe(this.outputStreams[id]);
         this.outputStreams[id].end();
         delete this.outputStreams[id];
       });
@@ -55,7 +52,8 @@ export default class SPBroadcaster {
     });
   }
 
-  watchSources() {
+  reconcile() {
+    this.stack.order(this.broadcast.sources.map(({ id }) => id));
     const sourcesShouldWatch = this.broadcast.sources.map(({ kind, id }) => {
       return `${kind}/${id}`;
     });
@@ -75,11 +73,7 @@ export default class SPBroadcaster {
           this.sources[id] = source;
         }),
         SP.streams.watch({ source: { id } }).on("newDoc", stream => {
-          winston.info(
-            `Boy howdy I should download some data from ${stream.url}`
-          );
-          const tcpIngress = tcpIngressStream({ url: stream.url });
-          tcpIngress.pipe(this.mainStream, { end: false });
+          this.stack.stream(id, stream.url);
         })
       );
       this.sourceHandles[s] = handles;
@@ -89,10 +83,6 @@ export default class SPBroadcaster {
       this.sourceHandles[s].forEach(handle => handle.stop());
       delete this.sourceHandles[s];
     });
-  }
-
-  reconcile() {
-    winston.info(`Broadcast ${this.broadcast.id} updated`);
   }
 }
 

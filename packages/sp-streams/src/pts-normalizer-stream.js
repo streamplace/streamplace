@@ -19,22 +19,25 @@ export default function ptsNormalizerStream() {
   let ptsOut = 0;
   let offset = 0;
   let renormalize = false;
-  mpegMunger.on("pipe", source => {
-    log("New stream provided, renormalizing");
-    source.on("end", () => mpegMunger.unpipe(source));
-    // A new stream! Okay cool. When we first see a video pts, let's adjust everything to that.
+  let lastVideoPts = 0;
+  mpegMunger.renormalize = () => {
     renormalize = true;
-  });
+  };
   mpegMunger.on("end", () => {
     throw new Error("MAYDAY: mpegmunger ended somehow");
   });
   mpegMunger.transformPTS = pts => {
     if (renormalize === true) {
-      offset = ptsOut - pts + oneFramePts;
+      offset = lastVideoPts + oneFramePts;
       renormalize = false;
     }
     return pts + offset;
   };
+  mpegMunger.on("pts", ({ pts, isVideo }) => {
+    if (isVideo) {
+      lastVideoPts = pts;
+    }
+  });
   mpegMunger.transformDTS = dts => {
     return dts + offset;
   };

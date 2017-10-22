@@ -2,8 +2,6 @@ FROM quay.io/streamplace/sp-node
 
 # To be run from the apps directory.
 
-RUN npm install -g kubectl-cli --unsafe-perm
-
 WORKDIR /app
 ADD package.json package.json
 RUN npm install --production --unsafe-perm

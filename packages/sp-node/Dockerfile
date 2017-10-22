@@ -34,8 +34,7 @@ RUN curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-
   && rm "node-v$NODE_VERSION-linux-x64.tar.xz" SHASUMS256.txt.asc SHASUMS256.txt
 
 # hack, npm is having a hard time kubectl-cli
-RUN npm install --unsafe-perm -g kubectl-cli
-RUN npm install --unsafe-perm -g helm-cli
+RUN curl -L -o /usr/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && chmod 755 /usr/bin/kubectl
 
 # Preload all of our shared libraries.
 

@@ -33,8 +33,9 @@ RUN curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-
   && tar -xJf "node-v$NODE_VERSION-linux-x64.tar.xz" -C /usr/local --strip-components=1 \
   && rm "node-v$NODE_VERSION-linux-x64.tar.xz" SHASUMS256.txt.asc SHASUMS256.txt
 
-# hack, npm is having a hard time with this so i don't wanna do it lots of times in each package
-RUN npm install --unsafe-perm -g kubectl-cli helm-cli
+# hack, npm is having a hard time kubectl-cli
+RUN npm install --unsafe-perm -g kubectl-cli
+RUN npm install --unsafe-perm -g helm-cli
 
 # Preload all of our shared libraries.
 

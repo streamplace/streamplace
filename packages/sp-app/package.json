@@ -4,7 +4,7 @@
   "description": "Streamplace Desktop App",
   "main": "compiled/sp-app.js",
   "scripts": {
-    "prepublish": "babel --keep-lines --copy-files -d compiled src && rm -rf package-lock.json",
+    "prepublish": "node_modules/.bin/babel --keep-lines --copy-files -d compiled src && rm -rf package-lock.json",
     "start-electron": "npm run prepublish && SP_URL=$(cat ../../values-dev.yaml  | grep domain | sed 's/^.*://' | sed 's/ //') electron .",
     "start": "nodemon -w src -x npm run start-electron",
     "test": "echo \"Error: no test specified\" && exit 1",

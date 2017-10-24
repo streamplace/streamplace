@@ -1,6 +1,6 @@
 {
   "name": "sp-styles",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Styles for Streamplace, used in a few places",
   "main": "dist/sp-styles.js",
   "scripts": {

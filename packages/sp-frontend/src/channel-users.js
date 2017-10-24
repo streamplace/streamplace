@@ -45,7 +45,7 @@ export class ChannelUsers extends Component {
     }
     return (
       <UserBar>
-        {channel.users.map(u =>
+        {channel.users.map(u => (
           <ChannelUserFrame
             key={u.userId}
             userId={u.userId}
@@ -53,7 +53,7 @@ export class ChannelUsers extends Component {
           >
             {u.userId}
           </ChannelUserFrame>
-        )}
+        ))}
       </UserBar>
     );
   }

@@ -50,14 +50,14 @@ export class StreamCard extends Component {
       <Card {...this.props}>
         <FlexContainer justifyContent="space-between">
           {this.props.source.title || this.props.source.name}
-          {streams.map(stream =>
+          {streams.map(stream => (
             <div key={stream.id}>
               <Timecode
                 pts={stream.timestamp.pts}
                 time={stream.timestamp.time}
               />
             </div>
-          )}
+          ))}
           {streams.length === 0 && <div>Offline</div>}
         </FlexContainer>
       </Card>

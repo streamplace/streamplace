@@ -20,11 +20,7 @@ export class BroadcastStackItem extends Component {
   }
 
   render() {
-    return (
-      <StackItem>
-        {this.props.children}
-      </StackItem>
-    );
+    return <StackItem>{this.props.children}</StackItem>;
   }
 }
 

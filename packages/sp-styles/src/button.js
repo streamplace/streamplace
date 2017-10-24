@@ -23,7 +23,8 @@ export const GoodButton = styled(Button)`
   color: black;
   border-color: ${colorBackground};
   color: ${colorBackground};
-  &:hover, &:focus {
+  &:hover,
+  &:focus {
     background-color: ${colorGoldLight};
     &:disabled {
       background-color: transparent;
@@ -35,7 +36,8 @@ export const GoodButton = styled(Button)`
 export const BadButton = styled(Button)`
   color: ${colorGold};
   border-color: ${colorGold};
-  &:hover, &:focus {
+  &:hover,
+  &:focus {
     background-color: #555;
     color: ${colorGoldLight};
     border-color: ${colorGoldLight};

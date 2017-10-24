@@ -58,9 +58,11 @@ export default function(server) {
     socket.on("disconnect", () => {
       apiLog(ctx, "DISCONNECT");
       Promise.all(
-        _(handles).values().map(handle => {
-          return handle.close();
-        })
+        _(handles)
+          .values()
+          .map(handle => {
+            return handle.close();
+          })
       ).then(() => {
         socket.ctx.cleanup();
       });

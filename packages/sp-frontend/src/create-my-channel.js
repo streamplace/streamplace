@@ -4,7 +4,9 @@ import styled from "styled-components";
 import { parse as parseUrl } from "url";
 import { GoodButton } from "sp-styles";
 
-const ServerEntry = styled.div`font-size: 1.6em;`;
+const ServerEntry = styled.div`
+  font-size: 1.6em;
+`;
 
 const Hostname = styled.span``;
 
@@ -65,9 +67,7 @@ export class CreateMyChannel extends Component {
         <form onSubmit={this.handleSubmit}>
           <p>Create your channel:</p>
           <ServerEntry>
-            <Hostname>
-              {hostname}/
-            </Hostname>
+            <Hostname>{hostname}/</Hostname>
             <SlugInput
               innerRef={elem => (this.slugInput = elem)}
               placeholder="my-channel"

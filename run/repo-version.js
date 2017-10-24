@@ -4,7 +4,10 @@
 const { spawnSync } = require("child_process");
 
 const describeProc = spawnSync("git", ["describe", "--tags"]);
-const repoVersion = describeProc.stdout.toString().trim().slice(1);
+const repoVersion = describeProc.stdout
+  .toString()
+  .trim()
+  .slice(1);
 
 let repoBranch;
 if (process.env.TRAVIS_BRANCH) {

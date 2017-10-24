@@ -44,10 +44,16 @@ export default class RethinkDbDriver {
         });
     })
       .then(() => {
-        return ctx.rethink.table(this.name).wait().run(ctx.conn);
+        return ctx.rethink
+          .table(this.name)
+          .wait()
+          .run(ctx.conn);
       })
       .then(() => {
-        return ctx.rethink.table(this.name).indexList().run(ctx.conn);
+        return ctx.rethink
+          .table(this.name)
+          .indexList()
+          .run(ctx.conn);
       })
       .then(list => {
         return Promise.all(
@@ -71,7 +77,10 @@ export default class RethinkDbDriver {
   find(ctx = req(), query = req()) {
     return this.init(ctx)
       .then(() => {
-        return ctx.rethink.table(this.name).filter(query).run(ctx.conn);
+        return ctx.rethink
+          .table(this.name)
+          .filter(query)
+          .run(ctx.conn);
       })
       .then(cursor => {
         return cursor.toArray();
@@ -81,7 +90,10 @@ export default class RethinkDbDriver {
   findOne(ctx = req(), id = req()) {
     return this.init(ctx).then(() => {
       if (this.primaryKey === "id") {
-        return ctx.rethink.table(this.name).get(id).run(ctx.conn);
+        return ctx.rethink
+          .table(this.name)
+          .get(id)
+          .run(ctx.conn);
       }
       return ctx.rethink
         .table(this.name)
@@ -105,7 +117,10 @@ export default class RethinkDbDriver {
   insert(ctx = req(), doc = req()) {
     return this.init(ctx)
       .then(() => {
-        return ctx.rethink.table(this.name).insert(doc).run(ctx.conn);
+        return ctx.rethink
+          .table(this.name)
+          .insert(doc)
+          .run(ctx.conn);
       })
       .then(response => {
         if (response.errors > 0) {
@@ -142,13 +157,21 @@ export default class RethinkDbDriver {
 
   delete(ctx = req(), id = req()) {
     return this.init(ctx).then(() => {
-      return ctx.rethink.table(this.name).get(id).delete().run(ctx.conn);
+      return ctx.rethink
+        .table(this.name)
+        .get(id)
+        .delete()
+        .run(ctx.conn);
     });
   }
 
   multiDelete(ctx = req(), query = req()) {
     return this.init(ctx).then(() => {
-      return ctx.rethink.table(this.name).filter(query).delete().run(ctx.conn);
+      return ctx.rethink
+        .table(this.name)
+        .filter(query)
+        .delete()
+        .run(ctx.conn);
     });
   }
 

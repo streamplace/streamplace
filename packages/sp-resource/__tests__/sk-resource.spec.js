@@ -97,9 +97,12 @@ beforeEach(() => {
 
 afterEach(() => {
   if (useRethink) {
-    return r.dbDrop(RETHINK_DATABASE).run(ctx.conn).then(() => {
-      return ctx.conn.close();
-    });
+    return r
+      .dbDrop(RETHINK_DATABASE)
+      .run(ctx.conn)
+      .then(() => {
+        return ctx.conn.close();
+      });
   }
 });
 
@@ -393,10 +396,13 @@ it("should reject extra properties upon update", done => {
 });
 
 it("should reject incorrect values upon creation", done => {
-  testResource.create(ctx, { foo: false }).then(shouldFail).catch(err => {
-    expect(err.message).toMatch(/VALIDATION_FAILED/);
-    done();
-  });
+  testResource
+    .create(ctx, { foo: false })
+    .then(shouldFail)
+    .catch(err => {
+      expect(err.message).toMatch(/VALIDATION_FAILED/);
+      done();
+    });
 });
 
 it("should reject incorrect values upon update", () => {

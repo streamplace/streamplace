@@ -18,7 +18,9 @@ if (typeof document !== "undefined" && document.cookie) {
   }
 }
 
-const Everything = styled.div`height: 100%;`;
+const Everything = styled.div`
+  height: 100%;
+`;
 
 const Centered = styled.div`
   height: 100%;
@@ -182,11 +184,7 @@ class SPFrontend extends Component {
         </p>
       );
     }
-    return (
-      <Everything>
-        {this.renderInner()}
-      </Everything>
-    );
+    return <Everything>{this.renderInner()}</Everything>;
   }
 }
 

@@ -34,7 +34,9 @@ export const NiceLabel = styled.label`
   display: block;
 `;
 
-export const NiceTitle = styled.h4`margin-top: 0;`;
+export const NiceTitle = styled.h4`
+  margin-top: 0;
+`;
 
 export const BigInput = styled.input`
   border: none;

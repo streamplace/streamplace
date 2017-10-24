@@ -34,9 +34,7 @@ export class InputListItem extends Component {
     const { input, SP } = this.props;
     return (
       <div key={input.id}>
-        <h4>
-          {input.title}
-        </h4>
+        <h4>{input.title}</h4>
         <p>
           <strong>URL: </strong>
           rtmp://{SP.schema.host}/stream

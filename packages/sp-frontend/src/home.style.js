@@ -1,6 +1,8 @@
 import styled from "styled-components";
 
-export const NoChannel = styled.p`font-style: oblique;`;
+export const NoChannel = styled.p`
+  font-style: oblique;
+`;
 
 export const ChannelSelect = styled.div`
   margin: auto;

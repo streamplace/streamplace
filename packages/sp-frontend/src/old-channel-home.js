@@ -33,9 +33,7 @@ export class Home extends Component {
   render() {
     return (
       <FlexContainer>
-        <ChannelSelect>
-          {this.text()}
-        </ChannelSelect>
+        <ChannelSelect>{this.text()}</ChannelSelect>
       </FlexContainer>
     );
   }

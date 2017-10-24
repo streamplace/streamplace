@@ -58,7 +58,10 @@ export default class Resource {
     if (query) {
       params = { filter: JSON.stringify(query) };
     }
-    return this.resource.find(params).then(this.onSuccess).catch(this.onError);
+    return this.resource
+      .find(params)
+      .then(this.onSuccess)
+      .catch(this.onError);
   }
 
   findOne(id) {

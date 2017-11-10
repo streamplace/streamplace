@@ -1,6 +1,6 @@
 {
   "name": "sp-conformance",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Suite of tests designed to determine whether a Streamplace instance does the things that a Streamplace instance oughta do",
   "main": "package.json",
   "scripts": {
@@ -28,8 +28,8 @@
     "babel-preset-streamplace": "0.0.3",
     "fluent-ffmpeg": "^2.1.2",
     "jest": "^20.0.4",
-    "sp-client": "^0.1.2",
-    "sp-configuration": "^0.1.2",
-    "sp-streams": "^0.1.2"
+    "sp-client": "^0.1.3",
+    "sp-configuration": "^0.1.3",
+    "sp-streams": "^0.1.3"
   }
 }

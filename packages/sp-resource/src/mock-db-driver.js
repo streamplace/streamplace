@@ -24,7 +24,11 @@ export default class MockDbDriver {
 
   find(ctx = req(), query = req()) {
     return new Promise((resolve, reject) => {
-      const docs = _(this.data).chain().values().filter(query).value();
+      const docs = _(this.data)
+        .chain()
+        .values()
+        .filter(query)
+        .value();
       resolve(docs);
     });
   }
@@ -72,7 +76,9 @@ export default class MockDbDriver {
 
   _change(oldVal, newVal) {
     process.nextTick(() => {
-      _(this.watching).values().forEach(cb => cb({ oldVal, newVal }));
+      _(this.watching)
+        .values()
+        .forEach(cb => cb({ oldVal, newVal }));
     });
   }
 
@@ -96,7 +102,9 @@ export default class MockDbDriver {
       on: (keyword, cb) => {
         cb({ state: "initalizing" });
         const docProcessor = processor(cb);
-        _(this.data).values().forEach(doc => docProcessor({ newVal: doc }));
+        _(this.data)
+          .values()
+          .forEach(doc => docProcessor({ newVal: doc }));
         this.watching[me] = docProcessor;
         cb({ state: "ready" });
       },

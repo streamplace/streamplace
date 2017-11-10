@@ -118,9 +118,7 @@ export class Channel extends Component {
       <FlexContainer>
         <TitleBar active={broadcastActive}>
           <div>
-            <ChannelName>
-              {channel.slug}
-            </ChannelName>
+            <ChannelName>{channel.slug}</ChannelName>
           </div>
           {broadcastActive && <div>LIVE</div>}
           {goLive}

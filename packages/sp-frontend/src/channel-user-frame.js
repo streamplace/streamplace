@@ -161,9 +161,7 @@ export class ChannelUserFrame extends Component {
             <i className="fa fa-remove" />
           </ActionButton>
         </ActionBar>
-        <UserTitle>
-          {user.handle}
-        </UserTitle>
+        <UserTitle>{user.handle}</UserTitle>
       </UserFrame>
     );
   }

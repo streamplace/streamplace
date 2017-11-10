@@ -13,7 +13,12 @@ export function ensureTableExists(name, conn) {
       .catch(function(err) {
         // Already exists, that's fine.
         if (err.msg.indexOf("already exists") !== -1) {
-          r.table(name).wait().run(conn).then(resolve).catch(reject);
+          r
+            .table(name)
+            .wait()
+            .run(conn)
+            .then(resolve)
+            .catch(reject);
         } else {
           reject(err);
         }

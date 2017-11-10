@@ -22,7 +22,9 @@ export const StackTitle = styled.h4`
   margin-bottom: 0;
 `;
 
-export const StackDragWrapper = styled.div`padding: 1em;`;
+export const StackDragWrapper = styled.div`
+  padding: 1em;
+`;
 
 const streamKinds = {
   Input: `

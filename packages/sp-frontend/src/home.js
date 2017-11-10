@@ -100,13 +100,13 @@ export class Home extends Component {
         </TitleBar>
         <div>
           <ul>
-            {broadcasts.map(broadcast =>
+            {broadcasts.map(broadcast => (
               <li key={broadcast.id}>
                 <Link to={`/:broadcasts/${broadcast.id}`}>
                   {broadcast.title}
                 </Link>
               </li>
-            )}
+            ))}
           </ul>
           {this.renderForm()}
         </div>

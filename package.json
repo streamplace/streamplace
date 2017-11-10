@@ -1,6 +1,6 @@
 {
   "name": "streamplace",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "An open-source toolkit for compositing live video streams in the cloud",
   "main": "index.js",
   "dependencies": {
@@ -16,7 +16,7 @@
     "swagger-client": "^2.1.32",
     "temp": "^0.8.3",
     "tmp-promise": "^1.0.3",
-    "wheelhouse": "^0.3.0-6"
+    "wheelhouse": "^0.3.0-10"
   },
   "jest": {
     "bail": true,
@@ -46,11 +46,10 @@
     "husky": "^0.13.3",
     "inquirer": "^3.0.4",
     "js-yaml": "^3.8.1",
-    "kubectl-cli": "^1.6.0-1",
     "mkdirp": "^0.5.1",
     "nodemon": "^1.11.0",
     "opn": "^4.0.2",
-    "prettier": "^1.5.3",
+    "prettier": "^1.7.4",
     "winston": "^2.3.1"
   },
   "scripts": {

@@ -54,12 +54,12 @@ export class BroadcastDetail extends Component {
         </div>
       );
     }
-    return this.props.broadcast.sources.map(source =>
+    return this.props.broadcast.sources.map(source => (
       <BroadcastStackItem>
         {source.type}
         {source.id}
       </BroadcastStackItem>
-    );
+    ));
   }
 
   componentWillReceiveProps(props) {
@@ -174,21 +174,19 @@ export class BroadcastDetail extends Component {
       <FlexContainer>
         <TitleBar active={active}>
           <div>
-            <ChannelName>
-              Broadcast {this.props.broadcast.title}
-            </ChannelName>
+            <ChannelName>Broadcast {this.props.broadcast.title}</ChannelName>
           </div>
           {active && <div>LIVE</div>}
           {goLive}
         </TitleBar>
         <DragDropContext onDragEnd={e => this.dragEnd(e)}>
           <Droppable droppableId="droppable">
-            {(provided, snapshot) =>
+            {(provided, snapshot) => (
               <Stack innerRef={provided.innerRef}>
                 <StackTitle>ACTIVE</StackTitle>
-                {this.state.broadcast.sources.map(source =>
+                {this.state.broadcast.sources.map(source => (
                   <Draggable key={source.id} draggableId={source.id}>
-                    {(provided, snapshot) =>
+                    {(provided, snapshot) => (
                       <div>
                         <StackDragWrapper
                           innerRef={provided.innerRef}
@@ -198,15 +196,16 @@ export class BroadcastDetail extends Component {
                           <StreamCard kind={source.kind} id={source.id} />
                         </StackDragWrapper>
                         {provided.placeholder}
-                      </div>}
+                      </div>
+                    )}
                   </Draggable>
-                )}
+                ))}
                 <Draggable
                   key="inactive-title"
                   draggableId="inactive-title"
                   isDragDisabled={true}
                 >
-                  {(provided, snapshot) =>
+                  {(provided, snapshot) => (
                     <div>
                       <StackTitle
                         innerRef={provided.innerRef}
@@ -216,11 +215,12 @@ export class BroadcastDetail extends Component {
                         INACTIVE
                       </StackTitle>
                       {provided.placeholder}
-                    </div>}
+                    </div>
+                  )}
                 </Draggable>
-                {this.inactiveInputs().map(input =>
+                {this.inactiveInputs().map(input => (
                   <Draggable key={input.id} draggableId={input.id}>
-                    {(provided, snapshot) =>
+                    {(provided, snapshot) => (
                       <div>
                         <StackDragWrapper
                           innerRef={provided.innerRef}
@@ -230,12 +230,13 @@ export class BroadcastDetail extends Component {
                           <StreamCard kind="Input" id={input.id} />
                         </StackDragWrapper>
                         {provided.placeholder}
-                      </div>}
+                      </div>
+                    )}
                   </Draggable>
-                )}
-                {this.inactiveFiles().map(file =>
+                ))}
+                {this.inactiveFiles().map(file => (
                   <Draggable key={file.id} draggableId={file.id}>
-                    {(provided, snapshot) =>
+                    {(provided, snapshot) => (
                       <div>
                         <StackDragWrapper
                           innerRef={provided.innerRef}
@@ -245,23 +246,23 @@ export class BroadcastDetail extends Component {
                           <StreamCard kind="File" id={file.id} />
                         </StackDragWrapper>
                         {provided.placeholder}
-                      </div>}
+                      </div>
+                    )}
                   </Draggable>
-                )}
+                ))}
                 <FlexContainer padded>
                   <FileUploader />
                 </FlexContainer>
-              </Stack>}
+              </Stack>
+            )}
           </Droppable>
         </DragDropContext>
         <Column>
           <div>
             <StackTitle>OUTPUTS</StackTitle>
-            {this.props.outputs.map(output =>
+            {this.props.outputs.map(output => (
               <Output key={output.id}>
-                <OutputTitle>
-                  {output.title}
-                </OutputTitle>
+                <OutputTitle>{output.title}</OutputTitle>
                 <div>
                   <OutputButton
                     active={output.broadcastId === broadcast.id}
@@ -278,7 +279,7 @@ export class BroadcastDetail extends Component {
                   </OutputButton>
                 </div>
               </Output>
-            )}
+            ))}
           </div>
           <OutputCreate />
         </Column>

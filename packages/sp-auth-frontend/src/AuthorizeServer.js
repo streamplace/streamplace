@@ -24,7 +24,9 @@ const Centered = styled.div`
   padding: 1em;
 `;
 
-const Big = styled.h1`font-weight: 200;`;
+const Big = styled.h1`
+  font-weight: 200;
+`;
 
 const Aside = styled.aside`
   font-style: oblique;
@@ -44,14 +46,17 @@ const Button = styled.button`
   }
 `;
 
-const lighter = color("#ffcf00").lighten(0.5).toString();
+const lighter = color("#ffcf00")
+  .lighten(0.5)
+  .toString();
 
 const GoodButton = styled(Button)`
   color: black;
   border-color: #ffcf00;
   background-color: #ffcf00;
   color: #333;
-  &:hover, &:focus {
+  &:hover,
+  &:focus {
     background-color: ${lighter};
   }
 `;
@@ -60,7 +65,8 @@ const GoodButton = styled(Button)`
 const BadButton = styled(Button)`
   color: #ffcf00;
   border-color: #ffcf00;
-  &:hover, &:focus {
+  &:hover,
+  &:focus {
     background-color: #555;
     color: ${lighter};
     border-color: ${lighter};
@@ -161,9 +167,7 @@ export default class AuthorizeServer extends React.Component {
   render() {
     return (
       <Container>
-        <Centered>
-          {this.renderInner()}
-        </Centered>
+        <Centered>{this.renderInner()}</Centered>
       </Container>
     );
   }

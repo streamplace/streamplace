@@ -41,9 +41,7 @@ export class SPRouter extends Component {
         key={channel.id}
         to={`/${channel.slug}`}
       >
-        <ChannelIconText>
-          {channel.slug.slice(0, 1)}
-        </ChannelIconText>
+        <ChannelIconText>{channel.slug.slice(0, 1)}</ChannelIconText>
       </ChannelIcon>
     );
   }
@@ -84,8 +82,9 @@ export class SPRouter extends Component {
             />
             <Route
               path="/\:broadcasts/:broadcastId"
-              render={({ match }) =>
-                <BroadcastDetail broadcastId={match.params.broadcastId} />}
+              render={({ match }) => (
+                <BroadcastDetail broadcastId={match.params.broadcastId} />
+              )}
             />
           </PageContainer>
         </AppContainer>

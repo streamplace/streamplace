@@ -12,27 +12,6 @@ spec:
       maxUnavailable: 0
   template:
     metadata:
-      {{- if not .Values.global.development }}
-      {{- $values := .Values }}
-      {{- $chart := .Chart }}
-      {{- $pluginCount := len .Values.global.plugins }}
-      {{- $last := sub $pluginCount 1 }}
-      annotations:
-        pod.beta.kubernetes.io/init-containers: '[
-        {{- range $index, $plugin := .Values.global.plugins }}
-          {
-            "name": "{{ $plugin }}",
-            "image": "{{ $values.global.repo }}/{{ $plugin }}:{{ $chart.Version }}",
-            "command": ["cp", "-R", "/app", "/plugins/{{ $plugin }}"],
-            "imagePullPolicy": "Always",
-            "volumeMounts": [{
-              "name": "plugins",
-              "mountPath": "/plugins"
-            }]
-          }{{- if eq $index $last }}{{- else }},{{- end }}
-        {{- end }}
-        ]'
-      {{- end }}
       labels:
         app: {{ template "fullname" . }}
     spec:
@@ -60,6 +39,24 @@ spec:
       volumes:
         - name: plugins
           emptyDir: {}
+      {{- end }}
+      {{- if not .Values.global.development }}
+      {{- $values := .Values }}
+      {{- $chart := .Chart }}
+      initContainers:
+      {{- range $index, $plugin := .Values.global.plugins }}
+      - name: {{ $plugin | quote }}
+        image: "{{ $values.global.repo }}/{{ $plugin }}:{{ $chart.Version }}"
+        command: 
+          - cp
+          - "-R"
+          - /app
+          - /plugins/{{ $plugin }}
+        imagePullPolicy: "Always"
+        volumeMounts:
+        - name: "plugins"
+          mountPath: "/plugins"
+      {{- end }}
       {{- end }}
       containers:
       - name: {{ .Chart.Name }}

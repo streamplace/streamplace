@@ -159,9 +159,7 @@ export default class SPCanvas extends Component {
             className={this.props.className}
             innerRef={this.ref.bind(this)}
           />
-          <ChannelContents>
-            {children}
-          </ChannelContents>
+          <ChannelContents>{children}</ChannelContents>
         </AutoShrink>
       </CanvasContainer>
     );

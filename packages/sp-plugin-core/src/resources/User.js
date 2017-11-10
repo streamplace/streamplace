@@ -117,14 +117,17 @@ export default class User extends Resource {
                   return reject(err);
                 }
                 // Okay, someone else created it, let's look at theirs...
-                this.db.find(ctx, { identity }).catch(reject).then(docs => {
-                  if (docs.length === 1) {
-                    return resolve(docs[0]);
-                  }
-                  throw new Error(
-                    "MAYDAY: can't create a user, can't find a user?!?"
-                  );
-                });
+                this.db
+                  .find(ctx, { identity })
+                  .catch(reject)
+                  .then(docs => {
+                    if (docs.length === 1) {
+                      return resolve(docs[0]);
+                    }
+                    throw new Error(
+                      "MAYDAY: can't create a user, can't find a user?!?"
+                    );
+                  });
               });
           });
         })

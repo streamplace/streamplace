@@ -17,7 +17,10 @@ module.exports = function(input) {
   let color;
 
   while (!color || BLACKLIST.indexOf(color) !== -1) {
-    input = crypto.createHash("sha1").update(input).digest("hex");
+    input = crypto
+      .createHash("sha1")
+      .update(input)
+      .digest("hex");
     color = parseInt(input.slice(8)) % 255;
   }
   memoized[input] = color;

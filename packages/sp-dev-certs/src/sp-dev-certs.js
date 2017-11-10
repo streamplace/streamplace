@@ -29,7 +29,10 @@ const getCertFiles = function(domain) {
     if (err.code !== "ENOENT") {
       throw err;
     }
-    const suffix = domain.split(".").slice(1).join(".");
+    const suffix = domain
+      .split(".")
+      .slice(1)
+      .join(".");
     return Promise.all([
       fs.readFile(`/certs/wild-card.${suffix}/tls.crt`, "utf8"),
       fs.readFile(`/certs/wild-card.${suffix}/tls.key`, "utf8")

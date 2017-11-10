@@ -14,16 +14,16 @@ RUN \
 # gpg keys listed at https://github.com/nodejs/node
 RUN set -ex \
   && for key in \
-    9554F04D7259F04124DE6B476D5A82AC7E37093B \
-    94AE36675C464D64BAFA68DD7434390BDBE9B9C5 \
-    0034A06D9D9B0064CE8ADF6BF1747F4AD2306D93 \
-    FD3A5288F042B6850C66B31F09FE44734EB7990E \
-    71DCFD284A79C3B38668286BC97EC7A07EDE3FC1 \
-    DD8F2338BAE7501E3DD5AC78C273792F7D83545D \
-    B9AE9905FFD7803F25714661B63B535A4C206CA9 \
-    C4F0DFFF4E8C1A8236409D08E73BC641CC11F4C8 \
+  9554F04D7259F04124DE6B476D5A82AC7E37093B \
+  94AE36675C464D64BAFA68DD7434390BDBE9B9C5 \
+  0034A06D9D9B0064CE8ADF6BF1747F4AD2306D93 \
+  FD3A5288F042B6850C66B31F09FE44734EB7990E \
+  71DCFD284A79C3B38668286BC97EC7A07EDE3FC1 \
+  DD8F2338BAE7501E3DD5AC78C273792F7D83545D \
+  B9AE9905FFD7803F25714661B63B535A4C206CA9 \
+  C4F0DFFF4E8C1A8236409D08E73BC641CC11F4C8 \
   ; do \
-    gpg --keyserver pgp.mit.edu --recv-keys "$key"; \
+  gpg --keyserver pgp.mit.edu --recv-keys "$key"; \
   done
 
 RUN curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz" \
@@ -33,11 +33,8 @@ RUN curl -SLO "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-
   && tar -xJf "node-v$NODE_VERSION-linux-x64.tar.xz" -C /usr/local --strip-components=1 \
   && rm "node-v$NODE_VERSION-linux-x64.tar.xz" SHASUMS256.txt.asc SHASUMS256.txt
 
-# # Super duper uber hack to fix building npm stuff in Docker.
-# # https://github.com/npm/npm/issues/9863#issuecomment-194927143
-# RUN cd $(npm root -g)/npm \
-#   && npm install fs-extra \
-#   && sed -i -e s/graceful-fs/fs-extra/ -e s/fs.rename/fs.move/ ./lib/utils/rename.js
+# hack, npm is having a hard time kubectl-cli
+RUN curl -L -o /usr/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && chmod 755 /usr/bin/kubectl
 
 # Preload all of our shared libraries.
 

@@ -1,6 +1,6 @@
 {
   "name": "sp-dev",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Streamplace Development Container",
   "main": "Dockerfile",
   "scripts": {
@@ -9,6 +9,6 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "dependencies": {
-    "sp-node": "^0.1.2"
+    "sp-node": "^0.1.3"
   }
 }

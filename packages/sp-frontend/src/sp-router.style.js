@@ -63,10 +63,10 @@ export const ChannelIcon = styled(NavLink)`
   background-size: contain;
   opacity: 0.5;
 
-  ${props => props.id === "channel-options" && optionsStyles()}
-
-  &:hover {
-    box-shadow: ${oSize} ${oSize} 0px ${oColor}, -${oSize} -${oSize} 0px ${oColor}, ${oSize} -${oSize} 0px ${oColor}, -${oSize} ${oSize} 0px ${oColor};
+  ${props => props.id === "channel-options" && optionsStyles()} &:hover {
+    box-shadow: ${oSize} ${oSize} 0px ${oColor},
+      -${oSize} -${oSize} 0px ${oColor}, ${oSize} -${oSize} 0px ${oColor},
+      -${oSize} ${oSize} 0px ${oColor};
   }
 
   &.active {
@@ -74,4 +74,6 @@ export const ChannelIcon = styled(NavLink)`
   }
 `;
 
-export const ChannelIconText = styled.span`font-size: 2em;`;
+export const ChannelIconText = styled.span`
+  font-size: 2em;
+`;

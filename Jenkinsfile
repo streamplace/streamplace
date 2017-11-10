@@ -8,14 +8,12 @@ pipeline {
         WH_S3_SECRET_ACCESS_KEY = credentials('WH_S3_SECRET_ACCESS_KEY')
         WH_S3_URL = credentials('WH_S3_URL')
         NPM_CONFIG_UNSAFE_PERM = 'true'
-        NPM_CONFIG_LOGLEVEL = 'http'
     }
 
     stages {
         stage('Install') {
             steps {
                 ansiColor('xterm') {
-                    sh 'git clean -fdx'
                     sh 'npm install'
                     sh 'npx wheelhouse install'
                 }

@@ -3,7 +3,7 @@ import styled from "styled-components";
 
 const DEF_SIZE = 200;
 
-const shadow = size => {
+export const shadow = (size, color = "white") => {
   if (!size) {
     size = DEF_SIZE;
   }

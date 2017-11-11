@@ -15,9 +15,7 @@ const StyledLayer = styled.div`
 `;
 
 class Layer extends Component {
-  componentWillReceiveProps(newProps) {
-    console.log(newProps);
-  }
+  componentWillReceiveProps(newProps) {}
 
   render() {
     return (

@@ -7,6 +7,7 @@ import Timeline from "./Timeline";
 import Text from "./Text";
 import Image from "./Image";
 import RandomLayer from "./RandomLayer";
+import Countdown from "./Countdown";
 import cranky from "./cranky.gif";
 import styled from "styled-components";
 
@@ -20,6 +21,11 @@ class App extends Component {
         <Text fontSize={50} top={1000} left={750}>
           chat: https://chat.stream.place
         </Text>
+        <Countdown
+          top={250}
+          left={1000}
+          to={new Date("Tuesday November 14, 2017 16:00:00 GMT-0800")}
+        />
         <Timeline>
           <Keyframe time={0} left={300} top={875} scaleX={0.5} scaleY={0.5}>
             <Image src={cranky} />

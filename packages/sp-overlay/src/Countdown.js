@@ -35,6 +35,7 @@ const ContainerTime = styled.div`
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
+  margin-top: 1em;
 `;
 
 const WrapContainer = styled.div`

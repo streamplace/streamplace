@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import styled from "styled-components";
+import Layer from "./Layer";
 
 class Timeline extends Component {
   constructor(props) {
@@ -9,8 +10,19 @@ class Timeline extends Component {
     };
   }
 
+  static defaultProps = {
+    tickDuration: 250,
+    timingFunction: "unset"
+  };
+
   componentWillMount() {
-    this.interval = setInterval(() => this.timeUpdate(), 250);
+    this.setState({
+      startTime: Date.now()
+    });
+    this.interval = setInterval(
+      () => this.timeUpdate(),
+      this.props.tickDuration
+    );
   }
 
   timeUpdate() {
@@ -23,11 +35,30 @@ class Timeline extends Component {
     if (!this.props.children || this.props.children.length === 0) {
       return null;
     }
-    if (typeof this.props.children.length !== "number") {
+    let children = this.props.children;
+    if (typeof children.length !== "number") {
       // It's not an array! Return the one child.
-      return this.props.children;
+      children = [this.props.children];
     }
-    return this.props.children[this.state.idx];
+
+    const lastChild = children[children.length - 1];
+    const totalDuration = lastChild.props.time;
+    const currentDuration = (Date.now() - this.state.startTime) % totalDuration;
+
+    let props = {};
+    for (const child of children) {
+      if (currentDuration < child.props.time) {
+        break;
+      }
+      props = {
+        ...props,
+        ...child.props
+      };
+    }
+
+    const ret = <Layer {...props} />;
+
+    return ret;
   }
 }
 

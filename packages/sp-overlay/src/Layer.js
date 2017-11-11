@@ -2,10 +2,7 @@ import React, { Component } from "react";
 import styled from "styled-components";
 
 const getScale = props => {
-  if (!props.scale) {
-    return `scale(1, 1)`;
-  }
-  return `scale(${props.scale}, ${props.scale})`;
+  return `scale(${props.scaleX || 1}, ${props.scaleY || 1})`;
 };
 
 const StyledLayer = styled.div`
@@ -18,6 +15,10 @@ const StyledLayer = styled.div`
 `;
 
 class Layer extends Component {
+  componentWillReceiveProps(newProps) {
+    console.log(newProps);
+  }
+
   render() {
     return (
       <StyledLayer {...this.props}>

@@ -28,11 +28,23 @@ const CountBoxStyled = styled.div`
   margin-left: 20px;
   display: flex;
   flex-direction: column;
+  margin-bottom: 1.5em;
 `;
 
 const ContainerTime = styled.div`
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
+`;
+
+const WrapContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  margin: 1em auto;
+
+  @media (max-width: 570px) {
+    display: block;
+  }
 `;
 
 const CountBox = props =>
@@ -92,12 +104,16 @@ export default class Countdown extends Component {
   render() {
     return (
       <ContainerTime {...this.props}>
-        <CountBox label="YEARS" number={this.state.years} width={4} />
-        <CountBox label="DAYS" number={this.state.days} width={3} />
-        <CountBox label="HRS" number={this.state.hour} width={2} />
-        <CountBox label="MIN" number={this.state.min} width={2} />
-        <CountBox label="SEC" number={this.state.sec} width={2} />
-        <CountBox label="MS" number={this.state.ms} width={3} />
+        <WrapContainer>
+          <CountBox label="YEARS" number={this.state.years} width={4} />
+          <CountBox label="DAYS" number={this.state.days} width={3} />
+          <CountBox label="HRS" number={this.state.hour} width={2} />
+        </WrapContainer>
+        <WrapContainer>
+          <CountBox label="MIN" number={this.state.min} width={2} />
+          <CountBox label="SEC" number={this.state.sec} width={2} />
+          <CountBox label="MS" number={this.state.ms} width={3} />
+        </WrapContainer>
       </ContainerTime>
     );
   }

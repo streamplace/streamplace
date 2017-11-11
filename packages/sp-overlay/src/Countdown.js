@@ -30,7 +30,7 @@ const CountBoxStyled = styled.div`
   flex-direction: column;
 `;
 
-const ContainerTime = styled(Layer)`
+const ContainerTime = styled.div`
   display: flex;
   flex-direction: row;
 `;

@@ -10,59 +10,34 @@ import RandomLayer from "./RandomLayer";
 import Countdown from "./Countdown";
 import cranky from "./cranky.gif";
 import styled from "styled-components";
+import "./FiraCode/stylesheet.css";
 
 const Keyframe = Layer;
+
+const Centered = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+`;
 
 class App extends Component {
   render() {
     // return <div />;
     return (
-      <Layer>
-        <Text fontSize={50} top={1000} left={750}>
-          chat: https://chat.stream.place
-        </Text>
+      <Centered>
+        <a href="https://github.com/streamplace/streamplace">
+          <img
+            style={{ position: "absolute", top: 0, left: 0, border: 0 }}
+            src="https://camo.githubusercontent.com/c6286ade715e9bea433b4705870de482a654f78a/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f77686974655f6666666666662e706e67"
+            alt="Fork me on GitHub"
+            data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_white_ffffff.png"
+          />
+        </a>
         <Countdown
-          top={250}
-          left={1000}
           to={new Date("Tuesday November 14, 2017 16:00:00 GMT-0800")}
         />
-        <Timeline>
-          <Keyframe time={0} left={300} top={875} scaleX={0.5} scaleY={0.5}>
-            <Image src={cranky} />
-          </Keyframe>
-          <Keyframe time={2500} left={1250} />
-          <Keyframe time={2700} scaleX={-0.5} />
-          <Keyframe time={5200} left={300} />
-          <Keyframe time={5400} scaleX={0.5} />
-        </Timeline>
-
-        {/* <Layer width={1920} height={1080} left={0} top={0}>
-          <Timeline>
-            <RandomLayer>
-              <Image src={cranky} />
-            </RandomLayer>
-            <RandomLayer>
-              <Image src={cranky} />
-            </RandomLayer>
-          </Timeline>
-        </Layer>
-
-        <Layer top={0} left={0}>
-          <Timeline>
-            <Rect backgroundColor="blue" width={700} height={200} />
-            <Rect backgroundColor="red" width={300} height={200} top={200} />
-            <Rect backgroundColor="green" width={500} height={200} top={400} />
-          </Timeline>
-        </Layer>
-        <Layer top={100} left={1300}>
-          <Timeline>
-            <Text>hello</Text>
-            <Text>how</Text>
-            <Text>are</Text>
-            <Text>you</Text>
-          </Timeline>
-        </Layer> */}
-      </Layer>
+      </Centered>
     );
   }
 }

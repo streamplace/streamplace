@@ -73,6 +73,17 @@ export default class Countdown extends Component {
     }
     let diff = this.props.to.getTime() - Date.now();
 
+    if (diff < 0) {
+      return this.setState({
+        ms: 0,
+        sec: 0,
+        min: 0,
+        hour: 0,
+        days: 0,
+        years: 0
+      });
+    }
+
     const ms = diff % 1000;
     diff = Math.floor(diff / 1000);
 

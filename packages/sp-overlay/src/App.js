@@ -24,21 +24,7 @@ const Centered = styled.div`
 class App extends Component {
   render() {
     // return <div />;
-    return (
-      <Centered>
-        <a href="https://github.com/streamplace/streamplace">
-          <img
-            style={{ position: "absolute", top: 0, left: 0, border: 0 }}
-            src="https://cdn.rawgit.com/tholman/github-corners/0a2c2767/svg/github-corner-left.svg"
-            alt="Fork me on GitHub"
-            data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_white_ffffff.png"
-          />
-        </a>
-        <Countdown
-          to={new Date("Tuesday November 14, 2017 16:00:00 GMT-0800")}
-        />
-      </Centered>
-    );
+    return <Centered />;
   }
 }
 

@@ -4,7 +4,8 @@
   "description": "Electron app that turns websites into video streams",
   "main": "dist/sp-compositor.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "babel -d dist src -w -s --copy-files"
   },
   "repository": {
     "type": "git",
@@ -23,5 +24,11 @@
   "bugs": {
     "url": "https://github.com/streamplace/streamplace/issues"
   },
-  "homepage": "https://github.com/streamplace/streamplace#readme"
+  "homepage": "https://github.com/streamplace/streamplace#readme",
+  "dependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.0",
+    "babel-preset-streamplace": "0.0.3",
+    "electron": "^1.7.9"
+  }
 }

@@ -1,25 +1,27 @@
 {
   "name": "sp-compositor",
   "version": "0.1.3",
-  "description": "",
+  "description": "Electron app that turns websites into video streams",
   "main": "dist/sp-compositor.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon -w src -x npm run build-dev",
-    "build-dev": "npm run prepublish && electron .",
-    "prepublish": "babel -s --copy-files -d dist src"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Streamplace",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/streamplace/streamplace.git"
+  },
+  "keywords": [
+    "Streamplace",
+    "Video",
+    "Electron",
+    "WebRTC",
+    "Capture",
+    "Stream"
+  ],
+  "author": "Streamplace Inc.",
   "license": "Apache-2.0",
-  "devDependencies": {
-    "babel-cli": "^6.22.2",
-    "babel-core": "^6.22.1",
-    "babel-preset-react": "^6.24.1",
-    "babel-preset-streamplace": "0.0.1",
-    "nodemon": "^1.11.0"
+  "bugs": {
+    "url": "https://github.com/streamplace/streamplace/issues"
   },
-  "dependencies": {
-    "electron": "^1.6.2",
-    "sp-frontend": "^0.1.3"
-  }
+  "homepage": "https://github.com/streamplace/streamplace#readme"
 }

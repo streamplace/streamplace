@@ -41,8 +41,9 @@ class App extends Component {
           });
           this.tellParent("hello");
           SP.info(
-            `Bidirectional communication with ${this.state
-              .parentOrigin} established.`
+            `Bidirectional communication with ${
+              this.state.parentOrigin
+            } established.`
           );
           resolve();
         }
@@ -86,8 +87,9 @@ class App extends Component {
   }
 
   handleToken(token) {
-    window.location = `https://${this.state.server}${this.state
-      .returnPath}?${qs.stringify({ token })}`;
+    window.location = `https://${this.state.server}${
+      this.state.returnPath
+    }?${qs.stringify({ token })}`;
   }
 
   handleRejected() {

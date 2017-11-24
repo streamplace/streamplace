@@ -93,8 +93,9 @@ export default class BroadcastScheduler {
       .then(([currentPod]) => {
         if (currentPod) {
           winston.debug(
-            `Broadcast ${broadcast.id} has pod ${currentPod.metadata
-              .name}, we're good`
+            `Broadcast ${broadcast.id} has pod ${
+              currentPod.metadata.name
+            }, we're good`
           );
           return;
         }

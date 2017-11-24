@@ -23,26 +23,26 @@ function auditPackageVersions(dir) {
       return;
     }
     const pkg = require(pkgJson);
-    [
-      "dependencies",
-      "peerDependencies",
-      "devDependencies"
-    ].forEach(category => {
-      if (!pkg[category]) {
-        return;
-      }
-      const localDeps = Object.keys(pkg[category]).filter(depName => {
-        return packages.indexOf(depName) !== -1;
-      });
-      localDeps.forEach(depName => {
-        const depVersion = pkg[category][depName];
-        if (depVersion !== correctVersion) {
-          problems.push(
-            `${pkgName} has ${depName} of ${depVersion} instead of ${correctVersion}`
-          );
+    ["dependencies", "peerDependencies", "devDependencies"].forEach(
+      category => {
+        if (!pkg[category]) {
+          return;
         }
-      });
-    });
+        const localDeps = Object.keys(pkg[category]).filter(depName => {
+          return packages.indexOf(depName) !== -1;
+        });
+        localDeps.forEach(depName => {
+          const depVersion = pkg[category][depName];
+          if (depVersion !== correctVersion) {
+            problems.push(
+              `${pkgName} has ${depName} of ${depVersion} instead of ${
+                correctVersion
+              }`
+            );
+          }
+        });
+      }
+    );
   });
 
   if (problems.length > 0) {

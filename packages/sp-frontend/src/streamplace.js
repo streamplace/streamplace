@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import React, { Component } from "react";
+import { Component } from "react";
 
 /**
  * Think of this like Redux's <Provider>. It represents a connection to a Streamplace API server,

@@ -39,14 +39,15 @@ export default class SPCanvas extends Component {
     this.canvasProm.then(canvas => {
       this.start(canvas);
     });
-    Promise.all([
-      this.containerProm,
-      this.canvasProm
-    ]).then(([container, canvas]) => {
-      this.handleResize(container, canvas);
-      this.windowListener = this.handleResize.bind(this, container, canvas);
-      window.addEventListener("resize", this.windowListener, { passive: true });
-    });
+    Promise.all([this.containerProm, this.canvasProm]).then(
+      ([container, canvas]) => {
+        this.handleResize(container, canvas);
+        this.windowListener = this.handleResize.bind(this, container, canvas);
+        window.addEventListener("resize", this.windowListener, {
+          passive: true
+        });
+      }
+    );
   }
 
   componentWillUnmount() {

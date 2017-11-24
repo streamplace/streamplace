@@ -37,7 +37,7 @@ desktopCapturer.getSources(
         const recorder = new MediaRecorder(stream);
         window.recorder = recorder;
         recorder.ondataavailable = event => {
-          var fileReader = new FileReader();
+          let fileReader = new FileReader();
           fileReader.onload = function() {
             writeStream.write(Buffer.from(this.result));
           };

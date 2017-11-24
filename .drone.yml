@@ -22,3 +22,7 @@ pipeline:
     image: plugins/slack
     secrets:
       - slack_webhook
+    when:
+      status:
+        - success
+        - failure

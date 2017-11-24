@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { bindComponent } from "sp-components";
 import { Button } from "sp-styles";
@@ -5,7 +6,7 @@ import { OptionsContainer } from "./options.style";
 
 export class Options extends Component {
   static propTypes = {
-    onLogout: React.PropTypes.func.isRequired
+    onLogout: PropTypes.func.isRequired
   };
 
   render() {

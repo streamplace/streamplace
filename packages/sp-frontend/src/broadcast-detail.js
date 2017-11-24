@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { bindComponent, watch } from "sp-components";
 import { FlexContainer } from "./shared.style";
@@ -20,13 +21,13 @@ import FileUploader from "./file-uploader";
 
 export class BroadcastDetail extends Component {
   static propTypes = {
-    channels: React.PropTypes.array,
-    ready: React.PropTypes.bool,
-    broadcast: React.PropTypes.object,
-    inputs: React.PropTypes.array,
-    outputs: React.PropTypes.array,
-    files: React.PropTypes.array,
-    SP: React.PropTypes.object
+    channels: PropTypes.array,
+    ready: PropTypes.bool,
+    broadcast: PropTypes.object,
+    inputs: PropTypes.array,
+    outputs: PropTypes.array,
+    files: PropTypes.array,
+    SP: PropTypes.object
   };
 
   static subscribe(props) {
@@ -52,7 +53,7 @@ export class BroadcastDetail extends Component {
       );
     }
     return this.props.broadcast.sources.map(source => (
-      <BroadcastStackItem>
+      <BroadcastStackItem key={source.id}>
         {source.type}
         {source.id}
       </BroadcastStackItem>

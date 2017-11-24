@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { bindComponent, watch } from "sp-components";
 import {
@@ -15,11 +16,11 @@ import InputListItem from "./input-list-item";
 
 export class Home extends Component {
   static propTypes = {
-    channels: React.PropTypes.array,
-    ready: React.PropTypes.bool,
-    SP: React.PropTypes.object,
-    broadcasts: React.PropTypes.array,
-    inputs: React.PropTypes.array
+    channels: PropTypes.array,
+    ready: PropTypes.bool,
+    SP: PropTypes.object,
+    broadcasts: PropTypes.array,
+    inputs: PropTypes.array
   };
 
   static subscribe(props) {

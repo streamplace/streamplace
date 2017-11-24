@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import * as THREE from "three";
 import {
@@ -9,19 +10,19 @@ import {
 
 export default class SPCanvas extends Component {
   static propTypes = {
-    className: React.PropTypes.string,
-    width: React.PropTypes.number.isRequired,
-    height: React.PropTypes.number.isRequired,
-    children: React.PropTypes.oneOfType([
-      React.PropTypes.arrayOf(React.PropTypes.node),
-      React.PropTypes.node
+    className: PropTypes.string,
+    width: PropTypes.number.isRequired,
+    height: PropTypes.number.isRequired,
+    children: PropTypes.oneOfType([
+      PropTypes.arrayOf(PropTypes.node),
+      PropTypes.node
     ])
   };
 
   static childContextTypes = {
-    scene: React.PropTypes.object,
-    canvasWidth: React.PropTypes.number,
-    canvasHeight: React.PropTypes.number
+    scene: PropTypes.object,
+    canvasWidth: PropTypes.number,
+    canvasHeight: PropTypes.number
   };
 
   constructor(props) {

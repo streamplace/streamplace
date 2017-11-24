@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { bindComponent, watch } from "sp-components";
 import CreateMyChannel from "./create-my-channel";
@@ -5,8 +6,8 @@ import { FlexContainer, NoChannel, ChannelSelect } from "./home.style";
 
 export class Home extends Component {
   static propTypes = {
-    channels: React.PropTypes.array,
-    ready: React.PropTypes.bool
+    channels: PropTypes.array,
+    ready: PropTypes.bool
   };
 
   static subscribe(props) {

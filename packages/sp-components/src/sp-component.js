@@ -1,9 +1,10 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import SPCamera from "./sp-camera";
 
 export default class SPComponent extends Component {
   static propTypes = {
-    kind: React.PropTypes.string.isRequired
+    kind: PropTypes.string.isRequired
   };
 
   render() {

@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React from "react";
 import Auth0Lock from "auth0-lock";
 import "./Auth0Login.css";
@@ -61,7 +62,7 @@ export default class Auth0Login extends React.Component {
 }
 
 Auth0Login.propTypes = {
-  auth0Audience: React.PropTypes.string.isRequired,
-  auth0Domain: React.PropTypes.string.isRequired,
-  onLogin: React.PropTypes.func.isRequired
+  auth0Audience: PropTypes.string.isRequired,
+  auth0Domain: PropTypes.string.isRequired,
+  onLogin: PropTypes.func.isRequired
 };

@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 
 /**
@@ -7,15 +8,15 @@ import React, { Component } from "react";
  */
 export default class Streamplace extends Component {
   static propTypes = {
-    SP: React.PropTypes.object,
-    children: React.PropTypes.oneOfType([
-      React.PropTypes.arrayOf(React.PropTypes.node),
-      React.PropTypes.node
+    SP: PropTypes.object,
+    children: PropTypes.oneOfType([
+      PropTypes.arrayOf(PropTypes.node),
+      PropTypes.node
     ])
   };
 
   static childContextTypes = {
-    SP: React.PropTypes.object
+    SP: PropTypes.object
   };
 
   getChildContext() {

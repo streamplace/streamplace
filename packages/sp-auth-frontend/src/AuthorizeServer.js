@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React from "react";
 import SP from "sp-client";
 import styled from "styled-components";
@@ -156,7 +157,7 @@ export default class AuthorizeServer extends React.Component {
         </Big>
         <Aside>
           All this means is that they get to see your email address. If we need
-          other permissions, we'll ask again later.
+          other permissions, we&apos;ll ask again later.
         </Aside>
         <GoodButton onClick={this.handleYeah.bind(this)}>Yeah</GoodButton>
         <BadButton onClick={this.handleNah.bind(this)}>Nah</BadButton>
@@ -174,8 +175,8 @@ export default class AuthorizeServer extends React.Component {
 }
 
 AuthorizeServer.propTypes = {
-  server: React.PropTypes.string.isRequired,
-  returnPath: React.PropTypes.string.isRequired,
-  onToken: React.PropTypes.func.isRequired,
-  onRejected: React.PropTypes.func.isRequired
+  server: PropTypes.string.isRequired,
+  returnPath: PropTypes.string.isRequired,
+  onToken: PropTypes.func.isRequired,
+  onRejected: PropTypes.func.isRequired
 };

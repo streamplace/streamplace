@@ -36,7 +36,9 @@ const pollForElement = function(document, selector) {
     const timeout = setTimeout(() => {
       clearInterval(interval);
       reject(
-        `Couldn't find document.querySelector("${selector}") in ${env.POLL_TIMEOUT}ms!`
+        `Couldn't find document.querySelector("${selector}") in ${
+          env.POLL_TIMEOUT
+        }ms!`
       );
     }, parseInt(env.POLL_TIMEOUT));
     const poll = () => {

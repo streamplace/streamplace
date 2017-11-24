@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { BrowserRouter as Router, Route } from "react-router-dom";
 import Home from "./home";
@@ -16,8 +17,8 @@ import {
 
 export class SPRouter extends Component {
   static propTypes = {
-    channels: React.PropTypes.array,
-    onLogout: React.PropTypes.func.isRequired
+    channels: PropTypes.array,
+    onLogout: PropTypes.func.isRequired
   };
 
   static subscribe(props) {

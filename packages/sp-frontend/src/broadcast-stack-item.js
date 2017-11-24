@@ -1,10 +1,11 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { bindComponent } from "sp-components";
 import { StackItem } from "./broadcast-detail.style";
 
 export class BroadcastStackItem extends Component {
   static propTypes = {
-    children: React.PropTypes.any
+    children: PropTypes.any
   };
   // static subscribe(props) {
   //   return {

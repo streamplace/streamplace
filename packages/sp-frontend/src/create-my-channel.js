@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { bindComponent } from "sp-components";
 import styled from "styled-components";
@@ -24,7 +25,7 @@ const SlugInput = styled.input`
 
 export class CreateMyChannel extends Component {
   static propTypes = {
-    SP: React.PropTypes.object
+    SP: PropTypes.object
   };
 
   constructor() {

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "color": "^1.0.3",
+    "prop-types": "^15.6.0",
     "qs": "^6.3.1",
     "react": "^15.4.2",
     "react-dom": "^15.4.2",

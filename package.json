@@ -16,7 +16,7 @@
     "swagger-client": "^2.1.32",
     "temp": "^0.8.3",
     "tmp-promise": "^1.0.3",
-    "wheelhouse": "^0.3.0-11"
+    "wheelhouse": "^0.3.0-14"
   },
   "jest": {
     "bail": true,
@@ -42,7 +42,6 @@
     "eslint": "^2.13.1",
     "eslint-plugin-react": "^4.3.0",
     "get-stdin": "^5.0.1",
-    "helm-cli": "^2.5.1",
     "husky": "^0.13.3",
     "inquirer": "^3.0.4",
     "js-yaml": "^3.8.1",

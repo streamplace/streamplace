@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { watch, bindComponent } from "sp-components";
+import { bindComponent } from "sp-components";
 
 export class FileUploader extends Component {
   static propTypes = {
@@ -14,8 +14,9 @@ export class FileUploader extends Component {
         name: file.name
       })
       .then(apiFile => {
-        const uploadUrl = `${SP.schema.schemes[0]}://${SP.schema
-          .host}/upload/${apiFile.id}?uploadKey=${apiFile.uploadKey}`;
+        const uploadUrl = `${SP.schema.schemes[0]}://${SP.schema.host}/upload/${
+          apiFile.id
+        }?uploadKey=${apiFile.uploadKey}`;
         const data = new FormData();
         data.append("file", file);
         fetch(uploadUrl, {

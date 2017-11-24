@@ -1,6 +1,5 @@
 import React, { Component } from "react";
 import { bindComponent, watch } from "sp-components";
-import CreateMyChannel from "./create-my-channel";
 import {
   FlexContainer,
   BigInput,
@@ -8,7 +7,6 @@ import {
   NiceLabel,
   NiceSubmit
 } from "./shared.style";
-import { NoChannel, ChannelSelect } from "./home.style";
 import { TitleBar, ChannelName } from "./channel.style.js";
 import Loading from "./loading";
 import { Link } from "react-router-dom";
@@ -90,7 +88,7 @@ export class Home extends Component {
     if (!this.props.broadcasts || !this.props.inputs) {
       return <Loading />;
     }
-    const { broadcasts, inputs, SP } = this.props;
+    const { broadcasts, inputs } = this.props;
     return (
       <FlexContainer padded>
         <TitleBar>

@@ -1,0 +1,24 @@
+pipeline:
+  build:
+    image: streamplace/wheelhouse
+    pull: true
+    secrets:
+      - WH_S3_ACCESS_KEY_ID
+      - WH_S3_SECRET_ACCESS_KEY
+      - WH_S3_URL
+      - WH_DOCKER_AUTH
+    environment:
+      - NPM_CONFIG_UNSAFE_PERM=true
+    commands:
+      - npm install
+      - npx wheelhouse install
+      - npx wheelhouse build
+      - npx wheelhouse push
+      - npx wheelhouse clean
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  slack:
+    image: plugins/slack
+    secrets:
+      - slack_webhook

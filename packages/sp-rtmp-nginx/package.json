@@ -5,7 +5,7 @@
   "main": "package.json",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "postinstall": "! which docker && exit 0 || docker build -f build.Dockerfile -t nginx-rtmp-build . && docker run -d --name nginx-rtmp-build nginx-rtmp-build && docker cp nginx-rtmp-build:/usr/local/nginx/sbin/nginx ./nginx && docker rm -f nginx-rtmp-build"
+    "postinstall": "! which docker && exit 0 || docker build -f build.Dockerfile -t nginx-rtmp-build . && docker run --rm nginx-rtmp-build cat /usr/local/nginx/sbin/nginx > nginx && chmod 755 nginx"
   },
   "repository": {
     "type": "git",

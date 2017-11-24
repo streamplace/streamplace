@@ -5,7 +5,7 @@ import SP from "sp-client";
 import qs from "qs";
 import SPRouter from "./sp-router";
 import Streamplace from "./streamplace";
-import styled, { injectGlobal } from "styled-components";
+import styled from "styled-components";
 import "font-awesome/css/font-awesome.css";
 import cookie from "cookie";
 
@@ -45,10 +45,10 @@ class SPFrontend extends Component {
   }
 
   /**
- * Even if we don't have a token in localStorage, we still attempt login because
- * that process has sp-client download the schema for the server, populating the
- * `loginUrl` parameter that we can use to log the user in.
- */
+   * Even if we don't have a token in localStorage, we still attempt login because
+   * that process has sp-client download the schema for the server, populating the
+   * `loginUrl` parameter that we can use to log the user in.
+   */
   componentWillMount() {
     const query = qs.parse(document.location.search.slice(1));
     let token = window.localStorage.getItem("SP_AUTH_TOKEN");

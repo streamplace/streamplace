@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { bindComponent, watch } from "sp-components";
+import { bindComponent } from "sp-components";
 import { StackItem } from "./broadcast-detail.style";
 
 export class BroadcastStackItem extends Component {

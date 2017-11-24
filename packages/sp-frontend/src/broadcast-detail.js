@@ -1,14 +1,11 @@
 import React, { Component } from "react";
 import { bindComponent, watch } from "sp-components";
-import CreateMyChannel from "./create-my-channel";
 import { FlexContainer } from "./shared.style";
-import { NoChannel, ChannelSelect } from "./home.style";
 import { TitleBar, ChannelName, GoLiveButton } from "./channel.style.js";
 import StreamCard from "./stream-card";
 import {
   Column,
   Stack,
-  StackItem,
   StackDragWrapper,
   StackTitle,
   Output,

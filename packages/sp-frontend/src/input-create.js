@@ -7,7 +7,7 @@ import {
   NiceTitle
 } from "./shared.style";
 import Loading from "./loading";
-import { bindComponent, watch } from "sp-components";
+import { bindComponent } from "sp-components";
 
 export class OutputCreate extends Component {
   static propTypes = {

@@ -5,7 +5,7 @@ import { FlexContainer } from "./shared.style";
 import Loading from "./loading";
 import Timecode from "./timecode";
 
-const TIMEBASE = 90000 / 60;
+// const TIMEBASE = 90000 / 60;
 const ASSUME_STREAM_DEAD = 20000; // After this, it's probably gone forever
 
 export class StreamCard extends Component {

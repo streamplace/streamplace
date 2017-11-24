@@ -47,7 +47,6 @@ export default class Timecode extends Component {
 
   componentWillReceiveProps(newProps) {
     const millis = Math.floor(newProps.pts / TIME_BASE) * 10;
-    const diffCurrentTime = Date.now() - newProps.time;
     if (newProps.pts < this.props.pts) {
       // We went backward, like a video looping. Just reset.
       this.driftOffset = 0;
@@ -100,7 +99,11 @@ export default class Timecode extends Component {
     minutes -= hours * 60;
     return (
       <TimecodeBox>
-        {pad(hours, 2, 0)}:{pad(minutes, 2, 0)}:{pad(seconds, 2, 0)}.{pad(millis, 3, 0)}
+        {pad(hours, 2, 0)}:{pad(minutes, 2, 0)}:{pad(seconds, 2, 0)}.{pad(
+          millis,
+          3,
+          0
+        )}
       </TimecodeBox>
     );
   }

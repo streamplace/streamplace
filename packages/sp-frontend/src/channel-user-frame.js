@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { SPCanvas, SPCamera, bindComponent, watch } from "sp-components";
 import { normalizeRegions } from "./boring-1080p-regions";
@@ -11,12 +12,12 @@ import {
 
 export class ChannelUserFrame extends Component {
   static propTypes = {
-    userId: React.PropTypes.string.isRequired,
-    user: React.PropTypes.object,
-    channelId: React.PropTypes.string.isRequired,
-    channel: React.PropTypes.object,
-    scene: React.PropTypes.object,
-    SP: React.PropTypes.object
+    userId: PropTypes.string.isRequired,
+    user: PropTypes.object,
+    channelId: PropTypes.string.isRequired,
+    channel: PropTypes.object,
+    scene: PropTypes.object,
+    SP: PropTypes.object
   };
 
   static subscribe(props) {

@@ -1,11 +1,12 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { watch, bindComponent } from "./sp-binding";
 import SPComponent from "./sp-component";
 
 export class SPScene extends Component {
   static propTypes = {
-    sceneId: React.PropTypes.string.isRequired,
-    scene: React.PropTypes.object
+    sceneId: PropTypes.string.isRequired,
+    scene: PropTypes.object
   };
 
   static subscribe(props) {

@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { watch, bindComponent } from "sp-components";
 import { Card } from "./stream-card.style";
@@ -10,10 +11,10 @@ const ASSUME_STREAM_DEAD = 20000; // After this, it's probably gone forever
 
 export class StreamCard extends Component {
   static propTypes = {
-    kind: React.PropTypes.string.isRequired,
-    id: React.PropTypes.string.isRequired,
-    source: React.PropTypes.object,
-    streams: React.PropTypes.array
+    kind: PropTypes.string.isRequired,
+    id: PropTypes.string.isRequired,
+    source: PropTypes.object,
+    streams: PropTypes.array
   };
 
   static subscribe(props) {

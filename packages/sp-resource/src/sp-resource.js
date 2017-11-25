@@ -244,8 +244,9 @@ export default class Resource {
 
   authQuery(ctx, query) {
     winston.warn(
-      `${this.constructor
-        .name} does not implement authQuery, returning nothing.`
+      `${
+        this.constructor.name
+      } does not implement authQuery, returning nothing.`
     );
     // This is kinda silly but it does keep any documents from being returned.
     return Promise.resolve({ FIELD_DOES_NOT_EXIST: true });

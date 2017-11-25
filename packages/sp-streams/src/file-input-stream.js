@@ -11,17 +11,13 @@ const log = debug("sp:file-input-stream");
  */
 export default function(params) {
   const { accessKeyId, secretAccessKey, host, bucket, prefix } = params;
-  [
-    "accessKeyId",
-    "secretAccessKey",
-    "host",
-    "bucket",
-    "prefix"
-  ].forEach(key => {
-    if (!params[key]) {
-      throw new Error(`Missing required parameter ${key}`);
+  ["accessKeyId", "secretAccessKey", "host", "bucket", "prefix"].forEach(
+    key => {
+      if (!params[key]) {
+        throw new Error(`Missing required parameter ${key}`);
+      }
     }
-  });
+  );
   const parsed = url.parse(host);
   const secure = parsed.protocol === "https:";
   const mpegMunger = mpegMungerStream();

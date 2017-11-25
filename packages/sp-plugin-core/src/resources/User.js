@@ -108,7 +108,9 @@ export default class User extends Resource {
               .insert(ctx, newUser)
               .then(user => {
                 winston.info(
-                  `Created user ${user.handle} (${user.id}) for identity ${identity}`
+                  `Created user ${user.handle} (${user.id}) for identity ${
+                    identity
+                  }`
                 );
                 resolve(user);
               })

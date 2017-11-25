@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "electron": "^1.6.2",
+    "prop-types": "^15.6.0",
     "sp-frontend": "^0.1.3"
   }
 }

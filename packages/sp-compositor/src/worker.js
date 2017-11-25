@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+/* eslint-disable no-global-assign */
 /* global onmessage */
 
 import { resolve } from "path";

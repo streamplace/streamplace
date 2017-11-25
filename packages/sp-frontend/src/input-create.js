@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import {
   NiceLabel,
@@ -11,7 +12,7 @@ import { bindComponent } from "sp-components";
 
 export class OutputCreate extends Component {
   static propTypes = {
-    SP: React.PropTypes.object
+    SP: PropTypes.object
   };
 
   constructor() {

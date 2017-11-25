@@ -8,6 +8,8 @@
  * refactor happens.
  */
 
+import PropTypes from "prop-types";
+
 import React, { Component } from "react";
 
 /**
@@ -54,7 +56,7 @@ watch.one = function(resource, filter, options = {}) {
  */
 export class SPBinding extends Component {
   static contextTypes = {
-    SP: React.PropTypes.object.isRequired
+    SP: PropTypes.object.isRequired
   };
 
   constructor(props, { SP }) {

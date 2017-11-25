@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import pad from "left-pad";
 import { TimecodeBox } from "./timecode.style.js";
@@ -8,8 +9,8 @@ const TIME_BASE = 90000 / 60;
  */
 export default class Timecode extends Component {
   static propTypes = {
-    pts: React.PropTypes.number,
-    time: React.PropTypes.number
+    pts: PropTypes.number,
+    time: PropTypes.number
   };
 
   constructor(props) {

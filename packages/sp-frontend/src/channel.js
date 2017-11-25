@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { SPCanvas, bindComponent, watch, SPScene } from "sp-components";
 import { FlexContainer } from "./shared.style";
@@ -11,9 +12,9 @@ import {
 
 export class Channel extends Component {
   static propTypes = {
-    channel: React.PropTypes.object,
-    broadcasts: React.PropTypes.array,
-    SP: React.PropTypes.object.isRequired
+    channel: PropTypes.object,
+    broadcasts: PropTypes.array,
+    SP: PropTypes.object.isRequired
   };
 
   static subscribe(props) {

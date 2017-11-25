@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { bindComponent } from "sp-components";
 
@@ -9,8 +10,8 @@ export class InputListItem extends Component {
     };
   }
   static propTypes = {
-    input: React.PropTypes.object.isRequired,
-    SP: React.PropTypes.object
+    input: PropTypes.object.isRequired,
+    SP: PropTypes.object
   };
 
   toggleKey() {

@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import SP from "sp-client";
 import { relativeCoords } from "sp-utils";
@@ -6,18 +7,18 @@ import { getPeer } from "sp-peer-stream";
 
 export default class SPCamera extends Component {
   static propTypes = {
-    userId: React.PropTypes.string.isRequired,
-    x: React.PropTypes.number.isRequired,
-    y: React.PropTypes.number.isRequired,
-    width: React.PropTypes.number.isRequired,
-    height: React.PropTypes.number.isRequired,
-    muted: React.PropTypes.bool
+    userId: PropTypes.string.isRequired,
+    x: PropTypes.number.isRequired,
+    y: PropTypes.number.isRequired,
+    width: PropTypes.number.isRequired,
+    height: PropTypes.number.isRequired,
+    muted: PropTypes.bool
   };
 
   static contextTypes = {
-    scene: React.PropTypes.object.isRequired,
-    canvasWidth: React.PropTypes.number.isRequired,
-    canvasHeight: React.PropTypes.number.isRequired
+    scene: PropTypes.object.isRequired,
+    canvasWidth: PropTypes.number.isRequired,
+    canvasHeight: PropTypes.number.isRequired
   };
 
   constructor() {

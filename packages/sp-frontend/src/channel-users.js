@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { UserBar } from "./channel-users.style";
 import { watch, bindComponent } from "sp-components";
@@ -6,8 +7,8 @@ import ChannelUserFrame from "./channel-user-frame";
 
 export class ChannelUsers extends Component {
   static propTypes = {
-    channelId: React.PropTypes.string.isRequired,
-    channel: React.PropTypes.object
+    channelId: PropTypes.string.isRequired,
+    channel: PropTypes.object
   };
 
   static subscribe(props) {

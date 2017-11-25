@@ -1,9 +1,10 @@
+import PropTypes from "prop-types";
 import React, { Component } from "react";
 import { bindComponent } from "sp-components";
 
 export class FileUploader extends Component {
   static propTypes = {
-    SP: React.PropTypes.object
+    SP: PropTypes.object
   };
 
   fileChanged(e) {

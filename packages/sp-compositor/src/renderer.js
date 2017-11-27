@@ -43,15 +43,15 @@ desktopCapturer.getSources(
           };
           fileReader.readAsArrayBuffer(event.data);
         };
-        recorder.onerror = (...args) => console.log("onerror", args);
-        recorder.onpause = (...args) => console.log("onpause", args);
-        recorder.onresume = (...args) => console.log("onresume", args);
-        recorder.onstart = (...args) => console.log("onstart", args);
-        recorder.onstop = (...args) => console.log("onstop", args);
+        // recorder.onerror = (...args) => console.log("onerror", args);
+        // recorder.onpause = (...args) => console.log("onpause", args);
+        // recorder.onresume = (...args) => console.log("onresume", args);
+        // recorder.onstart = (...args) => console.log("onstart", args);
+        // recorder.onstop = (...args) => console.log("onstop", args);
         recorder.start(100);
       })
       .catch(err => {
-        console.log("getUserMedia error", err);
+        // console.log("getUserMedia error", err);
       });
 
     // if (error) throw error;

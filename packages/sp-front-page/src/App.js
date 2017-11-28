@@ -10,6 +10,10 @@ injectGlobal`
     height: 100%;
   }
 
+  body {
+    background-color: black;
+  }
+
   #BigVideo {
     position: absolute;
     width: 100%;
@@ -37,7 +41,7 @@ const YOUTUBE_THRESHOLD = 60 * 10 * 1000; // 10 mins
 class App extends Component {
   constructor(props) {
     super(props);
-    this.state = { nextTime: new Date("November 17, 2017 16:00:00 GMT-0800") };
+    this.state = { nextTime: new Date("November 28, 2017 16:00:00 GMT-0800") };
   }
 
   componentDidMount() {

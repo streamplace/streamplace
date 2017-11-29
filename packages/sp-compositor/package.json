@@ -29,6 +29,7 @@
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
     "babel-preset-streamplace": "0.0.3",
-    "electron": "^1.7.9"
+    "electron": "^1.7.9",
+    "sp-streams": "^0.1.3"
   }
 }

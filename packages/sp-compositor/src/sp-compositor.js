@@ -6,10 +6,16 @@ const url = require("url");
 // be closed automatically when the JavaScript object is garbage collected.
 let win;
 
+const URL = process.env.URL;
+if (!URL) {
+  throw new Error("No URL Provided!");
+}
+
 const options = {
   width: process.env.WIDTH ? parseInt(process.env.WIDTH) : 1920,
   height: process.env.HEIGHT ? parseInt(process.env.HEIGHT) : 1080,
-  windowId: `render-${Date.now()}-${Math.floor(Math.random() * 10000000)}`
+  windowId: `render-${Date.now()}-${Math.floor(Math.random() * 10000000)}`,
+  port: process.env.PORT || 64772
 };
 
 function createWindow() {
@@ -27,7 +33,7 @@ function createWindow() {
   win.on("page-title-updated", e => e.preventDefault());
 
   // and load the index.html of the app.
-  win.loadURL("http://localhost:3001");
+  win.loadURL(URL);
 
   // Emitted when the window is closed.
   win.on("closed", () => {
@@ -44,7 +50,8 @@ function createCapture() {
   win = new BrowserWindow({
     width: 1920,
     height: 1080,
-    title: "renderer"
+    title: "renderer",
+    show: false
   });
 
   win.on("page-title-updated", e => e.preventDefault());
@@ -59,7 +66,7 @@ function createCapture() {
     })
   );
 
-  win.webContents.openDevTools();
+  // win.webContents.openDevTools();
 
   // Emitted when the window is closed.
   win.on("closed", () => {

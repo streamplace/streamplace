@@ -3,20 +3,34 @@ const url = require("url");
 const querystring = require("querystring");
 const fs = require("fs");
 const path = require("path");
+const { tcpEgressStream } = require("sp-streams");
+
+/* eslint-disable no-console */
 
 const options = querystring.parse(url.parse(document.location.href).query);
 const video = document.querySelector("video");
 video.style.width = `${options.width}px`;
 video.style.height = `${options.height}px`;
 
-const writeStream = fs.createWriteStream(
-  path.resolve(__dirname, "..", `${options.windowId}.webm`)
-);
-
 desktopCapturer.getSources(
   { types: ["window", "screen"] },
   (error, sources) => {
-    const source = sources.find(source => source.name === options.windowId);
+    if (error) {
+      throw error;
+    }
+    let source = sources.find(source => source.name === options.windowId);
+    if (!source) {
+      if (sources.length > 0) {
+        console.log(
+          `Couldn't find ${options.windowId}, falling back to ${JSON.stringify(
+            sources[0]
+          )}`
+        );
+        source = sources[0];
+      } else {
+        throw new Error("No sources received from desktopCapturer");
+      }
+    }
 
     navigator.mediaDevices
       .getUserMedia({
@@ -36,10 +50,18 @@ desktopCapturer.getSources(
         // video.srcObject = stream;
         const recorder = new MediaRecorder(stream);
         window.recorder = recorder;
+        const tcpEgress = tcpEgressStream({ port: options.port });
+        let counter = 0;
         recorder.ondataavailable = event => {
           let fileReader = new FileReader();
+          let me = counter;
+          counter += 1;
           fileReader.onload = function() {
-            writeStream.write(Buffer.from(this.result));
+            try {
+              tcpEgress.write(Buffer.from(this.result));
+            } catch (e) {
+              console.error(e);
+            }
           };
           fileReader.readAsArrayBuffer(event.data);
         };
@@ -48,10 +70,14 @@ desktopCapturer.getSources(
         // recorder.onresume = (...args) => console.log("onresume", args);
         // recorder.onstart = (...args) => console.log("onstart", args);
         // recorder.onstop = (...args) => console.log("onstop", args);
-        recorder.start(100);
+        setTimeout(() => {
+          console.log("starting");
+          recorder.start(100);
+        }, 5000);
       })
       .catch(err => {
-        // console.log("getUserMedia error", err);
+        console.log("getUserMedia error");
+        console.log(err);
       });
 
     // if (error) throw error;

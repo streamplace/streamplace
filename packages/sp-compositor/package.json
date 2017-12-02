@@ -5,7 +5,8 @@
   "main": "dist/sp-compositor.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "babel -d dist src -w -s --copy-files"
+    "dev": "babel -d dist src -w -s --copy-files",
+    "prepare": "babel -d dist src -s --copy-files"
   },
   "repository": {
     "type": "git",

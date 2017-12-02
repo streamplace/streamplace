@@ -1,7 +1,6 @@
 {
   "name": "sp-overlay",
   "version": "0.1.3",
-  "private": true,
   "dependencies": {
     "react": "^16.2.0",
     "react-dom": "^16.2.0",

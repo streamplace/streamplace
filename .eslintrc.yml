@@ -14,6 +14,7 @@ rules:
   "linebreak-style": [2, "unix"]
   "no-eval": 2
   prettier/prettier: "error"
+  "react/prop-types": 0
 env:
   es6: true
   node: true

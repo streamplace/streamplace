@@ -1,7 +1,5 @@
 {
   "presets": [
-    "streamplace",
-    "react"
-  ],
-  "retainLines": true
+    "streamplace"
+  ]
 }

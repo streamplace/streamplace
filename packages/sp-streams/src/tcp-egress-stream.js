@@ -7,7 +7,7 @@ import debug from "debug";
 
 const log = debug("sp:tcp-egress-stream");
 
-export default function() {
+export default function({ port } = {}) {
   let clients = [];
 
   const server = net.createServer(c => {
@@ -29,7 +29,13 @@ export default function() {
   });
 
   const portProm = new Promise((resolve, reject) => {
-    server.listen(() => {
+    let listen;
+    if (port) {
+      listen = server.listen.bind(server, port);
+    } else {
+      listen = server.listen.bind(server);
+    }
+    listen(() => {
       const port = server.address().port;
       log(`tcp server listening on port ${port}`);
       resolve(port);

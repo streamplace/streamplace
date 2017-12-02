@@ -11,7 +11,6 @@ pipeline:
       - NPM_CONFIG_UNSAFE_PERM=true
     commands:
       - npm install
-      - npx wheelhouse install
       - npx wheelhouse build
       - npx wheelhouse push
       - npx wheelhouse clean

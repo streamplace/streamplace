@@ -1,11 +1,1 @@
-html,
-body,
-#root {
-  height: 100%;
-  background-color: transparent;
-  overflow: hidden;
-}
 
-body {
-  background-color: black;
-}

@@ -1,18 +1,26 @@
 import React, { Component } from "react";
-// import Rect from "./Rect";
-// import logo from "./logo.svg";
 import "./App.css";
-// import Layer from "./Layer";
-// import Timeline from "./Timeline";
-// import Text from "./Text";
-// import Image from "./Image";
-// import RandomLayer from "./RandomLayer";
-// import Countdown from "./Countdown";
-// import cranky from "./cranky.gif";
-import styled from "styled-components";
+import styled, { injectGlobal } from "styled-components";
 import "./FiraCode/stylesheet.css";
+import { BrowserRouter as Router, Route, Switch } from "react-router-dom";
+import Countdown from "./Countdown";
 
 // const Keyframe = Layer;
+
+injectGlobal`
+  html,
+  body,
+  #root {
+    height: 100%;
+    background-color: transparent;
+    overflow: hidden;
+  }
+
+  body {
+    background-color: black;
+    color: white;
+  }
+`;
 
 const Centered = styled.div`
   display: flex;
@@ -24,7 +32,21 @@ const Centered = styled.div`
 class App extends Component {
   render() {
     // return <div />;
-    return <Centered />;
+    return (
+      <Centered>
+        <Router>
+          <Switch>
+            <Route
+              path={"/countdown/:to"}
+              component={props => (
+                <Countdown to={new Date(props.match.params.to)} />
+              )}
+            />
+            <Route component={props => <div>404</div>} />
+          </Switch>
+        </Router>
+      </Centered>
+    );
   }
 }
 

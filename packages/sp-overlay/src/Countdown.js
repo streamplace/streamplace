@@ -1,7 +1,6 @@
 import React, { Component } from "react";
 import styled from "styled-components";
 import pad from "left-pad";
-import Layer from "./Layer";
 import { shadow } from "./Text";
 
 const Number = styled.span`
@@ -48,15 +47,12 @@ const WrapContainer = styled.div`
   }
 `;
 
-const CountBox = props =>
+const CountBox = props => (
   <CountBoxStyled>
-    <Number>
-      {pad(props.number, props.width, 0)}
-    </Number>
-    <Label>
-      {props.label}
-    </Label>
-  </CountBoxStyled>;
+    <Number>{pad(props.number, props.width, 0)}</Number>
+    <Label>{props.label}</Label>
+  </CountBoxStyled>
+);
 
 export default class Countdown extends Component {
   constructor(props) {

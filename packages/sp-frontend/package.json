@@ -27,6 +27,7 @@
   },
   "scripts": {
     "dev": "bash -c 'PORT=80 react-scripts start | cat'",
+    "start": "PORT=3939 react-scripts start",
     "prepublish": "react-scripts build && rm -rf dist && mv build dist",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject"

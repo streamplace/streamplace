@@ -21,7 +21,7 @@
     "swagger-client": "^2.1.32",
     "temp": "^0.8.3",
     "tmp-promise": "^1.0.3",
-    "wheelhouse": "0.3.0-14"
+    "wheelhouse": "next"
   },
   "jest": {
     "bail": true,

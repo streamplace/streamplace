@@ -7,15 +7,15 @@ pipeline:
       - WH_S3_SECRET_ACCESS_KEY
       - WH_S3_URL
       - WH_DOCKER_AUTH
-      - npmrc
+      - npm_token
     environment:
       - NPM_CONFIG_UNSAFE_PERM=true
     commands:
       - npm install
-      - npx wheelhouse build
-      - npx wheelhouse push
-      - npx wheelhouse clean
-      - echo $npmrc > .npmrc
+      # - npx wheelhouse build
+      # - npx wheelhouse push
+      # - npx wheelhouse clean
+      - npm config set '//registry.npmjs.org/:_authToken' $npm_token
       - npx lerna publish --yes --exact --force-publish --npm-tag next --skip-git --repo-version $(npx wheelhouse repo-version)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

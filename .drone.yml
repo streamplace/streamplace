@@ -12,9 +12,9 @@ pipeline:
       - NPM_CONFIG_UNSAFE_PERM=true
     commands:
       - npm install
-      # - npx wheelhouse build
-      # - npx wheelhouse push
-      # - npx wheelhouse clean
+      - npx wheelhouse build
+      - npx wheelhouse push
+      - npx wheelhouse clean
       - npm config set '//registry.npmjs.org/:_authToken' $NPM_TOKEN
       - npx lerna publish --yes --exact --force-publish --npm-tag $DRONE_BRANCH --skip-git --repo-version $(npx wheelhouse repo-version)
     volumes:

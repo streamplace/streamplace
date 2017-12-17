@@ -7,6 +7,7 @@ pipeline:
       - WH_S3_SECRET_ACCESS_KEY
       - WH_S3_URL
       - WH_DOCKER_AUTH
+      - npmrc
     environment:
       - NPM_CONFIG_UNSAFE_PERM=true
     commands:
@@ -14,6 +15,8 @@ pipeline:
       - npx wheelhouse build
       - npx wheelhouse push
       - npx wheelhouse clean
+      - echo $npmrc > .npmrc
+      - npx lerna publish --yes --exact --force-publish --npm-tag next --skip-git --repo-version $(npx wheelhouse repo-version)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 

@@ -15,8 +15,8 @@ pipeline:
       # - npx wheelhouse build
       # - npx wheelhouse push
       # - npx wheelhouse clean
-      - npm config set '//registry.npmjs.org/:_authToken' $npm_token
-      - npx lerna publish --yes --exact --force-publish --npm-tag next --skip-git --repo-version $(npx wheelhouse repo-version)
+      - npm config set '//registry.npmjs.org/:_authToken' $NPM_TOKEN
+      - npx lerna publish --yes --exact --force-publish --npm-tag $DRONE_BRANCH --skip-git --repo-version $(npx wheelhouse repo-version)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 

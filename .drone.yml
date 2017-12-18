@@ -1,24 +1,24 @@
 pipeline:
-  # build:
-  #   image: streamplace/wheelhouse
-  #   pull: true
-  #   secrets:
-  #     - WH_S3_ACCESS_KEY_ID
-  #     - WH_S3_SECRET_ACCESS_KEY
-  #     - WH_S3_URL
-  #     - WH_DOCKER_AUTH
-  #     - npm_token
-  #   environment:
-  #     - NPM_CONFIG_UNSAFE_PERM=true
-  #   commands:
-  #     - npm install
-  #     - npx wheelhouse build
-  #     - npx wheelhouse push
-  #     - npx wheelhouse clean
-  #     - npm config set '//registry.npmjs.org/:_authToken' $NPM_TOKEN
-  #     - npx lerna publish --yes --exact --force-publish --npm-tag $DRONE_BRANCH --skip-git --repo-version $(npx wheelhouse repo-version)
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
+  build:
+    image: streamplace/wheelhouse
+    pull: true
+    secrets:
+      - WH_S3_ACCESS_KEY_ID
+      - WH_S3_SECRET_ACCESS_KEY
+      - WH_S3_URL
+      - WH_DOCKER_AUTH
+      - npm_token
+    environment:
+      - NPM_CONFIG_UNSAFE_PERM=true
+    commands:
+      - npm install
+      - npx wheelhouse build
+      - npx wheelhouse push
+      - npx wheelhouse clean
+      - npm config set '//registry.npmjs.org/:_authToken' $NPM_TOKEN
+      - npx lerna publish --yes --exact --force-publish --npm-tag $DRONE_BRANCH --skip-git --repo-version $(npx wheelhouse repo-version)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
   deploy:
     image: streamplace/wheelhouse
@@ -34,8 +34,7 @@ pipeline:
       - echo $KUBECONFIG_CONTENT | openssl base64 -d -A > /tmp/kubeconfig
       - helm init --client-only
       - helm repo add streamplace https://s3-api.us-geo.objectstorage.softlayer.net/blobtown.stream.place
-      - helm upgrade -f values-next.yaml -f values.secret.yaml --version 0.1.4-fd4023de -i next streamplace/streamplace
-      # - helm upgrade -f values-next.yaml -f values.secret.yaml --version $(npm dist-tag ls streamplace | grep next | sed 's/^.*:\ //') -i next streamplace/streamplace
+      - helm upgrade -f values-next.yaml -f values.secret.yaml --version $(npm dist-tag ls streamplace | grep next | sed 's/^.*:\ //') -i next streamplace/streamplace
 
   slack:
     image: plugins/slack

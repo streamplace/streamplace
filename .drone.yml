@@ -30,8 +30,8 @@ pipeline:
       - values_secret_yaml
       - kubeconfig_content
     commands:
-      - echo $values_secret_yaml > values.secret.yaml
-      - echo $kubeconfig_content > /tmp/kubeconfig
+      - echo $VALUES_SECRET_YAML > values.secret.yaml
+      - echo $KUBECONFIG_CONTENT > /tmp/kubeconfig
       - helm upgrade -f values-next.yaml -f values.secret.yaml --version $(npm dist-tag ls streamplace | grep next | sed 's/^.*:\ //') -i next streamplace/streamplace
 
   slack:

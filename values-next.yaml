@@ -1,0 +1,27 @@
+
+sp-dev-certs:
+  enabled: false
+sp-auth-frontend:
+  enabled: true
+  auth0Domain: streamkitchen.auth0.com
+  auth0Audience: hZU06VmfYz2JLZCkjtJ7ltEy5SOsvmBA
+sp-ingress:
+  serviceType: ClusterIP
+  hostNetwork: true
+sp-rethinkdb:
+  persistence:
+    hostPath:
+      path: /opt/streamplace/rethink
+
+global:
+  development: false
+  jwt:
+    audience: hZU06VmfYz2JLZCkjtJ7ltEy5SOsvmBA
+    expiration: 30d
+  plugins:
+    - sp-plugin-core
+    - sp-plugin-auth
+  domain: stream.place
+  adminEmail: stuff@stream.place
+  authIssuer: 'https://stream.place/'
+  loginUrl: https://auth.stream.place/

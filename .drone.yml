@@ -20,6 +20,20 @@ pipeline:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
+  deploy:
+    image: streamplace/wheelhouse
+    when:
+      branch: next
+    environment:
+      - KUBECONFIG=/tmp/kubeconfig
+    secrets:
+      - values_secret_yaml
+      - kubeconfig_content
+    commands:
+      - echo $values_secret_yaml > values.secret.yaml
+      - echo $kubeconfig_content > /tmp/kubeconfig
+      - helm upgrade -f values-next.yaml -f values.secret.yaml --version $(npx wheelhouse@next repo-version) -i next streamplace/streamplace
+
   slack:
     image: plugins/slack
     secrets:

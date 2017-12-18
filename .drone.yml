@@ -30,8 +30,8 @@ pipeline:
       - values_secret_yaml
       - kubeconfig_content
     commands:
-      - echo $VALUES_SECRET_YAML | openssl base64 -d > values.secret.yaml
-      - echo $KUBECONFIG_CONTENT | openssl base64 -d > /tmp/kubeconfig
+      - echo $VALUES_SECRET_YAML | base64 -D > values.secret.yaml
+      - echo $KUBECONFIG_CONTENT | base64 -D > /tmp/kubeconfig
       - helm upgrade -f values-next.yaml -f values.secret.yaml --version 0.1.4-fd4023de -i next streamplace/streamplace
       # - helm upgrade -f values-next.yaml -f values.secret.yaml --version $(npm dist-tag ls streamplace | grep next | sed 's/^.*:\ //') -i next streamplace/streamplace
 

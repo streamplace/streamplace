@@ -65,6 +65,7 @@ const Link = styled.a`
   }
 `;
 
+/* eslint-disable no-unused-expressions */
 injectGlobal`
   #BigVideo {
     position: absolute;

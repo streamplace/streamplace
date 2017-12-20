@@ -23,13 +23,6 @@ const Everything = styled.div`
   height: 100%;
 `;
 
-const Centered = styled.div`
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
 const START = Symbol();
 const LOGGED_IN = Symbol();
 const LOGGED_OUT = Symbol();

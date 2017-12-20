@@ -2,7 +2,7 @@
   "name": "sp-frontend",
   "version": "0.1.3",
   "devDependencies": {
-    "react-scripts": "0.8.5",
+    "react-scripts": "^0.8.5",
     "sp-static": "^0.1.3"
   },
   "dependencies": {

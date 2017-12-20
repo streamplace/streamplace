@@ -71,7 +71,7 @@
     "kube-init": "run/kube-init.sh",
     "update-cert": "run/update-cert.sh",
     "link-deps": "run/link-deps.sh",
-    "precommit": "lint-staged && run/pre-commit.sh"
+    "precommit": "CI=true lint-staged && run/pre-commit.sh"
   },
   "repository": {
     "type": "git",

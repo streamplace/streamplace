@@ -4,6 +4,7 @@ import "./App.css";
 import SP from "sp-client";
 import qs from "qs";
 import SPRouter from "./sp-router";
+import CorporateBullshit from "./corporate-bullshit";
 import Streamplace from "./streamplace";
 import styled from "styled-components";
 import "font-awesome/css/font-awesome.css";
@@ -84,7 +85,8 @@ class SPFrontend extends Component {
         // It catches a lot of things in development, 'cuz if you typo anywhere
         // it ends up here.
         if (err.status === 401 || err.status === 403) {
-          this.handleLogout();
+          // this.handleLogout();
+          this.setState({ phase: LOGGED_OUT });
         } else {
           SP.error("Unhandled exception upon login", err);
           this.setState({ unexpectedError: true });
@@ -92,7 +94,7 @@ class SPFrontend extends Component {
       });
   }
 
-  handleLogout() {
+  generateLoginUrl() {
     const loginOrigin = SP.schema.plugins["sp-plugin-core"].loginUrl.slice(
       0,
       -1
@@ -104,8 +106,12 @@ class SPFrontend extends Component {
         server: window.location.hostname,
         returnPath: "/"
       });
+    return loginUrl;
+  }
+
+  handleLogout() {
     window.localStorage.removeItem("SP_AUTH_TOKEN");
-    window.location = loginUrl;
+    window.location = window.location;
     // this.setState({
     //   phase: LOGGED_OUT,
     //   loginOrigin: loginOrigin,
@@ -155,16 +161,7 @@ class SPFrontend extends Component {
       );
     }
     if (this.state.phase === LOGGED_OUT) {
-      return (
-        <Centered>
-          <a
-            onClick={this.handleLoginBtn.bind(this)}
-            href={this.state.loginUrl}
-          >
-            Log in NAOW
-          </a>
-        </Centered>
-      );
+      return <CorporateBullshit loginUrl={this.generateLoginUrl()} />;
     }
   }
 

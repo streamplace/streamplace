@@ -40,6 +40,10 @@ const Hero = styled.section`
   justify-content: center;
   position: relative;
   height: 300px;
+
+  @media (min-width: 1000px) {
+    height: 500px;
+  }
 `;
 
 const Links = styled.nav`

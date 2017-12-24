@@ -103,6 +103,9 @@ export default class CorporateBullshit extends Component {
               <Logo src={logoUrl} alt="Streamplace" title="Streamplace" />
             </Title>
             <Links>
+              <Link href="https://www.youtube.com/channel/UC_0VBEHybbwCoaJHsUmQZEg">
+                <Icon className="fa fa-youtube-play" aria-hidden="true" />
+              </Link>
               <Link href="https://github.com/streamplace/streamplace">
                 <Icon className="fa fa-github" aria-hidden="true" />
               </Link>

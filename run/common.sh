@@ -150,8 +150,3 @@ if [[ ! -f /var/run/docker.sock ]]; then
     fi
   fi
 fi
-
-if [[ "$(uname)" == "Darwin" ]]; then
-  localKubeconfig="$(realpath "$ROOT/hack/local-kubeconfig")"
-  export KUBECONFIG="${KUBECONFIG:-$localKubeconfig}"
-fi

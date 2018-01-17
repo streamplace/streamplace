@@ -33,6 +33,8 @@ wheelhouse link
 wheelhouse build
 npm run helm-dev
 
+run/dev-forward-ports.sh &
+
 nodemon -w 'packages/**/Dockerfile' --on-change-only -x wheelhouse build docker &
 run/every-package.sh run/package-start.sh --no-sort --concurrency 999
 wait

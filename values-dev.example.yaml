@@ -28,6 +28,10 @@ global:
     host: http://dev-sp-file-server.default.svc.cluster.local
     bucket: dev-files
 
+# This exposes the correct ports on Kube for Docker for Desktop
+sp-ingress:
+  serviceType: LoadBalancer
+
 # Disable lots of features that we don't need in dev
 
 sp-dev-certs:

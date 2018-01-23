@@ -49,7 +49,7 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 5
         {{- if .Values.global.development }}
-        image: "streamplace/sp-rtmp-nginx:latest"
+        image: "{{ .Values.global.repo }}/sp-rtmp-nginx:latest"
         {{- else }}
         image: "{{ .Values.global.repo }}/sp-rtmp-nginx:{{ .Chart.Version }}"
         {{- end }}

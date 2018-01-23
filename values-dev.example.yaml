@@ -4,14 +4,13 @@
 
 global:
   development: true
-  # Replace these with the path to your streamplace repo
+  # Replace this with the path to your streamplace repo
   rootDirectory: /Users/example/git/streamplace
-  # Replace this with your Keybase username
-  domain: example.sp-dev.club
   # Your email goes here!
   adminEmail: admin@example.com
   # In case you want to push your own images, this could be set to something else.
   repo: quay.io/streamplace
+  domain: sp-dev.club
   jwt:
     audience: dev
     secret: QjAzNEMwMEUtQkY5Qi00OTQyLUJEQUEtMEYxNEZENUVERERE

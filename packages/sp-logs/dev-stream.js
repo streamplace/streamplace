@@ -10,9 +10,9 @@ const data = yaml.safeLoad(
   fs.readFileSync(path.resolve(__dirname, "..", "..", "values-dev.yaml"))
 );
 
-const logUrl = `https://${data.global.domain}/logs/logs`;
+const logUrl = `http://${data.global.domain}/logs/logs`;
 
-const BLACKLIST = ["moby"];
+const BLACKLIST = ["moby", "linuxkit"];
 
 const retry = function() {
   const TIMEOUT = 5000;
@@ -47,7 +47,7 @@ const makeAttempt = function() {
       .pipe(JSONStream.parse())
       .on("data", function(obj) {
         let hostname = obj.Container.Config.Hostname;
-        if (BLACKLIST.indexOf(hostname) !== -1) {
+        if (BLACKLIST.some(bad => hostname.includes(bad))) {
           return;
         }
         if (hostname.includes("kube-dns")) {

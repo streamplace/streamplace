@@ -4,7 +4,7 @@
   "description": "Streamplace React Components",
   "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo \"no test specified\" && exit 0",
     "start": "babel -s -w -d dist src",
     "prepublish": "babel -s -d dist src"
   },

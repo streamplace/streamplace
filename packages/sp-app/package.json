@@ -7,7 +7,7 @@
     "prepublish": "node_modules/.bin/babel --keep-lines --copy-files -d compiled src && rm -rf package-lock.json",
     "start-electron": "npm run prepublish && SP_URL=$(cat ../../values-dev.yaml  | grep domain | sed 's/^.*://' | sed 's/ //') electron .",
     "start": "nodemon -w src -x npm run start-electron",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo \"no test specified\" && exit 0",
     "build": "npm run prepublish && npm run electron-builder-local",
     "electron-builder-local": "ELECTRON_CHANNEL=\"${ELECTRON_CHANNEL:-dev}\" electron-builder --publish never",
     "electron-publish-windows": "electron-builder -w --publish always",

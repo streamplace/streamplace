@@ -4,7 +4,8 @@
   "description": "Suite of tests designed to determine whether a Streamplace instance does the things that a Streamplace instance oughta do",
   "main": "package.json",
   "scripts": {
-    "test": "jest"
+    "conformance-tests": "jest",
+    "test": "echo 'designed to be run in docker via npm run conformance-tests'"
   },
   "repository": {
     "type": "git",

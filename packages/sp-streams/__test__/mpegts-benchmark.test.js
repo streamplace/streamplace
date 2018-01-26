@@ -41,7 +41,7 @@ const tests = {
   }
 };
 
-describe("fast mpegts", () => {
+xdescribe("fast mpegts", () => {
   afterEach(() => {
     killall();
   });
@@ -91,7 +91,7 @@ describe("fast mpegts", () => {
             return;
           }
           if (!shouldFail) {
-            throw new Error("Colorbars stream ended.");
+            return done(new Error("Colorbars stream ended."));
           }
           console.log(`${description}: errored`);
           done();

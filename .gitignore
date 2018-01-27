@@ -4,7 +4,6 @@ npm-debug.log*
 font.ttf
 rethinkdb_data
 ._*
-*-values.yaml
 lerna-debug.log
 build_chart*
 packages/*/*.tgz

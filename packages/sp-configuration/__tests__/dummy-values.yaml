@@ -1,0 +1,5 @@
+topLevel: i am topLevel
+global:
+  globalValue: i am globalValue
+notGlobal:
+  subKey: i am subKey

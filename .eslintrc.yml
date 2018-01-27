@@ -22,6 +22,7 @@ env:
 globals:
   it: true
   describe: true
+  xdescribe: true
   beforeEach: true
   afterEach: true
   expect: true

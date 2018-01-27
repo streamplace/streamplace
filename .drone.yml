@@ -13,6 +13,7 @@ pipeline:
     commands:
       - npm install
       - npx wheelhouse build
+      - npm test
       - npx wheelhouse push
       - npx wheelhouse clean
       - npm config set '//registry.npmjs.org/:_authToken' $NPM_TOKEN

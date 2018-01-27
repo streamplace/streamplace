@@ -56,6 +56,7 @@
   },
   "scripts": {
     "conformance-tests": "run/conformance-tests.sh",
+    "test": "CI=true run/every-package.sh npm run test --concurrency=999",
     "lint": "run/lint.sh",
     "start": "run/start.sh",
     "logs": "run/logs.sh",

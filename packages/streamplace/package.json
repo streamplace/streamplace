@@ -4,7 +4,7 @@
   "description": "An open-source compositor and CMS for live video",
   "main": "dist/streamplace.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "babel -d dist -s -w src"
   },
   "keywords": [
     "streamplace"

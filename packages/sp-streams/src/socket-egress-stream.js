@@ -6,7 +6,7 @@ import debug from "debug";
 
 const log = debug("sp:socket-egress-stream");
 
-export default function() {
+export default function socketEgressStream() {
   const tmpDir = os.tmpdir();
   const socketName = `sp-sock-${Date.now()}-${Math.round(
     Math.random() * 1000
@@ -34,6 +34,9 @@ export default function() {
       firstListener = chunk => {
         c.write(chunk);
         firstBufferLength += chunk.length;
+        if (!firstBuffer) {
+          throw new Error("Tried to push to firstBuffer after it gone?");
+        }
         firstBuffer.push(chunk);
       };
       socketStream.on("data", firstListener);
@@ -41,7 +44,7 @@ export default function() {
       firstBuffer.forEach(chunk => {
         c.write(chunk);
       });
-      firstBuffer = null;
+      // firstBuffer = null;
       socketStream.pipe(c);
     }
 

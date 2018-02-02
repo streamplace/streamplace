@@ -35,7 +35,8 @@ export default function dashStream(opts = {}) {
         manifest += chunk.toString();
       });
       req.on("end", () => {
-        passThrough.emit("manifest", manifest);
+        // hack... this is usually accurate but I can't get ffmpeg to output it
+        passThrough.emit("manifest", manifest.replace("mp4a.40", "mp4a.40.2"));
       });
     } else {
       // If it's data, pass the stream right on through

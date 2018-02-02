@@ -25,7 +25,8 @@
     "babel-cli": "^6.24.1",
     "babel-core": "^6.25.0",
     "babel-preset-streamplace": "0.0.3",
-    "jest": "^20.0.4"
+    "jest": "^20.0.4",
+    "xml2js": "^0.4.19"
   },
   "dependencies": {
     "@streamplace/minio": "^3.1.4",

@@ -5,7 +5,7 @@ import mpegMungerStream, { streamIsVideo } from "./mpeg-munger-stream";
  * ffmpeg's "-re" flag.
  * @param {{fps}} fps
  */
-export default function constantFpsStream({ fps }) {
+export default function constantFpsStream({ fps } = {}) {
   if (typeof fps !== "number") {
     throw new Error(`${fps} is not a valid fps`);
   }

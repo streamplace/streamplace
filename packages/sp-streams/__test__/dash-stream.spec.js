@@ -14,12 +14,11 @@ describe("dashStream", () => {
   });
 
   it("should give us chunks", done => {
-    const fileInput = fs.createReadStream(TEST_FILE_PATH);
+    const fileData = fs.readFileSync(TEST_FILE_PATH);
     dash = dashStream();
-    fileInput.pipe(dash, { end: false });
     let manifestCount = 0;
     let chunkCount = 0;
-
+    dash.push(fileData);
     const checkDone = () => {
       if (manifestCount !== 5 || chunkCount !== 10) {
         return;

@@ -49,7 +49,7 @@ export default function dashStream(opts = {}) {
       .inputFormat("mpegts")
       .videoCodec("copy")
       .audioCodec("copy")
-      // .inputOptions(["-probesize 60000000", "-analyzeduration 10000000"])
+      .inputOptions(["-probesize 60000000", "-analyzeduration 10000000"])
       .outputOptions([
         // This section from default options at https://ffmpeg.org/ffmpeg-all.html#dash-2
         "-bf 1",
@@ -75,6 +75,8 @@ export default function dashStream(opts = {}) {
       log(`DASH HTTP ingress closed on port ${socketEgress.httpPort}`);
     });
   });
+
+  passThrough.getPath = socketEgress.getPath.bind(socketEgress);
 
   socketEgress.getPath().then(() => {
     passThrough.pipe(socketEgress);

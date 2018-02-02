@@ -2,6 +2,7 @@ import { killall } from "../src/ffmpeg";
 import path from "path";
 import dashStream from "../src/dash-stream";
 import fs from "fs";
+import { parseString } from "xml2js";
 
 const TEST_FILE_PATH = path.resolve(__dirname, "elis-face.ts");
 // const TEST_FILE_PATH = "/Content/EliStreams/2017-07-25 13-19-36.ts";
@@ -28,6 +29,9 @@ describe("dashStream", () => {
 
     dash.on("manifest", manifest => {
       manifestCount += 1;
+      parseString(manifest, err => {
+        expect(err).toBeNull();
+      });
       checkDone();
     });
     dash.on("chunk", (filename, stream) => {

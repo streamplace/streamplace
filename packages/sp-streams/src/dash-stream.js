@@ -6,12 +6,15 @@ import debug from "debug";
 
 export const MANIFEST_NAME = "manifest.mpd";
 export const DEFAULT_SEG_DURATION = 5000;
+export const DEFAULT_WINDOW_SIZE = 3;
 
 const log = debug("sp:dash-stream");
 export default function dashStream(opts = {}) {
-  const segDuration = opts.segDuration || DEFAULT_SEG_DURATION;
   const socketEgress = socketEgressStream();
   const passThrough = new PassThrough();
+
+  passThrough.segDuration = opts.segDuration || DEFAULT_SEG_DURATION;
+  passThrough.windowSize = opts.windowSize || DEFAULT_WINDOW_SIZE;
 
   const app = express();
   let ffmpeg;
@@ -27,7 +30,7 @@ export default function dashStream(opts = {}) {
 
     if (filename === MANIFEST_NAME) {
       // If it's the manifest, assemble the chunks and emit when done
-      let manifest;
+      let manifest = "";
       req.on("data", chunk => {
         manifest += chunk.toString();
       });
@@ -60,11 +63,11 @@ export default function dashStream(opts = {}) {
         "-ar:a:1 22050",
         "-use_timeline 1",
         "-use_template 1",
-        "-window_size 3",
         // Avoids Tag [15][0][0][0] incompatible with output codec id '86018' (mp4a)
         "-tag:v avc1",
         "-tag:a mp4a",
-        `-min_seg_duration ${segDuration * 1000}` // ms ==> microseconds
+        `-window_size ${passThrough.windowSize}`,
+        `-min_seg_duration ${passThrough.segDuration * 1000}` // ms ==> microseconds
       ])
       .output(`http://127.0.0.1:${socketEgress.httpPort}/${MANIFEST_NAME}`)
       .outputFormat("dash");

@@ -4,7 +4,7 @@
   "description": "Streamplace Streams for Piping Video Around and Stuff",
   "main": "dist/sp-streams.js",
   "scripts": {
-    "test": "jest -i --forceExit",
+    "test": "DEBUG='sp:*' jest -i --forceExit",
     "start": "babel -d dist -s -w src",
     "prepublish": "babel -d dist src"
   },
@@ -30,6 +30,7 @@
   "dependencies": {
     "@streamplace/minio": "^3.1.4",
     "debug": "^2.6.8",
+    "express": "^4.16.2",
     "fluent-ffmpeg": "^2.1.2",
     "minio": "^3.1.3"
   }

@@ -22,5 +22,5 @@ if [[ "$packageVersion" != "$correctVersion" ]]; then
   echo "$newPackage" > package.json
 fi
 
-eslint --color --ext=jsx --ext=js .
+npx --no-install eslint --color --ext=jsx --ext=js .
 "$ROOT/run/every-package.sh" "$ROOT/run/helm-lint.sh" --concurrency=1

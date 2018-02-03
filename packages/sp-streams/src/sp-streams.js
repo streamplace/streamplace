@@ -9,3 +9,6 @@ export { default as constantFpsStream } from "./constant-fps-stream";
 export { default as ptsNormalizerStream } from "./pts-normalizer-stream";
 export { default as fileInputStream } from "./file-input-stream";
 export { default as fileOutputStream } from "./file-output-stream";
+export { default as colorbarsStream } from "./colorbars-stream";
+export { default as dashStream } from "./dash-stream";
+export { default as dashServer } from "./dash-server";

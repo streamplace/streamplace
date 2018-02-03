@@ -35,9 +35,7 @@ function auditPackageVersions(dir) {
           const depVersion = pkg[category][depName];
           if (depVersion !== correctVersion) {
             problems.push(
-              `${pkgName} has ${depName} of ${depVersion} instead of ${
-                correctVersion
-              }`
+              `${pkgName} has ${depName} of ${depVersion} instead of ${correctVersion}`
             );
           }
         });

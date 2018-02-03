@@ -11,7 +11,7 @@
     "eslint-plugin-flowtype": "^2.39.1",
     "eslint-plugin-import": "^2.8.0",
     "eslint-plugin-jsx-a11y": "^5.1.1",
-    "eslint-plugin-prettier": "^2.1.2",
+    "eslint-plugin-prettier": "^2.6.0",
     "jest": "^20.0.4",
     "kube-for-mac": "^0.1.0",
     "lerna": "^2.5.1",
@@ -51,7 +51,7 @@
     "mkdirp": "^0.5.1",
     "nodemon": "^1.11.0",
     "opn": "^4.0.2",
-    "prettier": "^1.7.4",
+    "prettier": "^1.10.2",
     "winston": "^2.3.1"
   },
   "scripts": {

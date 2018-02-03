@@ -18,11 +18,7 @@ class Layer extends Component {
   componentWillReceiveProps(newProps) {}
 
   render() {
-    return (
-      <StyledLayer {...this.props}>
-        {this.props.children}
-      </StyledLayer>
-    );
+    return <StyledLayer {...this.props}>{this.props.children}</StyledLayer>;
   }
 }
 

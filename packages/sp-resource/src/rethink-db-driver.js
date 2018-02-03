@@ -105,9 +105,9 @@ export default class RethinkDbDriver {
         .then(docs => {
           if (docs.length > 1) {
             throw new Error(
-              `MAYDAY Data integrity violation Multiple ${this.name} with id ${
-                id
-              }`
+              `MAYDAY Data integrity violation Multiple ${
+                this.name
+              } with id ${id}`
             );
           }
           return docs[0];

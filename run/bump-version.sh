@@ -20,4 +20,6 @@ lerna publish --skip-git --skip-npm --yes --repo-version "$newVersion" --force-p
 git add .
 git commit -m "v$newVersion"
 git tag "v$newVersion"
-git push --tags origin master
+
+echo "Cool, done. Check the commit and tag, make sure everything looks good, then:"
+echo "> git push --tags origin latest"

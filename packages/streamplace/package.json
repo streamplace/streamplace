@@ -1,6 +1,6 @@
 {
   "name": "streamplace",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "An open-source compositor and CMS for live video",
   "main": "dist/streamplace.js",
   "scripts": {
@@ -12,20 +12,20 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "dependencies": {
-    "sp-api-server": "^0.1.4",
-    "sp-auth-frontend": "^0.1.4",
-    "sp-coturn": "^0.1.4",
-    "sp-default": "^0.1.4",
-    "sp-dev-certs": "^0.1.4",
-    "sp-file-server": "^0.1.4",
-    "sp-frontend": "^0.1.4",
-    "sp-ingress": "^0.1.4",
-    "sp-kube-lego": "^0.1.4",
-    "sp-logs": "^0.1.4",
-    "sp-plugin-core": "^0.1.4",
-    "sp-rethinkdb": "^0.1.4",
-    "sp-rtmp-server": "^0.1.4",
-    "sp-schema": "^0.1.4",
-    "sp-uploader": "^0.1.4"
+    "sp-api-server": "^0.1.5",
+    "sp-auth-frontend": "^0.1.5",
+    "sp-coturn": "^0.1.5",
+    "sp-default": "^0.1.5",
+    "sp-dev-certs": "^0.1.5",
+    "sp-file-server": "^0.1.5",
+    "sp-frontend": "^0.1.5",
+    "sp-ingress": "^0.1.5",
+    "sp-kube-lego": "^0.1.5",
+    "sp-logs": "^0.1.5",
+    "sp-plugin-core": "^0.1.5",
+    "sp-rethinkdb": "^0.1.5",
+    "sp-rtmp-server": "^0.1.5",
+    "sp-schema": "^0.1.5",
+    "sp-uploader": "^0.1.5"
   }
 }

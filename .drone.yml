@@ -19,7 +19,7 @@ pipeline:
       - npm install
       - npx wheelhouse build
       - npm test
-      - npx wheelhouse push
+      - npx wheelhouse push --dist-tag $DRONE_BRANCH
       - npx wheelhouse clean
       - npm config set '//registry.npmjs.org/:_authToken' $NPM_TOKEN
       - npx lerna publish --yes --exact --force-publish --npm-tag $DRONE_BRANCH --skip-git --repo-version $(npx wheelhouse repo-version)

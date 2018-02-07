@@ -6,7 +6,6 @@ import dashServer from "./dash-server";
 
 const log = debug("sp:sp-stream");
 
-/* eslint-disable no-console */
 /**
  * TODO: I want this to have a really really polymorphic interface that's usable in a wide variety
  * of cases.
@@ -21,7 +20,6 @@ export default async function spStream({ filePath }) {
   file.pipe(constantFps);
   constantFps.pipe(dash);
   const server = dashServer(dash);
-  console.log("just a sec...");
   let listener;
   const portProm = new Promise((resolve, reject) => {
     const listener = server.listen(0, err => {
@@ -34,6 +32,6 @@ export default async function spStream({ filePath }) {
     dash.on("error", reject);
   });
   const port = await portProm;
-  console.log(`Streaming to http://localhost:${port}/${MANIFEST_NAME}`);
-  dash.on("end", () => console.log("end"));
+  dash.url = `http://localhost:${port}/${MANIFEST_NAME}`;
+  return dash;
 }

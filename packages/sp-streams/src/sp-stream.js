@@ -1,6 +1,7 @@
 import debug from "debug";
 import fs from "fs-extra";
 import constantFpsStream from "./constant-fps-stream";
+import ptsNormalizerStream from "./pts-normalizer-stream";
 import dashStream, { MANIFEST_NAME } from "./dash-stream";
 import dashServer from "./dash-server";
 
@@ -10,14 +11,27 @@ const log = debug("sp:sp-stream");
  * TODO: I want this to have a really really polymorphic interface that's usable in a wide variety
  * of cases.
  */
-export default async function spStream({ filePath }) {
+export default async function spStream({ filePath, loop }) {
   if (!await fs.pathExists(filePath)) {
     throw new Error(`File not found: ${filePath}`);
   }
-  const file = fs.createReadStream(filePath);
   const constantFps = constantFpsStream({ fps: 30 });
   const dash = dashStream();
-  file.pipe(constantFps);
+
+  if (loop) {
+    const ptsNormalizer = ptsNormalizerStream();
+    ptsNormalizer.pipe(constantFps);
+    const restart = () => {
+      debug("restarting");
+      const file = fs.createReadStream(filePath);
+      file.pipe(ptsNormalizer, { end: false });
+      file.on("end", restart);
+    };
+    restart();
+  } else {
+    const file = fs.createReadStream(filePath);
+    file.pipe(constantFps);
+  }
   constantFps.pipe(dash);
   const server = dashServer(dash);
   let listener;

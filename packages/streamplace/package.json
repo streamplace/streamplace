@@ -4,7 +4,7 @@
   "description": "An open-source compositor and CMS for live video",
   "main": "dist/streamplace.js",
   "scripts": {
-    "start": "babel -d dist -s -w src",
+    "start": "babel --copy-files -d dist -s -w src",
     "prepare": "babel -s -d dist src"
   },
   "babel": {

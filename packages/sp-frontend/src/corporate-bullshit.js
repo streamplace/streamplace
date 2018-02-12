@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import styled, { injectGlobal } from "styled-components";
 import logoUrl from "./streamplace-logo.svg";
 import YouTube from "react-youtube";
+import droneLogo from "./drone.svg";
 
 const CorporateContainer = styled.section`
   display: flex;
@@ -54,14 +55,15 @@ const Links = styled.nav`
 
 const Link = styled.a`
   margin-left: 0.7em;
-  color: #333;
+  color: black;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0 0.7em;
+  opacity: 0.8;
   &:hover {
-    color: #666;
+    opacity: 0.6;
   }
 `;
 
@@ -80,6 +82,10 @@ const Icon = styled.i`
   &.fa {
     font-size: 2em;
   }
+`;
+
+const DroneLogo = styled.img`
+  height: 1.8em;
 `;
 
 export default class CorporateBullshit extends Component {
@@ -111,6 +117,9 @@ export default class CorporateBullshit extends Component {
               </Link>
               <Link href="https://twitter.com/streamplace">
                 <Icon className="fa fa-twitter" aria-hidden="true" />
+              </Link>
+              <Link href="https://drone.stream.place">
+                <DroneLogo src={droneLogo} />
               </Link>
               <Link href={this.props.loginUrl}>LOG IN</Link>
             </Links>

@@ -23,9 +23,9 @@ const Everything = styled.div`
   height: 100%;
 `;
 
-const START = Symbol();
-const LOGGED_IN = Symbol();
-const LOGGED_OUT = Symbol();
+const START = Symbol("START");
+const LOGGED_IN = Symbol("LOGGED_IN");
+const LOGGED_OUT = Symbol("LOGGED_OUT");
 
 class SPFrontend extends Component {
   constructor() {
@@ -62,6 +62,10 @@ class SPFrontend extends Component {
   }
 
   tryLogin(token) {
+    if (!token) {
+      this.setState({ phase: LOGGED_OUT });
+      return;
+    }
     // This SPClient might not succeed in connection to the server 'cuz we're
     // the login page, but that's fine because we're just using it to get the
     // schema.
@@ -88,6 +92,9 @@ class SPFrontend extends Component {
   }
 
   generateLoginUrl() {
+    if (!SP.schema) {
+      return "https://auth.stream.place/?server=stream.place&returnPath=%2F";
+    }
     const loginOrigin = SP.schema.plugins["sp-plugin-core"].loginUrl.slice(
       0,
       -1
@@ -143,22 +150,9 @@ class SPFrontend extends Component {
   }
 
   renderInner() {
-    if (this.state.phase === START) {
-      return <div />;
-    }
-    if (this.state.phase === LOGGED_IN) {
-      return (
-        <Streamplace SP={SP}>
-          <SPRouter onLogout={() => this.handleLogout()} foo="bar" />
-        </Streamplace>
-      );
-    }
     if (this.state.phase === LOGGED_OUT) {
       return <CorporateBullshit loginUrl={this.generateLoginUrl()} />;
     }
-  }
-
-  render() {
     if (this.state.unexpectedError) {
       return (
         <p>
@@ -174,6 +168,19 @@ class SPFrontend extends Component {
         </p>
       );
     }
+    if (this.state.phase === START) {
+      return <div />;
+    }
+    if (this.state.phase === LOGGED_IN) {
+      return (
+        <Streamplace SP={SP}>
+          <SPRouter onLogout={() => this.handleLogout()} foo="bar" />
+        </Streamplace>
+      );
+    }
+  }
+
+  render() {
     return <Everything>{this.renderInner()}</Everything>;
   }
 }

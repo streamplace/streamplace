@@ -4,7 +4,24 @@
   "description": "An open-source compositor and CMS for live video",
   "main": "dist/streamplace.js",
   "scripts": {
-    "start": "babel -d dist -s -w src"
+    "start": "babel -d dist -s -w src",
+    "prepare": "babel -s -d dist src"
+  },
+  "babel": {
+    "presets": [
+      [
+        "env",
+        {
+          "targets": {
+            "node": "4"
+          }
+        }
+      ]
+    ]
+  },
+  "bin": {
+    "stream": "bin/streamplace.js",
+    "streamplace": "bin/streamplace.js"
   },
   "keywords": [
     "streamplace"
@@ -12,6 +29,9 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "dependencies": {
+    "babel-preset-env": "^1.6.1",
+    "babel-preset-streamplace": "0.0.3",
+    "regenerator-runtime": "^0.11.1",
     "sp-api-server": "^0.1.5",
     "sp-auth-frontend": "^0.1.5",
     "sp-coturn": "^0.1.5",
@@ -26,6 +46,11 @@
     "sp-rethinkdb": "^0.1.5",
     "sp-rtmp-server": "^0.1.5",
     "sp-schema": "^0.1.5",
-    "sp-uploader": "^0.1.5"
+    "sp-streams": "^0.1.5",
+    "sp-uploader": "^0.1.5",
+    "yargs": "^11.0.0"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0"
   }
 }

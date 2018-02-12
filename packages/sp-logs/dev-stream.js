@@ -22,10 +22,22 @@ const retry = function() {
 
 process.on("uncaughtException", err => {
   term(`${err}\n`);
-  retry();
+  myRetry();
 });
 
+let didRetry;
+let myRetry;
+
 const makeAttempt = function() {
+  didRetry = false;
+  myRetry = () => {
+    if (didRetry) {
+      // console.log("canceled dupe retry");
+      return;
+    }
+    didRetry = true;
+    retry();
+  };
   try {
     request({
       url: logUrl,
@@ -35,11 +47,11 @@ const makeAttempt = function() {
     })
       .on("error", function(err) {
         term(`${err}\n`);
-        retry();
+        myRetry();
       })
       .on("end", function(err) {
         term("log stream ended\n");
-        retry();
+        myRetry();
       })
       .on("response", function() {
         term("log stream opened\n");
@@ -67,7 +79,7 @@ const makeAttempt = function() {
       });
   } catch (e) {
     term(`${e}\n`);
-    retry();
+    myRetry();
   }
 };
 

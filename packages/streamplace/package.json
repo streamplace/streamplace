@@ -49,5 +49,8 @@
     "sp-streams": "^0.1.5",
     "sp-uploader": "^0.1.5",
     "yargs": "^11.0.0"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0"
   }
 }

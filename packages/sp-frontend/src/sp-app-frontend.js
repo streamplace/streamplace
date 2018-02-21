@@ -13,7 +13,7 @@ export default function() {
       { label: "Item3", type: "radio", checked: true },
       { label: "Item4", type: "radio" }
     ]);
-    tray.setToolTip("This is my application.");
+    tray.setToolTip("streamplace");
     tray.setContextMenu(contextMenu);
   });
 }

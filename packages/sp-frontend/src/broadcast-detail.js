@@ -138,7 +138,7 @@ export class BroadcastDetail extends Component {
   }
 
   deleteOutput(output) {
-    if (!confirm(`Are you sure you want to delete ${output.title}?`)) {
+    if (!window.confirm(`Are you sure you want to delete ${output.title}?`)) {
       return;
     }
     const { SP } = this.props;

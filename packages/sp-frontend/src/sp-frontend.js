@@ -158,7 +158,6 @@ class SPFrontend extends Component {
         <p>
           Unexpected error.&nbsp;
           <a
-            href="#"
             onClick={() => {
               this.handleLogout();
             }}

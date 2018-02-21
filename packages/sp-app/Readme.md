@@ -1,5 +1,3 @@
-
 # sp-app
 
-This one is kinda funny because `electron-packager` takes up our `dist` directory. So we compile
-into `compiled` instead.
+To run in dev, assuming Streamplace is already running in dev mode locally, then run `sp-app-dev.sh`.

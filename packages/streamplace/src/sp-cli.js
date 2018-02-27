@@ -18,6 +18,10 @@ export default async function cli() {
       alias: "f",
       describe: "path to a file you'd like to stream",
       type: "string"
+    },
+    loop: {
+      describe: "loop the input file forever",
+      type: "boolean"
     }
   });
   const argv = yargs.argv;
@@ -40,7 +44,7 @@ export default async function cli() {
     err.status = 400;
     throw err;
   }
-  const stream = await spStream({ filePath: argv.file });
+  const stream = await spStream({ filePath: argv.file, loop: argv.loop });
   console.log(`streaming to ${stream.url}`);
   stream.on("end", () => {
     process.exit(0);

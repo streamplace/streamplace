@@ -2,9 +2,23 @@
   "name": "sp-frontend",
   "version": "0.1.5",
   "devDependencies": {
-    "react-scripts": "^0.8.5",
+    "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.0",
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.26.0",
+    "babel-preset-react-app": "^3.1.1",
+    "electron": "^1.8.2",
+    "npm-run-all": "^4.1.2",
     "sp-static": "^0.1.5"
   },
+  "babel": {
+    "presets": [
+      "react-app"
+    ],
+    "plugins": [
+      "transform-es2015-modules-commonjs"
+    ]
+  },
+  "main": "dist/sp-app-frontend.js",
   "dependencies": {
     "color-hash": "^1.0.3",
     "cookie": "^0.3.1",
@@ -19,6 +33,7 @@
     "react-dom": "^15.4.2",
     "react-router": "^4.0.0-beta.8",
     "react-router-dom": "^4.0.0-beta.8",
+    "react-scripts": "^1.1.1",
     "react-youtube": "^7.5.0",
     "sp-client": "^0.1.5",
     "sp-components": "^0.1.5",
@@ -29,9 +44,13 @@
   },
   "scripts": {
     "dev": "bash -c 'PORT=80 react-scripts start | cat'",
-    "start": "PORT=3939 react-scripts start",
-    "prepublish": "react-scripts build && rm -rf dist && mv build dist",
+    "start-cra": "PORT=3939 react-scripts start",
+    "start-babel": "NODE_ENV=development babel -w -s -d dist src",
+    "prepare-cra": "react-scripts build && rm -rf dist && mv build dist",
+    "prepare-babel": "NODE_ENV=production babel -s -d dist src",
+    "prepare": "run-s prepare-cra prepare-babel",
     "test": "react-scripts test --env=jsdom",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "start": "run-p start-cra start-babel"
   }
 }

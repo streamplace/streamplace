@@ -7,7 +7,12 @@ const url = require("url");
 const querystring = require("querystring");
 const fs = require("fs");
 const path = require("path");
-const { tcpEgressStream, rtmpOutputStream } = require("sp-streams");
+const {
+  tcpEgressStream,
+  rtmpOutputStream,
+  dashStream,
+  dashServer
+} = require("sp-streams");
 import convertVideoStream from "./convert-video-stream";
 
 /* eslint-disable no-console */
@@ -56,18 +61,20 @@ desktopCapturer.getSources(
         // video.srcObject = stream;
         const recorder = new MediaRecorder(stream);
         window.recorder = recorder;
-        let output;
+        const converter = new convertVideoStream();
+        const dash = dashStream();
         if (options.rtmp) {
-          output = new convertVideoStream();
-          output.pipe(rtmpOutputStream({ rtmpUrl: options.rtmp }));
+          converter.pipe(rtmpOutputStream({ rtmpUrl: options.rtmp }));
         } else {
-          output = tcpEgressStream({ port: options.port });
+          converter.pipe(dash);
+          const server = dashServer(dash);
+          server.listen(options.port);
         }
         recorder.ondataavailable = event => {
           let fileReader = new FileReader();
           fileReader.onload = function() {
             try {
-              output.write(Buffer.from(this.result));
+              converter.write(Buffer.from(this.result));
             } catch (e) {
               console.error(e);
             }

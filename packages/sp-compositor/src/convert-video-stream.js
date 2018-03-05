@@ -22,7 +22,8 @@ export default class ConvertVideoStream extends Transform {
       .outputOptions([
         "-keyint_min 120",
         "-g 120",
-        "-x264-params keyint=120:scenecut=0"
+        "-x264-params keyint=120:scenecut=0",
+        "-tag:v avc1"
       ])
       .outputFormat("mpegts")
       // Video out

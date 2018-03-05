@@ -1,0 +1,13 @@
+[Unit]
+Description=streamplace
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi
+ExecStart=/usr/bin/omxplayer --loop testvid.ts
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target

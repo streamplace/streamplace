@@ -27,10 +27,13 @@
   },
   "homepage": "https://github.com/streamplace/streamplace#readme",
   "dependencies": {
+    "ansi-styles": "^3.2.1",
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
     "babel-preset-streamplace": "0.0.3",
-    "electron": "^1.7.9",
+    "console.style": "^0.2.2",
+    "electron": "^1.8.2",
+    "polished": "^1.9.2",
     "sp-streams": "^0.1.5"
   }
 }

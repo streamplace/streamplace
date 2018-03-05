@@ -1,13 +1,19 @@
+const debug = require("debug");
+
+const log = debug("sp:sp-compositor-renderer");
+
 const { desktopCapturer } = require("electron");
 const url = require("url");
 const querystring = require("querystring");
 const fs = require("fs");
 const path = require("path");
-const { tcpEgressStream } = require("sp-streams");
+const { tcpEgressStream, rtmpOutputStream } = require("sp-streams");
+import convertVideoStream from "./convert-video-stream";
 
 /* eslint-disable no-console */
 
 const options = querystring.parse(url.parse(document.location.href).query);
+log(options);
 const video = document.querySelector("video");
 video.style.width = `${options.width}px`;
 video.style.height = `${options.height}px`;
@@ -50,28 +56,31 @@ desktopCapturer.getSources(
         // video.srcObject = stream;
         const recorder = new MediaRecorder(stream);
         window.recorder = recorder;
-        const tcpEgress = tcpEgressStream({ port: options.port });
-        let counter = 0;
+        let output;
+        if (options.rtmp) {
+          output = new convertVideoStream();
+          output.pipe(rtmpOutputStream({ rtmpUrl: options.rtmp }));
+        } else {
+          output = tcpEgressStream({ port: options.port });
+        }
         recorder.ondataavailable = event => {
           let fileReader = new FileReader();
-          let me = counter;
-          counter += 1;
           fileReader.onload = function() {
             try {
-              tcpEgress.write(Buffer.from(this.result));
+              output.write(Buffer.from(this.result));
             } catch (e) {
               console.error(e);
             }
           };
           fileReader.readAsArrayBuffer(event.data);
         };
-        // recorder.onerror = (...args) => console.log("onerror", args);
-        // recorder.onpause = (...args) => console.log("onpause", args);
-        // recorder.onresume = (...args) => console.log("onresume", args);
-        // recorder.onstart = (...args) => console.log("onstart", args);
-        // recorder.onstop = (...args) => console.log("onstop", args);
+        recorder.onerror = (...args) => log("onerror", args);
+        recorder.onpause = (...args) => log("onpause", args);
+        recorder.onresume = (...args) => log("onresume", args);
+        recorder.onstart = (...args) => log("onstart", args);
+        recorder.onstop = (...args) => log("onstop", args);
         setTimeout(() => {
-          console.log("starting");
+          log("starting");
           recorder.start(100);
         }, 5000);
       })

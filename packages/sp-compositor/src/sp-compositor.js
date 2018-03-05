@@ -1,14 +1,24 @@
 const { app, BrowserWindow } = require("electron");
 const path = require("path");
 const url = require("url");
+const debug = require("debug");
+const log = debug("sp:sp-compositor");
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let win;
+/* eslint-disable no-console */
+const usage = () => {
+  console.error(
+    "usage: docker run quay.io/streamplace/sp-compositor [website] <rtmp url>"
+  );
+};
 
-const URL = process.env.URL;
-if (!URL) {
-  throw new Error("No URL Provided!");
+const WEBSITE = process.argv[3] || process.env.WEBSITE;
+const RTMP = process.argv[4] || process.env.RTMP;
+if (!WEBSITE) {
+  usage();
+  throw new Error("No WEBSITE Provided!");
 }
 
 const options = {
@@ -17,6 +27,17 @@ const options = {
   windowId: `render-${Date.now()}-${Math.floor(Math.random() * 10000000)}`,
   port: process.env.PORT || 64772
 };
+
+if (RTMP) {
+  options.rtmp = RTMP;
+  log("outputting to rtmp");
+} else {
+  log(`outputting to port ${options.port}`);
+}
+
+setInterval(() => {
+  debug(`ping ${Date.now()}`);
+}, 1000);
 
 function createWindow() {
   // Create the browser window.
@@ -33,7 +54,7 @@ function createWindow() {
   win.on("page-title-updated", e => e.preventDefault());
 
   // and load the index.html of the app.
-  win.loadURL(URL);
+  win.loadURL(WEBSITE);
 
   // Emitted when the window is closed.
   win.on("closed", () => {
@@ -51,20 +72,26 @@ function createCapture() {
     width: 1920,
     height: 1080,
     title: "renderer",
-    show: false
+    show: false,
+    webPreferences: {
+      preload: path.resolve(__dirname, "preload.js")
+    }
   });
 
-  win.on("page-title-updated", e => e.preventDefault());
+  win.on("page-title-updated", e => {
+    debug("page-title-updated", e);
+    e.preventDefault();
+  });
 
   // and load the index.html of the app.
-  win.loadURL(
-    url.format({
-      pathname: path.join(__dirname, "renderer.html"),
-      protocol: "file:",
-      slashes: true,
-      query: options
-    })
-  );
+  const rendererUrl = url.format({
+    pathname: path.join(__dirname, "renderer.html"),
+    protocol: "file:",
+    slashes: true,
+    query: options
+  });
+  log(`loading ${rendererUrl}`);
+  win.loadURL(rendererUrl);
 
   // win.webContents.openDevTools();
 

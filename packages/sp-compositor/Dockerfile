@@ -14,7 +14,7 @@ WORKDIR /app
 RUN apt-get update
 
 # presumably chromium and electron need the same things...?
-RUN apt-get install -y chromium-browser libgconf-2-4 libgtk2.0-0 xvfb
+RUN apt-get install -y chromium-browser libgconf-2-4 libgtk2.0-0 xvfb libgles1-mesa
 
 ADD package.json /app/package.json
 RUN npm install

@@ -6,8 +6,8 @@ After=network.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi
-ExecStart=/usr/bin/omxplayer --loop testvid.ts
-Restart=on-abort
+ExecStart=/usr/bin/omxplayer http://snorlax-02.stream.town:9999/media_0.m3u8
+Restart=always
 
 [Install]
 WantedBy=multi-user.target

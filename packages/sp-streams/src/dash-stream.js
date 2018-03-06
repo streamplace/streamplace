@@ -3,6 +3,7 @@ import { PassThrough } from "stream";
 import socketEgressStream from "./socket-egress-stream";
 import express from "express";
 import debug from "debug";
+import fs from "fs";
 
 export const MANIFEST_NAME = "manifest.mpd";
 export const DEFAULT_SEG_DURATION = 5000;
@@ -75,6 +76,11 @@ export default function dashStream(opts = {}) {
       ])
       .output(`http://127.0.0.1:${socketEgress.httpPort}/${MANIFEST_NAME}`)
       .outputFormat("dash");
+    // hack hack hack, but for now we need a newer version
+    const FFMPEG_UNSTABLE_PATH = "/usr/bin/ffmpeg-unstable";
+    if (fs.existsSync(FFMPEG_UNSTABLE_PATH)) {
+      ffmpeg.setFfmpegPath(FFMPEG_UNSTABLE_PATH);
+    }
   });
 
   passThrough.on("end", () => {

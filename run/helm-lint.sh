@@ -32,6 +32,21 @@ if [[ -f "package.json" ]]; then
   fi
 fi
 
+if [[ -f "Dockerfile" ]]; then
+  if [[ ! -f .dockerignore ]]; then
+    fixOrErr "$PACKAGE_NAME has no .dockerignore"
+    touch .dockerignore
+  fi
+  requiredIgnores='node_modules /*.tgz'
+  for ignore in $requiredIgnores; do
+    result=$(cat .dockerignore | grep $ignore || echo "")
+    if [[ "$result" == "" ]]; then
+      fixOrErr ".dockerignore is missing $ignore"
+      echo "$ignore" >> .dockerignore
+    fi
+  done
+fi
+
 if [[ -f "Chart.yaml" ]]; then
   newChart="$(cat Chart.yaml | js-yaml)"
   chartVersion="$(echo $newChart | jq -r .version)"

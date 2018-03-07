@@ -4,7 +4,7 @@ website: http://countdown.stream.place.s3-website-us-west-2.amazonaws.com/from/n
 image:
   repository: quay.io/streamplace/sp-compositor
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 service:
   name: sp-compositor
   type: ClusterIP

@@ -21,7 +21,7 @@ describe("dashStream", () => {
     let chunkCount = 0;
     dash.push(fileData);
     const checkDone = () => {
-      if (manifestCount !== 5 || chunkCount !== 10) {
+      if (manifestCount !== 6 || chunkCount !== 25) {
         return;
       }
       done();

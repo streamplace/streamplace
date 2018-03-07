@@ -50,4 +50,7 @@ dependencies:
   - name: sp-uploader
     version: 0.1.5
     repository: 'https://charts.stream.place'
+  - name: sp-compositor
+    version: 0.1.5
+    repository: 'https://charts.stream.place'
 

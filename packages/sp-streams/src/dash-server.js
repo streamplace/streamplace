@@ -36,9 +36,9 @@ export default function dashServer(dashStream) {
       if (fileName.startsWith("init")) {
         return;
       }
-      // setTimeout(() => {
-      //   delete files[fileName];
-      // }, keepFileDuration);
+      setTimeout(() => {
+        delete files[fileName];
+      }, keepFileDuration);
     });
   });
 

@@ -4,6 +4,9 @@ import ffmpeg from "./ffmpeg";
 
 const log = debug("sp:rtmp-output-stream");
 
+/**
+ * { rtmpUrl }
+ */
 export default function({ rtmpUrl }) {
   const socketEgress = new socketEgressStream();
   const instance = ffmpeg()

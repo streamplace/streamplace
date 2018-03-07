@@ -3,6 +3,7 @@ import { PassThrough } from "stream";
 import socketEgressStream from "./socket-egress-stream";
 import express from "express";
 import debug from "debug";
+import fs from "fs";
 
 export const MANIFEST_NAME = "manifest.mpd";
 export const DEFAULT_SEG_DURATION = 5000;
@@ -20,6 +21,7 @@ export default function dashStream(opts = {}) {
   let ffmpeg;
 
   app.post("*", (req, res) => {
+    log(req.url);
     const filename = req.url.slice(1);
     log(`got ${filename}`);
 
@@ -64,6 +66,8 @@ export default function dashStream(opts = {}) {
         "-ar:a:1 22050",
         "-use_timeline 1",
         "-use_template 1",
+        // hls too!
+        "-hls_playlist 1",
         // Avoids Tag [15][0][0][0] incompatible with output codec id '86018' (mp4a)
         "-tag:v avc1",
         "-tag:a mp4a",
@@ -72,6 +76,11 @@ export default function dashStream(opts = {}) {
       ])
       .output(`http://127.0.0.1:${socketEgress.httpPort}/${MANIFEST_NAME}`)
       .outputFormat("dash");
+    // hack hack hack, but for now we need a newer version
+    const FFMPEG_UNSTABLE_PATH = "/usr/bin/ffmpeg-unstable";
+    if (fs.existsSync(FFMPEG_UNSTABLE_PATH)) {
+      ffmpeg.setFfmpegPath(FFMPEG_UNSTABLE_PATH);
+    }
   });
 
   passThrough.on("end", () => {

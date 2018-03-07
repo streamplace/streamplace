@@ -21,6 +21,7 @@ export default function dashServer(dashStream) {
   });
 
   const keepFileDuration = (dashStream.windowSize + 1) * dashStream.segDuration;
+  log(`keeping segments for ${keepFileDuration}`);
 
   dashStream.on("manifest", data => {
     manifest = data;
@@ -33,10 +34,11 @@ export default function dashServer(dashStream) {
       files[fileName] = Buffer.concat(chunks);
 
       // Maintain the init streams, otherwise dump after the window
-      if (fileName.startsWith("init")) {
+      if (fileName.startsWith("init") || fileName.endsWith("m3u8")) {
         return;
       }
       setTimeout(() => {
+        log(`removing ${fileName}`);
         delete files[fileName];
       }, keepFileDuration);
     });

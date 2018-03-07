@@ -20,7 +20,8 @@ export default function dashServer(dashStream) {
     next();
   });
 
-  const keepFileDuration = (dashStream.windowSize + 1) * dashStream.segDuration;
+  const keepFileDuration =
+    (dashStream.windowSize + 1) * dashStream.segDuration * 10;
   log(`keeping segments for ${keepFileDuration}`);
 
   dashStream.on("manifest", data => {

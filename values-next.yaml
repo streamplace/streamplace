@@ -12,6 +12,20 @@ sp-rethinkdb:
   persistence:
     hostPath:
       path: /opt/streamplace/rethink
+sp-compositor:
+  image:
+    tag: next
+  ingress:
+    enabled: true
+    # Used to create an Ingress record.
+    hosts:
+    - host: stream.place
+      path: /demo/countdown
+    tls:
+      - secretName: stream.place
+        hosts:
+          - stream.place
+  resources: {}
 
 global:
   development: false

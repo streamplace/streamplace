@@ -34,6 +34,7 @@
     "regenerator-runtime": "^0.11.1",
     "sp-api-server": "^0.1.5",
     "sp-auth-frontend": "^0.1.5",
+    "sp-compositor": "^0.1.5",
     "sp-coturn": "^0.1.5",
     "sp-default": "^0.1.5",
     "sp-dev-certs": "^0.1.5",

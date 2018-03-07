@@ -11,7 +11,7 @@ export const DEFAULT_WINDOW_SIZE = 3;
 
 const log = debug("sp:dash-stream");
 export default function dashStream(opts = {}) {
-  const socketEgress = socketEgressStream();
+  const socketEgress = socketEgressStream({ useFirstBuffer: false });
   const passThrough = new PassThrough();
 
   passThrough.segDuration = opts.segDuration || DEFAULT_SEG_DURATION;

@@ -6,7 +6,7 @@ import debug from "debug";
 
 const log = debug("sp:socket-egress-stream");
 
-export default function socketEgressStream() {
+export default function socketEgressStream({ useFirstBuffer = true } = {}) {
   const tmpDir = os.tmpdir();
   const socketName = `sp-sock-${Date.now()}-${Math.round(
     Math.random() * 1000
@@ -16,7 +16,7 @@ export default function socketEgressStream() {
   // Much of this logic is dedicated to combating ffmpeg's socket behavior... it makes one
   // "probe" connection, expects data, then connects again for the primary data feed. We don't
   // want to discard the data in the probe, so we don't.
-  let first = true;
+  let first = useFirstBuffer;
   let firstBuffer = [];
   let firstBufferLength = 0;
   let firstListener;

@@ -30,7 +30,7 @@ export default class SPMediaPlayer extends React.Component {
   componentDidMount() {
     // instantiate Video.js
     this.player = videojs(this.videoNode, this.props, function onPlayerReady() {
-      console.log("onPlayerReady", this);
+      // console.log("onPlayerReady", this);
     });
   }
 

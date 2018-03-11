@@ -16,9 +16,11 @@ export default class ConvertVideoStream extends Transform {
     this.socketIngress.on("data", chunk => this.push(chunk));
     // socketEgress.pipe = socketIngress.pipe.bind(socketIngress);
     const instance = ffmpeg()
+      .input("anullsrc=channel_layout=stereo:sample_rate=44100")
+      .inputFormat("lavfi")
       .input(`unix://${this.socketEgress.path}`)
       .videoCodec("libx264")
-      .noAudio()
+      .audioCodec("aac")
       .outputOptions([
         "-keyint_min 120",
         "-g 120",

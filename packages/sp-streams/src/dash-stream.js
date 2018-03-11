@@ -21,8 +21,8 @@ export default function dashStream(opts = {}) {
   let ffmpeg;
 
   app.post("*", (req, res) => {
-    log(req.url);
-    const filename = req.url.slice(1);
+    // weird bug where the HLS manifest from ffmpeg has two leading slashes
+    const filename = req.url.replace(/^\/+/, "");
     log(`got ${filename}`);
 
     // No matter what, tell ffmpeg that it's chill when we're done

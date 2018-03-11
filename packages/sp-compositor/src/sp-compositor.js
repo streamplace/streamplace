@@ -48,7 +48,10 @@ function createWindow() {
     useContentSize: true,
     frame: false,
     // transparent: true,
-    title: options.windowId
+    title: options.windowId,
+    webPreferences: {
+      nodeIntegration: false
+    }
   });
 
   win.on("page-title-updated", e => e.preventDefault());
@@ -68,7 +71,7 @@ function createWindow() {
 let captureWin;
 function createCapture() {
   // Create the browser window.
-  win = new BrowserWindow({
+  captureWin = new BrowserWindow({
     width: 1920,
     height: 1080,
     title: "renderer",
@@ -78,7 +81,7 @@ function createCapture() {
     }
   });
 
-  win.on("page-title-updated", e => {
+  captureWin.on("page-title-updated", e => {
     debug("page-title-updated", e);
     e.preventDefault();
   });
@@ -91,16 +94,16 @@ function createCapture() {
     query: options
   });
   log(`loading ${rendererUrl}`);
-  win.loadURL(rendererUrl);
+  captureWin.loadURL(rendererUrl);
 
   // win.webContents.openDevTools();
 
   // Emitted when the window is closed.
-  win.on("closed", () => {
+  captureWin.on("closed", () => {
     // Dereference the window object, usually you would store windows
     // in an array if your app supports multi windows, this is the time
     // when you should delete the corresponding element.
-    win = null;
+    captureWin = null;
   });
 }
 

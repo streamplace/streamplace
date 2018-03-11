@@ -27,7 +27,7 @@ function realpath() {
       esac
     done
     #echo $file
-    python -c "import os,sys; print os.path.abspath(sys.argv[1])" "$file"
+    python -c "import os,sys; print(os.path.abspath(sys.argv[1]))" "$file"
   done
 }
 export -f realpath

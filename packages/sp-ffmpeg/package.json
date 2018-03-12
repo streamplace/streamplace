@@ -1,6 +1,6 @@
 {
   "name": "sp-ffmpeg",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Streamplace's FFMpeg bulid",
   "main": "Dockerfile",
   "scripts": {
@@ -16,6 +16,6 @@
   "author": "Streamplace Inc.",
   "license": "Apache-2.0",
   "devDependencies": {
-    "sp-node": "^0.1.5"
+    "sp-node": "^0.1.6"
   }
 }

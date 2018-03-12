@@ -1,6 +1,6 @@
 {
   "name": "sp-broadcaster",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "I'm the container that runs Streamplace broadcasts!",
   "main": "dist/sp-broadcaster.js",
   "scripts": {
@@ -20,9 +20,9 @@
   },
   "homepage": "https://github.com/streamplace/streamplace#readme",
   "dependencies": {
-    "sp-client": "^0.1.5",
-    "sp-configuration": "^0.1.5",
-    "sp-streams": "^0.1.5",
+    "sp-client": "^0.1.6",
+    "sp-configuration": "^0.1.6",
+    "sp-streams": "^0.1.6",
     "winston": "^2.3.1"
   },
   "devDependencies": {
@@ -30,6 +30,6 @@
     "babel-core": "^6.25.0",
     "babel-preset-streamplace": "0.0.3",
     "babel-watch": "^2.0.7",
-    "sp-ffmpeg": "^0.1.5"
+    "sp-ffmpeg": "^0.1.6"
   }
 }

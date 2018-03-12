@@ -1,6 +1,6 @@
 {
   "name": "sp-media-player",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Streamplace Media Player",
   "main": "dist/sp-media-player.js",
   "scripts": {

@@ -1,6 +1,6 @@
 {
   "name": "sp-kube-lego",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Kube-Lego for Streamplace",
   "main": "package.json",
   "scripts": {

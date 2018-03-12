@@ -1,6 +1,6 @@
 {
   "name": "sp-peer-stream",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Video Peer Connections made easy-ish",
   "main": "dist/sp-peer-stream.js",
   "scripts": {
@@ -19,7 +19,7 @@
   "dependencies": {
     "debug": "^2.6.3",
     "kurento-utils": "^6.6.1",
-    "sp-client": "^0.1.5",
+    "sp-client": "^0.1.6",
     "wolfy87-eventemitter": "^5.1.0"
   }
 }

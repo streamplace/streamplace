@@ -1,6 +1,6 @@
 apiVersion: v1
 description: Handle file uploads for Streamplace
 name: sp-uploader
-version: 0.1.5
+version: 0.1.6
 icon: 'https://charts.stream.place/icon.svg'
 

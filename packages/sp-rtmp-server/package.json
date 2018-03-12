@@ -5,7 +5,7 @@
   "main": "dist/sp-rtmp-server.js",
   "scripts": {
     "test": "echo \"no test specified\" && exit 0",
-    "prepublish": "babel -d dist src"
+    "prepare": "babel -d dist src"
   },
   "repository": {
     "type": "git",

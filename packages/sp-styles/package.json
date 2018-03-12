@@ -5,7 +5,7 @@
   "main": "dist/sp-styles.js",
   "scripts": {
     "test": "echo \"no test specified\" && exit 0",
-    "prepublish": "babel -d dist src",
+    "prepare": "babel -d dist src",
     "start": "babel --watch -d dist src"
   },
   "author": "",

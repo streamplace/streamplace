@@ -4,7 +4,7 @@
   "description": "Streamplace auth plugin",
   "main": "dist/sp-plugin-auth.js",
   "scripts": {
-    "prepublish": "babel -d dist src",
+    "prepare": "babel -d dist src",
     "start": "babel --watch -d dist src"
   },
   "author": "Streamplace",

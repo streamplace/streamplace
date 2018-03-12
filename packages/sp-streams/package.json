@@ -11,7 +11,7 @@
   "scripts": {
     "test-in-container": "jest -i --forceExit",
     "start": "babel -d dist -s -w src",
-    "prepublish": "babel -d dist src"
+    "prepare": "babel -d dist src"
   },
   "repository": {
     "type": "git",

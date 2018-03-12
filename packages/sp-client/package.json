@@ -4,7 +4,7 @@
   "description": "Streamplace Javascript Client",
   "main": "dist/sp-client.js",
   "scripts": {
-    "prepublish": "babel -d dist src",
+    "prepare": "babel -d dist src",
     "start": "babel --watch --preserve-lines -d dist src",
     "test": "echo 'no tests'"
   },

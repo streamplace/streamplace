@@ -5,7 +5,7 @@
   "main": "dist/sp-api-server.js",
   "scripts": {
     "test": "mocha --compilers js:babel-register",
-    "prepublish": "babel -d dist src"
+    "prepare": "babel -d dist src"
   },
   "repository": {
     "type": "git",

@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"no test specified\" && exit 0",
     "build": "babel --retain-lines --copy-files -d dist src",
-    "prepublish": "npm run build"
+    "prepare": "npm run build"
   },
   "author": "",
   "license": "Apache-2.0",

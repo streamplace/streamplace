@@ -4,7 +4,7 @@
   "description": "Streamplace core plugin",
   "main": "dist/sp-plugin-core.js",
   "scripts": {
-    "prepublish": "babel -d dist src",
+    "prepare": "babel -d dist src",
     "start": "babel -w -d dist src"
   },
   "author": "Streamplace",

@@ -5,7 +5,7 @@
   "main": "dist/sk-schema.js",
   "scripts": {
     "test": "echo \"no test specified\" && exit 0",
-    "prepublish": "babel -d dist src",
+    "prepare": "babel -d dist src",
     "dev": "babel-watch -L src/sp-schema.js"
   },
   "author": "Streamplace",

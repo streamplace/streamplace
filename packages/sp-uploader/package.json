@@ -4,7 +4,7 @@
   "description": "Handle file uploads for Streamplace",
   "main": "dist/sp-uploader.js",
   "scripts": {
-    "prepublish": "babel -d dist src"
+    "prepare": "babel -d dist src"
   },
   "author": "streamplace",
   "license": "Apache-2.0",

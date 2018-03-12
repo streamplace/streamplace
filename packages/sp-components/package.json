@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"no test specified\" && exit 0",
     "start": "babel -s -w -d dist src",
-    "prepublish": "babel -s -d dist src"
+    "prepare": "babel -s -d dist src"
   },
   "author": "Streamplace",
   "license": "Apache-2.0",

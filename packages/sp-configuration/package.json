@@ -4,8 +4,8 @@
   "description": "Streamplace shared runtime configuration",
   "main": "dist/sp-configuration.js",
   "scripts": {
-    "prepublish": "babel -d dist src",
-    "start": "nodemon -w src -x npm run prepublish",
+    "prepare": "babel -d dist src",
+    "start": "nodemon -w src -x npm run prepare",
     "test": "jest"
   },
   "jest": {

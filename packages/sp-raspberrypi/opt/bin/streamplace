@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+echo "starting"
+if [[ "${AUTO_UPDATED:-}" != "true" ]]; then
+  echo "auto-updating"
+  export AUTO_UPDATED="true"
+  curl -L https://unpkg.com/sp-raspberrypi@next/opt/bin/streamplace | bash
+  exit 1
+fi
+
+echo "auto-update complete"
+omxplayer https://stream.place/demo/countdown/master.m3u8

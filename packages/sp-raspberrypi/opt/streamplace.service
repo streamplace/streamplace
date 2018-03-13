@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi
-ExecStart=/usr/bin/omxplayer https://stream.place/demo/countdown/master.m3u8
+User=root
+WorkingDirectory=/opt/streamplace
+ExecStart=/opt/streamplace/bin/streamplace
 Restart=always
 RestartSec=3
 StartLimitInterval=0

@@ -11,10 +11,14 @@ describe("colorbarsStream", () => {
     expect(colorbars).toBeDefined();
   });
 
-  it("should produce some kind of data", done => {
-    const colorbars = colorbarsStream();
-    colorbars.once("data", () => {
-      done();
-    });
-  });
+  it(
+    "should produce some kind of data",
+    done => {
+      const colorbars = colorbarsStream();
+      colorbars.once("data", () => {
+        done();
+      });
+    },
+    10000
+  );
 });

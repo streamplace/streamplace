@@ -4,7 +4,7 @@
   "description": "streamplace for raspberry pis",
   "main": "run.sh",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo 'no tests'",
     "download-img": "mkdir -p mount && cd mount && curl -L -o raspbian.img https://downloads.raspberrypi.org/raspbian_latest",
     "build-img": "docker build -t quay.io/streamplace/build-sp-raspberry-pi . && docker run --privileged -v $(pwd)/image:/image -it quay.io/streamplace/build-sp-raspberry-pi"
   },

@@ -17,6 +17,7 @@ if [[ "$(uname)" == "Darwin" ]]; then
   security default-keychain -s build.keychain
   security unlock-keychain -p mysecretpassword build.keychain
   security import /tmp/certificate.p12 -P "" -k build.keychain -T /usr/bin/codesign
+  security set-key-partition-list -S apple-tool:,apple: -s -k mysecretpassword build.keychain
   security find-identity -v
   node "ci-build-app.js"
 else
@@ -27,6 +28,7 @@ else
     -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
     -e WIN_CSC_LINK="$WIN_CSC_LINK" \
     -e WIN_CSC_KEY_PASSWORD="$WIN_CSC_KEY_PASSWORD" \
+    -e TRAVIS_BRANCH="${TRAVIS_BRANCH:-}" \
     -v "$ROOT:/streamplace" \
     -w /streamplace \
     electronuserland/electron-builder:wine \

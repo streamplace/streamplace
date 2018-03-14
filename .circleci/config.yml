@@ -7,7 +7,7 @@ jobs:
   build:
 
     macos:
-      xcode: "8.3.3"
+      xcode: "9.2.0"
 
     steps:
       - checkout

@@ -47,7 +47,7 @@ tmp
     buildDir = o.path;
     console.log(`Building app channel ${channel} in ${o.path}`);
     wd = o.path;
-    return run("npm", "install", `sp-app@${repoVersion}`);
+    return run("npm", "install", `sp-app@${repoBranch}`);
   })
   .then(() => {
     wd = resolve(wd, "node_modules", "sp-app");

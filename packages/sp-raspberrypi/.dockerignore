@@ -1,0 +1,4 @@
+*.img
+image
+node_modules
+/*.tgz

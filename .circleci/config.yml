@@ -12,9 +12,9 @@ jobs:
     steps:
       - checkout
 
-      - run:
-          name: install node
-          command: brew install node
+      # - run:
+      #     name: install node
+      #     command: brew install node
 
       # Build the app and run tests
       - run:

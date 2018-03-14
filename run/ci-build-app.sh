@@ -6,6 +6,9 @@ set -o pipefail
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
+cd "$ROOT/packages/sp-app"
+npm install
+
 if [[ "$(uname)" == "Darwin" ]]; then
   echo $CERTIFICATE_OSX_P12 | base64 --decode > /tmp/certificate.p12
   ls -alhs /tmp/certificate.p12

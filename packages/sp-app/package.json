@@ -40,7 +40,9 @@
     "electron-builder": "^19.56.2",
     "electron-publisher-s3": "^19.56.0",
     "js-yaml": "^3.8.2",
-    "nodemon": "^1.11.0"
+    "mkdirp": "^0.5.1",
+    "nodemon": "^1.11.0",
+    "tmp-promise": "^1.0.4"
   },
   "dependencies": {
     "electron-log": "^2.0.0",

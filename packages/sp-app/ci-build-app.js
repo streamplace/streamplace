@@ -6,7 +6,7 @@
 const fs = require("fs");
 const { resolve } = require("path");
 const { spawn } = require("child_process");
-const { repoVersion, repoBranch } = require("./repo-version");
+const { repoVersion, repoBranch } = require("../../run/repo-version");
 const mkdirp = require("mkdirp");
 const tmp = require("tmp-promise");
 const os = require("os");

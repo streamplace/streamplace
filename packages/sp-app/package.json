@@ -9,7 +9,7 @@
     "start": "nodemon -w src -x npm run start-electron",
     "test": "echo \"no test specified\" && exit 0",
     "build": "npm run prepare && npm run electron-builder-local",
-    "electron-builder-local": "ELECTRON_CHANNEL=\"${ELECTRON_CHANNEL:-dev}\" electron-builder --publish never",
+    "electron-builder-local": "electron-builder --publish never",
     "electron-publish-windows": "electron-builder -w --publish always",
     "electron-publish-mac": "electron-builder -m --publish always"
   },
@@ -21,7 +21,7 @@
     "productName": "Streamplace",
     "publish": {
       "bucket": "crap.stream.place",
-      "channel": "${env.ELECTRON_CHANNEL}",
+      "channel": "${env.ELECTRON_CHANNEL:-latest}",
       "path": "apps",
       "provider": "s3",
       "region": "us-west-2"
@@ -36,15 +36,15 @@
     "babel-cli": "^6.23.0",
     "babel-core": "^6.23.1",
     "babel-preset-streamplace": "0.0.3",
-    "electron": "^1.4.15",
-    "electron-builder": "^19.19.1",
-    "electron-publisher-s3": "^19.19.0",
+    "electron": "^1.8.3",
+    "electron-builder": "^19.56.2",
+    "electron-publisher-s3": "^19.56.0",
     "js-yaml": "^3.8.2",
     "nodemon": "^1.11.0"
   },
   "dependencies": {
     "electron-log": "^2.0.0",
-    "electron-updater": "^2.4.3",
+    "electron-updater": "^2.21.0",
     "sp-frontend": "^0.1.6"
   }
 }

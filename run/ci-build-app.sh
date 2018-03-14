@@ -5,8 +5,9 @@ set -o nounset
 set -o pipefail
 
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+SP_APP_DIR="$ROOT/packages/sp-app"
 
-cd "$ROOT/packages/sp-app"
+cd "$SP_APP_DIR"
 npm install
 
 if [[ "$(uname)" == "Darwin" ]]; then
@@ -17,7 +18,7 @@ if [[ "$(uname)" == "Darwin" ]]; then
   security unlock-keychain -p mysecretpassword build.keychain
   security import /tmp/certificate.p12 -P "" -k build.keychain -T /usr/bin/codesign
   security find-identity -v
-  node "$ROOT/run/ci-build-app.js"
+  node "ci-build-app.js"
 else
   docker run \
     --rm \
@@ -29,6 +30,6 @@ else
     -v "$ROOT:/streamplace" \
     -w /streamplace \
     electronuserland/electron-builder:wine \
-    node /streamplace/run/ci-build-app.js
+    node /streamplace/packages/sp-app/ci-build-app.js
 fi
 

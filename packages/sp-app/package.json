@@ -21,7 +21,7 @@
     "productName": "Streamplace",
     "publish": {
       "bucket": "crap.stream.place",
-      "channel": "${env.ELECTRON_CHANNEL:-latest}",
+      "channel": "${env.ELECTRON_CHANNEL}",
       "path": "apps",
       "provider": "s3",
       "region": "us-west-2"

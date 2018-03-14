@@ -1,21 +1,35 @@
+# iOS CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/ios-migrating-from-1-2/ for more details
+#
 version: 2
 jobs:
   build:
-    docker:
-      - image: node:6
-    working_directory: /build
+
+    macos:
+      xcode: "8.3.3"
+
     steps:
-      - setup_docker_engine
       - checkout
 
       - run:
-          name: Install Docker client
-          command: |
-            set -x
-            VER="17.03.0-ce"
-            curl -L -o /tmp/docker-$VER.tgz https://get.docker.com/builds/Linux/x86_64/docker-$VER.tgz
-            tar -xz -C /tmp -f /tmp/docker-$VER.tgz
-            mv /tmp/docker/* /usr/bin
+          name: install node
+          command: brew install node
 
-      - run: |
-          run/ci-build.sh
+      # Build the app and run tests
+      - run:
+          name: build app
+          command: run/ci-build-app.sh
+
+
+      # Collect XML test results data to show in the UI,
+      # and save the same XML files under test-results folder
+      # in the Artifacts tab
+      # - store_test_results:
+      #     path: test_output/report.xml
+      # - store_artifacts:
+      #     path: /tmp/test-results
+      #     destination: scan-test-results
+      # - store_artifacts:
+      #     path: ~/Library/Logs/scan
+      #     destination: scan-logs

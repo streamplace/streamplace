@@ -79,12 +79,14 @@ tmp
     return run("npm", "install");
   })
   .then(() => {
-    if (os.platform() === "darwin") {
-      return run("npm", "run", "electron-publish-mac");
-    } else {
+    // code signing for mac only works on mac unfortunately
+    if (os.platform() !== "darwin") {
       return run("npm", "run", "electron-publish-windows");
+    } else {
+      return run("npm", "run", "electron-publish-windows-mac");
     }
   })
+  .then(checkUploaded)
   .catch(err => {
     console.error(err);
     process.exit(1);

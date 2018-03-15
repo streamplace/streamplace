@@ -11,6 +11,7 @@
     "build": "npm run prepare && npm run electron-builder-local",
     "electron-builder-local": "electron-builder --publish never",
     "electron-publish-windows": "electron-builder -w --publish always",
+    "electron-publish-windows-mac": "electron-builder -wm --publish always",
     "electron-publish-mac": "electron-builder -m --publish always"
   },
   "build": {

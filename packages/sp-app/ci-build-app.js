@@ -6,10 +6,11 @@
 const fs = require("fs");
 const { resolve } = require("path");
 const { spawn } = require("child_process");
-const { repoVersion, repoBranch } = require("./repo-version");
+const { repoVersion, repoBranch } = require("../../run/repo-version");
 const mkdirp = require("mkdirp");
 const tmp = require("tmp-promise");
 const os = require("os");
+const axios = require("axios");
 
 tmp.setGracefulCleanup();
 
@@ -18,6 +19,27 @@ const channel = repoVersion.indexOf("-") === -1 ? "latest" : repoBranch;
 
 let wd;
 let buildDir;
+
+// sanity check to see if we actually uploaded anything, electron-builder exits with 0 sometimes
+const checkUploaded = () => {
+  const pkg = require(resolve(wd, "package.json"));
+  const checkFile = `${channel}-mac.json`;
+  const hopefullyUploadedUrl = `https://s3-${
+    pkg.build.publish.region
+  }.amazonaws.com/${pkg.build.publish.bucket}/${
+    pkg.build.publish.path
+  }/${checkFile}`;
+  return axios.get(hopefullyUploadedUrl).then(response => {
+    const actual = JSON.stringify(response.data);
+    const expectedStr = fs.readFileSync(resolve(wd, "dist", checkFile));
+    const expected = JSON.stringify(JSON.parse(expectedStr));
+    if (actual !== expected) {
+      throw new Error(
+        `upload seems to have failed, expected ${expected} got ${actual}`
+      );
+    }
+  });
+};
 
 const run = function(command, ...args) {
   const proc = spawn(command, args, {
@@ -47,7 +69,7 @@ tmp
     buildDir = o.path;
     console.log(`Building app channel ${channel} in ${o.path}`);
     wd = o.path;
-    return run("npm", "install", `sp-app@${repoVersion}`);
+    return run("npm", "install", `sp-app@${repoBranch}`);
   })
   .then(() => {
     wd = resolve(wd, "node_modules", "sp-app");
@@ -57,12 +79,14 @@ tmp
     return run("npm", "install");
   })
   .then(() => {
-    if (os.platform() === "darwin") {
-      return run("npm", "run", "electron-publish-mac");
-    } else {
+    // code signing for mac only works on mac unfortunately
+    if (os.platform() !== "darwin") {
       return run("npm", "run", "electron-publish-windows");
+    } else {
+      return run("npm", "run", "electron-publish-windows-mac");
     }
   })
+  .then(checkUploaded)
   .catch(err => {
     console.error(err);
     process.exit(1);

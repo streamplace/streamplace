@@ -9,7 +9,10 @@ set -o pipefail
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 source "$ROOT/run/common.sh"
 
-body="$(jq -n ".request.branch = \"$CIRCLE_BRANCH\"")"
+BRANCH="$1"
+TRAVIS_TOKEN="$(cat /keybase/team/streamplace_team/secrets/travis_token)"
+
+body="$(jq -n ".request.branch = \"$BRANCH\"")"
 
 curl -s -X POST \
   -H "Content-Type: application/json" \

@@ -47,6 +47,8 @@ pipeline:
     secrets:
       - certificate_osx_p12
       - circleci_token
+      - crap_access_key_id
+      - crap_secret_access_key
     commands:
       - run/trigger-circleci-app-build.sh $DRONE_BRANCH $DRONE_COMMIT
 

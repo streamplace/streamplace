@@ -46,6 +46,7 @@ pipeline:
     image: streamplace/wheelhouse
     secrets:
       - certificate_osx_p12
+      - circleci_token
     commands:
       - run/trigger-circleci-app-build.sh $DRONE_BRANCH $DRONE_COMMIT
 

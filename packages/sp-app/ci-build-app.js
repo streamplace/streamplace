@@ -10,6 +10,7 @@ const { repoVersion, repoBranch } = require("../../run/repo-version");
 const mkdirp = require("mkdirp");
 const tmp = require("tmp-promise");
 const os = require("os");
+const axios = require("axios");
 
 tmp.setGracefulCleanup();
 
@@ -18,6 +19,27 @@ const channel = repoVersion.indexOf("-") === -1 ? "latest" : repoBranch;
 
 let wd;
 let buildDir;
+
+// sanity check to see if we actually uploaded anything, electron-builder exits with 0 sometimes
+const checkUploaded = () => {
+  const pkg = require(resolve(wd, "package.json"));
+  const checkFile = `${channel}-mac.json`;
+  const hopefullyUploadedUrl = `https://s3-${
+    pkg.build.publish.region
+  }.amazonaws.com/${pkg.build.publish.bucket}/${
+    pkg.build.publish.path
+  }/${checkFile}`;
+  return axios.get(hopefullyUploadedUrl).then(response => {
+    const actual = JSON.stringify(response.data);
+    const expectedStr = fs.readFileSync(resolve(wd, "dist", checkFile));
+    const expected = JSON.stringify(JSON.parse(expectedStr));
+    if (actual !== expected) {
+      throw new Error(
+        `upload seems to have failed, expected ${expected} got ${actual}`
+      );
+    }
+  });
+};
 
 const run = function(command, ...args) {
   const proc = spawn(command, args, {

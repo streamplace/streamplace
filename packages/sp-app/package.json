@@ -33,6 +33,7 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "devDependencies": {
+    "axios": "^0.18.0",
     "babel-cli": "^6.23.0",
     "babel-core": "^6.23.1",
     "babel-preset-streamplace": "0.0.3",

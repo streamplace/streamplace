@@ -10,12 +10,7 @@ SECRETS="/keybase/team/streamplace_team/secrets"
 
 BODY="$(cat << EOF
 {
-  "build_parameters": {
-    "AWS_ACCESS_KEY_ID": "$CRAP_ACCESS_KEY_ID",
-    "AWS_DEFAULT_REGION": "us-west-2",
-    "AWS_SECRET_ACCESS_KEY": "$CRAP_SECRET_ACCESS_KEY",
-    "CERTIFICATE_OSX_P12": "$CERTIFICATE_OSX_P12"
-  }
+  "build_parameters": {}
 }
 EOF
 )"

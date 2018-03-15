@@ -42,6 +42,13 @@ pipeline:
       - helm repo add streamplace https://s3-api.us-geo.objectstorage.softlayer.net/blobtown.stream.place
       - helm upgrade -f values-next.yaml -f values.secret.yaml --version $(npm dist-tag ls streamplace | grep next | sed 's/^.*:\ //') -i next streamplace/streamplace
 
+  trigger-app-build:
+    image: streamplace/wheelhouse
+    secrets:
+      - certificate_osx_p12
+    commands:
+      - run/trigger-circleci-app-build.sh $DRONE_BRANCH $DRONE_COMMIT
+
   slack:
     image: plugins/slack
     secrets:

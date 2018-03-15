@@ -8,7 +8,7 @@ BRANCH="$1"
 COMMIT="$2"
 SECRETS="/keybase/team/streamplace_team/secrets"
 
-BODY="$(jq -c '.' << EOF
+BODY="$(cat << EOF
 {
   "build_parameters": {
     "AWS_ACCESS_KEY_ID": "",

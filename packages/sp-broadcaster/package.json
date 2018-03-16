@@ -31,5 +31,10 @@
     "babel-preset-streamplace": "0.0.3",
     "babel-watch": "^2.0.7",
     "sp-ffmpeg": "^0.1.6"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

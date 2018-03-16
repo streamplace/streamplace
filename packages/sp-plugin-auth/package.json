@@ -24,5 +24,10 @@
     "sp-resource": "^0.1.6",
     "sp-utils": "^0.1.6",
     "winston": "^2.2.0"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

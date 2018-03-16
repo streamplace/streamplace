@@ -23,5 +23,10 @@
     "babel-preset-streamplace": "0.0.1",
     "babel-watch": "^2.0.6",
     "sp-node": "^0.1.6"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

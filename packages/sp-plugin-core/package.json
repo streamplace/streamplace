@@ -23,5 +23,10 @@
     "sp-utils": "^0.1.6",
     "uuid-validate": "0.0.2",
     "winston": "^2.2.0"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

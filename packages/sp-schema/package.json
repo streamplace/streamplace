@@ -24,5 +24,10 @@
     "babel-preset-streamplace": "*",
     "babel-watch": "^2.0.6",
     "nodemon": "^1.9.1"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

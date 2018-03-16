@@ -13,5 +13,10 @@
     "babel-cli": "^6.14.0",
     "babel-preset-streamplace": "*",
     "nodemon": "^1.10.2"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

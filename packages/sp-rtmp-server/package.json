@@ -35,5 +35,10 @@
     "sp-rtmp-nginx": "^0.1.6",
     "sp-streams": "^0.1.6",
     "winston": "^2.3.1"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

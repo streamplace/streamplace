@@ -25,5 +25,14 @@
     "sp-utils": "^0.1.6",
     "styled-components": "^1.4.4",
     "three": "^0.84.0"
+  },
+  "babel": {
+    "presets": [
+      "streamplace",
+      "react"
+    ],
+    "plugins": [
+      "transform-class-properties"
+    ]
   }
 }

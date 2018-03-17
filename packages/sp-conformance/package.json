@@ -32,5 +32,10 @@
     "sp-client": "^0.1.6",
     "sp-configuration": "^0.1.6",
     "sp-streams": "^0.1.6"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

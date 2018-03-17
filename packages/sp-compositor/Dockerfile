@@ -2,7 +2,6 @@ FROM quay.io/streamplace/sp-ffmpeg as builder
 
 ENV NODE_ENV development
 WORKDIR /app
-ADD .babelrc /app/.babelrc
 ADD package.json /app/package.json
 RUN npm install --ignore-scripts
 ADD src /app/src

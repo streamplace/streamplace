@@ -21,5 +21,10 @@
     "kurento-utils": "^6.6.1",
     "sp-client": "^0.1.6",
     "wolfy87-eventemitter": "^5.1.0"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

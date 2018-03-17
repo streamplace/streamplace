@@ -25,5 +25,10 @@
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
+  }
 }

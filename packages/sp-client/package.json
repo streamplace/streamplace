@@ -24,5 +24,10 @@
     "babel-core": "^6.23.1",
     "babel-preset-streamplace": "*",
     "nodemon": "^1.9.1"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

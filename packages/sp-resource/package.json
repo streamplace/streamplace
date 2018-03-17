@@ -34,5 +34,10 @@
     "underscore": "^1.8.3",
     "uuid": "^3.0.1",
     "winston": "^2.2.0"
+  },
+  "babel": {
+    "presets": [
+      "streamkitchen"
+    ]
   }
 }

@@ -24,5 +24,10 @@
     "openpgp": "^2.3.6",
     "sp-node": "^0.1.6",
     "winston": "^2.3.1"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

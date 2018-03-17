@@ -25,5 +25,11 @@
     "color": "^1.0.3",
     "react": "^15.4.2",
     "styled-components": "^1.4.4"
+  },
+  "babel": {
+    "presets": [
+      "babel-preset-streamplace",
+      "babel-preset-react"
+    ]
   }
 }

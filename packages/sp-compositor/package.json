@@ -36,5 +36,10 @@
     "polished": "^1.9.2",
     "sp-ffmpeg": "^0.1.6",
     "sp-streams": "^0.1.6"
+  },
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
   }
 }

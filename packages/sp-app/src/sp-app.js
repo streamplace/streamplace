@@ -1,10 +1,12 @@
 import menu from "./menu.js";
 import autoUpdater from "./auto-updater";
 import SPFrontend from "sp-frontend";
-const { app, BrowserWindow, session, Menu } = require("electron");
-const path = require("path");
-const url = require("url");
+import { app, BrowserWindow, session, Menu } from "electron";
+import path from "path";
+import url from "url";
 /* eslint-disable no-console */
+
+app.dock && app.dock.hide();
 
 // Activate the auto-updater unless we're running directly from Electron
 if (path.basename(process.argv[0]) !== "Electron") {

@@ -5,11 +5,11 @@
   "main": "compiled/sp-app.js",
   "scripts": {
     "prepare": "node_modules/.bin/babel --keep-lines --copy-files -d compiled src && rm -rf package-lock.json",
-    "start-electron": "npm run prepare && SP_URL='http://localhost:3939/' electron .",
+    "start-electron": "npm run prepare && SP_LOCAL_DEV=true electron .",
     "start": "nodemon -w src -x npm run start-electron",
     "test": "echo \"no test specified\" && exit 0",
     "build": "npm run prepare && npm run electron-builder-local",
-    "electron-builder-local": "electron-builder --publish never",
+    "electron-builder-local": "npm run prepare && ELECTRON_CHANNEL=dev electron-builder -mw --publish never",
     "electron-publish-windows": "electron-builder -w --publish always",
     "electron-publish-windows-mac": "electron-builder -wm --publish always",
     "electron-publish-mac": "electron-builder -m --publish always"
@@ -47,6 +47,7 @@
     "tmp-promise": "^1.0.4"
   },
   "dependencies": {
+    "auto-launch": "^5.0.5",
     "electron-log": "^2.0.0",
     "electron-updater": "^2.21.0",
     "sp-frontend": "^0.1.6"

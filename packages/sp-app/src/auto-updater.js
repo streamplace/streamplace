@@ -1,8 +1,34 @@
 // Copyright (c) The LHTML team
 // See LICENSE for details.
 
-const log = require("electron-log");
-const { autoUpdater } = require("electron-updater");
+import log from "electron-log";
+import { autoUpdater } from "electron-updater";
+import AutoLaunch from "auto-launch";
+const IS_LOCAL_DEV = !!process.env.SP_LOCAL_DEV;
+
+const UPDATE_INTERVAL = 1000 * 60 * 5; // 5 min
+
+const streamplaceAutoLauncher = new AutoLaunch({
+  name: "Streamplace",
+  isHidden: true
+});
+
+streamplaceAutoLauncher
+  .isEnabled()
+  .then(function(isEnabled) {
+    if (isEnabled) {
+      return;
+    }
+    if (IS_LOCAL_DEV) {
+      log.info("not enabling autolaunch in dev");
+      return;
+    }
+    log.info("enabling autolaunch");
+    streamplaceAutoLauncher.enable();
+  })
+  .catch(err => {
+    log.error(err);
+  });
 
 function sendStatusToWindow(text) {
   log.info(text);
@@ -30,6 +56,13 @@ export default function(app) {
   });
 
   app.on("ready", function() {
+    if (IS_LOCAL_DEV) {
+      log.info("not running autoupdate in dev");
+      return;
+    }
     autoUpdater.checkForUpdates();
+    setInterval(() => {
+      autoUpdater.checkForUpdates();
+    }, UPDATE_INTERVAL);
   });
 }

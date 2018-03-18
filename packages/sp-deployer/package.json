@@ -1,6 +1,6 @@
 {
   "name": "sp-deployer",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "It deploys-a the Streamplace",
   "main": "Dockerfile",
   "scripts": {
@@ -20,6 +20,6 @@
   },
   "homepage": "https://github.com/streamplace/streamplace#readme",
   "devDependencies": {
-    "sp-node": "^0.1.8"
+    "sp-node": "^0.1.9"
   }
 }

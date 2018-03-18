@@ -1,6 +1,6 @@
 {
   "name": "sp-rtmp-nginx",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Streamplace RTMP Server",
   "main": "package.json",
   "scripts": {
@@ -17,6 +17,6 @@
   },
   "homepage": "https://github.com/streamplace/streamplace#readme",
   "dependencies": {
-    "sp-node": "^0.1.8"
+    "sp-node": "^0.1.9"
   }
 }

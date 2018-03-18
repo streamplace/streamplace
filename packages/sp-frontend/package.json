@@ -1,6 +1,6 @@
 {
   "name": "sp-frontend",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "devDependencies": {
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
@@ -8,7 +8,7 @@
     "babel-preset-react-app": "^3.1.1",
     "electron": "^1.8.2",
     "npm-run-all": "^4.1.2",
-    "sp-static": "^0.1.8"
+    "sp-static": "^0.1.9"
   },
   "babel": {
     "presets": [
@@ -35,9 +35,9 @@
     "react-router-dom": "^4.0.0-beta.8",
     "react-scripts": "^1.1.1",
     "react-youtube": "^7.5.0",
-    "sp-client": "^0.1.8",
-    "sp-components": "^0.1.8",
-    "sp-styles": "^0.1.8",
+    "sp-client": "^0.1.9",
+    "sp-components": "^0.1.9",
+    "sp-styles": "^0.1.9",
     "styled-components": "^1.4.4",
     "three": "^0.84.0",
     "url": "^0.11.0"

@@ -1,6 +1,6 @@
 apiVersion: v1
 description: 'null'
 name: sp-frontend
-version: 0.1.8
+version: 0.1.9
 icon: 'https://charts.stream.place/icon.svg'
 

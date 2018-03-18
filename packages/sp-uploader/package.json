@@ -1,6 +1,6 @@
 {
   "name": "sp-uploader",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Handle file uploads for Streamplace",
   "main": "dist/sp-uploader.js",
   "scripts": {
@@ -12,9 +12,9 @@
     "busboy": "^0.2.14",
     "express": "^4.15.4",
     "morgan": "^1.8.2",
-    "sp-client": "^0.1.8",
-    "sp-configuration": "^0.1.8",
-    "sp-streams": "^0.1.8",
+    "sp-client": "^0.1.9",
+    "sp-configuration": "^0.1.9",
+    "sp-streams": "^0.1.9",
     "winston": "^2.3.1"
   },
   "devDependencies": {
@@ -22,7 +22,7 @@
     "babel-core": "^6.24.0",
     "babel-preset-streamplace": "0.0.1",
     "babel-watch": "^2.0.6",
-    "sp-node": "^0.1.8"
+    "sp-node": "^0.1.9"
   },
   "babel": {
     "presets": [

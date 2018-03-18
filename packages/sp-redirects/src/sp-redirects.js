@@ -12,7 +12,6 @@ app.use(morgan("dev"));
 
 const UPDATE_URL = "https://s3-us-west-2.amazonaws.com/crap.stream.place/apps";
 const updateInfo = url.parse(UPDATE_URL);
-console.log(updateInfo);
 const WINDOWS_UPDATE_URL = `${UPDATE_URL}/latest.yml`;
 const MAC_UPDATE_URL = `${UPDATE_URL}/latest-mac.yml`;
 const WINDOWS_PATH = "/Streamplace%20Setup.exe";
@@ -24,17 +23,21 @@ const listener = app.listen(process.env.PORT || 80, () => {
 
 app.get("/healthz", (req, res) => res.sendStatus(200));
 
-const doProxy = ({ myPath, updateUrl }) => {
+const doProxy = ({ myPath, updateUrl, mapDataToFile }) => {
   app.get(myPath, (req, res, next) => {
     axios
       .get(updateUrl)
       .then(updateResponse => {
         const updateData = parseYAML(updateResponse.data);
+        const filePath = mapDataToFile(updateData);
+
+        // Uncomment this and comment the rest of the function if you wanna redirect
+        // res.redirect(`${updateInfo.href}/${encodeURIComponent(filePath)}`);
         const updateReq = https.request(
           {
             host: updateInfo.host,
             protocol: updateInfo.protocol,
-            path: `${updateInfo.path}/${encodeURIComponent(updateData.path)}`
+            path: `${updateInfo.path}/${encodeURIComponent(filePath)}`
           },
           updateRes => {
             res.set("content-type", updateRes.headers["content-type"]);
@@ -53,9 +56,12 @@ const doProxy = ({ myPath, updateUrl }) => {
 };
 doProxy({
   myPath: WINDOWS_PATH,
-  updateUrl: WINDOWS_UPDATE_URL
+  updateUrl: WINDOWS_UPDATE_URL,
+  mapDataToFile: data => data.path
 });
 doProxy({
   myPath: MAC_PATH,
-  updateUrl: MAC_UPDATE_URL
+  updateUrl: MAC_UPDATE_URL,
+  mapDataToFile: data =>
+    data.files.filter(file => file.url.endsWith(".dmg"))[0].url
 });

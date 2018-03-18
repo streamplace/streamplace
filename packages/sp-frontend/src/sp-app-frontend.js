@@ -9,7 +9,7 @@ export default function() {
       path.resolve(__dirname, "..", "public", "iconTemplate.png")
     );
     const contextMenu = Menu.buildFromTemplate([
-      { label: `Streamplace v.${pkg.version}`, enabled: false },
+      { label: `Streamplace v${pkg.version}`, enabled: false },
       { label: "Close Streamplace", role: "quit" }
     ]);
     tray.setToolTip("Streamplace");

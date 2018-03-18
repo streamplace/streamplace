@@ -1,6 +1,6 @@
 {
   "name": "sp-overlay",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "dependencies": {
     "left-pad": "^1.2.0",
     "react": "^16.2.0",

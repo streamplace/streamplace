@@ -13,6 +13,8 @@ info "You're about to bump streamplace from version $currentVersion to $newVersi
 info "This action will create a new git tag and push it to the repo."
 confirm "Sound good?"
 
+git checkout latest
+git merge --ff-only next
 # Use a no-op lerna/lint operation to bump all the versions, then we do the git stuff manually.
 lerna bootstrap
 lerna publish --skip-git --skip-npm --yes --repo-version "$newVersion" --force-publish '*'

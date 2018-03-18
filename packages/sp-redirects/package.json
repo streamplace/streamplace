@@ -1,6 +1,6 @@
 {
   "name": "sp-redirects",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Various Streamplace HTTP redirects and proxies",
   "main": "dist/sp-redirects.js",
   "scripts": {
@@ -21,7 +21,7 @@
     "babel-core": "^6.24.0",
     "babel-preset-streamplace": "0.0.3",
     "babel-watch": "^2.0.7",
-    "sp-node": "^0.1.7"
+    "sp-node": "^0.1.8"
   },
   "babel": {
     "presets": [

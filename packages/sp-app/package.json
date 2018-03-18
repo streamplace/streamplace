@@ -1,6 +1,6 @@
 {
   "name": "sp-app",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Streamplace Desktop App",
   "main": "compiled/sp-app.js",
   "scripts": {
@@ -50,7 +50,7 @@
     "auto-launch": "^5.0.5",
     "electron-log": "^2.0.0",
     "electron-updater": "^2.21.0",
-    "sp-frontend": "^0.1.7"
+    "sp-frontend": "^0.1.8"
   },
   "babel": {
     "presets": [

@@ -1,6 +1,6 @@
 {
   "name": "sp-default",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "404 backend",
   "main": "package.json",
   "scripts": {

@@ -1,6 +1,6 @@
 {
   "name": "sp-raspberrypi",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "streamplace for raspberry pis",
   "main": "run.sh",
   "scripts": {

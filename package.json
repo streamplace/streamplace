@@ -1,6 +1,6 @@
 {
   "name": "streamplace",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "An open-source toolkit for compositing live video streams in the cloud",
   "main": "index.js",
   "dependencies": {

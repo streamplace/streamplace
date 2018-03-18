@@ -17,7 +17,6 @@ sp-compositor:
     tag: next
   ingress:
     enabled: true
-    # Used to create an Ingress record.
     hosts:
     - host: stream.place
       path: /demo/countdown
@@ -25,7 +24,18 @@ sp-compositor:
       - secretName: stream.place
         hosts:
           - stream.place
-  resources: {}
+
+sp-redirects:
+  image:
+    tag: next
+  ingress:
+    enabled: true
+    hosts:
+    - stream.place
+    tls:
+    - secretName: stream.place
+      hosts:
+        - stream.place
 
 global:
   development: false

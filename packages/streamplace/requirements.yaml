@@ -53,4 +53,6 @@ dependencies:
   - name: sp-compositor
     version: 0.1.6
     repository: 'https://charts.stream.place'
-
+  - name: sp-redirects
+    version: 0.1.6
+    repository: 'https://charts.stream.place'

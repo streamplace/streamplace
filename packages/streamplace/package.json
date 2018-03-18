@@ -44,6 +44,7 @@
     "sp-kube-lego": "^0.1.6",
     "sp-logs": "^0.1.6",
     "sp-plugin-core": "^0.1.6",
+    "sp-redirects": "^0.1.6",
     "sp-rethinkdb": "^0.1.6",
     "sp-rtmp-server": "^0.1.6",
     "sp-schema": "^0.1.6",

@@ -3,6 +3,7 @@ import styled, { injectGlobal } from "styled-components";
 import logoUrl from "./streamplace-logo.svg";
 import YouTube from "react-youtube";
 import droneLogo from "./drone.svg";
+import logo from "./icon.svg";
 
 const CorporateContainer = styled.section`
   display: flex;
@@ -88,6 +89,47 @@ const DroneLogo = styled.img`
   height: 1.8em;
 `;
 
+const Downloads = styled.div`
+  display: flex;
+  padding: 1em;
+  flex-grow: 1;
+  justify-content: space-around;
+`;
+
+const Platform = styled.a`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: black;
+  margin: 1em;
+  padding: 1em;
+`;
+
+const downloadWidth = "125px;";
+
+const SquareBG = styled.div`
+  background-color: #333333;
+  width: ${downloadWidth};
+  margin-left: 0;
+  margin-right: 0;
+`;
+
+const SizedLogo = styled.img`
+  width: ${downloadWidth};
+`;
+
+const DownloadButton = styled.a`
+  border-radius: 5px;
+  border: 1px solid #cccccc;
+  margin-top: 1em;
+  color: black;
+  padding: 1em;
+  font-weight: bold;
+  width: ${downloadWidth};
+`;
+
 export default class CorporateBullshit extends Component {
   renderYoutube() {
     const youtubeOpts = {
@@ -125,6 +167,20 @@ export default class CorporateBullshit extends Component {
             </Links>
           </Content>
           <Hero>{this.renderYoutube()}</Hero>
+          <Downloads>
+            <Platform href="https://stream.place/dl/Streamplace%20Setup.exe">
+              <h4>Streamplace for Windows</h4>
+              <SquareBG>
+                <SizedLogo src={logo} />
+              </SquareBG>
+              <DownloadButton>Download</DownloadButton>
+            </Platform>
+            <Platform href="https://stream.place/dl/Streamplace.dmg">
+              <h4>Streamplace for macOS</h4>
+              <SizedLogo src={logo} />
+              <DownloadButton>Download</DownloadButton>
+            </Platform>
+          </Downloads>
         </Header>
       </CorporateContainer>
     );

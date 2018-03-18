@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: quay.io/streamplace/sp-redirects
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 service:
   type: ClusterIP

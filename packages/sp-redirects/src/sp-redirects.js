@@ -22,9 +22,6 @@ const listener = app.listen(process.env.PORT || 80, () => {
   console.log(`sp-redirects listening on ${listener.address().port}`);
 });
 
-let windowsUpdateData;
-let macUpdateData;
-
 app.get("/healthz", (req, res) => res.sendStatus(200));
 
 const doProxy = ({ myPath, updateUrl }) => {
@@ -32,14 +29,12 @@ const doProxy = ({ myPath, updateUrl }) => {
     axios
       .get(updateUrl)
       .then(updateResponse => {
-        windowsUpdateData = parseYAML(updateResponse.data);
+        const updateData = parseYAML(updateResponse.data);
         const updateReq = https.request(
           {
             host: updateInfo.host,
             protocol: updateInfo.protocol,
-            path: `${updateInfo.path}/${encodeURIComponent(
-              windowsUpdateData.path
-            )}`
+            path: `${updateInfo.path}/${encodeURIComponent(updateData.path)}`
           },
           updateRes => {
             res.set("content-type", updateRes.headers["content-type"]);

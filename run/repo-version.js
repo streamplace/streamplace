@@ -12,6 +12,8 @@ const repoVersion = describeProc.stdout
 let repoBranch;
 if (process.env.TRAVIS_BRANCH) {
   repoBranch = process.env.TRAVIS_BRANCH;
+} else if (process.env.CIRCLE_BRANCH) {
+  repoBranch = process.env.CIRCLE_BRANCH;
 } else {
   const revProc = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
   repoBranch = revProc.stdout.toString().trim();

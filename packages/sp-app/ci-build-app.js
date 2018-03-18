@@ -14,8 +14,12 @@ const axios = require("axios");
 
 tmp.setGracefulCleanup();
 
+if (!process.env.CIRCLE_BRANCH) {
+  throw new Error("ci-build-app.js missing CIRCLE_BRANCH");
+}
+
 // channel is latest if we're a tag, branch name otherwise
-const channel = repoVersion.indexOf("-") === -1 ? "latest" : repoBranch;
+const channel = process.env.CIRCLE_BRANCH;
 
 let wd;
 let buildDir;

@@ -61,7 +61,6 @@
     "start": "run/start.sh",
     "logs": "run/logs.sh",
     "dev": "npm run start",
-    "postinstall": "wheelhouse install",
     "build-values-dev": "node run/build-values-dev.js",
     "docker-build": "run/every-package.sh run/package-docker-build.sh --concurrency=999",
     "docker-push": "run/every-package.sh run/package-docker-push.sh --concurrency=999",
@@ -79,5 +78,9 @@
     "url": "https://github.com/streamplace/streamplace"
   },
   "author": "Streamplace",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "private": true
 }

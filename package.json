@@ -82,5 +82,10 @@
   "workspaces": [
     "packages/*"
   ],
-  "private": true
+  "private": true,
+  "babel": {
+    "presets": [
+      "streamplace"
+    ]
+  }
 }

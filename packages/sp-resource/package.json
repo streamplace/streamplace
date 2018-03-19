@@ -18,7 +18,7 @@
     "babel-jest": "^15.0.0",
     "babel-polyfill": "^6.13.0",
     "babel-preset-streamkitchen": "0.0.2",
-    "jest": "^15.1.1",
+    "jest": "^22.4.2",
     "node-uuid": "^1.4.7",
     "underscore": "^1.8.3"
   },
@@ -39,5 +39,8 @@
     "presets": [
       "streamkitchen"
     ]
+  },
+  "jest": {
+    "testEnvironment": "node"
   }
 }

@@ -15,5 +15,8 @@
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject",
     "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "react-scripts": "^1.1.1"
   }
 }

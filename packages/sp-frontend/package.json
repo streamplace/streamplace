@@ -38,6 +38,7 @@
     "sp-client": "^0.1.9",
     "sp-components": "^0.1.9",
     "sp-styles": "^0.1.9",
+    "streamplace-ui": "^0.1.9",
     "styled-components": "^1.4.4",
     "three": "^0.84.0",
     "url": "^0.11.0"

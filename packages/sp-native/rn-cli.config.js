@@ -7,4 +7,10 @@ config.getProjectRoots = function(...args) {
   roots[0] = path.resolve(roots[0], "..", "..");
   return roots.filter(root => !root.endsWith("node_modules"));
 };
+let srcDirectories = path.resolve(__dirname, "..", "[a-z-]+", "src", ".+");
+srcDirectories = srcDirectories.replace(/\//g, "\\/");
+
+config.getBlacklistRE = function() {
+  return new RegExp(srcDirectories);
+};
 module.exports = config;

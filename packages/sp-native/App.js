@@ -1,5 +1,5 @@
 import React from "react";
-import StreamplaceUI from "streamplace-ui/src/streamplace-ui";
+import StreamplaceUI from "streamplace-ui";
 
 export default class App extends React.Component {
   render() {

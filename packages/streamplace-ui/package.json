@@ -1,0 +1,26 @@
+{
+  "name": "streamplace-ui",
+  "version": "0.1.9",
+  "description": "Isomorphic front-end for Streamplace",
+  "main": "dist/streamplace-ui.js",
+  "scripts": {
+    "start": "NODE_ENV=development babel -w --copy-files -s -d dist src"
+  },
+  "babel": {
+    "presets": [
+      "react-app"
+    ],
+    "plugins": [
+      "transform-es2015-modules-commonjs"
+    ]
+  },
+  "author": "Streamplace",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.0",
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.26.0",
+    "babel-preset-react-app": "^3.1.1",
+    "styled-components": "^3.2.3"
+  }
+}

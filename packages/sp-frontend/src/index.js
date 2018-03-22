@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import "./index.css";
+import StreamplaceUI from "streamplace-ui";
 
 (async function() {
   const isElectron =
@@ -9,7 +10,7 @@ import "./index.css";
     const SPAppFrontend = await import("./sp-app-frontend");
     SPAppFrontend.default();
   } else {
-    const SPFrontend = (await import("./sp-frontend")).default;
-    ReactDOM.render(<SPFrontend />, document.querySelector("main"));
+    // const SPFrontend = (await import("./sp-frontend")).default;
+    ReactDOM.render(<StreamplaceUI />, document.querySelector("main"));
   }
 })();

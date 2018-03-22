@@ -10,7 +10,7 @@
   "main": "entry.js",
   "scripts": {
     "prestart": "node link-workspaces.js",
-    "start": "react-native-scripts start",
+    "start": "react-native-scripts start | cat",
     "eject": "react-native-scripts eject",
     "android": "react-native-scripts android",
     "ios": "react-native-scripts ios",

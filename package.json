@@ -61,6 +61,7 @@
     "start": "run/start.sh",
     "logs": "run/logs.sh",
     "dev": "npm run start",
+    "dev-client": "npx  lerna exec --concurrency=999 --no-sort --include-filtered-dependencies --scope sp-native --scope sp-frontend --scope sp-app npm run start",
     "build-values-dev": "node run/build-values-dev.js",
     "docker-build": "run/every-package.sh run/package-docker-build.sh --concurrency=999",
     "docker-push": "run/every-package.sh run/package-docker-push.sh --concurrency=999",

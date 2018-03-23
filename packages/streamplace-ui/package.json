@@ -18,6 +18,7 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "dependencies": {
+    "auth0-js": "^9.4.1",
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.0",

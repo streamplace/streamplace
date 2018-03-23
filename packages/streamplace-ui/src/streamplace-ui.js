@@ -1,8 +1,7 @@
 import React from "react";
 
 import styled, { injectGlobal } from "styled-components";
-
-const IS_NATIVE = typeof navigator.userAgent === "undefined";
+import { IS_NATIVE } from "./polyfill";
 import ReactNative, {
   Text,
   View,
@@ -14,7 +13,7 @@ import ReactNative, {
   Button,
   Linking
 } from "react-native";
-const componentPkg = IS_NATIVE ? "react-native" : "react-native-web";
+import Form from "./form";
 
 if (!IS_NATIVE) {
   injectGlobal`
@@ -45,7 +44,7 @@ const Overall = styled.View`
   ${!IS_NATIVE && "-webkit-app-region: drag;"};
 `;
 
-const RestCentered = styled.View`
+const RestCentered = styled(Form)`
   align-items: stretch;
   max-width: 550px;
   justify-content: flex-start;
@@ -61,12 +60,14 @@ const UserName = styled.TextInput`
   font-size: 30px;
   width: 100%;
   margin-bottom: 10px;
+  padding-left: 5px;
+  padding-right: 5px;
 `;
 
 const LogoImage = styled.Image`
   height: 100px;
   width: 100%;
-  ${IS_NATIVE && "margin-top: 50px;"};
+  ${IS_NATIVE && "margin-top: 50px"};
 `;
 
 const LoginButton = styled.Button`
@@ -82,7 +83,8 @@ export default class App extends React.Component {
   constructor() {
     super();
     this.state = {
-      value: ""
+      email: "",
+      password: ""
     };
   }
   render() {
@@ -91,29 +93,28 @@ export default class App extends React.Component {
         <RestCentered>
           <LogoImage resizeMode={"contain"} source={logoSource} />
           <UserName
-            onChangeText={text =>
+            onChangeText={email =>
               this.setState({
-                value: text
+                email
               })
             }
             editable={true}
-            value={this.state.value}
-            placeholder="eli@iame.li"
+            value={this.state.email}
+            placeholder="email"
+            keyboardType="email-address"
           />
           <UserName
-            onChangeText={text =>
+            onChangeText={password =>
               this.setState({
-                value: text
+                password
               })
             }
             editable={true}
-            value={this.state.value}
-            placeholder="**********"
+            secureTextEntry={true}
+            value={this.state.password}
+            placeholder="password"
           />
-          <LoginButton
-            title="Log In"
-            onPress={() => Linking.openURL("https://stream.place/")}
-          />
+          <LoginButton title="Log In" onPress={() => {}} />
         </RestCentered>
       </Overall>
     );

@@ -4,7 +4,7 @@
   "description": "Streamplace Desktop App",
   "main": "compiled/sp-app.js",
   "scripts": {
-    "prepare": "node_modules/.bin/babel --keep-lines --copy-files -d compiled src && rm -rf package-lock.json",
+    "prepare": "NODE_ENV=production babel --keep-lines --copy-files -d compiled src && rm -rf package-lock.json",
     "start-electron": "npm run prepare && SP_LOCAL_DEV=true electron .",
     "start": "NODE_ENV=development nodemon -w src -x npm run start-electron",
     "test": "echo \"no test specified\" && exit 0",

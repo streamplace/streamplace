@@ -4,9 +4,10 @@ import { app, BrowserWindow, session, Menu, Tray } from "electron";
 import path from "path";
 import url from "url";
 import pkg from "../package.json";
+import { format as urlFormat } from "url";
 /* eslint-disable no-console */
 
-app.dock && app.dock.hide();
+// app.dock && app.dock.hide();
 
 const imagePath = path.resolve(
   require.resolve("streamplace-ui"),
@@ -31,6 +32,7 @@ process.on("unhandledRejection", err => {
 });
 
 let tray = null;
+let win;
 app.on("ready", () => {
   let iconImage =
     process.platform === "darwin" ? "iconTemplate.png" : "favicon.png";
@@ -41,6 +43,23 @@ app.on("ready", () => {
   ]);
   tray.setToolTip("Streamplace");
   tray.setContextMenu(contextMenu);
+
+  // Login window!
+  let url = urlFormat({
+    protocol: "file",
+    slashes: true,
+    pathname: require("path").join(__dirname, "entrypoint.html")
+  });
+
+  win = new BrowserWindow({
+    width: 350,
+    height: 450,
+    title: "Streamplace",
+    titleBarStyle: "hidden-inset",
+    show: true
+  });
+
+  win.loadURL("http://localhost:3939");
 });
 
 // // Keep a global reference of the window object, if you don"t, the window will

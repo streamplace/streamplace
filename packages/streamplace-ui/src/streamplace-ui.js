@@ -1,5 +1,9 @@
 import React from "react";
-import {
+
+import styled, { injectGlobal } from "styled-components";
+
+const IS_NATIVE = typeof navigator.userAgent === "undefined";
+import ReactNative, {
   Text,
   View,
   StyleSheet,
@@ -10,9 +14,7 @@ import {
   Button,
   Linking
 } from "react-native";
-import styled, { injectGlobal } from "styled-components";
-
-const IS_NATIVE = typeof navigator.userAgent === "undefined";
+const componentPkg = IS_NATIVE ? "react-native" : "react-native-web";
 
 if (!IS_NATIVE) {
   injectGlobal`
@@ -20,21 +22,19 @@ if (!IS_NATIVE) {
     body,
     main {
       height: 100%;
+      font-family: "Open Sans", Helvetica, sans-serif !important;
     }
     main {
       display: flex;
     }
   `;
-}
 
-if (!styled.View) {
-  styled.View = styled(View);
-}
-if (!styled.TextInput) {
-  styled.TextInput = styled(TextInput);
-}
-if (!styled.Image) {
-  styled.Image = styled(Image);
+  // mildly hacky check to give styled-components all the RN stuff
+  Object.keys(ReactNative).forEach(key => {
+    if (!styled[key] && ReactNative[key].prototype instanceof React.Component) {
+      styled[key] = styled(ReactNative[key]);
+    }
+  });
 }
 
 const Overall = styled.View`
@@ -42,6 +42,7 @@ const Overall = styled.View`
   justify-content: flex-start;
   flex-grow: 1;
   padding: 15px;
+  ${!IS_NATIVE && "-webkit-app-region: drag;"};
 `;
 
 const RestCentered = styled.View`
@@ -63,8 +64,13 @@ const UserName = styled.TextInput`
 `;
 
 const LogoImage = styled.Image`
-  height: 200px;
+  height: 100px;
   width: 100%;
+  ${IS_NATIVE && "margin-top: 50px;"};
+`;
+
+const LoginButton = styled.Button`
+  height: 80px;
 `;
 
 let logoSource = require("./streamplace-logo.svg");
@@ -104,7 +110,7 @@ export default class App extends React.Component {
             value={this.state.value}
             placeholder="**********"
           />
-          <Button
+          <LoginButton
             title="Log In"
             onPress={() => Linking.openURL("https://stream.place/")}
           />

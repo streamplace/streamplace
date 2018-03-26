@@ -11,7 +11,7 @@ import ReactNative, {
   Linking
 } from "react-native";
 import styled from "./styled";
-import { IS_NATIVE } from "./polyfill";
+import { IS_NATIVE, IS_ANDROID } from "./polyfill";
 import Form from "./form";
 
 const Overall = styled.View`
@@ -32,7 +32,7 @@ const RestCentered = styled(Form)`
 
 const UserName = styled.TextInput`
   border-bottom-color: black;
-  border-bottom-width: 1px;
+  border-bottom-width: ${IS_ANDROID ? "0px" : "1px"};
   border-style: solid;
   height: 80px;
   font-size: 30px;

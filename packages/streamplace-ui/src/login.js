@@ -55,6 +55,11 @@ const LoginButton = styled.Button`
   height: 80px;
 `;
 
+const ErrorText = styled.Text`
+  color: red;
+  text-align: center;
+`;
+
 let logoSource = require("./streamplace-logo.svg");
 if (IS_NATIVE) {
   logoSource = require("./streamplace-logo.png");
@@ -67,7 +72,8 @@ export default class Login extends React.Component {
       email: "",
       password: "",
       loading: true,
-      loggedIn: false
+      loggedIn: false,
+      error: null
     };
   }
   componentWillMount() {
@@ -89,9 +95,16 @@ export default class Login extends React.Component {
       });
   }
   login() {
+    this.setState({
+      error: null
+    });
     login({
       email: this.state.email,
       password: this.state.password
+    }).catch(err => {
+      this.setState({
+        error: err.message
+      });
     });
   }
   render() {
@@ -145,6 +158,7 @@ export default class Login extends React.Component {
             innerRef={ref => (this.passwordInput = ref)}
           />
           <LoginButton title="Log In" onPress={() => this.login()} />
+          {this.state.error && <ErrorText>{this.state.error}</ErrorText>}
         </RestCentered>
       </Overall>
     );

@@ -13,4 +13,4 @@ while ! helm list > /dev/null; do
   sleep 1
 done
 wheelhouse build helm
-helm upgrade -i -f values-dev.yaml dev packages/streamplace
+helm upgrade -i -f values-dev.example.yaml -f values-dev.yaml dev packages/streamplace

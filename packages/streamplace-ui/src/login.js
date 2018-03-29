@@ -13,6 +13,7 @@ import ReactNative, {
 import { IS_NATIVE, IS_ANDROID } from "./polyfill";
 import styled from "./styled";
 import Form from "./form";
+import Logout from "./logout";
 import { login, checkLogin } from "./auth/auth";
 import SP from "sp-client";
 
@@ -64,19 +65,27 @@ export default class Login extends React.Component {
     super();
     this.state = {
       email: "",
-      password: ""
+      password: "",
+      loading: true,
+      loggedIn: false
     };
   }
   componentWillMount() {
     checkLogin()
-      .then(token => {
-        if (!token) {
-          return;
+      .then(user => {
+        if (user) {
+          return this.setState({
+            loading: false,
+            loggedIn: true
+          });
         }
-        return SP.connect({ token }).then(data => {});
+        return this.setState({
+          loading: false,
+          loggedIn: false
+        });
       })
       .catch(err => {
-        throw err;
+        this.setState({ loading: false, loggedIn: false });
       });
   }
   login() {
@@ -86,6 +95,18 @@ export default class Login extends React.Component {
     });
   }
   render() {
+    if (this.state.loading) {
+      return <View />;
+    }
+    if (this.state.loggedIn) {
+      return (
+        <Overall>
+          <RestCentered>
+            <Logout />
+          </RestCentered>
+        </Overall>
+      );
+    }
     return (
       <Overall>
         <RestCentered>

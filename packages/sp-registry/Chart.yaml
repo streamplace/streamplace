@@ -1,0 +1,7 @@
+apiVersion: v1
+appVersion: '1.0'
+description: Streamplace Registry Proxy
+name: sp-registry
+version: 0.1.9
+icon: 'https://charts.stream.place/icon.svg'
+

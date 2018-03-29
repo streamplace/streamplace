@@ -10,9 +10,10 @@ import ReactNative, {
   Button,
   Linking
 } from "react-native";
-import styled from "./styled";
 import { IS_NATIVE, IS_ANDROID } from "./polyfill";
+import styled from "./styled";
 import Form from "./form";
+import { login } from "./auth";
 
 const Overall = styled.View`
   align-items: center;
@@ -57,6 +58,13 @@ if (IS_NATIVE) {
   logoSource = require("./streamplace-logo.png");
 }
 
+// const webAuth = new auth0.WebAuth({
+//   domain: "streamkitchen.auth0.com",
+//   clientID: "hZU06VmfYz2JLZCkjtJ7ltEy5SOsvmBA",
+//   responseType: "token id_token",
+//   redirectUri: !IS_NATIVE && window.location.href
+// });
+
 export default class Login extends React.Component {
   constructor() {
     super();
@@ -65,6 +73,7 @@ export default class Login extends React.Component {
       password: ""
     };
   }
+  login() {}
   render() {
     return (
       <Overall>
@@ -84,7 +93,7 @@ export default class Login extends React.Component {
               if (IS_NATIVE) {
                 this.passwordInput.focus();
               } else {
-                // do submit
+                this.login();
               }
             }}
             returnKeyType="next"
@@ -97,12 +106,13 @@ export default class Login extends React.Component {
             }
             editable={true}
             secureTextEntry={true}
+            onSubmitEditing={() => this.login()}
             value={this.state.password}
             placeholder="password"
             returnKeyType="go"
             innerRef={ref => (this.passwordInput = ref)}
           />
-          <LoginButton title="Log In" onPress={() => {}} />
+          <LoginButton title="Log In" onPress={() => this.login()} />
         </RestCentered>
       </Overall>
     );

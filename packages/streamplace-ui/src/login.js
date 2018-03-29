@@ -13,7 +13,8 @@ import ReactNative, {
 import { IS_NATIVE, IS_ANDROID } from "./polyfill";
 import styled from "./styled";
 import Form from "./form";
-import { login } from "./auth";
+import { login, checkLogin } from "./auth/auth";
+import SP from "sp-client";
 
 const Overall = styled.View`
   align-items: center;
@@ -58,13 +59,6 @@ if (IS_NATIVE) {
   logoSource = require("./streamplace-logo.png");
 }
 
-// const webAuth = new auth0.WebAuth({
-//   domain: "streamkitchen.auth0.com",
-//   clientID: "hZU06VmfYz2JLZCkjtJ7ltEy5SOsvmBA",
-//   responseType: "token id_token",
-//   redirectUri: !IS_NATIVE && window.location.href
-// });
-
 export default class Login extends React.Component {
   constructor() {
     super();
@@ -73,7 +67,24 @@ export default class Login extends React.Component {
       password: ""
     };
   }
-  login() {}
+  componentWillMount() {
+    checkLogin()
+      .then(token => {
+        if (!token) {
+          return;
+        }
+        return SP.connect({ token }).then(data => {});
+      })
+      .catch(err => {
+        throw err;
+      });
+  }
+  login() {
+    login({
+      email: this.state.email,
+      password: this.state.password
+    });
+  }
   render() {
     return (
       <Overall>

@@ -1,0 +1,22 @@
+{
+  "name": "sp-builder",
+  "version": "0.1.9",
+  "description": "Streamplace Node Builder",
+  "main": "package.json",
+  "scripts": {
+    "test": "git@github.com:streamplace/streamplace.git"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/streamplace/streamplace.git"
+  },
+  "keywords": [
+    "Streamplace"
+  ],
+  "author": "Streamplace",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/streamplace/streamplace/issues"
+  },
+  "homepage": "https://github.com/streamplace/streamplace#readme"
+}

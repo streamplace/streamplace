@@ -1,11 +1,9 @@
+FROM quay.io/streamplace/sp-builder as builder
 FROM quay.io/streamplace/sp-node
 
-# To be run from the apps directory.
-
-WORKDIR /app
 ADD package.json package.json
 RUN npm install --production --unsafe-perm
-ADD dist dist
+COPY --from=builder /app/dist dist
 
 ENV PORT 80
 EXPOSE 80

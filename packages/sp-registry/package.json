@@ -4,7 +4,7 @@
   "description": "Streamplace Registry Proxy",
   "main": "package.json",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"no test specified\" && exit 0"
   },
   "author": "Streamplace",
   "license": "Apache-2.0",

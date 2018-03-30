@@ -3,7 +3,7 @@ import yaml from "js-yaml";
 import winston from "winston";
 import { safeLoad as parseYaml } from "js-yaml";
 import pkg from "../package.json";
-import config from "sp-configuration";
+import { config } from "sp-client";
 
 const DOMAIN = config.require("DOMAIN");
 

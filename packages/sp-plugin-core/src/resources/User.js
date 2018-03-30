@@ -2,7 +2,7 @@ import Resource from "sp-resource";
 import winston from "winston";
 import { v4 } from "node-uuid";
 import uuidCheck from "uuid-validate";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import { parse as parseUrl } from "url";
 
 export default class User extends Resource {

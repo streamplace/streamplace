@@ -7,7 +7,7 @@ import winston from "winston";
 import APIError from "./api-error";
 import jwt from "jsonwebtoken";
 import dove from "dove-jwt";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import ms from "ms";
 import aguid from "aguid";
 

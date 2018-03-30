@@ -1,7 +1,7 @@
 import express from "express";
 import winston from "winston";
 import SP from "sp-client";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import morgan from "morgan";
 import Busboy from "busboy";
 import { fileOutputStream } from "sp-streams";

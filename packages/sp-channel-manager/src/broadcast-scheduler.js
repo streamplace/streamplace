@@ -1,7 +1,7 @@
 import Api from "kubernetes-client";
 import SP from "sp-client";
 import winston from "winston";
-import config from "sp-configuration";
+import { config } from "sp-client";
 
 // Kinda messy. Improvements to be made here:
 // * Abstract it so it can work with podtemplates so it can get used for

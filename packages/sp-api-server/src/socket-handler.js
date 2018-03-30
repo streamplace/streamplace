@@ -1,6 +1,6 @@
 import SocketIO from "socket.io";
 import { SKContext } from "sp-resource";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import winston from "winston";
 import _ from "underscore";
 import url from "url";

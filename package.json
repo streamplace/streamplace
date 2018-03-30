@@ -6,6 +6,7 @@
   "dependencies": {
     "babel-eslint": "^7.2.3",
     "babel-preset-streamplace": "0.0.3",
+    "depcheck": "^0.6.9",
     "eslint": "^4.11.0",
     "eslint-config-react-app": "^2.0.1",
     "eslint-plugin-flowtype": "^2.39.1",
@@ -63,7 +64,7 @@
     "dev": "npm run start",
     "dev-client": "npx  lerna exec --concurrency=999 --no-sort --include-filtered-dependencies --scope sp-native --scope sp-frontend --scope sp-app npm run start",
     "build-values-dev": "node run/build-values-dev.js",
-    "docker-build": "run/every-package.sh run/package-docker-build.sh --concurrency=999",
+    "docker-build": "lerna exec 'if [[ -f Dockerfile ]]; then ../../run/package-log.sh docker build -t quay.io/streamplace/$(basename $PWD) .; fi'",
     "docker-push": "run/every-package.sh run/package-docker-push.sh --concurrency=999",
     "helm-lint": "run/every-package.sh run/helm-lint.sh --concurrency=999",
     "ci-build-app": "run/ci-build-app.sh",
@@ -72,8 +73,7 @@
     "kube-init": "run/kube-init.sh",
     "update-cert": "run/update-cert.sh",
     "link-deps": "run/link-deps.sh",
-    "precommit": "CI=true lint-staged && run/pre-commit.sh",
-    "docker-build": "lerna exec 'if [[ -f Dockerfile ]]; then ../../run/package-log.sh docker build -t quay.io/streamplace/$(basename $PWD) .; fi'"
+    "precommit": "CI=true lint-staged && run/pre-commit.sh"
   },
   "repository": {
     "type": "git",

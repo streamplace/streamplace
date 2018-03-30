@@ -6,12 +6,15 @@ const fs = require("fs");
 const path = require("path");
 const packages = fs.readdirSync(path.resolve(__dirname, "..", "packages"));
 const prefix = "quay.io/streamplace";
+const depcheck = require("depcheck");
 
 let failed = false;
 const graph = {};
+const dirs = {};
 for (const pkgName of packages) {
   graph[pkgName] = [];
   const pkgDir = path.resolve(__dirname, "..", "packages", pkgName);
+  dirs[pkgName] = pkgDir;
   const pkg = JSON.parse(fs.readFileSync(path.resolve(pkgDir, "package.json")));
   const pkgDeps = new Set(
     [
@@ -57,4 +60,25 @@ const dotFile = `
 
 fs.writeFileSync(path.resolve(__dirname, "..", "dependencies.dot"), dotFile);
 
-process.exit(failed ? 1 : 0);
+(async () => {
+  for (const pkgName of packages) {
+    const unused = await new Promise((resolve, reject) =>
+      depcheck(dirs[pkgName], {}, resolve)
+    );
+    Object.keys(unused.missing).forEach(missingDep => {
+      failed = true;
+      console.log(`⛔️ ${pkgName} is missing ${missingDep}`);
+    });
+    // most unused dependencies are for docker deps and stuff but we do care about sp-configuration
+    if (
+      unused.dependencies.includes("sp-configuration") ||
+      unused.devDependencies.includes("sp-configuration")
+    ) {
+      failed = true;
+      console.log(`⛔️ ${pkgName} has unnecessary sp-configuration`);
+      console.log(path.resolve(dirs[pkgName], "package.json"));
+    }
+  }
+})();
+
+// process.exit(failed ? 1 : 0);

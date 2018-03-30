@@ -21,6 +21,7 @@
     "dove-jwt": "0.0.4",
     "mz": "^2.6.0",
     "node-uuid": "^1.4.7",
+    "sp-client": "^0.1.9",
     "sp-resource": "^0.1.9",
     "sp-utils": "^0.1.9",
     "winston": "^2.2.0"

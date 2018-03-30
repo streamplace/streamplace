@@ -30,7 +30,7 @@
     "on-finished": "^2.3.0",
     "rethinkdb": "^2.3.3",
     "socket.io": "^1.4.5",
-    "sp-configuration": "^0.1.9",
+    "sp-client": "^0.1.9",
     "sp-resource": "^0.1.9",
     "swagger-parser": "^3.4.0",
     "underscore": "^1.8.3",

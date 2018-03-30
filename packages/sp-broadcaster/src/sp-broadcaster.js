@@ -1,5 +1,5 @@
 import SP from "sp-client";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import winston from "winston";
 import {
   tcpIngressStream,

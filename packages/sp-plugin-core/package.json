@@ -19,8 +19,10 @@
   },
   "dependencies": {
     "node-uuid": "^1.4.7",
+    "sp-client": "^0.1.9",
     "sp-resource": "^0.1.9",
     "sp-utils": "^0.1.9",
+    "underscore": "^1.8.3",
     "uuid-validate": "0.0.2",
     "winston": "^2.2.0"
   },

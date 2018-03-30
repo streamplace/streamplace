@@ -3,7 +3,7 @@ import {
   constantFpsStream,
   tcpEgressStream
 } from "sp-streams";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import SP from "sp-client";
 import winston from "winston";
 import debug from "debug";

@@ -1,4 +1,4 @@
-import config from "sp-configuration";
+import { config } from "sp-client";
 import { SPClient } from "sp-client";
 import fluent from "fluent-ffmpeg";
 import { PassThrough } from "stream";

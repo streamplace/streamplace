@@ -7,6 +7,8 @@ import jwtDecode from "jwt-decode";
 import request from "superagent";
 import config from "sp-configuration";
 
+export { config };
+
 import Resource from "./Resource";
 
 const API_SERVER_URL = config.optional("API_SERVER_URL");

@@ -1,7 +1,7 @@
 import express from "express";
 import winston from "winston";
 import Resource, { SKContext } from "sp-resource";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import onFinished from "on-finished";
 import apiLog from "./api-log";
 

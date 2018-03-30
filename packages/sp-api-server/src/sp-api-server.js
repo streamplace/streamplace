@@ -2,7 +2,7 @@ import winston from "winston";
 import Ajv from "ajv";
 import { SKContext, RethinkDbDriver } from "sp-resource";
 import express from "express";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import bodyParser from "body-parser";
 import http from "http";
 import axios from "axios";

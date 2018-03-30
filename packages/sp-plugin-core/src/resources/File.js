@@ -1,5 +1,5 @@
 import Resource from "sp-resource";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import { randomId } from "sp-utils";
 
 const S3_HOST = config.require("S3_HOST");

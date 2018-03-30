@@ -17,6 +17,7 @@ pipeline:
       - NPM_CONFIG_UNSAFE_PERM=true
     commands:
       - yarn install
+      - npm run lint
       - npx wheelhouse build
       - npm test
       - npx wheelhouse push --dist-tag $DRONE_BRANCH

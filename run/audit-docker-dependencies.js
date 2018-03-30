@@ -8,7 +8,9 @@ const packages = fs.readdirSync(path.resolve(__dirname, "..", "packages"));
 const prefix = "quay.io/streamplace";
 
 let failed = false;
+const graph = {};
 for (const pkgName of packages) {
+  graph[pkgName] = [];
   const pkgDir = path.resolve(__dirname, "..", "packages", pkgName);
   const pkg = JSON.parse(fs.readFileSync(path.resolve(pkgDir, "package.json")));
   const pkgDeps = new Set(
@@ -17,6 +19,7 @@ for (const pkgName of packages) {
       ...Object.keys(pkg.devDependencies || [])
     ].filter(dep => packages.includes(dep))
   );
+  graph[pkgName] = [...pkgDeps];
   let dockerfile;
   try {
     dockerfile = fs.readFileSync(path.resolve(pkgDir, "Dockerfile"), "utf8");
@@ -41,5 +44,17 @@ for (const pkgName of packages) {
       .join("\n")
   );
 }
+
+const dotFile = `
+  digraph streamplace {
+    ${Object.entries(graph)
+      .map(([pkgName, deps]) =>
+        deps.map(dep => `    "${dep}" -> "${pkgName}";`).join("\n")
+      )
+      .join("\n")}
+  }
+`;
+
+fs.writeFileSync(path.resolve(__dirname, "..", "dependencies.dot"), dotFile);
 
 process.exit(failed ? 1 : 0);

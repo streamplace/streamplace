@@ -17,6 +17,8 @@
     "prepare": "npm run build"
   },
   "devDependencies": {
-    "react-scripts": "^1.1.1"
+    "react-scripts": "^1.1.1",
+    "sp-builder": "^0.1.9",
+    "sp-static": "^0.1.9"
   }
 }

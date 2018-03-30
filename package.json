@@ -72,7 +72,8 @@
     "kube-init": "run/kube-init.sh",
     "update-cert": "run/update-cert.sh",
     "link-deps": "run/link-deps.sh",
-    "precommit": "CI=true lint-staged && run/pre-commit.sh"
+    "precommit": "CI=true lint-staged && run/pre-commit.sh",
+    "docker-build": "lerna exec 'if [[ -f Dockerfile ]]; then ../../run/package-log.sh docker build -t quay.io/streamplace/$(basename $PWD) .; fi'"
   },
   "repository": {
     "type": "git",

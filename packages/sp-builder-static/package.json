@@ -1,7 +1,7 @@
 {
-  "name": "sp-builder",
+  "name": "sp-builder-static",
   "version": "0.1.9",
-  "description": "Streamplace Node Builder",
+  "description": "Streamplace static site builder",
   "main": "package.json",
   "scripts": {
     "test": "git@github.com:streamplace/streamplace.git"

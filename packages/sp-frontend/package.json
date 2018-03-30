@@ -47,7 +47,7 @@
     "dev": "bash -c 'PORT=80 react-scripts start | cat'",
     "start-cra": "PORT=3939 react-scripts start | cat",
     "start-babel": "NODE_ENV=development babel -w -s -d dist src",
-    "prepare-cra": "react-scripts build && rm -rf dist && mv build dist",
+    "prepare-cra": "react-scripts build",
     "prepare-babel": "NODE_ENV=production babel -s -d dist src",
     "prepare": "run-s prepare-cra prepare-babel",
     "test": "react-scripts test --env=jsdom",

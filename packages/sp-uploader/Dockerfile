@@ -1,9 +1,8 @@
-
+FROM quay.io/streamplace/sp-builder as builder
 FROM quay.io/streamplace/sp-node
 
-WORKDIR /app
-ADD package.json /app/package.json
-RUN npm install --production
-ADD dist /app/dist
+ADD package.json package.json
+RUN npm install --production --unsafe-perm
+COPY --from=builder /app/dist dist
 
-CMD ["node", "/app/dist/sp-uploader.js"]
+CMD node /app/dist/sp-uploader.js

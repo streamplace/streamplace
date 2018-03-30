@@ -1,7 +1,0 @@
-
-global:
-  repo: quay.io/streamplace
-enabled: false
-domain: example.com
-developers:
-  - username: iameli

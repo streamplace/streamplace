@@ -1,3 +1,4 @@
+FROM quay.io/streamplace/sp-builder-static as builder
 FROM quay.io/streamplace/sp-static
 
-ADD build /app/dist
+COPY --from=builder /app/dist /app/dist

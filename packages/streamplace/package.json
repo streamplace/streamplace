@@ -37,7 +37,6 @@
     "sp-compositor": "^0.1.9",
     "sp-coturn": "^0.1.9",
     "sp-default": "^0.1.9",
-    "sp-dev-certs": "^0.1.9",
     "sp-file-server": "^0.1.9",
     "sp-frontend": "^0.1.9",
     "sp-ingress": "^0.1.9",

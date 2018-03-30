@@ -1,9 +1,6 @@
-
+FROM quay.io/streamplace/sp-builder AS builder
 FROM quay.io/streamplace/sp-ffmpeg
 
-WORKDIR /app
-ADD package.json /app/package.json
-RUN npm install --production
-ADD dist /app/dist
+COPY --from=builder /app/dist /app/dist
 
 CMD ["node", "/app/dist/sp-broadcaster.js"]

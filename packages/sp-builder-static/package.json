@@ -4,7 +4,7 @@
   "description": "Streamplace static site builder",
   "main": "package.json",
   "scripts": {
-    "test": "git@github.com:streamplace/streamplace.git"
+    "test": "echo 'no tests'"
   },
   "repository": {
     "type": "git",

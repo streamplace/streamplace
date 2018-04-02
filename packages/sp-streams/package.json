@@ -9,7 +9,7 @@
   "description": "Streamplace Streams for Piping Video Around and Stuff",
   "main": "dist/sp-streams.js",
   "scripts": {
-    "test-in-container": "jest -i --forceExit",
+    "test-in-container": "if [ -n \"${CI+set}\" ]; then jest -i --forceExit; fi",
     "start": "babel -d dist -s -w src",
     "prepare": "babel -d dist src"
   },

@@ -7,4 +7,5 @@ RUN npm install
 ADD __test__ /app/__test__
 ADD src /app/src
 
+ARG CI
 RUN npm run test-in-container

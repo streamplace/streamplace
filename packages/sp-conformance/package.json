@@ -29,8 +29,7 @@
     "babel-preset-streamplace": "0.0.3",
     "fluent-ffmpeg": "^2.1.2",
     "jest": "^22.4.2",
-    "sp-client": "^0.1.9",
-    "sp-streams": "^0.1.9"
+    "sp-client": "^0.1.9"
   },
   "babel": {
     "presets": [

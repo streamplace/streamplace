@@ -1,7 +1,7 @@
 import { version } from "../package.json";
 import Yargs from "yargs";
 import debug from "debug";
-import { spStream } from "sp-streams";
+import { spStream } from "sp-client";
 
 const log = debug("sp:cli");
 

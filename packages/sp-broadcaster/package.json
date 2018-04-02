@@ -22,7 +22,6 @@
   "dependencies": {
     "debug": "^3.1.0",
     "sp-client": "^0.1.9",
-    "sp-streams": "^0.1.9",
     "winston": "^2.3.1"
   },
   "devDependencies": {

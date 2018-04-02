@@ -1,6 +1,7 @@
-import { socketEgressStream, socketIngressStream } from "sp-streams";
+import socketEgressStream from "./socket-egress-stream";
+import socketIngressStream from "./socket-ingress-stream";
 import debug from "debug";
-import ffmpeg from "sp-streams/dist/ffmpeg";
+import ffmpeg from "./ffmpeg";
 import { PassThrough, Transform } from "stream";
 
 const log = debug("sp:rtmp-output-stream");

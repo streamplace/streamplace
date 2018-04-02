@@ -32,7 +32,6 @@
     "sp-client": "^0.1.9",
     "sp-node": "^0.1.9",
     "sp-rtmp-nginx": "^0.1.9",
-    "sp-streams": "^0.1.9",
     "winston": "^2.3.1"
   },
   "babel": {

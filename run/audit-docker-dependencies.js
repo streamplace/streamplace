@@ -75,15 +75,18 @@ fs.writeFileSync(path.resolve(__dirname, "..", "dependencies.dot"), dotFile);
       failed = true;
       console.log(`⛔️ ${pkgName} is missing ${missingDep}`);
     });
-    // most unused dependencies are for docker deps and stuff but we do care about sp-configuration
-    if (
-      unused.dependencies.includes("sp-configuration") ||
-      unused.devDependencies.includes("sp-configuration")
-    ) {
-      failed = true;
-      console.log(`⛔️ ${pkgName} has unnecessary sp-configuration`);
-      console.log(path.resolve(dirs[pkgName], "package.json"));
-    }
+    // most unused dependencies are for docker deps and stuff but we do care about some
+    const IMPORTANT_UNUSED = ["sp-configuration", "sp-streams"];
+    IMPORTANT_UNUSED.forEach(dep => {
+      if (
+        unused.dependencies.includes(dep) ||
+        unused.devDependencies.includes(dep)
+      ) {
+        failed = true;
+        console.log(`⛔️ ${pkgName} has unnecessary ${dep}`);
+        console.log(path.resolve(dirs[pkgName], "package.json"));
+      }
+    });
   }
   process.exit(failed ? 1 : 0);
 })();

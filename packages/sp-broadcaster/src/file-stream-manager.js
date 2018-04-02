@@ -1,8 +1,4 @@
-import {
-  fileInputStream,
-  constantFpsStream,
-  tcpEgressStream
-} from "sp-streams";
+import { fileInputStream, constantFpsStream, tcpEgressStream } from "sp-client";
 import { config } from "sp-client";
 import SP from "sp-client";
 import winston from "winston";

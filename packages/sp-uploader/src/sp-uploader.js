@@ -4,7 +4,7 @@ import SP from "sp-client";
 import { config } from "sp-client";
 import morgan from "morgan";
 import Busboy from "busboy";
-import { fileOutputStream } from "sp-streams";
+import { fileOutputStream } from "sp-client";
 
 const S3_ACCESS_KEY_ID = config.require("S3_ACCESS_KEY_ID");
 const S3_SECRET_ACCESS_KEY = config.require("S3_SECRET_ACCESS_KEY");

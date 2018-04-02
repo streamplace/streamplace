@@ -6,7 +6,7 @@ import {
   rtmpOutputStream,
   mpegMungerStream,
   ptsNormalizerStream
-} from "sp-streams";
+} from "sp-client";
 import { PassThrough } from "stream";
 import FileStreamer from "./file-streamer";
 

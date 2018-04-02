@@ -35,6 +35,7 @@
     "regenerator-runtime": "^0.11.1",
     "sp-api-server": "^0.1.9",
     "sp-auth-frontend": "^0.1.9",
+    "sp-client": "^0.1.9",
     "sp-compositor": "^0.1.9",
     "sp-coturn": "^0.1.9",
     "sp-default": "^0.1.9",
@@ -48,7 +49,6 @@
     "sp-rethinkdb": "^0.1.9",
     "sp-rtmp-server": "^0.1.9",
     "sp-schema": "^0.1.9",
-    "sp-streams": "^0.1.9",
     "sp-uploader": "^0.1.9",
     "yargs": "^11.0.0"
   },

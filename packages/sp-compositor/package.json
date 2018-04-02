@@ -35,8 +35,8 @@
     "debug": "^3.1.0",
     "electron": "^1.8.2",
     "polished": "^1.9.2",
-    "sp-ffmpeg": "^0.1.9",
-    "sp-streams": "^0.1.9"
+    "sp-client": "^0.1.9",
+    "sp-ffmpeg": "^0.1.9"
   },
   "babel": {
     "presets": [

@@ -85,6 +85,5 @@ fs.writeFileSync(path.resolve(__dirname, "..", "dependencies.dot"), dotFile);
       console.log(path.resolve(dirs[pkgName], "package.json"));
     }
   }
+  process.exit(failed ? 1 : 0);
 })();
-
-process.exit(failed ? 1 : 0);

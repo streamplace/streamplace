@@ -63,7 +63,13 @@ fs.writeFileSync(path.resolve(__dirname, "..", "dependencies.dot"), dotFile);
 (async () => {
   for (const pkgName of packages) {
     const unused = await new Promise((resolve, reject) =>
-      depcheck(dirs[pkgName], {}, resolve)
+      depcheck(
+        dirs[pkgName],
+        {
+          ignoreDirs: ["dist", "build", "node_modules"]
+        },
+        resolve
+      )
     );
     Object.keys(unused.missing).forEach(missingDep => {
       failed = true;
@@ -81,4 +87,4 @@ fs.writeFileSync(path.resolve(__dirname, "..", "dependencies.dot"), dotFile);
   }
 })();
 
-// process.exit(failed ? 1 : 0);
+process.exit(failed ? 1 : 0);

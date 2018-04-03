@@ -12,5 +12,8 @@
     "Streamplace"
   ],
   "author": "Streamplace",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "dependencies": {
+    "sp-node": "^0.1.9"
+  }
 }

@@ -9,7 +9,6 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "devDependencies": {
-    "sp-builder-static": "^0.1.9",
     "sp-node": "^0.1.9"
   }
 }

@@ -21,5 +21,8 @@
   "homepage": "https://github.com/streamplace/streamplace#readme",
   "devDependencies": {
     "sp-node": "^0.1.9"
+  },
+  "dependencies": {
+    "sp-client": "^0.1.9"
   }
 }

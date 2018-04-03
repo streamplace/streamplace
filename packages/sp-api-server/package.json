@@ -45,7 +45,8 @@
     "expect.js": "^0.3.1",
     "mocha": "^2.4.5",
     "nodemon": "^1.8.1",
-    "sp-builder": "^0.1.9"
+    "sp-builder": "^0.1.9",
+    "sp-node": "^0.1.9"
   },
   "babel": {
     "presets": [

@@ -15,6 +15,7 @@
     "jwt-decode": "^2.1.0",
     "njwt": "^0.3.1",
     "socket.io-client": "^1.7.3",
+    "sp-builder": "^0.1.9",
     "sp-configuration": "^0.1.9",
     "sp-streams": "^0.1.9",
     "superagent": "^3.8.2",

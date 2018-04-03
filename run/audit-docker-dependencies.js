@@ -49,32 +49,36 @@ for (const pkgName of packages) {
   if (!dockerDeps) {
     continue;
   }
-  console.log();
-  console.log(pkgName);
-  console.log(
-    [...pkgDeps]
-      .map(dep => {
-        if (dockerDeps.has(dep)) {
-          return `  ✅  package.json: ${dep}`;
-        } else {
-          failed = true;
-          return `  ⛔️  package.json: ${dep}`;
-        }
-      })
-      .join("\n")
-  );
-  console.log(
-    [...dockerDeps]
-      .map(dep => {
-        if (pkgDeps.includes(dep)) {
-          return `  ✅  Dockerfile: ${prefix}/${dep}`;
-        } else {
-          failed = true;
-          return `  ⛔️  Dockerfile: ${prefix}/${dep}`;
-        }
-      })
-      .join("\n")
-  );
+  let failedLocal = false;
+  let str = "\n";
+  str += `${pkgName}\n`;
+  str += [...pkgDeps]
+    .map(dep => {
+      if (dockerDeps.has(dep)) {
+        return `  ✅  Dockerfile is missing ${prefix}/${dep}`;
+      } else {
+        failed = true;
+        failedLocal = true;
+        return `  ⛔️  Dockerfile is missing ${prefix}/${dep}`;
+      }
+    })
+    .join("\n");
+  str += "\n";
+  str += [...dockerDeps]
+    .map(dep => {
+      if (pkgDeps.includes(dep)) {
+        return `  ✅  package.json is missing ${dep}`;
+      } else {
+        failed = true;
+        failedLocal = true;
+        return `  ⛔️  package.json is missing ${dep}`;
+      }
+    })
+    .join("\n");
+
+  if (failedLocal) {
+    console.log(str);
+  }
 }
 
 const dotFile = `

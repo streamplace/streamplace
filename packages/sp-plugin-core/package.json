@@ -14,14 +14,12 @@
     "babel-core": "^6.23.1",
     "babel-preset-streamplace": "*",
     "jest": "^22.4.2",
-    "sp-node": "^0.1.9",
-    "sp-schema": "^0.1.9"
+    "sp-node": "^0.1.9"
   },
   "dependencies": {
     "node-uuid": "^1.4.7",
     "sp-client": "^0.1.9",
     "sp-resource": "^0.1.9",
-    "sp-utils": "^0.1.9",
     "underscore": "^1.8.3",
     "uuid-validate": "0.0.2",
     "winston": "^2.2.0"

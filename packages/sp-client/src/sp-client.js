@@ -5,8 +5,10 @@ import IO from "socket.io-client";
 import EE from "wolfy87-eventemitter";
 import jwtDecode from "jwt-decode";
 import request from "superagent";
-import config from "sp-configuration";
 
+// expose some stuff in our namespace
+export * from "sp-utils";
+import config from "sp-configuration";
 export { config };
 
 import Resource from "./Resource";

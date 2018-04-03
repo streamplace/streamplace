@@ -11,6 +11,7 @@ const depcheck = require("depcheck");
 let failed = false;
 const graph = {};
 const dirs = {};
+const allDockerDeps = {};
 for (const pkgName of packages) {
   graph[pkgName] = [];
   const pkgDir = path.resolve(__dirname, "..", "packages", pkgName);
@@ -32,16 +33,44 @@ for (const pkgName of packages) {
     }
     continue;
   }
+  const re = new RegExp(`${prefix}/([a-z-]+)`);
+  allDockerDeps[pkgName] = new Set();
+  dockerfile.split("\n").forEach(line => {
+    const results = re.exec(line);
+    if (results) {
+      allDockerDeps[pkgName].add(results[1]);
+    }
+  });
+}
+
+for (const pkgName of packages) {
+  const pkgDeps = graph[pkgName];
+  const dockerDeps = allDockerDeps[pkgName];
+  if (!dockerDeps) {
+    continue;
+  }
   console.log();
   console.log(pkgName);
   console.log(
     [...pkgDeps]
       .map(dep => {
-        if (dockerfile.includes(`${prefix}/${dep}`)) {
-          return `  ✅  ${dep}`;
+        if (dockerDeps.has(dep)) {
+          return `  ✅  package.json: ${dep}`;
         } else {
           failed = true;
-          return `  ⛔️  ${dep}`;
+          return `  ⛔️  package.json: ${dep}`;
+        }
+      })
+      .join("\n")
+  );
+  console.log(
+    [...dockerDeps]
+      .map(dep => {
+        if (pkgDeps.includes(dep)) {
+          return `  ✅  Dockerfile: ${prefix}/${dep}`;
+        } else {
+          failed = true;
+          return `  ⛔️  Dockerfile: ${prefix}/${dep}`;
         }
       })
       .join("\n")

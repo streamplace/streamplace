@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "react-scripts": "^1.1.1",
-    "sp-builder": "^0.1.9",
+    "sp-builder-static": "^0.1.9",
     "sp-static": "^0.1.9"
   }
 }

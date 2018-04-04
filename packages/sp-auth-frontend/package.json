@@ -4,8 +4,8 @@
   "description": "frontend for auth.stream.place",
   "devDependencies": {
     "auth0-lock": "^10.11.0",
+    "sp-builder-static": "^0.1.9",
     "react-scripts": "^1.1.1",
-    "sp-node": "^0.1.9",
     "sp-static": "^0.1.9"
   },
   "dependencies": {

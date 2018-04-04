@@ -5,5 +5,3 @@ ONBUILD ADD package.json /app/package.json
 ONBUILD RUN npm install --no-scripts
 ONBUILD COPY src /app/src
 ONBUILD COPY public /app/public
-ONBUILD COPY --from=quay.io/streamplace/sp-client /app /app/node_modules/sp-client
-ONBUILD RUN npm run prepare && mv /app/build /app/dist

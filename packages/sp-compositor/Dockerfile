@@ -15,6 +15,7 @@ ENV XVFB_SCREENSIZE 1920x1080x16
 ENV DISPLAY :99
 
 ADD run.sh /app/run.sh
+COPY --from=quay.io/streamplace/sp-client /app /app/node_modules/sp-client
 COPY --from=builder /app/dist /app/dist
 
 ENTRYPOINT ["/app/run.sh"]

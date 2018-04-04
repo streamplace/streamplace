@@ -13,6 +13,7 @@
     "kubernetes-client": "^3.12.0",
     "request": "^2.79.0",
     "request-promise": "^4.1.1",
+    "sp-builder": "^0.1.9",
     "sp-client": "^0.1.9",
     "underscore": "^1.8.3",
     "winston": "^2.2.0"

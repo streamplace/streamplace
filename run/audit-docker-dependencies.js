@@ -7,6 +7,9 @@ const path = require("path");
 const packages = fs.readdirSync(path.resolve(__dirname, "..", "packages"));
 const prefix = "quay.io/streamplace";
 const depcheck = require("depcheck");
+const { execSync } = require("child_process");
+
+const FIX = process.argv[2] === "--fix";
 
 let failed = false;
 const graph = {};
@@ -55,7 +58,7 @@ for (const pkgName of packages) {
   str += [...pkgDeps]
     .map(dep => {
       if (dockerDeps.has(dep)) {
-        return `  ✅  Dockerfile is missing ${prefix}/${dep}`;
+        return `  ✅  Dockerfile has ${prefix}/${dep}`;
       } else {
         failed = true;
         failedLocal = true;
@@ -67,10 +70,16 @@ for (const pkgName of packages) {
   str += [...dockerDeps]
     .map(dep => {
       if (pkgDeps.includes(dep)) {
-        return `  ✅  package.json is missing ${dep}`;
+        return `  ✅  package.json has ${dep}`;
       } else {
-        failed = true;
-        failedLocal = true;
+        if (FIX) {
+          execSync(`yarn add ${dep}`, {
+            cwd: path.resolve(__dirname, "..", "packages", pkgName)
+          });
+        } else {
+          failed = true;
+          failedLocal = true;
+        }
         return `  ⛔️  package.json is missing ${dep}`;
       }
     })

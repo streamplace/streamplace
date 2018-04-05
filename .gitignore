@@ -19,3 +19,4 @@ package-lock.json
 values.secret.yaml
 yarn.lock
 dependencies.dot
+/Dockerfile

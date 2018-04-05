@@ -21,26 +21,61 @@ add(`
 `);
 
 add(`
-  FROM stream.place/sp-node
+  FROM stream.place/sp-node AS base
 
   RUN npm install -g yarn lerna
   WORKDIR /app
-  ENV NODE_ENV production
+  ADD package.json /app/package.json
 `);
 
 add("# add all package.json files");
 
-const packages = fs.readdirSync(path.resolve(__dirname, "..", "packages"));
-packages.forEach(pkgName => {
+const packages = fs
+  .readdirSync(path.resolve(__dirname, "..", "packages"))
+  .map(pkgName => {
+    const str = fs.readFileSync(
+      path.resolve(__dirname, "..", "packages", pkgName, "package.json")
+    );
+    const pkg = JSON.parse(str);
+    pkg.containerName = pkg.name.replace(/-/g, "");
+    return pkg;
+  });
+packages.forEach(pkg => {
   add(
-    `ADD packages/${pkgName}/package.json /app/packages/${pkgName}/package.json`
+    `ADD packages/${pkg.name}/package.json /app/packages/${
+      pkg.name
+    }/package.json`
   );
 });
 
-add("# build everyone's production dependencies into one big blob");
+add("# build everyone's development dependencies into one big blob");
+add(`
+  FROM base AS builder
+  ENV NODE_ENV development
+  RUN yarn install
+`);
 
-// add(`RUN yarn ${packages.map(pkgName => `/packages/${pkgName}`).join(" ")}`);
-add("ADD package.json /app/package.json");
+add("# build each package separately");
+const buildPackages = packages.filter(pkg => {
+  if (!pkg.scripts || !pkg.scripts.prepare) {
+    return false;
+  }
+  // exclude frontend apps, they're handled separately
+  if (pkg.devDependencies && pkg.devDependencies["react-scripts"]) {
+    return false;
+  }
+  return true;
+});
+buildPackages.forEach(pkg => {
+  add(`
+    FROM builder AS ${pkg.containerName}
+    ADD packages/${pkg.name}/src /app/packages/${pkg.name}/src
+    RUN cd /app/packages/${pkg.name} && npm run prepare
+  `);
+});
+
+add("# build everyone's production dependencies into one big blob");
+add("FROM base");
 add(
   "RUN " +
     [
@@ -50,6 +85,15 @@ add(
       "yarn cache clean"
     ].join(" && ")
 );
+
+buildPackages.forEach(pkg => {
+  const distDir = pkg.main.split("/")[0];
+  add(
+    `COPY --from=${pkg.containerName} /app/packages/${
+      pkg.name
+    }/${distDir} /app/packages/${pkg.name}/${distDir}`
+  );
+});
 
 fs.writeFileSync(
   path.resolve(__dirname, "..", "Dockerfile"),

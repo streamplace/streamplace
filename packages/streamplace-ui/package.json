@@ -8,21 +8,19 @@
     "prepare": "NODE_ENV=production babel --copy-files -s -d dist src"
   },
   "babel": {
-    "presets": [
-      "react-app"
-    ],
-    "plugins": [
-      "transform-es2015-modules-commonjs"
-    ]
+    "presets": ["react-app"],
+    "plugins": ["transform-es2015-modules-commonjs"]
   },
   "author": "Streamplace",
   "license": "Apache-2.0",
-  "dependencies": {
-    "auth0-js": "^9.4.1",
+  "devDependencies": {
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.26.0",
-    "babel-preset-react-app": "^3.1.1",
+    "babel-preset-react-app": "^3.1.1"
+  },
+  "dependencies": {
+    "auth0-js": "^9.4.1",
     "jwt-decode": "^2.2.0",
     "react-native-auth0": "^1.2.2",
     "sp-builder": "^0.1.9",

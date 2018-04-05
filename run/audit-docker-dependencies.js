@@ -1,5 +1,11 @@
 #!/usr/bin/env node
 
+/**
+ * This is a hacky script I wrote really fast to scan all the package.json files and Dockerfiles
+ * and do a cursory check that the dependency heiarachy makes some kind of basic sense. Doesn't
+ * make any particularly strong guarantees but will catch basic problems sometimes.
+ */
+
 /* eslint-disable no-console */
 
 const fs = require("fs");

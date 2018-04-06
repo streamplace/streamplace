@@ -6,7 +6,8 @@ packages:
 env: {}
 
 docker:
-  prefix: quay.io/streamplace
+  prefix: stream.place
+  pushPrefix: quay.io/streamplace
 
 s3:
   url: https://us-west-2.amazonaws.com/charts.stream.place

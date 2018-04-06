@@ -20,9 +20,25 @@ add(`
   # Edit that, not this.
 `);
 
+// build a minimal root package.json that doesn't change much for caching
+const rootPkg = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, "..", "package.json"), "utf8")
+);
+
+const buildPkg = {
+  name: rootPkg.name,
+  private: rootPkg.private,
+  workspaces: rootPkg.workspaces
+};
+
+fs.writeFileSync(
+  path.resolve(__dirname, "..", "package.build.json"),
+  JSON.stringify(buildPkg, null, 2)
+);
+
 add(`
   FROM stream.place/sp-node AS base
-  ADD package.json /app/package.json
+  ADD package.build.json /app/package.json
 `);
 
 add("# add all package.json files");

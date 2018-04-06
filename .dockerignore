@@ -2,6 +2,7 @@
 /hack
 /*.*
 !/package.json
+!/package.build.json
 /run
 /docs
 /data

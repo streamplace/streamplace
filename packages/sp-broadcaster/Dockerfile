@@ -1,7 +1,3 @@
-FROM quay.io/streamplace/sp-builder AS builder
-FROM quay.io/streamplace/sp-ffmpeg
+FROM stream.place/streamplace
 
-COPY --from=quay.io/streamplace/sp-client /app /app/node_modules/sp-client
-COPY --from=builder /app/dist /app/dist
-
-CMD ["node", "/app/dist/sp-broadcaster.js"]
+CMD ["node", "/app/node_modules/sp-broadcaster/dist/sp-broadcaster.js"]

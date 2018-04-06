@@ -48,12 +48,6 @@ const apiError = function(code, message) {
 export class SPClient extends EE {
   constructor({ server, log, token, app } = {}) {
     super();
-    if (isNode) {
-      // Someone teach me a better wneway to have node do something but not webpack.
-      /*eslint-disable no-eval */
-      const TokenGenerator = eval("require('./TokenGenerator')").default;
-      this.tokenGenerator = new TokenGenerator({ app: this.app });
-    }
     this.app = app || "spclient";
     this.shouldLog = true;
     this.server = server;
@@ -61,6 +55,12 @@ export class SPClient extends EE {
   }
 
   connect({ server, log, token } = {}) {
+    if (isNode) {
+      // Someone teach me a better wneway to have node do something but not webpack.
+      /*eslint-disable no-eval */
+      const TokenGenerator = eval("require('./TokenGenerator')").default;
+      this.tokenGenerator = new TokenGenerator({ app: this.app });
+    }
     this.connected = false;
     this.shouldLog = true;
     this.token = token || this.token;

@@ -7,7 +7,9 @@ const fs = require("fs");
 const path = require("path");
 
 const data = yaml.safeLoad(
-  fs.readFileSync(path.resolve(__dirname, "..", "..", "values-dev.yaml"))
+  fs.readFileSync(
+    path.resolve(__dirname, "..", "..", "values-dev.example.yaml")
+  )
 );
 
 const logUrl = `http://${data.global.domain}/logs/logs`;

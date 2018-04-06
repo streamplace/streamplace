@@ -19,45 +19,9 @@ spec:
       imagePullSecrets:
 {{ toYaml .Values.global.imagePullSecrets | indent 8 }}
       {{- end }}
-      {{- if .Values.global.development }}
       volumes:
-        - name: streamplace
-          hostPath:
-            path: {{ .Values.global.rootDirectory }}
-        - name: app
-          hostPath:
-            path: {{ .Values.global.rootDirectory }}/packages/{{ .Chart.Name }}
         - name: tmp
           emptyDir: {}
-      {{- $rootDirectory := .Values.global.rootDirectory }}
-      {{- range .Values.global.plugins }}
-        - name: {{ . }}
-          hostPath:
-            path: {{ $rootDirectory }}/packages/{{ . }}
-      {{- end }}
-      {{- else }}
-      volumes:
-        - name: plugins
-          emptyDir: {}
-      {{- end }}
-      {{- if not .Values.global.development }}
-      {{- $values := .Values }}
-      {{- $chart := .Chart }}
-      initContainers:
-      {{- range $index, $plugin := .Values.global.plugins }}
-      - name: {{ $plugin | quote }}
-        image: "{{ $values.global.repo }}/{{ $plugin }}:{{ $chart.Version }}"
-        command: 
-          - cp
-          - "-R"
-          - /app
-          - /plugins/{{ $plugin }}
-        imagePullPolicy: "Always"
-        volumeMounts:
-        - name: "plugins"
-          mountPath: "/plugins"
-      {{- end }}
-      {{- end }}
       containers:
       - name: {{ .Chart.Name }}
         readinessProbe:
@@ -83,26 +47,8 @@ spec:
           periodSeconds: 5
         {{- if .Values.global.development }}
         image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:latest"
-        command:
-          - bash
-          - -c
-          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch -o '/app/src/*' /app/src/{{ .Chart.Name }}.js
-        volumeMounts:
-          - name: app
-            mountPath: /app
-          - name: streamplace
-            mountPath: {{ .Values.global.rootDirectory }}
-          - name: tmp
-            mountPath: /tmp
-        {{- range .Values.global.plugins }}
-          - name: {{ . }}
-            mountPath: /plugins/{{ . }}
-        {{- end }}
         {{- else }}
         image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:{{ .Chart.Version }}"
-        volumeMounts:
-          - name: plugins
-            mountPath: /plugins
         {{- end }}
         imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
         env:

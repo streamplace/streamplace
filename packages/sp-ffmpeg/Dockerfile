@@ -1,4 +1,4 @@
-FROM quay.io/streamplace/sp-node
+FROM stream.place/sp-node
 
 RUN apt-get update \
   && apt-get install -y software-properties-common python-software-properties \
@@ -14,3 +14,4 @@ RUN curl -LO https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-64bit-static.tar
   && rm -rf ./ffmpeg*
 
 CMD [ "ffmpeg" ]
+

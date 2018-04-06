@@ -22,9 +22,6 @@ add(`
 
 add(`
   FROM stream.place/sp-node AS base
-
-  RUN npm install -g yarn lerna
-  WORKDIR /app
   ADD package.json /app/package.json
 `);
 

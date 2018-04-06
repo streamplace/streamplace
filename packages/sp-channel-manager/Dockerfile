@@ -1,7 +1,3 @@
-FROM quay.io/streamplace/sp-builder AS builder
-FROM quay.io/streamplace/sp-node
+FROM stream.place/streamplace
 
-COPY --from=quay.io/streamplace/sp-client /app /app/node_modules/sp-client
-COPY --from=builder /app/dist /app/dist
-
-CMD ["node", "/app/dist/sp-channel-manager.js"]
+CMD ["node", "/app/node_modules/sp-channel-manager/dist/sp-channel-manager.js"]

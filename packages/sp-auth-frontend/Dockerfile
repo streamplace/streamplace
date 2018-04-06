@@ -1,7 +1,10 @@
-FROM quay.io/streamplace/sp-builder-static as builder
-COPY --from=quay.io/streamplace/sp-client /app /app/node_modules/sp-client
-COPY --from=quay.io/streamplace/sp-styles /app /app/node_modules/sp-styles
-RUN npm run prepare && mv /app/build /app/dist
-FROM quay.io/streamplace/sp-static
+FROM stream.place/streamplace as builder
+ENV NODE_ENV development
+WORKDIR /app/node_modules/sp-auth-frontend
+ADD package.json package.json
+ADD src src
+ADD public public
+RUN npm install && npm run prepare
 
-COPY --from=builder /app/dist /app/dist
+FROM stream.place/sp-static
+COPY --from=builder /app/node_modules/sp-auth-frontend/build /app/dist

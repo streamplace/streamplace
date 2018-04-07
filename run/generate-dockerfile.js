@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+// We're tryin'a be as isomorphic as possible... but React Native requires react-native to be a
+// production dependency, and we don't want that biz in our containers. So:
+const PACKAGE_BLACKLIST = ["sp-native"];
+
 const fs = require("fs");
 const path = require("path");
 const output = [];
@@ -45,6 +49,7 @@ add("# add all package.json files");
 
 const packages = fs
   .readdirSync(path.resolve(__dirname, "..", "packages"))
+  .filter(pkgName => !PACKAGE_BLACKLIST.includes(pkgName))
   .map(pkgName => {
     const str = fs.readFileSync(
       path.resolve(__dirname, "..", "packages", pkgName, "package.json")

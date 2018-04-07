@@ -36,11 +36,15 @@ export async function checkLogin() {
   if (!token) {
     return null;
   }
-  return SP.connect({ token }).then(user => {
-    // Allow the API server to issue us a new token, then...
-    window.localStorage.setItem(TOKEN_STORAGE_KEY, SP.token);
-    return user;
-  });
+  try {
+    return SP.connect({ token }).then(user => {
+      // Allow the API server to issue us a new token, then...
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, SP.token);
+      return user;
+    });
+  } catch (err) {
+    throw err;
+  }
 }
 
 export async function login({ email, password }) {

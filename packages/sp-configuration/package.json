@@ -6,7 +6,8 @@
   "scripts": {
     "prepare": "babel -d dist src",
     "start": "nodemon -w src -x npm run prepare",
-    "test": "jest"
+    "test": "jest",
+    "postinstall": "mkdir -p src && touch src/env-override.js"
   },
   "jest": {
     "bail": true,

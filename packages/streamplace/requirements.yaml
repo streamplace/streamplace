@@ -2,9 +2,6 @@ dependencies:
   - name: sp-rethinkdb
     version: 0.1.9
     repository: 'https://charts.stream.place'
-  - name: sp-logs
-    version: 0.1.9
-    repository: 'https://charts.stream.place'
   - name: sp-plugin-core
     version: 0.1.9
     repository: 'https://charts.stream.place'

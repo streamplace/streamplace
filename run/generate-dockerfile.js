@@ -69,6 +69,7 @@ packages.forEach(pkg => {
 add("# build everyone's development dependencies into one big blob");
 add(`
   FROM base AS builder
+  RUN apt-get update && apt-get install -y python build-essential # needed for building binaries on ARM
   ENV NODE_ENV development
   RUN yarn install
 `);

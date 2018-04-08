@@ -43,8 +43,21 @@ sp-auth-frontend:
 sp-kube-lego:
   enabled: false
 
+# don't want the demo in dev...
+sp-compositor:
+  replicaCount: 0
+
 sp-file-server:
   enabled: true
 
 sp-compositor:
   replicaCount: 0
+
+sp-registry:
+  ingress:
+    enabled: true
+    annotations: {}
+    path: "/v2"
+    hosts:
+      - localhost
+    tls: []

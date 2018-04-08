@@ -44,6 +44,7 @@
     "sp-logs": "^0.1.9",
     "sp-plugin-core": "^0.1.9",
     "sp-redirects": "^0.1.9",
+    "sp-registry": "^0.1.9",
     "sp-rethinkdb": "^0.1.9",
     "sp-rtmp-server": "^0.1.9",
     "sp-schema": "^0.1.9",

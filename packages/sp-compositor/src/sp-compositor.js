@@ -10,7 +10,7 @@ let win;
 /* eslint-disable no-console */
 const usage = () => {
   console.error(
-    "usage: docker run quay.io/streamplace/sp-compositor [website] <rtmp url>"
+    "usage: docker run stream.place/sp-compositor [website] <rtmp url>"
   );
 };
 

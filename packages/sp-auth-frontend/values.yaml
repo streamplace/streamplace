@@ -1,7 +1,7 @@
 
 global:
   development: false
-  repo: quay.io/streamplace
+  repo: stream.place
 enabled: false
 domain: auth.stream.place
 auth0Domain: streamplace.auth0.com

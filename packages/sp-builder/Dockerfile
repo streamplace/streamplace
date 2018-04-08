@@ -1,4 +1,4 @@
-FROM quay.io/streamplace/sp-node
+FROM stream.place/sp-node
 
 WORKDIR /app
 ENV NODE_ENV development

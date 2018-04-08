@@ -4,7 +4,7 @@
   "description": "Various Streamplace HTTP redirects and proxies",
   "main": "dist/sp-redirects.js",
   "scripts": {
-    "build": "babel --copy-files -d dist src",
+    "prepare": "babel --copy-files -d dist src",
     "start": "PORT=8888 babel-watch src/sp-redirects.js"
   },
   "author": "Streamplace",

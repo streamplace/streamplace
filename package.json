@@ -63,7 +63,7 @@
     "dev-client:env-override": "babel-node packages/sp-configuration/src/build-env-override.js values-dev.example.yaml",
     "dev-client:start": "npx lerna exec --concurrency=999 --no-sort --include-filtered-dependencies --scope sp-native --scope sp-frontend --scope sp-app npm run start",
     "logs": "opn 'http://localhost:5601/app/logtrail#/?q=kubernetes.namespace_name:%20default&h=All&t=Now&i=logstash-*&_g=()'",
-    "dev": "npm run start",
+    "dev-server": "run-s dev-client:env-override docker-build helm-dev",
     "docker-build-ci": "run-s docker-build-node docker-build-root docker-build-packages-ci",
     "docker-build-node": "cd packages/sp-node && docker build -t stream.place/sp-node .",
     "docker-build-packages-ci": "lerna exec 'if [ -f Dockerfile ]; then ../../run/package-log.sh docker build -t stream.place/$(basename $PWD) .; fi'",

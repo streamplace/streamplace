@@ -11,7 +11,7 @@
 const fs = require("fs");
 const path = require("path");
 const packages = fs.readdirSync(path.resolve(__dirname, "..", "packages"));
-const prefix = "quay.io/streamplace";
+const prefix = "stream.place";
 const depcheck = require("depcheck");
 const { execSync } = require("child_process");
 

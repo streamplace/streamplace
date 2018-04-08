@@ -8,6 +8,19 @@ import url from "url";
 /* eslint-disable no-console */
 
 const app = express();
+
+// Short-circuit /healthz so it doesn't log
+app.use((req, res, next) => {
+  if (req.url === "/healthz") {
+    return res.sendStatus(200);
+  }
+  return next();
+});
+
+process.on("SIGTERM", function() {
+  process.exit(0);
+});
+
 app.use(morgan("dev"));
 
 const UPDATE_URL = "https://s3-us-west-2.amazonaws.com/crap.stream.place/apps";
@@ -20,8 +33,6 @@ const MAC_PATH = "/Streamplace.dmg";
 const listener = app.listen(process.env.PORT || 80, () => {
   console.log(`sp-redirects listening on ${listener.address().port}`);
 });
-
-app.get("/healthz", (req, res) => res.sendStatus(200));
 
 const doProxy = ({ myPath, updateUrl, mapDataToFile }) => {
   app.get(myPath, (req, res, next) => {

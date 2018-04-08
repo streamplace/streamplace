@@ -34,6 +34,12 @@ sp-ingress:
 
 # Disable lots of features that we don't need in dev
 
+sp-registry:
+  replicaCount: 0
+
+sp-redirects:
+  replicaCount: 0
+
 sp-dev-certs:
   enabled: false
 

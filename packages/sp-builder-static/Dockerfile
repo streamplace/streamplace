@@ -1,4 +1,4 @@
-FROM quay.io/streamplace/sp-node
+FROM stream.place/sp-node
 
 ENV NODE_ENV development
 ONBUILD ADD package.json /app/package.json

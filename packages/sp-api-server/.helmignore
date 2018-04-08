@@ -5,3 +5,4 @@ dist
 src
 public
 Dockerfile
+build

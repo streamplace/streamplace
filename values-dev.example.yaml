@@ -50,9 +50,6 @@ sp-compositor:
 sp-file-server:
   enabled: true
 
-sp-compositor:
-  replicaCount: 0
-
 sp-registry:
   ingress:
     enabled: true

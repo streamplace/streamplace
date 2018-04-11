@@ -55,12 +55,3 @@ sp-compositor:
 
 sp-file-server:
   enabled: true
-
-sp-registry:
-  ingress:
-    enabled: true
-    annotations: {}
-    path: "/v2"
-    hosts:
-      - localhost
-    tls: []

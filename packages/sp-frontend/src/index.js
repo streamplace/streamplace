@@ -7,6 +7,7 @@ import { injectGlobal } from "styled-components";
 injectGlobal`
   body {
     font-family: "Open Sans", Helvetica, Arial, sans-serif;
+    margin: 0;
   }
 `;
 

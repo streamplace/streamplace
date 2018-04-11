@@ -68,17 +68,6 @@ const Link = styled.a`
   }
 `;
 
-/* eslint-disable no-unused-expressions */
-injectGlobal`
-  #BigVideo {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    top: 0;
-    left: 0;
-  }
-`;
-
 const Icon = styled.i`
   &.fa {
     font-size: 2em;
@@ -130,7 +119,33 @@ const DownloadButton = styled.a`
   width: ${downloadWidth};
 `;
 
+/* eslint-disable no-unused-expressions */
+// we want to only do global hacks if we're actually loaded ever.
+let injected = false;
+const injectGlobalBullshitHacks = () => {
+  if (injected) {
+    return;
+  }
+  injectGlobal`
+    a {
+      text-decoration: none;
+    }
+    #BigVideo {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+    }
+  `;
+  injected = true;
+};
+
 export default class CorporateBullshit extends Component {
+  constructor() {
+    super();
+    injectGlobalBullshitHacks();
+  }
   renderYoutube() {
     const youtubeOpts = {
       playerVars: {

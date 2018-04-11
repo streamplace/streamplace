@@ -7,13 +7,14 @@ const url = require("url");
 const querystring = require("querystring");
 const fs = require("fs");
 const path = require("path");
-const {
+
+import {
   tcpEgressStream,
   rtmpOutputStream,
   dashStream,
-  dashServer
-} = require("sp-streams");
-import convertVideoStream from "./convert-video-stream";
+  dashServer,
+  convertVideoStream
+} from "sp-client";
 
 /* eslint-disable no-console */
 

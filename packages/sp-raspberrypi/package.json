@@ -6,11 +6,14 @@
   "scripts": {
     "test": "echo 'no tests'",
     "download-img": "mkdir -p mount && cd mount && curl -L -o raspbian.img https://downloads.raspberrypi.org/raspbian_latest",
-    "build-img": "docker build -t quay.io/streamplace/build-sp-raspberry-pi . && docker run --privileged -v $(pwd)/image:/image -it quay.io/streamplace/build-sp-raspberry-pi"
+    "build-img": "docker build -t stream.place/build-sp-raspberry-pi . && docker run --privileged -v $(pwd)/image:/image -it stream.place/build-sp-raspberry-pi"
   },
   "keywords": [
     "Streamplace"
   ],
   "author": "Streamplace",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "dependencies": {
+    "sp-node": "^0.1.9"
+  }
 }

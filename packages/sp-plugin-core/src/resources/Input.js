@@ -1,5 +1,5 @@
 import Resource from "sp-resource";
-import { randomId } from "sp-utils";
+import { randomId } from "sp-client";
 
 export default class Input extends Resource {
   default(ctx) {

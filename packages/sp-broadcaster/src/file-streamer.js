@@ -1,12 +1,8 @@
 import SP from "sp-client";
 import winston from "winston";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import FileStreamManager from "./file-stream-manager";
-import {
-  fileInputStream,
-  constantFpsStream,
-  tcpEgressStream
-} from "sp-streams";
+import { fileInputStream, constantFpsStream, tcpEgressStream } from "sp-client";
 
 export default class FileStreamer {
   constructor({ broadcastId, podIp }) {

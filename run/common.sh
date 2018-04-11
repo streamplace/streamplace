@@ -143,10 +143,9 @@ function fixOrErr() {
 }
 
 if [[ ! -f /var/run/docker.sock ]]; then
-  if [[ "${TRAVIS_BRANCH:-}" == "" ]]; then
+  if [[ "${CI:-}" == "" ]]; then
     if ! docker ps > /dev/null; then
-      echo "No /var/run/docker.sock, and 'docker ps' is failing. Get Docker working first!"
-      exit 1
+      echo "warning: docker's not running. lots of streamplace dev won't work."
     fi
   fi
 fi

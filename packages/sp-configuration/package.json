@@ -6,7 +6,8 @@
   "scripts": {
     "prepare": "babel -d dist src",
     "start": "nodemon -w src -x npm run prepare",
-    "test": "jest"
+    "test": "jest",
+    "postinstall": "mkdir -p src && touch src/env-override.js"
   },
   "jest": {
     "bail": true,
@@ -21,9 +22,12 @@
     "yargs": "^8.0.2"
   },
   "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.0",
     "babel-preset-streamkitchen": "*",
     "jest": "^22.4.2",
     "nodemon": "^1.9.1",
+    "sp-builder": "^0.1.9",
     "underscore": "^1.8.3"
   },
   "babel": {

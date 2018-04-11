@@ -9,8 +9,9 @@ global:
   # Your email goes here!
   adminEmail: admin@example.com
   # In case you want to push your own images, this could be set to something else.
-  repo: quay.io/streamplace
-  domain: sp-dev.club
+  repo: stream.place
+  domain: localhost
+  protocol: http
   jwt:
     audience: dev
     secret: QjAzNEMwMEUtQkY5Qi00OTQyLUJEQUEtMEYxNEZENUVERERE
@@ -33,6 +34,12 @@ sp-ingress:
 
 # Disable lots of features that we don't need in dev
 
+sp-registry:
+  replicaCount: 0
+
+sp-redirects:
+  replicaCount: 0
+
 sp-dev-certs:
   enabled: false
 
@@ -48,14 +55,3 @@ sp-compositor:
 
 sp-file-server:
   enabled: true
-
-sp-registry:
-
-  ingress:
-    enabled: true
-    annotations: {}
-    path: "/v2"
-    hosts:
-      - localhost
-    tls: []
-

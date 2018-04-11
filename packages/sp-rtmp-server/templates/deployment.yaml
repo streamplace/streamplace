@@ -56,7 +56,6 @@ spec:
         imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
 
       - name: {{ .Chart.Name }}
-        {{- if .Values.global.development }}{{- else }}
         readinessProbe:
           httpGet:
             path: /healthz
@@ -71,20 +70,8 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 5
           timeoutSeconds: 5
-        {{- end }}
         {{- if .Values.global.development }}
         image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:latest"
-        command:
-          - bash
-          - -c
-          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch -o '/app/src/*' /app/src/{{ .Chart.Name }}.js
-        volumeMounts:
-          - name: app
-            mountPath: /app
-          - name: streamplace
-            mountPath: {{ .Values.global.rootDirectory }}
-          - name: tmp
-            mountPath: /tmp
         {{- else }}
         image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:{{ .Chart.Version }}"
         {{- end }}

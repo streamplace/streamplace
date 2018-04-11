@@ -1,12 +1,6 @@
-FROM quay.io/streamplace/sp-node
-
-# To be run from the apps directory.
-
-WORKDIR /app
-ADD package.json package.json
-RUN npm install --production --unsafe-perm
-ADD dist dist
+FROM stream.place/streamplace
 
 ENV PORT 80
 EXPOSE 80
-CMD node /app/dist/sp-api-server.js
+
+CMD node /app/node_modules/sp-api-server/dist/sp-api-server.js

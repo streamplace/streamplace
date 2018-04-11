@@ -26,16 +26,20 @@
     "url": "https://github.com/streamplace/streamplace/issues"
   },
   "homepage": "https://github.com/streamplace/streamplace#readme",
-  "dependencies": {
-    "ansi-styles": "^3.2.1",
+  "devDependencies": {
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
-    "babel-preset-streamplace": "0.0.3",
+    "babel-preset-streamplace": "0.0.3"
+  },
+  "dependencies": {
+    "ansi-styles": "^3.2.1",
     "console.style": "^0.2.2",
+    "debug": "^3.1.0",
     "electron": "^1.8.2",
     "polished": "^1.9.2",
-    "sp-ffmpeg": "^0.1.9",
-    "sp-streams": "^0.1.9"
+    "sp-builder": "^0.1.9",
+    "sp-client": "^0.1.9",
+    "sp-ffmpeg": "^0.1.9"
   },
   "babel": {
     "presets": [

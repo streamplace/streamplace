@@ -24,14 +24,15 @@
     "url": "https://github.com/streamplace/streamplace/issues"
   },
   "homepage": "https://github.com/streamplace/streamplace#readme",
-  "dependencies": {
+  "devDependencies": {
     "babel-core": "^6.25.0",
     "babel-preset-streamplace": "0.0.3",
+    "jest": "^22.4.2"
+  },
+  "dependencies": {
     "fluent-ffmpeg": "^2.1.2",
-    "jest": "^22.4.2",
     "sp-client": "^0.1.9",
-    "sp-configuration": "^0.1.9",
-    "sp-streams": "^0.1.9"
+    "sp-ffmpeg": "^0.1.9"
   },
   "babel": {
     "presets": [

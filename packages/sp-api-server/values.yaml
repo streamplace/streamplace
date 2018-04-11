@@ -13,7 +13,7 @@ global:
   plugins:
     - sp-plugin-core
   # In case you want to push your own images, this could be set to something else.
-  repo: quay.io/streamplace
+  repo: stream.place
   jwt:
     audience: dev
     secret: QjAzNEMwMEUtQkY5Qi00OTQyLUJEQUEtMEYxNEZENUVERERE

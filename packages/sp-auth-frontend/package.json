@@ -4,9 +4,8 @@
   "description": "frontend for auth.stream.place",
   "devDependencies": {
     "auth0-lock": "^10.11.0",
+    "sp-builder-static": "^0.1.9",
     "react-scripts": "^1.1.1",
-    "sp-configuration": "^0.1.9",
-    "sp-node": "^0.1.9",
     "sp-static": "^0.1.9"
   },
   "dependencies": {
@@ -21,7 +20,7 @@
   },
   "scripts": {
     "dev": "bash -c 'PORT=80 react-scripts start | cat'",
-    "prepare": "react-scripts build && rm -rf dist && mv build dist",
+    "prepare": "react-scripts build",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject"
   },

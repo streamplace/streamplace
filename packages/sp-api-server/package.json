@@ -30,7 +30,7 @@
     "on-finished": "^2.3.0",
     "rethinkdb": "^2.3.3",
     "socket.io": "^1.4.5",
-    "sp-configuration": "^0.1.9",
+    "sp-client": "^0.1.9",
     "sp-resource": "^0.1.9",
     "swagger-parser": "^3.4.0",
     "underscore": "^1.8.3",
@@ -44,7 +44,9 @@
     "babel-watch": "^2.0.6",
     "expect.js": "^0.3.1",
     "mocha": "^2.4.5",
-    "nodemon": "^1.8.1"
+    "nodemon": "^1.8.1",
+    "sp-builder": "^0.1.9",
+    "sp-node": "^0.1.9"
   },
   "babel": {
     "presets": [

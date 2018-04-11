@@ -12,9 +12,8 @@
     "busboy": "^0.2.14",
     "express": "^4.15.4",
     "morgan": "^1.8.2",
+    "sp-builder": "^0.1.9",
     "sp-client": "^0.1.9",
-    "sp-configuration": "^0.1.9",
-    "sp-streams": "^0.1.9",
     "winston": "^2.3.1"
   },
   "devDependencies": {

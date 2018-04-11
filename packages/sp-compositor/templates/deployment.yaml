@@ -17,8 +17,12 @@ spec:
     spec:
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.global.development }}
+          image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:latest"
+          {{- else }}
+          image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:{{ .Chart.Version }}"
+          {{- end }}
+          imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
           env:
             - name: PORT
               value: {{ .Values.service.internalPort | quote }}

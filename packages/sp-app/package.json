@@ -4,11 +4,11 @@
   "description": "Streamplace Desktop App",
   "main": "compiled/sp-app.js",
   "scripts": {
-    "prepare": "node_modules/.bin/babel --keep-lines --copy-files -d compiled src && rm -rf package-lock.json",
+    "prepare": "NODE_ENV=production babel --keep-lines --copy-files -d compiled src && rm -rf package-lock.json",
     "start-electron": "npm run prepare && SP_LOCAL_DEV=true electron .",
-    "start": "nodemon -w src -x npm run start-electron",
+    "start": "NODE_ENV=development nodemon -w src -x npm run start-electron",
     "test": "echo \"no test specified\" && exit 0",
-    "build": "npm run prepare && npm run electron-builder-local",
+    "build": "NODE_ENV=production npm run prepare && npm run electron-builder-local",
     "electron-builder-local": "npm run prepare && ELECTRON_CHANNEL=dev electron-builder -mw --publish never",
     "electron-publish-windows": "electron-builder -w --publish always",
     "electron-publish-windows-mac": "electron-builder -wm --publish always",
@@ -50,11 +50,12 @@
     "auto-launch": "^5.0.5",
     "electron-log": "^2.0.0",
     "electron-updater": "^2.21.0",
-    "sp-frontend": "^0.1.9"
+    "streamplace-ui": "^0.1.9"
   },
   "babel": {
     "presets": [
-      "streamplace"
+      "streamplace",
+      "react-app"
     ]
   }
 }

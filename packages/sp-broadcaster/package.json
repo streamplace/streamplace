@@ -20,9 +20,9 @@
   },
   "homepage": "https://github.com/streamplace/streamplace#readme",
   "dependencies": {
+    "debug": "^3.1.0",
+    "sp-builder": "^0.1.9",
     "sp-client": "^0.1.9",
-    "sp-configuration": "^0.1.9",
-    "sp-streams": "^0.1.9",
     "winston": "^2.3.1"
   },
   "devDependencies": {

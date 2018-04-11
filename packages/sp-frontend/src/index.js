@@ -1,15 +1,20 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import "./index.css";
+import CorporateBullshit from "./corporate-bullshit";
+import { injectGlobal } from "styled-components";
 
-(async function() {
-  const isElectron =
-    window && window.process && window.process.type === "renderer";
-  if (isElectron) {
-    const SPAppFrontend = await import("./sp-app-frontend");
-    SPAppFrontend.default();
-  } else {
-    const SPFrontend = (await import("./sp-frontend")).default;
-    ReactDOM.render(<SPFrontend />, document.querySelector("main"));
+injectGlobal`
+  body {
+    font-family: "Open Sans", Helvetica, Arial, sans-serif;
+    margin: 0;
   }
-})();
+`;
+
+ReactDOM.render(<CorporateBullshit />, document.querySelector("main"));
+
+// Uncomment me when it's go time:
+
+// import StreamplaceUI from "streamplace-ui";
+
+// ReactDOM.render(<StreamplaceUI />, document.querySelector("main"));

@@ -3,7 +3,7 @@ import winston from "winston";
 import { v4 } from "node-uuid";
 import { spawnSync } from "child_process";
 import { resolve } from "path";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import { parse } from "url";
 import dove from "dove-jwt";
 

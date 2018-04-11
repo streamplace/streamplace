@@ -2,7 +2,7 @@
 // you and you want to write some fallbacks, be my guest.
 
 import request from "request-promise";
-import config from "sp-configuration";
+import { config } from "sp-client";
 
 const DEV_EXTERNAL_IP = config.optional("DEV_EXTERNAL_IP");
 

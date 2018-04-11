@@ -1,6 +1,0 @@
-apiVersion: v1
-description: Logs for Streamplace
-name: sp-logs
-version: 0.1.9
-icon: 'https://charts.stream.place/icon.svg'
-

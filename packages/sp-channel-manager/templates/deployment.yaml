@@ -15,17 +15,6 @@ spec:
       labels:
         app: {{ template "fullname" . }}
     spec:
-      {{- if .Values.global.development }}
-      volumes:
-        - name: streamplace
-          hostPath:
-            path: {{ .Values.global.rootDirectory }}
-        - name: app
-          hostPath:
-            path: {{ .Values.global.rootDirectory }}/packages/{{ .Chart.Name }}
-        - name: tmp
-          emptyDir: {}
-      {{- end }}
       {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
 {{ toYaml .Values.global.imagePullSecrets | indent 8 }}
@@ -48,17 +37,6 @@ spec:
           timeoutSeconds: 5
         {{- if .Values.global.development }}
         image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:latest"
-        command:
-          - bash
-          - -c
-          - TMPDIR="/tmp" exec /app/node_modules/.bin/babel-watch -o '/app/src/*' /app/src/{{ .Chart.Name }}.js
-        volumeMounts:
-          - name: app
-            mountPath: /app
-          - name: streamplace
-            mountPath: {{ .Values.global.rootDirectory }}
-          - name: tmp
-            mountPath: /tmp
         {{- else }}
         image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:{{ .Chart.Version }}"
         {{- end }}

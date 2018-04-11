@@ -1,39 +1,45 @@
-import { socketEgressStream, socketIngressStream } from "sp-streams";
+import socketEgressStream from "./socket-egress-stream";
+import socketIngressStream from "./socket-ingress-stream";
 import debug from "debug";
-import ffmpeg from "sp-streams/dist/ffmpeg";
-import { PassThrough } from "stream";
+import ffmpeg from "./ffmpeg";
+import { PassThrough, Transform } from "stream";
 
 const log = debug("sp:rtmp-output-stream");
 
 /**
  * { rtmpUrl }
  */
-export default function({ codec } = {}) {
-  const passThrough = new PassThrough();
-  passThrough.pipe(socketEgress);
-  const socketEgress = new socketEgressStream();
-  const socketIngress = new socketIngressStream();
-  passThrough.pipe = socketIngress.pipe.bind(socketIngress);
-  const instance = ffmpeg()
-    .input(`unix://${socketEgress.path}`)
-    .inputOptions(["-probesize 60000000", "-analyzeduration 10000000"])
-    .inputFormat("webm")
-    .videoCodec("copy")
-    .audioCodec("aac")
-    .outputFormat("flv")
-    // Video out
-    .output(`unix://${socketIngress.path}`);
+export default class ConvertVideoStream extends Transform {
+  constructor() {
+    super();
+    this.socketEgress = new socketEgressStream();
+    this.socketIngress = new socketIngressStream();
+    this.socketIngress.on("data", chunk => this.push(chunk));
+    // socketEgress.pipe = socketIngress.pipe.bind(socketIngress);
+    const instance = ffmpeg()
+      .input("anullsrc=channel_layout=stereo:sample_rate=44100")
+      .inputFormat("lavfi")
+      .input(`unix://${this.socketEgress.path}`)
+      .videoCodec("libx264")
+      .audioCodec("aac")
+      .outputOptions([
+        "-keyint_min 120",
+        "-g 120",
+        "-x264-params keyint=120:scenecut=0",
+        "-tag:v avc1"
+      ])
+      .outputFormat("mpegts")
+      // Video out
+      .output(`unix://${this.socketIngress.path}`);
 
-  Promise.resolve()
-    .then(() => {
-      return socketEgress.getPath();
-    })
-    .then(() => {
-      return socketIngress.getPath();
-    })
-    .then(() => {
+    Promise.all([this.socketEgress.getPath()]).then(() => {
+      log("running");
       instance.run();
     });
+  }
 
-  return socketEgress;
+  _transform(chunk, encoding, cb) {
+    this.socketEgress.write(chunk);
+    cb();
+  }
 }

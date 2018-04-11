@@ -1,7 +1,3 @@
-FROM quay.io/streamplace/sp-node:latest
+FROM stream.place/streamplace
 
-ADD package.json /app/package.json
-RUN npm install --unsafe-perm
-ADD dist /app/dist
-
-CMD node /app/dist/sp-schema.js
+CMD ["node", "/app/node_modules/sp-schema/dist/sp-schema.js"]

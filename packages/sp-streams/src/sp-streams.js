@@ -13,3 +13,4 @@ export { default as colorbarsStream } from "./colorbars-stream";
 export { default as dashStream } from "./dash-stream";
 export { default as dashServer } from "./dash-server";
 export { default as spStream } from "./sp-stream";
+export { default as convertVideoStream } from "./convert-video-stream";

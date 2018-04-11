@@ -13,4 +13,5 @@ while ! helm list > /dev/null; do
   sleep 1
 done
 wheelhouse build helm
-helm upgrade -i -f values-dev.example.yaml -f values-dev.yaml dev packages/streamplace
+touch values-dev.yaml
+helm upgrade -i -f values-dev.example.yaml -f values-dev.yaml --set global.rootDirectory="$ROOT" dev packages/streamplace

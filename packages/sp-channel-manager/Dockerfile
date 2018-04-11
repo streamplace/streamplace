@@ -1,9 +1,3 @@
+FROM stream.place/streamplace
 
-FROM quay.io/streamplace/sp-node
-
-WORKDIR /app
-ADD package.json /app/package.json
-RUN npm install --production
-ADD dist /app/dist
-
-CMD ["node", "/app/dist/sp-channel-manager.js"]
+CMD ["node", "/app/node_modules/sp-channel-manager/dist/sp-channel-manager.js"]

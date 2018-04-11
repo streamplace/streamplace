@@ -5,7 +5,11 @@ import IO from "socket.io-client";
 import EE from "wolfy87-eventemitter";
 import jwtDecode from "jwt-decode";
 import request from "superagent";
+
+// expose some stuff in our namespace
+export * from "sp-utils";
 import config from "sp-configuration";
+export { config };
 
 import Resource from "./Resource";
 
@@ -13,6 +17,7 @@ const API_SERVER_URL = config.optional("API_SERVER_URL");
 const PUBLIC_API_SERVER_URL = config.optional("PUBLIC_API_SERVER_URL");
 const DOMAIN = config.optional("DOMAIN");
 const SCHEMA_URL = config.optional("SCHEMA_URL");
+const PROTOCOL = config.optional("PROTOCOL") || "https";
 
 const IMPORTANT_EVENTS = [
   "hello",
@@ -44,12 +49,6 @@ const apiError = function(code, message) {
 export class SPClient extends EE {
   constructor({ server, log, token, app } = {}) {
     super();
-    if (isNode) {
-      // Someone teach me a better wneway to have node do something but not webpack.
-      /*eslint-disable no-eval */
-      const TokenGenerator = eval("require('./TokenGenerator')").default;
-      this.tokenGenerator = new TokenGenerator({ app: this.app });
-    }
     this.app = app || "spclient";
     this.shouldLog = true;
     this.server = server;
@@ -57,6 +56,12 @@ export class SPClient extends EE {
   }
 
   connect({ server, log, token } = {}) {
+    if (isNode) {
+      // Someone teach me a better wneway to have node do something but not webpack.
+      /*eslint-disable no-eval */
+      const TokenGenerator = eval("require('./TokenGenerator')").default;
+      this.tokenGenerator = new TokenGenerator({ app: this.app });
+    }
     this.connected = false;
     this.shouldLog = true;
     this.token = token || this.token;
@@ -70,7 +75,7 @@ export class SPClient extends EE {
       server = PUBLIC_API_SERVER_URL;
     }
     if (!server && DOMAIN) {
-      server = `https://${DOMAIN}`;
+      server = `${PROTOCOL}://${DOMAIN}`;
     }
     if (!server) {
       throw new Error(
@@ -86,12 +91,11 @@ export class SPClient extends EE {
     return request(`${schemaUrl}/schema.json`)
       .then(res => {
         const schema = res.body;
+        schema.schemes = [PROTOCOL];
         // If we have API_SERVER_URL, we're in a cluster, and should trust it over the schema
         if (API_SERVER_URL) {
-          let { protocol, host, path } = url.parse(API_SERVER_URL);
-          protocol = protocol.slice(0, -1);
+          let { host, path } = url.parse(API_SERVER_URL);
           schema.host = host;
-          schema.schemes = [protocol];
           schema.basePath = path;
         }
         this.schema = schema;

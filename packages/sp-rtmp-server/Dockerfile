@@ -1,9 +1,3 @@
+FROM stream.place/streamplace
 
-FROM quay.io/streamplace/sp-ffmpeg
-
-WORKDIR /app
-ADD package.json /app/package.json
-RUN npm install --production
-ADD dist /app/dist
-
-CMD ["node", "/app/dist/sp-rtmp-server.js"]
+CMD ["node", "/app/node_modules/sp-rtmp-server/dist/sp-rtmp-server.js"]

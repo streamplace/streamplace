@@ -1,3 +1,5 @@
+import envOverride from "./env-override";
+
 class Config {
   require(key) {
     if (typeof this[key] === "undefined") {
@@ -21,6 +23,8 @@ class Config {
 }
 
 let config = new Config();
+
+config.add(envOverride);
 
 if (typeof window === "object") {
   config.add(require("./sk-config-client"));

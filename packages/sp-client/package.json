@@ -2,7 +2,8 @@
   "name": "sp-client",
   "version": "0.1.9",
   "description": "Streamplace Javascript Client",
-  "main": "dist/sp-client.js",
+  "main": "dist/sp-client-node.js",
+  "browser": "dist/sp-client.js",
   "scripts": {
     "prepare": "babel -d dist src",
     "start": "babel --watch --preserve-lines -d dist src",
@@ -14,7 +15,11 @@
     "jwt-decode": "^2.1.0",
     "njwt": "^0.3.1",
     "socket.io-client": "^1.7.3",
+    "sp-builder": "^0.1.9",
     "sp-configuration": "^0.1.9",
+    "sp-streams": "^0.1.9",
+    "sp-utils": "^0.1.9",
+    "superagent": "^3.8.2",
     "swagger-client": "^2.1.32",
     "underscore": "^1.8.3",
     "wolfy87-eventemitter": "^4.3.0"

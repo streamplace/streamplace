@@ -1,9 +1,3 @@
+FROM stream.place/streamplace
 
-FROM quay.io/streamplace/sp-ffmpeg
-
-WORKDIR /app
-ADD package.json /app/package.json
-RUN npm install --production
-ADD dist /app/dist
-
-CMD ["node", "/app/dist/sp-broadcaster.js"]
+CMD ["node", "/app/node_modules/sp-broadcaster/dist/sp-broadcaster.js"]

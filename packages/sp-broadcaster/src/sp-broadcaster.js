@@ -1,12 +1,12 @@
 import SP from "sp-client";
-import config from "sp-configuration";
+import { config } from "sp-client";
 import winston from "winston";
 import {
   tcpIngressStream,
   rtmpOutputStream,
   mpegMungerStream,
   ptsNormalizerStream
-} from "sp-streams";
+} from "sp-client";
 import { PassThrough } from "stream";
 import FileStreamer from "./file-streamer";
 

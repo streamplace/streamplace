@@ -163,7 +163,7 @@ export default class CorporateBullshit extends Component {
               <Link href="https://drone.stream.place">
                 <DroneLogo src={droneLogo} />
               </Link>
-              <Link href={this.props.loginUrl}>LOG IN</Link>
+              {/* <Link href={this.props.loginUrl}>LOG IN</Link> */}
             </Links>
           </Content>
           <Hero>{this.renderYoutube()}</Hero>

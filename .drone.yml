@@ -41,7 +41,7 @@ pipeline:
       - echo $KUBECONFIG_CONTENT | openssl base64 -d -A > /tmp/kubeconfig
       - helm init --client-only
       - helm repo add streamplace https://s3-api.us-geo.objectstorage.softlayer.net/blobtown.stream.place
-      - helm upgrade -f values-next.yaml -f values.secret.yaml --version $(npm dist-tag ls streamplace | grep next | sed 's/^.*:\ //') -i next streamplace/streamplace
+      - helm upgrade -f values-next.yaml -f values.secret.yaml --version $(curl --silent https://unpkg.com/streamplace@0.1.10-7e464f90/package.json | jq -r '.version') -i next streamplace/streamplace
 
   trigger-app-build:
     image: streamplace/wheelhouse

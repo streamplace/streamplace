@@ -16,7 +16,6 @@ confirm "Sound good?"
 git checkout latest
 git merge --ff-only next
 # Use a no-op lerna/lint operation to bump all the versions, then we do the git stuff manually.
-lerna bootstrap
 lerna publish --skip-git --skip-npm --yes --repo-version "$newVersion" --force-publish '*'
 "$ROOT/run/lint.sh"
 git add .

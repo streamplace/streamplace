@@ -5,3 +5,4 @@ lib/**/dist
 hack/**
 packages/**/build
 packages/**/compiled
+packages/sp-configuration/src/env-override.js

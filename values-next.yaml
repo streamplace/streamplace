@@ -48,4 +48,5 @@ global:
   domain: stream.place
   adminEmail: stuff@stream.place
   authIssuer: 'https://stream.place/'
-  loginUrl: https://auth.stream.place/
+  loginUrl: https://auth.stream.place/x
+  repo: quay.io/streamplace

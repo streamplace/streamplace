@@ -47,14 +47,31 @@ add(`
 
 add("# add all package.json files");
 
+const pkgs = {};
+
 const packages = fs
   .readdirSync(path.resolve(__dirname, "..", "packages"))
-  .filter(pkgName => !PACKAGE_BLACKLIST.includes(pkgName))
+  .filter(pkgName => {
+    if (PACKAGE_BLACKLIST.includes(pkgName)) {
+      // exclude eplicitly blacklisted packages
+      return false;
+    }
+    try {
+      pkgs[pkgName] = JSON.parse(
+        fs.readFileSync(
+          path.resolve(__dirname, "..", "packages", pkgName, "package.json")
+        )
+      );
+    } catch (e) {
+      if (e.code !== "ENOENT") {
+        throw e;
+      }
+      return false;
+    }
+    return true;
+  })
   .map(pkgName => {
-    const str = fs.readFileSync(
-      path.resolve(__dirname, "..", "packages", pkgName, "package.json")
-    );
-    const pkg = JSON.parse(str);
+    const pkg = pkgs[pkgName];
     pkg.containerName = pkg.name.replace(/-/g, "");
     return pkg;
   });

@@ -4,7 +4,7 @@ WORKDIR /app/node_modules/sp-auth-frontend
 ADD package.json package.json
 ADD src src
 ADD public public
-RUN npm install && npm run prepare
+RUN yarn install && npm run prepare
 
 FROM stream.place/sp-static
 COPY --from=builder /app/node_modules/sp-auth-frontend/build /app/dist

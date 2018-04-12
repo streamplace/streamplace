@@ -1,56 +1,56 @@
 dependencies:
   - name: sp-rethinkdb
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-plugin-core
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-plugin-auth
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-schema
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-ingress
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-default
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-api-server
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-auth-frontend
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-frontend
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-kube-lego
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-coturn
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-channel-manager
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-rtmp-server
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-file-server
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-uploader
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-compositor
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-redirects
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-registry
-    version: 0.1.9
+    version: 0.1.10
     repository: 'https://charts.stream.place'
 

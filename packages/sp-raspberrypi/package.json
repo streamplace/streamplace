@@ -1,6 +1,6 @@
 {
   "name": "sp-raspberrypi",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "streamplace for raspberry pis",
   "main": "run.sh",
   "scripts": {
@@ -14,6 +14,6 @@
   "author": "Streamplace",
   "license": "Apache-2.0",
   "dependencies": {
-    "sp-node": "^0.1.9"
+    "sp-node": "^0.1.10"
   }
 }

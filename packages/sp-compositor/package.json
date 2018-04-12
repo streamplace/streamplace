@@ -1,6 +1,6 @@
 {
   "name": "sp-compositor",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Electron app that turns websites into video streams",
   "main": "dist/sp-compositor.js",
   "scripts": {
@@ -37,9 +37,9 @@
     "debug": "^3.1.0",
     "electron": "^1.8.2",
     "polished": "^1.9.2",
-    "sp-builder": "^0.1.9",
-    "sp-client": "^0.1.9",
-    "sp-ffmpeg": "^0.1.9"
+    "sp-builder": "^0.1.10",
+    "sp-client": "^0.1.10",
+    "sp-ffmpeg": "^0.1.10"
   },
   "babel": {
     "presets": [

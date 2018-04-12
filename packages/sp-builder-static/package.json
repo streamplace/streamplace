@@ -1,6 +1,6 @@
 {
   "name": "sp-builder-static",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Streamplace static site builder",
   "main": "package.json",
   "scripts": {
@@ -20,7 +20,6 @@
   },
   "homepage": "https://github.com/streamplace/streamplace#readme",
   "devDependencies": {
-    "sp-node": "^0.1.9"
-  },
-  "dependencies": {}
+    "sp-node": "^0.1.10"
+  }
 }

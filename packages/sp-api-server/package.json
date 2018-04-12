@@ -1,6 +1,6 @@
 {
   "name": "sp-api-server",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "API Server for Streamplace",
   "main": "dist/sp-api-server.js",
   "scripts": {
@@ -30,8 +30,8 @@
     "on-finished": "^2.3.0",
     "rethinkdb": "^2.3.3",
     "socket.io": "^1.4.5",
-    "sp-client": "^0.1.9",
-    "sp-resource": "^0.1.9",
+    "sp-client": "^0.1.10",
+    "sp-resource": "^0.1.10",
     "swagger-parser": "^3.4.0",
     "underscore": "^1.8.3",
     "winston": "^2.1.1"
@@ -45,8 +45,8 @@
     "expect.js": "^0.3.1",
     "mocha": "^2.4.5",
     "nodemon": "^1.8.1",
-    "sp-builder": "^0.1.9",
-    "sp-node": "^0.1.9"
+    "sp-builder": "^0.1.10",
+    "sp-node": "^0.1.10"
   },
   "babel": {
     "presets": [

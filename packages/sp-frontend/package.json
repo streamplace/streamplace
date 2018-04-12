@@ -1,6 +1,6 @@
 {
   "name": "sp-frontend",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "devDependencies": {
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.0",
@@ -8,7 +8,7 @@
     "babel-preset-react-app": "^3.1.1",
     "npm-run-all": "^4.1.2",
     "react-scripts": "^1.1.1",
-    "sp-static": "^0.1.9"
+    "sp-static": "^0.1.10"
   },
   "babel": {
     "presets": [
@@ -35,11 +35,11 @@
     "react-router": "^4.0.0-beta.8",
     "react-router-dom": "^4.0.0-beta.8",
     "react-youtube": "^7.5.0",
-    "sp-builder-static": "^0.1.9",
-    "sp-client": "^0.1.9",
-    "sp-components": "^0.1.9",
-    "sp-styles": "^0.1.9",
-    "streamplace-ui": "^0.1.9",
+    "sp-builder-static": "^0.1.10",
+    "sp-client": "^0.1.10",
+    "sp-components": "^0.1.10",
+    "sp-styles": "^0.1.10",
+    "streamplace-ui": "^0.1.10",
     "styled-components": "^1.4.4",
     "three": "^0.84.0",
     "url": "^0.11.0"

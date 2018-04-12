@@ -1,6 +1,6 @@
 {
   "name": "sp-file-server",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Streamplace Local File Server",
   "main": "index.js",
   "scripts": {

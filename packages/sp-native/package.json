@@ -1,15 +1,15 @@
 {
   "name": "sp-native",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "private": true,
   "devDependencies": {
     "crna-make-symlinks-for-yarn-workspaces": "^1.0.1",
     "expo": "^25.0.0",
-    "jest-expo": "25.0.0",
     "jest": "^22.4.3",
+    "jest-expo": "25.0.0",
     "metro-bundler-config-yarn-workspaces": "^1.0.3",
-    "react-native-scripts": "1.11.1",
     "react-native": "https://github.com/expo/react-native/archive/sdk-25.0.0.tar.gz",
+    "react-native-scripts": "1.11.1",
     "react-test-renderer": "16.2.0"
   },
   "main": "entry.js",
@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "react": "^16.2.0",
-    "streamplace-ui": "^0.1.9",
+    "streamplace-ui": "^0.1.10",
     "styled-components": "^3.2.3"
   }
 }

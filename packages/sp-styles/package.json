@@ -1,6 +1,6 @@
 {
   "name": "sp-styles",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Styles for Streamplace, used in a few places",
   "main": "dist/sp-styles.js",
   "scripts": {
@@ -24,7 +24,7 @@
   "dependencies": {
     "color": "^1.0.3",
     "react": "^15.4.2",
-    "sp-builder": "^0.1.9",
+    "sp-builder": "^0.1.10",
     "styled-components": "^1.4.4"
   },
   "babel": {

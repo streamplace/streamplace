@@ -1,6 +1,6 @@
 {
   "name": "sp-schema",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Schema for Streamplace",
   "main": "dist/sk-schema.js",
   "scripts": {
@@ -14,9 +14,9 @@
     "express": "^4.14.1",
     "js-yaml": "^3.5.2",
     "mz": "^2.6.0",
-    "sp-builder": "^0.1.9",
-    "sp-client": "^0.1.9",
-    "sp-node": "^0.1.9",
+    "sp-builder": "^0.1.10",
+    "sp-client": "^0.1.10",
+    "sp-node": "^0.1.10",
     "winston": "^2.3.0"
   },
   "devDependencies": {

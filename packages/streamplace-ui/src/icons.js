@@ -1,5 +1,5 @@
-import Ionicons from "react-native-vector-icons/dist/Ionicons";
-export default Ionicons;
+import Ionicon from "react-native-vector-icons/dist/Ionicons";
+export { Ionicon };
 // Use prebuilt version of RNVI in dist folder
 import Icon from "react-native-vector-icons/dist/FontAwesome";
 

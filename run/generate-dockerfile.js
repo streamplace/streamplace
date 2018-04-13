@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
-// We're tryin'a be as isomorphic as possible... but React Native requires react-native to be a
-// production dependency, and we don't want that biz in our containers. So:
+/**
+ * Hello I generate the Dockerfile for stream.place/streamplace I am so great look at me go
+ */
+
 const PACKAGE_BLACKLIST = ["sp-native"];
 
 const fs = require("fs");
 const path = require("path");
 const output = [];
+const child = require("child_process");
 const add = str =>
   output.push(
     ...str
@@ -49,7 +52,7 @@ add("# add all package.json files");
 
 const pkgs = {};
 
-const packages = fs
+let packages = fs
   .readdirSync(path.resolve(__dirname, "..", "packages"))
   .filter(pkgName => {
     if (PACKAGE_BLACKLIST.includes(pkgName)) {
@@ -76,6 +79,60 @@ const packages = fs
     pkg.containerName = pkg.name.replace(/-/g, "");
     return pkg;
   });
+
+const rootDir = path.resolve(__dirname, "..");
+// Sort all the packages by their last git modification time to try and speed things up
+const times = {};
+packages.forEach(pkg => {
+  times[pkg.name] = child
+    .execSync(`git log -5 --format="%at" -- packages/${pkg.name}`, {
+      cwd: rootDir
+    })
+    .toString()
+    .trim()
+    .split("\n")
+    .map(x => parseInt(x));
+});
+
+// But wait, also check if there's local modifications! They should deffo be first!
+const modifiedFiles = child
+  .execSync("git diff --name-only", {
+    cwd: rootDir
+  })
+  .toString()
+  .trim()
+  .split("\n");
+
+const untrackedFiles = child
+  .execSync("git ls-files --others --exclude-standard", { cwd: rootDir })
+  .toString()
+  .trim()
+  .split("\n");
+
+const modifiedPackages = {};
+modifiedFiles.concat(untrackedFiles).forEach(fileName => {
+  if (fileName.startsWith("packages/")) {
+    const pkgName = fileName.split("/")[1];
+    modifiedPackages[pkgName] = true;
+  }
+});
+
+const sortPackages = packages => {
+  return packages.sort((a, b) => {
+    for (let i = 0; i < times[a.name].length; i++) {
+      const aTime = times[a.name][i];
+      const bTime = times[b.name][i];
+      if (aTime === bTime) {
+        continue;
+      }
+      return aTime - bTime;
+    }
+  });
+};
+
+// first sort by git time for the builder build
+packages = sortPackages(packages);
+
 packages.forEach(pkg => {
   add(
     `ADD packages/${pkg.name}/package.json /app/packages/${
@@ -94,7 +151,8 @@ add(`
 `);
 
 add("# build each package separately");
-const buildPackages = packages.filter(pkg => {
+
+let buildPackages = packages.filter(pkg => {
   if (!pkg.scripts || !pkg.scripts.prepare) {
     return false;
   }
@@ -124,6 +182,17 @@ add(
     ].join(" && ")
 );
 
+packages.forEach(pkg => {
+  if (modifiedPackages[pkg.name]) {
+    // replace with actual modification time someday
+    times[pkg.name] = [Number.MAX_SAFE_INTEGER, ...times[pkg.name]];
+  } else {
+    times[pkg.name] = [0, ...times[pkg.name]];
+  }
+});
+
+buildPackages = sortPackages(buildPackages);
+
 buildPackages.forEach(pkg => {
   const distDir = pkg.main.split("/")[0];
   add(
@@ -138,3 +207,63 @@ fs.writeFileSync(
   output.join("\n") + "\n",
   "utf8"
 );
+
+module.exports.buildRootContainer = () => {
+  child.execSync("docker build -t stream.place/streamplace .", {
+    cwd: rootDir,
+    stdio: "inherit"
+  });
+};
+
+module.exports.triggerDeploy = deploymentName => {
+  const patch = JSON.stringify({
+    spec: {
+      template: { metadata: { labels: { deployTime: `${Date.now()}` } } }
+    }
+  });
+  child.execSync(`kubectl patch deployment ${deploymentName} -p '${patch}'`, {
+    stdio: "inherit"
+  });
+};
+
+module.exports.buildDev = () => {
+  if (modifiedPackages["sp-node"]) {
+    child.execSync("docker build -t stream.place/sp-node .", {
+      cwd: process.resolve(rootDir, "packages", "sp-node"),
+      stdio: "inherit"
+    });
+  }
+
+  module.exports.buildRootContainer();
+
+  const lernaString = `npx lerna exec ${Object.keys(modifiedPackages).map(
+    pkgName => `--scope ${pkgName}`
+  )} 'if [ -f Dockerfile ]; then ../../run/package-log.sh docker build -t stream.place/$(basename $PWD) .; fi'`;
+  if (Object.keys(modifiedPackages).length > 0) {
+    child.execSync(lernaString, {
+      cwd: rootDir,
+      stdio: "inherit"
+    });
+  }
+
+  const deployments = JSON.parse(
+    child.execSync("kubectl get deployments -o json")
+  );
+  // .items[].spec.template.spec.containers[].image
+  deployments.items.forEach(item => {
+    for (const container of item.spec.template.spec.containers) {
+      for (const modifiedPackage of Object.keys(modifiedPackages)) {
+        if (container.image.startsWith(`stream.place/${modifiedPackage}`)) {
+          module.exports.triggerDeploy(item.metadata.name);
+          return;
+        }
+      }
+    }
+  });
+};
+
+if (process.argv[2] === "--dev") {
+  module.exports.buildDev();
+} else {
+  module.exports.buildRootContainer();
+}

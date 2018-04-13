@@ -19,17 +19,6 @@ spec:
       imagePullSecrets:
 {{ toYaml .Values.global.imagePullSecrets | indent 8 }}
       {{- end }}
-      {{- if .Values.global.development }}
-      volumes:
-        - name: streamplace
-          hostPath:
-            path: {{ .Values.global.rootDirectory }}
-        - name: app
-          hostPath:
-            path: {{ .Values.global.rootDirectory }}/packages/{{ .Chart.Name }}
-        - name: tmp
-          emptyDir: {}
-      {{- end }}
       containers:
       - name: {{ .Chart.Name }}
         readinessProbe:

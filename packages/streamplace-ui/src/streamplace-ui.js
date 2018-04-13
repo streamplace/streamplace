@@ -2,6 +2,9 @@ import React from "react";
 import { injectGlobal } from "styled-components";
 import { IS_NATIVE } from "./polyfill";
 
+export * from "./constants";
+export * from "./polyfill";
+
 if (!IS_NATIVE) {
   injectGlobal`
     html,

@@ -27,6 +27,7 @@
     "auth0-js": "^9.4.1",
     "jwt-decode": "^2.2.0",
     "react-native-auth0": "^1.2.2",
+    "react-native-vector-icons": "^4.6.0",
     "sp-builder": "^0.1.10",
     "sp-client": "^0.1.10",
     "styled-components": "^3.2.3"

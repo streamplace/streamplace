@@ -10,12 +10,13 @@ import ReactNative, {
   Button,
   Linking
 } from "react-native";
-import { IS_NATIVE, IS_ANDROID } from "./polyfill";
+import { IS_NATIVE, IS_ANDROID, IS_BROWSER } from "./polyfill";
 import styled from "./styled";
 import Form from "./form";
 import Logout from "./logout";
 import { login, checkLogin } from "./auth/auth";
 import SP from "sp-client";
+import Icon from "./icons";
 
 const Overall = styled.View`
   align-items: center;

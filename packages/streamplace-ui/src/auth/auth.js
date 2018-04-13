@@ -2,8 +2,8 @@
 import auth0 from "auth0-js";
 import jwtDecode from "jwt-decode";
 import SP from "sp-client";
+import { TOKEN_STORAGE_KEY } from "../constants";
 
-const TOKEN_STORAGE_KEY = "SP_TOKEN";
 const ID_TOKEN = "id_token";
 
 const webAuth = new auth0.WebAuth({

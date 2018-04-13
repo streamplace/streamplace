@@ -63,7 +63,8 @@ const packages = fs
         )
       );
     } catch (e) {
-      if (e.code !== "ENOENT") {
+      // ENOTDIR happens b/c .DS_Store :(
+      if (e.code !== "ENOENT" && e.code !== "ENOTDIR") {
         throw e;
       }
       return false;

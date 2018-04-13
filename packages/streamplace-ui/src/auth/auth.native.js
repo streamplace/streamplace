@@ -17,8 +17,7 @@ export async function login({ email, password }) {
     realm: "Username-Password-Authentication"
   });
   const user = await SP.connect({
-    token: authRes.idToken,
-    server: "https://stream.place"
+    token: authRes.idToken
   });
   return user;
 }

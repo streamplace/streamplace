@@ -29,11 +29,16 @@ const LogoutButton = styled.Button`
 `;
 
 export default class Logout extends React.Component {
+  async logout() {
+    await logout();
+    this.props.onLoggedOut && (await this.props.onLoggedOut());
+  }
+
   render() {
     return (
       <Overall>
         <Text>Logged in as {SP.user.id}</Text>
-        <LogoutButton onPress={logout} title="Log Out" />
+        <LogoutButton onPress={() => this.logout()} title="Log Out" />
       </Overall>
     );
   }

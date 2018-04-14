@@ -37,4 +37,7 @@ export async function login({ email, password }) {
   return user;
 }
 
-export async function logout() {}
+export async function logout() {
+  await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
+  SP.disconnect();
+}

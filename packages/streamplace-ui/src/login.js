@@ -102,11 +102,20 @@ export default class Login extends React.Component {
     login({
       email: this.state.email,
       password: this.state.password
-    }).catch(err => {
-      this.setState({
-        error: err.message
+    })
+      .then(() => {
+        this.setState({
+          loading: false,
+          loggedIn: true,
+          email: "",
+          password: ""
+        });
+      })
+      .catch(err => {
+        this.setState({
+          error: err.message
+        });
       });
-    });
   }
   render() {
     if (this.state.loading) {
@@ -116,7 +125,15 @@ export default class Login extends React.Component {
       return (
         <Overall>
           <RestCentered>
-            <Logout />
+            <Logout
+              onLoggedOut={async () => {
+                this.props.onLoggedOut && (await this.props.onLoggedOut());
+                this.setState({
+                  loading: false,
+                  loggedIn: false
+                });
+              }}
+            />
           </RestCentered>
         </Overall>
       );

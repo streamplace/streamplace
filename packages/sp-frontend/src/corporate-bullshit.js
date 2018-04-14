@@ -109,7 +109,7 @@ const SizedLogo = styled.img`
   width: ${downloadWidth};
 `;
 
-const DownloadButton = styled.a`
+const DownloadButton = styled.span`
   border-radius: 5px;
   border: 1px solid #cccccc;
   margin-top: 1em;

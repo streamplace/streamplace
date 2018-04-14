@@ -6,7 +6,8 @@ import {
   TOKEN_STORAGE_KEY,
   AUTH0_DOMAIN,
   AUTH0_CLIENT_ID,
-  ID_TOKEN
+  ID_TOKEN,
+  AUTH0_REALM
 } from "../constants";
 
 const webAuth = new auth0.WebAuth({
@@ -17,10 +18,13 @@ const webAuth = new auth0.WebAuth({
 });
 
 /**
- * Check if we're already logged in via auth0 giving us a hash parameter
+ * Check if we're already logged in. There are two ways that can be true.
  */
 export async function checkLogin() {
   let token;
+  /**
+   * Way one: we're returning from an Auth0 redirect with a shiny id_token
+   */
   if (document.location.hash.includes(ID_TOKEN)) {
     const params = new URLSearchParams(document.location.hash.substring(1));
     if (params.has(ID_TOKEN)) {
@@ -33,27 +37,35 @@ export async function checkLogin() {
       token = params.get(ID_TOKEN);
     }
   }
+  /**
+   * Way two:
+   */
   if (!token) {
     token = window.localStorage.getItem(TOKEN_STORAGE_KEY);
   }
   if (!token) {
     return null;
   }
-  const user = await SP.connect({ token });
-  // Allow the API server to issue us a new token, then...
-  window.localStorage.setItem(TOKEN_STORAGE_KEY, SP.token);
-  return user;
+  try {
+    const user = await SP.connect({ token });
+    // Allow the API server to issue us a new token, then...
+    window.localStorage.setItem(TOKEN_STORAGE_KEY, SP.token);
+    return user;
+  } catch (e) {
+    // 999999 reasons this can happen
+    return null;
+  }
 }
 
 export async function login({ email, password }) {
   webAuth.login({
-    realm: "Username-Password-Authentication",
+    realm: AUTH0_REALM,
     username: email,
     password: password
   });
 }
 
 export async function logout() {
+  SP.disconnect();
   window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-  window.location = window.location;
 }

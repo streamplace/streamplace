@@ -236,9 +236,11 @@ module.exports.buildDev = () => {
 
   module.exports.buildRootContainer();
 
-  const lernaString = `npx lerna exec ${Object.keys(modifiedPackages).map(
-    pkgName => `--scope ${pkgName}`
-  )} 'if [ -f Dockerfile ]; then ../../run/package-log.sh docker build -t stream.place/$(basename $PWD) .; fi'`;
+  const lernaString = `npx lerna exec ${Object.keys(modifiedPackages)
+    .map(pkgName => `--scope ${pkgName}`)
+    .join(
+      " "
+    )} 'if [ -f Dockerfile ]; then ../../run/package-log.sh docker build -t stream.place/$(basename $PWD) .; fi'`;
   if (Object.keys(modifiedPackages).length > 0) {
     child.execSync(lernaString, {
       cwd: rootDir,

@@ -2,14 +2,17 @@
 import auth0 from "auth0-js";
 import jwtDecode from "jwt-decode";
 import SP from "sp-client";
-import { TOKEN_STORAGE_KEY } from "../constants";
-
-const ID_TOKEN = "id_token";
+import {
+  TOKEN_STORAGE_KEY,
+  AUTH0_DOMAIN,
+  AUTH0_CLIENT_ID,
+  ID_TOKEN
+} from "../constants";
 
 const webAuth = new auth0.WebAuth({
-  domain: "streamkitchen.auth0.com",
-  clientID: "hZU06VmfYz2JLZCkjtJ7ltEy5SOsvmBA",
-  responseType: "id_token",
+  domain: AUTH0_DOMAIN,
+  clientID: AUTH0_CLIENT_ID,
+  responseType: ID_TOKEN,
   redirectUri: window.location.href
 });
 
@@ -36,15 +39,10 @@ export async function checkLogin() {
   if (!token) {
     return null;
   }
-  try {
-    return SP.connect({ token }).then(user => {
-      // Allow the API server to issue us a new token, then...
-      window.localStorage.setItem(TOKEN_STORAGE_KEY, SP.token);
-      return user;
-    });
-  } catch (err) {
-    throw err;
-  }
+  const user = await SP.connect({ token });
+  // Allow the API server to issue us a new token, then...
+  window.localStorage.setItem(TOKEN_STORAGE_KEY, SP.token);
+  return user;
 }
 
 export async function login({ email, password }) {

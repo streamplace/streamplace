@@ -5,4 +5,13 @@ import fs from "fs";
 import { resolve } from "path";
 config.loadValuesFile(process.argv[2]);
 const str = `module.exports = ${JSON.stringify(config, null, 2)};`;
-fs.writeFileSync(resolve(__dirname, "env-override.js"), str, "utf8");
+const filePath = resolve(__dirname, "env-override.js");
+let currentFile;
+try {
+  currentFile = fs.readFileSync(filePath, "utf8");
+} catch (e) {
+  // nbd, we'll just write it anyway
+}
+if (currentFile !== str) {
+  fs.writeFileSync(resolve(__dirname, "env-override.js"), str, "utf8");
+}

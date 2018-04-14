@@ -178,7 +178,12 @@ export default class CorporateBullshit extends Component {
               <Link href="https://drone.stream.place">
                 <DroneLogo src={droneLogo} />
               </Link>
-              <Link onClick={() => this.props.onLogin()}>LOG IN</Link>
+              <Link
+                style={{ cursor: "pointer" }}
+                onClick={() => this.props.onLogin()}
+              >
+                LOG IN
+              </Link>
             </Links>
           </Content>
           <Hero>{this.renderYoutube()}</Hero>

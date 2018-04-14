@@ -13,13 +13,13 @@ global:
   domain: localhost
   protocol: http
   jwt:
-    audience: dev
+    audience: hZU06VmfYz2JLZCkjtJ7ltEy5SOsvmBA
     secret: QjAzNEMwMEUtQkY5Qi00OTQyLUJEQUEtMEYxNEZENUVERERE
     # If someone hasn't logged in for this long, they won't be.
     expiration: 30d
   plugins:
     - sp-plugin-core
-  authIssuer: https://stream.place/
+  authIssuer: 'https://streamkitchen.auth0.com/'
   loginUrl: https://auth.stream.place/
   externalIP: "0.0.0.0"
   s3:

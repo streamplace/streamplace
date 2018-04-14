@@ -26,21 +26,62 @@
   <a href="https://www.kickstarter.com/projects/338091149/stream-kitchen">Check out our Kickstarter video for examples!</a>
 </p>
 
-### Client Development
+## Development
 
-To develop all the Streamplace clients at the same time, just run:
+### Client & Server
+
+First:
 
 ```
 yarn install
-npm run dev-client
 ```
 
-To get Android emulators working you'll probably need to forward some ports from the device with `adb`.
+### Server
+
+You'll need a local Kubernetes cluster. Kubernetes for Docker for Mac and minikube should both work.
+
+You'll also need helm on your PATH.
+
+To boot everything up initially:
+
+```
+npm run env:dev
+npm run server
+```
+
+To view output logs on local Kibana:
+
+```
+npm run server:logs
+```
+
+Then, after you've made some local changes and you want to deploy them to the cluster without
+rebuilding everything:
+
+```
+npm run server:apply [packages you want to deploy]
+```
+
+### Client Development
+
+If you want to develop the client against the staging server, that's fine, just run:
+
+```
+npm run env:next
+```
+
+Then, to boot up the web, Electron, and React Native client apps:
+
+```
+npm run client
+```
+
+Electron, Web, and the iOS Simulator should work out of the box. To get Android emulators working
+you'll probably need to forward port 80 on the device with `adb`.
 
 ```
 adb root
 adb reverse tcp:80 tcp:80
-adb reverse tcp:19000 tcp:19000
 ```
 
 ### Development Environment Known Issues

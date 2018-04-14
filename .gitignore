@@ -10,7 +10,7 @@ packages/*/*.tgz
 packages/*/dist
 requirements.lock
 /packages/*/charts
-values-dev.yaml
+values.local.yaml
 .tmp
 yarn-error.log
 .wheelhouse

@@ -3,7 +3,9 @@
 import config from "./sp-configuration";
 import fs from "fs";
 import { resolve } from "path";
-config.loadValuesFile(process.argv[2]);
+for (const file of process.argv.slice(2)) {
+  config.loadValuesFile(process.argv[2]);
+}
 const str = `module.exports = ${JSON.stringify(config, null, 2)};`;
 const filePath = resolve(__dirname, "env-override.js");
 let currentFile;

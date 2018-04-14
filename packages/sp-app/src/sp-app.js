@@ -37,8 +37,12 @@ app.on("ready", () => {
   let iconImage =
     process.platform === "darwin" ? "iconTemplate.png" : "favicon.png";
   tray = new Tray(path.resolve(imagePath, iconImage));
+  let versionString = `Streamplace v${pkg.version}`;
+  if (process.env.NODE_ENV === "development") {
+    versionString += "-dev";
+  }
   const contextMenu = Menu.buildFromTemplate([
-    { label: `Streamplace v${pkg.version}`, enabled: false },
+    { label: versionString, enabled: false },
     { label: "Close Streamplace", role: "quit" }
   ]);
   tray.setToolTip("Streamplace");

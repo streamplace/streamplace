@@ -134,9 +134,6 @@ injectGlobal`
 `;
 
 export default class CorporateBullshit extends Component {
-  constructor() {
-    super();
-  }
   renderYoutube() {
     const youtubeOpts = {
       playerVars: {

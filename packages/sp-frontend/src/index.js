@@ -14,6 +14,9 @@ injectGlobal`
     font-family: "Open Sans", Helvetica, Arial, sans-serif;
     margin: 0;
   }
+  main {
+    display: block;
+  }
 `;
 
 /**

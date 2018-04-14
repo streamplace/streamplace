@@ -14,9 +14,6 @@ if (!IS_NATIVE) {
       height: 100%;
       font-family: "Open Sans", Helvetica, sans-serif !important;
     }
-    main {
-      display: flex;
-    }
   `;
 }
 

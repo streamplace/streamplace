@@ -3,6 +3,7 @@ import { IS_NATIVE } from "./polyfill";
 import url from "url";
 
 export const TOKEN_STORAGE_KEY = "SP_TOKEN";
+export const PROFILE_STORAGE_KEY = "SP_PROFILE";
 export const ID_TOKEN = "id_token";
 export const AUTH0_CLIENT_ID = config.require("JWT_AUDIENCE");
 export const AUTH0_REALM = "Username-Password-Authentication";

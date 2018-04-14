@@ -4,6 +4,7 @@ import jwtDecode from "jwt-decode";
 import SP from "sp-client";
 import {
   TOKEN_STORAGE_KEY,
+  PROFILE_STORAGE_KEY,
   AUTH0_DOMAIN,
   AUTH0_CLIENT_ID,
   ID_TOKEN,
@@ -35,6 +36,15 @@ export async function checkLogin() {
         window.location.pathname + window.location.search
       );
       token = params.get(ID_TOKEN);
+      try {
+        const profile = jwtDecode(token);
+        window.localStorage.setItem(
+          PROFILE_STORAGE_KEY,
+          JSON.stringify(profile)
+        );
+      } catch (e) {
+        token = null;
+      }
     }
   }
   /**
@@ -68,4 +78,13 @@ export async function login({ email, password }) {
 export async function logout() {
   SP.disconnect();
   window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+  window.localStorage.removeItem(PROFILE_STORAGE_KEY);
+}
+
+export async function getProfile() {
+  const profileStr = await window.localStorage.getItem(PROFILE_STORAGE_KEY);
+  if (!profileStr) {
+    return null;
+  }
+  return JSON.parse(profileStr);
 }

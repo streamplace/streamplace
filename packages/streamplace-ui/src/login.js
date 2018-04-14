@@ -22,7 +22,9 @@ const Overall = styled.View`
   align-items: center;
   justify-content: flex-start;
   flex-grow: 1;
+  height: 100%;
   padding: 15px;
+  flex: 1;
   ${!IS_NATIVE && "-webkit-app-region: drag"};
 `;
 
@@ -124,17 +126,15 @@ export default class Login extends React.Component {
     if (this.state.loggedIn) {
       return (
         <Overall>
-          <RestCentered>
-            <Logout
-              onLoggedOut={async () => {
-                this.props.onLoggedOut && (await this.props.onLoggedOut());
-                this.setState({
-                  loading: false,
-                  loggedIn: false
-                });
-              }}
-            />
-          </RestCentered>
+          <Logout
+            onLoggedOut={async () => {
+              this.props.onLoggedOut && (await this.props.onLoggedOut());
+              this.setState({
+                loading: false,
+                loggedIn: false
+              });
+            }}
+          />
         </Overall>
       );
     }

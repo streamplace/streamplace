@@ -31,14 +31,32 @@ process.on("unhandledRejection", err => {
   process.exit(1);
 });
 
+const IS_DEVELOPMENT = process.env.NODE_ENV === "development";
+let iconImage;
+if (process.platform === "darwin") {
+  if (IS_DEVELOPMENT) {
+    iconImage = "iconMacDev.png";
+  } else {
+    iconImage = "iconTemplate.png";
+  }
+} else {
+  if (IS_DEVELOPMENT) {
+    iconImage = "faviconDev.png";
+  } else {
+    iconImage = "favicon.png";
+  }
+}
+
 let tray = null;
 let win;
 app.on("ready", () => {
-  let iconImage =
-    process.platform === "darwin" ? "iconTemplate.png" : "favicon.png";
   tray = new Tray(path.resolve(imagePath, iconImage));
+  let versionString = `Streamplace v${pkg.version}`;
+  if (process.env.NODE_ENV === "development") {
+    versionString += "-dev";
+  }
   const contextMenu = Menu.buildFromTemplate([
-    { label: `Streamplace v${pkg.version}`, enabled: false },
+    { label: versionString, enabled: false },
     { label: "Close Streamplace", role: "quit" }
   ]);
   tray.setToolTip("Streamplace");

@@ -6,12 +6,10 @@ import nJwt from "njwt";
 import winston from "winston";
 import APIError from "./api-error";
 import jwt from "jsonwebtoken";
-import dove from "dove-jwt";
 import { config } from "sp-client";
 import ms from "ms";
 import aguid from "aguid";
-
-dove.useSystemCertAuthorities();
+import axios from "axios";
 
 const DOMAIN = config.require("DOMAIN");
 const JWT_ISSUER = `https://${DOMAIN}/`;
@@ -20,6 +18,21 @@ const JWT_AUDIENCE = config.require("JWT_AUDIENCE");
 const JWT_EXPIRATION = ms(config.require("JWT_EXPIRATION"));
 // Upstream auth server that we trust, e.g. https://auth.stream.place/
 const AUTH_ISSUER = config.require("AUTH_ISSUER");
+let AUTH_ISSUER_PEM;
+
+let prom;
+/**
+ * Idempotent function to retrieve auth0's pem from our trusted auth source
+ */
+const getIssuerPem = () => {
+  if (prom) {
+    return prom;
+  }
+  prom = axios.get(`${AUTH_ISSUER}pem`).then(res => {
+    AUTH_ISSUER_PEM = res.data;
+  });
+  return prom;
+};
 
 // Reusable 403 token error!
 const tokenErr = function() {
@@ -38,8 +51,12 @@ export default class SKContext extends EE {
     this.resources = SKContext.resources;
   }
 
+  /**
+   * Core auth function of Streamplace. If you're looking to hack us, this would be a good place to
+   * start.
+   */
   useToken(token) {
-    return Promise.resolve().then(() => {
+    return getIssuerPem().then(() => {
       // Before anything else, you need a token.
       if (!token) {
         throw new APIError({
@@ -72,32 +89,25 @@ export default class SKContext extends EE {
           winston.error("Provided JWT failed verification", e);
           throw tokenErr();
         }
-
-        // jwt looks broadly okay. Does the audience match?
-        if (payload.aud !== JWT_AUDIENCE) {
-          winston.error(
-            `JWT aud wrong: got ${payload.aud} expected ${JWT_AUDIENCE}.`
-          );
-          throw tokenErr();
-        }
       } else if (header.alg === "RS256" && unsafePayload.iss === AUTH_ISSUER) {
-        // Second way -- it could be a dove-jwt, signed by our trusted authIssuer. Let's check.
+        // Second way -- it could be a RS256, signed by our trusted authIssuer. Let's check.
         try {
-          payload = dove.verify(token);
+          payload = jwt.verify(token, AUTH_ISSUER_PEM, { algorithms: "RS256" });
         } catch (e) {
           winston.error("Error verifying dove-jwt", e);
-          throw tokenErr();
-        }
-
-        if (payload.aud !== `https://${DOMAIN}/`) {
-          winston.error(
-            `JWT aud wrong: got ${payload.aud} expected https://${DOMAIN}/.`
-          );
           throw tokenErr();
         }
       } else {
         // Yuck!
         winston.error(`JWT uses unknown algorithm: ${header.alg}`);
+        throw tokenErr();
+      }
+
+      // jwt looks broadly okay. Does the audience match?
+      if (payload.aud !== JWT_AUDIENCE) {
+        winston.error(
+          `JWT aud wrong: got ${payload.aud} expected ${JWT_AUDIENCE}.`
+        );
         throw tokenErr();
       }
 
@@ -109,7 +119,7 @@ export default class SKContext extends EE {
       // - past halfway into its expiration time
       if (
         (!payload.roles || !payload.roles.includes("SERVICE")) && // If we're not a service...
-        (payload.iss !== JWT_ISSUER || header.alg !== "HS256")
+        header.alg !== "HS256"
       ) {
         this.issueNewToken(payload.sub);
       }

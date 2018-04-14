@@ -4,6 +4,7 @@ import { IS_NATIVE } from "./polyfill";
 
 export * from "./constants";
 export * from "./polyfill";
+export * from "./auth/auth";
 
 if (!IS_NATIVE) {
   injectGlobal`
@@ -13,9 +14,6 @@ if (!IS_NATIVE) {
       height: 100%;
       font-family: "Open Sans", Helvetica, sans-serif !important;
     }
-    main {
-      display: flex;
-    }
   `;
 }
 
@@ -23,6 +21,6 @@ import Login from "./login";
 
 export default class StreamplaceUI extends React.Component {
   render() {
-    return <Login />;
+    return <Login onLoggedOut={this.props.onLoggedOut} />;
   }
 }

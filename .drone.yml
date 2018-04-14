@@ -18,7 +18,7 @@ pipeline:
     commands:
       - yarn install
       - npm run lint
-      - npm run docker-build-ci
+      - npm run ci
       - npm test
       - npx wheelhouse build helm
       - npx wheelhouse push --dist-tag $DRONE_BRANCH

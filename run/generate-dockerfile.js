@@ -208,6 +208,13 @@ fs.writeFileSync(
   "utf8"
 );
 
+module.exports.buildNodeContainer = () => {
+  child.execSync("docker build -t stream.place/sp-node .", {
+    cwd: path.resolve(rootDir, "packages", "sp-node"),
+    stdio: "inherit"
+  });
+};
+
 module.exports.buildRootContainer = () => {
   child.execSync("docker build -t stream.place/streamplace .", {
     cwd: rootDir,
@@ -226,19 +233,29 @@ module.exports.triggerDeploy = deploymentName => {
   });
 };
 
-module.exports.buildDev = () => {
-  if (modifiedPackages["sp-node"]) {
-    child.execSync("docker build -t stream.place/sp-node .", {
-      cwd: process.resolve(rootDir, "packages", "sp-node"),
-      stdio: "inherit"
-    });
+module.exports.apply = opts => {
+  if (!opts.exclude) {
+    opts.exclude = [];
+  }
+  if (!opts.include || opts.include.length === 0) {
+    opts.include = packages
+      .map(pkg => pkg.name)
+      .filter(pkgName => !opts.exclude.includes(pkgName));
+  }
+  const include = opts.include;
+  const exclude = opts.exclude;
+  if (include.includes("sp-node")) {
+    module.exports.buildNodeContainer();
   }
 
   module.exports.buildRootContainer();
 
-  const lernaString = `npx lerna exec ${Object.keys(modifiedPackages).map(
-    pkgName => `--scope ${pkgName}`
-  )} 'if [ -f Dockerfile ]; then ../../run/package-log.sh docker build -t stream.place/$(basename $PWD) .; fi'`;
+  const scopes = opts.include.map(pkgName => `--scope ${pkgName}`).join(" ");
+  const ignores = opts.exclude.map(pkgName => `--ignore ${pkgName}`).join(" ");
+  const cmd =
+    "if [ -f Dockerfile ]; then ../../run/package-log.sh docker build -t stream.place/$(basename $PWD) .; fi";
+
+  const lernaString = `npx lerna exec ${scopes} ${ignores} '${cmd}'`;
   if (Object.keys(modifiedPackages).length > 0) {
     child.execSync(lernaString, {
       cwd: rootDir,
@@ -246,9 +263,14 @@ module.exports.buildDev = () => {
     });
   }
 
+  if (!opts.deploy) {
+    return;
+  }
+
   const deployments = JSON.parse(
     child.execSync("kubectl get deployments -o json")
   );
+
   // .items[].spec.template.spec.containers[].image
   deployments.items.forEach(item => {
     for (const container of item.spec.template.spec.containers) {
@@ -262,8 +284,20 @@ module.exports.buildDev = () => {
   });
 };
 
-if (process.argv[2] === "--dev") {
-  module.exports.buildDev();
-} else {
-  module.exports.buildRootContainer();
+if (!module.parent) {
+  const argv = require("yargs")
+    .boolean("dev")
+    .boolean("deploy").argv;
+  let include = argv._;
+  let exclude = [];
+
+  // exclude front-end stuff in dev
+  if (argv.dev) {
+    exclude.push("sp-frontend", "sp-auth-frontend", "sp-overlay");
+  }
+  module.exports.apply({
+    include,
+    exclude,
+    deploy: !!argv.deploy
+  });
 }

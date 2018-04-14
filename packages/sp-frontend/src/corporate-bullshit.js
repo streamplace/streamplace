@@ -109,7 +109,7 @@ const SizedLogo = styled.img`
   width: ${downloadWidth};
 `;
 
-const DownloadButton = styled.a`
+const DownloadButton = styled.span`
   border-radius: 5px;
   border: 1px solid #cccccc;
   margin-top: 1em;
@@ -120,32 +120,20 @@ const DownloadButton = styled.a`
 `;
 
 /* eslint-disable no-unused-expressions */
-// we want to only do global hacks if we're actually loaded ever.
-let injected = false;
-const injectGlobalBullshitHacks = () => {
-  if (injected) {
-    return;
+injectGlobal`
+  a {
+    text-decoration: none;
   }
-  injectGlobal`
-    a {
-      text-decoration: none;
-    }
-    #BigVideo {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-    }
-  `;
-  injected = true;
-};
+  #BigVideo {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+  }
+`;
 
 export default class CorporateBullshit extends Component {
-  constructor() {
-    super();
-    injectGlobalBullshitHacks();
-  }
   renderYoutube() {
     const youtubeOpts = {
       playerVars: {
@@ -178,7 +166,12 @@ export default class CorporateBullshit extends Component {
               <Link href="https://drone.stream.place">
                 <DroneLogo src={droneLogo} />
               </Link>
-              <Link onClick={() => this.props.onLogin()}>LOG IN</Link>
+              <Link
+                style={{ cursor: "pointer" }}
+                onClick={() => this.props.onLogin()}
+              >
+                LOG IN
+              </Link>
             </Links>
           </Content>
           <Hero>{this.renderYoutube()}</Hero>

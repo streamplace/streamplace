@@ -3,12 +3,19 @@ import ReactDOM from "react-dom";
 import "./index.css";
 import CorporateBullshit from "./corporate-bullshit";
 import { injectGlobal } from "styled-components";
-import StreamplaceUI, { IS_ELECTRON, TOKEN_STORAGE_KEY } from "streamplace-ui";
+import StreamplaceUI, {
+  IS_BROWSER,
+  TOKEN_STORAGE_KEY,
+  checkLogin
+} from "streamplace-ui";
 
 injectGlobal`
   body {
     font-family: "Open Sans", Helvetica, Arial, sans-serif;
     margin: 0;
+  }
+  main {
+    display: block;
   }
 `;
 
@@ -20,18 +27,30 @@ injectGlobal`
 export default class StreamplaceWebRoot extends React.Component {
   constructor() {
     super();
-    let showBullshit = true;
-    if (IS_ELECTRON) {
-      showBullshit = false;
-    } else if (localStorage.getItem(TOKEN_STORAGE_KEY)) {
+    let showBullshit = IS_BROWSER;
+    if (localStorage.getItem(TOKEN_STORAGE_KEY)) {
       showBullshit = false;
     }
     this.state = {
-      showBullshit
+      showBullshit,
+      loading: true
     };
   }
 
+  async componentDidMount() {
+    // We only get a second to try before we show _something_.
+    setTimeout(() => {
+      this.setState({ loading: false });
+    }, 2500);
+    // But yeah, try and get the user.
+    const user = await checkLogin();
+    this.setState({ loading: false, showBullshit: !user });
+  }
+
   render() {
+    if (this.state.loading) {
+      return <div />;
+    }
     if (this.state.showBullshit) {
       return (
         <CorporateBullshit
@@ -39,7 +58,17 @@ export default class StreamplaceWebRoot extends React.Component {
         />
       );
     }
-    return <StreamplaceUI />;
+    return (
+      <StreamplaceUI
+        onLoggedOut={async () => {
+          // when the log out, self-destruct
+          this.setState({
+            loading: true
+          });
+          window.location.href = "/";
+        }}
+      />
+    );
   }
 }
 

@@ -15,4 +15,4 @@ while ! helm list > /dev/null; do
 done
 wheelhouse build helm
 touch values-dev.yaml
-helm upgrade -i -f values-dev.example.yaml -f values-dev.yaml --set global.rootDirectory="$ROOT" dev packages/streamplace
+helm upgrade -i -f values-dev.yaml -f values.local.yaml --set global.rootDirectory="$ROOT" dev packages/streamplace

@@ -11,7 +11,6 @@ import socketHandler from "./socket-handler";
 
 const BELLAMIE_PORT = process.env.PORT || 80;
 const SCHEMA_URL = config.require("SCHEMA_URL");
-// Authorized upstream jwt issuer, e.g. auth.stream.place
 
 winston.cli();
 winston.level = process.env.DEBUG_LEVEL || "info";

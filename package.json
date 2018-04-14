@@ -58,7 +58,7 @@
   },
   "scripts": {
     "ci:build-app": "run/ci-build-app.sh",
-    "ci": "run-s env:next docker:root docker:ci",
+    "ci": "run-s env:next docker:ci",
     "client": "lerna exec --concurrency=999 --no-sort --include-filtered-dependencies --scope sp-native --scope sp-frontend --scope sp-app npm run start",
     "docker:ci": "run/generate-dockerfile.js",
     "docker:dev": "run/generate-dockerfile.js --dev=true",

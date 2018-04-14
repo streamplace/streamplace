@@ -3,6 +3,7 @@
 # Declare variables to be passed into your templates.
 
 global:
+  protocol: https
   development: false
   # Replace these with the path to your streamplace repo
   rootDirectory: /Users/example/git/streamplace

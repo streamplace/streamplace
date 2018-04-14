@@ -1,4 +1,4 @@
-
+{{- if .Values.enabled -}}
 {{- if .Values.disableIngress }}
 {{- else }}
 apiVersion: extensions/v1beta1
@@ -11,9 +11,11 @@ metadata:
     kubernetes.io/ingress.class: "nginx"
 spec:
   tls:
+  {{- if not (eq .Values.global.protocol "http") }}
   - secretName: {{ .Values.global.domain }}
     hosts:
     - {{ .Values.global.domain }}
+  {{- end }}
   rules:
   - host: {{ .Values.global.domain }}
     http:
@@ -23,3 +25,4 @@ spec:
           serviceName: {{ template "fullname" . }}
           servicePort: 80
 {{- end }}
+{{- end -}}

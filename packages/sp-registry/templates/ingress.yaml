@@ -1,4 +1,4 @@
-
+{{- if .Values.enabled -}}
 {{- if .Values.ingress.enabled -}}
 {{- $fullName := include "sp-registry.fullname" . -}}
 {{- $servicePort := .Values.service.port -}}
@@ -84,3 +84,4 @@ spec:
               servicePort: http
   {{- end }}
 {{- end }}
+{{- end -}}

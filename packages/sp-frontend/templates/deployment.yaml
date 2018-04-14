@@ -1,4 +1,4 @@
-
+{{- if .Values.enabled -}}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -42,3 +42,4 @@ spec:
         image: "{{ .Values.global.repo }}/{{ .Chart.Name }}:{{ .Chart.Version }}"
         {{- end }}
         imagePullPolicy: {{ if .Values.global.development }}Never{{ else }}Always{{ end }}
+{{- end -}}

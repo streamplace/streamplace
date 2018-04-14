@@ -34,13 +34,14 @@ sp-ingress:
 
 # Disable lots of features that we don't need in dev
 
+# we use local frontends 'cause doing it in kube sucks
+sp-frontend:
+  enabled: false
+
 sp-registry:
-  replicaCount: 0
+  enabled: false
 
 sp-redirects:
-  replicaCount: 0
-
-sp-dev-certs:
   enabled: false
 
 sp-auth-frontend:
@@ -51,7 +52,7 @@ sp-kube-lego:
 
 # don't want the demo in dev...
 sp-compositor:
-  replicaCount: 0
+  enabled: false
 
 sp-file-server:
   enabled: true

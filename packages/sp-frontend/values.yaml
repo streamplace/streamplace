@@ -2,8 +2,11 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+enabled: true
+
 global:
   development: true
+  protocol: https
   # Replace these with the path to your streamplace repo
   streamplaceRootDev: /Users/example/git/streamplace
   # Replace this with your Keybase username

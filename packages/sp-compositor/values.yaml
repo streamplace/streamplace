@@ -1,6 +1,7 @@
-
+enabled: true
 global:
   development: false
+  protocol: https
 replicaCount: 1
 website: http://countdown.stream.place.s3-website-us-west-2.amazonaws.com/from/now
 image:

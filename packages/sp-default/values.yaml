@@ -3,3 +3,4 @@
 # Declare variables to be passed into your templates.
 global:
   development: false
+  protocol: https

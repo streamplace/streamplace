@@ -3,7 +3,8 @@
 # Declare variables to be passed into your templates.
 
 global:
-  development: true
+  development: false
+  protocol: https
   # Replace these with the path to your streamplace repo
   rootDirectory: /Users/example/git/streamplace
   # Replace this with your Keybase username

@@ -9,10 +9,12 @@ metadata:
     kubernetes.io/ingress.class: "nginx"
     ingress.kubernetes.io/proxy-body-size: 4096m
 spec:
+  {{- if not (eq .Values.global.protocol "http") }}
   tls:
   - secretName: {{ .Values.global.domain }}
     hosts:
     - {{ .Values.global.domain }}
+  {{- end }}
   rules:
   - host: {{ .Values.global.domain }}
     http:

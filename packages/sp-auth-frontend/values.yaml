@@ -2,6 +2,7 @@
 global:
   development: false
   repo: stream.place
+  protocol: https
 enabled: false
 domain: auth.stream.place
 auth0Domain: streamplace.auth0.com

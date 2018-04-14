@@ -39,6 +39,7 @@ sp-redirects:
 
 global:
   development: false
+  protocol: https
   jwt:
     audience: hZU06VmfYz2JLZCkjtJ7ltEy5SOsvmBA
     expiration: 30d

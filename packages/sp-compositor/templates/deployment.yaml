@@ -1,3 +1,4 @@
+{{- if .Values.enabled }}
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -44,3 +45,4 @@ spec:
       nodeSelector:
 {{ toYaml .Values.nodeSelector | indent 8 }}
     {{- end }}
+{{- end }}

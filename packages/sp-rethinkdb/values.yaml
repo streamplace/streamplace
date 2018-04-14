@@ -4,3 +4,4 @@
 
 global:
   development: false
+  protocol: https

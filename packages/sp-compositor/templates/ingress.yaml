@@ -1,3 +1,4 @@
+{{- if .Values.enabled }}
 {{- if .Values.ingress.enabled -}}
 {{- $serviceName := include "sp-compositor.fullname" . -}}
 {{- $servicePort := .Values.service.externalPort -}}
@@ -30,4 +31,5 @@ spec:
   tls:
 {{ toYaml .Values.ingress.tls | indent 4 }}
   {{- end -}}
+{{- end -}}
 {{- end -}}

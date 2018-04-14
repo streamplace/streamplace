@@ -64,7 +64,7 @@
     "dev-client:start": "npx lerna exec --concurrency=999 --no-sort --include-filtered-dependencies --scope sp-native --scope sp-frontend --scope sp-app npm run start",
     "dev-client": "run-s dev-client:env-override dev-client:start",
     "docker-build-ci": "run-s docker-build-ci:env-override docker-build-node docker-build-root docker-build-packages-ci",
-    "docker-build-ci:env-override": "babel-node packages/sp-configuration/src/build-env-override.js values-next.example.yaml",
+    "docker-build-ci:env-override": "babel-node packages/sp-configuration/src/build-env-override.js values-next.yaml",
     "docker-build-dev": "run/generate-dockerfile.js --dev",
     "docker-build-node": "cd packages/sp-node && docker build -t stream.place/sp-node .",
     "docker-build-packages-ci": "lerna exec 'if [ -f Dockerfile ]; then ../../run/package-log.sh docker build -t stream.place/$(basename $PWD) .; fi'",

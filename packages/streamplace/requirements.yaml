@@ -5,9 +5,6 @@ dependencies:
   - name: sp-plugin-core
     version: 0.1.10
     repository: 'https://charts.stream.place'
-  - name: sp-plugin-auth
-    version: 0.1.10
-    repository: 'https://charts.stream.place'
   - name: sp-schema
     version: 0.1.10
     repository: 'https://charts.stream.place'
@@ -18,9 +15,6 @@ dependencies:
     version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-api-server
-    version: 0.1.10
-    repository: 'https://charts.stream.place'
-  - name: sp-auth-frontend
     version: 0.1.10
     repository: 'https://charts.stream.place'
   - name: sp-frontend

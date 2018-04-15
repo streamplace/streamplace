@@ -45,7 +45,6 @@ global:
     expiration: 30d
   plugins:
     - sp-plugin-core
-    - sp-plugin-auth
   domain: stream.place
   adminEmail: stuff@stream.place
   authIssuer: 'https://streamkitchen.auth0.com/'

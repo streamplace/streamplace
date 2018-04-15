@@ -1,5 +1,0 @@
-
-global:
-  protocol: https
-  plugins:
-    - sp-plugin-auth

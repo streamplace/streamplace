@@ -256,12 +256,10 @@ module.exports.apply = opts => {
     "if [ -f Dockerfile ]; then ../../run/package-log.sh docker build -t stream.place/$(basename $PWD) .; fi";
 
   const lernaString = `npx lerna exec ${scopes} ${ignores} '${cmd}'`;
-  if (Object.keys(modifiedPackages).length > 0) {
-    child.execSync(lernaString, {
-      cwd: rootDir,
-      stdio: "inherit"
-    });
-  }
+  child.execSync(lernaString, {
+    cwd: rootDir,
+    stdio: "inherit"
+  });
 
   if (!opts.deploy) {
     return;

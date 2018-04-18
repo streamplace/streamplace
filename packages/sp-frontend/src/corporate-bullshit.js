@@ -1,7 +1,7 @@
 import React, { Component } from "react";
 import styled, { injectGlobal } from "styled-components";
 import logoUrl from "./streamplace-logo.svg";
-import YouTube from "react-youtube";
+// import YouTube from "react-youtube";
 import droneLogo from "./drone.svg";
 import logo from "./icon.svg";
 import "dashjs";

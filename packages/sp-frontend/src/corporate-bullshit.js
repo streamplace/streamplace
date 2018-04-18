@@ -4,6 +4,7 @@ import logoUrl from "./streamplace-logo.svg";
 import YouTube from "react-youtube";
 import droneLogo from "./drone.svg";
 import logo from "./icon.svg";
+import "dashjs";
 
 const CorporateContainer = styled.section`
   display: flex;
@@ -35,13 +36,25 @@ const Logo = styled.img`
   height: 1.5em;
 `;
 
+const HERO_HEIGHT = `
+  height: 300px;
+
+  @media (min-width: 1000px) {
+    height: 500px;
+  }
+`;
+
 const Hero = styled.section`
   background-color: black;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  height: 300px;
+  ${HERO_HEIGHT};
+`;
+
+const HeroVideo = styled.video`
+  ${HERO_HEIGHT};
 
   @media (min-width: 1000px) {
     height: 500px;
@@ -135,14 +148,21 @@ injectGlobal`
 
 export default class CorporateBullshit extends Component {
   renderYoutube() {
-    const youtubeOpts = {
-      playerVars: {
-        autoplay: 1,
-        modestbranding: 1,
-        channel: "UC_0VBEHybbwCoaJHsUmQZEg"
-      }
-    };
-    return <YouTube id="BigVideo" videoId="live_stream" opts={youtubeOpts} />;
+    // const youtubeOpts = {
+    //   playerVars: {
+    //     autoplay: 1,
+    //     modestbranding: 1,
+    //     channel: "UC_0VBEHybbwCoaJHsUmQZEg"
+    //   }
+    // };
+    return (
+      <HeroVideo autoPlay={true}>
+        <source
+          src="https://stream.place/demo/countdown/manifest.mpd"
+          type="application/dash+xml"
+        />
+      </HeroVideo>
+    );
   }
 
   render() {

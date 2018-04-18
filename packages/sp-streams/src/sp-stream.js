@@ -12,7 +12,7 @@ const log = debug("sp:sp-stream");
  * of cases.
  */
 export default async function spStream({ filePath, loop }) {
-  if (!await fs.pathExists(filePath)) {
+  if (!(await fs.pathExists(filePath))) {
     throw new Error(`File not found: ${filePath}`);
   }
   const constantFps = constantFpsStream({ fps: 30 });

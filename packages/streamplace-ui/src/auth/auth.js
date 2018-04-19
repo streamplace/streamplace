@@ -2,6 +2,7 @@
 import auth0 from "auth0-js";
 import jwtDecode from "jwt-decode";
 import SP from "sp-client";
+import { IS_ELECTRON } from "../polyfill";
 import {
   TOKEN_STORAGE_KEY,
   PROFILE_STORAGE_KEY,
@@ -19,9 +20,27 @@ const webAuth = new auth0.WebAuth({
 });
 
 /**
- * Check if we're already logged in. There are two ways that can be true.
+ * Wrapper for checkLogin that emits events for Electron as appopriate.
  */
 export async function checkLogin() {
+  const result = await _checkLogin();
+  if (IS_ELECTRON) {
+    if (result) {
+      window.streamplaceElectronCallback({
+        profile: await getProfile(),
+        token: SP.token
+      });
+    } else {
+      window.streamplaceElectronCallback(null);
+    }
+  }
+  return result;
+}
+
+/**
+ * Check if we're already logged in. There are two ways that can be true.
+ */
+export async function _checkLogin() {
   let token;
   /**
    * Way one: we're returning from an Auth0 redirect with a shiny id_token

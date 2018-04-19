@@ -50,7 +50,7 @@
     "dev": "bash -c 'PORT=80 react-scripts start | cat'",
     "start-cra": "PORT=3939 react-scripts start | cat",
     "start-babel": "NODE_ENV=development babel -w -s -d dist src",
-    "prepare": "node double-build.js",
+    "prepare": "node src/double-build.js",
     "prepare:build": "react-scripts build",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject",

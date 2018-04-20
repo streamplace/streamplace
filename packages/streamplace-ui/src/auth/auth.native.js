@@ -42,6 +42,15 @@ export async function login({ email, password }) {
   return user;
 }
 
+export async function signup({ email, password }) {
+  const result = await auth0.auth.createUser({
+    email: email,
+    password: password,
+    connection: AUTH0_REALM
+  });
+  return result;
+}
+
 export async function logout() {
   await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
   await AsyncStorage.removeItem(PROFILE_STORAGE_KEY);

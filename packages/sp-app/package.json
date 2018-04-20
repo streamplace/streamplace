@@ -6,7 +6,7 @@
   "scripts": {
     "prepare": "NODE_ENV=production babel --keep-lines --copy-files -d compiled src && rm -rf package-lock.json",
     "start-electron": "npm run prepare && SP_LOCAL_DEV=true electron .",
-    "start": "NODE_ENV=development nodemon -w src -x npm run start-electron",
+    "start": "NODE_ENV=development nodemon -V -w src -x npm run start-electron",
     "test": "echo \"no test specified\" && exit 0",
     "build": "NODE_ENV=production npm run prepare && npm run electron-builder-local",
     "electron-builder-local": "npm run prepare && ELECTRON_CHANNEL=dev electron-builder -mw --publish never",

@@ -55,6 +55,13 @@ if (process.platform === "darwin") {
 let tray = null;
 let win;
 
+const closeWin = () => {
+  if (win) {
+    win.close();
+  }
+  win = null;
+};
+
 const makeTray = ({ profile } = {}) => {
   let versionString = `Streamplace v${pkg.version}`;
   if (process.env.NODE_ENV === "development") {
@@ -94,9 +101,10 @@ app.on("window-all-closed", () => {
 });
 
 const loginWindow = ({ logout = false } = {}) => {
+  closeWin();
   win = new BrowserWindow({
     width: 350,
-    height: 450,
+    height: 500,
     resizable: false,
     title: "Streamplace",
     titleBarStyle: "hidden-inset",
@@ -128,14 +136,13 @@ app.on("ready", () => {
   });
 
   ipcMain.on("logged-in", (event, { token, profile }) => {
-    win.close();
+    closeWin();
     SP.connect({ token }).then(() => {
       makeTray({ profile });
     });
   });
 
   ipcMain.on("not-logged-in", event => {
-    console.log("not-logged-in");
     win.show();
   });
 

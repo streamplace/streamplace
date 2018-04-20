@@ -92,6 +92,30 @@ export async function login({ email, password }) {
     username: email,
     password: password
   });
+  // This causes a redirect, so hang forever until that happens
+  await new Promise(() => {});
+}
+
+/**
+ * Register a new account. You know the drill.
+ */
+export async function signup({ email, password }) {
+  const result = await new Promise((resolve, reject) => {
+    webAuth.signup(
+      {
+        email: email,
+        password: password,
+        connection: AUTH0_REALM
+      },
+      (err, ...args) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve(...args);
+      }
+    );
+  });
+  return result;
 }
 
 export async function logout() {

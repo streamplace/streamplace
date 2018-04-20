@@ -1,6 +1,5 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import "./index.css";
 import CorporateBullshit from "./corporate-bullshit";
 import { injectGlobal } from "styled-components";
 import StreamplaceUI, {
@@ -27,7 +26,7 @@ injectGlobal`
 export default class StreamplaceWebRoot extends React.Component {
   constructor() {
     super();
-    let showBullshit = IS_BROWSER;
+    let showBullshit = true;
     if (localStorage.getItem(TOKEN_STORAGE_KEY)) {
       showBullshit = false;
     }
@@ -51,7 +50,7 @@ export default class StreamplaceWebRoot extends React.Component {
     if (this.state.loading) {
       return <div />;
     }
-    if (this.state.showBullshit) {
+    if (this.state.showBullshit && IS_BROWSER) {
       return (
         <CorporateBullshit
           onLogin={() => this.setState({ showBullshit: false })}

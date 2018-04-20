@@ -1,11 +1,16 @@
 import menu from "./menu.js";
 import autoUpdater from "./auto-updater";
-import { app, BrowserWindow, session, Menu, Tray } from "electron";
+import { app, BrowserWindow, session, Menu, Tray, ipcMain } from "electron";
 import path from "path";
 import url from "url";
 import pkg from "../package.json";
 import { format as urlFormat } from "url";
+import SP, { config } from "sp-client";
+
 /* eslint-disable no-console */
+
+const DOMAIN = config.require("DOMAIN");
+const PROTOCOL = config.require("PROTOCOL");
 
 app.dock && app.dock.hide();
 
@@ -49,35 +54,97 @@ if (process.platform === "darwin") {
 
 let tray = null;
 let win;
-app.on("ready", () => {
-  tray = new Tray(path.resolve(imagePath, iconImage));
+
+const closeWin = () => {
+  if (win) {
+    win.close();
+  }
+  win = null;
+};
+
+const makeTray = ({ profile } = {}) => {
   let versionString = `Streamplace v${pkg.version}`;
   if (process.env.NODE_ENV === "development") {
     versionString += "-dev";
   }
-  const contextMenu = Menu.buildFromTemplate([
+  if (!tray) {
+    tray = new Tray(path.resolve(imagePath, iconImage));
+  }
+  const items = [];
+  if (profile) {
+    items.push({
+      label: `Log out ${profile.name}...`,
+      click: () => {
+        makeTray();
+        loginWindow({ logout: true });
+      }
+    });
+  } else {
+    items.push({
+      label: `Log in...`,
+      click: () => {
+        loginWindow({ logout: false });
+      }
+    });
+  }
+  items.push(
     { label: versionString, enabled: false },
     { label: "Close Streamplace", role: "quit" }
-  ]);
+  );
+  const contextMenu = Menu.buildFromTemplate(items);
   tray.setToolTip("Streamplace");
   tray.setContextMenu(contextMenu);
+};
 
-  // Login window!
+app.on("window-all-closed", () => {
+  // don't need to do anything, it just quits otherwise lol
+});
+
+const loginWindow = ({ logout = false } = {}) => {
+  closeWin();
+  win = new BrowserWindow({
+    width: 350,
+    height: 500,
+    resizable: false,
+    title: "Streamplace",
+    titleBarStyle: "hidden-inset",
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      preload: path.resolve(__dirname, "login-preload.js")
+    }
+  });
+
+  let base = IS_DEVELOPMENT
+    ? "http://localhost:3939"
+    : `${PROTOCOL}://${DOMAIN}`;
+  win.loadURL(`${base}?electronLogin=true&electronLogout=${logout}`);
+};
+
+app.on("ready", () => {
+  makeTray();
   let url = urlFormat({
     protocol: "file",
     slashes: true,
-    pathname: require("path").join(__dirname, "entrypoint.html")
+    pathname: path.resolve(
+      require.resolve("sp-frontend"),
+      "..",
+      "..",
+      "build-electron",
+      "index.html"
+    )
   });
 
-  /////// uncomment from here to have app window show up again /////////
+  ipcMain.on("logged-in", (event, { token, profile }) => {
+    closeWin();
+    SP.connect({ token }).then(() => {
+      makeTray({ profile });
+    });
+  });
 
-  // win = new BrowserWindow({
-  //   width: 350,
-  //   height: 450,
-  //   title: "Streamplace",
-  //   titleBarStyle: "hidden-inset",
-  //   show: true
-  // });
+  ipcMain.on("not-logged-in", event => {
+    win.show();
+  });
 
-  // win.loadURL("http://localhost:3939");
+  loginWindow();
 });

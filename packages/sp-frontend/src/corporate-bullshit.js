@@ -6,6 +6,22 @@ import droneLogo from "./drone.svg";
 import logo from "./icon.svg";
 import "dashjs";
 
+// I'll cop to this being the worst code I've ever written, but I can't figure out another way to
+// shut up the uber - verbose dashjs message.
+// https://github.com/Dash-Industry-Forum/dash.js/issues/2537
+//
+setInterval(() => {
+  try {
+    document.querySelectorAll("video").forEach(elem => {
+      if (elem._dashjs_player) {
+        elem._dashjs_player.getDebug().setLogToBrowserConsole(false);
+      }
+    });
+  } catch (e) {
+    // yuck!
+  }
+}, 1000);
+
 const CorporateContainer = styled.section`
   display: flex;
   flex-direction: column;

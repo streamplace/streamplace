@@ -14,7 +14,7 @@ import { IS_NATIVE, IS_ANDROID, IS_BROWSER } from "./polyfill";
 import styled from "./styled";
 import Form from "./form";
 import Logout from "./logout";
-import { login, checkLogin } from "./auth/auth";
+import { login, signup, checkLogin, resetPassword } from "./auth/auth";
 import SP from "sp-client";
 import Icon from "./icons";
 
@@ -52,6 +52,11 @@ const LogoImage = styled.Image`
   height: 100px;
   width: 100%;
   ${IS_NATIVE && "margin-top: 50px"};
+`;
+
+const ButtonView = styled.View`
+  width: 100%;
+  margin-bottom: 15px;
 `;
 
 const LoginButton = styled.Button`
@@ -94,20 +99,21 @@ export default class Login extends React.Component {
         });
       })
       .catch(err => {
-        this.setState({ loading: false, loggedIn: false });
+        this.setState({
+          loading: false,
+          loggedIn: false
+        });
       });
   }
   login() {
-    this.setState({
-      error: null
-    });
-    login({
+    this.setState({ error: null });
+    return login({
       email: this.state.email,
       password: this.state.password
     })
       .then(() => {
         this.setState({
-          loading: false,
+          loading: !IS_NATIVE,
           loggedIn: true,
           email: "",
           password: ""
@@ -115,10 +121,48 @@ export default class Login extends React.Component {
       })
       .catch(err => {
         this.setState({
-          error: err.message
+          error: err.description || err.message,
+          loading: false
         });
       });
   }
+
+  signup() {
+    this.setState({ error: null, loading: true });
+    return signup({
+      email: this.state.email,
+      password: this.state.password
+    })
+      .then(() => {
+        return this.login();
+      })
+      .catch(err => {
+        this.setState({
+          error: err.description || err.message,
+          loading: false
+        });
+      });
+  }
+
+  passwordlessStart() {
+    this.setState({ error: null, loading: true });
+    return resetPassword({
+      email: this.state.email
+    })
+      .then(() => {
+        return this.setState({
+          loading: false,
+          error: "Sent. Check your email."
+        });
+      })
+      .catch(err => {
+        this.setState({
+          error: err.description || err.message,
+          loading: false
+        });
+      });
+  }
+
   render() {
     if (this.state.loading) {
       return <View />;
@@ -175,8 +219,22 @@ export default class Login extends React.Component {
             returnKeyType="go"
             innerRef={ref => (this.passwordInput = ref)}
           />
-          <LoginButton title="Log In" onPress={() => this.login()} />
-          {this.state.error && <ErrorText>{this.state.error}</ErrorText>}
+          <ErrorText>{this.state.error || " "}</ErrorText>
+
+          <ButtonView>
+            <LoginButton title="Log In" onPress={() => this.login()} />
+          </ButtonView>
+
+          <ButtonView>
+            <LoginButton title="Create Account" onPress={() => this.signup()} />
+          </ButtonView>
+
+          <ButtonView>
+            <LoginButton
+              title="Forgot Password"
+              onPress={() => this.passwordlessStart()}
+            />
+          </ButtonView>
         </RestCentered>
       </Overall>
     );

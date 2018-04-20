@@ -42,6 +42,15 @@ export async function login({ email, password }) {
   return user;
 }
 
+export async function signup({ email, password }) {
+  const result = await auth0.auth.createUser({
+    email: email,
+    password: password,
+    connection: AUTH0_REALM
+  });
+  return result;
+}
+
 export async function logout() {
   await AsyncStorage.removeItem(TOKEN_STORAGE_KEY);
   await AsyncStorage.removeItem(PROFILE_STORAGE_KEY);
@@ -54,4 +63,11 @@ export async function getProfile() {
     return null;
   }
   return JSON.parse(profileStr);
+}
+
+export async function resetPassword({ email }) {
+  return await auth0.auth.resetPassword({
+    email: email,
+    connection: AUTH0_REALM
+  });
 }

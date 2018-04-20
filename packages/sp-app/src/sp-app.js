@@ -129,7 +129,6 @@ app.on("ready", () => {
     pathname: path.resolve(
       require.resolve("sp-frontend"),
       "..",
-      "..",
       "build-electron",
       "index.html"
     )

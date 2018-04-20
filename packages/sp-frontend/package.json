@@ -19,7 +19,7 @@
       "transform-es2015-modules-commonjs"
     ]
   },
-  "main": "dist/index.js",
+  "main": "package.json",
   "dependencies": {
     "color-hash": "^1.0.3",
     "cookie": "^0.3.1",

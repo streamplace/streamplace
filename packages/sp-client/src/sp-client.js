@@ -56,7 +56,7 @@ export class SPClient extends EE {
   }
 
   connect({ server, log, token } = {}) {
-    if (isNode) {
+    if (!token && isNode) {
       // Someone teach me a better wneway to have node do something but not webpack.
       /*eslint-disable no-eval */
       const TokenGenerator = eval("require('./TokenGenerator')").default;

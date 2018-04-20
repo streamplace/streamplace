@@ -1,6 +1,6 @@
 {
   "name": "sp-conformance",
-  "version": "0.1.10",
+  "version": "0.2.0",
   "description": "Suite of tests designed to determine whether a Streamplace instance does the things that a Streamplace instance oughta do",
   "main": "package.json",
   "scripts": {
@@ -31,8 +31,8 @@
   },
   "dependencies": {
     "fluent-ffmpeg": "^2.1.2",
-    "sp-client": "^0.1.10",
-    "sp-ffmpeg": "^0.1.10"
+    "sp-client": "^0.2.0",
+    "sp-ffmpeg": "^0.2.0"
   },
   "babel": {
     "presets": [

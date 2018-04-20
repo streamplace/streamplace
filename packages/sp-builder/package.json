@@ -1,6 +1,6 @@
 {
   "name": "sp-builder",
-  "version": "0.1.10",
+  "version": "0.2.0",
   "description": "Streamplace Node Builder",
   "main": "package.json",
   "scripts": {
@@ -20,6 +20,6 @@
   },
   "homepage": "https://github.com/streamplace/streamplace#readme",
   "devDependencies": {
-    "sp-node": "^0.1.10"
+    "sp-node": "^0.2.0"
   }
 }

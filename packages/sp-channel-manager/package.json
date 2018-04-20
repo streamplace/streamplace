@@ -1,6 +1,6 @@
 {
   "name": "sp-channel-manager",
-  "version": "0.1.10",
+  "version": "0.2.0",
   "description": "Route WebRTC connections as is appropriate for a channel",
   "main": "dist/sp-channel-manager.js",
   "scripts": {
@@ -13,8 +13,8 @@
     "kubernetes-client": "^3.12.0",
     "request": "^2.79.0",
     "request-promise": "^4.1.1",
-    "sp-builder": "^0.1.10",
-    "sp-client": "^0.1.10",
+    "sp-builder": "^0.2.0",
+    "sp-client": "^0.2.0",
     "underscore": "^1.8.3",
     "winston": "^2.2.0"
   },
@@ -23,7 +23,7 @@
     "babel-core": "^6.24.0",
     "babel-preset-streamplace": "0.0.1",
     "babel-watch": "^2.0.6",
-    "sp-node": "^0.1.10"
+    "sp-node": "^0.2.0"
   },
   "babel": {
     "presets": [

@@ -1,6 +1,6 @@
 {
   "name": "sp-overlay",
-  "version": "0.1.10",
+  "version": "0.2.0",
   "dependencies": {
     "left-pad": "^1.2.0",
     "react": "^16.2.0",
@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "react-scripts": "^1.1.1",
-    "sp-builder-static": "^0.1.10",
-    "sp-static": "^0.1.10"
+    "sp-builder-static": "^0.2.0",
+    "sp-static": "^0.2.0"
   }
 }

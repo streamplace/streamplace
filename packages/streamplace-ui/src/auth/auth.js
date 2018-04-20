@@ -131,3 +131,20 @@ export async function getProfile() {
   }
   return JSON.parse(profileStr);
 }
+
+export async function resetPassword({ email }) {
+  return await new Promise((resolve, reject) => {
+    webAuth.changePassword(
+      {
+        email,
+        connection: AUTH0_REALM
+      },
+      (err, ...stuff) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve(...stuff);
+      }
+    );
+  });
+}

@@ -64,3 +64,10 @@ export async function getProfile() {
   }
   return JSON.parse(profileStr);
 }
+
+export async function resetPassword({ email }) {
+  return await auth0.auth.resetPassword({
+    email: email,
+    connection: AUTH0_REALM
+  });
+}

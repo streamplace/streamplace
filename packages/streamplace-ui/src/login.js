@@ -14,7 +14,7 @@ import { IS_NATIVE, IS_ANDROID, IS_BROWSER } from "./polyfill";
 import styled from "./styled";
 import Form from "./form";
 import Logout from "./logout";
-import { login, signup, checkLogin } from "./auth/auth";
+import { login, signup, checkLogin, resetPassword } from "./auth/auth";
 import SP from "sp-client";
 import Icon from "./icons";
 
@@ -99,13 +99,14 @@ export default class Login extends React.Component {
         });
       })
       .catch(err => {
-        this.setState({ loading: false, loggedIn: false });
+        this.setState({
+          loading: false,
+          loggedIn: false
+        });
       });
   }
   login() {
-    this.setState({
-      error: null
-    });
+    this.setState({ error: null });
     return login({
       email: this.state.email,
       password: this.state.password
@@ -127,10 +128,7 @@ export default class Login extends React.Component {
   }
 
   signup() {
-    this.setState({
-      error: null,
-      loading: true
-    });
+    this.setState({ error: null, loading: true });
     return signup({
       email: this.state.email,
       password: this.state.password
@@ -139,7 +137,29 @@ export default class Login extends React.Component {
         return this.login();
       })
       .catch(err => {
-        this.setState({ error: err.message, loading: false });
+        this.setState({
+          error: err.message,
+          loading: false
+        });
+      });
+  }
+
+  passwordlessStart() {
+    this.setState({ error: null, loading: true });
+    return resetPassword({
+      email: this.state.email
+    })
+      .then(() => {
+        return this.setState({
+          loading: false,
+          error: "Sent. Check your email."
+        });
+      })
+      .catch(err => {
+        this.setState({
+          error: err.message || err.description,
+          loading: false
+        });
       });
   }
 
@@ -211,8 +231,8 @@ export default class Login extends React.Component {
 
           <ButtonView>
             <LoginButton
-              title="Forgot Password?"
-              onPress={() => this.login()}
+              title="Forgot Password"
+              onPress={() => this.passwordlessStart()}
             />
           </ButtonView>
         </RestCentered>

@@ -121,7 +121,7 @@ export default class Login extends React.Component {
       })
       .catch(err => {
         this.setState({
-          error: err.message,
+          error: err.description || err.message,
           loading: false
         });
       });
@@ -138,7 +138,7 @@ export default class Login extends React.Component {
       })
       .catch(err => {
         this.setState({
-          error: err.message,
+          error: err.description || err.message,
           loading: false
         });
       });
@@ -157,7 +157,7 @@ export default class Login extends React.Component {
       })
       .catch(err => {
         this.setState({
-          error: err.message || err.description,
+          error: err.description || err.message,
           loading: false
         });
       });

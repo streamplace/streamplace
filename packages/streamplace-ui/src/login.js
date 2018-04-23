@@ -43,6 +43,7 @@ const UserName = styled.TextInput`
   height: 80px;
   font-size: 30px;
   width: 100%;
+  ${!IS_NATIVE && "-webkit-app-region: no-drag"};
   margin-bottom: 10px;
   padding-left: 5px;
   padding-right: 5px;

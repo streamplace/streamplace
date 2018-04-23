@@ -1,6 +1,6 @@
 import React from "react";
 import { injectGlobal } from "styled-components";
-import { IS_NATIVE } from "./polyfill";
+import { IS_NATIVE, IS_ELECTRON } from "./polyfill";
 
 export * from "./constants";
 export * from "./polyfill";
@@ -13,6 +13,7 @@ if (!IS_NATIVE) {
     main {
       height: 100%;
       font-family: "Open Sans", Helvetica, sans-serif !important;
+      ${IS_ELECTRON && "overflow-y: hidden;"}
     }
   `;
 }

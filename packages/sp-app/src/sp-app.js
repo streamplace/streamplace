@@ -104,7 +104,7 @@ const loginWindow = ({ logout = false } = {}) => {
   closeWin();
   win = new BrowserWindow({
     width: 350,
-    height: 500,
+    height: 430,
     resizable: false,
     title: "Streamplace",
     titleBarStyle: "hidden-inset",

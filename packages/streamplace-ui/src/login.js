@@ -10,7 +10,7 @@ import ReactNative, {
   Button,
   Linking
 } from "react-native";
-import { IS_NATIVE, IS_ANDROID, IS_BROWSER } from "./polyfill";
+import { IS_NATIVE, IS_ANDROID, IS_BROWSER, IS_ELECTRON } from "./polyfill";
 import styled from "./styled";
 import Form from "./form";
 import Logout from "./logout";
@@ -40,8 +40,8 @@ const UserName = styled.TextInput`
   border-bottom-color: black;
   border-bottom-width: ${IS_ANDROID ? "0px" : "1px"};
   border-style: solid;
-  height: 80px;
-  font-size: 30px;
+  height: 55px;
+  font-size: 20px;
   width: 100%;
   ${!IS_NATIVE && "-webkit-app-region: no-drag"};
   margin-bottom: 10px;
@@ -52,7 +52,7 @@ const UserName = styled.TextInput`
 const LogoImage = styled.Image`
   height: 100px;
   width: 100%;
-  ${IS_NATIVE && "margin-top: 50px"};
+  ${IS_NATIVE && "margin-top: 30px"};
 `;
 
 const ButtonView = styled.View`
@@ -186,7 +186,11 @@ export default class Login extends React.Component {
     return (
       <Overall>
         <RestCentered>
-          <LogoImage resizeMode={"contain"} source={logoSource} />
+          <LogoImage
+            draggable={IS_ELECTRON ? false : undefined}
+            resizeMode={"contain"}
+            source={logoSource}
+          />
           <UserName
             onChangeText={email =>
               this.setState({

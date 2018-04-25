@@ -145,7 +145,7 @@ export default class Login extends React.Component {
       });
   }
 
-  passwordlessStart() {
+  resetPassword() {
     this.setState({ error: null, loading: true });
     return resetPassword({
       email: this.state.email
@@ -237,7 +237,7 @@ export default class Login extends React.Component {
           <ButtonView>
             <LoginButton
               title="Forgot Password"
-              onPress={() => this.passwordlessStart()}
+              onPress={() => this.resetPassword()}
             />
           </ButtonView>
         </RestCentered>

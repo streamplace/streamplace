@@ -272,7 +272,7 @@ module.exports.apply = opts => {
   // .items[].spec.template.spec.containers[].image
   deployments.items.forEach(item => {
     for (const container of item.spec.template.spec.containers) {
-      for (const modifiedPackage of Object.keys(modifiedPackages)) {
+      for (const modifiedPackage of include) {
         if (container.image.startsWith(`stream.place/${modifiedPackage}`)) {
           module.exports.triggerDeploy(item.metadata.name);
           return;

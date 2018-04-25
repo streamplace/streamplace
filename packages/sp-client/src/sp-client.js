@@ -61,6 +61,9 @@ export class SPClient extends EE {
       /*eslint-disable no-eval */
       const TokenGenerator = eval("require('./TokenGenerator')").default;
       this.tokenGenerator = new TokenGenerator({ app: this.app });
+      this.tokenGenerator.on("token", () => {
+        this.token = token;
+      });
     }
     this.connected = false;
     this.shouldLog = true;
@@ -189,7 +192,7 @@ export class SPClient extends EE {
           this.socket.on(msg, this._handleMessage(msg));
         });
 
-        this.socket.on("error", ::this._handleError);
+        this.socket.on("error", this._handleError.bind(this));
 
         this.emit("ready");
         return this.user;

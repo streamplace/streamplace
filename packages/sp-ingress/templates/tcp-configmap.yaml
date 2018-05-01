@@ -4,3 +4,4 @@ metadata:
   name: {{ template "fullname" . }}-tcp
 data:
   1935: "{{ .Release.Namespace }}/{{ .Release.Name }}-sp-rtmp-server:1935"
+  8008: "{{ .Release.Namespace }}/{{ .Release.Name }}-sp-scuttlebot:8008"

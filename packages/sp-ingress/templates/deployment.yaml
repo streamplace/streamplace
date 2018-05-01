@@ -47,6 +47,10 @@ spec:
             {{- if .Values.global.development }}
             hostPort: 1935
             {{- end }}
+          - containerPort: 8008
+            {{- if .Values.global.development }}
+            hostPort: 8008
+            {{- end }}
         readinessProbe:
           httpGet:
             path: /healthz

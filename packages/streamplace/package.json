@@ -46,6 +46,7 @@
     "sp-rethinkdb": "^0.2.0",
     "sp-rtmp-server": "^0.2.0",
     "sp-schema": "^0.2.0",
+    "sp-scuttlebot": "^0.2.0",
     "sp-uploader": "^0.2.0",
     "yargs": "^11.0.0"
   },

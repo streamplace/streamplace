@@ -21,3 +21,7 @@ spec:
     targetPort: 1935
     protocol: TCP
     name: rtmp
+  - port: 8008
+    targetPort: 8008
+    protocol: TCP
+    name: scuttlebutt

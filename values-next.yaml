@@ -37,6 +37,15 @@ sp-redirects:
       hosts:
         - stream.place
 
+sp-scuttlebot:
+  persistence:
+    hostPath:
+      path: /opt/streamplace/scuttlebot
+  ingress:
+    enabled: true
+    hosts:
+    - pub.stream.place
+
 global:
   development: false
   protocol: https

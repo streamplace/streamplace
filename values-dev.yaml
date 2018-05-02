@@ -27,6 +27,13 @@ global:
     host: http://dev-sp-file-server.default.svc.cluster.local
     bucket: dev-files
 
+sp-scuttlebot:
+  imagePullPolicy: Never
+  ingress:
+    enabled: true
+    hosts:
+    - pub.localtest.me
+
 # This exposes the correct ports on Kube for Docker for Desktop
 sp-ingress:
   serviceType: LoadBalancer

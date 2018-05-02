@@ -47,4 +47,6 @@ dependencies:
   - name: sp-registry
     version: 0.2.0
     repository: 'https://charts.stream.place'
-
+  - name: sp-scuttlebot
+    version: 0.2.0
+    repository: 'https://charts.stream.place'

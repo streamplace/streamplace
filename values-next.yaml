@@ -38,7 +38,9 @@ sp-redirects:
         - stream.place
 
 sp-scuttlebot:
-  image: "quay.io/streamplace/sp-scuttlebot:next"
+  image:
+    repository: "quay.io/streamplace/sp-scuttlebot"
+    tag: next
   persistence:
     hostPath:
       path: /opt/streamplace/scuttlebot

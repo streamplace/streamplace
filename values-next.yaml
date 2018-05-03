@@ -45,9 +45,9 @@ sp-scuttlebot:
     hostPath:
       path: /opt/streamplace/scuttlebot
   ingress:
-    enabled: true
+    enabled: false
     hosts:
-    - pub.stream.place
+    - stream.place
 
 global:
   development: false

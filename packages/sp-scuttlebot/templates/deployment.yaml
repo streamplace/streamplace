@@ -34,10 +34,8 @@ spec:
             - scuttlebot
             - server
             - --allowPrivate
-            {{- if .Values.ingress.enabled }}
             - --host
             - {{ index .Values.ingress.hosts 0 | quote }}
-            {{- end }}
           volumeMounts:
             - name: data
               mountPath: /data

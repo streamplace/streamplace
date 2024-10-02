@@ -17,9 +17,11 @@ import (
 	"aquareum.tv/aquareum/pkg/config"
 	"aquareum.tv/aquareum/pkg/crypto/signers"
 	"aquareum.tv/aquareum/pkg/log"
+	"aquareum.tv/aquareum/pkg/media/gofilesink"
 	"aquareum.tv/aquareum/pkg/model"
 	"aquareum.tv/aquareum/pkg/replication"
 	"github.com/go-gst/go-gst/gst"
+	"github.com/go-gst/go-gst/gst/base"
 	"github.com/google/uuid"
 	"github.com/livepeer/lpms/ffmpeg"
 	"golang.org/x/sync/errgroup"
@@ -69,6 +71,22 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	err := SelfTest(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error in gstreamer self-test: %w", err)
+	}
+	ok := gst.RegisterElement(
+		nil,
+		// The name of the element
+		"filesink",
+		// The rank of the element
+		gst.RankNone,
+		// The GoElement implementation for the element
+		&gofilesink.FileSink{},
+		// The base subclass this element extends
+		base.ExtendsBaseSink,
+		// The interfaces this element implements
+		gst.InterfaceURIHandler,
+	)
+	if !ok {
+		return nil, fmt.Errorf("gst.RegisterElement failed")
 	}
 	return &MediaManager{
 		cli:        cli,

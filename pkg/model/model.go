@@ -27,6 +27,9 @@ type Model interface {
 	ListPlayerEvents(playerId string) ([]PlayerEvent, error)
 	PlayerReport(playerId string) (map[string]float64, error)
 	ClearPlayerEvents() error
+
+	CreateSegment(segment *Segment) error
+	MostRecentSegments() ([]Segment, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -54,7 +57,7 @@ func MakeDB(dbURL string) (Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error starting database: %w", err)
 	}
-	for _, model := range []any{Notification{}, PlayerEvent{}} {
+	for _, model := range []any{Notification{}, PlayerEvent{}, Segment{}} {
 		err = db.AutoMigrate(model)
 		if err != nil {
 			return nil, err

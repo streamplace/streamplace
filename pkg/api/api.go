@@ -112,6 +112,7 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/playback/:user/stream.webm", a.HandleMKVPlayback(ctx))
 	apiRouter.GET("/api/playback/:user/hls/:file", a.HandleHLSPlayback(ctx))
 	apiRouter.POST("/api/player-event", a.HandlePlayerEvent(ctx))
+	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	router.Handler("GET", "/api/*resource", apiRouter)
 	router.Handler("POST", "/api/*resource", apiRouter)
@@ -319,6 +320,23 @@ func (a *AquareumAPI) HandlePlayerEvent(ctx context.Context) httprouter.Handle {
 			return
 		}
 		w.WriteHeader(201)
+	}
+}
+
+func (a *AquareumAPI) HandleRecentSegments(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		segs, err := a.Model.MostRecentSegments()
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not get segments", err)
+			return
+		}
+		bs, err := json.Marshal(segs)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not marshal segments", err)
+			return
+		}
+		w.Header().Add("Content-Type", "application/json")
+		w.Write(bs)
 	}
 }
 

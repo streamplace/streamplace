@@ -259,6 +259,21 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return a.ServeInternalHTTP(ctx)
 	})
 
+	group.Go(func() error {
+		newSeg := mm.NewSegment()
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case seg := <-newSeg:
+				err := mod.CreateSegment(seg)
+				if err != nil {
+					log.Error(ctx, "could not add segment to database", "error", err)
+				}
+			}
+		}
+	})
+
 	if cli.TestStream {
 		testSigner, err := eip712.MakeEIP712Signer(ctx, &eip712.EIP712SignerOptions{
 			Schema:          schema,

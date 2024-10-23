@@ -47,6 +47,7 @@ import * as env from "constants/env";
 import { useState } from "react";
 import GetApps from "components/get-apps";
 import { Link } from "expo-router";
+import StreamList from "components/stream-list/stream-list";
 
 const WebviewIframe = ({ src }) => {
   if (isWeb) {
@@ -92,7 +93,7 @@ export default function TabOneScreen() {
   };
   return (
     <YStack f={1} ai="center" gap="$8" pt="$5" alignItems="stretch">
-      <YStack f={1} alignItems="stretch">
+      {/* <YStack f={1} alignItems="stretch">
         <View fg={1} flexBasis={0} onPress={handlePress}>
           {!debug && (
             <ImageBackground
@@ -108,17 +109,14 @@ export default function TabOneScreen() {
               </Text>
             ))}
         </View>
-      </YStack>
-      <View flexShrink={0} flexGrow={0}>
+      </YStack> */}
+      {/* <View flexShrink={0} flexGrow={0}>
         <CenteredH2>Aquareum: The Video Layer for Everything</CenteredH2>
       </View>
       <View>
         <GetApps />
-      </View>
-      <View fg={3} flexBasis={0}>
-        <WebviewIframe src="https://iame.li" />
-      </View>
-      <View paddingBottom="$10"></View>
+      </View> */}
+      <StreamList></StreamList>
     </YStack>
   );
 }

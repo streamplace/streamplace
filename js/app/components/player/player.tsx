@@ -10,8 +10,8 @@ import {
   PROTOCOL_PROGRESSIVE_MP4,
 } from "./props";
 import usePlatform from "hooks/usePlatform";
-import { v7 as uuidv7 } from "uuid";
 import useAquareumNode from "hooks/useAquareumNode";
+import { uuidv7 } from "hooks/uuid";
 
 const HIDE_CONTROLS_AFTER = 2000;
 

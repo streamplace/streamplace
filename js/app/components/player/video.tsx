@@ -159,7 +159,13 @@ export function HLSPlayer(props: VideoProps) {
     if (Hls.isSupported()) {
       var hls = new Hls();
       hls.loadSource(props.url);
-      hls.attachMedia(videoRef.current);
+      try {
+        hls.attachMedia(videoRef.current);
+      } catch (e) {
+        console.error("error on attachMedia");
+        hls.stopLoad();
+        return;
+      }
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         if (!videoRef.current) {
           return;

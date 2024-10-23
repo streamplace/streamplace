@@ -3,6 +3,7 @@ package api
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"aquareum.tv/aquareum/pkg/aqtime"
 	"aquareum.tv/aquareum/pkg/errors"
 	"github.com/julienschmidt/httprouter"
 	"golang.org/x/sync/errgroup"
@@ -123,5 +125,37 @@ func (a *AquareumAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
 		dir := getDir()
 		fullpath := filepath.Join(dir, file)
 		http.ServeFile(w, r, fullpath)
+	}
+}
+
+func (a *AquareumAPI) HandleThumbnailPlayback(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		user := p.ByName("user")
+		if user == "" {
+			errors.WriteHTTPBadRequest(w, "user required", nil)
+			return
+		}
+		user = a.NormalizeUser(user)
+		thumb, err := a.Model.LatestThumbnailForUser(user)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "could not query thumbnail", err)
+			return
+		}
+		aqt := aqtime.FromTime(thumb.Segment.StartTime)
+		fpath, err := a.CLI.SegmentFilePath(user, fmt.Sprintf("%s.%s", aqt.String(), thumb.Format))
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "could not get segment file path", err)
+			return
+		}
+		http.ServeFile(w, r, fpath)
+
+		// getDir, err := a.MediaManager.SegmentToHLSOnce(ctx, user)
+		// if err != nil {
+		// 	errors.WriteHTTPInternalServerError(w, "SegmentToHLSOnce failed", nil)
+		// 	return
+		// }
+		// dir := getDir()
+		// fullpath := filepath.Join(dir, file)
+		// http.ServeFile(w, r, fullpath)
 	}
 }

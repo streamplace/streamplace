@@ -45,8 +45,13 @@ type MediaManager struct {
 	hlsRunningMut       sync.Mutex
 	httpPipes           map[string]io.Writer
 	httpPipesMutex      sync.Mutex
-	newSegmentSubs      []chan *model.Segment
-	newSegmentSubsMutex sync.Mutex
+	newSegmentSubs      []chan *NewSegmentNotification
+	newSegmentSubsMutex sync.RWMutex
+}
+
+type NewSegmentNotification struct {
+	Segment *model.Segment
+	Data    []byte
 }
 
 type HLSStream struct {
@@ -100,8 +105,8 @@ func (mm *MediaManager) GetHTTPPipeWriter(uu string) io.Writer {
 }
 
 // register a handler for all new segments that come in
-func (mm *MediaManager) NewSegment() <-chan *model.Segment {
-	ch := make(chan *model.Segment)
+func (mm *MediaManager) NewSegment() <-chan *NewSegmentNotification {
+	ch := make(chan *NewSegmentNotification)
 	mm.newSegmentSubsMutex.Lock()
 	defer mm.newSegmentSubsMutex.Unlock()
 	mm.newSegmentSubs = append(mm.newSegmentSubs, ch)
@@ -388,11 +393,15 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 		StartTime: meta.StartTime.Time(),
 		EndTime:   meta.EndTime.Time(),
 	}
-	mm.newSegmentSubsMutex.Lock()
-	for _, ch := range mm.newSegmentSubs {
-		go func() { ch <- seg }()
+	mm.newSegmentSubsMutex.RLock()
+	defer mm.newSegmentSubsMutex.RUnlock()
+	not := &NewSegmentNotification{
+		Segment: seg,
+		Data:    buf,
 	}
-	mm.newSegmentSubsMutex.Unlock()
+	for _, ch := range mm.newSegmentSubs {
+		go func() { ch <- not }()
+	}
 	log.Log(ctx, "successfully ingested segment", "user", pub.String(), "timestamp", meta.StartTime)
 	return nil
 }

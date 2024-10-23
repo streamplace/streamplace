@@ -30,6 +30,9 @@ type Model interface {
 
 	CreateSegment(segment *Segment) error
 	MostRecentSegments() ([]Segment, error)
+
+	CreateThumbnail(thumb *Thumbnail) error
+	LatestThumbnailForUser(user string) (Thumbnail, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -57,7 +60,7 @@ func MakeDB(dbURL string) (Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error starting database: %w", err)
 	}
-	for _, model := range []any{Notification{}, PlayerEvent{}, Segment{}} {
+	for _, model := range []any{Notification{}, PlayerEvent{}, Segment{}, Thumbnail{}} {
 		err = db.AutoMigrate(model)
 		if err != nil {
 			return nil, err

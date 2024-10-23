@@ -204,9 +204,6 @@ func (cli *CLI) DataFileCreate(fpath []string, overwrite bool) (*os.File, error)
 // get a path to a segment file in our database
 func (cli *CLI) SegmentFilePath(user string, file string) (string, error) {
 	ext := filepath.Ext(file)
-	if ext != ".mp4" {
-		return "", fmt.Errorf("expected mp4 ext, got %s", ext)
-	}
 	base := strings.TrimSuffix(file, ext)
 	aqt, err := aqtime.FromString(base)
 	if err != nil {
@@ -224,9 +221,6 @@ func (cli *CLI) HLSDir(user string) (string, error) {
 
 // create a segment file in our database
 func (cli *CLI) SegmentFileCreate(user string, aqt aqtime.AQTime, ext string) (*os.File, error) {
-	if ext != "mp4" {
-		return nil, fmt.Errorf("expected mp4 ext, got %s", ext)
-	}
 	fname := fmt.Sprintf("%s.%s", aqt.FileSafeString(), ext)
 	yr, mon, day, hr, min, _, _ := aqt.Parts()
 	return cli.DataFileCreate([]string{SEGMENTS_DIR, user, yr, mon, day, hr, min, fname}, false)

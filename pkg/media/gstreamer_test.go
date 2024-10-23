@@ -24,3 +24,20 @@ func TestNormalizeAudio(t *testing.T) {
 	require.NoError(t, err)
 	require.Greater(t, info.Size(), int64(0))
 }
+
+func TestThumbnail(t *testing.T) {
+	mm := MediaManager{}
+	gst.Init(nil)
+	ifile, err := os.Open(getFixture("sample-segment.mp4"))
+	require.NoError(t, err)
+	ofile, err := os.CreateTemp("", "*.jpg")
+	// defer os.Remove(ofile.Name())
+	require.NoError(t, err)
+	err = mm.Thumbnail(context.Background(), ifile, ofile)
+	require.NoError(t, err)
+	ofile.Close()
+	info, err := os.Stat(ofile.Name())
+	require.NoError(t, err)
+	require.Greater(t, info.Size(), int64(0))
+	panic(ofile.Name())
+}

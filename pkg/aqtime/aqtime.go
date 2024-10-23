@@ -36,6 +36,10 @@ func FromString(str string) (AQTime, error) {
 	return AQTime(str), nil
 }
 
+func FromTime(t time.Time) AQTime {
+	return AQTime(t.UTC().Format(fstr))
+}
+
 // year, month, day, hour, min, sec, millisecond
 func (aqt AQTime) Parts() (string, string, string, string, string, string, string) {
 	bits := RE.FindStringSubmatch(aqt.String())

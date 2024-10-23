@@ -499,8 +499,8 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms *MediaSigner) error {
 				log.Log(ctx, "gstreamer debug", "message", debug)
 			}
 			cancel()
-			// default:
-			// 	log.Log(ctx, msg.String())
+		default:
+			log.Debug(ctx, msg.String())
 		}
 		return true
 	})
@@ -566,4 +566,73 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms *MediaSigner)
 	})
 
 	return elem, nil
+}
+
+func (mm *MediaManager) Thumbnail(ctx context.Context, r io.Reader, w io.Writer) error {
+	ctx = log.WithLogValues(ctx, "function", "Thumbnail")
+	mainLoop := glib.NewMainLoop(glib.MainContextDefault(), false)
+
+	pipelineSlice := []string{
+		"appsrc name=appsrc ! qtdemux ! decodebin ! videoconvert ! videoscale ! video/x-raw,width=[1,200],height=[1,200],pixel-aspect-ratio=1/1 ! pngenc ! appsink name=appsink",
+	}
+
+	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	if err != nil {
+		return fmt.Errorf("error creating TestSource pipeline: %w", err)
+	}
+	appsrc, err := pipeline.GetElementByName("appsrc")
+	if err != nil {
+		return err
+	}
+
+	src := app.SrcFromElement(appsrc)
+	src.SetCallbacks(&app.SourceCallbacks{
+		NeedDataFunc: readerNeedData(ctx, r),
+	})
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	appsink, err := pipeline.GetElementByName("appsink")
+	if err != nil {
+		return err
+	}
+
+	pipeline.GetPipelineBus().AddWatch(func(msg *gst.Message) bool {
+		switch msg.Type() {
+
+		case gst.MessageEOS: // When end-of-stream is received flush the pipeling and stop the main loop
+			cancel()
+		case gst.MessageError: // Error messages are always fatal
+			err := msg.ParseError()
+			log.Log(ctx, "gstreamer error", "error", err.Error())
+			if debug := err.DebugString(); debug != "" {
+				log.Log(ctx, "gstreamer debug", "message", debug)
+			}
+			cancel()
+		default:
+			log.Debug(ctx, msg.String())
+		}
+		return true
+	})
+
+	sink := app.SinkFromElement(appsink)
+	sink.SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: writerNewSample(ctx, w),
+		EOSFunc: func(sink *app.Sink) {
+			cancel()
+		},
+	})
+
+	pipeline.SetState(gst.StatePlaying)
+
+	go func() {
+		<-ctx.Done()
+		pipeline.BlockSetState(gst.StateNull)
+		mainLoop.Quit()
+	}()
+
+	mainLoop.Run()
+
+	return nil
 }

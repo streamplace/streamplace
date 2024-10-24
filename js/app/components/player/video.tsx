@@ -46,48 +46,14 @@ const updateEvents = {
 
 const VideoElement = forwardRef(
   (props: VideoProps, ref: ForwardedRef<HTMLVideoElement>) => {
-    const [whatDoing, setWhatDoing] = useState("start");
-    const [whatDid, setWhatDid] = useState<{ [key: string]: number }>({});
-    const [doingSince, setDoingSince] = useState(Date.now());
-    const [lastUpdated, setLastUpdated] = useState(0);
-    const updateWhatDid = (now: Date): { [key: string]: number } => {
-      const prev = whatDid[whatDoing] ?? 0;
-      const duration = now.getTime() - doingSince;
-      const ret = {
-        ...whatDid,
-        [whatDoing]: prev + duration,
-      };
-      return ret;
-    };
     const event = (evType) => (e) => {
       const now = new Date();
-      if (updateEvents[evType] && evType !== whatDoing) {
-        setWhatDid(updateWhatDid(now));
-        setWhatDoing(evType);
-        setDoingSince(now.getTime());
+      if (updateEvents[evType]) {
+        props.setStatus(evType);
       }
       props.playerEvent(now.toISOString(), evType, {});
     };
 
-    useEffect(() => {
-      if (lastUpdated === 0) {
-        return;
-      }
-      const now = new Date();
-      const fullWhatDid = updateWhatDid(now);
-      setWhatDid({});
-      setDoingSince(now.getTime());
-      props.playerEvent(now.toISOString(), "aq-played", {
-        whatHappened: fullWhatDid,
-      });
-    }, [lastUpdated]);
-
-    useEffect(() => {
-      const interval = setInterval((_) => {
-        setLastUpdated(Date.now());
-      }, POLL_INTERVAL);
-      return () => clearInterval(interval);
-    }, []);
     return (
       <View
         backgroundColor="#111"

@@ -6,6 +6,8 @@ import Fullscreen from "./fullscreen";
 import {
   PlayerEvent,
   PlayerProps,
+  PlayerStatus,
+  PlayerStatusTracker,
   PROTOCOL_HLS,
   PROTOCOL_PROGRESSIVE_MP4,
 } from "./props";
@@ -74,6 +76,7 @@ export function Player(props: Partial<PlayerProps>) {
       console.error("error sending player telemetry", e);
     }
   };
+  const [status, setStatus] = usePlayerStatus(playerEvent);
   const [protocol, setProtocol] = useState(defProto);
   const [fullscreen, setFullscreen] = useState(false);
   const childProps: PlayerProps = {
@@ -90,10 +93,64 @@ export function Player(props: Partial<PlayerProps>) {
     showControls: props.showControls ?? showControls,
     userInteraction: userInteraction,
     playerEvent: playerEvent,
+    status: status,
+    setStatus: setStatus,
   };
   return (
     <View f={1} justifyContent="center" position="relative">
       <Fullscreen {...childProps}></Fullscreen>
     </View>
   );
+}
+
+const POLL_INTERVAL = 5000;
+export function usePlayerStatus(
+  playerEvent: (
+    time: string,
+    eventType: string,
+    meta: { [key: string]: any },
+  ) => Promise<void>,
+): [PlayerStatus, (PlayerStatus) => void] {
+  const [whatDoing, setWhatDoing] = useState<PlayerStatus>(PlayerStatus.START);
+  const [whatDid, setWhatDid] = useState<PlayerStatusTracker>({});
+  const [doingSince, setDoingSince] = useState(Date.now());
+  const [lastUpdated, setLastUpdated] = useState(0);
+  const updateWhatDid = (now: Date): PlayerStatusTracker => {
+    const prev = whatDid[whatDoing] ?? 0;
+    const duration = now.getTime() - doingSince;
+    const ret = {
+      ...whatDid,
+      [whatDoing]: prev + duration,
+    };
+    return ret;
+  };
+  const updateStatus = (status: PlayerStatus) => {
+    const now = new Date();
+    if (status !== whatDoing) {
+      setWhatDid(updateWhatDid(now));
+      setWhatDoing(status);
+      setDoingSince(now.getTime());
+    }
+  };
+
+  useEffect(() => {
+    if (lastUpdated === 0) {
+      return;
+    }
+    const now = new Date();
+    const fullWhatDid = updateWhatDid(now);
+    setWhatDid({} as PlayerStatusTracker);
+    setDoingSince(now.getTime());
+    playerEvent(now.toISOString(), "aq-played", {
+      whatHappened: fullWhatDid,
+    });
+  }, [lastUpdated]);
+
+  useEffect(() => {
+    const interval = setInterval((_) => {
+      setLastUpdated(Date.now());
+    }, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, []);
+  return [whatDoing, updateStatus];
 }

@@ -7,9 +7,9 @@ export type PlayerProps = {
   protocol: string;
   showControls: boolean;
   telemetry: boolean;
-  setMuted: (boolean) => void;
-  setFullscreen: (boolean) => void;
-  setProtocol: (string) => void;
+  setMuted: (isMuted: boolean) => void;
+  setFullscreen: (isFullscreen: boolean) => void;
+  setProtocol: (protocol: string) => void;
   userInteraction: () => void;
   playerEvent: (
     time: string,
@@ -17,6 +17,8 @@ export type PlayerProps = {
     meta: { [key: string]: any },
   ) => void;
   playerId: string;
+  status: PlayerStatus;
+  setStatus: (status: PlayerStatus) => void;
 };
 
 export type PlayerEvent = {
@@ -30,3 +32,12 @@ export type PlayerEvent = {
 export const PROTOCOL_HLS = "hls";
 export const PROTOCOL_PROGRESSIVE_MP4 = "progressive-mp4";
 export const PROTOCOL_PROGRESSIVE_WEBM = "progressive-webm";
+
+export enum PlayerStatus {
+  START = "start",
+  PLAYING = "playing",
+  STALLED = "stalled",
+  WAITING = "waiting",
+}
+
+export type PlayerStatusTracker = Partial<Record<PlayerStatus, number>>;

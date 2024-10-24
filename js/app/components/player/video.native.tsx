@@ -18,6 +18,11 @@ export default function NativeVideo(
   props: PlayerProps & { videoRef: React.RefObject<VideoView> },
 ) {
   const { url } = srcToUrl(props);
+  useEffect(() => {
+    return () => {
+      props.setStatus(PlayerStatus.START);
+    };
+  }, []);
   const player = useVideoPlayer(url, (player) => {
     player.loop = true;
     player.muted = props.muted;

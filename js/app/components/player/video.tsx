@@ -16,6 +16,7 @@ import useAquareumNode from "hooks/useAquareumNode";
 import Controls from "./controls";
 import {
   PlayerProps,
+  PlayerStatus,
   PROTOCOL_HLS,
   PROTOCOL_PROGRESSIVE_MP4,
   PROTOCOL_PROGRESSIVE_WEBM,
@@ -53,6 +54,12 @@ const VideoElement = forwardRef(
       }
       props.playerEvent(now.toISOString(), evType, {});
     };
+
+    useEffect(() => {
+      return () => {
+        props.setStatus(PlayerStatus.START);
+      };
+    }, []);
 
     return (
       <View

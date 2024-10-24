@@ -98,7 +98,7 @@ function RootLayoutNav() {
                   },
                   headerLeft: () => (
                     <Anchor href="https://explorer.livepeer.org/treasury/74518185892381909671177921640414850443801430499809418110611019961553289709442">
-                      <View bg="rgb(189 110 134)" br="$5" padding="$2">
+                      <View bg="$accentColor" br="$5" padding="$2">
                         <H4 fontSize="$4">What's Aquareum?</H4>
                       </View>
                     </Anchor>

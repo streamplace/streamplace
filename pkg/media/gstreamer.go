@@ -242,9 +242,6 @@ func SelfTest(ctx context.Context) error {
 
 	mainLoop.Run()
 
-	if err != nil {
-		return err
-	}
 	if len(output.Bytes()) < 1 {
 		return fmt.Errorf("got a zero-byte buffer from SelfTest")
 	}

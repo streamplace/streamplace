@@ -240,6 +240,10 @@ desktop-macos:
 	&& mv js/desktop/out/make/zip/darwin/x64/Aquareum-darwin-x64-$(VERSION_ELECTRON).zip ./bin/aquareum-desktop-$(VERSION)-darwin-amd64.zip \
 	&& mv js/desktop/out/make/zip/darwin/arm64/Aquareum-darwin-arm64-$(VERSION_ELECTRON).zip ./bin/aquareum-desktop-$(VERSION)-darwin-arm64.zip
 
+.PHONY: selftest-macos
+selftest-macos:
+	js/desktop/out/Aquareum-darwin-arm64/Aquareum.app/Contents/MacOS/Aquareum -- --self-test
+
 # link your local version of mist for dev
 .PHONY: link-mist
 link-mist:

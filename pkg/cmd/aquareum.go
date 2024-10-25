@@ -279,7 +279,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 						if err != nil {
 							return err
 						}
-						if not.Segment.StartTime.Sub(oldThumb.Segment.StartTime) < time.Minute {
+						if oldThumb != nil && not.Segment.StartTime.Sub(oldThumb.Segment.StartTime) < time.Minute {
 							// we have a thumbnail <60sec old, skip generating a new one
 							return nil
 						}

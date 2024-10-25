@@ -144,7 +144,25 @@ if (require("electron-squirrel-startup")) {
 
       mainWindow.loadURL(`${addr}/multi/${enc}`);
 
+      let foundThumbnail = false;
+      const interval = setInterval(async () => {
+        const res = await fetch(`${addr}/api/playback/self-test/stream.jpg`);
+        if (!res.ok) {
+          console.log("no thumbnail found");
+          return;
+        }
+        const blob = await res.arrayBuffer();
+        if (blob.byteLength < 1) {
+          console.log("thumbnail was empty :(");
+          return;
+        }
+        console.log("found thumbnail!");
+        foundThumbnail = true;
+        clearInterval(interval);
+      }, 1000);
+
       await delay(parseInt(args["self-test-duration"]));
+      clearInterval(interval);
       const reports = await Promise.all(
         tests.map(async (t) => {
           const res = await fetch(
@@ -155,6 +173,10 @@ if (require("electron-squirrel-startup")) {
         }),
       );
       let failed = false;
+      if (!foundThumbnail) {
+        console.log("never found a thumbnail, failing test");
+        failed = true;
+      }
       const percentages = reports.map((report) => {
         let total = 0;
         for (const [state, ms] of Object.entries(report.data)) {

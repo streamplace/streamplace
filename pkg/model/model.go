@@ -32,7 +32,7 @@ type Model interface {
 	MostRecentSegments() ([]Segment, error)
 
 	CreateThumbnail(thumb *Thumbnail) error
-	LatestThumbnailForUser(user string) (Thumbnail, error)
+	LatestThumbnailForUser(user string) (*Thumbnail, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {

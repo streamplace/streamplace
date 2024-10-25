@@ -50,9 +50,10 @@ export const versionCode = (verStr: string) => {
 };
 
 export default function () {
+  const isProd = process.env["AQ_PRODUCTION_RELEASE"] === "true";
   const pkg = require("./package.json");
-  const name = "Aquareum";
-  const bundle = "tv.aquareum";
+  const name = isProd ? "Aquareum" : "Devquarium";
+  const bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev";
   return {
     expo: {
       name: name,
@@ -74,9 +75,11 @@ export default function () {
         supportsTablet: true,
         bundleIdentifier: bundle,
         googleServicesFile: "./GoogleService-Info.plist",
-        entitlements: {
-          "aps-environment": "production",
-        },
+        entitlements: isProd
+          ? {
+              "aps-environment": "production",
+            }
+          : {},
         infoPlist: {
           UIBackgroundModes: ["fetch", "remote-notification"],
           LSMinimumSystemVersion: "12.0",
@@ -153,23 +156,26 @@ export default function () {
             assets: ["assets"],
           },
         ],
-        [withNotificationsIOS, {}],
         [withConsistentVersionNumber, { version: pkg.version }],
+        "expo-dev-launcher",
+        ...(isProd ? [[withNotificationsIOS, {}]] : []),
       ],
       experiments: {
         typedRoutes: true,
       },
-      updates: {
-        url: `https://aquareum.tv/api/manifest`,
-        enabled: true,
-        checkAutomatically: "ON_LOAD",
-        fallbackToCacheTimeout: 30000,
-        codeSigningCertificate: "./code-signing/certs/certificate.pem",
-        codeSigningMetadata: {
-          keyid: "main",
-          alg: "rsa-v1_5-sha256",
-        },
-      },
+      updates: isProd
+        ? {
+            url: `https://aquareum.tv/api/manifest`,
+            enabled: true,
+            checkAutomatically: "ON_LOAD",
+            fallbackToCacheTimeout: 30000,
+            codeSigningCertificate: "./code-signing/certs/certificate.pem",
+            codeSigningMetadata: {
+              keyid: "main",
+              alg: "rsa-v1_5-sha256",
+            },
+          }
+        : {},
     },
   };
 }

@@ -100,8 +100,6 @@ const aquareumConfig = {
   },
 };
 
-console.log(JSON.stringify(configBase.themes.dark, null, 2));
-
 const config = createTamagui(aquareumConfig);
 
 export { config };

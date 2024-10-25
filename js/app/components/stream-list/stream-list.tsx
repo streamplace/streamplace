@@ -25,7 +25,13 @@ export default function StreamList() {
     (async () => {
       try {
         const res = await fetch(`${url}/api/segment/recent`);
-        const data = (await res.json()) as Segment[];
+        if (!res.ok) {
+          return;
+        }
+        const data = await res.json();
+        if (!Array.isArray(data)) {
+          throw new Error("got non-array back from /api/segment/recent");
+        }
         setStreams(data);
       } catch (e) {
         console.error(e);

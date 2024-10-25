@@ -141,6 +141,10 @@ func (a *AquareumAPI) HandleThumbnailPlayback(ctx context.Context) httprouter.Ha
 			errors.WriteHTTPInternalServerError(w, "could not query thumbnail", err)
 			return
 		}
+		if thumb == nil {
+			errors.WriteHTTPNotFound(w, "thumbnail not found", err)
+			return
+		}
 		aqt := aqtime.FromTime(thumb.Segment.StartTime)
 		fpath, err := a.CLI.SegmentFilePath(user, fmt.Sprintf("%s.%s", aqt.String(), thumb.Format))
 		if err != nil {

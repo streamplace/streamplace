@@ -12,7 +12,7 @@
     "test": "jest --watchAll",
     "build": "yarn run build:web && yarn run prebuild",
     "build:web": "yarn run export && node exportClientExpoConfig.js > dist/expoConfig.json",
-    "export": "expo export || expo export",
+    "export": "expo export --dump-sourcemap || expo export --dump-sourcemap",
     "check": "bash -c 'export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
     "prebuild": "EXPO_NO_GIT_STATUS=1 expo prebuild --clean && sed -i.bak 's/org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m/org.gradle.jvmargs=-Xmx8192m -XX:MaxMetaspaceSize=2048m/' android/gradle.properties && echo '\nnetworkTimeout=100000' >> android/gradle.properties && sed -i.bak  's/plugins { id(\"com.facebook.react.settings\") }//' android/settings.gradle && yarn run find-node",
     "postinstall": "which pod && yarn run postinstall-ios || echo 'not a mac, not installing pods'",

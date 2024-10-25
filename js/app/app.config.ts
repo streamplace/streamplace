@@ -50,7 +50,8 @@ export const versionCode = (verStr: string) => {
 };
 
 export default function () {
-  const isProd = process.env["AQ_PRODUCTION_RELEASE"] === "true";
+  const isProd =
+    process.env["AQ_PRODUCTION_RELEASE"] === "true" || !!process.env.CI;
   const pkg = require("./package.json");
   const name = isProd ? "Aquareum" : "Devquarium";
   const bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev";
@@ -157,8 +158,7 @@ export default function () {
           },
         ],
         [withConsistentVersionNumber, { version: pkg.version }],
-        "expo-dev-launcher",
-        ...(isProd ? [[withNotificationsIOS, {}]] : []),
+        ...(isProd ? [[withNotificationsIOS, {}]] : ["expo-dev-launcher"]),
       ],
       experiments: {
         typedRoutes: true,

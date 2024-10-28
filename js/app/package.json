@@ -1,6 +1,6 @@
 {
   "name": "aquareum",
-  "main": "./routes/router.tsx",
+  "main": "./src/entrypoint.tsx",
   "version": "0.2.2",
   "runtimeVersion": "0.2.2",
   "scripts": {

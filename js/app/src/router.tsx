@@ -1,7 +1,7 @@
+import "@expo/metro-runtime";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Provider } from "components";
 import StreamList from "components/stream-list/stream-list";
-import { registerRootComponent } from "expo";
 import { Appearance, SafeAreaView } from "react-native";
 import { useTheme } from "tamagui";
 
@@ -11,7 +11,7 @@ function HomeScreen() {
 
 const Stack = createNativeStackNavigator();
 
-function App() {
+export default function Router() {
   console.log(Appearance);
   // useEffect(() => {
   //   Appearance.setColorScheme("dark");
@@ -59,7 +59,3 @@ const RenderArea = () => {
     </SafeAreaView>
   );
 };
-
-registerRootComponent(App);
-
-export default App;

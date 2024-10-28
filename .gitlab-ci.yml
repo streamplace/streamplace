@@ -147,6 +147,7 @@ build-mac:
     - echo $PATH
     - 'echo "which xcodeproj: $(which xcodeproj)"'
     - 'echo "xcodeproj --version: $(xcodeproj --version)"'
+    - "$(which xcodeproj) --version"
     - >
       brew install python@3.11
       && python3.11 -m pip install virtualenv

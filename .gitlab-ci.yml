@@ -144,7 +144,7 @@ build-mac:
     - sudo gem install --user-install xcpretty
     - sudo gem install --user-install xcodeproj -v 1.25.1
     - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && bash rustup.sh -y && rm rustup.sh
-    - export PATH="$(find $HOME/.gem/ruby -type d -name bin -maxdepth 2):$PATH:$HOME/.cargo/bin"
+    - export PATH="$($HOME/.local/share/gem/ruby -type d -name bin -maxdepth 2):$PATH:$HOME/.cargo/bin"
     - >
       brew install python@3.11
       && python3.11 -m pip install virtualenv

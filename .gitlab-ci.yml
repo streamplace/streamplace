@@ -134,7 +134,7 @@ build-android:
 build-mac:
   stage: build
   interruptible: true
-  image: ghcr.io/cirruslabs/macos-runner:sonoma
+  image: ghcr.io/cirruslabs/macos-runner:sequoia
   tags:
     - tart-installed
   timeout: 2 hours

@@ -141,10 +141,11 @@ build-mac:
   script:
     - git fetch --unshallow || echo 'already unshallow'
     - brew install ninja go openssl@3 && go version
-    - sudo gem install --user-install xcpretty
-    - cd js/app && sudo bundle install && xcodeproj --version
+    - cd js/app && bundle install --path vendor
     - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && bash rustup.sh -y && rm rustup.sh
-    - export PATH="$PATH:$HOME/.cargo/bin"
+    - export PATH="$(find $(pwd)/js/app/vendor -type d -name bin -maxdepth 3):$PATH:$HOME/.cargo/bin"
+    - echo $PATH
+    - 'echo "xcodeproj --version: $(xcodeproj --version)"'
     - >
       brew install python@3.11
       && python3.11 -m pip install virtualenv

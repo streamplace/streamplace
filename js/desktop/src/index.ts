@@ -27,7 +27,7 @@ if (require("electron-squirrel-startup")) {
       },
       "self-test-duration": {
         type: "string",
-        default: "60000",
+        default: "300000",
       },
     },
   });

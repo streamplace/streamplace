@@ -142,9 +142,9 @@ build-mac:
     - git fetch --unshallow || echo 'already unshallow'
     - brew install ninja go openssl@3 && go version
     - sudo gem install --user-install xcpretty
-    - sudo gem install --user-install xcodeproj -v 1.25.1
+    - cd js/app && sudo bundle install && xcodeproj --version
     - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && bash rustup.sh -y && rm rustup.sh
-    - export PATH="$($HOME/.local/share/gem/ruby -type d -name bin -maxdepth 2):$PATH:$HOME/.cargo/bin"
+    - export PATH="$PATH:$HOME/.cargo/bin"
     - >
       brew install python@3.11
       && python3.11 -m pip install virtualenv

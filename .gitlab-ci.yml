@@ -145,6 +145,7 @@ build-mac:
     - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && bash rustup.sh -y && rm rustup.sh
     - export PATH="$(find $(pwd)/js/app/vendor -type d -name bin -maxdepth 3):$PATH:$HOME/.cargo/bin"
     - echo $PATH
+    - 'echo "which xcodeproj: $(which xcodeproj)"'
     - 'echo "xcodeproj --version: $(xcodeproj --version)"'
     - >
       brew install python@3.11

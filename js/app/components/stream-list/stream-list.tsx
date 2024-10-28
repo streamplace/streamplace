@@ -1,10 +1,10 @@
+import { Link } from "@react-navigation/native";
 import ErrorBox from "components/error/error";
 import Loading from "components/loading/loading";
-import { Link } from "expo-router";
 import useAquareumNode from "hooks/useAquareumNode";
 import { useEffect, useState } from "react";
 import { Pressable } from "react-native";
-import { ScrollView, Text, Image, View, H2, H6 } from "tamagui";
+import { H6, Image, ScrollView, View } from "tamagui";
 
 type Segment = {
   id: string;
@@ -50,7 +50,7 @@ export default function StreamList() {
   return (
     <ScrollView contentContainerStyle={{ alignItems: "center" }}>
       {streams.map((seg) => (
-        <Link asChild key={seg.user} href={`/stream/${seg.user}`}>
+        <Link key={seg.user} to={`/stream/${seg.user}`}>
           <Pressable>
             <View key={seg.user}>
               <Image

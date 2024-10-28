@@ -2,11 +2,15 @@ package app
 
 import (
 	"embed"
+	"encoding/json"
 	"io/fs"
 )
 
 //go:embed all:dist/**
 var files embed.FS
+
+//go:embed package.json
+var pkg []byte
 
 // fetch a static snapshot of the current Aquareum web app
 func Files() (fs.FS, error) {
@@ -15,4 +19,13 @@ func Files() (fs.FS, error) {
 		return nil, err
 	}
 	return rootFiles, nil
+}
+
+func PackageJSON() (map[string]any, error) {
+	var data map[string]any
+	err := json.Unmarshal(pkg, &data)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }

@@ -224,27 +224,15 @@ func PrepareUpdater(cli *config.CLI) (*Updater, error) {
 		return nil, err
 	}
 
-	file2, err := fs.Open("expoConfig.json")
-	if err != nil {
-		return nil, err
-	}
-	bs2, err := io.ReadAll(file2)
-	if err != nil {
-		return nil, err
-	}
-	extra := map[string]any{}
-	err = json.Unmarshal(bs2, &extra)
-	if err != nil {
-		return nil, err
-	}
+	extra, err := app.PackageJSON()
 
 	rt, ok := extra["runtimeVersion"]
 	if !ok {
-		return nil, fmt.Errorf("expoConfig.json missing runtimeVersion")
+		return nil, fmt.Errorf("package.json missing runtimeVersion")
 	}
 	runtimeVersion, ok := rt.(string)
 	if !ok {
-		return nil, fmt.Errorf("expoConfig.json has runtimeVersion that's not a string")
+		return nil, fmt.Errorf("package.json has runtimeVersion that's not a string")
 	}
 
 	var privateKey *rsa.PrivateKey

@@ -1,8 +1,7 @@
 import {
   ConfigPlugin,
-  withXcodeProject,
-  IOSConfig,
   withEntitlementsPlist,
+  withXcodeProject,
 } from "expo/config-plugins";
 
 export const withNotificationsIOS: ConfigPlugin = (config) => {
@@ -61,7 +60,7 @@ export default function () {
       slug: name,
       version: pkg.version,
       // Only rev this to the current version when native dependencies change!
-      runtimeVersion: "0.2.2",
+      runtimeVersion: pkg.runtimeVersion,
       orientation: "default",
       icon: "./assets/images/icon.png",
       scheme: "myapp",
@@ -101,11 +100,10 @@ export default function () {
       },
       web: {
         bundler: "metro",
-        output: "static",
+        output: "single",
         favicon: "./assets/images/favicon.png",
       },
       plugins: [
-        "expo-router",
         [
           "expo-font",
           {

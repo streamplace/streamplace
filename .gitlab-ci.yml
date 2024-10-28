@@ -156,7 +156,6 @@ build-mac:
 windows-selftest:
   stage: build
   # for the moment...
-  allow_failure: true
   tags:
     - windows
   timeout: 2 hours

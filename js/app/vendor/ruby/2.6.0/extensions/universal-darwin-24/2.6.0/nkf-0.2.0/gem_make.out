@@ -1,5 +1,5 @@
 current directory: /Users/iameli/code/aquareum/js/app/vendor/ruby/2.6.0/gems/nkf-0.2.0/ext/nkf
-/System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/bin/ruby -I /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0 -r ./siteconf20241028-65043-dghxkf.rb extconf.rb
+/System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/bin/ruby -I /System/Library/Frameworks/Ruby.framework/Versions/2.6/usr/lib/ruby/2.6.0 -r ./siteconf20241028-66405-1uc7bpo.rb extconf.rb
 creating Makefile
 
 current directory: /Users/iameli/code/aquareum/js/app/vendor/ruby/2.6.0/gems/nkf-0.2.0/ext/nkf
@@ -13,4 +13,4 @@ ld: warning: search path '/AppleInternal/Library/BuildRoots/e0873e53-5185-11ef-9
 
 current directory: /Users/iameli/code/aquareum/js/app/vendor/ruby/2.6.0/gems/nkf-0.2.0/ext/nkf
 make "DESTDIR=" install
-/usr/bin/install -c -m 0755 nkf.bundle ./.gem.20241028-65043-1bcnp5o
+/usr/bin/install -c -m 0755 nkf.bundle ./.gem.20241028-66405-13aq6xd

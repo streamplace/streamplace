@@ -58,6 +58,3 @@ ios
 android
 code-signing-dev
 generated
-Gemfile.lock
-vendor
-.bundle

@@ -2,4 +2,3 @@
 js/app/ios
 js/app/android
 .ci/dockerfile-hash.yaml
-js/app/vendor

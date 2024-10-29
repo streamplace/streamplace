@@ -6,6 +6,7 @@ import { Appearance, SafeAreaView } from "react-native";
 import { useTheme } from "tamagui";
 import StreamScreen from "./screens/stream";
 import { NavigationContainer } from "@react-navigation/native";
+import MultiScreen from "./screens/multi";
 
 function HomeScreen() {
   return <StreamList></StreamList>;
@@ -19,6 +20,7 @@ const linking = {
     screens: {
       Home: "",
       Stream: "stream/:user",
+      Multi: "multi/:config",
     },
   },
 };
@@ -48,6 +50,11 @@ const RenderArea = () => {
             headerShown: true,
             headerTitle: "Stream",
           }}
+        />
+        <Stack.Screen
+          name="Multi"
+          component={MultiScreen}
+          options={{ headerShown: true, headerTitle: "Multi" }}
         />
       </Stack.Navigator>
     </SafeAreaView>

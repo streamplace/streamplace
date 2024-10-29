@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow, dialog, globalShortcut } from "electron";
 import { parseArgs } from "node:util";
 import { resolve } from "path";
 import "source-map-support/register";
@@ -94,6 +94,10 @@ if (require("electron-squirrel-startup")) {
     }
     const mainWindow = await makeWindow();
 
+    globalShortcut.register("CommandOrControl+Shift+I", () => {
+      mainWindow.webContents.toggleDevTools();
+    });
+
     let startPath;
     if (nodeFrontend) {
       startPath = `${loadAddr}${args.path}`;
@@ -120,6 +124,10 @@ if (require("electron-squirrel-startup")) {
     try {
       const mainWindow = await makeWindow();
 
+      globalShortcut.register("CommandOrControl+Shift+I", () => {
+        mainWindow.webContents.toggleDevTools();
+      });
+
       const testId = uuidv7();
       const definitions = [
         {
@@ -143,11 +151,16 @@ if (require("electron-squirrel-startup")) {
       }));
       const enc = encodeURIComponent(JSON.stringify(tests));
 
+      console.log(`http://localhost:38081/multi/${enc}`);
+
+      let load;
       if (nodeFrontend) {
-        mainWindow.loadURL(`${addr}/multi/${enc}`);
+        load = `${addr}/multi/${enc}`;
       } else {
-        mainWindow.loadURL(`http://localhost:38081/multi/${enc}`);
+        load = `http://localhost:38081/multi/${enc}`;
       }
+      console.log(`opening ${load}`);
+      mainWindow.loadURL(load);
 
       let foundThumbnail = false;
       const interval = setInterval(async () => {

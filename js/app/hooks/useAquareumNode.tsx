@@ -2,6 +2,9 @@ import { createContext, useContext, useState } from "react";
 import { isWeb } from "tamagui";
 
 let DEFAULT_URL = process.env.EXPO_PUBLIC_AQUAREUM_URL;
+console.log({
+  EXPO_PUBLIC_WEB_TRY_LOCAL: process.env.EXPO_PUBLIC_WEB_TRY_LOCAL,
+});
 if (isWeb && process.env.EXPO_PUBLIC_WEB_TRY_LOCAL === "true") {
   try {
     DEFAULT_URL = `${window.location.protocol}//${window.location.host}`;

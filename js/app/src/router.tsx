@@ -4,6 +4,8 @@ import { Provider } from "components";
 import StreamList from "components/stream-list/stream-list";
 import { Appearance, SafeAreaView } from "react-native";
 import { useTheme } from "tamagui";
+import StreamScreen from "./screens/stream";
+import { NavigationContainer } from "@react-navigation/native";
 
 function HomeScreen() {
   return <StreamList></StreamList>;
@@ -11,13 +13,19 @@ function HomeScreen() {
 
 const Stack = createNativeStackNavigator();
 
+const linking = {
+  prefixes: ["http://localhost:38081", "tv.aquareum://", "tv.aquareum.dev://"],
+  config: {
+    screens: {
+      Home: "",
+      Stream: "stream/:user",
+    },
+  },
+};
+
 export default function Router() {
-  console.log(Appearance);
-  // useEffect(() => {
-  //   Appearance.setColorScheme("dark");
-  // }, []);
   return (
-    <Provider>
+    <Provider linking={linking}>
       <RenderArea />
     </Provider>
   );
@@ -25,7 +33,6 @@ export default function Router() {
 
 const RenderArea = () => {
   const theme = useTheme();
-  console.log(theme);
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background.val }}>
       <Stack.Navigator>
@@ -34,27 +41,14 @@ const RenderArea = () => {
           component={HomeScreen}
           options={{ headerShown: true, headerTitle: "Aquareum" }}
         />
-        {/* <Stack.Screen
-          name="(tabs)"
+        <Stack.Screen
+          name="Stream"
+          component={StreamScreen}
           options={{
-            title: "",
             headerShown: true,
-            headerRight: () => {
-              return (
-                <Link href="/settings" asChild>
-                  <Button icon={<Settings size="$2" />}></Button>
-                </Link>
-              );
-            },
-            headerLeft: () => (
-              <Anchor href="https://explorer.livepeer.org/treasury/74518185892381909671177921640414850443801430499809418110611019961553289709442">
-                <View bg="$accentColor" br="$5" padding="$2">
-                  <H4 fontSize="$4">What's Aquareum?</H4>
-                </View>
-              </Anchor>
-            ),
+            headerTitle: "Stream",
           }}
-        /> */}
+        />
       </Stack.Navigator>
     </SafeAreaView>
   );

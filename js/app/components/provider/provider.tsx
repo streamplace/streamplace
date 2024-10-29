@@ -7,6 +7,7 @@ import { mainnet, polygon, optimism, arbitrum, base } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { View, Text } from "tamagui";
 import SharedProvider from "./provider.shared";
+import { LinkingOptions } from "@react-navigation/native";
 
 const queryClient = new QueryClient();
 
@@ -18,9 +19,15 @@ const config = getDefaultConfig({
   ssr: true, // If your dApp uses server side rendering (SSR)
 });
 
-export default function Provider({ children }: { children: React.ReactNode }) {
+export default function Provider({
+  children,
+  linking,
+}: {
+  children: React.ReactNode;
+  linking: LinkingOptions<ReactNavigation.RootParamList>;
+}) {
   return (
-    <SharedProvider>
+    <SharedProvider linking={linking}>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <RainbowKitProvider coolMode={true}>

@@ -104,8 +104,44 @@ func (a *AquareumAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handle {
 	}
 }
 
-func (a *AquareumAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
+var epoch = time.Unix(0, 0).Format(time.RFC1123)
+
+var noCacheHeaders = map[string]string{
+	"Expires":         epoch,
+	"Cache-Control":   "no-cache, private, max-age=0",
+	"Pragma":          "no-cache",
+	"X-Accel-Expires": "0",
+}
+
+var etagHeaders = []string{
+	"ETag",
+	"If-Modified-Since",
+	"If-Match",
+	"If-None-Match",
+	"If-Range",
+	"If-Unmodified-Since",
+}
+
+func NoCache(h httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		// Delete any ETag headers that may have been set
+		for _, v := range etagHeaders {
+			if r.Header.Get(v) != "" {
+				r.Header.Del(v)
+			}
+		}
+
+		// Set our NoCache headers
+		for k, v := range noCacheHeaders {
+			w.Header().Set(k, v)
+		}
+
+		h(w, r, p)
+	}
+}
+
+func (a *AquareumAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
+	return NoCache(func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
 		if user == "" {
 			errors.WriteHTTPBadRequest(w, "user required", nil)
@@ -125,7 +161,7 @@ func (a *AquareumAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
 		dir := getDir()
 		fullpath := filepath.Join(dir, file)
 		http.ServeFile(w, r, fullpath)
-	}
+	})
 }
 
 func (a *AquareumAPI) HandleThumbnailPlayback(ctx context.Context) httprouter.Handle {

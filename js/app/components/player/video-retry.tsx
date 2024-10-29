@@ -12,9 +12,10 @@ export default function VideoRetry(
     }
     const handle = setTimeout(() => {
       // you've had long enough. try again!
+      console.log("retrying");
       setResetTime(Date.now());
     }, 5000);
     return () => clearTimeout(handle);
-  }, [isPlaying]);
+  }, [isPlaying, resetTime]);
   return <React.Fragment key={resetTime}>{props.children}</React.Fragment>;
 }

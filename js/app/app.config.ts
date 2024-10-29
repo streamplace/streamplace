@@ -74,16 +74,18 @@ export default function () {
       ios: {
         supportsTablet: true,
         bundleIdentifier: bundle,
-        googleServicesFile: "./GoogleService-Info.plist",
-        entitlements: isProd
-          ? {
-              "aps-environment": "production",
-            }
-          : {},
         infoPlist: {
           UIBackgroundModes: ["fetch", "remote-notification"],
           LSMinimumSystemVersion: "12.0",
         },
+        ...(isProd
+          ? {
+              googleServicesFile: "./GoogleService-Info.plist",
+              entitlements: {
+                "aps-environment": "production",
+              },
+            }
+          : {}),
       },
       android: {
         adaptiveIcon: {
@@ -91,12 +93,16 @@ export default function () {
           backgroundColor: "#ffffff",
         },
         package: bundle,
-        googleServicesFile: "./google-services.json",
-        permissions: [
-          "android.permission.SCHEDULE_EXACT_ALARM",
-          "android.permission.POST_NOTIFICATIONS",
-        ],
         versionCode: versionCode(pkg.version),
+        ...(isProd
+          ? {
+              googleServicesFile: "./google-services.json",
+              permissions: [
+                "android.permission.SCHEDULE_EXACT_ALARM",
+                "android.permission.POST_NOTIFICATIONS",
+              ],
+            }
+          : {}),
       },
       web: {
         bundler: "metro",
@@ -135,8 +141,6 @@ export default function () {
             ],
           },
         ],
-        "@react-native-firebase/app",
-        "@react-native-firebase/messaging",
         [
           "expo-build-properties",
           {
@@ -156,7 +160,13 @@ export default function () {
           },
         ],
         [withConsistentVersionNumber, { version: pkg.version }],
-        ...(isProd ? [[withNotificationsIOS, {}]] : ["expo-dev-launcher"]),
+        ...(isProd
+          ? [
+              "@react-native-firebase/app",
+              "@react-native-firebase/messaging",
+              [withNotificationsIOS, {}],
+            ]
+          : ["expo-dev-launcher"]),
       ],
       experiments: {
         typedRoutes: true,

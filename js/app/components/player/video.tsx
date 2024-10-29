@@ -56,6 +56,7 @@ const VideoElement = forwardRef(
     };
 
     useEffect(() => {
+      console.log("video mounted");
       return () => {
         props.setStatus(PlayerStatus.START);
       };

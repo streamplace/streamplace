@@ -50,18 +50,21 @@ export default function StreamList() {
   return (
     <ScrollView contentContainerStyle={{ alignItems: "center" }}>
       {streams.map((seg) => (
-        <Link key={seg.user} to={`/stream/${seg.user}`}>
-          <Pressable>
-            <View key={seg.user}>
-              <Image
-                height={200}
-                src={`${url}/api/playback/${seg.user}/stream.jpg`}
-                resizeMode="contain"
-                objectFit="contain"
-              />
-              <H6>{seg.user}</H6>
-            </View>
-          </Pressable>
+        <Link
+          key={seg.user}
+          to={{ screen: "Stream", params: { user: seg.user } }}
+        >
+          {/* <Pressable> */}
+          <View key={seg.user}>
+            <Image
+              height={200}
+              src={`${url}/api/playback/${seg.user}/stream.jpg`}
+              resizeMode="contain"
+              objectFit="contain"
+            />
+            <H6>{seg.user}</H6>
+          </View>
+          {/* </Pressable> */}
         </Link>
       ))}
     </ScrollView>

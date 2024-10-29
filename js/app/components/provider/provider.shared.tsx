@@ -1,4 +1,8 @@
-import { DarkTheme, NavigationContainer } from "@react-navigation/native";
+import {
+  DarkTheme,
+  LinkingOptions,
+  NavigationContainer,
+} from "@react-navigation/native";
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
 import { AquareumProvider } from "hooks/useAquareumNode";
 import React from "react";
@@ -6,10 +10,16 @@ import { PortalProvider, TamaguiProvider } from "tamagui";
 import config from "tamagui.config";
 import { CurrentToast } from "./CurrentToast";
 
-export default function Provider({ children }: { children: React.ReactNode }) {
+export default function Provider({
+  children,
+  linking,
+}: {
+  children: React.ReactNode;
+  linking: LinkingOptions<ReactNavigation.RootParamList>;
+}) {
   return (
     <TamaguiProvider config={config} defaultTheme={"dark"}>
-      <NavigationContainer theme={DarkTheme}>
+      <NavigationContainer theme={DarkTheme} linking={linking}>
         <AquareumProvider>
           <PortalProvider>
             <ToastProvider

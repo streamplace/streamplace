@@ -1,12 +1,14 @@
 import "@expo/metro-runtime";
+import { createDrawerNavigator } from "@react-navigation/drawer";
+import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Provider } from "components";
+import { Home, Menu, Settings as SettingsIcon } from "@tamagui/lucide-icons";
+import { Provider, Settings } from "components";
 import StreamList from "components/stream-list/stream-list";
-import { Appearance, SafeAreaView } from "react-native";
+import { Pressable, SafeAreaView } from "react-native";
 import { useTheme } from "tamagui";
-import StreamScreen from "./screens/stream";
-import { NavigationContainer } from "@react-navigation/native";
 import MultiScreen from "./screens/multi";
+import StreamScreen from "./screens/stream";
 
 function HomeScreen() {
   return <StreamList></StreamList>;
@@ -25,36 +27,71 @@ const linking = {
   },
 };
 
+const Drawer = createDrawerNavigator();
+
 export default function Router() {
   return (
     <Provider linking={linking}>
-      <RenderArea />
+      <AquareumDrawer />
     </Provider>
   );
 }
 
-const RenderArea = () => {
+export function AquareumDrawer() {
+  const theme = useTheme();
+  return (
+    <Drawer.Navigator
+      initialRouteName="Home"
+      screenOptions={{
+        headerLeft: ({}) => {
+          const navigation = useNavigation();
+          return (
+            <Pressable
+              style={{ padding: 10 }}
+              onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
+            >
+              <Menu />
+            </Pressable>
+          );
+        },
+        drawerActiveTintColor: theme.accentColor.val,
+      }}
+    >
+      <Drawer.Screen
+        name="Aquareum"
+        component={MainTab}
+        options={{ drawerIcon: () => <Home /> }}
+      />
+      <Drawer.Screen
+        name="Settings"
+        component={Settings}
+        options={{ drawerIcon: () => <SettingsIcon /> }}
+      />
+    </Drawer.Navigator>
+  );
+}
+
+const MainTab = () => {
   const theme = useTheme();
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background.val }}>
-      <Stack.Navigator>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen
           name="Home"
           component={HomeScreen}
-          options={{ headerShown: true, headerTitle: "Aquareum" }}
+          options={{ headerTitle: "Aquareum" }}
         />
         <Stack.Screen
           name="Stream"
           component={StreamScreen}
           options={{
-            headerShown: true,
             headerTitle: "Stream",
           }}
         />
         <Stack.Screen
           name="Multi"
           component={MultiScreen}
-          options={{ headerShown: true, headerTitle: "Multi" }}
+          options={{ headerTitle: "Multi" }}
         />
       </Stack.Navigator>
     </SafeAreaView>

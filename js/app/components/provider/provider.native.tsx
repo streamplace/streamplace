@@ -1,6 +1,8 @@
-import React from "react";
-import SharedProvider from "./provider.shared";
+// this comment is here to stop auto-alphabetizing imports lol
 import { LinkingOptions } from "@react-navigation/native";
+import React from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import SharedProvider from "./provider.shared";
 
 export default function Provider({
   children,
@@ -9,5 +11,9 @@ export default function Provider({
   children: React.ReactNode;
   linking: LinkingOptions<ReactNavigation.RootParamList>;
 }) {
-  return <SharedProvider linking={linking}>{children}</SharedProvider>;
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SharedProvider linking={linking}>{children}</SharedProvider>
+    </GestureHandlerRootView>
+  );
 }

@@ -5,17 +5,27 @@ export default function VideoRetry(
   props: PlayerProps & { children: React.ReactNode },
 ) {
   const [resetTime, setResetTime] = useState<number>(Date.now());
+  const [retryCount, setRetryCount] = useState(0);
   const isPlaying = props.status === PlayerStatus.PLAYING;
+
   useEffect(() => {
     if (isPlaying) {
+      setRetryCount(0);
       return;
     }
+
+    const baseDelay = 2000; // 2 seconds
+    const maxDelay = 15000; // 15 seconds
+    const delay = Math.min(baseDelay * Math.pow(2, retryCount), maxDelay);
+
     const handle = setTimeout(() => {
-      // you've had long enough. try again!
-      console.log("retrying");
+      // console.log(`retrying (attempt ${retryCount + 1}, delay: ${delay}ms)`);
       setResetTime(Date.now());
-    }, 5000);
+      setRetryCount((prev) => prev + 1);
+    }, delay);
+
     return () => clearTimeout(handle);
-  }, [isPlaying, resetTime]);
+  }, [isPlaying, resetTime, retryCount]);
+
   return <React.Fragment key={resetTime}>{props.children}</React.Fragment>;
 }

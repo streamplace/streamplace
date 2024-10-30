@@ -1,35 +1,80 @@
 import "@expo/metro-runtime";
 import { createDrawerNavigator } from "@react-navigation/drawer";
-import { DrawerActions, useNavigation } from "@react-navigation/native";
+import {
+  DrawerActions,
+  LinkingOptions,
+  useNavigation,
+} from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Home, Menu, Settings as SettingsIcon } from "@tamagui/lucide-icons";
+import {
+  ArrowLeft,
+  Home,
+  LockKeyhole,
+  Menu,
+  Settings as SettingsIcon,
+} from "@tamagui/lucide-icons";
+import SupportScreen from "app/support";
 import { Provider, Settings } from "components";
+import Admin from "components/admin";
 import StreamList from "components/stream-list/stream-list";
-import { Pressable, SafeAreaView } from "react-native";
-import { useTheme } from "tamagui";
+import usePlatform from "hooks/usePlatform";
+import { useEffect } from "react";
+import { Pressable } from "react-native";
+import { useTheme, View } from "tamagui";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
 
 function HomeScreen() {
-  return <StreamList></StreamList>;
+  return (
+    <View f={1}>
+      <StreamList contentContainerStyle={{ paddingTop: "$3" }}></StreamList>
+    </View>
+  );
 }
 
 const Stack = createNativeStackNavigator();
 
-const linking = {
-  prefixes: ["http://localhost:38081", "tv.aquareum://", "tv.aquareum.dev://"],
+const linking: LinkingOptions<ReactNavigation.RootParamList> = {
+  prefixes: ["tv.aquareum://", "tv.aquareum.dev://"],
   config: {
     screens: {
       Home: "",
       Stream: "stream/:user",
       Multi: "multi/:config",
+      Admin: "admin",
+      Support: "support",
     },
   },
 };
 
 const Drawer = createDrawerNavigator();
 
+const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
+  const navigation = useNavigation();
+  return (
+    <Pressable
+      style={{ padding: 10 }}
+      onPress={() => {
+        if (canGoBack) {
+          navigation.goBack();
+        } else {
+          navigation.dispatch(DrawerActions.toggleDrawer());
+        }
+      }}
+    >
+      {canGoBack ? <ArrowLeft /> : <Menu />}
+    </Pressable>
+  );
+};
+
 export default function Router() {
+  const { initPushNotifications, isWeb, isElectron } = usePlatform();
+  useEffect(() => {
+    initPushNotifications();
+  }, []);
+  if (isWeb && !isElectron) {
+    linking.prefixes.push(document.location.origin);
+  }
   return (
     <Provider linking={linking}>
       <AquareumDrawer />
@@ -39,33 +84,56 @@ export default function Router() {
 
 export function AquareumDrawer() {
   const theme = useTheme();
+  const { isWeb } = usePlatform();
   return (
     <Drawer.Navigator
       initialRouteName="Home"
       screenOptions={{
-        headerLeft: ({}) => {
-          const navigation = useNavigation();
-          return (
-            <Pressable
-              style={{ padding: 10 }}
-              onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
-            >
-              <Menu />
-            </Pressable>
-          );
-        },
+        headerLeft: () => <NavigationButton />,
         drawerActiveTintColor: theme.accentColor.val,
+        headerStyle: {},
       }}
     >
       <Drawer.Screen
-        name="Aquareum"
+        name="Home"
         component={MainTab}
-        options={{ drawerIcon: () => <Home /> }}
+        options={{
+          drawerIcon: () => <Home />,
+          headerTitle: "Aquareum",
+          headerShown: isWeb,
+        }}
       />
       <Drawer.Screen
         name="Settings"
         component={Settings}
         options={{ drawerIcon: () => <SettingsIcon /> }}
+      />
+      {isWeb && (
+        <Drawer.Screen
+          name="Admin"
+          component={Admin}
+          options={{
+            drawerIcon: () => <LockKeyhole />,
+            drawerLabel: () => null,
+            drawerItemStyle: { display: "none" },
+          }}
+        />
+      )}
+      <Drawer.Screen
+        name="Multi"
+        component={MultiScreen}
+        options={{
+          drawerLabel: () => null,
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="Support"
+        component={SupportScreen}
+        options={{
+          drawerLabel: () => null,
+          drawerItemStyle: { display: "none" },
+        }}
       />
     </Drawer.Navigator>
   );
@@ -73,27 +141,30 @@ export function AquareumDrawer() {
 
 const MainTab = () => {
   const theme = useTheme();
+  const { isWeb } = usePlatform();
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.background.val }}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{ headerTitle: "Aquareum" }}
-        />
-        <Stack.Screen
-          name="Stream"
-          component={StreamScreen}
-          options={{
-            headerTitle: "Stream",
-          }}
-        />
-        <Stack.Screen
-          name="Multi"
-          component={MultiScreen}
-          options={{ headerTitle: "Multi" }}
-        />
-      </Stack.Navigator>
-    </SafeAreaView>
+    // <SafeAreaView style={{ flex: 1, backgroundColor: theme.background.val }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerLeft: ({ canGoBack }) => (
+          <NavigationButton canGoBack={canGoBack} />
+        ),
+        headerShown: !isWeb,
+      }}
+    >
+      <Stack.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{ headerTitle: "Aquareum" }}
+      />
+      <Stack.Screen
+        name="Stream"
+        component={StreamScreen}
+        options={{
+          headerTitle: "Stream",
+        }}
+      />
+    </Stack.Navigator>
+    // </SafeAreaView>
   );
 };

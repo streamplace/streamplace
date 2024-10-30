@@ -1,7 +1,9 @@
-import { View, isWeb } from "tamagui";
+import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
+import { View } from "react-native";
 
 export default function SupportScreen() {
+  const { isWeb } = usePlatform();
   if (isWeb) {
     useEffect(() => {
       document.location.href =

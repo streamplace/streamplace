@@ -1,6 +1,7 @@
 import { IsPlatform } from "./usePlatform.shared";
 // it's only for setting defaults, i promise!
 import uaParser from "ua-parser-js";
+import { initPushNotifications, topSafeHeight } from "./platform";
 
 function supportsHLS() {
   var video = document.createElement("video");
@@ -18,6 +19,8 @@ export default function usePlatform(): IsPlatform {
   }
   const electron = typeof window["AQ_ELECTRON"] !== "undefined";
   return {
+    initPushNotifications,
+    topSafeHeight,
     isNative: false,
     isIOS: false,
     isAndroid: false,

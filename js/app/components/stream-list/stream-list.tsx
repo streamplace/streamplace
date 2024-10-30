@@ -3,8 +3,7 @@ import ErrorBox from "components/error/error";
 import Loading from "components/loading/loading";
 import useAquareumNode from "hooks/useAquareumNode";
 import { useEffect, useState } from "react";
-import { Pressable } from "react-native";
-import { H6, Image, ScrollView, View } from "tamagui";
+import { H6, Image, ScrollView, ScrollViewProps, View } from "tamagui";
 
 type Segment = {
   id: string;
@@ -13,7 +12,14 @@ type Segment = {
   endTime: string;
 };
 
-export default function StreamList() {
+export default function StreamList({
+  contentContainerStyle = {},
+}: {
+  contentContainerStyle?: Exclude<
+    ScrollViewProps["contentContainerStyle"],
+    string
+  >;
+}) {
   const [streams, setStreams] = useState<Segment[]>([]);
   const [error, setError] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -48,13 +54,14 @@ export default function StreamList() {
     return <ErrorBox onRetry={() => setRetryTime(Date.now())} />;
   }
   return (
-    <ScrollView contentContainerStyle={{ alignItems: "center" }}>
+    <ScrollView
+      contentContainerStyle={{ alignItems: "center", ...contentContainerStyle }}
+    >
       {streams.map((seg) => (
         <Link
           key={seg.user}
           to={{ screen: "Stream", params: { user: seg.user } }}
         >
-          {/* <Pressable> */}
           <View key={seg.user}>
             <Image
               height={200}
@@ -64,7 +71,6 @@ export default function StreamList() {
             />
             <H6>{seg.user}</H6>
           </View>
-          {/* </Pressable> */}
         </Link>
       ))}
     </ScrollView>

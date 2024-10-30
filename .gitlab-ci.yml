@@ -139,6 +139,11 @@ build-mac:
     - tart-installed
   timeout: 2 hours
   script:
+    # workaround for https://gitlab.com/gitlab-org/gitlab/-/issues/501457
+    # which is a workaround for ios builds failing due to /tmp vs /private/tmp weirdness
+    - cd ..
+    - mv aquareum /Users/admin/aquareum
+    - cd /Users/admin/aquareum
     - git fetch --unshallow || echo 'already unshallow'
     - brew install ninja go openssl@3 && go version
     - sudo gem uninstall xcodeproj -x --ignore-dependencies

@@ -4,6 +4,7 @@ import {
   NavigationContainer,
 } from "@react-navigation/native";
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
+import { useFonts } from "expo-font";
 import { AquareumProvider } from "hooks/useAquareumNode";
 import React from "react";
 import { PortalProvider, TamaguiProvider } from "tamagui";
@@ -32,7 +33,7 @@ export default function Provider({
                 ]
               }
             >
-              {children}
+              <FontProvider>{children}</FontProvider>
               <CurrentToast />
               <ToastViewport name="default" top="$8" left={0} right={0} />
             </ToastProvider>
@@ -42,3 +43,18 @@ export default function Provider({
     </TamaguiProvider>
   );
 }
+
+export const FontProvider = ({ children }: { children: React.ReactNode }) => {
+  const [fontLoaded, fontError] = useFonts({
+    "FiraCode-Light": require("../../assets/fonts/FiraCode-Light.ttf"),
+    "FiraCode-Medium": require("../../assets/fonts/FiraCode-Medium.ttf"),
+    "FiraCode-Bold": require("../../assets/fonts/FiraCode-Bold.ttf"),
+    "FiraSans-Medium": require("../../assets/fonts/FiraSans-Medium.ttf"),
+  });
+
+  if (!fontLoaded && !fontError) {
+    return null;
+  }
+
+  return <>{children}</>;
+};

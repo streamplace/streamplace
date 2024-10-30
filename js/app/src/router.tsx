@@ -1,6 +1,7 @@
 import "@expo/metro-runtime";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import {
+  CommonActions,
   DrawerActions,
   LinkingOptions,
   useNavigation,
@@ -13,7 +14,6 @@ import {
   Menu,
   Settings as SettingsIcon,
 } from "@tamagui/lucide-icons";
-import SupportScreen from "app/support";
 import { Provider, Settings } from "components";
 import Admin from "components/admin";
 import StreamList from "components/stream-list/stream-list";
@@ -23,6 +23,7 @@ import { Pressable } from "react-native";
 import { useTheme, View } from "tamagui";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
+import SupportScreen from "./screens/support";
 
 function HomeScreen() {
   return (
@@ -38,11 +39,18 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
   prefixes: ["tv.aquareum://", "tv.aquareum.dev://"],
   config: {
     screens: {
-      Home: "",
-      Stream: "stream/:user",
+      Home: {
+        screens: {
+          StreamList: "",
+          Stream: {
+            path: "stream/:user",
+          },
+        },
+      },
       Multi: "multi/:config",
       Admin: "admin",
       Support: "support",
+      Settings: "settings",
     },
   },
 };
@@ -85,6 +93,7 @@ export default function Router() {
 export function AquareumDrawer() {
   const theme = useTheme();
   const { isWeb } = usePlatform();
+  const navigation = useNavigation();
   return (
     <Drawer.Navigator
       initialRouteName="Home"
@@ -101,6 +110,24 @@ export function AquareumDrawer() {
           drawerIcon: () => <Home />,
           headerTitle: "Aquareum",
           headerShown: isWeb,
+        }}
+        listeners={{
+          drawerItemPress: (e) => {
+            e.preventDefault();
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: "Home",
+                    state: {
+                      routes: [{ name: "StreamList" }],
+                    },
+                  },
+                ],
+              }),
+            );
+          },
         }}
       />
       <Drawer.Screen
@@ -145,6 +172,7 @@ const MainTab = () => {
   return (
     // <SafeAreaView style={{ flex: 1, backgroundColor: theme.background.val }}>
     <Stack.Navigator
+      initialRouteName="StreamList"
       screenOptions={{
         headerLeft: ({ canGoBack }) => (
           <NavigationButton canGoBack={canGoBack} />
@@ -153,7 +181,7 @@ const MainTab = () => {
       }}
     >
       <Stack.Screen
-        name="Home"
+        name="StreamList"
         component={HomeScreen}
         options={{ headerTitle: "Aquareum" }}
       />

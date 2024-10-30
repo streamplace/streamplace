@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -160,7 +161,13 @@ func (a *AquareumAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
 		}
 		dir := getDir()
 		fullpath := filepath.Join(dir, file)
-		http.ServeFile(w, r, fullpath)
+		f, err := os.Open(fullpath)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "could not open file", err)
+			return
+		}
+		defer f.Close()
+		http.ServeContent(w, r, file, time.Now(), f)
 	})
 }
 

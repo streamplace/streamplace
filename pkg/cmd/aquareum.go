@@ -40,6 +40,33 @@ type jobFunc func(ctx context.Context, cli *config.CLI) error
 
 // parse the CLI and fire up an aquareum node!
 func start(build *config.BuildFlags, platformJobs []jobFunc) error {
+	selfTest := len(os.Args) > 1 && os.Args[1] == "self-test"
+	err := media.RunSelfTest(context.Background())
+	if err != nil {
+		if selfTest {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		} else {
+			retryCount, _ := strconv.Atoi(os.Getenv("AQUAREUM_SELFTEST_RETRY"))
+			if retryCount >= 3 {
+				log.Error(context.Background(), "gstreamer self-test failed 3 times, giving up", "error", err)
+				return err
+			}
+			log.Log(context.Background(), "error in gstreamer self-test, attempting recovery", "error", err, "retry", retryCount+1)
+			os.Setenv("AQUAREUM_SELFTEST_RETRY", strconv.Itoa(retryCount+1))
+			err := syscall.Exec(os.Args[0], os.Args[1:], os.Environ())
+			if err != nil {
+				log.Error(context.Background(), "error in gstreamer self-test, could not restart", "error", err)
+				return err
+			}
+			panic("invalid code path: exec succeeded but we're still here???")
+		}
+	}
+	if selfTest {
+		fmt.Println("self-test successful!")
+		os.Exit(0)
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "stream" {
 		if len(os.Args) != 3 {
 			fmt.Println("usage: aquareum stream [user]")
@@ -101,7 +128,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		fs.IntVar(&cli.MistHTTPPort, "mist-http-port", 18080, "MistServer HTTP port (internal use only)")
 	}
 
-	err := cli.Parse(
+	err = cli.Parse(
 		fs, os.Args[1:],
 	)
 	if err != nil {

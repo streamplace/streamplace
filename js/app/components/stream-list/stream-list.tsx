@@ -1,9 +1,12 @@
 import { Link, useNavigation } from "@react-navigation/native";
+import AQLink from "components/aqlink";
 import ErrorBox from "components/error/error";
 import Loading from "components/loading/loading";
+import { formatAddress } from "hooks/textUtils";
 import useAquareumNode from "hooks/useAquareumNode";
 import { useEffect, useState } from "react";
-import { H6, Image, ScrollView, ScrollViewProps, View } from "tamagui";
+import { Pressable, RefreshControl } from "react-native";
+import { H6, Image, ScrollView, ScrollViewProps, View, YStack } from "tamagui";
 
 type Segment = {
   id: string;
@@ -56,23 +59,35 @@ export default function StreamList({
   }
   return (
     <ScrollView
-      contentContainerStyle={{ alignItems: "center", ...contentContainerStyle }}
+      contentContainerStyle={{
+        alignItems: "stretch",
+
+        ...contentContainerStyle,
+      }}
+      refreshControl={
+        <RefreshControl
+          refreshing={loading}
+          onRefresh={() => setRetryTime(Date.now())}
+        />
+      }
     >
       {streams.map((seg) => (
-        <Link
-          key={seg.user}
-          to={{ screen: "Stream", params: { user: seg.user } }}
-        >
-          <View>
-            <Image
-              height={200}
-              src={`${url}/api/playback/${seg.user}/stream.jpg`}
-              resizeMode="contain"
-              objectFit="contain"
-            />
-            <H6>{seg.user}</H6>
-          </View>
-        </Link>
+        <View flex={1}>
+          <AQLink to={{ screen: "Stream", params: { user: seg.user } }}>
+            <YStack f={1} alignItems="center">
+              <Image
+                f={1}
+                aspectRatio={16 / 9}
+                maxWidth={400}
+                width="100%"
+                src={`${url}/api/playback/${seg.user}/stream.jpg`}
+                resizeMode="contain"
+                objectFit="contain"
+              />
+              <H6>{formatAddress(seg.user)}</H6>
+            </YStack>
+          </AQLink>
+        </View>
       ))}
     </ScrollView>
   );

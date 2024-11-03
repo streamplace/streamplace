@@ -32,10 +32,11 @@
 package gofilesink
 
 import (
+	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"strings"
+	"sync"
 
 	"github.com/go-gst/go-glib/glib"
 	"github.com/go-gst/go-gst/gst"
@@ -71,7 +72,7 @@ type state struct {
 	// Whether the element is started or not
 	started bool
 	// The file the element is writing to
-	file *os.File
+	vfile *VirtualFile
 	// The current position in the file
 	position uint64
 }
@@ -90,6 +91,68 @@ type FileSink struct {
 	settings *settings
 	// The current state of the element
 	state *state
+	// the virtual filesystem
+	vfs *VirtualFilesystem
+}
+
+type VirtualFile struct {
+	buf  *bytes.Buffer
+	path string
+	vfs  *VirtualFilesystem
+}
+
+func (vf *VirtualFile) Close() error {
+	return vf.vfs.Close(vf)
+}
+
+type VirtualFilesystem struct {
+	files map[string]*VirtualFile
+	mu    sync.RWMutex
+}
+
+func NewVirtualFilesystem() *VirtualFilesystem {
+	return &VirtualFilesystem{
+		files: map[string]*VirtualFile{},
+	}
+}
+
+func (vfs *VirtualFilesystem) Open(path string) *VirtualFile {
+	vf := &VirtualFile{
+		buf:  &bytes.Buffer{},
+		path: path,
+		vfs:  vfs,
+	}
+	return vf
+}
+
+func (vfs *VirtualFilesystem) Close(vf *VirtualFile) error {
+	vfs.mu.Lock()
+	defer vfs.mu.Unlock()
+	_, ok := vfs.files[vf.path]
+	if ok {
+		return fmt.Errorf("file already present at %s", vf.path)
+	}
+	vfs.files[vf.path] = vf
+	return nil
+}
+
+func (vfs *VirtualFilesystem) Get(path string) ([]byte, error) {
+	vfs.mu.RLock()
+	defer vfs.mu.RUnlock()
+	vf, ok := vfs.files[path]
+	if !ok {
+		return nil, fmt.Errorf("file not found at %s", path)
+	}
+	return vf.buf.Bytes(), nil
+}
+
+// returns a FileSink capable of creating new filesinks that write to the same in-memory buffer
+func NewFileSinkFactory(vfs *VirtualFilesystem) *FileSink {
+	return &FileSink{
+		settings: &settings{},
+		state:    &state{},
+		vfs:      vfs,
+	}
 }
 
 // setLocation is a simple method to check the validity of a provided file path and set the
@@ -113,9 +176,13 @@ func (f *FileSink) setLocation(path string) error {
 // implementation. Here we simply create a new fileSink with zeroed settings and state objects.
 func (f *FileSink) New() glib.GoObjectSubclass {
 	CAT.Log(gst.LevelLog, "Initializing new fileSink object")
+	if f.vfs == nil {
+		panic("vfs is nil")
+	}
 	return &FileSink{
 		settings: &settings{},
 		state:    &state{},
+		vfs:      f.vfs,
 	}
 }
 
@@ -223,16 +290,13 @@ func (f *FileSink) openFile() error {
 	destFile := f.settings.location
 
 	var err error
-	if f.state.file != nil {
-		err = f.state.file.Close()
+	if f.state.vfile != nil {
+		err = f.state.vfile.Close()
 		if err != nil {
-			return fmt.Errorf("error closing %s: %w", f.state.file.Name(), err)
+			return fmt.Errorf("error closing %s: %w", f.state.vfile.path, err)
 		}
 	}
-	f.state.file, err = os.Create(destFile)
-	if err != nil {
-		return err
-	}
+	f.state.vfile = f.vfs.Open(destFile)
 
 	return nil
 }
@@ -244,11 +308,11 @@ func (f *FileSink) Stop(self *base.GstBaseSink) bool {
 		return false
 	}
 
-	if err := f.state.file.Close(); err != nil {
+	if err := f.state.vfile.Close(); err != nil {
 		self.ErrorMessage(gst.DomainResource, gst.ResourceErrorWrite, "Failed to close the destination file", err.Error())
 		return false
 	}
-	f.state.file = nil
+	f.state.vfile = nil
 	f.state.started = false
 	f.state.position = 0
 
@@ -264,16 +328,16 @@ func (f *FileSink) Render(self *base.GstBaseSink, buffer *gst.Buffer) gst.FlowRe
 	}
 
 	uu, _ := uuid.NewV7()
-	self.Log(CAT, gst.LevelTrace, fmt.Sprintf("Rendering buffer at %v file=%s id=%s", buffer.Instance(), f.state.file.Name(), uu.String()))
-	newPos, err := io.Copy(f.state.file, buffer.Reader())
-	self.Log(CAT, gst.LevelTrace, fmt.Sprintf("Done Rendering buffer at %v file=%s id=%s", buffer.Instance(), f.state.file.Name(), uu.String()))
+	self.Log(CAT, gst.LevelTrace, fmt.Sprintf("Rendering buffer at %v file=%s id=%s", buffer.Instance(), f.state.vfile.path, uu.String()))
+	newPos, err := io.Copy(f.state.vfile.buf, buffer.Reader())
+	self.Log(CAT, gst.LevelTrace, fmt.Sprintf("Done Rendering buffer at %v file=%s id=%s", buffer.Instance(), f.state.vfile.path, uu.String()))
 	if err != nil {
 		self.ErrorMessage(gst.DomainResource, gst.ResourceErrorWrite, "Error copying buffer to file", err.Error())
 		return gst.FlowError
 	}
 
 	f.state.position += uint64(newPos)
-	self.Log(CAT, gst.LevelTrace, fmt.Sprintf("New position in file: %v file=%s id=%s", f.state.position, f.state.file.Name(), uu.String()))
+	self.Log(CAT, gst.LevelTrace, fmt.Sprintf("New position in file: %v file=%s id=%s", f.state.position, f.state.vfile.path, uu.String()))
 
 	return gst.FlowOK
 }

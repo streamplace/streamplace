@@ -49,6 +49,7 @@ type MediaManager struct {
 	httpPipesMutex      sync.Mutex
 	newSegmentSubs      []chan *NewSegmentNotification
 	newSegmentSubsMutex sync.RWMutex
+	vfs                 *gofilesink.VirtualFilesystem
 }
 
 type NewSegmentNotification struct {
@@ -72,6 +73,8 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	if err != nil {
 		return nil, fmt.Errorf("error in gstreamer self-test: %w", err)
 	}
+	vfs := gofilesink.NewVirtualFilesystem()
+	sinkFactory := gofilesink.NewFileSinkFactory(vfs)
 	ok := gst.RegisterElement(
 		nil,
 		// The name of the element
@@ -79,7 +82,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		// The rank of the element
 		gst.RankNone,
 		// The GoElement implementation for the element
-		&gofilesink.FileSink{},
+		sinkFactory,
 		// The base subclass this element extends
 		base.ExtendsBaseSink,
 		// The interfaces this element implements
@@ -94,7 +97,12 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		replicator: rep,
 		hlsRunning: map[string]HLSStream{},
 		httpPipes:  map[string]io.Writer{},
+		vfs:        vfs,
 	}, nil
+}
+
+func (mm *MediaManager) VFS() *gofilesink.VirtualFilesystem {
+	return mm.vfs
 }
 
 // replacement for os.Pipe that works on windows

@@ -43,9 +43,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// main is left unimplemented since these files are compiled to c-shared.
-func main() {}
-
 // CAT is the log category for the gofilesink. It is safe to define GStreamer objects as globals
 // without calling gst.Init, since in the context of a loaded plugin all initialization has
 // already been taken care of by the loading application.

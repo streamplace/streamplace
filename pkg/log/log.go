@@ -152,6 +152,11 @@ func Trace(ctx context.Context, message string, args ...any) {
 	V(traceLogLevel).log(ctx, message, slog.Debug, args...)
 }
 
+// returns true if we are at least the given level
+func Level(level glog.Level) glog.Verbose {
+	return glog.V(level)
+}
+
 // returns filenames relative to aquareum root
 // e.g. handlers/misttriggers/triggers.go:58
 func caller(depth int) string {

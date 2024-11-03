@@ -19,13 +19,14 @@ func (m *DBModel) CreateSegment(seg *Segment) error {
 	return nil
 }
 
-// should return the most recent segment for each user
+// should return the most recent segment for each user, ordered by most recent first
 func (m *DBModel) MostRecentSegments() ([]Segment, error) {
 	var segments []Segment
 
 	err := m.DB.Table("segments AS s1").
 		Select("s1.*").
 		Where("start_time = (SELECT MAX(start_time) FROM segments AS s2 WHERE s2.user = s1.user)").
+		Order("start_time DESC").
 		Scan(&segments).Error
 
 	if err != nil {

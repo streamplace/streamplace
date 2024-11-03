@@ -239,7 +239,9 @@ func (a *AquareumAPI) InternalHandler(ctx context.Context) (http.Handler, error)
 	})
 
 	handler := sloghttp.Recovery(router)
-	handler = sloghttp.New(slog.Default())(handler)
+	if log.Level(4) {
+		handler = sloghttp.New(slog.Default())(handler)
+	}
 	return handler, nil
 }
 

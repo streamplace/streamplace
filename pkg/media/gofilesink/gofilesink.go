@@ -101,6 +101,10 @@ type VirtualFile struct {
 	vfs  *VirtualFilesystem
 }
 
+func (vf *VirtualFile) Write(bs []byte) (int, error) {
+	return vf.buf.Write(bs)
+}
+
 func (vf *VirtualFile) Close() error {
 	return vf.vfs.Close(vf)
 }

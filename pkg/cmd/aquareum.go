@@ -114,6 +114,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.StringVar(&cli.StreamerName, "streamer-name", "", "name of the person streaming from this aquareum node")
 	cli.AddressSliceFlag(fs, &cli.AllowedStreams, "allowed-streams", "", "comma-separated list of addresses that this node will replicate")
 	cli.StringSliceFlag(fs, &cli.Peers, "peers", "", "other aquareum nodes to replicate to")
+	cli.DebugFlag(fs, &cli.Debug, "debug", "", "modified log verbosity for specific functions or files in form func=ToHLS:3,file=gstreamer.go:4")
 	fs.BoolVar(&cli.TestStream, "test-stream", false, "run a built-in test stream on boot")
 	verbosity := fs.String("v", "3", "log verbosity level")
 
@@ -138,6 +139,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	vFlag.Value.Set(*verbosity)
 
 	ctx := context.Background()
+	ctx = log.WithDebugValue(ctx, cli.Debug)
 
 	log.Log(ctx,
 		"aquareum",

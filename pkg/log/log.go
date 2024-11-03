@@ -38,6 +38,12 @@ type clogContextKeyType struct{}
 // singleton value to identify our logging metadata in context
 var clogContextKey = clogContextKeyType{}
 
+// unique type to prevent assignment.
+type clogDebugKeyType struct{}
+
+// singleton value to identify our debug cli flag
+var clogDebugKey = clogDebugKeyType{}
+
 var errorLogLevel glog.Level = 1
 var warnLogLevel glog.Level = 2
 var defaultLogLevel glog.Level = 3
@@ -93,18 +99,59 @@ func WithLogValues(ctx context.Context, args ...string) context.Context {
 	return context.WithValue(ctx, clogContextKey, newMetadata)
 }
 
+// Return a new context, adding in the provided values to the logging metadata
+func WithDebugValue(ctx context.Context, debug map[string]map[string]int) context.Context {
+	return context.WithValue(ctx, clogDebugKey, debug)
+}
+
 // Actual log handler; the others have wrappers to properly handle stack depth
 func (v *VerboseLogger) log(ctx context.Context, message string, fn func(string, ...any), args ...any) {
-	if !glog.V(v.level) {
-		return
-	}
 	// I want a compile time assertion for this... but short of that let's be REALLY ANNOYING
 	if len(args)%2 != 0 {
 		for range 6 {
 			fmt.Println("!!!!!!!!!!!!!!!! FOLLOWING LOG LINE HAS AN ODD NUMBER OF ARGUMENTS !!!!!!!!!!!!!!!!")
 		}
 	}
-	meta, _ := ctx.Value(clogContextKey).(metadata)
+	meta, metaOk := ctx.Value(clogContextKey).(metadata)
+	found := false
+	highestLevel := glog.Level(0)
+	debug, debugOk := ctx.Value(clogDebugKey).(map[string]map[string]int)
+
+	// debug is {"func": {"ToHLS": 3}, "file": {"gstreamer.go": 4}}
+	// meta is {"func": "ToHLS", "file": "gstreamer.go"}
+	// we want to use the highest level between debug and meta
+	if debugOk && metaOk {
+		for mk, mv := range meta {
+			debugValuesForMetaValue, ok := debug[mk]
+			if !ok {
+				continue
+			}
+			mvstr, ok := mv.(string)
+			if !ok {
+				// TODO: possible we will need to handle numeric types
+				continue
+			}
+			ll, ok := debugValuesForMetaValue[mvstr]
+			if !ok {
+				continue
+			}
+			if glog.Level(ll) > highestLevel {
+				found = true
+				highestLevel = glog.Level(ll)
+			} else {
+			}
+		}
+	}
+	if found {
+		if v.level > highestLevel {
+			return
+		}
+	} else {
+		if !glog.V(v.level) {
+			return
+		}
+	}
+
 	hasCaller := false
 
 	allArgs := []any{}
@@ -121,6 +168,7 @@ func (v *VerboseLogger) log(ctx context.Context, message string, fn func(string,
 	if !hasCaller {
 		allArgs = append(allArgs, "caller", caller(3))
 	}
+
 	fn(message, allArgs...)
 }
 

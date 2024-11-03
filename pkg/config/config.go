@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -70,6 +71,7 @@ type CLI struct {
 	PKCS11KeypairLabel     string
 	PKCS11KeypairID        string
 	StreamerName           string
+	Debug                  map[string]map[string]int
 	AllowedStreams         []aqpub.Pub
 	Peers                  []string
 	TestStream             bool
@@ -285,6 +287,38 @@ func (cli *CLI) StringSliceFlag(fs *flag.FlagSet, dest *[]string, name, defaultV
 		}
 		strs := strings.Split(s, ",")
 		*dest = append(*dest, strs...)
+		return nil
+	})
+}
+
+// debug flag for turning func=ToHLS:3,file=gstreamer.go:4 into {"func": {"ToHLS": 3}, "file": {"gstreamer.go": 4}}
+func (cli *CLI) DebugFlag(fs *flag.FlagSet, dest *map[string]map[string]int, name, defaultValue, usage string) {
+	*dest = map[string]map[string]int{}
+	fs.Func(name, usage, func(s string) error {
+		if s == "" {
+			return nil
+		}
+		pairs := strings.Split(s, ",")
+		for _, pair := range pairs {
+			scoreSplit := strings.Split(pair, ":")
+			if len(scoreSplit) != 2 {
+				return fmt.Errorf("invalid debug flag: %s", pair)
+			}
+			score, err := strconv.Atoi(scoreSplit[1])
+			if err != nil {
+				return fmt.Errorf("invalid debug flag: %s", pair)
+			}
+			selectorSplit := strings.Split(scoreSplit[0], "=")
+			if len(selectorSplit) != 2 {
+				return fmt.Errorf("invalid debug flag: %s", pair)
+			}
+			_, ok := (*dest)[selectorSplit[0]]
+			if !ok {
+				(*dest)[selectorSplit[0]] = map[string]int{}
+			}
+			(*dest)[selectorSplit[0]][selectorSplit[1]] = score
+		}
+
 		return nil
 	})
 }

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -248,36 +247,94 @@ func SelfTest(ctx context.Context) error {
 	return nil
 }
 
-func ToHLS(ctx context.Context, input io.Reader, dir string) error {
-	mainLoop := glib.NewMainLoop(glib.MainContextDefault(), false)
+// #EXTM3U
+// #EXT-X-VERSION:3
+// #EXT-X-MEDIA-SEQUENCE:281
+// #EXT-X-TARGETDURATION:1
 
-	seg := filepath.Join(dir, "segment%05d.ts")
-	playlist := filepath.Join(dir, HLS_PLAYLIST)
+// #EXTINF:1,
+// segment00281.ts
+// #EXTINF:1.0049999952316284,
+// segment00282.ts
+// #EXTINF:1,
+// segment00283.ts
+// #EXTINF:1.0010000467300415,
+// segment00284.ts
+// #EXTINF:1,
+// segment00285.ts
+// #EXT-X-ENDLIST
+
+func (mm *MediaManager) ToHLS(ctx context.Context, input io.Reader, m3u8 *M3U8) error {
+	mainLoop := glib.NewMainLoop(glib.MainContextDefault(), false)
+	ctx = log.WithLogValues(ctx, "func", "ToHLS")
+
+	splitmuxsink, err := gst.NewElementWithProperties("splitmuxsink", map[string]any{
+		"name":           "mux",
+		"async-finalize": true,
+		"sink-factory":   "appsink",
+		"muxer-factory":  "mpegtsmux",
+		"max-size-bytes": 1,
+	})
+	if err != nil {
+		return err
+	}
+
+	p := splitmuxsink.GetRequestPad("video")
+	if p == nil {
+		return fmt.Errorf("failed to get video pad")
+	}
+	p = splitmuxsink.GetRequestPad("audio_%u")
+	if p == nil {
+		return fmt.Errorf("failed to get audio pad")
+	}
+
 	pipelineSlice := []string{
 		"appsrc name=appsrc ! matroskademux name=demux",
-		"hlssink2 name=mux target-duration=1",
-		"demux.video_0 ! queue ! h264parse ! mux.video",
-		"demux.audio_0 ! queue ! aacparse ! mux.audio",
+		"demux.video_0 ! queue ! h264parse name=videoparse",
+		"demux.audio_0 ! queue ! aacparse name=audioparse",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating ToHLS pipeline: %w", err)
 	}
 
-	mux, err := pipeline.GetElementByName("mux")
+	err = pipeline.Add(splitmuxsink)
 	if err != nil {
-		return err
+		return fmt.Errorf("error adding splitmuxsink to ToHLS pipeline: %w", err)
 	}
-	// these two can't be set on a string or backslashes break things on windows
-	err = mux.SetProperty("location", seg)
+
+	videoparse, err := pipeline.GetElementByName("videoparse")
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting videoparse from ToHLS pipeline: %w", err)
 	}
-	err = mux.SetProperty("playlist-location", playlist)
+	err = videoparse.Link(splitmuxsink)
 	if err != nil {
-		return err
+		return fmt.Errorf("error linking videoparse to splitmuxsink: %w", err)
 	}
+
+	audioparse, err := pipeline.GetElementByName("audioparse")
+	if err != nil {
+		return fmt.Errorf("error getting audioparse from ToHLS pipeline: %w", err)
+	}
+	err = audioparse.Link(splitmuxsink)
+	if err != nil {
+		return fmt.Errorf("error linking audioparse to splitmuxsink: %w", err)
+	}
+
+	splitmuxsink.Connect("sink-added", func(split, sinkEle *gst.Element) {
+		vf, err := m3u8.GetNextSegment(ctx)
+		if err != nil {
+			panic(err)
+		}
+		appsink := app.SinkFromElement(sinkEle)
+		appsink.SetCallbacks(&app.SinkCallbacks{
+			NewSampleFunc: writerNewSample(ctx, vf.Buf),
+			EOSFunc: func(sink *app.Sink) {
+				m3u8.CloseSegment(ctx, vf)
+			},
+		})
+	})
 
 	appsrc, err := pipeline.GetElementByName("appsrc")
 	if err != nil {
@@ -310,6 +367,35 @@ func ToHLS(ctx context.Context, input io.Reader, dir string) error {
 				log.Debug(ctx, "gstreamer debug", "message", debug)
 			}
 			cancel()
+		case gst.MessageElement:
+			structure := msg.GetStructure()
+			name := structure.Name()
+			if name == "splitmuxsink-fragment-opened" {
+				runningTime, err := structure.GetValue("running-time")
+				if err != nil {
+					log.Warn(ctx, "splitmuxsink-fragment-opened error", "error", err)
+					return true
+				}
+				runningTimeInt, ok := runningTime.(uint64)
+				if !ok {
+					log.Warn(ctx, "splitmuxsink-fragment-opened not a uint64")
+					return true
+				}
+				m3u8.FragmentOpened(ctx, runningTimeInt)
+			}
+			if name == "splitmuxsink-fragment-closed" {
+				runningTime, err := structure.GetValue("running-time")
+				if err != nil {
+					log.Warn(ctx, "splitmuxsink-fragment-closed error", "error", err)
+					return true
+				}
+				runningTimeInt, ok := runningTime.(uint64)
+				if !ok {
+					log.Warn(ctx, "splitmuxsink-fragment-closed not a uint64")
+					return true
+				}
+				m3u8.FragmentClosed(ctx, runningTimeInt)
+			}
 		default:
 			log.Debug(ctx, msg.String())
 		}

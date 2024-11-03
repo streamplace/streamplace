@@ -8,10 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"aquareum.tv/aquareum/pkg/aqtime"
 	"aquareum.tv/aquareum/pkg/config"
@@ -43,7 +41,7 @@ type MediaManager struct {
 	mp4subs             map[string][]chan string
 	mp4subsmut          sync.Mutex
 	replicator          replication.Replicator
-	hlsRunning          map[string]HLSStream
+	hlsRunning          map[string]*M3U8
 	hlsRunningMut       sync.Mutex
 	httpPipes           map[string]io.Writer
 	httpPipesMutex      sync.Mutex
@@ -57,13 +55,8 @@ type NewSegmentNotification struct {
 	Data    []byte
 }
 
-type HLSStream struct {
-	Dir  string
-	Wait func() string
-}
-
 func RunSelfTest(ctx context.Context) error {
-	gst.Init(nil)
+	gst.Init(&[]string{})
 	return SelfTest(ctx)
 }
 
@@ -95,7 +88,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		cli:        cli,
 		mp4subs:    map[string][]chan string{},
 		replicator: rep,
-		hlsRunning: map[string]HLSStream{},
+		hlsRunning: map[string]*M3U8{},
 		httpPipes:  map[string]io.Writer{},
 		vfs:        vfs,
 	}, nil
@@ -177,36 +170,15 @@ func (mm *MediaManager) SegmentToMKVPlusOpus(ctx context.Context, user string, w
 	return g.Wait()
 }
 
-func (mm *MediaManager) SegmentToHLSOnce(ctx context.Context, user string) (func() string, error) {
+func (mm *MediaManager) SegmentToHLSOnce(ctx context.Context, user string) (*M3U8, error) {
 	mm.hlsRunningMut.Lock()
 	defer mm.hlsRunningMut.Unlock()
 	hls, ok := mm.hlsRunning[user]
 	if !ok {
-		dname, err := os.MkdirTemp("", "aquareum-hls")
-		if err != nil {
-			return nil, err
-		}
-		wait := sync.OnceValue[string](func() string {
-			fpath := filepath.Join(dname, HLS_PLAYLIST)
-			for {
-				_, err := os.Stat(fpath)
-				if err == nil {
-					break
-				}
-				if !errors.Is(err, os.ErrNotExist) {
-					log.Log(ctx, "unexpected error polling for HLS playlist", "error", err)
-				}
-				time.Sleep(500 * time.Millisecond)
-			}
-			return dname
-		})
-		hls = HLSStream{
-			Wait: wait,
-			Dir:  dname,
-		}
+		hls = NewM3U8()
 		mm.hlsRunning[user] = hls
 		go func() {
-			err := mm.SegmentToHLS(ctx, user, dname)
+			err := mm.SegmentToHLS(ctx, user, hls)
 			if err != nil {
 				log.Log(ctx, "error in async segmentToHLS code", "error", err)
 			}
@@ -215,10 +187,10 @@ func (mm *MediaManager) SegmentToHLSOnce(ctx context.Context, user string) (func
 			delete(mm.hlsRunning, user)
 		}()
 	}
-	return hls.Wait, nil
+	return hls, nil
 }
 
-func (mm *MediaManager) SegmentToHLS(ctx context.Context, user, dir string) error {
+func (mm *MediaManager) SegmentToHLS(ctx context.Context, user string, m3u8 *M3U8) error {
 	muxer := ffmpeg.ComponentOptions{
 		Name: "matroska",
 	}
@@ -229,7 +201,7 @@ func (mm *MediaManager) SegmentToHLS(ctx context.Context, user, dir string) erro
 		return mm.SegmentToStream(ctx, user, muxer, pw)
 	})
 	g.Go(func() error {
-		return ToHLS(ctx, pr, dir)
+		return mm.ToHLS(ctx, pr, m3u8)
 	})
 	return g.Wait()
 }

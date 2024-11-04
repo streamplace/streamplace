@@ -266,7 +266,7 @@ func SelfTest(ctx context.Context) error {
 
 func (mm *MediaManager) ToHLS(ctx context.Context, input io.Reader, m3u8 *M3U8) error {
 	mainLoop := glib.NewMainLoop(glib.MainContextDefault(), false)
-	ctx = log.WithLogValues(ctx, "func", "ToHLS")
+	ctx = log.WithLogValues(ctx, "GStreamerFunc", "ToHLS")
 
 	splitmuxsink, err := gst.NewElementWithProperties("splitmuxsink", map[string]any{
 		"name":           "mux",

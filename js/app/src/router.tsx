@@ -110,6 +110,7 @@ export function AquareumDrawer() {
           drawerIcon: () => <Home />,
           headerTitle: "Aquareum",
           headerShown: isWeb,
+          title: "Aquareum",
         }}
         listeners={{
           drawerItemPress: (e) => {
@@ -183,13 +184,14 @@ const MainTab = () => {
       <Stack.Screen
         name="StreamList"
         component={HomeScreen}
-        options={{ headerTitle: "Aquareum" }}
+        options={{ headerTitle: "Aquareum", title: "Aquareum" }}
       />
       <Stack.Screen
         name="Stream"
         component={StreamScreen}
         options={{
           headerTitle: "Stream",
+          title: "Aquareum Stream",
         }}
       />
     </Stack.Navigator>

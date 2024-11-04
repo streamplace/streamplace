@@ -1,22 +1,22 @@
+import { MakerDMG } from "@electron-forge/maker-dmg";
+import { MakerSquirrel } from "@electron-forge/maker-squirrel";
+import { MakerZIP } from "@electron-forge/maker-zip";
 import type {
   ForgeConfig,
   ForgePackagerOptions,
 } from "@electron-forge/shared-types";
-import { MakerSquirrel } from "@electron-forge/maker-squirrel";
-import { MakerDMG } from "@electron-forge/maker-dmg";
-import { MakerZIP } from "@electron-forge/maker-zip";
 // import { MakerDeb } from "@electron-forge/maker-deb";
 // import { MakerRpm } from "@electron-forge/maker-rpm";
 import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-natives";
-import { WebpackPlugin } from "@electron-forge/plugin-webpack";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
-import { FuseV1Options, FuseVersion } from "@electron/fuses";
+import { WebpackPlugin } from "@electron-forge/plugin-webpack";
 import { PublisherS3 } from "@electron-forge/publisher-s3";
+import { FuseV1Options, FuseVersion } from "@electron/fuses";
+import { MakerAppImage } from "@reforged/maker-appimage";
+import child_process from "child_process";
+import fs from "fs";
 import { mainConfig } from "./webpack.main.config";
 import { rendererConfig } from "./webpack.renderer.config";
-import fs from "fs";
-import child_process from "child_process";
-import { MakerAppImage } from "@reforged/maker-appimage";
 
 export default async function () {
   // go get the version from the actual script
@@ -96,6 +96,7 @@ export default async function () {
       new MakerDMG(
         {
           icon: "./assets/images/aquareum-logo.icns",
+          appPath: "./Aquareum.app",
         },
         ["darwin"],
       ),

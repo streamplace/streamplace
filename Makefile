@@ -17,6 +17,7 @@ endif
 ifeq ($(BUILDARCH),x86_64)
 		BUILDARCH=amd64
 endif
+BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
 
 .PHONY: version
 version:
@@ -39,8 +40,8 @@ app: schema install
 .PHONY: node
 node: schema
 	$(MAKE) meson-setup
-	meson compile -C build aquareum
-	mv ./build/aquareum ./bin/aquareum
+	meson compile -C $(BUILDDIR) aquareum
+	cp ./build/aquareum ./bin/aquareum
 
 .PHONY: schema
 schema:
@@ -156,8 +157,8 @@ OPTS = -D "gst-plugins-base:audioresample=enabled" \
 
 .PHONY: meson-setup
 meson-setup:
-	@meson setup build $(OPTS)
-	@meson configure build $(OPTS)
+	@meson setup $(BUILDDIR) $(OPTS)
+	@meson configure $(BUILDDIR) $(OPTS)
 
 .PHONY: node-all-platforms
 node-all-platforms: app

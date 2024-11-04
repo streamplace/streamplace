@@ -1,10 +1,16 @@
+import { Play } from "@tamagui/lucide-icons";
 import { Spinner } from "components/loading/loading";
-import { View } from "tamagui";
+import { useTheme, View } from "tamagui";
 import { PlayerProps, PlayerStatus } from "./props";
 
 export default function PlayerLoading(props: PlayerProps) {
   if (props.status === PlayerStatus.PLAYING) {
     return <></>;
+  }
+  let spinner = <Spinner></Spinner>;
+  if (props.status === PlayerStatus.PAUSE) {
+    const theme = useTheme();
+    spinner = <Play size="$12" color={theme.accentColor.val} />;
   }
   return (
     <View
@@ -16,7 +22,7 @@ export default function PlayerLoading(props: PlayerProps) {
       justifyContent="center"
       backgroundColor="rgba(0,0,0,0.8)"
     >
-      <Spinner></Spinner>
+      {spinner}
     </View>
   );
 }

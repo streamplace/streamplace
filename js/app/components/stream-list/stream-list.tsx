@@ -6,7 +6,7 @@ import { formatAddress } from "hooks/textUtils";
 import useAquareumNode from "hooks/useAquareumNode";
 import { useEffect, useState } from "react";
 import { RefreshControl } from "react-native";
-import { H6, Image, ScrollView, ScrollViewProps, View, YStack } from "tamagui";
+import { H6, Image, ScrollView, ScrollViewProps, View } from "tamagui";
 
 type Segment = {
   id: string;
@@ -74,7 +74,7 @@ export default function StreamList({
       {streams.map((seg) => (
         <View flex={1} key={seg.user}>
           <AQLink to={{ screen: "Stream", params: { user: seg.user } }}>
-            <YStack f={1} alignItems="center">
+            <View f={1} alignItems="center" display="flex">
               <Image
                 f={1}
                 aspectRatio={16 / 9}
@@ -85,7 +85,7 @@ export default function StreamList({
                 objectFit="contain"
               />
               <H6>{formatAddress(seg.user)}</H6>
-            </YStack>
+            </View>
           </AQLink>
         </View>
       ))}

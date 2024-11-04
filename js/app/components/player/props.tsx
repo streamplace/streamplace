@@ -19,6 +19,8 @@ export type PlayerProps = {
   playerId: string;
   status: PlayerStatus;
   setStatus: (status: PlayerStatus) => void;
+  playTime: number;
+  setPlayTime: (playTime: number) => void;
 };
 
 export type PlayerEvent = {
@@ -38,6 +40,7 @@ export enum PlayerStatus {
   PLAYING = "playing",
   STALLED = "stalled",
   WAITING = "waiting",
+  PAUSE = "pause",
 }
 
 export type PlayerStatusTracker = Partial<Record<PlayerStatus, number>>;

@@ -1,13 +1,12 @@
 // Web-only provider
 import "@rainbow-me/rainbowkit/styles.css";
 
-import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
-import { WagmiProvider } from "wagmi";
-import { mainnet, polygon, optimism, arbitrum, base } from "wagmi/chains";
-import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
-import { View, Text } from "tamagui";
-import SharedProvider from "./provider.shared";
+import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { LinkingOptions } from "@react-navigation/native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { WagmiProvider } from "wagmi";
+import { arbitrum, base, mainnet, optimism, polygon } from "wagmi/chains";
+import SharedProvider from "./provider.shared";
 
 const queryClient = new QueryClient();
 
@@ -30,22 +29,7 @@ export default function Provider({
     <SharedProvider linking={linking}>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          <RainbowKitProvider coolMode={true}>
-            {/* RainbowKitProvider hides our children unless we do this...? */}
-            <View
-              id="rainbowkit-interior" // Also this......?????
-              f={1}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100vw",
-                height: "100vh",
-              }}
-            >
-              {children}
-            </View>
-          </RainbowKitProvider>
+          {children}
         </QueryClientProvider>
       </WagmiProvider>
     </SharedProvider>

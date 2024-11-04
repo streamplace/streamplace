@@ -1,19 +1,6 @@
-import React, {
-  ForwardedRef,
-  forwardRef,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useTransition,
-} from "react";
-import { Button, Text, View, XStack } from "tamagui";
-import WHEPClient from "./webrtc";
 import Hls from "hls.js";
-import { Circle, CheckCircle } from "@tamagui/lucide-icons";
-import useAquareumNode from "hooks/useAquareumNode";
-import Controls from "./controls";
+import { ForwardedRef, forwardRef, RefObject, useEffect } from "react";
+import { View } from "tamagui";
 import {
   PlayerProps,
   PlayerStatus,
@@ -25,8 +12,18 @@ import { srcToUrl } from "./shared";
 
 type VideoProps = PlayerProps & { url: string };
 
-export default function WebVideo(props: PlayerProps) {
+export default function WebVideo(
+  props: PlayerProps & { videoRef: RefObject<HTMLVideoElement> },
+) {
   const { url, protocol } = srcToUrl(props);
+  useEffect(() => {
+    if (props.playTime == 0) {
+      return;
+    }
+    if (props.videoRef.current) {
+      props.videoRef.current.play();
+    }
+  }, [props.playTime]);
   if (protocol === PROTOCOL_PROGRESSIVE_MP4) {
     return <ProgressiveMP4Player url={url} {...props} />;
   } else if (protocol === PROTOCOL_PROGRESSIVE_WEBM) {
@@ -43,11 +40,13 @@ const updateEvents = {
   playing: true,
   waiting: true,
   stalled: true,
+  pause: true,
 };
 
 const VideoElement = forwardRef(
   (props: VideoProps, ref: ForwardedRef<HTMLVideoElement>) => {
     const event = (evType) => (e) => {
+      console.log(evType);
       const now = new Date();
       if (updateEvents[evType]) {
         props.setStatus(evType);
@@ -71,8 +70,8 @@ const VideoElement = forwardRef(
       >
         <video
           autoPlay={true}
+          playsInline={true}
           ref={ref}
-          loop={true}
           controls={false}
           src={props.url}
           muted={props.muted}
@@ -114,18 +113,22 @@ const VideoElement = forwardRef(
   },
 );
 
-export function ProgressiveMP4Player(props: VideoProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  return <VideoElement {...props} ref={videoRef} />;
+export function ProgressiveMP4Player(
+  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
+) {
+  return <VideoElement {...props} ref={props.videoRef} />;
 }
 
-export function ProgressiveWebMPlayer(props: VideoProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  return <VideoElement {...props} ref={videoRef} />;
+export function ProgressiveWebMPlayer(
+  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
+) {
+  return <VideoElement {...props} ref={props.videoRef} />;
 }
 
-export function HLSPlayer(props: VideoProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+export function HLSPlayer(
+  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
+) {
+  const videoRef = props.videoRef;
   useEffect(() => {
     if (!videoRef.current) {
       return;

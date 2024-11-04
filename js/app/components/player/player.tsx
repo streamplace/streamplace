@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Button, Text, View, XStack } from "tamagui";
-import Controls from "./controls";
-import Video from "./video";
+import useAquareumNode from "hooks/useAquareumNode";
+import usePlatform from "hooks/usePlatform";
+import { uuidv7 } from "hooks/uuid";
+import { useEffect, useMemo, useState } from "react";
+import { Text, View } from "tamagui";
 import Fullscreen from "./fullscreen";
 import {
   PlayerEvent,
@@ -11,9 +12,6 @@ import {
   PROTOCOL_HLS,
   PROTOCOL_PROGRESSIVE_MP4,
 } from "./props";
-import usePlatform from "hooks/usePlatform";
-import useAquareumNode from "hooks/useAquareumNode";
-import { uuidv7 } from "hooks/uuid";
 
 const HIDE_CONTROLS_AFTER = 2000;
 
@@ -77,6 +75,7 @@ export function Player(props: Partial<PlayerProps>) {
     }
   };
   const [status, setStatus] = usePlayerStatus(playerEvent);
+  const [playTime, setPlayTime] = useState(0);
   const [protocol, setProtocol] = useState(defProto);
   const [fullscreen, setFullscreen] = useState(false);
   const childProps: PlayerProps = {
@@ -95,6 +94,8 @@ export function Player(props: Partial<PlayerProps>) {
     playerEvent: playerEvent,
     status: status,
     setStatus: setStatus,
+    playTime: playTime,
+    setPlayTime: setPlayTime,
   };
   return (
     <View f={1} justifyContent="center" position="relative">

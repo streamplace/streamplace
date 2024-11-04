@@ -1,32 +1,29 @@
 import {
-  View,
-  Text,
-  XStack,
-  Popover,
-  YStack,
-  Label,
-  Input,
-  Adapt,
-  ListItem,
-  Separator,
-  YGroup,
-} from "tamagui";
-import {
-  Volume2,
-  VolumeX,
-  Maximize,
-  Minimize,
-  Settings,
-  ChevronRight,
-  Moon,
-  Star,
-  Circle,
   CheckCircle,
   ChevronLeft,
+  ChevronRight,
+  Circle,
+  Maximize,
+  Minimize,
+  Moon,
+  Settings,
   Sparkle,
+  Star,
+  Volume2,
+  VolumeX,
 } from "@tamagui/lucide-icons";
-import { Animated, Button, Pressable, TouchableOpacity } from "react-native";
 import { useEffect, useRef, useState } from "react";
+import { Animated, Pressable } from "react-native";
+import {
+  Adapt,
+  ListItem,
+  Popover,
+  Separator,
+  Text,
+  View,
+  XStack,
+  YGroup,
+} from "tamagui";
 import {
   PlayerProps,
   PROTOCOL_HLS,
@@ -67,6 +64,11 @@ export default function Controls(props: PlayerProps) {
     cursor = { cursor: "none" };
   }
 
+  const onPress = () => {
+    props.userInteraction();
+    props.setPlayTime(Date.now());
+  };
+
   return (
     <View
       position="absolute"
@@ -80,6 +82,7 @@ export default function Controls(props: PlayerProps) {
       opacity={props.showControls ? 1 : 0}
       onPointerMove={props.userInteraction}
       onTouchStart={props.userInteraction}
+      onPress={onPress}
       {...cursor}
     >
       {/* <Animated.View

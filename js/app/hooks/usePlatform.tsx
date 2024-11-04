@@ -28,7 +28,7 @@ export default function usePlatform(): IsPlatform {
     isWeb: true,
     isElectron: electron,
     isBrowser: !electron,
-    isSafari: ua.browser.name === "Safari",
+    isSafari: ua.browser.name.includes("Safari"),
     isFirefox: ua.browser.name === "Firefox",
     isChrome: ua.browser.name === "Chrome",
   };

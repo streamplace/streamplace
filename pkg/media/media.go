@@ -15,11 +15,9 @@ import (
 	"aquareum.tv/aquareum/pkg/config"
 	"aquareum.tv/aquareum/pkg/crypto/signers"
 	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/pkg/media/gofilesink"
 	"aquareum.tv/aquareum/pkg/model"
 	"aquareum.tv/aquareum/pkg/replication"
 	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/base"
 	"github.com/google/uuid"
 	"github.com/livepeer/lpms/ffmpeg"
 	"golang.org/x/sync/errgroup"
@@ -47,7 +45,6 @@ type MediaManager struct {
 	httpPipesMutex      sync.Mutex
 	newSegmentSubs      []chan *NewSegmentNotification
 	newSegmentSubsMutex sync.RWMutex
-	vfs                 *gofilesink.VirtualFilesystem
 }
 
 type NewSegmentNotification struct {
@@ -66,36 +63,13 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	if err != nil {
 		return nil, fmt.Errorf("error in gstreamer self-test: %w", err)
 	}
-	vfs := gofilesink.NewVirtualFilesystem()
-	sinkFactory := gofilesink.NewFileSinkFactory(vfs)
-	ok := gst.RegisterElement(
-		nil,
-		// The name of the element
-		"filesink",
-		// The rank of the element
-		gst.RankNone,
-		// The GoElement implementation for the element
-		sinkFactory,
-		// The base subclass this element extends
-		base.ExtendsBaseSink,
-		// The interfaces this element implements
-		gst.InterfaceURIHandler,
-	)
-	if !ok {
-		return nil, fmt.Errorf("gst.RegisterElement failed")
-	}
 	return &MediaManager{
 		cli:        cli,
 		mp4subs:    map[string][]chan string{},
 		replicator: rep,
 		hlsRunning: map[string]*M3U8{},
 		httpPipes:  map[string]io.Writer{},
-		vfs:        vfs,
 	}, nil
-}
-
-func (mm *MediaManager) VFS() *gofilesink.VirtualFilesystem {
-	return mm.vfs
 }
 
 // replacement for os.Pipe that works on windows

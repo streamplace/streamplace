@@ -1,11 +1,11 @@
-import { Link, useNavigation } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import AQLink from "components/aqlink";
 import ErrorBox from "components/error/error";
 import Loading from "components/loading/loading";
 import { formatAddress } from "hooks/textUtils";
 import useAquareumNode from "hooks/useAquareumNode";
 import { useEffect, useState } from "react";
-import { Pressable, RefreshControl } from "react-native";
+import { RefreshControl } from "react-native";
 import { H6, Image, ScrollView, ScrollViewProps, View, YStack } from "tamagui";
 
 type Segment = {
@@ -72,7 +72,7 @@ export default function StreamList({
       }
     >
       {streams.map((seg) => (
-        <View flex={1}>
+        <View flex={1} key={seg.user}>
           <AQLink to={{ screen: "Stream", params: { user: seg.user } }}>
             <YStack f={1} alignItems="center">
               <Image

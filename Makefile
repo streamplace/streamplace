@@ -41,7 +41,7 @@ app: schema install
 node: schema
 	$(MAKE) meson-setup
 	meson compile -C $(BUILDDIR) aquareum
-	cp ./build/aquareum ./bin/aquareum
+	cp $(BUILDDIR)/aquareum ./bin/aquareum
 
 .PHONY: schema
 schema:

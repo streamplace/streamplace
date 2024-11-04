@@ -20,9 +20,9 @@
   "author": "Aquareum",
   "license": "MIT",
   "devDependencies": {
-    "husky": "^9.1.1",
-    "lerna": "^8.1.6",
-    "lint-staged": "^15.2.7",
+    "husky": "^9.1.6",
+    "lerna": "^8.1.9",
+    "lint-staged": "^15.2.10",
     "prettier": "^3.3.3"
   },
   "workspaces": [
@@ -30,6 +30,6 @@
   ],
   "packageManager": "yarn@4.3.0",
   "dependencies": {
-    "firebase-admin": "^12.2.0"
+    "firebase-admin": "^12.7.0"
   }
 }

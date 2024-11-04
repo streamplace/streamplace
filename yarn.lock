@@ -6575,14 +6575,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@reforged/maker-appimage@npm:^4.0.2":
+"@reforged/maker-appimage@https://gitpkg.vercel.app/aquareum-tv/ReForged/makers/appimage?90c4b7e8449250fe2a83fb2df0f41a3fcc1b37ca":
   version: 4.0.2
-  resolution: "@reforged/maker-appimage@npm:4.0.2"
+  resolution: "@reforged/maker-appimage@https://gitpkg.vercel.app/aquareum-tv/ReForged/makers/appimage?90c4b7e8449250fe2a83fb2df0f41a3fcc1b37ca"
   dependencies:
     "@electron-forge/maker-base": "npm:^6.0.0 || ^7.0.0"
     "@spacingbat3/lss": "npm:^1.0.0"
     semver: "npm:^7.3.8"
-  checksum: 10/ad39aaadad34472a62745ce8d681ac5dee819b7f7b6da1e5ba76bb8b51726311f90d6be925f00a1e8f13787f49613d3c2c742809e9f8ac8aae0abda9ab8ab461
+  checksum: 10/8bb04678ddbe9d1d4c0f54e1c668b1ec74f6d159af9255c7b6e4a7d29ec3b098461591ac7de7bb214d1e39c27094e0e4831fac928f0aa234c8e39ed17b400174
   languageName: node
   linkType: hard
 
@@ -10208,12 +10208,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@vercel/webpack-asset-relocator-loader@npm:1.7.4":
-  version: 1.7.4
-  resolution: "@vercel/webpack-asset-relocator-loader@npm:1.7.4"
+"@vercel/webpack-asset-relocator-loader@npm:1.7.3":
+  version: 1.7.3
+  resolution: "@vercel/webpack-asset-relocator-loader@npm:1.7.3"
   dependencies:
     resolve: "npm:^1.10.0"
-  checksum: 10/fcd986a5183259e58f165a98c9ed2a3781a7fe45839f168583f8e8afbf949c25a4c66a4af42c2b23e5e3ac15bed95dc522c408b8ca9f5031533e52b95160e6f5
+  checksum: 10/5a16c093a1a2ed2904b7d627f6817f78b7ec247008bbe926f6f176325f124817c862c03f41e5aabd2ed2836ebfcc58539cc1bb56cca834fd108c830f140687fc
   languageName: node
   linkType: hard
 
@@ -11204,11 +11204,11 @@ __metadata:
     "@electron-forge/plugin-webpack": "npm:^7.5.0"
     "@electron-forge/publisher-s3": "npm:^7.5.0"
     "@electron/fuses": "npm:^1.8.0"
-    "@reforged/maker-appimage": "npm:^4.0.2"
+    "@reforged/maker-appimage": "https://gitpkg.vercel.app/aquareum-tv/ReForged/makers/appimage?90c4b7e8449250fe2a83fb2df0f41a3fcc1b37ca"
     "@types/source-map-support": "npm:^0.5.10"
     "@typescript-eslint/eslint-plugin": "npm:^8.13.0"
     "@typescript-eslint/parser": "npm:^8.13.0"
-    "@vercel/webpack-asset-relocator-loader": "npm:1.7.4"
+    "@vercel/webpack-asset-relocator-loader": "npm:1.7.3"
     css-loader: "npm:^7.1.2"
     electron: "npm:33.0.2"
     electron-squirrel-startup: "npm:^1.0.1"

@@ -2,6 +2,7 @@ package api
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -152,11 +153,17 @@ func (a *AquareumAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
 			errors.WriteHTTPBadRequest(w, "file required", nil)
 			return
 		}
-		_, err := a.MediaManager.SegmentToHLSOnce(ctx, user)
+		m3u8, err := a.MediaManager.SegmentToHLSOnce(ctx, user)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "SegmentToHLSOnce failed", nil)
 			return
 		}
+		buf, err := m3u8.GetSegment(file)
+		if err != nil {
+			errors.WriteHTTPNotFound(w, "segment not found", err)
+			return
+		}
+		http.ServeContent(w, r, file, time.Now(), bytes.NewReader(buf))
 		// dir := getDir()
 		// fullpath := filepath.Join(dir, file)
 		// bs, err := a.MediaManager.VFS().Get(fullpath)

@@ -6,7 +6,7 @@ project(
     'cpp_std': 'c++11',
     'default_library': 'static',
     'auto_features': 'disabled',
-    'force_fallback_for': 'glib-2.0,gobject-2.0,gio-2.0,gio-unix-2.0,fdk-aac,zlib,libffi,pcre2,intl,x264',
+    'force_fallback_for': 'glib-2.0,gobject-2.0,gio-2.0,gio-unix-2.0,fdk-aac,zlib,libffi,pcre2,intl,x264,freetype2,libpng,libjpeg,fontconfig',
     'buildtype': 'debug',
   },
 )
@@ -75,16 +75,16 @@ c2pa_go_proj = subproject(
 c2pa_go_dep = c2pa_go_proj.get_variable('c2pa_go_dep')
 
 aquareum_deps = []
-if host_machine.system() == 'linux'
-  mistserver_proj = subproject(
-    'mistserver',
-    default_options: {
-      'APPNAME': 'MistServer',
-    },
-  )
-  mistserver = mistserver_proj.get_variable('libmistserver_dep')
-  aquareum_deps += mistserver
-endif
+# if host_machine.system() == 'linux'
+#   mistserver_proj = subproject(
+#     'mistserver',
+#     default_options: {
+#       'APPNAME': 'MistServer',
+#     },
+#   )
+#   mistserver = mistserver_proj.get_variable('libmistserver_dep')
+#   aquareum_deps += mistserver
+# endif
 
 ffmpeg_opts = {
   'aac_adtstoasc_bsf': 'enabled',

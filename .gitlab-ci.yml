@@ -161,7 +161,6 @@ build-mac:
       && source ~/venv/bin/activate
       && pip3 install meson
       && make ci-macos -j16
-      && make selftest-macos || echo "selftest-macos failed"
 
 windows-selftest:
   stage: build

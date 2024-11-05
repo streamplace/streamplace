@@ -41,7 +41,6 @@ app: schema install
 node: schema
 	$(MAKE) meson-setup
 	meson compile -C $(BUILDDIR) aquareum
-	ln -sf $(shell realpath $(BUILDDIR)/aquareum) ./bin/aquareum
 
 .PHONY: schema
 schema:
@@ -154,7 +153,8 @@ OPTS = -D "gst-plugins-base:audioresample=enabled" \
 		-D "gstreamer-full:libav=enabled" \
 		-D "gstreamer-full:ugly=enabled" \
 		-D "gstreamer-full:gpl=enabled" \
-		-D "gstreamer-full:gst-full-typefind-functions="
+		-D "gstreamer-full:gst-full-typefind-functions=" \
+		-D "pango:fontconfig=enabled"
 
 .PHONY: meson-setup
 meson-setup:

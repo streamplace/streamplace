@@ -52,12 +52,23 @@ test:
 	meson test -C build go-tests
 
 # test to make sure we haven't added any more dynamic dependencies
-.PHONY: link-test
-link-test:
+LINUX_LINK_COUNT=6
+.PHONY: link-test-linux
+link-test-linux:
 	count=$(shell ldd ./build-linux-amd64/aquareum | wc -l) \
 	&& echo $$count \
-	&& if [ "$$count" != "6" ]; then echo "ldd reports new libaries linked! want 6 got $$count" \
+	&& if [ "$$count" != "$(LINUX_LINK_COUNT)" ]; then echo "ldd reports new libaries linked! want $(LINUX_LINK_COUNT) got $$count" \
 		&& ldd ./bin/aquareum \
+		&& exit 1; \
+	fi
+
+MACOS_LINK_COUNT=13
+.PHONY: link-test-macos
+link-test-macos:
+	count=$(shell otool -L ./build-darwin-arm64/aquareum | wc -l | xargs) \
+	&& echo $$count \
+	&& if [ "$$count" != "$(MACOS_LINK_COUNT)" ]; then echo "otool -L reports new libaries linked! want $(MACOS_LINK_COUNT) got $$count" \
+		&& otool -L ./bin/aquareum \
 		&& exit 1; \
 	fi
 
@@ -130,7 +141,6 @@ OPTS = -D "gst-plugins-base:audioresample=enabled" \
 		-D "gst-plugins-good:matroska=enabled" \
 		-D "gst-plugins-good:multifile=enabled" \
 		-D "gst-plugins-bad:fdkaac=enabled" \
-		-D "gst-plugins-bad:hls=enabled" \
 		-D "gst-plugins-good:audioparsers=enabled" \
 		-D "gst-plugins-good:isomp4=enabled" \
 		-D "gst-plugins-good:png=enabled" \
@@ -144,7 +154,7 @@ OPTS = -D "gst-plugins-base:audioresample=enabled" \
 		-D "gst-plugins-ugly:gpl=enabled" \
 		-D "x264:asm=enabled" \
 		-D "gstreamer-full:gst-full=enabled" \
-		-D "gstreamer-full:gst-full-plugins=libgstaudioresample.a;libgstlibav.a;libgstpango.a;libgstmatroska.a;libgstmultifile.a;libgstjpeg.a;libgstaudiotestsrc.a;libgstaudioconvert.a;libgstaudioparsers.a;libgstfdkaac.a;libgstisomp4.a;libgstapp.a;libgstvideoconvertscale.a;libgstvideobox.a;libgstvideorate.a;libgstpng.a;libgstcompositor.a;libgsthls.a;libgstx264.a;libgstopus.a;libgstvideotestsrc.a;libgstvideoparsersbad.a;libgstaudioparsers.a;libgstmpegtsmux.a;libgstplayback.a;libgsttypefindfunctions.a" \
+		-D "gstreamer-full:gst-full-plugins=libgstaudioresample.a;libgstlibav.a;libgstpango.a;libgstmatroska.a;libgstmultifile.a;libgstjpeg.a;libgstaudiotestsrc.a;libgstaudioconvert.a;libgstaudioparsers.a;libgstfdkaac.a;libgstisomp4.a;libgstapp.a;libgstvideoconvertscale.a;libgstvideobox.a;libgstvideorate.a;libgstpng.a;libgstcompositor.a;libgstx264.a;libgstopus.a;libgstvideotestsrc.a;libgstvideoparsersbad.a;libgstaudioparsers.a;libgstmpegtsmux.a;libgstplayback.a;libgsttypefindfunctions.a" \
 		-D "gstreamer-full:gst-full-libraries=gstreamer-controller-1.0,gstreamer-plugins-base-1.0,gstreamer-pbutils-1.0" \
 		-D "gstreamer-full:gst-full-target-type=static_library" \
 		-D "gstreamer-full:gst-full-elements=coreelements:concat,filesrc,queue,queue2,typefind,tee,capsfilter,fakesink" \
@@ -165,7 +175,7 @@ meson-setup:
 node-all-platforms: app
 	meson setup build-linux-amd64 $(OPTS) --buildtype debugoptimized
 	meson compile -C build-linux-amd64 archive
-	$(MAKE) link-test
+	$(MAKE) link-test-linux
 	$(MAKE) linux-arm64
 	$(MAKE) windows-amd64
 	$(MAKE) windows-amd64-startup-test
@@ -218,6 +228,7 @@ node-all-platforms-macos: app
 	&& cd -
 	./build-darwin-arm64/aquareum --version
 	./build-darwin-arm64/aquareum self-test
+	$(MAKE) link-test-macos
 	rustup target add x86_64-apple-darwin
 	meson setup --buildtype debugoptimized --cross-file util/darwin-amd64-apple.ini build-darwin-amd64 $(OPTS)
 	meson compile -C build-darwin-amd64

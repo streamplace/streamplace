@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"aquareum.tv/aquareum/pkg/aqtime"
 	"aquareum.tv/aquareum/pkg/log"
 	"aquareum.tv/aquareum/test"
 	"github.com/go-gst/go-glib/glib"
@@ -505,17 +506,13 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms *MediaSigner) error {
 		fmt.Sprintf(`videotestsrc is-live=true ! video/x-raw,format=AYUV,framerate=30/1,width=%d,height=%d ! comp.`, TESTSRC_WIDTH, TESTSRC_HEIGHT),
 		fmt.Sprintf("videobox border-alpha=0 top=-%d left=-%d name=box ! comp.", (TESTSRC_HEIGHT/2)-(QR_SIZE/2), (TESTSRC_WIDTH/2)-(QR_SIZE/2)),
 		"appsrc name=pngsrc ! pngdec ! videoconvert ! videorate ! video/x-raw,format=AYUV,framerate=1/1 ! box.",
+		"appsrc name=timetext ! pngdec ! videoconvert ! videorate ! video/x-raw,format=AYUV,framerate=1/1 ! comp.",
 		"audiotestsrc ! audioconvert ! fdkaacenc ! queue ! aacparse name=audioparse",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return fmt.Errorf("error creating TestSource pipeline: %w", err)
-	}
-
-	pngele, err := pipeline.GetElementByName("pngsrc")
-	if err != nil {
-		return err
 	}
 
 	videoparse, err := pipeline.GetElementByName("videoparse")
@@ -543,6 +540,11 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms *MediaSigner) error {
 		return fmt.Errorf("link to signer failed: %w", err)
 	}
 
+	pngele, err := pipeline.GetElementByName("pngsrc")
+	if err != nil {
+		return err
+	}
+
 	src := app.SrcFromElement(pngele)
 	src.SetCallbacks(&app.SourceCallbacks{
 		NeedDataFunc: func(self *app.Source, _ uint) {
@@ -553,6 +555,28 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms *MediaSigner) error {
 				panic(err)
 			}
 			png, err := qrcode.Encode(string(bs), qrcode.Medium, 256)
+			if err != nil {
+				panic(err)
+			}
+			buffer := gst.NewBufferWithSize(int64(len(png)))
+			buffer.Map(gst.MapWrite).WriteData(png)
+			self.PushBuffer(buffer)
+		},
+	})
+	tr, err := NewTextRenderer()
+	if err != nil {
+		return err
+	}
+	timetext, err := pipeline.GetElementByName("timetext")
+	if err != nil {
+		return err
+	}
+
+	timesrc := app.SrcFromElement(timetext)
+	timesrc.SetCallbacks(&app.SourceCallbacks{
+		NeedDataFunc: func(self *app.Source, _ uint) {
+			aqt := aqtime.FromTime(time.Now())
+			png, err := tr.GenerateImage(aqt.String(), "#ffffff", "#000000", 36)
 			if err != nil {
 				panic(err)
 			}

@@ -7,14 +7,14 @@ import (
 )
 
 //go:embed all:dist/**
-var files embed.FS
+var AllFiles embed.FS
 
 //go:embed package.json
 var pkg []byte
 
 // fetch a static snapshot of the current Aquareum web app
 func Files() (fs.FS, error) {
-	rootFiles, err := fs.Sub(files, "dist")
+	rootFiles, err := fs.Sub(AllFiles, "dist")
 	if err != nil {
 		return nil, err
 	}

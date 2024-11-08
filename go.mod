@@ -17,9 +17,11 @@ require (
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/go-gst/go-glib v1.3.0
 	github.com/go-gst/go-gst v1.3.0
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/glog v1.2.0
 	github.com/google/uuid v1.6.0
 	github.com/johncgriffin/overflow v0.0.0-20211019200055-46fa312c352c
+	github.com/johnpili/go-text-to-image v0.0.0-20230820202620-720f6363352c
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/livepeer/lpms v0.0.0-20240812093642-b5181eb92cb2
 	github.com/lmittmann/tint v1.0.4
@@ -32,8 +34,9 @@ require (
 	github.com/stretchr/testify v1.9.0
 	gitlab.com/gitlab-org/release-cli v0.18.0
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
+	golang.org/x/image v0.22.0
 	golang.org/x/net v0.27.0
-	golang.org/x/sync v0.7.0
+	golang.org/x/sync v0.9.0
 	golang.org/x/term v0.22.0
 	google.golang.org/api v0.189.0
 	gorm.io/datatypes v1.2.4
@@ -130,7 +133,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
+	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/appengine/v2 v2.0.2 // indirect
 	google.golang.org/genproto v0.0.0-20240722135656-d784300faade // indirect

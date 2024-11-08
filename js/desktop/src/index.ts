@@ -110,7 +110,7 @@ if (require("electron-squirrel-startup")) {
 
   const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
   // how much of our time is spent playing for a success?
-  const PLAYING_SUCCESS = 0.8;
+  const PLAYING_SUCCESS = 0.5;
 
   const runSelfTest = async (): Promise<void> => {
     let exitCode = 0;

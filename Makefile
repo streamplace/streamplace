@@ -62,7 +62,7 @@ link-test-linux:
 		&& exit 1; \
 	fi
 
-MACOS_LINK_COUNT=13
+MACOS_LINK_COUNT=10
 .PHONY: link-test-macos
 link-test-macos:
 	count=$(shell otool -L ./build-darwin-arm64/aquareum | wc -l | xargs) \

@@ -164,20 +164,6 @@ func (a *AquareumAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
 			return
 		}
 		http.ServeContent(w, r, file, time.Now(), bytes.NewReader(buf))
-		// dir := getDir()
-		// fullpath := filepath.Join(dir, file)
-		// bs, err := a.MediaManager.VFS().Get(fullpath)
-		// if err == nil {
-		// 	http.ServeContent(w, r, file, time.Now(), bytes.NewReader(bs))
-		// 	return
-		// }
-		// f, err := os.Open(fullpath)
-		// if err != nil {
-		// 	errors.WriteHTTPInternalServerError(w, "could not open file", err)
-		// 	return
-		// }
-		// defer f.Close()
-		// http.ServeContent(w, r, file, time.Now(), f)
 	})
 }
 
@@ -205,14 +191,5 @@ func (a *AquareumAPI) HandleThumbnailPlayback(ctx context.Context) httprouter.Ha
 			return
 		}
 		http.ServeFile(w, r, fpath)
-
-		// getDir, err := a.MediaManager.SegmentToHLSOnce(ctx, user)
-		// if err != nil {
-		// 	errors.WriteHTTPInternalServerError(w, "SegmentToHLSOnce failed", nil)
-		// 	return
-		// }
-		// dir := getDir()
-		// fullpath := filepath.Join(dir, file)
-		// http.ServeFile(w, r, fullpath)
 	}
 }

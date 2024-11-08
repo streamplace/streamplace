@@ -6,7 +6,7 @@ project(
     'cpp_std': 'c++11',
     'default_library': 'static',
     'auto_features': 'disabled',
-    'force_fallback_for': 'glib-2.0,gobject-2.0,gio-2.0,gio-unix-2.0,fdk-aac,zlib,libffi,pcre2,intl,x264,freetype2,libpng,libjpeg,fontconfig,pango,opus,fribidi,harfbuzz,nettle,cairo,pixman',
+    'force_fallback_for': 'glib-2.0,gobject-2.0,gio-2.0,gio-unix-2.0,fdk-aac,zlib,libffi,pcre2,intl,x264,freetype2,libpng,libjpeg,fontconfig,pango,opus,fribidi,harfbuzz,nettle,cairo,pixman,expat',
     'buildtype': 'debug',
   },
 )

@@ -52,7 +52,7 @@ test:
 	meson test -C build go-tests
 
 # test to make sure we haven't added any more dynamic dependencies
-LINUX_LINK_COUNT=6
+LINUX_LINK_COUNT=5
 .PHONY: link-test-linux
 link-test-linux:
 	count=$(shell ldd ./build-linux-amd64/aquareum | wc -l) \

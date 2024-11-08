@@ -271,8 +271,8 @@ if host_machine.system() == 'windows'
   custom_target(
     'archive',
     input: [aquareum],
-    output: [archive_name],
-    command: [prog_zip, '../bin/@OUTPUT0@', '@INPUT@'],
+    output: ['aquareum.zip'],
+    command: [prog_zip, '../bin/' + archive_name, '@INPUT@'],
     install: true,
     install_dir: './bin',
     build_by_default: false,
@@ -284,8 +284,8 @@ else
   custom_target(
     'archive',
     input: [aquareum],
-    output: [archive_name],
-    command: [prog_tar, '-czvf', '../bin/@OUTPUT0@', '@INPUT@'],
+    output: ['aquareum.tar.gz'],
+    command: [prog_tar, '-czvf', '../bin/' + archive_name, '@INPUT@'],
     install: true,
     install_dir: './bin',
     build_by_default: false,

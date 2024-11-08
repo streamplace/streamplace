@@ -58,7 +58,7 @@ link-test-linux:
 	count=$(shell ldd ./build-linux-amd64/aquareum | wc -l) \
 	&& echo $$count \
 	&& if [ "$$count" != "$(LINUX_LINK_COUNT)" ]; then echo "ldd reports new libaries linked! want $(LINUX_LINK_COUNT) got $$count" \
-		&& ldd ./bin/aquareum \
+		&& ldd ./build-linux-amd64/aquareum \
 		&& exit 1; \
 	fi
 
@@ -68,7 +68,17 @@ link-test-macos:
 	count=$(shell otool -L ./build-darwin-arm64/aquareum | wc -l | xargs) \
 	&& echo $$count \
 	&& if [ "$$count" != "$(MACOS_LINK_COUNT)" ]; then echo "otool -L reports new libaries linked! want $(MACOS_LINK_COUNT) got $$count" \
-		&& otool -L ./bin/aquareum \
+		&& otool -L ./build-darwin-arm64/aquareum \
+		&& exit 1; \
+	fi
+
+WINDOWS_LINK_COUNT=20
+.PHONY: link-test-windows
+link-test-windows:
+	count=$(shell x86_64-w64-mingw32-objdump -p ./build-windows-amd64/aquareum.exe | grep "DLL Name" | wc -l | xargs) \
+	&& echo $$count \
+	&& if [ "$$count" != "$(WINDOWS_LINK_COUNT)" ]; then echo "x86_64-w64-mingw32-objdump -p reports new libaries linked! want $(WINDOWS_LINK_COUNT) got $$count" \
+		&& x86_64-w64-mingw32-objdump -p ./build-windows-amd64/aquareum.exe | grep "DLL Name" \
 		&& exit 1; \
 	fi
 
@@ -212,6 +222,7 @@ windows-amd64:
 	rustup target add x86_64-pc-windows-gnu
 	meson setup --cross-file util/windows-amd64-gnu.ini --buildtype debugoptimized build-windows-amd64 $(OPTS)
 	meson compile -C build-windows-amd64 archive 2>&1 | grep -v drectve
+	$(MAKE) link-test-windows
 
 # unbuffer here is a workaround for wine trying to pop up a terminal window and failing
 .PHONY: windows-amd64-startup-test

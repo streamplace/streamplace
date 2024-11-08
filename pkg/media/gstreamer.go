@@ -502,7 +502,7 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms *MediaSigner) error {
 	pipelineSlice := []string{
 		"h264parse name=videoparse",
 		"compositor name=comp ! videoconvert ! video/x-raw,format=I420 ! x264enc speed-preset=ultrafast key-int-max=30 ! queue ! videoparse.",
-		fmt.Sprintf(`videotestsrc is-live=true ! clockoverlay name=clock ! video/x-raw,format=AYUV,framerate=30/1,width=%d,height=%d ! comp.`, TESTSRC_WIDTH, TESTSRC_HEIGHT),
+		fmt.Sprintf(`videotestsrc is-live=true ! video/x-raw,format=AYUV,framerate=30/1,width=%d,height=%d ! comp.`, TESTSRC_WIDTH, TESTSRC_HEIGHT),
 		fmt.Sprintf("videobox border-alpha=0 top=-%d left=-%d name=box ! comp.", (TESTSRC_HEIGHT/2)-(QR_SIZE/2), (TESTSRC_WIDTH/2)-(QR_SIZE/2)),
 		"appsrc name=pngsrc ! pngdec ! videoconvert ! videorate ! video/x-raw,format=AYUV,framerate=1/1 ! box.",
 		"audiotestsrc ! audioconvert ! fdkaacenc ! queue ! aacparse name=audioparse",
@@ -527,12 +527,6 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms *MediaSigner) error {
 	if err != nil {
 		return err
 	}
-
-	clock, err := pipeline.GetElementByName("clock")
-	if err != nil {
-		return err
-	}
-	clock.SetProperty("time-format", "%Y-%m-%d %H:%M:%S %z")
 
 	signer, err := mm.SegmentAndSignElem(ctx, ms)
 	if err != nil {

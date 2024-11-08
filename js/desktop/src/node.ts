@@ -8,13 +8,20 @@ import { app } from "electron";
 const findExe = async (): Promise<string> => {
   const { isDev } = getEnv();
   let fname = "aquareum";
-  if (os.platform() === "win32") {
+  let exe: string;
+  let platform = os.platform() as string;
+  let architecture = os.arch() as string;
+  if (platform === "win32") {
+    platform = "windows";
     fname += ".exe";
   }
-  let exe: string;
+  if (architecture === "x64") {
+    architecture = "amd64";
+  }
+  let binfolder = `build-${platform}-${architecture}`;
   if (isDev) {
     // theoretically cwd is aquareum/js/desktop:
-    exe = resolve(process.cwd(), "..", "..", "bin", fname);
+    exe = resolve(process.cwd(), "..", "..", binfolder, fname);
   } else {
     exe = resolve(process.resourcesPath, fname);
   }
@@ -51,10 +58,13 @@ export default async function makeNode(opts: {
     app.on("before-quit", () => {
       proc.kill("SIGTERM");
     });
-    proc.on("exit", () => {
-      app.quit();
-    });
   }
+  proc.on("exit", () => {
+    console.log("node exited");
+    if (opts.autoQuit) {
+      app.quit();
+    }
+  });
 
   return {
     proc,

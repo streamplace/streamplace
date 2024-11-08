@@ -227,7 +227,6 @@ if host_machine.system() == 'windows'
       '-lbcrypt',
       '-static-libstdc++',
       '-static-libgcc',
-      '-lssp',
     ],
     language: ['c', 'cpp'],
   )

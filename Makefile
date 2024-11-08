@@ -72,7 +72,7 @@ link-test-macos:
 		&& exit 1; \
 	fi
 
-WINDOWS_LINK_COUNT=20
+WINDOWS_LINK_COUNT=16
 .PHONY: link-test-windows
 link-test-windows:
 	count=$(shell x86_64-w64-mingw32-objdump -p ./build-windows-amd64/aquareum.exe | grep "DLL Name" | wc -l | xargs) \
@@ -159,12 +159,11 @@ OPTS = -D "gst-plugins-base:audioresample=enabled" \
 		-D "gst-plugins-good:audioparsers=enabled" \
 		-D "gst-plugins-bad:videoparsers=enabled" \
 		-D "gst-plugins-bad:mpegtsmux=enabled" \
-		-D "gst-plugins-base:pango=enabled" \
 		-D "gst-plugins-ugly:x264=enabled" \
 		-D "gst-plugins-ugly:gpl=enabled" \
 		-D "x264:asm=enabled" \
 		-D "gstreamer-full:gst-full=enabled" \
-		-D "gstreamer-full:gst-full-plugins=libgstaudioresample.a;libgstlibav.a;libgstpango.a;libgstmatroska.a;libgstmultifile.a;libgstjpeg.a;libgstaudiotestsrc.a;libgstaudioconvert.a;libgstaudioparsers.a;libgstfdkaac.a;libgstisomp4.a;libgstapp.a;libgstvideoconvertscale.a;libgstvideobox.a;libgstvideorate.a;libgstpng.a;libgstcompositor.a;libgstx264.a;libgstopus.a;libgstvideotestsrc.a;libgstvideoparsersbad.a;libgstaudioparsers.a;libgstmpegtsmux.a;libgstplayback.a;libgsttypefindfunctions.a" \
+		-D "gstreamer-full:gst-full-plugins=libgstaudioresample.a;libgstlibav.a;libgstmatroska.a;libgstmultifile.a;libgstjpeg.a;libgstaudiotestsrc.a;libgstaudioconvert.a;libgstaudioparsers.a;libgstfdkaac.a;libgstisomp4.a;libgstapp.a;libgstvideoconvertscale.a;libgstvideobox.a;libgstvideorate.a;libgstpng.a;libgstcompositor.a;libgstx264.a;libgstopus.a;libgstvideotestsrc.a;libgstvideoparsersbad.a;libgstaudioparsers.a;libgstmpegtsmux.a;libgstplayback.a;libgsttypefindfunctions.a" \
 		-D "gstreamer-full:gst-full-libraries=gstreamer-controller-1.0,gstreamer-plugins-base-1.0,gstreamer-pbutils-1.0" \
 		-D "gstreamer-full:gst-full-target-type=static_library" \
 		-D "gstreamer-full:gst-full-elements=coreelements:concat,filesrc,queue,queue2,typefind,tee,capsfilter,fakesink" \
@@ -220,9 +219,13 @@ linux-arm64:
 .PHONY: windows-amd64
 windows-amd64:
 	rustup target add x86_64-pc-windows-gnu
-	meson setup --cross-file util/windows-amd64-gnu.ini --buildtype debugoptimized build-windows-amd64 $(OPTS)
+	$(MAKE) windows-amd64-meson-setup
 	meson compile -C build-windows-amd64 archive 2>&1 | grep -v drectve
 	$(MAKE) link-test-windows
+
+.PHONY: windows-amd64-meson-setup
+windows-amd64-meson-setup:
+	meson setup --cross-file util/windows-amd64-gnu.ini --buildtype debugoptimized build-windows-amd64 $(OPTS)
 
 # unbuffer here is a workaround for wine trying to pop up a terminal window and failing
 .PHONY: windows-amd64-startup-test

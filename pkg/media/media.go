@@ -29,10 +29,7 @@ import (
 
 const CERT_FILE = "cert.pem"
 const SEGMENTS_DIR = "segments"
-const STDS_METADATA = "stds.metadata"
-const SCHEMA_ORG_VIDEO_OBJECT = "http://schema.org/VideoObject"
-const SCHEMA_ORG_START_TIME = "http://schema.org/startTime"
-const SCHEMA_ORG_END_TIME = "http://schema.org/endTime"
+const AQUAREUM_METADATA = "tv.aquareum.metadata"
 
 type MediaManager struct {
 	cli                 *config.CLI
@@ -245,19 +242,13 @@ type StringVal struct {
 }
 
 type ExpandedSchemaOrg []struct {
-	Type    []string `json:"@type"`
-	Creator []struct {
-		Type    []string    `json:"@type"`
-		Address []StringVal `json:"http://schema.org/address"`
-		Name    []StringVal `json:"http://schema.org/name"`
-	} `json:"http://schema.org/creator"`
-	StartTime []StringVal `json:"http://schema.org/startTime"`
-	EndTime   []StringVal `json:"http://schema.org/endTime"`
+	Creator []StringVal `json:"http://purl.org/dc/elements/1.1/creator"`
+	Date    []StringVal `json:"http://purl.org/dc/elements/1.1/date"`
+	Title   []StringVal `json:"http://purl.org/dc/elements/1.1/title"`
 }
 
 type SegmentMetadata struct {
 	StartTime aqtime.AQTime
-	EndTime   aqtime.AQTime
 }
 
 var ErrInvalidMetadata = errors.New("invalid Schema.org Metadata")
@@ -265,13 +256,13 @@ var ErrInvalidMetadata = errors.New("invalid Schema.org Metadata")
 func ParseSegmentAssertions(mani *manifeststore.Manifest) (*SegmentMetadata, error) {
 	var ass *manifeststore.ManifestAssertion
 	for _, a := range mani.Assertions {
-		if a.Label == STDS_METADATA {
+		if a.Label == AQUAREUM_METADATA {
 			ass = &a
 			break
 		}
 	}
 	if ass == nil {
-		return nil, fmt.Errorf("couldn't find %s assertions", STDS_METADATA)
+		return nil, fmt.Errorf("couldn't find %s assertions", AQUAREUM_METADATA)
 	}
 	proc := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")
@@ -292,29 +283,21 @@ func ParseSegmentAssertions(mani *manifeststore.Manifest) (*SegmentMetadata, err
 		return nil, ErrInvalidMetadata
 	}
 	meta := metas[0]
-	if len(meta.Type) != 1 {
+	if len(meta.Creator) != 1 {
 		return nil, ErrInvalidMetadata
 	}
-	if meta.Type[0] != SCHEMA_ORG_VIDEO_OBJECT {
+	if len(meta.Title) != 1 {
 		return nil, ErrInvalidMetadata
 	}
-	if len(meta.StartTime) != 1 {
+	if len(meta.Date) != 1 {
 		return nil, ErrInvalidMetadata
 	}
-	if len(meta.EndTime) != 1 {
-		return nil, ErrInvalidMetadata
-	}
-	start, err := aqtime.FromString(meta.StartTime[0].Value)
-	if err != nil {
-		return nil, err
-	}
-	end, err := aqtime.FromString(meta.EndTime[0].Value)
+	start, err := aqtime.FromString(meta.Date[0].Value)
 	if err != nil {
 		return nil, err
 	}
 	out := SegmentMetadata{
 		StartTime: start,
-		EndTime:   end,
 	}
 	return &out, nil
 }
@@ -363,7 +346,6 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 		ID:        *mani.Label,
 		User:      pub.String(),
 		StartTime: meta.StartTime.Time(),
-		EndTime:   meta.EndTime.Time(),
 	}
 	mm.newSegmentSubsMutex.RLock()
 	defer mm.newSegmentSubsMutex.RUnlock()

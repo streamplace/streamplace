@@ -26,7 +26,7 @@ func getFixture(name string) string {
 func getStaticTestMediaManager(t *testing.T) (*MediaManager, *MediaSigner) {
 	signer, err := c2pa.MakeStaticSigner(eip712test.KeyBytes)
 	require.NoError(t, err)
-	pub, err := aqpub.FromHexString("0x6fbe6863cf1efc713899455e526a13239d371175")
+	pub, err := aqpub.FromHexString("0x16e4f04bc3c9d12fde3d238f60662161d0b87cce")
 	if err != nil {
 		panic(err)
 	}

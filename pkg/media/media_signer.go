@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"time"
 
 	"aquareum.tv/aquareum/pkg/aqio"
 	"aquareum.tv/aquareum/pkg/aqtime"
@@ -63,7 +62,6 @@ func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, sign
 }
 
 func (ms *MediaSigner) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
-	end := time.Now().UnixMilli()
 	mani := obj{
 		"title": fmt.Sprintf("Livestream Segment at %s", aqtime.FromMillis(start)),
 		"assertions": []obj{
@@ -77,21 +75,14 @@ func (ms *MediaSigner) SignMP4(ctx context.Context, input io.ReadSeeker, start i
 				},
 			},
 			{
-				"label": "stds.metadata",
+				"label": "tv.aquareum.metadata",
 				"data": obj{
 					"@context": obj{
-						"s": "http://schema.org/",
+						"dc": "http://purl.org/dc/elements/1.1/",
 					},
-					"@type": "s:VideoObject",
-					"s:creator": []obj{
-						{
-							"@type":     "s:Person",
-							"s:name":    ms.StreamerName,
-							"s:address": ms.Pub.String(),
-						},
-					},
-					"s:startTime": aqtime.FromMillis(start).String(),
-					"s:endTime":   aqtime.FromMillis(end).String(),
+					"dc:creator": []string{ms.StreamerName},
+					"dc:title":   []string{fmt.Sprintf("Livestream Segment at %s", aqtime.FromMillis(start))},
+					"dc:date":    []string{aqtime.FromMillis(start).String()},
 				},
 			},
 		},

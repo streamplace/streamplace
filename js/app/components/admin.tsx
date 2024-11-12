@@ -6,35 +6,6 @@ import { useState } from "react";
 import { Button, H5, Input, Label, Paragraph, TextArea, View } from "tamagui";
 import { useAccount, useSignTypedData } from "wagmi";
 
-{
-  /* <RainbowKitProvider coolMode={true}> */
-}
-{
-  /* RainbowKitProvider hides our children unless we do this...? */
-}
-{
-  /* <View
-              id="rainbowkit-interior" // Also this......?????
-              f={1}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100vw",
-                height: "100vh",
-              }}
-            > */
-}
-{
-  // children;
-}
-{
-  /* </View> */
-}
-{
-  /* </RainbowKitProvider> */
-}
-
 export default function AdminPage() {
   const { signTypedDataAsync } = useSignTypedData();
   const account = useAccount();

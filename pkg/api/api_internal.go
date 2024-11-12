@@ -20,6 +20,7 @@ import (
 	"aquareum.tv/aquareum/pkg/log"
 	"aquareum.tv/aquareum/pkg/mist/mistconfig"
 	"aquareum.tv/aquareum/pkg/mist/misttriggers"
+	"aquareum.tv/aquareum/pkg/model"
 	v0 "aquareum.tv/aquareum/pkg/schema/v0"
 	"github.com/julienschmidt/httprouter"
 	sloghttp "github.com/samber/slog-http"
@@ -236,6 +237,67 @@ func (a *AquareumAPI) InternalHandler(ctx context.Context) (http.Handler, error)
 			return
 		}
 		w.WriteHeader(204)
+	})
+
+	router.GET("/settings", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		id := a.Signer.Hex()
+
+		settings, err := a.Model.GetSettings(id)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to get settings", err)
+			return
+		}
+
+		bs, err := json.Marshal(settings)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
+			return
+		}
+		w.Write(bs)
+	})
+
+	router.PUT("/settings/:id", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "PUT")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		id := p.ByName("id")
+		if id == "" {
+			errors.WriteHTTPBadRequest(w, "id required", nil)
+			return
+		}
+
+		var settings model.Settings
+		if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
+			errors.WriteHTTPBadRequest(w, "invalid request body", err)
+			return
+		}
+		settings.ID = id
+
+		if err := a.Model.UpdateSettings(&settings); err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to update settings", err)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	router.OPTIONS("/settings", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:38081")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	router.OPTIONS("/settings/:id", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:38081")
+		w.Header().Set("Access-Control-Allow-Methods", "PUT, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusOK)
 	})
 
 	handler := sloghttp.Recovery(router)

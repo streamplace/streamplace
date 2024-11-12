@@ -8,7 +8,6 @@ type Segment struct {
 	ID        string    `json:"id"        gorm:"primaryKey"`
 	User      string    `json:"user"      gorm:"index:latest_segments"`
 	StartTime time.Time `json:"startTime" gorm:"index:latest_segments"`
-	EndTime   time.Time `json:"endTime"`
 }
 
 func (m *DBModel) CreateSegment(seg *Segment) error {

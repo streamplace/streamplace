@@ -13,6 +13,7 @@ import {
   LockKeyhole,
   Menu,
   Settings as SettingsIcon,
+  Video,
 } from "@tamagui/lucide-icons";
 import { Provider, Settings } from "components";
 import Admin from "components/admin";
@@ -24,6 +25,7 @@ import { useTheme, View } from "tamagui";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
 import SupportScreen from "./screens/support";
+import GoLiveScreen from "./screens/golive";
 
 function HomeScreen() {
   return (
@@ -51,6 +53,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Admin: "admin",
       Support: "support",
       Settings: "settings",
+      GoLive: "golive",
     },
   },
 };
@@ -162,6 +165,11 @@ export function AquareumDrawer() {
           drawerLabel: () => null,
           drawerItemStyle: { display: "none" },
         }}
+      />
+      <Drawer.Screen
+        name="GoLive"
+        component={GoLiveScreen}
+        options={{ headerTitle: "Go Live", drawerIcon: () => <Video /> }}
       />
     </Drawer.Navigator>
   );

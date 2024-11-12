@@ -33,6 +33,9 @@ type Model interface {
 
 	CreateThumbnail(thumb *Thumbnail) error
 	LatestThumbnailForUser(user string) (*Thumbnail, error)
+
+	GetSettings(id string) (*Settings, error)
+	UpdateSettings(settings *Settings) error
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -60,7 +63,7 @@ func MakeDB(dbURL string) (Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error starting database: %w", err)
 	}
-	for _, model := range []any{Notification{}, PlayerEvent{}, Segment{}, Thumbnail{}} {
+	for _, model := range []any{Notification{}, PlayerEvent{}, Segment{}, Thumbnail{}, Settings{}} {
 		err = db.AutoMigrate(model)
 		if err != nil {
 			return nil, err

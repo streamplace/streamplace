@@ -593,38 +593,6 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms *MediaSigner) error {
 		mainLoop.Quit()
 	}()
 
-	// elem, err := pipeline.GetElementByName("mux")
-	// if err != nil {
-	// 	return err
-	// }
-
-	// _, err = elem.Connect("delete-fragment", func(e *gst.Element, loc string) {
-	// 	log.Log(ctx, "!!!!!!!!!! delete-fragment !!!!!!!!!!!!!", "loc", loc)
-	// })
-	// if err != nil {
-	// 	return err
-	// }
-
-	// elem.ConnectAfter()
-
-	// _, err = elem.Connect("get-playlist-stream", func(e *gst.Element, loc string) *glib.OutputStream {
-	// 	log.Log(ctx, "!!!!!!!!!! get-playlist-stream !!!!!!!!!!!!!", "loc", loc)
-	// 	return &glib.OutputStream{}
-	// })
-
-	// if err != nil {
-	// 	return err
-	// }
-
-	// _, err = elem.Connect("get-fragment-stream", func(e *gst.Element, loc string) *glib.OutputStream {
-	// 	log.Log(ctx, "!!!!!!!!!! get-fragment-stream !!!!!!!!!!!!!", "loc", loc)
-	// 	return &glib.OutputStream{}
-	// })
-
-	// if err != nil {
-	// 	return err
-	// }
-	// Add a message handler to the pipeline bus, printing interesting information to the console.
 	pipeline.GetPipelineBus().AddWatch(func(msg *gst.Message) bool {
 		switch msg.Type() {
 

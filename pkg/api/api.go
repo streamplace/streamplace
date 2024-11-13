@@ -359,7 +359,7 @@ func (a *AquareumAPI) HandleRecentSegments(ctx context.Context) httprouter.Handl
 
 func (a *AquareumAPI) HandleSettingsGET(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		id := a.Signer.Hex()
+		id := a.MediaSigner.Pub.String()
 
 		settings, err := a.Model.GetSettings(id)
 		if err != nil {

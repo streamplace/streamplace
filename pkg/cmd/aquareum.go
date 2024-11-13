@@ -258,7 +258,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			return err
 		}
 	}
-	ms, err := media.MakeMediaSigner(ctx, &cli, cli.StreamerName, signer)
+	ms, err := media.MakeMediaSigner(ctx, &cli, cli.StreamerName, signer, mod)
 	if err != nil {
 		return err
 	}
@@ -348,7 +348,15 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		if err != nil {
 			return err
 		}
-		testMediaSigner, err := media.MakeMediaSigner(ctx, &cli, "self-test-signer", testSigner)
+		testMediaSigner, err := media.MakeMediaSigner(ctx, &cli, "self-test-signer", testSigner, mod)
+		if err != nil {
+			return err
+		}
+		err = mod.UpdateSettings(&model.Settings{
+			ID:       testMediaSigner.Pub.String(),
+			Streamer: "stream-self-tester",
+			Title:    "test-stream",
+		})
 		if err != nil {
 			return err
 		}

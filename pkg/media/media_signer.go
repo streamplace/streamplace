@@ -16,6 +16,7 @@ import (
 	"aquareum.tv/aquareum/pkg/crypto/aqpub"
 	"aquareum.tv/aquareum/pkg/crypto/signers"
 	"aquareum.tv/aquareum/pkg/log"
+	"aquareum.tv/aquareum/pkg/model"
 	"git.aquareum.tv/aquareum-tv/c2pa-go/pkg/c2pa"
 )
 
@@ -25,9 +26,10 @@ type MediaSigner struct {
 	Pub          aqpub.Pub
 	Cert         []byte
 	TAURL        string
+	Model        model.Model
 }
 
-func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, signer crypto.Signer) (*MediaSigner, error) {
+func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, signer crypto.Signer, mod model.Model) (*MediaSigner, error) {
 	pub, err := aqpub.FromPublicKey(signer.Public().(*ecdsa.PublicKey))
 	if err != nil {
 		return nil, err
@@ -58,10 +60,21 @@ func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, sign
 		StreamerName: streamer,
 		TAURL:        cli.TAURL,
 		Pub:          pub,
+		Model:        mod,
 	}, nil
 }
 
 func (ms *MediaSigner) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
+	settings, err := ms.Model.GetSettings(ms.Pub.String())
+	if err != nil {
+		return nil, err
+	}
+	if settings.Title == "" {
+		return nil, fmt.Errorf("no title set for streamer %s", ms.Pub.String())
+	}
+	if settings.Streamer == "" {
+		return nil, fmt.Errorf("no streamer set for streamer %s", ms.Pub.String())
+	}
 	mani := obj{
 		"title": fmt.Sprintf("Livestream Segment at %s", aqtime.FromMillis(start)),
 		"assertions": []obj{
@@ -80,8 +93,8 @@ func (ms *MediaSigner) SignMP4(ctx context.Context, input io.ReadSeeker, start i
 					"@context": obj{
 						"dc": "http://purl.org/dc/elements/1.1/",
 					},
-					"dc:creator": []string{ms.StreamerName},
-					"dc:title":   []string{fmt.Sprintf("Livestream Segment at %s", aqtime.FromMillis(start))},
+					"dc:creator": []string{settings.Streamer},
+					"dc:title":   []string{settings.Title},
 					"dc:date":    []string{aqtime.FromMillis(start).String()},
 				},
 			},

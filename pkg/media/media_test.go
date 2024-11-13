@@ -12,6 +12,7 @@ import (
 	"aquareum.tv/aquareum/pkg/crypto/aqpub"
 	"aquareum.tv/aquareum/pkg/crypto/signers/eip712/eip712test"
 	_ "aquareum.tv/aquareum/pkg/media/mediatesting"
+	"aquareum.tv/aquareum/pkg/model"
 	"aquareum.tv/aquareum/pkg/replication/boring"
 	"git.aquareum.tv/aquareum-tv/c2pa-go/pkg/c2pa"
 	"github.com/stretchr/testify/require"
@@ -36,7 +37,7 @@ func getStaticTestMediaManager(t *testing.T) (*MediaManager, *MediaSigner) {
 	})
 	mm, err := MakeMediaManager(context.Background(), cli, signer, &boring.BoringReplicator{})
 	require.NoError(t, err)
-	ms, err := MakeMediaSigner(context.Background(), cli, "test-person", signer)
+	ms, err := MakeMediaSigner(context.Background(), cli, "test-person", signer, &model.DBModel{})
 	return mm, ms
 }
 

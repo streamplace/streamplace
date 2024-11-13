@@ -1,10 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import {
-  createWalletClient,
-  http,
-  SignTypedDataParameters,
-  TypedData,
-} from "viem";
+import { createWalletClient, http } from "viem";
 import usePlatform from "./usePlatform";
 import {
   ConnectButton,
@@ -17,26 +12,11 @@ import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum, base, mainnet, optimism, polygon } from "viem/chains";
 import { Paragraph } from "tamagui";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-type SignTypedDataFn = <
-  const typedData extends TypedData | { [key: string]: unknown },
-  primaryType extends string,
->(
-  args: Omit<SignTypedDataParameters<typedData, primaryType, any>, "account">,
-) => Promise<string>;
-
-type WalletStuff = {
-  address?: string;
-  signTypedData: SignTypedDataFn;
-};
-
-const notActive = (async (args) => {
-  throw new Error("Wallet not active");
-}) as SignTypedDataFn;
-const notActiveWallet: WalletStuff = {
-  address: undefined,
-  signTypedData: notActive,
-};
+import {
+  notActiveWallet,
+  WalletStuff,
+  SignTypedDataFn,
+} from "./useWallet.shared";
 
 const WalletContext = createContext(notActiveWallet);
 

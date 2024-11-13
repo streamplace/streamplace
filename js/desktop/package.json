@@ -50,7 +50,8 @@
   "dependencies": {
     "electron-squirrel-startup": "^1.0.1",
     "source-map-support": "^0.5.21",
-    "update-electron-app": "^3.0.0"
+    "update-electron-app": "^3.0.0",
+    "viem": "^2.21.44"
   },
   "private": true
 }

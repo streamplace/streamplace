@@ -96,7 +96,6 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router := httprouter.New()
 	apiRouter := httprouter.New()
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
-	apiRouter.HandlerFunc("POST", "/api/golive", a.HandleGoLive(ctx))
 	// old clients
 	router.HandlerFunc("GET", "/app-updates", a.HandleAppUpdates(ctx))
 	// new ones
@@ -114,6 +113,8 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	apiRouter.POST("/api/player-event", a.HandlePlayerEvent(ctx))
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
+	apiRouter.GET("/api/settings", a.HandleSettingsGET(ctx))
+	apiRouter.PUT("/api/settings/:id", a.HandleSettingsPUT(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	router.Handler("GET", "/api/*resource", apiRouter)
 	router.Handler("POST", "/api/*resource", apiRouter)
@@ -229,8 +230,13 @@ func (a *AquareumAPI) HandleAPI404(ctx context.Context) http.HandlerFunc {
 	}
 }
 
-func (a *AquareumAPI) HandleGoLive(ctx context.Context) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
+func (a *AquareumAPI) HandleSettingsPUT(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		id := params.ByName("id")
+		if id == "" {
+			apierrors.WriteHTTPBadRequest(w, "id required", nil)
+			return
+		}
 		payload, err := io.ReadAll(req.Body)
 		if err != nil {
 			apierrors.WriteHTTPBadRequest(w, "error reading body", err)
@@ -253,21 +259,31 @@ func (a *AquareumAPI) HandleGoLive(ctx context.Context) http.HandlerFunc {
 			return
 		}
 		log.Log(ctx, "got signed & verified payload", "payload", signed)
-		if a.FirebaseNotifier == nil {
-			apierrors.WriteHTTPNotImplemented(w, "no firebase token, can't notify", nil)
+		if err := a.Model.UpdateSettings(&model.Settings{
+			ID:       id,
+			Streamer: golive.Streamer,
+			Title:    golive.Title,
+		}); err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "unable to update settings", err)
 			return
 		}
-		nots, err := a.Model.ListNotifications()
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "couldn't list notifications", err)
-			return
-		}
-		err = a.FirebaseNotifier.Blast(ctx, nots, golive)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "couldn't blast", err)
-			return
-		}
-		w.WriteHeader(204)
+
+		w.WriteHeader(http.StatusNoContent)
+		// if a.FirebaseNotifier == nil {
+		// 	apierrors.WriteHTTPNotImplemented(w, "no firebase token, can't notify", nil)
+		// 	return
+		// }
+		// nots, err := a.Model.ListNotifications()
+		// if err != nil {
+		// 	apierrors.WriteHTTPInternalServerError(w, "couldn't list notifications", err)
+		// 	return
+		// }
+		// err = a.FirebaseNotifier.Blast(ctx, nots, golive)
+		// if err != nil {
+		// 	apierrors.WriteHTTPInternalServerError(w, "couldn't blast", err)
+		// 	return
+		// }
+		// w.WriteHeader(204)
 	}
 }
 
@@ -337,6 +353,25 @@ func (a *AquareumAPI) HandleRecentSegments(ctx context.Context) httprouter.Handl
 			return
 		}
 		w.Header().Add("Content-Type", "application/json")
+		w.Write(bs)
+	}
+}
+
+func (a *AquareumAPI) HandleSettingsGET(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		id := a.Signer.Hex()
+
+		settings, err := a.Model.GetSettings(id)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "unable to get settings", err)
+			return
+		}
+
+		bs, err := json.Marshal(settings)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
+			return
+		}
 		w.Write(bs)
 	}
 }

@@ -10,13 +10,11 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
   ArrowLeft,
   Home,
-  LockKeyhole,
   Menu,
   Settings as SettingsIcon,
   Video,
 } from "@tamagui/lucide-icons";
 import { Provider, Settings } from "components";
-import Admin from "components/admin";
 import StreamList from "components/stream-list/stream-list";
 import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
@@ -50,7 +48,6 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
         },
       },
       Multi: "multi/:config",
-      Admin: "admin",
       Support: "support",
       Settings: "settings",
       GoLive: "golive",
@@ -95,7 +92,7 @@ export default function Router() {
 
 export function AquareumDrawer() {
   const theme = useTheme();
-  const { isWeb } = usePlatform();
+  const { isWeb, isElectron } = usePlatform();
   const navigation = useNavigation();
   return (
     <Drawer.Navigator
@@ -139,17 +136,6 @@ export function AquareumDrawer() {
         component={Settings}
         options={{ drawerIcon: () => <SettingsIcon /> }}
       />
-      {isWeb && (
-        <Drawer.Screen
-          name="Admin"
-          component={Admin}
-          options={{
-            drawerIcon: () => <LockKeyhole />,
-            drawerLabel: () => null,
-            drawerItemStyle: { display: "none" },
-          }}
-        />
-      )}
       <Drawer.Screen
         name="Multi"
         component={MultiScreen}
@@ -166,11 +152,13 @@ export function AquareumDrawer() {
           drawerItemStyle: { display: "none" },
         }}
       />
-      <Drawer.Screen
-        name="GoLive"
-        component={GoLiveScreen}
-        options={{ headerTitle: "Go Live", drawerIcon: () => <Video /> }}
-      />
+      {isElectron && (
+        <Drawer.Screen
+          name="GoLive"
+          component={GoLiveScreen}
+          options={{ headerTitle: "Go Live", drawerIcon: () => <Video /> }}
+        />
+      )}
     </Drawer.Navigator>
   );
 }

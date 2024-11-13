@@ -13,6 +13,7 @@ import (
 	_ "aquareum.tv/aquareum/pkg/media/mediatesting"
 	"aquareum.tv/aquareum/pkg/model"
 	v0 "aquareum.tv/aquareum/pkg/schema/v0"
+	"github.com/julienschmidt/httprouter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -111,7 +112,7 @@ func TestGoLiveHandler(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				cli := &config.CLI{AdminAccount: tt.adminAccount, FirebaseServiceAccount: "foo"}
 				a := AquareumAPI{CLI: cli, Model: mod, Signer: signer, FirebaseNotifier: &MockFirebase{}}
-				handler := a.HandleGoLive(context.Background())
+				handler := a.HandleSettingsPUT(context.Background())
 
 				goLive := v0.GoLive{
 					Streamer: "@aquareum.tv",
@@ -120,10 +121,10 @@ func TestGoLiveHandler(t *testing.T) {
 				signed, err := signer.SignMessage(goLive)
 				require.NoError(t, err)
 
-				req := httptest.NewRequest("POST", "https://aquareum.tv/api/golive", bytes.NewReader(signed))
+				req := httptest.NewRequest("PUT", "https://aquareum.tv/api/settings/example", bytes.NewReader(signed))
 				rr := httptest.NewRecorder()
 
-				handler.ServeHTTP(rr, req)
+				handler(rr, req, httprouter.Params{{Key: "id", Value: "example"}})
 				require.Equal(t, tt.responseCode, rr.Code)
 			})
 		}

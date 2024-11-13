@@ -286,20 +286,6 @@ func (a *AquareumAPI) InternalHandler(ctx context.Context) (http.Handler, error)
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	router.OPTIONS("/settings", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:38081")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		w.WriteHeader(http.StatusOK)
-	})
-
-	router.OPTIONS("/settings/:id", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:38081")
-		w.Header().Set("Access-Control-Allow-Methods", "PUT, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		w.WriteHeader(http.StatusOK)
-	})
-
 	handler := sloghttp.Recovery(router)
 	if log.Level(4) {
 		handler = sloghttp.New(slog.Default())(handler)

@@ -21,7 +21,11 @@ yarn run build
 
 ```
 make node
-./bin/aquareum
+./build-darwin-arm64/aquareum
+
+// or
+
+./build-linux-amd64/aquareum
 ```
 
 **Web Development**
@@ -46,3 +50,19 @@ npx expo start
 ```
 
 You can also boot the other platforms directly from the bundler once it starts.
+
+**Desktop Development**
+
+```
+yarn run desktop start
+```
+
+If you need to set up an admin account key for using your local desktop app
+against your local node, run:
+
+```
+node util/generate-dev-admin-key.mjs
+```
+
+Adding those two environment variables to your shell will give your desktop app
+administrative access over your local Aquareum node.

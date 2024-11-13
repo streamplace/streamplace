@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { Button, H5, Input, Label, Paragraph, TextArea, View } from "tamagui";
+import { Button, Input, Label, Paragraph, TextArea, View } from "tamagui";
 import Loading from "./loading/loading";
 import { useToastController } from "@tamagui/toast";
+import useAquareumNode from "hooks/useAquareumNode";
+import { useIsFocused } from "@react-navigation/native";
+import schema from "generated/eip712-schema.json";
+import useWallet from "hooks/useWallet";
 
 const Left = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -20,21 +24,25 @@ const Right = ({ children }: { children: React.ReactNode }) => {
 };
 type Settings = {
   id: string;
-  creator: string;
+  streamer: string;
   title: string;
 };
 
 export default function GoLive() {
   const toast = useToastController();
+  const { url } = useAquareumNode();
+  const isFocused = useIsFocused();
+  const { address, signTypedData } = useWallet();
+  const [refreshTime, setRefreshTime] = useState(0);
   useEffect(() => {
     (async () => {
-      const res = await fetch(`http://localhost:39090/settings`);
+      const res = await fetch(`${url}/api/settings`);
       const data = (await res.json()) as Settings;
       setId(data.id);
-      setStreamer(data.creator);
+      setStreamer(data.streamer);
       setTitle(data.title);
     })();
-  }, []);
+  }, [isFocused, refreshTime]);
   const [id, setId] = useState("");
   const [streamer, setStreamer] = useState("");
   const [title, setTitle] = useState("");
@@ -59,7 +67,7 @@ export default function GoLive() {
       </Label>
       <Label w="100%">
         <Left>
-          <Paragraph pb="$2">Creator</Paragraph>
+          <Paragraph pb="$2">Streamer</Paragraph>
         </Left>
         <Right>
           <Input
@@ -92,16 +100,30 @@ export default function GoLive() {
           size="$4"
           onPress={() => {
             setLoading(true);
+            console.log(address);
             (async () => {
               try {
-                setLoading(true);
-                const res = await fetch(
-                  `http://localhost:39090/settings/${id}`,
-                  {
-                    method: "PUT",
-                    body: JSON.stringify({ creator: streamer, title }),
-                  },
-                );
+                const message = {
+                  signer: address,
+                  time: Date.now(),
+                  data: { streamer, title },
+                };
+                const toSign = {
+                  types: schema.types,
+                  domain: schema.domain as any,
+                  primaryType: "GoLive",
+                  message: message,
+                };
+                const signature = await signTypedData(toSign);
+                const res = await fetch(`${url}/api/settings/${id}`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    primaryType: "GoLive",
+                    domain: schema.domain,
+                    message: message,
+                    signature: signature,
+                  }),
+                });
                 if (!res.ok) {
                   const text = await res.text();
                   throw new Error(`http ${res.status} ${text}`);
@@ -109,10 +131,12 @@ export default function GoLive() {
                 toast.show("Settings Saved", {
                   message: "Great job.",
                 });
+                setRefreshTime(Date.now());
               } catch (e) {
                 toast.show("Failed to save settings", {
                   message: e.message,
                 });
+                throw e;
               } finally {
                 setLoading(false);
               }

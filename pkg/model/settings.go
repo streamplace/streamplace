@@ -4,9 +4,9 @@ import "fmt"
 
 // settings for publishing from a particular key. mostly node-local.
 type Settings struct {
-	ID      string `json:"id" gorm:"primaryKey"`
-	Creator string `json:"creator"`
-	Title   string `json:"title"`
+	ID       string `json:"id" gorm:"primaryKey"`
+	Streamer string `json:"streamer"`
+	Title    string `json:"title"`
 }
 
 func (m *DBModel) GetSettings(id string) (*Settings, error) {

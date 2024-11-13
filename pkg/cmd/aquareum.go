@@ -147,7 +147,8 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		"buildTime", build.BuildTimeStr(),
 		"uuid", build.UUID,
 		"runtime.GOOS", runtime.GOOS,
-		"runtime.GOARCH", runtime.GOARCH)
+		"runtime.GOARCH", runtime.GOARCH,
+		"runtime.Version", runtime.Version())
 	if *version {
 		return nil
 	}

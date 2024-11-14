@@ -12,6 +12,7 @@ import (
 	"aquareum.tv/aquareum/pkg/crypto/signers/eip712/eip712test"
 	_ "aquareum.tv/aquareum/pkg/media/mediatesting"
 	"aquareum.tv/aquareum/pkg/model"
+	"aquareum.tv/aquareum/pkg/notifications"
 	v0 "aquareum.tv/aquareum/pkg/schema/v0"
 	"github.com/julienschmidt/httprouter"
 	"github.com/stretchr/testify/assert"
@@ -84,7 +85,7 @@ func TestRedirectHandler(t *testing.T) {
 type MockFirebase struct {
 }
 
-func (m *MockFirebase) Blast(ctx context.Context, nots []model.Notification, golive *v0.GoLive) error {
+func (m *MockFirebase) Blast(ctx context.Context, nots []model.Notification, nb *notifications.NotificationBlast) error {
 	return nil
 }
 

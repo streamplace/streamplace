@@ -30,7 +30,7 @@ type Model interface {
 
 	CreateSegment(segment *Segment) error
 	MostRecentSegments() ([]Segment, error)
-
+	LatestSegmentForUser(user string) (*Segment, error)
 	CreateThumbnail(thumb *Thumbnail) error
 	LatestThumbnailForUser(user string) (*Thumbnail, error)
 

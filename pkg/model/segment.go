@@ -34,3 +34,12 @@ func (m *DBModel) MostRecentSegments() ([]Segment, error) {
 
 	return segments, nil
 }
+
+func (m *DBModel) LatestSegmentForUser(user string) (*Segment, error) {
+	var seg Segment
+	err := m.DB.Model(Segment{}).Where("user = ?", user).Order("start_time DESC").First(&seg).Error
+	if err != nil {
+		return nil, err
+	}
+	return &seg, nil
+}

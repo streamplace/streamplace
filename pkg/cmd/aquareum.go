@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"aquareum.tv/aquareum/pkg/replication/boring"
 	v0 "aquareum.tv/aquareum/pkg/schema/v0"
 	"golang.org/x/term"
+	"gorm.io/gorm"
 
 	"aquareum.tv/aquareum/pkg/api"
 	"aquareum.tv/aquareum/pkg/config"
@@ -301,9 +303,6 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 				return nil
 			case not := <-newSeg:
 				prevSeg, prevErr := mod.LatestSegmentForUser(not.Segment.User)
-				if prevErr != nil {
-					log.Error(ctx, "could not retreive previous segment", "error", prevErr)
-				}
 				err := mod.CreateSegment(not.Segment)
 				if err != nil {
 					log.Error(ctx, "could not add segment to database", "error", err)
@@ -344,15 +343,17 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 				}()
 				go func() {
 					err := func() error {
-						if prevErr != nil {
+						if prevErr != nil && !errors.Is(prevErr, gorm.ErrRecordNotFound) {
 							log.Error(ctx, "could not retreive previous segment", "error", prevErr)
 							return prevErr
 						}
-						dur := not.Segment.StartTime.Sub(prevSeg.StartTime)
-						if prevSeg != nil && dur < (5*time.Minute) {
-							log.Debug(ctx, "skipping notification, less than 5 minutes since last segment", "user", not.Segment.User, "duration", dur)
-							// it's been less than 5 minutes since the last segment, skip notification
-							return nil
+						if prevSeg != nil {
+							dur := not.Segment.StartTime.Sub(prevSeg.StartTime)
+							if prevSeg != nil && dur < (5*time.Minute) {
+								log.Debug(ctx, "skipping notification, less than 5 minutes since last segment", "user", not.Segment.User, "duration", dur)
+								// it's been less than 5 minutes since the last segment, skip notification
+								return nil
+							}
 						}
 
 						notifications, err := mod.ListNotifications()

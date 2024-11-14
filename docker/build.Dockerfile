@@ -6,7 +6,7 @@ ENV TARGETARCH $TARGETARCH
 ARG DOCKERFILE_HASH
 ENV DOCKERFILE_HASH $DOCKERFILE_HASH
 
-ENV GO_VERSION 1.23.3
+ENV GO_VERSION 1.22.4
 ENV NODE_VERSION 22.3.0
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -60,6 +60,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh \
   && rustup target add x86_64-apple-darwin \
   && rustup target add aarch64-apple-darwin \
   && rm rustup.sh
+
+RUN go env -w GOTOOLCHAIN=go$GO_VERSION
 
 FROM builder AS cached-builder
 ARG CI_COMMIT_BRANCH=next

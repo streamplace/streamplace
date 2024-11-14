@@ -7,7 +7,6 @@ import (
 
 	"aquareum.tv/aquareum/pkg/log"
 	"aquareum.tv/aquareum/pkg/model"
-	v0 "aquareum.tv/aquareum/pkg/schema/v0"
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
 	"golang.org/x/net/context"
@@ -15,7 +14,7 @@ import (
 )
 
 type FirebaseNotifier interface {
-	Blast(ctx context.Context, nots []model.Notification, golive *v0.GoLive) error
+	Blast(ctx context.Context, nots []model.Notification, golive *NotificationBlast) error
 }
 
 type FirebaseNotifierS struct {
@@ -24,6 +23,23 @@ type FirebaseNotifierS struct {
 
 type GoogleCredential struct {
 	ProjectID string `json:"project_id"`
+}
+
+type NotificationBlast struct {
+	Title    string
+	Streamer string
+}
+
+func (nb *NotificationBlast) String() string {
+	return fmt.Sprintf("%s %s", nb.PrintTitle(), nb.PrintBody())
+}
+
+func (nb *NotificationBlast) PrintTitle() string {
+	return fmt.Sprintf("🔴 %s is LIVE!", nb.Streamer)
+}
+
+func (nb *NotificationBlast) PrintBody() string {
+	return nb.Title
 }
 
 func MakeFirebaseNotifier(ctx context.Context, serviceAccountJSONb64 string) (FirebaseNotifier, error) {
@@ -51,7 +67,7 @@ func MakeFirebaseNotifier(ctx context.Context, serviceAccountJSONb64 string) (Fi
 }
 
 // refactor me when we have >500 users
-func (f *FirebaseNotifierS) Blast(ctx context.Context, nots []model.Notification, golive *v0.GoLive) error {
+func (f *FirebaseNotifierS) Blast(ctx context.Context, nots []model.Notification, blast *NotificationBlast) error {
 	client, err := f.app.Messaging(ctx)
 	if err != nil {
 		return err
@@ -64,8 +80,8 @@ func (f *FirebaseNotifierS) Blast(ctx context.Context, nots []model.Notification
 	notification := &messaging.MulticastMessage{
 		Tokens: tokens,
 		Notification: &messaging.Notification{
-			Title: fmt.Sprintf("🔴 %s is LIVE!", golive.Streamer),
-			Body:  golive.Title,
+			Title: blast.PrintTitle(),
+			Body:  blast.PrintBody(),
 		},
 		Android: &messaging.AndroidConfig{
 			Priority: "high",

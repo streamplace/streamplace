@@ -22,6 +22,7 @@ import (
 	"aquareum.tv/aquareum/pkg/log"
 	"aquareum.tv/aquareum/pkg/media"
 	"aquareum.tv/aquareum/pkg/notifications"
+	notificationpkg "aquareum.tv/aquareum/pkg/notifications"
 	"aquareum.tv/aquareum/pkg/replication"
 	"aquareum.tv/aquareum/pkg/replication/boring"
 	v0 "aquareum.tv/aquareum/pkg/schema/v0"
@@ -359,10 +360,14 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 							return err
 						}
 
+						nb := &notificationpkg.NotificationBlast{
+							Streamer: not.Metadata.Creator,
+							Title:    not.Metadata.Title,
+						}
 						if noter != nil {
-							noter.Blast(ctx, notifications, nil)
+							noter.Blast(ctx, notifications, nb)
 						} else {
-							log.Log(ctx, "no notifier configured, skipping notifications", "user", not.Segment.User, "count", len(notifications))
+							log.Log(ctx, "no notifier configured, skipping notifications", "user", not.Segment.User, "count", len(notifications), "content", nb)
 						}
 						return nil
 					}()

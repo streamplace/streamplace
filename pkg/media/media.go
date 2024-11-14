@@ -45,8 +45,9 @@ type MediaManager struct {
 }
 
 type NewSegmentNotification struct {
-	Segment *model.Segment
-	Data    []byte
+	Segment  *model.Segment
+	Data     []byte
+	Metadata *SegmentMetadata
 }
 
 func RunSelfTest(ctx context.Context) error {
@@ -249,6 +250,8 @@ type ExpandedSchemaOrg []struct {
 
 type SegmentMetadata struct {
 	StartTime aqtime.AQTime
+	Title     string
+	Creator   string
 }
 
 var ErrInvalidMetadata = errors.New("invalid Schema.org Metadata")
@@ -298,6 +301,8 @@ func ParseSegmentAssertions(mani *manifeststore.Manifest) (*SegmentMetadata, err
 	}
 	out := SegmentMetadata{
 		StartTime: start,
+		Title:     meta.Title[0].Value,
+		Creator:   meta.Creator[0].Value,
 	}
 	return &out, nil
 }
@@ -346,12 +351,14 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 		ID:        *mani.Label,
 		User:      pub.String(),
 		StartTime: meta.StartTime.Time(),
+		Title:     meta.Title,
 	}
 	mm.newSegmentSubsMutex.RLock()
 	defer mm.newSegmentSubsMutex.RUnlock()
 	not := &NewSegmentNotification{
-		Segment: seg,
-		Data:    buf,
+		Segment:  seg,
+		Data:     buf,
+		Metadata: meta,
 	}
 	for _, ch := range mm.newSegmentSubs {
 		go func() { ch <- not }()

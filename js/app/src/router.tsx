@@ -10,6 +10,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
   ArrowLeft,
   Home,
+  LogIn,
   Menu,
   Settings as SettingsIcon,
   Video,
@@ -24,6 +25,7 @@ import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
 import SupportScreen from "./screens/support";
 import GoLiveScreen from "./screens/golive";
+import Login from "components/login/login";
 
 function HomeScreen() {
   return (
@@ -51,6 +53,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Support: "support",
       Settings: "settings",
       GoLive: "golive",
+      Login: "login",
     },
   },
 };
@@ -94,6 +97,17 @@ export function AquareumDrawer() {
   const theme = useTheme();
   const { isWeb, isElectron } = usePlatform();
   const navigation = useNavigation();
+  useEffect(() => {
+    const params = new URLSearchParams(document.location.search);
+    if (params.has("code")) {
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        }),
+      );
+    }
+  }, []);
   return (
     <Drawer.Navigator
       initialRouteName="Home"
@@ -151,6 +165,11 @@ export function AquareumDrawer() {
           drawerLabel: () => null,
           drawerItemStyle: { display: "none" },
         }}
+      />
+      <Drawer.Screen
+        name="Login"
+        component={Login}
+        options={{ drawerIcon: () => <LogIn /> }}
       />
       {isElectron && (
         <Drawer.Screen

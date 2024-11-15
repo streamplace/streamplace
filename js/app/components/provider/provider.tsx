@@ -5,6 +5,8 @@ import { LinkingOptions } from "@react-navigation/native";
 import SharedProvider from "./provider.shared";
 import React from "react";
 import { WalletProvider } from "hooks/useWallet";
+import OAuthClient from "atproto/oauth";
+import { AuthProvider } from "hooks/useAuthContext";
 
 export default function Provider({
   children,
@@ -15,7 +17,9 @@ export default function Provider({
 }) {
   return (
     <SharedProvider linking={linking}>
-      <WalletProvider>{children}</WalletProvider>
+      <AuthProvider client={OAuthClient}>
+        <WalletProvider>{children}</WalletProvider>
+      </AuthProvider>
     </SharedProvider>
   );
 }

@@ -29,6 +29,7 @@ import GoLiveScreen from "./screens/golive";
 import Login from "components/login/login";
 import { selectUserProfile } from "features/bluesky/blueskySlice";
 import { useAppSelector } from "store/hooks";
+import AQLink from "components/aqlink";
 
 function HomeScreen() {
   return (
@@ -84,7 +85,6 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
 const AvatarButton = () => {
   const navigation = useNavigation();
   const userProfile = useAppSelector(selectUserProfile);
-  let avatarButton = <User />;
   let source: ImageSourcePropType | undefined = undefined;
   let opacity = 1;
   if (userProfile) {
@@ -92,12 +92,7 @@ const AvatarButton = () => {
     opacity = 0;
   }
   return (
-    <Pressable
-      style={{}}
-      onPress={() => {
-        navigation.navigate("Login");
-      }}
-    >
+    <AQLink to={{ screen: "Login", params: {} }}>
       <ImageBackground
         source={source}
         style={{
@@ -113,7 +108,7 @@ const AvatarButton = () => {
       >
         <User opacity={opacity}></User>
       </ImageBackground>
-    </Pressable>
+    </AQLink>
   );
 };
 

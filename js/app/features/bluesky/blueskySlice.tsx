@@ -128,6 +128,75 @@ export const blueskySlice = createAppSlice({
         },
       },
     ),
+
+    golivePost: create.asyncThunk(
+      async (
+        {
+          nodeUrl,
+          signingKey,
+          text,
+        }: { nodeUrl: string; signingKey: string; text: string },
+        thunkAPI,
+      ) => {
+        const { bluesky } = thunkAPI.getState() as {
+          bluesky: BlueskySliceState;
+        };
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const profile = bluesky.profiles[did];
+        if (!profile) {
+          throw new Error("No profile");
+        }
+        const u = new URL(nodeUrl);
+        const params = new URLSearchParams({
+          key: signingKey,
+          did: did,
+          time: new Date().toISOString(),
+        });
+        const linkUrl = `${u.protocol}//${u.host}/@${profile.handle}?${params.toString()}`;
+        const prefix = `🔴 LIVE `;
+        const textUrl = `${u.protocol}//${u.host}/@${profile.handle}`;
+        const suffix = ` ${text}`;
+        const content = prefix + textUrl + suffix;
+        const facets = [
+          {
+            index: {
+              // idk why it's off by two but it's static so let's just rock it
+              byteStart: prefix.length + 2,
+              byteEnd: prefix.length + textUrl.length + 2,
+            },
+            features: [
+              {
+                $type: "app.bsky.richtext.facet#link",
+                uri: linkUrl,
+              },
+            ],
+          },
+        ];
+        const record = {
+          text: content,
+          facets,
+        };
+        return await bluesky.pdsAgent.post(record);
+      },
+      {
+        pending: (state) => {
+          console.log("golivePost pending");
+        },
+        fulfilled: (state, action) => {
+          console.log("golivePost fulfilled", action.payload);
+        },
+        rejected: (state, action) => {
+          console.error("getProfile rejected", action.error);
+          // state.status = "failed";
+        },
+      },
+    ),
   }),
 
   // You can define your selectors here. These selectors receive the slice
@@ -144,7 +213,7 @@ export const blueskySlice = createAppSlice({
 });
 
 // Action creators are generated for each case reducer function.
-export const { loadOAuthClient, login, getProfile, logout } =
+export const { loadOAuthClient, login, getProfile, logout, golivePost } =
   blueskySlice.actions;
 
 // Selectors returned by `slice.selectors` take the root state as their first argument.

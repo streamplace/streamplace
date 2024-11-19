@@ -96,6 +96,10 @@ if (require("electron-squirrel-startup")) {
       window.webContents.toggleDevTools();
     });
 
+    globalShortcut.register("CommandOrControl+Shift+R", () => {
+      window.webContents.reload();
+    });
+
     window.removeMenu();
 
     return window;

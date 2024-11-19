@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { Button, Input, Label, Paragraph, TextArea, View } from "tamagui";
+import { Button, Label, Paragraph, TextArea, View } from "tamagui";
 import Loading from "./loading/loading";
 import { useToastController } from "@tamagui/toast";
 import useAquareumNode from "hooks/useAquareumNode";
 import { useIsFocused } from "@react-navigation/native";
-import schema from "generated/eip712-schema.json";
 import useWallet from "hooks/useWallet";
+import { golivePost, selectUserProfile } from "features/bluesky/blueskySlice";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import AQLink from "./aqlink";
 
 const Left = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -17,7 +19,7 @@ const Left = ({ children }: { children: React.ReactNode }) => {
 
 const Right = ({ children }: { children: React.ReactNode }) => {
   return (
-    <View f={6} fb={0}>
+    <View f={6} fb={0} alignItems="stretch">
       {children}
     </View>
   );
@@ -34,20 +36,20 @@ export default function GoLive() {
   const isFocused = useIsFocused();
   const { address, signTypedData } = useWallet();
   const [refreshTime, setRefreshTime] = useState(0);
+  const profile = useAppSelector(selectUserProfile);
+  const dispatch = useAppDispatch();
   useEffect(() => {
     (async () => {
       const res = await fetch(`${url}/api/settings`);
       const data = (await res.json()) as Settings;
       setId(data.id);
-      setStreamer(data.streamer);
       setTitle(data.title);
     })();
   }, [isFocused, refreshTime]);
   const [id, setId] = useState("");
-  const [streamer, setStreamer] = useState("");
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
-  const disabled = loading || streamer === "" || title === "";
+  const disabled = !profile || loading || title === "";
   if (id === "") {
     return (
       <View f={1} ai="center" jc="center" w="100%" p="$4">
@@ -67,15 +69,15 @@ export default function GoLive() {
       </Label>
       <Label w="100%">
         <Left>
-          <Paragraph pb="$2">Streamer</Paragraph>
+          <Paragraph>Streamer</Paragraph>
         </Left>
         <Right>
-          <Input
-            value={streamer}
-            onChangeText={setStreamer}
-            w="100%"
-            size="$4"
-          />
+          {!profile && (
+            <AQLink to={{ screen: "Login" }} style={{ display: "flex" }}>
+              <Paragraph color="$accentColor">Log in with Bluesky</Paragraph>
+            </AQLink>
+          )}
+          {profile && <Paragraph>@{profile.handle}</Paragraph>}
         </Right>
       </Label>
       <Label w="100%">
@@ -98,49 +100,25 @@ export default function GoLive() {
           opacity={disabled ? 0.5 : 1}
           w="100%"
           size="$4"
-          onPress={() => {
+          onPress={async () => {
             setLoading(true);
-            console.log(address);
-            (async () => {
-              try {
-                const message = {
-                  signer: address,
-                  time: Date.now(),
-                  data: { streamer, title },
-                };
-                const toSign = {
-                  types: schema.types,
-                  domain: schema.domain as any,
-                  primaryType: "GoLive",
-                  message: message,
-                };
-                const signature = await signTypedData(toSign);
-                const res = await fetch(`${url}/api/settings/${id}`, {
-                  method: "PUT",
-                  body: JSON.stringify({
-                    primaryType: "GoLive",
-                    domain: schema.domain,
-                    message: message,
-                    signature: signature,
-                  }),
-                });
-                if (!res.ok) {
-                  const text = await res.text();
-                  throw new Error(`http ${res.status} ${text}`);
-                }
-                toast.show("Settings Saved", {
-                  message: "Great job.",
-                });
-                setRefreshTime(Date.now());
-              } catch (e) {
-                toast.show("Failed to save settings", {
-                  message: e.message,
-                });
-                throw e;
-              } finally {
-                setLoading(false);
-              }
-            })();
+            if (!url) {
+              throw new Error("No node URL");
+            }
+            try {
+              await dispatch(
+                golivePost({ nodeUrl: url, signingKey: id, text: title }),
+              );
+              toast.show("Posted!", {
+                message: `Great success!`,
+              });
+            } catch (e) {
+              toast.show("Error creating post", {
+                message: e.mesasge,
+              });
+            } finally {
+              setLoading(false);
+            }
           }}
         >
           {loading ? "Loading..." : "Save"}

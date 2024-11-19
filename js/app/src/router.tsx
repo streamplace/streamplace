@@ -14,18 +14,21 @@ import {
   Menu,
   Settings as SettingsIcon,
   Video,
+  User,
 } from "@tamagui/lucide-icons";
 import { Provider, Settings } from "components";
 import StreamList from "components/stream-list/stream-list";
 import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
-import { Pressable } from "react-native";
+import { ImageBackground, ImageSourcePropType, Pressable } from "react-native";
 import { useTheme, View } from "tamagui";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
 import SupportScreen from "./screens/support";
 import GoLiveScreen from "./screens/golive";
 import Login from "components/login/login";
+import { selectUserProfile } from "features/bluesky/blueskySlice";
+import { useAppSelector } from "store/hooks";
 
 function HomeScreen() {
   return (
@@ -78,6 +81,42 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
   );
 };
 
+const AvatarButton = () => {
+  const navigation = useNavigation();
+  const userProfile = useAppSelector(selectUserProfile);
+  let avatarButton = <User />;
+  let source: ImageSourcePropType | undefined = undefined;
+  let opacity = 1;
+  if (userProfile) {
+    source = { uri: userProfile.avatar };
+    opacity = 0;
+  }
+  return (
+    <Pressable
+      style={{}}
+      onPress={() => {
+        navigation.navigate("Login");
+      }}
+    >
+      <ImageBackground
+        source={source}
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          overflow: "hidden",
+          marginRight: 10,
+          backgroundColor: "black",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <User opacity={opacity}></User>
+      </ImageBackground>
+    </Pressable>
+  );
+};
+
 export default function Router() {
   const { initPushNotifications, isWeb, isElectron } = usePlatform();
   useEffect(() => {
@@ -113,6 +152,7 @@ export function AquareumDrawer() {
       initialRouteName="Home"
       screenOptions={{
         headerLeft: () => <NavigationButton />,
+        headerRight: () => <AvatarButton />,
         drawerActiveTintColor: theme.accentColor.val,
         headerStyle: {},
       }}
@@ -193,6 +233,7 @@ const MainTab = () => {
         headerLeft: ({ canGoBack }) => (
           <NavigationButton canGoBack={canGoBack} />
         ),
+        headerRight: () => <AvatarButton />,
         headerShown: !isWeb,
       }}
     >

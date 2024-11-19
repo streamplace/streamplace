@@ -10,7 +10,9 @@ import React from "react";
 import { PortalProvider, TamaguiProvider } from "tamagui";
 import config from "tamagui.config";
 import { CurrentToast } from "./CurrentToast";
-
+import { Provider as ReduxProvider } from "react-redux";
+import { store } from "store/store";
+import BlueskyProvider from "features/bluesky/blueskyProvider";
 export default function Provider({
   children,
   linking,
@@ -21,24 +23,28 @@ export default function Provider({
   return (
     <TamaguiProvider config={config} defaultTheme={"dark"}>
       <NavigationContainer theme={DarkTheme} linking={linking}>
-        <AquareumProvider>
-          <PortalProvider>
-            <ToastProvider
-              swipeDirection="vertical"
-              duration={6000}
-              native={
-                [
-                  /* uncomment the next line to do native toasts on mobile. NOTE: it'll require you making a dev build and won't work with Expo Go */
-                  // 'mobile'
-                ]
-              }
-            >
-              <FontProvider>{children}</FontProvider>
-              <CurrentToast />
-              <ToastViewport name="default" top="$8" left={0} right={0} />
-            </ToastProvider>
-          </PortalProvider>
-        </AquareumProvider>
+        <ReduxProvider store={store}>
+          <BlueskyProvider>
+            <AquareumProvider>
+              <PortalProvider>
+                <ToastProvider
+                  swipeDirection="vertical"
+                  duration={6000}
+                  native={
+                    [
+                      /* uncomment the next line to do native toasts on mobile. NOTE: it'll require you making a dev build and won't work with Expo Go */
+                      // 'mobile'
+                    ]
+                  }
+                >
+                  <FontProvider>{children}</FontProvider>
+                  <CurrentToast />
+                  <ToastViewport name="default" top="$8" left={0} right={0} />
+                </ToastProvider>
+              </PortalProvider>
+            </AquareumProvider>
+          </BlueskyProvider>
+        </ReduxProvider>
       </NavigationContainer>
     </TamaguiProvider>
   );

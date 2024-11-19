@@ -14,7 +14,7 @@ export default function getEnv() {
   }
   return {
     isDev: process.env["WEBPACK_SERVE"] === "true",
-    skipNode: process.env["AQD_SKIP_NODE"] === "true",
+    skipNode: process.env["AQD_SKIP_NODE"] !== "false",
     nodeFrontend: process.env["AQD_NODE_FRONTEND"] === "true",
     updateBaseUrl,
   };

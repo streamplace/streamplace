@@ -7,7 +7,7 @@ import {
   RainbowKitProvider,
 } from "@rainbow-me/rainbowkit";
 import React from "react";
-import { View } from "react-native";
+import { View as RNView, View } from "react-native";
 import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum, base, mainnet, optimism, polygon } from "viem/chains";
 import { Paragraph } from "tamagui";
@@ -60,9 +60,9 @@ export function ViemWalletProvider({
   const { isElectron } = usePlatform();
   if (!isElectron) {
     return (
-      <View>
+      <RNView>
         <Paragraph>ViemWalletProvider only supports electron</Paragraph>
-      </View>
+      </RNView>
     );
   }
   const [client, setClient] = useState(notActiveWallet);
@@ -94,9 +94,12 @@ export function ViemWalletProvider({
 
   if (client === notActiveWallet) {
     return (
-      <View>
+      // This View is intentionally a RN view rather than a Tamagui view because we're outside of Tamagui's context
+      <RNView
+        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+      >
         <Paragraph>Loading wallet...</Paragraph>
-      </View>
+      </RNView>
     );
   }
 

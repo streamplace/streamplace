@@ -110,6 +110,8 @@ export default function () {
         favicon: "./assets/images/favicon.png",
       },
       plugins: [
+        ["expo-sqlite", { useSQLCipher: true }],
+        "expo-file-system",
         [
           "expo-font",
           {

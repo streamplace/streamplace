@@ -2533,6 +2533,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@bacons/text-decoder@npm:^0.0.0":
+  version: 0.0.0
+  resolution: "@bacons/text-decoder@npm:0.0.0"
+  peerDependencies:
+    react-native: "*"
+  checksum: 10/a6db0f2d8777c7091bf0ab50bfaabba347c75cf3da76bf8cb738607773d784b6130f012fd34d4925f5a1e107a516e86469011e4786972d060c6f2376c48abdb6
+  languageName: node
+  linkType: hard
+
 "@coinbase/wallet-sdk@npm:4.1.0":
   version: 4.1.0
   resolution: "@coinbase/wallet-sdk@npm:4.1.0"
@@ -11472,6 +11481,7 @@ __metadata:
     "@babel/plugin-transform-private-methods": "npm:^7.25.9"
     "@babel/plugin-transform-private-property-in-object": "npm:^7.25.9"
     "@babel/plugin-transform-runtime": "npm:^7.25.9"
+    "@bacons/text-decoder": "npm:^0.0.0"
     "@expo/metro-config": "npm:~0.18.11"
     "@expo/metro-runtime": "npm:~3.2.3"
     "@rainbow-me/rainbowkit": "npm:2.2.0"
@@ -11496,10 +11506,12 @@ __metadata:
     expo: "npm:~51.0.38"
     expo-build-properties: "npm:^0.12.5"
     expo-dev-client: "npm:~4.0.28"
+    expo-file-system: "npm:^18.0.3"
     expo-font: "npm:~12.0.10"
     expo-linking: "npm:~6.3.1"
     expo-notifications: "npm:~0.28.19"
     expo-splash-screen: "npm:~0.27.6"
+    expo-sqlite: "npm:^15.0.3"
     expo-status-bar: "npm:^1.12.1"
     expo-system-ui: "npm:~3.0.7"
     expo-updates: "npm:~0.25.27"
@@ -15471,6 +15483,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expo-file-system@npm:^18.0.3":
+  version: 18.0.3
+  resolution: "expo-file-system@npm:18.0.3"
+  dependencies:
+    web-streams-polyfill: "npm:^3.3.2"
+  peerDependencies:
+    expo: "*"
+    react-native: "*"
+  checksum: 10/f97f199a2d0e4c4354dbf4f33b3d7dc6c0c26bf0c83640c4ad83f6fd29fc2b639ec251d3fa79bcd2aef0f8fdcda511d9cd41bfd802a417f8715099f3a325f58b
+  languageName: node
+  linkType: hard
+
 "expo-file-system@npm:~17.0.1":
   version: 17.0.1
   resolution: "expo-file-system@npm:17.0.1"
@@ -15581,6 +15605,17 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 10/b36a876f5458b6d2f4e76df152130b9eadbac898767c7395e245557e6b6a764dcd8a7011f73a2f1dead9b1261a1454d6c3d08f30a7b8f731187f4a4ef4eec681
+  languageName: node
+  linkType: hard
+
+"expo-sqlite@npm:^15.0.3":
+  version: 15.0.3
+  resolution: "expo-sqlite@npm:15.0.3"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+  checksum: 10/e01e6c867e7705dc36b1a7147ad0a5b829d89479c734f306d59633d5b05804c636329efea8b63cb0978550e2ac71676037511c8464fb040f9c33925e1bb8f085
   languageName: node
   linkType: hard
 
@@ -27180,6 +27215,13 @@ __metadata:
   dependencies:
     defaults: "npm:^1.0.3"
   checksum: 10/182ebac8ca0b96845fae6ef44afd4619df6987fe5cf552fdee8396d3daa1fb9b8ec5c6c69855acb7b3c1231571393bd1f0a4cdc4028d421575348f64bb0a8817
+  languageName: node
+  linkType: hard
+
+"web-streams-polyfill@npm:^3.3.2":
+  version: 3.3.3
+  resolution: "web-streams-polyfill@npm:3.3.3"
+  checksum: 10/8e7e13501b3834094a50abe7c0b6456155a55d7571312b89570012ef47ec2a46d766934768c50aabad10a9c30dd764a407623e8bfcc74fcb58495c29130edea9
   languageName: node
   linkType: hard
 

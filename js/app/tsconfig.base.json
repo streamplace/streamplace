@@ -10,7 +10,7 @@
     "preserveSymlinks": true,
     "incremental": true,
     "jsx": "react-jsx",
-    "module": "preserve",
+    "module": "esnext",
     "moduleResolution": "node",
     "noEmitOnError": false,
     "noImplicitAny": false,

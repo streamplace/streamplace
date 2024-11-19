@@ -1,13 +1,6 @@
 import React, { useEffect } from "react";
 import { useVideoPlayer, VideoPlayerEvents, VideoView } from "expo-video";
-import useAquareumNode from "hooks/useAquareumNode";
-import {
-  PlayerProps,
-  PlayerStatus,
-  PROTOCOL_HLS,
-  PROTOCOL_PROGRESSIVE_MP4,
-  PROTOCOL_PROGRESSIVE_WEBM,
-} from "./props";
+import { PlayerProps, PlayerStatus } from "./props";
 import { srcToUrl } from "./shared";
 
 // export function Player() {
@@ -51,7 +44,7 @@ export default function NativeVideo(
     });
 
     subs.push(
-      player.addListener("playingChange", (newIsPlaying, oldIsPlaying) => {
+      player.addListener("playingChange", (newIsPlaying) => {
         if (newIsPlaying) {
           props.setStatus(PlayerStatus.PLAYING);
         } else {

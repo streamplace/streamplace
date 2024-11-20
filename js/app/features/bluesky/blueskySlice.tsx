@@ -180,6 +180,7 @@ export const blueskySlice = createAppSlice({
         ];
         const record = {
           text: content,
+          aquareumKey: signingKey,
           facets,
         };
         return await bluesky.pdsAgent.post(record);

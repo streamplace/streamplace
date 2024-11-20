@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/NYTimes/gziphandler"
+	"github.com/ipfs/go-cid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
@@ -29,6 +31,13 @@ import (
 	"aquareum.tv/aquareum/pkg/model"
 	"aquareum.tv/aquareum/pkg/notifications"
 	v0 "aquareum.tv/aquareum/pkg/schema/v0"
+
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/xrpc"
 )
 
 type AquareumAPI struct {
@@ -115,6 +124,7 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
 	apiRouter.GET("/api/settings", a.HandleSettingsGET(ctx))
 	apiRouter.PUT("/api/settings/:id", a.HandleSettingsPUT(ctx))
+	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	router.Handler("GET", "/api/*resource", apiRouter)
 	router.Handler("POST", "/api/*resource", apiRouter)
@@ -374,6 +384,102 @@ func (a *AquareumAPI) HandleSettingsGET(ctx context.Context) httprouter.Handle {
 		}
 		w.Write(bs)
 	}
+}
+
+func (a *AquareumAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		log.Log(ctx, "got bluesky notification", "params", params)
+		key, err := resolveAquareumKeyFromBluesky(ctx, params.ByName("handle"))
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not resolve aquareum key", err)
+			return
+		}
+		w.Write([]byte(key))
+	}
+}
+
+func resolveIdent(ctx context.Context, arg string) (*identity.Identity, error) {
+	id, err := syntax.ParseAtIdentifier(arg)
+	if err != nil {
+		return nil, err
+	}
+
+	dir := identity.DefaultDirectory()
+	return dir.Lookup(ctx, *id)
+}
+
+func resolveAquareumKeyFromBluesky(ctx context.Context, handle string) (string, error) {
+	ident, err := resolveIdent(ctx, handle)
+	if err != nil {
+		return "", err
+	}
+	log.Log(ctx, "resolved bluesky identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())
+	xrpcc := xrpc.Client{
+		Host: ident.PDSEndpoint(),
+	}
+	if xrpcc.Host == "" {
+		return "", fmt.Errorf("no PDS endpoint for identity %s", handle)
+	}
+	repoBytes, err := comatproto.SyncGetRepo(ctx, &xrpcc, ident.DID.String(), "")
+	if err != nil {
+		return "", err
+	}
+	r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repoBytes))
+	if err != nil {
+		return "", err
+	}
+
+	// extract DID from repo commit
+	sc := r.SignedCommit()
+	_, err = syntax.ParseDID(sc.Did)
+	if err != nil {
+		return "", err
+	}
+
+	log.Log(ctx, "got SC", "rev", sc.Rev)
+
+	var key string
+	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
+		_, recBytes, err := r.GetRecordBytes(ctx, k)
+		if err != nil {
+			return err
+		}
+
+		// var header events.EventHeader
+		// if err := header.UnmarshalCBOR(bytes.NewReader(*recBytes)); err != nil {
+		// 	return fmt.Errorf("reading header: %w", err)
+		// }
+
+		rec, err := data.UnmarshalCBOR(*recBytes)
+		if err != nil {
+			return err
+		}
+		typ, ok := rec["$type"]
+		if !ok {
+			return nil
+		}
+		if typ != "app.bsky.feed.post" {
+			return nil
+		}
+		aquareumKeyAny, ok := rec["aquareumKey"]
+		if !ok {
+			return nil
+		}
+		aquareumKey, ok := aquareumKeyAny.(string)
+		if !ok {
+			return nil
+		}
+		key = aquareumKey
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	if key == "" {
+		return "", fmt.Errorf("no aquareum key found")
+	}
+
+	return key, nil
 }
 
 func (a *AquareumAPI) ServeHTTP(ctx context.Context) error {

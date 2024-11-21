@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type DID struct {
+type Repo struct {
 	DID         string `gorm:"primaryKey;column:did"`
 	PDS         string
 	Version     string
@@ -14,22 +14,22 @@ type DID struct {
 	RootCID     string
 }
 
-func (DID) TableName() string {
-	return "dids"
+func (Repo) TableName() string {
+	return "repos"
 }
 
-func (m *DBModel) GetDID(did string) (*DID, error) {
-	var didModel DID
-	res := m.DB.Where("did = ?", did).First(&didModel)
+func (m *DBModel) GetRepo(did string) (*Repo, error) {
+	var repoModel Repo
+	res := m.DB.Where("did = ?", did).First(&repoModel)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if res.Error != nil {
 		return nil, res.Error
 	}
-	return &didModel, nil
+	return &repoModel, nil
 }
 
-func (m *DBModel) UpdateDID(did *DID) error {
-	return m.DB.Save(did).Error
+func (m *DBModel) UpdateRepo(repo *Repo) error {
+	return m.DB.Save(repo).Error
 }

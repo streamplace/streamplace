@@ -417,13 +417,13 @@ func (a *AquareumAPI) resolveAquareumKeyFromBluesky(ctx context.Context, handle 
 	}
 
 	rev := ""
-	oldDID, err := a.Model.GetDID(ident.DID.String())
+	oldRepo, err := a.Model.GetRepo(ident.DID.String())
 	if err != nil {
 		return "", fmt.Errorf("failed to get DID record for %s: %w", ident.DID.String(), err)
 	}
-	if oldDID != nil {
-		log.Log(ctx, "found existing DID record", "did", oldDID.DID, "version", oldDID.Version)
-		rev = oldDID.Version
+	if oldRepo != nil {
+		log.Log(ctx, "found existing DID record", "did", oldRepo.DID, "version", oldRepo.Version)
+		rev = oldRepo.Version
 	}
 
 	log.Log(ctx, "resolved bluesky identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())
@@ -445,14 +445,14 @@ func (a *AquareumAPI) resolveAquareumKeyFromBluesky(ctx context.Context, handle 
 		return "", fmt.Errorf("failed to ingest repo for %s: %w", ident.DID.String(), err)
 	}
 	log.Log(ctx, "ingested repo", "root", root)
-	if oldDID != nil {
-		oldRoot, err := cid.Decode(oldDID.RootCID)
+	if oldRepo != nil {
+		oldRoot, err := cid.Decode(oldRepo.RootCID)
 		if err != nil {
 			return "", fmt.Errorf("failed to decode old root CID for %s: %w", ident.DID.String(), err)
 		}
 		if oldRoot.Equals(root) {
 			log.Log(ctx, "no changes to repo", "root", root)
-			return oldDID.AquareumKey, nil
+			return oldRepo.AquareumKey, nil
 		}
 	}
 
@@ -473,8 +473,8 @@ func (a *AquareumAPI) resolveAquareumKeyFromBluesky(ctx context.Context, handle 
 
 	processed := 0
 	var key string
-	if oldDID != nil {
-		key = oldDID.AquareumKey
+	if oldRepo != nil {
+		key = oldRepo.AquareumKey
 	}
 	err = r.ForEach(ctx, "app.bsky.feed.post", func(k string, v cid.Cid) error {
 		log.Log(ctx, "processing record", "key", k, "cid", v)
@@ -510,14 +510,14 @@ func (a *AquareumAPI) resolveAquareumKeyFromBluesky(ctx context.Context, handle 
 		return "", fmt.Errorf("error processing repo records for %s: %w", ident.DID.String(), err)
 	}
 	log.Log(ctx, "processed new posts", "postCount", processed)
-	newDid := model.DID{
+	newRepo := model.Repo{
 		DID:         ident.DID.String(),
 		PDS:         ident.PDSEndpoint(),
 		Version:     sc.Rev,
 		AquareumKey: key,
 		RootCID:     root.String(),
 	}
-	err = a.Model.UpdateDID(&newDid)
+	err = a.Model.UpdateRepo(&newRepo)
 	if err != nil {
 		return "", fmt.Errorf("failed to update DID record for %s: %w", sc.Did, err)
 	}

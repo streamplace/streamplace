@@ -1,9 +1,11 @@
 package model
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type Thumbnail struct {
@@ -37,11 +39,12 @@ func (m *DBModel) LatestThumbnailForUser(user string) (*Thumbnail, error) {
 		Order("s.start_time DESC").
 		Limit(1).
 		Scan(&thumbnail)
+
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if res.Error != nil {
 		return nil, res.Error
-	}
-	if res.RowsAffected == 0 {
-		return nil, nil
 	}
 
 	var seg Segment

@@ -17,6 +17,8 @@ import (
 
 	"github.com/NYTimes/gziphandler"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
@@ -389,7 +391,7 @@ func (a *AquareumAPI) HandleSettingsGET(ctx context.Context) httprouter.Handle {
 func (a *AquareumAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		log.Log(ctx, "got bluesky notification", "params", params)
-		key, err := resolveAquareumKeyFromBluesky(ctx, params.ByName("handle"))
+		key, err := a.resolveAquareumKeyFromBluesky(ctx, params.ByName("handle"))
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not resolve aquareum key", err)
 			return
@@ -408,51 +410,82 @@ func resolveIdent(ctx context.Context, arg string) (*identity.Identity, error) {
 	return dir.Lookup(ctx, *id)
 }
 
-func resolveAquareumKeyFromBluesky(ctx context.Context, handle string) (string, error) {
+func (a *AquareumAPI) resolveAquareumKeyFromBluesky(ctx context.Context, handle string) (string, error) {
 	ident, err := resolveIdent(ctx, handle)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to resolve Bluesky handle %s: %w", handle, err)
 	}
+
+	rev := ""
+	oldDID, err := a.Model.GetDID(ident.DID.String())
+	if err != nil {
+		return "", fmt.Errorf("failed to get DID record for %s: %w", ident.DID.String(), err)
+	}
+	if oldDID != nil {
+		log.Log(ctx, "found existing DID record", "did", oldDID.DID, "version", oldDID.Version)
+		rev = oldDID.Version
+	}
+
 	log.Log(ctx, "resolved bluesky identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())
 	xrpcc := xrpc.Client{
 		Host: ident.PDSEndpoint(),
 	}
 	if xrpcc.Host == "" {
-		return "", fmt.Errorf("no PDS endpoint for identity %s", handle)
+		return "", fmt.Errorf("no PDS endpoint found for Bluesky identity %s", handle)
 	}
-	repoBytes, err := comatproto.SyncGetRepo(ctx, &xrpcc, ident.DID.String(), "")
+	repoBytes, err := comatproto.SyncGetRepo(ctx, &xrpcc, ident.DID.String(), rev)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to fetch repo for %s from PDS %s: %w", ident.DID.String(), xrpcc.Host, err)
 	}
+	log.Log(ctx, "got diff", "bytes", len(repoBytes))
+
+	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
+	root, err := repo.IngestRepo(ctx, bs, bytes.NewReader(repoBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to ingest repo for %s: %w", ident.DID.String(), err)
+	}
+	log.Log(ctx, "ingested repo", "root", root)
+	if oldDID != nil {
+		oldRoot, err := cid.Decode(oldDID.RootCID)
+		if err != nil {
+			return "", fmt.Errorf("failed to decode old root CID for %s: %w", ident.DID.String(), err)
+		}
+		if oldRoot.Equals(root) {
+			log.Log(ctx, "no changes to repo", "root", root)
+			return oldDID.AquareumKey, nil
+		}
+	}
+
 	r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repoBytes))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse repo CAR data for %s: %w", ident.DID.String(), err)
 	}
 
 	// extract DID from repo commit
 	sc := r.SignedCommit()
-	_, err = syntax.ParseDID(sc.Did)
+	signerDID, err := syntax.ParseDID(sc.Did)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("invalid DID in repo commit for %s: %w", ident.DID.String(), err)
+	}
+	if signerDID != ident.DID {
+		return "", fmt.Errorf("signer DID %s does not match identity %s", signerDID, ident.DID.String())
 	}
 
-	log.Log(ctx, "got SC", "rev", sc.Rev)
-
+	processed := 0
 	var key string
-	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
+	if oldDID != nil {
+		key = oldDID.AquareumKey
+	}
+	err = r.ForEach(ctx, "app.bsky.feed.post", func(k string, v cid.Cid) error {
+		log.Log(ctx, "processing record", "key", k, "cid", v)
 		_, recBytes, err := r.GetRecordBytes(ctx, k)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get record bytes for key %s: %w", k, err)
 		}
-
-		// var header events.EventHeader
-		// if err := header.UnmarshalCBOR(bytes.NewReader(*recBytes)); err != nil {
-		// 	return fmt.Errorf("reading header: %w", err)
-		// }
 
 		rec, err := data.UnmarshalCBOR(*recBytes)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to unmarshal CBOR for record %s: %w", k, err)
 		}
 		typ, ok := rec["$type"]
 		if !ok {
@@ -461,6 +494,7 @@ func resolveAquareumKeyFromBluesky(ctx context.Context, handle string) (string, 
 		if typ != "app.bsky.feed.post" {
 			return nil
 		}
+		processed += 1
 		aquareumKeyAny, ok := rec["aquareumKey"]
 		if !ok {
 			return nil
@@ -473,10 +507,19 @@ func resolveAquareumKeyFromBluesky(ctx context.Context, handle string) (string, 
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error processing repo records for %s: %w", ident.DID.String(), err)
 	}
-	if key == "" {
-		return "", fmt.Errorf("no aquareum key found")
+	log.Log(ctx, "processed new posts", "postCount", processed)
+	newDid := model.DID{
+		DID:         ident.DID.String(),
+		PDS:         ident.PDSEndpoint(),
+		Version:     sc.Rev,
+		AquareumKey: key,
+		RootCID:     root.String(),
+	}
+	err = a.Model.UpdateDID(&newDid)
+	if err != nil {
+		return "", fmt.Errorf("failed to update DID record for %s: %w", sc.Did, err)
 	}
 
 	return key, nil

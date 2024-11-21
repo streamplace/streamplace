@@ -32,6 +32,9 @@ func (m *DBModel) MostRecentSegments() ([]Segment, error) {
 	if err != nil {
 		return nil, err
 	}
+	if segments == nil {
+		return []Segment{}, nil
+	}
 
 	return segments, nil
 }

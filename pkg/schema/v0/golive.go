@@ -6,12 +6,12 @@ var Name = "Aquareum"
 var Version = "0.0.1"
 
 type V0Schema struct {
-	GoLive    GoLive
+	Identity  Identity
 	StreamKey StreamKey
 }
-type GoLive struct {
-	Streamer string `json:"streamer"`
-	Title    string `json:"title"`
+type Identity struct {
+	Handle string `json:"handle"`
+	DID    string `json:"did"`
 }
 
 type StreamKey struct {

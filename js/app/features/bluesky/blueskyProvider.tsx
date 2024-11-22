@@ -6,6 +6,8 @@ import {
   selectOAuthSession,
   selectUserProfile,
 } from "./blueskySlice";
+import { putIdentity } from "features/aquareum/aquareumSlice";
+import useWallet from "hooks/useWallet";
 
 export default function BlueskyProvider({
   children,
@@ -18,14 +20,23 @@ export default function BlueskyProvider({
   }, []);
   const oauthSession = useAppSelector(selectOAuthSession);
   const userProfile = useAppSelector(selectUserProfile);
+  const wallet = useWallet();
   useEffect(() => {
     if (oauthSession && !userProfile) {
       console.log("oauthSession", oauthSession);
       dispatch(getProfile(oauthSession.did));
     }
-    if (userProfile) {
-      console.log(userProfile.handle);
+    if (oauthSession && userProfile && wallet.address) {
+      dispatch(
+        putIdentity({
+          handle: userProfile.handle,
+          did: oauthSession?.did,
+          address: wallet.address,
+          signTypedData: wallet.signTypedData,
+        }),
+      );
     }
-  }, [oauthSession, userProfile]);
+    console.log(wallet);
+  }, [oauthSession, userProfile, wallet.address]);
   return <>{children}</>;
 }

@@ -1,13 +1,16 @@
-import { Button, Form, H3, Input, View, XStack, YStack } from "tamagui";
+import { Button, Form, H3, Input, View, XStack } from "tamagui";
 import { Updates } from "./updates";
 import useAquareumNode from "hooks/useAquareumNode";
 import { useState } from "react";
+import { useAppDispatch } from "store/hooks";
+import { setURL } from "features/aquareum/aquareumSlice";
 
 export function Settings() {
-  const { url, setUrl } = useAquareumNode();
+  const dispatch = useAppDispatch();
+  const { url } = useAquareumNode();
   const [newUrl, setNewUrl] = useState("");
   const onSubmit = () => {
-    setUrl(newUrl);
+    dispatch(setURL(newUrl));
     setNewUrl("");
   };
   return (

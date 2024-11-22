@@ -246,13 +246,13 @@ func (a *AquareumAPI) InternalHandler(ctx context.Context) (http.Handler, error)
 
 		id := a.Signer.Hex()
 
-		settings, err := a.Model.GetSettings(id)
+		ident, err := a.Model.GetIdentity(id)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to get settings", err)
 			return
 		}
 
-		bs, err := json.Marshal(settings)
+		bs, err := json.Marshal(ident)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
 			return
@@ -271,14 +271,14 @@ func (a *AquareumAPI) InternalHandler(ctx context.Context) (http.Handler, error)
 			return
 		}
 
-		var settings model.Settings
-		if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
+		var ident model.Identity
+		if err := json.NewDecoder(r.Body).Decode(&ident); err != nil {
 			errors.WriteHTTPBadRequest(w, "invalid request body", err)
 			return
 		}
-		settings.ID = id
+		ident.ID = id
 
-		if err := a.Model.UpdateSettings(&settings); err != nil {
+		if err := a.Model.UpdateIdentity(&ident); err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to update settings", err)
 			return
 		}

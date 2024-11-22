@@ -3,9 +3,10 @@ package atproto
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	"sync"
 
+	"aquareum.tv/aquareum/pkg/aqhttp"
 	"aquareum.tv/aquareum/pkg/log"
 	"aquareum.tv/aquareum/pkg/model"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -20,8 +21,36 @@ import (
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
+var AQUAREUM_KEY = "tv.aquareum.key"
+
+// handleLocks provides per-handle synchronization
+var handleLocks = struct {
+	sync.Mutex
+	locks map[string]*sync.Mutex
+}{
+	locks: make(map[string]*sync.Mutex),
+}
+
+// getHandleLock returns a mutex for the given handle
+func getHandleLock(handle string) *sync.Mutex {
+	handleLocks.Lock()
+	defer handleLocks.Unlock()
+
+	if lock, exists := handleLocks.locks[handle]; exists {
+		return lock
+	}
+
+	lock := &sync.Mutex{}
+	handleLocks.locks[handle] = lock
+	return lock
+}
 
 func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (string, error) {
+	// Get handle-specific lock and ensure synchronized access
+	handleLock := getHandleLock(handle)
+	handleLock.Lock()
+	defer handleLock.Unlock()
+
 	ident, err := ResolveIdent(ctx, handle)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve Bluesky handle %s: %w", handle, err)
@@ -39,7 +68,8 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 
 	log.Log(ctx, "resolved bluesky identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())
 	xrpcc := xrpc.Client{
-		Host: ident.PDSEndpoint(),
+		Host:   ident.PDSEndpoint(),
+		Client: &aqhttp.Client,
 	}
 	if xrpcc.Host == "" {
 		return "", fmt.Errorf("no PDS endpoint found for Bluesky identity %s", handle)
@@ -112,10 +142,6 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 			return "", fmt.Errorf("failed to get block for key %s: %w", k, err)
 		}
 		log.Log(ctx, "got block", "key", k, "size", len(rec))
-		byts, err := json.Marshal(rec)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal block for key %s: %w", k, err)
-		}
 		typ, ok := rec["$type"]
 		if !ok {
 			continue
@@ -123,9 +149,8 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 		if typ != "app.bsky.feed.post" {
 			continue
 		}
-		fmt.Println(string(byts))
 		processed += 1
-		aquareumKeyAny, ok := rec["aquareumKey"]
+		aquareumKeyAny, ok := rec[AQUAREUM_KEY]
 		if !ok {
 			continue
 		}
@@ -135,39 +160,6 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 		}
 		key = aquareumKey
 	}
-	// err = r.ForEach(ctx, "app.bsky.feed.post", func(k string, v cid.Cid) error {
-	// 	log.Log(ctx, "processing record", "key", k, "cid", v)
-	// 	_, recBytes, err := r.GetRecordBytes(ctx, k)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to get record bytes for key %s: %w", k, err)
-	// 	}
-
-	// 	rec, err := data.UnmarshalCBOR(*recBytes)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to unmarshal CBOR for record %s: %w", k, err)
-	// 	}
-	// 	typ, ok := rec["$type"]
-	// 	if !ok {
-	// 		return nil
-	// 	}
-	// 	if typ != "app.bsky.feed.post" {
-	// 		return nil
-	// 	}
-	// 	processed += 1
-	// 	aquareumKeyAny, ok := rec["aquareumKey"]
-	// 	if !ok {
-	// 		return nil
-	// 	}
-	// 	aquareumKey, ok := aquareumKeyAny.(string)
-	// 	if !ok {
-	// 		return nil
-	// 	}
-	// 	key = aquareumKey
-	// 	return nil
-	// })
-	// if err != nil {
-	// 	return "", fmt.Errorf("error processing repo records for %s: %w", ident.DID.String(), err)
-	// }
 	log.Log(ctx, "processed new posts", "postCount", processed)
 	newRepo := model.Repo{
 		DID:         ident.DID.String(),

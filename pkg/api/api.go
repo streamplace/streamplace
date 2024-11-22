@@ -114,8 +114,8 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	apiRouter.POST("/api/player-event", a.HandlePlayerEvent(ctx))
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
-	apiRouter.GET("/api/settings", a.HandleSettingsGET(ctx))
-	apiRouter.PUT("/api/settings/:id", a.HandleSettingsPUT(ctx))
+	apiRouter.GET("/api/identity", a.HandleIdentityGET(ctx))
+	apiRouter.PUT("/api/identity/:id", a.HandleIdentityPUT(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	router.Handler("GET", "/api/*resource", apiRouter)
@@ -232,7 +232,7 @@ func (a *AquareumAPI) HandleAPI404(ctx context.Context) http.HandlerFunc {
 	}
 }
 
-func (a *AquareumAPI) HandleSettingsPUT(ctx context.Context) httprouter.Handle {
+func (a *AquareumAPI) HandleIdentityPUT(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		id := params.ByName("id")
 		if id == "" {
@@ -249,7 +249,7 @@ func (a *AquareumAPI) HandleSettingsPUT(ctx context.Context) httprouter.Handle {
 			apierrors.WriteHTTPBadRequest(w, "could not verify signature on payload", err)
 			return
 		}
-		golive, ok := signed.Data().(*v0.GoLive)
+		ident, ok := signed.Data().(*v0.Identity)
 		if !ok {
 			log.Log(ctx, "got signed payload but it wasn't a golive")
 			apierrors.WriteHTTPBadRequest(w, "not a golive", nil)
@@ -261,10 +261,10 @@ func (a *AquareumAPI) HandleSettingsPUT(ctx context.Context) httprouter.Handle {
 			return
 		}
 		log.Log(ctx, "got signed & verified payload", "payload", signed)
-		if err := a.Model.UpdateSettings(&model.Settings{
-			ID:       id,
-			Streamer: golive.Streamer,
-			Title:    golive.Title,
+		if err := a.Model.UpdateIdentity(&model.Identity{
+			ID:     id,
+			Handle: ident.Handle,
+			DID:    ident.DID,
 		}); err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "unable to update settings", err)
 			return
@@ -359,17 +359,17 @@ func (a *AquareumAPI) HandleRecentSegments(ctx context.Context) httprouter.Handl
 	}
 }
 
-func (a *AquareumAPI) HandleSettingsGET(ctx context.Context) httprouter.Handle {
+func (a *AquareumAPI) HandleIdentityGET(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		id := a.MediaSigner.Pub.String()
 
-		settings, err := a.Model.GetSettings(id)
+		ident, err := a.Model.GetIdentity(id)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "unable to get settings", err)
 			return
 		}
 
-		bs, err := json.Marshal(settings)
+		bs, err := json.Marshal(ident)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
 			return

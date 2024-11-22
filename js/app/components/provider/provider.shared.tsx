@@ -5,7 +5,7 @@ import {
 } from "@react-navigation/native";
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
 import { useFonts } from "expo-font";
-import { AquareumProvider } from "hooks/useAquareumNode";
+import AquareumProvider from "features/aquareum/aquareumProvider";
 import React from "react";
 import { PortalProvider, TamaguiProvider } from "tamagui";
 import config from "tamagui.config";

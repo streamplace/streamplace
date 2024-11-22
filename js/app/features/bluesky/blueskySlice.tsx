@@ -4,7 +4,7 @@ import oauthClient from "./oauthClient";
 import { Agent } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 
-export interface BlueskySliceState {
+export interface BlueskyState {
   status: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
   oauthSession: null | OAuthSession;
@@ -13,7 +13,7 @@ export interface BlueskySliceState {
   // client: null | BrowserOAuthClient;
 }
 
-const initialState: BlueskySliceState = {
+const initialState: BlueskyState = {
   status: "start",
   oauthState: null,
   oauthSession: null,
@@ -64,6 +64,10 @@ export const blueskySlice = createAppSlice({
         },
         rejected: (state) => {
           console.error("login rejected");
+          return {
+            ...state,
+            profiles: {},
+          };
           // state.status = "failed";
         },
       },
@@ -72,7 +76,7 @@ export const blueskySlice = createAppSlice({
     logout: create.asyncThunk(
       async (_, thunkAPI) => {
         const { bluesky } = thunkAPI.getState() as {
-          bluesky: BlueskySliceState;
+          bluesky: BlueskyState;
         };
         if (!bluesky.oauthSession) {
           throw new Error("No oauth session");
@@ -100,7 +104,7 @@ export const blueskySlice = createAppSlice({
     getProfile: create.asyncThunk(
       async (actor: string, thunkAPI) => {
         const { bluesky } = thunkAPI.getState() as {
-          bluesky: BlueskySliceState;
+          bluesky: BlueskyState;
         };
         if (!bluesky.pdsAgent) {
           throw new Error("No agent");
@@ -139,7 +143,7 @@ export const blueskySlice = createAppSlice({
         thunkAPI,
       ) => {
         const { bluesky } = thunkAPI.getState() as {
-          bluesky: BlueskySliceState;
+          bluesky: BlueskyState;
         };
         if (!bluesky.pdsAgent) {
           throw new Error("No agent");
@@ -158,9 +162,9 @@ export const blueskySlice = createAppSlice({
           did: did,
           time: new Date().toISOString(),
         });
-        const linkUrl = `${u.protocol}//${u.host}/@${profile.handle}?${params.toString()}`;
+        const linkUrl = `${u.protocol}//${u.host}/${profile.handle}?${params.toString()}`;
         const prefix = `🔴 LIVE `;
-        const textUrl = `${u.protocol}//${u.host}/@${profile.handle}`;
+        const textUrl = `${u.protocol}//${u.host}/${profile.handle}`;
         const suffix = ` ${text}`;
         const content = prefix + textUrl + suffix;
         const facets = [
@@ -180,7 +184,7 @@ export const blueskySlice = createAppSlice({
         ];
         const record = {
           text: content,
-          aquareumKey: signingKey,
+          "tv.aquareum.key": signingKey,
           facets,
         };
         return await bluesky.pdsAgent.post(record);

@@ -392,10 +392,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		if err != nil {
 			return err
 		}
-		err = mod.UpdateSettings(&model.Settings{
-			ID:       testMediaSigner.Pub.String(),
-			Streamer: "stream-self-tester",
-			Title:    "test-stream",
+		err = mod.UpdateIdentity(&model.Identity{
+			ID:     testMediaSigner.Pub.String(),
+			Handle: "stream-self-tester",
+			DID:    "",
 		})
 		if err != nil {
 			return err

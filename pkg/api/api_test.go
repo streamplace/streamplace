@@ -113,11 +113,11 @@ func TestGoLiveHandler(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				cli := &config.CLI{AdminAccount: tt.adminAccount, FirebaseServiceAccount: "foo"}
 				a := AquareumAPI{CLI: cli, Model: mod, Signer: signer, FirebaseNotifier: &MockFirebase{}}
-				handler := a.HandleSettingsPUT(context.Background())
+				handler := a.HandleIdentityPUT(context.Background())
 
-				goLive := v0.GoLive{
-					Streamer: "@aquareum.tv",
-					Title:    "Let's gooooooo!",
+				goLive := v0.Identity{
+					DID:    "did:plc:dkh4rwafdcda4ko7lewe43ml",
+					Handle: "@aquareum.bsky.social",
 				}
 				signed, err := signer.SignMessage(goLive)
 				require.NoError(t, err)

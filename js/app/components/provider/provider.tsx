@@ -14,8 +14,8 @@ export default function Provider({
   linking: LinkingOptions<ReactNavigation.RootParamList>;
 }) {
   return (
-    <SharedProvider linking={linking}>
-      <WalletProvider>{children}</WalletProvider>
-    </SharedProvider>
+    <WalletProvider>
+      <SharedProvider linking={linking}>{children}</SharedProvider>
+    </WalletProvider>
   );
 }

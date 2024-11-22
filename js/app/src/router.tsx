@@ -49,7 +49,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
         screens: {
           StreamList: "",
           Stream: {
-            path: "stream/:user",
+            path: ":user",
           },
         },
       },

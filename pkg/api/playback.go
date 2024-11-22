@@ -12,18 +12,28 @@ import (
 	"time"
 
 	"aquareum.tv/aquareum/pkg/aqtime"
+	"aquareum.tv/aquareum/pkg/atproto"
 	"aquareum.tv/aquareum/pkg/errors"
 	"github.com/julienschmidt/httprouter"
 	"golang.org/x/sync/errgroup"
 )
 
-func (a *AquareumAPI) NormalizeUser(user string) string {
+func (a *AquareumAPI) NormalizeUser(ctx context.Context, user string) (string, error) {
 	alias, ok := a.Aliases[user]
 	if ok {
 		user = alias
 	}
 	user = strings.ToLower(user)
-	return user
+	// aquareum signing key
+	if strings.HasPrefix(user, "0x") {
+		return user, nil
+	}
+	// assume bluesky handle
+	key, err := atproto.SyncBlueskyRepoCached(ctx, user, a.Model)
+	if err != nil {
+		return "", err
+	}
+	return key, nil
 }
 
 func (a *AquareumAPI) HandleMP4Playback(ctx context.Context) httprouter.Handle {
@@ -33,7 +43,11 @@ func (a *AquareumAPI) HandleMP4Playback(ctx context.Context) httprouter.Handle {
 			errors.WriteHTTPBadRequest(w, "user required", nil)
 			return
 		}
-		user = a.NormalizeUser(user)
+		user, err := a.NormalizeUser(ctx, user)
+		if err != nil {
+			errors.WriteHTTPBadRequest(w, "invalid user", err)
+			return
+		}
 		var delayMS int64 = 3000
 		userDelay := r.URL.Query().Get("delayms")
 		if userDelay != "" {
@@ -72,7 +86,11 @@ func (a *AquareumAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handle {
 			errors.WriteHTTPBadRequest(w, "user required", nil)
 			return
 		}
-		user = a.NormalizeUser(user)
+		user, err := a.NormalizeUser(ctx, user)
+		if err != nil {
+			errors.WriteHTTPBadRequest(w, "invalid user", err)
+			return
+		}
 		var delayMS int64 = 1000
 		userDelay := r.URL.Query().Get("delayms")
 		if userDelay != "" {
@@ -147,7 +165,11 @@ func (a *AquareumAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
 			errors.WriteHTTPBadRequest(w, "user required", nil)
 			return
 		}
-		user = a.NormalizeUser(user)
+		user, err := a.NormalizeUser(ctx, user)
+		if err != nil {
+			errors.WriteHTTPBadRequest(w, "invalid user", err)
+			return
+		}
 		file := p.ByName("file")
 		if file == "" {
 			errors.WriteHTTPBadRequest(w, "file required", nil)
@@ -174,7 +196,11 @@ func (a *AquareumAPI) HandleThumbnailPlayback(ctx context.Context) httprouter.Ha
 			errors.WriteHTTPBadRequest(w, "user required", nil)
 			return
 		}
-		user = a.NormalizeUser(user)
+		user, err := a.NormalizeUser(ctx, user)
+		if err != nil {
+			errors.WriteHTTPBadRequest(w, "invalid user", err)
+			return
+		}
 		thumb, err := a.Model.LatestThumbnailForUser(user)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "could not query thumbnail", err)

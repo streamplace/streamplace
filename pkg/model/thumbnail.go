@@ -1,11 +1,9 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type Thumbnail struct {
@@ -19,6 +17,9 @@ func (m *DBModel) CreateThumbnail(thumb *Thumbnail) error {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return err
+	}
+	if thumb.SegmentID == "" {
+		return fmt.Errorf("segmentID is required")
 	}
 	thumb.ID = uu.String()
 	err = m.DB.Model(Thumbnail{}).Create(thumb).Error
@@ -40,7 +41,7 @@ func (m *DBModel) LatestThumbnailForUser(user string) (*Thumbnail, error) {
 		Limit(1).
 		Scan(&thumbnail)
 
-	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+	if res.RowsAffected == 0 {
 		return nil, nil
 	}
 	if res.Error != nil {

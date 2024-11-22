@@ -254,7 +254,7 @@ type SegmentMetadata struct {
 	Creator   string
 }
 
-var ErrInvalidMetadata = errors.New("invalid Schema.org Metadata")
+var ErrInvalidMetadata = errors.New("invalid segment metadata")
 
 func ParseSegmentAssertions(mani *manifeststore.Manifest) (*SegmentMetadata, error) {
 	var ass *manifeststore.ManifestAssertion
@@ -286,7 +286,7 @@ func ParseSegmentAssertions(mani *manifeststore.Manifest) (*SegmentMetadata, err
 		return nil, ErrInvalidMetadata
 	}
 	meta := metas[0]
-	if len(meta.Creator) != 1 {
+	if len(meta.Creator) == 0 {
 		return nil, ErrInvalidMetadata
 	}
 	if len(meta.Title) != 1 {
@@ -363,6 +363,6 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	for _, ch := range mm.newSegmentSubs {
 		go func() { ch <- not }()
 	}
-	log.Log(ctx, "successfully ingested segment", "user", pub.String(), "timestamp", meta.StartTime)
+	log.Log(ctx, "successfully ingested segment", "user", pub.String(), "timestamp", meta.StartTime, "segmentID", *mani.Label)
 	return nil
 }

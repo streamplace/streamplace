@@ -76,6 +76,7 @@ func (ms *MediaSigner) SignMP4(ctx context.Context, input io.ReadSeeker, start i
 	if ident.DID != "" {
 		creator = append(creator, ident.DID)
 	}
+	title := "livestream"
 	mani := obj{
 		"title": fmt.Sprintf("Livestream Segment at %s", aqtime.FromMillis(start)),
 		"assertions": []obj{
@@ -95,6 +96,7 @@ func (ms *MediaSigner) SignMP4(ctx context.Context, input io.ReadSeeker, start i
 						"dc": "http://purl.org/dc/elements/1.1/",
 					},
 					"dc:creator": creator,
+					"dc:title":   []string{title},
 					"dc:date":    []string{aqtime.FromMillis(start).String()},
 				},
 			},

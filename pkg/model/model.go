@@ -38,6 +38,7 @@ type Model interface {
 	UpdateIdentity(ident *Identity) error
 
 	GetRepo(did string) (*Repo, error)
+	GetRepoByHandle(handle string) (*Repo, error)
 	UpdateRepo(repo *Repo) error
 }
 

@@ -45,6 +45,17 @@ func getHandleLock(handle string) *sync.Mutex {
 	return lock
 }
 
+func SyncBlueskyRepoCached(ctx context.Context, handle string, mod model.Model) (string, error) {
+	repo, err := mod.GetRepoByHandle(handle)
+	if err != nil {
+		return "", fmt.Errorf("failed to get repo for %s: %w", handle, err)
+	}
+	if repo != nil {
+		return repo.AquareumKey, nil
+	}
+	return SyncBlueskyRepo(ctx, handle, mod)
+}
+
 func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (string, error) {
 	// Get handle-specific lock and ensure synchronized access
 	handleLock := getHandleLock(handle)
@@ -167,6 +178,7 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 		Version:     sc.Rev,
 		AquareumKey: key,
 		RootCID:     root.String(),
+		Handle:      handle,
 	}
 	err = mod.UpdateRepo(&newRepo)
 	if err != nil {

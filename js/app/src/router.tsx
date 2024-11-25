@@ -132,15 +132,15 @@ export function AquareumDrawer() {
   const { isWeb, isElectron } = usePlatform();
   const navigation = useNavigation();
   useEffect(() => {
-    const params = new URLSearchParams(document.location.search);
-    if (params.has("code")) {
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: "Login" }],
-        }),
-      );
-    }
+    // const params = new URLSearchParams(document.location.search);
+    // if (params.has("code")) {
+    //   navigation.dispatch(
+    //     CommonActions.reset({
+    //       index: 0,
+    //       routes: [{ name: "Login" }],
+    //     }),
+    //   );
+    // }
   }, []);
   return (
     <Drawer.Navigator

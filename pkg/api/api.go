@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"strings"
@@ -19,7 +20,6 @@ import (
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
 
-	"aquareum.tv/aquareum/js/app"
 	"aquareum.tv/aquareum/pkg/atproto"
 	"aquareum.tv/aquareum/pkg/config"
 	"aquareum.tv/aquareum/pkg/crypto/signers/eip712"
@@ -90,10 +90,10 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 }
 
 func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
-	files, err := app.Files()
-	if err != nil {
-		return nil, err
-	}
+	// files, err := app.Files()
+	// if err != nil {
+	// 	return nil, err
+	// }
 	router := httprouter.New()
 	apiRouter := httprouter.New()
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
@@ -117,6 +117,7 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/identity", a.HandleIdentityGET(ctx))
 	apiRouter.PUT("/api/identity/:id", a.HandleIdentityPUT(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
+	apiRouter.GET("/api/atproto-oauth", a.HandleATProtoOAuth(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	router.Handler("GET", "/api/*resource", apiRouter)
 	router.Handler("POST", "/api/*resource", apiRouter)
@@ -124,7 +125,17 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("PATCH", "/api/*resource", apiRouter)
 	router.Handler("DELETE", "/api/*resource", apiRouter)
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
-	router.NotFound = a.FileHandler(ctx, http.FileServer(AppHostingFS{http.FS(files)}))
+	rp := &httputil.ReverseProxy{
+		Rewrite: func(r *httputil.ProxyRequest) {
+			r.SetXForwarded()
+			r.SetURL(&url.URL{
+				Scheme: "http",
+				Host:   "localhost:38081",
+			})
+		},
+	}
+	router.NotFound = rp
+	// router.NotFound = a.FileHandler(ctx, http.FileServer(AppHostingFS{http.FS(files)}))
 	handler := sloghttp.Recovery(router)
 	handler = cors.AllowAll().Handler(handler)
 	handler = sloghttp.New(slog.Default())(handler)
@@ -387,6 +398,23 @@ func (a *AquareumAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Handl
 			return
 		}
 		w.Write([]byte(key))
+	}
+}
+
+func (a *AquareumAPI) HandleATProtoOAuth(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		host, _, err := net.SplitHostPort(req.Host)
+		if err != nil {
+			host = req.Host
+		}
+		meta := atproto.GetMetadata(host)
+		bs, err := json.Marshal(meta)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not marshal metadata", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(bs)
 	}
 }
 

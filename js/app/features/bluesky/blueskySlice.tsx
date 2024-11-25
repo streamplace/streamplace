@@ -1,8 +1,9 @@
 import { OAuthSession } from "@atproto/oauth-client";
 import { createAppSlice } from "../../hooks/createSlice";
-import oauthClient from "./oauthClient";
 import { Agent } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import { AquareumState } from "features/aquareum/aquareumSlice";
+import createOAuthClient, { AquareumOAuthClient } from "./oauthClient";
 
 export interface BlueskyState {
   status: "start" | "loggedIn" | "loggedOut";
@@ -10,7 +11,7 @@ export interface BlueskyState {
   oauthSession: null | OAuthSession;
   pdsAgent: null | Agent;
   profiles: { [key: string]: ProfileViewDetailed };
-  // client: null | BrowserOAuthClient;
+  client: null | AquareumOAuthClient;
 }
 
 const initialState: BlueskyState = {
@@ -19,6 +20,7 @@ const initialState: BlueskyState = {
   oauthSession: null,
   pdsAgent: null,
   profiles: {},
+  client: null,
 };
 
 export const blueskySlice = createAppSlice({
@@ -26,22 +28,31 @@ export const blueskySlice = createAppSlice({
   initialState,
   reducers: (create) => ({
     loadOAuthClient: create.asyncThunk(
-      async () => {
-        return oauthClient.init();
+      async (_, { getState }) => {
+        const { aquareum } = getState() as { aquareum: AquareumState };
+        const client = await createOAuthClient(aquareum.url);
+        const initResult = await client.init();
+        return { client, initResult };
       },
       {
         pending: (state) => {
           // state.status = "loading";
         },
         fulfilled: (state, action) => {
-          if (action.payload && "session" in action.payload) {
+          const { client, initResult } = action.payload;
+          console.log("loadOAuthClient fulfilled", action.payload);
+          if (initResult && "session" in initResult) {
             return {
               ...state,
-              oauthSession: action.payload.session,
-              pdsAgent: new Agent(action.payload.session),
+              client: client,
+              oauthSession: initResult.session,
+              pdsAgent: new Agent(initResult.session),
             };
           }
-          return state;
+          return {
+            ...state,
+            client: client,
+          };
         },
         rejected: (state) => {
           console.error("loadOAuthClient rejected");
@@ -51,8 +62,14 @@ export const blueskySlice = createAppSlice({
     ),
 
     login: create.asyncThunk(
-      async (pds: string) => {
-        return await oauthClient.authorize(pds);
+      async (pds: string, thunkAPI) => {
+        const { bluesky } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+        };
+        if (!bluesky.client) {
+          throw new Error("No client");
+        }
+        return await bluesky.client.authorize(pds);
       },
       {
         pending: (state) => {

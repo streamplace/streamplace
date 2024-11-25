@@ -15,11 +15,16 @@ export default async function createOAuthClient(
     throw new Error("aquareumUrl is required");
   }
   let meta: OAuthClientMetadata;
-  if (aquareumUrl.startsWith("http://localhost")) {
+  if (
+    aquareumUrl.startsWith("http://localhost") ||
+    aquareumUrl.startsWith("http://127.0.0.1")
+  ) {
+    const u = new URL(document.location.href);
+
     // loopback client that doesn't require interaction with the server
     meta = {
       client_id: "http://localhost?scope=atproto%20transition:generic",
-      redirect_uris: ["http://127.0.0.1:38081"],
+      redirect_uris: [`${u.protocol}//${u.host}`],
       scope: "atproto transition:generic",
       token_endpoint_auth_method: "none",
       // jwks_uri: "https://my-app.example/jwks.json",

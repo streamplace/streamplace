@@ -75,6 +75,7 @@ type CLI struct {
 	AllowedStreams         []aqpub.Pub
 	Peers                  []string
 	TestStream             bool
+	FrontendProxy          string
 
 	dataDirFlags []*string
 }

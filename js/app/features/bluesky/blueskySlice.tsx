@@ -41,6 +41,10 @@ export const blueskySlice = createAppSlice({
         fulfilled: (state, action) => {
           const { client, initResult } = action.payload;
           console.log("loadOAuthClient fulfilled", action.payload);
+          // sometimes the codes don't get removed from the url properly? so we do so here.
+          const u = new URL(document.location.href);
+          u.search = "";
+          window.history.replaceState(null, "", u.toString());
           if (initResult && "session" in initResult) {
             return {
               ...state,
@@ -54,8 +58,8 @@ export const blueskySlice = createAppSlice({
             client: client,
           };
         },
-        rejected: (state) => {
-          console.error("loadOAuthClient rejected");
+        rejected: (_, { error }) => {
+          console.error("loadOAuthClient rejected", error);
           // state.status = "failed";
         },
       },
@@ -63,9 +67,15 @@ export const blueskySlice = createAppSlice({
 
     login: create.asyncThunk(
       async (pds: string, thunkAPI) => {
-        const { bluesky } = thunkAPI.getState() as {
+        let { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };
+        if (!bluesky.client) {
+          await thunkAPI.dispatch(loadOAuthClient());
+        }
+        ({ bluesky } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+        });
         if (!bluesky.client) {
           throw new Error("No client");
         }
@@ -79,8 +89,8 @@ export const blueskySlice = createAppSlice({
           document.location.href = action.payload.toString();
           return state;
         },
-        rejected: (state) => {
-          console.error("login rejected");
+        rejected: (state, action) => {
+          console.error("login rejected", action.error);
           return {
             ...state,
             profiles: {},

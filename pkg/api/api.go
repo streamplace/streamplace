@@ -20,6 +20,7 @@ import (
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
 
+	"aquareum.tv/aquareum/js/app"
 	"aquareum.tv/aquareum/pkg/atproto"
 	"aquareum.tv/aquareum/pkg/config"
 	"aquareum.tv/aquareum/pkg/crypto/signers/eip712"
@@ -90,10 +91,6 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 }
 
 func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
-	// files, err := app.Files()
-	// if err != nil {
-	// 	return nil, err
-	// }
 	router := httprouter.New()
 	apiRouter := httprouter.New()
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
@@ -125,17 +122,25 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("PATCH", "/api/*resource", apiRouter)
 	router.Handler("DELETE", "/api/*resource", apiRouter)
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
-	rp := &httputil.ReverseProxy{
-		Rewrite: func(r *httputil.ProxyRequest) {
-			r.SetXForwarded()
-			r.SetURL(&url.URL{
-				Scheme: "http",
-				Host:   "localhost:38081",
-			})
-		},
+	if a.CLI.FrontendProxy != "" {
+		u, err := url.Parse(a.CLI.FrontendProxy)
+		if err != nil {
+			return nil, err
+		}
+		log.Warn(ctx, "using frontend proxy instead of bundled frontend", "destination", a.CLI.FrontendProxy)
+		router.NotFound = &httputil.ReverseProxy{
+			Rewrite: func(r *httputil.ProxyRequest) {
+				r.SetXForwarded()
+				r.SetURL(u)
+			},
+		}
+	} else {
+		files, err := app.Files()
+		if err != nil {
+			return nil, err
+		}
+		router.NotFound = a.FileHandler(ctx, http.FileServer(AppHostingFS{http.FS(files)}))
 	}
-	router.NotFound = rp
-	// router.NotFound = a.FileHandler(ctx, http.FileServer(AppHostingFS{http.FS(files)}))
 	handler := sloghttp.Recovery(router)
 	handler = cors.AllowAll().Handler(handler)
 	handler = sloghttp.New(slog.Default())(handler)

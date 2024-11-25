@@ -115,6 +115,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.StringVar(&cli.PKCS11KeypairLabel, "pkcs11-keypair-label", "", "label of signing keypair on PKCS11 token")
 	fs.StringVar(&cli.PKCS11KeypairID, "pkcs11-keypair-id", "", "id of signing keypair on PKCS11 token")
 	fs.StringVar(&cli.StreamerName, "streamer-name", "", "name of the person streaming from this aquareum node")
+	fs.StringVar(&cli.FrontendProxy, "dev-frontend-proxy", "", "(FOR DEVELOPMENT ONLY) proxy frontend requests to this address instead of using the bundled frontend")
 	cli.AddressSliceFlag(fs, &cli.AllowedStreams, "allowed-streams", "", "comma-separated list of addresses that this node will replicate")
 	cli.StringSliceFlag(fs, &cli.Peers, "peers", "", "other aquareum nodes to replicate to")
 	cli.DebugFlag(fs, &cli.Debug, "debug", "", "modified log verbosity for specific functions or files in form func=ToHLS:3,file=gstreamer.go:4")

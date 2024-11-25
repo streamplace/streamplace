@@ -36,6 +36,9 @@ yarn run app start
 
 **App Development**
 
+Building the Android version requires Java 17. On Ubuntu you can run
+`sudo apt install openjdk-17-jdk`.
+
 ```
 cd js/app
 

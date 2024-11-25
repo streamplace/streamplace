@@ -29,44 +29,53 @@ func TestCreateSigner(t *testing.T) {
 	require.True(t, ran)
 }
 
-func TestSignGoLive(t *testing.T) {
+func TestSignIdentity(t *testing.T) {
 	eip712test.WithTestSigner(func(signer *eip712.EIP712Signer) {
-		goLive := v0.GoLive{
-			Streamer: "@aquareum.tv",
-			Title:    "Let's gooooooo!",
+		identity := v0.Identity{
+			Handle: "aquareum.bsky.social",
+			DID:    "did:plc:dkh4rwafdcda4ko7lewe43ml",
 		}
-		_, err := signer.SignMessage(goLive)
+		_, err := signer.SignMessage(identity)
 		require.NoError(t, err)
 	})
 }
 
 var testCase = `{
-  "primaryType": "GoLive",
-  "domain": { "name": "Aquareum", "version": "0.0.1" },
-  "message": {
-    "data": { "streamer": "@aquareum.tv", "title": "Let's gooooooo!" },
-    "signer": "0x295481766F43bb048Aec5D71f3Bf76FDaCEA78f2",
-    "time": 1722373018292
+  "primaryType": "Identity",
+  "domain": {
+    "name": "Aquareum",
+    "version": "0.0.1",
+    "chainId": null,
+    "verifyingContract": "",
+    "salt": ""
   },
-  "signature": "0x1723aa5ffb04a6ade0acb84c5ce15c804141ac06fd4ae0a867655d1b2f9e130e1ceb659297d262281795b49c191e6f67623d538890b4454eeaa1b6c2da0668e81b"
+  "message": {
+    "signer": "0x9153c114d47aceb691b77b02122cb378074e45c8",
+    "time": 1732561417949,
+    "data": {
+      "handle": "aquareum.bsky.social",
+      "did": "did:plc:dkh4rwafdcda4ko7lewe43ml"
+    }
+  },
+  "signature": "0xc75ca7da2d110c562eaa4a906aae7a246b2d96a867b74baf3ac0d9127f260dfb17b9aba7d20562c10c771b658c17a4be2dfc427c3e729a07853e35753a8a70f61b"
 }`
 
-func TestVerifyGoLive(t *testing.T) {
+func TestVerifyIdentity(t *testing.T) {
 	eip712test.WithTestSigner(func(signer *eip712.EIP712Signer) {
 		signed, err := signer.Verify([]byte(testCase))
 		require.NoError(t, err)
-		require.Equal(t, signed.Signer(), "0x295481766F43bb048Aec5D71f3Bf76FDaCEA78f2")
-		require.Equal(t, signed.Time(), int64(1722373018292))
-		goLive, ok := signed.Data().(*v0.GoLive)
+		require.Equal(t, signed.Signer(), "0x9153c114d47aceb691b77b02122cb378074e45c8")
+		require.Equal(t, signed.Time(), int64(1732561417949))
+		identity, ok := signed.Data().(*v0.Identity)
 		require.True(t, ok)
-		require.Equal(t, goLive.Streamer, "@aquareum.tv")
-		require.Equal(t, goLive.Title, "Let's gooooooo!")
+		require.Equal(t, identity.Handle, "aquareum.bsky.social")
+		require.Equal(t, identity.DID, "did:plc:dkh4rwafdcda4ko7lewe43ml")
 	})
 }
 
 func TestFailingGoLive(t *testing.T) {
 	eip712test.WithTestSigner(func(signer *eip712.EIP712Signer) {
-		failingTestCase := strings.Replace(testCase, "@aquareum.tv", "@evilstreamer.evil", 1)
+		failingTestCase := strings.Replace(testCase, "aquareum.bsky.social", "evilhandle.evil", 1)
 		_, err := signer.Verify([]byte(failingTestCase))
 		require.Error(t, err)
 	})

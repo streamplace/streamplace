@@ -10,4 +10,8 @@ export default class NativeStorage implements AQStorage {
   async setItem(key: string, value: string): Promise<void> {
     await Storage.setItem(key, value);
   }
+
+  async removeItem(key: string): Promise<void> {
+    await Storage.removeItem(key);
+  }
 }

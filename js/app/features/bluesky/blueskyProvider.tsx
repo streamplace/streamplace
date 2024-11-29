@@ -26,6 +26,7 @@ export default function BlueskyProvider({
 
   const [lastLink, setLastLink] = useState<string | null>(null);
   const url = useURL();
+
   useEffect(() => {
     if (url !== lastLink && url) {
       setLastLink(url);
@@ -39,9 +40,6 @@ export default function BlueskyProvider({
   }, [url]);
 
   useEffect(() => {
-    if (url) {
-      setLastLink(url);
-    }
     if (oauthSession && !userProfile) {
       dispatch(getProfile(oauthSession.did));
     }

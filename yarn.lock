@@ -249,7 +249,7 @@ __metadata:
 
 "@atproto/oauth-client-react-native@file:/home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz::locator=aquareum%40workspace%3Ajs%2Fapp":
   version: 0.0.1
-  resolution: "@atproto/oauth-client-react-native@file:/home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz#/home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz::hash=048f9f&locator=aquareum%40workspace%3Ajs%2Fapp"
+  resolution: "@atproto/oauth-client-react-native@file:/home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz#/home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz::hash=d22707&locator=aquareum%40workspace%3Ajs%2Fapp"
   dependencies:
     "@atproto-labs/did-resolver": "npm:0.1.5"
     "@atproto-labs/handle-resolver-node": "npm:0.1.7"
@@ -261,9 +261,10 @@ __metadata:
     "@atproto/jwk-webcrypto": "npm:0.1.2"
     "@atproto/oauth-client": "npm:0.3.2"
     "@atproto/oauth-types": "npm:0.2.1"
+    expo-sqlite: "npm:^15.0.3"
     jose: "npm:^5.2.0"
     react-native-quick-crypto: "npm:^0.7.7"
-  checksum: 10/da897dbad7d04c5923ca4819dd6e31c65041c5f44e623c5e071aa9b94c291701d38c16764ec9bec7f2855e0c1fd146d4ee700d3c2129d64b6c4153fcfc2d939d
+  checksum: 10/49b07bdf0dd99f138b2c9f87b512628c27b2c742acf8b40a6f1e408e45b92507f62be681ca32eb4112fb1860e87711a35f9968f5a0c986e8e3c1ba92e087f303
   languageName: node
   linkType: hard
 
@@ -15439,7 +15440,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-sqlite@npm:~15.0.3":
+"expo-sqlite@npm:^15.0.3, expo-sqlite@npm:~15.0.3":
   version: 15.0.3
   resolution: "expo-sqlite@npm:15.0.3"
   peerDependencies:

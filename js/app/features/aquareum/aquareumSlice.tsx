@@ -2,9 +2,7 @@ import { createAppSlice } from "../../hooks/createSlice";
 import { isWeb } from "tamagui";
 import { SignTypedDataFn } from "hooks/useWallet.shared";
 import schema from "generated/eip712-schema.json";
-import Storage from "../../storage/storage";
-
-const storage = new Storage();
+import Storage from "../../storage";
 
 let DEFAULT_URL = process.env.EXPO_PUBLIC_AQUAREUM_URL as string;
 if (isWeb && process.env.EXPO_PUBLIC_WEB_TRY_LOCAL === "true") {
@@ -40,7 +38,7 @@ export const aquareumSlice = createAppSlice({
   reducers: (create) => ({
     initialize: create.asyncThunk(
       async (_, { getState }) => {
-        let url = await storage.getItem("aquareumUrl");
+        let url = await Storage.getItem("aquareumUrl");
         if (!url) {
           url = DEFAULT_URL;
         }
@@ -65,7 +63,7 @@ export const aquareumSlice = createAppSlice({
     ),
 
     setURL: create.reducer((state, action: { payload: string }) => {
-      storage.setItem("aquareumUrl", action.payload).catch((err) => {
+      Storage.setItem("aquareumUrl", action.payload).catch((err) => {
         console.error("setURL error", err);
       });
       return {

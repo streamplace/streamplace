@@ -6,7 +6,7 @@ import createOAuthClient, { AquareumOAuthClient } from "./oauthClient";
 import { openLoginLink } from "features/platform/platformSlice";
 import { isWeb } from "tamagui";
 import { OAuthSession } from "@atproto/oauth-client";
-
+import Storage from "storage";
 export interface BlueskyState {
   status: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
@@ -36,6 +36,19 @@ export const blueskySlice = createAppSlice({
         let initResult;
         if (isWeb) {
           initResult = await client.init();
+          if (initResult && "session" in initResult) {
+            await Storage.setItem("did", initResult.session.did);
+          }
+        } else {
+          const did = await Storage.getItem("did");
+          if (did) {
+            try {
+              const session = await client.restore(did);
+              initResult = { session };
+            } catch (e) {
+              await Storage.removeItem("did");
+            }
+          }
         }
         return { client, initResult };
       },
@@ -106,6 +119,7 @@ export const blueskySlice = createAppSlice({
 
     logout: create.asyncThunk(
       async (_, thunkAPI) => {
+        await Storage.removeItem("did");
         const { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };
@@ -174,6 +188,8 @@ export const blueskySlice = createAppSlice({
         }
         try {
           const ret = await bluesky.client.callback(params);
+          await Storage.setItem("did", ret.session.did);
+
           return ret.session as any;
         } catch (e) {
           let message = e.message;

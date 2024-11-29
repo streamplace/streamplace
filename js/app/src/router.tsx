@@ -26,6 +26,7 @@ import { useEffect } from "react";
 import { ImageBackground, ImageSourcePropType, Pressable } from "react-native";
 import { useAppSelector } from "store/hooks";
 import { useTheme, View } from "tamagui";
+import AppReturnScreen from "./screens/app-return";
 import GoLiveScreen from "./screens/golive";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
@@ -58,6 +59,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Settings: "settings",
       GoLive: "golive",
       Login: "login",
+      AppReturn: "app-return/:scheme",
     },
   },
 };
@@ -198,6 +200,14 @@ export function AquareumDrawer() {
       <Drawer.Screen
         name="Support"
         component={SupportScreen}
+        options={{
+          drawerLabel: () => null,
+          drawerItemStyle: { display: "none" },
+        }}
+      />
+      <Drawer.Screen
+        name="AppReturn"
+        component={AppReturnScreen}
         options={{
           drawerLabel: () => null,
           drawerItemStyle: { display: "none" },

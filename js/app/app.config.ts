@@ -54,6 +54,7 @@ export default function () {
   const pkg = require("./package.json");
   const name = isProd ? "Aquareum" : "Devquarium";
   const bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev";
+  const scheme = process.env["AQ_APP_SCHEME"] ?? bundle;
   return {
     expo: {
       name: name,
@@ -63,7 +64,7 @@ export default function () {
       runtimeVersion: pkg.runtimeVersion,
       orientation: "default",
       icon: "./assets/images/icon.png",
-      scheme: "link.iameli.longos",
+      scheme: scheme,
       userInterfaceStyle: "automatic",
       splash: {
         image: "./assets/images/splash.png",

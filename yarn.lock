@@ -231,6 +231,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@atproto/oauth-client-browser@npm:0.3.2":
+  version: 0.3.2
+  resolution: "@atproto/oauth-client-browser@npm:0.3.2"
+  dependencies:
+    "@atproto-labs/did-resolver": "npm:0.1.5"
+    "@atproto-labs/handle-resolver": "npm:0.1.4"
+    "@atproto-labs/simple-store": "npm:0.1.1"
+    "@atproto/did": "npm:0.1.3"
+    "@atproto/jwk": "npm:0.1.1"
+    "@atproto/jwk-webcrypto": "npm:0.1.2"
+    "@atproto/oauth-client": "npm:0.3.2"
+    "@atproto/oauth-types": "npm:0.2.1"
+  checksum: 10/4d588524ebfd58d84f2b0c48fc65d8b834190d149f27e453915e9f608d1464b88255e224128fff3a7ba64506d5d47224ed07bd86f1edc0d8def6c1a882027c5e
+  languageName: node
+  linkType: hard
+
 "@atproto/oauth-client-browser@npm:^0.3.1":
   version: 0.3.1
   resolution: "@atproto/oauth-client-browser@npm:0.3.1"
@@ -249,7 +265,7 @@ __metadata:
 
 "@atproto/oauth-client-react-native@file:/tmp/atproto-oauth-client-react-native-0.0.1.tgz::locator=aquareum%40workspace%3Ajs%2Fapp":
   version: 0.0.1
-  resolution: "@atproto/oauth-client-react-native@file:/tmp/atproto-oauth-client-react-native-0.0.1.tgz#/tmp/atproto-oauth-client-react-native-0.0.1.tgz::hash=80bffc&locator=aquareum%40workspace%3Ajs%2Fapp"
+  resolution: "@atproto/oauth-client-react-native@file:/tmp/atproto-oauth-client-react-native-0.0.1.tgz#/tmp/atproto-oauth-client-react-native-0.0.1.tgz::hash=749334&locator=aquareum%40workspace%3Ajs%2Fapp"
   dependencies:
     "@atproto-labs/did-resolver": "npm:0.1.5"
     "@atproto-labs/handle-resolver-node": "npm:0.1.7"
@@ -260,11 +276,12 @@ __metadata:
     "@atproto/jwk-jose": "npm:0.1.2"
     "@atproto/jwk-webcrypto": "npm:0.1.2"
     "@atproto/oauth-client": "npm:0.3.2"
+    "@atproto/oauth-client-browser": "npm:0.3.2"
     "@atproto/oauth-types": "npm:0.2.1"
     expo-sqlite: "npm:^15.0.3"
     jose: "npm:^5.2.0"
     react-native-quick-crypto: "npm:^0.7.7"
-  checksum: 10/9f7a26d00cb4a1a5704d2068e6ca92e1847ce3377b7a9093ff153870e6985f26b13295ad92c3cd201acd477076f150edf89ed7787bee96229e4c93bdb9ac7d5d
+  checksum: 10/8b4463d529114fe517fa8aefea60035fe6a4275c25dbe9c93b72b4f523fcb9391e19b36b29b59eaf82ea76dcbc04f479dc9401137ce65f2cee96cef044f56fde
   languageName: node
   linkType: hard
 

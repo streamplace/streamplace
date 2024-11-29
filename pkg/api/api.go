@@ -131,7 +131,9 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 		log.Warn(ctx, "using frontend proxy instead of bundled frontend", "destination", a.CLI.FrontendProxy)
 		router.NotFound = &httputil.ReverseProxy{
 			Rewrite: func(r *httputil.ProxyRequest) {
-				r.SetXForwarded()
+				// workaround for Expo disliking serving requests from 127.0.0.1 instead of localhost
+				// we need to use 127.0.0.1 because the atproto oauth client requires it
+				r.Out.Header.Set("Origin", u.String())
 				r.SetURL(u)
 			},
 		}

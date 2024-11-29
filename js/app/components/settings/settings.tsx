@@ -1,9 +1,9 @@
-import { Button, Form, H3, Input, View, XStack } from "tamagui";
-import { Updates } from "./updates";
+import { setURL } from "features/aquareum/aquareumSlice";
 import useAquareumNode from "hooks/useAquareumNode";
 import { useState } from "react";
 import { useAppDispatch } from "store/hooks";
-import { setURL } from "features/aquareum/aquareumSlice";
+import { Button, Form, H3, Input, View, XStack } from "tamagui";
+import { Updates } from "./updates";
 
 export function Settings() {
   const dispatch = useAppDispatch();
@@ -33,6 +33,9 @@ export function Settings() {
             placeholder={url}
             onChangeText={(t) => setNewUrl(t)}
             onSubmitEditing={onSubmit}
+            textContentType="URL"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
           <Form.Trigger asChild>
             <Button size="$3">Go</Button>

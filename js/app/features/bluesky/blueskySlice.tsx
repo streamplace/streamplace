@@ -185,7 +185,7 @@ export const blueskySlice = createAppSlice({
         }
         const params = new URLSearchParams(url.split("?")[1]);
         if (!(params.has("code") && params.has("state") && params.has("iss"))) {
-          throw new Error("Missing params");
+          throw new Error("Missing params, got: " + url);
         }
         const { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;

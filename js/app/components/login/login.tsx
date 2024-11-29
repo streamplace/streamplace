@@ -1,11 +1,11 @@
-import { Button, View, Text } from "tamagui";
-import { useAppDispatch, useAppSelector } from "store/hooks";
 import {
   login,
   logout,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
 import usePlatform from "hooks/usePlatform";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { Button, Text, View } from "tamagui";
 
 export default function Login() {
   const dispatch = useAppDispatch();
@@ -31,9 +31,6 @@ export default function Login() {
       >
         Log in with Bluesky
       </Button>
-      {isWeb && (
-        <a href="link.iameli.fairway:/bsky.social/login">Return to app?</a>
-      )}
     </View>
   );
 }

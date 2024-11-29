@@ -53,7 +53,6 @@ export default function BlueskyProvider({
         }),
       );
     }
-    console.log(wallet);
   }, [oauthSession, userProfile, wallet.address]);
   return <>{children}</>;
 }

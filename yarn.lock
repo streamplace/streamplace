@@ -247,9 +247,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@atproto/oauth-client-react-native@file:/home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz::locator=aquareum%40workspace%3Ajs%2Fapp":
+"@atproto/oauth-client-react-native@file:/tmp/atproto-oauth-client-react-native-0.0.1.tgz::locator=aquareum%40workspace%3Ajs%2Fapp":
   version: 0.0.1
-  resolution: "@atproto/oauth-client-react-native@file:/home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz#/home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz::hash=d22707&locator=aquareum%40workspace%3Ajs%2Fapp"
+  resolution: "@atproto/oauth-client-react-native@file:/tmp/atproto-oauth-client-react-native-0.0.1.tgz#/tmp/atproto-oauth-client-react-native-0.0.1.tgz::hash=80bffc&locator=aquareum%40workspace%3Ajs%2Fapp"
   dependencies:
     "@atproto-labs/did-resolver": "npm:0.1.5"
     "@atproto-labs/handle-resolver-node": "npm:0.1.7"
@@ -264,7 +264,7 @@ __metadata:
     expo-sqlite: "npm:^15.0.3"
     jose: "npm:^5.2.0"
     react-native-quick-crypto: "npm:^0.7.7"
-  checksum: 10/49b07bdf0dd99f138b2c9f87b512628c27b2c742acf8b40a6f1e408e45b92507f62be681ca32eb4112fb1860e87711a35f9968f5a0c986e8e3c1ba92e087f303
+  checksum: 10/9f7a26d00cb4a1a5704d2068e6ca92e1847ce3377b7a9093ff153870e6985f26b13295ad92c3cd201acd477076f150edf89ed7787bee96229e4c93bdb9ac7d5d
   languageName: node
   linkType: hard
 
@@ -11255,7 +11255,7 @@ __metadata:
     "@atproto-labs/pipe": "npm:^0.1.0"
     "@atproto/jwk-jose": "npm:^0.1.2"
     "@atproto/oauth-client": "npm:^0.3.1"
-    "@atproto/oauth-client-react-native": /home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz
+    "@atproto/oauth-client-react-native": /tmp/atproto-oauth-client-react-native-0.0.1.tgz
     "@babel/core": "npm:^7.26.0"
     "@babel/plugin-proposal-export-default-from": "npm:^7.25.9"
     "@babel/plugin-syntax-export-default-from": "npm:^7.25.9"

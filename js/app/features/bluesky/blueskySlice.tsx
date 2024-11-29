@@ -1,12 +1,12 @@
-import { createAppSlice } from "../../hooks/createSlice";
 import { Agent } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import { AquareumState } from "features/aquareum/aquareumSlice";
-import createOAuthClient, { AquareumOAuthClient } from "./oauthClient";
-import { openLoginLink } from "features/platform/platformSlice";
-import { isWeb } from "tamagui";
 import { OAuthSession } from "@atproto/oauth-client";
+import { AquareumState } from "features/aquareum/aquareumSlice";
+import { openLoginLink } from "features/platform/platformSlice";
 import Storage from "storage";
+import { isWeb } from "tamagui";
+import { createAppSlice } from "../../hooks/createSlice";
+import createOAuthClient, { AquareumOAuthClient } from "./oauthClient";
 export interface BlueskyState {
   status: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
@@ -179,7 +179,14 @@ export const blueskySlice = createAppSlice({
     ),
 
     oauthCallback: create.asyncThunk(
-      async (params: URLSearchParams, thunkAPI) => {
+      async (url: string, thunkAPI) => {
+        if (!url.includes("?")) {
+          throw new Error("No query params");
+        }
+        const params = new URLSearchParams(url.split("?")[1]);
+        if (!(params.has("code") && params.has("state") && params.has("iss"))) {
+          throw new Error("Missing params");
+        }
         const { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };

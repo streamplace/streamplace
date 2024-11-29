@@ -13,23 +13,23 @@ import {
   LogIn,
   Menu,
   Settings as SettingsIcon,
-  Video,
   User,
+  Video,
 } from "@tamagui/lucide-icons";
 import { Provider, Settings } from "components";
+import AQLink from "components/aqlink";
+import Login from "components/login/login";
 import StreamList from "components/stream-list/stream-list";
+import { selectUserProfile } from "features/bluesky/blueskySlice";
 import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
 import { ImageBackground, ImageSourcePropType, Pressable } from "react-native";
+import { useAppSelector } from "store/hooks";
 import { useTheme, View } from "tamagui";
+import GoLiveScreen from "./screens/golive";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
 import SupportScreen from "./screens/support";
-import GoLiveScreen from "./screens/golive";
-import Login from "components/login/login";
-import { selectUserProfile } from "features/bluesky/blueskySlice";
-import { useAppSelector } from "store/hooks";
-import AQLink from "components/aqlink";
 
 function HomeScreen() {
   return (
@@ -94,6 +94,8 @@ const AvatarButton = () => {
   return (
     <AQLink to={{ screen: "Login", params: {} }}>
       <ImageBackground
+        // defeat cursed-ass caching on ios; image sticks around when source is undefined
+        key={source?.uri ?? "default"}
         source={source}
         style={{
           width: 40,

@@ -1,5 +1,6 @@
-import { createAppSlice } from "../../hooks/createSlice";
 import { openAuthSessionAsync } from "expo-web-browser";
+import { createAppSlice } from "../../hooks/createSlice";
+import { oauthCallback } from "features/bluesky/blueskySlice";
 
 export interface PlatformState {
   status: "idle" | "loading" | "failed";
@@ -14,10 +15,12 @@ export const platformSlice = createAppSlice({
   initialState,
   reducers: (create) => ({
     openLoginLink: create.asyncThunk(
-      async (url: string) => {
+      async (url: string, thunkAPI) => {
         console.log("openLoginLink", url);
         const res = await openAuthSessionAsync(url);
-        console.log(res);
+        if (res.type === "success") {
+          thunkAPI.dispatch(oauthCallback(res.url));
+        }
       },
       {
         pending: (state) => {

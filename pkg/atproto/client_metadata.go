@@ -1,6 +1,12 @@
 package atproto
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+	"strings"
+)
+
+var AllowedPlatforms = []string{"ios", "android", "web"}
 
 type OAuthClientMetadata struct {
 	RedirectURIs                          []string `json:"redirect_uris"`
@@ -38,18 +44,26 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-func GetMetadata(host string) *OAuthClientMetadata {
+func GetMetadata(host string, platform string) *OAuthClientMetadata {
 	meta := &OAuthClientMetadata{
-		ClientID:                fmt.Sprintf("https://%s/api/atproto-oauth", host),
-		ClientURI:               fmt.Sprintf("https://%s", host),
-		RedirectURIs:            []string{fmt.Sprintf("https://%s/login", host)},
+		ClientID:  fmt.Sprintf("https://%s/api/atproto-oauth/%s", host, platform),
+		ClientURI: fmt.Sprintf("https://%s", host),
+		// RedirectURIs:            []string{fmt.Sprintf("https://%s/login", host)},
 		Scope:                   "atproto transition:generic",
 		TokenEndpointAuthMethod: "none",
 		ClientName:              "Aquareum",
 		ResponseTypes:           []string{"code"},
 		GrantTypes:              []string{"authorization_code", "refresh_token"},
-		ApplicationType:         "native",
 		DPoPBoundAccessTokens:   boolPtr(true),
+	}
+	if platform == "web" {
+		meta.RedirectURIs = []string{fmt.Sprintf("https://%s/login", host)}
+		meta.ApplicationType = "web"
+	} else {
+		hostParts := strings.Split(host, ".")
+		slices.Reverse(hostParts)
+		meta.RedirectURIs = []string{fmt.Sprintf("%s:/login", strings.Join(hostParts, "."))}
+		meta.ApplicationType = "native"
 	}
 	return meta
 }

@@ -1,7 +1,9 @@
 import {
   BrowserOAuthClient,
+  clientMetadataSchema,
   OAuthClientMetadata,
 } from "@atproto/oauth-client-browser";
+import { Platform } from "react-native";
 
 export type AquareumOAuthClient = Omit<
   BrowserOAuthClient,
@@ -35,9 +37,10 @@ export default async function createOAuthClient(
       dpop_bound_access_tokens: true,
     };
   } else {
-    const res = await fetch(`${aquareumUrl}/api/atproto-oauth`);
+    const res = await fetch(`${aquareumUrl}/api/atproto-oauth/${Platform.OS}`);
     meta = await res.json();
   }
+  clientMetadataSchema.parse(meta);
   return new BrowserOAuthClient({
     handleResolver: "https://bsky.social", // backend instances should use a DNS based resolver
     responseMode: "query", // or "fragment" (frontend only) or "form_post" (backend only)

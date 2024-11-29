@@ -12,6 +12,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -114,7 +115,7 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/identity", a.HandleIdentityGET(ctx))
 	apiRouter.PUT("/api/identity/:id", a.HandleIdentityPUT(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
-	apiRouter.GET("/api/atproto-oauth", a.HandleATProtoOAuth(ctx))
+	apiRouter.GET("/api/atproto-oauth/:platform", a.HandleATProtoOAuth(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	router.Handler("GET", "/api/*resource", apiRouter)
 	router.Handler("POST", "/api/*resource", apiRouter)
@@ -287,21 +288,6 @@ func (a *AquareumAPI) HandleIdentityPUT(ctx context.Context) httprouter.Handle {
 		}
 
 		w.WriteHeader(http.StatusNoContent)
-		// if a.FirebaseNotifier == nil {
-		// 	apierrors.WriteHTTPNotImplemented(w, "no firebase token, can't notify", nil)
-		// 	return
-		// }
-		// nots, err := a.Model.ListNotifications()
-		// if err != nil {
-		// 	apierrors.WriteHTTPInternalServerError(w, "couldn't list notifications", err)
-		// 	return
-		// }
-		// err = a.FirebaseNotifier.Blast(ctx, nots, golive)
-		// if err != nil {
-		// 	apierrors.WriteHTTPInternalServerError(w, "couldn't blast", err)
-		// 	return
-		// }
-		// w.WriteHeader(204)
 	}
 }
 
@@ -412,7 +398,13 @@ func (a *AquareumAPI) HandleATProtoOAuth(ctx context.Context) httprouter.Handle 
 		if err != nil {
 			host = req.Host
 		}
-		meta := atproto.GetMetadata(host)
+		platform := params.ByName("platform")
+		if !slices.Contains(atproto.AllowedPlatforms, platform) {
+			apierrors.WriteHTTPBadRequest(w, "unsupported platform", nil)
+			return
+		}
+
+		meta := atproto.GetMetadata(host, platform)
 		bs, err := json.Marshal(meta)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal metadata", err)

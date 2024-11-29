@@ -5,10 +5,12 @@ import {
   logout,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
+import usePlatform from "hooks/usePlatform";
 
 export default function Login() {
   const dispatch = useAppDispatch();
   const userProfile = useAppSelector(selectUserProfile);
+  const { isWeb } = usePlatform();
 
   if (userProfile) {
     return (
@@ -29,6 +31,9 @@ export default function Login() {
       >
         Log in with Bluesky
       </Button>
+      {isWeb && (
+        <a href="link.iameli.fairway:/bsky.social/login">Return to app?</a>
+      )}
     </View>
   );
 }

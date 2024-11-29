@@ -63,7 +63,7 @@ export default function () {
       runtimeVersion: pkg.runtimeVersion,
       orientation: "default",
       icon: "./assets/images/icon.png",
-      scheme: "myapp",
+      scheme: "link.iameli.fairway",
       userInterfaceStyle: "automatic",
       splash: {
         image: "./assets/images/splash.png",

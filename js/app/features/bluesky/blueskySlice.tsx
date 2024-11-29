@@ -1,9 +1,11 @@
-import { OAuthSession } from "@atproto/oauth-client";
 import { createAppSlice } from "../../hooks/createSlice";
 import { Agent } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { AquareumState } from "features/aquareum/aquareumSlice";
 import createOAuthClient, { AquareumOAuthClient } from "./oauthClient";
+import { openLoginLink } from "features/platform/platformSlice";
+import { isWeb } from "tamagui";
+import { OAuthSession } from "@atproto/oauth-client";
 
 export interface BlueskyState {
   status: "start" | "loggedIn" | "loggedOut";
@@ -31,7 +33,10 @@ export const blueskySlice = createAppSlice({
       async (_, { getState }) => {
         const { aquareum } = getState() as { aquareum: AquareumState };
         const client = await createOAuthClient(aquareum.url);
-        const initResult = await client.init();
+        let initResult;
+        if (isWeb) {
+          initResult = await client.init();
+        }
         return { client, initResult };
       },
       {
@@ -42,9 +47,9 @@ export const blueskySlice = createAppSlice({
           const { client, initResult } = action.payload;
           console.log("loadOAuthClient fulfilled", action.payload);
           // sometimes the codes don't get removed from the url properly? so we do so here.
-          const u = new URL(document.location.href);
-          u.search = "";
-          window.history.replaceState(null, "", u.toString());
+          // const u = new URL(document.location.href);
+          // u.search = "";
+          // window.history.replaceState(null, "", u.toString());
           if (initResult && "session" in initResult) {
             return {
               ...state,
@@ -70,23 +75,22 @@ export const blueskySlice = createAppSlice({
         let { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };
-        if (!bluesky.client) {
-          await thunkAPI.dispatch(loadOAuthClient());
-        }
+        await thunkAPI.dispatch(loadOAuthClient());
         ({ bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         });
         if (!bluesky.client) {
           throw new Error("No client");
         }
-        return await bluesky.client.authorize(pds);
+        const u = await bluesky.client.authorize(pds);
+        thunkAPI.dispatch(openLoginLink(u.toString()));
       },
       {
         pending: (state) => {
           // state.status = "loading";
         },
         fulfilled: (state, action) => {
-          document.location.href = action.payload.toString();
+          // document.location.href = action.payload.toString();
           return state;
         },
         rejected: (state, action) => {
@@ -156,6 +160,46 @@ export const blueskySlice = createAppSlice({
         rejected: (state, action) => {
           console.error("getProfile rejected", action.error);
           // state.status = "failed";
+        },
+      },
+    ),
+
+    oauthCallback: create.asyncThunk(
+      async (params: URLSearchParams, thunkAPI) => {
+        const { bluesky } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+        };
+        if (!bluesky.client) {
+          throw new Error("No client");
+        }
+        try {
+          const ret = await bluesky.client.callback(params);
+          return ret.session as any;
+        } catch (e) {
+          let message = e.message;
+          while (e.cause) {
+            message = `${message}: ${e.cause.message}`;
+            e = e.cause;
+          }
+          console.error("oauthCallback error", message);
+          throw e;
+        }
+      },
+
+      {
+        pending: (state) => {
+          // state.status = "loading";
+        },
+        fulfilled: (state, action) => {
+          console.log("oauthCallback fulfilled", action.payload);
+          return {
+            ...state,
+            oauthSession: action.payload as any,
+            pdsAgent: new Agent(action.payload) as any,
+          };
+        },
+        rejected: (state, action) => {
+          console.error("oauthCallback rejected", action.error);
         },
       },
     ),
@@ -245,8 +289,14 @@ export const blueskySlice = createAppSlice({
 });
 
 // Action creators are generated for each case reducer function.
-export const { loadOAuthClient, login, getProfile, logout, golivePost } =
-  blueskySlice.actions;
+export const {
+  loadOAuthClient,
+  login,
+  getProfile,
+  logout,
+  golivePost,
+  oauthCallback,
+} = blueskySlice.actions;
 
 // Selectors returned by `slice.selectors` take the root state as their first argument.
 export const { selectOAuthSession, selectProfiles, selectUserProfile } =

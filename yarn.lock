@@ -67,6 +67,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@atproto-labs/fetch-node@npm:0.1.3":
+  version: 0.1.3
+  resolution: "@atproto-labs/fetch-node@npm:0.1.3"
+  dependencies:
+    "@atproto-labs/fetch": "npm:0.1.1"
+    "@atproto-labs/pipe": "npm:0.1.0"
+    ipaddr.js: "npm:^2.1.0"
+    psl: "npm:^1.9.0"
+    undici: "npm:^6.14.1"
+  checksum: 10/7d8e13bd42998be7ece29e9418cf10b0ebf2b90967ca009b5e03e767153f4e3025ac0c67f9cdfe3e02561c8dfc9a961d407b3613b7c8302465526e7233ff9d2b
+  languageName: node
+  linkType: hard
+
 "@atproto-labs/fetch@npm:0.1.1":
   version: 0.1.1
   resolution: "@atproto-labs/fetch@npm:0.1.1"
@@ -77,6 +90,17 @@ __metadata:
     zod:
       optional: true
   checksum: 10/557f290e1a0078f022e74b1b663b782979d9a378e6f7575d50cd2eafd1cf20aa52986544b01b586c30505704ec5624630e8718826c7d08768ac775a3b059bae0
+  languageName: node
+  linkType: hard
+
+"@atproto-labs/handle-resolver-node@npm:0.1.7":
+  version: 0.1.7
+  resolution: "@atproto-labs/handle-resolver-node@npm:0.1.7"
+  dependencies:
+    "@atproto-labs/fetch-node": "npm:0.1.3"
+    "@atproto-labs/handle-resolver": "npm:0.1.4"
+    "@atproto/did": "npm:0.1.3"
+  checksum: 10/d7f1896a7154978a8037a443ae8c1d6786febcfebb77f2e1a09eca6083ecc51f5a4473a49779b9720cc9e17bbd335111339b139b2e6112e3d1403e5af3f2f986
   languageName: node
   linkType: hard
 
@@ -223,6 +247,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@atproto/oauth-client-react-native@file:/home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz::locator=aquareum%40workspace%3Ajs%2Fapp":
+  version: 0.0.1
+  resolution: "@atproto/oauth-client-react-native@file:/home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz#/home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz::hash=048f9f&locator=aquareum%40workspace%3Ajs%2Fapp"
+  dependencies:
+    "@atproto-labs/did-resolver": "npm:0.1.5"
+    "@atproto-labs/handle-resolver-node": "npm:0.1.7"
+    "@atproto-labs/simple-store": "npm:0.1.1"
+    "@atproto-labs/simple-store-memory": "npm:0.1.1"
+    "@atproto/did": "npm:0.1.3"
+    "@atproto/jwk": "npm:0.1.1"
+    "@atproto/jwk-jose": "npm:0.1.2"
+    "@atproto/jwk-webcrypto": "npm:0.1.2"
+    "@atproto/oauth-client": "npm:0.3.2"
+    "@atproto/oauth-types": "npm:0.2.1"
+    jose: "npm:^5.2.0"
+    react-native-quick-crypto: "npm:^0.7.7"
+  checksum: 10/da897dbad7d04c5923ca4819dd6e31c65041c5f44e623c5e071aa9b94c291701d38c16764ec9bec7f2855e0c1fd146d4ee700d3c2129d64b6c4153fcfc2d939d
+  languageName: node
+  linkType: hard
+
 "@atproto/oauth-client@npm:0.3.1, @atproto/oauth-client@npm:^0.3.1":
   version: 0.3.1
   resolution: "@atproto/oauth-client@npm:0.3.1"
@@ -243,6 +287,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@atproto/oauth-client@npm:0.3.2":
+  version: 0.3.2
+  resolution: "@atproto/oauth-client@npm:0.3.2"
+  dependencies:
+    "@atproto-labs/did-resolver": "npm:0.1.5"
+    "@atproto-labs/fetch": "npm:0.1.1"
+    "@atproto-labs/handle-resolver": "npm:0.1.4"
+    "@atproto-labs/identity-resolver": "npm:0.1.6"
+    "@atproto-labs/simple-store": "npm:0.1.1"
+    "@atproto-labs/simple-store-memory": "npm:0.1.1"
+    "@atproto/did": "npm:0.1.3"
+    "@atproto/jwk": "npm:0.1.1"
+    "@atproto/oauth-types": "npm:0.2.1"
+    "@atproto/xrpc": "npm:0.6.4"
+    multiformats: "npm:^9.9.0"
+    zod: "npm:^3.23.8"
+  checksum: 10/0c24457411f69b036cd0c553eaa9853d459b124b48396da6561896ab693766187bfc8b5c48aa552d0085802abaac39a3020d7ce905961e999bd9d3df699a78e1
+  languageName: node
+  linkType: hard
+
 "@atproto/oauth-types@npm:0.2.0":
   version: 0.2.0
   resolution: "@atproto/oauth-types@npm:0.2.0"
@@ -250,6 +314,16 @@ __metadata:
     "@atproto/jwk": "npm:0.1.1"
     zod: "npm:^3.23.8"
   checksum: 10/e526a936f66c7c7dc6bdb3792ffac7fa168c9908a39f28a89ff5183b3e13961b264dcee9dbf3dfcbaa5ec67aedbc8c08f9d4b0b061c99badb6055ae8e491cadb
+  languageName: node
+  linkType: hard
+
+"@atproto/oauth-types@npm:0.2.1":
+  version: 0.2.1
+  resolution: "@atproto/oauth-types@npm:0.2.1"
+  dependencies:
+    "@atproto/jwk": "npm:0.1.1"
+    zod: "npm:^3.23.8"
+  checksum: 10/24a9955a51582301ddf1fdc470d8dac73b13cdecf4d5739419401e5d30b0d840a01f1d06988c25851bff350a5c00caf8f9e19b3e20bfc7033ba2971e26c27277
   languageName: node
   linkType: hard
 
@@ -2645,6 +2719,16 @@ __metadata:
     eventemitter3: "npm:^5.0.1"
     preact: "npm:^10.16.0"
   checksum: 10/5db6ab86a2c5c2d327e98c1e22ecbbc44d91d0aa5003606adbff2c2c6d7cd590e81bcae101c02501afd78848c966e3f0aafbee24a7f5a0fdb08ee89dfdc2600f
+  languageName: node
+  linkType: hard
+
+"@craftzdog/react-native-buffer@npm:^6.0.5":
+  version: 6.0.5
+  resolution: "@craftzdog/react-native-buffer@npm:6.0.5"
+  dependencies:
+    ieee754: "npm:^1.2.1"
+    react-native-quick-base64: "npm:^2.0.5"
+  checksum: 10/9963b430d0cd2af030605a7e81b3982dfec36603406d4f14d520e28936d24a79d69ca4e8a3b650734f6e45b12d87f1bd1ce86f0db11379103e7b1c024a2510d5
   languageName: node
   linkType: hard
 
@@ -10780,6 +10864,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"abortcontroller-polyfill@npm:^1.7.6":
+  version: 1.7.6
+  resolution: "abortcontroller-polyfill@npm:1.7.6"
+  checksum: 10/71d9a380270be5ade5d5aca6cddd08ebd94e3ad2b10a3bcfe179b8c8b6234c426c8a9ab316c5238b52d21edd086417d9c8679b6f1b981f976960ff1d09175c4c
+  languageName: node
+  linkType: hard
+
 "accepts@npm:^1.3.7, accepts@npm:^1.3.8, accepts@npm:~1.3.4, accepts@npm:~1.3.5, accepts@npm:~1.3.8":
   version: 1.3.8
   resolution: "accepts@npm:1.3.8"
@@ -11163,6 +11254,7 @@ __metadata:
     "@atproto-labs/pipe": "npm:^0.1.0"
     "@atproto/jwk-jose": "npm:^0.1.2"
     "@atproto/oauth-client": "npm:^0.3.1"
+    "@atproto/oauth-client-react-native": /home/iameli/code/atproto/packages/oauth/oauth-client-react-native/atproto-oauth-client-react-native-0.0.1.tgz
     "@babel/core": "npm:^7.26.0"
     "@babel/plugin-proposal-export-default-from": "npm:^7.25.9"
     "@babel/plugin-syntax-export-default-from": "npm:^7.25.9"
@@ -11190,9 +11282,11 @@ __metadata:
     "@types/babel__plugin-transform-runtime": "npm:^7"
     "@types/react": "npm:~18.3.12"
     "@types/uuid": "npm:^10.0.0"
+    abortcontroller-polyfill: "npm:^1.7.6"
     babel-preset-expo: "npm:~12.0.0"
     burnt: "npm:^0.12.2"
     chrono-node: "npm:^2.7.7"
+    event-target-shim: "npm:^6.0.2"
     expo: "npm:~52.0.8"
     expo-build-properties: "npm:~0.13.1"
     expo-dev-client: "npm:~5.0.3"
@@ -11206,13 +11300,15 @@ __metadata:
     expo-system-ui: "npm:~4.0.3"
     expo-updates: "npm:~0.26.7"
     expo-video: "npm:~2.0.1"
-    expo-web-browser: "npm:~14.0.1"
+    expo-web-browser: "npm:^14.0.1"
     hls.js: "npm:^1.5.17"
+    jose: "npm:^5.9.6"
     react: "npm:18.3.1"
     react-dom: "npm:18.3.1"
     react-native: "npm:0.76.2"
     react-native-gesture-handler: "npm:~2.20.2"
     react-native-markdown-display: "npm:^7.0.2"
+    react-native-quick-crypto: "npm:^0.7.7"
     react-native-reanimated: "npm:~3.16.1"
     react-native-safe-area-context: "npm:4.12.0"
     react-native-screens: "npm:~4.1.0"
@@ -14997,6 +15093,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"event-target-shim@npm:^6.0.2":
+  version: 6.0.2
+  resolution: "event-target-shim@npm:6.0.2"
+  checksum: 10/aa69fc4193cad3f1e4dc0c2d3f2689ea2d477f5ff2fbee8b65f866035b15658e1985932b06ba2190c3d2cc9cc6802c26facd6c60487590c1a05f44545ec24f42
+  languageName: node
+  linkType: hard
+
 "eventemitter2@npm:^6.4.7":
   version: 6.4.9
   resolution: "eventemitter2@npm:6.4.9"
@@ -15428,7 +15531,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-web-browser@npm:~14.0.1":
+"expo-web-browser@npm:^14.0.1":
   version: 14.0.1
   resolution: "expo-web-browser@npm:14.0.1"
   peerDependencies:
@@ -17833,7 +17936,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ipaddr.js@npm:^2.0.1":
+"ipaddr.js@npm:^2.0.1, ipaddr.js@npm:^2.1.0":
   version: 2.2.0
   resolution: "ipaddr.js@npm:2.2.0"
   checksum: 10/9e1cdd9110b3bca5d910ab70d7fb1933e9c485d9b92cb14ef39f30c412ba3fe02a553921bf696efc7149cc653453c48ccf173adb996ec27d925f1f340f872986
@@ -18635,7 +18738,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jose@npm:^5.2.0":
+"jose@npm:^5.2.0, jose@npm:^5.9.6":
   version: 5.9.6
   resolution: "jose@npm:5.9.6"
   checksum: 10/3ebbda9f6a96d493944f2720bf4436347884666cd87b7087a61cff12a3b540fe6fd743b5eb8defe7bc2a45aa58992ae6687da78797d91fc4e3e5e8588aa98c7d
@@ -23061,6 +23164,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"psl@npm:^1.9.0":
+  version: 1.13.0
+  resolution: "psl@npm:1.13.0"
+  dependencies:
+    punycode: "npm:^2.3.1"
+  checksum: 10/75e4f441f42b2a33ae5100b6e37241dec2eb6c548d7d319ca86ffed8ebd772da7a32ce52f7537a51505bca78362311166063ccf0f636c2f70a51da548e992a4a
+  languageName: node
+  linkType: hard
+
 "pump@npm:^3.0.0":
   version: 3.0.0
   resolution: "pump@npm:3.0.0"
@@ -23071,7 +23183,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"punycode@npm:^2.1.0, punycode@npm:^2.1.1":
+"punycode@npm:^2.1.0, punycode@npm:^2.1.1, punycode@npm:^2.3.1":
   version: 2.3.1
   resolution: "punycode@npm:2.3.1"
   checksum: 10/febdc4362bead22f9e2608ff0171713230b57aff9dddc1c273aa2a651fbd366f94b7d6a71d78342a7c0819906750351ca7f2edd26ea41b626d87d6a13d1bd059
@@ -23369,6 +23481,34 @@ __metadata:
     react: ">=16.2.0"
     react-native: ">=0.50.4"
   checksum: 10/d7fb3eb7797cc5ba136fd76326c163d83e8dc3ce318891fd4749ac484f74741527c98654d405379e5c8115f9fb935f164710f89601102048bd2f07dd5767ef0c
+  languageName: node
+  linkType: hard
+
+"react-native-quick-base64@npm:^2.0.5":
+  version: 2.1.2
+  resolution: "react-native-quick-base64@npm:2.1.2"
+  dependencies:
+    base64-js: "npm:^1.5.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/20b205612417a6c39452ad3ebd205d74fcfaa244832ec9e717b87ee075bf28076bf2445e8f690aad8cf0be6f3da89b4148eb8379d0b71d1c953bd06f66cc7c56
+  languageName: node
+  linkType: hard
+
+"react-native-quick-crypto@npm:^0.7.7":
+  version: 0.7.7
+  resolution: "react-native-quick-crypto@npm:0.7.7"
+  dependencies:
+    "@craftzdog/react-native-buffer": "npm:^6.0.5"
+    events: "npm:^3.3.0"
+    readable-stream: "npm:^4.5.2"
+    string_decoder: "npm:^1.3.0"
+    util: "npm:^0.12.5"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/abf275933f87d4b30a3849e104a60eade75bbe6c790dad1a0ad593395e531784b93ede8d008ca7c6f669b10d9151081bbeb88cfc1eef8a65450471f981d64206
   languageName: node
   linkType: hard
 
@@ -23765,7 +23905,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"readable-stream@npm:^3.6.2 || ^4.4.2":
+"readable-stream@npm:^3.6.2 || ^4.4.2, readable-stream@npm:^4.5.2":
   version: 4.5.2
   resolution: "readable-stream@npm:4.5.2"
   dependencies:
@@ -26460,7 +26600,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici@npm:^6.18.2":
+"undici@npm:^6.14.1, undici@npm:^6.18.2":
   version: 6.21.0
   resolution: "undici@npm:6.21.0"
   checksum: 10/c8ff80dcadfcf613e7fe697c37519fca070fcf1cfccc69ffb6a7080a22e225eb79d232e9f70e32b099b3e67ac4216e8fd615e188cfb792e09df9233471ec17e0

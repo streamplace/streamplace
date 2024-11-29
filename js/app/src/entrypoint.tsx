@@ -2,7 +2,8 @@
 // hot module reloading works properly on web.
 
 import "@expo/metro-runtime";
-import { registerRootComponent } from "expo";
+import "./polyfills";
 import Router from "./router";
+import { registerRootComponent } from "expo";
 
 registerRootComponent(Router);

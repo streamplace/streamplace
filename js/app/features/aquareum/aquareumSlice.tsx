@@ -2,6 +2,9 @@ import { createAppSlice } from "../../hooks/createSlice";
 import { isWeb } from "tamagui";
 import { SignTypedDataFn } from "hooks/useWallet.shared";
 import schema from "generated/eip712-schema.json";
+import Storage from "../../storage/storage";
+
+const storage = new Storage();
 
 let DEFAULT_URL = process.env.EXPO_PUBLIC_AQUAREUM_URL as string;
 if (isWeb && process.env.EXPO_PUBLIC_WEB_TRY_LOCAL === "true") {
@@ -22,18 +25,49 @@ export interface Identity {
 export interface AquareumState {
   url: string;
   identity: Identity | null;
+  initialized: boolean;
 }
 
 const initialState: AquareumState = {
   url: DEFAULT_URL,
   identity: null,
+  initialized: false,
 };
 
 export const aquareumSlice = createAppSlice({
   name: "aquareum",
   initialState,
   reducers: (create) => ({
+    initialize: create.asyncThunk(
+      async (_, { getState }) => {
+        let url = await storage.getItem("aquareumUrl");
+        if (!url) {
+          url = DEFAULT_URL;
+        }
+        return url;
+      },
+      {
+        pending: (state) => {
+          // state.status = "loading";
+        },
+        fulfilled: (state, action) => {
+          const url = action.payload;
+          return {
+            ...state,
+            url,
+            initialized: true,
+          };
+        },
+        rejected: (_, { error }) => {
+          // state.status = "failed";
+        },
+      },
+    ),
+
     setURL: create.reducer((state, action: { payload: string }) => {
+      storage.setItem("aquareumUrl", action.payload).catch((err) => {
+        console.error("setURL error", err);
+      });
       return {
         ...state,
         url: action.payload,
@@ -142,5 +176,6 @@ export const aquareumSlice = createAppSlice({
 });
 
 // Action creators are generated for each case reducer function.
-export const { getIdentity, putIdentity, setURL } = aquareumSlice.actions;
+export const { getIdentity, putIdentity, setURL, initialize } =
+  aquareumSlice.actions;
 export const { selectAquareum } = aquareumSlice.selectors;

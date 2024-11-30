@@ -4,7 +4,6 @@ import { OAuthSession } from "@atproto/oauth-client";
 import { AquareumState } from "features/aquareum/aquareumSlice";
 import { openLoginLink } from "features/platform/platformSlice";
 import Storage from "storage";
-import { isWeb } from "tamagui";
 import { createAppSlice } from "../../hooks/createSlice";
 import createOAuthClient, { AquareumOAuthClient } from "./oauthClient";
 export interface BlueskyState {
@@ -33,23 +32,7 @@ export const blueskySlice = createAppSlice({
       async (_, { getState }) => {
         const { aquareum } = getState() as { aquareum: AquareumState };
         const client = await createOAuthClient(aquareum.url);
-        let initResult;
-        if (isWeb) {
-          initResult = await client.init();
-          if (initResult && "session" in initResult) {
-            await Storage.setItem("did", initResult.session.did);
-          }
-        } else {
-          const did = await Storage.getItem("did");
-          if (did) {
-            try {
-              const session = await client.restore(did);
-              initResult = { session };
-            } catch (e) {
-              await Storage.removeItem("did");
-            }
-          }
-        }
+        let initResult = await client.init();
         return { client, initResult };
       },
       {
@@ -67,7 +50,7 @@ export const blueskySlice = createAppSlice({
             return {
               ...state,
               client: client,
-              oauthSession: initResult.session,
+              oauthSession: initResult.session as any,
               pdsAgent: new Agent(initResult.session),
             };
           }

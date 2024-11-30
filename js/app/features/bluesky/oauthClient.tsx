@@ -2,7 +2,7 @@ import {
   ClientMetadata,
   clientMetadataSchema,
   ReactNativeOAuthClient,
-} from "@atproto/oauth-client-react-native";
+} from "@aquareum/atproto-oauth-client-react-native";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 

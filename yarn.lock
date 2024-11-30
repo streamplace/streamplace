@@ -53,6 +53,30 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aquareum/atproto-oauth-client-react-native@npm:^0.0.1":
+  version: 0.0.1
+  resolution: "@aquareum/atproto-oauth-client-react-native@npm:0.0.1"
+  dependencies:
+    "@atproto-labs/did-resolver": "npm:0.1.5"
+    "@atproto-labs/handle-resolver-node": "npm:0.1.7"
+    "@atproto-labs/simple-store": "npm:0.1.1"
+    "@atproto-labs/simple-store-memory": "npm:0.1.1"
+    "@atproto/did": "npm:0.1.3"
+    "@atproto/jwk": "npm:0.1.1"
+    "@atproto/jwk-jose": "npm:0.1.2"
+    "@atproto/jwk-webcrypto": "npm:0.1.2"
+    "@atproto/oauth-client": "npm:0.3.2"
+    "@atproto/oauth-client-browser": "npm:0.3.2"
+    "@atproto/oauth-types": "npm:0.2.1"
+    abortcontroller-polyfill: "npm:^1.7.6"
+    event-target-shim: "npm:^6.0.2"
+    expo-sqlite: "npm:^15.0.3"
+    jose: "npm:^5.2.0"
+    react-native-quick-crypto: "npm:^0.7.7"
+  checksum: 10/73263e06756f8acfc526a6e89d5e68df9b2930b839ba6748a498f1b7e5d5480d31e068037f95bd7b7d1611be8565da80f045d85506ced7d79e4e132f6182a371
+  languageName: node
+  linkType: hard
+
 "@atproto-labs/did-resolver@npm:0.1.5":
   version: 0.1.5
   resolution: "@atproto-labs/did-resolver@npm:0.1.5"
@@ -260,28 +284,6 @@ __metadata:
     "@atproto/oauth-client": "npm:0.3.1"
     "@atproto/oauth-types": "npm:0.2.0"
   checksum: 10/e8aa99f68c382884b082ab60473045b8f38d1c8a8fb247ad5cda831d7d6fce4ece4fca7d25e8c2cccce6738e7a4dc810e640a559dde0375d39d3df6e92b8f5c3
-  languageName: node
-  linkType: hard
-
-"@atproto/oauth-client-react-native@file:/tmp/atproto-oauth-client-react-native-0.0.1.tgz::locator=aquareum%40workspace%3Ajs%2Fapp":
-  version: 0.0.1
-  resolution: "@atproto/oauth-client-react-native@file:/tmp/atproto-oauth-client-react-native-0.0.1.tgz#/tmp/atproto-oauth-client-react-native-0.0.1.tgz::hash=749334&locator=aquareum%40workspace%3Ajs%2Fapp"
-  dependencies:
-    "@atproto-labs/did-resolver": "npm:0.1.5"
-    "@atproto-labs/handle-resolver-node": "npm:0.1.7"
-    "@atproto-labs/simple-store": "npm:0.1.1"
-    "@atproto-labs/simple-store-memory": "npm:0.1.1"
-    "@atproto/did": "npm:0.1.3"
-    "@atproto/jwk": "npm:0.1.1"
-    "@atproto/jwk-jose": "npm:0.1.2"
-    "@atproto/jwk-webcrypto": "npm:0.1.2"
-    "@atproto/oauth-client": "npm:0.3.2"
-    "@atproto/oauth-client-browser": "npm:0.3.2"
-    "@atproto/oauth-types": "npm:0.2.1"
-    expo-sqlite: "npm:^15.0.3"
-    jose: "npm:^5.2.0"
-    react-native-quick-crypto: "npm:^0.7.7"
-  checksum: 10/8b4463d529114fe517fa8aefea60035fe6a4275c25dbe9c93b72b4f523fcb9391e19b36b29b59eaf82ea76dcbc04f479dc9401137ce65f2cee96cef044f56fde
   languageName: node
   linkType: hard
 
@@ -11269,10 +11271,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "aquareum@workspace:js/app"
   dependencies:
+    "@aquareum/atproto-oauth-client-react-native": "npm:^0.0.1"
     "@atproto-labs/pipe": "npm:^0.1.0"
     "@atproto/jwk-jose": "npm:^0.1.2"
     "@atproto/oauth-client": "npm:^0.3.1"
-    "@atproto/oauth-client-react-native": /tmp/atproto-oauth-client-react-native-0.0.1.tgz
     "@babel/core": "npm:^7.26.0"
     "@babel/plugin-proposal-export-default-from": "npm:^7.25.9"
     "@babel/plugin-syntax-export-default-from": "npm:^7.25.9"

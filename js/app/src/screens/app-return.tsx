@@ -14,7 +14,7 @@ export default function AppReturnScreen({ route }) {
         fontSize="$8"
         padding="$6"
         onPress={() => {
-          Linking.openURL(`${scheme}:/app-return${document.location.search}`);
+          document.location.href = `${scheme}:/app-return${document.location.search}`;
         }}
       >
         Complete login

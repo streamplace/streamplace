@@ -11,8 +11,8 @@ import { PortalProvider, TamaguiProvider } from "tamagui";
 import config from "tamagui.config";
 import { CurrentToast } from "./CurrentToast";
 import { Provider as ReduxProvider } from "react-redux";
-import { store } from "store/store";
 import BlueskyProvider from "features/bluesky/blueskyProvider";
+import { store } from "store/store";
 export default function Provider({
   children,
   linking,

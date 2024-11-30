@@ -23,7 +23,12 @@ import StreamList from "components/stream-list/stream-list";
 import { selectUserProfile } from "features/bluesky/blueskySlice";
 import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
-import { ImageBackground, ImageSourcePropType, Pressable } from "react-native";
+import {
+  ImageBackground,
+  ImageSourcePropType,
+  Pressable,
+  StatusBar,
+} from "react-native";
 import { useAppSelector } from "store/hooks";
 import { useTheme, View } from "tamagui";
 import AppReturnScreen from "./screens/app-return";
@@ -147,85 +152,87 @@ export function AquareumDrawer() {
     // }
   }, []);
   return (
-    <Drawer.Navigator
-      initialRouteName="Home"
-      screenOptions={{
-        headerLeft: () => <NavigationButton />,
-        headerRight: () => <AvatarButton />,
-        drawerActiveTintColor: theme.accentColor.val,
-        headerStyle: {},
-      }}
-    >
-      <Drawer.Screen
-        name="Home"
-        component={MainTab}
-        options={{
-          drawerIcon: () => <Home />,
-          headerTitle: "Aquareum",
-          headerShown: isWeb,
-          title: "Aquareum",
+    <>
+      <StatusBar backgroundColor={theme.background.val} />
+      <Drawer.Navigator
+        initialRouteName="Home"
+        screenOptions={{
+          headerLeft: () => <NavigationButton />,
+          headerRight: () => <AvatarButton />,
+          drawerActiveTintColor: theme.accentColor.val,
         }}
-        listeners={{
-          drawerItemPress: (e) => {
-            e.preventDefault();
-            navigation.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [
-                  {
-                    name: "Home",
-                    state: {
-                      routes: [{ name: "StreamList" }],
-                    },
-                  },
-                ],
-              }),
-            );
-          },
-        }}
-      />
-      <Drawer.Screen
-        name="Settings"
-        component={Settings}
-        options={{ drawerIcon: () => <SettingsIcon /> }}
-      />
-      <Drawer.Screen
-        name="Multi"
-        component={MultiScreen}
-        options={{
-          drawerLabel: () => null,
-          drawerItemStyle: { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="Support"
-        component={SupportScreen}
-        options={{
-          drawerLabel: () => null,
-          drawerItemStyle: { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="AppReturn"
-        component={AppReturnScreen}
-        options={{
-          drawerLabel: () => null,
-          drawerItemStyle: { display: "none" },
-        }}
-      />
-      <Drawer.Screen
-        name="Login"
-        component={Login}
-        options={{ drawerIcon: () => <LogIn /> }}
-      />
-      {isElectron && (
+      >
         <Drawer.Screen
-          name="GoLive"
-          component={GoLiveScreen}
-          options={{ headerTitle: "Go Live", drawerIcon: () => <Video /> }}
+          name="Home"
+          component={MainTab}
+          options={{
+            drawerIcon: () => <Home />,
+            headerTitle: "Aquareum",
+            headerShown: isWeb,
+            title: "Aquareum",
+          }}
+          listeners={{
+            drawerItemPress: (e) => {
+              e.preventDefault();
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [
+                    {
+                      name: "Home",
+                      state: {
+                        routes: [{ name: "StreamList" }],
+                      },
+                    },
+                  ],
+                }),
+              );
+            },
+          }}
         />
-      )}
-    </Drawer.Navigator>
+        <Drawer.Screen
+          name="Settings"
+          component={Settings}
+          options={{ drawerIcon: () => <SettingsIcon /> }}
+        />
+        <Drawer.Screen
+          name="Multi"
+          component={MultiScreen}
+          options={{
+            drawerLabel: () => null,
+            drawerItemStyle: { display: "none" },
+          }}
+        />
+        <Drawer.Screen
+          name="Support"
+          component={SupportScreen}
+          options={{
+            drawerLabel: () => null,
+            drawerItemStyle: { display: "none" },
+          }}
+        />
+        <Drawer.Screen
+          name="AppReturn"
+          component={AppReturnScreen}
+          options={{
+            drawerLabel: () => null,
+            drawerItemStyle: { display: "none" },
+          }}
+        />
+        <Drawer.Screen
+          name="Login"
+          component={Login}
+          options={{ drawerIcon: () => <LogIn /> }}
+        />
+        {isElectron && (
+          <Drawer.Screen
+            name="GoLive"
+            component={GoLiveScreen}
+            options={{ headerTitle: "Go Live", drawerIcon: () => <Video /> }}
+          />
+        )}
+      </Drawer.Navigator>
+    </>
   );
 }
 
@@ -233,7 +240,6 @@ const MainTab = () => {
   const theme = useTheme();
   const { isWeb } = usePlatform();
   return (
-    // <SafeAreaView style={{ flex: 1, backgroundColor: theme.background.val }}>
     <Stack.Navigator
       initialRouteName="StreamList"
       screenOptions={{
@@ -258,6 +264,5 @@ const MainTab = () => {
         }}
       />
     </Stack.Navigator>
-    // </SafeAreaView>
   );
 };

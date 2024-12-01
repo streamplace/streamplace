@@ -13,6 +13,15 @@ export interface BlueskyState {
   pdsAgent: null | Agent;
   profiles: { [key: string]: ProfileViewDetailed };
   client: null | AquareumOAuthClient;
+  login: {
+    loading: boolean;
+    error: null | string;
+  };
+  pds: {
+    url: string;
+    loading: boolean;
+    error: null | string;
+  };
 }
 
 const initialState: BlueskyState = {
@@ -22,6 +31,15 @@ const initialState: BlueskyState = {
   pdsAgent: null,
   profiles: {},
   client: null,
+  login: {
+    loading: false,
+    error: null,
+  },
+  pds: {
+    url: "bsky.social",
+    loading: false,
+    error: null,
+  },
 };
 
 export const blueskySlice = createAppSlice({
@@ -80,20 +98,36 @@ export const blueskySlice = createAppSlice({
         }
         const u = await bluesky.client.authorize(pds);
         thunkAPI.dispatch(openLoginLink(u.toString()));
+        // cheeky 500ms delay so you don't see the text flash back
+        await new Promise((resolve) => setTimeout(resolve, 500));
       },
       {
         pending: (state) => {
-          // state.status = "loading";
+          return {
+            ...state,
+            login: {
+              loading: true,
+              error: null,
+            },
+          };
         },
         fulfilled: (state, action) => {
           // document.location.href = action.payload.toString();
-          return state;
-        },
-        rejected: (state, action) => {
-          console.error("login rejected", action.error);
           return {
             ...state,
-            profiles: {},
+            login: {
+              loading: false,
+              error: null,
+            },
+          };
+        },
+        rejected: (state, action) => {
+          return {
+            ...state,
+            login: {
+              loading: false,
+              error: action.error?.message ?? null,
+            },
           };
           // state.status = "failed";
         },
@@ -279,12 +313,53 @@ export const blueskySlice = createAppSlice({
         },
       },
     ),
+    setPDS: create.asyncThunk(
+      async (pds: string, thunkAPI) => {
+        await Storage.setItem("pdsURL", pds);
+        return pds;
+      },
+      {
+        pending: (state, action) => {
+          return {
+            ...state,
+            pds: {
+              ...state.pds,
+              loading: true,
+            },
+          };
+        },
+        fulfilled: (state, action) => {
+          // document.location.href = action.payload.toString();
+          console.log("setPDS fulfilled", action.payload);
+          return {
+            ...state,
+            pds: {
+              ...state.pds,
+              loading: false,
+              url: action.payload,
+            },
+          };
+        },
+        rejected: (state, action) => {
+          return {
+            ...state,
+            pds: {
+              ...state.pds,
+              loading: false,
+              error: action.error?.message ?? null,
+            },
+          };
+        },
+      },
+    ),
   }),
 
   // You can define your selectors here. These selectors receive the slice
   // state as their first argument.
   selectors: {
     selectOAuthSession: (bluesky) => bluesky.oauthSession,
+    selectPDS: (bluesky) => bluesky.pds,
+    selectLogin: (bluesky) => bluesky.login,
     selectProfiles: (bluesky) => bluesky.profiles,
     selectUserProfile: (bluesky) => {
       const did = bluesky.oauthSession?.did;
@@ -302,8 +377,14 @@ export const {
   logout,
   golivePost,
   oauthCallback,
+  setPDS,
 } = blueskySlice.actions;
 
 // Selectors returned by `slice.selectors` take the root state as their first argument.
-export const { selectOAuthSession, selectProfiles, selectUserProfile } =
-  blueskySlice.selectors;
+export const {
+  selectOAuthSession,
+  selectProfiles,
+  selectUserProfile,
+  selectPDS,
+  selectLogin,
+} = blueskySlice.selectors;

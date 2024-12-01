@@ -1,16 +1,27 @@
 import {
-  login,
   logout,
   selectUserProfile,
+  selectPDS,
+  setPDS,
+  selectLogin,
+  login,
 } from "features/bluesky/blueskySlice";
-import usePlatform from "hooks/usePlatform";
+import { useState } from "react";
+import { Keyboard } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { Button, Text, View } from "tamagui";
+import { Button, H3, Input, Sheet, Text, View, Form, Spinner } from "tamagui";
 
 export default function Login() {
   const dispatch = useAppDispatch();
   const userProfile = useAppSelector(selectUserProfile);
-  const { isWeb } = usePlatform();
+  const pds = useAppSelector(selectPDS);
+  const loginState = useAppSelector(selectLogin);
+  console.log("pds", pds);
+  const [open, setOpen] = useState(false);
+  const onOpenChange = (open: boolean) => {
+    setOpen(open);
+    Keyboard.dismiss();
+  };
 
   if (userProfile) {
     return (
@@ -22,15 +33,109 @@ export default function Login() {
   }
 
   return (
-    <View f={1} jc="center" ai="center">
+    <View f={1} jc="center" ai="center" backgroundColor="$gray1" padding="$4">
+      <ChangePDS open={open} onOpenChange={onOpenChange} />
       {/* <Text>{error}</Text> */}
       <Button
+        width="100%"
         onPress={async () => {
-          dispatch(login("https://bsky.social"));
+          await dispatch(login(`https://${pds.url}`));
         }}
+        margin="$4"
+        backgroundColor="$accentColor"
+        disabled={loginState.loading}
       >
-        Log in with Bluesky
+        <Text>
+          {loginState.loading ? <Spinner /> : `Log in with ${pds.url}`}
+        </Text>
+      </Button>
+      <Button width="100%" onPress={() => onOpenChange(true)} margin="$4">
+        Change PDS
       </Button>
     </View>
+  );
+}
+
+export function ChangePDS({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const pds = useAppSelector(selectPDS);
+  const dispatch = useAppDispatch();
+  const [newURL, setNewURL] = useState("");
+  return (
+    <Sheet
+      forceRemoveScrollEnabled={open}
+      modal={true}
+      open={open}
+      onOpenChange={onOpenChange}
+      dismissOnSnapToBottom
+      zIndex={100_000}
+      animation="medium"
+    >
+      <Sheet.Overlay
+        animation="lazy"
+        enterStyle={{ opacity: 0 }}
+        exitStyle={{ opacity: 0 }}
+      />
+
+      <Sheet.Handle />
+      <Sheet.Frame
+        padding="$4"
+        justifyContent="center"
+        alignItems="center"
+        gap="$5"
+        backgroundColor="$accentBackground"
+      >
+        <Form
+          justifyContent="center"
+          alignItems="stretch"
+          width="100%"
+          gap="$5"
+          f={1}
+          display="flex"
+          onSubmit={async () => {
+            await dispatch(setPDS(newURL));
+            onOpenChange(false);
+          }}
+        >
+          {/* <Button
+          size="$6"
+          circular
+          icon={ChevronDown}
+          onPress={() => onOpenChange(false)}
+        /> */}
+          <H3 width="100%" textAlign="left">
+            Custom PDS URL:
+          </H3>
+          <Input
+            width="100%"
+            placeholder="example.com"
+            textContentType="URL"
+            keyboardType="url"
+            value={newURL}
+            onChangeText={(text) => setNewURL(text)}
+          />
+          <Form.Trigger asChild disabled={pds.loading}>
+            <Button width="100%" size="$6" backgroundColor="$accentColor">
+              {pds.loading ? <Spinner /> : <Text>Save</Text>}
+            </Button>
+          </Form.Trigger>
+          <Button
+            width="100%"
+            size="$6"
+            onPress={async () => {
+              await dispatch(setPDS("bsky.social"));
+              onOpenChange(false);
+            }}
+          >
+            <Text>Use default (bsky.social)</Text>
+          </Button>
+        </Form>
+      </Sheet.Frame>
+    </Sheet>
   );
 }

@@ -66,11 +66,11 @@ export default function StreamList({
       }
     })();
   }, [url, retryTime]);
-  if (loading && streams.length === 0) {
-    return <Loading></Loading>;
-  }
   if (error) {
     return <ErrorBox onRetry={() => setRetryTime(Date.now())} />;
+  }
+  if (loading && streams.length === 0) {
+    return <Loading></Loading>;
   }
   return (
     <ScrollView

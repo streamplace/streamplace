@@ -39,7 +39,10 @@ type Model interface {
 
 	GetRepo(did string) (*Repo, error)
 	GetRepoByHandle(handle string) (*Repo, error)
+	GetRepoByAquareumKey(aquareumKey string) (*Repo, error)
 	UpdateRepo(repo *Repo) error
+
+	GetLiveUsers() ([]Segment, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -55,9 +58,12 @@ func MakeDB(dbURL string) (Model, error) {
 	}
 	dial := sqlite.Open(sqliteSuffix)
 
-	gormLogger := slogGorm.New(slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
-		TimeFormat: time.RFC3339,
-	})))
+	gormLogger := slogGorm.New(
+		slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+			TimeFormat: time.RFC3339,
+		})),
+		// slogGorm.WithTraceAll(),
+	)
 
 	db, err := gorm.Open(dial, &gorm.Config{
 		SkipDefaultTransaction: true,

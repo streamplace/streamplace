@@ -116,6 +116,7 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.PUT("/api/identity/:id", a.HandleIdentityPUT(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	apiRouter.GET("/api/atproto-oauth/:platform", a.HandleATProtoOAuth(ctx))
+	apiRouter.GET("/api/live-users", a.HandleLiveUsers(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	router.Handler("GET", "/api/*resource", apiRouter)
 	router.Handler("POST", "/api/*resource", apiRouter)
@@ -359,6 +360,22 @@ func (a *AquareumAPI) HandleRecentSegments(ctx context.Context) httprouter.Handl
 			return
 		}
 		w.Header().Add("Content-Type", "application/json")
+		w.Write(bs)
+	}
+}
+
+func (a *AquareumAPI) HandleLiveUsers(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		repos, err := a.Model.GetLiveUsers()
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not get live users", err)
+			return
+		}
+		bs, err := json.Marshal(repos)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not marshal live users", err)
+			return
+		}
 		w.Write(bs)
 	}
 }

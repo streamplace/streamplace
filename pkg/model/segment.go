@@ -2,6 +2,8 @@ package model
 
 import (
 	"time"
+
+	"aquareum.tv/aquareum/pkg/aqtime"
 )
 
 type Segment struct {
@@ -9,6 +11,7 @@ type Segment struct {
 	User      string    `json:"user"      gorm:"index:latest_segments"`
 	StartTime time.Time `json:"startTime" gorm:"index:latest_segments"`
 	Title     string    `json:"title"`
+	Repo      *Repo     `json:"repo,omitempty" gorm:"foreignKey:User;references:AquareumKey"`
 }
 
 func (m *DBModel) CreateSegment(seg *Segment) error {
@@ -46,4 +49,25 @@ func (m *DBModel) LatestSegmentForUser(user string) (*Segment, error) {
 		return nil, err
 	}
 	return &seg, nil
+}
+
+func (m *DBModel) GetLiveUsers() ([]Segment, error) {
+	var liveUsers []Segment
+	thirtySecondsAgo := aqtime.FromTime(time.Now().Add(-30 * time.Second)).Time()
+
+	err := m.DB.Model(&Segment{}).
+		Preload("Repo").
+		Where("start_time >= ?", thirtySecondsAgo).
+		Where("start_time = (SELECT MAX(start_time) FROM segments s2 WHERE s2.user = segments.user)").
+		Order("start_time DESC").
+		Find(&liveUsers).Error
+
+	if err != nil {
+		return nil, err
+	}
+	if liveUsers == nil {
+		return []Segment{}, nil
+	}
+
+	return liveUsers, nil
 }

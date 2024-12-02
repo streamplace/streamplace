@@ -119,7 +119,7 @@ if (require("electron-squirrel-startup")) {
     if (nodeFrontend) {
       startPath = `${loadAddr}${args.path}`;
     } else {
-      startPath = `http://localhost:38081${args.path}`;
+      startPath = `http://127.0.0.1:38081${args.path}`;
     }
     console.log(`opening ${startPath}`);
     mainWindow.loadURL(startPath);
@@ -171,13 +171,13 @@ if (require("electron-squirrel-startup")) {
       }));
       const enc = encodeURIComponent(JSON.stringify(tests));
 
-      console.log(`http://localhost:38081/multi/${enc}`);
+      console.log(`http://127.0.0.1:38081/multi/${enc}`);
 
       let load;
       if (nodeFrontend) {
         load = `${addr}/multi/${enc}`;
       } else {
-        load = `http://localhost:38081/multi/${enc}`;
+        load = `http://127.0.0.1:38081/multi/${enc}`;
       }
       console.log(`opening ${load}`);
       mainWindow.loadURL(load);

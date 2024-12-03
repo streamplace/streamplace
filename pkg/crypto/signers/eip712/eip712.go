@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"aquareum.tv/aquareum/pkg/log"
-	_ "aquareum.tv/aquareum/pkg/media/mediatesting"
 	"aquareum.tv/aquareum/pkg/schema"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"

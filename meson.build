@@ -74,6 +74,12 @@ c2pa_go_proj = subproject(
 )
 c2pa_go_dep = c2pa_go_proj.get_variable('c2pa_go_dep')
 
+mediamtx_proj = subproject(
+  'mediamtx',
+  default_options: {},
+)
+mediamtx_dep = mediamtx_proj.get_variable('mediamtx_dep')
+
 aquareum_deps = []
 # if host_machine.system() == 'linux'
 #   mistserver_proj = subproject(
@@ -244,6 +250,7 @@ aquareum = executable(
   ['cmd/aquareum/aquareum.c', libaquareum],
   dependencies: [
     aquareum_deps,
+    mediamtx_dep,
   ],
   link_with: [c2pa_go_dep],
 )

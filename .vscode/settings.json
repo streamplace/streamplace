@@ -6,7 +6,8 @@
   "files.associations": {
     "mistserver.h": "c",
     "aquareum.h": "c",
-    "avfilter.h": "c"
+    "avfilter.h": "c",
+    "string.h": "c"
   },
   "mesonbuild.configureOnOpen": false
 }

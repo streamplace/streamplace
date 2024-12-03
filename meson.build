@@ -15,22 +15,7 @@ fs = import('fs')
 
 prog_go = find_program('go')
 
-flagbuilder = custom_target(
-  'flagbuilder',
-  input: ['pkg/config/git/git.go'],
-  output: ['flagbuilder'],
-  command: [prog_go, 'build', '-o', '@OUTPUT0@', '@INPUT@'],
-  build_always_stale: true,
-)
-
-flags = custom_target(
-  'flags',
-  input: [],
-  output: ['build-flags.go'],
-  command: [flagbuilder, '-o', '@OUTPUT0@'],
-  build_always_stale: true,
-)
-
+run_command(prog_go, 'run', 'pkg/config/git/git.go', '-o', '@0@/build-flags.go'.format(meson.current_build_dir()), check: true)
 version_cmd = run_command(prog_go, 'run', 'pkg/config/git/git.go', '-v', check: true)
 version = version_cmd.stdout().strip()
 
@@ -205,22 +190,6 @@ aquareum_deps += [
   dependency('gstplayback'),
 ]
 
-libaquareum = custom_target(
-  'libaquareum',
-  input: [aquareum_go, flags],
-  output: ['aquareum.a', 'aquareum.h'],
-  command: [
-    prog_go,
-    'build',
-    '-o', '@OUTPUT0@',
-    '-buildmode', 'c-archive',
-    '-tags', 'netgo',
-    '@INPUT@',
-  ],
-  build_always_stale: true,
-  env: env,
-)
-
 if host_machine.system() == 'darwin'
   aquareum_deps += [dependency('appleframeworks', modules: ['CoreFoundation', 'Security'])]
 endif
@@ -247,12 +216,12 @@ pkg.generate(
 
 aquareum = executable(
   'aquareum',
-  ['cmd/aquareum/aquareum.c', libaquareum],
+  ['cmd/aquareum/aquareum.c'],
   dependencies: [
     aquareum_deps,
     mediamtx_dep,
+    c2pa_go_dep,
   ],
-  link_with: [c2pa_go_dep],
 )
 
 if not meson.is_cross_build()

@@ -1,0 +1,8 @@
+[wrap-git]
+directory = mediamtx
+url = https://github.com/bluenviron/mediamtx.git
+revision = v1.10.0
+patch_directory = mediamtx
+
+[provide]
+dependency_names = mediamtx

@@ -244,8 +244,8 @@ aquareum = executable(
   ['cmd/aquareum/aquareum.c', libaquareum],
   dependencies: [
     aquareum_deps,
+    c2pa_go_dep,
   ],
-  link_with: [c2pa_go_dep],
 )
 
 if not meson.is_cross_build()

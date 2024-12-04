@@ -38,6 +38,8 @@ import (
 	_ "github.com/go-gst/go-gst/gst"
 )
 
+// #cgo pkg-config: aquareumdeps-uninstalled
+
 // Additional jobs that can be injected by platforms
 type jobFunc func(ctx context.Context, cli *config.CLI) error
 

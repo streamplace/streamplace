@@ -63,7 +63,6 @@ mediamtx_proj = subproject(
   'mediamtx',
   default_options: {},
 )
-mediamtx_dep = mediamtx_proj.get_variable('mediamtx_dep')
 
 aquareum_deps = []
 # if host_machine.system() == 'linux'
@@ -183,6 +182,7 @@ gstreamer_proj = subproject(
 gst_full_dep = gstreamer_proj.get_variable('gst_full_dep')
 aquareum_deps += [
   gst_full_dep,
+  dependency('glib-2.0'),
   dependency('gio-2.0'),
   dependency('gstreamer-controller-1.0'),
   dependency('gstreamer-app-1.0'),
@@ -207,10 +207,39 @@ if host_machine.system() == 'windows'
   )
 endif
 
+libmediamtx = custom_target(
+  'libmediamtx',
+  input: ['cmd/libaquareum/aquareum.go'],
+  output: ['mediamtx.a'],
+  command: [
+    'bash',
+    '-x',
+    '-c',
+    'export OUT="$(realpath @OUTPUT0@)"'
+    + ' && export DIR="$(realpath ../subprojects/mediamtx)"'
+    + ' && cp build-flags.go "$DIR"'
+    + ' && cd "$DIR"'
+    + ' && cp ../../cmd/libaquareum/aquareum.go .'
+    + ' && echo "replace aquareum.tv/aquareum => ../.." >> go.mod'
+    + ' && cat ../../go.mod | grep replace >> go.mod'
+    + ' && go mod tidy'
+    + ' && go generate ./...'
+    + ' && go build -o $OUT -buildmode c-archive -tags netgo main.go aquareum.go build-flags.go',
+  ],
+  env: env,
+  build_always_stale: true,
+)
+
+mediamtx_dep = declare_dependency(
+  include_directories: include_directories('.'),
+  dependencies: [],
+  link_with: [libmediamtx],
+)
+
 pkg = import('pkgconfig')
 pkg.generate(
   name: 'aquareumdeps',
-  libraries: [aquareum_deps, c2pa_go_dep],
+  libraries: [aquareum_deps, c2pa_go_dep, mediamtx_dep],
   description: 'all aquareum dependencies bundled for easy inclusion',
 )
 
@@ -222,6 +251,7 @@ aquareum = executable(
     mediamtx_dep,
     c2pa_go_dep,
   ],
+  link_with: [libmediamtx],
 )
 
 if not meson.is_cross_build()

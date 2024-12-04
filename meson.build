@@ -210,7 +210,7 @@ endif
 libmediamtx = custom_target(
   'libmediamtx',
   input: ['cmd/libaquareum/aquareum.go'],
-  output: ['mediamtx.a'],
+  output: ['mediamtx.a', 'mediamtx.h'],
   command: [
     'bash',
     '-x',
@@ -232,8 +232,8 @@ libmediamtx = custom_target(
 
 mediamtx_dep = declare_dependency(
   include_directories: include_directories('.'),
-  dependencies: [],
-  link_with: [libmediamtx],
+  sources: [libmediamtx[1]],
+  link_with: [libmediamtx[0]],
 )
 
 pkg = import('pkgconfig')
@@ -251,7 +251,6 @@ aquareum = executable(
     mediamtx_dep,
     c2pa_go_dep,
   ],
-  link_with: [libmediamtx],
 )
 
 if not meson.is_cross_build()

@@ -13,7 +13,7 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN apt update \
   && apt install -y build-essential curl git openjdk-17-jdk unzip jq g++ python3-pip ninja-build \
   gcc-aarch64-linux-gnu g++-aarch64-linux-gnu clang lld qemu-user-static pkg-config \
-  nasm gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64-tools zip bison flex expect \
+  nasm gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64-tools zip bison flex expect libssl-dev cmake \
   mono-runtime nuget mono-xsp4 squashfs-tools \
   && pip install meson tomli \
   && curl -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
@@ -32,7 +32,7 @@ RUN  echo 'deb [arch=arm64] http://ports.ubuntu.com/ jammy main multiverse unive
   && echo 'deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates main multiverse universe' >> /etc/apt/sources.list \
   && dpkg --add-architecture arm64 \
   && bash -c "apt update || echo 'ignoring errors'" \
-  && apt install -y libc6:arm64 libstdc++6:arm64
+  && apt install -y libc6:arm64 libstdc++6:arm64 libssl-dev:arm64
 
 RUN export NODEARCH="$TARGETARCH" \
   && if [ "$TARGETARCH" = "amd64" ]; then export NODEARCH="x64"; fi \
@@ -60,6 +60,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh \
   && rustup target add x86_64-apple-darwin \
   && rustup target add aarch64-apple-darwin \
   && rm rustup.sh
+
+RUN cargo install cargo-c
 
 RUN go env -w GOTOOLCHAIN=go$GO_VERSION
 

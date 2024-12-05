@@ -70,8 +70,6 @@ WORKDIR /cached-build
 RUN git clone https://git.aquareum.tv/aquareum-tv/aquareum \
   && cd aquareum \
   && make version install check app android -j$(nproc) \
-  && make node \
-  && make test \
   && cd .. \
   && rm -rf aquareum
 

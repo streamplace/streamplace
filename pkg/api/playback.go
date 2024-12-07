@@ -15,6 +15,7 @@ import (
 	"aquareum.tv/aquareum/pkg/aqwebrtc"
 	"aquareum.tv/aquareum/pkg/atproto"
 	"aquareum.tv/aquareum/pkg/errors"
+	"aquareum.tv/aquareum/pkg/log"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pion/webrtc/v4"
 	"golang.org/x/sync/errgroup"
@@ -142,11 +143,18 @@ func (a *AquareumAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Handl
 			return
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
-		answer, err := aqwebrtc.WebRTCPlayback(ctx, &offer)
+		pr, pw := io.Pipe()
+		answer, err := aqwebrtc.WebRTCPlayback(ctx, &offer, pr)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "error playing back", err)
 			return
 		}
+		go func() {
+			err := a.MediaManager.SegmentToMKV(ctx, user, pw)
+			if err != nil {
+				log.Log(ctx, "error writing segment to mkv", err)
+			}
+		}()
 		w.WriteHeader(201)
 		w.Header().Add("Location", r.URL.Path)
 		w.Write([]byte(answer.SDP))

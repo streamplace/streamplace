@@ -127,6 +127,13 @@ func (mm *MediaManager) PublishSegment(ctx context.Context, user, file string) {
 	mm.mp4subs[user] = []chan string{}
 }
 
+func (mm *MediaManager) SegmentToMKV(ctx context.Context, user string, w io.Writer) error {
+	muxer := ffmpeg.ComponentOptions{
+		Name: "matroska",
+	}
+	return mm.SegmentToStream(ctx, user, muxer, w)
+}
+
 func (mm *MediaManager) SegmentToMKVPlusOpus(ctx context.Context, user string, w io.Writer) error {
 	muxer := ffmpeg.ComponentOptions{
 		Name: "matroska",

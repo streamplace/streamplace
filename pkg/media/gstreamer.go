@@ -18,6 +18,8 @@ import (
 	"github.com/go-gst/go-glib/glib"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"github.com/pion/webrtc/v4"
+	"github.com/pion/webrtc/v4/pkg/media"
 	"github.com/skip2/go-qrcode"
 	"golang.org/x/sync/errgroup"
 )
@@ -397,6 +399,125 @@ func (mm *MediaManager) ToHLS(ctx context.Context, input io.Reader, m3u8 *M3U8) 
 				}
 				m3u8.FragmentClosed(ctx, runningTimeInt)
 			}
+		default:
+			log.Debug(ctx, msg.String())
+		}
+		return true
+	})
+
+	// Start the pipeline
+	pipeline.SetState(gst.StatePlaying)
+
+	mainLoop.Run()
+	log.Log(ctx, "main loop complete")
+
+	return nil
+}
+
+func ToWHEP(ctx context.Context, input io.Reader, videoTrack *webrtc.TrackLocalStaticSample, audioTrack *webrtc.TrackLocalStaticSample) error {
+	mainLoop := glib.NewMainLoop(glib.MainContextDefault(), false)
+	ctx = log.WithLogValues(ctx, "GStreamerFunc", "ToWHEP")
+
+	pipelineSlice := []string{
+		"appsrc name=appsrc ! matroskademux name=demux",
+		"demux.video_0 ! queue ! h264parse name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink name=videoappsink",
+		"demux.audio_0 ! queue ! fdkaacdec ! audioresample ! opusenc inband-fec=true perfect-timestamp=true bitrate=128000 ! appsink name=audioappsink",
+	}
+
+	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	if err != nil {
+		return fmt.Errorf("error creating ToWHEP pipeline: %w", err)
+	}
+
+	appsrc, err := pipeline.GetElementByName("appsrc")
+	if err != nil {
+		return err
+	}
+
+	src := app.SrcFromElement(appsrc)
+	src.SetCallbacks(&app.SourceCallbacks{
+		NeedDataFunc: readerNeedData(ctx, input),
+	})
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		<-ctx.Done()
+		pipeline.BlockSetState(gst.StateNull)
+		mainLoop.Quit()
+	}()
+
+	videoappsinkele, err := pipeline.GetElementByName("videoappsink")
+	if err != nil {
+		return err
+	}
+	videoappsink := app.SinkFromElement(videoappsinkele)
+	videoappsink.SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+			sample := sink.PullSample()
+			if sample == nil {
+				return gst.FlowEOS
+			}
+
+			buffer := sample.GetBuffer()
+			if buffer == nil {
+				return gst.FlowError
+			}
+
+			samples := buffer.Map(gst.MapRead).Bytes()
+			defer buffer.Unmap()
+
+			if err := videoTrack.WriteSample(media.Sample{Data: samples, Duration: *buffer.Duration().AsDuration()}); err != nil {
+				panic(err) //nolint
+			}
+
+			return gst.FlowOK
+		},
+		EOSFunc: func(sink *app.Sink) {
+			cancel()
+		},
+	})
+
+	audioappsinkele, err := pipeline.GetElementByName("audioappsink")
+	if err != nil {
+		return err
+	}
+	audioappsink := app.SinkFromElement(audioappsinkele)
+	audioappsink.SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+			sample := sink.PullSample()
+			if sample == nil {
+				return gst.FlowEOS
+			}
+
+			buffer := sample.GetBuffer()
+			if buffer == nil {
+				return gst.FlowError
+			}
+
+			samples := buffer.Map(gst.MapRead).Bytes()
+			defer buffer.Unmap()
+
+			if err := audioTrack.WriteSample(media.Sample{Data: samples, Duration: *buffer.Duration().AsDuration()}); err != nil {
+				panic(err) //nolint
+			}
+
+			return gst.FlowOK
+		},
+	})
+
+	pipeline.GetPipelineBus().AddWatch(func(msg *gst.Message) bool {
+		switch msg.Type() {
+
+		case gst.MessageEOS: // When end-of-stream is received flush the pipeling and stop the main loop
+			mainLoop.Quit()
+		case gst.MessageError: // Error messages are always fatal
+			err := msg.ParseError()
+			log.Error(ctx, "gstreamer error", "error", err.Error())
+			if debug := err.DebugString(); debug != "" {
+				log.Log(ctx, "gstreamer debug", "message", debug)
+			}
+			mainLoop.Quit()
 		default:
 			log.Debug(ctx, msg.String())
 		}

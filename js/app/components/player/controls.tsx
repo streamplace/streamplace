@@ -29,6 +29,7 @@ import {
   PROTOCOL_HLS,
   PROTOCOL_PROGRESSIVE_MP4,
   PROTOCOL_PROGRESSIVE_WEBM,
+  PROTOCOL_WEBRTC,
 } from "./props";
 
 const Bar = (props) => (
@@ -284,6 +285,20 @@ function GearMenu(props: PlayerProps) {
                   : Circle
               }
               onPress={() => props.setProtocol(PROTOCOL_PROGRESSIVE_WEBM)}
+            />
+          </YGroup.Item>
+          <Separator />
+          <YGroup.Item>
+            <ListItem
+              hoverTheme
+              pressTheme
+              title="WebRTC"
+              subTitle="Lowest latency, probably"
+              icon={Moon}
+              iconAfter={
+                props.protocol === PROTOCOL_WEBRTC ? CheckCircle : Circle
+              }
+              onPress={() => props.setProtocol(PROTOCOL_WEBRTC)}
             />
           </YGroup.Item>
         </>

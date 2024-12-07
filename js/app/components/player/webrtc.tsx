@@ -1,8 +1,3 @@
-/**
- * Example implementation of a client that uses WHEP to playback video over WebRTC
- *
- * https://www.ietf.org/id/draft-murillo-whep-00.html
- */
 export default class WHEPClient {
   endpoint: string;
   videoElement: HTMLVideoElement;
@@ -169,10 +164,18 @@ async function waitToCompleteICEGathering(peerConnection: RTCPeerConnection) {
       if (peerConnection.connectionState === "closed") {
         return;
       }
+      console.log("ice gathering timeout:");
       resolve(peerConnection.localDescription);
     }, 1000);
-    peerConnection.onicegatheringstatechange = (ev) =>
-      peerConnection.iceGatheringState === "complete" &&
-      resolve(peerConnection.localDescription);
+    peerConnection.onicegatheringstatechange = (ev) => {
+      if (peerConnection.iceGatheringState === "complete") {
+        console.log("ice gathering complete");
+        resolve(peerConnection.localDescription);
+      }
+      console.log(
+        `onicegatheringstatechange (ice gathering state ${peerConnection.iceGatheringState}):`,
+        ev,
+      );
+    };
   });
 }

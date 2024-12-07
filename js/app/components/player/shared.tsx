@@ -4,6 +4,7 @@ import {
   PROTOCOL_HLS,
   PROTOCOL_PROGRESSIVE_MP4,
   PROTOCOL_PROGRESSIVE_WEBM,
+  PROTOCOL_WEBRTC,
 } from "./props";
 import { useMemo } from "react";
 
@@ -37,8 +38,10 @@ export function srcToUrl(props: PlayerProps): {
       outUrl = `${url}/api/playback/${props.src}/stream.mp4`;
     } else if (props.protocol === PROTOCOL_PROGRESSIVE_WEBM) {
       outUrl = `${url}/api/playback/${props.src}/stream.webm`;
+    } else if (props.protocol === PROTOCOL_WEBRTC) {
+      outUrl = `${url}/api/playback/${props.src}/webrtc`;
     } else {
-      throw new Error(`unknown playback protocol: ${url}`);
+      throw new Error(`unknown playback protocol: ${props.protocol}`);
     }
     return {
       protocol: props.protocol,

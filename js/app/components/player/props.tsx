@@ -5,6 +5,7 @@ export type PlayerProps = {
   muted: boolean;
   fullscreen: boolean;
   protocol: string;
+  forceProtocol?: string;
   showControls: boolean;
   telemetry: boolean;
   setMuted: (isMuted: boolean) => void;
@@ -34,6 +35,7 @@ export type PlayerEvent = {
 export const PROTOCOL_HLS = "hls";
 export const PROTOCOL_PROGRESSIVE_MP4 = "progressive-mp4";
 export const PROTOCOL_PROGRESSIVE_WEBM = "progressive-webm";
+export const PROTOCOL_WEBRTC = "webrtc";
 
 export enum PlayerStatus {
   START = "start",

@@ -1,5 +1,5 @@
 import Hls from "hls.js";
-import { ForwardedRef, forwardRef, RefObject, useEffect } from "react";
+import { ForwardedRef, forwardRef, RefObject, useEffect, useRef } from "react";
 import { View } from "tamagui";
 import {
   PlayerProps,
@@ -7,8 +7,11 @@ import {
   PROTOCOL_HLS,
   PROTOCOL_PROGRESSIVE_MP4,
   PROTOCOL_PROGRESSIVE_WEBM,
+  PROTOCOL_WEBRTC,
 } from "./props";
 import { srcToUrl } from "./shared";
+import useAquareumNode from "hooks/useAquareumNode";
+import WHEPClient from "./webrtc";
 
 type VideoProps = PlayerProps & { url: string };
 
@@ -30,6 +33,8 @@ export default function WebVideo(
     return <ProgressiveWebMPlayer url={url} {...props} />;
   } else if (protocol === PROTOCOL_HLS) {
     return <HLSPlayer url={url} {...props} />;
+  } else if (protocol === PROTOCOL_WEBRTC) {
+    return <WebRTCPlayer url={url} {...props} />;
   } else {
     throw new Error(`unknown playback protocol ${props.protocol}`);
   }
@@ -165,20 +170,22 @@ export function HLSPlayer(
   return <VideoElement {...props} ref={videoRef} />;
 }
 
-// export function WebRTCPlayer(props: { src: string }) {
-//   const videoRef = useRef<HTMLVideoElement | null>(null);
-//   const { url } = useAquareumNode();
-//   useEffect(() => {
-//     if (!videoRef.current) {
-//       return;
-//     }
-//     const client = new WHEPClient(
-//       `${url}/api/webrtc/${props.src}`,
-//       videoRef.current,
-//     );
-//     return () => {
-//       client.close();
-//     };
-//   }, [videoRef.current]);
-//   return <VideoElement ref={videoRef} />;
-// }
+export function WebRTCPlayer(
+  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
+) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const { url } = useAquareumNode();
+  useEffect(() => {
+    if (!videoRef.current) {
+      return;
+    }
+    const client = new WHEPClient(
+      `${url}/api/playback/${props.src}/webrtc`,
+      videoRef.current,
+    );
+    return () => {
+      client.close();
+    };
+  }, [videoRef.current]);
+  return <VideoElement {...props} ref={videoRef} />;
+}

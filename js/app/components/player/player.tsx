@@ -49,6 +49,9 @@ export function Player(props: Partial<PlayerProps>) {
   } else if (plat.isFirefox) {
     defProto = PROTOCOL_HLS;
   }
+  if (props.forceProtocol) {
+    defProto = props.forceProtocol;
+  }
   const { url } = useAquareumNode();
   const info = usePlatform();
   const playerEvent = async (

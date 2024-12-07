@@ -90,7 +90,10 @@ export default function StreamList({
       {streams.map((segment, i) => (
         <View flex={1} key={i} alignItems="stretch">
           <AQLink
-            to={{ screen: "Stream", params: { user: segment.repo.handle } }}
+            to={{
+              screen: "Stream",
+              params: { user: segment.repo?.handle || segment.user },
+            }}
           >
             <View
               alignItems="center"
@@ -104,7 +107,7 @@ export default function StreamList({
                 f={1}
                 aspectRatio={16 / 9}
                 width="100%"
-                src={`${url}/api/playback/${segment.repo.aquareumKey}/stream.jpg`}
+                src={`${url}/api/playback/${segment.user}/stream.jpg`}
                 resizeMode="contain"
                 objectFit="contain"
               />

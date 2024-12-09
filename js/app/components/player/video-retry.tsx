@@ -27,9 +27,5 @@ export default function VideoRetry(
     return () => clearTimeout(handle);
   }, [isPlaying, resetTime, retryCount]);
 
-  useEffect(() => {
-    console.log(`VideoRetry useEffect ${resetTime}`);
-  }, [resetTime]);
-
   return <React.Fragment key={resetTime}>{props.children}</React.Fragment>;
 }

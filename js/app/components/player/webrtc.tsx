@@ -169,18 +169,12 @@ async function waitToCompleteICEGathering(peerConnection: RTCPeerConnection) {
       if (peerConnection.connectionState === "closed") {
         return;
       }
-      console.log("ice gathering timeout:");
       resolve(peerConnection.localDescription);
     }, 1000);
     peerConnection.onicegatheringstatechange = (ev) => {
       if (peerConnection.iceGatheringState === "complete") {
-        console.log("ice gathering complete");
         resolve(peerConnection.localDescription);
       }
-      console.log(
-        `onicegatheringstatechange (ice gathering state ${peerConnection.iceGatheringState}):`,
-        ev,
-      );
     };
   });
 }

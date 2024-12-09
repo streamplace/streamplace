@@ -1,13 +1,15 @@
 import {
+  Antenna,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
   Circle,
   Maximize,
   Minimize,
-  Moon,
   Settings,
+  Shell,
   Sparkle,
+  Squirrel,
   Star,
   Volume2,
   VolumeX,
@@ -262,7 +264,7 @@ function GearMenu(props: PlayerProps) {
               pressTheme
               title="Progressive MP4"
               subTitle="MP4 but loooong"
-              icon={Moon}
+              icon={Shell}
               iconAfter={
                 props.protocol === PROTOCOL_PROGRESSIVE_MP4
                   ? CheckCircle
@@ -278,7 +280,7 @@ function GearMenu(props: PlayerProps) {
               pressTheme
               title="Progressive WebM"
               subTitle="WebM but loooong"
-              icon={Moon}
+              icon={Squirrel}
               iconAfter={
                 props.protocol === PROTOCOL_PROGRESSIVE_WEBM
                   ? CheckCircle
@@ -294,7 +296,7 @@ function GearMenu(props: PlayerProps) {
               pressTheme
               title="WebRTC"
               subTitle="Lowest latency, probably"
-              icon={Moon}
+              icon={Antenna}
               iconAfter={
                 props.protocol === PROTOCOL_WEBRTC ? CheckCircle : Circle
               }

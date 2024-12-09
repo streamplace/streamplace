@@ -23,6 +23,7 @@ func WebRTCPlayback(ctx context.Context, input io.Reader, offer *webrtc.SessionD
 	}
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String())
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	ctx = log.WithLogValues(ctx, "GStreamerFunc", "ToWHEP")
 
@@ -235,6 +236,7 @@ func WebRTCPlayback(ctx context.Context, input io.Reader, offer *webrtc.SessionD
 				// Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
 				// Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
 				log.Log(ctx, "Peer Connection has gone to failed exiting")
+				cancel()
 			}
 		})
 

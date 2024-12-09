@@ -162,6 +162,10 @@ if (require("electron-squirrel-startup")) {
           name: "progressive-webm",
           src: "/stream.webm",
         },
+        {
+          name: "webrtc",
+          src: "/webrtc",
+        },
       ];
       const tests = definitions.map((x) => ({
         name: x.name,

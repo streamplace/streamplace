@@ -139,7 +139,11 @@ export default function StreamList({
                 </View>
                 <View bg="$red10" w={15} h={15} margin={5} borderRadius="$10" />
               </View>
-              <H6>@{segment.repo.handle}</H6>
+              <H6>
+                {segment.repo?.handle
+                  ? `@${segment.repo.handle}`
+                  : segment.user}
+              </H6>
             </View>
           </AQLink>
         </View>

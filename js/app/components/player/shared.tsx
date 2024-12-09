@@ -12,6 +12,7 @@ const protocolSuffixes = {
   m3u8: PROTOCOL_HLS,
   mp4: PROTOCOL_PROGRESSIVE_MP4,
   webm: PROTOCOL_PROGRESSIVE_WEBM,
+  webrtc: PROTOCOL_WEBRTC,
 };
 
 export function srcToUrl(props: PlayerProps): {
@@ -21,7 +22,8 @@ export function srcToUrl(props: PlayerProps): {
   const { url } = useAquareumNode();
   return useMemo(() => {
     if (props.src.startsWith("http://") || props.src.startsWith("https://")) {
-      const suffix = props.src.split(".").pop() as string;
+      const segments = props.src.split(/[./]/);
+      const suffix = segments[segments.length - 1];
       if (protocolSuffixes[suffix]) {
         return {
           url: props.src,

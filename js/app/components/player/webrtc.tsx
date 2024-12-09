@@ -4,6 +4,7 @@ export default class WHEPClient {
   peerConnection: RTCPeerConnection;
   stream: MediaStream;
   constructor(endpoint, videoElement) {
+    console.log("WHEPClient constructor");
     this.endpoint = endpoint;
     this.videoElement = videoElement;
     this.stream = new MediaStream();
@@ -45,14 +46,18 @@ export default class WHEPClient {
       switch (track.kind) {
         case "video":
           if (streamAlreadyHasVideoTrack) {
+            console.log("already has video track");
             break;
           }
+          console.log("adding video track");
           this.stream.addTrack(track);
           break;
         case "audio":
           if (streamAlreadyHasAudioTrack) {
+            console.log("already has audio track");
             break;
           }
+          console.log("adding audio track");
           this.stream.addTrack(track);
           break;
         default:

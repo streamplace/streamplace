@@ -1,5 +1,12 @@
 import Hls from "hls.js";
-import { ForwardedRef, forwardRef, RefObject, useEffect, useRef } from "react";
+import {
+  ForwardedRef,
+  forwardRef,
+  RefObject,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import { View } from "tamagui";
 import {
   PlayerProps,
@@ -10,7 +17,6 @@ import {
   PROTOCOL_WEBRTC,
 } from "./props";
 import { srcToUrl } from "./shared";
-import useAquareumNode from "hooks/useAquareumNode";
 import WHEPClient from "./webrtc";
 
 type VideoProps = PlayerProps & { url: string };
@@ -46,6 +52,7 @@ const updateEvents = {
   waiting: true,
   stalled: true,
   pause: true,
+  suspend: true,
 };
 
 const VideoElement = forwardRef(
@@ -173,19 +180,25 @@ export function HLSPlayer(
 export function WebRTCPlayer(
   props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
 ) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const { url } = useAquareumNode();
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
+    null,
+  );
+
+  const handleRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node) {
+      setVideoElement(node);
+    }
+  }, []);
+
   useEffect(() => {
-    if (!videoRef.current) {
+    if (!videoElement) {
       return;
     }
-    const client = new WHEPClient(
-      `${url}/api/playback/${props.src}/webrtc`,
-      videoRef.current,
-    );
+    const client = new WHEPClient(props.url, videoElement);
     return () => {
       client.close();
     };
-  }, [videoRef.current]);
-  return <VideoElement {...props} ref={videoRef} />;
+  }, [videoElement]);
+
+  return <VideoElement {...props} ref={handleRef} />;
 }

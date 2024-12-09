@@ -41,6 +41,7 @@ export enum PlayerStatus {
   START = "start",
   PLAYING = "playing",
   STALLED = "stalled",
+  SUSPEND = "suspend",
   WAITING = "waiting",
   PAUSE = "pause",
 }

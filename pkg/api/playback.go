@@ -144,7 +144,7 @@ func (a *AquareumAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Handl
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
 		pr, pw := io.Pipe()
-		answer, err := aqwebrtc.WebRTCPlayback(ctx, &offer, pr)
+		answer, err := aqwebrtc.WebRTCPlayback(ctx, pr, &offer)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "error playing back", err)
 			return

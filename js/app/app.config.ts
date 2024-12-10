@@ -111,6 +111,7 @@ export default function () {
         favicon: "./assets/images/favicon.png",
       },
       plugins: [
+        "@config-plugins/react-native-webrtc",
         ["expo-sqlite", { useSQLCipher: true }],
         "expo-file-system",
         [

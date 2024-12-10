@@ -37,6 +37,7 @@ export default class WHEPClient {
     this.peerConnection.ontrack = (event) => {
       const track = event.track;
       const currentTracks = this.stream.getTracks();
+      console.log(event.streams[0].getTracks());
       const streamAlreadyHasVideoTrack = currentTracks.some(
         (track) => track.kind === "video",
       );

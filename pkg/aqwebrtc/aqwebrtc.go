@@ -23,7 +23,6 @@ func WebRTCPlayback(ctx context.Context, input io.Reader, offer *webrtc.SessionD
 	}
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String())
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	ctx = log.WithLogValues(ctx, "GStreamerFunc", "ToWHEP")
 

@@ -10,7 +10,7 @@ import {
   PlayerStatus,
   PlayerStatusTracker,
   PROTOCOL_HLS,
-  PROTOCOL_PROGRESSIVE_MP4,
+  PROTOCOL_WEBRTC,
 } from "./props";
 
 const HIDE_CONTROLS_AFTER = 2000;
@@ -41,7 +41,7 @@ export function Player(props: Partial<PlayerProps>) {
     setShowControls(true);
   };
   const plat = usePlatform();
-  let defProto = PROTOCOL_PROGRESSIVE_MP4;
+  let defProto = PROTOCOL_WEBRTC;
   if (plat.isIOS) {
     defProto = PROTOCOL_HLS;
   } else if (plat.isSafari) {

@@ -90,7 +90,6 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
 };
 
 const AvatarButton = () => {
-  const navigation = useNavigation();
   const userProfile = useAppSelector(selectUserProfile);
   let source: ImageSourcePropType | undefined = undefined;
   let opacity = 1;

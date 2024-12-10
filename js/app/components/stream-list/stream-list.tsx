@@ -1,4 +1,3 @@
-import { useNavigation } from "@react-navigation/native";
 import AQLink from "components/aqlink";
 import ErrorBox from "components/error/error";
 import Loading from "components/loading/loading";
@@ -37,7 +36,6 @@ export default function StreamList({
   const [loading, setLoading] = useState<boolean>(false);
   const [retryTime, setRetryTime] = useState<number>(Date.now());
   const { url } = useAquareumNode();
-  const navigation = useNavigation();
   useEffect(() => {
     const interval = setInterval(() => {
       setRetryTime(Date.now());

@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from "react";
 import { useVideoPlayer, VideoPlayerEvents, VideoView } from "expo-video";
-import { PlayerProps, PlayerStatus, PROTOCOL_WEBRTC } from "./props";
-import { srcToUrl } from "./shared";
+import React, { useEffect, useState } from "react";
 import {
   MediaStream,
   RTCPeerConnection,
   RTCSessionDescription,
   RTCView,
 } from "react-native-webrtc";
-import { View, Text } from "tamagui";
+import { View } from "tamagui";
+import { PlayerProps, PlayerStatus, PROTOCOL_WEBRTC } from "./props";
+import { srcToUrl } from "./shared";
 
 // export function Player() {
 //   return <View f={1}></View>;
@@ -95,28 +95,32 @@ export function NativeWHEP(props: PlayerProps) {
   useEffect(() => {
     const client = new NativeWHEPClient(url, setMediaStream);
     setClient(client);
-    props.setStatus(PlayerStatus.PLAYING);
     return () => {
       client.close();
     };
   }, [url]);
+  useEffect(() => {
+    if (!mediaStream) {
+      props.setStatus(PlayerStatus.WAITING);
+      return;
+    }
+    props.setStatus(PlayerStatus.PLAYING);
+  }, [mediaStream]);
   if (!client || !mediaStream) {
-    return (
-      <View>
-        <Text>Loading</Text>
-      </View>
-    );
+    return <View></View>;
   }
   return (
-    <View zIndex={999999} f={1} bg={"red"}>
-      <RTCView
-        mirror={false}
-        objectFit={"contain"}
-        streamURL={mediaStream.toURL()}
-        zOrder={888}
-        style={{ width: "100%", height: "100%", backgroundColor: "#111" }}
-      />
-    </View>
+    <RTCView
+      mirror={false}
+      objectFit={"contain"}
+      streamURL={mediaStream.toURL()}
+      style={{
+        width: "100%",
+        height: "100%",
+        backgroundColor: "#111",
+        flex: 1,
+      }}
+    />
   );
 }
 
@@ -167,26 +171,6 @@ export class NativeWHEPClient {
       // const streamAlreadyHasAudioTrack = currentTracks.some(
       //   (track) => track.kind === "audio",
       // );
-      // switch (track.kind) {
-      //   case "video":
-      //     if (streamAlreadyHasVideoTrack) {
-      //       console.log("already has video track");
-      //       break;
-      //     }
-      //     console.log("adding video track");
-      //     this.stream.addTrack(track);
-      //     break;
-      //   case "audio":
-      //     if (streamAlreadyHasAudioTrack) {
-      //       console.log("already has audio track");
-      //       break;
-      //     }
-      //     console.log("adding audio track");
-      //     this.stream.addTrack(track);
-      //     break;
-      //   default:
-      //     console.log("got unknown track " + track);
-      // }
     });
     this.peerConnection.addEventListener("connectionstatechange", (ev) => {
       console.log(

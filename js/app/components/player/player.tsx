@@ -9,7 +9,6 @@ import {
   PlayerProps,
   PlayerStatus,
   PlayerStatusTracker,
-  PROTOCOL_HLS,
   PROTOCOL_WEBRTC,
 } from "./props";
 
@@ -40,15 +39,16 @@ export function Player(props: Partial<PlayerProps>) {
     setTouchTime(Date.now());
     setShowControls(true);
   };
-  const plat = usePlatform();
+  // keeping this other logic for now in case we need a second-best choice
   let defProto = PROTOCOL_WEBRTC;
-  if (plat.isIOS) {
-    defProto = PROTOCOL_HLS;
-  } else if (plat.isSafari) {
-    defProto = PROTOCOL_HLS;
-  } else if (plat.isFirefox) {
-    defProto = PROTOCOL_HLS;
-  }
+  // const plat = usePlatform();
+  // if (plat.isIOS) {
+  //   defProto = PROTOCOL_HLS;
+  // } else if (plat.isSafari) {
+  //   defProto = PROTOCOL_HLS;
+  // } else if (plat.isFirefox) {
+  //   defProto = PROTOCOL_HLS;
+  // }
   if (props.forceProtocol) {
     defProto = props.forceProtocol;
   }

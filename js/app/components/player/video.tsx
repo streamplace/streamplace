@@ -17,7 +17,7 @@ import {
   PROTOCOL_WEBRTC,
 } from "./props";
 import { srcToUrl } from "./shared";
-import WHEPClient from "./webrtc";
+import useWebRTC from "./use-webrtc";
 
 type VideoProps = PlayerProps & { url: string };
 
@@ -190,15 +190,14 @@ export function WebRTCPlayer(
     }
   }, []);
 
+  const [mediaStream] = useWebRTC(props.url);
+
   useEffect(() => {
     if (!videoElement) {
       return;
     }
-    const client = new WHEPClient(props.url, videoElement);
-    return () => {
-      client.close();
-    };
-  }, [videoElement]);
+    videoElement.srcObject = mediaStream;
+  }, [videoElement, mediaStream]);
 
   return <VideoElement {...props} ref={handleRef} />;
 }

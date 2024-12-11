@@ -106,6 +106,16 @@ export function NativeWHEP(props: PlayerProps) {
     }
     props.setStatus(PlayerStatus.PLAYING);
   }, [mediaStream]);
+  useEffect(() => {
+    if (!mediaStream) {
+      return;
+    }
+    mediaStream.getTracks().forEach((track) => {
+      if (track.kind === "audio") {
+        track._setVolume(props.muted ? 0 : 1);
+      }
+    });
+  }, [mediaStream, props.muted]);
   if (!client || !mediaStream) {
     return <View></View>;
   }

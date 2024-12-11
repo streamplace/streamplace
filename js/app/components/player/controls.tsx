@@ -22,6 +22,7 @@ import {
   Popover,
   Separator,
   Text,
+  useMedia,
   View,
   XStack,
   YGroup,
@@ -142,11 +143,12 @@ export default function Controls(props: PlayerProps) {
 
 export function PopoverMenu(props: PlayerProps) {
   const [open, setOpen] = useState(false);
+  const media = useMedia();
   useEffect(() => {
-    if (props.showControls === false) {
+    if (!media.sm && props.showControls === false) {
       setOpen(false);
     }
-  }, [props.showControls]);
+  }, [props.showControls, media.sm]);
   return (
     <Popover
       size="$5"
@@ -172,7 +174,7 @@ export function PopoverMenu(props: PlayerProps) {
       <Adapt when="sm" platform="touch">
         <Popover.Sheet modal dismissOnSnapToBottom snapPoints={[50]}>
           <Popover.Sheet.Frame padding="$2">
-            <Adapt.Contents />
+            <GearMenu {...props} />
           </Popover.Sheet.Frame>
           <Popover.Sheet.Overlay
             animation="lazy"

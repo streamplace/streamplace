@@ -166,7 +166,7 @@ OPTS = -D "gst-plugins-base:audioresample=enabled" \
 		-D "gstreamer-full:gst-full-plugins=libgstaudioresample.a;libgstlibav.a;libgstmatroska.a;libgstmultifile.a;libgstjpeg.a;libgstaudiotestsrc.a;libgstaudioconvert.a;libgstaudioparsers.a;libgstfdkaac.a;libgstisomp4.a;libgstapp.a;libgstvideoconvertscale.a;libgstvideobox.a;libgstvideorate.a;libgstpng.a;libgstcompositor.a;libgstx264.a;libgstopus.a;libgstvideotestsrc.a;libgstvideoparsersbad.a;libgstaudioparsers.a;libgstmpegtsmux.a;libgstplayback.a;libgsttypefindfunctions.a" \
 		-D "gstreamer-full:gst-full-libraries=gstreamer-controller-1.0,gstreamer-plugins-base-1.0,gstreamer-pbutils-1.0" \
 		-D "gstreamer-full:gst-full-target-type=static_library" \
-		-D "gstreamer-full:gst-full-elements=coreelements:concat,filesrc,queue,queue2,typefind,tee,capsfilter,fakesink" \
+		-D "gstreamer-full:gst-full-elements=coreelements:concat,filesrc,queue,queue2,multiqueue,typefind,tee,capsfilter,fakesink" \
 		-D "gstreamer-full:bad=enabled" \
 		-D "gstreamer-full:tls=disabled" \
 		-D "gstreamer-full:libav=enabled" \

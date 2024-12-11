@@ -28,8 +28,12 @@ func WebRTCPlayback(ctx context.Context, input io.Reader, offer *webrtc.SessionD
 
 	pipelineSlice := []string{
 		"appsrc name=appsrc ! matroskademux name=demux",
-		"demux.video_0 ! queue ! h264parse name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink name=videoappsink",
-		"demux.audio_0 ! queue ! fdkaacdec ! audioresample ! opusenc inband-fec=true perfect-timestamp=true bitrate=128000 ! appsink name=audioappsink",
+		"multiqueue name=queue",
+		"demux.video_0 ! queue.sink_0",
+		"demux.audio_0 ! queue.sink_1",
+		"multiqueue name=outqueue",
+		"queue.src_0 ! h264parse name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink name=videoappsink",
+		"queue.src_1 ! fdkaacdec ! audioresample ! opusenc inband-fec=true perfect-timestamp=true bitrate=128000 ! appsink name=audioappsink",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

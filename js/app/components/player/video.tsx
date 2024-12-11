@@ -17,7 +17,8 @@ import {
   PROTOCOL_WEBRTC,
 } from "./props";
 import { srcToUrl } from "./shared";
-import useWebRTC from "./use-webrtc";
+import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
+import useAquareumNode from "hooks/useAquareumNode";
 
 type VideoProps = PlayerProps & { url: string };
 
@@ -33,6 +34,9 @@ export default function WebVideo(
       props.videoRef.current.play();
     }
   }, [props.playTime]);
+  if (props.ingest) {
+    return <WebcamIngestPlayer url={url} {...props} />;
+  }
   if (protocol === PROTOCOL_PROGRESSIVE_MP4) {
     return <ProgressiveMP4Player url={url} {...props} />;
   } else if (protocol === PROTOCOL_PROGRESSIVE_WEBM) {
@@ -118,6 +122,7 @@ const VideoElement = forwardRef(
             backgroundColor: "transparent",
             width: "100%",
             height: "100%",
+            // transform: props.ingest ? "scaleX(-1)" : undefined,
           }}
         />
       </View>
@@ -180,6 +185,7 @@ export function HLSPlayer(
 export function WebRTCPlayer(
   props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
 ) {
+  throw new Error("should not get here");
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
   );
@@ -194,6 +200,50 @@ export function WebRTCPlayer(
 
   useEffect(() => {
     if (!videoElement) {
+      return;
+    }
+    videoElement.srcObject = mediaStream;
+  }, [videoElement, mediaStream]);
+
+  return <VideoElement {...props} ref={handleRef} />;
+}
+
+export function WebcamIngestPlayer(
+  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
+) {
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
+    null,
+  );
+  const handleRef = useCallback((node: HTMLVideoElement | null) => {
+    if (node) {
+      setVideoElement(node);
+    }
+  }, []);
+
+  const { url } = useAquareumNode();
+  const [mediaStream, setMediaStream] = useWebRTCIngest(
+    `${url}/api/ingest/webrtc`,
+  );
+
+  useEffect(() => {
+    navigator.mediaDevices
+      .getUserMedia({
+        audio: true,
+        video: {
+          width: { min: 200, ideal: 1920, max: 3840 },
+          height: { min: 200, ideal: 1080, max: 2160 },
+        },
+      })
+      .then((stream) => {
+        setMediaStream(stream);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!videoElement) {
+      return;
+    }
+    if (!mediaStream) {
       return;
     }
     videoElement.srcObject = mediaStream;

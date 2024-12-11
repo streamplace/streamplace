@@ -161,6 +161,35 @@ func (a *AquareumAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Handl
 	}
 }
 
+func (a *AquareumAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		// user := p.ByName("user")
+		// if user == "" {
+		// 	errors.WriteHTTPBadRequest(w, "user required", nil)
+		// 	return
+		// }
+		// _, err := a.NormalizeUser(ctx, user)
+		// if err != nil {
+		// 	errors.WriteHTTPBadRequest(w, "invalid user", err)
+		// 	return
+		// }
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			errors.WriteHTTPBadRequest(w, "error reading body", err)
+			return
+		}
+		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
+		answer, err := aqwebrtc.WebRTCIngest(ctx, &offer)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "error playing back", err)
+			return
+		}
+		w.WriteHeader(201)
+		w.Header().Add("Location", r.URL.Path)
+		w.Write([]byte(answer.SDP))
+	}
+}
+
 var epoch = time.Unix(0, 0).Format(time.RFC1123)
 
 var noCacheHeaders = map[string]string{

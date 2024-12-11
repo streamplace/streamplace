@@ -22,6 +22,7 @@ export type PlayerProps = {
   setStatus: (status: PlayerStatus) => void;
   playTime: number;
   setPlayTime: (playTime: number) => void;
+  ingest?: boolean;
 };
 
 export type PlayerEvent = {

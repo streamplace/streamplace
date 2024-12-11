@@ -137,3 +137,34 @@ async function waitToCompleteICEGathering(peerConnection: RTCPeerConnection) {
     });
   });
 }
+
+export function useWebRTCIngest(
+  endpoint: string,
+): [MediaStream | null, (MediaStream) => void] {
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  useEffect(() => {
+    if (!mediaStream) {
+      return;
+    }
+    const peerConnection = new RTCPeerConnection({
+      bundlePolicy: "max-bundle",
+    });
+    for (const track of mediaStream.getTracks()) {
+      peerConnection.addTrack(track, mediaStream);
+    }
+    peerConnection.addEventListener("connectionstatechange", (ev) => {
+      console.log("connection state change", peerConnection.connectionState);
+      if (peerConnection.connectionState !== "connected") {
+        return;
+      }
+    });
+    peerConnection.addEventListener("negotiationneeded", (ev) => {
+      negotiateConnectionWithClientOffer(peerConnection, endpoint);
+    });
+
+    return () => {
+      peerConnection.close();
+    };
+  }, [endpoint]);
+  return [mediaStream, setMediaStream];
+}

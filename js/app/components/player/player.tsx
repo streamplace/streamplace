@@ -83,7 +83,8 @@ export function Player(props: Partial<PlayerProps>) {
   const [fullscreen, setFullscreen] = useState(false);
   const childProps: PlayerProps = {
     playerId: playerId,
-    name: props.name || props.src,
+    ingest: props.ingest,
+    name: props.ingest ? "Go Live" : props.name || props.src,
     telemetry: props.telemetry ?? false,
     src: props.src,
     muted: muted,

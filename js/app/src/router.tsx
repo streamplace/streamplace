@@ -30,13 +30,13 @@ import {
   StatusBar,
 } from "react-native";
 import { useAppSelector } from "store/hooks";
-import { useTheme, View } from "tamagui";
+import { useTheme, View, Text } from "tamagui";
 import AppReturnScreen from "./screens/app-return";
 import GoLiveScreen from "./screens/golive";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
 import SupportScreen from "./screens/support";
-
+import LiveScreen from "./screens/live";
 function HomeScreen() {
   return (
     <View f={1}>
@@ -63,6 +63,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Support: "support",
       Settings: "settings",
       GoLive: "golive",
+      Live: "live",
       Login: "login",
       AppReturn: "app-return/:scheme",
     },
@@ -208,6 +209,14 @@ export function AquareumDrawer() {
           options={{
             drawerLabel: () => null,
             drawerItemStyle: { display: "none" },
+          }}
+        />
+        <Drawer.Screen
+          name="Live"
+          component={LiveScreen}
+          options={{
+            drawerLabel: () => <Text>Go Live</Text>,
+            drawerIcon: () => <Video />,
           }}
         />
         <Drawer.Screen

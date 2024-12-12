@@ -36,7 +36,7 @@ func WebRTCPlayback(ctx context.Context, input io.Reader, offer *webrtc.SessionD
 		"demux.audio_0 ! queue.sink_1",
 		"multiqueue name=outqueue",
 		"queue.src_0 ! h264parse name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink name=videoappsink",
-		"queue.src_1 ! fdkaacdec ! audioresample ! opusenc inband-fec=true perfect-timestamp=true bitrate=128000 ! appsink name=audioappsink",
+		"queue.src_1 ! rtpopuspay ! appsink name=audioappsink",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -191,9 +191,19 @@ func WebRTCPlayback(ctx context.Context, input io.Reader, offer *webrtc.SessionD
 				samples := buffer.Map(gst.MapRead).Bytes()
 				defer buffer.Unmap()
 
-				if err := audioTrack.WriteSample(media.Sample{Data: samples, Duration: *buffer.Duration().AsDuration()}); err != nil {
-					log.Log(ctx, "failed to write audio sample", "error", err)
+				clockTime := buffer.Duration()
+				dur := clockTime.AsDuration()
+				mediaSample := media.Sample{Data: samples}
+				if dur != nil {
+					mediaSample.Duration = *dur
+				} else {
+					log.Log(ctx, "no duration", "duration", dur)
 					cancel()
+					return gst.FlowError
+				}
+				if err := audioTrack.WriteSample(mediaSample); err != nil {
+					log.Log(ctx, "failed to write audio sample", "error", err)
+					return gst.FlowOK
 				}
 
 				return gst.FlowOK
@@ -332,8 +342,8 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 
 	pipelineSlice := []string{
 		"multiqueue name=queue",
-		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! h264parse ! queue.sink_0",
-		"appsrc format=time is-live=true do-timestamp=true name=audiosrc ! capsfilter caps=application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! rtpopusdepay ! opusdec ! audioconvert ! audioresample ! fdkaacenc ! queue.sink_1",
+		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse ! h264timestamper ! queue.sink_0",
+		"appsrc format=time is-live=true do-timestamp=true name=audiosrc ! capsfilter caps=application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! rtpopusdepay ! queue.sink_1",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

@@ -184,8 +184,18 @@ func (a *AquareumAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Handle 
 			errors.WriteHTTPInternalServerError(w, "error playing back", err)
 			return
 		}
+		host := r.Host
+		if host == "" {
+			host = r.URL.Host
+		}
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		location := fmt.Sprintf("%s://%s/api/live/webrtc", scheme, host)
+		log.Log(ctx, "location", "location", location)
+		w.Header().Set("Location", location)
 		w.WriteHeader(201)
-		w.Header().Add("Location", r.URL.Path)
 		w.Write([]byte(answer.SDP))
 	}
 }

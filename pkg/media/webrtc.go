@@ -36,7 +36,7 @@ func WebRTCPlayback(ctx context.Context, input io.Reader, offer *webrtc.SessionD
 		"demux.audio_0 ! queue.sink_1",
 		"multiqueue name=outqueue",
 		"queue.src_0 ! h264parse name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink name=videoappsink",
-		"queue.src_1 ! rtpopuspay ! appsink name=audioappsink",
+		"queue.src_1 ! opusparse ! appsink name=audioappsink",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -197,9 +197,9 @@ func WebRTCPlayback(ctx context.Context, input io.Reader, offer *webrtc.SessionD
 				if dur != nil {
 					mediaSample.Duration = *dur
 				} else {
-					log.Log(ctx, "no duration", "duration", dur)
-					cancel()
-					return gst.FlowError
+					log.Log(ctx, "no duration", "samples", len(samples))
+					// cancel()
+					return gst.FlowOK
 				}
 				if err := audioTrack.WriteSample(mediaSample); err != nil {
 					log.Log(ctx, "failed to write audio sample", "error", err)

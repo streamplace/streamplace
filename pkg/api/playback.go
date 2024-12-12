@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"aquareum.tv/aquareum/pkg/aqtime"
-	"aquareum.tv/aquareum/pkg/aqwebrtc"
 	"aquareum.tv/aquareum/pkg/atproto"
 	"aquareum.tv/aquareum/pkg/errors"
 	"aquareum.tv/aquareum/pkg/log"
+	"aquareum.tv/aquareum/pkg/media"
 	"github.com/julienschmidt/httprouter"
 	"github.com/pion/webrtc/v4"
 	"golang.org/x/sync/errgroup"
@@ -144,7 +144,7 @@ func (a *AquareumAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Handl
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
 		pr, pw := io.Pipe()
-		answer, err := aqwebrtc.WebRTCPlayback(ctx, pr, &offer)
+		answer, err := media.WebRTCPlayback(ctx, pr, &offer)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "error playing back", err)
 			return
@@ -179,7 +179,7 @@ func (a *AquareumAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Handle 
 			return
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
-		answer, err := aqwebrtc.WebRTCIngest(ctx, &offer)
+		answer, err := a.MediaManager.WebRTCIngest(ctx, &offer, a.MediaSigner)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "error playing back", err)
 			return

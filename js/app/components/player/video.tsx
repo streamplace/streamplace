@@ -37,6 +37,7 @@ export default function WebVideo(
   if (props.ingest) {
     return <WebcamIngestPlayer url={url} {...props} />;
   }
+  console.log("protocol", protocol);
   if (protocol === PROTOCOL_PROGRESSIVE_MP4) {
     return <ProgressiveMP4Player url={url} {...props} />;
   } else if (protocol === PROTOCOL_PROGRESSIVE_WEBM) {
@@ -71,7 +72,6 @@ const VideoElement = forwardRef(
     };
 
     useEffect(() => {
-      console.log("video mounted");
       return () => {
         props.setStatus(PlayerStatus.START);
       };
@@ -89,7 +89,7 @@ const VideoElement = forwardRef(
           playsInline={true}
           ref={ref}
           controls={false}
-          src={props.url}
+          src={props.ingest ? undefined : props.url}
           muted={props.muted}
           crossOrigin="anonymous"
           onMouseMove={props.userInteraction}
@@ -185,7 +185,6 @@ export function HLSPlayer(
 export function WebRTCPlayer(
   props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
 ) {
-  throw new Error("should not get here");
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
   );

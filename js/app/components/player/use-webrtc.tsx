@@ -144,8 +144,10 @@ export function useWebRTCIngest(
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   useEffect(() => {
     if (!mediaStream) {
+      console.log("returning");
       return;
     }
+    console.log("creating peer connection");
     const peerConnection = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
     });
@@ -165,6 +167,6 @@ export function useWebRTCIngest(
     return () => {
       peerConnection.close();
     };
-  }, [endpoint]);
+  }, [endpoint, mediaStream]);
   return [mediaStream, setMediaStream];
 }

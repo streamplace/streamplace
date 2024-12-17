@@ -4,8 +4,14 @@ import { setupListeners } from "@reduxjs/toolkit/query";
 import { aquareumSlice } from "features/aquareum/aquareumSlice";
 import { blueskySlice } from "features/bluesky/blueskySlice";
 import { platformSlice } from "features/platform/platformSlice";
+import { playerSlice } from "features/player/playerSlice";
 
-const rootReducer = combineSlices(blueskySlice, aquareumSlice, platformSlice);
+const rootReducer = combineSlices(
+  blueskySlice,
+  aquareumSlice,
+  platformSlice,
+  playerSlice,
+);
 
 export type RootState = ReturnType<typeof rootReducer>;
 

@@ -17,7 +17,9 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable } from "react-native";
 import {
+  Button,
   Adapt,
+  H3,
   ListItem,
   Popover,
   Separator,
@@ -34,6 +36,9 @@ import {
   PROTOCOL_PROGRESSIVE_WEBM,
   PROTOCOL_WEBRTC,
 } from "./props";
+import { selectPlayer, usePlayerActions } from "features/player/playerSlice";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import Loading from "components/loading/loading";
 
 const Bar = (props) => (
   <XStack
@@ -41,6 +46,9 @@ const Bar = (props) => (
     backgroundColor="rgba(0,0,0,0.8)"
     justifyContent="space-between"
     flex-direction="row"
+    opacity={props.opacity}
+    animation="quick"
+    animateOnly={["opacity"]}
   >
     {props.children}
   </XStack>
@@ -81,9 +89,6 @@ export default function Controls(props: PlayerProps) {
       zIndex={999}
       flexDirection="column"
       justifyContent="space-between"
-      animation="quick"
-      animateOnly={["opacity"]}
-      opacity={props.showControls ? 1 : 0}
       onPointerMove={props.userInteraction}
       onTouchStart={props.userInteraction}
       onPress={onPress}
@@ -101,7 +106,7 @@ export default function Controls(props: PlayerProps) {
           justifyContent: "space-between",
         }}
       > */}
-      <Bar>
+      <Bar opacity={props.showControls ? 1 : 0}>
         <Part>
           <View justifyContent="center" paddingLeft="$5">
             <Text>{props.name}</Text>
@@ -109,7 +114,8 @@ export default function Controls(props: PlayerProps) {
         </Part>
         <Part>{/* <Text>Top Right</Text> */}</Part>
       </Bar>
-      <Bar>
+      <LiveBubble />
+      <Bar opacity={props.showControls ? 1 : 0}>
         <Part>
           <Pressable
             style={{
@@ -204,6 +210,56 @@ export function PopoverMenu(props: PlayerProps) {
       </Popover.Content>
     </Popover>
   );
+}
+
+function LiveBubble() {
+  const player = useAppSelector(selectPlayer);
+  const dispatch = useAppDispatch();
+  const { startIngest } = usePlayerActions();
+  return (
+    <View
+      position="absolute"
+      bottom={100}
+      alignItems="center"
+      justifyContent="center"
+      width="100%"
+    >
+      <Button
+        backgroundColor="rgba(0,0,0,0.9)"
+        borderRadius={9999999999}
+        padding="$2"
+        paddingLeft="$3"
+        paddingRight="$3"
+        onPress={() => {
+          dispatch(startIngest(!player.ingestStarting));
+        }}
+      >
+        <LiveBubbleText />
+      </Button>
+    </View>
+  );
+}
+
+function LiveBubbleText() {
+  const player = useAppSelector(selectPlayer);
+  if (!player.ingestStarting) {
+    return <H3>START STREAMING</H3>;
+  }
+  if (player.ingestConnectionState === "connected") {
+    return (
+      <>
+        <H3>LIVE</H3>
+        <View
+          backgroundColor="red"
+          width={15}
+          height={15}
+          borderRadius={9999999999}
+          marginLeft="$2"
+        ></View>
+      </>
+    );
+  }
+  return <Loading />;
 }
 
 function GearMenu(props: PlayerProps) {

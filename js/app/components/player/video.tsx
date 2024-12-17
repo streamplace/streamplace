@@ -19,6 +19,8 @@ import {
 import { srcToUrl } from "./shared";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
 import useAquareumNode from "hooks/useAquareumNode";
+import { selectPlayer } from "features/player/playerSlice";
+import { useAppSelector } from "store/hooks";
 
 type VideoProps = PlayerProps & { url: string };
 
@@ -210,6 +212,7 @@ export function WebRTCPlayer(
 export function WebcamIngestPlayer(
   props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
 ) {
+  const player = useAppSelector(selectPlayer);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
   );
@@ -220,7 +223,10 @@ export function WebcamIngestPlayer(
   }, []);
 
   const { url } = useAquareumNode();
-  const [mediaStream, setMediaStream] = useWebRTCIngest(
+  const [localMediaStream, setLocalMediaStream] = useState<MediaStream | null>(
+    null,
+  );
+  const [remoteMediaStream, setRemoteMediaStream] = useWebRTCIngest(
     `${url}/api/ingest/webrtc`,
   );
 
@@ -234,19 +240,30 @@ export function WebcamIngestPlayer(
         },
       })
       .then((stream) => {
-        setMediaStream(stream);
+        setLocalMediaStream(stream);
       });
   }, []);
+
+  useEffect(() => {
+    if (!player.ingestStarting) {
+      setRemoteMediaStream(null);
+      return;
+    }
+    if (!localMediaStream) {
+      return;
+    }
+    setRemoteMediaStream(localMediaStream);
+  }, [localMediaStream, player.ingestStarting]);
 
   useEffect(() => {
     if (!videoElement) {
       return;
     }
-    if (!mediaStream) {
+    if (!localMediaStream) {
       return;
     }
-    videoElement.srcObject = mediaStream;
-  }, [videoElement, mediaStream]);
+    videoElement.srcObject = localMediaStream;
+  }, [videoElement, localMediaStream]);
 
   return <VideoElement {...props} ref={handleRef} />;
 }

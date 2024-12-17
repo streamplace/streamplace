@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
+import { usePlayerActions } from "features/player/playerSlice";
+import { useAppDispatch } from "store/hooks";
 
 export default function useWebRTC(endpoint: string) {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
@@ -142,9 +144,10 @@ export function useWebRTCIngest(
   endpoint: string,
 ): [MediaStream | null, (MediaStream) => void] {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const { ingestConnectionState } = usePlayerActions();
+  const dispatch = useAppDispatch();
   useEffect(() => {
     if (!mediaStream) {
-      console.log("returning");
       return;
     }
     console.log("creating peer connection");
@@ -155,6 +158,7 @@ export function useWebRTCIngest(
       peerConnection.addTrack(track, mediaStream);
     }
     peerConnection.addEventListener("connectionstatechange", (ev) => {
+      dispatch(ingestConnectionState(peerConnection.connectionState));
       console.log("connection state change", peerConnection.connectionState);
       if (peerConnection.connectionState !== "connected") {
         return;

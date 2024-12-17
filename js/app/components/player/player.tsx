@@ -11,10 +11,35 @@ import {
   PlayerStatusTracker,
   PROTOCOL_WEBRTC,
 } from "./props";
+import { newPlayer, PlayerContext } from "features/player/playerSlice";
+import { useAppDispatch } from "store/hooks";
 
 const HIDE_CONTROLS_AFTER = 2000;
 
+// basically PlayerProvider that sets up our magic context,
+// PlayerInner starts doing player stuff
 export function Player(props: Partial<PlayerProps>) {
+  const dispatch = useAppDispatch();
+  const [playerId, setPlayerId] = useState<string | null>(null);
+  useEffect(() => {
+    const newPlayerAction = newPlayer();
+    if (props.playerId) {
+      newPlayerAction.payload.playerId = props.playerId;
+    }
+    setPlayerId(newPlayerAction.payload.playerId);
+    dispatch(newPlayerAction);
+  }, []);
+  if (!playerId) {
+    return <></>;
+  }
+  return (
+    <PlayerContext.Provider value={{ playerId }}>
+      <PlayerInner {...props} />
+    </PlayerContext.Provider>
+  );
+}
+
+export function PlayerInner(props: Partial<PlayerProps>) {
   if (typeof props.src !== "string") {
     return (
       <View>

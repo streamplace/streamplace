@@ -114,7 +114,7 @@ export default function Controls(props: PlayerProps) {
         </Part>
         <Part>{/* <Text>Top Right</Text> */}</Part>
       </Bar>
-      <LiveBubble />
+      {props.ingest && <LiveBubble />}
       <Bar opacity={props.showControls ? 1 : 0}>
         <Part>
           <Pressable

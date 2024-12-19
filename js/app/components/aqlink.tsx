@@ -16,10 +16,13 @@ export default function AQLink({
 }) {
   const { isWeb } = usePlatform();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const baseStyle: StyleProp<ViewStyle> = {
+    display: "flex",
+  };
 
   if (isWeb) {
     return (
-      <Link style={style} to={to as any}>
+      <Link style={[baseStyle, style]} to={to as any}>
         {children}
       </Link>
     );
@@ -27,7 +30,7 @@ export default function AQLink({
 
   return (
     <Pressable
-      style={style}
+      style={[baseStyle, style]}
       onPress={() => navigation.navigate(to.screen, to.params)}
     >
       {children}

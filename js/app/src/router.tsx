@@ -38,6 +38,7 @@ import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
 import SupportScreen from "./screens/support";
 import WebcamScreen from "./screens/webcam";
+import StreamKeyScreen from "./screens/stream-key";
 function HomeScreen() {
   return (
     <View f={1}>
@@ -65,6 +66,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       GoLive: "golive",
       Live: "live",
       Webcam: "live/webcam",
+      StreamKey: "live/stream-key",
       Login: "login",
       AppReturn: "app-return/:scheme",
     },
@@ -161,6 +163,7 @@ export function AquareumDrawer() {
           headerLeft: () => <NavigationButton />,
           headerRight: () => <AvatarButton />,
           drawerActiveTintColor: theme.accentColor.val,
+          unmountOnBlur: true,
         }}
       >
         <Drawer.Screen
@@ -231,6 +234,14 @@ export function AquareumDrawer() {
         <Drawer.Screen
           name="Webcam"
           component={WebcamScreen}
+          options={{
+            drawerLabel: () => null,
+            drawerItemStyle: { display: "none" },
+          }}
+        />
+        <Drawer.Screen
+          name="StreamKey"
+          component={StreamKeyScreen}
           options={{
             drawerLabel: () => null,
             drawerItemStyle: { display: "none" },

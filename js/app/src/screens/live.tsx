@@ -1,7 +1,7 @@
 import { Camera, FerrisWheel } from "@tamagui/lucide-icons";
 import AQLink from "components/aqlink";
 import React from "react";
-import { Button, H6, Text, View } from "tamagui";
+import { H6, Text, View } from "tamagui";
 const elems = [
   {
     title: "Stream your camera!",
@@ -11,23 +11,36 @@ const elems = [
   {
     title: "Stream from OBS!",
     Icon: FerrisWheel,
-    to: "Webcam",
+    to: "StreamKey",
   },
 ];
 
 export default function StreamScreen({ route }) {
   return (
-    <View f={1} jc="space-around" ai="center" padding="$3" flexDirection="row">
-      <View f={1} maxWidth={250}>
+    <View f={1} jc="space-around" ai="stretch" padding="$3" flexDirection="row">
+      <View f={1} maxWidth={250} alignItems="stretch" justifyContent="center">
         {elems.map(({ Icon, title, to }, i) => (
           <React.Fragment key={i}>
-            <AQLink to={{ screen: to }} style={{ display: "flex" }}>
-              <Button f={1} padding="$6" backgroundColor="$accentColor">
-                <View f={1} flexDirection="row" ai="center" jc="space-between">
-                  <Icon padding="$5" size={48} marginLeft={-20} />
-                  <Text>{title}</Text>
+            <AQLink
+              to={{ screen: to }}
+              style={{ display: "flex", flex: 1, flexGrow: 0, flexBasis: 75 }}
+            >
+              <View
+                f={1}
+                flexDirection="row"
+                ai="center"
+                jc="space-between"
+                backgroundColor="$accentColor"
+                // padding="$5"
+                borderRadius="$10"
+              >
+                <View padding="$5" paddingRight={0}>
+                  <Icon size={48} />
                 </View>
-              </Button>
+                <Text f={1} textAlign="right" paddingRight="$5">
+                  {title}
+                </Text>
+              </View>
             </AQLink>
             {i < elems.length - 1 && (
               <View jc="center" ai="center">

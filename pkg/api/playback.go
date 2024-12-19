@@ -108,13 +108,13 @@ func (a *AquareumAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handle {
 				return
 			}
 		}
-		w.Header().Set("Content-Type", "video/mp4")
+		w.Header().Set("Content-Type", "video/webm")
 		w.WriteHeader(200)
 		g, ctx := errgroup.WithContext(ctx)
 		pr, pw := io.Pipe()
 		bufw := bufio.NewWriter(pw)
 		g.Go(func() error {
-			return a.MediaManager.SegmentToMKVPlusOpus(ctx, user, bufw)
+			return a.MediaManager.SegmentToMKV(ctx, user, bufw)
 		})
 		g.Go(func() error {
 			time.Sleep(time.Duration(delayMS) * time.Millisecond)

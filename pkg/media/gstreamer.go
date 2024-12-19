@@ -292,7 +292,7 @@ func (mm *MediaManager) ToHLS(ctx context.Context, input io.Reader, m3u8 *M3U8) 
 	pipelineSlice := []string{
 		"appsrc name=appsrc ! matroskademux name=demux",
 		"demux.video_0 ! queue ! h264parse name=videoparse",
-		"demux.audio_0 ! queue ! aacparse name=audioparse",
+		"demux.audio_0 ! queue ! opusparse name=audioparse",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -507,7 +507,7 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms *MediaSigner) error {
 		fmt.Sprintf("videobox border-alpha=0 top=-%d left=-%d name=box ! comp.", (TESTSRC_HEIGHT/2)-(QR_SIZE/2), (TESTSRC_WIDTH/2)-(QR_SIZE/2)),
 		"appsrc name=pngsrc ! pngdec ! videoconvert ! videorate ! video/x-raw,format=AYUV,framerate=1/1 ! box.",
 		"appsrc name=timetext ! pngdec ! videoconvert ! videorate ! video/x-raw,format=AYUV,framerate=1/1 ! comp.",
-		"audiotestsrc ! audioconvert ! fdkaacenc ! queue ! aacparse name=audioparse",
+		"audiotestsrc ! audioconvert ! opusenc inband-fec=true perfect-timestamp=true bitrate=128000 ! queue ! opusparse name=audioparse",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

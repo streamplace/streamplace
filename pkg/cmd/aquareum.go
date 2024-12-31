@@ -66,6 +66,8 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		}
 	}
 	if selfTest {
+		runtime.GC()
+		pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		fmt.Println("self-test successful!")
 		os.Exit(0)
 	}

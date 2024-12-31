@@ -9,9 +9,10 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"regexp"
-	"runtime/pprof"
+	rtpprof "runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -63,6 +64,17 @@ func (a *AquareumAPI) InternalHandler(ctx context.Context) (http.Handler, error)
 	triggerCollection := misttriggers.NewMistCallbackHandlersCollection(a.CLI, broker)
 	router.POST("/mist-trigger", triggerCollection.Trigger())
 	router.HandlerFunc("GET", "/healthz", a.HandleHealthz(ctx))
+
+	// Add pprof handlers
+	router.HandlerFunc("GET", "/debug/pprof/", pprof.Index)
+	router.HandlerFunc("GET", "/debug/pprof/cmdline", pprof.Cmdline)
+	router.HandlerFunc("GET", "/debug/pprof/profile", pprof.Profile)
+	router.HandlerFunc("GET", "/debug/pprof/symbol", pprof.Symbol)
+	router.HandlerFunc("GET", "/debug/pprof/trace", pprof.Trace)
+	router.Handler("GET", "/debug/pprof/goroutine", pprof.Handler("goroutine"))
+	router.Handler("GET", "/debug/pprof/heap", pprof.Handler("heap"))
+	router.Handler("GET", "/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+	router.Handler("GET", "/debug/pprof/block", pprof.Handler("block"))
 
 	router.GET("/playback/:user/concat", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
@@ -210,7 +222,7 @@ func (a *AquareumAPI) InternalHandler(ctx context.Context) (http.Handler, error)
 
 	// self-destruct code, useful for dumping goroutines on windows
 	router.POST("/abort", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+		rtpprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		log.Log(ctx, "got POST /abort, self-destructing")
 		os.Exit(1)
 	})

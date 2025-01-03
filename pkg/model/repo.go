@@ -7,12 +7,12 @@ import (
 )
 
 type Repo struct {
-	DID         string `gorm:"primaryKey;column:did" json:"did"`
-	Handle      string `gorm:"index" json:"handle"`
-	PDS         string `json:"pds"`
-	Version     string `json:"version"`
-	AquareumKey string `gorm:"index" json:"aquareumKey"`
-	RootCID     string `json:"rootCid"`
+	DID        string `gorm:"primaryKey;column:did" json:"did"`
+	Handle     string `gorm:"index" json:"handle"`
+	PDS        string `json:"pds"`
+	Version    string `json:"version"`
+	SigningKey string `gorm:"index" json:"signingKey"`
+	RootCID    string `json:"rootCid"`
 }
 
 func (Repo) TableName() string {

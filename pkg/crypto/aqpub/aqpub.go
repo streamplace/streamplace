@@ -34,6 +34,15 @@ func FromPublicKey(key *ecdsa.PublicKey) (Pub, error) {
 	return &pub{addr}, nil
 }
 
+func FromBytes(bs []byte) (Pub, error) {
+	pubkey, err := secp256k1.ParsePubKey(bs)
+	if err != nil {
+		return nil, err
+	}
+	addr := crypto.PubkeyToAddress(*pubkey.ToECDSA())
+	return &pub{addr}, nil
+}
+
 func FromPoints(x, y *big.Int) (Pub, error) {
 	key := ecdsa.PublicKey{Curve: secp256k1.S256(), X: x, Y: y}
 	return FromPublicKey(&key)

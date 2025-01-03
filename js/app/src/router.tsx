@@ -252,13 +252,11 @@ export function AquareumDrawer() {
           component={Login}
           options={{ drawerIcon: () => <LogIn /> }}
         />
-        {isElectron && (
-          <Drawer.Screen
-            name="GoLive"
-            component={GoLiveScreen}
-            options={{ headerTitle: "Go Live", drawerIcon: () => <Video /> }}
-          />
-        )}
+        <Drawer.Screen
+          name="GoLive"
+          component={GoLiveScreen}
+          options={{ headerTitle: "Go Live", drawerIcon: () => <Video /> }}
+        />
       </Drawer.Navigator>
     </>
   );

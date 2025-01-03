@@ -126,6 +126,7 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("PATCH", "/api/*resource", apiRouter)
 	router.Handler("DELETE", "/api/*resource", apiRouter)
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
+	router.POST("/", a.HandleWebRTCIngest(ctx))
 	if a.CLI.FrontendProxy != "" {
 		u, err := url.Parse(a.CLI.FrontendProxy)
 		if err != nil {

@@ -7,9 +7,11 @@ import (
 	"sync"
 
 	"aquareum.tv/aquareum/pkg/aqhttp"
+	"aquareum.tv/aquareum/pkg/crypto/aqpub"
 	"aquareum.tv/aquareum/pkg/log"
 	"aquareum.tv/aquareum/pkg/model"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/repo"
@@ -51,7 +53,7 @@ func SyncBlueskyRepoCached(ctx context.Context, handle string, mod model.Model) 
 		return "", fmt.Errorf("failed to get repo for %s: %w", handle, err)
 	}
 	if repo != nil {
-		return repo.AquareumKey, nil
+		return repo.SigningKey, nil
 	}
 	return SyncBlueskyRepo(ctx, handle, mod)
 }
@@ -115,7 +117,7 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 		}
 		if oldRoot.Equals(root) {
 			log.Log(ctx, "no changes to repo", "root", root)
-			return oldRepo.AquareumKey, nil
+			return oldRepo.SigningKey, nil
 		}
 	}
 
@@ -137,7 +139,7 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 	processed := 0
 	var key string
 	if oldRepo != nil {
-		key = oldRepo.AquareumKey
+		key = oldRepo.SigningKey
 	}
 	bs = r.Blockstore()
 	cst := util.CborStore(bs)
@@ -157,11 +159,11 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 		if !ok {
 			continue
 		}
-		if typ != "app.bsky.feed.post" {
+		if typ != "place.stream.key" {
 			continue
 		}
 		processed += 1
-		aquareumKeyAny, ok := rec[AQUAREUM_KEY]
+		aquareumKeyAny, ok := rec["signingKey"]
 		if !ok {
 			continue
 		}
@@ -172,20 +174,30 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 		key = aquareumKey
 	}
 	log.Log(ctx, "processed new posts", "postCount", processed)
+
+	pubKey, err := atcrypto.ParsePublicDIDKey(key)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse multibase key %s: %w", key, err)
+	}
+	aqk, err := aqpub.FromBytes(pubKey.UncompressedBytes())
+	if err != nil {
+		return "", fmt.Errorf("failed to parse public key for %s: %w", handle, err)
+	}
+	addr := aqk.String()
 	newRepo := model.Repo{
-		DID:         ident.DID.String(),
-		PDS:         ident.PDSEndpoint(),
-		Version:     sc.Rev,
-		AquareumKey: key,
-		RootCID:     root.String(),
-		Handle:      handle,
+		DID:        ident.DID.String(),
+		PDS:        ident.PDSEndpoint(),
+		Version:    sc.Rev,
+		SigningKey: addr,
+		RootCID:    root.String(),
+		Handle:     handle,
 	}
 	err = mod.UpdateRepo(&newRepo)
 	if err != nil {
 		return "", fmt.Errorf("failed to update DID record for %s: %w", sc.Did, err)
 	}
 
-	return key, nil
+	return addr, nil
 }
 
 var ResolveIdent = resolveIdent

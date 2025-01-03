@@ -16,7 +16,6 @@ export default function Login() {
   const userProfile = useAppSelector(selectUserProfile);
   const pds = useAppSelector(selectPDS);
   const loginState = useAppSelector(selectLogin);
-  console.log("pds", pds);
   const [open, setOpen] = useState(false);
   const onOpenChange = (open: boolean) => {
     setOpen(open);

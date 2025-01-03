@@ -313,6 +313,46 @@ export const blueskySlice = createAppSlice({
         },
       },
     ),
+
+    createStreamKey: create.asyncThunk(
+      async ({ signingKey }: { signingKey: string }, thunkAPI) => {
+        const { bluesky } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+        };
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const profile = bluesky.profiles[did];
+        if (!profile) {
+          throw new Error("No profile");
+        }
+        const record = {
+          signingKey: signingKey,
+        };
+        return await bluesky.pdsAgent.com.atproto.repo.createRecord({
+          repo: did,
+          collection: "place.stream.key",
+          record,
+        });
+      },
+      {
+        pending: (state) => {
+          console.log("golivePost pending");
+        },
+        fulfilled: (state, action) => {
+          console.log("golivePost fulfilled", action.payload);
+        },
+        rejected: (state, action) => {
+          console.error("getProfile rejected", action.error);
+          // state.status = "failed";
+        },
+      },
+    ),
+
     setPDS: create.asyncThunk(
       async (pds: string, thunkAPI) => {
         await Storage.setItem("pdsURL", pds);
@@ -378,6 +418,7 @@ export const {
   golivePost,
   oauthCallback,
   setPDS,
+  createStreamKey,
 } = blueskySlice.actions;
 
 // Selectors returned by `slice.selectors` take the root state as their first argument.

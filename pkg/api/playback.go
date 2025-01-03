@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,9 +15,12 @@ import (
 	"aquareum.tv/aquareum/pkg/aqtime"
 	"aquareum.tv/aquareum/pkg/atproto"
 	"aquareum.tv/aquareum/pkg/errors"
+	apierrors "aquareum.tv/aquareum/pkg/errors"
 	"aquareum.tv/aquareum/pkg/log"
 	"aquareum.tv/aquareum/pkg/media"
+	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/julienschmidt/httprouter"
+	"github.com/mr-tron/base58"
 	"github.com/pion/webrtc/v4"
 	"golang.org/x/sync/errgroup"
 )
@@ -161,8 +165,60 @@ func (a *AquareumAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Handl
 	}
 }
 
+const BEARER_PREFIX = "Bearer "
+const KEY_PREFIX = "0x"
+
 func (a *AquareumAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		ct := r.Header.Get("Content-Type")
+		if ct != "application/sdp" {
+			errors.WriteHTTPBadRequest(w, "invalid content type", nil)
+			return
+		}
+		auth := r.Header.Get("Authorization")
+		if auth == "" {
+			errors.WriteHTTPUnauthorized(w, "authorization header required", nil)
+			return
+		}
+		if !strings.HasPrefix(auth, BEARER_PREFIX) {
+			errors.WriteHTTPUnauthorized(w, "invalid authorization header (needs Bearer prefix)", nil)
+			return
+		}
+		encoded := auth[len(BEARER_PREFIX):]
+		if len(encoded) < 2 || encoded[0] != 'z' {
+			errors.WriteHTTPUnauthorized(w, "invalid authorization key (not a multibase base58btc string)", nil)
+			return
+		}
+		data, err := base58.Decode(encoded[1:])
+		if err != nil {
+			errors.WriteHTTPUnauthorized(w, "invalid authorization key (not a multibase base58btc string)", nil)
+			return
+		}
+		addrBytes := data[:32]
+		didBytes := data[32:]
+
+		key, _ := secp256k1.PrivKeyFromBytes(addrBytes)
+		if key == nil {
+			errors.WriteHTTPUnauthorized(w, "invalid authorization key (not valid secp256k1)", nil)
+			return
+		}
+		var signer crypto.Signer = key.ToECDSA()
+
+		did := string(didBytes)
+		fmt.Println("did", did)
+
+		mediaSigner, err := media.MakeMediaSigner(ctx, a.CLI, "fixme-media-signer", signer, a.Model)
+		if err != nil {
+			errors.WriteHTTPUnauthorized(w, "invalid authorization key (not valid secp256k1)", err)
+			return
+		}
+
+		_, err = atproto.SyncBlueskyRepo(ctx, did, a.Model)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not resolve aquareum key", err)
+			return
+		}
+
 		// user := p.ByName("user")
 		// if user == "" {
 		// 	errors.WriteHTTPBadRequest(w, "user required", nil)
@@ -179,7 +235,7 @@ func (a *AquareumAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Handle 
 			return
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
-		answer, err := a.MediaManager.WebRTCIngest(ctx, &offer, a.MediaSigner)
+		answer, err := a.MediaManager.WebRTCIngest(ctx, &offer, mediaSigner)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "error playing back", err)
 			return

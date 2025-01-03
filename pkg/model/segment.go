@@ -11,7 +11,7 @@ type Segment struct {
 	User      string    `json:"user"      gorm:"index:latest_segments"`
 	StartTime time.Time `json:"startTime" gorm:"index:latest_segments"`
 	Title     string    `json:"title"`
-	Repo      *Repo     `json:"repo,omitempty" gorm:"foreignKey:User;references:AquareumKey"`
+	Repo      *Repo     `json:"repo,omitempty" gorm:"foreignKey:User;references:SigningKey"`
 }
 
 func (m *DBModel) CreateSegment(seg *Segment) error {

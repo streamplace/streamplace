@@ -1,69 +1,120 @@
+import { useToastController } from "@tamagui/toast";
+import Loading from "components/loading/loading";
 import {
-  createStreamKey,
+  clearStreamKeyRecord,
+  createStreamKeyRecord,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { View, Text, Button } from "tamagui";
-import { Secp256k1Keypair, bytesToMultibase } from "@atproto/crypto";
-import { privateKeyToAccount } from "viem/accounts";
+import { View, Paragraph, Button } from "tamagui";
+
+const Row = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <View w="100%" f={1} fd="row" padding="$4">
+      {children}
+    </View>
+  );
+};
+
+const Left = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <View f={2} fb={0}>
+      {children}
+    </View>
+  );
+};
+
+const Right = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <View f={6} alignItems="stretch" fb={0}>
+      {children}
+    </View>
+  );
+};
 
 export default function StreamKeyScreen() {
   const userProfile = useAppSelector(selectUserProfile);
-  const [privateKey, setPrivateKey] = useState<string | null>(null);
-  const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [address, setAddress] = useState<string | null>(null);
-  const [did, setDid] = useState<string | null>(null);
-  const dispatch = useAppDispatch();
-  useEffect(() => {
-    // const privateKey = generatePrivateKey();
-    // setPrivateKey(privateKey);
-    // const account = privateKeyToAccount(privateKey);
+  const url = useAppSelector((state) => state.aquareum.url);
 
-    // setAddress(account.address.toLowerCase() as `0x${string}`);
-    // setPublicKey(account.publicKey);
-    // const publicKeyBytes = new Uint8Array(
-    //   account.publicKey
-    //     .slice(2)
-    //     .match(/.{1,2}/g)
-    //     ?.map((byte) => parseInt(byte, 16)) || [],
-    // );
-    // setPublicKey(bytesToMultibase(publicKeyBytes, "base58btc"));
-
-    async function createKey() {
-      if (!userProfile) return;
-      const keypair = await Secp256k1Keypair.create({ exportable: true });
-      setDid(keypair.did());
-      const exportedKey = await keypair.export();
-      const didBytes = new TextEncoder().encode(userProfile.did);
-      const combinedKey = new Uint8Array([...exportedKey, ...didBytes]);
-      const multibaseKey = bytesToMultibase(combinedKey, "base58btc");
-      const hexKey = Array.from(exportedKey)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-      const account = await privateKeyToAccount(`0x${hexKey}`);
-      setPrivateKey(multibaseKey);
-      setPublicKey(account.publicKey);
-      setAddress(account.address.toLowerCase() as `0x${string}`);
-    }
-    createKey();
-  }, [userProfile]);
+  if (!userProfile) {
+    return <Loading />;
+  }
   return (
-    <View f={1} jc="center" ai="center">
-      <View maxWidth={600}>
-        <Text wordWrap="break-word">Private Key: {privateKey}</Text>
-        <Text wordWrap="break-word">Public Key: {publicKey}</Text>
-        <Text wordWrap="break-word">Address: {address}</Text>
-        <Text wordWrap="break-word">DID: {did}</Text>
-        <Button
-          onPress={() => {
-            if (!did) return;
-            dispatch(createStreamKey({ signingKey: did }));
-          }}
-        >
-          Create Stream Key
-        </Button>
+    <View f={1} ai="center" jc="center" gap="$4" w="100%" p="$4">
+      <View w="100%" maxWidth={500}>
+        <Row>
+          <Left>
+            <Paragraph>Service</Paragraph>
+          </Left>
+          <Right>
+            <Paragraph>WHIP</Paragraph>
+          </Right>
+        </Row>
+        <Row>
+          <Left>
+            <Paragraph>Server</Paragraph>
+          </Left>
+          <Right>
+            <Paragraph>{url}</Paragraph>
+          </Right>
+        </Row>
+        <Row>
+          <Left>
+            <Paragraph>Bearer Token</Paragraph>
+          </Left>
+          <Right>
+            <StreamKey />
+          </Right>
+        </Row>
       </View>
     </View>
+  );
+}
+
+export function StreamKey() {
+  const dispatch = useAppDispatch();
+  const [generating, setGenerating] = useState(false);
+  const newKey = useAppSelector((state) => state.bluesky.newKey);
+  const toast = useToastController();
+  useEffect(() => {
+    if (!newKey) {
+      return;
+    }
+    (async () => {
+      try {
+        await navigator.clipboard.writeText(newKey.privateKey);
+        toast.show("Copied!", {
+          message: "Bearer token copied to clipboard",
+        });
+      } catch (e) {
+        // not allowed. oh well.
+      }
+    })();
+    return () => {
+      dispatch(clearStreamKeyRecord());
+    };
+  }, [newKey]);
+  if (generating) {
+    return <Loading />;
+  }
+  if (newKey) {
+    return <Paragraph fontFamily="$mono">{newKey.privateKey}</Paragraph>;
+  }
+  return (
+    <Button
+      onPress={async () => {
+        try {
+          setGenerating(true);
+          await dispatch(createStreamKeyRecord());
+        } catch (e) {
+          console.error("failed to generate stream key", e);
+        } finally {
+          setGenerating(false);
+        }
+      }}
+    >
+      Generate Stream Key
+    </Button>
   );
 }

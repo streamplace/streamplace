@@ -6,6 +6,14 @@ import { openLoginLink } from "features/platform/platformSlice";
 import Storage from "storage";
 import { createAppSlice } from "../../hooks/createSlice";
 import createOAuthClient, { AquareumOAuthClient } from "./oauthClient";
+import { Secp256k1Keypair, bytesToMultibase } from "@atproto/crypto";
+import { privateKeyToAccount } from "viem/accounts";
+
+export interface StreamKey {
+  privateKey: string;
+  did: string;
+  address: string;
+}
 export interface BlueskyState {
   status: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
@@ -22,6 +30,7 @@ export interface BlueskyState {
     loading: boolean;
     error: null | string;
   };
+  newKey: null | StreamKey;
 }
 
 const initialState: BlueskyState = {
@@ -40,6 +49,7 @@ const initialState: BlueskyState = {
     loading: false,
     error: null,
   },
+  newKey: null,
 };
 
 export const blueskySlice = createAppSlice({
@@ -314,8 +324,8 @@ export const blueskySlice = createAppSlice({
       },
     ),
 
-    createStreamKey: create.asyncThunk(
-      async ({ signingKey }: { signingKey: string }, thunkAPI) => {
+    createStreamKeyRecord: create.asyncThunk(
+      async (_, thunkAPI) => {
         const { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };
@@ -330,21 +340,42 @@ export const blueskySlice = createAppSlice({
         if (!profile) {
           throw new Error("No profile");
         }
-        const record = {
-          signingKey: signingKey,
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const keypair = await Secp256k1Keypair.create({ exportable: true });
+        const exportedKey = await keypair.export();
+        const didBytes = new TextEncoder().encode(did);
+        const combinedKey = new Uint8Array([...exportedKey, ...didBytes]);
+        const multibaseKey = bytesToMultibase(combinedKey, "base58btc");
+        const hexKey = Array.from(exportedKey)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        const account = await privateKeyToAccount(`0x${hexKey}`);
+        const newKey = {
+          privateKey: multibaseKey,
+          did: keypair.did(),
+          address: account.address.toLowerCase(),
         };
-        return await bluesky.pdsAgent.com.atproto.repo.createRecord({
+        const record = {
+          signingKey: keypair.did(),
+        };
+        await bluesky.pdsAgent.com.atproto.repo.createRecord({
           repo: did,
           collection: "place.stream.key",
           record,
         });
+        return newKey;
       },
       {
         pending: (state) => {
           console.log("golivePost pending");
         },
         fulfilled: (state, action) => {
-          console.log("golivePost fulfilled", action.payload);
+          return {
+            ...state,
+            newKey: action.payload,
+          };
         },
         rejected: (state, action) => {
           console.error("getProfile rejected", action.error);
@@ -352,6 +383,13 @@ export const blueskySlice = createAppSlice({
         },
       },
     ),
+
+    clearStreamKeyRecord: create.reducer((state) => {
+      return {
+        ...state,
+        newKey: null,
+      };
+    }),
 
     setPDS: create.asyncThunk(
       async (pds: string, thunkAPI) => {
@@ -406,6 +444,21 @@ export const blueskySlice = createAppSlice({
       if (!did) return null;
       return bluesky.profiles[did];
     },
+    selectIsReady: (bluesky) => {
+      if (bluesky.status === "start") {
+        return false;
+      } else if (bluesky.status === "loggedOut") {
+        return true;
+      }
+      if (!bluesky.oauthSession) {
+        return false;
+      }
+      const profile = blueskySlice.selectors.selectUserProfile({ bluesky });
+      if (!profile) {
+        return false;
+      }
+      return true;
+    },
   },
 });
 
@@ -418,7 +471,8 @@ export const {
   golivePost,
   oauthCallback,
   setPDS,
-  createStreamKey,
+  createStreamKeyRecord,
+  clearStreamKeyRecord,
 } = blueskySlice.actions;
 
 // Selectors returned by `slice.selectors` take the root state as their first argument.

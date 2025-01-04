@@ -148,6 +148,10 @@ func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
 		}
 		router.NotFound = a.FileHandler(ctx, http.FileServer(AppHostingFS{http.FS(files)}))
 	}
+	// needed because the WebRTC handler issues 405s from / otherwise
+	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		router.NotFound.ServeHTTP(w, r)
+	})
 	handler := sloghttp.Recovery(router)
 	handler = cors.AllowAll().Handler(handler)
 	handler = sloghttp.New(slog.Default())(handler)

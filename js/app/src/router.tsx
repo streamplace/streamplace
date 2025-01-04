@@ -32,7 +32,6 @@ import {
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { Text, useTheme, View } from "tamagui";
 import AppReturnScreen from "./screens/app-return";
-import GoLiveScreen from "./screens/golive";
 import LiveScreen from "./screens/live";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
@@ -178,6 +177,7 @@ export function AquareumDrawer() {
           component={MainTab}
           options={{
             drawerIcon: () => <Home />,
+            drawerLabel: () => <Text>Home</Text>,
             headerTitle: "Aquareum",
             headerShown: isWeb,
             title: "Aquareum",
@@ -204,7 +204,10 @@ export function AquareumDrawer() {
         <Drawer.Screen
           name="Settings"
           component={Settings}
-          options={{ drawerIcon: () => <SettingsIcon /> }}
+          options={{
+            drawerIcon: () => <SettingsIcon />,
+            drawerLabel: () => <Text>Settings</Text>,
+          }}
         />
         <Drawer.Screen
           name="Multi"
@@ -218,7 +221,7 @@ export function AquareumDrawer() {
           name="Support"
           component={SupportScreen}
           options={{
-            drawerLabel: () => null,
+            drawerLabel: () => <Text>Support</Text>,
             drawerItemStyle: { display: "none" },
           }}
         />
@@ -257,12 +260,10 @@ export function AquareumDrawer() {
         <Drawer.Screen
           name="Login"
           component={Login}
-          options={{ drawerIcon: () => <LogIn /> }}
-        />
-        <Drawer.Screen
-          name="GoLive"
-          component={GoLiveScreen}
-          options={{ headerTitle: "Go Live", drawerIcon: () => <Video /> }}
+          options={{
+            drawerIcon: () => <LogIn />,
+            drawerLabel: () => <Text>Login</Text>,
+          }}
         />
       </Drawer.Navigator>
     </>

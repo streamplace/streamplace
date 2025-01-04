@@ -20,7 +20,8 @@ import { srcToUrl } from "./shared";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
 import useAquareumNode from "hooks/useAquareumNode";
 import { selectPlayer } from "features/player/playerSlice";
-import { useAppSelector } from "store/hooks";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { selectStoredKey } from "features/bluesky/blueskySlice";
 
 type VideoProps = PlayerProps & { url: string };
 
@@ -124,7 +125,7 @@ const VideoElement = forwardRef(
             backgroundColor: "transparent",
             width: "100%",
             height: "100%",
-            // transform: props.ingest ? "scaleX(-1)" : undefined,
+            transform: props.ingest ? "scaleX(-1)" : undefined,
           }}
         />
       </View>
@@ -212,7 +213,9 @@ export function WebRTCPlayer(
 export function WebcamIngestPlayer(
   props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
 ) {
+  const dispatch = useAppDispatch();
   const player = useAppSelector(selectPlayer);
+  const storedKey = useAppSelector(selectStoredKey);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
   );
@@ -252,8 +255,11 @@ export function WebcamIngestPlayer(
     if (!localMediaStream) {
       return;
     }
+    if (!storedKey) {
+      return;
+    }
     setRemoteMediaStream(localMediaStream);
-  }, [localMediaStream, player.ingestStarting]);
+  }, [localMediaStream, player.ingestStarting, storedKey]);
 
   useEffect(() => {
     if (!videoElement) {

@@ -8,12 +8,9 @@ import { createAppSlice } from "../../hooks/createSlice";
 import createOAuthClient, { AquareumOAuthClient } from "./oauthClient";
 import { Secp256k1Keypair, bytesToMultibase } from "@atproto/crypto";
 import { privateKeyToAccount } from "viem/accounts";
+import { StreamKey } from "features/base/baseSlice";
+import { hydrate, STORED_KEY_KEY } from "features/base/baseSlice";
 
-export interface StreamKey {
-  privateKey: string;
-  did: string;
-  address: string;
-}
 export interface BlueskyState {
   status: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
@@ -31,6 +28,7 @@ export interface BlueskyState {
     error: null | string;
   };
   newKey: null | StreamKey;
+  storedKey: null | StreamKey;
 }
 
 const initialState: BlueskyState = {
@@ -50,11 +48,20 @@ const initialState: BlueskyState = {
     error: null,
   },
   newKey: null,
+  storedKey: null,
 };
 
 export const blueskySlice = createAppSlice({
   name: "bluesky",
   initialState,
+  extraReducers: (builder) => {
+    builder.addCase(hydrate.fulfilled, (state, action) => {
+      return {
+        ...state,
+        storedKey: action.payload.storedKey,
+      };
+    });
+  },
   reducers: (create) => ({
     loadOAuthClient: create.asyncThunk(
       async (_, { getState }) => {
@@ -325,7 +332,7 @@ export const blueskySlice = createAppSlice({
     ),
 
     createStreamKeyRecord: create.asyncThunk(
-      async (_, thunkAPI) => {
+      async ({ store }: { store: boolean }, thunkAPI) => {
         const { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };
@@ -365,6 +372,9 @@ export const blueskySlice = createAppSlice({
           collection: "place.stream.key",
           record,
         });
+        if (store) {
+          await Storage.setItem(STORED_KEY_KEY, JSON.stringify(newKey));
+        }
         return newKey;
       },
       {
@@ -375,6 +385,7 @@ export const blueskySlice = createAppSlice({
           return {
             ...state,
             newKey: action.payload,
+            storedKey: action.meta.arg.store ? action.payload : null,
           };
         },
         rejected: (state, action) => {
@@ -439,6 +450,7 @@ export const blueskySlice = createAppSlice({
     selectPDS: (bluesky) => bluesky.pds,
     selectLogin: (bluesky) => bluesky.login,
     selectProfiles: (bluesky) => bluesky.profiles,
+    selectStoredKey: (bluesky) => bluesky.storedKey,
     selectUserProfile: (bluesky) => {
       const did = bluesky.oauthSession?.did;
       if (!did) return null;
@@ -482,4 +494,5 @@ export const {
   selectUserProfile,
   selectPDS,
   selectLogin,
+  selectStoredKey,
 } = blueskySlice.selectors;

@@ -29,7 +29,7 @@ import {
   Pressable,
   StatusBar,
 } from "react-native";
-import { useAppSelector } from "store/hooks";
+import { useAppDispatch, useAppSelector } from "store/hooks";
 import { Text, useTheme, View } from "tamagui";
 import AppReturnScreen from "./screens/app-return";
 import GoLiveScreen from "./screens/golive";
@@ -39,6 +39,7 @@ import StreamScreen from "./screens/stream";
 import SupportScreen from "./screens/support";
 import WebcamScreen from "./screens/webcam";
 import StreamKeyScreen from "./screens/stream-key";
+import { hydrate, selectHydrated } from "features/base/baseSlice";
 function HomeScreen() {
   return (
     <View f={1}>
@@ -143,7 +144,9 @@ export function AquareumDrawer() {
   const theme = useTheme();
   const { isWeb, isElectron } = usePlatform();
   const navigation = useNavigation();
+  const dispatch = useAppDispatch();
   useEffect(() => {
+    dispatch(hydrate());
     // const params = new URLSearchParams(document.location.search);
     // if (params.has("code")) {
     //   navigation.dispatch(
@@ -154,6 +157,10 @@ export function AquareumDrawer() {
     //   );
     // }
   }, []);
+  const hydrated = useAppSelector(selectHydrated);
+  if (!hydrated) {
+    return <View />;
+  }
   return (
     <>
       <StatusBar backgroundColor={theme.background.val} />

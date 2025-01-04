@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
 import { usePlayerActions } from "features/player/playerSlice";
-import { useAppDispatch } from "store/hooks";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import {
+  createStreamKeyRecord,
+  selectStoredKey,
+} from "features/bluesky/blueskySlice";
 
 export default function useWebRTC(endpoint: string) {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
@@ -54,6 +58,7 @@ export default function useWebRTC(endpoint: string) {
 export async function negotiateConnectionWithClientOffer(
   peerConnection: RTCPeerConnection,
   endpoint: string,
+  bearerToken?: string,
 ) {
   /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createOffer */
   const offer = await peerConnection.createOffer({
@@ -80,7 +85,7 @@ export async function negotiateConnectionWithClientOffer(
        * and what kind of media client and server have negotiated to exchange.
        */
       console.log(`posting sdp offer: ${endpoint}`);
-      let response = await postSDPOffer(endpoint, ofr.sdp);
+      let response = await postSDPOffer(endpoint, ofr.sdp, bearerToken);
       if (response.status === 201) {
         let answerSDP = await response.text();
         await peerConnection.setRemoteDescription(
@@ -104,12 +109,17 @@ export async function negotiateConnectionWithClientOffer(
   }
 }
 
-async function postSDPOffer(endpoint: string, data: string) {
+async function postSDPOffer(
+  endpoint: string,
+  data: string,
+  bearerToken?: string,
+) {
   return await fetch(endpoint, {
     method: "POST",
     mode: "cors",
     headers: {
       "content-type": "application/sdp",
+      ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
     },
     body: data,
   });
@@ -146,8 +156,18 @@ export function useWebRTCIngest(
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const { ingestConnectionState } = usePlayerActions();
   const dispatch = useAppDispatch();
+  const storedKey = useAppSelector(selectStoredKey);
+  useEffect(() => {
+    if (storedKey) {
+      return;
+    }
+    dispatch(createStreamKeyRecord({ store: true }));
+  }, [storedKey]);
   useEffect(() => {
     if (!mediaStream) {
+      return;
+    }
+    if (!storedKey) {
       return;
     }
     console.log("creating peer connection");
@@ -165,12 +185,16 @@ export function useWebRTCIngest(
       }
     });
     peerConnection.addEventListener("negotiationneeded", (ev) => {
-      negotiateConnectionWithClientOffer(peerConnection, endpoint);
+      negotiateConnectionWithClientOffer(
+        peerConnection,
+        endpoint,
+        storedKey.privateKey,
+      );
     });
 
     return () => {
       peerConnection.close();
     };
-  }, [endpoint, mediaStream]);
+  }, [endpoint, mediaStream, storedKey]);
   return [mediaStream, setMediaStream];
 }

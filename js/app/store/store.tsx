@@ -2,6 +2,7 @@ import type { Action, ThunkAction } from "@reduxjs/toolkit";
 import { combineSlices, configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { aquareumSlice } from "features/aquareum/aquareumSlice";
+import { baseSlice } from "features/base/baseSlice";
 import { blueskySlice } from "features/bluesky/blueskySlice";
 import { platformSlice } from "features/platform/platformSlice";
 import { playerSlice } from "features/player/playerSlice";
@@ -11,6 +12,7 @@ const rootReducer = combineSlices(
   aquareumSlice,
   platformSlice,
   playerSlice,
+  baseSlice,
 );
 
 export type RootState = ReturnType<typeof rootReducer>;

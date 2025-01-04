@@ -106,7 +106,7 @@ export function StreamKey() {
       onPress={async () => {
         try {
           setGenerating(true);
-          await dispatch(createStreamKeyRecord());
+          await dispatch(createStreamKeyRecord({ store: false }));
         } catch (e) {
           console.error("failed to generate stream key", e);
         } finally {

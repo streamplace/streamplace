@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"aquareum.tv/aquareum/pkg/aqhttp"
@@ -23,7 +24,11 @@ import (
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
-var AQUAREUM_KEY = "tv.aquareum.key"
+var STREAMPLACE_COLLECTION = "place.stream.key"
+var STREAMPLACE_SIGNING_KEY = "signingKey"
+
+const DID_KEY_PREFIX = "did:key"
+const ADDRESS_KEY_PREFIX = "0x"
 
 // handleLocks provides per-handle synchronization
 var handleLocks = struct {
@@ -159,11 +164,11 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 		if !ok {
 			continue
 		}
-		if typ != "place.stream.key" {
+		if typ != STREAMPLACE_COLLECTION {
 			continue
 		}
 		processed += 1
-		aquareumKeyAny, ok := rec["signingKey"]
+		aquareumKeyAny, ok := rec[STREAMPLACE_SIGNING_KEY]
 		if !ok {
 			continue
 		}
@@ -175,11 +180,24 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 	}
 	log.Log(ctx, "processed new posts", "postCount", processed)
 
-	pubKey, err := atcrypto.ParsePublicDIDKey(key)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse multibase key %s: %w", key, err)
+	var aqk aqpub.Pub
+	if strings.HasPrefix(key, DID_KEY_PREFIX) {
+		pubKey, err := atcrypto.ParsePublicDIDKey(key)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse multibase key %s: %w", key, err)
+		}
+		aqk, err = aqpub.FromBytes(pubKey.UncompressedBytes())
+		if err != nil {
+			return "", fmt.Errorf("failed to parse public key for %s: %w", handle, err)
+		}
+	} else if strings.HasPrefix(key, ADDRESS_KEY_PREFIX) {
+		aqk, err = aqpub.FromHexString(key)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse public key for %s: %w", handle, err)
+		}
+	} else {
+		return "", fmt.Errorf("invalid key format for %s: %s", handle, key)
 	}
-	aqk, err := aqpub.FromBytes(pubKey.UncompressedBytes())
 	if err != nil {
 		return "", fmt.Errorf("failed to parse public key for %s: %w", handle, err)
 	}

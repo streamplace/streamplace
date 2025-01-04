@@ -16,9 +16,12 @@ import (
 
 func TestKeyResolution(t *testing.T) {
 	// i wrote these tests before i renamed this and i don't wanna re-export, okay?
-	oldAquareumKey := AQUAREUM_KEY
-	defer func() { AQUAREUM_KEY = oldAquareumKey }()
-	AQUAREUM_KEY = "aquareumKey"
+	oldAquareumCollection := STREAMPLACE_COLLECTION
+	oldAquareumKey := STREAMPLACE_SIGNING_KEY
+	defer func() { STREAMPLACE_COLLECTION = oldAquareumCollection }()
+	defer func() { STREAMPLACE_SIGNING_KEY = oldAquareumKey }()
+	STREAMPLACE_COLLECTION = "app.bsky.feed.post"
+	STREAMPLACE_SIGNING_KEY = "aquareumKey"
 
 	dir, err := os.MkdirTemp("", "atproto-test-*")
 	require.NoError(t, err)

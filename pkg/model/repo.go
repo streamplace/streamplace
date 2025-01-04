@@ -43,9 +43,9 @@ func (m *DBModel) GetRepoByHandle(handle string) (*Repo, error) {
 	return &repoModel, nil
 }
 
-func (m *DBModel) GetRepoByAquareumKey(aquareumKey string) (*Repo, error) {
+func (m *DBModel) GetRepoBySigningKey(signingKey string) (*Repo, error) {
 	var repoModel Repo
-	res := m.DB.Where("aquareum_key = ?", aquareumKey).First(&repoModel)
+	res := m.DB.Where("signing_key = ?", signingKey).First(&repoModel)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

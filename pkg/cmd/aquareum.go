@@ -118,7 +118,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.StringVar(&cli.PKCS11KeypairID, "pkcs11-keypair-id", "", "id of signing keypair on PKCS11 token")
 	fs.StringVar(&cli.StreamerName, "streamer-name", "", "name of the person streaming from this aquareum node")
 	fs.StringVar(&cli.FrontendProxy, "dev-frontend-proxy", "", "(FOR DEVELOPMENT ONLY) proxy frontend requests to this address instead of using the bundled frontend")
-	cli.AddressSliceFlag(fs, &cli.AllowedStreams, "allowed-streams", "", "comma-separated list of addresses that this node will replicate")
+	cli.StringSliceFlag(fs, &cli.AllowedStreams, "allowed-streams", "", "comma-separated list of addresses or atproto DIDs that this node will replicate")
 	cli.StringSliceFlag(fs, &cli.Peers, "peers", "", "other aquareum nodes to replicate to")
 	cli.DebugFlag(fs, &cli.Debug, "debug", "", "modified log verbosity for specific functions or files in form func=ToHLS:3,file=gstreamer.go:4")
 	fs.BoolVar(&cli.TestStream, "test-stream", false, "run a built-in test stream on boot")
@@ -250,11 +250,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		signer = hwsigner
 	}
 	var rep replication.Replicator = &boring.BoringReplicator{Peers: cli.Peers}
-	mm, err := media.MakeMediaManager(ctx, &cli, signer, rep)
+	mod, err := model.MakeDB(cli.DBPath)
 	if err != nil {
 		return err
 	}
-	mod, err := model.MakeDB(cli.DBPath)
+	mm, err := media.MakeMediaManager(ctx, &cli, signer, rep, mod)
 	if err != nil {
 		return err
 	}
@@ -403,7 +403,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		if err != nil {
 			return err
 		}
-		cli.AllowedStreams = append(cli.AllowedStreams, testMediaSigner.Pub)
+		cli.AllowedStreams = append(cli.AllowedStreams, testMediaSigner.Pub.String())
 		a.Aliases["self-test"] = testMediaSigner.Pub.String()
 		group.Go(func() error {
 			return mm.TestSource(ctx, testMediaSigner)

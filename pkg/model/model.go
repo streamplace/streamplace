@@ -39,7 +39,7 @@ type Model interface {
 
 	GetRepo(did string) (*Repo, error)
 	GetRepoByHandle(handle string) (*Repo, error)
-	GetRepoByAquareumKey(aquareumKey string) (*Repo, error)
+	GetRepoBySigningKey(signingKey string) (*Repo, error)
 	UpdateRepo(repo *Repo) error
 
 	GetLiveUsers() ([]Segment, error)

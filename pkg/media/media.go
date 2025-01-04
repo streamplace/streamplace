@@ -42,6 +42,7 @@ type MediaManager struct {
 	httpPipesMutex      sync.Mutex
 	newSegmentSubs      []chan *NewSegmentNotification
 	newSegmentSubsMutex sync.RWMutex
+	model               model.Model
 }
 
 type NewSegmentNotification struct {
@@ -55,7 +56,7 @@ func RunSelfTest(ctx context.Context) error {
 	return SelfTest(ctx)
 }
 
-func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, rep replication.Replicator) (*MediaManager, error) {
+func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, rep replication.Replicator, mod model.Model) (*MediaManager, error) {
 	gst.Init(nil)
 	err := SelfTest(ctx)
 	if err != nil {
@@ -67,6 +68,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		replicator: rep,
 		hlsRunning: map[string]*M3U8{},
 		httpPipes:  map[string]io.Writer{},
+		model:      mod,
 	}, nil
 }
 
@@ -330,9 +332,20 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	if err != nil {
 		return err
 	}
+	var repo *model.Repo
+	if mm.model != nil {
+		repo, err = mm.model.GetRepoBySigningKey(pub.String())
+		if err != nil {
+			return err
+		}
+	}
 	found := false
 	for _, a := range mm.cli.AllowedStreams {
-		if a.Equals(pub) {
+		if a == pub.String() {
+			found = true
+			break
+		}
+		if repo != nil && repo.DID == a {
 			found = true
 			break
 		}

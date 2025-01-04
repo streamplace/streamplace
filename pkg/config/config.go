@@ -72,7 +72,7 @@ type CLI struct {
 	PKCS11KeypairID        string
 	StreamerName           string
 	Debug                  map[string]map[string]int
-	AllowedStreams         []aqpub.Pub
+	AllowedStreams         []string
 	Peers                  []string
 	TestStream             bool
 	FrontendProxy          string

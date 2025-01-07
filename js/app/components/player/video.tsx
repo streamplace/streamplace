@@ -9,6 +9,7 @@ import {
 } from "react";
 import { View } from "tamagui";
 import {
+  IngestMediaSource,
   PlayerProps,
   PlayerStatus,
   PROTOCOL_HLS,
@@ -19,9 +20,10 @@ import {
 import { srcToUrl } from "./shared";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
 import useAquareumNode from "hooks/useAquareumNode";
-import { selectPlayer } from "features/player/playerSlice";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { selectStoredKey } from "features/bluesky/blueskySlice";
+import { usePlayer } from "features/player/playerSlice";
+import streamKey from "src/screens/stream-key";
 
 type VideoProps = PlayerProps & { url: string };
 
@@ -214,7 +216,7 @@ export function WebcamIngestPlayer(
   props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
 ) {
   const dispatch = useAppDispatch();
-  const player = useAppSelector(selectPlayer);
+  const player = useAppSelector(usePlayer());
   const storedKey = useAppSelector(selectStoredKey);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
@@ -229,23 +231,41 @@ export function WebcamIngestPlayer(
   const [localMediaStream, setLocalMediaStream] = useState<MediaStream | null>(
     null,
   );
-  const [remoteMediaStream, setRemoteMediaStream] = useWebRTCIngest(
-    `${url}/api/ingest/webrtc`,
-  );
+  const [remoteMediaStream, setRemoteMediaStream] = useWebRTCIngest({
+    endpoint: `${url}/api/ingest/webrtc`,
+    streamKey: props.ingestStreamKey,
+  });
 
   useEffect(() => {
-    navigator.mediaDevices
-      .getUserMedia({
-        audio: true,
-        video: {
-          width: { min: 200, ideal: 1920, max: 3840 },
-          height: { min: 200, ideal: 1080, max: 2160 },
-        },
-      })
-      .then((stream) => {
-        setLocalMediaStream(stream);
-      });
-  }, []);
+    if (props.ingestMediaSource === IngestMediaSource.DISPLAY) {
+      navigator.mediaDevices
+        .getDisplayMedia({
+          audio: true,
+          video: true,
+        })
+        .then((stream) => {
+          setLocalMediaStream(stream);
+        })
+        .catch((e) => {
+          console.error("error getting display media", e);
+        });
+    } else {
+      navigator.mediaDevices
+        .getUserMedia({
+          audio: true,
+          video: {
+            width: { min: 200, ideal: 1920, max: 3840 },
+            height: { min: 200, ideal: 1080, max: 2160 },
+          },
+        })
+        .then((stream) => {
+          setLocalMediaStream(stream);
+        })
+        .catch((e) => {
+          console.error("error getting user media", e);
+        });
+    }
+  }, [props.ingestMediaSource]);
 
   useEffect(() => {
     if (!player.ingestStarting) {
@@ -255,11 +275,11 @@ export function WebcamIngestPlayer(
     if (!localMediaStream) {
       return;
     }
-    if (!storedKey) {
+    if (!streamKey) {
       return;
     }
     setRemoteMediaStream(localMediaStream);
-  }, [localMediaStream, player.ingestStarting, storedKey]);
+  }, [localMediaStream, player.ingestStarting, streamKey]);
 
   useEffect(() => {
     if (!videoElement) {

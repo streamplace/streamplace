@@ -1,3 +1,8 @@
+export enum IngestMediaSource {
+  USER = "user",
+  DISPLAY = "display",
+}
+
 // common types shared by players and controls and stuff
 export type PlayerProps = {
   name: string;
@@ -23,6 +28,9 @@ export type PlayerProps = {
   playTime: number;
   setPlayTime: (playTime: number) => void;
   ingest?: boolean;
+  ingestMediaSource?: IngestMediaSource;
+  ingestStreamKey?: string;
+  ingestAutoStart?: boolean;
 };
 
 export type PlayerEvent = {

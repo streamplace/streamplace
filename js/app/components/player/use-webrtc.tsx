@@ -150,13 +150,17 @@ async function waitToCompleteICEGathering(peerConnection: RTCPeerConnection) {
   });
 }
 
-export function useWebRTCIngest(
-  endpoint: string,
-): [MediaStream | null, (MediaStream) => void] {
+export function useWebRTCIngest({
+  endpoint,
+  streamKey,
+}: {
+  endpoint: string;
+  streamKey?: string;
+}): [MediaStream | null, (mediaStream: MediaStream | null) => void] {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const { ingestConnectionState } = usePlayerActions();
   const dispatch = useAppDispatch();
-  const storedKey = useAppSelector(selectStoredKey);
+  const storedKey = streamKey ?? useAppSelector(selectStoredKey)?.privateKey;
   useEffect(() => {
     if (storedKey) {
       return;
@@ -185,11 +189,7 @@ export function useWebRTCIngest(
       }
     });
     peerConnection.addEventListener("negotiationneeded", (ev) => {
-      negotiateConnectionWithClientOffer(
-        peerConnection,
-        endpoint,
-        storedKey.privateKey,
-      );
+      negotiateConnectionWithClientOffer(peerConnection, endpoint, storedKey);
     });
 
     return () => {

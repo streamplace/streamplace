@@ -214,6 +214,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@atproto/crypto@npm:^0.4.3":
+  version: 0.4.3
+  resolution: "@atproto/crypto@npm:0.4.3"
+  dependencies:
+    "@noble/curves": "npm:^1.7.0"
+    "@noble/hashes": "npm:^1.6.1"
+    uint8arrays: "npm:3.0.0"
+  checksum: 10/387f1ca50621569ad72f0f682fc64b18f6531103ce6dd2aaf422a6aafd4708bc6a393ee9651c000aed984d6d6864b13448aeed492eaa65d586c03b612bbdbfeb
+  languageName: node
+  linkType: hard
+
 "@atproto/did@npm:0.1.3":
   version: 0.1.3
   resolution: "@atproto/did@npm:0.1.3"
@@ -5575,6 +5586,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noble/curves@npm:^1.7.0":
+  version: 1.8.0
+  resolution: "@noble/curves@npm:1.8.0"
+  dependencies:
+    "@noble/hashes": "npm:1.7.0"
+  checksum: 10/c54ce84cf54b8bda1a37a10dfae2e49e5b6cdf5dd98b399efa8b8a80a286b3f8f27bde53202cb308353bfd98719938991a78bed6e43f81f13b17f8181b7b82eb
+  languageName: node
+  linkType: hard
+
 "@noble/hashes@npm:1.4.0, @noble/hashes@npm:^1.3.1, @noble/hashes@npm:^1.4.0, @noble/hashes@npm:~1.4.0":
   version: 1.4.0
   resolution: "@noble/hashes@npm:1.4.0"
@@ -5593,6 +5613,13 @@ __metadata:
   version: 1.6.0
   resolution: "@noble/hashes@npm:1.6.0"
   checksum: 10/b44b043b02adbecd33596adeed97d9f9864c24a2410f7ac3b847986c2ecf1f6f0df76024b3f1b14d6ea954932960d88898fe551fb9d39844a8b870e9f9044ea1
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:1.7.0, @noble/hashes@npm:^1.6.1":
+  version: 1.7.0
+  resolution: "@noble/hashes@npm:1.7.0"
+  checksum: 10/ab038a816c8c9bb986e92797e3d9c5a5b37c020e0c3edc55bcae5061dbdd457f1f0a22787f83f4787c17415ba0282a20a1e455d36ed0cdcace4ce21ef1869f60
   languageName: node
   linkType: hard
 
@@ -11264,6 +11291,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "aquareum-desktop@workspace:js/desktop"
   dependencies:
+    "@atproto/crypto": "npm:^0.4.3"
     "@electron-forge/cli": "npm:^7.5.0"
     "@electron-forge/maker-deb": "npm:^7.5.0"
     "@electron-forge/maker-dmg": "npm:^7.5.0"

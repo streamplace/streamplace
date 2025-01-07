@@ -36,7 +36,7 @@ import {
   PROTOCOL_PROGRESSIVE_WEBM,
   PROTOCOL_WEBRTC,
 } from "./props";
-import { selectPlayer, usePlayerActions } from "features/player/playerSlice";
+import { usePlayer, usePlayerActions } from "features/player/playerSlice";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import Loading from "components/loading/loading";
 
@@ -213,7 +213,7 @@ export function PopoverMenu(props: PlayerProps) {
 }
 
 function LiveBubble() {
-  const player = useAppSelector(selectPlayer);
+  const player = useAppSelector(usePlayer());
   const dispatch = useAppDispatch();
   const { startIngest } = usePlayerActions();
   return (
@@ -226,6 +226,8 @@ function LiveBubble() {
     >
       <Button
         backgroundColor="rgba(0,0,0,0.9)"
+        borderWidth={1}
+        borderColor="white"
         borderRadius={9999999999}
         padding="$2"
         paddingLeft="$3"
@@ -241,7 +243,7 @@ function LiveBubble() {
 }
 
 function LiveBubbleText() {
-  const player = useAppSelector(selectPlayer);
+  const player = useAppSelector(usePlayer());
   if (!player.ingestStarting) {
     return <H3>START STREAMING</H3>;
   }

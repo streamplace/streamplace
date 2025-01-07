@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Text, View } from "tamagui";
 import Fullscreen from "./fullscreen";
 import {
+  IngestMediaSource,
   PlayerEvent,
   PlayerProps,
   PlayerStatus,
@@ -125,6 +126,9 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     setStatus: setStatus,
     playTime: playTime,
     setPlayTime: setPlayTime,
+    ingestMediaSource: props.ingestMediaSource ?? IngestMediaSource.USER,
+    ingestAutoStart: props.ingestAutoStart ?? false,
+    ...props,
   };
   return (
     <View f={1} justifyContent="center" position="relative">

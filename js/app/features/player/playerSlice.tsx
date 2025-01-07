@@ -95,8 +95,7 @@ export const playerSlice = createAppSlice({
   },
 
   selectors: {
-    selectPlayer: (state) => {
-      const playerId = usePlayerId();
+    selectPlayer: (state, playerId: string) => {
       return state[playerId];
     },
   },
@@ -119,3 +118,7 @@ export const usePlayerActions = () => {
 
 // Action creators are generated for each case reducer function.
 export const { selectPlayer } = playerSlice.selectors;
+export const usePlayer = () => {
+  const playerId = usePlayerId();
+  return (state) => state.player[playerId];
+};

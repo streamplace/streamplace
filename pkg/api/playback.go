@@ -213,10 +213,12 @@ func (a *AquareumAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Handle 
 			return
 		}
 
-		_, err = atproto.SyncBlueskyRepo(ctx, did, a.Model)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not resolve aquareum key", err)
-			return
+		if did != "" {
+			_, err = atproto.SyncBlueskyRepo(ctx, did, a.Model)
+			if err != nil {
+				apierrors.WriteHTTPInternalServerError(w, "could not resolve aquareum key", err)
+				return
+			}
 		}
 
 		// user := p.ByName("user")

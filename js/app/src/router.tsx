@@ -69,7 +69,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Webcam: "live/webcam",
       StreamKey: "live/stream-key",
       Login: "login",
-      AVSync: "av-sync",
+      AVSync: "sync-test",
       AppReturn: "app-return/:scheme",
     },
   },

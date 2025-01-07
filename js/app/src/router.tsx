@@ -39,6 +39,7 @@ import SupportScreen from "./screens/support";
 import WebcamScreen from "./screens/webcam";
 import StreamKeyScreen from "./screens/stream-key";
 import { hydrate, selectHydrated } from "features/base/baseSlice";
+import AVSyncScreen from "./screens/av-sync";
 function HomeScreen() {
   return (
     <View f={1}>
@@ -68,6 +69,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Webcam: "live/webcam",
       StreamKey: "live/stream-key",
       Login: "login",
+      AVSync: "av-sync",
       AppReturn: "app-return/:scheme",
     },
   },
@@ -255,6 +257,15 @@ export function AquareumDrawer() {
           options={{
             drawerLabel: () => null,
             drawerItemStyle: { display: "none" },
+          }}
+        />
+        <Drawer.Screen
+          name="AVSync"
+          component={AVSyncScreen}
+          options={{
+            drawerLabel: () => null,
+            drawerItemStyle: { display: "none" },
+            headerShown: false,
           }}
         />
         <Drawer.Screen

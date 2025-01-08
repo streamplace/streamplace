@@ -70,7 +70,7 @@ if (require("electron-squirrel-startup")) {
       if (args["self-test"]) {
         await runSelfTest(env);
       } else if (args["sync-test"]) {
-        await runSyncTest(env, privateKey);
+        await runSyncTest(env, privateKey, account.address.toLowerCase());
       } else {
         await start(env);
       }
@@ -149,19 +149,22 @@ if (require("electron-squirrel-startup")) {
   const runSyncTest = async (
     env: { [k: string]: string },
     privateKey: string,
+    address: string,
   ): Promise<void> => {
     const hexKey = privateKey.slice(2); // Remove 0x prefix
     const exportedKey = new Uint8Array(
       hexKey.match(/.{1,2}/g).map((byte) => parseInt(byte, 16)),
     );
     const multibaseKey = bytesToMultibase(exportedKey, "base58btc");
-    const { nodeFrontend } = getEnv();
-    // const { addr, internalAddr, proc } = await makeNode({
-    //   env: {
-    //     // AQ_TEST_STREAM: "true",
-    //   },
-    //   autoQuit: true,
-    // });
+    let addr = "127.0.0.1:38080";
+    const { skipNode } = getEnv();
+    if (!skipNode) {
+      const res = await makeNode({
+        env: env,
+        autoQuit: true,
+      });
+      addr = res.addr;
+    }
     const window = new BrowserWindow({
       height: 720,
       width: 1280,
@@ -185,7 +188,6 @@ if (require("electron-squirrel-startup")) {
           frameProcessId,
           frameRoutingId,
         ) => {
-          console.log("GOTTA FRAME!!!");
           frame = webFrameMain.fromId(frameProcessId, frameRoutingId);
           resolve();
         },
@@ -194,25 +196,6 @@ if (require("electron-squirrel-startup")) {
     });
     session.defaultSession.setDisplayMediaRequestHandler(
       async (request, callback) => {
-        console.log("GOTTA CAPTURE!!!");
-        // const sources = await desktopCapturer.getSources({
-        //   types: ["window"],
-        // });
-        // console.log(request);
-        // let captureSource: Electron.DesktopCapturerSource | undefined;
-        // for (let i = 0; i < 5; i++) {
-        //   captureSource = sources.find((s) => {
-        //     console.log(s.name);
-        //     return s.name === "aquareum-sync-test";
-        //   });
-        //   if (captureSource) {
-        //     break;
-        //   }
-        //   await delay(1000);
-        // }
-        // if (!captureSource) {
-        //   throw new Error("no source found");
-        // }
         callback({ video: frame, audio: frame });
       },
     );
@@ -224,16 +207,35 @@ if (require("electron-squirrel-startup")) {
       webPreferences: {
         preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       },
-      title: "aquareum-sync-test",
+      title: "aquareum-sync-stream",
       // titleBarStyle: "hidden",
       // titleBarOverlay: true,
     });
-    const params = new URLSearchParams({
+    const streamParams = new URLSearchParams({
       ingestMediaSource: "display",
       ingestStreamKey: multibaseKey,
+      ingestAutoStart: "true",
     });
     streamWindow.loadURL(
-      `http://127.0.0.1:38080/live/webcam?${params.toString()}`,
+      `http://127.0.0.1:38080/live/webcam?${streamParams.toString()}`,
+    );
+    const playbackParams = new URLSearchParams({
+      avSyncTest: "true",
+    });
+    const playbackWindow = new BrowserWindow({
+      height: 720,
+      width: 1280,
+      x: 0,
+      y: 0,
+      webPreferences: {
+        preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
+      },
+      title: "aquareum-sync-playback",
+      // titleBarStyle: "hidden",
+      // titleBarOverlay: true,
+    });
+    playbackWindow.loadURL(
+      `http://127.0.0.1:38080/${address}?${playbackParams.toString()}`,
     );
   };
 

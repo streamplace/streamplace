@@ -31,6 +31,7 @@ export type PlayerProps = {
   ingestMediaSource?: IngestMediaSource;
   ingestStreamKey?: string;
   ingestAutoStart?: boolean;
+  avSyncTest?: boolean;
 };
 
 export type PlayerEvent = {

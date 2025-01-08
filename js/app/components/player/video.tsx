@@ -24,6 +24,7 @@ import { useAppDispatch, useAppSelector } from "store/hooks";
 import { selectStoredKey } from "features/bluesky/blueskySlice";
 import { usePlayer } from "features/player/playerSlice";
 import streamKey from "src/screens/stream-key";
+import { quietReceiver } from "./av-sync";
 
 type VideoProps = PlayerProps & { url: string };
 
@@ -203,6 +204,16 @@ export function WebRTCPlayer(
   const [mediaStream] = useWebRTC(props.url);
 
   useEffect(() => {
+    if (!props.avSyncTest) {
+      return;
+    }
+    if (!mediaStream) {
+      return;
+    }
+    quietReceiver(mediaStream);
+  }, [props.avSyncTest, mediaStream]);
+
+  useEffect(() => {
     if (!videoElement) {
       return;
     }
@@ -268,7 +279,7 @@ export function WebcamIngestPlayer(
   }, [props.ingestMediaSource]);
 
   useEffect(() => {
-    if (!player.ingestStarting) {
+    if (!player.ingestStarting && !props.ingestAutoStart) {
       setRemoteMediaStream(null);
       return;
     }
@@ -279,7 +290,12 @@ export function WebcamIngestPlayer(
       return;
     }
     setRemoteMediaStream(localMediaStream);
-  }, [localMediaStream, player.ingestStarting, streamKey]);
+  }, [
+    localMediaStream,
+    player.ingestStarting,
+    streamKey,
+    props.ingestAutoStart,
+  ]);
 
   useEffect(() => {
     if (!videoElement) {

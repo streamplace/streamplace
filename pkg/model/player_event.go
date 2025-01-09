@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,12 +66,12 @@ func (m *DBModel) ListPlayerEvents(playerId string) ([]PlayerEvent, error) {
 	return events, nil
 }
 
-func (m *DBModel) PlayerReport(playerId string) (map[string]float64, error) {
+func (m *DBModel) PlayerReport(playerId string) (map[string]any, error) {
 	events, err := m.ListPlayerEvents(playerId)
 	if err != nil {
 		return nil, err
 	}
-	report := map[string]float64{}
+	whatHappenedReport := map[string]float64{}
 	for _, e := range events {
 		if e.EventType != "aq-played" {
 			continue
@@ -95,10 +96,57 @@ func (m *DBModel) PlayerReport(playerId string) (map[string]float64, error) {
 		for state, time := range whatHappened {
 			ms, ok := time.(float64)
 			if ok {
-				report[state] = report[state] + ms
+				whatHappenedReport[state] = whatHappenedReport[state] + ms
 			}
 		}
 	}
+
+	avSyncs := []float64{}
+	for _, e := range events {
+		if e.EventType != "av-sync" {
+			continue
+		}
+		bs, err := e.Meta.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		meta := map[string]any{}
+		err = json.Unmarshal(bs, &meta)
+		if err != nil {
+			return nil, err
+		}
+		diff, ok := meta["diff"].(float64)
+		if !ok {
+			continue
+		}
+		avSyncs = append(avSyncs, diff)
+	}
+
+	report := map[string]any{
+		"whatHappened": whatHappenedReport,
+	}
+
+	if len(avSyncs) > 0 {
+		min := math.Inf(1)
+		max := math.Inf(-1)
+		sum := 0.0
+		for _, sync := range avSyncs {
+			if sync < min {
+				min = sync
+			}
+			if sync > max {
+				max = sync
+			}
+			sum += sync
+		}
+		avg := sum / float64(len(avSyncs))
+		report["avSync"] = map[string]float64{
+			"min": min,
+			"max": max,
+			"avg": avg,
+		}
+	}
+
 	return report, nil
 }
 

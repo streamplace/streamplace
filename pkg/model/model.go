@@ -25,7 +25,7 @@ type Model interface {
 
 	CreatePlayerEvent(event PlayerEventAPI) error
 	ListPlayerEvents(playerId string) ([]PlayerEvent, error)
-	PlayerReport(playerId string) (map[string]float64, error)
+	PlayerReport(playerId string) (map[string]any, error)
 	ClearPlayerEvents() error
 
 	CreateSegment(segment *Segment) error

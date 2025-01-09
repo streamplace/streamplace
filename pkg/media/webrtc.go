@@ -355,17 +355,17 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		switch msg.Type() {
 
 		case gst.MessageEOS: // When end-of-stream is received flush the pipeling and stop the main loop
-			log.Log(ctx, "got gst.MessageEOS, exiting")
+			log.Debug(ctx, "got gst.MessageEOS, exiting")
 			cancel()
 		case gst.MessageError: // Error messages are always fatal
 			err := msg.ParseError()
 			log.Error(ctx, "gstreamer error", "error", err.Error())
 			if debug := err.DebugString(); debug != "" {
-				log.Log(ctx, "gstreamer debug", "message", debug)
+				log.Debug(ctx, "gstreamer debug", "message", debug)
 			}
 			cancel()
 		default:
-			log.Log(ctx, msg.String())
+			log.Debug(ctx, msg.String())
 		}
 		return true
 	})

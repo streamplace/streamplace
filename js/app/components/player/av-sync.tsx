@@ -1,6 +1,9 @@
 export const QUIET_PROFILE = "audible";
 
-export async function quietReceiver(mediaStream: MediaStream) {
+export async function quietReceiver(
+  mediaStream: MediaStream,
+  playerEvent: (time: string, eventType: string, data: any) => void,
+) {
   let audioTime = 0;
   let videoTime = 0;
   let baseline = 0;
@@ -14,6 +17,9 @@ export async function quietReceiver(mediaStream: MediaStream) {
       console.log("baseline", baseline);
     }
     console.log("diff", audioTime - videoTime - baseline);
+    playerEvent(new Date().toISOString(), "av-sync", {
+      diff: audioTime - videoTime - baseline,
+    });
   };
 
   const gotVideo = (time: number) => {

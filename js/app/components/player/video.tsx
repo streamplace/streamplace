@@ -210,7 +210,7 @@ export function WebRTCPlayer(
     if (!mediaStream) {
       return;
     }
-    quietReceiver(mediaStream);
+    quietReceiver(mediaStream, props.playerEvent);
   }, [props.avSyncTest, mediaStream]);
 
   useEffect(() => {

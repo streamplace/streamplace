@@ -14,8 +14,8 @@ export default function VideoRetry(
       return;
     }
 
-    const baseDelay = 10000; // 10 seconds
-    const maxDelay = 30000; // 30 seconds
+    const baseDelay = 10000000000; // 10 seconds
+    const maxDelay = 30000000000; // 30 seconds
     const delay = Math.min(baseDelay * Math.pow(2, retryCount), maxDelay);
 
     const handle = setTimeout(() => {

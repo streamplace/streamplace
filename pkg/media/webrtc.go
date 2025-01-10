@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"aquareum.tv/aquareum/pkg/log"
@@ -32,10 +33,7 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, input io.Reader, off
 	ctx = log.WithLogValues(ctx, "mediafunc", "WebRTCPlayback")
 
 	pipelineSlice := []string{
-		"qtdemux name=demux",
 		"multiqueue name=queue",
-		"demux.video_0 ! queue.sink_0",
-		"demux.audio_0 ! queue.sink_1",
 		"streamsynchronizer name=sync",
 		"queue.src_0 ! sync.sink_0",
 		"queue.src_1 ! sync.sink_1",
@@ -86,23 +84,18 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, input io.Reader, off
 		}
 	}()
 
-	demux, err := pipeline.GetElementByName("demux")
+	queue, err := pipeline.GetElementByName("queue")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get demux element from pipeline: %w", err)
+		return nil, fmt.Errorf("failed to get queue element from pipeline: %w", err)
 	}
-
-	demuxSinkPad := demux.GetStaticPad("sink")
-	if demuxSinkPad == nil {
-		return nil, fmt.Errorf("failed to get demux sink pad")
+	queuePadVideo := queue.GetRequestPad("sink_%u")
+	if queuePadVideo == nil {
+		return nil, fmt.Errorf("failed to get queue video pad")
 	}
-
-	demux.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
-		log.Warn(ctx, "demux pad-added", "name", pad.GetName(), "direction", pad.GetDirection())
-		// pad.AddProbe(gst.PadProbeTypeIdle, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-		// 	log.Warn(ctx, "pad-idle")
-		// 	return gst.PadProbeOK
-		// })
-	})
+	queuePadAudio := queue.GetRequestPad("sink_%u")
+	if queuePadAudio == nil {
+		return nil, fmt.Errorf("failed to get queue audio pad")
+	}
 
 	i := 0
 	var nextFile func()
@@ -135,6 +128,75 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, input io.Reader, off
 			}
 		}()
 
+		demux, err := gst.NewElementWithProperties("qtdemux", map[string]any{
+			"name": fmt.Sprintf("demux_%d", i),
+		})
+		if err != nil {
+			log.Error(ctx, "failed to create demux element", "error", err)
+			cancel()
+			return
+		}
+
+		err = pipeline.Add(demux)
+		if err != nil {
+			log.Error(ctx, "failed to add demux to pipeline", "error", err)
+			cancel()
+			return
+		}
+
+		demuxSinkPad := demux.GetStaticPad("sink")
+		if demuxSinkPad == nil {
+			log.Error(ctx, "failed to get demux sink pad")
+			cancel()
+			return
+		}
+
+		mu := sync.Mutex{}
+		count := 0
+		demux.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
+			mu.Lock()
+			count += 1
+			mu.Unlock()
+			log.Warn(ctx, "demux pad-added", "name", pad.GetName(), "direction", pad.GetDirection())
+			var downstreamPad *gst.Pad
+			if strings.HasPrefix(pad.GetName(), "video_") {
+				downstreamPad = queuePadVideo
+			} else if strings.HasPrefix(pad.GetName(), "audio_") {
+				downstreamPad = queuePadAudio
+			} else {
+				log.Error(ctx, "unknown pad", "name", pad.GetName(), "direction", pad.GetDirection())
+				cancel()
+				return
+			}
+			ret := pad.Link(downstreamPad)
+			if ret != gst.PadLinkOK {
+				log.Error(ctx, "failed to link demux to audio queue", "error", ret)
+				cancel()
+				return
+			}
+			if pad.GetDirection() == gst.PadDirectionSource {
+				pad.AddProbe(gst.PadProbeTypeEventBoth, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+					if info.GetEvent().Type() != gst.EventTypeEOS {
+						return gst.PadProbeOK
+					}
+					log.Warn(ctx, "demux EOS", "name", pad.GetName(), "direction", pad.GetDirection())
+					pad.Unlink(downstreamPad)
+					mu.Lock()
+					defer mu.Unlock()
+					count -= 1
+
+					if count == 0 {
+						nextFile()
+					}
+					return gst.PadProbeRemove
+				})
+			}
+			// pad.AddProbe(gst.PadProbeTypeIdle, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+			// 	log.Warn(ctx, "pad-idle")
+			// 	return gst.PadProbeOK
+			// })
+		})
+
 		appsrc, err := gst.NewElementWithProperties("appsrc", map[string]any{
 			"name":    fmt.Sprintf("appsrc_%d", i),
 			"is-live": true,
@@ -151,17 +213,11 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, input io.Reader, off
 			cancel()
 			return
 		}
+
+		demux.SetState(gst.StatePlaying)
+		appsrc.SetState(gst.StatePlaying)
+
 		src := app.SrcFromElement(appsrc)
-
-		// pads := []*gst.Pad{}
-
-		appsrc.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
-			log.Warn(ctx, "pad-added")
-			// pad.AddProbe(gst.PadProbeTypeIdle, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-			// 	log.Warn(ctx, "pad-idle")
-			// 	return gst.PadProbeOK
-			// })
-		})
 
 		appSrcPad := appsrc.GetStaticPad("src")
 		if appSrcPad == nil {
@@ -180,22 +236,20 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, input io.Reader, off
 			}
 			for _, pad := range pads {
 				log.Warn(ctx, "setting pad-idle", "name", pad.GetName(), "direction", pad.GetDirection())
-				// pad.Connect("EOS", func(args ...any) {
-				// 	log.Warn(ctx, "EOS", "name", pad.GetName(), "direction", pad.GetDirection())
-				// })
+
 				pad.AddProbe(gst.PadProbeTypeEventBoth, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
 					if info.GetEvent().Type() != gst.EventTypeEOS {
 						return gst.PadProbeOK
 					}
-					appSrcPad.Unlink(demuxSinkPad)
-					err = pipeline.Remove(appsrc)
-					if err != nil {
-						log.Error(ctx, "failed to remove appsrc from pipeline", "error", err)
-						cancel()
-						return gst.PadProbeRemove
-					}
-					nextFile()
-					log.Warn(ctx, "done with changeover")
+					// appSrcPad.Unlink(demuxSinkPad)
+					// err = pipeline.Remove(appsrc)
+					// if err != nil {
+					// 	log.Error(ctx, "failed to remove appsrc from pipeline", "error", err)
+					// 	cancel()
+					// 	return gst.PadProbeRemove
+					// }
+					// nextFile()
+					// log.Warn(ctx, "done with changeover")
 					return gst.PadProbeRemove
 				})
 				// pad.AddProbe(gst.PadProbeTypeEventFl, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
@@ -268,6 +322,19 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, input io.Reader, off
 			cancel()
 			return
 		}
+
+		// ret = demuxSrcPadVideo.Link(queuePadVideo)
+		// if ret != gst.PadLinkOK {
+		// 	log.Error(ctx, "failed to link demux to queue", "error", ret)
+		// 	cancel()
+		// 	return
+		// }
+		// ret = demuxSrcPadAudio.Link(queuePadAudio)
+		// if ret != gst.PadLinkOK {
+		// 	log.Error(ctx, "failed to link demux to queue", "error", ret)
+		// 	cancel()
+		// 	return
+		// }
 
 		// appsrc.Connect("stream-start", func(args ...any) {
 		// 	log.Warn(ctx, "stream-start")

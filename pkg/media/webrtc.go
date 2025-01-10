@@ -22,7 +22,7 @@ import (
 )
 
 // This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) WebRTCPlayback(ctx context.Context, input io.Reader, offer *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
+func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
@@ -103,8 +103,8 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, input io.Reader, off
 		pr, pw := io.Pipe()
 		go func() {
 			for {
-				file := <-mm.SubscribeSegment(ctx, "0xbfe5de895aa50b739e7ccd7b44c88f0f1351c801")
-				fullpath, err := mm.cli.SegmentFilePath("0xbfe5de895aa50b739e7ccd7b44c88f0f1351c801", file)
+				file := <-mm.SubscribeSegment(ctx, user)
+				fullpath, err := mm.cli.SegmentFilePath(user, file)
 				if err != nil {
 					log.Warn(ctx, "failed to get segment file", "error", err, "file", file)
 					continue
@@ -303,7 +303,6 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, input io.Reader, off
 				buffer := gst.NewBufferWithSize(int64(len(toPush)))
 				buffer.Map(gst.MapWrite).WriteData(toPush)
 				self.PushBuffer(buffer)
-				log.Debug(ctx, "pushed buffer", "length", read)
 
 				if uint(read) < length {
 					log.Debug(ctx, "short write, ending stream", "length", read)
@@ -433,8 +432,18 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, input io.Reader, off
 
 				samples := buffer.Map(gst.MapRead).Bytes()
 				defer buffer.Unmap()
+				clockTime := buffer.Duration()
+				dur := clockTime.AsDuration()
+				mediaSample := media.Sample{Data: samples}
+				if dur != nil {
+					mediaSample.Duration = *dur
+				} else {
+					log.Log(ctx, "no video duration", "samples", len(samples))
+					// cancel()
+					return gst.FlowOK
+				}
 
-				if err := videoTrack.WriteSample(media.Sample{Data: samples, Duration: *buffer.Duration().AsDuration()}); err != nil {
+				if err := videoTrack.WriteSample(mediaSample); err != nil {
 					log.Log(ctx, "failed to write video sample", "error", err)
 					cancel()
 				}
@@ -469,7 +478,7 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, input io.Reader, off
 				if dur != nil {
 					mediaSample.Duration = *dur
 				} else {
-					log.Log(ctx, "no duration", "samples", len(samples))
+					log.Log(ctx, "no audio duration", "samples", len(samples))
 					// cancel()
 					return gst.FlowOK
 				}

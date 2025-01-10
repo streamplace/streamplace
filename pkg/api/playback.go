@@ -147,18 +147,11 @@ func (a *AquareumAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Handl
 			return
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
-		pr, pw := io.Pipe()
-		answer, err := a.MediaManager.WebRTCPlayback(ctx, pr, &offer)
+		answer, err := a.MediaManager.WebRTCPlayback(ctx, user, &offer)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "error playing back", err)
 			return
 		}
-		go func() {
-			err := a.MediaManager.SegmentToMKV(ctx, user, pw)
-			if err != nil {
-				log.Log(ctx, "error writing segment to mkv", err)
-			}
-		}()
 		w.WriteHeader(201)
 		w.Header().Add("Location", r.URL.Path)
 		w.Write([]byte(answer.SDP))

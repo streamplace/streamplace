@@ -99,11 +99,22 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 
 	i := 0
 	var nextFile func()
+	allFiles := make(chan string, 1024)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case file := <-mm.SubscribeSegment(ctx, user):
+				allFiles <- file
+			}
+		}
+	}()
 	nextFile = func() {
 		pr, pw := io.Pipe()
 		go func() {
 			for {
-				file := <-mm.SubscribeSegment(ctx, user)
+				file := <-allFiles
 				fullpath, err := mm.cli.SegmentFilePath(user, file)
 				if err != nil {
 					log.Warn(ctx, "failed to get segment file", "error", err, "file", file)

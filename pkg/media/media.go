@@ -124,7 +124,9 @@ func (mm *MediaManager) PublishSegment(ctx context.Context, user, file string) {
 	mm.mp4subsmut.Lock()
 	defer mm.mp4subsmut.Unlock()
 	for _, sub := range mm.mp4subs[user] {
-		sub <- file
+		go func() {
+			sub <- file
+		}()
 	}
 	mm.mp4subs[user] = []chan string{}
 }

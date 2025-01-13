@@ -2,12 +2,8 @@ package media
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
-	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"aquareum.tv/aquareum/pkg/log"
@@ -33,15 +29,8 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 	ctx = log.WithLogValues(ctx, "mediafunc", "WebRTCPlayback")
 
 	pipelineSlice := []string{
-		"multiqueue name=queue",
-		"streamsynchronizer name=sync",
-		"queue.src_0 ! sync.sink_0",
-		"queue.src_1 ! sync.sink_1",
-		"multiqueue name=outqueue",
-		"sync.src_0 ! outqueue.sink_0",
-		"sync.src_1 ! outqueue.sink_1",
-		"outqueue.src_0 ! h264parse name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink name=videoappsink",
-		"outqueue.src_1 ! opusparse ! appsink name=audioappsink",
+		"h264parse name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink name=videoappsink",
+		"opusparse name=audioparse ! appsink name=audioappsink",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -50,314 +39,58 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 	}
 
 	ok := pipeline.GetPipelineBus().AddWatch(func(msg *gst.Message) bool {
-		switch msg.Type() {
-
-		case gst.MessageEOS: // When end-of-stream is received flush the pipeling and stop the main loop
-			log.Log(ctx, "got gst.MessageEOS, exiting")
-			cancel()
-		case gst.MessageError: // Error messages are always fatal
-			err := msg.ParseError()
-			log.Error(ctx, "gstreamer error", "error", err.Error())
-			if debug := err.DebugString(); debug != "" {
-				log.Log(ctx, "gstreamer debug", "message", debug)
+		go func(msg *gst.Message) {
+			switch msg.Type() {
+			case gst.MessageEOS: // When end-of-stream is received flush the pipeling and stop the main loop
+				log.Log(ctx, "got gst.MessageEOS, exiting")
+				cancel()
+			case gst.MessageError: // Error messages are always fatal
+				err := msg.ParseError()
+				log.Error(ctx, "gstreamer error", "error", err.Error())
+				if debug := err.DebugString(); debug != "" {
+					log.Log(ctx, "gstreamer debug", "message", debug)
+				}
+				cancel()
+			default:
+				log.Debug(ctx, msg.String())
 			}
-			cancel()
-		default:
-			log.Debug(ctx, msg.String())
-		}
+		}(msg.Copy())
 		return true
 	})
 	if !ok {
 		return nil, fmt.Errorf("failed to add watch to pipeline bus")
 	}
 
-	go func() {
-		ticker := time.NewTicker(time.Second * 1)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				state := pipeline.GetCurrentState()
-				log.Debug(ctx, "pipeline state", "state", state)
-			}
-		}
-	}()
-
-	queue, err := pipeline.GetElementByName("queue")
+	outputQueue, err := mm.ConcatStream(ctx, pipeline, user)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get queue element from pipeline: %w", err)
+		return nil, fmt.Errorf("failed to get output queue: %w", err)
 	}
-	queuePadVideo := queue.GetRequestPad("sink_%u")
-	if queuePadVideo == nil {
-		return nil, fmt.Errorf("failed to get queue video pad")
+	// queuePadVideo := outputQueue.GetRequestPad("src_%u")
+	// if queuePadVideo == nil {
+	// 	return nil, fmt.Errorf("failed to get queue video pad")
+	// }
+	// queuePadAudio := outputQueue.GetRequestPad("src_%u")
+	// if queuePadAudio == nil {
+	// 	return nil, fmt.Errorf("failed to get queue audio pad")
+	// }
+
+	videoParse, err := pipeline.GetElementByName("videoparse")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get video sink element from pipeline: %w", err)
 	}
-	queuePadAudio := queue.GetRequestPad("sink_%u")
-	if queuePadAudio == nil {
-		return nil, fmt.Errorf("failed to get queue audio pad")
-	}
-
-	i := 0
-	var nextFile func()
-	allFiles := make(chan string, 1024)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case file := <-mm.SubscribeSegment(ctx, user):
-				allFiles <- file
-			}
-		}
-	}()
-	nextFile = func() {
-		pr, pw := io.Pipe()
-		go func() {
-			for {
-				file := <-allFiles
-				fullpath, err := mm.cli.SegmentFilePath(user, file)
-				if err != nil {
-					log.Warn(ctx, "failed to get segment file", "error", err, "file", file)
-					continue
-				}
-				f, err := os.Open(fullpath)
-				if err != nil {
-					log.Warn(ctx, "failed to open segment file", "error", err, "file", file)
-					continue
-				}
-				io.Copy(pw, f)
-				f.Close()
-				// buffer := gst.NewBufferWithSize(int64(len(bs)))
-				// buffer.Map(gst.MapWrite).WriteData(bs)
-				// ret := src.PushBuffer(buffer)
-				// if ret != gst.FlowOK {
-				// 	log.Warn(ctx, "failed to push buffer", "error", ret, "file", file)
-				// 	continue
-				// } else {
-				// 	log.Warn(ctx, "pushed buffer", "file", file)
-				// }
-			}
-		}()
-
-		demux, err := gst.NewElementWithProperties("qtdemux", map[string]any{
-			"name": fmt.Sprintf("demux_%d", i),
-		})
-		if err != nil {
-			log.Error(ctx, "failed to create demux element", "error", err)
-			cancel()
-			return
-		}
-
-		err = pipeline.Add(demux)
-		if err != nil {
-			log.Error(ctx, "failed to add demux to pipeline", "error", err)
-			cancel()
-			return
-		}
-
-		demuxSinkPad := demux.GetStaticPad("sink")
-		if demuxSinkPad == nil {
-			log.Error(ctx, "failed to get demux sink pad")
-			cancel()
-			return
-		}
-
-		mu := sync.Mutex{}
-		count := 0
-		demux.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
-			mu.Lock()
-			count += 1
-			mu.Unlock()
-			log.Warn(ctx, "demux pad-added", "name", pad.GetName(), "direction", pad.GetDirection())
-			var downstreamPad *gst.Pad
-			if strings.HasPrefix(pad.GetName(), "video_") {
-				downstreamPad = queuePadVideo
-			} else if strings.HasPrefix(pad.GetName(), "audio_") {
-				downstreamPad = queuePadAudio
-			} else {
-				log.Error(ctx, "unknown pad", "name", pad.GetName(), "direction", pad.GetDirection())
-				cancel()
-				return
-			}
-			ret := pad.Link(downstreamPad)
-			if ret != gst.PadLinkOK {
-				log.Error(ctx, "failed to link demux to audio queue", "error", ret)
-				cancel()
-				return
-			}
-			if pad.GetDirection() == gst.PadDirectionSource {
-				pad.AddProbe(gst.PadProbeTypeEventBoth, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-					if info.GetEvent().Type() != gst.EventTypeEOS {
-						return gst.PadProbeOK
-					}
-					log.Warn(ctx, "demux EOS", "name", pad.GetName(), "direction", pad.GetDirection())
-					pad.Unlink(downstreamPad)
-					mu.Lock()
-					defer mu.Unlock()
-					count -= 1
-
-					if count == 0 {
-						nextFile()
-					}
-					return gst.PadProbeRemove
-				})
-			}
-			// pad.AddProbe(gst.PadProbeTypeIdle, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-			// 	log.Warn(ctx, "pad-idle")
-			// 	return gst.PadProbeOK
-			// })
-		})
-
-		appsrc, err := gst.NewElementWithProperties("appsrc", map[string]any{
-			"name":    fmt.Sprintf("appsrc_%d", i),
-			"is-live": true,
-		})
-		if err != nil {
-			log.Error(ctx, "failed to get appsrc element from pipeline", "error", err)
-			cancel()
-			return
-		}
-		i += 1
-		err = pipeline.Add(appsrc)
-		if err != nil {
-			log.Error(ctx, "failed to add appsrc to pipeline", "error", err)
-			cancel()
-			return
-		}
-
-		demux.SetState(gst.StatePlaying)
-		appsrc.SetState(gst.StatePlaying)
-
-		src := app.SrcFromElement(appsrc)
-
-		appSrcPad := appsrc.GetStaticPad("src")
-		if appSrcPad == nil {
-			log.Error(ctx, "failed to get appsrc pad")
-			cancel()
-			return
-		}
-
-		done := func() {
-			// appsrc.Unlink(demux)
-			pads, err := src.GetPads()
-			if err != nil {
-				log.Error(ctx, "failed to get pads", "error", err)
-				cancel()
-				return
-			}
-			for _, pad := range pads {
-				log.Warn(ctx, "setting pad-idle", "name", pad.GetName(), "direction", pad.GetDirection())
-
-				pad.AddProbe(gst.PadProbeTypeEventBoth, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-					if info.GetEvent().Type() != gst.EventTypeEOS {
-						return gst.PadProbeOK
-					}
-					// appSrcPad.Unlink(demuxSinkPad)
-					// err = pipeline.Remove(appsrc)
-					// if err != nil {
-					// 	log.Error(ctx, "failed to remove appsrc from pipeline", "error", err)
-					// 	cancel()
-					// 	return gst.PadProbeRemove
-					// }
-					// nextFile()
-					// log.Warn(ctx, "done with changeover")
-					return gst.PadProbeRemove
-				})
-				// pad.AddProbe(gst.PadProbeTypeEventFl, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-				// 	log.Warn(ctx, "pad-flush", "name", pad.GetName(), "direction", pad.GetDirection())
-				// 	return gst.PadProbeRemove
-				// })
-				pad.AddProbe(gst.PadProbeTypeIdle, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-					log.Warn(ctx, "pad-idle", "name", pad.GetName(), "direction", pad.GetDirection())
-					src.EndStream()
-					return gst.PadProbeRemove
-				})
-			}
-			// src.EndStream()
-			// err := pipeline.Remove(appsrc)
-			// go func() {
-			// 	src.SetState(gst.StateNull)
-			// }()
-			// if err != nil {
-			// 	log.Error(ctx, "failed to remove appsrc from pipeline", "error", err)
-			// 	cancel()
-			// 	return
-			// }
-			// nextFile()
-		}
-
-		src.SetAutomaticEOS(false)
-		src.SetCallbacks(&app.SourceCallbacks{
-			NeedDataFunc: func(self *app.Source, length uint) {
-				bs := make([]byte, length)
-				read, err := pr.Read(bs)
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						if read > 0 {
-							log.Warn(ctx, "got data on eof???")
-							cancel()
-							return
-						}
-						log.Debug(ctx, "EOF, ending stream", "length", read)
-						done()
-						return
-					} else {
-						log.Error(ctx, "failed to read data", "error", err)
-						cancel()
-						return
-					}
-				}
-				toPush := bs
-				if uint(read) < length {
-					toPush = bs[:read]
-				}
-				buffer := gst.NewBufferWithSize(int64(len(toPush)))
-				buffer.Map(gst.MapWrite).WriteData(toPush)
-				self.PushBuffer(buffer)
-
-				if uint(read) < length {
-					log.Debug(ctx, "short write, ending stream", "length", read)
-					done()
-				}
-			},
-			// EOSFunc: func(self *app.Source) {
-			// 	log.Warn(ctx, "appsrc EOSFunc")
-			// 	cancel()
-			// },
-		})
-
-		ret := appSrcPad.Link(demuxSinkPad)
-		if ret != gst.PadLinkOK {
-			log.Error(ctx, "failed to link appsrc to demux", "error", ret)
-			cancel()
-			return
-		}
-
-		// ret = demuxSrcPadVideo.Link(queuePadVideo)
-		// if ret != gst.PadLinkOK {
-		// 	log.Error(ctx, "failed to link demux to queue", "error", ret)
-		// 	cancel()
-		// 	return
-		// }
-		// ret = demuxSrcPadAudio.Link(queuePadAudio)
-		// if ret != gst.PadLinkOK {
-		// 	log.Error(ctx, "failed to link demux to queue", "error", ret)
-		// 	cancel()
-		// 	return
-		// }
-
-		// appsrc.Connect("stream-start", func(args ...any) {
-		// 	log.Warn(ctx, "stream-start")
-		// 	fmt.Printf("stream-start: %v\n", args)
-		// })
-
-		// started := false
+	err = outputQueue.Link(videoParse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link output queue to video parse: %w", err)
 	}
 
-	go func() {
-		<-ctx.Done()
-		pipeline.BlockSetState(gst.StateNull)
-	}()
+	audioParse, err := pipeline.GetElementByName("audioparse")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get audio parse element from pipeline: %w", err)
+	}
+	err = outputQueue.Link(audioParse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to link output queue to audio parse: %w", err)
+	}
 
 	videoappsinkele, err := pipeline.GetElementByName("videoappsink")
 	if err != nil {
@@ -425,6 +158,24 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
 
 	// Setup complete! Now we boot up streaming in the background while returning the SDP offer to the user.
+
+	go func() {
+		<-ctx.Done()
+		pipeline.BlockSetState(gst.StateNull)
+	}()
+
+	go func() {
+		ticker := time.NewTicker(time.Second * 1)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				state := pipeline.GetCurrentState()
+				log.Debug(ctx, "pipeline state", "state", state)
+			}
+		}
+	}()
 
 	go func() {
 
@@ -507,7 +258,6 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 		})
 
 		// Start the pipeline
-		nextFile()
 		pipeline.SetState(gst.StatePlaying)
 
 		go func() {

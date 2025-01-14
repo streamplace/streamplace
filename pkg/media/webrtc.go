@@ -39,22 +39,20 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 	}
 
 	ok := pipeline.GetPipelineBus().AddWatch(func(msg *gst.Message) bool {
-		go func(msg *gst.Message) {
-			switch msg.Type() {
-			case gst.MessageEOS: // When end-of-stream is received flush the pipeling and stop the main loop
-				log.Log(ctx, "got gst.MessageEOS, exiting")
-				cancel()
-			case gst.MessageError: // Error messages are always fatal
-				err := msg.ParseError()
-				log.Error(ctx, "gstreamer error", "error", err.Error())
-				if debug := err.DebugString(); debug != "" {
-					log.Log(ctx, "gstreamer debug", "message", debug)
-				}
-				cancel()
-			default:
-				log.Debug(ctx, msg.String())
+		switch msg.Type() {
+		case gst.MessageEOS: // When end-of-stream is received flush the pipeling and stop the main loop
+			log.Log(ctx, "got gst.MessageEOS, exiting")
+			cancel()
+		case gst.MessageError: // Error messages are always fatal
+			err := msg.ParseError()
+			log.Error(ctx, "gstreamer error", "error", err.Error())
+			if debug := err.DebugString(); debug != "" {
+				log.Log(ctx, "gstreamer debug", "message", debug)
 			}
-		}(msg.Copy())
+			cancel()
+		default:
+			log.Debug(ctx, msg.String())
+		}
 		return true
 	})
 	if !ok {

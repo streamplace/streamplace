@@ -99,21 +99,21 @@ func (mm *MediaManager) ConcatStream(ctx context.Context, pipeline *gst.Pipeline
 	// input queue to streamsynchronizer
 	ret := inputQueuePadVideoSrc.Link(syncPadVideoSink)
 	if ret != gst.PadLinkOK {
-		return nil, fmt.Errorf("failed to link multiqueue to streamsynchronizer: %w", ret)
+		return nil, fmt.Errorf("failed to link multiqueue to streamsynchronizer: %v", ret)
 	}
 	ret = inputQueuePadAudioSrc.Link(syncPadAudioSink)
 	if ret != gst.PadLinkOK {
-		return nil, fmt.Errorf("failed to link multiqueue to streamsynchronizer: %w", ret)
+		return nil, fmt.Errorf("failed to link multiqueue to streamsynchronizer: %v", ret)
 	}
 
 	// streamsynchronizer to output queue
 	ret = syncPadVideoSrc.Link(outputQueuePadVideoSink)
 	if ret != gst.PadLinkOK {
-		return nil, fmt.Errorf("failed to link streamsynchronizer to output queue: %w", ret)
+		return nil, fmt.Errorf("failed to link streamsynchronizer to output queue: %v", ret)
 	}
 	ret = syncPadAudioSrc.Link(outputQueuePadAudioSink)
 	if ret != gst.PadLinkOK {
-		return nil, fmt.Errorf("failed to link streamsynchronizer to output queue: %w", ret)
+		return nil, fmt.Errorf("failed to link streamsynchronizer to output queue: %v", ret)
 	}
 
 	// ok now we can start looping over input files

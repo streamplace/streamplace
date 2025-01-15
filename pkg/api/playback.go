@@ -75,7 +75,7 @@ func (a *AquareumAPI) HandleMP4Playback(ctx context.Context) httprouter.Handle {
 		pr, pw := io.Pipe()
 		bufw := bufio.NewWriter(pw)
 		g.Go(func() error {
-			return a.MediaManager.SegmentToMP4(ctx, user, bufw)
+			return a.MediaManager.MP4Playback(ctx, user, bufw)
 		})
 		g.Go(func() error {
 			time.Sleep(time.Duration(delayMS) * time.Millisecond)
@@ -118,7 +118,7 @@ func (a *AquareumAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handle {
 		pr, pw := io.Pipe()
 		bufw := bufio.NewWriter(pw)
 		g.Go(func() error {
-			return a.MediaManager.SegmentToMKV(ctx, user, bufw)
+			return a.MediaManager.MKVPlayback(ctx, user, bufw)
 		})
 		g.Go(func() error {
 			time.Sleep(time.Duration(delayMS) * time.Millisecond)

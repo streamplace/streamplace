@@ -1,7 +1,7 @@
 {
   "name": "aquareum-desktop",
   "productName": "aquareum-desktop",
-  "version": "0.2.2",
+  "version": "0.2.5",
   "description": "Aquareum Desktop Application",
   "main": ".webpack/main",
   "scripts": {

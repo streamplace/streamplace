@@ -1,7 +1,7 @@
 {
   "name": "aquareum",
   "main": "expo-router/entry",
-  "version": "0.2.2",
+  "version": "0.2.5",
   "scripts": {
     "upgrade:tamagui": "yarn up '*tamagui*'@latest '@tamagui/*'@latest",
     "upgrade:tamagui:canary": "yarn up '*tamagui*'@canary '@tamagui/*'@canary",

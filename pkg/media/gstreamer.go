@@ -755,7 +755,7 @@ func (mm *MediaManager) MP4Playback(ctx context.Context, user string, w io.Write
 	ctx = log.WithLogValues(ctx, "mediafunc", "MP4Playback")
 
 	pipelineSlice := []string{
-		"mp4mux name=muxer fragment-mode=first-moov-then-finalise ! appsink name=mp4sink",
+		"mp4mux name=muxer fragment-mode=first-moov-then-finalise fragment-duration=1000 streamable=true ! appsink name=mp4sink",
 		"h264parse name=videoparse ! muxer.",
 		"opusparse name=audioparse ! muxer.",
 	}

@@ -17,6 +17,11 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media"
 )
 
+// we have a bug that prevents us from correctly probing video durations
+// a lot of the time. so when we don't have them we use the last duration
+// that we had, and when we don't have that we use a default duration
+var DEFAULT_DURATION = time.Duration(32 * time.Millisecond)
+
 // This function remains in scope for the duration of a single users' playback
 func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
@@ -59,10 +64,18 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 		return nil, fmt.Errorf("failed to add watch to pipeline bus")
 	}
 
-	outputQueue, err := mm.ConcatStream(ctx, pipeline, user)
+	outputQueue, done, err := ConcatStream(ctx, pipeline, user, mm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get output queue: %w", err)
 	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-done:
+			cancel()
+		}
+	}()
 	// queuePadVideo := outputQueue.GetRequestPad("src_%u")
 	// if queuePadVideo == nil {
 	// 	return nil, fmt.Errorf("failed to get queue video pad")
@@ -175,6 +188,8 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 		}
 	}()
 
+	var lastVideoDuration = &DEFAULT_DURATION
+
 	go func() {
 
 		videoappsink := app.SinkFromElement(videoappsinkele)
@@ -197,6 +212,9 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 				mediaSample := media.Sample{Data: samples}
 				if dur != nil {
 					mediaSample.Duration = *dur
+					lastVideoDuration = dur
+				} else if lastVideoDuration != nil {
+					mediaSample.Duration = *lastVideoDuration
 				} else {
 					log.Log(ctx, "no video duration", "samples", len(samples))
 					// cancel()

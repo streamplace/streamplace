@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"path/filepath"
 	"regexp"
 	rtpprof "runtime/pprof"
 	"strconv"
@@ -107,7 +108,8 @@ func (a *AquareumAPI) InternalHandler(ctx context.Context) (http.Handler, error)
 			return
 		}
 		file := <-a.MediaManager.SubscribeSegment(ctx, user)
-		w.Header().Set("Location", fmt.Sprintf("%s/playback/%s/segment/%s\n", a.CLI.OwnInternalURL(), user, file))
+		base := filepath.Base(file)
+		w.Header().Set("Location", fmt.Sprintf("%s/playback/%s/segment/%s\n", a.CLI.OwnInternalURL(), user, base))
 		w.WriteHeader(301)
 	})
 

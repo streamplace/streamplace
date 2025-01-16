@@ -786,10 +786,18 @@ func (mm *MediaManager) MP4Playback(ctx context.Context, user string, w io.Write
 		return fmt.Errorf("failed to add watch to pipeline bus")
 	}
 
-	outputQueue, err := mm.ConcatStream(ctx, pipeline, user)
+	outputQueue, done, err := ConcatStream(ctx, pipeline, user, mm)
 	if err != nil {
 		return fmt.Errorf("failed to get output queue: %w", err)
 	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-done:
+			cancel()
+		}
+	}()
 
 	videoParse, err := pipeline.GetElementByName("videoparse")
 	if err != nil {
@@ -888,10 +896,18 @@ func (mm *MediaManager) MKVPlayback(ctx context.Context, user string, w io.Write
 		return fmt.Errorf("failed to add watch to pipeline bus")
 	}
 
-	outputQueue, err := mm.ConcatStream(ctx, pipeline, user)
+	outputQueue, done, err := ConcatStream(ctx, pipeline, user, mm)
 	if err != nil {
 		return fmt.Errorf("failed to get output queue: %w", err)
 	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-done:
+			cancel()
+		}
+	}()
 
 	videoParse, err := pipeline.GetElementByName("videoparse")
 	if err != nil {

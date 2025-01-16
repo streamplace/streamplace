@@ -122,6 +122,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	cli.StringSliceFlag(fs, &cli.Peers, "peers", "", "other aquareum nodes to replicate to")
 	cli.DebugFlag(fs, &cli.Debug, "debug", "", "modified log verbosity for specific functions or files in form func=ToHLS:3,file=gstreamer.go:4")
 	fs.BoolVar(&cli.TestStream, "test-stream", false, "run a built-in test stream on boot")
+	doValidate := fs.Bool("validate", false, "validate media")
 	verbosity := fs.String("v", "3", "log verbosity level")
 
 	fs.Bool("insecure", false, "DEPRECATED, does nothing.")
@@ -141,7 +142,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if err != nil {
 		return err
 	}
-	flag.CommandLine.Parse(nil)
+	err = flag.CommandLine.Parse(nil)
+	if err != nil {
+		return err
+	}
 	vFlag.Value.Set(*verbosity)
 
 	ctx := context.Background()
@@ -157,6 +161,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		"runtime.Version", runtime.Version())
 	if *version {
 		return nil
+	}
+
+	if *doValidate {
+		return media.ValidateMedia(ctx)
 	}
 
 	aqhttp.UserAgent = fmt.Sprintf("aquareum/%s", build.Version)

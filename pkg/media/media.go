@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path/filepath"
 	"sync"
 
 	"aquareum.tv/aquareum/pkg/aqtime"
@@ -107,7 +106,7 @@ func (mm *MediaManager) NewSegment() <-chan *NewSegmentNotification {
 }
 
 // subscribe to the latest segments from a given user for livestreaming purposes
-func (mm *MediaManager) SubscribeSegment(ctx context.Context, user string) chan string {
+func (mm *MediaManager) SubscribeSegment(ctx context.Context, user string) <-chan string {
 	mm.mp4subsmut.Lock()
 	defer mm.mp4subsmut.Unlock()
 	_, ok := mm.mp4subs[user]
@@ -367,8 +366,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	go mm.replicator.NewSegment(ctx, buf)
 	r = bytes.NewReader(buf)
 	io.Copy(fd, r)
-	base := filepath.Base(fd.Name())
-	go mm.PublishSegment(ctx, pub.String(), base)
+	go mm.PublishSegment(ctx, pub.String(), fd.Name())
 	seg := &model.Segment{
 		ID:        *mani.Label,
 		User:      pub.String(),

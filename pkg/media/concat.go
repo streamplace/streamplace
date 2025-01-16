@@ -14,8 +14,12 @@ import (
 	"github.com/go-gst/go-gst/gst/app"
 )
 
+type ConcatStreamer interface {
+	SubscribeSegment(ctx context.Context, user string) <-chan string
+}
+
 // This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string) (*gst.Element, error) {
+func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, streamer ConcatStreamer) (*gst.Element, <-chan struct{}, error) {
 	ctx = log.WithLogValues(ctx, "func", "ConcatStream")
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -24,74 +28,74 @@ func (mm *MediaManager) ConcatStream(ctx context.Context, pipeline *gst.Pipeline
 	// input multiqueue
 	inputQueue, err := gst.NewElementWithProperties("multiqueue", map[string]any{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create multiqueue element: %w", err)
+		return nil, nil, fmt.Errorf("failed to create multiqueue element: %w", err)
 	}
 	err = pipeline.Add(inputQueue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add input multiqueue to pipeline: %w", err)
+		return nil, nil, fmt.Errorf("failed to add input multiqueue to pipeline: %w", err)
 	}
 	for _, tmpl := range inputQueue.GetPadTemplates() {
 		log.Warn(ctx, "pad template", "name", tmpl.GetName(), "direction", tmpl.Direction())
 	}
 	inputQueuePadVideoSink := inputQueue.GetRequestPad("sink_%u")
 	if inputQueuePadVideoSink == nil {
-		return nil, fmt.Errorf("failed to get input queue video sink pad")
+		return nil, nil, fmt.Errorf("failed to get input queue video sink pad")
 	}
 	inputQueuePadAudioSink := inputQueue.GetRequestPad("sink_%u")
 	if inputQueuePadAudioSink == nil {
-		return nil, fmt.Errorf("failed to get input queue audio sink pad")
+		return nil, nil, fmt.Errorf("failed to get input queue audio sink pad")
 	}
 	inputQueuePadVideoSrc := inputQueue.GetStaticPad("src_0")
 	if inputQueuePadVideoSrc == nil {
-		return nil, fmt.Errorf("failed to get input queue video src pad")
+		return nil, nil, fmt.Errorf("failed to get input queue video src pad")
 	}
 	inputQueuePadAudioSrc := inputQueue.GetStaticPad("src_1")
 	if inputQueuePadAudioSrc == nil {
-		return nil, fmt.Errorf("failed to get input queue audio src pad")
+		return nil, nil, fmt.Errorf("failed to get input queue audio src pad")
 	}
 
 	// streamsynchronizer
 	streamsynchronizer, err := gst.NewElementWithProperties("streamsynchronizer", map[string]any{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create streamsynchronizer element: %w", err)
+		return nil, nil, fmt.Errorf("failed to create streamsynchronizer element: %w", err)
 	}
 	err = pipeline.Add(streamsynchronizer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add streamsynchronizer to pipeline: %w", err)
+		return nil, nil, fmt.Errorf("failed to add streamsynchronizer to pipeline: %w", err)
 	}
 	syncPadVideoSink := streamsynchronizer.GetRequestPad("sink_%u")
 	if syncPadVideoSink == nil {
-		return nil, fmt.Errorf("failed to get sync video sink pad")
+		return nil, nil, fmt.Errorf("failed to get sync video sink pad")
 	}
 	syncPadAudioSink := streamsynchronizer.GetRequestPad("sink_%u")
 	if syncPadAudioSink == nil {
-		return nil, fmt.Errorf("failed to get sync audio sink pad")
+		return nil, nil, fmt.Errorf("failed to get sync audio sink pad")
 	}
 	syncPadVideoSrc := streamsynchronizer.GetStaticPad("src_0")
 	if syncPadVideoSrc == nil {
-		return nil, fmt.Errorf("failed to get sync video src pad")
+		return nil, nil, fmt.Errorf("failed to get sync video src pad")
 	}
 	syncPadAudioSrc := streamsynchronizer.GetStaticPad("src_1")
 	if syncPadAudioSrc == nil {
-		return nil, fmt.Errorf("failed to get sync audio src pad")
+		return nil, nil, fmt.Errorf("failed to get sync audio src pad")
 	}
 
 	// output multiqueue
 	outputQueue, err := gst.NewElementWithProperties("multiqueue", map[string]any{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create multiqueue element: %w", err)
+		return nil, nil, fmt.Errorf("failed to create multiqueue element: %w", err)
 	}
 	err = pipeline.Add(outputQueue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add output multiqueue to pipeline: %w", err)
+		return nil, nil, fmt.Errorf("failed to add output multiqueue to pipeline: %w", err)
 	}
 	outputQueuePadVideoSink := outputQueue.GetRequestPad("sink_%u")
 	if outputQueuePadVideoSink == nil {
-		return nil, fmt.Errorf("failed to get output queue video sink pad")
+		return nil, nil, fmt.Errorf("failed to get output queue video sink pad")
 	}
 	outputQueuePadAudioSink := outputQueue.GetRequestPad("sink_%u")
 	if outputQueuePadAudioSink == nil {
-		return nil, fmt.Errorf("failed to get output queue audio sink pad")
+		return nil, nil, fmt.Errorf("failed to get output queue audio sink pad")
 	}
 
 	// linking
@@ -99,21 +103,21 @@ func (mm *MediaManager) ConcatStream(ctx context.Context, pipeline *gst.Pipeline
 	// input queue to streamsynchronizer
 	ret := inputQueuePadVideoSrc.Link(syncPadVideoSink)
 	if ret != gst.PadLinkOK {
-		return nil, fmt.Errorf("failed to link multiqueue to streamsynchronizer: %v", ret)
+		return nil, nil, fmt.Errorf("failed to link multiqueue to streamsynchronizer: %v", ret)
 	}
 	ret = inputQueuePadAudioSrc.Link(syncPadAudioSink)
 	if ret != gst.PadLinkOK {
-		return nil, fmt.Errorf("failed to link multiqueue to streamsynchronizer: %v", ret)
+		return nil, nil, fmt.Errorf("failed to link multiqueue to streamsynchronizer: %v", ret)
 	}
 
 	// streamsynchronizer to output queue
 	ret = syncPadVideoSrc.Link(outputQueuePadVideoSink)
 	if ret != gst.PadLinkOK {
-		return nil, fmt.Errorf("failed to link streamsynchronizer to output queue: %v", ret)
+		return nil, nil, fmt.Errorf("failed to link streamsynchronizer to output queue: %v", ret)
 	}
 	ret = syncPadAudioSrc.Link(outputQueuePadAudioSink)
 	if ret != gst.PadLinkOK {
-		return nil, fmt.Errorf("failed to link streamsynchronizer to output queue: %v", ret)
+		return nil, nil, fmt.Errorf("failed to link streamsynchronizer to output queue: %v", ret)
 	}
 
 	// ok now we can start looping over input files
@@ -127,9 +131,13 @@ func (mm *MediaManager) ConcatStream(ctx context.Context, pipeline *gst.Pipeline
 			case <-ctx.Done():
 				log.Warn(ctx, "exiting segment reader")
 				return
-			case file := <-mm.SubscribeSegment(ctx, user):
+			case file := <-streamer.SubscribeSegment(ctx, user):
 				log.Debug(ctx, "got segment", "file", file)
 				allFiles <- file
+				if file == "" {
+					log.Warn(ctx, "no more segments")
+					return
+				}
 			}
 		}
 	}()
@@ -143,21 +151,21 @@ func (mm *MediaManager) ConcatStream(ctx context.Context, pipeline *gst.Pipeline
 			select {
 			case <-ctx.Done():
 				return
-			case file := <-allFiles:
-				fullpath, err := mm.cli.SegmentFilePath(user, file)
-				if err != nil {
-					log.Debug(ctx, "failed to get segment file", "error", err, "file", file)
+			case fullpath := <-allFiles:
+				if fullpath == "" {
+					log.Warn(ctx, "no more segments")
 					cancel()
 					return
 				}
 				f, err := os.Open(fullpath)
+				log.Debug(ctx, "opening segment file", "file", fullpath)
 				if err != nil {
-					log.Debug(ctx, "failed to open segment file", "error", err, "file", file)
+					log.Debug(ctx, "failed to open segment file", "error", err, "file", fullpath)
 					cancel()
 					return
 				}
+				defer f.Close()
 				io.Copy(pw, f)
-				f.Close()
 				return
 			}
 		}()
@@ -202,7 +210,7 @@ func (mm *MediaManager) ConcatStream(ctx context.Context, pipeline *gst.Pipeline
 			}
 			ret := pad.Link(downstreamPad)
 			if ret != gst.PadLinkOK {
-				log.Error(ctx, "failed to link demux to audio queue", "error", ret)
+				log.Error(ctx, "failed to link demux to downstream pad", "name", pad.GetName(), "direction", pad.GetDirection(), "error", ret)
 				cancel()
 				return
 			}
@@ -218,7 +226,10 @@ func (mm *MediaManager) ConcatStream(ctx context.Context, pipeline *gst.Pipeline
 					count -= 1
 
 					if count == 0 {
-						nextFile()
+						// don't keep going if our context is done
+						if ctx.Err() == nil {
+							nextFile()
+						}
 					}
 					return gst.PadProbeRemove
 				})
@@ -318,5 +329,5 @@ func (mm *MediaManager) ConcatStream(ctx context.Context, pipeline *gst.Pipeline
 	// fire it up!
 	go nextFile()
 
-	return outputQueue, nil
+	return outputQueue, ctx.Done(), nil
 }

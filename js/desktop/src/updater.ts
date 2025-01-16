@@ -55,7 +55,9 @@ export function initElectronUpdater(opts: IUpdateElectronAppOptions) {
     }
   }
 
-  const requestHeaders = { "User-Agent": `streamplace-desktop/${build.version}` };
+  const requestHeaders = {
+    "User-Agent": `streamplace-desktop/${build.version}`,
+  };
 
   function log(...args: any[]) {
     console.log(...args);

@@ -62,7 +62,8 @@ export function Updates() {
               if (!res.isAvailable) {
                 toast.show("No update found", {
                   viewportName: "modal",
-                  message: "You are on the latest version of Streamplace, hooray!",
+                  message:
+                    "You are on the latest version of Streamplace, hooray!",
                 });
               }
             } catch (e) {

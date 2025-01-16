@@ -8,5 +8,5 @@ Boot up Streamplace Desktop for development. Two environment variable options:
   within the app so you can just test the app against the node you're already
   running locally.
 
-- `AQD_NODE_FRONTEND`: (default `false`): Use frontend bundled with the Streamplace
-  node instead of the dev server on `http://localhost:8081`.
+- `AQD_NODE_FRONTEND`: (default `false`): Use frontend bundled with the
+  Streamplace node instead of the dev server on `http://localhost:8081`.

@@ -67,7 +67,8 @@ if (require("electron-squirrel-startup")) {
         type: "info",
         buttons: ["Quit Streamplace"],
         title: "Error on Bootup",
-        message: "Please report to the Streamplace developers at git.aquareum.tv!",
+        message:
+          "Please report to the Streamplace developers at git.aquareum.tv!",
         detail: e.message + "\n" + e.stack,
       };
 

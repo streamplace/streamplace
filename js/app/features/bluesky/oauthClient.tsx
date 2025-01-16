@@ -58,7 +58,9 @@ export default async function createOAuthClient(
       dpop_bound_access_tokens: true,
     };
   } else {
-    const res = await fetch(`${streamplaceUrl}/api/atproto-oauth/${Platform.OS}`);
+    const res = await fetch(
+      `${streamplaceUrl}/api/atproto-oauth/${Platform.OS}`,
+    );
     meta = await res.json();
   }
   clientMetadataSchema.parse(meta);

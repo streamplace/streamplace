@@ -35,7 +35,7 @@ const Right = ({ children }: { children: React.ReactNode }) => {
 
 export default function StreamKeyScreen() {
   const userProfile = useAppSelector(selectUserProfile);
-  const url = useAppSelector((state) => state.aquareum.url);
+  const url = useAppSelector((state) => state.streamplace.url);
 
   if (!userProfile) {
     return <Loading />;

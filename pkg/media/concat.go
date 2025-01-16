@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"aquareum.tv/aquareum/pkg/log"
+	"stream.place/streamplace/pkg/log"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 )

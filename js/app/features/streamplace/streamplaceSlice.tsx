@@ -4,7 +4,7 @@ import { SignTypedDataFn } from "hooks/useWallet.shared";
 import schema from "generated/eip712-schema.json";
 import Storage from "../../storage";
 
-let DEFAULT_URL = process.env.EXPO_PUBLIC_AQUAREUM_URL as string;
+let DEFAULT_URL = process.env.EXPO_PUBLIC_STREAMPLACE_URL as string;
 if (isWeb && process.env.EXPO_PUBLIC_WEB_TRY_LOCAL === "true") {
   try {
     DEFAULT_URL = `${window.location.protocol}//${window.location.host}`;
@@ -20,25 +20,25 @@ export interface Identity {
   did?: string;
 }
 
-export interface AquareumState {
+export interface StreamplaceState {
   url: string;
   identity: Identity | null;
   initialized: boolean;
 }
 
-const initialState: AquareumState = {
+const initialState: StreamplaceState = {
   url: DEFAULT_URL,
   identity: null,
   initialized: false,
 };
 
-export const aquareumSlice = createAppSlice({
-  name: "aquareum",
+export const streamplaceSlice = createAppSlice({
+  name: "streamplace",
   initialState,
   reducers: (create) => ({
     initialize: create.asyncThunk(
       async (_, { getState }) => {
-        let url = await Storage.getItem("aquareumUrl");
+        let url = await Storage.getItem("streamplaceUrl");
         if (!url) {
           url = DEFAULT_URL;
         }
@@ -63,7 +63,7 @@ export const aquareumSlice = createAppSlice({
     ),
 
     setURL: create.reducer((state, action: { payload: string }) => {
-      Storage.setItem("aquareumUrl", action.payload).catch((err) => {
+      Storage.setItem("streamplaceUrl", action.payload).catch((err) => {
         console.error("setURL error", err);
       });
       return {
@@ -74,10 +74,10 @@ export const aquareumSlice = createAppSlice({
 
     getIdentity: create.asyncThunk(
       async (_, { getState }) => {
-        const { aquareum } = getState() as {
-          aquareum: AquareumState;
+        const { streamplace } = getState() as {
+          streamplace: StreamplaceState;
         };
-        const res = await fetch(`${aquareum.url}/api/identity`);
+        const res = await fetch(`${streamplace.url}/api/identity`);
         return await res.json();
       },
       {
@@ -112,16 +112,16 @@ export const aquareumSlice = createAppSlice({
         },
         { getState, dispatch },
       ) => {
-        let { aquareum } = getState() as {
-          aquareum: AquareumState;
+        let { streamplace } = getState() as {
+          streamplace: StreamplaceState;
         };
-        if (!aquareum.identity) {
+        if (!streamplace.identity) {
           await dispatch(getIdentity());
         }
-        ({ aquareum } = getState() as {
-          aquareum: AquareumState;
+        ({ streamplace } = getState() as {
+          streamplace: StreamplaceState;
         });
-        if (!aquareum.identity) {
+        if (!streamplace.identity) {
           throw new Error("No identity");
         }
         const message = {
@@ -137,7 +137,7 @@ export const aquareumSlice = createAppSlice({
         };
         const signature = await signTypedData(toSign);
         const res = await fetch(
-          `${aquareum.url}/api/identity/${aquareum.identity.id}`,
+          `${streamplace.url}/api/identity/${streamplace.identity.id}`,
           {
             method: "PUT",
             body: JSON.stringify({
@@ -169,11 +169,11 @@ export const aquareumSlice = createAppSlice({
   }),
 
   selectors: {
-    selectAquareum: (aquareum) => aquareum,
+    selectStreamplace: (streamplace) => streamplace,
   },
 });
 
 // Action creators are generated for each case reducer function.
 export const { getIdentity, putIdentity, setURL, initialize } =
-  aquareumSlice.actions;
-export const { selectAquareum } = aquareumSlice.selectors;
+  streamplaceSlice.actions;
+export const { selectStreamplace } = streamplaceSlice.selectors;

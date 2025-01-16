@@ -53,7 +53,7 @@ apps/studio/types/**
 
 tamagui-web.css
 android/app/src/main/assets
-ios/Aquareum.xcworkspace/xcshareddata
+ios/Streamplace.xcworkspace/xcshareddata
 ios
 android
 code-signing-dev

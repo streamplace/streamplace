@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"aquareum.tv/aquareum/pkg/log"
+	"stream.place/streamplace/pkg/log"
 	"golang.org/x/sync/errgroup"
 )
 

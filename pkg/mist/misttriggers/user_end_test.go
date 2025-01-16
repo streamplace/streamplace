@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"aquareum.tv/aquareum/pkg/config"
+	"stream.place/streamplace/pkg/config"
 	"github.com/stretchr/testify/require"
 )
 

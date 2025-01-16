@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	_ "aquareum.tv/aquareum/pkg/media/mediatesting"
+	_ "stream.place/streamplace/pkg/media/mediatesting"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/stretchr/testify/require"
 )

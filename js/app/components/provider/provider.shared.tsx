@@ -5,7 +5,7 @@ import {
 } from "@react-navigation/native";
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
 import { useFonts } from "expo-font";
-import AquareumProvider from "features/aquareum/aquareumProvider";
+import StreamplaceProvider from "features/streamplace/streamplaceProvider";
 import React from "react";
 import { PortalProvider, TamaguiProvider } from "tamagui";
 import config from "tamagui.config";
@@ -24,7 +24,7 @@ export default function Provider({
     <TamaguiProvider config={config} defaultTheme={"dark"}>
       <NavigationContainer theme={DarkTheme} linking={linking}>
         <ReduxProvider store={store}>
-          <AquareumProvider>
+          <StreamplaceProvider>
             <BlueskyProvider>
               <PortalProvider>
                 <ToastProvider
@@ -43,7 +43,7 @@ export default function Provider({
                 </ToastProvider>
               </PortalProvider>
             </BlueskyProvider>
-          </AquareumProvider>
+          </StreamplaceProvider>
         </ReduxProvider>
       </NavigationContainer>
     </TamaguiProvider>

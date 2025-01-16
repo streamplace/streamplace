@@ -5,7 +5,7 @@ set -euo pipefail
 CODESIGN="$(command -v codesign || echo -n "/usr/bin/codesign")"
 NOTARIZATION_FILE="/tmp/LP_NOTARIZATION_${RANDOM}.zip"
 CERTIFICATE_FILE="certificate.csr"
-KEYCHAIN_NAME="aquareum.keychain"
+KEYCHAIN_NAME="streamplace.keychain"
 KEYCHAIN_FILE=""
 
 function livepeer-keychain() {

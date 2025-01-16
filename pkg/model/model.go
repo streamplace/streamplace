@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"aquareum.tv/aquareum/pkg/log"
+	"stream.place/streamplace/pkg/log"
 	"github.com/lmittmann/tint"
 	slogGorm "github.com/orandin/slog-gorm"
 	"gorm.io/driver/sqlite"

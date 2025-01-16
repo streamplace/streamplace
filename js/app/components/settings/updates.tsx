@@ -12,7 +12,7 @@ export function Updates() {
       flexBasis={0}
     >
       <View>
-        <H2 textAlign="center">Aquareum v{pkg.version}</H2>
+        <H2 textAlign="center">Streamplace v{pkg.version}</H2>
       </View>
     </View>
   );

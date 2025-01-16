@@ -10,9 +10,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/pkg/mist/mistconfig"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/mist/mistconfig"
 	"golang.org/x/sync/errgroup"
 )
 

@@ -40,7 +40,7 @@ app: schema install
 .PHONY: node
 node: schema
 	$(MAKE) meson-setup
-	meson compile -C $(BUILDDIR) aquareum
+	meson compile -C $(BUILDDIR) streamplace
 
 .PHONY: schema
 schema:
@@ -55,30 +55,30 @@ test:
 LINUX_LINK_COUNT=5
 .PHONY: link-test-linux
 link-test-linux:
-	count=$(shell ldd ./build-linux-amd64/aquareum | wc -l) \
+	count=$(shell ldd ./build-linux-amd64/streamplace | wc -l) \
 	&& echo $$count \
 	&& if [ "$$count" != "$(LINUX_LINK_COUNT)" ]; then echo "ldd reports new libaries linked! want $(LINUX_LINK_COUNT) got $$count" \
-		&& ldd ./build-linux-amd64/aquareum \
+		&& ldd ./build-linux-amd64/streamplace \
 		&& exit 1; \
 	fi
 
 MACOS_LINK_COUNT=10
 .PHONY: link-test-macos
 link-test-macos:
-	count=$(shell otool -L ./build-darwin-arm64/aquareum | wc -l | xargs) \
+	count=$(shell otool -L ./build-darwin-arm64/streamplace | wc -l | xargs) \
 	&& echo $$count \
 	&& if [ "$$count" != "$(MACOS_LINK_COUNT)" ]; then echo "otool -L reports new libaries linked! want $(MACOS_LINK_COUNT) got $$count" \
-		&& otool -L ./build-darwin-arm64/aquareum \
+		&& otool -L ./build-darwin-arm64/streamplace \
 		&& exit 1; \
 	fi
 
 WINDOWS_LINK_COUNT=16
 .PHONY: link-test-windows
 link-test-windows:
-	count=$(shell x86_64-w64-mingw32-objdump -p ./build-windows-amd64/aquareum.exe | grep "DLL Name" | wc -l | xargs) \
+	count=$(shell x86_64-w64-mingw32-objdump -p ./build-windows-amd64/streamplace.exe | grep "DLL Name" | wc -l | xargs) \
 	&& echo $$count \
 	&& if [ "$$count" != "$(WINDOWS_LINK_COUNT)" ]; then echo "x86_64-w64-mingw32-objdump -p reports new libaries linked! want $(WINDOWS_LINK_COUNT) got $$count" \
-		&& x86_64-w64-mingw32-objdump -p ./build-windows-amd64/aquareum.exe | grep "DLL Name" \
+		&& x86_64-w64-mingw32-objdump -p ./build-windows-amd64/streamplace.exe | grep "DLL Name" \
 		&& exit 1; \
 	fi
 
@@ -106,31 +106,31 @@ android: app .build/bundletool.jar
 	&& ./gradlew :app:bundleRelease \
 	&& ./gradlew :app:bundleDebug \
 	&& cd - \
-	&& mv ./js/app/android/app/build/outputs/bundle/release/app-release.aab ./bin/aquareum-$(VERSION)-android-release.aab \
-	&& mv ./js/app/android/app/build/outputs/bundle/debug/app-debug.aab ./bin/aquareum-$(VERSION)-android-debug.aab \
+	&& mv ./js/app/android/app/build/outputs/bundle/release/app-release.aab ./bin/streamplace-$(VERSION)-android-release.aab \
+	&& mv ./js/app/android/app/build/outputs/bundle/debug/app-debug.aab ./bin/streamplace-$(VERSION)-android-debug.aab \
 	&& cd bin \
-	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:aquareum --bundle=aquareum-$(VERSION)-android-release.aab --output=aquareum-$(VERSION)-android-release.apks --mode=universal \
-	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:aquareum --bundle=aquareum-$(VERSION)-android-debug.aab --output=aquareum-$(VERSION)-android-debug.apks --mode=universal \
-	&& unzip aquareum-$(VERSION)-android-release.apks && mv universal.apk aquareum-$(VERSION)-android-release.apk && rm toc.pb \
-	&& unzip aquareum-$(VERSION)-android-debug.apks && mv universal.apk aquareum-$(VERSION)-android-debug.apk && rm toc.pb
+	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:streamplace --bundle=streamplace-$(VERSION)-android-release.aab --output=streamplace-$(VERSION)-android-release.apks --mode=universal \
+	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:streamplace --bundle=streamplace-$(VERSION)-android-debug.aab --output=streamplace-$(VERSION)-android-debug.apks --mode=universal \
+	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb \
+	&& unzip streamplace-$(VERSION)-android-debug.apks && mv universal.apk streamplace-$(VERSION)-android-debug.apk && rm toc.pb
 
 .PHONY: ios
 ios: app
 	xcodebuild \
-		-workspace ./js/app/ios/Aquareum.xcworkspace \
+		-workspace ./js/app/ios/Streamplace.xcworkspace \
 		-sdk iphoneos \
 		-configuration Release \
-		-scheme Aquareum \
-		-archivePath ./bin/aquareum-$(VERSION)-ios-release.xcarchive \
+		-scheme Streamplace \
+		-archivePath ./bin/streamplace-$(VERSION)-ios-release.xcarchive \
 		CODE_SIGN_IDENTITY=- \
 		AD_HOC_CODE_SIGNING_ALLOWED=YES \
 		CODE_SIGN_STYLE=Automatic \
 		DEVELOPMENT_TEAM=ZZZZZZZZZZ \
 		clean archive | xcpretty \
 	&& cd bin \
-	&& tar -czvf aquareum-$(VERSION)-ios-release.xcarchive.tar.gz aquareum-$(VERSION)-ios-release.xcarchive
+	&& tar -czvf streamplace-$(VERSION)-ios-release.xcarchive.tar.gz streamplace-$(VERSION)-ios-release.xcarchive
 
-# xcodebuild -exportArchive -archivePath ./bin/aquareum-$(VERSION)-ios-release.xcarchive -exportOptionsPlist ./js/app/exportOptions.plist -exportPath ./bin/aquareum-$(VERSION)-ios-release.ipa
+# xcodebuild -exportArchive -archivePath ./bin/streamplace-$(VERSION)-ios-release.xcarchive -exportOptionsPlist ./js/app/exportOptions.plist -exportPath ./bin/streamplace-$(VERSION)-ios-release.ipa
 
 .build/bundletool.jar:
 	mkdir -p .build \
@@ -199,18 +199,18 @@ desktop-linux:
 	&& yarn run make --platform linux --arch x64 \
 	&& yarn run make --platform linux --arch arm64 \
 	&& cd - \
-	&& mv "js/desktop/out/make/AppImage/x64/Aquareum-$(VERSION_ELECTRON)-x64.AppImage" ./bin/aquareum-desktop-$(VERSION)-linux-amd64.AppImage \
-	&& mv "js/desktop/out/make/AppImage/arm64/Aquareum-$(VERSION_ELECTRON)-arm64.AppImage" ./bin/aquareum-desktop-$(VERSION)-linux-arm64.AppImage
+	&& mv "js/desktop/out/make/AppImage/x64/Streamplace-$(VERSION_ELECTRON)-x64.AppImage" ./bin/streamplace-desktop-$(VERSION)-linux-amd64.AppImage \
+	&& mv "js/desktop/out/make/AppImage/arm64/Streamplace-$(VERSION_ELECTRON)-arm64.AppImage" ./bin/streamplace-desktop-$(VERSION)-linux-arm64.AppImage
 
 .PHONY: desktop-windows
 desktop-windows:
 	cd js/desktop \
 	&& yarn run make --platform win32 --arch x64 \
 	&& cd - \
-	&& export SUM=$$(cat ./js/desktop/out/make/squirrel.windows/x64/aquareum_desktop-$(VERSION_ELECTRON)-full.nupkg | openssl sha1 | awk '{ print $$2 }') \
-	&& echo $$SUM > ./bin/aquareum-desktop-$(VERSION)-windows-amd64.nupkg.sha1 \
-	&& mv "js/desktop/out/make/squirrel.windows/x64/aquareum_desktop-$(VERSION_ELECTRON)-full.nupkg" ./bin/aquareum-desktop-$(VERSION)-windows-amd64.$$SUM.nupkg \
-	&& mv "js/desktop/out/make/squirrel.windows/x64/Aquareum-$(VERSION_ELECTRON) Setup.exe" ./bin/aquareum-desktop-$(VERSION)-windows-amd64.exe
+	&& export SUM=$$(cat ./js/desktop/out/make/squirrel.windows/x64/streamplace_desktop-$(VERSION_ELECTRON)-full.nupkg | openssl sha1 | awk '{ print $$2 }') \
+	&& echo $$SUM > ./bin/streamplace-desktop-$(VERSION)-windows-amd64.nupkg.sha1 \
+	&& mv "js/desktop/out/make/squirrel.windows/x64/streamplace_desktop-$(VERSION_ELECTRON)-full.nupkg" ./bin/streamplace-desktop-$(VERSION)-windows-amd64.$$SUM.nupkg \
+	&& mv "js/desktop/out/make/squirrel.windows/x64/Streamplace-$(VERSION_ELECTRON) Setup.exe" ./bin/streamplace-desktop-$(VERSION)-windows-amd64.exe
 
 .PHONY: linux-arm64
 linux-arm64:
@@ -232,28 +232,28 @@ windows-amd64-meson-setup:
 # unbuffer here is a workaround for wine trying to pop up a terminal window and failing
 .PHONY: windows-amd64-startup-test
 windows-amd64-startup-test:
-	bash -c 'set -euo pipefail && unbuffer wine64 ./build-windows-amd64/aquareum.exe self-test | cat'
+	bash -c 'set -euo pipefail && unbuffer wine64 ./build-windows-amd64/streamplace.exe self-test | cat'
 
 .PHONY: node-all-platforms-macos
 node-all-platforms-macos: app
 	meson setup --buildtype debugoptimized build-darwin-arm64 $(OPTS)
 	meson compile -C build-darwin-arm64
-	./util/mac-codesign.sh ./build-darwin-arm64/aquareum
+	./util/mac-codesign.sh ./build-darwin-arm64/streamplace
 	cd build-darwin-arm64 \
-	&& tar -czvf ../bin/aquareum-$(VERSION)-darwin-arm64.tar.gz ./aquareum \
+	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-arm64.tar.gz ./streamplace \
 	&& cd -
-	./build-darwin-arm64/aquareum --version
-	./build-darwin-arm64/aquareum self-test
+	./build-darwin-arm64/streamplace --version
+	./build-darwin-arm64/streamplace self-test
 	$(MAKE) link-test-macos
 	rustup target add x86_64-apple-darwin
 	meson setup --buildtype debugoptimized --cross-file util/darwin-amd64-apple.ini build-darwin-amd64 $(OPTS)
 	meson compile -C build-darwin-amd64
-	./util/mac-codesign.sh ./build-darwin-amd64/aquareum
+	./util/mac-codesign.sh ./build-darwin-amd64/streamplace
 	cd build-darwin-amd64 \
-	&& tar -czvf ../bin/aquareum-$(VERSION)-darwin-amd64.tar.gz ./aquareum \
+	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \
 	&& cd -
-	./build-darwin-amd64/aquareum --version
-	./build-darwin-arm64/aquareum self-test
+	./build-darwin-amd64/streamplace --version
+	./build-darwin-arm64/streamplace self-test
 	$(MAKE) desktop-macos
 	meson test -C build-darwin-arm64 go-tests
 
@@ -264,14 +264,14 @@ desktop-macos:
 	&& yarn run make --platform darwin --arch arm64 \
 	&& yarn run make --platform darwin --arch x64 \
 	&& cd - \
-	&& mv js/desktop/out/make/Aquareum-$(VERSION_ELECTRON)-x64.dmg ./bin/aquareum-desktop-$(VERSION)-darwin-amd64.dmg \
-	&& mv js/desktop/out/make/Aquareum-$(VERSION_ELECTRON)-arm64.dmg ./bin/aquareum-desktop-$(VERSION)-darwin-arm64.dmg \
-	&& mv js/desktop/out/make/zip/darwin/x64/Aquareum-darwin-x64-$(VERSION_ELECTRON).zip ./bin/aquareum-desktop-$(VERSION)-darwin-amd64.zip \
-	&& mv js/desktop/out/make/zip/darwin/arm64/Aquareum-darwin-arm64-$(VERSION_ELECTRON).zip ./bin/aquareum-desktop-$(VERSION)-darwin-arm64.zip
+	&& mv js/desktop/out/make/Streamplace-$(VERSION_ELECTRON)-x64.dmg ./bin/streamplace-desktop-$(VERSION)-darwin-amd64.dmg \
+	&& mv js/desktop/out/make/Streamplace-$(VERSION_ELECTRON)-arm64.dmg ./bin/streamplace-desktop-$(VERSION)-darwin-arm64.dmg \
+	&& mv js/desktop/out/make/zip/darwin/x64/Streamplace-darwin-x64-$(VERSION_ELECTRON).zip ./bin/streamplace-desktop-$(VERSION)-darwin-amd64.zip \
+	&& mv js/desktop/out/make/zip/darwin/arm64/Streamplace-darwin-arm64-$(VERSION_ELECTRON).zip ./bin/streamplace-desktop-$(VERSION)-darwin-arm64.zip
 
 .PHONY: selftest-macos
 selftest-macos:
-	js/desktop/out/Aquareum-darwin-arm64/Aquareum.app/Contents/MacOS/Aquareum -- --self-test
+	js/desktop/out/Streamplace-darwin-arm64/Streamplace.app/Contents/MacOS/Streamplace -- --self-test
 
 # link your local version of mist for dev
 .PHONY: link-mist
@@ -303,18 +303,18 @@ docker-build: docker-build-builder docker-build-in-container
 .PHONY: docker-build-builder
 docker-build-builder:
 	cd docker \
-	&& docker build --target=builder --os=linux --arch=amd64 -f build.Dockerfile -t aqrm.io/aquareum-tv/aquareum:builder .
+	&& docker build --target=builder --os=linux --arch=amd64 -f build.Dockerfile -t aqrm.io/streamplace/streamplace:builder .
 
 .PHONY: docker-build-builder
 docker-build-in-container:
-	docker run -v $$(pwd):$$(pwd) -w $$(pwd) --rm -it aqrm.io/aquareum-tv/aquareum:builder make app-and-node
+	docker run -v $$(pwd):$$(pwd) -w $$(pwd) --rm -it aqrm.io/streamplace/streamplace:builder make app-and-node
 
 .PHONY: docker-release
 docker-release:
 	cd docker \
 	&& docker build -f release.Dockerfile \
 	  --build-arg TARGETARCH=$(BUILDARCH) \
-		-t aqrm.io/aquareum-tv/aquareum \
+		-t aqrm.io/streamplace/streamplace \
 		.
 
 .PHONY: ci-upload
@@ -324,20 +324,20 @@ ci-upload: ci-upload-node ci-upload-android
 ci-upload-node: node-all-platforms
 	for GOOS in linux; do \
 		for GOARCH in amd64 arm64; do \
-			export file=aquareum-$(VERSION)-$$GOOS-$$GOARCH.tar.gz \
+			export file=streamplace-$(VERSION)-$$GOOS-$$GOARCH.tar.gz \
 			&& $(MAKE) ci-upload-file upload_file=$$file; \
-			export file=aquareum-desktop-$(VERSION)-$$GOOS-$$GOARCH.AppImage \
+			export file=streamplace-desktop-$(VERSION)-$$GOOS-$$GOARCH.AppImage \
 			&& $(MAKE) ci-upload-file upload_file=$$file; \
 		done \
 	done;
 	for GOOS in windows; do \
 		for GOARCH in amd64; do \
-			export file=aquareum-$(VERSION)-$$GOOS-$$GOARCH.zip \
+			export file=streamplace-$(VERSION)-$$GOOS-$$GOARCH.zip \
 			&& $(MAKE) ci-upload-file upload_file=$$file; \
-			export file=aquareum-desktop-$(VERSION)-$$GOOS-$$GOARCH.exe \
+			export file=streamplace-desktop-$(VERSION)-$$GOOS-$$GOARCH.exe \
 			&& $(MAKE) ci-upload-file upload_file=$$file; \
-			export SUM=$$(cat bin/aquareum-desktop-$(VERSION)-$$GOOS-$$GOARCH.nupkg.sha1) \
-			&& export file=aquareum-desktop-$(VERSION)-$$GOOS-$$GOARCH.$$SUM.nupkg \
+			export SUM=$$(cat bin/streamplace-desktop-$(VERSION)-$$GOOS-$$GOARCH.nupkg.sha1) \
+			&& export file=streamplace-desktop-$(VERSION)-$$GOOS-$$GOARCH.$$SUM.nupkg \
 			&& $(MAKE) ci-upload-file upload_file=$$file; \
 		done \
 	done;
@@ -346,25 +346,25 @@ ci-upload-node: node-all-platforms
 ci-upload-node-macos: node-all-platforms-macos
 	for GOOS in darwin; do \
 		for GOARCH in amd64 arm64; do \
-			export file=aquareum-$(VERSION)-$$GOOS-$$GOARCH.tar.gz \
+			export file=streamplace-$(VERSION)-$$GOOS-$$GOARCH.tar.gz \
 			&& $(MAKE) ci-upload-file upload_file=$$file; \
-			export file=aquareum-desktop-$(VERSION)-$$GOOS-$$GOARCH.dmg \
+			export file=streamplace-desktop-$(VERSION)-$$GOOS-$$GOARCH.dmg \
 			&& $(MAKE) ci-upload-file upload_file=$$file; \
-			export file=aquareum-desktop-$(VERSION)-$$GOOS-$$GOARCH.zip \
+			export file=streamplace-desktop-$(VERSION)-$$GOOS-$$GOARCH.zip \
 			&& $(MAKE) ci-upload-file upload_file=$$file; \
 		done \
 	done;
 
 .PHONY: ci-upload-android
 ci-upload-android: android
-	$(MAKE) ci-upload-file upload_file=aquareum-$(VERSION)-android-release.apk \
-	&& $(MAKE) ci-upload-file upload_file=aquareum-$(VERSION)-android-debug.apk \
-	&& $(MAKE) ci-upload-file upload_file=aquareum-$(VERSION)-android-release.aab \
-	&& $(MAKE) ci-upload-file upload_file=aquareum-$(VERSION)-android-debug.aab
+	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.apk \
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.apk \
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.aab \
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.aab
 
 .PHONY: ci-upload-ios
 ci-upload-ios: ios
-	$(MAKE) ci-upload-file upload_file=aquareum-$(VERSION)-ios-release.xcarchive.tar.gz
+	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-ios-release.xcarchive.tar.gz
 
 upload_file?=""
 .PHONY: ci-upload-file

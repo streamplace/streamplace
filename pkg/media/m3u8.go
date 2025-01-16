@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"aquareum.tv/aquareum/pkg/log"
+	"stream.place/streamplace/pkg/log"
 )
 
 // how many segments are served in the live playlist?

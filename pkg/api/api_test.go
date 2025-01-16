@@ -7,13 +7,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/crypto/signers/eip712"
-	"aquareum.tv/aquareum/pkg/crypto/signers/eip712/eip712test"
-	_ "aquareum.tv/aquareum/pkg/media/mediatesting"
-	"aquareum.tv/aquareum/pkg/model"
-	"aquareum.tv/aquareum/pkg/notifications"
-	v0 "aquareum.tv/aquareum/pkg/schema/v0"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/crypto/signers/eip712"
+	"stream.place/streamplace/pkg/crypto/signers/eip712/eip712test"
+	_ "stream.place/streamplace/pkg/media/mediatesting"
+	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/notifications"
+	v0 "stream.place/streamplace/pkg/schema/v0"
 	"github.com/julienschmidt/httprouter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -61,7 +61,7 @@ func TestRedirectHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cli := &config.CLI{HttpAddr: tt.httpAddr, HttpsAddr: tt.httpsAddr}
 			mod := &model.DBModel{}
-			a := AquareumAPI{CLI: cli, Model: mod}
+			a := StreamplaceAPI{CLI: cli, Model: mod}
 
 			handler, err := a.RedirectHandler(context.Background())
 			assert.NoError(t, err, "RedirectHandler should not return an error")
@@ -112,17 +112,17 @@ func TestGoLiveHandler(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				cli := &config.CLI{AdminAccount: tt.adminAccount, FirebaseServiceAccount: "foo"}
-				a := AquareumAPI{CLI: cli, Model: mod, Signer: signer, FirebaseNotifier: &MockFirebase{}}
+				a := StreamplaceAPI{CLI: cli, Model: mod, Signer: signer, FirebaseNotifier: &MockFirebase{}}
 				handler := a.HandleIdentityPUT(context.Background())
 
 				goLive := v0.Identity{
 					DID:    "did:plc:dkh4rwafdcda4ko7lewe43ml",
-					Handle: "@aquareum.bsky.social",
+					Handle: "@streamplace.bsky.social",
 				}
 				signed, err := signer.SignMessage(goLive)
 				require.NoError(t, err)
 
-				req := httptest.NewRequest("PUT", "https://aquareum.tv/api/settings/example", bytes.NewReader(signed))
+				req := httptest.NewRequest("PUT", "https://stream.place/api/settings/example", bytes.NewReader(signed))
 				rr := httptest.NewRecorder()
 
 				handler(rr, req, httprouter.Params{{Key: "id", Value: "example"}})

@@ -5,7 +5,7 @@
   },
   "files.associations": {
     "mistserver.h": "c",
-    "aquareum.h": "c",
+    "streamplace.h": "c",
     "avfilter.h": "c"
   },
   "mesonbuild.configureOnOpen": false

@@ -1,5 +1,5 @@
-import { setURL } from "features/aquareum/aquareumSlice";
-import useAquareumNode from "hooks/useAquareumNode";
+import { setURL } from "features/streamplace/streamplaceSlice";
+import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useState } from "react";
 import { useAppDispatch } from "store/hooks";
 import { Button, Form, H3, Input, View, XStack } from "tamagui";
@@ -7,7 +7,7 @@ import { Updates } from "./updates";
 
 export function Settings() {
   const dispatch = useAppDispatch();
-  const { url } = useAquareumNode();
+  const { url } = useStreamplaceNode();
   const [newUrl, setNewUrl] = useState("");
   const onSubmit = () => {
     dispatch(setURL(newUrl));
@@ -24,7 +24,7 @@ export function Settings() {
         padding="$4"
         onSubmit={onSubmit}
       >
-        <H3 margin="$2">Change Aquareum Node URL</H3>
+        <H3 margin="$2">Change Streamplace Node URL</H3>
         <XStack alignItems="center" space="$2">
           <Input
             value={newUrl}

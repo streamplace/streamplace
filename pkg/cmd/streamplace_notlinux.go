@@ -2,7 +2,7 @@
 
 package cmd
 
-import "aquareum.tv/aquareum/pkg/config"
+import "stream.place/streamplace/pkg/config"
 
 func Start(build *config.BuildFlags) error {
 	return start(build, []jobFunc{})

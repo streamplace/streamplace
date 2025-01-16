@@ -1,8 +1,8 @@
 package v0
 
-import "aquareum.tv/aquareum/pkg/schema"
+import "stream.place/streamplace/pkg/schema"
 
-var Name = "Aquareum"
+var Name = "Streamplace"
 var Version = "0.0.1"
 
 type V0Schema struct {

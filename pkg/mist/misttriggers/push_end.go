@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"aquareum.tv/aquareum/pkg/errors"
-	"aquareum.tv/aquareum/pkg/mist/mistclient"
+	"stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/mist/mistclient"
 	"github.com/golang/glog"
 )
 

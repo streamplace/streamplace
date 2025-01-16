@@ -3,7 +3,7 @@ package aqhttp
 import "net/http"
 
 var Client http.Client
-var UserAgent string = "aquareum/unknown"
+var UserAgent string = "streamplace/unknown"
 
 type AddHeaderTransport struct {
 	T http.RoundTripper

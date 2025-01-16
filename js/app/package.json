@@ -1,5 +1,5 @@
 {
-  "name": "aquareum",
+  "name": "streamplace",
   "main": "./src/entrypoint.tsx",
   "version": "0.2.4",
   "runtimeVersion": "0.2.3",
@@ -19,7 +19,7 @@
     "postinstall": "which pod && yarn run postinstall-ios || echo 'not a mac, not installing pods'",
     "postinstall-ios": "cd ios && pod install && yarn run find-node",
     "find-node": "node -p '`NODE_BINARY=${process.argv[0]}`' > ios/.xcode.env.local",
-    "code-signing-dev": "mkdir -p code-signing-dev/keys code-signing-dev/certs && expo-updates codesigning:generate --key-output-directory code-signing-dev/keys --certificate-output-directory code-signing-dev/certs --certificate-validity-duration-years 10 --certificate-common-name 'Aquareum'"
+    "code-signing-dev": "mkdir -p code-signing-dev/keys code-signing-dev/certs && expo-updates codesigning:generate --key-output-directory code-signing-dev/keys --certificate-output-directory code-signing-dev/certs --certificate-validity-duration-years 10 --certificate-common-name 'Streamplace'"
   },
   "jest": {
     "preset": "jest-expo"

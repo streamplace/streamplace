@@ -21,20 +21,20 @@ import (
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
 
-	"aquareum.tv/aquareum/js/app"
-	"aquareum.tv/aquareum/pkg/atproto"
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/crypto/signers/eip712"
-	apierrors "aquareum.tv/aquareum/pkg/errors"
-	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/pkg/media"
-	"aquareum.tv/aquareum/pkg/mist/mistconfig"
-	"aquareum.tv/aquareum/pkg/model"
-	"aquareum.tv/aquareum/pkg/notifications"
-	v0 "aquareum.tv/aquareum/pkg/schema/v0"
+	"stream.place/streamplace/js/app"
+	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/crypto/signers/eip712"
+	apierrors "stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/mist/mistconfig"
+	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/notifications"
+	v0 "stream.place/streamplace/pkg/schema/v0"
 )
 
-type AquareumAPI struct {
+type StreamplaceAPI struct {
 	CLI              *config.CLI
 	Model            model.Model
 	Updater          *Updater
@@ -47,12 +47,12 @@ type AquareumAPI struct {
 	Aliases map[string]string
 }
 
-func MakeAquareumAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms *media.MediaSigner) (*AquareumAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms *media.MediaSigner) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
 	}
-	a := &AquareumAPI{CLI: cli,
+	a := &StreamplaceAPI{CLI: cli,
 		Model:            mod,
 		Updater:          updater,
 		Signer:           signer,
@@ -91,7 +91,7 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 	return fs.FileSystem.Open("index.html")
 }
 
-func (a *AquareumAPI) Handler(ctx context.Context) (http.Handler, error) {
+func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router := httprouter.New()
 	apiRouter := httprouter.New()
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
@@ -171,7 +171,7 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
-func (a *AquareumAPI) MistProxyHandler(ctx context.Context, tmpl string) httprouter.Handle {
+func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		if !a.CLI.HasMist() {
 			apierrors.WriteHTTPNotImplemented(w, "Playback only on the Linux version for now", nil)
@@ -214,7 +214,7 @@ func (a *AquareumAPI) MistProxyHandler(ctx context.Context, tmpl string) httprou
 	}
 }
 
-func (a *AquareumAPI) FileHandler(ctx context.Context, fs http.Handler) http.HandlerFunc {
+func (a *StreamplaceAPI) FileHandler(ctx context.Context, fs http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		noslash := req.URL.Path[1:]
 		ct, ok := a.Mimes[noslash]
@@ -225,7 +225,7 @@ func (a *AquareumAPI) FileHandler(ctx context.Context, fs http.Handler) http.Han
 	}
 }
 
-func (a *AquareumAPI) RedirectHandler(ctx context.Context) (http.Handler, error) {
+func (a *StreamplaceAPI) RedirectHandler(ctx context.Context) (http.Handler, error) {
 	_, tlsPort, err := net.SplitHostPort(a.CLI.HttpsAddr)
 	if err != nil {
 		return nil, err
@@ -253,13 +253,13 @@ type NotificationPayload struct {
 	Token string `json:"token"`
 }
 
-func (a *AquareumAPI) HandleAPI404(ctx context.Context) http.HandlerFunc {
+func (a *StreamplaceAPI) HandleAPI404(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(404)
 	}
 }
 
-func (a *AquareumAPI) HandleIdentityPUT(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleIdentityPUT(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		id := params.ByName("id")
 		if id == "" {
@@ -301,7 +301,7 @@ func (a *AquareumAPI) HandleIdentityPUT(ctx context.Context) httprouter.Handle {
 	}
 }
 
-func (a *AquareumAPI) HandleNotification(ctx context.Context) http.HandlerFunc {
+func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		payload, err := io.ReadAll(req.Body)
 		if err != nil {
@@ -327,7 +327,7 @@ func (a *AquareumAPI) HandleNotification(ctx context.Context) http.HandlerFunc {
 	}
 }
 
-func (a *AquareumAPI) HandleSegment(ctx context.Context) http.HandlerFunc {
+func (a *StreamplaceAPI) HandleSegment(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		err := a.MediaManager.ValidateMP4(ctx, req.Body)
 		if err != nil {
@@ -338,7 +338,7 @@ func (a *AquareumAPI) HandleSegment(ctx context.Context) http.HandlerFunc {
 	}
 }
 
-func (a *AquareumAPI) HandlePlayerEvent(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandlePlayerEvent(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 		var event model.PlayerEventAPI
 		if err := json.NewDecoder(req.Body).Decode(&event); err != nil {
@@ -354,7 +354,7 @@ func (a *AquareumAPI) HandlePlayerEvent(ctx context.Context) httprouter.Handle {
 	}
 }
 
-func (a *AquareumAPI) HandleRecentSegments(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleRecentSegments(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		segs, err := a.Model.MostRecentSegments()
 		if err != nil {
@@ -371,7 +371,7 @@ func (a *AquareumAPI) HandleRecentSegments(ctx context.Context) httprouter.Handl
 	}
 }
 
-func (a *AquareumAPI) HandleLiveUsers(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleLiveUsers(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		repos, err := a.Model.GetLiveUsers()
 		if err != nil {
@@ -387,7 +387,7 @@ func (a *AquareumAPI) HandleLiveUsers(ctx context.Context) httprouter.Handle {
 	}
 }
 
-func (a *AquareumAPI) HandleIdentityGET(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleIdentityGET(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		id := a.MediaSigner.Pub.String()
 
@@ -406,19 +406,19 @@ func (a *AquareumAPI) HandleIdentityGET(ctx context.Context) httprouter.Handle {
 	}
 }
 
-func (a *AquareumAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		log.Log(ctx, "got bluesky notification", "params", params)
 		key, err := atproto.SyncBlueskyRepo(ctx, params.ByName("handle"), a.Model)
 		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not resolve aquareum key", err)
+			apierrors.WriteHTTPInternalServerError(w, "could not resolve streamplace key", err)
 			return
 		}
 		w.Write([]byte(key))
 	}
 }
 
-func (a *AquareumAPI) HandleATProtoOAuth(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleATProtoOAuth(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		host, _, err := net.SplitHostPort(req.Host)
 		if err != nil {
@@ -441,7 +441,7 @@ func (a *AquareumAPI) HandleATProtoOAuth(ctx context.Context) httprouter.Handle 
 	}
 }
 
-func (a *AquareumAPI) ServeHTTP(ctx context.Context) error {
+func (a *StreamplaceAPI) ServeHTTP(ctx context.Context) error {
 	handler, err := a.Handler(ctx)
 	if err != nil {
 		return err
@@ -453,7 +453,7 @@ func (a *AquareumAPI) ServeHTTP(ctx context.Context) error {
 	})
 }
 
-func (a *AquareumAPI) ServeHTTPRedirect(ctx context.Context) error {
+func (a *StreamplaceAPI) ServeHTTPRedirect(ctx context.Context) error {
 	handler, err := a.RedirectHandler(ctx)
 	if err != nil {
 		return err
@@ -465,7 +465,7 @@ func (a *AquareumAPI) ServeHTTPRedirect(ctx context.Context) error {
 	})
 }
 
-func (a *AquareumAPI) ServeHTTPS(ctx context.Context) error {
+func (a *StreamplaceAPI) ServeHTTPS(ctx context.Context) error {
 	handler, err := a.Handler(ctx)
 	if err != nil {
 		return err
@@ -481,7 +481,7 @@ func (a *AquareumAPI) ServeHTTPS(ctx context.Context) error {
 	})
 }
 
-func (a *AquareumAPI) ServerWithShutdown(ctx context.Context, handler http.Handler, serve func(*http.Server) error) error {
+func (a *StreamplaceAPI) ServerWithShutdown(ctx context.Context, handler http.Handler, serve func(*http.Server) error) error {
 	ctx, cancel := context.WithCancel(ctx)
 	handler = gziphandler.GzipHandler(handler)
 	server := http.Server{Handler: handler}
@@ -500,7 +500,7 @@ func (a *AquareumAPI) ServerWithShutdown(ctx context.Context, handler http.Handl
 	return server.Shutdown(ctx)
 }
 
-func (a *AquareumAPI) HandleHealthz(ctx context.Context) http.HandlerFunc {
+func (a *StreamplaceAPI) HandleHealthz(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(200)
 	}

@@ -9,14 +9,14 @@ import (
 	"regexp"
 	"strings"
 
-	apierrors "aquareum.tv/aquareum/pkg/errors"
-	"aquareum.tv/aquareum/pkg/log"
+	apierrors "stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/log"
 	"github.com/julienschmidt/httprouter"
 )
 
 var (
-	re      = regexp.MustCompile(`^aquareum(-desktop)?-(v[0-9]+\.[0-9]+\.[0-9]+)(-[0-9a-f]+)?-([0-9a-z]+)-([0-9a-z]+)\.(?:([0-9a-f]+)\.)?(.+)$`)
-	inputRe = regexp.MustCompile(`^aquareum(-desktop)?-([0-9a-z]+)-([0-9a-z]+)\.(.+)$`)
+	re      = regexp.MustCompile(`^streamplace(-desktop)?-(v[0-9]+\.[0-9]+\.[0-9]+)(-[0-9a-f]+)?-([0-9a-z]+)-([0-9a-z]+)\.(?:([0-9a-f]+)\.)?(.+)$`)
+	inputRe = regexp.MustCompile(`^streamplace(-desktop)?-([0-9a-z]+)-([0-9a-z]+)\.(.+)$`)
 )
 
 func queryGitlabReal(url string) (io.ReadCloser, error) {
@@ -29,19 +29,19 @@ func queryGitlabReal(url string) (io.ReadCloser, error) {
 
 var queryGitlab = queryGitlabReal
 
-func (a *AquareumAPI) HandleAppDownload(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleAppDownload(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		log.Log(ctx, "got here")
 		pathname := r.URL.Path
 		parts := strings.Split(pathname, "/")
 		if len(parts) < 4 {
-			apierrors.WriteHTTPBadRequest(w, "usage: /dl/latest/aquareum-linux-arm64.tar.gz", nil)
+			apierrors.WriteHTTPBadRequest(w, "usage: /dl/latest/streamplace-linux-arm64.tar.gz", nil)
 			return
 		}
 
 		_, branch, file := parts[1], parts[2], parts[3]
 		if branch == "" || file == "" {
-			apierrors.WriteHTTPBadRequest(w, "usage: /dl/latest/aquareum-linux-arm64.tar.gz", nil)
+			apierrors.WriteHTTPBadRequest(w, "usage: /dl/latest/streamplace-linux-arm64.tar.gz", nil)
 			return
 		}
 
@@ -97,7 +97,7 @@ func (f GitlabFile) URL() string {
 	return fmt.Sprintf("%s/packages/generic/%s/%s/%s", f.GitLabURL, f.Branch, f.FullVer(), f.Filename)
 }
 
-func (a *AquareumAPI) getGitlabPackage(branch string) ([]GitlabFile, error) {
+func (a *StreamplaceAPI) getGitlabPackage(branch string) ([]GitlabFile, error) {
 	packageURL := fmt.Sprintf("%s/packages?order_by=created_at&sort=desc&package_name=%s", a.CLI.GitLabURL, branch)
 
 	packageBody, err := queryGitlab(packageURL)

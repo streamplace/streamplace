@@ -1,5 +1,5 @@
 export default function getEnv() {
-  let updateBaseUrl = "https://aquareum.tv";
+  let updateBaseUrl = "https://stream.place";
   if (process.env["AQD_UPDATE_BASE_URL"]) {
     updateBaseUrl = process.env["AQD_UPDATE_BASE_URL"];
   }

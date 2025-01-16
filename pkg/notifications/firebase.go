@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/pkg/model"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
 	"golang.org/x/net/context"

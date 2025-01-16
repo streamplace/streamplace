@@ -1,7 +1,7 @@
 #include <string.h>
-#include "aquareum.h"
+#include "streamplace.h"
 
 int main(int argc, char *argv[])
 {
-  AquareumMain();
+  StreamplaceMain();
 }

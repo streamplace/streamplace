@@ -1,36 +1,36 @@
 import { createContext, useEffect } from "react";
-import { DEFAULT_URL, initialize, selectAquareum } from "./aquareumSlice";
+import { DEFAULT_URL, initialize, selectStreamplace } from "./streamplaceSlice";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import Loading from "components/loading/loading";
 import { View, Text } from "tamagui";
 
-export const AquareumContext = createContext({
+export const StreamplaceContext = createContext({
   url: DEFAULT_URL,
 });
 
-export default function AquareumProvider({
+export default function StreamplaceProvider({
   children,
 }: {
   children: React.ReactNode;
 }): React.ReactElement {
-  const aquareum = useAppSelector(selectAquareum);
+  const streamplace = useAppSelector(selectStreamplace);
   const dispatch = useAppDispatch();
   useEffect(() => {
-    if (!aquareum.initialized) {
+    if (!streamplace.initialized) {
       dispatch(initialize());
     }
-  }, [aquareum.initialized]);
-  if (!aquareum.initialized) {
+  }, [streamplace.initialized]);
+  if (!streamplace.initialized) {
     return (
       <View f={1}>
-        <Text>AquareumProvider loading...</Text>
+        <Text>StreamplaceProvider loading...</Text>
         <Loading />
       </View>
     );
   }
   return (
-    <AquareumContext.Provider value={{ url: aquareum.url }}>
+    <StreamplaceContext.Provider value={{ url: streamplace.url }}>
       {children}
-    </AquareumContext.Provider>
+    </StreamplaceContext.Provider>
   );
 }

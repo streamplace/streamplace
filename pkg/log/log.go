@@ -205,11 +205,11 @@ func Level(level glog.Level) glog.Verbose {
 	return glog.V(level)
 }
 
-// returns filenames relative to aquareum root
+// returns filenames relative to streamplace root
 // e.g. handlers/misttriggers/triggers.go:58
 func caller(depth int) string {
 	_, myfile, _, _ := runtime.Caller(0)
-	// This assumes that the root directory of aquareum is two levels above this folder.
+	// This assumes that the root directory of streamplace is two levels above this folder.
 	// If that changes, please update this rootDir resolution.
 	rootDir := filepath.Join(filepath.Dir(myfile), "..", "..")
 	_, file, line, _ := runtime.Caller(depth)

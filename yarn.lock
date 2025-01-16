@@ -11321,9 +11321,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"aquareum-desktop@workspace:js/desktop":
+"streamplace-desktop@workspace:js/desktop":
   version: 0.0.0-use.local
-  resolution: "aquareum-desktop@workspace:js/desktop"
+  resolution: "streamplace-desktop@workspace:js/desktop"
   dependencies:
     "@atproto/crypto": "npm:^0.4.3"
     "@electron-forge/cli": "npm:^7.5.0"
@@ -11359,9 +11359,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"aquareum-monorepo@workspace:.":
+"streamplace-monorepo@workspace:.":
   version: 0.0.0-use.local
-  resolution: "aquareum-monorepo@workspace:."
+  resolution: "streamplace-monorepo@workspace:."
   dependencies:
     "@atproto/api": "npm:^0.13.16"
     "@atproto/jwk-webcrypto": "npm:^0.1.2"
@@ -11374,9 +11374,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"aquareum@workspace:js/app":
+"streamplace@workspace:js/app":
   version: 0.0.0-use.local
-  resolution: "aquareum@workspace:js/app"
+  resolution: "streamplace@workspace:js/app"
   dependencies:
     "@aquareum/atproto-oauth-client-react-native": "npm:^0.0.1"
     "@atproto-labs/pipe": "npm:^0.1.0"

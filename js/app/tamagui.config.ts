@@ -69,7 +69,7 @@ const codeFont = createFont({
   },
 });
 
-const aquareumConfig = {
+const streamplaceConfig = {
   ...configBase,
   fonts: {
     ...configBase.fonts,
@@ -101,7 +101,7 @@ const aquareumConfig = {
   },
 };
 
-const config = createTamagui(aquareumConfig);
+const config = createTamagui(streamplaceConfig);
 
 export { config };
 export default config;

@@ -9,35 +9,35 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/model"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/model"
 	"github.com/julienschmidt/httprouter"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegexAquareum(t *testing.T) {
+func TestRegexStreamplace(t *testing.T) {
 	tests := []struct {
 		filename       string
 		shouldMatch    bool
 		expectedGroups []string
 	}{
 		// Test cases for the 're' regex
-		{"aquareum-v1.2.3-abcdef-foo-bar.txt", true, []string{"", "v1.2.3", "-abcdef", "foo", "bar", "", "txt"}},
-		{"aquareum-v1.0.0-123456-hello-world.csv", true, []string{"", "v1.0.0", "-123456", "hello", "world", "", "csv"}},
-		{"aquareum-v2.5.1-abc123-done-done.xml", true, []string{"", "v2.5.1", "-abc123", "done", "done", "", "xml"}},
-		{"aquareum-v3.2.1-xyz-abc.json", true, []string{"", "v3.2.1", "", "xyz", "abc", "", "json"}},
-		{"aquareum-v3.2.1-nohash-xyz.json", true, []string{"", "v3.2.1", "", "nohash", "xyz", "", "json"}},
-		{"aquareum-v10.2.10-abc123-linux-amd64.json", true, []string{"", "v10.2.10", "-abc123", "linux", "amd64", "", "json"}},
-		{"aquareum-v10.2.10-darwin-arm64.json", true, []string{"", "v10.2.10", "", "darwin", "arm64", "", "json"}},
-		{"aquareum-desktop-v3.2.1-nohash-xyz.json", true, []string{"-desktop", "v3.2.1", "", "nohash", "xyz", "", "json"}},
-		{"aquareum-desktop-v10.2.10-abc123-linux-amd64.json", true, []string{"-desktop", "v10.2.10", "-abc123", "linux", "amd64", "", "json"}},
-		{"aquareum-desktop-v10.2.10-darwin-arm64.json", true, []string{"-desktop", "v10.2.10", "", "darwin", "arm64", "", "json"}},
-		{"aquareum-desktop-v10.2.10-darwin-arm64.json", true, []string{"-desktop", "v10.2.10", "", "darwin", "arm64", "", "json"}},
-		{"aquareum-desktop-v0.1.3-5742a5a4-windows-amd64.1cbc2208decb3e55c7aea7320258aa36e3297f18.nupkg", true, []string{"-desktop", "v0.1.3", "-5742a5a4", "windows", "amd64", "1cbc2208decb3e55c7aea7320258aa36e3297f18", "nupkg"}},
+		{"streamplace-v1.2.3-abcdef-foo-bar.txt", true, []string{"", "v1.2.3", "-abcdef", "foo", "bar", "", "txt"}},
+		{"streamplace-v1.0.0-123456-hello-world.csv", true, []string{"", "v1.0.0", "-123456", "hello", "world", "", "csv"}},
+		{"streamplace-v2.5.1-abc123-done-done.xml", true, []string{"", "v2.5.1", "-abc123", "done", "done", "", "xml"}},
+		{"streamplace-v3.2.1-xyz-abc.json", true, []string{"", "v3.2.1", "", "xyz", "abc", "", "json"}},
+		{"streamplace-v3.2.1-nohash-xyz.json", true, []string{"", "v3.2.1", "", "nohash", "xyz", "", "json"}},
+		{"streamplace-v10.2.10-abc123-linux-amd64.json", true, []string{"", "v10.2.10", "-abc123", "linux", "amd64", "", "json"}},
+		{"streamplace-v10.2.10-darwin-arm64.json", true, []string{"", "v10.2.10", "", "darwin", "arm64", "", "json"}},
+		{"streamplace-desktop-v3.2.1-nohash-xyz.json", true, []string{"-desktop", "v3.2.1", "", "nohash", "xyz", "", "json"}},
+		{"streamplace-desktop-v10.2.10-abc123-linux-amd64.json", true, []string{"-desktop", "v10.2.10", "-abc123", "linux", "amd64", "", "json"}},
+		{"streamplace-desktop-v10.2.10-darwin-arm64.json", true, []string{"-desktop", "v10.2.10", "", "darwin", "arm64", "", "json"}},
+		{"streamplace-desktop-v10.2.10-darwin-arm64.json", true, []string{"-desktop", "v10.2.10", "", "darwin", "arm64", "", "json"}},
+		{"streamplace-desktop-v0.1.3-5742a5a4-windows-amd64.1cbc2208decb3e55c7aea7320258aa36e3297f18.nupkg", true, []string{"-desktop", "v0.1.3", "-5742a5a4", "windows", "amd64", "1cbc2208decb3e55c7aea7320258aa36e3297f18", "nupkg"}},
 
 		// Test cases where the regex should not match
-		{"aquareum-123-abc.txt", false, nil},
-		{"aquareum-v1.2.3-abc.txt", false, nil},
+		{"streamplace-123-abc.txt", false, nil},
+		{"streamplace-v1.2.3-abc.txt", false, nil},
 	}
 
 	for _, test := range tests {
@@ -63,19 +63,19 @@ func TestRegexInput(t *testing.T) {
 		expectedGroups []string
 	}{
 		// Test cases for the 'inputRe' regex
-		{"aquareum-foo-bar.txt", true, []string{"", "foo", "bar", "txt"}},
-		{"aquareum-abc-def.csv", true, []string{"", "abc", "def", "csv"}},
-		{"aquareum-x-y.xml", true, []string{"", "x", "y", "xml"}},
-		{"aquareum-hello-world.json", true, []string{"", "hello", "world", "json"}},
-		{"aquareum-desktop-x-y.xml", true, []string{"-desktop", "x", "y", "xml"}},
-		{"aquareum-desktop-hello-world.json", true, []string{"-desktop", "hello", "world", "json"}},
+		{"streamplace-foo-bar.txt", true, []string{"", "foo", "bar", "txt"}},
+		{"streamplace-abc-def.csv", true, []string{"", "abc", "def", "csv"}},
+		{"streamplace-x-y.xml", true, []string{"", "x", "y", "xml"}},
+		{"streamplace-hello-world.json", true, []string{"", "hello", "world", "json"}},
+		{"streamplace-desktop-x-y.xml", true, []string{"-desktop", "x", "y", "xml"}},
+		{"streamplace-desktop-hello-world.json", true, []string{"-desktop", "hello", "world", "json"}},
 
 		// Test cases where the regex should not match
-		{"aquareum-foo.txt", false, nil},
-		{"aquareum-foo-bar-baz.txt", false, nil},
-		{"aquareum-foo-bar-baz-qux.txt", false, nil},
-		{"aquareumfoo-bar.txt", false, nil},
-		{"aquareum-foo-bar.", false, nil},
+		{"streamplace-foo.txt", false, nil},
+		{"streamplace-foo-bar-baz.txt", false, nil},
+		{"streamplace-foo-bar-baz-qux.txt", false, nil},
+		{"streamplacefoo-bar.txt", false, nil},
+		{"streamplace-foo-bar.", false, nil},
 	}
 
 	for _, test := range tests {
@@ -117,59 +117,59 @@ func TestDownloadRedirects(t *testing.T) {
 		out string
 	}{
 		{
-			in:  "aquareum-linux-amd64.tar.gz",
-			out: "v0.1.3-51aab8b5/aquareum-v0.1.3-51aab8b5-linux-amd64.tar.gz",
+			in:  "streamplace-linux-amd64.tar.gz",
+			out: "v0.1.3-51aab8b5/streamplace-v0.1.3-51aab8b5-linux-amd64.tar.gz",
 		},
 		{
-			in:  "aquareum-linux-arm64.tar.gz",
-			out: "v0.1.3-51aab8b5/aquareum-v0.1.3-51aab8b5-linux-arm64.tar.gz",
+			in:  "streamplace-linux-arm64.tar.gz",
+			out: "v0.1.3-51aab8b5/streamplace-v0.1.3-51aab8b5-linux-arm64.tar.gz",
 		},
 		{
-			in:  "aquareum-darwin-amd64.tar.gz",
-			out: "v0.1.3-51aab8b5/aquareum-v0.1.3-51aab8b5-darwin-amd64.tar.gz",
+			in:  "streamplace-darwin-amd64.tar.gz",
+			out: "v0.1.3-51aab8b5/streamplace-v0.1.3-51aab8b5-darwin-amd64.tar.gz",
 		},
 		{
-			in:  "aquareum-darwin-arm64.tar.gz",
-			out: "v0.1.3-51aab8b5/aquareum-v0.1.3-51aab8b5-darwin-arm64.tar.gz",
+			in:  "streamplace-darwin-arm64.tar.gz",
+			out: "v0.1.3-51aab8b5/streamplace-v0.1.3-51aab8b5-darwin-arm64.tar.gz",
 		},
 		{
-			in:  "aquareum-windows-amd64.zip",
-			out: "v0.1.3-51aab8b5/aquareum-v0.1.3-51aab8b5-windows-amd64.zip",
+			in:  "streamplace-windows-amd64.zip",
+			out: "v0.1.3-51aab8b5/streamplace-v0.1.3-51aab8b5-windows-amd64.zip",
 		},
 		{
-			in:  "aquareum-desktop-windows-amd64.exe",
-			out: "v0.1.3-51aab8b5/aquareum-desktop-v0.1.3-51aab8b5-windows-amd64.exe",
+			in:  "streamplace-desktop-windows-amd64.exe",
+			out: "v0.1.3-51aab8b5/streamplace-desktop-v0.1.3-51aab8b5-windows-amd64.exe",
 		},
 		{
-			in:  "aquareum-desktop-darwin-amd64.dmg",
-			out: "v0.1.3-51aab8b5/aquareum-desktop-v0.1.3-51aab8b5-darwin-amd64.dmg",
+			in:  "streamplace-desktop-darwin-amd64.dmg",
+			out: "v0.1.3-51aab8b5/streamplace-desktop-v0.1.3-51aab8b5-darwin-amd64.dmg",
 		},
 		{
-			in:  "aquareum-desktop-darwin-arm64.dmg",
-			out: "v0.1.3-51aab8b5/aquareum-desktop-v0.1.3-51aab8b5-darwin-arm64.dmg",
+			in:  "streamplace-desktop-darwin-arm64.dmg",
+			out: "v0.1.3-51aab8b5/streamplace-desktop-v0.1.3-51aab8b5-darwin-arm64.dmg",
 		},
 		{
-			in:  "aquareum-desktop-darwin-amd64.zip",
-			out: "v0.1.3-51aab8b5/aquareum-desktop-v0.1.3-51aab8b5-darwin-amd64.zip",
+			in:  "streamplace-desktop-darwin-amd64.zip",
+			out: "v0.1.3-51aab8b5/streamplace-desktop-v0.1.3-51aab8b5-darwin-amd64.zip",
 		},
 		{
-			in:  "aquareum-desktop-darwin-arm64.zip",
-			out: "v0.1.3-51aab8b5/aquareum-desktop-v0.1.3-51aab8b5-darwin-arm64.zip",
+			in:  "streamplace-desktop-darwin-arm64.zip",
+			out: "v0.1.3-51aab8b5/streamplace-desktop-v0.1.3-51aab8b5-darwin-arm64.zip",
 		},
 		{
-			in:  "aquareum-desktop-linux-amd64.AppImage",
-			out: "v0.1.3-51aab8b5/aquareum-desktop-v0.1.3-51aab8b5-linux-amd64.AppImage",
+			in:  "streamplace-desktop-linux-amd64.AppImage",
+			out: "v0.1.3-51aab8b5/streamplace-desktop-v0.1.3-51aab8b5-linux-amd64.AppImage",
 		},
 		{
-			in:  "aquareum-desktop-linux-arm64.AppImage",
-			out: "v0.1.3-51aab8b5/aquareum-desktop-v0.1.3-51aab8b5-linux-arm64.AppImage",
+			in:  "streamplace-desktop-linux-arm64.AppImage",
+			out: "v0.1.3-51aab8b5/streamplace-desktop-v0.1.3-51aab8b5-linux-arm64.AppImage",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
 			mod := &model.DBModel{}
-			a := AquareumAPI{CLI: cli, Model: mod}
+			a := StreamplaceAPI{CLI: cli, Model: mod}
 
 			handler := a.HandleAppDownload(context.Background())
 
@@ -195,7 +195,7 @@ func TestDownloadRedirects(t *testing.T) {
 var packageRes = []byte(`
 	[
 		{
-			"_links": { "web_path": "/aquareum-tv/aquareum/-/packages/339" },
+			"_links": { "web_path": "/streamplace/streamplace/-/packages/339" },
 			"created_at": "2024-09-19T20:28:06.445Z",
 			"id": 339,
 			"last_downloaded_at": "2024-09-19T20:40:18.942Z",
@@ -220,7 +220,7 @@ var packageRes = []byte(`
 					"username": "iameli-streams",
 					"web_url": "https://git.aquareum.tv/iameli-streams"
 				},
-				"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+				"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 			},
 			"pipelines": [],
 			"status": "default",
@@ -228,7 +228,7 @@ var packageRes = []byte(`
 			"version": "v0.1.3-51aab8b5"
 		},
 		{
-			"_links": { "web_path": "/aquareum-tv/aquareum/-/packages/338" },
+			"_links": { "web_path": "/streamplace/streamplace/-/packages/338" },
 			"created_at": "2024-09-18T23:53:51.141Z",
 			"id": 338,
 			"last_downloaded_at": "2024-09-19T00:10:31.948Z",
@@ -253,7 +253,7 @@ var packageRes = []byte(`
 					"username": "iameli-streams",
 					"web_url": "https://git.aquareum.tv/iameli-streams"
 				},
-				"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/571"
+				"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/571"
 			},
 			"pipelines": [],
 			"status": "default",
@@ -261,7 +261,7 @@ var packageRes = []byte(`
 			"version": "v0.1.3-78fcaf17"
 		},
 		{
-			"_links": { "web_path": "/aquareum-tv/aquareum/-/packages/337" },
+			"_links": { "web_path": "/streamplace/streamplace/-/packages/337" },
 			"created_at": "2024-09-17T20:19:55.436Z",
 			"id": 337,
 			"last_downloaded_at": "2024-09-17T21:04:52.491Z",
@@ -286,7 +286,7 @@ var packageRes = []byte(`
 					"username": "iameli-streams",
 					"web_url": "https://git.aquareum.tv/iameli-streams"
 				},
-				"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/567"
+				"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/567"
 			},
 			"pipelines": [],
 			"status": "default",
@@ -294,7 +294,7 @@ var packageRes = []byte(`
 			"version": "v0.1.3-4043c87a"
 		},
 		{
-			"_links": { "web_path": "/aquareum-tv/aquareum/-/packages/336" },
+			"_links": { "web_path": "/streamplace/streamplace/-/packages/336" },
 			"created_at": "2024-09-17T04:08:57.406Z",
 			"id": 336,
 			"last_downloaded_at": "2024-09-17T04:34:20.263Z",
@@ -319,7 +319,7 @@ var packageRes = []byte(`
 					"username": "iameli",
 					"web_url": "https://git.aquareum.tv/iameli"
 				},
-				"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/566"
+				"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/566"
 			},
 			"pipelines": [],
 			"status": "default",
@@ -327,7 +327,7 @@ var packageRes = []byte(`
 			"version": "v0.1.3-a32eed67"
 		},
 		{
-			"_links": { "web_path": "/aquareum-tv/aquareum/-/packages/335" },
+			"_links": { "web_path": "/streamplace/streamplace/-/packages/335" },
 			"created_at": "2024-09-17T00:18:09.095Z",
 			"id": 335,
 			"last_downloaded_at": "2024-09-17T03:50:09.272Z",
@@ -352,7 +352,7 @@ var packageRes = []byte(`
 					"username": "iameli-streams",
 					"web_url": "https://git.aquareum.tv/iameli-streams"
 				},
-				"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/565"
+				"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/565"
 			},
 			"pipelines": [],
 			"status": "default",
@@ -360,7 +360,7 @@ var packageRes = []byte(`
 			"version": "v0.1.3-41ee5c4c"
 		},
 		{
-			"_links": { "web_path": "/aquareum-tv/aquareum/-/packages/334" },
+			"_links": { "web_path": "/streamplace/streamplace/-/packages/334" },
 			"created_at": "2024-09-16T23:47:04.209Z",
 			"id": 334,
 			"last_downloaded_at": null,
@@ -385,7 +385,7 @@ var packageRes = []byte(`
 					"username": "iameli-streams",
 					"web_url": "https://git.aquareum.tv/iameli-streams"
 				},
-				"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/564"
+				"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/564"
 			},
 			"pipelines": [],
 			"status": "default",
@@ -393,7 +393,7 @@ var packageRes = []byte(`
 			"version": "v0.1.3-fa71bac9"
 		},
 		{
-			"_links": { "web_path": "/aquareum-tv/aquareum/-/packages/333" },
+			"_links": { "web_path": "/streamplace/streamplace/-/packages/333" },
 			"created_at": "2024-09-16T22:52:23.113Z",
 			"id": 333,
 			"last_downloaded_at": null,
@@ -418,7 +418,7 @@ var packageRes = []byte(`
 					"username": "iameli-streams",
 					"web_url": "https://git.aquareum.tv/iameli-streams"
 				},
-				"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/563"
+				"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/563"
 			},
 			"pipelines": [],
 			"status": "default",
@@ -426,7 +426,7 @@ var packageRes = []byte(`
 			"version": "v0.1.3-54d95b19"
 		},
 		{
-			"_links": { "web_path": "/aquareum-tv/aquareum/-/packages/332" },
+			"_links": { "web_path": "/streamplace/streamplace/-/packages/332" },
 			"created_at": "2024-09-16T20:29:27.305Z",
 			"id": 332,
 			"last_downloaded_at": "2024-09-16T20:40:19.669Z",
@@ -451,7 +451,7 @@ var packageRes = []byte(`
 					"username": "iameli-streams",
 					"web_url": "https://git.aquareum.tv/iameli-streams"
 				},
-				"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/561"
+				"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/561"
 			},
 			"pipelines": [],
 			"status": "default",
@@ -466,7 +466,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:28:06.468Z",
 			"file_md5": null,
-			"file_name": "aquareum-v0.1.3-51aab8b5-ios-release.xcarchive.tar.gz",
+			"file_name": "streamplace-v0.1.3-51aab8b5-ios-release.xcarchive.tar.gz",
 			"file_sha1": null,
 			"file_sha256": "d4d88c885f1494e3698ac24923a2b1d1e632a6c936d039f392e927fe1c4e8fa0",
 			"id": 1994,
@@ -491,7 +491,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 44092840
@@ -499,7 +499,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:29:59.539Z",
 			"file_md5": null,
-			"file_name": "aquareum-v0.1.3-51aab8b5-android-release.apk",
+			"file_name": "streamplace-v0.1.3-51aab8b5-android-release.apk",
 			"file_sha1": null,
 			"file_sha256": "d409d179f7fa5eb7834607a76a845681d0358b8c1652d2a6206a967a0a1e4a07",
 			"id": 1995,
@@ -524,7 +524,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 77485100
@@ -532,7 +532,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:30:00.386Z",
 			"file_md5": null,
-			"file_name": "aquareum-v0.1.3-51aab8b5-darwin-amd64.tar.gz",
+			"file_name": "streamplace-v0.1.3-51aab8b5-darwin-amd64.tar.gz",
 			"file_sha1": null,
 			"file_sha256": "c019a776e3e43b0fc40bdbda972ac6bc98ed1df54016ce4510452044175ab1fb",
 			"id": 1996,
@@ -557,7 +557,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 35380619
@@ -565,7 +565,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:30:03.952Z",
 			"file_md5": null,
-			"file_name": "aquareum-v0.1.3-51aab8b5-android-debug.apk",
+			"file_name": "streamplace-v0.1.3-51aab8b5-android-debug.apk",
 			"file_sha1": null,
 			"file_sha256": "4fdef8e9afcc0b50971595470e5373de7e71e49c909b53729d881c1d11998e64",
 			"id": 1997,
@@ -590,7 +590,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 165891665
@@ -598,7 +598,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:30:06.333Z",
 			"file_md5": null,
-			"file_name": "aquareum-desktop-v0.1.3-51aab8b5-darwin-amd64.dmg",
+			"file_name": "streamplace-desktop-v0.1.3-51aab8b5-darwin-amd64.dmg",
 			"file_sha1": null,
 			"file_sha256": "c397c9e689e5aa14e4e608d6b8bfe684aaa80d0fd96e65c2240a23f1bbe2584e",
 			"id": 1998,
@@ -623,7 +623,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 138530555
@@ -631,7 +631,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:30:06.515Z",
 			"file_md5": null,
-			"file_name": "aquareum-v0.1.3-51aab8b5-android-release.aab",
+			"file_name": "streamplace-v0.1.3-51aab8b5-android-release.aab",
 			"file_sha1": null,
 			"file_sha256": "b76828177c0dd02cfe80a763034acdbfd6cedd70e5afd4eefa3221acf7170d75",
 			"id": 1999,
@@ -656,7 +656,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 39472720
@@ -664,7 +664,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:30:09.006Z",
 			"file_md5": null,
-			"file_name": "aquareum-v0.1.3-51aab8b5-android-debug.aab",
+			"file_name": "streamplace-v0.1.3-51aab8b5-android-debug.aab",
 			"file_sha1": null,
 			"file_sha256": "0bcf65f37ca70d2f3d904d4eedcb1dc4e162901fe3115a77eedea4aefca0b58e",
 			"id": 2000,
@@ -689,7 +689,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 54428823
@@ -697,7 +697,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:30:11.825Z",
 			"file_md5": null,
-			"file_name": "aquareum-desktop-v0.1.3-51aab8b5-darwin-amd64.zip",
+			"file_name": "streamplace-desktop-v0.1.3-51aab8b5-darwin-amd64.zip",
 			"file_sha1": null,
 			"file_sha256": "d6507feb9227b374b15eaf5558abdc31a652d977cc0d089352dea494399e9dcd",
 			"id": 2001,
@@ -722,7 +722,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 137738479
@@ -730,7 +730,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:30:15.385Z",
 			"file_md5": null,
-			"file_name": "aquareum-v0.1.3-51aab8b5-darwin-arm64.tar.gz",
+			"file_name": "streamplace-v0.1.3-51aab8b5-darwin-arm64.tar.gz",
 			"file_sha1": null,
 			"file_sha256": "2e1425d550c54b52a708a97b6c545ae511bee79f04490867c63331a3560c0a87",
 			"id": 2002,
@@ -755,7 +755,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 34455283
@@ -763,7 +763,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:30:20.884Z",
 			"file_md5": null,
-			"file_name": "aquareum-desktop-v0.1.3-51aab8b5-darwin-arm64.dmg",
+			"file_name": "streamplace-desktop-v0.1.3-51aab8b5-darwin-arm64.dmg",
 			"file_sha1": null,
 			"file_sha256": "92bc4e858a03330a034f2f71d7579f35491b651613050d48a548667cb2d74059",
 			"id": 2003,
@@ -788,7 +788,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 132833884
@@ -796,7 +796,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:30:26.199Z",
 			"file_md5": null,
-			"file_name": "aquareum-desktop-v0.1.3-51aab8b5-darwin-arm64.zip",
+			"file_name": "streamplace-desktop-v0.1.3-51aab8b5-darwin-arm64.zip",
 			"file_sha1": null,
 			"file_sha256": "06ab9412bdc23e48d124cc6cb032d1f21c75138965ee4c8b87b1524cedfa5318",
 			"id": 2004,
@@ -821,7 +821,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 131923036
@@ -829,7 +829,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:39:30.156Z",
 			"file_md5": null,
-			"file_name": "aquareum-v0.1.3-51aab8b5-linux-amd64.tar.gz",
+			"file_name": "streamplace-v0.1.3-51aab8b5-linux-amd64.tar.gz",
 			"file_sha1": null,
 			"file_sha256": "f7bf0191c5d5bd2d94533f8e3562a0f30df8a166efe97bf2d95802a7a3592054",
 			"id": 2005,
@@ -854,7 +854,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 101700182
@@ -862,7 +862,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:39:35.057Z",
 			"file_md5": null,
-			"file_name": "aquareum-desktop-v0.1.3-51aab8b5-linux-amd64.AppImage",
+			"file_name": "streamplace-desktop-v0.1.3-51aab8b5-linux-amd64.AppImage",
 			"file_sha1": null,
 			"file_sha256": "15f5a5104577cd7eae2c394d897ce06622fc7a0c567dba6c270a521ebf235dcc",
 			"id": 2006,
@@ -887,7 +887,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 210871488
@@ -895,7 +895,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:39:38.495Z",
 			"file_md5": null,
-			"file_name": "aquareum-v0.1.3-51aab8b5-linux-arm64.tar.gz",
+			"file_name": "streamplace-v0.1.3-51aab8b5-linux-arm64.tar.gz",
 			"file_sha1": null,
 			"file_sha256": "3b5f79b11333d3a7466c2f4377ce23c1cbc612fc136fefd5ac7bba4e0729ac0d",
 			"id": 2007,
@@ -920,7 +920,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 97621477
@@ -928,7 +928,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:39:43.684Z",
 			"file_md5": null,
-			"file_name": "aquareum-desktop-v0.1.3-51aab8b5-linux-arm64.AppImage",
+			"file_name": "streamplace-desktop-v0.1.3-51aab8b5-linux-arm64.AppImage",
 			"file_sha1": null,
 			"file_sha256": "82dff1e67de9796879e6a9573257c1f83f71326bf0ba4f33dec97d536a61f31c",
 			"id": 2008,
@@ -953,7 +953,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 207205568
@@ -961,7 +961,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:39:46.855Z",
 			"file_md5": null,
-			"file_name": "aquareum-v0.1.3-51aab8b5-windows-amd64.zip",
+			"file_name": "streamplace-v0.1.3-51aab8b5-windows-amd64.zip",
 			"file_sha1": null,
 			"file_sha256": "e420f638ddc7f6352ea78a30a8efab12672e8840158d2fba04a8cf448a8edaa1",
 			"id": 2009,
@@ -986,7 +986,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 67260033
@@ -994,7 +994,7 @@ var fileRes = []byte(`
 		{
 			"created_at": "2024-09-19T20:39:51.454Z",
 			"file_md5": null,
-			"file_name": "aquareum-desktop-v0.1.3-51aab8b5-windows-amd64.exe",
+			"file_name": "streamplace-desktop-v0.1.3-51aab8b5-windows-amd64.exe",
 			"file_sha1": null,
 			"file_sha256": "b0b44dfb460b3faf7dd13f97df9f91815b865283bb92d810304b537cbabaa2b1",
 			"id": 2010,
@@ -1019,7 +1019,7 @@ var fileRes = []byte(`
 						"username": "iameli-streams",
 						"web_url": "https://git.aquareum.tv/iameli-streams"
 					},
-					"web_url": "https://git.aquareum.tv/aquareum-tv/aquareum/-/pipelines/572"
+					"web_url": "https://git.aquareum.tv/streamplace/streamplace/-/pipelines/572"
 				}
 			],
 			"size": 175016960

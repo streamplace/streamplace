@@ -1,7 +1,7 @@
 import AQLink from "components/aqlink";
 import ErrorBox from "components/error/error";
 import Loading from "components/loading/loading";
-import useAquareumNode from "hooks/useAquareumNode";
+import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useEffect, useState } from "react";
 import { RefreshControl } from "react-native";
 import { H6, Image, ScrollView, ScrollViewProps, Text, View } from "tamagui";
@@ -19,7 +19,7 @@ type Repo = {
   handle: string;
   pds: string;
   version: string;
-  aquareumKey: string;
+  streamplaceKey: string;
   rootCid: string;
 };
 
@@ -35,7 +35,7 @@ export default function StreamList({
   const [error, setError] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [retryTime, setRetryTime] = useState<number>(Date.now());
-  const { url } = useAquareumNode();
+  const { url } = useStreamplaceNode();
   useEffect(() => {
     const interval = setInterval(() => {
       setRetryTime(Date.now());

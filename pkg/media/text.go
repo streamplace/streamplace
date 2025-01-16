@@ -10,7 +10,7 @@ import (
 	"io"
 	"strings"
 
-	"aquareum.tv/aquareum/js/app"
+	"stream.place/streamplace/js/app"
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"

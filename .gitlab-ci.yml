@@ -73,11 +73,11 @@ build-docker-amd64:
   script:
     - /kaniko/executor
       --build-arg TARGETARCH=amd64
-      --build-arg AQUAREUM_URL=$AQUAREUM_URL_LINUX_AMD64
+      --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_AMD64
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/docker/release.Dockerfile"
-      --destination "$CI_REGISTRY_IMAGE:$AQUAREUM_BRANCH-amd64"
-      --destination "$CI_REGISTRY_IMAGE:$AQUAREUM_VERSION-amd64"
+      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-amd64"
+      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-amd64"
 
 build-docker-arm64:
   stage: build
@@ -92,11 +92,11 @@ build-docker-arm64:
   script:
     - /kaniko/executor
       --build-arg TARGETARCH=arm64
-      --build-arg AQUAREUM_URL=$AQUAREUM_URL_LINUX_ARM64
+      --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_ARM64
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/docker/release.Dockerfile"
-      --destination "$CI_REGISTRY_IMAGE:$AQUAREUM_BRANCH-arm64"
-      --destination "$CI_REGISTRY_IMAGE:$AQUAREUM_VERSION-arm64"
+      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-arm64"
+      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-arm64"
       --customPlatform=linux/arm64
 
 build-docker-manifest:
@@ -118,9 +118,9 @@ build-docker-manifest:
   script:
     - ./manifest-tool --username "${CI_REGISTRY_USER}" --password "${CI_REGISTRY_PASSWORD}" push from-args
       --platforms linux/amd64,linux/arm64
-      --template $CI_REGISTRY_IMAGE:$AQUAREUM_VERSION-ARCH
-      --tags $AQUAREUM_BRANCH
-      --target $CI_REGISTRY_IMAGE:$AQUAREUM_VERSION
+      --template $CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-ARCH
+      --tags $STREAMPLACE_BRANCH
+      --target $CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION
 
 build-android:
   stage: build
@@ -142,8 +142,8 @@ build-mac:
     # workaround for https://gitlab.com/gitlab-org/gitlab/-/issues/501457
     # which is a workaround for ios builds failing due to /tmp vs /private/tmp weirdness
     - cd ..
-    - mv aquareum /Users/admin/aquareum
-    - cd /Users/admin/aquareum
+    - mv streamplace /Users/admin/streamplace
+    - cd /Users/admin/streamplace
     - git fetch --unshallow || echo 'already unshallow'
     - brew install ninja go openssl@3 && go version
     - sudo gem uninstall xcodeproj -x --ignore-dependencies
@@ -175,7 +175,7 @@ windows-selftest:
     MSYSTEM: "MINGW32"
     CHERE_INVOKING: "yes"
   script:
-    - C:\msys64\usr\bin\bash -lc "bash -x ./util/windows-selftest.sh $AQUAREUM_DESKTOP_URL_WINDOWS_AMD64"
+    - C:\msys64\usr\bin\bash -lc "bash -x ./util/windows-selftest.sh $STREAMPLACE_DESKTOP_URL_WINDOWS_AMD64"
 
 release:
   stage: build

@@ -1,4 +1,4 @@
 [wrap-git]
-url = https://git.aquareum.tv/aquareum-tv/ffmpeg.git
+url = https://git.aquareum.tv/streamplace/ffmpeg.git
 revision = e092301689cc32607d79bee6c4c2cd59f1ffd496
 depth = 1

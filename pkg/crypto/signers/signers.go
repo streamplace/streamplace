@@ -14,8 +14,8 @@ import (
 	"math/big"
 	"time"
 
-	"aquareum.tv/aquareum/pkg/crypto/aqpub"
-	"git.aquareum.tv/aquareum-tv/c2pa-go/pkg/c2pa"
+	"stream.place/streamplace/pkg/crypto/aqpub"
+	"git.aquareum.tv/streamplace/c2pa-go/pkg/c2pa"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"

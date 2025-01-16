@@ -19,7 +19,7 @@ import {
 } from "./props";
 import { srcToUrl } from "./shared";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
-import useAquareumNode from "hooks/useAquareumNode";
+import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { selectStoredKey } from "features/bluesky/blueskySlice";
 import { usePlayer } from "features/player/playerSlice";
@@ -238,7 +238,7 @@ export function WebcamIngestPlayer(
     }
   }, []);
 
-  const { url } = useAquareumNode();
+  const { url } = useStreamplaceNode();
   const [localMediaStream, setLocalMediaStream] = useState<MediaStream | null>(
     null,
   );

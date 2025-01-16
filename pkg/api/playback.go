@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"aquareum.tv/aquareum/pkg/aqtime"
-	"aquareum.tv/aquareum/pkg/atproto"
-	"aquareum.tv/aquareum/pkg/errors"
-	apierrors "aquareum.tv/aquareum/pkg/errors"
-	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/pkg/media"
+	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/errors"
+	apierrors "stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/media"
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/julienschmidt/httprouter"
 	"github.com/mr-tron/base58"
@@ -25,13 +25,13 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func (a *AquareumAPI) NormalizeUser(ctx context.Context, user string) (string, error) {
+func (a *StreamplaceAPI) NormalizeUser(ctx context.Context, user string) (string, error) {
 	alias, ok := a.Aliases[user]
 	if ok {
 		user = alias
 	}
 	user = strings.ToLower(user)
-	// aquareum signing key
+	// streamplace signing key
 	if strings.HasPrefix(user, "0x") {
 		return user, nil
 	}
@@ -43,7 +43,7 @@ func (a *AquareumAPI) NormalizeUser(ctx context.Context, user string) (string, e
 	return key, nil
 }
 
-func (a *AquareumAPI) HandleMP4Playback(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleMP4Playback(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
 		if user == "" {
@@ -86,7 +86,7 @@ func (a *AquareumAPI) HandleMP4Playback(ctx context.Context) httprouter.Handle {
 	}
 }
 
-func (a *AquareumAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
 		if user == "" {
@@ -129,7 +129,7 @@ func (a *AquareumAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handle {
 	}
 }
 
-func (a *AquareumAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
 		if user == "" {
@@ -161,7 +161,7 @@ func (a *AquareumAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Handl
 const BEARER_PREFIX = "Bearer "
 const KEY_PREFIX = "0x"
 
-func (a *AquareumAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		ct := r.Header.Get("Content-Type")
 		if ct != "application/sdp" {
@@ -209,7 +209,7 @@ func (a *AquareumAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Handle 
 		if did != "" {
 			_, err = atproto.SyncBlueskyRepo(ctx, did, a.Model)
 			if err != nil {
-				apierrors.WriteHTTPInternalServerError(w, "could not resolve aquareum key", err)
+				apierrors.WriteHTTPInternalServerError(w, "could not resolve streamplace key", err)
 				return
 			}
 		}
@@ -287,7 +287,7 @@ func NoCache(h httprouter.Handle) httprouter.Handle {
 	}
 }
 
-func (a *AquareumAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
 	return NoCache(func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
 		if user == "" {
@@ -318,7 +318,7 @@ func (a *AquareumAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
 	})
 }
 
-func (a *AquareumAPI) HandleThumbnailPlayback(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
 		if user == "" {

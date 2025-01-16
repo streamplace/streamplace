@@ -51,7 +51,7 @@ func GetMetadata(host string, platform string) *OAuthClientMetadata {
 		// RedirectURIs:            []string{fmt.Sprintf("https://%s/login", host)},
 		Scope:                   "atproto transition:generic",
 		TokenEndpointAuthMethod: "none",
-		ClientName:              "Aquareum",
+		ClientName:              "Streamplace",
 		ResponseTypes:           []string{"code"},
 		GrantTypes:              []string{"authorization_code", "refresh_token"},
 		DPoPBoundAccessTokens:   boolPtr(true),

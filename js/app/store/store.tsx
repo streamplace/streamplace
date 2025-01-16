@@ -1,7 +1,7 @@
 import type { Action, ThunkAction } from "@reduxjs/toolkit";
 import { combineSlices, configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
-import { aquareumSlice } from "features/aquareum/aquareumSlice";
+import { streamplaceSlice } from "features/streamplace/streamplaceSlice";
 import { baseSlice } from "features/base/baseSlice";
 import { blueskySlice } from "features/bluesky/blueskySlice";
 import { platformSlice } from "features/platform/platformSlice";
@@ -9,7 +9,7 @@ import { playerSlice } from "features/player/playerSlice";
 
 const rootReducer = combineSlices(
   blueskySlice,
-  aquareumSlice,
+  streamplaceSlice,
   platformSlice,
   playerSlice,
   baseSlice,

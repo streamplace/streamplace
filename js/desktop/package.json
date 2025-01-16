@@ -1,8 +1,8 @@
 {
-  "name": "aquareum-desktop",
-  "productName": "aquareum-desktop",
+  "name": "streamplace-desktop",
+  "productName": "streamplace-desktop",
   "version": "0.2.4",
-  "description": "Aquareum Desktop Application",
+  "description": "Streamplace Desktop Application",
   "main": ".webpack/main",
   "scripts": {
     "start": "electron-forge start \"$@\" | cat",
@@ -43,8 +43,8 @@
   },
   "keywords": [],
   "author": {
-    "name": "Aquareum Inc.",
-    "email": "support@aquareum.tv"
+    "name": "Streamplace Inc.",
+    "email": "support@stream.place"
   },
   "license": "MIT",
   "dependencies": {

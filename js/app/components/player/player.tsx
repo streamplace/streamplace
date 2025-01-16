@@ -1,4 +1,4 @@
-import useAquareumNode from "hooks/useAquareumNode";
+import useStreamplaceNode from "hooks/useStreamplaceNode";
 import usePlatform from "hooks/usePlatform";
 import { uuidv7 } from "hooks/uuid";
 import { useEffect, useMemo, useState } from "react";
@@ -78,7 +78,7 @@ export function PlayerInner(props: Partial<PlayerProps>) {
   if (props.forceProtocol) {
     defProto = props.forceProtocol;
   }
-  const { url } = useAquareumNode();
+  const { url } = useStreamplaceNode();
   const info = usePlatform();
   const playerEvent = async (
     time: string,

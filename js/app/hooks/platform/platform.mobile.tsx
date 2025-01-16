@@ -38,14 +38,14 @@ export async function initPushNotifications() {
     }
 
     (async () => {
-      if (typeof process.env.EXPO_PUBLIC_AQUAREUM_URL !== "string") {
-        console.log("process.env.EXPO_PUBLIC_AQUAREUM_URL undefined!");
+      if (typeof process.env.EXPO_PUBLIC_STREAMPLACE_URL !== "string") {
+        console.log("process.env.EXPO_PUBLIC_STREAMPLACE_URL undefined!");
         return;
       }
       try {
         const token = await x.getToken();
         const res = await fetch(
-          `${process.env.EXPO_PUBLIC_AQUAREUM_URL}/api/notification`,
+          `${process.env.EXPO_PUBLIC_STREAMPLACE_URL}/api/notification`,
           {
             method: "POST",
             headers: {

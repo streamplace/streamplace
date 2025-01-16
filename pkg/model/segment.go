@@ -3,7 +3,7 @@ package model
 import (
 	"time"
 
-	"aquareum.tv/aquareum/pkg/aqtime"
+	"stream.place/streamplace/pkg/aqtime"
 )
 
 type Segment struct {

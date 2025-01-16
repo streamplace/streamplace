@@ -18,18 +18,18 @@ import (
 	"strings"
 	"time"
 
-	"aquareum.tv/aquareum/pkg/errors"
-	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/pkg/mist/mistconfig"
-	"aquareum.tv/aquareum/pkg/mist/misttriggers"
-	"aquareum.tv/aquareum/pkg/model"
-	v0 "aquareum.tv/aquareum/pkg/schema/v0"
+	"stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/mist/mistconfig"
+	"stream.place/streamplace/pkg/mist/misttriggers"
+	"stream.place/streamplace/pkg/model"
+	v0 "stream.place/streamplace/pkg/schema/v0"
 	"github.com/julienschmidt/httprouter"
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/sync/errgroup"
 )
 
-func (a *AquareumAPI) ServeInternalHTTP(ctx context.Context) error {
+func (a *StreamplaceAPI) ServeInternalHTTP(ctx context.Context) error {
 	handler, err := a.InternalHandler(ctx)
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ func init() {
 	mkvRE = regexp.MustCompile(`^\d+\.mkv$`)
 }
 
-func (a *AquareumAPI) InternalHandler(ctx context.Context) (http.Handler, error) {
+func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, error) {
 	router := httprouter.New()
 	broker := misttriggers.NewTriggerBroker()
 	broker.OnPushOutStart(func(ctx context.Context, payload *misttriggers.PushOutStartPayload) (string, error) {
@@ -327,7 +327,7 @@ func (a *AquareumAPI) InternalHandler(ctx context.Context) (http.Handler, error)
 	return handler, nil
 }
 
-func (a *AquareumAPI) keyToUser(ctx context.Context, key string) (string, error) {
+func (a *StreamplaceAPI) keyToUser(ctx context.Context, key string) (string, error) {
 	payload, err := base64.URLEncoding.DecodeString(key)
 	if err != nil {
 		return "", err

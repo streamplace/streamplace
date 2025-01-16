@@ -7,7 +7,7 @@ import { app } from "electron";
 
 const findExe = async (): Promise<string> => {
   const { isDev } = getEnv();
-  let fname = "aquareum";
+  let fname = "streamplace";
   let exe: string;
   let platform = os.platform() as string;
   let architecture = os.arch() as string;
@@ -20,7 +20,7 @@ const findExe = async (): Promise<string> => {
   }
   let binfolder = `build-${platform}-${architecture}`;
   if (isDev) {
-    // theoretically cwd is aquareum/js/desktop:
+    // theoretically cwd is streamplace/js/desktop:
     exe = resolve(process.cwd(), "..", "..", binfolder, fname);
   } else {
     exe = resolve(process.resourcesPath, fname);
@@ -29,7 +29,7 @@ const findExe = async (): Promise<string> => {
     await access(exe, constants.F_OK);
   } catch (e) {
     throw new Error(
-      `could not find aquareum node binary at ${exe}: ${e.message}`,
+      `could not find streamplace node binary at ${exe}: ${e.message}`,
     );
   }
   return exe;
@@ -98,7 +98,7 @@ const checkService = (
 
       if (attempts >= maxAttempts) {
         clearInterval(intervalId);
-        reject(new Error("aquareum did not boot up in time"));
+        reject(new Error("streamplace did not boot up in time"));
       }
     }, interval);
   });

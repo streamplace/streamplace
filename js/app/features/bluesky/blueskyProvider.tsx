@@ -1,5 +1,5 @@
 import { useURL } from "expo-linking";
-import { putIdentity } from "features/aquareum/aquareumSlice";
+import { putIdentity } from "features/streamplace/streamplaceSlice";
 import useWallet from "hooks/useWallet";
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";

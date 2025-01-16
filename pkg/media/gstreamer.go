@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"aquareum.tv/aquareum/pkg/aqtime"
-	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/test"
+	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/test"
 	"github.com/go-gst/go-glib/glib"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"

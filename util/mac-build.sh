@@ -10,10 +10,10 @@ export LANG=en_US.UTF-8
 mkdir ~/build 
 cd ~/build
 source '/Volumes/My Shared Files/signing/mac-codesigning.env'
-git clone '/Volumes/My Shared Files/aquareum'
+git clone '/Volumes/My Shared Files/streamplace'
 eval "$(/opt/homebrew/bin/brew shellenv)"
 brew update --force --quiet
-cd ~/build/aquareum
+cd ~/build/streamplace
 brew install ninja go openssl@3 cocoapods git && go version
 sudo gem install --user-install xcpretty
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && bash rustup.sh -y && rm rustup.sh

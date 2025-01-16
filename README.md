@@ -1,4 +1,4 @@
-# Aquareum
+# Streamplace
 
 ## The Video Layer for Everything
 
@@ -21,11 +21,11 @@ yarn run build
 
 ```
 make node
-./build-darwin-arm64/aquareum
+./build-darwin-arm64/streamplace
 
 // or
 
-./build-linux-amd64/aquareum
+./build-linux-amd64/streamplace
 ```
 
 **Web Development**
@@ -56,10 +56,10 @@ Some app development may require actual HTTPS to test the OAuth flow. To make
 that happen, you can set the `AQ_APP_SCHEME` environment variable to the scheme
 you want to use; it must match reverse of the URL of a publicly accessible
 server with an HTTPS cert. So, if you're exposing your app on
-aquareum.example.com, you could run the app with
+streamplace.example.com, you could run the app with
 
 ```
-export AQ_APP_SCHEME=com.example.aquareum
+export AQ_APP_SCHEME=com.example.streamplace
 yarn run app ios
 ```
 
@@ -77,4 +77,4 @@ node util/generate-dev-admin-key.mjs
 ```
 
 Adding those two environment variables to your shell will give your desktop app
-administrative access over your local Aquareum node.
+administrative access over your local Streamplace node.

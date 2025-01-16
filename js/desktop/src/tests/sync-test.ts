@@ -15,7 +15,7 @@ export const syncTest: E2ETest = {
       webPreferences: {
         preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       },
-      title: "aquareum-sync-test",
+      title: "streamplace-sync-test",
       // titleBarStyle: "hidden",
       // titleBarOverlay: true,
     });
@@ -51,7 +51,7 @@ export const syncTest: E2ETest = {
       webPreferences: {
         preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       },
-      title: "aquareum-sync-stream",
+      title: "streamplace-sync-stream",
       // titleBarStyle: "hidden",
       // titleBarOverlay: true,
     });
@@ -75,7 +75,7 @@ export const syncTest: E2ETest = {
       webPreferences: {
         preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       },
-      title: "aquareum-sync-playback",
+      title: "streamplace-sync-playback",
       // titleBarStyle: "hidden",
       // titleBarOverlay: true,
     });

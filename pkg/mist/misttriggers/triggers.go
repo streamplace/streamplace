@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/errors"
-	"aquareum.tv/aquareum/pkg/log"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/log"
 	"github.com/julienschmidt/httprouter"
 )
 

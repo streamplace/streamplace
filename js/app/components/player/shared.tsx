@@ -1,4 +1,4 @@
-import useAquareumNode from "hooks/useAquareumNode";
+import useStreamplaceNode from "hooks/useStreamplaceNode";
 import {
   PlayerProps,
   PROTOCOL_HLS,
@@ -19,7 +19,7 @@ export function srcToUrl(props: PlayerProps): {
   url: string;
   protocol: string;
 } {
-  const { url } = useAquareumNode();
+  const { url } = useStreamplaceNode();
   return useMemo(() => {
     if (props.src.startsWith("http://") || props.src.startsWith("https://")) {
       const segments = props.src.split(/[./]/);

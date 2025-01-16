@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/mist/misttriggers"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/mist/misttriggers"
 )
 
 var STREAM_NAME = "stream"
@@ -28,8 +28,8 @@ func Generate(cli *config.CLI) ([]byte, error) {
 	conf := map[string]any{
 		"account": map[string]any{
 			// doesn't need to be secure, will only ever be exposed on localhost
-			"aquareum": map[string]any{
-				"password": md5.Sum([]byte("aquareum")),
+			"streamplace": map[string]any{
+				"password": md5.Sum([]byte("streamplace")),
 			},
 		},
 		"bandwidth": map[string]any{
@@ -43,7 +43,7 @@ func Generate(cli *config.CLI) ([]byte, error) {
 		},
 		"config": map[string]any{
 			"accesslog":  "LOG",
-			"prometheus": "aquareum",
+			"prometheus": "streamplace",
 			"protocols": []map[string]any{
 				{"connector": "AAC"},
 				{"connector": "CMAF"},

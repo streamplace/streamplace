@@ -1,4 +1,4 @@
 package mediatesting
 
-// #cgo pkg-config: aquareumdeps-uninstalled
+// #cgo pkg-config: streamplacedeps-uninstalled
 import "C"

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"aquareum.tv/aquareum/pkg/model"
+	"stream.place/streamplace/pkg/model"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/stretchr/testify/require"
@@ -16,12 +16,12 @@ import (
 
 func TestKeyResolution(t *testing.T) {
 	// i wrote these tests before i renamed this and i don't wanna re-export, okay?
-	oldAquareumCollection := STREAMPLACE_COLLECTION
-	oldAquareumKey := STREAMPLACE_SIGNING_KEY
-	defer func() { STREAMPLACE_COLLECTION = oldAquareumCollection }()
-	defer func() { STREAMPLACE_SIGNING_KEY = oldAquareumKey }()
+	oldStreamplaceCollection := STREAMPLACE_COLLECTION
+	oldStreamplaceKey := STREAMPLACE_SIGNING_KEY
+	defer func() { STREAMPLACE_COLLECTION = oldStreamplaceCollection }()
+	defer func() { STREAMPLACE_SIGNING_KEY = oldStreamplaceKey }()
 	STREAMPLACE_COLLECTION = "app.bsky.feed.post"
-	STREAMPLACE_SIGNING_KEY = "aquareumKey"
+	STREAMPLACE_SIGNING_KEY = "streamplaceKey"
 
 	dir, err := os.MkdirTemp("", "atproto-test-*")
 	require.NoError(t, err)
@@ -45,25 +45,25 @@ func TestKeyResolution(t *testing.T) {
 
 	// full sync
 	SyncGetRepo = MockSyncGetRepo(fullSync)
-	k, err := SyncBlueskyRepo(context.Background(), "aquareum.bsky.social", mod)
+	k, err := SyncBlueskyRepo(context.Background(), "streamplace.bsky.social", mod)
 	require.NoError(t, err)
 	require.Equal(t, firstKey, k)
 
 	// empty sync
 	SyncGetRepo = MockSyncGetRepo(emptySync)
-	k, err = SyncBlueskyRepo(context.Background(), "aquareum.bsky.social", mod)
+	k, err = SyncBlueskyRepo(context.Background(), "streamplace.bsky.social", mod)
 	require.NoError(t, err)
 	require.Equal(t, firstKey, k)
 
 	// incremental sync with no changes
 	SyncGetRepo = MockSyncGetRepo(incrementalSyncSameKey)
-	k, err = SyncBlueskyRepo(context.Background(), "aquareum.bsky.social", mod)
+	k, err = SyncBlueskyRepo(context.Background(), "streamplace.bsky.social", mod)
 	require.NoError(t, err)
 	require.Equal(t, firstKey, k)
 
-	// incremental sync with a new aquareum key
+	// incremental sync with a new streamplace key
 	SyncGetRepo = MockSyncGetRepo(incrementalSyncNewKey)
-	k, err = SyncBlueskyRepo(context.Background(), "aquareum.bsky.social", mod)
+	k, err = SyncBlueskyRepo(context.Background(), "streamplace.bsky.social", mod)
 	require.NoError(t, err)
 	require.Equal(t, secondKey, k)
 }
@@ -78,7 +78,7 @@ func MockSyncGetRepo(res string) func(ctx context.Context, xrpcc *xrpc.Client, d
 	}
 }
 
-// captured from aquareum.bsky.social pds
+// captured from streamplace.bsky.social pds
 var didDoc = []byte(`
 	{
 		"@context": [
@@ -87,7 +87,7 @@ var didDoc = []byte(`
 			"https://w3id.org/security/suites/secp256k1-2019/v1"
 		],
 		"alsoKnownAs": [
-			"at://aquareum.bsky.social"
+			"at://streamplace.bsky.social"
 		],
 		"id": "did:plc:dkh4rwafdcda4ko7lewe43ml",
 		"service": [

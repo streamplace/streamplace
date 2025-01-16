@@ -6,10 +6,10 @@ export const makeWindow = async (): Promise<BrowserWindow> => {
   const { isDev } = getEnv();
   let logoFile: string;
   if (isDev) {
-    // theoretically cwd is aquareum/js/desktop:
-    logoFile = resolve(process.cwd(), "assets", "aquareum-logo.png");
+    // theoretically cwd is streamplace/js/desktop:
+    logoFile = resolve(process.cwd(), "assets", "streamplace-logo.png");
   } else {
-    logoFile = resolve(process.resourcesPath, "aquareum-logo.png");
+    logoFile = resolve(process.resourcesPath, "streamplace-logo.png");
   }
   const window = new BrowserWindow({
     height: 600,

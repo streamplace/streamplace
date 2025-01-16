@@ -112,20 +112,20 @@ func makeGit() error {
 	} else if *doBranch {
 		out = branch()
 	} else if *env {
-		AQUAREUM_BRANCH := branch()
+		STREAMPLACE_BRANCH := branch()
 		outMap := map[string]string{}
-		outMap["AQUAREUM_BRANCH"] = AQUAREUM_BRANCH
-		outMap["AQUAREUM_VERSION"] = desc
-		outMap["AQUAREUM_BRANCH"] = AQUAREUM_BRANCH
+		outMap["STREAMPLACE_BRANCH"] = STREAMPLACE_BRANCH
+		outMap["STREAMPLACE_VERSION"] = desc
+		outMap["STREAMPLACE_BRANCH"] = STREAMPLACE_BRANCH
 		for _, arch := range []string{"amd64", "arm64"} {
-			k := fmt.Sprintf("AQUAREUM_URL_LINUX_%s", strings.ToUpper(arch))
-			v := fmt.Sprintf("%s/packages/generic/%s/%s/aquareum-%s-linux-%s.tar.gz", gitlabURL(), AQUAREUM_BRANCH, desc, desc, arch)
+			k := fmt.Sprintf("STREAMPLACE_URL_LINUX_%s", strings.ToUpper(arch))
+			v := fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-%s-linux-%s.tar.gz", gitlabURL(), STREAMPLACE_BRANCH, desc, desc, arch)
 			outMap[k] = v
-			macK := fmt.Sprintf("AQUAREUM_URL_DARWIN_%s", strings.ToUpper(arch))
-			macV := fmt.Sprintf("%s/packages/generic/%s/%s/aquareum-%s-darwin-%s.zip", gitlabURL(), AQUAREUM_BRANCH, desc, desc, arch)
+			macK := fmt.Sprintf("STREAMPLACE_URL_DARWIN_%s", strings.ToUpper(arch))
+			macV := fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-%s-darwin-%s.zip", gitlabURL(), STREAMPLACE_BRANCH, desc, desc, arch)
 			outMap[macK] = macV
 		}
-		outMap["AQUAREUM_DESKTOP_URL_WINDOWS_AMD64"] = fmt.Sprintf("%s/packages/generic/%s/%s/aquareum-desktop-%s-windows-amd64.exe", gitlabURL(), AQUAREUM_BRANCH, desc, desc)
+		outMap["STREAMPLACE_DESKTOP_URL_WINDOWS_AMD64"] = fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-desktop-%s-windows-amd64.exe", gitlabURL(), STREAMPLACE_BRANCH, desc, desc)
 		for k, v := range outMap {
 			out = out + fmt.Sprintf("%s=%s\n", k, v)
 		}

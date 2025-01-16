@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"aquareum.tv/aquareum/pkg/log"
-	_ "aquareum.tv/aquareum/pkg/media/mediatesting"
-	"aquareum.tv/aquareum/pkg/schema"
+	"stream.place/streamplace/pkg/log"
+	_ "stream.place/streamplace/pkg/media/mediatesting"
+	"stream.place/streamplace/pkg/schema"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -144,21 +144,21 @@ type SignedMessage interface {
 	Time() int64
 	Data() any
 }
-type AquareumEIP712 struct {
+type StreamplaceEIP712 struct {
 	PrimaryType string                    `json:"primaryType"`
 	Domain      *apitypes.TypedDataDomain `json:"domain"`
-	Message     AquareumEIP712Message     `json:"message"`
+	Message     StreamplaceEIP712Message     `json:"message"`
 	Signature   string                    `json:"signature"`
 }
 
-type AquareumEIP712Message struct {
+type StreamplaceEIP712Message struct {
 	MsgSigner string `json:"signer"`
 	MsgTime   int64  `json:"time"`
 	MsgData   any    `json:"data"`
 }
 
 // return a Map representation suitable for passing to the geth functions
-func (msg AquareumEIP712Message) Map() map[string]any {
+func (msg StreamplaceEIP712Message) Map() map[string]any {
 	m := map[string]any{}
 	m["signer"] = msg.MsgSigner
 	m["time"] = new(big.Int).SetInt64(msg.MsgTime)
@@ -166,15 +166,15 @@ func (msg AquareumEIP712Message) Map() map[string]any {
 	return m
 }
 
-func (msg *AquareumEIP712Message) Signer() string {
+func (msg *StreamplaceEIP712Message) Signer() string {
 	return msg.MsgSigner
 }
 
-func (msg *AquareumEIP712Message) Time() int64 {
+func (msg *StreamplaceEIP712Message) Time() int64 {
 	return msg.MsgTime
 }
 
-func (msg *AquareumEIP712Message) Data() any {
+func (msg *StreamplaceEIP712Message) Data() any {
 	return msg.MsgData
 }
 
@@ -190,7 +190,7 @@ func (signer *EIP712Signer) SignMessage(something any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	msg := AquareumEIP712Message{
+	msg := StreamplaceEIP712Message{
 		MsgData:   innerMessage,
 		MsgSigner: signer.Account.Address.String(),
 		MsgTime:   time.Now().UnixMilli(),
@@ -226,7 +226,7 @@ func (signer *EIP712Signer) SignMessage(something any) ([]byte, error) {
 	// golint wants string(b) but that gives /x1234 encoded output
 	sigHex := hexutil.Bytes(sig).String()
 
-	finalMessage := AquareumEIP712{
+	finalMessage := StreamplaceEIP712{
 		PrimaryType: name,
 		Domain:      signer.EIP712Schema.Domain,
 		Message:     msg,
@@ -257,7 +257,7 @@ func ActionToMap(a any) (map[string]any, error) {
 }
 
 func (signer *EIP712Signer) Verify(bs []byte) (SignedMessage, error) {
-	var unverified AquareumEIP712
+	var unverified StreamplaceEIP712
 	err := json.Unmarshal(bs, &unverified)
 	if err != nil {
 		return nil, fmt.Errorf("error on json.Unmarshal: %w", err)
@@ -305,7 +305,7 @@ func (signer *EIP712Signer) Verify(bs []byte) (SignedMessage, error) {
 		return nil, err
 	}
 	// new object that has the correct type hidden within!
-	signed := AquareumEIP712Message{
+	signed := StreamplaceEIP712Message{
 		MsgSigner: unverified.Message.Signer(),
 		MsgTime:   unverified.Message.Time(),
 		MsgData:   something,

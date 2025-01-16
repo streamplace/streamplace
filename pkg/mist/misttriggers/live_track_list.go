@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"aquareum.tv/aquareum/pkg/errors"
-	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/pkg/mist/mistclient"
+	"stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/mist/mistclient"
 
 	"github.com/golang/glog"
 )

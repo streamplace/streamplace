@@ -6,24 +6,24 @@ import {
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-export type AquareumOAuthClient = Omit<
+export type StreamplaceOAuthClient = Omit<
   ReactNativeOAuthClient,
   "keyset" | "serverFactory" | "jwks"
 >;
 
 export default async function createOAuthClient(
-  aquareumUrl: string,
-): Promise<AquareumOAuthClient> {
-  if (!aquareumUrl) {
-    throw new Error("aquareumUrl is required");
+  streamplaceUrl: string,
+): Promise<StreamplaceOAuthClient> {
+  if (!streamplaceUrl) {
+    throw new Error("streamplaceUrl is required");
   }
   let meta: ClientMetadata;
   if (
-    aquareumUrl.startsWith("http://localhost") ||
-    aquareumUrl.startsWith("http://127.0.0.1")
+    streamplaceUrl.startsWith("http://localhost") ||
+    streamplaceUrl.startsWith("http://127.0.0.1")
   ) {
     const isWeb = Platform.OS === "web";
-    const u = new URL(aquareumUrl);
+    const u = new URL(streamplaceUrl);
     let hostname = u.hostname;
     if (hostname == "localhost") {
       hostname = "127.0.0.1";
@@ -58,7 +58,7 @@ export default async function createOAuthClient(
       dpop_bound_access_tokens: true,
     };
   } else {
-    const res = await fetch(`${aquareumUrl}/api/atproto-oauth/${Platform.OS}`);
+    const res = await fetch(`${streamplaceUrl}/api/atproto-oauth/${Platform.OS}`);
     meta = await res.json();
   }
   clientMetadataSchema.parse(meta);

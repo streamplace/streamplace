@@ -44,8 +44,8 @@ type ElectronWindow = Window &
 const queryClient = new QueryClient();
 
 const defaultConfig = getDefaultConfig({
-  appName: "Aquareum",
-  appUrl: "https://aquareum.tv",
+  appName: "Streamplace",
+  appUrl: "https://stream.place",
   projectId: "32c8489fbff0b10e2e011b36c36b4466",
   chains: [mainnet, polygon, optimism, arbitrum, base],
   ssr: true, // If your dApp uses server side rendering (SSR)

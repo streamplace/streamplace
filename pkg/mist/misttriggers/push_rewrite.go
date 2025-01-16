@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"aquareum.tv/aquareum/pkg/errors"
+	"stream.place/streamplace/pkg/errors"
 	"github.com/golang/glog"
 )
 

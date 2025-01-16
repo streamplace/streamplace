@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"aquareum.tv/aquareum/pkg/log"
+	"stream.place/streamplace/pkg/log"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/pion/webrtc/v4/pkg/media"
@@ -17,59 +17,59 @@ type MediaValidator struct {
 }
 
 // var files []string = []string{
-// 	// "/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-00-411Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-01-212Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-01-830Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-02-492Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-03-163Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-03-430Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-04-209Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-04-604Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-05-308Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-05-970Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-06-406Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-07-271Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-07-868Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-08-572Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-09-286Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-09-404Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-10-289Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-11-431Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-12-390Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-13-585Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-14-588Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-15-409Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-17-372Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-18-407Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-19-025Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-19-591Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-20-369Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-20-967Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-21-393Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-21-970Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-22-812Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-24-391Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-24-988Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-25-606Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-26-310Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-27-333Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-27-452Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-28-305Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-29-052Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-29-607Z.mp4",
-// 	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-30-407Z.mp4",
+// 	// "/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-00-411Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-01-212Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-01-830Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-02-492Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-03-163Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-03-430Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-04-209Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-04-604Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-05-308Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-05-970Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-06-406Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-07-271Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-07-868Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-08-572Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-09-286Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-09-404Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-10-289Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-11-431Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-12-390Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-13-585Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-14-588Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-15-409Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-17-372Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-18-407Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-19-025Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-19-591Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-20-369Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-20-967Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-21-393Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-21-970Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-22-812Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-24-391Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-24-988Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-25-606Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-26-310Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-27-333Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-27-452Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-28-305Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-29-052Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-29-607Z.mp4",
+// 	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/22/18/2025-01-15T22-18-30-407Z.mp4",
 // }
 
 var files []string = []string{
-	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-00-459Z.mp4", // evil
-	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-03-424Z.mp4", // good
-	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-04-661Z.mp4", // good
-	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-07-121Z.mp4", // good
-	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-11-285Z.mp4", // good
-	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-12-938Z.mp4", // evil
-	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-17-343Z.mp4", // evil
-	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-19-158Z.mp4", // good
-	"/home/iameli/.aquareum/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-22-261Z.mp4", // good
+	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-00-459Z.mp4", // evil
+	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-03-424Z.mp4", // good
+	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-04-661Z.mp4", // good
+	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-07-121Z.mp4", // good
+	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-11-285Z.mp4", // good
+	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-12-938Z.mp4", // evil
+	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-17-343Z.mp4", // evil
+	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-19-158Z.mp4", // good
+	"/home/iameli/.streamplace/segments/0x3371a9b874d9815c8d18e7d4662cda099a4737b2/2025/01/15/23/29/2025-01-15T23-29-22-261Z.mp4", // good
 	// "/home/iameli/Desktop/out/2025-01-15T23-29-00-459Z.mp4.mkv.mp4",
 	// "/home/iameli/Desktop/out/2025-01-15T23-29-03-424Z.mp4.mkv.mp4",
 	// "/home/iameli/Desktop/out/2025-01-15T23-29-04-661Z.mp4.mkv.mp4",

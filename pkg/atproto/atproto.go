@@ -7,10 +7,10 @@ import (
 	"strings"
 	"sync"
 
-	"aquareum.tv/aquareum/pkg/aqhttp"
-	"aquareum.tv/aquareum/pkg/crypto/aqpub"
-	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/pkg/model"
+	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/crypto/aqpub"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -168,15 +168,15 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (strin
 			continue
 		}
 		processed += 1
-		aquareumKeyAny, ok := rec[STREAMPLACE_SIGNING_KEY]
+		streamplaceKeyAny, ok := rec[STREAMPLACE_SIGNING_KEY]
 		if !ok {
 			continue
 		}
-		aquareumKey, ok := aquareumKeyAny.(string)
+		streamplaceKey, ok := streamplaceKeyAny.(string)
 		if !ok {
 			continue
 		}
-		key = aquareumKey
+		key = streamplaceKey
 	}
 	log.Log(ctx, "processed new posts", "postCount", processed)
 

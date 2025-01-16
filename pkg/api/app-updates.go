@@ -14,9 +14,9 @@ import (
 	"net/http"
 	"strings"
 
-	"aquareum.tv/aquareum/js/app"
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/log"
+	"stream.place/streamplace/js/app"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/log"
 
 	"github.com/dunglas/httpsfv"
 )
@@ -252,7 +252,7 @@ func PrepareUpdater(cli *config.CLI) (*Updater, error) {
 	}, nil
 }
 
-func (a *AquareumAPI) HandleAppUpdates(ctx context.Context) http.HandlerFunc {
+func (a *StreamplaceAPI) HandleAppUpdates(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		prefix := fmt.Sprintf("http://%s", req.Host)
 		if req.TLS != nil {

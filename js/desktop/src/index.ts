@@ -65,9 +65,9 @@ if (require("electron-squirrel-startup")) {
       console.error(e);
       const dialogOpts: Electron.MessageBoxOptions = {
         type: "info",
-        buttons: ["Quit Aquareum"],
+        buttons: ["Quit Streamplace"],
         title: "Error on Bootup",
-        message: "Please report to the Aquareum developers at git.aquareum.tv!",
+        message: "Please report to the Streamplace developers at git.aquareum.tv!",
         detail: e.message + "\n" + e.stack,
       };
 

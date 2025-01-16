@@ -40,11 +40,11 @@ export default async function () {
 
   const packagerConfig: ForgePackagerOptions = {
     asar: true,
-    name: "Aquareum",
+    name: "Streamplace",
     appVersion: version,
     buildVersion: version,
-    icon: "./assets/images/aquareum-logo",
-    extraResource: ["./assets/images/aquareum-logo.png"],
+    icon: "./assets/images/streamplace-logo",
+    extraResource: ["./assets/images/streamplace-logo.png"],
   };
 
   const config: ForgeConfig = {
@@ -59,7 +59,7 @@ export default async function () {
         if (architecture === "x64") {
           architecture = "amd64";
         }
-        let binary = `../../build-${platform}-${architecture}/aquareum`;
+        let binary = `../../build-${platform}-${architecture}/streamplace`;
         if (platform === "windows") {
           binary += ".exe";
         }
@@ -90,13 +90,13 @@ export default async function () {
     makers: [
       new MakerSquirrel({
         iconUrl:
-          "https://git.aquareum.tv/-/project/1/uploads/2e5899ffd2b4799ce661cf9b8675e610/aquareum-logo-256.ico",
-        setupIcon: "./assets/images/aquareum-logo.ico",
+          "https://git.aquareum.tv/-/project/1/uploads/2e5899ffd2b4799ce661cf9b8675e610/streamplace-logo-256.ico",
+        setupIcon: "./assets/images/streamplace-logo.ico",
       }),
       new MakerDMG(
         {
-          icon: "./assets/images/aquareum-logo.icns",
-          appPath: "./Aquareum.app",
+          icon: "./assets/images/streamplace-logo.icns",
+          appPath: "./Streamplace.app",
         },
         ["darwin"],
       ),
@@ -104,8 +104,8 @@ export default async function () {
       // new MakerRpm({}),
       new MakerAppImage({
         options: {
-          bin: "Aquareum",
-          icon: "./assets/images/aquareum-logo.png",
+          bin: "Streamplace",
+          icon: "./assets/images/streamplace-logo.png",
         },
       }),
     ],
@@ -146,7 +146,7 @@ export default async function () {
         accessKeyId: "minioadmin",
         secretAccessKey: "minioadmin",
         public: true,
-        bucket: "aquareum",
+        bucket: "streamplace",
         region: "unused",
       }),
     ],

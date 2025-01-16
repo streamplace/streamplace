@@ -4,10 +4,10 @@ import (
 	"context"
 	"strconv"
 
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/log"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/log"
 
-	"aquareum.tv/aquareum/pkg/cmd"
+	"stream.place/streamplace/pkg/cmd"
 	// _ "github.com/go-gst/go-glib/glib"
 	// _ "github.com/go-gst/go-gst/gst"
 )
@@ -15,8 +15,8 @@ import (
 //#cgo LDFLAGS: -lz
 import "C"
 
-//export AquareumMain
-func AquareumMain() {
+//export StreamplaceMain
+func StreamplaceMain() {
 	i, err := strconv.ParseInt(BuildTime, 10, 64)
 	if err != nil {
 		panic(err)
@@ -32,5 +32,5 @@ func AquareumMain() {
 }
 
 func main() {
-	AquareumMain()
+	StreamplaceMain()
 }

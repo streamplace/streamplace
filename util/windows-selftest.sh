@@ -3,9 +3,9 @@
 set -euo pipefail
 set -x
 
-curl -L -o aquareum-desktop.exe "$1"
-./aquareum-desktop.exe
-powershell -Command "Stop-Process -Name Aquareum"
-cd /c/Users/admin/AppData/Local/aquareum_desktop
+curl -L -o streamplace-desktop.exe "$1"
+./streamplace-desktop.exe
+powershell -Command "Stop-Process -Name Streamplace"
+cd /c/Users/admin/AppData/Local/streamplace_desktop
 cd app-*
-./Aquareum.exe -- --self-test
+./Streamplace.exe -- --self-test

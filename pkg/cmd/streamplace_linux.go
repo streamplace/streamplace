@@ -5,8 +5,8 @@ package cmd
 import (
 	"context"
 
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/proc"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/proc"
 )
 
 func runMist(ctx context.Context, cli *config.CLI) error {

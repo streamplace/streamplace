@@ -7,8 +7,8 @@ import (
 	"io"
 	"net/http"
 
-	"aquareum.tv/aquareum/pkg/aqhttp"
-	"aquareum.tv/aquareum/pkg/log"
+	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/log"
 )
 
 // boring HTTP replication mechanism

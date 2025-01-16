@@ -50,7 +50,7 @@ export function Updates() {
     >
       <ToastViewport name="modal" top="$8" left={0} right={0} />
       <View>
-        <H2 textAlign="center">Aquareum v{version}</H2>
+        <H2 textAlign="center">Streamplace v{version}</H2>
         <H5 textAlign="center" pb="$5">
           {runTypeMessage}
         </H5>
@@ -62,7 +62,7 @@ export function Updates() {
               if (!res.isAvailable) {
                 toast.show("No update found", {
                   viewportName: "modal",
-                  message: "You are on the latest version of Aquareum, hooray!",
+                  message: "You are on the latest version of Streamplace, hooray!",
                 });
               }
             } catch (e) {

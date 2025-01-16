@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"aquareum.tv/aquareum/pkg/aqtime"
-	apierrors "aquareum.tv/aquareum/pkg/errors"
-	"aquareum.tv/aquareum/pkg/log"
+	"stream.place/streamplace/pkg/aqtime"
+	apierrors "stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/log"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -60,7 +60,7 @@ type MacManifest struct {
 	Releases       []MacManifestRelease `json:"releases"`
 }
 
-func (a *AquareumAPI) HandleDesktopUpdates(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleDesktopUpdates(ctx context.Context) httprouter.Handle {
 	mac := a.HandleMacDesktopUpdates(ctx)
 	win := a.HandleWindowsDesktopUpdates(ctx)
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
@@ -75,7 +75,7 @@ func (a *AquareumAPI) HandleDesktopUpdates(ctx context.Context) httprouter.Handl
 	}
 }
 
-func (a *AquareumAPI) HandleMacDesktopUpdates(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleMacDesktopUpdates(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		platform := params.ByName("platform")
 		architecture := params.ByName("architecture")
@@ -112,9 +112,9 @@ func (a *AquareumAPI) HandleMacDesktopUpdates(ctx context.Context) httprouter.Ha
 			updateTo := MacManifestUpdateTo{
 				Version: serverVersionZ,
 				PubDate: aqt.String(),
-				Notes:   fmt.Sprintf("Aquareum %s", clientVersion),
-				Name:    fmt.Sprintf("Aquareum %s", clientVersion),
-				URL:     fmt.Sprintf("https://%s/dl/%s/aquareum-desktop-%s-%s.zip", req.Host, BRANCH, platform, architecture),
+				Notes:   fmt.Sprintf("Streamplace %s", clientVersion),
+				Name:    fmt.Sprintf("Streamplace %s", clientVersion),
+				URL:     fmt.Sprintf("https://%s/dl/%s/streamplace-desktop-%s-%s.zip", req.Host, BRANCH, platform, architecture),
 			}
 
 			mani = MacManifest{
@@ -143,7 +143,7 @@ func (a *AquareumAPI) HandleMacDesktopUpdates(ctx context.Context) httprouter.Ha
 	}
 }
 
-func (a *AquareumAPI) HandleWindowsDesktopUpdates(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleWindowsDesktopUpdates(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		platform := params.ByName("platform")
 		architecture := params.ByName("architecture")
@@ -184,10 +184,10 @@ func (a *AquareumAPI) HandleWindowsDesktopUpdates(ctx context.Context) httproute
 		if file == "RELEASES" {
 			if clientBuildSec >= a.CLI.Build.BuildTime {
 				// client is newer or the same as server
-				fmt.Fprintf(w, "0000000000000000000000000000000000000000 aquareum_desktop-%s-full.nupkg 1", clientVersion)
+				fmt.Fprintf(w, "0000000000000000000000000000000000000000 streamplace_desktop-%s-full.nupkg 1", clientVersion)
 				return
 			}
-			fmt.Fprintf(w, "%s aquareum_desktop-%s-full.nupkg %d", gitlabFile.SHA1, gitlabFile.Version, gitlabFile.Size)
+			fmt.Fprintf(w, "%s streamplace_desktop-%s-full.nupkg %d", gitlabFile.SHA1, gitlabFile.Version, gitlabFile.Size)
 			return
 		}
 		http.Redirect(w, req, gitlabFile.URL(), http.StatusTemporaryRedirect)

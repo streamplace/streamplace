@@ -1,4 +1,4 @@
 [wrap-git]
-url = https://git.aquareum.tv/aquareum-tv/c2pa-go.git
+url = https://git.aquareum.tv/streamplace/c2pa-go.git
 revision = main
 depth = 1

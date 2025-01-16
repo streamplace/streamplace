@@ -10,14 +10,14 @@ import (
 	"io"
 	"path/filepath"
 
-	"aquareum.tv/aquareum/pkg/aqio"
-	"aquareum.tv/aquareum/pkg/aqtime"
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/crypto/aqpub"
-	"aquareum.tv/aquareum/pkg/crypto/signers"
-	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/pkg/model"
-	"git.aquareum.tv/aquareum-tv/c2pa-go/pkg/c2pa"
+	"stream.place/streamplace/pkg/aqio"
+	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/crypto/aqpub"
+	"stream.place/streamplace/pkg/crypto/signers"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
+	"git.aquareum.tv/streamplace/c2pa-go/pkg/c2pa"
 )
 
 type MediaSigner struct {

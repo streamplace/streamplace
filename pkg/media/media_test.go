@@ -7,13 +7,13 @@ import (
 	"runtime"
 	"testing"
 
-	"aquareum.tv/aquareum/pkg/config"
-	ct "aquareum.tv/aquareum/pkg/config/configtesting"
-	"aquareum.tv/aquareum/pkg/crypto/aqpub"
-	"aquareum.tv/aquareum/pkg/crypto/signers/eip712/eip712test"
-	_ "aquareum.tv/aquareum/pkg/media/mediatesting"
-	"aquareum.tv/aquareum/pkg/replication/boring"
-	"git.aquareum.tv/aquareum-tv/c2pa-go/pkg/c2pa"
+	"stream.place/streamplace/pkg/config"
+	ct "stream.place/streamplace/pkg/config/configtesting"
+	"stream.place/streamplace/pkg/crypto/aqpub"
+	"stream.place/streamplace/pkg/crypto/signers/eip712/eip712test"
+	_ "stream.place/streamplace/pkg/media/mediatesting"
+	"stream.place/streamplace/pkg/replication/boring"
+	"git.aquareum.tv/streamplace/c2pa-go/pkg/c2pa"
 	"github.com/stretchr/testify/require"
 )
 

@@ -16,23 +16,23 @@ import (
 	"syscall"
 	"time"
 
-	"aquareum.tv/aquareum/pkg/aqhttp"
-	"aquareum.tv/aquareum/pkg/aqtime"
-	"aquareum.tv/aquareum/pkg/crypto/signers"
-	"aquareum.tv/aquareum/pkg/crypto/signers/eip712"
-	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/pkg/media"
-	"aquareum.tv/aquareum/pkg/notifications"
-	notificationpkg "aquareum.tv/aquareum/pkg/notifications"
-	"aquareum.tv/aquareum/pkg/replication"
-	"aquareum.tv/aquareum/pkg/replication/boring"
-	v0 "aquareum.tv/aquareum/pkg/schema/v0"
+	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/crypto/signers"
+	"stream.place/streamplace/pkg/crypto/signers/eip712"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/notifications"
+	notificationpkg "stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/replication"
+	"stream.place/streamplace/pkg/replication/boring"
+	v0 "stream.place/streamplace/pkg/schema/v0"
 	"golang.org/x/term"
 	"gorm.io/gorm"
 
-	"aquareum.tv/aquareum/pkg/api"
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/model"
+	"stream.place/streamplace/pkg/api"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/model"
 	"github.com/ThalesGroup/crypto11"
 	_ "github.com/go-gst/go-glib/glib"
 	_ "github.com/go-gst/go-gst/gst"
@@ -41,7 +41,7 @@ import (
 // Additional jobs that can be injected by platforms
 type jobFunc func(ctx context.Context, cli *config.CLI) error
 
-// parse the CLI and fire up an aquareum node!
+// parse the CLI and fire up an streamplace node!
 func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	selfTest := len(os.Args) > 1 && os.Args[1] == "self-test"
 	err := media.RunSelfTest(context.Background())
@@ -50,13 +50,13 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			fmt.Println(err.Error())
 			os.Exit(1)
 		} else {
-			retryCount, _ := strconv.Atoi(os.Getenv("AQUAREUM_SELFTEST_RETRY"))
+			retryCount, _ := strconv.Atoi(os.Getenv("STREAMPLACE_SELFTEST_RETRY"))
 			if retryCount >= 3 {
 				log.Error(context.Background(), "gstreamer self-test failed 3 times, giving up", "error", err)
 				return err
 			}
 			log.Log(context.Background(), "error in gstreamer self-test, attempting recovery", "error", err, "retry", retryCount+1)
-			os.Setenv("AQUAREUM_SELFTEST_RETRY", strconv.Itoa(retryCount+1))
+			os.Setenv("STREAMPLACE_SELFTEST_RETRY", strconv.Itoa(retryCount+1))
 			err := syscall.Exec(os.Args[0], os.Args[1:], os.Environ())
 			if err != nil {
 				log.Error(context.Background(), "error in gstreamer self-test, could not restart", "error", err)
@@ -74,7 +74,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 
 	if len(os.Args) > 1 && os.Args[1] == "stream" {
 		if len(os.Args) != 3 {
-			fmt.Println("usage: aquareum stream [user]")
+			fmt.Println("usage: streamplace stream [user]")
 			os.Exit(1)
 		}
 		return Stream(os.Args[2])
@@ -91,9 +91,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	}
 	flag.Set("logtostderr", "true")
 	vFlag := flag.Lookup("v")
-	fs := flag.NewFlagSet("aquareum", flag.ExitOnError)
+	fs := flag.NewFlagSet("streamplace", flag.ExitOnError)
 	cli := config.CLI{Build: build}
-	fs.StringVar(&cli.DataDir, "data-dir", config.DefaultDataDir(), "directory for keeping all aquareum data")
+	fs.StringVar(&cli.DataDir, "data-dir", config.DefaultDataDir(), "directory for keeping all streamplace data")
 	fs.StringVar(&cli.HttpAddr, "http-addr", ":38080", "Public HTTP address")
 	fs.StringVar(&cli.HttpInternalAddr, "http-internal-addr", "127.0.0.1:39090", "Private, admin-only HTTP address")
 	fs.StringVar(&cli.HttpsAddr, "https-addr", ":38443", "Public HTTPS address")
@@ -102,7 +102,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	cli.DataDirFlag(fs, &cli.TLSKeyPath, "tls-key", filepath.Join("tls", "tls.key"), "Path to TLS key")
 	fs.StringVar(&cli.SigningKeyPath, "signing-key", "", "Path to signing key for pushing OTA updates to the app")
 	cli.DataDirFlag(fs, &cli.DBPath, "db-path", "db.sqlite", "path to sqlite database file")
-	fs.StringVar(&cli.AdminAccount, "admin-account", "", "ethereum account that administrates this aquareum node")
+	fs.StringVar(&cli.AdminAccount, "admin-account", "", "ethereum account that administrates this streamplace node")
 	fs.StringVar(&cli.FirebaseServiceAccount, "firebase-service-account", "", "JSON string of a firebase service account key")
 	fs.StringVar(&cli.GitLabURL, "gitlab-url", "https://git.aquareum.tv/api/v4/projects/1", "gitlab url for generating download links")
 	cli.DataDirFlag(fs, &cli.EthKeystorePath, "eth-keystore-path", "keystore", "path to ethereum keystore")
@@ -116,10 +116,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.StringVar(&cli.PKCS11TokenSerial, "pkcs11-token-serial", "", "serial number of PKCS11 token (only use one of slot, label, or serial)")
 	fs.StringVar(&cli.PKCS11KeypairLabel, "pkcs11-keypair-label", "", "label of signing keypair on PKCS11 token")
 	fs.StringVar(&cli.PKCS11KeypairID, "pkcs11-keypair-id", "", "id of signing keypair on PKCS11 token")
-	fs.StringVar(&cli.StreamerName, "streamer-name", "", "name of the person streaming from this aquareum node")
+	fs.StringVar(&cli.StreamerName, "streamer-name", "", "name of the person streaming from this streamplace node")
 	fs.StringVar(&cli.FrontendProxy, "dev-frontend-proxy", "", "(FOR DEVELOPMENT ONLY) proxy frontend requests to this address instead of using the bundled frontend")
 	cli.StringSliceFlag(fs, &cli.AllowedStreams, "allowed-streams", "", "comma-separated list of addresses or atproto DIDs that this node will replicate")
-	cli.StringSliceFlag(fs, &cli.Peers, "peers", "", "other aquareum nodes to replicate to")
+	cli.StringSliceFlag(fs, &cli.Peers, "peers", "", "other streamplace nodes to replicate to")
 	cli.DebugFlag(fs, &cli.Debug, "debug", "", "modified log verbosity for specific functions or files in form func=ToHLS:3,file=gstreamer.go:4")
 	fs.BoolVar(&cli.TestStream, "test-stream", false, "run a built-in test stream on boot")
 	doValidate := fs.Bool("validate", false, "validate media")
@@ -152,7 +152,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	ctx = log.WithDebugValue(ctx, cli.Debug)
 
 	log.Log(ctx,
-		"aquareum",
+		"streamplace",
 		"version", build.Version,
 		"buildTime", build.BuildTimeStr(),
 		"uuid", build.UUID,
@@ -167,11 +167,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return media.ValidateMedia(ctx)
 	}
 
-	aqhttp.UserAgent = fmt.Sprintf("aquareum/%s", build.Version)
+	aqhttp.UserAgent = fmt.Sprintf("streamplace/%s", build.Version)
 
 	err = os.MkdirAll(cli.DataDir, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("error creating aquareum dir at %s:%w", cli.DataDir, err)
+		return fmt.Errorf("error creating streamplace dir at %s:%w", cli.DataDir, err)
 	}
 	schema, err := v0.MakeV0Schema()
 	if err != nil {
@@ -277,7 +277,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if err != nil {
 		return err
 	}
-	a, err := api.MakeAquareumAPI(&cli, mod, eip712signer, noter, mm, ms)
+	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms)
 	if err != nil {
 		return err
 	}

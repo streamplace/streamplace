@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"aquareum.tv/aquareum/pkg/errors"
+	"stream.place/streamplace/pkg/errors"
 	"github.com/golang/glog"
 )
 

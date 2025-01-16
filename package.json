@@ -1,5 +1,5 @@
 {
-  "name": "aquareum-monorepo",
+  "name": "streamplace-monorepo",
   "private": true,
   "version": "0.0.0-monorepo",
   "description": "The video layer for everything.",
@@ -17,7 +17,7 @@
     "desktop": "cd js/desktop && yarn run \"$@\""
   },
   "keywords": [],
-  "author": "Aquareum",
+  "author": "Streamplace",
   "license": "MIT",
   "devDependencies": {
     "husky": "^9.1.6",

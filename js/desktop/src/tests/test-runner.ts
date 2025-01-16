@@ -44,7 +44,7 @@ export default async function runTests(
           const multibaseKey = bytesToMultibase(exportedKey, "base58btc");
           const account = privateKeyToAccount(privateKey);
           const tmpDir = await fs.mkdtemp(
-            path.join(os.tmpdir(), "aquareum-test-"),
+            path.join(os.tmpdir(), "streamplace-test-"),
           );
 
           let testEnv: TestEnv = {

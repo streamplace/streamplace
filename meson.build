@@ -1,5 +1,5 @@
 project(
-  'aquareum',
+  'streamplace',
   'c',
   'cpp',
   default_options: {
@@ -34,10 +34,10 @@ flags = custom_target(
 version_cmd = run_command(prog_go, 'run', 'pkg/config/git/git.go', '-v', check: true)
 version = version_cmd.stdout().strip()
 
-aquareum_go = custom_target(
-  'aquareum.go',
-  input: 'cmd/libaquareum/aquareum.go',
-  output: 'aquareum.go',
+streamplace_go = custom_target(
+  'streamplace.go',
+  input: 'cmd/libstreamplace/streamplace.go',
+  output: 'streamplace.go',
   command: ['cp', '@INPUT@', '@OUTPUT@'],
 )
 
@@ -74,7 +74,7 @@ c2pa_go_proj = subproject(
 )
 c2pa_go_dep = c2pa_go_proj.get_variable('c2pa_go_dep')
 
-aquareum_deps = []
+streamplace_deps = []
 # if host_machine.system() == 'linux'
 #   mistserver_proj = subproject(
 #     'mistserver',
@@ -83,7 +83,7 @@ aquareum_deps = []
 #     },
 #   )
 #   mistserver = mistserver_proj.get_variable('libmistserver_dep')
-#   aquareum_deps += mistserver
+#   streamplace_deps += mistserver
 # endif
 
 ffmpeg_opts = {
@@ -182,7 +182,7 @@ ffmpeg_proj = subproject(
 )
 avformat = ffmpeg_proj.get_variable('libavformat_dep')
 avfilter = ffmpeg_proj.get_variable('libavfilter_dep')
-aquareum_deps += [avformat, avfilter]
+streamplace_deps += [avformat, avfilter]
 
 gstreamer_proj = subproject(
   'gstreamer-full',
@@ -190,7 +190,7 @@ gstreamer_proj = subproject(
 )
 
 gst_full_dep = gstreamer_proj.get_variable('gst_full_dep')
-aquareum_deps += [
+streamplace_deps += [
   gst_full_dep,
   dependency('gio-2.0'),
   dependency('gstreamer-controller-1.0'),
@@ -199,10 +199,10 @@ aquareum_deps += [
   dependency('gstplayback'),
 ]
 
-libaquareum = custom_target(
-  'libaquareum',
-  input: [aquareum_go, flags],
-  output: ['aquareum.a', 'aquareum.h'],
+libstreamplace = custom_target(
+  'libstreamplace',
+  input: [streamplace_go, flags],
+  output: ['streamplace.a', 'streamplace.h'],
   command: [
     prog_go,
     'build',
@@ -216,7 +216,7 @@ libaquareum = custom_target(
 )
 
 if host_machine.system() == 'darwin'
-  aquareum_deps += [dependency('appleframeworks', modules: ['CoreFoundation', 'Security'])]
+  streamplace_deps += [dependency('appleframeworks', modules: ['CoreFoundation', 'Security'])]
 endif
 if host_machine.system() == 'windows'
   add_project_link_arguments(
@@ -234,16 +234,16 @@ endif
 
 pkg = import('pkgconfig')
 pkg.generate(
-  name: 'aquareumdeps',
-  libraries: [aquareum_deps, c2pa_go_dep],
-  description: 'all aquareum dependencies bundled for easy inclusion',
+  name: 'streamplacedeps',
+  libraries: [streamplace_deps, c2pa_go_dep],
+  description: 'all streamplace dependencies bundled for easy inclusion',
 )
 
-aquareum = executable(
-  'aquareum',
-  ['cmd/aquareum/aquareum.c', libaquareum],
+streamplace = executable(
+  'streamplace',
+  ['cmd/streamplace/streamplace.c', libstreamplace],
   dependencies: [
-    aquareum_deps,
+    streamplace_deps,
   ],
   link_with: [c2pa_go_dep],
 )
@@ -252,7 +252,7 @@ if not meson.is_cross_build()
   test(
     'go-tests',
     prog_go,
-    depends: [aquareum],
+    depends: [streamplace],
     env: env,
     verbose: true,
     timeout: 0,
@@ -266,11 +266,11 @@ endif
 
 if host_machine.system() == 'windows'
   prog_zip = find_program('zip')
-  archive_name = 'aquareum-' + version + '-' + GOOS + '-' + GOARCH + '.zip'
+  archive_name = 'streamplace-' + version + '-' + GOOS + '-' + GOARCH + '.zip'
   custom_target(
     'archive',
-    input: [aquareum],
-    output: ['aquareum.zip'],
+    input: [streamplace],
+    output: ['streamplace.zip'],
     command: [prog_zip, '../bin/' + archive_name, '@INPUT@'],
     install: true,
     install_dir: './bin',
@@ -278,12 +278,12 @@ if host_machine.system() == 'windows'
   )
 else
   prog_tar = find_program('tar')
-  # archive_name = aquareum-$(VERSION)-$$GOOS-$$GOARCH.tar.gz
-  archive_name = 'aquareum-' + version + '-' + GOOS + '-' + GOARCH + '.tar.gz'
+  # archive_name = streamplace-$(VERSION)-$$GOOS-$$GOARCH.tar.gz
+  archive_name = 'streamplace-' + version + '-' + GOOS + '-' + GOARCH + '.tar.gz'
   custom_target(
     'archive',
-    input: [aquareum],
-    output: ['aquareum.tar.gz'],
+    input: [streamplace],
+    output: ['streamplace.tar.gz'],
     command: [prog_tar, '-czvf', '../bin/' + archive_name, '@INPUT@'],
     install: true,
     install_dir: './bin',

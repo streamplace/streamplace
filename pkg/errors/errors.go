@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"aquareum.tv/aquareum/pkg/log"
+	"stream.place/streamplace/pkg/log"
 )
 
 type APIError struct {

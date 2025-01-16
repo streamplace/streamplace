@@ -50,7 +50,7 @@ function HomeScreen() {
 const Stack = createNativeStackNavigator();
 
 const linking: LinkingOptions<ReactNavigation.RootParamList> = {
-  prefixes: ["tv.aquareum://", "tv.aquareum.dev://"],
+  prefixes: ["place.stream://", "place.stream.dev://"],
   config: {
     screens: {
       Home: {
@@ -136,12 +136,12 @@ export default function Router() {
   }
   return (
     <Provider linking={linking}>
-      <AquareumDrawer />
+      <StreamplaceDrawer />
     </Provider>
   );
 }
 
-export function AquareumDrawer() {
+export function StreamplaceDrawer() {
   const theme = useTheme();
   const { isWeb, isElectron } = usePlatform();
   const navigation = useNavigation();
@@ -180,9 +180,9 @@ export function AquareumDrawer() {
           options={{
             drawerIcon: () => <Home />,
             drawerLabel: () => <Text>Home</Text>,
-            headerTitle: "Aquareum",
+            headerTitle: "Streamplace",
             headerShown: isWeb,
-            title: "Aquareum",
+            title: "Streamplace",
           }}
           listeners={{
             drawerItemPress: (e) => {
@@ -298,14 +298,14 @@ const MainTab = () => {
       <Stack.Screen
         name="StreamList"
         component={HomeScreen}
-        options={{ headerTitle: "Aquareum", title: "Aquareum" }}
+        options={{ headerTitle: "Streamplace", title: "Streamplace" }}
       />
       <Stack.Screen
         name="Stream"
         component={StreamScreen}
         options={{
           headerTitle: "Stream",
-          title: "Aquareum Stream",
+          title: "Streamplace Stream",
         }}
       />
     </Stack.Navigator>

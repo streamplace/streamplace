@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"aquareum.tv/aquareum/pkg/aqtime"
-	"aquareum.tv/aquareum/pkg/crypto/aqpub"
+	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/crypto/aqpub"
 	"github.com/peterbourgon/ff/v3"
 	"golang.org/x/exp/rand"
 )
@@ -80,7 +80,7 @@ type CLI struct {
 	dataDirFlags []*string
 }
 
-var AQUAREUM_SCHEME_PREFIX = "aquareum://"
+var STREAMPLACE_SCHEME_PREFIX = "streamplace://"
 
 func (cli *CLI) OwnInternalURL() string {
 	//  No errors because we know it's valid from AddrFlag
@@ -125,7 +125,7 @@ func DefaultDataDir() string {
 		// not fatal unless the user doesn't set one later
 		return ""
 	}
-	return filepath.Join(home, ".aquareum")
+	return filepath.Join(home, ".streamplace")
 }
 
 func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {

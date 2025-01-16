@@ -1,11 +1,11 @@
 import { Agent } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { OAuthSession } from "@atproto/oauth-client";
-import { AquareumState } from "features/aquareum/aquareumSlice";
+import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import { openLoginLink } from "features/platform/platformSlice";
 import Storage from "storage";
 import { createAppSlice } from "../../hooks/createSlice";
-import createOAuthClient, { AquareumOAuthClient } from "./oauthClient";
+import createOAuthClient, { StreamplaceOAuthClient } from "./oauthClient";
 import { Secp256k1Keypair, bytesToMultibase } from "@atproto/crypto";
 import { privateKeyToAccount } from "viem/accounts";
 import { StreamKey } from "features/base/baseSlice";
@@ -17,7 +17,7 @@ export interface BlueskyState {
   oauthSession: null | OAuthSession;
   pdsAgent: null | Agent;
   profiles: { [key: string]: ProfileViewDetailed };
-  client: null | AquareumOAuthClient;
+  client: null | StreamplaceOAuthClient;
   login: {
     loading: boolean;
     error: null | string;
@@ -65,8 +65,8 @@ export const blueskySlice = createAppSlice({
   reducers: (create) => ({
     loadOAuthClient: create.asyncThunk(
       async (_, { getState }) => {
-        const { aquareum } = getState() as { aquareum: AquareumState };
-        const client = await createOAuthClient(aquareum.url);
+        const { streamplace } = getState() as { streamplace: StreamplaceState };
+        const client = await createOAuthClient(streamplace.url);
         let initResult = await client.init();
         return { client, initResult };
       },

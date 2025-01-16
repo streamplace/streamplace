@@ -15,8 +15,8 @@ import (
 	"os"
 	"reflect"
 
-	"aquareum.tv/aquareum/pkg/crypto/signers/eip712"
-	v0 "aquareum.tv/aquareum/pkg/schema/v0"
+	"stream.place/streamplace/pkg/crypto/signers/eip712"
+	v0 "stream.place/streamplace/pkg/schema/v0"
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 )
@@ -74,7 +74,7 @@ func WithTestSigner(fn func(*eip712.EIP712Signer)) {
 	if err != nil {
 		panic(err)
 	}
-	acct, err := ks.ImportECDSA(key.(*ecdsa.PrivateKey), "aquareumaquareum")
+	acct, err := ks.ImportECDSA(key.(*ecdsa.PrivateKey), "streamplacestreamplace")
 	if err != nil {
 		panic(err)
 	}
@@ -83,7 +83,7 @@ func WithTestSigner(fn func(*eip712.EIP712Signer)) {
 		panic(err)
 	}
 	signer, err := eip712.MakeEIP712Signer(context.Background(), &eip712.EIP712SignerOptions{
-		EthKeystorePassword: "aquareumaquareum",
+		EthKeystorePassword: "streamplacestreamplace",
 		EthKeystorePath:     dname,
 		EthAccountAddr:      acct.Address.Hex(),
 		Schema:              schema,

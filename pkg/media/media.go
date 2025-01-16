@@ -10,25 +10,25 @@ import (
 	"io"
 	"sync"
 
-	"aquareum.tv/aquareum/pkg/aqtime"
-	"aquareum.tv/aquareum/pkg/config"
-	"aquareum.tv/aquareum/pkg/crypto/signers"
-	"aquareum.tv/aquareum/pkg/log"
-	"aquareum.tv/aquareum/pkg/model"
-	"aquareum.tv/aquareum/pkg/replication"
+	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/crypto/signers"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/replication"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/google/uuid"
 	"github.com/livepeer/lpms/ffmpeg"
 	"golang.org/x/sync/errgroup"
 
-	"git.aquareum.tv/aquareum-tv/c2pa-go/pkg/c2pa"
-	"git.aquareum.tv/aquareum-tv/c2pa-go/pkg/c2pa/generated/manifeststore"
+	"git.aquareum.tv/streamplace/c2pa-go/pkg/c2pa"
+	"git.aquareum.tv/streamplace/c2pa-go/pkg/c2pa/generated/manifeststore"
 	"github.com/piprate/json-gold/ld"
 )
 
 const CERT_FILE = "cert.pem"
 const SEGMENTS_DIR = "segments"
-const AQUAREUM_METADATA = "place.stream.metadata"
+const STREAMPLACE_METADATA = "place.stream.metadata"
 
 type MediaManager struct {
 	cli                 *config.CLI
@@ -269,13 +269,13 @@ var ErrInvalidMetadata = errors.New("invalid segment metadata")
 func ParseSegmentAssertions(mani *manifeststore.Manifest) (*SegmentMetadata, error) {
 	var ass *manifeststore.ManifestAssertion
 	for _, a := range mani.Assertions {
-		if a.Label == AQUAREUM_METADATA {
+		if a.Label == STREAMPLACE_METADATA {
 			ass = &a
 			break
 		}
 	}
 	if ass == nil {
-		return nil, fmt.Errorf("couldn't find %s assertions", AQUAREUM_METADATA)
+		return nil, fmt.Errorf("couldn't find %s assertions", STREAMPLACE_METADATA)
 	}
 	proc := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")

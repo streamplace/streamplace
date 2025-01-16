@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	v0 "aquareum.tv/aquareum/pkg/schema/v0"
+	v0 "stream.place/streamplace/pkg/schema/v0"
 )
 
 func main() {

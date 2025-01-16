@@ -312,7 +312,7 @@ export const blueskySlice = createAppSlice({
         ];
         const record = {
           text: content,
-          "tv.aquareum.key": signingKey,
+          "place.stream.key": signingKey,
           facets,
         };
         return await bluesky.pdsAgent.post(record);

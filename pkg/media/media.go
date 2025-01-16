@@ -28,7 +28,7 @@ import (
 
 const CERT_FILE = "cert.pem"
 const SEGMENTS_DIR = "segments"
-const AQUAREUM_METADATA = "tv.aquareum.metadata"
+const AQUAREUM_METADATA = "place.stream.metadata"
 
 type MediaManager struct {
 	cli                 *config.CLI

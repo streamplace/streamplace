@@ -79,7 +79,7 @@ func (ms *MediaSigner) SignMP4(ctx context.Context, input io.ReadSeeker, start i
 				},
 			},
 			{
-				"label": "tv.aquareum.metadata",
+				"label": "place.stream.metadata",
 				"data": obj{
 					"@context": obj{
 						"dc": "http://purl.org/dc/elements/1.1/",

@@ -9,7 +9,7 @@ export default function GetApps() {
     <XStack justifyContent="center">
       <Anchor
         target="_blank"
-        href="https://apps.apple.com/us/app/aquareum/id6535653195"
+        href="https://apps.apple.com/us/app/streamplace/id6535653195"
       >
         <Image
           width={WIDTH}
@@ -20,7 +20,7 @@ export default function GetApps() {
       </Anchor>
       <Anchor
         target="_blank"
-        href="https://play.google.com/store/apps/details?id=tv.aquareum"
+        href="https://play.google.com/store/apps/details?id=aquareum.tv"
       >
         <Image
           width={WIDTH}

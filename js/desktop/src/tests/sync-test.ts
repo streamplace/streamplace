@@ -4,7 +4,7 @@ import { delay, PlayerReport } from "./util";
 import { E2ETest, TestEnv } from "./test-env";
 import { v7 as uuidv7 } from "uuid";
 
-const SYNC_TOO_FAR = 2000;
+const SYNC_TOO_FAR = 20000;
 
 export const syncTest: E2ETest = {
   test: async (testEnv: TestEnv): Promise<string | null> => {

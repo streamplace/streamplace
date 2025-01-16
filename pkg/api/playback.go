@@ -75,7 +75,7 @@ func (a *AquareumAPI) HandleMP4Playback(ctx context.Context) httprouter.Handle {
 		pr, pw := io.Pipe()
 		bufw := bufio.NewWriter(pw)
 		g.Go(func() error {
-			return a.MediaManager.MP4Playback(ctx, user, bufw)
+			return a.MediaManager.SegmentToMP4(ctx, user, bufw)
 		})
 		g.Go(func() error {
 			time.Sleep(time.Duration(delayMS) * time.Millisecond)
@@ -118,7 +118,7 @@ func (a *AquareumAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handle {
 		pr, pw := io.Pipe()
 		bufw := bufio.NewWriter(pw)
 		g.Go(func() error {
-			return a.MediaManager.MKVPlayback(ctx, user, bufw)
+			return a.MediaManager.SegmentToMKV(ctx, user, bufw)
 		})
 		g.Go(func() error {
 			time.Sleep(time.Duration(delayMS) * time.Millisecond)
@@ -136,7 +136,7 @@ func (a *AquareumAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Handl
 			errors.WriteHTTPBadRequest(w, "user required", nil)
 			return
 		}
-		_, err := a.NormalizeUser(ctx, user)
+		user, err := a.NormalizeUser(ctx, user)
 		if err != nil {
 			errors.WriteHTTPBadRequest(w, "invalid user", err)
 			return

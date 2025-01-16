@@ -10,16 +10,16 @@ import (
 	"io"
 	"sync"
 
+	"github.com/go-gst/go-gst/gst"
+	"github.com/google/uuid"
+	"github.com/livepeer/lpms/ffmpeg"
+	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/replication"
-	"github.com/go-gst/go-gst/gst"
-	"github.com/google/uuid"
-	"github.com/livepeer/lpms/ffmpeg"
-	"golang.org/x/sync/errgroup"
 
 	"git.aquareum.tv/streamplace/c2pa-go/pkg/c2pa"
 	"git.aquareum.tv/streamplace/c2pa-go/pkg/c2pa/generated/manifeststore"
@@ -28,7 +28,8 @@ import (
 
 const CERT_FILE = "cert.pem"
 const SEGMENTS_DIR = "segments"
-const STREAMPLACE_METADATA = "place.stream.metadata"
+
+var STREAMPLACE_METADATA = "place.stream.metadata"
 
 type MediaManager struct {
 	cli                 *config.CLI

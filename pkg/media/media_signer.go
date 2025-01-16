@@ -10,6 +10,7 @@ import (
 	"io"
 	"path/filepath"
 
+	"git.aquareum.tv/streamplace/c2pa-go/pkg/c2pa"
 	"stream.place/streamplace/pkg/aqio"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
@@ -17,7 +18,6 @@ import (
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"git.aquareum.tv/streamplace/c2pa-go/pkg/c2pa"
 )
 
 type MediaSigner struct {
@@ -79,7 +79,7 @@ func (ms *MediaSigner) SignMP4(ctx context.Context, input io.ReadSeeker, start i
 				},
 			},
 			{
-				"label": "place.stream.metadata",
+				"label": STREAMPLACE_METADATA,
 				"data": obj{
 					"@context": obj{
 						"dc": "http://purl.org/dc/elements/1.1/",

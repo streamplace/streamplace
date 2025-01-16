@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"stream.place/streamplace/pkg/model"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/model"
 )
 
 func TestKeyResolution(t *testing.T) {
@@ -21,7 +21,7 @@ func TestKeyResolution(t *testing.T) {
 	defer func() { STREAMPLACE_COLLECTION = oldStreamplaceCollection }()
 	defer func() { STREAMPLACE_SIGNING_KEY = oldStreamplaceKey }()
 	STREAMPLACE_COLLECTION = "app.bsky.feed.post"
-	STREAMPLACE_SIGNING_KEY = "streamplaceKey"
+	STREAMPLACE_SIGNING_KEY = "aquareumKey"
 
 	dir, err := os.MkdirTemp("", "atproto-test-*")
 	require.NoError(t, err)

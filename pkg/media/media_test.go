@@ -7,14 +7,14 @@ import (
 	"runtime"
 	"testing"
 
+	"git.aquareum.tv/streamplace/c2pa-go/pkg/c2pa"
+	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
 	ct "stream.place/streamplace/pkg/config/configtesting"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers/eip712/eip712test"
 	_ "stream.place/streamplace/pkg/media/mediatesting"
 	"stream.place/streamplace/pkg/replication/boring"
-	"git.aquareum.tv/streamplace/c2pa-go/pkg/c2pa"
-	"github.com/stretchr/testify/require"
 )
 
 func getFixture(name string) string {
@@ -116,6 +116,9 @@ func getStaticTestMediaManager(t *testing.T) (*MediaManager, *MediaSigner) {
 // }
 
 func TestVerifyMP4(t *testing.T) {
+	oldStreamplaceMetadata := STREAMPLACE_METADATA
+	STREAMPLACE_METADATA = "tv.aquareum.metadata"
+	defer func() { STREAMPLACE_METADATA = oldStreamplaceMetadata }()
 	f, err := os.Open(getFixture("sample-segment.mp4"))
 	require.NoError(t, err)
 	mm, _ := getStaticTestMediaManager(t)

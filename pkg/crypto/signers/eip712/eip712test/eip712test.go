@@ -15,10 +15,10 @@ import (
 	"os"
 	"reflect"
 
-	"stream.place/streamplace/pkg/crypto/signers/eip712"
-	v0 "stream.place/streamplace/pkg/schema/v0"
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"stream.place/streamplace/pkg/crypto/signers/eip712"
+	v0 "stream.place/streamplace/pkg/schema/v0"
 )
 
 // package for setting up a test wallet
@@ -74,7 +74,7 @@ func WithTestSigner(fn func(*eip712.EIP712Signer)) {
 	if err != nil {
 		panic(err)
 	}
-	acct, err := ks.ImportECDSA(key.(*ecdsa.PrivateKey), "streamplacestreamplace")
+	acct, err := ks.ImportECDSA(key.(*ecdsa.PrivateKey), "aquareumaquareum")
 	if err != nil {
 		panic(err)
 	}
@@ -83,7 +83,7 @@ func WithTestSigner(fn func(*eip712.EIP712Signer)) {
 		panic(err)
 	}
 	signer, err := eip712.MakeEIP712Signer(context.Background(), &eip712.EIP712SignerOptions{
-		EthKeystorePassword: "streamplacestreamplace",
+		EthKeystorePassword: "aquareumaquareum",
 		EthKeystorePath:     dname,
 		EthAccountAddr:      acct.Address.Hex(),
 		Schema:              schema,

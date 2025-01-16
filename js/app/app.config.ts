@@ -52,7 +52,7 @@ export default function () {
   const isProd =
     process.env["AQ_PRODUCTION_RELEASE"] === "true" || !!process.env.CI;
   const pkg = require("./package.json");
-  const name = isProd ? "Aquareum" : "Devquarium";
+  const name = isProd ? "Streamplace" : "Devplace";
   const bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev";
   const scheme = process.env["AQ_APP_SCHEME"] ?? bundle;
   return {
@@ -177,7 +177,7 @@ export default function () {
       },
       updates: isProd
         ? {
-            url: `https://aquareum.tv/api/manifest`,
+            url: `https://stream.place/api/manifest`,
             enabled: true,
             checkAutomatically: "ON_LOAD",
             fallbackToCacheTimeout: 30000,

@@ -8,7 +8,6 @@ replace github.com/ThalesGroup/crypto11 => github.com/aquareum-tv/crypto11 v0.0.
 
 require (
 	firebase.google.com/go/v4 v4.14.1
-	git.aquareum.tv/streamplace/c2pa-go v0.0.0-20240913223408-68f9878542d4
 	github.com/NYTimes/gziphandler v1.1.1
 	github.com/ThalesGroup/crypto11 v0.0.0-00010101000000-000000000000
 	github.com/bluesky-social/indigo v0.0.0-20241119234843-9198b7903723
@@ -28,9 +27,11 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/livepeer/lpms v0.0.0-20240812093642-b5181eb92cb2
 	github.com/lmittmann/tint v1.0.4
+	github.com/mr-tron/base58 v1.2.0
 	github.com/orandin/slog-gorm v1.3.2
 	github.com/peterbourgon/ff/v3 v3.3.1
 	github.com/pion/interceptor v0.1.37
+	github.com/pion/rtcp v1.2.14
 	github.com/pion/webrtc/v4 v4.0.5
 	github.com/piprate/json-gold v0.5.0
 	github.com/rs/cors v1.7.0
@@ -74,6 +75,7 @@ require (
 	cloud.google.com/go/storage v1.41.0 // indirect
 	dario.cat/mergo v1.0.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
+	git.aquareum.tv/streamplace/c2pa-go v0.0.0-20250116060241-2931a03e9814
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/MicahParks/keyfunc v1.9.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -140,7 +142,6 @@ require (
 	github.com/mitchellh/gox v1.0.1 // indirect
 	github.com/mitchellh/iochan v1.0.0 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
-	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
 	github.com/multiformats/go-multibase v0.2.0 // indirect
@@ -155,7 +156,6 @@ require (
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/mdns/v2 v2.0.7 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/rtcp v1.2.14 // indirect
 	github.com/pion/rtp v1.8.9 // indirect
 	github.com/pion/sctp v1.8.34 // indirect
 	github.com/pion/sdp/v3 v3.0.9 // indirect

@@ -16,6 +16,7 @@ import {
   User,
   Video,
   ShieldQuestion,
+  Download,
 } from "@tamagui/lucide-icons";
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
@@ -40,6 +41,7 @@ import SupportScreen from "./screens/support";
 import WebcamScreen from "./screens/webcam";
 import StreamKeyScreen from "./screens/stream-key";
 import AboutScreen from "./screens/about";
+import DownloadScreen from "./screens/download";
 import { hydrate, selectHydrated } from "features/base/baseSlice";
 import AVSyncScreen from "./screens/av-sync";
 function HomeScreen() {
@@ -74,6 +76,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       AVSync: "sync-test",
       AppReturn: "app-return/:scheme",
       About: "about",
+      Download: "download",
     },
   },
 };
@@ -212,6 +215,14 @@ export function StreamplaceDrawer() {
           options={{
             drawerLabel: () => <Text>What's Streamplace?</Text>,
             drawerIcon: () => <ShieldQuestion />,
+          }}
+        />
+        <Drawer.Screen
+          name="Download"
+          component={DownloadScreen}
+          options={{
+            drawerLabel: () => <Text>Download</Text>,
+            drawerIcon: () => <Download />,
           }}
         />
         <Drawer.Screen

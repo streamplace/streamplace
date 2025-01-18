@@ -20,7 +20,7 @@ export default function GetApps() {
       </Anchor>
       <Anchor
         target="_blank"
-        href="https://play.google.com/store/apps/details?id=aquareum.tv"
+        href="https://play.google.com/store/apps/details?id=tv.aquareum"
       >
         <Image
           width={WIDTH}

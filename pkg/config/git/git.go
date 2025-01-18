@@ -41,6 +41,7 @@ export const uuid = "%s";
 func gitlabURL() string {
 	CI_API_V4_URL := os.Getenv("CI_API_V4_URL")
 	CI_PROJECT_ID := os.Getenv("CI_PROJECT_ID")
+	CI_API_V4_URL = strings.Replace(CI_API_V4_URL, "https://git.aquareum.tv", "https://git-cloudflare.aquareum.tv", 1)
 	return fmt.Sprintf("%s/projects/%s", CI_API_V4_URL, CI_PROJECT_ID)
 }
 

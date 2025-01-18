@@ -342,14 +342,18 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 		}
 	}
 	found := false
-	for _, a := range mm.cli.AllowedStreams {
-		if a == pub.String() {
-			found = true
-			break
-		}
-		if repo != nil && repo.DID == a {
-			found = true
-			break
+	if len(mm.cli.AllowedStreams) == 0 {
+		found = true
+	} else {
+		for _, a := range mm.cli.AllowedStreams {
+			if a == pub.String() {
+				found = true
+				break
+			}
+			if repo != nil && repo.DID == a {
+				found = true
+				break
+			}
 		}
 	}
 	if !found {

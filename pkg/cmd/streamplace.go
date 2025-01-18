@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/term"
+	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/crypto/signers"
@@ -27,15 +29,13 @@ import (
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/replication/boring"
 	v0 "stream.place/streamplace/pkg/schema/v0"
-	"golang.org/x/term"
-	"gorm.io/gorm"
 
-	"stream.place/streamplace/pkg/api"
-	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
 	"github.com/ThalesGroup/crypto11"
 	_ "github.com/go-gst/go-glib/glib"
 	_ "github.com/go-gst/go-gst/gst"
+	"stream.place/streamplace/pkg/api"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/model"
 )
 
 // Additional jobs that can be injected by platforms
@@ -118,7 +118,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.StringVar(&cli.PKCS11KeypairID, "pkcs11-keypair-id", "", "id of signing keypair on PKCS11 token")
 	fs.StringVar(&cli.StreamerName, "streamer-name", "", "name of the person streaming from this streamplace node")
 	fs.StringVar(&cli.FrontendProxy, "dev-frontend-proxy", "", "(FOR DEVELOPMENT ONLY) proxy frontend requests to this address instead of using the bundled frontend")
-	cli.StringSliceFlag(fs, &cli.AllowedStreams, "allowed-streams", "", "comma-separated list of addresses or atproto DIDs that this node will replicate")
+	cli.StringSliceFlag(fs, &cli.AllowedStreams, "allowed-streams", "", "if set, only allow these addresses or atproto DIDs to upload to this node")
 	cli.StringSliceFlag(fs, &cli.Peers, "peers", "", "other streamplace nodes to replicate to")
 	cli.DebugFlag(fs, &cli.Debug, "debug", "", "modified log verbosity for specific functions or files in form func=ToHLS:3,file=gstreamer.go:4")
 	fs.BoolVar(&cli.TestStream, "test-stream", false, "run a built-in test stream on boot")

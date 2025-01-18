@@ -15,6 +15,7 @@ import {
   Settings as SettingsIcon,
   User,
   Video,
+  ShieldQuestion,
 } from "@tamagui/lucide-icons";
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
@@ -38,6 +39,7 @@ import StreamScreen from "./screens/stream";
 import SupportScreen from "./screens/support";
 import WebcamScreen from "./screens/webcam";
 import StreamKeyScreen from "./screens/stream-key";
+import AboutScreen from "./screens/about";
 import { hydrate, selectHydrated } from "features/base/baseSlice";
 import AVSyncScreen from "./screens/av-sync";
 function HomeScreen() {
@@ -71,6 +73,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Login: "login",
       AVSync: "sync-test",
       AppReturn: "app-return/:scheme",
+      About: "about",
     },
   },
 };
@@ -204,19 +207,19 @@ export function StreamplaceDrawer() {
           }}
         />
         <Drawer.Screen
+          name="About"
+          component={AboutScreen}
+          options={{
+            drawerLabel: () => <Text>What's Streamplace?</Text>,
+            drawerIcon: () => <ShieldQuestion />,
+          }}
+        />
+        <Drawer.Screen
           name="Settings"
           component={Settings}
           options={{
             drawerIcon: () => <SettingsIcon />,
             drawerLabel: () => <Text>Settings</Text>,
-          }}
-        />
-        <Drawer.Screen
-          name="Multi"
-          component={MultiScreen}
-          options={{
-            drawerLabel: () => null,
-            drawerItemStyle: { display: "none" },
           }}
         />
         <Drawer.Screen

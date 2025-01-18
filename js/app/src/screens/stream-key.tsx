@@ -7,7 +7,7 @@ import {
 } from "features/bluesky/blueskySlice";
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { View, Paragraph, Button } from "tamagui";
+import { View, Paragraph, Button, Text } from "tamagui";
 
 const Row = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -42,7 +42,7 @@ export default function StreamKeyScreen() {
   }
   return (
     <View f={1} ai="center" jc="center" gap="$4" w="100%" p="$4">
-      <View w="100%" maxWidth={500}>
+      <View w="100%" maxWidth={600}>
         <Row>
           <Left>
             <Paragraph>Service</Paragraph>
@@ -65,6 +65,20 @@ export default function StreamKeyScreen() {
           </Left>
           <Right>
             <StreamKey />
+          </Right>
+        </Row>
+        <Row>
+          <Left>
+            <Paragraph>Output Settings</Paragraph>
+          </Left>
+          <Right>
+            <Paragraph>Output mode: Advanced</Paragraph>
+            <Paragraph>
+              Keyframe Interval: <Text fontFamily="$mono">1s</Text>
+            </Paragraph>
+            <Paragraph>
+              x264 Options: <Text fontFamily="$mono">bframes=0</Text>
+            </Paragraph>
           </Right>
         </Row>
       </View>

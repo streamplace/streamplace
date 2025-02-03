@@ -53,6 +53,7 @@ type Model interface {
 	CreateFollow(ctx context.Context, userDID, rev string, follow *bsky.GraphFollow) error
 	GetUserFollowing(ctx context.Context, userDID string) ([]Follow, error)
 	GetUserFollowers(ctx context.Context, userDID string) ([]Follow, error)
+	DeleteFollow(ctx context.Context, userDID, rev string) error
 }
 
 func MakeDB(dbURL string) (Model, error) {

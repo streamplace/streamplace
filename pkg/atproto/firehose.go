@@ -21,6 +21,7 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
@@ -31,12 +32,14 @@ import (
 )
 
 type FirehoseConsumer struct {
-	cli      *config.CLI
-	mod      model.Model
-	lastSeen time.Time
+	cli       *config.CLI
+	mod       model.Model
+	lastSeen  time.Time
+	lastEvent time.Time
 }
 
 func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model) error {
+	ctx = log.WithLogValues(ctx, "func", "StartFirehose")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	dialer := websocket.DefaultDialer
@@ -95,6 +98,12 @@ func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model) error 
 			case <-ctx.Done():
 				return nil
 			case <-ticker.C:
+				since := time.Since(fc.lastEvent)
+				if since > 10*time.Second {
+					log.Warn(ctx, fmt.Sprintf("firehose is %s behind real time", since))
+				} else {
+					log.Debug(ctx, fmt.Sprintf("firehose is %s behind real time", since))
+				}
 				if time.Since(fc.lastSeen) > 10*time.Second {
 					log.Warn(ctx, fmt.Sprintf("firehose dry; no new events for %s", time.Since(fc.lastSeen)))
 				}
@@ -146,6 +155,13 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 			}
 		}
 
+		aqt, err := aqtime.FromString(evt.Time)
+		if err != nil {
+			log.Error(ctx, "failed to parse time", "err", err)
+			continue
+		}
+		fc.lastEvent = aqt.Time()
+
 		r, err := mod.GetRepo(evt.Repo)
 		if err != nil {
 			log.Error(ctx, "failed to get repo", "err", err)
@@ -194,7 +210,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 			switch rec := cb.(type) {
 			case *bsky.GraphFollow:
 				log.Debug(ctx, "creating follow", "userDID", evt.Repo, "subjectDID", rec.Subject, "rev", evt.Rev)
-				err := mod.CreateFollow(ctx, evt.Repo, evt.Rev, rec)
+				err := mod.CreateFollow(ctx, evt.Repo, rkey.String(), rec)
 				if err != nil {
 					log.Error(ctx, "failed to create follow", "err", err)
 				}
@@ -215,6 +231,13 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 			fmt.Println(string(b))
 		case repomgr.EvtKindDeleteRecord:
 			out["action"] = "delete"
+			if collection.String() == constants.APP_BSKY_GRAPH_FOLLOW {
+				log.Debug(ctx, "deleting follow", "userDID", evt.Repo, "subjectDID", rkey.String())
+				err := mod.DeleteFollow(ctx, evt.Repo, rkey.String())
+				if err != nil {
+					log.Error(ctx, "failed to delete follow", "err", err)
+				}
+			}
 			b, err := json.Marshal(out)
 			if err != nil {
 				return err

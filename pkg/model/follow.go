@@ -12,11 +12,11 @@ import (
 type Follow struct {
 	UserDID    string `gorm:"primaryKey;index:user_idx;column:user_did"`
 	SubjectDID string `gorm:"primaryKey;index:subject_idx;column:subject_did"`
-	Rev        string `gorm:"index;column:rev"`
+	RKey       string `gorm:"index;column:rkey"`
 	CreatedAt  time.Time
 }
 
-func (m *DBModel) CreateFollow(ctx context.Context, userDID, rev string, follow *bsky.GraphFollow) error {
+func (m *DBModel) CreateFollow(ctx context.Context, userDID, rkey string, follow *bsky.GraphFollow) error {
 	at, err := aqtime.FromString(follow.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to parse follow createdAt: %w", err)
@@ -24,13 +24,20 @@ func (m *DBModel) CreateFollow(ctx context.Context, userDID, rev string, follow 
 	return m.DB.Save(&Follow{
 		UserDID:    userDID,
 		SubjectDID: follow.Subject,
-		Rev:        rev,
+		RKey:       rkey,
 		CreatedAt:  at.Time(),
 	}).Error
 }
 
-func (m *DBModel) DeleteFollow(ctx context.Context, userDID, rev string) error {
-	return m.DB.Where("user_did = ? AND rev = ?", userDID, rev).Delete(&Follow{}).Error
+func (m *DBModel) DeleteFollow(ctx context.Context, userDID, rkey string) error {
+	res := m.DB.Where("user_did = ? AND rkey = ?", userDID, rkey).Delete(&Follow{})
+	if res.Error != nil {
+		return fmt.Errorf("failed to delete follow: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("no follow found for userDID %s and rkey %s", userDID, rkey)
+	}
+	return nil
 }
 
 func (m *DBModel) GetUserFollowing(ctx context.Context, userDID string) ([]Follow, error) {

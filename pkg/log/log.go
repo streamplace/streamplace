@@ -96,7 +96,7 @@ func WithLogValues(ctx context.Context, args ...string) context.Context {
 	}
 	var newMetadata = metadata{}
 	for _, pair := range oldMetadata {
-		newMetadata = append(newMetadata, pair)
+		newMetadata = append(newMetadata, []string{pair[0], pair[1]})
 	}
 	for i := range args {
 		if i%2 == 0 {

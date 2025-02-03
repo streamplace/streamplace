@@ -8,7 +8,8 @@ import (
 )
 
 type Notification struct {
-	Token     string `gorm:"primarykey"`
+	Token     string  `gorm:"primarykey"`
+	RepoDID   *string `json:"repoDID,omitempty"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`

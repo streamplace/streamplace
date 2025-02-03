@@ -52,7 +52,7 @@ var traceLogLevel glog.Level = 9
 
 // basic type to represent logging container. logging context is immutable after
 // creation, so we don't have to worry about locking.
-type metadata map[string]any
+type metadata [][]string
 
 func init() {
 	// Set default v level to 3; this is overridden in main() but is useful for tests
@@ -70,11 +70,19 @@ func V(level glog.Level) *VerboseLogger {
 	return &VerboseLogger{level: level}
 }
 
+func (m metadata) Map() map[string]string {
+	out := map[string]string{}
+	for _, pair := range m {
+		out[pair[0]] = pair[1]
+	}
+	return out
+}
+
 func (m metadata) Flat() []any {
 	out := []any{}
-	for k, v := range m {
-		out = append(out, k)
-		out = append(out, v)
+	for _, pair := range m {
+		out = append(out, pair[0])
+		out = append(out, pair[1])
 	}
 	return out
 }
@@ -87,14 +95,26 @@ func WithLogValues(ctx context.Context, args ...string) context.Context {
 		oldMetadata = metadata{}
 	}
 	var newMetadata = metadata{}
-	for k, v := range oldMetadata {
-		newMetadata[k] = v
+	for _, pair := range oldMetadata {
+		newMetadata = append(newMetadata, pair)
 	}
 	for i := range args {
 		if i%2 == 0 {
 			continue
 		}
-		newMetadata[args[i-1]] = args[i]
+		newKey := args[i-1]
+		newValue := args[i]
+		found := false
+		for _, pair := range newMetadata {
+			if pair[0] == newKey {
+				pair[1] = newValue
+				found = true
+				break
+			}
+		}
+		if !found {
+			newMetadata = append(newMetadata, []string{newKey, newValue})
+		}
 	}
 	return context.WithValue(ctx, clogContextKey, newMetadata)
 }
@@ -121,17 +141,12 @@ func (v *VerboseLogger) log(ctx context.Context, message string, fn func(string,
 	// meta is {"func": "ToHLS", "file": "gstreamer.go"}
 	// we want to use the highest level between debug and meta
 	if debugOk && metaOk {
-		for mk, mv := range meta {
+		for mk, mv := range meta.Map() {
 			debugValuesForMetaValue, ok := debug[mk]
 			if !ok {
 				continue
 			}
-			mvstr, ok := mv.(string)
-			if !ok {
-				// TODO: possible we will need to handle numeric types
-				continue
-			}
-			ll, ok := debugValuesForMetaValue[mvstr]
+			ll, ok := debugValuesForMetaValue[mv]
 			if !ok {
 				continue
 			}

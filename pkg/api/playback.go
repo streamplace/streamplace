@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/errors"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
@@ -31,7 +32,7 @@ func (a *StreamplaceAPI) NormalizeUser(ctx context.Context, user string) (string
 		user = alias
 	}
 	// did:key, pass through unaltered
-	if strings.HasPrefix(user, atproto.DID_KEY_PREFIX) {
+	if strings.HasPrefix(user, constants.DID_KEY_PREFIX) {
 		return user, nil
 	}
 	// only other allowed case is a bluesky handle

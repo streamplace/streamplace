@@ -1,0 +1,228 @@
+package atproto
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"reflect"
+	"time"
+
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/events"
+	"github.com/bluesky-social/indigo/events/schedulers/parallel"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/repomgr"
+	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/constants"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
+
+	"github.com/carlmjohnson/versioninfo"
+	"github.com/gorilla/websocket"
+)
+
+type FirehoseConsumer struct {
+	cli      *config.CLI
+	mod      model.Model
+	lastSeen time.Time
+}
+
+func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	dialer := websocket.DefaultDialer
+	u, err := url.Parse(cli.RelayHost)
+	if err != nil {
+		return fmt.Errorf("invalid relayHost URI: %w", err)
+	}
+	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
+	// if cursor != 0 {
+	// 	u.RawQuery = fmt.Sprintf("cursor=%d", cursor)
+	// }
+	con, _, err := dialer.Dial(u.String(), http.Header{
+		"User-Agent": []string{fmt.Sprintf("goat/%s", versioninfo.Short())},
+	})
+	if err != nil {
+		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
+	}
+
+	fc := &FirehoseConsumer{
+		cli:      cli,
+		mod:      mod,
+		lastSeen: time.Now(),
+	}
+
+	rsc := &events.RepoStreamCallbacks{
+		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			go fc.handleCommitEventOps(ctx, evt, mod)
+			return nil
+		},
+		Error: func(evt *events.ErrorFrame) error {
+			log.Error(ctx, "firehose error", "err", evt.Error, "message", evt.Message)
+			cancel()
+			return fmt.Errorf("firehose error: %s", evt.Error)
+		},
+	}
+
+	scheduler := parallel.NewScheduler(
+		1,
+		100,
+		cli.RelayHost,
+		rsc.EventHandler,
+	)
+	log.Log(ctx, "starting firehose consumer", "relayHost", cli.RelayHost)
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		return events.HandleRepoStream(ctx, con, scheduler, nil)
+	})
+
+	g.Go(func() error {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-ticker.C:
+				if time.Since(fc.lastSeen) > 10*time.Second {
+					log.Warn(ctx, fmt.Sprintf("firehose dry; no new events for %s", time.Since(fc.lastSeen)))
+				}
+			}
+		}
+	})
+
+	return g.Wait()
+}
+
+var CollectionFilter = []string{
+	constants.STREAMPLACE_COLLECTION,
+	constants.APP_BSKY_GRAPH_FOLLOW,
+}
+
+func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, mod model.Model) error {
+	ctx = log.WithLogValues(ctx, "event", "commit", "did", evt.Repo, "rev", evt.Rev, "seq", fmt.Sprintf("%d", evt.Seq), "func", "handleCommitEventOps")
+	fc.lastSeen = time.Now()
+
+	if evt.TooBig {
+		log.Warn(ctx, "skipping tooBig events for now")
+		return nil
+	}
+
+	rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
+	if err != nil {
+		log.Error(ctx, "failed to read repo from car", "err", err)
+		return nil
+	}
+
+	for _, op := range evt.Ops {
+		collection, rkey, err := syntax.ParseRepoPath(op.Path)
+		if err != nil {
+			log.Error(ctx, "invalid path in repo op", "eventKind", op.Action, "path", op.Path)
+			return nil
+		}
+		ctx = log.WithLogValues(ctx, "eventKind", op.Action, "collection", collection.String(), "rkey", rkey.String())
+
+		if len(CollectionFilter) > 0 {
+			keep := false
+			for _, c := range CollectionFilter {
+				if collection.String() == c {
+					keep = true
+					break
+				}
+			}
+			if !keep {
+				continue
+			}
+		}
+
+		r, err := mod.GetRepo(evt.Repo)
+		if err != nil {
+			log.Error(ctx, "failed to get repo", "err", err)
+			continue
+		}
+		if r == nil {
+			// someone we don't know aboutd
+			continue
+		}
+
+		out := make(map[string]interface{})
+		out["seq"] = evt.Seq
+		out["rev"] = evt.Rev
+		out["time"] = evt.Time
+		out["collection"] = collection
+		out["rkey"] = rkey
+
+		ek := repomgr.EventKind(op.Action)
+		switch ek {
+		case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
+			// read the record bytes from blocks, and verify CID
+			rc, recCBOR, err := rr.GetRecordBytes(ctx, op.Path)
+			if err != nil {
+				log.Error(ctx, "reading record from event blocks (CAR)", "err", err)
+				break
+			}
+			if op.Cid == nil || lexutil.LexLink(rc) != *op.Cid {
+				log.Error(ctx, "mismatch between commit op CID and record block", "recordCID", rc, "opCID", op.Cid)
+				break
+			}
+
+			switch ek {
+			case repomgr.EvtKindCreateRecord:
+				out["action"] = "create"
+			case repomgr.EvtKindUpdateRecord:
+				out["action"] = "update"
+			default:
+				log.Error(ctx, "impossible event kind", "kind", ek)
+				break
+			}
+			cb, err := lexutil.CborDecodeValue(*recCBOR)
+			if err != nil {
+				slog.Warn("failed to parse record CBOR")
+				continue
+			}
+			switch rec := cb.(type) {
+			case *bsky.GraphFollow:
+				log.Debug(ctx, "creating follow", "userDID", evt.Repo, "subjectDID", rec.Subject, "rev", evt.Rev)
+				err := mod.CreateFollow(ctx, evt.Repo, evt.Rev, rec)
+				if err != nil {
+					log.Error(ctx, "failed to create follow", "err", err)
+				}
+			default:
+				log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
+			}
+			d, err := data.UnmarshalCBOR(*recCBOR)
+			if err != nil {
+				slog.Warn("failed to parse record CBOR")
+				continue
+			}
+			out["cid"] = op.Cid.String()
+			out["record"] = d
+			b, err := json.Marshal(out)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(b))
+		case repomgr.EvtKindDeleteRecord:
+			out["action"] = "delete"
+			b, err := json.Marshal(out)
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(b))
+		default:
+			log.Error(ctx, "unexpected record op kind")
+		}
+	}
+	return nil
+}

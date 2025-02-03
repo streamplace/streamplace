@@ -19,7 +19,7 @@ import (
 	"github.com/peterbourgon/ff/v3"
 	"golang.org/x/exp/rand"
 	"stream.place/streamplace/pkg/aqtime"
-	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 )
 
@@ -72,6 +72,7 @@ type CLI struct {
 	PKCS11KeypairLabel     string
 	PKCS11KeypairID        string
 	StreamerName           string
+	RelayHost              string
 	Debug                  map[string]map[string]int
 	AllowedStreams         []string
 	Peers                  []string
@@ -334,7 +335,7 @@ func (cli *CLI) StreamIsAllowed(did string) error {
 	// if the user set no test streams, anyone can stream
 	openServer := len(cli.AllowedStreams) == 0 || (cli.TestStream && len(cli.AllowedStreams) == 1)
 	// but only valid atproto accounts! did:key is only allowed for our local test stream
-	isDIDKey := strings.HasPrefix(did, atproto.DID_KEY_PREFIX)
+	isDIDKey := strings.HasPrefix(did, constants.DID_KEY_PREFIX)
 	if openServer && !isDIDKey {
 		return nil
 	}

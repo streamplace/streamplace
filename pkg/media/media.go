@@ -18,6 +18,7 @@ import (
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
@@ -343,7 +344,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	// special case for test signers that are only signed with a key
 	var repoDID string
 	var signingKeyDID string
-	if strings.HasPrefix(meta.Creator, atproto.DID_KEY_PREFIX) {
+	if strings.HasPrefix(meta.Creator, constants.DID_KEY_PREFIX) {
 		signingKeyDID = meta.Creator
 		repoDID = meta.Creator
 	} else {

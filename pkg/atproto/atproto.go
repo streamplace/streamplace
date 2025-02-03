@@ -9,9 +9,11 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	_ "github.com/bluesky-social/indigo/api/bsky"
 	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -19,16 +21,12 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
-var STREAMPLACE_COLLECTION = "place.stream.key"
-var STREAMPLACE_SIGNING_KEY = "signingKey"
-
-const DID_KEY_PREFIX = "did:key"
-const ADDRESS_KEY_PREFIX = "0x"
 
 // handleLocks provides per-handle synchronization
 var handleLocks = struct {
@@ -152,22 +150,33 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 	}
 	signingKeys := []string{}
 	for k := range allKeys {
-		log.Debug(ctx, "processing key", "key", k)
+		blk, err := bs.Get(ctx, k)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get block for key %s: %w", k, err)
+		}
 		rec := map[string]any{}
-		err := cst.Get(ctx, k, &rec)
+		err = cst.Get(ctx, k, &rec)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get block for key %s: %w", k, err)
 		}
 		log.Debug(ctx, "got block", "key", k, "size", len(rec), "record", rec)
 		typ, ok := rec["$type"]
 		if !ok {
+			log.Warn(ctx, "record type not found", "key", k)
 			continue
 		}
-		if typ != STREAMPLACE_COLLECTION {
+		log.Debug(ctx, "record type", "key", k, "type", typ)
+		if typ != constants.STREAMPLACE_COLLECTION {
+			cb, err := lexutil.CborDecodeValue(blk.RawData())
+			log.Debug(ctx, "processing key", "key", k, "cbor", cb)
+			if err != nil {
+				log.Debug(ctx, "failed to decode block for key", "key", k, "error", err)
+				continue
+			}
 			continue
 		}
 		processed += 1
-		streamplaceKeyAny, ok := rec[STREAMPLACE_SIGNING_KEY]
+		streamplaceKeyAny, ok := rec[constants.STREAMPLACE_SIGNING_KEY]
 		if !ok {
 			continue
 		}
@@ -211,7 +220,7 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 }
 
 func parseSigningKey(ctx context.Context, key string) error {
-	if !strings.HasPrefix(key, DID_KEY_PREFIX) {
+	if !strings.HasPrefix(key, constants.DID_KEY_PREFIX) {
 		return fmt.Errorf("invalid key format for DID key: %s", key)
 	}
 	_, err := atcrypto.ParsePublicDIDKey(key)

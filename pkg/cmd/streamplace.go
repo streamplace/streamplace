@@ -125,7 +125,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.BoolVar(&cli.TestStream, "test-stream", false, "run a built-in test stream on boot")
 	doValidate := fs.Bool("validate", false, "validate media")
 	verbosity := fs.String("v", "3", "log verbosity level")
-
+	fs.StringVar(&cli.RelayHost, "relay-host", "wss://bsky.network", "websocket url for relay firehose")
 	fs.Bool("insecure", false, "DEPRECATED, does nothing.")
 
 	version := fs.Bool("version", false, "print version and exit")
@@ -305,6 +305,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 
 	group.Go(func() error {
 		return a.ServeInternalHTTP(ctx)
+	})
+
+	group.Go(func() error {
+		return atproto.StartFirehose(ctx, &cli, mod)
 	})
 
 	group.Go(func() error {

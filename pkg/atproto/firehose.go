@@ -177,6 +177,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 
 		out := make(map[string]interface{})
 		out["seq"] = evt.Seq
+		out["repo"] = evt.Repo
 		out["rev"] = evt.Rev
 		out["time"] = evt.Time
 		out["collection"] = collection
@@ -231,7 +232,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 			if err != nil {
 				return err
 			}
-			fmt.Println(string(b))
+			log.Debug(ctx, "got record", "record", string(b))
 		case repomgr.EvtKindDeleteRecord:
 			out["action"] = "delete"
 			if collection.String() == constants.APP_BSKY_GRAPH_FOLLOW {
@@ -245,7 +246,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 			if err != nil {
 				return err
 			}
-			fmt.Println(string(b))
+			log.Debug(ctx, "got record", "record", string(b))
 		default:
 			log.Error(ctx, "unexpected record op kind")
 		}

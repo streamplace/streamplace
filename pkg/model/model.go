@@ -84,6 +84,10 @@ func MakeDB(dbURL string) (Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error starting database: %w", err)
 	}
+	err = db.Exec("PRAGMA journal_mode=WAL;").Error
+	if err != nil {
+		return nil, fmt.Errorf("error setting journal mode: %w", err)
+	}
 	for _, model := range []any{Notification{}, PlayerEvent{}, Segment{}, Thumbnail{}, Identity{}, Repo{}, SigningKey{}, Follow{}} {
 		err = db.AutoMigrate(model)
 		if err != nil {

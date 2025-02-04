@@ -84,6 +84,20 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 	if oldRepo != nil {
 		log.Log(ctx, "found existing DID record", "did", oldRepo.DID, "version", oldRepo.Version)
 		rev = oldRepo.Version
+	} else {
+		// create an empty repo while we sync. this is useful because we'll start monitoring the firehose for
+		// any new follows and such from this user while we're syncing, which can take a long time
+		newRepo := model.Repo{
+			DID:     ident.DID.String(),
+			PDS:     ident.PDSEndpoint(),
+			Version: "",
+			RootCID: "",
+			Handle:  ident.Handle.String(),
+		}
+		err = mod.UpdateRepo(&newRepo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create empty DID record for %s: %w", ident.DID.String(), err)
+		}
 	}
 
 	log.Log(ctx, "resolved bluesky identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())

@@ -318,7 +318,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			case <-ctx.Done():
 				return nil
 			case not := <-newSeg:
-				prevSeg, prevErr := mod.LatestSegmentForUser(not.Segment.RepoDID)
+				_, prevErr := mod.LatestSegmentForUser(not.Segment.RepoDID)
 				err := mod.CreateSegment(not.Segment)
 				if err != nil {
 					log.Error(ctx, "could not add segment to database", "error", err)
@@ -363,16 +363,16 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 							log.Error(ctx, "could not retreive previous segment", "error", prevErr)
 							return prevErr
 						}
-						if prevSeg != nil {
-							dur := not.Segment.StartTime.Sub(prevSeg.StartTime)
-							if prevSeg != nil && dur < (5*time.Minute) {
-								log.Debug(ctx, "skipping notification, less than 5 minutes since last segment", "user", not.Segment.RepoDID, "duration", dur)
-								// it's been less than 5 minutes since the last segment, skip notification
-								return nil
-							}
-						}
+						// if prevSeg != nil {
+						// 	dur := not.Segment.StartTime.Sub(prevSeg.StartTime)
+						// 	if prevSeg != nil && dur < (5*time.Minute) {
+						// 		log.Debug(ctx, "skipping notification, less than 5 minutes since last segment", "user", not.Segment.RepoDID, "duration", dur)
+						// 		// it's been less than 5 minutes since the last segment, skip notification
+						// 		return nil
+						// 	}
+						// }
 
-						notifications, err := mod.ListNotifications()
+						notifications, err := mod.GetFollowersNotificationTokens(not.Segment.RepoDID)
 						if err != nil {
 							return err
 						}

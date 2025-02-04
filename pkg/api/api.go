@@ -325,6 +325,14 @@ func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFun
 		}
 		log.Log(ctx, "successfully created notification", "token", n.Token)
 		w.WriteHeader(200)
+		if n.RepoDID != "" {
+			go func() {
+				_, err := atproto.SyncBlueskyRepo(ctx, n.RepoDID, a.Model)
+				if err != nil {
+					log.Error(ctx, "error syncing bluesky repo after notification creation", "error", err)
+				}
+			}()
+		}
 	}
 }
 

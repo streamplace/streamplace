@@ -85,7 +85,7 @@ func TestRedirectHandler(t *testing.T) {
 type MockFirebase struct {
 }
 
-func (m *MockFirebase) Blast(ctx context.Context, nots []model.Notification, nb *notifications.NotificationBlast) error {
+func (m *MockFirebase) Blast(ctx context.Context, nots []string, nb *notifications.NotificationBlast) error {
 	return nil
 }
 

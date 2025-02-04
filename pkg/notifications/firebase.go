@@ -10,11 +10,10 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/api/option"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
 type FirebaseNotifier interface {
-	Blast(ctx context.Context, nots []model.Notification, golive *NotificationBlast) error
+	Blast(ctx context.Context, tokens []string, golive *NotificationBlast) error
 }
 
 type FirebaseNotifierS struct {
@@ -67,14 +66,10 @@ func MakeFirebaseNotifier(ctx context.Context, serviceAccountJSONb64 string) (Fi
 }
 
 // refactor me when we have >500 users
-func (f *FirebaseNotifierS) Blast(ctx context.Context, nots []model.Notification, blast *NotificationBlast) error {
+func (f *FirebaseNotifierS) Blast(ctx context.Context, tokens []string, blast *NotificationBlast) error {
 	client, err := f.app.Messaging(ctx)
 	if err != nil {
 		return err
-	}
-	var tokens []string
-	for _, n := range nots {
-		tokens = append(tokens, n.Token)
 	}
 
 	notification := &messaging.MulticastMessage{

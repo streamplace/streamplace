@@ -8,17 +8,21 @@ import (
 )
 
 type Notification struct {
-	Token     string  `gorm:"primarykey"`
-	RepoDID   *string `json:"repoDID,omitempty"`
+	Token     string `gorm:"primarykey"`
+	RepoDID   string `json:"repoDID,omitempty" gorm:"column:repo_did;index"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-func (m *DBModel) CreateNotification(token string) error {
-	err := m.DB.Model(Notification{}).Create(&Notification{
+func (m *DBModel) CreateNotification(token string, repoDID string) error {
+	not := Notification{
 		Token: token,
-	}).Error
+	}
+	if repoDID != "" {
+		not.RepoDID = repoDID
+	}
+	err := m.DB.Save(&not).Error
 	if err != nil {
 		return err
 	}

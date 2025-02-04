@@ -1,12 +1,5 @@
 import { createAppSlice } from "../../hooks/createSlice";
-
-export interface PlatformState {
-  status: "idle" | "loading" | "failed";
-}
-
-const initialState: PlatformState = {
-  status: "idle",
-};
+import { initialState } from "./shared";
 
 export const platformSlice = createAppSlice({
   name: "platform",
@@ -28,7 +21,29 @@ export const platformSlice = createAppSlice({
         },
       },
     ),
+
+    initPushNotifications: create.asyncThunk(
+      async () => {
+        // someday we'll do web notifications but for now it's mobile-only
+      },
+      {
+        pending: (state) => {},
+        fulfilled: (state) => {},
+        rejected: (state) => {},
+      },
+    ),
+
+    registerNotificationToken: create.asyncThunk(async () => {}, {
+      pending: (state) => {},
+      fulfilled: (state) => {},
+      rejected: (state) => {},
+    }),
   }),
+
+  selectors: {
+    selectNotificationToken: (platform) => platform.notificationToken,
+  },
 });
 
 export const { openLoginLink } = platformSlice.actions;
+export const { selectNotificationToken } = platformSlice.selectors;

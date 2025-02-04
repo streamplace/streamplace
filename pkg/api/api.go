@@ -250,7 +250,8 @@ func (a *StreamplaceAPI) RedirectHandler(ctx context.Context) (http.Handler, err
 }
 
 type NotificationPayload struct {
-	Token string `json:"token"`
+	Token   string `json:"token"`
+	RepoDID string `json:"repoDID"`
 }
 
 func (a *StreamplaceAPI) HandleAPI404(ctx context.Context) http.HandlerFunc {
@@ -316,7 +317,7 @@ func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFun
 			w.WriteHeader(400)
 			return
 		}
-		err = a.Model.CreateNotification(n.Token)
+		err = a.Model.CreateNotification(n.Token, n.RepoDID)
 		if err != nil {
 			log.Log(ctx, "error creating notification", "error", err)
 			w.WriteHeader(400)

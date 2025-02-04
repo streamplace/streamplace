@@ -1,3 +1,3 @@
-import { initPushNotifications, topSafeHeight } from "./platform";
+import { topSafeHeight } from "./platform";
 
-export { initPushNotifications, topSafeHeight };
+export { topSafeHeight };

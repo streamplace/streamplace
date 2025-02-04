@@ -21,7 +21,7 @@ type DBModel struct {
 }
 
 type Model interface {
-	CreateNotification(token string) error
+	CreateNotification(token, repoDID string) error
 	ListNotifications() ([]Notification, error)
 
 	CreatePlayerEvent(event PlayerEventAPI) error

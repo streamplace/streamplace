@@ -14,6 +14,5 @@ export type IsPlatform = {
   // don't rely on this! just for defaults
   isFirefox: boolean;
 
-  initPushNotifications: () => Promise<void>;
   topSafeHeight: () => number;
 };

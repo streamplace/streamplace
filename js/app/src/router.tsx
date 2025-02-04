@@ -44,6 +44,11 @@ import AboutScreen from "./screens/about";
 import DownloadScreen from "./screens/download";
 import { hydrate, selectHydrated } from "features/base/baseSlice";
 import AVSyncScreen from "./screens/av-sync";
+import {
+  initPushNotifications,
+  registerNotificationToken,
+  selectNotificationToken,
+} from "features/platform/platformSlice.native";
 function HomeScreen() {
   return (
     <View f={1}>
@@ -133,13 +138,12 @@ const AvatarButton = () => {
 };
 
 export default function Router() {
-  const { initPushNotifications, isWeb, isElectron } = usePlatform();
+  const { isWeb, isElectron } = usePlatform();
   useEffect(() => {
-    initPushNotifications();
+    if (isWeb && !isElectron) {
+      linking.prefixes.push(document.location.origin);
+    }
   }, []);
-  if (isWeb && !isElectron) {
-    linking.prefixes.push(document.location.origin);
-  }
   return (
     <Provider linking={linking}>
       <StreamplaceDrawer />
@@ -154,17 +158,16 @@ export function StreamplaceDrawer() {
   const dispatch = useAppDispatch();
   useEffect(() => {
     dispatch(hydrate());
-    // const params = new URLSearchParams(document.location.search);
-    // if (params.has("code")) {
-    //   navigation.dispatch(
-    //     CommonActions.reset({
-    //       index: 0,
-    //       routes: [{ name: "Login" }],
-    //     }),
-    //   );
-    // }
+    dispatch(initPushNotifications());
   }, []);
+  const notificationToken = useAppSelector(selectNotificationToken);
+  const userProfile = useAppSelector(selectUserProfile);
   const hydrated = useAppSelector(selectHydrated);
+  useEffect(() => {
+    if (notificationToken) {
+      dispatch(registerNotificationToken());
+    }
+  }, [notificationToken, userProfile]);
   if (!hydrated) {
     return <View />;
   }

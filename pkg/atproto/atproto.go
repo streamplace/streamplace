@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/api/bsky"
 	_ "github.com/bluesky-social/indigo/api/bsky"
 	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
@@ -131,6 +133,19 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 		return nil, fmt.Errorf("failed to parse repo CAR data for %s: %w", ident.DID.String(), err)
 	}
 
+	mstNodes := map[string]string{}
+	r.ForEach(ctx, "", func(k string, v cid.Cid) error {
+		nsid, rkey, err := syntax.ParseRepoPath(k)
+		if err != nil {
+			log.Warn(ctx, "failed to parse repo path", "k", k, "err", err)
+			return err
+		}
+		hash := v.Hash().HexString()
+		log.Debug(ctx, "got mst node", "cid", v, "rkey", rkey, "nsid", nsid, "hash", hash)
+		mstNodes[hash] = rkey.String()
+		return nil
+	})
+
 	// extract DID from repo commit
 	sc := r.SignedCommit()
 	signerDID, err := syntax.ParseDID(sc.Did)
@@ -159,16 +174,31 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 		if err != nil {
 			return nil, fmt.Errorf("failed to get block for key %s: %w", k, err)
 		}
-		log.Debug(ctx, "got block", "key", k, "size", len(rec), "record", rec)
 		typ, ok := rec["$type"]
 		if !ok {
-			log.Warn(ctx, "record type not found", "key", k)
+			log.Debug(ctx, "record type not found", "key", k)
 			continue
 		}
 		log.Debug(ctx, "record type", "key", k, "type", typ)
 		if typ != constants.STREAMPLACE_COLLECTION {
 			cb, err := lexutil.CborDecodeValue(blk.RawData())
 			log.Debug(ctx, "processing key", "key", k, "cbor", cb)
+			switch rec := cb.(type) {
+			case *bsky.GraphFollow:
+				log.Debug(ctx, "creating follow", "follow", rec)
+				hash := k.Hash().HexString()
+				rkey, ok := mstNodes[hash]
+				if !ok {
+					log.Warn(ctx, "no mst node found for follow", "key", k, "hash", hash)
+					continue
+				}
+				err := mod.CreateFollow(ctx, signerDID.String(), rkey, rec)
+				if err != nil {
+					log.Error(ctx, "failed to create follow", "err", err)
+				}
+			default:
+				log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
+			}
 			if err != nil {
 				log.Debug(ctx, "failed to decode block for key", "key", k, "error", err)
 				continue

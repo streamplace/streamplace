@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"runtime"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -21,13 +22,13 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 
-	"github.com/carlmjohnson/versioninfo"
 	"github.com/gorilla/websocket"
 )
 
@@ -52,7 +53,7 @@ func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model) error 
 	// 	u.RawQuery = fmt.Sprintf("cursor=%d", cursor)
 	// }
 	con, _, err := dialer.Dial(u.String(), http.Header{
-		"User-Agent": []string{fmt.Sprintf("goat/%s", versioninfo.Short())},
+		"User-Agent": []string{aqhttp.UserAgent},
 	})
 	if err != nil {
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
@@ -77,11 +78,12 @@ func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model) error 
 	}
 
 	scheduler := parallel.NewScheduler(
-		1,
+		10,
 		100,
 		cli.RelayHost,
 		rsc.EventHandler,
 	)
+
 	log.Log(ctx, "starting firehose consumer", "relayHost", cli.RelayHost)
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -99,10 +101,11 @@ func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model) error 
 				return nil
 			case <-ticker.C:
 				since := time.Since(fc.lastEvent)
+				goroutines := runtime.NumGoroutine()
 				if since > 10*time.Second {
-					log.Warn(ctx, fmt.Sprintf("firehose is %s behind real time", since))
+					log.Warn(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
 				} else {
-					log.Debug(ctx, fmt.Sprintf("firehose is %s behind real time", since))
+					log.Debug(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
 				}
 				if time.Since(fc.lastSeen) > 10*time.Second {
 					log.Warn(ctx, fmt.Sprintf("firehose dry; no new events for %s", time.Since(fc.lastSeen)))

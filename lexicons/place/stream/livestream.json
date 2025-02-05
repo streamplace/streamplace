@@ -12,8 +12,8 @@
         "properties": {
           "title": {
             "type": "string",
-            "maxLength": 3000,
-            "maxGraphemes": 300,
+            "maxLength": 1400,
+            "maxGraphemes": 140,
             "description": "The title of the livestream, as it will be announced to followers."
           },
           "createdAt": {

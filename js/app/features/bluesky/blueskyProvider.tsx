@@ -1,5 +1,4 @@
 import { useURL } from "expo-linking";
-import { putIdentity } from "features/streamplace/streamplaceSlice";
 import useWallet from "hooks/useWallet";
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";
@@ -42,16 +41,6 @@ export default function BlueskyProvider({
   useEffect(() => {
     if (oauthSession && !userProfile) {
       dispatch(getProfile(oauthSession.did));
-    }
-    if (oauthSession && userProfile && wallet.address) {
-      dispatch(
-        putIdentity({
-          handle: userProfile.handle,
-          did: oauthSession?.did,
-          address: wallet.address,
-          signTypedData: wallet.signTypedData,
-        }),
-      );
     }
   }, [oauthSession, userProfile, wallet.address]);
   return <>{children}</>;

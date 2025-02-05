@@ -1,7 +1,5 @@
 import { createAppSlice } from "../../hooks/createSlice";
 import { isWeb } from "tamagui";
-import { SignTypedDataFn } from "hooks/useWallet.shared";
-import schema from "generated/eip712-schema.json";
 import Storage from "../../storage";
 
 let DEFAULT_URL = process.env.EXPO_PUBLIC_STREAMPLACE_URL as string;
@@ -14,6 +12,22 @@ if (isWeb && process.env.EXPO_PUBLIC_WEB_TRY_LOCAL === "true") {
 }
 export { DEFAULT_URL };
 
+export type Segment = {
+  id: string;
+  repoDID: string;
+  signingKeyDID: string;
+  startTime: string;
+  repo: Repo;
+};
+
+export type Repo = {
+  did: string;
+  handle: string;
+  pds: string;
+  version: string;
+  rootCid: string;
+};
+
 export interface Identity {
   id: string;
   handle?: string;
@@ -24,12 +38,22 @@ export interface StreamplaceState {
   url: string;
   identity: Identity | null;
   initialized: boolean;
+  recentSegments: {
+    segments: Segment[];
+    error: string | null;
+    loading: boolean;
+  };
 }
 
 const initialState: StreamplaceState = {
   url: DEFAULT_URL,
   identity: null,
   initialized: false,
+  recentSegments: {
+    segments: [],
+    error: null,
+    loading: false,
+  },
 };
 
 export const streamplaceSlice = createAppSlice({
@@ -97,72 +121,53 @@ export const streamplaceSlice = createAppSlice({
       },
     ),
 
-    putIdentity: create.asyncThunk(
-      async (
-        {
-          handle,
-          did,
-          address,
-          signTypedData,
-        }: {
-          handle: string;
-          did: string;
-          address: string;
-          signTypedData: SignTypedDataFn;
-        },
-        { getState, dispatch },
-      ) => {
-        let { streamplace } = getState() as {
+    pollSegments: create.asyncThunk(
+      async (_, { getState, dispatch }) => {
+        const { streamplace } = getState() as {
           streamplace: StreamplaceState;
         };
-        if (!streamplace.identity) {
-          await dispatch(getIdentity());
-        }
-        ({ streamplace } = getState() as {
-          streamplace: StreamplaceState;
-        });
-        if (!streamplace.identity) {
-          throw new Error("No identity");
-        }
-        const message = {
-          signer: address,
-          time: Date.now(),
-          data: { handle, did },
-        };
-        const toSign = {
-          types: schema.types,
-          domain: schema.domain as any,
-          primaryType: "Identity",
-          message: message,
-        };
-        const signature = await signTypedData(toSign);
-        const res = await fetch(
-          `${streamplace.url}/api/identity/${streamplace.identity.id}`,
-          {
-            method: "PUT",
-            body: JSON.stringify({
-              primaryType: "Identity",
-              domain: schema.domain,
-              message: message,
-              signature: signature,
-            }),
-          },
-        );
+        const res = await fetch(`${streamplace.url}/api/live-users`);
         if (!res.ok) {
           const text = await res.text();
           throw new Error(`http ${res.status} ${text}`);
         }
+        const data = await res.json();
+        if (!Array.isArray(data)) {
+          throw new Error("got non-array back from /api/live-users");
+        }
 
-        return await res.json();
+        return data;
       },
       {
         pending: (state) => {
-          // state.status = "loading";
+          return {
+            ...state,
+            recentSegments: {
+              ...state.recentSegments,
+              loading: true,
+            },
+          };
         },
-        fulfilled: (state, action) => {},
+        fulfilled: (state, action) => {
+          return {
+            ...state,
+            recentSegments: {
+              ...state.recentSegments,
+              segments: action.payload,
+              loading: false,
+            },
+          };
+        },
         rejected: (state, err) => {
-          console.error("putIdentity rejected", err);
-          // state.status = "failed";
+          console.error("pollSegments rejected", err);
+          return {
+            ...state,
+            recentSegments: {
+              ...state.recentSegments,
+              error: err.error.message ?? null,
+              loading: false,
+            },
+          };
         },
       },
     ),
@@ -170,10 +175,12 @@ export const streamplaceSlice = createAppSlice({
 
   selectors: {
     selectStreamplace: (streamplace) => streamplace,
+    selectRecentSegments: (streamplace) => streamplace.recentSegments,
   },
 });
 
 // Action creators are generated for each case reducer function.
-export const { getIdentity, putIdentity, setURL, initialize } =
+export const { getIdentity, setURL, initialize, pollSegments } =
   streamplaceSlice.actions;
-export const { selectStreamplace } = streamplaceSlice.selectors;
+export const { selectStreamplace, selectRecentSegments } =
+  streamplaceSlice.selectors;

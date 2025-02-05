@@ -203,6 +203,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@atproto/common-web@npm:^0.3.2":
+  version: 0.3.2
+  resolution: "@atproto/common-web@npm:0.3.2"
+  dependencies:
+    graphemer: "npm:^1.4.0"
+    multiformats: "npm:^9.9.0"
+    uint8arrays: "npm:3.0.0"
+    zod: "npm:^3.23.8"
+  checksum: 10/6c58fb57514ae6d26de511800492abea873ecd3f61c1bc7f01cac4630f62e51fa325b44bd47c23d06d3191b81b4b9d2fbe28bbfcad20e213cc42891945d71bd9
+  languageName: node
+  linkType: hard
+
 "@atproto/crypto@npm:^0.4.2":
   version: 0.4.2
   resolution: "@atproto/crypto@npm:0.4.2"
@@ -264,6 +276,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@atproto/lex-cli@npm:^0.5.6":
+  version: 0.5.6
+  resolution: "@atproto/lex-cli@npm:0.5.6"
+  dependencies:
+    "@atproto/lexicon": "npm:^0.4.5"
+    "@atproto/syntax": "npm:^0.3.1"
+    chalk: "npm:^4.1.2"
+    commander: "npm:^9.4.0"
+    prettier: "npm:^3.2.5"
+    ts-morph: "npm:^16.0.0"
+    yesno: "npm:^0.4.0"
+    zod: "npm:^3.23.8"
+  bin:
+    lex: dist/index.js
+  checksum: 10/ba8cb51b626448e397b82a3cb7d08a53eb38a4816cdd8cfe93ec1c87a480870a30463049bbd4048294cd45d53db95bd0e22d7ac5de53b5dd86fca4128702d0c2
+  languageName: node
+  linkType: hard
+
 "@atproto/lexicon@npm:^0.4.3":
   version: 0.4.3
   resolution: "@atproto/lexicon@npm:0.4.3"
@@ -274,6 +304,19 @@ __metadata:
     multiformats: "npm:^9.9.0"
     zod: "npm:^3.23.8"
   checksum: 10/c7b0616ffcd85eb77315b4a15bf17acfc2c9de6b4112321a8dad5f0723453c8a5464418a332f0e387e999ed863fb954ccb511097e9c733efacc9b3aacc0c611c
+  languageName: node
+  linkType: hard
+
+"@atproto/lexicon@npm:^0.4.5":
+  version: 0.4.5
+  resolution: "@atproto/lexicon@npm:0.4.5"
+  dependencies:
+    "@atproto/common-web": "npm:^0.3.2"
+    "@atproto/syntax": "npm:^0.3.1"
+    iso-datestring-validator: "npm:^2.2.2"
+    multiformats: "npm:^9.9.0"
+    zod: "npm:^3.23.8"
+  checksum: 10/b6c4a868d36dc4f7f55fb9558065daa90ff39e4966ab1b36e527dbe6109f386b8f59a0c2611a02f82e10b468ede4ab9362df7f60728749d4dfc4a45b81d44261
   languageName: node
   linkType: hard
 
@@ -9511,6 +9554,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ts-morph/common@npm:~0.17.0":
+  version: 0.17.0
+  resolution: "@ts-morph/common@npm:0.17.0"
+  dependencies:
+    fast-glob: "npm:^3.2.11"
+    minimatch: "npm:^5.1.0"
+    mkdirp: "npm:^1.0.4"
+    path-browserify: "npm:^1.0.1"
+  checksum: 10/f27442601b982b0230ab9d0f4245c058e808ef0d09197d724e9ce630b81fde0884c7e7d2370a93205ed2e72202254996c8ea6ed81de4f77ff856ccd02f438fe0
+  languageName: node
+  linkType: hard
+
 "@tsconfig/node10@npm:^1.0.7":
   version: 1.0.11
   resolution: "@tsconfig/node10@npm:1.0.11"
@@ -12880,6 +12935,13 @@ __metadata:
   version: 6.0.3
   resolution: "cmd-shim@npm:6.0.3"
   checksum: 10/791c9779cf57deae978ef24daf7e49e7fdb2070cc273aa7d691ed258a660ad3861edbc9f39daa2b6e5f72a64526b6812c04f08becc54402618b99946ccad7d71
+  languageName: node
+  linkType: hard
+
+"code-block-writer@npm:^11.0.3":
+  version: 11.0.3
+  resolution: "code-block-writer@npm:11.0.3"
+  checksum: 10/aecf33ec312c595164bb0f6fd6d92d1b7bada83352b787e033ae0e5a15c87146503ca68a258ab7f54cba1b46dc381271c1e0037a3b0869c9c6d57ef5d7bc3501
   languageName: node
   linkType: hard
 
@@ -20915,7 +20977,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"minimatch@npm:^5.0.1":
+"minimatch@npm:^5.0.1, minimatch@npm:^5.1.0":
   version: 5.1.6
   resolution: "minimatch@npm:5.1.6"
   dependencies:
@@ -22567,6 +22629,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"path-browserify@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "path-browserify@npm:1.0.1"
+  checksum: 10/7e7368a5207e7c6b9051ef045711d0dc3c2b6203e96057e408e6e74d09f383061010d2be95cb8593fe6258a767c3e9fc6b2bfc7ce8d48ae8c3d9f6994cca9ad8
+  languageName: node
+  linkType: hard
+
 "path-exists@npm:^3.0.0":
   version: 3.0.0
   resolution: "path-exists@npm:3.0.0"
@@ -23002,6 +23071,15 @@ __metadata:
   bin:
     prettier: bin-prettier.js
   checksum: 10/00cdb6ab0281f98306cd1847425c24cbaaa48a5ff03633945ab4c701901b8e96ad558eb0777364ffc312f437af9b5a07d0f45346266e8245beaf6247b9c62b24
+  languageName: node
+  linkType: hard
+
+"prettier@npm:^3.2.5":
+  version: 3.4.2
+  resolution: "prettier@npm:3.4.2"
+  bin:
+    prettier: bin/prettier.cjs
+  checksum: 10/a3e806fb0b635818964d472d35d27e21a4e17150c679047f5501e1f23bd4aa806adf660f0c0d35214a210d5d440da6896c2e86156da55f221a57938278dc326e
   languageName: node
   linkType: hard
 
@@ -25483,6 +25561,7 @@ __metadata:
   dependencies:
     "@atproto/api": "npm:^0.13.16"
     "@atproto/jwk-webcrypto": "npm:^0.1.2"
+    "@atproto/lex-cli": "npm:^0.5.6"
     "@atproto/oauth-client-browser": "npm:^0.3.1"
     firebase-admin: "npm:^12.7.0"
     husky: "npm:^9.1.6"
@@ -26431,6 +26510,16 @@ __metadata:
     typescript: "*"
     webpack: ^5.0.0
   checksum: 10/a85d43bb6f72858d613290ac02d1d24e81c38ba2dcb98b90465dc97eb6c2036bf9a389542c1a7865548643e7ed39f063fdff2dbb3e5aafbc511de6a3eb275adf
+  languageName: node
+  linkType: hard
+
+"ts-morph@npm:^16.0.0":
+  version: 16.0.0
+  resolution: "ts-morph@npm:16.0.0"
+  dependencies:
+    "@ts-morph/common": "npm:~0.17.0"
+    code-block-writer: "npm:^11.0.3"
+  checksum: 10/43b583b96ec1c1d34d1c4f4d1c3d0249f29136b735019e63d3caabe6cd74fc6bca3c92d9ff94f57d228c93362bee85422772024510d790cd6a086d90cbf97210
   languageName: node
   linkType: hard
 
@@ -28187,6 +28276,13 @@ __metadata:
     buffer-crc32: "npm:~0.2.3"
     fd-slicer: "npm:~1.1.0"
   checksum: 10/1e4c311050dc0cf2ee3dbe8854fe0a6cde50e420b3e561a8d97042526b4cf7a0718d6c8d89e9e526a152f4a9cec55bcea9c3617264115f48bd6704cf12a04445
+  languageName: node
+  linkType: hard
+
+"yesno@npm:^0.4.0":
+  version: 0.4.0
+  resolution: "yesno@npm:0.4.0"
+  checksum: 10/8bccf302d18cf5fb364ec5c51fbe1612accd10468ed41df4a5f62a350cbab4af596e84f895bab8135fc69fe1b7433d8f2ce7998fa5b8c8a5fbaf0d796b40bae4
   languageName: node
   linkType: hard
 

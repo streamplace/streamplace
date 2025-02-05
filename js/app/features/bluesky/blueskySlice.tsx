@@ -11,6 +11,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { StreamKey } from "features/base/baseSlice";
 import { hydrate, STORED_KEY_KEY } from "features/base/baseSlice";
 import { isWeb } from "tamagui";
+import { PlaceStreamKey } from "lexicons";
 
 export interface BlueskyState {
   status: "start" | "loggedIn" | "loggedOut";
@@ -386,7 +387,7 @@ export const blueskySlice = createAppSlice({
           did: keypair.did(),
           address: account.address.toLowerCase(),
         };
-        const record = {
+        const record: PlaceStreamKey.Record = {
           signingKey: keypair.did(),
           createdAt: new Date().toISOString(),
         };

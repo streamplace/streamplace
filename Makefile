@@ -45,7 +45,25 @@ node: schema
 .PHONY: schema
 schema:
 	mkdir -p js/app/generated \
-	&& go run pkg/crypto/signers/eip712/export-schema/export-schema.go > js/app/generated/eip712-schema.json
+	&& go run pkg/crypto/signers/eip712/export-schema/export-schema.go > js/app/generated/eip712-schema.json \
+	&& yarn run lexicons
+
+.PHONY: go-lexicons
+go-lexicons:
+	rm -rf ./pkg/streamplace \
+	&& mkdir -p ./pkg/streamplace \
+	&& $(MAKE) lexgen \
+	&& sed -i.bak 's/\tutil/\/\/\tutil/' $$(find ./pkg/streamplace -type f) \
+	&& sed -i.bak -E 's/^(.+)github(.+)//' $$(find ./pkg/streamplace -type f) \
+	&& go run ./pkg/gen/gen.go \
+	&& $(MAKE) lexgen \
+	&& rm -rf ./pkg/streamplace/*.bak
+
+.PHONY: lexgen
+lexgen:
+	go run github.com/bluesky-social/indigo/cmd/lexgen --package streamplace \
+		--types-import place.stream:stream.place/streamplace/pkg/streamplace --outdir ./pkg/streamplace --prefix place.stream --build \
+		'[{"package": "streamplace","prefix": "place.stream","outdir": "./pkg/streamplace","import":"stream.place/streamplace"}]' lexicons/place/stream
 
 .PHONY: test
 test:

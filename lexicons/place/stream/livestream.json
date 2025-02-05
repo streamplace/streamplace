@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.livestream",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Record announcing a livestream is happening",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["title", "createdAt"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 3000,
+            "maxGraphemes": 300,
+            "description": "The title of the livestream, as it will be announced to followers."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this livestream started."
+          }
+        }
+      }
+    }
+  }
+}

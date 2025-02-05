@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
@@ -23,9 +22,11 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
@@ -170,14 +171,12 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 		return nil, fmt.Errorf("signer DID %s does not match identity %s", signerDID, ident.DID.String())
 	}
 
-	processed := 0
 	bs = r.Blockstore()
 	cst := util.CborStore(bs)
 	allKeys, err := bs.AllKeysChan(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all keys: %w", err)
 	}
-	signingKeys := []string{}
 	for k := range allKeys {
 		blk, err := bs.Get(ctx, k)
 		if err != nil {
@@ -194,57 +193,44 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 			continue
 		}
 		log.Debug(ctx, "record type", "key", k, "type", typ)
-		if typ != constants.STREAMPLACE_COLLECTION {
-			cb, err := lexutil.CborDecodeValue(blk.RawData())
-			log.Debug(ctx, "processing key", "key", k, "cbor", cb)
-			switch rec := cb.(type) {
-			case *bsky.GraphFollow:
-				log.Debug(ctx, "creating follow", "follow", rec)
-				hash := k.Hash().HexString()
-				rkey, ok := mstNodes[hash]
-				if !ok {
-					log.Warn(ctx, "no mst node found for follow", "key", k, "hash", hash)
-					continue
-				}
-				err := mod.CreateFollow(ctx, signerDID.String(), rkey, rec)
-				if err != nil {
-					log.Error(ctx, "failed to create follow", "err", err)
-				}
-			default:
-				log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
-			}
-			if err != nil {
-				log.Debug(ctx, "failed to decode block for key", "key", k, "error", err)
+		cb, err := lexutil.CborDecodeValue(blk.RawData())
+		log.Debug(ctx, "processing key", "key", k, "cbor", cb)
+		switch rec := cb.(type) {
+		case *bsky.GraphFollow:
+			rec.UnmarshalCBOR(bytes.NewReader(blk.RawData()))
+			log.Debug(ctx, "creating follow", "follow", rec)
+			hash := k.Hash().HexString()
+			rkey, ok := mstNodes[hash]
+			if !ok {
+				log.Warn(ctx, "no mst node found for follow", "key", k, "hash", hash)
 				continue
 			}
-			continue
+			err := mod.CreateFollow(ctx, signerDID.String(), rkey, rec)
+			if err != nil {
+				log.Error(ctx, "failed to create follow", "err", err)
+			}
+		case *streamplace.Key:
+			log.Debug(ctx, "creating key", "key", rec)
+			time, err := aqtime.FromString(rec.CreatedAt)
+			if err != nil {
+				log.Error(ctx, "failed to parse createdAt", "err", err)
+				continue
+			}
+			key := model.SigningKey{
+				DID:       rec.SigningKey,
+				CreatedAt: time.Time(),
+				RepoDID:   ident.DID.String(),
+			}
+			err = mod.UpdateSigningKey(&key)
+			if err != nil {
+				log.Error(ctx, "failed to create signing key", "err", err)
+			}
+		default:
+			log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 		}
-		processed += 1
-		streamplaceKeyAny, ok := rec[constants.STREAMPLACE_SIGNING_KEY]
-		if !ok {
-			continue
-		}
-		streamplaceKey, ok := streamplaceKeyAny.(string)
-		if !ok {
-			continue
-		}
-		signingKeys = append(signingKeys, streamplaceKey)
-	}
-	log.Log(ctx, "processed new posts", "postCount", processed, "signingKeys", signingKeys)
-
-	for _, key := range signingKeys {
-		err := parseSigningKey(ctx, key)
 		if err != nil {
-			log.Warn(ctx, "ignoring non-DID key", "key", key, "error", err)
+			log.Debug(ctx, "failed to decode block for key", "key", k, "error", err)
 			continue
-		}
-		err = mod.UpdateSigningKey(&model.SigningKey{
-			DID:       key,
-			CreatedAt: time.Now(),
-			RepoDID:   ident.DID.String(),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create signing key for %s: %w", key, err)
 		}
 	}
 

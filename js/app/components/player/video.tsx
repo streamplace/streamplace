@@ -23,7 +23,7 @@ import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { selectStoredKey } from "features/bluesky/blueskySlice";
 import { usePlayer } from "features/player/playerSlice";
-import streamKey from "src/screens/stream-key";
+import streamKey from "components/live-dashboard/stream-key";
 import { quietReceiver } from "./av-sync";
 
 type VideoProps = PlayerProps & { url: string };

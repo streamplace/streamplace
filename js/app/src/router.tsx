@@ -14,11 +14,10 @@ import {
   Menu,
   Settings as SettingsIcon,
   User,
-  Video,
   ShieldQuestion,
   Download,
   X,
-  Circle,
+  Video,
 } from "@tamagui/lucide-icons";
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
@@ -36,12 +35,9 @@ import {
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { useTheme, Text, View, H3, Button } from "tamagui";
 import AppReturnScreen from "./screens/app-return";
-import LiveScreen from "./screens/live";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
 import SupportScreen from "./screens/support";
-import WebcamScreen from "./screens/webcam";
-import StreamKeyScreen from "./screens/stream-key";
 import AboutScreen from "./screens/about";
 import DownloadScreen from "./screens/download";
 import { hydrate, selectHydrated } from "features/base/baseSlice";
@@ -80,15 +76,12 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Support: "support",
       Settings: "settings",
       GoLive: "golive",
-      Live: "live",
-      Webcam: "live/webcam",
-      StreamKey: "live/stream-key",
+      LiveDashboard: "live",
       Login: "login",
       AVSync: "sync-test",
       AppReturn: "app-return/:scheme",
       About: "about",
       Download: "download",
-      LiveDashboard: "live/dashboard",
     },
   },
 };
@@ -278,20 +271,11 @@ export function StreamplaceDrawer() {
           }}
         />
         <Drawer.Screen
-          name="Live"
-          component={LiveScreen}
-          options={{
-            drawerLabel: () => <Text>Go Live</Text>,
-            drawerIcon: () => <Video />,
-            // drawerItemStyle: isNative ? { display: "none" } : undefined,
-          }}
-        />
-        <Drawer.Screen
           name="LiveDashboard"
           component={LiveDashboard}
           options={{
             drawerLabel: () => <Text>Live Dashboard</Text>,
-            drawerIcon: () => <Circle />,
+            drawerIcon: () => <Video />,
             // drawerItemStyle: isNative ? { display: "none" } : undefined,
           }}
         />
@@ -306,22 +290,6 @@ export function StreamplaceDrawer() {
         <Drawer.Screen
           name="Multi"
           component={MultiScreen}
-          options={{
-            drawerLabel: () => null,
-            drawerItemStyle: { display: "none" },
-          }}
-        />
-        <Drawer.Screen
-          name="Webcam"
-          component={WebcamScreen}
-          options={{
-            drawerLabel: () => null,
-            drawerItemStyle: { display: "none" },
-          }}
-        />
-        <Drawer.Screen
-          name="StreamKey"
-          component={StreamKeyScreen}
           options={{
             drawerLabel: () => null,
             drawerItemStyle: { display: "none" },

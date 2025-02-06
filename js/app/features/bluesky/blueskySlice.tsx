@@ -155,6 +155,7 @@ export const blueskySlice = createAppSlice({
     logout: create.asyncThunk(
       async (_, thunkAPI) => {
         await Storage.removeItem("did");
+        await Storage.removeItem(STORED_KEY_KEY);
         const { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };

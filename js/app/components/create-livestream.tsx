@@ -41,7 +41,7 @@ export default function CreateLivestream() {
   const newLivestream = useAppSelector(selectNewLivestream);
   useEffect(() => {
     if (newLivestream?.record) {
-      toast.show("Livestream created", {
+      toast.show("Livestream announced", {
         message: newLivestream.record.title,
       });
       setTitle("");

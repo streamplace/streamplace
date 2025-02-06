@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { View, Paragraph, Button, Text } from "tamagui";
 import { Redirect } from "components/aqlink";
+import Waiting from "./waiting";
 const Row = ({ children }: { children: React.ReactNode }) => {
   return (
     <View w="100%" f={1} fd="row" padding="$4">
@@ -49,7 +50,15 @@ export default function StreamKeyScreen() {
     return <Loading />;
   }
   return (
-    <View f={1} ai="center" jc="center" gap="$4" w="100%" p="$4">
+    <View
+      f={1}
+      ai="center"
+      jc="center"
+      gap="$4"
+      w="100%"
+      p="$4"
+      backgroundColor="$gray1"
+    >
       <View w="100%" maxWidth={600}>
         <Row>
           <Left>
@@ -90,6 +99,7 @@ export default function StreamKeyScreen() {
           </Right>
         </Row>
       </View>
+      <Waiting />
     </View>
   );
 }

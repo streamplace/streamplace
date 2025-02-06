@@ -155,11 +155,11 @@ export const streamplaceSlice = createAppSlice({
               ...state.recentSegments,
               segments: action.payload,
               loading: false,
+              error: null,
             },
           };
         },
         rejected: (state, err) => {
-          console.error("pollSegments rejected", err);
           return {
             ...state,
             recentSegments: {

@@ -1,37 +1,15 @@
 import { Agent } from "@atproto/api";
-import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import { OAuthSession } from "@atproto/oauth-client";
 import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import { openLoginLink } from "features/platform/platformSlice";
 import Storage from "storage";
 import { createAppSlice } from "../../hooks/createSlice";
-import createOAuthClient, { StreamplaceOAuthClient } from "./oauthClient";
+import createOAuthClient from "./oauthClient";
 import { Secp256k1Keypair, bytesToMultibase } from "@atproto/crypto";
 import { privateKeyToAccount } from "viem/accounts";
-import { StreamKey } from "features/base/baseSlice";
 import { hydrate, STORED_KEY_KEY } from "features/base/baseSlice";
 import { isWeb } from "tamagui";
 import { PlaceStreamKey } from "lexicons";
-
-export interface BlueskyState {
-  status: "start" | "loggedIn" | "loggedOut";
-  oauthState: null | string;
-  oauthSession: null | OAuthSession;
-  pdsAgent: null | Agent;
-  profiles: { [key: string]: ProfileViewDetailed };
-  client: null | StreamplaceOAuthClient;
-  login: {
-    loading: boolean;
-    error: null | string;
-  };
-  pds: {
-    url: string;
-    loading: boolean;
-    error: null | string;
-  };
-  newKey: null | StreamKey;
-  storedKey: null | StreamKey;
-}
+import { BlueskyState } from "./blueskyTypes";
 
 const initialState: BlueskyState = {
   status: "start",
@@ -114,9 +92,11 @@ export const blueskySlice = createAppSlice({
             client: client,
           };
         },
-        rejected: (_, { error }) => {
-          console.error("loadOAuthClient rejected", error);
-          // state.status = "failed";
+        rejected: (state, { error }) => {
+          return {
+            ...state,
+            status: "loggedOut",
+          };
         },
       },
     ),
@@ -482,17 +462,22 @@ export const blueskySlice = createAppSlice({
     },
     selectIsReady: (bluesky) => {
       if (bluesky.status === "start") {
+        console.log("selectIsReady start");
         return false;
       } else if (bluesky.status === "loggedOut") {
+        console.log("selectIsReady loggedOut");
         return true;
       }
       if (!bluesky.oauthSession) {
+        console.log("selectIsReady oauthSession");
         return false;
       }
       const profile = blueskySlice.selectors.selectUserProfile({ bluesky });
       if (!profile) {
+        console.log("selectIsReady profile");
         return false;
       }
+      console.log("selectIsReady true");
       return true;
     },
   },

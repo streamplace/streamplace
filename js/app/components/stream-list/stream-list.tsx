@@ -35,30 +35,29 @@ export default function StreamList({
     string
   >;
 }) {
-  const [retryTime, setRetryTime] = useState<number>(Date.now());
   const { url } = useStreamplaceNode();
   const { segments, error, loading } = useAppSelector(selectRecentSegments);
   const dispatch = useAppDispatch();
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRetryTime(Date.now());
-    }, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  const [manualRefresh, setManualRefresh] = useState(false);
   useEffect(() => {
     dispatch(pollSegments());
-  }, [url, retryTime]);
+  }, []);
+  useEffect(() => {
+    if (!loading) {
+      setManualRefresh(false);
+    }
+  }, [loading]);
   if (error) {
+    if (loading) {
+      return <Loading />;
+    }
     return (
       <ErrorBox
         onRetry={() => {
-          setRetryTime(Date.now());
+          dispatch(pollSegments());
         }}
       />
     );
-  }
-  if (loading && segments.length === 0) {
-    return <Loading></Loading>;
   }
   return (
     <ScrollView
@@ -70,8 +69,11 @@ export default function StreamList({
       }}
       refreshControl={
         <RefreshControl
-          refreshing={loading}
-          onRefresh={() => setRetryTime(Date.now())}
+          refreshing={manualRefresh}
+          onRefresh={() => {
+            dispatch(pollSegments());
+            setManualRefresh(true);
+          }}
         />
       }
     >
@@ -147,7 +149,11 @@ export default function StreamList({
         );
       })}
       <View f={1} justifyContent="center" alignItems="center">
-        {segments.length === 0 && <H6>No one is streaming right now 😭</H6>}
+        {segments.length === 0 && (
+          <>
+            <H6>No one is streaming right now 😭</H6>
+          </>
+        )}
       </View>
     </ScrollView>
   );

@@ -1,6 +1,6 @@
 import { openAuthSessionAsync } from "expo-web-browser";
 import { createAppSlice } from "../../hooks/createSlice";
-import { BlueskyState, oauthCallback } from "features/bluesky/blueskySlice";
+import { oauthCallback } from "features/bluesky/blueskySlice";
 import messaging from "@react-native-firebase/messaging";
 import { Platform, PermissionsAndroid } from "react-native";
 import {
@@ -8,6 +8,7 @@ import {
   RegisterNotificationTokenBody,
   PlatformState,
 } from "./shared";
+import { BlueskyState } from "features/bluesky/blueskyTypes";
 
 const checkApplicationPermission = async () => {
   if (Platform.OS === "android") {

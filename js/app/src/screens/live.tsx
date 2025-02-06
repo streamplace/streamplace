@@ -23,10 +23,10 @@ const elems = [
 
 export default function StreamScreen({ route }) {
   const isReady = useAppSelector(selectIsReady);
+  const userProfile = useAppSelector(selectUserProfile);
   if (!isReady) {
     return <Loading />;
   }
-  const userProfile = useAppSelector(selectUserProfile);
   if (!userProfile) {
     return <Redirect to={{ screen: "Login" }} />;
   }

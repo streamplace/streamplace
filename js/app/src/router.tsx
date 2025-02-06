@@ -17,6 +17,8 @@ import {
   Video,
   ShieldQuestion,
   Download,
+  X,
+  Circle,
 } from "@tamagui/lucide-icons";
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
@@ -24,7 +26,7 @@ import Login from "components/login/login";
 import StreamList from "components/stream-list/stream-list";
 import { selectUserProfile } from "features/bluesky/blueskySlice";
 import usePlatform from "hooks/usePlatform";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ImageBackground,
   ImageSourcePropType,
@@ -32,7 +34,7 @@ import {
   StatusBar,
 } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { Text, useTheme, View } from "tamagui";
+import { useTheme, Text, View, H3, Button } from "tamagui";
 import AppReturnScreen from "./screens/app-return";
 import LiveScreen from "./screens/live";
 import MultiScreen from "./screens/multi";
@@ -49,6 +51,10 @@ import {
   registerNotificationToken,
   selectNotificationToken,
 } from "features/platform/platformSlice.native";
+import { pollSegments } from "features/streamplace/streamplaceSlice";
+import { useLiveUser } from "hooks/useLiveUser";
+import { useToastController } from "@tamagui/toast";
+import LiveDashboard from "./screens/live-dashboard";
 function HomeScreen() {
   return (
     <View f={1}>
@@ -82,6 +88,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       AppReturn: "app-return/:scheme",
       About: "about",
       Download: "download",
+      LiveDashboard: "live/dashboard",
     },
   },
 };
@@ -156,6 +163,10 @@ export function StreamplaceDrawer() {
   const { isWeb, isElectron, isNative, isBrowser } = usePlatform();
   const navigation = useNavigation();
   const dispatch = useAppDispatch();
+  const [poppedUp, setPoppedUp] = useState(false);
+  const [livePopup, setLivePopup] = useState(false);
+
+  // Top-level stuff to handle push notification registration
   useEffect(() => {
     dispatch(hydrate());
     dispatch(initPushNotifications());
@@ -168,6 +179,26 @@ export function StreamplaceDrawer() {
       dispatch(registerNotificationToken());
     }
   }, [notificationToken, userProfile]);
+
+  // Top-level stuff to handle polling for live streamers
+  useEffect(() => {
+    dispatch(pollSegments());
+    const interval = setInterval(() => {
+      dispatch(pollSegments());
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const userIsLive = useLiveUser();
+  const toast = useToastController();
+
+  useEffect(() => {
+    if (userIsLive && !poppedUp) {
+      setPoppedUp(true);
+      setLivePopup(true);
+    }
+  }, [userIsLive, poppedUp]);
+
   if (!hydrated) {
     return <View />;
   }
@@ -252,7 +283,16 @@ export function StreamplaceDrawer() {
           options={{
             drawerLabel: () => <Text>Go Live</Text>,
             drawerIcon: () => <Video />,
-            drawerItemStyle: isNative ? { display: "none" } : undefined,
+            // drawerItemStyle: isNative ? { display: "none" } : undefined,
+          }}
+        />
+        <Drawer.Screen
+          name="LiveDashboard"
+          component={LiveDashboard}
+          options={{
+            drawerLabel: () => <Text>Live Dashboard</Text>,
+            drawerIcon: () => <Circle />,
+            // drawerItemStyle: isNative ? { display: "none" } : undefined,
           }}
         />
         <Drawer.Screen
@@ -305,6 +345,48 @@ export function StreamplaceDrawer() {
           }}
         />
       </Drawer.Navigator>
+      {livePopup && (
+        <View
+          position="absolute"
+          bottom="$8"
+          f={1}
+          alignItems="center"
+          width="100%"
+        >
+          <View
+            backgroundColor="#cc0000"
+            f={1}
+            alignItems="center"
+            padding="$4"
+            borderRadius="$4"
+            cursor="pointer"
+            onPress={() => {
+              navigation.navigate("LiveDashboard" as never);
+              setLivePopup(false);
+            }}
+            position="relative"
+          >
+            <H3>✨YOU ARE LIVE!!!✨</H3>
+            <Button
+              position="absolute"
+              top="$0"
+              right="$0"
+              onPress={(e) => {
+                e.stopPropagation();
+                setLivePopup(false);
+              }}
+              marginRight={-15}
+              marginTop={-5}
+              backgroundColor="transparent"
+            >
+              <X />
+            </Button>
+            <Text>
+              {isNative ? "Tap" : "Click"} here to go to the live dashboard
+            </Text>
+          </View>
+        </View>
+      )}
     </>
   );
 }

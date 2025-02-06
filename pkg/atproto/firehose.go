@@ -244,7 +244,12 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 					},
 				}
 				if fc.noter != nil {
-					fc.noter.Blast(ctx, notifications, nb)
+					err := fc.noter.Blast(ctx, notifications, nb)
+					if err != nil {
+						log.Error(ctx, "failed to blast notifications", "err", err)
+					} else {
+						log.Log(ctx, "sent notifications", "user", evt.Repo, "count", len(notifications), "content", nb)
+					}
 				} else {
 					log.Log(ctx, "no notifier configured, skipping notifications", "user", evt.Repo, "count", len(notifications), "content", nb)
 				}

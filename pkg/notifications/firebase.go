@@ -27,6 +27,7 @@ type GoogleCredential struct {
 type NotificationBlast struct {
 	Title    string
 	Streamer string
+	Data     map[string]string
 }
 
 func (nb *NotificationBlast) String() string {

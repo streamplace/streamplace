@@ -231,9 +231,17 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 					return err
 				}
 
+				params, err := json.Marshal(map[string]string{"user": r.Handle})
+				if err != nil {
+					return err
+				}
 				nb := &notificationpkg.NotificationBlast{
 					Streamer: evt.Repo,
 					Title:    rec.Title,
+					Data: map[string]string{
+						"screen": "Stream",
+						"params": string(params),
+					},
 				}
 				if fc.noter != nil {
 					fc.noter.Blast(ctx, notifications, nb)

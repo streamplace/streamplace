@@ -75,6 +75,7 @@ func (f *FirebaseNotifierS) Blast(ctx context.Context, tokens []string, blast *N
 
 	notification := &messaging.MulticastMessage{
 		Tokens: tokens,
+		Data:   blast.Data,
 		Notification: &messaging.Notification{
 			Title: blast.PrintTitle(),
 			Body:  blast.PrintBody(),

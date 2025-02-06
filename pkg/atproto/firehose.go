@@ -236,7 +236,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 					return err
 				}
 				nb := &notificationpkg.NotificationBlast{
-					Streamer: evt.Repo,
+					Streamer: fmt.Sprintf("@%s", r.Handle),
 					Title:    rec.Title,
 					Data: map[string]string{
 						"screen": "Stream",

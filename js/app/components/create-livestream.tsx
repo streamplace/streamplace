@@ -1,9 +1,16 @@
-import { useState } from "react";
-import { Button, Label, Paragraph, Switch, TextArea, View } from "tamagui";
+import { useEffect, useState } from "react";
+import { Button, Label, Paragraph, TextArea, View } from "tamagui";
+import { Switch } from "react-native";
 import { useToastController } from "@tamagui/toast";
 import { useIsFocused } from "@react-navigation/native";
-import { selectUserProfile } from "features/bluesky/blueskySlice";
-import { useAppSelector } from "store/hooks";
+import {
+  createLivestreamRecord,
+  golivePost,
+  selectNewLivestream,
+  selectUserProfile,
+} from "features/bluesky/blueskySlice";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { useLiveUser } from "hooks/useLiveUser";
 
 const Left = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -15,22 +22,40 @@ const Left = ({ children }: { children: React.ReactNode }) => {
 
 const Right = ({ children }: { children: React.ReactNode }) => {
   return (
-    <View f={6} fb={0} fg={6} backgroundColor="red">
+    <View f={6} fb={0} fg={6}>
       {children}
     </View>
   );
 };
 
 export default function CreateLivestream() {
+  const dispatch = useAppDispatch();
   const toast = useToastController();
   // const { url } = useAquareumNode();
+  const userIsLive = useLiveUser();
   const isFocused = useIsFocused();
-  const [streamer, setStreamer] = useState("");
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [postToBluesky, setPostToBluesky] = useState(true);
   const profile = useAppSelector(selectUserProfile);
-  const disabled = loading || streamer === "" || title === "";
+  const newLivestream = useAppSelector(selectNewLivestream);
+  useEffect(() => {
+    if (newLivestream?.record) {
+      toast.show("Livestream created", {
+        message: newLivestream.record.title,
+      });
+      setTitle("");
+    }
+  }, [newLivestream?.record]);
+  useEffect(() => {
+    if (newLivestream?.error) {
+      toast.show("Error creating livestream", {
+        message: newLivestream.error,
+      });
+    }
+  }, [newLivestream?.error]);
+  const disabled = !userIsLive || loading || title === "";
+
   return (
     <View
       f={1}
@@ -75,14 +100,11 @@ export default function CreateLivestream() {
             </Paragraph>
           </Left>
           <Right>
-            <View backgroundColor="blue" f={1} jc="center">
+            <View f={1} jc="center" alignItems="flex-start">
               <Switch
-                size="$3"
-                checked={postToBluesky}
-                onCheckedChange={setPostToBluesky}
-              >
-                <Switch.Thumb size="$3" animation="quicker" />
-              </Switch>
+                value={postToBluesky}
+                onValueChange={setPostToBluesky}
+              ></Switch>
             </View>
           </Right>
         </View>
@@ -94,23 +116,25 @@ export default function CreateLivestream() {
           w="100%"
           size="$4"
           onPress={() => {
-            setLoading(true);
-            (async () => {
-              try {
-              } catch (e) {
-                toast.show("Failed to save settings", {
-                  message: e.message,
-                });
-                throw e;
-              } finally {
-                setLoading(false);
-              }
-            })();
+            dispatch(createLivestreamRecord({ title }));
+            if (postToBluesky) {
+              dispatch(golivePost({ text: title }));
+            }
           }}
         >
-          {loading ? "Loading..." : "Announce Livestream!"}
+          {buttonText(loading, userIsLive)}
         </Button>
       </View>
     </View>
   );
 }
+
+const buttonText = (loading: boolean, userIsLive: boolean) => {
+  if (loading) {
+    return "Loading...";
+  }
+  if (!userIsLive) {
+    return "Waiting for stream to start...";
+  }
+  return "Announce Livestream!";
+};

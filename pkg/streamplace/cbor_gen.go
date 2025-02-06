@@ -189,9 +189,46 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 4
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.Url == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
+	}
+
+	// t.Url (string) (string)
+	if t.Url != nil {
+
+		if len("url") > 1000000 {
+			return xerrors.Errorf("Value in field \"url\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("url"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("url")); err != nil {
+			return err
+		}
+
+		if t.Url == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Url) > 1000000 {
+				return xerrors.Errorf("Value in field t.Url was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Url))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.Url)); err != nil {
+				return err
+			}
+		}
 	}
 
 	// t.LexiconTypeID (string) (string)
@@ -302,7 +339,28 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch string(nameBuf[:nameLen]) {
-		// t.LexiconTypeID (string) (string)
+		// t.Url (string) (string)
+		case "url":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.Url = (*string)(&sval)
+				}
+			}
+			// t.LexiconTypeID (string) (string)
 		case "$type":
 
 			{

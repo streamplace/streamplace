@@ -28,6 +28,8 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+	notificationpkg "stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/streamplace"
 
 	"github.com/gorilla/websocket"
 )
@@ -37,9 +39,10 @@ type FirehoseConsumer struct {
 	mod       model.Model
 	lastSeen  time.Time
 	lastEvent time.Time
+	noter     notificationpkg.FirebaseNotifier
 }
 
-func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model) error {
+func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model, noter notificationpkg.FirebaseNotifier) error {
 	ctx = log.WithLogValues(ctx, "func", "StartFirehose")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -63,6 +66,7 @@ func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model) error 
 		cli:      cli,
 		mod:      mod,
 		lastSeen: time.Now(),
+		noter:    noter,
 	}
 
 	rsc := &events.RepoStreamCallbacks{
@@ -118,7 +122,8 @@ func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model) error 
 }
 
 var CollectionFilter = []string{
-	constants.STREAMPLACE_COLLECTION,
+	constants.PLACE_STREAM_KEY,
+	constants.PLACE_STREAM_LIVESTREAM,
 	constants.APP_BSKY_GRAPH_FOLLOW,
 }
 
@@ -174,6 +179,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 			// someone we don't know aboutd
 			continue
 		}
+		log.Warn(ctx, "got record we care about", "collection", collection, "rkey", rkey)
 
 		out := make(map[string]interface{})
 		out["seq"] = evt.Seq
@@ -208,7 +214,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 			}
 			cb, err := lexutil.CborDecodeValue(*recCBOR)
 			if err != nil {
-				slog.Warn("failed to parse record CBOR")
+				log.Error(ctx, "failed to parse record CBOR", "err", err)
 				continue
 			}
 			switch rec := cb.(type) {
@@ -217,6 +223,22 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 				err := mod.CreateFollow(ctx, evt.Repo, rkey.String(), rec)
 				if err != nil {
 					log.Error(ctx, "failed to create follow", "err", err)
+				}
+			case *streamplace.Livestream:
+				log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", rec.Url, "createdAt", rec.CreatedAt, "repo", evt.Repo)
+				notifications, err := mod.GetFollowersNotificationTokens(evt.Repo)
+				if err != nil {
+					return err
+				}
+
+				nb := &notificationpkg.NotificationBlast{
+					Streamer: evt.Repo,
+					Title:    rec.Title,
+				}
+				if fc.noter != nil {
+					fc.noter.Blast(ctx, notifications, nb)
+				} else {
+					log.Log(ctx, "no notifier configured, skipping notifications", "user", evt.Repo, "count", len(notifications), "content", nb)
 				}
 			default:
 				log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))

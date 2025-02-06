@@ -16,6 +16,11 @@
             "maxGraphemes": 140,
             "description": "The title of the livestream, as it will be announced to followers."
           },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream."
+          },
           "createdAt": {
             "type": "string",
             "format": "datetime",

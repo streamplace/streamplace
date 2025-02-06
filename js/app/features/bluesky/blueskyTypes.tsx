@@ -3,6 +3,13 @@ import { Agent } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { StreamKey } from "features/base/baseSlice";
 import { StreamplaceOAuthClient } from "./oauthClient";
+import { PlaceStreamLivestream } from "lexicons";
+
+type NewLivestream = {
+  loading: boolean;
+  error: string | null;
+  record: PlaceStreamLivestream.Record | null;
+};
 
 export interface BlueskyState {
   status: "start" | "loggedIn" | "loggedOut";
@@ -22,4 +29,5 @@ export interface BlueskyState {
   };
   newKey: null | StreamKey;
   storedKey: null | StreamKey;
+  newLivestream: null | NewLivestream;
 }

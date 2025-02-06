@@ -18,4 +18,6 @@ type Livestream struct {
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	// title: The title of the livestream, as it will be announced to followers.
 	Title string `json:"title" cborgen:"title"`
+	// url: The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.
+	Url *string `json:"url,omitempty" cborgen:"url,omitempty"`
 }

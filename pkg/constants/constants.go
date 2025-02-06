@@ -1,6 +1,7 @@
 package constants
 
-var STREAMPLACE_COLLECTION = "place.stream.key"
+var PLACE_STREAM_KEY = "place.stream.key"
+var PLACE_STREAM_LIVESTREAM = "place.stream.livestream"
 var STREAMPLACE_SIGNING_KEY = "signingKey"
 var APP_BSKY_GRAPH_FOLLOW = "app.bsky.graph.follow"
 

@@ -523,22 +523,18 @@ export const blueskySlice = createAppSlice({
     },
     selectIsReady: (bluesky) => {
       if (bluesky.status === "start") {
-        console.log("selectIsReady start");
         return false;
       } else if (bluesky.status === "loggedOut") {
-        console.log("selectIsReady loggedOut");
         return true;
       }
       if (!bluesky.oauthSession) {
-        console.log("selectIsReady oauthSession");
         return false;
       }
       const profile = blueskySlice.selectors.selectUserProfile({ bluesky });
       if (!profile) {
-        console.log("selectIsReady profile");
         return false;
       }
-      console.log("selectIsReady true");
+
       return true;
     },
     selectNewLivestream: (bluesky) => bluesky.newLivestream,

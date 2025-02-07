@@ -117,18 +117,26 @@ ci-test: app
 	meson test -C $(BUILDDIR) go-tests
 
 .PHONY: android
-android: app .build/bundletool.jar
+android: android-release android-debug
+
+.PHONY: android-release
+android-release:
 	export NODE_ENV=production \
 	&& cd ./js/app/android \
-	&& ./gradlew :app:bundleRelease \
-	&& ./gradlew :app:bundleDebug \
 	&& cd - \
-	&& mv ./js/app/android/app/build/outputs/bundle/release/app-release.aab ./bin/streamplace-$(VERSION)-android-release.aab \
-	&& mv ./js/app/android/app/build/outputs/bundle/debug/app-debug.aab ./bin/streamplace-$(VERSION)-android-debug.aab \
 	&& cd bin \
 	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:aquareum --bundle=streamplace-$(VERSION)-android-release.aab --output=streamplace-$(VERSION)-android-release.apks --mode=universal \
+	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb
+
+.PHONY: android-debug
+android-debug: app .build/bundletool.jar
+	export NODE_ENV=production \
+	&& cd ./js/app/android \
+	&& ./gradlew :app:bundleDebug \
+	&& cd - \
+	&& mv ./js/app/android/app/build/outputs/bundle/debug/app-debug.aab ./bin/streamplace-$(VERSION)-android-debug.aab \
+	&& cd bin \
 	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:aquareum --bundle=streamplace-$(VERSION)-android-debug.aab --output=streamplace-$(VERSION)-android-debug.apks --mode=universal \
-	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb \
 	&& unzip streamplace-$(VERSION)-android-debug.apks && mv universal.apk streamplace-$(VERSION)-android-debug.apk && rm toc.pb
 
 .PHONY: ios

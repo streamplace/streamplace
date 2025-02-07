@@ -26,6 +26,23 @@ export const platformSlice = createAppSlice({
   name: "platform",
   initialState,
   reducers: (create) => ({
+    handleNotification: create.reducer(
+      (
+        state,
+        action: { payload: { [key: string]: string | object } | undefined },
+      ) => {
+        if (!action.payload) {
+          return state;
+        }
+        if (typeof action.payload.path !== "string") {
+          return state;
+        }
+        return {
+          ...state,
+          notificationDestination: action.payload.path,
+        };
+      },
+    ),
     openLoginLink: create.asyncThunk(
       async (url: string, thunkAPI) => {
         console.log("openLoginLink", url);
@@ -87,16 +104,20 @@ export const platformSlice = createAppSlice({
             "App opened by notification while in foreground:",
             remoteMessage,
           );
+          thunkAPI.dispatch(handleNotification(remoteMessage.data));
           // Handle notification interaction when the app is in the foreground
         });
         messaging()
           .getInitialNotification()
           .then((remoteMessage) => {
+            if (!remoteMessage) {
+              return;
+            }
             console.log(
               "App opened by notification from closed state:",
               remoteMessage,
             );
-            // Handle notification interaction when the app is opened from a closed state
+            thunkAPI.dispatch(handleNotification(remoteMessage.data));
           });
 
         return { token };
@@ -159,6 +180,8 @@ export const platformSlice = createAppSlice({
 
   selectors: {
     selectNotificationToken: (platform) => platform.notificationToken,
+    selectNotificationDestination: (platform) =>
+      platform.notificationDestination,
   },
 });
 
@@ -166,6 +189,8 @@ export const {
   openLoginLink,
   initPushNotifications,
   registerNotificationToken,
+  handleNotification,
 } = platformSlice.actions;
 
-export const { selectNotificationToken } = platformSlice.selectors;
+export const { selectNotificationToken, selectNotificationDestination } =
+  platformSlice.selectors;

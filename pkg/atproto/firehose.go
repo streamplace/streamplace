@@ -225,22 +225,21 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 					log.Error(ctx, "failed to create follow", "err", err)
 				}
 			case *streamplace.Livestream:
-				log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", rec.Url, "createdAt", rec.CreatedAt, "repo", evt.Repo)
+				var u string
+				if rec.Url != nil {
+					u = *rec.Url
+				}
+				log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", u, "createdAt", rec.CreatedAt, "repo", evt.Repo)
 				notifications, err := mod.GetFollowersNotificationTokens(evt.Repo)
 				if err != nil {
 					return err
 				}
 
-				params, err := json.Marshal(map[string]string{"user": r.Handle})
-				if err != nil {
-					return err
-				}
 				nb := &notificationpkg.NotificationBlast{
 					Streamer: fmt.Sprintf("@%s", r.Handle),
 					Title:    rec.Title,
 					Data: map[string]string{
-						"screen": "Stream",
-						"params": string(params),
+						"path": fmt.Sprintf("/%s", r.Handle),
 					},
 				}
 				if fc.noter != nil {

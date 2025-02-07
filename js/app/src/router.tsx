@@ -4,6 +4,8 @@ import {
   CommonActions,
   DrawerActions,
   LinkingOptions,
+  NavigatorScreenParams,
+  useLinkTo,
   useNavigation,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -45,6 +47,7 @@ import AVSyncScreen from "./screens/av-sync";
 import {
   initPushNotifications,
   registerNotificationToken,
+  selectNotificationDestination,
   selectNotificationToken,
 } from "features/platform/platformSlice.native";
 import { pollSegments } from "features/streamplace/streamplaceSlice";
@@ -59,6 +62,31 @@ function HomeScreen() {
   );
 }
 const Stack = createNativeStackNavigator();
+
+type HomeStackParamList = {
+  StreamList: undefined;
+  Stream: { user: string };
+};
+
+type RootStackParamList = {
+  Home: NavigatorScreenParams<HomeStackParamList>;
+  Multi: { config: string };
+  Support: undefined;
+  Settings: undefined;
+  GoLive: undefined;
+  LiveDashboard: undefined;
+  Login: undefined;
+  AVSync: undefined;
+  AppReturn: { scheme: string };
+  About: undefined;
+  Download: undefined;
+};
+
+declare global {
+  namespace ReactNavigation {
+    interface RootParamList extends RootStackParamList {}
+  }
+}
 
 const linking: LinkingOptions<ReactNavigation.RootParamList> = {
   prefixes: ["place.stream://", "place.stream.dev://"],
@@ -172,6 +200,15 @@ export function StreamplaceDrawer() {
       dispatch(registerNotificationToken());
     }
   }, [notificationToken, userProfile]);
+
+  const notificationDestination = useAppSelector(selectNotificationDestination);
+  const linkTo = useLinkTo();
+
+  useEffect(() => {
+    if (notificationDestination) {
+      linkTo(notificationDestination);
+    }
+  }, [notificationDestination]);
 
   // Top-level stuff to handle polling for live streamers
   useEffect(() => {
@@ -329,7 +366,7 @@ export function StreamplaceDrawer() {
             borderRadius="$4"
             cursor="pointer"
             onPress={() => {
-              navigation.navigate("LiveDashboard" as never);
+              navigation.navigate("LiveDashboard");
               setLivePopup(false);
             }}
             position="relative"

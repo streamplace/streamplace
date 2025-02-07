@@ -25,21 +25,9 @@ type GoogleCredential struct {
 }
 
 type NotificationBlast struct {
-	Title    string
-	Streamer string
-	Data     map[string]string
-}
-
-func (nb *NotificationBlast) String() string {
-	return fmt.Sprintf("%s %s", nb.PrintTitle(), nb.PrintBody())
-}
-
-func (nb *NotificationBlast) PrintTitle() string {
-	return fmt.Sprintf("🔴 %s is LIVE!", nb.Streamer)
-}
-
-func (nb *NotificationBlast) PrintBody() string {
-	return nb.Title
+	Title string            `json:"title"`
+	Body  string            `json:"body"`
+	Data  map[string]string `json:"data"`
 }
 
 func MakeFirebaseNotifier(ctx context.Context, serviceAccountJSONb64 string) (FirebaseNotifier, error) {
@@ -77,8 +65,8 @@ func (f *FirebaseNotifierS) Blast(ctx context.Context, tokens []string, blast *N
 		Tokens: tokens,
 		Data:   blast.Data,
 		Notification: &messaging.Notification{
-			Title: blast.PrintTitle(),
-			Body:  blast.PrintBody(),
+			Title: blast.Title,
+			Body:  blast.Body,
 		},
 		Android: &messaging.AndroidConfig{
 			Priority: "high",

@@ -120,10 +120,12 @@ ci-test: app
 android: android-release android-debug
 
 .PHONY: android-release
-android-release:
+android-release: app .build/bundletool.jar
 	export NODE_ENV=production \
 	&& cd ./js/app/android \
+	&& ./gradlew :app:bundleRelease \
 	&& cd - \
+	&& mv ./js/app/android/app/build/outputs/bundle/release/app-release.aab ./bin/streamplace-$(VERSION)-android-release.aab \
 	&& cd bin \
 	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:aquareum --bundle=streamplace-$(VERSION)-android-release.aab --output=streamplace-$(VERSION)-android-release.apks --mode=universal \
 	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb

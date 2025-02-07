@@ -236,8 +236,8 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 				}
 
 				nb := &notificationpkg.NotificationBlast{
-					Streamer: fmt.Sprintf("@%s", r.Handle),
-					Title:    rec.Title,
+					Title: fmt.Sprintf("🔴 @%s is LIVE!", r.Handle),
+					Body:  rec.Title,
 					Data: map[string]string{
 						"path": fmt.Sprintf("/%s", r.Handle),
 					},

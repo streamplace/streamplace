@@ -43,6 +43,12 @@ export const platformSlice = createAppSlice({
         };
       },
     ),
+    clearNotification: create.reducer((state) => {
+      return {
+        ...state,
+        notificationDestination: null,
+      };
+    }),
     openLoginLink: create.asyncThunk(
       async (url: string, thunkAPI) => {
         console.log("openLoginLink", url);
@@ -190,6 +196,7 @@ export const {
   initPushNotifications,
   registerNotificationToken,
   handleNotification,
+  clearNotification,
 } = platformSlice.actions;
 
 export const { selectNotificationToken, selectNotificationDestination } =

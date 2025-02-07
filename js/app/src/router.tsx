@@ -45,6 +45,7 @@ import DownloadScreen from "./screens/download";
 import { hydrate, selectHydrated } from "features/base/baseSlice";
 import AVSyncScreen from "./screens/av-sync";
 import {
+  clearNotification,
   initPushNotifications,
   registerNotificationToken,
   selectNotificationDestination,
@@ -201,12 +202,14 @@ export function StreamplaceDrawer() {
     }
   }, [notificationToken, userProfile]);
 
+  // Stuff to handle incoming push notification routing
   const notificationDestination = useAppSelector(selectNotificationDestination);
   const linkTo = useLinkTo();
 
   useEffect(() => {
     if (notificationDestination) {
       linkTo(notificationDestination);
+      dispatch(clearNotification());
     }
   }, [notificationDestination]);
 

@@ -110,6 +110,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/playback/:user/stream.webm", a.HandleMKVPlayback(ctx))
 	apiRouter.GET("/api/playback/:user/hls/:file", a.HandleHLSPlayback(ctx))
 	apiRouter.GET("/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
+	apiRouter.GET("/api/app-return/*anything", a.HandleAppReturn(ctx))
 	apiRouter.POST("/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
 	apiRouter.POST("/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
 	apiRouter.POST("/api/player-event", a.HandlePlayerEvent(ctx))
@@ -449,7 +450,7 @@ func (a *StreamplaceAPI) HandleATProtoOAuth(ctx context.Context) httprouter.Hand
 			return
 		}
 
-		meta := atproto.GetMetadata(host, platform)
+		meta := atproto.GetMetadata(host, platform, a.CLI.AppBundleID)
 		bs, err := json.Marshal(meta)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal metadata", err)

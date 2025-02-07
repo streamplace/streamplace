@@ -36,7 +36,7 @@ export default function BlueskyProvider({
         }
       }
     }
-  }, [url]);
+  }, [url, lastLink]);
 
   useEffect(() => {
     if (oauthSession && !userProfile) {

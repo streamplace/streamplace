@@ -219,6 +219,7 @@ export const blueskySlice = createAppSlice({
 
     oauthCallback: create.asyncThunk(
       async (url: string, thunkAPI) => {
+        console.log("oauthCallback", url);
         if (!url.includes("?")) {
           throw new Error("No query params");
         }

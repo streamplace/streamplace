@@ -1,6 +1,5 @@
 import { openAuthSessionAsync } from "expo-web-browser";
 import { createAppSlice } from "../../hooks/createSlice";
-import { oauthCallback } from "features/bluesky/blueskySlice";
 import messaging from "@react-native-firebase/messaging";
 import { Platform, PermissionsAndroid } from "react-native";
 import {
@@ -9,6 +8,7 @@ import {
   PlatformState,
 } from "./shared";
 import { BlueskyState } from "features/bluesky/blueskyTypes";
+import { oauthCallback } from "features/bluesky/blueskySlice";
 
 const checkApplicationPermission = async () => {
   if (Platform.OS === "android") {
@@ -51,7 +51,6 @@ export const platformSlice = createAppSlice({
     }),
     openLoginLink: create.asyncThunk(
       async (url: string, thunkAPI) => {
-        console.log("openLoginLink", url);
         const res = await openAuthSessionAsync(url);
         if (res.type === "success") {
           thunkAPI.dispatch(oauthCallback(res.url));

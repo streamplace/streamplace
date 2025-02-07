@@ -78,6 +78,7 @@ type CLI struct {
 	Peers                  []string
 	TestStream             bool
 	FrontendProxy          string
+	AppBundleID            string
 
 	dataDirFlags []*string
 }

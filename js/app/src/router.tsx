@@ -325,6 +325,7 @@ export function StreamplaceDrawer() {
           options={{
             drawerLabel: () => null,
             drawerItemStyle: { display: "none" },
+            headerShown: false,
           }}
         />
         <Drawer.Screen

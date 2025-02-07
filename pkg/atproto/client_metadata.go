@@ -2,8 +2,6 @@ package atproto
 
 import (
 	"fmt"
-	"slices"
-	"strings"
 )
 
 var AllowedPlatforms = []string{"ios", "android", "web"}
@@ -44,7 +42,7 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-func GetMetadata(host string, platform string) *OAuthClientMetadata {
+func GetMetadata(host string, platform string, appBundleId string) *OAuthClientMetadata {
 	meta := &OAuthClientMetadata{
 		ClientID:  fmt.Sprintf("https://%s/api/atproto-oauth/%s", host, platform),
 		ClientURI: fmt.Sprintf("https://%s", host),
@@ -60,9 +58,7 @@ func GetMetadata(host string, platform string) *OAuthClientMetadata {
 		meta.RedirectURIs = []string{fmt.Sprintf("https://%s/login", host)}
 		meta.ApplicationType = "web"
 	} else {
-		hostParts := strings.Split(host, ".")
-		slices.Reverse(hostParts)
-		meta.RedirectURIs = []string{fmt.Sprintf("%s:/login", strings.Join(hostParts, "."))}
+		meta.RedirectURIs = []string{fmt.Sprintf("https://%s/api/app-return/%s", host, appBundleId)}
 		meta.ApplicationType = "native"
 	}
 	return meta

@@ -3,6 +3,12 @@ export enum IngestMediaSource {
   DISPLAY = "display",
 }
 
+export enum ControlOptions {
+  AUTO = "auto",
+  HIDE = "hide",
+  SHOW = "show",
+}
+
 // common types shared by players and controls and stuff
 export type PlayerProps = {
   name: string;
@@ -11,7 +17,8 @@ export type PlayerProps = {
   fullscreen: boolean;
   protocol: string;
   forceProtocol?: string;
-  showControls: boolean;
+  controls: ControlOptions;
+  embed?: boolean;
   telemetry: boolean;
   setMuted: (isMuted: boolean) => void;
   setFullscreen: (isFullscreen: boolean) => void;

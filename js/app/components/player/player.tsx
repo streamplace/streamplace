@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Text, View } from "tamagui";
 import Fullscreen from "./fullscreen";
 import {
+  ControlOptions,
   IngestMediaSource,
   PlayerEvent,
   PlayerProps,
@@ -50,7 +51,13 @@ export function PlayerInner(props: Partial<PlayerProps>) {
   }
   const playerId = useMemo(() => props.playerId ?? uuidv7(), [props.playerId]);
   const [muted, setMuted] = useState(true);
+  const [controls, setControls] = useState(ControlOptions.SHOW);
   const [showControls, setShowControls] = useState(true);
+  useEffect(() => {
+    if (!props.controls || props.controls === ControlOptions.AUTO) {
+      setControls(showControls ? ControlOptions.SHOW : ControlOptions.HIDE);
+    }
+  }, [showControls, props.controls]);
   const [touchTime, setTouchTime] = useState(0);
   useEffect(() => {
     // Use setTimeout to update the message after 2000 milliseconds (2 seconds)
@@ -119,7 +126,7 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     fullscreen: fullscreen,
     protocol: protocol,
     setProtocol: setProtocol,
-    showControls: props.showControls ?? showControls,
+    controls: controls,
     userInteraction: userInteraction,
     playerEvent: playerEvent,
     status: status,

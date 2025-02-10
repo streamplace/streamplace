@@ -38,7 +38,7 @@ import { useAppDispatch, useAppSelector } from "store/hooks";
 import { useTheme, Text, View, H3, Button } from "tamagui";
 import AppReturnScreen from "./screens/app-return";
 import MultiScreen from "./screens/multi";
-import StreamScreen from "./screens/stream";
+import StreamScreen, { EmbedStreamScreen } from "./screens/stream";
 import SupportScreen from "./screens/support";
 import AboutScreen from "./screens/about";
 import DownloadScreen from "./screens/download";
@@ -71,6 +71,7 @@ type HomeStackParamList = {
 
 type RootStackParamList = {
   Home: NavigatorScreenParams<HomeStackParamList>;
+  EmbedStream: { user: string };
   Multi: { config: string };
   Support: undefined;
   Settings: undefined;
@@ -101,6 +102,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
           },
         },
       },
+      EmbedStream: "embed/:user",
       Multi: "multi/:config",
       Support: "support",
       Settings: "settings",
@@ -274,6 +276,14 @@ export function StreamplaceDrawer() {
                 }),
               );
             },
+          }}
+        />
+        <Stack.Screen
+          name="EmbedStream"
+          component={EmbedStreamScreen}
+          options={{
+            headerShown: false,
+            title: "Streamplace Stream",
           }}
         />
         <Drawer.Screen

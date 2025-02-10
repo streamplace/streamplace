@@ -30,6 +30,7 @@ import {
   YGroup,
 } from "tamagui";
 import {
+  ControlOptions,
   PlayerProps,
   PROTOCOL_HLS,
   PROTOCOL_PROGRESSIVE_MP4,
@@ -72,7 +73,7 @@ export default function Controls(props: PlayerProps) {
   // }, [fadeAnim, props.showControls]);
 
   let cursor = {};
-  if (props.fullscreen && !props.showControls) {
+  if (props.fullscreen && props.controls === ControlOptions.HIDE) {
     cursor = { cursor: "none" };
   }
 
@@ -106,7 +107,7 @@ export default function Controls(props: PlayerProps) {
           justifyContent: "space-between",
         }}
       > */}
-      <Bar opacity={props.showControls ? 1 : 0}>
+      <Bar opacity={props.controls === ControlOptions.SHOW ? 1 : 0}>
         <Part>
           <View justifyContent="center" paddingLeft="$5">
             <Text>{props.name}</Text>
@@ -115,7 +116,7 @@ export default function Controls(props: PlayerProps) {
         <Part>{/* <Text>Top Right</Text> */}</Part>
       </Bar>
       {props.ingest && <LiveBubble />}
-      <Bar opacity={props.showControls ? 1 : 0}>
+      <Bar opacity={props.controls === ControlOptions.SHOW ? 1 : 0}>
         <Part>
           <Pressable
             style={{
@@ -151,10 +152,10 @@ export function PopoverMenu(props: PlayerProps) {
   const [open, setOpen] = useState(false);
   const media = useMedia();
   useEffect(() => {
-    if (!media.sm && props.showControls === false) {
+    if (!media.sm && props.controls === ControlOptions.HIDE) {
       setOpen(false);
     }
-  }, [props.showControls, media.sm]);
+  }, [props.controls, media.sm]);
   return (
     <Popover
       size="$5"

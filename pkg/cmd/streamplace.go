@@ -121,6 +121,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	cli.StringSliceFlag(fs, &cli.Peers, "peers", "", "other streamplace nodes to replicate to")
 	cli.DebugFlag(fs, &cli.Debug, "debug", "", "modified log verbosity for specific functions or files in form func=ToHLS:3,file=gstreamer.go:4")
 	fs.BoolVar(&cli.TestStream, "test-stream", false, "run a built-in test stream on boot")
+	fs.BoolVar(&cli.NoFirehose, "no-firehose", false, "disable the bluesky firehose")
 	doValidate := fs.Bool("validate", false, "validate media")
 	verbosity := fs.String("v", "3", "log verbosity level")
 	fs.StringVar(&cli.RelayHost, "relay-host", "wss://bsky.network", "websocket url for relay firehose")
@@ -305,9 +306,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return a.ServeInternalHTTP(ctx)
 	})
 
-	group.Go(func() error {
-		return atproto.StartFirehose(ctx, &cli, mod, noter)
-	})
+	if !cli.NoFirehose {
+		group.Go(func() error {
+			return atproto.StartFirehose(ctx, &cli, mod, noter)
+		})
+	}
 
 	group.Go(func() error {
 		newSeg := mm.NewSegment()

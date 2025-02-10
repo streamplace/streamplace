@@ -79,6 +79,7 @@ type CLI struct {
 	TestStream             bool
 	FrontendProxy          string
 	AppBundleID            string
+	NoFirehose             bool
 
 	dataDirFlags []*string
 }

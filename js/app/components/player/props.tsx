@@ -53,6 +53,7 @@ export const PROTOCOL_HLS = "hls";
 export const PROTOCOL_PROGRESSIVE_MP4 = "progressive-mp4";
 export const PROTOCOL_PROGRESSIVE_WEBM = "progressive-webm";
 export const PROTOCOL_WEBRTC = "webrtc";
+export const PROTOCOL_WEBRTC_WEBVIEW = "webrtc-webview";
 
 export enum PlayerStatus {
   START = "start",

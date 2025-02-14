@@ -23830,15 +23830,15 @@ __metadata:
   linkType: hard
 
 "react-native-webrtc@npm:^124.0.4":
-  version: 124.0.4
-  resolution: "react-native-webrtc@npm:124.0.4"
+  version: 124.0.5
+  resolution: "react-native-webrtc@npm:124.0.5"
   dependencies:
     base64-js: "npm:1.5.1"
     debug: "npm:4.3.4"
     event-target-shim: "npm:6.0.2"
   peerDependencies:
     react-native: ">=0.60.0"
-  checksum: 10/f781345c61b5c7b172942ebb2a14b3fc2e477fc937c412cc96b12b1cc12e3493f3f46836d4764530946028625f28c2577d44d8dfa197cffcdde55dd38645d9b3
+  checksum: 10/47774726ce5ae84c15b0299a7f0a536753cff7bf022fe6937a62a2d5d9b007a5466a65c8da9656a61e8d93013699171c4e9b57ddc2f116f214c53c0717b415e4
   languageName: node
   linkType: hard
 

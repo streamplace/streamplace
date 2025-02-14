@@ -1,12 +1,13 @@
 import useStreamplaceNode from "hooks/useStreamplaceNode";
+import { useMemo } from "react";
 import {
   PlayerProps,
   PROTOCOL_HLS,
   PROTOCOL_PROGRESSIVE_MP4,
   PROTOCOL_PROGRESSIVE_WEBM,
   PROTOCOL_WEBRTC,
+  PROTOCOL_WEBRTC_WEBVIEW,
 } from "./props";
-import { useMemo } from "react";
 
 const protocolSuffixes = {
   m3u8: PROTOCOL_HLS,
@@ -42,6 +43,8 @@ export function srcToUrl(props: PlayerProps): {
       outUrl = `${url}/api/playback/${props.src}/stream.webm`;
     } else if (props.protocol === PROTOCOL_WEBRTC) {
       outUrl = `${url}/api/playback/${props.src}/webrtc`;
+    } else if (props.protocol === PROTOCOL_WEBRTC_WEBVIEW) {
+      outUrl = `${url}/embed/${props.src}?controls=hide`;
     } else {
       throw new Error(`unknown playback protocol: ${props.protocol}`);
     }

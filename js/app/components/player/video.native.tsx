@@ -1,11 +1,16 @@
 import { useVideoPlayer, VideoPlayerEvents, VideoView } from "expo-video";
 import React, { useEffect } from "react";
-import { RTCView } from "react-native-webrtc";
+import { MediaStream, RTCView } from "react-native-webrtc";
+import { WebView } from "react-native-webview";
 import { View } from "tamagui";
-import { PlayerProps, PlayerStatus, PROTOCOL_WEBRTC } from "./props";
+import {
+  PlayerProps,
+  PlayerStatus,
+  PROTOCOL_WEBRTC,
+  PROTOCOL_WEBRTC_WEBVIEW,
+} from "./props";
 import { srcToUrl } from "./shared";
 import useWebRTC from "./use-webrtc";
-import { MediaStream } from "react-native-webrtc";
 
 // export function Player() {
 //   return <View f={1}></View>;
@@ -16,6 +21,8 @@ export default function NativeVideo(
 ) {
   if (props.protocol === PROTOCOL_WEBRTC) {
     return <NativeWHEP {...props} />;
+  } else if (props.protocol === PROTOCOL_WEBRTC_WEBVIEW) {
+    return <WebWHEP {...props} />;
   }
   const { url } = srcToUrl(props);
   useEffect(() => {
@@ -120,6 +127,17 @@ export function NativeWHEP(props: PlayerProps) {
         backgroundColor: "#111",
         flex: 1,
       }}
+    />
+  );
+}
+
+export function WebWHEP(props: PlayerProps) {
+  const { url } = srcToUrl(props);
+  return (
+    <WebView
+      allowsInlineMediaPlayback={true}
+      source={{ uri: url }}
+      style={{ flex: 1, backgroundColor: "#111" }}
     />
   );
 }

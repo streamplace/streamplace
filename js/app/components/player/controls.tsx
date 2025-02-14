@@ -36,10 +36,12 @@ import {
   PROTOCOL_PROGRESSIVE_MP4,
   PROTOCOL_PROGRESSIVE_WEBM,
   PROTOCOL_WEBRTC,
+  PROTOCOL_WEBRTC_WEBVIEW,
 } from "./props";
 import { usePlayer, usePlayerActions } from "features/player/playerSlice";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import Loading from "components/loading/loading";
+import usePlatform from "hooks/usePlatform";
 
 const Bar = (props) => (
   <XStack
@@ -267,6 +269,44 @@ function LiveBubbleText() {
 
 function GearMenu(props: PlayerProps) {
   const [menu, setMenu] = useState("root");
+
+  const { isNative } = usePlatform();
+
+  const protocols = [
+    {
+      id: PROTOCOL_HLS,
+      title: "HLS",
+      subtitle: "HTTP Live Streaming",
+      icon: Star,
+    },
+    {
+      id: PROTOCOL_PROGRESSIVE_MP4,
+      title: "Progressive MP4",
+      subtitle: "MP4 but loooong",
+      icon: Shell,
+    },
+    {
+      id: PROTOCOL_PROGRESSIVE_WEBM,
+      title: "Progressive WebM",
+      subtitle: "WebM but loooong",
+      icon: Squirrel,
+    },
+    {
+      id: PROTOCOL_WEBRTC,
+      title: "WebRTC",
+      subtitle: "Lowest latency, probably",
+      icon: Antenna,
+    },
+  ];
+
+  if (isNative) {
+    protocols.push({
+      id: PROTOCOL_WEBRTC_WEBVIEW,
+      title: "WebRTC (WebView)",
+      subtitle: "Can work in situations where native WebRTC doesn't",
+      icon: Antenna,
+    });
+  }
   return (
     <YGroup alignSelf="center" bordered width={240} size="$5" borderRadius="$0">
       {menu == "root" && (
@@ -307,63 +347,24 @@ function GearMenu(props: PlayerProps) {
             />
           </YGroup.Item>
           <Separator />
-          <YGroup.Item>
-            <ListItem
-              hoverTheme
-              pressTheme
-              title="HLS"
-              subTitle="HTTP Live Streaming"
-              icon={Star}
-              iconAfter={props.protocol === PROTOCOL_HLS ? CheckCircle : Circle}
-              onPress={() => props.setProtocol(PROTOCOL_HLS)}
-            />
-          </YGroup.Item>
-          <Separator />
-          <YGroup.Item>
-            <ListItem
-              hoverTheme
-              pressTheme
-              title="Progressive MP4"
-              subTitle="MP4 but loooong"
-              icon={Shell}
-              iconAfter={
-                props.protocol === PROTOCOL_PROGRESSIVE_MP4
-                  ? CheckCircle
-                  : Circle
-              }
-              onPress={() => props.setProtocol(PROTOCOL_PROGRESSIVE_MP4)}
-            />
-          </YGroup.Item>
-          <Separator />
-          <YGroup.Item>
-            <ListItem
-              hoverTheme
-              pressTheme
-              title="Progressive WebM"
-              subTitle="WebM but loooong"
-              icon={Squirrel}
-              iconAfter={
-                props.protocol === PROTOCOL_PROGRESSIVE_WEBM
-                  ? CheckCircle
-                  : Circle
-              }
-              onPress={() => props.setProtocol(PROTOCOL_PROGRESSIVE_WEBM)}
-            />
-          </YGroup.Item>
-          <Separator />
-          <YGroup.Item>
-            <ListItem
-              hoverTheme
-              pressTheme
-              title="WebRTC"
-              subTitle="Lowest latency, probably"
-              icon={Antenna}
-              iconAfter={
-                props.protocol === PROTOCOL_WEBRTC ? CheckCircle : Circle
-              }
-              onPress={() => props.setProtocol(PROTOCOL_WEBRTC)}
-            />
-          </YGroup.Item>
+          {protocols.map((protocol, index) => (
+            <>
+              <YGroup.Item key={protocol.id}>
+                <ListItem
+                  hoverTheme
+                  pressTheme
+                  title={protocol.title}
+                  subTitle={protocol.subtitle}
+                  icon={protocol.icon}
+                  iconAfter={
+                    props.protocol === protocol.id ? CheckCircle : Circle
+                  }
+                  onPress={() => props.setProtocol(protocol.id)}
+                />
+              </YGroup.Item>
+              {index < protocols.length - 1 && <Separator />}
+            </>
+          ))}
         </>
       )}
     </YGroup>

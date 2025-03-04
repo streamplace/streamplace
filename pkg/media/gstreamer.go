@@ -293,7 +293,7 @@ func (mm *MediaManager) ToHLS(ctx context.Context, input io.Reader, m3u8 *M3U8) 
 	pipelineSlice := []string{
 		"appsrc name=appsrc ! matroskademux name=demux",
 		"demux.video_0 ! queue ! h264parse name=videoparse",
-		"demux.audio_0 ! queue ! opusparse name=audioparse",
+		"demux.audio_0 ! queue ! opusdec use-inband-fec=true ! audioresample ! fdkaacenc name=audioenc",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -315,13 +315,13 @@ func (mm *MediaManager) ToHLS(ctx context.Context, input io.Reader, m3u8 *M3U8) 
 		return fmt.Errorf("error linking videoparse to splitmuxsink: %w", err)
 	}
 
-	audioparse, err := pipeline.GetElementByName("audioparse")
+	audioenc, err := pipeline.GetElementByName("audioenc")
 	if err != nil {
-		return fmt.Errorf("error getting audioparse from ToHLS pipeline: %w", err)
+		return fmt.Errorf("error getting audioenc from ToHLS pipeline: %w", err)
 	}
-	err = audioparse.Link(splitmuxsink)
+	err = audioenc.Link(splitmuxsink)
 	if err != nil {
-		return fmt.Errorf("error linking audioparse to splitmuxsink: %w", err)
+		return fmt.Errorf("error linking audioenc to splitmuxsink: %w", err)
 	}
 
 	splitmuxsink.Connect("sink-added", func(split, sinkEle *gst.Element) {

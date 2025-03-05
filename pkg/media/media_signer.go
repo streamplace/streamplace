@@ -17,54 +17,69 @@ import (
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
-type MediaSigner struct {
-	StreamerName string
-	Signer       crypto.Signer
-	Pub          aqpub.Pub
-	Cert         []byte
-	TAURL        string
-	Model        model.Model
+type MediaSigner interface {
+	SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error)
+	Pub() aqpub.Pub
 }
 
-func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, signer crypto.Signer, mod model.Model) (*MediaSigner, error) {
+type MediaSignerLocal struct {
+	StreamerName string
+	Signer       crypto.Signer
+	AQPub        aqpub.Pub
+	Cert         []byte
+	TAURL        string
+}
+
+func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]byte, string, error) {
 	pub, err := aqpub.FromPublicKey(signer.Public().(*ecdsa.PublicKey))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	exists, err := cli.DataFileExists([]string{pub.String(), CERT_FILE})
+	fSlice := []string{pub.String(), CERT_FILE}
+	exists, err := cli.DataFileExists(fSlice)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if !exists {
 		cert, err := signers.GenerateES256KCert(signer)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		r := bytes.NewReader(cert)
-		err = cli.DataFileWrite([]string{pub.String(), CERT_FILE}, r, false)
+		err = cli.DataFileWrite(fSlice, r, false)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		log.Log(ctx, "wrote new media signing certificate", "file", filepath.Join(pub.String(), CERT_FILE))
 	}
 	buf := bytes.Buffer{}
-	cli.DataFileRead([]string{pub.String(), CERT_FILE}, &buf)
+	cli.DataFileRead(fSlice, &buf)
+	fPath := cli.DataFilePath(fSlice)
 	cert := buf.Bytes()
-	return &MediaSigner{
-		// cli:        cli,
+	return cert, fPath, nil
+}
+
+func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, signer crypto.Signer) (MediaSigner, error) {
+	cert, _, err := prepareCert(ctx, cli, signer)
+	if err != nil {
+		return nil, err
+	}
+	pub, err := aqpub.FromPublicKey(signer.Public().(*ecdsa.PublicKey))
+	if err != nil {
+		return nil, err
+	}
+	return &MediaSignerLocal{
 		Signer:       signer,
 		Cert:         cert,
 		StreamerName: streamer,
 		TAURL:        cli.TAURL,
-		Pub:          pub,
-		Model:        mod,
+		AQPub:        pub,
 	}, nil
 }
 
-func (ms *MediaSigner) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
+func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
 	title := "livestream"
 	mani := obj{
 		"title": fmt.Sprintf("Livestream Segment at %s", aqtime.FromMillis(start)),
@@ -124,4 +139,8 @@ func (ms *MediaSigner) SignMP4(ctx context.Context, input io.ReadSeeker, start i
 		return nil, err
 	}
 	return bs, nil
+}
+
+func (ms *MediaSignerLocal) Pub() aqpub.Pub {
+	return ms.AQPub
 }

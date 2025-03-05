@@ -31,7 +31,6 @@ import (
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
-	v0 "stream.place/streamplace/pkg/schema/v0"
 	"stream.place/streamplace/pkg/spmetrics"
 )
 
@@ -43,12 +42,12 @@ type StreamplaceAPI struct {
 	Mimes            map[string]string
 	FirebaseNotifier notifications.FirebaseNotifier
 	MediaManager     *media.MediaManager
-	MediaSigner      *media.MediaSigner
+	MediaSigner      media.MediaSigner
 	// not thread-safe yet
 	Aliases map[string]string
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms *media.MediaSigner) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -116,8 +115,6 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.POST("/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
 	apiRouter.POST("/api/player-event", a.HandlePlayerEvent(ctx))
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
-	apiRouter.GET("/api/identity", a.HandleIdentityGET(ctx))
-	apiRouter.PUT("/api/identity/:id", a.HandleIdentityPUT(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	apiRouter.GET("/api/atproto-oauth/:platform", a.HandleATProtoOAuth(ctx))
 	apiRouter.GET("/api/live-users", a.HandleLiveUsers(ctx))
@@ -263,48 +260,6 @@ func (a *StreamplaceAPI) HandleAPI404(ctx context.Context) http.HandlerFunc {
 	}
 }
 
-func (a *StreamplaceAPI) HandleIdentityPUT(ctx context.Context) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		id := params.ByName("id")
-		if id == "" {
-			apierrors.WriteHTTPBadRequest(w, "id required", nil)
-			return
-		}
-		payload, err := io.ReadAll(req.Body)
-		if err != nil {
-			apierrors.WriteHTTPBadRequest(w, "error reading body", err)
-			return
-		}
-		signed, err := a.Signer.Verify(payload)
-		if err != nil {
-			apierrors.WriteHTTPBadRequest(w, "could not verify signature on payload", err)
-			return
-		}
-		ident, ok := signed.Data().(*v0.Identity)
-		if !ok {
-			log.Log(ctx, "got signed payload but it wasn't a golive")
-			apierrors.WriteHTTPBadRequest(w, "not a golive", nil)
-			return
-		}
-		if signed.Signer() != a.CLI.AdminAccount {
-			log.Log(ctx, "wrong user tried to golive", "signer", signed.Signer(), "admin", a.CLI.AdminAccount)
-			apierrors.WriteHTTPForbidden(w, "admins only for now", nil)
-			return
-		}
-		log.Log(ctx, "got signed & verified payload", "payload", signed)
-		if err := a.Model.UpdateIdentity(&model.Identity{
-			ID:     id,
-			Handle: ident.Handle,
-			DID:    ident.DID,
-		}); err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "unable to update settings", err)
-			return
-		}
-
-		w.WriteHeader(http.StatusNoContent)
-	}
-}
-
 func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		payload, err := io.ReadAll(req.Body)
@@ -432,25 +387,6 @@ func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle 
 		bs, err := json.Marshal(ViewCountResponse{Count: count})
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal view count", err)
-			return
-		}
-		w.Write(bs)
-	}
-}
-
-func (a *StreamplaceAPI) HandleIdentityGET(ctx context.Context) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		id := a.MediaSigner.Pub.String()
-
-		ident, err := a.Model.GetIdentity(id)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "unable to get settings", err)
-			return
-		}
-
-		bs, err := json.Marshal(ident)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
 			return
 		}
 		w.Write(bs)

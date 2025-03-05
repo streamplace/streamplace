@@ -332,7 +332,7 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 }
 
 // This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionDescription, signer *MediaSigner) (*webrtc.SessionDescription, error) {
+func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionDescription, signer MediaSigner) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err

@@ -1,22 +1,16 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/julienschmidt/httprouter"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/crypto/signers/eip712"
-	"stream.place/streamplace/pkg/crypto/signers/eip712/eip712test"
 	_ "stream.place/streamplace/pkg/media/mediatesting"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
-	v0 "stream.place/streamplace/pkg/schema/v0"
 )
 
 func TestRedirectHandler(t *testing.T) {
@@ -87,47 +81,4 @@ type MockFirebase struct {
 
 func (m *MockFirebase) Blast(ctx context.Context, nots []string, nb *notifications.NotificationBlast) error {
 	return nil
-}
-
-func TestGoLiveHandler(t *testing.T) {
-	mod, err := model.MakeDB("sqlite://:memory:")
-	require.NoError(t, err)
-	eip712test.WithTestSigner(func(signer *eip712.EIP712Signer) {
-		tests := []struct {
-			adminAccount string
-			responseCode int
-			name         string
-		}{
-			{
-				name:         "successful auth",
-				adminAccount: signer.Opts.EthAccountAddr,
-				responseCode: 204,
-			},
-			{
-				name:         "failed auth",
-				adminAccount: "0x156118110DcD4b7c91fC1F4200691d4b6e3BcaF7",
-				responseCode: 403,
-			},
-		}
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				cli := &config.CLI{AdminAccount: tt.adminAccount, FirebaseServiceAccount: "foo"}
-				a := StreamplaceAPI{CLI: cli, Model: mod, Signer: signer, FirebaseNotifier: &MockFirebase{}}
-				handler := a.HandleIdentityPUT(context.Background())
-
-				goLive := v0.Identity{
-					DID:    "did:plc:dkh4rwafdcda4ko7lewe43ml",
-					Handle: "@streamplace.bsky.social",
-				}
-				signed, err := signer.SignMessage(goLive)
-				require.NoError(t, err)
-
-				req := httptest.NewRequest("PUT", "https://stream.place/api/settings/example", bytes.NewReader(signed))
-				rr := httptest.NewRecorder()
-
-				handler(rr, req, httprouter.Params{{Key: "id", Value: "example"}})
-				require.Equal(t, tt.responseCode, rr.Code)
-			})
-		}
-	})
 }

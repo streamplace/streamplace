@@ -149,7 +149,7 @@ func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 	return nil
 }
 
-func (cli *CLI) dataFilePath(fpath []string) string {
+func (cli *CLI) DataFilePath(fpath []string) string {
 	if cli.DataDir == "" {
 		panic("no data dir configured")
 	}
@@ -165,7 +165,7 @@ func (cli *CLI) dataFilePath(fpath []string) string {
 
 // does a file exist in our data dir?
 func (cli *CLI) DataFileExists(fpath []string) (bool, error) {
-	ddpath := cli.dataFilePath(fpath)
+	ddpath := cli.DataFilePath(fpath)
 	_, err := os.Stat(ddpath)
 	if err == nil {
 		return true, nil
@@ -193,7 +193,7 @@ func (cli *CLI) DataFileWrite(fpath []string, r io.Reader, overwrite bool) error
 
 // create a file in our data dir. don't forget to close it!
 func (cli *CLI) DataFileCreate(fpath []string, overwrite bool) (*os.File, error) {
-	ddpath := cli.dataFilePath(fpath)
+	ddpath := cli.DataFilePath(fpath)
 	if !overwrite {
 		exists, err := cli.DataFileExists(fpath)
 		if err != nil {
@@ -223,12 +223,12 @@ func (cli *CLI) SegmentFilePath(user string, file string) (string, error) {
 	}
 	fname := fmt.Sprintf("%s%s", aqt.FileSafeString(), ext)
 	yr, mon, day, hr, min, _, _ := aqt.Parts()
-	return cli.dataFilePath([]string{SEGMENTS_DIR, user, yr, mon, day, hr, min, fname}), nil
+	return cli.DataFilePath([]string{SEGMENTS_DIR, user, yr, mon, day, hr, min, fname}), nil
 }
 
 // get a path to a segment file in our database
 func (cli *CLI) HLSDir(user string) (string, error) {
-	return cli.dataFilePath([]string{SEGMENTS_DIR, "hls", user}), nil
+	return cli.DataFilePath([]string{SEGMENTS_DIR, "hls", user}), nil
 }
 
 // create a segment file in our database
@@ -240,7 +240,7 @@ func (cli *CLI) SegmentFileCreate(user string, aqt aqtime.AQTime, ext string) (*
 
 // read a file from our data dir
 func (cli *CLI) DataFileRead(fpath []string, w io.Writer) error {
-	ddpath := cli.dataFilePath(fpath)
+	ddpath := cli.DataFilePath(fpath)
 
 	fd, err := os.Open(ddpath)
 	if err != nil {

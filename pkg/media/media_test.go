@@ -23,7 +23,7 @@ func getFixture(name string) string {
 	return filepath.Join(dir, "..", "..", "test", "fixtures", name)
 }
 
-func getStaticTestMediaManager(t *testing.T) (*MediaManager, *MediaSigner) {
+func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
 	dir, err := os.MkdirTemp("", "atproto-test-*")
 	require.NoError(t, err)
 	// defer os.RemoveAll(dir)
@@ -42,7 +42,8 @@ func getStaticTestMediaManager(t *testing.T) (*MediaManager, *MediaSigner) {
 	})
 	mm, err := MakeMediaManager(context.Background(), cli, signer, &boring.BoringReplicator{}, mod)
 	require.NoError(t, err)
-	ms, err := MakeMediaSigner(context.Background(), cli, "test-person", signer, mod)
+	ms, err := MakeMediaSigner(context.Background(), cli, "test-person", signer)
+	require.NoError(t, err)
 	return mm, ms
 }
 

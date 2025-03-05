@@ -79,6 +79,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return Stream(os.Args[2])
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "sign" {
+		return Sign(context.Background())
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "self-test" {
 		err := media.RunSelfTest(context.Background())
 		if err != nil {
@@ -274,7 +278,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			return err
 		}
 	}
-	ms, err := media.MakeMediaSigner(ctx, &cli, cli.StreamerName, signer, mod)
+	ms, err := media.MakeMediaSigner(ctx, &cli, cli.StreamerName, signer)
 	if err != nil {
 		return err
 	}
@@ -379,12 +383,12 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			return err
 		}
 		did := atkey.DIDKey()
-		testMediaSigner, err := media.MakeMediaSigner(ctx, &cli, did, testSigner, mod)
+		testMediaSigner, err := media.MakeMediaSigner(ctx, &cli, did, testSigner)
 		if err != nil {
 			return err
 		}
 		err = mod.UpdateIdentity(&model.Identity{
-			ID:     testMediaSigner.Pub.String(),
+			ID:     testMediaSigner.Pub().String(),
 			Handle: "stream-self-tester",
 			DID:    "",
 		})

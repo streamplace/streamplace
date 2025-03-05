@@ -489,7 +489,7 @@ func (mm *MediaManager) ToHLS(ctx context.Context, input io.Reader, m3u8 *M3U8) 
 	return nil
 }
 
-func (mm *MediaManager) IngestStream(ctx context.Context, input io.Reader, ms *MediaSigner) error {
+func (mm *MediaManager) IngestStream(ctx context.Context, input io.Reader, ms MediaSigner) error {
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! matroskademux name=demux",
 		"demux. ! queue ! h264parse name=parse",
@@ -574,7 +574,7 @@ type QRData struct {
 	Now int64 `json:"now"`
 }
 
-func (mm *MediaManager) TestSource(ctx context.Context, ms *MediaSigner) error {
+func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 	mainLoop := glib.NewMainLoop(glib.MainContextDefault(), false)
 
 	pipelineSlice := []string{
@@ -703,7 +703,7 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms *MediaSigner) error {
 }
 
 // element that takes the input stream, muxes to mp4, and signs the result
-func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms *MediaSigner) (*gst.Element, error) {
+func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) (*gst.Element, error) {
 	// elem, err := gst.NewElement("splitmuxsink name=splitter async-finalize=true sink-factory=appsink muxer-factory=matroskamux max-size-bytes=1")
 	elem, err := gst.NewElementWithProperties("splitmuxsink", map[string]any{
 		"name":           "signer",

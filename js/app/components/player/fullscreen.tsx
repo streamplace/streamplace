@@ -6,46 +6,61 @@ import { PlayerProps } from "./props";
 import Video from "./video";
 import VideoRetry from "./video-retry";
 
+declare global {
+  interface HTMLVideoElement {
+    webkitEnterFullscreen?: () => Promise<void>;
+  }
+}
+
+/**
+ * Returns true if the current device is an iOS device.
+ *
+ * source: https://stackoverflow.com/a/62094756/2311366
+ * license: CC BY-SA 4.0
+ */
+const isIOS = () => {
+  const iosQuirkPresent = () => {
+    const audio = new Audio();
+    audio.volume = 0.5;
+    return audio.volume === 1; // volume cannot be changed from "1" on iOS 12 and below
+  };
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isAppleDevice = navigator.userAgent.includes("Macintosh");
+  const isTouchScreen = navigator.maxTouchPoints >= 1; // true for iOS 13 (and hopefully beyond)
+  return isIOS || (isAppleDevice && (isTouchScreen || iosQuirkPresent()));
+};
+
 export default function Fullscreen(props: PlayerProps) {
-  const divRef = useRef<TamaguiElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const divRef = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null!);
 
   const setFullscreen = (on: boolean) => {
-    if (!divRef.current) {
-      return;
-    }
     (async () => {
-      if (on && !document.fullscreenElement) {
-        try {
-          const div = divRef.current as HTMLDivElement;
-          if (typeof div.requestFullscreen === "function") {
-            await div.requestFullscreen();
-          } else if (videoRef.current) {
-            if (
-              typeof (videoRef.current as any).webkitEnterFullscreen ===
-              "function"
-            ) {
-              await (videoRef.current as any).webkitEnterFullscreen();
-            } else if (
-              typeof videoRef.current.requestFullscreen === "function"
-            ) {
+      if (on) {
+        if (isIOS()) {
+          // in iOS, we need to request fullscreen on the video element
+          await videoRef.current.webkitEnterFullscreen?.();
+        } else {
+          // try to fullscreen the div first, then fallback to the video element
+          if (divRef.current) {
+            try {
+              await divRef.current.requestFullscreen();
+            } catch {
               await videoRef.current.requestFullscreen();
             }
+          } else {
+            await videoRef.current.requestFullscreen();
           }
-          props.setFullscreen(true);
-        } catch (e) {
-          console.error("fullscreen failed", e.message);
         }
-      }
-      if (!on) {
-        if (document.fullscreenElement) {
+      } else {
+        if (props.fullscreen) {
           try {
             await document.exitFullscreen();
-          } catch (e) {
-            console.error("fullscreen exit failed", e.message);
+          } catch (error) {
+            console.error("fullscreen exit failed", error.message);
           }
         }
-        props.setFullscreen(false);
       }
     })();
   };

@@ -24652,6 +24652,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"rtcaudiodevice@git+https://github.com/streamplace/RTCAudioDevice.git#7b4659fe845545d366623cbc813936987144b76f":
+  version: 0.0.1
+  resolution: "rtcaudiodevice@https://github.com/streamplace/RTCAudioDevice.git#commit=7b4659fe845545d366623cbc813936987144b76f"
+  checksum: 10/14f3e0e17c837a27ee8639d950950289b5fab49a15331a0a465600e94a2707499a4a10fa00bb472a6459e58561477be8289f6b2cbf23722b63503a33e4dcfbd4
+  languageName: node
+  linkType: hard
+
 "run-async@npm:^2.4.0":
   version: 2.4.1
   resolution: "run-async@npm:2.4.1"
@@ -25722,6 +25729,7 @@ __metadata:
     react-native-webrtc: "npm:^124.0.4"
     react-native-webview: "npm:13.12.4"
     react-redux: "npm:^9.1.2"
+    rtcaudiodevice: "git+https://github.com/streamplace/RTCAudioDevice.git#7b4659fe845545d366623cbc813936987144b76f"
     tamagui: "npm:^1.123.17"
     typescript: "npm:~5.3.3"
     ua-parser-js: "npm:^2.0.0-rc.1"

@@ -1,10 +1,12 @@
 import {
   ConfigPlugin,
+  IOSConfig,
+  withAppDelegate,
   withEntitlementsPlist,
   withMainApplication,
   withXcodeProject,
 } from "expo/config-plugins";
-
+import path from "path";
 export const withNotificationsIOS: ConfigPlugin = (config) => {
   config = withEntitlementsPlist(config, (config) => {
     config.modResults["aps-environment"] = "production";
@@ -86,6 +88,80 @@ export const withWorkingAndroidWebRTCAudio: ConfigPlugin = (configOuter) => {
   });
 };
 
+const iosDelegateReplacements = [
+  {
+    from: "#import <React/RCTLinkingManager.h>",
+    to: (config) => `
+#import <React/RCTLinkingManager.h>
+#import <WebRTC/WebRTC.h>
+#import <react-native-webrtc-umbrella.h>
+#import "ExpoModulesCore-Swift.h"
+#import "${config.name}-Swift.h"
+`,
+  },
+  {
+    from: "  self.initialProps = @{};",
+    to: () => `
+  self.initialProps = @{};
+  ////RTC PATCH////
+  RTCAudioSessionConfiguration* config = [RTCAudioSessionConfiguration webRTCConfiguration];
+
+  AVAudioSession * session = [AVAudioSession sharedInstance];
+  // Set audio to use phone speaker instead of headset speaker
+  [session setCategory:AVAudioSessionCategoryPlayAndRecord
+           withOptions:AVAudioSessionCategoryOptionDefaultToSpeaker | AVAudioSessionCategoryOptionAllowBluetooth
+                 error:nil];
+  [session setActive:YES error:nil];
+
+  id<RTCAudioDevice> device;
+  device = [[AUAudioUnitRTCAudioDevice alloc] init];
+
+  WebRTCModuleOptions *options = [WebRTCModuleOptions sharedInstance];
+  options.loggingSeverity = RTCLoggingSeverityWarning;
+  options.audioDevice = device;
+  ////END RTC PATCH////
+    `,
+  },
+];
+
+const withWorkingIOSWebRTCAudio: ConfigPlugin = (config) => {
+  const files = [
+    "AUAudioUnitRTCAudioDevice.swift",
+    "AudioSessionHandler.swift",
+    "SimpleAudioConverter.swift",
+    "Utils.swift",
+  ];
+
+  // modify the app delegate to make use of the CustomRTCAudioDevice
+  config = withAppDelegate(config, (config) => {
+    let stringContents: string = config.modResults.contents;
+
+    for (const { from, to } of iosDelegateReplacements) {
+      stringContents = stringContents.replace(from, to(config));
+    }
+
+    config.modResults.contents = stringContents;
+
+    return config;
+  });
+
+  // add the CustomRTCAudioDevice files to the xcode project
+  config = withXcodeProject(config, (config) => {
+    const rtc = require.resolve("rtcaudiodevice");
+    for (const file of files) {
+      IOSConfig.XcodeUtils.addBuildSourceFileToGroup({
+        filepath: path.resolve(rtc, "..", "CustomRTCAudioDevice", file),
+        groupName: config.name,
+        project: config.modResults,
+      });
+    }
+
+    return config;
+  });
+
+  return config;
+};
+
 // turn a semver string into a always-increasing integer for google
 export const versionCode = (verStr: string) => {
   const [major, minor, patch] = verStr.split(".").map((x) => parseInt(x));
@@ -155,6 +231,7 @@ export default function () {
         favicon: "./assets/images/favicon.png",
       },
       plugins: [
+        withWorkingIOSWebRTCAudio,
         withWorkingAndroidWebRTCAudio,
         "@config-plugins/react-native-webrtc",
         ["expo-sqlite", { useSQLCipher: true }],

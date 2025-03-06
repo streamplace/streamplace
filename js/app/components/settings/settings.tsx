@@ -1,9 +1,14 @@
-import { setURL } from "features/streamplace/streamplaceSlice";
+import {
+  selectTelemetry,
+  setURL,
+  telemetryOpt,
+} from "features/streamplace/streamplaceSlice";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useState } from "react";
-import { useAppDispatch } from "store/hooks";
-import { Button, Form, H3, Input, View, XStack } from "tamagui";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { Button, Form, H3, Input, View, XStack, Label } from "tamagui";
 import { Updates } from "./updates";
+import { Switch } from "react-native";
 
 export function Settings() {
   const dispatch = useAppDispatch();
@@ -13,6 +18,7 @@ export function Settings() {
     dispatch(setURL(newUrl));
     setNewUrl("");
   };
+  const telemetry = useAppSelector(selectTelemetry);
   return (
     <View f={1} alignItems="stretch" justifyContent="center" fg={1}>
       <Updates />
@@ -42,6 +48,32 @@ export function Settings() {
           </Form.Trigger>
         </XStack>
       </Form>
+      <View
+        alignItems="center"
+        justifyContent="center"
+        gap="$2"
+        fg={1}
+        flexBasis={0}
+      >
+        <Label>
+          <H3>Optional Player Telemetry</H3>
+        </Label>
+        <View backgroundColor="$outlineColor" padding="$5" borderRadius="$20">
+          <Switch
+            style={{
+              transform: [{ scaleX: 1.5 }, { scaleY: 1.5 }],
+            }}
+            value={telemetry === true}
+            onValueChange={(checked) => {
+              if (checked === true) {
+                dispatch(telemetryOpt(true));
+              } else {
+                dispatch(telemetryOpt(false));
+              }
+            }}
+          />
+        </View>
+      </View>
     </View>
   );
 }

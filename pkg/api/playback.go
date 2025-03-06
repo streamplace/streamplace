@@ -173,18 +173,24 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 			errors.WriteHTTPBadRequest(w, "invalid content type", nil)
 			return
 		}
-		auth := r.Header.Get("Authorization")
-		if auth == "" {
-			errors.WriteHTTPUnauthorized(w, "authorization header required", nil)
-			return
+		var encoded string
+		urlKey := p.ByName("key")
+		if urlKey != "" {
+			encoded = urlKey
+		} else {
+			auth := r.Header.Get("Authorization")
+			if auth == "" {
+				errors.WriteHTTPUnauthorized(w, "authorization header required", nil)
+				return
+			}
+			if !strings.HasPrefix(auth, BEARER_PREFIX) {
+				errors.WriteHTTPUnauthorized(w, "invalid authorization header (needs Bearer prefix)", nil)
+				return
+			}
+			encoded = auth[len(BEARER_PREFIX):]
+			// it's easy to copy-paste a trailing or leading space, so clear those out
+			encoded = strings.TrimSpace(encoded)
 		}
-		if !strings.HasPrefix(auth, BEARER_PREFIX) {
-			errors.WriteHTTPUnauthorized(w, "invalid authorization header (needs Bearer prefix)", nil)
-			return
-		}
-		encoded := auth[len(BEARER_PREFIX):]
-		// it's easy to copy-paste a trailing or leading space, so clear those out
-		encoded = strings.TrimSpace(encoded)
 		if len(encoded) < 2 || encoded[0] != 'z' {
 			errors.WriteHTTPUnauthorized(w, "invalid authorization key (not a multibase base58btc string)", nil)
 			return

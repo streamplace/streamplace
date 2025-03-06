@@ -18,7 +18,6 @@ import {
   User,
   ShieldQuestion,
   Download,
-  X,
   Video,
 } from "@tamagui/lucide-icons";
 import { Provider, Settings } from "components";
@@ -35,7 +34,7 @@ import {
   StatusBar,
 } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { useTheme, Text, View, H3, Button } from "tamagui";
+import { useTheme, Text, View, H3 } from "tamagui";
 import AppReturnScreen from "./screens/app-return";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
@@ -55,6 +54,7 @@ import { pollSegments } from "features/streamplace/streamplaceSlice";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useToastController } from "@tamagui/toast";
 import LiveDashboard from "./screens/live-dashboard";
+import Popup from "components/popup";
 function HomeScreen() {
   return (
     <View f={1}>
@@ -355,46 +355,27 @@ export function StreamplaceDrawer() {
         />
       </Drawer.Navigator>
       {livePopup && (
-        <View
-          position="absolute"
-          bottom="$8"
-          f={1}
-          alignItems="center"
-          width="100%"
+        <Popup
+          onPress={() => {
+            navigation.navigate("LiveDashboard");
+            setLivePopup(false);
+          }}
+          onClose={() => {
+            setLivePopup(false);
+          }}
+          containerProps={{
+            bottom: "$8",
+          }}
+          bubbleProps={{
+            cursor: "pointer",
+            backgroundColor: "#cc0000",
+          }}
         >
-          <View
-            backgroundColor="#cc0000"
-            f={1}
-            alignItems="center"
-            padding="$4"
-            borderRadius="$4"
-            cursor="pointer"
-            onPress={() => {
-              navigation.navigate("LiveDashboard");
-              setLivePopup(false);
-            }}
-            position="relative"
-          >
-            <H3>✨YOU ARE LIVE!!!✨</H3>
-            <Button
-              position="absolute"
-              top="$0"
-              right="$0"
-              onPress={(e) => {
-                e.stopPropagation();
-                setLivePopup(false);
-              }}
-              marginRight={-15}
-              marginTop={-5}
-              backgroundColor="transparent"
-            >
-              <X />
-            </Button>
-            <Text>
-              {isNative ? "Tap" : "Click"} here to go to the live dashboard
-            </Text>
-          </View>
-        </View>
+          <H3 textAlign="center">✨YOU ARE LIVE!!!✨</H3>
+          <Text>
+            {isNative ? "Tap" : "Click"} here to go to the live dashboard
+          </Text>
+        </Popup>
       )}
     </>
   );

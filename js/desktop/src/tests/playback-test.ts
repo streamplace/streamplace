@@ -42,6 +42,7 @@ export const playbackTest: E2ETest = {
       playerId: `${testId}-${x.name}`,
       src: `${testEnv.addr}/api/playback/self-test${x.src}`,
       showControls: true,
+      telemetry: true,
     }));
     const enc = encodeURIComponent(JSON.stringify(tests));
 

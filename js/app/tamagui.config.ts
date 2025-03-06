@@ -96,7 +96,7 @@ const streamplaceConfig = {
     dark: {
       ...configBase.themes.dark,
       accentColor: "rgb(189, 110, 134)",
-      accentBackground: "rgb(17, 49, 35)",
+      accentBackground: "rgb(39, 43, 80)",
       background2: "rgb(18, 18, 18)",
     },
   },

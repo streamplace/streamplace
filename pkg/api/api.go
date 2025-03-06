@@ -113,6 +113,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/app-return/*anything", a.HandleAppReturn(ctx))
 	apiRouter.POST("/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
 	apiRouter.POST("/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
+	apiRouter.POST("/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
 	apiRouter.POST("/api/player-event", a.HandlePlayerEvent(ctx))
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))

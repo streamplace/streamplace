@@ -85,6 +85,9 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     eventType: string,
     meta: { [key: string]: any },
   ) => {
+    if (props.telemetry !== true) {
+      return;
+    }
     const data: PlayerEvent = {
       time: time,
       playerId: playerId,

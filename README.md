@@ -63,6 +63,22 @@ export AQ_APP_SCHEME=com.example.streamplace
 yarn run app ios
 ```
 
+**Streaming during development**
+
+You can stream OBS into your local Streamplace node the same way you would in a
+production setting. OBS can be a bit resource-intensive, so you can also run a
+WHIP-enabled FFMPEG on the command line. That command might look like this:
+
+```
+docker run -it --rm \
+  -v $HOME/testvids:/testvids \
+  docker.io/ggtoms/ffmpeg-webrtc \
+  /usr/local/ffmpeg-webrtc/ffmpeg -re -i \
+  [EXAMPLE-VIDEO.mp4] \
+  -c copy -f whip \
+  http://[LAN IP ADDRESS]:38080/api/ingest/webrtc/[STREAM KEY]
+```
+
 **Desktop Development**
 
 ```

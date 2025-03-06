@@ -44,6 +44,7 @@ export interface StreamplaceState {
     error: string | null;
     loading: boolean;
   };
+  telemetry: boolean | null;
 }
 
 const initialState: StreamplaceState = {
@@ -55,6 +56,7 @@ const initialState: StreamplaceState = {
     error: null,
     loading: false,
   },
+  telemetry: null,
 };
 
 export const streamplaceSlice = createAppSlice({
@@ -63,21 +65,31 @@ export const streamplaceSlice = createAppSlice({
   reducers: (create) => ({
     initialize: create.asyncThunk(
       async (_, { getState }) => {
-        let url = await Storage.getItem("streamplaceUrl");
+        let [url, telemetryStr] = await Promise.all([
+          Storage.getItem("streamplaceUrl"),
+          Storage.getItem("streamplaceTelemetry"),
+        ]);
         if (!url) {
           url = DEFAULT_URL;
         }
-        return url;
+        let telemetry: boolean | null = null;
+        if (typeof telemetryStr === "string") {
+          telemetry = JSON.parse(telemetryStr);
+        } else {
+          telemetry = null;
+        }
+        return { url, telemetry };
       },
       {
         pending: (state) => {
           // state.status = "loading";
         },
         fulfilled: (state, action) => {
-          const url = action.payload;
+          const { url, telemetry } = action.payload;
           return {
             ...state,
             url,
+            telemetry,
             initialized: true,
           };
         },
@@ -94,6 +106,19 @@ export const streamplaceSlice = createAppSlice({
       return {
         ...state,
         url: action.payload,
+      };
+    }),
+
+    telemetryOpt: create.reducer((state, action: { payload: boolean }) => {
+      Storage.setItem(
+        "streamplaceTelemetry",
+        JSON.stringify(action.payload),
+      ).catch((err) => {
+        console.error("telemetryOpt error", err);
+      });
+      return {
+        ...state,
+        telemetry: action.payload,
       };
     }),
 
@@ -177,11 +202,12 @@ export const streamplaceSlice = createAppSlice({
   selectors: {
     selectStreamplace: (streamplace) => streamplace,
     selectRecentSegments: (streamplace) => streamplace.recentSegments,
+    selectTelemetry: (streamplace) => streamplace.telemetry,
   },
 });
 
 // Action creators are generated for each case reducer function.
-export const { getIdentity, setURL, initialize, pollSegments } =
+export const { getIdentity, setURL, initialize, pollSegments, telemetryOpt } =
   streamplaceSlice.actions;
-export const { selectStreamplace, selectRecentSegments } =
+export const { selectStreamplace, selectRecentSegments, selectTelemetry } =
   streamplaceSlice.selectors;

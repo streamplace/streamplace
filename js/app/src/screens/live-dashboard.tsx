@@ -23,6 +23,7 @@ export default function LiveDashboard() {
   const userProfile = useAppSelector(selectUserProfile);
   const [streamSource, setStreamSource] = useState(StreamSource.Start);
   const isLive = useLiveUser();
+  const telemetry = useAppSelector(selectTelemetry);
   if (!isReady) {
     return <Loading />;
   }
@@ -35,7 +36,13 @@ export default function LiveDashboard() {
     params = new URLSearchParams(window.location.search);
   }
   if (isLive && streamSource !== StreamSource.Camera) {
-    topPane = <Player src={userProfile.did} name={userProfile.handle} />;
+    topPane = (
+      <Player
+        telemetry={telemetry === true}
+        src={userProfile.did}
+        name={userProfile.handle}
+      />
+    );
   } else if (streamSource === StreamSource.Start) {
     topPane = <StreamSourcePicker onPick={setStreamSource} />;
   } else if (streamSource === StreamSource.Camera) {
@@ -82,6 +89,7 @@ export default function LiveDashboard() {
 import { Camera, FerrisWheel, X } from "@tamagui/lucide-icons";
 import { H6, Text } from "tamagui";
 import Waiting from "components/live-dashboard/waiting";
+import { selectTelemetry } from "features/streamplace/streamplaceSlice";
 const elems = [
   {
     title: "Stream your camera!",

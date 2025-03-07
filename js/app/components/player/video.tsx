@@ -2,10 +2,10 @@ import Hls from "hls.js";
 import {
   ForwardedRef,
   forwardRef,
-  RefObject,
   useEffect,
   useState,
   useCallback,
+  MutableRefObject,
 } from "react";
 import { View } from "tamagui";
 import {
@@ -29,7 +29,7 @@ import { quietReceiver } from "./av-sync";
 type VideoProps = PlayerProps & { url: string };
 
 export default function WebVideo(
-  props: PlayerProps & { videoRef: RefObject<HTMLVideoElement> },
+  props: PlayerProps & { videoRef: MutableRefObject<HTMLVideoElement> },
 ) {
   const { url, protocol } = srcToUrl(props);
   useEffect(() => {
@@ -138,19 +138,19 @@ const VideoElement = forwardRef(
 );
 
 export function ProgressiveMP4Player(
-  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
+  props: VideoProps & { videoRef: MutableRefObject<HTMLVideoElement> },
 ) {
   return <VideoElement {...props} ref={props.videoRef} />;
 }
 
 export function ProgressiveWebMPlayer(
-  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
+  props: VideoProps & { videoRef: MutableRefObject<HTMLVideoElement> },
 ) {
   return <VideoElement {...props} ref={props.videoRef} />;
 }
 
 export function HLSPlayer(
-  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
+  props: VideoProps & { videoRef: MutableRefObject<HTMLVideoElement> },
 ) {
   const videoRef = props.videoRef;
   useEffect(() => {
@@ -190,7 +190,7 @@ export function HLSPlayer(
 }
 
 export function WebRTCPlayer(
-  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
+  props: VideoProps & { videoRef: MutableRefObject<HTMLVideoElement> },
 ) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
@@ -268,7 +268,7 @@ export function WebRTCPlayer(
 }
 
 export function WebcamIngestPlayer(
-  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
+  props: VideoProps & { videoRef: MutableRefObject<HTMLVideoElement> },
 ) {
   const dispatch = useAppDispatch();
   const player = useAppSelector(usePlayer());
@@ -279,6 +279,7 @@ export function WebcamIngestPlayer(
   const handleRef = useCallback((node: HTMLVideoElement | null) => {
     if (node) {
       setVideoElement(node);
+      props.videoRef.current = node;
     }
   }, []);
 

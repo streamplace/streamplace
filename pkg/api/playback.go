@@ -202,10 +202,6 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 		var didBytes []byte
 		priv, err := atcrypto.ParsePrivateMultibase(encoded)
 		if err == nil {
-			if err != nil {
-				errors.WriteHTTPUnauthorized(w, "invalid authorization key (not valid secp256k1)", nil)
-				return
-			}
 			addrBytes = priv.Bytes()
 		} else {
 			decoded, err := base58.Decode(encoded[1:])

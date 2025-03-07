@@ -37,7 +37,8 @@ export default function StreamList({
   >;
 }) {
   const { url } = useStreamplaceNode();
-  const { segments, error, loading } = useAppSelector(selectRecentSegments);
+  const { segments, error, loading, firstRequest } =
+    useAppSelector(selectRecentSegments);
   const dispatch = useAppDispatch();
   const [manualRefresh, setManualRefresh] = useState(false);
   useEffect(() => {
@@ -59,6 +60,9 @@ export default function StreamList({
         }}
       />
     );
+  }
+  if (firstRequest) {
+    return <Loading />;
   }
   return (
     <ScrollView

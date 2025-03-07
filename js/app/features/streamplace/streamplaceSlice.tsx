@@ -43,6 +43,7 @@ export interface StreamplaceState {
     segments: Segment[];
     error: string | null;
     loading: boolean;
+    firstRequest: boolean;
   };
   telemetry: boolean | null;
 }
@@ -55,6 +56,7 @@ const initialState: StreamplaceState = {
     segments: [],
     error: null,
     loading: false,
+    firstRequest: true,
   },
   telemetry: null,
 };
@@ -182,6 +184,7 @@ export const streamplaceSlice = createAppSlice({
               segments: action.payload,
               loading: false,
               error: null,
+              firstRequest: false,
             },
           };
         },

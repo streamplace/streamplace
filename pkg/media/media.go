@@ -355,6 +355,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	// special case for test signers that are only signed with a key
 	var repoDID string
 	var signingKeyDID string
+	log.Log(ctx, "meta.Creator", "meta.Creator", meta.Creator)
 	if strings.HasPrefix(meta.Creator, constants.DID_KEY_PREFIX) {
 		signingKeyDID = meta.Creator
 		repoDID = meta.Creator

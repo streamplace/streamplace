@@ -75,6 +75,7 @@ type CLI struct {
 	RelayHost              string
 	Debug                  map[string]map[string]int
 	AllowedStreams         []string
+	WideOpen               bool
 	Peers                  []string
 	TestStream             bool
 	FrontendProxy          string
@@ -334,6 +335,9 @@ func (cli *CLI) DebugFlag(fs *flag.FlagSet, dest *map[string]map[string]int, nam
 }
 
 func (cli *CLI) StreamIsAllowed(did string) error {
+	if cli.WideOpen {
+		return nil
+	}
 	// if the user set no test streams, anyone can stream
 	openServer := len(cli.AllowedStreams) == 0 || (cli.TestStream && len(cli.AllowedStreams) == 1)
 	// but only valid atproto accounts! did:key is only allowed for our local test stream

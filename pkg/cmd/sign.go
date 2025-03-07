@@ -29,6 +29,10 @@ func Sign(ctx context.Context) error {
 		return err
 	}
 
+	if *streamerName == "" {
+		return fmt.Errorf("streamer name is required")
+	}
+
 	secpSigner, _ := secp256k1.PrivKeyFromBytes(keyBs)
 	if secpSigner == nil {
 		return fmt.Errorf("invalid key")

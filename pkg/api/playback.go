@@ -212,12 +212,6 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 
 		did := string(didBytes)
 
-		mediaSigner, err := media.MakeMediaSignerExt(ctx, a.CLI, did, addrBytes)
-		if err != nil {
-			errors.WriteHTTPUnauthorized(w, "invalid authorization key (not valid secp256k1)", err)
-			return
-		}
-
 		if did != "" {
 			repo, err := atproto.SyncBlueskyRepo(ctx, did, a.Model)
 			if err != nil {
@@ -241,6 +235,12 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 				apierrors.WriteHTTPUnauthorized(w, "user is not allowed to stream", err)
 				return
 			}
+		}
+
+		mediaSigner, err := media.MakeMediaSignerExt(ctx, a.CLI, did, addrBytes)
+		if err != nil {
+			errors.WriteHTTPUnauthorized(w, "invalid authorization key (not valid secp256k1)", err)
+			return
 		}
 
 		body, err := io.ReadAll(r.Body)

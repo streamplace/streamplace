@@ -87,7 +87,7 @@ func (ms *MediaSignerExt) SignMP4(ctx context.Context, input io.ReadSeeker, star
 	// Copy input to stdin
 	_, err = io.Copy(stdin, input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to write to stdin: %w", err)
+		return nil, fmt.Errorf("failed to write to stdin: %w stderr=%s", err, stderr.String())
 	}
 	stdin.Close()
 

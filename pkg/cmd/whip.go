@@ -31,7 +31,12 @@ func WHIP() error {
 	streamKey := fs.String("stream-key", "", "stream key")
 	count := fs.Int("count", 1, "number of concurrent streams (for load testing)")
 	duration := fs.Duration("duration", 0, "duration of the stream")
+	file := fs.String("file", "", "file to stream (needs to be an MP4 containing H264 video and Opus audio)")
+	endpoint := fs.String("endpoint", "http://127.0.0.1:38080", "endpoint to send the WHIP request to")
 	err := fs.Parse(os.Args[2:])
+	if *file == "" {
+		return fmt.Errorf("file is required")
+	}
 	if err != nil {
 		return err
 	}
@@ -47,6 +52,8 @@ func WHIP() error {
 	for i := 0; i < *count; i++ {
 		w := &WHIPClient{
 			StreamKey: *streamKey,
+			File:      *file,
+			Endpoint:  *endpoint,
 		}
 		g.Go(func() error {
 			return w.WHIP(ctx)
@@ -58,6 +65,8 @@ func WHIP() error {
 
 type WHIPClient struct {
 	StreamKey string
+	File      string
+	Endpoint  string
 }
 
 var failureStates = []webrtc.ICEConnectionState{
@@ -69,9 +78,7 @@ var failureStates = []webrtc.ICEConnectionState{
 
 func (w *WHIPClient) WHIP(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
-	// audioSrc := flag.String("audio-src", "audiotestsrc", "GStreamer audio src")
-	// videoSrc := flag.String("video-src", "videotestsrc", "GStreamer video src")
-	// flag.Parse()
+	defer cancel()
 
 	var streamKey string
 	if w.StreamKey != "" {
@@ -93,8 +100,6 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 
 	// Initialize GStreamer
 	gst.Init(nil)
-
-	// Everything below is the Pion WebRTC API! Thanks for using it ❤️.
 
 	// Prepare the configuration
 	config := webrtc.Configuration{}
@@ -142,8 +147,6 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Println(offer.SDP)
-
 	// Set the generated offer as our LocalDescription
 	err = peerConnection.SetLocalDescription(offer)
 	if err != nil {
@@ -158,7 +161,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	client := &http.Client{}
 
 	// Send the WHIP request to the server
-	req, err := http.NewRequest("POST", "http://127.0.0.1:38080", strings.NewReader(offer.SDP))
+	req, err := http.NewRequest("POST", w.Endpoint, strings.NewReader(offer.SDP))
 	if err != nil {
 		return err
 	}
@@ -193,7 +196,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	<-gatherComplete
 
 	pipelineSlice := []string{
-		"filesrc location=/home/iameli/testvids/RocketLeague_1h55m_1sGOP_1080p60_NoBframes.mp4 ! qtdemux name=demux",
+		"filesrc name=filesrc ! qtdemux name=demux",
 		"demux.video_0 ! tee name=video_tee",
 		"demux.audio_0 ! tee name=audio_tee",
 		"video_tee. ! queue ! h264parse ! video/x-h264,stream-format=byte-stream ! appsink name=videoappsink",
@@ -207,6 +210,13 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	fileSrc, err := pipeline.GetElementByName("filesrc")
+	if err != nil {
+		return err
+	}
+
+	fileSrc.Set("location", w.File)
 
 	videoSink, err := pipeline.GetElementByName("videoappsink")
 	if err != nil {

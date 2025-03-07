@@ -9,6 +9,8 @@ export const useLiveUser = (): boolean => {
   if (!profile) {
     return false;
   }
-  const isLive = segments.some((segment) => segment.repo.did === profile.did);
+  const isLive = segments.some(
+    (segment) => segment.repo && segment.repo.did === profile.did,
+  );
   return isLive;
 };

@@ -122,6 +122,17 @@ func (mm *MediaManager) SubscribeSegment(ctx context.Context, user string) <-cha
 	return c
 }
 
+func (mm *MediaManager) UnsubscribeSegment(ctx context.Context, user string, ch <-chan string) {
+	mm.mp4subsmut.Lock()
+	defer mm.mp4subsmut.Unlock()
+	for i, c := range mm.mp4subs[user] {
+		if c == ch {
+			mm.mp4subs[user] = append(mm.mp4subs[user][:i], mm.mp4subs[user][i+1:]...)
+			break
+		}
+	}
+}
+
 // subscribe to the latest segments from a given user for livestreaming purposes
 func (mm *MediaManager) PublishSegment(ctx context.Context, user, file string) {
 	mm.mp4subsmut.Lock()

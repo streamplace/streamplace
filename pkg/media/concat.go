@@ -16,6 +16,7 @@ import (
 
 type ConcatStreamer interface {
 	SubscribeSegment(ctx context.Context, user string) <-chan string
+	UnsubscribeSegment(ctx context.Context, user string, ch <-chan string)
 }
 
 // This function remains in scope for the duration of a single users' playback
@@ -127,11 +128,13 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, stre
 	allFiles := make(chan string, 1024)
 	go func() {
 		for {
+			ch := streamer.SubscribeSegment(ctx, user)
 			select {
 			case <-ctx.Done():
 				log.Warn(ctx, "exiting segment reader")
+				streamer.UnsubscribeSegment(ctx, user, ch)
 				return
-			case file := <-streamer.SubscribeSegment(ctx, user):
+			case file := <-ch:
 				log.Debug(ctx, "got segment", "file", file)
 				allFiles <- file
 				if file == "" {

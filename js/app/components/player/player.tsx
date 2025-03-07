@@ -49,7 +49,7 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     );
   }
   const playerId = useMemo(() => props.playerId ?? uuidv7(), [props.playerId]);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [touchTime, setTouchTime] = useState(0);
   useEffect(() => {

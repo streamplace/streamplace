@@ -6,6 +6,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { View } from "tamagui";
 import {
@@ -77,12 +78,49 @@ const VideoElement = forwardRef(
       }
       props.playerEvent(now.toISOString(), evType, {});
     };
+    const [firstAttempt, setFirstAttempt] = useState(true);
+    const [mutedAttempt, setMutedAttempt] = useState(false);
+
+    const localVideoRef = useRef<HTMLVideoElement | null>(null);
+    const canPlayThrough = (e) => {
+      event("canplaythrough")(e);
+      if (firstAttempt && localVideoRef.current) {
+        setFirstAttempt(false);
+        localVideoRef.current.play().catch((err) => {
+          if (err.name === "NotAllowedError") {
+            if (localVideoRef.current) {
+              props.setMuted(true);
+              localVideoRef.current.muted = true;
+              localVideoRef.current.play().catch((err) => {
+                console.error("error playing video", err);
+              });
+            }
+          }
+        });
+      }
+    };
 
     useEffect(() => {
       return () => {
         props.setStatus(PlayerStatus.START);
       };
     }, []);
+
+    // Use a callback ref to handle when the video element is mounted
+    const handleVideoRef = (videoElement: HTMLVideoElement | null) => {
+      if (videoElement && typeof ref === "function") {
+        ref(videoElement);
+      } else if (videoElement && ref && "current" in ref) {
+        ref.current = videoElement;
+      }
+
+      // Additional initialization can be done here when the video element is first mounted
+      if (videoElement) {
+        console.log("Video element mounted");
+        // You can add additional setup logic here if needed
+        localVideoRef.current = videoElement;
+      }
+    };
 
     return (
       <View
@@ -94,7 +132,7 @@ const VideoElement = forwardRef(
         <video
           autoPlay={true}
           playsInline={true}
-          ref={ref}
+          ref={handleVideoRef}
           controls={false}
           src={props.ingest ? undefined : props.url}
           muted={props.muted}
@@ -103,7 +141,7 @@ const VideoElement = forwardRef(
           onClick={props.userInteraction}
           onAbort={event("abort")}
           onCanPlay={event("canplay")}
-          onCanPlayThrough={event("canplaythrough")}
+          onCanPlayThrough={canPlayThrough}
           // onDurationChange={event("durationchange")}
           onEmptied={event("emptied")}
           onEncrypted={event("encrypted")}

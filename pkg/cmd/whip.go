@@ -198,7 +198,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 		"demux.video_0 ! tee name=video_tee",
 		"demux.audio_0 ! tee name=audio_tee",
 		"video_tee. ! queue ! h264parse ! video/x-h264,stream-format=byte-stream ! appsink name=videoappsink",
-		"audio_tee. ! queue ! opusparse ! rtpopuspay ! appsink name=audioappsink",
+		"audio_tee. ! queue ! opusparse ! appsink name=audioappsink",
 		// "matroskamux name=mux ! fakesink name=fakesink sync=true",
 		// "video_tee. ! mux.video_0",
 		// "audio_tee. ! mux.audio_0",

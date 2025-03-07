@@ -1,10 +1,3 @@
-// SPDX-FileCopyrightText: 2023 The Pion community <https://pion.ly>
-// SPDX-License-Identifier: MIT
-
-//go:build !js
-// +build !js
-
-// gstreamer-send is a simple application that shows how to send video to your browser using Pion WebRTC and GStreamer.
 package cmd
 
 import (
@@ -42,31 +35,27 @@ func WHIP() error {
 	}
 
 	ctx := context.Background()
-	g, ctx := errgroup.WithContext(ctx)
 	if *duration > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, *duration)
 		defer cancel()
 	}
 
-	for i := 0; i < *count; i++ {
-		w := &WHIPClient{
-			StreamKey: *streamKey,
-			File:      *file,
-			Endpoint:  *endpoint,
-		}
-		g.Go(func() error {
-			return w.WHIP(ctx)
-		})
+	w := &WHIPClient{
+		StreamKey: *streamKey,
+		File:      *file,
+		Endpoint:  *endpoint,
+		Count:     *count,
 	}
 
-	return g.Wait()
+	return w.WHIP(ctx)
 }
 
 type WHIPClient struct {
 	StreamKey string
 	File      string
 	Endpoint  string
+	Count     int
 }
 
 var failureStates = []webrtc.ICEConnectionState{
@@ -76,30 +65,33 @@ var failureStates = []webrtc.ICEConnectionState{
 	webrtc.ICEConnectionStateCompleted,
 }
 
-func (w *WHIPClient) WHIP(ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+type WHIPConnection struct {
+	peerConnection *webrtc.PeerConnection
+	audioTrack     *webrtc.TrackLocalStaticSample
+	videoTrack     *webrtc.TrackLocalStaticSample
+	did            string
+}
+
+func (w *WHIPClient) StartWHIPConnection(ctx context.Context) (*WHIPConnection, error) {
 
 	var streamKey string
+	var did string
 	if w.StreamKey != "" {
 		streamKey = w.StreamKey
 	} else {
 		priv, err := atcrypto.GeneratePrivateKeyK256()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		pub, err := priv.PublicKey()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		did := pub.DIDKey()
+		did = pub.DIDKey()
 		ctx = log.WithLogValues(ctx, "did", did)
 		streamKey = priv.Multibase()
 	}
-
-	// Initialize GStreamer
-	gst.Init(nil)
 
 	// Prepare the configuration
 	config := webrtc.Configuration{}
@@ -107,50 +99,39 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	// Create a new RTCPeerConnection
 	peerConnection, err := webrtc.NewPeerConnection(config)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	// Set the handler for ICE connection state
-	// This will notify you when the peer has connected/disconnected
-	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		log.Log(ctx, "connection State has changed", "state", connectionState.String())
-		for _, state := range failureStates {
-			if connectionState == state {
-				cancel()
-			}
-		}
-	})
 
 	// Create a audio track
 	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "pion1")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	_, err = peerConnection.AddTrack(audioTrack)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Create a video track
 	videoTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "video/h264"}, "video", "pion2")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	_, err = peerConnection.AddTrack(videoTrack)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Create an offer
 	offer, err := peerConnection.CreateOffer(nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Set the generated offer as our LocalDescription
 	err = peerConnection.SetLocalDescription(offer)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Wait for ICE gathering to complete
@@ -163,7 +144,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	// Send the WHIP request to the server
 	req, err := http.NewRequest("POST", w.Endpoint, strings.NewReader(offer.SDP))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+streamKey)
 	req.Header.Set("Content-Type", "application/sdp")
@@ -171,14 +152,14 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	// Execute the request
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// Read and process the answer
 	answerBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Parse the SDP answer
@@ -189,11 +170,28 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	// Apply the answer as remote description
 	err = peerConnection.SetRemoteDescription(answer)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
 	<-gatherComplete
+
+	conn := &WHIPConnection{
+		peerConnection: peerConnection,
+		audioTrack:     audioTrack,
+		videoTrack:     videoTrack,
+		did:            did,
+	}
+
+	return conn, nil
+}
+
+func (w *WHIPClient) WHIP(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Initialize GStreamer
+	gst.Init(nil)
 
 	pipelineSlice := []string{
 		"filesrc name=filesrc ! qtdemux name=demux",
@@ -229,17 +227,38 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	}
 
 	startTime := time.Now()
-	tracks := []*webrtc.TrackLocalStaticSample{
-		videoTrack,
-		audioTrack,
-	}
 	sinks := []*app.Sink{
 		app.SinkFromElement(videoSink),
 		app.SinkFromElement(audioSink),
 	}
 	// Create accumulators for tracking elapsed duration
-	accumulators := make([]time.Duration, len(tracks))
+	accumulators := make([]time.Duration, len(sinks))
 
+	conns := make([]*WHIPConnection, w.Count)
+	g := &errgroup.Group{}
+	for i := 0; i < w.Count; i++ {
+		g.Go(func() error {
+			conn, err := w.StartWHIPConnection(ctx)
+			if err != nil {
+				return err
+			}
+			conns[i] = conn
+			ctx := log.WithLogValues(ctx, "did", conn.did)
+			conn.peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+				log.Log(ctx, "connection State has changed", "state", connectionState.String())
+				for _, state := range failureStates {
+					if connectionState == state {
+						log.Log(ctx, "connection failed, cancelling")
+						cancel()
+					}
+				}
+			})
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return err
+	}
 	// Start a ticker to print elapsed duration every second
 	go func() {
 		ticker := time.NewTicker(time.Second)
@@ -261,8 +280,8 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 
-	for i, track := range tracks {
-		func(i int, track *webrtc.TrackLocalStaticSample) {
+	for i, _ := range sinks {
+		func(i int) {
 			sink := sinks[i]
 			trackType := "video"
 			if i == 1 {
@@ -297,15 +316,26 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 
 					accumulators[i] += duration
 
-					if err := track.WriteSample(media.Sample{Data: samples, Duration: duration}); err != nil {
-						errCh <- err
-						return gst.FlowError
+					for _, conn := range conns {
+						if trackType == "video" {
+							if err := conn.videoTrack.WriteSample(media.Sample{Data: samples, Duration: duration}); err != nil {
+								log.Log(ctx, "error writing video sample", "error", err)
+								errCh <- err
+								return gst.FlowError
+							}
+						} else {
+							if err := conn.audioTrack.WriteSample(media.Sample{Data: samples, Duration: duration}); err != nil {
+								log.Log(ctx, "error writing video sample", "error", err)
+								errCh <- err
+								return gst.FlowError
+							}
+						}
 					}
 
 					return gst.FlowOK
 				},
 			})
-		}(i, track)
+		}(i)
 	}
 
 	ok := pipeline.GetPipelineBus().AddWatch(func(msg *gst.Message) bool {
@@ -332,7 +362,6 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	if err = pipeline.SetState(gst.StatePlaying); err != nil {
 		return err
 	}
-
 	select {
 	case err := <-errCh:
 		return err

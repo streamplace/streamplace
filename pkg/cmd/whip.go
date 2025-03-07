@@ -8,11 +8,8 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
-	"encoding/base64"
-	"encoding/json"
-	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,19 +17,79 @@ import (
 	"strings"
 	"time"
 
+	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
+	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/log"
 )
 
 func WHIP() error {
-	ctx := context.TODO()
+	fs := flag.NewFlagSet("whip", flag.ExitOnError)
+	streamKey := fs.String("stream-key", "", "stream key")
+	count := fs.Int("count", 1, "number of concurrent streams (for load testing)")
+	duration := fs.Duration("duration", 0, "duration of the stream")
+	err := fs.Parse(os.Args[2:])
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	g, ctx := errgroup.WithContext(ctx)
+	if *duration > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, *duration)
+		defer cancel()
+	}
+
+	for i := 0; i < *count; i++ {
+		w := &WHIPClient{
+			StreamKey: *streamKey,
+		}
+		g.Go(func() error {
+			return w.WHIP(ctx)
+		})
+	}
+
+	return g.Wait()
+}
+
+type WHIPClient struct {
+	StreamKey string
+}
+
+var failureStates = []webrtc.ICEConnectionState{
+	webrtc.ICEConnectionStateFailed,
+	webrtc.ICEConnectionStateDisconnected,
+	webrtc.ICEConnectionStateClosed,
+	webrtc.ICEConnectionStateCompleted,
+}
+
+func (w *WHIPClient) WHIP(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	// audioSrc := flag.String("audio-src", "audiotestsrc", "GStreamer audio src")
 	// videoSrc := flag.String("video-src", "videotestsrc", "GStreamer video src")
 	// flag.Parse()
+
+	var streamKey string
+	if w.StreamKey != "" {
+		streamKey = w.StreamKey
+	} else {
+		priv, err := atcrypto.GeneratePrivateKeyK256()
+		if err != nil {
+			return err
+		}
+		pub, err := priv.PublicKey()
+		if err != nil {
+			return err
+		}
+
+		did := pub.DIDKey()
+		ctx = log.WithLogValues(ctx, "did", did)
+		streamKey = priv.Multibase()
+	}
 
 	// Initialize GStreamer
 	gst.Init(nil)
@@ -45,39 +102,44 @@ func WHIP() error {
 	// Create a new RTCPeerConnection
 	peerConnection, err := webrtc.NewPeerConnection(config)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// Set the handler for ICE connection state
 	// This will notify you when the peer has connected/disconnected
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("Connection State has changed %s \n", connectionState.String())
+		log.Log(ctx, "connection State has changed", "state", connectionState.String())
+		for _, state := range failureStates {
+			if connectionState == state {
+				cancel()
+			}
+		}
 	})
 
 	// Create a audio track
 	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "pion1")
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = peerConnection.AddTrack(audioTrack)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// Create a video track
 	videoTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "video/h264"}, "video", "pion2")
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = peerConnection.AddTrack(videoTrack)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	// Create an answer
+	// Create an offer
 	offer, err := peerConnection.CreateOffer(nil)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	fmt.Println(offer.SDP)
@@ -85,7 +147,7 @@ func WHIP() error {
 	// Set the generated offer as our LocalDescription
 	err = peerConnection.SetLocalDescription(offer)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// Wait for ICE gathering to complete
@@ -98,22 +160,22 @@ func WHIP() error {
 	// Send the WHIP request to the server
 	req, err := http.NewRequest("POST", "http://127.0.0.1:38080", strings.NewReader(offer.SDP))
 	if err != nil {
-		panic(err)
+		return err
 	}
+	req.Header.Set("Authorization", "Bearer "+streamKey)
 	req.Header.Set("Content-Type", "application/sdp")
-	req.Header.Set("Authorization", "Bearer zEaiwgbN8uRT9jKqVsw3ZzqQunsqUHqxJE9ZffPHBNnSx")
 
 	// Execute the request
 	resp, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer resp.Body.Close()
 
 	// Read and process the answer
 	answerBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// Parse the SDP answer
@@ -124,55 +186,11 @@ func WHIP() error {
 	// Apply the answer as remote description
 	err = peerConnection.SetRemoteDescription(answer)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	// // Wait for the offer to be pasted
-	// offer := webrtc.SessionDescription{}
-	// decode(readUntilNewline(), &offer)
-
-	// // Set the remote SessionDescription
-	// err = peerConnection.SetRemoteDescription(offer)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// // Create an answer
-	// answer, err := peerConnection.CreateAnswer(nil)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// Create channel that is blocked until ICE Gathering is complete
 	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
-
-	// // Sets the LocalDescription, and starts our UDP listeners
-	// err = peerConnection.SetLocalDescription(answer)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
 	<-gatherComplete
-
-	// Output the answer in base64 so we can paste it in browser
-	// fmt.Println(encode(peerConnection.LocalDescription()))
-
-	// switch codecName {
-	// case "vp8":
-	// 	pipelineStr = pipelineSrc + " ! vp8enc error-resilient=partitions keyframe-max-dist=10 auto-alt-ref=true cpu-used=5 deadline=1 ! " + pipelineStr
-	// case "vp9":
-	// 	pipelineStr = pipelineSrc + " ! vp9enc ! " + pipelineStr
-	// case "h264":
-	// 	pipelineStr = pipelineSrc + " ! video/x-raw,format=I420 ! x264enc speed-preset=ultrafast tune=zerolatency key-int-max=20 ! video/x-h264,stream-format=byte-stream ! " + pipelineStr
-	// case "opus":
-	// 	pipelineStr = pipelineSrc + " ! opusenc ! " + pipelineStr
-	// case "pcmu":
-	// 	pipelineStr = pipelineSrc + " ! audio/x-raw, rate=8000 ! mulawenc ! " + pipelineStr
-	// case "pcma":
-	// 	pipelineStr = pipelineSrc + " ! audio/x-raw, rate=8000 ! alawenc ! " + pipelineStr
-	// default:
-	// 	panic("Unhandled codec " + codecName) //nolint
-	// }
 
 	pipelineSlice := []string{
 		"filesrc location=/home/iameli/testvids/RocketLeague_1h55m_1sGOP_1080p60_NoBframes.mp4 ! qtdemux name=demux",
@@ -187,17 +205,17 @@ func WHIP() error {
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	videoSink, err := pipeline.GetElementByName("videoappsink")
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	audioSink, err := pipeline.GetElementByName("audioappsink")
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	startTime := time.Now()
@@ -226,10 +244,12 @@ func WHIP() error {
 				}
 				target := startTime.Add(time.Duration(accumulators[i]))
 				diff := time.Since(target)
-				fmt.Printf("%v elapsed duration: %v diff from real-time: %v\n", trackType, duration, diff)
+				log.Debug(ctx, "elapsed duration", "track", trackType, "duration", duration, "diff", diff)
 			}
 		}
 	}()
+
+	errCh := make(chan error, 1)
 
 	for i, track := range tracks {
 		func(i int, track *webrtc.TrackLocalStaticSample) {
@@ -258,9 +278,8 @@ func WHIP() error {
 					durationPtr := buffer.Duration().AsDuration()
 					var duration time.Duration
 					if durationPtr == nil {
-						// fmt.Printf("%v duration: nil\n", trackType)
-						panic(fmt.Sprintf("%v duration: nil\n", trackType))
-						duration = 32 * time.Millisecond
+						errCh <- fmt.Errorf("%v duration: nil", trackType)
+						return gst.FlowError
 					} else {
 						// fmt.Printf("%v duration: %v\n", trackType, *durationPtr)
 						duration = *durationPtr
@@ -269,7 +288,8 @@ func WHIP() error {
 					accumulators[i] += duration
 
 					if err := track.WriteSample(media.Sample{Data: samples, Duration: duration}); err != nil {
-						panic(err) //nolint
+						errCh <- err
+						return gst.FlowError
 					}
 
 					return gst.FlowOK
@@ -300,52 +320,13 @@ func WHIP() error {
 	}
 
 	if err = pipeline.SetState(gst.StatePlaying); err != nil {
-		panic(err)
+		return err
 	}
 
-	select {}
-
-	return nil
-}
-
-// Read from stdin until we get a newline
-func readUntilNewline() (in string) {
-	var err error
-
-	r := bufio.NewReader(os.Stdin)
-	for {
-		in, err = r.ReadString('\n')
-		if err != nil && !errors.Is(err, io.EOF) {
-			panic(err)
-		}
-
-		if in = strings.TrimSpace(in); len(in) > 0 {
-			break
-		}
-	}
-
-	fmt.Println("")
-	return in
-}
-
-// JSON encode + base64 a SessionDescription
-func encode(obj *webrtc.SessionDescription) string {
-	b, err := json.Marshal(obj)
-	if err != nil {
-		panic(err)
-	}
-
-	return base64.StdEncoding.EncodeToString(b)
-}
-
-// Decode a base64 and unmarshal JSON into a SessionDescription
-func decode(in string, obj *webrtc.SessionDescription) {
-	b, err := base64.StdEncoding.DecodeString(in)
-	if err != nil {
-		panic(err)
-	}
-
-	if err = json.Unmarshal(b, obj); err != nil {
-		panic(err)
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }

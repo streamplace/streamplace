@@ -59,6 +59,7 @@ func ReaderNeedData(ctx context.Context, input io.Reader) func(self *app.Source,
 		}
 		buffer := gst.NewBufferWithSize(int64(len(toPush)))
 		buffer.Map(gst.MapWrite).WriteData(toPush)
+		defer buffer.Unmap()
 		self.PushBuffer(buffer)
 	}
 }
@@ -193,6 +194,7 @@ func SelfTest(ctx context.Context) error {
 		NeedDataFunc: func(self *app.Source, _ uint) {
 			buffer := gst.NewBufferWithSize(int64(len(bs)))
 			buffer.Map(gst.MapWrite).WriteData(bs)
+			defer buffer.Unmap()
 			self.PushBuffer(buffer)
 			self.EndStream()
 		},
@@ -637,6 +639,7 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 			}
 			buffer := gst.NewBufferWithSize(int64(len(png)))
 			buffer.Map(gst.MapWrite).WriteData(png)
+			defer buffer.Unmap()
 			self.PushBuffer(buffer)
 		},
 	})
@@ -659,6 +662,7 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 			}
 			buffer := gst.NewBufferWithSize(int64(len(png)))
 			buffer.Map(gst.MapWrite).WriteData(png)
+			defer buffer.Unmap()
 			self.PushBuffer(buffer)
 		},
 	})

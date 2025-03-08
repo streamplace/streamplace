@@ -44,14 +44,16 @@ export default function useWebRTC(
     const handle = setInterval(async () => {
       const stats = await peerConnection.getStats();
       stats.forEach((stat, k) => {
-        if (stat.type === "inbound-rtp" && stat.mediaType === "video") {
+        const mediaType = stat.mediaType /* web */ ?? stat.kind; /* native */
+        if (stat.type === "inbound-rtp" && mediaType === "video") {
+          const framesReceived = stat.framesReceived; // stat becomes inacessible after this call
           setFrames((oldFrames) => {
-            if (oldFrames === stat.framesReceived) {
+            if (oldFrames === framesReceived) {
               setStuck(true);
             } else {
               setStuck(false);
             }
-            return stat.framesReceived;
+            return framesReceived;
           });
         }
       });

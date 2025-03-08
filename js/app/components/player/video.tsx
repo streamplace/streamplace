@@ -244,7 +244,6 @@ export function WebRTCPlayer(
 
   useEffect(() => {
     if (stuck) {
-      console.log("webrtc stuck");
       props.setStatus(PlayerStatus.STALLED);
     } else {
       props.setStatus(PlayerStatus.PLAYING);

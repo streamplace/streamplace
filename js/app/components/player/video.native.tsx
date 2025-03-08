@@ -87,7 +87,14 @@ export default function NativeVideo(
 
 export function NativeWHEP(props: PlayerProps) {
   const { url } = srcToUrl(props);
-  const [stream] = useWebRTC(url);
+  const [stream, stuck] = useWebRTC(url);
+  useEffect(() => {
+    if (stuck) {
+      props.setStatus(PlayerStatus.STALLED);
+    } else {
+      props.setStatus(PlayerStatus.PLAYING);
+    }
+  }, [stuck]);
   const mediaStream = stream as unknown as MediaStream;
   useEffect(() => {
     if (!mediaStream) {

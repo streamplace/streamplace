@@ -4,19 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 )
 
 type FeedPost struct {
-	CID          string    `json:"cid" gorm:"primaryKey;column:cid"`
-	URI          string    `json:"uri"`
-	FeedPost     *[]byte   `json:"feedPost"`
-	RepoDID      string    `json:"repoDID"              gorm:"column:repo_did"`
-	Repo         *Repo     `json:"repo,omitempty"       gorm:"foreignKey:DID;references:RepoDID"`
-	Type         string    `json:"type"                 gorm:"column:type"`
-	ReplyRootCID *string   `json:"replyRootCID,omitempty" gorm:"column:reply_root_cid"`
-	ReplyRoot    *FeedPost `json:"replyRoot,omitempty" gorm:"foreignKey:ReplyRootCID;references:cid"`
+	CID              string    `json:"cid" gorm:"primaryKey;column:cid"`
+	URI              string    `json:"uri"`
+	CreatedAt        time.Time `json:"createdAt" gorm:"column:created_at;index:recent_replies"`
+	FeedPost         *[]byte   `json:"feedPost"`
+	RepoDID          string    `json:"repoDID"              gorm:"column:repo_did"`
+	Repo             *Repo     `json:"repo,omitempty"       gorm:"foreignKey:DID;references:RepoDID"`
+	Type             string    `json:"type"                 gorm:"column:type"`
+	ReplyRootCID     *string   `json:"replyRootCID,omitempty" gorm:"column:reply_root_cid"`
+	ReplyRoot        *FeedPost `json:"replyRoot,omitempty" gorm:"foreignKey:cid;references:ReplyRootCID"`
+	ReplyRootRepoDID *string   `json:"replyRootRepoDID,omitempty" gorm:"column:reply_root_repo_did;index:recent_replies"`
+	ReplyRootRepo    *Repo     `json:"replyRootRepo,omitempty" gorm:"foreignKey:DID;references:ReplyRootRepoDID"`
 }
 
 func (m *DBModel) CreateFeedPost(ctx context.Context, post *FeedPost) error {
@@ -42,4 +46,19 @@ func (m *DBModel) GetFeedPost(cid string) (*FeedPost, error) {
 		return nil, fmt.Errorf("error retrieving feed post: %w", err)
 	}
 	return &post, nil
+}
+
+func (m *DBModel) GetReplies(repoDID string) ([]FeedPost, error) {
+	posts := []FeedPost{}
+	err := m.DB.
+		Preload("Repo").
+		Where("reply_root_repo_did = ? AND type = ?", repoDID, "reply").
+		Limit(100).
+		Order("created_at DESC").
+		Find(&posts).Error
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving replies: %w", err)
+	}
+
+	return posts, nil
 }

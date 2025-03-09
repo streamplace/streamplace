@@ -59,6 +59,7 @@ type Model interface {
 	CreateFeedPost(ctx context.Context, post *FeedPost) error
 	ListFeedPosts() ([]FeedPost, error)
 	GetFeedPost(cid string) (*FeedPost, error)
+	GetReplies(repoDID string) ([]FeedPost, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {

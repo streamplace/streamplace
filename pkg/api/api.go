@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/NYTimes/gziphandler"
+	"github.com/bluesky-social/indigo/api/bsky"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
@@ -115,6 +117,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.POST("/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
 	apiRouter.POST("/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
 	apiRouter.POST("/api/player-event", a.HandlePlayerEvent(ctx))
+	apiRouter.GET("/api/chat/:repoDID", a.HandleChat(ctx))
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	apiRouter.GET("/api/atproto-oauth/:platform", a.HandleATProtoOAuth(ctx))
@@ -432,6 +435,52 @@ func (a *StreamplaceAPI) HandleATProtoOAuth(ctx context.Context) httprouter.Hand
 		bs, err := json.Marshal(meta)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal metadata", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(bs)
+	}
+}
+
+type ChatResponse struct {
+	Post *bsky.FeedPost `json:"post"`
+	Repo *model.Repo    `json:"repo"`
+}
+
+func (a *StreamplaceAPI) HandleChat(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		repoDID := params.ByName("repoDID")
+		if repoDID == "" {
+			apierrors.WriteHTTPBadRequest(w, "repoDID required", nil)
+			return
+		}
+		replies, err := a.Model.GetReplies(repoDID)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not get replies", err)
+			return
+		}
+
+		posts := []ChatResponse{}
+		for _, reply := range replies {
+			cb, err := lexutil.CborDecodeValue(*reply.FeedPost)
+			if err != nil {
+				log.Error(ctx, "failed to parse record CBOR", "err", err)
+				continue
+			}
+			post, ok := cb.(*bsky.FeedPost)
+			if !ok {
+				log.Error(ctx, "data integrity error: reply is not a bsky.FeedPost", "reply", reply)
+				continue
+			}
+			posts = append(posts, ChatResponse{
+				Post: post,
+				Repo: reply.Repo,
+			})
+		}
+
+		bs, err := json.Marshal(posts)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not marshal replies", err)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

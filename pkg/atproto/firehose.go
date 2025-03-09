@@ -240,6 +240,12 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 				// 	log.Log(ctx, "record data", "json", string(jsonData))
 				// }
 
+				createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
+				if err != nil {
+					log.Error(ctx, "failed to parse createdAt", "err", err)
+					continue
+				}
+
 				if livestream, ok := d["place.stream.livestream"]; ok {
 					log.Warn(ctx, "livestream detected")
 					_, err := SyncBlueskyRepoCached(ctx, evt.Repo, mod)
@@ -259,10 +265,11 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 					}
 					log.Warn(ctx, "livestream url", "url", url)
 					mod.CreateFeedPost(ctx, &model.FeedPost{
-						CID:      op.Cid.String(),
-						FeedPost: recCBOR,
-						RepoDID:  evt.Repo,
-						Type:     "livestream",
+						CID:       op.Cid.String(),
+						CreatedAt: createdAt,
+						FeedPost:  recCBOR,
+						RepoDID:   evt.Repo,
+						Type:      "livestream",
 					})
 				} else {
 					if rec.Reply == nil || rec.Reply.Root == nil {
@@ -295,10 +302,13 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 						fmt.Printf("@%s%s %s\n", blue.Sprintf(repo.Handle), green.Sprintf(":"), rec.Text)
 					}
 					mod.CreateFeedPost(ctx, &model.FeedPost{
-						CID:      op.Cid.String(),
-						FeedPost: recCBOR,
-						RepoDID:  evt.Repo,
-						Type:     "reply",
+						CID:              op.Cid.String(),
+						CreatedAt:        createdAt,
+						FeedPost:         recCBOR,
+						RepoDID:          evt.Repo,
+						Type:             "reply",
+						ReplyRootCID:     &post.CID,
+						ReplyRootRepoDID: &post.RepoDID,
 					})
 				}
 

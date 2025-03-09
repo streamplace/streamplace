@@ -4,11 +4,13 @@ import {
   selectTelemetry,
   telemetryOpt,
 } from "features/streamplace/streamplaceSlice";
-import { Button, View, Text } from "tamagui";
+import { Button, View, Text, H2 } from "tamagui";
 import { useAppSelector, useAppDispatch } from "store/hooks";
-import { H3, H1 } from "tamagui";
+import { H3 } from "tamagui";
 import { PlayerProps } from "components/player/props";
 import PlayerProvider from "components/player/provider";
+import Chat from "components/chat/chat";
+import { usePlayer } from "features/player/playerSlice";
 
 export default function Livestream(props: Partial<PlayerProps>) {
   return (
@@ -20,6 +22,7 @@ export default function Livestream(props: Partial<PlayerProps>) {
 
 export function LivestreamInner(props: Partial<PlayerProps>) {
   const telemetry = useAppSelector(selectTelemetry);
+  const player = useAppSelector(usePlayer());
   const { src, protocol, ...extraProps } = props;
   const dispatch = useAppDispatch();
   return (
@@ -76,11 +79,11 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
             {...extraProps}
           />
           <View height={100} fg={0} p="$4">
-            <H1>Stream Title Goes Here</H1>
+            <H2>{player.livestream?.["place.stream.livestream"]?.title}</H2>
           </View>
         </View>
-        <View width={300} backgroundColor="$background2" p="$4">
-          <Text>this chat</Text>
+        <View width={300} backgroundColor="$background2">
+          <Chat />
         </View>
       </View>
     </View>

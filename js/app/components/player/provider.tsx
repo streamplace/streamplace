@@ -1,6 +1,10 @@
 // basically PlayerProvider that sets up our magic context,
 
-import { newPlayer, PlayerContext } from "features/player/playerSlice";
+import {
+  newPlayer,
+  PlayerContext,
+  usePlayerActions,
+} from "features/player/playerSlice";
 import { useState, useEffect, useContext } from "react";
 import { useAppDispatch } from "store/hooks";
 import { PlayerProps } from "./props";
@@ -13,7 +17,11 @@ export default function PlayerProvider(
   if (ctx.playerId) {
     return props.children;
   }
-  return <PlayerContextInitializer>{props.children}</PlayerContextInitializer>;
+  return (
+    <PlayerContextInitializer {...props}>
+      {props.children}
+    </PlayerContextInitializer>
+  );
 }
 
 export function PlayerContextInitializer(
@@ -34,7 +42,32 @@ export function PlayerContextInitializer(
   }
   return (
     <PlayerContext.Provider value={{ playerId }}>
-      {props.children}
+      <PlayerDataContext {...props} />
     </PlayerContext.Provider>
   );
+}
+
+export function PlayerDataContext(
+  props: Partial<PlayerProps> & { children: React.ReactNode },
+) {
+  const dispatch = useAppDispatch();
+  const { pollViewers, pollChat, pollLivestream } = usePlayerActions();
+
+  useEffect(() => {
+    if (!props.src) {
+      return;
+    }
+    const poll = ((src) => async () => {
+      await Promise.all([
+        dispatch(pollViewers(src)),
+        dispatch(pollChat(src)),
+        dispatch(pollLivestream(src)),
+      ]);
+    })(props.src);
+    poll();
+    const handle = setInterval(poll, 3000);
+    return () => clearInterval(handle);
+  }, [props.src]);
+
+  return props.children;
 }

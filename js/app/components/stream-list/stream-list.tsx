@@ -4,6 +4,7 @@ import Loading from "components/loading/loading";
 import Viewers from "components/viewers";
 import {
   pollSegments,
+  Repo,
   selectRecentSegments,
 } from "features/streamplace/streamplaceSlice";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
@@ -18,14 +19,6 @@ type Segment = {
   signingKeyDID: string;
   startTime: string;
   repo: Repo;
-};
-
-type Repo = {
-  did: string;
-  handle: string;
-  pds: string;
-  version: string;
-  rootCid: string;
 };
 
 export default function StreamList({

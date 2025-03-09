@@ -82,17 +82,6 @@ export default function Controls(props: PlayerProps) {
     props.setPlayTime(Date.now());
   };
 
-  const dispatch = useAppDispatch();
-  const { pollViewers } = usePlayerActions();
-  useEffect(() => {
-    const poll = async () => {
-      const result = await dispatch(pollViewers(props.src));
-    };
-    poll();
-    const handle = setInterval(poll, 3000);
-    return () => clearInterval(handle);
-  }, [props.src]);
-
   const player = useAppSelector(usePlayer());
 
   return (

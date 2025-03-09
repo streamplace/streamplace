@@ -446,13 +446,19 @@ func (a *StreamplaceAPI) HandleATProtoOAuth(ctx context.Context) httprouter.Hand
 type ChatResponse struct {
 	Post *bsky.FeedPost `json:"post"`
 	Repo *model.Repo    `json:"repo"`
+	CID  string         `json:"cid"`
 }
 
 func (a *StreamplaceAPI) HandleChat(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		repoDID := params.ByName("repoDID")
-		if repoDID == "" {
-			apierrors.WriteHTTPBadRequest(w, "repoDID required", nil)
+		user := params.ByName("repoDID")
+		if user == "" {
+			apierrors.WriteHTTPBadRequest(w, "user required", nil)
+			return
+		}
+		repoDID, err := a.NormalizeUser(ctx, user)
+		if err != nil {
+			apierrors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
 		replies, err := a.Model.GetReplies(repoDID)
@@ -476,6 +482,7 @@ func (a *StreamplaceAPI) HandleChat(ctx context.Context) httprouter.Handle {
 			posts = append(posts, ChatResponse{
 				Post: post,
 				Repo: reply.Repo,
+				CID:  reply.CID,
 			})
 		}
 
@@ -491,9 +498,14 @@ func (a *StreamplaceAPI) HandleChat(ctx context.Context) httprouter.Handle {
 
 func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		repoDID := params.ByName("repoDID")
-		if repoDID == "" {
-			apierrors.WriteHTTPBadRequest(w, "repoDID required", nil)
+		user := params.ByName("repoDID")
+		if user == "" {
+			apierrors.WriteHTTPBadRequest(w, "user required", nil)
+			return
+		}
+		repoDID, err := a.NormalizeUser(ctx, user)
+		if err != nil {
+			apierrors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
 		livestream, err := a.Model.GetLatestLivestream(repoDID)

@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/data"
 	"gorm.io/gorm"
 )
 
@@ -61,4 +64,39 @@ func (m *DBModel) GetReplies(repoDID string) ([]FeedPost, error) {
 	}
 
 	return posts, nil
+}
+
+type StreamplaceFeedPostLivestream struct {
+	URL   string `json:"url"`
+	Title string `json:"title"`
+}
+
+type StreamplaceFeedPost struct {
+	bsky.FeedPost
+	Livestream *StreamplaceFeedPostLivestream `json:"place.stream.livestream,omitempty"`
+}
+
+func (m *DBModel) GetLatestLivestream(repoDID string) (map[string]any, error) {
+	posts := []FeedPost{}
+	err := m.DB.
+		Preload("Repo").
+		Where("type = ?", "livestream").
+		Limit(1).
+		Order("created_at DESC").
+		Find(&posts).Error
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving livestream: %w", err)
+	}
+
+	if len(posts) == 0 {
+		return nil, nil
+	}
+
+	d, err := data.UnmarshalCBOR(*posts[0].FeedPost)
+	if err != nil {
+		slog.Warn("failed to parse record CBOR")
+		return nil, fmt.Errorf("error decoding livestream: %w", err)
+	}
+
+	return d, nil
 }

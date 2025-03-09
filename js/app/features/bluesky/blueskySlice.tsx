@@ -313,6 +313,7 @@ export const blueskySlice = createAppSlice({
           text: content,
           "place.stream.livestream": {
             url: linkUrl,
+            title: text,
           },
           facets,
         };

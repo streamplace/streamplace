@@ -116,8 +116,6 @@ const VideoElement = forwardRef(
 
       // Additional initialization can be done here when the video element is first mounted
       if (videoElement) {
-        console.log("Video element mounted");
-        // You can add additional setup logic here if needed
         localVideoRef.current = videoElement;
       }
     };

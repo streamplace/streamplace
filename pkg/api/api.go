@@ -118,6 +118,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.POST("/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
 	apiRouter.POST("/api/player-event", a.HandlePlayerEvent(ctx))
 	apiRouter.GET("/api/chat/:repoDID", a.HandleChat(ctx))
+	apiRouter.GET("/api/livestream/:repoDID", a.HandleLivestream(ctx))
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	apiRouter.GET("/api/atproto-oauth/:platform", a.HandleATProtoOAuth(ctx))
@@ -481,6 +482,34 @@ func (a *StreamplaceAPI) HandleChat(ctx context.Context) httprouter.Handle {
 		bs, err := json.Marshal(posts)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal replies", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(bs)
+	}
+}
+
+func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		repoDID := params.ByName("repoDID")
+		if repoDID == "" {
+			apierrors.WriteHTTPBadRequest(w, "repoDID required", nil)
+			return
+		}
+		livestream, err := a.Model.GetLatestLivestream(repoDID)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not get livestream", err)
+			return
+		}
+
+		if livestream == nil {
+			apierrors.WriteHTTPNotFound(w, "no livestream found", nil)
+			return
+		}
+
+		bs, err := json.Marshal(livestream)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not marshal livestream", err)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

@@ -60,6 +60,7 @@ type Model interface {
 	ListFeedPosts() ([]FeedPost, error)
 	GetFeedPost(cid string) (*FeedPost, error)
 	GetReplies(repoDID string) ([]FeedPost, error)
+	GetLatestLivestream(repoDID string) (map[string]any, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {

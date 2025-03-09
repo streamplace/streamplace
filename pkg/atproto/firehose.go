@@ -317,6 +317,10 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 				if rec.Url != nil {
 					u = *rec.Url
 				}
+				if r == nil {
+					// we don't know about this repo
+					continue
+				}
 				log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", u, "createdAt", rec.CreatedAt, "repo", evt.Repo)
 				notifications, err := mod.GetFollowersNotificationTokens(evt.Repo)
 				if err != nil {

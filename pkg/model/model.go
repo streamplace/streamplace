@@ -55,6 +55,10 @@ type Model interface {
 	GetUserFollowers(ctx context.Context, userDID string) ([]Follow, error)
 	DeleteFollow(ctx context.Context, userDID, rev string) error
 	GetFollowersNotificationTokens(userDID string) ([]string, error)
+
+	CreateFeedPost(ctx context.Context, post *FeedPost) error
+	ListFeedPosts() ([]FeedPost, error)
+	GetFeedPost(cid string) (*FeedPost, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -89,7 +93,17 @@ func MakeDB(dbURL string) (Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error setting journal mode: %w", err)
 	}
-	for _, model := range []any{Notification{}, PlayerEvent{}, Segment{}, Thumbnail{}, Identity{}, Repo{}, SigningKey{}, Follow{}} {
+	for _, model := range []any{
+		Notification{},
+		PlayerEvent{},
+		Segment{},
+		Thumbnail{},
+		Identity{},
+		Repo{},
+		SigningKey{},
+		Follow{},
+		FeedPost{},
+	} {
 		err = db.AutoMigrate(model)
 		if err != nil {
 			return nil, err

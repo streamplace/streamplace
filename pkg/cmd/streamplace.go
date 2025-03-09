@@ -133,6 +133,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	cli.DebugFlag(fs, &cli.Debug, "debug", "", "modified log verbosity for specific functions or files in form func=ToHLS:3,file=gstreamer.go:4")
 	fs.BoolVar(&cli.TestStream, "test-stream", false, "run a built-in test stream on boot")
 	fs.BoolVar(&cli.NoFirehose, "no-firehose", false, "disable the bluesky firehose")
+	fs.BoolVar(&cli.PrintChat, "print-chat", false, "print chat messages to stdout")
 	verbosity := fs.String("v", "3", "log verbosity level")
 	fs.StringVar(&cli.RelayHost, "relay-host", "wss://bsky.network", "websocket url for relay firehose")
 	fs.Bool("insecure", false, "DEPRECATED, does nothing.")

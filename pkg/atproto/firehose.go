@@ -31,6 +31,7 @@ import (
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/streamplace"
 
+	"github.com/fatih/color"
 	"github.com/gorilla/websocket"
 )
 
@@ -125,6 +126,7 @@ var CollectionFilter = []string{
 	constants.PLACE_STREAM_KEY,
 	constants.PLACE_STREAM_LIVESTREAM,
 	constants.APP_BSKY_GRAPH_FOLLOW,
+	constants.APP_BSKY_FEED_POST,
 }
 
 func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, mod model.Model) error {
@@ -177,9 +179,9 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 		}
 		if r == nil {
 			// someone we don't know aboutd
-			continue
+			// continue
 		}
-		log.Warn(ctx, "got record we care about", "collection", collection, "rkey", rkey)
+		// log.Warn(ctx, "got record we care about", "collection", collection, "rkey", rkey)
 
 		out := make(map[string]interface{})
 		out["seq"] = evt.Seq
@@ -217,13 +219,89 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 				log.Error(ctx, "failed to parse record CBOR", "err", err)
 				continue
 			}
+			d, err := data.UnmarshalCBOR(*recCBOR)
+			if err != nil {
+				slog.Warn("failed to parse record CBOR")
+				continue
+			}
 			switch rec := cb.(type) {
 			case *bsky.GraphFollow:
 				log.Debug(ctx, "creating follow", "userDID", evt.Repo, "subjectDID", rec.Subject, "rev", evt.Rev)
 				err := mod.CreateFollow(ctx, evt.Repo, rkey.String(), rec)
 				if err != nil {
-					log.Error(ctx, "failed to create follow", "err", err)
+					log.Debug(ctx, "failed to create follow", "err", err)
 				}
+
+			case *bsky.FeedPost:
+				// jsonData, err := json.Marshal(d)
+				// if err != nil {
+				// 	log.Error(ctx, "failed to marshal record data", "err", err)
+				// } else {
+				// 	log.Log(ctx, "record data", "json", string(jsonData))
+				// }
+
+				if livestream, ok := d["place.stream.livestream"]; ok {
+					log.Warn(ctx, "livestream detected")
+					_, err := SyncBlueskyRepoCached(ctx, evt.Repo, mod)
+					if err != nil {
+						log.Error(ctx, "failed to sync bluesky repo", "err", err)
+						continue
+					}
+					livestream, ok := livestream.(map[string]interface{})
+					if !ok {
+						log.Warn(ctx, "livestream is not a map")
+						continue
+					}
+					url, ok := livestream["url"].(string)
+					if !ok {
+						log.Warn(ctx, "livestream url is not a string")
+						continue
+					}
+					log.Warn(ctx, "livestream url", "url", url)
+					mod.CreateFeedPost(ctx, &model.FeedPost{
+						CID:      op.Cid.String(),
+						FeedPost: recCBOR,
+						RepoDID:  evt.Repo,
+						Type:     "livestream",
+					})
+				} else {
+					if rec.Reply == nil || rec.Reply.Root == nil {
+						continue
+					}
+					post, err := mod.GetFeedPost(rec.Reply.Root.Cid)
+					if err != nil {
+						log.Error(ctx, "failed to get feed post", "err", err)
+						continue
+					}
+					if post == nil {
+						continue
+					}
+					if post.Type != "livestream" {
+						continue
+					}
+					log.Warn(ctx, "chat message detected", "uri", post.URI)
+					// if this post is a reply to someone's livestream post
+					// log.Warn(ctx, "chat message detected", "message", rec.Text)
+					repo, err := SyncBlueskyRepoCached(ctx, evt.Repo, mod)
+					if err != nil {
+						log.Error(ctx, "failed to sync bluesky repo", "err", err)
+						continue
+					}
+					blue := color.New(color.FgBlue)
+					green := color.New(color.FgGreen)
+
+					log.Warn(ctx, "chat message detected", "message", rec.Text, "repo", repo.Handle)
+					if fc.cli.PrintChat {
+						fmt.Printf("@%s%s %s\n", blue.Sprintf(repo.Handle), green.Sprintf(":"), rec.Text)
+					}
+					mod.CreateFeedPost(ctx, &model.FeedPost{
+						CID:      op.Cid.String(),
+						FeedPost: recCBOR,
+						RepoDID:  evt.Repo,
+						Type:     "reply",
+					})
+				}
+
 			case *streamplace.Livestream:
 				var u string
 				if rec.Url != nil {
@@ -255,11 +333,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 			default:
 				log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 			}
-			d, err := data.UnmarshalCBOR(*recCBOR)
-			if err != nil {
-				slog.Warn("failed to parse record CBOR")
-				continue
-			}
+
 			out["cid"] = op.Cid.String()
 			out["record"] = d
 			b, err := json.Marshal(out)
@@ -273,7 +347,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 				log.Debug(ctx, "deleting follow", "userDID", evt.Repo, "subjectDID", rkey.String())
 				err := mod.DeleteFollow(ctx, evt.Repo, rkey.String())
 				if err != nil {
-					log.Error(ctx, "failed to delete follow", "err", err)
+					log.Debug(ctx, "failed to delete follow", "err", err)
 				}
 			}
 			b, err := json.Marshal(out)

@@ -358,6 +358,20 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		w.Write(bs)
 	})
 
+	router.GET("/chat-posts", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		posts, err := a.Model.ListFeedPosts()
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to get chat posts", err)
+			return
+		}
+		bs, err := json.Marshal(posts)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
+			return
+		}
+		w.Write(bs)
+	})
+
 	router.POST("/notification-blast", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		var payload notificationpkg.NotificationBlast
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {

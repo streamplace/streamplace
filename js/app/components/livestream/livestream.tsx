@@ -70,19 +70,30 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
           </View>
         </Popup>
       )}
-      <View f={1} flexDirection="row">
-        <View f={1}>
+      <View f={1} flexDirection="column" $gtXs={{ flexDirection: "row" }}>
+        <View f={1} fs={0} $gtXs={{ fs: 1 }}>
           <Player
             telemetry={telemetry === true}
             src={src}
             forceProtocol={protocol}
             {...extraProps}
           />
-          <View height={100} fg={0} p="$4">
+          <View
+            height={100}
+            fg={0}
+            p="$4"
+            display="none"
+            $gtXs={{ display: "flex" }}
+          >
             <H2>{player.livestream?.["place.stream.livestream"]?.title}</H2>
           </View>
         </View>
-        <View width={300} backgroundColor="$background2">
+        <View
+          f={1}
+          fg={1}
+          $gtXs={{ width: 300, fb: 300, fs: 0 }}
+          backgroundColor="$background2"
+        >
           <Chat />
         </View>
       </View>

@@ -31,8 +31,10 @@ export default function Chat() {
 function ChatMessageRow({ message }: { message: ChatMessage }) {
   return (
     <View flexDirection="row" display="block" paddingVertical="$2">
-      <Text color="$accentColor">@{message.repo.handle}: </Text>
-      <Text>{message.post.text}</Text>
+      <Text>
+        <Text color="$accentColor">@{message.repo.handle}: </Text>
+        <Text>{message.post.text}</Text>
+      </Text>
     </View>
   );
 }

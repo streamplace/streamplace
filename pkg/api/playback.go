@@ -82,6 +82,12 @@ func (a *StreamplaceAPI) HandleMP4Playback(ctx context.Context) httprouter.Handl
 			return a.MediaManager.SegmentToMP4(ctx, user, bufw)
 		})
 		g.Go(func() error {
+			<-ctx.Done()
+			pr.Close()
+			pw.Close()
+			return nil
+		})
+		g.Go(func() error {
 			time.Sleep(time.Duration(delayMS) * time.Millisecond)
 			_, err := io.Copy(w, pr)
 			return err
@@ -125,6 +131,12 @@ func (a *StreamplaceAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handl
 		bufw := bufio.NewWriter(pw)
 		g.Go(func() error {
 			return a.MediaManager.SegmentToMKV(ctx, user, bufw)
+		})
+		g.Go(func() error {
+			<-ctx.Done()
+			pr.Close()
+			pw.Close()
+			return nil
 		})
 		g.Go(func() error {
 			time.Sleep(time.Duration(delayMS) * time.Millisecond)

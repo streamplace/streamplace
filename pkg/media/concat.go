@@ -153,6 +153,8 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, stre
 		go func() {
 			select {
 			case <-ctx.Done():
+				pr.Close()
+				pw.Close()
 				return
 			case fullpath := <-allFiles:
 				if fullpath == "" {

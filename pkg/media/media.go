@@ -76,7 +76,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 }
 
 // replacement for os.Pipe that works on windows
-func (mm *MediaManager) HTTPPipe() (string, io.Reader, func(), error) {
+func (mm *MediaManager) HTTPPipe() (string, io.ReadCloser, func(), error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return "", nil, nil, err
@@ -249,6 +249,11 @@ func (mm *MediaManager) SegmentToStream(ctx context.Context, user string, muxer 
 		},
 	}
 	g, _ := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		<-ctx.Done()
+		or.Close()
+		return nil
+	})
 	g.Go(func() error {
 		_, err := tc.Transcode(in, out)
 		tc.StopTranscoder()

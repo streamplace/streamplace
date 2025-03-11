@@ -729,6 +729,22 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		return nil, fmt.Errorf("failed to get audio pad")
 	}
 
+	resetTimer := make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-resetTimer:
+				continue
+			case <-time.After(time.Second * 10):
+				elem.Error("no new segment for 10 seconds", errors.New("no new segment for 10 seconds"))
+				return
+			}
+		}
+	}()
+
 	elem.Connect("sink-added", func(split, sinkEle *gst.Element) {
 		buf := &bytes.Buffer{}
 		appsink := app.SinkFromElement(sinkEle)
@@ -738,6 +754,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		appsink.SetCallbacks(&app.SinkCallbacks{
 			NewSampleFunc: WriterNewSample(ctx, buf),
 			EOSFunc: func(sink *app.Sink) {
+				resetTimer <- struct{}{}
 				bs, err := ms.SignMP4(ctx, bytes.NewReader(buf.Bytes()), time.Now().UnixMilli())
 				if err != nil {
 					log.Error(ctx, "error signing segment", "error", err)

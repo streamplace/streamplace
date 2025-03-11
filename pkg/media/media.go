@@ -22,6 +22,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+
 	"stream.place/streamplace/pkg/replication"
 
 	"git.stream.place/streamplace/c2pa-go/pkg/c2pa"
@@ -357,6 +358,10 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	if err != nil {
 		return err
 	}
+	mediaData, err := mm.ParseSegmentMediaData(ctx, buf)
+	if err != nil {
+		return err
+	}
 	// special case for test signers that are only signed with a key
 	var repoDID string
 	var signingKeyDID string
@@ -398,6 +403,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 		RepoDID:       repoDID,
 		StartTime:     meta.StartTime.Time(),
 		Title:         meta.Title,
+		MediaData:     mediaData,
 	}
 	mm.newSegmentSubsMutex.RLock()
 	defer mm.newSegmentSubsMutex.RUnlock()

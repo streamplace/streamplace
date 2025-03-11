@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/test"
 )
 
@@ -40,6 +41,7 @@ func SafePipe() (*os.File, *os.File, func(), error) {
 func ReaderNeedData(ctx context.Context, input io.Reader) func(self *app.Source, length uint) {
 	return func(self *app.Source, length uint) {
 		if ctx.Err() != nil {
+			self.EndStream()
 			return
 		}
 		bs := make([]byte, length)
@@ -334,7 +336,6 @@ func (mm *MediaManager) ToHLS(ctx context.Context, input io.Reader, m3u8 *M3U8) 
 			fmt.Println("Unable to get pad caps")
 			return
 		}
-		defer caps.Unref()
 
 		fmt.Printf("New pad added: %s\n", pad.GetName())
 		fmt.Printf("Caps: %s\n", caps.String())
@@ -942,4 +943,131 @@ func (mm *MediaManager) MKVPlayback(ctx context.Context, user string, w io.Write
 	pipeline.BlockSetState(gst.StateNull)
 
 	return nil
+}
+
+func (mm *MediaManager) ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMediaData, error) {
+	ctx = log.WithLogValues(ctx, "GStreamerFunc", "ParseSegmentMediaData")
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	pipelineSlice := []string{
+		"appsrc name=appsrc ! qtdemux name=demux ! fakesink",
+	}
+
+	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	if err != nil {
+		return nil, fmt.Errorf("error creating SegmentMetadata pipeline: %w", err)
+	}
+
+	var videoMetadata *model.SegmentMediadataVideo
+	var audioMetadata *model.SegmentMediadataAudio
+
+	appsrc, err := pipeline.GetElementByName("appsrc")
+	if err != nil {
+		return nil, fmt.Errorf("error creating SegmentMetadata pipeline: %w", err)
+	}
+
+	src := app.SrcFromElement(appsrc)
+	src.SetCallbacks(&app.SourceCallbacks{
+		NeedDataFunc: ReaderNeedData(ctx, bytes.NewReader(mp4bs)),
+	})
+
+	onPadAdded := func(element *gst.Element, pad *gst.Pad) {
+		caps := pad.GetCurrentCaps()
+		if caps == nil {
+			log.Warn(ctx, "Unable to get pad caps")
+			cancel()
+			return
+		}
+
+		structure := caps.GetStructureAt(0)
+		if structure == nil {
+			log.Warn(ctx, "Unable to get structure from caps")
+			cancel()
+			return
+		}
+
+		name := structure.Name()
+		log.Debug(ctx, "Structure Name", "name", name)
+
+		if name[:5] == "video" {
+			videoMetadata = &model.SegmentMediadataVideo{}
+			// Get some common video properties
+			widthVal, _ := structure.GetValue("width")
+			heightVal, _ := structure.GetValue("height")
+
+			width, ok := widthVal.(int)
+			if ok {
+				videoMetadata.Width = width
+			}
+			height, ok := heightVal.(int)
+			if ok {
+				videoMetadata.Height = height
+			}
+			framerateVal, _ := structure.GetValue("framerate")
+			framerateStr := fmt.Sprintf("%v", framerateVal)
+			if framerateStr != "" {
+				videoMetadata.Framerate = framerateStr
+			}
+		}
+
+		if name[:5] == "audio" {
+			audioMetadata = &model.SegmentMediadataAudio{}
+			// Get some common audio properties
+			rateVal, _ := structure.GetValue("rate")
+			channelsVal, _ := structure.GetValue("channels")
+
+			rate, ok := rateVal.(int)
+			if ok {
+				audioMetadata.Rate = rate
+			}
+			channels, ok := channelsVal.(int)
+			if ok {
+				audioMetadata.Channels = channels
+			}
+		}
+
+		if videoMetadata != nil && audioMetadata != nil {
+			cancel()
+		}
+	}
+
+	demux, err := pipeline.GetElementByName("demux")
+	if err != nil {
+		return nil, fmt.Errorf("error creating SegmentMetadata pipeline: %w", err)
+	}
+	demux.Connect("pad-added", onPadAdded)
+
+	pipeline.GetPipelineBus().AddWatch(func(msg *gst.Message) bool {
+		switch msg.Type() {
+
+		case gst.MessageEOS: // When end-of-stream is received flush the pipeling and stop the main loop
+			log.Error(ctx, "gstreamer eos")
+			cancel()
+
+		case gst.MessageError: // Error messages are always fatal
+			err := msg.ParseError()
+			log.Error(ctx, "gstreamer error", "error", err.Error())
+			if debug := err.DebugString(); debug != "" {
+				log.Debug(ctx, "gstreamer debug", "message", debug)
+			}
+			cancel()
+		default:
+			log.Debug(ctx, msg.String())
+		}
+		return true
+	})
+
+	// Start the pipeline
+	pipeline.SetState(gst.StatePlaying)
+
+	<-ctx.Done()
+
+	meta := &model.SegmentMediaData{
+		Video: []*model.SegmentMediadataVideo{videoMetadata},
+		Audio: []*model.SegmentMediadataAudio{audioMetadata},
+	}
+
+	pipeline.BlockSetState(gst.StateNull)
+
+	return meta, nil
 }

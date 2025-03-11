@@ -1,19 +1,58 @@
 package model
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 
 	"stream.place/streamplace/pkg/aqtime"
 )
 
+type SegmentMediadataVideo struct {
+	Width     int    `json:"width"`
+	Height    int    `json:"height"`
+	Framerate string `json:"framerate"`
+}
+
+type SegmentMediadataAudio struct {
+	Rate     int `json:"rate"`
+	Channels int `json:"channels"`
+}
+
+type SegmentMediaData struct {
+	Video []*SegmentMediadataVideo `json:"video"`
+	Audio []*SegmentMediadataAudio `json:"audio"`
+}
+
+// Scan scan value into Jsonb, implements sql.Scanner interface
+func (j *SegmentMediaData) Scan(value interface{}) error {
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", value))
+	}
+
+	result := SegmentMediaData{}
+	err := json.Unmarshal(bytes, &result)
+	*j = SegmentMediaData(result)
+	return err
+}
+
+// Value return json value, implement driver.Valuer interface
+func (j SegmentMediaData) Value() (driver.Value, error) {
+	return json.Marshal(j)
+}
+
 type Segment struct {
-	ID            string      `json:"id"                   gorm:"primaryKey"`
-	SigningKeyDID string      `json:"signingKeyDID"        gorm:"column:signing_key_did"`
-	SigningKey    *SigningKey `json:"signingKey,omitempty" gorm:"foreignKey:DID;references:SigningKeyDID"`
-	StartTime     time.Time   `json:"startTime"            gorm:"index:latest_segments"`
-	RepoDID       string      `json:"repoDID"              gorm:"index:latest_segments;column:repo_did"`
-	Repo          *Repo       `json:"repo,omitempty"       gorm:"foreignKey:DID;references:RepoDID"`
-	Title         string      `json:"title"`
+	ID            string            `json:"id"                   gorm:"primaryKey"`
+	SigningKeyDID string            `json:"signingKeyDID"        gorm:"column:signing_key_did"`
+	SigningKey    *SigningKey       `json:"signingKey,omitempty" gorm:"foreignKey:DID;references:SigningKeyDID"`
+	StartTime     time.Time         `json:"startTime"            gorm:"index:latest_segments"`
+	RepoDID       string            `json:"repoDID"              gorm:"index:latest_segments;column:repo_did"`
+	Repo          *Repo             `json:"repo,omitempty"       gorm:"foreignKey:DID;references:RepoDID"`
+	Title         string            `json:"title"`
+	MediaData     *SegmentMediaData `json:"mediaData,omitempty"`
 }
 
 func (m *DBModel) CreateSegment(seg *Segment) error {

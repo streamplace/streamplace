@@ -81,6 +81,7 @@ func (m *DBModel) GetLatestLivestream(repoDID string) (map[string]any, error) {
 	err := m.DB.
 		Preload("Repo").
 		Where("type = ?", "livestream").
+		Where("repo_did = ?", repoDID).
 		Limit(1).
 		Order("created_at DESC").
 		Find(&posts).Error

@@ -82,6 +82,7 @@ type CLI struct {
 	AppBundleID            string
 	NoFirehose             bool
 	PrintChat              bool
+	Color                  string
 
 	dataDirFlags []*string
 }

@@ -137,6 +137,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	verbosity := fs.String("v", "3", "log verbosity level")
 	fs.StringVar(&cli.RelayHost, "relay-host", "wss://bsky.network", "websocket url for relay firehose")
 	fs.Bool("insecure", false, "DEPRECATED, does nothing.")
+	fs.StringVar(&cli.Color, "color", "", "'true' to enable colorized logging, 'false' to disable")
 
 	version := fs.Bool("version", false, "print version and exit")
 
@@ -158,7 +159,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return err
 	}
 	vFlag.Value.Set(*verbosity)
-
+	log.SetColorLogger(cli.Color)
 	ctx := context.Background()
 	ctx = log.WithDebugValue(ctx, cli.Debug)
 

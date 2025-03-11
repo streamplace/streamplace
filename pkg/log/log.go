@@ -19,19 +19,6 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-func init() {
-	w := os.Stderr
-
-	// set global logger with custom options
-	slog.SetDefault(slog.New(
-		tint.NewHandler(w, &tint.Options{
-			Level:      slog.LevelDebug,
-			TimeFormat: time.RFC3339,
-			NoColor:    !isatty.IsTerminal(w.Fd()),
-		}),
-	))
-}
-
 // unique type to prevent assignment.
 type clogContextKeyType struct{}
 
@@ -54,7 +41,30 @@ var traceLogLevel glog.Level = 9
 // creation, so we don't have to worry about locking.
 type metadata [][]string
 
+func SetColorLogger(color string) {
+	w := os.Stderr
+	noColor := false
+	if color == "true" {
+		noColor = false
+	} else if color == "false" {
+		noColor = true
+	} else {
+		noColor = !isatty.IsTerminal(w.Fd())
+	}
+	// set global logger with custom options
+	slog.SetDefault(slog.New(
+		tint.NewHandler(w, &tint.Options{
+			Level:      slog.LevelDebug,
+			TimeFormat: time.RFC3339,
+			NoColor:    noColor,
+		}),
+	))
+}
+
 func init() {
+	// set global logger with custom options
+	SetColorLogger("")
+
 	// Set default v level to 3; this is overridden in main() but is useful for tests
 	vFlag := flag.Lookup("v")
 	// nolint:errcheck

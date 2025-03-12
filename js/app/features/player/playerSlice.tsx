@@ -324,7 +324,9 @@ export const usePlayerActions = () => {
 
 // Action creators are generated for each case reducer function.
 export const { selectPlayer, selectChat } = playerSlice.selectors;
-export const usePlayer = () => {
+export const usePlayer = (): ((state: {
+  player: PlayersState;
+}) => PlayerState) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId];
 };

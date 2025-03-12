@@ -116,7 +116,7 @@ export default function Controls(props: PlayerProps) {
           </View>
         </Part>
         <Part>
-          <Viewers viewers={player.viewers} />
+          <Viewers viewers={player.viewers ?? 0} />
         </Part>
       </Bar>
       {props.ingest && <LiveBubble />}

@@ -44,26 +44,10 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: %w", err)
 	}
 
-	ok := pipeline.GetPipelineBus().AddWatch(func(msg *gst.Message) bool {
-		switch msg.Type() {
-		case gst.MessageEOS: // When end-of-stream is received flush the pipeling and stop the main loop
-			log.Log(ctx, "got gst.MessageEOS, exiting")
-			cancel()
-		case gst.MessageError: // Error messages are always fatal
-			err := msg.ParseError()
-			log.Error(ctx, "gstreamer error", "error", err.Error())
-			if debug := err.DebugString(); debug != "" {
-				log.Log(ctx, "gstreamer debug", "message", debug)
-			}
-			cancel()
-		default:
-			log.Debug(ctx, msg.String())
-		}
-		return true
-	})
-	if !ok {
-		return nil, fmt.Errorf("failed to add watch to pipeline bus")
-	}
+	go func() {
+		HandleBusMessages(ctx, pipeline)
+		cancel()
+	}()
 
 	outputQueue, done, err := ConcatStream(ctx, pipeline, user, mm)
 	if err != nil {
@@ -416,29 +400,8 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	}
 
 	go func() {
-		for {
-			if ctx.Err() != nil {
-				return
-			}
-			msg := pipeline.GetPipelineBus().PopMessage(gst.ClockTime(time.Second * 1))
-			if msg == nil {
-				continue
-			}
-			switch msg.Type() {
-			case gst.MessageEOS: // When end-of-stream is received flush the pipeline and stop the main loop
-				log.Debug(ctx, "got gst.MessageEOS, exiting")
-				cancel()
-			case gst.MessageError: // Error messages are always fatal
-				err := msg.ParseError()
-				log.Error(ctx, "gstreamer error", "error", err.Error())
-				if debug := err.DebugString(); debug != "" {
-					log.Debug(ctx, "gstreamer debug", "message", debug)
-				}
-				cancel()
-			default:
-				log.Debug(ctx, msg.String())
-			}
-		}
+		HandleBusMessages(ctx, pipeline)
+		cancel()
 	}()
 
 	queue, err := pipeline.GetElementByName("queue")

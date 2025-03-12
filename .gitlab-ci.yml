@@ -155,7 +155,8 @@ build-mac:
     - 'echo "xcodeproj --version: $(xcodeproj --version)"'
     - "$(which xcodeproj) --version"
     - >
-      brew install python@3.11
+      export GOTOOLCHAIN=go1.23.3
+      && brew install python@3.11
       && python3.11 -m pip install virtualenv
       && python3.11 -m virtualenv ~/venv
       && source ~/venv/bin/activate

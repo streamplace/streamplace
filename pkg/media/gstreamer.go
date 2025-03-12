@@ -1037,25 +1037,10 @@ func (mm *MediaManager) ParseSegmentMediaData(ctx context.Context, mp4bs []byte)
 	}
 	demux.Connect("pad-added", onPadAdded)
 
-	pipeline.GetPipelineBus().AddWatch(func(msg *gst.Message) bool {
-		switch msg.Type() {
-
-		case gst.MessageEOS: // When end-of-stream is received flush the pipeling and stop the main loop
-			log.Error(ctx, "gstreamer eos")
-			cancel()
-
-		case gst.MessageError: // Error messages are always fatal
-			err := msg.ParseError()
-			log.Error(ctx, "gstreamer error", "error", err.Error())
-			if debug := err.DebugString(); debug != "" {
-				log.Debug(ctx, "gstreamer debug", "message", debug)
-			}
-			cancel()
-		default:
-			log.Debug(ctx, msg.String())
-		}
-		return true
-	})
+	go func() {
+		HandleBusMessages(ctx, pipeline)
+		cancel()
+	}()
 
 	// Start the pipeline
 	pipeline.SetState(gst.StatePlaying)

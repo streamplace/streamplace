@@ -33,6 +33,9 @@ export default function useWebRTC(
     });
     peerConnection.addEventListener("connectionstatechange", (ev) => {
       console.log("connection state change", peerConnection.connectionState);
+      if (peerConnection.connectionState === "closed") {
+        setStuck(true);
+      }
       if (peerConnection.connectionState !== "connected") {
         return;
       }
@@ -112,6 +115,9 @@ export async function negotiateConnectionWithClientOffer(
       let response = await postSDPOffer(endpoint, ofr.sdp, bearerToken);
       if (response.status === 201) {
         let answerSDP = await response.text();
+        if ((peerConnection.connectionState as string) === "closed") {
+          return;
+        }
         await peerConnection.setRemoteDescription(
           new RTCSessionDescription({ type: "answer", sdp: answerSDP }),
         );

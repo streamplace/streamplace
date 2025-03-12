@@ -122,8 +122,6 @@ export function NativeWHEP(props: PlayerProps) {
       objectFit={"contain"}
       streamURL={mediaStream.toURL()}
       style={{
-        width: "100%",
-        height: "100%",
         backgroundColor: "#111",
         flex: 1,
       }}

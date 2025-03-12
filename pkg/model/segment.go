@@ -67,9 +67,15 @@ func (m *DBModel) CreateSegment(seg *Segment) error {
 func (m *DBModel) MostRecentSegments() ([]Segment, error) {
 	var segments []Segment
 
-	err := m.DB.Table("segments AS s1").
-		Select("s1.*").
-		Where("start_time = (SELECT MAX(start_time) FROM segments AS s2 WHERE s2.repo_did = s1.repo_did)").
+	err := m.DB.Table("segments").
+		Select("*").
+		Where("id IN (?)",
+			m.DB.Table("segments").
+				Select("id").
+				Where("(repo_did, start_time) IN (?)",
+					m.DB.Table("segments").
+						Select("repo_did, MAX(start_time)").
+						Group("repo_did"))).
 		Order("start_time DESC").
 		Scan(&segments).Error
 

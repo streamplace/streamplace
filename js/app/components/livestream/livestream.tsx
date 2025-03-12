@@ -4,13 +4,15 @@ import {
   selectTelemetry,
   telemetryOpt,
 } from "features/streamplace/streamplaceSlice";
-import { Button, View, Text, H2 } from "tamagui";
+import { Button, View, Text, H2, useWindowDimensions } from "tamagui";
 import { useAppSelector, useAppDispatch } from "store/hooks";
 import { H3 } from "tamagui";
 import { PlayerProps } from "components/player/props";
 import PlayerProvider from "components/player/provider";
 import Chat from "components/chat/chat";
 import { usePlayer } from "features/player/playerSlice";
+import { useState, useEffect } from "react";
+import Loading from "components/loading/loading";
 
 export default function Livestream(props: Partial<PlayerProps>) {
   return (
@@ -25,8 +27,25 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
   const player = useAppSelector(usePlayer());
   const { src, protocol, ...extraProps } = props;
   const dispatch = useAppDispatch();
+  const { width, height } = useWindowDimensions();
+  const video = player.segment?.mediaData?.video[0];
+  const [videoWidth, setVideoWidth] = useState(0);
+  const [videoHeight, setVideoHeight] = useState(0);
+  useEffect(() => {
+    if (video) {
+      const ratio = video.width / width;
+      setVideoWidth(video.width / ratio);
+      setVideoHeight(video.height / ratio);
+    }
+  }, [video, width, height]);
+
   return (
     <View f={1} position="relative">
+      {videoWidth === 0 && (
+        <View f={1} position="absolute" top={0} left={0} right={0} bottom={0}>
+          <Loading />
+        </View>
+      )}
       {telemetry === null && (
         <Popup
           onClose={() => {
@@ -70,8 +89,13 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
           </View>
         </Popup>
       )}
-      <View f={1} flexDirection="column" $gtXs={{ flexDirection: "row" }}>
-        <View f={1} fs={0} $gtXs={{ fs: 1 }}>
+      <View
+        f={1}
+        opacity={videoWidth === 0 ? 0 : 1}
+        flexDirection="column"
+        $gtXs={{ flexDirection: "row" }}
+      >
+        <View width={videoWidth} height={videoHeight} fs={0} $gtXs={{ fs: 1 }}>
           <Player
             telemetry={telemetry === true}
             src={src}

@@ -26,6 +26,29 @@ export interface ChatMessage {
   cid: string;
 }
 
+interface SegmentMediadataVideo {
+  width: number;
+  height: number;
+  framerate: string;
+}
+
+interface SegmentMediadataAudio {
+  rate: number;
+  channels: number;
+}
+
+interface SegmentMediaData {
+  video: SegmentMediadataVideo[];
+  audio: SegmentMediadataAudio[];
+}
+
+interface Segment {
+  id: string;
+  startTime: number;
+  endTime: number;
+  mediaData: SegmentMediaData | null;
+}
+
 export interface PlayerState {
   ingestStarted: number | null;
   ingestStarting: boolean;
@@ -33,6 +56,7 @@ export interface PlayerState {
   viewers: number | null;
   chat: ChatMessage[] | null;
   livestream: StreamplaceAppBskyFeedPost | null;
+  segment: Segment | null;
 }
 
 export interface PlayersState {
@@ -68,6 +92,7 @@ export const playerSlice = createAppSlice({
         viewers: null,
         chat: null,
         livestream: null,
+        segment: null,
       };
     });
   },
@@ -227,6 +252,40 @@ export const playerSlice = createAppSlice({
           },
         },
       ),
+
+      pollSegment: create.asyncThunk(
+        async (
+          { playerId, user }: { playerId: string; user: string },
+          { getState },
+        ) => {
+          const { streamplace } = getState() as {
+            streamplace: StreamplaceState;
+          };
+          const res = await fetch(
+            `${streamplace.url}/api/segment/recent/${user}`,
+          );
+          const data = (await res.json()) as Segment;
+          return { playerId, segment: data };
+        },
+        {
+          pending: (state) => {
+            // state.status = "loading";
+          },
+          fulfilled: (state, result) => {
+            return {
+              ...state,
+              [result.payload.playerId]: {
+                ...state[result.payload.playerId],
+                segment: result.payload.segment,
+              },
+            };
+          },
+          rejected: (state, error) => {
+            console.error("pollViewers rejected", error);
+            return state;
+          },
+        },
+      ),
     };
   },
 
@@ -258,6 +317,8 @@ export const usePlayerActions = () => {
       playerSlice.actions.pollChat({ playerId, user }),
     pollLivestream: (user: string) =>
       playerSlice.actions.pollLivestream({ playerId, user }),
+    pollSegment: (user: string) =>
+      playerSlice.actions.pollSegment({ playerId, user }),
   };
 };
 

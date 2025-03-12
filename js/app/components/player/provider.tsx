@@ -51,7 +51,8 @@ export function PlayerDataContext(
   props: Partial<PlayerProps> & { children: React.ReactNode },
 ) {
   const dispatch = useAppDispatch();
-  const { pollViewers, pollChat, pollLivestream } = usePlayerActions();
+  const { pollViewers, pollChat, pollLivestream, pollSegment } =
+    usePlayerActions();
 
   useEffect(() => {
     if (!props.src) {
@@ -62,6 +63,7 @@ export function PlayerDataContext(
         dispatch(pollViewers(src)),
         dispatch(pollChat(src)),
         dispatch(pollLivestream(src)),
+        dispatch(pollSegment(src)),
       ]);
     })(props.src);
     poll();

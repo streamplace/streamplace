@@ -120,6 +120,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/chat/:repoDID", a.HandleChat(ctx))
 	apiRouter.GET("/api/livestream/:repoDID", a.HandleLivestream(ctx))
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
+	apiRouter.GET("/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	apiRouter.GET("/api/atproto-oauth/:platform", a.HandleATProtoOAuth(ctx))
 	apiRouter.GET("/api/live-users", a.HandleLiveUsers(ctx))
@@ -334,6 +335,33 @@ func (a *StreamplaceAPI) HandleRecentSegments(ctx context.Context) httprouter.Ha
 			return
 		}
 		bs, err := json.Marshal(segs)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not marshal segments", err)
+			return
+		}
+		w.Header().Add("Content-Type", "application/json")
+		w.Write(bs)
+	}
+}
+
+func (a *StreamplaceAPI) HandleUserRecentSegments(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		user := params.ByName("repoDID")
+		if user == "" {
+			apierrors.WriteHTTPBadRequest(w, "user required", nil)
+			return
+		}
+		user, err := a.NormalizeUser(ctx, user)
+		if err != nil {
+			apierrors.WriteHTTPNotFound(w, "user not found", err)
+			return
+		}
+		seg, err := a.Model.LatestSegmentForUser(user)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not get segments", err)
+			return
+		}
+		bs, err := json.Marshal(seg)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal segments", err)
 			return

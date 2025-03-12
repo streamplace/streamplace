@@ -415,24 +415,31 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: %w", err)
 	}
 
-	pipeline.GetPipelineBus().AddWatch(func(msg *gst.Message) bool {
-		switch msg.Type() {
-
-		case gst.MessageEOS: // When end-of-stream is received flush the pipeling and stop the main loop
-			log.Debug(ctx, "got gst.MessageEOS, exiting")
-			cancel()
-		case gst.MessageError: // Error messages are always fatal
-			err := msg.ParseError()
-			log.Error(ctx, "gstreamer error", "error", err.Error())
-			if debug := err.DebugString(); debug != "" {
-				log.Debug(ctx, "gstreamer debug", "message", debug)
+	go func() {
+		for {
+			if ctx.Err() != nil {
+				return
 			}
-			cancel()
-		default:
-			log.Debug(ctx, msg.String())
+			msg := pipeline.GetPipelineBus().PopMessage(gst.ClockTime(time.Second * 1))
+			if msg == nil {
+				continue
+			}
+			switch msg.Type() {
+			case gst.MessageEOS: // When end-of-stream is received flush the pipeline and stop the main loop
+				log.Debug(ctx, "got gst.MessageEOS, exiting")
+				cancel()
+			case gst.MessageError: // Error messages are always fatal
+				err := msg.ParseError()
+				log.Error(ctx, "gstreamer error", "error", err.Error())
+				if debug := err.DebugString(); debug != "" {
+					log.Debug(ctx, "gstreamer debug", "message", debug)
+				}
+				cancel()
+			default:
+				log.Debug(ctx, msg.String())
+			}
 		}
-		return true
-	})
+	}()
 
 	queue, err := pipeline.GetElementByName("queue")
 	if err != nil {

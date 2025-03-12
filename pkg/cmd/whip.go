@@ -26,6 +26,7 @@ func WHIP() error {
 	duration := fs.Duration("duration", 0, "duration of the stream")
 	file := fs.String("file", "", "file to stream (needs to be an MP4 containing H264 video and Opus audio)")
 	endpoint := fs.String("endpoint", "http://127.0.0.1:38080", "endpoint to send the WHIP request to")
+	freezeAfter := fs.Duration("freeze-after", 0, "freeze the stream after the given duration")
 	err := fs.Parse(os.Args[2:])
 	if *file == "" {
 		return fmt.Errorf("file is required")
@@ -42,20 +43,22 @@ func WHIP() error {
 	}
 
 	w := &WHIPClient{
-		StreamKey: *streamKey,
-		File:      *file,
-		Endpoint:  *endpoint,
-		Count:     *count,
+		StreamKey:   *streamKey,
+		File:        *file,
+		Endpoint:    *endpoint,
+		Count:       *count,
+		FreezeAfter: *freezeAfter,
 	}
 
 	return w.WHIP(ctx)
 }
 
 type WHIPClient struct {
-	StreamKey string
-	File      string
-	Endpoint  string
-	Count     int
+	StreamKey   string
+	File        string
+	Endpoint    string
+	Count       int
+	FreezeAfter time.Duration
 }
 
 var failureStates = []webrtc.ICEConnectionState{
@@ -316,18 +319,20 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 
 					accumulators[i] += duration
 
-					for _, conn := range conns {
-						if trackType == "video" {
-							if err := conn.videoTrack.WriteSample(media.Sample{Data: samples, Duration: duration}); err != nil {
-								log.Log(ctx, "error writing video sample", "error", err)
-								errCh <- err
-								return gst.FlowError
-							}
-						} else {
-							if err := conn.audioTrack.WriteSample(media.Sample{Data: samples, Duration: duration}); err != nil {
-								log.Log(ctx, "error writing video sample", "error", err)
-								errCh <- err
-								return gst.FlowError
+					if w.FreezeAfter == 0 || time.Since(startTime) < w.FreezeAfter {
+						for _, conn := range conns {
+							if trackType == "video" {
+								if err := conn.videoTrack.WriteSample(media.Sample{Data: samples, Duration: duration}); err != nil {
+									log.Log(ctx, "error writing video sample", "error", err)
+									errCh <- err
+									return gst.FlowError
+								}
+							} else {
+								if err := conn.audioTrack.WriteSample(media.Sample{Data: samples, Duration: duration}); err != nil {
+									log.Log(ctx, "error writing video sample", "error", err)
+									errCh <- err
+									return gst.FlowError
+								}
 							}
 						}
 					}

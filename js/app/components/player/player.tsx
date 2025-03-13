@@ -13,6 +13,8 @@ import {
   PROTOCOL_WEBRTC,
 } from "./props";
 import PlayerProvider from "./provider";
+import { selectUserMuted } from "features/streamplace/streamplaceSlice";
+import { useAppSelector } from "store/hooks";
 
 const HIDE_CONTROLS_AFTER = 2000;
 
@@ -32,8 +34,10 @@ export function PlayerInner(props: Partial<PlayerProps>) {
       </View>
     );
   }
+  const userMuted = useAppSelector(selectUserMuted);
   const playerId = useMemo(() => props.playerId ?? uuidv7(), [props.playerId]);
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(userMuted ?? false);
+
   const [showControls, setShowControls] = useState(true);
   const [touchTime, setTouchTime] = useState(0);
   useEffect(() => {

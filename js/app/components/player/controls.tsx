@@ -40,6 +40,7 @@ import { usePlayer, usePlayerActions } from "features/player/playerSlice";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import Loading from "components/loading/loading";
 import Viewers from "components/viewers";
+import { userMute } from "features/streamplace/streamplaceSlice";
 
 const Bar = (props) => (
   <XStack
@@ -83,6 +84,7 @@ export default function Controls(props: PlayerProps) {
   };
 
   const player = useAppSelector(usePlayer());
+  const dispatch = useAppDispatch();
 
   return (
     <View
@@ -126,7 +128,10 @@ export default function Controls(props: PlayerProps) {
             style={{
               justifyContent: "center",
             }}
-            onPress={() => props.setMuted(!props.muted)}
+            onPress={() => {
+              dispatch(userMute(!props.muted));
+              props.setMuted(!props.muted);
+            }}
           >
             <View paddingLeft="$5" paddingRight="$3" justifyContent="center">
               {props.muted ? <VolumeX></VolumeX> : <Volume2></Volume2>}

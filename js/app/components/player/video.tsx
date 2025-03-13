@@ -79,7 +79,6 @@ const VideoElement = forwardRef(
       props.playerEvent(now.toISOString(), evType, {});
     };
     const [firstAttempt, setFirstAttempt] = useState(true);
-    const [mutedAttempt, setMutedAttempt] = useState(false);
 
     const localVideoRef = useRef<HTMLVideoElement | null>(null);
     const canPlayThrough = (e) => {

@@ -39,6 +39,9 @@ func SafePipe() (*os.File, *os.File, func(), error) {
 
 func ReaderNeedData(ctx context.Context, input io.Reader) func(self *app.Source, length uint) {
 	return func(self *app.Source, length uint) {
+		if ctx.Err() != nil {
+			return
+		}
 		bs := make([]byte, length)
 		read, err := input.Read(bs)
 		if err != nil {
@@ -70,7 +73,6 @@ func WriterNewSample(ctx context.Context, output io.Writer) func(sink *app.Sink)
 		if sample == nil {
 			return gst.FlowOK
 		}
-		// defer sample.Unref()
 
 		// Retrieve the buffer from the sample.
 		buffer := sample.GetBuffer()
@@ -714,12 +716,12 @@ func (mm *MediaManager) Thumbnail(ctx context.Context, r io.Reader, w io.Writer)
 	defer cancel()
 
 	pipelineSlice := []string{
-		"appsrc name=appsrc ! qtdemux ! decodebin ! videoconvert ! videoscale ! video/x-raw,width=[1,200],height=[1,200],pixel-aspect-ratio=1/1 ! pngenc ! appsink name=appsink",
+		"appsrc name=appsrc ! qtdemux ! decodebin ! videoconvert ! videoscale ! video/x-raw,width=[1,720],height=[1,720],pixel-aspect-ratio=1/1 ! pngenc snapshot=true ! appsink name=appsink",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
-		return fmt.Errorf("error creating TestSource pipeline: %w", err)
+		return fmt.Errorf("error creating Thumbnail pipeline: %w", err)
 	}
 	appsrc, err := pipeline.GetElementByName("appsrc")
 	if err != nil {

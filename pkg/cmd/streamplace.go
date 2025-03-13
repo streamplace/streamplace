@@ -28,6 +28,7 @@ import (
 	"stream.place/streamplace/pkg/replication/boring"
 	v0 "stream.place/streamplace/pkg/schema/v0"
 	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/thumbnail"
 
 	"github.com/ThalesGroup/crypto11"
 	_ "github.com/go-gst/go-glib/glib"
@@ -334,6 +335,13 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 				}
 				go func() {
 					err := func() error {
+						lock := thumbnail.GetThumbnailLock(not.Segment.RepoDID)
+						locked := lock.TryLock()
+						if !locked {
+							// we're already generating a thumbnail for this user, skip
+							return nil
+						}
+						defer lock.Unlock()
 						oldThumb, err := mod.LatestThumbnailForUser(not.Segment.RepoDID)
 						if err != nil {
 							return err
@@ -348,6 +356,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 						if err != nil {
 							return err
 						}
+						defer fd.Close()
 						err = mm.Thumbnail(ctx, r, fd)
 						if err != nil {
 							return err

@@ -44,7 +44,6 @@ export default function WebVideo(
   if (props.ingest) {
     return <WebcamIngestPlayer url={url} {...props} />;
   }
-  console.log("protocol", protocol);
   if (protocol === PROTOCOL_PROGRESSIVE_MP4) {
     return <ProgressiveMP4Player url={url} {...props} />;
   } else if (protocol === PROTOCOL_PROGRESSIVE_WEBM) {

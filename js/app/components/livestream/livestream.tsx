@@ -14,6 +14,7 @@ import { usePlayer } from "features/player/playerSlice";
 import { useState, useEffect } from "react";
 import Loading from "components/loading/loading";
 import Viewers from "components/viewers";
+import ChatBox from "components/chat/chat-box";
 
 export default function Livestream(props: Partial<PlayerProps>) {
   return (
@@ -97,14 +98,12 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
         $gtXs={{ flexDirection: "row" }}
       >
         <View width={videoWidth} height={videoHeight} fs={0} $gtXs={{ fs: 1 }}>
-          <View borderBottomColor="#666" borderBottomWidth={1}>
-            <Player
-              telemetry={telemetry === true}
-              src={src}
-              forceProtocol={protocol}
-              {...extraProps}
-            />
-          </View>
+          <Player
+            telemetry={telemetry === true}
+            src={src}
+            forceProtocol={protocol}
+            {...extraProps}
+          />
           <View
             height={100}
             fg={0}
@@ -121,6 +120,8 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
           gap="$2"
           borderBottomColor="#666"
           borderBottomWidth={1}
+          borderTopColor="#666"
+          borderTopWidth={1}
         >
           <View f={1} fb={0} padding="$3" justifyContent="center">
             <Text fontSize={18} numberOfLines={1} ellipsizeMode="tail">
@@ -144,6 +145,9 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
           backgroundColor="$background2"
         >
           <Chat />
+          <View>
+            <ChatBox />
+          </View>
         </View>
       </View>
     </View>

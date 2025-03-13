@@ -63,6 +63,10 @@ const initialState: StreamplaceState = {
   userMuted: null,
 };
 
+const USER_MUTED_KEY = "streamplaceUserMuted";
+const TELEMETRY_KEY = "streamplaceTelemetry";
+const URL_KEY = "streamplaceUrl";
+
 export const streamplaceSlice = createAppSlice({
   name: "streamplace",
   initialState,
@@ -70,9 +74,9 @@ export const streamplaceSlice = createAppSlice({
     initialize: create.asyncThunk(
       async (_, { getState }) => {
         let [url, telemetryStr, userMutedStr] = await Promise.all([
-          Storage.getItem("streamplaceUrl"),
-          Storage.getItem("streamplaceTelemetry"),
-          Storage.getItem("streamplaceUserMuted"),
+          Storage.getItem(URL_KEY),
+          Storage.getItem(TELEMETRY_KEY),
+          Storage.getItem(USER_MUTED_KEY),
         ]);
         if (!url) {
           url = DEFAULT_URL;
@@ -84,6 +88,7 @@ export const streamplaceSlice = createAppSlice({
           telemetry = null;
         }
         let userMuted: boolean | null = null;
+        console.log("userMutedStr", userMutedStr);
         if (typeof userMutedStr === "string") {
           userMuted = userMutedStr === "true";
         } else {
@@ -112,7 +117,7 @@ export const streamplaceSlice = createAppSlice({
     ),
 
     setURL: create.reducer((state, action: { payload: string }) => {
-      Storage.setItem("streamplaceUrl", action.payload).catch((err) => {
+      Storage.setItem(URL_KEY, action.payload).catch((err) => {
         console.error("setURL error", err);
       });
       return {
@@ -122,12 +127,11 @@ export const streamplaceSlice = createAppSlice({
     }),
 
     telemetryOpt: create.reducer((state, action: { payload: boolean }) => {
-      Storage.setItem(
-        "streamplaceTelemetry",
-        JSON.stringify(action.payload),
-      ).catch((err) => {
-        console.error("telemetryOpt error", err);
-      });
+      Storage.setItem(TELEMETRY_KEY, JSON.stringify(action.payload)).catch(
+        (err) => {
+          console.error("telemetryOpt error", err);
+        },
+      );
       return {
         ...state,
         telemetry: action.payload,
@@ -135,7 +139,7 @@ export const streamplaceSlice = createAppSlice({
     }),
 
     userMute: create.reducer((state, action: { payload: boolean }) => {
-      Storage.setItem("userMuted", JSON.stringify(action.payload)).catch(
+      Storage.setItem(USER_MUTED_KEY, JSON.stringify(action.payload)).catch(
         (err) => {
           console.error("userMute error", err);
         },

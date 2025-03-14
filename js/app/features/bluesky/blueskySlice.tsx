@@ -1,4 +1,4 @@
-import { Agent } from "@atproto/api";
+import { Agent, AppBskyFeedPost } from "@atproto/api";
 import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import { openLoginLink } from "features/platform/platformSlice";
 import Storage from "storage";
@@ -10,6 +10,7 @@ import { hydrate, STORED_KEY_KEY } from "features/base/baseSlice";
 import { isWeb } from "tamagui";
 import { PlaceStreamKey, PlaceStreamLivestream } from "lexicons";
 import { BlueskyState } from "./blueskyTypes";
+import { FeedPost } from "features/player/playerSlice";
 
 const initialState: BlueskyState = {
   status: "start",
@@ -333,6 +334,56 @@ export const blueskySlice = createAppSlice({
       },
     ),
 
+    chatPost: create.asyncThunk(
+      async (
+        { text, livestream }: { text: string; livestream: FeedPost },
+        thunkAPI,
+      ) => {
+        const { bluesky, streamplace } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+          streamplace: StreamplaceState;
+        };
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const profile = bluesky.profiles[did];
+        if (!profile) {
+          throw new Error("No profile");
+        }
+        const record: AppBskyFeedPost.Record = {
+          text: text,
+          createdAt: new Date().toISOString(),
+          reply: {
+            root: {
+              cid: livestream.cid,
+              uri: livestream.uri,
+            },
+            parent: {
+              cid: livestream.cid,
+              uri: livestream.uri,
+            },
+          },
+        };
+        return await bluesky.pdsAgent.post(record);
+      },
+      {
+        pending: (state) => {
+          console.log("chatPost pending");
+        },
+        fulfilled: (state, action) => {
+          console.log("chatPost fulfilled", action.payload);
+        },
+        rejected: (state, action) => {
+          console.error("chatPost rejected", action.error);
+          // state.status = "failed";
+        },
+      },
+    ),
+
     createStreamKeyRecord: create.asyncThunk(
       async ({ store }: { store: boolean }, thunkAPI) => {
         const { bluesky } = thunkAPI.getState() as {
@@ -558,6 +609,7 @@ export const {
   createStreamKeyRecord,
   clearStreamKeyRecord,
   createLivestreamRecord,
+  chatPost,
 } = blueskySlice.actions;
 
 // Selectors returned by `slice.selectors` take the root state as their first argument.

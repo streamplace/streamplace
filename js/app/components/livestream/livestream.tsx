@@ -15,6 +15,7 @@ import { useState, useEffect } from "react";
 import Loading from "components/loading/loading";
 import Viewers from "components/viewers";
 import ChatBox from "components/chat/chat-box";
+import { useKeyboard } from "hooks/useKeyboard";
 
 export default function Livestream(props: Partial<PlayerProps>) {
   return (
@@ -33,6 +34,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
   const video = player.segment?.mediaData?.video[0];
   const [videoWidth, setVideoWidth] = useState(0);
   const [videoHeight, setVideoHeight] = useState(0);
+  const { isKeyboardVisible } = useKeyboard();
   useEffect(() => {
     if (video) {
       const ratio = video.width / width;
@@ -111,7 +113,9 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
             display="none"
             $gtXs={{ display: "flex" }}
           >
-            <H2>{player.livestream?.["place.stream.livestream"]?.title}</H2>
+            <H2>
+              {player.livestream?.feedPost?.["place.stream.livestream"]?.title}
+            </H2>
           </View>
         </View>
         <View
@@ -120,12 +124,13 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
           gap="$2"
           borderBottomColor="#666"
           borderBottomWidth={1}
+          display={isKeyboardVisible ? "none" : "flex"}
           borderTopColor="#666"
           borderTopWidth={1}
         >
           <View f={1} fb={0} padding="$3" justifyContent="center">
             <Text fontSize={18} numberOfLines={1} ellipsizeMode="tail">
-              {player.livestream?.["place.stream.livestream"]?.title}
+              {player.livestream?.feedPost?.["place.stream.livestream"]?.title}
             </Text>
           </View>
           <View justifyContent="center" paddingRight="$3">

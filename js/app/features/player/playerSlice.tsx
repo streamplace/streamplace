@@ -20,6 +20,20 @@ export interface StreamplaceAppBskyFeedPost extends AppBskyFeedPost.Record {
   };
 }
 
+export interface FeedPost {
+  cid: string;
+  uri: string;
+  createdAt: Date;
+  feedPost: StreamplaceAppBskyFeedPost;
+  repoDID: string;
+  repo: Repo | null;
+  type: string;
+  replyRootCID: string | null;
+  replyRoot: FeedPost | null;
+  replyRootRepoDID: string | null;
+  replyRootRepo: Repo | null;
+}
+
 export interface ChatMessage {
   post: StreamplaceAppBskyFeedPost;
   repo: Repo;
@@ -55,7 +69,7 @@ export interface PlayerState {
   ingestConnectionState: RTCPeerConnectionState | null;
   viewers: number | null;
   chat: ChatMessage[] | null;
-  livestream: StreamplaceAppBskyFeedPost | null;
+  livestream: FeedPost | null;
   segment: Segment | null;
 }
 
@@ -230,7 +244,7 @@ export const playerSlice = createAppSlice({
             streamplace: StreamplaceState;
           };
           const res = await fetch(`${streamplace.url}/api/livestream/${user}`);
-          const data = (await res.json()) as StreamplaceAppBskyFeedPost;
+          const data = (await res.json()) as FeedPost;
           return { playerId, livestream: data };
         },
         {
@@ -296,6 +310,9 @@ export const playerSlice = createAppSlice({
     selectChat: (state, playerId: string) => {
       return state[playerId].chat;
     },
+    selectLivestream: (state, playerId: string) => {
+      return state[playerId].livestream;
+    },
   },
 });
 
@@ -323,7 +340,8 @@ export const usePlayerActions = () => {
 };
 
 // Action creators are generated for each case reducer function.
-export const { selectPlayer, selectChat } = playerSlice.selectors;
+export const { selectPlayer, selectChat, selectLivestream } =
+  playerSlice.selectors;
 export const usePlayer = (): ((state: {
   player: PlayersState;
 }) => PlayerState) => {
@@ -335,4 +353,10 @@ export const useChat = (): ((state: {
 }) => ChatMessage[] | null) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId].chat;
+};
+export const usePlayerLivestream = (): ((state: {
+  player: PlayersState;
+}) => FeedPost | null) => {
+  const playerId = usePlayerId();
+  return (state) => state.player[playerId].livestream;
 };

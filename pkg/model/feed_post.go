@@ -2,12 +2,12 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/data"
 	"gorm.io/gorm"
 )
@@ -71,11 +71,6 @@ type StreamplaceFeedPostLivestream struct {
 	Title string `json:"title"`
 }
 
-type StreamplaceFeedPost struct {
-	bsky.FeedPost
-	Livestream *StreamplaceFeedPostLivestream `json:"place.stream.livestream,omitempty"`
-}
-
 func (m *DBModel) GetLatestLivestream(repoDID string) (map[string]any, error) {
 	posts := []FeedPost{}
 	err := m.DB.
@@ -93,11 +88,23 @@ func (m *DBModel) GetLatestLivestream(repoDID string) (map[string]any, error) {
 		return nil, nil
 	}
 
+	j, err := json.Marshal(posts[0])
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling feed post: %w", err)
+	}
+	obj := map[string]any{}
+	err = json.Unmarshal(j, &obj)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling feed post: %w", err)
+	}
+
 	d, err := data.UnmarshalCBOR(*posts[0].FeedPost)
 	if err != nil {
 		slog.Warn("failed to parse record CBOR")
 		return nil, fmt.Errorf("error decoding livestream: %w", err)
 	}
 
-	return d, nil
+	obj["feedPost"] = d
+
+	return obj, nil
 }

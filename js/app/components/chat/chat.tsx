@@ -20,6 +20,12 @@ export default function Chat() {
       paddingHorizontal="$4"
       invertStickyHeaders={true}
       ref={scrollRef}
+      onContentSizeChange={() => {
+        scrollRef.current?.scrollToEnd({ animated: true });
+      }}
+      onLayout={() => {
+        scrollRef.current?.scrollToEnd({ animated: true });
+      }}
     >
       {chat.toReversed().map((message) => (
         <ChatMessageRow key={message.cid} message={message} />

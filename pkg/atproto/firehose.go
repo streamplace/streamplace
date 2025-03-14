@@ -191,6 +191,13 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 		out["collection"] = collection
 		out["rkey"] = rkey
 
+		maybeATURI := fmt.Sprintf("at://%s/%s/%s", evt.Repo, collection.String(), rkey.String())
+		aturi, err := syntax.ParseATURI(maybeATURI)
+		if err != nil {
+			log.Warn(ctx, "invalid ATURI", "uri", maybeATURI, "error", err)
+			continue
+		}
+
 		ek := repomgr.EventKind(op.Action)
 		switch ek {
 		case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
@@ -270,6 +277,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 						FeedPost:  recCBOR,
 						RepoDID:   evt.Repo,
 						Type:      "livestream",
+						URI:       aturi.String(),
 					})
 				} else {
 					if rec.Reply == nil || rec.Reply.Root == nil {
@@ -309,6 +317,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 						Type:             "reply",
 						ReplyRootCID:     &post.CID,
 						ReplyRootRepoDID: &post.RepoDID,
+						URI:              aturi.String(),
 					})
 				}
 

@@ -16,3 +16,4 @@ build-*
 .ci/build.env
 *.log
 *.heap
+/api

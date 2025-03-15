@@ -536,9 +536,15 @@ func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle
 			apierrors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
-		livestream, err := a.Model.GetLatestLivestream(repoDID)
+		livestream, err := a.Model.GetLatestLivestreamForRepo(repoDID)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not get livestream", err)
+			return
+		}
+
+		doc, err := livestream.ToLivestreamView()
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not marshal livestream", err)
 			return
 		}
 
@@ -547,7 +553,7 @@ func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle
 			return
 		}
 
-		bs, err := json.Marshal(livestream)
+		bs, err := json.Marshal(doc)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal livestream", err)
 			return

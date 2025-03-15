@@ -8,6 +8,7 @@ import (
 	"math"
 	"sort"
 
+	atproto "github.com/bluesky-social/indigo/api/atproto"
 	cid "github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	xerrors "golang.org/x/xerrors"
@@ -189,7 +190,11 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 4
+	fieldCount := 5
+
+	if t.Post == nil {
+		fieldCount--
+	}
 
 	if t.Url == nil {
 		fieldCount--
@@ -228,6 +233,25 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 			if _, err := cw.WriteString(string(*t.Url)); err != nil {
 				return err
 			}
+		}
+	}
+
+	// t.Post (atproto.RepoStrongRef) (struct)
+	if t.Post != nil {
+
+		if len("post") > 1000000 {
+			return xerrors.Errorf("Value in field \"post\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("post"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("post")); err != nil {
+			return err
+		}
+
+		if err := t.Post.MarshalCBOR(cw); err != nil {
+			return err
 		}
 	}
 
@@ -359,6 +383,26 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 
 					t.Url = (*string)(&sval)
 				}
+			}
+			// t.Post (atproto.RepoStrongRef) (struct)
+		case "post":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Post = new(atproto.RepoStrongRef)
+					if err := t.Post.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Post pointer: %w", err)
+					}
+				}
+
 			}
 			// t.LexiconTypeID (string) (string)
 		case "$type":

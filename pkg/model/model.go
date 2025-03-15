@@ -60,7 +60,9 @@ type Model interface {
 	ListFeedPosts() ([]FeedPost, error)
 	GetFeedPost(cid string) (*FeedPost, error)
 	GetReplies(repoDID string) ([]FeedPost, error)
-	GetLatestLivestream(repoDID string) (map[string]any, error)
+
+	CreateLivestream(ctx context.Context, ls *Livestream) error
+	GetLatestLivestreamForRepo(repoDID string) (*Livestream, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -105,6 +107,7 @@ func MakeDB(dbURL string) (Model, error) {
 		SigningKey{},
 		Follow{},
 		FeedPost{},
+		Livestream{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

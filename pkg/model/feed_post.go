@@ -2,28 +2,47 @@ package model
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/api/bsky"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"gorm.io/gorm"
 )
 
 type FeedPost struct {
-	CID              string    `json:"cid" gorm:"primaryKey;column:cid"`
-	URI              string    `json:"uri"`
-	CreatedAt        time.Time `json:"createdAt" gorm:"column:created_at;index:recent_replies"`
-	FeedPost         *[]byte   `json:"feedPost"`
-	RepoDID          string    `json:"repoDID"              gorm:"column:repo_did"`
-	Repo             *Repo     `json:"repo,omitempty"       gorm:"foreignKey:DID;references:RepoDID"`
-	Type             string    `json:"type"                 gorm:"column:type"`
-	ReplyRootCID     *string   `json:"replyRootCID,omitempty" gorm:"column:reply_root_cid"`
-	ReplyRoot        *FeedPost `json:"replyRoot,omitempty" gorm:"foreignKey:cid;references:ReplyRootCID"`
-	ReplyRootRepoDID *string   `json:"replyRootRepoDID,omitempty" gorm:"column:reply_root_repo_did;index:recent_replies"`
-	ReplyRootRepo    *Repo     `json:"replyRootRepo,omitempty" gorm:"foreignKey:DID;references:ReplyRootRepoDID"`
+	CID              string     `json:"cid" gorm:"primaryKey;column:cid"`
+	URI              string     `json:"uri"`
+	CreatedAt        time.Time  `json:"createdAt" gorm:"column:created_at;index:recent_replies"`
+	FeedPost         *[]byte    `json:"feedPost"`
+	RepoDID          string     `json:"repoDID"              gorm:"column:repo_did"`
+	Repo             *Repo      `json:"repo,omitempty"       gorm:"foreignKey:DID;references:RepoDID"`
+	Type             string     `json:"type"                 gorm:"column:type"`
+	ReplyRootCID     *string    `json:"replyRootCID,omitempty" gorm:"column:reply_root_cid"`
+	ReplyRoot        *FeedPost  `json:"replyRoot,omitempty" gorm:"foreignKey:cid;references:ReplyRootCID"`
+	ReplyRootRepoDID *string    `json:"replyRootRepoDID,omitempty" gorm:"column:reply_root_repo_did;index:recent_replies"`
+	ReplyRootRepo    *Repo      `json:"replyRootRepo,omitempty" gorm:"foreignKey:DID;references:ReplyRootRepoDID"`
+	IndexedAt        *time.Time `json:"indexedAt,omitempty" gorm:"column:indexed_at"`
+}
+
+func (fp *FeedPost) ToBskyPostView() (*bsky.FeedDefs_PostView, error) {
+	rec, err := lexutil.CborDecodeValue(*fp.FeedPost)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding feed post: %w", err)
+	}
+	postView := bsky.FeedDefs_PostView{
+		LexiconTypeID: "app.bsky.feed.defs#postView",
+		Cid:           fp.CID,
+		Uri:           fp.URI,
+		Author: &bsky.ActorDefs_ProfileViewBasic{
+			Did:    fp.RepoDID,
+			Handle: fp.Repo.Handle,
+		},
+		Record:    &lexutil.LexiconTypeDecoder{Val: rec},
+		IndexedAt: time.Now().Format(time.RFC3339),
+	}
+	return &postView, nil
 }
 
 func (m *DBModel) CreateFeedPost(ctx context.Context, post *FeedPost) error {
@@ -71,7 +90,7 @@ type StreamplaceFeedPostLivestream struct {
 	Title string `json:"title"`
 }
 
-func (m *DBModel) GetLatestLivestream(repoDID string) (map[string]any, error) {
+func (m *DBModel) GetLatestLivestream(repoDID string) (*bsky.FeedDefs_PostView, error) {
 	posts := []FeedPost{}
 	err := m.DB.
 		Preload("Repo").
@@ -88,23 +107,10 @@ func (m *DBModel) GetLatestLivestream(repoDID string) (map[string]any, error) {
 		return nil, nil
 	}
 
-	j, err := json.Marshal(posts[0])
+	view, err := posts[0].ToBskyPostView()
 	if err != nil {
-		return nil, fmt.Errorf("error marshalling feed post: %w", err)
-	}
-	obj := map[string]any{}
-	err = json.Unmarshal(j, &obj)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling feed post: %w", err)
+		return nil, fmt.Errorf("error converting feed post to bsky post view: %w", err)
 	}
 
-	d, err := data.UnmarshalCBOR(*posts[0].FeedPost)
-	if err != nil {
-		slog.Warn("failed to parse record CBOR")
-		return nil, fmt.Errorf("error decoding livestream: %w", err)
-	}
-
-	obj["feedPost"] = d
-
-	return obj, nil
+	return view, nil
 }

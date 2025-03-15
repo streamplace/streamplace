@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
 import { Button, Label, Paragraph, TextArea, View } from "tamagui";
-import { Switch } from "react-native";
 import { useToastController } from "@tamagui/toast";
-import { useIsFocused } from "@react-navigation/native";
 import {
   createLivestreamRecord,
-  golivePost,
   selectNewLivestream,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
@@ -31,12 +28,9 @@ const Right = ({ children }: { children: React.ReactNode }) => {
 export default function CreateLivestream() {
   const dispatch = useAppDispatch();
   const toast = useToastController();
-  // const { url } = useAquareumNode();
   const userIsLive = useLiveUser();
-  const isFocused = useIsFocused();
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
-  const [postToBluesky, setPostToBluesky] = useState(true);
   const profile = useAppSelector(selectUserProfile);
   const newLivestream = useAppSelector(selectNewLivestream);
   useEffect(() => {
@@ -92,23 +86,6 @@ export default function CreateLivestream() {
           </Right>
         </View>
       </Label>
-      <Label asChild={true}>
-        <View flexDirection="row">
-          <Left>
-            <Paragraph pb="$2" pr="$2" lh={16}>
-              Post to Bluesky
-            </Paragraph>
-          </Left>
-          <Right>
-            <View f={1} jc="center" alignItems="flex-start">
-              <Switch
-                value={postToBluesky}
-                onValueChange={setPostToBluesky}
-              ></Switch>
-            </View>
-          </Right>
-        </View>
-      </Label>
       <View gap="$2" w="100%">
         <Button
           disabled={disabled}
@@ -117,9 +94,6 @@ export default function CreateLivestream() {
           size="$4"
           onPress={() => {
             dispatch(createLivestreamRecord({ title }));
-            if (postToBluesky) {
-              dispatch(golivePost({ text: title }));
-            }
           }}
         >
           {buttonText(loading, userIsLive)}

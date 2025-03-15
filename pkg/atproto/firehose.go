@@ -131,7 +131,8 @@ var CollectionFilter = []string{
 
 func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, mod model.Model) error {
 	ctx = log.WithLogValues(ctx, "event", "commit", "did", evt.Repo, "rev", evt.Rev, "seq", fmt.Sprintf("%d", evt.Seq), "func", "handleCommitEventOps")
-	fc.lastSeen = time.Now()
+	now := time.Now()
+	fc.lastSeen = now
 
 	if evt.TooBig {
 		log.Warn(ctx, "skipping tooBig events for now")
@@ -278,6 +279,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 						RepoDID:   evt.Repo,
 						Type:      "livestream",
 						URI:       aturi.String(),
+						IndexedAt: &now,
 					})
 				} else {
 					if rec.Reply == nil || rec.Reply.Root == nil {
@@ -318,6 +320,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 						ReplyRootCID:     &post.CID,
 						ReplyRootRepoDID: &post.RepoDID,
 						URI:              aturi.String(),
+						IndexedAt:        &now,
 					})
 				}
 
@@ -328,6 +331,24 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 				}
 				if r == nil {
 					// we don't know about this repo
+					continue
+				}
+				createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
+				if err != nil {
+					log.Error(ctx, "failed to parse createdAt", "err", err)
+					continue
+				}
+				err = mod.CreateLivestream(ctx, &model.Livestream{
+					CID:        op.Cid.String(),
+					URI:        aturi.String(),
+					CreatedAt:  createdAt,
+					Livestream: recCBOR,
+					RepoDID:    evt.Repo,
+					PostCID:    rec.Post.Cid,
+					PostURI:    rec.Post.Uri,
+				})
+				if err != nil {
+					log.Error(ctx, "failed to create livestream", "err", err)
 					continue
 				}
 				log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", u, "createdAt", rec.CreatedAt, "repo", evt.Repo)

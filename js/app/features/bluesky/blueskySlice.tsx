@@ -269,7 +269,13 @@ export const blueskySlice = createAppSlice({
     ),
 
     golivePost: create.asyncThunk(
-      async ({ text }: { text: string }, thunkAPI) => {
+      async (
+        { text, now }: { text: string; now: Date },
+        thunkAPI,
+      ): Promise<{
+        uri: string;
+        cid: string;
+      }> => {
         const { bluesky, streamplace } = thunkAPI.getState() as {
           bluesky: BlueskyState;
           streamplace: StreamplaceState;
@@ -310,13 +316,14 @@ export const blueskySlice = createAppSlice({
             ],
           },
         ];
-        const record = {
+        const record: AppBskyFeedPost.Record = {
           text: content,
           "place.stream.livestream": {
             url: linkUrl,
             title: text,
           },
           facets,
+          createdAt: now.toISOString(),
         };
         return await bluesky.pdsAgent.post(record);
       },
@@ -498,6 +505,7 @@ export const blueskySlice = createAppSlice({
 
     createLivestreamRecord: create.asyncThunk(
       async ({ title }: { title }, thunkAPI) => {
+        const now = new Date();
         const { bluesky, streamplace } = thunkAPI.getState() as {
           bluesky: BlueskyState;
           streamplace: StreamplaceState;
@@ -516,10 +524,17 @@ export const blueskySlice = createAppSlice({
         if (!did) {
           throw new Error("No DID");
         }
+        const newPost = (await thunkAPI.dispatch(
+          golivePost({ text: title, now }),
+        )) as { payload: { uri: string; cid: string } };
         const record: PlaceStreamLivestream.Record = {
           title: title,
           url: streamplace.url,
           createdAt: new Date().toISOString(),
+          post: {
+            uri: newPost.payload.uri,
+            cid: newPost.payload.cid,
+          },
         };
         await bluesky.pdsAgent.com.atproto.repo.createRecord({
           repo: did,

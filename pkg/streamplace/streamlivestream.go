@@ -5,6 +5,11 @@ package streamplace
 // schema: place.stream.livestream
 
 import (
+	"encoding/json"
+	"fmt"
+
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
@@ -16,8 +21,54 @@ type Livestream struct {
 	LexiconTypeID string `json:"$type,const=place.stream.livestream" cborgen:"$type,const=place.stream.livestream"`
 	// createdAt: Client-declared timestamp when this livestream started.
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// post: The post that announced this livestream. Used for chat replies.
+	Post *comatprototypes.RepoStrongRef `json:"post,omitempty" cborgen:"post,omitempty"`
 	// title: The title of the livestream, as it will be announced to followers.
 	Title string `json:"title" cborgen:"title"`
 	// url: The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.
 	Url *string `json:"url,omitempty" cborgen:"url,omitempty"`
+}
+
+// Livestream_LivestreamView is a "livestreamView" in the place.stream.livestream schema.
+//
+// RECORDTYPE: Livestream_LivestreamView
+type Livestream_LivestreamView struct {
+	LexiconTypeID string                                   `json:"$type,const=place.stream.livestream#livestreamView" cborgen:"$type,const=place.stream.livestream#livestreamView"`
+	Author        *appbskytypes.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
+	Cid           string                                   `json:"cid" cborgen:"cid"`
+	IndexedAt     string                                   `json:"indexedAt" cborgen:"indexedAt"`
+	Record        *util.LexiconTypeDecoder                 `json:"record" cborgen:"record"`
+	Uri           string                                   `json:"uri" cborgen:"uri"`
+}
+
+// Livestream_LivestreamViewReffer is a "livestreamViewReffer" in the place.stream.livestream schema.
+type Livestream_LivestreamViewReffer struct {
+	Livestream *Livestream_LivestreamViewReffer_Livestream `json:"livestream" cborgen:"livestream"`
+}
+
+type Livestream_LivestreamViewReffer_Livestream struct {
+	Livestream_LivestreamView *Livestream_LivestreamView
+}
+
+func (t *Livestream_LivestreamViewReffer_Livestream) MarshalJSON() ([]byte, error) {
+	if t.Livestream_LivestreamView != nil {
+		t.Livestream_LivestreamView.LexiconTypeID = "place.stream.livestream#livestreamView"
+		return json.Marshal(t.Livestream_LivestreamView)
+	}
+	return nil, fmt.Errorf("cannot marshal empty enum")
+}
+func (t *Livestream_LivestreamViewReffer_Livestream) UnmarshalJSON(b []byte) error {
+	typ, err := util.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.livestream#livestreamView":
+		t.Livestream_LivestreamView = new(Livestream_LivestreamView)
+		return json.Unmarshal(b, t.Livestream_LivestreamView)
+
+	default:
+		return nil
+	}
 }

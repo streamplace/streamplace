@@ -53,16 +53,28 @@ go-lexicons:
 	&& mkdir -p ./pkg/streamplace \
 	&& $(MAKE) lexgen \
 	&& sed -i.bak 's/\tutil/\/\/\tutil/' $$(find ./pkg/streamplace -type f) \
-	&& sed -i.bak -E 's/^(.+)github(.+)//' $$(find ./pkg/streamplace -type f) \
+	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace -type f) \
 	&& go run ./pkg/gen/gen.go \
 	&& $(MAKE) lexgen \
-	&& rm -rf ./pkg/streamplace/*.bak
+	&& rm -rf ./pkg/streamplace/*.bak \
+	&& rm -rf api
+
+.PHONY: js-lexicons
+js-lexicons:
+	node_modules/.bin/lex gen-api ./js/app/lexicons $$(find ./lexicons -type f -name '*.json') --yes \
+		&& echo 'import { ComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords } from "@atproto/api"' >> ./js/app/lexicons/index.ts \
+		&& sed -i.bak "s/'\.\.\/\.\.\//'@atproto\/api\/src\/client\/types\//" $$(find ./js/app/lexicons/types/place/stream -type f) \
+		&& rm -rf ./js/app/lexicons/types/place/stream/*.bak
 
 .PHONY: lexgen
 lexgen:
 	go run github.com/bluesky-social/indigo/cmd/lexgen --package streamplace \
-		--types-import place.stream:stream.place/streamplace/pkg/streamplace --outdir ./pkg/streamplace --prefix place.stream --build \
-		'[{"package": "streamplace","prefix": "place.stream","outdir": "./pkg/streamplace","import":"stream.place/streamplace"}]' lexicons/place/stream
+		--types-import place.stream:stream.place/streamplace/pkg/streamplace \
+		-outdir ./pkg/streamplace \
+		--prefix place.stream \
+		--build-file util/lexgen-build.json \
+		lexicons/place/stream \
+		../atproto/lexicons
 
 .PHONY: test
 test:

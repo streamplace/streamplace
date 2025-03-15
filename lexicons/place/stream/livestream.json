@@ -25,7 +25,36 @@
             "type": "string",
             "format": "datetime",
             "description": "Client-declared timestamp when this livestream started."
+          },
+          "post": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The post that announced this livestream. Used for chat replies."
           }
+        }
+      }
+    },
+    "livestreamView": {
+      "type": "object",
+      "required": ["uri", "cid", "author", "record", "indexedAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "author": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic"
+        },
+        "record": { "type": "unknown" },
+        "indexedAt": { "type": "string", "format": "datetime" }
+      }
+    },
+    "livestreamViewReffer": {
+      "type": "object",
+      "required": ["livestream"],
+      "properties": {
+        "livestream": {
+          "type": "union",
+          "refs": ["#livestreamView"]
         }
       }
     }

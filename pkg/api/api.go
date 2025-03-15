@@ -18,7 +18,6 @@ import (
 
 	"github.com/NYTimes/gziphandler"
 	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
@@ -494,27 +493,7 @@ func (a *StreamplaceAPI) HandleChat(ctx context.Context) httprouter.Handle {
 			apierrors.WriteHTTPInternalServerError(w, "could not get replies", err)
 			return
 		}
-
-		posts := []ChatResponse{}
-		for _, reply := range replies {
-			cb, err := lexutil.CborDecodeValue(*reply.FeedPost)
-			if err != nil {
-				log.Error(ctx, "failed to parse record CBOR", "err", err)
-				continue
-			}
-			post, ok := cb.(*bsky.FeedPost)
-			if !ok {
-				log.Error(ctx, "data integrity error: reply is not a bsky.FeedPost", "reply", reply)
-				continue
-			}
-			posts = append(posts, ChatResponse{
-				Post: post,
-				Repo: reply.Repo,
-				CID:  reply.CID,
-			})
-		}
-
-		bs, err := json.Marshal(posts)
+		bs, err := json.Marshal(replies)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal replies", err)
 			return

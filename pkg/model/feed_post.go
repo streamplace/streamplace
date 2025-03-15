@@ -70,7 +70,7 @@ func (m *DBModel) GetFeedPost(cid string) (*FeedPost, error) {
 	return &post, nil
 }
 
-func (m *DBModel) GetReplies(repoDID string) ([]FeedPost, error) {
+func (m *DBModel) GetReplies(repoDID string) ([]*bsky.FeedDefs_PostView, error) {
 	posts := []FeedPost{}
 	err := m.DB.
 		Preload("Repo").
@@ -81,8 +81,15 @@ func (m *DBModel) GetReplies(repoDID string) ([]FeedPost, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving replies: %w", err)
 	}
-
-	return posts, nil
+	bskyPosts := []*bsky.FeedDefs_PostView{}
+	for _, post := range posts {
+		bskyPost, err := post.ToBskyPostView()
+		if err != nil {
+			return nil, fmt.Errorf("error converting feed post to bsky post view: %w", err)
+		}
+		bskyPosts = append(bskyPosts, bskyPost)
+	}
+	return bskyPosts, nil
 }
 
 type StreamplaceFeedPostLivestream struct {

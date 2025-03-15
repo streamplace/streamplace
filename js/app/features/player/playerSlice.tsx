@@ -2,43 +2,26 @@ import { createAction } from "@reduxjs/toolkit";
 import { createAppSlice } from "../../hooks/createSlice";
 import { uuidv7 } from "hooks/uuid";
 import { createContext, useContext } from "react";
-import { Repo, StreamplaceState } from "features/streamplace/streamplaceSlice";
-import { AppBskyFeedPost } from "@atproto/api";
-
+import { StreamplaceState } from "features/streamplace/streamplaceSlice";
+import { AppBskyFeedDefs, AppBskyFeedPost } from "@atproto/api";
+import {
+  LivestreamView,
+  Record as LivestreamRecord,
+} from "../../lexicons/types/place/stream/livestream";
 export interface PlayerContextType {
   playerId: string | null;
+}
+
+export interface LivestreamViewHydrated extends LivestreamView {
+  record: LivestreamRecord;
+}
+export interface PostViewHydrated extends AppBskyFeedDefs.PostView {
+  record: AppBskyFeedPost.Record;
 }
 
 export const PlayerContext = createContext<PlayerContextType>({
   playerId: null,
 });
-
-export interface StreamplaceAppBskyFeedPost extends AppBskyFeedPost.Record {
-  "place.stream.livestream": {
-    title: string;
-    url: string;
-  };
-}
-
-export interface FeedPost {
-  cid: string;
-  uri: string;
-  createdAt: Date;
-  feedPost: StreamplaceAppBskyFeedPost;
-  repoDID: string;
-  repo: Repo | null;
-  type: string;
-  replyRootCID: string | null;
-  replyRoot: FeedPost | null;
-  replyRootRepoDID: string | null;
-  replyRootRepo: Repo | null;
-}
-
-export interface ChatMessage {
-  post: StreamplaceAppBskyFeedPost;
-  repo: Repo;
-  cid: string;
-}
 
 interface SegmentMediadataVideo {
   width: number;
@@ -68,8 +51,8 @@ export interface PlayerState {
   ingestStarting: boolean;
   ingestConnectionState: RTCPeerConnectionState | null;
   viewers: number | null;
-  chat: ChatMessage[] | null;
-  livestream: FeedPost | null;
+  chat: PostViewHydrated[] | null;
+  livestream: LivestreamViewHydrated | null;
   segment: Segment | null;
 }
 
@@ -193,7 +176,7 @@ export const playerSlice = createAppSlice({
             streamplace: StreamplaceState;
           };
           const res = await fetch(`${streamplace.url}/api/chat/${user}`);
-          const data = (await res.json()) as ChatMessage[];
+          const data = (await res.json()) as PostViewHydrated[];
           return { playerId, chat: data };
         },
         {
@@ -244,7 +227,7 @@ export const playerSlice = createAppSlice({
             streamplace: StreamplaceState;
           };
           const res = await fetch(`${streamplace.url}/api/livestream/${user}`);
-          const data = (await res.json()) as FeedPost;
+          const data = (await res.json()) as LivestreamViewHydrated;
           return { playerId, livestream: data };
         },
         {
@@ -350,13 +333,13 @@ export const usePlayer = (): ((state: {
 };
 export const useChat = (): ((state: {
   player: PlayersState;
-}) => ChatMessage[] | null) => {
+}) => PostViewHydrated[] | null) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId].chat;
 };
 export const usePlayerLivestream = (): ((state: {
   player: PlayersState;
-}) => FeedPost | null) => {
+}) => LivestreamViewHydrated | null) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId].livestream;
 };

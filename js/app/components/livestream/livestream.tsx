@@ -111,11 +111,15 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
             fg={0}
             p="$4"
             display="none"
+            flexDirection="row"
+            alignItems="flex-start"
+            justifyContent="space-between"
             $gtXs={{ display: "flex" }}
           >
-            <H2>
-              {player.livestream?.feedPost?.["place.stream.livestream"]?.title}
-            </H2>
+            <H2>{player.livestream?.record.title}</H2>
+            <View justifyContent="center" paddingRight="$3">
+              <Viewers viewers={player.viewers ?? 0} />
+            </View>
           </View>
         </View>
         <View
@@ -130,7 +134,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
         >
           <View f={1} fb={0} padding="$3" justifyContent="center">
             <Text fontSize={18} numberOfLines={1} ellipsizeMode="tail">
-              {player.livestream?.feedPost?.["place.stream.livestream"]?.title}
+              {player.livestream?.record.title}
             </Text>
           </View>
           <View justifyContent="center" paddingRight="$3">

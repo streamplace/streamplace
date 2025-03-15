@@ -10,7 +10,7 @@ import { hydrate, STORED_KEY_KEY } from "features/base/baseSlice";
 import { isWeb } from "tamagui";
 import { PlaceStreamKey, PlaceStreamLivestream } from "lexicons";
 import { BlueskyState } from "./blueskyTypes";
-import { FeedPost } from "features/player/playerSlice";
+import { LivestreamViewHydrated } from "features/player/playerSlice";
 
 const initialState: BlueskyState = {
   status: "start",
@@ -343,7 +343,10 @@ export const blueskySlice = createAppSlice({
 
     chatPost: create.asyncThunk(
       async (
-        { text, livestream }: { text: string; livestream: FeedPost },
+        {
+          text,
+          livestream,
+        }: { text: string; livestream: LivestreamViewHydrated },
         thunkAPI,
       ) => {
         const { bluesky, streamplace } = thunkAPI.getState() as {
@@ -361,17 +364,20 @@ export const blueskySlice = createAppSlice({
         if (!profile) {
           throw new Error("No profile");
         }
+        if (!livestream.record.post) {
+          throw new Error("No post");
+        }
         const record: AppBskyFeedPost.Record = {
           text: text,
           createdAt: new Date().toISOString(),
           reply: {
             root: {
-              cid: livestream.cid,
-              uri: livestream.uri,
+              cid: livestream.record.post.cid,
+              uri: livestream.record.post.uri,
             },
             parent: {
-              cid: livestream.cid,
-              uri: livestream.uri,
+              cid: livestream.record.post.cid,
+              uri: livestream.record.post.uri,
             },
           },
         };

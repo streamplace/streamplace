@@ -59,7 +59,7 @@ type Model interface {
 	CreateFeedPost(ctx context.Context, post *FeedPost) error
 	ListFeedPosts() ([]FeedPost, error)
 	GetFeedPost(cid string) (*FeedPost, error)
-	GetReplies(repoDID string) ([]FeedPost, error)
+	GetReplies(repoDID string) ([]*bsky.FeedDefs_PostView, error)
 
 	CreateLivestream(ctx context.Context, ls *Livestream) error
 	GetLatestLivestreamForRepo(repoDID string) (*Livestream, error)

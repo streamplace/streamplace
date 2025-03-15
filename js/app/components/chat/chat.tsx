@@ -1,5 +1,5 @@
 // import { useChat, ChatMessage } from "features/player/playerSlice";
-import { ChatMessage, useChat } from "features/player/playerSlice";
+import { PostViewHydrated, useChat } from "features/player/playerSlice";
 import { useEffect, useRef } from "react";
 import { useAppSelector } from "store/hooks";
 import { View, Text, ScrollView } from "tamagui";
@@ -34,12 +34,17 @@ export default function Chat() {
   );
 }
 
-function ChatMessageRow({ message }: { message: ChatMessage }) {
+function ChatMessageRow({ message }: { message: PostViewHydrated }) {
   return (
     <View flexDirection="row" display="block" paddingVertical={4}>
       <Text fontSize={13}>
-        <Text color="$accentColor">@{message.repo.handle}: </Text>
-        <Text>{message.post.text}</Text>
+        <Text color="$accentColor">
+          {message.author.handle
+            ? `@${message.author.handle}`
+            : message.author.did}
+          :
+        </Text>
+        <Text> {message.record.text}</Text>
       </Text>
     </View>
   );

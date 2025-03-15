@@ -7,6 +7,7 @@ import { AppBskyFeedDefs, AppBskyFeedPost } from "@atproto/api";
 import {
   LivestreamView,
   Record as LivestreamRecord,
+  ViewerCount,
 } from "../../lexicons/types/place/stream/livestream";
 export interface PlayerContextType {
   playerId: string | null;
@@ -144,7 +145,7 @@ export const playerSlice = createAppSlice({
             streamplace: StreamplaceState;
           };
           const res = await fetch(`${streamplace.url}/api/view-count/${user}`);
-          const data = await res.json();
+          const data = (await res.json()) as ViewerCount;
           return { playerId, count: data.count };
         },
         {

@@ -48,13 +48,20 @@
         "indexedAt": { "type": "string", "format": "datetime" }
       }
     },
+    "viewerCount": {
+      "type": "object",
+      "required": ["count"],
+      "properties": {
+        "count": { "type": "integer" }
+      }
+    },
     "livestreamViewReffer": {
       "type": "object",
       "required": ["livestream"],
       "properties": {
         "livestream": {
           "type": "union",
-          "refs": ["#livestreamView"]
+          "refs": ["#livestreamView", "#viewerCount"]
         }
       }
     }

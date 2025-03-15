@@ -48,12 +48,17 @@ type Livestream_LivestreamViewReffer struct {
 
 type Livestream_LivestreamViewReffer_Livestream struct {
 	Livestream_LivestreamView *Livestream_LivestreamView
+	Livestream_ViewerCount    *Livestream_ViewerCount
 }
 
 func (t *Livestream_LivestreamViewReffer_Livestream) MarshalJSON() ([]byte, error) {
 	if t.Livestream_LivestreamView != nil {
 		t.Livestream_LivestreamView.LexiconTypeID = "place.stream.livestream#livestreamView"
 		return json.Marshal(t.Livestream_LivestreamView)
+	}
+	if t.Livestream_ViewerCount != nil {
+		t.Livestream_ViewerCount.LexiconTypeID = "place.stream.livestream#viewerCount"
+		return json.Marshal(t.Livestream_ViewerCount)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -67,8 +72,19 @@ func (t *Livestream_LivestreamViewReffer_Livestream) UnmarshalJSON(b []byte) err
 	case "place.stream.livestream#livestreamView":
 		t.Livestream_LivestreamView = new(Livestream_LivestreamView)
 		return json.Unmarshal(b, t.Livestream_LivestreamView)
+	case "place.stream.livestream#viewerCount":
+		t.Livestream_ViewerCount = new(Livestream_ViewerCount)
+		return json.Unmarshal(b, t.Livestream_ViewerCount)
 
 	default:
 		return nil
 	}
+}
+
+// Livestream_ViewerCount is a "viewerCount" in the place.stream.livestream schema.
+//
+// RECORDTYPE: Livestream_ViewerCount
+type Livestream_ViewerCount struct {
+	LexiconTypeID string `json:"$type,const=place.stream.livestream#viewerCount" cborgen:"$type,const=place.stream.livestream#viewerCount"`
+	Count         int64  `json:"count" cborgen:"count"`
 }

@@ -33,6 +33,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
 type StreamplaceAPI struct {
@@ -399,10 +400,6 @@ func (a *StreamplaceAPI) HandleLiveUsers(ctx context.Context) httprouter.Handle 
 	}
 }
 
-type ViewCountResponse struct {
-	Count int `json:"count"`
-}
-
 func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		user := params.ByName("user")
@@ -416,7 +413,7 @@ func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle 
 			return
 		}
 		count := spmetrics.GetViewCount(user)
-		bs, err := json.Marshal(ViewCountResponse{Count: count})
+		bs, err := json.Marshal(streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal view count", err)
 			return

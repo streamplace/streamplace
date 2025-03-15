@@ -47,6 +47,11 @@ schema:
 	mkdir -p js/app/generated \
 	&& go run pkg/crypto/signers/eip712/export-schema/export-schema.go > js/app/generated/eip712-schema.json
 
+.PHONY: lexicons
+lexicons:
+	$(MAKE) go-lexicons \
+	&& $(MAKE) js-lexicons
+
 .PHONY: go-lexicons
 go-lexicons:
 	rm -rf ./pkg/streamplace \

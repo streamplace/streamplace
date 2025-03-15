@@ -222,14 +222,14 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 				log.Error(ctx, "impossible event kind", "kind", ek)
 				break
 			}
-			cb, err := lexutil.CborDecodeValue(*recCBOR)
-			if err != nil {
-				log.Error(ctx, "failed to parse record CBOR", "err", err)
-				continue
-			}
 			d, err := data.UnmarshalCBOR(*recCBOR)
 			if err != nil {
 				slog.Warn("failed to parse record CBOR")
+				continue
+			}
+			cb, err := lexutil.CborDecodeValue(*recCBOR)
+			if err != nil {
+				log.Error(ctx, "failed to parse record CBOR", "err", err)
 				continue
 			}
 			switch rec := cb.(type) {

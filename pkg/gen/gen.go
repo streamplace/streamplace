@@ -20,7 +20,7 @@ func main() {
 	}
 
 	if err := genCfg.WriteMapEncodersToFile("pkg/streamplace/cbor_gen.go", "streamplace",
-		streamplace.Key{}, streamplace.Livestream{},
+		streamplace.Key{}, streamplace.Livestream{}, streamplace.Segment{}, streamplace.Segment_Audio{}, streamplace.Segment_Video{},
 	); err != nil {
 		panic(err)
 	}

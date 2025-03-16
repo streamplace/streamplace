@@ -27,7 +27,7 @@ export default function Chat() {
         scrollRef.current?.scrollToEnd({ animated: true });
       }}
     >
-      {chat.toReversed().map((message) => (
+      {chat.map((message) => (
         <ChatMessageRow key={message.cid} message={message} />
       ))}
     </ScrollView>

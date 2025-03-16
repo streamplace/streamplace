@@ -366,7 +366,8 @@ func (a *StreamplaceAPI) HandleUserRecentSegments(ctx context.Context) httproute
 			apierrors.WriteHTTPInternalServerError(w, "could not get segments", err)
 			return
 		}
-		bs, err := json.Marshal(seg)
+		streamplaceSeg := seg.ToStreamplaceSegment()
+		bs, err := json.Marshal(streamplaceSeg)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal segments", err)
 			return
@@ -570,6 +571,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		defer conn.Close()
+		initialBurst := make(chan any, 200)
 		go func() {
 
 			ch := a.Bus.Subscribe(repoDID)
@@ -578,19 +580,26 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			ticker := time.NewTicker(3 * time.Second)
 			defer ticker.Stop()
 
+			send := func(msg any) {
+				bs, err := json.Marshal(msg)
+				if err != nil {
+					log.Error(ctx, "could not marshal message", "error", err)
+					return
+				}
+				log.Warn(ctx, "sending message", "message", string(bs))
+				err = conn.WriteMessage(websocket.TextMessage, bs)
+				if err != nil {
+					log.Error(ctx, "could not write message", "error", err)
+					return
+				}
+			}
+
 			for {
 				select {
 				case msg := <-ch:
-					bs, err := json.Marshal(msg)
-					if err != nil {
-						log.Error(ctx, "could not marshal message", "error", err)
-						continue
-					}
-					err = conn.WriteMessage(websocket.TextMessage, bs)
-					if err != nil {
-						log.Error(ctx, "could not write message", "error", err)
-						continue
-					}
+					send(msg)
+				case msg := <-initialBurst:
+					send(msg)
 				case <-ticker.C:
 					count := spmetrics.GetViewCount(repoDID)
 					bs, err := json.Marshal(streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
@@ -609,6 +618,46 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				}
 			}
 		}()
+
+		go func() {
+			seg, err := a.Model.LatestSegmentForUser(repoDID)
+			if err != nil {
+				log.Error(ctx, "could not get replies", "error", err)
+				return
+			}
+			initialBurst <- seg.ToStreamplaceSegment()
+		}()
+
+		go func() {
+			ls, err := a.Model.GetLatestLivestreamForRepo(repoDID)
+			if err != nil {
+				log.Error(ctx, "could not get latest livestream", "error", err)
+				return
+			}
+			lsv, err := ls.ToLivestreamView()
+			if err != nil {
+				log.Error(ctx, "could not marshal livestream", "error", err)
+				return
+			}
+			initialBurst <- lsv
+		}()
+
+		go func() {
+			count := spmetrics.GetViewCount(repoDID)
+			initialBurst <- streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"}
+		}()
+
+		go func() {
+			replies, err := a.Model.GetReplies(repoDID)
+			if err != nil {
+				log.Error(ctx, "could not get replies", "error", err)
+				return
+			}
+			for _, reply := range replies {
+				initialBurst <- reply
+			}
+		}()
+
 		for {
 			messageType, message, err := conn.ReadMessage()
 			if err != nil {

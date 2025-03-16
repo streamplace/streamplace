@@ -8,6 +8,7 @@ import {
   isLivestreamView,
   isViewerCount,
 } from "../../lexicons/types/place/stream/livestream";
+import * as Segment from "../../lexicons/types/place/stream/segment";
 import {
   LivestreamView,
   Record as LivestreamRecord,
@@ -44,21 +45,15 @@ interface SegmentMediaData {
   audio: SegmentMediadataAudio[];
 }
 
-interface Segment {
-  id: string;
-  startTime: number;
-  endTime: number;
-  mediaData: SegmentMediaData | null;
-}
-
 export interface PlayerState {
   ingestStarted: number | null;
   ingestStarting: boolean;
   ingestConnectionState: RTCPeerConnectionState | null;
   viewers: number | null;
-  chat: PostViewHydrated[] | null;
+  chat: { [key: string]: PostViewHydrated };
+  chatList: PostViewHydrated[];
   livestream: LivestreamViewHydrated | null;
-  segment: Segment | null;
+  segment: Segment.Record | null;
 }
 
 export interface PlayersState {
@@ -81,6 +76,29 @@ const usePlayerId = () => {
   return playerId;
 };
 
+const reduceChat = (
+  state: PlayerState,
+  messages: PostViewHydrated[],
+): PlayerState => {
+  state = { ...state } as PlayerState;
+  const newChat: { [key: string]: PostViewHydrated } = { ...state.chat };
+  for (const message of messages) {
+    const date = new Date(message.record.createdAt);
+    const key = `${date.getTime()}-${message.cid}`;
+    newChat[key] = message;
+  }
+
+  const newChatList = Object.keys(newChat)
+    .sort((a, b) => (a > b ? 1 : -1))
+    .map((key) => newChat[key]);
+
+  return {
+    ...state,
+    chat: newChat,
+    chatList: newChatList,
+  };
+};
+
 export const playerSlice = createAppSlice({
   name: "player",
   initialState,
@@ -92,7 +110,8 @@ export const playerSlice = createAppSlice({
         ingestStarting: false,
         ingestConnectionState: null,
         viewers: null,
-        chat: null,
+        chat: {},
+        chatList: [],
         livestream: null,
         segment: null,
       };
@@ -164,12 +183,17 @@ export const playerSlice = createAppSlice({
           } else if (AppBskyFeedDefs.isPostView(action.payload.message)) {
             return {
               ...state,
+              [action.payload.playerId]: reduceChat(
+                state[action.payload.playerId] as PlayerState,
+                [action.payload.message as PostViewHydrated],
+              ),
+            };
+          } else if (Segment.isRecord(action.payload.message)) {
+            return {
+              ...state,
               [action.payload.playerId]: {
                 ...state[action.payload.playerId],
-                chat: [
-                  ...(state[action.payload.playerId].chat || []),
-                  action.payload.message as PostViewHydrated,
-                ],
+                segment: action.payload.message as Segment.Record,
               },
             };
           }
@@ -228,31 +252,12 @@ export const playerSlice = createAppSlice({
             // state.status = "loading";
           },
           fulfilled: (state, result) => {
-            const previous = state[result.payload.playerId].chat;
-            const current = result.payload.chat;
-            if (
-              previous &&
-              current &&
-              previous.length > 0 &&
-              current.length > 0
-            ) {
-              const previousLast = previous[previous.length - 1];
-              const currentLast = current[current.length - 1];
-              const previousFirst = previous[0];
-              const currentFirst = current[0];
-              if (
-                previousLast.cid === currentLast.cid &&
-                previousFirst.cid === currentFirst.cid
-              ) {
-                return state;
-              }
-            }
             return {
               ...state,
-              [result.payload.playerId]: {
-                ...state[result.payload.playerId],
-                chat: result.payload.chat,
-              },
+              [result.payload.playerId]: reduceChat(
+                state[result.payload.playerId] as PlayerState,
+                result.payload.chat,
+              ),
             };
           },
           rejected: (state, error) => {
@@ -305,7 +310,7 @@ export const playerSlice = createAppSlice({
           const res = await fetch(
             `${streamplace.url}/api/segment/recent/${user}`,
           );
-          const data = (await res.json()) as Segment;
+          const data = (await res.json()) as Segment.Record;
           return { playerId, segment: data };
         },
         {
@@ -381,7 +386,7 @@ export const useChat = (): ((state: {
   player: PlayersState;
 }) => PostViewHydrated[] | null) => {
   const playerId = usePlayerId();
-  return (state) => state.player[playerId].chat;
+  return (state) => state.player[playerId].chatList;
 };
 export const usePlayerLivestream = (): ((state: {
   player: PlayersState;

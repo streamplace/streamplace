@@ -1,0 +1,66 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.segment",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Media file representing a segment of a livestream",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["id", "signingKey", "startTime", "creator"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the segment"
+          },
+          "signingKey": {
+            "type": "string",
+            "description": "The DID of the signing key used for this segment"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "datetime",
+            "description": "When this segment started"
+          },
+          "creator": {
+            "type": "string",
+            "format": "did"
+          },
+          "video": {
+            "type": "array",
+            "items": {
+              "type": "ref",
+              "ref": "#video"
+            }
+          },
+          "audio": {
+            "type": "array",
+            "items": {
+              "type": "ref",
+              "ref": "#audio"
+            }
+          }
+        }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "required": ["codec", "rate", "channels"],
+      "properties": {
+        "codec": { "type": "string", "enum": ["opus"] },
+        "rate": { "type": "integer" },
+        "channels": { "type": "integer" }
+      }
+    },
+    "video": {
+      "type": "object",
+      "required": ["codec", "width", "height"],
+      "properties": {
+        "codec": { "type": "string", "enum": ["h264"] },
+        "width": { "type": "integer" },
+        "height": { "type": "integer" }
+      }
+    }
+  }
+}

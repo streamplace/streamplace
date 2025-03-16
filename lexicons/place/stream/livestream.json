@@ -55,7 +55,7 @@
         "count": { "type": "integer" }
       }
     },
-    "livestreamViewReffer": {
+    "streamplaceAnything": {
       "type": "object",
       "required": ["livestream"],
       "properties": {

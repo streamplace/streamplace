@@ -41,17 +41,17 @@ type Livestream_LivestreamView struct {
 	Uri           string                                   `json:"uri" cborgen:"uri"`
 }
 
-// Livestream_LivestreamViewReffer is a "livestreamViewReffer" in the place.stream.livestream schema.
-type Livestream_LivestreamViewReffer struct {
-	Livestream *Livestream_LivestreamViewReffer_Livestream `json:"livestream" cborgen:"livestream"`
+// Livestream_StreamplaceAnything is a "streamplaceAnything" in the place.stream.livestream schema.
+type Livestream_StreamplaceAnything struct {
+	Livestream *Livestream_StreamplaceAnything_Livestream `json:"livestream" cborgen:"livestream"`
 }
 
-type Livestream_LivestreamViewReffer_Livestream struct {
+type Livestream_StreamplaceAnything_Livestream struct {
 	Livestream_LivestreamView *Livestream_LivestreamView
 	Livestream_ViewerCount    *Livestream_ViewerCount
 }
 
-func (t *Livestream_LivestreamViewReffer_Livestream) MarshalJSON() ([]byte, error) {
+func (t *Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error) {
 	if t.Livestream_LivestreamView != nil {
 		t.Livestream_LivestreamView.LexiconTypeID = "place.stream.livestream#livestreamView"
 		return json.Marshal(t.Livestream_LivestreamView)
@@ -62,7 +62,7 @@ func (t *Livestream_LivestreamViewReffer_Livestream) MarshalJSON() ([]byte, erro
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
-func (t *Livestream_LivestreamViewReffer_Livestream) UnmarshalJSON(b []byte) error {
+func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalJSON(b []byte) error {
 	typ, err := util.TypeExtract(b)
 	if err != nil {
 		return err

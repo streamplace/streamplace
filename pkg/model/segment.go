@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
 type SegmentMediadataVideo struct {
@@ -53,6 +54,31 @@ type Segment struct {
 	Repo          *Repo             `json:"repo,omitempty"       gorm:"foreignKey:DID;references:RepoDID"`
 	Title         string            `json:"title"`
 	MediaData     *SegmentMediaData `json:"mediaData,omitempty"`
+}
+
+func (s *Segment) ToStreamplaceSegment() *streamplace.Segment {
+	aqt := aqtime.FromTime(s.StartTime)
+	return &streamplace.Segment{
+		LexiconTypeID: "place.stream.segment",
+		Creator:       s.RepoDID,
+		Id:            s.ID,
+		SigningKey:    s.SigningKeyDID,
+		StartTime:     string(aqt),
+		Video: []*streamplace.Segment_Video{
+			{
+				Codec:  "h264",
+				Width:  int64(s.MediaData.Video[0].Width),
+				Height: int64(s.MediaData.Video[0].Height),
+			},
+		},
+		Audio: []*streamplace.Segment_Audio{
+			{
+				Codec:    "opus",
+				Rate:     int64(s.MediaData.Audio[0].Rate),
+				Channels: int64(s.MediaData.Audio[0].Channels),
+			},
+		},
+	}
 }
 
 func (m *DBModel) CreateSegment(seg *Segment) error {

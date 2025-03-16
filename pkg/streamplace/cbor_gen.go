@@ -448,3 +448,794 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
+func (t *Segment) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+	fieldCount := 7
+
+	if t.Audio == nil {
+		fieldCount--
+	}
+
+	if t.Video == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+		return err
+	}
+
+	// t.Id (string) (string)
+	if len("id") > 1000000 {
+		return xerrors.Errorf("Value in field \"id\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("id"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("id")); err != nil {
+		return err
+	}
+
+	if len(t.Id) > 1000000 {
+		return xerrors.Errorf("Value in field t.Id was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Id))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Id)); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 1000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.segment"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("place.stream.segment")); err != nil {
+		return err
+	}
+
+	// t.Audio ([]*streamplace.Segment_Audio) (slice)
+	if t.Audio != nil {
+
+		if len("audio") > 1000000 {
+			return xerrors.Errorf("Value in field \"audio\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("audio"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("audio")); err != nil {
+			return err
+		}
+
+		if len(t.Audio) > 8192 {
+			return xerrors.Errorf("Slice value in field t.Audio was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Audio))); err != nil {
+			return err
+		}
+		for _, v := range t.Audio {
+			if err := v.MarshalCBOR(cw); err != nil {
+				return err
+			}
+
+		}
+	}
+
+	// t.Video ([]*streamplace.Segment_Video) (slice)
+	if t.Video != nil {
+
+		if len("video") > 1000000 {
+			return xerrors.Errorf("Value in field \"video\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("video"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("video")); err != nil {
+			return err
+		}
+
+		if len(t.Video) > 8192 {
+			return xerrors.Errorf("Slice value in field t.Video was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Video))); err != nil {
+			return err
+		}
+		for _, v := range t.Video {
+			if err := v.MarshalCBOR(cw); err != nil {
+				return err
+			}
+
+		}
+	}
+
+	// t.Creator (string) (string)
+	if len("creator") > 1000000 {
+		return xerrors.Errorf("Value in field \"creator\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("creator"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("creator")); err != nil {
+		return err
+	}
+
+	if len(t.Creator) > 1000000 {
+		return xerrors.Errorf("Value in field t.Creator was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Creator))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Creator)); err != nil {
+		return err
+	}
+
+	// t.StartTime (string) (string)
+	if len("startTime") > 1000000 {
+		return xerrors.Errorf("Value in field \"startTime\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("startTime"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("startTime")); err != nil {
+		return err
+	}
+
+	if len(t.StartTime) > 1000000 {
+		return xerrors.Errorf("Value in field t.StartTime was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.StartTime))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.StartTime)); err != nil {
+		return err
+	}
+
+	// t.SigningKey (string) (string)
+	if len("signingKey") > 1000000 {
+		return xerrors.Errorf("Value in field \"signingKey\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("signingKey"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("signingKey")); err != nil {
+		return err
+	}
+
+	if len(t.SigningKey) > 1000000 {
+		return xerrors.Errorf("Value in field t.SigningKey was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.SigningKey))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.SigningKey)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *Segment) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = Segment{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("Segment: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 10)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Id (string) (string)
+		case "id":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.Id = string(sval)
+			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Audio ([]*streamplace.Segment_Audio) (slice)
+		case "audio":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.Audio: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Audio = make([]*Segment_Audio, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Audio[i] = new(Segment_Audio)
+							if err := t.Audio[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Audio[i] pointer: %w", err)
+							}
+						}
+
+					}
+
+				}
+			}
+			// t.Video ([]*streamplace.Segment_Video) (slice)
+		case "video":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.Video: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Video = make([]*Segment_Video, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Video[i] = new(Segment_Video)
+							if err := t.Video[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Video[i] pointer: %w", err)
+							}
+						}
+
+					}
+
+				}
+			}
+			// t.Creator (string) (string)
+		case "creator":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.Creator = string(sval)
+			}
+			// t.StartTime (string) (string)
+		case "startTime":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.StartTime = string(sval)
+			}
+			// t.SigningKey (string) (string)
+		case "signingKey":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.SigningKey = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *Segment_Audio) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.Rate (int64) (int64)
+	if len("rate") > 1000000 {
+		return xerrors.Errorf("Value in field \"rate\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("rate"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("rate")); err != nil {
+		return err
+	}
+
+	if t.Rate >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Rate)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Rate-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.Codec (string) (string)
+	if len("codec") > 1000000 {
+		return xerrors.Errorf("Value in field \"codec\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("codec"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("codec")); err != nil {
+		return err
+	}
+
+	if len(t.Codec) > 1000000 {
+		return xerrors.Errorf("Value in field t.Codec was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Codec))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Codec)); err != nil {
+		return err
+	}
+
+	// t.Channels (int64) (int64)
+	if len("channels") > 1000000 {
+		return xerrors.Errorf("Value in field \"channels\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("channels"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("channels")); err != nil {
+		return err
+	}
+
+	if t.Channels >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Channels)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Channels-1)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *Segment_Audio) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = Segment_Audio{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("Segment_Audio: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 8)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Rate (int64) (int64)
+		case "rate":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Rate = int64(extraI)
+			}
+			// t.Codec (string) (string)
+		case "codec":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.Codec = string(sval)
+			}
+			// t.Channels (int64) (int64)
+		case "channels":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Channels = int64(extraI)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *Segment_Video) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.Codec (string) (string)
+	if len("codec") > 1000000 {
+		return xerrors.Errorf("Value in field \"codec\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("codec"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("codec")); err != nil {
+		return err
+	}
+
+	if len(t.Codec) > 1000000 {
+		return xerrors.Errorf("Value in field t.Codec was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Codec))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Codec)); err != nil {
+		return err
+	}
+
+	// t.Width (int64) (int64)
+	if len("width") > 1000000 {
+		return xerrors.Errorf("Value in field \"width\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("width"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("width")); err != nil {
+		return err
+	}
+
+	if t.Width >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Width)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Width-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.Height (int64) (int64)
+	if len("height") > 1000000 {
+		return xerrors.Errorf("Value in field \"height\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("height"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("height")); err != nil {
+		return err
+	}
+
+	if t.Height >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Height)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Height-1)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *Segment_Video) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = Segment_Video{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("Segment_Video: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 6)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Codec (string) (string)
+		case "codec":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.Codec = string(sval)
+			}
+			// t.Width (int64) (int64)
+		case "width":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Width = int64(extraI)
+			}
+			// t.Height (int64) (int64)
+		case "height":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Height = int64(extraI)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}

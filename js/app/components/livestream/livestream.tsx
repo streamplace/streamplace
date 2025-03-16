@@ -31,7 +31,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
   const { src, protocol, ...extraProps } = props;
   const dispatch = useAppDispatch();
   const { width, height } = useWindowDimensions();
-  const video = player.segment?.mediaData?.video[0];
+  const video = player.segment?.video?.[0];
   const [videoWidth, setVideoWidth] = useState(0);
   const [videoHeight, setVideoHeight] = useState(0);
   const { isKeyboardVisible } = useKeyboard();

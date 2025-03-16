@@ -6,9 +6,13 @@ import {
   usePlayerActions,
 } from "features/player/playerSlice";
 import { useState, useEffect, useContext } from "react";
-import { useAppDispatch } from "store/hooks";
+import { useAppDispatch, useAppSelector } from "store/hooks";
 import { PlayerProps } from "./props";
+import { selectUrl } from "features/streamplace/streamplaceSlice";
+import useWebSocket from "react-use-websocket";
+import { ReadyState } from "react-use-websocket";
 
+const POLL_INTERVAL = 3000;
 // PlayerInner starts doing player stuff
 export default function PlayerProvider(
   props: Partial<PlayerProps> & { children: React.ReactNode },
@@ -47,6 +51,14 @@ export function PlayerContextInitializer(
   );
 }
 
+const readyStateNames = {
+  [ReadyState.CLOSED]: "CLOSED",
+  [ReadyState.OPEN]: "OPEN",
+  [ReadyState.CONNECTING]: "CONNECTING",
+  [ReadyState.CLOSING]: "CLOSING",
+  [ReadyState.UNINSTANTIATED]: "UNINSTANTIATED",
+};
+
 export function PlayerDataContext(
   props: Partial<PlayerProps> & { children: React.ReactNode },
 ) {
@@ -59,62 +71,48 @@ export function PlayerDataContext(
     handleWebSocketMessage,
   } = usePlayerActions();
 
+  const url = useAppSelector(selectUrl);
+  let wsUrl = url.replace(/^http\:/, "ws:");
+  wsUrl = wsUrl.replace(/^https\:/, "wss:");
+
+  const { lastJsonMessage, readyState } = useWebSocket(
+    `${wsUrl}/api/websocket/${props.src}`,
+    {
+      reconnectInterval: 1000,
+      shouldReconnect: () => true,
+    },
+  );
+
   useEffect(() => {
-    if (!props.src) {
+    console.log(`websocket ${readyStateNames[readyState]}`);
+  }, [readyState]);
+
+  useEffect(() => {
+    if (!lastJsonMessage) {
       return;
     }
+    dispatch(handleWebSocketMessage(lastJsonMessage));
+  }, [lastJsonMessage]);
 
-    // Create WebSocket connection
-    const wsUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/api/websocket/${props.src}`;
-    const socket = new WebSocket(wsUrl);
-
-    socket.onopen = () => {
-      console.log(`WebSocket connection established for ${props.src}`);
-    };
-
-    socket.onerror = (error) => {
-      console.error(`WebSocket error for ${props.src}:`, error);
-    };
-
-    socket.onmessage = (event) => {
-      let data: any;
-      try {
-        data = JSON.parse(event.data);
-      } catch (error) {
-        console.error(`WebSocket message for ${props.src}:`, error);
+  useEffect(() => {
+    if (readyState === ReadyState.OPEN || !props.src) {
+      return;
+    }
+    let handle;
+    const poll = async () => {
+      if (!props.src) {
         return;
       }
-      dispatch(handleWebSocketMessage(data));
-    };
-
-    // Clean up the WebSocket connection when component unmounts or src changes
-    return () => {
-      if (
-        socket.readyState === WebSocket.OPEN ||
-        socket.readyState === WebSocket.CONNECTING
-      ) {
-        console.log(`Closing WebSocket connection for ${props.src}`);
-        socket.close();
-      }
-    };
-  }, [props.src]);
-
-  useEffect(() => {
-    if (!props.src) {
-      return;
-    }
-    const poll = ((src) => async () => {
       await Promise.all([
-        // dispatch(pollViewers(src)),
-        // dispatch(pollChat(src)),
-        dispatch(pollLivestream(src)),
-        dispatch(pollSegment(src)),
+        dispatch(pollViewers(props.src)),
+        dispatch(pollChat(props.src)),
+        dispatch(pollLivestream(props.src)),
+        dispatch(pollSegment(props.src)),
       ]);
-    })(props.src);
-    poll();
-    const handle = setInterval(poll, 3000);
+    };
+    handle = setInterval(poll, POLL_INTERVAL);
     return () => clearInterval(handle);
-  }, [props.src]);
+  }, [props.src, readyState === ReadyState.OPEN]);
 
   return props.children;
 }

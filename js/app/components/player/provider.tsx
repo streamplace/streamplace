@@ -5,7 +5,7 @@ import {
   PlayerContext,
   usePlayerActions,
 } from "features/player/playerSlice";
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { PlayerProps } from "./props";
 import { selectUrl } from "features/streamplace/streamplaceSlice";
@@ -68,31 +68,44 @@ export function PlayerDataContext(
     pollChat,
     pollLivestream,
     pollSegment,
-    handleWebSocketMessage,
+    handleWebSocketMessages,
   } = usePlayerActions();
 
   const url = useAppSelector(selectUrl);
   let wsUrl = url.replace(/^http\:/, "ws:");
   wsUrl = wsUrl.replace(/^https\:/, "wss:");
 
-  const { lastJsonMessage, readyState } = useWebSocket(
-    `${wsUrl}/api/websocket/${props.src}`,
-    {
-      reconnectInterval: 1000,
-      shouldReconnect: () => true,
+  const ref = useRef<any[]>([]);
+  const last = useRef<number>(0);
+
+  const { readyState } = useWebSocket(`${wsUrl}/api/websocket/${props.src}`, {
+    reconnectInterval: 1000,
+    shouldReconnect: () => true,
+
+    onOpen: () => {
+      console.log("onOpen");
+      ref.current = [];
     },
-  );
+
+    onMessage: (msg) => {
+      try {
+        const data = JSON.parse(msg.data);
+        console.log(data);
+        ref.current.push(data);
+        if (Date.now() - last.current > 250) {
+          dispatch(handleWebSocketMessages(ref.current));
+          ref.current = [];
+          last.current = Date.now();
+        }
+      } catch (e) {
+        console.error("onMessage", e);
+      }
+    },
+  });
 
   useEffect(() => {
     console.log(`websocket ${readyStateNames[readyState]}`);
   }, [readyState]);
-
-  useEffect(() => {
-    if (!lastJsonMessage) {
-      return;
-    }
-    dispatch(handleWebSocketMessage(lastJsonMessage));
-  }, [lastJsonMessage]);
 
   useEffect(() => {
     if (readyState === ReadyState.OPEN || !props.src) {

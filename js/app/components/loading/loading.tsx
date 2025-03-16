@@ -1,4 +1,4 @@
-import { View, Text, Spinner as TamaguiSpinner } from "tamagui";
+import { View, Spinner as TamaguiSpinner } from "tamagui";
 
 export default function () {
   return (

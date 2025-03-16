@@ -32,6 +32,7 @@ export type PlayerProps = {
   ingestStreamKey?: string;
   ingestAutoStart?: boolean;
   avSyncTest?: boolean;
+  offline: boolean;
 };
 
 export type PlayerEvent = {

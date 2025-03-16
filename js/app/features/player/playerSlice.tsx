@@ -159,47 +159,50 @@ export const playerSlice = createAppSlice({
         },
       ),
 
-      handleWebSocketMessage: create.reducer(
+      handleWebSocketMessages: create.reducer(
         (
           state,
-          action: { payload: { playerId: string; message: any }; type: string },
+          action: {
+            payload: { playerId: string; messages: any[] };
+            type: string;
+          },
         ) => {
-          if (isLivestreamView(action.payload.message)) {
-            return {
-              ...state,
-              [action.payload.playerId]: {
-                ...state[action.payload.playerId],
-                livestream: action.payload.message as LivestreamViewHydrated,
-              },
-            };
-          } else if (isViewerCount(action.payload.message)) {
-            return {
-              ...state,
-              [action.payload.playerId]: {
-                ...state[action.payload.playerId],
-                viewers: action.payload.message.count,
-              },
-            };
-          } else if (AppBskyFeedDefs.isPostView(action.payload.message)) {
-            return {
-              ...state,
-              [action.payload.playerId]: reduceChat(
-                state[action.payload.playerId] as PlayerState,
-                [action.payload.message as PostViewHydrated],
-              ),
-            };
-          } else if (Segment.isRecord(action.payload.message)) {
-            return {
-              ...state,
-              [action.payload.playerId]: {
-                ...state[action.payload.playerId],
-                segment: action.payload.message as Segment.Record,
-              },
-            };
+          for (const message of action.payload.messages) {
+            if (isLivestreamView(message)) {
+              state = {
+                ...state,
+                [action.payload.playerId]: {
+                  ...state[action.payload.playerId],
+                  livestream: message as LivestreamViewHydrated,
+                },
+              };
+            } else if (isViewerCount(message)) {
+              state = {
+                ...state,
+                [action.payload.playerId]: {
+                  ...state[action.payload.playerId],
+                  viewers: message.count,
+                },
+              };
+            } else if (AppBskyFeedDefs.isPostView(message)) {
+              state = {
+                ...state,
+                [action.payload.playerId]: reduceChat(
+                  state[action.payload.playerId] as PlayerState,
+                  [message as PostViewHydrated],
+                ),
+              };
+            } else if (Segment.isRecord(message)) {
+              state = {
+                ...state,
+                [action.payload.playerId]: {
+                  ...state[action.payload.playerId],
+                  segment: message as Segment.Record,
+                },
+              };
+            }
           }
-          return {
-            ...state,
-          };
+          return state;
         },
       ),
 
@@ -345,6 +348,9 @@ export const playerSlice = createAppSlice({
     selectLivestream: (state, playerId: string) => {
       return state[playerId].livestream;
     },
+    selectSegment: (state, playerId: string) => {
+      return state[playerId].segment;
+    },
   },
 });
 
@@ -368,13 +374,13 @@ export const usePlayerActions = () => {
       playerSlice.actions.pollLivestream({ playerId, user }),
     pollSegment: (user: string) =>
       playerSlice.actions.pollSegment({ playerId, user }),
-    handleWebSocketMessage: (message: any) =>
-      playerSlice.actions.handleWebSocketMessage({ playerId, message }),
+    handleWebSocketMessages: (messages: any[]) =>
+      playerSlice.actions.handleWebSocketMessages({ playerId, messages }),
   };
 };
 
 // Action creators are generated for each case reducer function.
-export const { selectPlayer, selectChat, selectLivestream } =
+export const { selectPlayer, selectChat, selectLivestream, selectSegment } =
   playerSlice.selectors;
 export const usePlayer = (): ((state: {
   player: PlayersState;
@@ -393,4 +399,10 @@ export const usePlayerLivestream = (): ((state: {
 }) => LivestreamViewHydrated | null) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId].livestream;
+};
+export const usePlayerSegment = (): ((state: {
+  player: PlayersState;
+}) => Segment.Record | null) => {
+  const playerId = usePlayerId();
+  return (state) => state.player[playerId].segment;
 };

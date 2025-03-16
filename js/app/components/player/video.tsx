@@ -239,12 +239,10 @@ export function WebRTCPlayer(
   const [mediaStream, stuck] = useWebRTC(props.url);
 
   useEffect(() => {
-    if (stuck) {
+    if (stuck && props.status === PlayerStatus.PLAYING) {
       props.setStatus(PlayerStatus.STALLED);
-    } else {
-      props.setStatus(PlayerStatus.PLAYING);
     }
-  }, [stuck]);
+  }, [stuck, props.status]);
 
   useEffect(() => {
     if (!mediaStream) {

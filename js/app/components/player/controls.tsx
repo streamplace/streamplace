@@ -28,6 +28,9 @@ import {
   View,
   XStack,
   YGroup,
+  H1,
+  H5,
+  Paragraph,
 } from "tamagui";
 import {
   PlayerProps,
@@ -36,11 +39,16 @@ import {
   PROTOCOL_PROGRESSIVE_WEBM,
   PROTOCOL_WEBRTC,
 } from "./props";
-import { usePlayer, usePlayerActions } from "features/player/playerSlice";
+import {
+  usePlayer,
+  usePlayerActions,
+  usePlayerSegment,
+} from "features/player/playerSlice";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import Loading from "components/loading/loading";
 import Viewers from "components/viewers";
 import { userMute } from "features/streamplace/streamplaceSlice";
+import { Countdown } from "components/countdown";
 
 const Bar = (props) => (
   <XStack
@@ -99,6 +107,20 @@ export default function Controls(props: PlayerProps) {
       onPress={onPress}
       {...cursor}
     >
+      {!props.offline ? null : (
+        <View
+          position="absolute"
+          width="100%"
+          backgroundColor="black"
+          height="100%"
+          flex={1}
+          justifyContent="center"
+          alignItems="center"
+          zIndex={1000}
+        >
+          <Offline />
+        </View>
+      )}
       {/* <Animated.View
         // onPointerMove={props.userInteraction}
         // onTouchStart={props.userInteraction}
@@ -376,5 +398,23 @@ function GearMenu(props: PlayerProps) {
         </>
       )}
     </YGroup>
+  );
+}
+
+export function Offline() {
+  const segment = useAppSelector(usePlayerSegment());
+  return (
+    <View flex={1} justifyContent="center" alignItems="center">
+      <View flexDirection="row">
+        <H1 paddingRight="$3">Offline</H1>
+      </View>
+      {segment && (
+        <>
+          <Paragraph>Playback will start automatically</Paragraph>
+          <H5>Last seen:</H5>
+          <Countdown from={segment.startTime} small={true} />
+        </>
+      )}
+    </View>
   );
 }

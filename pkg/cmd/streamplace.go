@@ -337,6 +337,8 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 				if err != nil {
 					log.Error(ctx, "could not add segment to database", "error", err)
 				}
+				spseg := not.Segment.ToStreamplaceSegment()
+				b.Publish(spseg.Creator, spseg)
 				go func() {
 					err := func() error {
 						lock := thumbnail.GetThumbnailLock(not.Segment.RepoDID)

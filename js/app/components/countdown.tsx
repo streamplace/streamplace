@@ -4,10 +4,8 @@ import {
   View,
   YStack,
   styled,
-  XStack,
   useMedia,
   useWindowDimensions,
-  H1,
 } from "tamagui";
 import * as chrono from "chrono-node";
 
@@ -101,7 +99,15 @@ const LabelBox = ({ children, small }) => {
   );
 };
 
-export function Countdown({ from, to }: { from?: string; to?: string } = {}) {
+export function Countdown({
+  from,
+  to,
+  small,
+}: {
+  from?: string;
+  to?: string;
+  small?: boolean;
+}) {
   const media = useMedia();
   const [now, setNow] = useState(Date.now());
   const [dest, setDest] = useState<number | null>(null);
@@ -147,7 +153,7 @@ export function Countdown({ from, to }: { from?: string; to?: string } = {}) {
   } else if (from && now < dest) {
     diff = 0;
   }
-  const small = width <= 600;
+  small = small ?? width <= 600;
   const [years, days, hrs, min, sec, ms] = toLabels(diff);
 
   return (

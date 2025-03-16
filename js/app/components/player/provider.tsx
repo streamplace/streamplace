@@ -51,8 +51,53 @@ export function PlayerDataContext(
   props: Partial<PlayerProps> & { children: React.ReactNode },
 ) {
   const dispatch = useAppDispatch();
-  const { pollViewers, pollChat, pollLivestream, pollSegment } =
-    usePlayerActions();
+  const {
+    pollViewers,
+    pollChat,
+    pollLivestream,
+    pollSegment,
+    handleWebSocketMessage,
+  } = usePlayerActions();
+
+  useEffect(() => {
+    if (!props.src) {
+      return;
+    }
+
+    // Create WebSocket connection
+    const wsUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/api/websocket/${props.src}`;
+    const socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+      console.log(`WebSocket connection established for ${props.src}`);
+    };
+
+    socket.onerror = (error) => {
+      console.error(`WebSocket error for ${props.src}:`, error);
+    };
+
+    socket.onmessage = (event) => {
+      let data: any;
+      try {
+        data = JSON.parse(event.data);
+      } catch (error) {
+        console.error(`WebSocket message for ${props.src}:`, error);
+        return;
+      }
+      dispatch(handleWebSocketMessage(data));
+    };
+
+    // Clean up the WebSocket connection when component unmounts or src changes
+    return () => {
+      if (
+        socket.readyState === WebSocket.OPEN ||
+        socket.readyState === WebSocket.CONNECTING
+      ) {
+        console.log(`Closing WebSocket connection for ${props.src}`);
+        socket.close();
+      }
+    };
+  }, [props.src]);
 
   useEffect(() => {
     if (!props.src) {
@@ -60,8 +105,8 @@ export function PlayerDataContext(
     }
     const poll = ((src) => async () => {
       await Promise.all([
-        dispatch(pollViewers(src)),
-        dispatch(pollChat(src)),
+        // dispatch(pollViewers(src)),
+        // dispatch(pollChat(src)),
         dispatch(pollLivestream(src)),
         dispatch(pollSegment(src)),
       ]);

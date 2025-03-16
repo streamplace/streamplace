@@ -5,6 +5,10 @@ import { createContext, useContext } from "react";
 import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import { AppBskyFeedDefs, AppBskyFeedPost } from "@atproto/api";
 import {
+  isLivestreamView,
+  isViewerCount,
+} from "../../lexicons/types/place/stream/livestream";
+import {
   LivestreamView,
   Record as LivestreamRecord,
   ViewerCount,
@@ -132,6 +136,45 @@ export const playerSlice = createAppSlice({
               ...state[action.payload.playerId],
               ingestConnectionState: action.payload.ingestConnectionState,
             },
+          };
+        },
+      ),
+
+      handleWebSocketMessage: create.reducer(
+        (
+          state,
+          action: { payload: { playerId: string; message: any }; type: string },
+        ) => {
+          if (isLivestreamView(action.payload.message)) {
+            return {
+              ...state,
+              [action.payload.playerId]: {
+                ...state[action.payload.playerId],
+                livestream: action.payload.message as LivestreamViewHydrated,
+              },
+            };
+          } else if (isViewerCount(action.payload.message)) {
+            return {
+              ...state,
+              [action.payload.playerId]: {
+                ...state[action.payload.playerId],
+                viewers: action.payload.message.count,
+              },
+            };
+          } else if (AppBskyFeedDefs.isPostView(action.payload.message)) {
+            return {
+              ...state,
+              [action.payload.playerId]: {
+                ...state[action.payload.playerId],
+                chat: [
+                  ...(state[action.payload.playerId].chat || []),
+                  action.payload.message as PostViewHydrated,
+                ],
+              },
+            };
+          }
+          return {
+            ...state,
           };
         },
       ),
@@ -320,6 +363,8 @@ export const usePlayerActions = () => {
       playerSlice.actions.pollLivestream({ playerId, user }),
     pollSegment: (user: string) =>
       playerSlice.actions.pollSegment({ playerId, user }),
+    handleWebSocketMessage: (message: any) =>
+      playerSlice.actions.handleWebSocketMessage({ playerId, message }),
   };
 };
 

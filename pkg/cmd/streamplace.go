@@ -19,6 +19,7 @@ import (
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
 	"stream.place/streamplace/pkg/log"
@@ -270,7 +271,8 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if err != nil {
 		return err
 	}
-	mm, err := media.MakeMediaManager(ctx, &cli, signer, rep, mod)
+	b := bus.NewBus()
+	mm, err := media.MakeMediaManager(ctx, &cli, signer, rep, mod, b)
 	if err != nil {
 		return err
 	}
@@ -285,7 +287,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if err != nil {
 		return err
 	}
-	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms)
+	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b)
 	if err != nil {
 		return err
 	}
@@ -316,7 +318,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 
 	if !cli.NoFirehose {
 		group.Go(func() error {
-			return atproto.StartFirehose(ctx, &cli, mod, noter)
+			return atproto.StartFirehose(ctx, &cli, mod, noter, b)
 		})
 	}
 

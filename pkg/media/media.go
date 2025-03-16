@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
@@ -47,6 +48,7 @@ type MediaManager struct {
 	newSegmentSubs      []chan *NewSegmentNotification
 	newSegmentSubsMutex sync.RWMutex
 	model               model.Model
+	bus                 *bus.Bus
 }
 
 type NewSegmentNotification struct {
@@ -60,7 +62,7 @@ func RunSelfTest(ctx context.Context) error {
 	return SelfTest(ctx)
 }
 
-func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, rep replication.Replicator, mod model.Model) (*MediaManager, error) {
+func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, rep replication.Replicator, mod model.Model, bus *bus.Bus) (*MediaManager, error) {
 	gst.Init(nil)
 	err := SelfTest(ctx)
 	if err != nil {

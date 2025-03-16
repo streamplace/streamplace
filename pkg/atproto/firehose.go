@@ -24,6 +24,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
@@ -41,9 +42,10 @@ type FirehoseConsumer struct {
 	lastSeen  time.Time
 	lastEvent time.Time
 	noter     notificationpkg.FirebaseNotifier
+	bus       *bus.Bus
 }
 
-func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model, noter notificationpkg.FirebaseNotifier) error {
+func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model, noter notificationpkg.FirebaseNotifier, bus *bus.Bus) error {
 	ctx = log.WithLogValues(ctx, "func", "StartFirehose")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -68,6 +70,7 @@ func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model, noter 
 		mod:      mod,
 		lastSeen: time.Now(),
 		noter:    noter,
+		bus:      bus,
 	}
 
 	rsc := &events.RepoStreamCallbacks{
@@ -285,18 +288,18 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 					if rec.Reply == nil || rec.Reply.Root == nil {
 						continue
 					}
-					post, err := mod.GetFeedPost(rec.Reply.Root.Cid)
+					rootPost, err := mod.GetFeedPost(rec.Reply.Root.Cid)
 					if err != nil {
 						log.Error(ctx, "failed to get feed post", "err", err)
 						continue
 					}
-					if post == nil {
+					if rootPost == nil {
 						continue
 					}
-					if post.Type != "livestream" {
+					if rootPost.Type != "livestream" {
 						continue
 					}
-					log.Warn(ctx, "chat message detected", "uri", post.URI)
+					log.Warn(ctx, "chat message detected", "uri", rootPost.URI)
 					// if this post is a reply to someone's livestream post
 					// log.Warn(ctx, "chat message detected", "message", rec.Text)
 					repo, err := SyncBlueskyRepoCached(ctx, evt.Repo, mod)
@@ -311,17 +314,27 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 					if fc.cli.PrintChat {
 						fmt.Printf("@%s%s %s\n", blue.Sprintf(repo.Handle), green.Sprintf(":"), rec.Text)
 					}
-					mod.CreateFeedPost(ctx, &model.FeedPost{
+					fp := &model.FeedPost{
 						CID:              op.Cid.String(),
 						CreatedAt:        createdAt,
 						FeedPost:         recCBOR,
 						RepoDID:          evt.Repo,
 						Type:             "reply",
-						ReplyRootCID:     &post.CID,
-						ReplyRootRepoDID: &post.RepoDID,
+						Repo:             repo,
+						ReplyRootCID:     &rootPost.CID,
+						ReplyRootRepoDID: &rootPost.RepoDID,
 						URI:              aturi.String(),
 						IndexedAt:        &now,
-					})
+					}
+					err = mod.CreateFeedPost(ctx, fp)
+					if err != nil {
+						log.Error(ctx, "failed to create feed post", "err", err)
+					}
+					postView, err := fp.ToBskyPostView()
+					if err != nil {
+						log.Error(ctx, "failed to convert feed post to bsky post view", "err", err)
+					}
+					go fc.bus.Publish(rootPost.RepoDID, postView)
 				}
 
 			case *streamplace.Livestream:
@@ -338,7 +351,7 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 					log.Error(ctx, "failed to parse createdAt", "err", err)
 					continue
 				}
-				err = mod.CreateLivestream(ctx, &model.Livestream{
+				ls := &model.Livestream{
 					CID:        op.Cid.String(),
 					URI:        aturi.String(),
 					CreatedAt:  createdAt,
@@ -346,11 +359,24 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 					RepoDID:    evt.Repo,
 					PostCID:    rec.Post.Cid,
 					PostURI:    rec.Post.Uri,
-				})
+				}
+				err = mod.CreateLivestream(ctx, ls)
 				if err != nil {
 					log.Error(ctx, "failed to create livestream", "err", err)
 					continue
 				}
+				lsHydrated, err := mod.GetLatestLivestreamForRepo(evt.Repo)
+				if err != nil {
+					log.Error(ctx, "failed to get latest livestream for repo", "err", err)
+					continue
+				}
+				lsv, err := lsHydrated.ToLivestreamView()
+				if err != nil {
+					log.Error(ctx, "failed to convert livestream to bsky post view", "err", err)
+					continue
+				}
+				go fc.bus.Publish(evt.Repo, lsv)
+
 				log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", u, "createdAt", rec.CreatedAt, "repo", evt.Repo)
 				notifications, err := mod.GetFollowersNotificationTokens(evt.Repo)
 				if err != nil {

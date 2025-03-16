@@ -17,6 +17,7 @@ export default function ChatBox() {
       return;
     }
     if (!livestream) {
+      throw new Error("No livestream");
       return;
     }
     dispatch(chatPost({ text: message, livestream }));

@@ -18,12 +18,14 @@ import (
 
 	"github.com/NYTimes/gziphandler"
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
 
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
 	apierrors "stream.place/streamplace/pkg/errors"
@@ -47,9 +49,10 @@ type StreamplaceAPI struct {
 	MediaSigner      media.MediaSigner
 	// not thread-safe yet
 	Aliases map[string]string
+	Bus     *bus.Bus
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -62,6 +65,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712S
 		MediaManager:     mm,
 		MediaSigner:      ms,
 		Aliases:          map[string]string{},
+		Bus:              bus,
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {
@@ -118,6 +122,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.POST("/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
 	apiRouter.POST("/api/player-event", a.HandlePlayerEvent(ctx))
 	apiRouter.GET("/api/chat/:repoDID", a.HandleChat(ctx))
+	apiRouter.GET("/api/websocket/:repoDID", a.HandleWebsocket(ctx))
 	apiRouter.GET("/api/livestream/:repoDID", a.HandleLivestream(ctx))
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
 	apiRouter.GET("/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
@@ -536,6 +541,82 @@ func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(bs)
+	}
+}
+
+// todo: does this mean a whole message has to fit within the buffer?
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		user := params.ByName("repoDID")
+		if user == "" {
+			apierrors.WriteHTTPBadRequest(w, "user required", nil)
+			return
+		}
+		repoDID, err := a.NormalizeUser(ctx, user)
+		if err != nil {
+			apierrors.WriteHTTPNotFound(w, "user not found", err)
+			return
+		}
+		conn, err := upgrader.Upgrade(w, req, nil)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not upgrade to websocket", err)
+			return
+		}
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		defer conn.Close()
+		go func() {
+
+			ch := a.Bus.Subscribe(repoDID)
+			defer a.Bus.Unsubscribe(repoDID, ch)
+			// Create a ticker that fires every 3 seconds
+			ticker := time.NewTicker(3 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case msg := <-ch:
+					bs, err := json.Marshal(msg)
+					if err != nil {
+						log.Error(ctx, "could not marshal message", "error", err)
+						continue
+					}
+					err = conn.WriteMessage(websocket.TextMessage, bs)
+					if err != nil {
+						log.Error(ctx, "could not write message", "error", err)
+						continue
+					}
+				case <-ticker.C:
+					count := spmetrics.GetViewCount(repoDID)
+					bs, err := json.Marshal(streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
+					if err != nil {
+						log.Error(ctx, "could not marshal view count", "error", err)
+						continue
+					}
+					err = conn.WriteMessage(websocket.TextMessage, bs)
+					if err != nil {
+						log.Error(ctx, "could not write ping message", "error", err)
+						return
+					}
+				case <-ctx.Done():
+					log.Debug(ctx, "context done, stopping websocket sender")
+					return
+				}
+			}
+		}()
+		for {
+			messageType, message, err := conn.ReadMessage()
+			if err != nil {
+				log.Error(ctx, "error reading message", "error", err)
+				break
+			}
+			log.Log(ctx, "received message", "messageType", messageType, "message", string(message))
+		}
 	}
 }
 

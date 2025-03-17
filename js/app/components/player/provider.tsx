@@ -77,6 +77,7 @@ export function PlayerDataContext(
 
   const ref = useRef<any[]>([]);
   const last = useRef<number>(0);
+  const handle = useRef<NodeJS.Timeout | null>(null);
 
   const { readyState } = useWebSocket(`${wsUrl}/api/websocket/${props.src}`, {
     reconnectInterval: 1000,
@@ -90,18 +91,34 @@ export function PlayerDataContext(
     onMessage: (msg) => {
       try {
         const data = JSON.parse(msg.data);
-        console.log(data);
         ref.current.push(data);
-        if (Date.now() - last.current > 250) {
+        if (handle.current) {
+          return;
+        }
+        let scheduleUpdate = Date.now() - last.current;
+        if (scheduleUpdate < 0) {
+          scheduleUpdate = 0;
+        }
+        handle.current = setTimeout(() => {
           dispatch(handleWebSocketMessages(ref.current));
           ref.current = [];
           last.current = Date.now();
-        }
+          handle.current = null;
+        }, scheduleUpdate);
       } catch (e) {
-        console.error("onMessage", e);
+        last.current = Date.now();
       }
     },
   });
+
+  useEffect(() => {
+    return () => {
+      if (handle.current) {
+        clearTimeout(handle.current);
+        handle.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     console.log(`websocket ${readyStateNames[readyState]}`);

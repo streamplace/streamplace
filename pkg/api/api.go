@@ -586,7 +586,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					log.Error(ctx, "could not marshal message", "error", err)
 					return
 				}
-				log.Warn(ctx, "sending message", "message", string(bs))
+				log.Debug(ctx, "sending message", "message", string(bs))
 				err = conn.WriteMessage(websocket.TextMessage, bs)
 				if err != nil {
 					log.Error(ctx, "could not write message", "error", err)

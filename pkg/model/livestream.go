@@ -2,11 +2,13 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -18,7 +20,7 @@ type Livestream struct {
 	RepoDID    string    `json:"repoDID" gorm:"column:repo_did;index:idx_repo_created,priority:1"`
 	Repo       *Repo     `json:"repo,omitempty" gorm:"foreignKey:DID;references:RepoDID"`
 	Post       *FeedPost `json:"post,omitempty" gorm:"foreignKey:CID;references:PostCID"`
-	PostCID    string    `json:"postCID" gorm:"column:post_cid"`
+	PostCID    string    `json:"postCID" gorm:"column:post_cid;index:idx_post_cid"`
 	PostURI    string    `json:"postURI" gorm:"column:post_uri"`
 }
 
@@ -55,6 +57,21 @@ func (m *DBModel) GetLatestLivestreamForRepo(repoDID string) (*Livestream, error
 		First(&livestream).Error
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving latest livestream: %w", err)
+	}
+	return &livestream, nil
+}
+
+func (m *DBModel) GetLivestreamByPostCID(postCID string) (*Livestream, error) {
+	var livestream Livestream
+	err := m.DB.
+		Preload("Repo").
+		Where("post_cid = ?", postCID).
+		First(&livestream).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving livestream by postCID: %w", err)
 	}
 	return &livestream, nil
 }

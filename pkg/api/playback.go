@@ -38,7 +38,7 @@ func (a *StreamplaceAPI) NormalizeUser(ctx context.Context, user string) (string
 		return user, nil
 	}
 	// only other allowed case is a bluesky handle
-	repo, err := atproto.SyncBlueskyRepoCached(ctx, user, a.Model)
+	repo, err := a.ATSync.SyncBlueskyRepoCached(ctx, user, a.Model)
 	if err != nil {
 		return "", err
 	}
@@ -235,7 +235,7 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 		did := string(didBytes)
 
 		if did != "" {
-			repo, err := atproto.SyncBlueskyRepo(ctx, did, a.Model)
+			repo, err := a.ATSync.SyncBlueskyRepo(ctx, did, a.Model)
 			if err != nil {
 				apierrors.WriteHTTPInternalServerError(w, "could not resolve streamplace key", err)
 				return

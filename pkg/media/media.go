@@ -49,6 +49,7 @@ type MediaManager struct {
 	newSegmentSubsMutex sync.RWMutex
 	model               model.Model
 	bus                 *bus.Bus
+	atsync              *atproto.ATProtoSynchronizer
 }
 
 type NewSegmentNotification struct {
@@ -62,7 +63,7 @@ func RunSelfTest(ctx context.Context) error {
 	return SelfTest(ctx)
 }
 
-func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, rep replication.Replicator, mod model.Model, bus *bus.Bus) (*MediaManager, error) {
+func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, rep replication.Replicator, mod model.Model, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer) (*MediaManager, error) {
 	gst.Init(nil)
 	err := SelfTest(ctx)
 	if err != nil {
@@ -75,6 +76,8 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		hlsRunning: map[string]*M3U8{},
 		httpPipes:  map[string]io.Writer{},
 		model:      mod,
+		bus:        bus,
+		atsync:     atsync,
 	}, nil
 }
 
@@ -371,7 +374,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 		signingKeyDID = meta.Creator
 		repoDID = meta.Creator
 	} else {
-		repo, err := atproto.SyncBlueskyRepoCached(ctx, meta.Creator, mm.model)
+		repo, err := mm.atsync.SyncBlueskyRepoCached(ctx, meta.Creator, mm.model)
 		if err != nil {
 			return err
 		}

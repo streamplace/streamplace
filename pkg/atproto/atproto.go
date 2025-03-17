@@ -4,17 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"sync"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
 	_ "github.com/bluesky-social/indigo/api/bsky"
 	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -22,11 +19,9 @@ import (
 	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"stream.place/streamplace/pkg/aqhttp"
-	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
@@ -53,7 +48,7 @@ func getHandleLock(handle string) *sync.Mutex {
 	return lock
 }
 
-func SyncBlueskyRepoCached(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
+func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
 	repo, err := mod.GetRepoByHandleOrDID(handle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo for %s: %w", handle, err)
@@ -61,10 +56,16 @@ func SyncBlueskyRepoCached(ctx context.Context, handle string, mod model.Model) 
 	if repo != nil {
 		return repo, nil
 	}
-	return SyncBlueskyRepo(ctx, handle, mod)
+
+	return atsync.SyncBlueskyRepo(ctx, handle, mod)
 }
 
-func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
+type mstNode struct {
+	rkey       syntax.RecordKey
+	collection syntax.NSID
+}
+
+func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
 	ctx = log.WithLogValues(ctx, "func", "SyncBlueskyRepo")
 	// Get handle-specific lock and ensure synchronized access
 
@@ -84,7 +85,7 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 	}
 	if oldRepo != nil {
 		log.Log(ctx, "found existing DID record", "did", oldRepo.DID, "version", oldRepo.Version)
-		rev = oldRepo.Version
+		return oldRepo, nil
 	} else {
 		// create an empty repo while we sync. this is useful because we'll start monitoring the firehose for
 		// any new follows and such from this user while we're syncing, which can take a long time
@@ -132,13 +133,13 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 		return nil, fmt.Errorf("failed to ingest repo for %s: %w", ident.DID.String(), err)
 	}
 	log.Log(ctx, "ingested repo", "root", root)
-	if oldRepo != nil {
+	if oldRepo != nil && oldRepo.RootCID != "" {
 		oldRoot, err := cid.Decode(oldRepo.RootCID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode old root CID for %s: %w", ident.DID.String(), err)
 		}
 		if oldRoot.Equals(root) {
-			log.Log(ctx, "no changes to repo", "root", root)
+			log.Debug(ctx, "no changes to repo", "root", root)
 			return oldRepo, nil
 		}
 	}
@@ -148,8 +149,8 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 		return nil, fmt.Errorf("failed to parse repo CAR data for %s: %w", ident.DID.String(), err)
 	}
 
-	mstNodes := map[string]string{}
-	r.ForEach(ctx, "", func(k string, v cid.Cid) error {
+	mstNodes := map[string]mstNode{}
+	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
 		nsid, rkey, err := syntax.ParseRepoPath(k)
 		if err != nil {
 			log.Warn(ctx, "failed to parse repo path", "k", k, "err", err)
@@ -157,9 +158,15 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 		}
 		hash := v.Hash().HexString()
 		log.Debug(ctx, "got mst node", "cid", v, "rkey", rkey, "nsid", nsid, "hash", hash)
-		mstNodes[hash] = rkey.String()
+		mstNodes[hash] = mstNode{
+			rkey:       rkey,
+			collection: nsid,
+		}
 		return nil
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to iterate over repo: %w", err)
+	}
 
 	// extract DID from repo commit
 	sc := r.SignedCommit()
@@ -193,44 +200,16 @@ func SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*mode
 			continue
 		}
 		log.Debug(ctx, "record type", "key", k, "type", typ)
-		cb, err := lexutil.CborDecodeValue(blk.RawData())
-		log.Debug(ctx, "processing key", "key", k, "cbor", cb)
-		switch rec := cb.(type) {
-		case *bsky.GraphFollow:
-			rec.UnmarshalCBOR(bytes.NewReader(blk.RawData()))
-			log.Debug(ctx, "creating follow", "follow", rec)
-			hash := k.Hash().HexString()
-			rkey, ok := mstNodes[hash]
-			if !ok {
-				log.Warn(ctx, "no mst node found for follow", "key", k, "hash", hash)
-				continue
-			}
-			err := mod.CreateFollow(ctx, signerDID.String(), rkey, rec)
-			if err != nil {
-				log.Error(ctx, "failed to create follow", "err", err)
-			}
-		case *streamplace.Key:
-			log.Debug(ctx, "creating key", "key", rec)
-			time, err := aqtime.FromString(rec.CreatedAt)
-			if err != nil {
-				log.Error(ctx, "failed to parse createdAt", "err", err)
-				continue
-			}
-			key := model.SigningKey{
-				DID:       rec.SigningKey,
-				CreatedAt: time.Time(),
-				RepoDID:   ident.DID.String(),
-			}
-			err = mod.UpdateSigningKey(&key)
-			if err != nil {
-				log.Error(ctx, "failed to create signing key", "err", err)
-			}
-		default:
-			log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
-		}
-		if err != nil {
-			log.Debug(ctx, "failed to decode block for key", "key", k, "error", err)
+		hash := k.Hash().HexString()
+		node, ok := mstNodes[hash]
+		if !ok {
+			log.Warn(ctx, "no mst node found for record", "key", k, "hash", hash)
 			continue
+		}
+		rawData := blk.RawData()
+		err = atsync.handleCreateUpdate(ctx, signerDID.String(), node.rkey, &rawData, k.String(), node.collection)
+		if err != nil {
+			log.Warn(ctx, "failed to handle create update", "err", err)
 		}
 	}
 

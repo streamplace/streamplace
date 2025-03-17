@@ -3,18 +3,13 @@ package atproto
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/url"
-	"reflect"
 	"runtime"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
@@ -30,27 +25,25 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/streamplace"
 
-	"github.com/fatih/color"
 	"github.com/gorilla/websocket"
 )
 
-type FirehoseConsumer struct {
-	cli       *config.CLI
-	mod       model.Model
-	lastSeen  time.Time
-	lastEvent time.Time
-	noter     notificationpkg.FirebaseNotifier
-	bus       *bus.Bus
+type ATProtoSynchronizer struct {
+	CLI       *config.CLI
+	Model     model.Model
+	LastSeen  time.Time
+	LastEvent time.Time
+	Noter     notificationpkg.FirebaseNotifier
+	Bus       *bus.Bus
 }
 
-func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model, noter notificationpkg.FirebaseNotifier, bus *bus.Bus) error {
+func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
 	ctx = log.WithLogValues(ctx, "func", "StartFirehose")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	dialer := websocket.DefaultDialer
-	u, err := url.Parse(cli.RelayHost)
+	u, err := url.Parse(atsync.CLI.RelayHost)
 	if err != nil {
 		return fmt.Errorf("invalid relayHost URI: %w", err)
 	}
@@ -65,17 +58,9 @@ func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model, noter 
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
 	}
 
-	fc := &FirehoseConsumer{
-		cli:      cli,
-		mod:      mod,
-		lastSeen: time.Now(),
-		noter:    noter,
-		bus:      bus,
-	}
-
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
-			go fc.handleCommitEventOps(ctx, evt, mod)
+			go atsync.handleCommitEventOps(ctx, evt)
 			return nil
 		},
 		Error: func(evt *events.ErrorFrame) error {
@@ -88,11 +73,11 @@ func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model, noter 
 	scheduler := parallel.NewScheduler(
 		10,
 		100,
-		cli.RelayHost,
+		atsync.CLI.RelayHost,
 		rsc.EventHandler,
 	)
 
-	log.Log(ctx, "starting firehose consumer", "relayHost", cli.RelayHost)
+	log.Log(ctx, "starting firehose consumer", "relayHost", atsync.CLI.RelayHost)
 
 	g, ctx := errgroup.WithContext(ctx)
 
@@ -108,15 +93,15 @@ func StartFirehose(ctx context.Context, cli *config.CLI, mod model.Model, noter 
 			case <-ctx.Done():
 				return nil
 			case <-ticker.C:
-				since := time.Since(fc.lastEvent)
+				since := time.Since(atsync.LastEvent)
 				goroutines := runtime.NumGoroutine()
 				if since > 10*time.Second {
 					log.Warn(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
 				} else {
 					log.Debug(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
 				}
-				if time.Since(fc.lastSeen) > 10*time.Second {
-					log.Warn(ctx, fmt.Sprintf("firehose dry; no new events for %s", time.Since(fc.lastSeen)))
+				if time.Since(atsync.LastSeen) > 10*time.Second {
+					log.Warn(ctx, fmt.Sprintf("firehose dry; no new events for %s", time.Since(atsync.LastSeen)))
 				}
 			}
 		}
@@ -130,12 +115,13 @@ var CollectionFilter = []string{
 	constants.PLACE_STREAM_LIVESTREAM,
 	constants.APP_BSKY_GRAPH_FOLLOW,
 	constants.APP_BSKY_FEED_POST,
+	constants.APP_BSKY_GRAPH_BLOCK,
 }
 
-func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit, mod model.Model) error {
+func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
 	ctx = log.WithLogValues(ctx, "event", "commit", "did", evt.Repo, "rev", evt.Rev, "seq", fmt.Sprintf("%d", evt.Seq), "func", "handleCommitEventOps")
 	now := time.Now()
-	fc.lastSeen = now
+	atsync.LastSeen = now
 
 	if evt.TooBig {
 		log.Warn(ctx, "skipping tooBig events for now")
@@ -174,9 +160,9 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 			log.Error(ctx, "failed to parse time", "err", err)
 			continue
 		}
-		fc.lastEvent = aqt.Time()
+		atsync.LastEvent = aqt.Time()
 
-		r, err := mod.GetRepo(evt.Repo)
+		r, err := atsync.Model.GetRepo(evt.Repo)
 		if err != nil {
 			log.Error(ctx, "failed to get repo", "err", err)
 			continue
@@ -186,21 +172,6 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 			// continue
 		}
 		// log.Warn(ctx, "got record we care about", "collection", collection, "rkey", rkey)
-
-		out := make(map[string]interface{})
-		out["seq"] = evt.Seq
-		out["repo"] = evt.Repo
-		out["rev"] = evt.Rev
-		out["time"] = evt.Time
-		out["collection"] = collection
-		out["rkey"] = rkey
-
-		maybeATURI := fmt.Sprintf("at://%s/%s/%s", evt.Repo, collection.String(), rkey.String())
-		aturi, err := syntax.ParseATURI(maybeATURI)
-		if err != nil {
-			log.Warn(ctx, "invalid ATURI", "uri", maybeATURI, "error", err)
-			continue
-		}
 
 		ek := repomgr.EventKind(op.Action)
 		switch ek {
@@ -216,215 +187,36 @@ func (fc *FirehoseConsumer) handleCommitEventOps(ctx context.Context, evt *comat
 				break
 			}
 
-			switch ek {
-			case repomgr.EvtKindCreateRecord:
-				out["action"] = "create"
-			case repomgr.EvtKindUpdateRecord:
-				out["action"] = "update"
-			default:
-				log.Error(ctx, "impossible event kind", "kind", ek)
-				break
-			}
-			d, err := data.UnmarshalCBOR(*recCBOR)
+			err = atsync.handleCreateUpdate(ctx, evt.Repo, rkey, recCBOR, op.Cid.String(), collection)
 			if err != nil {
-				slog.Warn("failed to parse record CBOR")
+				log.Error(ctx, "failed to handle create update", "err", err)
 				continue
 			}
-			cb, err := lexutil.CborDecodeValue(*recCBOR)
-			if err != nil {
-				log.Error(ctx, "failed to parse record CBOR", "err", err)
-				continue
-			}
-			switch rec := cb.(type) {
-			case *bsky.GraphFollow:
-				log.Debug(ctx, "creating follow", "userDID", evt.Repo, "subjectDID", rec.Subject, "rev", evt.Rev)
-				err := mod.CreateFollow(ctx, evt.Repo, rkey.String(), rec)
-				if err != nil {
-					log.Debug(ctx, "failed to create follow", "err", err)
-				}
 
-			case *bsky.FeedPost:
-				// jsonData, err := json.Marshal(d)
-				// if err != nil {
-				// 	log.Error(ctx, "failed to marshal record data", "err", err)
-				// } else {
-				// 	log.Log(ctx, "record data", "json", string(jsonData))
-				// }
-
-				createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
-				if err != nil {
-					log.Error(ctx, "failed to parse createdAt", "err", err)
-					continue
-				}
-
-				if livestream, ok := d["place.stream.livestream"]; ok {
-					log.Warn(ctx, "livestream detected")
-					_, err := SyncBlueskyRepoCached(ctx, evt.Repo, mod)
-					if err != nil {
-						log.Error(ctx, "failed to sync bluesky repo", "err", err)
-						continue
-					}
-					livestream, ok := livestream.(map[string]interface{})
-					if !ok {
-						log.Warn(ctx, "livestream is not a map")
-						continue
-					}
-					url, ok := livestream["url"].(string)
-					if !ok {
-						log.Warn(ctx, "livestream url is not a string")
-						continue
-					}
-					log.Warn(ctx, "livestream url", "url", url)
-					mod.CreateFeedPost(ctx, &model.FeedPost{
-						CID:       op.Cid.String(),
-						CreatedAt: createdAt,
-						FeedPost:  recCBOR,
-						RepoDID:   evt.Repo,
-						Type:      "livestream",
-						URI:       aturi.String(),
-						IndexedAt: &now,
-					})
-				} else {
-					if rec.Reply == nil || rec.Reply.Root == nil {
-						continue
-					}
-					rootPost, err := mod.GetFeedPost(rec.Reply.Root.Cid)
-					if err != nil {
-						log.Error(ctx, "failed to get feed post", "err", err)
-						continue
-					}
-					if rootPost == nil {
-						continue
-					}
-					if rootPost.Type != "livestream" {
-						continue
-					}
-					log.Warn(ctx, "chat message detected", "uri", rootPost.URI)
-					// if this post is a reply to someone's livestream post
-					// log.Warn(ctx, "chat message detected", "message", rec.Text)
-					repo, err := SyncBlueskyRepoCached(ctx, evt.Repo, mod)
-					if err != nil {
-						log.Error(ctx, "failed to sync bluesky repo", "err", err)
-						continue
-					}
-					blue := color.New(color.FgBlue)
-					green := color.New(color.FgGreen)
-
-					log.Warn(ctx, "chat message detected", "message", rec.Text, "repo", repo.Handle)
-					if fc.cli.PrintChat {
-						fmt.Printf("@%s%s %s\n", blue.Sprintf(repo.Handle), green.Sprintf(":"), rec.Text)
-					}
-					fp := &model.FeedPost{
-						CID:              op.Cid.String(),
-						CreatedAt:        createdAt,
-						FeedPost:         recCBOR,
-						RepoDID:          evt.Repo,
-						Type:             "reply",
-						Repo:             repo,
-						ReplyRootCID:     &rootPost.CID,
-						ReplyRootRepoDID: &rootPost.RepoDID,
-						URI:              aturi.String(),
-						IndexedAt:        &now,
-					}
-					err = mod.CreateFeedPost(ctx, fp)
-					if err != nil {
-						log.Error(ctx, "failed to create feed post", "err", err)
-					}
-					postView, err := fp.ToBskyPostView()
-					if err != nil {
-						log.Error(ctx, "failed to convert feed post to bsky post view", "err", err)
-					}
-					go fc.bus.Publish(rootPost.RepoDID, postView)
-				}
-
-			case *streamplace.Livestream:
-				var u string
-				if rec.Url != nil {
-					u = *rec.Url
-				}
-				if r == nil {
-					// we don't know about this repo
-					continue
-				}
-				createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
-				if err != nil {
-					log.Error(ctx, "failed to parse createdAt", "err", err)
-					continue
-				}
-				ls := &model.Livestream{
-					CID:        op.Cid.String(),
-					URI:        aturi.String(),
-					CreatedAt:  createdAt,
-					Livestream: recCBOR,
-					RepoDID:    evt.Repo,
-					PostCID:    rec.Post.Cid,
-					PostURI:    rec.Post.Uri,
-				}
-				err = mod.CreateLivestream(ctx, ls)
-				if err != nil {
-					log.Error(ctx, "failed to create livestream", "err", err)
-					continue
-				}
-				lsHydrated, err := mod.GetLatestLivestreamForRepo(evt.Repo)
-				if err != nil {
-					log.Error(ctx, "failed to get latest livestream for repo", "err", err)
-					continue
-				}
-				lsv, err := lsHydrated.ToLivestreamView()
-				if err != nil {
-					log.Error(ctx, "failed to convert livestream to bsky post view", "err", err)
-					continue
-				}
-				go fc.bus.Publish(evt.Repo, lsv)
-
-				log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", u, "createdAt", rec.CreatedAt, "repo", evt.Repo)
-				notifications, err := mod.GetFollowersNotificationTokens(evt.Repo)
-				if err != nil {
-					return err
-				}
-
-				nb := &notificationpkg.NotificationBlast{
-					Title: fmt.Sprintf("🔴 @%s is LIVE!", r.Handle),
-					Body:  rec.Title,
-					Data: map[string]string{
-						"path": fmt.Sprintf("/%s", r.Handle),
-					},
-				}
-				if fc.noter != nil {
-					err := fc.noter.Blast(ctx, notifications, nb)
-					if err != nil {
-						log.Error(ctx, "failed to blast notifications", "err", err)
-					} else {
-						log.Log(ctx, "sent notifications", "user", evt.Repo, "count", len(notifications), "content", nb)
-					}
-				} else {
-					log.Log(ctx, "no notifier configured, skipping notifications", "user", evt.Repo, "count", len(notifications), "content", nb)
-				}
-			default:
-				log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
-			}
-
-			out["cid"] = op.Cid.String()
-			out["record"] = d
-			b, err := json.Marshal(out)
-			if err != nil {
-				return err
-			}
-			log.Debug(ctx, "got record", "record", string(b))
 		case repomgr.EvtKindDeleteRecord:
-			out["action"] = "delete"
 			if collection.String() == constants.APP_BSKY_GRAPH_FOLLOW {
 				log.Debug(ctx, "deleting follow", "userDID", evt.Repo, "subjectDID", rkey.String())
-				err := mod.DeleteFollow(ctx, evt.Repo, rkey.String())
+				err := atsync.Model.DeleteFollow(ctx, evt.Repo, rkey.String())
 				if err != nil {
 					log.Debug(ctx, "failed to delete follow", "err", err)
 				}
 			}
-			b, err := json.Marshal(out)
+
+			if collection.String() == constants.APP_BSKY_GRAPH_BLOCK {
+				if r == nil {
+					log.Debug(ctx, "no repo found for block", "userDID", evt.Repo, "subjectDID", rkey.String())
+					continue
+				}
+				log.Warn(ctx, "deleting block", "userDID", evt.Repo, "subjectDID", rkey.String())
+				err := atsync.Model.DeleteBlock(ctx, rkey.String())
+				if err != nil {
+					log.Error(ctx, "failed to delete block", "err", err)
+				}
+			}
+
 			if err != nil {
 				return err
 			}
-			log.Debug(ctx, "got record", "record", string(b))
 		default:
 			log.Error(ctx, "unexpected record op kind")
 		}

@@ -63,6 +63,11 @@ type Model interface {
 
 	CreateLivestream(ctx context.Context, ls *Livestream) error
 	GetLatestLivestreamForRepo(repoDID string) (*Livestream, error)
+	GetLivestreamByPostCID(postCID string) (*Livestream, error)
+
+	CreateBlock(ctx context.Context, block *Block) error
+	GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error)
+	DeleteBlock(ctx context.Context, rkey string) error
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -108,6 +113,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Follow{},
 		FeedPost{},
 		Livestream{},
+		Block{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

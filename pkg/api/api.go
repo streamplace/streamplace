@@ -50,9 +50,10 @@ type StreamplaceAPI struct {
 	// not thread-safe yet
 	Aliases map[string]string
 	Bus     *bus.Bus
+	ATSync  *atproto.ATProtoSynchronizer
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -66,6 +67,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712S
 		MediaSigner:      ms,
 		Aliases:          map[string]string{},
 		Bus:              bus,
+		ATSync:           atsync,
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {
@@ -296,7 +298,7 @@ func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFun
 		w.WriteHeader(200)
 		if n.RepoDID != "" {
 			go func() {
-				_, err := atproto.SyncBlueskyRepo(ctx, n.RepoDID, a.Model)
+				_, err := a.ATSync.SyncBlueskyRepo(ctx, n.RepoDID, a.Model)
 				if err != nil {
 					log.Error(ctx, "error syncing bluesky repo after notification creation", "error", err)
 				}
@@ -431,7 +433,7 @@ func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle 
 func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		log.Log(ctx, "got bluesky notification", "params", params)
-		key, err := atproto.SyncBlueskyRepo(ctx, params.ByName("handle"), a.Model)
+		key, err := a.ATSync.SyncBlueskyRepo(ctx, params.ByName("handle"), a.Model)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not resolve streamplace key", err)
 			return

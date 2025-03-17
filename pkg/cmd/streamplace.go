@@ -271,11 +271,6 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if err != nil {
 		return err
 	}
-	b := bus.NewBus()
-	mm, err := media.MakeMediaManager(ctx, &cli, signer, rep, mod, b)
-	if err != nil {
-		return err
-	}
 	var noter notifications.FirebaseNotifier
 	if cli.FirebaseServiceAccount != "" {
 		noter, err = notifications.MakeFirebaseNotifier(ctx, cli.FirebaseServiceAccount)
@@ -283,11 +278,24 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			return err
 		}
 	}
+	b := bus.NewBus()
+	atsync := &atproto.ATProtoSynchronizer{
+		CLI:   &cli,
+		Model: mod,
+		Noter: noter,
+		Bus:   b,
+	}
+	mm, err := media.MakeMediaManager(ctx, &cli, signer, rep, mod, b, atsync)
+	if err != nil {
+		return err
+	}
+
 	ms, err := media.MakeMediaSigner(ctx, &cli, cli.StreamerName, signer)
 	if err != nil {
 		return err
 	}
-	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b)
+
+	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b, atsync)
 	if err != nil {
 		return err
 	}
@@ -318,7 +326,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 
 	if !cli.NoFirehose {
 		group.Go(func() error {
-			return atproto.StartFirehose(ctx, &cli, mod, noter, b)
+			return atsync.StartFirehose(ctx)
 		})
 	}
 

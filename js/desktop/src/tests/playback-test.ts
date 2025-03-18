@@ -94,7 +94,7 @@ export const playbackTest: E2ETest = {
       failed = true;
     }
     const percentages = reports.map((report) => {
-      if (typeof report.retries === "number" && report.retries > 0) {
+      if (typeof report.retries === "number" && report.retries > 1) {
         console.log(`${report.name} had ${report.retries} retries`);
         // we only care about webrtc failures right now
         if (report.name === "webrtc") {

@@ -22,27 +22,28 @@ export const playbackTest: E2ETest = {
     const definitions = [
       {
         name: "hls",
-        src: "/hls/stream.m3u8",
+        forceProtocol: "hls",
       },
       {
         name: "progressive-mp4",
-        src: "/stream.mp4",
+        forceProtocol: "progressive-mp4",
       },
       {
         name: "progressive-webm",
-        src: "/stream.webm",
+        forceProtocol: "progressive-webm",
       },
       {
         name: "webrtc",
-        src: "/webrtc",
+        forceProtocol: "webrtc",
       },
     ];
     const tests = definitions.map((x) => ({
       name: x.name,
       playerId: `${testId}-${x.name}`,
-      src: `${testEnv.addr}/api/playback/self-test${x.src}`,
+      src: "self-test",
       showControls: true,
       telemetry: true,
+      forceProtocol: x.forceProtocol,
     }));
     const enc = encodeURIComponent(JSON.stringify(tests));
 

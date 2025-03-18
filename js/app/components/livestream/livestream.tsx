@@ -99,7 +99,13 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
         flexDirection="column"
         $gtXs={{ flexDirection: "row" }}
       >
-        <View width={videoWidth} height={videoHeight} fs={0} $gtXs={{ fs: 1 }}>
+        <View
+          width={videoWidth}
+          height={videoHeight}
+          maxHeight="100%"
+          fs={0}
+          $gtXs={{ fs: 1 }}
+        >
           <Player
             telemetry={telemetry === true}
             src={src}

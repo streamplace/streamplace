@@ -90,11 +90,13 @@ func (m *DBModel) CreateSegment(seg *Segment) error {
 }
 
 // should return the most recent segment for each user, ordered by most recent first
+// only includes segments from the last 30 seconds
 func (m *DBModel) MostRecentSegments() ([]Segment, error) {
 	var segments []Segment
+	thirtySecondsAgo := time.Now().Add(-30 * time.Second)
 
 	err := m.DB.Table("segments").
-		Select("*").
+		Select("segments.*").
 		Where("id IN (?)",
 			m.DB.Table("segments").
 				Select("id").
@@ -103,7 +105,9 @@ func (m *DBModel) MostRecentSegments() ([]Segment, error) {
 						Select("repo_did, MAX(start_time)").
 						Group("repo_did"))).
 		Order("start_time DESC").
-		Scan(&segments).Error
+		Joins("JOIN repos ON segments.repo_did = repos.did").
+		Preload("Repo").
+		Find(&segments).Error
 
 	if err != nil {
 		return nil, err
@@ -112,7 +116,14 @@ func (m *DBModel) MostRecentSegments() ([]Segment, error) {
 		return []Segment{}, nil
 	}
 
-	return segments, nil
+	filteredSegments := []Segment{}
+	for _, seg := range segments {
+		if seg.StartTime.After(thirtySecondsAgo) {
+			filteredSegments = append(filteredSegments, seg)
+		}
+	}
+
+	return filteredSegments, nil
 }
 
 func (m *DBModel) LatestSegmentForUser(user string) (*Segment, error) {

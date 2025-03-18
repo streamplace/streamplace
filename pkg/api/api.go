@@ -386,7 +386,7 @@ type LiveUsersResponse struct {
 
 func (a *StreamplaceAPI) HandleLiveUsers(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		repos, err := a.Model.GetLiveUsers()
+		repos, err := a.Model.MostRecentSegments()
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not get live users", err)
 			return

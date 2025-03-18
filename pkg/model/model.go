@@ -44,8 +44,6 @@ type Model interface {
 	GetRepoBySigningKey(signingKey string) (*Repo, error)
 	UpdateRepo(repo *Repo) error
 
-	GetLiveUsers() ([]Segment, error)
-
 	UpdateSigningKey(key *SigningKey) error
 	GetSigningKey(did, repoDID string) (*SigningKey, error)
 	GetSigningKeysForRepo(repoDID string) ([]SigningKey, error)

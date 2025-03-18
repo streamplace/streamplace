@@ -8,6 +8,7 @@ import {
   isLivestreamView,
   isViewerCount,
 } from "../../lexicons/types/place/stream/livestream";
+import { BlockView, isBlockView } from "../../lexicons/types/place/stream/defs";
 import * as Segment from "../../lexicons/types/place/stream/segment";
 import {
   LivestreamView,
@@ -79,6 +80,7 @@ const usePlayerId = () => {
 const reduceChat = (
   state: PlayerState,
   messages: PostViewHydrated[],
+  blocks: BlockView[],
 ): PlayerState => {
   state = { ...state } as PlayerState;
   const newChat: { [key: string]: PostViewHydrated } = { ...state.chat };
@@ -86,6 +88,27 @@ const reduceChat = (
     const date = new Date(message.record.createdAt);
     const key = `${date.getTime()}-${message.cid}`;
     newChat[key] = message;
+  }
+
+  for (const block of blocks) {
+    for (const [k, v] of Object.entries(newChat)) {
+      if (v.author.did === block.record.subject) {
+        console.log(
+          "deleting message",
+          v.cid,
+          v.author.did,
+          block.record.subject,
+        );
+        delete newChat[k];
+      } else {
+        console.log(
+          "keeping message",
+          v.cid,
+          v.author.did,
+          block.record.subject,
+        );
+      }
+    }
   }
 
   const newChatList = Object.keys(newChat)
@@ -190,6 +213,7 @@ export const playerSlice = createAppSlice({
                 [action.payload.playerId]: reduceChat(
                   state[action.payload.playerId] as PlayerState,
                   [message as PostViewHydrated],
+                  [],
                 ),
               };
             } else if (Segment.isRecord(message)) {
@@ -199,6 +223,16 @@ export const playerSlice = createAppSlice({
                   ...state[action.payload.playerId],
                   segment: message as Segment.Record,
                 },
+              };
+            } else if (isBlockView(message)) {
+              const block = message as BlockView;
+              state = {
+                ...state,
+                [action.payload.playerId]: reduceChat(
+                  state[action.payload.playerId] as PlayerState,
+                  [],
+                  [block],
+                ),
               };
             }
           }
@@ -260,6 +294,7 @@ export const playerSlice = createAppSlice({
               [result.payload.playerId]: reduceChat(
                 state[result.payload.playerId] as PlayerState,
                 result.payload.chat,
+                [],
               ),
             };
           },

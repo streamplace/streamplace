@@ -57,11 +57,21 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			RepoDID:    userDID,
 			SubjectDID: rec.Subject,
 			Record:     *recCBOR,
+			CID:        cid,
 		}
 		err := atsync.Model.CreateBlock(ctx, block)
 		if err != nil {
-			log.Debug(ctx, "failed to create block", "err", err)
+			return fmt.Errorf("failed to create block: %w", err)
 		}
+		block, err = atsync.Model.GetBlock(ctx, rkey.String())
+		if err != nil {
+			return fmt.Errorf("failed to get block after we just saved it?!: %w", err)
+		}
+		streamplaceBlock, err := block.ToStreamplaceBlock()
+		if err != nil {
+			return fmt.Errorf("failed to convert block to streamplace block: %w", err)
+		}
+		go atsync.Bus.Publish(userDID, streamplaceBlock)
 
 	case *bsky.FeedPost:
 		// jsonData, err := json.Marshal(d)
@@ -119,6 +129,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 
 			log.Warn(ctx, "chat message detected", "message", rec.Text, "repo", repo.Handle)
+			block, err := atsync.Model.GetUserBlock(ctx, livestream.RepoDID, userDID)
+			if err != nil {
+				return fmt.Errorf("failed to get user block: %w", err)
+			}
+			if block != nil {
+				log.Warn(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", livestream.RepoDID)
+				return nil
+			}
 			// if fc.cli.PrintChat {
 			// 	fmt.Printf("@%s%s %s\n", blue.Sprintf(repo.Handle), green.Sprintf(":"), rec.Text)
 			// }

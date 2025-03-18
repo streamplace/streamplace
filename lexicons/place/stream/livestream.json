@@ -61,7 +61,11 @@
       "properties": {
         "livestream": {
           "type": "union",
-          "refs": ["#livestreamView", "#viewerCount"]
+          "refs": [
+            "#livestreamView",
+            "#viewerCount",
+            "place.stream.defs#blockView"
+          ]
         }
       }
     }

@@ -42,7 +42,6 @@ func (b *Bus) Unsubscribe(user string, ch <-chan Message) {
 			// and then truncating the slice
 			subs[i] = subs[len(subs)-1]
 			b.clients[user] = subs[:len(subs)-1]
-			close(sub)
 			break
 		}
 	}

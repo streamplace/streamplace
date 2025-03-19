@@ -120,13 +120,14 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, 
 		}
 	})
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		log.Log(ctx, "connection State has changed", "state", connectionState.String())
 		for _, state := range failureStates {
 			if connectionState == state {
-				log.Log(ctx, "connection failed, cancelling")
+				log.Error(ctx, "connection failed, cancelling")
 				cancel()
+				return
 			}
 		}
+		log.Log(ctx, "connection State has changed", "state", connectionState.String())
 	})
 	peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
 		log.Log(ctx, "ICE candidate", "candidate", candidate)

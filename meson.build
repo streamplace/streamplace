@@ -199,6 +199,22 @@ streamplace_deps += [
   dependency('gstplayback'),
 ]
 
+libstreamplace = custom_target(
+  'libstreamplace',
+  input: [streamplace_go, flags],
+  output: ['streamplace.a', 'streamplace.h'],
+  command: [
+    prog_go,
+    'build',
+    '-o', '@OUTPUT0@',
+    '-buildmode', 'c-archive',
+    '-tags', 'netgo',
+    '@INPUT@',
+  ],
+  build_always_stale: true,
+  env: env,
+)
+
 if host_machine.system() == 'darwin'
   streamplace_deps += [dependency('appleframeworks', modules: ['CoreFoundation', 'Security'])]
 endif
@@ -223,9 +239,9 @@ pkg.generate(
   description: 'all streamplace dependencies bundled for easy inclusion',
 )
 
-spdeps = library(
-  'spdeps',
-  ['cmd/streamplace/streamplace.c'],
+streamplacec = executable(
+  'streamplacec',
+  ['cmd/streamplace/streamplace.c', libstreamplace],
   dependencies: [
     streamplace_deps,
   ],
@@ -245,7 +261,7 @@ streamplace = custom_target(
   ],
   build_always_stale: true,
   env: env,
-  depends: [spdeps],
+  depends: [streamplacec],
 )
 
 if not meson.is_cross_build()

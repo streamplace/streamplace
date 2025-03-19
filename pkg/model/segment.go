@@ -56,8 +56,17 @@ type Segment struct {
 	MediaData     *SegmentMediaData `json:"mediaData,omitempty"`
 }
 
-func (s *Segment) ToStreamplaceSegment() *streamplace.Segment {
+func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 	aqt := aqtime.FromTime(s.StartTime)
+	if s.MediaData == nil {
+		return nil, fmt.Errorf("media data is nil")
+	}
+	if len(s.MediaData.Video) == 0 {
+		return nil, fmt.Errorf("video data is nil")
+	}
+	if len(s.MediaData.Audio) == 0 {
+		return nil, fmt.Errorf("audio data is nil")
+	}
 	return &streamplace.Segment{
 		LexiconTypeID: "place.stream.segment",
 		Creator:       s.RepoDID,
@@ -78,7 +87,7 @@ func (s *Segment) ToStreamplaceSegment() *streamplace.Segment {
 				Channels: int64(s.MediaData.Audio[0].Channels),
 			},
 		},
-	}
+	}, nil
 }
 
 func (m *DBModel) CreateSegment(seg *Segment) error {

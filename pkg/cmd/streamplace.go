@@ -85,6 +85,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return Sign(context.Background())
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "whep" {
+		return WHEP()
+	}
 	if len(os.Args) > 1 && os.Args[1] == "whip" {
 		return WHIP()
 	}

@@ -286,7 +286,7 @@ windows-amd64-startup-test:
 .PHONY: node-all-platforms-macos
 node-all-platforms-macos: app .build/subprojects2.tar.gz
 	meson setup --buildtype debugoptimized build-darwin-arm64 $(OPTS)
-	meson compile -C build-darwin-arm64
+	meson compile -C build-darwin-arm64 streamplace
 	./util/mac-codesign.sh ./build-darwin-arm64/streamplace
 	cd build-darwin-arm64 \
 	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-arm64.tar.gz ./streamplace \
@@ -296,7 +296,7 @@ node-all-platforms-macos: app .build/subprojects2.tar.gz
 	$(MAKE) link-test-macos
 	rustup target add x86_64-apple-darwin
 	meson setup --buildtype debugoptimized --cross-file util/darwin-amd64-apple.ini build-darwin-amd64 $(OPTS)
-	meson compile -C build-darwin-amd64
+	meson compile -C build-darwin-amd64 streamplace
 	./util/mac-codesign.sh ./build-darwin-amd64/streamplace
 	cd build-darwin-amd64 \
 	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \

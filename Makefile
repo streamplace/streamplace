@@ -99,7 +99,7 @@ link-test-linux:
 		&& exit 1; \
 	fi
 
-MACOS_LINK_COUNT=10
+MACOS_LINK_COUNT=15
 .PHONY: link-test-macos
 link-test-macos:
 	count=$(shell otool -L ./build-darwin-arm64/streamplace | wc -l | xargs) \

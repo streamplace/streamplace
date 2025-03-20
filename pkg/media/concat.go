@@ -315,6 +315,7 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, stre
 				}
 				buffer := gst.NewBufferWithSize(int64(len(toPush)))
 				buffer.Map(gst.MapWrite).WriteData(toPush)
+				defer buffer.Unmap()
 				self.PushBuffer(buffer)
 
 				if uint(read) < length {

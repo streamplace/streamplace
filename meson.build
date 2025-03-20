@@ -211,10 +211,11 @@ libstreamplace = custom_target(
     '-tags', 'netgo',
     '@INPUT@',
   ],
-  build_always_stale: true,
   env: env,
 )
 
+platform_pkgconfig_deps = []
+streamplace_exe = 'streamplace'
 if host_machine.system() == 'darwin'
   streamplace_deps += [dependency('appleframeworks', modules: ['CoreFoundation', 'Security'])]
 endif
@@ -230,12 +231,42 @@ if host_machine.system() == 'windows'
     ],
     language: ['c', 'cpp'],
   )
+  streamplace_exe = 'streamplace.exe'
+  platform_pkgconfig_deps += [
+    '-ladvapi32',
+    '-latomic',
+    '-lbcrypt',
+    '-lcomdlg32',
+    '-lcrypt32',
+    '-ldnsapi',
+    '-lgdi32',
+    '-liphlpapi',
+    '-lkernel32',
+    '-lm',
+    '-lntdll',
+    '-lole32',
+    '-loleaut32',
+    '-lshell32',
+    '-lshlwapi',
+    '-luser32',
+    '-luserenv',
+    '-luuid',
+    '-lwinmm',
+    '-lwinspool',
+    '-lws2_32',
+    '-static-libgcc',
+    '-static-libstdc++',
+  ]
 endif
 
 pkg = import('pkgconfig')
 pkg.generate(
   name: 'streamplacedeps',
-  libraries: [streamplace_deps, c2pa_go_dep],
+  libraries: [
+      streamplace_deps,
+      c2pa_go_dep,
+      platform_pkgconfig_deps,
+    ],
   description: 'all streamplace dependencies bundled for easy inclusion',
 )
 
@@ -249,9 +280,9 @@ streamplacec = executable(
 )
 
 streamplace = custom_target(
-  'streamplace',
+  streamplace_exe,
   input: [streamplace_go, flags],
-  output: ['streamplace'],
+  output: [streamplace_exe],
   command: [
     prog_go,
     'build',

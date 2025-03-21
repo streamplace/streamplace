@@ -1,15 +1,15 @@
+import { useNavigation } from "@react-navigation/native";
 import { Send } from "@tamagui/lucide-icons";
-import { useRef, useState } from "react";
-import { Button, Form, isWeb, View, Input, TextArea } from "tamagui";
-import { Keyboard } from "react-native";
-import { usePlayerLivestream } from "features/player/playerSlice";
-import { useAppDispatch, useAppSelector } from "store/hooks";
 import {
   chatPost,
   selectIsReady,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
-import { useNavigation } from "@react-navigation/native";
+import { usePlayerLivestream } from "features/player/playerSlice";
+import { useRef, useState } from "react";
+import { Keyboard } from "react-native";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { Button, Form, Input, isWeb, TextArea, View } from "tamagui";
 
 export default function ChatBox() {
   const [message, setMessage] = useState("");
@@ -79,6 +79,7 @@ export default function ChatBox() {
                 submit();
               }
             }}
+            onSubmitEditing={submit}
           />
         </View>
         <Button

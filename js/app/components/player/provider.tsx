@@ -5,12 +5,11 @@ import {
   PlayerContext,
   usePlayerActions,
 } from "features/player/playerSlice";
-import { useState, useEffect, useContext, useRef } from "react";
+import { selectUrl } from "features/streamplace/streamplaceSlice";
+import { useContext, useEffect, useRef, useState } from "react";
+import useWebSocket, { ReadyState } from "react-use-websocket";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { PlayerProps } from "./props";
-import { selectUrl } from "features/streamplace/streamplaceSlice";
-import useWebSocket from "react-use-websocket";
-import { ReadyState } from "react-use-websocket";
 
 const POLL_INTERVAL = 3000;
 // PlayerInner starts doing player stuff
@@ -76,7 +75,6 @@ export function PlayerDataContext(
   wsUrl = wsUrl.replace(/^https\:/, "wss:");
 
   const ref = useRef<any[]>([]);
-  const last = useRef<number>(0);
   const handle = useRef<NodeJS.Timeout | null>(null);
 
   const { readyState } = useWebSocket(`${wsUrl}/api/websocket/${props.src}`, {
@@ -84,10 +82,15 @@ export function PlayerDataContext(
     shouldReconnect: () => true,
 
     onOpen: () => {
-      console.log("onOpen");
       ref.current = [];
     },
 
+    onError: (e) => {
+      console.log("onError", e);
+    },
+
+    // spamming the redux store with messages causes a zillion re-renders,
+    // so we batch them up a bit
     onMessage: (msg) => {
       try {
         const data = JSON.parse(msg.data);
@@ -95,18 +98,13 @@ export function PlayerDataContext(
         if (handle.current) {
           return;
         }
-        let scheduleUpdate = Date.now() - last.current;
-        if (scheduleUpdate < 0) {
-          scheduleUpdate = 0;
-        }
         handle.current = setTimeout(() => {
           dispatch(handleWebSocketMessages(ref.current));
           ref.current = [];
-          last.current = Date.now();
           handle.current = null;
-        }, scheduleUpdate);
+        }, 250);
       } catch (e) {
-        last.current = Date.now();
+        console.log("onMessage parse error", e);
       }
     },
   });

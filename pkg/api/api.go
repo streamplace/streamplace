@@ -29,6 +29,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
 	apierrors "stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/linking"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/mist/mistconfig"
@@ -87,13 +88,6 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 	}
 	if !errors.Is(err1, os.ErrNotExist) {
 		return nil, err1
-	}
-	file, err2 := fs.FileSystem.Open(fmt.Sprintf(name + ".html"))
-	if err2 == nil {
-		return file, nil
-	}
-	if !errors.Is(err2, os.ErrNotExist) {
-		return nil, err2
 	}
 
 	return fs.FileSystem.Open("index.html")
@@ -169,7 +163,23 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		if err != nil {
 			return nil, err
 		}
-		router.NotFound = a.FileHandler(ctx, http.FileServer(AppHostingFS{http.FS(files)}))
+		index, err := files.Open("index.html")
+		if err != nil {
+			return nil, err
+		}
+		bs, err := io.ReadAll(index)
+		if err != nil {
+			return nil, err
+		}
+		linker, err := linking.NewLinker(ctx, bs)
+		if err != nil {
+			return nil, err
+		}
+		linkingHandler, err := a.NotFoundLinkingHandler(ctx, linker)
+		if err != nil {
+			return nil, err
+		}
+		router.NotFound = linkingHandler
 	}
 	// needed because the WebRTC handler issues 405s from / otherwise
 	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -192,6 +202,54 @@ func copyHeader(dst, src http.Header) {
 			dst.Add(k, v)
 		}
 	}
+}
+
+// handler that takes care of static files and otherwise returns the index.html with the correct link card data
+func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *linking.Linker) (http.HandlerFunc, error) {
+	files, err := app.Files()
+	if err != nil {
+		return nil, err
+	}
+	fileHandler := a.FileHandler(ctx, http.FileServer(AppHostingFS{http.FS(files)}))
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		proto := "http"
+		if req.TLS != nil {
+			proto = "https"
+		}
+		fwProto := req.Header.Get("x-forwarded-proto")
+		if fwProto != "" {
+			proto = fwProto
+		}
+		req.URL.Host = req.Host
+		req.URL.Scheme = proto
+		maybeHandle := strings.TrimPrefix(req.URL.Path, "/")
+		repo, err := a.Model.GetRepoByHandleOrDID(maybeHandle)
+		if err != nil || repo == nil {
+			log.Error(ctx, "no repo found", "maybeHandle", maybeHandle)
+			fileHandler.ServeHTTP(w, req)
+			return
+		}
+		ls, err := a.Model.GetLatestLivestreamForRepo(repo.DID)
+		if err != nil || ls == nil {
+			log.Error(ctx, "no livestream found", "repoDID", repo.DID)
+			fileHandler.ServeHTTP(w, req)
+			return
+		}
+		lsv, err := ls.ToLivestreamView()
+		if err != nil || lsv == nil {
+			log.Error(ctx, "no livestream view found", "repoDID", repo.DID)
+			fileHandler.ServeHTTP(w, req)
+			return
+		}
+		bs, err := linker.GenerateHTML(ctx, req.URL, lsv)
+		if err != nil {
+			log.Error(ctx, "error generating html", "error", err)
+			fileHandler.ServeHTTP(w, req)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(bs)
+	}), nil
 }
 
 func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) httprouter.Handle {

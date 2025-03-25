@@ -111,7 +111,10 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/playback/:user/stream.mp4", a.HandleMP4Playback(ctx))
 	apiRouter.GET("/api/playback/:user/stream.webm", a.HandleMKVPlayback(ctx))
 	apiRouter.GET("/api/playback/:user/hls/:file", a.HandleHLSPlayback(ctx))
+	// they're, uh, not jpegs. but we used this once and i don't wanna break backwards compatibility
 	apiRouter.GET("/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
+	// this one is not a lie
+	apiRouter.GET("/api/playback/:user/stream.png", a.HandleThumbnailPlayback(ctx))
 	apiRouter.GET("/api/app-return/*anything", a.HandleAppReturn(ctx))
 	apiRouter.POST("/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
 	apiRouter.POST("/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))

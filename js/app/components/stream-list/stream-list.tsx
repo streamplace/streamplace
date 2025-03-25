@@ -100,7 +100,7 @@ export default function StreamList({
                   f={1}
                   aspectRatio={16 / 9}
                   width="100%"
-                  src={`${url}/api/playback/${user}/stream.jpg`}
+                  src={`${url}/api/playback/${user}/stream.png`}
                   resizeMode="contain"
                   objectFit="contain"
                 />

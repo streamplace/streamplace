@@ -1,4 +1,4 @@
-import { Agent, AppBskyFeedPost } from "@atproto/api";
+import { Agent, AppBskyFeedPost, BlobRef } from "@atproto/api";
 import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import { openLoginLink } from "features/platform/platformSlice";
 import Storage from "storage";
@@ -11,6 +11,7 @@ import { isWeb } from "tamagui";
 import { PlaceStreamKey, PlaceStreamLivestream } from "lexicons";
 import { BlueskyState } from "./blueskyTypes";
 import { LivestreamViewHydrated } from "features/player/playerSlice";
+import { ProfileViewDetailed } from "@atproto/api/src/client/types/app/bsky/actor/defs";
 
 const initialState: BlueskyState = {
   status: "start",
@@ -31,6 +32,27 @@ const initialState: BlueskyState = {
   newKey: null,
   storedKey: null,
   newLivestream: null,
+};
+
+const uploadThumbnail = async (
+  handle: string,
+  u: URL,
+  pdsAgent: Agent,
+  profile: ProfileViewDetailed,
+) => {
+  // download the thumbnail image and upload it to the pds IF POSSIBLE
+  const thumbnailRes = await fetch(
+    `${u.protocol}//${u.host}/api/playback/${profile.handle}/stream.png`,
+  );
+  if (!thumbnailRes.ok) {
+    throw new Error(`failed to fetch thumbnail (http ${thumbnailRes.status})`);
+  }
+  const thumbnailBlob = await thumbnailRes.blob();
+  const thumbnail = await pdsAgent.uploadBlob(thumbnailBlob);
+  if (!thumbnail.success) {
+    throw new Error("failed to upload thumbnail");
+  }
+  return thumbnail.data.blob;
 };
 
 // clear atproto login query params from url
@@ -296,6 +318,19 @@ export const blueskySlice = createAppSlice({
           did: did,
           time: new Date().toISOString(),
         });
+
+        let thumbnail: BlobRef | null = null;
+        try {
+          thumbnail = await uploadThumbnail(
+            profile.handle,
+            u,
+            bluesky.pdsAgent,
+            profile,
+          );
+        } catch (e) {
+          console.error("uploadThumbnail error", e);
+        }
+
         const linkUrl = `${u.protocol}//${u.host}/${profile.handle}?${params.toString()}`;
         const prefix = `🔴 LIVE `;
         const textUrl = `${u.protocol}//${u.host}/${profile.handle}`;
@@ -325,6 +360,18 @@ export const blueskySlice = createAppSlice({
           facets,
           createdAt: now.toISOString(),
         };
+        if (thumbnail) {
+          record.embed = {
+            $type: "app.bsky.embed.external",
+            external: {
+              description: text,
+              thumb: thumbnail,
+              title: `@${profile.handle} is 🔴LIVE on ${u.host}!`,
+              uri: linkUrl,
+            },
+          };
+        }
+        console.log("golivePost record", record);
         return await bluesky.pdsAgent.post(record);
       },
       {

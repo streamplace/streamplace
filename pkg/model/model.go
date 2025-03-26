@@ -57,6 +57,7 @@ type Model interface {
 
 	CreateFeedPost(ctx context.Context, post *FeedPost) error
 	ListFeedPosts() ([]FeedPost, error)
+	ListFeedPostsByType(feedType string, limit int) ([]FeedPost, error)
 	GetFeedPost(cid string) (*FeedPost, error)
 	GetReplies(repoDID string) ([]*bsky.FeedDefs_PostView, error)
 

@@ -57,6 +57,14 @@ func (m *DBModel) ListFeedPosts() ([]FeedPost, error) {
 	}
 	return posts, nil
 }
+func (m *DBModel) ListFeedPostsByType(feedType string, limit int) ([]FeedPost, error) {
+	posts := []FeedPost{}
+	err := m.DB.Where("type = ?", feedType).Order("created_at DESC").Limit(limit).Find(&posts).Error
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving feed posts: %w", err)
+	}
+	return posts, nil
+}
 
 func (m *DBModel) GetFeedPost(cid string) (*FeedPost, error) {
 	post := FeedPost{}

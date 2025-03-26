@@ -81,6 +81,8 @@ type AppHostingFS struct {
 	http.FileSystem
 }
 
+var ErrorIndex = errors.New("not found, use index.html")
+
 func (fs AppHostingFS) Open(name string) (http.File, error) {
 	file, err1 := fs.FileSystem.Open(name)
 	if err1 == nil {
@@ -90,7 +92,7 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 		return nil, err1
 	}
 
-	return fs.FileSystem.Open("index.html")
+	return nil, ErrorIndex
 }
 
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
@@ -213,7 +215,26 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 	if err != nil {
 		return nil, err
 	}
-	fileHandler := a.FileHandler(ctx, http.FileServer(AppHostingFS{http.FS(files)}))
+	fs := AppHostingFS{http.FS(files)}
+	fileHandler := a.FileHandler(ctx, http.FileServer(fs))
+	defaultHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		f := strings.TrimPrefix(req.URL.Path, "/")
+		_, err := fs.Open(f)
+		if err == nil {
+			fileHandler.ServeHTTP(w, req)
+			return
+		} else if errors.Is(err, ErrorIndex) || f == "" {
+			bs, err := linker.GenerateDefaultCard(ctx, req.URL)
+			if err != nil {
+				log.Error(ctx, "error generating default card", "error", err)
+			}
+			w.Header().Set("Content-Type", "text/html")
+			w.Write(bs)
+		} else {
+			log.Warn(ctx, "error opening file", "error", err)
+			apierrors.WriteHTTPInternalServerError(w, "file not found", err)
+		}
+	})
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		proto := "http"
 		if req.TLS != nil {
@@ -229,25 +250,25 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 		repo, err := a.Model.GetRepoByHandleOrDID(maybeHandle)
 		if err != nil || repo == nil {
 			log.Error(ctx, "no repo found", "maybeHandle", maybeHandle)
-			fileHandler.ServeHTTP(w, req)
+			defaultHandler.ServeHTTP(w, req)
 			return
 		}
 		ls, err := a.Model.GetLatestLivestreamForRepo(repo.DID)
 		if err != nil || ls == nil {
 			log.Error(ctx, "no livestream found", "repoDID", repo.DID)
-			fileHandler.ServeHTTP(w, req)
+			defaultHandler.ServeHTTP(w, req)
 			return
 		}
 		lsv, err := ls.ToLivestreamView()
 		if err != nil || lsv == nil {
 			log.Error(ctx, "no livestream view found", "repoDID", repo.DID)
-			fileHandler.ServeHTTP(w, req)
+			defaultHandler.ServeHTTP(w, req)
 			return
 		}
-		bs, err := linker.GenerateHTML(ctx, req.URL, lsv)
+		bs, err := linker.GenerateStreamerCard(ctx, req.URL, lsv)
 		if err != nil {
 			log.Error(ctx, "error generating html", "error", err)
-			fileHandler.ServeHTTP(w, req)
+			defaultHandler.ServeHTTP(w, req)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html")

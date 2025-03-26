@@ -24,6 +24,11 @@ func NewLinker(ctx context.Context, baseHTML []byte) (*Linker, error) {
 	return &Linker{BaseHTML: baseHTML}, nil
 }
 
+type PageConfig struct {
+	Title string
+	Metas []MetaTag
+}
+
 // Define all meta tags in a structured way
 type MetaTag struct {
 	Type    string // "name" or "property"
@@ -31,8 +36,7 @@ type MetaTag struct {
 	Content string
 }
 
-func (l *Linker) GenerateHTML(ctx context.Context, u *url.URL, lsv *streamplace.Livestream_LivestreamView) ([]byte, error) {
-
+func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *streamplace.Livestream_LivestreamView) ([]byte, error) {
 	if u == nil {
 		return nil, errors.New("url is nil")
 	}
@@ -43,6 +47,78 @@ func (l *Linker) GenerateHTML(ctx context.Context, u *url.URL, lsv *streamplace.
 	if !ok {
 		return nil, errors.New("livestream view is not a livestream")
 	}
+
+	titleStr := fmt.Sprintf("@%s is 🔴LIVE on %s!", lsv.Author.Handle, u.Host)
+	outUrl := u.String()
+
+	pageTitle := fmt.Sprintf("@%s | %s", lsv.Author.Handle, u.Host)
+
+	thumbUrl, _ := url.Parse(u.String())
+	thumbUrl.Path = fmt.Sprintf("/api/playback/%s/stream.jpg", lsv.Author.Did)
+
+	// Define all meta tags
+	metaTags := []MetaTag{
+		// Basic meta
+		{Type: "name", Key: "description", Content: ls.Title},
+
+		// Facebook Meta Tags
+		{Type: "property", Key: "og:url", Content: u.String()},
+		{Type: "property", Key: "og:type", Content: "website"},
+		{Type: "property", Key: "og:title", Content: titleStr},
+		{Type: "property", Key: "og:description", Content: ls.Title},
+		{Type: "property", Key: "og:image", Content: thumbUrl.String()},
+
+		// Twitter Meta Tags
+		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
+		{Type: "property", Key: "twitter:domain", Content: u.Host},
+		{Type: "property", Key: "twitter:url", Content: outUrl},
+		{Type: "name", Key: "twitter:title", Content: titleStr},
+		{Type: "name", Key: "twitter:description", Content: ls.Title},
+		{Type: "name", Key: "twitter:image", Content: thumbUrl.String()},
+	}
+
+	return l.GenerateHTML(ctx, &PageConfig{
+		Title: pageTitle,
+		Metas: metaTags,
+	})
+}
+
+func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL) ([]byte, error) {
+	if u == nil {
+		return nil, errors.New("url is nil")
+	}
+
+	thumbUrl, _ := url.Parse(u.String())
+	thumbUrl.Path = "/linkbanner.png"
+
+	// Define all meta tags
+	metaTags := []MetaTag{
+		// Basic meta
+		{Type: "name", Key: "description", Content: "Stream.place is open-source livestreaming on the AT Protocol."},
+
+		// Facebook Meta Tags
+		{Type: "property", Key: "og:url", Content: u.String()},
+		{Type: "property", Key: "og:type", Content: "website"},
+		{Type: "property", Key: "og:title", Content: "Stream.place"},
+		{Type: "property", Key: "og:description", Content: "Stream.place is open-source livestreaming on the AT Protocol."},
+		{Type: "property", Key: "og:image", Content: thumbUrl.String()},
+
+		// Twitter Meta Tags
+		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
+		{Type: "property", Key: "twitter:domain", Content: u.Host},
+		{Type: "property", Key: "twitter:url", Content: u.String()},
+		{Type: "name", Key: "twitter:title", Content: "Stream.place"},
+		{Type: "name", Key: "twitter:description", Content: "Stream.place is open-source livestreaming on the AT Protocol."},
+		{Type: "name", Key: "twitter:image", Content: thumbUrl.String()},
+	}
+
+	return l.GenerateHTML(ctx, &PageConfig{
+		Title: "Stream.place",
+		Metas: metaTags,
+	})
+}
+
+func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, error) {
 
 	root, err := html.Parse(bytes.NewReader(l.BaseHTML))
 	if err != nil {
@@ -71,12 +147,6 @@ func (l *Linker) GenerateHTML(ctx context.Context, u *url.URL, lsv *streamplace.
 		return nil, errors.New("head not found")
 	}
 
-	titleStr := fmt.Sprintf("@%s is 🔴LIVE on %s!", lsv.Author.Handle, u.Host)
-	outUrl := u.String()
-
-	thumbUrl, _ := url.Parse(u.String())
-	thumbUrl.Path = fmt.Sprintf("/api/playback/%s/stream.jpg", lsv.Author.Did)
-
 	// Title tag (handled separately as it's not a meta tag)
 	title := &html.Node{
 		Type: html.ElementNode,
@@ -85,32 +155,11 @@ func (l *Linker) GenerateHTML(ctx context.Context, u *url.URL, lsv *streamplace.
 	head.AppendChild(title)
 	title.AppendChild(&html.Node{
 		Type: html.TextNode,
-		Data: fmt.Sprintf("@%s | %s", lsv.Author.Handle, u.Host),
+		Data: pc.Title,
 	})
 
-	// Define all meta tags
-	metaTags := []MetaTag{
-		// Basic meta
-		{Type: "name", Key: "description", Content: ls.Title},
-
-		// Facebook Meta Tags
-		{Type: "property", Key: "og:url", Content: outUrl},
-		{Type: "property", Key: "og:type", Content: "website"},
-		{Type: "property", Key: "og:title", Content: titleStr},
-		{Type: "property", Key: "og:description", Content: ls.Title},
-		{Type: "property", Key: "og:image", Content: thumbUrl.String()},
-
-		// Twitter Meta Tags
-		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
-		{Type: "property", Key: "twitter:domain", Content: u.Host},
-		{Type: "property", Key: "twitter:url", Content: outUrl},
-		{Type: "name", Key: "twitter:title", Content: titleStr},
-		{Type: "name", Key: "twitter:description", Content: ls.Title},
-		{Type: "name", Key: "twitter:image", Content: thumbUrl.String()},
-	}
-
 	// Add all meta tags in a loop
-	for _, tag := range metaTags {
+	for _, tag := range pc.Metas {
 		head.AppendChild(&html.Node{
 			Type: html.ElementNode,
 			Data: "meta",

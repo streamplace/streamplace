@@ -589,51 +589,6 @@ export const blueskySlice = createAppSlice({
             cid: newPost.payload.cid,
           },
         };
-        // await bluesky.pdsAgent.com.atproto.repo.createRecord({
-        //   rkey: "all-streams",
-        //   repo: did,
-        //   collection: "app.bsky.feed.generator",
-        //   record: {
-        //     did: "did:web:fairway.iameli.link",
-        //     $type: "app.bsky.feed.generator",
-        //     avatar: {
-        //       $type: "blob",
-        //       ref: {
-        //         $link:
-        //           "bafkreihbhicupwez2mbynv3afqyjmosnxq3slyr5cegsv24ry5p4ig64um",
-        //       },
-        //       mimeType: "image/png",
-        //       size: 105110,
-        //     },
-        //     createdAt: "2024-04-23T18:34:33+02:00",
-        //     description:
-        //       "A feed of all livestreams that have been broadcast on Stream.place",
-        //     displayName: "Streamplace (All)",
-        //   },
-        // });
-
-        // await bluesky.pdsAgent.com.atproto.repo.createRecord({
-        //   rkey: "live-streams",
-        //   repo: did,
-        //   collection: "app.bsky.feed.generator",
-        //   record: {
-        //     did: "did:web:fairway.iameli.link",
-        //     $type: "app.bsky.feed.generator",
-        //     avatar: {
-        //       $type: "blob",
-        //       ref: {
-        //         $link:
-        //           "bafkreib7lbobcf6l543enie3epu4tesmw46x7eju75vtb2dw57c46ym7ku",
-        //       },
-        //       mimeType: "image/png",
-        //       size: 114985,
-        //     },
-        //     createdAt: new Date().toISOString(),
-        //     description:
-        //       "Livestreams that are live on Stream.place RIGHT. NOW.",
-        //     displayName: "Streamplace (Live)",
-        //   },
-        // });
 
         await bluesky.pdsAgent.com.atproto.repo.createRecord({
           repo: did,

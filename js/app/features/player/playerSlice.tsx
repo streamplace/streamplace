@@ -1,20 +1,18 @@
+import { AppBskyFeedDefs, AppBskyFeedPost } from "@atproto/api";
 import { createAction } from "@reduxjs/toolkit";
-import { createAppSlice } from "../../hooks/createSlice";
+import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import { uuidv7 } from "hooks/uuid";
 import { createContext, useContext } from "react";
-import { StreamplaceState } from "features/streamplace/streamplaceSlice";
-import { AppBskyFeedDefs, AppBskyFeedPost } from "@atproto/api";
+import { createAppSlice } from "../../hooks/createSlice";
+import { BlockView, isBlockView } from "../../lexicons/types/place/stream/defs";
 import {
   isLivestreamView,
   isViewerCount,
-} from "../../lexicons/types/place/stream/livestream";
-import { BlockView, isBlockView } from "../../lexicons/types/place/stream/defs";
-import * as Segment from "../../lexicons/types/place/stream/segment";
-import {
-  LivestreamView,
   Record as LivestreamRecord,
+  LivestreamView,
   ViewerCount,
 } from "../../lexicons/types/place/stream/livestream";
+import * as Segment from "../../lexicons/types/place/stream/segment";
 export interface PlayerContextType {
   playerId: string | null;
 }
@@ -86,7 +84,7 @@ const reduceChat = (
   const newChat: { [key: string]: PostViewHydrated } = { ...state.chat };
   for (const message of messages) {
     const date = new Date(message.record.createdAt);
-    const key = `${date.getTime()}-${message.cid}`;
+    const key = `${date.getTime()}-${message.uri}`;
     newChat[key] = message;
   }
 

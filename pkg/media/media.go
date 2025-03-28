@@ -116,17 +116,17 @@ func (mm *MediaManager) NewSegment() <-chan *NewSegmentNotification {
 }
 
 // subscribe to the latest segments from a given user for livestreaming purposes
-func (mm *MediaManager) SubscribeSegment(ctx context.Context, user string, rendition string) <-chan string {
+func (mm *MediaManager) SubscribeSegment(ctx context.Context, user string, rendition string) <-chan *segchanman.Seg {
 	return mm.segChanMan.SubscribeSegment(ctx, user, rendition)
 }
 
-func (mm *MediaManager) UnsubscribeSegment(ctx context.Context, user string, rendition string, ch <-chan string) {
+func (mm *MediaManager) UnsubscribeSegment(ctx context.Context, user string, rendition string, ch <-chan *segchanman.Seg) {
 	mm.segChanMan.UnsubscribeSegment(ctx, user, rendition, ch)
 }
 
 // subscribe to the latest segments from a given user for livestreaming purposes
-func (mm *MediaManager) PublishSegment(ctx context.Context, user, rendition, file string) {
-	mm.segChanMan.PublishSegment(ctx, user, rendition, file)
+func (mm *MediaManager) PublishSegment(ctx context.Context, user, rendition string, seg *segchanman.Seg) {
+	mm.segChanMan.PublishSegment(ctx, user, rendition, seg)
 }
 
 func (mm *MediaManager) SegmentToMKV(ctx context.Context, user string, rendition string, w io.Writer) error {
@@ -379,7 +379,11 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	go mm.replicator.NewSegment(ctx, buf)
 	r = bytes.NewReader(buf)
 	io.Copy(fd, r)
-	go mm.PublishSegment(ctx, repoDID, "source", fd.Name())
+	scmSeg := &segchanman.Seg{
+		Filepath: fd.Name(),
+		Data:     buf,
+	}
+	go mm.PublishSegment(ctx, repoDID, "source", scmSeg)
 	seg := &model.Segment{
 		ID:            *mani.Label,
 		SigningKeyDID: signingKeyDID,

@@ -18,6 +18,9 @@ const LIVE_PLAYLIST_SIZE = 8
 // how long should we keep old segments around?
 const RETAIN_SEGMENT_SIZE = LIVE_PLAYLIST_SIZE * 3
 
+const INDEX_M3U8 = "index.m3u8"
+const STREAM_M3U8 = "stream.m3u8"
+
 type Segment struct {
 	MSN       uint64 // media sequence number
 	Buf       *bytes.Buffer
@@ -169,11 +172,11 @@ func (m *M3U8) GetMultivariantPlaylist() []byte {
 }
 
 // takes segment00015.ts and returns the corresponding segment
-func (m *M3U8) GetSegment(str string, session string) ([]byte, error) {
-	if str == "stream.m3u8" {
+func (m *M3U8) GetFile(str string, session string) ([]byte, error) {
+	if str == INDEX_M3U8 {
 		return m.GetMultivariantPlaylist(), nil
 	}
-	if str == "media.m3u8" {
+	if str == STREAM_M3U8 {
 		return m.GetPlaylist(session), nil
 	}
 	for _, seg := range m.segments {

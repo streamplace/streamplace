@@ -15,12 +15,12 @@ import (
 )
 
 type ConcatStreamer interface {
-	SubscribeSegment(ctx context.Context, user string) <-chan string
-	UnsubscribeSegment(ctx context.Context, user string, ch <-chan string)
+	SubscribeSegment(ctx context.Context, user string, rendition string) <-chan string
+	UnsubscribeSegment(ctx context.Context, user string, rendition string, ch <-chan string)
 }
 
 // This function remains in scope for the duration of a single users' playback
-func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, streamer ConcatStreamer) (*gst.Element, <-chan struct{}, error) {
+func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rendition string, streamer ConcatStreamer) (*gst.Element, <-chan struct{}, error) {
 	ctx = log.WithLogValues(ctx, "func", "ConcatStream")
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -128,11 +128,11 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, stre
 	allFiles := make(chan string, 1024)
 	go func() {
 		for {
-			ch := streamer.SubscribeSegment(ctx, user)
+			ch := streamer.SubscribeSegment(ctx, user, rendition)
 			select {
 			case <-ctx.Done():
 				log.Warn(ctx, "exiting segment reader")
-				streamer.UnsubscribeSegment(ctx, user, ch)
+				streamer.UnsubscribeSegment(ctx, user, rendition, ch)
 				return
 			case file := <-ch:
 				log.Debug(ctx, "got segment", "file", file)
@@ -162,7 +162,7 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, stre
 					cancel()
 					return
 				}
-				f, err := os.Open(fullpath)
+				f, err := os.Open(fullpath) // shameful
 				log.Debug(ctx, "opening segment file", "file", fullpath)
 				if err != nil {
 					log.Debug(ctx, "failed to open segment file", "error", err, "file", fullpath)

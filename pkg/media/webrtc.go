@@ -24,7 +24,7 @@ import (
 var DEFAULT_DURATION = time.Duration(32 * time.Millisecond)
 
 // This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
+func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, rendition string, offer *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 		cancel()
 	}()
 
-	outputQueue, done, err := ConcatStream(ctx, pipeline, user, mm)
+	outputQueue, done, err := ConcatStream(ctx, pipeline, user, rendition, mm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get output queue: %w", err)
 	}

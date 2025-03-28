@@ -22,6 +22,7 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/media/segchanman"
 	"stream.place/streamplace/pkg/model"
 
 	"stream.place/streamplace/pkg/replication"
@@ -38,8 +39,7 @@ var STREAMPLACE_METADATA = "place.stream.metadata"
 
 type MediaManager struct {
 	cli                 *config.CLI
-	mp4subs             map[string][]chan string
-	mp4subsmut          sync.Mutex
+	segChanMan          *segchanman.SegChanMan
 	replicator          replication.Replicator
 	hlsRunning          map[string]*M3U8
 	hlsRunningMut       sync.Mutex
@@ -71,7 +71,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	}
 	return &MediaManager{
 		cli:        cli,
-		mp4subs:    map[string][]chan string{},
+		segChanMan: segchanman.MakeSegChanMan(),
 		replicator: rep,
 		hlsRunning: map[string]*M3U8{},
 		httpPipes:  map[string]io.Writer{},
@@ -116,56 +116,34 @@ func (mm *MediaManager) NewSegment() <-chan *NewSegmentNotification {
 }
 
 // subscribe to the latest segments from a given user for livestreaming purposes
-func (mm *MediaManager) SubscribeSegment(ctx context.Context, user string) <-chan string {
-	mm.mp4subsmut.Lock()
-	defer mm.mp4subsmut.Unlock()
-	_, ok := mm.mp4subs[user]
-	if !ok {
-		mm.mp4subs[user] = []chan string{}
-	}
-	c := make(chan string)
-	mm.mp4subs[user] = append(mm.mp4subs[user], c)
-	return c
+func (mm *MediaManager) SubscribeSegment(ctx context.Context, user string, rendition string) <-chan string {
+	return mm.segChanMan.SubscribeSegment(ctx, user, rendition)
 }
 
-func (mm *MediaManager) UnsubscribeSegment(ctx context.Context, user string, ch <-chan string) {
-	mm.mp4subsmut.Lock()
-	defer mm.mp4subsmut.Unlock()
-	for i, c := range mm.mp4subs[user] {
-		if c == ch {
-			mm.mp4subs[user] = append(mm.mp4subs[user][:i], mm.mp4subs[user][i+1:]...)
-			break
-		}
-	}
+func (mm *MediaManager) UnsubscribeSegment(ctx context.Context, user string, rendition string, ch <-chan string) {
+	mm.segChanMan.UnsubscribeSegment(ctx, user, rendition, ch)
 }
 
 // subscribe to the latest segments from a given user for livestreaming purposes
-func (mm *MediaManager) PublishSegment(ctx context.Context, user, file string) {
-	mm.mp4subsmut.Lock()
-	defer mm.mp4subsmut.Unlock()
-	for _, sub := range mm.mp4subs[user] {
-		go func() {
-			sub <- file
-		}()
-	}
-	mm.mp4subs[user] = []chan string{}
+func (mm *MediaManager) PublishSegment(ctx context.Context, user, rendition, file string) {
+	mm.segChanMan.PublishSegment(ctx, user, rendition, file)
 }
 
-func (mm *MediaManager) SegmentToMKV(ctx context.Context, user string, w io.Writer) error {
+func (mm *MediaManager) SegmentToMKV(ctx context.Context, user string, rendition string, w io.Writer) error {
 	muxer := ffmpeg.ComponentOptions{
 		Name: "matroska",
 	}
-	return mm.SegmentToStream(ctx, user, muxer, w)
+	return mm.SegmentToStream(ctx, user, rendition, muxer, w)
 }
 
-func (mm *MediaManager) SegmentToMKVPlusOpus(ctx context.Context, user string, w io.Writer) error {
+func (mm *MediaManager) SegmentToMKVPlusOpus(ctx context.Context, user string, rendition string, w io.Writer) error {
 	muxer := ffmpeg.ComponentOptions{
 		Name: "matroska",
 	}
 	pr, pw := io.Pipe()
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		return mm.SegmentToStream(ctx, user, muxer, pw)
+		return mm.SegmentToStream(ctx, user, rendition, muxer, pw)
 	})
 	g.Go(func() error {
 		return AddOpusToMKV(ctx, pr, w)
@@ -173,7 +151,7 @@ func (mm *MediaManager) SegmentToMKVPlusOpus(ctx context.Context, user string, w
 	return g.Wait()
 }
 
-func (mm *MediaManager) SegmentToHLSOnce(ctx context.Context, user string) (*M3U8, error) {
+func (mm *MediaManager) SegmentToHLSOnce(ctx context.Context, user string, rendition string) (*M3U8, error) {
 	mm.hlsRunningMut.Lock()
 	defer mm.hlsRunningMut.Unlock()
 	hls, ok := mm.hlsRunning[user]
@@ -181,7 +159,7 @@ func (mm *MediaManager) SegmentToHLSOnce(ctx context.Context, user string) (*M3U
 		hls = NewM3U8()
 		mm.hlsRunning[user] = hls
 		go func() {
-			err := mm.SegmentToHLS(ctx, user, hls)
+			err := mm.SegmentToHLS(ctx, user, rendition, hls)
 			if err != nil {
 				log.Log(ctx, "error in async segmentToHLS code", "error", err)
 			}
@@ -193,7 +171,7 @@ func (mm *MediaManager) SegmentToHLSOnce(ctx context.Context, user string) (*M3U
 	return hls, nil
 }
 
-func (mm *MediaManager) SegmentToHLS(ctx context.Context, user string, m3u8 *M3U8) error {
+func (mm *MediaManager) SegmentToHLS(ctx context.Context, user string, rendition string, m3u8 *M3U8) error {
 	muxer := ffmpeg.ComponentOptions{
 		Name: "matroska",
 	}
@@ -201,7 +179,7 @@ func (mm *MediaManager) SegmentToHLS(ctx context.Context, user string, m3u8 *M3U
 	pr, pw := io.Pipe()
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		return mm.SegmentToStream(ctx, user, muxer, pw)
+		return mm.SegmentToStream(ctx, user, rendition, muxer, pw)
 	})
 	g.Go(func() error {
 		return mm.ToHLS(ctx, pr, m3u8)
@@ -209,17 +187,17 @@ func (mm *MediaManager) SegmentToHLS(ctx context.Context, user string, m3u8 *M3U
 	return g.Wait()
 }
 
-func (mm *MediaManager) SegmentToMP4(ctx context.Context, user string, w io.Writer) error {
+func (mm *MediaManager) SegmentToMP4(ctx context.Context, user string, rendition string, w io.Writer) error {
 	muxer := ffmpeg.ComponentOptions{
 		Name: "mp4",
 		Opts: map[string]string{
 			"movflags": "frag_keyframe+empty_moov",
 		},
 	}
-	return mm.SegmentToStream(ctx, user, muxer, w)
+	return mm.SegmentToStream(ctx, user, rendition, muxer, w)
 }
 
-func (mm *MediaManager) SegmentToStream(ctx context.Context, user string, muxer ffmpeg.ComponentOptions, w io.Writer) error {
+func (mm *MediaManager) SegmentToStream(ctx context.Context, user string, rendition string, muxer ffmpeg.ComponentOptions, w io.Writer) error {
 	tc := ffmpeg.NewTranscoder()
 	defer tc.StopTranscoder()
 	ourl, or, odone, err := mm.HTTPPipe()
@@ -227,7 +205,7 @@ func (mm *MediaManager) SegmentToStream(ctx context.Context, user string, muxer 
 		return err
 	}
 	defer odone()
-	iname := fmt.Sprintf("%s/playback/%s/concat", mm.cli.OwnInternalURL(), user)
+	iname := fmt.Sprintf("%s/playback/%s/%s/concat", mm.cli.OwnInternalURL(), user, rendition)
 	in := &ffmpeg.TranscodeOptionsIn{
 		Fname:       iname,
 		Transmuxing: true,
@@ -401,7 +379,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	go mm.replicator.NewSegment(ctx, buf)
 	r = bytes.NewReader(buf)
 	io.Copy(fd, r)
-	go mm.PublishSegment(ctx, repoDID, fd.Name())
+	go mm.PublishSegment(ctx, repoDID, "source", fd.Name())
 	seg := &model.Segment{
 		ID:            *mani.Label,
 		SigningKeyDID: signingKeyDID,

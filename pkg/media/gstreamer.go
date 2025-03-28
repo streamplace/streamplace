@@ -788,7 +788,7 @@ func (mm *MediaManager) Thumbnail(ctx context.Context, r io.Reader, w io.Writer)
 	return nil
 }
 
-func (mm *MediaManager) MP4Playback(ctx context.Context, user string, w io.Writer) error {
+func (mm *MediaManager) MP4Playback(ctx context.Context, user string, rendition string, w io.Writer) error {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return err
@@ -814,7 +814,7 @@ func (mm *MediaManager) MP4Playback(ctx context.Context, user string, w io.Write
 		cancel()
 	}()
 
-	outputQueue, done, err := ConcatStream(ctx, pipeline, user, mm)
+	outputQueue, done, err := ConcatStream(ctx, pipeline, user, rendition, mm)
 	if err != nil {
 		return fmt.Errorf("failed to get output queue: %w", err)
 	}
@@ -880,7 +880,7 @@ func (mm *MediaManager) MP4Playback(ctx context.Context, user string, w io.Write
 	return nil
 }
 
-func (mm *MediaManager) MKVPlayback(ctx context.Context, user string, w io.Writer) error {
+func (mm *MediaManager) MKVPlayback(ctx context.Context, user string, rendition string, w io.Writer) error {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return err
@@ -906,7 +906,7 @@ func (mm *MediaManager) MKVPlayback(ctx context.Context, user string, w io.Write
 		cancel()
 	}()
 
-	outputQueue, done, err := ConcatStream(ctx, pipeline, user, mm)
+	outputQueue, done, err := ConcatStream(ctx, pipeline, user, rendition, mm)
 	if err != nil {
 		return fmt.Errorf("failed to get output queue: %w", err)
 	}

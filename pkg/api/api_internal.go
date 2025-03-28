@@ -93,6 +93,11 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPBadRequest(w, "user required", nil)
 			return
 		}
+		rendition := p.ByName("rendition")
+		if rendition == "" {
+			errors.WriteHTTPBadRequest(w, "rendition required", nil)
+			return
+		}
 		user, err := a.NormalizeUser(ctx, user)
 		if err != nil {
 			errors.WriteHTTPBadRequest(w, "invalid user", err)
@@ -102,7 +107,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		fmt.Fprintf(w, "ffconcat version 1.0\n")
 		// intermittent reports that you need two here to make things work properly? shouldn't matter.
 		for i := 0; i < 2; i += 1 {
-			fmt.Fprintf(w, "file '%s/playback/%s/latest.mp4'\n", a.CLI.OwnInternalURL(), user)
+			fmt.Fprintf(w, "file '%s/playback/%s/%s/latest.mp4'\n", a.CLI.OwnInternalURL(), user, rendition)
 		}
 	})
 
@@ -117,9 +122,14 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPBadRequest(w, "invalid user", err)
 			return
 		}
-		file := <-a.MediaManager.SubscribeSegment(ctx, user)
+		rendition := p.ByName("rendition")
+		if rendition == "" {
+			errors.WriteHTTPBadRequest(w, "rendition required", nil)
+			return
+		}
+		file := <-a.MediaManager.SubscribeSegment(ctx, user, rendition)
 		base := filepath.Base(file)
-		w.Header().Set("Location", fmt.Sprintf("%s/playback/%s/segment/%s\n", a.CLI.OwnInternalURL(), user, base))
+		w.Header().Set("Location", fmt.Sprintf("%s/playback/%s/%s/segment/%s\n", a.CLI.OwnInternalURL(), user, rendition, base))
 		w.WriteHeader(301)
 	})
 
@@ -153,6 +163,11 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPBadRequest(w, "user required", nil)
 			return
 		}
+		rendition := p.ByName("rendition")
+		if rendition == "" {
+			errors.WriteHTTPBadRequest(w, "rendition required", nil)
+			return
+		}
 		user, err := a.NormalizeUser(ctx, user)
 		if err != nil {
 			errors.WriteHTTPBadRequest(w, "invalid user", err)
@@ -160,7 +175,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 		w.Header().Set("Content-Type", "video/x-matroska")
 		w.WriteHeader(200)
-		err = a.MediaManager.SegmentToMKVPlusOpus(ctx, user, w)
+		err = a.MediaManager.SegmentToMKVPlusOpus(ctx, user, rendition, w)
 		if err != nil {
 			log.Log(ctx, "stream.mkv error", "error", err)
 		}
@@ -170,6 +185,11 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		user := p.ByName("user")
 		if user == "" {
 			errors.WriteHTTPBadRequest(w, "user required", nil)
+			return
+		}
+		rendition := p.ByName("rendition")
+		if rendition == "" {
+			errors.WriteHTTPBadRequest(w, "rendition required", nil)
 			return
 		}
 		user, err := a.NormalizeUser(ctx, user)
@@ -197,7 +217,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		pr, pw := io.Pipe()
 		bufw := bufio.NewWriter(pw)
 		g.Go(func() error {
-			return a.MediaManager.SegmentToMP4(ctx, user, bufw)
+			return a.MediaManager.SegmentToMP4(ctx, user, rendition, bufw)
 		})
 		g.Go(func() error {
 			time.Sleep(time.Duration(delayMS) * time.Millisecond)

@@ -95,6 +95,13 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 	return nil, ErrorIndex
 }
 
+// api/playback/iame.li/webrtc?rendition=source
+// api/playback/iame.li/stream.mp4?rendition=source
+// api/playback/iame.li/stream.webm?rendition=source
+// api/playback/iame.li/hls/index.m3u8
+// api/playback/iame.li/hls/source/stream.m3u8
+// api/playback/iame.li/hls/source/000000000000.ts
+
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router := httprouter.New()
 	apiRouter := httprouter.New()
@@ -110,9 +117,9 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/hls/:stream/*resource", a.MistProxyHandler(ctx, "/hls/%s"))
 	apiRouter.Handler("POST", "/api/segment", a.HandleSegment(ctx))
 	apiRouter.HandlerFunc("GET", "/api/healthz", a.HandleHealthz(ctx))
+	apiRouter.GET("/api/playback/:user/hls/*everything", a.HandleHLSPlayback(ctx))
 	apiRouter.GET("/api/playback/:user/stream.mp4", a.HandleMP4Playback(ctx))
 	apiRouter.GET("/api/playback/:user/stream.webm", a.HandleMKVPlayback(ctx))
-	apiRouter.GET("/api/playback/:user/hls/:file", a.HandleHLSPlayback(ctx))
 	// they're, uh, not jpegs. but we used this once and i don't wanna break backwards compatibility
 	apiRouter.GET("/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	// this one is not a lie

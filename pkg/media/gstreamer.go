@@ -16,9 +16,11 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/google/uuid"
+	"github.com/mr-tron/base58"
 	"github.com/skip2/go-qrcode"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/livepeer"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/test"
@@ -684,6 +686,17 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		}
 	}()
 
+	ls, err := livepeer.NewLivepeerSession(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create livepeer session: %w", err)
+	}
+
+	keyBytes, err := base58.Decode("zADr6hZfq9bHUXugqWCkGqVGRE16H7TyDfT7ByXPbNHQA")
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode key: %w", err)
+	}
+	transcodedMediaSigner, err := MakeMediaSignerExt(ctx, mm.cli, "did:key:zQ3shirGw1WLXShEd8EMM5mqekEQ1wmEhpn4F8wpZrSKnoXaE", keyBytes)
+
 	elem.Connect("sink-added", func(split, sinkEle *gst.Element) {
 		buf := &bytes.Buffer{}
 		appsink := app.SinkFromElement(sinkEle)
@@ -694,11 +707,25 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 			NewSampleFunc: WriterNewSample(ctx, buf),
 			EOSFunc: func(sink *app.Sink) {
 				resetTimer <- struct{}{}
-				bs, err := ms.SignMP4(ctx, bytes.NewReader(buf.Bytes()), time.Now().UnixMilli())
+				now := time.Now().UnixMilli()
+				bs, err := ms.SignMP4(ctx, bytes.NewReader(buf.Bytes()), now)
 				if err != nil {
 					log.Error(ctx, "error signing segment", "error", err)
 					return
 				}
+				go func() {
+					bs, err = ls.PostSegmentToGateway(ctx, buf.Bytes())
+					if err != nil {
+						log.Error(ctx, "error posting segment to livepeer", "error", err)
+					} else {
+						log.Log(ctx, "posted segment to livepeer", "segment", len(bs))
+					}
+					signedBs, err := transcodedMediaSigner.SignMP4(ctx, bytes.NewReader(bs), now)
+					if err != nil {
+						log.Error(ctx, "error signing segment", "error", err)
+					}
+					err = mm.ValidateMP4(ctx, bytes.NewReader(signedBs))
+				}()
 				err = mm.ValidateMP4(ctx, bytes.NewReader(bs))
 				if err != nil {
 					log.Error(ctx, "error validating segment", "error", err)
@@ -1055,4 +1082,57 @@ func (mm *MediaManager) ParseSegmentMediaData(ctx context.Context, mp4bs []byte)
 	pipeline.BlockSetState(gst.StateNull)
 
 	return meta, nil
+}
+
+// MP4ToMPEGTS converts an MP4 file to MPEG-TS format.
+// It takes an io.Reader for the MP4 input and writes the MPEG-TS output to the provided io.Writer.
+func (mm *MediaManager) MP4ToMPEGTS(ctx context.Context, r io.Reader, w io.Writer) error {
+	ctx = log.WithLogValues(ctx, "function", "MP4ToMPEGTS")
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	pipelineStr := "appsrc name=src ! qtdemux ! mpegtsmux ! appsink name=sink"
+	pipeline, err := gst.NewPipelineFromString(pipelineStr)
+	if err != nil {
+		return fmt.Errorf("error creating MP4ToMPEGTS pipeline: %w", err)
+	}
+
+	// Get the appsrc element
+	appsrc, err := pipeline.GetElementByName("src")
+	if err != nil {
+		return fmt.Errorf("failed to get appsrc element: %w", err)
+	}
+
+	// Configure the appsrc
+	src := app.SrcFromElement(appsrc)
+	src.SetCallbacks(&app.SourceCallbacks{
+		NeedDataFunc: ReaderNeedData(ctx, r),
+	})
+
+	// Get the appsink element
+	appsink, err := pipeline.GetElementByName("sink")
+	if err != nil {
+		return fmt.Errorf("failed to get appsink element: %w", err)
+	}
+
+	// Configure the appsink
+	sink := app.SinkFromElement(appsink)
+	sink.SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: WriterNewSample(ctx, w),
+	})
+
+	// Handle bus messages in a separate goroutine
+	go func() {
+		HandleBusMessages(ctx, pipeline)
+		cancel()
+	}()
+
+	// Start the pipeline
+	pipeline.SetState(gst.StatePlaying)
+
+	// Wait for completion or error
+	<-ctx.Done()
+	pipeline.BlockSetState(gst.StateNull)
+
+	return nil
 }

@@ -1,33 +1,25 @@
 package media
 
 import (
-	"bytes"
 	"context"
 	"crypto"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/google/uuid"
-	"github.com/livepeer/lpms/ffmpeg"
-	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/constants"
-	"stream.place/streamplace/pkg/crypto/signers"
-	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media/segchanman"
 	"stream.place/streamplace/pkg/model"
 
 	"stream.place/streamplace/pkg/replication"
 
-	"git.stream.place/streamplace/c2pa-go/pkg/c2pa"
 	"git.stream.place/streamplace/c2pa-go/pkg/c2pa/generated/manifeststore"
 	"github.com/piprate/json-gold/ld"
 )
@@ -129,127 +121,6 @@ func (mm *MediaManager) PublishSegment(ctx context.Context, user, rendition stri
 	mm.segChanMan.PublishSegment(ctx, user, rendition, seg)
 }
 
-func (mm *MediaManager) SegmentToMKV(ctx context.Context, user string, rendition string, w io.Writer) error {
-	muxer := ffmpeg.ComponentOptions{
-		Name: "matroska",
-	}
-	return mm.SegmentToStream(ctx, user, rendition, muxer, w)
-}
-
-func (mm *MediaManager) SegmentToMKVPlusOpus(ctx context.Context, user string, rendition string, w io.Writer) error {
-	muxer := ffmpeg.ComponentOptions{
-		Name: "matroska",
-	}
-	pr, pw := io.Pipe()
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return mm.SegmentToStream(ctx, user, rendition, muxer, pw)
-	})
-	g.Go(func() error {
-		return AddOpusToMKV(ctx, pr, w)
-	})
-	return g.Wait()
-}
-
-func (mm *MediaManager) SegmentToHLSOnce(ctx context.Context, user string, rendition string) (*M3U8, error) {
-	mm.hlsRunningMut.Lock()
-	defer mm.hlsRunningMut.Unlock()
-	hls, ok := mm.hlsRunning[user]
-	if !ok {
-		hls = NewM3U8()
-		mm.hlsRunning[user] = hls
-		go func() {
-			err := mm.SegmentToHLS(ctx, user, rendition, hls)
-			if err != nil {
-				log.Log(ctx, "error in async segmentToHLS code", "error", err)
-			}
-			mm.hlsRunningMut.Lock()
-			defer mm.hlsRunningMut.Unlock()
-			delete(mm.hlsRunning, user)
-		}()
-	}
-	return hls, nil
-}
-
-func (mm *MediaManager) SegmentToHLS(ctx context.Context, user string, rendition string, m3u8 *M3U8) error {
-	muxer := ffmpeg.ComponentOptions{
-		Name: "matroska",
-	}
-
-	pr, pw := io.Pipe()
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return mm.SegmentToStream(ctx, user, rendition, muxer, pw)
-	})
-	g.Go(func() error {
-		return mm.ToHLS(ctx, pr, m3u8)
-	})
-	return g.Wait()
-}
-
-func (mm *MediaManager) SegmentToMP4(ctx context.Context, user string, rendition string, w io.Writer) error {
-	muxer := ffmpeg.ComponentOptions{
-		Name: "mp4",
-		Opts: map[string]string{
-			"movflags": "frag_keyframe+empty_moov",
-		},
-	}
-	return mm.SegmentToStream(ctx, user, rendition, muxer, w)
-}
-
-func (mm *MediaManager) SegmentToStream(ctx context.Context, user string, rendition string, muxer ffmpeg.ComponentOptions, w io.Writer) error {
-	tc := ffmpeg.NewTranscoder()
-	defer tc.StopTranscoder()
-	ourl, or, odone, err := mm.HTTPPipe()
-	if err != nil {
-		return err
-	}
-	defer odone()
-	iname := fmt.Sprintf("%s/playback/%s/%s/concat", mm.cli.OwnInternalURL(), user, rendition)
-	in := &ffmpeg.TranscodeOptionsIn{
-		Fname:       iname,
-		Transmuxing: true,
-		Profile:     ffmpeg.VideoProfile{},
-		Loop:        -1,
-		Demuxer: ffmpeg.ComponentOptions{
-			Name: "concat",
-			Opts: map[string]string{
-				"safe":               "0",
-				"protocol_whitelist": "file,http,https,tcp,tls",
-			},
-		},
-	}
-	out := []ffmpeg.TranscodeOptions{
-		{
-			Oname: ourl,
-			VideoEncoder: ffmpeg.ComponentOptions{
-				Name: "copy",
-			},
-			AudioEncoder: ffmpeg.ComponentOptions{
-				Name: "copy",
-			},
-			Profile: ffmpeg.VideoProfile{Format: ffmpeg.FormatNone},
-			Muxer:   muxer,
-		},
-	}
-	g, _ := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		<-ctx.Done()
-		or.Close()
-		return nil
-	})
-	g.Go(func() error {
-		_, err := tc.Transcode(in, out)
-		tc.StopTranscoder()
-		return err
-	})
-	g.Go(func() error {
-		_, err := io.Copy(w, or)
-		return err
-	})
-	return g.Wait()
-}
-
 type obj map[string]any
 
 type StringVal struct {
@@ -319,89 +190,4 @@ func ParseSegmentAssertions(mani *manifeststore.Manifest) (*SegmentMetadata, err
 		Creator:   meta.Creator[0].Value,
 	}
 	return &out, nil
-}
-
-func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error {
-	buf, err := io.ReadAll(input)
-	if err != nil {
-		return err
-	}
-	r := bytes.NewReader(buf)
-	reader, err := c2pa.FromStream(r, "video/mp4")
-	if err != nil {
-		return err
-	}
-	mani := reader.GetActiveManifest()
-	certs := reader.GetProvenanceCertChain()
-	pub, err := signers.ParseES256KCert([]byte(certs))
-	if err != nil {
-		return err
-	}
-	meta, err := ParseSegmentAssertions(mani)
-	if err != nil {
-		return err
-	}
-	mediaData, err := mm.ParseSegmentMediaData(ctx, buf)
-	if err != nil {
-		return err
-	}
-	// special case for test signers that are only signed with a key
-	var repoDID string
-	var signingKeyDID string
-	if strings.HasPrefix(meta.Creator, constants.DID_KEY_PREFIX) {
-		signingKeyDID = meta.Creator
-		repoDID = meta.Creator
-	} else {
-		repo, err := mm.atsync.SyncBlueskyRepoCached(ctx, meta.Creator, mm.model)
-		if err != nil {
-			return err
-		}
-		signingKey, err := mm.model.GetSigningKey(pub.DIDKey(), repo.DID)
-		if err != nil {
-			return err
-		}
-		if signingKey == nil {
-			return fmt.Errorf("no signing key found for %s", pub.DIDKey())
-		}
-		repoDID = repo.DID
-		signingKeyDID = signingKey.DID
-	}
-
-	err = mm.cli.StreamIsAllowed(repoDID)
-	if err != nil {
-		return fmt.Errorf("got valid segment, but user %s is not allowed: %w", repoDID, err)
-	}
-	fd, err := mm.cli.SegmentFileCreate(repoDID, meta.StartTime, "mp4")
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-	go mm.replicator.NewSegment(ctx, buf)
-	r = bytes.NewReader(buf)
-	io.Copy(fd, r)
-	scmSeg := &segchanman.Seg{
-		Filepath: fd.Name(),
-		Data:     buf,
-	}
-	go mm.PublishSegment(ctx, repoDID, "source", scmSeg)
-	seg := &model.Segment{
-		ID:            *mani.Label,
-		SigningKeyDID: signingKeyDID,
-		RepoDID:       repoDID,
-		StartTime:     meta.StartTime.Time(),
-		Title:         meta.Title,
-		MediaData:     mediaData,
-	}
-	mm.newSegmentSubsMutex.RLock()
-	defer mm.newSegmentSubsMutex.RUnlock()
-	not := &NewSegmentNotification{
-		Segment:  seg,
-		Data:     buf,
-		Metadata: meta,
-	}
-	for _, ch := range mm.newSegmentSubs {
-		go func() { ch <- not }()
-	}
-	log.Log(ctx, "successfully ingested segment", "user", repoDID, "signingKey", signingKeyDID, "timestamp", meta.StartTime, "segmentID", *mani.Label)
-	return nil
 }

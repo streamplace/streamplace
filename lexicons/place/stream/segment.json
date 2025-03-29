@@ -59,7 +59,19 @@
       "properties": {
         "codec": { "type": "string", "enum": ["h264"] },
         "width": { "type": "integer" },
-        "height": { "type": "integer" }
+        "height": { "type": "integer" },
+        "framerate": {
+          "type": "ref",
+          "ref": "#framerate"
+        }
+      }
+    },
+    "framerate": {
+      "type": "object",
+      "required": ["num", "den"],
+      "properties": {
+        "num": { "type": "integer" },
+        "den": { "type": "integer" }
       }
     }
   }

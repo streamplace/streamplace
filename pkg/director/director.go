@@ -11,6 +11,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/thumbnail"
 )
 
@@ -60,6 +61,14 @@ func (d *Director) Start(ctx context.Context) error {
 					log.Error(ctx, "could not create thumbnail", "error", err)
 				}
 			}()
+
+			go func() {
+				err := d.Transcode(ctx, spseg, not.Data)
+				if err != nil {
+					log.Error(ctx, "could not transcode", "error", err)
+				}
+			}()
+
 		}
 	}
 }
@@ -102,12 +111,6 @@ func (d *Director) Thumbnail(ctx context.Context, repoDID string, not *media.New
 	return nil
 }
 
-// func (d *Director) Transcode(ctx context.Context, repoDID string, not *media.NewSegmentNotification) error {
-// 	lock := thumbnail.GetThumbnailLock(not.Segment.RepoDID)
-// 	locked := lock.TryLock()
-// 	if !locked {
-// 		// we're already generating a thumbnail for this user, skip
-// 		return nil
-// 	}
-// 	defer lock.Unlock()
-// }
+func (d *Director) Transcode(ctx context.Context, spseg *streamplace.Segment, data []byte) error {
+	return nil
+}

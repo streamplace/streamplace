@@ -32,9 +32,16 @@ type Segment_Audio struct {
 	Rate     int64  `json:"rate" cborgen:"rate"`
 }
 
+// Segment_Framerate is a "framerate" in the place.stream.segment schema.
+type Segment_Framerate struct {
+	Den int64 `json:"den" cborgen:"den"`
+	Num int64 `json:"num" cborgen:"num"`
+}
+
 // Segment_Video is a "video" in the place.stream.segment schema.
 type Segment_Video struct {
-	Codec  string `json:"codec" cborgen:"codec"`
-	Height int64  `json:"height" cborgen:"height"`
-	Width  int64  `json:"width" cborgen:"width"`
+	Codec     string             `json:"codec" cborgen:"codec"`
+	Framerate *Segment_Framerate `json:"framerate,omitempty" cborgen:"framerate,omitempty"`
+	Height    int64              `json:"height" cborgen:"height"`
+	Width     int64              `json:"width" cborgen:"width"`
 }

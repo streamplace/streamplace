@@ -13,9 +13,10 @@ import (
 )
 
 type SegmentMediadataVideo struct {
-	Width     int    `json:"width"`
-	Height    int    `json:"height"`
-	Framerate string `json:"framerate"`
+	Width  int `json:"width"`
+	Height int `json:"height"`
+	FPSNum int `json:"fpsNum"`
+	FPSDen int `json:"fpsDen"`
 }
 
 type SegmentMediadataAudio struct {
@@ -79,6 +80,10 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 				Codec:  "h264",
 				Width:  int64(s.MediaData.Video[0].Width),
 				Height: int64(s.MediaData.Video[0].Height),
+				Framerate: &streamplace.Segment_Framerate{
+					Num: int64(s.MediaData.Video[0].FPSNum),
+					Den: int64(s.MediaData.Video[0].FPSDen),
+				},
 			},
 		},
 		Audio: []*streamplace.Segment_Audio{

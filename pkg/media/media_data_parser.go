@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/go-gst/go-gst/gst"
@@ -72,8 +73,16 @@ func (mm *MediaManager) ParseSegmentMediaData(ctx context.Context, mp4bs []byte)
 			}
 			framerateVal, _ := structure.GetValue("framerate")
 			framerateStr := fmt.Sprintf("%v", framerateVal)
-			if framerateStr != "" {
-				videoMetadata.Framerate = framerateStr
+			parts := strings.Split(framerateStr, "/")
+			num := 0
+			den := 0
+			if len(parts) == 2 {
+				num, _ = strconv.Atoi(parts[0])
+				den, _ = strconv.Atoi(parts[1])
+			}
+			if num != 0 && den != 0 {
+				videoMetadata.FPSNum = num
+				videoMetadata.FPSDen = den
 			}
 		}
 

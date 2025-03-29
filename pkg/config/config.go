@@ -84,6 +84,7 @@ type CLI struct {
 	NoFirehose             bool
 	PrintChat              bool
 	Color                  string
+	LivepeerGatewayURL     string
 
 	dataDirFlags []*string
 }

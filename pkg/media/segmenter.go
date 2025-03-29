@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
-	"stream.place/streamplace/pkg/livepeer"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -52,11 +51,6 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		}
 	}()
 
-	ls, err := livepeer.NewLivepeerSession(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create livepeer session: %w", err)
-	}
-
 	elem.Connect("sink-added", func(split, sinkEle *gst.Element) {
 		buf := &bytes.Buffer{}
 		appsink := app.SinkFromElement(sinkEle)
@@ -73,15 +67,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 					log.Error(ctx, "error signing segment", "error", err)
 					return
 				}
-				go func() {
-					bs, err = ls.PostSegmentToGateway(ctx, buf.Bytes())
-					if err != nil {
-						log.Error(ctx, "error posting segment to livepeer", "error", err)
-					} else {
-						log.Log(ctx, "posted segment to livepeer", "segment", len(bs))
-					}
 
-				}()
 				err = mm.ValidateMP4(ctx, bytes.NewReader(bs))
 				if err != nil {
 					log.Error(ctx, "error validating segment", "error", err)

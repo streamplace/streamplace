@@ -29,6 +29,7 @@ import (
 	"stream.place/streamplace/pkg/mist/misttriggers"
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/renditions"
 	v0 "stream.place/streamplace/pkg/schema/v0"
 )
 
@@ -471,6 +472,55 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 
 		w.WriteHeader(http.StatusNoContent)
+	})
+
+	router.POST("/livepeer-auth-webhook-url", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		var payload struct {
+			URL string `json:"url"`
+		}
+		// urls look like http://127.0.0.1:9999/live/did:plc:dkh4rwafdcda4ko7lewe43ml-uucbv40mdkcfat50/47.mp4
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			errors.WriteHTTPBadRequest(w, "invalid request body (could not decode)", err)
+			return
+		}
+		parts := strings.Split(payload.URL, "/")
+		if len(parts) < 5 {
+			errors.WriteHTTPBadRequest(w, "invalid request body (too few parts)", nil)
+			return
+		}
+		didSession := parts[4]
+		idParts := strings.Split(didSession, "-")
+		if len(idParts) != 2 {
+			errors.WriteHTTPBadRequest(w, "invalid request body (invalid did session)", nil)
+			return
+		}
+		did := idParts[0]
+		// sessionID := idParts[1]
+		seg, err := a.Model.LatestSegmentForUser(did)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to get latest segment", err)
+			return
+		}
+		spseg, err := seg.ToStreamplaceSegment()
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to convert segment to streamplace segment", err)
+			return
+		}
+		renditions, err := renditions.GenerateRenditions(spseg)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to generate renditions", err)
+			return
+		}
+		out := map[string]any{
+			"manifestID": didSession,
+			"profiles":   renditions.ToLivepeerProfiles(),
+		}
+		bs, err := json.Marshal(out)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
+			return
+		}
+		w.Write(bs)
 	})
 
 	handler := sloghttp.Recovery(router)

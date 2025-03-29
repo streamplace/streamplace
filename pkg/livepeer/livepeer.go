@@ -5,13 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand"
 	"mime"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"strings"
 
-	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/log"
 )
@@ -21,19 +20,26 @@ type LivepeerSession struct {
 	Count     int
 }
 
-func NewLivepeerSession(ctx context.Context) (*LivepeerSession, error) {
-	uu, err := uuid.NewV7()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate UUID: %w", err)
+// borrowed from catalyst-api
+func RandomTrailer(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+	res := make([]byte, length)
+	for i := 0; i < length; i++ {
+		res[i] = charset[rand.Intn(len(charset))]
 	}
-	sessionID := uu.String()
+	return string(res)
+}
+
+func NewLivepeerSession(ctx context.Context, did string) (*LivepeerSession, error) {
+	sessionID := RandomTrailer(8)
 	return &LivepeerSession{
-		SessionID: sessionID,
+		SessionID: fmt.Sprintf("%s-%s", did, sessionID),
 		Count:     0,
 	}, nil
 }
 
-func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte) ([]byte, error) {
+func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte) ([][]byte, error) {
 	url := fmt.Sprintf("http://127.0.0.1:9999/live/%s/%d.mp4", ls.SessionID, ls.Count)
 	ls.Count++
 
@@ -53,7 +59,7 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte)
 		return nil, fmt.Errorf("gateway returned non-OK status: %d", resp.StatusCode)
 	}
 
-	var slurp []byte
+	var out [][]byte
 
 	mediaType, params, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if err != nil {
@@ -69,21 +75,14 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get next part: %w", err)
 			}
-			slurp, err = io.ReadAll(p)
+			bs, err := io.ReadAll(p)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read part: %w", err)
 			}
-			log.Log(ctx, "part", "length", len(slurp))
+			log.Debug(ctx, "got part back from livepeer gateway", "length", len(bs), "name", p.FileName())
+			out = append(out, bs)
 		}
 	}
 
-	fd, err := os.Create(fmt.Sprintf("/home/iameli/testvids/livepeer-element/%s-%08d.mp4", ls.SessionID, ls.Count))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create file: %w", err)
-	}
-	defer fd.Close()
-
-	fd.Write(slurp)
-
-	return slurp, nil
+	return out, nil
 }

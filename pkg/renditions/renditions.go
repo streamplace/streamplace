@@ -18,6 +18,7 @@ type Rendition struct {
 	Bitrate   int
 	Framerate FPS
 	Profile   string
+	Name      string
 }
 
 type JsonProfile struct {
@@ -35,13 +36,13 @@ type JsonProfile struct {
 
 func (r Rendition) ToLivepeerProfile() JsonProfile {
 	return JsonProfile{
+		Name:    r.Name,
 		Width:   int(r.Width),
 		Height:  int(r.Height),
 		Bitrate: r.Bitrate,
 		FPS:     r.Framerate.Num,
 		FPSDen:  r.Framerate.Den,
 		Profile: r.Profile,
-		Encoder: "h264",
 	}
 }
 
@@ -57,6 +58,7 @@ func (rs Renditions) ToLivepeerProfiles() []JsonProfile {
 
 var DesiredRenditions = []Rendition{
 	{
+		Name:    "1080p60",
 		Width:   1920,
 		Height:  1080,
 		Bitrate: 6_000_000,
@@ -67,6 +69,7 @@ var DesiredRenditions = []Rendition{
 		Profile: "h264constrainedhigh",
 	},
 	{
+		Name:    "720p60",
 		Width:   1280,
 		Height:  720,
 		Bitrate: 3_000_000,
@@ -77,6 +80,7 @@ var DesiredRenditions = []Rendition{
 		Profile: "h264constrainedhigh",
 	},
 	{
+		Name:    "360p30",
 		Width:   640,
 		Height:  360,
 		Bitrate: 1_000_000,
@@ -87,6 +91,7 @@ var DesiredRenditions = []Rendition{
 		Profile: "h264constrainedhigh",
 	},
 	{
+		Name:    "240p30",
 		Width:   426,
 		Height:  240,
 		Bitrate: 500_000,
@@ -97,6 +102,7 @@ var DesiredRenditions = []Rendition{
 		Profile: "h264constrainedhigh",
 	},
 	{
+		Name:    "160p30",
 		Width:   284,
 		Height:  160,
 		Bitrate: 250_000,
@@ -120,7 +126,9 @@ func GenerateRenditions(spseg *streamplace.Segment) (Renditions, error) {
 		if vid.Width <= r.Width && vid.Height <= r.Height {
 			continue
 		}
-		outR := Rendition{}
+		outR := Rendition{
+			Name: r.Name,
+		}
 		if vertical {
 			outR.Height = r.Width
 		} else {

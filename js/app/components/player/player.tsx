@@ -15,7 +15,11 @@ import {
 import PlayerProvider from "./provider";
 import { selectUserMuted } from "features/streamplace/streamplaceSlice";
 import { useAppSelector } from "store/hooks";
-import { usePlayerSegment } from "features/player/playerSlice";
+import {
+  usePlayerRenditions,
+  usePlayerSegment,
+  usePlayerSelectedRendition,
+} from "features/player/playerSlice";
 
 const HIDE_CONTROLS_AFTER = 2000;
 const OFFLINE_THRESHOLD = 10000;
@@ -107,6 +111,9 @@ export function PlayerInner(props: Partial<PlayerProps>) {
   const segment = useAppSelector(usePlayerSegment());
   const [lastCheck, setLastCheck] = useState(0);
 
+  const renditions = useAppSelector(usePlayerRenditions());
+  const selectedRendition = useAppSelector(usePlayerSelectedRendition());
+
   useEffect(() => {
     if (playing) {
       setOffline(false);
@@ -154,6 +161,8 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     setPlayTime: setPlayTime,
     ingestMediaSource: props.ingestMediaSource ?? IngestMediaSource.USER,
     ingestAutoStart: props.ingestAutoStart ?? false,
+    renditions: renditions ?? [],
+    selectedRendition: selectedRendition ?? "source",
     ...props,
   };
   return (

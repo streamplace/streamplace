@@ -14,7 +14,7 @@ import {
   Volume2,
   VolumeX,
 } from "@tamagui/lucide-icons";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Animated, Pressable } from "react-native";
 import {
   Button,
@@ -42,7 +42,9 @@ import {
 import {
   usePlayer,
   usePlayerActions,
+  usePlayerRenditions,
   usePlayerSegment,
+  usePlayerSelectedRendition,
 } from "features/player/playerSlice";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import Loading from "components/loading/loading";
@@ -298,6 +300,10 @@ function LiveBubbleText() {
 
 function GearMenu(props: PlayerProps) {
   const [menu, setMenu] = useState("root");
+  const renditions = useAppSelector(usePlayerRenditions());
+  const selectedRendition = useAppSelector(usePlayerSelectedRendition());
+  const { setSelectedRendition } = usePlayerActions();
+  const dispatch = useAppDispatch();
   return (
     <YGroup alignSelf="center" bordered width={240} size="$5" borderRadius="$0">
       {menu == "root" && (
@@ -322,6 +328,7 @@ function GearMenu(props: PlayerProps) {
               subTitle="WIP"
               icon={Sparkle}
               iconAfter={ChevronRight}
+              onPress={() => setMenu("quality")}
             />
           </YGroup.Item>
         </>
@@ -395,6 +402,51 @@ function GearMenu(props: PlayerProps) {
               onPress={() => props.setProtocol(PROTOCOL_WEBRTC)}
             />
           </YGroup.Item>
+        </>
+      )}
+      {menu == "quality" && (
+        <>
+          <YGroup.Item>
+            <ListItem
+              hoverTheme
+              pressTheme
+              title="Back"
+              icon={ChevronLeft}
+              onPress={() => setMenu("root")}
+            />
+          </YGroup.Item>
+          <Separator />
+          <YGroup.Item>
+            <ListItem
+              hoverTheme
+              pressTheme
+              title="Source"
+              subTitle="Original quality"
+              icon={Star}
+              iconAfter={
+                props.selectedRendition === "source" ? CheckCircle : Circle
+              }
+              onPress={() => dispatch(setSelectedRendition("source"))}
+            />
+          </YGroup.Item>
+          {renditions.map((rendition) => (
+            <Fragment key={rendition.name}>
+              <Separator />
+              <YGroup.Item>
+                <ListItem
+                  hoverTheme
+                  pressTheme
+                  title={rendition.name}
+                  subTitle={rendition.name}
+                  icon={Shell}
+                  iconAfter={
+                    selectedRendition === rendition.name ? CheckCircle : Circle
+                  }
+                  onPress={() => dispatch(setSelectedRendition(rendition.name))}
+                />
+              </YGroup.Item>
+            </Fragment>
+          ))}
         </>
       )}
     </YGroup>

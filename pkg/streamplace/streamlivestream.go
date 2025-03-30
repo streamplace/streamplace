@@ -50,6 +50,8 @@ type Livestream_StreamplaceAnything_Livestream struct {
 	Livestream_LivestreamView *Livestream_LivestreamView
 	Livestream_ViewerCount    *Livestream_ViewerCount
 	Defs_BlockView            *Defs_BlockView
+	Defs_Renditions           *Defs_Renditions
+	Defs_Rendition            *Defs_Rendition
 }
 
 func (t *Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error) {
@@ -64,6 +66,14 @@ func (t *Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error
 	if t.Defs_BlockView != nil {
 		t.Defs_BlockView.LexiconTypeID = "place.stream.defs#blockView"
 		return json.Marshal(t.Defs_BlockView)
+	}
+	if t.Defs_Renditions != nil {
+		t.Defs_Renditions.LexiconTypeID = "place.stream.defs#renditions"
+		return json.Marshal(t.Defs_Renditions)
+	}
+	if t.Defs_Rendition != nil {
+		t.Defs_Rendition.LexiconTypeID = "place.stream.defs#rendition"
+		return json.Marshal(t.Defs_Rendition)
 	}
 	return nil, fmt.Errorf("cannot marshal empty enum")
 }
@@ -83,6 +93,12 @@ func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalJSON(b []byte) erro
 	case "place.stream.defs#blockView":
 		t.Defs_BlockView = new(Defs_BlockView)
 		return json.Unmarshal(b, t.Defs_BlockView)
+	case "place.stream.defs#renditions":
+		t.Defs_Renditions = new(Defs_Renditions)
+		return json.Unmarshal(b, t.Defs_Renditions)
+	case "place.stream.defs#rendition":
+		t.Defs_Rendition = new(Defs_Rendition)
+		return json.Unmarshal(b, t.Defs_Rendition)
 
 	default:
 		return nil

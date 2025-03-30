@@ -1,3 +1,5 @@
+import { Rendition } from "lexicons/types/place/stream/defs";
+
 export enum IngestMediaSource {
   USER = "user",
   DISPLAY = "display",
@@ -33,6 +35,8 @@ export type PlayerProps = {
   ingestAutoStart?: boolean;
   avSyncTest?: boolean;
   offline: boolean;
+  renditions: Rendition[];
+  selectedRendition: string;
 };
 
 export type PlayerEvent = {

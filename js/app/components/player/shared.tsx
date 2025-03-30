@@ -41,7 +41,7 @@ export function srcToUrl(props: PlayerProps): {
     } else if (props.protocol === PROTOCOL_PROGRESSIVE_WEBM) {
       outUrl = `${url}/api/playback/${props.src}/stream.webm`;
     } else if (props.protocol === PROTOCOL_WEBRTC) {
-      outUrl = `${url}/api/playback/${props.src}/webrtc`;
+      outUrl = `${url}/api/playback/${props.src}/webrtc?rendition=${props.selectedRendition}`;
     } else {
       throw new Error(`unknown playback protocol: ${props.protocol}`);
     }

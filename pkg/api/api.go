@@ -35,6 +35,7 @@ import (
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/streamplace"
 )
@@ -743,6 +744,22 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				return
 			}
 			initialBurst <- spSeg
+			renditions, err := renditions.GenerateRenditions(spSeg)
+			if err != nil {
+				log.Error(ctx, "could not generate renditions", "error", err)
+				return
+			}
+			outRs := streamplace.Defs_Renditions{
+				LexiconTypeID: "place.stream.defs#renditions",
+			}
+			outRs.Renditions = []*streamplace.Defs_Rendition{}
+			for _, r := range renditions {
+				outRs.Renditions = append(outRs.Renditions, &streamplace.Defs_Rendition{
+					LexiconTypeID: "place.stream.defs#rendition",
+					Name:          r.Name,
+				})
+			}
+			initialBurst <- outRs
 		}()
 
 		go func() {

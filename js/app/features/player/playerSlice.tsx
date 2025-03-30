@@ -4,7 +4,12 @@ import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import { uuidv7 } from "hooks/uuid";
 import { createContext, useContext } from "react";
 import { createAppSlice } from "../../hooks/createSlice";
-import { BlockView, isBlockView } from "../../lexicons/types/place/stream/defs";
+import {
+  BlockView,
+  isBlockView,
+  isRenditions,
+  Rendition,
+} from "../../lexicons/types/place/stream/defs";
 import {
   isLivestreamView,
   isViewerCount,
@@ -53,6 +58,8 @@ export interface PlayerState {
   chatList: PostViewHydrated[];
   livestream: LivestreamViewHydrated | null;
   segment: Segment.Record | null;
+  renditions: Rendition[];
+  selectedRendition: string | null;
 }
 
 export interface PlayersState {
@@ -135,6 +142,8 @@ export const playerSlice = createAppSlice({
         chatList: [],
         livestream: null,
         segment: null,
+        renditions: [],
+        selectedRendition: "160p30",
       };
     });
   },
@@ -231,6 +240,14 @@ export const playerSlice = createAppSlice({
                   [],
                   [block],
                 ),
+              };
+            } else if (isRenditions(message)) {
+              state = {
+                ...state,
+                [action.payload.playerId]: {
+                  ...state[action.payload.playerId],
+                  renditions: message.renditions,
+                },
               };
             }
           }
@@ -368,6 +385,24 @@ export const playerSlice = createAppSlice({
           },
         },
       ),
+
+      setSelectedRendition: create.reducer(
+        (
+          state,
+          action: {
+            payload: { playerId: string; rendition: string };
+            type: string;
+          },
+        ) => {
+          return {
+            ...state,
+            [action.payload.playerId]: {
+              ...state[action.payload.playerId],
+              selectedRendition: action.payload.rendition,
+            },
+          };
+        },
+      ),
     };
   },
 
@@ -383,6 +418,12 @@ export const playerSlice = createAppSlice({
     },
     selectSegment: (state, playerId: string) => {
       return state[playerId].segment;
+    },
+    selectRenditions: (state, playerId: string) => {
+      return state[playerId].renditions;
+    },
+    selectSelectedRendition: (state, playerId: string) => {
+      return state[playerId].selectedRendition;
     },
   },
 });
@@ -409,6 +450,8 @@ export const usePlayerActions = () => {
       playerSlice.actions.pollSegment({ playerId, user }),
     handleWebSocketMessages: (messages: any[]) =>
       playerSlice.actions.handleWebSocketMessages({ playerId, messages }),
+    setSelectedRendition: (rendition: string) =>
+      playerSlice.actions.setSelectedRendition({ playerId, rendition }),
   };
 };
 
@@ -438,4 +481,16 @@ export const usePlayerSegment = (): ((state: {
 }) => Segment.Record | null) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId].segment;
+};
+export const usePlayerRenditions = (): ((state: {
+  player: PlayersState;
+}) => Rendition[]) => {
+  const playerId = usePlayerId();
+  return (state) => state.player[playerId].renditions;
+};
+export const usePlayerSelectedRendition = (): ((state: {
+  player: PlayersState;
+}) => string | null) => {
+  const playerId = usePlayerId();
+  return (state) => state.player[playerId].selectedRendition;
 };

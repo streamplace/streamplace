@@ -15,6 +15,23 @@
         "record": { "type": "ref", "ref": "app.bsky.graph.block" },
         "indexedAt": { "type": "string", "format": "datetime" }
       }
+    },
+    "renditions": {
+      "type": "object",
+      "required": ["renditions"],
+      "properties": {
+        "renditions": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#rendition" }
+        }
+      }
+    },
+    "rendition": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" }
+      }
     }
   }
 }

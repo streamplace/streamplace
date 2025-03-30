@@ -64,7 +64,9 @@
           "refs": [
             "#livestreamView",
             "#viewerCount",
-            "place.stream.defs#blockView"
+            "place.stream.defs#blockView",
+            "place.stream.defs#renditions",
+            "place.stream.defs#rendition"
           ]
         }
       }

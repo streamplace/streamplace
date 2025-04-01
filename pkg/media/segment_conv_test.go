@@ -24,8 +24,9 @@ func TestMP4ToMPEGTS(t *testing.T) {
 	defer outputFile.Close()
 
 	// Convert MP4 to MPEG-TS
-	err = MP4ToMPEGTS(context.Background(), inputFile, outputFile)
+	dur, err := MP4ToMPEGTS(context.Background(), inputFile, outputFile)
 	require.NoError(t, err)
+	require.Greater(t, dur, int64(0), "Duration should be greater than 0")
 
 	// Verify output file has content
 	info, err := os.Stat(outputFile.Name())

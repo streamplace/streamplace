@@ -362,12 +362,12 @@ func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handl
 		}
 
 		if strings.HasSuffix(file, ".m3u8") {
-			w.Header().Set("Content-Type", "application/x-mpegURL")
+			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 		} else {
 			if session != "" {
 				spmetrics.SessionSeen(user, session)
 			}
-			w.Header().Set("Content-Type", "video/MP2T")
+			w.Header().Set("Content-Type", "video/mp2t")
 		}
 
 		http.ServeContent(w, r, file, time.Now(), bytes.NewReader(buf))

@@ -28,6 +28,7 @@ type Segment struct {
 	MSN      uint64 // media sequence number
 	Duration time.Duration
 	Buf      *bytes.Buffer
+	Time     time.Time
 }
 
 type M3U8 struct {
@@ -165,11 +166,15 @@ func (r *M3U8Rendition) GetPlaylist(session string) []byte {
 	lastSeg := r.Segments[len(r.Segments)-1]
 	targetDuration := int64(math.Round(lastSeg.Duration.Seconds()))
 	lines = append(lines, fmt.Sprintf("#EXT-X-MEDIA-SEQUENCE:%d", firstSeg.MSN))
-	lines = append(lines, fmt.Sprintf("#EXT-X-TARGETDURATION:%d", targetDuration))
+	lines = append(lines, fmt.Sprintf("#EXT-X-DISCONTINUITY-SEQUENCE:%d", firstSeg.MSN))
+	lines = append(lines, fmt.Sprintf("#EXT-X-TARGETDURATION:%d", targetDuration+1))
+	lines = append(lines, "#EXT-X-INDEPENDENT-SEGMENTS")
 	lines = append(lines, "")
 	lastSegments := r.Segments[startWith:]
 	for _, seg := range lastSegments {
 		dur := seg.Duration
+		lines = append(lines, "#EXT-X-DISCONTINUITY")
+		lines = append(lines, fmt.Sprintf("#EXT-X-PROGRAM-DATE-TIME:%s", seg.Time.Format(time.RFC3339)))
 		lines = append(lines, fmt.Sprintf("#EXTINF:%f,", dur.Seconds()))
 		lines = append(lines, fmt.Sprintf("segment%05d.ts?session=%s", seg.MSN, session))
 	}
@@ -243,10 +248,15 @@ func (m *M3U8) NewSegment(seg *streamplace.Segment, rendition string, data []byt
 func (r *M3U8Rendition) NewSegment(seg *streamplace.Segment, data []byte) error {
 	r.SegmentLock.Lock()
 	defer r.SegmentLock.Unlock()
+	t, err := time.Parse(time.RFC3339, seg.StartTime)
+	if err != nil {
+		return fmt.Errorf("invalid time")
+	}
 	r.Segments = append(r.Segments, &Segment{
 		Buf:      bytes.NewBuffer(data),
 		Duration: time.Duration(*seg.Duration),
 		MSN:      r.MSN,
+		Time:     t,
 	})
 	r.MSN += 1
 	return nil

@@ -9,11 +9,12 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/log"
 )
 
 // MP4ToMPEGTS converts an MP4 file with H264 video and Opus audio to an MPEG-TS file with H264 video and AAC audio.
 // It reads from the provided reader and writes the converted MPEG-TS to the writer.
-func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) error {
+func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64, error) {
 	pipelineStr := strings.Join([]string{
 		"appsrc name=appsrc ! qtdemux name=demux",
 		"mpegtsmux name=mux ! appsink name=appsink",
@@ -23,55 +24,55 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) error {
 
 	pipeline, err := gst.NewPipelineFromString(pipelineStr)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	mux, err := pipeline.GetElementByName("mux")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	muxVideoSinkPad := mux.GetRequestPad("sink_%d")
 	if muxVideoSinkPad == nil {
-		return fmt.Errorf("failed to get video sink pad")
+		return 0, fmt.Errorf("failed to get video sink pad")
 	}
 	muxAudioSinkPad := mux.GetRequestPad("sink_%d")
 	if muxAudioSinkPad == nil {
-		return fmt.Errorf("failed to get audio sink pad")
+		return 0, fmt.Errorf("failed to get audio sink pad")
 	}
 	videoQueue, err := pipeline.GetElementByName("videoqueue")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	audioQueue, err := pipeline.GetElementByName("audioqueue")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	videoQueueSrcPad := videoQueue.GetStaticPad("src")
 	if videoQueueSrcPad == nil {
-		return fmt.Errorf("failed to get video queue source pad")
+		return 0, fmt.Errorf("failed to get video queue source pad")
 	}
 	audioQueueSrcPad := audioQueue.GetStaticPad("src")
 	if audioQueueSrcPad == nil {
-		return fmt.Errorf("failed to get audio queue source pad")
+		return 0, fmt.Errorf("failed to get audio queue source pad")
 	}
 
 	ok := videoQueueSrcPad.Link(muxVideoSinkPad)
 	if ok != gst.PadLinkOK {
-		return fmt.Errorf("failed to link video queue source pad to mux video sink pad: %v", ok)
+		return 0, fmt.Errorf("failed to link video queue source pad to mux video sink pad: %v", ok)
 	}
 	ok = audioQueueSrcPad.Link(muxAudioSinkPad)
 	if ok != gst.PadLinkOK {
-		return fmt.Errorf("failed to link audio queue source pad to mux audio sink pad: %v", ok)
+		return 0, fmt.Errorf("failed to link audio queue source pad to mux audio sink pad: %v", ok)
 	}
 
 	// Get elements
 	appsrc, err := pipeline.GetElementByName("appsrc")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	appsink, err := pipeline.GetElementByName("appsink")
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	source := app.SrcFromElement(appsrc)
@@ -110,17 +111,24 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) error {
 	// Start the pipeline
 	err = pipeline.SetState(gst.StatePlaying)
 	if err != nil {
-		return fmt.Errorf("failed to set pipeline state to playing: %w", err)
+		return 0, fmt.Errorf("failed to set pipeline state to playing: %w", err)
 	}
 
 	// Wait for the pipeline to finish or context to be canceled
 	<-ctx.Done()
 
+	durOk, dur := pipeline.QueryDuration(gst.FormatTime)
+	if !durOk {
+		return 0, fmt.Errorf("failed to query duration")
+	}
+
+	log.Warn(ctx, "duration transcoded", "duration", dur)
+
 	// Clean up
 	err = pipeline.SetState(gst.StateNull)
 	if err != nil {
-		return fmt.Errorf("failed to set pipeline state to null: %w", err)
+		return 0, fmt.Errorf("failed to set pipeline state to null: %w", err)
 	}
 
-	return nil
+	return dur, nil
 }

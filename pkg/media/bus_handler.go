@@ -26,7 +26,7 @@ func HandleBusMessagesCustom(ctx context.Context, pipeline *gst.Pipeline, handle
 		}
 		switch msg.Type() {
 		case gst.MessageEOS: // When end-of-stream is received flush the pipeline and stop the main loop
-			log.Log(ctx, "got gst.MessageEOS, exiting")
+			log.Debug(ctx, "got gst.MessageEOS, exiting")
 			return
 		case gst.MessageError: // Error messages are always fatal
 			err := msg.ParseError()

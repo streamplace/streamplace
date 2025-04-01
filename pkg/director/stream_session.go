@@ -30,6 +30,7 @@ type StreamSession struct {
 }
 
 func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNotification) error {
+	ctx = log.WithLogValues(ctx, "segID", not.Segment.ID)
 	err := ss.mod.CreateSegment(not.Segment)
 	if err != nil {
 		return fmt.Errorf("could not add segment to database: %w", err)
@@ -134,6 +135,7 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 }
 
 func (ss *StreamSession) TryAddToHLS(ctx context.Context, spseg *streamplace.Segment, rendition string, data []byte) {
+	ctx = log.WithLogValues(ctx, "rendition", rendition)
 	err := ss.AddToHLS(ctx, spseg, rendition, data)
 	if err != nil {
 		log.Error(ctx, "could not add to hls", "error", err)
@@ -165,11 +167,21 @@ func (ss *StreamSession) AddToHLS(ctx context.Context, spseg *streamplace.Segmen
 		ss.hls = media.NewM3U8(allRenditions)
 	}
 	buf := bytes.Buffer{}
-	err := media.MP4ToMPEGTS(ctx, bytes.NewReader(data), &buf)
+	dur, err := media.MP4ToMPEGTS(ctx, bytes.NewReader(data), &buf)
 	if err != nil {
 		return err
 	}
+	newSeg := &streamplace.Segment{
+		LexiconTypeID: "place.stream.segment",
+		Id:            spseg.Id,
+		Creator:       spseg.Creator,
+		StartTime:     spseg.StartTime,
+		Duration:      &dur,
+		Audio:         spseg.Audio,
+		Video:         spseg.Video,
+		SigningKey:    spseg.SigningKey,
+	}
 	log.Debug(ctx, "transmuxed to mpegts, adding to hls", "rendition", rendition, "size", buf.Len())
-	ss.hls.NewSegment(spseg, rendition, buf.Bytes())
+	ss.hls.NewSegment(newSeg, rendition, buf.Bytes())
 	return nil
 }

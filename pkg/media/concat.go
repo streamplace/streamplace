@@ -133,7 +133,7 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 				streamer.UnsubscribeSegment(ctx, user, rendition, ch)
 				return
 			case file := <-ch:
-				log.Debug(ctx, "got segment", "file", file)
+				log.Debug(ctx, "got segment", "file", file.Filepath)
 				allFiles <- file.Data
 				if len(file.Data) == 0 {
 					log.Warn(ctx, "no more segments")

@@ -39,6 +39,34 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
 	}
+
+	if ss.hls == nil {
+		allRenditions, err := renditions.GenerateRenditions(spseg)
+		if err != nil {
+			return err
+		}
+		if spseg.Duration == nil {
+			return fmt.Errorf("segment duration is required to calculate bitrate")
+		}
+		dur := time.Duration(*spseg.Duration)
+		byteLen := len(not.Data)
+		bitrate := int(float64(byteLen) / dur.Seconds() * 8)
+		sourceRendition := renditions.Rendition{
+			Name:    "source",
+			Bitrate: bitrate,
+			Width:   spseg.Video[0].Width,
+			Height:  spseg.Video[0].Height,
+		}
+		allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
+		ss.hls = media.NewM3U8(allRenditions)
+
+		for _, r := range allRenditions {
+			go func(r renditions.Rendition) {
+				ss.mm.ToHLS(ctx, spseg.Creator, r.Name, ss.hls)
+			}(r)
+		}
+	}
+
 	ss.bus.Publish(spseg.Creator, spseg)
 
 	go func() {
@@ -55,7 +83,6 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 		}
 	}()
 
-	go ss.TryAddToHLS(ctx, spseg, "source", not.Data)
 	return nil
 }
 
@@ -98,14 +125,15 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 }
 
 func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segment, data []byte) error {
+	rs, err := renditions.GenerateRenditions(spseg)
 	if ss.lp == nil {
 		var err error
 		ss.lp, err = livepeer.NewLivepeerSession(ctx, spseg.Creator)
 		if err != nil {
 			return err
 		}
+
 	}
-	rs, err := renditions.GenerateRenditions(spseg)
 	segs, err := ss.lp.PostSegmentToGateway(ctx, data)
 	if err != nil {
 		return err
@@ -125,7 +153,7 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 		}
 		defer fd.Close()
 		fd.Write(seg)
-		go ss.TryAddToHLS(ctx, spseg, rs[i].Name, seg)
+		// go ss.TryAddToHLS(ctx, spseg, rs[i].Name, seg)
 		go ss.mm.PublishSegment(ctx, spseg.Creator, rs[i].Name, &segchanman.Seg{
 			Filepath: fd.Name(),
 			Data:     seg,
@@ -134,54 +162,31 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 	return nil
 }
 
-func (ss *StreamSession) TryAddToHLS(ctx context.Context, spseg *streamplace.Segment, rendition string, data []byte) {
-	ctx = log.WithLogValues(ctx, "rendition", rendition)
-	err := ss.AddToHLS(ctx, spseg, rendition, data)
-	if err != nil {
-		log.Error(ctx, "could not add to hls", "error", err)
-	}
-}
+// func (ss *StreamSession) TryAddToHLS(ctx context.Context, spseg *streamplace.Segment, rendition string, data []byte) {
+// 	ctx = log.WithLogValues(ctx, "rendition", rendition)
+// 	err := ss.AddToHLS(ctx, spseg, rendition, data)
+// 	if err != nil {
+// 		log.Error(ctx, "could not add to hls", "error", err)
+// 	}
+// }
 
-func (ss *StreamSession) AddToHLS(ctx context.Context, spseg *streamplace.Segment, rendition string, data []byte) error {
-	if ss.hls == nil {
-		if rendition != "source" {
-			return fmt.Errorf("source rendition is required to initialize hls")
-		}
-		allRenditions, err := renditions.GenerateRenditions(spseg)
-		if err != nil {
-			return err
-		}
-		if spseg.Duration == nil {
-			return fmt.Errorf("segment duration is required to calculate bitrate")
-		}
-		dur := time.Duration(*spseg.Duration)
-		byteLen := len(data)
-		bitrate := int(float64(byteLen) / dur.Seconds() * 8)
-		sourceRendition := renditions.Rendition{
-			Name:    "source",
-			Bitrate: bitrate,
-			Width:   spseg.Video[0].Width,
-			Height:  spseg.Video[0].Height,
-		}
-		allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
-		ss.hls = media.NewM3U8(allRenditions)
-	}
-	buf := bytes.Buffer{}
-	dur, err := media.MP4ToMPEGTS(ctx, bytes.NewReader(data), &buf)
-	if err != nil {
-		return err
-	}
-	newSeg := &streamplace.Segment{
-		LexiconTypeID: "place.stream.segment",
-		Id:            spseg.Id,
-		Creator:       spseg.Creator,
-		StartTime:     spseg.StartTime,
-		Duration:      &dur,
-		Audio:         spseg.Audio,
-		Video:         spseg.Video,
-		SigningKey:    spseg.SigningKey,
-	}
-	log.Debug(ctx, "transmuxed to mpegts, adding to hls", "rendition", rendition, "size", buf.Len())
-	ss.hls.NewSegment(newSeg, rendition, buf.Bytes())
-	return nil
-}
+// func (ss *StreamSession) AddToHLS(ctx context.Context, spseg *streamplace.Segment, rendition string, data []byte) error {
+// 	buf := bytes.Buffer{}
+// 	dur, err := media.MP4ToMPEGTS(ctx, bytes.NewReader(data), &buf)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	newSeg := &streamplace.Segment{
+// 		LexiconTypeID: "place.stream.segment",
+// 		Id:            spseg.Id,
+// 		Creator:       spseg.Creator,
+// 		StartTime:     spseg.StartTime,
+// 		Duration:      &dur,
+// 		Audio:         spseg.Audio,
+// 		Video:         spseg.Video,
+// 		SigningKey:    spseg.SigningKey,
+// 	}
+// 	log.Debug(ctx, "transmuxed to mpegts, adding to hls", "rendition", rendition, "size", buf.Len())
+// 	ss.hls.NewSegment(newSeg, rendition, buf.Bytes())
+// 	return nil
+// }

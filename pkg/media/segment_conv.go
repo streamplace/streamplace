@@ -9,7 +9,6 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"golang.org/x/sync/errgroup"
-	"stream.place/streamplace/pkg/log"
 )
 
 // MP4ToMPEGTS converts an MP4 file with H264 video and Opus audio to an MPEG-TS file with H264 video and AAC audio.
@@ -19,7 +18,7 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 		"appsrc name=appsrc ! qtdemux name=demux",
 		"mpegtsmux name=mux ! appsink name=appsink",
 		"demux.video_0 ! h264parse ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
-		"demux.audio_0 ! opusdec ! audioconvert ! audioresample ! fdkaacenc ! aacparse ! queue name=audioqueue",
+		"demux.audio_0 ! opusdec use-inband-fec=true ! audioresample ! fdkaacenc ! aacparse ! queue name=audioqueue",
 	}, " ")
 
 	pipeline, err := gst.NewPipelineFromString(pipelineStr)
@@ -121,8 +120,6 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 	if !durOk {
 		return 0, fmt.Errorf("failed to query duration")
 	}
-
-	log.Warn(ctx, "duration transcoded", "duration", dur)
 
 	// Clean up
 	err = pipeline.SetState(gst.StateNull)

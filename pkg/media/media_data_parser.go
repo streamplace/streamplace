@@ -55,9 +55,6 @@ func (mm *MediaManager) ParseSegmentMediaData(ctx context.Context, mp4bs []byte)
 		}
 
 		name := structure.Name()
-		log.Warn(ctx, "Structure Name", "name", name)
-		vals := structure.Values()
-		log.Warn(ctx, "Structure Values", "vals", vals)
 
 		if name[:5] == "video" {
 			videoMetadata = &model.SegmentMediadataVideo{}
@@ -136,8 +133,6 @@ func (mm *MediaManager) ParseSegmentMediaData(ctx context.Context, mp4bs []byte)
 	} else {
 		meta.Duration = dur
 	}
-
-	log.Warn(ctx, "duration original", "duration", dur)
 
 	pipeline.BlockSetState(gst.StateNull)
 

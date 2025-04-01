@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/renditions"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 // how many segments are served in the live playlist?
@@ -29,6 +28,9 @@ type Segment struct {
 	Duration time.Duration
 	Buf      *bytes.Buffer
 	Time     time.Time
+	Closed   bool
+	StartTS  *uint64
+	EndTS    *uint64
 }
 
 type M3U8 struct {
@@ -58,90 +60,6 @@ func NewM3U8(renditions renditions.Renditions) *M3U8 {
 	}
 }
 
-// func (m *M3U8) GetNextSegment(ctx context.Context) (*Segment, error) {
-// 	log.Debug(ctx, "next segment")
-// 	msn := m.curSeg
-// 	m.curSeg += 1
-// 	seg := &Segment{
-// 		MSN: msn,
-// 		Buf: &bytes.Buffer{},
-// 	}
-// 	m.pendingSegments = append(m.pendingSegments, seg)
-// 	return seg, nil
-// }
-
-// func (m *M3U8) CloseSegment(ctx context.Context, seg *Segment) {
-// 	log.Debug(ctx, "close segment", "MSN", seg.MSN)
-// 	seg.Closed = true
-// 	m.checkSegments(ctx)
-// }
-
-// func (m *M3U8) FragmentOpened(ctx context.Context, t uint64) error {
-// 	log.Debug(ctx, "fragment opened", "time", t)
-// 	if len(m.pendingSegments) == 0 {
-// 		return fmt.Errorf("no pending segments")
-// 	}
-// 	for _, seg := range m.pendingSegments {
-// 		if seg.StartTime == nil {
-// 			seg.StartTime = &t
-// 			break
-// 		}
-// 	}
-// 	m.checkSegments(ctx)
-// 	return nil
-// }
-
-// func (m *M3U8) FragmentClosed(ctx context.Context, t uint64) error {
-// 	log.Debug(ctx, "fragment closed", "time", t)
-// 	if len(m.pendingSegments) == 0 {
-// 		return fmt.Errorf("no pending segments")
-// 	}
-// 	for _, seg := range m.pendingSegments {
-// 		if seg.EndTime == nil {
-// 			seg.EndTime = &t
-// 			if m.Bitrate == 0 {
-// 				dur := seg.Duration()
-// 				m.Bitrate = uint64(float64(seg.Buf.Len())/dur.Seconds()) * 8
-// 			}
-// 			break
-// 		}
-// 	}
-// 	m.checkSegments(ctx)
-// 	return nil
-// }
-
-// the tricky piece of the design here is that we need to expect GetNextSegment,
-// CloseSegment, FragmentOpened, and FragmentClosed to be called in any order. So
-// all of those functions call this one, and it checks if we have the necessary information
-// to finalize a segment and add it to our playlist.
-// func (m *M3U8) checkSegments(ctx context.Context) {
-// 	pending := m.pendingSegments[0]
-// 	if pending.StartTime != nil && pending.EndTime != nil && pending.Closed {
-// 		m.segments = append(m.segments, pending)
-// 		m.pendingSegments = m.pendingSegments[1:]
-// 		log.Debug(ctx, "finalizing segment", "MSN", pending.MSN)
-// 		for _, wait := range m.waits {
-// 			go func(wait chan struct{}) {
-// 				wait <- struct{}{}
-// 			}(wait)
-// 		}
-// 		m.waits = []chan struct{}{}
-// 	}
-// 	if len(m.segments) > RETAIN_SEGMENT_SIZE {
-// 		startWith := len(m.segments) - RETAIN_SEGMENT_SIZE
-// 		m.segments = m.segments[startWith:]
-// 	}
-// }
-
-// func (m *M3U8) waitForStart() {
-// 	if len(m.segments) == 0 {
-// 		// todo: fix concurrent access here
-// 		wait := make(chan struct{})
-// 		m.waits = append(m.waits, wait)
-// 		<-wait
-// 	}
-// }
-
 func (r *M3U8Rendition) GetMediaLine(session string) string {
 	// m.waitForStart()
 	lines := []string{}
@@ -162,6 +80,9 @@ func (r *M3U8Rendition) GetPlaylist(session string) []byte {
 	if startWith < 0 {
 		startWith = 0
 	}
+	if len(r.Segments) == 0 {
+		return []byte{}
+	}
 	firstSeg := r.Segments[startWith]
 	lastSeg := r.Segments[len(r.Segments)-1]
 	targetDuration := int64(math.Round(lastSeg.Duration.Seconds()))
@@ -174,7 +95,7 @@ func (r *M3U8Rendition) GetPlaylist(session string) []byte {
 	for _, seg := range lastSegments {
 		dur := seg.Duration
 		lines = append(lines, "#EXT-X-DISCONTINUITY")
-		lines = append(lines, fmt.Sprintf("#EXT-X-PROGRAM-DATE-TIME:%s", seg.Time.Format(time.RFC3339)))
+		lines = append(lines, fmt.Sprintf("#EXT-X-PROGRAM-DATE-TIME:%s", seg.Time.Format(time.RFC3339Nano)))
 		lines = append(lines, fmt.Sprintf("#EXTINF:%f,", dur.Seconds()))
 		lines = append(lines, fmt.Sprintf("segment%05d.ts?session=%s", seg.MSN, session))
 	}
@@ -237,28 +158,12 @@ func (m *M3U8) GetFile(str string, session string) ([]byte, error) {
 	return seg, nil
 }
 
-func (m *M3U8) NewSegment(seg *streamplace.Segment, rendition string, data []byte) error {
-	m3u8Rendition := m.GetRendition(rendition)
-	if m3u8Rendition == nil {
-		return fmt.Errorf("rendition not found")
-	}
-	return m3u8Rendition.NewSegment(seg, data)
-}
-
-func (r *M3U8Rendition) NewSegment(seg *streamplace.Segment, data []byte) error {
+func (r *M3U8Rendition) NewSegment(seg *Segment) error {
 	r.SegmentLock.Lock()
 	defer r.SegmentLock.Unlock()
-	t, err := time.Parse(time.RFC3339, seg.StartTime)
-	if err != nil {
-		return fmt.Errorf("invalid time")
-	}
-	r.Segments = append(r.Segments, &Segment{
-		Buf:      bytes.NewBuffer(data),
-		Duration: time.Duration(*seg.Duration),
-		MSN:      r.MSN,
-		Time:     t,
-	})
+	seg.MSN = r.MSN
 	r.MSN += 1
+	r.Segments = append(r.Segments, seg)
 	return nil
 }
 

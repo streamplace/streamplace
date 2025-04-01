@@ -25,8 +25,9 @@ type SegmentMediadataAudio struct {
 }
 
 type SegmentMediaData struct {
-	Video []*SegmentMediadataVideo `json:"video"`
-	Audio []*SegmentMediadataAudio `json:"audio"`
+	Video    []*SegmentMediadataVideo `json:"video"`
+	Audio    []*SegmentMediadataAudio `json:"audio"`
+	Duration int64                    `json:"duration"`
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
@@ -69,12 +70,14 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 	if len(s.MediaData.Audio) == 0 || s.MediaData.Audio[0] == nil {
 		return nil, fmt.Errorf("audio data is nil")
 	}
+	duration := s.MediaData.Duration
 	return &streamplace.Segment{
 		LexiconTypeID: "place.stream.segment",
 		Creator:       s.RepoDID,
 		Id:            s.ID,
 		SigningKey:    s.SigningKeyDID,
 		StartTime:     string(aqt),
+		Duration:      &duration,
 		Video: []*streamplace.Segment_Video{
 			{
 				Codec:  "h264",

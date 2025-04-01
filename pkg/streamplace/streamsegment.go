@@ -16,6 +16,8 @@ type Segment struct {
 	LexiconTypeID string           `json:"$type,const=place.stream.segment" cborgen:"$type,const=place.stream.segment"`
 	Audio         []*Segment_Audio `json:"audio,omitempty" cborgen:"audio,omitempty"`
 	Creator       string           `json:"creator" cborgen:"creator"`
+	// duration: The duration of the segment in nanoseconds
+	Duration *int64 `json:"duration,omitempty" cborgen:"duration,omitempty"`
 	// id: Unique identifier for the segment
 	Id string `json:"id" cborgen:"id"`
 	// signingKey: The DID of the signing key used for this segment

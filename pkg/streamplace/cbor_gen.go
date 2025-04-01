@@ -455,9 +455,13 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 7
+	fieldCount := 8
 
 	if t.Audio == nil {
+		fieldCount--
+	}
+
+	if t.Duration == nil {
 		fieldCount--
 	}
 
@@ -590,6 +594,38 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.Creator)); err != nil {
 		return err
+	}
+
+	// t.Duration (int64) (int64)
+	if t.Duration != nil {
+
+		if len("duration") > 1000000 {
+			return xerrors.Errorf("Value in field \"duration\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("duration"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("duration")); err != nil {
+			return err
+		}
+
+		if t.Duration == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if *t.Duration >= 0 {
+				if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(*t.Duration)); err != nil {
+					return err
+				}
+			} else {
+				if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-*t.Duration-1)); err != nil {
+					return err
+				}
+			}
+		}
+
 	}
 
 	// t.StartTime (string) (string)
@@ -811,6 +847,42 @@ func (t *Segment) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Creator = string(sval)
+			}
+			// t.Duration (int64) (int64)
+		case "duration":
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					maj, extra, err := cr.ReadHeader()
+					if err != nil {
+						return err
+					}
+					var extraI int64
+					switch maj {
+					case cbg.MajUnsignedInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 positive overflow")
+						}
+					case cbg.MajNegativeInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 negative overflow")
+						}
+						extraI = -1 - extraI
+					default:
+						return fmt.Errorf("wrong type for int64 field: %d", maj)
+					}
+
+					t.Duration = (*int64)(&extraI)
+				}
 			}
 			// t.StartTime (string) (string)
 		case "startTime":

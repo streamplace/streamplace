@@ -344,15 +344,14 @@ func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handl
 			errors.WriteHTTPBadRequest(w, "invalid user", err)
 			return
 		}
-		rendition := getRendition(r)
 		file := p.ByName("file")
 		if file == "" {
 			errors.WriteHTTPBadRequest(w, "file required", nil)
 			return
 		}
-		m3u8, err := a.MediaManager.SegmentToHLSOnce(ctx, user, rendition)
+		m3u8, err := a.Director.GetM3U8(ctx, user)
 		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "SegmentToHLSOnce failed", nil)
+			errors.WriteHTTPNotFound(w, "could not get m3u8", err)
 			return
 		}
 		session := r.URL.Query().Get("session")

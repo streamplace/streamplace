@@ -55,7 +55,7 @@ func (mm *MediaManager) ParseSegmentMediaData(ctx context.Context, mp4bs []byte)
 		}
 
 		name := structure.Name()
-		log.Debug(ctx, "Structure Name", "name", name)
+		log.Warn(ctx, "Structure Name", "name", name)
 
 		if name[:5] == "video" {
 			videoMetadata = &model.SegmentMediadataVideo{}
@@ -102,9 +102,9 @@ func (mm *MediaManager) ParseSegmentMediaData(ctx context.Context, mp4bs []byte)
 			}
 		}
 
-		if videoMetadata != nil && audioMetadata != nil {
-			cancel()
-		}
+		// if videoMetadata != nil && audioMetadata != nil {
+		// 	cancel()
+		// }
 	}
 
 	demux, err := pipeline.GetElementByName("demux")
@@ -126,6 +126,13 @@ func (mm *MediaManager) ParseSegmentMediaData(ctx context.Context, mp4bs []byte)
 	meta := &model.SegmentMediaData{
 		Video: []*model.SegmentMediadataVideo{videoMetadata},
 		Audio: []*model.SegmentMediadataAudio{audioMetadata},
+	}
+
+	ok, dur := pipeline.QueryDuration(gst.FormatTime)
+	if !ok {
+		return nil, fmt.Errorf("error getting duration")
+	} else {
+		meta.Duration = dur
 	}
 
 	pipeline.BlockSetState(gst.StateNull)

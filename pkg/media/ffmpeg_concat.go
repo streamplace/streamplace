@@ -7,7 +7,6 @@ import (
 
 	"github.com/livepeer/lpms/ffmpeg"
 	"golang.org/x/sync/errgroup"
-	"stream.place/streamplace/pkg/log"
 )
 
 func (mm *MediaManager) SegmentToMKV(ctx context.Context, user string, rendition string, w io.Writer) error {
@@ -28,42 +27,6 @@ func (mm *MediaManager) SegmentToMKVPlusOpus(ctx context.Context, user string, r
 	})
 	g.Go(func() error {
 		return AddOpusToMKV(ctx, pr, w)
-	})
-	return g.Wait()
-}
-
-func (mm *MediaManager) SegmentToHLSOnce(ctx context.Context, user string, rendition string) (*M3U8, error) {
-	mm.hlsRunningMut.Lock()
-	defer mm.hlsRunningMut.Unlock()
-	hls, ok := mm.hlsRunning[user]
-	if !ok {
-		hls = NewM3U8()
-		mm.hlsRunning[user] = hls
-		go func() {
-			err := mm.SegmentToHLS(ctx, user, rendition, hls)
-			if err != nil {
-				log.Log(ctx, "error in async segmentToHLS code", "error", err)
-			}
-			mm.hlsRunningMut.Lock()
-			defer mm.hlsRunningMut.Unlock()
-			delete(mm.hlsRunning, user)
-		}()
-	}
-	return hls, nil
-}
-
-func (mm *MediaManager) SegmentToHLS(ctx context.Context, user string, rendition string, m3u8 *M3U8) error {
-	muxer := ffmpeg.ComponentOptions{
-		Name: "matroska",
-	}
-
-	pr, pw := io.Pipe()
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return mm.SegmentToStream(ctx, user, rendition, muxer, pw)
-	})
-	g.Go(func() error {
-		return mm.ToHLS(ctx, pr, m3u8)
 	})
 	return g.Wait()
 }

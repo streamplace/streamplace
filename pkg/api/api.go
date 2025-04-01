@@ -28,6 +28,7 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
+	"stream.place/streamplace/pkg/director"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/linking"
 	"stream.place/streamplace/pkg/log"
@@ -50,12 +51,13 @@ type StreamplaceAPI struct {
 	MediaManager     *media.MediaManager
 	MediaSigner      media.MediaSigner
 	// not thread-safe yet
-	Aliases map[string]string
-	Bus     *bus.Bus
-	ATSync  *atproto.ATProtoSynchronizer
+	Aliases  map[string]string
+	Bus      *bus.Bus
+	ATSync   *atproto.ATProtoSynchronizer
+	Director *director.Director
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -70,6 +72,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712S
 		Aliases:          map[string]string{},
 		Bus:              bus,
 		ATSync:           atsync,
+		Director:         d,
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {
@@ -115,10 +118,9 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.POST("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
 	apiRouter.OPTIONS("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
 	apiRouter.DELETE("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	apiRouter.GET("/api/hls/:stream/*resource", a.MistProxyHandler(ctx, "/hls/%s"))
 	apiRouter.Handler("POST", "/api/segment", a.HandleSegment(ctx))
 	apiRouter.HandlerFunc("GET", "/api/healthz", a.HandleHealthz(ctx))
-	apiRouter.GET("/api/playback/:user/hls/*everything", a.HandleHLSPlayback(ctx))
+	apiRouter.GET("/api/playback/:user/hls/*file", a.HandleHLSPlayback(ctx))
 	apiRouter.GET("/api/playback/:user/stream.mp4", a.HandleMP4Playback(ctx))
 	apiRouter.GET("/api/playback/:user/stream.webm", a.HandleMKVPlayback(ctx))
 	// they're, uh, not jpegs. but we used this once and i don't wanna break backwards compatibility

@@ -36,9 +36,6 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to add input multiqueue to pipeline: %w", err)
 	}
-	for _, tmpl := range inputQueue.GetPadTemplates() {
-		log.Warn(ctx, "pad template", "name", tmpl.GetName(), "direction", tmpl.Direction())
-	}
 	inputQueuePadVideoSink := inputQueue.GetRequestPad("sink_%u")
 	if inputQueuePadVideoSink == nil {
 		return nil, nil, fmt.Errorf("failed to get input queue video sink pad")
@@ -132,7 +129,7 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 			ch := streamer.SubscribeSegment(ctx, user, rendition)
 			select {
 			case <-ctx.Done():
-				log.Warn(ctx, "exiting segment reader")
+				log.Debug(ctx, "exiting segment reader")
 				streamer.UnsubscribeSegment(ctx, user, rendition, ch)
 				return
 			case file := <-ch:
@@ -297,7 +294,7 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 						done()
 						return
 					} else {
-						log.Error(ctx, "failed to read data", "error", err)
+						log.Debug(ctx, "failed to read data, ending stream", "error", err)
 						cancel()
 						return
 					}

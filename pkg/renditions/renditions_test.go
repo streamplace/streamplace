@@ -34,38 +34,38 @@ var cases = []struct {
 		lp: `
 			[
 				{
+					"name": "1080p",
 					"width": 1920,
 					"bitrate": 6000000,
-					"profile": "h264constrainedhigh",
-					"encoder": "h264"
+					"profile": "h264constrainedhigh"
 				},
 				{
+					"name": "720p",
 					"width": 1280,
 					"bitrate": 3000000,
-					"profile": "h264constrainedhigh",
-					"encoder": "h264"
+					"profile": "h264constrainedhigh"
 				},
 				{
+					"name": "360p",
 					"width": 640,
 					"bitrate": 1000000,
 					"profile": "h264constrainedhigh",
-					"encoder": "h264",
 					"fps": 60,
 					"fpsDen": 2
 				},
 				{
+					"name": "240p",
 					"width": 426,
 					"bitrate": 500000,
 					"profile": "h264constrainedhigh",
-					"encoder": "h264",
 					"fps": 60,
 					"fpsDen": 2
 				},
 				{
+					"name": "160p",
 					"width": 284,
 					"bitrate": 250000,
 					"profile": "h264baseline",
-					"encoder": "h264",
 					"fps": 60,
 					"fpsDen": 2
 				}
@@ -78,38 +78,38 @@ var cases = []struct {
 		lp: `
 			[
 				{
+					"name": "1080p",
 					"width": 1920,
 					"bitrate": 6000000,
-					"profile": "h264constrainedhigh",
-					"encoder": "h264"
+					"profile": "h264constrainedhigh"
 				},
 				{
+					"name": "720p",
 					"width": 1280,
 					"bitrate": 3000000,
-					"profile": "h264constrainedhigh",
-					"encoder": "h264"
+					"profile": "h264constrainedhigh"
 				},
 				{
+					"name": "360p",
 					"width": 640,
 					"bitrate": 1000000,
 					"profile": "h264constrainedhigh",
-					"encoder": "h264",
 					"fps": 60000,
 					"fpsDen": 2002
 				},
 				{
+					"name": "240p",
 					"width": 426,
 					"bitrate": 500000,
 					"profile": "h264constrainedhigh",
-					"encoder": "h264",
 					"fps": 60000,
 					"fpsDen": 2002
 				},
 				{
+					"name": "160p",
 					"width": 284,
 					"bitrate": 250000,
 					"profile": "h264baseline",
-					"encoder": "h264",
 					"fps": 60000,
 					"fpsDen": 2002
 				}
@@ -122,26 +122,26 @@ var cases = []struct {
 		lp: `
 			[
 				{
+					"name": "360p",
 					"width": 640,
 					"bitrate": 1000000,
 					"profile": "h264constrainedhigh",
-					"encoder": "h264",
 					"fps": 50,
 					"fpsDen": 2
 				},
 				{
+					"name": "240p",
 					"width": 426,
 					"bitrate": 500000,
 					"profile": "h264constrainedhigh",
-					"encoder": "h264",
 					"fps": 50,
 					"fpsDen": 2
 				},
 				{
+					"name": "160p",
 					"width": 284,
 					"bitrate": 250000,
 					"profile": "h264baseline",
-					"encoder": "h264",
 					"fps": 50,
 					"fpsDen": 2
 				}
@@ -154,22 +154,22 @@ var cases = []struct {
 		lp: `
 			[
 				{
+					"name": "360p",
 					"width": 640,
 					"bitrate": 1000000,
-					"profile": "h264constrainedhigh",
-					"encoder": "h264"
+					"profile": "h264constrainedhigh"
 				},
 				{
+					"name": "240p",
 					"width": 426,
 					"bitrate": 500000,
-					"profile": "h264constrainedhigh",
-					"encoder": "h264"
+					"profile": "h264constrainedhigh"
 				},
 				{
+					"name": "160p",
 					"width": 284,
 					"bitrate": 250000,
-					"profile": "h264baseline",
-					"encoder": "h264"
+					"profile": "h264baseline"
 				}
 			]
 		`,
@@ -180,22 +180,22 @@ var cases = []struct {
 		lp: `
 			[
 				{
+					"name": "360p",
 					"width": 640,
 					"bitrate": 1000000,
-					"profile": "h264constrainedhigh",
-					"encoder": "h264"
+					"profile": "h264constrainedhigh"
 				},
 				{
+					"name": "240p",
 					"width": 426,
 					"bitrate": 500000,
-					"profile": "h264constrainedhigh",
-					"encoder": "h264"
+					"profile": "h264constrainedhigh"
 				},
 				{
+					"name": "160p",
 					"width": 284,
 					"bitrate": 250000,
-					"profile": "h264baseline",
-					"encoder": "h264"
+					"profile": "h264baseline"
 				}
 			]
 		`,
@@ -206,26 +206,26 @@ var cases = []struct {
 		lp: `
 			[
 				{
+					"name": "360p",
 					"height": 640,
 					"bitrate": 1000000,
 					"profile": "h264constrainedhigh",
-					"encoder": "h264",
 					"fps": 60,
 					"fpsDen": 2
 				},
 				{
+					"name": "240p",
 					"height": 426,
 					"bitrate": 500000,
 					"profile": "h264constrainedhigh",
-					"encoder": "h264",
 					"fps": 60,
 					"fpsDen": 2
 				},
 				{
+					"name": "160p",
 					"height": 284,
 					"bitrate": 250000,
 					"profile": "h264baseline",
-					"encoder": "h264",
 					"fps": 60,
 					"fpsDen": 2
 				}

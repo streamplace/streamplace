@@ -297,12 +297,12 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return err
 	}
 
-	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b, atsync)
+	d := director.NewDirector(mm, mod, &cli, b)
+
+	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b, atsync, d)
 	if err != nil {
 		return err
 	}
-
-	d := director.NewDirector(mm, mod, &cli, b)
 
 	group, ctx := TimeoutGroupWithContext(ctx)
 	ctx = log.WithLogValues(ctx, "version", build.Version)

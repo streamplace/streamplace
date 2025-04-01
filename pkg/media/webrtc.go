@@ -305,7 +305,6 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 		})
 
 		<-ctx.Done()
-		log.Warn(ctx, "!!!!!!!!!!!!!!!!!!!!!!! ctx done")
 	}()
 	select {
 	case <-gatherComplete:

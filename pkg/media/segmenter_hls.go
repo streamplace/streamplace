@@ -18,7 +18,7 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 
 	pipelineSlice := []string{
 		"h264parse name=videoparse",
-		"opusdec use-inband-fec=true name=audioparse ! audioresample ! fdkaacenc name=audioenc",
+		"opusdec use-inband-fec=true name=audioparse ! audioresample ! audiorate ! fdkaacenc name=audioenc",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

@@ -143,7 +143,7 @@ export const playerSlice = createAppSlice({
         livestream: null,
         segment: null,
         renditions: [],
-        selectedRendition: "160p30",
+        selectedRendition: "source",
       };
     });
   },

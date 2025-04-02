@@ -167,7 +167,7 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 				if name == "splitmuxsink-fragment-opened" {
 					runningTime, err := structure.GetValue("running-time")
 					if err != nil {
-						log.Warn(ctx, "splitmuxsink-fragment-opened error", "error", err)
+						log.Debug(ctx, "splitmuxsink-fragment-opened error", "error", err)
 						cancel()
 					}
 					runningTimeInt, ok := runningTime.(uint64)
@@ -175,13 +175,13 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 						log.Warn(ctx, "splitmuxsink-fragment-opened not a uint64")
 						cancel()
 					}
-					log.Warn(ctx, "hls-check splitmuxsink-fragment-opened", "runningTime", runningTimeInt)
+					log.Debug(ctx, "hls-check splitmuxsink-fragment-opened", "runningTime", runningTimeInt)
 					ps.FragmentOpened(ctx, runningTimeInt)
 				}
 				if name == "splitmuxsink-fragment-closed" {
 					runningTime, err := structure.GetValue("running-time")
 					if err != nil {
-						log.Warn(ctx, "splitmuxsink-fragment-closed error", "error", err)
+						log.Debug(ctx, "splitmuxsink-fragment-closed error", "error", err)
 						cancel()
 					}
 					runningTimeInt, ok := runningTime.(uint64)
@@ -189,7 +189,7 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 						log.Warn(ctx, "splitmuxsink-fragment-closed not a uint64")
 						cancel()
 					}
-					log.Warn(ctx, "hls-check splitmuxsink-fragment-closed", "runningTime", runningTimeInt)
+					log.Debug(ctx, "hls-check splitmuxsink-fragment-closed", "runningTime", runningTimeInt)
 					ps.FragmentClosed(ctx, runningTimeInt)
 				}
 			}

@@ -41,7 +41,13 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 	}
 
 	if ss.hls == nil {
-		allRenditions, err := renditions.GenerateRenditions(spseg)
+		var allRenditions renditions.Renditions
+		var err error
+		if ss.cli.LivepeerGatewayURL != "" {
+			allRenditions, err = renditions.GenerateRenditions(spseg)
+		} else {
+			allRenditions = []renditions.Rendition{}
+		}
 		if err != nil {
 			return err
 		}
@@ -76,12 +82,14 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 		}
 	}()
 
-	go func() {
-		err := ss.Transcode(ctx, spseg, not.Data)
-		if err != nil {
-			log.Error(ctx, "could not transcode", "error", err)
-		}
-	}()
+	if ss.cli.LivepeerGatewayURL != "" {
+		go func() {
+			err := ss.Transcode(ctx, spseg, not.Data)
+			if err != nil {
+				log.Error(ctx, "could not transcode", "error", err)
+			}
+		}()
+	}
 
 	return nil
 }
@@ -128,7 +136,7 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 	rs, err := renditions.GenerateRenditions(spseg)
 	if ss.lp == nil {
 		var err error
-		ss.lp, err = livepeer.NewLivepeerSession(ctx, spseg.Creator)
+		ss.lp, err = livepeer.NewLivepeerSession(ctx, spseg.Creator, ss.cli.LivepeerGatewayURL)
 		if err != nil {
 			return err
 		}

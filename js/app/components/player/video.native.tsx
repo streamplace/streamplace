@@ -6,6 +6,8 @@ import { PlayerProps, PlayerStatus, PROTOCOL_WEBRTC } from "./props";
 import { srcToUrl } from "./shared";
 import useWebRTC from "./use-webrtc";
 import { MediaStream } from "react-native-webrtc";
+import { usePlayerProtocol } from "features/player/playerSlice";
+import { useAppSelector } from "store/hooks";
 
 // export function Player() {
 //   return <View f={1}></View>;
@@ -14,10 +16,11 @@ import { MediaStream } from "react-native-webrtc";
 export default function NativeVideo(
   props: PlayerProps & { videoRef: React.RefObject<VideoView> },
 ) {
-  if (props.protocol === PROTOCOL_WEBRTC) {
+  const protocol = useAppSelector(usePlayerProtocol());
+  if (protocol === PROTOCOL_WEBRTC) {
     return <NativeWHEP {...props} />;
   }
-  const { url } = srcToUrl(props);
+  const { url } = srcToUrl(props, protocol);
   useEffect(() => {
     return () => {
       props.setStatus(PlayerStatus.START);
@@ -86,7 +89,7 @@ export default function NativeVideo(
 }
 
 export function NativeWHEP(props: PlayerProps) {
-  const { url } = srcToUrl(props);
+  const { url } = srcToUrl(props, PROTOCOL_WEBRTC);
   const [stream, stuck] = useWebRTC(url);
   useEffect(() => {
     if (stuck) {

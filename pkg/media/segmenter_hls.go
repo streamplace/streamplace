@@ -106,7 +106,7 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 	}()
 
 	splitmuxsink.Connect("sink-added", func(split, sinkEle *gst.Element) {
-		log.Warn(ctx, "hls-check sink-added")
+		log.Debug(ctx, "hls-check sink-added")
 		vf, err := ps.GetNextSegment(ctx)
 		if err != nil {
 			panic(err)
@@ -115,7 +115,7 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 		appsink.SetCallbacks(&app.SinkCallbacks{
 			NewSampleFunc: WriterNewSample(ctx, vf.Buf),
 			EOSFunc: func(sink *app.Sink) {
-				log.Warn(ctx, "hls-check Segment EOS", "buf", vf.Buf.Len())
+				log.Debug(ctx, "hls-check Segment EOS", "buf", vf.Buf.Len())
 				ps.CloseSegment(ctx, vf)
 			},
 		})

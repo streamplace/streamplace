@@ -21,7 +21,6 @@ const LIVE_PLAYLIST_SIZE = 8
 const RETAIN_SEGMENT_SIZE = LIVE_PLAYLIST_SIZE * 3
 
 const INDEX_M3U8 = "index.m3u8"
-const STREAM_M3U8 = "stream.m3u8"
 
 type Segment struct {
 	MSN      uint64 // media sequence number
@@ -65,11 +64,18 @@ func (r *M3U8Rendition) GetMediaLine(session string) string {
 	lines := []string{}
 	lines = append(lines, "#EXTM3U")
 	lines = append(lines, fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d", r.Rendition.Bitrate, r.Rendition.Width, r.Rendition.Height))
-	lines = append(lines, fmt.Sprintf("%s/stream.m3u8?session=%s", r.Rendition.Name, session))
+	lines = append(lines, fmt.Sprintf("%s/%s?session=%s", r.Rendition.Name, INDEX_M3U8, session))
 	return strings.Join(lines, "\n")
 }
 
 func (r *M3U8Rendition) GetPlaylist(session string) []byte {
+	if session == "" {
+		uu, err := uuid.NewV7()
+		if err != nil {
+			panic(err)
+		}
+		session = uu.String()
+	}
 	r.SegmentLock.RLock()
 	defer r.SegmentLock.RUnlock()
 	// m.waitForStart()
@@ -114,7 +120,7 @@ func (r *M3U8Rendition) GetSegment(session string, filename string) []byte {
 	return nil
 }
 
-func (m *M3U8) GetMultivariantPlaylist() []byte {
+func (m *M3U8) GetMultivariantPlaylist(rendition string) []byte {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		panic(err)
@@ -123,7 +129,9 @@ func (m *M3U8) GetMultivariantPlaylist() []byte {
 	lines := []string{}
 	lines = append(lines, "#EXTM3U")
 	for _, r := range m.renditions {
-		lines = append(lines, r.GetMediaLine(uu.String()))
+		if rendition == "" || r.Rendition.Name == rendition {
+			lines = append(lines, r.GetMediaLine(uu.String()))
+		}
 	}
 	return []byte(strings.Join(lines, "\n"))
 }
@@ -132,10 +140,10 @@ func (m *M3U8) GetMultivariantPlaylist() []byte {
 // - index.m3u8
 // - 720p/stream.m3u8
 // - 720p/segment00015.ts
-func (m *M3U8) GetFile(str string, session string) ([]byte, error) {
+func (m *M3U8) GetFile(str string, session string, rendition string) ([]byte, error) {
 	str = strings.TrimPrefix(str, "/")
 	if str == INDEX_M3U8 {
-		return m.GetMultivariantPlaylist(), nil
+		return m.GetMultivariantPlaylist(rendition), nil
 	}
 	parts := strings.Split(str, "/")
 	if len(parts) != 2 {
@@ -144,11 +152,11 @@ func (m *M3U8) GetFile(str string, session string) ([]byte, error) {
 	rStr := parts[0]
 	fStr := parts[1]
 	rend := m.GetRendition(rStr)
-	log.Warn(context.Background(), "get file", "str", str, "session", session, "rend", rStr, "file", fStr)
+	log.Debug(context.Background(), "m3u8 get file", "str", str, "session", session, "rend", rStr, "file", fStr)
 	if rend == nil {
 		return nil, fmt.Errorf("rendition not found")
 	}
-	if fStr == STREAM_M3U8 {
+	if fStr == INDEX_M3U8 {
 		return rend.GetPlaylist(session), nil
 	}
 	seg := rend.GetSegment(session, fStr)

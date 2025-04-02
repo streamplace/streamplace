@@ -9,7 +9,6 @@ import {
   Settings,
   Shell,
   Sparkle,
-  Squirrel,
   Star,
   Volume2,
   VolumeX,
@@ -32,16 +31,11 @@ import {
   H5,
   Paragraph,
 } from "tamagui";
-import {
-  PlayerProps,
-  PROTOCOL_HLS,
-  PROTOCOL_PROGRESSIVE_MP4,
-  PROTOCOL_PROGRESSIVE_WEBM,
-  PROTOCOL_WEBRTC,
-} from "./props";
+import { PlayerProps, PROTOCOL_HLS, PROTOCOL_WEBRTC } from "./props";
 import {
   usePlayer,
   usePlayerActions,
+  usePlayerProtocol,
   usePlayerRenditions,
   usePlayerSegment,
   usePlayerSelectedRendition,
@@ -302,7 +296,8 @@ function GearMenu(props: PlayerProps) {
   const [menu, setMenu] = useState("root");
   const renditions = useAppSelector(usePlayerRenditions());
   const selectedRendition = useAppSelector(usePlayerSelectedRendition());
-  const { setSelectedRendition } = usePlayerActions();
+  const protocol = useAppSelector(usePlayerProtocol());
+  const { setSelectedRendition, setProtocol } = usePlayerActions();
   const dispatch = useAppDispatch();
   return (
     <YGroup alignSelf="center" bordered width={240} size="$5" borderRadius="$0">
@@ -325,7 +320,7 @@ function GearMenu(props: PlayerProps) {
               hoverTheme
               pressTheme
               title="Quality"
-              subTitle="WIP"
+              subTitle="Adjust bandwidth usage"
               icon={Sparkle}
               iconAfter={ChevronRight}
               onPress={() => setMenu("quality")}
@@ -352,11 +347,11 @@ function GearMenu(props: PlayerProps) {
               title="HLS"
               subTitle="HTTP Live Streaming"
               icon={Star}
-              iconAfter={props.protocol === PROTOCOL_HLS ? CheckCircle : Circle}
-              onPress={() => props.setProtocol(PROTOCOL_HLS)}
+              iconAfter={protocol === PROTOCOL_HLS ? CheckCircle : Circle}
+              onPress={() => dispatch(setProtocol(PROTOCOL_HLS))}
             />
           </YGroup.Item>
-          <Separator />
+          {/* <Separator />
           <YGroup.Item>
             <ListItem
               hoverTheme
@@ -365,11 +360,9 @@ function GearMenu(props: PlayerProps) {
               subTitle="MP4 but loooong"
               icon={Shell}
               iconAfter={
-                props.protocol === PROTOCOL_PROGRESSIVE_MP4
-                  ? CheckCircle
-                  : Circle
+                protocol === PROTOCOL_PROGRESSIVE_MP4 ? CheckCircle : Circle
               }
-              onPress={() => props.setProtocol(PROTOCOL_PROGRESSIVE_MP4)}
+              onPress={() => dispatch(setProtocol(PROTOCOL_PROGRESSIVE_MP4))}
             />
           </YGroup.Item>
           <Separator />
@@ -381,13 +374,11 @@ function GearMenu(props: PlayerProps) {
               subTitle="WebM but loooong"
               icon={Squirrel}
               iconAfter={
-                props.protocol === PROTOCOL_PROGRESSIVE_WEBM
-                  ? CheckCircle
-                  : Circle
+                protocol === PROTOCOL_PROGRESSIVE_WEBM ? CheckCircle : Circle
               }
-              onPress={() => props.setProtocol(PROTOCOL_PROGRESSIVE_WEBM)}
+              onPress={() => dispatch(setProtocol(PROTOCOL_PROGRESSIVE_WEBM))}
             />
-          </YGroup.Item>
+          </YGroup.Item> */}
           <Separator />
           <YGroup.Item>
             <ListItem
@@ -396,10 +387,8 @@ function GearMenu(props: PlayerProps) {
               title="WebRTC"
               subTitle="Lowest latency, probably"
               icon={Antenna}
-              iconAfter={
-                props.protocol === PROTOCOL_WEBRTC ? CheckCircle : Circle
-              }
-              onPress={() => props.setProtocol(PROTOCOL_WEBRTC)}
+              iconAfter={protocol === PROTOCOL_WEBRTC ? CheckCircle : Circle}
+              onPress={() => dispatch(setProtocol(PROTOCOL_WEBRTC))}
             />
           </YGroup.Item>
         </>
@@ -416,6 +405,24 @@ function GearMenu(props: PlayerProps) {
             />
           </YGroup.Item>
           <Separator />
+          {protocol === PROTOCOL_HLS && (
+            <>
+              <YGroup.Item>
+                <ListItem
+                  hoverTheme
+                  pressTheme
+                  title="Auto"
+                  subTitle="Automatic with HLS"
+                  icon={Star}
+                  iconAfter={
+                    props.selectedRendition === "auto" ? CheckCircle : Circle
+                  }
+                  onPress={() => dispatch(setSelectedRendition("auto"))}
+                />
+              </YGroup.Item>
+              <Separator />
+            </>
+          )}
           <YGroup.Item>
             <ListItem
               hoverTheme

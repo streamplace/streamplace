@@ -16,8 +16,9 @@ import (
 )
 
 type LivepeerSession struct {
-	SessionID string
-	Count     int
+	SessionID  string
+	Count      int
+	GatewayURL string
 }
 
 // borrowed from catalyst-api
@@ -31,16 +32,17 @@ func RandomTrailer(length int) string {
 	return string(res)
 }
 
-func NewLivepeerSession(ctx context.Context, did string) (*LivepeerSession, error) {
+func NewLivepeerSession(ctx context.Context, did string, gatewayURL string) (*LivepeerSession, error) {
 	sessionID := RandomTrailer(8)
 	return &LivepeerSession{
-		SessionID: fmt.Sprintf("%s-%s", did, sessionID),
-		Count:     0,
+		SessionID:  fmt.Sprintf("%s-%s", did, sessionID),
+		Count:      0,
+		GatewayURL: gatewayURL,
 	}, nil
 }
 
 func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte) ([][]byte, error) {
-	url := fmt.Sprintf("http://127.0.0.1:9999/live/%s/%d.mp4", ls.SessionID, ls.Count)
+	url := fmt.Sprintf("%s/live/%s/%d.mp4", ls.GatewayURL, ls.SessionID, ls.Count)
 	ls.Count++
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(buf))

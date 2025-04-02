@@ -18,6 +18,7 @@ import {
   ViewerCount,
 } from "../../lexicons/types/place/stream/livestream";
 import * as Segment from "../../lexicons/types/place/stream/segment";
+import { PROTOCOL_HLS, PROTOCOL_WEBRTC } from "components/player/props";
 export interface PlayerContextType {
   playerId: string | null;
 }
@@ -60,6 +61,7 @@ export interface PlayerState {
   segment: Segment.Record | null;
   renditions: Rendition[];
   selectedRendition: string | null;
+  protocol: string;
 }
 
 export interface PlayersState {
@@ -70,7 +72,7 @@ const initialState: PlayersState = {};
 
 export const newPlayer = createAction("player/newPlayer", function prepare() {
   return {
-    payload: { playerId: uuidv7() },
+    payload: { playerId: uuidv7(), forceProtocol: PROTOCOL_WEBRTC },
   };
 });
 
@@ -132,20 +134,27 @@ export const playerSlice = createAppSlice({
   initialState,
 
   extraReducers: (builder) => {
-    builder.addCase(newPlayer, (state, action) => {
-      state[action.payload.playerId] = {
-        ingestStarted: null,
-        ingestStarting: false,
-        ingestConnectionState: null,
-        viewers: null,
-        chat: {},
-        chatList: [],
-        livestream: null,
-        segment: null,
-        renditions: [],
-        selectedRendition: "source",
-      };
-    });
+    builder.addCase(
+      newPlayer,
+      (
+        state,
+        action: { payload: { playerId: string; forceProtocol: string } },
+      ) => {
+        state[action.payload.playerId] = {
+          ingestStarted: null,
+          ingestStarting: false,
+          ingestConnectionState: null,
+          viewers: null,
+          protocol: action.payload.forceProtocol ?? PROTOCOL_WEBRTC,
+          chat: {},
+          chatList: [],
+          livestream: null,
+          segment: null,
+          renditions: [],
+          selectedRendition: "source",
+        };
+      },
+    );
   },
 
   reducers: (create) => {
@@ -403,6 +412,32 @@ export const playerSlice = createAppSlice({
           };
         },
       ),
+
+      setProtocol: create.reducer(
+        (
+          state,
+          action: {
+            payload: { playerId: string; protocol: string };
+            type: string;
+          },
+        ) => {
+          const newPlayer = {
+            ...state[action.payload.playerId],
+            protocol: action.payload.protocol,
+          };
+          if (action.payload.protocol === PROTOCOL_HLS) {
+            newPlayer.selectedRendition = "auto";
+          } else {
+            if (newPlayer.selectedRendition === "auto") {
+              newPlayer.selectedRendition = "source";
+            }
+          }
+          return {
+            ...state,
+            [action.payload.playerId]: newPlayer,
+          };
+        },
+      ),
     };
   },
 
@@ -424,6 +459,9 @@ export const playerSlice = createAppSlice({
     },
     selectSelectedRendition: (state, playerId: string) => {
       return state[playerId].selectedRendition;
+    },
+    selectProtocol: (state, playerId: string) => {
+      return state[playerId].protocol;
     },
   },
 });
@@ -452,6 +490,8 @@ export const usePlayerActions = () => {
       playerSlice.actions.handleWebSocketMessages({ playerId, messages }),
     setSelectedRendition: (rendition: string) =>
       playerSlice.actions.setSelectedRendition({ playerId, rendition }),
+    setProtocol: (protocol: string) =>
+      playerSlice.actions.setProtocol({ playerId, protocol }),
   };
 };
 
@@ -493,4 +533,10 @@ export const usePlayerSelectedRendition = (): ((state: {
 }) => string | null) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId].selectedRendition;
+};
+export const usePlayerProtocol = (): ((state: {
+  player: PlayersState;
+}) => string) => {
+  const playerId = usePlayerId();
+  return (state) => state.player[playerId].protocol;
 };

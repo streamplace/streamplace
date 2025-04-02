@@ -2,6 +2,7 @@ package renditions
 
 import (
 	"fmt"
+	"math"
 
 	"stream.place/streamplace/pkg/streamplace"
 )
@@ -19,6 +20,7 @@ type Rendition struct {
 	Framerate FPS
 	Profile   string
 	Name      string
+	Parent    *Rendition
 }
 
 type JsonProfile struct {
@@ -42,10 +44,25 @@ func (r Rendition) ToLivepeerProfile() JsonProfile {
 		FPSDen:  r.Framerate.Den,
 		Profile: r.Profile,
 	}
-	if r.Height < r.Width {
+	if r.Parent == nil {
+		p.Width = int(r.Width)
 		p.Height = int(r.Height)
 	} else {
-		p.Width = int(r.Width)
+		// We want to set the dimension that is the same as the parent
+		if r.Width < r.Height {
+			if r.Parent.Width == r.Height {
+				p.Height = int(r.Parent.Width)
+			} else {
+				p.Width = int(r.Parent.Height)
+			}
+		} else {
+			fmt.Printf("parentHeight (%d) parentWidth (%d) r.Height (%d) r.Width (%d)\n", r.Parent.Height, r.Parent.Width, r.Height, r.Width)
+			if r.Parent.Height == r.Height {
+				p.Height = int(r.Parent.Height)
+			} else {
+				p.Width = int(r.Parent.Width)
+			}
+		}
 	}
 	return p
 }
@@ -126,22 +143,53 @@ func GenerateRenditions(spseg *streamplace.Segment) (Renditions, error) {
 	}
 	rs := []Rendition{}
 	for _, r := range DesiredRenditions {
+		vidWidth := int64(vid.Width)
+		vidHeight := int64(vid.Height)
 		vertical := vid.Height > vid.Width
-		if vid.Width <= r.Width && vid.Height <= r.Height {
+		// do all the math as if it's horizontal then flip at the end
+		if vertical {
+			vidWidth, vidHeight = vidHeight, vidWidth
+		}
+		if vidWidth <= r.Width && vidHeight <= r.Height {
 			continue
 		}
+		rAspectRatio := float64(r.Width) / float64(r.Height)
+		vidAspectRatio := float64(vidWidth) / float64(vidHeight)
+		if vidAspectRatio > rAspectRatio {
+			// vid is wider than r
+			// scale down to r.Width
+			scale := float64(r.Width) / float64(vidWidth)
+			vidWidth = r.Width
+			vidHeight = int64(math.Round(float64(vidHeight) * scale))
+		} else {
+			// vid is taller than r
+			// scale down to r.Height
+			scale := float64(r.Height) / float64(vidHeight)
+			vidHeight = r.Height
+			vidWidth = int64(math.Round(float64(vidWidth) * scale))
+		}
 		outR := Rendition{
-			Name: r.Name,
+			Name:    r.Name,
+			Parent:  &r,
+			Profile: r.Profile,
 		}
 		if vertical {
-			ratio := float64(r.Height) / float64(vid.Height)
-			outR.Height = r.Width
-			outR.Width = int64(float64(vid.Height) * (16.0 / 9.0) * ratio)
+			outR.Width = vidHeight
+			outR.Height = vidWidth
 		} else {
-			ratio := float64(r.Width) / float64(vid.Width)
-			outR.Width = r.Width
-			outR.Height = int64(float64(vid.Width) * (9.0 / 16.0) * ratio)
+			outR.Width = vidWidth
+			outR.Height = vidHeight
 		}
+
+		// if vertical {
+		// 	ratio := float64(r.Height) / float64(vid.Height)
+		// 	outR.Height = int64(float64(vid.Width) * (16.0 / 9.0) * ratio)
+		// 	outR.Width = r.Height
+		// } else {
+		// 	ratio := float64(r.Width) / float64(vid.Width)
+		// 	outR.Width = r.Width
+		// 	outR.Height = int64(float64(vid.Width) * (9.0 / 16.0) * ratio)
+		// }
 		if vid.Framerate.Den > 0 {
 			vidFPS := float64(vid.Framerate.Num) / float64(vid.Framerate.Den)
 			rFPS := float64(r.Framerate.Num) / float64(r.Framerate.Den)
@@ -152,8 +200,6 @@ func GenerateRenditions(spseg *streamplace.Segment) (Renditions, error) {
 					outR.Framerate.Num = uint(vid.Framerate.Num)
 					outR.Framerate.Den = uint(vid.Framerate.Den * 2)
 				}
-			} else {
-				fmt.Printf("rFPS %f vidFPS %f delta %f\n", rFPS, vidFPS, delta)
 			}
 		}
 

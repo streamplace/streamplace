@@ -355,7 +355,8 @@ func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handl
 			return
 		}
 		session := r.URL.Query().Get("session")
-		buf, err := m3u8.GetFile(file, session)
+		rendition := r.URL.Query().Get("rendition")
+		buf, err := m3u8.GetFile(file, session, rendition)
 		if err != nil {
 			errors.WriteHTTPNotFound(w, "segment not found", err)
 			return

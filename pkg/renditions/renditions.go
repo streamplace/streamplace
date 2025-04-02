@@ -56,7 +56,6 @@ func (r Rendition) ToLivepeerProfile() JsonProfile {
 				p.Width = int(r.Parent.Height)
 			}
 		} else {
-			fmt.Printf("parentHeight (%d) parentWidth (%d) r.Height (%d) r.Width (%d)\n", r.Parent.Height, r.Parent.Width, r.Height, r.Width)
 			if r.Parent.Height == r.Height {
 				p.Height = int(r.Parent.Height)
 			} else {

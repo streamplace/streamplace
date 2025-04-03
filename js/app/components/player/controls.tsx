@@ -184,6 +184,7 @@ export function PopoverMenu(props: PlayerProps) {
   const protocol = useAppSelector(usePlayerProtocol());
   const { setSelectedRendition, setProtocol } = usePlayerActions();
   const dispatch = useAppDispatch();
+  // on android, this appears to lose its context. idk. so we just pass everything through.
   const gearMenu = (
     <GearMenu
       {...props}

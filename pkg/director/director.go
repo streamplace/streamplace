@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
@@ -40,24 +41,39 @@ func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *
 
 func (d *Director) Start(ctx context.Context) error {
 	newSeg := d.mm.NewSegment()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			cancel()
+			return g.Wait()
 		case not := <-newSeg:
 			d.streamSessionsMu.Lock()
 			ss, ok := d.streamSessions[not.Segment.RepoDID]
 			if !ok {
 				ss = &StreamSession{
-					hls:     nil,
-					lp:      nil,
-					repoDID: not.Segment.RepoDID,
-					mm:      d.mm,
-					mod:     d.mod,
-					cli:     d.cli,
-					bus:     d.bus,
+					hls:         nil,
+					lp:          nil,
+					repoDID:     not.Segment.RepoDID,
+					mm:          d.mm,
+					mod:         d.mod,
+					cli:         d.cli,
+					bus:         d.bus,
+					segmentChan: make(chan struct{}),
 				}
 				d.streamSessions[not.Segment.RepoDID] = ss
+				g.Go(func() error {
+					err := ss.Start(ctx, not)
+					if err != nil {
+						log.Error(ctx, "could not start stream session", "error", err)
+					}
+					d.streamSessionsMu.Lock()
+					delete(d.streamSessions, not.Segment.RepoDID)
+					d.streamSessionsMu.Unlock()
+					return nil
+				})
 			}
 			d.streamSessionsMu.Unlock()
 			err := ss.NewSegment(ctx, not)

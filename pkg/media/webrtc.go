@@ -524,11 +524,11 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 			log.Log(ctx, "Peer Connection State has changed", "state", s.String())
 
-			if s == webrtc.PeerConnectionStateFailed {
+			if s == webrtc.PeerConnectionStateFailed || s == webrtc.PeerConnectionStateDisconnected {
 				// Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
 				// Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
 				// Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
-				log.Log(ctx, "Peer Connection has gone to failed exiting")
+				log.Log(ctx, "Peer Connection has ended, exiting", "state", s.String())
 				cancel()
 			}
 		})
@@ -613,7 +613,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		})
 
 		<-ctx.Done()
-		log.Warn(ctx, "!!!!!!!!! context done, exiting")
 	}()
 	select {
 	case <-gatherComplete:

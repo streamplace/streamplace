@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
@@ -20,16 +21,89 @@ import (
 )
 
 type StreamSession struct {
-	mm      *media.MediaManager
-	mod     model.Model
-	cli     *config.CLI
-	bus     *bus.Bus
-	hls     *media.M3U8
-	lp      *livepeer.LivepeerSession
-	repoDID string
+	mm          *media.MediaManager
+	mod         model.Model
+	cli         *config.CLI
+	bus         *bus.Bus
+	hls         *media.M3U8
+	lp          *livepeer.LivepeerSession
+	repoDID     string
+	segmentChan chan struct{}
+}
+
+func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotification) error {
+
+	sid := livepeer.RandomTrailer(8)
+	ctx = log.WithLogValues(ctx, "sid", sid)
+	ctx, cancel := context.WithCancel(ctx)
+	log.Log(ctx, "starting stream session")
+	defer cancel()
+	spseg, err := not.Segment.ToStreamplaceSegment()
+	if err != nil {
+		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
+	}
+	var allRenditions renditions.Renditions
+
+	if ss.cli.LivepeerGatewayURL != "" {
+		allRenditions, err = renditions.GenerateRenditions(spseg)
+	} else {
+		allRenditions = []renditions.Rendition{}
+	}
+	if err != nil {
+		return err
+	}
+	if spseg.Duration == nil {
+		return fmt.Errorf("segment duration is required to calculate bitrate")
+	}
+	dur := time.Duration(*spseg.Duration)
+	byteLen := len(not.Data)
+	bitrate := int(float64(byteLen) / dur.Seconds() * 8)
+	sourceRendition := renditions.Rendition{
+		Name:    "source",
+		Bitrate: bitrate,
+		Width:   spseg.Video[0].Width,
+		Height:  spseg.Video[0].Height,
+	}
+	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
+	ss.hls = media.NewM3U8(allRenditions)
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	for _, r := range allRenditions {
+		g.Go(func() error {
+			for {
+				if ctx.Err() != nil {
+					return nil
+				}
+				err := ss.mm.ToHLS(ctx, spseg.Creator, r.Name, ss.hls)
+				if ctx.Err() != nil {
+					return nil
+				}
+				log.Warn(ctx, "hls failed, retrying in 5 seconds", "error", err)
+				time.Sleep(time.Second * 5)
+			}
+		})
+	}
+
+	for {
+		select {
+		case <-ss.segmentChan:
+			// reset timer
+		case <-ctx.Done():
+			return g.Wait()
+		// case <-time.After(time.Minute * 1):
+		case <-time.After(time.Second * 10):
+			log.Log(ctx, "no new segments for 1 minute, shutting down")
+			cancel()
+		}
+	}
 }
 
 func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNotification) error {
+	if ctx.Err() != nil {
+		return nil
+	}
+	ss.segmentChan <- struct{}{}
 	ctx = log.WithLogValues(ctx, "segID", not.Segment.ID)
 	err := ss.mod.CreateSegment(not.Segment)
 	if err != nil {
@@ -38,39 +112,6 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 	spseg, err := not.Segment.ToStreamplaceSegment()
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
-	}
-
-	if ss.hls == nil {
-		var allRenditions renditions.Renditions
-		var err error
-		if ss.cli.LivepeerGatewayURL != "" {
-			allRenditions, err = renditions.GenerateRenditions(spseg)
-		} else {
-			allRenditions = []renditions.Rendition{}
-		}
-		if err != nil {
-			return err
-		}
-		if spseg.Duration == nil {
-			return fmt.Errorf("segment duration is required to calculate bitrate")
-		}
-		dur := time.Duration(*spseg.Duration)
-		byteLen := len(not.Data)
-		bitrate := int(float64(byteLen) / dur.Seconds() * 8)
-		sourceRendition := renditions.Rendition{
-			Name:    "source",
-			Bitrate: bitrate,
-			Width:   spseg.Video[0].Width,
-			Height:  spseg.Video[0].Height,
-		}
-		allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
-		ss.hls = media.NewM3U8(allRenditions)
-
-		for _, r := range allRenditions {
-			go func(r renditions.Rendition) {
-				ss.mm.ToHLS(ctx, spseg.Creator, r.Name, ss.hls)
-			}(r)
-		}
 	}
 
 	ss.bus.Publish(spseg.Creator, spseg)

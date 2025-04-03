@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	"golang.org/x/net/context/ctxhttp"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/log"
 )
@@ -51,11 +52,16 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte)
 	}
 	req.Header.Set("Accept", "multipart/mixed")
 
-	resp, err := aqhttp.Client.Do(req)
+	resp, err := ctxhttp.Do(ctx, &aqhttp.Client, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send segment to gateway: %w", err)
 	}
-	defer resp.Body.Close()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		<-ctx.Done()
+		resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("gateway returned non-OK status: %d", resp.StatusCode)

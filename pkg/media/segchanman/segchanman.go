@@ -37,7 +37,7 @@ func (s *SegChanMan) SubscribeSegment(ctx context.Context, user string, renditio
 		chs = []chan *Seg{}
 		s.segChans[key] = chs
 	}
-	ch := make(chan *Seg)
+	ch := make(chan *Seg, 1024)
 	chs = append(chs, ch)
 	s.segChans[key] = chs
 	return ch

@@ -40,8 +40,8 @@ export function PlayerContextInitializer(
     if (props.forceProtocol) {
       newPlayerAction.payload.forceProtocol = props.forceProtocol;
     }
-    setPlayerId(newPlayerAction.payload.playerId);
     dispatch(newPlayerAction);
+    setPlayerId(newPlayerAction.payload.playerId);
   }, []);
   if (!playerId) {
     return <></>;

@@ -13,7 +13,7 @@ import {
   Volume2,
   VolumeX,
 } from "@tamagui/lucide-icons";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Dispatch, Fragment, useEffect, useRef, useState } from "react";
 import { Animated, Pressable } from "react-native";
 import {
   Button,
@@ -45,6 +45,7 @@ import Loading from "components/loading/loading";
 import Viewers from "components/viewers";
 import { userMute } from "features/streamplace/streamplaceSlice";
 import { Countdown } from "components/countdown";
+import { Rendition } from "lexicons/types/place/stream/defs";
 
 const Bar = (props) => (
   <XStack
@@ -178,6 +179,22 @@ export default function Controls(props: PlayerProps) {
 export function PopoverMenu(props: PlayerProps) {
   const [open, setOpen] = useState(false);
   const media = useMedia();
+  const renditions = useAppSelector(usePlayerRenditions());
+  const selectedRendition = useAppSelector(usePlayerSelectedRendition());
+  const protocol = useAppSelector(usePlayerProtocol());
+  const { setSelectedRendition, setProtocol } = usePlayerActions();
+  const dispatch = useAppDispatch();
+  const gearMenu = (
+    <GearMenu
+      {...props}
+      renditions={renditions}
+      selectedRendition={selectedRendition ?? "source"}
+      protocol={protocol}
+      setSelectedRendition={setSelectedRendition}
+      setProtocol={setProtocol}
+      dispatch={dispatch}
+    />
+  );
   useEffect(() => {
     if (!media.sm && props.showControls === false) {
       setOpen(false);
@@ -207,9 +224,7 @@ export function PopoverMenu(props: PlayerProps) {
 
       <Adapt when="sm" platform="touch">
         <Popover.Sheet modal dismissOnSnapToBottom snapPoints={[50]}>
-          <Popover.Sheet.Frame padding="$2">
-            <GearMenu {...props} />
-          </Popover.Sheet.Frame>
+          <Popover.Sheet.Frame padding="$2">{gearMenu}</Popover.Sheet.Frame>
           <Popover.Sheet.Overlay
             animation="lazy"
             enterStyle={{ opacity: 0 }}
@@ -234,7 +249,7 @@ export function PopoverMenu(props: PlayerProps) {
           },
         ]}
       >
-        <GearMenu {...props} />
+        {gearMenu}
       </Popover.Content>
     </Popover>
   );
@@ -292,13 +307,26 @@ function LiveBubbleText() {
   return <Loading />;
 }
 
-function GearMenu(props: PlayerProps) {
+function GearMenu(
+  props: PlayerProps & {
+    renditions: Rendition[];
+    selectedRendition: string;
+    protocol: string;
+    setSelectedRendition: (rendition: string) => void;
+    setProtocol: (protocol: string) => void;
+    dispatch: Dispatch<any>;
+  },
+) {
   const [menu, setMenu] = useState("root");
-  const renditions = useAppSelector(usePlayerRenditions());
-  const selectedRendition = useAppSelector(usePlayerSelectedRendition());
-  const protocol = useAppSelector(usePlayerProtocol());
-  const { setSelectedRendition, setProtocol } = usePlayerActions();
-  const dispatch = useAppDispatch();
+  const {
+    renditions,
+    selectedRendition,
+    protocol,
+    setSelectedRendition,
+    setProtocol,
+    dispatch,
+  } = props;
+
   return (
     <YGroup alignSelf="center" bordered width={240} size="$5" borderRadius="$0">
       {menu == "root" && (

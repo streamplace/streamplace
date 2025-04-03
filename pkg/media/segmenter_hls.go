@@ -60,7 +60,10 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 		return err
 	}
 
-	ps := NewPendingSegments(m3u8.GetRendition(rendition))
+	r := m3u8.GetRendition(rendition)
+	defer func() { r = nil }()
+	ps := NewPendingSegments(r)
+	defer func() { ps = nil }()
 
 	p := splitmuxsink.GetRequestPad("video")
 	if p == nil {

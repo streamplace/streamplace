@@ -49,9 +49,10 @@ type M3U8Rendition struct {
 func NewM3U8(renditions renditions.Renditions) *M3U8 {
 	rends := []*M3U8Rendition{}
 	for _, r := range renditions {
-		rends = append(rends, &M3U8Rendition{
+		mr := &M3U8Rendition{
 			Rendition: r,
-		})
+		}
+		rends = append(rends, mr)
 	}
 	return &M3U8{
 		curSeg:     0,
@@ -172,6 +173,12 @@ func (r *M3U8Rendition) NewSegment(seg *Segment) error {
 	seg.MSN = r.MSN
 	r.MSN += 1
 	r.Segments = append(r.Segments, seg)
+	if len(r.Segments) > RETAIN_SEGMENT_SIZE {
+		// Calculate how many segments to remove
+		removeCount := len(r.Segments) - RETAIN_SEGMENT_SIZE
+		// Remove the oldest segments (from the front of the slice)
+		r.Segments = r.Segments[removeCount:]
+	}
 	return nil
 }
 

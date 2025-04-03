@@ -26,6 +26,8 @@ func main() {
 		streamplace.Segment_Audio{},
 		streamplace.Segment_Video{},
 		streamplace.Segment_Framerate{},
+		streamplace.ChatMessage{},
+		streamplace.RichtextFacet{},
 	); err != nil {
 		panic(err)
 	}

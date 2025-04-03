@@ -1,0 +1,33 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.chat.message",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Record containing a Streamplace chat message.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["text", "createdAt"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "maxGraphemes": 300,
+            "description": "The primary message content. May be an empty string, if there are embeds."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this message was originally created."
+          },
+          "facets": {
+            "type": "array",
+            "description": "Annotations of text (mentions, URLs, etc)",
+            "items": { "type": "ref", "ref": "place.stream.richtext.facet" }
+          }
+        }
+      }
+    }
+  }
+}

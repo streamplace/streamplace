@@ -80,6 +80,8 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	router.Handler("GET", "/debug/pprof/heap", pprof.Handler("heap"))
 	router.Handler("GET", "/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
 	router.Handler("GET", "/debug/pprof/block", pprof.Handler("block"))
+	router.Handler("GET", "/debug/pprof/allocs", pprof.Handler("allocs"))
+	router.Handler("GET", "/debug/pprof/mutex", pprof.Handler("mutex"))
 
 	router.POST("/gc", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		runtime.GC()

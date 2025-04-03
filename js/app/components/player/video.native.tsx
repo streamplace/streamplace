@@ -72,9 +72,15 @@ export default function NativeVideo(
       style={{ flex: 1, backgroundColor: "#111" }}
       ref={props.videoRef}
       player={player}
-      allowsFullscreen={false}
+      allowsFullscreen
+      nativeControls={props.fullscreen}
+      onFullscreenEnter={() => {
+        props.setFullscreen(true);
+      }}
+      onFullscreenExit={() => {
+        props.setFullscreen(false);
+      }}
       allowsPictureInPicture
-      nativeControls={false}
     />
   );
 }

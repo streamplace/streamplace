@@ -133,7 +133,7 @@ export default function Controls(props: PlayerProps) {
           justifyContent: "space-between",
         }}
       > */}
-      <Bar opacity={props.showControls ? 1 : 0}>
+      <Bar opacity={props.showControls ? (props.fullscreen ? 0 : 1) : 0}>
         <Part>
           <View justifyContent="center" paddingLeft="$5">
             <Text>{props.name}</Text>

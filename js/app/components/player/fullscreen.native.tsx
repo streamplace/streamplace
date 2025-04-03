@@ -6,7 +6,7 @@ import { useNavigation } from "@react-navigation/native";
 import { View } from "tamagui";
 import Controls from "./controls";
 import PlayerLoading from "./player-loading";
-import { PlayerProps } from "./props";
+import { PlayerProps, PROTOCOL_WEBRTC } from "./props";
 import Video from "./video.native";
 import VideoRetry from "./video-retry";
 
@@ -77,11 +77,23 @@ export default function Fullscreen(props: PlayerProps) {
   }, [props.fullscreen, navigation]);
 
   const setFullscreen = (on) => {
-    // Instead of using native fullscreen, just update our fullscreen state
-    props.setFullscreen(on);
+    // For WebRTC, use custom fullscreen implementation
+    if (props.protocol === PROTOCOL_WEBRTC) {
+      props.setFullscreen(on);
+      return;
+    }
+
+    // For HLS and other protocols, use native fullscreen
+    if (ref.current) {
+      if (on) {
+        ref.current.enterFullscreen();
+      } else {
+        ref.current.exitFullscreen();
+      }
+    }
   };
 
-  if (props.fullscreen) {
+  if (props.fullscreen && props.protocol === PROTOCOL_WEBRTC) {
     // Determine if we're in landscape mode
     const isLandscape = dimensions.width > dimensions.height;
 
@@ -89,22 +101,26 @@ export default function Fullscreen(props: PlayerProps) {
     let videoWidth, videoHeight;
 
     if (isLandscape) {
-      // In landscape, the video takes the full height, width is calculated from aspect ratio
-      videoHeight = dimensions.height + 0;
+      // In landscape, account for safe areas and use available height
+      const availableHeight = dimensions.height - (insets.top + insets.bottom);
+      const availableWidth = dimensions.width - (insets.left + insets.right);
+
+      videoHeight = availableHeight;
       videoWidth = videoHeight * VIDEO_ASPECT_RATIO;
 
-      // If calculated width is greater than screen width, constrain to screen width
-      if (videoWidth > dimensions.width) {
-        videoWidth = dimensions.width;
+      // If calculated width exceeds available width, constrain and maintain aspect ratio
+      if (videoWidth > availableWidth) {
+        videoWidth = availableWidth;
         videoHeight = videoWidth / VIDEO_ASPECT_RATIO;
       }
     } else {
-      // In portrait, the video takes the full width, height is calculated from aspect ratio
-      videoWidth = dimensions.width;
+      // In portrait, account for safe areas
+      const availableWidth = dimensions.width - (insets.left + insets.right);
+      videoWidth = availableWidth;
       videoHeight = videoWidth / VIDEO_ASPECT_RATIO;
     }
 
-    // Calculate position to center the video
+    // Calculate position to center the video, accounting for safe areas
     const leftPosition = (dimensions.width - videoWidth) / 2;
     const topPosition = (dimensions.height - videoHeight) / 2;
 

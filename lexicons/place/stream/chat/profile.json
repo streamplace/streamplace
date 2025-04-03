@@ -1,0 +1,43 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.chat.profile",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Record containing customizations for a user's chat profile.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "color": {
+            "type": "ref",
+            "ref": "place.stream.chat.profile#color"
+          }
+        }
+      }
+    },
+    "color": {
+      "type": "object",
+      "description": "Customizations for the color of a user's name in chat",
+      "required": ["red", "green", "blue"],
+      "properties": {
+        "red": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "green": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "blue": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        }
+      }
+    }
+  }
+}

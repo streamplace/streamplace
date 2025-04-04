@@ -68,7 +68,7 @@ const initialState: StreamplaceState = {
 const USER_MUTED_KEY = "streamplaceUserMuted";
 const TELEMETRY_KEY = "streamplaceTelemetry";
 const URL_KEY = "streamplaceUrl";
-const CHAT_WARNING_KEY = "streamplaceChatWarning";
+const CHAT_WARNING_KEY = "streamplaceChatWarning2";
 
 export const streamplaceSlice = createAppSlice({
   name: "streamplace",

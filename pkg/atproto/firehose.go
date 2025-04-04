@@ -113,6 +113,8 @@ func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
 var CollectionFilter = []string{
 	constants.PLACE_STREAM_KEY,
 	constants.PLACE_STREAM_LIVESTREAM,
+	constants.PLACE_STREAM_CHAT_MESSAGE,
+	constants.PLACE_STREAM_CHAT_PROFILE,
 	constants.APP_BSKY_GRAPH_FOLLOW,
 	constants.APP_BSKY_FEED_POST,
 	constants.APP_BSKY_GRAPH_BLOCK,

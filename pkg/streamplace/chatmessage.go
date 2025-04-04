@@ -18,6 +18,8 @@ type ChatMessage struct {
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	// facets: Annotations of text (mentions, URLs, etc)
 	Facets []*RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	// streamer: The DID of the streamer whose chat this is.
+	Streamer string `json:"streamer" cborgen:"streamer"`
 	// text: The primary message content. May be an empty string, if there are embeds.
 	Text string `json:"text" cborgen:"text"`
 }

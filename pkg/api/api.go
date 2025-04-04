@@ -796,6 +796,17 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			}
 		}()
 
+		go func() {
+			messages, err := a.Model.MostRecentChatMessages(repoDID)
+			if err != nil {
+				log.Error(ctx, "could not get chat messages", "error", err)
+				return
+			}
+			for _, message := range messages {
+				initialBurst <- message
+			}
+		}()
+
 		for {
 			messageType, message, err := conn.ReadMessage()
 			if err != nil {

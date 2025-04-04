@@ -1525,7 +1525,7 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 4
+	fieldCount := 5
 
 	if t.Facets == nil {
 		fieldCount--
@@ -1604,6 +1604,29 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 			}
 
 		}
+	}
+
+	// t.Streamer (string) (string)
+	if len("streamer") > 1000000 {
+		return xerrors.Errorf("Value in field \"streamer\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("streamer"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("streamer")); err != nil {
+		return err
+	}
+
+	if len(t.Streamer) > 1000000 {
+		return xerrors.Errorf("Value in field t.Streamer was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Streamer))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Streamer)); err != nil {
+		return err
 	}
 
 	// t.CreatedAt (string) (string)
@@ -1742,6 +1765,17 @@ func (t *ChatMessage) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 
 				}
+			}
+			// t.Streamer (string) (string)
+		case "streamer":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.Streamer = string(sval)
 			}
 			// t.CreatedAt (string) (string)
 		case "createdAt":

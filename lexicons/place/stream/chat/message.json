@@ -8,7 +8,7 @@
       "key": "tid",
       "record": {
         "type": "object",
-        "required": ["text", "createdAt"],
+        "required": ["text", "createdAt", "streamer"],
         "properties": {
           "text": {
             "type": "string",
@@ -25,6 +25,11 @@
             "type": "array",
             "description": "Annotations of text (mentions, URLs, etc)",
             "items": { "type": "ref", "ref": "place.stream.richtext.facet" }
+          },
+          "streamer": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the streamer whose chat this is."
           }
         }
       }

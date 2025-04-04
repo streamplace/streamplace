@@ -40,7 +40,7 @@ func (fp *FeedPost) ToBskyPostView() (*bsky.FeedDefs_PostView, error) {
 			Handle: fp.Repo.Handle,
 		},
 		Record:    &lexutil.LexiconTypeDecoder{Val: rec},
-		IndexedAt: time.Now().Format(time.RFC3339),
+		IndexedAt: fp.IndexedAt.UTC().Format(time.RFC3339Nano),
 	}
 	return &postView, nil
 }

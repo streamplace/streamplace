@@ -2,7 +2,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Send } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
 import {
-  chatPost,
+  chatMessage,
   selectIsReady,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
@@ -34,7 +34,7 @@ export default function ChatBox() {
       throw new Error("No livestream");
       return;
     }
-    dispatch(chatPost({ text: message, livestream }));
+    dispatch(chatMessage({ text: message, livestream }));
     setMessage("");
     if (isWeb && textAreaRef.current) {
       const textarea = textAreaRef.current as unknown as HTMLTextAreaElement;
@@ -72,8 +72,8 @@ export default function ChatBox() {
             onPress={() => {
               if (!chatWarned) {
                 dispatch(chatWarn(true));
-                toast.show("Heads up!", {
-                  message: `Streamplace chat presently works by making Bluesky replies to the streamer's account. This won't be true forever.`,
+                toast.show("Just so you know!", {
+                  message: `Streamplace chat messages are public in the same way that Bluesky posts are public - they create records on your PDS.`,
                 });
               }
             }}

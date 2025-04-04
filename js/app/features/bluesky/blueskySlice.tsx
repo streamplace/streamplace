@@ -8,7 +8,11 @@ import { Secp256k1Keypair, bytesToMultibase } from "@atproto/crypto";
 import { privateKeyToAccount } from "viem/accounts";
 import { hydrate, STORED_KEY_KEY } from "features/base/baseSlice";
 import { isWeb } from "tamagui";
-import { PlaceStreamKey, PlaceStreamLivestream } from "lexicons";
+import {
+  PlaceStreamKey,
+  PlaceStreamLivestream,
+  PlaceStreamChatMessage,
+} from "lexicons";
 import { BlueskyState } from "./blueskyTypes";
 import { LivestreamViewHydrated } from "features/player/playerSlice";
 import { ProfileViewDetailed } from "@atproto/api/src/client/types/app/bsky/actor/defs";
@@ -444,6 +448,54 @@ export const blueskySlice = createAppSlice({
       },
     ),
 
+    chatMessage: create.asyncThunk(
+      async (
+        {
+          text,
+          livestream,
+        }: { text: string; livestream: LivestreamViewHydrated },
+        thunkAPI,
+      ) => {
+        const { bluesky, streamplace } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+          streamplace: StreamplaceState;
+        };
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const profile = bluesky.profiles[did];
+        if (!profile) {
+          throw new Error("No profile");
+        }
+        const record: PlaceStreamChatMessage.Record = {
+          text: text,
+          createdAt: new Date().toISOString(),
+          streamer: profile.did,
+        };
+        await bluesky.pdsAgent.com.atproto.repo.createRecord({
+          repo: did,
+          collection: "place.stream.chat.message",
+          record,
+        });
+      },
+      {
+        pending: (state) => {
+          console.log("chatMessage pending");
+        },
+        fulfilled: (state, action) => {
+          console.log("chatMessage fulfilled", action.payload);
+        },
+        rejected: (state, action) => {
+          console.error("chatMessage rejected", action.error);
+          // state.status = "failed";
+        },
+      },
+    ),
+
     createStreamKeyRecord: create.asyncThunk(
       async ({ store }: { store: boolean }, thunkAPI) => {
         const { bluesky } = thunkAPI.getState() as {
@@ -679,6 +731,7 @@ export const {
   clearStreamKeyRecord,
   createLivestreamRecord,
   chatPost,
+  chatMessage,
 } = blueskySlice.actions;
 
 // Selectors returned by `slice.selectors` take the root state as their first argument.

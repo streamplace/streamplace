@@ -514,7 +514,7 @@ export const usePlayer = (): ((state: {
 };
 export const useChat = (): ((state: {
   player: PlayersState;
-}) => PostViewHydrated[] | null) => {
+}) => MessageViewHydrated[] | null) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId].chatList;
 };

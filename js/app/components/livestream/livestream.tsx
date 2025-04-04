@@ -29,6 +29,7 @@ export default function Livestream(props: Partial<PlayerProps>) {
 export function LivestreamInner(props: Partial<PlayerProps>) {
   const telemetry = useAppSelector(selectTelemetry);
   const player = useAppSelector(usePlayer());
+
   const { src, ...extraProps } = props;
   const dispatch = useAppDispatch();
   const { width, height } = useWindowDimensions();

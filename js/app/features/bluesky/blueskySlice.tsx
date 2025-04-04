@@ -1,4 +1,9 @@
-import { Agent, AppBskyFeedPost, BlobRef } from "@atproto/api";
+import {
+  Agent,
+  AppBskyFeedPost,
+  BlobRef,
+  AppBskyGraphBlock,
+} from "@atproto/api";
 import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import { openLoginLink } from "features/platform/platformSlice";
 import Storage from "storage";
@@ -448,6 +453,47 @@ export const blueskySlice = createAppSlice({
       },
     ),
 
+    createBlockRecord: create.asyncThunk(
+      async ({ subjectDID }: { subjectDID: string }, thunkAPI) => {
+        const { bluesky, streamplace } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+          streamplace: StreamplaceState;
+        };
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const profile = bluesky.profiles[did];
+        if (!profile) {
+          throw new Error("No profile");
+        }
+        const record: AppBskyGraphBlock.Record = {
+          subject: subjectDID,
+          createdAt: new Date().toISOString(),
+        };
+        return await bluesky.pdsAgent.com.atproto.repo.createRecord({
+          repo: did,
+          collection: "app.bsky.graph.block",
+          record,
+        });
+      },
+      {
+        pending: (state) => {
+          console.log("createBlockRecord pending");
+        },
+        fulfilled: (state, action) => {
+          console.log("createBlockRecord fulfilled", action.payload);
+        },
+        rejected: (state, action) => {
+          console.error("createBlockRecord rejected", action.error);
+          // state.status = "failed";
+        },
+      },
+    ),
+
     chatMessage: create.asyncThunk(
       async (
         {
@@ -474,7 +520,7 @@ export const blueskySlice = createAppSlice({
         const record: PlaceStreamChatMessage.Record = {
           text: text,
           createdAt: new Date().toISOString(),
-          streamer: profile.did,
+          streamer: livestream.author.did,
         };
         await bluesky.pdsAgent.com.atproto.repo.createRecord({
           repo: did,
@@ -732,6 +778,7 @@ export const {
   createLivestreamRecord,
   chatPost,
   chatMessage,
+  createBlockRecord,
 } = blueskySlice.actions;
 
 // Selectors returned by `slice.selectors` take the root state as their first argument.

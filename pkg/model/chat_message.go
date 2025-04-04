@@ -50,8 +50,11 @@ func (m *DBModel) MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDef
 	err := m.DB.
 		Preload("Repo").
 		Where("streamer_repo_did = ?", repoDID).
+		// Exclude messages from users blocked by the streamer
+		Joins("LEFT JOIN blocks ON blocks.repo_did = chat_messages.streamer_repo_did AND blocks.subject_did = chat_messages.repo_did").
+		Where("blocks.rkey IS NULL"). // Only include messages where no block exists
 		Limit(100).
-		Order("created_at DESC").
+		Order("chat_messages.created_at DESC").
 		Find(&dbmessages).Error
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving replies: %w", err)

@@ -2,6 +2,7 @@ import {
   createChatProfileRecord,
   getChatProfileRecordFromPDS,
   selectChatProfile,
+  selectUserProfile,
 } from "features/bluesky/blueskySlice";
 import { PlaceStreamChatProfile } from "lexicons";
 import { useEffect, useState } from "react";
@@ -12,7 +13,7 @@ import ColorPicker, {
   Swatches,
 } from "reanimated-color-picker";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { Button, H2, useTheme, View } from "tamagui";
+import { Button, H3, Sheet, useTheme, View } from "tamagui";
 
 /**
  * Parses an RGB color string and returns an object with red, green, and blue values
@@ -46,9 +47,12 @@ function parseRgbString(rgbString: string): PlaceStreamChatProfile.Color {
 
 export default function NameColorPicker() {
   const theme = useTheme();
+  const [open, setOpen] = useState(false);
   const dispatch = useAppDispatch();
   const chatProfile = useAppSelector(selectChatProfile);
-  const [color, setColor] = useState(theme.accentColor.val);
+  const [color, setColor] = useState(theme.accentColor?.val ?? "#bd6e86");
+  const profile = useAppSelector(selectUserProfile);
+
   useEffect(() => {
     if (!chatProfile?.profile) {
       dispatch(getChatProfileRecordFromPDS());
@@ -60,30 +64,71 @@ export default function NameColorPicker() {
   }, [!chatProfile?.profile]);
   // onCompleteJS={(x) => setColor(x.rgb)}
   return (
-    <View>
-      <H2
+    <View alignItems="center" flexDirection="row">
+      <Button
+        maxWidth={300}
         textAlign="center"
         color={color}
+        marginHorizontal="auto"
+        onPress={() => setOpen(true)}
+        flexBasis={250}
         // textShadowColor="white"
         // textShadowOffset={{ width: 0, height: 0 }}
         // textShadowRadius={3}
       >
         Change Name Color
-      </H2>
-      <ColorPicker value={color} onCompleteJS={(x) => setColor(x.rgb)}>
-        <Preview />
-        <Panel1 />
-        <HueSlider />
-        <Swatches />
-      </ColorPicker>
-      <Button
-        backgroundColor="$accentColor"
-        onPress={() => {
-          dispatch(createChatProfileRecord(parseRgbString(color)));
-        }}
-      >
-        Save
       </Button>
+      <Sheet
+        // forceRemoveScrollEnabled={open}
+        open={open}
+        modal={true}
+        onOpenChange={setOpen}
+        // snapPoints={snapPoints}
+        // snapPointsMode={snapPointsMode}
+        dismissOnSnapToBottom
+        // position={position}
+        // onPositionChange={setPosition}
+        zIndex={100_000}
+        animation="medium"
+      >
+        <Sheet.Overlay
+          animation="lazy"
+          backgroundColor="$shadow6"
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
+        />
+        <Sheet.Frame>
+          <View
+            f={1}
+            alignItems="stretch"
+            justifyContent="center"
+            padding="$4"
+            paddingBottom="300"
+            gap="$5"
+            maxWidth={600}
+            marginHorizontal="auto"
+          >
+            <H3 textAlign="center" color={color}>
+              @{profile?.handle}
+            </H3>
+            <ColorPicker value={color} onCompleteJS={(x) => setColor(x.rgb)}>
+              <Preview />
+              <Panel1 />
+              <HueSlider />
+              <Swatches style={{ margin: 10 }} />
+            </ColorPicker>
+            <Button
+              backgroundColor="$accentColor"
+              onPress={() => {
+                setOpen(false);
+                dispatch(createChatProfileRecord(parseRgbString(color)));
+              }}
+            >
+              Save
+            </Button>
+          </View>
+        </Sheet.Frame>
+      </Sheet>
     </View>
   );
 }

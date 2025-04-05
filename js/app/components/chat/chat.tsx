@@ -6,7 +6,6 @@ import {
 } from "features/bluesky/blueskySlice";
 import {
   MessageViewHydrated,
-  PostViewHydrated,
   useChat,
   usePlayerLivestream,
 } from "features/player/playerSlice";
@@ -18,7 +17,7 @@ import { Button, ScrollView, Sheet, Text, useMedia, View } from "tamagui";
 
 export default function Chat() {
   const [open, setOpen] = useState(false);
-  const [modMessage, setMessage] = useState<PostViewHydrated | null>(null);
+  const [modMessage, setMessage] = useState<MessageViewHydrated | null>(null);
   const chat = useAppSelector(useChat());
   const scrollRef = useRef<ScrollView>(null);
   const livestream = useAppSelector(usePlayerLivestream());
@@ -203,10 +202,16 @@ function ChatMessageRow({
   );
 }
 
-const ChatMessageText = ({ message }: { message: PostViewHydrated }) => {
+const ChatMessageText = ({ message }: { message: MessageViewHydrated }) => {
+  let color = "$accentColor";
+  console.log(message.chatProfile);
+  if (message.chatProfile?.color) {
+    const { red, green, blue } = message.chatProfile.color;
+    color = `rgb(${red}, ${green}, ${blue})`;
+  }
   return (
     <Text fontSize={13}>
-      <Text color="$accentColor">
+      <Text color={color}>
         {message.author.handle
           ? `@${message.author.handle}`
           : message.author.did}

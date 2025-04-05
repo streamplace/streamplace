@@ -73,6 +73,10 @@ type Model interface {
 
 	CreateChatMessage(ctx context.Context, message *ChatMessage) error
 	MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDefs_MessageView, error)
+	GetChatMessage(cid string) (*ChatMessage, error)
+
+	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
+	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -120,6 +124,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Livestream{},
 		Block{},
 		ChatMessage{},
+		ChatProfile{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

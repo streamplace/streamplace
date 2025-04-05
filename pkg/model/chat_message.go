@@ -2,24 +2,27 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
 type ChatMessage struct {
-	CID             string     `json:"cid"                    gorm:"primaryKey;column:cid"`
-	URI             string     `json:"uri"                    gorm:"column:uri"`
-	CreatedAt       time.Time  `json:"createdAt"              gorm:"column:created_at;index:idx_recent_messages,priority:2"`
-	ChatMessage     *[]byte    `json:"chatMessage"            gorm:"column:chat_message"`
-	RepoDID         string     `json:"repoDID"                gorm:"column:repo_did"`
-	Repo            *Repo      `json:"repo,omitempty"         gorm:"foreignKey:DID;references:RepoDID"`
-	IndexedAt       *time.Time `json:"indexedAt,omitempty"    gorm:"column:indexed_at"`
-	StreamerRepoDID string     `json:"streamerRepoDID"        gorm:"column:streamer_repo_did;idx_recent_messages,priority:1"`
-	StreamerRepo    *Repo      `json:"streamerRepo,omitempty" gorm:"foreignKey:DID;references:StreamerRepoDID"`
+	CID             string       `json:"cid"                    gorm:"primaryKey;column:cid"`
+	URI             string       `json:"uri"                    gorm:"column:uri"`
+	CreatedAt       time.Time    `json:"createdAt"              gorm:"column:created_at;index:idx_recent_messages,priority:2"`
+	ChatMessage     *[]byte      `json:"chatMessage"            gorm:"column:chat_message"`
+	RepoDID         string       `json:"repoDID"                gorm:"column:repo_did"`
+	Repo            *Repo        `json:"repo,omitempty"         gorm:"foreignKey:DID;references:RepoDID"`
+	ChatProfile     *ChatProfile `json:"chatProfile,omitempty"  gorm:"foreignKey:RepoDID;references:RepoDID"`
+	IndexedAt       *time.Time   `json:"indexedAt,omitempty"    gorm:"column:indexed_at"`
+	StreamerRepoDID string       `json:"streamerRepoDID"        gorm:"column:streamer_repo_did;idx_recent_messages,priority:1"`
+	StreamerRepo    *Repo        `json:"streamerRepo,omitempty" gorm:"foreignKey:DID;references:StreamerRepoDID"`
 }
 
 func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageView, error) {
@@ -38,6 +41,13 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageV
 	}
 	message.Record = &lexutil.LexiconTypeDecoder{Val: rec}
 	message.IndexedAt = m.IndexedAt.UTC().Format(time.RFC3339Nano)
+	if m.ChatProfile != nil {
+		scp, err := m.ChatProfile.ToStreamplaceChatProfile()
+		if err != nil {
+			return nil, fmt.Errorf("error converting chat profile to streamplace chat profile: %w", err)
+		}
+		message.ChatProfile = scp
+	}
 	return message, nil
 }
 
@@ -45,10 +55,23 @@ func (m *DBModel) CreateChatMessage(ctx context.Context, message *ChatMessage) e
 	return m.DB.Create(message).Error
 }
 
+func (m *DBModel) GetChatMessage(cid string) (*ChatMessage, error) {
+	var message ChatMessage
+	err := m.DB.Preload("Repo").Preload("ChatProfile").Where("cid = ?", cid).First(&message).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving chat message: %w", err)
+	}
+	return &message, nil
+}
+
 func (m *DBModel) MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDefs_MessageView, error) {
 	dbmessages := []ChatMessage{}
 	err := m.DB.
 		Preload("Repo").
+		Preload("ChatProfile").
 		Where("streamer_repo_did = ?", repoDID).
 		// Exclude messages from users blocked by the streamer
 		Joins("LEFT JOIN blocks ON blocks.repo_did = chat_messages.streamer_repo_did AND blocks.subject_did = chat_messages.repo_did").

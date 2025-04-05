@@ -1,15 +1,16 @@
+import NameColorPicker from "components/name-color-picker/name-color-picker";
 import {
-  logout,
-  selectUserProfile,
-  selectPDS,
-  setPDS,
-  selectLogin,
   login,
+  logout,
+  selectLogin,
+  selectPDS,
+  selectUserProfile,
+  setPDS,
 } from "features/bluesky/blueskySlice";
 import { useState } from "react";
 import { Keyboard } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { Button, H3, Input, Sheet, Text, View, Form, Spinner } from "tamagui";
+import { Button, Form, H3, Input, Sheet, Spinner, Text, View } from "tamagui";
 
 export default function Login() {
   const dispatch = useAppDispatch();
@@ -24,9 +25,20 @@ export default function Login() {
 
   if (userProfile) {
     return (
-      <View f={1} jc="center" ai="center">
-        <Text>Logged in as @{userProfile.handle}</Text>
-        <Button onPress={() => dispatch(logout())}>Log out</Button>
+      <View f={1} jc="center" ai="stretch" gap="$3">
+        <Text textAlign="center">Logged in as @{userProfile.handle}</Text>
+        <View flexDirection="row" gap="$2" justifyContent="center">
+          <Button
+            onPress={() => dispatch(logout())}
+            maxWidth={300}
+            textAlign="center"
+            marginHorizontal="auto"
+            flexBasis={250}
+          >
+            Log out
+          </Button>
+        </View>
+        <NameColorPicker />
       </View>
     );
   }

@@ -758,8 +758,11 @@ export const blueskySlice = createAppSlice({
         if (!res.success) {
           throw new Error("Failed to get chat profile record");
         }
-        if (PlaceStreamChatProfile.isRecord(res.data.record)) {
-          return res.data.record;
+
+        if (PlaceStreamChatProfile.isRecord(res.data.value)) {
+          return res.data.value;
+        } else {
+          console.log("not a record", res.data.value);
         }
         return null;
       },
@@ -823,13 +826,19 @@ export const blueskySlice = createAppSlice({
           },
         };
 
-        await bluesky.pdsAgent.com.atproto.repo.putRecord({
+        const res = await bluesky.pdsAgent.com.atproto.repo.putRecord({
           repo: did,
           collection: "place.stream.chat.profile",
           record: chatProfile,
           rkey: "self",
         });
-        return chatProfile;
+        if (!res.success) {
+          throw new Error("Failed to create chat profile record");
+        }
+        if (PlaceStreamChatProfile.isRecord(res.data.value)) {
+          return res.data.value;
+        }
+        return null;
       },
       {
         pending: (state) => {

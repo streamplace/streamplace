@@ -1,9 +1,15 @@
 import { AppBskyFeedDefs, AppBskyFeedPost } from "@atproto/api";
 import { createAction } from "@reduxjs/toolkit";
+import { PROTOCOL_HLS, PROTOCOL_WEBRTC } from "components/player/props";
 import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import { uuidv7 } from "hooks/uuid";
+import {
+  isMessageView,
+  MessageView,
+} from "lexicons/types/place/stream/chat/defs";
 import { createContext, useContext } from "react";
 import { createAppSlice } from "../../hooks/createSlice";
+import { Record as ChatMessageRecord } from "../../lexicons/types/place/stream/chat/message";
 import {
   BlockView,
   isBlockView,
@@ -18,12 +24,6 @@ import {
   ViewerCount,
 } from "../../lexicons/types/place/stream/livestream";
 import * as Segment from "../../lexicons/types/place/stream/segment";
-import { PROTOCOL_HLS, PROTOCOL_WEBRTC } from "components/player/props";
-import {
-  isMessageView,
-  MessageView,
-} from "lexicons/types/place/stream/chat/defs";
-import { Record as ChatMessageRecord } from "../../lexicons/types/place/stream/chat/message";
 export interface PlayerContextType {
   playerId: string | null;
 }

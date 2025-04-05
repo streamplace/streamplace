@@ -13,7 +13,11 @@
           "ref": "app.bsky.actor.defs#profileViewBasic"
         },
         "record": { "type": "unknown" },
-        "indexedAt": { "type": "string", "format": "datetime" }
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "chatProfile": {
+          "type": "ref",
+          "ref": "place.stream.chat.profile"
+        }
       }
     }
   }

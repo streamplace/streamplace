@@ -109,11 +109,34 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			log.Error(ctx, "failed to create chat message", "err", err)
 		}
+		mcm, err = atsync.Model.GetChatMessage(cid)
+		if err != nil {
+			log.Error(ctx, "failed to get just-saved chat message", "err", err)
+		}
+		if mcm == nil {
+			log.Error(ctx, "failed to retrieve just-saved chat message", "err", err)
+			return nil
+		}
 		scm, err := mcm.ToStreamplaceMessageView()
 		if err != nil {
 			log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
 		}
 		go atsync.Bus.Publish(streamerRepo.DID, scm)
+
+	case *streamplace.ChatProfile:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		mcm := &model.ChatProfile{
+			RepoDID: userDID,
+			Repo:    repo,
+			Record:  recCBOR,
+		}
+		err = atsync.Model.CreateChatProfile(ctx, mcm)
+		if err != nil {
+			log.Error(ctx, "failed to create chat profile", "err", err)
+		}
 
 	case *bsky.FeedPost:
 		// jsonData, err := json.Marshal(d)

@@ -15,6 +15,7 @@ import (
 type ChatDefs_MessageView struct {
 	LexiconTypeID string                                   `json:"$type,const=place.stream.chat.defs#messageView" cborgen:"$type,const=place.stream.chat.defs#messageView"`
 	Author        *appbskytypes.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
+	ChatProfile   *ChatProfile                             `json:"chatProfile,omitempty" cborgen:"chatProfile,omitempty"`
 	Cid           string                                   `json:"cid" cborgen:"cid"`
 	IndexedAt     string                                   `json:"indexedAt" cborgen:"indexedAt"`
 	Record        *util.LexiconTypeDecoder                 `json:"record" cborgen:"record"`

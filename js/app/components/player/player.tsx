@@ -10,12 +10,15 @@ import {
   PlayerProps,
   PlayerStatus,
   PlayerStatusTracker,
-  PROTOCOL_WEBRTC,
 } from "./props";
 import PlayerProvider from "./provider";
 import { selectUserMuted } from "features/streamplace/streamplaceSlice";
 import { useAppSelector } from "store/hooks";
-import { usePlayerSegment } from "features/player/playerSlice";
+import {
+  usePlayerRenditions,
+  usePlayerSegment,
+  usePlayerSelectedRendition,
+} from "features/player/playerSlice";
 
 const HIDE_CONTROLS_AFTER = 2000;
 const OFFLINE_THRESHOLD = 10000;
@@ -55,19 +58,6 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     setTouchTime(Date.now());
     setShowControls(true);
   };
-  // keeping this other logic for now in case we need a second-best choice
-  let defProto = PROTOCOL_WEBRTC;
-  // const plat = usePlatform();
-  // if (plat.isIOS) {
-  //   defProto = PROTOCOL_HLS;
-  // } else if (plat.isSafari) {
-  //   defProto = PROTOCOL_HLS;
-  // } else if (plat.isFirefox) {
-  //   defProto = PROTOCOL_HLS;
-  // }
-  if (props.forceProtocol) {
-    defProto = props.forceProtocol;
-  }
   const { url } = useStreamplaceNode();
   const info = usePlatform();
   const playerEvent = async (
@@ -98,7 +88,6 @@ export function PlayerInner(props: Partial<PlayerProps>) {
   };
   const [status, setStatus] = usePlayerStatus(playerEvent);
   const [playTime, setPlayTime] = useState(0);
-  const [protocol, setProtocol] = useState(defProto);
   const [fullscreen, setFullscreen] = useState(false);
 
   const [offline, setOffline] = useState(true);
@@ -106,6 +95,9 @@ export function PlayerInner(props: Partial<PlayerProps>) {
 
   const segment = useAppSelector(usePlayerSegment());
   const [lastCheck, setLastCheck] = useState(0);
+
+  const renditions = useAppSelector(usePlayerRenditions());
+  const selectedRendition = useAppSelector(usePlayerSelectedRendition());
 
   useEffect(() => {
     if (playing) {
@@ -143,8 +135,6 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     setFullscreen: setFullscreen,
     fullscreen: fullscreen,
     offline: offline,
-    protocol: protocol,
-    setProtocol: setProtocol,
     showControls: props.showControls ?? showControls,
     userInteraction: userInteraction,
     playerEvent: playerEvent,
@@ -154,6 +144,8 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     setPlayTime: setPlayTime,
     ingestMediaSource: props.ingestMediaSource ?? IngestMediaSource.USER,
     ingestAutoStart: props.ingestAutoStart ?? false,
+    renditions: renditions ?? [],
+    selectedRendition: selectedRendition ?? "source",
     ...props,
   };
   return (

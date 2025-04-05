@@ -65,6 +65,8 @@
             "#livestreamView",
             "#viewerCount",
             "place.stream.defs#blockView",
+            "place.stream.defs#renditions",
+            "place.stream.defs#rendition",
             "place.stream.chat.defs#messageView"
           ]
         }

@@ -126,7 +126,7 @@ export async function negotiateConnectionWithClientOffer(
        * This specifies how the client should communicate,
        * and what kind of media client and server have negotiated to exchange.
        */
-      let response = await postSDPOffer(endpoint, ofr.sdp, bearerToken);
+      let response = await postSDPOffer(`${endpoint}`, ofr.sdp, bearerToken);
       if (response.status === 201) {
         let answerSDP = await response.text();
         if ((peerConnection.connectionState as string) === "closed") {

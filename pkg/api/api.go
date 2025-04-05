@@ -28,6 +28,7 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
+	"stream.place/streamplace/pkg/director"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/linking"
 	"stream.place/streamplace/pkg/log"
@@ -35,6 +36,7 @@ import (
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/streamplace"
 )
@@ -49,12 +51,13 @@ type StreamplaceAPI struct {
 	MediaManager     *media.MediaManager
 	MediaSigner      media.MediaSigner
 	// not thread-safe yet
-	Aliases map[string]string
-	Bus     *bus.Bus
-	ATSync  *atproto.ATProtoSynchronizer
+	Aliases  map[string]string
+	Bus      *bus.Bus
+	ATSync   *atproto.ATProtoSynchronizer
+	Director *director.Director
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -69,6 +72,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712S
 		Aliases:          map[string]string{},
 		Bus:              bus,
 		ATSync:           atsync,
+		Director:         d,
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {
@@ -95,6 +99,13 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 	return nil, ErrorIndex
 }
 
+// api/playback/iame.li/webrtc?rendition=source
+// api/playback/iame.li/stream.mp4?rendition=source
+// api/playback/iame.li/stream.webm?rendition=source
+// api/playback/iame.li/hls/index.m3u8
+// api/playback/iame.li/hls/source/stream.m3u8
+// api/playback/iame.li/hls/source/000000000000.ts
+
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router := httprouter.New()
 	apiRouter := httprouter.New()
@@ -107,12 +118,11 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.POST("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
 	apiRouter.OPTIONS("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
 	apiRouter.DELETE("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	apiRouter.GET("/api/hls/:stream/*resource", a.MistProxyHandler(ctx, "/hls/%s"))
 	apiRouter.Handler("POST", "/api/segment", a.HandleSegment(ctx))
 	apiRouter.HandlerFunc("GET", "/api/healthz", a.HandleHealthz(ctx))
+	apiRouter.GET("/api/playback/:user/hls/*file", a.HandleHLSPlayback(ctx))
 	apiRouter.GET("/api/playback/:user/stream.mp4", a.HandleMP4Playback(ctx))
 	apiRouter.GET("/api/playback/:user/stream.webm", a.HandleMKVPlayback(ctx))
-	apiRouter.GET("/api/playback/:user/hls/:file", a.HandleHLSPlayback(ctx))
 	// they're, uh, not jpegs. but we used this once and i don't wanna break backwards compatibility
 	apiRouter.GET("/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	// this one is not a lie
@@ -736,6 +746,24 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				return
 			}
 			initialBurst <- spSeg
+			if a.CLI.LivepeerGatewayURL != "" {
+				renditions, err := renditions.GenerateRenditions(spSeg)
+				if err != nil {
+					log.Error(ctx, "could not generate renditions", "error", err)
+					return
+				}
+				outRs := streamplace.Defs_Renditions{
+					LexiconTypeID: "place.stream.defs#renditions",
+				}
+				outRs.Renditions = []*streamplace.Defs_Rendition{}
+				for _, r := range renditions {
+					outRs.Renditions = append(outRs.Renditions, &streamplace.Defs_Rendition{
+						LexiconTypeID: "place.stream.defs#rendition",
+						Name:          r.Name,
+					})
+				}
+				initialBurst <- outRs
+			}
 		}()
 
 		go func() {

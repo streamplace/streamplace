@@ -1,5 +1,6 @@
 import { AppBskyFeedDefs, AppBskyFeedPost } from "@atproto/api";
 import { createAction } from "@reduxjs/toolkit";
+import { PROTOCOL_HLS, PROTOCOL_WEBRTC } from "components/player/props";
 import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import { uuidv7 } from "hooks/uuid";
 import {
@@ -9,8 +10,12 @@ import {
 import { createContext, useContext } from "react";
 import { createAppSlice } from "../../hooks/createSlice";
 import { Record as ChatMessageRecord } from "../../lexicons/types/place/stream/chat/message";
-import { BlockView, isBlockView } from "../../lexicons/types/place/stream/defs";
-
+import {
+  BlockView,
+  isBlockView,
+  isRenditions,
+  Rendition,
+} from "../../lexicons/types/place/stream/defs";
 import {
   isLivestreamView,
   isViewerCount,
@@ -62,6 +67,9 @@ export interface PlayerState {
   chatList: MessageViewHydrated[];
   livestream: LivestreamViewHydrated | null;
   segment: Segment.Record | null;
+  renditions: Rendition[];
+  selectedRendition: string | null;
+  protocol: string;
 }
 
 export interface PlayersState {
@@ -72,7 +80,7 @@ const initialState: PlayersState = {};
 
 export const newPlayer = createAction("player/newPlayer", function prepare() {
   return {
-    payload: { playerId: uuidv7() },
+    payload: { playerId: uuidv7(), forceProtocol: PROTOCOL_WEBRTC },
   };
 });
 
@@ -134,18 +142,27 @@ export const playerSlice = createAppSlice({
   initialState,
 
   extraReducers: (builder) => {
-    builder.addCase(newPlayer, (state, action) => {
-      state[action.payload.playerId] = {
-        ingestStarted: null,
-        ingestStarting: false,
-        ingestConnectionState: null,
-        viewers: null,
-        chat: {},
-        chatList: [],
-        livestream: null,
-        segment: null,
-      };
-    });
+    builder.addCase(
+      newPlayer,
+      (
+        state,
+        action: { payload: { playerId: string; forceProtocol: string } },
+      ) => {
+        state[action.payload.playerId] = {
+          ingestStarted: null,
+          ingestStarting: false,
+          ingestConnectionState: null,
+          viewers: null,
+          protocol: action.payload.forceProtocol ?? PROTOCOL_WEBRTC,
+          chat: {},
+          chatList: [],
+          livestream: null,
+          segment: null,
+          renditions: [],
+          selectedRendition: "source",
+        };
+      },
+    );
   },
 
   reducers: (create) => {
@@ -240,6 +257,14 @@ export const playerSlice = createAppSlice({
                   [],
                   [block],
                 ),
+              };
+            } else if (isRenditions(message)) {
+              state = {
+                ...state,
+                [action.payload.playerId]: {
+                  ...state[action.payload.playerId],
+                  renditions: message.renditions,
+                },
               };
             }
           }
@@ -377,6 +402,50 @@ export const playerSlice = createAppSlice({
           },
         },
       ),
+
+      setSelectedRendition: create.reducer(
+        (
+          state,
+          action: {
+            payload: { playerId: string; rendition: string };
+            type: string;
+          },
+        ) => {
+          return {
+            ...state,
+            [action.payload.playerId]: {
+              ...state[action.payload.playerId],
+              selectedRendition: action.payload.rendition,
+            },
+          };
+        },
+      ),
+
+      setProtocol: create.reducer(
+        (
+          state,
+          action: {
+            payload: { playerId: string; protocol: string };
+            type: string;
+          },
+        ) => {
+          const newPlayer = {
+            ...state[action.payload.playerId],
+            protocol: action.payload.protocol,
+          };
+          if (action.payload.protocol === PROTOCOL_HLS) {
+            newPlayer.selectedRendition = "auto";
+          } else {
+            if (newPlayer.selectedRendition === "auto") {
+              newPlayer.selectedRendition = "source";
+            }
+          }
+          return {
+            ...state,
+            [action.payload.playerId]: newPlayer,
+          };
+        },
+      ),
     };
   },
 
@@ -392,6 +461,15 @@ export const playerSlice = createAppSlice({
     },
     selectSegment: (state, playerId: string) => {
       return state[playerId].segment;
+    },
+    selectRenditions: (state, playerId: string) => {
+      return state[playerId].renditions;
+    },
+    selectSelectedRendition: (state, playerId: string) => {
+      return state[playerId].selectedRendition;
+    },
+    selectProtocol: (state, playerId: string) => {
+      return state[playerId].protocol;
     },
   },
 });
@@ -418,6 +496,10 @@ export const usePlayerActions = () => {
       playerSlice.actions.pollSegment({ playerId, user }),
     handleWebSocketMessages: (messages: any[]) =>
       playerSlice.actions.handleWebSocketMessages({ playerId, messages }),
+    setSelectedRendition: (rendition: string) =>
+      playerSlice.actions.setSelectedRendition({ playerId, rendition }),
+    setProtocol: (protocol: string) =>
+      playerSlice.actions.setProtocol({ playerId, protocol }),
   };
 };
 
@@ -447,4 +529,22 @@ export const usePlayerSegment = (): ((state: {
 }) => Segment.Record | null) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId].segment;
+};
+export const usePlayerRenditions = (): ((state: {
+  player: PlayersState;
+}) => Rendition[]) => {
+  const playerId = usePlayerId();
+  return (state) => state.player[playerId].renditions;
+};
+export const usePlayerSelectedRendition = (): ((state: {
+  player: PlayersState;
+}) => string | null) => {
+  const playerId = usePlayerId();
+  return (state) => state.player[playerId].selectedRendition;
+};
+export const usePlayerProtocol = (): ((state: {
+  player: PlayersState;
+}) => string) => {
+  const playerId = usePlayerId();
+  return (state) => state.player[playerId].protocol;
 };

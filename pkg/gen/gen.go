@@ -25,6 +25,7 @@ func main() {
 		streamplace.Segment{},
 		streamplace.Segment_Audio{},
 		streamplace.Segment_Video{},
+		streamplace.Segment_Framerate{},
 		streamplace.ChatMessage{},
 		streamplace.RichtextFacet{},
 		streamplace.ChatProfile{},

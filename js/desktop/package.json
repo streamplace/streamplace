@@ -5,7 +5,7 @@
   "description": "Streamplace Desktop Application",
   "main": ".webpack/main",
   "scripts": {
-    "start": "electron-forge start \"$@\" | cat",
+    "start": "PORT=38082 electron-forge start \"$@\" | cat",
     "start-with-node": "electron-forge start \"$@\" | cat",
     "package": "electron-forge package",
     "make": "electron-forge make",

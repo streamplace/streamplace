@@ -456,9 +456,13 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 7
+	fieldCount := 8
 
 	if t.Audio == nil {
+		fieldCount--
+	}
+
+	if t.Duration == nil {
 		fieldCount--
 	}
 
@@ -591,6 +595,38 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.Creator)); err != nil {
 		return err
+	}
+
+	// t.Duration (int64) (int64)
+	if t.Duration != nil {
+
+		if len("duration") > 1000000 {
+			return xerrors.Errorf("Value in field \"duration\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("duration"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("duration")); err != nil {
+			return err
+		}
+
+		if t.Duration == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if *t.Duration >= 0 {
+				if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(*t.Duration)); err != nil {
+					return err
+				}
+			} else {
+				if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-*t.Duration-1)); err != nil {
+					return err
+				}
+			}
+		}
+
 	}
 
 	// t.StartTime (string) (string)
@@ -812,6 +848,42 @@ func (t *Segment) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Creator = string(sval)
+			}
+			// t.Duration (int64) (int64)
+		case "duration":
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					maj, extra, err := cr.ReadHeader()
+					if err != nil {
+						return err
+					}
+					var extraI int64
+					switch maj {
+					case cbg.MajUnsignedInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 positive overflow")
+						}
+					case cbg.MajNegativeInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 negative overflow")
+						}
+						extraI = -1 - extraI
+					default:
+						return fmt.Errorf("wrong type for int64 field: %d", maj)
+					}
+
+					t.Duration = (*int64)(&extraI)
+				}
 			}
 			// t.StartTime (string) (string)
 		case "startTime":
@@ -1050,8 +1122,13 @@ func (t *Segment_Video) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 4
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.Framerate == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -1122,6 +1199,24 @@ func (t *Segment_Video) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
+	// t.Framerate (streamplace.Segment_Framerate) (struct)
+	if t.Framerate != nil {
+
+		if len("framerate") > 1000000 {
+			return xerrors.Errorf("Value in field \"framerate\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("framerate"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("framerate")); err != nil {
+			return err
+		}
+
+		if err := t.Framerate.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1150,7 +1245,7 @@ func (t *Segment_Video) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 6)
+	nameBuf := make([]byte, 9)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -1228,6 +1323,189 @@ func (t *Segment_Video) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Height = int64(extraI)
+			}
+			// t.Framerate (streamplace.Segment_Framerate) (struct)
+		case "framerate":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Framerate = new(Segment_Framerate)
+					if err := t.Framerate.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Framerate pointer: %w", err)
+					}
+				}
+
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *Segment_Framerate) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.Den (int64) (int64)
+	if len("den") > 1000000 {
+		return xerrors.Errorf("Value in field \"den\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("den"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("den")); err != nil {
+		return err
+	}
+
+	if t.Den >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Den)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Den-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.Num (int64) (int64)
+	if len("num") > 1000000 {
+		return xerrors.Errorf("Value in field \"num\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("num"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("num")); err != nil {
+		return err
+	}
+
+	if t.Num >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Num)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Num-1)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *Segment_Framerate) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = Segment_Framerate{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("Segment_Framerate: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 3)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Den (int64) (int64)
+		case "den":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Den = int64(extraI)
+			}
+			// t.Num (int64) (int64)
+		case "num":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Num = int64(extraI)
 			}
 
 		default:

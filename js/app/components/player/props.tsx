@@ -1,3 +1,5 @@
+import { Rendition } from "lexicons/types/place/stream/defs";
+
 export enum IngestMediaSource {
   USER = "user",
   DISPLAY = "display",
@@ -9,13 +11,11 @@ export type PlayerProps = {
   src: string;
   muted: boolean;
   fullscreen: boolean;
-  protocol: string;
   forceProtocol?: string;
   showControls: boolean;
   telemetry: boolean;
   setMuted: (isMuted: boolean) => void;
   setFullscreen: (isFullscreen: boolean) => void;
-  setProtocol: (protocol: string) => void;
   userInteraction: () => void;
   playerEvent: (
     time: string,
@@ -33,6 +33,8 @@ export type PlayerProps = {
   ingestAutoStart?: boolean;
   avSyncTest?: boolean;
   offline: boolean;
+  renditions: Rendition[];
+  selectedRendition: string;
 };
 
 export type PlayerEvent = {

@@ -19,3 +19,19 @@ type Defs_BlockView struct {
 	Record        *appbskytypes.GraphBlock                 `json:"record" cborgen:"record"`
 	Uri           string                                   `json:"uri" cborgen:"uri"`
 }
+
+// Defs_Rendition is a "rendition" in the place.stream.defs schema.
+//
+// RECORDTYPE: Defs_Rendition
+type Defs_Rendition struct {
+	LexiconTypeID string `json:"$type,const=place.stream.defs#rendition" cborgen:"$type,const=place.stream.defs#rendition"`
+	Name          string `json:"name" cborgen:"name"`
+}
+
+// Defs_Renditions is a "renditions" in the place.stream.defs schema.
+//
+// RECORDTYPE: Defs_Renditions
+type Defs_Renditions struct {
+	LexiconTypeID string            `json:"$type,const=place.stream.defs#renditions" cborgen:"$type,const=place.stream.defs#renditions"`
+	Renditions    []*Defs_Rendition `json:"renditions" cborgen:"renditions"`
+}

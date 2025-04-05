@@ -24,7 +24,7 @@ import (
 var DEFAULT_DURATION = time.Duration(32 * time.Millisecond)
 
 // This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
+func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, rendition string, offer *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 		cancel()
 	}()
 
-	outputQueue, done, err := ConcatStream(ctx, pipeline, user, mm)
+	outputQueue, done, err := ConcatStream(ctx, pipeline, user, rendition, mm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get output queue: %w", err)
 	}
@@ -305,7 +305,6 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, offer *
 		})
 
 		<-ctx.Done()
-		log.Warn(ctx, "!!!!!!!!!!!!!!!!!!!!!!! ctx done")
 	}()
 	select {
 	case <-gatherComplete:
@@ -391,7 +390,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	pipelineSlice := []string{
 		"multiqueue name=queue",
 		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse ! h264timestamper ! identity ! queue.sink_0",
-		"appsrc format=time is-live=true do-timestamp=true name=audiosrc ! capsfilter caps=application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! rtpopusdepay ! queue.sink_1",
+		"appsrc format=time is-live=true do-timestamp=true name=audiosrc ! capsfilter caps=application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! rtpopusdepay ! opusdec use-inband-fec=true ! audiorate ! opusenc ! queue.sink_1",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -525,11 +524,11 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 			log.Log(ctx, "Peer Connection State has changed", "state", s.String())
 
-			if s == webrtc.PeerConnectionStateFailed {
+			if s == webrtc.PeerConnectionStateFailed || s == webrtc.PeerConnectionStateDisconnected {
 				// Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
 				// Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
 				// Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
-				log.Log(ctx, "Peer Connection has gone to failed exiting")
+				log.Log(ctx, "Peer Connection has ended, exiting", "state", s.String())
 				cancel()
 			}
 		})
@@ -614,7 +613,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		})
 
 		<-ctx.Done()
-		log.Warn(ctx, "!!!!!!!!! context done, exiting")
 	}()
 	select {
 	case <-gatherComplete:

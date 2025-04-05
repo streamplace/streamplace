@@ -16,6 +16,8 @@ type Segment struct {
 	LexiconTypeID string           `json:"$type,const=place.stream.segment" cborgen:"$type,const=place.stream.segment"`
 	Audio         []*Segment_Audio `json:"audio,omitempty" cborgen:"audio,omitempty"`
 	Creator       string           `json:"creator" cborgen:"creator"`
+	// duration: The duration of the segment in nanoseconds
+	Duration *int64 `json:"duration,omitempty" cborgen:"duration,omitempty"`
 	// id: Unique identifier for the segment
 	Id string `json:"id" cborgen:"id"`
 	// signingKey: The DID of the signing key used for this segment
@@ -32,9 +34,16 @@ type Segment_Audio struct {
 	Rate     int64  `json:"rate" cborgen:"rate"`
 }
 
+// Segment_Framerate is a "framerate" in the place.stream.segment schema.
+type Segment_Framerate struct {
+	Den int64 `json:"den" cborgen:"den"`
+	Num int64 `json:"num" cborgen:"num"`
+}
+
 // Segment_Video is a "video" in the place.stream.segment schema.
 type Segment_Video struct {
-	Codec  string `json:"codec" cborgen:"codec"`
-	Height int64  `json:"height" cborgen:"height"`
-	Width  int64  `json:"width" cborgen:"width"`
+	Codec     string             `json:"codec" cborgen:"codec"`
+	Framerate *Segment_Framerate `json:"framerate,omitempty" cborgen:"framerate,omitempty"`
+	Height    int64              `json:"height" cborgen:"height"`
+	Width     int64              `json:"width" cborgen:"width"`
 }

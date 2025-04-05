@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"crypto"
 	"flag"
@@ -13,15 +12,14 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"syscall"
-	"time"
 
 	"golang.org/x/term"
 	"stream.place/streamplace/pkg/aqhttp"
-	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
+	"stream.place/streamplace/pkg/director"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/notifications"
@@ -29,7 +27,6 @@ import (
 	"stream.place/streamplace/pkg/replication/boring"
 	v0 "stream.place/streamplace/pkg/schema/v0"
 	"stream.place/streamplace/pkg/spmetrics"
-	"stream.place/streamplace/pkg/thumbnail"
 
 	"github.com/ThalesGroup/crypto11"
 	_ "github.com/go-gst/go-glib/glib"
@@ -131,6 +128,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.StringVar(&cli.AppBundleID, "app-bundle-id", "", "bundle id of an app that we facilitate oauth login for")
 	fs.StringVar(&cli.StreamerName, "streamer-name", "", "name of the person streaming from this streamplace node")
 	fs.StringVar(&cli.FrontendProxy, "dev-frontend-proxy", "", "(FOR DEVELOPMENT ONLY) proxy frontend requests to this address instead of using the bundled frontend")
+	fs.StringVar(&cli.LivepeerGatewayURL, "livepeer-gateway-url", "", "URL of the Livepeer Gateway to use for transcoding")
 	fs.BoolVar(&cli.WideOpen, "wide-open", false, "allow ALL streams to be uploaded to this node (not recommended for production)")
 	cli.StringSliceFlag(fs, &cli.AllowedStreams, "allowed-streams", "", "if set, only allow these addresses or atproto DIDs to upload to this node")
 	cli.StringSliceFlag(fs, &cli.Peers, "peers", "", "other streamplace nodes to replicate to")
@@ -299,7 +297,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return err
 	}
 
-	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b, atsync)
+	d := director.NewDirector(mm, mod, &cli, b)
+
+	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b, atsync, d)
 	if err != nil {
 		return err
 	}
@@ -339,66 +339,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	})
 
 	group.Go(func() error {
-		newSeg := mm.NewSegment()
-		for {
-			select {
-			case <-ctx.Done():
-				return nil
-			case not := <-newSeg:
-				err := mod.CreateSegment(not.Segment)
-				if err != nil {
-					log.Error(ctx, "could not add segment to database", "error", err)
-				}
-				spseg, err := not.Segment.ToStreamplaceSegment()
-				if err != nil {
-					log.Error(ctx, "could not convert segment to streamplace segment", "error", err)
-					continue
-				}
-				b.Publish(spseg.Creator, spseg)
-				go func() {
-					err := func() error {
-						lock := thumbnail.GetThumbnailLock(not.Segment.RepoDID)
-						locked := lock.TryLock()
-						if !locked {
-							// we're already generating a thumbnail for this user, skip
-							return nil
-						}
-						defer lock.Unlock()
-						oldThumb, err := mod.LatestThumbnailForUser(not.Segment.RepoDID)
-						if err != nil {
-							return err
-						}
-						if oldThumb != nil && not.Segment.StartTime.Sub(oldThumb.Segment.StartTime) < time.Minute {
-							// we have a thumbnail <60sec old, skip generating a new one
-							return nil
-						}
-						r := bytes.NewReader(not.Data)
-						aqt := aqtime.FromTime(not.Segment.StartTime)
-						fd, err := cli.SegmentFileCreate(not.Segment.RepoDID, aqt, "jpg")
-						if err != nil {
-							return err
-						}
-						defer fd.Close()
-						err = mm.Thumbnail(ctx, r, fd)
-						if err != nil {
-							return err
-						}
-						thumb := &model.Thumbnail{
-							Format:    "jpg",
-							SegmentID: not.Segment.ID,
-						}
-						err = mod.CreateThumbnail(thumb)
-						if err != nil {
-							return err
-						}
-						return nil
-					}()
-					if err != nil {
-						log.Error(ctx, "could not create thumbnail", "error", err)
-					}
-				}()
-			}
-		}
+		return d.Start(ctx)
 	})
 
 	if cli.TestStream {

@@ -37,8 +37,11 @@ export function PlayerContextInitializer(
     if (props.playerId) {
       newPlayerAction.payload.playerId = props.playerId;
     }
-    setPlayerId(newPlayerAction.payload.playerId);
+    if (props.forceProtocol) {
+      newPlayerAction.payload.forceProtocol = props.forceProtocol;
+    }
     dispatch(newPlayerAction);
+    setPlayerId(newPlayerAction.payload.playerId);
   }, []);
   if (!playerId) {
     return <></>;

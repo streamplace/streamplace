@@ -1,3 +1,4 @@
+import NameColorPicker from "components/name-color-picker/name-color-picker";
 import {
   selectTelemetry,
   setURL,
@@ -5,10 +6,10 @@ import {
 } from "features/streamplace/streamplaceSlice";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useState } from "react";
-import { useAppDispatch, useAppSelector } from "store/hooks";
-import { Button, Form, H3, Input, View, XStack, Label } from "tamagui";
-import { Updates } from "./updates";
 import { Switch } from "react-native";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { Button, Form, H3, Input, Label, View, XStack } from "tamagui";
+import { Updates } from "./updates";
 
 export function Settings() {
   const dispatch = useAppDispatch();
@@ -22,6 +23,11 @@ export function Settings() {
   return (
     <View f={1} alignItems="stretch" justifyContent="center" fg={1}>
       <Updates />
+      <View alignItems="center" justifyContent="center">
+        <View maxWidth={300}>
+          <NameColorPicker />
+        </View>
+      </View>
       <Form
         fg={1}
         flexBasis={0}

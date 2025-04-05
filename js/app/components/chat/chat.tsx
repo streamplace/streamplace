@@ -1,20 +1,20 @@
 // import { useChat, ChatMessage } from "features/player/playerSlice";
+import { Settings, X } from "@tamagui/lucide-icons";
+import {
+  createBlockRecord,
+  selectUserProfile,
+} from "features/bluesky/blueskySlice";
 import {
   MessageViewHydrated,
   PostViewHydrated,
   useChat,
   usePlayerLivestream,
 } from "features/player/playerSlice";
-import { useEffect, useRef, useState } from "react";
-import { useAppDispatch, useAppSelector } from "store/hooks";
-import { View, Text, ScrollView, Sheet, Button, useMedia } from "tamagui";
-import { Settings, X } from "@tamagui/lucide-icons";
-import { TouchableOpacity } from "react-native";
 import usePlatform from "hooks/usePlatform";
-import {
-  createBlockRecord,
-  selectUserProfile,
-} from "features/bluesky/blueskySlice";
+import { useEffect, useRef, useState } from "react";
+import { TouchableOpacity } from "react-native";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { Button, ScrollView, Sheet, Text, useMedia, View } from "tamagui";
 
 export default function Chat() {
   const [open, setOpen] = useState(false);
@@ -66,6 +66,7 @@ export default function Chat() {
             justifyContent="center"
             padding="$4"
             gap="$5"
+            backgroundColor="$accentBackground"
           >
             <Button
               position="absolute"
@@ -100,9 +101,11 @@ export default function Chat() {
                   </Button>
                 )}
                 {modMessage.author.did === userProfile?.did && (
-                  <Button width="100%" disabled={true}>
-                    <Text>(You can't block yourself!)</Text>
-                  </Button>
+                  <>
+                    <Button width="100%" disabled={true}>
+                      <Text>(You can't block yourself!)</Text>
+                    </Button>
+                  </>
                 )}
               </>
             )}

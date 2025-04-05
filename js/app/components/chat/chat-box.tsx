@@ -26,7 +26,9 @@ export default function ChatBox() {
   const textAreaRef = useRef<Input>(null);
   const dispatch = useAppDispatch();
   const submit = () => {
-    Keyboard.dismiss();
+    if (!isWeb) {
+      Keyboard.dismiss();
+    }
     if (message.length === 0) {
       return;
     }
@@ -92,6 +94,7 @@ export default function ChatBox() {
             }}
             onKeyPress={(e) => {
               if (e.nativeEvent.key === "Enter") {
+                e.preventDefault();
                 submit();
               }
             }}

@@ -1,26 +1,27 @@
 import {
   Agent,
   AppBskyFeedPost,
-  BlobRef,
   AppBskyGraphBlock,
+  BlobRef,
 } from "@atproto/api";
-import { StreamplaceState } from "features/streamplace/streamplaceSlice";
-import { openLoginLink } from "features/platform/platformSlice";
-import Storage from "storage";
-import { createAppSlice } from "../../hooks/createSlice";
-import createOAuthClient from "./oauthClient";
-import { Secp256k1Keypair, bytesToMultibase } from "@atproto/crypto";
-import { privateKeyToAccount } from "viem/accounts";
+import { ProfileViewDetailed } from "@atproto/api/src/client/types/app/bsky/actor/defs";
+import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
 import { hydrate, STORED_KEY_KEY } from "features/base/baseSlice";
-import { isWeb } from "tamagui";
+import { openLoginLink } from "features/platform/platformSlice";
+import { LivestreamViewHydrated } from "features/player/playerSlice";
+import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import {
+  PlaceStreamChatMessage,
+  PlaceStreamChatProfile,
   PlaceStreamKey,
   PlaceStreamLivestream,
-  PlaceStreamChatMessage,
 } from "lexicons";
+import Storage from "storage";
+import { isWeb } from "tamagui";
+import { privateKeyToAccount } from "viem/accounts";
+import { createAppSlice } from "../../hooks/createSlice";
 import { BlueskyState } from "./blueskyTypes";
-import { LivestreamViewHydrated } from "features/player/playerSlice";
-import { ProfileViewDetailed } from "@atproto/api/src/client/types/app/bsky/actor/defs";
+import createOAuthClient from "./oauthClient";
 
 const initialState: BlueskyState = {
   status: "start",
@@ -32,6 +33,11 @@ const initialState: BlueskyState = {
   login: {
     loading: false,
     error: null,
+  },
+  chatProfile: {
+    loading: false,
+    error: null,
+    profile: null,
   },
   pds: {
     url: "bsky.social",
@@ -729,6 +735,136 @@ export const blueskySlice = createAppSlice({
         },
       },
     ),
+
+    getChatProfileRecordFromPDS: create.asyncThunk(
+      async (_, thunkAPI) => {
+        const { bluesky } = thunkAPI.getState() as { bluesky: BlueskyState };
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const profile = bluesky.profiles[did];
+        if (!profile) {
+          throw new Error("No profile");
+        }
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const res = await bluesky.pdsAgent.com.atproto.repo.getRecord({
+          repo: did,
+          collection: "place.stream.chat.profile",
+          rkey: "self",
+        });
+        if (!res.success) {
+          throw new Error("Failed to get chat profile record");
+        }
+        if (PlaceStreamChatProfile.isRecord(res.data.record)) {
+          return res.data.record;
+        }
+        return null;
+      },
+      {
+        pending: (state) => {
+          return {
+            ...state,
+            chatProfile: {
+              loading: true,
+              error: null,
+              profile: null,
+            },
+          };
+        },
+        fulfilled: (state, action) => {
+          if (!action.payload) {
+            return state;
+          }
+          return {
+            ...state,
+            chatProfile: {
+              loading: false,
+              error: null,
+              profile: action.payload,
+            },
+          };
+        },
+      },
+    ),
+
+    createChatProfileRecord: create.asyncThunk(
+      async (
+        { red, green, blue }: { red: number; green: number; blue: number },
+        thunkAPI,
+      ) => {
+        const now = new Date();
+        const { bluesky, streamplace } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+          streamplace: StreamplaceState;
+        };
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const profile = bluesky.profiles[did];
+        if (!profile) {
+          throw new Error("No profile");
+        }
+        if (!did) {
+          throw new Error("No DID");
+        }
+
+        const chatProfile: PlaceStreamChatProfile.Record = {
+          color: {
+            red: red,
+            green: green,
+            blue: blue,
+          },
+        };
+
+        await bluesky.pdsAgent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: "place.stream.chat.profile",
+          record: chatProfile,
+          rkey: "self",
+        });
+        return chatProfile;
+      },
+      {
+        pending: (state) => {
+          return {
+            ...state,
+            chatProfile: {
+              loading: true,
+              error: null,
+              profile: null,
+            },
+          };
+        },
+        fulfilled: (state, action) => {
+          return {
+            ...state,
+            chatProfile: {
+              loading: false,
+              error: null,
+              profile: action.payload,
+            },
+          };
+        },
+        rejected: (state, action) => {
+          console.error("getProfile rejected", action.error);
+          return {
+            ...state,
+            chatProfile: {
+              loading: false,
+              error: action.error?.message ?? null,
+              profile: null,
+            },
+          };
+        },
+      },
+    ),
   }),
 
   // You can define your selectors here. These selectors receive the slice
@@ -761,6 +897,7 @@ export const blueskySlice = createAppSlice({
       return true;
     },
     selectNewLivestream: (bluesky) => bluesky.newLivestream,
+    selectChatProfile: (bluesky) => bluesky.chatProfile,
   },
 });
 
@@ -776,6 +913,8 @@ export const {
   createStreamKeyRecord,
   clearStreamKeyRecord,
   createLivestreamRecord,
+  createChatProfileRecord,
+  getChatProfileRecordFromPDS,
   chatPost,
   chatMessage,
   createBlockRecord,
@@ -791,4 +930,5 @@ export const {
   selectStoredKey,
   selectIsReady,
   selectNewLivestream,
+  selectChatProfile,
 } = blueskySlice.selectors;

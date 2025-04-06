@@ -49,7 +49,6 @@ func NewLivepeerSession(ctx context.Context, did string, gatewayURL string) (*Li
 func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte, seg *streamplace.Segment) ([][]byte, error) {
 	ctx = log.WithLogValues(ctx, "func", "PostSegmentToGateway")
 	ls.SegLock.Lock()
-	defer ls.SegLock.Unlock()
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
 	defer cancel()
 	url := fmt.Sprintf("%s/live/%s/%d.mp4", ls.GatewayURL, ls.SessionID, ls.Count)
@@ -65,6 +64,7 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(buf))
 	if err != nil {
+		ls.SegLock.Unlock()
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Accept", "multipart/mixed")
@@ -73,8 +73,10 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 
 	resp, err := ctxhttp.Do(ctx, &aqhttp.Client, req)
 	if err != nil {
+		ls.SegLock.Unlock()
 		return nil, fmt.Errorf("failed to send segment to gateway: %w", err)
 	}
+	ls.SegLock.Unlock()
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {

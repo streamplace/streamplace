@@ -177,6 +177,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if *version {
 		return nil
 	}
+	spmetrics.Version.WithLabelValues(build.Version).Inc()
 
 	aqhttp.UserAgent = fmt.Sprintf("streamplace/%s", build.Version)
 

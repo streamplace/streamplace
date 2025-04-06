@@ -16,6 +16,7 @@ import (
 	"stream.place/streamplace/pkg/media/segchanman"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/renditions"
+	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/thumbnail"
 )
@@ -92,7 +93,7 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 		case <-ctx.Done():
 			return g.Wait()
 		// case <-time.After(time.Minute * 1):
-		case <-time.After(time.Second * 10):
+		case <-time.After(time.Second * 60):
 			log.Log(ctx, "no new segments for 1 minute, shutting down")
 			cancel()
 		}
@@ -104,7 +105,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 		return nil
 	}
 	ss.segmentChan <- struct{}{}
-	ctx = log.WithLogValues(ctx, "segID", not.Segment.ID)
+	aqt := aqtime.FromTime(not.Segment.StartTime)
+	ctx = log.WithLogValues(ctx, "segID", not.Segment.ID, "repoDID", not.Segment.RepoDID, "timestamp", aqt.FileSafeString())
 	err := ss.mod.CreateSegment(not.Segment)
 	if err != nil {
 		return fmt.Errorf("could not add segment to database: %w", err)
@@ -125,9 +127,13 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 
 	if ss.cli.LivepeerGatewayURL != "" {
 		go func() {
+			start := time.Now()
 			err := ss.Transcode(ctx, spseg, not.Data)
+			took := time.Since(start)
 			if err != nil {
-				log.Error(ctx, "could not transcode", "error", err)
+				log.Error(ctx, "could not transcode", "error", err, "took", took)
+			} else {
+				log.Log(ctx, "transcoded segment", "took", took)
 			}
 		}()
 	}
@@ -183,13 +189,17 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 		}
 
 	}
-	segs, err := ss.lp.PostSegmentToGateway(ctx, data)
+	spmetrics.TranscodeAttemptsTotal.Inc()
+	segs, err := ss.lp.PostSegmentToGateway(ctx, data, spseg)
 	if err != nil {
+		spmetrics.TranscodeErrorsTotal.Inc()
 		return err
 	}
 	if len(rs) != len(segs) {
+		spmetrics.TranscodeErrorsTotal.Inc()
 		return fmt.Errorf("expected %d renditions, got %d", len(rs), len(segs))
 	}
+	spmetrics.TranscodeSuccessesTotal.Inc()
 	aqt, err := aqtime.FromString(spseg.StartTime)
 	if err != nil {
 		return err

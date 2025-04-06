@@ -187,7 +187,9 @@ ios: app
 	mkdir -p .build \
 	&& curl -L -o ./.build/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.0/bundletool-all-1.17.0.jar
 
-OPTS = -D "gst-plugins-base:audioresample=enabled" \
+OPTS = \
+		--buildtype=debugoptimized \
+		-D "gst-plugins-base:audioresample=enabled" \
 		-D "gst-plugins-base:playback=enabled" \
 		-D "gst-plugins-base:opus=enabled" \
 		-D "gst-plugins-base:gio-typefinder=enabled" \
@@ -228,7 +230,14 @@ OPTS = -D "gst-plugins-base:audioresample=enabled" \
 		-D "gstreamer-full:libav=enabled" \
 		-D "gstreamer-full:ugly=enabled" \
 		-D "gstreamer-full:gpl=enabled" \
-		-D "gstreamer-full:gst-full-typefind-functions="
+		-D "gstreamer-full:gst-full-typefind-functions=" \
+		-D "gstreamer-full:glib_assert=false" \
+		-D "gstreamer:glib_assert=false" \
+		-D "gst-plugins-good:glib_assert=false" \
+		-D "gst-plugins-bad:glib_assert=false" \
+		-D "gst-plugins-base:glib_assert=false" \
+		-D "gst-plugins-ugly:glib_assert=false" \
+		-D "glib:glib_assert=false"
 
 .PHONY: meson-setup
 meson-setup:

@@ -27,6 +27,26 @@ var ViewersTotal = promauto.NewGauge(prometheus.GaugeOpts{
 	Help: "total number of viewers",
 })
 
+var TranscodeAttemptsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_transcode_attempts_total",
+	Help: "total number of transcode attempts",
+})
+
+var TranscodeSuccessesTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_transcode_successes_total",
+	Help: "total number of transcode successes",
+})
+
+var TranscodeErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_transcode_errors_total",
+	Help: "total number of transcode errors",
+})
+
+var Version = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_version",
+	Help: "version of streamplace",
+}, []string{"version"})
+
 func ViewerInc(user string) {
 	go func() {
 		viewersLock.Lock()

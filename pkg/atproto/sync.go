@@ -55,7 +55,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			// someone we don't know about
 			return nil
 		}
-		log.Warn(ctx, "creating block", "userDID", userDID, "subjectDID", rec.Subject)
+		log.Debug(ctx, "creating block", "userDID", userDID, "subjectDID", rec.Subject)
 		block := &model.Block{
 			RKey:       rkey.String(),
 			RepoDID:    userDID,
@@ -86,13 +86,13 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		log.Warn(ctx, "streamplace.ChatMessage detected", "message", rec.Text, "repo", repo.Handle)
+		log.Debug(ctx, "streamplace.ChatMessage detected", "message", rec.Text, "repo", repo.Handle)
 		block, err := atsync.Model.GetUserBlock(ctx, streamerRepo.DID, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to get user block: %w", err)
 		}
 		if block != nil {
-			log.Warn(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", streamerRepo.DID)
+			log.Debug(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", streamerRepo.DID)
 			return nil
 		}
 		mcm := &model.ChatMessage{

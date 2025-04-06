@@ -39,6 +39,36 @@ type ATProtoSynchronizer struct {
 }
 
 func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
+	retryCount := 0
+	retryWindow := time.Now()
+
+	for {
+		if ctx.Err() != nil {
+			return nil
+		}
+		err := atsync.StartFirehoseRetry(ctx)
+		if err != nil {
+			log.Error(ctx, "firehose error", "err", err)
+
+			// Check if we're within the 1-minute window
+			now := time.Now()
+			if now.Sub(retryWindow) > time.Minute {
+				// Reset the counter if more than a minute has passed
+				retryCount = 1
+				retryWindow = now
+			} else {
+				// Increment retry count if within the window
+				retryCount++
+				if retryCount >= 3 {
+					log.Error(ctx, "firehose failed 3 times within a minute, crashing", "err", err)
+					return fmt.Errorf("firehose failed 3 times within a minute: %w", err)
+				}
+			}
+		}
+	}
+}
+
+func (atsync *ATProtoSynchronizer) StartFirehoseRetry(ctx context.Context) error {
 	ctx = log.WithLogValues(ctx, "func", "StartFirehose")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

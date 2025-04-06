@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/log"
@@ -97,6 +98,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	for _, ch := range mm.newSegmentSubs {
 		go func() { ch <- not }()
 	}
-	log.Log(ctx, "successfully ingested segment", "user", repoDID, "signingKey", signingKeyDID, "timestamp", meta.StartTime, "segmentID", *mani.Label)
+	aqt := aqtime.FromTime(meta.StartTime.Time())
+	log.Log(ctx, "successfully ingested segment", "user", repoDID, "signingKey", signingKeyDID, "timestamp", aqt.FileSafeString(), "segmentID", *mani.Label)
 	return nil
 }

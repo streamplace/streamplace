@@ -227,6 +227,10 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 
 		case repomgr.EvtKindDeleteRecord:
 			if collection.String() == constants.APP_BSKY_GRAPH_FOLLOW {
+				if r == nil {
+					log.Debug(ctx, "no repo found for follow", "userDID", evt.Repo, "subjectDID", rkey.String())
+					continue
+				}
 				log.Debug(ctx, "deleting follow", "userDID", evt.Repo, "subjectDID", rkey.String())
 				err := atsync.Model.DeleteFollow(ctx, evt.Repo, rkey.String())
 				if err != nil {
@@ -246,9 +250,6 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				}
 			}
 
-			if err != nil {
-				return err
-			}
 		default:
 			log.Error(ctx, "unexpected record op kind")
 		}

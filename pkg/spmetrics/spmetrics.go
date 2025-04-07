@@ -20,7 +20,7 @@ var sessionsLock sync.RWMutex
 var Viewers = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_viewers",
 	Help: "number of current viewers per user",
-}, []string{"user"})
+}, []string{"streamer"})
 
 var ViewersTotal = promauto.NewGauge(prometheus.GaugeOpts{
 	Name: "streamplace_viewers_total",
@@ -41,6 +41,17 @@ var TranscodeErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "streamplace_transcode_errors_total",
 	Help: "total number of transcode errors",
 })
+
+var TranscodeDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_transcode_duration_ms",
+	Help:    "duration of transcode in ms",
+	Buckets: []float64{0, 250, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 10000},
+}, []string{"streamer"})
+
+var QueuedTranscodeDuration = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_queued_transcode_duration_ms",
+	Help: "duration of transcode in ms, including time spent waiting",
+}, []string{"streamer"})
 
 var Version = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "streamplace_version",

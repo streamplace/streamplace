@@ -10,20 +10,22 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/net/context/ctxhttp"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/streamplace"
 )
+
+const SEGMENTS_IN_FLIGHT = 2
 
 type LivepeerSession struct {
 	SessionID  string
 	Count      int
 	GatewayURL string
-	SegLock    sync.Mutex
+	Guard      chan struct{}
 }
 
 // borrowed from catalyst-api
@@ -43,15 +45,17 @@ func NewLivepeerSession(ctx context.Context, did string, gatewayURL string) (*Li
 		SessionID:  fmt.Sprintf("%s-%s", did, sessionID),
 		Count:      0,
 		GatewayURL: gatewayURL,
+		Guard:      make(chan struct{}, SEGMENTS_IN_FLIGHT),
 	}, nil
 }
 
-func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte, seg *streamplace.Segment) ([][]byte, error) {
+func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte, spseg *streamplace.Segment) ([][]byte, error) {
 	ctx = log.WithLogValues(ctx, "func", "PostSegmentToGateway")
-	ls.SegLock.Lock()
+	ls.Guard <- struct{}{}
+	start := time.Now()
 	// check if context is done since we were waiting for the lock
 	if ctx.Err() != nil {
-		ls.SegLock.Unlock()
+		<-ls.Guard
 		return nil, ctx.Err()
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
@@ -59,17 +63,17 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 	url := fmt.Sprintf("%s/live/%s/%d.mp4", ls.GatewayURL, ls.SessionID, ls.Count)
 	ls.Count++
 
-	dur := time.Duration(*seg.Duration)
+	dur := time.Duration(*spseg.Duration)
 	durationMs := int(dur.Milliseconds())
 	log.Debug(ctx, "posting segment to livepeer gateway", "duration_ms", durationMs, "url", url)
 
-	vid := seg.Video[0]
+	vid := spseg.Video[0]
 	width := int(vid.Width)
 	height := int(vid.Height)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(buf))
 	if err != nil {
-		ls.SegLock.Unlock()
+		<-ls.Guard
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Accept", "multipart/mixed")
@@ -78,10 +82,10 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 
 	resp, err := ctxhttp.Do(ctx, &aqhttp.Client, req)
 	if err != nil {
-		ls.SegLock.Unlock()
+		<-ls.Guard
 		return nil, fmt.Errorf("failed to send segment to gateway: %w", err)
 	}
-	ls.SegLock.Unlock()
+	<-ls.Guard
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -113,6 +117,6 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 			out = append(out, bs)
 		}
 	}
-
+	spmetrics.TranscodeDuration.WithLabelValues(spseg.Creator).Observe(float64(time.Since(start).Milliseconds()))
 	return out, nil
 }

@@ -135,6 +135,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 			} else {
 				log.Log(ctx, "transcoded segment", "took", took)
 			}
+			spmetrics.QueuedTranscodeDuration.WithLabelValues(spseg.Creator).Set(float64(time.Since(start).Milliseconds()))
 		}()
 	}
 

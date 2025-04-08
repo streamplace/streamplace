@@ -44,26 +44,26 @@ func ReaderNeedData(ctx context.Context, input io.Reader) func(self *app.Source,
 		}
 		bs := make([]byte, length)
 		read, err := input.Read(bs)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				if read > 0 {
-					log.Warn(ctx, "got data on eof???")
-				}
-				log.Debug(ctx, "EOF, ending stream", "length", read)
-				self.EndStream()
-				return
-			} else {
-				panic(err)
+		if err != nil && !errors.Is(err, io.EOF) {
+			log.Error(ctx, "error reading from input", "error", err)
+			self.Error("error reading from input", err)
+			return
+		}
+		if read > 0 {
+			toPush := bs
+			if uint(read) < length {
+				toPush = bs[:read]
 			}
+			buffer := gst.NewBufferWithSize(int64(len(toPush)))
+			buffer.Map(gst.MapWrite).WriteData(toPush)
+			defer buffer.Unmap()
+			self.PushBuffer(buffer)
 		}
-		toPush := bs
-		if uint(read) < length {
-			toPush = bs[:read]
+		if err != nil && errors.Is(err, io.EOF) {
+			log.Debug(ctx, "EOF, ending stream", "length", read)
+			self.EndStream()
+			return
 		}
-		buffer := gst.NewBufferWithSize(int64(len(toPush)))
-		buffer.Map(gst.MapWrite).WriteData(toPush)
-		defer buffer.Unmap()
-		self.PushBuffer(buffer)
 	}
 }
 

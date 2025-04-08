@@ -10,6 +10,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -64,9 +65,36 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 		return nil, fmt.Errorf("failed to marshal livepeer profile: %w", err)
 	}
 	tsSeg := bytes.Buffer{}
-	_, err = media.MP4ToMPEGTS(ctx, bytes.NewReader(buf), &tsSeg)
+	audioSeg := bytes.Buffer{}
+	err = media.MP4ToMPEGTSVideoMP4Audio(ctx, bytes.NewReader(buf), &tsSeg, &audioSeg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert mp4 to ts: %w", err)
+	}
+	if tsSeg.Len() == 0 {
+		return nil, fmt.Errorf("no video in segment")
+	}
+	if audioSeg.Len() == 0 {
+		return nil, fmt.Errorf("no audio in segment")
+	}
+	// Write segments to disk for debugging
+	debugDir := "/home/iameli/testvids/livepeer-return/"
+
+	// Write video segment
+	videoFilename := fmt.Sprintf("%s/%s-%d-video.ts", debugDir, ls.SessionID, ls.Count)
+	if err := os.WriteFile(videoFilename, tsSeg.Bytes(), 0644); err != nil {
+		log.Error(ctx, "failed to write video segment for debugging", "error", err, "filename", videoFilename)
+		// Continue with normal operation even if debug write fails
+	} else {
+		log.Debug(ctx, "wrote video segment for debugging", "filename", videoFilename, "size", tsSeg.Len())
+	}
+
+	// Write audio segment
+	audioFilename := fmt.Sprintf("%s/%s-%d-audio.mp4", debugDir, ls.SessionID, ls.Count)
+	if err := os.WriteFile(audioFilename, audioSeg.Bytes(), 0644); err != nil {
+		log.Error(ctx, "failed to write audio segment for debugging", "error", err, "filename", audioFilename)
+		// Continue with normal operation even if debug write fails
+	} else {
+		log.Debug(ctx, "wrote audio segment for debugging", "filename", audioFilename, "size", audioSeg.Len())
 	}
 	ls.Guard <- struct{}{}
 	start := time.Now()
@@ -129,7 +157,8 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 				return nil, fmt.Errorf("failed to get next part: %w", err)
 			}
 			mp4Bs := bytes.Buffer{}
-			err = media.MPEGTSToMP4(ctx, p, &mp4Bs)
+			audioReader := bytes.NewReader(audioSeg.Bytes())
+			err = media.MPEGTSVideoMP4AudioToMP4(ctx, p, audioReader, &mp4Bs)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert ts to mp4: %w", err)
 			}

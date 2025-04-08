@@ -10,7 +10,6 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -75,26 +74,6 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 	}
 	if audioSeg.Len() == 0 {
 		return nil, fmt.Errorf("no audio in segment")
-	}
-	// Write segments to disk for debugging
-	debugDir := "/home/iameli/testvids/livepeer-return/"
-
-	// Write video segment
-	videoFilename := fmt.Sprintf("%s/%s-%d-video.ts", debugDir, ls.SessionID, ls.Count)
-	if err := os.WriteFile(videoFilename, tsSeg.Bytes(), 0644); err != nil {
-		log.Error(ctx, "failed to write video segment for debugging", "error", err, "filename", videoFilename)
-		// Continue with normal operation even if debug write fails
-	} else {
-		log.Debug(ctx, "wrote video segment for debugging", "filename", videoFilename, "size", tsSeg.Len())
-	}
-
-	// Write audio segment
-	audioFilename := fmt.Sprintf("%s/%s-%d-audio.mp4", debugDir, ls.SessionID, ls.Count)
-	if err := os.WriteFile(audioFilename, audioSeg.Bytes(), 0644); err != nil {
-		log.Error(ctx, "failed to write audio segment for debugging", "error", err, "filename", audioFilename)
-		// Continue with normal operation even if debug write fails
-	} else {
-		log.Debug(ctx, "wrote audio segment for debugging", "filename", audioFilename, "size", audioSeg.Len())
 	}
 	ls.Guard <- struct{}{}
 	start := time.Now()

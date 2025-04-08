@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/stretchr/testify/require"
@@ -28,6 +29,36 @@ func TestMP4ToMPEGTS(t *testing.T) {
 
 	// Verify buffer has content
 	require.Greater(t, buf.Len(), 0, "Output buffer should not be empty")
+}
+
+func TestNoRealtime(t *testing.T) {
+	gst.Init(nil)
+
+	// Open input file
+	inputFile, err := os.Open(getFixture("5sec.mp4"))
+	require.NoError(t, err)
+	defer inputFile.Close()
+
+	// Create a buffer for output
+	tsBuf := bytes.Buffer{}
+
+	// Convert MP4 to MPEG-TS
+	start := time.Now()
+	dur, err := MP4ToMPEGTS(context.Background(), inputFile, &tsBuf)
+	require.NoError(t, err)
+	require.Greater(t, dur, int64(0), "Duration should be greater than 0")
+	elapsed := time.Since(start)
+	require.Less(t, elapsed, 4*time.Second, "MP4 to MPEG-TS conversion should take less than 4 seconds")
+	require.Greater(t, tsBuf.Len(), 0, "MPEG-TS buffer should not be empty")
+
+	// Convert back to MP4
+	mp4Buf := bytes.Buffer{}
+	start = time.Now()
+	err = MPEGTSToMP4(context.Background(), bytes.NewReader(tsBuf.Bytes()), &mp4Buf)
+	require.NoError(t, err)
+	elapsed = time.Since(start)
+	require.Less(t, elapsed, 4*time.Second, "MPEG-TS to MP4 conversion should take less than 4 seconds")
+	require.Greater(t, mp4Buf.Len(), 0, "MP4 buffer should not be empty")
 }
 
 func TestMPEGTSToMP4(t *testing.T) {

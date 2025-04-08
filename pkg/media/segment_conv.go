@@ -13,10 +13,11 @@ import (
 
 // MP4ToMPEGTS converts an MP4 file with H264 video and Opus audio to an MPEG-TS file
 // It reads from the provided reader and writes the converted MPEG-TS to the writer.
+// The conversion is optimized for speed.
 func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64, error) {
 	pipelineStr := strings.Join([]string{
 		"appsrc name=appsrc ! qtdemux name=demux",
-		"mpegtsmux name=mux ! appsink name=appsink",
+		"mpegtsmux name=mux ! appsink name=appsink sync=false",
 		"demux.video_0 ! h264parse ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
 		"demux.audio_0 ! opusparse ! queue name=audioqueue",
 	}, " ")
@@ -135,7 +136,7 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 func MPEGTSToMP4(ctx context.Context, input io.Reader, output io.Writer) error {
 	pipelineStr := strings.Join([]string{
 		"appsrc name=appsrc ! tsdemux name=demux",
-		"mp4mux name=mux ! appsink name=appsink",
+		"mp4mux name=mux ! appsink sync=false name=appsink",
 		"demux.video_0_0100 ! h264parse ! video/x-h264,stream-format=avc ! queue name=videoqueue",
 		"demux.audio_0_0101 ! opusdec ! opusenc ! queue name=audioqueue",
 	}, " ")

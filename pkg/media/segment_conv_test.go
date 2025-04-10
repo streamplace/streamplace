@@ -13,6 +13,8 @@ import (
 )
 
 func TestMP4ToMPEGTS(t *testing.T) {
+	ignore := goleak.IgnoreCurrent()
+	defer goleak.VerifyNone(t, ignore)
 	gst.Init(nil)
 
 	// Open input file
@@ -63,6 +65,8 @@ func TestMP4ToMPEGTS(t *testing.T) {
 // }
 
 func TestMPEGTSToMP4(t *testing.T) {
+	ignore := goleak.IgnoreCurrent()
+	defer goleak.VerifyNone(t, ignore)
 	gst.Init(nil)
 
 	// Open input file

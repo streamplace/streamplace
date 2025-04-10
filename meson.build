@@ -202,10 +202,6 @@ if get_option('default_library') == 'static'
     gst_full_dep,
     dependency('gstplayback'),
   ]
-else
-  env += {
-    'LD_LIBRARY_PATH': meson.current_build_dir() + '/lib/usr/local/lib/x86_64-linux-gnu',
-  }
 endif
 
 libstreamplace = custom_target(

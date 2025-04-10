@@ -213,7 +213,7 @@ ios: app
 	mkdir -p .build \
 	&& curl -L -o ./.build/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.0/bundletool-all-1.17.0.jar
 
-SHARED_OPTS = \
+BASE_OPTS = \
 		--buildtype=debugoptimized \
 		-D "gst-plugins-base:audioresample=enabled" \
 		-D "gst-plugins-base:playback=enabled" \
@@ -265,8 +265,12 @@ SHARED_OPTS = \
 		-D "glib:glib_assert=false"
 
 OPTS = \
-	$(SHARED_OPTS) \
+	$(BASE_OPTS) \
 	-D "gstreamer-full:gst-full-target-type=static_library"
+
+SHARED_OPTS = \
+	$(BASE_OPTS) \
+	-D "FFmpeg:default_library=shared"
 
 .PHONY: meson-setup
 meson-setup:

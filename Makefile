@@ -17,7 +17,8 @@ endif
 ifeq ($(BUILDARCH),x86_64)
 		BUILDARCH=amd64
 endif
-BUILDDIR?=$(shell realpath build-$(BUILDOS)-$(BUILDARCH))
+BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
+SHARED_LD_LIBRARY_PATH=$(shell pwd)/$(BUILDDIR)/lib/usr/local/lib/x86_64-linux-gnu
 
 .PHONY: version
 version:
@@ -44,8 +45,8 @@ node: schema .build/subprojects2.tar.gz
 
 .PHONY: dev-setup
 dev-setup: schema .build/subprojects2.tar.gz
-	meson setup --default_library=shared $(BUILDDIR) $(SHARED_OPTS)
-	meson configure --default_library=shared $(BUILDDIR) $(SHARED_OPTS)
+	meson setup --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
+	meson configure --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson compile -C $(BUILDDIR) streamplace
 	meson install --destdir lib -C $(BUILDDIR)
 	$(MAKE) dev
@@ -54,13 +55,13 @@ dev-setup: schema .build/subprojects2.tar.gz
 dev:
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	PKG_CONFIG_PATH=$(BUILDDIR)/meson-uninstalled \
-	LD_LIBRARY_PATH=$(BUILDDIR)/lib/usr/local/lib/x86_64-linux-gnu \
+	LD_LIBRARY_PATH=$(SHARED_LD_LIBRARY_PATH) \
 	go build -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
 .PHONY: dev-test
 dev-test:
 	PKG_CONFIG_PATH=$(BUILDDIR)/meson-uninstalled \
-	LD_LIBRARY_PATH=$(BUILDDIR)/lib/usr/local/lib/x86_64-linux-gnu \
+	LD_LIBRARY_PATH=$(SHARED_LD_LIBRARY_PATH) \
 	go test ./...
 
 .PHONY: schema

@@ -12,7 +12,7 @@ import (
 	// _ "github.com/go-gst/go-gst/gst"
 )
 
-//#cgo LDFLAGS: -lz
+//#cgo pkg-config: streamplacedeps-uninstalled
 import "C"
 
 //export StreamplaceMain

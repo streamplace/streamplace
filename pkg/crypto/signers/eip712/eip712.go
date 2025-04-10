@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"stream.place/streamplace/pkg/log"
-	_ "stream.place/streamplace/pkg/media/mediatesting"
 	"stream.place/streamplace/pkg/schema"
 )
 

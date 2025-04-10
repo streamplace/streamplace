@@ -17,7 +17,7 @@ endif
 ifeq ($(BUILDARCH),x86_64)
 		BUILDARCH=amd64
 endif
-BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
+BUILDDIR?=$(shell realpath build-$(BUILDOS)-$(BUILDARCH))
 
 .PHONY: version
 version:
@@ -41,6 +41,27 @@ app: schema install
 node: schema .build/subprojects2.tar.gz
 	$(MAKE) meson-setup
 	meson compile -C $(BUILDDIR) streamplace
+
+.PHONY: dev-setup
+dev-setup: schema .build/subprojects2.tar.gz
+	meson setup --default_library=shared $(BUILDDIR) $(SHARED_OPTS)
+	meson configure --default_library=shared $(BUILDDIR) $(SHARED_OPTS)
+	meson compile -C $(BUILDDIR) streamplace
+	meson install --destdir lib -C $(BUILDDIR)
+	$(MAKE) dev
+
+.PHONY: dev
+dev:
+	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
+	PKG_CONFIG_PATH=$(BUILDDIR)/meson-uninstalled \
+	LD_LIBRARY_PATH=$(BUILDDIR)/lib/usr/local/lib/x86_64-linux-gnu \
+	go build -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+
+.PHONY: dev-test
+dev-test:
+	PKG_CONFIG_PATH=$(BUILDDIR)/meson-uninstalled \
+	LD_LIBRARY_PATH=$(BUILDDIR)/lib/usr/local/lib/x86_64-linux-gnu \
+	go test ./...
 
 .PHONY: schema
 schema:
@@ -187,7 +208,7 @@ ios: app
 	mkdir -p .build \
 	&& curl -L -o ./.build/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.0/bundletool-all-1.17.0.jar
 
-OPTS = \
+SHARED_OPTS = \
 		--buildtype=debugoptimized \
 		-D "gst-plugins-base:audioresample=enabled" \
 		-D "gst-plugins-base:playback=enabled" \
@@ -223,7 +244,6 @@ OPTS = \
 		-D "gstreamer-full:gst-full=enabled" \
 		-D "gstreamer-full:gst-full-plugins=libgstopusparse.a;libgstcodectimestamper.a;libgstrtp.a;libgstaudioresample.a;libgstlibav.a;libgstmatroska.a;libgstmultifile.a;libgstjpeg.a;libgstaudiotestsrc.a;libgstaudioconvert.a;libgstaudioparsers.a;libgstfdkaac.a;libgstisomp4.a;libgstapp.a;libgstvideoconvertscale.a;libgstvideobox.a;libgstvideorate.a;libgstpng.a;libgstcompositor.a;libgstaudiorate.a;libgstx264.a;libgstopus.a;libgstvideotestsrc.a;libgstvideoparsersbad.a;libgstaudioparsers.a;libgstmpegtsmux.a;libgstmpegtsdemux.a;libgstplayback.a;libgsttypefindfunctions.a" \
 		-D "gstreamer-full:gst-full-libraries=gstreamer-controller-1.0,gstreamer-plugins-base-1.0,gstreamer-pbutils-1.0" \
-		-D "gstreamer-full:gst-full-target-type=static_library" \
 		-D "gstreamer-full:gst-full-elements=coreelements:concat,filesrc,filesink,queue,queue2,multiqueue,typefind,tee,capsfilter,fakesink,identity" \
 		-D "gstreamer-full:bad=enabled" \
 		-D "gstreamer-full:tls=disabled" \
@@ -238,6 +258,10 @@ OPTS = \
 		-D "gst-plugins-base:glib_assert=false" \
 		-D "gst-plugins-ugly:glib_assert=false" \
 		-D "glib:glib_assert=false"
+
+OPTS = \
+	$(SHARED_OPTS) \
+	-D "gstreamer-full:gst-full-target-type=static_library"
 
 .PHONY: meson-setup
 meson-setup:

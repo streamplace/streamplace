@@ -6,8 +6,8 @@ project(
     'cpp_std': 'c++11',
     'default_library': 'static',
     'auto_features': 'disabled',
-    'force_fallback_for': 'glib-2.0,gobject-2.0,gio-2.0,gio-unix-2.0,fdk-aac,zlib,libffi,pcre2,intl,x264,freetype2,libpng,libjpeg,fontconfig,pango,opus,fribidi,harfbuzz,nettle,cairo,pixman,expat',
-    'buildtype': 'debug',
+    'force_fallback_for': 'gio-2.0,gstreamer-controller-1.0,gstreamer-app-1.0,gstreamer-pbutils-1.0,glib-2.0,gobject-2.0,gio-2.0,gio-unix-2.0,fdk-aac,zlib,libffi,pcre2,intl,x264,freetype2,libpng,libjpeg,fontconfig,pango,opus,fribidi,harfbuzz,nettle,cairo,pixman,expat',
+    'buildtype': 'debugoptimized',
   },
 )
 
@@ -79,7 +79,7 @@ streamplace_deps = []
 #   mistserver_proj = subproject(
 #     'mistserver',
 #     default_options: {
-#       'APPNAME': 'MistServer',
+#       'APPNAME': 'MistServer',glib
 #     },
 #   )
 #   mistserver = mistserver_proj.get_variable('libmistserver_dep')
@@ -189,15 +189,17 @@ gstreamer_proj = subproject(
   default_options: {},
 )
 
-gst_full_dep = gstreamer_proj.get_variable('gst_full_dep')
-streamplace_deps += [
-  gst_full_dep,
-  dependency('gio-2.0'),
-  dependency('gstreamer-controller-1.0'),
-  dependency('gstreamer-app-1.0'),
-  dependency('gstreamer-pbutils-1.0'),
-  dependency('gstplayback'),
-]
+if get_option('default_library') == 'static'
+  gst_full_dep = gstreamer_proj.get_variable('gst_full_dep')
+  streamplace_deps += [
+    gst_full_dep,
+    dependency('gstplayback'),
+  ]
+else
+  env += {
+    'LD_LIBRARY_PATH': meson.current_build_dir() + '/lib/usr/local/lib/x86_64-linux-gnu',
+  }
+endif
 
 libstreamplace = custom_target(
   'libstreamplace',

@@ -19,6 +19,7 @@ ifeq ($(BUILDARCH),x86_64)
 endif
 BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
 SHARED_LD_LIBRARY_PATH=$(shell pwd)/$(BUILDDIR)/lib/usr/local/lib/x86_64-linux-gnu
+SHARED_PKG_CONFIG_PATH=$(shell pwd)/$(BUILDDIR)/meson-uninstalled
 
 .PHONY: version
 version:
@@ -54,13 +55,13 @@ dev-setup: schema .build/subprojects2.tar.gz
 .PHONY: dev
 dev:
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
-	PKG_CONFIG_PATH=$(BUILDDIR)/meson-uninstalled \
+	PKG_CONFIG_PATH=$(SHARED_PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(SHARED_LD_LIBRARY_PATH) \
 	go build -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
 .PHONY: dev-test
 dev-test:
-	PKG_CONFIG_PATH=$(BUILDDIR)/meson-uninstalled \
+	PKG_CONFIG_PATH=$(SHARED_PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(SHARED_LD_LIBRARY_PATH) \
 	go test ./...
 

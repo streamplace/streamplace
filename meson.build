@@ -189,6 +189,13 @@ gstreamer_proj = subproject(
   default_options: {},
 )
 
+streamplace_deps += [
+  dependency('gio-2.0'),
+  dependency('gstreamer-controller-1.0'),
+  dependency('gstreamer-app-1.0'),
+  dependency('gstreamer-pbutils-1.0'),
+]
+
 if get_option('default_library') == 'static'
   gst_full_dep = gstreamer_proj.get_variable('gst_full_dep')
   streamplace_deps += [

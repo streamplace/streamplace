@@ -6,5 +6,4 @@
 set -euo pipefail
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
-LD_LIBRARY_PATH="$SCRIPT_DIR/lib/usr/local/lib/x86_64-linux-gnu" exec "$SCRIPT_DIR/libstreamplace" "$@"
+LD_LIBRARY_PATH="$SCRIPT_DIR/lib/usr/local/lib/x86_64-linux-gnu" DYLD_LIBRARY_PATH="$SCRIPT_DIR/lib/usr/local/lib" exec "$SCRIPT_DIR/libstreamplace" "$@"

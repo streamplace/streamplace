@@ -19,6 +19,7 @@ ifeq ($(BUILDARCH),x86_64)
 endif
 BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
 SHARED_LD_LIBRARY_PATH=$(shell pwd)/$(BUILDDIR)/lib/usr/local/lib/x86_64-linux-gnu
+SHARED_DYLD_LIBRARY_PATH=$(shell pwd)/$(BUILDDIR)/lib/usr/local/lib
 SHARED_PKG_CONFIG_PATH=$(shell pwd)/$(BUILDDIR)/meson-uninstalled
 
 .PHONY: version
@@ -40,12 +41,12 @@ app: schema install
 	yarn run build
 
 .PHONY: node
-node: schema .build/subprojects2.tar.gz
+node: schema
 	$(MAKE) meson-setup
 	meson compile -C $(BUILDDIR) streamplace
 
 .PHONY: dev-setup
-dev-setup: schema .build/subprojects2.tar.gz
+dev-setup: schema
 	meson setup --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson configure --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson compile -C $(BUILDDIR) streamplace
@@ -57,12 +58,14 @@ dev:
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	PKG_CONFIG_PATH=$(SHARED_PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(SHARED_LD_LIBRARY_PATH) \
+	DYLD_LIBRARY_PATH=$(SHARED_DYLD_LIBRARY_PATH) \
 	go build -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
 .PHONY: dev-test
 dev-test:
 	PKG_CONFIG_PATH=$(SHARED_PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(SHARED_LD_LIBRARY_PATH) \
+	DYLD_LIBRARY_PATH=$(SHARED_DYLD_LIBRARY_PATH) \
 	go test ./...
 
 .PHONY: schema
@@ -148,16 +151,16 @@ link-test-windows:
 all: version install check app test node-all-platforms android
 
 .PHONY: ci
-ci: version install check app node-all-platforms ci-upload-node .build/subprojects2.tar.gz
+ci: version install check app node-all-platforms ci-upload-node
 
 .PHONY: ci-macos
-ci-macos: version install check app node-all-platforms-macos ci-upload-node-macos ios ci-upload-ios .build/subprojects2.tar.gz
+ci-macos: version install check app node-all-platforms-macos ci-upload-node-macos ios ci-upload-ios
 
 .PHONY: ci-macos
-ci-android: version install check android ci-upload-android .build/subprojects2.tar.gz
+ci-android: version install check android ci-upload-android
 
 .PHONY: ci-test
-ci-test: app .build/subprojects2.tar.gz
+ci-test: app
 	meson setup $(BUILDDIR) $(OPTS)
 	meson test -C $(BUILDDIR) go-tests
 
@@ -271,7 +274,7 @@ meson-setup:
 	@meson configure $(BUILDDIR) $(OPTS)
 
 .PHONY: node-all-platforms
-node-all-platforms: app .build/subprojects2.tar.gz
+node-all-platforms: app
 	meson setup build-linux-amd64 $(OPTS) --buildtype debugoptimized
 	meson compile -C build-linux-amd64 archive
 	$(MAKE) link-test-linux
@@ -323,7 +326,7 @@ windows-amd64-startup-test:
 	bash -c 'set -euo pipefail && unbuffer wine64 ./build-windows-amd64/streamplace.exe self-test | cat'
 
 .PHONY: node-all-platforms-macos
-node-all-platforms-macos: app .build/subprojects2.tar.gz
+node-all-platforms-macos: app
 	meson setup --buildtype debugoptimized build-darwin-arm64 $(OPTS)
 	meson compile -C build-darwin-arm64
 	./util/mac-codesign.sh ./build-darwin-arm64/streamplace
@@ -490,8 +493,3 @@ precommit: dockerfile-hash-precommit
 dockerfile-hash-precommit:
 	@bash -c 'printf "variables:\n  DOCKERFILE_HASH: `git hash-object docker/build.Dockerfile`" > .ci/dockerfile-hash.yaml' \
 	&& git add .ci/dockerfile-hash.yaml
-
-.build/subprojects2.tar.gz:
-	mkdir -p .build \
-	&& curl -L https://storage.googleapis.com/aquareum-crap/subprojects2.tar.gz -o .build/subprojects2.tar.gz \
-	&& tar -xzvf .build/subprojects2.tar.gz

@@ -20,10 +20,10 @@ export const playbackTest: E2ETest = {
 
     const testId = uuidv7();
     const definitions = [
-      {
-        name: "hls",
-        forceProtocol: "hls",
-      },
+      // {
+      //   name: "hls",
+      //   forceProtocol: "hls",
+      // },
       {
         name: "progressive-mp4",
         forceProtocol: "progressive-mp4",

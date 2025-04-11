@@ -1,5 +1,4 @@
 import { useNavigation } from "@react-navigation/native";
-import { Send } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
 import {
   chatMessage,
@@ -15,8 +14,10 @@ import { useRef, useState } from "react";
 import { Keyboard } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { Button, Form, Input, isWeb, TextArea, View } from "tamagui";
+import { RichText } from "@atproto/api";
+import { SquareArrowOutUpRight } from "@tamagui/lucide-icons";
 
-export default function ChatBox() {
+export default function ChatBox({ isPopout }: { isPopout?: boolean }) {
   const [message, setMessage] = useState("");
   const isReady = useAppSelector(selectIsReady);
   const userProfile = useAppSelector(selectUserProfile);
@@ -54,9 +55,9 @@ export default function ChatBox() {
       {loggedOut && <Login />}
       <Form
         zIndex={1}
-        flexDirection="row"
+        flexDirection="column"
         padding={2}
-        alignItems="center"
+        alignItems="stretch"
         opacity={loggedOut ? 0 : 1}
       >
         <View flexGrow={1} flexShrink={1}>
@@ -80,7 +81,11 @@ export default function ChatBox() {
               }
             }}
             onChangeText={(text) => {
+              console.log(text);
               const newMessage = text.replaceAll("\n", "");
+              const rt = new RichText({ text: newMessage });
+              rt.detectFacetsWithoutResolution();
+              console.log(rt.facets);
               if (newMessage.length > 300) {
                 return;
               }
@@ -93,6 +98,7 @@ export default function ChatBox() {
               }
             }}
             onKeyPress={(e) => {
+              console.log("asdfasdf");
               if (e.nativeEvent.key === "Enter") {
                 e.preventDefault();
                 submit();
@@ -101,16 +107,34 @@ export default function ChatBox() {
             onSubmitEditing={submit}
           />
         </View>
-        <Button
-          flexShrink={0}
-          backgroundColor="transparent"
-          disabled={loggedOut}
-          onPress={() => {
-            submit();
-          }}
-        >
-          <Send />
-        </Button>
+        <View flexDirection="row" justifyContent="flex-end" f={1}>
+          {isWeb && !isPopout && (
+            <Button
+              flexShrink={0}
+              backgroundColor="transparent"
+              disabled={loggedOut}
+              onPress={() => {
+                window.open(
+                  "http://127.0.0.1:38080/chat-popout/iame.li",
+                  "_blank",
+                  "popup=true",
+                );
+              }}
+            >
+              <SquareArrowOutUpRight size={16} />
+            </Button>
+          )}
+          <Button
+            flexShrink={0}
+            backgroundColor="transparent"
+            disabled={loggedOut}
+            onPress={() => {
+              submit();
+            }}
+          >
+            Send
+          </Button>
+        </View>
       </Form>
     </View>
   );

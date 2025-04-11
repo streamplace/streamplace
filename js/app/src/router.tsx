@@ -55,6 +55,7 @@ import { useLiveUser } from "hooks/useLiveUser";
 import { useToastController } from "@tamagui/toast";
 import LiveDashboard from "./screens/live-dashboard";
 import Popup from "components/popup";
+import PopoutChat from "./screens/chat-popout";
 function HomeScreen() {
   return (
     <View f={1}>
@@ -81,6 +82,7 @@ type RootStackParamList = {
   AppReturn: { scheme: string };
   About: undefined;
   Download: undefined;
+  PopoutChat: { user: string };
 };
 
 declare global {
@@ -111,6 +113,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       AppReturn: "app-return/:scheme",
       About: "about",
       Download: "download",
+      PopoutChat: "chat-popout/:user",
     },
   },
 };
@@ -351,6 +354,15 @@ export function StreamplaceDrawer() {
           options={{
             drawerIcon: () => <LogIn />,
             drawerLabel: () => <Text>Login</Text>,
+          }}
+        />
+        <Drawer.Screen
+          name="PopoutChat"
+          component={PopoutChat}
+          options={{
+            drawerLabel: () => null,
+            drawerItemStyle: { display: "none" },
+            headerShown: false,
           }}
         />
       </Drawer.Navigator>

@@ -204,7 +204,6 @@ function ChatMessageRow({
 
 const ChatMessageText = ({ message }: { message: MessageViewHydrated }) => {
   let color = "$accentColor";
-  console.log(message.chatProfile);
   if (message.chatProfile?.color) {
     const { red, green, blue } = message.chatProfile.color;
     color = `rgb(${red}, ${green}, ${blue})`;

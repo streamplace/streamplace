@@ -7,7 +7,7 @@ import {
 } from "features/bluesky/blueskySlice";
 import { PlaceStreamChatProfile } from "lexicons";
 import { useEffect, useState } from "react";
-import { Keyboard, TouchableWithoutFeedback } from "react-native";
+import { Keyboard } from "react-native";
 import ColorPicker, {
   HueSlider,
   Panel1,
@@ -76,7 +76,7 @@ export default function NameColorPicker({
       setColor(`rgb(${red}, ${green}, ${blue})`);
     }
   }, [startColor]);
-  // onCompleteJS={(x) => setColor(x.rgb)}
+
   return (
     <View alignItems="center" flexDirection="row">
       <Button
@@ -96,17 +96,12 @@ export default function NameColorPicker({
         open={open}
         modal={true}
         onOpenChange={(open) => {
-          console.log("open", open);
           setOpen(open);
           if (!open) {
             dispatch(getChatProfileRecordFromPDS());
           }
         }}
-        // snapPoints={snapPoints}
-        // snapPointsMode={snapPointsMode}
         dismissOnSnapToBottom
-        // position={position}
-        // onPositionChange={setPosition}
         disableDrag={true}
         zIndex={100_000}
         animation="medium"
@@ -145,19 +140,12 @@ export default function NameColorPicker({
             <H3 textAlign="center" color={color}>
               @{profile?.handle}
             </H3>
-            <TouchableWithoutFeedback onPress={() => {}}>
-              <View onStartShouldSetResponder={() => true}>
-                <ColorPicker
-                  value={color}
-                  onCompleteJS={(x) => setColor(x.rgb)}
-                >
-                  <Preview />
-                  <Panel1 />
-                  <HueSlider />
-                  <Swatches style={{ margin: 10 }} />
-                </ColorPicker>
-              </View>
-            </TouchableWithoutFeedback>
+            <ColorPicker value={color} onCompleteJS={(x) => setColor(x.rgb)}>
+              <Preview />
+              <Panel1 />
+              <HueSlider />
+              <Swatches style={{ margin: 10 }} />
+            </ColorPicker>
             <Button
               backgroundColor="$accentColor"
               onPress={() => {

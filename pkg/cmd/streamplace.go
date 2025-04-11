@@ -95,7 +95,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			fmt.Println(err.Error())
 			os.Exit(1)
 		}
-		fmt.Println("self-test successful!!")
+		fmt.Println("self-test successful!")
 		os.Exit(0)
 	}
 	flag.Set("logtostderr", "true")

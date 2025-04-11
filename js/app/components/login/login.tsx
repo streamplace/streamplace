@@ -38,7 +38,24 @@ export default function Login() {
             Log out
           </Button>
         </View>
-        <NameColorPicker />
+        {/* {...buttonProps} */}
+        {/* // maxWidth={300}
+        // textAlign="center"
+        color={color}
+        // marginHorizontal="auto"
+        onPress={() => setOpen(true)}
+        // flexBasis={250}
+        // textShadowColor="white"
+        // textShadowOffset={{ width: 0, height: 0 }}
+        // textShadowRadius={3} */}
+        <NameColorPicker
+          buttonProps={{
+            textAlign: "center",
+            flexBasis: 250,
+            maxWidth: 300,
+            marginHorizontal: "auto",
+          }}
+        />
       </View>
     );
   }

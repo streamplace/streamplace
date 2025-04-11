@@ -16,7 +16,6 @@ import { useAppDispatch, useAppSelector } from "store/hooks";
 import { Button, Form, Input, isWeb, TextArea, View } from "tamagui";
 import { Palette, SquareArrowOutUpRight } from "@tamagui/lucide-icons";
 import NameColorPicker from "components/name-color-picker/name-color-picker";
-import { RichText } from "@atproto/api";
 
 export default function ChatBox({ isPopout }: { isPopout?: boolean }) {
   const [message, setMessage] = useState("");
@@ -43,9 +42,6 @@ export default function ChatBox({ isPopout }: { isPopout?: boolean }) {
     if (isWeb && textAreaRef.current) {
       const textarea = textAreaRef.current as unknown as HTMLTextAreaElement;
       textarea.style.height = "";
-    }
-    if (!isWeb) {
-      console.log(textAreaRef.current);
     }
   };
 
@@ -83,11 +79,9 @@ export default function ChatBox({ isPopout }: { isPopout?: boolean }) {
                 }
               }}
               onChangeText={(text) => {
-                console.log(text);
                 const newMessage = text.replaceAll("\n", "");
-                const rt = new RichText({ text: newMessage });
-                rt.detectFacetsWithoutResolution();
-                console.log(rt.facets);
+                // const rt = new RichText({ text: newMessage });
+                // rt.detectFacetsWithoutResolution();
                 if (newMessage.length > 300) {
                   return;
                 }
@@ -100,7 +94,6 @@ export default function ChatBox({ isPopout }: { isPopout?: boolean }) {
                 }
               }}
               onKeyPress={(e) => {
-                console.log("asdfasdf");
                 if (e.nativeEvent.key === "Enter") {
                   e.preventDefault();
                   submit();

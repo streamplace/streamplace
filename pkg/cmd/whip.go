@@ -36,6 +36,7 @@ func WHIP() error {
 	if err != nil {
 		return err
 	}
+	gst.Init(nil)
 
 	ctx := context.Background()
 	if *duration > 0 {
@@ -76,14 +77,12 @@ type WHIPConnection struct {
 	peerConnection *webrtc.PeerConnection
 	audioTrack     *webrtc.TrackLocalStaticSample
 	videoTrack     *webrtc.TrackLocalStaticSample
+	did            string
 }
 
 func (w *WHIPClient) WHIP(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	// Initialize GStreamer
-	gst.Init(nil)
 
 	pipelineSlice := []string{
 		"filesrc name=filesrc ! qtdemux name=demux",
@@ -151,7 +150,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 		}
 
 		g.Go(func() error {
-			conn, err := w.StartWHIPConnection(ctx, streamKey)
+			conn, err := w.StartWHIPConnection(ctx, streamKey, did)
 			if err != nil {
 				return err
 			}
@@ -168,19 +167,12 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 			})
 			return nil
 		})
-		if w.Viewers > 0 {
-			w := &WHEPClient{
-				Endpoint: fmt.Sprintf("%s/api/playback/%s/webrtc", w.Endpoint, did),
-				Count:    w.Viewers,
-			}
-			g.Go(func() error {
-				return w.WHEP(ctx)
-			})
-		}
 	}
+
 	if err := g.Wait(); err != nil {
 		return err
 	}
+
 	// Start a ticker to print elapsed duration every second
 	go func() {
 		ticker := time.NewTicker(time.Second)
@@ -270,6 +262,22 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	if err = pipeline.SetState(gst.StatePlaying); err != nil {
 		return err
 	}
+	if w.Viewers > 0 {
+		whepG, ctx := errgroup.WithContext(ctx)
+		for i := 0; i < w.Count; i++ {
+			did := conns[i].did
+			w := &WHEPClient{
+				Endpoint: fmt.Sprintf("%s/api/playback/%s/webrtc", w.Endpoint, did),
+				Count:    w.Viewers,
+			}
+			whepG.Go(func() error {
+				return w.WHEP(ctx)
+			})
+		}
+		if err := whepG.Wait(); err != nil {
+			return err
+		}
+	}
 	select {
 	case err := <-errCh:
 		return err
@@ -278,7 +286,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	}
 }
 
-func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string) (*WHIPConnection, error) {
+func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, did string) (*WHIPConnection, error) {
 
 	// Prepare the configuration
 	config := webrtc.Configuration{}
@@ -367,6 +375,7 @@ func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string) 
 		peerConnection: peerConnection,
 		audioTrack:     audioTrack,
 		videoTrack:     videoTrack,
+		did:            did,
 	}
 
 	return conn, nil

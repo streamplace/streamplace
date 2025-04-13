@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pion/webrtc/v4"
@@ -70,42 +71,80 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, 
 		return nil, err
 	}
 
+	// Track statistics
+	type trackStats struct {
+		total      int
+		lastTotal  int
+		lastUpdate time.Time
+		mu         sync.Mutex
+	}
+
+	stats := map[string]*trackStats{
+		"video": {lastUpdate: time.Now()},
+		"audio": {lastUpdate: time.Now()},
+	}
+
+	// Create a ticker to print combined bitrate every 5 seconds
+	ticker := time.NewTicker(5 * time.Second)
+
+	// Start a goroutine to print combined bitrate
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				currentTime := time.Now()
+
+				// Lock both stats to get a consistent snapshot
+				for _, s := range stats {
+					s.mu.Lock()
+				}
+
+				videoStats := stats["video"]
+				audioStats := stats["audio"]
+
+				videoElapsed := currentTime.Sub(videoStats.lastUpdate).Seconds()
+				audioElapsed := currentTime.Sub(audioStats.lastUpdate).Seconds()
+
+				videoBytes := videoStats.total - videoStats.lastTotal
+				audioBytes := audioStats.total - audioStats.lastTotal
+
+				videoBitrate := float64(videoBytes) * 8 / videoElapsed / 1000 // kbps
+				audioBitrate := float64(audioBytes) * 8 / audioElapsed / 1000 // kbps
+
+				log.Log(ctx, "bitrate stats",
+					"video", fmt.Sprintf("%.2f kbps (%.2f KB)", videoBitrate, float64(videoBytes)/1000),
+					"audio", fmt.Sprintf("%.2f kbps (%.2f KB)", audioBitrate, float64(audioBytes)/1000),
+					"total", fmt.Sprintf("%.2f kbps", videoBitrate+audioBitrate))
+
+				// Update last values
+				videoStats.lastTotal = videoStats.total
+				videoStats.lastUpdate = currentTime
+				audioStats.lastTotal = audioStats.total
+				audioStats.lastUpdate = currentTime
+
+				// Unlock stats
+				for _, s := range stats {
+					s.mu.Unlock()
+				}
+
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
 	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		log.Log(ctx, "track received", "track", track.ID())
-		total := 0
-		// Track bitrate calculation
-		startTime := time.Now()
-		lastPrintTime := startTime
-		lastTotal := 0
 
-		// Create a ticker to print bitrate every 5 seconds
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
+		// Determine track type
+		trackType := "video"
+		if track.Kind() == webrtc.RTPCodecTypeAudio {
+			trackType = "audio"
+		}
 
-		// Start a goroutine to print bitrate
-		go func() {
-			for {
-				select {
-				case <-ticker.C:
-					currentTime := time.Now()
-					elapsed := currentTime.Sub(lastPrintTime).Seconds()
-					bytes := total - lastTotal
-					bitrate := float64(bytes) * 8 / elapsed / 1000 // kbps
+		trackStat := stats[trackType]
 
-					log.Log(ctx, "bitrate stats",
-						"track", track.ID(),
-						"bitrate", fmt.Sprintf("%.2f kbps", bitrate),
-						"bytes", bytes,
-						"elapsed", fmt.Sprintf("%.2f seconds", elapsed))
-
-					lastPrintTime = currentTime
-					lastTotal = total
-				case <-ctx.Done():
-					log.Log(ctx, "cancelled", "error", ctx.Err())
-					return
-				}
-			}
-		}()
 		for {
 			if ctx.Err() != nil {
 				return
@@ -116,7 +155,10 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, 
 				cancel()
 				return
 			}
-			total += len(rtp.Payload)
+
+			trackStat.mu.Lock()
+			trackStat.total += len(rtp.Payload)
+			trackStat.mu.Unlock()
 		}
 	})
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {

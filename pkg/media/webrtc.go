@@ -97,13 +97,7 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 	}
 
 	// Create a new RTCPeerConnection
-	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{
-				// URLs: []string{"stun:stun.l.google.com:19302"},
-			},
-		},
-	})
+	peerConnection, err := mm.webrtcAPI.NewPeerConnection(mm.webrtcConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create WebRTC peer connection: %w", err)
 	}

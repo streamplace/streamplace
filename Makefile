@@ -392,6 +392,10 @@ link-ffmpeg:
 	rm -rf subprojects/FFmpeg
 	ln -s $$(realpath ../ffmpeg) ./subprojects/FFmpeg
 
+.PHONY: docker
+docker:
+	docker build -f docker/local.Dockerfile -t dist.stream.place/streamplace/streamplace:local .
+
 .PHONY: docker-build
 docker-build: docker-build-builder docker-build-in-container
 

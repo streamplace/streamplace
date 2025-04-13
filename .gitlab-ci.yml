@@ -82,7 +82,7 @@ leak-test:
   timeout: "10 minutes"
   allow_failure: true
   script:
-    - /run.sh
+    - /bunny.sh
 
 test:
   stage: build

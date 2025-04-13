@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -16,12 +15,12 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-func WHEP() error {
+func WHEP(args []string) error {
 	fs := flag.NewFlagSet("whep", flag.ExitOnError)
 	count := fs.Int("count", 1, "number of concurrent streams (for load testing)")
 	duration := fs.Duration("duration", 0, "stop after this long")
 	endpoint := fs.String("endpoint", "", "endpoint to send the WHEP request to")
-	err := fs.Parse(os.Args[2:])
+	err := fs.Parse(args)
 
 	if err != nil {
 		return err

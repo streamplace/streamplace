@@ -1,5 +1,18 @@
 include: ".ci/dockerfile-hash.yaml"
 
+build-bunny:
+  stage: build
+  interruptible: true
+  image:
+    name: gcr.io/kaniko-project/executor:v1.14.0-debug
+    entrypoint: [""]
+  timeout: 2 hours
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}/docker"
+      --dockerfile "${CI_PROJECT_DIR}/docker/bunny.Dockerfile"
+      --destination "$CI_REGISTRY_IMAGE:bunny"
+
 builder:
   stage: build
   interruptible: true
@@ -50,6 +63,23 @@ build:
   artifacts:
     reports:
       dotenv: .ci/build.env
+
+leak-test:
+  stage: build
+  interruptible: true
+  needs:
+    - job: build
+      artifacts: true
+    - job: build-bunny
+  image:
+    name: "$CI_REGISTRY_IMAGE:bunny"
+  variables:
+    SP_WIDE_OPEN: "true"
+    SP_NO_FIREHOSE: "true"
+    SP_WHIP_TEST: "--file=/bunny.mp4 --count=1 --viewers=50 --duration=5m"
+    KUBERNETES_MEMORY_REQUEST: "2Gi"
+    KUBERNETES_MEMORY_LIMIT: "2Gi"
+  timeout: "10 minutes"
 
 test:
   stage: build

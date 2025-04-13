@@ -9,7 +9,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/go-gst/go-gst/gst"
 	"github.com/google/uuid"
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/intervalpli"
@@ -18,6 +17,7 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/media/segchanman"
 	"stream.place/streamplace/pkg/model"
 
@@ -56,12 +56,12 @@ type NewSegmentNotification struct {
 }
 
 func RunSelfTest(ctx context.Context) error {
-	gst.Init(&[]string{})
+	gstinit.InitGST()
 	return SelfTest(ctx)
 }
 
 func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, rep replication.Replicator, mod model.Model, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer) (*MediaManager, error) {
-	gst.Init(nil)
+	gstinit.InitGST()
 	err := SelfTest(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error in gstreamer self-test: %w", err)

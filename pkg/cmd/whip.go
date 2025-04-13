@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -16,11 +15,12 @@ import (
 	"github.com/pion/webrtc/v4"
 	pionmedia "github.com/pion/webrtc/v4/pkg/media"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 )
 
-func WHIP() error {
+func WHIP(args []string) error {
 	fs := flag.NewFlagSet("whip", flag.ExitOnError)
 	streamKey := fs.String("stream-key", "", "stream key")
 	count := fs.Int("count", 1, "number of concurrent streams (for load testing)")
@@ -29,14 +29,14 @@ func WHIP() error {
 	file := fs.String("file", "", "file to stream (needs to be an MP4 containing H264 video and Opus audio)")
 	endpoint := fs.String("endpoint", "http://127.0.0.1:38080", "endpoint to send the WHIP request to")
 	freezeAfter := fs.Duration("freeze-after", 0, "freeze the stream after the given duration")
-	err := fs.Parse(os.Args[2:])
+	err := fs.Parse(args)
 	if *file == "" {
 		return fmt.Errorf("file is required")
 	}
 	if err != nil {
 		return err
 	}
-	gst.Init(nil)
+	gstinit.InitGST()
 
 	ctx := context.Background()
 	if *duration > 0 {

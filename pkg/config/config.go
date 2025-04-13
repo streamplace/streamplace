@@ -23,7 +23,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/aqpub"
 )
 
-const AQ_DATA_DIR = "$AQ_DATA_DIR"
+const SP_DATA_DIR = "$SP_DATA_DIR"
 const SEGMENTS_DIR = "segments"
 
 type BuildFlags struct {
@@ -85,6 +85,7 @@ type CLI struct {
 	PrintChat              bool
 	Color                  string
 	LivepeerGatewayURL     string
+	WHIPTest               string
 
 	dataDirFlags []*string
 }
@@ -140,7 +141,7 @@ func DefaultDataDir() string {
 func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 	err := ff.Parse(
 		fs, os.Args[1:],
-		ff.WithEnvVarPrefix("AQ"),
+		ff.WithEnvVarPrefix("SP"),
 	)
 	if err != nil {
 		return err
@@ -149,7 +150,7 @@ func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 		return fmt.Errorf("could not determine default data dir (no $HOME) and none provided, please set --data-dir")
 	}
 	for _, dest := range cli.dataDirFlags {
-		*dest = strings.Replace(*dest, AQ_DATA_DIR, cli.DataDir, 1)
+		*dest = strings.Replace(*dest, SP_DATA_DIR, cli.DataDir, 1)
 	}
 	return nil
 }
@@ -261,7 +262,7 @@ func (cli *CLI) DataFileRead(fpath []string, w io.Writer) error {
 
 func (cli *CLI) DataDirFlag(fs *flag.FlagSet, dest *string, name, defaultValue, usage string) {
 	cli.dataDirFlags = append(cli.dataDirFlags, dest)
-	*dest = filepath.Join(AQ_DATA_DIR, defaultValue)
+	*dest = filepath.Join(SP_DATA_DIR, defaultValue)
 	usage = fmt.Sprintf(`%s (default: "%s")`, usage, *dest)
 	fs.Func(name, usage, func(s string) error {
 		*dest = s

@@ -24,6 +24,7 @@ func WHIP() error {
 	fs := flag.NewFlagSet("whip", flag.ExitOnError)
 	streamKey := fs.String("stream-key", "", "stream key")
 	count := fs.Int("count", 1, "number of concurrent streams (for load testing)")
+	viewers := fs.Int("viewers", 0, "number of viewers to simulate per stream")
 	duration := fs.Duration("duration", 0, "duration of the stream")
 	file := fs.String("file", "", "file to stream (needs to be an MP4 containing H264 video and Opus audio)")
 	endpoint := fs.String("endpoint", "http://127.0.0.1:38080", "endpoint to send the WHIP request to")
@@ -49,6 +50,7 @@ func WHIP() error {
 		Endpoint:    *endpoint,
 		Count:       *count,
 		FreezeAfter: *freezeAfter,
+		Viewers:     *viewers,
 	}
 
 	return w.WHIP(ctx)
@@ -60,6 +62,7 @@ type WHIPClient struct {
 	Endpoint    string
 	Count       int
 	FreezeAfter time.Duration
+	Viewers     int
 }
 
 var failureStates = []webrtc.ICEConnectionState{
@@ -73,121 +76,6 @@ type WHIPConnection struct {
 	peerConnection *webrtc.PeerConnection
 	audioTrack     *webrtc.TrackLocalStaticSample
 	videoTrack     *webrtc.TrackLocalStaticSample
-	did            string
-}
-
-func (w *WHIPClient) StartWHIPConnection(ctx context.Context) (*WHIPConnection, error) {
-
-	var streamKey string
-	var did string
-	if w.StreamKey != "" {
-		streamKey = w.StreamKey
-	} else {
-		priv, err := atcrypto.GeneratePrivateKeyK256()
-		if err != nil {
-			return nil, err
-		}
-		pub, err := priv.PublicKey()
-		if err != nil {
-			return nil, err
-		}
-
-		did = pub.DIDKey()
-		ctx = log.WithLogValues(ctx, "did", did)
-		streamKey = priv.Multibase()
-	}
-
-	// Prepare the configuration
-	config := webrtc.Configuration{}
-
-	// Create a new RTCPeerConnection
-	peerConnection, err := webrtc.NewPeerConnection(config)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a audio track
-	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "pion1")
-	if err != nil {
-		return nil, err
-	}
-	_, err = peerConnection.AddTrack(audioTrack)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a video track
-	videoTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "video/h264"}, "video", "pion2")
-	if err != nil {
-		return nil, err
-	}
-	_, err = peerConnection.AddTrack(videoTrack)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create an offer
-	offer, err := peerConnection.CreateOffer(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set the generated offer as our LocalDescription
-	err = peerConnection.SetLocalDescription(offer)
-	if err != nil {
-		return nil, err
-	}
-
-	// Wait for ICE gathering to complete
-	// gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
-	// <-gatherComplete
-
-	// Create HTTP client and prepare the request
-	client := &http.Client{}
-
-	// Send the WHIP request to the server
-	req, err := http.NewRequest("POST", w.Endpoint, strings.NewReader(offer.SDP))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+streamKey)
-	req.Header.Set("Content-Type", "application/sdp")
-
-	// Execute the request
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// Read and process the answer
-	answerBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse the SDP answer
-	var answer webrtc.SessionDescription
-	answer.Type = webrtc.SDPTypeAnswer
-	answer.SDP = string(answerBytes)
-
-	// Apply the answer as remote description
-	err = peerConnection.SetRemoteDescription(answer)
-	if err != nil {
-		return nil, err
-	}
-
-	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
-	<-gatherComplete
-
-	conn := &WHIPConnection{
-		peerConnection: peerConnection,
-		audioTrack:     audioTrack,
-		videoTrack:     videoTrack,
-		did:            did,
-	}
-
-	return conn, nil
 }
 
 func (w *WHIPClient) WHIP(ctx context.Context) error {
@@ -241,15 +129,36 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	conns := make([]*WHIPConnection, w.Count)
 	g := &errgroup.Group{}
 	for i := 0; i < w.Count; i++ {
+		ctx := ctx
+		// var streamKey string
+		var did string
+		var streamKey string
+		if w.StreamKey != "" {
+			streamKey = w.StreamKey
+		} else {
+			priv, err := atcrypto.GeneratePrivateKeyK256()
+			if err != nil {
+				return err
+			}
+			pub, err := priv.PublicKey()
+			if err != nil {
+				return err
+			}
+
+			did = pub.DIDKey()
+			ctx = log.WithLogValues(ctx, "did", did)
+			streamKey = priv.Multibase()
+		}
+
 		g.Go(func() error {
-			conn, err := w.StartWHIPConnection(ctx)
+			conn, err := w.StartWHIPConnection(ctx, streamKey)
 			if err != nil {
 				return err
 			}
 			conns[i] = conn
-			ctx := log.WithLogValues(ctx, "did", conn.did)
+			ctx := log.WithLogValues(ctx, "did", did)
 			conn.peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-				log.Log(ctx, "connection State has changed", "state", connectionState.String())
+				log.Log(ctx, "WHIP connection State has changed", "state", connectionState.String())
 				for _, state := range failureStates {
 					if connectionState == state {
 						log.Log(ctx, "connection failed, cancelling")
@@ -259,6 +168,15 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 			})
 			return nil
 		})
+		if w.Viewers > 0 {
+			w := &WHEPClient{
+				Endpoint: fmt.Sprintf("%s/api/playback/%s/webrtc", w.Endpoint, did),
+				Count:    w.Viewers,
+			}
+			g.Go(func() error {
+				return w.WHEP(ctx)
+			})
+		}
 	}
 	if err := g.Wait(); err != nil {
 		return err
@@ -358,4 +276,98 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string) (*WHIPConnection, error) {
+
+	// Prepare the configuration
+	config := webrtc.Configuration{}
+
+	// Create a new RTCPeerConnection
+	peerConnection, err := webrtc.NewPeerConnection(config)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a audio track
+	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "pion1")
+	if err != nil {
+		return nil, err
+	}
+	_, err = peerConnection.AddTrack(audioTrack)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a video track
+	videoTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "video/h264"}, "video", "pion2")
+	if err != nil {
+		return nil, err
+	}
+	_, err = peerConnection.AddTrack(videoTrack)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create an offer
+	offer, err := peerConnection.CreateOffer(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the generated offer as our LocalDescription
+	err = peerConnection.SetLocalDescription(offer)
+	if err != nil {
+		return nil, err
+	}
+
+	// Wait for ICE gathering to complete
+	// gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
+	// <-gatherComplete
+
+	// Create HTTP client and prepare the request
+	client := &http.Client{}
+
+	// Send the WHIP request to the server
+	req, err := http.NewRequest("POST", w.Endpoint, strings.NewReader(offer.SDP))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+streamKey)
+	req.Header.Set("Content-Type", "application/sdp")
+
+	// Execute the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Read and process the answer
+	answerBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the SDP answer
+	var answer webrtc.SessionDescription
+	answer.Type = webrtc.SDPTypeAnswer
+	answer.SDP = string(answerBytes)
+
+	// Apply the answer as remote description
+	err = peerConnection.SetRemoteDescription(answer)
+	if err != nil {
+		return nil, err
+	}
+
+	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
+	<-gatherComplete
+
+	conn := &WHIPConnection{
+		peerConnection: peerConnection,
+		audioTrack:     audioTrack,
+		videoTrack:     videoTrack,
+	}
+
+	return conn, nil
 }

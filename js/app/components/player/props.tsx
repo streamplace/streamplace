@@ -10,11 +10,13 @@ export type PlayerProps = {
   name: string;
   src: string;
   muted: boolean;
+  volume: number;
   fullscreen: boolean;
   forceProtocol?: string;
   showControls: boolean;
   telemetry: boolean;
   setMuted: (isMuted: boolean) => void;
+  setVolume: (volume: number) => void;
   setFullscreen: (isFullscreen: boolean) => void;
   userInteraction: () => void;
   playerEvent: (

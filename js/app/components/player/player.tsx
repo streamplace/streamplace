@@ -42,6 +42,7 @@ export function PlayerInner(props: Partial<PlayerProps>) {
   const userMuted = useAppSelector(selectUserMuted);
   const playerId = useMemo(() => props.playerId ?? uuidv7(), [props.playerId]);
   const [muted, setMuted] = useState(userMuted ?? false);
+  const [volume, setVolume] = useState(1.0);
 
   const [showControls, setShowControls] = useState(true);
   const [touchTime, setTouchTime] = useState(0);
@@ -131,7 +132,9 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     telemetry: props.telemetry ?? false,
     src: props.src,
     muted: muted,
+    volume: volume,
     setMuted: setMuted,
+    setVolume: setVolume,
     setFullscreen: setFullscreen,
     fullscreen: fullscreen,
     offline: offline,

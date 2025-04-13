@@ -37,6 +37,10 @@ export default function NativeVideo(
   }, [props.muted, player]);
 
   useEffect(() => {
+    player.volume = props.volume;
+  }, [props.volume, player]);
+
+  useEffect(() => {
     const subs = (
       [
         "playToEnd",
@@ -112,10 +116,10 @@ export function NativeWHEP(props: PlayerProps) {
     }
     mediaStream.getTracks().forEach((track) => {
       if (track.kind === "audio") {
-        track._setVolume(props.muted ? 0 : 1);
+        track._setVolume(props.muted ? 0 : props.volume);
       }
     });
-  }, [mediaStream, props.muted]);
+  }, [mediaStream, props.muted, props.volume]);
   if (!mediaStream) {
     return <View></View>;
   }

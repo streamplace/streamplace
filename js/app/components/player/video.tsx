@@ -105,6 +105,12 @@ const VideoElement = forwardRef(
       };
     }, []);
 
+    useEffect(() => {
+      if (localVideoRef.current) {
+        localVideoRef.current.volume = props.volume;
+      }
+    }, [props.volume]);
+
     // Use a callback ref to handle when the video element is mounted
     const handleVideoRef = (videoElement: HTMLVideoElement | null) => {
       if (videoElement && typeof ref === "function") {

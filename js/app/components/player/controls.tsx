@@ -14,7 +14,7 @@ import {
   VolumeX,
 } from "@tamagui/lucide-icons";
 import { Dispatch, Fragment, useEffect, useRef, useState } from "react";
-import { Animated, Pressable } from "react-native";
+import { Animated, Pressable, Dimensions } from "react-native";
 import {
   Button,
   Adapt,
@@ -30,6 +30,7 @@ import {
   H1,
   H5,
   Paragraph,
+  Slider,
 } from "tamagui";
 import { PlayerProps, PROTOCOL_HLS, PROTOCOL_WEBRTC } from "./props";
 import {
@@ -66,6 +67,116 @@ const Part = (props) => (
     {props.children}
   </View>
 );
+
+const VolumeSlider = ({ volume, setVolume, muted, setMuted, showControls }) => {
+  const [open, setOpen] = useState(false);
+  const [sliderValue, setSliderValue] = useState(volume);
+  const media = useMedia();
+
+  // Update slider value when volume prop changes
+  useEffect(() => {
+    setSliderValue(muted ? 0 : volume);
+  }, [volume, muted]);
+
+  // Close popover when controls are hidden
+  useEffect(() => {
+    if (!media.sm && !showControls) {
+      setOpen(false);
+    }
+  }, [showControls, media.sm]);
+
+  // Reset slider value when popover opens
+  useEffect(() => {
+    if (open) {
+      setSliderValue(muted ? 0 : volume);
+    }
+  }, [open, volume, muted]);
+
+  const handleValueChange = (value) => {
+    const newValue = value[0];
+    setSliderValue(newValue);
+
+    // Update volume and mute state
+    if (newValue === 0) {
+      setMuted(true);
+    } else {
+      setVolume(newValue);
+      if (muted) {
+        setMuted(false);
+      }
+    }
+  };
+
+  return (
+    <Popover
+      size="$5"
+      allowFlip
+      placement="top"
+      open={open}
+      onOpenChange={setOpen}
+    >
+      <Popover.Trigger asChild cursor="pointer">
+        <View paddingLeft="$5" paddingRight="$3" justifyContent="center">
+          <Pressable onPress={() => setOpen(!open)}>
+            {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          </Pressable>
+        </View>
+      </Popover.Trigger>
+
+      <Popover.Content
+        borderWidth={0}
+        padding="$3"
+        enterStyle={{ y: 10, opacity: 0 }}
+        exitStyle={{ y: 10, opacity: 0 }}
+        elevate
+        animation={[
+          "quick",
+          {
+            opacity: {
+              overshootClamping: true,
+            },
+          },
+        ]}
+      >
+        <View width={50} height={150} alignItems="center" gap="$3">
+          <XStack alignItems="center" gap="$2">
+            <Pressable onPress={() => setMuted(!muted)}>
+              {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+            </Pressable>
+            <Text>{Math.round(sliderValue * 100)}</Text>
+          </XStack>
+          <View
+            height={100}
+            width="100%"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Slider
+              size="$2"
+              orientation="vertical"
+              height="100%"
+              value={[sliderValue]}
+              onValueChange={handleValueChange}
+              min={0}
+              max={1}
+              step={0.01}
+            >
+              <Slider.Track backgroundColor="$gray8" width={4}>
+                <Slider.TrackActive backgroundColor="$gray5" />
+              </Slider.Track>
+              <Slider.Thumb
+                circular
+                index={0}
+                size="$1"
+                backgroundColor="white"
+              />
+            </Slider>
+          </View>
+        </View>
+      </Popover.Content>
+    </Popover>
+  );
+};
 
 export default function Controls(props: PlayerProps) {
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -143,19 +254,16 @@ export default function Controls(props: PlayerProps) {
       {props.ingest && <LiveBubble />}
       <Bar opacity={props.showControls ? 1 : 0}>
         <Part>
-          <Pressable
-            style={{
-              justifyContent: "center",
+          <VolumeSlider
+            volume={props.volume}
+            setVolume={props.setVolume}
+            muted={props.muted}
+            showControls={props.showControls}
+            setMuted={(muted) => {
+              dispatch(userMute(muted));
+              props.setMuted(muted);
             }}
-            onPress={() => {
-              dispatch(userMute(!props.muted));
-              props.setMuted(!props.muted);
-            }}
-          >
-            <View paddingLeft="$5" paddingRight="$3" justifyContent="center">
-              {props.muted ? <VolumeX></VolumeX> : <Volume2></Volume2>}
-            </View>
-          </Pressable>
+          />
         </Part>
         <Part>
           <PopoverMenu {...props} />
@@ -222,17 +330,6 @@ export function PopoverMenu(props: PlayerProps) {
           </View>
         </Pressable>
       </Popover.Trigger>
-
-      <Adapt when="sm" platform="touch">
-        <Popover.Sheet modal dismissOnSnapToBottom snapPoints={[50]}>
-          <Popover.Sheet.Frame padding="$2">{gearMenu}</Popover.Sheet.Frame>
-          <Popover.Sheet.Overlay
-            animation="lazy"
-            enterStyle={{ opacity: 0 }}
-            exitStyle={{ opacity: 0 }}
-          />
-        </Popover.Sheet>
-      </Adapt>
 
       <Popover.Content
         borderWidth={0}

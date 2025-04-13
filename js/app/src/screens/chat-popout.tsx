@@ -21,7 +21,7 @@ export default function PopoutChat({ route }) {
           minHeight="100%"
           bottom={0}
         >
-          <Chat />
+          <Chat isChatVisible={true} setIsChatVisible={() => {}} />
           {profile && <ChatBox isPopout={true} />}
         </View>
       </View>

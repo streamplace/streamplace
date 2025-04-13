@@ -132,7 +132,7 @@ export default function NameColorPicker({
                 setOpen(false);
               }}
               marginRight={-15}
-              marginTop={-5}
+              marginTop={5}
               backgroundColor="transparent"
             >
               <X />

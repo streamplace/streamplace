@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 import { LayoutChangeEvent, View as RNView, SafeAreaView } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { Button, H2, H3, Text, useWindowDimensions, View } from "tamagui";
+import { MessageCircleOff, MessageCircleMore } from "@tamagui/lucide-icons";
 
 export default function Livestream(props: Partial<PlayerProps>) {
   return (
@@ -41,6 +42,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
 
   const [outerHeight, setOuterHeight] = useState(0);
   const [innerHeight, setInnerHeight] = useState(0);
+  const [isChatVisible, setIsChatVisible] = useState(true);
 
   // this would all be really easy if i had library that would give me the
   // safe area view height and width but i don't. so let's measure
@@ -160,8 +162,24 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                 $gtXs={{ display: "flex" }}
               >
                 <H2>{player.livestream?.record.title}</H2>
-                <View justifyContent="center" paddingRight="$3">
+                <View
+                  flexDirection="row"
+                  alignItems="center"
+                  gap="$2"
+                  paddingRight="$3"
+                >
                   <Viewers viewers={player.viewers ?? 0} />
+                  <Button
+                    backgroundColor="transparent"
+                    onPress={() => setIsChatVisible(!isChatVisible)}
+                    marginLeft="$2"
+                  >
+                    {isChatVisible ? (
+                      <MessageCircleOff size={22} />
+                    ) : (
+                      <MessageCircleMore size={22} />
+                    )}
+                  </Button>
                 </View>
               </View>
             </View>
@@ -171,11 +189,12 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
               fg={1}
               zIndex={1}
               $gtXs={{
-                width: 300,
-                fb: 300,
+                width: isChatVisible ? 300 : 0,
+                fb: isChatVisible ? 300 : 0,
                 fs: 0,
                 borderLeftColor: "#666",
-                borderLeftWidth: 1,
+                borderLeftWidth: isChatVisible ? 1 : 0,
+                overflow: "hidden",
               }}
               backgroundColor="$background2"
               animation={"quick"}
@@ -204,13 +223,24 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                     {player.livestream?.record.title}
                   </Text>
                 </View>
-                <View justifyContent="center" paddingRight="$3">
+                <View
+                  flexDirection="row"
+                  alignItems="center"
+                  gap="$2"
+                  paddingRight="$3"
+                >
                   <Viewers viewers={player.viewers ?? 0} />
                 </View>
               </View>
-              <Chat />
+              <Chat
+                isChatVisible={isChatVisible}
+                setIsChatVisible={setIsChatVisible}
+              />
               <View>
-                <ChatBox />
+                <ChatBox
+                  isChatVisible={isChatVisible}
+                  setIsChatVisible={setIsChatVisible}
+                />
               </View>
             </View>
           </View>

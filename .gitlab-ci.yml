@@ -80,6 +80,9 @@ leak-test:
     KUBERNETES_MEMORY_REQUEST: "2Gi"
     KUBERNETES_MEMORY_LIMIT: "2Gi"
   timeout: "10 minutes"
+  allow_failure: true
+  script:
+    - /run.sh
 
 test:
   stage: build

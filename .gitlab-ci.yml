@@ -64,7 +64,7 @@ build:
     reports:
       dotenv: .ci/build.env
 
-leak-test:
+leak-test-viewers:
   stage: build
   interruptible: true
   needs:
@@ -77,8 +77,32 @@ leak-test:
     SP_WIDE_OPEN: "true"
     SP_NO_FIREHOSE: "true"
     SP_WHIP_TEST: "--file=/bunny.mp4 --count=1 --viewers=50 --duration=5m"
-    KUBERNETES_MEMORY_REQUEST: "2Gi"
-    KUBERNETES_MEMORY_LIMIT: "2Gi"
+    KUBERNETES_MEMORY_REQUEST: "4Gi"
+    KUBERNETES_MEMORY_LIMIT: "4Gi"
+    GOGC: "20"
+    GOMEMLIMIT: "4GiB"
+  timeout: "10 minutes"
+  allow_failure: true
+  script:
+    - /bunny.sh
+
+leak-test-streamers:
+  stage: build
+  interruptible: true
+  needs:
+    - job: build
+      artifacts: true
+    - job: build-bunny
+  image:
+    name: "$CI_REGISTRY_IMAGE:bunny"
+  variables:
+    SP_WIDE_OPEN: "true"
+    SP_NO_FIREHOSE: "true"
+    SP_WHIP_TEST: "--file=/bunny.mp4 --count=10 --duration=5m"
+    KUBERNETES_MEMORY_REQUEST: "4Gi"
+    KUBERNETES_MEMORY_LIMIT: "4Gi"
+    GOGC: "20"
+    GOMEMLIMIT: "4GiB"
   timeout: "10 minutes"
   allow_failure: true
   script:

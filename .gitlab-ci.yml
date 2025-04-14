@@ -77,10 +77,10 @@ leak-test-viewers:
     SP_WIDE_OPEN: "true"
     SP_NO_FIREHOSE: "true"
     SP_WHIP_TEST: "--file=/bunny.mp4 --count=1 --viewers=50 --duration=5m"
-    KUBERNETES_MEMORY_REQUEST: "4Gi"
-    KUBERNETES_MEMORY_LIMIT: "4Gi"
+    KUBERNETES_MEMORY_REQUEST: "2Gi"
+    KUBERNETES_MEMORY_LIMIT: "2Gi"
     GOGC: "20"
-    GOMEMLIMIT: "4GiB"
+    GOMEMLIMIT: "2GiB"
   timeout: "10 minutes"
   allow_failure: true
   script:
@@ -99,10 +99,10 @@ leak-test-streamers:
     SP_WIDE_OPEN: "true"
     SP_NO_FIREHOSE: "true"
     SP_WHIP_TEST: "--file=/bunny.mp4 --count=10 --duration=5m"
-    KUBERNETES_MEMORY_REQUEST: "4Gi"
-    KUBERNETES_MEMORY_LIMIT: "4Gi"
+    KUBERNETES_MEMORY_REQUEST: "2Gi"
+    KUBERNETES_MEMORY_LIMIT: "2Gi"
     GOGC: "20"
-    GOMEMLIMIT: "4GiB"
+    GOMEMLIMIT: "2GiB"
   timeout: "10 minutes"
   allow_failure: true
   script:

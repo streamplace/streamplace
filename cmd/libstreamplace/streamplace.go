@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"os"
 	"strconv"
 
 	"stream.place/streamplace/pkg/config"
@@ -15,6 +17,11 @@ import (
 //#cgo pkg-config: streamplacedeps-uninstalled
 import "C"
 
+var cleanExits = []error{
+	cmd.ErrCaughtSignal,
+	context.DeadlineExceeded,
+}
+
 //export StreamplaceMain
 func StreamplaceMain() {
 	i, err := strconv.ParseInt(BuildTime, 10, 64)
@@ -27,7 +34,14 @@ func StreamplaceMain() {
 		UUID:      UUID,
 	})
 	if err != nil {
+		for _, e := range cleanExits {
+			if errors.Is(err, e) {
+				log.Log(context.Background(), "exited cleanly", "error", err)
+				os.Exit(0)
+			}
+		}
 		log.Log(context.Background(), "exited uncleanly", "error", err)
+		os.Exit(1)
 	}
 }
 

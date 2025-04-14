@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"crypto"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -392,6 +393,8 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	return group.Wait()
 }
 
+var ErrCaughtSignal = errors.New("caught signal")
+
 func handleSignals(ctx context.Context) error {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT, syscall.SIGABRT)
@@ -402,7 +405,7 @@ func handleSignals(ctx context.Context) error {
 				pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 			}
 			log.Log(ctx, "caught signal, attempting clean shutdown", "signal", s)
-			return fmt.Errorf("caught signal=%v", s)
+			return fmt.Errorf("%w signal=%v", ErrCaughtSignal, s)
 		case <-ctx.Done():
 			return nil
 		}

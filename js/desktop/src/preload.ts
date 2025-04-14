@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-contextBridge.exposeInMainWorld("AQ_ELECTRON", {
+contextBridge.exposeInMainWorld("SP_ELECTRON", {
   isElectron: true,
 });
 contextBridge.exposeInMainWorld("getPrivateKey", () => {

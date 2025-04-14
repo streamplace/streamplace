@@ -295,8 +295,6 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 		w.Header().Set("Location", location)
 		w.WriteHeader(201)
 		w.Write([]byte(answer.SDP))
-		log.Log(ctx, "ingest SDP")
-		fmt.Println(answer.SDP)
 	}
 }
 

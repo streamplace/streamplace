@@ -13,13 +13,13 @@ admin.initializeApp({
 // console.log(tokens)
 // process.exit(0)
 
-// curl -H "Authorization: Bearer $AQ_ADMIN" https://stream.place/api/notification
+// curl -H "Authorization: Bearer $SP_ADMIN" https://stream.place/api/notification
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const blast = async (body) => {
   const tokensRes = await fetch("https://stream.place/api/notification", {
     headers: {
-      Authorization: `Bearer ${process.env.AQ_ADMIN}`,
+      Authorization: `Bearer ${process.env.SP_ADMIN}`,
     },
   });
   const fullTokens = await tokensRes.json();

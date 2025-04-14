@@ -170,11 +170,11 @@ export const versionCode = (verStr: string) => {
 
 export default function () {
   const isProd =
-    process.env["AQ_PRODUCTION_RELEASE"] === "true" || !!process.env.CI;
+    process.env["SP_PRODUCTION_RELEASE"] === "true" || !!process.env.CI;
   const pkg = require("./package.json");
   const name = isProd ? "Streamplace" : "Devplace";
   const bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev";
-  const scheme = process.env["AQ_APP_SCHEME"] ?? bundle;
+  const scheme = process.env["SP_APP_SCHEME"] ?? bundle;
   return {
     expo: {
       name: name,

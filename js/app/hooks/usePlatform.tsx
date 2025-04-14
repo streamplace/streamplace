@@ -18,7 +18,7 @@ export default function usePlatform(): IsPlatform {
     const parser = uaParser.UAParser;
     ua = parser(navigator.userAgent);
   }
-  const electron = typeof window["AQ_ELECTRON"] !== "undefined";
+  const electron = typeof window["SP_ELECTRON"] !== "undefined";
   return {
     topSafeHeight,
     isNative: false,

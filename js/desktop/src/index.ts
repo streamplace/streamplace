@@ -48,8 +48,8 @@ if (require("electron-squirrel-startup")) {
     ipcMain.handle("getPrivateKey", () => privateKey);
     const account = privateKeyToAccount(privateKey);
     const env = {
-      AQ_ADMIN_ACCOUNT: account.address.toLowerCase(),
-      AQ_ALLOWED_STREAMS: account.address.toLowerCase(),
+      SP_ADMIN_ACCOUNT: account.address.toLowerCase(),
+      SP_ALLOWED_STREAMS: account.address.toLowerCase(),
     };
     if (args["self-test"]) {
       const success = await runTests(

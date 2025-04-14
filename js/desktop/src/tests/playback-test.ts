@@ -11,7 +11,7 @@ export const playbackTest: E2ETest = {
       ...testEnv,
       env: {
         ...testEnv.env,
-        AQ_TEST_STREAM: "true",
+        SP_TEST_STREAM: "true",
       },
     };
   },

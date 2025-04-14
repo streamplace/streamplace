@@ -58,9 +58,9 @@ export default async function runTests(
           };
           if (!skipNode) {
             testEnv.env = {
-              AQ_HTTP_ADDR: `127.0.0.1:${randomPort()}`,
-              AQ_HTTP_INTERNAL_ADDR: `127.0.0.1:${randomPort()}`,
-              AQ_DATA_DIR: tmpDir,
+              SP_HTTP_ADDR: `127.0.0.1:${randomPort()}`,
+              SP_HTTP_INTERNAL_ADDR: `127.0.0.1:${randomPort()}`,
+              SP_DATA_DIR: tmpDir,
             };
           }
           if (test.setup) {

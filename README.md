@@ -54,13 +54,13 @@ yarn run app start
 You can also boot the other platforms directly from the bundler once it starts.
 
 Some app development may require actual HTTPS to test the OAuth flow. To make
-that happen, you can set the `AQ_APP_SCHEME` environment variable to the scheme
+that happen, you can set the `SP_APP_SCHEME` environment variable to the scheme
 you want to use; it must match reverse of the URL of a publicly accessible
 server with an HTTPS cert. So, if you're exposing your app on
 streamplace.example.com, you could run the app with
 
 ```
-export AQ_APP_SCHEME=com.example.streamplace
+export SP_APP_SCHEME=com.example.streamplace
 yarn run app ios
 ```
 

@@ -40,14 +40,14 @@ export default async function makeNode(opts: {
   autoQuit: boolean;
 }) {
   const exe = await findExe();
-  const addr = opts.env.AQ_HTTP_ADDR ?? "127.0.0.1:38082";
-  const internalAddr = opts.env.AQ_HTTP_INTERNAL_ADDR ?? "127.0.0.1:39092";
+  const addr = opts.env.SP_HTTP_ADDR ?? "127.0.0.1:38082";
+  const internalAddr = opts.env.SP_HTTP_INTERNAL_ADDR ?? "127.0.0.1:39092";
   const proc = spawn(exe, [], {
     stdio: "inherit",
     env: {
       ...process.env,
-      AQ_HTTP_ADDR: addr,
-      AQ_HTTP_INTERNAL_ADDR: internalAddr,
+      SP_HTTP_ADDR: addr,
+      SP_HTTP_INTERNAL_ADDR: internalAddr,
       ...opts.env,
     },
     windowsHide: true,

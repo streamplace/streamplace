@@ -221,6 +221,7 @@ build-mac:
       && make ci-macos -j16
 
 windows-selftest:
+  interruptible: true
   stage: build
   # for the moment...
   tags:
@@ -253,3 +254,45 @@ release:
   timeout: 2 hours
   script:
     - make ci-release
+
+.report-status:
+  interruptible: true
+  image:
+    name: curlimages/curl
+    entrypoint: ["/bin/sh"]
+  variables:
+    STATUS_PROJECT: streamplace/streamplace
+    STATUS_NAME: git.stream.place
+  script:
+    # For complete details on the GitHub API please see:
+    # https://developer.github.com/v3/repos/statuses
+    - >
+      set -eu && curl -L
+      --fail-with-body
+      --silent
+      -X POST
+      -H "Accept: application/vnd.github+json"
+      -H "Authorization: Bearer $GITHUB_TOKEN"
+      -H "X-GitHub-Api-Version: 2022-11-28"
+      https://api.github.com/repos/${STATUS_PROJECT}/statuses/${CI_COMMIT_SHA}
+      -d '{"state":"'${CI_JOB_NAME}'","target_url":"'${CI_PIPELINE_URL}'","description":"'${STATUS_NAME}'","context":"'${STATUS_NAME}'"}'
+  environment:
+    name: reporting-github
+  dependencies: []
+
+pending:
+  stage: .pre
+  extends:
+    - .report-status
+
+success:
+  stage: .post
+  extends:
+    - .report-status
+
+failed:
+  stage: .post
+  extends:
+    - .report-status
+  rules:
+    - when: on_failure

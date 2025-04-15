@@ -1,0 +1,29 @@
+name: build
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  linux-build:
+    name: linux-build
+    runs-on: ubuntu-latest
+    container:
+      image: dist.stream.place/streamplace/streamplace:builder-4c5b7b7979e1c6225b8f0e6db74176699bdffeb0
+      env:
+        DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4.1.7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Build Streamplace
+        run: |
+          yarn run install
+          make check
+          make

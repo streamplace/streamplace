@@ -24,8 +24,7 @@ func main() {
 	}
 }
 
-var tmpl = `
-package main
+var tmpl = `package main
 
 var Version = "%s"
 var BuildTime = "%d"

@@ -24,9 +24,7 @@ jobs:
 
       - name: Build Streamplace
         run: |
-          yarn install
-          make check
-          make
+          make docker-build
 
   macos-build:
     name: macos-build

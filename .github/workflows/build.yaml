@@ -47,4 +47,6 @@ jobs:
           && python3.11 -m virtualenv ~/venv \
           && source ~/venv/bin/activate \
           && pip3 install meson \
-          && make ci-macos -j16
+          && make \
+          && make test \
+          && make check

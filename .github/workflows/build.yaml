@@ -24,6 +24,6 @@ jobs:
 
       - name: Build Streamplace
         run: |
-          yarn run install
+          yarn install
           make check
           make

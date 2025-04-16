@@ -148,11 +148,6 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 	// Setup complete! Now we boot up streaming in the background while returning the SDP offer to the user.
 
 	go func() {
-		<-ctx.Done()
-		pipeline.BlockSetState(gst.StateNull)
-	}()
-
-	go func() {
 		ticker := time.NewTicker(time.Second * 1)
 		for {
 			select {
@@ -297,6 +292,11 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 		})
 
 		<-ctx.Done()
+
+		err = pipeline.SetState(gst.StateNull)
+		if err != nil {
+			log.Log(ctx, "failed to set pipeline state to null", "error", err)
+		}
 	}()
 	select {
 	case <-gatherComplete:
@@ -399,11 +399,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		return nil, fmt.Errorf("failed to get audioSrcElem element from pipeline: %w", err)
 	}
 	audioSrc := app.SrcFromElement(audioSrcElem)
-
-	go func() {
-		<-ctx.Done()
-		pipeline.BlockSetState(gst.StateNull)
-	}()
 
 	go func() {
 		<-ctx.Done()
@@ -560,6 +555,11 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		})
 
 		<-ctx.Done()
+
+		err = pipeline.SetState(gst.StateNull)
+		if err != nil {
+			log.Log(ctx, "failed to set pipeline state to null", "error", err)
+		}
 	}()
 	select {
 	case <-gatherComplete:

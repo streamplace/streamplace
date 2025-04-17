@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const GST_DEBUG_NEEDED = "leaks:9,GST_TRACER:9"
 const LEAK_LINE = "GST_TRACER :0:: object-alive"
 
 var LEAK_DONE_REGEX = regexp.MustCompile(`listed\s+(\d+)\s+alive\s+objects`)
@@ -29,9 +30,9 @@ var LeakDoneCh = make(chan struct{})
 func TestMain(m *testing.M) {
 	gstDebug := os.Getenv("GST_DEBUG")
 	if gstDebug == "" {
-		gstDebug = "GST_TRACER:9"
+		gstDebug = GST_DEBUG_NEEDED
 	} else {
-		gstDebug = fmt.Sprintf("%s,GST_TRACER:7", gstDebug)
+		gstDebug = fmt.Sprintf("%s,%s", gstDebug, GST_DEBUG_NEEDED)
 	}
 	os.Setenv("GST_DEBUG", gstDebug)
 	os.Setenv("GST_TRACERS", "leaks")
@@ -59,6 +60,7 @@ func TestMain(m *testing.M) {
 		scanner := bufio.NewScanner(pipe)
 		for scanner.Scan() {
 			line := scanner.Text()
+			fmt.Println(line)
 			line = stripansi.Strip(line)
 			if strings.Contains(line, LEAK_LINE) {
 				LeakReportMutex.Lock()
@@ -67,7 +69,6 @@ func TestMain(m *testing.M) {
 			} else if LEAK_DONE_REGEX.MatchString(line) {
 				LeakDoneCh <- struct{}{}
 			} else {
-				fmt.Println(line)
 				continue
 			}
 		}
@@ -78,16 +79,11 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func checkGStreamerLeaks(t *testing.T, expected int) {
+func getLeakCount(t *testing.T) int {
 	process, err := os.FindProcess(os.Getpid())
-	err = process.Signal(os.Signal(syscall.SIGUSR1))
-	require.NoError(t, err)
-	<-LeakDoneCh
 	LeakReportMutex.Lock()
-	before := len(LeakReport)
 	LeakReport = []string{}
 	LeakReportMutex.Unlock()
-	require.NoError(t, err)
 
 	ch := make(chan struct{})
 	done := false
@@ -123,11 +119,18 @@ func checkGStreamerLeaks(t *testing.T, expected int) {
 
 	LeakReportMutex.Lock()
 	after := len(LeakReport)
-	if after-before > expected {
+	LeakReportMutex.Unlock()
+	return after
+}
+
+func checkGStreamerLeaks(t *testing.T, expected int) {
+	leaks := getLeakCount(t)
+	if leaks > expected {
+		LeakReportMutex.Lock()
 		for _, l := range LeakReport {
 			fmt.Println(l)
 		}
+		LeakReportMutex.Unlock()
 	}
 	require.Equal(t, expected, len(LeakReport), "Leaks found")
-	LeakReportMutex.Unlock()
 }

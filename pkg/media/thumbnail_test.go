@@ -14,6 +14,8 @@ import (
 
 func TestThumbnail(t *testing.T) {
 	gstinit.InitGST()
+	before := getLeakCount(t)
+	defer checkGStreamerLeaks(t, before+1)
 	ignore := goleak.IgnoreCurrent()
 	defer goleak.VerifyNone(t, ignore)
 
@@ -28,6 +30,4 @@ func TestThumbnail(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, thumbnail)
 	require.Greater(t, thumbnail.Len(), 0, "Thumbnail buffer should not be empty")
-
-	checkGStreamerLeaks(t, 1)
 }

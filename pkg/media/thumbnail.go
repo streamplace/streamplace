@@ -17,7 +17,7 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer) error {
 	defer cancel()
 
 	pipelineSlice := []string{
-		"appsrc name=appsrc ! qtdemux ! decodebin ! videoconvert ! videoscale ! video/x-raw,width=[1,720],height=[1,720],pixel-aspect-ratio=1/1 ! pngenc snapshot=true ! appsink name=appsink",
+		"appsrc name=appsrc ! qtdemux name=demux ! decodebin ! videoconvert ! videoscale ! capsfilter name=capsfilter caps=video/x-raw,width=[1,1280],height=[1,720],pixel-aspect-ratio=1/1 ! queue ! pngenc snapshot=true ! appsink name=appsink",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -55,6 +55,29 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer) error {
 	pipeline.SetState(gst.StatePlaying)
 
 	<-ctx.Done()
+
+	// elements, err := pipeline.GetElements()
+	// if err != nil {
+	// 	return err
+	// }
+	// for _, element := range elements {
+	// 	pads, err := element.GetPads()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	for _, pad := range pads {
+	// 		caps := pad.GetCurrentCaps()
+	// 		if caps != nil {
+	// 			log.Log(ctx, "Pad parent", "name", element.GetName(), "pad", pad.GetName(), "caps", caps.Unsafe())
+	// 			if element.GetName() == "capsfilter" && pad.Direction() == gst.PadDirectionSource {
+	// 				log.Warn(ctx, "unreffing caps", "caps", caps.Unsafe())
+	// 				caps.Unref()
+	// 			}
+	// 		} else {
+	// 			log.Log(ctx, "Pad parent", "name", element.GetName(), "pad", pad.GetName())
+	// 		}
+	// 	}
+	// }
 
 	pipeline.BlockSetState(gst.StateNull)
 

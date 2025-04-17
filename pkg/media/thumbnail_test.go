@@ -5,9 +5,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"runtime/debug"
 	"strings"
@@ -20,15 +20,25 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/log"
 )
 
 const LEAK_LINE = "GST_TRACER :0:: object-alive"
 
+var LEAK_DONE_REGEX = regexp.MustCompile(`listed\s+(\d+)\s+alive\s+objects`)
+
 var LeakReport = []string{}
 var LeakReportMutex sync.Mutex
+var LeakDoneCh = make(chan struct{})
 
 func TestMain(m *testing.M) {
-	os.Setenv("GST_DEBUG", "GST_TRACER:7")
+	gstDebug := os.Getenv("GST_DEBUG")
+	if gstDebug == "" {
+		gstDebug = "GST_TRACER:9"
+	} else {
+		gstDebug = fmt.Sprintf("%s,GST_TRACER:7", gstDebug)
+	}
+	os.Setenv("GST_DEBUG", gstDebug)
 	os.Setenv("GST_TRACERS", "leaks")
 	os.Setenv("GST_LEAKS_TRACER_SIG", "1")
 	debug.SetGCPercent(5)
@@ -55,25 +65,33 @@ func TestMain(m *testing.M) {
 		for scanner.Scan() {
 			line := scanner.Text()
 			line = stripansi.Strip(line)
-			if !strings.Contains(line, LEAK_LINE) {
+			if strings.Contains(line, LEAK_LINE) {
+				LeakReportMutex.Lock()
+				LeakReport = append(LeakReport, line)
+				LeakReportMutex.Unlock()
+			} else if LEAK_DONE_REGEX.MatchString(line) {
+				LeakDoneCh <- struct{}{}
+			} else {
+				fmt.Println(line)
 				continue
 			}
-			LeakReportMutex.Lock()
-			LeakReport = append(LeakReport, line)
-			LeakReportMutex.Unlock()
 		}
 		if err := scanner.Err(); err != nil {
-			log.Printf("Error reading from file: %v", err)
+			panic(err)
 		}
 	}()
 	os.Exit(m.Run())
 }
 
-func checkGStreamerLeaks(t *testing.T) {
+func checkGStreamerLeaks(t *testing.T, expected int) {
+	process, err := os.FindProcess(os.Getpid())
+	err = process.Signal(os.Signal(syscall.SIGUSR1))
+	require.NoError(t, err)
+	<-LeakDoneCh
 	LeakReportMutex.Lock()
+	before := len(LeakReport)
 	LeakReport = []string{}
 	LeakReportMutex.Unlock()
-	process, err := os.FindProcess(os.Getpid())
 	require.NoError(t, err)
 
 	ch := make(chan struct{})
@@ -106,20 +124,23 @@ func checkGStreamerLeaks(t *testing.T) {
 	err = process.Signal(os.Signal(syscall.SIGUSR1))
 	require.NoError(t, err)
 
-	time.Sleep(1 * time.Second)
+	<-LeakDoneCh
 
 	LeakReportMutex.Lock()
-	for _, l := range LeakReport {
-		fmt.Println(l)
+	after := len(LeakReport)
+	if after-before > expected {
+		for _, l := range LeakReport {
+			fmt.Println(l)
+		}
 	}
-	require.Equal(t, 0, len(LeakReport), "Leaks found")
+	require.Equal(t, expected, len(LeakReport), "Leaks found")
 	LeakReportMutex.Unlock()
 }
 
 func TestThumbnail(t *testing.T) {
+	gstinit.InitGST()
 	ignore := goleak.IgnoreCurrent()
 	defer goleak.VerifyNone(t, ignore)
-	gstinit.InitGST()
 
 	// Open input file
 	inputFile, err := os.Open(getFixture("sample-segment.mp4"))
@@ -127,10 +148,11 @@ func TestThumbnail(t *testing.T) {
 	defer inputFile.Close()
 
 	thumbnail := bytes.Buffer{}
-	err = Thumbnail(context.Background(), inputFile, &thumbnail)
+	ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"function": {"Thumbnail": 9}})
+	err = Thumbnail(ctx, inputFile, &thumbnail)
 	require.NoError(t, err)
 	require.NotNil(t, thumbnail)
 	require.Greater(t, thumbnail.Len(), 0, "Thumbnail buffer should not be empty")
 
-	checkGStreamerLeaks(t)
+	checkGStreamerLeaks(t, 1)
 }

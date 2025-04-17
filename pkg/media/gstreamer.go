@@ -76,8 +76,10 @@ func WriterNewSample(ctx context.Context, output io.Writer) func(sink *app.Sink)
 
 		// Retrieve the buffer from the sample.
 		buffer := sample.GetBuffer()
+		bs := buffer.Map(gst.MapRead).Bytes()
+		defer buffer.Unmap()
 
-		_, err := io.Copy(output, buffer.Reader())
+		_, err := output.Write(bs)
 
 		if err != nil {
 			panic(err)

@@ -56,29 +56,6 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer) error {
 
 	<-ctx.Done()
 
-	// elements, err := pipeline.GetElements()
-	// if err != nil {
-	// 	return err
-	// }
-	// for _, element := range elements {
-	// 	pads, err := element.GetPads()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	for _, pad := range pads {
-	// 		caps := pad.GetCurrentCaps()
-	// 		if caps != nil {
-	// 			log.Log(ctx, "Pad parent", "name", element.GetName(), "pad", pad.GetName(), "caps", caps.Unsafe())
-	// 			if element.GetName() == "capsfilter" && pad.Direction() == gst.PadDirectionSource {
-	// 				log.Warn(ctx, "unreffing caps", "caps", caps.Unsafe())
-	// 				caps.Unref()
-	// 			}
-	// 		} else {
-	// 			log.Log(ctx, "Pad parent", "name", element.GetName(), "pad", pad.GetName())
-	// 		}
-	// 	}
-	// }
-
 	pipeline.BlockSetState(gst.StateNull)
 
 	return nil

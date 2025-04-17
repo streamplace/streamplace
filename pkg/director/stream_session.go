@@ -169,7 +169,7 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 		return err
 	}
 	defer fd.Close()
-	err = ss.mm.Thumbnail(ctx, r, fd)
+	err = media.Thumbnail(ctx, r, fd)
 	if err != nil {
 		return err
 	}

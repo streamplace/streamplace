@@ -11,7 +11,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-func (mm *MediaManager) Thumbnail(ctx context.Context, r io.Reader, w io.Writer) error {
+func Thumbnail(ctx context.Context, r io.Reader, w io.Writer) error {
 	ctx = log.WithLogValues(ctx, "function", "Thumbnail")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

@@ -145,6 +145,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.StringVar(&cli.RelayHost, "relay-host", "wss://bsky.network", "websocket url for relay firehose")
 	fs.Bool("insecure", false, "DEPRECATED, does nothing.")
 	fs.StringVar(&cli.Color, "color", "", "'true' to enable colorized logging, 'false' to disable")
+	fs.BoolVar(&cli.Thumbnail, "thumbnail", true, "enable thumbnail generation")
 
 	version := fs.Bool("version", false, "print version and exit")
 

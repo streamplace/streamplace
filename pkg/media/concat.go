@@ -273,6 +273,21 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 				pad.AddProbe(gst.PadProbeTypeIdle, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
 					log.Debug(ctx, "pad-idle", "name", pad.GetName(), "direction", pad.GetDirection())
 					src.EndStream()
+					go func() {
+						err := appsrc.SetState(gst.StateNull)
+						if err != nil {
+							log.Error(ctx, "failed to set appsrc state", "error", err)
+						}
+						pipeline.Remove(appsrc)
+						err = demux.SetState(gst.StateNull)
+						if err != nil {
+							log.Error(ctx, "failed to set demux state", "error", err)
+						}
+						err = pipeline.Remove(demux)
+						if err != nil {
+							log.Error(ctx, "failed to remove demux", "error", err)
+						}
+					}()
 					return gst.PadProbeRemove
 				})
 			}

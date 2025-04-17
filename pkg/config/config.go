@@ -86,6 +86,7 @@ type CLI struct {
 	Color                  string
 	LivepeerGatewayURL     string
 	WHIPTest               string
+	Thumbnail              bool
 
 	dataDirFlags []*string
 }

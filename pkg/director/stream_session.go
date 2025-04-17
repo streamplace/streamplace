@@ -120,12 +120,14 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 
 	ss.bus.Publish(spseg.Creator, spseg)
 
-	go func() {
-		err := ss.Thumbnail(ctx, spseg.Creator, not)
-		if err != nil {
-			log.Error(ctx, "could not create thumbnail", "error", err)
-		}
-	}()
+	if ss.cli.Thumbnail {
+		go func() {
+			err := ss.Thumbnail(ctx, spseg.Creator, not)
+			if err != nil {
+				log.Error(ctx, "could not create thumbnail", "error", err)
+			}
+		}()
+	}
 
 	if ss.cli.LivepeerGatewayURL != "" {
 		go func() {

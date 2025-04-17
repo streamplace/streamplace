@@ -291,6 +291,16 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 			log.Log(ctx, "failed to set pipeline state to null", "error", err)
 		}
 
+		audioSrcElem.SetState(gst.StateNull)
+		if err != nil {
+			log.Log(ctx, "failed to set audioSrcElem state to null", "error", err)
+		}
+
+		videoSrcElem.SetState(gst.StateNull)
+		if err != nil {
+			log.Log(ctx, "failed to set videoSrcElem state to null", "error", err)
+		}
+
 	}()
 	select {
 	case <-gatherComplete:

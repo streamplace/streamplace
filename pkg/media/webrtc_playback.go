@@ -281,7 +281,7 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 		peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 			log.Log(ctx, "Peer Connection State has changed", "state", s.String())
 
-			if s == webrtc.PeerConnectionStateFailed || s == webrtc.PeerConnectionStateClosed {
+			if s == webrtc.PeerConnectionStateFailed || s == webrtc.PeerConnectionStateClosed || s == webrtc.PeerConnectionStateDisconnected {
 				// Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
 				// Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
 				// Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
@@ -296,6 +296,21 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 		if err != nil {
 			log.Log(ctx, "failed to set pipeline state to null", "error", err)
 		}
+
+		pipeline.Clear()
+
+		err = videoappsinkele.SetState(gst.StateNull)
+		if err != nil {
+			log.Log(ctx, "failed to set videoappsinkele state to null", "error", err)
+		}
+
+		err = audioappsinkele.SetState(gst.StateNull)
+		if err != nil {
+			log.Log(ctx, "failed to set audioappsinkele state to null", "error", err)
+		}
+
+		log.Warn(ctx, "exiting playback")
+
 	}()
 	select {
 	case <-gatherComplete:

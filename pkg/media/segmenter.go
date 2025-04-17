@@ -57,6 +57,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		if appsink == nil {
 			panic("appsink should not be nil")
 		}
+
 		appsink.SetCallbacks(&app.SinkCallbacks{
 			NewSampleFunc: WriterNewSample(ctx, buf),
 			EOSFunc: func(sink *app.Sink) {

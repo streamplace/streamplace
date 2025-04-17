@@ -165,6 +165,12 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 					}
 				}
 			})
+			go func() {
+				<-ctx.Done()
+				if conn.peerConnection != nil {
+					conn.peerConnection.Close()
+				}
+			}()
 			return nil
 		})
 	}
@@ -179,15 +185,19 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 		defer ticker.Stop()
 
 		for {
-			<-ticker.C
-			for i, duration := range accumulators {
-				trackType := "video"
-				if i == 1 {
-					trackType = "audio"
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				for i, duration := range accumulators {
+					trackType := "video"
+					if i == 1 {
+						trackType = "audio"
+					}
+					target := startTime.Add(time.Duration(accumulators[i]))
+					diff := time.Since(target)
+					log.Debug(ctx, "elapsed duration", "track", trackType, "duration", duration, "diff", diff)
 				}
-				target := startTime.Add(time.Duration(accumulators[i]))
-				diff := time.Since(target)
-				log.Debug(ctx, "elapsed duration", "track", trackType, "duration", duration, "diff", diff)
 			}
 		}
 	}()
@@ -278,6 +288,13 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 			return err
 		}
 	}
+
+	<-ctx.Done()
+	err = pipeline.BlockSetState(gst.StateNull)
+	if err != nil {
+		return err
+	}
+
 	select {
 	case err := <-errCh:
 		return err

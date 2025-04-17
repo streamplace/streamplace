@@ -144,30 +144,56 @@ func AddOpusToMKV(ctx context.Context, input io.Reader, output io.Writer) error 
 
 // basic test to make sure gstreamer functionality is working
 func SelfTest(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "mediafunc", "SelfTest")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	f, err := test.Files.Open("fixtures/sample-segment.mp4")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open test file: %w", err)
 	}
 	defer f.Close()
 	bs, err := io.ReadAll(f)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read test file: %w", err)
 	}
 
-	pipeline, err := gst.NewPipelineFromString("appsrc name=src ! appsink name=sink")
+	pipeline, err := gst.NewPipeline("self-test")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create pipeline: %w", err)
 	}
 
-	srcele, err := pipeline.GetElementByName("src")
+	srcele, err := gst.NewElementWithProperties("appsrc", map[string]interface{}{
+		"name": "self-test-src",
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create appsrc element: %w", err)
 	}
-	if srcele == nil {
-		return fmt.Errorf("srcele not found")
+	err = pipeline.Add(srcele)
+	if err != nil {
+		return fmt.Errorf("failed to add appsrc to pipeline: %w", err)
 	}
+
+	sinkele, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
+		"name": "self-test-sink",
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create appsink element: %w", err)
+	}
+	err = pipeline.Add(sinkele)
+	if err != nil {
+		return fmt.Errorf("failed to add appsink to pipeline: %w", err)
+	}
+
+	err = srcele.Link(sinkele)
+	if err != nil {
+		return fmt.Errorf("failed to link appsrc to appsink: %w", err)
+	}
+
+	// pipeline, err := gst.NewPipelineFromString("appsrc name=src ! appsink name=sink")
+	// if err != nil {
+	// 	return err
+	// }
+
 	src := app.SrcFromElement(srcele)
 	src.SetCallbacks(&app.SourceCallbacks{
 		NeedDataFunc: func(self *app.Source, _ uint) {
@@ -175,20 +201,17 @@ func SelfTest(ctx context.Context) error {
 			buffer.Map(gst.MapWrite).WriteData(bs)
 			defer buffer.Unmap()
 			self.PushBuffer(buffer)
+			log.Debug(ctx, "ending stream")
 			self.EndStream()
 		},
 	})
 
-	mainLoop := glib.NewMainLoop(glib.MainContextDefault(), false)
-
 	output := &bytes.Buffer{}
-	sinkele, err := pipeline.GetElementByName("sink")
+
 	if err != nil {
-		return err
+		return fmt.Errorf("unexpected error: %w", err)
 	}
-	if sinkele == nil {
-		return fmt.Errorf("sinkele not found")
-	}
+
 	appsink := app.SinkFromElement(sinkele)
 	appsink.SetCallbacks(&app.SinkCallbacks{
 		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
@@ -210,23 +233,34 @@ func SelfTest(ctx context.Context) error {
 			return gst.FlowOK
 		},
 		EOSFunc: func(sink *app.Sink) {
+			log.Debug(ctx, "EOSFunc")
 			cancel()
 		},
 	})
 
-	// Start the pipeline
-	pipeline.SetState(gst.StatePlaying)
-
 	go func() {
-		<-ctx.Done()
-		mainLoop.Quit()
+		HandleBusMessages(ctx, pipeline)
+		cancel()
 	}()
 
-	mainLoop.Run()
+	// Start the pipeline
+	log.Debug(ctx, "setting pipeline to playing state")
+	err = pipeline.SetState(gst.StatePlaying)
+	if err != nil {
+		return fmt.Errorf("failed to set pipeline to playing state: %w", err)
+	}
+
+	<-ctx.Done()
 
 	if len(output.Bytes()) < 1 {
 		return fmt.Errorf("got a zero-byte buffer from SelfTest")
 	}
+
+	err = pipeline.BlockSetState(gst.StateNull)
+	if err != nil {
+		return fmt.Errorf("failed to set pipeline to null state: %w", err)
+	}
+
 	return nil
 }
 

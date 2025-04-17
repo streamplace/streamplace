@@ -181,6 +181,9 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 			}
 		})
 
+		videoFirst := false
+		audioFirst := false
+
 		log.Warn(ctx, "setting OnTrack")
 		peerConnection.OnTrack(func(track *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 			log.Warn(ctx, "OnTrack")
@@ -215,9 +218,19 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 						cancel()
 						return
 					}
-					log.Debug(ctx, "read video track", "bytes", i)
+					if ctx.Err() != nil {
+						return
+					}
+					if !videoFirst {
+						videoFirst = true
+						log.Debug(ctx, "got video data", "len", len(buf[:i]))
+					}
 
-					ret := videoSrc.PushBuffer(gst.NewBufferFromBytes(buf[:i]))
+					gbuf := gst.NewBufferWithSize(int64(len(buf[:i])))
+					gbuf.Map(gst.MapWrite).WriteData(buf[:i])
+					defer gbuf.Unmap()
+
+					ret := videoSrc.PushBuffer(gbuf)
 					if ret != gst.FlowOK {
 						log.Log(ctx, "failed to push buffer", "error", ret)
 						cancel()
@@ -244,9 +257,18 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 						cancel()
 						return
 					}
-					// log.Log(ctx, "read audio track", "bytes", i)
+					if ctx.Err() != nil {
+						return
+					}
+					if !audioFirst {
+						audioFirst = true
+						log.Debug(ctx, "got audio data", "len", len(buf[:i]))
+					}
 
-					ret := audioSrc.PushBuffer(gst.NewBufferFromBytes(buf[:i]))
+					gbuf := gst.NewBufferWithSize(int64(len(buf[:i])))
+					gbuf.Map(gst.MapWrite).WriteData(buf[:i])
+					defer gbuf.Unmap()
+					ret := audioSrc.PushBuffer(gbuf)
 					if ret != gst.FlowOK {
 						log.Log(ctx, "failed to push buffer", "error", ret)
 						cancel()
@@ -268,6 +290,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		if err != nil {
 			log.Log(ctx, "failed to set pipeline state to null", "error", err)
 		}
+
 	}()
 	select {
 	case <-gatherComplete:

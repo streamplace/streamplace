@@ -263,6 +263,7 @@ BASE_OPTS = \
 		-D "gstreamer-full:gst-full-typefind-functions=" \
 		-D "gstreamer-full:glib_assert=false" \
 		-D "gstreamer:glib_assert=false" \
+		-D "gstreamer:coretracers=enabled" \
 		-D "gst-plugins-good:glib_assert=false" \
 		-D "gst-plugins-bad:glib_assert=false" \
 		-D "gst-plugins-base:glib_assert=false" \

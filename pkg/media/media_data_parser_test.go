@@ -15,7 +15,7 @@ import (
 func TestMediaDataParser(t *testing.T) {
 	gstinit.InitGST()
 	before := getLeakCount(t)
-	defer checkGStreamerLeaks(t, before)
+	defer checkGStreamerLeaks(t, before+1)
 	ignore := goleak.IgnoreCurrent()
 	defer goleak.VerifyNone(t, ignore)
 

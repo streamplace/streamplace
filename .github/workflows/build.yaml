@@ -21,7 +21,7 @@ jobs:
       - name: make node
         run: |
           sudo apt install -y podman
-          make in-container IN_CONTAINER_CMD="make"
+          make in-container IN_CONTAINER_CMD="make && make test && make check"
 
   linux-arm64:
     name: linux-arm64

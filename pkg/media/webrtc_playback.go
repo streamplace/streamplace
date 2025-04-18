@@ -315,8 +315,6 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 			log.Log(ctx, "failed to set audioappsinkele state to null", "error", err)
 		}
 
-		pipeline.Clear()
-
 		log.Warn(ctx, "exiting playback")
 
 	}()

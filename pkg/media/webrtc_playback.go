@@ -178,16 +178,18 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 
 				samples := buffer.Map(gst.MapRead).Bytes()
 				defer buffer.Unmap()
+				b2 := make([]byte, len(samples))
+				copy(b2, samples)
 				clockTime := buffer.Duration()
 				dur := clockTime.AsDuration()
-				mediaSample := media.Sample{Data: samples}
+				mediaSample := media.Sample{Data: b2}
 				if dur != nil {
 					mediaSample.Duration = *dur
 					lastVideoDuration = dur
 				} else if lastVideoDuration != nil {
 					mediaSample.Duration = *lastVideoDuration
 				} else {
-					log.Log(ctx, "no video duration", "samples", len(samples))
+					log.Log(ctx, "no video duration", "samples", len(b2))
 					// cancel()
 					return gst.FlowOK
 				}
@@ -221,13 +223,16 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 				samples := buffer.Map(gst.MapRead).Bytes()
 				defer buffer.Unmap()
 
+				b2 := make([]byte, len(samples))
+				copy(b2, samples)
+
 				clockTime := buffer.Duration()
 				dur := clockTime.AsDuration()
-				mediaSample := media.Sample{Data: samples}
+				mediaSample := media.Sample{Data: b2}
 				if dur != nil {
 					mediaSample.Duration = *dur
 				} else {
-					log.Log(ctx, "no audio duration", "samples", len(samples))
+					log.Log(ctx, "no audio duration", "samples", len(b2))
 					// cancel()
 					return gst.FlowOK
 				}
@@ -292,22 +297,25 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 
 		<-ctx.Done()
 
-		err = pipeline.SetState(gst.StateNull)
+		log.Warn(ctx, "setting playback pipeline state to null")
+		err = pipeline.BlockSetState(gst.StateNull)
 		if err != nil {
 			log.Log(ctx, "failed to set pipeline state to null", "error", err)
 		}
 
-		pipeline.Clear()
-
+		videoappsink.SetCallbacks(&app.SinkCallbacks{})
 		err = videoappsinkele.SetState(gst.StateNull)
 		if err != nil {
 			log.Log(ctx, "failed to set videoappsinkele state to null", "error", err)
 		}
 
+		audioappsink.SetCallbacks(&app.SinkCallbacks{})
 		err = audioappsinkele.SetState(gst.StateNull)
 		if err != nil {
 			log.Log(ctx, "failed to set audioappsinkele state to null", "error", err)
 		}
+
+		pipeline.Clear()
 
 		log.Warn(ctx, "exiting playback")
 

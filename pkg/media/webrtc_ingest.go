@@ -286,7 +286,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 
 		<-ctx.Done()
 
-		err = pipeline.SetState(gst.StateNull)
+		err = pipeline.BlockSetState(gst.StateNull)
 		if err != nil {
 			log.Log(ctx, "failed to set pipeline state to null", "error", err)
 		}

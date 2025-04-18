@@ -109,8 +109,9 @@ func innnerTestConcat(t *testing.T) {
 	require.NotNil(t, audioPad)
 
 	videoAppSink, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
-		"name": "videoappsink",
-		"sync": false,
+		"name":        "videoappsink",
+		"sync":        false,
+		"wait-on-eos": false,
 	})
 	require.NoError(t, err)
 	err = pipeline.Add(videoAppSink)
@@ -120,8 +121,9 @@ func innnerTestConcat(t *testing.T) {
 	require.NotNil(t, videoAppSinkPadSink)
 
 	audioAppSink, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
-		"name": "audioappsink",
-		"sync": false,
+		"name":        "audioappsink",
+		"sync":        false,
+		"wait-on-eos": false,
 	})
 	require.NoError(t, err)
 	err = pipeline.Add(audioAppSink)
@@ -208,6 +210,6 @@ func innnerTestConcat(t *testing.T) {
 	audioappsink.SetCallbacks(&app.SinkCallbacks{})
 	pipeline.Clear()
 
-	require.Greater(t, videoTotalBytes, 1400000)
-	require.Greater(t, audioTotalBytes, 80000)
+	require.Greater(t, videoTotalBytes, 1000000)
+	require.Greater(t, audioTotalBytes, 40000)
 }

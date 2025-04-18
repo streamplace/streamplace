@@ -13,12 +13,12 @@ import (
 	"stream.place/streamplace/pkg/model"
 )
 
-func (mm *MediaManager) ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMediaData, error) {
+func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMediaData, error) {
 	ctx = log.WithLogValues(ctx, "GStreamerFunc", "ParseSegmentMediaData")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	pipelineSlice := []string{
-		"appsrc name=appsrc ! qtdemux name=demux ! fakesink",
+		"appsrc name=appsrc ! qtdemux name=demux ! fakesink sync=false",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

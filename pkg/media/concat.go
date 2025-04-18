@@ -56,7 +56,6 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 	go func() {
 		<-ctx.Done()
 		inputQueue.SetState(gst.StateNull)
-		pipeline.Remove(inputQueue)
 		inputQueue = nil
 		inputQueuePadVideoSink = nil
 		inputQueuePadVideoSrc = nil
@@ -72,7 +71,6 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 	go func() {
 		<-ctx.Done()
 		streamsynchronizer.SetState(gst.StateNull)
-		pipeline.Remove(streamsynchronizer)
 		streamsynchronizer = nil
 	}()
 	err = pipeline.Add(streamsynchronizer)
@@ -118,7 +116,6 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 	go func() {
 		<-ctx.Done()
 		outputQueue.SetState(gst.StateNull)
-		pipeline.Remove(outputQueue)
 		outputQueue = nil
 		outputQueuePadVideoSink = nil
 		outputQueuePadAudioSink = nil

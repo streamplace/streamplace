@@ -37,7 +37,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	if err != nil {
 		return err
 	}
-	mediaData, err := mm.ParseSegmentMediaData(ctx, buf)
+	mediaData, err := ParseSegmentMediaData(ctx, buf)
 	if err != nil {
 		return err
 	}

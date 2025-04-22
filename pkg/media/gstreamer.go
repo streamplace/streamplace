@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -34,59 +33,6 @@ func SafePipe() (*os.File, *os.File, func(), error) {
 		runtime.KeepAlive(r.Fd())
 		runtime.KeepAlive(w.Fd())
 	}, nil
-}
-
-func ReaderNeedData(ctx context.Context, input io.Reader) func(self *app.Source, length uint) {
-	return func(self *app.Source, length uint) {
-		if ctx.Err() != nil {
-			self.EndStream()
-			return
-		}
-		bs := make([]byte, length)
-		read, err := input.Read(bs)
-		if err != nil && !errors.Is(err, io.EOF) {
-			log.Error(ctx, "error reading from input", "error", err)
-			self.Error("error reading from input", err)
-			return
-		}
-		if read > 0 {
-			toPush := bs
-			if uint(read) < length {
-				toPush = bs[:read]
-			}
-			buffer := gst.NewBufferWithSize(int64(len(toPush)))
-			buffer.Map(gst.MapWrite).WriteData(toPush)
-			defer buffer.Unmap()
-			self.PushBuffer(buffer)
-		}
-		if err != nil && errors.Is(err, io.EOF) {
-			log.Debug(ctx, "EOF, ending stream", "length", read)
-			self.EndStream()
-			return
-		}
-	}
-}
-
-func WriterNewSample(ctx context.Context, output io.Writer) func(sink *app.Sink) gst.FlowReturn {
-	return func(sink *app.Sink) gst.FlowReturn {
-		sample := sink.PullSample()
-		if sample == nil {
-			return gst.FlowOK
-		}
-
-		// Retrieve the buffer from the sample.
-		buffer := sample.GetBuffer()
-		bs := buffer.Map(gst.MapRead).Bytes()
-		defer buffer.Unmap()
-
-		_, err := output.Write(bs)
-
-		if err != nil {
-			panic(err)
-		}
-
-		return gst.FlowOK
-	}
 }
 
 func AddOpusToMKV(ctx context.Context, input io.Reader, output io.Writer) error {

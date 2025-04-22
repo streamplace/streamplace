@@ -16,6 +16,7 @@ import (
 
 	"github.com/acarl005/stripansi"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/gstinit"
 )
 
 const GST_DEBUG_NEEDED = "leaks:9,GST_TRACER:9"
@@ -76,6 +77,7 @@ func TestMain(m *testing.M) {
 			panic(err)
 		}
 	}()
+	gstinit.InitGST()
 	os.Exit(m.Run())
 }
 

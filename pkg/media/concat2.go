@@ -3,9 +3,11 @@ package media
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media/segchanman"
 )
 
@@ -97,6 +99,29 @@ func NewConcatBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, 
 	audioGhost := gst.NewGhostPad("audio_0", mqAudioSrc)
 	if audioGhost == nil {
 		return nil, fmt.Errorf("failed to create audio ghost pad")
+	}
+
+	_, err = demux.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
+		log.Debug(ctx, "demux pad-added", "name", pad.GetName(), "direction", pad.GetDirection())
+		var downstreamPad *gst.Pad
+		if strings.HasPrefix(pad.GetName(), "video_") {
+			downstreamPad = mqVideoSink
+		} else if strings.HasPrefix(pad.GetName(), "audio_") {
+			downstreamPad = mqAudioSink
+		} else {
+			log.Error(ctx, "unknown pad", "name", pad.GetName(), "direction", pad.GetDirection())
+			// cancel()
+			return
+		}
+		ret := pad.Link(downstreamPad)
+		if ret != gst.PadLinkOK {
+			log.Error(ctx, "failed to link demux to downstream pad", "name", pad.GetName(), "direction", pad.GetDirection(), "error", ret)
+			// cancel()
+			return
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect demux pad-added signal: %w", err)
 	}
 
 	ok := bin.AddPad(videoGhost.Pad)

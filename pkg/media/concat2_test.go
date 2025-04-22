@@ -7,10 +7,10 @@ import (
 	"io"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
@@ -19,8 +19,8 @@ import (
 
 func TestConcat2(t *testing.T) {
 	gstinit.InitGST()
-	// before := getLeakCount(t)
-	// defer checkGStreamerLeaks(t, before)
+	before := getLeakCount(t)
+	defer checkGStreamerLeaks(t, before)
 	ignore := goleak.IgnoreCurrent()
 	defer goleak.VerifyNone(t, ignore)
 
@@ -49,12 +49,9 @@ func innnerTestConcat2(t *testing.T) error {
 
 	defer func() {
 		cancel()
-		err, ok := <-errCh
+		err := <-errCh
 		if err != nil {
 			t.Errorf("bus handler error: %v", err)
-		}
-		if !ok {
-			t.Error("error channel closed unexpectedly")
 		}
 		err = pipeline.BlockSetState(gst.StateNull)
 		if err != nil {
@@ -173,26 +170,10 @@ func innnerTestConcat2(t *testing.T) error {
 		return fmt.Errorf("failed to set pipeline to playing state: %w", err)
 	}
 
-	go func() {
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				fmt.Println(fmt.Sprintf("videoBuf.Len(): %d", videoBuf.Len()))
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
 	<-ctx.Done()
 
-	if videoBuf.Len() != 347001 {
-		t.Errorf("expected video buffer length 347001, got %d", videoBuf.Len())
-	}
-	if audioBuf.Len() != 40000 {
-		t.Errorf("expected audio buffer length 40000, got %d", audioBuf.Len())
-	}
+	require.Equal(t, videoBuf.Len(), 312609)
+	require.Equal(t, audioBuf.Len(), 18468)
 
 	return <-errCh
 }

@@ -75,9 +75,18 @@ func innnerTestConcat(t *testing.T) {
 	pipeline, err := gst.NewPipeline("TestConcat")
 	require.NoError(t, err)
 
+	busDone := make(chan struct{})
 	go func() {
 		HandleBusMessages(ctx, pipeline)
+		busDone <- struct{}{}
 		cancel()
+	}()
+
+	defer func() {
+		cancel()
+		<-busDone
+		err = pipeline.BlockSetState(gst.StateNull)
+		require.NoError(t, err)
 	}()
 
 	filename := getFixture("sample-segment.mp4")
@@ -199,16 +208,6 @@ func innnerTestConcat(t *testing.T) {
 	require.NoError(t, err)
 
 	<-ctx.Done()
-
-	err = pipeline.BlockSetState(gst.StateNull)
-	require.NoError(t, err)
-	pipeline.Remove(videoAppSink)
-	pipeline.Remove(audioAppSink)
-	videoAppSink.SetState(gst.StateNull)
-	audioAppSink.SetState(gst.StateNull)
-	videoappsink.SetCallbacks(&app.SinkCallbacks{})
-	audioappsink.SetCallbacks(&app.SinkCallbacks{})
-	pipeline.Clear()
 
 	require.Greater(t, videoTotalBytes, 1000000)
 	require.Greater(t, audioTotalBytes, 40000)

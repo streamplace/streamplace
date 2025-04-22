@@ -52,27 +52,12 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 	if inputQueuePadAudioSrc == nil {
 		return nil, nil, fmt.Errorf("failed to get input queue audio src pad")
 	}
-
-	go func() {
-		<-ctx.Done()
-		inputQueue.SetState(gst.StateNull)
-		inputQueue = nil
-		inputQueuePadVideoSink = nil
-		inputQueuePadVideoSrc = nil
-		inputQueuePadAudioSink = nil
-		inputQueuePadAudioSrc = nil
-	}()
-
 	// streamsynchronizer
 	streamsynchronizer, err := gst.NewElementWithProperties("streamsynchronizer", map[string]any{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create streamsynchronizer element: %w", err)
 	}
-	go func() {
-		<-ctx.Done()
-		streamsynchronizer.SetState(gst.StateNull)
-		streamsynchronizer = nil
-	}()
+
 	err = pipeline.Add(streamsynchronizer)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to add streamsynchronizer to pipeline: %w", err)
@@ -113,14 +98,6 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 	if outputQueuePadAudioSink == nil {
 		return nil, nil, fmt.Errorf("failed to get output queue audio sink pad")
 	}
-	go func() {
-		<-ctx.Done()
-		outputQueue.SetState(gst.StateNull)
-		outputQueue = nil
-		outputQueuePadVideoSink = nil
-		outputQueuePadAudioSink = nil
-	}()
-
 	// linking
 
 	// input queue to streamsynchronizer
@@ -381,6 +358,7 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 
 		select {
 		case <-ctx.Done():
+			return
 		case <-segDone:
 		}
 
@@ -388,6 +366,8 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 		demux.SetState(gst.StateNull)
 		src.SetCallbacks(&app.SourceCallbacks{})
 		appsrc.SetState(gst.StateNull)
+		pipeline.Remove(demux)
+		pipeline.Remove(appsrc)
 		pr.Close()
 		pw.Close()
 	}

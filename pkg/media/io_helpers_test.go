@@ -17,15 +17,15 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-var streamplaceTestRuns = 50
+var streamplaceTestCount = 50
 
 func init() {
-	testRunsStr := os.Getenv("STREAMPLACE_TEST_RUNS")
+	testRunsStr := os.Getenv("STREAMPLACE_TEST_COUNT")
 	if testRunsStr != "" {
 		var err error
-		streamplaceTestRuns, err = strconv.Atoi(testRunsStr)
+		streamplaceTestCount, err = strconv.Atoi(testRunsStr)
 		if err != nil {
-			panic(fmt.Sprintf("STREAMPLACE_TEST_RUNS is not a number: %s", testRunsStr))
+			panic(fmt.Sprintf("STREAMPLACE_TEST_COUNT is not a number: %s", testRunsStr))
 		}
 	}
 }
@@ -42,7 +42,7 @@ func TestWriterNewSample(t *testing.T) {
 	t.Logf("Test file size: %d bytes", fileSize)
 	g, ctx := errgroup.WithContext(context.Background())
 	ctx = log.WithDebugValue(ctx, map[string]map[string]int{"func": {"TestWriterNewSample": 9}})
-	for i := 0; i < streamplaceTestRuns; i++ {
+	for i := 0; i < streamplaceTestCount; i++ {
 		g.Go(func() error {
 			bs := bytes.Buffer{}
 			err := writerNewSampleInner(ctx, i, &bs)

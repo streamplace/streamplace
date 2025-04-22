@@ -106,8 +106,10 @@ func NewConcatBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, 
 		var downstreamPad *gst.Pad
 		if strings.HasPrefix(pad.GetName(), "video_") {
 			downstreamPad = mqVideoSink
+			defer func() { mqVideoSink = nil }()
 		} else if strings.HasPrefix(pad.GetName(), "audio_") {
 			downstreamPad = mqAudioSink
+			defer func() { mqAudioSink = nil }()
 		} else {
 			log.Error(ctx, "unknown pad", "name", pad.GetName(), "direction", pad.GetDirection())
 			// cancel()

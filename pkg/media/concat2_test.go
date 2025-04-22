@@ -12,6 +12,7 @@ import (
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
+	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media/segchanman"
@@ -24,7 +25,14 @@ func TestConcat2(t *testing.T) {
 	ignore := goleak.IgnoreCurrent()
 	defer goleak.VerifyNone(t, ignore)
 
-	innnerTestConcat2(t)
+	g, _ := errgroup.WithContext(context.Background())
+	for i := 0; i < streamplaceTestCount; i++ {
+		g.Go(func() error {
+			return innnerTestConcat2(t)
+		})
+	}
+	err := g.Wait()
+	require.NoError(t, err)
 }
 
 // This function remains in scope for the duration of a single users' playback

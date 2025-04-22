@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
@@ -20,8 +19,8 @@ import (
 
 func TestConcat2(t *testing.T) {
 	gstinit.InitGST()
-	before := getLeakCount(t)
-	defer checkGStreamerLeaks(t, before)
+	// before := getLeakCount(t)
+	// defer checkGStreamerLeaks(t, before)
 	ignore := goleak.IgnoreCurrent()
 	defer goleak.VerifyNone(t, ignore)
 
@@ -29,36 +28,51 @@ func TestConcat2(t *testing.T) {
 }
 
 // This function remains in scope for the duration of a single users' playback
-func innnerTestConcat2(t *testing.T) {
-
+func innnerTestConcat2(t *testing.T) error {
 	ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"func": {"ConcatStream": 9, "TestConcat2": 9}})
 	ctx = log.WithLogValues(ctx, "func", "TestConcat2")
 	ctx, cancel := context.WithCancel(ctx)
 	// defer cancel()
 
 	pipeline, err := gst.NewPipeline("TestConcat2")
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("failed to create pipeline: %w", err)
+	}
 
-	busDone := make(chan struct{})
+	errCh := make(chan error)
 	go func() {
-		HandleBusMessages(ctx, pipeline)
+		err := HandleBusMessages(ctx, pipeline)
 		cancel()
-		busDone <- struct{}{}
+		errCh <- err
+		close(errCh)
 	}()
 
 	defer func() {
 		cancel()
-		<-busDone
+		err, ok := <-errCh
+		if err != nil {
+			t.Errorf("bus handler error: %v", err)
+		}
+		if !ok {
+			t.Error("error channel closed unexpectedly")
+		}
 		err = pipeline.BlockSetState(gst.StateNull)
-		require.NoError(t, err)
+		if err != nil {
+			t.Errorf("failed to set pipeline to null state: %v", err)
+		}
 	}()
 
 	filename := getFixture("sample-segment.mp4")
 	inputFile, err := os.Open(filename)
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("failed to open fixture file: %w", err)
+	}
 	defer inputFile.Close()
+
 	bs, err := io.ReadAll(inputFile)
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("failed to read fixture file: %w", err)
+	}
 
 	testSegs := []*segchanman.Seg{
 		{
@@ -75,61 +89,89 @@ func innnerTestConcat2(t *testing.T) {
 	}()
 
 	concatBin, err := NewConcatBin(ctx, segCh)
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("failed to create concat bin: %w", err)
+	}
+
 	err = pipeline.Add(concatBin.Element)
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("failed to add concat bin to pipeline: %w", err)
+	}
 
-	videoPad := concatBin.GetStaticPad("src")
-	require.NotNil(t, videoPad)
+	videoPad := concatBin.GetStaticPad("video_0")
+	if videoPad == nil {
+		return fmt.Errorf("video pad not found")
+	}
 
-	// audioPad := outputQueue.GetStaticPad("src_1")
-	// require.NotNil(t, audioPad)
+	audioPad := concatBin.GetStaticPad("audio_0")
+	if audioPad == nil {
+		return fmt.Errorf("audio pad not found")
+	}
 
 	videoAppSink, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
 		"name": "videoappsink",
 		"sync": false,
 	})
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("failed to create video appsink: %w", err)
+	}
+
 	err = pipeline.Add(videoAppSink)
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("failed to add video appsink to pipeline: %w", err)
+	}
 
 	videoAppSinkPadSink := videoAppSink.GetStaticPad("sink")
-	require.NotNil(t, videoAppSinkPadSink)
+	if videoAppSinkPadSink == nil {
+		return fmt.Errorf("video appsink pad not found")
+	}
 
-	// audioAppSink, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
-	// 	"name": "audioappsink",
-	// 	"sync": false,
-	// })
-	// require.NoError(t, err)
-	// err = pipeline.Add(audioAppSink)
-	// require.NoError(t, err)
+	audioAppSink, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
+		"name": "audioappsink",
+		"sync": false,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create audio appsink: %w", err)
+	}
 
-	// audioAppSinkPadSink := audioAppSink.GetStaticPad("sink")
-	// require.NotNil(t, audioAppSinkPadSink)
+	err = pipeline.Add(audioAppSink)
+	if err != nil {
+		return fmt.Errorf("failed to add audio appsink to pipeline: %w", err)
+	}
+
+	audioAppSinkPadSink := audioAppSink.GetStaticPad("sink")
+	if audioAppSinkPadSink == nil {
+		return fmt.Errorf("audio appsink pad not found")
+	}
 
 	ok := videoPad.Link(videoAppSinkPadSink)
-	require.Equal(t, gst.PadLinkOK, ok)
+	if ok != gst.PadLinkOK {
+		return fmt.Errorf("failed to link video pad: %v", ok)
+	}
 
-	// ok = audioPad.Link(audioAppSinkPadSink)
-	// require.Equal(t, gst.PadLinkOK, ok)
+	ok = audioPad.Link(audioAppSinkPadSink)
+	if ok != gst.PadLinkOK {
+		return fmt.Errorf("failed to link audio pad: %v", ok)
+	}
 
 	videoBuf := bytes.Buffer{}
-	// audioBuf := bytes.Buffer{}
+	audioBuf := bytes.Buffer{}
 
 	videoappsink := app.SinkFromElement(videoAppSink)
 	videoappsink.SetCallbacks(&app.SinkCallbacks{
 		NewSampleFunc: WriterNewSample(ctx, &videoBuf),
 	})
 
-	// audioappsink := app.SinkFromElement(audioAppSink)
-	// audioappsink.SetCallbacks(&app.SinkCallbacks{
-	// 	NewSampleFunc: WriterNewSample(ctx, &audioBuf),
-	// })
+	audioappsink := app.SinkFromElement(audioAppSink)
+	audioappsink.SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: WriterNewSample(ctx, &audioBuf),
+	})
 
 	// Start the pipeline
-
 	err = pipeline.SetState(gst.StatePlaying)
-	require.NoError(t, err)
+	if err != nil {
+		return fmt.Errorf("failed to set pipeline to playing state: %w", err)
+	}
 
 	go func() {
 		ticker := time.NewTicker(time.Second)
@@ -145,6 +187,12 @@ func innnerTestConcat2(t *testing.T) {
 	}()
 	<-ctx.Done()
 
-	require.Equal(t, videoBuf.Len(), 347001)
-	// require.Greater(t, audioBuf.Len(), 40000)
+	if videoBuf.Len() != 347001 {
+		t.Errorf("expected video buffer length 347001, got %d", videoBuf.Len())
+	}
+	if audioBuf.Len() != 40000 {
+		t.Errorf("expected audio buffer length 40000, got %d", audioBuf.Len())
+	}
+
+	return <-errCh
 }

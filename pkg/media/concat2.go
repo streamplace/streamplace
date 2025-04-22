@@ -101,7 +101,8 @@ func NewConcatBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, 
 		return nil, fmt.Errorf("failed to create audio ghost pad")
 	}
 
-	_, err = demux.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
+	// the defer funcs are needed to avoid leaking pads for some reason
+	padAdded := func(self *gst.Element, pad *gst.Pad) {
 		log.Debug(ctx, "demux pad-added", "name", pad.GetName(), "direction", pad.GetDirection())
 		var downstreamPad *gst.Pad
 		if strings.HasPrefix(pad.GetName(), "video_") {
@@ -121,7 +122,9 @@ func NewConcatBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, 
 			// cancel()
 			return
 		}
-	})
+	}
+
+	_, err = demux.Connect("pad-added", padAdded)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect demux pad-added signal: %w", err)
 	}

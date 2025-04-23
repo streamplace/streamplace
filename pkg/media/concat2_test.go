@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/gstinit"
@@ -38,7 +39,8 @@ func TestConcatBin(t *testing.T) {
 // This function remains in scope for the duration of a single users' playback
 func innerTestConcatBin(t *testing.T) error {
 	ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"func": {"ConcatStream": 9, "ConcatBin": 9, "SegDemuxBin": 9}})
-	ctx = log.WithLogValues(ctx, "func", "ConcatBin")
+	uuid, _ := uuid.NewV7()
+	ctx = log.WithLogValues(ctx, "func", "ConcatBin", "uuid", uuid.String())
 	ctx, cancel := context.WithCancel(ctx)
 	// defer cancel()
 
@@ -58,13 +60,9 @@ func innerTestConcatBin(t *testing.T) error {
 	defer func() {
 		cancel()
 		err := <-errCh
-		if err != nil {
-			t.Errorf("bus handler error: %v", err)
-		}
+		require.NoError(t, err, fmt.Sprintf("uuid: %s", uuid.String()))
 		err = pipeline.BlockSetState(gst.StateNull)
-		if err != nil {
-			t.Errorf("failed to set pipeline to null state: %v", err)
-		}
+		require.NoError(t, err, fmt.Sprintf("uuid: %s", uuid.String()))
 	}()
 
 	filename := getFixture("sample-segment.mp4")
@@ -196,8 +194,26 @@ func innerTestConcatBin(t *testing.T) error {
 
 	<-ctx.Done()
 
-	require.Equal(t, videoBuf.Len(), 1563045)
-	require.Equal(t, audioBuf.Len(), 92340)
+	time.Sleep(5 * time.Second)
+
+	padIdleCh := make(chan struct{})
+
+	padIdle := func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+		log.Debug(ctx, "pad-idle", "name", pad.GetName(), "direction", pad.GetDirection())
+		go func() {
+			padIdleCh <- struct{}{}
+		}()
+		return gst.PadProbeRemove
+	}
+
+	videoAppSinkPadSink.AddProbe(gst.PadProbeTypeIdle, padIdle)
+	audioAppSinkPadSink.AddProbe(gst.PadProbeTypeIdle, padIdle)
+
+	<-padIdleCh
+	<-padIdleCh
+
+	require.Equal(t, 1563045, videoBuf.Len(), fmt.Sprintf("uuid: %s", uuid.String()))
+	require.Equal(t, 92340, audioBuf.Len(), fmt.Sprintf("uuid: %s", uuid.String()))
 
 	return <-errCh
 }

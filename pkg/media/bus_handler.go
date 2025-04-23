@@ -40,6 +40,8 @@ func HandleBusMessagesCustom(ctx context.Context, pipeline *gst.Pipeline, handle
 				log.Debug(ctx, "gstreamer debug", "message", debug)
 			}
 			return fmt.Errorf("gstreamer error: %w", err)
+		case gst.MessageElement:
+			// this one is noisy and not useful
 		default:
 			log.Debug(ctx, msg.String())
 		}

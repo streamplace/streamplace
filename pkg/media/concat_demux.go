@@ -11,7 +11,7 @@ import (
 	"stream.place/streamplace/pkg/media/segchanman"
 )
 
-func NewConcatBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, error) {
+func SegDemuxBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, error) {
 	bin := gst.NewBin("concat")
 
 	appSrc, err := gst.NewElementWithProperties("appsrc", map[string]interface{}{

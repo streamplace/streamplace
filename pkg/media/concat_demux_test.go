@@ -18,7 +18,7 @@ import (
 	"stream.place/streamplace/pkg/media/segchanman"
 )
 
-func TestConcat2(t *testing.T) {
+func TestSegDemuxBin(t *testing.T) {
 	gstinit.InitGST()
 	before := getLeakCount(t)
 	defer checkGStreamerLeaks(t, before)
@@ -28,7 +28,7 @@ func TestConcat2(t *testing.T) {
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < streamplaceTestCount; i++ {
 		g.Go(func() error {
-			return innnerTestConcat2(t)
+			return innerTestSegDemuxBin(t)
 		})
 	}
 	err := g.Wait()
@@ -36,7 +36,7 @@ func TestConcat2(t *testing.T) {
 }
 
 // This function remains in scope for the duration of a single users' playback
-func innnerTestConcat2(t *testing.T) error {
+func innerTestSegDemuxBin(t *testing.T) error {
 	ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"func": {"ConcatStream": 9, "TestConcat2": 9}})
 	ctx = log.WithLogValues(ctx, "func", "TestConcat2")
 	ctx, cancel := context.WithCancel(ctx)
@@ -93,7 +93,7 @@ func innnerTestConcat2(t *testing.T) error {
 		}
 	}()
 
-	concatBin, err := NewConcatBin(ctx, segCh)
+	concatBin, err := SegDemuxBin(ctx, segCh)
 	if err != nil {
 		return fmt.Errorf("failed to create concat bin: %w", err)
 	}

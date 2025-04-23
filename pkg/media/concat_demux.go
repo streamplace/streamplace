@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -11,8 +12,9 @@ import (
 	"stream.place/streamplace/pkg/media/segchanman"
 )
 
-func SegDemuxBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, error) {
-	bin := gst.NewBin("concat")
+func ConcatDemuxBin(ctx context.Context, seg *segchanman.Seg) (*gst.Bin, error) {
+	ctx = log.WithLogValues(ctx, "func", "SegDemuxBin")
+	bin := gst.NewBin("seg-demux-bin")
 
 	appSrc, err := gst.NewElementWithProperties("appsrc", map[string]interface{}{
 		"name": "concat-appsrc",
@@ -24,20 +26,6 @@ func SegDemuxBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to add appsrc to bin: %w", err)
 	}
-
-	src := app.SrcFromElement(appSrc)
-	go func() {
-		select {
-		case <-ctx.Done():
-			return
-		case seg := <-segCh:
-			buffer := gst.NewBufferWithSize(int64(len(seg.Data)))
-			buffer.Map(gst.MapWrite).WriteData(seg.Data)
-			defer buffer.Unmap()
-			src.PushBuffer(buffer)
-			src.EndStream()
-		}
-	}()
 
 	demux, err := gst.NewElementWithProperties("qtdemux", map[string]interface{}{
 		"name": "concat-demux",
@@ -61,7 +49,7 @@ func SegDemuxBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, e
 	}
 
 	mq, err := gst.NewElementWithProperties("multiqueue", map[string]interface{}{
-		"name": "concat-multiqueue",
+		"name": "concat-demux-multiqueue",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create multiqueue element: %w", err)
@@ -138,6 +126,11 @@ func SegDemuxBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, e
 	if !ok {
 		return nil, fmt.Errorf("failed to add audio ghost pad to bin")
 	}
+
+	src := app.SrcFromElement(appSrc)
+	src.SetCallbacks(&app.SourceCallbacks{
+		NeedDataFunc: ReaderNeedData(ctx, bytes.NewReader(seg.Data)),
+	})
 
 	return bin, nil
 }

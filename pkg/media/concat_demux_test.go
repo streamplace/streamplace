@@ -18,7 +18,7 @@ import (
 	"stream.place/streamplace/pkg/media/segchanman"
 )
 
-func TestSegDemuxBin(t *testing.T) {
+func TestConcatDemuxBin(t *testing.T) {
 	gstinit.InitGST()
 	before := getLeakCount(t)
 	defer checkGStreamerLeaks(t, before)
@@ -28,7 +28,7 @@ func TestSegDemuxBin(t *testing.T) {
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < streamplaceTestCount; i++ {
 		g.Go(func() error {
-			return innerTestSegDemuxBin(t)
+			return innerTestConcatDemuxBin(t)
 		})
 	}
 	err := g.Wait()
@@ -36,8 +36,8 @@ func TestSegDemuxBin(t *testing.T) {
 }
 
 // This function remains in scope for the duration of a single users' playback
-func innerTestSegDemuxBin(t *testing.T) error {
-	ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"func": {"ConcatStream": 9, "TestConcat2": 9}})
+func innerTestConcatDemuxBin(t *testing.T) error {
+	ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"func": {"ConcatStream": 9, "TestConcat2": 9, "SegDemuxBin": 9}})
 	ctx = log.WithLogValues(ctx, "func", "TestConcat2")
 	ctx, cancel := context.WithCancel(ctx)
 	// defer cancel()
@@ -79,21 +79,12 @@ func innerTestSegDemuxBin(t *testing.T) error {
 		return fmt.Errorf("failed to read fixture file: %w", err)
 	}
 
-	testSegs := []*segchanman.Seg{
-		{
-			Data:     bs,
-			Filepath: filename,
-		},
+	testSeg := &segchanman.Seg{
+		Data:     bs,
+		Filepath: filename,
 	}
 
-	segCh := make(chan *segchanman.Seg)
-	go func() {
-		for _, seg := range testSegs {
-			segCh <- seg
-		}
-	}()
-
-	concatBin, err := SegDemuxBin(ctx, segCh)
+	concatBin, err := ConcatDemuxBin(ctx, testSeg)
 	if err != nil {
 		return fmt.Errorf("failed to create concat bin: %w", err)
 	}

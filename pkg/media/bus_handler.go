@@ -31,6 +31,10 @@ func HandleBusMessagesCustom(ctx context.Context, pipeline *gst.Pipeline, handle
 			return nil
 		case gst.MessageError: // Error messages are always fatal
 			err := msg.ParseError()
+			if err.Error() == fmt.Sprintf("%s: %s", ErrConcatDone.Error(), ErrConcatDone.Error()) {
+				log.Debug(ctx, "got ErrConcatDone, exiting")
+				return nil
+			}
 			log.Error(ctx, "gstreamer error", "error", err.Error())
 			if debug := err.DebugString(); debug != "" {
 				log.Debug(ctx, "gstreamer debug", "message", debug)

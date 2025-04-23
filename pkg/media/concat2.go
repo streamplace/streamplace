@@ -2,12 +2,15 @@ package media
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media/segchanman"
 )
+
+var ErrConcatDone = errors.New("concat done")
 
 func ConcatBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, error) {
 	ctx = log.WithLogValues(ctx, "func", "ConcatBin")
@@ -110,6 +113,10 @@ func ConcatBin(ctx context.Context, segCh <-chan *segchanman.Seg) (*gst.Bin, err
 		for {
 			select {
 			case seg := <-segCh:
+				if seg == nil {
+					bin.Error(ErrConcatDone.Error(), ErrConcatDone)
+					return
+				}
 				err := addConcatDemuxer(ctx, bin, seg, syncPadVideoSink, syncPadAudioSink)
 				if err != nil {
 					panic(fmt.Errorf("failed to add concat demuxer: %w", err))
@@ -155,47 +162,41 @@ func addConcatDemuxer(ctx context.Context, bin *gst.Bin, seg *segchanman.Seg, sy
 		return fmt.Errorf("failed to link demux bin audio src pad to sync audio sink pad: %v", linked)
 	}
 
-	bufferCh := make(chan struct{})
-	demuxBinPadVideoSrc.AddProbe(gst.PadProbeTypeBuffer, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-		log.Warn(ctx, "pad-buffer", "type", pad.GetName(), "direction", pad.GetDirection())
+	eosCh := make(chan struct{})
+	eos := func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+		if pad.GetDirection() != gst.PadDirectionSource {
+			return gst.PadProbeOK
+		}
+		if info.GetEvent().Type() != gst.EventTypeEOS {
+			return gst.PadProbeOK
+		}
+		log.Debug(ctx, "demux EOS", "name", pad.GetName(), "direction", pad.GetDirection())
+		downstreamPad := pad.GetPeer()
+		unlinked := pad.Unlink(downstreamPad)
+		if !unlinked {
+			log.Error(ctx, "failed to unlink pad", "name", pad.GetName(), "direction", pad.GetDirection(), "error", unlinked)
+		}
 		go func() {
-			bufferCh <- struct{}{}
+			eosCh <- struct{}{}
 		}()
 		return gst.PadProbeRemove
-	})
+	}
+	demuxBinPadVideoSrc.AddProbe(gst.PadProbeTypeEventBoth, eos)
+	demuxBinPadAudioSrc.AddProbe(gst.PadProbeTypeEventBoth, eos)
 
 	bin.SetState(gst.StatePlaying)
 
-	<-bufferCh
-	<-bufferCh
-
-	idleCh := make(chan struct{})
-	padIdle := func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-		log.Warn(ctx, "pad-idle", "name", pad.GetName(), "direction", pad.GetDirection())
-		go func() {
-			idleCh <- struct{}{}
-		}()
-		return gst.PadProbeRemove
-	}
-	demuxBinPadVideoSrc.AddProbe(gst.PadProbeTypeIdle, padIdle)
-	demuxBinPadAudioSrc.AddProbe(gst.PadProbeTypeIdle, padIdle)
-
-	<-idleCh
-	<-idleCh
-
-	ok := demuxBinPadVideoSrc.Unlink(syncPadVideoSink)
-	if !ok {
-		return fmt.Errorf("failed to unlink demux bin video src pad from sync video sink pad: %v", ok)
-	}
-
-	ok = demuxBinPadAudioSrc.Unlink(syncPadAudioSink)
-	if !ok {
-		return fmt.Errorf("failed to unlink demux bin audio src pad from sync audio sink pad: %v", ok)
-	}
+	<-eosCh
+	<-eosCh
 
 	err = bin.Remove(demuxBin.Element)
 	if err != nil {
 		return fmt.Errorf("failed to remove demux bin from bin: %w", err)
+	}
+
+	err = demuxBin.SetState(gst.StateNull)
+	if err != nil {
+		return fmt.Errorf("failed to set demux bin to null state: %w", err)
 	}
 
 	log.Debug(ctx, "removed concat demuxer", "seg", seg.Filepath)

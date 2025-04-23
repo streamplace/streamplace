@@ -92,6 +92,7 @@ func innerTestConcatBin(t *testing.T) error {
 		for _, seg := range testSegs {
 			segCh <- seg
 		}
+		close(segCh)
 	}()
 
 	concatBin, err := ConcatBin(ctx, segCh)
@@ -195,8 +196,8 @@ func innerTestConcatBin(t *testing.T) error {
 
 	<-ctx.Done()
 
-	require.Greater(t, videoBuf.Len(), 312609)
-	require.Greater(t, audioBuf.Len(), 18468)
+	require.Equal(t, videoBuf.Len(), 1563045)
+	require.Equal(t, audioBuf.Len(), 92340)
 
 	return <-errCh
 }

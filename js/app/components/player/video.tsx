@@ -125,6 +125,14 @@ const VideoElement = forwardRef(
       }
     };
 
+    const proto = useAppSelector(usePlayerProtocol());
+    let src: string | undefined = props.url;
+    if (props.ingest) {
+      src = undefined;
+    } else if (proto === PROTOCOL_WEBRTC) {
+      src = undefined;
+    }
+
     return (
       <View
         backgroundColor="#111"

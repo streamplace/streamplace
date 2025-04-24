@@ -13,7 +13,7 @@ export default function useWebRTC(
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [frames, setFrames] = useState<number>(0);
   const [audioFrames, setAudioFrames] = useState<number>(0);
-  const [stuck, setStuck] = useState<boolean>(false);
+  const [stuck, setStuck] = useState<boolean>(true);
 
   const lastChange = useRef<number>(0);
 
@@ -54,8 +54,13 @@ export default function useWebRTC(
         if (stat.type === "inbound-rtp" && mediaType === "audio") {
           const audioFramesReceived = stat.lastPacketReceivedTimestamp; // stat becomes inacessible after this call
           setAudioFrames((oldAudioFrames: number) => {
-            if (oldAudioFrames !== audioFramesReceived) {
+            if (
+              oldAudioFrames !== audioFramesReceived &&
+              typeof audioFramesReceived === "number" &&
+              audioFramesReceived > 0
+            ) {
               lastChange.current = Date.now();
+              console.log("unstalled audio", audioFramesReceived);
               setStuck(false);
             }
             return audioFramesReceived;
@@ -64,8 +69,13 @@ export default function useWebRTC(
         if (stat.type === "inbound-rtp" && mediaType === "video") {
           const framesReceived = stat.framesReceived; // stat becomes inacessible after this call
           setFrames((oldFrames) => {
-            if (oldFrames !== framesReceived) {
+            if (
+              oldFrames !== framesReceived &&
+              typeof framesReceived === "number" &&
+              framesReceived > 0
+            ) {
               lastChange.current = Date.now();
+              console.log("unstalled video", framesReceived);
               setStuck(false);
             }
             return framesReceived;
@@ -228,9 +238,6 @@ export function useWebRTCIngest({
     peerConnection.addEventListener("connectionstatechange", (ev) => {
       dispatch(ingestConnectionState(peerConnection.connectionState));
       console.log("connection state change", peerConnection.connectionState);
-      if (peerConnection.connectionState !== "connected") {
-        return;
-      }
     });
     peerConnection.addEventListener("negotiationneeded", (ev) => {
       negotiateConnectionWithClientOffer(peerConnection, endpoint, storedKey);

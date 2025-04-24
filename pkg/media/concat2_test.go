@@ -13,6 +13,7 @@ import (
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
@@ -21,10 +22,10 @@ import (
 
 func TestConcatBin(t *testing.T) {
 	gstinit.InitGST()
-	// before := getLeakCount(t)
-	// defer checkGStreamerLeaks(t, before)
-	// ignore := goleak.IgnoreCurrent()
-	// defer goleak.VerifyNone(t, ignore)
+	before := getLeakCount(t)
+	defer checkGStreamerLeaks(t, before)
+	ignore := goleak.IgnoreCurrent()
+	defer goleak.VerifyNone(t, ignore)
 
 	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < streamplaceTestCount; i++ {

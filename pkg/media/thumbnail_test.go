@@ -35,7 +35,7 @@ func TestThumbnail(t *testing.T) {
 	for i := 0; i < streamplaceTestCount; i++ {
 		g.Go(func() error {
 			thumbnail := bytes.Buffer{}
-			thumbnailCtx := log.WithDebugValue(ctx, map[string]map[string]int{"function": {"Thumbnail": 9}})
+			thumbnailCtx := log.WithDebugValue(context.Background(), map[string]map[string]int{"function": {"Thumbnail": 9}})
 			err := Thumbnail(thumbnailCtx, bytes.NewReader(bs), &thumbnail)
 			if err != nil {
 				return err
@@ -43,6 +43,7 @@ func TestThumbnail(t *testing.T) {
 			if thumbnail.Len() == 0 {
 				return fmt.Errorf("thumbnail buffer is empty")
 			}
+			require.Equal(t, thumbnail.Len(), 1418910)
 			return nil
 		})
 	}

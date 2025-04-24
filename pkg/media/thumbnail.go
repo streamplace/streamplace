@@ -17,13 +17,18 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer) error {
 	defer cancel()
 
 	pipelineSlice := []string{
-		"appsrc name=appsrc ! qtdemux name=demux ! decodebin ! videoconvert ! videoscale ! capsfilter name=capsfilter caps=video/x-raw,width=[1,1280],height=[1,720],pixel-aspect-ratio=1/1 ! queue ! pngenc snapshot=true ! appsink name=appsink",
+		"appsrc name=appsrc ! qtdemux name=demux ! decodebin ! videoconvert ! videoscale ! videorate ! capsfilter name=capsfilter caps=video/x-raw,width=[1,1280],height=[1,720],pixel-aspect-ratio=1/1,framerate=1/999999 ! queue ! pngenc snapshot=true ! appsink name=appsink",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return fmt.Errorf("error creating Thumbnail pipeline: %w", err)
 	}
+
+	defer func() {
+		cancel()
+		err = pipeline.BlockSetState(gst.StateNull)
+	}()
 	appsrc, err := pipeline.GetElementByName("appsrc")
 	if err != nil {
 		return err
@@ -39,17 +44,17 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer) error {
 		return err
 	}
 
+	errCh := make(chan error)
 	go func() {
-		HandleBusMessages(ctx, pipeline)
+		err := HandleBusMessages(ctx, pipeline)
 		cancel()
+		errCh <- err
+		close(errCh)
 	}()
 
 	sink := app.SinkFromElement(appsink)
 	sink.SetCallbacks(&app.SinkCallbacks{
 		NewSampleFunc: WriterNewSample(ctx, w),
-		EOSFunc: func(sink *app.Sink) {
-			cancel()
-		},
 	})
 
 	pipeline.SetState(gst.StatePlaying)
@@ -58,5 +63,5 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer) error {
 
 	pipeline.BlockSetState(gst.StateNull)
 
-	return nil
+	return <-errCh
 }

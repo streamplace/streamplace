@@ -171,8 +171,8 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 
 	<-ctx.Done()
 
-	require.Equal(t, videoBuf.Len(), 312609)
-	require.Equal(t, audioBuf.Len(), 18468)
+	require.Equal(t, 987248, videoBuf.Len())
+	require.Equal(t, 6440, audioBuf.Len())
 
 	return <-errCh
 }

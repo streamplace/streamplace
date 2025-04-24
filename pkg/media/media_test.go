@@ -40,7 +40,7 @@ func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
 	}
 	cli := ct.CLI(t, &config.CLI{
 		TAURL:          "http://timestamp.digicert.com",
-		AllowedStreams: []string{},
+		AllowedStreams: []string{"did:key:zQ3shhoPCrDZWE8CryCEHYCrb1x8mCkr2byTkF5EGJT7dgazC"},
 	})
 	atsync := &atproto.ATProtoSynchronizer{
 		CLI:   cli,

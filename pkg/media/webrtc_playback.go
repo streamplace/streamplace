@@ -12,6 +12,7 @@ import (
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/media/segchanman"
 	"stream.place/streamplace/pkg/spmetrics"
 )
 
@@ -46,18 +47,42 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 		cancel()
 	}()
 
-	outputQueue, done, err := ConcatStream(ctx, pipeline, user, rendition, mm)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get output queue: %w", err)
-	}
+	segCh := make(chan *segchanman.Seg, 1024)
 	go func() {
-		select {
-		case <-ctx.Done():
-			return
-		case <-done:
-			cancel()
+		for {
+			ch := mm.SubscribeSegment(ctx, user, rendition)
+			select {
+			case <-ctx.Done():
+				log.Debug(ctx, "exiting segment reader")
+				mm.UnsubscribeSegment(ctx, user, rendition, ch)
+				return
+			case file := <-ch:
+				log.Debug(ctx, "got segment", "file", file.Filepath)
+				segCh <- file
+			}
 		}
 	}()
+
+	concatBin, err := ConcatBin(ctx, segCh)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create concat bin: %w", err)
+	}
+
+	err = pipeline.Add(concatBin.Element)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add concat bin to pipeline: %w", err)
+	}
+
+	videoPad := concatBin.GetStaticPad("video_0")
+	if videoPad == nil {
+		return nil, fmt.Errorf("video pad not found")
+	}
+
+	audioPad := concatBin.GetStaticPad("audio_0")
+	if audioPad == nil {
+		return nil, fmt.Errorf("audio pad not found")
+	}
+
 	// queuePadVideo := outputQueue.GetRequestPad("src_%u")
 	// if queuePadVideo == nil {
 	// 	return nil, fmt.Errorf("failed to get queue video pad")
@@ -71,18 +96,26 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 	if err != nil {
 		return nil, fmt.Errorf("failed to get video sink element from pipeline: %w", err)
 	}
-	err = outputQueue.Link(videoParse)
-	if err != nil {
-		return nil, fmt.Errorf("failed to link output queue to video parse: %w", err)
+	videoParsePad := videoParse.GetStaticPad("sink")
+	if videoParsePad == nil {
+		return nil, fmt.Errorf("video parse pad not found")
+	}
+	linked := videoPad.Link(videoParsePad)
+	if linked != gst.PadLinkOK {
+		return nil, fmt.Errorf("failed to link video pad to video parse pad: %v", linked)
 	}
 
 	audioParse, err := pipeline.GetElementByName("audioparse")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get audio parse element from pipeline: %w", err)
 	}
-	err = outputQueue.Link(audioParse)
-	if err != nil {
-		return nil, fmt.Errorf("failed to link output queue to audio parse: %w", err)
+	audioParsePad := audioParse.GetStaticPad("sink")
+	if audioParsePad == nil {
+		return nil, fmt.Errorf("audio parse pad not found")
+	}
+	linked = audioPad.Link(audioParsePad)
+	if linked != gst.PadLinkOK {
+		return nil, fmt.Errorf("failed to link audio pad to audio parse pad: %v", linked)
 	}
 
 	videoappsinkele, err := pipeline.GetElementByName("videoappsink")

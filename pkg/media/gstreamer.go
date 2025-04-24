@@ -35,61 +35,6 @@ func SafePipe() (*os.File, *os.File, func(), error) {
 	}, nil
 }
 
-func AddOpusToMKV(ctx context.Context, input io.Reader, output io.Writer) error {
-	pipelineSlice := []string{
-		"appsrc name=appsrc ! matroskademux name=demux",
-		"matroskamux name=mux ! appsink name=appsink",
-		"demux.audio_0 ! queue ! tee name=asplit",
-		"demux.video_0 ! queue ! mux.video_0",
-		"asplit. ! queue ! fdkaacdec ! audioresample ! opusenc inband-fec=true perfect-timestamp=true bitrate=128000 ! mux.audio_1",
-		"asplit. ! queue ! mux.audio_0",
-	}
-
-	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
-	if err != nil {
-		return err
-	}
-
-	appsrc, err := pipeline.GetElementByName("appsrc")
-	if err != nil {
-		return err
-	}
-
-	src := app.SrcFromElement(appsrc)
-	src.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedData(ctx, input),
-	})
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	appsink, err := pipeline.GetElementByName("appsink")
-	if err != nil {
-		return err
-	}
-
-	sink := app.SinkFromElement(appsink)
-	sink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, output),
-		EOSFunc: func(sink *app.Sink) {
-			cancel()
-		},
-	})
-
-	go func() {
-		HandleBusMessages(ctx, pipeline)
-		cancel()
-	}()
-
-	// Start the pipeline
-	pipeline.SetState(gst.StatePlaying)
-
-	<-ctx.Done()
-
-	pipeline.BlockSetState(gst.StateNull)
-	return nil
-}
-
 // basic test to make sure gstreamer functionality is working
 func SelfTest(ctx context.Context) error {
 	ctx = log.WithLogValues(ctx, "mediafunc", "SelfTest")

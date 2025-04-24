@@ -71,7 +71,7 @@ dev-test:
 	PKG_CONFIG_PATH=$(SHARED_PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(SHARED_LD_LIBRARY_PATH) \
 	DYLD_LIBRARY_PATH=$(SHARED_DYLD_LIBRARY_PATH) \
-	go test ./...
+	go test -p 1 -timeout 120s ./...
 
 .PHONY: schema
 schema:

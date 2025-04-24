@@ -2,6 +2,7 @@ package media
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/go-gst/go-gst/gst"
@@ -28,6 +29,38 @@ func ReaderNeedData(ctx context.Context, input io.Reader) func(self *app.Source,
 			log.Error(ctx, "failed to push buffer", "error", ret.String())
 		} else {
 			log.Debug(ctx, "pushed buffer", "length", len(bsCopy))
+		}
+	}
+}
+
+// Different from ReaderNeedData in that it reads the data in chunks and pushes them to the source.
+func ReaderNeedDataIncremental(ctx context.Context, input io.Reader) func(self *app.Source, length uint) {
+	return func(self *app.Source, length uint) {
+		if ctx.Err() != nil {
+			self.EndStream()
+			return
+		}
+		bs := make([]byte, length)
+		read, err := input.Read(bs)
+		if err != nil && !errors.Is(err, io.EOF) {
+			log.Error(ctx, "error reading from input", "error", err)
+			self.Error("error reading from input", err)
+			return
+		}
+		if read > 0 {
+			toPush := bs
+			if uint(read) < length {
+				toPush = bs[:read]
+			}
+			buffer := gst.NewBufferWithSize(int64(len(toPush)))
+			buffer.Map(gst.MapWrite).WriteData(toPush)
+			defer buffer.Unmap()
+			self.PushBuffer(buffer)
+		}
+		if err != nil && errors.Is(err, io.EOF) {
+			log.Debug(ctx, "EOF, ending stream", "length", read)
+			self.EndStream()
+			return
 		}
 	}
 }

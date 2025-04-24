@@ -81,7 +81,7 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 
 	// Set up source callbacks
 	source.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedData(ctx, input),
+		NeedDataFunc: ReaderNeedDataIncremental(ctx, input),
 		EnoughDataFunc: func(self *app.Source) {
 			// Nothing to do here
 		},
@@ -200,7 +200,7 @@ func MPEGTSToMP4(ctx context.Context, input io.Reader, output io.Writer) error {
 
 	// Set up source callbacks
 	source.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedData(ctx, input),
+		NeedDataFunc: ReaderNeedDataIncremental(ctx, input),
 		EnoughDataFunc: func(self *app.Source) {
 			// Nothing to do here
 		},
@@ -331,7 +331,7 @@ func MP4ToMPEGTSVideoMP4Audio(ctx context.Context, input io.Reader, videoOutput 
 
 	// Set up source callbacks
 	source.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedData(ctx, input),
+		NeedDataFunc: ReaderNeedDataIncremental(ctx, input),
 		EnoughDataFunc: func(self *app.Source) {
 			// Nothing to do here
 		},
@@ -473,7 +473,7 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 
 	// Set up source callbacks
 	videoSource.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedData(ctx, videoInput),
+		NeedDataFunc: ReaderNeedDataIncremental(ctx, videoInput),
 		EnoughDataFunc: func(self *app.Source) {
 			// Nothing to do here
 		},
@@ -483,7 +483,7 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 	})
 
 	audioSource.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedData(ctx, audioInput),
+		NeedDataFunc: ReaderNeedDataIncremental(ctx, audioInput),
 		EnoughDataFunc: func(self *app.Source) {
 			// Nothing to do here
 		},

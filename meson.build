@@ -263,6 +263,8 @@ if not meson.is_cross_build()
     timeout: 0,
     args: [
       'test',
+      '-p', '1',
+      '-timeout', '120s',
       '@0@/pkg/...'.format(meson.current_source_dir()),
       '@0@/cmd/...'.format(meson.current_source_dir()),
     ],

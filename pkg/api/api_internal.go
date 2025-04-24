@@ -160,30 +160,6 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		http.ServeFile(w, r, fullpath)
 	})
 
-	router.GET("/playback/:user/:rendition/stream.mkv", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		rendition := p.ByName("rendition")
-		if rendition == "" {
-			errors.WriteHTTPBadRequest(w, "rendition required", nil)
-			return
-		}
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		w.Header().Set("Content-Type", "video/x-matroska")
-		w.WriteHeader(200)
-		err = a.MediaManager.SegmentToMKVPlusOpus(ctx, user, rendition, w)
-		if err != nil {
-			log.Log(ctx, "stream.mkv error", "error", err)
-		}
-	})
-
 	router.GET("/playback/:user/:rendition/stream.mp4", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
 		if user == "" {

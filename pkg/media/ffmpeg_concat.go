@@ -16,21 +16,6 @@ func (mm *MediaManager) SegmentToMKV(ctx context.Context, user string, rendition
 	return mm.SegmentToStream(ctx, user, rendition, muxer, w)
 }
 
-func (mm *MediaManager) SegmentToMKVPlusOpus(ctx context.Context, user string, rendition string, w io.Writer) error {
-	muxer := ffmpeg.ComponentOptions{
-		Name: "matroska",
-	}
-	pr, pw := io.Pipe()
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return mm.SegmentToStream(ctx, user, rendition, muxer, pw)
-	})
-	g.Go(func() error {
-		return AddOpusToMKV(ctx, pr, w)
-	})
-	return g.Wait()
-}
-
 func (mm *MediaManager) SegmentToMP4(ctx context.Context, user string, rendition string, w io.Writer) error {
 	muxer := ffmpeg.ComponentOptions{
 		Name: "mp4",

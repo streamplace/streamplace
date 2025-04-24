@@ -39,8 +39,14 @@ func TestConcatBin(t *testing.T) {
 // This function remains in scope for the duration of a single users' playback
 func innerTestConcatBin(t *testing.T) error {
 	ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"func": {"ConcatStream": 9, "ConcatBin": 9, "SegDemuxBin": 9}})
+	tag := os.Getenv("TEST_TAG")
 	uuid, _ := uuid.NewV7()
-	ctx = log.WithLogValues(ctx, "func", "ConcatBin", "uuid", uuid.String())
+	uuidStr := uuid.String()
+	if tag != "" {
+		ctx = log.WithLogValues(ctx, "tag", tag)
+		uuidStr = fmt.Sprintf("%s-%s", tag, uuidStr)
+	}
+	ctx = log.WithLogValues(ctx, "func", "ConcatBin", "uuid", uuidStr)
 	ctx, cancel := context.WithCancel(ctx)
 	// defer cancel()
 
@@ -60,9 +66,9 @@ func innerTestConcatBin(t *testing.T) error {
 	defer func() {
 		cancel()
 		err := <-errCh
-		require.NoError(t, err, fmt.Sprintf("uuid: %s", uuid.String()))
+		require.NoError(t, err, fmt.Sprintf("uuid: %s", uuidStr))
 		err = pipeline.BlockSetState(gst.StateNull)
-		require.NoError(t, err, fmt.Sprintf("uuid: %s", uuid.String()))
+		require.NoError(t, err, fmt.Sprintf("uuid: %s", uuidStr))
 	}()
 
 	filename := getFixture("sample-segment.mp4")
@@ -212,8 +218,8 @@ func innerTestConcatBin(t *testing.T) error {
 	<-padIdleCh
 	<-padIdleCh
 
-	require.Equal(t, 1563045, videoBuf.Len(), fmt.Sprintf("uuid: %s", uuid.String()))
-	require.Equal(t, 92340, audioBuf.Len(), fmt.Sprintf("uuid: %s", uuid.String()))
+	require.Equal(t, 1563045, videoBuf.Len(), fmt.Sprintf("uuid: %s", uuidStr))
+	require.Equal(t, 92340, audioBuf.Len(), fmt.Sprintf("uuid: %s", uuidStr))
 
 	return <-errCh
 }

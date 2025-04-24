@@ -311,8 +311,14 @@ export function PopoverMenu(props: PlayerProps) {
       renditions={renditions}
       selectedRendition={selectedRendition ?? "source"}
       protocol={protocol}
-      setSelectedRendition={setSelectedRendition}
-      setProtocol={setProtocol}
+      setSelectedRendition={(rendition) => {
+        dispatch(setSelectedRendition(rendition));
+        setOpen(false);
+      }}
+      setProtocol={(protocol) => {
+        dispatch(setProtocol(protocol));
+        setOpen(false);
+      }}
       dispatch={dispatch}
     />
   );
@@ -329,18 +335,22 @@ export function PopoverMenu(props: PlayerProps) {
       keepChildrenMounted
       stayInFrame
       open={open}
+      onOpenChange={setOpen}
     >
       <Popover.Trigger asChild cursor="pointer">
-        <Pressable
-          style={{
-            justifyContent: "center",
-          }}
-          onPress={() => setOpen(!open)}
-        >
-          <View paddingLeft="$3" paddingRight="$5" justifyContent="center">
-            <Settings />
-          </View>
-        </Pressable>
+        <View position="relative" justifyContent="center" height={50}>
+          <Pressable
+            style={{
+              justifyContent: "center",
+              height: "100%",
+            }}
+            onPress={() => setOpen(!open)}
+          >
+            <View paddingLeft="$3" paddingRight="$5" justifyContent="center">
+              <Settings />
+            </View>
+          </Pressable>
+        </View>
       </Popover.Trigger>
 
       <Popover.Content
@@ -527,7 +537,7 @@ function GearMenu(
               subTitle="Lowest latency, probably"
               icon={Antenna}
               iconAfter={protocol === PROTOCOL_WEBRTC ? CheckCircle : Circle}
-              onPress={() => dispatch(setProtocol(PROTOCOL_WEBRTC))}
+              onPress={() => setProtocol(PROTOCOL_WEBRTC)}
             />
           </YGroup.Item>
         </>
@@ -556,7 +566,7 @@ function GearMenu(
                   iconAfter={
                     props.selectedRendition === "auto" ? CheckCircle : Circle
                   }
-                  onPress={() => dispatch(setSelectedRendition("auto"))}
+                  onPress={() => setSelectedRendition("auto")}
                 />
               </YGroup.Item>
               <Separator />
@@ -572,7 +582,7 @@ function GearMenu(
               iconAfter={
                 props.selectedRendition === "source" ? CheckCircle : Circle
               }
-              onPress={() => dispatch(setSelectedRendition("source"))}
+              onPress={() => setSelectedRendition("source")}
             />
           </YGroup.Item>
           {renditions.map((rendition) => (
@@ -588,7 +598,7 @@ function GearMenu(
                   iconAfter={
                     selectedRendition === rendition.name ? CheckCircle : Circle
                   }
-                  onPress={() => dispatch(setSelectedRendition(rendition.name))}
+                  onPress={() => setSelectedRendition(rendition.name)}
                 />
               </YGroup.Item>
             </Fragment>

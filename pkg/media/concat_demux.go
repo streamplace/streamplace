@@ -12,6 +12,9 @@ import (
 	"stream.place/streamplace/pkg/media/segchanman"
 )
 
+// silly technique to avoid leaking pads
+func doNothing(self *gst.Element, pad *gst.Pad) {}
+
 func ConcatDemuxBin(ctx context.Context, seg *segchanman.Seg) (*gst.Bin, error) {
 	ctx = log.WithLogValues(ctx, "func", "SegDemuxBin")
 	bin := gst.NewBin("seg-demux-bin")
@@ -89,16 +92,19 @@ func ConcatDemuxBin(ctx context.Context, seg *segchanman.Seg) (*gst.Bin, error) 
 		return nil, fmt.Errorf("failed to create audio ghost pad")
 	}
 
+	needed := 2
+
+	var padAdded func(self *gst.Element, pad *gst.Pad)
 	// the defer funcs are needed to avoid leaking pads for some reason
-	padAdded := func(self *gst.Element, pad *gst.Pad) {
+	padAdded = func(self *gst.Element, pad *gst.Pad) {
 		log.Debug(ctx, "demux pad-added", "name", pad.GetName(), "direction", pad.GetDirection())
 		var downstreamPad *gst.Pad
 		if strings.HasPrefix(pad.GetName(), "video_") {
 			downstreamPad = mqVideoSink
-			defer func() { mqVideoSink = nil }()
+			// defer func() { mqVideoSink = nil }()
 		} else if strings.HasPrefix(pad.GetName(), "audio_") {
 			downstreamPad = mqAudioSink
-			defer func() { mqAudioSink = nil }()
+			// defer func() { mqAudioSink = nil }()
 		} else {
 			log.Error(ctx, "unknown pad", "name", pad.GetName(), "direction", pad.GetDirection())
 			// cancel()
@@ -110,9 +116,16 @@ func ConcatDemuxBin(ctx context.Context, seg *segchanman.Seg) (*gst.Bin, error) 
 			// cancel()
 			return
 		}
+		needed--
+		if needed == 0 {
+			padAdded = doNothing
+		}
+	}
+	outerPadAdded := func(self *gst.Element, pad *gst.Pad) {
+		padAdded(self, pad)
 	}
 
-	_, err = demux.Connect("pad-added", padAdded)
+	_, err = demux.Connect("pad-added", outerPadAdded)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect demux pad-added signal: %w", err)
 	}

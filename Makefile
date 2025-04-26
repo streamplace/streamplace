@@ -425,7 +425,7 @@ IN_CONTAINER_CMD?=echo 'usage: make in-container IN_CONTAINER_CMD=\"<command>\"'
 DOCKER_BIN?=podman
 DOCKER_REF?=dist.stream.place/streamplace/streamplace:builder
 .PHONY: in-container
-in-container: docker-build-builder
+in-container:
 	$$DOCKER_BIN run -v $$(pwd):$$(pwd) -w $$(pwd) --rm -it $$DOCKER_REF bash -c "$$IN_CONTAINER_CMD"
 
 .PHONY: docker-release

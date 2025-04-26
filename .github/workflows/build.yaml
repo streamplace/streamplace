@@ -39,12 +39,13 @@ jobs:
           tags: "ghcr.io/streamplace/streamplace:build"
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          target: builder
 
       - name: make node
         env:
           STREAMPLACE_TEST_COUNT: "1"
         run: |
-          make in-container DOCKER_BIN=podman DOCKER_REF=ghcr.io/streamplace/streamplace:build IN_CONTAINER_CMD="${{ matrix.cmd }}"
+          make in-container DOCKER_BIN=docker DOCKER_REF=ghcr.io/streamplace/streamplace:build IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
   darwin:
     name: ${{ matrix.name }}

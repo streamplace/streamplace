@@ -19,6 +19,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: make node
+        env:
+          STREAMPLACE_TEST_COUNT: "10"
         run: |
           sudo apt install -y podman
           make in-container IN_CONTAINER_CMD="make && make test && make check"
@@ -64,6 +66,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Build Streamplace
+        env:
+          STREAMPLACE_TEST_COUNT: "10"
         run: |
           export GOTOOLCHAIN=go1.23.6 \
           && brew install go \
@@ -86,6 +90,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Build Streamplace
+        env:
+          STREAMPLACE_TEST_COUNT: "10"
         run: |
           export GOTOOLCHAIN=go1.23.6 \
           && brew install go \

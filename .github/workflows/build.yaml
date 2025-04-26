@@ -8,80 +8,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  linux-amd64:
-    name: linux-amd64
+  linux:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: linux-amd64
+            cmd: "make && (make test || make test) && make check"
+          - name: linux-arm64
+            cmd: "make app && make linux-arm64"
+          - name: windows-amd64
+            cmd: "make app && make windows-amd64"
     steps:
       - name: Check out code
         uses: actions/checkout@v4.1.7
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./docker
+          file: build.Dockerfile
+          push: false
+          tags: "ghcr.io/streamplace/streamplace:build"
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: make node
         env:
           STREAMPLACE_TEST_COUNT: "1"
         run: |
-          sudo apt install -y podman
-          make in-container IN_CONTAINER_CMD="make && (make test || make test) && make check"
+          make in-container DOCKER_BIN=podman DOCKER_REF=ghcr.io/streamplace/streamplace:build IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
-  linux-arm64:
-    name: linux-arm64
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4.1.7
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: make node
-        run: |
-          sudo apt install -y podman
-          make in-container IN_CONTAINER_CMD="make app && make linux-arm64"
-
-  windows-amd64:
-    name: windows-amd64
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4.1.7
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: make node
-        run: |
-          sudo apt install -y podman
-          make in-container IN_CONTAINER_CMD="make app && make windows-amd64"
-
-  darwin-arm64:
-    name: darwin-arm64
-    runs-on: macos-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4.1.7
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Build Streamplace
-        env:
-          STREAMPLACE_TEST_COUNT: "1"
-        run: |
-          export GOTOOLCHAIN=go1.23.6 \
-          && brew install go \
-          && python -m pip install virtualenv \
-          && python -m virtualenv ~/venv \
-          && source ~/venv/bin/activate \
-          && python -m pip install meson \
-          && make \
-          && make test \
-          && make check
-
-  darwin-amd64:
-    name: darwin-amd64
-    runs-on: macos-13
+  darwin:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      matrix:
+        include:
+          - name: darwin-arm64
+            runs-on: macos-latest
+          - name: darwin-amd64
+            runs-on: macos-13
     steps:
       - name: Check out code
         uses: actions/checkout@v4.1.7

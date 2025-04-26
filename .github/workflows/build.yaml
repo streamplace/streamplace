@@ -43,7 +43,6 @@ jobs:
           load: true
 
       - name: make node
-        env:
         run: |
           make in-container DOCKER_BIN=docker DOCKER_OPTS="-e STREAMPLACE_TEST_COUNT=1" DOCKER_REF=ghcr.io/streamplace/streamplace:build IN_CONTAINER_CMD="${{ matrix.cmd }}"
 

@@ -424,9 +424,10 @@ docker-test-in-container:
 IN_CONTAINER_CMD?=echo 'usage: make in-container IN_CONTAINER_CMD=\"<command>\"'
 DOCKER_BIN?=podman
 DOCKER_REF?=dist.stream.place/streamplace/streamplace:builder
+DOCKER_OPTS?=
 .PHONY: in-container
 in-container:
-	$$DOCKER_BIN run -v $$(pwd):$$(pwd) -w $$(pwd) --rm $$DOCKER_REF bash -c "$$IN_CONTAINER_CMD"
+	$(DOCKER_BIN) run $(DOCKER_OPTS) -v $$(pwd):$$(pwd) -w $$(pwd) --rm $(DOCKER_REF) bash -c "$(IN_CONTAINER_CMD)"
 
 .PHONY: docker-release
 docker-release:

@@ -34,7 +34,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./docker
-          file: build.Dockerfile
+          file: docker/build.Dockerfile
           push: false
           tags: "ghcr.io/streamplace/streamplace:build"
           cache-from: type=gha

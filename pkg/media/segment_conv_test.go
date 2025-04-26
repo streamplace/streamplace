@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-gst/go-gst/gst"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
@@ -15,7 +14,8 @@ import (
 func TestMP4ToMPEGTS(t *testing.T) {
 	ignore := goleak.IgnoreCurrent()
 	defer goleak.VerifyNone(t, ignore)
-	gst.Init(nil)
+	before := getLeakCount(t)
+	defer checkGStreamerLeaks(t, before)
 
 	// Open input file
 	inputFile, err := os.Open(getFixture("sample-segment.mp4"))
@@ -67,7 +67,8 @@ func TestMP4ToMPEGTS(t *testing.T) {
 func TestMPEGTSToMP4(t *testing.T) {
 	ignore := goleak.IgnoreCurrent()
 	defer goleak.VerifyNone(t, ignore)
-	gst.Init(nil)
+	before := getLeakCount(t)
+	defer checkGStreamerLeaks(t, before)
 
 	// Open input file
 	inputFile, err := os.Open(getFixture("sample-segment.mpegts"))
@@ -86,7 +87,8 @@ func TestMPEGTSToMP4(t *testing.T) {
 func TestMP4ToMPEGTSVideoMP4Audio(t *testing.T) {
 	ignore := goleak.IgnoreCurrent()
 	defer goleak.VerifyNone(t, ignore)
-	gst.Init(nil)
+	before := getLeakCount(t)
+	defer checkGStreamerLeaks(t, before)
 
 	// Open input file
 	inputFile, err := os.Open(getFixture("5sec.mp4"))

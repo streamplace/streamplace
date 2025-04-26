@@ -506,6 +506,7 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 	onPadAdded := func(element *gst.Element, pad *gst.Pad) {
 		if pad.GetDirection() == gst.PadDirectionSource {
 			ok := pad.Link(videoParseSinkPad)
+			defer func() { videoParseSinkPad = nil }()
 			if ok != gst.PadLinkOK {
 				log.Error(ctx, "failed to link video parse sink pad to video demux pad", "error", ok)
 				cancel()

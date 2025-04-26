@@ -30,24 +30,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: ./docker
-          file: docker/build.Dockerfile
-          push: false
-          tags: "ghcr.io/streamplace/streamplace:build"
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          target: builder
-          load: true
-
       - name: make node
         run: |
-          make in-container DOCKER_BIN=docker DOCKER_OPTS="-e STREAMPLACE_TEST_COUNT=1" DOCKER_REF=ghcr.io/streamplace/streamplace:build IN_CONTAINER_CMD="${{ matrix.cmd }}"
+          sudo apt install podman -y
+          make in-container DOCKER_OPTS="-e STREAMPLACE_TEST_COUNT=1" IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
   darwin:
     name: ${{ matrix.name }}

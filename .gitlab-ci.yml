@@ -213,6 +213,7 @@ build-mac:
     - "$(which xcodeproj) --version"
     - >
       export GOTOOLCHAIN=go1.23.6
+      && export STREAMPLACE_TEST_COUNT=10
       && python3 -m pip install virtualenv
       && python3 -m virtualenv ~/venv
       && source ~/venv/bin/activate

@@ -426,7 +426,7 @@ DOCKER_BIN?=podman
 DOCKER_REF?=dist.stream.place/streamplace/streamplace:builder
 .PHONY: in-container
 in-container:
-	$$DOCKER_BIN run -v $$(pwd):$$(pwd) -w $$(pwd) --rm -it $$DOCKER_REF bash -c "$$IN_CONTAINER_CMD"
+	$$DOCKER_BIN run -v $$(pwd):$$(pwd) -w $$(pwd) --rm $$DOCKER_REF bash -c "$$IN_CONTAINER_CMD"
 
 .PHONY: docker-release
 docker-release:

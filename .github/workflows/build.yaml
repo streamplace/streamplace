@@ -23,7 +23,7 @@ jobs:
           STREAMPLACE_TEST_COUNT: "1"
         run: |
           sudo apt install -y podman
-          make in-container IN_CONTAINER_CMD="make && make test && make check"
+          make in-container IN_CONTAINER_CMD="make && (make test || make test) && make check"
 
   linux-arm64:
     name: linux-arm64

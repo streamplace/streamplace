@@ -2,6 +2,9 @@ name: build
 
 on:
   pull_request:
+  push:
+    branches:
+      - next
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -54,8 +57,10 @@ jobs:
         include:
           - name: darwin-arm64
             runs-on: macos-latest
+            cmd: make && make test && make check
           - name: darwin-amd64
             runs-on: macos-13
+            cmd: make
     steps:
       - name: Check out code
         uses: actions/checkout@v4.1.7
@@ -73,6 +78,4 @@ jobs:
           && python -m virtualenv ~/venv \
           && source ~/venv/bin/activate \
           && python -m pip install meson \
-          && make \
-          && make test \
-          && make check
+          && ${{ matrix.cmd }}

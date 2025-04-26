@@ -191,7 +191,7 @@ build-android:
 build-mac:
   stage: build
   interruptible: true
-  image: ghcr.io/cirruslabs/macos-sonoma-xcode:15.3
+  image: ghcr.io/cirruslabs/macos-sonoma-xcode:16.1
   tags:
     - tart-installed
   timeout: 2 hours

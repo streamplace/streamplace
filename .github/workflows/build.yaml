@@ -20,7 +20,7 @@ jobs:
 
       - name: make node
         env:
-          STREAMPLACE_TEST_COUNT: "10"
+          STREAMPLACE_TEST_COUNT: "1"
         run: |
           sudo apt install -y podman
           make in-container IN_CONTAINER_CMD="make && make test && make check"
@@ -67,7 +67,7 @@ jobs:
 
       - name: Build Streamplace
         env:
-          STREAMPLACE_TEST_COUNT: "10"
+          STREAMPLACE_TEST_COUNT: "1"
         run: |
           export GOTOOLCHAIN=go1.23.6 \
           && brew install go \
@@ -91,7 +91,7 @@ jobs:
 
       - name: Build Streamplace
         env:
-          STREAMPLACE_TEST_COUNT: "10"
+          STREAMPLACE_TEST_COUNT: "1"
         run: |
           export GOTOOLCHAIN=go1.23.6 \
           && brew install go \

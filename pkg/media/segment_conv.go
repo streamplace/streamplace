@@ -20,7 +20,7 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 		"appsrc name=appsrc ! qtdemux name=demux",
 		"mpegtsmux name=mux ! appsink name=appsink sync=false",
 		"demux.video_0 ! h264parse ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
-		"demux.audio_0 ! opusparse ! queue name=audioqueue",
+		"demux.audio_0 ! opusdec name=audioparse ! audioresample ! audiorate ! fdkaacenc name=audioenc ! queue name=audioqueue",
 	}, " ")
 
 	pipeline, err := gst.NewPipelineFromString(pipelineStr)

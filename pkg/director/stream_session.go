@@ -70,21 +70,21 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 
 	g, ctx := errgroup.WithContext(ctx)
 
-	for _, r := range allRenditions {
-		g.Go(func() error {
-			for {
-				if ctx.Err() != nil {
-					return nil
-				}
-				err := ss.mm.ToHLS(ctx, spseg.Creator, r.Name, ss.hls)
-				if ctx.Err() != nil {
-					return nil
-				}
-				log.Warn(ctx, "hls failed, retrying in 5 seconds", "error", err)
-				time.Sleep(time.Second * 5)
-			}
-		})
-	}
+	// for _, r := range allRenditions {
+	// 	g.Go(func() error {
+	// 		for {
+	// 			if ctx.Err() != nil {
+	// 				return nil
+	// 			}
+	// 			err := ss.mm.ToHLS(ctx, spseg.Creator, r.Name, ss.hls)
+	// 			if ctx.Err() != nil {
+	// 				return nil
+	// 			}
+	// 			log.Warn(ctx, "hls failed, retrying in 5 seconds", "error", err)
+	// 			time.Sleep(time.Second * 5)
+	// 		}
+	// 	})
+	// }
 
 	for {
 		select {
@@ -117,6 +117,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 	}
 
 	ss.bus.Publish(spseg.Creator, spseg)
+	go ss.TryAddToHLS(ctx, spseg, "source", not.Data)
 
 	if ss.cli.Thumbnail {
 		go func() {
@@ -215,7 +216,7 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 		}
 		defer fd.Close()
 		fd.Write(seg)
-		// go ss.TryAddToHLS(ctx, spseg, rs[i].Name, seg)
+		go ss.TryAddToHLS(ctx, spseg, rs[i].Name, seg)
 		go ss.mm.PublishSegment(ctx, spseg.Creator, rs[i].Name, &segchanman.Seg{
 			Filepath: fd.Name(),
 			Data:     seg,
@@ -224,31 +225,39 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 	return nil
 }
 
-// func (ss *StreamSession) TryAddToHLS(ctx context.Context, spseg *streamplace.Segment, rendition string, data []byte) {
-// 	ctx = log.WithLogValues(ctx, "rendition", rendition)
-// 	err := ss.AddToHLS(ctx, spseg, rendition, data)
-// 	if err != nil {
-// 		log.Error(ctx, "could not add to hls", "error", err)
-// 	}
-// }
+func (ss *StreamSession) TryAddToHLS(ctx context.Context, spseg *streamplace.Segment, rendition string, data []byte) {
+	ctx = log.WithLogValues(ctx, "rendition", rendition)
+	err := ss.AddToHLS(ctx, spseg, rendition, data)
+	if err != nil {
+		log.Error(ctx, "could not add to hls", "error", err)
+	}
+}
 
-// func (ss *StreamSession) AddToHLS(ctx context.Context, spseg *streamplace.Segment, rendition string, data []byte) error {
-// 	buf := bytes.Buffer{}
-// 	dur, err := media.MP4ToMPEGTS(ctx, bytes.NewReader(data), &buf)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	newSeg := &streamplace.Segment{
-// 		LexiconTypeID: "place.stream.segment",
-// 		Id:            spseg.Id,
-// 		Creator:       spseg.Creator,
-// 		StartTime:     spseg.StartTime,
-// 		Duration:      &dur,
-// 		Audio:         spseg.Audio,
-// 		Video:         spseg.Video,
-// 		SigningKey:    spseg.SigningKey,
-// 	}
-// 	log.Debug(ctx, "transmuxed to mpegts, adding to hls", "rendition", rendition, "size", buf.Len())
-// 	ss.hls.NewSegment(newSeg, rendition, buf.Bytes())
-// 	return nil
-// }
+func (ss *StreamSession) AddToHLS(ctx context.Context, spseg *streamplace.Segment, rendition string, data []byte) error {
+	buf := bytes.Buffer{}
+	dur, err := media.MP4ToMPEGTS(ctx, bytes.NewReader(data), &buf)
+	if err != nil {
+		return err
+	}
+	// newSeg := &streamplace.Segment{
+	// 	LexiconTypeID: "place.stream.segment",
+	// 	Id:            spseg.Id,
+	// 	Creator:       spseg.Creator,
+	// 	StartTime:     spseg.StartTime,
+	// 	Duration:      &dur,
+	// 	Audio:         spseg.Audio,
+	// 	Video:         spseg.Video,
+	// 	SigningKey:    spseg.SigningKey,
+	// }
+	aqt, err := aqtime.FromString(spseg.StartTime)
+	if err != nil {
+		return err
+	}
+	log.Debug(ctx, "transmuxed to mpegts, adding to hls", "rendition", rendition, "size", buf.Len())
+	ss.hls.GetRendition(rendition).NewSegment(&media.Segment{
+		Buf:      &buf,
+		Duration: time.Duration(dur),
+		Time:     aqt.Time(),
+	})
+	return nil
+}

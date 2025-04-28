@@ -190,7 +190,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 			if track.Kind() == webrtc.RTPCodecTypeVideo {
 				// Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval
 				go func() {
-					ticker := time.NewTicker(time.Second * 5)
+					ticker := time.NewTicker(time.Second * 1)
 					for {
 						select {
 						case <-ctx.Done():

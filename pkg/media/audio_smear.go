@@ -31,25 +31,39 @@ func SmearAudioTimestamps(ctx context.Context, input io.Reader, output io.Writer
 		return err
 	}
 
-	seg.Normalize()
+	err = seg.Normalize(ctx)
+	if err != nil {
+		return err
+	}
 
 	return JoinAudioVideo(ctx, seg, output)
 }
 
 func (s *SegmentData) Normalize(ctx context.Context) error {
+	if len(s.Video) == 0 {
+		return fmt.Errorf("no video segments")
+	}
+	if len(s.Audio) == 0 {
+		return fmt.Errorf("no audio segments")
+	}
+
 	lastVideo := s.Video[len(s.Video)-1]
 	lastAudio := s.Audio[len(s.Audio)-1]
 
+	if lastVideo.pts == nil {
+		return fmt.Errorf("last video segment has no pts")
+	}
+	if lastAudio.pts == nil {
+		return fmt.Errorf("last audio segment has no pts")
+	}
+
 	videoEnd := lastVideo.pts.Nanoseconds() + lastVideo.dur.Nanoseconds()
 	audioEnd := lastAudio.pts.Nanoseconds() + lastAudio.dur.Nanoseconds()
-	log.Log(ctx, "video end", "video end", videoEnd, "audio end", audioEnd)
 
 	diff := videoEnd - audioEnd
 	diffPerAudio := diff / int64(len(s.Audio)-1)
-	log.Log(ctx, "diff per audio", "diff per audio", diffPerAudio)
 	for i, audio := range s.Audio {
 		newPts := time.Duration(audio.pts.Nanoseconds() + (diffPerAudio * int64(i)))
-		log.Log(ctx, "new pts", "new pts", newPts, "old pts", audio.pts)
 		audio.pts = &newPts
 		s.Audio[i] = audio
 	}
@@ -58,7 +72,8 @@ func (s *SegmentData) Normalize(ctx context.Context) error {
 	lastAudio = s.Audio[len(s.Audio)-1]
 	videoEnd = lastVideo.pts.Nanoseconds() + lastVideo.dur.Nanoseconds()
 	audioEnd = lastAudio.pts.Nanoseconds() + lastAudio.dur.Nanoseconds()
-	log.Log(ctx, "video end", "video end", videoEnd, "audio end", audioEnd)
+
+	return nil
 }
 
 func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {

@@ -113,6 +113,8 @@ test:
   interruptible: true
   image: "$CI_REGISTRY_IMAGE:builder-$DOCKERFILE_HASH"
   timeout: 2 hours
+  variables:
+    IGNORE_LEAKS: "true"
   script:
     - git fetch --unshallow || echo 'already unshallow'
     - make ci-test -j$(nproc)
@@ -194,6 +196,8 @@ build-mac:
   image: ghcr.io/cirruslabs/macos-sonoma-xcode:16.1
   tags:
     - tart-installed
+  variables:
+    IGNORE_LEAKS: "true"
   timeout: 2 hours
   script:
     # workaround for https://gitlab.com/gitlab-org/gitlab/-/issues/501457

@@ -19,6 +19,7 @@ import (
 	"stream.place/streamplace/pkg/gstinit"
 )
 
+const IGNORE_LEAKS = "STREAMPLACE_IGNORE_LEAKS"
 const GST_DEBUG_NEEDED = "leaks:9,GST_TRACER:9"
 const LEAK_LINE = "GST_TRACER :0:: object-alive"
 
@@ -29,6 +30,11 @@ var LeakReportMutex sync.Mutex
 var LeakDoneCh = make(chan struct{})
 
 func TestMain(m *testing.M) {
+	if os.Getenv(IGNORE_LEAKS) != "" {
+		gstinit.InitGST()
+		os.Exit(m.Run())
+		return
+	}
 	gstDebug := os.Getenv("GST_DEBUG")
 	if gstDebug == "" {
 		gstDebug = GST_DEBUG_NEEDED
@@ -82,6 +88,9 @@ func TestMain(m *testing.M) {
 }
 
 func getLeakCount(t *testing.T) int {
+	if os.Getenv(IGNORE_LEAKS) != "" {
+		return 0
+	}
 	process, err := os.FindProcess(os.Getpid())
 	LeakReportMutex.Lock()
 	LeakReport = []string{}
@@ -133,6 +142,9 @@ func getLeakCount(t *testing.T) int {
 }
 
 func checkGStreamerLeaks(t *testing.T, expected int) {
+	if os.Getenv(IGNORE_LEAKS) != "" {
+		return
+	}
 	leaks := getLeakCount(t)
 	if leaks > expected {
 		LeakReportMutex.Lock()

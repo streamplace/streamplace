@@ -38,7 +38,8 @@ func TestAudioSmear(t *testing.T) {
 	seg, err := ToBuffers(context.Background(), f)
 	require.NoError(t, err)
 
-	seg.Normalize()
+	err = seg.Normalize(context.Background())
+	require.NoError(t, err)
 
 	buf := bytes.Buffer{}
 	_ = JoinAudioVideo(context.Background(), seg, &buf)

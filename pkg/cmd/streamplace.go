@@ -147,7 +147,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.StringVar(&cli.Color, "color", "", "'true' to enable colorized logging, 'false' to disable")
 	fs.BoolVar(&cli.Thumbnail, "thumbnail", true, "enable thumbnail generation")
 	fs.BoolVar(&cli.SmearAudio, "smear-audio", true, "enable audio smearing to create 'perfect' segment timestamps")
-	fs.BoolVar(&cli.ExternalSigning, "external-signing", true, "enable external signing via exec (prevents potential memory leak)")
+	fs.BoolVar(&cli.ExternalSigning, "external-signing", false, "enable external signing via exec (prevents potential memory leak)")
 	version := fs.Bool("version", false, "print version and exit")
 
 	if runtime.GOOS == "linux" {

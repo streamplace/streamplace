@@ -147,7 +147,7 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 
 			// Retrieve the buffer from the sample.
 			buffer := sample.GetBuffer()
-			log.Log(ctx, "audio buffer", "presentation_timestamp", buffer.PresentationTimestamp(), "duration", buffer.Duration(), "dts", buffer.DecodingTimestamp())
+			// log.Log(ctx, "audio buffer", "presentation_timestamp", buffer.PresentationTimestamp(), "duration", buffer.Duration(), "dts", buffer.DecodingTimestamp())
 			bs := buffer.Map(gst.MapRead).Bytes()
 			defer buffer.Unmap()
 			sinkPads, err := sink.GetSinkPads()

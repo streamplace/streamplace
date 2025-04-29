@@ -41,7 +41,7 @@ func TestWriterNewSample(t *testing.T) {
 	fileSize := fileInfo.Size()
 	t.Logf("Test file size: %d bytes", fileSize)
 	g, ctx := errgroup.WithContext(context.Background())
-	ctx = log.WithDebugValue(ctx, map[string]map[string]int{"func": {"TestWriterNewSample": 9}})
+	// ctx = log.WithDebugValue(ctx, map[string]map[string]int{"func": {"TestWriterNewSample": 9}})
 	for i := 0; i < streamplaceTestCount; i++ {
 		g.Go(func() error {
 			bs := bytes.Buffer{}

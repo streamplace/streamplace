@@ -12,7 +12,6 @@ import (
 	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/gstinit"
-	"stream.place/streamplace/pkg/log"
 )
 
 func TestThumbnail(t *testing.T) {
@@ -35,7 +34,8 @@ func TestThumbnail(t *testing.T) {
 	for i := 0; i < streamplaceTestCount; i++ {
 		g.Go(func() error {
 			thumbnail := bytes.Buffer{}
-			thumbnailCtx := log.WithDebugValue(context.Background(), map[string]map[string]int{"function": {"Thumbnail": 9}})
+			thumbnailCtx := context.Background()
+			// thumbnailCtx = log.WithDebugValue(ctx, map[string]map[string]int{"function": {"Thumbnail": 9}})
 			err := Thumbnail(thumbnailCtx, bytes.NewReader(bs), &thumbnail)
 			if err != nil {
 				return err

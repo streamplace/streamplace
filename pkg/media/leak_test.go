@@ -87,32 +87,39 @@ func getLeakCount(t *testing.T) int {
 	LeakReport = []string{}
 	LeakReportMutex.Unlock()
 
-	ch := make(chan struct{})
-	done := false
+	// we want CI to be extra reliable here and a little slower is okay
+	flushes := 2
+	if os.Getenv("CI") != "" {
+		flushes = 5
+	}
 
-	go func() {
-		thing := &[]byte{}
-		runtime.SetFinalizer(thing, func(thing *[]byte) {
-			done = true
-			ch <- struct{}{}
-		})
-	}()
+	for i := 0; i < flushes; i++ {
+		ch := make(chan struct{})
+		done := false
+		go func() {
+			thing := &[]byte{}
+			runtime.SetFinalizer(thing, func(thing *[]byte) {
+				done = true
+				ch <- struct{}{}
+			})
+		}()
 
-	go func() {
-		runtime.GC()
-		runtime.GC()
-		for {
-			if done {
-				break
+		go func() {
+			runtime.GC()
+			runtime.GC()
+			for {
+				if done {
+					break
+				}
+				runtime.GC()
+				runtime.GC()
+				time.Sleep(500 * time.Millisecond)
 			}
-			runtime.GC()
-			runtime.GC()
-			time.Sleep(500 * time.Millisecond)
-		}
-	}()
+			<-ch
+		}()
+	}
 
-	<-ch
-	time.Sleep(1 * time.Second)
+	time.Sleep(time.Duration(flushes) * time.Second)
 
 	err = process.Signal(os.Signal(syscall.SIGUSR1))
 	require.NoError(t, err)

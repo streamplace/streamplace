@@ -33,7 +33,7 @@ jobs:
       - name: make node
         run: |
           sudo apt install podman -y
-          make in-container DOCKER_OPTS="-e STREAMPLACE_TEST_COUNT=1" IN_CONTAINER_CMD="${{ matrix.cmd }}"
+          make in-container DOCKER_OPTS="-e STREAMPLACE_TEST_COUNT=1 -e CI=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
   darwin:
     name: ${{ matrix.name }}

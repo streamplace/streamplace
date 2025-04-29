@@ -18,7 +18,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		"name":           "signer",
 		"async-finalize": true,
 		"sink-factory":   "appsink",
-		"muxer-factory":  "mp4mux",
+		"muxer-factory":  "qtmux",
 		"max-size-bytes": 1,
 	})
 	if err != nil {

@@ -4,20 +4,16 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
 	"github.com/go-gst/go-gst/gst/pbutils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/gstinit"
-	"stream.place/streamplace/pkg/log"
 )
 
 func TestAudioSmear(t *testing.T) {
@@ -131,208 +127,6 @@ func checkSame(t *testing.T, v1, v2 string) {
 
 	require.Equal(t, *dur2, *dur1)
 }
-
-func SplitAudioVideo(ctx context.Context, input io.Reader, audioOut, videoOut io.Writer) error {
-	ctx = log.WithLogValues(ctx, "func", "SplitAudioVideo")
-
-	pipelineSlice := []string{
-		"appsrc name=mp4src ! qtdemux name=demux",
-		"demux.video_0 ! queue ! h264parse name=videoparse ! appsink sync=false name=videoappsink",
-		"demux.audio_0 ! queue ! opusparse name=audioparse ! appsink sync=false name=audioappsink",
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-
-	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
-	if err != nil {
-		return fmt.Errorf("failed to create GStreamer pipeline: %w", err)
-	}
-
-	errCh := make(chan error)
-	go func() {
-		err := HandleBusMessages(ctx, pipeline)
-		cancel()
-		errCh <- err
-		close(errCh)
-	}()
-
-	defer func() {
-		cancel()
-		err := <-errCh
-		if err != nil {
-			log.Error(ctx, "bus handler error", "error", err)
-		}
-		err = pipeline.BlockSetState(gst.StateNull)
-		if err != nil {
-			log.Error(ctx, "failed to set pipeline to null state", "error", err)
-		}
-	}()
-
-	mp4src, err := pipeline.GetElementByName("mp4src")
-	if err != nil {
-		return fmt.Errorf("failed to get mp4src element: %w", err)
-	}
-	src := app.SrcFromElement(mp4src)
-	if src == nil {
-		return fmt.Errorf("failed to get mp4src element: %w", err)
-	}
-	src.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedData(ctx, input),
-	})
-
-	audioSinkElem, err := pipeline.GetElementByName("audioappsink")
-	if err != nil {
-		return fmt.Errorf("failed to get audioappsink element: %w", err)
-	}
-	audioSink := app.SinkFromElement(audioSinkElem)
-	if audioSink == nil {
-		return fmt.Errorf("failed to get audioappsink element: %w", err)
-	}
-	audioSink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-			sample := sink.PullSample()
-			if sample == nil {
-				return gst.FlowOK
-			}
-
-			// Retrieve the buffer from the sample.
-			buffer := sample.GetBuffer()
-			log.Log(ctx, "audio buffer", "presentation_timestamp", buffer.PresentationTimestamp(), "duration", buffer.Duration())
-			bs := buffer.Map(gst.MapRead).Bytes()
-			defer buffer.Unmap()
-
-			_, err := audioOut.Write(bs)
-
-			if err != nil {
-				panic(err)
-			}
-
-			return gst.FlowOK
-		},
-	})
-
-	videoSinkElem, err := pipeline.GetElementByName("videoappsink")
-	if err != nil {
-		return fmt.Errorf("failed to get videoappsink element: %w", err)
-	}
-	videoSink := app.SinkFromElement(videoSinkElem)
-	if videoSink == nil {
-		return fmt.Errorf("failed to get videoappsink element: %w", err)
-	}
-	videoSink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-			sample := sink.PullSample()
-			if sample == nil {
-				return gst.FlowOK
-			}
-
-			// Retrieve the buffer from the sample.
-			buffer := sample.GetBuffer()
-			log.Log(ctx, "video buffer", "presentation_timestamp", buffer.PresentationTimestamp(), "duration", buffer.Duration())
-			bs := buffer.Map(gst.MapRead).Bytes()
-			defer buffer.Unmap()
-
-			_, err := videoOut.Write(bs)
-
-			if err != nil {
-				panic(err)
-			}
-
-			return gst.FlowOK
-		},
-	})
-
-	pipeline.SetState(gst.StatePlaying)
-
-	<-ctx.Done()
-
-	return <-errCh
-}
-
-// func SmearAudioTimestamps(ctx context.Context, input io.Reader, audioOut io.Writer) error {
-// 	ctx = log.WithLogValues(ctx, "func", "SplitAudioVideo")
-
-// 	pipelineSlice := []string{
-// 		"appsrc name=mp4src ! qtdemux name=demux",
-// 		"demux.audio_0 ! queue ! opusparse name=audioparse ! appsink sync=false name=audioappsink",
-// 	}
-
-// 	ctx, cancel := context.WithCancel(ctx)
-
-// 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
-// 	if err != nil {
-// 		return fmt.Errorf("failed to create GStreamer pipeline: %w", err)
-// 	}
-
-// 	errCh := make(chan error)
-// 	go func() {
-// 		err := HandleBusMessages(ctx, pipeline)
-// 		cancel()
-// 		errCh <- err
-// 		close(errCh)
-// 	}()
-
-// 	defer func() {
-// 		cancel()
-// 		err := <-errCh
-// 		if err != nil {
-// 			log.Error(ctx, "bus handler error", "error", err)
-// 		}
-// 		err = pipeline.BlockSetState(gst.StateNull)
-// 		if err != nil {
-// 			log.Error(ctx, "failed to set pipeline to null state", "error", err)
-// 		}
-// 	}()
-
-// 	mp4src, err := pipeline.GetElementByName("mp4src")
-// 	if err != nil {
-// 		return fmt.Errorf("failed to get mp4src element: %w", err)
-// 	}
-// 	src := app.SrcFromElement(mp4src)
-// 	if src == nil {
-// 		return fmt.Errorf("failed to get mp4src element: %w", err)
-// 	}
-// 	src.SetCallbacks(&app.SourceCallbacks{
-// 		NeedDataFunc: ReaderNeedData(ctx, input),
-// 	})
-
-// 	audioSinkElem, err := pipeline.GetElementByName("audioappsink")
-// 	if err != nil {
-// 		return fmt.Errorf("failed to get audioappsink element: %w", err)
-// 	}
-// 	audioSink := app.SinkFromElement(audioSinkElem)
-// 	if audioSink == nil {
-// 		return fmt.Errorf("failed to get audioappsink element: %w", err)
-// 	}
-// 	audioSink.SetCallbacks(&app.SinkCallbacks{
-// 		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-// 			sample := sink.PullSample()
-// 			if sample == nil {
-// 				return gst.FlowOK
-// 			}
-
-// 			// Retrieve the buffer from the sample.
-// 			buffer := sample.GetBuffer()
-// 			log.Log(ctx, "buffer", "presentation_timestamp", buffer.PresentationTimestamp(), "duration", buffer.Duration())
-// 			bs := buffer.Map(gst.MapRead).Bytes()
-// 			defer buffer.Unmap()
-
-// 			_, err := audioOut.Write(bs)
-
-// 			if err != nil {
-// 				panic(err)
-// 			}
-
-// 			return gst.FlowOK
-// 		},
-// 	})
-
-// 	pipeline.SetState(gst.StatePlaying)
-
-// 	<-ctx.Done()
-
-// 	return <-errCh
-// }
 
 func printDiscovererInfo(info *pbutils.DiscovererInfo) {
 	fmt.Println("URI:", info.GetURI())

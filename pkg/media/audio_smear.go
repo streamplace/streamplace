@@ -1,14 +1,17 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -26,8 +29,20 @@ type SegmentData struct {
 }
 
 func SmearAudioTimestamps(ctx context.Context, input io.Reader, output io.Writer) error {
-	seg, err := ToBuffers(ctx, input)
+	bs, err := io.ReadAll(input)
 	if err != nil {
+		return err
+	}
+	seg, err := ToBuffers(ctx, bytes.NewReader(bs))
+	if err != nil {
+		// Write the input bytes to a file for debugging
+		debugFile := fmt.Sprintf("audio_smear_debug_%s.mp4", uuid.New().String())
+		err = os.WriteFile(debugFile, bs, 0644)
+		if err != nil {
+			log.Log(ctx, "failed to write debug file", "error", err, "path", debugFile)
+		} else {
+			log.Log(ctx, "wrote debug file", "path", debugFile)
+		}
 		return err
 	}
 
@@ -81,7 +96,7 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 
 	pipelineSlice := []string{
 		"appsrc name=mp4src ! qtdemux name=demux",
-		"demux.video_0 ! queue ! h264parse name=videoparse ! appsink sync=false name=videoappsink",
+		"demux.video_0 ! queue ! h264parse name=videoparse disable-passthrough=true config-interval=-1 ! appsink sync=false name=videoappsink",
 		"demux.audio_0 ! queue ! opusparse name=audioparse ! appsink sync=false name=audioappsink",
 	}
 
@@ -152,7 +167,8 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 			defer buffer.Unmap()
 			sinkPads, err := sink.GetSinkPads()
 			if err != nil {
-				panic(err)
+				src.Error("could not get sink pads", err)
+				return gst.FlowError
 			}
 			caps := sinkPads[0].GetCurrentCaps()
 			if caps != nil {
@@ -166,7 +182,8 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 			})
 
 			if err != nil {
-				panic(err)
+				src.Error("could not get sink pads", err)
+				return gst.FlowError
 			}
 
 			return gst.FlowOK
@@ -195,22 +212,27 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 			defer buffer.Unmap()
 			sinkPads, err := sink.GetSinkPads()
 			if err != nil {
-				panic(err)
+				src.Error("could not get sink pads", err)
+				return gst.FlowError
 			}
 			caps := sinkPads[0].GetCurrentCaps()
 			if caps != nil {
 				seg.VideoCaps = caps.String()
 			}
 
-			seg.Video = append(seg.Video, SegmentBuffer{
+			sb := SegmentBuffer{
 				bytes: bs,
 				pts:   buffer.PresentationTimestamp().AsDuration(),
 				dur:   buffer.Duration().AsDuration(),
-			})
-
-			if err != nil {
-				panic(err)
 			}
+
+			// log.Log(ctx, "video buffer", "presentation_timestamp", sb.pts, "duration", sb.dur)
+			if sb.pts == nil {
+				sink.Error("no video pts", fmt.Errorf("no video pts"))
+				return gst.FlowError
+			}
+
+			seg.Video = append(seg.Video, sb)
 
 			return gst.FlowOK
 		},
@@ -224,7 +246,8 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 }
 
 func JoinAudioVideo(ctx context.Context, seg *SegmentData, output io.Writer) error {
-	ctx = log.WithLogValues(ctx, "func", "SplitAudioVideo")
+	uu, _ := uuid.NewV7()
+	ctx = log.WithLogValues(ctx, "func", "JoinAudioVideo", "uuid", uu.String())
 
 	pipelineSlice := []string{
 		"mp4mux name=mux ! appsink sync=false name=mp4sink",
@@ -272,6 +295,9 @@ func JoinAudioVideo(ctx context.Context, seg *SegmentData, output io.Writer) err
 		buf := gst.NewBufferFromBytes(seg.bytes)
 		if seg.pts != nil {
 			buf.SetPresentationTimestamp(gst.ClockTime(uint64(seg.pts.Nanoseconds())))
+		} else {
+			videoSrc.Error("no video pts", fmt.Errorf("no video pts"))
+			return fmt.Errorf("no video pts")
 		}
 		if seg.dur != nil {
 			buf.SetDuration(gst.ClockTime(uint64(seg.dur.Nanoseconds())))

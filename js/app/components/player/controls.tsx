@@ -30,6 +30,7 @@ import {
   H5,
   Paragraph,
   Slider,
+  Adapt,
 } from "tamagui";
 import { PlayerProps, PROTOCOL_HLS, PROTOCOL_WEBRTC } from "./props";
 import {

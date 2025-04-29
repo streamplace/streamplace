@@ -264,8 +264,12 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 
 		ctx = log.WithLogValues(ctx, "did", did)
 
-		mediaSigner, err := media.MakeMediaSignerExt(ctx, a.CLI, did, addrBytes)
-		// mediaSigner, err := media.MakeMediaSigner(ctx, a.CLI, did, signer)
+		var mediaSigner media.MediaSigner
+		if a.CLI.ExternalSigning {
+			mediaSigner, err = media.MakeMediaSignerExt(ctx, a.CLI, did, addrBytes)
+		} else {
+			mediaSigner, err = media.MakeMediaSigner(ctx, a.CLI, did, signer)
+		}
 		if err != nil {
 			errors.WriteHTTPUnauthorized(w, "invalid authorization key (not valid secp256k1)", err)
 			return

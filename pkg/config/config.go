@@ -87,6 +87,8 @@ type CLI struct {
 	LivepeerGatewayURL     string
 	WHIPTest               string
 	Thumbnail              bool
+	SmearAudio             bool
+	ExternalSigning        bool
 
 	dataDirFlags []*string
 }

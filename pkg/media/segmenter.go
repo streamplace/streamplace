@@ -63,13 +63,17 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 			EOSFunc: func(sink *app.Sink) {
 				resetTimer <- struct{}{}
 				now := time.Now().UnixMilli()
-				smearedBuf := &bytes.Buffer{}
-				err := SmearAudioTimestamps(ctx, bytes.NewReader(buf.Bytes()), smearedBuf)
-				if err != nil {
-					log.Error(ctx, "error smearing audio timestamps", "error", err)
-					return
+				bs := buf.Bytes()
+				if mm.cli.SmearAudio {
+					smearedBuf := &bytes.Buffer{}
+					err := SmearAudioTimestamps(ctx, bytes.NewReader(buf.Bytes()), smearedBuf)
+					if err != nil {
+						log.Error(ctx, "error smearing audio timestamps", "error", err)
+						return
+					}
+					bs = smearedBuf.Bytes()
 				}
-				bs, err := ms.SignMP4(ctx, bytes.NewReader(smearedBuf.Bytes()), now)
+				bs, err := ms.SignMP4(ctx, bytes.NewReader(bs), now)
 				if err != nil {
 					log.Error(ctx, "error signing segment", "error", err)
 					return

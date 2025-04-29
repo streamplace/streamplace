@@ -14,21 +14,40 @@ import (
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/go-gst/go-gst/gst/pbutils"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
+	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
 )
 
 func TestAudioSmear(t *testing.T) {
+	gstinit.InitGST()
+	before := getLeakCount(t)
+	defer checkGStreamerLeaks(t, before)
+	ignore := goleak.IgnoreCurrent()
+	defer goleak.VerifyNone(t, ignore)
 
+	g, _ := errgroup.WithContext(context.Background())
+	for i := 0; i < streamplaceTestCount; i++ {
+		g.Go(func() error {
+			return testAudioSmearInner(t)
+		})
+	}
+	err := g.Wait()
+	require.NoError(t, err)
+}
+
+func testAudioSmearInner(t *testing.T) error {
 	uri := getFixture("duration-mismatch.mp4")
 
 	// info, err := discoverer.DiscoverURI(fmt.Sprintf("file://%s", uri))
 	// if err != nil {
-	// 	panic(err)
+	// 	return err
 	// }
 
 	f, err := os.Open(uri)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer f.Close()
 
@@ -36,31 +55,22 @@ func TestAudioSmear(t *testing.T) {
 	// videoBs := bytes.Buffer{}
 
 	seg, err := ToBuffers(context.Background(), f)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 
 	err = seg.Normalize(context.Background())
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 
 	buf := bytes.Buffer{}
-	_ = JoinAudioVideo(context.Background(), seg, &buf)
+	err = JoinAudioVideo(context.Background(), seg, &buf)
+	if err != nil {
+		return err
+	}
 
-	// require.NoError(t, err)
-
-	// require.Equal(t, 1191255, buf.Len())
-	// Write the buffer to a file
-	outputPath := "/home/iameli/code/streamplace/output.mp4"
-	outputFile, err := os.Create(outputPath)
-	require.NoError(t, err)
-
-	_, err = io.Copy(outputFile, &buf)
-	require.NoError(t, err)
-
-	err = outputFile.Close()
-	require.NoError(t, err)
-
-	t.Logf("Successfully wrote output to %s", outputPath)
-
-	// require.Equal(t, 1180120, videoBs.Len())
+	require.Equal(t, 1191255, buf.Len())
 
 	// // Write audio and video buffers to temporary files for further analysis
 	// tempDir := t.TempDir()
@@ -70,25 +80,38 @@ func TestAudioSmear(t *testing.T) {
 
 	// // Write audio buffer to file
 	// audioFile, err := os.Create(audioFilePath)
-	// require.NoError(t, err)
+	// if err != nil {
+	//     return err
+	// }
 	// _, err = io.Copy(audioFile, bytes.NewReader(audioBs.Bytes()))
-	// require.NoError(t, err)
+	// if err != nil {
+	//     return err
+	// }
 	// err = audioFile.Close()
-	// require.NoError(t, err)
+	// if err != nil {
+	//     return err
+	// }
 
 	// // Write video buffer to file
 	// videoFile, err := os.Create(videoFilePath)
-	// require.NoError(t, err)
+	// if err != nil {
+	//     return err
+	// }
 	// _, err = io.Copy(videoFile, bytes.NewReader(videoBs.Bytes()))
-	// require.NoError(t, err)
+	// if err != nil {
+	//     return err
+	// }
 	// err = videoFile.Close()
-	// require.NoError(t, err)
+	// if err != nil {
+	//     return err
+	// }
 
 	// SmearAudioTimestamps(context.Background(), bytes.NewReader(audioBs.Bytes()), &bytes.Buffer{})
 
 	// checkSame(t, videoFile.Name(), getFixture("duration-mismatch-video.mp4"))
 	// checkSame(t, audioFile.Name(), getFixture("duration-mismatch-audio.mp4"))
 	// printDiscovererInfo(info)
+	return nil
 
 }
 

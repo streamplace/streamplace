@@ -114,7 +114,8 @@ test:
   image: "$CI_REGISTRY_IMAGE:builder-$DOCKERFILE_HASH"
   timeout: 2 hours
   variables:
-    IGNORE_LEAKS: "true"
+    STREAMPLACE_IGNORE_LEAKS: "true"
+    STREAMPLACE_TEST_COUNT: "1"
   script:
     - git fetch --unshallow || echo 'already unshallow'
     - make ci-test -j$(nproc)
@@ -197,7 +198,8 @@ build-mac:
   tags:
     - tart-installed
   variables:
-    IGNORE_LEAKS: "true"
+    STREAMPLACE_IGNORE_LEAKS: "true"
+    STREAMPLACE_TEST_COUNT: "1"
   timeout: 2 hours
   script:
     # workaround for https://gitlab.com/gitlab-org/gitlab/-/issues/501457
@@ -217,7 +219,6 @@ build-mac:
     - "$(which xcodeproj) --version"
     - >
       export GOTOOLCHAIN=go1.23.6
-      && export STREAMPLACE_TEST_COUNT=10
       && python3 -m pip install virtualenv
       && python3 -m virtualenv ~/venv
       && source ~/venv/bin/activate

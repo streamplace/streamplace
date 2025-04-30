@@ -33,7 +33,7 @@ jobs:
       - name: make node
         run: |
           sudo apt install podman -y
-          make in-container DOCKER_OPTS="-e IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
+          make in-container DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
   darwin:
     name: ${{ matrix.name }}
@@ -57,7 +57,7 @@ jobs:
       - name: Build Streamplace
         env:
           STREAMPLACE_TEST_COUNT: "1"
-          IGNORE_LEAKS: "true"
+          STREAMPLACE_IGNORE_LEAKS: "true"
         run: |
           export GOTOOLCHAIN=go1.23.6 \
           && brew install go \

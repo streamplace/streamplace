@@ -218,7 +218,7 @@ build-mac:
     - 'echo "xcodeproj --version: $(xcodeproj --version)"'
     - "$(which xcodeproj) --version"
     - >
-      export GOTOOLCHAIN=go1.23.6
+      export GOTOOLCHAIN=go1.24.2
       && python3 -m pip install virtualenv
       && python3 -m virtualenv ~/venv
       && source ~/venv/bin/activate

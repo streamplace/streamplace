@@ -10,8 +10,7 @@ mission to build the world's open video infrastructure. Check out more at
 
 ## The Video Layer for Everything
 
-You'll need Node, Yarn, Meson, Ninja, and Go 1.23.
-([We're blocked on going to Go 1.24](https://github.com/NordSecurity/uniffi-bindgen-go/issues/66).)
+You'll need Node, Yarn, Meson, Ninja, and Go 1.24.
 
 **Single-command build:**
 

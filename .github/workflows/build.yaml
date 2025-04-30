@@ -59,7 +59,7 @@ jobs:
           STREAMPLACE_TEST_COUNT: "1"
           STREAMPLACE_IGNORE_LEAKS: "true"
         run: |
-          export GOTOOLCHAIN=go1.23.6 \
+          export GOTOOLCHAIN=go1.24.2 \
           && brew install go \
           && python -m pip install virtualenv \
           && python -m virtualenv ~/venv \

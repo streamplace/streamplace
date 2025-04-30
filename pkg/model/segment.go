@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -190,4 +192,62 @@ func (m *DBModel) GetSegment(id string) (*Segment, error) {
 	}
 
 	return &seg, nil
+}
+
+func (m *DBModel) StartSegmentCleaner(ctx context.Context) error {
+	err := m.SegmentCleaner(ctx)
+	if err != nil {
+		return err
+	}
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			err := m.SegmentCleaner(ctx)
+			if err != nil {
+				log.Error(ctx, "Failed to clean segments", "error", err)
+			}
+		}
+	}
+}
+
+func (m *DBModel) SegmentCleaner(ctx context.Context) error {
+	// Calculate the cutoff time (10 minutes ago)
+	cutoffTime := aqtime.FromTime(time.Now().Add(-10 * time.Minute)).Time()
+
+	// Find all unique repo_did values
+	var repoDIDs []string
+	if err := m.DB.Model(&Segment{}).Distinct("repo_did").Pluck("repo_did", &repoDIDs).Error; err != nil {
+		log.Error(ctx, "Failed to get unique repo_dids for segment cleaning", "error", err)
+		return err
+	}
+
+	// For each user, keep their last 10 segments and delete older ones
+	for _, repoDID := range repoDIDs {
+		// Get IDs of the last 10 segments for this user
+		var keepSegmentIDs []string
+		if err := m.DB.Model(&Segment{}).
+			Where("repo_did = ?", repoDID).
+			Order("start_time DESC").
+			Limit(10).
+			Pluck("id", &keepSegmentIDs).Error; err != nil {
+			log.Error(ctx, "Failed to get segment IDs to keep", "repo_did", repoDID, "error", err)
+			return err
+		}
+
+		// Delete old segments except the ones we want to keep
+		result := m.DB.Where("repo_did = ? AND start_time < ? AND id NOT IN ?",
+			repoDID, cutoffTime, keepSegmentIDs).Delete(&Segment{})
+
+		if result.Error != nil {
+			log.Error(ctx, "Failed to clean old segments", "repo_did", repoDID, "error", result.Error)
+		} else if result.RowsAffected > 0 {
+			log.Log(ctx, "Cleaned old segments", "repo_did", repoDID, "count", result.RowsAffected)
+		}
+	}
+	return nil
 }

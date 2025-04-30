@@ -36,6 +36,7 @@ type Model interface {
 	CreateThumbnail(thumb *Thumbnail) error
 	LatestThumbnailForUser(user string) (*Thumbnail, error)
 	GetSegment(id string) (*Segment, error)
+	StartSegmentCleaner(ctx context.Context) error
 
 	GetIdentity(id string) (*Identity, error)
 	UpdateIdentity(ident *Identity) error
@@ -81,14 +82,17 @@ type Model interface {
 
 func MakeDB(dbURL string) (Model, error) {
 	log.Log(context.Background(), "starting database", "dbURL", dbURL)
-	if !strings.HasPrefix(dbURL, "sqlite://") {
-		dbURL = fmt.Sprintf("sqlite://%s", dbURL)
-	}
-	sqliteSuffix := dbURL[len("sqlite://"):]
-	// if this isn't ":memory:", ensure that directory exists (eg, if db
-	// file is being initialized)
-	if !strings.Contains(sqliteSuffix, ":?") {
-		os.MkdirAll(filepath.Dir(sqliteSuffix), os.ModePerm)
+	sqliteSuffix := dbURL
+	if dbURL != ":memory:" {
+		if !strings.HasPrefix(dbURL, "sqlite://") {
+			dbURL = fmt.Sprintf("sqlite://%s", dbURL)
+		}
+		sqliteSuffix := dbURL[len("sqlite://"):]
+		// if this isn't ":memory:", ensure that directory exists (eg, if db
+		// file is being initialized)
+		if !strings.Contains(sqliteSuffix, ":?") {
+			os.MkdirAll(filepath.Dir(sqliteSuffix), os.ModePerm)
+		}
 	}
 	dial := sqlite.Open(sqliteSuffix)
 

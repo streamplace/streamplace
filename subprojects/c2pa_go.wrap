@@ -1,4 +1,4 @@
 [wrap-git]
 url = https://git.stream.place/streamplace/c2pa-go.git
-revision = main
+revision = v0.7.0
 depth = 1

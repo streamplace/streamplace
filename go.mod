@@ -12,10 +12,11 @@ replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.4
 
 require (
 	firebase.google.com/go/v4 v4.14.1
-	git.stream.place/streamplace/c2pa-go v0.0.0-20250129011218-a26b6bf7d3b0
+	git.stream.place/streamplace/c2pa-go v0.7.0
 	github.com/99designs/gqlgen v0.17.64
 	github.com/NYTimes/gziphandler v1.1.1
 	github.com/ThalesGroup/crypto11 v0.0.0-00010101000000-000000000000
+	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/bluesky-social/indigo v0.0.0-20250202033855-fd270fbccf0c
 	github.com/decred/dcrd/dcrec/secp256k1 v1.0.4
 	github.com/dunglas/httpsfv v1.0.2
@@ -93,7 +94,6 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.0.0 // indirect
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b // indirect
-	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/agnivade/levenshtein v1.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect

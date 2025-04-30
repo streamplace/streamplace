@@ -108,16 +108,16 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 	}
 	manifestBs, err := json.Marshal(mani)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 	var manifest c2pa.ManifestDefinition
 	err = json.Unmarshal(manifestBs, &manifest)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal manifest: %w", err)
 	}
 	alg, err := c2pa.GetSigningAlgorithm(string(c2pa.ES256K))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get signing algorithm: %w", err)
 	}
 	b, err := c2pa.NewBuilder(&manifest, &c2pa.BuilderParams{
 		Cert:      ms.Cert,
@@ -126,17 +126,17 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 		TAURL:     ms.TAURL,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create C2PA builder: %w", err)
 	}
 
 	output := &aqio.ReadWriteSeeker{}
 	err = b.Sign(input, output, "video/mp4")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to sign MP4: %w", err)
 	}
 	bs, err := output.Bytes()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get output bytes: %w", err)
 	}
 	return bs, nil
 }

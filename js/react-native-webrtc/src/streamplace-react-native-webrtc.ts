@@ -58,9 +58,27 @@ const iosDelegateReplacements = [
     to: (config) => `
 #import <React/RCTLinkingManager.h>
 #import <WebRTC/WebRTC.h>
-#import <react-native-webrtc-umbrella.h>
+#import "CaptureController.h"
+#import "CapturerEventsDelegate.h"
+#import "DataChannelWrapper.h"
+#import "RCTConvert+WebRTC.h"
+#import "RTCMediaStreamTrack+React.h"
+#import "RTCVideoViewManager.h"
+#import "ScreenCaptureController.h"
+#import "ScreenCapturePickerViewManager.h"
+#import "ScreenCapturer.h"
+#import "SerializeUtils.h"
+#import "SocketConnection.h"
+#import "TrackCapturerEventsEmitter.h"
+#import "VideoCaptureController.h"
+#import "WebRTCModule+RTCDataChannel.h"
+#import "WebRTCModule+RTCMediaStream.h"
+#import "WebRTCModule+RTCPeerConnection.h"
+#import "WebRTCModule+VideoTrackAdapter.h"
+#import "WebRTCModule.h"
+#import "WebRTCModuleOptions.h"
 #import "ExpoModulesCore-Swift.h"
-#import "${config.name}-Swift.h"
+#import "${config.name.replaceAll(" ", "")}-Swift.h"
 `,
   },
   {

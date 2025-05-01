@@ -1,7 +1,7 @@
 {
-  "name": "@streamplace/react-native-webrtc",
+  "name": "@streamplace/config-react-native-webrtc",
   "version": "0.0.1",
-  "description": "react-native-webrtc with some changes to make it useful for streamplace",
+  "description": "react-native-webrtc config mod with some changes to make it useful for streamplace",
   "packageManager": "yarn@4.3.0",
   "scripts": {
     "prepare": "tsc -p tsconfig.json"
@@ -14,9 +14,9 @@
   "devDependencies": {
     "typescript": "~5.3.3"
   },
-  "main": "./dist/streamplace-react-native-webrtc.js",
-  "src": "./src/streamplace-react-native-webrtc.ts",
-  "types": "./dist/streamplace-react-native-webrtc.d.ts",
+  "main": "./dist/config-react-native-webrtc.js",
+  "src": "./src/config-react-native-webrtc.ts",
+  "types": "./dist/config-react-native-webrtc.d.ts",
   "files": [
     "dist",
     "src"

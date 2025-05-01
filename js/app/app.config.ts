@@ -3,7 +3,7 @@ import {
   withEntitlementsPlist,
   withXcodeProject,
 } from "expo/config-plugins";
-import streamplaceReactNativeWebRTC from "./streamplace-react-native-webrtc";
+import streamplaceReactNativeWebRTC from "../react-native-webrtc";
 export const withNotificationsIOS: ConfigPlugin = (config) => {
   config = withEntitlementsPlist(config, (config) => {
     config.modResults["aps-environment"] = "production";

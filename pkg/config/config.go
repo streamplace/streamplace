@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/peterbourgon/ff/v3"
 	"golang.org/x/exp/rand"
 	"stream.place/streamplace/pkg/aqtime"
@@ -90,6 +91,7 @@ type CLI struct {
 	SmearAudio             bool
 	ExternalSigning        bool
 	TracingEndpoint        string
+	JWK                    jwk.Key
 
 	dataDirFlags []*string
 }

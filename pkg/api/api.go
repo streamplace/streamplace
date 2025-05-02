@@ -19,6 +19,7 @@ import (
 	"github.com/NYTimes/gziphandler"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/gorilla/websocket"
+	"github.com/haileyok/atproto-oauth-golang/helpers"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
@@ -138,7 +139,10 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
 	apiRouter.GET("/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
-	apiRouter.GET("/api/atproto-oauth/:platform", a.HandleATProtoOAuth(ctx))
+	for _, platform := range atproto.AllowedPlatforms {
+		apiRouter.GET(fmt.Sprintf("/api/atproto-oauth/%s", platform), a.HandleATProtoOAuth(ctx, platform))
+	}
+	apiRouter.GET("/api/atproto-oauth/jwks.json", a.HandleJWKPublic(ctx))
 	apiRouter.GET("/api/live-users", a.HandleLiveUsers(ctx))
 	apiRouter.GET("/api/view-count/:user", a.HandleViewCount(ctx))
 	apiRouter.GET("/xrpc/app.bsky.feed.getFeedSkeleton", a.HandleXRPCAppBskyFeedGetFeedSkeleton(ctx))
@@ -565,13 +569,12 @@ func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Ha
 	}
 }
 
-func (a *StreamplaceAPI) HandleATProtoOAuth(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleATProtoOAuth(ctx context.Context, platform string) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		host, _, err := net.SplitHostPort(req.Host)
 		if err != nil {
 			host = req.Host
 		}
-		platform := params.ByName("platform")
 		if !slices.Contains(atproto.AllowedPlatforms, platform) {
 			apierrors.WriteHTTPBadRequest(w, "unsupported platform", nil)
 			return
@@ -581,6 +584,23 @@ func (a *StreamplaceAPI) HandleATProtoOAuth(ctx context.Context) httprouter.Hand
 		bs, err := json.Marshal(meta)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal metadata", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(bs)
+	}
+}
+
+func (a *StreamplaceAPI) HandleJWKPublic(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		pubKey, err := a.CLI.JWK.PublicKey()
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not get public key", err)
+			return
+		}
+		bs, err := json.Marshal(helpers.CreateJwksResponseObject(pubKey))
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not marshal public key", err)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

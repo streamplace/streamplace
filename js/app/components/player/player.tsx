@@ -2,7 +2,7 @@ import useStreamplaceNode from "hooks/useStreamplaceNode";
 import usePlatform from "hooks/usePlatform";
 import { uuidv7 } from "hooks/uuid";
 import { useEffect, useMemo, useState } from "react";
-import { Text, View } from "tamagui";
+import { Text, useMedia, View } from "tamagui";
 import Fullscreen from "./fullscreen";
 import {
   IngestMediaSource,

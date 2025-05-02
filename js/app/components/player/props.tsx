@@ -37,6 +37,9 @@ export type PlayerProps = {
   offline: boolean;
   renditions: Rendition[];
   selectedRendition: string;
+  muteWasForced: boolean;
+  setMuteWasForced: (muteWasForced: boolean) => void;
+  embedded: boolean;
 };
 
 export type PlayerEvent = {

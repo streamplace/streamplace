@@ -125,6 +125,8 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     return () => clearTimeout(handle);
   }, [segment, playing, lastCheck]);
 
+  const [muteWasForced, setMuteWasForced] = useState(false);
+
   const childProps: PlayerProps = {
     playerId: playerId,
     ingest: props.ingest,
@@ -149,6 +151,9 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     ingestAutoStart: props.ingestAutoStart ?? false,
     renditions: renditions ?? [],
     selectedRendition: selectedRendition ?? "source",
+    muteWasForced: muteWasForced,
+    setMuteWasForced: setMuteWasForced,
+    embedded: props.embedded ?? false,
     ...props,
   };
   return (

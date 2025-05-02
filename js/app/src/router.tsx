@@ -56,6 +56,7 @@ import { useToastController } from "@tamagui/toast";
 import LiveDashboard from "./screens/live-dashboard";
 import Popup from "components/popup";
 import PopoutChat from "./screens/chat-popout";
+import EmbedScreen from "./screens/embed";
 function HomeScreen() {
   return (
     <View f={1}>
@@ -83,6 +84,7 @@ type RootStackParamList = {
   About: undefined;
   Download: undefined;
   PopoutChat: { user: string };
+  Embed: { user: string };
 };
 
 declare global {
@@ -114,6 +116,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       About: "about",
       Download: "download",
       PopoutChat: "chat-popout/:user",
+      Embed: "embed/:user",
     },
   },
 };
@@ -359,6 +362,15 @@ export function StreamplaceDrawer() {
         <Drawer.Screen
           name="PopoutChat"
           component={PopoutChat}
+          options={{
+            drawerLabel: () => null,
+            drawerItemStyle: { display: "none" },
+            headerShown: false,
+          }}
+        />
+        <Drawer.Screen
+          name="Embed"
+          component={EmbedScreen}
           options={{
             drawerLabel: () => null,
             drawerItemStyle: { display: "none" },

@@ -69,7 +69,19 @@ const Part = (props) => (
   </View>
 );
 
-const VolumeSlider = ({ volume, setVolume, muted, setMuted, showControls }) => {
+const VolumeSlider = ({
+  volume,
+  setVolume,
+  muted,
+  setMuted,
+  showControls,
+}: {
+  volume: number;
+  setVolume: (volume: number) => void;
+  muted: boolean;
+  setMuted: (muted: boolean) => void;
+  showControls: boolean;
+}) => {
   const [open, setOpen] = useState(false);
   const [sliderValue, setSliderValue] = useState(volume);
   const media = useMedia();
@@ -227,6 +239,17 @@ export default function Controls(props: PlayerProps) {
       onPress={onPress}
       {...cursor}
     >
+      {props.muteWasForced && (
+        <View
+          position="absolute"
+          left={0}
+          bottom={0}
+          padding={20}
+          opacity={props.showControls ? 0 : 1}
+        >
+          <VolumeX size={60} color="red" />
+        </View>
+      )}
       {!props.offline ? null : (
         <View
           position="absolute"
@@ -268,11 +291,15 @@ export default function Controls(props: PlayerProps) {
         <Part>
           <VolumeSlider
             volume={props.volume}
-            setVolume={props.setVolume}
+            setVolume={(vol) => {
+              props.setVolume(vol);
+              props.setMuteWasForced(false);
+            }}
             muted={props.muted}
             showControls={props.showControls}
             setMuted={(muted) => {
               dispatch(userMute(muted));
+              props.setMuteWasForced(false);
               props.setMuted(muted);
             }}
           />

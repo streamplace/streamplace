@@ -81,6 +81,10 @@ const VideoElement = forwardRef(
     const [firstAttempt, setFirstAttempt] = useState(true);
 
     const localVideoRef = useRef<HTMLVideoElement | null>(null);
+
+    // attempts to autoplay the video. if that fails, it attempts
+    // to play the video muted; some browsers will only let you
+    // autoplay if you're muted
     const canPlayThrough = (e) => {
       event("canplaythrough")(e);
       if (firstAttempt && localVideoRef.current) {
@@ -90,9 +94,15 @@ const VideoElement = forwardRef(
             if (localVideoRef.current) {
               props.setMuted(true);
               localVideoRef.current.muted = true;
-              localVideoRef.current.play().catch((err) => {
-                console.error("error playing video", err);
-              });
+              localVideoRef.current
+                .play()
+                .then(() => {
+                  console.log("muted video");
+                  props.setMuteWasForced(true);
+                })
+                .catch((err) => {
+                  console.error("error playing video", err);
+                });
             }
           }
         });

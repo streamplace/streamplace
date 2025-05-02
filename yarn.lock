@@ -7911,12 +7911,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@streamplace/react-native-webrtc@workspace:js/react-native-webrtc":
+"@streamplace/config-react-native-webrtc@workspace:js/config-react-native-webrtc":
   version: 0.0.0-use.local
-  resolution: "@streamplace/react-native-webrtc@workspace:js/react-native-webrtc"
+  resolution: "@streamplace/config-react-native-webrtc@workspace:js/config-react-native-webrtc"
   dependencies:
     "@config-plugins/react-native-webrtc": "npm:10.0.0"
     react-native-webrtc: "npm:124.0.4"
+    rtcaudiodevice: "git+https://github.com/streamplace/RTCAudioDevice.git#7b4659fe845545d366623cbc813936987144b76f"
     typescript: "npm:~5.3.3"
   languageName: unknown
   linkType: soft

@@ -89,6 +89,7 @@ type CLI struct {
 	Thumbnail              bool
 	SmearAudio             bool
 	ExternalSigning        bool
+	TracingEndpoint        string
 
 	dataDirFlags []*string
 }

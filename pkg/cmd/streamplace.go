@@ -146,8 +146,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.Bool("insecure", false, "DEPRECATED, does nothing.")
 	fs.StringVar(&cli.Color, "color", "", "'true' to enable colorized logging, 'false' to disable")
 	fs.BoolVar(&cli.Thumbnail, "thumbnail", true, "enable thumbnail generation")
-	fs.BoolVar(&cli.SmearAudio, "smear-audio", true, "enable audio smearing to create 'perfect' segment timestamps")
+	fs.BoolVar(&cli.SmearAudio, "smear-audio", false, "enable audio smearing to create 'perfect' segment timestamps")
 	fs.BoolVar(&cli.ExternalSigning, "external-signing", false, "enable external signing via exec (prevents potential memory leak)")
+	fs.StringVar(&cli.TracingEndpoint, "tracing-endpoint", "", "gRPC endpoint to send traces to")
 	version := fs.Bool("version", false, "print version and exit")
 
 	if runtime.GOOS == "linux" {
@@ -317,6 +318,12 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	group.Go(func() error {
 		return handleSignals(ctx)
 	})
+
+	if cli.TracingEndpoint != "" {
+		group.Go(func() error {
+			return startTelemetry(ctx, cli.TracingEndpoint)
+		})
+	}
 
 	if cli.Secure {
 		group.Go(func() error {

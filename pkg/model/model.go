@@ -48,7 +48,7 @@ type Model interface {
 	UpdateRepo(repo *Repo) error
 
 	UpdateSigningKey(key *SigningKey) error
-	GetSigningKey(did, repoDID string) (*SigningKey, error)
+	GetSigningKey(ctx context.Context, did, repoDID string) (*SigningKey, error)
 	GetSigningKeysForRepo(repoDID string) ([]SigningKey, error)
 
 	CreateFollow(ctx context.Context, userDID, rev string, follow *bsky.GraphFollow) error

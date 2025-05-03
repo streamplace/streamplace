@@ -1,9 +1,11 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"time"
 
+	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
 
@@ -23,7 +25,9 @@ func (m *DBModel) UpdateSigningKey(key *SigningKey) error {
 	return m.DB.Save(key).Error
 }
 
-func (m *DBModel) GetSigningKey(did, repoDID string) (*SigningKey, error) {
+func (m *DBModel) GetSigningKey(ctx context.Context, did, repoDID string) (*SigningKey, error) {
+	ctx, span := otel.Tracer("signer").Start(ctx, "GetSigningKey")
+	defer span.End()
 	var key SigningKey
 	res := m.DB.Model(SigningKey{}).Where("did = ?", did).Where("repo_did = ?", repoDID).First(&key)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {

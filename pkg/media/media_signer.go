@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	"git.stream.place/streamplace/c2pa-go/pkg/c2pa"
+	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqio"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
@@ -80,6 +81,8 @@ func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, sign
 }
 
 func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
+	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4")
+	defer span.End()
 	title := "livestream"
 	mani := obj{
 		"title": fmt.Sprintf("Livestream Segment at %s", aqtime.FromMillis(start)),

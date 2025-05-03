@@ -9,11 +9,14 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )
 
 func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMediaData, error) {
+	ctx, span := otel.Tracer("signer").Start(ctx, "ParseSegmentMediaData")
+	defer span.End()
 	ctx = log.WithLogValues(ctx, "GStreamerFunc", "ParseSegmentMediaData")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

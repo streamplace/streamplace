@@ -13,6 +13,7 @@ import (
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/intervalpli"
 	"github.com/pion/webrtc/v4"
+	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
@@ -195,7 +196,9 @@ type SegmentMetadata struct {
 
 var ErrInvalidMetadata = errors.New("invalid segment metadata")
 
-func ParseSegmentAssertions(mani *manifeststore.Manifest) (*SegmentMetadata, error) {
+func ParseSegmentAssertions(ctx context.Context, mani *manifeststore.Manifest) (*SegmentMetadata, error) {
+	ctx, span := otel.Tracer("signer").Start(ctx, "ParseSegmentAssertions")
+	defer span.End()
 	var ass *manifeststore.ManifestAssertion
 	for _, a := range mani.Assertions {
 		if a.Label == STREAMPLACE_METADATA {

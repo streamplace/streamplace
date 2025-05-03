@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
@@ -18,6 +19,8 @@ import (
 )
 
 func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error {
+	ctx, span := otel.Tracer("signer").Start(ctx, "ValidateMP4")
+	defer span.End()
 	buf, err := io.ReadAll(input)
 	if err != nil {
 		return err
@@ -33,7 +36,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	if err != nil {
 		return err
 	}
-	meta, err := ParseSegmentAssertions(mani)
+	meta, err := ParseSegmentAssertions(ctx, mani)
 	if err != nil {
 		return err
 	}
@@ -52,7 +55,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 		if err != nil {
 			return err
 		}
-		signingKey, err := mm.model.GetSigningKey(pub.DIDKey(), repo.DID)
+		signingKey, err := mm.model.GetSigningKey(ctx, pub.DIDKey(), repo.DID)
 		if err != nil {
 			return err
 		}

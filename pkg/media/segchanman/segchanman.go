@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"go.opentelemetry.io/otel"
 )
 
 // it's a segment channel manager, you see
@@ -61,6 +63,8 @@ func (s *SegChanMan) UnsubscribeSegment(ctx context.Context, user string, rendit
 }
 
 func (s *SegChanMan) PublishSegment(ctx context.Context, user string, rendition string, seg *Seg) {
+	ctx, span := otel.Tracer("signer").Start(ctx, "PublishSegment")
+	defer span.End()
 	key := segChanKey(user, rendition)
 	s.segChansMutex.Lock()
 	defer s.segChansMutex.Unlock()

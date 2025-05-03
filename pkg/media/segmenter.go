@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -61,6 +62,8 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		appsink.SetCallbacks(&app.SinkCallbacks{
 			NewSampleFunc: WriterNewSample(ctx, buf),
 			EOSFunc: func(sink *app.Sink) {
+				ctx, span := otel.Tracer("signer").Start(ctx, "SegmentAndSignElem")
+				defer span.End()
 				resetTimer <- struct{}{}
 				now := time.Now().UnixMilli()
 				bs := buf.Bytes()

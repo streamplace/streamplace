@@ -9,12 +9,14 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/mr-tron/base58"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/aqpub"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 type MediaSignerExt struct {
@@ -53,6 +55,7 @@ func MakeMediaSignerExt(ctx context.Context, cli *config.CLI, streamer string, k
 }
 
 func (ms *MediaSignerExt) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
+	startTime := time.Now()
 	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4_Ext")
 	defer span.End()
 	// Get the path to the current executable
@@ -101,7 +104,7 @@ func (ms *MediaSignerExt) SignMP4(ctx context.Context, input io.ReadSeeker, star
 	if err := cmd.Wait(); err != nil {
 		return nil, fmt.Errorf("command failed: %w, stderr: %s", err, stderr.String())
 	}
-
+	spmetrics.SigningDuration.WithLabelValues(ms.streamer).Observe(float64(time.Since(startTime).Milliseconds()))
 	return stdout.Bytes(), nil
 }
 

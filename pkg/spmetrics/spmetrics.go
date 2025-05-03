@@ -48,6 +48,12 @@ var TranscodeDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Buckets: []float64{0, 250, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 10000},
 }, []string{"streamer"})
 
+var SigningDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_signing_duration_ms",
+	Help:    "duration of transcode in ms",
+	Buckets: []float64{0, 250, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 10000, 20000, 30000, 60000},
+}, []string{"streamer"})
+
 var QueuedTranscodeDuration = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_queued_transcode_duration_ms",
 	Help: "duration of transcode in ms, including time spent waiting",

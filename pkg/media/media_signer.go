@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"time"
 
 	"git.stream.place/streamplace/c2pa-go/pkg/c2pa"
 	"go.opentelemetry.io/otel"
@@ -18,11 +19,13 @@ import (
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 type MediaSigner interface {
 	SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error)
 	Pub() aqpub.Pub
+	Streamer() string
 }
 
 type MediaSignerLocal struct {
@@ -80,7 +83,12 @@ func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, sign
 	}, nil
 }
 
+func (ms *MediaSignerLocal) Streamer() string {
+	return ms.StreamerName
+}
+
 func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
+	startTime := time.Now()
 	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4")
 	defer span.End()
 	title := "livestream"
@@ -109,6 +117,7 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 			},
 		},
 	}
+	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_MarshalManifest")
 	manifestBs, err := json.Marshal(mani)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal manifest: %w", err)
@@ -118,10 +127,16 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal manifest: %w", err)
 	}
+	span.End()
+
+	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_GetSigningAlgorithm")
 	alg, err := c2pa.GetSigningAlgorithm(string(c2pa.ES256K))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get signing algorithm: %w", err)
 	}
+	span.End()
+
+	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_NewBuilder")
 	b, err := c2pa.NewBuilder(&manifest, &c2pa.BuilderParams{
 		Cert:      ms.Cert,
 		Signer:    ms.Signer,
@@ -131,16 +146,23 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 	if err != nil {
 		return nil, fmt.Errorf("failed to create C2PA builder: %w", err)
 	}
+	span.End()
 
+	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_Sign")
 	output := &aqio.ReadWriteSeeker{}
 	err = b.Sign(input, output, "video/mp4")
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign MP4: %w", err)
 	}
+	span.End()
+
+	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_OutputBytes")
 	bs, err := output.Bytes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get output bytes: %w", err)
 	}
+	span.End()
+	spmetrics.SigningDuration.WithLabelValues(ms.StreamerName).Observe(float64(time.Since(startTime).Milliseconds()))
 	return bs, nil
 }
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/mr-tron/base58"
+	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 )
@@ -52,6 +53,8 @@ func MakeMediaSignerExt(ctx context.Context, cli *config.CLI, streamer string, k
 }
 
 func (ms *MediaSignerExt) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
+	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4_Ext")
+	defer span.End()
 	// Get the path to the current executable
 	execPath, err := os.Executable()
 	if err != nil {
@@ -104,4 +107,8 @@ func (ms *MediaSignerExt) SignMP4(ctx context.Context, input io.ReadSeeker, star
 
 func (ms *MediaSignerExt) Pub() aqpub.Pub {
 	return ms.pub
+}
+
+func (ms *MediaSignerExt) Streamer() string {
+	return ms.streamer
 }

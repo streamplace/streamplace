@@ -106,7 +106,7 @@ js-lexicons:
 		&& sed -i.bak "s/'\.\.\/\.\.\/\.\.\/com/'@atproto\/api\/src\/client\/types\/com/" $$(find ./js/app/lexicons/types/place/stream -type f) \
 		&& sed -i.bak 's/AppBskyGraphBlock\.Main/AppBskyGraphBlock\.Record/' $$(find ./js/app/lexicons/types/place/stream -type f) \
 		&& sed -i.bak 's/PlaceStreamChatProfile\.Main/PlaceStreamChatProfile\.Record/' $$(find ./js/app/lexicons/types/place/stream -type f) \
-		&& sed -i.bak "s/import \* as AppBskyFeedDefs from \'.\/defs\'/import \{ AppBskyFeedDefs } \from '@atproto\/api'/" $$(find ./js/app/lexicons/types -type f)
+		&& sed -i.bak "s/import \* as AppBskyFeedDefs from \'.\/defs\'/import \{ AppBskyFeedDefs } \from '@atproto\/api'/" $$(find ./js/app/lexicons/types -type f) \
 		&& rm -rf ./js/app/lexicons/types/place/stream/*.bak
 
 .PHONY: lexgen

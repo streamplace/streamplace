@@ -109,7 +109,7 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 // api/playback/iame.li/hls/source/000000000000.ts
 
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
-	xrpc, err := spxrpc.NewServer(a.CLI)
+	xrpc, err := spxrpc.NewServer(a.CLI, a.Model)
 	if err != nil {
 		return nil, err
 	}
@@ -150,8 +150,6 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/atproto-oauth/jwks.json", a.HandleJWKPublic(ctx))
 	apiRouter.GET("/api/live-users", a.HandleLiveUsers(ctx))
 	apiRouter.GET("/api/view-count/:user", a.HandleViewCount(ctx))
-	apiRouter.GET("/xrpc/app.bsky.feed.getFeedSkeleton", a.HandleXRPCAppBskyFeedGetFeedSkeleton(ctx))
-	apiRouter.POST("/xrpc/place.stream.account.login", a.HandleAccountLogin(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	router.Handler("GET", "/api/*resource", apiRouter)
 	router.Handler("POST", "/api/*resource", apiRouter)

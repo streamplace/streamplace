@@ -136,7 +136,8 @@ lexgen-server:
 		-outdir ./pkg/spxrpc \
 		--prefix place.stream \
 		--build-file util/lexgen-server.json \
-		lexicons/place/stream
+		lexicons/place/stream \
+		lexicons/app/bsky
 
 .PHONY: test
 test:

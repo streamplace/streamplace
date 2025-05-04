@@ -29,6 +29,9 @@ func NewServer(cli *config.CLI, model model.Model) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// this one we're handling manually because codegen doesn't support redirects
+	e.GET("/xrpc/place.stream.account.oauthReturn", s.HandlePlaceStreamAccountOauthReturn)
 	return s, nil
 }
 

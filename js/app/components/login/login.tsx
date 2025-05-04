@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Keyboard } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { Button, Form, H3, Input, Sheet, Spinner, Text, View } from "tamagui";
+import useStreamplaceNode from "hooks/useStreamplaceNode";
 
 export default function Login() {
   const dispatch = useAppDispatch();
@@ -52,6 +53,8 @@ export default function Login() {
     );
   }
 
+  const { url } = useStreamplaceNode();
+
   return (
     <View
       f={1}
@@ -75,11 +78,11 @@ export default function Login() {
       <Button
         width="100%"
         onPress={async () => {
-          const agent = new AtpBaseClient(`http://127.0.0.1:38080`);
+          const agent = new AtpBaseClient(url);
           const res = await agent.place.stream.account.login({
             handleOrDID: handle,
           });
-          console.log(res);
+          window.location.href = res.data.redirectUrl;
           // await dispatch(login(`https://${pds.url}`));
         }}
         margin="$4"

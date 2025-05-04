@@ -9,9 +9,10 @@ import (
 	"github.com/haileyok/atproto-oauth-golang/helpers"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
-func Login(ctx context.Context, cli *config.CLI) (*string, error) {
+func Login(ctx context.Context, cli *config.CLI, input *streamplace.AccountLogin_Input) (*streamplace.AccountDefs_LoginResponse, error) {
 	meta := GetMetadata("longos.iameli.link", "web", "")
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
 		ClientJwk:   cli.JWK,
@@ -22,22 +23,18 @@ func Login(ctx context.Context, cli *config.CLI) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	userInput := "scumb.ag"
 
 	// If you already have a did or a URL, you can skip this step
-	// did, err := resolveHandle(ctx, userInput) // returns did:plc:abc123 or did:web:test.com
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// did := "did:plc:dkh4rwafdcda4ko7lewe43ml"
+	did, err := resolveHandle(ctx, input.HandleOrDID) // returns did:plc:abc123 or did:web:test.com
+	if err != nil {
+		return nil, err
+	}
 
 	// If you already have a URL, you can skip this step
-	// service, err := resolveService(ctx, did) // returns https://pds.haileyok.com
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	service := "https://milkcap.us-west.host.bsky.network"
+	service, err := resolveService(ctx, did) // returns https://pds.haileyok.com
+	if err != nil {
+		return nil, err
+	}
 
 	authserver, err := oclient.ResolvePdsAuthServer(ctx, service)
 	if err != nil {
@@ -59,7 +56,7 @@ func Login(ctx context.Context, cli *config.CLI) (*string, error) {
 	// 	return nil, err
 	// }
 
-	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, userInput, meta.Scope, k)
+	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, input.HandleOrDID, meta.Scope, k)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +67,7 @@ func Login(ctx context.Context, cli *config.CLI) (*string, error) {
 	u.RawQuery = fmt.Sprintf("client_id=%s&request_uri=%s", url.QueryEscape(meta.ClientID), parResp.RequestUri)
 	str := u.String()
 
-	// https://longos.iameli.link/login?state=30866d14920b46e7642a&iss=https%3A%2F%2Fbsky.social&code=cod-92a9a96a7619dbb91857ec25e33c6a58a3d39c2469acbe2586a1ddf5c8edce0d
-
-	return &str, nil
+	return &streamplace.AccountDefs_LoginResponse{
+		RedirectUrl: str,
+	}, nil
 }

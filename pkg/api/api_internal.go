@@ -23,7 +23,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/sync/errgroup"
-	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/mist/mistconfig"
@@ -384,15 +383,6 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			return
 		}
 		w.Write(bs)
-	})
-
-	router.GET("/atproto-login", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		str, err := atproto.Login(ctx, a.CLI)
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "unable to login", err)
-			return
-		}
-		w.Write([]byte(*str))
 	})
 
 	router.GET("/chat-posts", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {

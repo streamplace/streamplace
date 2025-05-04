@@ -1,3 +1,4 @@
+import { AtpBaseClient } from "lexicons";
 import NameColorPicker from "components/name-color-picker/name-color-picker";
 import {
   login,
@@ -18,6 +19,7 @@ export default function Login() {
   const pds = useAppSelector(selectPDS);
   const loginState = useAppSelector(selectLogin);
   const [open, setOpen] = useState(false);
+  const [handle, setHandle] = useState("");
   const onOpenChange = (open: boolean) => {
     setOpen(open);
     Keyboard.dismiss();
@@ -51,24 +53,40 @@ export default function Login() {
   }
 
   return (
-    <View f={1} jc="center" ai="center" backgroundColor="$gray1" padding="$4">
+    <View
+      f={1}
+      jc="center"
+      ai="center"
+      backgroundColor="$gray1"
+      padding="$4"
+      width="100%"
+      maxWidth={800}
+      marginHorizontal="auto"
+    >
       <ChangePDS open={open} onOpenChange={onOpenChange} />
       {/* <Text>{error}</Text> */}
+      <H3>Handle</H3>
+      <Input
+        width="100%"
+        placeholder="example.bsky.social"
+        value={handle}
+        onChangeText={(text) => setHandle(text)}
+      />
       <Button
         width="100%"
         onPress={async () => {
-          await dispatch(login(`https://${pds.url}`));
+          const agent = new AtpBaseClient(`http://127.0.0.1:38080`);
+          const res = await agent.place.stream.account.login({
+            handleOrDID: handle,
+          });
+          console.log(res);
+          // await dispatch(login(`https://${pds.url}`));
         }}
         margin="$4"
         backgroundColor="$accentColor"
         disabled={loginState.loading}
       >
-        <Text>
-          {loginState.loading ? <Spinner /> : `Log in with ${pds.url}`}
-        </Text>
-      </Button>
-      <Button width="100%" onPress={() => onOpenChange(true)} margin="$4">
-        Change PDS
+        <Text>{loginState.loading ? <Spinner /> : `Log in with ATProto`}</Text>
       </Button>
     </View>
   );

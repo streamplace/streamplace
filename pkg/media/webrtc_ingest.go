@@ -228,7 +228,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 
 					gbuf := gst.NewBufferWithSize(int64(len(buf[:i])))
 					gbuf.Map(gst.MapWrite).WriteData(buf[:i])
-					defer gbuf.Unmap()
+					gbuf.Unmap()
 
 					ret := videoSrc.PushBuffer(gbuf)
 					if ret != gst.FlowOK {
@@ -267,7 +267,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 
 					gbuf := gst.NewBufferWithSize(int64(len(buf[:i])))
 					gbuf.Map(gst.MapWrite).WriteData(buf[:i])
-					defer gbuf.Unmap()
+					gbuf.Unmap()
 					ret := audioSrc.PushBuffer(gbuf)
 					if ret != gst.FlowOK {
 						log.Log(ctx, "failed to push buffer", "error", ret)

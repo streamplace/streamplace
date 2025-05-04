@@ -288,6 +288,14 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			return err
 		}
 	}
+
+	jwkPath := cli.DataFilePath([]string{"jwk.json"})
+	jwk, err := atproto.EnsureJWK(ctx, jwkPath)
+	if err != nil {
+		return err
+	}
+	cli.JWK = jwk
+
 	b := bus.NewBus()
 	atsync := &atproto.ATProtoSynchronizer{
 		CLI:   &cli,

@@ -45,15 +45,36 @@ func boolPtr(b bool) *bool {
 func GetMetadata(host string, platform string, appBundleId string) *OAuthClientMetadata {
 	meta := &OAuthClientMetadata{
 		ClientID:  fmt.Sprintf("https://%s/api/atproto-oauth/%s", host, platform),
+		JwksURI:   fmt.Sprintf("https://%s/api/atproto-oauth/jwks.json", host),
 		ClientURI: fmt.Sprintf("https://%s", host),
 		// RedirectURIs:            []string{fmt.Sprintf("https://%s/login", host)},
-		Scope:                   "atproto transition:generic",
-		TokenEndpointAuthMethod: "none",
-		ClientName:              "Streamplace",
-		ResponseTypes:           []string{"code"},
-		GrantTypes:              []string{"authorization_code", "refresh_token"},
-		DPoPBoundAccessTokens:   boolPtr(true),
+		Scope:                       "atproto transition:generic",
+		TokenEndpointAuthMethod:     "private_key_jwt",
+		ClientName:                  "Streamplace",
+		ResponseTypes:               []string{"code"},
+		GrantTypes:                  []string{"authorization_code", "refresh_token"},
+		DPoPBoundAccessTokens:       boolPtr(true),
+		TokenEndpointAuthSigningAlg: "ES256",
 	}
+
+	// metadata := map[string]any{
+	// 	"client_id":                       serverMetadataUrl,
+	// 	"client_name":                     "Atproto Oauth Golang Tester",
+	// 	"client_uri":                      serverUrlRoot,
+	// 	"logo_uri":                        fmt.Sprintf("%s/logo.png", serverUrlRoot),
+	// 	"tos_uri":                         fmt.Sprintf("%s/tos", serverUrlRoot),
+	// 	"policy_url":                      fmt.Sprintf("%s/policy", serverUrlRoot),
+	// 	"redirect_uris":                   []string{serverCallbackUrl},
+	// 	"grant_types":                     []string{"authorization_code", "refresh_token"},
+	// 	"response_types":                  []string{"code"},
+	// 	"application_type":                "web",
+	// 	"dpop_bound_access_tokens":        true,
+	// 	"jwks_uri":                        fmt.Sprintf("%s/oauth/jwks.json", serverUrlRoot),
+	// 	"scope":                           "atproto transition:generic",
+	// 	"token_endpoint_auth_method":      "private_key_jwt",
+	// 	"token_endpoint_auth_signing_alg": "ES256",
+	// }
+
 	if platform == "web" {
 		meta.RedirectURIs = []string{fmt.Sprintf("https://%s/login", host)}
 		meta.ApplicationType = "web"

@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel"
+	"stream.place/streamplace/pkg/log"
 )
 
 // it's a segment channel manager, you see
@@ -39,7 +41,7 @@ func (s *SegChanMan) SubscribeSegment(ctx context.Context, user string, renditio
 		chs = []chan *Seg{}
 		s.segChans[key] = chs
 	}
-	ch := make(chan *Seg, 1024)
+	ch := make(chan *Seg)
 	chs = append(chs, ch)
 	s.segChans[key] = chs
 	return ch
@@ -74,7 +76,14 @@ func (s *SegChanMan) PublishSegment(ctx context.Context, user string, rendition 
 	}
 	for _, ch := range chs {
 		go func(ch chan *Seg) {
-			ch <- seg
+			select {
+			case ch <- seg:
+			case <-ctx.Done():
+				return
+			case <-time.After(1 * time.Minute):
+				log.Warn(ctx, "failed to send segment to channel, timing out", "user", user, "rendition", rendition)
+			}
+
 		}(ch)
 	}
 }

@@ -49,12 +49,12 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 
 	segBuffer := make(chan *segchanman.Seg, 1024)
 	go func() {
+		ch := mm.SubscribeSegment(ctx, user, rendition)
+		defer mm.UnsubscribeSegment(ctx, user, rendition, ch)
 		for {
-			ch := mm.SubscribeSegment(ctx, user, rendition)
 			select {
 			case <-ctx.Done():
 				log.Debug(ctx, "exiting segment reader")
-				mm.UnsubscribeSegment(ctx, user, rendition, ch)
 				return
 			case file := <-ch:
 				log.Debug(ctx, "got segment", "file", file.Filepath)

@@ -126,12 +126,12 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 	// them in a pipe so that we don't miss any in between iterations of the output
 	allFiles := make(chan []byte, 1024)
 	go func() {
+		ch := streamer.SubscribeSegment(ctx, user, rendition)
+		defer streamer.UnsubscribeSegment(ctx, user, rendition, ch)
 		for {
-			ch := streamer.SubscribeSegment(ctx, user, rendition)
 			select {
 			case <-ctx.Done():
 				log.Debug(ctx, "exiting segment reader")
-				streamer.UnsubscribeSegment(ctx, user, rendition, ch)
 				return
 			case file := <-ch:
 				log.Debug(ctx, "got segment", "file", file.Filepath)

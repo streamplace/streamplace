@@ -110,13 +110,33 @@ js-lexicons:
 
 .PHONY: lexgen
 lexgen:
+	$(MAKE) lexgen-types
+	$(MAKE) lexgen-server
+
+.PHONY: lexgen-types
+lexgen-types:
 	go run github.com/bluesky-social/indigo/cmd/lexgen --package streamplace \
 		--types-import place.stream:stream.place/streamplace/pkg/streamplace \
 		-outdir ./pkg/streamplace \
 		--prefix place.stream \
-		--build-file util/lexgen-build.json \
+		--build-file util/lexgen-types.json \
 		lexicons/place/stream \
 		../atproto/lexicons
+
+.PHONY: lexgen-server
+lexgen-server:
+	mkdir -p ./pkg/spxrpc
+	go run github.com/bluesky-social/indigo/cmd/lexgen --package spxrpc \
+		--gen-server \
+		--types-import place.stream:stream.place/streamplace/pkg/streamplace \
+		--types-import app.bsky:github.com/bluesky-social/indigo/api/bsky \
+		--types-import com.atproto:github.com/bluesky-social/indigo/api/atproto \
+		--types-import chat.bsky:github.com/bluesky-social/indigo/api/chat \
+		--types-import tools.ozone:github.com/bluesky-social/indigo/api/ozone \
+		-outdir ./pkg/spxrpc \
+		--prefix place.stream \
+		--build-file util/lexgen-server.json \
+		lexicons/place/stream
 
 .PHONY: test
 test:

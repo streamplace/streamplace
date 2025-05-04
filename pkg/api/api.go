@@ -39,6 +39,7 @@ import (
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -108,6 +109,10 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 // api/playback/iame.li/hls/source/000000000000.ts
 
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
+	xrpc, err := spxrpc.NewServer(a.CLI)
+	if err != nil {
+		return nil, err
+	}
 	router := httprouter.New()
 	apiRouter := httprouter.New()
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
@@ -153,11 +158,11 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("PUT", "/api/*resource", apiRouter)
 	router.Handler("PATCH", "/api/*resource", apiRouter)
 	router.Handler("DELETE", "/api/*resource", apiRouter)
-	router.Handler("GET", "/xrpc/*resource", apiRouter)
-	router.Handler("POST", "/xrpc/*resource", apiRouter)
-	router.Handler("PUT", "/xrpc/*resource", apiRouter)
-	router.Handler("PATCH", "/xrpc/*resource", apiRouter)
-	router.Handler("DELETE", "/xrpc/*resource", apiRouter)
+	router.Handler("GET", "/xrpc/*resource", xrpc)
+	router.Handler("POST", "/xrpc/*resource", xrpc)
+	router.Handler("PUT", "/xrpc/*resource", xrpc)
+	router.Handler("PATCH", "/xrpc/*resource", xrpc)
+	router.Handler("DELETE", "/xrpc/*resource", xrpc)
 	router.GET("/.well-known/did.json", a.HandleDidJson(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
 	router.POST("/", a.HandleWebRTCIngest(ctx))

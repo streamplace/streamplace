@@ -1,0 +1,8 @@
+[
+  {
+    "package": "streamplace",
+    "prefix": "place.stream",
+    "outdir": "./pkg/streamplace",
+    "import": "stream.place/streamplace"
+  }
+]

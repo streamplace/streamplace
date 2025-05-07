@@ -2,11 +2,13 @@
 title: place.stream.account.login
 description: Reference for the place.stream.account.login lexicon
 ---
+
 **Lexicon Version:** 1
 
 ## Definitions
 
 <a name="main"></a>
+
 ### `main`
 
 **Type:** `procedure`
@@ -22,21 +24,22 @@ Get a redirect URL for the login flow.
 
 **Schema Type:** `object`
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `handleOrDID` | `string` | ✅  | The handle or DID of the account to login. |  |
+| Name          | Type     | Req'd | Description                                | Constraints |
+| ------------- | -------- | ----- | ------------------------------------------ | ----------- |
+| `handleOrDID` | `string` | ✅    | The handle or DID of the account to login. |             |
+
 **Output:**
 
 - **Encoding:** `application/json`
 - **Schema:**
 
-**Schema Type:** [`place.stream.account.defs#loginResponse`](/lex-reference/place-stream-account-defs#loginresponse)
-
-
+**Schema Type:**
+[`place.stream.account.defs#loginResponse`](/lex-reference/place-stream-account-defs#loginresponse)
 
 ---
 
 ## Lexicon Source
+
 ```json
 {
   "lexicon": 1,
@@ -49,9 +52,7 @@ Get a redirect URL for the login flow.
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": [
-            "handleOrDID"
-          ],
+          "required": ["handleOrDID"],
           "properties": {
             "handleOrDID": {
               "type": "string",

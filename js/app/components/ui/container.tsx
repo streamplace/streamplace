@@ -1,10 +1,14 @@
 import { View } from "tamagui";
 
 const maxContainerWidths = {
-  sm: 300,
-  md: 400,
-  lg: 800,
-  xl: 1200,
+  xxs: 440,
+  xs: 440,
+  sm: 440,
+  md: 660,
+  lg: 740,
+  xl: 860,
+  twoXl: 1260,
+  threeXl: 1660,
 };
 
 export default function Container({ children, ...props }) {
@@ -12,26 +16,33 @@ export default function Container({ children, ...props }) {
     <View f={1} justifyContent="flex-start" alignItems="center">
       <View
         width="100vw"
-        maxWidth="30"
+        maxWidth={maxContainerWidths.xxs}
         p="$1"
+        mx="auto"
+        $xxs={{ maxWidth: maxContainerWidths.xs, px: "$2" }}
+        $xs={{ maxWidth: maxContainerWidths.xs, px: "$2" }}
         $sm={{
           maxWidth: maxContainerWidths.sm,
-          mx: "auto",
           px: "$2",
         }}
         $md={{
           maxWidth: maxContainerWidths.md,
-          mx: "auto",
           px: "$4",
         }}
         $lg={{
           width: maxContainerWidths.lg,
-          mx: "auto",
           px: "$8",
         }}
-        $gtLg={{
+        $xl={{
           maxWidth: maxContainerWidths.xl,
-          mx: "auto",
+          px: "$4",
+        }}
+        $gtXl={{
+          maxWidth: maxContainerWidths.twoXl,
+          px: "$4",
+        }}
+        $gtXxl={{
+          maxWidth: maxContainerWidths.threeXl,
           px: "$4",
         }}
         {...props}

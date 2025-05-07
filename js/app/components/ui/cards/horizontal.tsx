@@ -1,107 +1,13 @@
-import Viewers from "components/viewers";
 import React from "react";
-import { Image } from "react-native"; // Using RN Image
-import { Stack, Text, XStack, YStack } from "tamagui"; // Assuming Tamagui is set up
+import { Image } from "react-native";
+import { Stack, Text, XStack, YStack, useMedia } from "tamagui";
+import Viewers from "components/viewers";
 
-// Define size configurations
-const sizeConfig = {
-  xs: {
-    // Vertical dimensions
-    cardVerticalWidth: 180,
-    gapVertical: 0,
-    // Horizontal dimensions (reused from previous)
-    cardHorizontalWidth: 280,
-    gapHorizontal: 0,
-    // Common dimensions
-    thumbnail: { width: 180, height: 101, borderRadius: 8 }, // 16:9 aspect scaled from sm thumbnail width
-    livePill: { width: 40, height: 16, paddingHorizontal: 3, gap: 1 },
-    liveTextSize: 10,
-    avatarSize: 24,
-    contentPadding: 4,
-    titleFontSize: 10,
-    streamerFontSize: 10,
-    categoryPill: { width: 40, height: 9, paddingHorizontal: 1 },
-    categoryFontSize: 7,
-  },
-  sm: {
-    // Based on provided CSS for Vertical layout, adjusted for horizontal
-    // Vertical dimensions
-    cardVerticalWidth: 300, // Based on original thumbnail width
-    gapVertical: 0, // Added gap between thumbnail and content
-    // Horizontal dimensions (reused from previous)
-    cardHorizontalWidth: 580, // Sum of thumbnail + content width (approx)
-    gapHorizontal: 2, // Based on board-23881f124a3d padding
-    // Common dimensions
-    thumbnail: { width: 300, height: 169, borderRadius: 11 }, // 16:9 aspect based on original
-    livePill: { width: 66, height: 24, paddingHorizontal: 5, gap: 2 },
-    liveTextSize: 16,
-    avatarSize: 42,
-    contentPadding: 6, // Based on board-23881f124a3d padding
-    titleFontSize: 14, // Based on text size
-    streamerFontSize: 14, // Based on text size
-    categoryPill: { width: 75, height: 13, paddingHorizontal: 2 },
-    categoryFontSize: 10, // Based on text size
-  },
-  md: {
-    // vertical dimensions
-    cardVerticalWidth: 400,
-    gapVertical: 0,
-    // horizontal dimensions
-    cardHorizontalWidth: 700,
-    gapHorizontal: 2,
-    // common dimensions
-    thumbnail: { width: 400, height: 225, borderRadius: 14 },
-    livePill: { width: 80, height: 30, paddingHorizontal: 6, gap: 3 },
-    liveTextSize: 16,
-    avatarSize: 50,
-    contentPadding: 12,
-    titleFontSize: 16,
-    streamerFontSize: 16,
-    categoryPill: { width: 90, height: 16, paddingHorizontal: 3 },
-    categoryFontSize: 12,
-  },
-  lg: {
-    // Vertical dimensions
-    cardVerticalWidth: 500,
-    gapVertical: 16,
-    cardHorizontalWidth: 900,
-    gapHorizontal: 4,
-    // Common dimensions
-    thumbnail: { width: 500, height: 281, borderRadius: 18 },
-    livePill: { width: 100, height: 36, paddingHorizontal: 7, gap: 4 },
-    liveTextSize: 20,
-    avatarSize: 60,
-    contentPadding: 10,
-    titleFontSize: 18,
-    streamerFontSize: 18,
-    categoryPill: { width: 110, height: 18, paddingHorizontal: 4 },
-    categoryFontSize: 14,
-  },
-  xl: {
-    // Vertical dimensions
-    cardVerticalWidth: 600,
-    gapVertical: 20,
-    // Horizontal dimensions
-    cardHorizontalWidth: 1100,
-    gapHorizontal: 6,
-    // Common dimensions
-    thumbnail: { width: 600, height: 338, borderRadius: 22 },
-    livePill: { width: 120, height: 42, paddingHorizontal: 8, gap: 5 },
-    liveTextSize: 24,
-    avatarSize: 70,
-    contentPadding: 12,
-    titleFontSize: 20,
-    streamerFontSize: 20,
-    categoryPill: { width: 130, height: 20, paddingHorizontal: 5 },
-    categoryFontSize: 16,
-  },
-};
-
-type StreamCardSize = "xs" | "sm" | "md" | "lg" | "xl";
+export type StreamCardSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 interface StreamCardProps {
   size?: StreamCardSize;
-  horizontal?: boolean; // New prop
+  horizontal?: boolean;
   thumbnailUrl: string;
   avatarUrl: string;
   title?: string;
@@ -113,7 +19,7 @@ interface StreamCardProps {
 
 const StreamCard: React.FC<StreamCardProps> = ({
   size = "sm",
-  horizontal = false, // Default to vertical
+  horizontal = false,
   thumbnailUrl,
   avatarUrl,
   title,
@@ -122,31 +28,43 @@ const StreamCard: React.FC<StreamCardProps> = ({
   category = [],
   isLive = true,
 }) => {
-  const config = sizeConfig[size];
+  const media = useMedia();
 
-  // Main container - YStack for vertical, XStack for horizontal
-  const MainContainer = horizontal ? XStack : YStack;
+  // Determine layout based on screen size
+  const isLargeScreen = media.gtMd;
+  const layoutHorizontal = horizontal;
+
+  // Define dynamic styles
+  const borderRadius = 12;
+  const contentPadding = 8;
+  const avatarSize = 40;
+  const livePillHeight = 24;
+  const livePillPaddingHorizontal = 6;
+  const categoryPillHeight = 16;
+  const categoryPillPaddingHorizontal = 4;
+
+  const MainContainer = layoutHorizontal ? XStack : YStack;
 
   return (
     <MainContainer
-      width={horizontal ? config.cardHorizontalWidth : config.cardVerticalWidth}
-      backgroundColor="$accentBackground" // slate-900 equivalent
-      borderRadius={config.thumbnail.borderRadius} // Apply border radius to the main container
+      flex={1}
+      backgroundColor="$accentBackground"
+      borderRadius={borderRadius}
       overflow="hidden"
-      alignItems={horizontal ? "center" : "stretch"} // Align items differently based on layout
-      gap={horizontal ? config.gapHorizontal : config.gapVertical}
+      alignItems={layoutHorizontal ? "center" : "stretch"}
       hoverStyle={{
         backgroundColor: "$purple6Dark",
       }}
     >
       {/* Thumbnail Section */}
       <Stack
-        width={config.thumbnail.width}
-        height={config.thumbnail.height}
-        borderRadius={config.thumbnail.borderRadius}
+        flex={layoutHorizontal ? 0 : undefined}
+        width={layoutHorizontal ? "40%" : "100%"}
+        aspectRatio={16 / 9}
+        borderRadius={borderRadius}
         overflow="hidden"
-        position="relative" // Needed for absolute positioning of LIVE pill
-        alignSelf={horizontal ? "auto" : "center"} // Center thumbnail in vertical layout if needed
+        position="relative"
+        alignSelf={layoutHorizontal ? "auto" : "center"}
       >
         <Image
           source={{ uri: thumbnailUrl }}
@@ -156,17 +74,17 @@ const StreamCard: React.FC<StreamCardProps> = ({
         {isLive && (
           <XStack
             position="absolute"
-            top={config.contentPadding / 2} // Adjust position based on padding
-            right={config.contentPadding / 2}
-            backgroundColor="$background075" // A red color
-            borderRadius={999} // Pill shape
-            borderWidth={"$1"}
+            top={contentPadding}
+            right={contentPadding}
+            backgroundColor="$background075"
+            borderRadius={999}
+            borderWidth={1}
             borderColor="#7774"
-            paddingHorizontal={config.livePill.paddingHorizontal}
-            height={config.livePill.height}
+            paddingHorizontal={livePillPaddingHorizontal}
+            height={livePillHeight}
             alignItems="center"
             justifyContent="center"
-            gap={config.livePill.gap}
+            gap={4}
             shadowColor="$background075"
             shadowOffset={{ width: 0, height: 2 }}
             shadowOpacity={0.25}
@@ -177,18 +95,18 @@ const StreamCard: React.FC<StreamCardProps> = ({
         )}
       </Stack>
 
-      {/* Content Section (Avatar + Text Block) */}
+      {/* Content Section */}
       <XStack
-        padding={config.contentPadding}
+        flex={1}
+        padding={contentPadding}
         alignItems="center"
-        gap={config.contentPadding}
-        width={horizontal ? undefined : "100%"}
+        gap={contentPadding}
       >
         {/* Avatar */}
         <Stack
-          width={config.avatarSize}
-          height={config.avatarSize}
-          borderRadius="50%"
+          width={avatarSize}
+          height={avatarSize}
+          borderRadius={avatarSize / 2}
           overflow="hidden"
         >
           <Image
@@ -198,51 +116,52 @@ const StreamCard: React.FC<StreamCardProps> = ({
           />
         </Stack>
 
-        {/* Text Content (Title + Streamer + Category) */}
+        {/* Text Content */}
         <YStack
+          flex={1}
           justifyContent="space-between"
           alignItems="flex-start"
-          gap={config.contentPadding / 2}
+          gap={contentPadding / 2}
+          style={{ width: "100%", height: "100%" }}
         >
           {title && (
             <Text
-              fontSize={config.titleFontSize}
+              fontSize={16}
               color="white"
               fontWeight="400"
               numberOfLines={1}
               ellipsizeMode="tail"
+              style={{ flexShrink: 1 }}
             >
               {title}
             </Text>
           )}
           {streamerName && (
             <Text
-              fontSize={config.streamerFontSize}
-              color="$color" // Light purple-ish color from CSS
+              fontSize={14}
+              color="$color"
               fontWeight="400"
               numberOfLines={1}
               ellipsizeMode="tail"
+              style={{ flexShrink: 1 }}
             >
               {streamerName}
             </Text>
           )}
           {category.length > 0 && (
-            <XStack>
+            <XStack flexWrap="wrap" gap={4}>
               {category.map((cat, index) => (
                 <Stack
-                  backgroundColor="$background075" // Same dark background as card
-                  borderRadius={999} // Pill shape
-                  paddingHorizontal={config.categoryPill.paddingHorizontal}
-                  height={config.categoryPill.height}
-                  alignSelf="flex-start" // Align pill to the start of the YStack
+                  key={index}
+                  backgroundColor="$background075"
+                  borderRadius={999}
+                  paddingHorizontal={categoryPillPaddingHorizontal}
+                  height={categoryPillHeight}
+                  alignSelf="flex-start"
                   justifyContent="center"
                 >
-                  <Text
-                    fontSize={config.categoryFontSize}
-                    color="$gray5" // Gray color from CSS
-                    fontWeight="400"
-                  >
-                    {category}
+                  <Text fontSize={12} color="$gray5" fontWeight="400">
+                    {cat}
                   </Text>
                 </Stack>
               ))}

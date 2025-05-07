@@ -3,14 +3,22 @@ import { useMedia } from "tamagui";
 
 export default function BreakpointIndicator() {
   const media = useMedia();
-  const breakpoints: (keyof typeof media)[] = ["xs", "sm", "md", "lg", "gtLg"];
+  const breakpoints: (keyof typeof media)[] = [
+    "xs",
+    "sm",
+    "md",
+    "lg",
+    "xl",
+    "xxl",
+    "gtXl",
+  ];
 
-  // Find the largest matching breakpoint
+  // Find the first matching breakpoint
   let current = "default";
   for (const key of breakpoints) {
     if (media[key]) {
-      console.log(key, media[key]);
       current = key;
+      break;
     }
   }
 

@@ -8,6 +8,7 @@ import {
 } from "@react-navigation/native"; // Import necessary types
 import { DrawerNavigationOptions } from "@react-navigation/drawer";
 import { DrawerDescriptorMap } from "@react-navigation/drawer/lib/typescript/src/types";
+import BreakpointIndicator from "components/debug/breakpoint-indicator";
 
 const AnimatedYStack = styled(YStack, {
   name: "AnimatedYStack",
@@ -52,11 +53,16 @@ export default function Sidebar({
         justifyContent="flex-start"
         alignItems="center"
       >
-        <Image
-          source={require("../../assets/images/cube.png")}
-          height="$2"
-          width="$2"
-        />
+        {/* if we are in not production put the indicator here */}
+        {__DEV__ ? (
+          <BreakpointIndicator />
+        ) : (
+          <Image
+            source={require("../../assets/images/cube.png")}
+            height="$2"
+            width="$2"
+          />
+        )}
         {!collapsed && <Text fontSize="$7">Streamplace</Text>}
       </View>
 

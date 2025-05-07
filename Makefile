@@ -118,7 +118,8 @@ js-lexicons:
 md-lexicons:
 	yarn exec lexmd \
 	    lexicons/place/stream \
-		js/docs/src/content/docs/lex-reference
+		js/docs/src/content/docs/lex-reference \
+	&& $(MAKE) fix
 
 .PHONY: lexgen
 lexgen:

@@ -61,13 +61,8 @@ import PopoutChat from "./screens/chat-popout";
 import EmbedScreen from "./screens/embed";
 import useSidebarControl, { UseSidebarOutput } from "hooks/useSidebarControl";
 import Sidebar from "components/sidebar/sidebar";
-function HomeScreen() {
-  return (
-    <View f={1}>
-      <StreamList contentContainerStyle={{ paddingTop: "$3" }}></StreamList>
-    </View>
-  );
-}
+import HomeScreen from "./screens/home";
+
 const Stack = createNativeStackNavigator();
 
 type HomeStackParamList = {
@@ -277,7 +272,10 @@ export function StreamplaceDrawer() {
           drawerType: sidebar.isActive ? "permanent" : "front",
           swipeEnabled: !sidebar.isActive,
           drawerStyle: {
-            width: sidebar.isActive ? sidebar.width.get() : undefined,
+            // not really supposed to do this?
+            width: sidebar.isActive
+              ? (sidebar.width as unknown as number)
+              : undefined,
           },
           // rest
           headerLeft: () => <NavigationButton sidebar={sidebar} />,

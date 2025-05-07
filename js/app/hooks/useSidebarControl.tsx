@@ -36,7 +36,7 @@ export default function useSidebarControl(): UseSidebarOutput {
   const toggle = () => {
     const toValue = collapsed ? 250 : 64;
     console.log("Setting off changing to", toValue);
-    width.value = withTiming(toValue, { duration: 250 });
+    width.value = withTiming(toValue, { duration: 200 });
     setCollapsed(!collapsed);
   };
 

@@ -136,6 +136,7 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, { error }) => {
+          console.error("loadOAuthClient rejected", error);
           return {
             ...state,
             status: "loggedOut",

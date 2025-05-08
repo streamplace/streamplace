@@ -22,7 +22,7 @@ import (
 )
 
 func Login(ctx context.Context, cli *config.CLI, input *streamplace.AccountLogin_Input, mod model.Model) (*streamplace.AccountDefs_LoginResponse, error) {
-	meta := GetMetadata("longos.iameli.link", "web", "")
+	meta := GetUpstreamMetadata("longos.iameli.link", "web", "")
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
 		ClientJwk:   cli.JWK,
 		ClientId:    meta.ClientID,
@@ -116,7 +116,7 @@ func getXrpcClient(mod model.Model) *oauth.XrpcClient {
 }
 
 func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss string, state string, mod model.Model) error {
-	meta := GetMetadata("longos.iameli.link", "web", "")
+	meta := GetUpstreamMetadata("longos.iameli.link", "web", "")
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
 		ClientJwk:   cli.JWK,
 		ClientId:    meta.ClientID,

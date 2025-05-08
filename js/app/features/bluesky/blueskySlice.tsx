@@ -157,7 +157,8 @@ export const blueskySlice = createAppSlice({
         if (!bluesky.client) {
           throw new Error("No client");
         }
-        const u = await bluesky.client.authorize(pds);
+        const u = await bluesky.client.authorize("scumb.ag", {});
+        console.log(u);
         thunkAPI.dispatch(openLoginLink(u.toString()));
         // cheeky 500ms delay so you don't see the text flash back
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -183,6 +184,7 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, action) => {
+          console.error("login rejected", action.error);
           return {
             ...state,
             login: {

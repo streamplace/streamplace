@@ -68,29 +68,44 @@ export default function Login() {
     >
       <ChangePDS open={open} onOpenChange={onOpenChange} />
       {/* <Text>{error}</Text> */}
-      <H3>Handle</H3>
-      <Input
+      <Form
         width="100%"
-        placeholder="example.bsky.social"
-        value={handle}
-        onChangeText={(text) => setHandle(text)}
-      />
-      <Button
-        width="100%"
-        onPress={async () => {
-          // const agent = new AtpBaseClient(url);
-          // const res = await agent.place.stream.account.login({
-          //   handleOrDID: handle,
-          // });
-          // window.location.href = res.data.redirectUrl;
-          await dispatch(login(`https://bsky.social`));
+        maxWidth={800}
+        jc="center"
+        ai="center"
+        onSubmit={async () => {
+          // onPress={async () => {
+          //   // const agent = new AtpBaseClient(url);
+          //   // const res = await agent.place.stream.account.login({
+          //   //   handleOrDID: handle,
+          //   // });
+          //   // window.location.href = res.data.redirectUrl;
+          //   await dispatch(login(`https://bsky.social`));
+          // }}
+          console.log("here we go");
+          await dispatch(login(`https://longos.iameli.link`));
         }}
-        margin="$4"
-        backgroundColor="$accentColor"
-        disabled={loginState.loading}
       >
-        <Text>{loginState.loading ? <Spinner /> : `Log in with ATProto`}</Text>
-      </Button>
+        <H3>Handle</H3>
+        <Input
+          width="100%"
+          placeholder="example.bsky.social"
+          value={handle}
+          onChangeText={(text) => setHandle(text)}
+        />
+        <Form.Trigger asChild>
+          <Button
+            width="100%"
+            margin="$4"
+            backgroundColor="$accentColor"
+            disabled={loginState.loading}
+          >
+            <Text>
+              {loginState.loading ? <Spinner /> : `Log in with ATProto`}
+            </Text>
+          </Button>
+        </Form.Trigger>
+      </Form>
     </View>
   );
 }

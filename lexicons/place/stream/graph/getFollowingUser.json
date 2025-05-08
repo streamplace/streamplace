@@ -1,0 +1,34 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.graph.getFollowingUser",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get whether or not you're following a user.",
+      "parameters": {
+        "type": "params",
+        "required": ["subjectDID"],
+        "properties": {
+          "subjectDID": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the user you want to check if you're following."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [],
+          "properties": {
+            "follow": {
+              "type": "ref",
+              "ref": "com.atproto.repo.strongRef"
+            }
+          }
+        }
+      }
+    }
+  }
+}

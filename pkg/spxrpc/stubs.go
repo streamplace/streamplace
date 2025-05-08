@@ -6,6 +6,7 @@ import (
 	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
+	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
 
 func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
@@ -48,7 +49,22 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 }
 
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
+	e.GET("/xrpc/place.stream.graph.getFollowingUser", s.HandlePlaceStreamGraphGetFollowingUser)
 	return nil
+}
+
+func (s *Server) HandlePlaceStreamGraphGetFollowingUser(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamGraphGetFollowingUser")
+	defer span.End()
+	subjectDID := c.QueryParam("subjectDID")
+	var out *placestreamtypes.GraphGetFollowingUser_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamGraphGetFollowingUser(ctx context.Context,subjectDID string) (*placestreamtypes.GraphGetFollowingUser_Output, error)
+	out, handleErr = s.handlePlaceStreamGraphGetFollowingUser(ctx, subjectDID)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) RegisterHandlersToolsOzone(e *echo.Echo) error {

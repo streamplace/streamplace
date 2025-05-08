@@ -12,14 +12,12 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/NYTimes/gziphandler"
 	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/haileyok/atproto-oauth-golang/helpers"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
@@ -121,48 +119,6 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 // api/playback/iame.li/hls/source/stream.m3u8
 // api/playback/iame.li/hls/source/000000000000.ts
 
-func generateOAuthServerMetadata(host string) map[string]any {
-	oauthServerMetadata := map[string]any{
-		"issuer":                                         fmt.Sprintf("https://%s", host),
-		"request_parameter_supported":                    true,
-		"request_uri_parameter_supported":                true,
-		"require_request_uri_registration":               true,
-		"scopes_supported":                               []string{"atproto", "transition:generic", "transition:chat.bsky"},
-		"subject_types_supported":                        []string{"public"},
-		"response_types_supported":                       []string{"code"},
-		"response_modes_supported":                       []string{"query", "fragment", "form_post"},
-		"grant_types_supported":                          []string{"authorization_code", "refresh_token"},
-		"code_challenge_methods_supported":               []string{"S256"},
-		"ui_locales_supported":                           []string{"en-US"},
-		"display_values_supported":                       []string{"page", "popup", "touch"},
-		"authorization_response_iss_parameter_supported": true,
-		"request_object_encryption_alg_values_supported": []string{},
-		"request_object_encryption_enc_values_supported": []string{},
-		"jwks_uri":                              fmt.Sprintf("https://%s/oauth/jwks", host),
-		"authorization_endpoint":                fmt.Sprintf("https://%s/oauth/authorize", host),
-		"token_endpoint":                        fmt.Sprintf("https://%s/oauth/token", host),
-		"token_endpoint_auth_methods_supported": []string{"none", "private_key_jwt"},
-		"revocation_endpoint":                   fmt.Sprintf("https://%s/oauth/revoke", host),
-		"introspection_endpoint":                fmt.Sprintf("https://%s/oauth/introspect", host),
-		"pushed_authorization_request_endpoint": fmt.Sprintf("https://%s/oauth/par", host),
-		"require_pushed_authorization_requests": true,
-		"client_id_metadata_document_supported": true,
-		"request_object_signing_alg_values_supported": []string{
-			"RS256", "RS384", "RS512", "PS256", "PS384", "PS512",
-			"ES256", "ES256K", "ES384", "ES512", "none",
-		},
-		"token_endpoint_auth_signing_alg_values_supported": []string{
-			"RS256", "RS384", "RS512", "PS256", "PS384", "PS512",
-			"ES256", "ES256K", "ES384", "ES512",
-		},
-		"dpop_signing_alg_values_supported": []string{
-			"RS256", "RS384", "RS512", "PS256", "PS384", "PS512",
-			"ES256", "ES256K", "ES384", "ES512",
-		},
-	}
-	return oauthServerMetadata
-}
-
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	xrpc, err := spxrpc.NewServer(a.CLI, a.Model)
 	if err != nil {
@@ -173,16 +129,8 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
 	// old clients
 	router.HandlerFunc("GET", "/app-updates", a.HandleAppUpdates(ctx))
-	router.HandlerFunc("GET", "/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(generateOAuthServerMetadata("longos.iameli.link"))
-	})
-	router.HandlerFunc("GET", "/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.WriteHeader(404)
-	})
+	router.HandlerFunc("GET", "/.well-known/oauth-authorization-server", a.HandleOAuthAuthorizationServer(ctx))
+	router.HandlerFunc("GET", "/.well-known/oauth-protected-resource", a.HandleOAuthProtectedResource(ctx))
 
 	// new ones
 	apiRouter.HandlerFunc("GET", "/api/manifest", a.HandleAppUpdates(ctx))
@@ -211,11 +159,13 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	for _, platform := range atproto.AllowedPlatforms {
-		apiRouter.GET(fmt.Sprintf("/api/atproto-oauth/%s", platform), a.HandleATProtoOAuth(ctx, platform))
+		apiRouter.GET(fmt.Sprintf("/api/atproto-oauth/upstream/%s", platform), a.HandleATProtoOAuthUpstream(ctx, platform))
+		apiRouter.GET(fmt.Sprintf("/api/atproto-oauth/downstream/%s", platform), a.HandleATProtoOAuthDownstream(ctx, platform))
 	}
 	apiRouter.GET("/api/atproto-oauth/jwks.json", a.HandleJWKPublic(ctx))
 	apiRouter.GET("/api/live-users", a.HandleLiveUsers(ctx))
 	apiRouter.GET("/api/view-count/:user", a.HandleViewCount(ctx))
+	apiRouter.HandlerFunc("POST", "/api/oauth/par", a.HandleOAuthPAR(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	router.Handler("GET", "/api/*resource", apiRouter)
 	router.Handler("POST", "/api/*resource", apiRouter)
@@ -642,45 +592,6 @@ func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Ha
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal signing keys", err)
 			return
 		}
-		w.Write(bs)
-	}
-}
-
-func (a *StreamplaceAPI) HandleATProtoOAuth(ctx context.Context, platform string) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		host, _, err := net.SplitHostPort(req.Host)
-		if err != nil {
-			host = req.Host
-		}
-		if !slices.Contains(atproto.AllowedPlatforms, platform) {
-			apierrors.WriteHTTPBadRequest(w, "unsupported platform", nil)
-			return
-		}
-
-		meta := atproto.GetMetadata(host, platform, a.CLI.AppBundleID)
-		bs, err := json.Marshal(meta)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not marshal metadata", err)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(bs)
-	}
-}
-
-func (a *StreamplaceAPI) HandleJWKPublic(ctx context.Context) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		pubKey, err := a.CLI.JWK.PublicKey()
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not get public key", err)
-			return
-		}
-		bs, err := json.Marshal(helpers.CreateJwksResponseObject(pubKey))
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not marshal public key", err)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
 		w.Write(bs)
 	}
 }

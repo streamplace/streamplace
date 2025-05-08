@@ -78,12 +78,12 @@ export default function Login() {
       <Button
         width="100%"
         onPress={async () => {
-          const agent = new AtpBaseClient(url);
-          const res = await agent.place.stream.account.login({
-            handleOrDID: handle,
-          });
-          window.location.href = res.data.redirectUrl;
-          // await dispatch(login(`https://${pds.url}`));
+          // const agent = new AtpBaseClient(url);
+          // const res = await agent.place.stream.account.login({
+          //   handleOrDID: handle,
+          // });
+          // window.location.href = res.data.redirectUrl;
+          await dispatch(login(`https://bsky.social`));
         }}
         margin="$4"
         backgroundColor="$accentColor"

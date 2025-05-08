@@ -121,6 +121,48 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 // api/playback/iame.li/hls/source/stream.m3u8
 // api/playback/iame.li/hls/source/000000000000.ts
 
+func generateOAuthServerMetadata(host string) map[string]any {
+	oauthServerMetadata := map[string]any{
+		"issuer":                                         fmt.Sprintf("https://%s", host),
+		"request_parameter_supported":                    true,
+		"request_uri_parameter_supported":                true,
+		"require_request_uri_registration":               true,
+		"scopes_supported":                               []string{"atproto", "transition:generic", "transition:chat.bsky"},
+		"subject_types_supported":                        []string{"public"},
+		"response_types_supported":                       []string{"code"},
+		"response_modes_supported":                       []string{"query", "fragment", "form_post"},
+		"grant_types_supported":                          []string{"authorization_code", "refresh_token"},
+		"code_challenge_methods_supported":               []string{"S256"},
+		"ui_locales_supported":                           []string{"en-US"},
+		"display_values_supported":                       []string{"page", "popup", "touch"},
+		"authorization_response_iss_parameter_supported": true,
+		"request_object_encryption_alg_values_supported": []string{},
+		"request_object_encryption_enc_values_supported": []string{},
+		"jwks_uri":                              fmt.Sprintf("https://%s/oauth/jwks", host),
+		"authorization_endpoint":                fmt.Sprintf("https://%s/oauth/authorize", host),
+		"token_endpoint":                        fmt.Sprintf("https://%s/oauth/token", host),
+		"token_endpoint_auth_methods_supported": []string{"none", "private_key_jwt"},
+		"revocation_endpoint":                   fmt.Sprintf("https://%s/oauth/revoke", host),
+		"introspection_endpoint":                fmt.Sprintf("https://%s/oauth/introspect", host),
+		"pushed_authorization_request_endpoint": fmt.Sprintf("https://%s/oauth/par", host),
+		"require_pushed_authorization_requests": true,
+		"client_id_metadata_document_supported": true,
+		"request_object_signing_alg_values_supported": []string{
+			"RS256", "RS384", "RS512", "PS256", "PS384", "PS512",
+			"ES256", "ES256K", "ES384", "ES512", "none",
+		},
+		"token_endpoint_auth_signing_alg_values_supported": []string{
+			"RS256", "RS384", "RS512", "PS256", "PS384", "PS512",
+			"ES256", "ES256K", "ES384", "ES512",
+		},
+		"dpop_signing_alg_values_supported": []string{
+			"RS256", "RS384", "RS512", "PS256", "PS384", "PS512",
+			"ES256", "ES256K", "ES384", "ES512",
+		},
+	}
+	return oauthServerMetadata
+}
+
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	xrpc, err := spxrpc.NewServer(a.CLI, a.Model)
 	if err != nil {
@@ -131,6 +173,17 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
 	// old clients
 	router.HandlerFunc("GET", "/app-updates", a.HandleAppUpdates(ctx))
+	router.HandlerFunc("GET", "/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		json.NewEncoder(w).Encode(generateOAuthServerMetadata("longos.iameli.link"))
+	})
+	router.HandlerFunc("GET", "/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(404)
+	})
+
 	// new ones
 	apiRouter.HandlerFunc("GET", "/api/manifest", a.HandleAppUpdates(ctx))
 	apiRouter.GET("/api/desktop-updates/:platform/:architecture/:version/:buildTime/:file", a.HandleDesktopUpdates(ctx))

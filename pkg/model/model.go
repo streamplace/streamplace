@@ -84,6 +84,10 @@ type Model interface {
 	GetOAuthSessionByState(state string) (*OAuthSession, error)
 	UpdateOAuthSession(session *OAuthSession) error
 	DeleteOAuthSession(state string) error
+
+	CreatePAR(par *PAR) error
+	GetPAR(id string) (*PAR, error)
+	DeletePAR(id string) error
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -141,6 +145,7 @@ func MakeDB(dbURL string) (Model, error) {
 		ChatMessage{},
 		ChatProfile{},
 		OAuthSession{},
+		PAR{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

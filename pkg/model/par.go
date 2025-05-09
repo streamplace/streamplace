@@ -13,7 +13,7 @@ type PAR struct {
 	ID                  string    `gorm:"primaryKey"`
 	ClientID            string    `json:"client_id" gorm:"column:client_id;index"`
 	RedirectURI         string    `json:"redirect_uri" gorm:"column:redirect_uri"`
-	CodeChallenge       string    `json:"code_challenge" gorm:"column:code_challenge"`
+	CodeChallenge       string    `json:"code_challenge" gorm:"column:code_challenge;index"`
 	CodeChallengeMethod string    `json:"code_challenge_method" gorm:"column:code_challenge_method"`
 	State               string    `json:"state" gorm:"column:state"`
 	LoginHint           string    `json:"login_hint" gorm:"column:login_hint"`
@@ -53,6 +53,15 @@ func (m *DBModel) CreatePAR(par *PAR) error {
 func (m *DBModel) GetPAR(id string) (*PAR, error) {
 	var par PAR
 	err := m.DB.Where("id = ?", id).First(&par).Error
+	if err != nil {
+		return nil, err
+	}
+	return &par, nil
+}
+
+func (m *DBModel) GetPARByCodeChallenge(codeChallenge string) (*PAR, error) {
+	var par PAR
+	err := m.DB.Where("code_challenge = ?", codeChallenge).First(&par).Error
 	if err != nil {
 		return nil, err
 	}

@@ -87,6 +87,7 @@ type Model interface {
 
 	CreatePAR(par *PAR) error
 	GetPAR(id string) (*PAR, error)
+	GetPARByCodeChallenge(codeChallenge string) (*PAR, error)
 	DeletePAR(id string) error
 }
 

@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -238,5 +240,75 @@ func (a *StreamplaceAPI) HandleOAuthReturn(ctx context.Context) http.HandlerFunc
 		q.Set("code", "asdf")
 		u.RawQuery = q.Encode()
 		http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
+	}
+}
+
+// TokenRequest represents the structure of an OAuth token request
+type TokenRequest struct {
+	GrantType    string `json:"grant_type"`
+	RedirectURI  string `json:"redirect_uri"`
+	Code         string `json:"code"`
+	CodeVerifier string `json:"code_verifier"`
+	ClientID     string `json:"client_id"`
+}
+
+func (a *StreamplaceAPI) HandleOAuthToken(ctx context.Context) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var tokenRequest TokenRequest
+		if err := json.NewDecoder(r.Body).Decode(&tokenRequest); err != nil {
+			apierrors.WriteHTTPBadRequest(w, "invalid request", err)
+			return
+		}
+
+		// Verify the token request parameters
+		if tokenRequest.GrantType != "authorization_code" {
+			apierrors.WriteHTTPBadRequest(w, "unsupported grant type", nil)
+			return
+		}
+
+		if tokenRequest.Code == "" || tokenRequest.CodeVerifier == "" {
+			apierrors.WriteHTTPBadRequest(w, "missing required parameters", nil)
+			return
+		}
+
+		// Hash the code verifier using SHA-256
+		hasher := sha256.New()
+		hasher.Write([]byte(tokenRequest.CodeVerifier))
+		codeChallenge := hasher.Sum(nil)
+
+		// Encode the hash in URL-safe base64 format
+		// This removes padding and replaces + with - and / with _
+
+		encodedChallenge := base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(codeChallenge)
+
+		// Look up the PAR using the code challenge
+		par, err := a.Model.GetPARByCodeChallenge(encodedChallenge)
+		if err != nil {
+			log.Error(ctx, "could not get par", "error", err, "encodedChallenge", encodedChallenge, "codeVerifier", tokenRequest.CodeVerifier)
+			apierrors.WriteHTTPBadRequest(w, "invalid code verifier", err)
+			return
+		}
+		if par == nil {
+		}
+
+		// TODO: Generate and return access token and refresh token
+		// For now, just return a placeholder response
+		response := map[string]interface{}{
+			"access_token":  "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NksifQ.eyJqdGkiOiJ0b2stYmU3NzkzMTQ1MDE5ODQyMTRkNzRhMjNiNzEzOWQ1ZDYiLCJzdWIiOiJkaWQ6cGxjOmRraDRyd2FmZGNkYTRrbzdsZXdlNDNtbCIsImV4cCI6MTc0Njc1NjY3NiwiaWF0IjoxNzQ2NzUzMDc2LCJjbmYiOnsiamt0IjoidzBFQWhBWG5nejB4WUF4UThvVGhjN1R5Q2dTY1RSdDRZU1h4NmVxbC1GayJ9LCJhdWQiOiJkaWQ6d2ViOm1pbGtjYXAudXMtd2VzdC5ob3N0LmJza3kubmV0d29yayIsInNjb3BlIjoiYXRwcm90byB0cmFuc2l0aW9uOmdlbmVyaWMiLCJjbGllbnRfaWQiOiJodHRwczovL3N0cmVhbS5wbGFjZS9hcGkvYXRwcm90by1vYXV0aC93ZWIiLCJpc3MiOiJodHRwczovL2Jza3kuc29jaWFsIn0.b-N8YvgnpdGiL71oIMRaGzJkaxOXRbSduPydUInow1wByEKP0YDxbtxwlGd0YJv-mn6ei50wMlWqBvamIna1Iw",
+			"token_type":    "DPoP",
+			"refresh_token": "ref-2863f189c53ca11442cffc3071ecd20d11d389ccbe2949bc9b034e5b588f6246",
+			"scope":         "atproto transition:generic",
+			"expires_in":    3599,
+			"sub":           "did:plc:dkh4rwafdcda4ko7lewe43ml",
+		}
+
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "failed to encode response", err)
+			return
+		}
+
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
 	}
 }

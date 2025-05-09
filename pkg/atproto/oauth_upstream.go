@@ -84,7 +84,7 @@ func Login(ctx context.Context, cli *config.CLI, input *streamplace.AccountLogin
 	u.RawQuery = fmt.Sprintf("client_id=%s&request_uri=%s", url.QueryEscape(meta.ClientID), parResp.RequestUri)
 	str := u.String()
 
-	err = mod.CreateOAuthSession(&model.OAuthSession{
+	err = mod.CreateOAuthSessionUpstream(&model.OAuthSessionUpstream{
 		State:            parResp.State,
 		RepoDID:          did,
 		PDSUrl:           service,
@@ -123,7 +123,7 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 		RedirectUri: meta.RedirectURIs[0],
 	})
 
-	session, err := mod.GetOAuthSessionByState(state)
+	session, err := mod.GetOAuthSessionUpstreamByState(state)
 	if err != nil {
 		return fmt.Errorf("failed to get OAuth session: %w", err)
 	}
@@ -158,7 +158,7 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 	session.AccessToken = itResp.AccessToken
 	session.AccessTokenExp = expiry
 	session.RefreshToken = itResp.RefreshToken
-	err = mod.UpdateOAuthSession(session)
+	err = mod.UpdateOAuthSessionUpstream(session)
 	if err != nil {
 		return fmt.Errorf("failed to update OAuth session: %w", err)
 	}

@@ -80,10 +80,10 @@ type Model interface {
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
 	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
 
-	CreateOAuthSession(session *OAuthSession) error
-	GetOAuthSessionByState(state string) (*OAuthSession, error)
-	UpdateOAuthSession(session *OAuthSession) error
-	DeleteOAuthSession(state string) error
+	CreateOAuthSessionUpstream(session *OAuthSessionUpstream) error
+	GetOAuthSessionUpstreamByState(state string) (*OAuthSessionUpstream, error)
+	UpdateOAuthSessionUpstream(session *OAuthSessionUpstream) error
+	DeleteOAuthSessionUpstream(state string) error
 
 	CreatePAR(par *PAR) error
 	GetPAR(id string) (*PAR, error)
@@ -144,7 +144,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Block{},
 		ChatMessage{},
 		ChatProfile{},
-		OAuthSession{},
+		OAuthSessionUpstream{},
 		PAR{},
 	} {
 		err = db.AutoMigrate(model)

@@ -132,7 +132,7 @@ lexgen-types:
 	go run github.com/bluesky-social/indigo/cmd/lexgen \
 		-outdir ./pkg/spxrpc \
 		--build-file util/lexgen-types.json \
-		--external-lexicons ../atproto/lexicons \
+		--external-lexicons subprojects/atproto/lexicons \
 		lexicons/place/stream \
 		./subprojects/atproto/lexicons
 
@@ -148,7 +148,7 @@ lexgen-server:
 		--types-import tools.ozone:github.com/bluesky-social/indigo/api/ozone \
 		-outdir ./pkg/spxrpc \
 		--build-file util/lexgen-types.json \
-		--external-lexicons ../atproto/lexicons \
+		--external-lexicons subprojects/atproto/lexicons \
 		--package spxrpc \
 		lexicons/place/stream \
 		lexicons/app/bsky

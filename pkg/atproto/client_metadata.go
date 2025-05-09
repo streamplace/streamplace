@@ -58,7 +58,7 @@ func GetUpstreamMetadata(host string, platform string, appBundleId string) *OAut
 	}
 
 	if platform == "web" {
-		meta.RedirectURIs = []string{fmt.Sprintf("https://%s/xrpc/place.stream.account.oauthReturn", host)}
+		meta.RedirectURIs = []string{fmt.Sprintf("https://%s/api/oauth/return", host)}
 		meta.ApplicationType = "web"
 	} else {
 		meta.RedirectURIs = []string{fmt.Sprintf("https://%s/api/app-return/%s", host, appBundleId)}

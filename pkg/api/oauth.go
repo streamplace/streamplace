@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"time"
 
 	"github.com/haileyok/atproto-oauth-golang/helpers"
 	"github.com/julienschmidt/httprouter"
+	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/atproto"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 func (a *StreamplaceAPI) HandleATProtoOAuthUpstream(ctx context.Context, platform string) httprouter.Handle {
@@ -193,47 +194,35 @@ func (a *StreamplaceAPI) HandleOAuthAuthorize(ctx context.Context) http.HandlerF
 			apierrors.WriteHTTPBadRequest(w, "login hint is required", nil)
 			return
 		}
-		res, err := atproto.Login(ctx, a.CLI, &streamplace.AccountLogin_Input{
-			HandleOrDID: par.LoginHint,
-		}, a.Model)
+		redirectURL, err := atproto.Login(ctx, a.CLI, par.LoginHint, a.Model)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not login", err)
 			return
 		}
-		http.Redirect(w, r, res.RedirectUrl, http.StatusTemporaryRedirect)
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 	}
 }
 
-func (a *StreamplaceAPI) HandlePLC(ctx context.Context) http.HandlerFunc {
+func (a *StreamplaceAPI) HandleOAuthReturn(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(map[string]any{
-			"@context": []string{
-				"https://www.w3.org/ns/did/v1",
-				"https://w3id.org/security/multikey/v1",
-				"https://w3id.org/security/suites/secp256k1-2019/v1",
-			},
-			"id": "did:plc:dkh4rwafdcda4ko7lewe43ml",
-			"alsoKnownAs": []string{
-				"at://scumb.ag",
-			},
-			"verificationMethod": []map[string]string{
-				{
-					"id":                 "did:plc:dkh4rwafdcda4ko7lewe43ml#atproto",
-					"type":               "Multikey",
-					"controller":         "did:plc:dkh4rwafdcda4ko7lewe43ml",
-					"publicKeyMultibase": "zQ3shMdd6GA2eefzDHPoTGmtt1D8tTfbE7MqBzrF9Dv78m5Lr",
-				},
-			},
-			"service": []map[string]string{
-				{
-					"id":              "#atproto_pds",
-					"type":            "AtprotoPersonalDataServer",
-					"serviceEndpoint": "https://milkcap.us-west.host.bsky.network",
-				},
-			},
-		})
+		ctx, span := otel.Tracer("server").Start(ctx, "HandlePlaceStreamAccountOauthReturn")
+		defer span.End()
+		code := r.URL.Query().Get("code")
+		iss := r.URL.Query().Get("iss")
+		state := r.URL.Query().Get("state")
+		err := atproto.HandleOauthReturn(ctx, a.CLI, code, iss, state, a.Model)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not handle oauth return", err)
+			return
+		}
+
+		u, err := url.Parse("https://longos.iameli.link/login")
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not parse redirect url", err)
+			return
+		}
+		q := u.Query()
+		u.RawQuery = q.Encode()
+		http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
 	}
 }

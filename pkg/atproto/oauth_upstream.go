@@ -8,9 +8,6 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	oauth "github.com/haileyok/atproto-oauth-golang"
 	"github.com/haileyok/atproto-oauth-golang/helpers"
@@ -18,10 +15,9 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
-func Login(ctx context.Context, cli *config.CLI, input *streamplace.AccountLogin_Input, mod model.Model) (*streamplace.AccountDefs_LoginResponse, error) {
+func Login(ctx context.Context, cli *config.CLI, input string, mod model.Model) (string, error) {
 	meta := GetUpstreamMetadata("longos.iameli.link", "web", "")
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
 		ClientJwk:   cli.JWK,
@@ -30,56 +26,56 @@ func Login(ctx context.Context, cli *config.CLI, input *streamplace.AccountLogin
 	})
 	log.Log(ctx, "OAuth client information", "clientId", meta.ClientID, "redirectUri", meta.RedirectURIs[0])
 	if err != nil {
-		return nil, fmt.Errorf("failed to create OAuth client: %w", err)
+		return "", fmt.Errorf("failed to create OAuth client: %w", err)
 	}
 
 	// If you already have a did or a URL, you can skip this step
-	did, err := resolveHandle(ctx, input.HandleOrDID) // returns did:plc:abc123 or did:web:test.com
+	did, err := resolveHandle(ctx, input) // returns did:plc:abc123 or did:web:test.com
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve handle '%s': %w", input.HandleOrDID, err)
+		return "", fmt.Errorf("failed to resolve handle '%s': %w", input, err)
 	}
 
 	// If you already have a URL, you can skip this step
 	service, err := resolveService(ctx, did) // returns https://pds.haileyok.com
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve service for DID '%s': %w", did, err)
+		return "", fmt.Errorf("failed to resolve service for DID '%s': %w", did, err)
 	}
 
 	authserver, err := oclient.ResolvePdsAuthServer(ctx, service)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve PDS auth server for service '%s': %w", service, err)
+		return "", fmt.Errorf("failed to resolve PDS auth server for service '%s': %w", service, err)
 	}
 
 	authmeta, err := oclient.FetchAuthServerMetadata(ctx, authserver)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch auth server metadata from '%s': %w", authserver, err)
+		return "", fmt.Errorf("failed to fetch auth server metadata from '%s': %w", authserver, err)
 	}
 
 	k, err := helpers.GenerateKey(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate DPoP key: %w", err)
+		return "", fmt.Errorf("failed to generate DPoP key: %w", err)
 	}
 
 	// b, err := json.Marshal(k)
 	// if err != nil {
-	// 	return nil, err
+	// 	return "", err
 	// }
 
-	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, input.HandleOrDID, meta.Scope, k)
+	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, input, meta.Scope, k)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send PAR auth request to '%s': %w", authserver, err)
+		return "", fmt.Errorf("failed to send PAR auth request to '%s': %w", authserver, err)
 	}
 
 	log.Log(ctx, "parResp", "parResp", parResp)
 
 	jwkJSON, err := json.Marshal(k)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal DPoP key to JSON: %w", err)
+		return "", fmt.Errorf("failed to marshal DPoP key to JSON: %w", err)
 	}
 
 	u, err := url.Parse(authmeta.AuthorizationEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse auth server metadata: %w", err)
+		return "", fmt.Errorf("failed to parse auth server metadata: %w", err)
 	}
 	u.RawQuery = fmt.Sprintf("client_id=%s&request_uri=%s", url.QueryEscape(meta.ClientID), parResp.RequestUri)
 	str := u.String()
@@ -94,12 +90,10 @@ func Login(ctx context.Context, cli *config.CLI, input *streamplace.AccountLogin
 		DPoPPrivateJWK:   jwkJSON,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create OAuth session in database: %w", err)
+		return "", fmt.Errorf("failed to create OAuth session in database: %w", err)
 	}
 
-	return &streamplace.AccountDefs_LoginResponse{
-		RedirectUrl: str,
-	}, nil
+	return str, nil
 }
 
 var xrpcClient *oauth.XrpcClient
@@ -174,25 +168,12 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 		DpopPrivateJwk: key,
 	}
 
-	post := bsky.FeedPost{
-		Text:      "hello from atproto golang oauth client",
-		CreatedAt: syntax.DatetimeNow().String(),
-	}
-
-	input := atproto.RepoCreateRecord_Input{
-		Collection: "app.bsky.feed.post",
-		Repo:       authArgs.Did,
-		Record:     &util.LexiconTypeDecoder{Val: &post},
-	}
-
 	xc := getXrpcClient(mod)
 
-	var out atproto.RepoCreateRecord_Output
-	if err := xc.Do(ctx, authArgs, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", nil, input, &out); err != nil {
-		return err
+	// brief check to make sure we can actually do stuff
+	var out atproto.ServerCheckAccountStatus_Output
+	if err := xc.Do(ctx, authArgs, xrpc.Query, "application/json", "com.atproto.server.checkAccountStatus", nil, nil, &out); err != nil {
+		return fmt.Errorf("failed to check account status: %w", err)
 	}
-
-	log.Log(ctx, "out", "out", out)
-
 	return nil
 }

@@ -167,6 +167,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/view-count/:user", a.HandleViewCount(ctx))
 	apiRouter.HandlerFunc("POST", "/api/oauth/par", a.HandleOAuthPAR(ctx))
 	apiRouter.HandlerFunc("GET", "/api/oauth/authorize", a.HandleOAuthAuthorize(ctx))
+	apiRouter.HandlerFunc("GET", "/api/oauth/return", a.HandleOAuthReturn(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	router.Handler("GET", "/api/*resource", apiRouter)
 	router.Handler("POST", "/api/*resource", apiRouter)

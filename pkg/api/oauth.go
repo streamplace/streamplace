@@ -7,11 +7,14 @@ import (
 	"net"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/haileyok/atproto-oauth-golang/helpers"
 	"github.com/julienschmidt/httprouter"
 	"stream.place/streamplace/pkg/atproto"
 	apierrors "stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
 func (a *StreamplaceAPI) HandleATProtoOAuthUpstream(ctx context.Context, platform string) httprouter.Handle {
@@ -149,13 +152,58 @@ func (a *StreamplaceAPI) HandleOAuthPAR(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Content-Type", "application/json")
+		var par model.PAR
+		if err := json.NewDecoder(r.Body).Decode(&par); err != nil {
+			apierrors.WriteHTTPBadRequest(w, "invalid request", err)
+			return
+		}
+		if err := a.Model.CreatePAR(&par); err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not create par", err)
+			return
+		}
+		resp := par.ToPARResponse()
 		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(map[string]any{
-			"request_uri": "urn:ietf:params:oauth:request_uri:req-b963542aeeaebe427f8ee5c6dd095ff0",
-			"expires_in":  299,
-		})
+		json.NewEncoder(w).Encode(resp)
 	}
 }
+
+func (a *StreamplaceAPI) HandleOAuthAuthorize(ctx context.Context) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		query := r.URL.Query()
+		parID := query.Get("request_uri")
+		if parID == "" {
+			apierrors.WriteHTTPBadRequest(w, "request_uri is required", nil)
+			return
+		}
+		par, err := a.Model.GetPAR(parID)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not get par", err)
+			return
+		}
+		if par == nil {
+			apierrors.WriteHTTPBadRequest(w, "par not found", nil)
+			return
+		}
+		if par.ExpiresAt.Before(time.Now()) {
+			apierrors.WriteHTTPBadRequest(w, "par expired", nil)
+			return
+		}
+		if par.LoginHint == "" {
+			apierrors.WriteHTTPBadRequest(w, "login hint is required", nil)
+			return
+		}
+		res, err := atproto.Login(ctx, a.CLI, &streamplace.AccountLogin_Input{
+			HandleOrDID: par.LoginHint,
+		}, a.Model)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not login", err)
+			return
+		}
+		http.Redirect(w, r, res.RedirectUrl, http.StatusTemporaryRedirect)
+	}
+}
+
 func (a *StreamplaceAPI) HandlePLC(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")

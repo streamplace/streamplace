@@ -226,6 +226,11 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 			}
 			addrBytes = decoded[:32]
 			didBytes = decoded[32:]
+			priv, err = atcrypto.ParsePrivateBytesK256(addrBytes)
+			if err != nil {
+				errors.WriteHTTPUnauthorized(w, "invalid authorization key (not valid atcrypto)", err)
+				return
+			}
 		}
 
 		key, _ := secp256k1.PrivKeyFromBytes(addrBytes)
@@ -234,6 +239,11 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 			return
 		}
 		var signer crypto.Signer = key.ToECDSA()
+		pub, err := priv.PublicKey()
+		if err != nil {
+			apierrors.WriteHTTPUnauthorized(w, "invalid authorization key (could not parse as atcrypto)", err)
+			return
+		}
 
 		did := string(didBytes)
 
@@ -246,6 +256,15 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 			err = a.CLI.StreamIsAllowed(repo.DID)
 			if err != nil {
 				apierrors.WriteHTTPUnauthorized(w, "user is not allowed to stream", err)
+				return
+			}
+			signingKey, err := a.Model.GetSigningKey(ctx, pub.DIDKey(), repo.DID)
+			if err != nil {
+				apierrors.WriteHTTPUnauthorized(w, "signing key not found", err)
+				return
+			}
+			if signingKey == nil {
+				apierrors.WriteHTTPUnauthorized(w, "signing key not found", nil)
 				return
 			}
 		} else {

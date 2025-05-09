@@ -291,10 +291,13 @@ func (a *StreamplaceAPI) HandleOAuthToken(ctx context.Context) http.HandlerFunc 
 		if par == nil {
 		}
 
-		// TODO: Generate and return access token and refresh token
-		// For now, just return a placeholder response
+		accessToken, err := atproto.GenerateAccessJWT(a.CLI)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not generate access token", err)
+			return
+		}
 		response := map[string]interface{}{
-			"access_token":  "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NksifQ.eyJqdGkiOiJ0b2stYmU3NzkzMTQ1MDE5ODQyMTRkNzRhMjNiNzEzOWQ1ZDYiLCJzdWIiOiJkaWQ6cGxjOmRraDRyd2FmZGNkYTRrbzdsZXdlNDNtbCIsImV4cCI6MTc0Njc1NjY3NiwiaWF0IjoxNzQ2NzUzMDc2LCJjbmYiOnsiamt0IjoidzBFQWhBWG5nejB4WUF4UThvVGhjN1R5Q2dTY1RSdDRZU1h4NmVxbC1GayJ9LCJhdWQiOiJkaWQ6d2ViOm1pbGtjYXAudXMtd2VzdC5ob3N0LmJza3kubmV0d29yayIsInNjb3BlIjoiYXRwcm90byB0cmFuc2l0aW9uOmdlbmVyaWMiLCJjbGllbnRfaWQiOiJodHRwczovL3N0cmVhbS5wbGFjZS9hcGkvYXRwcm90by1vYXV0aC93ZWIiLCJpc3MiOiJodHRwczovL2Jza3kuc29jaWFsIn0.b-N8YvgnpdGiL71oIMRaGzJkaxOXRbSduPydUInow1wByEKP0YDxbtxwlGd0YJv-mn6ei50wMlWqBvamIna1Iw",
+			"access_token":  accessToken,
 			"token_type":    "DPoP",
 			"refresh_token": "ref-2863f189c53ca11442cffc3071ecd20d11d389ccbe2949bc9b034e5b588f6246",
 			"scope":         "atproto transition:generic",

@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/atproto"
 	apierrors "stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )
 
@@ -194,7 +195,7 @@ func (a *StreamplaceAPI) HandleOAuthAuthorize(ctx context.Context) http.HandlerF
 			apierrors.WriteHTTPBadRequest(w, "login hint is required", nil)
 			return
 		}
-		redirectURL, err := atproto.Login(ctx, a.CLI, par.LoginHint, a.Model)
+		redirectURL, err := atproto.Login(ctx, a.CLI, par, a.Model)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not login", err)
 			return
@@ -210,9 +211,19 @@ func (a *StreamplaceAPI) HandleOAuthReturn(ctx context.Context) http.HandlerFunc
 		code := r.URL.Query().Get("code")
 		iss := r.URL.Query().Get("iss")
 		state := r.URL.Query().Get("state")
-		err := atproto.HandleOauthReturn(ctx, a.CLI, code, iss, state, a.Model)
+		upstreamSession, err := atproto.HandleOauthReturn(ctx, a.CLI, code, iss, state, a.Model)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not handle oauth return", err)
+			return
+		}
+		if upstreamSession == nil {
+			log.Error(ctx, "no upstream session found", "upstreamSession", upstreamSession)
+			apierrors.WriteHTTPBadRequest(w, "no upstream session found", nil)
+			return
+		}
+		if upstreamSession.DownstreamPAR == nil {
+			log.Error(ctx, "no downstream par found", "upstreamSession", upstreamSession)
+			apierrors.WriteHTTPBadRequest(w, "no downstream par found", nil)
 			return
 		}
 
@@ -222,6 +233,9 @@ func (a *StreamplaceAPI) HandleOAuthReturn(ctx context.Context) http.HandlerFunc
 			return
 		}
 		q := u.Query()
+		q.Set("iss", "https://longos.iameli.link")
+		q.Set("state", upstreamSession.DownstreamPAR.State)
+		q.Set("code", "asdf")
 		u.RawQuery = q.Encode()
 		http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
 	}

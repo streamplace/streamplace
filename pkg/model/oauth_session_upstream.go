@@ -6,8 +6,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// OAuthSession stores authentication data needed during the OAuth flow
-type OAuthSession struct {
+// OAuthSessionUpstream stores authentication data needed during the OAuth flow
+type OAuthSessionUpstream struct {
 	// ID               string `gorm:"primarykey"`
 	State            string    `gorm:"column:state;primarykey"`
 	RepoDID          string    `gorm:"column:repo_did;index"`
@@ -24,12 +24,12 @@ type OAuthSession struct {
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
 }
 
-func (m *DBModel) CreateOAuthSession(session *OAuthSession) error {
+func (m *DBModel) CreateOAuthSessionUpstream(session *OAuthSessionUpstream) error {
 	return m.DB.Create(session).Error
 }
 
-func (m *DBModel) GetOAuthSessionByState(state string) (*OAuthSession, error) {
-	var session OAuthSession
+func (m *DBModel) GetOAuthSessionUpstreamByState(state string) (*OAuthSessionUpstream, error) {
+	var session OAuthSessionUpstream
 	err := m.DB.Where("state = ?", state).First(&session).Error
 	if err != nil {
 		return nil, err
@@ -46,10 +46,10 @@ func (m *DBModel) GetOAuthSessionByState(state string) (*OAuthSession, error) {
 // 	return &session, nil
 // }
 
-func (m *DBModel) UpdateOAuthSession(session *OAuthSession) error {
+func (m *DBModel) UpdateOAuthSessionUpstream(session *OAuthSessionUpstream) error {
 	return m.DB.Save(session).Error
 }
 
-func (m *DBModel) DeleteOAuthSession(state string) error {
-	return m.DB.Delete(&OAuthSession{}, "state = ?", state).Error
+func (m *DBModel) DeleteOAuthSessionUpstream(state string) error {
+	return m.DB.Delete(&OAuthSessionUpstream{}, "state = ?", state).Error
 }

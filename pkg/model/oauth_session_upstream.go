@@ -19,6 +19,8 @@ type OAuthSessionUpstream struct {
 	AccessToken      string    `gorm:"column:access_token"`
 	AccessTokenExp   time.Time `gorm:"column:access_token_exp"`
 	RefreshToken     string    `gorm:"column:refresh_token"`
+	DownstreamPARID  string    `gorm:"column:downstream_par_id"`
+	DownstreamPAR    *PAR      `gorm:"foreignKey:DownstreamPARID"`
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	DeletedAt        gorm.DeletedAt `gorm:"index"`
@@ -30,7 +32,7 @@ func (m *DBModel) CreateOAuthSessionUpstream(session *OAuthSessionUpstream) erro
 
 func (m *DBModel) GetOAuthSessionUpstreamByState(state string) (*OAuthSessionUpstream, error) {
 	var session OAuthSessionUpstream
-	err := m.DB.Where("state = ?", state).First(&session).Error
+	err := m.DB.Where("state = ?", state).Preload("DownstreamPAR").First(&session).Error
 	if err != nil {
 		return nil, err
 	}

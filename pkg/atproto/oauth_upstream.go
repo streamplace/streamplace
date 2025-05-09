@@ -17,7 +17,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 )
 
-func Login(ctx context.Context, cli *config.CLI, input string, mod model.Model) (string, error) {
+func Login(ctx context.Context, cli *config.CLI, downstreamPAR *model.PAR, mod model.Model) (string, error) {
 	meta := GetUpstreamMetadata("longos.iameli.link", "web", "")
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
 		ClientJwk:   cli.JWK,
@@ -30,9 +30,9 @@ func Login(ctx context.Context, cli *config.CLI, input string, mod model.Model) 
 	}
 
 	// If you already have a did or a URL, you can skip this step
-	did, err := resolveHandle(ctx, input) // returns did:plc:abc123 or did:web:test.com
+	did, err := resolveHandle(ctx, downstreamPAR.LoginHint) // returns did:plc:abc123 or did:web:test.com
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve handle '%s': %w", input, err)
+		return "", fmt.Errorf("failed to resolve handle '%s': %w", downstreamPAR.LoginHint, err)
 	}
 
 	// If you already have a URL, you can skip this step
@@ -61,7 +61,7 @@ func Login(ctx context.Context, cli *config.CLI, input string, mod model.Model) 
 	// 	return "", err
 	// }
 
-	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, input, meta.Scope, k)
+	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, downstreamPAR.LoginHint, meta.Scope, k)
 	if err != nil {
 		return "", fmt.Errorf("failed to send PAR auth request to '%s': %w", authserver, err)
 	}
@@ -88,6 +88,7 @@ func Login(ctx context.Context, cli *config.CLI, input string, mod model.Model) 
 		PKCEVerifier:     parResp.PkceVerifier,
 		DPoPNonce:        parResp.DpopAuthserverNonce,
 		DPoPPrivateJWK:   jwkJSON,
+		DownstreamPARID:  downstreamPAR.ID,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create OAuth session in database: %w", err)
@@ -109,7 +110,7 @@ func getXrpcClient(mod model.Model) *oauth.XrpcClient {
 	return xrpcClient
 }
 
-func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss string, state string, mod model.Model) error {
+func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss string, state string, mod model.Model) (*model.OAuthSessionUpstream, error) {
 	meta := GetUpstreamMetadata("longos.iameli.link", "web", "")
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
 		ClientJwk:   cli.JWK,
@@ -119,33 +120,33 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 
 	session, err := mod.GetOAuthSessionUpstreamByState(state)
 	if err != nil {
-		return fmt.Errorf("failed to get OAuth session: %w", err)
+		return nil, fmt.Errorf("failed to get OAuth session: %w", err)
 	}
 	if session == nil {
-		return fmt.Errorf("no OAuth session found for state: %s", state)
+		return nil, fmt.Errorf("no OAuth session found for state: %s", state)
 	}
 
 	if iss != session.AuthServerIssuer {
-		return fmt.Errorf("issuer mismatch: %s != %s", iss, session.AuthServerIssuer)
+		return nil, fmt.Errorf("issuer mismatch: %s != %s", iss, session.AuthServerIssuer)
 	}
 
 	key, err := jwk.ParseKey(session.DPoPPrivateJWK)
 	if err != nil {
-		return fmt.Errorf("failed to parse DPoP private JWK: %w", err)
+		return nil, fmt.Errorf("failed to parse DPoP private JWK: %w", err)
 	}
 
 	itResp, err := oclient.InitialTokenRequest(ctx, code, iss, session.PKCEVerifier, session.DPoPNonce, key)
 	if err != nil {
-		return fmt.Errorf("failed to request initial token: %w", err)
+		return nil, fmt.Errorf("failed to request initial token: %w", err)
 	}
 	now := time.Now()
 
 	if itResp.Sub != session.RepoDID {
-		return fmt.Errorf("sub mismatch: %s != %s", itResp.Sub, session.RepoDID)
+		return nil, fmt.Errorf("sub mismatch: %s != %s", itResp.Sub, session.RepoDID)
 	}
 
 	if itResp.Scope != meta.Scope {
-		return fmt.Errorf("scope mismatch: %s != %s", itResp.Scope, meta.Scope)
+		return nil, fmt.Errorf("scope mismatch: %s != %s", itResp.Scope, meta.Scope)
 	}
 
 	expiry := now.Add(time.Second * time.Duration(itResp.ExpiresIn)).UTC()
@@ -154,7 +155,7 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 	session.RefreshToken = itResp.RefreshToken
 	err = mod.UpdateOAuthSessionUpstream(session)
 	if err != nil {
-		return fmt.Errorf("failed to update OAuth session: %w", err)
+		return nil, fmt.Errorf("failed to update OAuth session: %w", err)
 	}
 
 	log.Log(ctx, "itResp", "itResp", itResp)
@@ -173,7 +174,7 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 	// brief check to make sure we can actually do stuff
 	var out atproto.ServerCheckAccountStatus_Output
 	if err := xc.Do(ctx, authArgs, xrpc.Query, "application/json", "com.atproto.server.checkAccountStatus", nil, nil, &out); err != nil {
-		return fmt.Errorf("failed to check account status: %w", err)
+		return nil, fmt.Errorf("failed to check account status: %w", err)
 	}
-	return nil
+	return session, nil
 }

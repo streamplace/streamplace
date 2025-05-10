@@ -277,7 +277,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		signer = hwsigner
 	}
 	var rep replication.Replicator = &boring.BoringReplicator{Peers: cli.Peers}
-	mod, err := model.MakeDB(cli.DBPath)
+	mod, err := model.MakeDB(cli.DBPath, &cli)
 	if err != nil {
 		return err
 	}

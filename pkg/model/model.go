@@ -13,12 +13,14 @@ import (
 	slogGorm "github.com/orandin/slog-gorm"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
 type DBModel struct {
-	DB *gorm.DB
+	DB  *gorm.DB
+	CLI *config.CLI
 }
 
 type Model interface {
@@ -80,10 +82,11 @@ type Model interface {
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
 	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
 
-	CreateOAuthSessionUpstream(session *OAuthSessionUpstream) error
-	GetOAuthSessionUpstreamByState(state string) (*OAuthSessionUpstream, error)
-	UpdateOAuthSessionUpstream(session *OAuthSessionUpstream) error
-	DeleteOAuthSessionUpstream(state string) error
+	CreateOAuthSession(session *OAuthSession) error
+	GetOAuthSessionByUpstreamState(state string) (*OAuthSession, error)
+	GetOAuthSessionByDownstreamPARID(id string) (*OAuthSession, error)
+	UpdateOAuthSession(session *OAuthSession) error
+	DeleteOAuthSession(state string) error
 
 	CreatePAR(par *PAR) error
 	GetPAR(id string) (*PAR, error)
@@ -91,7 +94,7 @@ type Model interface {
 	DeletePAR(id string) error
 }
 
-func MakeDB(dbURL string) (Model, error) {
+func MakeDB(dbURL string, cli *config.CLI) (Model, error) {
 	log.Log(context.Background(), "starting database", "dbURL", dbURL)
 	sqliteSuffix := dbURL
 	if dbURL != ":memory:" {
@@ -145,7 +148,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Block{},
 		ChatMessage{},
 		ChatProfile{},
-		OAuthSessionUpstream{},
+		OAuthSession{},
 		PAR{},
 	} {
 		err = db.AutoMigrate(model)

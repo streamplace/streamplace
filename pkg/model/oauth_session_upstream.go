@@ -3,55 +3,68 @@ package model
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-// OAuthSessionUpstream stores authentication data needed during the OAuth flow
-type OAuthSessionUpstream struct {
-	// ID               string `gorm:"primarykey"`
-	State            string    `gorm:"column:state;primarykey"`
-	RepoDID          string    `gorm:"column:repo_did;index"`
-	PDSUrl           string    `gorm:"column:pds_url"`
-	AuthServerIssuer string    `gorm:"column:auth_server_issuer"`
-	PKCEVerifier     string    `gorm:"column:pkce_verifier"`
-	DPoPNonce        string    `gorm:"column:dpop_nonce"`
-	DPoPPrivateJWK   []byte    `gorm:"column:dpop_private_jwk;type:text"`
-	AccessToken      string    `gorm:"column:access_token"`
-	AccessTokenExp   time.Time `gorm:"column:access_token_exp"`
-	RefreshToken     string    `gorm:"column:refresh_token"`
-	DownstreamPARID  string    `gorm:"column:downstream_par_id"`
-	DownstreamPAR    *PAR      `gorm:"foreignKey:DownstreamPARID"`
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	DeletedAt        gorm.DeletedAt `gorm:"index"`
+// OAuthSession stores authentication data needed during the OAuth flow
+type OAuthSession struct {
+	ID                       string    `gorm:"primarykey"`
+	RepoDID                  string    `gorm:"column:repo_did;index"`
+	PDSUrl                   string    `gorm:"column:pds_url"`
+	UpstreamState            string    `gorm:"column:upstream_state;index"`
+	UpstreamAuthServerIssuer string    `gorm:"column:upstream_auth_server_issuer"`
+	UpstreamPKCEVerifier     string    `gorm:"column:upstream_pkce_verifier"`
+	UpstreamDPoPNonce        string    `gorm:"column:upstream_dpop_nonce"`
+	UpstreamDPoPPrivateJWK   []byte    `gorm:"column:upstream_dpop_private_jwk;type:text"`
+	UpstreamAccessToken      string    `gorm:"column:upstream_access_token"`
+	UpstreamAccessTokenExp   time.Time `gorm:"column:upstream_access_token_exp"`
+	UpstreamRefreshToken     string    `gorm:"column:upstream_refresh_token"`
+	DownstreamPARID          string    `gorm:"column:downstream_par_id;uniqueIndex"`
+	DownstreamPAR            *PAR      `gorm:"foreignKey:DownstreamPARID"`
+	DownstreamDPoPNonce      string    `gorm:"column:downstream_dpop_nonce"`
+	DownstreamAccessToken    string    `gorm:"column:downstream_access_token;index"`
+	DownstreamRefreshToken   string    `gorm:"column:downstream_refresh_token"`
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
+	DeletedAt                gorm.DeletedAt `gorm:"index"`
 }
 
-func (m *DBModel) CreateOAuthSessionUpstream(session *OAuthSessionUpstream) error {
+func (o *OAuthSession) TableName() string {
+	return "oauth_sessions"
+}
+
+func (m *DBModel) CreateOAuthSession(session *OAuthSession) error {
+	uu, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
+	session.ID = uu.String()
 	return m.DB.Create(session).Error
 }
 
-func (m *DBModel) GetOAuthSessionUpstreamByState(state string) (*OAuthSessionUpstream, error) {
-	var session OAuthSessionUpstream
-	err := m.DB.Where("state = ?", state).Preload("DownstreamPAR").First(&session).Error
+func (m *DBModel) GetOAuthSessionByUpstreamState(state string) (*OAuthSession, error) {
+	var session OAuthSession
+	err := m.DB.Where("upstream_state = ?", state).Preload("DownstreamPAR").First(&session).Error
 	if err != nil {
 		return nil, err
 	}
 	return &session, nil
 }
 
-// func (m *DBModel) GetOAuthSessionByID(id string) (*OAuthSession, error) {
-// 	var session OAuthSession
-// 	err := m.DB.Where("id = ?", id).First(&session).Error
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &session, nil
-// }
+func (m *DBModel) GetOAuthSessionByDownstreamPARID(id string) (*OAuthSession, error) {
+	var session OAuthSession
+	err := m.DB.Where("downstream_par_id = ?", id).Preload("DownstreamPAR").First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
 
-func (m *DBModel) UpdateOAuthSessionUpstream(session *OAuthSessionUpstream) error {
+func (m *DBModel) UpdateOAuthSession(session *OAuthSession) error {
 	return m.DB.Save(session).Error
 }
 
-func (m *DBModel) DeleteOAuthSessionUpstream(state string) error {
-	return m.DB.Delete(&OAuthSessionUpstream{}, "state = ?", state).Error
+func (m *DBModel) DeleteOAuthSession(id string) error {
+	return m.DB.Delete(&OAuthSession{}, "id = ?", id).Error
 }

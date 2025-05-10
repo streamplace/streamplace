@@ -16,7 +16,6 @@ import {
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useEffect, useState } from "react";
 import { RefreshControl } from "react-native";
-import { FlatList } from "react-native-gesture-handler";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { H6, ScrollView, ScrollViewProps, useMedia, View } from "tamagui";
 
@@ -171,7 +170,23 @@ const mockSegments: Segment[] = [
     },
     viewers: 8,
   },
+  {
+    id: "mock-segment-11",
+    repoDID: "did:plc:mock3",
+    signingKeyDID: "did:mock:3",
+    startTime: new Date().toISOString(),
+    repo: {
+      handle: "mockuser1.nyc",
+      did: "did:plc:mock1",
+      pds: "bsky.network",
+      rootCid: "invalid",
+      version: "0.0",
+    },
+    viewers: 8,
+  },
 ];
+
+const MAGIC_DIVIDE_BY_BOTTOM_ROW = 1.85;
 
 function getHomeScreenItemSize(media: UseMediaState): StreamCardSize {
   if (media.gtXxl) {
@@ -187,7 +202,7 @@ function getHomeScreenItemSize(media: UseMediaState): StreamCardSize {
 
 function getHomeScreenCols(media: UseMediaState): number {
   if (media.gtXl) {
-    return 3;
+    return 4;
   } else if (media.gtLg) {
     return 3;
   } else if (media.gtMd) {
@@ -205,11 +220,11 @@ function getHomeScreenCols(media: UseMediaState): number {
 // TODO: use an actual grid lib for RN?
 function getPadPercentage(media: UseMediaState): number {
   if (media.gtXxl) {
-    return 10;
+    return 2.27;
   } else if (media.xxl) {
-    return 11.5;
+    return 2.4;
   } else {
-    return 10;
+    return 2.4;
   }
 }
 
@@ -217,10 +232,12 @@ function HomeScreenItem({
   item,
   media,
   size,
+  horizontal = false,
 }: {
   item: Segment;
   media: UseMediaState;
   size: StreamCardSize;
+  horizontal?: boolean;
 }) {
   const user = item.repo?.handle || item.repoDID || item.signingKeyDID;
   return (
@@ -231,9 +248,13 @@ function HomeScreenItem({
           user: user,
         },
       }}
+      style={{
+        flex: 1,
+      }}
     >
       <StreamCardHorizontal
         size={size}
+        horizontal={horizontal}
         thumbnailUrl={
           item.signingKeyDID.startsWith("did:mock")
             ? "https://picsum.photos/1600/900?rand=" + item.id
@@ -276,7 +297,7 @@ export default function HomeScreen({
       // Only poll if not using mock data
       dispatch(pollSegments());
     }
-  }, [useMockData]);
+  }, [useMockData, dispatch]);
 
   useEffect(() => {
     if (!loading) {
@@ -298,28 +319,41 @@ export default function HomeScreen({
     );
   }
 
-  if (firstRequest && !useMockData) {
-    // Only show loading if not using mock data
+  if (firstRequest && !useMockData && !segments.length) {
+    // Only show loading if not using mock data and no segments yet
     return <Loading />;
   }
 
   let cols = getHomeScreenCols(media);
   let size = getHomeScreenItemSize(media);
 
-  // fill in null data to pad out the list
-  let segs: (Segment | null)[] = segments.concat(
+  const firstRowCols = cols > 2 ? cols - 1 : 0;
+
+  const firstRowItems = segments.slice(0, firstRowCols);
+  let cutSegs = segments.slice(firstRowCols, -1);
+
+  // fill in null data to pad out the list for grid display
+  let segs: (Segment | null)[] = cutSegs.concat(
     Array((cols - (segments.length % cols)) % cols).fill(null),
   );
+  if (cutSegs.length === 0 && segs.every((s) => s === null) && cols > 0) {
+    // ensure segs is not just [null] if segments is empty
+    segs = [];
+  }
 
-  console.log(segs);
+  // Create rows for the grid
+  const rows: (Segment | null)[][] = [];
+  for (let i = 0; i < segs.length; i += cols) {
+    rows.push(segs.slice(i, i + cols));
+  }
 
   return (
     <ScrollView
-      contentContainerStyle={{
-        alignItems: "stretch",
-        minHeight: "100%",
-        ...contentContainerStyle,
+      style={{
+        minHeight: "80%",
+        width: "100%",
       }}
+      contentContainerStyle={contentContainerStyle} // Apply passed contentContainerStyle
       refreshControl={
         <RefreshControl
           refreshing={manualRefresh}
@@ -338,54 +372,94 @@ export default function HomeScreen({
     >
       <Container>
         {segments.length > 0 && (
-          <View flexDirection="row" alignItems="center" gap="$3">
+          <View
+            flexDirection="row"
+            alignItems="center"
+            gap="$3"
+            marginVertical="$4"
+            paddingHorizontal="$0"
+          >
             <LiveDot />
-            <Title marginVertical={16}>
+            <Title>
               {segments.length} {segments.length === 1 ? "person" : "people"}{" "}
               live now
             </Title>
           </View>
         )}
-        <FlatList
-          key={cols}
-          ListEmptyComponent={() => (
-            <View
-              f={1}
-              justifyContent="center"
-              alignItems="center"
-              minHeight="80vh"
-            >
-              <H6>No one is streaming right now 😭</H6>
-            </View>
-          )}
-          renderItem={(i) =>
-            i.item !== null ? (
-              <View f={1} width={getPadPercentage(media) + "%"}>
+
+        {segments.length === 0 && !loading && (
+          <View
+            f={1}
+            justifyContent="center"
+            alignItems="center"
+            minHeight="80vh"
+            paddingHorizontal={0}
+          >
+            <H6>No one is streaming right now 😭</H6>
+          </View>
+        )}
+        {firstRowItems.length > 0 && (
+          <View
+            flexDirection="row"
+            gap={24} // This is the gap between columns
+            marginBottom={24} // This is the gap between rows
+            width="full"
+          >
+            {firstRowItems.map((item, itemIndex) => (
+              <View
+                key={item.id || `item${itemIndex}`}
+                flex={
+                  itemIndex == 0 ? getPadPercentage(media) / cols : 1 / cols
+                }
+                justifyContent="center"
+                background="green"
+              >
                 <HomeScreenItem
-                  key={i.index}
-                  item={i.item}
+                  item={item}
                   media={media}
                   size={size}
+                  horizontal={itemIndex == 0}
                 />
               </View>
-            ) : (
-              <>
-                {/* HACK */}
-                <View f={1} width={getPadPercentage(media) + "%"} />
-              </>
-            )
-          }
-          numColumns={cols}
-          data={segs}
-          style={{
-            minHeight: "80%",
-            maxWidth: "100%",
-          }}
-          contentContainerStyle={{
-            gap: 24,
-          }}
-          columnWrapperStyle={cols > 1 && { gap: 24 }}
-        />
+            ))}
+          </View>
+        )}
+
+        {segments.length > 0 && (
+          <View>
+            {rows.map((row, rowIndex) => (
+              <View
+                key={`row-${rowIndex}`}
+                flexDirection="row"
+                gap={24} // This is the gap between columns
+                marginBottom={24} // This is the gap between rows
+              >
+                {row.map((item, itemIndex) =>
+                  item !== null ? (
+                    <View
+                      key={item.id || `item-${rowIndex}-${itemIndex}`}
+                      flex={1}
+                    >
+                      <HomeScreenItem
+                        item={item}
+                        media={media}
+                        size={size}
+                        //horizontal={row[row.length - 1] == null}
+                      />
+                    </View>
+                  ) : (
+                    <View
+                      key={`item-${rowIndex}-${itemIndex}`}
+                      flex={
+                        getPadPercentage(media) / MAGIC_DIVIDE_BY_BOTTOM_ROW
+                      }
+                    ></View>
+                  ),
+                )}
+              </View>
+            ))}
+          </View>
+        )}
       </Container>
     </ScrollView>
   );

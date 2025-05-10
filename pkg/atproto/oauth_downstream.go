@@ -54,12 +54,16 @@ func HandleOAuthToken(ctx context.Context, cli *config.CLI, tokenRequest *TokenR
 		return nil, fmt.Errorf("could not get oauth session: %w", err)
 	}
 
+	if session.DownstreamAuthorizationCode != tokenRequest.Code {
+		return nil, fmt.Errorf("invalid authorization code")
+	}
+
 	accessToken, err := generateJWT(cli, par.JKT, session.RepoDID)
 	if err != nil {
 		return nil, fmt.Errorf("could not generate access token: %w", err)
 	}
 
-	refreshToken, err := generateRefreshToken(cli)
+	refreshToken, err := generateRefreshToken()
 	if err != nil {
 		return nil, fmt.Errorf("could not generate refresh token: %w", err)
 	}
@@ -140,10 +144,18 @@ func generateJWT(cli *config.CLI, jkt string, did string) (string, error) {
 	return tokenString, nil
 }
 
-func generateRefreshToken(cli *config.CLI) (string, error) {
+func generateRefreshToken() (string, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("refresh-%s", uu.String()), nil
+}
+
+func generateAuthorizationCode() (string, error) {
+	uu, err := uuid.NewV7()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("code-%s", uu.String()), nil
 }

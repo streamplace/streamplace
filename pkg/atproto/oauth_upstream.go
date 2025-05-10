@@ -136,12 +136,16 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 		return nil, fmt.Errorf("scope mismatch: %s != %s", itResp.Scope, meta.Scope)
 	}
 
+	downstreamCode, err := generateAuthorizationCode()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate downstream code: %w", err)
+	}
+
 	expiry := now.Add(time.Second * time.Duration(itResp.ExpiresIn)).UTC()
 	session.UpstreamAccessToken = itResp.AccessToken
 	session.UpstreamAccessTokenExp = expiry
 	session.UpstreamRefreshToken = itResp.RefreshToken
-
-	log.Log(ctx, "itResp", "itResp", itResp)
+	session.DownstreamAuthorizationCode = downstreamCode
 
 	authArgs := &oauth.XrpcAuthedRequestArgs{
 		Did:            session.RepoDID,

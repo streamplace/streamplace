@@ -155,7 +155,7 @@ export default function Fullscreen(props: PlayerProps) {
           ]}
         >
           <VideoRetry {...props}>
-            <Video {...props} videoRef={ref} />
+            <Video {...props} nativeVideoRef={ref} />
           </VideoRetry>
           <PlayerLoading {...props} />
           <Controls {...props} setFullscreen={setFullscreen} />
@@ -170,7 +170,7 @@ export default function Fullscreen(props: PlayerProps) {
       <PlayerLoading {...props}></PlayerLoading>
       <Controls {...props} setFullscreen={setFullscreen} />
       <VideoRetry {...props}>
-        <Video {...props} videoRef={ref} />
+        <Video {...props} nativeVideoRef={ref} />
       </VideoRetry>
     </>
   );

@@ -1,3 +1,4 @@
+import { VideoView } from "expo-video";
 import { Rendition } from "lexicons/types/place/stream/defs";
 
 export enum IngestMediaSource {
@@ -40,6 +41,10 @@ export type PlayerProps = {
   muteWasForced: boolean;
   setMuteWasForced: (muteWasForced: boolean) => void;
   embedded: boolean;
+  videoRef:
+    | React.MutableRefObject<HTMLVideoElement | null>
+    | ((instance: HTMLVideoElement | null) => void)
+    | undefined;
 };
 
 export type PlayerEvent = {

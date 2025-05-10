@@ -29,19 +29,9 @@ import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
 
 type VideoProps = PlayerProps & { url: string };
 
-export default function WebVideo(
-  props: PlayerProps & { videoRef: RefObject<HTMLVideoElement> },
-) {
+export default function WebVideo(props: PlayerProps) {
   const inProto = useAppSelector(usePlayerProtocol());
   const { url, protocol } = srcToUrl(props, inProto);
-  useEffect(() => {
-    if (props.playTime == 0) {
-      return;
-    }
-    if (props.videoRef.current) {
-      props.videoRef.current.play();
-    }
-  }, [props.playTime]);
   if (props.ingest) {
     return <WebcamIngestPlayer url={url} {...props} />;
   }
@@ -69,7 +59,7 @@ const updateEvents = {
 };
 
 const VideoElement = forwardRef(
-  (props: VideoProps, ref: ForwardedRef<HTMLVideoElement>) => {
+  (props: VideoProps, ref: ForwardedRef<HTMLVideoElement | null>) => {
     const event = (evType) => (e) => {
       console.log(evType);
       const now = new Date();
@@ -188,24 +178,28 @@ const VideoElement = forwardRef(
   },
 );
 
-export function ProgressiveMP4Player(
-  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
-) {
-  return <VideoElement {...props} ref={props.videoRef} />;
+export function ProgressiveMP4Player(props: VideoProps) {
+  return <VideoElement {...props} />;
 }
 
-export function ProgressiveWebMPlayer(
-  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
-) {
-  return <VideoElement {...props} ref={props.videoRef} />;
+export function ProgressiveWebMPlayer(props: VideoProps) {
+  return <VideoElement {...props} />;
 }
 
-export function HLSPlayer(
-  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
-) {
-  const videoRef = props.videoRef;
+export function HLSPlayer(props: VideoProps) {
+  const localRef = useRef<HTMLVideoElement | null>(null);
+  const refCallback = useCallback((node: HTMLVideoElement | null) => {
+    localRef.current = node;
+    if (typeof props.videoRef === "function") {
+      props.videoRef(node);
+    } else if (props.videoRef) {
+      (
+        props.videoRef as React.MutableRefObject<HTMLVideoElement | null>
+      ).current = node;
+    }
+  }, []);
   useEffect(() => {
-    if (!videoRef.current) {
+    if (!localRef.current) {
       return;
     }
     if (Hls.isSupported()) {
@@ -213,37 +207,35 @@ export function HLSPlayer(
       var hls = new Hls({ maxAudioFramesDrift: 20 });
       hls.loadSource(props.url);
       try {
-        hls.attachMedia(videoRef.current);
+        hls.attachMedia(localRef.current);
       } catch (e) {
         console.error("error on attachMedia");
         hls.stopLoad();
         return;
       }
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        if (!videoRef.current) {
+        if (!localRef.current) {
           return;
         }
-        videoRef.current.play();
+        localRef.current.play();
       });
       return () => {
         hls.stopLoad();
       };
-    } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-      videoRef.current.src = props.url;
-      videoRef.current.addEventListener("canplay", () => {
-        if (!videoRef.current) {
+    } else if (localRef.current.canPlayType("application/vnd.apple.mpegurl")) {
+      localRef.current.src = props.url;
+      localRef.current.addEventListener("canplay", () => {
+        if (!localRef.current) {
           return;
         }
-        videoRef.current.play();
+        localRef.current.play();
       });
     }
-  }, [videoRef.current]);
-  return <VideoElement {...props} ref={videoRef} />;
+  }, [localRef.current]);
+  return <VideoElement {...props} ref={refCallback} />;
 }
 
-export function WebRTCPlayer(
-  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
-) {
+export function WebRTCPlayer(props: VideoProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
   );
@@ -251,6 +243,11 @@ export function WebRTCPlayer(
   const handleRef = useCallback((node: HTMLVideoElement | null) => {
     if (node) {
       setVideoElement(node);
+    }
+    if (typeof props.videoRef === "function") {
+      props.videoRef(node);
+    } else if (props.videoRef) {
+      props.videoRef.current = node;
     }
   }, []);
 
@@ -319,9 +316,7 @@ export function WebRTCPlayer(
   return <VideoElement {...props} ref={handleRef} />;
 }
 
-export function WebcamIngestPlayer(
-  props: VideoProps & { videoRef: RefObject<HTMLVideoElement> },
-) {
+export function WebcamIngestPlayer(props: VideoProps) {
   const dispatch = useAppDispatch();
   const player = useAppSelector(usePlayer());
   const storedKey = useAppSelector(selectStoredKey);

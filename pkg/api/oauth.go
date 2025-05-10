@@ -2,8 +2,6 @@ package api
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -244,17 +242,10 @@ func (a *StreamplaceAPI) HandleOAuthReturn(ctx context.Context) http.HandlerFunc
 }
 
 // TokenRequest represents the structure of an OAuth token request
-type TokenRequest struct {
-	GrantType    string `json:"grant_type"`
-	RedirectURI  string `json:"redirect_uri"`
-	Code         string `json:"code"`
-	CodeVerifier string `json:"code_verifier"`
-	ClientID     string `json:"client_id"`
-}
 
 func (a *StreamplaceAPI) HandleOAuthToken(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var tokenRequest TokenRequest
+		var tokenRequest atproto.TokenRequest
 		if err := json.NewDecoder(r.Body).Decode(&tokenRequest); err != nil {
 			apierrors.WriteHTTPBadRequest(w, "invalid request", err)
 			return
@@ -271,47 +262,24 @@ func (a *StreamplaceAPI) HandleOAuthToken(ctx context.Context) http.HandlerFunc 
 			return
 		}
 
-		// Hash the code verifier using SHA-256
-		hasher := sha256.New()
-		hasher.Write([]byte(tokenRequest.CodeVerifier))
-		codeChallenge := hasher.Sum(nil)
-
-		// Encode the hash in URL-safe base64 format
-		// This removes padding and replaces + with - and / with _
-
-		encodedChallenge := base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(codeChallenge)
-
-		// Look up the PAR using the code challenge
-		par, err := a.Model.GetPARByCodeChallenge(encodedChallenge)
+		session, err := atproto.HandleOAuthToken(ctx, a.CLI, &tokenRequest, a.Model)
 		if err != nil {
-			log.Error(ctx, "could not get par", "error", err, "encodedChallenge", encodedChallenge, "codeVerifier", tokenRequest.CodeVerifier)
-			apierrors.WriteHTTPBadRequest(w, "invalid code verifier", err)
+			apierrors.WriteHTTPBadRequest(w, "could not handle oauth token", err)
 			return
 		}
-		if par == nil {
-		}
 
-		accessToken, err := atproto.GenerateAccessJWT(a.CLI)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not generate access token", err)
-			return
-		}
 		response := map[string]interface{}{
-			"access_token":  accessToken,
+			"access_token":  session.DownstreamAccessToken,
 			"token_type":    "DPoP",
-			"refresh_token": "ref-2863f189c53ca11442cffc3071ecd20d11d389ccbe2949bc9b034e5b588f6246",
+			"refresh_token": session.DownstreamRefreshToken,
 			"scope":         "atproto transition:generic",
 			"expires_in":    3599,
-			"sub":           "did:plc:dkh4rwafdcda4ko7lewe43ml",
-		}
-
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "failed to encode response", err)
-			return
+			"sub":           session.RepoDID,
 		}
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
+		json.NewEncoder(w).Encode(response)
 	}
 }

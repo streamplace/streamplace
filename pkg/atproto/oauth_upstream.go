@@ -80,15 +80,15 @@ func Login(ctx context.Context, cli *config.CLI, downstreamPAR *model.PAR, mod m
 	u.RawQuery = fmt.Sprintf("client_id=%s&request_uri=%s", url.QueryEscape(meta.ClientID), parResp.RequestUri)
 	str := u.String()
 
-	err = mod.CreateOAuthSessionUpstream(&model.OAuthSessionUpstream{
-		State:            parResp.State,
-		RepoDID:          did,
-		PDSUrl:           service,
-		AuthServerIssuer: authserver,
-		PKCEVerifier:     parResp.PkceVerifier,
-		DPoPNonce:        parResp.DpopAuthserverNonce,
-		DPoPPrivateJWK:   jwkJSON,
-		DownstreamPARID:  downstreamPAR.ID,
+	err = mod.CreateOAuthSession(&model.OAuthSession{
+		UpstreamState:            parResp.State,
+		RepoDID:                  did,
+		PDSUrl:                   service,
+		UpstreamAuthServerIssuer: authserver,
+		UpstreamPKCEVerifier:     parResp.PkceVerifier,
+		UpstreamDPoPNonce:        parResp.DpopAuthserverNonce,
+		UpstreamDPoPPrivateJWK:   jwkJSON,
+		DownstreamPARID:          downstreamPAR.ID,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create OAuth session in database: %w", err)
@@ -110,7 +110,7 @@ func getXrpcClient(mod model.Model) *oauth.XrpcClient {
 	return xrpcClient
 }
 
-func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss string, state string, mod model.Model) (*model.OAuthSessionUpstream, error) {
+func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss string, state string, mod model.Model) (*model.OAuthSession, error) {
 	meta := GetUpstreamMetadata("longos.iameli.link", "web", "")
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
 		ClientJwk:   cli.JWK,
@@ -118,7 +118,7 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 		RedirectUri: meta.RedirectURIs[0],
 	})
 
-	session, err := mod.GetOAuthSessionUpstreamByState(state)
+	session, err := mod.GetOAuthSessionByUpstreamState(state)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get OAuth session: %w", err)
 	}
@@ -126,16 +126,16 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 		return nil, fmt.Errorf("no OAuth session found for state: %s", state)
 	}
 
-	if iss != session.AuthServerIssuer {
-		return nil, fmt.Errorf("issuer mismatch: %s != %s", iss, session.AuthServerIssuer)
+	if iss != session.UpstreamAuthServerIssuer {
+		return nil, fmt.Errorf("issuer mismatch: %s != %s", iss, session.UpstreamAuthServerIssuer)
 	}
 
-	key, err := jwk.ParseKey(session.DPoPPrivateJWK)
+	key, err := jwk.ParseKey(session.UpstreamDPoPPrivateJWK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse DPoP private JWK: %w", err)
 	}
 
-	itResp, err := oclient.InitialTokenRequest(ctx, code, iss, session.PKCEVerifier, session.DPoPNonce, key)
+	itResp, err := oclient.InitialTokenRequest(ctx, code, iss, session.UpstreamPKCEVerifier, session.UpstreamDPoPNonce, key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request initial token: %w", err)
 	}
@@ -150,22 +150,18 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 	}
 
 	expiry := now.Add(time.Second * time.Duration(itResp.ExpiresIn)).UTC()
-	session.AccessToken = itResp.AccessToken
-	session.AccessTokenExp = expiry
-	session.RefreshToken = itResp.RefreshToken
-	err = mod.UpdateOAuthSessionUpstream(session)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update OAuth session: %w", err)
-	}
+	session.UpstreamAccessToken = itResp.AccessToken
+	session.UpstreamAccessTokenExp = expiry
+	session.UpstreamRefreshToken = itResp.RefreshToken
 
 	log.Log(ctx, "itResp", "itResp", itResp)
 
 	authArgs := &oauth.XrpcAuthedRequestArgs{
 		Did:            session.RepoDID,
-		AccessToken:    session.AccessToken,
+		AccessToken:    session.UpstreamAccessToken,
 		PdsUrl:         session.PDSUrl,
-		Issuer:         session.AuthServerIssuer,
-		DpopPdsNonce:   session.DPoPNonce,
+		Issuer:         session.UpstreamAuthServerIssuer,
+		DpopPdsNonce:   session.UpstreamDPoPNonce,
 		DpopPrivateJwk: key,
 	}
 
@@ -176,5 +172,11 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 	if err := xc.Do(ctx, authArgs, xrpc.Query, "application/json", "com.atproto.server.checkAccountStatus", nil, nil, &out); err != nil {
 		return nil, fmt.Errorf("failed to check account status: %w", err)
 	}
+
+	err = mod.UpdateOAuthSession(session)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update OAuth session: %w", err)
+	}
+
 	return session, nil
 }

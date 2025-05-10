@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )
@@ -21,7 +22,7 @@ func TestKeyResolution(t *testing.T) {
 	defer os.RemoveAll(dir)
 
 	fname := filepath.Join(dir, "db.sqlite")
-	mod, err := model.MakeDB(fname)
+	mod, err := model.MakeDB(fname, &config.CLI{})
 	require.NoError(t, err)
 	oldResolveIdent := ResolveIdent
 	ResolveIdent = func(ctx context.Context, arg string) (*identity.Identity, error) {

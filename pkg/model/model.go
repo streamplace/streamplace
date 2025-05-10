@@ -87,6 +87,7 @@ type Model interface {
 	GetOAuthSessionByUpstreamState(state string) (*OAuthSession, error)
 	GetOAuthSessionByDownstreamPARID(id string) (*OAuthSession, error)
 	GetOAuthSessionByDownstreamAccessToken(token string) (*OAuthSession, error)
+	GetOAuthSessionByDownstreamRefreshToken(token string) (*OAuthSession, error)
 	UpdateOAuthSession(session *OAuthSession) error
 	DeleteOAuthSession(state string) error
 

@@ -19,7 +19,10 @@ type TokenRequest struct {
 	Code         string `json:"code"`
 	CodeVerifier string `json:"code_verifier"`
 	ClientID     string `json:"client_id"`
+	RefreshToken string `json:"refresh_token"`
 }
+
+var OAuthTokenExpiry = time.Hour * 24
 
 // handle a request for a new downstream access token (must verify PKCE)
 func HandleOAuthToken(ctx context.Context, cli *config.CLI, tokenRequest *TokenRequest, mod model.Model) (*model.OAuthSession, error) {
@@ -71,7 +74,30 @@ func HandleOAuthToken(ctx context.Context, cli *config.CLI, tokenRequest *TokenR
 	}
 
 	return session, nil
+}
 
+func HandleOAuthRefreshToken(ctx context.Context, cli *config.CLI, tokenRequest *TokenRequest, mod model.Model) (*model.OAuthSession, error) {
+	session, err := mod.GetOAuthSessionByDownstreamRefreshToken(tokenRequest.RefreshToken)
+	if err != nil {
+		return nil, fmt.Errorf("could not get downstream session: %w", err)
+	}
+
+	if session == nil {
+		return nil, fmt.Errorf("invalid refresh token")
+	}
+
+	newJWT, err := generateJWT(cli, session.DownstreamDPoPJKT, session.RepoDID)
+	if err != nil {
+		return nil, fmt.Errorf("could not generate new access token: %w", err)
+	}
+
+	session.DownstreamAccessToken = newJWT
+	err = mod.UpdateOAuthSession(session)
+	if err != nil {
+		return nil, fmt.Errorf("could not update downstream session: %w", err)
+	}
+
+	return session, nil
 }
 
 func generateJWT(cli *config.CLI, jkt string, did string) (string, error) {
@@ -85,7 +111,7 @@ func generateJWT(cli *config.CLI, jkt string, did string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
 		"jti": uu.String(),
 		"sub": did,
-		"exp": now.Add(time.Hour * 24).Unix(),
+		"exp": now.Add(OAuthTokenExpiry).Unix(),
 		"iat": now.Unix(),
 		"nbf": now.Unix(),
 		"cnf": map[string]any{

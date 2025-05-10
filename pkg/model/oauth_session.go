@@ -25,7 +25,7 @@ type OAuthSession struct {
 	DownstreamDPoPNonce      string    `gorm:"column:downstream_dpop_nonce"`
 	DownstreamDPoPJKT        string    `gorm:"column:downstream_dpop_jkt"`
 	DownstreamAccessToken    string    `gorm:"column:downstream_access_token;index"`
-	DownstreamRefreshToken   string    `gorm:"column:downstream_refresh_token"`
+	DownstreamRefreshToken   string    `gorm:"column:downstream_refresh_token;index"`
 	CreatedAt                time.Time
 	UpdatedAt                time.Time
 	DeletedAt                gorm.DeletedAt `gorm:"index"`
@@ -74,6 +74,15 @@ func (m *DBModel) GetOAuthSessionByDownstreamPARID(id string) (*OAuthSession, er
 func (m *DBModel) GetOAuthSessionByDownstreamAccessToken(token string) (*OAuthSession, error) {
 	var session OAuthSession
 	err := m.DB.Where("downstream_access_token = ?", token).First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (m *DBModel) GetOAuthSessionByDownstreamRefreshToken(token string) (*OAuthSession, error) {
+	var session OAuthSession
+	err := m.DB.Where("downstream_refresh_token = ?", token).First(&session).Error
 	if err != nil {
 		return nil, err
 	}

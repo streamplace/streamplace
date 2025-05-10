@@ -279,34 +279,63 @@ func (a *StreamplaceAPI) HandleOAuthToken(ctx context.Context) http.HandlerFunc 
 		}
 
 		// Verify the token request parameters
-		if tokenRequest.GrantType != "authorization_code" {
-			apierrors.WriteHTTPBadRequest(w, "unsupported grant type", nil)
+		if tokenRequest.GrantType == "authorization_code" {
+			a.handleAuthToken(w, r, tokenRequest)
+			return
+		} else if tokenRequest.GrantType == "refresh_token" {
+			a.handleRefreshToken(w, r, tokenRequest)
 			return
 		}
 
-		if tokenRequest.Code == "" || tokenRequest.CodeVerifier == "" {
-			apierrors.WriteHTTPBadRequest(w, "missing required parameters", nil)
-			return
-		}
-
-		session, err := atproto.HandleOAuthToken(ctx, a.CLI, &tokenRequest, a.Model)
-		if err != nil {
-			apierrors.WriteHTTPBadRequest(w, "could not handle oauth token", err)
-			return
-		}
-
-		response := map[string]interface{}{
-			"access_token":  session.DownstreamAccessToken,
-			"token_type":    "DPoP",
-			"refresh_token": session.DownstreamRefreshToken,
-			"scope":         "atproto transition:generic",
-			"expires_in":    3599,
-			"sub":           session.RepoDID,
-		}
-
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(response)
+		apierrors.WriteHTTPBadRequest(w, "unsupported grant type", nil)
 	}
+}
+
+func (a *StreamplaceAPI) handleAuthToken(w http.ResponseWriter, r *http.Request, tokenRequest atproto.TokenRequest) {
+	if tokenRequest.Code == "" || tokenRequest.CodeVerifier == "" {
+		apierrors.WriteHTTPBadRequest(w, "missing required parameters", nil)
+		return
+	}
+
+	session, err := atproto.HandleOAuthToken(r.Context(), a.CLI, &tokenRequest, a.Model)
+	if err != nil {
+		apierrors.WriteHTTPBadRequest(w, "could not handle oauth token", err)
+		return
+	}
+
+	response := map[string]interface{}{
+		"access_token":  session.DownstreamAccessToken,
+		"token_type":    "DPoP",
+		"refresh_token": session.DownstreamRefreshToken,
+		"scope":         "atproto transition:generic",
+		"expires_in":    atproto.OAuthTokenExpiry.Seconds(),
+		"sub":           session.RepoDID,
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	json.NewEncoder(w).Encode(response)
+}
+
+func (a *StreamplaceAPI) handleRefreshToken(w http.ResponseWriter, r *http.Request, tokenRequest atproto.TokenRequest) {
+	session, err := atproto.HandleOAuthRefreshToken(r.Context(), a.CLI, &tokenRequest, a.Model)
+	if err != nil {
+		apierrors.WriteHTTPBadRequest(w, "could not handle oauth token", err)
+		return
+	}
+
+	response := map[string]interface{}{
+		"access_token":  session.DownstreamAccessToken,
+		"token_type":    "DPoP",
+		"refresh_token": session.DownstreamRefreshToken,
+		"scope":         "atproto transition:generic",
+		"expires_in":    atproto.OAuthTokenExpiry.Seconds(),
+		"sub":           session.RepoDID,
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	json.NewEncoder(w).Encode(response)
 }

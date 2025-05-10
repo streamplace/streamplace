@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import {
   SharedValue,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
 import { useWindowDimensions } from "tamagui";
+import { useDispatch, useSelector } from "react-redux";
+
+import {
+  toggleSidebar,
+  selectIsSidebarCollapsed,
+  selectSidebarTargetWidth,
+} from "../features/base/sidebarSlice";
+import { RootState } from "../store/store";
 
 // Returns *true* if the screen is > 1024px
 function useIsLargeScreen() {
@@ -16,35 +24,53 @@ function useIsLargeScreen() {
 export interface UseSidebarOutput {
   isActive: boolean;
   isCollapsed: boolean;
-  width: SharedValue<number>;
+  animatedWidth: SharedValue<number>;
   toggle: () => void;
 }
 
 /*
  * useSidebarControl
- * A hook to control the custom sidebar on desktop
+ * A hook to control the custom sidebar on desktop, using Redux for state.
  *
  * Returns: An interface containing:
  * - isActive: boolean - True if the screen is considered large (width >= 1024px).
- * - sidebarWidth: Animated.Value - An animated value controlling the sidebar's width.
- * - toggleSidebar: () => void - A function to toggle the sidebar's collapsed state with animation.
+ * - isCollapsed: boolean - The current collapsed state of the sidebar from Redux.
+ * - animatedWidth: SharedValue<number> - An animated value controlling the sidebar's width.
+ * - toggle: () => void - A function to dispatch the Redux action to toggle the sidebar.
  */
-export default function useSidebarControl(): UseSidebarOutput {
-  const [collapsed, setCollapsed] = useState(false);
-  const width = useSharedValue(300);
+export function useSidebarControl(): UseSidebarOutput {
+  const dispatch = useDispatch();
+  const isCollapsed = useSelector((state: RootState) =>
+    selectIsSidebarCollapsed(state),
+  );
+  const targetWidth = useSelector((state: RootState) =>
+    selectSidebarTargetWidth(state),
+  );
+
+  const animatedWidth = useSharedValue(targetWidth);
 
   const isActive = useIsLargeScreen();
-  const toggle = () => {
-    const toValue = collapsed ? 250 : 64;
-    console.log("Setting off changing to", toValue);
-    width.value = withTiming(toValue, { duration: 200 });
-    setCollapsed(!collapsed);
+
+  useEffect(() => {
+    if (isActive) {
+      // Only animate if the sidebar is active
+      animatedWidth.value = withTiming(targetWidth, { duration: 250 });
+    } else {
+      animatedWidth.value = targetWidth;
+    }
+  }, [targetWidth, isActive, animatedWidth]);
+
+  const handleToggle = () => {
+    if (isActive) {
+      // Only allow toggle if the sidebar functionality is active
+      dispatch(toggleSidebar());
+    }
   };
 
   return {
     isActive,
-    isCollapsed: collapsed,
-    width,
-    toggle,
+    isCollapsed,
+    animatedWidth,
+    toggle: handleToggle,
   };
 }

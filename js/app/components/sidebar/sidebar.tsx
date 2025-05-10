@@ -1,24 +1,32 @@
 import { YStack, styled, Text, View, Image } from "tamagui";
-import { SharedValue, useAnimatedStyle } from "react-native-reanimated"; // Import SharedValue
+import { SharedValue, useAnimatedStyle } from "react-native-reanimated";
 import SidebarItem from "./sidebar-item";
 import {
   CommonActions,
   DrawerNavigationState,
   ParamListBase,
-} from "@react-navigation/native"; // Import necessary types
+} from "@react-navigation/native";
 import { DrawerNavigationOptions } from "@react-navigation/drawer";
 import { DrawerDescriptorMap } from "@react-navigation/drawer/lib/typescript/src/types";
-import BreakpointIndicator from "components/debug/breakpoint-indicator";
+import { Platform } from "react-native";
+import { FileQuestion } from "@tamagui/lucide-icons";
 
 const AnimatedYStack = styled(YStack, {
   name: "AnimatedYStack",
 });
+
+export interface ExternalDrawerItem {
+  item: React.NamedExoticComponent<any>;
+  label: React.ComponentType<any> | string;
+  onPress: () => void;
+}
 
 interface CustomSidebarProps {
   collapsed: boolean;
   widthAnim: SharedValue<number>;
   descriptors: DrawerDescriptorMap;
   state: DrawerNavigationState<ParamListBase>;
+  externalItems?: ExternalDrawerItem[];
 }
 
 // Combine standard drawer props with custom props
@@ -29,6 +37,7 @@ export default function Sidebar({
   descriptors,
   collapsed,
   widthAnim,
+  externalItems = [],
 }: SidebarProps) {
   // Apply the defined type to the component props
   const animatedSidebarStyle = useAnimatedStyle(() => {
@@ -45,7 +54,7 @@ export default function Sidebar({
       gap="$2"
     >
       <View
-        marginTop="$3"
+        marginTop={Platform.OS === "ios" ? 29 : 12}
         marginBottom="$5"
         paddingLeft="$2.5"
         gap="$3"
@@ -53,25 +62,21 @@ export default function Sidebar({
         justifyContent="flex-start"
         alignItems="center"
       >
-        {/* if we are in not production put the indicator here */}
-        {__DEV__ ? (
-          <BreakpointIndicator />
-        ) : (
-          <Image
-            source={require("../../assets/images/cube.png")}
-            height="$2"
-            width="$2"
-          />
+        <Image
+          source={require("../../assets/images/cube.png")}
+          height="$2"
+          width="$2"
+        />
+        {!collapsed && (
+          <Text fontSize="$7" minWidth={200} numberOfLines={1}>
+            Streamplace
+          </Text>
         )}
-        {!collapsed && <Text fontSize="$7">Streamplace</Text>}
       </View>
 
       {state.routes.map((route) => {
         const descriptor = descriptors[route.key];
         const options = descriptor?.options ?? {};
-        if (options?.headerShown == false) {
-          return null;
-        }
 
         const label =
           typeof options.drawerLabel === "function"
@@ -85,7 +90,7 @@ export default function Sidebar({
         return (
           <SidebarItem
             key={route.key}
-            icon={IconComponent ? IconComponent : null}
+            icon={IconComponent ? IconComponent : FileQuestion}
             label={label}
             active={descriptor.navigation.isFocused()}
             collapsed={collapsed}
@@ -110,7 +115,20 @@ export default function Sidebar({
               }
             }}
             style={options.drawerItemStyle}
-            tint={options.drawerActiveTintColor as string | undefined} // Assuming tint is a string color or undefined
+            tint={options.drawerActiveTintColor as string} // Assuming tint is a string color or undefined
+          />
+        );
+      })}
+      {externalItems.map((i) => {
+        return (
+          <SidebarItem
+            key={JSON.stringify(i.label)}
+            icon={i.item}
+            label={i.label || "Fix this label!"}
+            active={false}
+            collapsed={collapsed}
+            onPress={() => i.onPress()}
+            tint="rgba(189, 110, 134)"
           />
         );
       })}

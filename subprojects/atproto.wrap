@@ -1,0 +1,5 @@
+[wrap-git]
+url = https://github.com/bluesky-social/atproto.git
+revision = fb283edbaf8aa3ecc7db014a40a28173ce81bc4c
+depth = 1
+patch_directory = atproto

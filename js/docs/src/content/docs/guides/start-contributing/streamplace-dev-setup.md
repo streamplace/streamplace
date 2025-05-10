@@ -1,6 +1,8 @@
 ---
 title: Getting Started with Streamplace Development
 description: Learn how to set up your development environment for Streamplace.
+sidebar:
+  order: 10
 ---
 
 So, you've decided to contribute to Streamplace development. Here's how you can

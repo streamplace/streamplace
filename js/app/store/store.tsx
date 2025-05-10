@@ -6,12 +6,16 @@ import { baseSlice } from "features/base/baseSlice";
 import { blueskySlice } from "features/bluesky/blueskySlice";
 import { platformSlice } from "features/platform/platformSlice";
 import { playerSlice } from "features/player/playerSlice";
+import { sidebarSlice } from "features/base/sidebarSlice";
+
+import { listenerMiddleware } from "./listener";
 
 const rootReducer = combineSlices(
   blueskySlice,
   streamplaceSlice,
   platformSlice,
   playerSlice,
+  sidebarSlice,
   baseSlice,
 );
 
@@ -32,7 +36,7 @@ export const makeStore = (preloadedState?: Partial<RootState>) => {
           // Ignore these paths in the state
           ignoredPaths: [/^bluesky\..*/],
         },
-      });
+      }).prepend(listenerMiddleware.middleware);
     },
     preloadedState,
   });

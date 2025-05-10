@@ -1,7 +1,7 @@
 {
   "name": "streamplace-docs",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.6.16",
   "scripts": {
     "dev": "astro dev --host 0.0.0.0 --port 38082",
     "start": "astro dev --host 0.0.0.0 --port 38082",

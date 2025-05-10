@@ -18,7 +18,8 @@ jobs:
       matrix:
         include:
           - name: linux-amd64
-            cmd: "make && (make test || make test) && make check"
+            cmd: >-
+              make && (make test || make test) && make check && make ci-lexicons
           - name: linux-arm64
             cmd: "make app && make linux-arm64"
           - name: windows-amd64

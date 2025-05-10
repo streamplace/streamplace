@@ -60,7 +60,7 @@ export function Settings() {
         >
           <XStack alignItems="center" justifyContent="space-around">
             <View>
-              <XStack>
+              <XStack width={isWeb ? "100%" : "75%"}>
                 <H3 fontSize="$8">Use custom node</H3>
                 <Switch
                   accessibilityLabel="Use custom node"
@@ -78,8 +78,11 @@ export function Settings() {
                 fontSize="$6"
                 color="$gray10"
                 style={{ opacity: overrideEnabled ? 0 : 1 }}
+                numberOfLines={1}
+                ellipsizeMode="middle"
+                maxWidth={280}
               >
-                Current node: {url}
+                Default node: {url}
               </Text>
             </View>
           </XStack>

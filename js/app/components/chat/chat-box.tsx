@@ -82,6 +82,7 @@ export default function ChatBox({
   const replyTo = useAppSelector(useReplyToMessage());
   const [isTextAreaFocused, setIsTextAreaFocused] = useState(false);
   const enterHandledRef = useRef(false);
+  const [cursorPosition, setCursorPosition] = useState(0);
 
   useEffect(() => {
     if (replyTo && textAreaRef.current) {
@@ -329,6 +330,15 @@ export default function ChatBox({
                       // Update suggestions based on cursor position
                       const cursorPosition = textarea.selectionStart;
                       updateSuggestions(text, cursorPosition);
+                    } else {
+                      // On native, use tracked cursor position
+                      updateSuggestions(text, cursorPosition);
+                    }
+                  }}
+                  onSelectionChange={(e) => {
+                    // For native platforms, track cursor position
+                    if (!isWeb) {
+                      setCursorPosition(e.nativeEvent.selection.start);
                     }
                   }}
                   onKeyPress={(e) => {

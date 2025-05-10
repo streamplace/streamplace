@@ -1,5 +1,10 @@
 import "@expo/metro-runtime";
-import { createDrawerNavigator } from "@react-navigation/drawer";
+import {
+  createDrawerNavigator,
+  DrawerContentScrollView,
+  DrawerItem,
+  DrawerItemList,
+} from "@react-navigation/drawer";
 import {
   CommonActions,
   DrawerActions,
@@ -21,6 +26,8 @@ import {
   Video,
   PanelLeftOpen,
   PanelLeftClose,
+  Book,
+  ExternalLink,
 } from "@tamagui/lucide-icons";
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
@@ -28,10 +35,11 @@ import Login from "components/login/login";
 import StreamList from "components/stream-list/stream-list";
 import { selectUserProfile } from "features/bluesky/blueskySlice";
 import usePlatform from "hooks/usePlatform";
-import { useEffect, useState } from "react";
+import { ReactElement, useEffect, useState } from "react";
 import {
   ImageBackground,
   ImageSourcePropType,
+  Linking,
   Pressable,
   StatusBar,
 } from "react-native";
@@ -59,10 +67,22 @@ import LiveDashboard from "./screens/live-dashboard";
 import Popup from "components/popup";
 import PopoutChat from "./screens/chat-popout";
 import EmbedScreen from "./screens/embed";
-import useSidebarControl, { UseSidebarOutput } from "hooks/useSidebarControl";
-import Sidebar from "components/sidebar/sidebar";
-import HomeScreen from "./screens/home";
+import { useSidebarControl } from "hooks/useSidebarControl";
+import Sidebar, { ExternalDrawerItem } from "components/sidebar/sidebar";
 
+// probabl should move this
+import { store } from "store/store";
+import { loadStateFromStorage } from "features/base/sidebarSlice";
+
+store.dispatch(loadStateFromStorage());
+
+function HomeScreen() {
+  return (
+    <View f={1}>
+      <StreamList contentContainerStyle={{ paddingTop: "$3" }}></StreamList>
+    </View>
+  );
+}
 const Stack = createNativeStackNavigator();
 
 type HomeStackParamList = {
@@ -122,39 +142,46 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
 
 const Drawer = createDrawerNavigator();
 
-const NavigationButton = ({
-  canGoBack,
-  sidebar,
-}: {
-  canGoBack?: boolean;
-  sidebar?: UseSidebarOutput;
-}) => {
+const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
+  const sidebar = useSidebarControl();
   const navigation = useNavigation();
+
+  const handlePress = () => {
+    if (sidebar?.isActive) {
+      sidebar.toggle();
+    }
+  };
+
+  const handleGoBackPress = () => {
+    if (canGoBack) {
+      navigation.goBack();
+    } else {
+      navigation.dispatch(DrawerActions.toggleDrawer());
+    }
+  };
+
+  console.log("sidebar", sidebar);
+
+  let icon: ReactElement | null = null;
+  if (sidebar?.isActive) {
+    if (sidebar.isCollapsed) {
+      icon = <PanelLeftOpen />;
+    } else {
+      icon = <PanelLeftClose />;
+    }
+  }
+
   return (
-    <Pressable
-      style={{ padding: 5, marginLeft: 15 }}
-      onPress={() => {
-        if (canGoBack) {
-          navigation.goBack();
-        } else if (sidebar?.isActive) {
-          sidebar.toggle();
-        } else {
-          navigation.dispatch(DrawerActions.toggleDrawer());
-        }
-      }}
-    >
-      {canGoBack ? (
-        <ArrowLeft />
-      ) : sidebar?.isActive ? (
-        sidebar?.isCollapsed ? (
-          <PanelLeftOpen />
-        ) : (
-          <PanelLeftClose />
-        )
-      ) : (
-        <Menu />
+    <View flexDirection="row" marginLeft="$3">
+      {icon && (
+        <Pressable style={{ padding: 5 }} onPress={handlePress}>
+          {icon}
+        </Pressable>
       )}
-    </Pressable>
+      <Pressable style={{ padding: 5 }} onPress={handleGoBackPress}>
+        {canGoBack ? <ArrowLeft /> : sidebar?.isActive || <Menu />}
+      </Pressable>
+    </View>
   );
 };
 
@@ -188,6 +215,46 @@ const AvatarButton = () => {
     </AQLink>
   );
 };
+
+const EXTERNAL_ITEMS: ExternalDrawerItem[] = [
+  {
+    item: Book,
+    label: (
+      <Text alignSelf="flex-start">
+        Documentation{" "}
+        <ExternalLink size={16} pl={4} position="relative" top={2} />
+      </Text>
+    ) as any,
+    onPress: () => {
+      const u = new URL(window.location.href);
+      u.pathname = "/docs";
+      Linking.openURL(u.toString());
+    },
+  },
+];
+
+// TODO: merge in ^
+function CustomDrawerContent(props) {
+  return (
+    <DrawerContentScrollView {...props}>
+      <DrawerItemList {...props} />
+      <DrawerItem
+        icon={() => <Book />}
+        label={() => (
+          <Text alignSelf="flex-start">
+            Documentation{" "}
+            <ExternalLink size={16} pl={4} position="relative" top={2} />
+          </Text>
+        )}
+        onPress={() => {
+          const u = new URL(window.location.href);
+          u.pathname = "/docs";
+          Linking.openURL(u.toString());
+        }}
+      />
+    </DrawerContentScrollView>
+  );
+}
 
 export default function Router() {
   const { isWeb, isElectron } = usePlatform();
@@ -272,13 +339,14 @@ export function StreamplaceDrawer() {
           drawerType: sidebar.isActive ? "permanent" : "front",
           swipeEnabled: !sidebar.isActive,
           drawerStyle: {
-            // not really supposed to do this?
+            // afaict the drawer is a RN Animated component internally
+            // TODO (nat): look into this and change width prop as needed
             width: sidebar.isActive
-              ? (sidebar.width as unknown as number)
+              ? (sidebar.animatedWidth as any)
               : undefined,
           },
           // rest
-          headerLeft: () => <NavigationButton sidebar={sidebar} />,
+          headerLeft: () => <NavigationButton />,
           headerRight: () => <AvatarButton />,
           drawerActiveTintColor: theme.accentColor.val,
           unmountOnBlur: true,
@@ -289,10 +357,11 @@ export function StreamplaceDrawer() {
                 <Sidebar
                   {...props}
                   collapsed={sidebar.isCollapsed}
-                  widthAnim={sidebar.width}
+                  widthAnim={sidebar.animatedWidth}
+                  externalItems={EXTERNAL_ITEMS}
                 />
               )
-            : undefined
+            : CustomDrawerContent
         }
       >
         <Drawer.Screen
@@ -344,10 +413,11 @@ export function StreamplaceDrawer() {
         />
         <Drawer.Screen
           name="Settings"
-          component={Settings}
+          component={WrappedSettings}
           options={{
             drawerIcon: () => <SettingsIcon />,
             drawerLabel: () => <Text>Settings</Text>,
+            headerShown: false,
           }}
         />
         <Drawer.Screen
@@ -395,10 +465,11 @@ export function StreamplaceDrawer() {
         />
         <Drawer.Screen
           name="Login"
-          component={Login}
+          component={WrappedLogin}
           options={{
             drawerIcon: () => <LogIn />,
             drawerLabel: () => <Text>Login</Text>,
+            headerShown: false,
           }}
         />
         <Drawer.Screen
@@ -477,3 +548,40 @@ const MainTab = () => {
     </Stack.Navigator>
   );
 };
+
+const withStackNavigator = (Component, screenTitle) => {
+  function WrappedComponent(props) {
+    const theme = useTheme();
+    const { isWeb } = usePlatform();
+
+    return (
+      <Stack.Navigator
+        initialRouteName="Main"
+        screenOptions={{
+          headerLeft: ({ canGoBack }) => (
+            <NavigationButton canGoBack={canGoBack} />
+          ),
+          headerRight: () => <AvatarButton />,
+          headerShown: true,
+        }}
+      >
+        <Stack.Screen
+          name="Main"
+          options={{
+            headerTitle: screenTitle,
+            title: screenTitle,
+          }}
+        >
+          {() => <Component {...props} />}
+        </Stack.Screen>
+      </Stack.Navigator>
+    );
+  }
+
+  WrappedComponent.displayName = `withStackNavigator(${Component.displayName || Component.name || "Component"})`;
+
+  return WrappedComponent;
+};
+
+const WrappedLogin = withStackNavigator(Login, "Login");
+const WrappedSettings = withStackNavigator(Settings, "Settings");

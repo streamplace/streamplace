@@ -85,7 +85,8 @@ schema:
 lexicons:
 	$(MAKE) go-lexicons \
 	&& $(MAKE) js-lexicons \
-	&& $(MAKE) md-lexicons
+	&& $(MAKE) md-lexicons \
+	&& make fix
 
 .PHONY: go-lexicons
 go-lexicons:
@@ -97,7 +98,7 @@ go-lexicons:
 	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace -type f) \
 	&& go run ./pkg/gen/gen.go \
 	&& $(MAKE) lexgen \
-	&& rm -rf ./pkg/streamplace/*.bak \
+	&& find . | grep bak$$ | xargs rm \
 	&& rm -rf api
 
 .PHONY: js-lexicons
@@ -111,7 +112,7 @@ js-lexicons:
 		&& sed -i.bak 's/AppBskyGraphBlock\.Main/AppBskyGraphBlock\.Record/' $$(find ./js/app/lexicons/types/place/stream -type f) \
 		&& sed -i.bak 's/PlaceStreamChatProfile\.Main/PlaceStreamChatProfile\.Record/' $$(find ./js/app/lexicons/types/place/stream -type f) \
 		&& sed -i.bak "s/import\ \*\ as\ AppBskyFeedDefs\ from\ '.\/defs'/import \{ AppBskyFeedDefs } from '@atproto\/api'/" $$(find ./js/app/lexicons/types -type f) \
-		&& rm -rf ./js/app/lexicons/types/place/stream/*.bak
+		&& find . | grep bak$$ | xargs rm
 
 .PHONY: md-lexicons
 md-lexicons:
@@ -132,7 +133,12 @@ lexgen-types:
 		--prefix place.stream \
 		--build-file util/lexgen-types.json \
 		lexicons/place/stream \
-		../atproto/lexicons
+		./subprojects/atproto/lexicons
+
+.PHONY: ci-lexicons
+ci-lexicons:
+	$(MAKE) lexicons \
+	&& if ! git diff --exit-code >/dev/null; then echo "lexicons are out of date, run 'make lexicons' to fix"; exit 1; fi
 
 .PHONY: lexgen-server
 lexgen-server:

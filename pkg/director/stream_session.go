@@ -237,7 +237,7 @@ func (ss *StreamSession) AddToHLS(ctx context.Context, spseg *streamplace.Segmen
 	buf := bytes.Buffer{}
 	dur, err := media.MP4ToMPEGTS(ctx, bytes.NewReader(data), &buf)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to convert MP4 to MPEG-TS: %w", err)
 	}
 	// newSeg := &streamplace.Segment{
 	// 	LexiconTypeID: "place.stream.segment",
@@ -251,7 +251,7 @@ func (ss *StreamSession) AddToHLS(ctx context.Context, spseg *streamplace.Segmen
 	// }
 	aqt, err := aqtime.FromString(spseg.StartTime)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse segment start time: %w", err)
 	}
 	log.Debug(ctx, "transmuxed to mpegts, adding to hls", "rendition", rendition, "size", buf.Len())
 	ss.hls.GetRendition(rendition).NewSegment(&media.Segment{

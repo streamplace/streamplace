@@ -4,3 +4,6 @@
 !FFmpeg.wrap
 !c2pa_go.wrap
 !gstreamer-full.wrap
+!atproto.wrap
+!packagefiles/
+!packagefiles/**

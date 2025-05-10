@@ -64,6 +64,11 @@ var Version = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "version of streamplace",
 }, []string{"version"})
 
+var WebsocketsOpen = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "streamplace_websockets_open",
+	Help: "number of open websockets",
+})
+
 func ViewerInc(user string) {
 	go func() {
 		viewersLock.Lock()

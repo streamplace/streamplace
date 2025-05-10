@@ -238,7 +238,7 @@ function ChatMessageRow({
           opacity={0.7}
         />
       )}
-      <View flexDirection="column" gap="$1">
+      <View flexDirection="column" gap="$1" flex={1}>
         {/* Reply section */}
         {hasReply && (
           <View

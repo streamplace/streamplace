@@ -262,7 +262,7 @@ func (a *StreamplaceAPI) HandleOAuthReturn(ctx context.Context) http.HandlerFunc
 		q := u.Query()
 		q.Set("iss", "https://longos.iameli.link")
 		q.Set("state", upstreamSession.DownstreamPAR.State)
-		q.Set("code", "asdf")
+		q.Set("code", upstreamSession.DownstreamAuthorizationCode)
 		u.RawQuery = q.Encode()
 		http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
 	}

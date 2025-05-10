@@ -88,16 +88,3 @@ func GetDownstreamMetadata(host string, platform string, appBundleId string) *OA
 	}
 	return meta
 }
-
-// clientMetadata: {
-// 	client_id: "http://localhost?scope=atproto%20transition:generic",
-// 	redirect_uris: ["http://127.0.0.1:38081"],
-// 	scope: "atproto transition:generic",
-// 	token_endpoint_auth_method: "none",
-// 	// jwks_uri: "https://my-app.example/jwks.json",
-// 	client_name: "Loopback client",
-// 	response_types: ["code"],
-// 	grant_types: ["authorization_code", "refresh_token"],
-// 	application_type: "native",
-// 	dpop_bound_access_tokens: true,
-// },

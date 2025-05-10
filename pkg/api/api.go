@@ -120,10 +120,12 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 // api/playback/iame.li/hls/source/000000000000.ts
 
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
+	var xrpc http.Handler
 	xrpc, err := spxrpc.NewServer(a.CLI, a.Model)
 	if err != nil {
 		return nil, err
 	}
+	xrpc = a.OAuthMiddleware(xrpc)
 	router := httprouter.New()
 	apiRouter := httprouter.New()
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))

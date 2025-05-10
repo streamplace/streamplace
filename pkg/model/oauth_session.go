@@ -61,6 +61,15 @@ func (m *DBModel) GetOAuthSessionByDownstreamPARID(id string) (*OAuthSession, er
 	return &session, nil
 }
 
+func (m *DBModel) GetOAuthSessionByDownstreamAccessToken(token string) (*OAuthSession, error) {
+	var session OAuthSession
+	err := m.DB.Where("downstream_access_token = ?", token).First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
 func (m *DBModel) UpdateOAuthSession(session *OAuthSession) error {
 	return m.DB.Save(session).Error
 }

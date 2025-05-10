@@ -99,7 +99,7 @@ func Login(ctx context.Context, cli *config.CLI, downstreamPAR *model.PAR, mod m
 
 var xrpcClient *oauth.XrpcClient
 
-func getXrpcClient(mod model.Model) *oauth.XrpcClient {
+func GetXrpcClient(mod model.Model) *oauth.XrpcClient {
 	if xrpcClient == nil {
 		xrpcClient = &oauth.XrpcClient{
 			OnDpopPdsNonceChanged: func(did, newNonce string) {
@@ -165,7 +165,7 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 		DpopPrivateJwk: key,
 	}
 
-	xc := getXrpcClient(mod)
+	xc := GetXrpcClient(mod)
 
 	// brief check to make sure we can actually do stuff
 	var out atproto.ServerCheckAccountStatus_Output

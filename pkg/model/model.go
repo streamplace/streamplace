@@ -83,6 +83,7 @@ type Model interface {
 	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
 
 	CreateOAuthSession(session *OAuthSession) error
+	GetOAuthSession(id string) (*OAuthSession, error)
 	GetOAuthSessionByUpstreamState(state string) (*OAuthSession, error)
 	GetOAuthSessionByDownstreamPARID(id string) (*OAuthSession, error)
 	GetOAuthSessionByDownstreamAccessToken(token string) (*OAuthSession, error)

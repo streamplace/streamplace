@@ -43,6 +43,15 @@ func (m *DBModel) CreateOAuthSession(session *OAuthSession) error {
 	return m.DB.Create(session).Error
 }
 
+func (m *DBModel) GetOAuthSession(state string) (*OAuthSession, error) {
+	var session OAuthSession
+	err := m.DB.Where("id = ?", state).First(&session).Error
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
 func (m *DBModel) GetOAuthSessionByUpstreamState(state string) (*OAuthSession, error) {
 	var session OAuthSession
 	err := m.DB.Where("upstream_state = ?", state).Preload("DownstreamPAR").First(&session).Error

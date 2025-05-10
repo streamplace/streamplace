@@ -97,19 +97,6 @@ func Login(ctx context.Context, cli *config.CLI, downstreamPAR *model.PAR, mod m
 	return str, nil
 }
 
-var xrpcClient *oauth.XrpcClient
-
-func GetXrpcClient(mod model.Model) *oauth.XrpcClient {
-	if xrpcClient == nil {
-		xrpcClient = &oauth.XrpcClient{
-			OnDpopPdsNonceChanged: func(did, newNonce string) {
-				// todo: update the nonce in the database... i guess we only have one session per user?
-			},
-		}
-	}
-	return xrpcClient
-}
-
 func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss string, state string, mod model.Model) (*model.OAuthSession, error) {
 	meta := GetUpstreamMetadata("longos.iameli.link", "web", "")
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
@@ -165,11 +152,13 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 		DpopPrivateJwk: key,
 	}
 
-	xc := GetXrpcClient(mod)
+	xrpcClient := &oauth.XrpcClient{
+		OnDpopPdsNonceChanged: func(did, newNonce string) {},
+	}
 
 	// brief check to make sure we can actually do stuff
 	var out atproto.ServerCheckAccountStatus_Output
-	if err := xc.Do(ctx, authArgs, xrpc.Query, "application/json", "com.atproto.server.checkAccountStatus", nil, nil, &out); err != nil {
+	if err := xrpcClient.Do(ctx, authArgs, xrpc.Query, "application/json", "com.atproto.server.checkAccountStatus", nil, nil, &out); err != nil {
 		return nil, fmt.Errorf("failed to check account status: %w", err)
 	}
 

@@ -51,7 +51,7 @@ func HandleOAuthToken(ctx context.Context, cli *config.CLI, tokenRequest *TokenR
 		return nil, fmt.Errorf("could not get oauth session: %w", err)
 	}
 
-	accessToken, err := generateJWT(cli)
+	accessToken, err := generateJWT(cli, par.JKT, session.RepoDID)
 	if err != nil {
 		return nil, fmt.Errorf("could not generate access token: %w", err)
 	}
@@ -63,6 +63,7 @@ func HandleOAuthToken(ctx context.Context, cli *config.CLI, tokenRequest *TokenR
 
 	session.DownstreamAccessToken = accessToken
 	session.DownstreamRefreshToken = refreshToken
+	session.DownstreamDPoPJKT = par.JKT
 
 	err = mod.UpdateOAuthSession(session)
 	if err != nil {
@@ -73,21 +74,27 @@ func HandleOAuthToken(ctx context.Context, cli *config.CLI, tokenRequest *TokenR
 
 }
 
-func generateJWT(cli *config.CLI) (string, error) {
+func generateJWT(cli *config.CLI, jkt string, did string) (string, error) {
 	// Create a new token object, specifying signing method and the claims
 	// you would like it to contain.
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return "", err
 	}
+	now := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
-		"jti":       uu.String(),
-		"iat":       time.Now().Unix(),
-		"exp":       time.Now().Add(time.Hour * 24).Unix(),
-		"iss":       "https://longos.iameli.link",
+		"jti": uu.String(),
+		"sub": did,
+		"exp": now.Add(time.Hour * 24).Unix(),
+		"iat": now.Unix(),
+		"nbf": now.Unix(),
+		"cnf": map[string]any{
+			"jkt": jkt,
+		},
 		"aud":       "did:web:longos.iameli.link",
 		"scope":     "atproto transition:generic",
 		"client_id": "https://longos.iameli.link/api/atproto-oauth/web",
+		"iss":       "https://longos.iameli.link",
 	})
 
 	// Sign and get the complete encoded token as a string using the secret

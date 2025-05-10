@@ -23,6 +23,7 @@ type OAuthSession struct {
 	DownstreamPARID          string    `gorm:"column:downstream_par_id;uniqueIndex"`
 	DownstreamPAR            *PAR      `gorm:"foreignKey:DownstreamPARID"`
 	DownstreamDPoPNonce      string    `gorm:"column:downstream_dpop_nonce"`
+	DownstreamDPoPJKT        string    `gorm:"column:downstream_dpop_jkt"`
 	DownstreamAccessToken    string    `gorm:"column:downstream_access_token;index"`
 	DownstreamRefreshToken   string    `gorm:"column:downstream_refresh_token"`
 	CreatedAt                time.Time

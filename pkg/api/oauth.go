@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/AxisCommunications/go-dpop"
 	"github.com/haileyok/atproto-oauth-golang/helpers"
 	"github.com/julienschmidt/httprouter"
 	"go.opentelemetry.io/otel"
@@ -159,6 +161,31 @@ func (a *StreamplaceAPI) HandleOAuthPAR(ctx context.Context) http.HandlerFunc {
 			apierrors.WriteHTTPBadRequest(w, "invalid request", err)
 			return
 		}
+
+		dpopHeader := r.Header.Get("DPoP")
+		if dpopHeader == "" {
+			apierrors.WriteHTTPBadRequest(w, "DPoP header is required", nil)
+			return
+		}
+
+		thirtySec := time.Duration(30 * time.Second)
+		proof, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: r.Host, Scheme: "https", Path: "/api/oauth/par"}, dpop.ParseOptions{
+			Nonce:      "",
+			TimeWindow: &thirtySec,
+		})
+		// Check the error type to determine response
+		if err != nil {
+			if ok := errors.Is(err, dpop.ErrInvalidProof); ok {
+				apierrors.WriteHTTPBadRequest(w, "invalid DPoP proof", nil)
+				return
+			}
+			apierrors.WriteHTTPBadRequest(w, "invalid DPoP proof", err)
+			return
+		}
+
+		// proof is valid, get public key to associate with access token
+		par.JKT = proof.PublicKey()
+
 		if err := a.Model.CreatePAR(&par); err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not create par", err)
 			return

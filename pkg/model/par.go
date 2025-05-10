@@ -21,6 +21,7 @@ type PAR struct {
 	ResponseType        string    `json:"response_type" gorm:"column:response_type"`
 	Scope               string    `json:"scope" gorm:"column:scope"`
 	ExpiresAt           time.Time `json:"expires_at" gorm:"column:expires_at"`
+	JKT                 string    `json:"jkt" gorm:"column:jkt"`
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 	DeletedAt           gorm.DeletedAt `gorm:"index"`

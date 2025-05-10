@@ -73,16 +73,10 @@ import Sidebar, { ExternalDrawerItem } from "components/sidebar/sidebar";
 // probabl should move this
 import { store } from "store/store";
 import { loadStateFromStorage } from "features/base/sidebarSlice";
+import HomeScreen from "./screens/home";
 
 store.dispatch(loadStateFromStorage());
 
-function HomeScreen() {
-  return (
-    <View f={1}>
-      <StreamList contentContainerStyle={{ paddingTop: "$3" }}></StreamList>
-    </View>
-  );
-}
 const Stack = createNativeStackNavigator();
 
 type HomeStackParamList = {

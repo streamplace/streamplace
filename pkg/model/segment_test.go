@@ -7,11 +7,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"stream.place/streamplace/pkg/config"
 )
 
 func TestSegmentCleaner(t *testing.T) {
-	db, err := MakeDB(":memory:", &config.CLI{})
+	db, err := MakeDB(":memory:")
 	require.NoError(t, err)
 	// Create a model instance
 	model := db.(*DBModel)

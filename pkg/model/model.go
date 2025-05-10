@@ -96,7 +96,7 @@ type Model interface {
 	DeletePAR(id string) error
 }
 
-func MakeDB(dbURL string, cli *config.CLI) (Model, error) {
+func MakeDB(dbURL string) (Model, error) {
 	log.Log(context.Background(), "starting database", "dbURL", dbURL)
 	sqliteSuffix := dbURL
 	if dbURL != ":memory:" {

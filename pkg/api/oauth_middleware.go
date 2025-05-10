@@ -21,8 +21,10 @@ func (a *StreamplaceAPI) OAuthMiddleware(next http.Handler) http.Handler {
 		}
 		if session == nil {
 			next.ServeHTTP(w, r)
+			return
 		}
 		ctx = context.WithValue(ctx, atproto.OAuthContextKey, session)
+		ctx = context.WithValue(ctx, atproto.ModelContextKey, a.Model)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

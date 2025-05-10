@@ -58,6 +58,7 @@
     "expo-dev-client": "~5.0.3",
     "expo-file-system": "~18.0.4",
     "expo-font": "~13.0.1",
+    "expo-image-picker": "^16.1.4",
     "expo-keep-awake": "~14.0.2",
     "expo-linking": "~7.0.3",
     "expo-notifications": "~0.29.8",

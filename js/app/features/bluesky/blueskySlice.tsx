@@ -26,6 +26,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createAppSlice } from "../../hooks/createSlice";
 import { BlueskyState } from "./blueskyTypes";
 import createOAuthClient from "./oauthClient";
+import { captureVideoFrame, findVideoElement } from "utils/videoCapture";
 
 const initialState: BlueskyState = {
   status: "start",
@@ -58,20 +59,55 @@ const uploadThumbnail = async (
   u: URL,
   pdsAgent: Agent,
   profile: ProfileViewDetailed,
+  customThumbnail?: Blob,
 ) => {
-  // download the thumbnail image and upload it to the pds IF POSSIBLE
-  const thumbnailRes = await fetch(
-    `${u.protocol}//${u.host}/api/playback/${profile.handle}/stream.png`,
-  );
-  if (!thumbnailRes.ok) {
-    throw new Error(`failed to fetch thumbnail (http ${thumbnailRes.status})`);
+  if (customThumbnail) {
+    try {
+      const thumbnail = await pdsAgent.uploadBlob(customThumbnail);
+      if (thumbnail.success) {
+        console.log("Successfully uploaded custom thumbnail");
+        return thumbnail.data.blob;
+      }
+    } catch (e) {
+      console.error("Error uploading custom thumbnail:", e);
+    }
   }
-  const thumbnailBlob = await thumbnailRes.blob();
-  const thumbnail = await pdsAgent.uploadBlob(thumbnailBlob);
-  if (!thumbnail.success) {
-    throw new Error("failed to upload thumbnail");
+  // Capture a frame from the video element on web
+  if (isWeb) {
+    try {
+      const videoElement = findVideoElement();
+      if (videoElement) {
+        const thumbnailBlob = await captureVideoFrame(videoElement, 1280, 0.85);
+        const thumbnail = await pdsAgent.uploadBlob(thumbnailBlob);
+        if (thumbnail.success) {
+          return thumbnail.data.blob;
+        }
+      }
+    } catch (e) {
+      console.error("Error capturing client-side thumbnail:", e);
+    }
   }
-  return thumbnail.data.blob;
+
+  // Fallback to server-side thumbnail if client-side capture fails or we're not on web
+  try {
+    const thumbnailRes = await fetch(
+      `${u.protocol}//${u.host}/api/playback/${profile.handle}/stream.png`,
+    );
+    if (!thumbnailRes.ok) {
+      throw new Error(
+        `failed to fetch thumbnail (http ${thumbnailRes.status})`,
+      );
+    }
+    const thumbnailBlob = await thumbnailRes.blob();
+    const thumbnail = await pdsAgent.uploadBlob(thumbnailBlob);
+    if (!thumbnail.success) {
+      throw new Error("failed to upload thumbnail");
+    }
+    return thumbnail.data.blob;
+  } catch (e) {
+    console.error("Error fetching server-side thumbnail:", e);
+    throw e;
+  }
 };
 
 // clear atproto login query params from url
@@ -340,7 +376,11 @@ export const blueskySlice = createAppSlice({
 
     golivePost: create.asyncThunk(
       async (
-        { text, now }: { text: string; now: Date },
+        {
+          text,
+          now,
+          customThumbnail,
+        }: { text: string; now: Date; customThumbnail?: Blob },
         thunkAPI,
       ): Promise<{
         uri: string;
@@ -374,6 +414,7 @@ export const blueskySlice = createAppSlice({
             u,
             bluesky.pdsAgent,
             profile,
+            customThumbnail,
           );
         } catch (e) {
           console.error("uploadThumbnail error", e);
@@ -743,7 +784,10 @@ export const blueskySlice = createAppSlice({
     ),
 
     createLivestreamRecord: create.asyncThunk(
-      async ({ title }: { title }, thunkAPI) => {
+      async (
+        { title, customThumbnail }: { title: string; customThumbnail?: Blob },
+        thunkAPI,
+      ) => {
         const now = new Date();
         const { bluesky, streamplace } = thunkAPI.getState() as {
           bluesky: BlueskyState;
@@ -760,12 +804,27 @@ export const blueskySlice = createAppSlice({
         if (!profile) {
           throw new Error("No profile");
         }
-        if (!did) {
-          throw new Error("No DID");
+
+        const newPostAction = await thunkAPI.dispatch(
+          golivePost({ text: title, now, customThumbnail }),
+        );
+
+        if (!newPostAction || newPostAction.type.endsWith("/rejected")) {
+          throw new Error(
+            `Failed to create post: ${(newPostAction as any)?.error?.message || "Unknown error"}`,
+          );
         }
-        const newPost = (await thunkAPI.dispatch(
-          golivePost({ text: title, now }),
-        )) as { payload: { uri: string; cid: string } };
+
+        const newPost = newPostAction as {
+          payload: { uri: string; cid: string };
+        };
+
+        if (!newPost.payload?.uri || !newPost.payload?.cid) {
+          throw new Error(
+            "Cannot read properties of undefined (reading 'uri' or 'cid')",
+          );
+        }
+
         const record: PlaceStreamLivestream.Record = {
           title: title,
           url: streamplace.url,

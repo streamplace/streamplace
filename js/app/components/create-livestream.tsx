@@ -8,6 +8,7 @@ import {
 } from "features/bluesky/blueskySlice";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { useLiveUser } from "hooks/useLiveUser";
+import ThumbnailSelector from "components/thumbnail-selector/thumbnail-selector";
 
 const Left = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -31,6 +32,9 @@ export default function CreateLivestream() {
   const userIsLive = useLiveUser();
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
+  const [customThumbnail, setCustomThumbnail] = useState<Blob | undefined>(
+    undefined,
+  );
   const profile = useAppSelector(selectUserProfile);
   const newLivestream = useAppSelector(selectNewLivestream);
   useEffect(() => {
@@ -39,6 +43,7 @@ export default function CreateLivestream() {
         message: newLivestream.record.title,
       });
       setTitle("");
+      setCustomThumbnail(undefined);
     }
   }, [newLivestream?.record]);
   useEffect(() => {
@@ -86,6 +91,16 @@ export default function CreateLivestream() {
           </Right>
         </View>
       </Label>
+      <Label asChild={true}>
+        <View flexDirection="row">
+          <Left>
+            <Paragraph pb="$2">Thumbnail</Paragraph>
+          </Left>
+          <Right>
+            <ThumbnailSelector onThumbnailSelected={setCustomThumbnail} />
+          </Right>
+        </View>
+      </Label>
       <View gap="$2" w="100%">
         <Button
           disabled={disabled}
@@ -93,7 +108,13 @@ export default function CreateLivestream() {
           w="100%"
           size="$4"
           onPress={() => {
-            dispatch(createLivestreamRecord({ title }));
+            setLoading(true);
+            dispatch(
+              createLivestreamRecord({
+                title,
+                customThumbnail,
+              }),
+            ).finally(() => setLoading(false));
           }}
         >
           {buttonText(loading, userIsLive)}

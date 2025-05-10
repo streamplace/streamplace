@@ -30,36 +30,39 @@ const StreamCard: React.FC<StreamCardProps> = ({
 }) => {
   const media = useMedia();
 
-  // Determine layout based on screen size
-  const isLargeScreen = media.gtMd;
   const layoutHorizontal = horizontal;
 
   // Define dynamic styles
   const borderRadius = 12;
   const contentPadding = 8;
   const avatarSize = 40;
-  const livePillHeight = 24;
+  const livePillHeight = 30;
   const livePillPaddingHorizontal = 6;
   const categoryPillHeight = 16;
   const categoryPillPaddingHorizontal = 4;
 
   const MainContainer = layoutHorizontal ? XStack : YStack;
 
+  // Calculate a fixed height for the content section when vertical
+  // This ensures consistency below the thumbnail.
+  // The content area (inside padding) will be avatarSize high.
+  const verticalContentSectionHeight = avatarSize + 2 * contentPadding; // 40 + 2*8 = 56
+
   return (
     <MainContainer
       flex={1}
-      backgroundColor="$accentBackground"
+      backgroundColor="$gray3"
       borderRadius={borderRadius}
       overflow="hidden"
       alignItems={layoutHorizontal ? "center" : "stretch"}
       hoverStyle={{
-        backgroundColor: "$purple6Dark",
+        backgroundColor: "$gray6",
       }}
     >
       {/* Thumbnail Section */}
       <Stack
         flex={layoutHorizontal ? 0 : undefined}
-        width={layoutHorizontal ? "40%" : "100%"}
+        width={layoutHorizontal ? "58%" : "100%"}
         aspectRatio={16 / 9}
         borderRadius={borderRadius}
         overflow="hidden"
@@ -97,10 +100,11 @@ const StreamCard: React.FC<StreamCardProps> = ({
 
       {/* Content Section */}
       <XStack
-        flex={1}
+        flex={layoutHorizontal ? 1 : undefined} // Only flex when horizontal
         padding={contentPadding}
-        alignItems="center"
+        alignItems="center" // Vertically aligns Avatar and Text Content YStack
         gap={contentPadding}
+        height={!layoutHorizontal ? verticalContentSectionHeight : "unset"}
       >
         {/* Avatar */}
         <Stack
@@ -108,6 +112,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
           height={avatarSize}
           borderRadius={avatarSize / 2}
           overflow="hidden"
+          flexShrink={0}
         >
           <Image
             source={{ uri: avatarUrl }}
@@ -119,10 +124,11 @@ const StreamCard: React.FC<StreamCardProps> = ({
         {/* Text Content */}
         <YStack
           flex={1}
-          justifyContent="space-between"
+          justifyContent="space-around"
           alignItems="flex-start"
           gap={contentPadding / 2}
-          style={{ width: "100%", height: "100%" }}
+          width={0}
+          maxWidth="unset"
         >
           {title && (
             <Text
@@ -149,7 +155,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
             </Text>
           )}
           {category.length > 0 && (
-            <XStack flexWrap="wrap" gap={4}>
+            <XStack flexWrap="wrap" gap={4} alignItems="center">
               {category.map((cat, index) => (
                 <Stack
                   key={index}
@@ -160,7 +166,14 @@ const StreamCard: React.FC<StreamCardProps> = ({
                   alignSelf="flex-start"
                   justifyContent="center"
                 >
-                  <Text fontSize={12} color="$gray5" fontWeight="400">
+                  <Text
+                    fontSize={12}
+                    color="$white075"
+                    fontWeight="400"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    paddingHorizontal={3}
+                  >
                     {cat}
                   </Text>
                 </Stack>

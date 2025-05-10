@@ -8,7 +8,7 @@ import {
 } from "features/bluesky/blueskySlice";
 import { useAppSelector } from "store/hooks";
 import { Redirect } from "components/aqlink";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useLiveUser } from "hooks/useLiveUser";
 import StreamKeyScreen from "components/live-dashboard/stream-key";
 
@@ -24,6 +24,12 @@ export default function LiveDashboard() {
   const [streamSource, setStreamSource] = useState(StreamSource.Start);
   const isLive = useLiveUser();
   const telemetry = useAppSelector(selectTelemetry);
+  const videoRef = useCallback((node: HTMLVideoElement | null) => {
+    console.log("videoRef", node);
+    if (node !== null) {
+      // save here for screenshot alter
+    }
+  }, []);
   if (!isReady) {
     return <Loading />;
   }
@@ -35,12 +41,14 @@ export default function LiveDashboard() {
   if (isWeb) {
     params = new URLSearchParams(window.location.search);
   }
+
   if (isLive && streamSource !== StreamSource.Camera) {
     topPane = (
       <Player
         telemetry={telemetry === true}
         src={userProfile.did}
         name={userProfile.handle}
+        videoRef={videoRef}
       />
     );
   } else if (streamSource === StreamSource.Start) {

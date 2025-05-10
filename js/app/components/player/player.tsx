@@ -154,6 +154,7 @@ export function PlayerInner(props: Partial<PlayerProps>) {
     muteWasForced: muteWasForced,
     setMuteWasForced: setMuteWasForced,
     embedded: props.embedded ?? false,
+    videoRef: props.videoRef,
     ...props,
   };
   return (

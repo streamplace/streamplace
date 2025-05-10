@@ -14,7 +14,7 @@ import { useAppSelector } from "store/hooks";
 // }
 
 export default function NativeVideo(
-  props: PlayerProps & { videoRef: React.RefObject<VideoView> },
+  props: PlayerProps & { nativeVideoRef: React.RefObject<VideoView> },
 ) {
   const protocol = useAppSelector(usePlayerProtocol());
   if (protocol === PROTOCOL_WEBRTC) {
@@ -77,7 +77,7 @@ export default function NativeVideo(
   return (
     <VideoView
       style={{ flex: 1, backgroundColor: "#111" }}
-      ref={props.videoRef}
+      ref={props.nativeVideoRef}
       player={player}
       allowsFullscreen
       nativeControls={props.fullscreen}

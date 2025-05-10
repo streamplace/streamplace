@@ -16,24 +16,23 @@ export default function Container({ children, ...props }) {
     <View f={1} justifyContent="flex-start" alignItems="center">
       <View
         width="100vw"
-        maxWidth={maxContainerWidths.xxs}
-        p="$1"
+        px="$4"
         mx="auto"
-        $xxs={{ maxWidth: maxContainerWidths.xs, px: "$2" }}
-        $xs={{ maxWidth: maxContainerWidths.xs, px: "$2" }}
-        $sm={{
+        $gtXxs={{ maxWidth: maxContainerWidths.xs, px: "$4" }}
+        $gtXs={{
           maxWidth: maxContainerWidths.sm,
-          px: "$2",
+          px: "$4",
         }}
-        $md={{
+        $gtSm={{
           maxWidth: maxContainerWidths.md,
           px: "$4",
         }}
-        $lg={{
-          width: maxContainerWidths.lg,
+        // ?
+        $gtMd={{
+          width: maxContainerWidths.threeXl,
           px: "$8",
         }}
-        $xl={{
+        $gtLg={{
           maxWidth: maxContainerWidths.xl,
           px: "$4",
         }}

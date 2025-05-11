@@ -22,6 +22,11 @@ type TokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type RevokeRequest struct {
+	Token    string `json:"token"`
+	ClientID string `json:"client_id"`
+}
+
 var OAuthTokenExpiry = time.Hour * 24
 
 // handle a request for a new downstream access token (must verify PKCE)
@@ -102,6 +107,22 @@ func HandleOAuthRefreshToken(ctx context.Context, cli *config.CLI, tokenRequest 
 	}
 
 	return session, nil
+}
+
+func HandleOAuthRevoke(ctx context.Context, cli *config.CLI, revokeRequest *RevokeRequest, mod model.Model) error {
+	session, err := mod.GetOAuthSessionByDownstreamAccessToken(revokeRequest.Token)
+	if err != nil {
+		return fmt.Errorf("could not get downstream session: %w", err)
+	}
+
+	now := time.Now()
+	session.RevokedAt = &now
+	err = mod.UpdateOAuthSession(session)
+	if err != nil {
+		return fmt.Errorf("could not update downstream session: %w", err)
+	}
+
+	return nil
 }
 
 func generateJWT(cli *config.CLI, jkt string, did string) (string, error) {

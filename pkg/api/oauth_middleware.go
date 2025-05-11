@@ -64,6 +64,11 @@ func (a *StreamplaceAPI) getOAuthSession(r *http.Request) (*model.OAuthSession, 
 	if session == nil {
 		return nil, fmt.Errorf("oauth session not found")
 	}
+
+	if session.RevokedAt != nil {
+		return nil, fmt.Errorf("oauth session revoked")
+	}
+
 	dpopHeader := r.Header.Get("DPoP")
 	if dpopHeader == "" {
 		return nil, fmt.Errorf("missing DPoP header")

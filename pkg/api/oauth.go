@@ -291,6 +291,22 @@ func (a *StreamplaceAPI) HandleOAuthToken(ctx context.Context) http.HandlerFunc 
 	}
 }
 
+func (a *StreamplaceAPI) HandleOAuthRevoke(ctx context.Context) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var revokeRequest atproto.RevokeRequest
+		if err := json.NewDecoder(r.Body).Decode(&revokeRequest); err != nil {
+			apierrors.WriteHTTPBadRequest(w, "invalid request", err)
+			return
+		}
+		err := atproto.HandleOAuthRevoke(r.Context(), a.CLI, &revokeRequest, a.Model)
+		if err != nil {
+			apierrors.WriteHTTPBadRequest(w, "could not handle oauth revoke", err)
+			return
+		}
+		w.WriteHeader(200)
+	}
+}
+
 func (a *StreamplaceAPI) handleAuthToken(w http.ResponseWriter, r *http.Request, tokenRequest atproto.TokenRequest) {
 	if tokenRequest.Code == "" || tokenRequest.CodeVerifier == "" {
 		apierrors.WriteHTTPBadRequest(w, "missing required parameters", nil)

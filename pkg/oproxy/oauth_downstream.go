@@ -32,43 +32,63 @@ type RevokeRequest struct {
 	ClientID string `json:"client_id"`
 }
 
+type TokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	RefreshToken string `json:"refresh_token"`
+	Scope        string `json:"scope"`
+	ExpiresIn    int    `json:"expires_in"`
+	Sub          string `json:"sub"`
+}
+
 var OAuthTokenExpiry = time.Hour * 24
 
-// handle a request for a new downstream access token (must verify PKCE)
-func HandleOAuthToken(ctx context.Context, cli *config.CLI, tokenRequest *TokenRequest, mod model.Model) (*model.OAuthSession, error) {
+var dpopTimeWindow = time.Duration(30 * time.Second)
+
+func (o *OProxy) Token(ctx context.Context, tokenRequest *TokenRequest, dpopHeader string) (*TokenResponse, error) {
+	proof, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/api/oauth/token"}, dpop.ParseOptions{
+		Nonce:      "",
+		TimeWindow: &dpopTimeWindow,
+	})
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid DPoP proof")
+	}
+
+	jkt := proof.PublicKey()
+	session, err := o.loadOAuthSession(jkt)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("could not get oauth session: %s", err))
+	}
+
+	if tokenRequest.GrantType == "authorization_code" {
+		return o.AccessToken(ctx, tokenRequest, session)
+	} else if tokenRequest.GrantType == "refresh_token" {
+		return o.RefreshToken(ctx, tokenRequest, session)
+	}
+	return nil, echo.NewHTTPError(http.StatusBadRequest, "unsupported grant type")
+}
+
+func (o *OProxy) AccessToken(ctx context.Context, tokenRequest *TokenRequest, session *OAuthSession) (*TokenResponse, error) {
+	if session.Status() != OAuthSessionStateDownstream {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "session is not in downstream state")
+	}
 
 	// Hash the code verifier using SHA-256
 	hasher := sha256.New()
 	hasher.Write([]byte(tokenRequest.CodeVerifier))
 	codeChallenge := hasher.Sum(nil)
 
-	// Encode the hash in URL-safe base64 format
-	// This removes padding and replaces + with - and / with _
-
 	encodedChallenge := base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(codeChallenge)
 
-	// Look up the PAR using the code challenge
-	par, err := mod.GetPARByCodeChallenge(encodedChallenge)
-	if err != nil {
-		return nil, fmt.Errorf("could not get par: %w", err)
-	}
-
-	if par.ExpiresAt.Before(time.Now()) {
-		// todo: clean up the half-created session at this point?
-		return nil, fmt.Errorf("par expired")
-	}
-
-	// get the session for this par
-	session, err := mod.GetOAuthSessionByDownstreamPARID(par.ID)
-	if err != nil {
-		return nil, fmt.Errorf("could not get oauth session: %w", err)
+	if session.DownstreamCodeChallenge != encodedChallenge {
+		return nil, fmt.Errorf("invalid code challenge")
 	}
 
 	if session.DownstreamAuthorizationCode != tokenRequest.Code {
 		return nil, fmt.Errorf("invalid authorization code")
 	}
 
-	accessToken, err := generateJWT(cli, par.JKT, session.RepoDID)
+	accessToken, err := o.generateJWT(session)
 	if err != nil {
 		return nil, fmt.Errorf("could not generate access token: %w", err)
 	}
@@ -80,38 +100,49 @@ func HandleOAuthToken(ctx context.Context, cli *config.CLI, tokenRequest *TokenR
 
 	session.DownstreamAccessToken = accessToken
 	session.DownstreamRefreshToken = refreshToken
-	session.DownstreamDPoPJKT = par.JKT
 
-	err = mod.UpdateOAuthSession(session)
+	err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
 	if err != nil {
 		return nil, fmt.Errorf("could not update downstream session: %w", err)
 	}
 
-	return session, nil
+	return &TokenResponse{
+		AccessToken:  accessToken,
+		TokenType:    "DPoP",
+		RefreshToken: refreshToken,
+		Scope:        "atproto transition:generic",
+		ExpiresIn:    int(OAuthTokenExpiry.Seconds()),
+	}, nil
 }
 
-func HandleOAuthRefreshToken(ctx context.Context, cli *config.CLI, tokenRequest *TokenRequest, mod model.Model) (*model.OAuthSession, error) {
-	session, err := mod.GetOAuthSessionByDownstreamRefreshToken(tokenRequest.RefreshToken)
-	if err != nil {
-		return nil, fmt.Errorf("could not get downstream session: %w", err)
+func (o *OProxy) RefreshToken(ctx context.Context, tokenRequest *TokenRequest, session *OAuthSession) (*TokenResponse, error) {
+
+	if session.Status() != OAuthSessionStateReady {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "session is not in ready state")
 	}
 
-	if session == nil {
-		return nil, fmt.Errorf("invalid refresh token")
+	if session.DownstreamRefreshToken != tokenRequest.RefreshToken {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid refresh token")
 	}
 
-	newJWT, err := generateJWT(cli, session.DownstreamDPoPJKT, session.RepoDID)
+	newJWT, err := o.generateJWT(session)
 	if err != nil {
 		return nil, fmt.Errorf("could not generate new access token: %w", err)
 	}
 
 	session.DownstreamAccessToken = newJWT
-	err = mod.UpdateOAuthSession(session)
+	err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
 	if err != nil {
 		return nil, fmt.Errorf("could not update downstream session: %w", err)
 	}
 
-	return session, nil
+	return &TokenResponse{
+		AccessToken:  newJWT,
+		TokenType:    "DPoP",
+		RefreshToken: session.DownstreamRefreshToken,
+		Scope:        "atproto transition:generic",
+		ExpiresIn:    int(OAuthTokenExpiry.Seconds()),
+	}, nil
 }
 
 func HandleOAuthRevoke(ctx context.Context, cli *config.CLI, revokeRequest *RevokeRequest, mod model.Model) error {
@@ -130,38 +161,34 @@ func HandleOAuthRevoke(ctx context.Context, cli *config.CLI, revokeRequest *Revo
 	return nil
 }
 
-func generateJWT(cli *config.CLI, jkt string, did string) (string, error) {
-	// Create a new token object, specifying signing method and the claims
-	// you would like it to contain.
+func (o *OProxy) generateJWT(session *OAuthSession) (string, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return "", err
 	}
+	downstreamMeta := o.GetDownstreamMetadata()
 	now := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
 		"jti": uu.String(),
-		"sub": did,
+		"sub": session.DID,
 		"exp": now.Add(OAuthTokenExpiry).Unix(),
 		"iat": now.Unix(),
 		"nbf": now.Unix(),
 		"cnf": map[string]any{
-			"jkt": jkt,
+			"jkt": session.DownstreamDPoPJKT,
 		},
-		"aud":       "did:web:longos.iameli.link",
-		"scope":     "atproto transition:generic",
-		"client_id": "https://longos.iameli.link/api/atproto-oauth/web",
-		"iss":       "https://longos.iameli.link",
+		"aud":       fmt.Sprintf("did:web:%s", o.host),
+		"scope":     downstreamMeta.Scope,
+		"client_id": downstreamMeta.ClientID,
+		"iss":       fmt.Sprintf("https://%s", o.host),
 	})
 
-	// Sign and get the complete encoded token as a string using the secret
-	tokenString, err := token.SignedString(cli.AccessJWK)
-
 	var rawKey any
-	if err := cli.AccessJWK.Raw(&rawKey); err != nil {
+	if err := o.downstreamJWK.Raw(&rawKey); err != nil {
 		return "", err
 	}
 
-	tokenString, err = token.SignedString(rawKey)
+	tokenString, err := token.SignedString(rawKey)
 
 	if err != nil {
 		return "", err

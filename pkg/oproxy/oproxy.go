@@ -15,7 +15,8 @@ type OProxy struct {
 	e                  *echo.Echo
 	host               string
 	scope              string
-	jwk                jwk.Key
+	upstreamJWK        jwk.Key
+	downstreamJWK      jwk.Key
 	slog               *slog.Logger
 }
 
@@ -25,7 +26,8 @@ type Config struct {
 	LoadOAuthSession   func(id string) (*OAuthSession, error)
 	Host               string
 	Scope              string
-	JWK                jwk.Key
+	UpstreamJWK        jwk.Key
+	DownstreamJWK      jwk.Key
 	Slog               *slog.Logger
 }
 
@@ -42,6 +44,7 @@ func New(conf *Config) *OProxy {
 		e:                  e,
 		host:               conf.Host,
 		scope:              conf.Scope,
-		jwk:                conf.JWK,
+		upstreamJWK:        conf.UpstreamJWK,
+		downstreamJWK:      conf.DownstreamJWK,
 	}
 }

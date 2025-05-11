@@ -54,7 +54,7 @@ func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (st
 
 	upstreamMeta := o.GetUpstreamMetadata()
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
-		ClientJwk:   o.jwk,
+		ClientJwk:   o.upstreamJWK,
 		ClientId:    upstreamMeta.ClientID,
 		RedirectUri: upstreamMeta.RedirectURIs[0],
 	})
@@ -125,17 +125,30 @@ func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (st
 func (o *OProxy) Return(ctx context.Context, code string, iss string, state string) (string, error) {
 	upstreamMeta := o.GetUpstreamMetadata()
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
-		ClientJwk:   o.jwk,
+		ClientJwk:   o.upstreamJWK,
 		ClientId:    upstreamMeta.ClientID,
 		RedirectUri: upstreamMeta.RedirectURIs[0],
 	})
 
-	session, err := o.loadOAuthSession(state)
+	jkt, _, err := parseState(state)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse state: %s", err))
+	}
+
+	session, err := o.loadOAuthSession(jkt)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to get OAuth session: %s", err))
 	}
 	if session == nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("no OAuth session found for state: %s", state))
+	}
+
+	if session.Status() != OAuthSessionStateUpstream {
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("session is not in upstream state: %s", session.Status()))
+	}
+
+	if session.UpstreamState != state {
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("state mismatch: %s != %s", session.UpstreamState, state))
 	}
 
 	if iss != session.UpstreamAuthServerIssuer {

@@ -113,23 +113,23 @@ func (o *OProxy) HandleOAuthReturn(c echo.Context) error {
 // TokenRequest represents the structure of an OAuth token request
 
 func (o *OProxy) HandleOAuthToken(c echo.Context) error {
-	var tokenRequest atproto.TokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&tokenRequest); err != nil {
-		apierrors.WriteHTTPBadRequest(w, "invalid request", err)
-		return
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleOAuthToken")
+	defer span.End()
+	var tokenRequest TokenRequest
+	if err := json.NewDecoder(c.Request().Body).Decode(&tokenRequest); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid request: %s", err))
 	}
 
-	// Verify the token request parameters
-	if tokenRequest.GrantType == "authorization_code" {
-		a.handleAuthToken(w, r, tokenRequest)
-		return
-	} else if tokenRequest.GrantType == "refresh_token" {
-		a.handleRefreshToken(w, r, tokenRequest)
-		return
+	dpopHeader := c.Request().Header.Get("DPoP")
+	if dpopHeader == "" {
+		return echo.NewHTTPError(http.StatusUnauthorized, "DPoP header is required")
 	}
 
-	apierrors.WriteHTTPBadRequest(w, "unsupported grant type", nil)
-	return nil
+	res, err := o.Token(ctx, &tokenRequest, dpopHeader)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, res)
 }
 
 func (o *OProxy) HandleOAuthRevoke(c echo.Context) error {
@@ -144,53 +144,4 @@ func (o *OProxy) HandleOAuthRevoke(c echo.Context) error {
 		return
 	}
 	w.WriteHeader(200)
-}
-
-func (o *OProxy) handleAuthToken(c echo.Context) error {
-	if tokenRequest.Code == "" || tokenRequest.CodeVerifier == "" {
-		apierrors.WriteHTTPBadRequest(w, "missing required parameters", nil)
-		return
-	}
-
-	session, err := atproto.HandleOAuthToken(r.Context(), a.CLI, &tokenRequest, a.Model)
-	if err != nil {
-		apierrors.WriteHTTPBadRequest(w, "could not handle oauth token", err)
-		return
-	}
-
-	response := map[string]interface{}{
-		"access_token":  session.DownstreamAccessToken,
-		"token_type":    "DPoP",
-		"refresh_token": session.DownstreamRefreshToken,
-		"scope":         "atproto transition:generic",
-		"expires_in":    atproto.OAuthTokenExpiry.Seconds(),
-		"sub":           session.RepoDID,
-	}
-
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	json.NewEncoder(w).Encode(response)
-}
-
-func (o *OProxy) handleRefreshToken(c echo.Context) error {
-	session, err := atproto.HandleOAuthRefreshToken(r.Context(), a.CLI, &tokenRequest, a.Model)
-	if err != nil {
-		apierrors.WriteHTTPBadRequest(w, "could not handle oauth token", err)
-		return
-	}
-
-	response := map[string]interface{}{
-		"access_token":  session.DownstreamAccessToken,
-		"token_type":    "DPoP",
-		"refresh_token": session.DownstreamRefreshToken,
-		"scope":         "atproto transition:generic",
-		"expires_in":    atproto.OAuthTokenExpiry.Seconds(),
-		"sub":           session.RepoDID,
-	}
-
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	json.NewEncoder(w).Encode(response)
 }

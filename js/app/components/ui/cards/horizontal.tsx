@@ -62,7 +62,13 @@ const StreamCard: React.FC<StreamCardProps> = ({
       {/* Thumbnail Section */}
       <Stack
         flex={layoutHorizontal ? 0 : undefined}
-        width={layoutHorizontal ? "58%" : "100%"}
+        minWidth={layoutHorizontal ? "67%" : "100%"}
+        $gtXl={{
+          minWidth: layoutHorizontal ? "65%" : "100%",
+        }}
+        $gtXxl={{
+          minWidth: layoutHorizontal ? "61%" : "100%",
+        }}
         aspectRatio={16 / 9}
         borderRadius={borderRadius}
         overflow="hidden"

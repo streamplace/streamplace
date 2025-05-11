@@ -412,7 +412,6 @@ export default function HomeScreen({
                   itemIndex == 0 ? getPadPercentage(media) / cols : 1 / cols
                 }
                 justifyContent="center"
-                background="green"
               >
                 <HomeScreenItem
                   item={item}

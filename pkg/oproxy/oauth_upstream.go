@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -11,62 +12,87 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 	oauth "github.com/haileyok/atproto-oauth-golang"
 	"github.com/haileyok/atproto-oauth-golang/helpers"
+	"github.com/labstack/echo/v4"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )
 
-func Login(ctx context.Context, cli *config.CLI, downstreamPAR *model.PAR, mod model.Model) (string, error) {
-	meta := GetUpstreamMetadata("longos.iameli.link", "web", "")
+// downstream --> upstream transition; attempt to send user to the upstream auth server
+func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (string, error) {
+	downstreamMeta := o.GetDownstreamMetadata()
+	if downstreamMeta.ClientID != clientID {
+		return "", echo.NewHTTPError(http.StatusBadRequest, "client ID mismatch")
+	}
+
+	jkt, _, err := parseURN(requestURI)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	session, err := o.loadOAuthSession(jkt)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	if session == nil {
+		return "", echo.NewHTTPError(http.StatusBadRequest, "no session found")
+	}
+
+	if session.Status() != OAuthSessionStatePARCreated {
+		return "", echo.NewHTTPError(http.StatusBadRequest, "session is not in par-created state")
+	}
+
+	if session.DownstreamPARRequestURI != requestURI {
+		return "", echo.NewHTTPError(http.StatusBadRequest, "request URI mismatch")
+	}
+
+	now := time.Now()
+	session.DownstreamPARUsedAt = &now
+	err = o.updateOAuthSession(jkt, session)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update OAuth session: %s", err))
+	}
+
+	upstreamMeta := o.GetUpstreamMetadata()
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
-		ClientJwk:   cli.JWK,
-		ClientId:    meta.ClientID,
-		RedirectUri: meta.RedirectURIs[0],
+		ClientJwk:   o.jwk,
+		ClientId:    upstreamMeta.ClientID,
+		RedirectUri: upstreamMeta.RedirectURIs[0],
 	})
-	log.Log(ctx, "OAuth client information", "clientId", meta.ClientID, "redirectUri", meta.RedirectURIs[0])
 	if err != nil {
-		return "", fmt.Errorf("failed to create OAuth client: %w", err)
+		return "", echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create OAuth client: %s", err))
 	}
 
-	// If you already have a did or a URL, you can skip this step
-	did, err := resolveHandle(ctx, downstreamPAR.LoginHint) // returns did:plc:abc123 or did:web:test.com
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve handle '%s': %w", downstreamPAR.LoginHint, err)
-	}
+	// did, err := resolveHandle(ctx, session.DID)
+	// if err != nil {
+	// 	return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to resolve handle '%s': %s", session.DID, err))
+	// }
 
-	// If you already have a URL, you can skip this step
-	service, err := resolveService(ctx, did) // returns https://pds.haileyok.com
+	service, err := resolveService(ctx, session.DID)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve service for DID '%s': %w", did, err)
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to resolve service for DID '%s': %s", session.DID, err))
 	}
 
 	authserver, err := oclient.ResolvePdsAuthServer(ctx, service)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve PDS auth server for service '%s': %w", service, err)
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to resolve PDS auth server for service '%s': %s", service, err))
 	}
 
 	authmeta, err := oclient.FetchAuthServerMetadata(ctx, authserver)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch auth server metadata from '%s': %w", authserver, err)
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to fetch auth server metadata from '%s': %s", authserver, err))
 	}
 
 	k, err := helpers.GenerateKey(nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate DPoP key: %w", err)
+		return "", echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to generate DPoP key: %s", err))
 	}
 
-	// b, err := json.Marshal(k)
-	// if err != nil {
-	// 	return "", err
-	// }
-
-	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, downstreamPAR.LoginHint, meta.Scope, k)
+	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, session.DID, upstreamMeta.Scope, k)
 	if err != nil {
-		return "", fmt.Errorf("failed to send PAR auth request to '%s': %w", authserver, err)
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to send PAR auth request to '%s': %s", authserver, err))
 	}
-
-	log.Log(ctx, "parResp", "parResp", parResp)
 
 	jwkJSON, err := json.Marshal(k)
 	if err != nil {
@@ -77,27 +103,26 @@ func Login(ctx context.Context, cli *config.CLI, downstreamPAR *model.PAR, mod m
 	if err != nil {
 		return "", fmt.Errorf("failed to parse auth server metadata: %w", err)
 	}
-	u.RawQuery = fmt.Sprintf("client_id=%s&request_uri=%s", url.QueryEscape(meta.ClientID), parResp.RequestUri)
+	u.RawQuery = fmt.Sprintf("client_id=%s&request_uri=%s", url.QueryEscape(upstreamMeta.ClientID), parResp.RequestUri)
 	str := u.String()
 
-	err = mod.CreateOAuthSession(&model.OAuthSession{
-		UpstreamState:            parResp.State,
-		RepoDID:                  did,
-		PDSUrl:                   service,
-		UpstreamAuthServerIssuer: authserver,
-		UpstreamPKCEVerifier:     parResp.PkceVerifier,
-		UpstreamDPoPNonce:        parResp.DpopAuthserverNonce,
-		UpstreamDPoPPrivateJWK:   jwkJSON,
-		DownstreamPARID:          downstreamPAR.ID,
-	})
+	session.DID = session.DID
+	session.PDSUrl = service
+	session.UpstreamState = parResp.State
+	session.UpstreamAuthServerIssuer = authserver
+	session.UpstreamPKCEVerifier = parResp.PkceVerifier
+	session.UpstreamDPoPNonce = parResp.DpopAuthserverNonce
+	session.UpstreamDPoPPrivateJWK = string(jwkJSON)
+
+	err = o.updateOAuthSession(jkt, session)
 	if err != nil {
-		return "", fmt.Errorf("failed to create OAuth session in database: %w", err)
+		return "", echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update OAuth session: %s", err))
 	}
 
 	return str, nil
 }
 
-func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss string, state string, mod model.Model) (*model.OAuthSession, error) {
+func Return(ctx context.Context, code string, iss string, state string) (*model.OAuthSession, error) {
 	meta := GetUpstreamMetadata("longos.iameli.link", "web", "")
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
 		ClientJwk:   cli.JWK,

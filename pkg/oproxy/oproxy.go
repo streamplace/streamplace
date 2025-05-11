@@ -1,6 +1,12 @@
 package oproxy
 
-import "github.com/labstack/echo/v4"
+import (
+	"log/slog"
+	"os"
+
+	"github.com/labstack/echo/v4"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+)
 
 type OProxy struct {
 	createOAuthSession func(id string, session *OAuthSession) error
@@ -9,6 +15,8 @@ type OProxy struct {
 	e                  *echo.Echo
 	host               string
 	scope              string
+	jwk                jwk.Key
+	slog               *slog.Logger
 }
 
 type Config struct {
@@ -17,10 +25,16 @@ type Config struct {
 	LoadOAuthSession   func(id string) (*OAuthSession, error)
 	Host               string
 	Scope              string
+	JWK                jwk.Key
+	Slog               *slog.Logger
 }
 
 func New(conf *Config) *OProxy {
 	e := echo.New()
+	mySlog := conf.Slog
+	if mySlog == nil {
+		mySlog = slog.New(slog.NewTextHandler(os.Stderr, nil))
+	}
 	return &OProxy{
 		createOAuthSession: conf.CreateOAuthSession,
 		updateOAuthSession: conf.UpdateOAuthSession,
@@ -28,5 +42,6 @@ func New(conf *Config) *OProxy {
 		e:                  e,
 		host:               conf.Host,
 		scope:              conf.Scope,
+		jwk:                conf.JWK,
 	}
 }

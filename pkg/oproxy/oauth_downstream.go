@@ -300,12 +300,8 @@ func (o *OProxy) NewPAR(ctx context.Context, par *PAR, dpopHeader string) (*PARR
 
 	// proof is valid, get public key to use as primary key of oauth session
 	jkt := proof.PublicKey()
-	uu, err := uuid.NewV7()
-	if err != nil {
-		panic(err)
-	}
 
-	urn := fmt.Sprintf("urn:ietf:params:oauth:request_uri:%s", uu.String())
+	urn := makeURN(jkt)
 
 	err = o.createOAuthSession(jkt, &OAuthSession{
 		DownstreamDPoPJKT:       jkt,

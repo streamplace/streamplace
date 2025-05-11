@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
@@ -61,6 +60,8 @@ func (o *OProxy) HandleOAuthProtectedResource(c echo.Context) error {
 }
 
 func (o *OProxy) HandleOAuthPAR(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleOAuthPAR")
+	defer span.End()
 	c.Response().Header().Set("Access-Control-Allow-Origin", "*")
 	var par PAR
 	if err := json.NewDecoder(c.Request().Body).Decode(&par); err != nil {
@@ -72,7 +73,7 @@ func (o *OProxy) HandleOAuthPAR(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "DPoP header is required")
 	}
 
-	resp, err := o.NewPAR(c.Request().Context(), &par, dpopHeader)
+	resp, err := o.NewPAR(ctx, &par, dpopHeader)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -80,45 +81,30 @@ func (o *OProxy) HandleOAuthPAR(c echo.Context) error {
 }
 
 func (o *OProxy) HandleOAuthAuthorize(c echo.Context) error {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	query := r.URL.Query()
-	parID := query.Get("request_uri")
-	if parID == "" {
-		apierrors.WriteHTTPBadRequest(w, "request_uri is required", nil)
-		return
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleOAuthAuthorize")
+	defer span.End()
+	c.Response().Header().Set("Access-Control-Allow-Origin", "*")
+	requestURI := c.QueryParam("request_uri")
+	if requestURI == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "request_uri is required")
 	}
-	par, err := a.Model.GetPAR(parID)
+	clientID := c.QueryParam("client_id")
+	if clientID == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "client_id is required")
+	}
+	redirectURL, err := o.Authorize(ctx, clientID, requestURI)
 	if err != nil {
-		apierrors.WriteHTTPInternalServerError(w, "could not get par", err)
-		return
+		return err
 	}
-	if par == nil {
-		apierrors.WriteHTTPBadRequest(w, "par not found", nil)
-		return
-	}
-	if par.ExpiresAt.Before(time.Now()) {
-		apierrors.WriteHTTPBadRequest(w, "par expired", nil)
-		return
-	}
-	if par.LoginHint == "" {
-		apierrors.WriteHTTPBadRequest(w, "login hint is required", nil)
-		return
-	}
-	redirectURL, err := atproto.Login(ctx, a.CLI, par, a.Model)
-	if err != nil {
-		apierrors.WriteHTTPInternalServerError(w, "could not login", err)
-		return
-	}
-	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
-
+	return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 func (o *OProxy) HandleOAuthReturn(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(ctx, "HandlePlaceStreamAccountOauthReturn")
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleOAuthReturn")
 	defer span.End()
-	code := r.URL.Query().Get("code")
-	iss := r.URL.Query().Get("iss")
-	state := r.URL.Query().Get("state")
+	code := c.QueryParam("code")
+	iss := c.QueryParam("iss")
+	state := c.QueryParam("state")
 	upstreamSession, err := atproto.HandleOauthReturn(ctx, a.CLI, code, iss, state, a.Model)
 	if err != nil {
 		apierrors.WriteHTTPInternalServerError(w, "could not handle oauth return", err)

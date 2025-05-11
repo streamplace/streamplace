@@ -14,6 +14,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 )
 
 func Login(ctx context.Context, cli *config.CLI, downstreamPAR *model.PAR, mod model.Model) (string, error) {
@@ -171,4 +172,22 @@ func HandleOauthReturn(ctx context.Context, cli *config.CLI, code string, iss st
 	}
 
 	return session, nil
+}
+
+func (o *OProxy) GetUpstreamMetadata() *OAuthClientMetadata {
+	meta := &OAuthClientMetadata{
+		ClientID:  fmt.Sprintf("https://%s/api/atproto-oauth/oauth/upstream/client-metadata.json", o.host),
+		JwksURI:   fmt.Sprintf("https://%s/api/atproto-oauth/jwks.json", o.host),
+		ClientURI: fmt.Sprintf("https://%s", o.host),
+		// RedirectURIs:            []string{fmt.Sprintf("https://%s/login", host)},
+		Scope:                       "atproto transition:generic",
+		TokenEndpointAuthMethod:     "private_key_jwt",
+		ClientName:                  "Streamplace",
+		ResponseTypes:               []string{"code"},
+		GrantTypes:                  []string{"authorization_code", "refresh_token"},
+		DPoPBoundAccessTokens:       boolPtr(true),
+		TokenEndpointAuthSigningAlg: "ES256",
+		RedirectURIs:                []string{fmt.Sprintf("https://%s/oauth/return", o.host)},
+	}
+	return meta
 }

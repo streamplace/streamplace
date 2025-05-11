@@ -8,8 +8,7 @@ import (
 
 // OAuthSession stores authentication data needed during the OAuth flow
 type OAuthSession struct {
-	RepoDID string `gorm:"column:repo_did;index"`
-	PDSUrl  string `gorm:"column:pds_url"`
+	DID string `gorm:"column:repo_did;index"`
 
 	// Upstream fields
 	UpstreamState            string    `gorm:"column:upstream_state;index"`
@@ -22,13 +21,15 @@ type OAuthSession struct {
 	UpstreamRefreshToken     string    `gorm:"column:upstream_refresh_token"`
 
 	// Downstream fields
-	DownstreamPARID             string `gorm:"column:downstream_par_id;uniqueIndex"`
-	DownstreamPAR               *PAR   `gorm:"foreignKey:DownstreamPARID"`
 	DownstreamDPoPNonce         string `gorm:"column:downstream_dpop_nonce"`
-	DownstreamDPoPJKT           string `gorm:"column:downstream_dpop_jkt"`
+	DownstreamDPoPJKT           string `gorm:"column:downstream_dpop_jkt;primaryKey"`
 	DownstreamAccessToken       string `gorm:"column:downstream_access_token;index"`
 	DownstreamRefreshToken      string `gorm:"column:downstream_refresh_token;index"`
 	DownstreamAuthorizationCode string `gorm:"column:downstream_authorization_code;index"`
+	DownstreamState             string `gorm:"column:downstream_state"`
+	DownstreamScope             string `gorm:"column:downstream_scope"`
+	DownstreamCodeChallenge     string `gorm:"column:downstream_code_challenge"`
+	DownstreamPARRequestURI     string `gorm:"column:downstream_par_request_uri"`
 
 	RevokedAt *time.Time `gorm:"column:revoked_at"`
 	CreatedAt time.Time

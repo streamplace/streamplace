@@ -1,9 +1,5 @@
 package atproto
 
-import (
-	"fmt"
-)
-
 var AllowedPlatforms = []string{"ios", "android", "web"}
 
 type OAuthClientMetadata struct {
@@ -36,55 +32,4 @@ type OAuthClientMetadata struct {
 	DPoPBoundAccessTokens                 *bool    `json:"dpop_bound_access_tokens,omitempty"`
 	AuthorizationDetailsTypes             []string `json:"authorization_details_types,omitempty"`
 	// Jwks                                  *JWKSet  `json:"jwks,omitempty"`             // You'll need to define JWKSet type
-}
-
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-func GetUpstreamMetadata(host string, platform string, appBundleId string) *OAuthClientMetadata {
-	meta := &OAuthClientMetadata{
-		ClientID:  fmt.Sprintf("https://%s/api/atproto-oauth/upstream/%s", host, platform),
-		JwksURI:   fmt.Sprintf("https://%s/api/atproto-oauth/jwks.json", host),
-		ClientURI: fmt.Sprintf("https://%s", host),
-		// RedirectURIs:            []string{fmt.Sprintf("https://%s/login", host)},
-		Scope:                       "atproto transition:generic",
-		TokenEndpointAuthMethod:     "private_key_jwt",
-		ClientName:                  "Streamplace",
-		ResponseTypes:               []string{"code"},
-		GrantTypes:                  []string{"authorization_code", "refresh_token"},
-		DPoPBoundAccessTokens:       boolPtr(true),
-		TokenEndpointAuthSigningAlg: "ES256",
-	}
-
-	if platform == "web" {
-		meta.RedirectURIs = []string{fmt.Sprintf("https://%s/api/oauth/return", host)}
-		meta.ApplicationType = "web"
-	} else {
-		meta.RedirectURIs = []string{fmt.Sprintf("https://%s/api/app-return/%s", host, appBundleId)}
-		meta.ApplicationType = "native"
-	}
-	return meta
-}
-
-func GetDownstreamMetadata(host string, platform string, appBundleId string) *OAuthClientMetadata {
-	meta := &OAuthClientMetadata{
-		ClientID:  fmt.Sprintf("https://%s/api/atproto-oauth/downstream/%s", host, platform),
-		ClientURI: fmt.Sprintf("https://%s", host),
-		// RedirectURIs:            []string{fmt.Sprintf("https://%s/login", host)},
-		Scope:                   "atproto transition:generic",
-		TokenEndpointAuthMethod: "none",
-		ClientName:              "Streamplace",
-		ResponseTypes:           []string{"code"},
-		GrantTypes:              []string{"authorization_code", "refresh_token"},
-		DPoPBoundAccessTokens:   boolPtr(true),
-	}
-	if platform == "web" {
-		meta.RedirectURIs = []string{fmt.Sprintf("https://%s/login", host)}
-		meta.ApplicationType = "web"
-	} else {
-		meta.RedirectURIs = []string{fmt.Sprintf("https://%s/api/app-return/%s", host, appBundleId)}
-		meta.ApplicationType = "native"
-	}
-	return meta
 }

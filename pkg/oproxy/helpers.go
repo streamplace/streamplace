@@ -40,3 +40,19 @@ func parseURN(urn string) (string, string, error) {
 	}
 	return parts[0], parts[1], nil
 }
+
+func makeState(jkt string) string {
+	uu, err := uuid.NewV7()
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf("%s_%s", jkt, uu.String())
+}
+
+func parseState(state string) (string, string, error) {
+	parts := strings.Split(state, "_")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid state: %s", state)
+	}
+	return parts[0], parts[1], nil
+}

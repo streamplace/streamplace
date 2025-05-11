@@ -12,6 +12,8 @@ replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0
 
 replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4
 
+replace github.com/haileyok/atproto-oauth-golang => ../atproto-oauth-golang
+
 require (
 	firebase.google.com/go/v4 v4.14.1
 	git.stream.place/streamplace/c2pa-go v0.7.0
@@ -64,6 +66,7 @@ require (
 	golang.org/x/net v0.35.0
 	golang.org/x/sync v0.11.0
 	golang.org/x/term v0.29.0
+	golang.org/x/time v0.8.0
 	golang.org/x/tools v0.25.0
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
 	google.golang.org/api v0.189.0
@@ -251,7 +254,6 @@ require (
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/oauth2 v0.26.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
-	golang.org/x/time v0.8.0 // indirect
 	google.golang.org/appengine/v2 v2.0.2 // indirect
 	google.golang.org/genproto v0.0.0-20240722135656-d784300faade // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250218202821-56aae31c358a // indirect

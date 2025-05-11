@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/atproto"
-	"stream.place/streamplace/pkg/log"
 )
 
 func (o *OProxy) Handler() http.Handler {
@@ -105,33 +103,11 @@ func (o *OProxy) HandleOAuthReturn(c echo.Context) error {
 	code := c.QueryParam("code")
 	iss := c.QueryParam("iss")
 	state := c.QueryParam("state")
-	upstreamSession, err := atproto.HandleOauthReturn(ctx, a.CLI, code, iss, state, a.Model)
+	redirectURL, err := o.Return(ctx, code, iss, state)
 	if err != nil {
-		apierrors.WriteHTTPInternalServerError(w, "could not handle oauth return", err)
-		return
+		return err
 	}
-	if upstreamSession == nil {
-		log.Error(ctx, "no upstream session found", "upstreamSession", upstreamSession)
-		apierrors.WriteHTTPBadRequest(w, "no upstream session found", nil)
-		return
-	}
-	if upstreamSession.DownstreamPAR == nil {
-		log.Error(ctx, "no downstream par found", "upstreamSession", upstreamSession)
-		apierrors.WriteHTTPBadRequest(w, "no downstream par found", nil)
-		return
-	}
-
-	u, err := url.Parse("https://longos.iameli.link/login")
-	if err != nil {
-		apierrors.WriteHTTPInternalServerError(w, "could not parse redirect url", err)
-		return
-	}
-	q := u.Query()
-	q.Set("iss", "https://longos.iameli.link")
-	q.Set("state", upstreamSession.DownstreamPAR.State)
-	q.Set("code", upstreamSession.DownstreamAuthorizationCode)
-	u.RawQuery = q.Encode()
-	http.Redirect(w, r, u.String(), http.StatusTemporaryRedirect)
+	return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 // TokenRequest represents the structure of an OAuth token request

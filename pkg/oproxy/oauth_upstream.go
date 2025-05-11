@@ -1,4 +1,4 @@
-package atproto
+package oproxy
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
 func Login(ctx context.Context, cli *config.CLI, downstreamPAR *model.PAR, mod model.Model) (string, error) {

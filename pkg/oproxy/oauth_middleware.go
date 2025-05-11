@@ -1,4 +1,4 @@
-package api
+package oproxy
 
 import (
 	"context"
@@ -15,7 +15,6 @@ import (
 	"github.com/AxisCommunications/go-dpop"
 	"github.com/golang-jwt/jwt/v5"
 	"stream.place/streamplace/pkg/atproto"
-	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )
@@ -25,7 +24,7 @@ func (a *StreamplaceAPI) OAuthMiddleware(next http.Handler) http.Handler {
 		ctx := r.Context()
 		session, err := a.getOAuthSession(r)
 		if err != nil {
-			apierrors.WriteHTTPUnauthorized(w, "could not get oauth session", err)
+			api.WriteHTTPUnauthorized(w, "could not get oauth session", err)
 			return
 		}
 		if session == nil {

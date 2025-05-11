@@ -1,4 +1,4 @@
-package api
+package oproxy
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/atproto"
-	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )

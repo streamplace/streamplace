@@ -1,10 +1,6 @@
-package atproto
+package oproxy
 
-import (
-	"context"
-
-	"stream.place/streamplace/pkg/model"
-)
+import "context"
 
 // singleton value to identify our logging metadata in context
 var OAuthContextKey = oauthContextKeyType{}

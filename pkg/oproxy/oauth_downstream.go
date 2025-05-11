@@ -14,8 +14,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
 )
 
 type TokenRequest struct {
@@ -46,7 +44,7 @@ var OAuthTokenExpiry = time.Hour * 24
 var dpopTimeWindow = time.Duration(30 * time.Second)
 
 func (o *OProxy) Token(ctx context.Context, tokenRequest *TokenRequest, dpopHeader string) (*TokenResponse, error) {
-	proof, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/api/oauth/token"}, dpop.ParseOptions{
+	proof, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/oauth/token"}, dpop.ParseOptions{
 		Nonce:      "",
 		TimeWindow: &dpopTimeWindow,
 	})
@@ -145,15 +143,23 @@ func (o *OProxy) RefreshToken(ctx context.Context, tokenRequest *TokenRequest, s
 	}, nil
 }
 
-func HandleOAuthRevoke(ctx context.Context, cli *config.CLI, revokeRequest *RevokeRequest, mod model.Model) error {
-	session, err := mod.GetOAuthSessionByDownstreamAccessToken(revokeRequest.Token)
+func (o *OProxy) Revoke(ctx context.Context, dpopHeader string, revokeRequest *RevokeRequest) error {
+	proof, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/oauth/revoke"}, dpop.ParseOptions{
+		Nonce:      "",
+		TimeWindow: &dpopTimeWindow,
+	})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid DPoP proof")
+	}
+
+	session, err := o.loadOAuthSession(proof.PublicKey())
 	if err != nil {
 		return fmt.Errorf("could not get downstream session: %w", err)
 	}
 
 	now := time.Now()
 	session.RevokedAt = &now
-	err = mod.UpdateOAuthSession(session)
+	err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
 	if err != nil {
 		return fmt.Errorf("could not update downstream session: %w", err)
 	}
@@ -273,7 +279,7 @@ func (o *OProxy) GetDownstreamMetadata() *OAuthClientMetadata {
 
 func (o *OProxy) NewPAR(ctx context.Context, par *PAR, dpopHeader string) (*PARResponse, error) {
 	thirtySec := time.Duration(30 * time.Second)
-	proof, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/api/oauth/par"}, dpop.ParseOptions{
+	proof, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/oauth/par"}, dpop.ParseOptions{
 		Nonce:      "",
 		TimeWindow: &thirtySec,
 	})

@@ -7,7 +7,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
-	"stream.place/streamplace/pkg/atproto"
 )
 
 func (o *OProxy) Handler() http.Handler {
@@ -133,15 +132,19 @@ func (o *OProxy) HandleOAuthToken(c echo.Context) error {
 }
 
 func (o *OProxy) HandleOAuthRevoke(c echo.Context) error {
-	var revokeRequest atproto.RevokeRequest
-	if err := json.NewDecoder(r.Body).Decode(&revokeRequest); err != nil {
-		apierrors.WriteHTTPBadRequest(w, "invalid request", err)
-		return
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleOAuthRevoke")
+	defer span.End()
+	var revokeRequest RevokeRequest
+	if err := json.NewDecoder(c.Request().Body).Decode(&revokeRequest); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid request: %s", err))
 	}
-	err := atproto.HandleOAuthRevoke(r.Context(), a.CLI, &revokeRequest, a.Model)
+	dpopHeader := c.Request().Header.Get("DPoP")
+	if dpopHeader == "" {
+		return echo.NewHTTPError(http.StatusUnauthorized, "DPoP header is required")
+	}
+	err := o.Revoke(ctx, dpopHeader, &revokeRequest)
 	if err != nil {
-		apierrors.WriteHTTPBadRequest(w, "could not handle oauth revoke", err)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("could not handle oauth revoke: %s", err))
 	}
-	w.WriteHeader(200)
+	return c.JSON(http.StatusOK, map[string]interface{}{})
 }

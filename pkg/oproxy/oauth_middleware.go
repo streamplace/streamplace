@@ -14,25 +14,41 @@ import (
 
 	"github.com/AxisCommunications/go-dpop"
 	"github.com/golang-jwt/jwt/v5"
-	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
-func (a *StreamplaceAPI) OAuthMiddleware(next http.Handler) http.Handler {
+// singleton value to identify our logging metadata in context
+var OAuthContextKey = oauthContextKeyType{}
+
+// unique type to prevent assignment.
+type oauthContextKeyType struct{}
+
+func (o *OProxy) GetOAuthSession(ctx context.Context) (*OAuthSession, *XrpcClient) {
+	session, ok := ctx.Value(OAuthContextKey).(*OAuthSession)
+	if !ok {
+		return nil, nil
+	}
+	client, err := o.GetXrpcClient(session)
+	if err != nil {
+		return nil, nil
+	}
+	return session, client
+}
+
+func (o *OProxy) OAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		session, err := a.getOAuthSession(r)
+		session, err := o.getOAuthSession(r)
 		if err != nil {
-			api.WriteHTTPUnauthorized(w, "could not get oauth session", err)
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(err.Error()))
 			return
 		}
 		if session == nil {
 			next.ServeHTTP(w, r)
 			return
 		}
-		ctx = context.WithValue(ctx, atproto.OAuthContextKey, session)
-		ctx = context.WithValue(ctx, atproto.ModelContextKey, a.Model)
+		ctx = context.WithValue(ctx, OAuthContextKey, session)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -47,7 +63,7 @@ func getMethod(method string) (dpop.HTTPVerb, error) {
 	return "", fmt.Errorf("invalid method")
 }
 
-func (a *StreamplaceAPI) getOAuthSession(r *http.Request) (*model.OAuthSession, error) {
+func (o *OProxy) getOAuthSession(r *http.Request) (*OAuthSession, error) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		return nil, nil
@@ -56,7 +72,7 @@ func (a *StreamplaceAPI) getOAuthSession(r *http.Request) (*model.OAuthSession, 
 		return nil, fmt.Errorf("invalid authorization header (must start with DPoP)")
 	}
 	token := strings.TrimPrefix(authHeader, "DPoP ")
-	session, err := a.Model.GetOAuthSessionByDownstreamAccessToken(token)
+	session, err := o.loadOAuthSession(token)
 	if err != nil {
 		return nil, fmt.Errorf("could not get oauth session: %w", err)
 	}
@@ -113,7 +129,7 @@ func (a *StreamplaceAPI) getOAuthSession(r *http.Request) (*model.OAuthSession, 
 	// Encode the hash in URL-safe base64 format without padding
 	// accessTokenHash := base64.RawURLEncoding.EncodeToString(hash)
 	accessTokenHash := base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(hash)
-	pubKey, err := a.CLI.AccessJWK.PublicKey()
+	pubKey, err := o.upstreamJWK.PublicKey()
 	if err != nil {
 		return nil, fmt.Errorf("could not get access jwk public key: %w", err)
 	}

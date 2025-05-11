@@ -160,18 +160,8 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
 	apiRouter.GET("/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
-	for _, platform := range atproto.AllowedPlatforms {
-		apiRouter.GET(fmt.Sprintf("/api/atproto-oauth/upstream/%s", platform), a.HandleATProtoOAuthUpstream(ctx, platform))
-		apiRouter.GET(fmt.Sprintf("/api/atproto-oauth/downstream/%s", platform), a.HandleATProtoOAuthDownstream(ctx, platform))
-	}
-	apiRouter.GET("/api/atproto-oauth/jwks.json", a.HandleJWKPublic(ctx))
 	apiRouter.GET("/api/live-users", a.HandleLiveUsers(ctx))
 	apiRouter.GET("/api/view-count/:user", a.HandleViewCount(ctx))
-	apiRouter.HandlerFunc("POST", "/api/oauth/par", a.HandleOAuthPAR(ctx))
-	apiRouter.HandlerFunc("GET", "/api/oauth/authorize", a.HandleOAuthAuthorize(ctx))
-	apiRouter.HandlerFunc("GET", "/api/oauth/return", a.HandleOAuthReturn(ctx))
-	apiRouter.HandlerFunc("POST", "/api/oauth/token", a.HandleOAuthToken(ctx))
-	apiRouter.HandlerFunc("POST", "/api/oauth/revoke", a.HandleOAuthRevoke(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	router.Handler("GET", "/api/*resource", apiRouter)
 	router.Handler("POST", "/api/*resource", apiRouter)

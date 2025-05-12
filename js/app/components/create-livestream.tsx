@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Button, Label, Paragraph, TextArea, View } from "tamagui";
+import { useCallback, useEffect, useState } from "react";
+import { Button, Label, Paragraph, TextArea, View, isWeb } from "tamagui";
 import { useToastController } from "@tamagui/toast";
 import {
   createLivestreamRecord,
@@ -9,6 +9,7 @@ import {
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { useLiveUser } from "hooks/useLiveUser";
 import ThumbnailSelector from "components/thumbnail-selector/thumbnail-selector";
+import { useCaptureVideoFrame } from "hooks/useCaptureVideoFrame";
 
 const Left = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -37,6 +38,8 @@ export default function CreateLivestream() {
   );
   const profile = useAppSelector(selectUserProfile);
   const newLivestream = useAppSelector(selectNewLivestream);
+  const captureFrame = useCaptureVideoFrame();
+
   useEffect(() => {
     if (newLivestream?.record) {
       toast.show("Livestream announced", {
@@ -94,7 +97,9 @@ export default function CreateLivestream() {
       <Label asChild={true}>
         <View flexDirection="row">
           <Left>
-            <Paragraph pb="$2">Thumbnail</Paragraph>
+            <Paragraph pb="$2" lineHeight={18}>
+              Custom Thumbnail (Optional)
+            </Paragraph>
           </Left>
           <Right>
             <ThumbnailSelector onThumbnailSelected={setCustomThumbnail} />
@@ -107,14 +112,32 @@ export default function CreateLivestream() {
           opacity={disabled ? 0.5 : 1}
           w="100%"
           size="$4"
-          onPress={() => {
+          onPress={async () => {
             setLoading(true);
-            dispatch(
-              createLivestreamRecord({
-                title,
-                customThumbnail,
-              }),
-            ).finally(() => setLoading(false));
+            try {
+              // If no custom thumbnail is provided and we're on web, try to capture one from the video
+              let thumbnailToUse = customThumbnail;
+              if (!thumbnailToUse && isWeb && captureFrame) {
+                const capturedFrame = await captureFrame(1280, 0.85);
+                if (capturedFrame) {
+                  thumbnailToUse = capturedFrame;
+                }
+              }
+
+              await dispatch(
+                createLivestreamRecord({
+                  title,
+                  customThumbnail: thumbnailToUse,
+                }),
+              );
+            } catch (error) {
+              console.error("Error creating livestream:", error);
+              toast.show("Error creating livestream", {
+                message: String(error),
+              });
+            } finally {
+              setLoading(false);
+            }
           }}
         >
           {buttonText(loading, userIsLive)}

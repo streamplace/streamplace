@@ -1,20 +1,43 @@
 /**
- * Utility functions for capturing and compressing video frames
+ * Utility functions for capturing video frames
  */
+import { isWeb } from "tamagui";
+import React from "react";
 
 /**
- * Captures a frame from a video element and returns it as a compressed PNG blob
+ * Captures a frame from a video ref or element and returns it as a compressed JPEG blob
  *
- * @param videoElement The video element to capture from
+ * @param videoRefOrElement The video ref or element to capture from
  * @param maxWidth Maximum width of the output image (maintains aspect ratio)
  * @param quality JPEG quality (0-1), lower means smaller file size
  * @returns A Promise that resolves to a Blob of the compressed image
  */
 export const captureVideoFrame = async (
-  videoElement: HTMLVideoElement,
+  videoRefOrElement:
+    | React.MutableRefObject<HTMLVideoElement | null>
+    | HTMLVideoElement,
   maxWidth = 1280,
   quality = 0.85,
 ): Promise<Blob> => {
+  let videoElement: HTMLVideoElement;
+
+  if (
+    videoRefOrElement &&
+    typeof videoRefOrElement === "object" &&
+    "current" in videoRefOrElement
+  ) {
+    if (!videoRefOrElement.current) {
+      throw new Error("No video element available in ref");
+    }
+    videoElement = videoRefOrElement.current;
+  } else {
+    videoElement = videoRefOrElement as HTMLVideoElement;
+  }
+
+  if (!isWeb) {
+    throw new Error("captureVideoFrame is only available on web platforms");
+  }
+
   return new Promise((resolve, reject) => {
     try {
       const canvas = document.createElement("canvas");
@@ -62,8 +85,4 @@ export const captureVideoFrame = async (
       reject(error);
     }
   });
-};
-
-export const findVideoElement = (): HTMLVideoElement | null => {
-  return document.querySelector("video");
 };

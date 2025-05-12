@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Label, Paragraph, TextArea, View, isWeb } from "tamagui";
 import { useToastController } from "@tamagui/toast";
 import {
@@ -8,7 +8,7 @@ import {
 } from "features/bluesky/blueskySlice";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { useLiveUser } from "hooks/useLiveUser";
-import ThumbnailSelector from "components/thumbnail-selector/thumbnail-selector";
+import ThumbnailSelector from "components/thumbnail-selector";
 import { useCaptureVideoFrame } from "hooks/useCaptureVideoFrame";
 
 const Left = ({ children }: { children: React.ReactNode }) => {

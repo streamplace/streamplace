@@ -595,6 +595,8 @@ github.com/sosodev/duration v1.3.1 h1:qtHBDMQ6lvMQsL15g4aopM4HEfOaYuhWBw3NPTtlqq
 github.com/sosodev/duration v1.3.1/go.mod h1:RQIBBX0+fMLc/D9+Jb/fwvVmo0eZvDDEERAikUR6SDg=
 github.com/spaolacci/murmur3 v1.1.0 h1:7c1g84S4BPRrfL5Xrdp6fOJ206sU9y293DDHaoy0bLI=
 github.com/spaolacci/murmur3 v1.1.0/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
+github.com/streamplace/atproto-oauth-golang v0.0.0-20250512021024-291d7209d3ab h1:cXikoKjZxnUiRQ+IY4+3XU4eJL1g0JJ5TzRA2keUNBg=
+github.com/streamplace/atproto-oauth-golang v0.0.0-20250512021024-291d7209d3ab/go.mod h1:jcZ4GCjo5I5RuE/RsAXg1/b6udw7R4W+2rb/cGyTDK8=
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4 h1:L1fS4HJSaAyNnkwfuZubgfeZy8rkWmA0cMtH5Z0HqNc=
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4/go.mod h1:bGUXY9Wd4mnd+XUrOYZr358J2f6z9QO/dLhL1SsiD+0=
 github.com/streamplace/indigo v0.0.0-20250509204614-95e6b8d1a5b6 h1:/uUzFUq3PMV2tvyB8lHIJUrjgP+LAGvEXUNkf0XdAHs=

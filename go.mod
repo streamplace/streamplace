@@ -12,7 +12,7 @@ replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0
 
 replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4
 
-replace github.com/haileyok/atproto-oauth-golang => ../atproto-oauth-golang
+replace github.com/haileyok/atproto-oauth-golang => github.com/streamplace/atproto-oauth-golang v0.0.0-20250512021024-291d7209d3ab
 
 require (
 	firebase.google.com/go/v4 v4.14.1

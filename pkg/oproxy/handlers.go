@@ -2,6 +2,7 @@ package oproxy
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -11,7 +12,14 @@ import (
 )
 
 func (o *OProxy) Handler() http.Handler {
-	return o.e
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*") // todo: ehhhhhhhhhhhh
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,DPoP")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
+		w.Header().Set("Access-Control-Expose-Headers", "DPoP-Nonce")
+		o.e.Use(o.ErrorHandlingMiddleware)
+		o.e.ServeHTTP(w, r)
+	})
 }
 
 func (o *OProxy) HandleOAuthAuthorizationServer(c echo.Context) error {
@@ -68,9 +76,15 @@ func (o *OProxy) HandleOAuthPAR(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, "DPoP header is required")
 	}
 
-	resp, err := o.NewPAR(ctx, &par, dpopHeader)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	resp, err := o.NewPAR(ctx, c, &par, dpopHeader)
+	if errors.Is(err, ErrFirstNonce) {
+		res := map[string]interface{}{
+			"error":             "use_dpop_nonce",
+			"error_description": "Authorization server requires nonce in DPoP proof",
+		}
+		return c.JSON(http.StatusBadRequest, res)
+	} else if err != nil {
+		return err
 	}
 	return c.JSON(http.StatusCreated, resp)
 }

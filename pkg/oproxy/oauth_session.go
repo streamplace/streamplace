@@ -46,6 +46,8 @@ func (o *OAuthSession) TableName() string {
 type OAuthSessionStatus string
 
 const (
+	// We've gotten the first request and sent it back for a new nonce
+	OAuthSessionStatePARPending OAuthSessionStatus = "par-pending"
 	// PAR has been created, but not yet used
 	OAuthSessionStatePARCreated OAuthSessionStatus = "par-created"
 	// PAR has been used, but maybe upstream will fail for some reason
@@ -78,6 +80,9 @@ func (o *OAuthSession) Status() OAuthSessionStatus {
 	}
 	if o.DownstreamPARRequestURI != "" {
 		return OAuthSessionStatePARCreated
+	}
+	if o.DownstreamDPoPNonce != "" {
+		return OAuthSessionStatePARPending
 	}
 	bs, _ := json.Marshal(o)
 	fmt.Printf("unknown oauth session status: %s\n", string(bs))

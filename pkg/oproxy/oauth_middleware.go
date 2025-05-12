@@ -5,16 +5,15 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/AxisCommunications/go-dpop"
 	"github.com/golang-jwt/jwt/v5"
-	"stream.place/streamplace/pkg/log"
 )
 
 var OAuthSessionContextKey = oauthSessionContextKeyType{}
@@ -43,10 +42,20 @@ func GetOAuthSession(ctx context.Context) (*OAuthSession, *XrpcClient) {
 
 func (o *OProxy) OAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// todo: nonce stuff
 		ctx := r.Context()
-		session, err := o.getOAuthSession(r)
+		session, err := o.getOAuthSession(r, w)
 		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
+			if errors.Is(err, dpop.ErrIncorrectNonce) {
+				w.WriteHeader(http.StatusUnauthorized)
+				bs, _ := json.Marshal(map[string]interface{}{
+					"error":             "use_dpop_nonce",
+					"error_description": "Authorization server requires nonce in DPoP proof",
+				})
+				w.Write(bs)
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return
 		}
@@ -70,7 +79,8 @@ func getMethod(method string) (dpop.HTTPVerb, error) {
 	return "", fmt.Errorf("invalid method")
 }
 
-func (o *OProxy) getOAuthSession(r *http.Request) (*OAuthSession, error) {
+func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuthSession, error) {
+
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		return nil, nil
@@ -90,7 +100,6 @@ func (o *OProxy) getOAuthSession(r *http.Request) (*OAuthSession, error) {
 		return nil, fmt.Errorf("invalid method: %w", err)
 	}
 
-	thirtySec := time.Duration(30) * time.Second
 	u, err := url.Parse(r.URL.String())
 	if err != nil {
 		return nil, fmt.Errorf("invalid url: %w", err)
@@ -99,11 +108,36 @@ func (o *OProxy) getOAuthSession(r *http.Request) (*OAuthSession, error) {
 	u.Host = r.Host
 	u.RawQuery = ""
 	u.Fragment = ""
-	log.Log(r.Context(), "doing dpop", "dpop", dpopHeader, "method", r.Method, "url", u.String())
+
+	jkt, nonce, err := getJKT(dpopHeader)
+
+	session, err := o.loadOAuthSession(jkt)
+	if err != nil {
+		return nil, fmt.Errorf("could not get oauth session: %w", err)
+	}
+	if session == nil {
+		return nil, fmt.Errorf("oauth session not found")
+	}
+	if session.RevokedAt != nil {
+		return nil, fmt.Errorf("oauth session revoked")
+	}
+	if session.DownstreamDPoPNonce != nonce {
+		w.Header().Set("WWW-Authenticate", `DPoP error="invalid_nonce", error_description="Invalid nonce"`)
+		w.Header().Set("DPoP-Nonce", session.DownstreamDPoPNonce)
+		w.WriteHeader(http.StatusUnauthorized)
+		return nil, dpop.ErrIncorrectNonce
+	}
+
+	session.DownstreamDPoPNonce = makeNonce()
+	err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
+	if err != nil {
+		return nil, fmt.Errorf("could not update downstream session: %w", err)
+	}
+	w.Header().Set("DPoP-Nonce", session.DownstreamDPoPNonce)
 
 	proof, err := dpop.Parse(dpopHeader, dpopMethod, u, dpop.ParseOptions{
-		Nonce:      "",
-		TimeWindow: &thirtySec,
+		Nonce:      nonce,
+		TimeWindow: &dpopTimeWindow,
 	})
 	// Check the error type to determine response
 	if err != nil {
@@ -112,18 +146,6 @@ func (o *OProxy) getOAuthSession(r *http.Request) (*OAuthSession, error) {
 			return nil, err
 		}
 		return nil, err
-	}
-
-	session, err := o.loadOAuthSession(proof.PublicKey())
-	if err != nil {
-		return nil, fmt.Errorf("could not get oauth session: %w", err)
-	}
-	if session == nil {
-		return nil, fmt.Errorf("oauth session not found")
-	}
-
-	if session.RevokedAt != nil {
-		return nil, fmt.Errorf("oauth session revoked")
 	}
 
 	// Hash the token with base64 and SHA256

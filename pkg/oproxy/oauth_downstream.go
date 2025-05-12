@@ -205,6 +205,43 @@ func (o *OProxy) generateJWT(session *OAuthSession) (string, error) {
 	return tokenString, nil
 }
 
+func (o *OProxy) DPoPNonceMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		dpopHeader := c.Request().Header.Get("DPoP")
+		if dpopHeader == "" {
+			return echo.NewHTTPError(http.StatusBadRequest, "missing DPoP header")
+		}
+
+		jkt, _, err := getJKT(dpopHeader)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+
+		session, err := o.loadOAuthSession(jkt)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+
+		c.Set("session", session)
+		return next(c)
+	}
+}
+
+func (o *OProxy) ErrorHandlingMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		err := next(c)
+		if err == nil {
+			return nil
+		}
+		_, ok := err.(*echo.HTTPError)
+		if ok {
+			return err
+		}
+		o.slog.Error("unhandled error", "error", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+}
+
 func generateRefreshToken() (string, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
@@ -280,11 +317,48 @@ func (o *OProxy) GetDownstreamMetadata() *OAuthClientMetadata {
 	return meta
 }
 
-func (o *OProxy) NewPAR(ctx context.Context, par *PAR, dpopHeader string) (*PARResponse, error) {
-	thirtySec := time.Duration(30 * time.Second)
+var ErrFirstNonce = echo.NewHTTPError(http.StatusBadRequest, "first time seeing this key, come back with a nonce")
+
+func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeader string) (*PARResponse, error) {
+	jkt, nonce, err := getJKT(dpopHeader)
+	if err != nil {
+		return nil, err
+	}
+	// special case - if this is the first request, we need to send it back for a new nonce
+	if nonce == "" {
+		_, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/oauth/par"}, dpop.ParseOptions{
+			Nonce:      "",
+			TimeWindow: &dpopTimeWindow,
+		})
+		if err != nil {
+			return nil, err
+		}
+		session, _ := o.loadOAuthSession(jkt)
+		if session != nil {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "we already gave you a nonce, you should have used it")
+		}
+		newNonce := makeNonce()
+		err = o.createOAuthSession(jkt, &OAuthSession{
+			DownstreamDPoPJKT:   jkt,
+			DownstreamDPoPNonce: newNonce,
+		})
+		if err != nil {
+			return nil, err
+		}
+		// come back later, nerd
+		c.Response().Header().Set("DPoP-Nonce", newNonce)
+		return nil, ErrFirstNonce
+	}
+	session, err := o.loadOAuthSession(jkt)
+	if err != nil {
+		return nil, err
+	}
+	if session.DownstreamDPoPNonce != nonce {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid nonce")
+	}
 	proof, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/oauth/par"}, dpop.ParseOptions{
 		Nonce:      "",
-		TimeWindow: &thirtySec,
+		TimeWindow: &dpopTimeWindow,
 	})
 	// Check the error type to determine response
 	if err != nil {
@@ -295,6 +369,9 @@ func (o *OProxy) NewPAR(ctx context.Context, par *PAR, dpopHeader string) (*PARR
 		// apierrors.WriteHTTPBadRequest(w, "invalid DPoP proof", err)
 		// return
 		return nil, err
+	}
+	if proof.PublicKey() != jkt {
+		panic("invalid code path: parsed DPoP proof twice and got different keys?!")
 	}
 
 	clientMetadata := o.GetDownstreamMetadata()
@@ -334,13 +411,13 @@ func (o *OProxy) NewPAR(ctx context.Context, par *PAR, dpopHeader string) (*PARR
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid scope (expected %s, got %s)", o.scope, par.Scope))
 	}
 
-	// proof is valid, get public key to use as primary key of oauth session
-	jkt := proof.PublicKey()
-
 	urn := makeURN(jkt)
 
-	err = o.createOAuthSession(jkt, &OAuthSession{
+	newNonce := makeNonce()
+
+	err = o.updateOAuthSession(jkt, &OAuthSession{
 		DownstreamDPoPJKT:       jkt,
+		DownstreamDPoPNonce:     newNonce,
 		DownstreamPARRequestURI: urn,
 		DownstreamCodeChallenge: par.CodeChallenge,
 		DownstreamState:         par.State,
@@ -349,10 +426,11 @@ func (o *OProxy) NewPAR(ctx context.Context, par *PAR, dpopHeader string) (*PARR
 	if err != nil {
 		return nil, fmt.Errorf("could not create oauth session: %w", err)
 	}
+	c.Response().Header().Set("DPoP-Nonce", newNonce)
 
 	resp := &PARResponse{
 		RequestURI: urn,
-		ExpiresIn:  int(thirtySec.Seconds()),
+		ExpiresIn:  int(dpopTimeWindow.Seconds()),
 	}
 
 	return resp, nil

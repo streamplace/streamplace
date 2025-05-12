@@ -59,7 +59,7 @@ export default async function createOAuthClient(
     };
   } else {
     const res = await fetch(
-      `${streamplaceUrl}/api/atproto-oauth/downstream/${Platform.OS}`,
+      `${streamplaceUrl}/oauth/downstream/client-metadata.json`,
     );
     meta = await res.json();
   }

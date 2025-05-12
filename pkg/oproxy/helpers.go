@@ -21,12 +21,14 @@ func codeUUID(prefix string) string {
 
 var urnPrefix = "urn:ietf:params:oauth:request_uri:"
 
+const UUID_LENGTH = 37
+
 func makeURN(jkt string) string {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf("%s%s_%s", urnPrefix, jkt, uu.String())
+	return fmt.Sprintf("%s%s-%s", urnPrefix, uu.String(), jkt)
 }
 
 // urn --> jkt, uu
@@ -34,11 +36,10 @@ func parseURN(urn string) (string, string, error) {
 	if !strings.HasPrefix(urn, urnPrefix) {
 		return "", "", fmt.Errorf("invalid URN: %s", urn)
 	}
-	parts := strings.Split(urn[len(urnPrefix):], "_")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid URN: %s", urn)
-	}
-	return parts[0], parts[1], nil
+	withoutPrefix := urn[len(urnPrefix):]
+	uu := withoutPrefix[:UUID_LENGTH]
+	suffix := withoutPrefix[UUID_LENGTH:]
+	return suffix, uu, nil
 }
 
 func makeState(jkt string) string {
@@ -46,13 +47,14 @@ func makeState(jkt string) string {
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf("%s_%s", jkt, uu.String())
+	return fmt.Sprintf("%s-%s", uu.String(), jkt)
 }
 
 func parseState(state string) (string, string, error) {
-	parts := strings.Split(state, "_")
-	if len(parts) != 2 {
+	if len(state) < UUID_LENGTH {
 		return "", "", fmt.Errorf("invalid state: %s", state)
 	}
-	return parts[0], parts[1], nil
+	uu := state[:UUID_LENGTH]
+	suffix := state[UUID_LENGTH:]
+	return suffix, uu, nil
 }

@@ -5,22 +5,12 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/haileyok/atproto-oauth-golang/helpers"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
 )
 
 func (o *OProxy) Handler() http.Handler {
-	o.e.GET("/.well-known/oauth-authorization-server", o.HandleOAuthAuthorizationServer)
-	o.e.GET("/.well-known/oauth-protected-resource", o.HandleOAuthProtectedResource)
-	o.e.POST("/oauth/par", o.HandleOAuthPAR)
-	o.e.GET("/oauth/authorize", o.HandleOAuthAuthorize)
-	o.e.GET("/oauth/return", o.HandleOAuthReturn)
-	o.e.POST("/oauth/token", o.HandleOAuthToken)
-	o.e.POST("/oauth/revoke", o.HandleOAuthRevoke)
-	o.e.GET("/oauth/upstream/client-metadata.json", o.HandleClientMetadataUpstream)
-	o.e.GET("/oauth/downstream/client-metadata.json", o.HandleClientMetadataDownstream)
-	// prefer to handle this by returning in the metadata blob:
-	// apiRouter.GET("/api/atproto-oauth/jwks.json", a.HandleJWKPublic(ctx))
 	return o.e
 }
 
@@ -35,6 +25,14 @@ func (o *OProxy) HandleOAuthAuthorizationServer(c echo.Context) error {
 func (o *OProxy) HandleClientMetadataUpstream(c echo.Context) error {
 	meta := o.GetUpstreamMetadata()
 	return c.JSON(200, meta)
+}
+
+func (o *OProxy) HandleJwksUpstream(c echo.Context) error {
+	pubKey, err := o.upstreamJWK.PublicKey()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "could not get public key")
+	}
+	return c.JSON(200, helpers.CreateJwksResponseObject(pubKey))
 }
 
 func (o *OProxy) HandleClientMetadataDownstream(c echo.Context) error {
@@ -89,7 +87,7 @@ func (o *OProxy) HandleOAuthAuthorize(c echo.Context) error {
 	if clientID == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "client_id is required")
 	}
-	redirectURL, err := o.Authorize(ctx, clientID, requestURI)
+	redirectURL, err := o.Authorize(ctx, requestURI, clientID)
 	if err != nil {
 		return err
 	}

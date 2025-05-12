@@ -1,6 +1,8 @@
 package oproxy
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -10,14 +12,14 @@ type OAuthSession struct {
 	PDSUrl string `gorm:"column:pds_url;index"`
 
 	// Upstream fields
-	UpstreamState            string    `gorm:"column:upstream_state;index"`
-	UpstreamAuthServerIssuer string    `gorm:"column:upstream_auth_server_issuer"`
-	UpstreamPKCEVerifier     string    `gorm:"column:upstream_pkce_verifier"`
-	UpstreamDPoPNonce        string    `gorm:"column:upstream_dpop_nonce"`
-	UpstreamDPoPPrivateJWK   string    `gorm:"column:upstream_dpop_private_jwk;type:text"`
-	UpstreamAccessToken      string    `gorm:"column:upstream_access_token"`
-	UpstreamAccessTokenExp   time.Time `gorm:"column:upstream_access_token_exp"`
-	UpstreamRefreshToken     string    `gorm:"column:upstream_refresh_token"`
+	UpstreamState            string     `gorm:"column:upstream_state;index"`
+	UpstreamAuthServerIssuer string     `gorm:"column:upstream_auth_server_issuer"`
+	UpstreamPKCEVerifier     string     `gorm:"column:upstream_pkce_verifier"`
+	UpstreamDPoPNonce        string     `gorm:"column:upstream_dpop_nonce"`
+	UpstreamDPoPPrivateJWK   string     `gorm:"column:upstream_dpop_private_jwk;type:text"`
+	UpstreamAccessToken      string     `gorm:"column:upstream_access_token"`
+	UpstreamAccessTokenExp   *time.Time `gorm:"column:upstream_access_token_exp"`
+	UpstreamRefreshToken     string     `gorm:"column:upstream_refresh_token"`
 
 	// Downstream fields
 	DownstreamDPoPNonce         string     `gorm:"column:downstream_dpop_nonce"`
@@ -62,9 +64,6 @@ func (o *OAuthSession) Status() OAuthSessionStatus {
 	if o.RevokedAt != nil {
 		return OAuthSessionStateRejected
 	}
-	if o.UpstreamAccessTokenExp.Before(time.Now()) {
-		return OAuthSessionStateRejected
-	}
 	if o.DownstreamAccessToken != "" {
 		return OAuthSessionStateReady
 	}
@@ -80,6 +79,8 @@ func (o *OAuthSession) Status() OAuthSessionStatus {
 	if o.DownstreamPARRequestURI != "" {
 		return OAuthSessionStatePARCreated
 	}
+	bs, _ := json.Marshal(o)
+	fmt.Printf("unknown oauth session status: %s\n", string(bs))
 	// todo: this should never happen, log a warning? panic?
 	return OAuthSessionStateRejected
 }

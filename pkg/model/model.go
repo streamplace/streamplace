@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -82,14 +83,9 @@ type Model interface {
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
 	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
 
-	CreateOAuthSession(session *OAuthSession) error
-	GetOAuthSession(id string) (*OAuthSession, error)
-	GetOAuthSessionByUpstreamState(state string) (*OAuthSession, error)
-	GetOAuthSessionByDownstreamPARID(id string) (*OAuthSession, error)
-	GetOAuthSessionByDownstreamAccessToken(token string) (*OAuthSession, error)
-	GetOAuthSessionByDownstreamRefreshToken(token string) (*OAuthSession, error)
-	UpdateOAuthSession(session *OAuthSession) error
-	DeleteOAuthSession(state string) error
+	CreateOAuthSession(id string, session *oproxy.OAuthSession) error
+	LoadOAuthSession(id string) (*oproxy.OAuthSession, error)
+	UpdateOAuthSession(id string, session *oproxy.OAuthSession) error
 
 	CreatePAR(par *PAR) error
 	GetPAR(id string) (*PAR, error)
@@ -117,7 +113,7 @@ func MakeDB(dbURL string) (Model, error) {
 		slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
 			TimeFormat: time.RFC3339,
 		})),
-		// slogGorm.WithTraceAll(),
+		slogGorm.WithTraceAll(),
 	)
 
 	db, err := gorm.Open(dial, &gorm.Config{
@@ -151,7 +147,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Block{},
 		ChatMessage{},
 		ChatProfile{},
-		OAuthSession{},
+		oproxy.OAuthSession{},
 		PAR{},
 	} {
 		err = db.AutoMigrate(model)

@@ -17,14 +17,20 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-// singleton value to identify our logging metadata in context
-var OAuthContextKey = oauthContextKeyType{}
+var OAuthSessionContextKey = oauthSessionContextKeyType{}
 
-// unique type to prevent assignment.
-type oauthContextKeyType struct{}
+type oauthSessionContextKeyType struct{}
 
-func (o *OProxy) GetOAuthSession(ctx context.Context) (*OAuthSession, *XrpcClient) {
-	session, ok := ctx.Value(OAuthContextKey).(*OAuthSession)
+var OProxyContextKey = oproxyContextKeyType{}
+
+type oproxyContextKeyType struct{}
+
+func GetOAuthSession(ctx context.Context) (*OAuthSession, *XrpcClient) {
+	o, ok := ctx.Value(OProxyContextKey).(*OProxy)
+	if !ok {
+		return nil, nil
+	}
+	session, ok := ctx.Value(OAuthSessionContextKey).(*OAuthSession)
 	if !ok {
 		return nil, nil
 	}
@@ -48,7 +54,8 @@ func (o *OProxy) OAuthMiddleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		ctx = context.WithValue(ctx, OAuthContextKey, session)
+		ctx = context.WithValue(ctx, OAuthSessionContextKey, session)
+		ctx = context.WithValue(ctx, OProxyContextKey, o)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

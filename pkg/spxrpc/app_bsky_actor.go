@@ -7,11 +7,11 @@ import (
 	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
-	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/oproxy"
 )
 
 func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorDefs_ProfileViewDetailed, error) {
-	session, client := atproto.GetOAuthSession(ctx)
+	session, client := oproxy.GetOAuthSession(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}

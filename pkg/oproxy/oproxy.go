@@ -37,7 +37,7 @@ func New(conf *Config) *OProxy {
 	if mySlog == nil {
 		mySlog = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
-	return &OProxy{
+	o := &OProxy{
 		createOAuthSession: conf.CreateOAuthSession,
 		updateOAuthSession: conf.UpdateOAuthSession,
 		loadOAuthSession:   conf.LoadOAuthSession,
@@ -47,4 +47,15 @@ func New(conf *Config) *OProxy {
 		upstreamJWK:        conf.UpstreamJWK,
 		downstreamJWK:      conf.DownstreamJWK,
 	}
+	o.e.GET("/.well-known/oauth-authorization-server", o.HandleOAuthAuthorizationServer)
+	o.e.GET("/.well-known/oauth-protected-resource", o.HandleOAuthProtectedResource)
+	o.e.POST("/oauth/par", o.HandleOAuthPAR)
+	o.e.GET("/oauth/authorize", o.HandleOAuthAuthorize)
+	o.e.GET("/oauth/return", o.HandleOAuthReturn)
+	o.e.POST("/oauth/token", o.HandleOAuthToken)
+	o.e.POST("/oauth/revoke", o.HandleOAuthRevoke)
+	o.e.GET("/oauth/upstream/client-metadata.json", o.HandleClientMetadataUpstream)
+	o.e.GET("/oauth/upstream/jwks.json", o.HandleJwksUpstream)
+	o.e.GET("/oauth/downstream/client-metadata.json", o.HandleClientMetadataDownstream)
+	return o
 }

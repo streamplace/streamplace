@@ -36,6 +36,7 @@ import (
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/streamplace"
@@ -125,14 +126,26 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	xrpc = a.OAuthMiddleware(xrpc)
+	op := oproxy.New(&oproxy.Config{
+		Host:               "longos.iameli.link",
+		CreateOAuthSession: a.Model.CreateOAuthSession,
+		UpdateOAuthSession: a.Model.UpdateOAuthSession,
+		LoadOAuthSession:   a.Model.LoadOAuthSession,
+		Scope:              "atproto transition:generic",
+		UpstreamJWK:        a.CLI.JWK,
+		DownstreamJWK:      a.CLI.AccessJWK,
+	})
+
+	xrpc = op.OAuthMiddleware(xrpc)
 	router := httprouter.New()
+	router.Handler("GET", "/oauth/*anything", op.Handler())
+	router.Handler("POST", "/oauth/*anything", op.Handler())
+	router.Handler("GET", "/.well-known/oauth-authorization-server", op.Handler())
+	router.Handler("GET", "/.well-known/oauth-protected-resource", op.Handler())
 	apiRouter := httprouter.New()
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
 	// old clients
 	router.HandlerFunc("GET", "/app-updates", a.HandleAppUpdates(ctx))
-	router.HandlerFunc("GET", "/.well-known/oauth-authorization-server", a.HandleOAuthAuthorizationServer(ctx))
-	router.HandlerFunc("GET", "/.well-known/oauth-protected-resource", a.HandleOAuthProtectedResource(ctx))
 
 	// new ones
 	apiRouter.HandlerFunc("GET", "/api/manifest", a.HandleAppUpdates(ctx))

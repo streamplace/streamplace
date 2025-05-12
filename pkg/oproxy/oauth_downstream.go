@@ -68,7 +68,7 @@ func (o *OProxy) Token(ctx context.Context, tokenRequest *TokenRequest, dpopHead
 
 func (o *OProxy) AccessToken(ctx context.Context, tokenRequest *TokenRequest, session *OAuthSession) (*TokenResponse, error) {
 	if session.Status() != OAuthSessionStateDownstream {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "session is not in downstream state")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("session is not in downstream state: %s", session.Status()))
 	}
 
 	// Hash the code verifier using SHA-256

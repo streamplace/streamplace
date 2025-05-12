@@ -20,29 +20,29 @@ import (
 func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (string, error) {
 	downstreamMeta := o.GetDownstreamMetadata()
 	if downstreamMeta.ClientID != clientID {
-		return "", echo.NewHTTPError(http.StatusBadRequest, "client ID mismatch")
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("client ID mismatch: %s != %s", downstreamMeta.ClientID, clientID))
 	}
 
 	jkt, _, err := parseURN(requestURI)
 	if err != nil {
-		return "", echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse URN: %s", err))
 	}
 
 	session, err := o.loadOAuthSession(jkt)
 	if err != nil {
-		return "", echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to load OAuth session jkt=%s: %s", jkt, err))
 	}
 
 	if session == nil {
-		return "", echo.NewHTTPError(http.StatusBadRequest, "no session found")
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("no session found for jkt=%s", jkt))
 	}
 
 	if session.Status() != OAuthSessionStatePARCreated {
-		return "", echo.NewHTTPError(http.StatusBadRequest, "session is not in par-created state")
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("session is not in par-created state: %s", session.Status()))
 	}
 
 	if session.DownstreamPARRequestURI != requestURI {
-		return "", echo.NewHTTPError(http.StatusBadRequest, "request URI mismatch")
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("request URI mismatch: %s != %s", session.DownstreamPARRequestURI, requestURI))
 	}
 
 	now := time.Now()
@@ -62,14 +62,14 @@ func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (st
 		return "", echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create OAuth client: %s", err))
 	}
 
-	// did, err := resolveHandle(ctx, session.DID)
-	// if err != nil {
-	// 	return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to resolve handle '%s': %s", session.DID, err))
-	// }
-
-	service, err := resolveService(ctx, session.DID)
+	did, err := resolveHandle(ctx, session.DID)
 	if err != nil {
-		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to resolve service for DID '%s': %s", session.DID, err))
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to resolve handle '%s': %s", session.DID, err))
+	}
+
+	service, err := resolveService(ctx, did)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to resolve service for DID '%s': %s", did, err))
 	}
 
 	authserver, err := oclient.ResolvePdsAuthServer(ctx, service)
@@ -89,24 +89,24 @@ func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (st
 
 	state := makeState(jkt)
 
-	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, session.DID, upstreamMeta.Scope, k, state)
+	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, did, upstreamMeta.Scope, k, state)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to send PAR auth request to '%s': %s", authserver, err))
 	}
 
 	jwkJSON, err := json.Marshal(k)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal DPoP key to JSON: %w", err)
+		return "", echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to marshal DPoP key to JSON: %s", err))
 	}
 
 	u, err := url.Parse(authmeta.AuthorizationEndpoint)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse auth server metadata: %w", err)
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse auth server metadata: %s", err))
 	}
 	u.RawQuery = fmt.Sprintf("client_id=%s&request_uri=%s", url.QueryEscape(upstreamMeta.ClientID), parResp.RequestUri)
 	str := u.String()
 
-	session.DID = session.DID
+	session.DID = did
 	session.PDSUrl = service
 	session.UpstreamState = parResp.State
 	session.UpstreamAuthServerIssuer = authserver
@@ -181,7 +181,7 @@ func (o *OProxy) Return(ctx context.Context, code string, iss string, state stri
 
 	expiry := now.Add(time.Second * time.Duration(itResp.ExpiresIn)).UTC()
 	session.UpstreamAccessToken = itResp.AccessToken
-	session.UpstreamAccessTokenExp = expiry
+	session.UpstreamAccessTokenExp = &expiry
 	session.UpstreamRefreshToken = itResp.RefreshToken
 	session.DownstreamAuthorizationCode = downstreamCode
 
@@ -204,7 +204,7 @@ func (o *OProxy) Return(ctx context.Context, code string, iss string, state stri
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to check account status: %s", err))
 	}
 
-	err = o.updateOAuthSession(state, session)
+	err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update OAuth session: %s", err))
 	}
@@ -214,17 +214,29 @@ func (o *OProxy) Return(ctx context.Context, code string, iss string, state stri
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse downstream redirect URI: %s", err))
 	}
-	u.Query().Set("iss", fmt.Sprintf("https://%s", o.host))
-	u.Query().Set("state", session.DownstreamState)
-	u.Query().Set("code", session.DownstreamAuthorizationCode)
+	q := u.Query()
+	q.Set("iss", fmt.Sprintf("https://%s", o.host))
+	q.Set("state", session.DownstreamState)
+	q.Set("code", session.DownstreamAuthorizationCode)
+	u.RawQuery = q.Encode()
 
 	return u.String(), nil
 }
 
 func (o *OProxy) GetUpstreamMetadata() *OAuthClientMetadata {
+	// publicKey, err := o.upstreamJWK.PublicKey()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// jwks := jwk.NewSet()
+	// err = jwks.AddKey(publicKey)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// ro := helpers.CreateJwksResponseObject(publicKey)
 	meta := &OAuthClientMetadata{
-		ClientID:  fmt.Sprintf("https://%s/api/atproto-oauth/oauth/upstream/client-metadata.json", o.host),
-		JwksURI:   fmt.Sprintf("https://%s/api/atproto-oauth/jwks.json", o.host),
+		ClientID:  fmt.Sprintf("https://%s/oauth/upstream/client-metadata.json", o.host),
+		JwksURI:   fmt.Sprintf("https://%s/oauth/upstream/jwks.json", o.host),
 		ClientURI: fmt.Sprintf("https://%s", o.host),
 		// RedirectURIs:            []string{fmt.Sprintf("https://%s/login", host)},
 		Scope:                       "atproto transition:generic",
@@ -235,6 +247,7 @@ func (o *OProxy) GetUpstreamMetadata() *OAuthClientMetadata {
 		DPoPBoundAccessTokens:       boolPtr(true),
 		TokenEndpointAuthSigningAlg: "ES256",
 		RedirectURIs:                []string{fmt.Sprintf("https://%s/oauth/return", o.host)},
+		// Jwks:                        ro,
 	}
 	return meta
 }

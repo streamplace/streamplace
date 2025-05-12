@@ -92,6 +92,9 @@ type CLI struct {
 	ExternalSigning        bool
 	TracingEndpoint        string
 	PublicHost             string
+	RateLimitPerSecond     int
+	RateLimitBurst         int
+	RateLimitWebsocket     int
 	JWK                    jwk.Key
 	AccessJWK              jwk.Key
 	dataDirFlags           []*string

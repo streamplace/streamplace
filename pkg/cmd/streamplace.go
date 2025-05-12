@@ -150,6 +150,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.BoolVar(&cli.SmearAudio, "smear-audio", false, "enable audio smearing to create 'perfect' segment timestamps")
 	fs.BoolVar(&cli.ExternalSigning, "external-signing", false, "enable external signing via exec (prevents potential memory leak)")
 	fs.StringVar(&cli.TracingEndpoint, "tracing-endpoint", "", "gRPC endpoint to send traces to")
+	fs.IntVar(&cli.RateLimitPerSecond, "rate-limit-per-second", 10, "rate limit for requests per second per ip")
+	fs.IntVar(&cli.RateLimitBurst, "rate-limit-burst", 10, "rate limit burst for requests per ip")
+	fs.IntVar(&cli.RateLimitWebsocket, "rate-limit-websocket", 10, "number of concurrent websocket connections allowed per ip")
 	version := fs.Bool("version", false, "print version and exit")
 
 	if runtime.GOOS == "linux" {

@@ -34,13 +34,15 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			ip = req.RemoteAddr
 		}
 
-		if !a.connTracker.AddConnection(ip) {
-			log.Warn(ctx, "rate limit exceeded", "ip", ip, "path", req.URL.Path)
-			apierrors.WriteHTTPTooManyRequests(w, "rate limit exceeded")
-			return
-		}
+		if a.CLI.RateLimitWebsocket > 0 {
+			if !a.connTracker.AddConnection(ip) {
+				log.Warn(ctx, "rate limit exceeded", "ip", ip, "path", req.URL.Path)
+				apierrors.WriteHTTPTooManyRequests(w, "rate limit exceeded")
+				return
+			}
 
-		defer a.connTracker.RemoveConnection(ip)
+			defer a.connTracker.RemoveConnection(ip)
+		}
 
 		uu, _ := uuid.NewV7()
 		connID := uu.String()

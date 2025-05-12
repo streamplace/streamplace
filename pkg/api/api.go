@@ -85,7 +85,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712S
 		Bus:              bus,
 		ATSync:           atsync,
 		Director:         d,
-		connTracker:      NewWebsocketTracker(5),
+		connTracker:      NewWebsocketTracker(cli.RateLimitWebsocket),
 		limiters:         make(map[string]*rate.Limiter),
 	}
 	a.Mimes, err = updater.GetMimes()
@@ -176,16 +176,18 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/live-users", a.HandleLiveUsers(ctx))
 	apiRouter.GET("/api/view-count/:user", a.HandleViewCount(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
-	router.Handler("GET", "/api/*resource", apiRouter)
-	router.Handler("POST", "/api/*resource", apiRouter)
-	router.Handler("PUT", "/api/*resource", apiRouter)
-	router.Handler("PATCH", "/api/*resource", apiRouter)
-	router.Handler("DELETE", "/api/*resource", apiRouter)
-	router.Handler("GET", "/xrpc/*resource", xrpc)
-	router.Handler("POST", "/xrpc/*resource", xrpc)
-	router.Handler("PUT", "/xrpc/*resource", xrpc)
-	router.Handler("PATCH", "/xrpc/*resource", xrpc)
-	router.Handler("DELETE", "/xrpc/*resource", xrpc)
+	apiRouterHandler := a.RateLimitMiddleware(ctx)(apiRouter)
+	xrpcHandler := a.RateLimitMiddleware(ctx)(xrpc)
+	router.Handler("GET", "/api/*resource", apiRouterHandler)
+	router.Handler("POST", "/api/*resource", apiRouterHandler)
+	router.Handler("PUT", "/api/*resource", apiRouterHandler)
+	router.Handler("PATCH", "/api/*resource", apiRouterHandler)
+	router.Handler("DELETE", "/api/*resource", apiRouterHandler)
+	router.Handler("GET", "/xrpc/*resource", xrpcHandler)
+	router.Handler("POST", "/xrpc/*resource", xrpcHandler)
+	router.Handler("PUT", "/xrpc/*resource", xrpcHandler)
+	router.Handler("PATCH", "/xrpc/*resource", xrpcHandler)
+	router.Handler("DELETE", "/xrpc/*resource", xrpcHandler)
 	router.GET("/.well-known/did.json", a.HandleDidJson(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
 	router.POST("/", a.HandleWebRTCIngest(ctx))
@@ -685,12 +687,14 @@ func (a *StreamplaceAPI) RateLimitMiddleware(ctx context.Context) func(http.Hand
 				ip = req.RemoteAddr
 			}
 
-			limiter := a.getLimiter(ip)
+			if a.CLI.RateLimitPerSecond > 0 {
+				limiter := a.getLimiter(ip)
 
-			if !limiter.Allow() {
-				log.Warn(ctx, "rate limit exceeded", "ip", ip, "path", req.URL.Path)
-				apierrors.WriteHTTPTooManyRequests(w, "rate limit exceeded")
-				return
+				if !limiter.Allow() {
+					log.Warn(ctx, "rate limit exceeded", "ip", ip, "path", req.URL.Path)
+					apierrors.WriteHTTPTooManyRequests(w, "rate limit exceeded")
+					return
+				}
 			}
 
 			next.ServeHTTP(w, req)
@@ -769,8 +773,7 @@ func (a *StreamplaceAPI) getLimiter(ip string) *rate.Limiter {
 
 	limiter, exists := a.limiters[ip]
 	if !exists {
-		// 5 actions per second with a burst of 3
-		limiter = rate.NewLimiter(rate.Limit(20.0), 16)
+		limiter = rate.NewLimiter(rate.Limit(a.CLI.RateLimitPerSecond), a.CLI.RateLimitBurst)
 		a.limiters[ip] = limiter
 	}
 

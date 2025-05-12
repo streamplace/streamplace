@@ -11,6 +11,7 @@ import { Redirect } from "components/aqlink";
 import React, { useCallback, useState } from "react";
 import { useLiveUser } from "hooks/useLiveUser";
 import StreamKeyScreen from "components/live-dashboard/stream-key";
+import { VideoElementProvider } from "contexts/VideoElementContext";
 
 enum StreamSource {
   Start,
@@ -24,10 +25,13 @@ export default function LiveDashboard() {
   const [streamSource, setStreamSource] = useState(StreamSource.Start);
   const isLive = useLiveUser();
   const telemetry = useAppSelector(selectTelemetry);
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
+    null,
+  );
+
   const videoRef = useCallback((node: HTMLVideoElement | null) => {
-    console.log("videoRef", node);
     if (node !== null) {
-      // save here for screenshot alter
+      setVideoElement(node);
     }
   }, []);
   if (!isReady) {
@@ -82,15 +86,17 @@ export default function LiveDashboard() {
     );
   }
   return (
-    <View f={1} ai="stretch" jc="center">
-      <View f={1} fb={0}>
-        {topPane}
-        {closeButton}
+    <VideoElementProvider videoElement={videoElement}>
+      <View f={1} ai="stretch" jc="center">
+        <View f={1} fb={0}>
+          {topPane}
+          {closeButton}
+        </View>
+        <View f={1} ai="center" jc="center" fb={0}>
+          <CreateLivestream />
+        </View>
       </View>
-      <View f={1} ai="center" jc="center" fb={0}>
-        <CreateLivestream />
-      </View>
-    </View>
+    </VideoElementProvider>
   );
 }
 

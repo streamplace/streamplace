@@ -26,7 +26,6 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createAppSlice } from "../../hooks/createSlice";
 import { BlueskyState } from "./blueskyTypes";
 import createOAuthClient from "./oauthClient";
-import { captureVideoFrame, findVideoElement } from "utils/videoCapture";
 
 const initialState: BlueskyState = {
   status: "start",
@@ -70,21 +69,6 @@ const uploadThumbnail = async (
       }
     } catch (e) {
       console.error("Error uploading custom thumbnail:", e);
-    }
-  }
-  // Capture a frame from the video element on web
-  if (isWeb) {
-    try {
-      const videoElement = findVideoElement();
-      if (videoElement) {
-        const thumbnailBlob = await captureVideoFrame(videoElement, 1280, 0.85);
-        const thumbnail = await pdsAgent.uploadBlob(thumbnailBlob);
-        if (thumbnail.success) {
-          return thumbnail.data.blob;
-        }
-      }
-    } catch (e) {
-      console.error("Error capturing client-side thumbnail:", e);
     }
   }
 

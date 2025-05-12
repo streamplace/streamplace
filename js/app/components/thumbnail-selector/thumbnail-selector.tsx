@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
-import { Button, Image, Text, View } from "tamagui";
-import { isWeb } from "tamagui";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, Image, Text, View, isWeb } from "tamagui";
 import { Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, Image as ImageIcon, X } from "@tamagui/lucide-icons";
-import { captureVideoFrame, findVideoElement } from "utils/videoCapture";
 
 interface ThumbnailSelectorProps {
   onThumbnailSelected: (blob: Blob | undefined) => void;
@@ -18,7 +16,6 @@ export default function ThumbnailSelector({
   const [selectedImage, setSelectedImage] = useState<string | null>(
     thumbnailUrl || null,
   );
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (thumbnailUrl) {
@@ -26,8 +23,57 @@ export default function ThumbnailSelector({
     }
   }, [thumbnailUrl]);
 
+  const revokeObjectURL = useCallback((imageUrl: string | null) => {
+    if (isWeb && imageUrl && imageUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(imageUrl);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      revokeObjectURL(selectedImage);
+    };
+  }, [selectedImage, revokeObjectURL]);
+
+  const clearThumbnail = useCallback(() => {
+    revokeObjectURL(selectedImage);
+    setSelectedImage(null);
+    onThumbnailSelected(undefined);
+  }, [onThumbnailSelected, selectedImage, revokeObjectURL]);
+
+  const galleryOptions: ImagePicker.ImagePickerOptions = {
+    mediaTypes: "images",
+    allowsEditing: true,
+    aspect: [16, 9] as [number, number],
+    quality: 0.8,
+  };
+
+  const cameraOptions: ImagePicker.ImagePickerOptions = {
+    mediaTypes: "images",
+    allowsEditing: true,
+    aspect: [16, 9] as [number, number],
+    quality: 0.8,
+    cameraType: ImagePicker.CameraType.back,
+  };
+
+  const processImageResult = useCallback(
+    async (result: ImagePicker.ImagePickerResult, source: string) => {
+      if (!result.canceled) {
+        const imageUri = result.assets[0].uri;
+        setSelectedImage(imageUri);
+
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        onThumbnailSelected(blob);
+      } else {
+        // User canceled
+        console.log(`${source} selection canceled`);
+      }
+    },
+    [onThumbnailSelected],
+  );
+
   const pickImage = useCallback(async () => {
-    setLoading(true);
     try {
       // Request permissions first
       if (Platform.OS !== "web") {
@@ -39,70 +85,192 @@ export default function ThumbnailSelector({
         }
       }
 
-      // Launch image picker
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 0.8,
-      });
+      const result = await ImagePicker.launchImageLibraryAsync(galleryOptions);
 
-      if (!result.canceled) {
-        const imageUri = result.assets[0].uri;
-        setSelectedImage(imageUri);
-
-        const response = await fetch(imageUri);
-        const blob = await response.blob();
-        onThumbnailSelected(blob);
-      } else {
-        // User canceled
-        console.log("Image selection canceled");
-      }
+      await processImageResult(result, "Image");
     } catch (error) {
       console.error("Error picking image:", error);
-    } finally {
-      setLoading(false);
+    }
+  }, [processImageResult, galleryOptions]);
+
+  const [showWebCamera, setShowWebCamera] = useState(false);
+  const [webCameraStream, setWebCameraStream] = useState<MediaStream | null>(
+    null,
+  );
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (showWebCamera && videoRef.current && webCameraStream) {
+      videoRef.current.srcObject = webCameraStream;
+      console.log("Assigned stream to video element");
+    }
+  }, [showWebCamera, webCameraStream]);
+
+  const captureWebFrame = useCallback(() => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const imageUrl = URL.createObjectURL(blob);
+              setSelectedImage(imageUrl);
+              onThumbnailSelected(blob);
+
+              if (video.srcObject) {
+                const stream = video.srcObject as MediaStream;
+                const tracks = stream.getTracks();
+                tracks.forEach((track) => track.stop());
+              }
+
+              setShowWebCamera(false);
+              setWebCameraStream(null);
+            }
+          },
+          "image/jpeg",
+          0.85,
+        );
+      }
     }
   }, [onThumbnailSelected]);
 
-  // Capture a frame from the video stream
-  const captureFrame = useCallback(async () => {
-    if (!isWeb) {
-      alert("Capturing from stream is only available on web");
-      return;
-    }
-
-    setLoading(true);
+  const startWebCamera = useCallback(async () => {
     try {
-      const videoElement = findVideoElement();
-      if (!videoElement) {
-        alert("No video stream found");
-        return;
+      if (!navigator.mediaDevices) {
+        console.log("Media devices API not available in this browser");
+        throw new Error("Media devices API not available in this browser");
       }
 
-      const blob = await captureVideoFrame(videoElement, 1280, 0.85);
-      const imageUrl = URL.createObjectURL(blob);
-      setSelectedImage(imageUrl);
-      onThumbnailSelected(blob);
-    } catch (error) {
-      console.error("Error capturing frame:", error);
-      alert("Failed to capture frame from video");
-    } finally {
-      setLoading(false);
-    }
-  }, [onThumbnailSelected]);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
 
-  // Clear the selected thumbnail
-  const clearThumbnail = useCallback(() => {
-    setSelectedImage(null);
-    onThumbnailSelected(undefined);
-  }, [onThumbnailSelected]);
+      setShowWebCamera(true);
+      setWebCameraStream(stream);
+    } catch (error) {
+      console.error("Error accessing camera:", error);
+
+      // Fallback to file input if camera access fails
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
+    }
+  }, []);
+
+  const takePhoto = useCallback(async () => {
+    try {
+      if (isWeb) {
+        await startWebCamera();
+      } else {
+        // On native platforms, use ImagePicker
+        // Request camera permissions first
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+
+        if (status !== "granted") {
+          alert("Sorry, we need camera permissions to make this work!");
+          return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync(cameraOptions);
+
+        await processImageResult(result, "Camera");
+      }
+    } catch (error) {
+      console.error("Error taking picture:", error);
+      alert(`Error opening camera: ${error.message}`);
+    }
+  }, [processImageResult, startWebCamera]);
+
+  const handleFileInputChange = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      try {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+          const file = files[0];
+          console.log("File selected:", file);
+
+          const imageUrl = URL.createObjectURL(file);
+          setSelectedImage(imageUrl);
+
+          const blob = await new Response(file).blob();
+          onThumbnailSelected(blob);
+        }
+      } catch (error) {
+        console.error("Error processing file:", error);
+      }
+    },
+    [onThumbnailSelected],
+  );
 
   return (
     <View>
-      <Text pb="$2">Thumbnail (optional)</Text>
+      {showWebCamera && isWeb ? (
+        <View
+          position="relative"
+          height={300}
+          width="100%"
+          backgroundColor="$backgroundHover"
+          borderRadius="$2"
+        >
+          {/* Web camera video element */}
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              borderRadius: 8,
+            }}
+          />
+          <canvas ref={canvasRef} style={{ display: "none" }} />
 
-      {selectedImage ? (
+          {/* Camera controls */}
+          <View
+            position="absolute"
+            bottom={10}
+            width="100%"
+            flexDirection="row"
+            justifyContent="center"
+            gap="$2"
+          >
+            <Button
+              icon={<Camera size={16} />}
+              onPress={captureWebFrame}
+              backgroundColor="transparent"
+            >
+              Capture
+            </Button>
+            <Button
+              icon={<X size={16} />}
+              onPress={() => {
+                // Stop the camera stream
+                if (videoRef.current && videoRef.current.srcObject) {
+                  const stream = videoRef.current.srcObject as MediaStream;
+                  const tracks = stream.getTracks();
+                  tracks.forEach((track) => track.stop());
+                }
+                setShowWebCamera(false);
+                setWebCameraStream(null);
+              }}
+              backgroundColor="transparent"
+            >
+              Cancel
+            </Button>
+          </View>
+        </View>
+      ) : selectedImage ? (
         <View position="relative">
           <Image
             source={{ uri: selectedImage }}
@@ -134,27 +302,28 @@ export default function ThumbnailSelector({
         </View>
       )}
 
-      <View flexDirection="row" gap="$2" mt="$2">
-        <Button
-          flex={1}
-          icon={<ImageIcon size={16} />}
-          onPress={pickImage}
-          disabled={loading}
-        >
-          {loading ? "Loading..." : "Choose Image"}
-        </Button>
-        {/* TODO: Re-enable this when we have camera working */}
-        {/* {isWeb && (
-          <Button
-            flex={1}
-            icon={<Camera size={16} />}
-            onPress={captureFrame}
-            disabled={loading}
-          >
-            Capture Frame
+      {!showWebCamera && (
+        <View flexDirection="row" gap="$2" mt="$2">
+          <Button flex={1} icon={<ImageIcon size={16} />} onPress={pickImage}>
+            Choose Image
           </Button>
-        )} */}
-      </View>
+          <Button flex={1} icon={<Camera size={16} />} onPress={takePhoto}>
+            Take Photo
+          </Button>
+        </View>
+      )}
+
+      {/* Hidden file input for web camera capture fallback */}
+      {isWeb && (
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          ref={fileInputRef}
+          onChange={handleFileInputChange}
+          style={{ display: "none" }}
+        />
+      )}
     </View>
   );
 }

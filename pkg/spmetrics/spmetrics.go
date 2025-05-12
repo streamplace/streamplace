@@ -69,6 +69,11 @@ var WebsocketsOpen = promauto.NewGauge(prometheus.GaugeOpts{
 	Help: "number of open websockets",
 })
 
+var SegmentSubscriptionsOpen = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_segment_subscriptions_open",
+	Help: "number of open new segment subscriptions",
+}, []string{"streamer", "rendition"})
+
 func ViewerInc(user string) {
 	go func() {
 		viewersLock.Lock()

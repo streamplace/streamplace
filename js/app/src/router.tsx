@@ -40,6 +40,7 @@ import {
   ImageBackground,
   ImageSourcePropType,
   Linking,
+  Platform,
   Pressable,
   StatusBar,
 } from "react-native";
@@ -166,7 +167,11 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
   }
 
   return (
-    <View flexDirection="row" marginLeft="$3">
+    <View
+      flexDirection="row"
+      marginLeft={Platform.OS === "android" ? "$0" : "$3"}
+      marginRight={Platform.OS === "android" ? "$3" : "$0"}
+    >
       {icon && (
         <Pressable style={{ padding: 5 }} onPress={handlePress}>
           {icon}
@@ -407,11 +412,10 @@ export function StreamplaceDrawer() {
         />
         <Drawer.Screen
           name="Settings"
-          component={WrappedSettings}
+          component={Settings}
           options={{
             drawerIcon: () => <SettingsIcon />,
             drawerLabel: () => <Text>Settings</Text>,
-            headerShown: false,
           }}
         />
         <Drawer.Screen
@@ -459,11 +463,10 @@ export function StreamplaceDrawer() {
         />
         <Drawer.Screen
           name="Login"
-          component={WrappedLogin}
+          component={Login}
           options={{
             drawerIcon: () => <LogIn />,
             drawerLabel: () => <Text>Login</Text>,
-            headerShown: false,
           }}
         />
         <Drawer.Screen
@@ -542,40 +545,3 @@ const MainTab = () => {
     </Stack.Navigator>
   );
 };
-
-const withStackNavigator = (Component, screenTitle) => {
-  function WrappedComponent(props) {
-    const theme = useTheme();
-    const { isWeb } = usePlatform();
-
-    return (
-      <Stack.Navigator
-        initialRouteName="Main"
-        screenOptions={{
-          headerLeft: ({ canGoBack }) => (
-            <NavigationButton canGoBack={canGoBack} />
-          ),
-          headerRight: () => <AvatarButton />,
-          headerShown: true,
-        }}
-      >
-        <Stack.Screen
-          name="Main"
-          options={{
-            headerTitle: screenTitle,
-            title: screenTitle,
-          }}
-        >
-          {() => <Component {...props} />}
-        </Stack.Screen>
-      </Stack.Navigator>
-    );
-  }
-
-  WrappedComponent.displayName = `withStackNavigator(${Component.displayName || Component.name || "Component"})`;
-
-  return WrappedComponent;
-};
-
-const WrappedLogin = withStackNavigator(Login, "Login");
-const WrappedSettings = withStackNavigator(Settings, "Settings");

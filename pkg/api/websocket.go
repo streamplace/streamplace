@@ -3,12 +3,14 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
+
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/renditions"
@@ -27,8 +29,23 @@ var pingPeriod = 5 * time.Second
 func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle {
 	ctx = log.WithLogValues(ctx, "func", "HandleWebsocket")
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		ip, _, err := net.SplitHostPort(req.RemoteAddr)
+		if err != nil {
+			ip = req.RemoteAddr
+		}
+
+		if !a.connTracker.AddConnection(ip) {
+			log.Warn(ctx, "rate limit exceeded", "ip", ip, "path", req.URL.Path)
+			apierrors.WriteHTTPTooManyRequests(w, "rate limit exceeded")
+			return
+		}
+
+		defer a.connTracker.RemoveConnection(ip)
+
 		uu, _ := uuid.NewV7()
-		ctx = log.WithLogValues(ctx, "uuid", uu.String(), "remoteAddr", req.RemoteAddr, "url", req.URL.String())
+		connID := uu.String()
+
+		ctx = log.WithLogValues(ctx, "uuid", connID, "remoteAddr", req.RemoteAddr, "url", req.URL.String())
 		log.Log(ctx, "websocket opened")
 		spmetrics.WebsocketsOpen.Inc()
 		defer spmetrics.WebsocketsOpen.Dec()
@@ -50,6 +67,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		defer conn.Close()
+
 		initialBurst := make(chan any, 200)
 		err = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 		if err != nil {

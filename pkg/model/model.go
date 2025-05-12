@@ -54,6 +54,7 @@ type Model interface {
 	CreateFollow(ctx context.Context, userDID, rev string, follow *bsky.GraphFollow) error
 	GetUserFollowing(ctx context.Context, userDID string) ([]Follow, error)
 	GetUserFollowers(ctx context.Context, userDID string) ([]Follow, error)
+	GetUserFollowingUser(ctx context.Context, userDID, subjectDID string) (*Follow, error)
 	DeleteFollow(ctx context.Context, userDID, rev string) error
 	GetFollowersNotificationTokens(userDID string) ([]string, error)
 

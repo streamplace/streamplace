@@ -1,2 +1,9 @@
 ./node_modules/.bin/lint-staged
 cd js/app && yarn run check
+
+unformatted=$(gofmt -l $(find . -name "*.go"))
+if [ -n "$unformatted" ]; then
+  printf "The following files are not formatted.\n"
+  printf "%s\n" "$unformatted"
+  exit 1
+fi

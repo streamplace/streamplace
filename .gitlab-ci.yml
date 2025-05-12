@@ -201,6 +201,7 @@ build-mac:
   variables:
     STREAMPLACE_IGNORE_LEAKS: "true"
     STREAMPLACE_TEST_COUNT: "1"
+    NODE_OPTIONS: "--max_old_space_size=4096"
   timeout: 2 hours
   script:
     # workaround for https://gitlab.com/gitlab-org/gitlab/-/issues/501457

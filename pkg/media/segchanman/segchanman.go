@@ -8,6 +8,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 // it's a segment channel manager, you see
@@ -44,6 +45,7 @@ func (s *SegChanMan) SubscribeSegment(ctx context.Context, user string, renditio
 	ch := make(chan *Seg)
 	chs = append(chs, ch)
 	s.segChans[key] = chs
+	spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, rendition).Set(float64(len(chs)))
 	return ch
 }
 
@@ -61,6 +63,7 @@ func (s *SegChanMan) UnsubscribeSegment(ctx context.Context, user string, rendit
 			break
 		}
 	}
+	spmetrics.SegmentSubscriptionsOpen.WithLabelValues(user, rendition).Set(float64(len(chs)))
 	s.segChans[key] = chs
 }
 

@@ -61,3 +61,7 @@ func WriteHTTPInternalServerError(w http.ResponseWriter, msg string, err error) 
 func WriteHTTPNotImplemented(w http.ResponseWriter, msg string, err error) APIError {
 	return writeHttpError(w, msg, http.StatusNotImplemented, err)
 }
+
+func WriteHTTPTooManyRequests(w http.ResponseWriter, msg string) APIError {
+	return writeHttpError(w, msg, http.StatusTooManyRequests, nil)
+}

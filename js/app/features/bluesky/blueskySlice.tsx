@@ -253,7 +253,6 @@ export const blueskySlice = createAppSlice({
         },
         rejected: (state, action) => {
           clearQueryParams();
-          console.error("getProfile rejected", action.error);
           // state.status = "failed";
         },
       },
@@ -851,10 +850,8 @@ export const blueskySlice = createAppSlice({
         { red, green, blue }: { red: number; green: number; blue: number },
         thunkAPI,
       ) => {
-        const now = new Date();
-        const { bluesky, streamplace } = thunkAPI.getState() as {
+        const { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
-          streamplace: StreamplaceState;
         };
         if (!bluesky.pdsAgent) {
           throw new Error("No agent");
@@ -927,6 +924,85 @@ export const blueskySlice = createAppSlice({
         },
       },
     ),
+
+    followUser: create.asyncThunk(
+      async (subjectDID: string, thunkAPI) => {
+        const { bluesky } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+        };
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+        await bluesky.pdsAgent.follow(subjectDID);
+
+        return { subjectDID };
+      },
+      {
+        pending: (state) => {
+          console.log("followUser pending");
+        },
+        fulfilled: (state, action) => {
+          console.log("followUser fulfilled", action.payload);
+        },
+        rejected: (state, action) => {
+          console.error("followUser rejected", action.error);
+        },
+      },
+    ),
+
+    unfollowUser: create.asyncThunk(
+      async (
+        { subjectDID, followUri }: { subjectDID: string; followUri?: string },
+        thunkAPI,
+      ) => {
+        const { bluesky, streamplace } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+          streamplace: StreamplaceState;
+        };
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+
+        if (followUri) {
+          await bluesky.pdsAgent.deleteFollow(followUri);
+        } else {
+          const res = await fetch(
+            `${streamplace.url}/xrpc/place.stream.graph.getFollowingUser?subjectDID=${encodeURIComponent(subjectDID)}&userDID=${encodeURIComponent(did)}`,
+            {
+              credentials: "include",
+            },
+          );
+          const data = await res.json();
+
+          if (!data.follow || !data.follow.uri) {
+            throw new Error("Follow record not found");
+          }
+
+          await bluesky.pdsAgent.deleteFollow(data.follow.uri);
+        }
+
+        return { subjectDID };
+      },
+      {
+        pending: (state) => {
+          console.log("unfollowUser pending");
+        },
+        fulfilled: (state, action) => {
+          console.log("unfollowUser fulfilled", action.payload);
+        },
+        rejected: (state, action) => {
+          console.error("unfollowUser rejected", action.error);
+        },
+      },
+    ),
   }),
 
   // You can define your selectors here. These selectors receive the slice
@@ -980,6 +1056,8 @@ export const {
   chatPost,
   chatMessage,
   createBlockRecord,
+  followUser,
+  unfollowUser,
 } = blueskySlice.actions;
 
 // Selectors returned by `slice.selectors` take the root state as their first argument.

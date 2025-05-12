@@ -14,6 +14,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NYTimes/gziphandler"
@@ -21,6 +22,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
+	"golang.org/x/time/rate"
 
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/atproto"
@@ -54,6 +56,17 @@ type StreamplaceAPI struct {
 	Bus      *bus.Bus
 	ATSync   *atproto.ATProtoSynchronizer
 	Director *director.Director
+
+	connTracker *WebsocketTracker
+
+	limiters   map[string]*rate.Limiter
+	limitersMu sync.Mutex
+}
+
+type WebsocketTracker struct {
+	connections   map[string]int
+	maxConnsPerIP int
+	mu            sync.RWMutex
 }
 
 func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director) (*StreamplaceAPI, error) {
@@ -72,6 +85,8 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712S
 		Bus:              bus,
 		ATSync:           atsync,
 		Director:         d,
+		connTracker:      NewWebsocketTracker(5),
+		limiters:         make(map[string]*rate.Limiter),
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {
@@ -214,6 +229,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	handler := sloghttp.Recovery(router)
 	handler = cors.AllowAll().Handler(handler)
 	handler = sloghttp.New(slog.Default())(handler)
+	handler = a.RateLimitMiddleware(ctx)(handler)
 
 	return handler, nil
 }
@@ -669,6 +685,27 @@ func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle
 	}
 }
 
+func (a *StreamplaceAPI) RateLimitMiddleware(ctx context.Context) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			ip, _, err := net.SplitHostPort(req.RemoteAddr)
+			if err != nil {
+				ip = req.RemoteAddr
+			}
+
+			limiter := a.getLimiter(ip)
+
+			if !limiter.Allow() {
+				log.Warn(ctx, "rate limit exceeded", "ip", ip, "path", req.URL.Path)
+				apierrors.WriteHTTPTooManyRequests(w, "rate limit exceeded")
+				return
+			}
+
+			next.ServeHTTP(w, req)
+		})
+	}
+}
+
 func (a *StreamplaceAPI) ServeHTTP(ctx context.Context) error {
 	handler, err := a.Handler(ctx)
 	if err != nil {
@@ -731,5 +768,54 @@ func (a *StreamplaceAPI) ServerWithShutdown(ctx context.Context, handler http.Ha
 func (a *StreamplaceAPI) HandleHealthz(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(200)
+	}
+}
+
+func (a *StreamplaceAPI) getLimiter(ip string) *rate.Limiter {
+	a.limitersMu.Lock()
+	defer a.limitersMu.Unlock()
+
+	limiter, exists := a.limiters[ip]
+	if !exists {
+		// 5 actions per second with a burst of 3
+		limiter = rate.NewLimiter(rate.Limit(10.0), 8)
+		a.limiters[ip] = limiter
+	}
+
+	return limiter
+}
+
+func NewWebsocketTracker(maxConns int) *WebsocketTracker {
+	return &WebsocketTracker{
+		connections:   make(map[string]int),
+		maxConnsPerIP: maxConns,
+	}
+}
+
+func (t *WebsocketTracker) AddConnection(ip string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	count := t.connections[ip]
+
+	if count >= t.maxConnsPerIP {
+		return false
+	}
+
+	t.connections[ip] = count + 1
+	return true
+}
+
+func (t *WebsocketTracker) RemoveConnection(ip string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	count := t.connections[ip]
+	if count > 0 {
+		t.connections[ip] = count - 1
+	}
+
+	if t.connections[ip] == 0 {
+		delete(t.connections, ip)
 	}
 }

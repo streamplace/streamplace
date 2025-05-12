@@ -31,6 +31,10 @@ import {
 } from "@tamagui/lucide-icons";
 import NameColorPicker from "components/name-color-picker/name-color-picker";
 import MentionSuggestions, { MentionSuggestion } from "./mention-suggestions";
+import { emojiEmitter } from "components/emoji-picker/emoji-emitter";
+import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import EmojiSuggestions, { EmojiSuggestion } from "./emoji-suggestions";
+import { usePreloadEmoji } from "hooks/usePreloadEmoji";
 
 const getParticipantSuggestions = (
   chat: MessageViewHydrated[],
@@ -80,9 +84,211 @@ export default function ChatBox({
   const playerId = usePlayerId();
   const playerActions = usePlayerActions();
   const replyTo = useAppSelector(useReplyToMessage());
+  if (isWeb) usePreloadEmoji({ immediate: true });
   const [isTextAreaFocused, setIsTextAreaFocused] = useState(false);
-  const enterHandledRef = useRef(false);
-  const [cursorPosition, setCursorPosition] = useState(0);
+  const [pickerState, setPickerState] = useState({
+    isOpen: false,
+    position: { top: 0, left: 0 },
+  });
+  const [emojiSuggestions, setEmojiSuggestions] = useState<EmojiSuggestion[]>(
+    [],
+  );
+  const [showEmojiSuggestions, setShowEmojiSuggestions] = useState(false);
+  const [emojiQuery, setEmojiQuery] = useState("");
+  const [emojiHighlightedIndex, setEmojiHighlightedIndex] = useState(0);
+  const [lastColonPosition, setLastColonPosition] = useState(-1);
+
+  const emojiList = useRef<EmojiSuggestion[]>([]);
+  const [emojiDataLoaded, setEmojiDataLoaded] = useState(false);
+  useEffect(() => {
+    if (emojiList.current.length === 0) {
+      (async () => {
+        let emojiDataRaw;
+        if (isWeb) {
+          emojiDataRaw = (await import("../../assets/emoji-data.json")).default;
+        } else {
+          emojiDataRaw = require("../../assets/emoji-data.json");
+        }
+        const emojis = emojiDataRaw.emojis;
+        emojiList.current = Object.keys(emojis).map((id) => {
+          const e = emojis[id];
+          return {
+            emoji: e.skins[0].native,
+            shortcode: `:${id}:`,
+            name: e.name,
+          };
+        });
+        setEmojiDataLoaded(true);
+      })();
+    }
+  }, []);
+
+  function getEmojiQuery(text: string, cursor: number) {
+    const match = /(^|\s):([a-zA-Z0-9_+\-]*)$/;
+    const before = text.slice(0, cursor);
+    const m = before.match(match);
+    if (m) {
+      return { query: m[2], start: cursor - m[2].length - 1 };
+    }
+    return null;
+  }
+
+  const updateEmojiSuggestions = (text: string, cursor: number) => {
+    if (!emojiDataLoaded) return;
+    const result = getEmojiQuery(text, cursor);
+    if (result && result.query.length > 0) {
+      const exact = emojiList.current.find(
+        (e) => e.shortcode === `:${result.query}:`,
+      );
+      let filtered = emojiList.current.filter((e) =>
+        e.shortcode.startsWith(`:${result.query}`),
+      );
+      if (exact) {
+        filtered = [
+          exact,
+          ...filtered.filter((e) => e.shortcode !== exact.shortcode),
+        ];
+      }
+      setEmojiSuggestions(filtered.slice(0, 5));
+      setShowEmojiSuggestions(filtered.length > 0);
+      setEmojiQuery(result.query);
+      setLastColonPosition(result.start);
+      setEmojiHighlightedIndex(0);
+    } else {
+      setShowEmojiSuggestions(false);
+      setEmojiSuggestions([]);
+      setEmojiQuery("");
+      setLastColonPosition(-1);
+    }
+  };
+
+  function getSelectionStart() {
+    if (isWeb && textAreaRef.current) {
+      const textarea = textAreaRef.current as unknown as HTMLTextAreaElement;
+      return textarea.selectionStart || 0;
+    }
+    return 0;
+  }
+
+  const handleEmojiSelect = (suggestion: EmojiSuggestion) => {
+    if (lastColonPosition === -1) return;
+    if (isWeb && textAreaRef.current) {
+      const before = message.slice(0, lastColonPosition);
+      const after = message.slice(getSelectionStart());
+      setMessage(before + suggestion.emoji + " " + after);
+    } else {
+      let endOfTrigger = lastColonPosition;
+      if (emojiQuery) {
+        const regex = new RegExp(`:${emojiQuery}\b:?`);
+        const match = regex.exec(message.slice(lastColonPosition));
+        if (match) {
+          endOfTrigger = lastColonPosition + match[0].length;
+        } else {
+          endOfTrigger = lastColonPosition + emojiQuery.length + 1;
+        }
+      }
+      const before = message.slice(0, lastColonPosition);
+      const after = message.slice(endOfTrigger);
+      setMessage(before + suggestion.emoji + " " + after);
+    }
+    setShowEmojiSuggestions(false);
+    setEmojiSuggestions([]);
+    setEmojiQuery("");
+    setLastColonPosition(-1);
+    setEmojiHighlightedIndex(0);
+    setTimeout(() => textAreaRef.current?.focus(), 0);
+  };
+
+  useEffect(() => {
+    if (!showEmojiSuggestions && emojiQuery) {
+      if (!emojiDataLoaded) return;
+      const valid = emojiList.current.find(
+        (e) => e.shortcode === `:${emojiQuery}:`,
+      );
+      if (valid && lastColonPosition !== -1) {
+        const cursor = getSelectionStart();
+        const afterColon = message.slice(lastColonPosition, cursor);
+        if (afterColon === `:${emojiQuery}:`) {
+          const before = message.slice(0, lastColonPosition);
+          const after = message.slice(cursor);
+          setMessage(before + valid.emoji + after);
+          setEmojiQuery("");
+          setLastColonPosition(-1);
+        }
+      }
+    }
+  }, [showEmojiSuggestions]);
+
+  useEffect(() => {
+    if (!isWeb || !textAreaRef.current) return;
+    const textarea = textAreaRef.current as unknown as HTMLTextAreaElement;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isTextAreaFocused) return;
+      if (showEmojiSuggestions && emojiSuggestions.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setEmojiHighlightedIndex(
+            (prev) => (prev + 1) % emojiSuggestions.length,
+          );
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setEmojiHighlightedIndex(
+            (prev) =>
+              (prev - 1 + emojiSuggestions.length) % emojiSuggestions.length,
+          );
+        } else if (e.key === "Tab" || e.key === "Enter") {
+          e.preventDefault();
+          handleEmojiSelect(emojiSuggestions[emojiHighlightedIndex]);
+        } else if (e.key === "Escape") {
+          setShowEmojiSuggestions(false);
+        }
+        return;
+      } else if (showSuggestions && suggestions.length > 0) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setHighlightedIndex((prev) => (prev + 1) % suggestions.length);
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setHighlightedIndex(
+            (prev) => (prev - 1 + suggestions.length) % suggestions.length,
+          );
+        } else if (e.key === "Tab" || e.key === "Enter") {
+          e.preventDefault();
+          handleMentionSelectByIndex(highlightedIndex);
+        } else if (e.key === "Escape") {
+          setShowSuggestions(false);
+        }
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submit();
+      }
+    };
+    textarea.addEventListener("keydown", handleKeyDown);
+    return () => {
+      textarea.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    isTextAreaFocused,
+    showSuggestions,
+    suggestions,
+    highlightedIndex,
+    showEmojiSuggestions,
+    emojiSuggestions,
+    emojiHighlightedIndex,
+  ]);
+
+  useEffect(() => {
+    const onEmojiSelected = (emoji: { native: string }) => {
+      setMessage((prev) => prev + emoji.native);
+    };
+
+    emojiEmitter.addListener("emoji-selected", onEmojiSelected);
+    return () => {
+      emojiEmitter.removeListener("emoji-selected", onEmojiSelected);
+    };
+  }, []);
 
   useEffect(() => {
     if (replyTo && textAreaRef.current) {
@@ -144,6 +350,37 @@ export default function ChatBox({
     }
   };
 
+  const openEmojiPicker = () => {
+    if (textAreaRef.current) {
+      if (isWeb) {
+        setPickerState({
+          isOpen: true,
+          position: {
+            top: 0,
+            left: 0,
+          },
+        });
+      } else {
+        textAreaRef.current.focus?.();
+        setEmojiSuggestions(emojiList.current.slice(0, 5));
+        setShowEmojiSuggestions(!showEmojiSuggestions);
+        setEmojiQuery("");
+        setLastColonPosition(message.length);
+        setEmojiHighlightedIndex(0);
+      }
+    }
+  };
+
+  const openMentionSuggestions = () => {
+    if (textAreaRef.current) {
+      textAreaRef.current.focus?.();
+      setSuggestions(getParticipantSuggestions(chat || [], userProfile?.did));
+      setShowSuggestions(!showSuggestions);
+      setHighlightedIndex(0);
+      setLastAtPosition(message.length);
+    }
+  };
+
   const submit = () => {
     if (!isWeb) Keyboard.dismiss();
     if (!message.length || !livestream || !userProfile) return;
@@ -190,35 +427,6 @@ export default function ChatBox({
   };
 
   const toast = useToastController();
-
-  useEffect(() => {
-    if (!isWeb || !textAreaRef.current) return;
-    const textarea = textAreaRef.current as unknown as HTMLTextAreaElement;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isTextAreaFocused) return;
-      if (showSuggestions && suggestions.length > 0) {
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          setHighlightedIndex((prev) => (prev + 1) % suggestions.length);
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setHighlightedIndex(
-            (prev) => (prev - 1 + suggestions.length) % suggestions.length,
-          );
-        } else if (e.key === "Tab" || e.key === "Enter") {
-          e.preventDefault();
-          handleMentionSelectByIndex(highlightedIndex);
-          enterHandledRef.current = true;
-        } else if (e.key === "Escape") {
-          setShowSuggestions(false);
-        }
-      }
-    };
-    textarea.addEventListener("keydown", handleKeyDown);
-    return () => {
-      textarea.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isTextAreaFocused, showSuggestions, suggestions, highlightedIndex]);
 
   return (
     <View position="relative">
@@ -316,60 +524,78 @@ export default function ChatBox({
                     }
                   }}
                   onChangeText={(text) => {
+                    if (!emojiDataLoaded) return;
                     const newMessage = text.replaceAll("\n", "");
                     if (newMessage.length > 300) {
                       return;
                     }
-                    setMessage(text.replaceAll("\n", ""));
+                    let cursorPosition = 0;
                     if (isWeb && textAreaRef.current) {
                       const textarea =
                         textAreaRef.current as unknown as HTMLTextAreaElement;
-                      textarea.style.height = "";
-                      textarea.style.height = textarea.scrollHeight + "px";
-
-                      // Update suggestions based on cursor position
-                      const cursorPosition = textarea.selectionStart;
-                      updateSuggestions(text, cursorPosition);
+                      cursorPosition = textarea.selectionStart;
                     } else {
-                      // On native, use tracked cursor position
-                      updateSuggestions(text, cursorPosition);
+                      cursorPosition = newMessage.length;
                     }
-                  }}
-                  onSelectionChange={(e) => {
-                    // For native platforms, track cursor position
-                    if (!isWeb) {
-                      setCursorPosition(e.nativeEvent.selection.start);
+                    const match = /(^|\s):([a-zA-Z0-9_+\-]+):/g;
+                    let replaced = false;
+                    let updated = newMessage;
+                    let offset = 0;
+                    let m;
+                    while ((m = match.exec(newMessage)) !== null) {
+                      const shortcode = m[2];
+                      const emojiObj = emojiList.current.find(
+                        (e) => e.shortcode === `:${shortcode}:`,
+                      );
+                      if (emojiObj) {
+                        // Only replace if the cursor is at or after the end of the shortcode
+                        const end = m.index + m[0].length;
+                        if (cursorPosition >= end) {
+                          updated =
+                            updated.slice(0, m.index + offset) +
+                            emojiObj.emoji +
+                            updated.slice(m.index + offset + m[0].length);
+                          offset += emojiObj.emoji.length - m[0].length;
+                          replaced = true;
+                        }
+                      }
                     }
+                    setMessage(updated);
+                    updateSuggestions(
+                      updated,
+                      cursorPosition + (updated.length - newMessage.length),
+                    );
+                    updateEmojiSuggestions(
+                      updated,
+                      cursorPosition + (updated.length - newMessage.length),
+                    );
                   }}
                   onKeyPress={(e) => {
-                    if (enterHandledRef.current) {
-                      enterHandledRef.current = false;
-                      e.preventDefault();
-                      return;
-                    }
-                    if (
-                      showSuggestions &&
-                      suggestions.length > 0 &&
-                      (e.nativeEvent.key === "Enter" ||
-                        e.nativeEvent.key === "Tab")
-                    ) {
-                      e.preventDefault();
-                      return;
-                    }
-                    if (e.nativeEvent.key === "Enter") {
-                      e.preventDefault();
-                      submit();
-                    } else if (
-                      e.nativeEvent.key === "Tab" &&
-                      showSuggestions &&
-                      suggestions.length > 0
-                    ) {
-                      e.preventDefault();
-                      handleMentionSelect(suggestions[0]);
+                    if (!isWeb) {
+                      if (e.nativeEvent.key === "Enter") {
+                        submit();
+                      }
                     }
                   }}
                   onSubmitEditing={submit}
                 />
+                {showEmojiSuggestions && emojiSuggestions.length > 0 && (
+                  <View
+                    position="absolute"
+                    top="100%"
+                    left={0}
+                    right={0}
+                    pointerEvents="box-none"
+                    style={{ zIndex: 100000 }}
+                  >
+                    <EmojiSuggestions
+                      suggestions={emojiSuggestions}
+                      onSelect={handleEmojiSelect}
+                      highlightedIndex={emojiHighlightedIndex}
+                      setHighlightedIndex={setEmojiHighlightedIndex}
+                    />
+                  </View>
+                )}
                 {showSuggestions && suggestions.length > 0 && (
                   <View
                     position="absolute"
@@ -401,6 +627,28 @@ export default function ChatBox({
           >
             {isChatVisible && (
               <>
+                <Button
+                  onPress={openMentionSuggestions}
+                  backgroundColor="transparent"
+                  flexShrink={0}
+                >
+                  @
+                </Button>
+                <View position="relative" flexShrink={0}>
+                  <Button
+                    onPress={openEmojiPicker}
+                    backgroundColor="transparent"
+                    flexShrink={0}
+                  >
+                    😊
+                  </Button>
+                  <EmojiPicker
+                    isOpen={pickerState.isOpen}
+                    onClose={() =>
+                      setPickerState((prev) => ({ ...prev, isOpen: false }))
+                    }
+                  />
+                </View>
                 <NameColorPicker
                   buttonProps={{ backgroundColor: "transparent" }}
                   text={(color) => <Palette size={16} color={color} />}

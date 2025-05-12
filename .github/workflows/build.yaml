@@ -59,6 +59,7 @@ jobs:
         env:
           STREAMPLACE_TEST_COUNT: "1"
           STREAMPLACE_IGNORE_LEAKS: "true"
+          NODE_OPTIONS: "--max_old_space_size=4096"
         run: |
           export GOTOOLCHAIN=go1.24.2 \
           && brew install go \

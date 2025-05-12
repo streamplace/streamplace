@@ -49,3 +49,12 @@ func (m *DBModel) GetUserFollowers(ctx context.Context, userDID string) ([]Follo
 	var follows []Follow
 	return follows, m.DB.Where("subject_did = ?", userDID).Find(&follows).Error
 }
+
+func (m *DBModel) GetUserFollowingUser(ctx context.Context, userDID, subjectDID string) (*Follow, error) {
+	var follow Follow
+	result := m.DB.Where("user_did = ? AND subject_did = ?", userDID, subjectDID).First(&follow)
+	if result.RowsAffected == 0 {
+		return nil, nil
+	}
+	return &follow, result.Error
+}

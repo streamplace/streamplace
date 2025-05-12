@@ -14,10 +14,27 @@ import {
 import { useKeyboard } from "hooks/useKeyboard";
 import usePlatform from "hooks/usePlatform";
 import { useCallback, useEffect, useState } from "react";
-import { LayoutChangeEvent, View as RNView, SafeAreaView } from "react-native";
+import {
+  LayoutChangeEvent,
+  View as RNView,
+  SafeAreaView,
+  Linking,
+} from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { Button, H2, H3, Text, useWindowDimensions, View } from "tamagui";
+import {
+  Button,
+  H2,
+  H3,
+  isWeb,
+  Text,
+  useWindowDimensions,
+  View,
+} from "tamagui";
 import { MessageCircleOff, MessageCircleMore } from "@tamagui/lucide-icons";
+import FollowButton from "components/follow-button";
+import { useToastController } from "@tamagui/toast";
+import { selectProfiles, getProfile } from "features/bluesky/blueskySlice";
+import storage from "storage";
 
 export default function Livestream(props: Partial<PlayerProps>) {
   return (
@@ -30,6 +47,8 @@ export default function Livestream(props: Partial<PlayerProps>) {
 export function LivestreamInner(props: Partial<PlayerProps>) {
   const telemetry = useAppSelector(selectTelemetry);
   const player = useAppSelector(usePlayer());
+  const profiles = useAppSelector(selectProfiles);
+  const toast = useToastController();
 
   const { src, ...extraProps } = props;
   const dispatch = useAppDispatch();
@@ -37,12 +56,17 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
   const video = player.segment?.video?.[0];
   const [videoWidth, setVideoWidth] = useState(0);
   const [videoHeight, setVideoHeight] = useState(0);
-  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
+  const { keyboardHeight } = useKeyboard();
   const { isIOS } = usePlatform();
 
   const [outerHeight, setOuterHeight] = useState(0);
   const [innerHeight, setInnerHeight] = useState(0);
   const [isChatVisible, setIsChatVisible] = useState(true);
+  const [currentUserDID, setCurrentUserDID] = useState<string | null>(null);
+
+  const streamerDID = player.livestream?.author?.did;
+  const streamerProfile = streamerDID ? profiles[streamerDID] : undefined;
+  const streamerHandle = streamerProfile?.handle;
 
   // this would all be really easy if i had library that would give me the
   // safe area view height and width but i don't. so let's measure
@@ -64,10 +88,32 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
     }
   }, [video, width, height]);
 
+  useEffect(() => {
+    getCurrentUserDID().then((did) => {
+      console.log("currentUserDID:", did);
+      setCurrentUserDID(did);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (streamerDID && !streamerProfile) {
+      dispatch(getProfile(streamerDID));
+    }
+  }, [streamerDID, streamerProfile, dispatch]);
+
   let slideKeyboard = 0;
   if (isIOS && keyboardHeight > 0) {
     slideKeyboard = -keyboardHeight + (outerHeight - innerHeight);
   }
+
+  const handleFollowChange = (isFollowing: boolean) => {
+    if (!streamerHandle) return;
+    if (isFollowing) {
+      toast.show(`You are now following @${streamerHandle}`);
+    } else {
+      toast.show(`You have unfollowed @${streamerHandle}`);
+    }
+  };
 
   return (
     <RNView style={{ flex: 1 }}>
@@ -156,30 +202,74 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                 fg={0}
                 p="$4"
                 display="none"
-                flexDirection="row"
-                alignItems="flex-start"
-                justifyContent="space-between"
+                flexDirection="column"
                 $gtXs={{ display: "flex" }}
               >
-                <H2>{player.livestream?.record.title}</H2>
                 <View
                   flexDirection="row"
                   alignItems="center"
-                  gap="$2"
-                  paddingRight="$3"
+                  justifyContent="space-between"
+                  width="100%"
                 >
-                  <Viewers viewers={player.viewers ?? 0} />
-                  <Button
-                    backgroundColor="transparent"
-                    onPress={() => setIsChatVisible(!isChatVisible)}
-                    marginLeft="$2"
+                  <View
+                    flexDirection="row"
+                    alignItems="center"
+                    gap="$2"
+                    minWidth={0}
                   >
-                    {isChatVisible ? (
-                      <MessageCircleOff size={22} />
+                    {streamerDID && !streamerHandle ? (
+                      // Skeleton loader for handle
+                      <Text>&nbsp;</Text>
                     ) : (
-                      <MessageCircleMore size={22} />
+                      streamerHandle && (
+                        <Text
+                          onPress={() =>
+                            Linking.openURL(
+                              `https://bsky.app/profile/${streamerHandle}`,
+                            )
+                          }
+                          aria-label={`View @${streamerHandle} on Bluesky`}
+                          style={{ cursor: "pointer" }}
+                        >
+                          {`@${streamerHandle}`}
+                        </Text>
+                      )
                     )}
-                  </Button>
+                    {streamerDID && streamerHandle && currentUserDID && (
+                      <FollowButton
+                        streamerDID={streamerDID}
+                        currentUserDID={currentUserDID}
+                        onFollowChange={handleFollowChange}
+                      />
+                    )}
+                  </View>
+                  <View flexDirection="row" alignItems="center" gap="$2">
+                    <Viewers viewers={player.viewers ?? 0} />
+                    <Button
+                      backgroundColor="transparent"
+                      onPress={() => setIsChatVisible(!isChatVisible)}
+                      marginLeft="$2"
+                    >
+                      {isChatVisible ? (
+                        <MessageCircleOff size={22} />
+                      ) : (
+                        <MessageCircleMore size={22} />
+                      )}
+                    </Button>
+                  </View>
+                </View>
+                <View width="100%" marginTop={4}>
+                  <H2
+                    maxWidth="100%"
+                    lineHeight={32}
+                    numberOfLines={
+                      typeof window !== "undefined" && window.innerWidth < 600
+                        ? 1
+                        : undefined
+                    }
+                  >
+                    {player.livestream?.record.title}
+                  </H2>
                 </View>
               </View>
             </View>
@@ -189,8 +279,8 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
               fg={1}
               zIndex={1}
               $gtXs={{
-                width: isChatVisible ? 300 : 0,
-                fb: isChatVisible ? 300 : 0,
+                width: isChatVisible ? 380 : 0,
+                fb: isChatVisible ? 380 : 0,
                 fs: 0,
                 borderLeftColor: "#666",
                 borderLeftWidth: isChatVisible ? 1 : 0,
@@ -208,28 +298,76 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                   : undefined
               }
             >
+              {/* Native potrait view: first row = handle/follow/viewers, second row = title */}
               <View
                 $gtXs={{ display: "none" }}
-                flexDirection="row"
-                gap="$2"
+                flexDirection="column"
                 borderBottomColor="#666"
                 borderBottomWidth={1}
                 borderTopColor="#666"
                 borderTopWidth={1}
                 zIndex={1}
               >
-                <View f={1} fb={0} padding="$3" justifyContent="center">
-                  <Text fontSize={18} numberOfLines={1} ellipsizeMode="tail">
-                    {player.livestream?.record.title}
-                  </Text>
-                </View>
                 <View
                   flexDirection="row"
                   alignItems="center"
                   gap="$2"
+                  paddingTop="$1"
+                  paddingBottom="$1"
+                  paddingLeft="$3"
                   paddingRight="$3"
+                  justifyContent="space-between"
                 >
-                  <Viewers viewers={player.viewers ?? 0} />
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      flex: 1,
+                      gap: 8,
+                      minWidth: 0,
+                    }}
+                  >
+                    {streamerDID && !streamerHandle ? (
+                      // Skeleton loader for handle
+                      <Text>&nbsp;</Text>
+                    ) : (
+                      streamerHandle && (
+                        <Text
+                          onPress={() =>
+                            Linking.openURL(
+                              `https://bsky.app/profile/${streamerHandle}`,
+                            )
+                          }
+                          aria-label={`View @${streamerHandle} on Bluesky`}
+                          style={{ cursor: "pointer" }}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {`@${streamerHandle}`}
+                        </Text>
+                      )
+                    )}
+                    {streamerDID && streamerHandle && currentUserDID && (
+                      <FollowButton
+                        streamerDID={streamerDID}
+                        currentUserDID={currentUserDID}
+                        onFollowChange={handleFollowChange}
+                      />
+                    )}
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Viewers viewers={player.viewers ?? 0} />
+                  </View>
+                </View>
+                <View
+                  paddingLeft="$3"
+                  paddingRight="$3"
+                  paddingBottom="$3"
+                  marginTop={-15}
+                >
+                  <Text fontSize={18} numberOfLines={1} ellipsizeMode="tail">
+                    {player.livestream?.record.title}
+                  </Text>
                 </View>
               </View>
               <Chat
@@ -248,4 +386,20 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
       </SafeAreaView>
     </RNView>
   );
+}
+
+async function getCurrentUserDID(): Promise<string | null> {
+  try {
+    const did = await storage.getItem(
+      `${isWeb ? "@@atproto/oauth-client-browser(sub)" : "did"}`,
+    );
+    if (did) {
+      return did;
+    }
+    console.debug("Could not find user DID");
+    return null;
+  } catch (err) {
+    console.error("[ERROR] Failed to get current user DID:", err);
+    return null;
+  }
 }

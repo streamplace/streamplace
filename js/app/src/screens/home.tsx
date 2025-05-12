@@ -32,12 +32,12 @@ type Segment = {
 const mockSegments: Segment[] = [
   {
     id: "mock-segment-1",
-    repoDID: "did:plc:mock1",
+    repoDID: "did:plc:lghfd7elj6cjjwlhecp2utao",
     signingKeyDID: "did:mock:1",
     startTime: new Date().toISOString(),
     repo: {
-      handle: "mockuser1.net",
-      did: "did:plc:mock1",
+      handle: "soapy.social",
+      did: "did:plc:lghfd7elj6cjjwlhecp2utao",
       pds: "bsky.network",
       rootCid: "invalid",
       version: "0.0",
@@ -46,12 +46,12 @@ const mockSegments: Segment[] = [
   },
   {
     id: "mock-segment-2",
-    repoDID: "did:plc:mock2",
+    repoDID: "did:plc:oio4hkxaop4ao4wz2pp3f4cr",
     signingKeyDID: "did:mock:2",
     startTime: new Date().toISOString(),
     repo: {
-      handle: "mockuser1.coffeeeeeeeeeeee",
-      did: "did:plc:mock1",
+      handle: "mackuba.eu",
+      did: "did:plc:oio4hkxaop4ao4wz2pp3f4cr",
       pds: "bsky.network",
       rootCid: "invalid",
       version: "0.0",
@@ -60,12 +60,12 @@ const mockSegments: Segment[] = [
   },
   {
     id: "mock-segment-3",
-    repoDID: "did:plc:mock3",
+    repoDID: "did:plc:p2cp5gopk7mgjegy6wadk3ep",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
     repo: {
-      handle: "mockuser1.hof",
-      did: "did:plc:mock1",
+      handle: "samuel.bsky.team",
+      did: "did:plc:p2cp5gopk7mgjegy6wadk3ep",
       pds: "bsky.network",
       rootCid: "invalid",
       version: "0.0",
@@ -74,12 +74,12 @@ const mockSegments: Segment[] = [
   },
   {
     id: "mock-segment-4",
-    repoDID: "did:plc:mock3",
+    repoDID: "did:plc:vc7f4oafdgxsihk4cry2xpze",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
     repo: {
-      handle: "mockuser1.ee",
-      did: "did:plc:mock1",
+      handle: "jer.ry",
+      did: "did:plc:vc7f4oafdgxsihk4cry2xpze",
       pds: "bsky.network",
       rootCid: "invalid",
       version: "0.0",
@@ -88,12 +88,12 @@ const mockSegments: Segment[] = [
   },
   {
     id: "mock-segment-5",
-    repoDID: "did:plc:mock3",
+    repoDID: "did:plc:by3jhwdqgbtrcc7q4tkkv3cf",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
     repo: {
-      handle: "mockuser1.wang",
-      did: "did:plc:mock1",
+      handle: "alice.mosphere.at",
+      did: "did:plc:by3jhwdqgbtrcc7q4tkkv3cf",
       pds: "bsky.network",
       rootCid: "invalid",
       version: "0.0",
@@ -102,12 +102,12 @@ const mockSegments: Segment[] = [
   },
   {
     id: "mock-segment-6",
-    repoDID: "did:plc:mock3",
+    repoDID: "did:plc:vlblikmsgpx2i7fvxinrsvzu",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
     repo: {
-      handle: "mockuser1.site",
-      did: "did:plc:mock1",
+      handle: "moll.dev",
+      did: "did:plc:vlblikmsgpx2i7fvxinrsvzu",
       pds: "bsky.network",
       rootCid: "invalid",
       version: "0.0",
@@ -116,12 +116,12 @@ const mockSegments: Segment[] = [
   },
   {
     id: "mock-segment-7",
-    repoDID: "did:plc:mock3",
+    repoDID: "did:plc:xwhsmuozq3mlsp56dyd7copv",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
     repo: {
-      handle: "mockuser1.nl",
-      did: "did:plc:mock1",
+      handle: "paizuri.moe",
+      did: "did:plc:xwhsmuozq3mlsp56dyd7copv",
       pds: "bsky.network",
       rootCid: "invalid",
       version: "0.0",
@@ -130,12 +130,12 @@ const mockSegments: Segment[] = [
   },
   {
     id: "mock-segment-8",
-    repoDID: "did:plc:mock3",
+    repoDID: "did:plc:gq4fo3u6tqzzdkjlwzpb23tj",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
     repo: {
-      handle: "mockuser1.jp",
-      did: "did:plc:mock1",
+      handle: "da.me",
+      did: "did:plc:gq4fo3u6tqzzdkjlwzpb23tj",
       pds: "bsky.network",
       rootCid: "invalid",
       version: "0.0",
@@ -144,12 +144,12 @@ const mockSegments: Segment[] = [
   },
   {
     id: "mock-segment-9",
-    repoDID: "did:plc:mock3",
+    repoDID: "did:plc:rbvrr34edl5ddpuwcubjiost",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
     repo: {
-      handle: "mockuser1.berlin",
-      did: "did:plc:mock1",
+      handle: "stream.place",
+      did: "did:plc:rbvrr34edl5ddpuwcubjiost",
       pds: "bsky.network",
       rootCid: "invalid",
       version: "0.0",
@@ -158,12 +158,12 @@ const mockSegments: Segment[] = [
   },
   {
     id: "mock-segment-10",
-    repoDID: "did:plc:mock3",
+    repoDID: "did:plc:gotnvwkr56ibs33l4hwgfoet",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
     repo: {
-      handle: "mockuser1.kyoto",
-      did: "did:plc:mock1",
+      handle: "zeu.dev",
+      did: "did:plc:gotnvwkr56ibs33l4hwgfoet",
       pds: "bsky.network",
       rootCid: "invalid",
       version: "0.0",
@@ -172,12 +172,12 @@ const mockSegments: Segment[] = [
   },
   {
     id: "mock-segment-11",
-    repoDID: "did:plc:mock3",
+    repoDID: "did:plc:tpg43qhh4lw4ksiffs4nbda3",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
     repo: {
-      handle: "mockuser1.nyc",
-      did: "did:plc:mock1",
+      handle: "jacob.gold",
+      did: "did:plc:tpg43qhh4lw4ksiffs4nbda3",
       pds: "bsky.network",
       rootCid: "invalid",
       version: "0.0",
@@ -297,6 +297,7 @@ export default function HomeScreen({
       // Only poll if not using mock data
       dispatch(pollSegments());
     }
+    // get array of
   }, [useMockData, dispatch]);
 
   useEffect(() => {

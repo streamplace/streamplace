@@ -24,6 +24,8 @@ jobs:
             cmd: "make app && make linux-arm64"
           - name: windows-amd64
             cmd: "make app && make windows-amd64"
+          - name: android
+            cmd: "make android"
     steps:
       - name: Check out code
         uses: actions/checkout@v4.1.7
@@ -45,6 +47,9 @@ jobs:
           - name: darwin-arm64
             runs-on: macos-latest
             cmd: make && make test && make check
+          - name: ios
+            runs-on: macos-latest
+            cmd: make ios
           - name: darwin-amd64
             runs-on: macos-13
             cmd: make

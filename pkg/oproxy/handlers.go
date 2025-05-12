@@ -17,7 +17,6 @@ func (o *OProxy) Handler() http.Handler {
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,DPoP")
 		w.Header().Set("Access-Control-Allow-Methods", "*")
 		w.Header().Set("Access-Control-Expose-Headers", "DPoP-Nonce")
-		o.e.Use(o.ErrorHandlingMiddleware)
 		o.e.ServeHTTP(w, r)
 	})
 }

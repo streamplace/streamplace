@@ -42,11 +42,18 @@ func GetOAuthSession(ctx context.Context) (*OAuthSession, *XrpcClient) {
 
 func (o *OProxy) OAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// todo: nonce stuff
+		// todo: see what these were set to before it got to us.
+		w.Header().Set("Access-Control-Allow-Origin", "*") // todo: ehhhhhhhhhhhh
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,DPoP")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
+		w.Header().Set("Access-Control-Expose-Headers", "DPoP-Nonce")
+
 		ctx := r.Context()
 		session, err := o.getOAuthSession(r, w)
 		if err != nil {
 			if errors.Is(err, dpop.ErrIncorrectNonce) {
+				// w.Header().Set("WWW-Authenticate", `DPoP error="use_dpop_nonce", error_description="Invalid nonce"`)
+				w.Header().Set("content-type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				bs, _ := json.Marshal(map[string]interface{}{
 					"error":             "use_dpop_nonce",
@@ -122,9 +129,8 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 		return nil, fmt.Errorf("oauth session revoked")
 	}
 	if session.DownstreamDPoPNonce != nonce {
-		w.Header().Set("WWW-Authenticate", `DPoP error="invalid_nonce", error_description="Invalid nonce"`)
+		w.Header().Set("WWW-Authenticate", `DPoP algs="RS256 RS384 RS512 PS256 PS384 PS512 ES256 ES256K ES384 ES512", error="use_dpop_nonce", error_description="Authorization server requires nonce in DPoP proof"`)
 		w.Header().Set("DPoP-Nonce", session.DownstreamDPoPNonce)
-		w.WriteHeader(http.StatusUnauthorized)
 		return nil, dpop.ErrIncorrectNonce
 	}
 
@@ -143,9 +149,9 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 	if err != nil {
 		if ok := errors.Is(err, dpop.ErrInvalidProof); ok {
 			// Return 'invalid_dpop_proof'
-			return nil, err
+			return nil, fmt.Errorf("invalid DPoP proof: %w", err)
 		}
-		return nil, err
+		return nil, fmt.Errorf("error validating proof proof: %w", err)
 	}
 
 	// Hash the token with base64 and SHA256

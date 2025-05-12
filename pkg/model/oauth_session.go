@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 
+	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/oproxy"
 )
 
@@ -13,6 +14,9 @@ func (m *DBModel) CreateOAuthSession(id string, session *oproxy.OAuthSession) er
 func (m *DBModel) LoadOAuthSession(id string) (*oproxy.OAuthSession, error) {
 	var session oproxy.OAuthSession
 	if err := m.DB.Where("downstream_dpop_jkt = ?", id).First(&session).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &session, nil

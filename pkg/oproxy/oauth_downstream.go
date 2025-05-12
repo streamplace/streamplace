@@ -322,20 +322,20 @@ var ErrFirstNonce = echo.NewHTTPError(http.StatusBadRequest, "first time seeing 
 func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeader string) (*PARResponse, error) {
 	jkt, nonce, err := getJKT(dpopHeader)
 	if err != nil {
-		return nil, err
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to get JKT from DPoP header: %s", err))
+	}
+	session, err := o.loadOAuthSession(jkt)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to load OAuth session: %s", err))
 	}
 	// special case - if this is the first request, we need to send it back for a new nonce
-	if nonce == "" {
+	if session == nil {
 		_, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/oauth/par"}, dpop.ParseOptions{
-			Nonce:      "",
+			Nonce:      nonce, // normally this would be bad! but on the first request we're revalidating nonce anyway
 			TimeWindow: &dpopTimeWindow,
 		})
 		if err != nil {
-			return nil, err
-		}
-		session, _ := o.loadOAuthSession(jkt)
-		if session != nil {
-			return nil, echo.NewHTTPError(http.StatusBadRequest, "we already gave you a nonce, you should have used it")
+			return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse DPoP header: %s", err))
 		}
 		newNonce := makeNonce()
 		err = o.createOAuthSession(jkt, &OAuthSession{
@@ -343,21 +343,17 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 			DownstreamDPoPNonce: newNonce,
 		})
 		if err != nil {
-			return nil, err
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create OAuth session: %s", err))
 		}
 		// come back later, nerd
 		c.Response().Header().Set("DPoP-Nonce", newNonce)
 		return nil, ErrFirstNonce
 	}
-	session, err := o.loadOAuthSession(jkt)
-	if err != nil {
-		return nil, err
-	}
 	if session.DownstreamDPoPNonce != nonce {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid nonce")
 	}
 	proof, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/oauth/par"}, dpop.ParseOptions{
-		Nonce:      "",
+		Nonce:      session.DownstreamDPoPNonce,
 		TimeWindow: &dpopTimeWindow,
 	})
 	// Check the error type to determine response
@@ -368,7 +364,7 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 		// }
 		// apierrors.WriteHTTPBadRequest(w, "invalid DPoP proof", err)
 		// return
-		return nil, err
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid DPoP proof: %s", err))
 	}
 	if proof.PublicKey() != jkt {
 		panic("invalid code path: parsed DPoP proof twice and got different keys?!")
@@ -376,23 +372,23 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 
 	clientMetadata := o.GetDownstreamMetadata()
 	if par.ClientID != clientMetadata.ClientID {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid client_id")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid client_id: expected %s, got %s", clientMetadata.ClientID, par.ClientID))
 	}
 
 	if !slices.Contains(clientMetadata.RedirectURIs, par.RedirectURI) {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid redirect_uri")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid redirect_uri: %s not in allowed URIs", par.RedirectURI))
 	}
 
 	if par.CodeChallengeMethod != "S256" {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid code challenge method")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid code challenge method: expected S256, got %s", par.CodeChallengeMethod))
 	}
 
 	if par.ResponseMode != "query" {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid response mode")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid response mode: expected query, got %s", par.ResponseMode))
 	}
 
 	if par.ResponseType != "code" {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid response type")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid response type: expected code, got %s", par.ResponseType))
 	}
 
 	if par.Scope != o.scope {

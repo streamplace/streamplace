@@ -58,5 +58,6 @@ func New(conf *Config) *OProxy {
 	o.e.GET("/oauth/upstream/client-metadata.json", o.HandleClientMetadataUpstream)
 	o.e.GET("/oauth/upstream/jwks.json", o.HandleJwksUpstream)
 	o.e.GET("/oauth/downstream/client-metadata.json", o.HandleClientMetadataDownstream)
+	o.e.Use(o.ErrorHandlingMiddleware)
 	return o
 }

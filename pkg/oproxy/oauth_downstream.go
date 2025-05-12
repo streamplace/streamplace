@@ -110,6 +110,7 @@ func (o *OProxy) AccessToken(ctx context.Context, tokenRequest *TokenRequest, se
 		RefreshToken: refreshToken,
 		Scope:        "atproto transition:generic",
 		ExpiresIn:    int(OAuthTokenExpiry.Seconds()),
+		Sub:          session.DID,
 	}, nil
 }
 
@@ -140,6 +141,7 @@ func (o *OProxy) RefreshToken(ctx context.Context, tokenRequest *TokenRequest, s
 		RefreshToken: session.DownstreamRefreshToken,
 		Scope:        "atproto transition:generic",
 		ExpiresIn:    int(OAuthTokenExpiry.Seconds()),
+		Sub:          session.DID,
 	}, nil
 }
 
@@ -273,6 +275,7 @@ func (o *OProxy) GetDownstreamMetadata() *OAuthClientMetadata {
 		GrantTypes:              []string{"authorization_code", "refresh_token"},
 		DPoPBoundAccessTokens:   boolPtr(true),
 		RedirectURIs:            []string{fmt.Sprintf("https://%s/login", o.host)},
+		ApplicationType:         "web",
 	}
 	return meta
 }

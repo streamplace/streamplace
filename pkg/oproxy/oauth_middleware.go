@@ -79,17 +79,6 @@ func (o *OProxy) getOAuthSession(r *http.Request) (*OAuthSession, error) {
 		return nil, fmt.Errorf("invalid authorization header (must start with DPoP)")
 	}
 	token := strings.TrimPrefix(authHeader, "DPoP ")
-	session, err := o.loadOAuthSession(token)
-	if err != nil {
-		return nil, fmt.Errorf("could not get oauth session: %w", err)
-	}
-	if session == nil {
-		return nil, fmt.Errorf("oauth session not found")
-	}
-
-	if session.RevokedAt != nil {
-		return nil, fmt.Errorf("oauth session revoked")
-	}
 
 	dpopHeader := r.Header.Get("DPoP")
 	if dpopHeader == "" {
@@ -125,6 +114,18 @@ func (o *OProxy) getOAuthSession(r *http.Request) (*OAuthSession, error) {
 		return nil, err
 	}
 
+	session, err := o.loadOAuthSession(proof.PublicKey())
+	if err != nil {
+		return nil, fmt.Errorf("could not get oauth session: %w", err)
+	}
+	if session == nil {
+		return nil, fmt.Errorf("oauth session not found")
+	}
+
+	if session.RevokedAt != nil {
+		return nil, fmt.Errorf("oauth session revoked")
+	}
+
 	// Hash the token with base64 and SHA256
 	// Get the access token JWT (introspect if needed)
 	// Parse the access token JWT and verify the signature
@@ -136,7 +137,7 @@ func (o *OProxy) getOAuthSession(r *http.Request) (*OAuthSession, error) {
 	// Encode the hash in URL-safe base64 format without padding
 	// accessTokenHash := base64.RawURLEncoding.EncodeToString(hash)
 	accessTokenHash := base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(hash)
-	pubKey, err := o.upstreamJWK.PublicKey()
+	pubKey, err := o.downstreamJWK.PublicKey()
 	if err != nil {
 		return nil, fmt.Errorf("could not get access jwk public key: %w", err)
 	}

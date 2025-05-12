@@ -106,7 +106,9 @@ export const blueskySlice = createAppSlice({
     loadOAuthClient: create.asyncThunk(
       async (_, { getState }) => {
         const { streamplace } = getState() as { streamplace: StreamplaceState };
+        console.log("Creating client for", streamplace.url);
         const client = await createOAuthClient(streamplace.url);
+        console.log("calling init");
         let initResult = await client.init();
         return { client, initResult };
       },

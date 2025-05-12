@@ -62,7 +62,7 @@ jobs:
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "16.1"
+          xcode-version: "16.1.0"
 
       - name: Build Streamplace
         env:

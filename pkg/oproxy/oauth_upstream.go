@@ -89,7 +89,10 @@ func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (st
 
 	state := makeState(jkt)
 
-	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, did, upstreamMeta.Scope, k, state)
+	opts := oauth.ParAuthRequestOpts{
+		State: state,
+	}
+	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, did, upstreamMeta.Scope, k, opts)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to send PAR auth request to '%s': %s", authserver, err))
 	}

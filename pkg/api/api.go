@@ -770,7 +770,7 @@ func (a *StreamplaceAPI) getLimiter(ip string) *rate.Limiter {
 	limiter, exists := a.limiters[ip]
 	if !exists {
 		// 5 actions per second with a burst of 3
-		limiter = rate.NewLimiter(rate.Limit(10.0), 8)
+		limiter = rate.NewLimiter(rate.Limit(20.0), 16)
 		a.limiters[ip] = limiter
 	}
 

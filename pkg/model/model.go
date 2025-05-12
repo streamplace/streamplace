@@ -86,11 +86,6 @@ type Model interface {
 	CreateOAuthSession(id string, session *oproxy.OAuthSession) error
 	LoadOAuthSession(id string) (*oproxy.OAuthSession, error)
 	UpdateOAuthSession(id string, session *oproxy.OAuthSession) error
-
-	CreatePAR(par *PAR) error
-	GetPAR(id string) (*PAR, error)
-	GetPARByCodeChallenge(codeChallenge string) (*PAR, error)
-	DeletePAR(id string) error
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -113,7 +108,7 @@ func MakeDB(dbURL string) (Model, error) {
 		slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
 			TimeFormat: time.RFC3339,
 		})),
-		slogGorm.WithTraceAll(),
+		// slogGorm.WithTraceAll(),
 	)
 
 	db, err := gorm.Open(dial, &gorm.Config{
@@ -148,7 +143,6 @@ func MakeDB(dbURL string) (Model, error) {
 		ChatMessage{},
 		ChatProfile{},
 		oproxy.OAuthSession{},
-		PAR{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

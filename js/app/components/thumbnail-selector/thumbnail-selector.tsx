@@ -3,11 +3,7 @@ import { Button, Image, Text, View, isWeb } from "tamagui";
 import { Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, Image as ImageIcon, X } from "@tamagui/lucide-icons";
-
-interface ThumbnailSelectorProps {
-  onThumbnailSelected: (blob: Blob | undefined) => void;
-  thumbnailUrl?: string;
-}
+import { ThumbnailSelectorProps } from "./shared";
 
 export default function ThumbnailSelector({
   onThumbnailSelected,

@@ -32,7 +32,11 @@ export default function Timer({ start }: { start: string | Date }) {
       paddingHorizontal="$2"
       paddingVertical="$1"
     >
-      <Text fontFamily="$mono" textShadowOffset={{ width: -1, height: 1 }} textShadowRadius={3}>
+      <Text
+        fontFamily="$mono"
+        textShadowOffset={{ width: -1, height: 1 }}
+        textShadowRadius={3}
+      >
         {formatTime(elapsedTime)}
       </Text>
     </View>

@@ -358,6 +358,7 @@ export function StreamplaceDrawer() {
                 <Sidebar
                   {...props}
                   collapsed={sidebar.isCollapsed}
+                  hidden={sidebar.isHidden}
                   widthAnim={sidebar.animatedWidth}
                   externalItems={EXTERNAL_ITEMS}
                 />
@@ -478,6 +479,7 @@ export function StreamplaceDrawer() {
             drawerLabel: () => null,
             drawerItemStyle: { display: "none" },
             headerShown: false,
+            drawerStyle: { display: "none" },
           }}
         />
         <Drawer.Screen

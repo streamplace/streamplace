@@ -56,20 +56,20 @@ export default function SidebarItem({
         </View>
         <AnimatePresence>
           {!collapsed && (
-            <Text
+            <View
               // setting to maximum width of the sidebar
               // so we don't get collapsing text on collapse
               minWidth={270}
               maxHeight="auto"
-              fontSize="$6"
-              textAlign="left"
               animation="quick"
-              enterStyle={{ opacity: 100, width: "100" }}
-              exitStyle={{ opacity: 0, width: "100" }}
-              animateOnly={["opacity"]}
+              enterStyle={{ opacity: 0, width: 100 }}
+              exitStyle={{ opacity: 0, width: 100 }}
+              animateOnly={["opacity", "width"]}
             >
-              {label}
-            </Text>
+              <Text fontSize="$6" textAlign="left">
+                {label}
+              </Text>
+            </View>
           )}
         </AnimatePresence>
       </View>

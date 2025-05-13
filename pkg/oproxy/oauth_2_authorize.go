@@ -101,12 +101,12 @@ func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (st
 		return "", echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create OAuth client: %s", err))
 	}
 
-	did, err := resolveHandle(ctx, session.Handle)
+	did, err := ResolveHandle(ctx, session.Handle)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to resolve handle '%s': %s", session.DID, err))
 	}
 
-	service, err := resolveService(ctx, did)
+	service, err := ResolveService(ctx, did)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to resolve service for DID '%s': %s", did, err))
 	}

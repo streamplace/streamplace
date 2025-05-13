@@ -13,7 +13,7 @@ import (
 )
 
 // mostly borrowed from github.com/haileyok/atproto-oauth-golang, MIT license
-func resolveHandle(ctx context.Context, handle string) (string, error) {
+func ResolveHandle(ctx context.Context, handle string) (string, error) {
 	var did string
 
 	_, err := syntax.ParseHandle(handle)
@@ -70,7 +70,7 @@ func resolveHandle(ctx context.Context, handle string) (string, error) {
 	return did, nil
 }
 
-func resolveService(ctx context.Context, did string) (string, error) {
+func ResolveService(ctx context.Context, did string) (string, error) {
 	type Identity struct {
 		Service []struct {
 			ID              string `json:"id"`

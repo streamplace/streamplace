@@ -3,6 +3,7 @@ package spxrpc
 import (
 	"strconv"
 
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
@@ -60,7 +61,22 @@ func (s *Server) RegisterHandlersChatBsky(e *echo.Echo) error {
 }
 
 func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
+	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
 	return nil
+}
+
+func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityResolveHandle")
+	defer span.End()
+	handle := c.QueryParam("handle")
+	var out *comatprototypes.IdentityResolveHandle_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context,handle string) (*comatprototypes.IdentityResolveHandle_Output, error)
+	out, handleErr = s.handleComAtprotoIdentityResolveHandle(ctx, handle)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {

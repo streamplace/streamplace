@@ -151,7 +151,8 @@ lexgen-server:
 		--external-lexicons subprojects/atproto/lexicons \
 		--package spxrpc \
 		lexicons/place/stream \
-		lexicons/app/bsky
+		lexicons/app/bsky \
+		lexicons/com/atproto
 
 .PHONY: ci-lexicons
 ci-lexicons:

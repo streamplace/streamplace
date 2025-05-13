@@ -17,6 +17,8 @@ export interface BlueskyState {
   oauthSession: null | OAuthSession;
   pdsAgent: null | Agent;
   profiles: { [key: string]: ProfileViewDetailed };
+  // for e.g. others' avatars
+  profileCache: { [key: string]: ProfileViewDetailed };
   client: null | StreamplaceOAuthClient;
   login: {
     loading: boolean;

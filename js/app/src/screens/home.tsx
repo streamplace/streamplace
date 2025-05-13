@@ -13,6 +13,7 @@ import {
   Repo,
   selectRecentSegments,
 } from "features/streamplace/streamplaceSlice";
+import useAvatars from "hooks/useAvatars";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useEffect, useState } from "react";
 import { RefreshControl } from "react-native";
@@ -24,6 +25,7 @@ type Segment = {
   repoDID: string;
   signingKeyDID: string;
   startTime: string;
+  title?: string;
   repo: Repo;
   viewers: number;
 };
@@ -35,6 +37,7 @@ const mockSegments: Segment[] = [
     repoDID: "did:plc:lghfd7elj6cjjwlhecp2utao",
     signingKeyDID: "did:mock:1",
     startTime: new Date().toISOString(),
+    title: "test",
     repo: {
       handle: "soapy.social",
       did: "did:plc:lghfd7elj6cjjwlhecp2utao",
@@ -49,6 +52,7 @@ const mockSegments: Segment[] = [
     repoDID: "did:plc:oio4hkxaop4ao4wz2pp3f4cr",
     signingKeyDID: "did:mock:2",
     startTime: new Date().toISOString(),
+    title: "test",
     repo: {
       handle: "mackuba.eu",
       did: "did:plc:oio4hkxaop4ao4wz2pp3f4cr",
@@ -63,6 +67,7 @@ const mockSegments: Segment[] = [
     repoDID: "did:plc:p2cp5gopk7mgjegy6wadk3ep",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
+    title: "test",
     repo: {
       handle: "samuel.bsky.team",
       did: "did:plc:p2cp5gopk7mgjegy6wadk3ep",
@@ -77,6 +82,7 @@ const mockSegments: Segment[] = [
     repoDID: "did:plc:vc7f4oafdgxsihk4cry2xpze",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
+    title: "test",
     repo: {
       handle: "jer.ry",
       did: "did:plc:vc7f4oafdgxsihk4cry2xpze",
@@ -91,6 +97,7 @@ const mockSegments: Segment[] = [
     repoDID: "did:plc:by3jhwdqgbtrcc7q4tkkv3cf",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
+    title: "test",
     repo: {
       handle: "alice.mosphere.at",
       did: "did:plc:by3jhwdqgbtrcc7q4tkkv3cf",
@@ -105,6 +112,7 @@ const mockSegments: Segment[] = [
     repoDID: "did:plc:vlblikmsgpx2i7fvxinrsvzu",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
+    title: "test",
     repo: {
       handle: "moll.dev",
       did: "did:plc:vlblikmsgpx2i7fvxinrsvzu",
@@ -119,6 +127,7 @@ const mockSegments: Segment[] = [
     repoDID: "did:plc:xwhsmuozq3mlsp56dyd7copv",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
+    title: "test",
     repo: {
       handle: "paizuri.moe",
       did: "did:plc:xwhsmuozq3mlsp56dyd7copv",
@@ -133,6 +142,7 @@ const mockSegments: Segment[] = [
     repoDID: "did:plc:gq4fo3u6tqzzdkjlwzpb23tj",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
+    title: "test",
     repo: {
       handle: "da.me",
       did: "did:plc:gq4fo3u6tqzzdkjlwzpb23tj",
@@ -147,6 +157,8 @@ const mockSegments: Segment[] = [
     repoDID: "did:plc:rbvrr34edl5ddpuwcubjiost",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
+
+    title: "test",
     repo: {
       handle: "stream.place",
       did: "did:plc:rbvrr34edl5ddpuwcubjiost",
@@ -159,6 +171,7 @@ const mockSegments: Segment[] = [
   {
     id: "mock-segment-10",
     repoDID: "did:plc:gotnvwkr56ibs33l4hwgfoet",
+    title: "test",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
     repo: {
@@ -175,6 +188,7 @@ const mockSegments: Segment[] = [
     repoDID: "did:plc:tpg43qhh4lw4ksiffs4nbda3",
     signingKeyDID: "did:mock:3",
     startTime: new Date().toISOString(),
+    title: "test",
     repo: {
       handle: "jacob.gold",
       did: "did:plc:tpg43qhh4lw4ksiffs4nbda3",
@@ -232,11 +246,13 @@ function HomeScreenItem({
   item,
   media,
   size,
+  avatarUrl,
   horizontal = false,
 }: {
   item: Segment;
   media: UseMediaState;
   size: StreamCardSize;
+  avatarUrl?: string;
   horizontal?: boolean;
 }) {
   const user = item.repo?.handle || item.repoDID || item.signingKeyDID;
@@ -254,13 +270,17 @@ function HomeScreenItem({
     >
       <StreamCardHorizontal
         size={size}
+        title={item.title}
         horizontal={horizontal}
         thumbnailUrl={
           item.signingKeyDID.startsWith("did:mock")
             ? "https://picsum.photos/1600/900?rand=" + item.id
             : `https://stream.place/api/playback/${user}/stream.png`
         }
-        avatarUrl="https://cdn.bsky.app/img/avatar/plain/did:plc:4ukwiehjoytl56ysom2pdwko/bafkreieal2i74ynzrvofia6fa3efqnyxmox76ohrfldt5kvls73lbspzdm@jpeg"
+        avatarUrl={
+          avatarUrl ||
+          "https://cdn.bsky.app/img/avatar/plain/did:plc:4ukwiehjoytl56ysom2pdwko/bafkreieal2i74ynzrvofia6fa3efqnyxmox76ohrfldt5kvls73lbspzdm@jpeg"
+        }
         streamerName={user}
         category={[]}
         viewers={item.viewers}
@@ -287,10 +307,12 @@ export default function HomeScreen({
   } = useAppSelector(selectRecentSegments);
   const dispatch = useAppDispatch();
   const [manualRefresh, setManualRefresh] = useState(false);
-  const [useMockData, setUseMockData] = useState(true); // Set to true to use mock data
+  const [useMockData, setUseMockData] = useState(false); // Set to true to use mock data
 
   const segments = useMockData ? mockSegments : realSegments;
   const media = useMedia();
+
+  const avis = useAvatars(segments.map((s) => s.repoDID));
 
   useEffect(() => {
     if (!useMockData) {
@@ -328,7 +350,7 @@ export default function HomeScreen({
   let cols = getHomeScreenCols(media);
   let size = getHomeScreenItemSize(media);
 
-  const firstRowCols = cols > 2 ? cols - 1 : 0;
+  const firstRowCols = cols > 2 ? cols - 1 : cols;
 
   const firstRowItems = segments.slice(0, firstRowCols);
   let cutSegs = segments.slice(firstRowCols, -1);
@@ -400,17 +422,15 @@ export default function HomeScreen({
           </View>
         )}
         {firstRowItems.length > 0 && (
-          <View
-            flexDirection="row"
-            gap={24} // This is the gap between columns
-            marginBottom={24} // This is the gap between rows
-            width="full"
-          >
+          <View flexDirection="row" gap={24} marginBottom={24} width="full">
             {firstRowItems.map((item, itemIndex) => (
               <View
                 key={item.id || `item${itemIndex}`}
                 flex={
-                  itemIndex == 0 ? getPadPercentage(media) / cols : 1 / cols
+                  itemIndex == 0
+                    ? getPadPercentage(media) /
+                      (firstRowItems.length > 1 ? cols : cols + 1)
+                    : 1 / cols
                 }
                 justifyContent="center"
               >
@@ -418,7 +438,8 @@ export default function HomeScreen({
                   item={item}
                   media={media}
                   size={size}
-                  horizontal={itemIndex == 0}
+                  avatarUrl={avis[item.repoDID]?.avatar}
+                  horizontal={itemIndex == 0 && media.gtMd}
                 />
               </View>
             ))}
@@ -444,7 +465,7 @@ export default function HomeScreen({
                         item={item}
                         media={media}
                         size={size}
-                        //horizontal={row[row.length - 1] == null}
+                        avatarUrl={avis[item.repoDID]?.avatar}
                       />
                     </View>
                   ) : (

@@ -34,7 +34,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
 
   // Define dynamic styles
   const borderRadius = 12;
-  const contentPadding = 8;
+  const contentPadding = 10;
   const avatarSize = 40;
   const livePillHeight = 30;
   const livePillPaddingHorizontal = 6;
@@ -42,6 +42,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const categoryPillPaddingHorizontal = 4;
 
   const MainContainer = layoutHorizontal ? XStack : YStack;
+  const SubContainer = layoutHorizontal ? YStack : XStack;
 
   // Calculate a fixed height for the content section when vertical
   // This ensures consistency below the thumbnail.
@@ -105,10 +106,10 @@ const StreamCard: React.FC<StreamCardProps> = ({
       </Stack>
 
       {/* Content Section */}
-      <XStack
+      <SubContainer
         flex={layoutHorizontal ? 1 : undefined} // Only flex when horizontal
         padding={contentPadding}
-        alignItems="center" // Vertically aligns Avatar and Text Content YStack
+        alignItems="flex-start" // Vertically aligns Avatar and Text Content YStack
         gap={contentPadding}
         height={!layoutHorizontal ? verticalContentSectionHeight : "unset"}
       >
@@ -133,8 +134,11 @@ const StreamCard: React.FC<StreamCardProps> = ({
           justifyContent="space-around"
           alignItems="flex-start"
           gap={contentPadding / 2}
-          width={0}
+          width={layoutHorizontal ? "100%" : 0}
+          minHeight={0}
+          maxHeight="unset"
           maxWidth="unset"
+          zIndex={12}
         >
           {title && (
             <Text
@@ -143,7 +147,6 @@ const StreamCard: React.FC<StreamCardProps> = ({
               fontWeight="400"
               numberOfLines={1}
               ellipsizeMode="tail"
-              style={{ flexShrink: 1 }}
             >
               {title}
             </Text>
@@ -155,7 +158,6 @@ const StreamCard: React.FC<StreamCardProps> = ({
               fontWeight="400"
               numberOfLines={1}
               ellipsizeMode="tail"
-              style={{ flexShrink: 1 }}
             >
               {streamerName}
             </Text>
@@ -187,7 +189,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
             </XStack>
           )}
         </YStack>
-      </XStack>
+      </SubContainer>
     </MainContainer>
   );
 };

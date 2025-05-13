@@ -273,6 +273,10 @@ export const blueskySlice = createAppSlice({
         },
         rejected: (state, action) => {
           clearQueryParams();
+          return {
+            ...state,
+            status: "loggedOut",
+          };
           // state.status = "failed";
         },
       },

@@ -79,7 +79,10 @@ export default async function createOAuthClient(
       }
 
       // If we're making a request to the PLC directory, use our custom endpoint
-      if (request.url.includes("plc.directory")) {
+      if (
+        request.url.includes("plc.directory") ||
+        request.url.endsWith("did.json")
+      ) {
         const res = await fetch(request, init);
         if (!res.ok) {
           return res;

@@ -6,6 +6,7 @@ import { PlayerProps } from "components/player/props";
 import PlayerProvider from "components/player/provider";
 import Popup from "components/popup";
 import Viewers from "components/viewers";
+import Timer from "components/timer";
 import { usePlayer } from "features/player/playerSlice";
 import {
   selectTelemetry,
@@ -69,6 +70,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
   const streamerDID = player.livestream?.author?.did;
   const streamerProfile = streamerDID ? profiles[streamerDID] : undefined;
   const streamerHandle = streamerProfile?.handle;
+  const startTime = player.livestream?.record?.createdAt || Date();
 
   // this would all be really easy if i had library that would give me the
   // safe area view height and width but i don't. so let's measure
@@ -262,6 +264,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                     )}
                   </View>
                   <View flexDirection="row" alignItems="center" gap="$2">
+                    <Timer start={startTime} />
                     <Viewers viewers={player.viewers ?? 0} />
                     <Button
                       backgroundColor="transparent"

@@ -1,4 +1,15 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import {
+  setSidebarHidden,
+  setSidebarUnhidden,
+} from "features/base/sidebarSlice";
+import {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
+import { useDispatch } from "react-redux";
 
 interface FullscreenContextValue {
   fullscreen: boolean;
@@ -11,6 +22,18 @@ const FullscreenContext = createContext<FullscreenContextValue | undefined>(
 
 export const FullscreenProvider = ({ children }: { children: ReactNode }) => {
   const [fullscreen, setFullscreen] = useState(false);
+
+  // for hiding sidebar
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (fullscreen) {
+      dispatch(setSidebarHidden());
+    } else {
+      dispatch(setSidebarUnhidden());
+    }
+  }, [fullscreen]);
+
   return (
     <FullscreenContext.Provider value={{ fullscreen, setFullscreen }}>
       {children}

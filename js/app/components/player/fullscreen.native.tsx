@@ -27,9 +27,6 @@ export default function Fullscreen(props: PlayerProps) {
   const [dimensions, setDimensions] = useState(Dimensions.get("window"));
   const protocol = useAppSelector(usePlayerProtocol());
 
-  // for hiding sidebar
-  const dispatch = useDispatch();
-
   // Re-calculate dimensions on orientation change
   useEffect(() => {
     const updateDimensions = () => {
@@ -51,7 +48,6 @@ export default function Fullscreen(props: PlayerProps) {
     if (props.fullscreen) {
       StatusBar.setHidden(true);
       console.log("setting sidebar hidden");
-      dispatch(setSidebarHidden());
 
       // Hide the navigation header
       navigation.setOptions({
@@ -63,7 +59,6 @@ export default function Fullscreen(props: PlayerProps) {
         "hardwareBackPress",
         () => {
           props.setFullscreen(false);
-          dispatch(setSidebarUnhidden());
           return true;
         },
       );
@@ -73,7 +68,6 @@ export default function Fullscreen(props: PlayerProps) {
       };
     } else {
       StatusBar.setHidden(false);
-      dispatch(setSidebarUnhidden());
 
       // Restore the navigation header
       navigation.setOptions({
@@ -83,7 +77,6 @@ export default function Fullscreen(props: PlayerProps) {
 
     return () => {
       StatusBar.setHidden(false);
-      dispatch(setSidebarUnhidden());
       // Ensure header is restored if component unmounts
       navigation.setOptions({
         headerShown: true,

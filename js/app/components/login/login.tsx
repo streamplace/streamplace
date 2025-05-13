@@ -84,8 +84,6 @@ export default function Login() {
     );
   }
 
-  const { url } = useStreamplaceNode();
-
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <View
@@ -104,7 +102,7 @@ export default function Login() {
           jc="center"
           ai="center"
           onSubmit={async () => {
-            await dispatch(login(url));
+            await dispatch(login(handle));
           }}
         >
           <H3>Log in with ATProto | Bluesky</H3>
@@ -114,6 +112,10 @@ export default function Login() {
             placeholder="example.bsky.social"
             value={handle}
             onChangeText={(text) => setHandle(text)}
+            keyboardType="url"
+            autoCapitalize="none"
+            autoComplete="off"
+            autoCorrect={false}
           />
           <Form.Trigger asChild>
             <Button

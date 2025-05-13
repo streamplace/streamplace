@@ -6,6 +6,7 @@ import {
   getProfile,
   loadOAuthClient,
   oauthCallback,
+  oauthError,
   selectOAuthSession,
   selectUserProfile,
 } from "./blueskySlice";
@@ -31,7 +32,7 @@ export default function BlueskyProvider({
       setLastLink(url);
       if (url.includes("?")) {
         const params = new URLSearchParams(url.split("?")[1]);
-        if (params.has("code") && params.has("state") && params.has("iss")) {
+        if (params.has("error") || params.has("code")) {
           dispatch(oauthCallback(url));
         }
       }

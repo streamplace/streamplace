@@ -145,8 +145,24 @@ export const blueskySlice = createAppSlice({
       },
     ),
 
+    oauthError: create.reducer(
+      (
+        state,
+        { payload }: { payload: { error: string; description: string } },
+      ) => {
+        return {
+          ...state,
+          login: {
+            loading: false,
+            error: payload.description || payload.error,
+          },
+          status: "loggedOut",
+        };
+      },
+    ),
+
     login: create.asyncThunk(
-      async (pds: string, thunkAPI) => {
+      async (handle: string, thunkAPI) => {
         let { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };
@@ -157,7 +173,7 @@ export const blueskySlice = createAppSlice({
         if (!bluesky.client) {
           throw new Error("No client");
         }
-        const u = await bluesky.client.authorize("scumb.ag", {});
+        const u = await bluesky.client.authorize(handle, {});
         console.log(u);
         thunkAPI.dispatch(openLoginLink(u.toString()));
         // cheeky 500ms delay so you don't see the text flash back
@@ -270,6 +286,14 @@ export const blueskySlice = createAppSlice({
         }
         const params = new URLSearchParams(url.split("?")[1]);
         if (!(params.has("code") && params.has("state") && params.has("iss"))) {
+          if (params.has("error")) {
+            thunkAPI.dispatch(
+              oauthError({
+                error: params.get("error") ?? "",
+                description: params.get("error_description") ?? "",
+              }),
+            );
+          }
           throw new Error("Missing params, got: " + url);
         }
         const { bluesky } = thunkAPI.getState() as {
@@ -1052,6 +1076,7 @@ export const {
   golivePost,
   oauthCallback,
   setPDS,
+  oauthError,
   createStreamKeyRecord,
   clearStreamKeyRecord,
   createLivestreamRecord,

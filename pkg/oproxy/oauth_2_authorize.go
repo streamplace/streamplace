@@ -28,13 +28,32 @@ func (o *OProxy) HandleOAuthAuthorize(c echo.Context) error {
 	}
 	redirectURL, err := o.Authorize(ctx, requestURI, clientID)
 	if err != nil {
-		return err
+		// we're a redirect; if we fail we need to send the user back
+		jkt, _, err := parseURN(requestURI)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse URN: %s", err))
+		}
+
+		session, err := o.loadOAuthSession(jkt)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to load OAuth session jkt=%s: %s", jkt, err))
+		}
+
+		u, err := url.Parse(session.DownstreamRedirectURI)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse downstream redirect URI: %s", err))
+		}
+		q := u.Query()
+		q.Set("error", "authorize_failed")
+		q.Set("error_description", err.Error())
+		u.RawQuery = q.Encode()
+		return c.Redirect(http.StatusTemporaryRedirect, u.String())
 	}
 	return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 // downstream --> upstream transition; attempt to send user to the upstream auth server
-func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (string, error) {
+func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (string, *echo.HTTPError) {
 	downstreamMeta, err := o.GetDownstreamMetadata("")
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to get downstream metadata: %s", err))

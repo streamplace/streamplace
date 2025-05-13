@@ -21,14 +21,41 @@ func (o *OProxy) HandleOAuthReturn(c echo.Context) error {
 	code := c.QueryParam("code")
 	iss := c.QueryParam("iss")
 	state := c.QueryParam("state")
-	redirectURL, err := o.Return(ctx, code, iss, state)
-	if err != nil {
-		return err
+	errorCode := c.QueryParam("error")
+	errorDescription := c.QueryParam("error_description")
+	var httpError *echo.HTTPError
+	var redirectURL string
+	if errorCode != "" {
+		httpError = echo.NewHTTPError(http.StatusBadRequest, fmt.Errorf("%s (%s)", errorDescription, errorCode))
+	} else {
+		redirectURL, httpError = o.Return(ctx, code, iss, state)
+	}
+	if httpError != nil {
+		// we're a redirect; if we fail we need to send the user back
+		jkt, _, err := parseState(state)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse URN: %s", err))
+		}
+
+		session, err := o.loadOAuthSession(jkt)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to load OAuth session jkt=%s: %s", jkt, err))
+		}
+
+		u, err := url.Parse(session.DownstreamRedirectURI)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse downstream redirect URI: %s", err))
+		}
+		q := u.Query()
+		q.Set("error", "return_failed")
+		q.Set("error_description", httpError.Error())
+		u.RawQuery = q.Encode()
+		return c.Redirect(http.StatusTemporaryRedirect, u.String())
 	}
 	return c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
-func (o *OProxy) Return(ctx context.Context, code string, iss string, state string) (string, error) {
+func (o *OProxy) Return(ctx context.Context, code string, iss string, state string) (string, *echo.HTTPError) {
 	upstreamMeta := o.GetUpstreamMetadata()
 	oclient, err := oauth.NewClient(oauth.ClientArgs{
 		ClientJwk:   o.upstreamJWK,

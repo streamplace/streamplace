@@ -2,7 +2,7 @@ import {
   ClientMetadata,
   clientMetadataSchema,
   ReactNativeOAuthClient,
-} from "@aquareum/atproto-oauth-client-react-native";
+} from "@streamplace/atproto-oauth-client-react-native";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
@@ -92,7 +92,7 @@ export default async function createOAuthClient(
         });
       }
 
-      console.log("!!!!!! fetch", input, init);
+      console.log("fetching", request.url);
       return fetch(request, init);
     },
     handleResolver: "https://bsky.social", // backend instances should use a DNS based resolver

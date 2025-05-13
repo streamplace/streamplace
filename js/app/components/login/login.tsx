@@ -9,8 +9,8 @@ import {
   selectUserProfile,
   setPDS,
 } from "features/bluesky/blueskySlice";
-import { useState } from "react";
-import { Keyboard } from "react-native";
+import { useEffect, useState } from "react";
+import { Keyboard, KeyboardAvoidingView } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import {
   Button,
@@ -25,6 +25,7 @@ import {
 } from "tamagui";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import Loading from "components/loading/loading";
+import { useToastController } from "@tamagui/toast";
 
 export default function Login() {
   const dispatch = useAppDispatch();
@@ -34,10 +35,19 @@ export default function Login() {
   const [open, setOpen] = useState(false);
   const [handle, setHandle] = useState("");
   const isReady = useAppSelector(selectIsReady);
+  const toast = useToastController();
   const onOpenChange = (open: boolean) => {
     setOpen(open);
     Keyboard.dismiss();
   };
+
+  useEffect(() => {
+    if (loginState?.error) {
+      toast.show("Login error", {
+        message: loginState.error,
+      });
+    }
+  }, [loginState?.error]);
 
   if (!isReady) {
     return (
@@ -77,47 +87,48 @@ export default function Login() {
   const { url } = useStreamplaceNode();
 
   return (
-    <View
-      f={1}
-      jc="center"
-      ai="center"
-      backgroundColor="$gray1"
-      padding="$4"
-      width="100%"
-      maxWidth={800}
-      marginHorizontal="auto"
-    >
-      {/* <Text>{error}</Text> */}
-      <Form
-        width="100%"
-        maxWidth={800}
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <View
+        f={1}
         jc="center"
         ai="center"
-        onSubmit={async () => {
-          await dispatch(login(url));
-        }}
+        backgroundColor="$gray1"
+        padding="$4"
+        width="100%"
+        maxWidth={800}
+        marginHorizontal="auto"
       >
-        <H3>Log in with ATProto | Bluesky</H3>
-        <H5 alignSelf="flex-start">Handle:</H5>
-        <Input
+        <Form
           width="100%"
-          placeholder="example.bsky.social"
-          value={handle}
-          onChangeText={(text) => setHandle(text)}
-        />
-        <Form.Trigger asChild>
-          <Button
+          maxWidth={800}
+          jc="center"
+          ai="center"
+          onSubmit={async () => {
+            await dispatch(login(url));
+          }}
+        >
+          <H3>Log in with ATProto | Bluesky</H3>
+          <H5 alignSelf="flex-start">Handle:</H5>
+          <Input
             width="100%"
-            margin="$4"
-            backgroundColor="$accentColor"
-            disabled={loginState.loading}
-          >
-            <Text>
-              {loginState.loading ? <Spinner /> : `Log in with ATProto`}
-            </Text>
-          </Button>
-        </Form.Trigger>
-      </Form>
-    </View>
+            placeholder="example.bsky.social"
+            value={handle}
+            onChangeText={(text) => setHandle(text)}
+          />
+          <Form.Trigger asChild>
+            <Button
+              width="100%"
+              margin="$4"
+              backgroundColor="$accentColor"
+              disabled={loginState.loading}
+            >
+              <Text>
+                {loginState.loading ? <Spinner /> : `Log in with ATProto`}
+              </Text>
+            </Button>
+          </Form.Trigger>
+        </Form>
+      </View>
+    </KeyboardAvoidingView>
   );
 }

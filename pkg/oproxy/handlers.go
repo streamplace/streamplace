@@ -139,6 +139,21 @@ func (o *OProxy) HandleOAuthToken(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	jkt, _, err := getJKT(dpopHeader)
+	if err != nil {
+		return err
+	}
+	sess, err := o.loadOAuthSession(jkt)
+	if err != nil {
+		return err
+	}
+	sess.DownstreamDPoPNonce = makeNonce()
+	err = o.updateOAuthSession(sess.DownstreamDPoPJKT, sess)
+	if err != nil {
+		return err
+	}
+	c.Response().Header().Set("DPoP-Nonce", sess.DownstreamDPoPNonce)
+
 	return c.JSON(http.StatusOK, res)
 }
 

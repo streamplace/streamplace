@@ -519,13 +519,13 @@ func (a *StreamplaceAPI) HandleUserRecentSegments(ctx context.Context) httproute
 }
 
 type LiveUsersResponse struct {
-	model.Segment
+	model.SegmentWithStreamInfo
 	Viewers int `json:"viewers"`
 }
 
 func (a *StreamplaceAPI) HandleLiveUsers(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		repos, err := a.Model.MostRecentSegments()
+		repos, err := a.Model.MostRecentSegmentsWithStreamInfo()
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not get live users", err)
 			return
@@ -534,8 +534,8 @@ func (a *StreamplaceAPI) HandleLiveUsers(ctx context.Context) httprouter.Handle 
 		for _, repo := range repos {
 			viewers := spmetrics.GetViewCount(repo.RepoDID)
 			liveUsers = append(liveUsers, LiveUsersResponse{
-				Segment: repo,
-				Viewers: viewers,
+				SegmentWithStreamInfo: repo,
+				Viewers:               viewers,
 			})
 		}
 		bs, err := json.Marshal(liveUsers)

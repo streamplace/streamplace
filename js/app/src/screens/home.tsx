@@ -20,6 +20,18 @@ import { RefreshControl } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { H6, ScrollView, ScrollViewProps, useMedia, View } from "tamagui";
 
+type StreamRecord = {
+  createdAt: Date;
+  title?: string;
+  // A post announcing the stream record
+  post?: {
+    cid: string;
+    uri: string;
+  };
+  // The base URL of the streamed server
+  url: string;
+};
+
 type Segment = {
   id: string;
   repoDID: string;
@@ -28,6 +40,7 @@ type Segment = {
   title?: string;
   repo: Repo;
   viewers: number;
+  streamRecord?: StreamRecord;
 };
 
 // Mock data for segments
@@ -270,7 +283,7 @@ function HomeScreenItem({
     >
       <StreamCardHorizontal
         size={size}
-        title={item.title}
+        title={item.streamRecord?.title || "A livestream!"}
         horizontal={horizontal}
         thumbnailUrl={
           item.signingKeyDID.startsWith("did:mock")

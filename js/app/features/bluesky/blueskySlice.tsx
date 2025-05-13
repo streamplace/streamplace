@@ -64,33 +64,12 @@ const uploadThumbnail = async (
     try {
       const thumbnail = await pdsAgent.uploadBlob(customThumbnail);
       if (thumbnail.success) {
-        console.log("Successfully uploaded custom thumbnail");
+        console.log("Successfully uploaded thumbnail");
         return thumbnail.data.blob;
       }
     } catch (e) {
-      console.error("Error uploading custom thumbnail:", e);
+      throw new Error("Error uploading thumbnail: " + e);
     }
-  }
-
-  // Fallback to server-side thumbnail if client-side capture fails or we're not on web
-  try {
-    const thumbnailRes = await fetch(
-      `${u.protocol}//${u.host}/api/playback/${profile.handle}/stream.png`,
-    );
-    if (!thumbnailRes.ok) {
-      throw new Error(
-        `failed to fetch thumbnail (http ${thumbnailRes.status})`,
-      );
-    }
-    const thumbnailBlob = await thumbnailRes.blob();
-    const thumbnail = await pdsAgent.uploadBlob(thumbnailBlob);
-    if (!thumbnail.success) {
-      throw new Error("failed to upload thumbnail");
-    }
-    return thumbnail.data.blob;
-  } catch (e) {
-    console.error("Error fetching server-side thumbnail:", e);
-    throw e;
   }
 };
 
@@ -391,17 +370,42 @@ export const blueskySlice = createAppSlice({
           time: new Date().toISOString(),
         });
 
-        let thumbnail: BlobRef | null = null;
-        try {
-          thumbnail = await uploadThumbnail(
-            profile.handle,
-            u,
-            bluesky.pdsAgent,
-            profile,
-            customThumbnail,
-          );
-        } catch (e) {
-          console.error("uploadThumbnail error", e);
+        let thumbnail: BlobRef | undefined = undefined;
+
+        if (customThumbnail) {
+          try {
+            thumbnail = await uploadThumbnail(
+              profile.handle,
+              u,
+              bluesky.pdsAgent,
+              profile,
+              customThumbnail,
+            );
+          } catch (e) {
+            throw new Error(`Custom thumbnail upload failed ${e}`);
+          }
+        } else {
+          // No custom thumbnail: fetch the server-side image and upload it
+          try {
+            const thumbnailRes = await fetch(
+              `${u.protocol}//${u.host}/api/playback/${profile.handle}/stream.png`,
+            );
+            if (!thumbnailRes.ok) {
+              throw new Error(
+                `Failed to fetch thumbnail: ${thumbnailRes.status})`,
+              );
+            }
+            const thumbnailBlob = await thumbnailRes.blob();
+            thumbnail = await uploadThumbnail(
+              profile.handle,
+              u,
+              bluesky.pdsAgent,
+              profile,
+              thumbnailBlob,
+            );
+          } catch (e) {
+            throw new Error(`Thumbnail upload failed ${e}`);
+          }
         }
 
         const linkUrl = `${u.protocol}//${u.host}/${profile.handle}?${params.toString()}`;
@@ -433,17 +437,15 @@ export const blueskySlice = createAppSlice({
           facets,
           createdAt: now.toISOString(),
         };
-        if (thumbnail) {
-          record.embed = {
-            $type: "app.bsky.embed.external",
-            external: {
-              description: text,
-              thumb: thumbnail,
-              title: `@${profile.handle} is 🔴LIVE on ${u.host}!`,
-              uri: linkUrl,
-            },
-          };
-        }
+        record.embed = {
+          $type: "app.bsky.embed.external",
+          external: {
+            description: text,
+            thumb: thumbnail,
+            title: `@${profile.handle} is 🔴LIVE on ${u.host}!`,
+            uri: linkUrl,
+          },
+        };
         console.log("golivePost record", record);
         return await bluesky.pdsAgent.post(record);
       },

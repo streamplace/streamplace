@@ -82,7 +82,7 @@ func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (st
 		return "", echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create OAuth client: %s", err))
 	}
 
-	did, err := resolveHandle(ctx, session.DID)
+	did, err := resolveHandle(ctx, session.Handle)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to resolve handle '%s': %s", session.DID, err))
 	}
@@ -112,7 +112,7 @@ func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (st
 	opts := oauth.ParAuthRequestOpts{
 		State: state,
 	}
-	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, did, upstreamMeta.Scope, k, opts)
+	parResp, err := oclient.SendParAuthRequest(ctx, authserver, authmeta, session.Handle, upstreamMeta.Scope, k, opts)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to send PAR auth request to '%s': %s", authserver, err))
 	}

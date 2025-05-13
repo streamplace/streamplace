@@ -15,6 +15,7 @@ var refreshWhenRemaining = time.Minute * 59
 // OAuthSession stores authentication data needed during the OAuth flow
 type OAuthSession struct {
 	DID    string `json:"did" gorm:"column:repo_did;index"`
+	Handle string `json:"handle" gorm:"column:handle;index"` // possibly also did if they have no handle
 	PDSUrl string `json:"pds_url" gorm:"column:pds_url;index"`
 
 	// Upstream fields

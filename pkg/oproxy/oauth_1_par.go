@@ -162,7 +162,7 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 		DownstreamCodeChallenge: par.CodeChallenge,
 		DownstreamState:         par.State,
 		DownstreamRedirectURI:   par.RedirectURI,
-		DID:                     par.LoginHint,
+		Handle:                  par.LoginHint,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not create oauth session: %w", err)

@@ -34,7 +34,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
 
   // Define dynamic styles
   const borderRadius = 12;
-  const contentPadding = 10;
+  const contentPadding = 12;
   const avatarSize = 40;
   const livePillHeight = 30;
   const livePillPaddingHorizontal = 6;
@@ -133,7 +133,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
           flex={1}
           justifyContent="space-around"
           alignItems="flex-start"
-          gap={contentPadding / 2}
+          gap={contentPadding / 4}
           width={layoutHorizontal ? "100%" : 0}
           minHeight={0}
           maxHeight="unset"

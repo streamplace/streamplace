@@ -163,13 +163,13 @@ func (mm *MediaManager) IngestStream(ctx context.Context, input io.Reader, ms Me
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! matroskademux name=demux",
 		"demux. ! queue ! h264parse name=parse",
-		"demux. ! queue ! aacparse name=audioparse",
+		"demux. ! queue ! fdkaacdec ! audioresample ! opusenc name=audioparse",
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return fmt.Errorf("error creating IngestStream pipeline: %w", err)
 	}
-	defer runtime.KeepAlive(pipeline)
+
 	srcele, err := pipeline.GetElementByName("streamsrc")
 	if err != nil {
 		return err
@@ -177,7 +177,7 @@ func (mm *MediaManager) IngestStream(ctx context.Context, input io.Reader, ms Me
 	// defer runtime.KeepAlive(srcele)
 	src := app.SrcFromElement(srcele)
 	src.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedData(ctx, input),
+		NeedDataFunc: ReaderNeedDataIncremental(ctx, input),
 	})
 	parseEle, err := pipeline.GetElementByName("parse")
 	if err != nil {

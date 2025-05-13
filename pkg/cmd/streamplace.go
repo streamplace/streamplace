@@ -81,6 +81,14 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return Stream(os.Args[2])
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "live" {
+		if len(os.Args) != 3 {
+			fmt.Println("usage: streamplace live [stream-key]")
+			os.Exit(1)
+		}
+		return Live(os.Args[2])
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "sign" {
 		return Sign(context.Background())
 	}

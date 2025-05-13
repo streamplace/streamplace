@@ -239,8 +239,14 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	handleIncomingStream := func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		key := p.ByName("key")
 		log.Log(ctx, "stream start")
-		err := a.MediaManager.IngestStream(ctx, r.Body, a.MediaSigner)
+		mediaSigner, err := a.MakeMediaSigner(ctx, key)
+		if err != nil {
+			errors.WriteHTTPUnauthorized(w, "invalid authorization key", err)
+			return
+		}
+		err = a.MediaManager.IngestStream(ctx, r.Body, mediaSigner)
 
 		if err != nil {
 			log.Log(ctx, "stream error", "error", err)
@@ -251,8 +257,8 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	}
 
 	// route to accept an incoming mkv stream from OBS, segment it, and push the segments back to this HTTP handler
-	router.POST("/stream/:key", handleIncomingStream)
-	router.PUT("/stream/:key", handleIncomingStream)
+	router.POST("/live/:key", handleIncomingStream)
+	router.PUT("/live/:key", handleIncomingStream)
 
 	router.GET("/player-report/:id", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		id := p.ByName("id")

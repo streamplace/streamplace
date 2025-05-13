@@ -127,7 +127,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		return nil, err
 	}
 	op := oproxy.New(&oproxy.Config{
-		Host:               "longos.iameli.link",
+		Host:               a.CLI.PublicHost,
 		CreateOAuthSession: a.Model.CreateOAuthSession,
 		UpdateOAuthSession: a.Model.UpdateOAuthSession,
 		LoadOAuthSession:   a.Model.LoadOAuthSession,

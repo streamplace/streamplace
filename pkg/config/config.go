@@ -91,6 +91,7 @@ type CLI struct {
 	SmearAudio             bool
 	ExternalSigning        bool
 	TracingEndpoint        string
+	PublicHost             string
 	JWK                    jwk.Key
 	AccessJWK              jwk.Key
 	dataDirFlags           []*string

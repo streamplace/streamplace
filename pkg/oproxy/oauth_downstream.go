@@ -233,8 +233,9 @@ func (o *OProxy) ErrorHandlingMiddleware(next echo.HandlerFunc) echo.HandlerFunc
 		if err == nil {
 			return nil
 		}
-		_, ok := err.(*echo.HTTPError)
+		httpError, ok := err.(*echo.HTTPError)
 		if ok {
+			o.slog.Error("oauth error", "code", httpError.Code, "message", httpError.Message, "internal", httpError.Internal)
 			return err
 		}
 		o.slog.Error("unhandled error", "error", err)
@@ -322,7 +323,7 @@ var ErrFirstNonce = echo.NewHTTPError(http.StatusBadRequest, "first time seeing 
 func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeader string) (*PARResponse, error) {
 	jkt, nonce, err := getJKT(dpopHeader)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to get JKT from DPoP header: %s", err))
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to get JKT from DPoP header header=%s: %s", dpopHeader, err))
 	}
 	session, err := o.loadOAuthSession(jkt)
 	if err != nil {

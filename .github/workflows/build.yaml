@@ -25,7 +25,7 @@ jobs:
           - name: windows-amd64
             cmd: "make app && make windows-amd64"
           - name: android
-            cmd: "make android-release"
+            cmd: "make app && make android-release"
     steps:
       - name: Check out code
         uses: actions/checkout@v4.1.7

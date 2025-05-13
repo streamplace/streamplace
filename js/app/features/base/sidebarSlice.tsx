@@ -54,9 +54,12 @@ export const sidebarSlice = createAppSlice({
         rejected: (state, action) => {
           state.isLoaded = true;
           console.error(
-            "Failed to load sidebar state from storage:",
+            "Failed to load sidebar state from storage, using defaults:",
             action.error,
           );
+          // use defaults
+          state.isCollapsed = false;
+          state.targetWidth = 250;
         },
       },
     ),

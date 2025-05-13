@@ -106,9 +106,7 @@ export const blueskySlice = createAppSlice({
     loadOAuthClient: create.asyncThunk(
       async (_, { getState }) => {
         const { streamplace } = getState() as { streamplace: StreamplaceState };
-        console.log("Creating client for", streamplace.url);
         const client = await createOAuthClient(streamplace.url);
-        console.log("calling init");
         let initResult = await client.init();
         return { client, initResult };
       },
@@ -163,7 +161,7 @@ export const blueskySlice = createAppSlice({
         console.log(u);
         thunkAPI.dispatch(openLoginLink(u.toString()));
         // cheeky 500ms delay so you don't see the text flash back
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 5000));
       },
       {
         pending: (state) => {
@@ -220,6 +218,7 @@ export const blueskySlice = createAppSlice({
             ...state,
             oauthSession: null,
             pdsAgent: null,
+            status: "loggedOut",
           };
         },
         rejected: (state) => {
@@ -664,7 +663,7 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, action) => {
-          console.error("getProfile rejected", action.error);
+          console.error("createStreamKeyRecord rejected", action.error);
           // state.status = "failed";
         },
       },
@@ -780,7 +779,7 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, action) => {
-          console.error("getProfile rejected", action.error);
+          console.error("createLivestreamRecord rejected", action.error);
           return {
             ...state,
             newLivestream: {
@@ -917,7 +916,7 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, action) => {
-          console.error("getProfile rejected", action.error);
+          console.error("createChatProfileRecord rejected", action.error);
           return {
             ...state,
             chatProfile: {

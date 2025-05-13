@@ -90,14 +90,13 @@ export class ReactNativeOAuthClient extends OAuthClient {
                 keyPair.privateKey as unknown as CryptoKey,
               )) as JWK;
               ex.alg = alg;
-
+              // these have trailing periods sometimes for some reason
               for (const k of ["x", "y", "d"]) {
                 if (ex[k].endsWith(".")) {
                   ex[k] = ex[k].slice(0, -1);
                 }
               }
 
-              console.log("ex", JSON.stringify(ex, null, 2));
 
               // RNQC doesn't give us a kid, so let's do a quick hash of the key
               const kid = QuickCrypto.createHash("sha256")

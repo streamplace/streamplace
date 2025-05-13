@@ -78,7 +78,7 @@ export default async function createOAuthClient(
         request = input;
       }
 
-      // If we're making a request to the PLC directory, use our custom endpoint
+      // Lie to the oauth client and use our upstream server instead
       if (
         request.url.includes("plc.directory") ||
         request.url.endsWith("did.json")
@@ -99,10 +99,9 @@ export default async function createOAuthClient(
         });
       }
 
-      console.log("fetching", request.url);
       return fetch(request, init);
     },
-    handleResolver: streamplaceUrl, // backend instances should use a DNS based resolver
+    handleResolver: streamplaceUrl,
     responseMode: "query", // or "fragment" (frontend only) or "form_post" (backend only)
 
     // These must be the same metadata as the one exposed on the

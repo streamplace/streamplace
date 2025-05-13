@@ -37,8 +37,5 @@
     "@atproto/oauth-client-browser": "^0.3.1",
     "firebase-admin": "^12.7.0",
     "lex-md": "^0.0.3"
-  },
-  "resolutions": {
-    "@aquareum/atproto-oauth-client-react-native": "portal:/Users/iameli/code/atproto-oauth-client-react-native"
   }
 }

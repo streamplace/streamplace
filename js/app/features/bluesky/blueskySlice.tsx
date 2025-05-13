@@ -136,7 +136,6 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, { error }) => {
-          console.error("loadOAuthClient rejected", error);
           return {
             ...state,
             status: "loggedOut",
@@ -174,7 +173,6 @@ export const blueskySlice = createAppSlice({
           throw new Error("No client");
         }
         const u = await bluesky.client.authorize(handle, {});
-        console.log(u);
         thunkAPI.dispatch(openLoginLink(u.toString()));
         // cheeky 500ms delay so you don't see the text flash back
         await new Promise((resolve) => setTimeout(resolve, 5000));

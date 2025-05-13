@@ -174,7 +174,10 @@ func (o *OProxy) generateJWT(session *OAuthSession) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	downstreamMeta := o.GetDownstreamMetadata()
+	downstreamMeta, err := o.GetDownstreamMetadata("")
+	if err != nil {
+		return "", err
+	}
 	now := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
 		"jti": uu.String(),
@@ -301,7 +304,7 @@ func generateOAuthServerMetadata(host string) map[string]any {
 	return oauthServerMetadata
 }
 
-func (o *OProxy) GetDownstreamMetadata() *OAuthClientMetadata {
+func (o *OProxy) GetDownstreamMetadata(redirectURI string) (*OAuthClientMetadata, error) {
 	meta := &OAuthClientMetadata{
 		ClientID:  fmt.Sprintf("https://%s/oauth/downstream/client-metadata.json", o.host),
 		ClientURI: fmt.Sprintf("https://%s", o.host),
@@ -312,10 +315,23 @@ func (o *OProxy) GetDownstreamMetadata() *OAuthClientMetadata {
 		ResponseTypes:           []string{"code"},
 		GrantTypes:              []string{"authorization_code", "refresh_token"},
 		DPoPBoundAccessTokens:   boolPtr(true),
-		RedirectURIs:            []string{fmt.Sprintf("https://%s/login", o.host)},
+		RedirectURIs:            []string{fmt.Sprintf("https://%s/login", o.host), fmt.Sprintf("https://%s/api/app-return", o.host)},
 		ApplicationType:         "web",
 	}
-	return meta
+	if redirectURI != "" {
+		found := false
+		for _, uri := range meta.RedirectURIs {
+			if uri == redirectURI {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid redirect_uri: %s not in allowed URIs", redirectURI))
+		}
+		meta.RedirectURIs = []string{redirectURI}
+	}
+	return meta, nil
 }
 
 var ErrFirstNonce = echo.NewHTTPError(http.StatusBadRequest, "first time seeing this key, come back with a nonce")
@@ -371,7 +387,10 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 		panic("invalid code path: parsed DPoP proof twice and got different keys?!")
 	}
 
-	clientMetadata := o.GetDownstreamMetadata()
+	clientMetadata, err := o.GetDownstreamMetadata(par.RedirectURI)
+	if err != nil {
+		return nil, err
+	}
 	if par.ClientID != clientMetadata.ClientID {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid client_id: expected %s, got %s", clientMetadata.ClientID, par.ClientID))
 	}
@@ -418,6 +437,7 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 		DownstreamPARRequestURI: urn,
 		DownstreamCodeChallenge: par.CodeChallenge,
 		DownstreamState:         par.State,
+		DownstreamRedirectURI:   par.RedirectURI,
 		DID:                     par.LoginHint,
 	})
 	if err != nil {

@@ -43,7 +43,11 @@ func (o *OProxy) HandleJwksUpstream(c echo.Context) error {
 }
 
 func (o *OProxy) HandleClientMetadataDownstream(c echo.Context) error {
-	meta := o.GetDownstreamMetadata()
+	redirectURI := c.QueryParam("redirect_uri")
+	meta, err := o.GetDownstreamMetadata(redirectURI)
+	if err != nil {
+		return err
+	}
 	return c.JSON(200, meta)
 }
 

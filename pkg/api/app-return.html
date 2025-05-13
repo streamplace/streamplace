@@ -37,7 +37,7 @@
     // authorized twice? I don't know why. I spent two hours trying to figure out why
     // without luck. You're welcome to try more if you want! In the meantime, using
     // an annoying button makes it work every time.
-    // document.location.href = `${appBundleId}:/${window.location.search}`;
+    document.location.href = `${appBundleId}:/${window.location.search}`;
     document.querySelector("button").addEventListener("click", () => {
       document.location.href = `${appBundleId}:/${window.location.search}`;
     });

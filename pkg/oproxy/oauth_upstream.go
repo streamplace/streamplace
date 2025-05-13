@@ -18,7 +18,10 @@ import (
 
 // downstream --> upstream transition; attempt to send user to the upstream auth server
 func (o *OProxy) Authorize(ctx context.Context, requestURI, clientID string) (string, error) {
-	downstreamMeta := o.GetDownstreamMetadata()
+	downstreamMeta, err := o.GetDownstreamMetadata("")
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to get downstream metadata: %s", err))
+	}
 	if downstreamMeta.ClientID != clientID {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("client ID mismatch: %s != %s", downstreamMeta.ClientID, clientID))
 	}
@@ -212,8 +215,7 @@ func (o *OProxy) Return(ctx context.Context, code string, iss string, state stri
 		return "", echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update OAuth session: %s", err))
 	}
 
-	downstreamMeta := o.GetDownstreamMetadata()
-	u, err := url.Parse(downstreamMeta.RedirectURIs[0])
+	u, err := url.Parse(session.DownstreamRedirectURI)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse downstream redirect URI: %s", err))
 	}

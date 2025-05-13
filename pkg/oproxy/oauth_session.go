@@ -38,6 +38,7 @@ type OAuthSession struct {
 	DownstreamCodeChallenge     string     `json:"downstream_code_challenge" gorm:"column:downstream_code_challenge"`
 	DownstreamPARRequestURI     string     `json:"downstream_par_request_uri" gorm:"column:downstream_par_request_uri"`
 	DownstreamPARUsedAt         *time.Time `json:"downstream_par_used_at" gorm:"column:downstream_par_used_at"`
+	DownstreamRedirectURI       string     `json:"downstream_redirect_uri" gorm:"column:downstream_redirect_uri"`
 
 	RevokedAt *time.Time `json:"revoked_at" gorm:"column:revoked_at"`
 	CreatedAt time.Time  `json:"created_at"`

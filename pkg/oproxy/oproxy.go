@@ -9,15 +9,15 @@ import (
 )
 
 type OProxy struct {
-	createOAuthSession func(id string, session *OAuthSession) error
-	updateOAuthSession func(id string, session *OAuthSession) error
-	loadOAuthSession   func(id string) (*OAuthSession, error)
-	e                  *echo.Echo
-	host               string
-	scope              string
-	upstreamJWK        jwk.Key
-	downstreamJWK      jwk.Key
-	slog               *slog.Logger
+	createOAuthSession   func(id string, session *OAuthSession) error
+	updateOAuthSession   func(id string, session *OAuthSession) error
+	userLoadOAuthSession func(id string) (*OAuthSession, error)
+	e                    *echo.Echo
+	host                 string
+	scope                string
+	upstreamJWK          jwk.Key
+	downstreamJWK        jwk.Key
+	slog                 *slog.Logger
 }
 
 type Config struct {
@@ -38,15 +38,15 @@ func New(conf *Config) *OProxy {
 		mySlog = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
 	o := &OProxy{
-		createOAuthSession: conf.CreateOAuthSession,
-		updateOAuthSession: conf.UpdateOAuthSession,
-		loadOAuthSession:   conf.LoadOAuthSession,
-		e:                  e,
-		host:               conf.Host,
-		scope:              conf.Scope,
-		upstreamJWK:        conf.UpstreamJWK,
-		downstreamJWK:      conf.DownstreamJWK,
-		slog:               mySlog,
+		createOAuthSession:   conf.CreateOAuthSession,
+		updateOAuthSession:   conf.UpdateOAuthSession,
+		userLoadOAuthSession: conf.LoadOAuthSession,
+		e:                    e,
+		host:                 conf.Host,
+		scope:                conf.Scope,
+		upstreamJWK:          conf.UpstreamJWK,
+		downstreamJWK:        conf.DownstreamJWK,
+		slog:                 mySlog,
 	}
 	o.e.GET("/.well-known/oauth-authorization-server", o.HandleOAuthAuthorizationServer)
 	o.e.GET("/.well-known/oauth-protected-resource", o.HandleOAuthProtectedResource)

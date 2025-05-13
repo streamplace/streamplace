@@ -32,3 +32,11 @@ func (m *DBModel) UpdateOAuthSession(id string, session *oproxy.OAuthSession) er
 	}
 	return nil
 }
+
+func (m *DBModel) ListOAuthSessions() ([]oproxy.OAuthSession, error) {
+	var sessions []oproxy.OAuthSession
+	if err := m.DB.Find(&sessions).Error; err != nil {
+		return nil, err
+	}
+	return sessions, nil
+}

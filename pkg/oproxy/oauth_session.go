@@ -1,41 +1,47 @@
 package oproxy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
+
+	oauth "github.com/haileyok/atproto-oauth-golang"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 )
+
+var refreshWhenRemaining = time.Minute * 59
 
 // OAuthSession stores authentication data needed during the OAuth flow
 type OAuthSession struct {
-	DID    string `gorm:"column:repo_did;index"`
-	PDSUrl string `gorm:"column:pds_url;index"`
+	DID    string `json:"did" gorm:"column:repo_did;index"`
+	PDSUrl string `json:"pds_url" gorm:"column:pds_url;index"`
 
 	// Upstream fields
-	UpstreamState            string     `gorm:"column:upstream_state;index"`
-	UpstreamAuthServerIssuer string     `gorm:"column:upstream_auth_server_issuer"`
-	UpstreamPKCEVerifier     string     `gorm:"column:upstream_pkce_verifier"`
-	UpstreamDPoPNonce        string     `gorm:"column:upstream_dpop_nonce"`
-	UpstreamDPoPPrivateJWK   string     `gorm:"column:upstream_dpop_private_jwk;type:text"`
-	UpstreamAccessToken      string     `gorm:"column:upstream_access_token"`
-	UpstreamAccessTokenExp   *time.Time `gorm:"column:upstream_access_token_exp"`
-	UpstreamRefreshToken     string     `gorm:"column:upstream_refresh_token"`
+	UpstreamState            string     `json:"upstream_state" gorm:"column:upstream_state;index"`
+	UpstreamAuthServerIssuer string     `json:"upstream_auth_server_issuer" gorm:"column:upstream_auth_server_issuer"`
+	UpstreamPKCEVerifier     string     `json:"upstream_pkce_verifier" gorm:"column:upstream_pkce_verifier"`
+	UpstreamDPoPNonce        string     `json:"upstream_dpop_nonce" gorm:"column:upstream_dpop_nonce"`
+	UpstreamDPoPPrivateJWK   string     `json:"upstream_dpop_private_jwk" gorm:"column:upstream_dpop_private_jwk;type:text"`
+	UpstreamAccessToken      string     `json:"upstream_access_token" gorm:"column:upstream_access_token"`
+	UpstreamAccessTokenExp   *time.Time `json:"upstream_access_token_exp" gorm:"column:upstream_access_token_exp"`
+	UpstreamRefreshToken     string     `json:"upstream_refresh_token" gorm:"column:upstream_refresh_token"`
 
 	// Downstream fields
-	DownstreamDPoPNonce         string     `gorm:"column:downstream_dpop_nonce"`
-	DownstreamDPoPJKT           string     `gorm:"column:downstream_dpop_jkt;primaryKey"`
-	DownstreamAccessToken       string     `gorm:"column:downstream_access_token;index"`
-	DownstreamRefreshToken      string     `gorm:"column:downstream_refresh_token;index"`
-	DownstreamAuthorizationCode string     `gorm:"column:downstream_authorization_code;index"`
-	DownstreamState             string     `gorm:"column:downstream_state"`
-	DownstreamScope             string     `gorm:"column:downstream_scope"`
-	DownstreamCodeChallenge     string     `gorm:"column:downstream_code_challenge"`
-	DownstreamPARRequestURI     string     `gorm:"column:downstream_par_request_uri"`
-	DownstreamPARUsedAt         *time.Time `gorm:"column:downstream_par_used_at"`
+	DownstreamDPoPNonce         string     `json:"downstream_dpop_nonce" gorm:"column:downstream_dpop_nonce"`
+	DownstreamDPoPJKT           string     `json:"downstream_dpop_jkt" gorm:"column:downstream_dpop_jkt;primaryKey"`
+	DownstreamAccessToken       string     `json:"downstream_access_token" gorm:"column:downstream_access_token;index"`
+	DownstreamRefreshToken      string     `json:"downstream_refresh_token" gorm:"column:downstream_refresh_token;index"`
+	DownstreamAuthorizationCode string     `json:"downstream_authorization_code" gorm:"column:downstream_authorization_code;index"`
+	DownstreamState             string     `json:"downstream_state" gorm:"column:downstream_state"`
+	DownstreamScope             string     `json:"downstream_scope" gorm:"column:downstream_scope"`
+	DownstreamCodeChallenge     string     `json:"downstream_code_challenge" gorm:"column:downstream_code_challenge"`
+	DownstreamPARRequestURI     string     `json:"downstream_par_request_uri" gorm:"column:downstream_par_request_uri"`
+	DownstreamPARUsedAt         *time.Time `json:"downstream_par_used_at" gorm:"column:downstream_par_used_at"`
 
-	RevokedAt *time.Time `gorm:"column:revoked_at"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	RevokedAt *time.Time `json:"revoked_at" gorm:"column:revoked_at"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 }
 
 // for gorm. this is prettier than "o_auth_sessions"
@@ -90,64 +96,59 @@ func (o *OAuthSession) Status() OAuthSessionStatus {
 	return OAuthSessionStateRejected
 }
 
-// func (m *DBModel) CreateOAuthSession(session *OAuthSession) error {
-// 	uu, err := uuid.NewV7()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	session.ID = uu.String()
-// 	return m.DB.Create(session).Error
-// }
+func (o *OProxy) loadOAuthSession(jkt string) (*OAuthSession, error) {
+	session, err := o.userLoadOAuthSession(jkt)
+	if err != nil {
+		return nil, err
+	}
+	if session == nil {
+		return nil, nil
+	}
+	if session.Status() != OAuthSessionStateReady {
+		return session, nil
+	}
+	if session.UpstreamAccessTokenExp.Sub(time.Now()) > refreshWhenRemaining {
+		return session, nil
+	}
 
-// func (m *DBModel) GetOAuthSession(state string) (*OAuthSession, error) {
-// 	var session OAuthSession
-// 	err := m.DB.Where("id = ?", state).First(&session).Error
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &session, nil
-// }
+	upstreamMeta := o.GetUpstreamMetadata()
 
-// func (m *DBModel) GetOAuthSessionByUpstreamState(state string) (*OAuthSession, error) {
-// 	var session OAuthSession
-// 	err := m.DB.Where("upstream_state = ?", state).Preload("DownstreamPAR").First(&session).Error
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &session, nil
-// }
+	oclient, err := oauth.NewClient(oauth.ClientArgs{
+		ClientJwk:   o.upstreamJWK,
+		ClientId:    upstreamMeta.ClientID,
+		RedirectUri: upstreamMeta.RedirectURIs[0],
+	})
 
-// func (m *DBModel) GetOAuthSessionByDownstreamPARID(id string) (*OAuthSession, error) {
-// 	var session OAuthSession
-// 	err := m.DB.Where("downstream_par_id = ?", id).Preload("DownstreamPAR").First(&session).Error
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &session, nil
-// }
+	dpopKey, err := jwk.ParseKey([]byte(session.UpstreamDPoPPrivateJWK))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse upstream dpop private key: %w", err)
+	}
 
-// func (m *DBModel) GetOAuthSessionByDownstreamAccessToken(token string) (*OAuthSession, error) {
-// 	var session OAuthSession
-// 	err := m.DB.Where("downstream_access_token = ?", token).First(&session).Error
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &session, nil
-// }
+	// refresh upstream before returning
+	resp, err := oclient.RefreshTokenRequest(context.Background(), session.UpstreamRefreshToken, session.UpstreamAuthServerIssuer, session.UpstreamDPoPNonce, dpopKey)
+	if err != nil {
+		// revoke, probably
+		o.slog.Error("failed to refresh upstream token, revoking downstream session", "error", err)
+		now := time.Now()
+		session.RevokedAt = &now
+		err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
+		if err != nil {
+			o.slog.Error("after upstream token refresh, failed to revoke downstream session", "error", err)
+		}
+		return nil, fmt.Errorf("failed to refresh upstream token: %w", err)
+	}
 
-// func (m *DBModel) GetOAuthSessionByDownstreamRefreshToken(token string) (*OAuthSession, error) {
-// 	var session OAuthSession
-// 	err := m.DB.Where("downstream_refresh_token = ?", token).First(&session).Error
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &session, nil
-// }
+	exp := time.Now().Add(time.Second * time.Duration(resp.ExpiresIn)).UTC()
+	session.UpstreamAccessToken = resp.AccessToken
+	session.UpstreamAccessTokenExp = &exp
+	session.UpstreamRefreshToken = resp.RefreshToken
 
-// func (m *DBModel) UpdateOAuthSession(session *OAuthSession) error {
-// 	return m.DB.Save(session).Error
-// }
+	err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update downstream session after upstream token refresh: %w", err)
+	}
 
-// func (m *DBModel) DeleteOAuthSession(id string) error {
-// 	return m.DB.Delete(&OAuthSession{}, "id = ?", id).Error
-// }
+	o.slog.Debug("refreshed upstream token", "session", session.DownstreamDPoPJKT)
+
+	return session, nil
+}

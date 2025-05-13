@@ -9,7 +9,7 @@
     "check:workspaces": "cd js/app && yarn run check",
     "fix": "git ls-files | xargs prettier --write --ignore-unknown",
     "postinstall": "husky && make js-lexicons",
-    "build": "yarn workspaces foreach --parallel --all run build",
+    "build": "yarn workspaces foreach -t --parallel --all run build",
     "prepare": "husky",
     "release": "lerna publish --force-publish",
     "precommit": "make precommit",

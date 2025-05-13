@@ -14,6 +14,7 @@ import (
 
 	"github.com/AxisCommunications/go-dpop"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/labstack/echo/v4"
 )
 
 var OAuthSessionContextKey = oauthSessionContextKeyType{}
@@ -192,4 +193,42 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 	}
 
 	return session, nil
+}
+
+func (o *OProxy) DPoPNonceMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		dpopHeader := c.Request().Header.Get("DPoP")
+		if dpopHeader == "" {
+			return echo.NewHTTPError(http.StatusBadRequest, "missing DPoP header")
+		}
+
+		jkt, _, err := getJKT(dpopHeader)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+
+		session, err := o.loadOAuthSession(jkt)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+
+		c.Set("session", session)
+		return next(c)
+	}
+}
+
+func (o *OProxy) ErrorHandlingMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		err := next(c)
+		if err == nil {
+			return nil
+		}
+		httpError, ok := err.(*echo.HTTPError)
+		if ok {
+			o.slog.Error("oauth error", "code", httpError.Code, "message", httpError.Message, "internal", httpError.Internal)
+			return err
+		}
+		o.slog.Error("unhandled error", "error", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 }

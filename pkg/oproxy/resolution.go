@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 )
 
+// mostly borrowed from github.com/haileyok/atproto-oauth-golang, MIT license
 func resolveHandle(ctx context.Context, handle string) (string, error) {
 	var did string
 

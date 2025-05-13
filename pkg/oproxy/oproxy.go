@@ -2,6 +2,7 @@ package oproxy
 
 import (
 	"log/slog"
+	"net/http"
 	"os"
 
 	"github.com/labstack/echo/v4"
@@ -60,4 +61,14 @@ func New(conf *Config) *OProxy {
 	o.e.GET("/oauth/downstream/client-metadata.json", o.HandleClientMetadataDownstream)
 	o.e.Use(o.ErrorHandlingMiddleware)
 	return o
+}
+
+func (o *OProxy) Handler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*") // todo: ehhhhhhhhhhhh
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,DPoP")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
+		w.Header().Set("Access-Control-Expose-Headers", "DPoP-Nonce")
+		o.e.ServeHTTP(w, r)
+	})
 }

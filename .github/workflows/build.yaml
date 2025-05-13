@@ -24,6 +24,8 @@ jobs:
             cmd: "make app && make linux-arm64"
           - name: windows-amd64
             cmd: "make app && make windows-amd64"
+          - name: android
+            cmd: "make app && make android-release"
     steps:
       - name: Check out code
         uses: actions/checkout@v4.1.7
@@ -43,17 +45,27 @@ jobs:
       matrix:
         include:
           - name: darwin-arm64
-            runs-on: macos-latest
+            runs-on: macos-15
             cmd: make && make test && make check
+            xcode-version: "16.1.0"
+          - name: ios
+            runs-on: macos-15
+            cmd: make ios
+            xcode-version: "16.1.0"
           - name: darwin-amd64
             runs-on: macos-13
             cmd: make
+            xcode-version: "15.2.0"
     steps:
       - name: Check out code
         uses: actions/checkout@v4.1.7
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode-version }}
 
       - name: Build Streamplace
         env:

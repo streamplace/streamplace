@@ -214,7 +214,7 @@ android: app .build/bundletool.jar
 	$(MAKE) android-debug
 
 .PHONY: android-release
-android-release:
+android-release: .build/bundletool.jar
 	export NODE_ENV=production \
 	&& cd ./js/app/android \
 	&& ./gradlew :app:bundleRelease \
@@ -225,7 +225,7 @@ android-release:
 	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb
 
 .PHONY: android-debug
-android-debug:
+android-debug: .build/bundletool.jar
 	export NODE_ENV=production \
 	&& cd ./js/app/android \
 	&& ./gradlew :app:bundleDebug \

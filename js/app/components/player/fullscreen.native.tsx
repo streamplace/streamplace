@@ -11,6 +11,11 @@ import Video from "./video.native";
 import VideoRetry from "./video-retry";
 import { usePlayerProtocol } from "features/player/playerSlice";
 import { useAppSelector } from "store/hooks";
+import { useDispatch } from "react-redux";
+import {
+  setSidebarHidden,
+  setSidebarUnhidden,
+} from "features/base/sidebarSlice";
 
 // Standard 16:9 video aspect ratio
 const VIDEO_ASPECT_RATIO = 16 / 9;
@@ -21,6 +26,9 @@ export default function Fullscreen(props: PlayerProps) {
   const navigation = useNavigation();
   const [dimensions, setDimensions] = useState(Dimensions.get("window"));
   const protocol = useAppSelector(usePlayerProtocol());
+
+  // for hiding sidebar
+  const dispatch = useDispatch();
 
   // Re-calculate dimensions on orientation change
   useEffect(() => {
@@ -42,6 +50,8 @@ export default function Fullscreen(props: PlayerProps) {
   useEffect(() => {
     if (props.fullscreen) {
       StatusBar.setHidden(true);
+      console.log("setting sidebar hidden");
+      dispatch(setSidebarHidden());
 
       // Hide the navigation header
       navigation.setOptions({
@@ -53,6 +63,7 @@ export default function Fullscreen(props: PlayerProps) {
         "hardwareBackPress",
         () => {
           props.setFullscreen(false);
+          dispatch(setSidebarUnhidden());
           return true;
         },
       );
@@ -62,6 +73,7 @@ export default function Fullscreen(props: PlayerProps) {
       };
     } else {
       StatusBar.setHidden(false);
+      dispatch(setSidebarUnhidden());
 
       // Restore the navigation header
       navigation.setOptions({
@@ -71,7 +83,7 @@ export default function Fullscreen(props: PlayerProps) {
 
     return () => {
       StatusBar.setHidden(false);
-
+      dispatch(setSidebarUnhidden());
       // Ensure header is restored if component unmounts
       navigation.setOptions({
         headerShown: true,

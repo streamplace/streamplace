@@ -35,6 +35,7 @@ import FollowButton from "components/follow-button";
 import { useToastController } from "@tamagui/toast";
 import { selectProfiles, getProfile } from "features/bluesky/blueskySlice";
 import storage from "storage";
+import { useFullscreen } from "contexts/FullscreenContext";
 
 export default function Livestream(props: Partial<PlayerProps>) {
   return (
@@ -63,6 +64,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
   const [innerHeight, setInnerHeight] = useState(0);
   const [isChatVisible, setIsChatVisible] = useState(true);
   const [currentUserDID, setCurrentUserDID] = useState<string | null>(null);
+  const { fullscreen, setFullscreen } = useFullscreen();
 
   const streamerDID = player.livestream?.author?.did;
   const streamerProfile = streamerDID ? profiles[streamerDID] : undefined;
@@ -114,6 +116,20 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
       toast.show(`You have unfollowed @${streamerHandle}`);
     }
   };
+
+  if (fullscreen) {
+    return (
+      <RNView style={{ flex: 1 }}>
+        <Player
+          telemetry={telemetry === true}
+          src={src}
+          fullscreen={fullscreen}
+          setFullscreen={setFullscreen}
+          {...extraProps}
+        />
+      </RNView>
+    );
+  }
 
   return (
     <RNView style={{ flex: 1 }}>
@@ -195,6 +211,8 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
               <Player
                 telemetry={telemetry === true}
                 src={src}
+                fullscreen={fullscreen}
+                setFullscreen={setFullscreen}
                 {...extraProps}
               />
               <View

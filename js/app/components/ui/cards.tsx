@@ -44,10 +44,8 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const MainContainer = layoutHorizontal ? XStack : YStack;
   const SubContainer = layoutHorizontal ? YStack : XStack;
 
-  // Calculate a fixed height for the content section when vertical
-  // This ensures consistency below the thumbnail.
-  // The content area (inside padding) will be avatarSize high.
-  const verticalContentSectionHeight = avatarSize + 2 * contentPadding; // 40 + 2*8 = 56
+  const verticalContentSectionHeight = avatarSize + 2 * contentPadding;
+  const horizontalContentSectionWidth = avatarSize * 2 + contentPadding;
 
   return (
     <MainContainer
@@ -68,7 +66,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
           minWidth: layoutHorizontal ? "65%" : "100%",
         }}
         $gtXxl={{
-          minWidth: layoutHorizontal ? "61%" : "100%",
+          minWidth: layoutHorizontal ? "62.5%" : "100%",
         }}
         aspectRatio={16 / 9}
         borderRadius={borderRadius}
@@ -107,11 +105,13 @@ const StreamCard: React.FC<StreamCardProps> = ({
 
       {/* Content Section */}
       <SubContainer
-        flex={layoutHorizontal ? 1 : undefined} // Only flex when horizontal
         padding={contentPadding}
-        alignItems="flex-start" // Vertically aligns Avatar and Text Content YStack
+        alignItems={layoutHorizontal ? "flex-start" : "center"}
+        justifyContent="flex-end"
         gap={contentPadding}
-        height={!layoutHorizontal ? verticalContentSectionHeight : "unset"}
+        height="unset"
+        width={layoutHorizontal ? horizontalContentSectionWidth : "unset"}
+        flex={1}
       >
         {/* Avatar */}
         <Stack
@@ -137,13 +137,12 @@ const StreamCard: React.FC<StreamCardProps> = ({
           width={layoutHorizontal ? "100%" : 0}
           minHeight={0}
           maxHeight="unset"
-          maxWidth="unset"
           zIndex={12}
         >
           {title && (
             <Text
               fontSize={16}
-              color="white"
+              color="$color"
               fontWeight="400"
               numberOfLines={1}
               ellipsizeMode="tail"

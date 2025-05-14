@@ -43,10 +43,8 @@ export default function CreateLivestream() {
   const { width, height } = useWindowDimensions();
 
   // Responsive layout logic
-  const isTall = height > 700;
-  const isWide = width > 800;
-  const useTwoColumns = !isTall && isWide;
-  const useScroll = !isTall && !isWide;
+  const isWide = width > 1020;
+  const useTwoColumns = isWide;
 
   useEffect(() => {
     if (newLivestream?.record) {
@@ -66,186 +64,126 @@ export default function CreateLivestream() {
   }, [newLivestream?.error]);
   const disabled = !userIsLive || loading || title === "";
 
-  function FormFields({
-    includeThumbnail = false,
-  }: {
-    includeThumbnail?: boolean;
-  }) {
-    // Determine if we are in single column mode
-    const isSingleColumn = !useTwoColumns;
-    return (
-      <>
-        <Label asChild={true} display="flex">
-          <View flexDirection="row">
-            <Left>
-              <Paragraph pb="$2">Streamer</Paragraph>
-            </Left>
-            <Right>
-              <Paragraph pb="$2">@{profile?.handle}</Paragraph>
-            </Right>
-          </View>
-        </Label>
-        <Label asChild={true}>
-          <View flexDirection="row">
-            <Left>
-              <Paragraph pb="$2">Title</Paragraph>
-            </Left>
-            <Right>
-              <View w="100%" ai={isSingleColumn ? "center" : undefined}>
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      let thumbnailToUse = customThumbnail;
+      if (!thumbnailToUse && isWeb && captureFrame) {
+        const capturedFrame = await captureFrame(1280, 0.85);
+        if (capturedFrame) {
+          thumbnailToUse = capturedFrame;
+        }
+      }
+
+      await dispatch(
+        createLivestreamRecord({
+          title,
+          customThumbnail: thumbnailToUse,
+        }),
+      );
+    } catch (error) {
+      console.error("Error creating livestream:", error);
+      toast.show("Error creating livestream", {
+        message: String(error),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const buttonText = loading
+    ? "Loading..."
+    : !userIsLive
+      ? "Waiting for stream to start..."
+      : "Announce Livestream!";
+
+  return (
+    <ScrollView
+      style={{ width: "60%" }}
+      contentContainerStyle={{
+        flexGrow: 1,
+        justifyContent: "flex-start",
+        paddingVertical: 40,
+      }}
+      showsVerticalScrollIndicator={false}
+    >
+      <View
+        flexDirection={useTwoColumns ? "row" : "column"}
+        gap={useTwoColumns ? 48 : 16}
+        w="100%"
+        maxWidth={useTwoColumns ? 900 : undefined}
+        alignSelf="center"
+        p="$4"
+        alignItems={useTwoColumns ? "flex-start" : "stretch"}
+        justifyContent="center"
+      >
+        {/* Left column: labels and fields */}
+        <View f={2} minWidth={0} gap="$3" w={useTwoColumns ? 500 : "100%"}>
+          <Label asChild={true} display="flex">
+            <View flexDirection="row" alignItems="center" w="100%">
+              <Paragraph pb="$2" minWidth={100} textAlign="left">
+                Streamer
+              </Paragraph>
+              <Paragraph pb="$2" fontWeight="bold">
+                @{profile?.handle}
+              </Paragraph>
+            </View>
+          </Label>
+          <Label asChild={true}>
+            <View flexDirection="row" alignItems="center" w="100%">
+              <Paragraph pb="$2" minWidth={100} textAlign="left">
+                Title
+              </Paragraph>
+              <View flex={1}>
                 <TextArea
+                  id="livestream-title"
                   value={title}
                   onChangeText={setTitle}
                   size="$4"
                   minHeight={100}
                   maxLength={140}
-                  w={isSingleColumn ? "100%" : undefined}
-                  maxWidth={isSingleColumn ? 600 : undefined}
+                  w="100%"
                 />
               </View>
-            </Right>
-          </View>
-        </Label>
-        {includeThumbnail && (
-          <Label asChild={true}>
-            <View flexDirection="row" ai="flex-start">
-              <Left>
-                <Paragraph pb={0} lineHeight={18}>
-                  Custom Thumbnail
-                </Paragraph>
-                <Paragraph pb="$2" lineHeight={18} fontSize={14}>
-                  (Optional)ss
-                </Paragraph>
-              </Left>
-              <Right>
-                <View w="100%" ai={isSingleColumn ? "center" : undefined}>
-                  <View maxWidth={600} w="100%">
-                    <ThumbnailSelector
-                      onThumbnailSelected={setCustomThumbnail}
-                    />
-                  </View>
-                </View>
-              </Right>
             </View>
           </Label>
-        )}
-        <View gap="$2" w="100%" ai={isSingleColumn ? "center" : undefined}>
-          <Button
-            disabled={disabled}
-            opacity={disabled ? 0.5 : 1}
-            w={isSingleColumn ? "100%" : "100%"}
-            maxWidth={isSingleColumn ? 600 : undefined}
-            size="$4"
-            onPress={async () => {
-              setLoading(true);
-              try {
-                // If no custom thumbnail is provided and we're on web, try to capture one from the video
-                let thumbnailToUse = customThumbnail;
-                if (!thumbnailToUse && isWeb && captureFrame) {
-                  const capturedFrame = await captureFrame(1280, 0.85);
-                  if (capturedFrame) {
-                    thumbnailToUse = capturedFrame;
-                  }
-                }
-
-                await dispatch(
-                  createLivestreamRecord({
-                    title,
-                    customThumbnail: thumbnailToUse,
-                  }),
-                );
-              } catch (error) {
-                console.error("Error creating livestream:", error);
-                toast.show("Error creating livestream", {
-                  message: String(error),
-                });
-              } finally {
-                setLoading(false);
-              }
-            }}
-          >
-            {buttonText(loading, userIsLive)}
-          </Button>
+          <View w="100%" alignItems="center" mt="$4">
+            <Button
+              disabled={disabled}
+              opacity={disabled ? 0.5 : 1}
+              size="$4"
+              w="100%"
+              onPress={handleSubmit}
+            >
+              {buttonText}
+            </Button>
+          </View>
         </View>
-      </>
-    );
-  }
-
-  function ThumbnailSection() {
-    return (
-      <View gap="$2" ai="flex-start" w="100%">
-        <Paragraph pb={0} lineHeight={18}>
-          Custom Thumbnail (Optional)
-        </Paragraph>
-        <View maxWidth={600} w="100%">
-          <ThumbnailSelector onThumbnailSelected={setCustomThumbnail} />
-        </View>
-      </View>
-    );
-  }
-
-  if (useScroll) {
-    return (
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+        {/* Right column: thumbnail */}
         <View
           f={1}
-          ai="stretch"
-          jc="center"
+          minWidth={0}
           gap="$4"
-          w="100%"
-          p="$4"
-          maxWidth={900}
+          alignItems="center"
+          justifyContent="flex-start"
+          w={useTwoColumns ? 400 : "100%"}
+          style={{
+            marginTop: 12,
+            ...(useTwoColumns ? {} : { marginLeft: 40 }),
+          }}
         >
-          <FormFields includeThumbnail={true} />
-        </View>
-      </ScrollView>
-    );
-  }
-
-  if (!useTwoColumns) {
-    return (
-      <View
-        f={1}
-        ai="stretch"
-        jc="center"
-        gap="$4"
-        w="100%"
-        p="$4"
-        maxWidth={900}
-      >
-        <FormFields includeThumbnail={true} />
-      </View>
-    );
-  }
-
-  // Two-column layout
-  return (
-    <View
-      f={1}
-      ai="stretch"
-      jc="center"
-      gap="$4"
-      w="100%"
-      p="$4"
-      maxWidth={900}
-    >
-      <View flexDirection="row" gap="$8" w="100%">
-        <View f={2} minWidth={0} gap="$4">
-          <FormFields includeThumbnail={false} />
-        </View>
-        <View f={1} minWidth={0} gap="$4" ai="flex-start">
-          <ThumbnailSection />
+          <Label asChild={true}>
+            <View flexDirection="column" alignItems="center" w="100%">
+              <Paragraph pb={0} lineHeight={18} fontWeight="bold" mb="$2">
+                Custom Thumbnail (Optional)
+              </Paragraph>
+              <View maxWidth={400} w="100%">
+                <ThumbnailSelector onThumbnailSelected={setCustomThumbnail} />
+              </View>
+            </View>
+          </Label>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
-
-const buttonText = (loading: boolean, userIsLive: boolean) => {
-  if (loading) {
-    return "Loading...";
-  }
-  if (!userIsLive) {
-    return "Waiting for stream to start...";
-  }
-  return "Announce Livestream!";
-};

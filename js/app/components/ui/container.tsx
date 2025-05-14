@@ -34,6 +34,7 @@ export default function Container({ children, ...props }) {
         }}
         $gtLg={{
           maxWidth: maxContainerWidths.xl,
+
           px: "$4",
         }}
         $gtXl={{

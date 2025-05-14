@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/atproto-oauth-client-react-native",
-  "version": "0.0.2",
+  "version": "0.6.20",
   "license": "MIT",
   "description": "ATProto OAuth client for React Native",
   "keywords": [

@@ -1,0 +1,149 @@
+{
+  "account": {
+    "streamplace": {
+      "password": "9bc4bd49515c5ade1fa94f8301c24473"
+    }
+  },
+  "auto_push": null,
+  "bandwidth": {
+    "exceptions": [
+      "::1",
+      "127.0.0.0/8",
+      "10.0.0.0/8",
+      "192.168.0.0/16",
+      "172.16.0.0/12"
+    ]
+  },
+  "config": {
+    "accesslog": "LOG",
+    "controller": {
+      "interface": "127.0.0.1",
+      "port": null,
+      "username": null
+    },
+    "defaultStream": null,
+    "limits": null,
+    "prometheus": "",
+    "protocols": [
+      {
+        "connector": "AAC"
+      },
+      {
+        "connector": "CMAF"
+      },
+      {
+        "connector": "EBML"
+      },
+      {
+        "connector": "FLAC"
+      },
+      {
+        "connector": "FLV"
+      },
+      {
+        "connector": "H264"
+      },
+      {
+        "connector": "HDS"
+      },
+      {
+        "connector": "HLS"
+      },
+      {
+        "connector": "HTTPTS"
+      },
+      {
+        "connector": "JPG"
+      },
+      {
+        "connector": "JSON"
+      },
+      {
+        "connector": "MP3"
+      },
+      {
+        "connector": "MP4"
+      },
+      {
+        "connector": "OGG"
+      },
+      {
+        "connector": "RTMP",
+        "interface": "127.0.0.1",
+        "port": 31935
+      },
+      {
+        "connector": "SDP"
+      },
+      {
+        "connector": "SubRip"
+      },
+      {
+        "connector": "WAV"
+      },
+      {
+        "connector": "HTTP",
+        "interface": "127.0.0.1",
+        "port": 28080,
+        "pubaddr": []
+      }
+    ],
+    "serverid": null,
+    "sessionInputMode": 15,
+    "sessionOutputMode": 15,
+    "sessionStreamInfoMode": 1,
+    "sessionUnspecifiedMode": 0,
+    "sessionViewerMode": 14,
+    "tknMode": 15,
+    "triggers": {
+      "PUSH_REWRITE": [
+        {
+          "handler": "http://127.0.0.1:39090/mist-trigger",
+          "streams": [],
+          "sync": true
+        }
+      ]
+    },
+    "trustedproxy": []
+  },
+  "extwriters": null,
+  "push_settings": {
+    "maxspeed": 0,
+    "wait": 3
+  },
+  "streams": {
+    "stream": {
+      "debug": 5,
+      "name": "stream",
+      "processes": [
+        {
+          "debug": 5,
+          "exec": "streamplace live $wildcard",
+          "exit_unmask": false,
+          "inconsequential": false,
+          "process": "MKVExec",
+          "restart_type": "fixed"
+        }
+      ],
+      "source": "push://",
+      "stop_sessions": false,
+      "tags": []
+    }
+  },
+  "ui_settings": {
+    "HTTPUrl": "http://127.0.0.1:28080/",
+    "sort_autopushes": {
+      "by": "Stream",
+      "dir": 1
+    },
+    "sort_pushes": {
+      "by": "Statistics",
+      "dir": 1
+    },
+    "sortstreams": {
+      "by": "name",
+      "dir": 1
+    }
+  },
+  "variables": null
+}

@@ -140,6 +140,25 @@ build-docker-amd64:
       --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-amd64"
       --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-amd64"
 
+build-docker-mistserver:
+  stage: build
+  interruptible: true
+  needs:
+    - job: build
+      artifacts: true
+  image:
+    name: gcr.io/kaniko-project/executor:v1.14.0-debug
+    entrypoint: [""]
+  timeout: 2 hours
+  script:
+    - /kaniko/executor
+      --build-arg TARGETARCH=amd64
+      --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_AMD64
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/docker/mistserver.Dockerfile"
+      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-mistserver"
+      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-mistserver"
+
 build-docker-arm64:
   stage: build
   interruptible: true

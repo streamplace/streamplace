@@ -9,5 +9,5 @@ RUN export LOCAL_URL="$(echo $STREAMPLACE_URL | sed 's/-cloudflare//')" && echo 
 RUN apt-get update && apt-get install -y curl
 RUN curl -o - https://releases.mistserver.org/is/mistserver_64V3.6.1.tar.gz 2>/dev/null | sh
 RUN mkdir -p /config
-ADD mistserver.json /config/mistserver.json
+ADD ./docker/mistserver.json /config/mistserver.json
 CMD ["MistController", "-c", "/config/mistserver.json"]

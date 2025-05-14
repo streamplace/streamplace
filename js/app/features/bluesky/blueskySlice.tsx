@@ -106,8 +106,19 @@ export const blueskySlice = createAppSlice({
       async (_, { getState }) => {
         const { streamplace } = getState() as { streamplace: StreamplaceState };
         const client = await createOAuthClient(streamplace.url);
-        let initResult = await client.init();
-        return { client, initResult };
+        try {
+          let initResult = await client.init();
+          if (!initResult || !("session" in initResult)) {
+            const did = await Storage.getItem("did");
+            if (did) {
+              initResult = await client.restore(did);
+            }
+          }
+          return { client, initResult };
+        } catch (e) {
+          console.error("loadOAuthClient early error", e);
+          throw e;
+        }
       },
       {
         pending: (state) => {
@@ -135,6 +146,7 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, { error }) => {
+          console.error("loadOAuthClient rejected", error);
           return {
             ...state,
             status: "loggedOut",
@@ -171,10 +183,15 @@ export const blueskySlice = createAppSlice({
         if (!bluesky.client) {
           throw new Error("No client");
         }
-        const u = await bluesky.client.authorize(handle, {});
-        thunkAPI.dispatch(openLoginLink(u.toString()));
-        // cheeky 500ms delay so you don't see the text flash back
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        try {
+          const u = await bluesky.client.authorize(handle, {});
+          thunkAPI.dispatch(openLoginLink(u.toString()));
+          // cheeky 500ms delay so you don't see the text flash back
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+        } catch (e) {
+          console.error("early login error", e);
+          throw e;
+        }
       },
       {
         pending: (state) => {
@@ -197,7 +214,7 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, action) => {
-          console.error("login rejected", action.error);
+          console.error("login rejected", action.error, action.error.cause);
           return {
             ...state,
             login: {
@@ -297,9 +314,15 @@ export const blueskySlice = createAppSlice({
           }
           throw new Error("Missing params, got: " + url);
         }
-        const { bluesky } = thunkAPI.getState() as {
+        let { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };
+        if (!bluesky.client) {
+          await thunkAPI.dispatch(loadOAuthClient());
+        }
+        ({ bluesky } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+        });
         if (!bluesky.client) {
           throw new Error("No client");
         }
@@ -333,6 +356,7 @@ export const blueskySlice = createAppSlice({
         },
         rejected: (state, action) => {
           console.error("oauthCallback rejected", action.error);
+          clearQueryParams();
         },
       },
     ),

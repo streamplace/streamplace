@@ -120,7 +120,9 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 	}
 
 	if !slices.Contains(clientMetadata.RedirectURIs, par.RedirectURI) {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid redirect_uri: %s not in allowed URIs", par.RedirectURI))
+		if !slices.Contains(o.additionalRedirectURIs, par.RedirectURI) {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid redirect_uri: %s not in allowed URIs", par.RedirectURI))
+		}
 	}
 
 	if par.CodeChallengeMethod != "S256" {

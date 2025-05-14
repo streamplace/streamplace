@@ -1,6 +1,10 @@
 package oproxy
 
-import "github.com/haileyok/atproto-oauth-golang/helpers"
+import (
+	"encoding/json"
+
+	"github.com/haileyok/atproto-oauth-golang/helpers"
+)
 
 type OAuthClientMetadata struct {
 	RedirectURIs                          []string                    `json:"redirect_uris"`
@@ -32,4 +36,19 @@ type OAuthClientMetadata struct {
 	DPoPBoundAccessTokens                 *bool                       `json:"dpop_bound_access_tokens,omitempty"`
 	AuthorizationDetailsTypes             []string                    `json:"authorization_details_types,omitempty"`
 	Jwks                                  *helpers.JwksResponseObject `json:"jwks,omitempty"`
+}
+
+// copy this metadata
+func (o *OAuthClientMetadata) Clone() *OAuthClientMetadata {
+	// can you tell i'm a javascript scrub at heart?
+	bs, err := json.Marshal(o)
+	if err != nil {
+		panic(err)
+	}
+	var o2 OAuthClientMetadata
+	err = json.Unmarshal(bs, &o2)
+	if err != nil {
+		panic(err)
+	}
+	return &o2
 }

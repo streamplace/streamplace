@@ -10,26 +10,30 @@ import (
 )
 
 type OProxy struct {
-	createOAuthSession   func(id string, session *OAuthSession) error
-	updateOAuthSession   func(id string, session *OAuthSession) error
-	userLoadOAuthSession func(id string) (*OAuthSession, error)
-	e                    *echo.Echo
-	host                 string
-	scope                string
-	upstreamJWK          jwk.Key
-	downstreamJWK        jwk.Key
-	slog                 *slog.Logger
+	createOAuthSession     func(id string, session *OAuthSession) error
+	updateOAuthSession     func(id string, session *OAuthSession) error
+	userLoadOAuthSession   func(id string) (*OAuthSession, error)
+	clientMetadata         *OAuthClientMetadata
+	e                      *echo.Echo
+	host                   string
+	scope                  string
+	upstreamJWK            jwk.Key
+	downstreamJWK          jwk.Key
+	slog                   *slog.Logger
+	additionalRedirectURIs []string
 }
 
 type Config struct {
-	CreateOAuthSession func(id string, session *OAuthSession) error
-	UpdateOAuthSession func(id string, session *OAuthSession) error
-	LoadOAuthSession   func(id string) (*OAuthSession, error)
-	Host               string
-	Scope              string
-	UpstreamJWK        jwk.Key
-	DownstreamJWK      jwk.Key
-	Slog               *slog.Logger
+	CreateOAuthSession     func(id string, session *OAuthSession) error
+	UpdateOAuthSession     func(id string, session *OAuthSession) error
+	LoadOAuthSession       func(id string) (*OAuthSession, error)
+	Host                   string
+	Scope                  string
+	UpstreamJWK            jwk.Key
+	DownstreamJWK          jwk.Key
+	Slog                   *slog.Logger
+	ClientMetadata         *OAuthClientMetadata
+	AdditionalRedirectURIs []string
 }
 
 func New(conf *Config) *OProxy {
@@ -39,15 +43,20 @@ func New(conf *Config) *OProxy {
 		mySlog = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
 	o := &OProxy{
-		createOAuthSession:   conf.CreateOAuthSession,
-		updateOAuthSession:   conf.UpdateOAuthSession,
-		userLoadOAuthSession: conf.LoadOAuthSession,
-		e:                    e,
-		host:                 conf.Host,
-		scope:                conf.Scope,
-		upstreamJWK:          conf.UpstreamJWK,
-		downstreamJWK:        conf.DownstreamJWK,
-		slog:                 mySlog,
+		createOAuthSession:     conf.CreateOAuthSession,
+		updateOAuthSession:     conf.UpdateOAuthSession,
+		userLoadOAuthSession:   conf.LoadOAuthSession,
+		e:                      e,
+		host:                   conf.Host,
+		scope:                  conf.Scope,
+		upstreamJWK:            conf.UpstreamJWK,
+		downstreamJWK:          conf.DownstreamJWK,
+		slog:                   mySlog,
+		clientMetadata:         conf.ClientMetadata,
+		additionalRedirectURIs: []string{},
+	}
+	if conf.AdditionalRedirectURIs != nil {
+		o.additionalRedirectURIs = conf.AdditionalRedirectURIs
 	}
 	o.e.GET("/.well-known/oauth-authorization-server", o.HandleOAuthAuthorizationServer)
 	o.e.GET("/.well-known/oauth-protected-resource", o.HandleOAuthProtectedResource)

@@ -12,6 +12,8 @@ export type StreamplaceOAuthClient = Omit<
   "keyset" | "serverFactory" | "jwks"
 >;
 
+const FAKE_SERVER_NAME = "fake-server.example";
+
 export default async function createOAuthClient(
   streamplaceUrl: string,
 ): Promise<StreamplaceOAuthClient> {
@@ -20,8 +22,9 @@ export default async function createOAuthClient(
   }
   let meta: ClientMetadata;
   if (
-    streamplaceUrl.startsWith("http://localhost") ||
-    streamplaceUrl.startsWith("http://127.0.0.1")
+    false
+    // streamplaceUrl.startsWith("http://localhost") ||
+    // streamplaceUrl.startsWith("http://127.0.0.1")
   ) {
     const isWeb = Platform.OS === "web";
     const u = new URL(streamplaceUrl);
@@ -67,6 +70,8 @@ export default async function createOAuthClient(
     );
     meta = await res.json();
   }
+
+  console.log("meta", meta);
   clientMetadataSchema.parse(meta);
   return new ReactNativeOAuthClient({
     fetch: async (input, init) => {
@@ -78,10 +83,18 @@ export default async function createOAuthClient(
         request = input;
       }
 
+      if (request.url.startsWith(`https://${FAKE_SERVER_NAME}`)) {
+        request = new Request(
+          request.url.replace(`https://${FAKE_SERVER_NAME}`, streamplaceUrl),
+          init,
+        );
+        console.log("replaced url, now hitting", request.url);
+      }
+
       // Lie to the oauth client and use our upstream server instead
       if (
-        request.url.includes("plc.directory") ||
-        request.url.endsWith("did.json")
+        request.url.includes("plc.directory") || // did:plc:...
+        request.url.endsWith("did.json") // did:web:...
       ) {
         const res = await fetch(request, init);
         if (!res.ok) {
@@ -92,7 +105,8 @@ export default async function createOAuthClient(
         if (!service) {
           return res;
         }
-        service.serviceEndpoint = streamplaceUrl;
+        service.serviceEndpoint = meta.client_uri;
+        // service.serviceEndpoint = `https://${FAKE_SERVER_NAME}`;
         return new Response(JSON.stringify(data), {
           status: res.status,
           headers: res.headers,

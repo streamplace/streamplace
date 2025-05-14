@@ -126,14 +126,25 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	clientMetadata := &oproxy.OAuthClientMetadata{
+		ClientName:   "Streamplace",
+		ClientURI:    "https://stream.place",
+		LogoURI:      "https://stream.place/logo.png",
+		RedirectURIs: []string{"https://fairway.iameli.link/login", "https://fairway.iameli.link/api/app-return"},
+	}
+
+	// RedirectURIs: []string{"http://127.0.0.1:38080/login", "https://%s/api/app-return"},
 	op := oproxy.New(&oproxy.Config{
-		Host:               a.CLI.PublicHost,
-		CreateOAuthSession: a.Model.CreateOAuthSession,
-		UpdateOAuthSession: a.Model.UpdateOAuthSession,
-		LoadOAuthSession:   a.Model.LoadOAuthSession,
-		Scope:              "atproto transition:generic",
-		UpstreamJWK:        a.CLI.JWK,
-		DownstreamJWK:      a.CLI.AccessJWK,
+		Host:                   a.CLI.PublicHost,
+		CreateOAuthSession:     a.Model.CreateOAuthSession,
+		UpdateOAuthSession:     a.Model.UpdateOAuthSession,
+		LoadOAuthSession:       a.Model.LoadOAuthSession,
+		Scope:                  "atproto transition:generic",
+		UpstreamJWK:            a.CLI.JWK,
+		DownstreamJWK:          a.CLI.AccessJWK,
+		ClientMetadata:         clientMetadata,
+		AdditionalRedirectURIs: []string{"http://127.0.0.1:38080/login"},
 	})
 
 	xrpc = op.OAuthMiddleware(xrpc)

@@ -1,7 +1,7 @@
 {
   "name": "streamplace-desktop",
   "productName": "streamplace-desktop",
-  "version": "0.6.19",
+  "version": "0.6.20",
   "description": "Streamplace Desktop Application",
   "main": ".webpack/main",
   "scripts": {

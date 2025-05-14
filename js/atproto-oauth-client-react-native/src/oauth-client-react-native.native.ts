@@ -97,7 +97,6 @@ export class ReactNativeOAuthClient extends OAuthClient {
                 }
               }
 
-
               // RNQC doesn't give us a kid, so let's do a quick hash of the key
               const kid = QuickCrypto.createHash("sha256")
                 .update(JSON.stringify(ex))

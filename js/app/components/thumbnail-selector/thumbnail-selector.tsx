@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Image, Text, View, isWeb } from "tamagui";
-import { Platform } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import { Camera, Image as ImageIcon, X } from "@tamagui/lucide-icons";
 import { ThumbnailSelectorProps } from "./shared";
 
@@ -37,58 +35,6 @@ export default function ThumbnailSelector({
     onThumbnailSelected(undefined);
   }, [onThumbnailSelected, selectedImage, revokeObjectURL]);
 
-  const galleryOptions: ImagePicker.ImagePickerOptions = {
-    mediaTypes: "images",
-    allowsEditing: true,
-    aspect: [16, 9] as [number, number],
-    quality: 0.8,
-  };
-
-  const cameraOptions: ImagePicker.ImagePickerOptions = {
-    mediaTypes: "images",
-    allowsEditing: true,
-    aspect: [16, 9] as [number, number],
-    quality: 0.8,
-    cameraType: ImagePicker.CameraType.back,
-  };
-
-  const processImageResult = useCallback(
-    async (result: ImagePicker.ImagePickerResult, source: string) => {
-      if (!result.canceled) {
-        const imageUri = result.assets[0].uri;
-        setSelectedImage(imageUri);
-
-        const response = await fetch(imageUri);
-        const blob = await response.blob();
-        onThumbnailSelected(blob);
-      } else {
-        // User canceled
-        console.log(`${source} selection canceled`);
-      }
-    },
-    [onThumbnailSelected],
-  );
-
-  const pickImage = useCallback(async () => {
-    try {
-      // Request permissions first
-      if (Platform.OS !== "web") {
-        const { status } =
-          await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== "granted") {
-          alert("Sorry, we need camera roll permissions to make this work!");
-          return;
-        }
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync(galleryOptions);
-
-      await processImageResult(result, "Image");
-    } catch (error) {
-      console.error("Error picking image:", error);
-    }
-  }, [processImageResult, galleryOptions]);
-
   const [showWebCamera, setShowWebCamera] = useState(false);
   const [webCameraStream, setWebCameraStream] = useState<MediaStream | null>(
     null,
@@ -100,7 +46,6 @@ export default function ThumbnailSelector({
   useEffect(() => {
     if (showWebCamera && videoRef.current && webCameraStream) {
       videoRef.current.srcObject = webCameraStream;
-      console.log("Assigned stream to video element");
     }
   }, [showWebCamera, webCameraStream]);
 
@@ -143,7 +88,6 @@ export default function ThumbnailSelector({
   const startWebCamera = useCallback(async () => {
     try {
       if (!navigator.mediaDevices) {
-        console.log("Media devices API not available in this browser");
         throw new Error("Media devices API not available in this browser");
       }
 
@@ -163,29 +107,17 @@ export default function ThumbnailSelector({
     }
   }, []);
 
-  const takePhoto = useCallback(async () => {
-    try {
-      if (isWeb) {
-        await startWebCamera();
-      } else {
-        // On native platforms, use ImagePicker
-        // Request camera permissions first
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-
-        if (status !== "granted") {
-          alert("Sorry, we need camera permissions to make this work!");
-          return;
-        }
-
-        const result = await ImagePicker.launchCameraAsync(cameraOptions);
-
-        await processImageResult(result, "Camera");
-      }
-    } catch (error) {
-      console.error("Error taking picture:", error);
-      alert(`Error opening camera: ${error.message}`);
+  const pickImage = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
-  }, [processImageResult, startWebCamera]);
+  }, []);
+
+  const takePhoto = useCallback(async () => {
+    if (isWeb) {
+      await startWebCamera();
+    }
+  }, [startWebCamera]);
 
   const handleFileInputChange = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -193,13 +125,12 @@ export default function ThumbnailSelector({
         const files = event.target.files;
         if (files && files.length > 0) {
           const file = files[0];
-          console.log("File selected:", file);
+          const blob = new Blob([file], { type: file.type });
+          const imageUrl = URL.createObjectURL(blob);
 
-          const imageUrl = URL.createObjectURL(file);
           setSelectedImage(imageUrl);
-
-          const blob = await new Response(file).blob();
           onThumbnailSelected(blob);
+          event.target.value = "";
         }
       } catch (error) {
         console.error("Error processing file:", error);
@@ -309,12 +240,11 @@ export default function ThumbnailSelector({
         </View>
       )}
 
-      {/* Hidden file input for web camera capture fallback */}
+      {/* Hidden file input */}
       {isWeb && (
         <input
           type="file"
           accept="image/*"
-          capture="environment"
           ref={fileInputRef}
           onChange={handleFileInputChange}
           style={{ display: "none" }}

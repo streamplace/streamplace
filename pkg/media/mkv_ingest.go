@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"stream.place/streamplace/pkg/log"
 )
 
 // ingest a H264+AAC MKV stream (prolly from an RTMP server)
@@ -17,7 +18,7 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! matroskademux name=demux",
 		"demux. ! queue ! h264parse name=parse",
-		"demux. ! queue ! fdkaacdec ! audioresample ! opusenc name=audioparse",
+		"demux. ! queue ! fdkaacdec ! audioresample ! opusenc name=audioenc",
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
@@ -51,18 +52,20 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 	if err != nil {
 		return err
 	}
-	audioparse, err := pipeline.GetElementByName("audioparse")
+	audioenc, err := pipeline.GetElementByName("audioenc")
 	if err != nil {
 		return err
 	}
-	err = audioparse.Link(signer)
+	err = audioenc.Link(signer)
 	if err != nil {
 		return err
 	}
 
+	busErr := make(chan error)
 	go func() {
-		HandleBusMessages(ctx, pipeline)
+		err := HandleBusMessages(ctx, pipeline)
 		cancel()
+		busErr <- err
 	}()
 
 	err = pipeline.SetState(gst.StatePlaying)
@@ -70,7 +73,14 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 		return err
 	}
 
-	<-ctx.Done()
+	defer func() {
+		err := pipeline.SetState(gst.StateNull)
+		if err != nil {
+			log.Error(ctx, "error setting pipeline to null state", "error", err)
+		}
+	}()
+
+	<-busErr
 
 	return nil
 }

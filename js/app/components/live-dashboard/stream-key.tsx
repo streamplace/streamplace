@@ -10,7 +10,6 @@ import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import { View, Paragraph, Button, Text } from "tamagui";
 import { Redirect } from "components/aqlink";
-import Waiting from "./waiting";
 const Row = ({ children }: { children: React.ReactNode }) => {
   return (
     <View w="100%" f={1} fd="row" padding="$4">
@@ -36,6 +35,7 @@ const Right = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default function StreamKeyScreen() {
+  const [protocol, setProtocol] = useState("whip");
   const isReady = useAppSelector(selectIsReady);
   if (!isReady) {
     return <Loading />;
@@ -49,6 +49,7 @@ export default function StreamKeyScreen() {
   if (!userProfile) {
     return <Loading />;
   }
+
   return (
     <View
       f={1}
@@ -61,29 +62,27 @@ export default function StreamKeyScreen() {
     >
       <View w="100%" maxWidth={600}>
         <Row>
-          <Left>
-            <Paragraph>Service</Paragraph>
-          </Left>
-          <Right>
-            <Paragraph>WHIP</Paragraph>
-          </Right>
+          <Button
+            marginHorizontal={10}
+            backgroundColor={
+              protocol === "whip" ? "$accentBackground" : "$grey2"
+            }
+            onPress={() => setProtocol("whip")}
+          >
+            WHIP
+          </Button>
+          <Button
+            marginHorizontal={10}
+            backgroundColor={
+              protocol === "rtmp" ? "$accentBackground" : "$grey2"
+            }
+            onPress={() => setProtocol("rtmp")}
+          >
+            RTMP (beta)
+          </Button>
         </Row>
-        <Row>
-          <Left>
-            <Paragraph>Server</Paragraph>
-          </Left>
-          <Right>
-            <Paragraph>{url}</Paragraph>
-          </Right>
-        </Row>
-        <Row>
-          <Left>
-            <Paragraph>Bearer Token</Paragraph>
-          </Left>
-          <Right>
-            <StreamKey />
-          </Right>
-        </Row>
+        {protocol === "whip" && <WHIPDescription url={url} />}
+        {protocol === "rtmp" && <RTMPDescription url={url} />}
         <Row>
           <Left>
             <Paragraph>Output Settings</Paragraph>
@@ -99,8 +98,71 @@ export default function StreamKeyScreen() {
           </Right>
         </Row>
       </View>
-      <Waiting />
     </View>
+  );
+}
+
+export function WHIPDescription({ url }: { url: string }) {
+  return (
+    <>
+      <Row>
+        <Left>
+          <Paragraph>Service</Paragraph>
+        </Left>
+        <Right>
+          <Paragraph>WHIP</Paragraph>
+        </Right>
+      </Row>
+      <Row>
+        <Left>
+          <Paragraph>Server</Paragraph>
+        </Left>
+        <Right>
+          <Paragraph>{url}</Paragraph>
+        </Right>
+      </Row>
+      <Row>
+        <Left>
+          <Paragraph>Bearer Token</Paragraph>
+        </Left>
+        <Right>
+          <StreamKey />
+        </Right>
+      </Row>
+    </>
+  );
+}
+
+export function RTMPDescription({ url }: { url: string }) {
+  const u = new URL(url);
+  const rtmpUrl = `rtmps://${u.host}:1935/live`;
+  return (
+    <>
+      <Row>
+        <Left>
+          <Paragraph>Service</Paragraph>
+        </Left>
+        <Right>
+          <Paragraph>Custom...</Paragraph>
+        </Right>
+      </Row>
+      <Row>
+        <Left>
+          <Paragraph>Server</Paragraph>
+        </Left>
+        <Right>
+          <Paragraph>{rtmpUrl}</Paragraph>
+        </Right>
+      </Row>
+      <Row>
+        <Left>
+          <Paragraph>Stream Key</Paragraph>
+        </Left>
+        <Right>
+          <StreamKey />
+        </Right>
+      </Row>
+    </>
   );
 }
 

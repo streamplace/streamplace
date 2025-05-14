@@ -2,9 +2,10 @@ import {
   ClientMetadata,
   clientMetadataSchema,
   ReactNativeOAuthClient,
-} from "@aquareum/atproto-oauth-client-react-native";
+} from "@streamplace/atproto-oauth-client-react-native";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+import { isWeb } from "tamagui";
 
 export type StreamplaceOAuthClient = Omit<
   ReactNativeOAuthClient,
@@ -58,14 +59,49 @@ export default async function createOAuthClient(
       dpop_bound_access_tokens: true,
     };
   } else {
+    const redirectURI = isWeb
+      ? `${streamplaceUrl}/login`
+      : `${streamplaceUrl}/api/app-return`;
     const res = await fetch(
-      `${streamplaceUrl}/api/atproto-oauth/${Platform.OS}`,
+      `${streamplaceUrl}/oauth/downstream/client-metadata.json?redirect_uri=${encodeURIComponent(redirectURI)}`,
     );
     meta = await res.json();
   }
   clientMetadataSchema.parse(meta);
   return new ReactNativeOAuthClient({
-    handleResolver: "https://bsky.social", // backend instances should use a DNS based resolver
+    fetch: async (input, init) => {
+      // Normalize input to a Request object
+      let request: Request;
+      if (typeof input === "string" || input instanceof URL) {
+        request = new Request(input, init);
+      } else {
+        request = input;
+      }
+
+      // Lie to the oauth client and use our upstream server instead
+      if (
+        request.url.includes("plc.directory") ||
+        request.url.endsWith("did.json")
+      ) {
+        const res = await fetch(request, init);
+        if (!res.ok) {
+          return res;
+        }
+        const data = await res.json();
+        const service = data.service.find((s: any) => s.id === "#atproto_pds");
+        if (!service) {
+          return res;
+        }
+        service.serviceEndpoint = streamplaceUrl;
+        return new Response(JSON.stringify(data), {
+          status: res.status,
+          headers: res.headers,
+        });
+      }
+
+      return fetch(request, init);
+    },
+    handleResolver: streamplaceUrl,
     responseMode: "query", // or "fragment" (frontend only) or "form_post" (backend only)
 
     // These must be the same metadata as the one exposed on the

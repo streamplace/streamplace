@@ -53,30 +53,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@aquareum/atproto-oauth-client-react-native@npm:^0.0.1":
-  version: 0.0.1
-  resolution: "@aquareum/atproto-oauth-client-react-native@npm:0.0.1"
-  dependencies:
-    "@atproto-labs/did-resolver": "npm:0.1.5"
-    "@atproto-labs/handle-resolver-node": "npm:0.1.7"
-    "@atproto-labs/simple-store": "npm:0.1.1"
-    "@atproto-labs/simple-store-memory": "npm:0.1.1"
-    "@atproto/did": "npm:0.1.3"
-    "@atproto/jwk": "npm:0.1.1"
-    "@atproto/jwk-jose": "npm:0.1.2"
-    "@atproto/jwk-webcrypto": "npm:0.1.2"
-    "@atproto/oauth-client": "npm:0.3.2"
-    "@atproto/oauth-client-browser": "npm:0.3.2"
-    "@atproto/oauth-types": "npm:0.2.1"
-    abortcontroller-polyfill: "npm:^1.7.6"
-    event-target-shim: "npm:^6.0.2"
-    expo-sqlite: "npm:^15.0.3"
-    jose: "npm:^5.2.0"
-    react-native-quick-crypto: "npm:^0.7.7"
-  checksum: 10/73263e06756f8acfc526a6e89d5e68df9b2930b839ba6748a498f1b7e5d5480d31e068037f95bd7b7d1611be8565da80f045d85506ced7d79e4e132f6182a371
-  languageName: node
-  linkType: hard
-
 "@astrojs/compiler@npm:^2.11.0":
   version: 2.12.0
   resolution: "@astrojs/compiler@npm:2.12.0"
@@ -8807,6 +8783,31 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@streamplace/atproto-oauth-client-react-native@workspace:*, @streamplace/atproto-oauth-client-react-native@workspace:js/atproto-oauth-client-react-native":
+  version: 0.0.0-use.local
+  resolution: "@streamplace/atproto-oauth-client-react-native@workspace:js/atproto-oauth-client-react-native"
+  dependencies:
+    "@atproto-labs/did-resolver": "npm:0.1.5"
+    "@atproto-labs/handle-resolver-node": "npm:0.1.7"
+    "@atproto-labs/simple-store": "npm:0.1.1"
+    "@atproto-labs/simple-store-memory": "npm:0.1.1"
+    "@atproto/did": "npm:0.1.3"
+    "@atproto/jwk": "npm:0.1.1"
+    "@atproto/jwk-jose": "npm:0.1.2"
+    "@atproto/jwk-webcrypto": "npm:0.1.2"
+    "@atproto/oauth-client": "npm:0.3.2"
+    "@atproto/oauth-client-browser": "npm:0.3.2"
+    "@atproto/oauth-types": "npm:0.2.1"
+    "@types/node": "npm:^22.10.1"
+    abortcontroller-polyfill: "npm:^1.7.6"
+    event-target-shim: "npm:^6.0.2"
+    expo-sqlite: "npm:^15.0.3"
+    jose: "npm:^5.2.0"
+    react-native-quick-crypto: "npm:^0.7.7"
+    typescript: "npm:^5.6.3"
+  languageName: unknown
+  linkType: soft
+
 "@streamplace/config-react-native-webrtc@workspace:js/config-react-native-webrtc":
   version: 0.0.0-use.local
   resolution: "@streamplace/config-react-native-webrtc@workspace:js/config-react-native-webrtc"
@@ -11130,6 +11131,15 @@ __metadata:
   dependencies:
     undici-types: "npm:~6.19.8"
   checksum: 10/9c73d4cbcbf9773a5986421025c26d6139d8ab960317b3062fbb449c00dbe8197230334be550ffcdb6059bd25f4cb903546bace905155628537283a80c2075d5
+  languageName: node
+  linkType: hard
+
+"@types/node@npm:^22.10.1":
+  version: 22.15.17
+  resolution: "@types/node@npm:22.15.17"
+  dependencies:
+    undici-types: "npm:~6.21.0"
+  checksum: 10/3f5870ec1ac16b1dd8e5817de81164df9b69e4cf19cce692cb7c9b1af1deaecfd98b591b56155fcc4aa582f7189a4fc0c8d7d3226fa0387403db615a12dd8cb6
   languageName: node
   linkType: hard
 
@@ -29556,7 +29566,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "streamplace@workspace:js/app"
   dependencies:
-    "@aquareum/atproto-oauth-client-react-native": "npm:^0.0.1"
     "@atproto-labs/pipe": "npm:^0.1.0"
     "@atproto/crypto": "npm:^0.4.2"
     "@atproto/jwk-jose": "npm:^0.1.2"
@@ -29581,6 +29590,7 @@ __metadata:
     "@react-navigation/native": "npm:^6.1.18"
     "@react-navigation/native-stack": "npm:^6.11.0"
     "@reduxjs/toolkit": "npm:^2.3.0"
+    "@streamplace/atproto-oauth-client-react-native": "workspace:*"
     "@tamagui/babel-plugin": "npm:^1.123.17"
     "@tamagui/config": "npm:^1.123.17"
     "@tamagui/lucide-icons": "npm:^1.123.17"
@@ -30946,6 +30956,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"typescript@npm:^5.6.3":
+  version: 5.8.3
+  resolution: "typescript@npm:5.8.3"
+  bin:
+    tsc: bin/tsc
+    tsserver: bin/tsserver
+  checksum: 10/65c40944c51b513b0172c6710ee62e951b70af6f75d5a5da745cb7fab132c09ae27ffdf7838996e3ed603bb015dadd099006658046941bd0ba30340cc563ae92
+  languageName: node
+  linkType: hard
+
 "typescript@npm:^5.7.2":
   version: 5.7.3
   resolution: "typescript@npm:5.7.3"
@@ -30983,6 +31003,16 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: 10/b61b8bb4b4d6a8a00f9d5f931f8c67070eed6ad11feabf4c41744a326987080bfc806a621596c70fbf2e5974eca3ed65bafeeeb22a078071bdfb51d8abd7c013
+  languageName: node
+  linkType: hard
+
+"typescript@patch:typescript@npm%3A^5.6.3#optional!builtin<compat/typescript>":
+  version: 5.8.3
+  resolution: "typescript@patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=b45daf"
+  bin:
+    tsc: bin/tsc
+    tsserver: bin/tsserver
+  checksum: 10/98470634034ec37fd9ea61cc82dcf9a27950d0117a4646146b767d085a2ec14b137aae9642a83d1c62732d7fdcdac19bb6288b0bb468a72f7a06ae4e1d2c72c9
   languageName: node
   linkType: hard
 
@@ -31137,6 +31167,13 @@ __metadata:
   version: 6.19.8
   resolution: "undici-types@npm:6.19.8"
   checksum: 10/cf0b48ed4fc99baf56584afa91aaffa5010c268b8842f62e02f752df209e3dea138b372a60a963b3b2576ed932f32329ce7ddb9cb5f27a6c83040d8cd74b7a70
+  languageName: node
+  linkType: hard
+
+"undici-types@npm:~6.21.0":
+  version: 6.21.0
+  resolution: "undici-types@npm:6.21.0"
+  checksum: 10/ec8f41aa4359d50f9b59fa61fe3efce3477cc681908c8f84354d8567bb3701fafdddf36ef6bff307024d3feb42c837cf6f670314ba37fc8145e219560e473d14
   languageName: node
   linkType: hard
 

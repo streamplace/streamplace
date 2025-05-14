@@ -12,7 +12,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +36,7 @@ import (
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/streamplace"
@@ -121,15 +121,32 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 // api/playback/iame.li/hls/source/000000000000.ts
 
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
+	var xrpc http.Handler
 	xrpc, err := spxrpc.NewServer(a.CLI, a.Model)
 	if err != nil {
 		return nil, err
 	}
+	op := oproxy.New(&oproxy.Config{
+		Host:               a.CLI.PublicHost,
+		CreateOAuthSession: a.Model.CreateOAuthSession,
+		UpdateOAuthSession: a.Model.UpdateOAuthSession,
+		LoadOAuthSession:   a.Model.LoadOAuthSession,
+		Scope:              "atproto transition:generic",
+		UpstreamJWK:        a.CLI.JWK,
+		DownstreamJWK:      a.CLI.AccessJWK,
+	})
+
+	xrpc = op.OAuthMiddleware(xrpc)
 	router := httprouter.New()
+	router.Handler("GET", "/oauth/*anything", op.Handler())
+	router.Handler("POST", "/oauth/*anything", op.Handler())
+	router.Handler("GET", "/.well-known/oauth-authorization-server", op.Handler())
+	router.Handler("GET", "/.well-known/oauth-protected-resource", op.Handler())
 	apiRouter := httprouter.New()
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
 	// old clients
 	router.HandlerFunc("GET", "/app-updates", a.HandleAppUpdates(ctx))
+
 	// new ones
 	apiRouter.HandlerFunc("GET", "/api/manifest", a.HandleAppUpdates(ctx))
 	apiRouter.GET("/api/desktop-updates/:platform/:architecture/:version/:buildTime/:file", a.HandleDesktopUpdates(ctx))
@@ -156,9 +173,6 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
 	apiRouter.GET("/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
-	for _, platform := range atproto.AllowedPlatforms {
-		apiRouter.GET(fmt.Sprintf("/api/atproto-oauth/%s", platform), a.HandleATProtoOAuth(ctx, platform))
-	}
 	apiRouter.GET("/api/live-users", a.HandleLiveUsers(ctx))
 	apiRouter.GET("/api/view-count/:user", a.HandleViewCount(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
@@ -591,28 +605,6 @@ func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Ha
 	}
 }
 
-func (a *StreamplaceAPI) HandleATProtoOAuth(ctx context.Context, platform string) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		host, _, err := net.SplitHostPort(req.Host)
-		if err != nil {
-			host = req.Host
-		}
-		if !slices.Contains(atproto.AllowedPlatforms, platform) {
-			apierrors.WriteHTTPBadRequest(w, "unsupported platform", nil)
-			return
-		}
-
-		meta := atproto.GetMetadata(host, platform, a.CLI.AppBundleID)
-		bs, err := json.Marshal(meta)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not marshal metadata", err)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(bs)
-	}
-}
-
 type ChatResponse struct {
 	Post *bsky.FeedPost `json:"post"`
 	Repo *model.Repo    `json:"repo"`
@@ -778,7 +770,7 @@ func (a *StreamplaceAPI) getLimiter(ip string) *rate.Limiter {
 	limiter, exists := a.limiters[ip]
 	if !exists {
 		// 5 actions per second with a burst of 3
-		limiter = rate.NewLimiter(rate.Limit(10.0), 8)
+		limiter = rate.NewLimiter(rate.Limit(20.0), 16)
 		a.limiters[ip] = limiter
 	}
 

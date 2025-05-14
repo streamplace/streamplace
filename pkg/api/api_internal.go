@@ -423,6 +423,20 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		w.Write(bs)
 	})
 
+	router.GET("/oauth-sessions", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		sessions, err := a.Model.ListOAuthSessions()
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to get oauth sessions", err)
+			return
+		}
+		bs, err := json.Marshal(sessions)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to marshal oauth sessions", err)
+			return
+		}
+		w.Write(bs)
+	})
+
 	router.POST("/notification-blast", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		var payload notificationpkg.NotificationBlast
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {

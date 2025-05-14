@@ -13,12 +13,15 @@ import (
 	slogGorm "github.com/orandin/slog-gorm"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
 type DBModel struct {
-	DB *gorm.DB
+	DB  *gorm.DB
+	CLI *config.CLI
 }
 
 type Model interface {
@@ -79,6 +82,11 @@ type Model interface {
 
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
 	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
+
+	CreateOAuthSession(id string, session *oproxy.OAuthSession) error
+	LoadOAuthSession(id string) (*oproxy.OAuthSession, error)
+	UpdateOAuthSession(id string, session *oproxy.OAuthSession) error
+	ListOAuthSessions() ([]oproxy.OAuthSession, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -135,6 +143,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Block{},
 		ChatMessage{},
 		ChatProfile{},
+		oproxy.OAuthSession{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

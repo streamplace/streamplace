@@ -29,6 +29,12 @@ func NewServer(cli *config.CLI, model model.Model) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = s.RegisterHandlersComAtproto(e)
+	if err != nil {
+		return nil, err
+	}
+	e.GET("/xrpc/*", s.HandleWildcard)
+	e.POST("/xrpc/*", s.HandleWildcard)
 	return s, nil
 }
 

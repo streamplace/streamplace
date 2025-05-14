@@ -2,6 +2,7 @@ package atproto
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -19,7 +20,7 @@ import (
 )
 
 func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID) error {
-	ctx = log.WithLogValues(ctx, "func", "handleCreateUpdate")
+	ctx = log.WithLogValues(ctx, "func", "handleCreateUpdate", "userDID", userDID, "rkey", rkey.String(), "cid", cid, "collection", collection.String())
 	now := time.Now()
 	r, err := atsync.Model.GetRepo(userDID)
 	if err != nil {
@@ -32,11 +33,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 	}
 	d, err := data.UnmarshalCBOR(*recCBOR)
 	if err != nil {
-		return fmt.Errorf("failed to parse record CBOR: %w", err)
+		return fmt.Errorf("failed to unmarhsal record CBOR: %w", err)
 	}
 	cb, err := lexutil.CborDecodeValue(*recCBOR)
-	if err != nil {
-		return fmt.Errorf("failed to parse record CBOR: %w", err)
+	if errors.Is(err, lexutil.ErrUnrecognizedType) {
+		log.Debug(ctx, "unrecognized record type", "key", rkey.String(), "type", err)
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to decode record CBOR: %w", err)
 	}
 	switch rec := cb.(type) {
 	case *bsky.GraphFollow:

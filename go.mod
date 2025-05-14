@@ -8,27 +8,32 @@ replace github.com/ThalesGroup/crypto11 => github.com/aquareum-tv/crypto11 v0.0.
 
 replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.4
 
+replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4
+
+replace github.com/haileyok/atproto-oauth-golang => github.com/streamplace/atproto-oauth-golang v0.0.0-20250512021024-291d7209d3ab
+
 require (
 	firebase.google.com/go/v4 v4.14.1
 	git.stream.place/streamplace/c2pa-go v0.7.0
 	github.com/99designs/gqlgen v0.17.64
+	github.com/AxisCommunications/go-dpop v1.1.2
 	github.com/NYTimes/gziphandler v1.1.1
 	github.com/ThalesGroup/crypto11 v0.0.0-00010101000000-000000000000
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
-	github.com/bluesky-social/indigo v0.0.0-20250301025210-a4e0cc37e188
+	github.com/bluesky-social/indigo v0.0.0-20250512184841-3edc6e261feb
 	github.com/decred/dcrd/dcrec/secp256k1 v1.0.4
 	github.com/dunglas/httpsfv v1.0.2
 	github.com/ethereum/go-ethereum v1.14.7
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/go-gst/go-glib v1.4.0
 	github.com/go-gst/go-gst v1.4.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/glog v1.2.4
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/haileyok/atproto-oauth-golang v0.0.2
 	github.com/ipfs/go-cid v0.4.1
-	github.com/ipfs/go-datastore v0.6.0
-	github.com/ipfs/go-ipfs-blockstore v1.3.1
 	github.com/johncgriffin/overflow v0.0.0-20211019200055-46fa312c352c
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/labstack/echo/v4 v4.13.3
@@ -52,12 +57,14 @@ require (
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.35.0
 	go.opentelemetry.io/otel/sdk v1.35.0
+	go.opentelemetry.io/otel/trace v1.35.0
 	go.uber.org/goleak v1.3.0
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
 	golang.org/x/image v0.22.0
 	golang.org/x/net v0.35.0
 	golang.org/x/sync v0.11.0
 	golang.org/x/term v0.29.0
+	golang.org/x/time v0.8.0
 	golang.org/x/tools v0.25.0
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
 	google.golang.org/api v0.189.0
@@ -130,7 +137,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
-	github.com/gocql/gocql v0.0.0-00010101000000-000000000000 // indirect
+	github.com/gocql/gocql v1.7.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -153,6 +160,8 @@ require (
 	github.com/ipfs/bbloom v0.0.4 // indirect
 	github.com/ipfs/go-block-format v0.2.0 // indirect
 	github.com/ipfs/go-blockservice v0.5.2 // indirect
+	github.com/ipfs/go-datastore v0.6.0 // indirect
+	github.com/ipfs/go-ipfs-blockstore v1.3.1 // indirect
 	github.com/ipfs/go-ipfs-ds-help v1.1.1 // indirect
 	github.com/ipfs/go-ipfs-exchange-interface v0.2.1 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.3 // indirect
@@ -252,7 +261,6 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.35.0 // indirect
-	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
@@ -261,7 +269,6 @@ require (
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/oauth2 v0.26.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
-	golang.org/x/time v0.8.0 // indirect
 	google.golang.org/appengine/v2 v2.0.2 // indirect
 	google.golang.org/genproto v0.0.0-20240722135656-d784300faade // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250218202821-56aae31c358a // indirect

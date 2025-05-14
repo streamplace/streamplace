@@ -3,6 +3,7 @@ package spxrpc
 import (
 	"strconv"
 
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
@@ -10,8 +11,23 @@ import (
 )
 
 func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {
+	e.GET("/xrpc/app.bsky.actor.getProfile", s.HandleAppBskyActorGetProfile)
 	e.GET("/xrpc/app.bsky.feed.getFeedSkeleton", s.HandleAppBskyFeedGetFeedSkeleton)
 	return nil
+}
+
+func (s *Server) HandleAppBskyActorGetProfile(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyActorGetProfile")
+	defer span.End()
+	actor := c.QueryParam("actor")
+	var out *appbskytypes.ActorDefs_ProfileViewDetailed
+	var handleErr error
+	// func (s *Server) handleAppBskyActorGetProfile(ctx context.Context,actor string) (*appbskytypes.ActorDefs_ProfileViewDetailed, error)
+	out, handleErr = s.handleAppBskyActorGetProfile(ctx, actor)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandleAppBskyFeedGetFeedSkeleton(c echo.Context) error {
@@ -45,7 +61,22 @@ func (s *Server) RegisterHandlersChatBsky(e *echo.Echo) error {
 }
 
 func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
+	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
 	return nil
+}
+
+func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityResolveHandle")
+	defer span.End()
+	handle := c.QueryParam("handle")
+	var out *comatprototypes.IdentityResolveHandle_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context,handle string) (*comatprototypes.IdentityResolveHandle_Output, error)
+	out, handleErr = s.handleComAtprotoIdentityResolveHandle(ctx, handle)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {

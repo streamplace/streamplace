@@ -145,6 +145,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.StringVar(&cli.RelayHost, "relay-host", "wss://bsky.network", "websocket url for relay firehose")
 	fs.Bool("insecure", false, "DEPRECATED, does nothing.")
 	fs.StringVar(&cli.Color, "color", "", "'true' to enable colorized logging, 'false' to disable")
+	fs.StringVar(&cli.PublicHost, "public-host", "", "public host for this streamplace node (excluding https:// e.g. stream.place)")
 	fs.BoolVar(&cli.Thumbnail, "thumbnail", true, "enable thumbnail generation")
 	fs.BoolVar(&cli.SmearAudio, "smear-audio", false, "enable audio smearing to create 'perfect' segment timestamps")
 	fs.BoolVar(&cli.ExternalSigning, "external-signing", false, "enable external signing via exec (prevents potential memory leak)")
@@ -288,6 +289,21 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			return err
 		}
 	}
+
+	jwkPath := cli.DataFilePath([]string{"jwk.json"})
+	jwk, err := atproto.EnsureJWK(ctx, jwkPath)
+	if err != nil {
+		return err
+	}
+	cli.JWK = jwk
+
+	accessJWKPath := cli.DataFilePath([]string{"access-jwk.json"})
+	accessJWK, err := atproto.EnsureJWK(ctx, accessJWKPath)
+	if err != nil {
+		return err
+	}
+	cli.AccessJWK = accessJWK
+
 	b := bus.NewBus()
 	atsync := &atproto.ATProtoSynchronizer{
 		CLI:   &cli,

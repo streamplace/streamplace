@@ -28,6 +28,11 @@ import {
   H3,
 } from "tamagui";
 
+// as we're not using a specific grid library these are necessary
+// to constrain the cards
+const FIRST_ROW_MAGIC_RATIO = 0.95;
+const LAST_ROW_MAGIC_RATIO = 1.16;
+
 type StreamRecord = {
   createdAt: Date;
   title?: string;
@@ -50,8 +55,6 @@ type Segment = {
   viewers: number;
   streamRecord?: StreamRecord;
 };
-
-const MAGIC_DIVIDE_BY_BOTTOM_ROW = 5;
 
 function getHomeScreenItemSize(media: UseMediaState): StreamCardSize {
   if (media.gtXxl) {
@@ -80,9 +83,7 @@ function getHomeScreenCols(media: UseMediaState): number {
     return 1;
   }
 }
-
-// HACK to provide ratio for correct-looking padding for grid
-// TODO: use an actual grid lib for RN?
+// Get the ratio for the first icon padding
 function getPadPercentage(media: UseMediaState): number {
   if (media.gtXl) {
     return 2.28;
@@ -139,8 +140,6 @@ function HomeScreenItem({
   );
 }
 
-const fakeSegs = generateSegments(6);
-
 export default function HomeScreen({
   contentContainerStyle = {},
 }: {
@@ -158,20 +157,16 @@ export default function HomeScreen({
   } = useAppSelector(selectRecentSegments);
   const dispatch = useAppDispatch();
   const [manualRefresh, setManualRefresh] = useState(false);
-  const [useMockData, setUseMockData] = useState(true);
 
-  const segments = useMockData ? fakeSegs : realSegments;
+  const segments = realSegments;
   const media = useMedia();
 
   const avis = useAvatars(segments.map((s) => s.repoDID));
 
   useEffect(() => {
-    if (!useMockData) {
-      // Only poll if not using mock data
-      dispatch(pollSegments());
-    }
+    dispatch(pollSegments());
     // get array of
-  }, [useMockData, dispatch]);
+  }, [dispatch]);
 
   useEffect(() => {
     if (!loading) {
@@ -179,7 +174,7 @@ export default function HomeScreen({
     }
   }, [loading]);
 
-  if (error && !useMockData) {
+  if (error) {
     // Only show error if not using mock data
     if (loading) {
       return <Loading />;
@@ -270,13 +265,13 @@ export default function HomeScreen({
             f={1}
             justifyContent="center"
             alignItems="center"
-            minHeight="90%"
+            minHeight="auto"
             paddingVertical={42}
           >
             <Image
-              source={{ uri: require("assets/images/jelly.png") }}
-              width={80}
-              height={80}
+              source={require("../../assets/images/jelly.png")}
+              height="$9"
+              width="$9"
             />
             <H3>No one is streaming right now</H3>
             <Paragraph>Check back later?</Paragraph>
@@ -291,7 +286,7 @@ export default function HomeScreen({
                   itemIndex == 0
                     ? cols > 2
                       ? firstRowItems.length < 2
-                        ? 0.65
+                        ? (FIRST_ROW_MAGIC_RATIO * 2) / cols
                         : getPadPercentage(media) * cols
                       : cols
                     : cols
@@ -335,7 +330,7 @@ export default function HomeScreen({
                   ) : (
                     <View
                       key={`item-${rowIndex}-${itemIndex}`}
-                      flex={cols ** 1.16 / cols}
+                      flex={cols ** LAST_ROW_MAGIC_RATIO / cols}
                     ></View>
                   ),
                 )}
@@ -348,113 +343,113 @@ export default function HomeScreen({
   );
 }
 
-function generateSegments(num: number = 32): Segment[] {
-  if (num < 1) return [];
-  const segments: Segment[] = Array.from({ length: num }, () =>
-    generateSegment(),
-  );
+// function generateSegments(num: number = 32): Segment[] {
+//   if (num < 1) return [];
+//   const segments: Segment[] = Array.from({ length: num }, () =>
+//     generateSegment(),
+//   );
 
-  return segments;
-}
-function generateSegment(overrides: Partial<Segment> = {}): Segment {
-  const now = new Date();
-  const blueskyDIDs = [
-    "did:plc:5mu44cojafmxj6h3yaihy2nl",
-    "did:plc:sibej6afldtetfanqhganjwg",
-    "did:plc:b5ly66nko7iijwy2lktt3ctq",
-    "did:plc:batsswaxvws26rr3gf7wvm7k",
-    "did:plc:mpivxdlwzdjsb2kca6u2nwmp",
-    "did:plc:lhbjaqqvdd4754apaj2tvrcc",
-    "did:plc:sirkh6lr4qzftndgtssugecq",
-    "did:plc:yc5i6nuv3ikize7ogzymuxdc",
-    "did:plc:zkl3munj3wkryitomialsaeb",
-    "did:plc:o776gyjla3op3s6unajlhtlc",
-    "did:plc:ek4mtqkxgvqrpoia4bkhioon",
-    "did:plc:m5xstnab7bsbor2ywjzdccbm",
-    "did:plc:j5sogsw5ejwwo6megyxxdwri",
-    "did:plc:4ske3eeybp4wtj4k2xpjhmj2",
-    "did:plc:brhv3xvi7gmfv7e6d57j33qd",
-    "did:plc:b7tjuc7sh76giutk44jkrtbe",
-    "did:plc:qbjqfyhsrb3euldz3f2uze7d",
-    "did:plc:to45nnl5mh4zz25hozyitbnw",
-    "did:plc:iwmgpfnysyzkewdppodsy7h6",
-    "did:plc:esu5gl65pt7p2azu53zzagfg",
-    "did:plc:co7y2zamzs5jxpha27lxinsg",
-    "did:plc:jvsnpavici3i2hbb23wp7rai",
-    "did:plc:bexnuogium744jj6ibk4bhy3",
-    "did:plc:npmp7gxfv7ojr4osmsbm6kfy",
-    "did:plc:llgfbjvsqkaicezsf7mzjxr3",
-    "did:plc:hkqmm7bhqjucm6xeitorj65t",
-    "did:plc:xjxuc7gt7s3wdjil7txspyya",
-  ];
+//   return segments;
+// }
+// function generateSegment(overrides: Partial<Segment> = {}): Segment {
+//   const now = new Date();
+//   const blueskyDIDs = [
+//     "did:plc:5mu44cojafmxj6h3yaihy2nl",
+//     "did:plc:sibej6afldtetfanqhganjwg",
+//     "did:plc:b5ly66nko7iijwy2lktt3ctq",
+//     "did:plc:batsswaxvws26rr3gf7wvm7k",
+//     "did:plc:mpivxdlwzdjsb2kca6u2nwmp",
+//     "did:plc:lhbjaqqvdd4754apaj2tvrcc",
+//     "did:plc:sirkh6lr4qzftndgtssugecq",
+//     "did:plc:yc5i6nuv3ikize7ogzymuxdc",
+//     "did:plc:zkl3munj3wkryitomialsaeb",
+//     "did:plc:o776gyjla3op3s6unajlhtlc",
+//     "did:plc:ek4mtqkxgvqrpoia4bkhioon",
+//     "did:plc:m5xstnab7bsbor2ywjzdccbm",
+//     "did:plc:j5sogsw5ejwwo6megyxxdwri",
+//     "did:plc:4ske3eeybp4wtj4k2xpjhmj2",
+//     "did:plc:brhv3xvi7gmfv7e6d57j33qd",
+//     "did:plc:b7tjuc7sh76giutk44jkrtbe",
+//     "did:plc:qbjqfyhsrb3euldz3f2uze7d",
+//     "did:plc:to45nnl5mh4zz25hozyitbnw",
+//     "did:plc:iwmgpfnysyzkewdppodsy7h6",
+//     "did:plc:esu5gl65pt7p2azu53zzagfg",
+//     "did:plc:co7y2zamzs5jxpha27lxinsg",
+//     "did:plc:jvsnpavici3i2hbb23wp7rai",
+//     "did:plc:bexnuogium744jj6ibk4bhy3",
+//     "did:plc:npmp7gxfv7ojr4osmsbm6kfy",
+//     "did:plc:llgfbjvsqkaicezsf7mzjxr3",
+//     "did:plc:hkqmm7bhqjucm6xeitorj65t",
+//     "did:plc:xjxuc7gt7s3wdjil7txspyya",
+//   ];
 
-  const randomRepoDID =
-    overrides.repoDID ||
-    blueskyDIDs[Math.floor(Math.random() * blueskyDIDs.length)];
-  const user =
-    overrides.repo?.handle ||
-    overrides.repoDID ||
-    overrides.signingKeyDID ||
-    "user" + Math.floor(Math.random() * 1000);
+//   const randomRepoDID =
+//     overrides.repoDID ||
+//     blueskyDIDs[Math.floor(Math.random() * blueskyDIDs.length)];
+//   const user =
+//     overrides.repo?.handle ||
+//     overrides.repoDID ||
+//     overrides.signingKeyDID ||
+//     "user" + Math.floor(Math.random() * 1000);
 
-  const livestreamTitles = [
-    "Coding with Friends",
-    "Building a React App8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-    "Game Dev Stream",
-    "Let's Play!8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-    "Chill Vibes & Code",
-    "React Native Tutorial8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-    "Node.js Backend",
-    "My First Streamo8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-    "Live Coding Session",
-    "Web3 Development",
-    "Streaming Some Games",
-    "A Random Stream",
-    "DevOps Practice",
-    "Frontend Fun",
-    "Backend Bonanza",
-    "Debugging Time",
-    "Let's Code Together8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-    "Building a SaaS8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-    "Design and Code",
-    "Gaming with the Crew",
-    "Just Chatting",
-    "Music and Code8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-    "Art and Code",
-    "Open Source Project",
-    "Live Q&A",
-    "Working on a Side Project",
-    "Making a Mobile Game",
-    "Tech Talk",
-    "Learning a New Language",
-    "Solving Problems Live",
-  ];
+//   const livestreamTitles = [
+//     "Coding with Friends",
+//     "Building a React App8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
+//     "Game Dev Stream",
+//     "Let's Play!8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
+//     "Chill Vibes & Code",
+//     "React Native Tutorial8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
+//     "Node.js Backend",
+//     "My First Streamo8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
+//     "Live Coding Session",
+//     "Web3 Development",
+//     "Streaming Some Games",
+//     "A Random Stream",
+//     "DevOps Practice",
+//     "Frontend Fun",
+//     "Backend Bonanza",
+//     "Debugging Time",
+//     "Let's Code Together8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
+//     "Building a SaaS8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
+//     "Design and Code",
+//     "Gaming with the Crew",
+//     "Just Chatting",
+//     "Music and Code8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
+//     "Art and Code",
+//     "Open Source Project",
+//     "Live Q&A",
+//     "Working on a Side Project",
+//     "Making a Mobile Game",
+//     "Tech Talk",
+//     "Learning a New Language",
+//     "Solving Problems Live",
+//   ];
 
-  const randomTitle =
-    overrides.title ||
-    livestreamTitles[Math.floor(Math.random() * livestreamTitles.length)];
+//   const randomTitle =
+//     overrides.title ||
+//     livestreamTitles[Math.floor(Math.random() * livestreamTitles.length)];
 
-  return {
-    id: overrides.id || Math.random().toString(36).substring(2, 15),
-    repoDID: randomRepoDID,
-    signingKeyDID:
-      overrides.signingKeyDID ||
-      "did:mock:example" + Math.random().toString(36).substring(2, 15),
-    startTime: overrides.startTime || now.toISOString(),
-    title: randomTitle,
-    repo: overrides.repo || {
-      did: randomRepoDID,
-      handle: user, // Replace with actual handle lookup if possible
-      pds: "bsky.social", // Replace with actual display name lookup if possible
-      rootCid: "invalid", // Replace with actual avatar lookup if possible
-      version: "0.1",
-    },
-    viewers: overrides.viewers || Math.floor(Math.random() * 100),
-    streamRecord: overrides.streamRecord || {
-      createdAt: now,
-      title: randomTitle,
-      url: "https://example.com/stream",
-    },
-    ...overrides,
-  };
-}
+//   return {
+//     id: overrides.id || Math.random().toString(36).substring(2, 15),
+//     repoDID: randomRepoDID,
+//     signingKeyDID:
+//       overrides.signingKeyDID ||
+//       "did:mock:example" + Math.random().toString(36).substring(2, 15),
+//     startTime: overrides.startTime || now.toISOString(),
+//     title: randomTitle,
+//     repo: overrides.repo || {
+//       did: randomRepoDID,
+//       handle: user, // Replace with actual handle lookup if possible
+//       pds: "bsky.social", // Replace with actual display name lookup if possible
+//       rootCid: "invalid", // Replace with actual avatar lookup if possible
+//       version: "0.1",
+//     },
+//     viewers: overrides.viewers || Math.floor(Math.random() * 100),
+//     streamRecord: overrides.streamRecord || {
+//       createdAt: now,
+//       title: randomTitle,
+//       url: "https://example.com/stream",
+//     },
+//     ...overrides,
+//   };
+// }

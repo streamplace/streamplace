@@ -62,6 +62,7 @@ func (s *Server) RegisterHandlersChatBsky(e *echo.Echo) error {
 
 func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
+	e.POST("/xrpc/com.atproto.repo.uploadBlob", s.HandleComAtprotoRepoUploadBlob)
 	return nil
 }
 
@@ -73,6 +74,21 @@ func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context,handle string) (*comatprototypes.IdentityResolveHandle_Output, error)
 	out, handleErr = s.handleComAtprotoIdentityResolveHandle(ctx, handle)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoRepoUploadBlob(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoUploadBlob")
+	defer span.End()
+	body := c.Request().Body
+	contentType := c.Request().Header.Get("Content-Type")
+	var out *comatprototypes.RepoUploadBlob_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context,r io.Reader,contentType string) (*comatprototypes.RepoUploadBlob_Output, error)
+	out, handleErr = s.handleComAtprotoRepoUploadBlob(ctx, body, contentType)
 	if handleErr != nil {
 		return handleErr
 	}

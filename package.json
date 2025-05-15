@@ -4,7 +4,11 @@
   "version": "0.0.0-monorepo",
   "description": "The video layer for everything.",
   "main": "index.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
+    "preinstall": "node hack/node-version.js",
     "check": "yarn run check:workspaces && git ls-files | xargs prettier --check --ignore-unknown",
     "check:workspaces": "cd js/app && yarn run check",
     "fix": "git ls-files | xargs prettier --write --ignore-unknown",

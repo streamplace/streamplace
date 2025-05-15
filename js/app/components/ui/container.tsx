@@ -18,19 +18,10 @@ export default function Container({ children, ...props }) {
         width="100vw"
         px="$4"
         mx="auto"
-        $gtXxs={{ maxWidth: maxContainerWidths.xs, px: "$4" }}
+        $gtXxs={{ maxWidth: maxContainerWidths.sm, px: "$4" }}
         $gtXs={{
-          maxWidth: maxContainerWidths.sm,
+          maxWidth: maxContainerWidths.lg,
           px: "$4",
-        }}
-        $gtSm={{
-          maxWidth: maxContainerWidths.md,
-          px: "$4",
-        }}
-        // ?
-        $gtMd={{
-          width: maxContainerWidths.threeXl,
-          px: "$8",
         }}
         $gtLg={{
           maxWidth: maxContainerWidths.xl,

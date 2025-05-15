@@ -37,7 +37,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
   const contentPadding = 12;
   const avatarSize = 40;
   const livePillHeight = 30;
-  const livePillPaddingHorizontal = 6;
+  const livePillPaddingHorizontal = 4;
   const categoryPillHeight = 16;
   const categoryPillPaddingHorizontal = 4;
 
@@ -68,6 +68,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
         $gtXxl={{
           minWidth: layoutHorizontal ? "62.5%" : "100%",
         }}
+        maxHeight="76%"
         aspectRatio={16 / 9}
         borderRadius={borderRadius}
         overflow="hidden"
@@ -75,8 +76,8 @@ const StreamCard: React.FC<StreamCardProps> = ({
         alignSelf={layoutHorizontal ? "auto" : "center"}
       >
         <Image
-          source={{ uri: thumbnailUrl }}
-          style={{ width: "100%", height: "100%" }}
+          source={{ uri: thumbnailUrl, width: 160, height: 90 }}
+          style={{ width: "100%", height: "100%", aspectRatio: 16 / 9 }}
           resizeMode="cover"
         />
         {isLive && (
@@ -93,10 +94,6 @@ const StreamCard: React.FC<StreamCardProps> = ({
             alignItems="center"
             justifyContent="center"
             gap={4}
-            shadowColor="$background075"
-            shadowOffset={{ width: 0, height: 2 }}
-            shadowOpacity={0.25}
-            shadowRadius={4}
           >
             <Viewers viewers={viewers} />
           </XStack>

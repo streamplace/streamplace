@@ -165,8 +165,6 @@ export default function HomeScreen({
 
   const avis = useAvatars(segments.map((s) => s.repoDID));
 
-  console.log(segments);
-
   useEffect(() => {
     if (!useMockData) {
       // Only poll if not using mock data
@@ -250,7 +248,7 @@ export default function HomeScreen({
         />
       }
     >
-      <Container>
+      <Container width="100%">
         {segments.length > 0 && (
           <View
             flexDirection="row"
@@ -273,9 +271,13 @@ export default function HomeScreen({
             justifyContent="center"
             alignItems="center"
             minHeight="90vh"
-            paddingHorizontal={0}
+            paddingVertical={42}
           >
-            <Image src="/jelly.png" width={80} height={80} />
+            <Image
+              source={{ uri: require("assets/images/jelly.png") }}
+              width={80}
+              height={80}
+            />
             <H3>No one is streaming right now</H3>
             <Paragraph>Check back later?</Paragraph>
           </View>

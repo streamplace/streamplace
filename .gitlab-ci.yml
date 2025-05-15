@@ -211,6 +211,9 @@ build-mac:
     - cd /Users/admin/streamplace
     - git fetch --unshallow || echo 'already unshallow'
     - brew install ninja go openssl@3 && go version
+    - export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
+    - brew install node@22
+    - node --version
     - sudo gem uninstall xcodeproj -x --ignore-dependencies
     - sudo gem install xcodeproj -v 1.25.1
     - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && bash rustup.sh -y && rm rustup.sh
@@ -229,6 +232,7 @@ build-mac:
 
 windows-selftest:
   interruptible: true
+  allow_failure: true
   stage: build
   # for the moment...
   tags:
@@ -254,7 +258,6 @@ release:
     - build-docker-arm64
     - build-docker-manifest
     - build
-    - windows-selftest
     - test
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+$/'

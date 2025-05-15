@@ -23,6 +23,7 @@ export interface ExternalDrawerItem {
 
 interface CustomSidebarProps {
   collapsed: boolean;
+  hidden: boolean;
   widthAnim: SharedValue<number>;
   descriptors: DrawerDescriptorMap;
   state: DrawerNavigationState<ParamListBase>;
@@ -36,6 +37,7 @@ export default function Sidebar({
   state,
   descriptors,
   collapsed,
+  hidden,
   widthAnim,
   externalItems = [],
 }: SidebarProps) {
@@ -46,6 +48,10 @@ export default function Sidebar({
       maxWidth: widthAnim.value,
     };
   });
+
+  if (hidden) {
+    return <View />;
+  }
 
   return (
     <AnimatedYStack

@@ -11,6 +11,7 @@ import {
   toggleSidebar,
   selectIsSidebarCollapsed,
   selectSidebarTargetWidth,
+  selectIsSidebarHidden,
 } from "../features/base/sidebarSlice";
 import { RootState } from "../store/store";
 
@@ -24,6 +25,7 @@ function useIsLargeScreen() {
 export interface UseSidebarOutput {
   isActive: boolean;
   isCollapsed: boolean;
+  isHidden: boolean;
   animatedWidth: SharedValue<number>;
   toggle: () => void;
 }
@@ -45,6 +47,10 @@ export function useSidebarControl(): UseSidebarOutput {
   );
   const targetWidth = useSelector((state: RootState) =>
     selectSidebarTargetWidth(state),
+  );
+
+  const isHidden = useSelector((state: RootState) =>
+    selectIsSidebarHidden(state),
   );
 
   const animatedWidth = useSharedValue(targetWidth);
@@ -71,6 +77,7 @@ export function useSidebarControl(): UseSidebarOutput {
     isActive,
     isCollapsed,
     animatedWidth,
+    isHidden,
     toggle: handleToggle,
   };
 }

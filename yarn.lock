@@ -29542,6 +29542,7 @@ __metadata:
     "@fontsource/atkinson-hyperlegible-next": "npm:^5.2.2"
     astro: "npm:^5.6.1"
     sharp: "npm:^0.32.5"
+    streamplace: "workspace:*"
   languageName: unknown
   linkType: soft
 
@@ -29562,7 +29563,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"streamplace@workspace:js/app":
+"streamplace@workspace:*, streamplace@workspace:js/app":
   version: 0.0.0-use.local
   resolution: "streamplace@workspace:js/app"
   dependencies:

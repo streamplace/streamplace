@@ -25,6 +25,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/mist/misttriggers"
 	"stream.place/streamplace/pkg/model"
@@ -55,14 +56,27 @@ func init() {
 func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, error) {
 	router := httprouter.New()
 	broker := misttriggers.NewTriggerBroker()
-	broker.OnPushOutStart(func(ctx context.Context, payload *misttriggers.PushOutStartPayload) (string, error) {
-		return payload.URL, nil
-	})
+
 	broker.OnPushRewrite(func(ctx context.Context, payload *misttriggers.PushRewritePayload) (string, error) {
 		log.Log(ctx, "got push out start", "streamName", payload.StreamName, "url", payload.URL.String())
+		// Extract the last part of the URL path
+		urlPath := payload.URL.Path
+		parts := strings.Split(urlPath, "/")
+		lastPart := ""
+		if len(parts) > 0 {
+			lastPart = parts[len(parts)-1]
+		}
+		mediaSigner, err := a.MakeMediaSigner(ctx, lastPart)
+		if err != nil {
+			return "", err
+		}
 
 		ms := time.Now().UnixMilli()
-		out := fmt.Sprintf("%s+%s_%d", mistconfig.STREAM_NAME, payload.StreamName, ms)
+		out := fmt.Sprintf("%s+%s_%d", mistconfig.STREAM_NAME, mediaSigner.Streamer(), ms)
+		a.SignerCacheMu.Lock()
+		a.SignerCache[mediaSigner.Streamer()] = mediaSigner
+		a.SignerCacheMu.Unlock()
+		log.Log(ctx, "added key to cache", "mist-stream", out, "streamer", mediaSigner.Streamer())
 
 		return out, nil
 	})
@@ -239,8 +253,32 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	handleIncomingStream := func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		key := p.ByName("key")
 		log.Log(ctx, "stream start")
-		err := a.MediaManager.IngestStream(ctx, r.Body, a.MediaSigner)
+
+		var mediaSigner media.MediaSigner
+		var ok bool
+		var err error
+		parts := strings.Split(key, "_")
+
+		if len(parts) == 2 {
+			a.SignerCacheMu.Lock()
+			mediaSigner, ok = a.SignerCache[parts[0]]
+			a.SignerCacheMu.Unlock()
+			if !ok {
+				log.Error(ctx, "couldn't find key in cache", "part", parts[0], "key", key)
+				errors.WriteHTTPUnauthorized(w, "invalid authorization key", nil)
+				return
+			}
+		} else {
+			mediaSigner, err = a.MakeMediaSigner(ctx, key)
+			if err != nil {
+				errors.WriteHTTPUnauthorized(w, "invalid authorization key", err)
+				return
+			}
+		}
+
+		err = a.MediaManager.MKVIngest(ctx, r.Body, mediaSigner)
 
 		if err != nil {
 			log.Log(ctx, "stream error", "error", err)
@@ -251,8 +289,8 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	}
 
 	// route to accept an incoming mkv stream from OBS, segment it, and push the segments back to this HTTP handler
-	router.POST("/stream/:key", handleIncomingStream)
-	router.PUT("/stream/:key", handleIncomingStream)
+	router.POST("/live/:key", handleIncomingStream)
+	router.PUT("/live/:key", handleIncomingStream)
 
 	router.GET("/player-report/:id", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		id := p.ByName("id")

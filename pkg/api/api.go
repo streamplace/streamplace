@@ -59,8 +59,10 @@ type StreamplaceAPI struct {
 
 	connTracker *WebsocketTracker
 
-	limiters   map[string]*rate.Limiter
-	limitersMu sync.Mutex
+	limiters      map[string]*rate.Limiter
+	limitersMu    sync.Mutex
+	SignerCache   map[string]media.MediaSigner
+	SignerCacheMu sync.Mutex
 }
 
 type WebsocketTracker struct {
@@ -87,6 +89,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712S
 		Director:         d,
 		connTracker:      NewWebsocketTracker(cli.RateLimitWebsocket),
 		limiters:         make(map[string]*rate.Limiter),
+		SignerCache:      make(map[string]media.MediaSigner),
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {

@@ -12,6 +12,10 @@ import React, { useCallback, useState } from "react";
 import { useLiveUser } from "hooks/useLiveUser";
 import StreamKeyScreen from "components/live-dashboard/stream-key";
 import { VideoElementProvider } from "contexts/VideoElementContext";
+import { Camera, FerrisWheel, X } from "@tamagui/lucide-icons";
+import { H6, Text } from "tamagui";
+import Waiting from "components/live-dashboard/waiting";
+import { selectTelemetry } from "features/streamplace/streamplaceSlice";
 
 enum StreamSource {
   Start,
@@ -100,10 +104,6 @@ export default function LiveDashboard() {
   );
 }
 
-import { Camera, FerrisWheel, X } from "@tamagui/lucide-icons";
-import { H6, Text } from "tamagui";
-import Waiting from "components/live-dashboard/waiting";
-import { selectTelemetry } from "features/streamplace/streamplaceSlice";
 const elems = [
   {
     title: "Stream your camera!",

@@ -12,22 +12,6 @@ import ThumbnailSelector from "components/thumbnail-selector";
 import { useCaptureVideoFrame } from "hooks/useCaptureVideoFrame";
 import { useWindowDimensions, ScrollView } from "react-native";
 
-const Left = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <View f={2} fg={2} fb={0}>
-      {children}
-    </View>
-  );
-};
-
-const Right = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <View f={6} fb={0} fg={6}>
-      {children}
-    </View>
-  );
-};
-
 export default function CreateLivestream() {
   const dispatch = useAppDispatch();
   const toast = useToastController();
@@ -40,7 +24,7 @@ export default function CreateLivestream() {
   const profile = useAppSelector(selectUserProfile);
   const newLivestream = useAppSelector(selectNewLivestream);
   const captureFrame = useCaptureVideoFrame();
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
 
   // Responsive layout logic
   const isWide = width > 1020;

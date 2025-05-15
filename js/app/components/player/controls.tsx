@@ -13,8 +13,15 @@ import {
   Volume2,
   VolumeX,
 } from "@tamagui/lucide-icons";
-import { Dispatch, Fragment, useEffect, useRef, useState } from "react";
-import { Animated, ImageBackground, Pressable } from "react-native";
+import {
+  Dispatch,
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
+import { Animated, Pressable, Easing } from "react-native";
 import {
   Button,
   H3,
@@ -87,35 +94,53 @@ const VolumeSlider = ({
   setMuted: (muted: boolean) => void;
   showControls: boolean;
 }) => {
-  const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const [sliderValue, setSliderValue] = useState(volume);
-  const media = useMedia();
   const { isWeb } = usePlatform();
+  const sliderRef = useRef(null);
+  const iconRef = useRef(null);
+  const lastVolumeRef = useRef(volume || 1);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const hideTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Update slider value when volume prop changes
   useEffect(() => {
-    setSliderValue(muted ? 0 : volume);
+    if (hovered && showControls) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.cubic),
+      }).start();
+    } else {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.cubic),
+      }).start();
+    }
+  }, [hovered, showControls, fadeAnim]);
+
+  // Update slider value when volume or mute changes
+  useEffect(() => {
+    if (muted) {
+      setSliderValue(0);
+    } else {
+      setSliderValue(volume);
+    }
   }, [volume, muted]);
 
-  // Close popover when controls are hidden
+  // Remember last non-zero volume
   useEffect(() => {
-    if (!media.sm && !showControls) {
-      setOpen(false);
+    if (!muted && volume > 0) {
+      lastVolumeRef.current = volume;
     }
-  }, [showControls, media.sm]);
+  }, [volume, muted]);
 
-  // Reset slider value when popover opens
-  useEffect(() => {
-    if (open) {
-      setSliderValue(muted ? 0 : volume);
-    }
-  }, [open, volume, muted]);
-
+  // Handle volume slider value change
   const handleValueChange = (value) => {
     const newValue = value[0];
     setSliderValue(newValue);
-
-    // Update volume and mute state
     if (newValue === 0) {
       setMuted(true);
     } else {
@@ -126,10 +151,33 @@ const VolumeSlider = ({
     }
   };
 
+  // Handle icon click to toggle mute/unmute
+  const handleIconClick = (e) => {
+    e.stopPropagation();
+    if (muted) {
+      setMuted(false);
+      setVolume(lastVolumeRef.current || 1);
+    } else {
+      setMuted(true);
+    }
+  };
+
+  const handleMouseEnter = () => {
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+    setHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    hideTimer.current = setTimeout(() => setHovered(false), 300);
+  };
+
   if (!isWeb) {
     return (
       <View paddingLeft="$5" paddingRight="$3" justifyContent="center">
-        <Pressable onPress={() => setMuted(!muted)}>
+        <Pressable onPress={handleIconClick}>
           {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
         </Pressable>
       </View>
@@ -137,77 +185,77 @@ const VolumeSlider = ({
   }
 
   return (
-    <Popover
-      size="$5"
-      allowFlip
-      placement="top"
-      open={open}
-      onOpenChange={setOpen}
+    <View
+      style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
-      <Popover.Trigger asChild cursor="pointer">
-        <View paddingLeft="$5" paddingRight="$3" justifyContent="center">
-          <Pressable onPress={() => setOpen(!open)}>
-            {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-          </Pressable>
-        </View>
-      </Popover.Trigger>
-
-      <Popover.Content
-        borderWidth={0}
-        padding="$3"
-        enterStyle={{ y: 10, opacity: 0 }}
-        exitStyle={{ y: 10, opacity: 0 }}
-        elevate
-        animation={[
-          "quick",
-          {
-            opacity: {
-              overshootClamping: true,
-            },
-          },
-        ]}
+      <View
+        paddingLeft="$5"
+        paddingRight="$2"
+        justifyContent="center"
+        ref={iconRef}
       >
-        <View width={50} height={150} alignItems="center" gap="$3">
-          <XStack alignItems="center" gap="$2">
-            <Pressable onPress={() => setMuted(!muted)}>
-              {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-            </Pressable>
-            <Text>{Math.round(sliderValue * 100)}</Text>
-          </XStack>
-          <View
-            height={100}
-            width="100%"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Slider
-              size="$2"
-              orientation="vertical"
-              height="100%"
-              value={[sliderValue]}
-              onValueChange={handleValueChange}
-              min={0}
-              max={1}
-              step={0.01}
-            >
-              <Slider.Track backgroundColor="$gray8" width={4}>
-                <Slider.TrackActive backgroundColor="$gray5" />
-              </Slider.Track>
-              <Slider.Thumb
-                circular
-                index={0}
-                size="$1"
-                backgroundColor="white"
-              />
-            </Slider>
-          </View>
-        </View>
-      </Popover.Content>
-    </Popover>
+        <Pressable onPress={handleIconClick}>
+          {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+        </Pressable>
+      </View>
+      <Animated.View
+        ref={sliderRef}
+        style={{
+          position: "absolute",
+          left: "100%",
+          top: "50%",
+          transform: [{ translateY: "-50%" }],
+          marginLeft: 2,
+          borderRadius: 8,
+          padding: 0,
+          zIndex: 10,
+          minWidth: 100,
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          opacity: fadeAnim,
+          pointerEvents: hovered && showControls ? "auto" : "none",
+        }}
+      >
+        <Slider
+          size="$2"
+          orientation="horizontal"
+          width={70}
+          value={[sliderValue]}
+          onValueChange={handleValueChange}
+          min={0}
+          max={1}
+          step={0.01}
+        >
+          <Slider.Track backgroundColor="$gray8" height={4}>
+            <Slider.TrackActive backgroundColor="$gray5" />
+          </Slider.Track>
+          <Slider.Thumb circular index={0} size="$1" backgroundColor="white" />
+        </Slider>
+      </Animated.View>
+    </View>
   );
 };
 
-export default function Controls(props: PlayerProps) {
+function isRefObject(ref: any): ref is { current: HTMLVideoElement | null } {
+  return ref && typeof ref === "object" && "current" in ref;
+}
+
+export default function Controls(
+  props: PlayerProps & {
+    videoRef?:
+      | React.RefObject<HTMLVideoElement>
+      | React.MutableRefObject<HTMLVideoElement | null>
+      | ((instance: HTMLVideoElement | null) => void);
+  },
+) {
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // useEffect(() => {
@@ -231,6 +279,58 @@ export default function Controls(props: PlayerProps) {
   const player = useAppSelector(usePlayer());
   const dispatch = useAppDispatch();
   const m = useMedia();
+
+  const [pipSupported, setPipSupported] = useState(false);
+  const [pipActive, setPipActive] = useState(false);
+
+  useEffect(() => {
+    let video: HTMLVideoElement | null = null;
+    if (isRefObject(props.videoRef)) {
+      video = props.videoRef.current;
+    }
+    if (video) {
+      setPipSupported(
+        !!document.pictureInPictureEnabled &&
+          typeof video.requestPictureInPicture === "function",
+      );
+    } else {
+      setPipSupported(false);
+    }
+  }, [props.videoRef, props.ingest]);
+
+  useEffect(() => {
+    let video: HTMLVideoElement | null = null;
+    if (isRefObject(props.videoRef)) {
+      video = props.videoRef.current;
+    }
+    if (!video) return;
+    function onEnter() {
+      setPipActive(true);
+    }
+    function onLeave() {
+      setPipActive(false);
+    }
+    video.addEventListener("enterpictureinpicture", onEnter);
+    video.addEventListener("leavepictureinpicture", onLeave);
+    return () => {
+      if (video) {
+        // ts is mad if we don't check this
+        video.removeEventListener("enterpictureinpicture", onEnter);
+        video.removeEventListener("leavepictureinpicture", onLeave);
+      }
+    };
+  }, [props.videoRef]);
+
+  const handlePip = useCallback(() => {
+    let video: HTMLVideoElement | null = null;
+    if (isRefObject(props.videoRef)) {
+      video = props.videoRef.current;
+    }
+    if (!video) return;
+    video.requestPictureInPicture().catch((err) => {
+      console.error("Failed to enter Picture-in-Picture mode", err);
+    });
+  }, [props.videoRef]);
 
   return (
     <View
@@ -337,6 +437,33 @@ export default function Controls(props: PlayerProps) {
         </Part>
         <Part justifyContent="flex-end">
           <PopoverMenu {...props} />
+          {pipSupported && (
+            <Pressable
+              onPress={handlePip}
+              disabled={pipActive}
+              style={{
+                justifyContent: "center",
+                pointerEvents: "auto",
+              }}
+              accessibilityLabel="Picture in Picture"
+            >
+              <View paddingLeft="$3" paddingRight="$3" justifyContent="center">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="3" width="18" height="14" rx="2" />
+                  <rect x="15" y="13" width="6" height="6" rx="1" />
+                </svg>
+              </View>
+            </Pressable>
+          )}
           <Pressable
             style={{
               justifyContent: "center",

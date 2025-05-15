@@ -74,7 +74,7 @@ export default function Fullscreen(props: PlayerProps) {
   return (
     <View flex={1} ref={divRef}>
       <PlayerLoading {...props}></PlayerLoading>
-      <Controls {...props} setFullscreen={setFullscreen} />
+      <Controls {...props} setFullscreen={setFullscreen} videoRef={videoRef} />
       <VideoRetry {...props}>
         <Video {...props} videoRef={videoCallback} />
       </VideoRetry>

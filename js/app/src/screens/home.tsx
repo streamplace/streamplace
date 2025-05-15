@@ -68,7 +68,7 @@ function getHomeScreenItemSize(media: UseMediaState): StreamCardSize {
 function getHomeScreenCols(media: UseMediaState): number {
   if (media.gtXxl) {
     return 4;
-  } else if (media.gtLg) {
+  } else if (media.gtXl) {
     return 3;
   } else if (media.gtMd) {
     return 2;
@@ -158,7 +158,7 @@ export default function HomeScreen({
   } = useAppSelector(selectRecentSegments);
   const dispatch = useAppDispatch();
   const [manualRefresh, setManualRefresh] = useState(false);
-  const [useMockData, setUseMockData] = useState(false);
+  const [useMockData, setUseMockData] = useState(true);
 
   const segments = useMockData ? fakeSegs : realSegments;
   const media = useMedia();
@@ -270,7 +270,7 @@ export default function HomeScreen({
             f={1}
             justifyContent="center"
             alignItems="center"
-            minHeight="90vh"
+            minHeight="90%"
             paddingVertical={42}
           >
             <Image

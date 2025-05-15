@@ -6,7 +6,7 @@ const maxContainerWidths = {
   sm: 440,
   md: 660,
   lg: 740,
-  xl: 860,
+  xl: 800,
   twoXl: 1260,
   threeXl: 1660,
 };

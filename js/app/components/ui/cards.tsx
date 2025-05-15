@@ -68,17 +68,17 @@ const StreamCard: React.FC<StreamCardProps> = ({
         $gtXxl={{
           minWidth: layoutHorizontal ? "62.5%" : "100%",
         }}
-        maxHeight="76%"
-        aspectRatio={16 / 9}
+        maxHeight="76.5%"
         borderRadius={borderRadius}
         overflow="hidden"
         position="relative"
         alignSelf={layoutHorizontal ? "auto" : "center"}
+        backgroundColor={"green"}
       >
         <Image
           source={{ uri: thumbnailUrl, width: 160, height: 90 }}
           style={{ width: "100%", height: "100%", aspectRatio: 16 / 9 }}
-          resizeMode="cover"
+          resizeMode="stretch"
         />
         {isLive && (
           <XStack

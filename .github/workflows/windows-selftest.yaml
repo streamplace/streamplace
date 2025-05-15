@@ -1,0 +1,14 @@
+jobs:
+  windows-selftest:
+    name: windows-selftest
+    runs-on: windows-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4.1.7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: make node
+        run: |
+          C:\msys64\usr\bin\bash -lc "bash -x ./util/windows-selftest.sh https://git-cloudflare.stream.place/api/v4/projects/1/packages/generic/latest/v0.6.19/streamplace-desktop-v0.6.19-windows-amd64.exe"

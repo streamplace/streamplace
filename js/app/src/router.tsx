@@ -155,8 +155,6 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
     }
   };
 
-  console.log("sidebar", sidebar);
-
   let icon: ReactElement | null = null;
   if (sidebar?.isActive) {
     if (sidebar.isCollapsed) {
@@ -221,7 +219,7 @@ const EXTERNAL_ITEMS: ExternalDrawerItem[] = [
     label: (
       <Text alignSelf="flex-start">
         Documentation{" "}
-        <ExternalLink size={16} pl={4} position="relative" top={2} />
+        <ExternalLink size={16} paddingLeft={4} position="relative" top={2} />
       </Text>
     ) as any,
     onPress: () => {
@@ -330,8 +328,6 @@ export function StreamplaceDrawer() {
     <>
       <StatusBar backgroundColor={theme.background.val} />
       <Drawer.Navigator
-        // if this isn't here there are issues around drawer width
-        //key={sidebar.isActive ? "1" : "0"}
         initialRouteName="Home"
         screenOptions={{
           // for the custom sidebar

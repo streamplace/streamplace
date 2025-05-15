@@ -58,19 +58,20 @@ const uploadThumbnail = async (
   u: URL,
   pdsAgent: Agent,
   profile: ProfileViewDetailed,
-  customThumbnail?: Blob,
 ) => {
-  if (customThumbnail) {
-    try {
-      const thumbnail = await pdsAgent.uploadBlob(customThumbnail);
-      if (thumbnail.success) {
-        console.log("Successfully uploaded thumbnail");
-        return thumbnail.data.blob;
-      }
-    } catch (e) {
-      throw new Error("Error uploading thumbnail: " + e);
-    }
+  // download the thumbnail image and upload it to the pds IF POSSIBLE
+  const thumbnailRes = await fetch(
+    `${u.protocol}//${u.host}/api/playback/${profile.handle}/stream.png`,
+  );
+  if (!thumbnailRes.ok) {
+    throw new Error(`failed to fetch thumbnail (http ${thumbnailRes.status})`);
   }
+  const thumbnailBlob = await thumbnailRes.blob();
+  const thumbnail = await pdsAgent.uploadBlob(thumbnailBlob);
+  if (!thumbnail.success) {
+    throw new Error("failed to upload thumbnail");
+  }
+  return thumbnail.data.blob;
 };
 
 // clear atproto login query params from url
@@ -339,11 +340,7 @@ export const blueskySlice = createAppSlice({
 
     golivePost: create.asyncThunk(
       async (
-        {
-          text,
-          now,
-          customThumbnail,
-        }: { text: string; now: Date; customThumbnail?: Blob },
+        { text, now }: { text: string; now: Date },
         thunkAPI,
       ): Promise<{
         uri: string;
@@ -370,42 +367,16 @@ export const blueskySlice = createAppSlice({
           time: new Date().toISOString(),
         });
 
-        let thumbnail: BlobRef | undefined = undefined;
-
-        if (customThumbnail) {
-          try {
-            thumbnail = await uploadThumbnail(
-              profile.handle,
-              u,
-              bluesky.pdsAgent,
-              profile,
-              customThumbnail,
-            );
-          } catch (e) {
-            throw new Error(`Custom thumbnail upload failed ${e}`);
-          }
-        } else {
-          // No custom thumbnail: fetch the server-side image and upload it
-          try {
-            const thumbnailRes = await fetch(
-              `${u.protocol}//${u.host}/api/playback/${profile.handle}/stream.png`,
-            );
-            if (!thumbnailRes.ok) {
-              throw new Error(
-                `Failed to fetch thumbnail: ${thumbnailRes.status})`,
-              );
-            }
-            const thumbnailBlob = await thumbnailRes.blob();
-            thumbnail = await uploadThumbnail(
-              profile.handle,
-              u,
-              bluesky.pdsAgent,
-              profile,
-              thumbnailBlob,
-            );
-          } catch (e) {
-            throw new Error(`Thumbnail upload failed ${e}`);
-          }
+        let thumbnail: BlobRef | null = null;
+        try {
+          thumbnail = await uploadThumbnail(
+            profile.handle,
+            u,
+            bluesky.pdsAgent,
+            profile,
+          );
+        } catch (e) {
+          console.error("uploadThumbnail error", e);
         }
 
         const linkUrl = `${u.protocol}//${u.host}/${profile.handle}?${params.toString()}`;
@@ -437,15 +408,17 @@ export const blueskySlice = createAppSlice({
           facets,
           createdAt: now.toISOString(),
         };
-        record.embed = {
-          $type: "app.bsky.embed.external",
-          external: {
-            description: text,
-            thumb: thumbnail,
-            title: `@${profile.handle} is 🔴LIVE on ${u.host}!`,
-            uri: linkUrl,
-          },
-        };
+        if (thumbnail) {
+          record.embed = {
+            $type: "app.bsky.embed.external",
+            external: {
+              description: text,
+              thumb: thumbnail,
+              title: `@${profile.handle} is 🔴LIVE on ${u.host}!`,
+              uri: linkUrl,
+            },
+          };
+        }
         console.log("golivePost record", record);
         return await bluesky.pdsAgent.post(record);
       },
@@ -770,10 +743,7 @@ export const blueskySlice = createAppSlice({
     ),
 
     createLivestreamRecord: create.asyncThunk(
-      async (
-        { title, customThumbnail }: { title: string; customThumbnail?: Blob },
-        thunkAPI,
-      ) => {
+      async ({ title }: { title }, thunkAPI) => {
         const now = new Date();
         const { bluesky, streamplace } = thunkAPI.getState() as {
           bluesky: BlueskyState;
@@ -790,27 +760,12 @@ export const blueskySlice = createAppSlice({
         if (!profile) {
           throw new Error("No profile");
         }
-
-        const newPostAction = await thunkAPI.dispatch(
-          golivePost({ text: title, now, customThumbnail }),
-        );
-
-        if (!newPostAction || newPostAction.type.endsWith("/rejected")) {
-          throw new Error(
-            `Failed to create post: ${(newPostAction as any)?.error?.message || "Unknown error"}`,
-          );
+        if (!did) {
+          throw new Error("No DID");
         }
-
-        const newPost = newPostAction as {
-          payload: { uri: string; cid: string };
-        };
-
-        if (!newPost.payload?.uri || !newPost.payload?.cid) {
-          throw new Error(
-            "Cannot read properties of undefined (reading 'uri' or 'cid')",
-          );
-        }
-
+        const newPost = (await thunkAPI.dispatch(
+          golivePost({ text: title, now }),
+        )) as { payload: { uri: string; cid: string } };
         const record: PlaceStreamLivestream.Record = {
           title: title,
           url: streamplace.url,

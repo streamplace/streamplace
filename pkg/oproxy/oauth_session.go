@@ -10,7 +10,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
 )
 
-var refreshWhenRemaining = time.Minute * 59
+var refreshWhenRemaining = time.Minute * 15
 
 // OAuthSession stores authentication data needed during the OAuth flow
 type OAuthSession struct {

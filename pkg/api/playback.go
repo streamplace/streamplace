@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,19 +11,13 @@ import (
 	"strings"
 	"time"
 
-	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
-	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/julienschmidt/httprouter"
-	"github.com/mr-tron/base58"
 	"github.com/pion/webrtc/v4"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
-	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/errors"
-	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/spmetrics"
 )
 
@@ -208,89 +201,9 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 			encoded = strings.TrimSpace(encoded)
 		}
 
-		if len(encoded) < 2 || encoded[0] != 'z' {
-			errors.WriteHTTPUnauthorized(w, "invalid authorization key (not a multibase base58btc string)", nil)
-			return
-		}
-
-		var addrBytes []byte
-		var didBytes []byte
-		priv, err := atcrypto.ParsePrivateMultibase(encoded)
-		if err == nil {
-			addrBytes = priv.Bytes()
-		} else {
-			decoded, err := base58.Decode(encoded[1:])
-			if err != nil {
-				errors.WriteHTTPUnauthorized(w, "invalid authorization key (not a base58btc string)", nil)
-				return
-			}
-			addrBytes = decoded[:32]
-			didBytes = decoded[32:]
-			priv, err = atcrypto.ParsePrivateBytesK256(addrBytes)
-			if err != nil {
-				errors.WriteHTTPUnauthorized(w, "invalid authorization key (not valid atcrypto)", err)
-				return
-			}
-		}
-
-		key, _ := secp256k1.PrivKeyFromBytes(addrBytes)
-		if key == nil {
-			errors.WriteHTTPUnauthorized(w, "invalid authorization key (not valid secp256k1)", nil)
-			return
-		}
-		var signer crypto.Signer = key.ToECDSA()
-		pub, err := priv.PublicKey()
+		mediaSigner, err := a.MakeMediaSigner(ctx, encoded)
 		if err != nil {
-			apierrors.WriteHTTPUnauthorized(w, "invalid authorization key (could not parse as atcrypto)", err)
-			return
-		}
-
-		did := string(didBytes)
-
-		if did != "" {
-			repo, err := a.ATSync.SyncBlueskyRepo(ctx, did, a.Model)
-			if err != nil {
-				apierrors.WriteHTTPInternalServerError(w, "could not resolve streamplace key", err)
-				return
-			}
-			err = a.CLI.StreamIsAllowed(repo.DID)
-			if err != nil {
-				apierrors.WriteHTTPUnauthorized(w, "user is not allowed to stream", err)
-				return
-			}
-			signingKey, err := a.Model.GetSigningKey(ctx, pub.DIDKey(), repo.DID)
-			if err != nil {
-				apierrors.WriteHTTPUnauthorized(w, "signing key not found", err)
-				return
-			}
-			if signingKey == nil {
-				apierrors.WriteHTTPUnauthorized(w, "signing key not found", nil)
-				return
-			}
-		} else {
-			atkey, err := atproto.ParsePubKey(signer.Public())
-			if err != nil {
-				apierrors.WriteHTTPUnauthorized(w, "invalid authorization key (not valid secp256k1)", err)
-				return
-			}
-			did = atkey.DIDKey()
-			err = a.CLI.StreamIsAllowed(did)
-			if err != nil {
-				apierrors.WriteHTTPUnauthorized(w, "user is not allowed to stream", err)
-				return
-			}
-		}
-
-		ctx = log.WithLogValues(ctx, "did", did)
-
-		var mediaSigner media.MediaSigner
-		if a.CLI.ExternalSigning {
-			mediaSigner, err = media.MakeMediaSignerExt(ctx, a.CLI, did, addrBytes)
-		} else {
-			mediaSigner, err = media.MakeMediaSigner(ctx, a.CLI, did, signer)
-		}
-		if err != nil {
-			errors.WriteHTTPUnauthorized(w, "invalid authorization key (not valid secp256k1)", err)
+			errors.WriteHTTPUnauthorized(w, "invalid authorization key", err)
 			return
 		}
 

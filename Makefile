@@ -471,12 +471,23 @@ DOCKER_OPTS?=
 in-container: docker-build-builder
 	$(DOCKER_BIN) run $(DOCKER_OPTS) -v $$(pwd):$$(pwd) -w $$(pwd) --rm $(DOCKER_REF) bash -c "$(IN_CONTAINER_CMD)"
 
+STREAMPLACE_URL?=https://git.stream.place/streamplace/streamplace/-/package_files/10122/download
 .PHONY: docker-release
 docker-release:
 	cd docker \
 	&& docker build -f release.Dockerfile \
 	  --build-arg TARGETARCH=$(BUILDARCH) \
+		--build-arg STREAMPLACE_URL=$(STREAMPLACE_URL) \
 		-t dist.stream.place/streamplace/streamplace \
+		.
+
+.PHONY: docker-mistserver
+docker-mistserver:
+	cd docker \
+	&& docker build -f mistserver.Dockerfile \
+	  --build-arg TARGETARCH=$(BUILDARCH) \
+		--build-arg STREAMPLACE_URL=$(STREAMPLACE_URL) \
+		-t dist.stream.place/streamplace/streamplace:mistserver \
 		.
 
 .PHONY: ci-upload

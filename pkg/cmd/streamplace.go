@@ -28,6 +28,7 @@ import (
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/replication/boring"
+	"stream.place/streamplace/pkg/rtmps"
 	v0 "stream.place/streamplace/pkg/schema/v0"
 	"stream.place/streamplace/pkg/spmetrics"
 
@@ -79,6 +80,14 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			os.Exit(1)
 		}
 		return Stream(os.Args[2])
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "live" {
+		if len(os.Args) != 3 {
+			fmt.Println("usage: streamplace live [stream-key]")
+			os.Exit(1)
+		}
+		return Live(os.Args[2])
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "sign" {
@@ -153,6 +162,8 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.IntVar(&cli.RateLimitPerSecond, "rate-limit-per-second", 10, "rate limit for requests per second per ip")
 	fs.IntVar(&cli.RateLimitBurst, "rate-limit-burst", 10, "rate limit burst for requests per ip")
 	fs.IntVar(&cli.RateLimitWebsocket, "rate-limit-websocket", 10, "number of concurrent websocket connections allowed per ip")
+	fs.StringVar(&cli.RTMPServerAddon, "rtmp-server-addon", "", "address of external RTMP server to forward streams to")
+	fs.StringVar(&cli.RtmpsAddr, "rtmps-addr", ":1935", "address to listen for RTMPS connections")
 	version := fs.Bool("version", false, "print version and exit")
 
 	if runtime.GOOS == "linux" {
@@ -351,6 +362,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		group.Go(func() error {
 			return a.ServeHTTPRedirect(ctx)
 		})
+		if cli.RTMPServerAddon != "" {
+			group.Go(func() error {
+				return rtmps.ServeRTMPS(ctx, &cli)
+			})
+		}
 	} else {
 		group.Go(func() error {
 			return a.ServeHTTP(ctx)

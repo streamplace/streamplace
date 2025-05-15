@@ -56,6 +56,7 @@ type CLI struct {
 	HttpAddr               string
 	HttpInternalAddr       string
 	HttpsAddr              string
+	RtmpsAddr              string
 	Secure                 bool
 	NoMist                 bool
 	MistAdminPort          int
@@ -90,6 +91,7 @@ type CLI struct {
 	Thumbnail              bool
 	SmearAudio             bool
 	ExternalSigning        bool
+	RTMPServerAddon        string
 	TracingEndpoint        string
 	PublicHost             string
 	RateLimitPerSecond     int

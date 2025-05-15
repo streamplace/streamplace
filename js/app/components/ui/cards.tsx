@@ -1,5 +1,5 @@
 import React from "react";
-import { Image } from "react-native";
+import { Image, Platform } from "react-native";
 import { Stack, Text, XStack, YStack, useMedia } from "tamagui";
 import Viewers from "components/viewers";
 
@@ -68,12 +68,13 @@ const StreamCard: React.FC<StreamCardProps> = ({
         $gtXxl={{
           minWidth: layoutHorizontal ? "62.5%" : "100%",
         }}
-        maxHeight="76.5%"
+        // ios seems to be unable to adjust widths properly?
+        maxHeight={Platform.OS === "ios" ? "76.5%" : "100%"}
         borderRadius={borderRadius}
         overflow="hidden"
         position="relative"
         alignSelf={layoutHorizontal ? "auto" : "center"}
-        backgroundColor={"green"}
+        backgroundColor="$gray6"
       >
         <Image
           source={{ uri: thumbnailUrl, width: 160, height: 90 }}

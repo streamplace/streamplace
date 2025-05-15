@@ -188,7 +188,7 @@ export default function HomeScreen({
     );
   }
 
-  if (firstRequest && !useMockData && !segments.length) {
+  if (firstRequest && !segments.length) {
     // Only show loading if not using mock data and no segments yet
     return <Loading />;
   }
@@ -233,12 +233,8 @@ export default function HomeScreen({
         <RefreshControl
           refreshing={manualRefresh}
           onRefresh={() => {
-            if (!useMockData) {
-              dispatch(pollSegments());
-              setManualRefresh(true);
-            } else {
-              setManualRefresh(false);
-            }
+            dispatch(pollSegments());
+            setManualRefresh(true);
           }}
         />
       }

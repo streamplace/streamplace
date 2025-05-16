@@ -36,6 +36,7 @@ type Model interface {
 	CreateSegment(segment *Segment) error
 	MostRecentSegments() ([]Segment, error)
 	LatestSegmentForUser(user string) (*Segment, error)
+	LatestSegmentsForUser(user string, limit int, before *time.Time) ([]Segment, error)
 	CreateThumbnail(thumb *Thumbnail) error
 	LatestThumbnailForUser(user string) (*Thumbnail, error)
 	GetSegment(id string) (*Segment, error)

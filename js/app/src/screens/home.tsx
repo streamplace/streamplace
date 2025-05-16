@@ -2,10 +2,10 @@ import { UseMediaState } from "@tamagui/web";
 import AQLink from "components/aqlink";
 import ErrorBox from "components/error/error";
 import Loading from "components/loading/loading";
-import StreamCardHorizontal, { StreamCardSize } from "components/ui/cards";
-import Container from "components/ui/container";
-import LiveDot from "components/ui/live-dot";
-import Title from "components/ui/title";
+import StreamCardHorizontal, { StreamCardSize } from "components/home/cards";
+import Container from "components/home/container";
+import LiveDot from "components/home/live-dot";
+import Title from "components/home/title";
 import {
   pollSegments,
   Repo,

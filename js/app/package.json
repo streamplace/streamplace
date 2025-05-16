@@ -25,7 +25,6 @@
     "preset": "jest-expo"
   },
   "dependencies": {
-    "@aquareum/atproto-oauth-client-react-native": "^0.0.1",
     "@atproto-labs/pipe": "^0.1.0",
     "@atproto/crypto": "^0.4.2",
     "@atproto/jwk-jose": "^0.1.2",
@@ -40,6 +39,7 @@
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",
     "@reduxjs/toolkit": "^2.3.0",
+    "@streamplace/atproto-oauth-client-react-native": "workspace:*",
     "@tamagui/config": "^1.123.17",
     "@tamagui/lucide-icons": "^1.123.17",
     "@tamagui/toast": "^1.123.17",

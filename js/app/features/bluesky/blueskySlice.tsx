@@ -146,8 +146,24 @@ export const blueskySlice = createAppSlice({
       },
     ),
 
+    oauthError: create.reducer(
+      (
+        state,
+        { payload }: { payload: { error: string; description: string } },
+      ) => {
+        return {
+          ...state,
+          login: {
+            loading: false,
+            error: payload.description || payload.error,
+          },
+          status: "loggedOut",
+        };
+      },
+    ),
+
     login: create.asyncThunk(
-      async (pds: string, thunkAPI) => {
+      async (handle: string, thunkAPI) => {
         let { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };
@@ -158,10 +174,10 @@ export const blueskySlice = createAppSlice({
         if (!bluesky.client) {
           throw new Error("No client");
         }
-        const u = await bluesky.client.authorize(pds);
+        const u = await bluesky.client.authorize(handle, {});
         thunkAPI.dispatch(openLoginLink(u.toString()));
         // cheeky 500ms delay so you don't see the text flash back
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 5000));
       },
       {
         pending: (state) => {
@@ -184,6 +200,7 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, action) => {
+          console.error("login rejected", action.error);
           return {
             ...state,
             login: {
@@ -217,6 +234,7 @@ export const blueskySlice = createAppSlice({
             ...state,
             oauthSession: null,
             pdsAgent: null,
+            status: "loggedOut",
           };
         },
         rejected: (state) => {
@@ -255,6 +273,10 @@ export const blueskySlice = createAppSlice({
         },
         rejected: (state, action) => {
           clearQueryParams();
+          return {
+            ...state,
+            status: "loggedOut",
+          };
           // state.status = "failed";
         },
       },
@@ -320,6 +342,14 @@ export const blueskySlice = createAppSlice({
         }
         const params = new URLSearchParams(url.split("?")[1]);
         if (!(params.has("code") && params.has("state") && params.has("iss"))) {
+          if (params.has("error")) {
+            thunkAPI.dispatch(
+              oauthError({
+                error: params.get("error") ?? "",
+                description: params.get("error_description") ?? "",
+              }),
+            );
+          }
           throw new Error("Missing params, got: " + url);
         }
         const { bluesky } = thunkAPI.getState() as {
@@ -713,7 +743,7 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, action) => {
-          console.error("getProfile rejected", action.error);
+          console.error("createStreamKeyRecord rejected", action.error);
           // state.status = "failed";
         },
       },
@@ -829,7 +859,7 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, action) => {
-          console.error("getProfile rejected", action.error);
+          console.error("createLivestreamRecord rejected", action.error);
           return {
             ...state,
             newLivestream: {
@@ -966,7 +996,7 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, action) => {
-          console.error("getProfile rejected", action.error);
+          console.error("createChatProfileRecord rejected", action.error);
           return {
             ...state,
             chatProfile: {
@@ -1105,6 +1135,7 @@ export const {
   golivePost,
   oauthCallback,
   setPDS,
+  oauthError,
   createStreamKeyRecord,
   clearStreamKeyRecord,
   createLivestreamRecord,

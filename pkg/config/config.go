@@ -91,9 +91,10 @@ type CLI struct {
 	SmearAudio             bool
 	ExternalSigning        bool
 	TracingEndpoint        string
+	PublicHost             string
 	JWK                    jwk.Key
-
-	dataDirFlags []*string
+	AccessJWK              jwk.Key
+	dataDirFlags           []*string
 }
 
 var STREAMPLACE_SCHEME_PREFIX = "streamplace://"

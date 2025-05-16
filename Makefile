@@ -112,13 +112,15 @@ js-lexicons:
 		&& sed -i.bak 's/AppBskyGraphBlock\.Main/AppBskyGraphBlock\.Record/' $$(find ./js/app/lexicons/types/place/stream -type f) \
 		&& sed -i.bak 's/PlaceStreamChatProfile\.Main/PlaceStreamChatProfile\.Record/' $$(find ./js/app/lexicons/types/place/stream -type f) \
 		&& sed -i.bak "s/import\ \*\ as\ AppBskyFeedDefs\ from\ '.\/defs'/import \{ AppBskyFeedDefs } from '@atproto\/api'/" $$(find ./js/app/lexicons/types -type f) \
+		&& sed -i.bak "s/import\ \*\ as\ AppBskyActorDefs\ from\ '.\/defs'/import \{ AppBskyActorDefs } from '@atproto\/api'/" $$(find ./js/app/lexicons -type f) \
 		&& find . | grep bak$$ | xargs rm
 
 .PHONY: md-lexicons
 md-lexicons:
 	yarn exec lexmd \
 	    lexicons/place/stream \
-		js/docs/src/content/docs/lex-reference
+		js/docs/src/content/docs/lex-reference \
+	&& $(MAKE) fix
 
 .PHONY: lexgen
 lexgen:
@@ -127,23 +129,17 @@ lexgen:
 
 .PHONY: lexgen-types
 lexgen-types:
-	go run github.com/bluesky-social/indigo/cmd/lexgen --package streamplace \
-		--types-import place.stream:stream.place/streamplace/pkg/streamplace \
-		-outdir ./pkg/streamplace \
-		--prefix place.stream \
+	go run github.com/bluesky-social/indigo/cmd/lexgen \
+		-outdir ./pkg/spxrpc \
 		--build-file util/lexgen-types.json \
+		--external-lexicons subprojects/atproto/lexicons \
 		lexicons/place/stream \
 		./subprojects/atproto/lexicons
 
-.PHONY: ci-lexicons
-ci-lexicons:
-	$(MAKE) lexicons \
-	&& if ! git diff --exit-code >/dev/null; then echo "lexicons are out of date, run 'make lexicons' to fix"; exit 1; fi
-
 .PHONY: lexgen-server
 lexgen-server:
-	mkdir -p ./pkg/spxrpc
-	go run github.com/bluesky-social/indigo/cmd/lexgen --package spxrpc \
+	mkdir -p ./pkg/spxrpc \
+	&& go run github.com/bluesky-social/indigo/cmd/lexgen \
 		--gen-server \
 		--types-import place.stream:stream.place/streamplace/pkg/streamplace \
 		--types-import app.bsky:github.com/bluesky-social/indigo/api/bsky \
@@ -151,10 +147,17 @@ lexgen-server:
 		--types-import chat.bsky:github.com/bluesky-social/indigo/api/chat \
 		--types-import tools.ozone:github.com/bluesky-social/indigo/api/ozone \
 		-outdir ./pkg/spxrpc \
-		--prefix place.stream \
-		--build-file util/lexgen-server.json \
+		--build-file util/lexgen-types.json \
+		--external-lexicons subprojects/atproto/lexicons \
+		--package spxrpc \
 		lexicons/place/stream \
-		lexicons/app/bsky
+		lexicons/app/bsky \
+		lexicons/com/atproto
+
+.PHONY: ci-lexicons
+ci-lexicons:
+	$(MAKE) lexicons \
+	&& if ! git diff --exit-code >/dev/null; then echo "lexicons are out of date, run 'make lexicons' to fix"; exit 1; fi
 
 .PHONY: test
 test:

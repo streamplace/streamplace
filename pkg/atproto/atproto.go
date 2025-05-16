@@ -13,11 +13,8 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/repo"
-	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
-	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/constants"
@@ -69,7 +66,7 @@ type mstNode struct {
 }
 
 func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
-	ctx = log.WithLogValues(ctx, "func", "SyncBlueskyRepo")
+	ctx = log.WithLogValues(ctx, "func", "SyncBlueskyRepo", "handle", handle)
 	// Get handle-specific lock and ensure synchronized access
 
 	ident, err := ResolveIdent(ctx, handle)
@@ -96,7 +93,6 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 			DID:     ident.DID.String(),
 			PDS:     ident.PDSEndpoint(),
 			Version: "",
-			RootCID: "",
 			Handle:  ident.Handle.String(),
 		}
 		err = mod.UpdateRepo(&newRepo)
@@ -130,47 +126,10 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 
 	log.Log(ctx, "got diff", "bytes", len(repoBytes))
 
-	bs := blockstore.NewBlockstore(datastore.NewMapDatastore())
-	root, err := repo.IngestRepo(ctx, bs, bytes.NewReader(repoBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to ingest repo for %s: %w", ident.DID.String(), err)
-	}
-	log.Log(ctx, "ingested repo", "root", root)
-	if oldRepo != nil && oldRepo.RootCID != "" {
-		oldRoot, err := cid.Decode(oldRepo.RootCID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode old root CID for %s: %w", ident.DID.String(), err)
-		}
-		if oldRoot.Equals(root) {
-			log.Debug(ctx, "no changes to repo", "root", root)
-			return oldRepo, nil
-		}
-	}
-
 	r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repoBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repo CAR data for %s: %w", ident.DID.String(), err)
 	}
-
-	mstNodes := map[string]mstNode{}
-	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
-		nsid, rkey, err := syntax.ParseRepoPath(k)
-		if err != nil {
-			log.Warn(ctx, "failed to parse repo path", "k", k, "err", err)
-			return err
-		}
-		hash := v.Hash().HexString()
-		log.Debug(ctx, "got mst node", "cid", v, "rkey", rkey, "nsid", nsid, "hash", hash)
-		mstNodes[hash] = mstNode{
-			rkey:       rkey,
-			collection: nsid,
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to iterate over repo: %w", err)
-	}
-
 	// extract DID from repo commit
 	sc := r.SignedCommit()
 	signerDID, err := syntax.ParseDID(sc.Did)
@@ -181,46 +140,34 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		return nil, fmt.Errorf("signer DID %s does not match identity %s", signerDID, ident.DID.String())
 	}
 
-	bs = r.Blockstore()
-	cst := util.CborStore(bs)
-	allKeys, err := bs.AllKeysChan(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get all keys: %w", err)
-	}
-	for k := range allKeys {
-		blk, err := bs.Get(ctx, k)
+	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
+		nsid, rkey, err := syntax.ParseRepoPath(k)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get block for key %s: %w", k, err)
+			log.Warn(ctx, "failed to parse repo path", "k", k, "err", err)
+			return fmt.Errorf("could not parse repo path %s: %w", k, err)
 		}
-		rec := map[string]any{}
-		err = cst.Get(ctx, k, &rec)
+		_, bs, err := r.GetRecordBytes(ctx, k)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get block for key %s: %w", k, err)
+			log.Warn(ctx, "failed to get record bytes", "k", k, "rkey", rkey, "err", err)
+			return fmt.Errorf("could not retrieve record bytes for %s (rkey: %s): %w", k, rkey, err)
 		}
-		typ, ok := rec["$type"]
-		if !ok {
-			log.Debug(ctx, "record type not found", "key", k)
-			continue
-		}
-		log.Debug(ctx, "record type", "key", k, "type", typ)
-		hash := k.Hash().HexString()
-		node, ok := mstNodes[hash]
-		if !ok {
-			log.Warn(ctx, "no mst node found for record", "key", k, "hash", hash)
-			continue
-		}
-		rawData := blk.RawData()
-		err = atsync.handleCreateUpdate(ctx, signerDID.String(), node.rkey, &rawData, k.String(), node.collection)
+		log.Debug(ctx, "record type", "key", k, "type", nsid.String())
+		err = atsync.handleCreateUpdate(ctx, signerDID.String(), rkey, bs, v.String(), nsid)
 		if err != nil {
 			log.Warn(ctx, "failed to handle create update", "err", err)
+			// invalid CBOR and stuff should get ignored, so
+			// return fmt.Errorf("failed to process record update for %s (type: %s): %w", k, nsid.String(), err)
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to iterate over repo: %w", err)
 	}
 
 	newRepo := model.Repo{
 		DID:     ident.DID.String(),
 		PDS:     ident.PDSEndpoint(),
 		Version: sc.Rev,
-		RootCID: root.String(),
 		Handle:  ident.Handle.String(),
 	}
 	err = mod.UpdateRepo(&newRepo)

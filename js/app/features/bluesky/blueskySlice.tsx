@@ -863,7 +863,7 @@ export const blueskySlice = createAppSlice({
             "Cannot read properties of undefined (reading 'uri' or 'cid')",
           );
         }
-      
+
         const record: PlaceStreamLivestream.Record = {
           title: title,
           url: streamplace.url,

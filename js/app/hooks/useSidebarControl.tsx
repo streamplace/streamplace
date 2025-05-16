@@ -56,7 +56,6 @@ export function useSidebarControl(): UseSidebarOutput {
   const animatedWidth = useSharedValue(targetWidth);
 
   const isActive = useIsLargeScreen();
-
   useEffect(() => {
     if (isActive) {
       // Only animate if the sidebar is active

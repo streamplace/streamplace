@@ -77,6 +77,14 @@
         "num": { "type": "integer" },
         "den": { "type": "integer" }
       }
+    },
+    "segmentView": {
+      "type": "object",
+      "required": ["cid", "record"],
+      "properties": {
+        "cid": { "type": "string", "format": "cid" },
+        "record": { "type": "unknown" }
+      }
     }
   }
 }

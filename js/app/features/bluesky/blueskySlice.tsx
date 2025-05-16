@@ -300,7 +300,7 @@ export const blueskySlice = createAppSlice({
 
         console.log("getting profiles");
         return await bskyAgent.getProfiles({
-          actors: actors,
+          actors: [actors.join(",")],
         });
       },
       {

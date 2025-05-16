@@ -156,6 +156,19 @@ func (m *DBModel) LatestSegmentForUser(user string) (*Segment, error) {
 	return &seg, nil
 }
 
+func (m *DBModel) LatestSegmentsForUser(user string, limit int, before *time.Time) ([]Segment, error) {
+	var segs []Segment
+	if before == nil {
+		later := time.Now().Add(1000 * time.Hour)
+		before = &later
+	}
+	err := m.DB.Model(Segment{}).Where("repo_did = ? AND start_time < ?", user, before.UTC()).Order("start_time DESC").Limit(limit).Find(&segs).Error
+	if err != nil {
+		return nil, err
+	}
+	return segs, nil
+}
+
 func (m *DBModel) GetLiveUsers() ([]Segment, error) {
 	var liveUsers []Segment
 	thirtySecondsAgo := aqtime.FromTime(time.Now().Add(-30 * time.Second)).Time()
@@ -324,9 +337,14 @@ func (m *DBModel) MostRecentSegmentsWithStreamInfo() ([]SegmentWithStreamInfo, e
 	// finally, make the resulting SegmentWithStreamInfos
 	resultWithStreamInfo := make([]SegmentWithStreamInfo, len(recentSegments))
 	for i, seg := range recentSegments {
+		view, ok := livestreamMap[seg.RepoDID]
+		if !ok {
+			log.Error(context.Background(), "No livestream view found for repo_did", "repo_did", seg.RepoDID)
+			continue
+		}
 		resultWithStreamInfo[i] = SegmentWithStreamInfo{
 			Segment:        seg,
-			LivestreamView: livestreamMap[seg.RepoDID].Record,
+			LivestreamView: view.Record,
 		}
 	}
 

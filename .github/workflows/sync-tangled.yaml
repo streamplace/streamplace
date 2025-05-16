@@ -1,0 +1,38 @@
+name: sync-tangled
+
+on:
+  push:
+
+jobs:
+  sync:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: sync tangled
+        env:
+          TANGLED_SSH_KEY: ${{ secrets.TANGLED_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          # Turn off strict SSH key checking
+          mkdir -p ~/.ssh
+          echo "Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null" > ~/.ssh/config
+
+          # Write SSH key to disk
+          echo "$TANGLED_SSH_KEY" > ~/.ssh/tangled_key
+          chmod 600 ~/.ssh/tangled_key
+
+          # Configure SSH to use the key for tangled.sh
+          echo "Host tangled.sh
+            IdentityFile ~/.ssh/tangled_key" >> ~/.ssh/config
+
+          chmod 600 ~/.ssh/config
+
+          git remote add tangled git@tangled.sh:stream.place/streamplace
+          git push -f --all tangled
+          git push -f --tags tangled

@@ -71,7 +71,7 @@ dev:
 
 .PHONY: golint
 golint:
-	go run github.com/golangci/golangci-lint/cmd/golangci-lint run -c ./.golangci.yaml
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint run -c ./.golangci.yaml
 
 .PHONY: dev-test
 dev-test:

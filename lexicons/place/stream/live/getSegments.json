@@ -1,0 +1,43 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.live.getSegments",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get a list of livestream segments for a user",
+      "parameters": {
+        "type": "params",
+        "required": ["userDID"],
+        "properties": {
+          "userDID": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the potentially-following user"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "before": { "type": "string", "format": "datetime" }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "segments": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.segment#segmentView"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

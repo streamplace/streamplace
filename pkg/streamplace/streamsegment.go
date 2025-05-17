@@ -40,6 +40,12 @@ type Segment_Framerate struct {
 	Num int64 `json:"num" cborgen:"num"`
 }
 
+// Segment_SegmentView is a "segmentView" in the place.stream.segment schema.
+type Segment_SegmentView struct {
+	Cid    string                   `json:"cid" cborgen:"cid"`
+	Record *util.LexiconTypeDecoder `json:"record" cborgen:"record"`
+}
+
 // Segment_Video is a "video" in the place.stream.segment schema.
 type Segment_Video struct {
 	Codec     string             `json:"codec" cborgen:"codec"`

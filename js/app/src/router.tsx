@@ -32,7 +32,6 @@ import {
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
 import Login from "components/login/login";
-import StreamList from "components/stream-list/stream-list";
 import { selectUserProfile } from "features/bluesky/blueskySlice";
 import usePlatform from "hooks/usePlatform";
 import { ReactElement, useEffect, useState } from "react";
@@ -45,7 +44,7 @@ import {
   StatusBar,
 } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { useTheme, Text, View, H3, useWindowDimensions } from "tamagui";
+import { useTheme, Text, View, H3 } from "tamagui";
 import AppReturnScreen from "./screens/app-return";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
@@ -61,7 +60,10 @@ import {
   selectNotificationDestination,
   selectNotificationToken,
 } from "features/platform/platformSlice.native";
-import { pollSegments } from "features/streamplace/streamplaceSlice";
+import {
+  pollMySegments,
+  pollSegments,
+} from "features/streamplace/streamplaceSlice";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useToastController } from "@tamagui/toast";
 import LiveDashboard from "./screens/live-dashboard";
@@ -305,8 +307,10 @@ export function StreamplaceDrawer() {
   // Top-level stuff to handle polling for live streamers
   useEffect(() => {
     dispatch(pollSegments());
+    dispatch(pollMySegments());
     const interval = setInterval(() => {
       dispatch(pollSegments());
+      dispatch(pollMySegments());
     }, 5000);
     return () => clearInterval(interval);
   }, []);

@@ -97,6 +97,7 @@ func (s *Server) HandleComAtprotoRepoUploadBlob(c echo.Context) error {
 
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.graph.getFollowingUser", s.HandlePlaceStreamGraphGetFollowingUser)
+	e.GET("/xrpc/place.stream.live.getSegments", s.HandlePlaceStreamLiveGetSegments)
 	return nil
 }
 
@@ -109,6 +110,32 @@ func (s *Server) HandlePlaceStreamGraphGetFollowingUser(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamGraphGetFollowingUser(ctx context.Context,subjectDID string,userDID string) (*placestreamtypes.GraphGetFollowingUser_Output, error)
 	out, handleErr = s.handlePlaceStreamGraphGetFollowingUser(ctx, subjectDID, userDID)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamLiveGetSegments(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveGetSegments")
+	defer span.End()
+	before := c.QueryParam("before")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	userDID := c.QueryParam("userDID")
+	var out *placestreamtypes.LiveGetSegments_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context,before string,limit int,userDID string) (*placestreamtypes.LiveGetSegments_Output, error)
+	out, handleErr = s.handlePlaceStreamLiveGetSegments(ctx, before, limit, userDID)
 	if handleErr != nil {
 		return handleErr
 	}

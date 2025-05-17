@@ -79,6 +79,21 @@ Media file representing a segment of a livestream
 
 ---
 
+<a name="segmentview"></a>
+
+### `segmentView`
+
+**Type:** `object`
+
+**Properties:**
+
+| Name     | Type      | Req'd | Description | Constraints   |
+| -------- | --------- | ----- | ----------- | ------------- |
+| `cid`    | `string`  | ✅    |             | Format: `cid` |
+| `record` | `unknown` | ✅    |             |               |
+
+---
+
 ## Lexicon Source
 
 ```json
@@ -177,6 +192,19 @@ Media file representing a segment of a livestream
         },
         "den": {
           "type": "integer"
+        }
+      }
+    },
+    "segmentView": {
+      "type": "object",
+      "required": ["cid", "record"],
+      "properties": {
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "record": {
+          "type": "unknown"
         }
       }
     }

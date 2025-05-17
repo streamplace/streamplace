@@ -176,7 +176,6 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
 	apiRouter.GET("/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
 	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
-	apiRouter.GET("/api/live-users", a.HandleLiveUsers(ctx))
 	apiRouter.GET("/api/view-count/:user", a.HandleViewCount(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	apiRouterHandler := a.RateLimitMiddleware(ctx)(apiRouter)
@@ -533,35 +532,6 @@ func (a *StreamplaceAPI) HandleUserRecentSegments(ctx context.Context) httproute
 			return
 		}
 		w.Header().Add("Content-Type", "application/json")
-		w.Write(bs)
-	}
-}
-
-type LiveUsersResponse struct {
-	model.SegmentWithStreamInfo
-	Viewers int `json:"viewers"`
-}
-
-func (a *StreamplaceAPI) HandleLiveUsers(ctx context.Context) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		repos, err := a.Model.MostRecentSegmentsWithStreamInfo()
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not get live users", err)
-			return
-		}
-		liveUsers := []LiveUsersResponse{}
-		for _, repo := range repos {
-			viewers := spmetrics.GetViewCount(repo.RepoDID)
-			liveUsers = append(liveUsers, LiveUsersResponse{
-				SegmentWithStreamInfo: repo,
-				Viewers:               viewers,
-			})
-		}
-		bs, err := json.Marshal(liveUsers)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not marshal live users", err)
-			return
-		}
 		w.Write(bs)
 	}
 }

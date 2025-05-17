@@ -35,7 +35,6 @@ type Model interface {
 
 	CreateSegment(segment *Segment) error
 	MostRecentSegments() ([]Segment, error)
-	MostRecentSegmentsWithStreamInfo() ([]SegmentWithStreamInfo, error)
 	LatestSegmentForUser(user string) (*Segment, error)
 	LatestSegmentsForUser(user string, limit int, before *time.Time) ([]Segment, error)
 	CreateThumbnail(thumb *Thumbnail) error

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/lex/util"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
@@ -264,95 +263,4 @@ func (m *DBModel) SegmentCleaner(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-func (m *DBModel) MostRecentSegmentsWithStreamInfo() ([]SegmentWithStreamInfo, error) {
-	var recentSegments []Segment
-	thirtySecondsAgo := time.Now().Add(-30 * time.Second)
-
-	// fetch recent segments made <30s ago
-	err := m.DB.Table("segments").
-		Select("segments.*").
-		Where("segments.id IN (?) AND segments.start_time > ?",
-			m.DB.Table("segments").
-				Select("id").
-				Where("(repo_did, start_time) IN (?)",
-					m.DB.Table("segments").
-						Select("repo_did, MAX(start_time)").
-						Group("repo_did")),
-			thirtySecondsAgo).
-		Order("segments.start_time DESC").
-		Preload("Repo"). // Preload Repo for the Segment
-		Find(&recentSegments).Error
-
-	if err != nil {
-		return nil, fmt.Errorf("error fetching recent segments: %w", err)
-	}
-
-	if len(recentSegments) == 0 {
-		return []SegmentWithStreamInfo{}, nil
-	}
-
-	// get all repo DIDs
-	repoDIDs := make([]string, 0, len(recentSegments))
-	repoDIDSet := make(map[string]struct{})
-	for _, seg := range recentSegments {
-		if _, exists := repoDIDSet[seg.RepoDID]; !exists {
-			repoDIDs = append(repoDIDs, seg.RepoDID)
-			repoDIDSet[seg.RepoDID] = struct{}{}
-		}
-	}
-
-	// fetch latest stream record for each DID
-	var latestLivestreams []Livestream
-	if len(repoDIDs) > 0 {
-		subQuery := m.DB.Table("livestreams").
-			Select("repo_did, MAX(created_at) as max_created_at").
-			Where("repo_did IN (?)", repoDIDs).
-			Group("repo_did")
-
-		err = m.DB.Table("livestreams as ls").
-			Joins("JOIN (?) latest_ls ON ls.repo_did = latest_ls.repo_did AND ls.created_at = latest_ls.max_created_at", subQuery).
-			Where("ls.repo_did IN (?)", repoDIDs).
-			Preload("Repo"). // Preload Repo for the Livestream
-			Find(&latestLivestreams).Error
-
-		if err != nil {
-			return nil, fmt.Errorf("error fetching latest livestreams for repos: %w", err)
-		}
-	}
-
-	// map livestreams for easy lookup below, convert to LivestreamView
-	livestreamMap := make(map[string]*streamplace.Livestream_LivestreamView)
-	for i := range latestLivestreams {
-		view, err := latestLivestreams[i].ToLivestreamView()
-		if err != nil {
-			log.Error(context.Background(), "Couldn't convert Livestream object to LivestreamView, skipping", "error", err)
-		} else {
-			// extract inner information
-			livestreamMap[latestLivestreams[i].RepoDID] = view
-		}
-	}
-
-	// finally, make the resulting SegmentWithStreamInfos
-	resultWithStreamInfo := make([]SegmentWithStreamInfo, len(recentSegments))
-	for i, seg := range recentSegments {
-		view, ok := livestreamMap[seg.RepoDID]
-		if !ok {
-			log.Error(context.Background(), "No livestream view found for repo_did", "repo_did", seg.RepoDID)
-			continue
-		}
-		resultWithStreamInfo[i] = SegmentWithStreamInfo{
-			Segment:        seg,
-			LivestreamView: view.Record,
-		}
-	}
-
-	return resultWithStreamInfo, nil
-}
-
-type SegmentWithStreamInfo struct {
-	Segment
-	// possibly incorrect/weird type
-	LivestreamView *util.LexiconTypeDecoder `json:"streamRecord,omitempty"`
 }

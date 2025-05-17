@@ -48,7 +48,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@atproto/crypto": "^0.4.3",
+    "@atproto/crypto": "^0.4.4",
     "electron-squirrel-startup": "^1.0.1",
     "source-map-support": "^0.5.21",
     "update-electron-app": "^3.0.0",

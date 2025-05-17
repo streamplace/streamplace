@@ -369,12 +369,12 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 		log.Debug(ctx, "publishing segment", "rendition", rs[i])
 		fd, err := ss.cli.SegmentFileCreate(spseg.Creator, aqt, fmt.Sprintf("%s.mp4", rs[i].Name))
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create transcoded segment file: %w", err)
 		}
 		defer fd.Close()
 		_, err = fd.Write(seg)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to write transcoded segment file: %w", err)
 		}
 		go ss.TryAddToHLS(ctx, spseg, rs[i].Name, seg)
 		go ss.mm.PublishSegment(ctx, spseg.Creator, rs[i].Name, &segchanman.Seg{

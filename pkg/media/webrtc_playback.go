@@ -28,9 +28,6 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 		return nil, err
 	}
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String())
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	ctx = log.WithLogValues(ctx, "mediafunc", "WebRTCPlayback")
 
 	pipelineSlice := []string{
@@ -42,13 +39,6 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: %w", err)
 	}
-
-	go func() {
-		if err := HandleBusMessages(ctx, pipeline); err != nil {
-			log.Log(ctx, "error handling bus messages", "error", err)
-		}
-		cancel()
-	}()
 
 	segBuffer := make(chan *segchanman.Seg, 1024)
 	go func() {
@@ -215,6 +205,15 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 	var lastVideoDuration = &DEFAULT_DURATION
 
 	go func() {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		go func() {
+			if err := HandleBusMessages(ctx, pipeline); err != nil {
+				log.Log(ctx, "error handling bus messages", "error", err)
+			}
+			cancel()
+		}()
 
 		videoappsink := app.SinkFromElement(videoappsinkele)
 		videoappsink.SetCallbacks(&app.SinkCallbacks{

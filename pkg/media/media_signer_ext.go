@@ -57,7 +57,7 @@ func MakeMediaSignerExt(ctx context.Context, cli *config.CLI, streamer string, k
 func (ms *MediaSignerExt) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
 	startTime := time.Now()
 	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4_Ext")
-	defer ctx.Done()
+	// defer ctx.Done()
 	defer span.End()
 	// Get the path to the current executable
 	execPath, err := os.Executable()

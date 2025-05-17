@@ -21,12 +21,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String(), "mediafunc", "WebRTCIngest")
-
-	// Setup the codecs you want to use.
-	// We'll use a VP8 and Opus but you can also define your own
 
 	// Create a new RTCPeerConnection
 	peerConnection, err := mm.webrtcAPI.NewPeerConnection(mm.webrtcConfig)
@@ -51,13 +46,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: %w", err)
 	}
-
-	go func() {
-		if err := HandleBusMessages(ctx, pipeline); err != nil {
-			log.Log(ctx, "error handling bus messages", "error", err)
-		}
-		cancel()
-	}()
 
 	queue, err := pipeline.GetElementByName("queue")
 	if err != nil {
@@ -152,6 +140,16 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	// Setup complete! Now we boot up streaming in the background while returning the SDP offer to the user.
 
 	go func() {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		go func() {
+			if err := HandleBusMessages(ctx, pipeline); err != nil {
+				log.Log(ctx, "pipeilne error", "error", err)
+			}
+			cancel()
+		}()
+
 		log.Debug(ctx, "starting pipeline")
 
 		// Start the pipeline

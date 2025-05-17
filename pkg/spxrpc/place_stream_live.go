@@ -73,7 +73,6 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
 	}
-	fmt.Printf("Got livestreams: %+v\n", ls)
 
 	streams := make([]*placestreamtypes.Livestream_LivestreamView, len(ls))
 
@@ -89,8 +88,6 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 		}
 		streams[i] = stream
 	}
-
-	fmt.Printf("got livestreams: %s", streams)
 
 	liveUsers := &placestreamtypes.LiveGetLiveUsers_Output{
 		Streams: streams,

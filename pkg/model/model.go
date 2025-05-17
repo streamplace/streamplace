@@ -72,6 +72,7 @@ type Model interface {
 	CreateLivestream(ctx context.Context, ls *Livestream) error
 	GetLatestLivestreamForRepo(repoDID string) (*Livestream, error)
 	GetLivestreamByPostCID(postCID string) (*Livestream, error)
+	GetLatestLivestreams(limit int, before *time.Time) ([]Livestream, error)
 
 	CreateBlock(ctx context.Context, block *Block) error
 	GetBlock(ctx context.Context, rkey string) (*Block, error)

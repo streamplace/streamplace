@@ -39,6 +39,8 @@ type Livestream_LivestreamView struct {
 	IndexedAt     string                                   `json:"indexedAt" cborgen:"indexedAt"`
 	Record        *util.LexiconTypeDecoder                 `json:"record" cborgen:"record"`
 	Uri           string                                   `json:"uri" cborgen:"uri"`
+	// viewerCount: The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly.
+	ViewerCount *Livestream_ViewerCount `json:"viewerCount,omitempty" cborgen:"viewerCount,omitempty"`
 }
 
 // Livestream_StreamplaceAnything is a "streamplaceAnything" in the place.stream.livestream schema.

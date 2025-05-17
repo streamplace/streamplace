@@ -75,3 +75,46 @@ func (m *DBModel) GetLivestreamByPostCID(postCID string) (*Livestream, error) {
 	}
 	return &livestream, nil
 }
+
+// GetLatestLivestreams returns the most recent livestreams, given a limit and a cursor
+// Only gets livestreams with a valid segment no less than 30 seconds old
+func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time) ([]Livestream, error) {
+	var recentLivestreams []Livestream
+	thirtySecondsAgo := time.Now().Add(-30 * time.Second)
+
+	// get latest segment for the repo DID
+	subQuery := m.DB.Table("segments").
+		Select("repo_did").
+		Where("(repo_did, start_time) IN (?)",
+			m.DB.Table("segments").
+				Select("repo_did, MAX(start_time)").
+				Group("repo_did")).
+		Where("start_time > ?", thirtySecondsAgo)
+
+	subQuery2 := m.DB.Table("livestreams").
+		Select("livestreams.*, ROW_NUMBER() OVER(PARTITION BY livestreams.repo_did ORDER BY livestreams.created_at DESC) as rn").
+		Joins("JOIN repos ON livestreams.repo_did = repos.did").
+		Where("livestreams.repo_did IN (?)", subQuery)
+
+	err := m.DB.Table("(?) as ranked_livestreams", subQuery2).
+		Where("ranked_livestreams.rn = 1").
+		// Apply the final ordering and limit to the set of latest-per-DID records.
+		Order("ranked_livestreams.created_at DESC").
+		Limit(limit).
+		Preload("Repo").               // Preload the Repo relationship on the final results
+		Find(&recentLivestreams).Error // Scan the results into your slice of Livestream structs
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching recent livestreams: %w", err)
+	}
+
+	if len(recentLivestreams) == 0 {
+		return nil, nil
+	}
+
+	return recentLivestreams, nil
+}

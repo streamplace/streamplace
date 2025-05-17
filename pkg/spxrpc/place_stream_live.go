@@ -12,6 +12,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/multiformats/go-multihash"
+	"stream.place/streamplace/pkg/spmetrics"
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
 
@@ -30,6 +31,7 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 
 	segments, err := s.model.LatestSegmentsForUser(userDID, limit, beforeTime)
 	if err != nil {
+		fmt.Printf("Error fetching segments: %s\n", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch segments")
 	}
 
@@ -56,6 +58,45 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 	}
 
 	return output, nil
+}
+
+func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before string, limit int) (*placestreamtypes.LiveGetLiveUsers_Output, error) {
+	var beforeTime *time.Time
+	if before != "" {
+		parsedTime, err := time.Parse(time.RFC3339, before)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid 'before' parameter: must be RFC3339 format")
+		}
+		beforeTime = &parsedTime
+	}
+	ls, err := s.model.GetLatestLivestreams(limit, beforeTime)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
+	}
+	fmt.Printf("Got livestreams: %+v\n", ls)
+
+	streams := make([]*placestreamtypes.Livestream_LivestreamView, len(ls))
+
+	for i, l := range ls {
+		stream, err := l.ToLivestreamView()
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert livestream to streamplace livestream: %s", err))
+		}
+		viewers := spmetrics.GetViewCount(stream.Author.Did)
+		stream.ViewerCount = &placestreamtypes.Livestream_ViewerCount{
+			LexiconTypeID: "place.stream.livestream#viewerCount",
+			Count:         int64(viewers),
+		}
+		streams[i] = stream
+	}
+
+	fmt.Printf("got livestreams: %s", streams)
+
+	liveUsers := &placestreamtypes.LiveGetLiveUsers_Output{
+		Streams: streams,
+	}
+
+	return liveUsers, nil
 }
 
 func getCID(record repo.CborMarshaler) (*cid.Cid, error) {

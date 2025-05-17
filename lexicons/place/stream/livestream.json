@@ -45,7 +45,12 @@
           "ref": "app.bsky.actor.defs#profileViewBasic"
         },
         "record": { "type": "unknown" },
-        "indexedAt": { "type": "string", "format": "datetime" }
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "viewerCount": {
+          "type": "ref",
+          "description": "The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly.",
+          "ref": "place.stream.livestream#viewerCount"
+        }
       }
     },
     "viewerCount": {

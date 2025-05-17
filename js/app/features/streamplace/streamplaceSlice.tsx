@@ -1,6 +1,8 @@
 import { isWeb } from "tamagui";
 import { createAppSlice } from "../../hooks/createSlice";
 import Storage from "../../storage";
+import { BlueskyState } from "features/bluesky/blueskyTypes";
+import { SegmentView } from "lexicons/types/place/stream/segment";
 
 let DEFAULT_URL = process.env.EXPO_PUBLIC_STREAMPLACE_URL as string;
 if (isWeb && process.env.EXPO_PUBLIC_WEB_TRY_LOCAL === "true") {
@@ -45,6 +47,7 @@ export interface StreamplaceState {
     loading: boolean;
     firstRequest: boolean;
   };
+  mySegments: SegmentView[];
   telemetry: boolean | null;
   userMuted: boolean | null;
   chatWarned: boolean;
@@ -60,6 +63,7 @@ const initialState: StreamplaceState = {
     loading: false,
     firstRequest: true,
   },
+  mySegments: [],
   telemetry: null,
   userMuted: null,
   chatWarned: false,
@@ -237,6 +241,7 @@ export const streamplaceSlice = createAppSlice({
           };
         },
         rejected: (state, err) => {
+          console.error("pollSegments rejected", err);
           return {
             ...state,
             recentSegments: {
@@ -248,12 +253,50 @@ export const streamplaceSlice = createAppSlice({
         },
       },
     ),
+
+    pollMySegments: create.asyncThunk(
+      async (_, { getState, dispatch }) => {
+        const { streamplace } = getState() as {
+          streamplace: StreamplaceState;
+        };
+        const { bluesky } = getState() as {
+          bluesky: BlueskyState;
+        };
+
+        if (!bluesky.pdsAgent) {
+          throw new Error("no pdsAgent");
+        }
+        return await bluesky.pdsAgent.place.stream.live.getSegments({
+          userDID: bluesky.oauthSession?.did,
+        });
+      },
+      {
+        pending: (state) => {
+          return {
+            ...state,
+          };
+        },
+        fulfilled: (state, action) => {
+          return {
+            ...state,
+            mySegments: action.payload.data.segments ?? [],
+          };
+        },
+        rejected: (state, err) => {
+          console.error("pollMySegments rejected", err);
+          return {
+            ...state,
+          };
+        },
+      },
+    ),
   }),
 
   selectors: {
     selectStreamplace: (streamplace) => streamplace,
     selectUrl: (streamplace) => streamplace.url,
     selectRecentSegments: (streamplace) => streamplace.recentSegments,
+    selectMySegments: (streamplace) => streamplace.mySegments,
     selectTelemetry: (streamplace) => streamplace.telemetry,
     selectUserMuted: (streamplace) => streamplace.userMuted,
     selectChatWarned: (streamplace) => streamplace.chatWarned,
@@ -266,6 +309,7 @@ export const {
   setURL,
   initialize,
   pollSegments,
+  pollMySegments,
   telemetryOpt,
   userMute,
   chatWarn,
@@ -273,6 +317,7 @@ export const {
 export const {
   selectStreamplace,
   selectRecentSegments,
+  selectMySegments,
   selectTelemetry,
   selectUserMuted,
   selectChatWarned,

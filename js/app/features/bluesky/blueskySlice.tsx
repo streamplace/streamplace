@@ -26,6 +26,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createAppSlice } from "../../hooks/createSlice";
 import { BlueskyState } from "./blueskyTypes";
 import createOAuthClient from "./oauthClient";
+import { StreamplaceAgent } from "./agent";
 
 const initialState: BlueskyState = {
   status: "start",
@@ -125,7 +126,7 @@ export const blueskySlice = createAppSlice({
               ...state,
               client: client,
               oauthSession: initResult.session as any,
-              pdsAgent: new Agent(initResult.session),
+              pdsAgent: new StreamplaceAgent(initResult.session),
             };
           }
           return {

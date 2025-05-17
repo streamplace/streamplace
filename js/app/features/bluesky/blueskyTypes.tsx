@@ -1,9 +1,9 @@
 import { OAuthSession } from "@streamplace/atproto-oauth-client-react-native";
-import { Agent } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { StreamKey } from "features/base/baseSlice";
 import { PlaceStreamChatProfile, PlaceStreamLivestream } from "lexicons";
 import { StreamplaceOAuthClient } from "./oauthClient";
+import { StreamplaceAgent } from "./agent";
 
 type NewLivestream = {
   loading: boolean;
@@ -15,7 +15,7 @@ export interface BlueskyState {
   status: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
   oauthSession: null | OAuthSession;
-  pdsAgent: null | Agent;
+  pdsAgent: null | StreamplaceAgent;
   profiles: { [key: string]: ProfileViewDetailed };
   client: null | StreamplaceOAuthClient;
   login: {

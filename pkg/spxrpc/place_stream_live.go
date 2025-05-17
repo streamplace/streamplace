@@ -16,6 +16,9 @@ import (
 )
 
 func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before string, limit int, userDID string) (*placestreamtypes.LiveGetSegments_Output, error) {
+	if userDID == "" {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "User DID is required")
+	}
 	var beforeTime *time.Time
 	if before != "" {
 		parsedTime, err := time.Parse(time.RFC3339, before)

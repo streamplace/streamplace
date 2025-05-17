@@ -118,10 +118,8 @@ func getLeakCount(t *testing.T) int {
 		go func() {
 			runtime.GC()
 			runtime.GC()
-			for {
-				if done {
-					break
-				}
+			for !done {
+
 				runtime.GC()
 				runtime.GC()
 				time.Sleep(500 * time.Millisecond)

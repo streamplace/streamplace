@@ -183,7 +183,7 @@ func branch() string {
 	if CI_COMMIT_TAG != "" {
 		return "latest"
 	} else if CI_COMMIT_BRANCH != "" {
-		return strings.Replace(CI_COMMIT_BRANCH, "/", "-", -1)
+		return strings.ReplaceAll(CI_COMMIT_BRANCH, "/", "-")
 	} else {
 		panic("CI_COMMIT_TAG and CI_COMMIT_BRANCH undefined, can't get branch")
 	}

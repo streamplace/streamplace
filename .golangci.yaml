@@ -1,5 +1,10 @@
 version: "2"
 linters:
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - -QF1003 # "could use tagged switch"
   disable:
     - unused
   exclusions:

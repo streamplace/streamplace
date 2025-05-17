@@ -204,7 +204,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					}
 				}()
 
-				codecName := strings.Split(track.Codec().RTPCodecCapability.MimeType, "/")[1]
+				codecName := strings.Split(track.Codec().MimeType, "/")[1]
 				log.Log(ctx, "Track has started", "payloadType", track.PayloadType(), "codecName", codecName)
 
 				// appSrc := pipelineForCodec(track, codecName)
@@ -244,7 +244,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 			}
 			if track.Kind() == webrtc.RTPCodecTypeAudio {
 
-				codecName := strings.Split(track.Codec().RTPCodecCapability.MimeType, "/")[1]
+				codecName := strings.Split(track.Codec().MimeType, "/")[1]
 				log.Log(ctx, "Track has started", "payloadType", track.PayloadType(), "codecName", codecName)
 
 				buf := make([]byte, 1400)

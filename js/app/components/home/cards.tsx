@@ -53,6 +53,8 @@ const StreamCard: React.FC<StreamCardProps> = ({
       backgroundColor="$gray3"
       borderRadius={borderRadius}
       overflow="hidden"
+      borderColor="#99889988"
+      borderWidth={2}
       alignItems={layoutHorizontal ? "center" : "stretch"}
       hoverStyle={{
         backgroundColor: "$gray6",

@@ -17,16 +17,19 @@ import { useEffect, useState } from "react";
 import { RefreshControl } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import {
-  H6,
   ScrollView,
   ScrollViewProps,
   useMedia,
   View,
   Image,
   Paragraph,
-  H4,
   H3,
+  Text,
 } from "tamagui";
+import {
+  LivestreamView,
+  Record as LivestreamRecord,
+} from "lexicons/types/place/stream/livestream";
 
 // as we're not using a specific grid library these are necessary
 // to constrain the cards
@@ -43,17 +46,6 @@ type StreamRecord = {
   };
   // The base URL of the streamed server
   url: string;
-};
-
-type Segment = {
-  id: string;
-  repoDID: string;
-  signingKeyDID: string;
-  startTime: string;
-  title?: string;
-  repo: Repo;
-  viewers: number;
-  streamRecord?: StreamRecord;
 };
 
 function getHomeScreenItemSize(media: UseMediaState): StreamCardSize {
@@ -99,13 +91,13 @@ function HomeScreenItem({
   avatarUrl,
   horizontal = false,
 }: {
-  item: Segment;
+  item: LivestreamView;
   media: UseMediaState;
   size: StreamCardSize;
   avatarUrl?: string;
   horizontal?: boolean;
 }) {
-  const user = item.repo?.handle || item.repoDID || item.signingKeyDID;
+  const user = item.author.handle || item.author.did;
   return (
     <AQLink
       to={{
@@ -120,21 +112,16 @@ function HomeScreenItem({
     >
       <StreamCardHorizontal
         size={size}
-        title={item.streamRecord?.title || "A livestream!"}
+        title={(item.record as LivestreamRecord).title || "A livestream!"}
         horizontal={horizontal}
-        thumbnailUrl={
-          item.signingKeyDID.startsWith("did:mock")
-            ? "https://picsum.photos/1600/900?rand=" + item.id
-            : // refresh the image every 2 minutes
-              `/api/playback/${user}/stream.png?bweh=${(Date.now() / 120000).toFixed(0)}`
-        }
+        thumbnailUrl={`/api/playback/${user}/stream.png?bweh=${(Date.now() / 120000).toFixed(0)}`}
         avatarUrl={
           avatarUrl ||
           "https://cdn.bsky.app/img/avatar/plain/did:plc:4ukwiehjoytl56ysom2pdwko/bafkreieal2i74ynzrvofia6fa3efqnyxmox76ohrfldt5kvls73lbspzdm@jpeg"
         }
         streamerName={user}
         category={[]}
-        viewers={item.viewers}
+        viewers={item.viewerCount?.count}
         isLive={true}
       />
     </AQLink>
@@ -162,7 +149,7 @@ export default function HomeScreen({
   const segments = realSegments;
   const media = useMedia();
 
-  const avis = useAvatars(segments.map((s) => s.repoDID));
+  const avis = useAvatars(segments.map((s) => s.author.did));
 
   useEffect(() => {
     dispatch(pollSegments());
@@ -176,17 +163,18 @@ export default function HomeScreen({
   }, [loading]);
 
   if (error) {
-    // Only show error if not using mock data
     if (loading) {
       return <Loading />;
     }
-    return (
-      <ErrorBox
-        onRetry={() => {
-          dispatch(pollSegments());
-        }}
-      />
-    );
+    if (!segments) {
+      return (
+        <ErrorBox
+          onRetry={() => {
+            dispatch(pollSegments());
+          }}
+        />
+      );
+    }
   }
 
   if (firstRequest && !segments.length) {
@@ -203,7 +191,7 @@ export default function HomeScreen({
   let cutSegs = segments.slice(firstRowCols);
 
   // fill in null data to pad out the list for grid display
-  let segs: (Segment | null)[] = cutSegs.concat(
+  let segs: (LivestreamView | null)[] = cutSegs.concat(
     Array((cols - (segments.length % cols)) % cols).fill(null),
   );
   if (cutSegs.length === 0 && segs.every((s) => s === null) && cols > 0) {
@@ -212,7 +200,7 @@ export default function HomeScreen({
   }
 
   // assemble rows
-  const rows: (Segment | null)[][] = [];
+  const rows: (LivestreamView | null)[][] = [];
   for (let i = 0; i < cutSegs.length; i += cols) {
     let row = cutSegs.slice(i, i + cols);
     // pad the last row with nulls if it's not full
@@ -224,119 +212,129 @@ export default function HomeScreen({
   }
 
   return (
-    <ScrollView
-      style={{
-        minHeight: "80%",
-        width: "100%",
-      }}
-      contentContainerStyle={contentContainerStyle} // Apply passed contentContainerStyle
-      refreshControl={
-        <RefreshControl
-          refreshing={manualRefresh}
-          onRefresh={() => {
-            dispatch(pollSegments());
-            setManualRefresh(true);
-          }}
-        />
-      }
-    >
-      <Container width="100%">
-        {segments.length > 0 && (
-          <View
-            flexDirection="row"
-            alignItems="center"
-            gap="$3"
-            marginVertical="$4"
-            paddingHorizontal="$0"
-          >
-            <LiveDot />
-            <Title>
-              {segments.length} {segments.length === 1 ? "person" : "people"}{" "}
-              live now
-            </Title>
-          </View>
-        )}
+    <>
+      {error && (
+        <Container width="100%" backgroundColor="$accentBackground">
+          <Text>
+            There was an error fetching the latest streams. You might be
+            offline? code: {error}
+          </Text>
+        </Container>
+      )}
+      <ScrollView
+        style={{
+          minHeight: "80%",
+          width: "100%",
+        }}
+        contentContainerStyle={contentContainerStyle} // Apply passed contentContainerStyle
+        refreshControl={
+          <RefreshControl
+            refreshing={manualRefresh}
+            onRefresh={() => {
+              dispatch(pollSegments());
+              setManualRefresh(true);
+            }}
+          />
+        }
+      >
+        <Container width="100%">
+          {segments.length > 0 && (
+            <View
+              flexDirection="row"
+              alignItems="center"
+              gap="$3"
+              marginVertical="$4"
+              paddingHorizontal="$0"
+            >
+              <LiveDot />
+              <Title>
+                {segments.length} {segments.length === 1 ? "person" : "people"}{" "}
+                live now
+              </Title>
+            </View>
+          )}
 
-        {segments.length === 0 && !loading && (
-          <View
-            f={1}
-            justifyContent="center"
-            alignItems="center"
-            minHeight="auto"
-            paddingVertical={42}
-          >
-            <Image
-              source={require("../../assets/images/jelly.png")}
-              height="$9"
-              width="$9"
-            />
-            <H3>No one is streaming right now</H3>
-            <Paragraph>Check back later?</Paragraph>
-          </View>
-        )}
-        {firstRowItems.length > 0 && (
-          <View flexDirection="row" gap={24} marginBottom={24} width="full">
-            {firstRowItems.map((item, itemIndex) => (
-              <View
-                key={item.id || `item${itemIndex}`}
-                flex={
-                  itemIndex == 0
-                    ? cols > 2
-                      ? firstRowItems.length < 2
-                        ? (FIRST_ROW_MAGIC_RATIO * 2) / cols
-                        : getPadPercentage(media) * cols
+          {segments.length === 0 && !loading && (
+            <View
+              f={1}
+              justifyContent="center"
+              alignItems="center"
+              minHeight="auto"
+              paddingVertical={42}
+            >
+              <Image
+                source={require("../../assets/images/jelly.png")}
+                height="$9"
+                width="$9"
+              />
+              <H3>No one is streaming right now</H3>
+              <Paragraph>Check back later?</Paragraph>
+            </View>
+          )}
+          {firstRowItems.length > 0 && (
+            <View flexDirection="row" gap={24} marginBottom={24} width="full">
+              {firstRowItems.map((item, itemIndex) => (
+                <View
+                  key={item.cid || `item${itemIndex}`}
+                  flex={
+                    itemIndex == 0
+                      ? cols > 2
+                        ? firstRowItems.length < 2
+                          ? (FIRST_ROW_MAGIC_RATIO * 2) / cols
+                          : getPadPercentage(media) * cols
+                        : cols
                       : cols
-                    : cols
-                }
-                justifyContent="center"
-              >
-                <HomeScreenItem
-                  item={item}
-                  media={media}
-                  size={size}
-                  avatarUrl={avis[item.repoDID]?.avatar}
-                  horizontal={itemIndex == 0 && cols > 2}
-                />
-              </View>
-            ))}
-          </View>
-        )}
+                  }
+                  justifyContent="center"
+                >
+                  <HomeScreenItem
+                    item={item}
+                    media={media}
+                    size={size}
+                    avatarUrl={avis[item.author.did]?.avatar}
+                    horizontal={itemIndex == 0 && cols > 2}
+                  />
+                </View>
+              ))}
+            </View>
+          )}
 
-        {segments.length > 0 && (
-          <View>
-            {rows.map((row, rowIndex) => (
-              <View
-                key={`row-${rowIndex}`}
-                flexDirection="row"
-                gap={24} // This is the gap between columns
-                marginBottom={24} // This is the gap between rows
-              >
-                {row.map((item, itemIndex) =>
-                  item !== null ? (
-                    <View
-                      key={item.id || `item-${rowIndex}-${itemIndex}`}
-                      flex={1}
-                    >
-                      <HomeScreenItem
-                        item={item}
-                        media={media}
-                        size={size}
-                        avatarUrl={avis[item.repoDID]?.avatar}
-                      />
-                    </View>
-                  ) : (
-                    <View
-                      key={`item-${rowIndex}-${itemIndex}`}
-                      flex={cols ** LAST_ROW_MAGIC_RATIO / cols}
-                    ></View>
-                  ),
-                )}
-              </View>
-            ))}
-          </View>
-        )}
-      </Container>
-    </ScrollView>
+          {segments.length > 0 && (
+            <View>
+              {rows.map((row, rowIndex) => (
+                <View
+                  key={`row-${rowIndex}`}
+                  flexDirection="row"
+                  gap={24} // This is the gap between columns
+                  marginBottom={24} // This is the gap between rows
+                >
+                  {row.map((item, itemIndex) =>
+                    item !== null ? (
+                      <View
+                        key={item.cid || `item-${rowIndex}-${itemIndex}`}
+                        flex={1}
+                      >
+                        <HomeScreenItem
+                          item={item}
+                          media={media}
+                          size={size}
+                          avatarUrl={avis[item.author.did]?.avatar}
+                        />
+                      </View>
+                    ) : (
+                      <View
+                        key={`item-${rowIndex}-${itemIndex}`}
+                        flex={cols ** LAST_ROW_MAGIC_RATIO / cols}
+                      ></View>
+                    ),
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+        </Container>
+      </ScrollView>
+    </>
   );
 }
 

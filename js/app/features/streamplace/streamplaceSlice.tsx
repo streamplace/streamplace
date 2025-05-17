@@ -3,6 +3,9 @@ import { createAppSlice } from "../../hooks/createSlice";
 import Storage from "../../storage";
 import { BlueskyState } from "features/bluesky/blueskyTypes";
 import { SegmentView } from "lexicons/types/place/stream/segment";
+import { LivestreamView } from "lexicons/types/place/stream/livestream";
+import { Agent } from "@atproto/api";
+import { StreamplaceAgent } from "features/bluesky/agent";
 
 let DEFAULT_URL = process.env.EXPO_PUBLIC_STREAMPLACE_URL as string;
 if (isWeb && process.env.EXPO_PUBLIC_WEB_TRY_LOCAL === "true") {
@@ -42,7 +45,7 @@ export interface StreamplaceState {
   identity: Identity | null;
   initialized: boolean;
   recentSegments: {
-    segments: Segment[];
+    segments: LivestreamView[];
     error: string | null;
     loading: boolean;
     firstRequest: boolean;
@@ -206,17 +209,19 @@ export const streamplaceSlice = createAppSlice({
         const { streamplace } = getState() as {
           streamplace: StreamplaceState;
         };
-        const res = await fetch(`${streamplace.url}/api/live-users`);
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`http ${res.status} ${text}`);
-        }
-        const data = await res.json();
-        if (!Array.isArray(data)) {
-          throw new Error("got non-array back from /api/live-users");
+        const { bluesky } = getState() as {
+          bluesky: BlueskyState;
+        };
+
+        let agent = bluesky.pdsAgent;
+
+        if (!agent) {
+          agent = new StreamplaceAgent(streamplace.url);
         }
 
-        return data;
+        let users = await agent.place.stream.live.getLiveUsers();
+
+        return users.data.streams;
       },
       {
         pending: (state) => {
@@ -233,7 +238,7 @@ export const streamplaceSlice = createAppSlice({
             ...state,
             recentSegments: {
               ...state.recentSegments,
-              segments: action.payload,
+              segments: action.payload || [],
               loading: false,
               error: null,
               firstRequest: false,

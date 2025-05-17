@@ -125,7 +125,8 @@ function HomeScreenItem({
         thumbnailUrl={
           item.signingKeyDID.startsWith("did:mock")
             ? "https://picsum.photos/1600/900?rand=" + item.id
-            : `https://stream.place/api/playback/${user}/stream.png`
+            : // refresh the image every 2 minutes
+              `/api/playback/${user}/stream.png?bweh=${(Date.now() / 120000).toFixed(0)}`
         }
         avatarUrl={
           avatarUrl ||

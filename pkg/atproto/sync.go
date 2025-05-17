@@ -172,7 +172,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				return fmt.Errorf("livestream url is not a string")
 			}
 			log.Debug(ctx, "livestream url", "url", url)
-			atsync.Model.CreateFeedPost(ctx, &model.FeedPost{
+			if err := atsync.Model.CreateFeedPost(ctx, &model.FeedPost{
 				CID:       cid,
 				CreatedAt: createdAt,
 				FeedPost:  recCBOR,
@@ -181,7 +181,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				Type:      "livestream",
 				URI:       aturi.String(),
 				IndexedAt: &now,
-			})
+			}); err != nil {
+				return fmt.Errorf("failed to create bluesky post: %w", err)
+			}
 		} else {
 			if rec.Reply == nil || rec.Reply.Root == nil {
 				return nil

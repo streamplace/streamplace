@@ -69,6 +69,11 @@ dev:
 	DYLD_LIBRARY_PATH=$(SHARED_DYLD_LIBRARY_PATH) \
 	go build -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
+.PHONY: golint
+golint:
+	PKG_CONFIG_PATH=$(SHARED_PKG_CONFIG_PATH) \
+	golangci-lint run -c ./.golangci.yaml
+
 .PHONY: dev-test
 dev-test:
 	PKG_CONFIG_PATH=$(SHARED_PKG_CONFIG_PATH) \

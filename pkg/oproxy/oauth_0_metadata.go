@@ -13,8 +13,7 @@ func (o *OProxy) HandleOAuthAuthorizationServer(c echo.Context) error {
 	c.Response().Header().Set("Access-Control-Allow-Origin", "*")
 	c.Response().Header().Set("Content-Type", "application/json")
 	c.Response().WriteHeader(200)
-	json.NewEncoder(c.Response().Writer).Encode(generateOAuthServerMetadata(o.host))
-	return nil
+	return json.NewEncoder(c.Response().Writer).Encode(generateOAuthServerMetadata(o.host))
 }
 
 func (o *OProxy) HandleOAuthProtectedResource(c echo.Context) error {

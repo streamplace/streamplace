@@ -86,7 +86,9 @@ func (a *StreamplaceAPI) HandleMP4Playback(ctx context.Context) httprouter.Handl
 			_, err := io.Copy(w, pr)
 			return err
 		})
-		g.Wait()
+		if err := g.Wait(); err != nil {
+			errors.WriteHTTPBadRequest(w, "request failed", err)
+		}
 	}
 }
 
@@ -138,7 +140,9 @@ func (a *StreamplaceAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handl
 			_, err := io.Copy(w, pr)
 			return err
 		})
-		g.Wait()
+		if err := g.Wait(); err != nil {
+			errors.WriteHTTPBadRequest(w, "request failed", err)
+		}
 	}
 }
 
@@ -168,7 +172,9 @@ func (a *StreamplaceAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Ha
 		}
 		w.WriteHeader(201)
 		w.Header().Add("Location", r.URL.Path)
-		w.Write([]byte(answer.SDP))
+		if _, err := w.Write([]byte(answer.SDP)); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -230,7 +236,9 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 		log.Log(ctx, "location", "location", location)
 		w.Header().Set("Location", location)
 		w.WriteHeader(201)
-		w.Write([]byte(answer.SDP))
+		if _, err := w.Write([]byte(answer.SDP)); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 

@@ -15,6 +15,8 @@ import (
 	"github.com/AxisCommunications/go-dpop"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
+
+	"stream.place/streamplace/pkg/log"
 )
 
 var OAuthSessionContextKey = oauthSessionContextKeyType{}
@@ -60,12 +62,16 @@ func (o *OProxy) OAuthMiddleware(next http.Handler) http.Handler {
 					"error":             "use_dpop_nonce",
 					"error_description": "Authorization server requires nonce in DPoP proof",
 				})
-				w.Write(bs)
+				if _, err := w.Write(bs); err != nil {
+					log.Error(ctx, "error writing response", "error", err)
+				}
 				return
 			}
 			o.slog.Error("oauth error", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			if _, err := w.Write([]byte(err.Error())); err != nil {
+				log.Error(ctx, "error writing response", "error", err)
+			}
 			return
 		}
 		if session == nil {
@@ -119,6 +125,9 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 	u.Fragment = ""
 
 	jkt, nonce, err := getJKT(dpopHeader)
+	if err != nil {
+		return nil, fmt.Errorf("%w", err)
+	}
 
 	session, err := o.loadOAuthSession(jkt)
 	if err != nil {

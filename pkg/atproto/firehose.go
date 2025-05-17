@@ -150,27 +150,27 @@ var CollectionFilter = []string{
 	constants.APP_BSKY_GRAPH_BLOCK,
 }
 
-func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) error {
+func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) {
 	ctx = log.WithLogValues(ctx, "event", "commit", "did", evt.Repo, "rev", evt.Rev, "seq", fmt.Sprintf("%d", evt.Seq), "func", "handleCommitEventOps")
 	now := time.Now()
 	atsync.LastSeen = now
 
 	if evt.TooBig {
 		log.Warn(ctx, "skipping tooBig events for now")
-		return nil
+		return
 	}
 
 	rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 	if err != nil {
 		log.Error(ctx, "failed to read repo from car", "err", err)
-		return nil
+		return
 	}
 
 	for _, op := range evt.Ops {
 		collection, rkey, err := syntax.ParseRepoPath(op.Path)
 		if err != nil {
 			log.Error(ctx, "invalid path in repo op", "eventKind", op.Action, "path", op.Path)
-			return nil
+			return
 		}
 		ctx = log.WithLogValues(ctx, "eventKind", op.Action, "collection", collection.String(), "rkey", rkey.String())
 
@@ -198,10 +198,6 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 		if err != nil {
 			log.Error(ctx, "failed to get repo", "err", err)
 			continue
-		}
-		if r == nil {
-			// someone we don't know aboutd
-			// continue
 		}
 		// log.Warn(ctx, "got record we care about", "collection", collection, "rkey", rkey)
 
@@ -254,5 +250,4 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 			log.Error(ctx, "unexpected record op kind")
 		}
 	}
-	return nil
 }

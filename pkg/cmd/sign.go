@@ -22,7 +22,9 @@ func Sign(ctx context.Context) error {
 	streamerName := fs.String("streamer", "", "streamer name")
 	taURL := fs.String("ta-url", "http://timestamp.digicert.com", "timestamp authority server for signing")
 	startTime := fs.Int64("start-time", 0, "start time of the stream")
-	fs.Parse(os.Args[2:])
+	if err := fs.Parse(os.Args[2:]); err != nil {
+		return err
+	}
 
 	keyBs, err := base58.Decode(*key)
 	if err != nil {
@@ -45,6 +47,9 @@ func Sign(ctx context.Context) error {
 	}
 
 	pub, err := aqpub.FromPublicKey(signer.Public().(*ecdsa.PublicKey))
+	if err != nil {
+		return err
+	}
 
 	ms := &media.MediaSignerLocal{
 		Signer:       signer,
@@ -60,7 +65,13 @@ func Sign(ctx context.Context) error {
 	}
 
 	mp4, err := ms.SignMP4(ctx, bytes.NewReader(inputBs), *startTime)
-	io.Copy(os.Stdout, bytes.NewReader(mp4))
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(os.Stdout, bytes.NewReader(mp4))
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

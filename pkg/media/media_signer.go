@@ -59,7 +59,10 @@ func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]
 		log.Log(ctx, "wrote new media signing certificate", "file", filepath.Join(pub.String(), CERT_FILE))
 	}
 	buf := bytes.Buffer{}
-	cli.DataFileRead(fSlice, &buf)
+	if err := cli.DataFileRead(fSlice, &buf); err != nil {
+		return nil, "", err
+	}
+
 	fPath := cli.DataFilePath(fSlice)
 	cert := buf.Bytes()
 	return cert, fPath, nil
@@ -157,6 +160,7 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 	span.End()
 
 	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_OutputBytes")
+	defer ctx.Done()
 	bs, err := output.Bytes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get output bytes: %w", err)

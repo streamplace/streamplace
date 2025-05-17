@@ -33,7 +33,7 @@ func TestMP4ToMPEGTS(t *testing.T) {
 		// Create temporary output file
 
 		g, _ := errgroup.WithContext(context.Background())
-		for i := 0; i < streamplaceTestCount; i++ {
+		for range streamplaceTestCount {
 			g.Go(func() error {
 				_, err := MP4ToMPEGTS(context.Background(), bytes.NewReader(bs), &buf)
 				return err
@@ -66,6 +66,7 @@ func TestMP4ToMPEGTSInvalid(t *testing.T) {
 	buf := bytes.Buffer{}
 
 	bs, err := io.ReadAll(inputFile)
+	require.NoError(t, err)
 
 	// Convert MP4 to MPEG-TS
 	_, err = MP4ToMPEGTS(context.Background(), bytes.NewReader(bs), &buf)

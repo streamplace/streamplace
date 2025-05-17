@@ -60,6 +60,7 @@ type WHEPConnection struct {
 func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, error) {
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// Prepare the configuration
 	config := webrtc.Configuration{}
@@ -172,12 +173,16 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, 
 	peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
 		log.Log(ctx, "ICE candidate", "candidate", candidate)
 	})
-	peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
+	if _, err := peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
 		Direction: webrtc.RTPTransceiverDirectionRecvonly,
-	})
-	peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
+	}); err != nil {
+		return nil, fmt.Errorf("failed to add video tranceiver: %w", err)
+	}
+	if _, err := peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
 		Direction: webrtc.RTPTransceiverDirectionRecvonly,
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("failed to add audio tranceiver: %w", err)
+	}
 
 	// Create an offer
 	offer, err := peerConnection.CreateOffer(nil)

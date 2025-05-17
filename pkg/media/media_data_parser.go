@@ -126,7 +126,7 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMed
 	}()
 
 	// Start the pipeline
-	if err := pipeline.BlockSetState(gst.StatePlaying); err != nil {
+	if err := pipeline.SetState(gst.StatePlaying); err != nil {
 		return nil, err
 	}
 

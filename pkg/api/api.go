@@ -297,7 +297,9 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 				log.Error(ctx, "error generating default card", "error", err)
 			}
 			w.Header().Set("Content-Type", "text/html")
-			w.Write(bs)
+			if _, err := w.Write(bs); err != nil {
+				log.Error(ctx, "error writing response", "error", err)
+			}
 		} else {
 			log.Warn(ctx, "error opening file", "error", err)
 			apierrors.WriteHTTPInternalServerError(w, "file not found", err)
@@ -340,7 +342,9 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 			return
 		}
 		w.Header().Set("Content-Type", "text/html")
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}), nil
 }
 
@@ -383,7 +387,9 @@ func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) http
 
 		copyHeader(w.Header(), resp.Header)
 		w.WriteHeader(resp.StatusCode)
-		io.Copy(w, resp.Body)
+		if _, err := io.Copy(w, resp.Body); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -507,7 +513,9 @@ func (a *StreamplaceAPI) HandleRecentSegments(ctx context.Context) httprouter.Ha
 			return
 		}
 		w.Header().Add("Content-Type", "application/json")
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -539,7 +547,40 @@ func (a *StreamplaceAPI) HandleUserRecentSegments(ctx context.Context) httproute
 			return
 		}
 		w.Header().Add("Content-Type", "application/json")
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
+	}
+}
+
+type LiveUsersResponse struct {
+	model.Segment
+	Viewers int `json:"viewers"`
+}
+
+func (a *StreamplaceAPI) HandleLiveUsers(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		repos, err := a.Model.MostRecentSegments()
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not get live users", err)
+			return
+		}
+		liveUsers := []LiveUsersResponse{}
+		for _, repo := range repos {
+			viewers := spmetrics.GetViewCount(repo.RepoDID)
+			liveUsers = append(liveUsers, LiveUsersResponse{
+				Segment: repo,
+				Viewers: viewers,
+			})
+		}
+		bs, err := json.Marshal(liveUsers)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not marshal live users", err)
+			return
+		}
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -561,7 +602,9 @@ func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle 
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal view count", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -583,7 +626,9 @@ func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Ha
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal signing keys", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -616,7 +661,9 @@ func (a *StreamplaceAPI) HandleChat(ctx context.Context) httprouter.Handle {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -655,7 +702,9 @@ func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 

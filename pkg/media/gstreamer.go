@@ -132,7 +132,9 @@ func SelfTest(ctx context.Context) error {
 	})
 
 	go func() {
-		HandleBusMessages(ctx, pipeline)
+		if err := HandleBusMessages(ctx, pipeline); err != nil {
+			log.Debug(ctx, "handle bus messages failed", "error", err)
+		}
 		cancel()
 	}()
 
@@ -197,7 +199,9 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 	if err != nil {
 		return err
 	}
-	pipeline.Add(signer)
+	if err := pipeline.Add(signer); err != nil {
+		return err
+	}
 
 	err = videoparse.Link(signer)
 	if err != nil {
@@ -258,18 +262,24 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
+		if err := pipeline.BlockSetState(gst.StateNull); err != nil {
+			log.Log(ctx, "failed to set pipline state", "error", err)
+		}
 		<-ctx.Done()
-		pipeline.BlockSetState(gst.StateNull)
 		mainLoop.Quit()
 	}()
 
 	go func() {
-		HandleBusMessages(ctx, pipeline)
+		if err := HandleBusMessages(ctx, pipeline); err != nil {
+			log.Log(ctx, "error handling bus messages", "error", err)
+		}
 		cancel()
 	}()
 
 	// Start the pipeline
-	pipeline.SetState(gst.StatePlaying)
+	if err := pipeline.SetState(gst.StatePlaying); err != nil {
+		log.Log(ctx, "failed to set pipline state", "error", err)
+	}
 
 	g, _ := errgroup.WithContext(ctx)
 

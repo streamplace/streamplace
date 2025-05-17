@@ -109,7 +109,7 @@ func (o *OProxy) loadOAuthSession(jkt string) (*OAuthSession, error) {
 	if session.Status() != OAuthSessionStateReady {
 		return session, nil
 	}
-	if session.UpstreamAccessTokenExp.Sub(time.Now()) > refreshWhenRemaining {
+	if time.Until(*session.UpstreamAccessTokenExp) > refreshWhenRemaining {
 		return session, nil
 	}
 
@@ -120,6 +120,9 @@ func (o *OProxy) loadOAuthSession(jkt string) (*OAuthSession, error) {
 		ClientId:    upstreamMeta.ClientID,
 		RedirectUri: upstreamMeta.RedirectURIs[0],
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize oauth client: %w", err)
+	}
 
 	dpopKey, err := jwk.ParseKey([]byte(session.UpstreamDPoPPrivateJWK))
 	if err != nil {

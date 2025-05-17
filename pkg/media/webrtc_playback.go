@@ -29,6 +29,7 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 	}
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String())
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	ctx = log.WithLogValues(ctx, "mediafunc", "WebRTCPlayback")
 
@@ -43,7 +44,9 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 	}
 
 	go func() {
-		HandleBusMessages(ctx, pipeline)
+		if err := HandleBusMessages(ctx, pipeline); err != nil {
+			log.Log(ctx, "error handling bus messages", "error", err)
+		}
 		cancel()
 	}()
 
@@ -300,7 +303,10 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 		})
 
 		// Start the pipeline
-		pipeline.SetState(gst.StatePlaying)
+		err := pipeline.SetState(gst.StatePlaying)
+		if err != nil {
+			log.Log(ctx, "failed to set pipeline state to null", "error", err)
+		}
 		spmetrics.ViewerInc(user)
 		defer spmetrics.ViewerDec(user)
 
@@ -326,9 +332,6 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 		// This will notify you when the peer has connected/disconnected
 		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 			log.Log(ctx, "Connection State has changed", "state", connectionState.String())
-			if connectionState == webrtc.ICEConnectionStateConnected {
-				// iceConnectedCtxCancel()
-			}
 		})
 
 		// Set the handler for Peer connection state

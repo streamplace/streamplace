@@ -49,7 +49,9 @@ func ResolveHandle(ctx context.Context, handle string) (string, error) {
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			io.Copy(io.Discard, resp.Body)
+			if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+				return "", fmt.Errorf("failed to copy resp body: %w", err)
+			}
 			return "", fmt.Errorf("unable to resolve handle")
 		}
 
@@ -100,7 +102,9 @@ func ResolveService(ctx context.Context, did string) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		io.Copy(io.Discard, resp.Body)
+		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+			return "", fmt.Errorf("failed to copy resp body: %w", err)
+		}
 		return "", fmt.Errorf("could not find identity in plc registry")
 	}
 

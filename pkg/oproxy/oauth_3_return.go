@@ -62,6 +62,9 @@ func (o *OProxy) Return(ctx context.Context, code string, iss string, state stri
 		ClientId:    upstreamMeta.ClientID,
 		RedirectUri: upstreamMeta.RedirectURIs[0],
 	})
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed initialize oauth client: %s", err))
+	}
 
 	jkt, _, err := parseState(state)
 	if err != nil {

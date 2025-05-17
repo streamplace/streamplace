@@ -168,7 +168,9 @@ func makeGit() error {
 	}
 
 	if *output != "" {
-		os.WriteFile(*output, []byte(out), 0644)
+		if err := os.WriteFile(*output, []byte(out), 0644); err != nil {
+			return err
+		}
 	} else {
 		fmt.Print(out)
 	}

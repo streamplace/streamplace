@@ -33,6 +33,8 @@ func (a *StreamplaceAPI) HandleDidJson(ctx context.Context) httprouter.Handle {
 			log.Error(ctx, "could not marshal did json", "error", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }

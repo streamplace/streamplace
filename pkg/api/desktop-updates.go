@@ -34,7 +34,7 @@ func formatRequest(r *http.Request) string {
 
 	// If this is a POST, add post data
 	if r.Method == "POST" {
-		r.ParseForm()
+		_ = r.ParseForm()
 		request = append(request, "\n")
 		request = append(request, r.Form.Encode())
 	}
@@ -139,7 +139,9 @@ func (a *StreamplaceAPI) HandleMacDesktopUpdates(ctx context.Context) httprouter
 		if err != nil {
 			log.Log(ctx, "error marshaling mac update manifest", "error", err)
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 

@@ -163,7 +163,6 @@ func (v *VerboseLogger) log(ctx context.Context, message string, fn func(string,
 			if glog.Level(ll) > highestLevel {
 				found = true
 				highestLevel = glog.Level(ll)
-			} else {
 			}
 		}
 	}

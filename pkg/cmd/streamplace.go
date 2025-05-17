@@ -70,7 +70,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	}
 	if selfTest {
 		runtime.GC()
-		pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+		if err := pprof.Lookup("goroutine").WriteTo(os.Stderr, 2); err != nil {
+			log.Error(context.Background(), "error creating pprof", "error", err)
+		}
 		fmt.Println("self-test successful!")
 		os.Exit(0)
 	}
@@ -111,7 +113,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		fmt.Println("self-test successful!")
 		os.Exit(0)
 	}
-	flag.Set("logtostderr", "true")
+	_ = flag.Set("logtostderr", "true")
 	vFlag := flag.Lookup("v")
 	fs := flag.NewFlagSet("streamplace", flag.ExitOnError)
 	cli := config.CLI{Build: build}
@@ -184,7 +186,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if err != nil {
 		return err
 	}
-	vFlag.Value.Set(*verbosity)
+	_ = vFlag.Value.Set(*verbosity)
 	log.SetColorLogger(cli.Color)
 	ctx := context.Background()
 	ctx = log.WithDebugValue(ctx, cli.Debug)
@@ -465,7 +467,9 @@ func handleSignals(ctx context.Context) error {
 		select {
 		case s := <-c:
 			if s == syscall.SIGABRT {
-				pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+				if err := pprof.Lookup("goroutine").WriteTo(os.Stderr, 2); err != nil {
+					log.Error(ctx, "failed to create pprof", "error", err)
+				}
 			}
 			log.Log(ctx, "caught signal, attempting clean shutdown", "signal", s)
 			return fmt.Errorf("%w signal=%v", ErrCaughtSignal, s)

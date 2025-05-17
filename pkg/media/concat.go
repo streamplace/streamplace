@@ -24,6 +24,7 @@ type ConcatStreamer interface {
 func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rendition string, streamer ConcatStreamer) (*gst.Element, <-chan struct{}, error) {
 	ctx = log.WithLogValues(ctx, "func", "ConcatStream")
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// make 1000000000000 elements!
 
@@ -363,11 +364,23 @@ func ConcatStream(ctx context.Context, pipeline *gst.Pipeline, user string, rend
 		}
 
 		log.Debug(ctx, "ending segment")
-		demux.SetState(gst.StateNull)
+		if err := demux.SetState(gst.StateNull); err != nil {
+			log.Error(ctx, "failed to set demux state", "error", err)
+			return
+		}
 		src.SetCallbacks(&app.SourceCallbacks{})
-		appsrc.SetState(gst.StateNull)
-		pipeline.Remove(demux)
-		pipeline.Remove(appsrc)
+		if err := appsrc.SetState(gst.StateNull); err != nil {
+			log.Error(ctx, "failed to set appsrc state", "error", err)
+			return
+		}
+		if err := pipeline.Remove(demux); err != nil {
+			log.Error(ctx, "failed to remove demux from pipleine", "error", err)
+			return
+		}
+		if err := pipeline.Remove(appsrc); err != nil {
+			log.Error(ctx, "failed to remove appsrc from pipleine", "error", err)
+			return
+		}
 		pr.Close()
 		pw.Close()
 	}

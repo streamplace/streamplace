@@ -225,6 +225,9 @@ func PrepareUpdater(cli *config.CLI) (*Updater, error) {
 	}
 
 	extra, err := app.PackageJSON()
+	if err != nil {
+		return nil, fmt.Errorf("package.json failed")
+	}
 
 	rt, ok := extra["runtimeVersion"]
 	if !ok {
@@ -292,7 +295,9 @@ func (a *StreamplaceAPI) HandleAppUpdates(ctx context.Context) http.HandlerFunc 
 		w.Header().Set("expo-protocol-version", "1")
 		w.Header().Set("expo-sfv-version", "0")
 		w.WriteHeader(http.StatusOK)
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 

@@ -92,6 +92,8 @@ func getLeakCount(t *testing.T) int {
 		return 0
 	}
 	process, err := os.FindProcess(os.Getpid())
+	require.NoError(t, err)
+
 	LeakReportMutex.Lock()
 	LeakReport = []string{}
 	LeakReportMutex.Unlock()
@@ -102,7 +104,7 @@ func getLeakCount(t *testing.T) int {
 		flushes = 5
 	}
 
-	for i := 0; i < flushes; i++ {
+	for range flushes {
 		ch := make(chan struct{})
 		done := false
 		go func() {

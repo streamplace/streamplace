@@ -15,6 +15,9 @@ func Stream(u string) error {
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("http status %s", resp.Status)
 	}
-	io.Copy(os.Stdout, resp.Body)
+	_, err = io.Copy(os.Stdout, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed copying body: %w", err)
+	}
 	return nil
 }

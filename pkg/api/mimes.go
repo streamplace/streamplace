@@ -26,7 +26,9 @@ func loadEmbeddedMimes() {
 			if ext[0] == '#' {
 				break
 			}
-			mime.AddExtensionType("."+ext, mimeType)
+			if err := mime.AddExtensionType("."+ext, mimeType); err != nil {
+				panic(err)
+			}
 		}
 	}
 	if err := scanner.Err(); err != nil {

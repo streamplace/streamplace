@@ -22,6 +22,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String(), "mediafunc", "WebRTCIngest")
 
 	// Setup the codecs you want to use.
@@ -52,7 +53,9 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	}
 
 	go func() {
-		HandleBusMessages(ctx, pipeline)
+		if err := HandleBusMessages(ctx, pipeline); err != nil {
+			log.Log(ctx, "error handling bus messages", "error", err)
+		}
 		cancel()
 	}()
 
@@ -162,9 +165,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		// This will notify you when the peer has connected/disconnected
 		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 			log.Log(ctx, "Connection State has changed", "state", connectionState.String())
-			if connectionState == webrtc.ICEConnectionStateConnected {
-				// iceConnectedCtxCancel()
-			}
 		})
 
 		// Set the handler for Peer connection state
@@ -286,18 +286,15 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 
 		<-ctx.Done()
 
-		err = pipeline.BlockSetState(gst.StateNull)
-		if err != nil {
+		if err := pipeline.BlockSetState(gst.StateNull); err != nil {
 			log.Log(ctx, "failed to set pipeline state to null", "error", err)
 		}
 
-		audioSrcElem.SetState(gst.StateNull)
-		if err != nil {
+		if err := audioSrcElem.SetState(gst.StateNull); err != nil {
 			log.Log(ctx, "failed to set audioSrcElem state to null", "error", err)
 		}
 
-		videoSrcElem.SetState(gst.StateNull)
-		if err != nil {
+		if err := videoSrcElem.SetState(gst.StateNull); err != nil {
 			log.Log(ctx, "failed to set videoSrcElem state to null", "error", err)
 		}
 

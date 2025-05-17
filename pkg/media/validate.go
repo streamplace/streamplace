@@ -77,7 +77,9 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader) error 
 	defer fd.Close()
 	go mm.replicator.NewSegment(ctx, buf)
 	r = bytes.NewReader(buf)
-	io.Copy(fd, r)
+	if _, err := io.Copy(fd, r); err != nil {
+		return err
+	}
 	scmSeg := &segchanman.Seg{
 		Filepath: fd.Name(),
 		Data:     buf,

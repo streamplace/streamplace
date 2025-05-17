@@ -21,7 +21,7 @@ func TestBusHandlerCleanup(t *testing.T) {
 
 	g, ctx := errgroup.WithContext(context.Background())
 	ctx = log.WithDebugValue(ctx, map[string]map[string]int{"func": {"TestBusHandler": 9}})
-	for i := 0; i < streamplaceTestCount; i++ {
+	for i := range streamplaceTestCount {
 		g.Go(func() error {
 			err := testBusHandlerCleanupInner(ctx, i)
 			if err == nil {
@@ -37,6 +37,7 @@ func TestBusHandlerCleanup(t *testing.T) {
 func testBusHandlerCleanupInner(ctx context.Context, i int) error {
 	ctx = log.WithLogValues(ctx, "func", "TestBusHandler")
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	pipeline, err := gst.NewPipeline(fmt.Sprintf("TestBusHandler-%d", i))
 	if err != nil {

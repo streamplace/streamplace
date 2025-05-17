@@ -76,6 +76,7 @@ import Sidebar, { ExternalDrawerItem } from "components/sidebar/sidebar";
 // probabl should move this
 import { store } from "store/store";
 import { loadStateFromStorage } from "features/base/sidebarSlice";
+import StreamList from "components/stream-list/stream-list";
 
 store.dispatch(loadStateFromStorage());
 

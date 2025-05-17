@@ -13,11 +13,8 @@ export const useLiveUser = (): boolean => {
     return false;
   }
   const record = mySegments[0].record as PlaceStreamSegment.Record;
-  console.log(new Date(record.startTime).getTime() - Date.now());
   if (Date.now() - new Date(record.startTime).getTime() < 1000 * 10) {
-    console.log("user is live", record.startTime);
     return true;
   }
-  console.log("user is not live", record.startTime);
   return false;
 };

@@ -76,33 +76,46 @@ func (m *DBModel) GetLivestreamByPostCID(postCID string) (*Livestream, error) {
 	return &livestream, nil
 }
 
+// type for livestream with seg start time
+type LivestreamWithSegmentStartTime struct {
+	Livestream
+	SegmentStartTime time.Time
+}
+
 // GetLatestLivestreams returns the most recent livestreams, given a limit and a cursor
 // Only gets livestreams with a valid segment no less than 30 seconds old
 func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time) ([]Livestream, error) {
-	var recentLivestreams []Livestream
+	var recentLivestreams []LivestreamWithSegmentStartTime
 	thirtySecondsAgo := time.Now().Add(-30 * time.Second)
 
 	// get latest segment for the repo DID
-	subQuery := m.DB.Table("segments").
-		Select("repo_did").
+	latestRecentSegmentsSubQuery := m.DB.Table("segments").
+		Select("repo_did, MAX(start_time) as latest_segment_start_time").
 		Where("(repo_did, start_time) IN (?)",
 			m.DB.Table("segments").
 				Select("repo_did, MAX(start_time)").
 				Group("repo_did")).
-		Where("start_time > ?", thirtySecondsAgo)
+		Where("start_time > ?", thirtySecondsAgo).
+		Group("repo_did")
 
-	subQuery2 := m.DB.Table("livestreams").
+	rankedLivestreamsSubQuery := m.DB.Table("livestreams").
 		Select("livestreams.*, ROW_NUMBER() OVER(PARTITION BY livestreams.repo_did ORDER BY livestreams.created_at DESC) as rn").
-		Joins("JOIN repos ON livestreams.repo_did = repos.did").
-		Where("livestreams.repo_did IN (?)", subQuery)
+		Joins("JOIN repos ON livestreams.repo_did = repos.did")
 
-	err := m.DB.Table("(?) as ranked_livestreams", subQuery2).
-		Where("ranked_livestreams.rn = 1").
-		// Apply the final ordering and limit to the set of latest-per-DID records.
-		Order("ranked_livestreams.created_at DESC").
+	mainQuery := m.DB.Table("(?) as ranked_livestreams", rankedLivestreamsSubQuery).
+		Joins("JOIN (?) as latest_segments ON ranked_livestreams.repo_did = latest_segments.repo_did", latestRecentSegmentsSubQuery).
+		Select("ranked_livestreams.*, latest_segments.latest_segment_start_time").
+		Where("ranked_livestreams.rn = 1")
+
+	if before != nil {
+		mainQuery = mainQuery.Where("latest_segments.latest_segment_start_time < ?", *before)
+	}
+
+	mainQuery = mainQuery.Order("ranked_livestreams.created_at DESC").
 		Limit(limit).
-		Preload("Repo").               // Preload the Repo relationship on the final results
-		Find(&recentLivestreams).Error // Scan the results into your slice of Livestream structs
+		Preload("Repo")
+
+	err := mainQuery.Find(&recentLivestreams).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -116,5 +129,14 @@ func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time) ([]Livestre
 		return nil, nil
 	}
 
-	return recentLivestreams, nil
+	var finalStreams []Livestream
+
+	// for each seg, put results in map if seg start time is after 30 seconds ago
+	for _, seg := range recentLivestreams {
+		if seg.SegmentStartTime.After(thirtySecondsAgo) {
+			finalStreams = append(finalStreams, seg.Livestream)
+		}
+	}
+
+	return finalStreams, nil
 }

@@ -41,7 +41,7 @@ func GenerateES256KCert(signer gocrypto.Signer) ([]byte, error) {
 	// pub := priv.Public().(*ecdsa.PublicKey)
 	// publicKeyBytes := elliptic.Marshal(elliptic.P256(), pub.X, pub.Y)
 	pub := signer.Public().(*ecdsa.PublicKey)
-	publicKeyBytes := elliptic.Marshal(crypto.S256(), pub.X, pub.Y)
+	publicKeyBytes := elliptic.Marshal(crypto.S256(), pub.X, pub.Y) //nolint:all
 	idhash := sha1.Sum(publicKeyBytes)
 	subjectKeyId := idhash[:]
 	hex := HexAddr(pub)

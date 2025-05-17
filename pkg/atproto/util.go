@@ -15,7 +15,8 @@ func ParsePubKey(pub crypto.PublicKey) (*atcrypto.PublicKeyK256, error) {
 	if !ok {
 		return nil, fmt.Errorf("public key is not an ECDSA public key")
 	}
-	publicKeyBytes := elliptic.Marshal(ethcrypto.S256(), ecdsaPub.X, ecdsaPub.Y)
+
+	publicKeyBytes := elliptic.Marshal(ethcrypto.S256(), ecdsaPub.X, ecdsaPub.Y) //nolint:all
 	atkey, err := atcrypto.ParsePublicUncompressedBytesK256(publicKeyBytes)
 	if err != nil {
 		return nil, err

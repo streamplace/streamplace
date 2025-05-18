@@ -79,7 +79,8 @@ func (m *DBModel) GetLivestreamByPostCID(postCID string) (*Livestream, error) {
 // type for livestream with seg start time
 type LivestreamWithSegmentStartTime struct {
 	Livestream
-	SegmentStartTime time.Time
+	// should be latest_segments.latest_segment_start_time in the query
+	LatestSegmentStartTime string
 }
 
 // GetLatestLivestreams returns the most recent livestreams, given a limit and a cursor
@@ -108,7 +109,7 @@ func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time) ([]Livestre
 		Where("ranked_livestreams.rn = 1")
 
 	if before != nil {
-		mainQuery = mainQuery.Where("latest_segments.latest_segment_start_time < ?", *before)
+		mainQuery = mainQuery.Where("livestreams.created_at < ?", *before)
 	}
 
 	mainQuery = mainQuery.Order("ranked_livestreams.created_at DESC").
@@ -133,8 +134,11 @@ func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time) ([]Livestre
 
 	// for each seg, put results in map if seg start time is after 30 seconds ago
 	for _, seg := range recentLivestreams {
-		if seg.SegmentStartTime.After(thirtySecondsAgo) {
+		layout := "2006-01-02 15:04:05.000+00:00"
+		segStartTime, _ := time.Parse(layout, seg.LatestSegmentStartTime)
+		if segStartTime.After(thirtySecondsAgo) {
 			finalStreams = append(finalStreams, seg.Livestream)
+			//fmt.Printf("seg start time: %s vs 30 seconds ago: %s\n", segStartTime, thirtySecondsAgo.UTC())
 		}
 	}
 

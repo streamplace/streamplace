@@ -109,6 +109,7 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 	errCh := make(chan error)
 	go func() {
 		err := HandleBusMessages(ctx, pipeline)
+		cancel()
 		errCh <- err
 		close(errCh)
 	}()
@@ -260,6 +261,7 @@ func JoinAudioVideo(ctx context.Context, seg *SegmentData, output io.Writer) err
 	errCh := make(chan error)
 	go func() {
 		err := HandleBusMessages(ctx, pipeline)
+		cancel()
 		errCh <- err
 		close(errCh)
 	}()

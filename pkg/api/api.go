@@ -127,7 +127,7 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(a.CLI, a.Model)
+	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model)
 	if err != nil {
 		return nil, err
 	}

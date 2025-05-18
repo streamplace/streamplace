@@ -41,7 +41,7 @@ func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]
 	if err != nil {
 		return nil, "", err
 	}
-	fSlice := []string{pub.String(), CERT_FILE}
+	fSlice := []string{pub.String(), CertFile}
 	exists, err := cli.DataFileExists(fSlice)
 	if err != nil {
 		return nil, "", err
@@ -56,7 +56,7 @@ func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]
 		if err != nil {
 			return nil, "", err
 		}
-		log.Log(ctx, "wrote new media signing certificate", "file", filepath.Join(pub.String(), CERT_FILE))
+		log.Log(ctx, "wrote new media signing certificate", "file", filepath.Join(pub.String(), CertFile))
 	}
 	buf := bytes.Buffer{}
 	if err := cli.DataFileRead(fSlice, &buf); err != nil {
@@ -108,7 +108,7 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 				},
 			},
 			{
-				"label": STREAMPLACE_METADATA,
+				"label": StreamplaceMetadata,
 				"data": obj{
 					"@context": obj{
 						"dc": "http://purl.org/dc/elements/1.1/",

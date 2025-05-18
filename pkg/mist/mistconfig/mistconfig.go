@@ -10,7 +10,7 @@ import (
 	"stream.place/streamplace/pkg/mist/misttriggers"
 )
 
-var STREAM_NAME = "stream"
+var StreamName = "stream"
 
 func Generate(cli *config.CLI) ([]byte, error) {
 	exec, err := os.Executable()
@@ -87,8 +87,8 @@ func Generate(cli *config.CLI) ([]byte, error) {
 			"trustedproxy":           []string{},
 		},
 		"streams": map[string]map[string]any{
-			STREAM_NAME: {
-				"name":          STREAM_NAME,
+			StreamName: {
+				"name":          StreamName,
 				"segmentsize":   1,
 				"source":        fmt.Sprintf("mkv-exec:%s stream %s/playback/$wildcard/stream.mkv", exec, cli.OwnInternalURL()),
 				"stop_sessions": false,

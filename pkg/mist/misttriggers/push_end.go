@@ -27,9 +27,9 @@ func ParsePushEndPayload(body MistTriggerBody) (PushEndPayload, error) {
 		return PushEndPayload{}, fmt.Errorf("expected 6 lines in PUSH_END payload but got %d. Payload: %s", len(lines), body)
 	}
 
-	pushId, err := strconv.Atoi(lines[0])
+	pushID, err := strconv.Atoi(lines[0])
 	if err != nil {
-		return PushEndPayload{}, fmt.Errorf("error converting pushId to number pushId=%s err=%w", lines[0], err)
+		return PushEndPayload{}, fmt.Errorf("error converting pushID to number pushID=%s err=%w", lines[0], err)
 	}
 
 	stats := &mistclient.MistPushStats{}
@@ -39,7 +39,7 @@ func ParsePushEndPayload(body MistTriggerBody) (PushEndPayload, error) {
 	}
 
 	return PushEndPayload{
-		PushID:            pushId,
+		PushID:            pushID,
 		StreamName:        lines[1],
 		Destination:       lines[2],
 		ActualDestination: lines[3],

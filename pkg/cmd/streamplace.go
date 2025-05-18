@@ -118,9 +118,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs := flag.NewFlagSet("streamplace", flag.ExitOnError)
 	cli := config.CLI{Build: build}
 	fs.StringVar(&cli.DataDir, "data-dir", config.DefaultDataDir(), "directory for keeping all streamplace data")
-	fs.StringVar(&cli.HttpAddr, "http-addr", ":38080", "Public HTTP address")
-	fs.StringVar(&cli.HttpInternalAddr, "http-internal-addr", "127.0.0.1:39090", "Private, admin-only HTTP address")
-	fs.StringVar(&cli.HttpsAddr, "https-addr", ":38443", "Public HTTPS address")
+	fs.StringVar(&cli.HTTPAddr, "http-addr", ":38080", "Public HTTP address")
+	fs.StringVar(&cli.HTTPInternalAddr, "http-internal-addr", "127.0.0.1:39090", "Private, admin-only HTTP address")
+	fs.StringVar(&cli.HTTPSAddr, "https-addr", ":38443", "Public HTTPS address")
 	fs.BoolVar(&cli.Secure, "secure", false, "Run with HTTPS. Required for WebRTC output")
 	cli.DataDirFlag(fs, &cli.TLSCertPath, "tls-cert", filepath.Join("tls", "tls.crt"), "Path to TLS certificate")
 	cli.DataDirFlag(fs, &cli.TLSKeyPath, "tls-key", filepath.Join("tls", "tls.key"), "Path to TLS key")

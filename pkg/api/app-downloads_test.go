@@ -98,15 +98,15 @@ func TestDownloadRedirects(t *testing.T) {
 	branch := "electron"
 	cli := &config.CLI{GitLabURL: "https://example.com/api/v4/projects/173"}
 	queryGitlab = func(url string) (io.ReadCloser, error) {
-		pkgUrl := fmt.Sprintf("%s/packages?order_by=created_at&sort=desc&package_name=%s", cli.GitLabURL, branch)
-		fileUrl := fmt.Sprintf("%s/packages/339/package_files", cli.GitLabURL)
+		pkgURL := fmt.Sprintf("%s/packages?order_by=created_at&sort=desc&package_name=%s", cli.GitLabURL, branch)
+		fileURL := fmt.Sprintf("%s/packages/339/package_files", cli.GitLabURL)
 		var bs []byte
-		if url == pkgUrl {
+		if url == pkgURL {
 			bs = packageRes
-		} else if url == fileUrl {
+		} else if url == fileURL {
 			bs = fileRes
 		} else {
-			return nil, fmt.Errorf("unknown url: '%s'  (wanted '%s' or '%s')", url, pkgUrl, fileUrl)
+			return nil, fmt.Errorf("unknown url: '%s'  (wanted '%s' or '%s')", url, pkgURL, fileURL)
 		}
 		r := bytes.NewReader(bs)
 		return io.NopCloser(r), nil
@@ -173,9 +173,9 @@ func TestDownloadRedirects(t *testing.T) {
 
 			handler := a.HandleAppDownload(context.Background())
 
-			reqUrl := fmt.Sprintf("/dl/%s/%s", branch, tt.in)
+			reqURL := fmt.Sprintf("/dl/%s/%s", branch, tt.in)
 
-			req := httptest.NewRequest("GET", reqUrl, nil)
+			req := httptest.NewRequest("GET", reqURL, nil)
 			rr := httptest.NewRecorder()
 
 			handler(rr, req, httprouter.Params{})

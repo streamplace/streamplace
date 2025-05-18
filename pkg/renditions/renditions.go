@@ -23,7 +23,7 @@ type Rendition struct {
 	Parent    *Rendition
 }
 
-type JsonProfile struct {
+type JSONProfile struct {
 	Name    string `json:"name,omitempty"`
 	Width   int    `json:"width,omitempty"`
 	Height  int    `json:"height,omitempty"`
@@ -36,8 +36,8 @@ type JsonProfile struct {
 	Quality uint   `json:"quality,omitempty"`
 }
 
-func (r Rendition) ToLivepeerProfile() JsonProfile {
-	p := JsonProfile{
+func (r Rendition) ToLivepeerProfile() JSONProfile {
+	p := JSONProfile{
 		Name:    r.Name,
 		Bitrate: r.Bitrate,
 		FPS:     r.Framerate.Num,
@@ -68,8 +68,8 @@ func (r Rendition) ToLivepeerProfile() JsonProfile {
 
 type Renditions []Rendition
 
-func (rs Renditions) ToLivepeerProfiles() []JsonProfile {
-	profiles := make([]JsonProfile, len(rs))
+func (rs Renditions) ToLivepeerProfiles() []JSONProfile {
+	profiles := make([]JSONProfile, len(rs))
 	for i, r := range rs {
 		profiles[i] = r.ToLivepeerProfile()
 	}

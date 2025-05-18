@@ -26,7 +26,7 @@ func codeUUID(prefix string) string {
 
 var urnPrefix = "urn:ietf:params:oauth:request_uri:"
 
-const UUID_LENGTH = 37
+const UUIDLength = 37
 
 func makeURN(jkt string) string {
 	uu, err := uuid.NewV7()
@@ -42,8 +42,8 @@ func parseURN(urn string) (string, string, error) {
 		return "", "", fmt.Errorf("invalid URN: %s", urn)
 	}
 	withoutPrefix := urn[len(urnPrefix):]
-	uu := withoutPrefix[:UUID_LENGTH]
-	suffix := withoutPrefix[UUID_LENGTH:]
+	uu := withoutPrefix[:UUIDLength]
+	suffix := withoutPrefix[UUIDLength:]
 	return suffix, uu, nil
 }
 
@@ -56,11 +56,11 @@ func makeState(jkt string) string {
 }
 
 func parseState(state string) (string, string, error) {
-	if len(state) < UUID_LENGTH {
+	if len(state) < UUIDLength {
 		return "", "", fmt.Errorf("invalid state: %s", state)
 	}
-	uu := state[:UUID_LENGTH]
-	suffix := state[UUID_LENGTH:]
+	uu := state[:UUIDLength]
+	suffix := state[UUIDLength:]
 	return suffix, uu, nil
 }
 

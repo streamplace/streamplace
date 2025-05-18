@@ -40,7 +40,7 @@ func (a *StreamplaceAPI) ServeInternalHTTP(ctx context.Context) error {
 		return err
 	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
-		s.Addr = a.CLI.HttpInternalAddr
+		s.Addr = a.CLI.HTTPInternalAddr
 		log.Log(ctx, "http server starting", "addr", s.Addr)
 		return s.ListenAndServe()
 	})
@@ -72,7 +72,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 
 		ms := time.Now().UnixMilli()
-		out := fmt.Sprintf("%s+%s_%d", mistconfig.STREAM_NAME, mediaSigner.Streamer(), ms)
+		out := fmt.Sprintf("%s+%s_%d", mistconfig.StreamName, mediaSigner.Streamer(), ms)
 		a.SignerCacheMu.Lock()
 		a.SignerCache[mediaSigner.Streamer()] = mediaSigner
 		a.SignerCacheMu.Unlock()

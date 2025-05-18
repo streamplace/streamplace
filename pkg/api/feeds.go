@@ -10,7 +10,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-func (a *StreamplaceAPI) HandleDidJson(ctx context.Context) httprouter.Handle {
+func (a *StreamplaceAPI) HandleDidJSON(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		host := req.Host
 		didJSON := map[string]any{

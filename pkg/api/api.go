@@ -185,7 +185,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("PUT", "/xrpc/*resource", xrpcHandler)
 	router.Handler("PATCH", "/xrpc/*resource", xrpcHandler)
 	router.Handler("DELETE", "/xrpc/*resource", xrpcHandler)
-	router.GET("/.well-known/did.json", a.HandleDidJson(ctx))
+	router.GET("/.well-known/did.json", a.HandleDidJSON(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
 	router.POST("/", a.HandleWebRTCIngest(ctx))
 	for _, redirect := range a.CLI.Redirects {
@@ -360,7 +360,7 @@ func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) http
 			return
 		}
 
-		fullstream := fmt.Sprintf("%s+%s", mistconfig.STREAM_NAME, stream)
+		fullstream := fmt.Sprintf("%s+%s", mistconfig.StreamName, stream)
 		prefix := fmt.Sprintf(tmpl, fullstream)
 		resource := params.ByName("resource")
 
@@ -405,7 +405,7 @@ func (a *StreamplaceAPI) FileHandler(ctx context.Context, fs http.Handler) http.
 }
 
 func (a *StreamplaceAPI) RedirectHandler(ctx context.Context) (http.Handler, error) {
-	_, tlsPort, err := net.SplitHostPort(a.CLI.HttpsAddr)
+	_, tlsPort, err := net.SplitHostPort(a.CLI.HTTPSAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -737,7 +737,7 @@ func (a *StreamplaceAPI) ServeHTTP(ctx context.Context) error {
 		return err
 	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
-		s.Addr = a.CLI.HttpAddr
+		s.Addr = a.CLI.HTTPAddr
 		log.Log(ctx, "http server starting", "addr", s.Addr)
 		return s.ListenAndServe()
 	})
@@ -749,7 +749,7 @@ func (a *StreamplaceAPI) ServeHTTPRedirect(ctx context.Context) error {
 		return err
 	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
-		s.Addr = a.CLI.HttpAddr
+		s.Addr = a.CLI.HTTPAddr
 		log.Log(ctx, "http tls redirecct server starting", "addr", s.Addr)
 		return s.ListenAndServe()
 	})
@@ -761,7 +761,7 @@ func (a *StreamplaceAPI) ServeHTTPS(ctx context.Context) error {
 		return err
 	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
-		s.Addr = a.CLI.HttpsAddr
+		s.Addr = a.CLI.HTTPSAddr
 		log.Log(ctx, "https server starting",
 			"addr", s.Addr,
 			"certPath", a.CLI.TLSCertPath,

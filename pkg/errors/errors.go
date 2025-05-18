@@ -14,7 +14,7 @@ type APIError struct {
 	Err    error  `json:"-"`
 }
 
-func writeHttpError(w http.ResponseWriter, msg string, status int, err error) APIError {
+func writeHTTPError(w http.ResponseWriter, msg string, status int, err error) APIError {
 	w.WriteHeader(status)
 
 	var errorDetail string
@@ -35,33 +35,33 @@ func writeHttpError(w http.ResponseWriter, msg string, status int, err error) AP
 
 // HTTP Errors
 func WriteHTTPUnauthorized(w http.ResponseWriter, msg string, err error) APIError {
-	return writeHttpError(w, msg, http.StatusUnauthorized, err)
+	return writeHTTPError(w, msg, http.StatusUnauthorized, err)
 }
 
 func WriteHTTPForbidden(w http.ResponseWriter, msg string, err error) APIError {
-	return writeHttpError(w, msg, http.StatusForbidden, err)
+	return writeHTTPError(w, msg, http.StatusForbidden, err)
 }
 
 func WriteHTTPBadRequest(w http.ResponseWriter, msg string, err error) APIError {
-	return writeHttpError(w, msg, http.StatusBadRequest, err)
+	return writeHTTPError(w, msg, http.StatusBadRequest, err)
 }
 
 func WriteHTTPUnsupportedMediaType(w http.ResponseWriter, msg string, err error) APIError {
-	return writeHttpError(w, msg, http.StatusUnsupportedMediaType, err)
+	return writeHTTPError(w, msg, http.StatusUnsupportedMediaType, err)
 }
 
 func WriteHTTPNotFound(w http.ResponseWriter, msg string, err error) APIError {
-	return writeHttpError(w, msg, http.StatusNotFound, err)
+	return writeHTTPError(w, msg, http.StatusNotFound, err)
 }
 
 func WriteHTTPInternalServerError(w http.ResponseWriter, msg string, err error) APIError {
-	return writeHttpError(w, msg, http.StatusInternalServerError, err)
+	return writeHTTPError(w, msg, http.StatusInternalServerError, err)
 }
 
 func WriteHTTPNotImplemented(w http.ResponseWriter, msg string, err error) APIError {
-	return writeHttpError(w, msg, http.StatusNotImplemented, err)
+	return writeHTTPError(w, msg, http.StatusNotImplemented, err)
 }
 
 func WriteHTTPTooManyRequests(w http.ResponseWriter, msg string) APIError {
-	return writeHttpError(w, msg, http.StatusTooManyRequests, nil)
+	return writeHTTPError(w, msg, http.StatusTooManyRequests, nil)
 }

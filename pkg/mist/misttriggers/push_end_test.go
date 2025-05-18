@@ -34,7 +34,7 @@ var pushEndPayloadInvalidNumber = MistTriggerBody(`
 	x
 `)
 
-var pushEndPayloadInvalidJson = MistTriggerBody(`
+var pushEndPayloadInvalidJSON = MistTriggerBody(`
 	1234
 	x
 	x
@@ -46,7 +46,7 @@ var pushEndPayloadInvalidJson = MistTriggerBody(`
 var badPushEndCases = []MistTriggerBody{
 	pushEndPayloadInvalidLines,
 	pushEndPayloadInvalidNumber,
-	pushEndPayloadInvalidJson,
+	pushEndPayloadInvalidJSON,
 }
 
 func TestItCanParseValidPushEndPayload(t *testing.T) {

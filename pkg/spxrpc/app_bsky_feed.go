@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/bluesky-social/indigo/api/bsky"
-	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/labstack/echo/v4"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
@@ -25,10 +24,10 @@ func parseFeedSkeleton(did string) (string, string, error) {
 	return fmt.Sprintf("did:%s:%s", matches[1], matches[2]), matches[3], nil
 }
 
-const FEED_LIVE_STREAMS = "live-streams"
-const FEED_ALL_STREAMS = "all-streams"
+const FeedLiveStreams = "live-streams"
+const FeedAllStreams = "all-streams"
 
-func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor string, feed string, limit int) (*appbskytypes.FeedGetFeedSkeleton_Output, error) {
+func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor string, feed string, limit int) (*bsky.FeedGetFeedSkeleton_Output, error) {
 	_, name, err := parseFeedSkeleton(feed)
 	if err != nil {
 		return nil, err
@@ -46,7 +45,7 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 	}
 	var posts []model.FeedPost
 	outCursor := ""
-	if name == FEED_ALL_STREAMS {
+	if name == FeedAllStreams {
 		posts, err = s.model.ListFeedPostsByType("livestream", limit, ts)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to list feed posts: %v", err))
@@ -56,7 +55,7 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 			ts := last.CreatedAt.UnixMilli()
 			outCursor = fmt.Sprintf("%d::%s", ts, last.CID)
 		}
-	} else if name == FEED_LIVE_STREAMS {
+	} else if name == FeedLiveStreams {
 		segs, err := s.model.MostRecentSegments()
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get recent segments: %v", err))

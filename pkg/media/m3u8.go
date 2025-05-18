@@ -15,12 +15,12 @@ import (
 )
 
 // how many segments are served in the live playlist?
-const LIVE_PLAYLIST_SIZE = 8
+const LivePlaylistSize = 8
 
 // how long should we keep old segments around?
-const RETAIN_SEGMENT_SIZE = LIVE_PLAYLIST_SIZE * 3
+const RetainSegmentSize = LivePlaylistSize * 3
 
-const INDEX_M3U8 = "index.m3u8"
+const IndexM3U8 = "index.m3u8"
 
 type Segment struct {
 	MSN      uint64 // media sequence number
@@ -65,7 +65,7 @@ func (r *M3U8Rendition) GetMediaLine(session string) string {
 	lines := []string{}
 	lines = append(lines, "#EXTM3U")
 	lines = append(lines, fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d", r.Rendition.Bitrate, r.Rendition.Width, r.Rendition.Height))
-	lines = append(lines, fmt.Sprintf("%s/%s?session=%s", r.Rendition.Name, INDEX_M3U8, session))
+	lines = append(lines, fmt.Sprintf("%s/%s?session=%s", r.Rendition.Name, IndexM3U8, session))
 	return strings.Join(lines, "\n")
 }
 
@@ -83,7 +83,7 @@ func (r *M3U8Rendition) GetPlaylist(session string) []byte {
 	lines := []string{}
 	lines = append(lines, "#EXTM3U")
 	lines = append(lines, "#EXT-X-VERSION:3")
-	startWith := len(r.Segments) - LIVE_PLAYLIST_SIZE
+	startWith := len(r.Segments) - LivePlaylistSize
 	if startWith < 0 {
 		startWith = 0
 	}
@@ -143,7 +143,7 @@ func (m *M3U8) GetMultivariantPlaylist(rendition string) []byte {
 // - 720p/segment00015.ts
 func (m *M3U8) GetFile(str string, session string, rendition string) ([]byte, error) {
 	str = strings.TrimPrefix(str, "/")
-	if str == INDEX_M3U8 {
+	if str == IndexM3U8 {
 		return m.GetMultivariantPlaylist(rendition), nil
 	}
 	parts := strings.Split(str, "/")
@@ -157,7 +157,7 @@ func (m *M3U8) GetFile(str string, session string, rendition string) ([]byte, er
 	if rend == nil {
 		return nil, fmt.Errorf("rendition not found")
 	}
-	if fStr == INDEX_M3U8 {
+	if fStr == IndexM3U8 {
 		return rend.GetPlaylist(session), nil
 	}
 	seg := rend.GetSegment(session, fStr)
@@ -173,9 +173,9 @@ func (r *M3U8Rendition) NewSegment(seg *Segment) error {
 	seg.MSN = r.MSN
 	r.MSN += 1
 	r.Segments = append(r.Segments, seg)
-	if len(r.Segments) > RETAIN_SEGMENT_SIZE {
+	if len(r.Segments) > RetainSegmentSize {
 		// Calculate how many segments to remove
-		removeCount := len(r.Segments) - RETAIN_SEGMENT_SIZE
+		removeCount := len(r.Segments) - RetainSegmentSize
 		// Remove the oldest segments (from the front of the slice)
 		r.Segments = r.Segments[removeCount:]
 	}

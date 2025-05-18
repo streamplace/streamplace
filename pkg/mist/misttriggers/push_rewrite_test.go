@@ -22,7 +22,7 @@ var pushRewritePayloadInvalid = MistTriggerBody(`
 	rtmp://127.0.0.1:1935/live/c447-3l8v-1vmz-ej5t
 `)
 
-var pushRewritePayloadBadUrl = MistTriggerBody(`
+var pushRewritePayloadBadURL = MistTriggerBody(`
 	http://hostname with spaces.com
 	127.0.0.1
 	c447-3l8v-1vmz-ej5t
@@ -40,7 +40,7 @@ func TestItCanParseAValidPushRewritePayload(t *testing.T) {
 func TestItCanRejectABadPushRewritePayload(t *testing.T) {
 	_, err := ParsePushRewritePayload(pushRewritePayloadInvalid)
 	require.Error(t, err)
-	_, err = ParsePushRewritePayload(pushRewritePayloadBadUrl)
+	_, err = ParsePushRewritePayload(pushRewritePayloadBadURL)
 	require.Error(t, err)
 }
 
@@ -81,7 +81,7 @@ func TestPushRewriteCanHandleFailureToHandle(t *testing.T) {
 }
 
 func TestPushRewriteCanErrorPushRewriteRequests(t *testing.T) {
-	rr := doPushRewriteRequest(t, pushRewritePayloadBadUrl, func(ctx context.Context, prp *PushRewritePayload) (string, error) {
+	rr := doPushRewriteRequest(t, pushRewritePayloadBadURL, func(ctx context.Context, prp *PushRewritePayload) (string, error) {
 		require.Fail(t, "test should be failing before it gets to me")
 		return "", nil
 	})

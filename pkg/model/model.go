@@ -29,8 +29,8 @@ type Model interface {
 	ListNotifications() ([]Notification, error)
 
 	CreatePlayerEvent(event PlayerEventAPI) error
-	ListPlayerEvents(playerId string) ([]PlayerEvent, error)
-	PlayerReport(playerId string) (map[string]any, error)
+	ListPlayerEvents(playerID string) ([]PlayerEvent, error)
+	PlayerReport(playerID string) (map[string]any, error)
 	ClearPlayerEvents() error
 
 	CreateSegment(segment *Segment) error

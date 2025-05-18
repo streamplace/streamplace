@@ -124,21 +124,21 @@ func (u *Updater) GetManifest(platform, runtime, prefix string) (*UpdateManifest
 	return &man, nil
 }
 
-var DEFAULT_KEY = "main"
+var DefaultKey = "main"
 
 // get keyid, with a default if there's not one
-func getKeyId(header string) string {
+func getKeyID(header string) string {
 	d, err := httpsfv.UnmarshalDictionary([]string{header})
 	if err != nil {
-		return DEFAULT_KEY
+		return DefaultKey
 	}
 	key, ok := d.Get("keyid")
 	if !ok {
-		return DEFAULT_KEY
+		return DefaultKey
 	}
 	keystr, ok := key.(httpsfv.Item).Value.(string)
 	if !ok {
-		return DEFAULT_KEY
+		return DefaultKey
 	}
 	return keystr
 }
@@ -157,7 +157,7 @@ func (u *Updater) GetManifestBytes(platform, runtime, signing, prefix string) ([
 	}
 	var header string
 	if u.SigningKey != nil {
-		keyid := getKeyId(signing)
+		keyid := getKeyID(signing)
 		msgHash := sha256.New()
 		_, err = msgHash.Write(bs)
 		if err != nil {

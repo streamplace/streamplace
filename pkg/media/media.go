@@ -28,10 +28,10 @@ import (
 	"github.com/piprate/json-gold/ld"
 )
 
-const CERT_FILE = "cert.pem"
-const SEGMENTS_DIR = "segments"
+const CertFile = "cert.pem"
+const SegmentsDir = "segments"
 
-var STREAMPLACE_METADATA = "place.stream.metadata"
+var StreamplaceMetadata = "place.stream.metadata"
 
 type MediaManager struct {
 	cli                 *config.CLI
@@ -202,13 +202,13 @@ func ParseSegmentAssertions(ctx context.Context, mani *manifeststore.Manifest) (
 	defer span.End()
 	var ass *manifeststore.ManifestAssertion
 	for _, a := range mani.Assertions {
-		if a.Label == STREAMPLACE_METADATA {
+		if a.Label == StreamplaceMetadata {
 			ass = &a
 			break
 		}
 	}
 	if ass == nil {
-		return nil, fmt.Errorf("couldn't find %s assertions", STREAMPLACE_METADATA)
+		return nil, fmt.Errorf("couldn't find %s assertions", StreamplaceMetadata)
 	}
 	proc := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")

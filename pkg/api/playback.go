@@ -178,8 +178,8 @@ func (a *StreamplaceAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Ha
 	}
 }
 
-const BEARER_PREFIX = "Bearer "
-const KEY_PREFIX = "0x"
+const BearerPrefix = "Bearer "
+const KeyPrefix = "0x"
 
 func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -198,11 +198,11 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 				errors.WriteHTTPUnauthorized(w, "authorization header required", nil)
 				return
 			}
-			if !strings.HasPrefix(auth, BEARER_PREFIX) {
+			if !strings.HasPrefix(auth, BearerPrefix) {
 				errors.WriteHTTPUnauthorized(w, "invalid authorization header (needs Bearer prefix)", nil)
 				return
 			}
-			encoded = auth[len(BEARER_PREFIX):]
+			encoded = auth[len(BearerPrefix):]
 			// it's easy to copy-paste a trailing or leading space, so clear those out
 			encoded = strings.TrimSpace(encoded)
 		}

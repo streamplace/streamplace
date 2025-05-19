@@ -31,25 +31,32 @@ When configuring the Streamplace output within the `obs-multi-rtmp` plugin, use
 the following recommended settings for optimal compatibility and audio handling
 during multistreaming:
 
-#### Recommended Configuration (WebRTC/WHIP)
-
-Using **WHIP with `ffmpeg_opus`** is recommended for stability reasons.
-
-- **Protocol:** WebRTC (WHIP)
-- **Server**: https://stream.place
-- **Audio Encoder:** `ffmpeg_opus`
-
-#### Alternative Configuration (RTMP)
-
-Streamplace also supports RTMP via this plugin. This configuration may be
-suitable if you are also multistreaming to platforms like Twitch that primarily
-use RTMP to avoid an audio re-encode.
+#### Recommended Configuration (RTMP)
 
 - **Protocol:** RTMP
-- **Server**: rtmps://stream.place:1935/live
+- **Server**: In live dashboard; for https://stream.place use
+  `rtmps://stream.place:1935/live`
 - **Audio Encoder:** _(Select an AAC encoder)_
 
-The image below illustrates where to configure these settings within the
+#### Alternative Configuration (WHIP)
+
+Streamplace also supports WHIP via this plugin. This configuration may be
+suitable if you are also multistreaming to platforms like YouTube that primarily
+use WHIP to avoid an audio re-encode.
+
+- **Protocol:** WebRTC (WHIP)
+- **Server**: In live dashboard; for https://stream.place use
+  https://stream.place
+- **Audio Encoder:** `ffmpeg_opus`
+
+### Multistreaming Settings in OBS
+
+Make sure, in your OBS settings, that you have the following settings:
+
+- **Keyframe Interval:** `1s`
+- **x264 Options:** `bframes=0`
+
+The image below shows where to configure these settings within the
 `obs-multi-rtmp` plugin interface in OBS.
 
-![Multistreaming settings in OBS using obs-multi-rtmp plugin.](obs-multistream.jpg "OBS Multistreaming Settings")
+![Multistreaming settings in OBS using obs-multi-rtmp plugin.](obsrtmp.jpg "OBS Multistreaming Settings")

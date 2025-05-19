@@ -21,7 +21,7 @@ order: 10
 2. [Visit Streamplace](https://stream.place) and log in to your account
 3. Navigate to the Live Dashboard
 4. Click "Stream from OBS"
-5. Select either `WHIP` (preferred) or `RTMP`.
+5. Select either `RTMP` (preferred) or `WHIP`.
 6. Click "Generate Stream Key"
    - The stream key will automatically be copied to your clipboard
 
@@ -37,12 +37,12 @@ order: 10
 1. Return to OBS Settings > Stream
 2. Configure the following:
    - Service:
-     - If using `WHIP`, select `WHIP`.
      - If using `RTMP`, select `Custom...`.
+     - If using `WHIP`, select `WHIP`.
    - Server:
-     - If using `WHIP`: `https://stream.place`
      - If using `RTMP`: `rtmps://stream.place:1935/live`
-   - Bearer Token (for WHIP) or Stream Key (for RTMP): _Paste your copied stream
+     - If using `WHIP`: `https://stream.place`
+   - Stream Key (for RTMP) or Bearer Token (for WHIP): _Paste your copied stream
      key_
 
 #### 2c. Output Configuration
@@ -55,8 +55,8 @@ order: 10
 #### 2d. Streaming Settings
 
 - Audio Encoder:
-  - For `WHIP`, use `ffmpeg_opus`.
   - For `RTMP`, choose an appropriate AAC encoder.
+  - For `WHIP`, use `ffmpeg_opus`.
 - Video Encoder: _(Select appropriate encoder, e.g. libx264/nvenc_h264)_
 
 #### 2e. Suggested Video Encoder Settings

@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/labstack/echo/v4"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )
 
@@ -63,7 +64,8 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 		for _, seg := range segs {
 			ls, err := s.model.GetLatestLivestreamForRepo(seg.RepoDID)
 			if err != nil {
-				return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get latest livestream: %v", err))
+				log.Error(ctx, "failed to get latest livestream, skipping", "repoDID", seg.RepoDID, "error", err)
+				continue
 			}
 			posts = append(posts, model.FeedPost{
 				URI: ls.PostURI,

@@ -26,8 +26,8 @@ func (o *OProxy) HandleOAuthAuthorize(c echo.Context) error {
 	if clientID == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "client_id is required")
 	}
-	redirectURL, err := o.Authorize(ctx, requestURI, clientID)
-	if err != nil {
+	redirectURL, redirectErr := o.Authorize(ctx, requestURI, clientID)
+	if redirectErr != nil {
 		// we're a redirect; if we fail we need to send the user back
 		jkt, _, err := parseURN(requestURI)
 		if err != nil {
@@ -45,7 +45,7 @@ func (o *OProxy) HandleOAuthAuthorize(c echo.Context) error {
 		}
 		q := u.Query()
 		q.Set("error", "authorize_failed")
-		q.Set("error_description", err.Error())
+		q.Set("error_description", redirectErr.Error())
 		u.RawQuery = q.Encode()
 		return c.Redirect(http.StatusTemporaryRedirect, u.String())
 	}

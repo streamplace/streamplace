@@ -19,7 +19,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID) error {
+func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool) error {
 	ctx = log.WithLogValues(ctx, "func", "handleCreateUpdate", "userDID", userDID, "rkey", rkey.String(), "cid", cid, "collection", collection.String())
 	now := time.Now()
 	r, err := atsync.Model.GetRepo(userDID)
@@ -275,28 +275,30 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, lsv)
 
-		log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", u, "createdAt", rec.CreatedAt, "repo", userDID)
-		notifications, err := atsync.Model.GetFollowersNotificationTokens(userDID)
-		if err != nil {
-			return err
-		}
-
-		nb := &notificationpkg.NotificationBlast{
-			Title: fmt.Sprintf("🔴 @%s is LIVE!", r.Handle),
-			Body:  rec.Title,
-			Data: map[string]string{
-				"path": fmt.Sprintf("/%s", r.Handle),
-			},
-		}
-		if atsync.Noter != nil {
-			err := atsync.Noter.Blast(ctx, notifications, nb)
+		if isUpdate {
+			log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", u, "createdAt", rec.CreatedAt, "repo", userDID)
+			notifications, err := atsync.Model.GetFollowersNotificationTokens(userDID)
 			if err != nil {
-				log.Error(ctx, "failed to blast notifications", "err", err)
-			} else {
-				log.Log(ctx, "sent notifications", "user", userDID, "count", len(notifications), "content", nb)
+				return err
 			}
-		} else {
-			log.Log(ctx, "no notifier configured, skipping notifications", "user", userDID, "count", len(notifications), "content", nb)
+
+			nb := &notificationpkg.NotificationBlast{
+				Title: fmt.Sprintf("🔴 @%s is LIVE!", r.Handle),
+				Body:  rec.Title,
+				Data: map[string]string{
+					"path": fmt.Sprintf("/%s", r.Handle),
+				},
+			}
+			if atsync.Noter != nil {
+				err := atsync.Noter.Blast(ctx, notifications, nb)
+				if err != nil {
+					log.Error(ctx, "failed to blast notifications", "err", err)
+				} else {
+					log.Log(ctx, "sent notifications", "user", userDID, "count", len(notifications), "content", nb)
+				}
+			} else {
+				log.Log(ctx, "no notifier configured, skipping notifications", "user", userDID, "count", len(notifications), "content", nb)
+			}
 		}
 
 	case *streamplace.Key:

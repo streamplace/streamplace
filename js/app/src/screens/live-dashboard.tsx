@@ -4,6 +4,7 @@ import { Player } from "components/player/player";
 import Loading from "components/loading/loading";
 import {
   selectIsReady,
+  selectNewLivestream,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
 import { useAppSelector } from "store/hooks";
@@ -16,6 +17,8 @@ import { Camera, FerrisWheel, X } from "@tamagui/lucide-icons";
 import { H6, Text } from "tamagui";
 import Waiting from "components/live-dashboard/waiting";
 import { selectTelemetry } from "features/streamplace/streamplaceSlice";
+import UpdateLivestream from "components/edit-livestream";
+import ButtonSelector from "components/button-selector";
 
 enum StreamSource {
   Start,
@@ -32,6 +35,8 @@ export default function LiveDashboard() {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
   );
+
+  const [page, setPage] = useState<"update" | "create">("create");
 
   const videoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node !== null) {
@@ -97,7 +102,18 @@ export default function LiveDashboard() {
           {closeButton}
         </View>
         <View f={1} ai="center" jc="center" fb={0}>
-          <CreateLivestream />
+          <ButtonSelector
+            values={[
+              { label: "Create", value: "create" },
+              { label: "Update", value: "update" },
+            ]}
+            selectedValue={page}
+            setSelectedValue={setPage}
+            maxWidth={250}
+            width="100%"
+          />
+          {page === "update" ? <UpdateLivestream /> : null}
+          {page === "create" ? <CreateLivestream /> : null}
         </View>
       </View>
     </VideoElementProvider>

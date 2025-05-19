@@ -71,6 +71,7 @@ const uploadThumbnail = async (
 ) => {
   if (customThumbnail) {
     try {
+      console.log("Is thumbnail undefined?", customThumbnail);
       const thumbnail = await pdsAgent.uploadBlob(customThumbnail);
       if (thumbnail.success) {
         console.log("Successfully uploaded thumbnail");
@@ -1011,6 +1012,101 @@ export const blueskySlice = createAppSlice({
       },
     ),
 
+    updateLivestreamRecord: create.asyncThunk(
+      async ({ title }: { title: string }, thunkAPI) => {
+        const now = new Date();
+        const { bluesky, streamplace } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+          streamplace: StreamplaceState;
+        };
+
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const profile = bluesky.profiles[did];
+        if (!profile) {
+          throw new Error("No profile");
+        }
+
+        // fetch the lastest few records just in case
+        const res = await bluesky.pdsAgent.com.atproto.repo.listRecords({
+          repo: did,
+          collection: "place.stream.livestream",
+          limit: 10,
+        });
+
+        // latest record that matches the streamplace url
+        const oldRecord = res.data.records.find((record) => {
+          let r2: PlaceStreamLivestream.Record = record.value as any;
+          r2.url === streamplace.url;
+        });
+
+        if (!oldRecord) {
+          throw new Error("No latest record");
+        }
+
+        let rkey = oldRecord.uri.split("/").pop();
+        let oldRecordValue: PlaceStreamLivestream.Record =
+          oldRecord.value as any;
+
+        if (!rkey) {
+          throw new Error("No rkey?");
+        }
+
+        const record: PlaceStreamLivestream.Record = {
+          title: title,
+          url: streamplace.url,
+          createdAt: new Date().toISOString(),
+          post: oldRecordValue.post,
+        };
+
+        await bluesky.pdsAgent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: "place.stream.livestream",
+          rkey,
+          record,
+        });
+        return record;
+      },
+      {
+        pending: (state) => {
+          return {
+            ...state,
+            newLivestream: {
+              loading: true,
+              error: null,
+              record: null,
+            },
+          };
+        },
+        fulfilled: (state, action) => {
+          return {
+            ...state,
+            newLivestream: {
+              loading: false,
+              error: null,
+              record: action.payload,
+            },
+          };
+        },
+        rejected: (state, action) => {
+          console.error("createLivestreamRecord rejected", action.error);
+          return {
+            ...state,
+            newLivestream: {
+              loading: false,
+              error: action.error?.message ?? null,
+              record: null,
+            },
+          };
+        },
+      },
+    ),
+
     getChatProfileRecordFromPDS: create.asyncThunk(
       async (_, thunkAPI) => {
         const { bluesky } = thunkAPI.getState() as { bluesky: BlueskyState };
@@ -1278,6 +1374,7 @@ export const {
   getStreamKeyRecords,
   deleteStreamKeyRecord,
   createLivestreamRecord,
+  updateLivestreamRecord,
   createChatProfileRecord,
   getChatProfileRecordFromPDS,
   chatPost,

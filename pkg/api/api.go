@@ -63,6 +63,7 @@ type StreamplaceAPI struct {
 	limitersMu    sync.Mutex
 	SignerCache   map[string]media.MediaSigner
 	SignerCacheMu sync.Mutex
+	op            *oproxy.OProxy
 }
 
 type WebsocketTracker struct {
@@ -71,7 +72,7 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oproxy.OProxy) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -90,6 +91,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712S
 		connTracker:      NewWebsocketTracker(cli.RateLimitWebsocket),
 		limiters:         make(map[string]*rate.Limiter),
 		SignerCache:      make(map[string]media.MediaSigner),
+		op:               op,
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {
@@ -129,22 +131,13 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	op := oproxy.New(&oproxy.Config{
-		Host:               a.CLI.PublicHost,
-		CreateOAuthSession: a.Model.CreateOAuthSession,
-		UpdateOAuthSession: a.Model.UpdateOAuthSession,
-		LoadOAuthSession:   a.Model.LoadOAuthSession,
-		Scope:              "atproto transition:generic",
-		UpstreamJWK:        a.CLI.JWK,
-		DownstreamJWK:      a.CLI.AccessJWK,
-	})
 
-	xrpc = op.OAuthMiddleware(xrpc)
+	xrpc = a.op.OAuthMiddleware(xrpc)
 	router := httprouter.New()
-	router.Handler("GET", "/oauth/*anything", op.Handler())
-	router.Handler("POST", "/oauth/*anything", op.Handler())
-	router.Handler("GET", "/.well-known/oauth-authorization-server", op.Handler())
-	router.Handler("GET", "/.well-known/oauth-protected-resource", op.Handler())
+	router.Handler("GET", "/oauth/*anything", a.op.Handler())
+	router.Handler("POST", "/oauth/*anything", a.op.Handler())
+	router.Handler("GET", "/.well-known/oauth-authorization-server", a.op.Handler())
+	router.Handler("GET", "/.well-known/oauth-protected-resource", a.op.Handler())
 	apiRouter := httprouter.New()
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
 	// old clients

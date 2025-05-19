@@ -36,11 +36,13 @@ func (fp *FeedPost) ToBskyPostView() (*bsky.FeedDefs_PostView, error) {
 		Cid:           fp.CID,
 		Uri:           fp.URI,
 		Author: &bsky.ActorDefs_ProfileViewBasic{
-			Did:    fp.RepoDID,
-			Handle: fp.Repo.Handle,
+			Did: fp.RepoDID,
 		},
 		Record:    &lexutil.LexiconTypeDecoder{Val: rec},
 		IndexedAt: fp.IndexedAt.UTC().Format(time.RFC3339Nano),
+	}
+	if fp.Repo != nil {
+		postView.Author.Handle = fp.Repo.Handle
 	}
 	return &postView, nil
 }

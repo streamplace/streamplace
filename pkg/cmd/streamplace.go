@@ -26,6 +26,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/replication/boring"
 	"stream.place/streamplace/pkg/rtmps"
@@ -335,9 +336,17 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return err
 	}
 
-	d := director.NewDirector(mm, mod, &cli, b)
-
-	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b, atsync, d)
+	op := oproxy.New(&oproxy.Config{
+		Host:               cli.PublicHost,
+		CreateOAuthSession: mod.CreateOAuthSession,
+		UpdateOAuthSession: mod.UpdateOAuthSession,
+		LoadOAuthSession:   mod.LoadOAuthSession,
+		Scope:              "atproto transition:generic",
+		UpstreamJWK:        cli.JWK,
+		DownstreamJWK:      cli.AccessJWK,
+	})
+	d := director.NewDirector(mm, mod, &cli, b, op)
+	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b, atsync, d, op)
 	if err != nil {
 		return err
 	}

@@ -89,6 +89,7 @@ type Model interface {
 	LoadOAuthSession(id string) (*oproxy.OAuthSession, error)
 	UpdateOAuthSession(id string, session *oproxy.OAuthSession) error
 	ListOAuthSessions() ([]oproxy.OAuthSession, error)
+	GetSessionByDID(did string) (*oproxy.OAuthSession, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {

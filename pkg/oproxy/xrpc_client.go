@@ -44,6 +44,7 @@ func (o *OProxy) GetXrpcClient(session *OAuthSession) (*XrpcClient, error) {
 			if err != nil {
 				o.slog.Error("failed to update OAuth session in OnDpopPdsNonceChanged", "error", err)
 			}
+			o.slog.Info("updated OAuth session in OnDpopPdsNonceChanged", "session", sess)
 		},
 	}
 	return &XrpcClient{client: xrpcClient, authArgs: authArgs}, nil
@@ -58,5 +59,5 @@ func (c *XrpcClient) Do(ctx context.Context, kind xrpc.XRPCRequestType, inpenc, 
 	if !ok {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return echo.NewHTTPError(xErr.StatusCode, xErr.Error())
+	return xErr
 }

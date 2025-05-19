@@ -17,6 +17,7 @@ import usePlatform from "hooks/usePlatform";
 import { Button, ScrollView, Sheet, Text, useMedia, View } from "tamagui";
 import { RichText } from "@atproto/api";
 import { ReactElement } from "react";
+import { isMention } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 
 export default function Chat({
   isChatVisible,
@@ -343,7 +344,7 @@ const ChatMessageText = ({
   // Process facets to add DID information for mentions
   rt.facets?.forEach((facet) => {
     facet.features.forEach((feature) => {
-      if (feature.$type === "app.bsky.richtext.facet#mention") {
+      if (isMention(feature)) {
         const mentionText = message.record.text.slice(
           facet.index.byteStart,
           facet.index.byteEnd,

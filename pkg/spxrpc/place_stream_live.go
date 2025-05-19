@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/multiformats/go-multihash"
 	"stream.place/streamplace/pkg/spmetrics"
+  
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
 
@@ -31,7 +32,6 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 
 	segments, err := s.model.LatestSegmentsForUser(userDID, limit, beforeTime)
 	if err != nil {
-		fmt.Printf("Error fetching segments: %s\n", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch segments")
 	}
 

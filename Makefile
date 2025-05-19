@@ -549,7 +549,8 @@ ci-upload-file:
 		"$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/$(upload_file)";
 
 .PHONY: release
-release:
+release: install
+	$(MAKE) lexicons
 	yarn run release
 
 .PHONY: ci-release

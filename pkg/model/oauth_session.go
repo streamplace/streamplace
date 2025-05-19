@@ -40,3 +40,11 @@ func (m *DBModel) ListOAuthSessions() ([]oproxy.OAuthSession, error) {
 	}
 	return sessions, nil
 }
+
+func (m *DBModel) GetSessionByDID(did string) (*oproxy.OAuthSession, error) {
+	var session oproxy.OAuthSession
+	if err := m.DB.Where("repo_did = ? AND revoked_at IS NULL", did).Order("updated_at DESC").First(&session).Error; err != nil {
+		return nil, err
+	}
+	return &session, nil
+}

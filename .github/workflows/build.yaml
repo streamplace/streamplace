@@ -23,7 +23,7 @@ jobs:
           - name: linux-arm64
             cmd: "make app && make linux-arm64"
           - name: windows-amd64
-            cmd: "make app && make windows-amd64"
+            cmd: "make app && make windows-amd64 && make desktop-windows"
           - name: android
             cmd: "make app && make android-release"
     steps:
@@ -37,6 +37,36 @@ jobs:
         run: |
           sudo apt install podman -y
           make in-container DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
+
+      - name: Upload bin artifacts
+        if: matrix.name == 'windows-amd64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-bin
+          path: ./bin/
+          retention-days: 1
+
+  windows-selftest:
+    name: windows-selftest
+    runs-on: windows-latest
+    needs: linux
+    steps:
+      - name: Download bin artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-bin
+          path: ./bin/
+
+      - name: Run Windows executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "running $PWD/bin/*.exe"
+          ./bin/*.exe
+          powershell -Command "Stop-Process -Name Streamplace"
+          cd "$LOCALAPPDATA/streamplace_desktop"
+          cd app-*
+          ./Streamplace.exe -- --self-test
 
   darwin:
     name: ${{ matrix.name }}

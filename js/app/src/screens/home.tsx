@@ -3,9 +3,9 @@ import AQLink from "components/aqlink";
 import ErrorBox from "components/error/error";
 import Loading from "components/loading/loading";
 import StreamCardHorizontal, { StreamCardSize } from "components/home/cards";
-import Container from "components/home/container";
+import Container from "components/container";
 import LiveDot from "components/home/live-dot";
-import Title from "components/home/title";
+import Title from "components/title";
 import {
   pollSegments,
   Repo,
@@ -30,6 +30,7 @@ import {
   LivestreamView,
   Record as LivestreamRecord,
 } from "lexicons/types/place/stream/livestream";
+import { AlertCircle, AlertTriangle } from "@tamagui/lucide-icons";
 
 // as we're not using a specific grid library these are necessary
 // to constrain the cards
@@ -47,6 +48,33 @@ type StreamRecord = {
   // The base URL of the streamed server
   url: string;
 };
+
+// Function to generate mock data for testing purposes
+function generateMockSegments(count: number): { streams: LivestreamView[] } {
+  const mockSegments: LivestreamView[] = [];
+  const baseDid = "did:plc:mockmockmockmockmockmockmockmockmock";
+
+  for (let i = 0; i < count; i++) {
+    const did = `${baseDid}${i}`;
+    const handle = `mockuser${i}`;
+    mockSegments.push({
+      uri: `at://did:plc:mockmockmockmockmockmockmockmockmock${i}/place.stream.livestream/mock${i}`,
+      cid: `bafycidmockcidmockcidmockcidmockcidmockcidmockcidm${i}`,
+      record: {
+        $type: "place.stream.livestream",
+        createdAt: new Date().toISOString(),
+        title: `Mock Stream ${i + 1}`,
+      } as LivestreamRecord,
+      author: {
+        did: did,
+        handle: handle,
+      },
+      indexedAt: new Date().toISOString(),
+      viewerCount: { count: Math.floor(Math.random() * 1000) },
+    });
+  }
+  return { streams: mockSegments };
+}
 
 function getHomeScreenItemSize(media: UseMediaState): StreamCardSize {
   if (media.gtXxl) {
@@ -115,16 +143,35 @@ function HomeScreenItem({
         title={(item.record as LivestreamRecord).title || "A livestream!"}
         horizontal={horizontal}
         thumbnailUrl={`/api/playback/${user}/stream.png?bweh=${(Date.now() / 120000).toFixed(0)}`}
-        avatarUrl={
-          avatarUrl ||
-          "https://cdn.bsky.app/img/avatar/plain/did:plc:4ukwiehjoytl56ysom2pdwko/bafkreieal2i74ynzrvofia6fa3efqnyxmox76ohrfldt5kvls73lbspzdm@jpeg"
-        }
+        avatarUrl={avatarUrl}
         streamerName={user}
         category={[]}
         viewers={item.viewerCount?.count}
         isLive={true}
       />
     </AQLink>
+  );
+}
+
+function PlaceholderItem() {
+  return (
+    <View flex={1} opacity={0} pointerEvents="none">
+      <StreamCardHorizontal
+        size={"sm"}
+        title={"you found a secret :)"}
+        horizontal={false}
+        thumbnailUrl={``}
+        avatarUrl={
+          "https://cdn.bsky.app/img/avatar/plain/did:plc:4ukwiehjoytl56ysom2pdwko/bafkreieal2i74ynzrvofia6fa3efqnyxmox76ohrfldt5kvls73lbspzdm@jpeg"
+        }
+        streamerName={
+          "hi! im here to pad out the grid so it doesn't look all wacky"
+        }
+        category={[]}
+        viewers={0}
+        isLive={false}
+      />
+    </View>
   );
 }
 
@@ -146,7 +193,9 @@ export default function HomeScreen({
   const dispatch = useAppDispatch();
   const [manualRefresh, setManualRefresh] = useState(false);
 
-  const segments = realSegments;
+  // Use mock data for development/testing if needed
+  //const segments = generateMockSegments(1).streams; // Uncomment this line to use mock data
+  const segments = realSegments; // Comment this line out if using mock data
   const media = useMedia();
 
   const avis = useAvatars(segments.map((s) => s.author.did));
@@ -214,12 +263,27 @@ export default function HomeScreen({
   return (
     <>
       {error && (
-        <Container width="100%" backgroundColor="$accentBackground">
-          <Text>
-            There was an error fetching the latest streams. You might be
-            offline? code: {error}
-          </Text>
-        </Container>
+        <View>
+          <Container
+            backgroundColor="#774316"
+            borderRadius="$4"
+            borderColor="#99889988"
+            borderWidth={2}
+            height="unset"
+            flexDirection="row"
+            alignItems="center"
+            justifyContent="flex-start"
+            paddingHorizontal="$3"
+            paddingVertical="$3"
+            gap="$3"
+          >
+            <AlertCircle size={24} minWidth={24} color="$white" />
+            <Text>
+              There was an error fetching the latest streams. You might be
+              offline? code: {error || "nocode"}
+            </Text>
+          </Container>
+        </View>
       )}
       <ScrollView
         style={{
@@ -277,13 +341,7 @@ export default function HomeScreen({
                 <View
                   key={item.cid || `item${itemIndex}`}
                   flex={
-                    itemIndex == 0
-                      ? cols > 2
-                        ? firstRowItems.length < 2
-                          ? (FIRST_ROW_MAGIC_RATIO * 2) / cols
-                          : getPadPercentage(media) * cols
-                        : cols
-                      : cols
+                    itemIndex == 0 && cols > 2 ? getPadPercentage(media) : 1
                   }
                   justifyContent="center"
                 >
@@ -296,6 +354,18 @@ export default function HomeScreen({
                   />
                 </View>
               ))}
+              {/* if cols > 2 (first el is horizontal) then pad the rest, else pad to 2 */}
+              {Array(
+                cols > 2
+                  ? cols - firstRowItems.length - 1
+                  : cols - firstRowItems.length,
+              )
+                .fill(null)
+                .map((i) => (
+                  <View key={`item-${i}`} flex={1}>
+                    <PlaceholderItem />
+                  </View>
+                ))}
             </View>
           )}
 
@@ -322,10 +392,9 @@ export default function HomeScreen({
                         />
                       </View>
                     ) : (
-                      <View
-                        key={`item-${rowIndex}-${itemIndex}`}
-                        flex={cols ** LAST_ROW_MAGIC_RATIO / cols}
-                      ></View>
+                      <View key={`item-${rowIndex}-${itemIndex}`} flex={1}>
+                        <PlaceholderItem />
+                      </View>
                     ),
                   )}
                 </View>
@@ -337,114 +406,3 @@ export default function HomeScreen({
     </>
   );
 }
-
-// function generateSegments(num: number = 32): Segment[] {
-//   if (num < 1) return [];
-//   const segments: Segment[] = Array.from({ length: num }, () =>
-//     generateSegment(),
-//   );
-
-//   return segments;
-// }
-// function generateSegment(overrides: Partial<Segment> = {}): Segment {
-//   const now = new Date();
-//   const blueskyDIDs = [
-//     "did:plc:5mu44cojafmxj6h3yaihy2nl",
-//     "did:plc:sibej6afldtetfanqhganjwg",
-//     "did:plc:b5ly66nko7iijwy2lktt3ctq",
-//     "did:plc:batsswaxvws26rr3gf7wvm7k",
-//     "did:plc:mpivxdlwzdjsb2kca6u2nwmp",
-//     "did:plc:lhbjaqqvdd4754apaj2tvrcc",
-//     "did:plc:sirkh6lr4qzftndgtssugecq",
-//     "did:plc:yc5i6nuv3ikize7ogzymuxdc",
-//     "did:plc:zkl3munj3wkryitomialsaeb",
-//     "did:plc:o776gyjla3op3s6unajlhtlc",
-//     "did:plc:ek4mtqkxgvqrpoia4bkhioon",
-//     "did:plc:m5xstnab7bsbor2ywjzdccbm",
-//     "did:plc:j5sogsw5ejwwo6megyxxdwri",
-//     "did:plc:4ske3eeybp4wtj4k2xpjhmj2",
-//     "did:plc:brhv3xvi7gmfv7e6d57j33qd",
-//     "did:plc:b7tjuc7sh76giutk44jkrtbe",
-//     "did:plc:qbjqfyhsrb3euldz3f2uze7d",
-//     "did:plc:to45nnl5mh4zz25hozyitbnw",
-//     "did:plc:iwmgpfnysyzkewdppodsy7h6",
-//     "did:plc:esu5gl65pt7p2azu53zzagfg",
-//     "did:plc:co7y2zamzs5jxpha27lxinsg",
-//     "did:plc:jvsnpavici3i2hbb23wp7rai",
-//     "did:plc:bexnuogium744jj6ibk4bhy3",
-//     "did:plc:npmp7gxfv7ojr4osmsbm6kfy",
-//     "did:plc:llgfbjvsqkaicezsf7mzjxr3",
-//     "did:plc:hkqmm7bhqjucm6xeitorj65t",
-//     "did:plc:xjxuc7gt7s3wdjil7txspyya",
-//   ];
-
-//   const randomRepoDID =
-//     overrides.repoDID ||
-//     blueskyDIDs[Math.floor(Math.random() * blueskyDIDs.length)];
-//   const user =
-//     overrides.repo?.handle ||
-//     overrides.repoDID ||
-//     overrides.signingKeyDID ||
-//     "user" + Math.floor(Math.random() * 1000);
-
-//   const livestreamTitles = [
-//     "Coding with Friends",
-//     "Building a React App8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-//     "Game Dev Stream",
-//     "Let's Play!8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-//     "Chill Vibes & Code",
-//     "React Native Tutorial8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-//     "Node.js Backend",
-//     "My First Streamo8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-//     "Live Coding Session",
-//     "Web3 Development",
-//     "Streaming Some Games",
-//     "A Random Stream",
-//     "DevOps Practice",
-//     "Frontend Fun",
-//     "Backend Bonanza",
-//     "Debugging Time",
-//     "Let's Code Together8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-//     "Building a SaaS8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-//     "Design and Code",
-//     "Gaming with the Crew",
-//     "Just Chatting",
-//     "Music and Code8q7hiqgf973b9qbilrhqo7obyo83qglfiyi!",
-//     "Art and Code",
-//     "Open Source Project",
-//     "Live Q&A",
-//     "Working on a Side Project",
-//     "Making a Mobile Game",
-//     "Tech Talk",
-//     "Learning a New Language",
-//     "Solving Problems Live",
-//   ];
-
-//   const randomTitle =
-//     overrides.title ||
-//     livestreamTitles[Math.floor(Math.random() * livestreamTitles.length)];
-
-//   return {
-//     id: overrides.id || Math.random().toString(36).substring(2, 15),
-//     repoDID: randomRepoDID,
-//     signingKeyDID:
-//       overrides.signingKeyDID ||
-//       "did:mock:example" + Math.random().toString(36).substring(2, 15),
-//     startTime: overrides.startTime || now.toISOString(),
-//     title: randomTitle,
-//     repo: overrides.repo || {
-//       did: randomRepoDID,
-//       handle: user, // Replace with actual handle lookup if possible
-//       pds: "bsky.social", // Replace with actual display name lookup if possible
-//       rootCid: "invalid", // Replace with actual avatar lookup if possible
-//       version: "0.1",
-//     },
-//     viewers: overrides.viewers || Math.floor(Math.random() * 100),
-//     streamRecord: overrides.streamRecord || {
-//       createdAt: now,
-//       title: randomTitle,
-//       url: "https://example.com/stream",
-//     },
-//     ...overrides,
-//   };
-// }

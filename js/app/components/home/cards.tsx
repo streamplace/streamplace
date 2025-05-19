@@ -9,7 +9,7 @@ interface StreamCardProps {
   size?: StreamCardSize;
   horizontal?: boolean;
   thumbnailUrl: string;
-  avatarUrl: string;
+  avatarUrl?: string;
   title?: string;
   streamerName?: string;
   viewers?: number;
@@ -17,7 +17,7 @@ interface StreamCardProps {
   isLive?: boolean;
 }
 
-const StreamCard: React.FC<StreamCardProps> = ({
+const StreamCard = ({
   size = "sm",
   horizontal = false,
   thumbnailUrl,
@@ -27,7 +27,7 @@ const StreamCard: React.FC<StreamCardProps> = ({
   viewers = 0,
   category = [],
   isLive = true,
-}) => {
+}: StreamCardProps) => {
   const media = useMedia();
 
   const layoutHorizontal = horizontal;
@@ -122,7 +122,9 @@ const StreamCard: React.FC<StreamCardProps> = ({
           flexShrink={0}
         >
           <Image
-            source={{ uri: avatarUrl }}
+            source={{
+              uri: avatarUrl || require("./../../assets/images/goose.png"),
+            }}
             style={{ width: "100%", height: "100%" }}
             resizeMode="cover"
           />

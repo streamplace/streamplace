@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
@@ -24,7 +23,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model) (*Server
 		cli:   cli,
 		model: model,
 	}
-	e.Use(s.ErrorHandlingMiddleware(ctx))
+	e.Use(s.ErrorHandlingMiddleware())
 	err := s.RegisterHandlersPlaceStream(e)
 	if err != nil {
 		return nil, err
@@ -46,13 +45,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.e.ServeHTTP(w, r)
 }
 
-func (s *Server) ErrorHandlingMiddleware(ctx context.Context) echo.MiddlewareFunc {
+func (s *Server) ErrorHandlingMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			req := c.Request()
-			uuid := uuid.New().String()
-			ctx = log.WithLogValues(ctx, "requestID", uuid, "method", req.Method, "path", req.URL.Path)
-			c.SetRequest(req.WithContext(ctx))
 			err := next(c)
 			if err == nil {
 				return nil

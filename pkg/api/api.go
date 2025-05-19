@@ -18,6 +18,7 @@ import (
 
 	"github.com/NYTimes/gziphandler"
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
@@ -126,14 +127,15 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 // api/playback/iame.li/hls/source/000000000000.ts
 
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
+
 	var xrpc http.Handler
 	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model)
 	if err != nil {
 		return nil, err
 	}
-
 	xrpc = a.op.OAuthMiddleware(xrpc)
 	router := httprouter.New()
+
 	router.Handler("GET", "/oauth/*anything", a.op.Handler())
 	router.Handler("POST", "/oauth/*anything", a.op.Handler())
 	router.Handler("GET", "/.well-known/oauth-authorization-server", a.op.Handler())
@@ -243,9 +245,21 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	handler = sloghttp.New(slog.Default())(handler)
 	handler = a.RateLimitMiddleware(ctx)(handler)
 
+	// this needs to be LAST so nothing else clobbers the context
+	handler = a.ContextMiddleware(ctx)(handler)
+
 	return handler, nil
 }
-
+func (a *StreamplaceAPI) ContextMiddleware(ctx context.Context) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			uuid := uuid.New().String()
+			ctx = log.WithLogValues(ctx, "requestID", uuid, "method", r.Method, "path", r.URL.Path)
+			r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
 func copyHeader(dst, src http.Header) {
 	for k, vv := range src {
 		// we'll handle CORS ourselves, thanks

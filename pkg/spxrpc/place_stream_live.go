@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/multiformats/go-multihash"
 	"stream.place/streamplace/pkg/spmetrics"
-  
+
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
 

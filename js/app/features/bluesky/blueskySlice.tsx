@@ -331,7 +331,6 @@ export const blueskySlice = createAppSlice({
           };
         },
         rejected: (state, action) => {
-          clearQueryParams();
           // state.status = "failed";
         },
       },

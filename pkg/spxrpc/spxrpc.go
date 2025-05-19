@@ -49,9 +49,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) ErrorHandlingMiddleware(ctx context.Context) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			req := c.Request()
 			uuid := uuid.New().String()
-			ctx = log.WithLogValues(ctx, "requestID", uuid)
-			c.SetRequest(c.Request().WithContext(ctx))
+			ctx = log.WithLogValues(ctx, "requestID", uuid, "method", req.Method, "path", req.URL.Path)
+			c.SetRequest(req.WithContext(ctx))
 			err := next(c)
 			if err == nil {
 				return nil

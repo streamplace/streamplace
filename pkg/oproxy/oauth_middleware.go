@@ -124,7 +124,7 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 		return nil, fmt.Errorf("could not get oauth session: %w", err)
 	}
 	if session == nil {
-		return nil, fmt.Errorf("oauth session not found")
+		return nil, nil
 	}
 	if session.RevokedAt != nil {
 		return nil, fmt.Errorf("oauth session revoked")

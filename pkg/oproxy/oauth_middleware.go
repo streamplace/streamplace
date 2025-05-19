@@ -63,6 +63,7 @@ func (o *OProxy) OAuthMiddleware(next http.Handler) http.Handler {
 				w.Write(bs)
 				return
 			}
+			o.slog.Error("oauth error", "error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return

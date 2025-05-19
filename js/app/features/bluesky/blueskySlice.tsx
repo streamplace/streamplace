@@ -313,8 +313,6 @@ export const blueskySlice = createAppSlice({
           // state.status = "loading";
         },
         fulfilled: (state, action) => {
-          clearQueryParams();
-
           let payload: AppBskyActorGetProfiles.Response = action.payload;
           let parsedProfiles = {};
           console.log(payload);

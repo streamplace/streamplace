@@ -95,7 +95,7 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 		return nil, nil
 	}
 	if !strings.HasPrefix(authHeader, "DPoP ") {
-		return nil, fmt.Errorf("invalid authorization header (must start with DPoP)")
+		return nil, nil
 	}
 	token := strings.TrimPrefix(authHeader, "DPoP ")
 

@@ -340,7 +340,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		Host:               cli.PublicHost,
 		CreateOAuthSession: mod.CreateOAuthSession,
 		UpdateOAuthSession: mod.UpdateOAuthSession,
-		LoadOAuthSession:   mod.LoadOAuthSession,
+		GetOAuthSession:    mod.LoadOAuthSession,
 		Scope:              "atproto transition:generic",
 		UpstreamJWK:        cli.JWK,
 		DownstreamJWK:      cli.AccessJWK,

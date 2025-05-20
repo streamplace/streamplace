@@ -37,7 +37,7 @@ func (o *OProxy) HandleOAuthReturn(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse URN: %s", err))
 		}
 
-		session, err := o.loadOAuthSession(jkt)
+		session, err := o.getOAuthSession(jkt)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to load OAuth session jkt=%s: %s", jkt, err))
 		}
@@ -68,7 +68,7 @@ func (o *OProxy) Return(ctx context.Context, code string, iss string, state stri
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse state: %s", err))
 	}
 
-	session, err := o.loadOAuthSession(jkt)
+	session, err := o.getOAuthSession(jkt)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to get OAuth session: %s", err))
 	}

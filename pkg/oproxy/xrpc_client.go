@@ -34,7 +34,7 @@ func (o *OProxy) GetXrpcClient(session *OAuthSession) (*XrpcClient, error) {
 
 	xrpcClient := &oauth.XrpcClient{
 		OnDpopPdsNonceChanged: func(did, newNonce string) {
-			sess, err := o.loadOAuthSession(session.DownstreamDPoPJKT)
+			sess, err := o.getOAuthSession(session.DownstreamDPoPJKT)
 			if err != nil {
 				o.slog.Error("failed to get OAuth session in OnDpopPdsNonceChanged", "error", err)
 				return

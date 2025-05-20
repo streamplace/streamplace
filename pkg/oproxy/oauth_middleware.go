@@ -52,7 +52,7 @@ func (o *OProxy) OAuthMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Expose-Headers", "DPoP-Nonce")
 
 		ctx := r.Context()
-		session, err := o.getOAuthSession(r, w)
+		session, err := o.getOAuthSessionFromHeader(r, w)
 		if err != nil {
 			if errors.Is(err, dpop.ErrIncorrectNonce) {
 				// w.Header().Set("WWW-Authenticate", `DPoP error="use_dpop_nonce", error_description="Invalid nonce"`)
@@ -90,7 +90,7 @@ func getMethod(method string) (dpop.HTTPVerb, error) {
 	return "", fmt.Errorf("invalid method")
 }
 
-func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuthSession, error) {
+func (o *OProxy) getOAuthSessionFromHeader(r *http.Request, w http.ResponseWriter) (*OAuthSession, error) {
 
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
@@ -122,7 +122,7 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 
 	jkt, dpopClaims, err := getJKT(dpopHeader)
 
-	session, err := o.loadOAuthSession(jkt)
+	session, err := o.getOAuthSession(jkt)
 	if err != nil {
 		return nil, fmt.Errorf("could not get oauth session: %w", err)
 	}
@@ -217,7 +217,7 @@ func (o *OProxy) DPoPNonceMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 
-		session, err := o.loadOAuthSession(jkt)
+		session, err := o.getOAuthSession(jkt)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}

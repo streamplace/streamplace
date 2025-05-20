@@ -24,7 +24,7 @@ func (s *Store) CreateOAuthSession(id string, session *oproxy.OAuthSession) erro
 	return s.DB.Create(session).Error
 }
 
-func (s *Store) LoadOAuthSession(id string) (*oproxy.OAuthSession, error) {
+func (s *Store) GetOAuthSession(id string) (*oproxy.OAuthSession, error) {
 	var session oproxy.OAuthSession
 	if err := s.DB.Where("downstream_dpop_jkt = ?", id).First(&session).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -65,7 +65,7 @@ func (o *OProxy) HandleOAuthToken(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	sess, err := o.loadOAuthSession(jkt)
+	sess, err := o.getOAuthSession(jkt)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (o *OProxy) Token(ctx context.Context, tokenRequest *TokenRequest, dpopHead
 	}
 
 	jkt := proof.PublicKey()
-	session, err := o.loadOAuthSession(jkt)
+	session, err := o.getOAuthSession(jkt)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("could not get oauth session: %s", err))
 	}

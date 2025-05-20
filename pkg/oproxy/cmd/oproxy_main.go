@@ -63,7 +63,7 @@ func Run() error {
 		Host:               *host,
 		CreateOAuthSession: store.CreateOAuthSession,
 		UpdateOAuthSession: store.UpdateOAuthSession,
-		LoadOAuthSession:   store.LoadOAuthSession,
+		GetOAuthSession:    store.GetOAuthSession,
 		Scope:              "atproto transition:generic",
 		// UpstreamJWK:        cli.JWK,
 		// DownstreamJWK:      cli.AccessJWK,

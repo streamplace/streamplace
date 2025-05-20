@@ -40,7 +40,7 @@ func (o *OProxy) Revoke(ctx context.Context, dpopHeader string, revokeRequest *R
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid DPoP proof")
 	}
 
-	session, err := o.loadOAuthSession(proof.PublicKey())
+	session, err := o.getOAuthSession(proof.PublicKey())
 	if err != nil {
 		return fmt.Errorf("could not get downstream session: %w", err)
 	}

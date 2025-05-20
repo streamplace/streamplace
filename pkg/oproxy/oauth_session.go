@@ -141,8 +141,8 @@ func (o *OAuthSession) CacheJTI(jti string) error {
 	return nil
 }
 
-func (o *OProxy) loadOAuthSession(jkt string) (*OAuthSession, error) {
-	session, err := o.userLoadOAuthSession(jkt)
+func (o *OProxy) getOAuthSession(jkt string) (*OAuthSession, error) {
+	session, err := o.userGetOAuthSession(jkt)
 	if err != nil {
 		return nil, err
 	}

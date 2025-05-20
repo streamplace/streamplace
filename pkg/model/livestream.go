@@ -76,17 +76,10 @@ func (m *DBModel) GetLivestreamByPostCID(postCID string) (*Livestream, error) {
 	return &livestream, nil
 }
 
-// type for livestream with seg start time
-type LivestreamWithSegmentStartTime struct {
-	Livestream
-	// should be latest_segments.latest_segment_start_time in the query
-	LatestSegmentStartTime string
-}
-
 // GetLatestLivestreams returns the most recent livestreams, given a limit and a cursor
 // Only gets livestreams with a valid segment no less than 30 seconds old
 func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time) ([]Livestream, error) {
-	var recentLivestreams []LivestreamWithSegmentStartTime
+	var recentLivestreams []Livestream
 	thirtySecondsAgo := time.Now().Add(-30 * time.Second)
 
 	// get latest segment for the repo DID
@@ -96,7 +89,7 @@ func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time) ([]Livestre
 			m.DB.Table("segments").
 				Select("repo_did, MAX(start_time)").
 				Group("repo_did")).
-		Where("start_time > ?", thirtySecondsAgo).
+		Where("start_time > ?", thirtySecondsAgo.UTC()).
 		Group("repo_did")
 
 	rankedLivestreamsSubQuery := m.DB.Table("livestreams").
@@ -130,17 +123,5 @@ func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time) ([]Livestre
 		return nil, nil
 	}
 
-	var finalStreams []Livestream
-
-	// for each seg, put results in map if seg start time is after 30 seconds ago
-	for _, seg := range recentLivestreams {
-		layout := "2006-01-02 15:04:05.000+00:00"
-		segStartTime, _ := time.Parse(layout, seg.LatestSegmentStartTime)
-		if segStartTime.After(thirtySecondsAgo) {
-			finalStreams = append(finalStreams, seg.Livestream)
-			//fmt.Printf("seg start time: %s vs 30 seconds ago: %s\n", segStartTime, thirtySecondsAgo.UTC())
-		}
-	}
-
-	return finalStreams, nil
+	return recentLivestreams, nil
 }

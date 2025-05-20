@@ -293,15 +293,8 @@ export const blueskySlice = createAppSlice({
         const { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };
-        let bskyAgent: Agent;
-        if (!bluesky.pdsAgent) {
-          // unauthed request to Bluesky Appview
-          bskyAgent = new Agent("https://public.api.bsky.app");
-        } else {
-          bskyAgent = bluesky.pdsAgent;
-        }
-
-        if (!bskyAgent) throw new Error("No Agent!");
+        // unauthed request to Bluesky Appview
+        const bskyAgent = new Agent("https://public.api.bsky.app");
 
         return await bskyAgent.getProfiles({
           actors: actors,

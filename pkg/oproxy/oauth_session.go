@@ -29,7 +29,7 @@ type OAuthSession struct {
 	UpstreamRefreshToken     string     `json:"upstream_refresh_token" gorm:"column:upstream_refresh_token"`
 
 	// Downstream fields
-	DownstreamDPoPNonce         string     `json:"downstream_dpop_nonce" gorm:"column:downstream_dpop_nonce"`
+	DownstreamDPoPNoncePad      string     `json:"downstream_dpop_nonce_pad" gorm:"column:downstream_dpop_nonce_pad"`
 	DownstreamDPoPJKT           string     `json:"downstream_dpop_jkt" gorm:"column:downstream_dpop_jkt;primaryKey"`
 	DownstreamAccessToken       string     `json:"downstream_access_token" gorm:"column:downstream_access_token;index"`
 	DownstreamRefreshToken      string     `json:"downstream_refresh_token" gorm:"column:downstream_refresh_token;index"`
@@ -40,6 +40,9 @@ type OAuthSession struct {
 	DownstreamPARRequestURI     string     `json:"downstream_par_request_uri" gorm:"column:downstream_par_request_uri"`
 	DownstreamPARUsedAt         *time.Time `json:"downstream_par_used_at" gorm:"column:downstream_par_used_at"`
 	DownstreamRedirectURI       string     `json:"downstream_redirect_uri" gorm:"column:downstream_redirect_uri"`
+
+	// Deprecated and unused
+	XXDONTUSEDownstreamDPoPNonce string `json:"downstream_dpop_nonce" gorm:"column:downstream_dpop_nonce"`
 
 	RevokedAt *time.Time `json:"revoked_at" gorm:"column:revoked_at"`
 	CreatedAt time.Time  `json:"created_at"`
@@ -88,9 +91,6 @@ func (o *OAuthSession) Status() OAuthSessionStatus {
 	}
 	if o.DownstreamPARRequestURI != "" {
 		return OAuthSessionStatePARCreated
-	}
-	if o.DownstreamDPoPNonce != "" {
-		return OAuthSessionStatePARPending
 	}
 	bs, _ := json.Marshal(o)
 	fmt.Printf("unknown oauth session status: %s\n", string(bs))

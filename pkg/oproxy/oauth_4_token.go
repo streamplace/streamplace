@@ -69,12 +69,11 @@ func (o *OProxy) HandleOAuthToken(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	sess.DownstreamDPoPNonce = makeNonce()
-	err = o.updateOAuthSession(sess.DownstreamDPoPJKT, sess)
-	if err != nil {
-		return err
+	if sess == nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "session not found")
 	}
-	c.Response().Header().Set("DPoP-Nonce", sess.DownstreamDPoPNonce)
+	nonces := generateValidNonces(sess.DownstreamDPoPNoncePad, time.Now())
+	c.Response().Header().Set("DPoP-Nonce", nonces[0])
 
 	return c.JSON(http.StatusOK, res)
 }

@@ -7,9 +7,11 @@ import {
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { Button, Form, H3, Input, View, XStack, Text, isWeb } from "tamagui";
+import { Button, Form, H3, Input, View, XStack, Text, Switch } from "tamagui"; // Import Tamagui components
 import { Updates } from "./updates";
-import { Switch } from "react-native";
+import Container from "components/container";
+import { useNavigation } from "@react-navigation/native";
+import AQLink from "components/aqlink";
 
 export function Settings() {
   const dispatch = useAppDispatch();
@@ -18,12 +20,14 @@ export function Settings() {
   const [newUrl, setNewUrl] = useState("");
   const [overrideEnabled, setOverrideEnabled] = useState(false);
 
+  const navigate = useNavigation();
+
   // Initialize the override state based on current URL
   useEffect(() => {
     setOverrideEnabled(url !== defaultUrl);
   }, [url, defaultUrl]);
 
-  const onSubmit = () => {
+  const onSubmitUrl = () => {
     if (newUrl) {
       dispatch(setURL(newUrl));
       setNewUrl("");
@@ -39,116 +43,146 @@ export function Settings() {
 
   const telemetry = useAppSelector(selectTelemetry);
 
+  const handleTelemetryToggle = (checked: boolean) => {
+    dispatch(telemetryOpt(checked));
+  };
+
   return (
-    <View f={1} alignItems="stretch" justifyContent="center" fg={1}>
-      <Updates />
-      <Form
-        fg={1}
-        flexBasis={0}
-        alignItems="center"
+    <Container alignItems="center" justifyContent="center">
+      <View
+        f={1}
+        alignItems="stretch"
         justifyContent="center"
-        padding="$4"
-        onSubmit={onSubmit}
+        mt="$8"
+        maxWidth={500}
+        gap="$6"
+        width="100%"
       >
-        <View
-          alignItems="center"
-          justifyContent="center"
-          gap="$2"
-          fg={1}
-          flexBasis={0}
-          backgroundColor="rgba(0, 0, 0, 0.1)"
-        >
-          <XStack alignItems="center" justifyContent="space-around">
-            <View>
-              <XStack width={isWeb ? "100%" : "75%"}>
-                <H3 fontSize="$8">Use custom node</H3>
-                <Switch
-                  accessibilityLabel="Use custom node"
-                  accessibilityHint="Toggle to use a custom node"
-                  style={{
-                    transform: [{ scaleX: 1.2 }, { scaleY: 1.2 }],
-                    marginLeft: 20,
-                    marginTop: isWeb ? 8 : 4,
-                  }}
-                  value={overrideEnabled}
-                  onValueChange={handleToggleOverride}
-                />
-              </XStack>
+        <Updates />
+
+        <View alignItems="center" justifyContent="center" width="100%">
+          {/* Toggle Switch for Custom Node */}
+          <XStack
+            alignItems="stretch"
+            justifyContent="space-between"
+            width="100%"
+            flexDirection="column"
+          >
+            <View
+              flexDirection="row"
+              alignItems="center"
+              justifyContent="space-between"
+              flex={1}
+            >
+              <H3 fontSize="$7">Use custom node</H3>
+              <Switch
+                size="$3" // Tamagui Switch size
+                checked={overrideEnabled}
+                onCheckedChange={handleToggleOverride}
+                theme="green" // Optional: use a theme color
+              >
+                <Switch.Thumb animation="bouncy" />
+              </Switch>
+            </View>
+            {!overrideEnabled && (
               <Text
-                fontSize="$6"
+                fontSize="$5" // Slightly smaller text
                 color="$gray10"
                 style={{ opacity: overrideEnabled ? 0 : 1 }}
                 numberOfLines={1}
                 ellipsizeMode="middle"
-                maxWidth={280}
               >
-                Default node: {url}
+                Default: {url} {/* Shorter label */}
               </Text>
-            </View>
+            )}
           </XStack>
 
+          {/* Custom URL Input Row */}
           <XStack
-            alignItems="stretch"
+            alignItems="center" // Changed to center
             gap="$2"
-            width={isWeb ? "100%" : "75%"}
+            width="100%" // Adjusted width
             style={{
               opacity: overrideEnabled ? 1 : 0,
-              marginTop: -15,
+              height: overrideEnabled ? "auto" : 0, // Collapse when hidden
+              overflow: "hidden", // Hide overflow when collapsed
+              transition: "opacity 0.2s ease-in-out, height 0.2s ease-in-out", // Add transition
             }}
           >
             <Input
               value={newUrl}
               flex={1}
-              size="$3"
-              placeholder={url}
-              onChangeText={(t) => setNewUrl(t)}
-              onSubmitEditing={onSubmit}
+              size="$4" // Slightly larger input
+              placeholder={url || "Enter custom node URL"} // Fallback placeholder
+              onChangeText={setNewUrl}
+              onSubmitEditing={onSubmitUrl}
               textContentType="URL"
               autoCapitalize="none"
               autoCorrect={false}
+              keyboardType="url" // Use URL keyboard
             />
-            <Form.Trigger asChild>
-              <Button size="$3">SAVE</Button>
-            </Form.Trigger>
+            <Button size="$4" onPress={onSubmitUrl}>
+              {" "}
+              {/* Slightly larger button */}
+              SAVE
+            </Button>
           </XStack>
         </View>
-      </Form>
-      <View
-        alignItems="center"
-        justifyContent="center"
-        gap="$2"
-        fg={1}
-        flexBasis={0}
-      >
-        <XStack alignItems="center" gap="$6">
-          <View>
-            <H3 fontSize="$8">Player Telemetry</H3>
-            <Text
-              fontSize="$6"
-              color="$gray10"
-              style={{ position: "absolute", bottom: -15 }}
+
+        {/* Player Telemetry Section */}
+        <View
+          alignItems="center"
+          justifyContent="center"
+          gap="$4" // Increased gap
+        >
+          {/* Toggle Switch for Player Telemetry */}
+          <XStack
+            alignItems="center"
+            justifyContent="space-between"
+            width="100%"
+          >
+            {" "}
+            {/* Adjusted width and justification */}
+            <View flex={1} pr="$3">
+              {" "}
+              {/* Added padding right to text container */}
+              <H3 fontSize="$7">Player Telemetry</H3>{" "}
+              {/* Slightly smaller heading */}
+              <Text
+                fontSize="$5" // Slightly smaller text
+                color="$gray10"
+              >
+                Optional
+              </Text>
+            </View>
+            <Switch
+              size="$3"
+              checked={telemetry === true}
+              onCheckedChange={handleTelemetryToggle}
+              theme="purple"
             >
-              Optional
-            </Text>
-          </View>
-          <Switch
-            accessibilityLabel="Player Telemetry"
-            accessibilityHint="Toggle to enable player telemetry"
-            style={{
-              transform: [{ scaleX: 1.2 }, { scaleY: 1.2 }],
-              marginTop: isWeb ? 0 : 8,
+              <Switch.Thumb animation="bouncy" />
+            </Switch>
+          </XStack>
+        </View>
+
+        {/* Manage Keys Button */}
+        <AQLink
+          to={{
+            screen: "Key Manager",
+          }}
+        >
+          <Button
+            size="$4" // Slightly larger button
+            onPress={() => {
+              // redirect to manage keys page
             }}
-            value={telemetry === true}
-            onValueChange={(checked) => {
-              if (checked === true) {
-                dispatch(telemetryOpt(true));
-              } else {
-                dispatch(telemetryOpt(false));
-              }
-            }}
-          />
-        </XStack>
+            theme="blue" // Optional: use a theme color
+          >
+            Manage Keys
+          </Button>
+        </AQLink>
       </View>
-    </View>
+    </Container>
   );
 }

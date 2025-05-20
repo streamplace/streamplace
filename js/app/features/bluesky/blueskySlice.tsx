@@ -13,6 +13,7 @@ import { openLoginLink } from "features/platform/platformSlice";
 import {
   LivestreamViewHydrated,
   MessageViewHydrated,
+  PlayersState,
 } from "features/player/playerSlice";
 import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import {
@@ -71,7 +72,6 @@ const uploadThumbnail = async (
 ) => {
   if (customThumbnail) {
     try {
-      console.log("Is thumbnail undefined?", customThumbnail);
       const thumbnail = await pdsAgent.uploadBlob(customThumbnail);
       if (thumbnail.success) {
         console.log("Successfully uploaded thumbnail");
@@ -1015,9 +1015,10 @@ export const blueskySlice = createAppSlice({
     updateLivestreamRecord: create.asyncThunk(
       async ({ title }: { title: string }, thunkAPI) => {
         const now = new Date();
-        const { bluesky, streamplace } = thunkAPI.getState() as {
+        const { bluesky, streamplace, player } = thunkAPI.getState() as {
           bluesky: BlueskyState;
           streamplace: StreamplaceState;
+          player: PlayersState;
         };
 
         if (!bluesky.pdsAgent) {
@@ -1032,30 +1033,22 @@ export const blueskySlice = createAppSlice({
           throw new Error("No profile");
         }
 
-        // fetch the lastest few records just in case
-        const res = await bluesky.pdsAgent.com.atproto.repo.listRecords({
-          repo: did,
-          collection: "place.stream.livestream",
-          limit: 10,
-        });
-
-        // latest record that matches the streamplace url
-        const oldRecord = res.data.records.find((record) => {
-          let r2: PlaceStreamLivestream.Record = record.value as any;
-          r2.url === streamplace.url;
-        });
-
+        // hack: as of now there's only one player at a time
+        // so we just grab the first
+        const playerUuid = Object.keys(player)[0];
+        let oldRecord = player[playerUuid].livestream;
         if (!oldRecord) {
           throw new Error("No latest record");
         }
 
         let rkey = oldRecord.uri.split("/").pop();
-        let oldRecordValue: PlaceStreamLivestream.Record =
-          oldRecord.value as any;
+        let oldRecordValue: PlaceStreamLivestream.Record = oldRecord.record;
 
         if (!rkey) {
           throw new Error("No rkey?");
         }
+
+        console.log("Updating rkey", rkey);
 
         const record: PlaceStreamLivestream.Record = {
           title: title,

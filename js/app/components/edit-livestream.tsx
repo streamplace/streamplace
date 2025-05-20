@@ -58,7 +58,7 @@ export default function UpdateLivestream() {
     ? "Loading..."
     : !userIsLive
       ? "Waiting for stream to start..."
-      : "Announce Livestream!";
+      : "Update Livestream!";
 
   return (
     <ScrollView

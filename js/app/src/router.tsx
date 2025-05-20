@@ -77,6 +77,7 @@ import Sidebar, { ExternalDrawerItem } from "components/sidebar/sidebar";
 import { store } from "store/store";
 import { loadStateFromStorage } from "features/base/sidebarSlice";
 import HomeScreen from "./screens/home";
+import KeyManager from "components/settings/keymgr";
 
 store.dispatch(loadStateFromStorage());
 
@@ -92,6 +93,7 @@ type RootStackParamList = {
   Multi: { config: string };
   Support: undefined;
   Settings: undefined;
+  KeyManagement: undefined;
   GoLive: undefined;
   LiveDashboard: undefined;
   Login: undefined;
@@ -124,6 +126,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Multi: "multi/:config",
       Support: "support",
       Settings: "settings",
+      KeyManagement: "settings/key-management",
       GoLive: "golive",
       LiveDashboard: "live",
       Login: "login",
@@ -421,6 +424,14 @@ export function StreamplaceDrawer() {
           options={{
             drawerIcon: () => <SettingsIcon />,
             drawerLabel: () => <Text>Settings</Text>,
+          }}
+        />
+        <Drawer.Screen
+          name="Key Manager"
+          component={KeyManager}
+          options={{
+            drawerLabel: () => <Text>Key Manager</Text>,
+            drawerItemStyle: { display: "none" },
           }}
         />
         <Drawer.Screen

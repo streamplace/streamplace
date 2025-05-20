@@ -1,6 +1,6 @@
 import { YStack, XStack, Text, Separator, Button, ScrollView } from "tamagui";
 import { useEffect } from "react";
-import { Dices, X } from "@tamagui/lucide-icons";
+import { X } from "@tamagui/lucide-icons";
 import {
   deleteStreamKeyRecord,
   getStreamKeyRecords,
@@ -34,7 +34,7 @@ function KeyRow({
           <Text
             fontFamily="$mono"
             fontSize="$2"
-            $sm={{ width: "$14" }}
+            $xs={{ width: "$14" }}
             ellipse
             numberOfLines={1}
           >
@@ -76,7 +76,7 @@ export default function KeyManager() {
 
   return (
     <ScrollView justifyContent="flex-start" alignItems="center">
-      <YStack f={1} p="$4" gap="$4" maxWidth={750}>
+      <YStack f={1} p="$4" gap="$4" maxWidth={650}>
         {keyRecords === null ? (
           <Loading />
         ) : keyRecords.records.length === 0 ? (
@@ -91,10 +91,11 @@ export default function KeyManager() {
         ) : (
           <>
             <YStack gap="$2">
-              <Text fontSize="$8">Existing Pubkeys</Text>
+              <Text fontSize="$8">Your public keys</Text>
               <Text fontSize="$2" color="$color.gray11Dark">
-                Your private stream key is the secret credential you use to
-                stream. Listed are the associated public keys.
+                A public key is a pair to one of your stream keys. You can
+                revoke access for a specific stream key by revoking its
+                associated public key below.
               </Text>
               {keyRecords.records.map((keyRecord) => (
                 <KeyRow

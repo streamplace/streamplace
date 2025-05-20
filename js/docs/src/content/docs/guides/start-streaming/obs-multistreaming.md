@@ -31,6 +31,8 @@ When configuring the Streamplace output within the `obs-multi-rtmp` plugin, use
 the following recommended settings for optimal compatibility and audio handling
 during multistreaming:
 
+---
+
 #### Recommended Configuration (RTMP)
 
 - **Protocol:** RTMP
@@ -49,14 +51,16 @@ use WHIP to avoid an audio re-encode.
   https://stream.place
 - **Audio Encoder:** `ffmpeg_opus`
 
+---
+
+The image below shows where to configure these settings within the
+`obs-multi-rtmp` plugin in OBS.
+
+![Multistreaming settings in OBS using obs-multi-rtmp plugin.](obs-rtmp.png "OBS Multistreaming Settings")
+
 ### Multistreaming Settings in OBS
 
 Make sure, in your OBS settings, that you have the following settings:
 
 - **Keyframe Interval:** `1s`
 - **x264 Options:** `bframes=0`
-
-The image below shows where to configure these settings within the
-`obs-multi-rtmp` plugin interface in OBS.
-
-![Multistreaming settings in OBS using obs-multi-rtmp plugin.](obs-rtmp.jpg "OBS Multistreaming Settings")

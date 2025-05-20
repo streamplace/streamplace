@@ -69,7 +69,7 @@ export default function StreamKeyScreen() {
             }
             onPress={() => setProtocol("rtmp")}
           >
-            RTMP (beta, preferred)
+            RTMP
           </Button>
           <Button
             marginHorizontal={10}

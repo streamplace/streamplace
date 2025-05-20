@@ -35,7 +35,7 @@ const Right = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default function StreamKeyScreen() {
-  const [protocol, setProtocol] = useState("whip");
+  const [protocol, setProtocol] = useState<"whip" | "rtmp">("rtmp");
   const isReady = useAppSelector(selectIsReady);
   if (!isReady) {
     return <Loading />;
@@ -65,20 +65,20 @@ export default function StreamKeyScreen() {
           <Button
             marginHorizontal={10}
             backgroundColor={
+              protocol === "rtmp" ? "$accentBackground" : "$grey2"
+            }
+            onPress={() => setProtocol("rtmp")}
+          >
+            RTMP (beta, preferred)
+          </Button>
+          <Button
+            marginHorizontal={10}
+            backgroundColor={
               protocol === "whip" ? "$accentBackground" : "$grey2"
             }
             onPress={() => setProtocol("whip")}
           >
             WHIP
-          </Button>
-          <Button
-            marginHorizontal={10}
-            backgroundColor={
-              protocol === "rtmp" ? "$accentBackground" : "$grey2"
-            }
-            onPress={() => setProtocol("rtmp")}
-          >
-            RTMP (beta)
           </Button>
         </Row>
         {protocol === "whip" && <WHIPDescription url={url} />}

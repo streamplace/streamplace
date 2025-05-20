@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"time"
 
 	"github.com/AxisCommunications/go-dpop"
 	"github.com/labstack/echo/v4"
@@ -72,29 +73,31 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 	// special case - if this is the first request, we need to send it back for a new nonce
 	if session == nil {
 		_, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/oauth/par"}, dpop.ParseOptions{
-			Nonce:      nonce, // normally this would be bad! but on the first request we're revalidating nonce anyway
+			Nonce:      nonce,
 			TimeWindow: &dpopTimeWindow,
 		})
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse DPoP header: %s", err))
 		}
-		newNonce := makeNonce()
+		newNoncePad := makeNoncePad()
 		err = o.createOAuthSession(jkt, &OAuthSession{
-			DownstreamDPoPJKT:   jkt,
-			DownstreamDPoPNonce: newNonce,
+			DownstreamDPoPJKT:      jkt,
+			DownstreamDPoPNoncePad: newNoncePad,
 		})
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create OAuth session: %s", err))
 		}
+		nonces := generateValidNonces(newNoncePad, time.Now())
 		// come back later, nerd
-		c.Response().Header().Set("DPoP-Nonce", newNonce)
+		c.Response().Header().Set("DPoP-Nonce", nonces[0])
 		return nil, ErrFirstNonce
 	}
-	if session.DownstreamDPoPNonce != nonce {
+	nonces := generateValidNonces(session.DownstreamDPoPNoncePad, time.Now())
+	if !slices.Contains(nonces, nonce) {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid nonce")
 	}
 	proof, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/oauth/par"}, dpop.ParseOptions{
-		Nonce:      session.DownstreamDPoPNonce,
+		Nonce:      nonce,
 		TimeWindow: &dpopTimeWindow,
 	})
 	// Check the error type to determine response
@@ -153,11 +156,8 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 
 	urn := makeURN(jkt)
 
-	newNonce := makeNonce()
-
 	err = o.updateOAuthSession(jkt, &OAuthSession{
 		DownstreamDPoPJKT:       jkt,
-		DownstreamDPoPNonce:     newNonce,
 		DownstreamPARRequestURI: urn,
 		DownstreamCodeChallenge: par.CodeChallenge,
 		DownstreamState:         par.State,
@@ -167,7 +167,7 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 	if err != nil {
 		return nil, fmt.Errorf("could not create oauth session: %w", err)
 	}
-	c.Response().Header().Set("DPoP-Nonce", newNonce)
+	c.Response().Header().Set("DPoP-Nonce", nonces[0])
 
 	resp := &PARResponse{
 		RequestURI: urn,

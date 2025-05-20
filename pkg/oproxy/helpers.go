@@ -64,12 +64,12 @@ func parseState(state string) (string, string, error) {
 	return suffix, uu, nil
 }
 
-func makeNonce() string {
+func makeNoncePad() string {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf("nonce-%s", uu.String())
+	return fmt.Sprintf("noncepad-%s", uu.String())
 }
 
 // returns jkt, nonce, error

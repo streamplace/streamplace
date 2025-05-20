@@ -72,7 +72,8 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
   const streamerProfile = streamerDID ? profiles[streamerDID] : undefined;
   const streamerHandle = streamerProfile?.handle;
   const startTime = player.livestream?.record?.createdAt
-    ? new Date(player.livestream?.record?.createdAt) : undefined;
+    ? new Date(player.livestream?.record?.createdAt)
+    : undefined;
 
   // this would all be really easy if i had library that would give me the
   // safe area view height and width but i don't. so let's measure
@@ -112,7 +113,8 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
     const cuttOffDate = new Date(Date.now() - 10 * 1000);
     // 15 second cut off if segment start time not found
     const startTime = player.segment?.startTime
-    ? new Date(player.segment?.startTime) : new Date(Date.now() - 15 * 1000);
+      ? new Date(player.segment?.startTime)
+      : new Date(Date.now() - 15 * 1000);
 
     if (startTime > cuttOffDate) {
       setOffline(false);
@@ -278,7 +280,9 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                     )}
                   </View>
                   <View flexDirection="row" alignItems="center" gap="$2">
-                    {(startTime instanceof Date) && !offline && <Timer start={startTime} />}
+                    {startTime instanceof Date && !offline && (
+                      <Timer start={startTime} />
+                    )}
                     <Viewers viewers={player.viewers ?? 0} />
                     <Button
                       backgroundColor="transparent"

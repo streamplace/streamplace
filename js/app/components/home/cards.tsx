@@ -1,7 +1,7 @@
-import React from "react";
-import { Image, Platform } from "react-native";
-import { Stack, Text, XStack, YStack, useMedia } from "tamagui";
+import { Image } from "react-native";
+import { Stack, Text, XStack, YStack, isWeb, useMedia, View } from "tamagui";
 import Viewers from "components/viewers";
+import useStreamplaceNode from "hooks/useStreamplaceNode";
 
 export type StreamCardSize = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -31,6 +31,7 @@ const StreamCard = ({
   const media = useMedia();
 
   const layoutHorizontal = horizontal;
+  const { url } = useStreamplaceNode();
 
   // Define dynamic styles
   const borderRadius = 12;
@@ -70,8 +71,8 @@ const StreamCard = ({
         $gtXxl={{
           minWidth: layoutHorizontal ? "62.5%" : "100%",
         }}
-        // ios seems to be unable to adjust widths properly?
-        maxHeight={Platform.OS === "ios" ? "76.5%" : "100%"}
+        // native seems to be unable to adjust widths properly?
+        maxHeight={!isWeb ? "76.5%" : "100%"}
         borderRadius={borderRadius}
         overflow="hidden"
         position="relative"
@@ -79,7 +80,7 @@ const StreamCard = ({
         backgroundColor="$gray6"
       >
         <Image
-          source={{ uri: thumbnailUrl, width: 160, height: 90 }}
+          source={{ uri: `${url}/${thumbnailUrl}`, width: 160, height: 90 }}
           style={{ width: "100%", height: "100%", aspectRatio: 16 / 9 }}
           resizeMode="stretch"
         />
@@ -121,13 +122,29 @@ const StreamCard = ({
           overflow="hidden"
           flexShrink={0}
         >
-          <Image
-            source={{
-              uri: avatarUrl || require("./../../assets/images/goose.png"),
-            }}
-            style={{ width: "100%", height: "100%" }}
-            resizeMode="cover"
-          />
+          {/* dynamically switching between these src crashes android */}
+          {avatarUrl && (
+            <View f={1} key="avatar">
+              <Image
+                key="avatar"
+                source={{
+                  uri: avatarUrl,
+                }}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="cover"
+              />
+            </View>
+          )}
+          {!avatarUrl && (
+            <View key="avatar-placeholder">
+              <Image
+                key="avatar"
+                source={require("./../../assets/images/goose.png")}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="cover"
+              />
+            </View>
+          )}
         </Stack>
 
         {/* Text Content */}

@@ -113,6 +113,15 @@ func (o *OProxy) loadOAuthSession(jkt string) (*OAuthSession, error) {
 		return session, nil
 	}
 
+	// migration! we didn't always have this field.
+	if session.DownstreamDPoPNoncePad == "" {
+		session.DownstreamDPoPNoncePad = makeNoncePad()
+		err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
+		if err != nil {
+			return nil, fmt.Errorf("could not update downstream session: %w", err)
+		}
+	}
+
 	upstreamMeta := o.GetUpstreamMetadata()
 
 	oclient, err := oauth.NewClient(oauth.ClientArgs{

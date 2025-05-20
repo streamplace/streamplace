@@ -134,14 +134,6 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 	if session.RevokedAt != nil {
 		return nil, fmt.Errorf("oauth session revoked")
 	}
-	// migration! we didn't always have this field.
-	if session.DownstreamDPoPNoncePad == "" {
-		session.DownstreamDPoPNoncePad = makeNoncePad()
-		err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
-		if err != nil {
-			return nil, fmt.Errorf("could not update downstream session: %w", err)
-		}
-	}
 	validNonces := generateValidNonces(session.DownstreamDPoPNoncePad, time.Now())
 	if !slices.Contains(validNonces, nonce) {
 		w.Header().Set("WWW-Authenticate", `DPoP algs="RS256 RS384 RS512 PS256 PS384 PS512 ES256 ES256K ES384 ES512", error="use_dpop_nonce", error_description="Authorization server requires nonce in DPoP proof"`)

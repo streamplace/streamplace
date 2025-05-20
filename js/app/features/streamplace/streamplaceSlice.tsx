@@ -4,7 +4,6 @@ import Storage from "../../storage";
 import { BlueskyState } from "features/bluesky/blueskyTypes";
 import { SegmentView } from "lexicons/types/place/stream/segment";
 import { LivestreamView } from "lexicons/types/place/stream/livestream";
-import { Agent } from "@atproto/api";
 import { StreamplaceAgent } from "features/bluesky/agent";
 
 let DEFAULT_URL = process.env.EXPO_PUBLIC_STREAMPLACE_URL as string;

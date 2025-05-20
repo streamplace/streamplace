@@ -303,9 +303,8 @@ export const blueskySlice = createAppSlice({
 
         if (!bskyAgent) throw new Error("No Agent!");
 
-        console.log("getting profiles");
         return await bskyAgent.getProfiles({
-          actors: [actors.join(",")],
+          actors: actors,
         });
       },
       {

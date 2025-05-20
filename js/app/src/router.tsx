@@ -306,13 +306,17 @@ export function StreamplaceDrawer() {
 
   // Top-level stuff to handle polling for live streamers
   useEffect(() => {
-    dispatch(pollSegments());
-    dispatch(pollMySegments());
-    const interval = setInterval(() => {
+    let handle: NodeJS.Timeout;
+    const doSegments = () => {
+      handle = setTimeout(doMySegments, 2500);
       dispatch(pollSegments());
+    };
+    const doMySegments = () => {
+      handle = setTimeout(doSegments, 2500);
       dispatch(pollMySegments());
-    }, 5000);
-    return () => clearInterval(interval);
+    };
+    doSegments();
+    return () => clearTimeout(handle);
   }, []);
 
   const userIsLive = useLiveUser();

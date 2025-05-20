@@ -30,7 +30,7 @@
     "@atproto/crypto": "^0.4.4",
     "@atproto/jwk-jose": "^0.1.6",
     "@atproto/jwk-webcrypto": "^0.1.6",
-    "@atproto/oauth-client": "^0.3.16",
+    "@atproto/oauth-client": "patch:@atproto/oauth-client@npm%3A0.3.16#~/.yarn/patches/@atproto-oauth-client-npm-0.3.16-f0e37a9473.patch",
     "@atproto/oauth-client-browser": "^0.3.16",
     "@bacons/text-decoder": "^0.0.0",
     "@emoji-mart/react": "^1.1.1",

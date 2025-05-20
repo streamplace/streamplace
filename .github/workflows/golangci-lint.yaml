@@ -9,6 +9,10 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
+      - name: make node
+        run: |
+          sudo apt install podman -y
+          make in-container DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true"
       - uses: actions/checkout@v4.1.7
       - uses: actions/setup-go@v5
         with:

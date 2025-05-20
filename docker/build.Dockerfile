@@ -10,6 +10,9 @@ ENV GO_VERSION 1.24.2
 ENV NODE_VERSION 22.15.0
 ENV DEBIAN_FRONTEND noninteractive
 
+ADD sources.list /etc/apt/sources.list
+RUN dpkg --add-architecture i386 && dpkg --add-architecture arm64
+
 RUN apt update \
   && apt install -y build-essential curl git openjdk-17-jdk unzip jq g++ python3-pip ninja-build \
   gcc-aarch64-linux-gnu g++-aarch64-linux-gnu clang lld qemu-user-static pkg-config \
@@ -21,16 +24,11 @@ RUN apt update \
   && rm go.tar.gz
 ENV PATH $PATH:/usr/local/go/bin:/root/go/bin:/root/.cargo/bin
 
-RUN dpkg --add-architecture i386 \
-  && curl -L -o /etc/apt/sources.list.d/winehq-jammy.sources https://dl.winehq.org/wine-builds/ubuntu/dists/jammy/winehq-jammy.sources \
+RUN curl -L -o /etc/apt/sources.list.d/winehq-jammy.sources https://dl.winehq.org/wine-builds/ubuntu/dists/jammy/winehq-jammy.sources \
   && curl -o /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key \
   && apt update && apt install -y --install-recommends winehq-stable
 
-RUN  echo 'deb [arch=arm64] http://ports.ubuntu.com/ jammy main multiverse universe' >> /etc/apt/sources.list \
-  && echo 'deb [arch=arm64] http://ports.ubuntu.com/ jammy-security main multiverse universe' >> /etc/apt/sources.list \
-  && echo 'deb [arch=arm64] http://ports.ubuntu.com/ jammy-backports main multiverse universe' >> /etc/apt/sources.list \
-  && echo 'deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates main multiverse universe' >> /etc/apt/sources.list \
-  && dpkg --add-architecture arm64 \
+RUN dpkg --add-architecture arm64 \
   && bash -c "apt update || echo 'ignoring errors'" \
   && apt install -y libc6:arm64 libstdc++6:arm64
 

@@ -59,4 +59,4 @@ Make sure, in your OBS settings, that you have the following settings:
 The image below shows where to configure these settings within the
 `obs-multi-rtmp` plugin interface in OBS.
 
-![Multistreaming settings in OBS using obs-multi-rtmp plugin.](obsrtmp.jpg "OBS Multistreaming Settings")
+![Multistreaming settings in OBS using obs-multi-rtmp plugin.](obs-rtmp.jpg "OBS Multistreaming Settings")

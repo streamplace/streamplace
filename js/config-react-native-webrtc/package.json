@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/config-react-native-webrtc",
-  "version": "0.6.25",
+  "version": "0.6.26",
   "description": "react-native-webrtc config mod with some changes to make it useful for streamplace",
   "packageManager": "yarn@4.3.0",
   "scripts": {

@@ -62,7 +62,7 @@ func (o *OProxy) HandleOAuthPAR(c echo.Context) error {
 }
 
 func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeader string) (*PARResponse, error) {
-	jkt, nonce, err := getJKT(dpopHeader)
+	jkt, claims, err := getJKT(dpopHeader)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to get JKT from DPoP header header=%s: %s", dpopHeader, err))
 	}
@@ -73,7 +73,7 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 	// special case - if this is the first request, we need to send it back for a new nonce
 	if session == nil {
 		_, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/oauth/par"}, dpop.ParseOptions{
-			Nonce:      nonce,
+			Nonce:      claims.Nonce,
 			TimeWindow: &dpopTimeWindow,
 		})
 		if err != nil {
@@ -93,11 +93,11 @@ func (o *OProxy) NewPAR(ctx context.Context, c echo.Context, par *PAR, dpopHeade
 		return nil, ErrFirstNonce
 	}
 	nonces := generateValidNonces(session.DownstreamDPoPNoncePad, time.Now())
-	if !slices.Contains(nonces, nonce) {
+	if !slices.Contains(nonces, claims.Nonce) {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid nonce")
 	}
 	proof, err := dpop.Parse(dpopHeader, dpop.POST, &url.URL{Host: o.host, Scheme: "https", Path: "/oauth/par"}, dpop.ParseOptions{
-		Nonce:      nonce,
+		Nonce:      claims.Nonce,
 		TimeWindow: &dpopTimeWindow,
 	})
 	// Check the error type to determine response

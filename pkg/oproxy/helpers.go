@@ -73,27 +73,27 @@ func makeNoncePad() string {
 }
 
 // returns jkt, nonce, error
-func getJKT(dpopJWT string) (string, string, error) {
+func getJKT(dpopJWT string) (string, *dpop.ProofTokenClaims, error) {
 	var claims dpop.ProofTokenClaims
 	token, err := jwt.ParseWithClaims(dpopJWT, &claims, keyFunc)
 	if err != nil {
-		return "", "", err
+		return "", nil, err
 	}
 	jwk, ok := token.Header["jwk"].(map[string]any)
 	if !ok {
-		return "", "", fmt.Errorf("missing jwk in DPoP JWT header")
+		return "", nil, fmt.Errorf("missing jwk in DPoP JWT header")
 	}
 	jwkJSONbytes, err := getThumbprintableJwkJSONbytes(jwk)
 	if err != nil {
 		// keyFunc used with parseWithClaims should ensure that this can not happen but better safe than sorry.
-		return "", "", errors.Join(dpop.ErrInvalidProof, err)
+		return "", nil, errors.Join(dpop.ErrInvalidProof, err)
 	}
 	h := sha256.New()
 	_, err = h.Write(jwkJSONbytes)
 	if err != nil {
-		return "", "", errors.Join(dpop.ErrInvalidProof, err)
+		return "", nil, errors.Join(dpop.ErrInvalidProof, err)
 	}
 	b64URLjwkHash := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 
-	return b64URLjwkHash, claims.Nonce, nil
+	return b64URLjwkHash, &claims, nil
 }

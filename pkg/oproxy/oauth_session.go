@@ -40,6 +40,7 @@ type OAuthSession struct {
 	DownstreamPARRequestURI     string     `json:"downstream_par_request_uri" gorm:"column:downstream_par_request_uri"`
 	DownstreamPARUsedAt         *time.Time `json:"downstream_par_used_at" gorm:"column:downstream_par_used_at"`
 	DownstreamRedirectURI       string     `json:"downstream_redirect_uri" gorm:"column:downstream_redirect_uri"`
+	DownstreamJTICache          string     `json:"downstream_jti_cache" gorm:"column:downstream_jti_cache"`
 
 	// Deprecated and unused
 	XXDONTUSEDownstreamDPoPNonce string `json:"downstream_dpop_nonce" gorm:"column:downstream_dpop_nonce"`
@@ -96,6 +97,48 @@ func (o *OAuthSession) Status() OAuthSessionStatus {
 	fmt.Printf("unknown oauth session status: %s\n", string(bs))
 	// todo: this should never happen, log a warning? panic?
 	return OAuthSessionStateRejected
+}
+
+type JTICacheEntry struct {
+	JTI  string    `json:"jti"`
+	Time time.Time `json:"time"`
+}
+
+// adds a new JTI to session.DownstreamJTICache. does not save, that's up to the caller.
+func (o *OAuthSession) CacheJTI(jti string) error {
+	if o.DownstreamJTICache == "" {
+		o.DownstreamJTICache = "[]"
+	}
+
+	entries := []JTICacheEntry{}
+	err := json.Unmarshal([]byte(o.DownstreamJTICache), &entries)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal downstream jti cache: %w", err)
+	}
+	maxTime := EpochLength * ValidEpochs
+
+	outEntries := []JTICacheEntry{}
+	for _, entry := range entries {
+		if entry.JTI == jti {
+			return fmt.Errorf("jti already used")
+		}
+		if time.Since(entry.Time) > time.Duration(maxTime) {
+			continue
+		}
+		outEntries = append(outEntries, entry)
+	}
+
+	outEntries = append(outEntries, JTICacheEntry{
+		JTI:  jti,
+		Time: time.Now(),
+	})
+
+	bs, err := json.Marshal(outEntries)
+	if err != nil {
+		return fmt.Errorf("failed to marshal downstream jti cache: %w", err)
+	}
+	o.DownstreamJTICache = string(bs)
+	return nil
 }
 
 func (o *OProxy) loadOAuthSession(jkt string) (*OAuthSession, error) {

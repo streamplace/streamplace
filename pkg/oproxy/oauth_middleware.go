@@ -120,7 +120,7 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 	u.RawQuery = ""
 	u.Fragment = ""
 
-	jkt, nonce, err := getJKT(dpopHeader)
+	jkt, dpopClaims, err := getJKT(dpopHeader)
 
 	session, err := o.loadOAuthSession(jkt)
 	if err != nil {
@@ -135,7 +135,7 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 		return nil, fmt.Errorf("oauth session revoked")
 	}
 	validNonces := generateValidNonces(session.DownstreamDPoPNoncePad, time.Now())
-	if !slices.Contains(validNonces, nonce) {
+	if !slices.Contains(validNonces, dpopClaims.Nonce) {
 		w.Header().Set("WWW-Authenticate", `DPoP algs="RS256 RS384 RS512 PS256 PS384 PS512 ES256 ES256K ES384 ES512", error="use_dpop_nonce", error_description="Authorization server requires nonce in DPoP proof"`)
 		w.Header().Set("DPoP-Nonce", validNonces[0])
 		return nil, dpop.ErrIncorrectNonce
@@ -143,7 +143,7 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 	w.Header().Set("DPoP-Nonce", validNonces[0])
 
 	proof, err := dpop.Parse(dpopHeader, dpopMethod, u, dpop.ParseOptions{
-		Nonce:      nonce,
+		Nonce:      dpopClaims.Nonce,
 		TimeWindow: &dpopTimeWindow,
 	})
 	// Check the error type to determine response
@@ -177,8 +177,8 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 	}
 
 	// Parse the access token JWT
-	claims := &dpop.BoundAccessTokenClaims{}
-	accessTokenJWT, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (any, error) {
+	accessClaims := &dpop.BoundAccessTokenClaims{}
+	accessTokenJWT, err := jwt.ParseWithClaims(token, accessClaims, func(token *jwt.Token) (any, error) {
 		return &pubKeyECDSA, nil
 	})
 
@@ -190,6 +190,16 @@ func (o *OProxy) getOAuthSession(r *http.Request, w http.ResponseWriter) (*OAuth
 	// Check the error type to determine response
 	if err != nil {
 		return nil, fmt.Errorf("invalid proof: %w", err)
+	}
+
+	err = session.CacheJTI(dpopClaims.ID)
+	if err != nil {
+		return nil, fmt.Errorf("could not cache jti: %w", err)
+	}
+
+	err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
+	if err != nil {
+		return nil, fmt.Errorf("could not update oauth session: %w", err)
 	}
 
 	return session, nil

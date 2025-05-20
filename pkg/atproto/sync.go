@@ -275,7 +275,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, lsv)
 
-		if isUpdate {
+		if !isUpdate {
 			log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", u, "createdAt", rec.CreatedAt, "repo", userDID)
 			notifications, err := atsync.Model.GetFollowersNotificationTokens(userDID)
 			if err != nil {

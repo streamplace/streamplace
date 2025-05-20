@@ -152,7 +152,7 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 			return fmt.Errorf("could not retrieve record bytes for %s (rkey: %s): %w", k, rkey, err)
 		}
 		log.Debug(ctx, "record type", "key", k, "type", nsid.String())
-		// these should all be creates?
+
 		err = atsync.handleCreateUpdate(ctx, signerDID.String(), rkey, bs, v.String(), nsid, false)
 		if err != nil {
 			log.Warn(ctx, "failed to handle create update", "err", err)

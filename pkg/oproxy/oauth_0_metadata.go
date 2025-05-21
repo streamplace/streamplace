@@ -54,32 +54,17 @@ func (o *OProxy) HandleClientMetadataDownstream(c echo.Context) error {
 }
 
 func (o *OProxy) GetUpstreamMetadata() *OAuthClientMetadata {
-	// publicKey, err := o.upstreamJWK.PublicKey()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// jwks := jwk.NewSet()
-	// err = jwks.AddKey(publicKey)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// ro := helpers.CreateJwksResponseObject(publicKey)
-	meta := &OAuthClientMetadata{
-		ClientID:  fmt.Sprintf("https://%s/oauth/upstream/client-metadata.json", o.host),
-		JwksURI:   fmt.Sprintf("https://%s/oauth/upstream/jwks.json", o.host),
-		ClientURI: fmt.Sprintf("https://%s", o.host),
-		// RedirectURIs:            []string{fmt.Sprintf("https://%s/login", host)},
-		Scope:                       "atproto transition:generic",
-		TokenEndpointAuthMethod:     "private_key_jwt",
-		ClientName:                  "Streamplace",
-		ResponseTypes:               []string{"code"},
-		GrantTypes:                  []string{"authorization_code", "refresh_token"},
-		DPoPBoundAccessTokens:       boolPtr(true),
-		TokenEndpointAuthSigningAlg: "ES256",
-		RedirectURIs:                []string{fmt.Sprintf("https://%s/oauth/return", o.host)},
-		// Jwks:                        ro,
-	}
-	return meta
+	meta := *o.clientMetadata
+	meta.ClientID = fmt.Sprintf("https://%s/oauth/upstream/client-metadata.json", o.host)
+	meta.JwksURI = fmt.Sprintf("https://%s/oauth/upstream/jwks.json", o.host)
+	meta.ClientURI = fmt.Sprintf("https://%s", o.host)
+	meta.TokenEndpointAuthMethod = "private_key_jwt"
+	meta.ResponseTypes = []string{"code"}
+	meta.GrantTypes = []string{"authorization_code", "refresh_token"}
+	meta.DPoPBoundAccessTokens = boolPtr(true)
+	meta.TokenEndpointAuthSigningAlg = "ES256"
+	meta.RedirectURIs = []string{fmt.Sprintf("https://%s/oauth/return", o.host)}
+	return &meta
 }
 
 func generateOAuthServerMetadata(host string) map[string]any {
@@ -125,19 +110,14 @@ func generateOAuthServerMetadata(host string) map[string]any {
 }
 
 func (o *OProxy) GetDownstreamMetadata(redirectURI string) (*OAuthClientMetadata, error) {
-	meta := &OAuthClientMetadata{
-		ClientID:  fmt.Sprintf("https://%s/oauth/downstream/client-metadata.json", o.host),
-		ClientURI: fmt.Sprintf("https://%s", o.host),
-		// RedirectURIs:            []string{fmt.Sprintf("https://%s/login", host)},
-		Scope:                   "atproto transition:generic",
-		TokenEndpointAuthMethod: "none",
-		ClientName:              "Streamplace",
-		ResponseTypes:           []string{"code"},
-		GrantTypes:              []string{"authorization_code", "refresh_token"},
-		DPoPBoundAccessTokens:   boolPtr(true),
-		RedirectURIs:            []string{fmt.Sprintf("https://%s/login", o.host), fmt.Sprintf("https://%s/api/app-return", o.host)},
-		ApplicationType:         "web",
-	}
+	meta := *o.clientMetadata
+	meta.ClientID = fmt.Sprintf("https://%s/oauth/downstream/client-metadata.json", o.host)
+	meta.ClientURI = fmt.Sprintf("https://%s", o.host)
+	meta.TokenEndpointAuthMethod = "none"
+	meta.ResponseTypes = []string{"code"}
+	meta.GrantTypes = []string{"authorization_code", "refresh_token"}
+	meta.DPoPBoundAccessTokens = boolPtr(true)
+	meta.ApplicationType = "web"
 	if redirectURI != "" {
 		found := false
 		for _, uri := range meta.RedirectURIs {
@@ -151,5 +131,5 @@ func (o *OProxy) GetDownstreamMetadata(redirectURI string) (*OAuthClientMetadata
 		}
 		meta.RedirectURIs = []string{redirectURI}
 	}
-	return meta, nil
+	return &meta, nil
 }

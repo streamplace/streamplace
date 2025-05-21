@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"log/slog"
 	"os"
@@ -26,6 +27,8 @@ func Run() error {
 	host := fs.String("host", "", "public HTTPS address where this OAuth provider is hosted (ex example.com, no https:// prefix)")
 	dbPath := fs.String("db", "", "path to the database file or postgres connection string")
 	verbose := fs.Bool("v", false, "enable verbose logging")
+	scope := fs.String("scope", "atproto transition:generic", "scope to use for the OAuth provider")
+	clientMetadata := fs.String("client-metadata", "", "JSON client metadata or path to JSON file containing client metadata")
 	// version := fs.Bool("version", false, "print version and exit")
 
 	err := ff.Parse(
@@ -59,12 +62,33 @@ func Run() error {
 		return err
 	}
 
+	var meta *oproxy.OAuthClientMetadata
+	if (*clientMetadata)[0] != '{' {
+		// path
+		bs, err := os.ReadFile(*clientMetadata)
+		if err != nil {
+			return err
+		}
+		meta = &oproxy.OAuthClientMetadata{}
+		err = json.Unmarshal(bs, meta)
+		if err != nil {
+			return err
+		}
+	} else {
+		// JSON
+		err = json.Unmarshal([]byte(*clientMetadata), meta)
+		if err != nil {
+			return err
+		}
+	}
+
 	_ = oproxy.New(&oproxy.Config{
 		Host:               *host,
 		CreateOAuthSession: store.CreateOAuthSession,
 		UpdateOAuthSession: store.UpdateOAuthSession,
 		GetOAuthSession:    store.GetOAuthSession,
-		Scope:              "atproto transition:generic",
+		Scope:              *scope,
+		ClientMetadata:     meta,
 		// UpstreamJWK:        cli.JWK,
 		// DownstreamJWK:      cli.AccessJWK,
 	})

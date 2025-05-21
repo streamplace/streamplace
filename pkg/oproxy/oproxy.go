@@ -19,6 +19,7 @@ type OProxy struct {
 	upstreamJWK         jwk.Key
 	downstreamJWK       jwk.Key
 	slog                *slog.Logger
+	clientMetadata      *OAuthClientMetadata
 }
 
 type Config struct {
@@ -30,6 +31,7 @@ type Config struct {
 	UpstreamJWK        jwk.Key
 	DownstreamJWK      jwk.Key
 	Slog               *slog.Logger
+	ClientMetadata     *OAuthClientMetadata
 }
 
 func New(conf *Config) *OProxy {
@@ -48,6 +50,7 @@ func New(conf *Config) *OProxy {
 		upstreamJWK:         conf.UpstreamJWK,
 		downstreamJWK:       conf.DownstreamJWK,
 		slog:                mySlog,
+		clientMetadata:      conf.ClientMetadata,
 	}
 	o.e.GET("/.well-known/oauth-authorization-server", o.HandleOAuthAuthorizationServer)
 	o.e.GET("/.well-known/oauth-protected-resource", o.HandleOAuthProtectedResource)

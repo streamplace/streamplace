@@ -336,6 +336,15 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return err
 	}
 
+	clientMetadata := &oproxy.OAuthClientMetadata{
+		Scope:      "atproto transition:generic",
+		ClientName: "Streamplace",
+		RedirectURIs: []string{
+			fmt.Sprintf("https://%s/login", cli.PublicHost),
+			fmt.Sprintf("https://%s/api/app-return", cli.PublicHost),
+		},
+	}
+
 	op := oproxy.New(&oproxy.Config{
 		Host:               cli.PublicHost,
 		CreateOAuthSession: mod.CreateOAuthSession,
@@ -344,6 +353,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		Scope:              "atproto transition:generic",
 		UpstreamJWK:        cli.JWK,
 		DownstreamJWK:      cli.AccessJWK,
+		ClientMetadata:     clientMetadata,
 	})
 	d := director.NewDirector(mm, mod, &cli, b, op)
 	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b, atsync, d, op)

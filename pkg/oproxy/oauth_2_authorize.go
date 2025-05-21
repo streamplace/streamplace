@@ -39,6 +39,10 @@ func (o *OProxy) HandleOAuthAuthorize(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to load OAuth session jkt=%s: %s", jkt, err))
 		}
 
+		if session == nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("no session found for jkt=%s", jkt))
+		}
+
 		u, err := url.Parse(session.DownstreamRedirectURI)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed to parse downstream redirect URI: %s", err))

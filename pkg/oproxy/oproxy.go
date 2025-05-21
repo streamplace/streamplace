@@ -13,7 +13,7 @@ type OProxy struct {
 	createOAuthSession  func(id string, session *OAuthSession) error
 	updateOAuthSession  func(id string, session *OAuthSession) error
 	userGetOAuthSession func(id string) (*OAuthSession, error)
-	e                   *echo.Echo
+	Echo                *echo.Echo
 	host                string
 	scope               string
 	upstreamJWK         jwk.Key
@@ -44,7 +44,7 @@ func New(conf *Config) *OProxy {
 		createOAuthSession:  conf.CreateOAuthSession,
 		updateOAuthSession:  conf.UpdateOAuthSession,
 		userGetOAuthSession: conf.GetOAuthSession,
-		e:                   e,
+		Echo:                e,
 		host:                conf.Host,
 		scope:               conf.Scope,
 		upstreamJWK:         conf.UpstreamJWK,
@@ -52,17 +52,18 @@ func New(conf *Config) *OProxy {
 		slog:                mySlog,
 		clientMetadata:      conf.ClientMetadata,
 	}
-	o.e.GET("/.well-known/oauth-authorization-server", o.HandleOAuthAuthorizationServer)
-	o.e.GET("/.well-known/oauth-protected-resource", o.HandleOAuthProtectedResource)
-	o.e.POST("/oauth/par", o.HandleOAuthPAR)
-	o.e.GET("/oauth/authorize", o.HandleOAuthAuthorize)
-	o.e.GET("/oauth/return", o.HandleOAuthReturn)
-	o.e.POST("/oauth/token", o.DPoPNonceMiddleware(o.HandleOAuthToken))
-	o.e.POST("/oauth/revoke", o.DPoPNonceMiddleware(o.HandleOAuthRevoke))
-	o.e.GET("/oauth/upstream/client-metadata.json", o.HandleClientMetadataUpstream)
-	o.e.GET("/oauth/upstream/jwks.json", o.HandleJwksUpstream)
-	o.e.GET("/oauth/downstream/client-metadata.json", o.HandleClientMetadataDownstream)
-	o.e.Use(o.ErrorHandlingMiddleware)
+	o.Echo.GET("/.well-known/oauth-authorization-server", o.HandleOAuthAuthorizationServer)
+	o.Echo.GET("/.well-known/oauth-protected-resource", o.HandleOAuthProtectedResource)
+	o.Echo.GET("/xrpc/com.atproto.identity.resolveHandle", HandleComAtprotoIdentityResolveHandle)
+	o.Echo.POST("/oauth/par", o.HandleOAuthPAR)
+	o.Echo.GET("/oauth/authorize", o.HandleOAuthAuthorize)
+	o.Echo.GET("/oauth/return", o.HandleOAuthReturn)
+	o.Echo.POST("/oauth/token", o.DPoPNonceMiddleware(o.HandleOAuthToken))
+	o.Echo.POST("/oauth/revoke", o.DPoPNonceMiddleware(o.HandleOAuthRevoke))
+	o.Echo.GET("/oauth/upstream/client-metadata.json", o.HandleClientMetadataUpstream)
+	o.Echo.GET("/oauth/upstream/jwks.json", o.HandleJwksUpstream)
+	o.Echo.GET("/oauth/downstream/client-metadata.json", o.HandleClientMetadataDownstream)
+	o.Echo.Use(o.ErrorHandlingMiddleware)
 	return o
 }
 
@@ -72,6 +73,6 @@ func (o *OProxy) Handler() http.Handler {
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,DPoP")
 		w.Header().Set("Access-Control-Allow-Methods", "*")
 		w.Header().Set("Access-Control-Expose-Headers", "DPoP-Nonce")
-		o.e.ServeHTTP(w, r)
+		o.Echo.ServeHTTP(w, r)
 	})
 }

@@ -9,7 +9,10 @@ import (
 	"net/http"
 	"strings"
 
+	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/labstack/echo/v4"
+	"go.opentelemetry.io/otel"
 )
 
 // mostly borrowed from github.com/haileyok/atproto-oauth-golang, MIT license
@@ -121,4 +124,26 @@ func ResolveService(ctx context.Context, did string) (string, error) {
 	}
 
 	return service, nil
+}
+
+func HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityResolveHandle")
+	defer span.End()
+	handle := c.QueryParam("handle")
+	var out *comatprototypes.IdentityResolveHandle_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context,handle string) (*comatprototypes.IdentityResolveHandle_Output, error)
+	out, handleErr = handleComAtprotoIdentityResolveHandle(ctx, handle)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*comatprototypes.IdentityResolveHandle_Output, error) {
+	did, err := ResolveHandle(ctx, handle)
+	if err != nil {
+		return nil, err
+	}
+	return &comatprototypes.IdentityResolveHandle_Output{Did: did}, nil
 }

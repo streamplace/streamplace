@@ -2,22 +2,44 @@ package main
 
 import (
 	"errors"
+	"log/slog"
+	"os"
+	"time"
 
+	"github.com/lmittmann/tint"
+	slogGorm "github.com/orandin/slog-gorm"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/oproxy"
 )
 
 type Store struct {
-	DB *gorm.DB
+	DB     *gorm.DB
+	Logger *slog.Logger
 }
 
-func NewStore(dbPath string) (*Store, error) {
-	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+func NewStore(dbPath string, logger *slog.Logger, verbose bool) (*Store, error) {
+	gormLogger := slogGorm.New(
+		slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+			TimeFormat: time.RFC3339,
+		})),
+	)
+	if verbose {
+		gormLogger = slogGorm.New(
+			slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+				TimeFormat: time.RFC3339,
+			})),
+			slogGorm.WithTraceAll(),
+		)
+	}
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+		Logger: gormLogger,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return &Store{DB: db}, nil
+	db.AutoMigrate(&oproxy.OAuthSession{}, &Key{})
+	return &Store{DB: db, Logger: logger}, nil
 }
 
 func (s *Store) CreateOAuthSession(id string, session *oproxy.OAuthSession) error {

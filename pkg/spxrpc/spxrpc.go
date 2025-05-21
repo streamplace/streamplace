@@ -8,7 +8,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/oproxy"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 )
 
 type Server struct {
@@ -17,7 +17,7 @@ type Server struct {
 	model model.Model
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, op *oproxy.OProxy) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, op *oatproxy.OATProxy) (*Server, error) {
 	e := echo.New()
 	s := &Server{
 		e:     e,

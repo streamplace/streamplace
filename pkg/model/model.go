@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/oproxy"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -85,11 +85,11 @@ type Model interface {
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
 	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
 
-	CreateOAuthSession(id string, session *oproxy.OAuthSession) error
-	LoadOAuthSession(id string) (*oproxy.OAuthSession, error)
-	UpdateOAuthSession(id string, session *oproxy.OAuthSession) error
-	ListOAuthSessions() ([]oproxy.OAuthSession, error)
-	GetSessionByDID(did string) (*oproxy.OAuthSession, error)
+	CreateOAuthSession(id string, session *oatproxy.OAuthSession) error
+	LoadOAuthSession(id string) (*oatproxy.OAuthSession, error)
+	UpdateOAuthSession(id string, session *oatproxy.OAuthSession) error
+	ListOAuthSessions() ([]oatproxy.OAuthSession, error)
+	GetSessionByDID(did string) (*oatproxy.OAuthSession, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -146,7 +146,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Block{},
 		ChatMessage{},
 		ChatProfile{},
-		oproxy.OAuthSession{},
+		oatproxy.OAuthSession{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

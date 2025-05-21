@@ -20,7 +20,7 @@ import (
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/media/segchanman"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/oproxy"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/streamplace"
@@ -32,7 +32,7 @@ type StreamSession struct {
 	mod            model.Model
 	cli            *config.CLI
 	bus            *bus.Bus
-	op             *oproxy.OProxy
+	op             *oatproxy.OATProxy
 	hls            *media.M3U8
 	lp             *livepeer.LivepeerSession
 	repoDID        string

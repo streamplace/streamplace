@@ -9,14 +9,14 @@ import (
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/oproxy"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 )
 
 func (s *Server) HandleWildcard(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleWildcard")
 	defer span.End()
 
-	session, client := oproxy.GetOAuthSession(ctx)
+	session, client := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}

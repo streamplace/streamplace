@@ -26,7 +26,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/oproxy"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/replication/boring"
 	"stream.place/streamplace/pkg/rtmps"
@@ -336,7 +336,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return err
 	}
 
-	clientMetadata := &oproxy.OAuthClientMetadata{
+	clientMetadata := &oatproxy.OAuthClientMetadata{
 		Scope:      "atproto transition:generic",
 		ClientName: "Streamplace",
 		RedirectURIs: []string{
@@ -345,7 +345,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		},
 	}
 
-	op := oproxy.New(&oproxy.Config{
+	op := oatproxy.New(&oatproxy.Config{
 		Host:               cli.PublicHost,
 		CreateOAuthSession: mod.CreateOAuthSession,
 		UpdateOAuthSession: mod.UpdateOAuthSession,

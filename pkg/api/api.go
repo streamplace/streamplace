@@ -24,6 +24,7 @@ import (
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/time/rate"
 
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
@@ -37,8 +38,8 @@ import (
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -63,7 +64,7 @@ type StreamplaceAPI struct {
 	limitersMu    sync.Mutex
 	SignerCache   map[string]media.MediaSigner
 	SignerCacheMu sync.Mutex
-	op            *oproxy.OProxy
+	op            *oatproxy.OATProxy
 }
 
 type WebsocketTracker struct {
@@ -72,7 +73,7 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oproxy.OProxy) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -127,17 +128,17 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 
-	// var xrpc http.Handler
-	// xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.op)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	var xrpc http.Handler
+	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.op)
+	if err != nil {
+		return nil, err
+	}
 	router := httprouter.New()
 
-	// router.Handler("GET", "/oauth/*anything", a.op.Handler())
-	// router.Handler("POST", "/oauth/*anything", a.op.Handler())
-	// router.Handler("GET", "/.well-known/oauth-authorization-server", a.op.Handler())
-	// router.Handler("GET", "/.well-known/oauth-protected-resource", a.op.Handler())
+	router.Handler("GET", "/oauth/*anything", a.op.Handler())
+	router.Handler("POST", "/oauth/*anything", a.op.Handler())
+	router.Handler("GET", "/.well-known/oauth-authorization-server", a.op.Handler())
+	router.Handler("GET", "/.well-known/oauth-protected-resource", a.op.Handler())
 	apiRouter := httprouter.New()
 	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
 	// old clients
@@ -172,17 +173,17 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	apiRouter.GET("/api/view-count/:user", a.HandleViewCount(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	apiRouterHandler := a.RateLimitMiddleware(ctx)(apiRouter)
-	// xrpcHandler := a.RateLimitMiddleware(ctx)(xrpc)
+	xrpcHandler := a.RateLimitMiddleware(ctx)(xrpc)
 	router.Handler("GET", "/api/*resource", apiRouterHandler)
 	router.Handler("POST", "/api/*resource", apiRouterHandler)
 	router.Handler("PUT", "/api/*resource", apiRouterHandler)
 	router.Handler("PATCH", "/api/*resource", apiRouterHandler)
 	router.Handler("DELETE", "/api/*resource", apiRouterHandler)
-	// router.Handler("GET", "/xrpc/*resource", xrpcHandler)
-	// router.Handler("POST", "/xrpc/*resource", xrpcHandler)
-	// router.Handler("PUT", "/xrpc/*resource", xrpcHandler)
-	// router.Handler("PATCH", "/xrpc/*resource", xrpcHandler)
-	// router.Handler("DELETE", "/xrpc/*resource", xrpcHandler)
+	router.Handler("GET", "/xrpc/*resource", xrpcHandler)
+	router.Handler("POST", "/xrpc/*resource", xrpcHandler)
+	router.Handler("PUT", "/xrpc/*resource", xrpcHandler)
+	router.Handler("PATCH", "/xrpc/*resource", xrpcHandler)
+	router.Handler("DELETE", "/xrpc/*resource", xrpcHandler)
 	router.GET("/.well-known/did.json", a.HandleDidJson(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
 	router.POST("/", a.HandleWebRTCIngest(ctx))

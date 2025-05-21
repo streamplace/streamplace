@@ -18,6 +18,7 @@ RUN apt update \
   gcc-aarch64-linux-gnu g++-aarch64-linux-gnu clang lld qemu-user-static pkg-config \
   nasm gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64-tools zip bison flex expect \
   mono-runtime nuget mono-xsp4 squashfs-tools \
+  libc6:arm64 libstdc++6:arm64 \
   && pip install meson tomli \
   && curl -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
   && tar -C /usr/local -xf go.tar.gz \
@@ -27,10 +28,6 @@ ENV PATH $PATH:/usr/local/go/bin:/root/go/bin:/root/.cargo/bin
 RUN curl -L -o /etc/apt/sources.list.d/winehq-jammy.sources https://dl.winehq.org/wine-builds/ubuntu/dists/jammy/winehq-jammy.sources \
   && curl -o /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key \
   && apt update && apt install -y --install-recommends winehq-stable
-
-RUN dpkg --add-architecture arm64 \
-  && bash -c "apt update || echo 'ignoring errors'" \
-  && apt install -y libc6:arm64 libstdc++6:arm64
 
 RUN export NODEARCH="$TARGETARCH" \
   && if [ "$TARGETARCH" = "amd64" ]; then export NODEARCH="x64"; fi \

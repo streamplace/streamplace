@@ -31,6 +31,7 @@ builder:
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/docker/build.Dockerfile"
       --destination "$FQ_IMAGE_NAME"
+      --context-sub-path docker
 
 builder-rebuild:
   stage: build

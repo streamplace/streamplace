@@ -5,12 +5,14 @@ export default function ButtonSelector({
   values,
   selectedValue,
   setSelectedValue,
+  disabledValues,
   ...props
 }: {
   text?: string;
   values: { label: string; value: string }[];
   selectedValue: string;
   setSelectedValue: (value: any) => void;
+  disabledValues?: string[];
 } & YStackProps) {
   return (
     <YStack ai="flex-start" gap="$2" pt="$2" {...props}>
@@ -33,6 +35,8 @@ export default function ButtonSelector({
             onPress={() => setSelectedValue(value)}
             f={1}
             height="$2"
+            disabled={disabledValues?.includes(value)}
+            opacity={disabledValues?.includes(value) ? 0.5 : 1}
             variant={selectedValue === value ? "outlined" : undefined}
           >
             <Text

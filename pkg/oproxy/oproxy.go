@@ -63,6 +63,7 @@ func New(conf *Config) *OProxy {
 	o.Echo.GET("/oauth/upstream/client-metadata.json", o.HandleClientMetadataUpstream)
 	o.Echo.GET("/oauth/upstream/jwks.json", o.HandleJwksUpstream)
 	o.Echo.GET("/oauth/downstream/client-metadata.json", o.HandleClientMetadataDownstream)
+	o.Echo.Any("/xrpc/*", o.OAuthMiddleware(o.HandleWildcard))
 	o.Echo.Use(o.ErrorHandlingMiddleware)
 	return o
 }

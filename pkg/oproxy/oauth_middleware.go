@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -43,43 +42,6 @@ func GetOAuthSession(ctx context.Context) (*OAuthSession, *XrpcClient) {
 	return session, client
 }
 
-func (o *OProxy) OAuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// todo: see what these were set to before it got to us.
-		w.Header().Set("Access-Control-Allow-Origin", "*") // todo: ehhhhhhhhhhhh
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type,DPoP")
-		w.Header().Set("Access-Control-Allow-Methods", "*")
-		w.Header().Set("Access-Control-Expose-Headers", "DPoP-Nonce")
-
-		ctx := r.Context()
-		session, err := o.getOAuthSessionFromHeader(r, w)
-		if err != nil {
-			if errors.Is(err, dpop.ErrIncorrectNonce) {
-				// w.Header().Set("WWW-Authenticate", `DPoP error="use_dpop_nonce", error_description="Invalid nonce"`)
-				w.Header().Set("content-type", "application/json")
-				w.WriteHeader(http.StatusUnauthorized)
-				bs, _ := json.Marshal(map[string]interface{}{
-					"error":             "use_dpop_nonce",
-					"error_description": "Authorization server requires nonce in DPoP proof",
-				})
-				w.Write(bs)
-				return
-			}
-			o.slog.Error("oauth error", "error", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-			return
-		}
-		if session == nil {
-			next.ServeHTTP(w, r)
-			return
-		}
-		ctx = context.WithValue(ctx, OAuthSessionContextKey, session)
-		ctx = context.WithValue(ctx, OProxyContextKey, o)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
 func getMethod(method string) (dpop.HTTPVerb, error) {
 	switch method {
 	case "POST":
@@ -89,120 +51,134 @@ func getMethod(method string) (dpop.HTTPVerb, error) {
 	}
 	return "", fmt.Errorf("invalid method")
 }
+func (o *OProxy) OAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		// Set CORS headers
+		c.Response().Header().Set("Access-Control-Allow-Origin", "*") // todo: ehhhhhhhhhhhh
+		c.Response().Header().Set("Access-Control-Allow-Headers", "Content-Type,DPoP")
+		c.Response().Header().Set("Access-Control-Allow-Methods", "*")
+		c.Response().Header().Set("Access-Control-Expose-Headers", "DPoP-Nonce")
 
-func (o *OProxy) getOAuthSessionFromHeader(r *http.Request, w http.ResponseWriter) (*OAuthSession, error) {
-
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return nil, nil
-	}
-	if !strings.HasPrefix(authHeader, "DPoP ") {
-		return nil, nil
-	}
-	token := strings.TrimPrefix(authHeader, "DPoP ")
-
-	dpopHeader := r.Header.Get("DPoP")
-	if dpopHeader == "" {
-		return nil, fmt.Errorf("missing DPoP header")
-	}
-
-	dpopMethod, err := getMethod(r.Method)
-	if err != nil {
-		return nil, fmt.Errorf("invalid method: %w", err)
-	}
-
-	u, err := url.Parse(r.URL.String())
-	if err != nil {
-		return nil, fmt.Errorf("invalid url: %w", err)
-	}
-	u.Scheme = "https"
-	u.Host = r.Host
-	u.RawQuery = ""
-	u.Fragment = ""
-
-	jkt, dpopClaims, err := getJKT(dpopHeader)
-
-	session, err := o.getOAuthSession(jkt)
-	if err != nil {
-		return nil, fmt.Errorf("could not get oauth session: %w", err)
-	}
-	if session == nil {
-		// this can happen for stuff like getFeedSkeleton where they've submitted oauth credentials
-		// but they're not actually for this server
-		return nil, nil
-	}
-	if session.RevokedAt != nil {
-		return nil, fmt.Errorf("oauth session revoked")
-	}
-	validNonces := generateValidNonces(session.DownstreamDPoPNoncePad, time.Now())
-	if !slices.Contains(validNonces, dpopClaims.Nonce) {
-		w.Header().Set("WWW-Authenticate", `DPoP algs="RS256 RS384 RS512 PS256 PS384 PS512 ES256 ES256K ES384 ES512", error="use_dpop_nonce", error_description="Authorization server requires nonce in DPoP proof"`)
-		w.Header().Set("DPoP-Nonce", validNonces[0])
-		return nil, dpop.ErrIncorrectNonce
-	}
-	w.Header().Set("DPoP-Nonce", validNonces[0])
-
-	proof, err := dpop.Parse(dpopHeader, dpopMethod, u, dpop.ParseOptions{
-		Nonce:      dpopClaims.Nonce,
-		TimeWindow: &dpopTimeWindow,
-	})
-	// Check the error type to determine response
-	if err != nil {
-		if ok := errors.Is(err, dpop.ErrInvalidProof); ok {
-			// Return 'invalid_dpop_proof'
-			return nil, fmt.Errorf("invalid DPoP proof: %w", err)
+		authHeader := c.Request().Header.Get("Authorization")
+		if authHeader == "" {
+			return next(c)
 		}
-		return nil, fmt.Errorf("error validating proof proof: %w", err)
+		if !strings.HasPrefix(authHeader, "DPoP ") {
+			return next(c)
+		}
+		token := strings.TrimPrefix(authHeader, "DPoP ")
+
+		dpopHeader := c.Request().Header.Get("DPoP")
+		if dpopHeader == "" {
+			return echo.NewHTTPError(http.StatusBadRequest, "missing DPoP header")
+		}
+
+		dpopMethod, err := getMethod(c.Request().Method)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid method: %v", err))
+		}
+
+		u, err := url.Parse(c.Request().URL.String())
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid url: %v", err))
+		}
+		u.Scheme = "https"
+		u.Host = c.Request().Host
+		u.RawQuery = ""
+		u.Fragment = ""
+
+		jkt, dpopClaims, err := getJKT(dpopHeader)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+
+		session, err := o.getOAuthSession(jkt)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("could not get oauth session: %v", err))
+		}
+		if session == nil {
+			// this can happen for stuff like getFeedSkeleton where they've submitted oauth credentials
+			// but they're not actually for this server
+			return next(c)
+		}
+		if session.RevokedAt != nil {
+			return echo.NewHTTPError(http.StatusUnauthorized, "oauth session revoked")
+		}
+
+		validNonces := generateValidNonces(session.DownstreamDPoPNoncePad, time.Now())
+		if !slices.Contains(validNonces, dpopClaims.Nonce) {
+			c.Response().Header().Set("WWW-Authenticate", `DPoP algs="RS256 RS384 RS512 PS256 PS384 PS512 ES256 ES256K ES384 ES512", error="use_dpop_nonce", error_description="Authorization server requires nonce in DPoP proof"`)
+			c.Response().Header().Set("DPoP-Nonce", validNonces[0])
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"error":             "use_dpop_nonce",
+				"error_description": "Authorization server requires nonce in DPoP proof",
+			})
+		}
+		c.Response().Header().Set("DPoP-Nonce", validNonces[0])
+
+		proof, err := dpop.Parse(dpopHeader, dpopMethod, u, dpop.ParseOptions{
+			Nonce:      dpopClaims.Nonce,
+			TimeWindow: &dpopTimeWindow,
+		})
+		if err != nil {
+			if errors.Is(err, dpop.ErrInvalidProof) {
+				return echo.NewHTTPError(http.StatusUnauthorized, fmt.Sprintf("invalid DPoP proof: %v", err))
+			}
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("error validating proof: %v", err))
+		}
+
+		hasher := sha256.New()
+		hasher.Write([]byte(token))
+		hash := hasher.Sum(nil)
+		accessTokenHash := base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(hash)
+
+		pubKey, err := o.downstreamJWK.PublicKey()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("could not get access jwk public key: %v", err))
+		}
+
+		var pubKeyECDSA ecdsa.PublicKey
+		err = pubKey.Raw(&pubKeyECDSA)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("could not get access jwk public key: %v", err))
+		}
+
+		accessClaims := &dpop.BoundAccessTokenClaims{}
+		accessTokenJWT, err := jwt.ParseWithClaims(token, accessClaims, func(token *jwt.Token) (any, error) {
+			return &pubKeyECDSA, nil
+		})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusUnauthorized, fmt.Sprintf("could not parse access token: %v", err))
+		}
+
+		err = proof.Validate([]byte(accessTokenHash), accessTokenJWT)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusUnauthorized, fmt.Sprintf("invalid proof: %v", err))
+		}
+
+		err = session.CacheJTI(dpopClaims.ID)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("could not cache jti: %v", err))
+		}
+
+		err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("could not update oauth session: %v", err))
+		}
+
+		// Set session in context
+		c.Set("session", session)
+		c.Set("oproxy", o)
+
+		o.slog.Info("msg", "oauth middleware", "session", session.DownstreamDPoPJKT)
+
+		// Also set it in request context for non-echo handlers
+		ctx := c.Request().Context()
+		ctx = context.WithValue(ctx, oproxyContextKeyType{}, o)
+		ctx = context.WithValue(ctx, OAuthSessionContextKey, session)
+		c.SetRequest(c.Request().WithContext(ctx))
+		return next(c)
 	}
-
-	// Hash the token with base64 and SHA256
-	// Get the access token JWT (introspect if needed)
-	// Parse the access token JWT and verify the signature
-	// Hash the access token with SHA-256
-	hasher := sha256.New()
-	hasher.Write([]byte(token))
-	hash := hasher.Sum(nil)
-
-	// Encode the hash in URL-safe base64 format without padding
-	// accessTokenHash := base64.RawURLEncoding.EncodeToString(hash)
-	accessTokenHash := base64.RawURLEncoding.WithPadding(base64.NoPadding).EncodeToString(hash)
-	pubKey, err := o.downstreamJWK.PublicKey()
-	if err != nil {
-		return nil, fmt.Errorf("could not get access jwk public key: %w", err)
-	}
-	var pubKeyECDSA ecdsa.PublicKey
-	err = pubKey.Raw(&pubKeyECDSA)
-	if err != nil {
-		return nil, fmt.Errorf("could not get access jwk public key: %w", err)
-	}
-
-	// Parse the access token JWT
-	accessClaims := &dpop.BoundAccessTokenClaims{}
-	accessTokenJWT, err := jwt.ParseWithClaims(token, accessClaims, func(token *jwt.Token) (any, error) {
-		return &pubKeyECDSA, nil
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("could not parse access token: %w", err)
-	}
-
-	err = proof.Validate([]byte(accessTokenHash), accessTokenJWT)
-	// Check the error type to determine response
-	if err != nil {
-		return nil, fmt.Errorf("invalid proof: %w", err)
-	}
-
-	err = session.CacheJTI(dpopClaims.ID)
-	if err != nil {
-		return nil, fmt.Errorf("could not cache jti: %w", err)
-	}
-
-	err = o.updateOAuthSession(session.DownstreamDPoPJKT, session)
-	if err != nil {
-		return nil, fmt.Errorf("could not update oauth session: %w", err)
-	}
-
-	return session, nil
 }
 
 func (o *OProxy) DPoPNonceMiddleware(next echo.HandlerFunc) echo.HandlerFunc {

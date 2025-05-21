@@ -39,7 +39,6 @@ import (
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/spmetrics"
-	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -128,12 +127,11 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 
-	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model)
-	if err != nil {
-		return nil, err
-	}
-	xrpc = a.op.OAuthMiddleware(xrpc)
+	// var xrpc http.Handler
+	// xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.op)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	router := httprouter.New()
 
 	// router.Handler("GET", "/oauth/*anything", a.op.Handler())

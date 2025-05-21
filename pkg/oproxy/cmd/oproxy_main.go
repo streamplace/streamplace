@@ -33,7 +33,7 @@ func Run() error {
 	fs := flag.NewFlagSet("oproxy", flag.ExitOnError)
 	noColor := fs.Bool("no-color", false, "disable colorized logging")
 	host := fs.String("host", "", "public HTTPS address where this OAuth provider is hosted (ex example.com, no https:// prefix)")
-	dbPath := fs.String("db", "", "path to the database file or postgres connection string")
+	dbPath := fs.String("db", "oproxy.sqlite3", "path to the database file or postgres connection string")
 	verbose := fs.Bool("v", false, "enable verbose logging")
 	scope := fs.String("scope", "atproto transition:generic", "scope to use for the OAuth provider")
 	clientMetadata := fs.String("client-metadata", "", "JSON client metadata or path to JSON file containing client metadata")

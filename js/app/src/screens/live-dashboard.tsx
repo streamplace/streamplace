@@ -4,7 +4,6 @@ import { Player } from "components/player/player";
 import Loading from "components/loading/loading";
 import {
   selectIsReady,
-  selectNewLivestream,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
 import { useAppSelector } from "store/hooks";
@@ -18,7 +17,7 @@ import { H6, Text } from "tamagui";
 import Waiting from "components/live-dashboard/waiting";
 import { selectTelemetry } from "features/streamplace/streamplaceSlice";
 import UpdateLivestream from "components/edit-livestream";
-import ButtonSelector from "components/button-selector";
+import ButtonSelector from "components/ui/button-selector";
 
 enum StreamSource {
   Start,
@@ -35,6 +34,8 @@ export default function LiveDashboard() {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
   );
+
+  const [playerId, setPlayerId] = useState<string | null>(null);
 
   const [page, setPage] = useState<"update" | "create">("create");
 
@@ -62,6 +63,7 @@ export default function LiveDashboard() {
         src={userProfile.did}
         name={userProfile.handle}
         videoRef={videoRef}
+        setPlayerId={setPlayerId}
       />
     );
   } else if (streamSource === StreamSource.Start) {
@@ -107,12 +109,13 @@ export default function LiveDashboard() {
               { label: "Create", value: "create" },
               { label: "Update", value: "update" },
             ]}
+            disabledValues={playerId ? [] : ["update"]}
             selectedValue={page}
             setSelectedValue={setPage}
             maxWidth={250}
             width="100%"
           />
-          {page === "update" ? <UpdateLivestream /> : null}
+          {page === "update" ? <UpdateLivestream playerId={playerId} /> : null}
           {page === "create" ? <CreateLivestream /> : null}
         </View>
       </View>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Label, Paragraph, Text, TextArea, View } from "tamagui";
+import { Button, H3, Label, Paragraph, Text, TextArea, View } from "tamagui";
 import { useToastController } from "@tamagui/toast";
 import {
   selectNewLivestream,
@@ -10,7 +10,11 @@ import { useAppDispatch, useAppSelector } from "store/hooks";
 import { useLiveUser } from "hooks/useLiveUser";
 import { ScrollView } from "react-native";
 
-export default function UpdateLivestream() {
+export default function UpdateLivestream({
+  playerId,
+}: {
+  playerId: string | null;
+}) {
   const dispatch = useAppDispatch();
   const toast = useToastController();
   const userIsLive = useLiveUser();
@@ -36,12 +40,24 @@ export default function UpdateLivestream() {
   }, [newLivestream?.error]);
   const disabled = !userIsLive || loading || title === "";
 
+  if (!playerId) {
+    return (
+      <View justifyContent="center" alignContent="center">
+        <Text>
+          Couldn't get the player ID. You may not have created an initial
+          livestream record.
+        </Text>
+      </View>
+    );
+  }
+
   const handleSubmit = async () => {
     setLoading(true);
     try {
       await dispatch(
         updateLivestreamRecord({
           title,
+          playerId,
         }),
       );
     } catch (error) {
@@ -70,6 +86,7 @@ export default function UpdateLivestream() {
       }}
       showsVerticalScrollIndicator={false}
     >
+      <H3 pl="$4">Change your Current Livestream Title</H3>
       <View w="100%" alignSelf="center" p="$4" justifyContent="center">
         <View f={2} minWidth={0} gap="$3">
           <Label asChild={true} display="flex">
@@ -105,8 +122,8 @@ export default function UpdateLivestream() {
               <Paragraph minWidth={100} textAlign="left"></Paragraph>
               <View flex={1}>
                 <Text fontSize="$1" color="$gray11">
-                  Updating the livestream title will not automagically send out
-                  notifications to viewers or create a new social media post.
+                  Updating will not send out notifications to viewers or create
+                  a new social media post.
                 </Text>
               </View>
             </View>

@@ -45,6 +45,8 @@ export type PlayerProps = {
     | React.MutableRefObject<HTMLVideoElement | null>
     | ((instance: HTMLVideoElement | null) => void)
     | undefined;
+
+  setPlayerId?: (playerId: string) => void;
 };
 
 export type PlayerEvent = {

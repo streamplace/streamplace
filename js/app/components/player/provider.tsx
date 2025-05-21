@@ -42,6 +42,8 @@ export function PlayerContextInitializer(
     }
     dispatch(newPlayerAction);
     setPlayerId(newPlayerAction.payload.playerId);
+    // if needed, prop back up
+    props.setPlayerId?.(newPlayerAction.payload.playerId);
   }, []);
   if (!playerId) {
     return <></>;

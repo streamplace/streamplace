@@ -1013,7 +1013,10 @@ export const blueskySlice = createAppSlice({
     ),
 
     updateLivestreamRecord: create.asyncThunk(
-      async ({ title }: { title: string }, thunkAPI) => {
+      async (
+        { title, playerId }: { title: string; playerId: string },
+        thunkAPI,
+      ) => {
         const now = new Date();
         const { bluesky, streamplace, player } = thunkAPI.getState() as {
           bluesky: BlueskyState;
@@ -1033,10 +1036,7 @@ export const blueskySlice = createAppSlice({
           throw new Error("No profile");
         }
 
-        // hack: as of now there's only one player at a time
-        // so we just grab the first
-        const playerUuid = Object.keys(player)[0];
-        let oldRecord = player[playerUuid].livestream;
+        let oldRecord = player[playerId].livestream;
         if (!oldRecord) {
           throw new Error("No latest record");
         }

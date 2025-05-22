@@ -13,10 +13,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
-      - name: make node
-        run: |
-          sudo apt install podman -y
-          make in-container DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true" IN_CONTAINER_CMD="make"
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:

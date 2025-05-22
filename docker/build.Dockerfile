@@ -10,29 +10,35 @@ ENV GO_VERSION 1.24.2
 ENV NODE_VERSION 22.15.0
 ENV DEBIAN_FRONTEND noninteractive
 
+RUN apt update && apt install -y ca-certificates
+
+ADD docker/sources.list /etc/apt/sources.list
+ADD docker/winehq.key /etc/apt/keyrings/winehq-archive.key
+RUN dpkg --add-architecture i386 && dpkg --add-architecture arm64
+
+# Haven't automated it yet, so here's my instructors for mirroring winehq:
+# /etc/apt/mirror.list:
+# deb-i386 https://dl.winehq.org/wine-builds/ubuntu jammy main
+# deb-all https://dl.winehq.org/wine-builds/ubuntu jammy main
+# deb-amd64 [arch=amd64,i386 signed-by=/etc/apt/keyrings/winehq-archive.key] https://dl.winehq.org/wine-builds/ubuntu jammy main
+#
+# go install github.com/minio/mc@latest
+# mc alias set streamplace-crap https://storage.googleapis.com/ ACCESS_KEY SECRET_KEY
+# apt-mirror
+# mc mirror --overwrite /var/spool/apt-mirror/mirror/dl.winehq.org/ streamplace-crap/streamplace-crap/dl.winehq.org/
+
 RUN apt update \
   && apt install -y build-essential curl git openjdk-17-jdk unzip jq g++ python3-pip ninja-build \
   gcc-aarch64-linux-gnu g++-aarch64-linux-gnu clang lld qemu-user-static pkg-config \
   nasm gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64-tools zip bison flex expect \
   mono-runtime nuget mono-xsp4 squashfs-tools \
+  libc6:arm64 libstdc++6:arm64 \
+  && apt install -y --install-recommends winehq-stable \
   && pip install meson tomli \
   && curl -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
   && tar -C /usr/local -xf go.tar.gz \
   && rm go.tar.gz
 ENV PATH $PATH:/usr/local/go/bin:/root/go/bin:/root/.cargo/bin
-
-RUN dpkg --add-architecture i386 \
-  && curl -L -o /etc/apt/sources.list.d/winehq-jammy.sources https://dl.winehq.org/wine-builds/ubuntu/dists/jammy/winehq-jammy.sources \
-  && curl -o /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key \
-  && apt update && apt install -y --install-recommends winehq-stable
-
-RUN  echo 'deb [arch=arm64] http://ports.ubuntu.com/ jammy main multiverse universe' >> /etc/apt/sources.list \
-  && echo 'deb [arch=arm64] http://ports.ubuntu.com/ jammy-security main multiverse universe' >> /etc/apt/sources.list \
-  && echo 'deb [arch=arm64] http://ports.ubuntu.com/ jammy-backports main multiverse universe' >> /etc/apt/sources.list \
-  && echo 'deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates main multiverse universe' >> /etc/apt/sources.list \
-  && dpkg --add-architecture arm64 \
-  && bash -c "apt update || echo 'ignoring errors'" \
-  && apt install -y libc6:arm64 libstdc++6:arm64
 
 RUN export NODEARCH="$TARGETARCH" \
   && if [ "$TARGETARCH" = "amd64" ]; then export NODEARCH="x64"; fi \
@@ -63,15 +69,15 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh \
 
 RUN go env -w GOTOOLCHAIN=go$GO_VERSION
 
-FROM builder AS cached-builder
-ARG CI_COMMIT_BRANCH=next
-ENV CI_COMMIT_BRANCH $CI_COMMIT_BRANCH
-WORKDIR /cached-build
-RUN git clone https://git.stream.place/streamplace/streamplace \
-  && cd streamplace \
-  && make version install check app android -j$(nproc) \
-  && make node \
-  && cd .. \
-  && rm -rf streamplace
+# FROM builder AS cached-builder
+# ARG CI_COMMIT_BRANCH=next
+# ENV CI_COMMIT_BRANCH $CI_COMMIT_BRANCH
+# WORKDIR /cached-build
+# RUN git clone https://git.stream.place/streamplace/streamplace \
+#   && cd streamplace \
+#   && make version install check app android -j$(nproc) \
+#   && make node \
+#   && cd .. \
+#   && rm -rf streamplace
 
 LABEL org.opencontainers.image.authors="support@stream.place"

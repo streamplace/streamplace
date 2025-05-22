@@ -16,6 +16,17 @@ ADD docker/sources.list /etc/apt/sources.list
 ADD docker/winehq.key /etc/apt/keyrings/winehq-archive.key
 RUN dpkg --add-architecture i386 && dpkg --add-architecture arm64
 
+# Haven't automated it yet, so here's my instructors for mirroring winehq:
+# /etc/apt/mirror.list:
+# deb-i386 https://dl.winehq.org/wine-builds/ubuntu jammy main
+# deb-all https://dl.winehq.org/wine-builds/ubuntu jammy main
+# deb-amd64 [arch=amd64,i386 signed-by=/etc/apt/keyrings/winehq-archive.key] https://dl.winehq.org/wine-builds/ubuntu jammy main
+#
+# go install github.com/minio/mc@latest
+# mc alias set streamplace-crap https://storage.googleapis.com/ ACCESS_KEY SECRET_KEY
+# apt-mirror
+# mc mirror --overwrite /var/spool/apt-mirror/mirror/dl.winehq.org/ streamplace-crap/streamplace-crap/dl.winehq.org/
+
 RUN apt update \
   && apt install -y build-essential curl git openjdk-17-jdk unzip jq g++ python3-pip ninja-build \
   gcc-aarch64-linux-gnu g++-aarch64-linux-gnu clang lld qemu-user-static pkg-config \

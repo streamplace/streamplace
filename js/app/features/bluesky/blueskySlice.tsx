@@ -36,6 +36,7 @@ import {
   isLink,
   isMention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import { Platform } from "react-native";
 
 const initialState: BlueskyState = {
   status: "start",
@@ -63,7 +64,11 @@ const initialState: BlueskyState = {
   newKey: null,
   storedKey: null,
   isDeletingKey: false,
-  streamKeysResponse: null,
+  streamKeysResponse: {
+    loading: true,
+    error: null,
+    records: null,
+  },
   newLivestream: null,
 };
 
@@ -777,9 +782,33 @@ export const blueskySlice = createAppSlice({
           did: keypair.did(),
           address: account.address.toLowerCase(),
         };
+
+        let platform: string = Platform.OS;
+
+        // window only exists on web
+        if (Platform.OS === "web" && window && window.navigator) {
+          let splitUA = window.navigator.userAgent
+            .split(" ")
+            .pop()
+            ?.split("/")[0];
+          if (splitUA) {
+            platform = splitUA;
+          }
+          // proper capitalization
+        } else if (platform === "android") {
+          platform = "Android";
+        } else if (platform === "ios") {
+          platform = "iOS";
+        } else if (platform === "macos") {
+          platform = "macOS";
+        } else if (platform === "windows") {
+          platform = "Windows";
+        }
+
         const record: PlaceStreamKey.Record = {
           signingKey: keypair.did(),
           createdAt: new Date().toISOString(),
+          createdBy: "Streamplace on " + platform,
         };
         await bluesky.pdsAgent.com.atproto.repo.createRecord({
           repo: did,
@@ -845,18 +874,35 @@ export const blueskySlice = createAppSlice({
         pending: (state) => {
           return {
             ...state,
-            streamKeysResponse: null,
+            streamKeysResponse: {
+              loading: true,
+              error: null,
+              records: null,
+            },
           };
         },
         fulfilled: (state, action) => {
           console.log(action.payload);
           return {
             ...state,
-            streamKeysResponse: action.payload.data,
+            streamKeysResponse: {
+              loading: false,
+              error: null,
+              records: action.payload.data,
+            },
           };
         },
         rejected: (state, action) => {
           console.error("listStreamKeyRecords rejected", action.error);
+
+          return {
+            ...state,
+            streamKeysResponse: {
+              loading: false,
+              error: action.error?.message ?? null,
+              records: null,
+            },
+          };
         },
       },
     ),

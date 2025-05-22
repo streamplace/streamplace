@@ -16,6 +16,8 @@ type Key struct {
 	LexiconTypeID string `json:"$type,const=place.stream.key" cborgen:"$type,const=place.stream.key"`
 	// createdAt: Client-declared timestamp when this key was created.
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// createdBy: The name of the client that created this key.
+	CreatedBy *string `json:"createdBy,omitempty" cborgen:"createdBy,omitempty"`
 	// signingKey: The did:key signing key for the stream.
 	SigningKey string `json:"signingKey" cborgen:"signingKey"`
 }

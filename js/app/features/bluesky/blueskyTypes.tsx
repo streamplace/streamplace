@@ -33,7 +33,11 @@ export interface BlueskyState {
   newKey: null | StreamKey;
   storedKey: null | StreamKey;
   isDeletingKey: boolean;
-  streamKeysResponse: null | OutputSchema;
+  streamKeysResponse: {
+    loading: boolean;
+    error: null | string;
+    records: null | OutputSchema;
+  };
   newLivestream: null | NewLivestream;
   chatProfile: {
     loading: boolean;

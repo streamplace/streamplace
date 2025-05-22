@@ -69,15 +69,15 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh \
 
 RUN go env -w GOTOOLCHAIN=go$GO_VERSION
 
-FROM builder AS cached-builder
-ARG CI_COMMIT_BRANCH=next
-ENV CI_COMMIT_BRANCH $CI_COMMIT_BRANCH
-WORKDIR /cached-build
-RUN git clone https://git.stream.place/streamplace/streamplace \
-  && cd streamplace \
-  && make version install check app android -j$(nproc) \
-  && make node \
-  && cd .. \
-  && rm -rf streamplace
+# FROM builder AS cached-builder
+# ARG CI_COMMIT_BRANCH=next
+# ENV CI_COMMIT_BRANCH $CI_COMMIT_BRANCH
+# WORKDIR /cached-build
+# RUN git clone https://git.stream.place/streamplace/streamplace \
+#   && cd streamplace \
+#   && make version install check app android -j$(nproc) \
+#   && make node \
+#   && cd .. \
+#   && rm -rf streamplace
 
 LABEL org.opencontainers.image.authors="support@stream.place"

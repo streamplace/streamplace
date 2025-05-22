@@ -23,6 +23,7 @@ Record linking an atproto identity with a stream signing key
 | ------------ | -------- | ----- | ---------------------------------------------------- | --------------------------------- |
 | `signingKey` | `string` | ✅    | The did:key signing key for the stream.              | Min Length: 57<br/>Max Length: 57 |
 | `createdAt`  | `string` | ✅    | Client-declared timestamp when this key was created. | Format: `datetime`                |
+| `createdBy`  | `string` | ❌    | The name of the client that created this key.        |                                   |
 
 ---
 
@@ -51,6 +52,10 @@ Record linking an atproto identity with a stream signing key
             "type": "string",
             "format": "datetime",
             "description": "Client-declared timestamp when this key was created."
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "The name of the client that created this key."
           }
         }
       }

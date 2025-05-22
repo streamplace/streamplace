@@ -1,6 +1,14 @@
-import { YStack, XStack, Text, Separator, Button, ScrollView } from "tamagui";
+import {
+  YStack,
+  XStack,
+  Text,
+  Separator,
+  Button,
+  ScrollView,
+  View,
+} from "tamagui";
 import { useEffect } from "react";
-import { X } from "@tamagui/lucide-icons";
+import { RefreshCcw, X } from "@tamagui/lucide-icons";
 import {
   deleteStreamKeyRecord,
   getStreamKeyRecords,
@@ -15,26 +23,26 @@ import AQLink from "components/aqlink";
 function KeyRow({
   keyRecord,
   rkey,
+  by,
   deleteKeyRecord,
 }: {
   keyRecord: PlaceStreamKey.Record;
   rkey: string;
+  by: string;
   deleteKeyRecord: (rkey: string) => void;
 }) {
   return (
-    <XStack
-      style={{
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}
-      gap="$4"
-    >
-      <XStack gap="$4">
+    <XStack justifyContent="space-between" alignItems="stretch" gap="$4">
+      <View
+        flexDirection="row"
+        $xs={{ flexDirection: "column", marginBottom: "$4" }}
+        gap="$2"
+      >
         {keyRecord?.signingKey && (
           <Text
             fontFamily="$mono"
             fontSize="$2"
-            $xs={{ width: "$14" }}
+            $xs={{ width: "$20" }}
             ellipse
             numberOfLines={1}
           >
@@ -42,11 +50,22 @@ function KeyRow({
           </Text>
         )}
         {keyRecord?.createdAt && (
-          <Text fontSize="$2" f={1}>
-            made {timeAgo(new Date(keyRecord.createdAt))}
+          <Text fontSize="$2" color="$color.gray11Dark" f={1}>
+            made
+            {by ? (
+              <Text color="$color.gray11Dark">
+                {" "}
+                by <Text color="$color.gray12Dark">{by}</Text>
+              </Text>
+            ) : (
+              ""
+            )}{" "}
+            <Text color="$color.gray12Dark">
+              {timeAgo(new Date(keyRecord.createdAt))}
+            </Text>
           </Text>
         )}
-      </XStack>
+      </View>
       <Button
         aria-label="Delete"
         size="$3"
@@ -63,7 +82,8 @@ function KeyRow({
 
 export default function KeyManager() {
   const dispatch = useAppDispatch();
-  const keyRecords = useAppSelector(selectKeyRecords);
+  const keyObj = useAppSelector(selectKeyRecords);
+  const keyRecords = keyObj.records;
 
   const deleteKeyRecord = (rkey: string) => {
     dispatch(deleteStreamKeyRecord({ rkey }));
@@ -75,48 +95,82 @@ export default function KeyManager() {
   }, []);
 
   return (
-    <ScrollView justifyContent="flex-start" alignItems="center">
-      <YStack f={1} p="$4" gap="$4" maxWidth={650}>
-        {keyRecords === null ? (
-          <Loading />
-        ) : keyRecords.records.length === 0 ? (
-          <>
-            <Text mt="$8">No keys here!</Text>
-            <AQLink to={{ screen: "LiveDashboard" }}>
-              <Text fontSize="$2" color="$color.blue7Light">
-                Go to the live dashboard to create a key.
+    <ScrollView>
+      <View justifyContent="center" alignItems="center">
+        <YStack f={1} p="$4" gap="$6" maxWidth={700}>
+          {keyObj.error ? (
+            <>
+              <Text fontSize="$6" color="$color.red">
+                Encountered an error while getting stream keys: {keyObj.error}
               </Text>
-            </AQLink>
-          </>
-        ) : (
-          <>
-            <YStack gap="$2">
-              <Text fontSize="$8">Your public keys</Text>
-              <Text fontSize="$2" color="$color.gray11Dark">
-                A public key is a pair to one of your stream keys. You can
-                revoke access for a specific stream key by revoking its
-                associated public key below.
-              </Text>
-              {keyRecords.records.map((keyRecord) => (
-                <KeyRow
-                  rkey={keyRecord.uri.split("/").pop() as string}
-                  keyRecord={keyRecord.value as any}
-                  deleteKeyRecord={deleteKeyRecord}
-                />
-              ))}
-              <Text fontSize="$2" color="$color.gray11Dark">
-                {keyRecords.records.length} key
-                {keyRecords.records.length > 1 && "s"}
-              </Text>
-            </YStack>
-            <Separator />
+              <Button
+                aria-label="Refresh"
+                size="$3"
+                padding="$2"
+                onPress={() => dispatch(getStreamKeyRecords())}
+              >
+                <RefreshCcw />
+              </Button>
+            </>
+          ) : keyObj.loading == true || keyRecords === null ? (
+            <Loading />
+          ) : keyRecords.records.length === 0 ? (
+            <>
+              <Text mt="$8">No keys here!</Text>
+              <AQLink to={{ screen: "LiveDashboard" }}>
+                <Text fontSize="$2" color="$color.blue7Light">
+                  Go to the live dashboard to create a key.
+                </Text>
+              </AQLink>
+            </>
+          ) : (
+            <>
+              <YStack
+                gap="$2"
+                borderBottomWidth={1}
+                borderBottomColor="$color.gray3Dark"
+                pb="$2"
+                mb="$2"
+              >
+                <YStack
+                  gap="$2"
+                  borderBottomWidth={1}
+                  borderBottomColor="$color.gray3Dark"
+                  pb="$2"
+                  mb="$2"
+                >
+                  <Text fontSize="$8">Your Stream Pubkeys</Text>
+                  <Text fontSize="$2" color="$color.gray11Dark">
+                    A pubkey is a pair to one of your stream keys. You can
+                    revoke access for a specific stream key by revoking its
+                    associated pubkey below.
+                  </Text>
+                </YStack>
+                <YStack gap="$2">
+                  {keyRecords.records.map((keyRecord) => (
+                    <KeyRow
+                      rkey={keyRecord.uri.split("/").pop() as string}
+                      keyRecord={keyRecord.value as any}
+                      by={keyRecord.value.createdBy as any}
+                      deleteKeyRecord={deleteKeyRecord}
+                    />
+                  ))}
+                </YStack>
+                <Text fontSize="$2" color="$color.gray11Dark">
+                  {keyRecords.records.length} key
+                  {keyRecords.records.length > 1 && "s"}
+                </Text>
+              </YStack>
 
-            <Text fontSize="$2" color="$color.gray11Dark">
-              Go to the live dashboard to create a key.
-            </Text>
-          </>
-        )}
-      </YStack>
+              <AQLink to={{ screen: "LiveDashboard" }}>
+                <Text fontSize="$2" color="$color.blue7Light">
+                  Go to the live dashboard to create a key.
+                </Text>
+              </AQLink>
+            </>
+          )}
+        </YStack>
+      </View>
     </ScrollView>
   );
 }

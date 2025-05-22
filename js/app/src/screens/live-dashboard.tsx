@@ -4,6 +4,7 @@ import { Player } from "components/player/player";
 import Loading from "components/loading/loading";
 import {
   selectIsReady,
+  selectNewLivestream,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
 import { useAppSelector } from "store/hooks";
@@ -36,7 +37,6 @@ export default function LiveDashboard() {
   );
 
   const [playerId, setPlayerId] = useState<string | null>(null);
-
   const [page, setPage] = useState<"update" | "create">("create");
 
   const videoRef = useCallback((node: HTMLVideoElement | null) => {

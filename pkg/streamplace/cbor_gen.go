@@ -27,8 +27,13 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 4
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.CreatedBy == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -72,6 +77,38 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
+	}
+
+	// t.CreatedBy (string) (string)
+	if t.CreatedBy != nil {
+
+		if len("createdBy") > 1000000 {
+			return xerrors.Errorf("Value in field \"createdBy\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdBy"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("createdBy")); err != nil {
+			return err
+		}
+
+		if t.CreatedBy == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.CreatedBy) > 1000000 {
+				return xerrors.Errorf("Value in field t.CreatedBy was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.CreatedBy))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.CreatedBy)); err != nil {
+				return err
+			}
+		}
 	}
 
 	// t.SigningKey (string) (string)
@@ -161,6 +198,27 @@ func (t *Key) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.CreatedAt = string(sval)
+			}
+			// t.CreatedBy (string) (string)
+		case "createdBy":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.CreatedBy = (*string)(&sval)
+				}
 			}
 			// t.SigningKey (string) (string)
 		case "signingKey":

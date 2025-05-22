@@ -13,6 +13,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
+      - name: set up build bariables
+        run: |
+          echo "BUILDOS=$(uname -s | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "BUILDARCH=$(uname -m | tr '[:upper:]' '[:lower:]' | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')" >> $GITHUB_ENV
+          export BUILDDIR=build-${BUILDOS}-${BUILDARCH}
+          export SHARED_PKG_CONFIG_PATH=$(pwd)/${BUILDDIR}/meson-uninstalled
+          make golint-setup
+          echo "SHARED_PKG_CONFIG_PATH=${SHARED_PKG_CONFIG_PATH}" >> $GITHUB_ENV
       - name: golangci-lint
         env:
           CGO_ENABLED: 0

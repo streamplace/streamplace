@@ -83,8 +83,10 @@ if (require("electron-squirrel-startup")) {
   });
 
   const start = async (env: { [k: string]: string }): Promise<void> => {
-    initUpdater();
-    const { skipNode, nodeFrontend } = getEnv();
+    const { skipNode, nodeFrontend, noUpdate } = getEnv();
+    if (!noUpdate) {
+      initUpdater();
+    }
     let loadAddr;
     if (!skipNode) {
       const { addr } = await makeNode({ env, autoQuit: true });

@@ -14,6 +14,8 @@ jobs:
         with:
           go-version: stable
       - name: golangci-lint
+        env:
+          CGO_ENABLED: 0
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1

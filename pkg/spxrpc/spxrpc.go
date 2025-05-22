@@ -5,10 +5,10 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 )
 
 type Server struct {

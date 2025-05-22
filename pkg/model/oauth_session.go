@@ -3,8 +3,8 @@ package model
 import (
 	"errors"
 
-	"gorm.io/gorm"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"gorm.io/gorm"
 )
 
 func (m *DBModel) CreateOAuthSession(id string, session *oatproxy.OAuthSession) error {

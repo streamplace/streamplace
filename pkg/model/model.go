@@ -11,11 +11,11 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/lmittmann/tint"
 	slogGorm "github.com/orandin/slog-gorm"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/streamplace"
 )
 

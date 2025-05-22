@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 )
 
 // director is responsible for managing the lifecycle of a stream, making business

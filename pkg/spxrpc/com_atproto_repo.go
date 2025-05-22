@@ -8,9 +8,9 @@ import (
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/log"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 )
 
 func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context, r io.Reader, contentType string) (*comatprototypes.RepoUploadBlob_Output, error) {

@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/term"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
@@ -26,7 +27,6 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/notifications"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/replication/boring"
 	"stream.place/streamplace/pkg/rtmps"

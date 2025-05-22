@@ -7,9 +7,9 @@ import (
 
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/log"
-	"github.com/streamplace/oatproxy/pkg/oatproxy"
 )
 
 func (s *Server) HandleWildcard(c echo.Context) error {

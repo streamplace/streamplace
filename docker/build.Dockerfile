@@ -12,8 +12,8 @@ ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt update && apt install -y ca-certificates
 
-ADD sources.list /etc/apt/sources.list
-ADD winehq.key /etc/apt/keyrings/winehq-archive.key
+ADD docker/sources.list /etc/apt/sources.list
+ADD docker/winehq.key /etc/apt/keyrings/winehq-archive.key
 RUN dpkg --add-architecture i386 && dpkg --add-architecture arm64
 
 RUN apt update \

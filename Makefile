@@ -452,8 +452,7 @@ docker-test: docker-build-builder docker-test-in-container
 
 .PHONY: docker-build-builder
 docker-build-builder:
-	cd docker \
-	&& podman build --target=builder --os=linux --arch=amd64 -f build.Dockerfile -t dist.stream.place/streamplace/streamplace:builder .
+	podman build --target=builder --os=linux --arch=amd64 -f docker/build.Dockerfile -t dist.stream.place/streamplace/streamplace:builder .
 
 .PHONY: docker-build-in-container
 docker-build-in-container:

@@ -81,6 +81,7 @@ const uploadThumbnail = async (
 ) => {
   if (customThumbnail) {
     try {
+      console.log("Is thumbnail undefined?", customThumbnail);
       const thumbnail = await pdsAgent.uploadBlob(customThumbnail);
       if (thumbnail.success) {
         console.log("Successfully uploaded thumbnail");

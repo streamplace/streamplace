@@ -44,10 +44,11 @@ require (
 	github.com/pion/rtcp v1.2.14
 	github.com/pion/webrtc/v4 v4.0.5
 	github.com/piprate/json-gold v0.5.0
-	github.com/prometheus/client_golang v1.17.0
+	github.com/prometheus/client_golang v1.20.3
 	github.com/rs/cors v1.7.0
 	github.com/samber/slog-http v1.4.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
+	github.com/slok/go-http-metrics v0.13.0
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20250521042753-9cfa9e504155
 	github.com/streamplace/oatproxy v0.0.0-20250522204300-ccdf0c639572
 	github.com/stretchr/testify v1.10.0
@@ -262,7 +263,8 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/kisielk/errcheck v1.9.0 // indirect
 	github.com/kkHAIKE/contextcheck v1.1.6 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
+	github.com/klauspost/compress v1.17.9 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/kulti/thelper v0.6.3 // indirect
 	github.com/kunwardeep/paralleltest v1.0.14 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
@@ -289,7 +291,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
-	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/mgechev/revive v1.9.0 // indirect
 	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
@@ -304,6 +305,7 @@ require (
 	github.com/multiformats/go-base36 v0.2.0 // indirect
 	github.com/multiformats/go-multibase v0.2.0 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nakabonne/nestif v0.3.1 // indirect
 	github.com/nishanths/exhaustive v0.12.0 // indirect
 	github.com/nishanths/predeclared v0.2.2 // indirect
@@ -330,9 +332,9 @@ require (
 	github.com/polydawn/refmt v0.89.1-0.20221221234430-40501e09de1f // indirect
 	github.com/polyfloyd/go-errorlint v1.8.0 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
-	github.com/prometheus/client_model v0.5.0 // indirect
-	github.com/prometheus/common v0.45.0 // indirect
-	github.com/prometheus/procfs v0.12.0 // indirect
+	github.com/prometheus/client_model v0.6.1 // indirect
+	github.com/prometheus/common v0.59.1 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/quasilyte/go-ruleguard v0.4.4 // indirect
 	github.com/quasilyte/go-ruleguard/dsl v0.3.22 // indirect
 	github.com/quasilyte/gogrep v0.5.0 // indirect

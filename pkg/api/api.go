@@ -41,6 +41,12 @@ import (
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/streamplace"
+
+	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
+	"github.com/slok/go-http-metrics/middleware"
+	echomiddleware "github.com/slok/go-http-metrics/middleware/echo"
+	httproutermiddleware "github.com/slok/go-http-metrics/middleware/httprouter"
+	middlewarestd "github.com/slok/go-http-metrics/middleware/std"
 )
 
 type StreamplaceAPI struct {
@@ -128,49 +134,64 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 
+	mdlw := middleware.New(middleware.Config{
+		Recorder: metrics.NewRecorder(metrics.Config{}),
+	})
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.op)
+	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.op, mdlw)
 	if err != nil {
 		return nil, err
 	}
 	router := httprouter.New()
+
+	// Create our middleware factory with the default settings.
+
+	a.op.Echo.Use(echomiddleware.Handler("", mdlw))
+
+	// r.GET("/test/:id", httproutermiddleware.Handler("/test/:id", h1, mdlw))
+
+	addHandle := func(router *httprouter.Router, method, path string, handler httprouter.Handle) {
+		router.Handle(method, path, httproutermiddleware.Handler(path, handler, mdlw))
+	}
+	addFunc := func(router *httprouter.Router, method, path string, handler http.HandlerFunc) {
+		router.Handler(method, path, middlewarestd.Handler(path, mdlw, handler))
+	}
 
 	router.Handler("GET", "/oauth/*anything", a.op.Handler())
 	router.Handler("POST", "/oauth/*anything", a.op.Handler())
 	router.Handler("GET", "/.well-known/oauth-authorization-server", a.op.Handler())
 	router.Handler("GET", "/.well-known/oauth-protected-resource", a.op.Handler())
 	apiRouter := httprouter.New()
-	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
+	addFunc(apiRouter, "POST", "/api/notification", a.HandleNotification(ctx))
 	// old clients
-	router.HandlerFunc("GET", "/app-updates", a.HandleAppUpdates(ctx))
-
+	addFunc(router, "GET", "/app-updates", a.HandleAppUpdates(ctx))
 	// new ones
-	apiRouter.HandlerFunc("GET", "/api/manifest", a.HandleAppUpdates(ctx))
-	apiRouter.GET("/api/desktop-updates/:platform/:architecture/:version/:buildTime/:file", a.HandleDesktopUpdates(ctx))
-	apiRouter.POST("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	apiRouter.OPTIONS("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	apiRouter.DELETE("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	apiRouter.Handler("POST", "/api/segment", a.HandleSegment(ctx))
-	apiRouter.HandlerFunc("GET", "/api/healthz", a.HandleHealthz(ctx))
-	apiRouter.GET("/api/playback/:user/hls/*file", a.HandleHLSPlayback(ctx))
-	apiRouter.GET("/api/playback/:user/stream.mp4", a.HandleMP4Playback(ctx))
-	apiRouter.GET("/api/playback/:user/stream.webm", a.HandleMKVPlayback(ctx))
+	addFunc(apiRouter, "GET", "/api/manifest", a.HandleAppUpdates(ctx))
+	addHandle(apiRouter, "GET", "/api/desktop-updates/:platform/:architecture/:version/:buildTime/:file", a.HandleDesktopUpdates(ctx))
+	addHandle(apiRouter, "POST", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
+	addHandle(apiRouter, "OPTIONS", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
+	addHandle(apiRouter, "DELETE", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
+	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
+	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/hls/*file", a.HandleHLSPlayback(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.mp4", a.HandleMP4Playback(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.webm", a.HandleMKVPlayback(ctx))
 	// they're, uh, not jpegs. but we used this once and i don't wanna break backwards compatibility
-	apiRouter.GET("/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	// this one is not a lie
-	apiRouter.GET("/api/playback/:user/stream.png", a.HandleThumbnailPlayback(ctx))
-	apiRouter.GET("/api/app-return/*anything", a.HandleAppReturn(ctx))
-	apiRouter.POST("/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
-	apiRouter.POST("/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
-	apiRouter.POST("/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
-	apiRouter.POST("/api/player-event", a.HandlePlayerEvent(ctx))
-	apiRouter.GET("/api/chat/:repoDID", a.HandleChat(ctx))
-	apiRouter.GET("/api/websocket/:repoDID", a.HandleWebsocket(ctx))
-	apiRouter.GET("/api/livestream/:repoDID", a.HandleLivestream(ctx))
-	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
-	apiRouter.GET("/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
-	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
-	apiRouter.GET("/api/view-count/:user", a.HandleViewCount(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.png", a.HandleThumbnailPlayback(ctx))
+	addHandle(apiRouter, "GET", "/api/app-return/*anything", a.HandleAppReturn(ctx))
+	addHandle(apiRouter, "POST", "/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
+	addHandle(apiRouter, "POST", "/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
+	addHandle(apiRouter, "POST", "/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
+	addHandle(apiRouter, "POST", "/api/player-event", a.HandlePlayerEvent(ctx))
+	addHandle(apiRouter, "GET", "/api/chat/:repoDID", a.HandleChat(ctx))
+	addHandle(apiRouter, "GET", "/api/websocket/:repoDID", a.HandleWebsocket(ctx))
+	addHandle(apiRouter, "GET", "/api/livestream/:repoDID", a.HandleLivestream(ctx))
+	addHandle(apiRouter, "GET", "/api/segment/recent", a.HandleRecentSegments(ctx))
+	addHandle(apiRouter, "GET", "/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
+	addHandle(apiRouter, "GET", "/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
+	addHandle(apiRouter, "GET", "/api/view-count/:user", a.HandleViewCount(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	apiRouterHandler := a.RateLimitMiddleware(ctx)(apiRouter)
 	xrpcHandler := a.RateLimitMiddleware(ctx)(xrpc)
@@ -232,7 +253,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		if err != nil {
 			return nil, err
 		}
-		router.NotFound = linkingHandler
+		router.NotFound = middlewarestd.Handler("/*static", mdlw, linkingHandler)
 	}
 	// needed because the WebRTC handler issues 405s from / otherwise
 	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

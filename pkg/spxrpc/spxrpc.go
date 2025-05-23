@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/slok/go-http-metrics/middleware"
+	echomiddleware "github.com/slok/go-http-metrics/middleware/echo"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
@@ -17,7 +19,7 @@ type Server struct {
 	model model.Model
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, op *oatproxy.OATProxy) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, op *oatproxy.OATProxy, mdlw middleware.Middleware) (*Server, error) {
 	e := echo.New()
 	s := &Server{
 		e:     e,
@@ -25,6 +27,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, op *oatp
 		model: model,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
+	e.Use(echomiddleware.Handler("", mdlw))
 	e.Use(op.OAuthMiddleware)
 	err := s.RegisterHandlersPlaceStream(e)
 	if err != nil {

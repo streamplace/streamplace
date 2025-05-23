@@ -473,9 +473,9 @@ golangci-lint-container: docker-build-builder
 		--name golangci-lint \
 		dist.stream.place/streamplace/streamplace:builder \
 		tail -f /dev/null
-	podman exec golangci-lint make node
 	podman exec golangci-lint mkdir -p js/app/dist
 	podman exec golangci-lint touch js/app/dist/skip-build.txt
+	podman exec golangci-lint make node
 
 .PHONY: docker-build-in-container
 docker-build-in-container:

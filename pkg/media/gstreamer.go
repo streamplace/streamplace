@@ -262,10 +262,10 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
-		if err := pipeline.BlockSetState(gst.StateNull); err != nil {
-			log.Log(ctx, "failed to set pipline state", "error", err)
-		}
 		<-ctx.Done()
+		if err := pipeline.BlockSetState(gst.StateNull); err != nil {
+			log.Log(ctx, "failed to set pipeline state", "error", err)
+		}
 		mainLoop.Quit()
 	}()
 
@@ -278,7 +278,7 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 
 	// Start the pipeline
 	if err := pipeline.SetState(gst.StatePlaying); err != nil {
-		log.Log(ctx, "failed to set pipline state", "error", err)
+		log.Log(ctx, "failed to set pipeline state", "error", err)
 	}
 
 	g, _ := errgroup.WithContext(ctx)

@@ -78,7 +78,7 @@ jobs:
             -D FFmpeg:default_library=shared"
 
           SHARED_OPTS="$BASE_OPTS"
-
+          git tag lint
           meson setup --default-library=shared $BUILDDIR $SHARED_OPTS
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8

@@ -463,6 +463,18 @@ docker-test: docker-build-builder docker-test-in-container
 docker-build-builder:
 	podman build --target=builder --os=linux --arch=amd64 -f docker/build.Dockerfile -t dist.stream.place/streamplace/streamplace:builder .
 
+.PHONY: golangci-lint-container
+golangci-lint-container: docker-build-builder
+	podman run \
+		-v $$(pwd):$$(pwd) \
+		-w $$(pwd) \
+		-e PKG_CONFIG_PATH=$$(pwd)/build-linux-amd64/meson-uninstalled \
+		-d \
+		--name golangci-lint \
+		dist.stream.place/streamplace/streamplace:builder \
+		tail -f /dev/null
+	podman exec golangci-lint make node
+
 .PHONY: docker-build-in-container
 docker-build-in-container:
 	podman run -v $$(pwd):$$(pwd) -w $$(pwd) --rm -it dist.stream.place/streamplace/streamplace:builder make app-and-node

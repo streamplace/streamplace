@@ -15,82 +15,16 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha }}
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.21"
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            ninja-build \
-            pkg-config \
-            libgstreamer1.0-dev \
-            libgstreamer-plugins-base1.0-dev \
-            libgstreamer-plugins-bad1.0-dev \
-            libgstreamer-plugins-good1.0-dev \
-            build-essential curl git openjdk-17-jdk unzip jq g++ python3-pip ninja-build \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu clang lld qemu-user-static pkg-config \
-            nasm gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64-tools zip bison flex expect \
-            mono-runtime mono-xsp4 squashfs-tools \
-            python3-pip
 
-          sudo pip3 install meson>=1.4
-      - name: Determine build architecture
+      - name: run build for linting
         run: |
-          BUILDOS=$(uname -s | tr '[:upper:]' '[:lower:]')
-          BUILDARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
-          if [ "$BUILDARCH" = "aarch64" ]; then
-            BUILDARCH=arm64
-          elif [ "$BUILDARCH" = "x86_64" ]; then
-            BUILDARCH=amd64
-          fi
-          echo "BUILDDIR=build-$BUILDOS-$BUILDARCH" >> $GITHUB_ENV
-          echo "SHARED_PKG_CONFIG_PATH=$(pwd)/build-$BUILDOS-$BUILDARCH/meson-uninstalled" >> $GITHUB_ENV
-      - name: Run meson setup (golint-setup)
-        run: |
-          BASE_OPTS="--buildtype=debugoptimized \
-            -D gst-plugins-base:audioresample=enabled \
-            -D gst-plugins-base:playback=enabled \
-            -D gst-plugins-base:opus=enabled \
-            -D gst-plugins-base:gio-typefinder=enabled \
-            -D gst-plugins-base:videotestsrc=enabled \
-            -D gst-plugins-base:videoconvertscale=enabled \
-            -D gst-plugins-base:typefind=enabled \
-            -D gst-plugins-base:compositor=enabled \
-            -D gst-plugins-base:videorate=enabled \
-            -D gst-plugins-base:app=enabled \
-            -D gst-plugins-base:audiorate=enabled \
-            -D gst-plugins-base:audiotestsrc=enabled \
-            -D gst-plugins-base:audioconvert=enabled \
-            -D gst-plugins-good:matroska=enabled \
-            -D gst-plugins-good:multifile=enabled \
-            -D gst-plugins-good:rtp=enabled \
-            -D gst-plugins-bad:fdkaac=enabled \
-            -D gst-plugins-good:audioparsers=enabled \
-            -D gst-plugins-good:isomp4=enabled \
-            -D gst-plugins-good:png=enabled \
-            -D gst-plugins-good:videobox=enabled \
-            -D gst-plugins-good:jpeg=enabled \
-            -D gst-plugins-bad:videoparsers=enabled \
-            -D gst-plugins-bad:mpegtsmux=enabled \
-            -D gst-plugins-bad:mpegtsdemux=enabled \
-            -D gst-plugins-bad:codectimestamper=enabled \
-            -D gst-plugins-bad:opus=enabled \
-            -D gst-plugins-ugly:x264=enabled \
-            -D gst-plugins-ugly:gpl=enabled \
-            -D x264:asm=enabled \
-            -D gstreamer-full:gst-full=enabled \
-            -D FFmpeg:default_library=shared"
+          sudo apt install podman -y
+          sudo ln -s $(realpath ./hack/golangci-lint) /usr/bin/golangci-lint
+          make golangci-lint-container
 
-          SHARED_OPTS="$BASE_OPTS"
-          git tag lint
-          meson setup --default-library=shared $BUILDDIR $SHARED_OPTS
-          meson configure --default-library=shared $BUILDDIR $SHARED_OPTS
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1
           args: --config=./.golangci.yaml
-        env:
-          PKG_CONFIG_PATH: ${{ env.SHARED_PKG_CONFIG_PATH }}
+          install-mode: none

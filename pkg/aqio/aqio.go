@@ -65,7 +65,8 @@ func (rws *ReadWriteSeeker) Read(b []byte) (n int, err error) {
 // Returns a ReadSeeker based on the current value of the buffer.
 // Don't write to it afterwards!
 func (rws *ReadWriteSeeker) ReadSeeker() io.ReadSeeker {
-	rws.Seek(0, io.SeekStart)
+	// can't fail, we're seeking to 0
+	_, _ = rws.Seek(0, io.SeekStart)
 	return rws
 }
 

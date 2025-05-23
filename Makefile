@@ -69,13 +69,9 @@ dev:
 	DYLD_LIBRARY_PATH=$(SHARED_DYLD_LIBRARY_PATH) \
 	go build -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
-.PHONY: dev-setup
-golint-setup:
-	meson setup --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
-
-.PHONY: golint
-golint: golint-setup
-	PKG_CONFIG_PATH=$(SHARED_PKG_CONFIG_PATH) \
+.PHONY: golangci-lint
+golangci-lint:
+	@PKG_CONFIG_PATH=$(SHARED_PKG_CONFIG_PATH) \
 	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint run -c ./.golangci.yaml
 
 .PHONY: dev-test
@@ -583,6 +579,7 @@ ci-release:
 
 .PHONY: check
 check: install
+	$(MAKE) golangci-lint
 	yarn run check
 	if [ "`gofmt -l . | wc -l`" -gt 0 ]; then echo 'gofmt failed, run make fix'; exit 1; fi
 

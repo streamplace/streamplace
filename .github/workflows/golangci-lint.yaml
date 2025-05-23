@@ -9,10 +9,11 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.7
-      - uses: actions/setup-go@v5
+      - name: Check out code
+        uses: actions/checkout@v4.1.7
         with:
-          go-version: stable
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: run golintci-lint
         run: |
           sudo apt install podman -y

@@ -48,7 +48,7 @@ require (
 	github.com/samber/slog-http v1.4.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20250521042753-9cfa9e504155
-	github.com/streamplace/oatproxy v0.0.0-20250521043904-b31b13e49f58
+	github.com/streamplace/oatproxy v0.0.0-20250522204300-ccdf0c639572
 	github.com/stretchr/testify v1.10.0
 	github.com/whyrusleeping/cbor-gen v0.2.1-0.20241030202151-b7a6831be65e
 	gitlab.com/gitlab-org/release-cli v0.18.0

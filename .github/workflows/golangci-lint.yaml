@@ -86,6 +86,7 @@ jobs:
           SHARED_OPTS="$BASE_OPTS"
           git tag lint
           meson setup --default-library=shared $BUILDDIR $SHARED_OPTS
+          meson configure --default-library=shared $BUILDDIR $SHARED_OPTS
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:

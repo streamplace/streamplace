@@ -195,7 +195,7 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 			}
 		})
 		if err != nil {
-			log.Log(ctx, "error handling bus messages", "error", err)
+			log.Log(ctx, "pipeline error", "error", err)
 		}
 		cancel()
 	}()

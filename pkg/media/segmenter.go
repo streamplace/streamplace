@@ -95,7 +95,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		})
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to add sink")
+		return nil, fmt.Errorf("failed to connect sink-added handler: %w", err)
 	}
 
 	return elem, nil

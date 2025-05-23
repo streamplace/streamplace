@@ -268,7 +268,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 
 	go func() {
 		if err := media.HandleBusMessages(ctx, pipeline); err != nil {
-			log.Log(ctx, "error handling bus messages", "error", err)
+			log.Log(ctx, "pipeline error", "error", err)
 		}
 		cancel()
 	}()

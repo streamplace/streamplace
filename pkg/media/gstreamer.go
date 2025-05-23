@@ -271,7 +271,7 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 
 	go func() {
 		if err := HandleBusMessages(ctx, pipeline); err != nil {
-			log.Log(ctx, "error handling bus messages", "error", err)
+			log.Log(ctx, "pipeline error", "error", err)
 		}
 		cancel()
 	}()

@@ -210,7 +210,7 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 
 		go func() {
 			if err := HandleBusMessages(ctx, pipeline); err != nil {
-				log.Log(ctx, "error handling bus messages", "error", err)
+				log.Log(ctx, "pipeline error", "error", err)
 			}
 			cancel()
 		}()

@@ -197,8 +197,7 @@ type SegmentMetadata struct {
 var ErrInvalidMetadata = errors.New("invalid segment metadata")
 
 func ParseSegmentAssertions(ctx context.Context, mani *manifeststore.Manifest) (*SegmentMetadata, error) {
-	ctx, span := otel.Tracer("signer").Start(ctx, "ParseSegmentAssertions")
-	defer ctx.Done()
+	_, span := otel.Tracer("signer").Start(ctx, "ParseSegmentAssertions")
 	defer span.End()
 	var ass *manifeststore.ManifestAssertion
 	for _, a := range mani.Assertions {

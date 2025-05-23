@@ -48,13 +48,13 @@ func innerTestConcatBin(t *testing.T) error {
 		uuidStr = fmt.Sprintf("%s-%s", tag, uuidStr)
 	}
 	ctx = log.WithLogValues(ctx, "func", "ConcatBin", "uuid", uuidStr)
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	pipeline, err := gst.NewPipeline("TestConcatBin")
 	if err != nil {
 		return fmt.Errorf("failed to create pipeline: %w", err)
 	}
+
+	ctx, cancel := context.WithCancel(ctx)
 
 	errCh := make(chan error)
 	go func() {

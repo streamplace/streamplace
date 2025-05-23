@@ -120,7 +120,7 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMed
 
 	go func() {
 		if err := HandleBusMessages(ctx, pipeline); err != nil {
-			log.Log(ctx, "error handling bus messages", "error", err)
+			log.Log(ctx, "pipeline error", "error", err)
 		}
 		cancel()
 	}()

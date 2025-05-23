@@ -553,37 +553,6 @@ func (a *StreamplaceAPI) HandleUserRecentSegments(ctx context.Context) httproute
 	}
 }
 
-type LiveUsersResponse struct {
-	model.Segment
-	Viewers int `json:"viewers"`
-}
-
-func (a *StreamplaceAPI) HandleLiveUsers(ctx context.Context) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		repos, err := a.Model.MostRecentSegments()
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not get live users", err)
-			return
-		}
-		liveUsers := []LiveUsersResponse{}
-		for _, repo := range repos {
-			viewers := spmetrics.GetViewCount(repo.RepoDID)
-			liveUsers = append(liveUsers, LiveUsersResponse{
-				Segment: repo,
-				Viewers: viewers,
-			})
-		}
-		bs, err := json.Marshal(liveUsers)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not marshal live users", err)
-			return
-		}
-		if _, err := w.Write(bs); err != nil {
-			log.Error(ctx, "error writing response", "error", err)
-		}
-	}
-}
-
 func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		user := params.ByName("user")

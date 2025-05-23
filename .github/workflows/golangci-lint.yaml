@@ -29,6 +29,10 @@ jobs:
             libgstreamer-plugins-base1.0-dev \
             libgstreamer-plugins-bad1.0-dev \
             libgstreamer-plugins-good1.0-dev \
+            build-essential curl git openjdk-17-jdk unzip jq g++ python3-pip ninja-build \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu clang lld qemu-user-static pkg-config \
+            nasm gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64-tools zip bison flex expect \
+            mono-runtime nuget mono-xsp4 squashfs-tools \
             python3-pip
 
           sudo pip3 install meson>=1.4

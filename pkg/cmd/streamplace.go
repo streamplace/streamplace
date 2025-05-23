@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/term"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
@@ -26,7 +27,6 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/replication/boring"
 	"stream.place/streamplace/pkg/rtmps"
@@ -338,14 +338,24 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return err
 	}
 
-	op := oproxy.New(&oproxy.Config{
+	clientMetadata := &oatproxy.OAuthClientMetadata{
+		Scope:      "atproto transition:generic",
+		ClientName: "Streamplace",
+		RedirectURIs: []string{
+			fmt.Sprintf("https://%s/login", cli.PublicHost),
+			fmt.Sprintf("https://%s/api/app-return", cli.PublicHost),
+		},
+	}
+
+	op := oatproxy.New(&oatproxy.Config{
 		Host:               cli.PublicHost,
 		CreateOAuthSession: mod.CreateOAuthSession,
 		UpdateOAuthSession: mod.UpdateOAuthSession,
-		LoadOAuthSession:   mod.LoadOAuthSession,
+		GetOAuthSession:    mod.LoadOAuthSession,
 		Scope:              "atproto transition:generic",
 		UpstreamJWK:        cli.JWK,
 		DownstreamJWK:      cli.AccessJWK,
+		ClientMetadata:     clientMetadata,
 	})
 	d := director.NewDirector(mm, mod, &cli, b, op)
 	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b, atsync, d, op)

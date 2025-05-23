@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"os"
 
-	oauth_helpers "github.com/haileyok/atproto-oauth-golang/helpers"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	oauth_helpers "github.com/streamplace/atproto-oauth-golang/helpers"
 	"stream.place/streamplace/pkg/log"
 )
 

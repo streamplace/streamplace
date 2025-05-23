@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/bus"
@@ -20,7 +21,6 @@ import (
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/media/segchanman"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/streamplace"
@@ -32,7 +32,7 @@ type StreamSession struct {
 	mod            model.Model
 	cli            *config.CLI
 	bus            *bus.Bus
-	op             *oproxy.OProxy
+	op             *oatproxy.OATProxy
 	hls            *media.M3U8
 	lp             *livepeer.LivepeerSession
 	repoDID        string

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
@@ -16,7 +17,7 @@ type Server struct {
 	model model.Model
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, op *oatproxy.OATProxy) (*Server, error) {
 	e := echo.New()
 	s := &Server{
 		e:     e,
@@ -24,6 +25,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model) (*Server
 		model: model,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
+	e.Use(op.OAuthMiddleware)
 	err := s.RegisterHandlersPlaceStream(e)
 	if err != nil {
 		return nil, err

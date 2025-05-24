@@ -200,16 +200,16 @@ link-test-windows:
 	fi
 
 .PHONY: all
-all: version install check app test node-all-platforms android
+all: version install app test node-all-platforms android
 
 .PHONY: ci
-ci: version install check app node-all-platforms ci-upload-node
+ci: version install app node-all-platforms ci-upload-node
 
 .PHONY: ci-macos
-ci-macos: version install check app node-all-platforms-macos ci-upload-node-macos ios ci-upload-ios
+ci-macos: version install app node-all-platforms-macos ci-upload-node-macos ios ci-upload-ios
 
 .PHONY: ci-macos
-ci-android: version install check android ci-upload-android
+ci-android: version install android ci-upload-android
 
 .PHONY: ci-test
 ci-test: app

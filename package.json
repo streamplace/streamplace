@@ -19,7 +19,8 @@
     "precommit": "make precommit",
     "app": "cd js/app && pnpm run \"$@\"",
     "desktop": "cd js/desktop && pnpm run \"$@\"",
-    "docs": "cd js/docs && pnpm run \"$@\""
+    "docs": "cd js/docs && pnpm run \"$@\"",
+    "start": "pnpm --stream --parallel -r run start"
   },
   "keywords": [],
   "author": "Streamplace",

@@ -1,5 +1,6 @@
 // basically PlayerProvider that sets up our magic context,
 
+import { LivestreamProvider } from "@streamplace/components";
 import {
   newPlayer,
   PlayerContext,
@@ -21,9 +22,11 @@ export default function PlayerProvider(
     return props.children;
   }
   return (
-    <PlayerContextInitializer {...props}>
-      {props.children}
-    </PlayerContextInitializer>
+    <LivestreamProvider src={props.src ?? ""}>
+      <PlayerContextInitializer {...props}>
+        {props.children}
+      </PlayerContextInitializer>
+    </LivestreamProvider>
   );
 }
 

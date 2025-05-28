@@ -41,6 +41,7 @@
     "@react-navigation/native-stack": "^6.11.0",
     "@reduxjs/toolkit": "^2.3.0",
     "@streamplace/atproto-oauth-client-react-native": "workspace:*",
+    "@streamplace/components": "workspace:*",
     "@tamagui/config": "^1.123.17",
     "@tamagui/lucide-icons": "^1.123.17",
     "@tamagui/toast": "^1.123.17",

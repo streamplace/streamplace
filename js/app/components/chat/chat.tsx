@@ -14,13 +14,13 @@ import { useEffect, useRef, useState } from "react";
 import { Linking, TouchableOpacity } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 
-import { RichText } from "@atproto/api";
+import { $Typed, RichText } from "@atproto/api";
 import {
   isMention,
   Link,
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
-import { $Typed } from "@atproto/api/src/client/util";
+import { ChatMessageViewHydrated } from "streamplace/dist";
 import { Button, ScrollView, Sheet, Text, useMedia, View } from "tamagui";
 import { RichtextSegment, segmentize } from "../../utils/facet";
 
@@ -32,9 +32,11 @@ export default function Chat({
   setIsChatVisible: (visible: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [modMessage, setMessage] = useState<MessageViewHydrated | null>(null);
+  const [modMessage, setMessage] = useState<ChatMessageViewHydrated | null>(
+    null,
+  );
   const [isAtBottom, setIsAtBottom] = useState(true);
-  const chat = useAppSelector(useChat());
+  const chat = useChat();
   const scrollRef = useRef<ScrollView>(null);
   const livestream = useAppSelector(usePlayerLivestream());
   const userProfile = useAppSelector(selectUserProfile);
@@ -187,12 +189,12 @@ function ChatMessageRow({
   replyHandle: _replyHandle,
   chat,
 }: {
-  message: MessageViewHydrated;
+  message: ChatMessageViewHydrated;
   setOpen: (open: boolean) => void;
-  setMessage: (message: MessageViewHydrated) => void;
+  setMessage: (message: ChatMessageViewHydrated) => void;
   myStream: boolean;
   replyHandle?: string;
-  chat: MessageViewHydrated[];
+  chat: ChatMessageViewHydrated[];
 }): JSX.Element {
   const [hover, setHover] = useState(false);
   const playerActions = usePlayerActions();
@@ -207,10 +209,10 @@ function ChatMessageRow({
   };
 
   const handleReply = () => {
-    playerActions.setReplyToMessage(message);
+    playerActions.setReplyToMessage(message as MessageViewHydrated);
   };
 
-  const replyTo = message.replyTo as MessageViewHydrated | undefined;
+  const replyTo = message.replyTo as ChatMessageViewHydrated | undefined;
   const hasReply = !!replyTo;
   const replyToHandle = replyTo?.author?.handle;
   const replyToText = replyTo?.record?.text;
@@ -353,8 +355,8 @@ const ChatMessageText = ({
   message,
   chat = [],
 }: {
-  message: MessageViewHydrated;
-  chat?: MessageViewHydrated[];
+  message: ChatMessageViewHydrated;
+  chat?: ChatMessageViewHydrated[];
 }) => {
   const rt = new RichText({ text: message.record.text });
   rt.detectFacetsWithoutResolution();
@@ -475,7 +477,7 @@ const RichTextMessage = ({
 }: {
   text: string;
   facets: Facet[];
-  chat?: MessageViewHydrated[];
+  chat?: ChatMessageViewHydrated[];
 }) => {
   if (!facets?.length) return <Text>{text}</Text>;
 
@@ -483,5 +485,7 @@ const RichTextMessage = ({
 
   console.log(segs);
 
-  return segs.map((seg, i) => segmentedObject(seg, chat, i));
+  return segs.map((seg, i) =>
+    segmentedObject(seg, chat as MessageViewHydrated[], i),
+  );
 };

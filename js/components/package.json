@@ -1,0 +1,33 @@
+{
+  "name": "@streamplace/components",
+  "version": "0.0.1",
+  "description": "Streamplace React (Native) Components",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mjs",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup-node",
+    "start": "tsup-node --watch --clean=false --onSuccess \"tsup-node --dts-only \""
+  },
+  "keywords": [
+    "streamplace"
+  ],
+  "author": "Streamplace",
+  "license": "MIT",
+  "packageManager": "pnpm@10.11.0",
+  "devDependencies": {
+    "tsup": "^8.5.0"
+  },
+  "dependencies": {
+    "react-native": "0.76.2",
+    "react-use-websocket": "^4.13.0",
+    "streamplace": "workspace:*",
+    "zustand": "^5.0.5"
+  }
+}

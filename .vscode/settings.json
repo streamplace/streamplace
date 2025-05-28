@@ -16,5 +16,9 @@
   "go.alternateTools": {
     "customFormatter": "golangci-lint"
   },
-  "go.formatFlags": ["fmt", "--stdin"]
+  "go.formatFlags": ["fmt", "--stdin"],
+  "editor.codeActionsOnSave": {
+    "source.addMissingImports": "explicit",
+    "source.organizeImports": "explicit"
+  }
 }

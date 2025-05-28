@@ -1,8 +1,11 @@
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { OAuthSession } from "@streamplace/atproto-oauth-client-react-native";
 import { StreamKey } from "features/base/baseSlice";
-import { PlaceStreamChatProfile, PlaceStreamLivestream } from "streamplace";
-import { StreamplaceAgent } from "./agent";
+import {
+  PlaceStreamChatProfile,
+  PlaceStreamLivestream,
+  StreamplaceAgent,
+} from "streamplace";
 import { StreamplaceOAuthClient } from "./oauthClient";
 
 type NewLivestream = {

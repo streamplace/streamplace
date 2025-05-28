@@ -12,9 +12,9 @@
     }
   },
   "scripts": {
-    "build": "tsup-node",
+    "build": "tsup-node src",
     "postinstall": "cd ../.. && make js-lexicons && cd - && pnpm run build",
-    "start": "tsup-node --watch"
+    "start": "tsup-node --watch --clean=false --onSuccess \"tsup-node --dts-only \""
   },
   "keywords": [
     "streamplace",

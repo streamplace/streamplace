@@ -273,7 +273,7 @@ export const streamplaceSlice = createAppSlice({
           throw new Error("no oauthSession");
         }
         return await bluesky.pdsAgent.place.stream.live.getSegments({
-          userDID: bluesky.oauthSession.did,
+          userDID: bluesky.oauthSession?.did ?? "",
         });
       },
       {

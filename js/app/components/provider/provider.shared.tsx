@@ -3,6 +3,7 @@ import {
   LinkingOptions,
   NavigationContainer,
 } from "@react-navigation/native";
+import { StreamplaceProvider as NewStreamplaceProvider } from "@streamplace/components";
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
 import { useFonts } from "expo-font";
 import BlueskyProvider from "features/bluesky/blueskyProvider";
@@ -25,24 +26,26 @@ export default function Provider({
       <NavigationContainer theme={DarkTheme} linking={linking}>
         <ReduxProvider store={store}>
           <StreamplaceProvider>
-            <BlueskyProvider>
-              <PortalProvider>
-                <ToastProvider
-                  swipeDirection="vertical"
-                  duration={6000}
-                  native={
-                    [
-                      /* uncomment the next line to do native toasts on mobile. NOTE: it'll require you making a dev build and won't work with Expo Go */
-                      // 'mobile'
-                    ]
-                  }
-                >
-                  <FontProvider>{children}</FontProvider>
-                  <CurrentToast />
-                  <ToastViewport name="default" top="$8" left={0} right={0} />
-                </ToastProvider>
-              </PortalProvider>
-            </BlueskyProvider>
+            <NewStreamplaceProvider url={"https://longos.iameli.link"}>
+              <BlueskyProvider>
+                <PortalProvider>
+                  <ToastProvider
+                    swipeDirection="vertical"
+                    duration={6000}
+                    native={
+                      [
+                        /* uncomment the next line to do native toasts on mobile. NOTE: it'll require you making a dev build and won't work with Expo Go */
+                        // 'mobile'
+                      ]
+                    }
+                  >
+                    <FontProvider>{children}</FontProvider>
+                    <CurrentToast />
+                    <ToastViewport name="default" top="$8" left={0} right={0} />
+                  </ToastProvider>
+                </PortalProvider>
+              </BlueskyProvider>
+            </NewStreamplaceProvider>
           </StreamplaceProvider>
         </ReduxProvider>
       </NavigationContainer>

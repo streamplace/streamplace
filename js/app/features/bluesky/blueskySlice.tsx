@@ -30,11 +30,11 @@ import {
   PlaceStreamChatProfile,
   PlaceStreamKey,
   PlaceStreamLivestream,
+  StreamplaceAgent,
 } from "streamplace";
 import { isWeb } from "tamagui";
 import { privateKeyToAccount } from "viem/accounts";
 import { createAppSlice } from "../../hooks/createSlice";
-import { StreamplaceAgent } from "./agent";
 import { BlueskyState } from "./blueskyTypes";
 import createOAuthClient from "./oauthClient";
 

@@ -16,8 +16,13 @@ import usePlatform from "hooks/usePlatform";
 
 import { Button, ScrollView, Sheet, Text, useMedia, View } from "tamagui";
 import { RichText } from "@atproto/api";
-import { ReactElement } from "react";
-import { isMention } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import {
+  isMention,
+  Link,
+  Mention,
+} from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import { RichtextSegment, segmentize } from "../../utils/facet";
+import { $Typed } from "@atproto/api/src/client/util";
 
 export default function Chat({
   isChatVisible,
@@ -331,6 +336,19 @@ function ChatMessageRow({
   );
 }
 
+function byteOffsetToCharIndex(text: string, byteOffset: number): number {
+  const encoder = new TextEncoder();
+  let bytesCount = 0;
+  for (let i = 0; i < text.length; i++) {
+    const charBytes = encoder.encode(text[i]);
+    if (bytesCount + charBytes.length > byteOffset) {
+      return i;
+    }
+    bytesCount += charBytes.length;
+  }
+  return text.length;
+}
+
 const ChatMessageText = ({
   message,
   chat = [],
@@ -345,9 +363,17 @@ const ChatMessageText = ({
   rt.facets?.forEach((facet) => {
     facet.features.forEach((feature) => {
       if (isMention(feature)) {
-        const mentionText = message.record.text.slice(
+        const startCharIndex = byteOffsetToCharIndex(
+          message.record.text,
           facet.index.byteStart,
+        );
+        const endCharIndex = byteOffsetToCharIndex(
+          message.record.text,
           facet.index.byteEnd,
+        );
+        const mentionText = message.record.text.slice(
+          startCharIndex,
+          endCharIndex,
         );
         // Find the mentioned user by their handle (removing the @ symbol)
         const mentionedUser = chat.find(
@@ -399,6 +425,49 @@ interface Facet {
 const getRgbColor = (color?: { red: number; green: number; blue: number }) =>
   color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : "$accentColor";
 
+const segmentedObject = (
+  obj: RichtextSegment,
+  chat: MessageViewHydrated[],
+  index: number,
+) => {
+  if (obj.features && obj.features.length > 0) {
+    let ftr = obj.features[0];
+    // afaik there shouldn't be a case where facets overlap, at least currently
+    if (ftr.$type === "app.bsky.richtext.facet#link") {
+      let linkftr = ftr as $Typed<Link>;
+      return (
+        <Text
+          key={`mention-${index}`}
+          color="#9090f0"
+          cursor="pointer"
+          onPress={() => Linking.openURL(linkftr.uri || "")}
+        >
+          {obj.text}
+        </Text>
+      );
+    } else if (ftr.$type === "app.bsky.richtext.facet#mention") {
+      let mtnftr = ftr as $Typed<Mention>;
+      const mentionedUserMessage = chat.find(
+        (msg) => msg.author.did === mtnftr.did,
+      );
+      return (
+        <Text
+          key={`mention-${index}`}
+          color={getRgbColor(mentionedUserMessage?.chatProfile?.color)}
+          cursor="pointer"
+          onPress={() =>
+            Linking.openURL(`https://bsky.app/profile/${mtnftr.did || ""}`)
+          }
+        >
+          {obj.text}
+        </Text>
+      );
+    }
+  } else {
+    return <Text>{obj.text}</Text>;
+  }
+};
+
 const RichTextMessage = ({
   text,
   facets,
@@ -410,61 +479,9 @@ const RichTextMessage = ({
 }) => {
   if (!facets?.length) return <Text>{text}</Text>;
 
-  const parts: ReactElement[] = [];
-  let lastIndex = 0;
+  let segs = segmentize(text, facets);
 
-  const sortedFacets = [...facets].sort(
-    (a, b) => a.index.byteStart - b.index.byteStart,
-  );
+  console.log(segs);
 
-  sortedFacets.forEach((facet) => {
-    const { byteStart: start, byteEnd: end } = facet.index;
-
-    if (start > lastIndex) {
-      parts.push(
-        <Text key={`text-${lastIndex}`}>{text.slice(lastIndex, start)}</Text>,
-      );
-    }
-
-    facet.features.forEach((feature) => {
-      const content = text.slice(start, end);
-
-      if (feature.$type === "app.bsky.richtext.facet#link") {
-        parts.push(
-          <Text
-            key={`link-${start}`}
-            color="$accentColor"
-            cursor="pointer"
-            onPress={() => Linking.openURL(feature.uri || "")}
-          >
-            {content}
-          </Text>,
-        );
-      } else if (feature.$type === "app.bsky.richtext.facet#mention") {
-        const mentionedUserMessage = chat.find(
-          (msg) => msg.author.did === feature.did,
-        );
-        parts.push(
-          <Text
-            key={`mention-${start}`}
-            color={getRgbColor(mentionedUserMessage?.chatProfile?.color)}
-            cursor="pointer"
-            onPress={() =>
-              Linking.openURL(`https://bsky.app/profile/${feature.did || ""}`)
-            }
-          >
-            {content}
-          </Text>,
-        );
-      }
-    });
-
-    lastIndex = end;
-  });
-
-  if (lastIndex < text.length) {
-    parts.push(<Text key={`text-${lastIndex}`}>{text.slice(lastIndex)}</Text>);
-  }
-
-  return <Text>{parts}</Text>;
+  return segs.map((seg, i) => segmentedObject(seg, chat, i));
 };

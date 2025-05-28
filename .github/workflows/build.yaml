@@ -108,7 +108,9 @@ jobs:
           STREAMPLACE_IGNORE_LEAKS: "true"
           NODE_OPTIONS: "--max_old_space_size=4096"
         run: |
-          export GOTOOLCHAIN=go1.24.2 \
+          npm install -g corepack@latest \
+          && corepack enable \
+          && export GOTOOLCHAIN=go1.24.2 \
           && brew install go \
           && python -m pip install virtualenv \
           && python -m virtualenv ~/venv \

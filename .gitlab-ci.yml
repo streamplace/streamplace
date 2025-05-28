@@ -233,6 +233,8 @@ build-mac:
     - export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
     - brew install node@22
     - node --version
+    - npm install -g corepack@latest
+    - corepack enable
     - sudo gem uninstall xcodeproj -x --ignore-dependencies
     - sudo gem install xcodeproj -v 1.25.1
     - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && bash rustup.sh -y && rm rustup.sh

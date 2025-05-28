@@ -13,7 +13,7 @@
     "check:workspaces": "cd js/app && pnpm run check",
     "fix": "git ls-files | xargs prettier --write --ignore-unknown",
     "postinstall": "husky && make js-lexicons",
-    "build": "pnpm workspaces foreach -t --parallel --all run build",
+    "build": "pnpm --stream -r run build",
     "prepare": "husky",
     "release": "lerna publish --force-publish",
     "precommit": "make precommit",

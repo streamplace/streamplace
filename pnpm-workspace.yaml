@@ -1,2 +1,16 @@
 packages:
-  - "js/*"
+  - js/*
+onlyBuiltDependencies:
+  - '@swc/core'
+  - bufferutil
+  - electron
+  - electron-winstaller
+  - esbuild
+  - fs-xattr
+  - keccak
+  - macos-alias
+  - nx
+  - protobufjs
+  - quietjs-bundle
+  - sharp
+  - utf-8-validate

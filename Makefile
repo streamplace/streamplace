@@ -29,7 +29,7 @@ version:
 
 .PHONY: install
 install:
-	pnpm install --inline-builds
+	pnpm install
 
 .PHONY: app-and-node
 app-and-node:

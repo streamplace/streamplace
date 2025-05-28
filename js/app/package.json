@@ -50,7 +50,7 @@
     "abortcontroller-polyfill": "^1.7.6",
     "babel-preset-expo": "~12.0.0",
     "burnt": "^0.12.2",
-    "chrono-node": "^2.7.7",
+    "chrono-node": "2.7.7",
     "color-contrast-checker": "^2.1.0",
     "emoji-mart": "^5.6.0",
     "event-target-shim": "^6.0.2",

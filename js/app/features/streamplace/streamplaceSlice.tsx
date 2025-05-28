@@ -133,6 +133,7 @@ export const streamplaceSlice = createAppSlice({
     ),
 
     setURL: create.reducer((state, action: { payload: string }) => {
+      console.log("setURL", action);
       Storage.setItem(URL_KEY, action.payload).catch((err) => {
         console.error("setURL error", err);
       });

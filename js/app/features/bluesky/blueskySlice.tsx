@@ -15,7 +15,10 @@ import {
   MessageViewHydrated,
   PlayersState,
 } from "features/player/playerSlice";
-import { StreamplaceState } from "features/streamplace/streamplaceSlice";
+import {
+  StreamplaceState,
+  setURL,
+} from "features/streamplace/streamplaceSlice";
 import {
   PlaceStreamChatMessage,
   PlaceStreamChatProfile,
@@ -107,6 +110,12 @@ export const blueskySlice = createAppSlice({
       return {
         ...state,
         storedKey: action.payload.storedKey,
+      };
+    });
+    builder.addCase(setURL, (state, action) => {
+      return {
+        ...state,
+        anonPDSAgent: new StreamplaceAgent(action.payload) as any,
       };
     });
     builder.addDefaultCase((state, action) => {

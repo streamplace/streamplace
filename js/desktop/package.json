@@ -5,8 +5,8 @@
   "description": "Streamplace Desktop Application",
   "main": ".webpack/main",
   "scripts": {
-    "start": "PORT=38082 electron-forge start \"$@\" | cat",
-    "start-with-node": "electron-forge start \"$@\" | cat",
+    "start": "PORT=38082 electron-forge start",
+    "start-with-node": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
@@ -52,6 +52,7 @@
     "electron-squirrel-startup": "^1.0.1",
     "source-map-support": "^0.5.21",
     "update-electron-app": "^3.0.0",
+    "uuid": "^11.0.2",
     "viem": "^2.21.44"
   },
   "private": true

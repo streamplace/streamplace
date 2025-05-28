@@ -233,7 +233,7 @@ build-mac:
     - export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
     - brew install node@22
     - node --version
-    - npm install -g corepack@latest
+    - npm install -g corepack@latest --force
     - corepack enable
     - sudo gem uninstall xcodeproj -x --ignore-dependencies
     - sudo gem install xcodeproj -v 1.25.1

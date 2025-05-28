@@ -47,7 +47,7 @@ RUN export NODEARCH="$TARGETARCH" \
   && cp -r node-v$NODE_VERSION-linux-$NODEARCH/* /usr/local \
   && rm -rf node.tar.gz node-v$NODE_VERSION-linux-$NODEARCH
 
-RUN npm install -g yarn
+RUN npm install -g corepack@latest
 
 ARG ANDROID_SDK_VERSION=11076708
 ENV ANDROID_HOME /opt/android-sdk

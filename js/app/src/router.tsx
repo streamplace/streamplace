@@ -217,7 +217,7 @@ const AvatarButton = () => {
 
 const EXTERNAL_ITEMS: ExternalDrawerItem[] = [
   {
-    item: Book,
+    item: Book as any,
     label: (
       <Text alignSelf="flex-start">
         Documentation{" "}

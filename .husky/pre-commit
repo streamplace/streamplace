@@ -1,6 +1,6 @@
 make golangci-lint
 ./node_modules/.bin/lint-staged
-cd js/app && yarn run check
+cd js/app && pnpm run check
 
 unformatted=$(gofmt -l $(find . -name "*.go"))
 if [ -n "$unformatted" ]; then

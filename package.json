@@ -9,17 +9,17 @@
   },
   "scripts": {
     "preinstall": "node hack/node-version.js",
-    "check": "yarn run check:workspaces && git ls-files | xargs prettier --check --ignore-unknown",
-    "check:workspaces": "cd js/app && yarn run check",
+    "check": "pnpm run check:workspaces && git ls-files | xargs prettier --check --ignore-unknown",
+    "check:workspaces": "cd js/app && pnpm run check",
     "fix": "git ls-files | xargs prettier --write --ignore-unknown",
     "postinstall": "husky && make js-lexicons",
-    "build": "yarn workspaces foreach -t --parallel --all run build",
+    "build": "pnpm workspaces foreach -t --parallel --all run build",
     "prepare": "husky",
     "release": "lerna publish --force-publish",
     "precommit": "make precommit",
-    "app": "cd js/app && yarn run \"$@\"",
-    "desktop": "cd js/desktop && yarn run \"$@\"",
-    "docs": "cd js/docs && yarn run \"$@\""
+    "app": "cd js/app && pnpm run \"$@\"",
+    "desktop": "cd js/desktop && pnpm run \"$@\"",
+    "docs": "cd js/docs && pnpm run \"$@\""
   },
   "keywords": [],
   "author": "Streamplace",
@@ -34,12 +34,9 @@
   "workspaces": [
     "js/*"
   ],
-  "packageManager": "yarn@4.3.0",
   "dependencies": {
     "firebase-admin": "^12.7.0",
     "lex-md": "^0.0.3"
   },
-  "resolutions": {
-    "@atproto/oauth-client@npm:0.3.16": "patch:@atproto/oauth-client@npm%3A0.3.16#~/.yarn/patches/@atproto-oauth-client-npm-0.3.16-f0e37a9473.patch"
-  }
+  "packageManager": "pnpm@10.11.0+sha512.6540583f41cc5f628eb3d9773ecee802f4f9ef9923cc45b69890fb47991d4b092964694ec3a4f738a420c918a333062c8b925d312f42e4f0c263eb603551f977"
 }

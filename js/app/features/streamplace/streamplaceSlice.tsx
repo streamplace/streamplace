@@ -212,10 +212,10 @@ export const streamplaceSlice = createAppSlice({
           bluesky: BlueskyState;
         };
 
-        let agent = bluesky.pdsAgent;
+        let agent = bluesky.anonPDSAgent;
 
         if (!agent) {
-          agent = new StreamplaceAgent(streamplace.url);
+          throw new Error("no anonPDSAgent");
         }
 
         let users = await agent.place.stream.live.getLiveUsers();

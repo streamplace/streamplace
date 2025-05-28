@@ -39,6 +39,7 @@ const initialState: BlueskyState = {
   oauthState: null,
   oauthSession: null,
   pdsAgent: null,
+  anonPDSAgent: null,
   profiles: {},
   profileCache: {},
   client: null,
@@ -108,38 +109,60 @@ export const blueskySlice = createAppSlice({
         storedKey: action.payload.storedKey,
       };
     });
+    builder.addDefaultCase((state, action) => {
+      const err = (action as any).error as { message: string };
+      if (
+        typeof err === "object" &&
+        typeof err?.message === "string" &&
+        err.message.includes("oauth session revoked")
+      ) {
+        Storage.removeItem("did").catch((e) => {
+          console.error("Error removing did", e);
+        });
+        Storage.removeItem(STORED_KEY_KEY).catch((e) => {
+          console.error("Error removing stored key", e);
+        });
+        const u = new URL(document.location.href);
+        return {
+          ...state,
+          oauthSession: null,
+          status: "loggedOut",
+          pdsAgent: null,
+        };
+      }
+      return state;
+    });
   },
   reducers: (create) => ({
     loadOAuthClient: create.asyncThunk(
       async (_, { getState }) => {
         const { streamplace } = getState() as { streamplace: StreamplaceState };
         const client = await createOAuthClient(streamplace.url);
+        const anonPDSAgent = new StreamplaceAgent(streamplace.url);
         let initResult = await client.init();
-        return { client, initResult };
+        return { client, initResult, anonPDSAgent };
       },
       {
         pending: (state) => {
           // state.status = "loading";
         },
         fulfilled: (state, action) => {
-          const { client, initResult } = action.payload;
+          const { client, initResult, anonPDSAgent } = action.payload;
           console.log("loadOAuthClient fulfilled", action.payload);
-          // sometimes the codes don't get removed from the url properly? so we do so here.
-          // const u = new URL(document.location.href);
-          // u.search = "";
-          // window.history.replaceState(null, "", u.toString());
           if (initResult && "session" in initResult) {
             return {
               ...state,
               client: client,
               oauthSession: initResult.session as any,
-              pdsAgent: new StreamplaceAgent(initResult.session),
+              pdsAgent: new StreamplaceAgent(initResult.session) as any, // idk why this is needed
+              anonPDSAgent: anonPDSAgent,
             };
           }
           return {
             ...state,
             status: "loggedOut",
             client: client,
+            anonPDSAgent: anonPDSAgent,
           };
         },
         rejected: (state, { error }) => {

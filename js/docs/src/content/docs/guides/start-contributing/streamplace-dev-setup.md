@@ -11,9 +11,9 @@ get started:
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/)
-- [Yarn](https://yarnpkg.com/)
-  - A way to install it is with `pnpm/npm install -g yarn` if corepack is not
-    enabled in your node install.
+- [pnpm](https://pnpm.io/)
+  - A way to install it is with `npm install -g pnpm` if corepack is not enabled
+    in your node install.
 - Go (version 1.24)
   - If you use `mise`, you can install latest Go 1.24 with
     `mise install go@prefix:1.24`
@@ -76,32 +76,32 @@ tar -xzvf streamplace-VERSION-darwin-arm64.tar.gz
 Either way, once you have a local Streamplace node running, install the prerequisites with:
 
 ```shell
-yarn install
+pnpm install
 ````
 
 #### Web
 
 ```shell
-yarn run app start
+pnpm run app start
 ```
 
 #### iOS
 
 ```shell
-yarn run app ios
+pnpm run app ios
 ```
 
 #### Android
 
 ```shell
-yarn run app android
+pnpm run app android
 ```
 
 You can also specify a physical device with something like
-`yarn run app ios -d 'Stream’s iPhone'`. Note also that this command runs a full
+`pnpm run app ios -d 'Stream’s iPhone'`. Note also that this command runs a full
 native build of the iOS/Android app, which is not necessary in many cases: once
 you have a copy of the `Devplace` app on your device or emulator, you can boot
-the dev server back up with `yarn run app start`.
+the dev server back up with `pnpm run app start`.
 
 Note also that `react-native-webrtc`, our primary package for streaming in and
 playing back on iOS/Android, doesn't work very well in the iOS Simulator. It may
@@ -109,8 +109,8 @@ work, it may crash. Physical devices preferred when possible!
 
 ### Streamplace Desktop
 
-1. `yarn install`
-2. `yarn run desktop start`
+1. `pnpm install`
+2. `pnpm run desktop start`
 
 By default Streamplace Desktop will assume there's a local node to connect to,
 running with something like `make dev && ./build-linux-amd64/streamplace` above.
@@ -120,7 +120,7 @@ running with something like `make dev && ./build-linux-amd64/streamplace` above.
 You're looking at them. Boot up the dev server with:
 
 ```
-yarn run docs start
+pnpm run docs start
 ```
 
 And you can then access them at

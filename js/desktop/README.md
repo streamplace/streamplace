@@ -1,6 +1,6 @@
 # Streamplace Desktop
 
-## `yarn run start`
+## `pnpm run start`
 
 Boot up Streamplace Desktop for development. Two environment variable options:
 

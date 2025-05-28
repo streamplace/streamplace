@@ -12,6 +12,14 @@ export const withNotificationsIOS: ConfigPlugin = (config) => {
   return config;
 };
 
+export const withoutNotificationsIOS: ConfigPlugin = (config) => {
+  config = withEntitlementsPlist(config, (config) => {
+    delete config.modResults["aps-environment"];
+    return config;
+  });
+  return config;
+};
+
 const withConsistentVersionNumber = (
   config,
   { version }: { version: string },
@@ -170,7 +178,7 @@ export default function () {
               "@react-native-firebase/messaging",
               [withNotificationsIOS, {}],
             ]
-          : ["expo-dev-launcher"]),
+          : ["expo-dev-launcher", withoutNotificationsIOS]),
       ],
       experiments: {
         typedRoutes: true,

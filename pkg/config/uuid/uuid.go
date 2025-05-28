@@ -20,7 +20,9 @@ func main() {
 
 	flag.Parse()
 	if *output != "" {
-		os.WriteFile(*output, []byte(u.String()), 0644)
+		if err := os.WriteFile(*output, []byte(u.String()), 0644); err != nil {
+			panic(err)
+		}
 	} else {
 		fmt.Printf("%s", u)
 	}

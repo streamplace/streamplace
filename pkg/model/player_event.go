@@ -14,7 +14,7 @@ import (
 type PlayerEventAPI struct {
 	ID        string         `json:"id"`
 	Time      time.Time      `json:"time"`
-	PlayerId  string         `json:"playerId"`
+	PlayerID  string         `json:"playerId"`
 	EventType string         `json:"eventType"`
 	Meta      map[string]any `json:"meta"`
 }
@@ -22,7 +22,7 @@ type PlayerEventAPI struct {
 type PlayerEvent struct {
 	ID        string `gorm:"primarykey"`
 	Time      time.Time
-	PlayerId  string `gorm:"index"`
+	PlayerID  string `gorm:"index"`
 	EventType string
 	Meta      datatypes.JSON
 }
@@ -46,7 +46,7 @@ func (m *DBModel) CreatePlayerEvent(event PlayerEventAPI) error {
 	err = m.DB.Model(PlayerEvent{}).Create(PlayerEvent{
 		ID:        uu.String(),
 		Time:      event.Time,
-		PlayerId:  event.PlayerId,
+		PlayerID:  event.PlayerID,
 		EventType: event.EventType,
 		Meta:      datatypes.JSON(metaBs),
 	}).Error
@@ -56,18 +56,18 @@ func (m *DBModel) CreatePlayerEvent(event PlayerEventAPI) error {
 	return nil
 }
 
-func (m *DBModel) ListPlayerEvents(playerId string) ([]PlayerEvent, error) {
+func (m *DBModel) ListPlayerEvents(playerID string) ([]PlayerEvent, error) {
 	events := []PlayerEvent{}
 	// err := m.DB.Find(&events).Error
-	err := m.DB.Where("player_id = ?", playerId).Find(&events).Error
+	err := m.DB.Where("player_id = ?", playerID).Find(&events).Error
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving player events: %w", err)
 	}
 	return events, nil
 }
 
-func (m *DBModel) PlayerReport(playerId string) (map[string]any, error) {
-	events, err := m.ListPlayerEvents(playerId)
+func (m *DBModel) PlayerReport(playerID string) (map[string]any, error) {
+	events, err := m.ListPlayerEvents(playerID)
 	if err != nil {
 		return nil, err
 	}

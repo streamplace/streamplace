@@ -54,7 +54,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		}
 	}()
 
-	elem.Connect("sink-added", func(split, sinkEle *gst.Element) {
+	_, err = elem.Connect("sink-added", func(split, sinkEle *gst.Element) {
 		buf := &bytes.Buffer{}
 		appsink := app.SinkFromElement(sinkEle)
 		if appsink == nil {
@@ -94,6 +94,9 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 			},
 		})
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect sink-added handler: %w", err)
+	}
 
 	return elem, nil
 }

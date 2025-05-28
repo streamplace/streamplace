@@ -33,7 +33,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	process.Signal(syscall.SIGUSR1)
+	if err := process.Signal(syscall.SIGUSR1); err != nil {
+		log.Fatal(err)
+	}
 	time.Sleep(1 * time.Second)
 }
 
@@ -45,7 +47,9 @@ func RunPipeline(file string) error {
 	}
 
 	mainLoop := glib.NewMainLoop(glib.MainContextDefault(), false)
-	pipeline.SetState(gst.StatePlaying)
+	if err := pipeline.BlockSetState(gst.StatePlaying); err != nil {
+		return fmt.Errorf("failed to set pipeline state: %w", err)
+	}
 
 	pipeline.GetBus().AddWatch(func(msg *gst.Message) bool {
 		if msg.Type() == gst.MessageEOS {
@@ -57,7 +61,9 @@ func RunPipeline(file string) error {
 
 	mainLoop.Run()
 
-	pipeline.BlockSetState(gst.StateNull)
+	if err := pipeline.BlockSetState(gst.StateNull); err != nil {
+		return fmt.Errorf("failed to set pipeline state: %w", err)
+	}
 
 	return nil
 }

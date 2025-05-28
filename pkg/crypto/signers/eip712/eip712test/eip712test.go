@@ -127,9 +127,9 @@ func parsePrivateKey(pemBs []byte) (crypto.Signer, error) {
 	return parsePKCS8PrivateKey(der)
 }
 
-var OID_RSA_PSS asn1.ObjectIdentifier = []int{1, 2, 840, 113549, 1, 1, 10}
-var OID_EC asn1.ObjectIdentifier = []int{1, 2, 840, 10045, 2, 1}
-var OID_SECP256K1 asn1.ObjectIdentifier = []int{1, 3, 132, 0, 10}
+var OID_RSA_PSS asn1.ObjectIdentifier = []int{1, 2, 840, 113549, 1, 1, 10} //nolint:all
+var OID_EC asn1.ObjectIdentifier = []int{1, 2, 840, 10045, 2, 1}           //nolint:all
+var OID_SECP256K1 asn1.ObjectIdentifier = []int{1, 3, 132, 0, 10}          //nolint:all
 
 func parsePKCS8PrivateKey(der []byte) (crypto.Signer, error) {
 	var privKey pkcs8

@@ -28,7 +28,7 @@ func TestConcatBin(t *testing.T) {
 	defer goleak.VerifyNone(t, ignore)
 
 	g, _ := errgroup.WithContext(context.Background())
-	for i := 0; i < streamplaceTestCount; i++ {
+	for range streamplaceTestCount {
 		g.Go(func() error {
 			return innerTestConcatBin(t)
 		})
@@ -48,13 +48,13 @@ func innerTestConcatBin(t *testing.T) error {
 		uuidStr = fmt.Sprintf("%s-%s", tag, uuidStr)
 	}
 	ctx = log.WithLogValues(ctx, "func", "ConcatBin", "uuid", uuidStr)
-	ctx, cancel := context.WithCancel(ctx)
-	// defer cancel()
 
 	pipeline, err := gst.NewPipeline("TestConcatBin")
 	if err != nil {
 		return fmt.Errorf("failed to create pipeline: %w", err)
 	}
+
+	ctx, cancel := context.WithCancel(ctx)
 
 	errCh := make(chan error)
 	go func() {
@@ -85,7 +85,7 @@ func innerTestConcatBin(t *testing.T) error {
 	}
 
 	testSegs := []*segchanman.Seg{}
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		testSegs = append(testSegs, &segchanman.Seg{
 			Data:     bs,
 			Filepath: filename,

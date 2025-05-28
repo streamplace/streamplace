@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/term"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
@@ -26,7 +27,6 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/replication/boring"
 	"stream.place/streamplace/pkg/rtmps"
@@ -70,7 +70,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	}
 	if selfTest {
 		runtime.GC()
-		pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+		if err := pprof.Lookup("goroutine").WriteTo(os.Stderr, 2); err != nil {
+			log.Error(context.Background(), "error creating pprof", "error", err)
+		}
 		fmt.Println("self-test successful!")
 		os.Exit(0)
 	}
@@ -111,14 +113,14 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		fmt.Println("self-test successful!")
 		os.Exit(0)
 	}
-	flag.Set("logtostderr", "true")
+	_ = flag.Set("logtostderr", "true")
 	vFlag := flag.Lookup("v")
 	fs := flag.NewFlagSet("streamplace", flag.ExitOnError)
 	cli := config.CLI{Build: build}
 	fs.StringVar(&cli.DataDir, "data-dir", config.DefaultDataDir(), "directory for keeping all streamplace data")
-	fs.StringVar(&cli.HttpAddr, "http-addr", ":38080", "Public HTTP address")
-	fs.StringVar(&cli.HttpInternalAddr, "http-internal-addr", "127.0.0.1:39090", "Private, admin-only HTTP address")
-	fs.StringVar(&cli.HttpsAddr, "https-addr", ":38443", "Public HTTPS address")
+	fs.StringVar(&cli.HTTPAddr, "http-addr", ":38080", "Public HTTP address")
+	fs.StringVar(&cli.HTTPInternalAddr, "http-internal-addr", "127.0.0.1:39090", "Private, admin-only HTTP address")
+	fs.StringVar(&cli.HTTPSAddr, "https-addr", ":38443", "Public HTTPS address")
 	fs.BoolVar(&cli.Secure, "secure", false, "Run with HTTPS. Required for WebRTC output")
 	cli.DataDirFlag(fs, &cli.TLSCertPath, "tls-cert", filepath.Join("tls", "tls.crt"), "Path to TLS certificate")
 	cli.DataDirFlag(fs, &cli.TLSKeyPath, "tls-key", filepath.Join("tls", "tls.key"), "Path to TLS key")
@@ -184,7 +186,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if err != nil {
 		return err
 	}
-	vFlag.Value.Set(*verbosity)
+	_ = vFlag.Value.Set(*verbosity)
 	log.SetColorLogger(cli.Color)
 	ctx := context.Background()
 	ctx = log.WithDebugValue(ctx, cli.Debug)
@@ -336,14 +338,24 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return err
 	}
 
-	op := oproxy.New(&oproxy.Config{
+	clientMetadata := &oatproxy.OAuthClientMetadata{
+		Scope:      "atproto transition:generic",
+		ClientName: "Streamplace",
+		RedirectURIs: []string{
+			fmt.Sprintf("https://%s/login", cli.PublicHost),
+			fmt.Sprintf("https://%s/api/app-return", cli.PublicHost),
+		},
+	}
+
+	op := oatproxy.New(&oatproxy.Config{
 		Host:               cli.PublicHost,
 		CreateOAuthSession: mod.CreateOAuthSession,
 		UpdateOAuthSession: mod.UpdateOAuthSession,
-		LoadOAuthSession:   mod.LoadOAuthSession,
+		GetOAuthSession:    mod.LoadOAuthSession,
 		Scope:              "atproto transition:generic",
 		UpstreamJWK:        cli.JWK,
 		DownstreamJWK:      cli.AccessJWK,
+		ClientMetadata:     clientMetadata,
 	})
 	d := director.NewDirector(mm, mod, &cli, b, op)
 	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b, atsync, d, op)
@@ -465,7 +477,9 @@ func handleSignals(ctx context.Context) error {
 		select {
 		case s := <-c:
 			if s == syscall.SIGABRT {
-				pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+				if err := pprof.Lookup("goroutine").WriteTo(os.Stderr, 2); err != nil {
+					log.Error(ctx, "failed to create pprof", "error", err)
+				}
 			}
 			log.Log(ctx, "caught signal, attempting clean shutdown", "signal", s)
 			return fmt.Errorf("%w signal=%v", ErrCaughtSignal, s)

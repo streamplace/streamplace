@@ -1,0 +1,19 @@
+version: "2"
+linters:
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - -QF1003 # "could use tagged switch"
+  disable:
+    - unused
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+formatters:
+  exclusions:
+    generated: lax

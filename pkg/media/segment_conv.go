@@ -242,7 +242,9 @@ func MPEGTSToMP4(ctx context.Context, input io.Reader, output io.Writer) error {
 	// Handle bus messages in a separate goroutine
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		HandleBusMessages(ctx, pipeline)
+		if err := HandleBusMessages(ctx, pipeline); err != nil {
+			log.Log(ctx, "pipeline error", "error", err)
+		}
 		cancel()
 		return nil
 	})
@@ -533,7 +535,9 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 			}
 		}
 	}
-	videodemux.Connect("pad-added", onPadAdded)
+	if _, err := videodemux.Connect("pad-added", onPadAdded); err != nil {
+		return fmt.Errorf("failed connect pad-added handler: %w", err)
+	}
 
 	// Handle bus messages in a separate goroutine
 	g, ctx := errgroup.WithContext(ctx)

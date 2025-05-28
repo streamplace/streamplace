@@ -49,12 +49,12 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *stre
 	}
 
 	titleStr := fmt.Sprintf("@%s is 🔴LIVE on %s!", lsv.Author.Handle, u.Host)
-	outUrl := u.String()
+	outURL := u.String()
 
 	pageTitle := fmt.Sprintf("@%s | %s", lsv.Author.Handle, u.Host)
 
-	thumbUrl, _ := url.Parse(u.String())
-	thumbUrl.Path = fmt.Sprintf("/api/playback/%s/stream.jpg", lsv.Author.Did)
+	thumbURL, _ := url.Parse(u.String())
+	thumbURL.Path = fmt.Sprintf("/api/playback/%s/stream.jpg", lsv.Author.Did)
 
 	// Define all meta tags
 	metaTags := []MetaTag{
@@ -66,15 +66,15 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *stre
 		{Type: "property", Key: "og:type", Content: "website"},
 		{Type: "property", Key: "og:title", Content: titleStr},
 		{Type: "property", Key: "og:description", Content: ls.Title},
-		{Type: "property", Key: "og:image", Content: thumbUrl.String()},
+		{Type: "property", Key: "og:image", Content: thumbURL.String()},
 
 		// Twitter Meta Tags
 		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
 		{Type: "property", Key: "twitter:domain", Content: u.Host},
-		{Type: "property", Key: "twitter:url", Content: outUrl},
+		{Type: "property", Key: "twitter:url", Content: outURL},
 		{Type: "name", Key: "twitter:title", Content: titleStr},
 		{Type: "name", Key: "twitter:description", Content: ls.Title},
-		{Type: "name", Key: "twitter:image", Content: thumbUrl.String()},
+		{Type: "name", Key: "twitter:image", Content: thumbURL.String()},
 	}
 
 	return l.GenerateHTML(ctx, &PageConfig{
@@ -88,8 +88,8 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL) ([]byte, e
 		return nil, errors.New("url is nil")
 	}
 
-	thumbUrl, _ := url.Parse(u.String())
-	thumbUrl.Path = "/linkbanner.png"
+	thumbURL, _ := url.Parse(u.String())
+	thumbURL.Path = "/linkbanner.png"
 
 	// Define all meta tags
 	metaTags := []MetaTag{
@@ -101,7 +101,7 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL) ([]byte, e
 		{Type: "property", Key: "og:type", Content: "website"},
 		{Type: "property", Key: "og:title", Content: "Stream.place"},
 		{Type: "property", Key: "og:description", Content: "Stream.place is open-source livestreaming on the AT Protocol."},
-		{Type: "property", Key: "og:image", Content: thumbUrl.String()},
+		{Type: "property", Key: "og:image", Content: thumbURL.String()},
 
 		// Twitter Meta Tags
 		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
@@ -109,7 +109,7 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL) ([]byte, e
 		{Type: "property", Key: "twitter:url", Content: u.String()},
 		{Type: "name", Key: "twitter:title", Content: "Stream.place"},
 		{Type: "name", Key: "twitter:description", Content: "Stream.place is open-source livestreaming on the AT Protocol."},
-		{Type: "name", Key: "twitter:image", Content: thumbUrl.String()},
+		{Type: "name", Key: "twitter:image", Content: thumbURL.String()},
 	}
 
 	return l.GenerateHTML(ctx, &PageConfig{

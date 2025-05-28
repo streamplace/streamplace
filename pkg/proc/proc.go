@@ -62,16 +62,16 @@ func RunMistServer(ctx context.Context, cli *config.CLI) error {
 					line, isPrefix, err := reader.ReadLine()
 					if err != nil {
 						if !errors.Is(err, io.EOF) {
-							output(fmt.Sprintf("reader gave error, ending logging for fd=%d err=%s", i+1, err))
+							_, _ = output(fmt.Sprintf("reader gave error, ending logging for fd=%d err=%s", i+1, err))
 						}
 						line, _, err := reader.ReadLine()
 						if string(line) != "" {
-							output(string(line))
+							_, _ = output(string(line))
 						}
 						return err
 					}
 					if isPrefix {
-						output("warning: preceding line exceeds 64k logging limit and was split")
+						_, _ = output("warning: preceding line exceeds 64k logging limit and was split")
 					}
 					if string(line) != "" {
 						level, procName, pid, path, streamName, msg, err := ParseMistLog(string(line))

@@ -24,8 +24,8 @@ import (
 	"stream.place/streamplace/pkg/crypto/aqpub"
 )
 
-const SP_DATA_DIR = "$SP_DATA_DIR"
-const SEGMENTS_DIR = "segments"
+const SPDataDir = "$SP_DATA_DIR"
+const SegmentsDir = "segments"
 
 type BuildFlags struct {
 	Version   string
@@ -53,9 +53,9 @@ type CLI struct {
 	EthPassword            string
 	FirebaseServiceAccount string
 	GitLabURL              string
-	HttpAddr               string
-	HttpInternalAddr       string
-	HttpsAddr              string
+	HTTPAddr               string
+	HTTPInternalAddr       string
+	HTTPSAddr              string
 	RtmpsAddr              string
 	Secure                 bool
 	NoMist                 bool
@@ -102,11 +102,11 @@ type CLI struct {
 	dataDirFlags           []*string
 }
 
-var STREAMPLACE_SCHEME_PREFIX = "streamplace://"
+var StreamplaceSchemePrefix = "streamplace://"
 
 func (cli *CLI) OwnInternalURL() string {
 	//  No errors because we know it's valid from AddrFlag
-	host, port, _ := net.SplitHostPort(cli.HttpInternalAddr)
+	host, port, _ := net.SplitHostPort(cli.HTTPInternalAddr)
 	ip := net.ParseIP(host)
 	if ip.IsUnspecified() {
 		host = "127.0.0.1"
@@ -162,7 +162,7 @@ func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 		return fmt.Errorf("could not determine default data dir (no $HOME) and none provided, please set --data-dir")
 	}
 	for _, dest := range cli.dataDirFlags {
-		*dest = strings.Replace(*dest, SP_DATA_DIR, cli.DataDir, 1)
+		*dest = strings.Replace(*dest, SPDataDir, cli.DataDir, 1)
 	}
 	return nil
 }
@@ -241,19 +241,19 @@ func (cli *CLI) SegmentFilePath(user string, file string) (string, error) {
 	}
 	fname := fmt.Sprintf("%s%s", aqt.FileSafeString(), ext)
 	yr, mon, day, hr, min, _, _ := aqt.Parts()
-	return cli.DataFilePath([]string{SEGMENTS_DIR, user, yr, mon, day, hr, min, fname}), nil
+	return cli.DataFilePath([]string{SegmentsDir, user, yr, mon, day, hr, min, fname}), nil
 }
 
 // get a path to a segment file in our database
 func (cli *CLI) HLSDir(user string) (string, error) {
-	return cli.DataFilePath([]string{SEGMENTS_DIR, "hls", user}), nil
+	return cli.DataFilePath([]string{SegmentsDir, "hls", user}), nil
 }
 
 // create a segment file in our database
 func (cli *CLI) SegmentFileCreate(user string, aqt aqtime.AQTime, ext string) (*os.File, error) {
 	fname := fmt.Sprintf("%s.%s", aqt.FileSafeString(), ext)
 	yr, mon, day, hr, min, _, _ := aqt.Parts()
-	return cli.DataFileCreate([]string{SEGMENTS_DIR, user, yr, mon, day, hr, min, fname}, false)
+	return cli.DataFileCreate([]string{SegmentsDir, user, yr, mon, day, hr, min, fname}, false)
 }
 
 // read a file from our data dir
@@ -274,7 +274,7 @@ func (cli *CLI) DataFileRead(fpath []string, w io.Writer) error {
 
 func (cli *CLI) DataDirFlag(fs *flag.FlagSet, dest *string, name, defaultValue, usage string) {
 	cli.dataDirFlags = append(cli.dataDirFlags, dest)
-	*dest = filepath.Join(SP_DATA_DIR, defaultValue)
+	*dest = filepath.Join(SPDataDir, defaultValue)
 	usage = fmt.Sprintf(`%s (default: "%s")`, usage, *dest)
 	fs.Func(name, usage, func(s string) error {
 		*dest = s

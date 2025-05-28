@@ -24,6 +24,7 @@ import (
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/time/rate"
 
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
@@ -37,10 +38,15 @@ import (
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/streamplace"
+
+	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
+	"github.com/slok/go-http-metrics/middleware"
+	echomiddleware "github.com/slok/go-http-metrics/middleware/echo"
+	httproutermiddleware "github.com/slok/go-http-metrics/middleware/httprouter"
+	middlewarestd "github.com/slok/go-http-metrics/middleware/std"
 )
 
 type StreamplaceAPI struct {
@@ -64,7 +70,7 @@ type StreamplaceAPI struct {
 	limitersMu    sync.Mutex
 	SignerCache   map[string]media.MediaSigner
 	SignerCacheMu sync.Mutex
-	op            *oproxy.OProxy
+	op            *oatproxy.OATProxy
 }
 
 type WebsocketTracker struct {
@@ -73,7 +79,7 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oproxy.OProxy) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -128,50 +134,64 @@ func (fs AppHostingFS) Open(name string) (http.File, error) {
 
 func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 
+	mdlw := middleware.New(middleware.Config{
+		Recorder: metrics.NewRecorder(metrics.Config{}),
+	})
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model)
+	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.op, mdlw)
 	if err != nil {
 		return nil, err
 	}
-	xrpc = a.op.OAuthMiddleware(xrpc)
 	router := httprouter.New()
+
+	// Create our middleware factory with the default settings.
+
+	a.op.Echo.Use(echomiddleware.Handler("", mdlw))
+
+	// r.GET("/test/:id", httproutermiddleware.Handler("/test/:id", h1, mdlw))
+
+	addHandle := func(router *httprouter.Router, method, path string, handler httprouter.Handle) {
+		router.Handle(method, path, httproutermiddleware.Handler(path, handler, mdlw))
+	}
+	addFunc := func(router *httprouter.Router, method, path string, handler http.HandlerFunc) {
+		router.Handler(method, path, middlewarestd.Handler(path, mdlw, handler))
+	}
 
 	router.Handler("GET", "/oauth/*anything", a.op.Handler())
 	router.Handler("POST", "/oauth/*anything", a.op.Handler())
 	router.Handler("GET", "/.well-known/oauth-authorization-server", a.op.Handler())
 	router.Handler("GET", "/.well-known/oauth-protected-resource", a.op.Handler())
 	apiRouter := httprouter.New()
-	apiRouter.HandlerFunc("POST", "/api/notification", a.HandleNotification(ctx))
+	addFunc(apiRouter, "POST", "/api/notification", a.HandleNotification(ctx))
 	// old clients
-	router.HandlerFunc("GET", "/app-updates", a.HandleAppUpdates(ctx))
-
+	addFunc(router, "GET", "/app-updates", a.HandleAppUpdates(ctx))
 	// new ones
-	apiRouter.HandlerFunc("GET", "/api/manifest", a.HandleAppUpdates(ctx))
-	apiRouter.GET("/api/desktop-updates/:platform/:architecture/:version/:buildTime/:file", a.HandleDesktopUpdates(ctx))
-	apiRouter.POST("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	apiRouter.OPTIONS("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	apiRouter.DELETE("/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	apiRouter.Handler("POST", "/api/segment", a.HandleSegment(ctx))
-	apiRouter.HandlerFunc("GET", "/api/healthz", a.HandleHealthz(ctx))
-	apiRouter.GET("/api/playback/:user/hls/*file", a.HandleHLSPlayback(ctx))
-	apiRouter.GET("/api/playback/:user/stream.mp4", a.HandleMP4Playback(ctx))
-	apiRouter.GET("/api/playback/:user/stream.webm", a.HandleMKVPlayback(ctx))
+	addFunc(apiRouter, "GET", "/api/manifest", a.HandleAppUpdates(ctx))
+	addHandle(apiRouter, "GET", "/api/desktop-updates/:platform/:architecture/:version/:buildTime/:file", a.HandleDesktopUpdates(ctx))
+	addHandle(apiRouter, "POST", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
+	addHandle(apiRouter, "OPTIONS", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
+	addHandle(apiRouter, "DELETE", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
+	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
+	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/hls/*file", a.HandleHLSPlayback(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.mp4", a.HandleMP4Playback(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.webm", a.HandleMKVPlayback(ctx))
 	// they're, uh, not jpegs. but we used this once and i don't wanna break backwards compatibility
-	apiRouter.GET("/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	// this one is not a lie
-	apiRouter.GET("/api/playback/:user/stream.png", a.HandleThumbnailPlayback(ctx))
-	apiRouter.GET("/api/app-return/*anything", a.HandleAppReturn(ctx))
-	apiRouter.POST("/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
-	apiRouter.POST("/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
-	apiRouter.POST("/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
-	apiRouter.POST("/api/player-event", a.HandlePlayerEvent(ctx))
-	apiRouter.GET("/api/chat/:repoDID", a.HandleChat(ctx))
-	apiRouter.GET("/api/websocket/:repoDID", a.HandleWebsocket(ctx))
-	apiRouter.GET("/api/livestream/:repoDID", a.HandleLivestream(ctx))
-	apiRouter.GET("/api/segment/recent", a.HandleRecentSegments(ctx))
-	apiRouter.GET("/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
-	apiRouter.GET("/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
-	apiRouter.GET("/api/view-count/:user", a.HandleViewCount(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.png", a.HandleThumbnailPlayback(ctx))
+	addHandle(apiRouter, "GET", "/api/app-return/*anything", a.HandleAppReturn(ctx))
+	addHandle(apiRouter, "POST", "/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
+	addHandle(apiRouter, "POST", "/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
+	addHandle(apiRouter, "POST", "/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
+	addHandle(apiRouter, "POST", "/api/player-event", a.HandlePlayerEvent(ctx))
+	addHandle(apiRouter, "GET", "/api/chat/:repoDID", a.HandleChat(ctx))
+	addHandle(apiRouter, "GET", "/api/websocket/:repoDID", a.HandleWebsocket(ctx))
+	addHandle(apiRouter, "GET", "/api/livestream/:repoDID", a.HandleLivestream(ctx))
+	addHandle(apiRouter, "GET", "/api/segment/recent", a.HandleRecentSegments(ctx))
+	addHandle(apiRouter, "GET", "/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
+	addHandle(apiRouter, "GET", "/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
+	addHandle(apiRouter, "GET", "/api/view-count/:user", a.HandleViewCount(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	apiRouterHandler := a.RateLimitMiddleware(ctx)(apiRouter)
 	xrpcHandler := a.RateLimitMiddleware(ctx)(xrpc)
@@ -185,7 +205,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("PUT", "/xrpc/*resource", xrpcHandler)
 	router.Handler("PATCH", "/xrpc/*resource", xrpcHandler)
 	router.Handler("DELETE", "/xrpc/*resource", xrpcHandler)
-	router.GET("/.well-known/did.json", a.HandleDidJson(ctx))
+	router.GET("/.well-known/did.json", a.HandleDidJSON(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
 	router.POST("/", a.HandleWebRTCIngest(ctx))
 	for _, redirect := range a.CLI.Redirects {
@@ -233,7 +253,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		if err != nil {
 			return nil, err
 		}
-		router.NotFound = linkingHandler
+		router.NotFound = middlewarestd.Handler("/*static", mdlw, linkingHandler)
 	}
 	// needed because the WebRTC handler issues 405s from / otherwise
 	router.GET("/", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -297,7 +317,9 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 				log.Error(ctx, "error generating default card", "error", err)
 			}
 			w.Header().Set("Content-Type", "text/html")
-			w.Write(bs)
+			if _, err := w.Write(bs); err != nil {
+				log.Error(ctx, "error writing response", "error", err)
+			}
 		} else {
 			log.Warn(ctx, "error opening file", "error", err)
 			apierrors.WriteHTTPInternalServerError(w, "file not found", err)
@@ -340,7 +362,9 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 			return
 		}
 		w.Header().Set("Content-Type", "text/html")
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}), nil
 }
 
@@ -356,7 +380,7 @@ func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) http
 			return
 		}
 
-		fullstream := fmt.Sprintf("%s+%s", mistconfig.STREAM_NAME, stream)
+		fullstream := fmt.Sprintf("%s+%s", mistconfig.StreamName, stream)
 		prefix := fmt.Sprintf(tmpl, fullstream)
 		resource := params.ByName("resource")
 
@@ -383,7 +407,9 @@ func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) http
 
 		copyHeader(w.Header(), resp.Header)
 		w.WriteHeader(resp.StatusCode)
-		io.Copy(w, resp.Body)
+		if _, err := io.Copy(w, resp.Body); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -399,7 +425,7 @@ func (a *StreamplaceAPI) FileHandler(ctx context.Context, fs http.Handler) http.
 }
 
 func (a *StreamplaceAPI) RedirectHandler(ctx context.Context) (http.Handler, error) {
-	_, tlsPort, err := net.SplitHostPort(a.CLI.HttpsAddr)
+	_, tlsPort, err := net.SplitHostPort(a.CLI.HTTPSAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -507,7 +533,9 @@ func (a *StreamplaceAPI) HandleRecentSegments(ctx context.Context) httprouter.Ha
 			return
 		}
 		w.Header().Add("Content-Type", "application/json")
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -539,7 +567,9 @@ func (a *StreamplaceAPI) HandleUserRecentSegments(ctx context.Context) httproute
 			return
 		}
 		w.Header().Add("Content-Type", "application/json")
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -561,7 +591,9 @@ func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle 
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal view count", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -583,7 +615,9 @@ func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Ha
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal signing keys", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -616,7 +650,9 @@ func (a *StreamplaceAPI) HandleChat(ctx context.Context) httprouter.Handle {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -655,7 +691,9 @@ func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
@@ -688,7 +726,7 @@ func (a *StreamplaceAPI) ServeHTTP(ctx context.Context) error {
 		return err
 	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
-		s.Addr = a.CLI.HttpAddr
+		s.Addr = a.CLI.HTTPAddr
 		log.Log(ctx, "http server starting", "addr", s.Addr)
 		return s.ListenAndServe()
 	})
@@ -700,7 +738,7 @@ func (a *StreamplaceAPI) ServeHTTPRedirect(ctx context.Context) error {
 		return err
 	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
-		s.Addr = a.CLI.HttpAddr
+		s.Addr = a.CLI.HTTPAddr
 		log.Log(ctx, "http tls redirecct server starting", "addr", s.Addr)
 		return s.ListenAndServe()
 	})
@@ -712,7 +750,7 @@ func (a *StreamplaceAPI) ServeHTTPS(ctx context.Context) error {
 		return err
 	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
-		s.Addr = a.CLI.HttpsAddr
+		s.Addr = a.CLI.HTTPSAddr
 		log.Log(ctx, "https server starting",
 			"addr", s.Addr,
 			"certPath", a.CLI.TLSCertPath,

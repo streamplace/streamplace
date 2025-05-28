@@ -11,11 +11,11 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/lmittmann/tint"
 	slogGorm "github.com/orandin/slog-gorm"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/oproxy"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -29,8 +29,8 @@ type Model interface {
 	ListNotifications() ([]Notification, error)
 
 	CreatePlayerEvent(event PlayerEventAPI) error
-	ListPlayerEvents(playerId string) ([]PlayerEvent, error)
-	PlayerReport(playerId string) (map[string]any, error)
+	ListPlayerEvents(playerID string) ([]PlayerEvent, error)
+	PlayerReport(playerID string) (map[string]any, error)
 	ClearPlayerEvents() error
 
 	CreateSegment(segment *Segment) error
@@ -85,11 +85,11 @@ type Model interface {
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
 	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
 
-	CreateOAuthSession(id string, session *oproxy.OAuthSession) error
-	LoadOAuthSession(id string) (*oproxy.OAuthSession, error)
-	UpdateOAuthSession(id string, session *oproxy.OAuthSession) error
-	ListOAuthSessions() ([]oproxy.OAuthSession, error)
-	GetSessionByDID(did string) (*oproxy.OAuthSession, error)
+	CreateOAuthSession(id string, session *oatproxy.OAuthSession) error
+	LoadOAuthSession(id string) (*oatproxy.OAuthSession, error)
+	UpdateOAuthSession(id string, session *oatproxy.OAuthSession) error
+	ListOAuthSessions() ([]oatproxy.OAuthSession, error)
+	GetSessionByDID(did string) (*oatproxy.OAuthSession, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -103,7 +103,9 @@ func MakeDB(dbURL string) (Model, error) {
 		// if this isn't ":memory:", ensure that directory exists (eg, if db
 		// file is being initialized)
 		if !strings.Contains(sqliteSuffix, ":?") {
-			os.MkdirAll(filepath.Dir(sqliteSuffix), os.ModePerm)
+			if err := os.MkdirAll(filepath.Dir(sqliteSuffix), os.ModePerm); err != nil {
+				return nil, fmt.Errorf("error creating database path: %w", err)
+			}
 		}
 	}
 	dial := sqlite.Open(sqliteSuffix)
@@ -146,7 +148,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Block{},
 		ChatMessage{},
 		ChatProfile{},
-		oproxy.OAuthSession{},
+		oatproxy.OAuthSession{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

@@ -40,7 +40,7 @@ func (a *StreamplaceAPI) ServeInternalHTTP(ctx context.Context) error {
 		return err
 	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
-		s.Addr = a.CLI.HttpInternalAddr
+		s.Addr = a.CLI.HTTPInternalAddr
 		log.Log(ctx, "http server starting", "addr", s.Addr)
 		return s.ListenAndServe()
 	})
@@ -72,7 +72,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 
 		ms := time.Now().UnixMilli()
-		out := fmt.Sprintf("%s+%s_%d", mistconfig.STREAM_NAME, mediaSigner.Streamer(), ms)
+		out := fmt.Sprintf("%s+%s_%d", mistconfig.StreamName, mediaSigner.Streamer(), ms)
 		a.SignerCacheMu.Lock()
 		a.SignerCache[mediaSigner.Streamer()] = mediaSigner
 		a.SignerCacheMu.Unlock()
@@ -217,7 +217,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			_, err := io.Copy(w, pr)
 			return err
 		})
-		g.Wait()
+		if err := g.Wait(); err != nil {
+			errors.WriteHTTPBadRequest(w, "request failed", err)
+		}
 	})
 
 	router.HEAD("/playback/:user/:rendition/stream.mkv", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -242,12 +244,16 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPNotFound(w, "http-pipe not found", nil)
 			return
 		}
-		io.Copy(pr, r.Body)
+		if _, err := io.Copy(pr, r.Body); err != nil {
+			errors.WriteHTTPInternalServerError(w, "failed to copy response", nil)
+		}
 	})
 
 	// self-destruct code, useful for dumping goroutines on windows
 	router.POST("/abort", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		rtpprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
+		if err := rtpprof.Lookup("goroutine").WriteTo(os.Stderr, 2); err != nil {
+			log.Log(ctx, "error writing rtpprof", "error", err)
+		}
 		log.Log(ctx, "got POST /abort, self-destructing")
 		os.Exit(1)
 	})
@@ -308,7 +314,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to marhsal json", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	})
 
 	router.GET("/segment/:id", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -336,7 +344,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to marhsal json", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	})
 
 	router.DELETE("/player-events", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -366,7 +376,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	})
 
 	router.GET("/followers/:user", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -386,7 +398,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	})
 
 	router.GET("/following/:user", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -406,7 +420,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	})
 
 	router.GET("/notifications", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -420,7 +436,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	})
 
 	router.GET("/chat-posts", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -434,7 +452,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	})
 
 	router.GET("/chat/:cid", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -458,7 +478,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	})
 
 	router.GET("/oauth-sessions", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -472,7 +494,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to marshal oauth sessions", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	})
 
 	router.POST("/notification-blast", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -574,7 +598,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
 			return
 		}
-		w.Write(bs)
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	})
 
 	handler := sloghttp.Recovery(router)

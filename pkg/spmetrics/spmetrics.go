@@ -10,7 +10,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-const SESSION_EXPIRE_TIME = 30 * time.Second
+const SessionExpireTime = 30 * time.Second //nolint:all
 
 var viewers = map[string]int{}
 var viewersLock sync.RWMutex
@@ -129,7 +129,7 @@ func ExpireSessions(ctx context.Context) error {
 			sessionsLock.Lock()
 			for user, sessions := range sessions {
 				for session, seen := range sessions {
-					if time.Since(seen) > SESSION_EXPIRE_TIME {
+					if time.Since(seen) > SessionExpireTime {
 						delete(sessions, session)
 						ViewerDec(user)
 					}

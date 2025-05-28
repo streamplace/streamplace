@@ -113,15 +113,22 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMed
 	if err != nil {
 		return nil, fmt.Errorf("error creating SegmentMetadata pipeline: %w", err)
 	}
-	demux.Connect("pad-added", onPadAdded)
+	_, err = demux.Connect("pad-added", onPadAdded)
+	if err != nil {
+		return nil, fmt.Errorf("error connecting pad-add: %w", err)
+	}
 
 	go func() {
-		HandleBusMessages(ctx, pipeline)
+		if err := HandleBusMessages(ctx, pipeline); err != nil {
+			log.Log(ctx, "pipeline error", "error", err)
+		}
 		cancel()
 	}()
 
 	// Start the pipeline
-	pipeline.SetState(gst.StatePlaying)
+	if err := pipeline.SetState(gst.StatePlaying); err != nil {
+		return nil, err
+	}
 
 	<-ctx.Done()
 
@@ -137,7 +144,9 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMed
 		meta.Duration = dur
 	}
 
-	pipeline.BlockSetState(gst.StateNull)
+	if err := pipeline.BlockSetState(gst.StateNull); err != nil {
+		return nil, err
+	}
 
 	return meta, nil
 }

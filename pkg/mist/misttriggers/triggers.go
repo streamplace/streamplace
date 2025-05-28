@@ -14,25 +14,25 @@ import (
 )
 
 const (
-	TRIGGER_PUSH_END        = "PUSH_END"
-	TRIGGER_PUSH_OUT_START  = "PUSH_OUT_START"
-	TRIGGER_PUSH_REWRITE    = "PUSH_REWRITE"
-	TRIGGER_STREAM_BUFFER   = "STREAM_BUFFER"
-	TRIGGER_LIVE_TRACK_LIST = "LIVE_TRACK_LIST"
-	TRIGGER_USER_NEW        = "USER_NEW"
-	TRIGGER_USER_END        = "USER_END"
-	TRIGGER_STREAM_SOURCE   = "STREAM_SOURCE"
+	TRIGGER_PUSH_END        = "PUSH_END"        //nolint:all
+	TRIGGER_PUSH_OUT_START  = "PUSH_OUT_START"  //nolint:all
+	TRIGGER_PUSH_REWRITE    = "PUSH_REWRITE"    //nolint:all
+	TRIGGER_STREAM_BUFFER   = "STREAM_BUFFER"   //nolint:all
+	TRIGGER_LIVE_TRACK_LIST = "LIVE_TRACK_LIST" //nolint:all
+	TRIGGER_USER_NEW        = "USER_NEW"        //nolint:all
+	TRIGGER_USER_END        = "USER_END"        //nolint:all
+	TRIGGER_STREAM_SOURCE   = "STREAM_SOURCE"   //nolint:all
 )
 
 var BlockingTriggers = map[string]bool{
-	TRIGGER_PUSH_END:        false,
-	TRIGGER_PUSH_OUT_START:  true,
-	TRIGGER_PUSH_REWRITE:    true,
-	TRIGGER_STREAM_BUFFER:   false,
-	TRIGGER_LIVE_TRACK_LIST: false,
-	TRIGGER_USER_NEW:        true,
-	TRIGGER_USER_END:        false,
-	TRIGGER_STREAM_SOURCE:   true,
+	TRIGGER_PUSH_END:        false, //nolint:all
+	TRIGGER_PUSH_OUT_START:  true,  //nolint:all
+	TRIGGER_PUSH_REWRITE:    true,  //nolint:all
+	TRIGGER_STREAM_BUFFER:   false, //nolint:all
+	TRIGGER_LIVE_TRACK_LIST: false, //nolint:all
+	TRIGGER_USER_NEW:        true,  //nolint:all
+	TRIGGER_USER_END:        false, //nolint:all
+	TRIGGER_STREAM_SOURCE:   true,  //nolint:all
 }
 
 type MistCallbackHandlersCollection struct {

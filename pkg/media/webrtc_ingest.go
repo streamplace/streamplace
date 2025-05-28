@@ -21,11 +21,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String(), "mediafunc", "WebRTCIngest")
-
-	// Setup the codecs you want to use.
-	// We'll use a VP8 and Opus but you can also define your own
 
 	// Create a new RTCPeerConnection
 	peerConnection, err := mm.webrtcAPI.NewPeerConnection(mm.webrtcConfig)
@@ -50,11 +46,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: %w", err)
 	}
-
-	go func() {
-		HandleBusMessages(ctx, pipeline)
-		cancel()
-	}()
 
 	queue, err := pipeline.GetElementByName("queue")
 	if err != nil {
@@ -149,6 +140,16 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	// Setup complete! Now we boot up streaming in the background while returning the SDP offer to the user.
 
 	go func() {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		go func() {
+			if err := HandleBusMessages(ctx, pipeline); err != nil {
+				log.Log(ctx, "pipeilne error", "error", err)
+			}
+			cancel()
+		}()
+
 		log.Debug(ctx, "starting pipeline")
 
 		// Start the pipeline
@@ -162,9 +163,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		// This will notify you when the peer has connected/disconnected
 		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 			log.Log(ctx, "Connection State has changed", "state", connectionState.String())
-			if connectionState == webrtc.ICEConnectionStateConnected {
-				// iceConnectedCtxCancel()
-			}
 		})
 
 		// Set the handler for Peer connection state
@@ -206,7 +204,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					}
 				}()
 
-				codecName := strings.Split(track.Codec().RTPCodecCapability.MimeType, "/")[1]
+				codecName := strings.Split(track.Codec().MimeType, "/")[1]
 				log.Log(ctx, "Track has started", "payloadType", track.PayloadType(), "codecName", codecName)
 
 				// appSrc := pipelineForCodec(track, codecName)
@@ -246,7 +244,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 			}
 			if track.Kind() == webrtc.RTPCodecTypeAudio {
 
-				codecName := strings.Split(track.Codec().RTPCodecCapability.MimeType, "/")[1]
+				codecName := strings.Split(track.Codec().MimeType, "/")[1]
 				log.Log(ctx, "Track has started", "payloadType", track.PayloadType(), "codecName", codecName)
 
 				buf := make([]byte, 1400)
@@ -286,18 +284,15 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 
 		<-ctx.Done()
 
-		err = pipeline.BlockSetState(gst.StateNull)
-		if err != nil {
+		if err := pipeline.BlockSetState(gst.StateNull); err != nil {
 			log.Log(ctx, "failed to set pipeline state to null", "error", err)
 		}
 
-		audioSrcElem.SetState(gst.StateNull)
-		if err != nil {
+		if err := audioSrcElem.SetState(gst.StateNull); err != nil {
 			log.Log(ctx, "failed to set audioSrcElem state to null", "error", err)
 		}
 
-		videoSrcElem.SetState(gst.StateNull)
-		if err != nil {
+		if err := videoSrcElem.SetState(gst.StateNull); err != nil {
 			log.Log(ctx, "failed to set videoSrcElem state to null", "error", err)
 		}
 

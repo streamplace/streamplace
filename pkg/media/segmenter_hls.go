@@ -108,7 +108,7 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 		}
 	}()
 
-	splitmuxsink.Connect("sink-added", func(split, sinkEle *gst.Element) {
+	_, err = splitmuxsink.Connect("sink-added", func(split, sinkEle *gst.Element) {
 		log.Debug(ctx, "hls-check sink-added")
 		vf, err := ps.GetNextSegment(ctx)
 		if err != nil {
@@ -123,6 +123,9 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 			},
 		})
 	})
+	if err != nil {
+		return fmt.Errorf("failed to add hls-check to sink: %w", err)
+	}
 
 	onPadAdded := func(element *gst.Element, pad *gst.Pad) {
 		caps := pad.GetCurrentCaps()
@@ -141,28 +144,16 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 
 		name := structure.Name()
 		fmt.Printf("Structure Name: %s\n", name)
-
-		if name[:5] == "video" {
-			// Get some common video properties
-			// widthVal, _ := structure.GetValue("width")
-			// heightVal, _ := structure.GetValue("height")
-
-			// width, ok := widthVal.(int)
-			// if ok {
-			// 	m3u8.Width = uint64(width)
-			// }
-			// height, ok := heightVal.(int)
-			// if ok {
-			// 	m3u8.Height = uint64(height)
-			// }
-		}
 	}
 
-	splitmuxsink.Connect("pad-added", onPadAdded)
+	_, err = splitmuxsink.Connect("pad-added", onPadAdded)
+	if err != nil {
+		return fmt.Errorf("failed to add pad: %w", err)
+	}
 
 	defer cancel()
 	go func() {
-		HandleBusMessagesCustom(ctx, pipeline, func(msg *gst.Message) {
+		err := HandleBusMessagesCustom(ctx, pipeline, func(msg *gst.Message) {
 			switch msg.Type() {
 			case gst.MessageElement:
 				structure := msg.GetStructure()
@@ -179,7 +170,10 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 						cancel()
 					}
 					log.Debug(ctx, "hls-check splitmuxsink-fragment-opened", "runningTime", runningTimeInt)
-					ps.FragmentOpened(ctx, runningTimeInt)
+					if err := ps.FragmentOpened(ctx, runningTimeInt); err != nil {
+						log.Debug(ctx, "fragment open error", "error", err)
+						cancel()
+					}
 				}
 				if name == "splitmuxsink-fragment-closed" {
 					runningTime, err := structure.GetValue("running-time")
@@ -193,19 +187,29 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 						cancel()
 					}
 					log.Debug(ctx, "hls-check splitmuxsink-fragment-closed", "runningTime", runningTimeInt)
-					ps.FragmentClosed(ctx, runningTimeInt)
+					if err := ps.FragmentClosed(ctx, runningTimeInt); err != nil {
+						log.Debug(ctx, "fragment close error", "error", err)
+						cancel()
+					}
 				}
 			}
 		})
+		if err != nil {
+			log.Log(ctx, "pipeline error", "error", err)
+		}
 		cancel()
 	}()
 
 	// Start the pipeline
-	pipeline.SetState(gst.StatePlaying)
+	if err := pipeline.SetState(gst.StatePlaying); err != nil {
+		return fmt.Errorf("error setting pipeline state: %w", err)
+	}
 
 	<-ctx.Done()
 
-	pipeline.BlockSetState(gst.StateNull)
+	if err := pipeline.BlockSetState(gst.StateNull); err != nil {
+		return fmt.Errorf("error setting pipeline state: %w", err)
+	}
 
 	return nil
 }
@@ -242,7 +246,9 @@ func (ps *PendingSegments) CloseSegment(ctx context.Context, seg *Segment) {
 	defer ps.lock.Unlock()
 	log.Debug(ctx, "close segment", "MSN", seg.MSN)
 	seg.Closed = true
-	ps.checkSegments(ctx)
+	if err := ps.checkSegments(ctx); err != nil {
+		log.Debug(ctx, "faile to check segments segment")
+	}
 }
 
 func (ps *PendingSegments) FragmentOpened(ctx context.Context, t uint64) error {
@@ -258,7 +264,9 @@ func (ps *PendingSegments) FragmentOpened(ctx context.Context, t uint64) error {
 			break
 		}
 	}
-	ps.checkSegments(ctx)
+	if err := ps.checkSegments(ctx); err != nil {
+		return fmt.Errorf("failed to check segments: %w", err)
+	}
 	return nil
 }
 
@@ -277,7 +285,9 @@ func (ps *PendingSegments) FragmentClosed(ctx context.Context, t uint64) error {
 			break
 		}
 	}
-	ps.checkSegments(ctx)
+	if err := ps.checkSegments(ctx); err != nil {
+		return fmt.Errorf("failed to check segments: %w", err)
+	}
 	return nil
 }
 
@@ -286,11 +296,14 @@ func (ps *PendingSegments) FragmentClosed(ctx context.Context, t uint64) error {
 // all of those functions call this one, and it checks if we have the necessary information
 // to finalize a segment and add it to our playlist.
 // only call if you're holding ps.lock!
-func (ps *PendingSegments) checkSegments(ctx context.Context) {
+func (ps *PendingSegments) checkSegments(ctx context.Context) error {
 	pending := ps.segments[0]
 	if pending.StartTS != nil && pending.EndTS != nil && pending.Closed {
-		ps.rendition.NewSegment(pending)
+		if err := ps.rendition.NewSegment(pending); err != nil {
+			return fmt.Errorf("failed to add new segment: %w", err)
+		}
 		log.Debug(ctx, "finalizing segment", "MSN", pending.MSN)
 		ps.segments = ps.segments[1:]
 	}
+	return nil
 }

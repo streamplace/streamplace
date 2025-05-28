@@ -16,12 +16,12 @@ func (s *Server) handlePlaceStreamGraphGetFollowingUser(ctx context.Context, sub
 
 	_, didErr := syntax.ParseDID(userDID)
 	if userDID == "" || didErr != nil {
-		return nil, fmt.Errorf("Missing or invalid user DID")
+		return nil, fmt.Errorf("missing or invalid user DID")
 	}
 
 	follow, err := s.model.GetUserFollowingUser(ctx, userDID, subjectDID)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get user following: %w", err)
+		return nil, fmt.Errorf("failed to get user following: %w", err)
 	}
 
 	output := &placestreamtypes.GraphGetFollowingUser_Output{}

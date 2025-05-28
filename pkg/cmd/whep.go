@@ -59,8 +59,6 @@ type WHEPConnection struct {
 
 func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, error) {
 
-	ctx, cancel := context.WithCancel(ctx)
-
 	// Prepare the configuration
 	config := webrtc.Configuration{}
 
@@ -133,51 +131,61 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, 
 		}
 	}()
 
-	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		log.Log(ctx, "track received", "track", track.ID())
+	go func() {
+		ctx, cancel := context.WithCancel(ctx)
+		peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+			log.Log(ctx, "track received", "track", track.ID())
 
-		// Determine track type
-		trackType := "video"
-		if track.Kind() == webrtc.RTPCodecTypeAudio {
-			trackType = "audio"
-		}
-
-		trackStat := stats[trackType]
-
-		for {
-			if ctx.Err() != nil {
-				return
-			}
-			rtp, _, err := track.ReadRTP()
-			if err != nil {
-				log.Log(ctx, "error reading RTP", "error", err)
-				cancel()
-				return
+			// Determine track type
+			trackType := "video"
+			if track.Kind() == webrtc.RTPCodecTypeAudio {
+				trackType = "audio"
 			}
 
-			trackStat.mu.Lock()
-			trackStat.total += len(rtp.Payload)
-			trackStat.mu.Unlock()
-		}
-	})
-	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		log.Log(ctx, "WHEP connection State has changed", "state", connectionState.String())
-		for _, state := range failureStates {
-			if connectionState == state {
-				log.Log(ctx, "connection failed, cancelling")
-				cancel()
+			trackStat := stats[trackType]
+
+			for {
+				if ctx.Err() != nil {
+					return
+				}
+				rtp, _, err := track.ReadRTP()
+				if err != nil {
+					log.Log(ctx, "error reading RTP", "error", err)
+					cancel()
+					return
+				}
+
+				trackStat.mu.Lock()
+				trackStat.total += len(rtp.Payload)
+				trackStat.mu.Unlock()
 			}
-		}
-	})
+		})
+		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+			log.Log(ctx, "WHEP connection State has changed", "state", connectionState.String())
+			for _, state := range failureStates {
+				if connectionState == state {
+					log.Log(ctx, "connection failed, cancelling")
+					cancel()
+				}
+			}
+		})
+
+		<-ctx.Done()
+		peerConnection.Close()
+	}()
 	peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
 		log.Log(ctx, "ICE candidate", "candidate", candidate)
 	})
-	peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
+	if _, err := peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
 		Direction: webrtc.RTPTransceiverDirectionRecvonly,
-	})
-	peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
+	}); err != nil {
+		return nil, fmt.Errorf("failed to add video transceiver: %w", err)
+	}
+	if _, err := peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
 		Direction: webrtc.RTPTransceiverDirectionRecvonly,
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("failed to add audio transceiver: %w", err)
+	}
 
 	// Create an offer
 	offer, err := peerConnection.CreateOffer(nil)

@@ -105,7 +105,9 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 		return err
 	}
 
-	fileSrc.Set("location", w.File)
+	if err := fileSrc.Set("location", w.File); err != nil {
+		return err
+	}
 
 	videoSink, err := pipeline.GetElementByName("videoappsink")
 	if err != nil {
@@ -204,7 +206,7 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 
-	for i, _ := range sinks {
+	for i := range sinks {
 		func(i int) {
 			sink := sinks[i]
 			trackType := "video"
@@ -265,7 +267,9 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 	}
 
 	go func() {
-		media.HandleBusMessages(ctx, pipeline)
+		if err := media.HandleBusMessages(ctx, pipeline); err != nil {
+			log.Log(ctx, "pipeline error", "error", err)
+		}
 		cancel()
 	}()
 

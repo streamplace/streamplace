@@ -41,9 +41,9 @@ func GenerateES256KCert(signer gocrypto.Signer) ([]byte, error) {
 	// pub := priv.Public().(*ecdsa.PublicKey)
 	// publicKeyBytes := elliptic.Marshal(elliptic.P256(), pub.X, pub.Y)
 	pub := signer.Public().(*ecdsa.PublicKey)
-	publicKeyBytes := elliptic.Marshal(crypto.S256(), pub.X, pub.Y)
+	publicKeyBytes := elliptic.Marshal(crypto.S256(), pub.X, pub.Y) //nolint:all
 	idhash := sha1.Sum(publicKeyBytes)
-	subjectKeyId := idhash[:]
+	subjectKeyID := idhash[:]
 	hex := HexAddr(pub)
 
 	template := x509.Certificate{
@@ -57,8 +57,8 @@ func GenerateES256KCert(signer gocrypto.Signer) ([]byte, error) {
 		KeyUsage:              keyUsage,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageEmailProtection},
 		BasicConstraintsValid: true,
-		SubjectKeyId:          subjectKeyId,
-		AuthorityKeyId:        subjectKeyId,
+		SubjectKeyId:          subjectKeyID,
+		AuthorityKeyId:        subjectKeyID,
 	}
 
 	p256DERBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.Public(), priv)
@@ -99,8 +99,8 @@ func GenerateES256KCert(signer gocrypto.Signer) ([]byte, error) {
 		Validity:           old.Validity,
 		Subject:            old.Subject,
 		PublicKey:          k256info,
-		UniqueId:           old.UniqueId,
-		SubjectUniqueId:    old.SubjectUniqueId,
+		UniqueID:           old.UniqueID,
+		SubjectUniqueID:    old.SubjectUniqueID,
 		Extensions:         old.Extensions,
 	}
 
@@ -182,8 +182,8 @@ type tbsCertificate struct {
 	Validity           validity
 	Subject            asn1.RawValue
 	PublicKey          publicKeyInfo
-	UniqueId           asn1.BitString   `asn1:"optional,tag:1"`
-	SubjectUniqueId    asn1.BitString   `asn1:"optional,tag:2"`
+	UniqueID           asn1.BitString   `asn1:"optional,tag:1"`
+	SubjectUniqueID    asn1.BitString   `asn1:"optional,tag:2"`
 	Extensions         []pkix.Extension `asn1:"omitempty,optional,explicit,tag:3"`
 }
 

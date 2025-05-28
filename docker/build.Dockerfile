@@ -80,4 +80,9 @@ RUN go env -w GOTOOLCHAIN=go$GO_VERSION
 #   && cd .. \
 #   && rm -rf streamplace
 
+RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v2.1.6/golangci-lint-2.1.6-linux-amd64.tar.gz -o golangci-lint.tar.gz \
+  && tar -xf golangci-lint.tar.gz \
+  && mv golangci-lint-2.1.6-linux-amd64/golangci-lint /usr/local/bin/ \
+  && rm -rf golangci-lint.tar.gz golangci-lint-2.1.6-linux-amd64
+
 LABEL org.opencontainers.image.authors="support@stream.place"

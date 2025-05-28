@@ -21,7 +21,7 @@ import (
 	"stream.place/streamplace/test"
 )
 
-const HLS_PLAYLIST = "stream.m3u8"
+const HLSPlaylist = "stream.m3u8"
 
 // Pipe with a mechanism to keep the FDs not garbage collected
 func SafePipe() (*os.File, *os.File, func(), error) {
@@ -132,7 +132,9 @@ func SelfTest(ctx context.Context) error {
 	})
 
 	go func() {
-		HandleBusMessages(ctx, pipeline)
+		if err := HandleBusMessages(ctx, pipeline); err != nil {
+			log.Debug(ctx, "handle bus messages failed", "error", err)
+		}
 		cancel()
 	}()
 
@@ -157,9 +159,9 @@ func SelfTest(ctx context.Context) error {
 	return nil
 }
 
-const TESTSRC_WIDTH = 1280
-const TESTSRC_HEIGHT = 720
-const QR_SIZE = 256
+const TestSrcWidth = 1280
+const TestSrcHeight = 720
+const QRSize = 256
 
 type QRData struct {
 	Now int64 `json:"now"`
@@ -171,8 +173,8 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 	pipelineSlice := []string{
 		"h264parse name=videoparse",
 		"compositor name=comp ! videoconvert ! video/x-raw,format=I420 ! x264enc speed-preset=ultrafast key-int-max=30 ! queue ! videoparse.",
-		fmt.Sprintf(`videotestsrc is-live=true ! video/x-raw,format=AYUV,framerate=30/1,width=%d,height=%d ! comp.`, TESTSRC_WIDTH, TESTSRC_HEIGHT),
-		fmt.Sprintf("videobox border-alpha=0 top=-%d left=-%d name=box ! comp.", (TESTSRC_HEIGHT/2)-(QR_SIZE/2), (TESTSRC_WIDTH/2)-(QR_SIZE/2)),
+		fmt.Sprintf(`videotestsrc is-live=true ! video/x-raw,format=AYUV,framerate=30/1,width=%d,height=%d ! comp.`, TestSrcWidth, TestSrcHeight),
+		fmt.Sprintf("videobox border-alpha=0 top=-%d left=-%d name=box ! comp.", (TestSrcHeight/2)-(QRSize/2), (TestSrcWidth/2)-(QRSize/2)),
 		"appsrc name=pngsrc ! pngdec ! videoconvert ! videorate ! video/x-raw,format=AYUV,framerate=1/1 ! box.",
 		"appsrc name=timetext ! pngdec ! videoconvert ! videorate ! video/x-raw,format=AYUV,framerate=1/1 ! comp.",
 		"audiotestsrc ! audioconvert ! opusenc inband-fec=true perfect-timestamp=true bitrate=128000 ! queue ! opusparse name=audioparse",
@@ -197,7 +199,9 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 	if err != nil {
 		return err
 	}
-	pipeline.Add(signer)
+	if err := pipeline.Add(signer); err != nil {
+		return err
+	}
 
 	err = videoparse.Link(signer)
 	if err != nil {
@@ -259,17 +263,23 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 	defer cancel()
 	go func() {
 		<-ctx.Done()
-		pipeline.BlockSetState(gst.StateNull)
+		if err := pipeline.BlockSetState(gst.StateNull); err != nil {
+			log.Log(ctx, "failed to set pipeline state", "error", err)
+		}
 		mainLoop.Quit()
 	}()
 
 	go func() {
-		HandleBusMessages(ctx, pipeline)
+		if err := HandleBusMessages(ctx, pipeline); err != nil {
+			log.Log(ctx, "pipeline error", "error", err)
+		}
 		cancel()
 	}()
 
 	// Start the pipeline
-	pipeline.SetState(gst.StatePlaying)
+	if err := pipeline.SetState(gst.StatePlaying); err != nil {
+		log.Log(ctx, "failed to set pipeline state", "error", err)
+	}
 
 	g, _ := errgroup.WithContext(ctx)
 

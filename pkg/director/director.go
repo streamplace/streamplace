@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/oproxy"
 )
 
 // director is responsible for managing the lifecycle of a stream, making business
@@ -27,10 +27,10 @@ type Director struct {
 	bus              *bus.Bus
 	streamSessions   map[string]*StreamSession
 	streamSessionsMu sync.Mutex
-	op               *oproxy.OProxy
+	op               *oatproxy.OATProxy
 }
 
-func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *bus.Bus, op *oproxy.OProxy) *Director {
+func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy) *Director {
 	return &Director{
 		mm:               mm,
 		mod:              mod,

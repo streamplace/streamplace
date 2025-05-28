@@ -85,8 +85,6 @@ func (s *SegmentData) Normalize(ctx context.Context) error {
 
 	lastVideo = s.Video[len(s.Video)-1]
 	lastAudio = s.Audio[len(s.Audio)-1]
-	videoEnd = lastVideo.pts.Nanoseconds() + lastVideo.dur.Nanoseconds()
-	audioEnd = lastAudio.pts.Nanoseconds() + lastAudio.dur.Nanoseconds()
 
 	return nil
 }
@@ -101,6 +99,7 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
@@ -116,7 +115,6 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 	}()
 
 	defer func() {
-		cancel()
 		err := <-errCh
 		if err != nil {
 			log.Error(ctx, "bus handler error", "error", err)
@@ -181,11 +179,6 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 				dur:   buffer.Duration().AsDuration(),
 			})
 
-			if err != nil {
-				src.Error("could not get sink pads", err)
-				return gst.FlowError
-			}
-
 			return gst.FlowOK
 		},
 	})
@@ -238,7 +231,9 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 		},
 	})
 
-	pipeline.SetState(gst.StatePlaying)
+	if err := pipeline.SetState(gst.StatePlaying); err != nil {
+		return nil, fmt.Errorf("failed to set pipeline state: %w", err)
+	}
 
 	<-ctx.Done()
 
@@ -256,6 +251,7 @@ func JoinAudioVideo(ctx context.Context, seg *SegmentData, output io.Writer) err
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
@@ -271,7 +267,6 @@ func JoinAudioVideo(ctx context.Context, seg *SegmentData, output io.Writer) err
 	}()
 
 	defer func() {
-		cancel()
 		err := <-errCh
 		if err != nil {
 			log.Error(ctx, "bus handler error", "error", err)
@@ -305,8 +300,6 @@ func JoinAudioVideo(ctx context.Context, seg *SegmentData, output io.Writer) err
 		ret := videoSrc.PushBuffer(buf)
 		if ret != gst.FlowOK {
 			return fmt.Errorf("failed to push video buffer: %s", ret)
-		} else {
-			// log.Log(ctx, "pushed video buffer", "presentation_timestamp", seg.pts, "duration", seg.dur)
 		}
 	}
 
@@ -330,8 +323,6 @@ func JoinAudioVideo(ctx context.Context, seg *SegmentData, output io.Writer) err
 		ret := audioSrc.PushBuffer(buf)
 		if ret != gst.FlowOK {
 			return fmt.Errorf("failed to push audio buffer: %s", ret)
-		} else {
-			// log.Log(ctx, "pushed audio buffer", "presentation_timestamp", seg.pts, "duration", seg.dur)
 		}
 	}
 
@@ -349,7 +340,9 @@ func JoinAudioVideo(ctx context.Context, seg *SegmentData, output io.Writer) err
 		NewSampleFunc: WriterNewSample(ctx, output),
 	})
 
-	pipeline.SetState(gst.StatePlaying)
+	if err := pipeline.SetState(gst.StatePlaying); err != nil {
+		return fmt.Errorf("failed to set pipeline state: %w", err)
+	}
 
 	<-ctx.Done()
 

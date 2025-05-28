@@ -3,16 +3,16 @@ package model
 import (
 	"errors"
 
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/oproxy"
 )
 
-func (m *DBModel) CreateOAuthSession(id string, session *oproxy.OAuthSession) error {
+func (m *DBModel) CreateOAuthSession(id string, session *oatproxy.OAuthSession) error {
 	return m.DB.Create(session).Error
 }
 
-func (m *DBModel) LoadOAuthSession(id string) (*oproxy.OAuthSession, error) {
-	var session oproxy.OAuthSession
+func (m *DBModel) LoadOAuthSession(id string) (*oatproxy.OAuthSession, error) {
+	var session oatproxy.OAuthSession
 	if err := m.DB.Where("downstream_dpop_jkt = ?", id).First(&session).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
@@ -22,8 +22,8 @@ func (m *DBModel) LoadOAuthSession(id string) (*oproxy.OAuthSession, error) {
 	return &session, nil
 }
 
-func (m *DBModel) UpdateOAuthSession(id string, session *oproxy.OAuthSession) error {
-	res := m.DB.Model(&oproxy.OAuthSession{}).Where("downstream_dpop_jkt = ?", id).Updates(session)
+func (m *DBModel) UpdateOAuthSession(id string, session *oatproxy.OAuthSession) error {
+	res := m.DB.Model(&oatproxy.OAuthSession{}).Where("downstream_dpop_jkt = ?", id).Updates(session)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -33,16 +33,16 @@ func (m *DBModel) UpdateOAuthSession(id string, session *oproxy.OAuthSession) er
 	return nil
 }
 
-func (m *DBModel) ListOAuthSessions() ([]oproxy.OAuthSession, error) {
-	var sessions []oproxy.OAuthSession
+func (m *DBModel) ListOAuthSessions() ([]oatproxy.OAuthSession, error) {
+	var sessions []oatproxy.OAuthSession
 	if err := m.DB.Find(&sessions).Error; err != nil {
 		return nil, err
 	}
 	return sessions, nil
 }
 
-func (m *DBModel) GetSessionByDID(did string) (*oproxy.OAuthSession, error) {
-	var session oproxy.OAuthSession
+func (m *DBModel) GetSessionByDID(did string) (*oatproxy.OAuthSession, error) {
+	var session oatproxy.OAuthSession
 	if err := m.DB.Where("repo_did = ? AND revoked_at IS NULL", did).Order("updated_at DESC").First(&session).Error; err != nil {
 		return nil, err
 	}

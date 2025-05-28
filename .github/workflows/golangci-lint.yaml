@@ -1,0 +1,30 @@
+name: golangci-lint
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4.1.7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: run build for linting
+        run: |
+          sudo apt install podman -y
+          sudo ln -s $(realpath ./hack/golangci-lint) /usr/bin/golangci-lint
+          make golangci-lint-container
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1
+          args: --config=./.golangci.yaml
+          install-mode: none

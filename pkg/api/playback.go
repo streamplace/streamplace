@@ -86,7 +86,9 @@ func (a *StreamplaceAPI) HandleMP4Playback(ctx context.Context) httprouter.Handl
 			_, err := io.Copy(w, pr)
 			return err
 		})
-		g.Wait()
+		if err := g.Wait(); err != nil {
+			errors.WriteHTTPBadRequest(w, "request failed", err)
+		}
 	}
 }
 
@@ -138,7 +140,9 @@ func (a *StreamplaceAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handl
 			_, err := io.Copy(w, pr)
 			return err
 		})
-		g.Wait()
+		if err := g.Wait(); err != nil {
+			errors.WriteHTTPBadRequest(w, "request failed", err)
+		}
 	}
 }
 
@@ -168,12 +172,14 @@ func (a *StreamplaceAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Ha
 		}
 		w.WriteHeader(201)
 		w.Header().Add("Location", r.URL.Path)
-		w.Write([]byte(answer.SDP))
+		if _, err := w.Write([]byte(answer.SDP)); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 
-const BEARER_PREFIX = "Bearer "
-const KEY_PREFIX = "0x"
+const BearerPrefix = "Bearer "
+const KeyPrefix = "0x"
 
 func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -192,11 +198,11 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 				errors.WriteHTTPUnauthorized(w, "authorization header required", nil)
 				return
 			}
-			if !strings.HasPrefix(auth, BEARER_PREFIX) {
+			if !strings.HasPrefix(auth, BearerPrefix) {
 				errors.WriteHTTPUnauthorized(w, "invalid authorization header (needs Bearer prefix)", nil)
 				return
 			}
-			encoded = auth[len(BEARER_PREFIX):]
+			encoded = auth[len(BearerPrefix):]
 			// it's easy to copy-paste a trailing or leading space, so clear those out
 			encoded = strings.TrimSpace(encoded)
 		}
@@ -230,7 +236,9 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 		log.Log(ctx, "location", "location", location)
 		w.Header().Set("Location", location)
 		w.WriteHeader(201)
-		w.Write([]byte(answer.SDP))
+		if _, err := w.Write([]byte(answer.SDP)); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
 	}
 }
 

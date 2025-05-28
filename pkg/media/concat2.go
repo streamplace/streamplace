@@ -185,7 +185,9 @@ func addConcatDemuxer(ctx context.Context, bin *gst.Bin, seg *segchanman.Seg, sy
 	demuxBinPadVideoSrc.AddProbe(gst.PadProbeTypeEventBoth, eos)
 	demuxBinPadAudioSrc.AddProbe(gst.PadProbeTypeEventBoth, eos)
 
-	bin.SetState(gst.StatePlaying)
+	if err := bin.SetState(gst.StatePlaying); err != nil {
+		return fmt.Errorf("failed to set state: %w", err)
+	}
 
 	<-eosCh
 	<-eosCh

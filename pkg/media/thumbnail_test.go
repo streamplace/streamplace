@@ -34,9 +34,8 @@ func TestThumbnail(t *testing.T) {
 	for i := 0; i < streamplaceTestCount; i++ {
 		g.Go(func() error {
 			thumbnail := bytes.Buffer{}
-			thumbnailCtx := context.Background()
 			// thumbnailCtx = log.WithDebugValue(ctx, map[string]map[string]int{"function": {"Thumbnail": 9}})
-			err := Thumbnail(thumbnailCtx, bytes.NewReader(bs), &thumbnail)
+			err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail)
 			if err != nil {
 				return err
 			}

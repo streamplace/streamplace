@@ -1,3 +1,4 @@
+make golangci-lint
 ./node_modules/.bin/lint-staged
 cd js/app && yarn run check
 

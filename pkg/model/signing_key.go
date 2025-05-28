@@ -26,7 +26,7 @@ func (m *DBModel) UpdateSigningKey(key *SigningKey) error {
 }
 
 func (m *DBModel) GetSigningKey(ctx context.Context, did, repoDID string) (*SigningKey, error) {
-	ctx, span := otel.Tracer("signer").Start(ctx, "GetSigningKey")
+	_, span := otel.Tracer("signer").Start(ctx, "GetSigningKey")
 	defer span.End()
 	var key SigningKey
 	res := m.DB.Model(SigningKey{}).Where("did = ?", did).Where("repo_did = ?", repoDID).First(&key)

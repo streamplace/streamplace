@@ -19,27 +19,27 @@ import (
 	"stream.place/streamplace/pkg/gstinit"
 )
 
-const IGNORE_LEAKS = "STREAMPLACE_IGNORE_LEAKS"
-const GST_DEBUG_NEEDED = "leaks:9,GST_TRACER:9"
-const LEAK_LINE = "GST_TRACER :0:: object-alive"
+const IgnoreLeaks = "STREAMPLACE_IGNORE_LEAKS"
+const GSTDebugNeeded = "leaks:9,GST_TRACER:9"
+const LeakLine = "GST_TRACER :0:: object-alive"
 
-var LEAK_DONE_REGEX = regexp.MustCompile(`listed\s+(\d+)\s+alive\s+objects`)
+var LeakDoneRegex = regexp.MustCompile(`listed\s+(\d+)\s+alive\s+objects`)
 
 var LeakReport = []string{}
 var LeakReportMutex sync.Mutex
 var LeakDoneCh = make(chan struct{})
 
 func TestMain(m *testing.M) {
-	if os.Getenv(IGNORE_LEAKS) != "" {
+	if os.Getenv(IgnoreLeaks) != "" {
 		gstinit.InitGST()
 		os.Exit(m.Run())
 		return
 	}
 	gstDebug := os.Getenv("GST_DEBUG")
 	if gstDebug == "" {
-		gstDebug = GST_DEBUG_NEEDED
+		gstDebug = GSTDebugNeeded
 	} else {
-		gstDebug = fmt.Sprintf("%s,%s", gstDebug, GST_DEBUG_NEEDED)
+		gstDebug = fmt.Sprintf("%s,%s", gstDebug, GSTDebugNeeded)
 	}
 	os.Setenv("GST_DEBUG", gstDebug)
 	os.Setenv("GST_TRACERS", "leaks")
@@ -69,11 +69,11 @@ func TestMain(m *testing.M) {
 			line := scanner.Text()
 			fmt.Println(line)
 			line = stripansi.Strip(line)
-			if strings.Contains(line, LEAK_LINE) {
+			if strings.Contains(line, LeakLine) {
 				LeakReportMutex.Lock()
 				LeakReport = append(LeakReport, line)
 				LeakReportMutex.Unlock()
-			} else if LEAK_DONE_REGEX.MatchString(line) {
+			} else if LeakDoneRegex.MatchString(line) {
 				LeakDoneCh <- struct{}{}
 			} else {
 				continue
@@ -88,10 +88,12 @@ func TestMain(m *testing.M) {
 }
 
 func getLeakCount(t *testing.T) int {
-	if os.Getenv(IGNORE_LEAKS) != "" {
+	if os.Getenv(IgnoreLeaks) != "" {
 		return 0
 	}
 	process, err := os.FindProcess(os.Getpid())
+	require.NoError(t, err)
+
 	LeakReportMutex.Lock()
 	LeakReport = []string{}
 	LeakReportMutex.Unlock()
@@ -102,7 +104,7 @@ func getLeakCount(t *testing.T) int {
 		flushes = 5
 	}
 
-	for i := 0; i < flushes; i++ {
+	for range flushes {
 		ch := make(chan struct{})
 		done := false
 		go func() {
@@ -116,10 +118,8 @@ func getLeakCount(t *testing.T) int {
 		go func() {
 			runtime.GC()
 			runtime.GC()
-			for {
-				if done {
-					break
-				}
+			for !done {
+
 				runtime.GC()
 				runtime.GC()
 				time.Sleep(500 * time.Millisecond)
@@ -142,7 +142,7 @@ func getLeakCount(t *testing.T) int {
 }
 
 func checkGStreamerLeaks(t *testing.T, expected int) {
-	if os.Getenv(IGNORE_LEAKS) != "" {
+	if os.Getenv(IgnoreLeaks) != "" {
 		return
 	}
 	leaks := getLeakCount(t)

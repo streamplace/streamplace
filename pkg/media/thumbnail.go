@@ -57,11 +57,15 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer) error {
 		NewSampleFunc: WriterNewSample(ctx, w),
 	})
 
-	pipeline.SetState(gst.StatePlaying)
+	if err := pipeline.BlockSetState(gst.StatePlaying); err != nil {
+		return fmt.Errorf("error setting pipeline state: %w", err)
+	}
 
 	<-ctx.Done()
 
-	pipeline.BlockSetState(gst.StateNull)
+	if err := pipeline.BlockSetState(gst.StateNull); err != nil {
+		return fmt.Errorf("error setting pipeline state: %w", err)
+	}
 
 	return <-errCh
 }

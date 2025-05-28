@@ -75,8 +75,8 @@ func (tr *TextRenderer) GenerateImage(textContent string, fgColorHex string, bgC
 		}
 	}
 
-	code := strings.Replace(textContent, "\t", "    ", -1) // convert tabs into spaces
-	text := strings.Split(code, "\n")                      // split newlines into arrays
+	code := strings.ReplaceAll(textContent, "\t", "    ") // convert tabs into spaces
+	text := strings.Split(code, "\n")                     // split newlines into arrays
 
 	fg := image.NewUniform(fgColor)
 	bg := image.NewUniform(bgColor)
@@ -96,7 +96,7 @@ func (tr *TextRenderer) GenerateImage(textContent string, fgColorHex string, bgC
 
 	pt := freetype.Pt(textXOffset, textYOffset)
 	for _, s := range text {
-		_, err := c.DrawString(strings.Replace(s, "\r", "", -1), pt)
+		_, err := c.DrawString(strings.ReplaceAll(s, "\r", ""), pt)
 		if err != nil {
 			return nil, err
 		}

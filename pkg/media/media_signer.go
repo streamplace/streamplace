@@ -41,7 +41,7 @@ func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]
 	if err != nil {
 		return nil, "", err
 	}
-	fSlice := []string{pub.String(), CERT_FILE}
+	fSlice := []string{pub.String(), CertFile}
 	exists, err := cli.DataFileExists(fSlice)
 	if err != nil {
 		return nil, "", err
@@ -56,10 +56,13 @@ func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]
 		if err != nil {
 			return nil, "", err
 		}
-		log.Log(ctx, "wrote new media signing certificate", "file", filepath.Join(pub.String(), CERT_FILE))
+		log.Log(ctx, "wrote new media signing certificate", "file", filepath.Join(pub.String(), CertFile))
 	}
 	buf := bytes.Buffer{}
-	cli.DataFileRead(fSlice, &buf)
+	if err := cli.DataFileRead(fSlice, &buf); err != nil {
+		return nil, "", err
+	}
+
 	fPath := cli.DataFilePath(fSlice)
 	cert := buf.Bytes()
 	return cert, fPath, nil
@@ -105,7 +108,7 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 				},
 			},
 			{
-				"label": STREAMPLACE_METADATA,
+				"label": StreamplaceMetadata,
 				"data": obj{
 					"@context": obj{
 						"dc": "http://purl.org/dc/elements/1.1/",
@@ -157,6 +160,7 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 	span.End()
 
 	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_OutputBytes")
+	defer ctx.Done()
 	bs, err := output.Bytes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get output bytes: %w", err)

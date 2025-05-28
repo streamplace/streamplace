@@ -26,7 +26,7 @@ func TestConcatDemuxBin(t *testing.T) {
 	defer goleak.VerifyNone(t, ignore)
 
 	g, _ := errgroup.WithContext(context.Background())
-	for i := 0; i < streamplaceTestCount; i++ {
+	for range streamplaceTestCount {
 		g.Go(func() error {
 			return innerTestConcatDemuxBin(t)
 		})
@@ -39,13 +39,13 @@ func TestConcatDemuxBin(t *testing.T) {
 func innerTestConcatDemuxBin(t *testing.T) error {
 	ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"func": {"ConcatStream": 9, "TestConcat2": 9, "SegDemuxBin": 9}})
 	ctx = log.WithLogValues(ctx, "func", "TestConcat2")
-	ctx, cancel := context.WithCancel(ctx)
-	// defer cancel()
 
 	pipeline, err := gst.NewPipeline("TestConcat2")
 	if err != nil {
 		return fmt.Errorf("failed to create pipeline: %w", err)
 	}
+
+	ctx, cancel := context.WithCancel(ctx)
 
 	errCh := make(chan error)
 	go func() {

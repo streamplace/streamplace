@@ -22,7 +22,7 @@ import (
 	"stream.place/streamplace/pkg/streamplace"
 )
 
-const SEGMENTS_IN_FLIGHT = 2
+const SegmentsInFlight = 2
 
 type LivepeerSession struct {
 	SessionID  string
@@ -48,7 +48,7 @@ func NewLivepeerSession(ctx context.Context, did string, gatewayURL string) (*Li
 		SessionID:  fmt.Sprintf("%s-%s", did, sessionID),
 		Count:      0,
 		GatewayURL: gatewayURL,
-		Guard:      make(chan struct{}, SEGMENTS_IN_FLIGHT),
+		Guard:      make(chan struct{}, SegmentsInFlight),
 	}, nil
 }
 

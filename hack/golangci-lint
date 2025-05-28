@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# This script is used to trick the GitHub action for golangci-lint to run inside a container
+# so that we can use the local build of streamplace
+
+set -euo pipefail
+
+exec podman exec golangci-lint golangci-lint "$@"

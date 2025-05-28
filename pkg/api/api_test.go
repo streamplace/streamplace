@@ -53,7 +53,7 @@ func TestRedirectHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cli := &config.CLI{HttpAddr: tt.httpAddr, HttpsAddr: tt.httpsAddr}
+			cli := &config.CLI{HTTPAddr: tt.httpAddr, HTTPSAddr: tt.httpsAddr}
 			mod := &model.DBModel{}
 			a := StreamplaceAPI{CLI: cli, Model: mod}
 

@@ -38,10 +38,10 @@ export const uuid = "%s";
 `
 
 func gitlabURL() string {
-	CI_API_V4_URL := os.Getenv("CI_API_V4_URL")
-	CI_PROJECT_ID := os.Getenv("CI_PROJECT_ID")
+	CI_API_V4_URL := os.Getenv("CI_API_V4_URL") //nolint:all
+	CIProjectID := os.Getenv("CI_PROJECT_ID")
 	CI_API_V4_URL = strings.Replace(CI_API_V4_URL, "https://git.stream.place", "https://git-cloudflare.stream.place", 1)
-	return fmt.Sprintf("%s/projects/%s", CI_API_V4_URL, CI_PROJECT_ID)
+	return fmt.Sprintf("%s/projects/%s", CI_API_V4_URL, CIProjectID)
 }
 
 func gitlab(suffix string, dest any) {
@@ -112,20 +112,20 @@ func makeGit() error {
 	} else if *doBranch {
 		out = branch()
 	} else if *env {
-		STREAMPLACE_BRANCH := branch()
+		StreamplaceBranch := branch()
 		outMap := map[string]string{}
-		outMap["STREAMPLACE_BRANCH"] = STREAMPLACE_BRANCH
+		outMap["STREAMPLACE_BRANCH"] = StreamplaceBranch
 		outMap["STREAMPLACE_VERSION"] = desc
-		outMap["STREAMPLACE_BRANCH"] = STREAMPLACE_BRANCH
+		outMap["STREAMPLACE_BRANCH"] = StreamplaceBranch
 		for _, arch := range []string{"amd64", "arm64"} {
 			k := fmt.Sprintf("STREAMPLACE_URL_LINUX_%s", strings.ToUpper(arch))
-			v := fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-%s-linux-%s.tar.gz", gitlabURL(), STREAMPLACE_BRANCH, desc, desc, arch)
+			v := fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-%s-linux-%s.tar.gz", gitlabURL(), StreamplaceBranch, desc, desc, arch)
 			outMap[k] = v
 			macK := fmt.Sprintf("STREAMPLACE_URL_DARWIN_%s", strings.ToUpper(arch))
-			macV := fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-%s-darwin-%s.zip", gitlabURL(), STREAMPLACE_BRANCH, desc, desc, arch)
+			macV := fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-%s-darwin-%s.zip", gitlabURL(), StreamplaceBranch, desc, desc, arch)
 			outMap[macK] = macV
 		}
-		outMap["STREAMPLACE_DESKTOP_URL_WINDOWS_AMD64"] = fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-desktop-%s-windows-amd64.exe", gitlabURL(), STREAMPLACE_BRANCH, desc, desc)
+		outMap["STREAMPLACE_DESKTOP_URL_WINDOWS_AMD64"] = fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-desktop-%s-windows-amd64.exe", gitlabURL(), StreamplaceBranch, desc, desc)
 		for k, v := range outMap {
 			out = out + fmt.Sprintf("%s=%s\n", k, v)
 		}
@@ -143,11 +143,11 @@ func makeGit() error {
 			return s1 < s2
 		})
 		for _, file := range pkgFiles {
-			fileJson := map[string]string{
+			fileJSON := map[string]string{
 				"name": file["file_name"].(string),
 				"url":  fmt.Sprintf("%s/packages/generic/%s/%s/%s", gitlabURL(), branch(), desc, file["file_name"].(string)),
 			}
-			bs, err := json.Marshal(fileJson)
+			bs, err := json.Marshal(fileJSON)
 			if err != nil {
 				return err
 			}
@@ -168,7 +168,9 @@ func makeGit() error {
 	}
 
 	if *output != "" {
-		os.WriteFile(*output, []byte(out), 0644)
+		if err := os.WriteFile(*output, []byte(out), 0644); err != nil {
+			return err
+		}
 	} else {
 		fmt.Print(out)
 	}
@@ -176,12 +178,12 @@ func makeGit() error {
 }
 
 func branch() string {
-	CI_COMMIT_TAG := os.Getenv("CI_COMMIT_TAG")
-	CI_COMMIT_BRANCH := os.Getenv("CI_COMMIT_BRANCH")
-	if CI_COMMIT_TAG != "" {
+	CICommitTag := os.Getenv("CI_COMMIT_TAG")
+	CICommitBranch := os.Getenv("CI_COMMIT_BRANCH")
+	if CICommitTag != "" {
 		return "latest"
-	} else if CI_COMMIT_BRANCH != "" {
-		return strings.Replace(CI_COMMIT_BRANCH, "/", "-", -1)
+	} else if CICommitBranch != "" {
+		return strings.ReplaceAll(CICommitBranch, "/", "-")
 	} else {
 		panic("CI_COMMIT_TAG and CI_COMMIT_BRANCH undefined, can't get branch")
 	}

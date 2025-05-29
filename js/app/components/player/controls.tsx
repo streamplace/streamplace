@@ -114,6 +114,7 @@ const VolumeSlider = ({
     } else {
       Animated.timing(fadeAnim, {
         toValue: 0,
+        delay: 150,
         duration: 150,
         useNativeDriver: true,
         easing: Easing.out(Easing.cubic),
@@ -233,8 +234,9 @@ const VolumeSlider = ({
           min={0}
           max={1}
           step={0.01}
+          py={16}
         >
-          <Slider.Track backgroundColor="$gray8" height={4}>
+          <Slider.Track backgroundColor="$gray8" height={4} mx={0}>
             <Slider.TrackActive backgroundColor="$gray5" />
           </Slider.Track>
           <Slider.Thumb circular index={0} size="$1" backgroundColor="white" />

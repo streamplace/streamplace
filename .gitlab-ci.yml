@@ -52,17 +52,11 @@ builder-rebuild:
       --fail-with-body
       https://retry-gitlab.iameli.workers.dev/
 
-build:
+.build:
   stage: build
   interruptible: true
   image: "$CI_REGISTRY_IMAGE:builder-$DOCKERFILE_HASH"
   timeout: 2 hours
-  parallel:
-    matrix:
-      - TARGET:
-          - linux-amd64
-          - linux-arm64
-          - windows-amd64
   script:
     - rm -rf /usr/x86_64-w64-mingw32/include/d3dcompiler.h /usr/share/mingw-w64/include/d3dcompiler.h /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp.dll.a /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp.dll.a
     - git fetch --unshallow || echo 'already unshallow'
@@ -70,6 +64,24 @@ build:
   artifacts:
     reports:
       dotenv: .ci/build.env
+
+build-linux-amd64:
+  extends:
+    - .build
+  variables:
+    TARGET: linux-amd64
+
+build-linux-arm64:
+  extends:
+    - .build
+  variables:
+    TARGET: linux-arm64
+
+build-windows-amd64:
+  extends:
+    - .build
+  variables:
+    TARGET: windows-amd64
 
 leak-test-viewers:
   stage: build
@@ -127,30 +139,11 @@ test:
     - git fetch --unshallow || echo 'already unshallow'
     - make ci-test -j$(nproc) && make ci-lexicons
 
-build-docker-amd64:
-  stage: build
-  interruptible: true
-  needs:
-    - job: build
-      artifacts: true
-  image:
-    name: gcr.io/kaniko-project/executor:v1.14.0-debug
-    entrypoint: [""]
-  timeout: 2 hours
-  script:
-    - /kaniko/executor
-      --build-arg TARGETARCH=amd64
-      --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_AMD64
-      --context "${CI_PROJECT_DIR}"
-      --dockerfile "${CI_PROJECT_DIR}/docker/release.Dockerfile"
-      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-amd64"
-      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-amd64"
-
 build-docker-mistserver:
   stage: build
   interruptible: true
   needs:
-    - job: build
+    - job: build-linux-amd64
       artifacts: true
   image:
     name: gcr.io/kaniko-project/executor:v1.14.0-debug
@@ -165,11 +158,30 @@ build-docker-mistserver:
       --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-mistserver"
       --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-mistserver"
 
+build-docker-amd64:
+  stage: build
+  interruptible: true
+  needs:
+    - job: build-linux-amd64
+      artifacts: true
+  image:
+    name: gcr.io/kaniko-project/executor:v1.14.0-debug
+    entrypoint: [""]
+  timeout: 2 hours
+  script:
+    - /kaniko/executor
+      --build-arg TARGETARCH=amd64
+      --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_AMD64
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/docker/release.Dockerfile"
+      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-amd64"
+      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-amd64"
+
 build-docker-arm64:
   stage: build
   interruptible: true
   needs:
-    - job: build
+    - job: build-linux-arm64
       artifacts: true
   image:
     name: gcr.io/kaniko-project/executor:v1.14.0-debug

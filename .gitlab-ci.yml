@@ -290,7 +290,7 @@ release:
   interruptible: true
   image:
     name: curlimages/curl
-    entrypoint: ["/bin/sh"]
+    entrypoint: [""]
   variables:
     STATUS_PROJECT: streamplace/streamplace
     STATUS_NAME: git.stream.place

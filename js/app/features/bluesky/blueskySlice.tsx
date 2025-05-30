@@ -7,8 +7,13 @@ import {
   RichText,
 } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import {
+  isLink,
+  isMention,
+} from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
-import { hydrate, STORED_KEY_KEY, DID_KEY } from "features/base/baseSlice";
+import { OAuthSession } from "@atproto/oauth-client";
+import { DID_KEY, hydrate, STORED_KEY_KEY } from "features/base/baseSlice";
 import { openLoginLink } from "features/platform/platformSlice";
 import {
   LivestreamViewHydrated,
@@ -16,28 +21,22 @@ import {
   PlayersState,
 } from "features/player/playerSlice";
 import {
-  StreamplaceState,
   setURL,
+  StreamplaceState,
 } from "features/streamplace/streamplaceSlice";
+import Storage from "storage";
 import {
   PlaceStreamChatMessage,
   PlaceStreamChatProfile,
   PlaceStreamKey,
   PlaceStreamLivestream,
 } from "streamplace";
-import Storage from "storage";
 import { isWeb } from "tamagui";
 import { privateKeyToAccount } from "viem/accounts";
 import { createAppSlice } from "../../hooks/createSlice";
+import { StreamplaceAgent } from "./agent";
 import { BlueskyState } from "./blueskyTypes";
 import createOAuthClient from "./oauthClient";
-import { StreamplaceAgent } from "./agent";
-import {
-  isLink,
-  isMention,
-} from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
-import { OAuthSession } from "@atproto/oauth-client";
-import error from "components/error/error";
 
 const initialState: BlueskyState = {
   status: "start",
@@ -170,7 +169,9 @@ export const blueskySlice = createAppSlice({
         const { streamplace } = getState() as { streamplace: StreamplaceState };
         const client = await createOAuthClient(streamplace.url);
         const anonPDSAgent = new StreamplaceAgent(streamplace.url);
-        const did = await Storage.getItem(DID_KEY);
+        const did =
+          (await Storage.getItem(DID_KEY)) ||
+          (await Storage.getItem("@@atproto/oauth-client-browser(sub)"));
         let session: OAuthSession | null = null;
         if (did) {
           try {

@@ -344,19 +344,29 @@ node-all-platforms: app
 	$(MAKE) windows-amd64
 	$(MAKE) windows-amd64-startup-test
 	$(MAKE) desktop-linux
-	$(MAKE) desktop-windows
+	$(MAKE) desktop-windows-amd64
 
 .PHONY: desktop-linux
 desktop-linux:
+	$(MAKE) desktop-linux-amd64
+	$(MAKE) desktop-linux-arm64
+
+.PHONY: desktop-linux-amd64
+desktop-linux-amd64:
 	cd js/desktop \
 	&& pnpm run make --platform linux --arch x64 \
+	&& cd - \
+	&& mv "js/desktop/out/make/AppImage/x64/Streamplace-$(VERSION_ELECTRON)-x64.AppImage" ./bin/streamplace-desktop-$(VERSION)-linux-amd64.AppImage
+
+.PHONY: desktop-linux-arm64
+desktop-linux-arm64:
+	cd js/desktop \
 	&& pnpm run make --platform linux --arch arm64 \
 	&& cd - \
-	&& mv "js/desktop/out/make/AppImage/x64/Streamplace-$(VERSION_ELECTRON)-x64.AppImage" ./bin/streamplace-desktop-$(VERSION)-linux-amd64.AppImage \
 	&& mv "js/desktop/out/make/AppImage/arm64/Streamplace-$(VERSION_ELECTRON)-arm64.AppImage" ./bin/streamplace-desktop-$(VERSION)-linux-arm64.AppImage
 
-.PHONY: desktop-windows
-desktop-windows:
+.PHONY: desktop-windows-amd64
+desktop-windows-amd64:
 	cd js/desktop \
 	&& pnpm run make --platform win32 --arch x64 \
 	&& cd - \

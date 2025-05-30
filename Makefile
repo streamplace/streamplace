@@ -516,27 +516,29 @@ docker-mistserver:
 .PHONY: ci-upload
 ci-upload: ci-upload-node ci-upload-android
 
-.PHONY: ci-upload-node
-ci-upload-node: node-all-platforms
-	for GOOS in linux; do \
-		for GOARCH in amd64 arm64; do \
-			export file=streamplace-$(VERSION)-$$GOOS-$$GOARCH.tar.gz \
-			&& $(MAKE) ci-upload-file upload_file=$$file; \
-			export file=streamplace-desktop-$(VERSION)-$$GOOS-$$GOARCH.AppImage \
-			&& $(MAKE) ci-upload-file upload_file=$$file; \
-		done \
-	done;
-	for GOOS in windows; do \
-		for GOARCH in amd64; do \
-			export file=streamplace-$(VERSION)-$$GOOS-$$GOARCH.zip \
-			&& $(MAKE) ci-upload-file upload_file=$$file; \
-			export file=streamplace-desktop-$(VERSION)-$$GOOS-$$GOARCH.exe \
-			&& $(MAKE) ci-upload-file upload_file=$$file; \
-			export SUM=$$(cat bin/streamplace-desktop-$(VERSION)-$$GOOS-$$GOARCH.nupkg.sha1) \
-			&& export file=streamplace-desktop-$(VERSION)-$$GOOS-$$GOARCH.$$SUM.nupkg \
-			&& $(MAKE) ci-upload-file upload_file=$$file; \
-		done \
-	done;
+.PHONY: ci-upload-node-linux-amd64
+ci-upload-node-linux-amd64:
+	export file=streamplace-$(VERSION)-linux-amd64.tar.gz \
+	&& $(MAKE) ci-upload-file upload_file=$$file; \
+	export file=streamplace-desktop-$(VERSION)-linux-amd64.AppImage \
+	&& $(MAKE) ci-upload-file upload_file=$$file;
+
+.PHONY: ci-upload-node-linux-arm64
+ci-upload-node-linux-arm64:
+	export file=streamplace-$(VERSION)-linux-arm64.tar.gz \
+	&& $(MAKE) ci-upload-file upload_file=$$file; \
+	export file=streamplace-desktop-$(VERSION)-linux-arm64.AppImage \
+	&& $(MAKE) ci-upload-file upload_file=$$file;
+
+.PHONY: ci-upload-node-windows-amd64
+ci-upload-node-windows-amd64:
+	export file=streamplace-$(VERSION)-windows-amd64.zip \
+	&& $(MAKE) ci-upload-file upload_file=$$file; \
+	export file=streamplace-desktop-$(VERSION)-windows-amd64.exe \
+	&& $(MAKE) ci-upload-file upload_file=$$file; \
+	export SUM=$$(cat bin/streamplace-desktop-$(VERSION)-windows-amd64.nupkg.sha1) \
+	&& export file=streamplace-desktop-$(VERSION)-windows-amd64.$$SUM.nupkg \
+	&& $(MAKE) ci-upload-file upload_file=$$file;
 
 .PHONY: ci-upload-node-macos
 ci-upload-node-macos: node-all-platforms-macos

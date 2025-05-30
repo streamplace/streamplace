@@ -1,7 +1,7 @@
 import { useVideoPlayer, VideoPlayerEvents, VideoView } from "expo-video";
 import { usePlayerProtocol } from "features/player/playerSlice";
-import React, { useEffect } from "react";
-import { MediaStream, RTCView } from "react-native-webrtc";
+import React, { useEffect, useRef } from "react";
+import { MediaStream, RTCPIPView } from "react-native-webrtc";
 import { useAppSelector } from "store/hooks";
 import { View } from "tamagui";
 import { PlayerProps, PlayerStatus, PROTOCOL_WEBRTC } from "./props";
@@ -87,12 +87,14 @@ export default function NativeVideo(
         props.setFullscreen(false);
       }}
       allowsPictureInPicture
+      startsPictureInPictureAutomatically
     />
   );
 }
 
 export function NativeWHEP(props: PlayerProps) {
   const { url } = srcToUrl(props, PROTOCOL_WEBRTC);
+  const rtcView = useRef<typeof RTCPIPView>(null);
   const [stream, stuck] = useWebRTC(url);
   useEffect(() => {
     if (stuck) {
@@ -122,8 +124,20 @@ export function NativeWHEP(props: PlayerProps) {
   if (!mediaStream) {
     return <View></View>;
   }
+
+  let pipOptions = {
+    startAutomatically: true,
+    fallbackView: (
+      <View style={{ height: 50, width: 50, backgroundColor: "red" }} />
+    ) as any,
+    preferredSize: {
+      width: 854,
+      height: 480,
+    },
+  };
   return (
-    <RTCView
+    <RTCPIPView
+      ref={rtcView as any}
       mirror={false}
       objectFit={"contain"}
       streamURL={mediaStream.toURL()}
@@ -131,6 +145,7 @@ export function NativeWHEP(props: PlayerProps) {
         backgroundColor: "#111",
         flex: 1,
       }}
+      iosPIP={pipOptions}
     />
   );
 }

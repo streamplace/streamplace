@@ -169,9 +169,12 @@ export const blueskySlice = createAppSlice({
         const { streamplace } = getState() as { streamplace: StreamplaceState };
         const client = await createOAuthClient(streamplace.url);
         const anonPDSAgent = new StreamplaceAgent(streamplace.url);
-        const did =
-          (await Storage.getItem(DID_KEY)) ||
-          (await Storage.getItem("@@atproto/oauth-client-browser(sub)"));
+        const maybeDIDs = await Promise.all([
+          Storage.getItem(DID_KEY),
+          Storage.getItem("@@atproto/oauth-client-browser(sub)"),
+          Storage.getItem("@@atproto/oauth-client-react-native:did:(sub)"),
+        ]);
+        const did = maybeDIDs.find((d) => d !== null) || null;
         let session: OAuthSession | null = null;
         if (did) {
           try {

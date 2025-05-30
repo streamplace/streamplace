@@ -197,6 +197,9 @@ export const blueskySlice = createAppSlice({
           const { client, session, anonPDSAgent } = action.payload;
           console.log("loadOAuthClient fulfilled", action.payload);
           if (session) {
+            Storage.setItem(DID_KEY, session.did).catch((e) => {
+              console.error("Error setting did", e);
+            });
             return {
               ...state,
               client: client as any,

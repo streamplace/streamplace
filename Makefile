@@ -367,7 +367,7 @@ desktop-windows:
 
 .PHONY: linux-amd64
 linux-amd64:
-	meson setup -buildtype debugoptimized build-linux-amd64 $(OPTS)
+	meson setup --buildtype debugoptimized build-linux-amd64 $(OPTS)
 	meson compile -C build-linux-amd64 archive
 
 .PHONY: linux-arm64

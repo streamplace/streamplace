@@ -59,14 +59,14 @@ build:
   timeout: 2 hours
   parallel:
     matrix:
-      - COMMAND:
-          - "make && make ci-upload-node-linux-amd64"
-          - "make linux-arm64 && make ci-upload-node-linux-arm64"
-          - "make windows-amd64 && make ci-upload-node-windows-amd64"
+      - TARGET:
+          - linux-amd64
+          - linux-arm64
+          - windows-amd64
   script:
     - rm -rf /usr/x86_64-w64-mingw32/include/d3dcompiler.h /usr/share/mingw-w64/include/d3dcompiler.h /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp.dll.a /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp.dll.a
     - git fetch --unshallow || echo 'already unshallow'
-    - bash -c "$COMMAND -j$(nproc)"
+    - bash -c "make app &&make $TARGET && make ci-upload-node-$TARGET -j$(nproc)"
   artifacts:
     reports:
       dotenv: .ci/build.env

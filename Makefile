@@ -365,6 +365,11 @@ desktop-windows:
 	&& mv "js/desktop/out/make/squirrel.windows/x64/streamplace_desktop-$(VERSION_ELECTRON)-full.nupkg" ./bin/streamplace-desktop-$(VERSION)-windows-amd64.$$SUM.nupkg \
 	&& mv "js/desktop/out/make/squirrel.windows/x64/Streamplace-$(VERSION_ELECTRON) Setup.exe" ./bin/streamplace-desktop-$(VERSION)-windows-amd64.exe
 
+.PHONY: linux-amd64
+linux-amd64:
+	meson setup -buildtype debugoptimized build-linux-amd64 $(OPTS)
+	meson compile -C build-linux-amd64 archive
+
 .PHONY: linux-arm64
 linux-arm64:
 	rustup target add aarch64-unknown-linux-gnu

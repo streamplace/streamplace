@@ -87,7 +87,7 @@ leak-test-viewers:
   stage: build
   interruptible: true
   needs:
-    - job: build
+    - job: build-linux-amd64
       artifacts: true
     - job: build-bunny
   image:
@@ -109,7 +109,7 @@ leak-test-streamers:
   stage: build
   interruptible: true
   needs:
-    - job: build
+    - job: build-linux-amd64
       artifacts: true
     - job: build-bunny
   image:
@@ -206,7 +206,7 @@ build-docker-manifest:
   needs:
     - job: build-docker-arm64
     - job: build-docker-amd64
-    - job: build
+    - job: build-linux-amd64 # just for the environment variables
       artifacts: true
   before_script:
     - curl -s -L https://github.com/estesp/manifest-tool/releases/download/v2.1.7/binaries-manifest-tool-2.1.7.tar.gz | tar xvz
@@ -278,7 +278,7 @@ windows-selftest:
     - windows
   timeout: 2 hours
   needs:
-    - job: build
+    - job: build-windows-amd64
       artifacts: true
   variables:
     MSYSTEM: "MINGW32"
@@ -296,7 +296,6 @@ release:
     - build-docker-amd64
     - build-docker-arm64
     - build-docker-manifest
-    - build
     - test
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+$/'

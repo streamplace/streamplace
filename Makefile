@@ -587,7 +587,7 @@ ci-upload-android: android
 
 .PHONY: ci-upload-android-debug
 ci-upload-android-debug:
-	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.apk \
+	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.apk \
 	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.aab
 
 .PHONY: ci-upload-android-release

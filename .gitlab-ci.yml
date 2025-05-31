@@ -180,6 +180,9 @@ build-docker-amd64:
 build-docker-arm64:
   stage: build
   interruptible: true
+  tags:
+    - linux
+    - arm64
   needs:
     - job: build-linux-arm64
       artifacts: true

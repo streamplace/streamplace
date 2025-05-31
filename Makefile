@@ -218,11 +218,13 @@ ci-android: version install android ci-upload-android
 
 .PHONY: ci-android-debug
 ci-android-debug: version install
+	pnpm run app prebuild
 	$(MAKE) android-debug
 	$(MAKE) ci-upload-android-debug
 
 .PHONY: ci-android-release
 ci-android-release: version install
+	pnpm run app prebuild
 	$(MAKE) android-release
 	$(MAKE) ci-upload-android-release
 

@@ -236,13 +236,13 @@ build-android-debug:
   extends:
     - .build-android
   variables:
-    TARGET: android-debug
+    TARGET: ci-android-debug
 
 build-android-release:
   extends:
     - .build-android
   variables:
-    TARGET: android-release
+    TARGET: ci-android-release
 
 build-mac:
   stage: build

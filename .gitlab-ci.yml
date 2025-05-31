@@ -1,5 +1,8 @@
 include: ".ci/dockerfile-hash.yaml"
 
+variables:
+  DOCKER_REPO: "us-central1-docker.pkg.dev/aquareum-tv/streamplace"
+
 build-bunny:
   stage: build
   interruptible: true
@@ -11,7 +14,7 @@ build-bunny:
     - /kaniko/executor
       --context "${CI_PROJECT_DIR}/docker"
       --dockerfile "${CI_PROJECT_DIR}/docker/bunny.Dockerfile"
-      --destination "$CI_REGISTRY_IMAGE:bunny"
+      --destination "$DOCKER_REPO:bunny"
 
 builder:
   stage: build
@@ -21,9 +24,11 @@ builder:
     name: gcr.io/kaniko-project/executor:v1.14.0-debug
     entrypoint: [""]
   variables:
-    FQ_IMAGE_NAME: "$CI_REGISTRY_IMAGE:builder-$DOCKERFILE_HASH"
+    FQ_IMAGE_NAME: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
   timeout: 2 hours
   script:
+    - mkdir -p /kaniko/.docker
+    - echo "$DOCKER_CONFIG" | base64 -d > /kaniko/.docker/config.json
     - /kaniko/executor
       --build-arg TARGETARCH=amd64
       --build-arg DOCKERFILE_HASH=$DOCKERFILE_HASH
@@ -55,7 +60,7 @@ builder-rebuild:
 .build:
   stage: build
   interruptible: true
-  image: "$CI_REGISTRY_IMAGE:builder-$DOCKERFILE_HASH"
+  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
   timeout: 2 hours
   script:
     - rm -rf /usr/x86_64-w64-mingw32/include/d3dcompiler.h /usr/share/mingw-w64/include/d3dcompiler.h /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp.dll.a /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp.dll.a
@@ -91,7 +96,7 @@ leak-test-viewers:
       artifacts: true
     - job: build-bunny
   image:
-    name: "$CI_REGISTRY_IMAGE:bunny"
+    name: "$DOCKER_REPO:bunny"
   variables:
     SP_WIDE_OPEN: "true"
     SP_NO_FIREHOSE: "true"
@@ -113,7 +118,7 @@ leak-test-streamers:
       artifacts: true
     - job: build-bunny
   image:
-    name: "$CI_REGISTRY_IMAGE:bunny"
+    name: "$DOCKER_REPO:bunny"
   variables:
     SP_WIDE_OPEN: "true"
     SP_NO_FIREHOSE: "true"
@@ -130,7 +135,7 @@ leak-test-streamers:
 test:
   stage: build
   interruptible: true
-  image: "$CI_REGISTRY_IMAGE:builder-$DOCKERFILE_HASH"
+  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
   timeout: 2 hours
   variables:
     STREAMPLACE_IGNORE_LEAKS: "true"
@@ -150,13 +155,15 @@ build-docker-mistserver:
     entrypoint: [""]
   timeout: 2 hours
   script:
+    - mkdir -p /kaniko/.docker
+    - echo "$DOCKER_CONFIG" | base64 -d > /kaniko/.docker/config.json
     - /kaniko/executor
       --build-arg TARGETARCH=amd64
       --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_AMD64
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/docker/mistserver.Dockerfile"
-      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-mistserver"
-      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-mistserver"
+      --destination "$DOCKER_REPO:$STREAMPLACE_BRANCH-mistserver"
+      --destination "$DOCKER_REPO:$STREAMPLACE_VERSION-mistserver"
 
 build-docker-amd64:
   stage: build
@@ -169,6 +176,8 @@ build-docker-amd64:
     entrypoint: [""]
   timeout: 2 hours
   script:
+    - mkdir -p /kaniko/.docker
+    - echo "$DOCKER_CONFIG" | base64 -d > /kaniko/.docker/config.json
     - /kaniko/executor
       --build-arg TARGETARCH=amd64
       --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_AMD64
@@ -176,6 +185,8 @@ build-docker-amd64:
       --dockerfile "${CI_PROJECT_DIR}/docker/release.Dockerfile"
       --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-amd64"
       --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-amd64"
+      --destination "$DOCKER_REPO:$STREAMPLACE_BRANCH-amd64"
+      --destination "$DOCKER_REPO:$STREAMPLACE_VERSION-amd64"
 
 build-docker-arm64:
   stage: build
@@ -191,6 +202,8 @@ build-docker-arm64:
     entrypoint: [""]
   timeout: 2 hours
   script:
+    - mkdir -p /kaniko/.docker
+    - echo "$DOCKER_CONFIG" | base64 -d > /kaniko/.docker/config.json
     - /kaniko/executor
       --build-arg TARGETARCH=arm64
       --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_ARM64
@@ -198,6 +211,8 @@ build-docker-arm64:
       --dockerfile "${CI_PROJECT_DIR}/docker/release.Dockerfile"
       --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-arm64"
       --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-arm64"
+      --destination "$DOCKER_REPO:$STREAMPLACE_BRANCH-arm64"
+      --destination "$DOCKER_REPO:$STREAMPLACE_VERSION-arm64"
       --customPlatform=linux/arm64
 
 build-docker-manifest:
@@ -226,7 +241,7 @@ build-docker-manifest:
 .build-android:
   stage: build
   interruptible: true
-  image: "$CI_REGISTRY_IMAGE:builder-$DOCKERFILE_HASH"
+  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
   timeout: 2 hours
   script:
     - git fetch --unshallow || echo 'already unshallow'
@@ -304,7 +319,7 @@ windows-selftest:
 release:
   stage: build
   interruptible: true
-  image: "$CI_REGISTRY_IMAGE:builder-$DOCKERFILE_HASH"
+  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
   needs:
     - build-mac
     - build-android-debug

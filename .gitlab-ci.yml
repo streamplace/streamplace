@@ -307,7 +307,8 @@ release:
   image: "$CI_REGISTRY_IMAGE:builder-$DOCKERFILE_HASH"
   needs:
     - build-mac
-    - build-android
+    - build-android-debug
+    - build-android-release
     - build-docker-amd64
     - build-docker-arm64
     - build-docker-manifest

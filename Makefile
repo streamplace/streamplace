@@ -213,8 +213,16 @@ ci: version install app node-all-platforms ci-upload-node
 .PHONY: ci-macos
 ci-macos: version install app node-all-platforms-macos ci-upload-node-macos ios ci-upload-ios
 
-.PHONY: ci-macos
+.PHONY: ci-android
 ci-android: version install android ci-upload-android
+
+.PHONY: ci-android-debug
+ci-android-debug: version install android-debug
+	$(MAKE) ci-upload-android-debug
+
+.PHONY: ci-android-release
+ci-android-release: version install android-release
+	$(MAKE) ci-upload-android-release
 
 .PHONY: ci-test
 ci-test: app
@@ -570,10 +578,18 @@ ci-upload-node-macos: node-all-platforms-macos
 
 .PHONY: ci-upload-android
 ci-upload-android: android
-	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.apk \
+	$(MAKE) ci-upload-android-debug \
+	&& $(MAKE) ci-upload-android-release
+
+.PHONY: ci-upload-android-debug
+ci-upload-android-debug:
 	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.apk \
-	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.aab \
 	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.aab
+
+.PHONY: ci-upload-android-release
+ci-upload-android-release: android
+	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.apk \
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.aab
 
 .PHONY: ci-upload-ios
 ci-upload-ios: ios

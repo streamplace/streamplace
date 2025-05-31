@@ -223,14 +223,26 @@ build-docker-manifest:
       --tags $STREAMPLACE_BRANCH
       --target $CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION
 
-build-android:
+.build-android:
   stage: build
   interruptible: true
   image: "$CI_REGISTRY_IMAGE:builder-$DOCKERFILE_HASH"
   timeout: 2 hours
   script:
     - git fetch --unshallow || echo 'already unshallow'
-    - make ci-android -j$(nproc)
+    - make $TARGET -j$(nproc)
+
+build-android-debug:
+  extends:
+    - .build-android
+  variables:
+    TARGET: android-debug
+
+build-android-release:
+  extends:
+    - .build-android
+  variables:
+    TARGET: android-release
 
 build-mac:
   stage: build

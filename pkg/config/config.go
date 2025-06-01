@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"flag"
@@ -22,6 +23,7 @@ import (
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/aqpub"
+	"stream.place/streamplace/pkg/integrations/discord"
 )
 
 const SPDataDir = "$SP_DATA_DIR"
@@ -100,6 +102,7 @@ type CLI struct {
 	JWK                    jwk.Key
 	AccessJWK              jwk.Key
 	dataDirFlags           []*string
+	DiscordWebhooks        []*discord.Webhook
 }
 
 var StreamplaceSchemePrefix = "streamplace://"
@@ -107,6 +110,7 @@ var StreamplaceSchemePrefix = "streamplace://"
 func (cli *CLI) OwnInternalURL() string {
 	//  No errors because we know it's valid from AddrFlag
 	host, port, _ := net.SplitHostPort(cli.HTTPInternalAddr)
+
 	ip := net.ParseIP(host)
 	if ip.IsUnspecified() {
 		host = "127.0.0.1"
@@ -316,6 +320,16 @@ func (cli *CLI) StringSliceFlag(fs *flag.FlagSet, dest *[]string, name, defaultV
 		strs := strings.Split(s, ",")
 		*dest = append(*dest, strs...)
 		return nil
+	})
+}
+
+func (cli *CLI) JSONFlag(fs *flag.FlagSet, dest any, name, defaultValue, usage string) {
+	usage = fmt.Sprintf(`%s (default: "%s")`, usage, defaultValue)
+	fs.Func(name, usage, func(s string) error {
+		if s == "" {
+			return nil
+		}
+		return json.Unmarshal([]byte(s), dest)
 	})
 }
 

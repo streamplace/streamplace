@@ -301,6 +301,19 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			} else {
 				log.Log(ctx, "no notifier configured, skipping notifications", "user", userDID, "count", len(notifications), "content", nb)
 			}
+
+			for _, webhook := range atsync.CLI.DiscordWebhooks {
+				if webhook.DID == userDID && webhook.Type == "livestream" {
+					go func() {
+						err := webhook.SendLivestream(ctx, lsv)
+						if err != nil {
+							log.Error(ctx, "failed to send livestream to discord", "err", err)
+						} else {
+							log.Log(ctx, "sent livestream to discord", "user", userDID, "webhook", webhook.URL)
+						}
+					}()
+				}
+			}
 		}
 
 	case *streamplace.Key:

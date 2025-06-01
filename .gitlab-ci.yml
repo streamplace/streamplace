@@ -11,6 +11,8 @@ build-bunny:
     entrypoint: [""]
   timeout: 2 hours
   script:
+    - mkdir -p /kaniko/.docker
+    - cp "$DOCKER_AUTH_CONFIG" /kaniko/.docker/config.json
     - /kaniko/executor
       --context "${CI_PROJECT_DIR}/docker"
       --dockerfile "${CI_PROJECT_DIR}/docker/bunny.Dockerfile"

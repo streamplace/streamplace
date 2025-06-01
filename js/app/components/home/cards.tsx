@@ -1,7 +1,7 @@
-import { Image } from "react-native";
-import { Stack, Text, XStack, YStack, isWeb, useMedia, View } from "tamagui";
 import Viewers from "components/viewers";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
+import { Image } from "react-native";
+import { isWeb, Stack, Text, useMedia, View, XStack, YStack } from "tamagui";
 
 export type StreamCardSize = "xs" | "sm" | "md" | "lg" | "xl";
 

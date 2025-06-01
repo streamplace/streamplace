@@ -1,3 +1,4 @@
+import * as chrono from "chrono-node";
 import { useEffect, useState } from "react";
 import {
   Text,
@@ -7,7 +8,6 @@ import {
   useMedia,
   useWindowDimensions,
 } from "tamagui";
-import * as chrono from "chrono-node";
 
 const CountdownBox = styled(View, {
   alignSelf: "center",

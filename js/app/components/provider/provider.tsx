@@ -2,9 +2,9 @@
 import "@rainbow-me/rainbowkit/styles.css";
 
 import { LinkingOptions } from "@react-navigation/native";
-import SharedProvider from "./provider.shared";
-import React, { useEffect } from "react";
 import { WalletProvider } from "hooks/useWallet";
+import React, { useEffect } from "react";
+import SharedProvider from "./provider.shared";
 
 export default function Provider({
   children,

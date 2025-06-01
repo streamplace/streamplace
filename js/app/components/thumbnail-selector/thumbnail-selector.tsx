@@ -1,6 +1,6 @@
+import { Camera, Image as ImageIcon, X } from "@tamagui/lucide-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Image, Text, View, isWeb } from "tamagui";
-import { Camera, Image as ImageIcon, X } from "@tamagui/lucide-icons";
 import { ThumbnailSelectorProps } from "./shared";
 
 export default function ThumbnailSelector({

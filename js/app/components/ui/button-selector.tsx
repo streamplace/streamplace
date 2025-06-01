@@ -1,4 +1,4 @@
-import { YStack, XStack, Text, Button, View, YStackProps } from "tamagui";
+import { Button, Text, XStack, YStack, YStackProps } from "tamagui";
 
 export default function ButtonSelector({
   text,

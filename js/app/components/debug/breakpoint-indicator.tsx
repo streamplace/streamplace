@@ -1,5 +1,4 @@
-import { Text, View } from "tamagui";
-import { useMedia } from "tamagui";
+import { Text, useMedia, View } from "tamagui";
 
 export default function BreakpointIndicator() {
   const media = useMedia();

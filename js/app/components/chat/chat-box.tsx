@@ -1,40 +1,40 @@
 import { useNavigation } from "@react-navigation/native";
-import { useToastController } from "@tamagui/toast";
-import {
-  chatMessage,
-  selectIsReady,
-  selectUserProfile,
-  selectChatProfile,
-} from "features/bluesky/blueskySlice";
-import {
-  LivestreamViewHydrated,
-  usePlayerLivestream,
-  addLocalChatMessage,
-  usePlayerId,
-  useReplyToMessage,
-  usePlayerActions,
-  useChat,
-  MessageViewHydrated,
-} from "features/player/playerSlice";
-import {
-  chatWarn,
-  selectChatWarned,
-} from "features/streamplace/streamplaceSlice";
-import { useRef, useState, useEffect } from "react";
-import { Keyboard } from "react-native";
-import { useAppDispatch, useAppSelector } from "store/hooks";
-import { Button, Form, Input, isWeb, TextArea, View, Text } from "tamagui";
 import {
   Palette,
   SquareArrowOutUpRight,
   X as XIcon,
 } from "@tamagui/lucide-icons";
-import NameColorPicker from "components/name-color-picker/name-color-picker";
-import MentionSuggestions, { MentionSuggestion } from "./mention-suggestions";
+import { useToastController } from "@tamagui/toast";
 import { emojiEmitter } from "components/emoji-picker/emoji-emitter";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
-import EmojiSuggestions, { EmojiSuggestion } from "./emoji-suggestions";
+import NameColorPicker from "components/name-color-picker/name-color-picker";
+import {
+  chatMessage,
+  selectChatProfile,
+  selectIsReady,
+  selectUserProfile,
+} from "features/bluesky/blueskySlice";
+import {
+  addLocalChatMessage,
+  LivestreamViewHydrated,
+  MessageViewHydrated,
+  useChat,
+  usePlayerActions,
+  usePlayerId,
+  usePlayerLivestream,
+  useReplyToMessage,
+} from "features/player/playerSlice";
+import {
+  chatWarn,
+  selectChatWarned,
+} from "features/streamplace/streamplaceSlice";
 import { usePreloadEmoji } from "hooks/usePreloadEmoji";
+import { useEffect, useRef, useState } from "react";
+import { Keyboard } from "react-native";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { Button, Form, Input, isWeb, Text, TextArea, View } from "tamagui";
+import EmojiSuggestions, { EmojiSuggestion } from "./emoji-suggestions";
+import MentionSuggestions, { MentionSuggestion } from "./mention-suggestions";
 
 const getParticipantSuggestions = (
   chat: MessageViewHydrated[],

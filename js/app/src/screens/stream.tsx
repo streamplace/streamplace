@@ -1,8 +1,8 @@
+import Livestream from "components/livestream/livestream";
 import { PlayerProps } from "components/player/props";
+import { FullscreenProvider } from "contexts/FullscreenContext";
 import { isWeb } from "tamagui";
 import { queryToProps } from "./util";
-import Livestream from "components/livestream/livestream";
-import { FullscreenProvider } from "contexts/FullscreenContext";
 
 export default function StreamScreen({ route }) {
   const { user, protocol, url } = route.params;

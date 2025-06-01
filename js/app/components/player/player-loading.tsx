@@ -1,8 +1,8 @@
 import { Play } from "@tamagui/lucide-icons";
+import KeepAwake from "components/keep-awake";
 import { Spinner } from "components/loading/loading";
 import { useTheme, View } from "tamagui";
 import { PlayerProps, PlayerStatus } from "./props";
-import KeepAwake from "components/keep-awake";
 
 export default function PlayerLoading(props: PlayerProps) {
   const theme = useTheme();

@@ -1,5 +1,5 @@
-import React from "react";
 import { init } from "emoji-mart";
+import React from "react";
 import { isWeb } from "tamagui";
 
 let loadRequested = false;

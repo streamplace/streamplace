@@ -1,4 +1,4 @@
-import { H4 as TamaguiH4, Paragraph, View, Anchor } from "tamagui";
+import { Anchor, Paragraph, H4 as TamaguiH4, View } from "tamagui";
 
 const H4 = (props: any) => <TamaguiH4 fontWeight="100" {...props} />;
 const P = (props: any) => (

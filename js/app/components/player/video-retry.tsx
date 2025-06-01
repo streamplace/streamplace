@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { PlayerProps, PlayerStatus } from "./props";
 import { usePlayerSelectedRendition } from "features/player/playerSlice";
+import React, { useEffect, useState } from "react";
 import { useAppSelector } from "store/hooks";
+import { PlayerProps, PlayerStatus } from "./props";
 
 export default function VideoRetry(
   props: PlayerProps & { children: React.ReactNode },

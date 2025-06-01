@@ -1,6 +1,6 @@
 import { BrowserWindow, globalShortcut } from "electron";
-import getEnv, { MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY } from "./env";
 import { resolve } from "path";
+import getEnv, { MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY } from "./env";
 
 export const makeWindow = async (): Promise<BrowserWindow> => {
   const { isDev } = getEnv();

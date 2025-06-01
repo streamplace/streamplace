@@ -1,4 +1,4 @@
-import { View, Text, Button } from "tamagui";
+import { Button, Text, View } from "tamagui";
 
 export default function (props: { onRetry: () => void }) {
   return (

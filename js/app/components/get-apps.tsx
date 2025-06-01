@@ -1,4 +1,4 @@
-import { XStack, Image, Anchor } from "tamagui";
+import { Anchor, Image, XStack } from "tamagui";
 
 const RATIO = 3.39741547176;
 const WIDTH = 200;

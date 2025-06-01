@@ -1,6 +1,6 @@
+import { useVideoElement } from "contexts/VideoElementContext";
 import { useCallback } from "react";
 import { isWeb } from "tamagui";
-import { useVideoElement } from "contexts/VideoElementContext";
 import { captureVideoFrame } from "utils/videoCapture";
 
 /**

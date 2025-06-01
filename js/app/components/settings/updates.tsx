@@ -1,5 +1,5 @@
+import { H2, View } from "tamagui";
 import pkg from "../../package.json";
-import { View, H2 } from "tamagui";
 
 // maybe someday some PWA update stuff will live here
 export function Updates() {

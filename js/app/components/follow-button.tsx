@@ -1,9 +1,9 @@
+import { Check, Plus } from "@tamagui/lucide-icons";
 import React, { useEffect, useState } from "react";
-import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { selectStreamplace } from "../features/streamplace/streamplaceSlice";
+import { Button, Text, View } from "tamagui";
 import { followUser, unfollowUser } from "../features/bluesky/blueskySlice";
-import { Button, View, Text } from "tamagui";
-import { Plus, Check } from "@tamagui/lucide-icons";
+import { selectStreamplace } from "../features/streamplace/streamplaceSlice";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
 
 /**
  * FollowButton component for following/unfollowing a streamer.

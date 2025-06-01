@@ -1,7 +1,6 @@
 import Picker from "@emoji-mart/react";
+import { isWeb, View } from "tamagui";
 import { emojiEmitter } from "./emoji-emitter";
-import { View } from "tamagui";
-import { isWeb } from "tamagui";
 
 export type Emoji = {
   native: string;

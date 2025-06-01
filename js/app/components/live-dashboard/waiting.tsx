@@ -1,5 +1,5 @@
 import Loading from "components/loading/loading";
-import { View, Text } from "tamagui";
+import { Text, View } from "tamagui";
 
 export default function Waiting() {
   return (

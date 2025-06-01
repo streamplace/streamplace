@@ -1,12 +1,12 @@
 import type { Action, ThunkAction } from "@reduxjs/toolkit";
 import { combineSlices, configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
-import { streamplaceSlice } from "features/streamplace/streamplaceSlice";
 import { baseSlice } from "features/base/baseSlice";
+import { sidebarSlice } from "features/base/sidebarSlice";
 import { blueskySlice } from "features/bluesky/blueskySlice";
 import { platformSlice } from "features/platform/platformSlice";
 import { playerSlice } from "features/player/playerSlice";
-import { sidebarSlice } from "features/base/sidebarSlice";
+import { streamplaceSlice } from "features/streamplace/streamplaceSlice";
 
 import { listenerMiddleware } from "./listener";
 

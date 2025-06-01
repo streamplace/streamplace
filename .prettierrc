@@ -7,5 +7,6 @@
         "proseWrap": "preserve"
       }
     }
-  ]
+  ],
+  "plugins": ["prettier-plugin-organize-imports"]
 }

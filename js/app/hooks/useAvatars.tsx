@@ -1,10 +1,10 @@
-import { useEffect, useMemo } from "react";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import { useAppSelector, useAppDispatch } from "store/hooks";
 import {
-  selectCachedProfiles,
   getProfiles,
+  selectCachedProfiles,
 } from "features/bluesky/blueskySlice";
+import { useEffect, useMemo } from "react";
+import { useAppDispatch, useAppSelector } from "store/hooks";
 
 // Hack: Easy way to cache and get avatars
 export default function useAvatars(dids: string[]) {

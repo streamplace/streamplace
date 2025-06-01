@@ -5,7 +5,6 @@ import {
   selectChatProfile,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
-import { PlaceStreamChatProfile } from "streamplace";
 import { useEffect, useState } from "react";
 import { Keyboard } from "react-native";
 import ColorPicker, {
@@ -15,6 +14,7 @@ import ColorPicker, {
   Swatches,
 } from "reanimated-color-picker";
 import { useAppDispatch, useAppSelector } from "store/hooks";
+import { PlaceStreamChatProfile } from "streamplace";
 import { Button, H3, isWeb, Sheet, useTheme, View } from "tamagui";
 
 /**

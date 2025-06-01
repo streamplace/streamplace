@@ -1,14 +1,14 @@
 import { bytesToMultibase } from "@atproto/crypto";
+import { ChildProcess } from "child_process";
+import fs from "fs/promises";
+import os from "os";
+import path from "path";
+import { privateKeyToAccount } from "viem/accounts";
 import getEnv from "../env";
 import makeNode from "../node";
 import { playbackTest } from "./playback-test";
 import { syncTest } from "./sync-test";
 import { E2ETest, TestEnv } from "./test-env";
-import { ChildProcess } from "child_process";
-import { privateKeyToAccount } from "viem/accounts";
-import fs from "fs/promises";
-import path from "path";
-import os from "os";
 
 const allTests: Record<string, E2ETest> = {
   playback: playbackTest,

@@ -1,8 +1,15 @@
-import useStreamplaceNode from "hooks/useStreamplaceNode";
+import {
+  usePlayerRenditions,
+  usePlayerSegment,
+  usePlayerSelectedRendition,
+} from "features/player/playerSlice";
+import { selectUserMuted } from "features/streamplace/streamplaceSlice";
 import usePlatform from "hooks/usePlatform";
+import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { uuidv7 } from "hooks/uuid";
 import { useEffect, useMemo, useState } from "react";
-import { Text, useMedia, View } from "tamagui";
+import { useAppSelector } from "store/hooks";
+import { Text, View } from "tamagui";
 import Fullscreen from "./fullscreen";
 import {
   IngestMediaSource,
@@ -12,13 +19,6 @@ import {
   PlayerStatusTracker,
 } from "./props";
 import PlayerProvider from "./provider";
-import { selectUserMuted } from "features/streamplace/streamplaceSlice";
-import { useAppSelector } from "store/hooks";
-import {
-  usePlayerRenditions,
-  usePlayerSegment,
-  usePlayerSelectedRendition,
-} from "features/player/playerSlice";
 
 const HIDE_CONTROLS_AFTER = 2000;
 const OFFLINE_THRESHOLD = 10000;

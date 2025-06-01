@@ -1,4 +1,5 @@
 import useStreamplaceNode from "hooks/useStreamplaceNode";
+import { useMemo } from "react";
 import {
   PlayerProps,
   PROTOCOL_HLS,
@@ -6,7 +7,6 @@ import {
   PROTOCOL_PROGRESSIVE_WEBM,
   PROTOCOL_WEBRTC,
 } from "./props";
-import { useMemo } from "react";
 
 const protocolSuffixes = {
   m3u8: PROTOCOL_HLS,

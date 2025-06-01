@@ -1,7 +1,7 @@
+import { Player } from "components";
 import { PlayerProps } from "components/player/props";
 import { isWeb } from "tamagui";
 import { queryToProps } from "./util";
-import { Player } from "components";
 
 export default function EmbedScreen({ route }) {
   const { user, protocol, url } = route.params;

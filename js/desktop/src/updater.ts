@@ -1,11 +1,11 @@
+import electron from "electron";
+import ms from "ms";
 import {
   IUpdateElectronAppOptions,
   UpdateSourceType,
 } from "update-electron-app";
-import electron from "electron";
-import ms from "ms";
-import * as build from "./version";
 import env from "./env";
+import * as build from "./version";
 
 const supportedPlatforms = ["darwin", "win32"];
 

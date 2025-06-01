@@ -1,6 +1,6 @@
 import Storage from "expo-sqlite/kv-store";
-import { AQStorage } from "./storage.shared";
 import { Lock } from "./lock";
+import { AQStorage } from "./storage.shared";
 
 // Needed because concurrent calls seem to return with a locked database
 const lock = new Lock();

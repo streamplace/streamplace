@@ -1,9 +1,8 @@
 import { Agent } from "@atproto/api";
-import { SessionManager } from "@atproto/api/dist/session-manager";
-import { PlaceNS } from "streamplace";
 import { schemas as parentSchemas } from "@atproto/api/dist/client/lexicons";
-import { schemas as appSchemas } from "streamplace";
+import { SessionManager } from "@atproto/api/dist/session-manager";
 import { Lexicons } from "@atproto/lexicon";
+import { schemas as appSchemas, PlaceNS } from "streamplace";
 export class StreamplaceAgent extends Agent {
   place = new PlaceNS(this);
   lex: Lexicons;

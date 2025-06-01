@@ -4,14 +4,14 @@ import {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { useWindowDimensions } from "tamagui";
 import { useDispatch, useSelector } from "react-redux";
+import { useWindowDimensions } from "tamagui";
 
 import {
-  toggleSidebar,
   selectIsSidebarCollapsed,
-  selectSidebarTargetWidth,
   selectIsSidebarHidden,
+  selectSidebarTargetWidth,
+  toggleSidebar,
 } from "../features/base/sidebarSlice";
 import { RootState } from "../store/store";
 

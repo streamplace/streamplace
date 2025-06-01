@@ -1,4 +1,4 @@
-import { TypedData, SignTypedDataParameters } from "viem";
+import { SignTypedDataParameters, TypedData } from "viem";
 
 export type SignTypedDataFn = <
   const typedData extends TypedData | { [key: string]: unknown },

@@ -1,8 +1,8 @@
-import { createContext, useEffect } from "react";
-import { DEFAULT_URL, initialize, selectStreamplace } from "./streamplaceSlice";
-import { useAppDispatch, useAppSelector } from "store/hooks";
 import Loading from "components/loading/loading";
-import { View, Text } from "tamagui";
+import { createContext, useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { Text, View } from "tamagui";
+import { DEFAULT_URL, initialize, selectStreamplace } from "./streamplaceSlice";
 
 export const StreamplaceContext = createContext({
   url: DEFAULT_URL,

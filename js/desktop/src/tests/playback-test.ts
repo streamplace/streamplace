@@ -1,7 +1,7 @@
-import { delay, PlayerReport } from "./util";
 import { v7 as uuidv7 } from "uuid";
 import { makeWindow } from "../window";
 import { E2ETest, TestEnv } from "./test-env";
+import { delay, PlayerReport } from "./util";
 
 const PLAYING_SUCCESS = 0.5;
 

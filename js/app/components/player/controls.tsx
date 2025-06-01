@@ -13,33 +13,9 @@ import {
   Volume2,
   VolumeX,
 } from "@tamagui/lucide-icons";
-import {
-  Dispatch,
-  Fragment,
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-} from "react";
-import { Animated, Pressable, Easing } from "react-native";
-import {
-  Button,
-  H3,
-  ListItem,
-  Popover,
-  Separator,
-  Text,
-  useMedia,
-  View,
-  XStack,
-  YGroup,
-  H1,
-  H5,
-  Paragraph,
-  Slider,
-  Adapt,
-} from "tamagui";
-import { PlayerProps, PROTOCOL_HLS, PROTOCOL_WEBRTC } from "./props";
+import { Countdown } from "components/countdown";
+import Loading from "components/loading/loading";
+import Viewers from "components/viewers";
 import {
   usePlayer,
   usePlayerActions,
@@ -48,14 +24,38 @@ import {
   usePlayerSegment,
   usePlayerSelectedRendition,
 } from "features/player/playerSlice";
-import { useAppDispatch, useAppSelector } from "store/hooks";
-import Loading from "components/loading/loading";
-import Viewers from "components/viewers";
 import { userMute } from "features/streamplace/streamplaceSlice";
-import { Countdown } from "components/countdown";
-import { PlaceStreamDefs } from "streamplace";
 import usePlatform from "hooks/usePlatform";
-import { Image } from "tamagui";
+import {
+  Dispatch,
+  Fragment,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { Animated, Easing, Pressable } from "react-native";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { PlaceStreamDefs } from "streamplace";
+import {
+  Adapt,
+  Button,
+  H1,
+  H3,
+  H5,
+  Image,
+  ListItem,
+  Paragraph,
+  Popover,
+  Separator,
+  Slider,
+  Text,
+  useMedia,
+  View,
+  XStack,
+  YGroup,
+} from "tamagui";
+import { PlayerProps, PROTOCOL_HLS, PROTOCOL_WEBRTC } from "./props";
 
 const Bar = (props) => (
   <XStack

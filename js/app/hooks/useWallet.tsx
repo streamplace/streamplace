@@ -1,21 +1,20 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { createWalletClient, http } from "viem";
-import usePlatform from "./usePlatform";
 import {
   ConnectButton,
   getDefaultConfig,
   RainbowKitProvider,
 } from "@rainbow-me/rainbowkit";
-import React from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { View as RNView, View } from "react-native";
+import { Paragraph } from "tamagui";
+import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { arbitrum, base, mainnet, optimism, polygon } from "viem/chains";
-import { Paragraph } from "tamagui";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import usePlatform from "./usePlatform";
 import {
   notActiveWallet,
-  WalletStuff,
   SignTypedDataFn,
+  WalletStuff,
 } from "./useWallet.shared";
 
 const WalletContext = createContext(notActiveWallet);

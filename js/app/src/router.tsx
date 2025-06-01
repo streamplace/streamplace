@@ -16,44 +16,28 @@ import {
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
   ArrowLeft,
+  Book,
+  Download,
+  ExternalLink,
   Home,
   LogIn,
   Menu,
-  Settings as SettingsIcon,
-  User,
-  ShieldQuestion,
-  Download,
-  Video,
-  PanelLeftOpen,
-  PanelLeftClose,
-  Book,
-  ExternalLink,
   Notebook,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings as SettingsIcon,
+  ShieldQuestion,
+  User,
+  Video,
 } from "@tamagui/lucide-icons";
+import { useToastController } from "@tamagui/toast";
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
 import Login from "components/login/login";
-import { selectUserProfile } from "features/bluesky/blueskySlice";
-import usePlatform from "hooks/usePlatform";
-import { ReactElement, useEffect, useState } from "react";
-import {
-  ImageBackground,
-  ImageSourcePropType,
-  Linking,
-  Platform,
-  Pressable,
-  StatusBar,
-} from "react-native";
-import { useAppDispatch, useAppSelector } from "store/hooks";
-import { useTheme, Text, View, H3 } from "tamagui";
-import AppReturnScreen from "./screens/app-return";
-import MultiScreen from "./screens/multi";
-import StreamScreen from "./screens/stream";
-import SupportScreen from "./screens/support";
-import AboutScreen from "./screens/about";
-import DownloadScreen from "./screens/download";
+import Popup from "components/popup";
+import Sidebar, { ExternalDrawerItem } from "components/sidebar/sidebar";
 import { hydrate, selectHydrated } from "features/base/baseSlice";
-import AVSyncScreen from "./screens/av-sync";
+import { selectUserProfile } from "features/bluesky/blueskySlice";
 import {
   clearNotification,
   initPushNotifications,
@@ -66,19 +50,35 @@ import {
   pollSegments,
 } from "features/streamplace/streamplaceSlice";
 import { useLiveUser } from "hooks/useLiveUser";
-import { useToastController } from "@tamagui/toast";
-import LiveDashboard from "./screens/live-dashboard";
-import Popup from "components/popup";
-import PopoutChat from "./screens/chat-popout";
-import EmbedScreen from "./screens/embed";
+import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
-import Sidebar, { ExternalDrawerItem } from "components/sidebar/sidebar";
+import { ReactElement, useEffect, useState } from "react";
+import {
+  ImageBackground,
+  ImageSourcePropType,
+  Linking,
+  Platform,
+  Pressable,
+  StatusBar,
+} from "react-native";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { H3, Text, useTheme, View } from "tamagui";
+import AboutScreen from "./screens/about";
+import AppReturnScreen from "./screens/app-return";
+import AVSyncScreen from "./screens/av-sync";
+import PopoutChat from "./screens/chat-popout";
+import DownloadScreen from "./screens/download";
+import EmbedScreen from "./screens/embed";
+import LiveDashboard from "./screens/live-dashboard";
+import MultiScreen from "./screens/multi";
+import StreamScreen from "./screens/stream";
+import SupportScreen from "./screens/support";
 
 // probabl should move this
-import { store } from "store/store";
-import { loadStateFromStorage } from "features/base/sidebarSlice";
-import HomeScreen from "./screens/home";
 import SignUp from "components/login/signup";
+import { loadStateFromStorage } from "features/base/sidebarSlice";
+import { store } from "store/store";
+import HomeScreen from "./screens/home";
 
 store.dispatch(loadStateFromStorage());
 

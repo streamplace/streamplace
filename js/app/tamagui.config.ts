@@ -1,5 +1,5 @@
 import { config as configBase } from "@tamagui/config/v3";
-import { createTamagui, createFont } from "tamagui";
+import { createFont, createTamagui } from "tamagui";
 
 const sizes = {
   "1": 11,

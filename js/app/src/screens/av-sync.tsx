@@ -1,9 +1,9 @@
+import { Countdown } from "components";
+import { QUIET_PROFILE } from "components/player/av-sync";
+import QRCode from "qrcode";
+import { str2ab } from "quietjs-bundle";
 import { useEffect, useRef } from "react";
 import { View } from "tamagui";
-import QRCode from "qrcode";
-import { Countdown } from "components";
-import { str2ab } from "quietjs-bundle";
-import { QUIET_PROFILE } from "components/player/av-sync";
 
 // screen that displays timestamp as a QR code and encodes timestamp in audio
 // so we can measure sync between them

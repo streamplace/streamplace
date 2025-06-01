@@ -1,15 +1,15 @@
 import {
+  DEFAULT_URL,
   selectTelemetry,
   setURL,
   telemetryOpt,
-  DEFAULT_URL,
 } from "features/streamplace/streamplaceSlice";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
-import { useState, useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "store/hooks";
-import { Button, Form, H3, Input, View, XStack, Text, isWeb } from "tamagui";
-import { Updates } from "./updates";
+import { useEffect, useState } from "react";
 import { Switch } from "react-native";
+import { useAppDispatch, useAppSelector } from "store/hooks";
+import { Button, Form, H3, Input, Text, View, XStack, isWeb } from "tamagui";
+import { Updates } from "./updates";
 
 export function Settings() {
   const dispatch = useAppDispatch();

@@ -1,12 +1,17 @@
+import { MessageCircleMore, MessageCircleOff } from "@tamagui/lucide-icons";
+import { useToastController } from "@tamagui/toast";
 import Chat from "components/chat/chat";
 import ChatBox from "components/chat/chat-box";
+import FollowButton from "components/follow-button";
 import Loading from "components/loading/loading";
 import { Player } from "components/player/player";
 import { PlayerProps } from "components/player/props";
 import PlayerProvider from "components/player/provider";
 import Popup from "components/popup";
-import Viewers from "components/viewers";
 import Timer from "components/timer";
+import Viewers from "components/viewers";
+import { useFullscreen } from "contexts/FullscreenContext";
+import { getProfile, selectProfiles } from "features/bluesky/blueskySlice";
 import { usePlayer } from "features/player/playerSlice";
 import {
   selectTelemetry,
@@ -17,10 +22,11 @@ import usePlatform from "hooks/usePlatform";
 import { useCallback, useEffect, useState } from "react";
 import {
   LayoutChangeEvent,
+  Linking,
   View as RNView,
   SafeAreaView,
-  Linking,
 } from "react-native";
+import storage from "storage";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 import {
   Button,
@@ -31,12 +37,6 @@ import {
   useWindowDimensions,
   View,
 } from "tamagui";
-import { MessageCircleOff, MessageCircleMore } from "@tamagui/lucide-icons";
-import FollowButton from "components/follow-button";
-import { useToastController } from "@tamagui/toast";
-import { selectProfiles, getProfile } from "features/bluesky/blueskySlice";
-import storage from "storage";
-import { useFullscreen } from "contexts/FullscreenContext";
 
 export default function Livestream(props: Partial<PlayerProps>) {
   return (

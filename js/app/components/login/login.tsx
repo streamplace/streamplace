@@ -1,4 +1,7 @@
-import { AtpBaseClient } from "streamplace";
+import { useNavigation } from "@react-navigation/native";
+import { CircleHelp } from "@tamagui/lucide-icons";
+import { useToastController } from "@tamagui/toast";
+import Loading from "components/loading/loading";
 import NameColorPicker from "components/name-color-picker/name-color-picker";
 import {
   login,
@@ -21,10 +24,6 @@ import {
   XStack,
   YStack,
 } from "tamagui";
-import Loading from "components/loading/loading";
-import { useToastController } from "@tamagui/toast";
-import { useNavigation } from "@react-navigation/native";
-import { CircleHelp } from "@tamagui/lucide-icons";
 
 export default function Login() {
   const dispatch = useAppDispatch();

@@ -1,9 +1,8 @@
+import { BlueskyState } from "features/bluesky/blueskyTypes";
+import { PlaceStreamLivestream, PlaceStreamSegment } from "streamplace";
 import { isWeb } from "tamagui";
 import { createAppSlice } from "../../hooks/createSlice";
 import Storage from "../../storage";
-import { BlueskyState } from "features/bluesky/blueskyTypes";
-import { PlaceStreamSegment, PlaceStreamLivestream } from "streamplace";
-import { StreamplaceAgent } from "features/bluesky/agent";
 
 let DEFAULT_URL = process.env.EXPO_PUBLIC_STREAMPLACE_URL as string;
 if (isWeb && process.env.EXPO_PUBLIC_WEB_TRY_LOCAL === "true") {

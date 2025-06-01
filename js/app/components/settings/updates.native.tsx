@@ -1,9 +1,9 @@
+import { ToastViewport, useToastController } from "@tamagui/toast";
 import * as ExpoUpdates from "expo-updates";
 import { useEffect, useState } from "react";
-import { Button, H2, H5, Text, View } from "tamagui";
-import { ToastViewport, useToastController } from "@tamagui/toast";
-import pkg from "../../package.json";
 import { Platform } from "react-native";
+import { Button, H2, H5, Text, View } from "tamagui";
+import pkg from "../../package.json";
 
 export function Updates() {
   const version = pkg.version;

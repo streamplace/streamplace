@@ -1,5 +1,5 @@
 import { X } from "@tamagui/lucide-icons";
-import { View, Button, ViewProps } from "tamagui";
+import { Button, View, ViewProps } from "tamagui";
 
 export default function Popup({
   onClose,

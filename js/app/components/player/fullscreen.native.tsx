@@ -1,21 +1,16 @@
-import { VideoView } from "expo-video";
-import { useRef, useEffect, useState } from "react";
-import { StatusBar, Dimensions, StyleSheet, BackHandler } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { VideoView } from "expo-video";
+import { usePlayerProtocol } from "features/player/playerSlice";
+import { useEffect, useRef, useState } from "react";
+import { BackHandler, Dimensions, StatusBar, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAppSelector } from "store/hooks";
 import { View } from "tamagui";
 import Controls from "./controls";
 import PlayerLoading from "./player-loading";
 import { PlayerProps, PROTOCOL_WEBRTC } from "./props";
-import Video from "./video.native";
 import VideoRetry from "./video-retry";
-import { usePlayerProtocol } from "features/player/playerSlice";
-import { useAppSelector } from "store/hooks";
-import { useDispatch } from "react-redux";
-import {
-  setSidebarHidden,
-  setSidebarUnhidden,
-} from "features/base/sidebarSlice";
+import Video from "./video.native";
 
 // Standard 16:9 video aspect ratio
 const VIDEO_ASPECT_RATIO = 16 / 9;

@@ -1,5 +1,5 @@
-import { ScrollView, Text, View } from "tamagui";
 import { TouchableOpacity } from "react-native";
+import { ScrollView, Text, View } from "tamagui";
 
 export interface MentionSuggestion {
   did: string;

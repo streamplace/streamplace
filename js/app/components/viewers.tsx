@@ -1,5 +1,5 @@
 import { User } from "@tamagui/lucide-icons";
-import { View, Text } from "tamagui";
+import { Text, View } from "tamagui";
 
 export default function Viewers({ viewers }: { viewers: number }) {
   return (

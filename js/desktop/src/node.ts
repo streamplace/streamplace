@@ -1,9 +1,9 @@
+import { spawn } from "child_process";
+import { app } from "electron";
+import { access, constants } from "fs/promises";
 import os from "os";
 import { resolve } from "path";
-import { access, constants } from "fs/promises";
-import { spawn } from "child_process";
 import getEnv from "./env";
-import { app } from "electron";
 
 const findExe = async (): Promise<string> => {
   const { isDev } = getEnv();

@@ -1,15 +1,15 @@
-import { YStack, styled, Text, View, Image } from "tamagui";
-import { SharedValue, useAnimatedStyle } from "react-native-reanimated";
-import SidebarItem from "./sidebar-item";
+import { DrawerNavigationOptions } from "@react-navigation/drawer";
+import { DrawerDescriptorMap } from "@react-navigation/drawer/lib/typescript/src/types";
 import {
   CommonActions,
   DrawerNavigationState,
   ParamListBase,
 } from "@react-navigation/native";
-import { DrawerNavigationOptions } from "@react-navigation/drawer";
-import { DrawerDescriptorMap } from "@react-navigation/drawer/lib/typescript/src/types";
-import { Platform } from "react-native";
 import { FileQuestion } from "@tamagui/lucide-icons";
+import { Platform } from "react-native";
+import { SharedValue, useAnimatedStyle } from "react-native-reanimated";
+import { Image, styled, Text, View, YStack } from "tamagui";
+import SidebarItem from "./sidebar-item";
 
 const AnimatedYStack = styled(YStack, {
   name: "AnimatedYStack",

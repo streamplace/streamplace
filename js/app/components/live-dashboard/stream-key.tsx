@@ -1,15 +1,15 @@
 import { useToastController } from "@tamagui/toast";
+import { Redirect } from "components/aqlink";
 import Loading from "components/loading/loading";
 import {
   clearStreamKeyRecord,
   createStreamKeyRecord,
-  selectUserProfile,
   selectIsReady,
+  selectUserProfile,
 } from "features/bluesky/blueskySlice";
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { View, Paragraph, Button, Text } from "tamagui";
-import { Redirect } from "components/aqlink";
+import { Button, Paragraph, Text, View } from "tamagui";
 const Row = ({ children }: { children: React.ReactNode }) => {
   return (
     <View w="100%" f={1} fd="row" padding="$4">

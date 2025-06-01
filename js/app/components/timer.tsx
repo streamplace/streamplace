@@ -1,5 +1,5 @@
-import { View, Text } from "tamagui";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Text, View } from "tamagui";
 
 export default function Timer({ start }: { start: string | Date }) {
   const [elapsedTime, setElapsedTime] = useState(0);

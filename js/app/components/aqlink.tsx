@@ -1,9 +1,13 @@
-import { Link, useNavigation } from "@react-navigation/native";
-import { NavigationProp, ParamListBase } from "@react-navigation/native";
+import {
+  Link,
+  NavigationProp,
+  ParamListBase,
+  useNavigation,
+} from "@react-navigation/native";
 import usePlatform from "hooks/usePlatform";
+import { useEffect } from "react";
 import { Pressable, StyleProp, ViewStyle } from "react-native";
 import Loading from "./loading/loading";
-import { useEffect } from "react";
 
 export type LinkParams = { screen: string; params?: Record<string, string> };
 

@@ -1,13 +1,12 @@
 import { app, dialog, ipcMain } from "electron";
 import { parseArgs } from "node:util";
 import "source-map-support/register";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import getEnv from "./env";
 import makeNode from "./node";
+import runTests, { allTestNames } from "./tests/test-runner";
 import initUpdater from "./updater";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { makeWindow } from "./window";
-import runTests from "./tests/test-runner";
-import { allTestNames } from "./tests/test-runner";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require("electron-squirrel-startup")) {

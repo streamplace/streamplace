@@ -1,3 +1,7 @@
+import { useNavigation } from "@react-navigation/native";
+import { CircleHelp } from "@tamagui/lucide-icons";
+import { useToastController } from "@tamagui/toast";
+import Loading from "components/loading/loading";
 import {
   login,
   selectIsReady,
@@ -17,10 +21,6 @@ import {
   XStack,
   YStack,
 } from "tamagui";
-import Loading from "components/loading/loading";
-import { useToastController } from "@tamagui/toast";
-import { useNavigation } from "@react-navigation/native";
-import { CircleHelp } from "@tamagui/lucide-icons";
 
 export default function SignUp() {
   const dispatch = useAppDispatch();

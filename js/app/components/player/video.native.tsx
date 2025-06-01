@@ -1,13 +1,12 @@
 import { useVideoPlayer, VideoPlayerEvents, VideoView } from "expo-video";
+import { usePlayerProtocol } from "features/player/playerSlice";
 import React, { useEffect } from "react";
-import { RTCView } from "react-native-webrtc";
+import { MediaStream, RTCView } from "react-native-webrtc";
+import { useAppSelector } from "store/hooks";
 import { View } from "tamagui";
 import { PlayerProps, PlayerStatus, PROTOCOL_WEBRTC } from "./props";
 import { srcToUrl } from "./shared";
 import useWebRTC from "./use-webrtc";
-import { MediaStream } from "react-native-webrtc";
-import { usePlayerProtocol } from "features/player/playerSlice";
-import { useAppSelector } from "store/hooks";
 
 // export function Player() {
 //   return <View f={1}></View>;

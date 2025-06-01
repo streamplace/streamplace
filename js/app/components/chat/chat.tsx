@@ -1,4 +1,4 @@
-import { Settings, X, Reply } from "@tamagui/lucide-icons";
+import { Reply, Settings, X } from "@tamagui/lucide-icons";
 import {
   createBlockRecord,
   selectUserProfile,
@@ -6,23 +6,23 @@ import {
 import {
   MessageViewHydrated,
   useChat,
-  usePlayerLivestream,
   usePlayerActions,
+  usePlayerLivestream,
 } from "features/player/playerSlice";
-import { useEffect, useRef, useState } from "react";
-import { TouchableOpacity, Linking } from "react-native";
-import { useAppDispatch, useAppSelector } from "store/hooks";
 import usePlatform from "hooks/usePlatform";
+import { useEffect, useRef, useState } from "react";
+import { Linking, TouchableOpacity } from "react-native";
+import { useAppDispatch, useAppSelector } from "store/hooks";
 
-import { Button, ScrollView, Sheet, Text, useMedia, View } from "tamagui";
 import { RichText } from "@atproto/api";
 import {
   isMention,
   Link,
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
-import { RichtextSegment, segmentize } from "../../utils/facet";
 import { $Typed } from "@atproto/api/src/client/util";
+import { Button, ScrollView, Sheet, Text, useMedia, View } from "tamagui";
+import { RichtextSegment, segmentize } from "../../utils/facet";
 
 export default function Chat({
   isChatVisible,

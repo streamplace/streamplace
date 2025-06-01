@@ -6,7 +6,6 @@ import {
   getProfile,
   loadOAuthClient,
   oauthCallback,
-  oauthError,
   selectIsReady,
   selectOAuthSession,
   selectUserProfile,

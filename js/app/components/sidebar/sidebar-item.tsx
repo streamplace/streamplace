@@ -1,8 +1,8 @@
 import { FileQuestion } from "@tamagui/lucide-icons";
-import { Text, View, AnimatePresence } from "tamagui";
-import { Pressable } from "react-native-gesture-handler";
 import { ReactNode, useState } from "react";
 import { PressableStateCallbackType, StyleProp, ViewStyle } from "react-native";
+import { Pressable } from "react-native-gesture-handler";
+import { AnimatePresence, Text, View } from "tamagui";
 
 export default function SidebarItem({
   icon,

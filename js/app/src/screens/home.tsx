@@ -1,14 +1,14 @@
+import { AlertCircle } from "@tamagui/lucide-icons";
 import { UseMediaState } from "@tamagui/web";
 import AQLink from "components/aqlink";
-import ErrorBox from "components/error/error";
-import Loading from "components/loading/loading";
-import StreamCardHorizontal, { StreamCardSize } from "components/home/cards";
 import Container from "components/container";
+import ErrorBox from "components/error/error";
+import StreamCardHorizontal, { StreamCardSize } from "components/home/cards";
 import LiveDot from "components/home/live-dot";
+import Loading from "components/loading/loading";
 import Title from "components/title";
 import {
   pollSegments,
-  Repo,
   selectRecentSegments,
 } from "features/streamplace/streamplaceSlice";
 import useAvatars from "hooks/useAvatars";
@@ -16,18 +16,17 @@ import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useEffect, useState } from "react";
 import { RefreshControl } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
+import { PlaceStreamLivestream } from "streamplace";
 import {
-  ScrollView,
-  ScrollViewProps,
-  useMedia,
-  View,
+  H3,
   Image,
   Paragraph,
-  H3,
+  ScrollView,
+  ScrollViewProps,
   Text,
+  useMedia,
+  View,
 } from "tamagui";
-import { LivestreamRecord, PlaceStreamLivestream } from "streamplace";
-import { AlertCircle, AlertTriangle } from "@tamagui/lucide-icons";
 
 // as we're not using a specific grid library these are necessary
 // to constrain the cards

@@ -28,7 +28,7 @@ builder:
   timeout: 2 hours
   script:
     - mkdir -p /kaniko/.docker
-    - echo "$DOCKER_AUTH_CONFIG" | base64 -d > /kaniko/.docker/config.json
+    - cp "$DOCKER_AUTH_CONFIG" /kaniko/.docker/config.json
     - /kaniko/executor
       --build-arg TARGETARCH=amd64
       --build-arg DOCKERFILE_HASH=$DOCKERFILE_HASH
@@ -156,7 +156,7 @@ build-docker-mistserver:
   timeout: 2 hours
   script:
     - mkdir -p /kaniko/.docker
-    - echo "$DOCKER_AUTH_CONFIG" | base64 -d > /kaniko/.docker/config.json
+    - cp "$DOCKER_AUTH_CONFIG" /kaniko/.docker/config.json
     - /kaniko/executor
       --build-arg TARGETARCH=amd64
       --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_AMD64
@@ -177,7 +177,7 @@ build-docker-amd64:
   timeout: 2 hours
   script:
     - mkdir -p /kaniko/.docker
-    - echo "$DOCKER_AUTH_CONFIG" | base64 -d > /kaniko/.docker/config.json
+    - cp "$DOCKER_AUTH_CONFIG" /kaniko/.docker/config.json
     - /kaniko/executor
       --build-arg TARGETARCH=amd64
       --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_AMD64
@@ -203,7 +203,7 @@ build-docker-arm64:
   timeout: 2 hours
   script:
     - mkdir -p /kaniko/.docker
-    - echo "$DOCKER_AUTH_CONFIG" | base64 -d > /kaniko/.docker/config.json
+    - cp "$DOCKER_AUTH_CONFIG" /kaniko/.docker/config.json
     - /kaniko/executor
       --build-arg TARGETARCH=arm64
       --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_ARM64

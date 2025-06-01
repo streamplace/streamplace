@@ -337,6 +337,8 @@ release:
     - make ci-release
 
 .report-status:
+  tags:
+    - tiny-job
   interruptible: true
   image:
     name: curlimages/curl

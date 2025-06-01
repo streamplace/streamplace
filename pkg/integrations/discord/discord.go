@@ -5,73 +5,57 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 
+	"github.com/bluesky-social/indigo/api/bsky"
 	"golang.org/x/net/context/ctxhttp"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
-type Webhook struct {
-	DID  string `json:"did"`
-	URL  string `json:"url"`
-	Type string `json:"type"`
-}
-
-type Payload struct {
-	Username  string  `json:"username,omitempty"`
-	AvatarURL string  `json:"avatar_url,omitempty"`
-	Content   string  `json:"content,omitempty"`
-	Embeds    []Embed `json:"embeds,omitempty"`
-}
-
-type Embed struct {
-	Author      Author  `json:"author,omitempty"`
-	Title       string  `json:"title,omitempty"`
-	URL         string  `json:"url,omitempty"`
-	Description string  `json:"description,omitempty"`
-	Color       int     `json:"color,omitempty"`
-	Fields      []Field `json:"fields,omitempty"`
-	Thumbnail   Image   `json:"thumbnail,omitempty"`
-	Image       Image   `json:"image,omitempty"`
-	Footer      Footer  `json:"footer,omitempty"`
-}
-
-type Author struct {
-	Name    string `json:"name,omitempty"`
-	URL     string `json:"url,omitempty"`
-	IconURL string `json:"icon_url,omitempty"`
-}
-
-type Field struct {
-	Name   string `json:"name,omitempty"`
-	Value  string `json:"value,omitempty"`
-	Inline bool   `json:"inline,omitempty"`
-}
-
-type Image struct {
-	URL string `json:"url,omitempty"`
-}
-
-type Footer struct {
-	Text    string `json:"text,omitempty"`
-	IconURL string `json:"icon_url,omitempty"`
-}
-
-func (w *Webhook) SendLivestream(ctx context.Context, lsv *streamplace.Livestream_LivestreamView) error {
+func SendLivestream(ctx context.Context, w *discordtypes.Webhook, r *model.Repo, lsv *streamplace.Livestream_LivestreamView, postView *bsky.FeedDefs_PostView) error {
+	ctx = log.WithLogValues(ctx, "func", "SendLivestream")
 	ls, ok := lsv.Record.Val.(*streamplace.Livestream)
 	if !ok {
 		return fmt.Errorf("failed to cast livestream view to livestream")
 	}
-	payload := Payload{
-		Username: "Streamplace",
-		Content:  fmt.Sprintf("New livestream from %s: %s", w.DID, ls.Title),
+	payload := discordtypes.Payload{
+		Username: fmt.Sprintf("@%s", r.Handle),
+		Content:  fmt.Sprintf("🔴 LIVE %s", ls.Title),
+	}
+
+	if ls.Thumb != nil {
+		u, err := url.Parse(fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob", r.PDS))
+		if err != nil {
+			return fmt.Errorf("failed to parse base URL: %w", err)
+		}
+		q := u.Query()
+		q.Set("did", r.DID)
+		q.Set("cid", ls.Thumb.Ref.String())
+		u.RawQuery = q.Encode()
+		imageURL := u.String()
+		payload.Embeds = []discordtypes.Embed{
+			{
+				Title: ls.Title,
+				URL:   fmt.Sprintf("%s/%s", *ls.Url, r.Handle),
+				Image: &discordtypes.Image{
+					URL: imageURL,
+				},
+			},
+		}
 	}
 
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
+
+	log.Warn(ctx, "sending livestream to discord", "payload", string(jsonPayload))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", w.URL, bytes.NewReader(jsonPayload))
 	if err != nil {
@@ -84,6 +68,14 @@ func (w *Webhook) SendLivestream(ctx context.Context, lsv *streamplace.Livestrea
 		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read response body: %w", err)
+		}
+		return fmt.Errorf("failed to send request (http %d): %s", resp.StatusCode, string(body))
+	}
 
 	return nil
 }

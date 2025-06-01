@@ -21,8 +21,9 @@ type Livestream struct {
 	LexiconTypeID string `json:"$type,const=place.stream.livestream" cborgen:"$type,const=place.stream.livestream"`
 	// createdAt: Client-declared timestamp when this livestream started.
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
-	// post: The post that announced this livestream. Used for chat replies.
-	Post *comatprototypes.RepoStrongRef `json:"post,omitempty" cborgen:"post,omitempty"`
+	// post: The post that announced this livestream.
+	Post  *comatprototypes.RepoStrongRef `json:"post,omitempty" cborgen:"post,omitempty"`
+	Thumb *util.LexBlob                  `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
 	// title: The title of the livestream, as it will be announced to followers.
 	Title string `json:"title" cborgen:"title"`
 	// url: The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.

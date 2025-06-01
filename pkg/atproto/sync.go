@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/integrations/discord"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
@@ -302,10 +303,20 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				log.Log(ctx, "no notifier configured, skipping notifications", "user", userDID, "count", len(notifications), "content", nb)
 			}
 
+			var postView *bsky.FeedDefs_PostView
+			if lsHydrated.Post != nil {
+				postView, err = lsHydrated.Post.ToBskyPostView()
+				if err != nil {
+					log.Error(ctx, "failed to convert livestream post to bsky post view", "err", err)
+				}
+			} else {
+				log.Warn(ctx, "no post found for livestream", "livestream", lsHydrated)
+			}
+
 			for _, webhook := range atsync.CLI.DiscordWebhooks {
 				if webhook.DID == userDID && webhook.Type == "livestream" {
 					go func() {
-						err := webhook.SendLivestream(ctx, lsv)
+						err := discord.SendLivestream(ctx, webhook, r, lsv, postView)
 						if err != nil {
 							log.Error(ctx, "failed to send livestream to discord", "err", err)
 						} else {

@@ -52,6 +52,7 @@ func (m *DBModel) GetLatestLivestreamForRepo(repoDID string) (*Livestream, error
 	var livestream Livestream
 	err := m.DB.
 		Preload("Repo").
+		Preload("Post").
 		Where("repo_did = ?", repoDID).
 		Order("created_at DESC").
 		First(&livestream).Error
@@ -65,6 +66,7 @@ func (m *DBModel) GetLivestreamByPostCID(postCID string) (*Livestream, error) {
 	var livestream Livestream
 	err := m.DB.
 		Preload("Repo").
+		Preload("Post").
 		Where("post_cid = ?", postCID).
 		First(&livestream).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

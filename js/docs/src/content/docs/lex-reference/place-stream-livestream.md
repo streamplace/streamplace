@@ -19,12 +19,13 @@ Record announcing a livestream is happening
 
 **Record Properties:**
 
-| Name        | Type                                                                                                                                   | Req'd | Description                                                                                                                      | Constraints                             |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `title`     | `string`                                                                                                                               | ✅    | The title of the livestream, as it will be announced to followers.                                                               | Max Length: 1400<br/>Max Graphemes: 140 |
-| `url`       | `string`                                                                                                                               | ❌    | The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream. | Format: `uri`                           |
-| `createdAt` | `string`                                                                                                                               | ✅    | Client-declared timestamp when this livestream started.                                                                          | Format: `datetime`                      |
-| `post`      | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | The post that announced this livestream. Used for chat replies.                                                                  |                                         |
+| Name        | Type                                                                                                                                   | Req'd | Description                                                                                                                      | Constraints                                   |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `title`     | `string`                                                                                                                               | ✅    | The title of the livestream, as it will be announced to followers.                                                               | Max Length: 1400<br/>Max Graphemes: 140       |
+| `url`       | `string`                                                                                                                               | ❌    | The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream. | Format: `uri`                                 |
+| `createdAt` | `string`                                                                                                                               | ✅    | Client-declared timestamp when this livestream started.                                                                          | Format: `datetime`                            |
+| `post`      | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | The post that announced this livestream.                                                                                         |                                               |
+| `thumb`     | `blob`                                                                                                                                 | ❌    |                                                                                                                                  | Accept: `image/*`<br/>Max Size: 1000000 bytes |
 
 ---
 
@@ -109,7 +110,12 @@ Record announcing a livestream is happening
           "post": {
             "type": "ref",
             "ref": "com.atproto.repo.strongRef",
-            "description": "The post that announced this livestream. Used for chat replies."
+            "description": "The post that announced this livestream."
+          },
+          "thumb": {
+            "type": "blob",
+            "accept": ["image/*"],
+            "maxSize": 1000000
           }
         }
       }

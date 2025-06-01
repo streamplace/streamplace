@@ -29,7 +29,12 @@
           "post": {
             "type": "ref",
             "ref": "com.atproto.repo.strongRef",
-            "description": "The post that announced this livestream. Used for chat replies."
+            "description": "The post that announced this livestream."
+          },
+          "thumb": {
+            "type": "blob",
+            "accept": ["image/*"],
+            "maxSize": 1000000
           }
         }
       }

@@ -23,7 +23,7 @@ import (
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/aqpub"
-	"stream.place/streamplace/pkg/integrations/discord"
+	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 )
 
 const SPDataDir = "$SP_DATA_DIR"
@@ -102,7 +102,7 @@ type CLI struct {
 	JWK                    jwk.Key
 	AccessJWK              jwk.Key
 	dataDirFlags           []*string
-	DiscordWebhooks        []*discord.Webhook
+	DiscordWebhooks        []*discordtypes.Webhook
 }
 
 var StreamplaceSchemePrefix = "streamplace://"

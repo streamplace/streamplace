@@ -23,7 +23,7 @@ jobs:
           - name: linux-arm64
             cmd: "make app && make linux-arm64"
           - name: windows-amd64
-            cmd: "make app && make windows-amd64 && make desktop-windows"
+            cmd: "make app && make windows-amd64 && make desktop-windows-amd64"
           - name: android
             cmd: "make app && make android-release"
     steps:

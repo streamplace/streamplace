@@ -47,3 +47,11 @@ func (m *DBModel) GetChatProfile(ctx context.Context, repoDID string) (*ChatProf
 	}
 	return &profile, nil
 }
+
+func ColorToHex(color *streamplace.ChatProfile_Color) string {
+	if color == nil {
+		return "#f8baca"
+	}
+	hex := fmt.Sprintf("#%02x%02x%02x", color.Red, color.Green, color.Blue)
+	return hex
+}

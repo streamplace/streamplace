@@ -313,10 +313,22 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				log.Warn(ctx, "no post found for livestream", "livestream", lsHydrated)
 			}
 
+			var spcp *streamplace.ChatProfile
+			cp, err := atsync.Model.GetChatProfile(ctx, userDID)
+			if err != nil {
+				log.Error(ctx, "failed to get chat profile", "err", err)
+			}
+			if cp != nil {
+				spcp, err = cp.ToStreamplaceChatProfile()
+				if err != nil {
+					log.Error(ctx, "failed to convert chat profile to streamplace chat profile", "err", err)
+				}
+			}
+
 			for _, webhook := range atsync.CLI.DiscordWebhooks {
 				if webhook.DID == userDID && webhook.Type == "livestream" {
 					go func() {
-						err := discord.SendLivestream(ctx, webhook, r, lsv, postView)
+						err := discord.SendLivestream(ctx, webhook, r, lsv, postView, spcp)
 						if err != nil {
 							log.Error(ctx, "failed to send livestream to discord", "err", err)
 						} else {

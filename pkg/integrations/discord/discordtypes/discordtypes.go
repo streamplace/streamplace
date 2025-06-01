@@ -1,9 +1,15 @@
 package discordtypes
 
 type Webhook struct {
-	DID  string `json:"did"`
-	URL  string `json:"url"`
-	Type string `json:"type"`
+	DID     string            `json:"did"`
+	URL     string            `json:"url"`
+	Type    string            `json:"type"`
+	Rewrite []*WebhookRewrite `json:"rewrite,omitempty"`
+}
+
+type WebhookRewrite struct {
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 type Payload struct {

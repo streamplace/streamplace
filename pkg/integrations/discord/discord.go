@@ -8,8 +8,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/xrpc"
 	"golang.org/x/net/context/ctxhttp"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
@@ -18,15 +21,44 @@ import (
 	"stream.place/streamplace/pkg/streamplace"
 )
 
-func SendLivestream(ctx context.Context, w *discordtypes.Webhook, r *model.Repo, lsv *streamplace.Livestream_LivestreamView, postView *bsky.FeedDefs_PostView) error {
+func SendLivestream(ctx context.Context, w *discordtypes.Webhook, r *model.Repo, lsv *streamplace.Livestream_LivestreamView, postView *bsky.FeedDefs_PostView, spcp *streamplace.ChatProfile) error {
 	ctx = log.WithLogValues(ctx, "func", "SendLivestream")
 	ls, ok := lsv.Record.Val.(*streamplace.Livestream)
 	if !ok {
 		return fmt.Errorf("failed to cast livestream view to livestream")
 	}
+	content := fmt.Sprintf("🔴 LIVE %s", ls.Title)
+
+	for _, rewrite := range w.Rewrite {
+		content = strings.ReplaceAll(content, rewrite.From, rewrite.To)
+	}
+
 	payload := discordtypes.Payload{
 		Username: fmt.Sprintf("@%s", r.Handle),
-		Content:  fmt.Sprintf("🔴 LIVE %s", ls.Title),
+		Content:  content,
+	}
+
+	xrpc := &xrpc.Client{
+		Host:   "https://public.api.bsky.app",
+		Client: &aqhttp.Client,
+	}
+
+	profile, err := bsky.ActorGetProfile(ctx, xrpc, r.DID)
+	if err != nil {
+		log.Warn(ctx, "failed to get profile", "err", err)
+	}
+	if profile != nil && profile.Avatar != nil {
+		payload.AvatarURL = *profile.Avatar
+	}
+
+	color := "f8baca"
+	if spcp != nil && spcp.Color != nil {
+		color = strings.TrimPrefix(model.ColorToHex(spcp.Color), "#")
+	}
+
+	colorInt, err := strconv.ParseInt(color, 16, 64)
+	if err != nil {
+		log.Warn(ctx, "failed to parse color", "err", err)
 	}
 
 	if ls.Thumb != nil {
@@ -42,6 +74,7 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, r *model.Repo,
 		payload.Embeds = []discordtypes.Embed{
 			{
 				Title: ls.Title,
+				Color: int(colorInt),
 				URL:   fmt.Sprintf("%s/%s", *ls.Url, r.Handle),
 				Image: &discordtypes.Image{
 					URL: imageURL,

@@ -1,7 +1,8 @@
 ---
 title: Discord Webhooks
 description: Configure Discord webhooks for livestream announcements and chat
-order: 30
+sidebar:
+  order: 30
 ---
 
 Streamplace has basic Discord webhook integration if you're running your own

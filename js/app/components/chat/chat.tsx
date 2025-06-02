@@ -1,3 +1,4 @@
+import { useChat } from "@streamplace/components";
 import { Reply, Settings, X } from "@tamagui/lucide-icons";
 import {
   createBlockRecord,
@@ -5,7 +6,6 @@ import {
 } from "features/bluesky/blueskySlice";
 import {
   MessageViewHydrated,
-  useChat,
   usePlayerActions,
   usePlayerLivestream,
 } from "features/player/playerSlice";

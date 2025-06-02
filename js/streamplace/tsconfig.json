@@ -1,5 +1,5 @@
 {
-  "include": [],
+  "include": ["src/**/*"],
   "references": [{ "path": "../app/tsconfig.base.json" }],
   "compilerOptions": {
     "moduleResolution": "bundler",

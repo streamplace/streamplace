@@ -1,7 +1,7 @@
 ---
 title: Discord Webhooks
 description: Configure Discord webhooks for livestream announcements and chat
-order: 10
+order: 30
 ---
 
 Streamplace has basic Discord webhook integration if you're running your own
@@ -13,13 +13,13 @@ streamplace --discord-webhooks '[
   {
     "url": "https://discord.com/api/webhooks/server-id/webhook-secret",
     "type": "chat",
-    "did": "did:web:didweb.scumb.ag",
+    "did": "did:plc:rbvrr34edl5ddpuwcubjiost",
     "prefix": "streamplace: "
   },
   {
     "url": "https://discord.com/api/webhooks/server-id/webhook-secret",
     "type": "livestream",
-    "did": "did:web:didweb.scumb.ag",
+    "did": "did:web:stream.place",
     "rewrite": [{ "from": "#gaming", "to": "<@&1378853638738411641>" }],
     "suffix": " @everyone"
   }

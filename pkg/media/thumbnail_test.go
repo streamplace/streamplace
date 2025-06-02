@@ -35,7 +35,7 @@ func TestThumbnail(t *testing.T) {
 		g.Go(func() error {
 			thumbnail := bytes.Buffer{}
 			// thumbnailCtx = log.WithDebugValue(ctx, map[string]map[string]int{"function": {"Thumbnail": 9}})
-			err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail)
+			err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail, "png")
 			if err != nil {
 				return err
 			}

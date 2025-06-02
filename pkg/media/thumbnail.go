@@ -11,13 +11,26 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-func Thumbnail(ctx context.Context, r io.Reader, w io.Writer) error {
+func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) error {
 	ctx = log.WithLogValues(ctx, "function", "Thumbnail")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	var encoder string
+	switch format {
+	case "jpeg":
+		encoder = "jpegenc snapshot=true"
+	case "png":
+		encoder = "pngenc snapshot=true"
+	default:
+		log.Error(ctx, "media.Thumbnail: expected jpeg or png as format and recieved %s", format)
+		encoder = "pngenc snapshot=true"
+	}
+
 	pipelineSlice := []string{
-		"appsrc name=appsrc ! qtdemux name=demux ! decodebin ! videoconvert ! videoscale ! videorate ! capsfilter name=capsfilter caps=video/x-raw,width=[1,1280],height=[1,720],pixel-aspect-ratio=1/1,framerate=1/999999 ! queue ! pngenc snapshot=true ! appsink name=appsink",
+		"appsrc name=appsrc ! qtdemux name=demux ! decodebin ! videoconvert ! videoscale ! videorate ! capsfilter name=capsfilter caps=video/x-raw,width=[1,1280],height=[1,720],pixel-aspect-ratio=1/1,framerate=1/999999 ! queue ! ",
+		encoder,
+		" ! appsink name=appsink",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

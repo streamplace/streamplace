@@ -179,17 +179,17 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 	}
 	r := bytes.NewReader(not.Data)
 	aqt := aqtime.FromTime(not.Segment.StartTime)
-	fd, err := ss.cli.SegmentFileCreate(not.Segment.RepoDID, aqt, "png")
+	fd, err := ss.cli.SegmentFileCreate(not.Segment.RepoDID, aqt, "jpeg")
 	if err != nil {
 		return err
 	}
 	defer fd.Close()
-	err = media.Thumbnail(ctx, r, fd)
+	err = media.Thumbnail(ctx, r, fd, "jpeg")
 	if err != nil {
 		return err
 	}
 	thumb := &model.Thumbnail{
-		Format:    "png",
+		Format:    "jpeg",
 		SegmentID: not.Segment.ID,
 	}
 	err = ss.mod.CreateThumbnail(thumb)

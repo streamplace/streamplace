@@ -3,7 +3,8 @@ title: OBS Multistreaming with Streamplace
 description:
   Configure OBS for multistreaming to Streamplace and other platforms using the
   obs-multi-rtmp plugin.
-order: 20
+sidebar:
+  order: 20
 ---
 
 This guide explains how to configure Open Broadcaster Software (OBS) for

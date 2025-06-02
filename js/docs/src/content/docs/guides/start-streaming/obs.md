@@ -3,7 +3,8 @@ title: Start streaming with OBS
 description:
   This guide walks you through configuring OBS (Open Broadcaster Software) for
   desktop streaming using Streamplace.
-order: 10
+sidebar:
+  order: 10
 ---
 
 ### Prerequisites

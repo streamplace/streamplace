@@ -153,7 +153,7 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		}
 		log.Debug(ctx, "record type", "key", k, "type", nsid.String())
 
-		err = atsync.handleCreateUpdate(ctx, signerDID.String(), rkey, bs, v.String(), nsid, false)
+		err = atsync.handleCreateUpdate(ctx, signerDID.String(), rkey, bs, v.String(), nsid, false, true)
 		if err != nil {
 			log.Warn(ctx, "failed to handle create update", "err", err)
 			// invalid CBOR and stuff should get ignored, so

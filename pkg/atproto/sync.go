@@ -20,7 +20,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool) error {
+func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool, isFirstSync bool) error {
 	ctx = log.WithLogValues(ctx, "func", "handleCreateUpdate", "userDID", userDID, "rkey", rkey.String(), "cid", cid, "collection", collection.String())
 	now := time.Now()
 	r, err := atsync.Model.GetRepo(userDID)
@@ -131,16 +131,18 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(streamerRepo.DID, scm)
 
-		for _, webhook := range atsync.CLI.DiscordWebhooks {
-			if webhook.DID == streamerRepo.DID && webhook.Type == "chat" {
-				go func() {
-					err := discord.SendChat(ctx, webhook, r, scm)
-					if err != nil {
-						log.Error(ctx, "failed to send livestream to discord", "err", err)
-					} else {
-						log.Log(ctx, "sent livestream to discord", "user", userDID, "webhook", webhook.URL)
-					}
-				}()
+		if !isUpdate && !isFirstSync {
+			for _, webhook := range atsync.CLI.DiscordWebhooks {
+				if webhook.DID == streamerRepo.DID && webhook.Type == "chat" {
+					go func() {
+						err := discord.SendChat(ctx, webhook, r, scm)
+						if err != nil {
+							log.Error(ctx, "failed to send livestream to discord", "err", err)
+						} else {
+							log.Log(ctx, "sent livestream to discord", "user", userDID, "webhook", webhook.URL)
+						}
+					}()
+				}
 			}
 		}
 
@@ -291,7 +293,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, lsv)
 
-		if !isUpdate {
+		if !isUpdate && !isFirstSync {
 			log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", u, "createdAt", rec.CreatedAt, "repo", userDID)
 			notifications, err := atsync.Model.GetFollowersNotificationTokens(userDID)
 			if err != nil {

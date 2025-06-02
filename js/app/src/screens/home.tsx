@@ -143,7 +143,7 @@ function HomeScreenItem({
           (item.record as PlaceStreamLivestream.Record).title || "A livestream!"
         }
         horizontal={horizontal}
-        thumbnailUrl={`/api/playback/${user}/stream.png?bweh=${(Date.now() / 120000).toFixed(0)}`}
+        thumbnailUrl={`/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
         avatarUrl={avatarUrl}
         streamerName={user}
         category={[]}

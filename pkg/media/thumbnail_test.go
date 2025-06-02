@@ -45,6 +45,19 @@ func TestThumbnail(t *testing.T) {
 			require.Equal(t, thumbnail.Len(), 1418910)
 			return nil
 		})
+		g.Go(func() error {
+			thumbnail := bytes.Buffer{}
+			// thumbnailCtx = log.WithDebugValue(ctx, map[string]map[string]int{"function": {"Thumbnail": 9}})
+			err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail, "jpeg")
+			if err != nil {
+				return err
+			}
+			if thumbnail.Len() == 0 {
+				return fmt.Errorf("thumbnail buffer is empty")
+			}
+			require.Equal(t, thumbnail.Len(), 140969)
+			return nil
+		})
 	}
 
 	err = g.Wait()

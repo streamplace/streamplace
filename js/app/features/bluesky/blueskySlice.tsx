@@ -503,21 +503,10 @@ export const blueskySlice = createAppSlice({
         const textUrl = `${u.protocol}//${u.host}/${profile.handle}`;
         const suffix = ` ${text}`;
         const content = prefix + textUrl + suffix;
-        const facets = [
-          {
-            index: {
-              // idk why it's off by two but it's static so let's just rock it
-              byteStart: prefix.length + 2,
-              byteEnd: prefix.length + textUrl.length + 2,
-            },
-            features: [
-              {
-                $type: "app.bsky.richtext.facet#link",
-                uri: linkUrl,
-              },
-            ],
-          },
-        ];
+
+        const rt = new RichText({ text: content });
+        rt.detectFacetsWithoutResolution();
+
         const record: AppBskyFeedPost.Record = {
           $type: "app.bsky.feed.post",
           text: content,
@@ -525,7 +514,7 @@ export const blueskySlice = createAppSlice({
             url: linkUrl,
             title: text,
           },
-          facets,
+          facets: rt.facets,
           createdAt: now.toISOString(),
         };
         record.embed = {

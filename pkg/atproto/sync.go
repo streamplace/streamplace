@@ -131,6 +131,19 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(streamerRepo.DID, scm)
 
+		for _, webhook := range atsync.CLI.DiscordWebhooks {
+			if webhook.DID == streamerRepo.DID && webhook.Type == "chat" {
+				go func() {
+					err := discord.SendChat(ctx, webhook, r, scm)
+					if err != nil {
+						log.Error(ctx, "failed to send livestream to discord", "err", err)
+					} else {
+						log.Log(ctx, "sent livestream to discord", "user", userDID, "webhook", webhook.URL)
+					}
+				}()
+			}
+		}
+
 	case *streamplace.ChatProfile:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
 		if err != nil {

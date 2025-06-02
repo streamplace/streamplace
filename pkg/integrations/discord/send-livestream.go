@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/xrpc"
 	"golang.org/x/net/context/ctxhttp"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
@@ -35,20 +34,15 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, r *model.Repo,
 
 	payload := discordtypes.Payload{
 		Username: fmt.Sprintf("@%s", r.Handle),
-		Content:  content,
+		Content:  fmt.Sprintf("%s%s%s", w.Prefix, content, w.Suffix),
 	}
 
-	xrpc := &xrpc.Client{
-		Host:   "https://public.api.bsky.app",
-		Client: &aqhttp.Client,
-	}
-
-	profile, err := bsky.ActorGetProfile(ctx, xrpc, r.DID)
+	avatarURL, err := getAvatarURL(ctx, r)
 	if err != nil {
-		log.Warn(ctx, "failed to get profile", "err", err)
+		log.Warn(ctx, "failed to get avatar URL", "err", err)
 	}
-	if profile != nil && profile.Avatar != nil {
-		payload.AvatarURL = *profile.Avatar
+	if avatarURL != "" {
+		payload.AvatarURL = avatarURL
 	}
 
 	color := "f8baca"

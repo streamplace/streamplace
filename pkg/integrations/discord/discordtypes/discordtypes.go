@@ -5,6 +5,8 @@ type Webhook struct {
 	URL     string            `json:"url"`
 	Type    string            `json:"type"`
 	Rewrite []*WebhookRewrite `json:"rewrite,omitempty"`
+	Prefix  string            `json:"prefix,omitempty"`
+	Suffix  string            `json:"suffix,omitempty"`
 }
 
 type WebhookRewrite struct {

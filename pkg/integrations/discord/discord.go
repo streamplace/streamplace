@@ -60,6 +60,24 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, r *model.Repo,
 	if err != nil {
 		log.Warn(ctx, "failed to parse color", "err", err)
 	}
+	payload.Embeds = []discordtypes.Embed{
+		{
+			Color: int(colorInt),
+		},
+	}
+
+	suffix := "!"
+	if ls.Url != nil {
+		u, err := url.Parse(*ls.Url)
+		if err != nil {
+			log.Warn(ctx, "failed to parse URL", "err", err)
+		} else {
+			suffix = fmt.Sprintf(" on %s!", u.Host)
+			payload.Embeds[0].URL = fmt.Sprintf("%s/%s", *ls.Url, r.Handle)
+		}
+	}
+
+	payload.Embeds[0].Title = fmt.Sprintf("@%s is LIVE%s", r.Handle, suffix)
 
 	if ls.Thumb != nil {
 		u, err := url.Parse(fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob", r.PDS))
@@ -71,15 +89,8 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, r *model.Repo,
 		q.Set("cid", ls.Thumb.Ref.String())
 		u.RawQuery = q.Encode()
 		imageURL := u.String()
-		payload.Embeds = []discordtypes.Embed{
-			{
-				Title: ls.Title,
-				Color: int(colorInt),
-				URL:   fmt.Sprintf("%s/%s", *ls.Url, r.Handle),
-				Image: &discordtypes.Image{
-					URL: imageURL,
-				},
-			},
+		payload.Embeds[0].Image = &discordtypes.Image{
+			URL: imageURL,
 		}
 	}
 

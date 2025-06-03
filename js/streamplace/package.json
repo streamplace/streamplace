@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "postinstall": "pnpm run build",
+    "postinstall": "cd ../.. && make js-lexicons && cd - && pnpm run build",
     "start": "tsc --watch --preserveWatchOutput"
   },
   "keywords": [

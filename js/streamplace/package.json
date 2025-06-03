@@ -13,6 +13,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "postinstall": "pnpm run build",
     "start": "tsc --watch --preserveWatchOutput"
   },
   "keywords": [

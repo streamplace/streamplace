@@ -4,11 +4,7 @@ import { PROTOCOL_HLS, PROTOCOL_WEBRTC } from "components/player/props";
 import { uuidv7 } from "hooks/uuid";
 import { createContext, useContext } from "react";
 import { useAppDispatch } from "store/hooks";
-import {
-  PlaceStreamChatMessage,
-  PlaceStreamDefs,
-  PlaceStreamLivestream,
-} from "streamplace";
+import { PlaceStreamChatMessage, PlaceStreamLivestream } from "streamplace";
 import { createAppSlice } from "../../hooks/createSlice";
 
 export interface PlayerContextType {
@@ -39,7 +35,6 @@ export interface PlayerState {
   ingestStarted: number | null;
   ingestStarting: boolean;
   ingestConnectionState: RTCPeerConnectionState | null;
-  renditions: PlaceStreamDefs.Rendition[];
   selectedRendition: string | null;
   protocol: string;
 }
@@ -95,7 +90,6 @@ export const playerSlice = createAppSlice({
           ingestStarting: false,
           ingestConnectionState: null,
           protocol: action.payload.forceProtocol ?? PROTOCOL_WEBRTC,
-          renditions: [],
           selectedRendition: "source",
         };
       },
@@ -140,29 +134,6 @@ export const playerSlice = createAppSlice({
               ingestConnectionState: action.payload.ingestConnectionState,
             },
           };
-        },
-      ),
-
-      handleWebSocketMessages: create.reducer(
-        (
-          state,
-          action: {
-            payload: { playerId: string; messages: any[] };
-            type: string;
-          },
-        ) => {
-          for (const message of action.payload.messages) {
-            if (PlaceStreamDefs.isRenditions(message)) {
-              state = {
-                ...state,
-                [action.payload.playerId]: {
-                  ...state[action.payload.playerId],
-                  renditions: message.renditions,
-                },
-              };
-            }
-          }
-          return state;
         },
       ),
 
@@ -216,9 +187,6 @@ export const playerSlice = createAppSlice({
     selectPlayer: (state, playerId: string) => {
       return state[playerId];
     },
-    selectRenditions: (state, playerId: string) => {
-      return state[playerId].renditions;
-    },
     selectSelectedRendition: (state, playerId: string) => {
       return state[playerId].selectedRendition;
     },
@@ -241,8 +209,6 @@ export const usePlayerActions = () => {
         ingestConnectionState,
       });
     },
-    handleWebSocketMessages: (messages: any[]) =>
-      playerSlice.actions.handleWebSocketMessages({ playerId, messages }),
     setSelectedRendition: (rendition: string) =>
       playerSlice.actions.setSelectedRendition({ playerId, rendition }),
     setProtocol: (protocol: string) =>
@@ -257,12 +223,6 @@ export const usePlayer = (): ((state: {
 }) => PlayerState) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId];
-};
-export const usePlayerRenditions = (): ((state: {
-  player: PlayersState;
-}) => PlaceStreamDefs.Rendition[]) => {
-  const playerId = usePlayerId();
-  return (state) => state.player[playerId].renditions;
 };
 export const usePlayerSelectedRendition = (): ((state: {
   player: PlayersState;

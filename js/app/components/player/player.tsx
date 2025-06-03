@@ -1,8 +1,5 @@
-import { useSegment } from "@streamplace/components";
-import {
-  usePlayerRenditions,
-  usePlayerSelectedRendition,
-} from "features/player/playerSlice";
+import { useRenditions, useSegment } from "@streamplace/components";
+import { usePlayerSelectedRendition } from "features/player/playerSlice";
 import { selectUserMuted } from "features/streamplace/streamplaceSlice";
 import usePlatform from "hooks/usePlatform";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
@@ -97,7 +94,7 @@ export function PlayerInner(props: Partial<PlayerProps>) {
   const segment = useSegment();
   const [lastCheck, setLastCheck] = useState(0);
 
-  const renditions = useAppSelector(usePlayerRenditions());
+  const renditions = useRenditions();
   const selectedRendition = useAppSelector(usePlayerSelectedRendition());
 
   useEffect(() => {

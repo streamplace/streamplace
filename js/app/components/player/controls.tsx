@@ -1,4 +1,4 @@
-import { useSegment, useViewers } from "@streamplace/components";
+import { useRenditions, useSegment, useViewers } from "@streamplace/components";
 import {
   Antenna,
   CheckCircle,
@@ -21,7 +21,6 @@ import {
   usePlayer,
   usePlayerActions,
   usePlayerProtocol,
-  usePlayerRenditions,
   usePlayerSelectedRendition,
 } from "features/player/playerSlice";
 import { userMute } from "features/streamplace/streamplaceSlice";
@@ -486,7 +485,7 @@ export default function Controls(
 export function PopoverMenu(props: PlayerProps) {
   const [open, setOpen] = useState(false);
   const media = useMedia();
-  const renditions = useAppSelector(usePlayerRenditions());
+  const renditions = useRenditions();
   const selectedRendition = useAppSelector(usePlayerSelectedRendition());
   const protocol = useAppSelector(usePlayerProtocol());
   const { setSelectedRendition, setProtocol } = usePlayerActions();

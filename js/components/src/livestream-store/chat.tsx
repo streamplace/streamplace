@@ -112,37 +112,6 @@ export const useCreateChatMessage = () => {
       collection: "place.stream.chat.message",
       record,
     });
-
-    // Add local message
-    // dispatch(
-    //   addLocalChatMessage({
-    //     playerId,
-    //     message,
-    //     ...(replyTo ? { replyTo } : {}),
-    //     author: {
-    //       did: userProfile.did,
-    //       handle: userProfile.handle,
-    //     },
-    //     chatProfile: chatProfile?.profile?.color
-    //       ? {
-    //           color: {
-    //             red: chatProfile.profile.color.red,
-    //             green: chatProfile.profile.color.green,
-    //             blue: chatProfile.profile.color.blue,
-    //           },
-    //         }
-    //       : undefined,
-    //   }),
-    // );
-
-    // // Send to server
-    // dispatch(
-    //   chatMessage({
-    //     text: message,
-    //     livestream,
-    //     ...(replyTo ? { replyTo } : {}),
-    //   }),
-    // );
   };
 };
 

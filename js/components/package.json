@@ -4,7 +4,7 @@
   "description": "Streamplace React (Native) Components",
   "type": "module",
   "main": "dist/index.js",
-  "types": "dist/index.d.js",
+  "types": "src/index.tsx",
   "exports": {
     ".": {
       "types": "./dist/index.d.mjs",
@@ -12,8 +12,8 @@
     }
   },
   "scripts": {
-    "build": "tsup-node",
-    "start": "tsup-node --watch --clean=false --onSuccess \"tsup-node --dts-only \""
+    "build": "tsc",
+    "start": "tsc --watch --preserveWatchOutput"
   },
   "keywords": [
     "streamplace"

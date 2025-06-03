@@ -1,12 +1,27 @@
 import React, { useEffect } from "react";
 import { StreamplaceAgent } from "streamplace";
-import { useStreamplaceStore } from "../streamplace-store";
+import {
+  useDID,
+  useGetBskyProfile,
+  useGetChatProfile,
+  useStreamplaceStore,
+} from "../streamplace-store";
+import { usePDSAgent } from "../streamplace-store/xrpc";
 
 export default function Poller({ children }: { children: React.ReactNode }) {
   const url = useStreamplaceStore((state) => state.url);
   const setLiveUsers = useStreamplaceStore((state) => state.setLiveUsers);
+  const did = useDID();
+  const pdsAgent = usePDSAgent();
+  const getChatProfile = useGetChatProfile();
+  const getBskyProfile = useGetBskyProfile();
 
-  console.log("poller", url);
+  useEffect(() => {
+    if (pdsAgent && did) {
+      getChatProfile();
+      getBskyProfile();
+    }
+  }, [pdsAgent, did]);
 
   useEffect(() => {
     const agent = new StreamplaceAgent(url);

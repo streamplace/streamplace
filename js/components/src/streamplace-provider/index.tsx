@@ -1,5 +1,5 @@
 import { SessionManager } from "@atproto/api/dist/session-manager";
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { makeStreamplaceStore } from "../streamplace-store/streamplace-store";
 import { StreamplaceContext } from "./context";
 import Poller from "./poller";

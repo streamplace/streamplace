@@ -80,6 +80,17 @@ import { loadStateFromStorage } from "features/base/sidebarSlice";
 import { store } from "store/store";
 import HomeScreen from "./screens/home";
 
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel,
+} from "react-native-reanimated";
+
+// slows down the whole app
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.warn,
+  strict: false,
+});
+
 store.dispatch(loadStateFromStorage());
 
 const Stack = createNativeStackNavigator();

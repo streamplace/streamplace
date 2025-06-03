@@ -1,6 +1,6 @@
 import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useContext } from "react";
-import { PlaceStreamLivestream } from "streamplace";
+import { PlaceStreamChatProfile, PlaceStreamLivestream } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import { StreamplaceContext } from "../streamplace-provider/context";
 
@@ -21,6 +21,8 @@ export interface StreamplaceState {
   liveUsers: PlaceStreamLivestream.LivestreamView[];
   setLiveUsers: (users: PlaceStreamLivestream.LivestreamView[]) => void;
   oauthSession: SessionManager | null;
+  handle: string | null;
+  chatProfile: PlaceStreamChatProfile.Record | null;
 }
 
 export type StreamplaceStore = StoreApi<StreamplaceState>;
@@ -37,21 +39,33 @@ export const makeStreamplaceStore = ({
       set({ liveUsers: users });
     },
     oauthSession: null,
+    handle: null,
+    chatProfile: null,
   }));
 };
 
-export function useStreamplaceStore<U>(
-  selector: (state: StreamplaceState) => U,
-): U {
+export function getStreamplaceStoreFromContext(): StreamplaceStore {
   const context = useContext(StreamplaceContext);
   if (!context) {
     throw new Error(
       "useStreamplaceStore must be used within a StreamplaceProvider",
     );
   }
-  return useStore(context.store, selector);
+  return context.store;
+}
+
+export function useStreamplaceStore<U>(
+  selector: (state: StreamplaceState) => U,
+): U {
+  return useStore(getStreamplaceStoreFromContext(), selector);
 }
 
 export const useUrl = () => useStreamplaceStore((x) => x.url);
 
 export const useDID = () => useStreamplaceStore((x) => x.oauthSession?.did);
+
+export const useHandle = () => useStreamplaceStore((x) => x.handle);
+export const useSetHandle = (): ((handle: string) => void) => {
+  const store = getStreamplaceStoreFromContext();
+  return (handle: string) => store.setState({ handle });
+};

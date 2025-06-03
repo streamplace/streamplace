@@ -34,7 +34,7 @@ export const makeStore = (preloadedState?: Partial<RootState>) => {
           // Ignore these field paths in all actions
           ignoredActionPaths: ["payload"],
           // Ignore these paths in the state
-          ignoredPaths: [/^bluesky\..*/],
+          ignoredPaths: [/^bluesky\..*/, /^streamplace\..*/],
         },
       }).prepend(listenerMiddleware.middleware);
     },

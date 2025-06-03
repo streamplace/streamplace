@@ -8,8 +8,8 @@ import {
   PlaceStreamChatMessage,
   PlaceStreamDefs,
 } from "streamplace";
-import { usePDSAgent } from "../streamplace-provider/xrpc";
-import { useDID } from "../streamplace-store";
+import { useChatProfile, useDID, useHandle } from "../streamplace-store";
+import { usePDSAgent } from "../streamplace-store/xrpc";
 import { LivestreamState } from "./livestream-state";
 import { getStoreFromContext } from "./livestream-store";
 
@@ -25,17 +25,19 @@ export const useCreateChatMessage = () => {
   const pdsAgent = usePDSAgent();
   const store = getStoreFromContext();
   const userDID = useDID();
-
-  if (!pdsAgent || !userDID) {
-    throw new Error("No PDS agent or user DID found");
-  }
+  const userHandle = useHandle();
+  const chatProfile = useChatProfile();
 
   return async (msg: NewChatMessage) => {
+    if (!pdsAgent || !userDID) {
+      throw new Error("No PDS agent or user DID found");
+    }
+
     let state = store.getState();
 
-    const profile = state.profile;
+    const streamerProfile = state.profile;
 
-    if (!profile) {
+    if (!streamerProfile) {
       throw new Error("Profile not found");
     }
 
@@ -45,7 +47,7 @@ export const useCreateChatMessage = () => {
     const record: PlaceStreamChatMessage.Record = {
       text: msg.text,
       createdAt: new Date().toISOString(),
-      streamer: profile.did,
+      streamer: streamerProfile.did,
       ...(msg.reply
         ? {
             reply: {
@@ -89,6 +91,22 @@ export const useCreateChatMessage = () => {
           }
         : {}),
     };
+
+    const localChat: ChatMessageViewHydrated = {
+      uri: `local-${Date.now()}`,
+      cid: "",
+      author: {
+        did: userDID,
+        handle: userHandle || userDID,
+      },
+      record: record,
+      indexedAt: new Date().toISOString(),
+      chatProfile: chatProfile || undefined,
+    };
+
+    state = reduceChat(state, [localChat], []);
+    store.setState(state);
+
     await pdsAgent.com.atproto.repo.createRecord({
       repo: userDID,
       collection: "place.stream.chat.message",

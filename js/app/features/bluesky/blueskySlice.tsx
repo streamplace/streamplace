@@ -18,6 +18,7 @@ import {
 } from "features/streamplace/streamplaceSlice";
 import Storage from "storage";
 import {
+  LivestreamViewHydrated,
   PlaceStreamChatProfile,
   PlaceStreamKey,
   PlaceStreamLivestream,
@@ -826,7 +827,10 @@ export const blueskySlice = createAppSlice({
 
     updateLivestreamRecord: create.asyncThunk(
       async (
-        { title, playerId }: { title: string; playerId: string },
+        {
+          title,
+          livestream,
+        }: { title: string; livestream: LivestreamViewHydrated | null },
         thunkAPI,
       ) => {
         const now = new Date();
@@ -848,7 +852,7 @@ export const blueskySlice = createAppSlice({
           throw new Error("No profile");
         }
 
-        let oldRecord = player[playerId].livestream;
+        let oldRecord = livestream;
         if (!oldRecord) {
           throw new Error("No latest record");
         }

@@ -1,4 +1,4 @@
-import { useViewers } from "@streamplace/components";
+import { useLivestream, useProfile, useViewers } from "@streamplace/components";
 import { MessageCircleMore, MessageCircleOff } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
 import Chat from "components/chat/chat";
@@ -70,11 +70,13 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
   const [currentUserDID, setCurrentUserDID] = useState<string | null>(null);
   const { fullscreen, setFullscreen } = useFullscreen();
 
-  const streamerDID = player.livestream?.author?.did;
-  const streamerProfile = streamerDID ? profiles[streamerDID] : undefined;
+  const livestream = useLivestream();
+  const streamerProfile = useProfile();
+
+  const streamerDID = livestream?.author?.did;
   const streamerHandle = streamerProfile?.handle;
-  const startTime = player.livestream?.record?.createdAt
-    ? new Date(player.livestream?.record?.createdAt)
+  const startTime = livestream?.record?.createdAt
+    ? new Date(livestream?.record?.createdAt)
     : undefined;
 
   // this would all be really easy if i had library that would give me the
@@ -309,7 +311,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                         : undefined
                     }
                   >
-                    {player.livestream?.record.title}
+                    {livestream?.record.title}
                   </H2>
                 </View>
               </View>
@@ -407,7 +409,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                   marginTop={-15}
                 >
                   <Text fontSize={18} numberOfLines={1} ellipsizeMode="tail">
-                    {player.livestream?.record.title}
+                    {livestream?.record.title}
                   </Text>
                 </View>
               </View>

@@ -1,13 +1,14 @@
-import { useChat, useSetReplyToMessage } from "@streamplace/components";
+import {
+  useChat,
+  useProfile,
+  useSetReplyToMessage,
+} from "@streamplace/components";
 import { Reply, Settings, X } from "@tamagui/lucide-icons";
 import {
   createBlockRecord,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
-import {
-  MessageViewHydrated,
-  usePlayerLivestream,
-} from "features/player/playerSlice";
+import { MessageViewHydrated } from "features/player/playerSlice";
 import usePlatform from "hooks/usePlatform";
 import { useEffect, useRef, useState } from "react";
 import { Linking, TouchableOpacity } from "react-native";
@@ -37,14 +38,12 @@ export default function Chat({
   const [isAtBottom, setIsAtBottom] = useState(true);
   const chat = useChat();
   const scrollRef = useRef<ScrollView>(null);
-  const livestream = useAppSelector(usePlayerLivestream());
+  const streamerProfile = useProfile();
   const userProfile = useAppSelector(selectUserProfile);
   const myStream = !!(
     userProfile &&
-    livestream &&
     userProfile.did &&
-    livestream.author.did &&
-    userProfile.did === livestream.author.did
+    userProfile.did === streamerProfile?.did
   );
 
   const handleScroll = (event: any) => {

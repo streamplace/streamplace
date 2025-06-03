@@ -1,3 +1,4 @@
+import { LivestreamProvider } from "@streamplace/components";
 import { Camera, FerrisWheel, X } from "@tamagui/lucide-icons";
 import { Redirect } from "components/aqlink";
 import CreateLivestream from "components/create-livestream";
@@ -96,29 +97,33 @@ export default function LiveDashboard() {
     );
   }
   return (
-    <VideoElementProvider videoElement={videoElement}>
-      <View f={1} ai="stretch" jc="center">
-        <View f={1} fb={0}>
-          {topPane}
-          {closeButton}
+    <LivestreamProvider src={userProfile.did}>
+      <VideoElementProvider videoElement={videoElement}>
+        <View f={1} ai="stretch" jc="center">
+          <View f={1} fb={0}>
+            {topPane}
+            {closeButton}
+          </View>
+          <View f={1} ai="center" jc="center" fb={0}>
+            <ButtonSelector
+              values={[
+                { label: "Create", value: "create" },
+                { label: "Update", value: "update" },
+              ]}
+              disabledValues={playerId ? [] : ["update"]}
+              selectedValue={page}
+              setSelectedValue={setPage}
+              maxWidth={250}
+              width="100%"
+            />
+            {page === "update" ? (
+              <UpdateLivestream playerId={playerId} />
+            ) : null}
+            {page === "create" ? <CreateLivestream /> : null}
+          </View>
         </View>
-        <View f={1} ai="center" jc="center" fb={0}>
-          <ButtonSelector
-            values={[
-              { label: "Create", value: "create" },
-              { label: "Update", value: "update" },
-            ]}
-            disabledValues={playerId ? [] : ["update"]}
-            selectedValue={page}
-            setSelectedValue={setPage}
-            maxWidth={250}
-            width="100%"
-          />
-          {page === "update" ? <UpdateLivestream playerId={playerId} /> : null}
-          {page === "create" ? <CreateLivestream /> : null}
-        </View>
-      </View>
-    </VideoElementProvider>
+      </VideoElementProvider>
+    </LivestreamProvider>
   );
 }
 

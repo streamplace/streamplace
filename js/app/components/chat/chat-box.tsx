@@ -2,6 +2,7 @@ import { useNavigation } from "@react-navigation/native";
 import {
   useChat,
   useCreateChatMessage,
+  useLivestream,
   useReplyToMessage,
   useSetReplyToMessage,
 } from "@streamplace/components";
@@ -22,7 +23,6 @@ import {
 import {
   LivestreamViewHydrated,
   usePlayerId,
-  usePlayerLivestream,
 } from "features/player/playerSlice";
 import {
   chatWarn,
@@ -77,7 +77,7 @@ export default function ChatBox({
   const chatProfile = useAppSelector(selectChatProfile);
   const chatWarned = useAppSelector(selectChatWarned);
   const loggedOut = isReady && !userProfile;
-  const livestream = useAppSelector(usePlayerLivestream());
+  const livestream = useLivestream();
   const chat = useChat();
   const textAreaRef = useRef<Input>(null);
   const dispatch = useAppDispatch();

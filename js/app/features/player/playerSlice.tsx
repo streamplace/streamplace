@@ -57,7 +57,6 @@ export interface PlayerState {
   ingestStarted: number | null;
   ingestStarting: boolean;
   ingestConnectionState: RTCPeerConnectionState | null;
-  livestream: LivestreamViewHydrated | null;
   segment: PlaceStreamSegment.Record | null;
   renditions: PlaceStreamDefs.Rendition[];
   selectedRendition: string | null;
@@ -115,7 +114,6 @@ export const playerSlice = createAppSlice({
           ingestStarting: false,
           ingestConnectionState: null,
           protocol: action.payload.forceProtocol ?? PROTOCOL_WEBRTC,
-          livestream: null,
           segment: null,
           renditions: [],
           selectedRendition: "source",
@@ -174,15 +172,7 @@ export const playerSlice = createAppSlice({
           },
         ) => {
           for (const message of action.payload.messages) {
-            if (PlaceStreamLivestream.isLivestreamView(message)) {
-              state = {
-                ...state,
-                [action.payload.playerId]: {
-                  ...state[action.payload.playerId],
-                  livestream: message as LivestreamViewHydrated,
-                },
-              };
-            } else if (PlaceStreamSegment.isRecord(message)) {
+            if (PlaceStreamSegment.isRecord(message)) {
               state = {
                 ...state,
                 [action.payload.playerId]: {
@@ -201,38 +191,6 @@ export const playerSlice = createAppSlice({
             }
           }
           return state;
-        },
-      ),
-
-      pollLivestream: create.asyncThunk(
-        async (
-          { playerId, user }: { playerId: string; user: string },
-          { getState },
-        ) => {
-          const { streamplace } = getState() as {
-            streamplace: StreamplaceState;
-          };
-          const res = await fetch(`${streamplace.url}/api/livestream/${user}`);
-          const data = (await res.json()) as LivestreamViewHydrated;
-          return { playerId, livestream: data };
-        },
-        {
-          pending: (state) => {
-            // state.status = "loading";
-          },
-          fulfilled: (state, result) => {
-            return {
-              ...state,
-              [result.payload.playerId]: {
-                ...state[result.payload.playerId],
-                livestream: result.payload.livestream,
-              },
-            };
-          },
-          rejected: (state, error) => {
-            console.error("pollLivestream rejected", error);
-            return state;
-          },
         },
       ),
 
@@ -320,9 +278,6 @@ export const playerSlice = createAppSlice({
     selectPlayer: (state, playerId: string) => {
       return state[playerId];
     },
-    selectLivestream: (state, playerId: string) => {
-      return state[playerId].livestream;
-    },
     selectSegment: (state, playerId: string) => {
       return state[playerId].segment;
     },
@@ -351,8 +306,6 @@ export const usePlayerActions = () => {
         ingestConnectionState,
       });
     },
-    pollLivestream: (user: string) =>
-      playerSlice.actions.pollLivestream({ playerId, user }),
     pollSegment: (user: string) =>
       playerSlice.actions.pollSegment({ playerId, user }),
     handleWebSocketMessages: (messages: any[]) =>
@@ -365,19 +318,12 @@ export const usePlayerActions = () => {
 };
 
 // Action creators are generated for each case reducer function.
-export const { selectPlayer, selectLivestream, selectSegment } =
-  playerSlice.selectors;
+export const { selectPlayer, selectSegment } = playerSlice.selectors;
 export const usePlayer = (): ((state: {
   player: PlayersState;
 }) => PlayerState) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId];
-};
-export const usePlayerLivestream = (): ((state: {
-  player: PlayersState;
-}) => LivestreamViewHydrated | null) => {
-  const playerId = usePlayerId();
-  return (state) => state.player[playerId].livestream;
 };
 export const usePlayerSegment = (): ((state: {
   player: PlayersState;

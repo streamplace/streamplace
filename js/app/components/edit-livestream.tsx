@@ -1,3 +1,4 @@
+import { useLivestream } from "@streamplace/components";
 import { useToastController } from "@tamagui/toast";
 import {
   selectNewLivestream,
@@ -21,6 +22,7 @@ export default function UpdateLivestream({
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const profile = useAppSelector(selectUserProfile);
+  const livestream = useLivestream();
   const newLivestream = useAppSelector(selectNewLivestream);
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export default function UpdateLivestream({
       await dispatch(
         updateLivestreamRecord({
           title,
-          playerId,
+          livestream,
         }),
       );
     } catch (error) {

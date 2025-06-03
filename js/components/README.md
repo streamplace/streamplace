@@ -1,19 +1,35 @@
 # @streamplace/components
 
-```jsx
-<StreamplaceProvider url="https://stream.place" pdsAgent={/* maybe? */}>
-  {/* Everything inside of here can access that Streamplace node */}
+Heavily WIP but looks something like this:
 
-  <LivestreamProvider src="scumb.ag">
-    {/* Everything in here has an active subscription to the livestream
-      context via Websocket; things like chat data and stream title */}
+```tsx
+import {
+  StreamplaceProvider,
+  LivestreamProvider,
+} from "@streamplace/components";
 
-    <Player />
-    <Chat />
-    <ChatBox onSubmit={/* etc */} />
-    {/* Open questions: how does an embedding app connect the logged in
-    atproto user to this chat component? Do you inject an OAuth client
-    or PDSAgent? */}
-  </LivestreamProvider>
-</StreamplaceProvider>
+export function Provider() {
+  <StreamplaceProvider url="https://stream.place" oauthSession={userSession}>
+    {/* Everything inside of here can access that Streamplace node */}
+
+    <LivestreamProvider src="example.bsky.social" /* or did:plc:xxxx */>
+      {/* Everything in here has an active subscription to the livestream
+        context via Websocket; things like chat data and stream title */}
+      <App />
+    </LivestreamProvider>
+  </StreamplaceProvider>;
+}
+
+export function App() {
+  const chat = useChat();
+  return (
+    <View>
+      {chat.map((msg) => (
+        <Text>
+          @{msg.author.handle}: {msg.record.text}
+        </Text>
+      ))}
+    </View>
+  );
+}
 ```

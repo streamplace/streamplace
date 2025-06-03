@@ -20,7 +20,7 @@ import {
   Link,
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
-import { ChatMessageViewHydrated } from "streamplace/dist";
+import { ChatMessageViewHydrated } from "streamplace";
 import { Button, ScrollView, Sheet, Text, useMedia, View } from "tamagui";
 import { RichtextSegment, segmentize } from "../../utils/facet";
 

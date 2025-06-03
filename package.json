@@ -12,7 +12,7 @@
     "check": "knip && pnpm run check:workspaces && git ls-files | xargs prettier --check --ignore-unknown",
     "check:workspaces": "cd js/app && pnpm run check",
     "fix": "git ls-files | xargs prettier --write --ignore-unknown",
-    "postinstall": "husky",
+    "postinstall": "husky && make js-lexicons",
     "build": "pnpm --stream -r run build",
     "prepare": "husky",
     "release": "lerna publish --force-publish",

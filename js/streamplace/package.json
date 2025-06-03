@@ -3,7 +3,7 @@
   "version": "0.6.33",
   "description": "Live video on the AT Protocol",
   "main": "dist/index.js",
-  "types": "dist/index.d.js",
+  "types": "src/index.ts",
   "type": "module",
   "exports": {
     ".": {
@@ -12,9 +12,8 @@
     }
   },
   "scripts": {
-    "build": "tsup-node src",
-    "postinstall": "cd ../.. && make js-lexicons && cd - && pnpm run build",
-    "start": "tsup-node --watch --clean=false --onSuccess \"tsup-node --dts-only \""
+    "build": "tsc",
+    "start": "tsc --watch --preserveWatchOutput"
   },
   "keywords": [
     "streamplace",
@@ -30,7 +29,6 @@
     "multiformats": "^9.9.0"
   },
   "devDependencies": {
-    "tsup": "^8.5.0",
     "typescript": "~5.3.3"
   }
 }

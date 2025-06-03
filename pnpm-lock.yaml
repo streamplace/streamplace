@@ -619,9 +619,6 @@ importers:
         specifier: ^9.9.0
         version: 9.9.0
     devDependencies:
-      tsup:
-        specifier: ^8.5.0
-        version: 8.5.0(@swc/core@1.8.0(@swc/helpers@0.5.17))(jiti@1.21.6)(postcss@8.5.3)(typescript@5.3.3)(yaml@2.5.1)
       typescript:
         specifier: ~5.3.3
         version: 5.3.3
@@ -29631,35 +29628,6 @@ snapshots:
   tslib@1.14.1: {}
 
   tslib@2.8.1: {}
-
-  tsup@8.5.0(@swc/core@1.8.0(@swc/helpers@0.5.17))(jiti@1.21.6)(postcss@8.5.3)(typescript@5.3.3)(yaml@2.5.1):
-    dependencies:
-      bundle-require: 5.1.0(esbuild@0.25.3)
-      cac: 6.7.14
-      chokidar: 4.0.3
-      consola: 3.4.2
-      debug: 4.4.0
-      esbuild: 0.25.3
-      fix-dts-default-cjs-exports: 1.0.1
-      joycon: 3.1.1
-      picocolors: 1.1.1
-      postcss-load-config: 6.0.1(jiti@1.21.6)(postcss@8.5.3)(yaml@2.5.1)
-      resolve-from: 5.0.0
-      rollup: 4.40.1
-      source-map: 0.8.0-beta.0
-      sucrase: 3.35.0
-      tinyexec: 0.3.2
-      tinyglobby: 0.2.13
-      tree-kill: 1.2.2
-    optionalDependencies:
-      '@swc/core': 1.8.0(@swc/helpers@0.5.17)
-      postcss: 8.5.3
-      typescript: 5.3.3
-    transitivePeerDependencies:
-      - jiti
-      - supports-color
-      - tsx
-      - yaml
 
   tsup@8.5.0(@swc/core@1.8.0(@swc/helpers@0.5.17))(jiti@1.21.6)(postcss@8.5.3)(typescript@5.8.3)(yaml@2.5.1):
     dependencies:

@@ -7,26 +7,17 @@ import {
   RichText,
 } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import {
-  isLink,
-  isMention,
-} from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
 import { OAuthSession } from "@atproto/oauth-client";
 import { DID_KEY, hydrate, STORED_KEY_KEY } from "features/base/baseSlice";
 import { openLoginLink } from "features/platform/platformSlice";
-import {
-  LivestreamViewHydrated,
-  MessageViewHydrated,
-  PlayersState,
-} from "features/player/playerSlice";
+import { PlayersState } from "features/player/playerSlice";
 import {
   setURL,
   StreamplaceState,
 } from "features/streamplace/streamplaceSlice";
 import Storage from "storage";
 import {
-  PlaceStreamChatMessage,
   PlaceStreamChatProfile,
   PlaceStreamKey,
   PlaceStreamLivestream,
@@ -543,63 +534,6 @@ export const blueskySlice = createAppSlice({
       },
     ),
 
-    chatPost: create.asyncThunk(
-      async (
-        {
-          text,
-          livestream,
-        }: { text: string; livestream: LivestreamViewHydrated },
-        thunkAPI,
-      ) => {
-        const { bluesky, streamplace } = thunkAPI.getState() as {
-          bluesky: BlueskyState;
-          streamplace: StreamplaceState;
-        };
-        if (!bluesky.pdsAgent) {
-          throw new Error("No agent");
-        }
-        const did = bluesky.oauthSession?.did;
-        if (!did) {
-          throw new Error("No DID");
-        }
-        const profile = bluesky.profiles[did];
-        if (!profile) {
-          throw new Error("No profile");
-        }
-        if (!livestream.record.post) {
-          throw new Error("No post");
-        }
-        const record: AppBskyFeedPost.Record = {
-          $type: "app.bsky.feed.post",
-          text: text,
-          createdAt: new Date().toISOString(),
-          reply: {
-            root: {
-              cid: livestream.record.post.cid,
-              uri: livestream.record.post.uri,
-            },
-            parent: {
-              cid: livestream.record.post.cid,
-              uri: livestream.record.post.uri,
-            },
-          },
-        };
-        return await bluesky.pdsAgent.post(record);
-      },
-      {
-        pending: (state) => {
-          console.log("chatPost pending");
-        },
-        fulfilled: (state, action) => {
-          console.log("chatPost fulfilled", action.payload);
-        },
-        rejected: (state, action) => {
-          console.error("chatPost rejected", action.error);
-          // state.status = "failed";
-        },
-      },
-    ),
-
     createBlockRecord: create.asyncThunk(
       async ({ subjectDID }: { subjectDID: string }, thunkAPI) => {
         const { bluesky, streamplace } = thunkAPI.getState() as {
@@ -637,105 +571,6 @@ export const blueskySlice = createAppSlice({
         },
         rejected: (state, action) => {
           console.error("createBlockRecord rejected", action.error);
-          // state.status = "failed";
-        },
-      },
-    ),
-
-    chatMessage: create.asyncThunk(
-      async (
-        {
-          text,
-          livestream,
-          replyTo,
-        }: {
-          text: string;
-          livestream: LivestreamViewHydrated;
-          replyTo?: MessageViewHydrated;
-        },
-        thunkAPI,
-      ) => {
-        const { bluesky, streamplace } = thunkAPI.getState() as {
-          bluesky: BlueskyState;
-          streamplace: StreamplaceState;
-        };
-        if (!bluesky.pdsAgent) {
-          throw new Error("No agent");
-        }
-        const did = bluesky.oauthSession?.did;
-        if (!did) {
-          throw new Error("No DID");
-        }
-        const profile = bluesky.profiles[did];
-        if (!profile) {
-          throw new Error("No profile");
-        }
-
-        const rt = new RichText({ text });
-        rt.detectFacetsWithoutResolution();
-
-        const record: PlaceStreamChatMessage.Record = {
-          text: text,
-          createdAt: new Date().toISOString(),
-          streamer: livestream.author.did,
-          ...(replyTo
-            ? {
-                reply: {
-                  root: {
-                    cid: replyTo.cid,
-                    uri: replyTo.uri,
-                  },
-                  parent: {
-                    cid: replyTo.cid,
-                    uri: replyTo.uri,
-                  },
-                },
-              }
-            : {}),
-          ...(rt.facets && rt.facets.length > 0
-            ? {
-                facets: rt.facets.map((facet) => ({
-                  index: facet.index,
-                  features: facet.features
-                    .filter(
-                      (feature) =>
-                        feature.$type === "app.bsky.richtext.facet#link" ||
-                        feature.$type === "app.bsky.richtext.facet#mention",
-                    )
-                    .map((feature) => {
-                      if (isLink(feature)) {
-                        return {
-                          $type: "app.bsky.richtext.facet#link",
-                          uri: feature.uri,
-                        };
-                      } else if (isMention(feature)) {
-                        return {
-                          $type: "app.bsky.richtext.facet#mention",
-                          did: feature.did,
-                        };
-                      } else {
-                        throw new Error("invalid code path");
-                      }
-                    }),
-                })),
-              }
-            : {}),
-        };
-        await bluesky.pdsAgent.com.atproto.repo.createRecord({
-          repo: did,
-          collection: "place.stream.chat.message",
-          record,
-        });
-      },
-      {
-        pending: (state) => {
-          console.log("chatMessage pending");
-        },
-        fulfilled: (state, action) => {
-          console.log("chatMessage fulfilled", action.payload);
-        },
-        rejected: (state, action) => {
-          console.error("chatMessage rejected", action.error);
           // state.status = "failed";
         },
       },
@@ -1344,8 +1179,6 @@ export const {
   updateLivestreamRecord,
   createChatProfileRecord,
   getChatProfileRecordFromPDS,
-  chatPost,
-  chatMessage,
   createBlockRecord,
   followUser,
   unfollowUser,

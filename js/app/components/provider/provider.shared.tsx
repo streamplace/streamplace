@@ -3,13 +3,16 @@ import {
   LinkingOptions,
   NavigationContainer,
 } from "@react-navigation/native";
-import { StreamplaceProvider as NewStreamplaceProvider } from "@streamplace/components";
+import { StreamplaceProvider as ZustandStreamplaceProvider } from "@streamplace/components";
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
 import { useFonts } from "expo-font";
 import BlueskyProvider from "features/bluesky/blueskyProvider";
+import { selectOAuthSession } from "features/bluesky/blueskySlice";
 import StreamplaceProvider from "features/streamplace/streamplaceProvider";
+import useStreamplaceNode from "hooks/useStreamplaceNode";
 import React from "react";
 import { Provider as ReduxProvider } from "react-redux";
+import { useAppSelector } from "store/hooks";
 import { store } from "store/store";
 import { PortalProvider, TamaguiProvider } from "tamagui";
 import config from "tamagui.config";
@@ -26,8 +29,8 @@ export default function Provider({
       <NavigationContainer theme={DarkTheme} linking={linking}>
         <ReduxProvider store={store}>
           <StreamplaceProvider>
-            <NewStreamplaceProvider url={"https://longos.iameli.link"}>
-              <BlueskyProvider>
+            <BlueskyProvider>
+              <NewStreamplaceProvider>
                 <PortalProvider>
                   <ToastProvider
                     swipeDirection="vertical"
@@ -44,14 +47,31 @@ export default function Provider({
                     <ToastViewport name="default" top="$8" left={0} right={0} />
                   </ToastProvider>
                 </PortalProvider>
-              </BlueskyProvider>
-            </NewStreamplaceProvider>
+              </NewStreamplaceProvider>
+            </BlueskyProvider>
           </StreamplaceProvider>
         </ReduxProvider>
       </NavigationContainer>
     </TamaguiProvider>
   );
 }
+
+export const NewStreamplaceProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
+  const { url } = useStreamplaceNode();
+  const oauthSession = useAppSelector(selectOAuthSession);
+  return (
+    <ZustandStreamplaceProvider
+      url={url}
+      oauthSession={oauthSession || undefined}
+    >
+      {children}
+    </ZustandStreamplaceProvider>
+  );
+};
 
 export const FontProvider = ({ children }: { children: React.ReactNode }) => {
   const [fontLoaded, fontError] = useFonts({

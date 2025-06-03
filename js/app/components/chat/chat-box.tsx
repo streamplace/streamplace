@@ -1,4 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
+import { useCreateChatMessage } from "@streamplace/components";
 import {
   Palette,
   SquareArrowOutUpRight,
@@ -9,13 +10,11 @@ import { emojiEmitter } from "components/emoji-picker/emoji-emitter";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import NameColorPicker from "components/name-color-picker/name-color-picker";
 import {
-  chatMessage,
   selectChatProfile,
   selectIsReady,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
 import {
-  addLocalChatMessage,
   LivestreamViewHydrated,
   MessageViewHydrated,
   useChat,
@@ -309,6 +308,8 @@ export default function ChatBox({
     }
   }, [showSuggestions]);
 
+  const createChatMessage = useCreateChatMessage();
+
   const updateSuggestions = (text: string, cursorPosition: number) => {
     const atIndex = text.lastIndexOf("@", cursorPosition);
 
@@ -385,36 +386,10 @@ export default function ChatBox({
     if (!isWeb) Keyboard.dismiss();
     if (!message.length || !livestream || !userProfile) return;
 
-    // Add local message
-    dispatch(
-      addLocalChatMessage({
-        playerId,
-        message,
-        ...(replyTo ? { replyTo } : {}),
-        author: {
-          did: userProfile.did,
-          handle: userProfile.handle,
-        },
-        chatProfile: chatProfile?.profile?.color
-          ? {
-              color: {
-                red: chatProfile.profile.color.red,
-                green: chatProfile.profile.color.green,
-                blue: chatProfile.profile.color.blue,
-              },
-            }
-          : undefined,
-      }),
-    );
-
-    // Send to server
-    dispatch(
-      chatMessage({
-        text: message,
-        livestream,
-        ...(replyTo ? { replyTo } : {}),
-      }),
-    );
+    createChatMessage({
+      text: message,
+      reply: replyTo ? replyTo : undefined,
+    });
 
     setMessage("");
     playerActions.setReplyToMessage(null);

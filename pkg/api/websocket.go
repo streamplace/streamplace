@@ -164,6 +164,20 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		}()
 
 		go func() {
+			profile, err := a.Model.GetRepo(repoDID)
+			if err != nil {
+				log.Error(ctx, "could not get profile", "error", err)
+				return
+			}
+			p := map[string]any{
+				"$type":  "app.bsky.actor.defs#profileViewBasic",
+				"did":    repoDID,
+				"handle": profile.Handle,
+			}
+			initialBurst <- p
+		}()
+
+		go func() {
 			seg, err := a.Model.LatestSegmentForUser(repoDID)
 			if err != nil {
 				log.Error(ctx, "could not get replies", "error", err)

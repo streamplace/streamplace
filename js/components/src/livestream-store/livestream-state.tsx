@@ -1,3 +1,4 @@
+import { AppBskyActorDefs } from "@atproto/api";
 import {
   ChatMessageViewHydrated,
   LivestreamViewHydrated,
@@ -6,6 +7,7 @@ import {
 } from "streamplace";
 
 export interface LivestreamState {
+  profile: AppBskyActorDefs.ProfileViewBasic | null;
   chatIndex: { [key: string]: ChatMessageViewHydrated };
   chat: ChatMessageViewHydrated[];
   handleWebSocketMessages: (messages: any[]) => void;

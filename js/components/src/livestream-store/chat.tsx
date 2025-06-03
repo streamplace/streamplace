@@ -1,5 +1,132 @@
-import { ChatMessageViewHydrated, PlaceStreamDefs } from "streamplace";
+import { RichText } from "@atproto/api";
+import {
+  isLink,
+  isMention,
+} from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import {
+  ChatMessageViewHydrated,
+  PlaceStreamChatMessage,
+  PlaceStreamDefs,
+} from "streamplace";
+import { usePDSAgent } from "../streamplace-provider/xrpc";
+import { useDID } from "../streamplace-store";
 import { LivestreamState } from "./livestream-state";
+import { getStoreFromContext } from "./livestream-store";
+
+export type NewChatMessage = {
+  text: string;
+  reply?: {
+    cid: string;
+    uri: string;
+  };
+};
+
+export const useCreateChatMessage = () => {
+  const pdsAgent = usePDSAgent();
+  const store = getStoreFromContext();
+  const userDID = useDID();
+
+  if (!pdsAgent || !userDID) {
+    throw new Error("No PDS agent or user DID found");
+  }
+
+  return async (msg: NewChatMessage) => {
+    let state = store.getState();
+
+    const profile = state.profile;
+
+    if (!profile) {
+      throw new Error("Profile not found");
+    }
+
+    const rt = new RichText({ text: msg.text });
+    rt.detectFacetsWithoutResolution();
+
+    const record: PlaceStreamChatMessage.Record = {
+      text: msg.text,
+      createdAt: new Date().toISOString(),
+      streamer: profile.did,
+      ...(msg.reply
+        ? {
+            reply: {
+              root: {
+                cid: msg.reply.cid,
+                uri: msg.reply.uri,
+              },
+              parent: {
+                cid: msg.reply.cid,
+                uri: msg.reply.uri,
+              },
+            },
+          }
+        : {}),
+      ...(rt.facets && rt.facets.length > 0
+        ? {
+            facets: rt.facets.map((facet) => ({
+              index: facet.index,
+              features: facet.features
+                .filter(
+                  (feature) =>
+                    feature.$type === "app.bsky.richtext.facet#link" ||
+                    feature.$type === "app.bsky.richtext.facet#mention",
+                )
+                .map((feature) => {
+                  if (isLink(feature)) {
+                    return {
+                      $type: "app.bsky.richtext.facet#link",
+                      uri: feature.uri,
+                    };
+                  } else if (isMention(feature)) {
+                    return {
+                      $type: "app.bsky.richtext.facet#mention",
+                      did: feature.did,
+                    };
+                  } else {
+                    throw new Error("invalid code path");
+                  }
+                }),
+            })),
+          }
+        : {}),
+    };
+    await pdsAgent.com.atproto.repo.createRecord({
+      repo: userDID,
+      collection: "place.stream.chat.message",
+      record,
+    });
+
+    // Add local message
+    // dispatch(
+    //   addLocalChatMessage({
+    //     playerId,
+    //     message,
+    //     ...(replyTo ? { replyTo } : {}),
+    //     author: {
+    //       did: userProfile.did,
+    //       handle: userProfile.handle,
+    //     },
+    //     chatProfile: chatProfile?.profile?.color
+    //       ? {
+    //           color: {
+    //             red: chatProfile.profile.color.red,
+    //             green: chatProfile.profile.color.green,
+    //             blue: chatProfile.profile.color.blue,
+    //           },
+    //         }
+    //       : undefined,
+    //   }),
+    // );
+
+    // // Send to server
+    // dispatch(
+    //   chatMessage({
+    //     text: message,
+    //     livestream,
+    //     ...(replyTo ? { replyTo } : {}),
+    //   }),
+    // );
+  };
+};
 
 export const reduceChat = (
   state: LivestreamState,

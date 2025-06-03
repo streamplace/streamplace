@@ -70,7 +70,7 @@ export function PlayerDataContext(
   props: Partial<PlayerProps> & { children: React.ReactNode },
 ) {
   const dispatch = useAppDispatch();
-  const { pollSegment, handleWebSocketMessages } = usePlayerActions();
+  const { handleWebSocketMessages } = usePlayerActions();
 
   const url = useAppSelector(selectUrl);
   let wsUrl = url.replace(/^http\:/, "ws:");
@@ -123,21 +123,6 @@ export function PlayerDataContext(
   useEffect(() => {
     console.log(`websocket ${readyStateNames[readyState]}`);
   }, [readyState]);
-
-  useEffect(() => {
-    if (readyState === ReadyState.OPEN || !props.src) {
-      return;
-    }
-    let handle;
-    const poll = async () => {
-      if (!props.src) {
-        return;
-      }
-      await Promise.all([dispatch(pollSegment(props.src))]);
-    };
-    handle = setInterval(poll, POLL_INTERVAL);
-    return () => clearInterval(handle);
-  }, [props.src, readyState === ReadyState.OPEN]);
 
   return props.children;
 }

@@ -1,4 +1,9 @@
-import { useLivestream, useProfile, useViewers } from "@streamplace/components";
+import {
+  useLivestream,
+  useProfile,
+  useSegment,
+  useViewers,
+} from "@streamplace/components";
 import { MessageCircleMore, MessageCircleOff } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
 import Chat from "components/chat/chat";
@@ -57,7 +62,8 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
   const { src, ...extraProps } = props;
   const dispatch = useAppDispatch();
   const { width, height } = useWindowDimensions();
-  const video = player.segment?.video?.[0];
+  const segment = useSegment();
+  const video = segment?.video?.[0];
   const [videoWidth, setVideoWidth] = useState(0);
   const [videoHeight, setVideoHeight] = useState(0);
   const { keyboardHeight } = useKeyboard();
@@ -116,14 +122,14 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
     // 10 second cut off for segements
     const cuttOffDate = new Date(Date.now() - 10 * 1000);
     // 15 second cut off if segment start time not found
-    const startTime = player.segment?.startTime
-      ? new Date(player.segment?.startTime)
+    const startTime = segment?.startTime
+      ? new Date(segment?.startTime)
       : new Date(Date.now() - 15 * 1000);
 
     if (startTime > cuttOffDate) {
       setOffline(false);
     }
-  }, [player.segment]);
+  }, [segment]);
 
   let slideKeyboard = 0;
   if (isIOS && keyboardHeight > 0) {

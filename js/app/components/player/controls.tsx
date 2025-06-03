@@ -1,4 +1,4 @@
-import { useViewers } from "@streamplace/components";
+import { useSegment, useViewers } from "@streamplace/components";
 import {
   Antenna,
   CheckCircle,
@@ -22,7 +22,6 @@ import {
   usePlayerActions,
   usePlayerProtocol,
   usePlayerRenditions,
-  usePlayerSegment,
   usePlayerSelectedRendition,
 } from "features/player/playerSlice";
 import { userMute } from "features/streamplace/streamplaceSlice";
@@ -808,7 +807,7 @@ function GearMenu(
 }
 
 export function Offline() {
-  const segment = useAppSelector(usePlayerSegment());
+  const segment = useSegment();
   return (
     <View flex={1} justifyContent="center" alignItems="center">
       <View flexDirection="row">

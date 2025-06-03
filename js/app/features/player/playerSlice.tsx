@@ -1,7 +1,6 @@
 import { AppBskyFeedDefs, AppBskyFeedPost } from "@atproto/api";
 import { createAction } from "@reduxjs/toolkit";
 import { PROTOCOL_HLS, PROTOCOL_WEBRTC } from "components/player/props";
-import { StreamplaceState } from "features/streamplace/streamplaceSlice";
 import { uuidv7 } from "hooks/uuid";
 import { createContext, useContext } from "react";
 import { useAppDispatch } from "store/hooks";
@@ -9,7 +8,6 @@ import {
   PlaceStreamChatMessage,
   PlaceStreamDefs,
   PlaceStreamLivestream,
-  PlaceStreamSegment,
 } from "streamplace";
 import { createAppSlice } from "../../hooks/createSlice";
 
@@ -37,27 +35,10 @@ export const PlayerContext = createContext<PlayerContextType>({
   playerId: null,
 });
 
-interface SegmentMediadataVideo {
-  width: number;
-  height: number;
-  framerate: string;
-}
-
-interface SegmentMediadataAudio {
-  rate: number;
-  channels: number;
-}
-
-interface SegmentMediaData {
-  video: SegmentMediadataVideo[];
-  audio: SegmentMediadataAudio[];
-}
-
 export interface PlayerState {
   ingestStarted: number | null;
   ingestStarting: boolean;
   ingestConnectionState: RTCPeerConnectionState | null;
-  segment: PlaceStreamSegment.Record | null;
   renditions: PlaceStreamDefs.Rendition[];
   selectedRendition: string | null;
   protocol: string;
@@ -114,7 +95,6 @@ export const playerSlice = createAppSlice({
           ingestStarting: false,
           ingestConnectionState: null,
           protocol: action.payload.forceProtocol ?? PROTOCOL_WEBRTC,
-          segment: null,
           renditions: [],
           selectedRendition: "source",
         };
@@ -172,15 +152,7 @@ export const playerSlice = createAppSlice({
           },
         ) => {
           for (const message of action.payload.messages) {
-            if (PlaceStreamSegment.isRecord(message)) {
-              state = {
-                ...state,
-                [action.payload.playerId]: {
-                  ...state[action.payload.playerId],
-                  segment: message as PlaceStreamSegment.Record,
-                },
-              };
-            } else if (PlaceStreamDefs.isRenditions(message)) {
+            if (PlaceStreamDefs.isRenditions(message)) {
               state = {
                 ...state,
                 [action.payload.playerId]: {
@@ -191,40 +163,6 @@ export const playerSlice = createAppSlice({
             }
           }
           return state;
-        },
-      ),
-
-      pollSegment: create.asyncThunk(
-        async (
-          { playerId, user }: { playerId: string; user: string },
-          { getState },
-        ) => {
-          const { streamplace } = getState() as {
-            streamplace: StreamplaceState;
-          };
-          const res = await fetch(
-            `${streamplace.url}/api/segment/recent/${user}`,
-          );
-          const data = (await res.json()) as PlaceStreamSegment.Record;
-          return { playerId, segment: data };
-        },
-        {
-          pending: (state) => {
-            // state.status = "loading";
-          },
-          fulfilled: (state, result) => {
-            return {
-              ...state,
-              [result.payload.playerId]: {
-                ...state[result.payload.playerId],
-                segment: result.payload.segment,
-              },
-            };
-          },
-          rejected: (state, error) => {
-            console.error("pollSegment rejected", error);
-            return state;
-          },
         },
       ),
 
@@ -278,9 +216,6 @@ export const playerSlice = createAppSlice({
     selectPlayer: (state, playerId: string) => {
       return state[playerId];
     },
-    selectSegment: (state, playerId: string) => {
-      return state[playerId].segment;
-    },
     selectRenditions: (state, playerId: string) => {
       return state[playerId].renditions;
     },
@@ -306,8 +241,6 @@ export const usePlayerActions = () => {
         ingestConnectionState,
       });
     },
-    pollSegment: (user: string) =>
-      playerSlice.actions.pollSegment({ playerId, user }),
     handleWebSocketMessages: (messages: any[]) =>
       playerSlice.actions.handleWebSocketMessages({ playerId, messages }),
     setSelectedRendition: (rendition: string) =>
@@ -318,18 +251,12 @@ export const usePlayerActions = () => {
 };
 
 // Action creators are generated for each case reducer function.
-export const { selectPlayer, selectSegment } = playerSlice.selectors;
+export const { selectPlayer } = playerSlice.selectors;
 export const usePlayer = (): ((state: {
   player: PlayersState;
 }) => PlayerState) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId];
-};
-export const usePlayerSegment = (): ((state: {
-  player: PlayersState;
-}) => PlaceStreamSegment.Record | null) => {
-  const playerId = usePlayerId();
-  return (state) => state.player[playerId].segment;
 };
 export const usePlayerRenditions = (): ((state: {
   player: PlayersState;

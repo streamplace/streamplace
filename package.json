@@ -9,7 +9,7 @@
   },
   "scripts": {
     "preinstall": "node hack/node-version.js",
-    "check": "pnpm run check:workspaces && git ls-files | xargs prettier --check --ignore-unknown",
+    "check": "knip && pnpm run check:workspaces && git ls-files | xargs prettier --check --ignore-unknown",
     "check:workspaces": "cd js/app && pnpm run check",
     "fix": "git ls-files | xargs prettier --write --ignore-unknown",
     "postinstall": "husky && make lexicons",
@@ -20,17 +20,21 @@
     "app": "pnpm run -r --stream --filter @streamplace/app... --parallel",
     "desktop": "pnpm run -r --stream --filter streamplace-desktop... --parallel",
     "docs": "cd js/docs && pnpm run",
-    "start": "pnpm run -r --stream --parallel start"
+    "start": "pnpm run -r --stream --parallel start",
+    "knip": "knip"
   },
   "keywords": [],
   "author": "Streamplace",
   "license": "MIT",
   "devDependencies": {
     "@atproto/lex-cli": "^0.5.6",
+    "@types/node": "^22.15.17",
     "husky": "^9.1.6",
+    "knip": "^5.59.1",
     "lerna": "^8.1.9",
     "lint-staged": "^15.2.10",
-    "prettier": "3.4.2"
+    "prettier": "3.4.2",
+    "typescript": "^5.8.3"
   },
   "workspaces": [
     "js/*"

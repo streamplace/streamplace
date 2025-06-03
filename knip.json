@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "project": ["js/streamplace/src/**/*.ts"],
+  "entry": ["js/streamplace/src/index.ts"],
+  "ignoreWorkspaces": ["js/app", "js/desktop", "js/config-react-native-webrtc"],
+  "include": ["unlisted"],
+  "ignore": [".*tamagui.config.ts.*"]
+}

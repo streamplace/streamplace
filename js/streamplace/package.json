@@ -24,6 +24,7 @@
   "license": "MIT",
   "packageManager": "pnpm@10.11.0",
   "dependencies": {
+    "@atproto/api": "^0.15.7",
     "@atproto/lexicon": "^0.4.11",
     "@atproto/xrpc": "^0.7.0",
     "multiformats": "^9.9.0"

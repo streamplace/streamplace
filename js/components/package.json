@@ -25,9 +25,13 @@
     "tsup": "^8.5.0"
   },
   "dependencies": {
+    "@atproto/api": "^0.15.7",
     "react-native": "0.76.2",
     "react-use-websocket": "^4.13.0",
     "streamplace": "workspace:*",
     "zustand": "^5.0.5"
+  },
+  "peerDependencies": {
+    "react": "*"
   }
 }

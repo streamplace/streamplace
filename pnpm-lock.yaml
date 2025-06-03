@@ -16,14 +16,20 @@ importers:
         version: 0.1.0
       prettier-plugin-organize-imports:
         specifier: ^4.1.0
-        version: 4.1.0(prettier@3.4.2)(typescript@5.6.3)
+        version: 4.1.0(prettier@3.4.2)(typescript@5.8.3)
     devDependencies:
       '@atproto/lex-cli':
         specifier: ^0.5.6
         version: 0.5.7
+      '@types/node':
+        specifier: ^22.15.17
+        version: 22.15.17
       husky:
         specifier: ^9.1.6
         version: 9.1.6
+      knip:
+        specifier: ^5.59.1
+        version: 5.59.1(@types/node@22.15.17)(typescript@5.8.3)
       lerna:
         specifier: ^8.1.9
         version: 8.1.9(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13)
@@ -33,6 +39,9 @@ importers:
       prettier:
         specifier: 3.4.2
         version: 3.4.2
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
 
   js/app:
     dependencies:
@@ -370,10 +379,16 @@ importers:
         version: 22.15.17
       typescript:
         specifier: ^5.6.3
-        version: 5.6.3
+        version: 5.8.3
 
   js/components:
     dependencies:
+      '@atproto/api':
+        specifier: ^0.15.7
+        version: 0.15.7
+      react:
+        specifier: '*'
+        version: 18.3.1
       react-native:
         specifier: 0.76.2
         version: 0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)
@@ -389,7 +404,7 @@ importers:
     devDependencies:
       tsup:
         specifier: ^8.5.0
-        version: 8.5.0(@swc/core@1.8.0(@swc/helpers@0.5.17))(jiti@1.21.6)(postcss@8.5.3)(typescript@5.8.3)(yaml@2.5.1)
+        version: 8.5.0(@swc/core@1.8.0(@swc/helpers@0.5.17))(jiti@2.4.2)(postcss@8.5.3)(typescript@5.8.3)(yaml@2.5.1)
 
   js/config-react-native-webrtc:
     dependencies:
@@ -469,10 +484,10 @@ importers:
         version: 0.5.10
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.13.0
-        version: 8.13.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3))(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)
+        version: 8.13.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3))(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)
       '@typescript-eslint/parser':
         specifier: ^8.13.0
-        version: 8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)
+        version: 8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)
       '@vercel/webpack-asset-relocator-loader':
         specifier: 1.7.3
         version: 1.7.3
@@ -484,10 +499,10 @@ importers:
         version: 33.0.2
       eslint:
         specifier: ^9.14.0
-        version: 9.14.0(jiti@1.21.6)
+        version: 9.14.0(jiti@2.4.2)
       eslint-plugin-import:
         specifier: ^2.31.0
-        version: 2.31.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3))(eslint@9.14.0(jiti@1.21.6))
+        version: 2.31.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3))(eslint@9.14.0(jiti@2.4.2))
       fork-ts-checker-webpack-plugin:
         specifier: ^9.0.2
         version: 9.0.2(typescript@5.6.3)(webpack@5.94.0(@swc/core@1.8.0(@swc/helpers@0.5.17)))
@@ -511,7 +526,7 @@ importers:
     dependencies:
       '@astrojs/starlight':
         specifier: ^0.34.1
-        version: 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
+        version: 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
       '@fontsource/atkinson-hyperlegible-next':
         specifier: ^5.2.2
         version: 5.2.2
@@ -520,95 +535,25 @@ importers:
         version: link:../app
       astro:
         specifier: ^5.6.1
-        version: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
+        version: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
       sharp:
         specifier: ^0.32.5
         version: 0.32.6
       starlight-openapi:
         specifier: ^0.17.0
-        version: 0.17.0(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3)
+        version: 0.17.0(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3)
       starlight-openapi-rapidoc:
         specifier: ^0.8.1-beta
-        version: 0.8.1-beta(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3)
+        version: 0.8.1-beta(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3)
       streamplace:
         specifier: workspace:*
         version: link:../streamplace
 
-  js/example-app:
-    dependencies:
-      '@expo/vector-icons':
-        specifier: ^14.1.0
-        version: 14.1.0(expo-font@13.0.1(expo@52.0.8(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@expo/metro-runtime@4.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(encoding@0.1.13)(react-native-webview@13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
-      '@streamplace/atproto-oauth-client-react-native':
-        specifier: workspace:*
-        version: link:../atproto-oauth-client-react-native
-      '@streamplace/components':
-        specifier: workspace:*
-        version: link:../components
-      expo:
-        specifier: ~52.0.8
-        version: 52.0.8(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@expo/metro-runtime@4.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(encoding@0.1.13)(react-native-webview@13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(utf-8-validate@5.0.10)
-      expo-font:
-        specifier: ~13.0.1
-        version: 13.0.1(expo@52.0.8(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@expo/metro-runtime@4.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(encoding@0.1.13)(react-native-webview@13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
-      expo-linking:
-        specifier: ~7.0.3
-        version: 7.0.3(expo@52.0.8(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@expo/metro-runtime@4.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(encoding@0.1.13)(react-native-webview@13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(utf-8-validate@5.0.10))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
-      expo-splash-screen:
-        specifier: ~0.29.11
-        version: 0.29.11(expo@52.0.8(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@expo/metro-runtime@4.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(encoding@0.1.13)(react-native-webview@13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(utf-8-validate@5.0.10))
-      expo-status-bar:
-        specifier: ~2.0.0
-        version: 2.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
-      expo-symbols:
-        specifier: ~0.4.4
-        version: 0.4.4(expo@52.0.8(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@expo/metro-runtime@4.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(encoding@0.1.13)(react-native-webview@13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(utf-8-validate@5.0.10))
-      expo-system-ui:
-        specifier: ~4.0.3
-        version: 4.0.3(9862d46b4d5f52fd75d534649d1b6eef)
-      expo-web-browser:
-        specifier: ^14.0.1
-        version: 14.0.1(expo@52.0.8(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@expo/metro-runtime@4.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(encoding@0.1.13)(react-native-webview@13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(utf-8-validate@5.0.10))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))
-      react:
-        specifier: 18.3.1
-        version: 18.3.1
-      react-dom:
-        specifier: 18.3.1
-        version: 18.3.1(react@18.3.1)
-      react-native:
-        specifier: 0.76.2
-        version: 0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)
-      react-native-gesture-handler:
-        specifier: ~2.20.2
-        version: 2.20.2(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
-      react-native-reanimated:
-        specifier: ~3.16.1
-        version: 3.16.1(@babel/core@7.26.0)(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
-      react-native-safe-area-context:
-        specifier: 4.12.0
-        version: 4.12.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
-      react-native-screens:
-        specifier: ~4.1.0
-        version: 4.1.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
-      react-native-web:
-        specifier: ^0.19.13
-        version: 0.19.13(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react-native-webview:
-        specifier: 13.12.4
-        version: 13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
-    devDependencies:
-      '@babel/core':
-        specifier: ^7.26.0
-        version: 7.26.0
-      '@types/react':
-        specifier: ~18.3.12
-        version: 18.3.12
-      typescript:
-        specifier: ~5.3.3
-        version: 5.3.3
-
   js/streamplace:
     dependencies:
+      '@atproto/api':
+        specifier: ^0.15.7
+        version: 0.15.7
       '@atproto/lexicon':
         specifier: ^0.4.11
         version: 0.4.11
@@ -2092,11 +2037,17 @@ packages:
   '@emnapi/core@1.2.0':
     resolution: {integrity: sha512-E7Vgw78I93we4ZWdYCb4DGAwRROGkMIXk7/y87UmANR+J6qsWusmC3gLt0H+O0KOt5e6O38U8oJamgbudrES/w==}
 
+  '@emnapi/core@1.4.3':
+    resolution: {integrity: sha512-4m62DuCE07lw01soJwPiBGC0nAww0Q+RY70VZ+n49yDIO13yyinhbWCeNnaob0lakDtWQzSdtNWzJeOJt2ma+g==}
+
   '@emnapi/runtime@1.4.3':
     resolution: {integrity: sha512-pBPWdu6MLKROBX05wSNKcNb++m5Er+KQ9QkB+WVM+pW2Kx9hoSrVTnu3BdkI5eBLZoKu/J6mW/B6i6bJB2ytXQ==}
 
   '@emnapi/wasi-threads@1.0.1':
     resolution: {integrity: sha512-iIBu7mwkq4UQGeMEM8bLwNK962nXdhodeScX4slfQnRhEMMzvYivHhutCIk8uojvmASXXPC2WNEjwxFWk72Oqw==}
+
+  '@emnapi/wasi-threads@1.0.2':
+    resolution: {integrity: sha512-5n3nTJblwRi8LlXkJ9eBzu+kZR8Yxcc7ubakyQTFzPMtIhFpUBRbsnc2Dv88IZDIbCDlBiWrknhB4Lsz7mg6BA==}
 
   '@emoji-mart/react@1.1.1':
     resolution: {integrity: sha512-NMlFNeWgv1//uPsvLxvGQoIerPuVdXwK/EUek8OOkJ6wVOWPUizRBJU0hDqWZCOROVpfBgCemaC3m6jDOXi03g==}
@@ -2536,13 +2487,6 @@ packages:
 
   '@expo/vector-icons@14.0.4':
     resolution: {integrity: sha512-+yKshcbpDfbV4zoXOgHxCwh7lkE9VVTT5T03OUlBsqfze1PLy6Hi4jp1vSb1GVbY6eskvMIivGVc9SKzIv0oEQ==}
-
-  '@expo/vector-icons@14.1.0':
-    resolution: {integrity: sha512-7T09UE9h8QDTsUeMGymB4i+iqvtEeaO5VvUjryFB4tugDTG/bkzViWA74hm5pfjjDEhYMXWaX112mcvhccmIwQ==}
-    peerDependencies:
-      expo-font: '*'
-      react: '*'
-      react-native: '*'
 
   '@expo/xcpretty@4.3.1':
     resolution: {integrity: sha512-sqXgo1SCv+j4VtYEwl/bukuOIBrVgx6euIoCat3Iyx5oeoXwEA2USCoeL0IPubflMxncA2INkqJ/Wr3NGrSgzw==}
@@ -3168,6 +3112,9 @@ packages:
     resolution: {integrity: sha512-z10PF9JV6SbjFq+/rYabM+8CVlMokgl8RFGvieSGNTmrkQanfHn+15XBrhG3BgUfvmTeSeyShfOHpG0i9zEdcg==}
     deprecated: Motion One for Vue is deprecated. Use Oku Motion instead https://oku-ui.com/motion
 
+  '@napi-rs/wasm-runtime@0.2.10':
+    resolution: {integrity: sha512-bCsCyeZEwVErsGmyPNSzwfwFn4OdxBj0mmv6hOFucB/k81Ojdu68RbZdxYsRQUPc9l6SU5F/cG+bXgWs3oUgsQ==}
+
   '@napi-rs/wasm-runtime@0.2.4':
     resolution: {integrity: sha512-9zESzOO5aDByvhIAsOy9TbpZ0Ur2AJbUI7UT73kcUTS2mxAMHOBaa1st/jAymNoCtvrit99kkzT1FZuXVcgfIQ==}
 
@@ -3404,6 +3351,71 @@ packages:
 
   '@oslojs/encoding@1.1.0':
     resolution: {integrity: sha512-70wQhgYmndg4GCPxPPxPGevRKqTIJ2Nh4OkiMWmDAVYsTQ+Ta7Sq+rPevXyXGdzr30/qZBnyOalCszoMxlyldQ==}
+
+  '@oxc-resolver/binding-darwin-arm64@9.0.2':
+    resolution: {integrity: sha512-MVyRgP2gzJJtAowjG/cHN3VQXwNLWnY+FpOEsyvDepJki1SdAX/8XDijM1yN6ESD1kr9uhBKjGelC6h3qtT+rA==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@oxc-resolver/binding-darwin-x64@9.0.2':
+    resolution: {integrity: sha512-7kV0EOFEZ3sk5Hjy4+bfA6XOQpCwbDiDkkHN4BHHyrBHsXxUR05EcEJPPL1WjItefg+9+8hrBmoK0xRoDs41+A==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@oxc-resolver/binding-freebsd-x64@9.0.2':
+    resolution: {integrity: sha512-6OvkEtRXrt8sJ4aVfxHRikjain9nV1clIsWtJ1J3J8NG1ZhjyJFgT00SCvqxbK+pzeWJq6XzHyTCN78ML+lY2w==}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@oxc-resolver/binding-linux-arm-gnueabihf@9.0.2':
+    resolution: {integrity: sha512-aYpNL6o5IRAUIdoweW21TyLt54Hy/ZS9tvzNzF6ya1ckOQ8DLaGVPjGpmzxdNja9j/bbV6aIzBH7lNcBtiOTkQ==}
+    cpu: [arm]
+    os: [linux]
+
+  '@oxc-resolver/binding-linux-arm64-gnu@9.0.2':
+    resolution: {integrity: sha512-RGFW4vCfKMFEIzb9VCY0oWyyY9tR1/o+wDdNePhiUXZU4SVniRPQaZ1SJ0sUFI1k25pXZmzQmIP6cBmazi/Dew==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@oxc-resolver/binding-linux-arm64-musl@9.0.2':
+    resolution: {integrity: sha512-lxx/PibBfzqYvut2Y8N2D0Ritg9H8pKO+7NUSJb9YjR/bfk2KRmP8iaUz3zB0JhPtf/W3REs65oKpWxgflGToA==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@oxc-resolver/binding-linux-riscv64-gnu@9.0.2':
+    resolution: {integrity: sha512-yD28ptS/OuNhwkpXRPNf+/FvrO7lwURLsEbRVcL1kIE0GxNJNMtKgIE4xQvtKDzkhk6ZRpLho5VSrkkF+3ARTQ==}
+    cpu: [riscv64]
+    os: [linux]
+
+  '@oxc-resolver/binding-linux-s390x-gnu@9.0.2':
+    resolution: {integrity: sha512-WBwEJdspoga2w+aly6JVZeHnxuPVuztw3fPfWrei2P6rNM5hcKxBGWKKT6zO1fPMCB4sdDkFohGKkMHVV1eryQ==}
+    cpu: [s390x]
+    os: [linux]
+
+  '@oxc-resolver/binding-linux-x64-gnu@9.0.2':
+    resolution: {integrity: sha512-a2z3/cbOOTUq0UTBG8f3EO/usFcdwwXnCejfXv42HmV/G8GjrT4fp5+5mVDoMByH3Ce3iVPxj1LmS6OvItKMYQ==}
+    cpu: [x64]
+    os: [linux]
+
+  '@oxc-resolver/binding-linux-x64-musl@9.0.2':
+    resolution: {integrity: sha512-bHZF+WShYQWpuswB9fyxcgMIWVk4sZQT0wnwpnZgQuvGTZLkYJ1JTCXJMtaX5mIFHf69ngvawnwPIUA4Feil0g==}
+    cpu: [x64]
+    os: [linux]
+
+  '@oxc-resolver/binding-wasm32-wasi@9.0.2':
+    resolution: {integrity: sha512-I5cSgCCh5nFozGSHz+PjIOfrqW99eUszlxKLgoNNzQ1xQ2ou9ZJGzcZ94BHsM9SpyYHLtgHljmOZxCT9bgxYNA==}
+    engines: {node: '>=14.0.0'}
+    cpu: [wasm32]
+
+  '@oxc-resolver/binding-win32-arm64-msvc@9.0.2':
+    resolution: {integrity: sha512-5IhoOpPr38YWDWRCA5kP30xlUxbIJyLAEsAK7EMyUgqygBHEYLkElaKGgS0X5jRXUQ6l5yNxuW73caogb2FYaw==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@oxc-resolver/binding-win32-x64-msvc@9.0.2':
+    resolution: {integrity: sha512-Qc40GDkaad9rZksSQr2l/V9UubigIHsW69g94Gswc2sKYB3XfJXfIfyV8WTJ67u6ZMXsZ7BH1msSC6Aen75mCg==}
+    cpu: [x64]
+    os: [win32]
 
   '@oxc-transform/binding-darwin-arm64@0.47.1':
     resolution: {integrity: sha512-GT56Wkk/M1Eo1HCFfj8PxNn/ssBfxFVIrS3A5lJ6GE2k3gbVRORNzVA1znHtB3Tj4hIvWPNzqh+EQ2bhaFypNQ==}
@@ -7315,11 +7327,6 @@ packages:
   expo-structured-headers@4.0.0:
     resolution: {integrity: sha512-uPiwZjWq3AdFGgY52+I2nGPrNa6izxAglymPXHUZLekZW290GqIUOk7MBNDD4sg4JwUbSi3gdxEurpEvuq+FSg==}
 
-  expo-symbols@0.4.4:
-    resolution: {integrity: sha512-ZVTBdm48MUZsO/sRLrxezB37aazynn8pzpsIUwMqI7V5JtBPPb2gU7LRVPITRc0CqOA+OL01/PqFE3ifBUIP4A==}
-    peerDependencies:
-      expo: '*'
-
   expo-system-ui@4.0.3:
     resolution: {integrity: sha512-33Wbc6vGq1WL+eGPnMuKNygXWKMBbpiTpBpNY84elgBcoBUIHvR0xnhpg0HRRtg2piwmhZd7qq1vclpryzZCgA==}
     peerDependencies:
@@ -7418,6 +7425,10 @@ packages:
     resolution: {integrity: sha512-oX2ruAFQwf/Orj8m737Y5adxDQO0LAB7/S5MnxCdTNDd4p6BsyIVsv9JQsATbTSq8KHRpLwIHbVlUNatxd+1Ow==}
     engines: {node: '>=8.6.0'}
 
+  fast-glob@3.3.3:
+    resolution: {integrity: sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==}
+    engines: {node: '>=8.6.0'}
+
   fast-json-stable-stringify@2.1.0:
     resolution: {integrity: sha512-lhd/wF+Lk98HZoTCtlVraHtfh5XYijIjalXck7saUtuanSDyLMxnHhSXEDJqHxD7msR8D0uCmqlkwjCV8xvwHw==}
 
@@ -7456,6 +7467,9 @@ packages:
 
   fbjs@3.0.5:
     resolution: {integrity: sha512-ztsSx77JBtkuMrEypfhgc3cI0+0h+svqeie7xHbh1k/IKdcydnvadp/mUaGgjAOXQmQSxsqgaRhS3q9fy+1kxg==}
+
+  fd-package-json@2.0.0:
+    resolution: {integrity: sha512-jKmm9YtsNXN789RS/0mSzOC1NUq9mkVd65vbSSVsKdjGvYXBuE4oWe2QOEoFeRmJg+lPuZxpmrfFclNhoRMneQ==}
 
   fd-slicer@1.1.0:
     resolution: {integrity: sha512-cE1qsB/VwyQozZ+q1dGxR8LBYNZeofhEdUNGSMbQD3Gw2lAzX9Zb3uIU6Ebc/Fmyjo9AWWfnn0AUCHqtevs/8g==}
@@ -7630,6 +7644,11 @@ packages:
   form-data@4.0.0:
     resolution: {integrity: sha512-ETEklSGi5t0QMZuiXoA/Q6vcnxcLQP5vdugSpuAyi6SVGi2clPPp+xgEhuMaHC+zGgn31Kd235W35f7Hykkaww==}
     engines: {node: '>= 6'}
+
+  formatly@0.2.4:
+    resolution: {integrity: sha512-lIN7GpcvX/l/i24r/L9bnJ0I8Qn01qijWpQpDDvTLL29nKqSaJJu4h20+7VJ6m2CAhQ2/En/GbxDiHCzq/0MyA==}
+    engines: {node: '>=18.3.0'}
+    hasBin: true
 
   forwarded@0.2.0:
     resolution: {integrity: sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==}
@@ -8712,6 +8731,10 @@ packages:
     resolution: {integrity: sha512-2yTgeWTWzMWkHu6Jp9NKgePDaYHbntiwvYuuJLbbN9vl7DC9DvXKOB2BC3ZZ92D3cvV/aflH0osDfwpHepQ53w==}
     hasBin: true
 
+  jiti@2.4.2:
+    resolution: {integrity: sha512-rg9zJN+G4n2nfJl5MW3BMygZX56zKPNVEYYqq7adpmMh4Jn2QNEwhvQlFy6jPVdcod7txZtKHWnyZiA3a0zP7A==}
+    hasBin: true
+
   join-component@1.1.0:
     resolution: {integrity: sha512-bF7vcQxbODoGK1imE2P9GS9aw4zD0Sd+Hni68IMZLj7zRnquH7dXUmMw9hDI5S/Jzt7q+IyTXN0rSg2GI0IKhQ==}
 
@@ -8883,6 +8906,14 @@ packages:
   klona@2.0.6:
     resolution: {integrity: sha512-dhG34DXATL5hSxJbIexCft8FChFXtmskoZYnoPWjXQuebWYCNkVeV3KkGegCK9CP1oswI/vQibS2GY7Em/sJJA==}
     engines: {node: '>= 8'}
+
+  knip@5.59.1:
+    resolution: {integrity: sha512-pOMBw6sLQhi/RfnpI6TwBY6NrAtKXDO5wkmMm+pCsSK5eWbVfDnDtPXbLDGNCoZPXiuAojb27y4XOpp4JPNxlA==}
+    engines: {node: '>=18.18.0'}
+    hasBin: true
+    peerDependencies:
+      '@types/node': '>=18'
+      typescript: '>=5.0.4'
 
   launch-editor@2.9.1:
     resolution: {integrity: sha512-Gcnl4Bd+hRO9P9icCP/RVVT2o8SFlPXofuCxvA2SaZuH45whSvf5p8x5oih5ftLiVhEI4sp5xDY+R+b3zJBh5w==}
@@ -10222,6 +10253,9 @@ packages:
       typescript:
         optional: true
 
+  oxc-resolver@9.0.2:
+    resolution: {integrity: sha512-w838ygc1p7rF+7+h5vR9A+Y9Fc4imy6C3xPthCMkdFUgFvUWkmABeNB8RBDQ6+afk44Q60/UMMQ+gfDUW99fBA==}
+
   oxc-transform@0.47.1:
     resolution: {integrity: sha512-krLyXKa+2RWT9MFcj2q4ffEFFzX3EoypcLGpXMhTW0ayLxmGxyiLYlDlwFwP+5fbaVeeBu36XsVroOZelddl7g==}
 
@@ -11528,10 +11562,6 @@ packages:
     resolution: {integrity: sha512-DkS7q3nN68dEMb4E18HFPDAvyrjDZK9YAQQF2QxeFu9gp2xRDXFMF8qLJ1EmQ/qeEGQmop4lmMM1WtYJTIcCMw==}
     engines: {node: '>=10'}
 
-  sf-symbols-typescript@2.1.0:
-    resolution: {integrity: sha512-ezT7gu/SHTPIOEEoG6TF+O0m5eewl0ZDAO4AtdBi5HjsrUI6JdCG17+Q8+aKp0heM06wZKApRCn5olNbs0Wb/A==}
-    engines: {node: '>=10'}
-
   sha.js@2.4.11:
     resolution: {integrity: sha512-QMEp5B7cftE7APOjk5Y6xgrbWu+WkLVQwk8JNjZ8nKRciZaByEW6MubieAiToS7+dwvrjGhH8jRXz3MVd0AYqQ==}
     hasBin: true
@@ -11890,6 +11920,10 @@ packages:
   strip-json-comments@3.1.1:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
+
+  strip-json-comments@5.0.1:
+    resolution: {integrity: sha512-0fk9zBqO67Nq5M/m45qHCJxylV/DhBlIOVExqgOMiCCrzrhU6tCibRXNqE3jwJLftzE9SNuZtYbpzcO+i9FiKw==}
+    engines: {node: '>=14.16'}
 
   strip-outer@1.0.1:
     resolution: {integrity: sha512-k55yxKHwaXnpYGsOzg4Vl8+tDrWylxDEpknGjhTiZB8dFRU5rTo9CAzeycivxV3s+zlTKwrs6WxMxR95n26kwg==}
@@ -12774,6 +12808,10 @@ packages:
   walk-up-path@3.0.1:
     resolution: {integrity: sha512-9YlCL/ynK3CTlrSRrDxZvUauLzAswPCrsaCgilqFevUYpeEW0/3ScEjaa3kbW/T0ghhkEr7mv+fpjqn1Y1YuTA==}
 
+  walk-up-path@4.0.0:
+    resolution: {integrity: sha512-3hu+tD8YzSLGuFYtPRb48vdhKMi0KQV5sn+uWr8+7dMEq/2G/dtLrdDinkLjqq5TIbIBjYJ4Ax/n3YiaW7QM8A==}
+    engines: {node: 20 || >=22}
+
   walker@1.0.8:
     resolution: {integrity: sha512-ts/8E8l5b7kY0vlWLewOkDXMmPdLcVV4GmOQLyxuSswIJsweeFZtAsMF7k1Nszz+TYBQrlYRmzOnr398y1JemQ==}
 
@@ -13138,6 +13176,12 @@ packages:
       typescript: ^4.9.4 || ^5.0.2
       zod: ^3
 
+  zod-validation-error@3.4.1:
+    resolution: {integrity: sha512-1KP64yqDPQ3rupxNv7oXhf7KdhHHgaqbKuspVoiN93TT0xrBjql+Svjkdjq/Qh/7GSMmgQs3AfvBT0heE35thw==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      zod: ^3.24.4
+
   zod@3.24.4:
     resolution: {integrity: sha512-OdqJE9UDRPwWsrHjLN2F8bPxvwJBK22EHLWtanu0LSYr5YqzsaaW3RMgmjwr8Rypg5k+meEJdSPXJZXE/yqOMg==}
 
@@ -13227,12 +13271,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/mdx@4.2.6(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))':
+  '@astrojs/mdx@4.2.6(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))':
     dependencies:
       '@astrojs/markdown-remark': 6.3.1
       '@mdx-js/mdx': 3.1.0(acorn@8.14.1)
       acorn: 8.14.1
-      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
+      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
       es-module-lexer: 1.7.0
       estree-util-visit: 2.0.0
       hast-util-to-html: 9.0.5
@@ -13256,17 +13300,17 @@ snapshots:
       stream-replace-string: 2.0.0
       zod: 3.24.4
 
-  '@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))':
+  '@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))':
     dependencies:
       '@astrojs/markdown-remark': 6.3.1
-      '@astrojs/mdx': 4.2.6(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
+      '@astrojs/mdx': 4.2.6(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
       '@astrojs/sitemap': 3.3.1
       '@pagefind/default-ui': 1.3.0
       '@types/hast': 3.0.4
       '@types/js-yaml': 4.0.9
       '@types/mdast': 4.0.4
-      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
-      astro-expressive-code: 0.41.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
+      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
+      astro-expressive-code: 0.41.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
       bcp-47: 2.1.0
       hast-util-from-html: 2.0.3
       hast-util-select: 6.0.4
@@ -15657,6 +15701,12 @@ snapshots:
       '@emnapi/wasi-threads': 1.0.1
       tslib: 2.8.1
 
+  '@emnapi/core@1.4.3':
+    dependencies:
+      '@emnapi/wasi-threads': 1.0.2
+      tslib: 2.8.1
+    optional: true
+
   '@emnapi/runtime@1.4.3':
     dependencies:
       tslib: 2.8.1
@@ -15664,6 +15714,11 @@ snapshots:
   '@emnapi/wasi-threads@1.0.1':
     dependencies:
       tslib: 2.8.1
+
+  '@emnapi/wasi-threads@1.0.2':
+    dependencies:
+      tslib: 2.8.1
+    optional: true
 
   '@emoji-mart/react@1.1.1(emoji-mart@5.6.0)(react@18.3.1)':
     dependencies:
@@ -15830,9 +15885,9 @@ snapshots:
   '@esbuild/win32-x64@0.25.3':
     optional: true
 
-  '@eslint-community/eslint-utils@4.4.1(eslint@9.14.0(jiti@1.21.6))':
+  '@eslint-community/eslint-utils@4.4.1(eslint@9.14.0(jiti@2.4.2))':
     dependencies:
-      eslint: 9.14.0(jiti@1.21.6)
+      eslint: 9.14.0(jiti@2.4.2)
       eslint-visitor-keys: 3.4.3
 
   '@eslint-community/regexpp@4.12.1': {}
@@ -16177,12 +16232,6 @@ snapshots:
   '@expo/vector-icons@14.0.4':
     dependencies:
       prop-types: 15.8.1
-
-  '@expo/vector-icons@14.1.0(expo-font@13.0.1(expo@52.0.8(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@expo/metro-runtime@4.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(encoding@0.1.13)(react-native-webview@13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)':
-    dependencies:
-      expo-font: 13.0.1(expo@52.0.8(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@expo/metro-runtime@4.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(encoding@0.1.13)(react-native-webview@13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)
-      react: 18.3.1
-      react-native: 0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)
 
   '@expo/xcpretty@4.3.1':
     dependencies:
@@ -16833,7 +16882,7 @@ snapshots:
 
   '@leichtgewicht/ip-codec@2.0.5': {}
 
-  '@lerna/create@8.1.9(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13)(typescript@5.6.3)':
+  '@lerna/create@8.1.9(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13)(typescript@5.8.3)':
     dependencies:
       '@npmcli/arborist': 7.5.4
       '@npmcli/package-json': 5.2.0
@@ -16851,7 +16900,7 @@ snapshots:
       console-control-strings: 1.1.0
       conventional-changelog-core: 5.0.1
       conventional-recommended-bump: 7.0.1
-      cosmiconfig: 9.0.0(typescript@5.6.3)
+      cosmiconfig: 9.0.0(typescript@5.8.3)
       dedent: 1.5.3
       execa: 5.0.0
       fs-extra: 11.2.0
@@ -17181,6 +17230,13 @@ snapshots:
       '@motionone/dom': 10.18.0
       tslib: 2.8.1
 
+  '@napi-rs/wasm-runtime@0.2.10':
+    dependencies:
+      '@emnapi/core': 1.4.3
+      '@emnapi/runtime': 1.4.3
+      '@tybys/wasm-util': 0.9.0
+    optional: true
+
   '@napi-rs/wasm-runtime@0.2.4':
     dependencies:
       '@emnapi/core': 1.2.0
@@ -17485,6 +17541,47 @@ snapshots:
       '@octokit/openapi-types': 18.1.1
 
   '@oslojs/encoding@1.1.0': {}
+
+  '@oxc-resolver/binding-darwin-arm64@9.0.2':
+    optional: true
+
+  '@oxc-resolver/binding-darwin-x64@9.0.2':
+    optional: true
+
+  '@oxc-resolver/binding-freebsd-x64@9.0.2':
+    optional: true
+
+  '@oxc-resolver/binding-linux-arm-gnueabihf@9.0.2':
+    optional: true
+
+  '@oxc-resolver/binding-linux-arm64-gnu@9.0.2':
+    optional: true
+
+  '@oxc-resolver/binding-linux-arm64-musl@9.0.2':
+    optional: true
+
+  '@oxc-resolver/binding-linux-riscv64-gnu@9.0.2':
+    optional: true
+
+  '@oxc-resolver/binding-linux-s390x-gnu@9.0.2':
+    optional: true
+
+  '@oxc-resolver/binding-linux-x64-gnu@9.0.2':
+    optional: true
+
+  '@oxc-resolver/binding-linux-x64-musl@9.0.2':
+    optional: true
+
+  '@oxc-resolver/binding-wasm32-wasi@9.0.2':
+    dependencies:
+      '@napi-rs/wasm-runtime': 0.2.10
+    optional: true
+
+  '@oxc-resolver/binding-win32-arm64-msvc@9.0.2':
+    optional: true
+
+  '@oxc-resolver/binding-win32-x64-msvc@9.0.2':
+    optional: true
 
   '@oxc-transform/binding-darwin-arm64@0.47.1':
     optional: true
@@ -19987,15 +20084,15 @@ snapshots:
       '@types/node': 22.15.17
     optional: true
 
-  '@typescript-eslint/eslint-plugin@8.13.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3))(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)':
+  '@typescript-eslint/eslint-plugin@8.13.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3))(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)':
     dependencies:
       '@eslint-community/regexpp': 4.12.1
-      '@typescript-eslint/parser': 8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)
+      '@typescript-eslint/parser': 8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)
       '@typescript-eslint/scope-manager': 8.13.0
-      '@typescript-eslint/type-utils': 8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)
-      '@typescript-eslint/utils': 8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)
+      '@typescript-eslint/type-utils': 8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)
+      '@typescript-eslint/utils': 8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)
       '@typescript-eslint/visitor-keys': 8.13.0
-      eslint: 9.14.0(jiti@1.21.6)
+      eslint: 9.14.0(jiti@2.4.2)
       graphemer: 1.4.0
       ignore: 5.3.1
       natural-compare: 1.4.0
@@ -20005,14 +20102,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)':
+  '@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)':
     dependencies:
       '@typescript-eslint/scope-manager': 8.13.0
       '@typescript-eslint/types': 8.13.0
       '@typescript-eslint/typescript-estree': 8.13.0(typescript@5.6.3)
       '@typescript-eslint/visitor-keys': 8.13.0
       debug: 4.4.0
-      eslint: 9.14.0(jiti@1.21.6)
+      eslint: 9.14.0(jiti@2.4.2)
     optionalDependencies:
       typescript: 5.6.3
     transitivePeerDependencies:
@@ -20023,10 +20120,10 @@ snapshots:
       '@typescript-eslint/types': 8.13.0
       '@typescript-eslint/visitor-keys': 8.13.0
 
-  '@typescript-eslint/type-utils@8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)':
+  '@typescript-eslint/type-utils@8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)':
     dependencies:
       '@typescript-eslint/typescript-estree': 8.13.0(typescript@5.6.3)
-      '@typescript-eslint/utils': 8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)
+      '@typescript-eslint/utils': 8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)
       debug: 4.4.0
       ts-api-utils: 1.4.0(typescript@5.6.3)
     optionalDependencies:
@@ -20052,13 +20149,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@typescript-eslint/utils@8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)':
+  '@typescript-eslint/utils@8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)':
     dependencies:
-      '@eslint-community/eslint-utils': 4.4.1(eslint@9.14.0(jiti@1.21.6))
+      '@eslint-community/eslint-utils': 4.4.1(eslint@9.14.0(jiti@2.4.2))
       '@typescript-eslint/scope-manager': 8.13.0
       '@typescript-eslint/types': 8.13.0
       '@typescript-eslint/typescript-estree': 8.13.0(typescript@5.6.3)
-      eslint: 9.14.0(jiti@1.21.6)
+      eslint: 9.14.0(jiti@2.4.2)
     transitivePeerDependencies:
       - supports-color
       - typescript
@@ -20908,12 +21005,12 @@ snapshots:
 
   astring@1.9.0: {}
 
-  astro-expressive-code@0.41.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)):
+  astro-expressive-code@0.41.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)):
     dependencies:
-      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
+      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
       rehype-expressive-code: 0.41.2
 
-  astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1):
+  astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1):
     dependencies:
       '@astrojs/compiler': 2.12.0
       '@astrojs/internal-helpers': 0.6.1
@@ -20966,8 +21063,8 @@ snapshots:
       unist-util-visit: 5.0.0
       unstorage: 1.16.0(idb-keyval@6.2.1)
       vfile: 6.0.3
-      vite: 6.3.4(@types/node@22.15.17)(jiti@1.21.6)(lightningcss@1.29.1)(terser@5.32.0)(yaml@2.5.1)
-      vitefu: 1.0.6(vite@6.3.4(@types/node@22.15.17)(jiti@1.21.6)(lightningcss@1.29.1)(terser@5.32.0)(yaml@2.5.1))
+      vite: 6.3.4(@types/node@22.15.17)(jiti@2.4.2)(lightningcss@1.29.1)(terser@5.32.0)(yaml@2.5.1)
+      vitefu: 1.0.6(vite@6.3.4(@types/node@22.15.17)(jiti@2.4.2)(lightningcss@1.29.1)(terser@5.32.0)(yaml@2.5.1))
       xxhash-wasm: 1.1.0
       yargs-parser: 21.1.1
       yocto-spinner: 0.2.2
@@ -21926,14 +22023,14 @@ snapshots:
     optionalDependencies:
       typescript: 5.6.3
 
-  cosmiconfig@9.0.0(typescript@5.6.3):
+  cosmiconfig@9.0.0(typescript@5.8.3):
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.0
       js-yaml: 4.1.0
       parse-json: 5.2.0
     optionalDependencies:
-      typescript: 5.6.3
+      typescript: 5.8.3
 
   crc-32@1.2.2: {}
 
@@ -22682,17 +22779,17 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint@9.14.0(jiti@1.21.6)):
+  eslint-module-utils@2.12.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint@9.14.0(jiti@2.4.2)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
-      '@typescript-eslint/parser': 8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)
-      eslint: 9.14.0(jiti@1.21.6)
+      '@typescript-eslint/parser': 8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)
+      eslint: 9.14.0(jiti@2.4.2)
       eslint-import-resolver-node: 0.3.9
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.31.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3))(eslint@9.14.0(jiti@1.21.6)):
+  eslint-plugin-import@2.31.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3))(eslint@9.14.0(jiti@2.4.2)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.8
@@ -22701,9 +22798,9 @@ snapshots:
       array.prototype.flatmap: 1.3.2
       debug: 3.2.7
       doctrine: 2.1.0
-      eslint: 9.14.0(jiti@1.21.6)
+      eslint: 9.14.0(jiti@2.4.2)
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint@9.14.0(jiti@1.21.6))
+      eslint-module-utils: 2.12.0(@typescript-eslint/parser@8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint@9.14.0(jiti@2.4.2))
       hasown: 2.0.2
       is-core-module: 2.15.1
       is-glob: 4.0.3
@@ -22715,7 +22812,7 @@ snapshots:
       string.prototype.trimend: 1.0.8
       tsconfig-paths: 3.15.0
     optionalDependencies:
-      '@typescript-eslint/parser': 8.13.0(eslint@9.14.0(jiti@1.21.6))(typescript@5.6.3)
+      '@typescript-eslint/parser': 8.13.0(eslint@9.14.0(jiti@2.4.2))(typescript@5.6.3)
     transitivePeerDependencies:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack
@@ -22735,9 +22832,9 @@ snapshots:
 
   eslint-visitor-keys@4.2.0: {}
 
-  eslint@9.14.0(jiti@1.21.6):
+  eslint@9.14.0(jiti@2.4.2):
     dependencies:
-      '@eslint-community/eslint-utils': 4.4.1(eslint@9.14.0(jiti@1.21.6))
+      '@eslint-community/eslint-utils': 4.4.1(eslint@9.14.0(jiti@2.4.2))
       '@eslint-community/regexpp': 4.12.1
       '@eslint/config-array': 0.18.0
       '@eslint/core': 0.7.0
@@ -22773,7 +22870,7 @@ snapshots:
       optionator: 0.9.4
       text-table: 0.2.0
     optionalDependencies:
-      jiti: 1.21.6
+      jiti: 2.4.2
     transitivePeerDependencies:
       - supports-color
 
@@ -23086,11 +23183,6 @@ snapshots:
 
   expo-structured-headers@4.0.0: {}
 
-  expo-symbols@0.4.4(expo@52.0.8(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@expo/metro-runtime@4.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(encoding@0.1.13)(react-native-webview@13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(utf-8-validate@5.0.10)):
-    dependencies:
-      expo: 52.0.8(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@expo/metro-runtime@4.0.0(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(encoding@0.1.13)(react-native-webview@13.12.4(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1))(react-native@0.76.2(@babel/core@7.26.0)(@babel/preset-env@7.27.2(@babel/core@7.26.0))(@types/react@18.3.12)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(utf-8-validate@5.0.10)
-      sf-symbols-typescript: 2.1.0
-
   expo-system-ui@4.0.3(9862d46b4d5f52fd75d534649d1b6eef):
     dependencies:
       '@react-native/normalize-colors': 0.76.2
@@ -23265,6 +23357,14 @@ snapshots:
       merge2: 1.4.1
       micromatch: 4.0.8
 
+  fast-glob@3.3.3:
+    dependencies:
+      '@nodelib/fs.stat': 2.0.5
+      '@nodelib/fs.walk': 1.2.8
+      glob-parent: 5.1.2
+      merge2: 1.4.1
+      micromatch: 4.0.8
+
   fast-json-stable-stringify@2.1.0: {}
 
   fast-levenshtein@2.0.6: {}
@@ -23310,6 +23410,10 @@ snapshots:
       ua-parser-js: 1.0.38
     transitivePeerDependencies:
       - encoding
+
+  fd-package-json@2.0.0:
+    dependencies:
+      walk-up-path: 4.0.0
 
   fd-slicer@1.1.0:
     dependencies:
@@ -23562,6 +23666,10 @@ snapshots:
       asynckit: 0.4.0
       combined-stream: 1.0.8
       mime-types: 2.1.35
+
+  formatly@0.2.4:
+    dependencies:
+      fd-package-json: 2.0.0
 
   forwarded@0.2.0: {}
 
@@ -24906,6 +25014,8 @@ snapshots:
 
   jiti@1.21.6: {}
 
+  jiti@2.4.2: {}
+
   join-component@1.1.0: {}
 
   jose@4.15.9: {}
@@ -25091,6 +25201,24 @@ snapshots:
 
   klona@2.0.6: {}
 
+  knip@5.59.1(@types/node@22.15.17)(typescript@5.8.3):
+    dependencies:
+      '@nodelib/fs.walk': 1.2.8
+      '@types/node': 22.15.17
+      fast-glob: 3.3.3
+      formatly: 0.2.4
+      jiti: 2.4.2
+      js-yaml: 4.1.0
+      minimist: 1.2.8
+      oxc-resolver: 9.0.2
+      picocolors: 1.1.1
+      picomatch: 4.0.2
+      smol-toml: 1.3.4
+      strip-json-comments: 5.0.1
+      typescript: 5.8.3
+      zod: 3.24.4
+      zod-validation-error: 3.4.1(zod@3.24.4)
+
   launch-editor@2.9.1:
     dependencies:
       picocolors: 1.1.1
@@ -25098,7 +25226,7 @@ snapshots:
 
   lerna@8.1.9(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13):
     dependencies:
-      '@lerna/create': 8.1.9(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13)(typescript@5.6.3)
+      '@lerna/create': 8.1.9(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13)(typescript@5.8.3)
       '@npmcli/arborist': 7.5.4
       '@npmcli/package-json': 5.2.0
       '@npmcli/run-script': 8.1.0
@@ -25116,7 +25244,7 @@ snapshots:
       conventional-changelog-angular: 7.0.0
       conventional-changelog-core: 5.0.1
       conventional-recommended-bump: 7.0.1
-      cosmiconfig: 9.0.0(typescript@5.6.3)
+      cosmiconfig: 9.0.0(typescript@5.8.3)
       dedent: 1.5.3
       envinfo: 7.13.0
       execa: 5.0.0
@@ -25169,7 +25297,7 @@ snapshots:
       strong-log-transformer: 2.1.0
       tar: 6.2.1
       temp-dir: 1.0.0
-      typescript: 5.6.3
+      typescript: 5.8.3
       upath: 2.0.1
       uuid: 10.0.0
       validate-npm-package-license: 3.0.4
@@ -27169,6 +27297,22 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
+  oxc-resolver@9.0.2:
+    optionalDependencies:
+      '@oxc-resolver/binding-darwin-arm64': 9.0.2
+      '@oxc-resolver/binding-darwin-x64': 9.0.2
+      '@oxc-resolver/binding-freebsd-x64': 9.0.2
+      '@oxc-resolver/binding-linux-arm-gnueabihf': 9.0.2
+      '@oxc-resolver/binding-linux-arm64-gnu': 9.0.2
+      '@oxc-resolver/binding-linux-arm64-musl': 9.0.2
+      '@oxc-resolver/binding-linux-riscv64-gnu': 9.0.2
+      '@oxc-resolver/binding-linux-s390x-gnu': 9.0.2
+      '@oxc-resolver/binding-linux-x64-gnu': 9.0.2
+      '@oxc-resolver/binding-linux-x64-musl': 9.0.2
+      '@oxc-resolver/binding-wasm32-wasi': 9.0.2
+      '@oxc-resolver/binding-win32-arm64-msvc': 9.0.2
+      '@oxc-resolver/binding-win32-x64-msvc': 9.0.2
+
   oxc-transform@0.47.1:
     optionalDependencies:
       '@oxc-transform/binding-darwin-arm64': 0.47.1
@@ -27522,11 +27666,11 @@ snapshots:
       postcss: 8.5.3
       ts-node: 10.9.2(@swc/core@1.8.0(@swc/helpers@0.5.17))(@types/node@22.15.17)(typescript@5.3.3)
 
-  postcss-load-config@6.0.1(jiti@1.21.6)(postcss@8.5.3)(yaml@2.5.1):
+  postcss-load-config@6.0.1(jiti@2.4.2)(postcss@8.5.3)(yaml@2.5.1):
     dependencies:
       lilconfig: 3.1.3
     optionalDependencies:
-      jiti: 1.21.6
+      jiti: 2.4.2
       postcss: 8.5.3
       yaml: 2.5.1
 
@@ -27598,10 +27742,10 @@ snapshots:
 
   prelude-ls@1.2.1: {}
 
-  prettier-plugin-organize-imports@4.1.0(prettier@3.4.2)(typescript@5.6.3):
+  prettier-plugin-organize-imports@4.1.0(prettier@3.4.2)(typescript@5.8.3):
     dependencies:
       prettier: 3.4.2
-      typescript: 5.6.3
+      typescript: 5.8.3
 
   prettier@3.4.2: {}
 
@@ -28724,8 +28868,6 @@ snapshots:
 
   sf-symbols-typescript@1.0.0: {}
 
-  sf-symbols-typescript@2.1.0: {}
-
   sha.js@2.4.11:
     dependencies:
       inherits: 2.0.4
@@ -29027,22 +29169,22 @@ snapshots:
     dependencies:
       type-fest: 0.7.1
 
-  starlight-openapi-rapidoc@0.8.1-beta(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3):
+  starlight-openapi-rapidoc@0.8.1-beta(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3):
     dependencies:
-      '@astrojs/starlight': 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
+      '@astrojs/starlight': 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
       '@astropub/md': 0.4.0
       '@readme/openapi-parser': 2.5.0(openapi-types@12.1.3)
-      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
+      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
       github-slugger: 2.0.0
     transitivePeerDependencies:
       - '@astrojs/markdown-remark'
       - openapi-types
 
-  starlight-openapi@0.17.0(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3):
+  starlight-openapi@0.17.0(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3):
     dependencies:
-      '@astrojs/starlight': 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
+      '@astrojs/starlight': 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
       '@readme/openapi-parser': 2.7.0(openapi-types@12.1.3)
-      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@1.21.6)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
+      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
       github-slugger: 2.0.0
       url-template: 3.1.1
     transitivePeerDependencies:
@@ -29166,6 +29308,8 @@ snapshots:
 
   strip-json-comments@3.1.1: {}
 
+  strip-json-comments@5.0.1: {}
+
   strip-outer@1.0.1:
     dependencies:
       escape-string-regexp: 1.0.5
@@ -29267,7 +29411,7 @@ snapshots:
       chokidar: 3.6.0
       didyoumean: 1.2.2
       dlv: 1.1.3
-      fast-glob: 3.3.2
+      fast-glob: 3.3.3
       glob-parent: 6.0.2
       is-glob: 4.0.3
       jiti: 1.21.6
@@ -29629,7 +29773,7 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  tsup@8.5.0(@swc/core@1.8.0(@swc/helpers@0.5.17))(jiti@1.21.6)(postcss@8.5.3)(typescript@5.8.3)(yaml@2.5.1):
+  tsup@8.5.0(@swc/core@1.8.0(@swc/helpers@0.5.17))(jiti@2.4.2)(postcss@8.5.3)(typescript@5.8.3)(yaml@2.5.1):
     dependencies:
       bundle-require: 5.1.0(esbuild@0.25.3)
       cac: 6.7.14
@@ -29640,7 +29784,7 @@ snapshots:
       fix-dts-default-cjs-exports: 1.0.1
       joycon: 3.1.1
       picocolors: 1.1.1
-      postcss-load-config: 6.0.1(jiti@1.21.6)(postcss@8.5.3)(yaml@2.5.1)
+      postcss-load-config: 6.0.1(jiti@2.4.2)(postcss@8.5.3)(yaml@2.5.1)
       resolve-from: 5.0.0
       rollup: 4.40.1
       source-map: 0.8.0-beta.0
@@ -30075,7 +30219,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  vite@6.3.4(@types/node@22.15.17)(jiti@1.21.6)(lightningcss@1.29.1)(terser@5.32.0)(yaml@2.5.1):
+  vite@6.3.4(@types/node@22.15.17)(jiti@2.4.2)(lightningcss@1.29.1)(terser@5.32.0)(yaml@2.5.1):
     dependencies:
       esbuild: 0.25.3
       fdir: 6.4.4(picomatch@4.0.2)
@@ -30086,14 +30230,14 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.15.17
       fsevents: 2.3.3
-      jiti: 1.21.6
+      jiti: 2.4.2
       lightningcss: 1.29.1
       terser: 5.32.0
       yaml: 2.5.1
 
-  vitefu@1.0.6(vite@6.3.4(@types/node@22.15.17)(jiti@1.21.6)(lightningcss@1.29.1)(terser@5.32.0)(yaml@2.5.1)):
+  vitefu@1.0.6(vite@6.3.4(@types/node@22.15.17)(jiti@2.4.2)(lightningcss@1.29.1)(terser@5.32.0)(yaml@2.5.1)):
     optionalDependencies:
-      vite: 6.3.4(@types/node@22.15.17)(jiti@1.21.6)(lightningcss@1.29.1)(terser@5.32.0)(yaml@2.5.1)
+      vite: 6.3.4(@types/node@22.15.17)(jiti@2.4.2)(lightningcss@1.29.1)(terser@5.32.0)(yaml@2.5.1)
 
   vlq@1.0.1: {}
 
@@ -30140,6 +30284,8 @@ snapshots:
       - zod
 
   walk-up-path@3.0.1: {}
+
+  walk-up-path@4.0.0: {}
 
   walker@1.0.8:
     dependencies:
@@ -30536,6 +30682,10 @@ snapshots:
   zod-to-ts@1.2.0(typescript@5.8.3)(zod@3.24.4):
     dependencies:
       typescript: 5.8.3
+      zod: 3.24.4
+
+  zod-validation-error@3.4.1(zod@3.24.4):
+    dependencies:
       zod: 3.24.4
 
   zod@3.24.4: {}

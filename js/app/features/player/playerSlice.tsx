@@ -31,7 +31,6 @@ export interface MessageViewHydrated {
   record: PlaceStreamChatMessage.Record;
   indexedAt: string;
   chatProfile?: ChatProfile;
-  replyTo?: MessageViewHydrated;
 }
 
 export const PlayerContext = createContext<PlayerContextType>({
@@ -64,7 +63,6 @@ export interface PlayerState {
   renditions: PlaceStreamDefs.Rendition[];
   selectedRendition: string | null;
   protocol: string;
-  replyToMessage: MessageViewHydrated | null;
 }
 
 export interface PlayersState {
@@ -123,7 +121,6 @@ export const playerSlice = createAppSlice({
           segment: null,
           renditions: [],
           selectedRendition: "source",
-          replyToMessage: null,
         };
       },
     );
@@ -214,24 +211,6 @@ export const playerSlice = createAppSlice({
             }
           }
           return state;
-        },
-      ),
-
-      setReplyToMessage: create.reducer(
-        (
-          state,
-          action: {
-            payload: { playerId: string; message: MessageViewHydrated | null };
-            type: string;
-          },
-        ) => {
-          return {
-            ...state,
-            [action.payload.playerId]: {
-              ...state[action.payload.playerId],
-              replyToMessage: action.payload.message,
-            },
-          };
         },
       ),
 
@@ -426,8 +405,6 @@ export const usePlayerActions = () => {
       playerSlice.actions.setSelectedRendition({ playerId, rendition }),
     setProtocol: (protocol: string) =>
       playerSlice.actions.setProtocol({ playerId, protocol }),
-    setReplyToMessage: (message: MessageViewHydrated | null) =>
-      dispatch(playerSlice.actions.setReplyToMessage({ playerId, message })),
   };
 };
 
@@ -469,10 +446,4 @@ export const usePlayerProtocol = (): ((state: {
 }) => string) => {
   const playerId = usePlayerId();
   return (state) => state.player[playerId].protocol;
-};
-export const useReplyToMessage = (): ((state: {
-  player: PlayersState;
-}) => MessageViewHydrated | null) => {
-  const playerId = usePlayerId();
-  return (state) => state.player[playerId].replyToMessage;
 };

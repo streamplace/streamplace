@@ -17,6 +17,7 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     viewers: null,
     segment: null,
     renditions: [],
+    replyToMessage: null,
   }));
 };
 

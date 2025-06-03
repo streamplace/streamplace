@@ -15,4 +15,5 @@ export interface LivestreamState {
   viewers: number | null;
   segment: PlaceStreamSegment.Record | null;
   renditions: PlaceStreamDefs.Rendition[];
+  replyToMessage: ChatMessageViewHydrated | null;
 }

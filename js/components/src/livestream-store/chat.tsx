@@ -11,7 +11,17 @@ import {
 import { useChatProfile, useDID, useHandle } from "../streamplace-store";
 import { usePDSAgent } from "../streamplace-store/xrpc";
 import { LivestreamState } from "./livestream-state";
-import { getStoreFromContext } from "./livestream-store";
+import { getStoreFromContext, useLivestreamStore } from "./livestream-store";
+
+export const useReplyToMessage = () =>
+  useLivestreamStore((state) => state.replyToMessage);
+
+export const useSetReplyToMessage = () => {
+  const store = getStoreFromContext();
+  return (message: ChatMessageViewHydrated | null) => {
+    store.setState({ replyToMessage: message });
+  };
+};
 
 export type NewChatMessage = {
   text: string;

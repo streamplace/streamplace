@@ -1,5 +1,10 @@
 import { useNavigation } from "@react-navigation/native";
-import { useChat, useCreateChatMessage } from "@streamplace/components";
+import {
+  useChat,
+  useCreateChatMessage,
+  useReplyToMessage,
+  useSetReplyToMessage,
+} from "@streamplace/components";
 import {
   Palette,
   SquareArrowOutUpRight,
@@ -16,10 +21,8 @@ import {
 } from "features/bluesky/blueskySlice";
 import {
   LivestreamViewHydrated,
-  usePlayerActions,
   usePlayerId,
   usePlayerLivestream,
-  useReplyToMessage,
 } from "features/player/playerSlice";
 import {
   chatWarn,
@@ -80,8 +83,8 @@ export default function ChatBox({
   const dispatch = useAppDispatch();
   const navigate = useNavigation();
   const playerId = usePlayerId();
-  const playerActions = usePlayerActions();
-  const replyTo = useAppSelector(useReplyToMessage());
+  const replyTo = useReplyToMessage();
+  const setReplyToMessage = useSetReplyToMessage();
   if (isWeb) usePreloadEmoji({ immediate: true });
   const [isTextAreaFocused, setIsTextAreaFocused] = useState(false);
   const [pickerState, setPickerState] = useState({
@@ -391,7 +394,7 @@ export default function ChatBox({
     });
 
     setMessage("");
-    playerActions.setReplyToMessage(null);
+    setReplyToMessage(null);
     setShowSuggestions(false);
     if (isWeb && textAreaRef.current) {
       const textarea = textAreaRef.current as unknown as HTMLTextAreaElement;
@@ -467,7 +470,7 @@ export default function ChatBox({
                 <Button
                   size="$2"
                   circular
-                  onPress={() => playerActions.setReplyToMessage(null)}
+                  onPress={() => setReplyToMessage(null)}
                   backgroundColor="transparent"
                 >
                   <XIcon size={16} />

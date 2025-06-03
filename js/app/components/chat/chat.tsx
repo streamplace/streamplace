@@ -1,4 +1,4 @@
-import { useChat } from "@streamplace/components";
+import { useChat, useSetReplyToMessage } from "@streamplace/components";
 import { Reply, Settings, X } from "@tamagui/lucide-icons";
 import {
   createBlockRecord,
@@ -6,7 +6,6 @@ import {
 } from "features/bluesky/blueskySlice";
 import {
   MessageViewHydrated,
-  usePlayerActions,
   usePlayerLivestream,
 } from "features/player/playerSlice";
 import usePlatform from "hooks/usePlatform";
@@ -197,7 +196,7 @@ function ChatMessageRow({
   chat: ChatMessageViewHydrated[];
 }): JSX.Element {
   const [hover, setHover] = useState(false);
-  const playerActions = usePlayerActions();
+  const setReplyToMessage = useSetReplyToMessage();
   const { isWeb } = usePlatform();
 
   const moderateMessage = () => {
@@ -209,7 +208,7 @@ function ChatMessageRow({
   };
 
   const handleReply = () => {
-    playerActions.setReplyToMessage(message as MessageViewHydrated);
+    setReplyToMessage(message);
   };
 
   const replyTo = message.replyTo as ChatMessageViewHydrated | undefined;

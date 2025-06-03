@@ -10,7 +10,6 @@ export interface LivestreamState {
   profile: AppBskyActorDefs.ProfileViewBasic | null;
   chatIndex: { [key: string]: ChatMessageViewHydrated };
   chat: ChatMessageViewHydrated[];
-  handleWebSocketMessages: (messages: any[]) => void;
   livestream: LivestreamViewHydrated | null;
   viewers: number | null;
   segment: PlaceStreamSegment.Record | null;

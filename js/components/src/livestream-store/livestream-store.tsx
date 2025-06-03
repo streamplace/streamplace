@@ -11,8 +11,6 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     profile: null,
     chatIndex: {},
     chat: [],
-    handleWebSocketMessages: (messages: any[]) =>
-      set((state) => handleWebSocketMessages(state, messages)),
     livestream: null,
     viewers: null,
     segment: null,
@@ -38,10 +36,14 @@ export function useLivestreamStore<U>(
   return useStore(store, selector);
 }
 
-export const useChat = () => useLivestreamStore((x) => x.chat);
+export const useHandleWebsocketMessages = () => {
+  const store = getStoreFromContext();
+  return (messages: any[]) => {
+    store.setState((state) => handleWebSocketMessages(state, messages));
+  };
+};
 
-export const useHandleWebsocketMessages = () =>
-  useLivestreamStore((x) => x.handleWebSocketMessages);
+export const useChat = () => useLivestreamStore((x) => x.chat);
 
 export const useProfile = () => useLivestreamStore((x) => x.profile);
 

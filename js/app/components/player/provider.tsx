@@ -70,13 +70,8 @@ export function PlayerDataContext(
   props: Partial<PlayerProps> & { children: React.ReactNode },
 ) {
   const dispatch = useAppDispatch();
-  const {
-    pollViewers,
-    pollChat,
-    pollLivestream,
-    pollSegment,
-    handleWebSocketMessages,
-  } = usePlayerActions();
+  const { pollViewers, pollLivestream, pollSegment, handleWebSocketMessages } =
+    usePlayerActions();
 
   const url = useAppSelector(selectUrl);
   let wsUrl = url.replace(/^http\:/, "ws:");
@@ -141,7 +136,6 @@ export function PlayerDataContext(
       }
       await Promise.all([
         dispatch(pollViewers(props.src)),
-        dispatch(pollChat(props.src)),
         dispatch(pollLivestream(props.src)),
         dispatch(pollSegment(props.src)),
       ]);

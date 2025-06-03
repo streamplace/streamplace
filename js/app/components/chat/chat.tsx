@@ -466,7 +466,7 @@ const segmentedObject = (
       );
     }
   } else {
-    return <Text>{obj.text}</Text>;
+    return <Text key={`text-${index}`}>{obj.text}</Text>;
   }
 };
 
@@ -482,8 +482,6 @@ const RichTextMessage = ({
   if (!facets?.length) return <Text>{text}</Text>;
 
   let segs = segmentize(text, facets);
-
-  console.log(segs);
 
   return segs.map((seg, i) =>
     segmentedObject(seg, chat as MessageViewHydrated[], i),

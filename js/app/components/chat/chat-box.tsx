@@ -1,5 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import { useCreateChatMessage } from "@streamplace/components";
+import { useChat, useCreateChatMessage } from "@streamplace/components";
 import {
   Palette,
   SquareArrowOutUpRight,
@@ -16,8 +16,6 @@ import {
 } from "features/bluesky/blueskySlice";
 import {
   LivestreamViewHydrated,
-  MessageViewHydrated,
-  useChat,
   usePlayerActions,
   usePlayerId,
   usePlayerLivestream,
@@ -31,12 +29,13 @@ import { usePreloadEmoji } from "hooks/usePreloadEmoji";
 import { useEffect, useRef, useState } from "react";
 import { Keyboard } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
+import { ChatMessageViewHydrated } from "streamplace";
 import { Button, Form, Input, isWeb, Text, TextArea, View } from "tamagui";
 import EmojiSuggestions, { EmojiSuggestion } from "./emoji-suggestions";
 import MentionSuggestions, { MentionSuggestion } from "./mention-suggestions";
 
 const getParticipantSuggestions = (
-  chat: MessageViewHydrated[],
+  chat: ChatMessageViewHydrated[],
   currentUserDid?: string,
 ) => {
   const participants = new Set<string>();
@@ -76,7 +75,7 @@ export default function ChatBox({
   const chatWarned = useAppSelector(selectChatWarned);
   const loggedOut = isReady && !userProfile;
   const livestream = useAppSelector(usePlayerLivestream());
-  const chat = useAppSelector(useChat());
+  const chat = useChat();
   const textAreaRef = useRef<Input>(null);
   const dispatch = useAppDispatch();
   const navigate = useNavigation();

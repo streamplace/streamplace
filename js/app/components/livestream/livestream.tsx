@@ -188,7 +188,6 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                 zIndex: 1000,
               }}
               bubbleProps={{
-                cursor: "pointer",
                 backgroundColor: "$accentBackground",
                 gap: "$3",
                 maxWidth: 400,
@@ -275,7 +274,6 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                             )
                           }
                           aria-label={`View @${streamerHandle} on Bluesky`}
-                          style={{ cursor: "pointer" }}
                         >
                           {`@${streamerHandle}`}
                         </Text>
@@ -388,7 +386,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                             )
                           }
                           aria-label={`View @${streamerHandle} on Bluesky`}
-                          style={{ cursor: "pointer" }}
+                          style={{ cursor: isWeb ? "pointer" : undefined }} // iOS literally crashes otherwise idk
                           numberOfLines={1}
                           ellipsizeMode="tail"
                         >

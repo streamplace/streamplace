@@ -1,3 +1,4 @@
+import { useViewers } from "@streamplace/components";
 import {
   Antenna,
   CheckCircle,
@@ -278,7 +279,7 @@ export default function Controls(
     props.setPlayTime(Date.now());
   };
 
-  const player = useAppSelector(usePlayer());
+  const viewers = useViewers();
   const dispatch = useAppDispatch();
   const m = useMedia();
 
@@ -416,7 +417,7 @@ export default function Controls(
           ) : null}
         </Part>
         <Part justifyContent="flex-end">
-          <Viewers viewers={player.viewers ?? 0} />
+          <Viewers viewers={viewers ?? 0} />
         </Part>
       </Bar>
       {props.ingest && <LiveBubble />}

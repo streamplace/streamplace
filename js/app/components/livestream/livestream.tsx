@@ -1,3 +1,4 @@
+import { useViewers } from "@streamplace/components";
 import { MessageCircleMore, MessageCircleOff } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
 import Chat from "components/chat/chat";
@@ -51,6 +52,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
   const player = useAppSelector(usePlayer());
   const profiles = useAppSelector(selectProfiles);
   const toast = useToastController();
+  const viewers = useViewers();
 
   const { src, ...extraProps } = props;
   const dispatch = useAppDispatch();
@@ -283,7 +285,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                     {startTime instanceof Date && !offline && (
                       <Timer start={startTime} />
                     )}
-                    <Viewers viewers={player.viewers ?? 0} />
+                    <Viewers viewers={viewers ?? 0} />
                     <Button
                       backgroundColor="transparent"
                       onPress={() => setIsChatVisible(!isChatVisible)}
@@ -395,7 +397,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                     )}
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
-                    <Viewers viewers={player.viewers ?? 0} />
+                    <Viewers viewers={viewers ?? 0} />
                   </View>
                 </View>
                 <View

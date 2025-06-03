@@ -57,7 +57,6 @@ export interface PlayerState {
   ingestStarted: number | null;
   ingestStarting: boolean;
   ingestConnectionState: RTCPeerConnectionState | null;
-  viewers: number | null;
   livestream: LivestreamViewHydrated | null;
   segment: PlaceStreamSegment.Record | null;
   renditions: PlaceStreamDefs.Rendition[];
@@ -115,7 +114,6 @@ export const playerSlice = createAppSlice({
           ingestStarted: null,
           ingestStarting: false,
           ingestConnectionState: null,
-          viewers: null,
           protocol: action.payload.forceProtocol ?? PROTOCOL_WEBRTC,
           livestream: null,
           segment: null,
@@ -184,14 +182,6 @@ export const playerSlice = createAppSlice({
                   livestream: message as LivestreamViewHydrated,
                 },
               };
-            } else if (PlaceStreamLivestream.isViewerCount(message)) {
-              state = {
-                ...state,
-                [action.payload.playerId]: {
-                  ...state[action.payload.playerId],
-                  viewers: message.count,
-                },
-              };
             } else if (PlaceStreamSegment.isRecord(message)) {
               state = {
                 ...state,
@@ -211,38 +201,6 @@ export const playerSlice = createAppSlice({
             }
           }
           return state;
-        },
-      ),
-
-      pollViewers: create.asyncThunk(
-        async (
-          { playerId, user }: { playerId: string; user: string },
-          { getState },
-        ) => {
-          const { streamplace } = getState() as {
-            streamplace: StreamplaceState;
-          };
-          const res = await fetch(`${streamplace.url}/api/view-count/${user}`);
-          const data = (await res.json()) as PlaceStreamLivestream.ViewerCount;
-          return { playerId, count: data.count };
-        },
-        {
-          pending: (state) => {
-            // state.status = "loading";
-          },
-          fulfilled: (state, result) => {
-            return {
-              ...state,
-              [result.payload.playerId]: {
-                ...state[result.payload.playerId],
-                viewers: result.payload.count,
-              },
-            };
-          },
-          rejected: (state, error) => {
-            console.error("pollViewers rejected", error);
-            return state;
-          },
         },
       ),
 
@@ -272,7 +230,7 @@ export const playerSlice = createAppSlice({
             };
           },
           rejected: (state, error) => {
-            console.error("pollViewers rejected", error);
+            console.error("pollLivestream rejected", error);
             return state;
           },
         },
@@ -306,7 +264,7 @@ export const playerSlice = createAppSlice({
             };
           },
           rejected: (state, error) => {
-            console.error("pollViewers rejected", error);
+            console.error("pollSegment rejected", error);
             return state;
           },
         },
@@ -393,8 +351,6 @@ export const usePlayerActions = () => {
         ingestConnectionState,
       });
     },
-    pollViewers: (user: string) =>
-      playerSlice.actions.pollViewers({ playerId, user }),
     pollLivestream: (user: string) =>
       playerSlice.actions.pollLivestream({ playerId, user }),
     pollSegment: (user: string) =>

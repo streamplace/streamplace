@@ -44,3 +44,5 @@ export const useHandleWebsocketMessages = () =>
   useLivestreamStore((x) => x.handleWebSocketMessages);
 
 export const useProfile = () => useLivestreamStore((x) => x.profile);
+
+export const useViewers = () => useLivestreamStore((x) => x.viewers);

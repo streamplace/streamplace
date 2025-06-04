@@ -2,7 +2,7 @@ import { useContext } from "react";
 import { createStore, StoreApi, useStore } from "zustand";
 import { LivestreamContext } from "./context";
 import { LivestreamState } from "./livestream-state";
-import { handleWebSocketMessages } from "./websocket";
+import { handleWebSocketMessages } from "./websocket-consumer";
 
 export type LivestreamStore = StoreApi<LivestreamState>;
 

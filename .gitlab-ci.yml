@@ -55,6 +55,8 @@ builder-osxcross:
     FQ_IMAGE_NAME: "$DOCKER_REPO:builder-osxcross-$DOCKERFILE_HASH"
 
 builder-rebuild:
+  tags:
+    - tiny-job
   stage: build
   allow_failure: true
   interruptible: true

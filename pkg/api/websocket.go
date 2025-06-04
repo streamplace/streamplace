@@ -169,12 +169,14 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				log.Error(ctx, "could not get profile", "error", err)
 				return
 			}
-			p := map[string]any{
-				"$type":  "app.bsky.actor.defs#profileViewBasic",
-				"did":    repoDID,
-				"handle": profile.Handle,
+			if profile != nil {
+				p := map[string]any{
+					"$type":  "app.bsky.actor.defs#profileViewBasic",
+					"did":    repoDID,
+					"handle": profile.Handle,
+				}
+				initialBurst <- p
 			}
-			initialBurst <- p
 		}()
 
 		go func() {

@@ -89,7 +89,7 @@ RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v2.1.6/g
 
 LABEL org.opencontainers.image.authors="support@stream.place"
 
-FROM builder AS osxcross
+FROM builder AS builder-osxcross
 WORKDIR /osxcross
 RUN apt install -y clang llvm bash patch bzip2 lld cmake
 ENV PATH $PATH:/usr/lib/llvm-14/bin

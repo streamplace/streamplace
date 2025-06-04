@@ -91,13 +91,15 @@ LABEL org.opencontainers.image.authors="support@stream.place"
 
 FROM builder AS builder-osxcross
 WORKDIR /osxcross
-RUN apt install -y clang llvm bash patch bzip2 lld cmake
-ENV PATH $PATH:/usr/lib/llvm-14/bin
+RUN apt install -y clang bash patch bzip2 lld cmake lsb-release wget software-properties-common gnupg
+RUN curl -O https://apt.llvm.org/llvm.sh \
+  && chmod +x llvm.sh \
+  && ./llvm.sh 21 \
+  && rm llvm.sh
+ENV PATH /usr/lib/llvm-21/bin:$PATH
 RUN git clone https://github.com/tpoechtrager/osxcross.git . \
     && git checkout 2.0-llvm-based
-RUN UNATTENDED=1 ./build_apple_clang.sh
+# RUN UNATTENDED=1 ./build_apple_clang.sh
 RUN curl -L --fail https://github.com/joseluisq/macosx-sdks/releases/download/15.4/MacOSX15.4.sdk.tar.xz -o /osxcross/tarballs/MacOSX15.4.sdk.tar.xz
-RUN rm -rf /usr/lib/llvm-14/bin
-ENV PATH /osxcross/build/clang-21/build_stage2/bin:$PATH
 RUN UNATTENDED=1 ./build.sh
 ENV PATH /osxcross/target/bin:$PATH

@@ -437,6 +437,18 @@ node-all-platforms-macos: app
 	$(MAKE) desktop-macos
 	meson test -C build-darwin-arm64 go-tests
 
+.PHONY: darwin-amd64
+darwin-amd64:
+	CC=x86_64-apple-darwin24.4-clang \
+	meson setup --buildtype debugoptimized --cross-file util/osxcross-darwin-amd64.ini build-darwin-amd64 $(OPTS) \
+	&& meson compile -C build-darwin-amd64 archive
+
+.PHONY: darwin-amd64
+darwin-arm64:
+	CC=aarch64-apple-darwin24.4-clang \
+	meson setup --buildtype debugoptimized --cross-file util/osxcross-darwin-arm64.ini build-darwin-arm64 $(OPTS) \
+	&& meson compile -C build-darwin-arm64 archive
+
 .PHONY: desktop-macos
 desktop-macos:
 	export DEBUG="electron-osx-sign*" \
@@ -487,9 +499,10 @@ docker-build: docker-build-builder docker-build-in-container
 .PHONY: docker-test
 docker-test: docker-build-builder docker-test-in-container
 
+BUILDER_TARGET?=builder
 .PHONY: docker-build-builder
 docker-build-builder:
-	podman build --target=builder --os=linux --arch=amd64 -f docker/build.Dockerfile -t dist.stream.place/streamplace/streamplace:builder .
+	podman build --target=$(BUILDER_TARGET) --os=linux --arch=amd64 -f docker/build.Dockerfile -t dist.stream.place/streamplace/streamplace:$(BUILDER_TARGET) .
 
 .PHONY: golangci-lint-container
 golangci-lint-container: docker-build-builder
@@ -555,6 +568,16 @@ ci-upload-node-linux-arm64:
 	export file=streamplace-$(VERSION)-linux-arm64.tar.gz \
 	&& $(MAKE) ci-upload-file upload_file=$$file; \
 	export file=streamplace-desktop-$(VERSION)-linux-arm64.AppImage \
+	&& $(MAKE) ci-upload-file upload_file=$$file;
+
+.PHONY: ci-upload-node-darwin-arm64
+ci-upload-node-darwin-arm64:
+	export file=streamplace-$(VERSION)-darwin-arm64.tar.gz \
+	&& $(MAKE) ci-upload-file upload_file=$$file;
+
+.PHONY: ci-upload-node-darwin-amd64
+ci-upload-node-darwin-amd64:
+	export file=streamplace-$(VERSION)-darwin-amd64.tar.gz \
 	&& $(MAKE) ci-upload-file upload_file=$$file;
 
 .PHONY: ci-upload-node-windows-amd64

@@ -88,3 +88,16 @@ RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v2.1.6/g
   && rm -rf golangci-lint.tar.gz golangci-lint-2.1.6-linux-amd64
 
 LABEL org.opencontainers.image.authors="support@stream.place"
+
+FROM builder AS osxcross
+WORKDIR /osxcross
+RUN apt install -y clang llvm bash patch bzip2 lld cmake
+ENV PATH $PATH:/usr/lib/llvm-14/bin
+RUN git clone https://github.com/tpoechtrager/osxcross.git . \
+    && git checkout 2.0-llvm-based
+RUN UNATTENDED=1 ./build_apple_clang.sh
+RUN curl -L --fail https://github.com/joseluisq/macosx-sdks/releases/download/15.4/MacOSX15.4.sdk.tar.xz -o /osxcross/tarballs/MacOSX15.4.sdk.tar.xz
+RUN rm -rf /usr/lib/llvm-14/bin
+ENV PATH /osxcross/build/clang-21/build_stage2/bin:$PATH
+RUN UNATTENDED=1 ./build.sh
+ENV PATH /osxcross/target/bin:$PATH

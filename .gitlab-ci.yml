@@ -18,7 +18,7 @@ build-bunny:
       --dockerfile "${CI_PROJECT_DIR}/docker/bunny.Dockerfile"
       --destination "$DOCKER_REPO:bunny"
 
-builder:
+.builder:
   stage: build
   interruptible: true
   allow_failure: true
@@ -38,6 +38,21 @@ builder:
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/docker/build.Dockerfile"
       --destination "$FQ_IMAGE_NAME"
+      --target "$TARGET"
+
+builder:
+  extends:
+    - .builder
+  variables:
+    TARGET: builder
+    FQ_IMAGE_NAME: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
+
+builder-osxcross:
+  extends:
+    - .builder
+  variables:
+    TARGET: builder-osxcross
+    FQ_IMAGE_NAME: "$DOCKER_REPO:builder-osxcross-$DOCKERFILE_HASH"
 
 builder-rebuild:
   stage: build
@@ -48,6 +63,7 @@ builder-rebuild:
     entrypoint: [""]
   needs:
     - job: builder
+    - job: builder-osxcross
   timeout: 2 hours
   script:
     - echo "CI_PIPELINE_ID=$CI_PIPELINE_ID"
@@ -89,6 +105,20 @@ build-windows-amd64:
     - .build
   variables:
     TARGET: windows-amd64
+
+build-darwin-arm64:
+  image: "$DOCKER_REPO:builder-osxcross-$DOCKERFILE_HASH"
+  extends:
+    - .build
+  variables:
+    TARGET: darwin-arm64
+
+build-darwin-amd64:
+  image: "$DOCKER_REPO:builder-osxcross-$DOCKERFILE_HASH"
+  extends:
+    - .build
+  variables:
+    TARGET: darwin-arm64
 
 leak-test-viewers:
   stage: build
@@ -261,45 +291,45 @@ build-android-release:
   variables:
     TARGET: ci-android-release
 
-build-mac:
-  stage: build
-  interruptible: true
-  image: macos-sonoma-xcode-big
-  tags:
-    - tart-installed
-  variables:
-    STREAMPLACE_IGNORE_LEAKS: "true"
-    STREAMPLACE_TEST_COUNT: "1"
-    NODE_OPTIONS: "--max_old_space_size=4096"
-  timeout: 2 hours
-  script:
-    # workaround for https://gitlab.com/gitlab-org/gitlab/-/issues/501457
-    # which is a workaround for ios builds failing due to /tmp vs /private/tmp weirdness
-    - cd ..
-    - mv streamplace /Users/admin/streamplace
-    - cd /Users/admin/streamplace
-    - git fetch --unshallow || echo 'already unshallow'
-    - brew install ninja go openssl@3 && go version
-    - export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
-    - brew install node@22
-    - node --version
-    - npm install -g corepack@latest --force
-    - corepack enable
-    - sudo gem uninstall xcodeproj -x --ignore-dependencies
-    - sudo gem install xcodeproj -v 1.25.1
-    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && bash rustup.sh -y && rm rustup.sh
-    - export PATH="$PATH:$HOME/.cargo/bin"
-    - echo $PATH
-    - 'echo "which xcodeproj: $(which xcodeproj)"'
-    - 'echo "xcodeproj --version: $(xcodeproj --version)"'
-    - "$(which xcodeproj) --version"
-    - >
-      export GOTOOLCHAIN=go1.24.2
-      && python3 -m pip install virtualenv
-      && python3 -m virtualenv ~/venv
-      && source ~/venv/bin/activate
-      && python3 -m pip install meson
-      && make ci-macos -j16
+# build-mac:
+#   stage: build
+#   interruptible: true
+#   image: macos-sonoma-xcode-big
+#   tags:
+#     - tart-installed
+#   variables:
+#     STREAMPLACE_IGNORE_LEAKS: "true"
+#     STREAMPLACE_TEST_COUNT: "1"
+#     NODE_OPTIONS: "--max_old_space_size=4096"
+#   timeout: 2 hours
+#   script:
+#     # workaround for https://gitlab.com/gitlab-org/gitlab/-/issues/501457
+#     # which is a workaround for ios builds failing due to /tmp vs /private/tmp weirdness
+#     - cd ..
+#     - mv streamplace /Users/admin/streamplace
+#     - cd /Users/admin/streamplace
+#     - git fetch --unshallow || echo 'already unshallow'
+#     - brew install ninja go openssl@3 && go version
+#     - export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
+#     - brew install node@22
+#     - node --version
+#     - npm install -g corepack@latest --force
+#     - corepack enable
+#     - sudo gem uninstall xcodeproj -x --ignore-dependencies
+#     - sudo gem install xcodeproj -v 1.25.1
+#     - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh && bash rustup.sh -y && rm rustup.sh
+#     - export PATH="$PATH:$HOME/.cargo/bin"
+#     - echo $PATH
+#     - 'echo "which xcodeproj: $(which xcodeproj)"'
+#     - 'echo "xcodeproj --version: $(xcodeproj --version)"'
+#     - "$(which xcodeproj) --version"
+#     - >
+#       export GOTOOLCHAIN=go1.24.2
+#       && python3 -m pip install virtualenv
+#       && python3 -m virtualenv ~/venv
+#       && source ~/venv/bin/activate
+#       && python3 -m pip install meson
+#       && make ci-macos -j16
 
 windows-selftest:
   interruptible: true

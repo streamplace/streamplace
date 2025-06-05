@@ -5,12 +5,18 @@ import {
 import { usePlayerActions } from "features/player/playerSlice";
 import { useEffect, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
+import {
+  RTCPeerConnection,
+  RTCSessionDescription,
+  MediaStream as WebRTCMediaStream,
+} from "./webrtc-primitives";
 
 export default function useWebRTC(
   endpoint: string,
-): [MediaStream | null, boolean] {
-  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+): [typeof WebRTCMediaStream | null, boolean] {
+  const [mediaStream, setMediaStream] = useState<
+    typeof WebRTCMediaStream | null
+  >(null);
   const [frames, setFrames] = useState<number>(0);
   const [audioFrames, setAudioFrames] = useState<number>(0);
   const [stuck, setStuck] = useState<boolean>(false);
@@ -223,6 +229,7 @@ export function useWebRTCIngest({
       bundlePolicy: "max-bundle",
     });
     for (const track of mediaStream.getTracks()) {
+      console.log("adding track", track);
       peerConnection.addTrack(track, mediaStream);
     }
     peerConnection.addEventListener("connectionstatechange", (ev) => {

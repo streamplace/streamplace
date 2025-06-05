@@ -4,9 +4,11 @@ import React, { useEffect } from "react";
 import { MediaStream, RTCView } from "react-native-webrtc";
 import { useAppSelector } from "store/hooks";
 import { View } from "tamagui";
+import { WebcamIngestPlayer } from "./ingest-player";
 import { PlayerProps, PlayerStatus, PROTOCOL_WEBRTC } from "./props";
 import { srcToUrl } from "./shared";
 import useWebRTC from "./use-webrtc";
+type VideoProps = PlayerProps & { url: string };
 
 // export function Player() {
 //   return <View f={1}></View>;
@@ -16,6 +18,9 @@ export default function NativeVideo(
   props: PlayerProps & { nativeVideoRef: React.RefObject<VideoView> },
 ) {
   const protocol = useAppSelector(usePlayerProtocol());
+  if (props.ingest) {
+    return <WebcamIngestPlayer {...props} />;
+  }
   if (protocol === PROTOCOL_WEBRTC) {
     return <NativeWHEP {...props} />;
   }

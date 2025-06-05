@@ -48,8 +48,8 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 				continue
 			case <-time.After(time.Second * 30):
 				log.Warn(ctx, "no new segment for 30 seconds")
-				elem.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "No new segment for 30 seconds", "No new segment for 30 seconds (debug)")
-				return
+				// elem.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "No new segment for 30 seconds", "No new segment for 30 seconds (debug)")
+				continue
 			}
 		}
 	}()

@@ -452,7 +452,6 @@ export function StreamplaceDrawer() {
           options={{
             drawerLabel: () => <Text>Live Dashboard</Text>,
             drawerIcon: () => <Video />,
-            drawerItemStyle: isNative ? { display: "none" } : undefined,
           }}
         />
         <Drawer.Screen

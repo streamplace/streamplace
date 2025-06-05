@@ -99,13 +99,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	}
 	audioSrc := app.SrcFromElement(audioSrcElem)
 
-	go func() {
-		<-ctx.Done()
-		if cErr := peerConnection.Close(); cErr != nil {
-			log.Log(ctx, "cannot close peerConnection: %v\n", cErr)
-		}
-	}()
-
 	// Set the remote SessionDescription
 	if err = peerConnection.SetRemoteDescription(*offer); err != nil {
 		return nil, fmt.Errorf("failed to set remote description: %w", err)
@@ -125,18 +118,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	// Create channel that is blocked until ICE Gathering is complete
 	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
 
-	go func() {
-		ticker := time.NewTicker(time.Second * 1)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				state := pipeline.GetCurrentState()
-				log.Debug(ctx, "pipeline state", "state", state)
-			}
-		}
-	}()
 	// Setup complete! Now we boot up streaming in the background while returning the SDP offer to the user.
 
 	go func() {
@@ -144,10 +125,32 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		defer cancel()
 
 		go func() {
+			ticker := time.NewTicker(time.Second * 1)
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					state := pipeline.GetCurrentState()
+					log.Debug(ctx, "pipeline state", "state", state)
+				}
+			}
+		}()
+
+		go func() {
+			<-ctx.Done()
+			if cErr := peerConnection.Close(); cErr != nil {
+				log.Log(ctx, "cannot close peerConnection: %v\n", cErr)
+			}
+		}()
+
+		busErr := make(chan error)
+		go func() {
 			if err := HandleBusMessages(ctx, pipeline); err != nil {
 				log.Log(ctx, "pipeilne error", "error", err)
 			}
 			cancel()
+			<-busErr
 		}()
 
 		log.Debug(ctx, "starting pipeline")
@@ -156,7 +159,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		err = pipeline.SetState(gst.StatePlaying)
 		if err != nil {
 			log.Log(ctx, "failed to set pipeline state", "error", err)
-			cancel()
+			pipeline.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "failed to set pipeline state", "failed to set pipeline state (debug)")
 		}
 
 		// Set the handler for ICE connection state
@@ -175,7 +178,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 				// Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
 				// Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
 				log.Log(ctx, "Peer Connection has ended, exiting", "state", s.String())
-				cancel()
+				pipeline.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "peer connection has ended", "peer connection has ended (debug)")
 			}
 		})
 
@@ -197,7 +200,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 							rtcpSendErr := peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(track.SSRC())}})
 							if rtcpSendErr != nil {
 								log.Log(ctx, "failed to send rtcp packet", "error", rtcpSendErr)
-								cancel()
+								pipeline.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "failed to send rtcp packet", "failed to send rtcp packet (debug)")
 								return
 							}
 						}
@@ -213,7 +216,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					i, _, readErr := track.Read(buf)
 					if readErr != nil {
 						log.Log(ctx, "failed to read track", "error", readErr)
-						cancel()
+						pipeline.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "failed to read track", "failed to read video track (debug)")
 						return
 					}
 					if ctx.Err() != nil {
@@ -231,7 +234,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					ret := videoSrc.PushBuffer(gbuf)
 					if ret != gst.FlowOK {
 						log.Log(ctx, "failed to push buffer", "error", ret)
-						cancel()
+						pipeline.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "failed to push video buffer", "failed to push video buffer (debug)")
 						return
 					}
 					// state := pipeline.GetCurrentState()
@@ -252,7 +255,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					i, _, readErr := track.Read(buf)
 					if readErr != nil {
 						log.Log(ctx, "failed to read track", "error", readErr)
-						cancel()
+						pipeline.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "failed to read track", "failed to read audio track (debug)")
 						return
 					}
 					if ctx.Err() != nil {
@@ -268,8 +271,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					gbuf.Unmap()
 					ret := audioSrc.PushBuffer(gbuf)
 					if ret != gst.FlowOK {
-						log.Log(ctx, "failed to push buffer", "error", ret)
-						cancel()
+						pipeline.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "failed to push data", "failed to push data (debug)")
 						return
 					}
 					// state := pipeline.GetCurrentState()
@@ -282,20 +284,25 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 			}
 		})
 
-		<-ctx.Done()
+		defer func() {
+			if err := pipeline.BlockSetState(gst.StateNull); err != nil {
+				log.Log(ctx, "failed to set pipeline state to null", "error", err)
+			}
+	
+			if err := audioSrcElem.SetState(gst.StateNull); err != nil {
+				log.Log(ctx, "failed to set audioSrcElem state to null", "error", err)
+			}
+	
+			if err := videoSrcElem.SetState(gst.StateNull); err != nil {
+				log.Log(ctx, "failed to set videoSrcElem state to null", "error", err)
+			}
+		}()
 
-		if err := pipeline.BlockSetState(gst.StateNull); err != nil {
-			log.Log(ctx, "failed to set pipeline state to null", "error", err)
+		lastErr := <-busErr
+		cancel()
+		if lastErr != nil {
+			log.Error(ctx, "bus error", "error", lastErr)
 		}
-
-		if err := audioSrcElem.SetState(gst.StateNull); err != nil {
-			log.Log(ctx, "failed to set audioSrcElem state to null", "error", err)
-		}
-
-		if err := videoSrcElem.SetState(gst.StateNull); err != nil {
-			log.Log(ctx, "failed to set videoSrcElem state to null", "error", err)
-		}
-
 	}()
 	select {
 	case <-gatherComplete:

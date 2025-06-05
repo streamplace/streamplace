@@ -25,6 +25,7 @@ import {
 } from "./props";
 import { srcToUrl } from "./shared";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
+import { mediaDevices } from "./webrtc-primitives";
 
 type VideoProps = PlayerProps & { url: string };
 
@@ -339,7 +340,7 @@ export function WebcamIngestPlayer(props: VideoProps) {
 
   useEffect(() => {
     if (props.ingestMediaSource === IngestMediaSource.DISPLAY) {
-      navigator.mediaDevices
+      mediaDevices
         .getDisplayMedia({
           audio: true,
           video: true,
@@ -351,7 +352,7 @@ export function WebcamIngestPlayer(props: VideoProps) {
           console.error("error getting display media", e);
         });
     } else {
-      navigator.mediaDevices
+      mediaDevices
         .getUserMedia({
           audio: true,
           video: {

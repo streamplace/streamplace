@@ -6,6 +6,9 @@ import { PlayerProps, PlayerStatus } from "./props";
 
 export default function PlayerLoading(props: PlayerProps) {
   const theme = useTheme();
+  if (props.ingest) {
+    return null;
+  }
   if (props.status === PlayerStatus.PLAYING) {
     return <KeepAwake />;
   }

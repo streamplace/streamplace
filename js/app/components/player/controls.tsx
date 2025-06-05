@@ -333,6 +333,8 @@ export default function Controls(
     });
   }, [props.videoRef]);
 
+  const isOffline = props.offline && !props.ingest;
+
   return (
     <View
       position="absolute"
@@ -357,7 +359,7 @@ export default function Controls(
           <VolumeX size={60} color="red" />
         </View>
       )}
-      {!props.offline ? null : (
+      {!isOffline ? null : (
         <View
           position="absolute"
           width="100%"

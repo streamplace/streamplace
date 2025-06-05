@@ -13,7 +13,7 @@
     "build:web": "pnpm run export && node exportClientExpoConfig.js > dist/expoConfig.json",
     "export": "expo export --dump-sourcemap || expo export --dump-sourcemap",
     "check": "bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
-    "prebuild": "EXPO_NO_GIT_STATUS=1 expo prebuild --clean && sed -i.bak 's/org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m/org.gradle.jvmargs=-Xmx8192m -XX:MaxMetaspaceSize=2048m/' android/gradle.properties && pnpm run find-node",
+    "prebuild": "EXPO_NO_GIT_STATUS=1 expo prebuild --clean && sed -i.bak 's/org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m/org.gradle.jvmargs=-Xmx8192m -XX:MaxMetaspaceSize=2048m\\norg.gradle.daemon=false/' android/gradle.properties && pnpm run find-node",
     "postinstall": "which pod && pnpm run postinstall-ios || echo 'not a mac, not installing pods'",
     "postinstall-ios": "cd ios && pod install && pnpm run find-node",
     "find-node": "node -p '`NODE_BINARY=${process.argv[0]}`' > ios/.xcode.env.local",

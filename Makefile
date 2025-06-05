@@ -442,7 +442,8 @@ darwin-amd64:
 	export CC=x86_64-apple-darwin24.4-clang \
 	&& export CROSS_COMPILE=1 \
 	&& meson setup --buildtype debugoptimized --cross-file util/osxcross-darwin-amd64.ini build-darwin-amd64 $(OPTS) \
-	&& meson compile -C build-darwin-amd64 archive
+	&& meson compile -C build-darwin-amd64 archive \
+	&& ./util/osxcross-codesign.sh ./build-darwin-amd64/streamplace
 
 .PHONY: desktop-darwin-amd64
 desktop-darwin-amd64:
@@ -453,7 +454,8 @@ darwin-arm64:
 	export CC=aarch64-apple-darwin24.4-clang \
 	&& export CROSS_COMPILE=1 \
 	&& meson setup --buildtype debugoptimized --cross-file util/osxcross-darwin-arm64.ini build-darwin-arm64 $(OPTS) \
-	&& meson compile -C build-darwin-arm64 archive
+	&& meson compile -C build-darwin-arm64 archive \
+	&& ./util/osxcross-codesign.sh ./build-darwin-arm64/streamplace
 
 .PHONY: desktop-darwin-arm64
 desktop-darwin-arm64:

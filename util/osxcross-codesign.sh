@@ -14,3 +14,7 @@ rcodesign sign \
   --code-signature-flags runtime \
   "$1"
 rm -f "$CERTIFICATE_FILE"
+
+if [[ "$APPLE_CODESIGN_API_KEY:-" != "" ]]; then
+  rcodesign notary-submit --wait --api-key-file "$APPLE_CODESIGN_API_KEY" "$1"
+fi

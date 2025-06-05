@@ -102,4 +102,5 @@ RUN git clone https://github.com/tpoechtrager/osxcross.git . \
 # RUN UNATTENDED=1 ./build_apple_clang.sh
 RUN curl -L --fail https://github.com/joseluisq/macosx-sdks/releases/download/15.4/MacOSX15.4.sdk.tar.xz -o /osxcross/tarballs/MacOSX15.4.sdk.tar.xz
 RUN UNATTENDED=1 ./build.sh
+RUN cargo install apple-codesign
 ENV PATH /osxcross/target/bin:$PATH

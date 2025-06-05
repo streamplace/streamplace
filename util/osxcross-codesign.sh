@@ -2,7 +2,6 @@
 
 set -euo pipefail
 
-cargo install apple-codesign
 CERTIFICATE_FILE="certificate.p12"
 if [[ "${DEVELOPER_CERTIFICATE_BASE64:-}" == "" ]]; then
   echo "DEVELOPER_CERTIFICATE_BASE64 is not set, skipping codesign"

@@ -210,8 +210,28 @@ all: version install app test node-all-platforms android
 .PHONY: ci
 ci: version install app node-all-platforms ci-upload-node
 
-.PHONY: ci-macos
-ci-macos: version install app node-all-platforms-macos ci-upload-node-macos ios ci-upload-ios
+.PHONY: ci-ios
+ci-ios: version install app
+	$(MAKE) ios
+	$(MAKE) ci-upload-ios
+
+.PHONY: ci-darwin-desktop
+ci-darwin-desktop: version install
+	for arch in amd64 arm64; do \
+		curl -O "$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/streamplace-$(VERSION)-darwin-$$arch.tar.gz" \
+		&& tar -xzvf streamplace-$(VERSION)-darwin-$$arch.tar.gz \
+		&& ./streamplace --version \
+		&& ./streamplace self-test \
+		&& mkdir -p build-darwin-$$arch \
+		&& mv ./streamplace ./build-darwin-$$arch/streamplace \
+	done \
+	&& $(MAKE) desktop-darwin \
+	&& for arch in amd64 arm64; do \
+		&& export file=streamplace-desktop-$(VERSION)-darwin-$$arch.zip \
+		&& $(MAKE) ci-upload-file upload_file=$$file \
+		&& export file=streamplace-desktop-$(VERSION)-darwin-$$arch.dmg \
+		&& $(MAKE) ci-upload-file upload_file=$$file \
+	done
 
 .PHONY: ci-android
 ci-android: version install android ci-upload-android
@@ -414,29 +434,6 @@ windows-amd64-meson-setup:
 windows-amd64-startup-test:
 	bash -c 'set -euo pipefail && unbuffer wine64 ./build-windows-amd64/streamplace.exe self-test | cat'
 
-.PHONY: node-all-platforms-macos
-node-all-platforms-macos: app
-	meson setup --buildtype debugoptimized build-darwin-arm64 $(OPTS)
-	meson compile -C build-darwin-arm64
-	./util/mac-codesign.sh ./build-darwin-arm64/streamplace
-	cd build-darwin-arm64 \
-	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-arm64.tar.gz ./streamplace \
-	&& cd -
-	./build-darwin-arm64/streamplace --version
-	./build-darwin-arm64/streamplace self-test
-	$(MAKE) link-test-macos
-	rustup target add x86_64-apple-darwin
-	meson setup --buildtype debugoptimized --cross-file util/darwin-amd64-apple.ini build-darwin-amd64 $(OPTS)
-	meson compile -C build-darwin-amd64
-	./util/mac-codesign.sh ./build-darwin-amd64/streamplace
-	cd build-darwin-amd64 \
-	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \
-	&& cd -
-	./build-darwin-amd64/streamplace --version
-	./build-darwin-arm64/streamplace self-test
-	$(MAKE) desktop-macos
-	meson test -C build-darwin-arm64 go-tests
-
 .PHONY: darwin-amd64
 darwin-amd64:
 	export CC=x86_64-apple-darwin24.4-clang \
@@ -469,8 +466,8 @@ darwin-arm64:
 desktop-darwin-arm64:
 	echo "TODO"
 
-.PHONY: desktop-macos
-desktop-macos:
+.PHONY: desktop-darwin
+desktop-darwin:
 	export DEBUG="electron-osx-sign*" \
 	&& cd js/desktop \
 	&& pnpm run make --platform darwin --arch arm64 \

@@ -227,7 +227,7 @@ ci-darwin-desktop: version install
 	done \
 	&& $(MAKE) desktop-darwin \
 	&& for arch in amd64 arm64; do \
-		&& export file=streamplace-desktop-$(VERSION)-darwin-$$arch.zip \
+		export file=streamplace-desktop-$(VERSION)-darwin-$$arch.zip \
 		&& $(MAKE) ci-upload-file upload_file=$$file \
 		&& export file=streamplace-desktop-$(VERSION)-darwin-$$arch.dmg \
 		&& $(MAKE) ci-upload-file upload_file=$$file \

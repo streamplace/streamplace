@@ -27,6 +27,11 @@ jobs:
           - name: android
             cmd: "make app && make android-release"
     steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          remove-dotnet: "true"
+
       - name: Check out code
         uses: actions/checkout@v4.1.7
         with:

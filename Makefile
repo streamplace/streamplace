@@ -216,8 +216,9 @@ ci-ios: version install app
 	$(MAKE) ci-upload-ios
 
 .PHONY: ci-darwin-desktop
-ci-darwin-desktop: version install
-	for arch in amd64 arm64; do \
+ci-desktop-darwin: version install
+	./util/mac-codesign.sh \
+	&& for arch in amd64 arm64; do \
 		curl -O "$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/streamplace-$(VERSION)-darwin-$$arch.tar.gz" \
 		&& tar -xzvf streamplace-$(VERSION)-darwin-$$arch.tar.gz \
 		&& ./streamplace --version \

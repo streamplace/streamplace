@@ -57,12 +57,10 @@ function livepeer-notarize() {
   rm -f "${NOTARIZATION_FILE}"
 }
 
-function main() {
-  livepeer-keychain
+export BINARY_PATH="${1:-}"
+livepeer-keychain
+if [[ "${BINARY_PATH:-}" != "" ]]; then
   livepeer-codesign
   livepeer-notarize
-}
-
-export BINARY_PATH="$1"
-main
-codesign -dvv "$BINARY_PATH"
+  codesign -dvv "$BINARY_PATH"
+fi

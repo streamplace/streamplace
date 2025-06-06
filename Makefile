@@ -223,14 +223,14 @@ ci-darwin-desktop: version install
 		&& ./streamplace --version \
 		&& ./streamplace self-test \
 		&& mkdir -p build-darwin-$$arch \
-		&& mv ./streamplace ./build-darwin-$$arch/streamplace \
+		&& mv ./streamplace ./build-darwin-$$arch/streamplace; \
 	done \
 	&& $(MAKE) desktop-darwin \
 	&& for arch in amd64 arm64; do \
 		export file=streamplace-desktop-$(VERSION)-darwin-$$arch.zip \
 		&& $(MAKE) ci-upload-file upload_file=$$file \
 		&& export file=streamplace-desktop-$(VERSION)-darwin-$$arch.dmg \
-		&& $(MAKE) ci-upload-file upload_file=$$file \
+		&& $(MAKE) ci-upload-file upload_file=$$file; \
 	done
 
 .PHONY: ci-android

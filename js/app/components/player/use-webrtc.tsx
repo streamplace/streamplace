@@ -5,12 +5,18 @@ import {
 } from "features/bluesky/blueskySlice";
 import { useEffect, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";
-import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
+import {
+  RTCPeerConnection,
+  RTCSessionDescription,
+  WebRTCMediaStream,
+} from "./webrtc-primitives";
 
 export default function useWebRTC(
   endpoint: string,
-): [MediaStream | null, boolean] {
-  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+): [WebRTCMediaStream | null, boolean] {
+  const [mediaStream, setMediaStream] = useState<
+    typeof WebRTCMediaStream | null
+  >(null);
   const [frames, setFrames] = useState<number>(0);
   const [audioFrames, setAudioFrames] = useState<number>(0);
   const [stuck, setStuck] = useState<boolean>(false);
@@ -196,10 +202,8 @@ async function waitToCompleteICEGathering(peerConnection: RTCPeerConnection) {
 
 export function useWebRTCIngest({
   endpoint,
-  streamKey,
 }: {
   endpoint: string;
-  streamKey?: string;
 }): [MediaStream | null, (mediaStream: MediaStream | null) => void] {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);

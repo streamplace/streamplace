@@ -26,6 +26,7 @@ import {
   Notebook,
   PanelLeftClose,
   PanelLeftOpen,
+  Phone,
   Settings as SettingsIcon,
   ShieldQuestion,
   User,
@@ -75,16 +76,17 @@ import SupportScreen from "./screens/support";
 // probabl should move this
 import SignUp from "components/login/signup";
 import KeyManager from "components/settings/key-manager";
-import { loadStateFromStorage } from "features/base/sidebarSlice";
-import { store } from "store/store";
 import HomeScreen from "./screens/home";
 
+import { loadStateFromStorage } from "features/base/sidebarSlice";
 import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
 } from "react-native-reanimated";
-store.dispatch(loadStateFromStorage());
+import { store } from "store/store";
+import PhoneLive from "./screens/phone-live";
 
+store.dispatch(loadStateFromStorage());
 const Stack = createNativeStackNavigator();
 
 // disabled strict b/c chat swipeable triggers it a LOT and the resulting logging
@@ -498,6 +500,14 @@ export function StreamplaceDrawer() {
           options={{
             drawerIcon: () => <LogIn />,
             drawerLabel: () => <Text>Login</Text>,
+          }}
+        />
+        <Drawer.Screen
+          name="PhoneLive"
+          component={PhoneLive}
+          options={{
+            drawerIcon: () => <Phone />,
+            drawerLabel: () => <Text>GO LIVE</Text>,
           }}
         />
         <Drawer.Screen

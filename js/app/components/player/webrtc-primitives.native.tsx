@@ -1,1 +1,6 @@
-export { RTCPeerConnection, RTCSessionDescription } from "react-native-webrtc";
+export {
+  RTCPeerConnection,
+  RTCSessionDescription,
+  MediaStream as WebRTCMediaStream,
+  mediaDevices,
+} from "react-native-webrtc";

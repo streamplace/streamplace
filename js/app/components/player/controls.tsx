@@ -295,6 +295,8 @@ export default function Controls(props: { name: string; playerId?: string }) {
     setUserInteraction();
   };
 
+  const isOffline = offline && !isIngesting;
+
   return (
     <View
       position="absolute"
@@ -319,7 +321,7 @@ export default function Controls(props: { name: string; playerId?: string }) {
           <VolumeX size={60} color="red" />
         </View>
       )}
-      {!offline ? null : (
+      {!isOffline ? null : (
         <View
           position="absolute"
           width="100%"

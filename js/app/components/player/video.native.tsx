@@ -8,11 +8,16 @@ import { useVideoPlayer, VideoPlayerEvents, VideoView } from "expo-video";
 import { useEffect } from "react";
 import { MediaStream, RTCView } from "react-native-webrtc";
 import { View } from "tamagui";
+import { NativeIngestPlayer } from "./ingest-player.native";
 import { srcToUrl } from "./shared";
 import useWebRTC from "./use-webrtc";
 
 export default function VideoNative() {
   const protocol = usePlayerStore((x) => x.protocol);
+  const isIngesting = usePlayerStore((x) => x.ingestConnectionState !== null);
+  if (isIngesting) {
+    return <NativeIngestPlayer />;
+  }
   if (protocol === PlayerProtocol.WEBRTC) {
     return <NativeWHEP />;
   } else {

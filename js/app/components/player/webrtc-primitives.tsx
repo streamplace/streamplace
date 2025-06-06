@@ -26,6 +26,8 @@ try {
 
 export const RTCPeerConnection = window.RTCPeerConnection;
 export const RTCSessionDescription = window.RTCSessionDescription;
+export const WebRTCMediaStream = window.MediaStream;
+export const mediaDevices = navigator.mediaDevices;
 
 // Export the compatibility checker for use in other components
 export { checkWebRTCSupport };

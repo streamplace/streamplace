@@ -326,14 +326,14 @@ build-ios:
   variables:
     COMMAND: make ci-ios -j16
 
-build-darwin-desktop:
+build-desktop-darwin:
   extends:
     - .build-on-mac
   needs:
     - build-darwin-amd64
     - build-darwin-arm64
   variables:
-    COMMAND: make ci-darwin-desktop
+    COMMAND: make ci-desktop-darwin
 
 windows-selftest:
   interruptible: true

@@ -132,6 +132,13 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		defer cancel()
 
 		go func() {
+			<-ctx.Done()
+			if cErr := peerConnection.Close(); cErr != nil {
+				log.Log(ctx, "cannot close peerConnection: %v\n", cErr)
+			}
+		}()
+
+		go func() {
 			if err := HandleBusMessages(ctx, pipeline); err != nil {
 				log.Log(ctx, "pipeline error", "error", err)
 			}
@@ -180,7 +187,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		videoFirst := false
 		audioFirst := false
 
-		log.Warn(ctx, "setting OnTrack")
 		peerConnection.OnTrack(func(track rtcrec.TrackRemote, _ rtcrec.RTPReceiver) {
 			log.Warn(ctx, "OnTrack")
 			if track.Kind() == webrtc.RTPCodecTypeVideo {

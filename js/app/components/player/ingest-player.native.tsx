@@ -43,16 +43,26 @@ export function NativeIngestPlayer() {
       mediaDevices
         .getDisplayMedia()
         .then((stream) => {
+          console.log("display media", stream);
           setLocalMediaStream(stream);
         })
         .catch((e) => {
+          console.log("error getting display media", e);
           console.error("error getting display media", e);
         });
     } else {
       mediaDevices
         .getUserMedia({
-          audio: true,
+          audio: {
+            deviceId: "audio-1",
+            echoCancellation: false,
+            autoGainControl: false,
+            noiseSuppression: false,
+            // latency: false,
+            // channelCount: false,
+          },
           video: {
+            deviceId: "1",
             width: { min: 200, ideal: 1920, max: 3840 },
             height: { min: 200, ideal: 1080, max: 2160 },
           },
@@ -77,6 +87,7 @@ export function NativeIngestPlayer() {
     if (!streamKey) {
       return;
     }
+    console.log("setting remote media stream", localMediaStream);
     setRemoteMediaStream(localMediaStream);
   }, [localMediaStream, ingestStarting, streamKey, ingestAutoStart]);
 

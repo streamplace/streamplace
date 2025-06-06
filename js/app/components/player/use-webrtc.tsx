@@ -212,7 +212,10 @@ export function useWebRTCIngest({
   );
   const dispatch = useAppDispatch();
   const storedKey = useAppSelector(selectStoredKey)?.privateKey;
-  console.log(storedKey);
+
+  const [retryTime, setRetryTime] = useState<number>(0);
+
+  console.log({ storedKey });
   useEffect(() => {
     if (storedKey) {
       return;
@@ -231,13 +234,20 @@ export function useWebRTCIngest({
       bundlePolicy: "max-bundle",
     });
     for (const track of mediaStream.getTracks()) {
+      console.log(
+        "adding track",
+        track.kind,
+        track.label,
+        track.enabled,
+        track.readyState,
+      );
       peerConnection.addTrack(track, mediaStream);
     }
     peerConnection.addEventListener("connectionstatechange", (ev) => {
       setIngestConnectionState(peerConnection.connectionState);
       console.log("connection state change", peerConnection.connectionState);
-      if (peerConnection.connectionState !== "connected") {
-        return;
+      if (peerConnection.connectionState === "failed") {
+        setRetryTime(Date.now());
       }
     });
     peerConnection.addEventListener("negotiationneeded", (ev) => {
@@ -247,6 +257,6 @@ export function useWebRTCIngest({
     return () => {
       peerConnection.close();
     };
-  }, [endpoint, mediaStream, storedKey]);
+  }, [endpoint, mediaStream, storedKey, retryTime]);
   return [mediaStream, setMediaStream];
 }

@@ -218,6 +218,7 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 			errors.WriteHTTPBadRequest(w, "error reading body", err)
 			return
 		}
+		fmt.Println("offer", string(body))
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
 		pc, err := a.MediaManager.NewPeerConnection(ctx, mediaSigner.Streamer())
 		if err != nil {
@@ -241,6 +242,7 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 		log.Log(ctx, "location", "location", location)
 		w.Header().Set("Location", location)
 		w.WriteHeader(201)
+		fmt.Println("answer", answer.SDP)
 		if _, err := w.Write([]byte(answer.SDP)); err != nil {
 			log.Error(ctx, "error writing response", "error", err)
 		}

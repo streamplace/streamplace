@@ -18,6 +18,7 @@ export default async function createOAuthClient(
   if (!streamplaceUrl) {
     throw new Error("streamplaceUrl is required");
   }
+  console.log("creating oauth client for ", streamplaceUrl);
   let meta: ClientMetadata;
   if (
     streamplaceUrl.startsWith("http://localhost") ||

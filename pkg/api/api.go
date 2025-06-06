@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -261,7 +260,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	})
 	handler := sloghttp.Recovery(router)
 	handler = cors.AllowAll().Handler(handler)
-	handler = sloghttp.New(slog.Default())(handler)
+	// handler = sloghttp.New(slog.Default())(handler)
 	handler = a.RateLimitMiddleware(ctx)(handler)
 
 	// this needs to be LAST so nothing else clobbers the context

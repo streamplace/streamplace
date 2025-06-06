@@ -142,9 +142,12 @@ export default function Login() {
               <Input
                 id="pdsUrl"
                 value={handle}
-                onChangeText={setHandle}
+                onChangeText={(text) => setHandle(text.toLowerCase())}
                 backgroundColor="$color2"
                 onSubmitEditing={onEnterPress}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
               />
             </YStack>
             <XStack justifyContent="space-between">

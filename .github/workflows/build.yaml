@@ -28,9 +28,8 @@ jobs:
             cmd: "make app && make android-release"
     steps:
       - name: Maximize build space
-        uses: easimon/maximize-build-space@master
-        with:
-          remove-dotnet: "true"
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
       - name: Check out code
         uses: actions/checkout@v4.1.7

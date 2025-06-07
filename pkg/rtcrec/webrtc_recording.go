@@ -28,6 +28,10 @@ type WebRTCEvent struct {
 	TrackKind                *TrackKind                `json:"trackKind,omitempty"`
 	TrackPayloadType         *TrackPayloadType         `json:"trackPayloadType,omitempty"`
 	TrackSSRC                *TrackSSRC                `json:"trackSSRC,omitempty"`
+	AddTransceiverFromKind   *AddTransceiverFromKind   `json:"addTransceiverFromKind,omitempty"`
+	ICEGatheringState        *ICEGatheringState        `json:"iceGatheringState,omitempty"`
+	DataChannel              *DataChannel              `json:"dataChannel,omitempty"`
+	NegotiationNeeded        *NegotiationNeeded        `json:"negotiationNeeded,omitempty"`
 	Time                     time.Time                 `json:"time,omitempty"`
 }
 
@@ -125,3 +129,17 @@ func (s *RecorderStream) Event(event WebRTCEvent) {
 		log.Log(context.Background(), "error encoding event", "error", err)
 	}
 }
+
+type AddTransceiverFromKind struct {
+	Kind webrtc.RTPCodecType `json:"kind,omitempty"`
+}
+
+type ICEGatheringState struct {
+	State webrtc.ICEGatheringState `json:"state,omitempty"`
+}
+
+type DataChannel struct {
+	Label string `json:"label,omitempty"`
+}
+
+type NegotiationNeeded struct{}

@@ -166,17 +166,57 @@ func (pc *RecorderPeerConnection) WriteRTCP(pkts []rtcp.Packet) error {
 }
 
 func (pc *RecorderPeerConnection) AddTransceiverFromKind(kind webrtc.RTPCodecType, init ...webrtc.RTPTransceiverInit) (RTPTransceiver, error) {
-	return pc.pionpc.AddTransceiverFromKind(kind, init...)
+	now := time.Now()
+	ret, err := pc.pionpc.AddTransceiverFromKind(kind, init...)
+	go func() {
+		pc.stream.Event(WebRTCEvent{
+			AddTransceiverFromKind: &AddTransceiverFromKind{
+				Kind: kind,
+			},
+			Time: now,
+		})
+	}()
+	return ret, err
 }
 
 func (pc *RecorderPeerConnection) ICEGatheringState() webrtc.ICEGatheringState {
-	return pc.pionpc.ICEGatheringState()
+	now := time.Now()
+	state := pc.pionpc.ICEGatheringState()
+	go func() {
+		pc.stream.Event(WebRTCEvent{
+			ICEGatheringState: &ICEGatheringState{
+				State: state,
+			},
+			Time: now,
+		})
+	}()
+	return state
 }
 
 func (pc *RecorderPeerConnection) OnDataChannel(f func(*webrtc.DataChannel)) {
-	pc.pionpc.OnDataChannel(f)
+	pc.pionpc.OnDataChannel(func(dc *webrtc.DataChannel) {
+		now := time.Now()
+		go func() {
+			pc.stream.Event(WebRTCEvent{
+				DataChannel: &DataChannel{
+					Label: dc.Label(),
+				},
+				Time: now,
+			})
+		}()
+		f(dc)
+	})
 }
 
 func (pc *RecorderPeerConnection) OnNegotiationNeeded(f func()) {
-	pc.pionpc.OnNegotiationNeeded(f)
+	pc.pionpc.OnNegotiationNeeded(func() {
+		now := time.Now()
+		go func() {
+			pc.stream.Event(WebRTCEvent{
+				NegotiationNeeded: &NegotiationNeeded{},
+				Time:              now,
+			})
+		}()
+		f()
+	})
 }

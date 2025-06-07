@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/require"
@@ -20,17 +21,19 @@ func TestWebRTCRecording(t *testing.T) {
 
 	// Test recording an offer event
 	offerEvent := WebRTCEvent{
-		Offer: &OfferEvent{
-			Offer: "test-offer",
+		Offer: &Offer{
+			SDPOffer: "test-offer",
 		},
+		Time: time.Now().UTC(),
 	}
 	require.NoError(t, recorder.Event(offerEvent))
 
 	// Test recording an answer event
 	answerEvent := WebRTCEvent{
-		Answer: &AnswerEvent{
-			Answer: "test-answer",
+		Answer: &Answer{
+			SDPAnswer: "test-answer",
 		},
+		Time: time.Now().UTC(),
 	}
 	require.NoError(t, recorder.Event(answerEvent))
 
@@ -48,7 +51,7 @@ func TestWebRTCRecording(t *testing.T) {
 	evs := []WebRTCEvent{}
 	err = nil
 	for err == nil {
-		ev := WebRTCEvent{}
+		var ev WebRTCEvent
 		err = dec.Decode(&ev)
 		if err == nil {
 			evs = append(evs, ev)
@@ -57,7 +60,13 @@ func TestWebRTCRecording(t *testing.T) {
 
 	require.ErrorIs(t, err, io.EOF)
 
+	off, ok := evs[0].Detail().(*Offer)
+	require.True(t, ok)
+	ans, ok := evs[1].Detail().(*Answer)
+	require.True(t, ok)
+
 	require.Equal(t, 2, len(evs))
-	require.Equal(t, offerEvent.Offer, evs[0].Offer)
-	require.Equal(t, answerEvent.Answer, evs[1].Answer)
+	require.Equal(t, off.SDPOffer, offerEvent.Offer.SDPOffer)
+	require.Equal(t, ans.SDPAnswer, answerEvent.Answer.SDPAnswer)
+
 }

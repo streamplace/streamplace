@@ -7,5 +7,5 @@ func (mm *MediaManager) NewPeerConnection() (rtcrec.PeerConnection, error) {
 	if err != nil {
 		return nil, err
 	}
-	return rtcrec.NewWrappedPC(pionpc), nil
+	return rtcrec.NewRecorderPeerConnection(pionpc), nil
 }

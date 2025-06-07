@@ -12,17 +12,29 @@ type WebRTCRecording struct {
 }
 
 type WebRTCEvent struct {
-	Offer  *OfferEvent
-	Answer *AnswerEvent
-	Time   time.Time
+	Offer  *Offer    `json:"offer,omitempty"`
+	Answer *Answer   `json:"answer,omitempty"`
+	Time   time.Time `json:"time"`
 }
 
-type OfferEvent struct {
-	Offer string
+func (e *WebRTCEvent) Detail() WebRTCEventDetail {
+	if e.Offer != nil {
+		return e.Offer
+	}
+	if e.Answer != nil {
+		return e.Answer
+	}
+	return nil
 }
 
-type AnswerEvent struct {
-	Answer string
+type WebRTCEventDetail interface{}
+
+type Offer struct {
+	SDPOffer string `json:"offer"`
+}
+
+type Answer struct {
+	SDPAnswer string `json:"answer"`
 }
 
 type RecorderStream struct {
@@ -38,6 +50,5 @@ func NewRecorderStream(w io.Writer) (*RecorderStream, error) {
 }
 
 func (s *RecorderStream) Event(event WebRTCEvent) error {
-	event.Time = time.Now()
 	return s.encoder.Encode(event)
 }

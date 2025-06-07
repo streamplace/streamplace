@@ -696,3 +696,7 @@ precommit: dockerfile-hash-precommit
 dockerfile-hash-precommit:
 	@bash -c 'printf "variables:\n  DOCKERFILE_HASH: `git hash-object docker/build.Dockerfile`" > .ci/dockerfile-hash.yaml' \
 	&& git add .ci/dockerfile-hash.yaml
+
+.PHONY: rtcrec
+rtcrec:
+	go build -o $(BUILDDIR)/rtcrec ./pkg/rtcrec/cmd/...

@@ -37,10 +37,6 @@ type RTPReceiver interface {
 }
 
 func GatheringCompletePromise(pc PeerConnection) <-chan struct{} {
-	wrapped, ok := pc.(*WrappedPeerConnection)
-	if ok {
-		return webrtc.GatheringCompletePromise(wrapped.pionpc)
-	}
 	recorder, ok := pc.(*RecorderPeerConnection)
 	if ok {
 		return webrtc.GatheringCompletePromise(recorder.pionpc)

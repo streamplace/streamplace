@@ -12,7 +12,7 @@ import (
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/peerproxy"
+	"stream.place/streamplace/pkg/rtcrec"
 )
 
 // This function remains in scope for the duration of a single users' playback
@@ -124,7 +124,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	}
 
 	// Create channel that is blocked until ICE Gathering is complete
-	gatherComplete := peerproxy.GatheringCompletePromise(peerConnection)
+	gatherComplete := rtcrec.GatheringCompletePromise(peerConnection)
 
 	go func() {
 		ticker := time.NewTicker(time.Second * 1)
@@ -184,7 +184,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		audioFirst := false
 
 		log.Warn(ctx, "setting OnTrack")
-		peerConnection.OnTrack(func(track peerproxy.TrackRemote, _ peerproxy.RTPReceiver) {
+		peerConnection.OnTrack(func(track rtcrec.TrackRemote, _ rtcrec.RTPReceiver) {
 			log.Warn(ctx, "OnTrack")
 			if track.Kind() == webrtc.RTPCodecTypeVideo {
 				// Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval

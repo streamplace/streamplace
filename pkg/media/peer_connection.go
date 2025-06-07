@@ -1,11 +1,11 @@
 package media
 
-import "stream.place/streamplace/pkg/peerproxy"
+import "stream.place/streamplace/pkg/rtcrec"
 
-func (mm *MediaManager) NewPeerConnection() (peerproxy.PeerConnection, error) {
+func (mm *MediaManager) NewPeerConnection() (rtcrec.PeerConnection, error) {
 	pionpc, err := mm.webrtcAPI.NewPeerConnection(mm.webrtcConfig)
 	if err != nil {
 		return nil, err
 	}
-	return peerproxy.NewWrappedPC(pionpc), nil
+	return rtcrec.NewWrappedPC(pionpc), nil
 }

@@ -1,4 +1,4 @@
-package peerproxy
+package rtcrec
 
 import (
 	"github.com/pion/interceptor"

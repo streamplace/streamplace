@@ -22,10 +22,10 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		return nil, err
 	}
 
-	ctx = log.WithLogValues(ctx, "webrtcID", uu.String(), "mediafunc", "WebRTCIngest")
+	ctx = log.WithLogValues(ctx, "webrtcID", uu.String(), "mediafunc", "WebRTCIngest", "streamer", signer.Streamer())
 
 	// Create a new RTCPeerConnection
-	peerConnection, err := mm.NewPeerConnection()
+	peerConnection, err := mm.NewPeerConnection(ctx, signer.Streamer())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create WebRTC peer connection: %w", err)
 	}

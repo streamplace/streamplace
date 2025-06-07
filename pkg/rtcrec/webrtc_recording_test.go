@@ -26,16 +26,16 @@ func TestWebRTCRecording(t *testing.T) {
 		},
 		Time: time.Now().UTC(),
 	}
-	require.NoError(t, recorder.Event(offerEvent))
+	recorder.Event(offerEvent)
 
 	// Test recording an answer event
 	answerEvent := WebRTCEvent{
-		Answer: &Answer{
+		CreateAnswer: &CreateAnswer{
 			SDPAnswer: "test-answer",
 		},
 		Time: time.Now().UTC(),
 	}
-	require.NoError(t, recorder.Event(answerEvent))
+	recorder.Event(answerEvent)
 
 	// err = recorder.Close()
 	// require.NoError(t, err)
@@ -62,11 +62,11 @@ func TestWebRTCRecording(t *testing.T) {
 
 	off, ok := evs[0].Detail().(*Offer)
 	require.True(t, ok)
-	ans, ok := evs[1].Detail().(*Answer)
+	ans, ok := evs[1].Detail().(*CreateAnswer)
 	require.True(t, ok)
 
 	require.Equal(t, 2, len(evs))
 	require.Equal(t, off.SDPOffer, offerEvent.Offer.SDPOffer)
-	require.Equal(t, ans.SDPAnswer, answerEvent.Answer.SDPAnswer)
+	require.Equal(t, ans.SDPAnswer, answerEvent.CreateAnswer.SDPAnswer)
 
 }

@@ -1,11 +1,15 @@
 package media
 
-import "stream.place/streamplace/pkg/rtcrec"
+import (
+	"context"
 
-func (mm *MediaManager) NewPeerConnection() (rtcrec.PeerConnection, error) {
+	"stream.place/streamplace/pkg/rtcrec"
+)
+
+func (mm *MediaManager) NewPeerConnection(ctx context.Context, user string) (rtcrec.PeerConnection, error) {
 	pionpc, err := mm.webrtcAPI.NewPeerConnection(mm.webrtcConfig)
 	if err != nil {
 		return nil, err
 	}
-	return rtcrec.NewRecorderPeerConnection(pionpc), nil
+	return rtcrec.NewRecorderPeerConnection(ctx, *mm.cli, user, pionpc)
 }

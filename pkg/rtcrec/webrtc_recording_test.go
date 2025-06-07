@@ -1,6 +1,7 @@
 package rtcrec
 
 import (
+	"io"
 	"os"
 	"testing"
 
@@ -33,18 +34,28 @@ func TestWebRTCRecording(t *testing.T) {
 	}
 	require.NoError(t, recorder.Event(answerEvent))
 
-	err = recorder.Close()
-	require.NoError(t, err)
+	// err = recorder.Close()
+	// require.NoError(t, err)
 	err = tmpfile.Close()
 	require.NoError(t, err)
 
-	// Read the file and verify the contents
-	contents, err := os.ReadFile(tmpfile.Name())
+	tmpfile, err = os.Open(tmpfile.Name())
 	require.NoError(t, err)
+	defer tmpfile.Close()
 
-	var evs []WebRTCEvent
-	err = cbor.Unmarshal(contents, &evs)
-	require.NoError(t, err)
+	dec := cbor.NewDecoder(tmpfile)
+
+	evs := []WebRTCEvent{}
+	err = nil
+	for err == nil {
+		ev := WebRTCEvent{}
+		err = dec.Decode(&ev)
+		if err == nil {
+			evs = append(evs, ev)
+		}
+	}
+
+	require.ErrorIs(t, err, io.EOF)
 
 	require.Equal(t, 2, len(evs))
 	require.Equal(t, offerEvent.Offer, evs[0].Offer)

@@ -32,11 +32,6 @@ type RecorderStream struct {
 func NewRecorderStream(w io.Writer) (*RecorderStream, error) {
 	encoder := cbor.NewEncoder(w)
 
-	err := encoder.StartIndefiniteArray()
-	if err != nil {
-		return nil, err
-	}
-
 	return &RecorderStream{
 		encoder: encoder,
 	}, nil
@@ -45,8 +40,4 @@ func NewRecorderStream(w io.Writer) (*RecorderStream, error) {
 func (s *RecorderStream) Event(event WebRTCEvent) error {
 	event.Time = time.Now()
 	return s.encoder.Encode(event)
-}
-
-func (s *RecorderStream) Close() error {
-	return s.encoder.EndIndefinite()
 }

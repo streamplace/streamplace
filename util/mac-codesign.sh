@@ -21,15 +21,15 @@ function livepeer-keychain() {
   if [[ "${KEYCHAIN_FILE:-}" == "" ]]; then
     KEYCHAIN_FILE="$(security default-keychain | sed -e 's:^["\t ]*::;s:["\t ]*$::')"
   fi
-}
-
-function livepeer-codesign() {
   echo "${DEVELOPER_CERTIFICATE_BASE64}" | base64 -d >"$CERTIFICATE_FILE"
   security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
   security import "${CERTIFICATE_FILE}" -f pkcs12 -k "$KEYCHAIN_NAME" -T "$CODESIGN" -P "${DEVELOPER_CERTIFICATE_PASSWORD}"
   security set-key-partition-list -S "apple-tool:,apple:,codesign:" -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
-  $CODESIGN --force --sign "${DEVELOPER_CERTIFICATE_ID}" -o runtime "${BINARY_PATH}"
   rm -f "${CERTIFICATE_FILE}"
+}
+
+function livepeer-codesign() {
+  $CODESIGN --force --sign "${DEVELOPER_CERTIFICATE_ID}" -o runtime "${BINARY_PATH}"
   zip -9r "${NOTARIZATION_FILE}" "${BINARY_PATH}"
 }
 

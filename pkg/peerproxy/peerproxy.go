@@ -1,6 +1,7 @@
 package peerproxy
 
 import (
+	"github.com/pion/interceptor"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 )
@@ -13,7 +14,7 @@ type PeerConnection interface {
 	SetLocalDescription(description webrtc.SessionDescription) error
 	OnICEConnectionStateChange(func(webrtc.ICEConnectionState))
 	OnConnectionStateChange(func(webrtc.PeerConnectionState))
-	OnTrack(func(*webrtc.TrackRemote, *webrtc.RTPReceiver))
+	OnTrack(func(TrackRemote, RTPReceiver))
 	OnDataChannel(func(*webrtc.DataChannel))
 	OnNegotiationNeeded(func())
 	WriteRTCP(pkts []rtcp.Packet) error
@@ -22,6 +23,17 @@ type PeerConnection interface {
 }
 
 type RTPTransceiver interface {
+}
+
+type TrackRemote interface {
+	Read(p []byte) (n int, attrs interceptor.Attributes, err error)
+	Kind() webrtc.RTPCodecType
+	PayloadType() webrtc.PayloadType
+	Codec() webrtc.RTPCodecParameters
+	SSRC() webrtc.SSRC
+}
+
+type RTPReceiver interface {
 }
 
 func TranscieverPlease() RTPTransceiver {

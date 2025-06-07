@@ -59,8 +59,10 @@ func (pc *WrappedPeerConnection) OnConnectionStateChange(f func(webrtc.PeerConne
 	pc.pionpc.OnConnectionStateChange(f)
 }
 
-func (pc *WrappedPeerConnection) OnTrack(f func(*webrtc.TrackRemote, *webrtc.RTPReceiver)) {
-	pc.pionpc.OnTrack(f)
+func (pc *WrappedPeerConnection) OnTrack(f func(TrackRemote, RTPReceiver)) {
+	pc.pionpc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		f(track, receiver)
+	})
 }
 
 func (pc *WrappedPeerConnection) WriteRTCP(pkts []rtcp.Packet) error {

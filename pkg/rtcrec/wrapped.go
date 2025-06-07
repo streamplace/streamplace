@@ -15,14 +15,6 @@ func NewWrappedPC(pionpc *webrtc.PeerConnection) PeerConnection {
 	}
 }
 
-func GatheringCompletePromise(pc PeerConnection) <-chan struct{} {
-	wrapped, ok := pc.(*WrappedPeerConnection)
-	if !ok {
-		panic("pc is not a *WrappedPeerConnection")
-	}
-	return webrtc.GatheringCompletePromise(wrapped.pionpc)
-}
-
 func (pc *WrappedPeerConnection) Close() error {
 	return pc.pionpc.Close()
 }

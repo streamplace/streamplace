@@ -36,14 +36,14 @@ type TrackRemote interface {
 type RTPReceiver interface {
 }
 
-func TranscieverPlease() RTPTransceiver {
-	return &webrtc.RTPTransceiver{}
-}
-
-func TranscieverThankYou() *webrtc.RTPTransceiver {
-	t, ok := TranscieverPlease().(*webrtc.RTPTransceiver)
-	if !ok {
-		panic("TranscieverPlease() is not a webrtc.RTPTransceiver")
+func GatheringCompletePromise(pc PeerConnection) <-chan struct{} {
+	wrapped, ok := pc.(*WrappedPeerConnection)
+	if ok {
+		return webrtc.GatheringCompletePromise(wrapped.pionpc)
 	}
-	return t
+	recorder, ok := pc.(*RecorderPeerConnection)
+	if ok {
+		return webrtc.GatheringCompletePromise(recorder.pionpc)
+	}
+	panic("unknown peer connection type")
 }

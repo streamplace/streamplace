@@ -135,15 +135,29 @@ func (pc *RecorderPeerConnection) OnConnectionStateChange(f func(webrtc.PeerConn
 func (pc *RecorderPeerConnection) OnTrack(f func(TrackRemote, RTPReceiver)) {
 	pc.pionpc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		now := time.Now()
+		wrappedTrack := &WrappedTrackRemote{track: track, stream: pc.stream}
+		id := track.ID()
+		kind := track.Kind()
+		ssrc := track.SSRC()
+		payloadType := track.PayloadType()
+		streamID := track.StreamID()
+		msid := track.Msid()
+		rid := track.RID()
 		go func() {
 			pc.stream.Event(WebRTCEvent{
 				Track: &Track{
-					Track: track,
+					ID:          id,
+					Kind:        kind,
+					SSRC:        ssrc,
+					PayloadType: payloadType,
+					StreamID:    streamID,
+					Msid:        msid,
+					RID:         rid,
 				},
 				Time: now,
 			})
 		}()
-		f(track, receiver)
+		f(wrappedTrack, receiver)
 	})
 }
 

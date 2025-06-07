@@ -11,7 +11,7 @@ import (
 )
 
 type WebRTCRecording struct {
-	Events []WebRTCEvent
+	Events []WebRTCEvent `json:"events,omitempty"`
 }
 
 type WebRTCEvent struct {
@@ -23,7 +23,12 @@ type WebRTCEvent struct {
 	ICEConnectionStateChange *ICEConnectionStateChange `json:"iceConnectionStateChange,omitempty"`
 	ConnectionStateChange    *ConnectionStateChange    `json:"connectionStateChange,omitempty"`
 	Track                    *Track                    `json:"track,omitempty"`
-	Time                     time.Time                 `json:"time"`
+	TrackRead                *TrackRead                `json:"trackRead,omitempty"`
+	TrackCodec               *TrackCodec               `json:"trackCodec,omitempty"`
+	TrackKind                *TrackKind                `json:"trackKind,omitempty"`
+	TrackPayloadType         *TrackPayloadType         `json:"trackPayloadType,omitempty"`
+	TrackSSRC                *TrackSSRC                `json:"trackSSRC,omitempty"`
+	Time                     time.Time                 `json:"time,omitempty"`
 }
 
 func (e *WebRTCEvent) Detail() WebRTCEventDetail {
@@ -39,35 +44,67 @@ func (e *WebRTCEvent) Detail() WebRTCEventDetail {
 type WebRTCEventDetail interface{}
 
 type Offer struct {
-	SDPOffer string `json:"sdpOffer"`
+	SDPOffer string `json:"sdpOffer,omitempty"`
 }
 
 type CreateAnswer struct {
-	SDPAnswer string `json:"sdpAnswer"`
+	SDPAnswer string `json:"sdpAnswer,omitempty"`
 }
 
 type SetRemoteDescription struct {
-	SDPRemoteDescription string `json:"sdpRemoteDescription"`
+	SDPRemoteDescription string `json:"sdpRemoteDescription,omitempty"`
 }
 
 type SetLocalDescription struct {
-	SDPLocalDescription string `json:"sdpRemoteDescription"`
+	SDPLocalDescription string `json:"sdpRemoteDescription,omitempty"`
 }
 
 type LocalDescription struct {
-	SDPLocalDescription string `json:"sdpLocalDescription"`
+	SDPLocalDescription string `json:"sdpLocalDescription,omitempty"`
 }
 
 type ICEConnectionStateChange struct {
-	ICEConnectionState webrtc.ICEConnectionState `json:"iceConnectionState"`
+	ICEConnectionState webrtc.ICEConnectionState `json:"iceConnectionState,omitempty"`
 }
 
 type ConnectionStateChange struct {
-	ConnectionState webrtc.PeerConnectionState `json:"connectionState"`
+	ConnectionState webrtc.PeerConnectionState `json:"connectionState,omitempty"`
 }
 
 type Track struct {
-	Track *webrtc.TrackRemote `json:"track"`
+	ID          string              `json:"id,omitempty"`
+	Kind        webrtc.RTPCodecType `json:"kind,omitempty"`
+	SSRC        webrtc.SSRC         `json:"ssrc,omitempty"`
+	PayloadType webrtc.PayloadType  `json:"payloadType,omitempty"`
+	StreamID    string              `json:"streamId,omitempty"`
+	Msid        string              `json:"msid,omitempty"`
+	RID         string              `json:"rid,omitempty"`
+}
+
+type TrackRead struct {
+	SSRC  webrtc.SSRC `json:"ssrc,omitempty"`
+	Data  []byte      `json:"data,omitempty"`
+	Count int         `json:"count,omitempty"`
+	Err   string      `json:"err,omitempty"`
+}
+
+type TrackCodec struct {
+	SSRC  webrtc.SSRC               `json:"ssrc,omitempty"`
+	Codec webrtc.RTPCodecParameters `json:"codec,omitempty"`
+}
+
+type TrackKind struct {
+	SSRC webrtc.SSRC         `json:"ssrc,omitempty"`
+	Kind webrtc.RTPCodecType `json:"kind,omitempty"`
+}
+
+type TrackPayloadType struct {
+	SSRC        webrtc.SSRC        `json:"ssrc,omitempty"`
+	PayloadType webrtc.PayloadType `json:"payloadType,omitempty"`
+}
+
+type TrackSSRC struct {
+	SSRC webrtc.SSRC `json:"ssrc,omitempty"`
 }
 
 type RecorderStream struct {

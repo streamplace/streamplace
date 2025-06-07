@@ -12,6 +12,7 @@ import (
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/peerproxy"
 )
 
 // This function remains in scope for the duration of a single users' playback
@@ -24,7 +25,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String(), "mediafunc", "WebRTCIngest")
 
 	// Create a new RTCPeerConnection
-	peerConnection, err := mm.webrtcAPI.NewPeerConnection(mm.webrtcConfig)
+	peerConnection, err := mm.NewPeerConnection()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create WebRTC peer connection: %w", err)
 	}
@@ -123,7 +124,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	}
 
 	// Create channel that is blocked until ICE Gathering is complete
-	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
+	gatherComplete := peerproxy.GatheringCompletePromise(peerConnection)
 
 	go func() {
 		ticker := time.NewTicker(time.Second * 1)

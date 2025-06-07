@@ -95,18 +95,16 @@ build-windows-amd64:
     TARGET: windows-amd64
 
 build-darwin-arm64:
-  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
   extends:
     - .build
   variables:
     TARGET: darwin-arm64
 
 build-darwin-amd64:
-  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
   extends:
     - .build
   variables:
-    TARGET: darwin-arm64
+    TARGET: darwin-amd64
 
 leak-test-viewers:
   stage: build

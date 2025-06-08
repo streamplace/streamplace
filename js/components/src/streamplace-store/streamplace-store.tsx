@@ -18,8 +18,16 @@ import { StreamplaceContext } from "../streamplace-provider/context";
 
 export interface StreamplaceState {
   url: string;
-  liveUsers: PlaceStreamLivestream.LivestreamView[];
-  setLiveUsers: (users: PlaceStreamLivestream.LivestreamView[]) => void;
+  liveUsers: PlaceStreamLivestream.LivestreamView[] | null;
+  setLiveUsers: (opts: {
+    liveUsers?: PlaceStreamLivestream.LivestreamView[];
+    liveUsersLoading?: boolean;
+    liveUsersError?: string | null;
+    liveUsersRefresh?: number;
+  }) => void;
+  liveUsersRefresh: number;
+  liveUsersLoading: boolean;
+  liveUsersError: string | null;
   oauthSession: SessionManager | null;
   handle: string | null;
   chatProfile: PlaceStreamChatProfile.Record | null;
@@ -34,10 +42,20 @@ export const makeStreamplaceStore = ({
 }): StoreApi<StreamplaceState> => {
   return createStore<StreamplaceState>()((set) => ({
     url,
-    liveUsers: [],
-    setLiveUsers: (users: PlaceStreamLivestream.LivestreamView[]) => {
-      set({ liveUsers: users });
+    liveUsers: null,
+    setLiveUsers: (opts: {
+      liveUsers?: PlaceStreamLivestream.LivestreamView[];
+      liveUsersLoading?: boolean;
+      liveUsersError?: string | null;
+      liveUsersRefresh?: number;
+    }) => {
+      set({
+        ...opts,
+      });
     },
+    liveUsersRefresh: 0,
+    liveUsersLoading: true,
+    liveUsersError: null,
     oauthSession: null,
     handle: null,
     chatProfile: null,

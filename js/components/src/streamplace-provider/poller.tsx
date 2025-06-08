@@ -15,6 +15,9 @@ export default function Poller({ children }: { children: React.ReactNode }) {
   const pdsAgent = usePDSAgent();
   const getChatProfile = useGetChatProfile();
   const getBskyProfile = useGetBskyProfile();
+  const liveUserRefresh = useStreamplaceStore(
+    (state) => state.liveUsersRefresh,
+  );
 
   useEffect(() => {
     if (pdsAgent && did) {
@@ -26,13 +29,27 @@ export default function Poller({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const agent = new StreamplaceAgent(url);
     const go = async () => {
-      const res = await agent.place.stream.live.getLiveUsers();
-      setLiveUsers(res.data.streams || []);
+      setLiveUsers({
+        liveUsersLoading: true,
+      });
+      try {
+        const res = await agent.place.stream.live.getLiveUsers();
+        setLiveUsers({
+          liveUsers: res.data.streams || [],
+          liveUsersLoading: false,
+          liveUsersError: null,
+        });
+      } catch (e) {
+        setLiveUsers({
+          liveUsersLoading: false,
+          liveUsersError: e.message,
+        });
+      }
     };
     go();
     const handle = setInterval(go, 3000);
     return () => clearInterval(handle);
-  }, [url]);
+  }, [url, liveUserRefresh]);
 
   return <>{children}</>;
 }

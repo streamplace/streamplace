@@ -45,10 +45,7 @@ import {
   selectNotificationDestination,
   selectNotificationToken,
 } from "features/platform/platformSlice.native";
-import {
-  pollMySegments,
-  pollSegments,
-} from "features/streamplace/streamplaceSlice";
+import { pollMySegments } from "features/streamplace/streamplaceSlice";
 import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
@@ -322,16 +319,11 @@ export function StreamplaceDrawer() {
   // Top-level stuff to handle polling for live streamers
   useEffect(() => {
     let handle: NodeJS.Timeout;
-    const doSegments = () => {
-      handle = setTimeout(doMySegments, 2500);
-      dispatch(pollSegments());
-    };
-    const doMySegments = () => {
-      handle = setTimeout(doSegments, 2500);
+    handle = setInterval(() => {
       dispatch(pollMySegments());
-    };
-    doSegments();
-    return () => clearTimeout(handle);
+    }, 2500);
+    dispatch(pollMySegments());
+    return () => clearInterval(handle);
   }, []);
 
   const userIsLive = useLiveUser();

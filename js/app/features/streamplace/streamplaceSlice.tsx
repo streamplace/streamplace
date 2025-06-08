@@ -202,61 +202,6 @@ export const streamplaceSlice = createAppSlice({
       },
     ),
 
-    pollSegments: create.asyncThunk(
-      async (_, { getState, dispatch }) => {
-        const { streamplace } = getState() as {
-          streamplace: StreamplaceState;
-        };
-        const { bluesky } = getState() as {
-          bluesky: BlueskyState;
-        };
-
-        let agent = bluesky.anonPDSAgent;
-
-        if (!agent) {
-          throw new Error("no anonPDSAgent");
-        }
-
-        let users = await agent.place.stream.live.getLiveUsers();
-
-        return users.data.streams;
-      },
-      {
-        pending: (state) => {
-          return {
-            ...state,
-            recentSegments: {
-              ...state.recentSegments,
-              loading: true,
-            },
-          };
-        },
-        fulfilled: (state, action) => {
-          return {
-            ...state,
-            recentSegments: {
-              ...state.recentSegments,
-              segments: action.payload || [],
-              loading: false,
-              error: null,
-              firstRequest: false,
-            },
-          };
-        },
-        rejected: (state, err) => {
-          // console.error("pollSegments rejected", err);
-          return {
-            ...state,
-            recentSegments: {
-              ...state.recentSegments,
-              error: err.error.message ?? null,
-              loading: false,
-            },
-          };
-        },
-      },
-    ),
-
     pollMySegments: create.asyncThunk(
       async (_, { getState, dispatch }) => {
         const { streamplace } = getState() as {
@@ -314,7 +259,6 @@ export const {
   getIdentity,
   setURL,
   initialize,
-  pollSegments,
   pollMySegments,
   telemetryOpt,
   userMute,
@@ -322,7 +266,6 @@ export const {
 } = streamplaceSlice.actions;
 export const {
   selectStreamplace,
-  selectRecentSegments,
   selectMySegments,
   selectTelemetry,
   selectUserMuted,

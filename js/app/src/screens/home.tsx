@@ -1,3 +1,4 @@
+import { useStreamplaceStore } from "@streamplace/components";
 import { AlertCircle } from "@tamagui/lucide-icons";
 import { UseMediaState } from "@tamagui/web";
 import AQLink from "components/aqlink";
@@ -7,15 +8,9 @@ import StreamCardHorizontal, { StreamCardSize } from "components/home/cards";
 import LiveDot from "components/home/live-dot";
 import Loading from "components/loading/loading";
 import Title from "components/title";
-import {
-  pollSegments,
-  selectRecentSegments,
-} from "features/streamplace/streamplaceSlice";
 import useAvatars from "hooks/useAvatars";
-import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useEffect, useState } from "react";
 import { RefreshControl } from "react-native";
-import { useAppDispatch, useAppSelector } from "store/hooks";
 import { PlaceStreamLivestream } from "streamplace";
 import {
   H3,
@@ -183,50 +178,39 @@ export default function HomeScreen({
     string
   >;
 }) {
-  const { url } = useStreamplaceNode();
-  const {
-    segments: realSegments,
-    error,
-    loading,
-    firstRequest,
-  } = useAppSelector(selectRecentSegments);
-  const dispatch = useAppDispatch();
+  const liveUsers = useStreamplaceStore((state) => state.liveUsers);
+  const setLiveUsers = useStreamplaceStore((state) => state.setLiveUsers);
+  const refreshLiveUsers = () => setLiveUsers({ liveUsersRefresh: Date.now() });
+  const liveUsersLoading = useStreamplaceStore(
+    (state) => state.liveUsersLoading,
+  );
+  const liveUsersError = useStreamplaceStore((state) => state.liveUsersError);
   const [manualRefresh, setManualRefresh] = useState(false);
 
   // Use mock data for development/testing if needed
   //const segments = generateMockSegments(1).streams; // Uncomment this line to use mock data
-  const segments = realSegments; // Comment this line out if using mock data
+  const segments = useStreamplaceStore((state) => state.liveUsers);
+  // const segments = realSegments; // Comment this line out if using mock data
   const media = useMedia();
 
-  const avis = useAvatars(segments.map((s) => s.author.did));
+  const avis = useAvatars((segments || []).map((s) => s.author.did));
 
   useEffect(() => {
-    dispatch(pollSegments());
-    // get array of
-  }, [dispatch]);
-
-  useEffect(() => {
-    if (!loading) {
+    if (!liveUsersLoading) {
       setManualRefresh(false);
     }
-  }, [loading]);
+  }, [liveUsersLoading]);
 
-  if (error) {
-    if (loading) {
+  if (liveUsersError) {
+    if (liveUsersLoading) {
       return <Loading />;
     }
     if (!segments) {
-      return (
-        <ErrorBox
-          onRetry={() => {
-            dispatch(pollSegments());
-          }}
-        />
-      );
+      return <ErrorBox onRetry={refreshLiveUsers} />;
     }
   }
 
-  if (firstRequest && !segments.length) {
+  if (segments === null) {
     // Only show loading if not using mock data and no segments yet
     return <Loading />;
   }
@@ -262,7 +246,7 @@ export default function HomeScreen({
 
   return (
     <>
-      {error && (
+      {liveUsersError && (
         <View>
           <Container
             backgroundColor="#774316"
@@ -280,7 +264,7 @@ export default function HomeScreen({
             <AlertCircle size={24} minWidth={24} color="$white" />
             <Text>
               There was an error fetching the latest streams. You might be
-              offline? code: {error || "nocode"}
+              offline? code: {liveUsersError || "nocode"}
             </Text>
           </Container>
         </View>
@@ -295,7 +279,7 @@ export default function HomeScreen({
           <RefreshControl
             refreshing={manualRefresh}
             onRefresh={() => {
-              dispatch(pollSegments());
+              refreshLiveUsers();
               setManualRefresh(true);
             }}
           />
@@ -318,7 +302,7 @@ export default function HomeScreen({
             </View>
           )}
 
-          {segments.length === 0 && !loading && (
+          {segments.length === 0 && (
             <View
               f={1}
               justifyContent="center"

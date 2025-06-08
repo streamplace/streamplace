@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/pion/webrtc/v4"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/sync/errgroup"
@@ -31,6 +32,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/renditions"
+	"stream.place/streamplace/pkg/rtcrec"
 	v0 "stream.place/streamplace/pkg/schema/v0"
 )
 
@@ -599,6 +601,34 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			return
 		}
 		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
+	})
+
+	router.POST("/replay/:streamKey", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		key := p.ByName("streamKey")
+		if key == "" {
+			errors.WriteHTTPBadRequest(w, "streamKey required", nil)
+			return
+		}
+		mediaSigner, err := a.MakeMediaSigner(ctx, key)
+		if err != nil {
+			errors.WriteHTTPUnauthorized(w, "invalid authorization key", err)
+			return
+		}
+		pc, err := rtcrec.NewReplayPeerConnection(ctx, r.Body)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to create replay peer connection", err)
+			return
+		}
+		answer, err := a.MediaManager.WebRTCIngest(ctx, &webrtc.SessionDescription{SDP: "placeholder"}, mediaSigner, pc)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to ingest web rtc", err)
+			return
+		}
+		w.WriteHeader(200)
+		if _, err := w.Write([]byte(answer.SDP)); err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to write response", err)
 			log.Error(ctx, "error writing response", "error", err)
 		}
 	})

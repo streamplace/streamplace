@@ -219,7 +219,12 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 			return
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
-		answer, err := a.MediaManager.WebRTCIngest(ctx, &offer, mediaSigner)
+		pc, err := a.MediaManager.NewPeerConnection(ctx, mediaSigner.Streamer())
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to create peer connection", err)
+			return
+		}
+		answer, err := a.MediaManager.WebRTCIngest(ctx, &offer, mediaSigner, pc)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "error playing back", err)
 			return

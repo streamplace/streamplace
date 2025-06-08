@@ -16,23 +16,13 @@ import (
 )
 
 // This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionDescription, signer MediaSigner) (*webrtc.SessionDescription, error) {
+func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionDescription, signer MediaSigner, peerConnection rtcrec.PeerConnection) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
 	}
 
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String(), "mediafunc", "WebRTCIngest", "streamer", signer.Streamer())
-
-	// Create a new RTCPeerConnection
-	// peerConnection, err := mm.NewPeerConnection(ctx, signer.Streamer())
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to create WebRTC peer connection: %w", err)
-	// }
-	peerConnection, err := rtcrec.NewReplayPeerConnection(ctx, "/Users/iameli/.streamplace/did-web-didweb.scumb.ag/rtcrec/2025-06-08T01-16-34-559Z.cbor")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create replay peer connection: %w", err)
-	}
 
 	// Allow us to receive 1 audio track, and 1 video track
 	if _, err = peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio); err != nil {

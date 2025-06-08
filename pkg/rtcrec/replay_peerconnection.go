@@ -3,7 +3,7 @@ package rtcrec
 import (
 	"context"
 	"fmt"
-	"os"
+	"io"
 	"time"
 
 	"github.com/pion/rtcp"
@@ -12,24 +12,18 @@ import (
 )
 
 type ReplayPeerConnection struct {
-	file      *os.File
 	startTime time.Time
 	group     *WebRTCEventGroup
 	ctx       context.Context
 }
 
-func NewReplayPeerConnection(ctx context.Context, fpath string) (PeerConnection, error) {
-	f, err := os.Open(fpath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open data file: %w", err)
-	}
-	group, err := ReadAllEvents(f)
+func NewReplayPeerConnection(ctx context.Context, r io.Reader) (PeerConnection, error) {
+	group, err := ReadAllEvents(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create web rtc decoder: %w", err)
 	}
 
 	return &ReplayPeerConnection{
-		file:      f,
 		startTime: time.Now(),
 		group:     group,
 		ctx:       context.Background(),

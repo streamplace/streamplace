@@ -15,7 +15,7 @@ type WrappedTrackRemote struct {
 func (t *WrappedTrackRemote) Read(p []byte) (n int, attrs interceptor.Attributes, err error) {
 	n, attrs, err = t.track.Read(p)
 	now := time.Now()
-	b2 := make([]byte, len(p))
+	b2 := make([]byte, n)
 	copy(b2, p)
 	go func() {
 		errString := ""

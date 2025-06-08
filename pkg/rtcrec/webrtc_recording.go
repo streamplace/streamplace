@@ -2,6 +2,7 @@ package rtcrec
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -116,7 +117,13 @@ type RecorderStream struct {
 }
 
 func NewRecorderStream(w io.Writer) (*RecorderStream, error) {
-	encoder := cbor.NewEncoder(w)
+	opts := cbor.CoreDetEncOptions()
+	opts.Time = cbor.TimeRFC3339Nano
+	em, err := opts.EncMode()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create encoder mode: %w", err)
+	}
+	encoder := em.NewEncoder(w)
 
 	return &RecorderStream{
 		encoder: encoder,

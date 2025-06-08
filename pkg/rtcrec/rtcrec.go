@@ -1,6 +1,8 @@
 package rtcrec
 
 import (
+	"time"
+
 	"github.com/pion/interceptor"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
@@ -15,8 +17,8 @@ type PeerConnection interface {
 	OnICEConnectionStateChange(func(webrtc.ICEConnectionState))
 	OnConnectionStateChange(func(webrtc.PeerConnectionState))
 	OnTrack(func(TrackRemote, RTPReceiver))
-	OnDataChannel(func(*webrtc.DataChannel))
-	OnNegotiationNeeded(func())
+	// OnDataChannel(func(*webrtc.DataChannel))
+	// OnNegotiationNeeded(func())
 	WriteRTCP(pkts []rtcp.Packet) error
 	ICEGatheringState() webrtc.ICEGatheringState
 	LocalDescription() *webrtc.SessionDescription
@@ -40,6 +42,15 @@ func GatheringCompletePromise(pc PeerConnection) <-chan struct{} {
 	recorder, ok := pc.(*RecorderPeerConnection)
 	if ok {
 		return webrtc.GatheringCompletePromise(recorder.pionpc)
+	}
+	_, ok = pc.(*ReplayPeerConnection)
+	if ok {
+		ch := make(chan struct{})
+		go func() {
+			<-time.After(100 * time.Millisecond)
+			ch <- struct{}{}
+		}()
+		return ch
 	}
 	panic("unknown peer connection type")
 }

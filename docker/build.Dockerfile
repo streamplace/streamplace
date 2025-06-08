@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 FROM ubuntu:22.04 AS builder
 
+ENV CACHE_BREAK "2025-06-08T23:32:16.808Z"
+
 ARG TARGETARCH
 ENV TARGETARCH $TARGETARCH
 

@@ -100,6 +100,48 @@ build-darwin-arm64:
   variables:
     TARGET: darwin-arm64
 
+build-darwin-arm64-2:
+  extends:
+    - .build
+  variables:
+    TARGET: darwin-arm64
+
+build-darwin-arm64-3:
+  extends:
+    - .build
+  variables:
+    TARGET: darwin-arm64
+
+build-darwin-arm64-4:
+  extends:
+    - .build
+  variables:
+    TARGET: darwin-arm64
+
+build-darwin-arm64-5:
+  extends:
+    - .build
+  variables:
+    TARGET: darwin-arm64
+
+build-darwin-arm64-6:
+  extends:
+    - .build
+  variables:
+    TARGET: darwin-arm64
+
+build-darwin-arm64-7:
+  extends:
+    - .build
+  variables:
+    TARGET: darwin-arm64
+
+build-darwin-arm64-8:
+  extends:
+    - .build
+  variables:
+    TARGET: darwin-arm64
+
 build-darwin-amd64:
   extends:
     - .build

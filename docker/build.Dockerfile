@@ -98,6 +98,7 @@ RUN git clone https://github.com/tpoechtrager/osxcross.git .
 # RUN UNATTENDED=1 ./build_apple_clang.sh
 ENV MAC_SDK_VERSION 15.4
 RUN curl -L --fail https://github.com/joseluisq/macosx-sdks/releases/download/$MAC_SDK_VERSION/MacOSX$MAC_SDK_VERSION.sdk.tar.xz -o /osxcross/tarballs/MacOSX$MAC_SDK_VERSION.sdk.tar.xz
+RUN apt install -y cmake libssl-dev
 RUN UNATTENDED=1 ./build.sh
 RUN cargo install apple-codesign
 ENV PATH /osxcross/target/bin:$PATH

@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 FROM ubuntu:22.04 AS builder
 
 ARG TARGETARCH
@@ -13,8 +12,6 @@ ENV DEBIAN_FRONTEND noninteractive
 
 ADD docker/sources.list /etc/apt/sources.list
 ADD docker/winehq.key /etc/apt/keyrings/winehq-archive.key
-ADD docker/llvm-snapshot.key /etc/apt/keyrings/llvm-snapshot.key
-
 RUN dpkg --add-architecture i386 && dpkg --add-architecture arm64
 
 # Haven't automated it yet, so here's my instructors for mirroring winehq:
@@ -30,7 +27,7 @@ RUN dpkg --add-architecture i386 && dpkg --add-architecture arm64
 
 RUN apt update \
   && apt install -y build-essential curl git openjdk-17-jdk unzip jq g++ python3-pip ninja-build \
-  gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user-static pkg-config \
+  gcc-aarch64-linux-gnu g++-aarch64-linux-gnu clang lld qemu-user-static pkg-config \
   nasm gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64-tools zip bison flex expect \
   mono-runtime nuget mono-xsp4 squashfs-tools \
   libc6:arm64 libstdc++6:arm64 \
@@ -40,12 +37,10 @@ RUN apt update \
   && rm go.tar.gz
 
 RUN echo 'deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/winehq-archive.key] https://storage.googleapis.com/streamplace-crap/dl.winehq.org/wine-builds/ubuntu/ jammy main' >> /etc/apt/sources.list \
-  && echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/llvm-snapshot.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy main' >> /etc/apt/sources.list \
   && apt update \
-  && apt install -y --install-recommends winehq-stable \
-  clang-21 lldb-21 lld-21 clangd-21
+  && apt install -y --install-recommends winehq-stable
 
-ENV PATH /usr/lib/llvm-21/bin:$PATH:/usr/local/go/bin:/root/go/bin:/root/.cargo/bin
+ENV PATH $PATH:/usr/local/go/bin:/root/go/bin:/root/.cargo/bin
 
 RUN export NODEARCH="$TARGETARCH" \
   && if [ "$TARGETARCH" = "amd64" ]; then export NODEARCH="x64"; fi \
@@ -92,14 +87,17 @@ RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v2.1.6/g
   && mv golangci-lint-2.1.6-linux-amd64/golangci-lint /usr/local/bin/ \
   && rm -rf golangci-lint.tar.gz golangci-lint-2.1.6-linux-amd64
 
-WORKDIR /osxcross
+LABEL org.opencontainers.image.authors="support@stream.place"
 
+FROM builder AS builder-osxcross
+WORKDIR /osxcross
+RUN apt install -y clang llvm bash patch bzip2 lld cmake
+ENV PATH $PATH:/usr/lib/llvm-14/bin
 RUN git clone https://github.com/tpoechtrager/osxcross.git . \
     && git checkout 2.0-llvm-based
-# RUN UNATTENDED=1 ./build_apple_clang.sh
+RUN UNATTENDED=1 ./build_apple_clang.sh
 RUN curl -L --fail https://github.com/joseluisq/macosx-sdks/releases/download/15.4/MacOSX15.4.sdk.tar.xz -o /osxcross/tarballs/MacOSX15.4.sdk.tar.xz
+RUN rm -rf /usr/lib/llvm-14/bin
+ENV PATH /osxcross/build/clang-21/build_stage2/bin:$PATH
 RUN UNATTENDED=1 ./build.sh
-RUN cargo install apple-codesign
 ENV PATH /osxcross/target/bin:$PATH
-
-LABEL org.opencontainers.image.authors="support@stream.place"

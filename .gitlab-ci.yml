@@ -18,7 +18,7 @@ build-bunny:
       --dockerfile "${CI_PROJECT_DIR}/docker/bunny.Dockerfile"
       --destination "$DOCKER_REPO:bunny"
 
-builder:
+.builder:
   stage: build
   interruptible: true
   allow_failure: true
@@ -27,7 +27,6 @@ builder:
     entrypoint: [""]
   variables:
     FQ_IMAGE_NAME: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
-    TARGET: builder
   timeout: 2 hours
   script:
     - mkdir -p /kaniko/.docker
@@ -41,9 +40,21 @@ builder:
       --destination "$FQ_IMAGE_NAME"
       --target "$TARGET"
 
+builder:
+  extends:
+    - .builder
+  variables:
+    TARGET: builder
+    FQ_IMAGE_NAME: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
+
+builder-osxcross:
+  extends:
+    - .builder
+  variables:
+    TARGET: builder-osxcross
+    FQ_IMAGE_NAME: "$DOCKER_REPO:builder-osxcross-$DOCKERFILE_HASH"
+
 builder-rebuild:
-  tags:
-    - tiny-job
   stage: build
   allow_failure: true
   interruptible: true
@@ -52,6 +63,7 @@ builder-rebuild:
     entrypoint: [""]
   needs:
     - job: builder
+    - job: builder-osxcross
   timeout: 2 hours
   script:
     - echo "CI_PIPELINE_ID=$CI_PIPELINE_ID"
@@ -95,18 +107,18 @@ build-windows-amd64:
     TARGET: windows-amd64
 
 build-darwin-arm64:
+  image: "$DOCKER_REPO:builder-osxcross-$DOCKERFILE_HASH"
   extends:
     - .build
-  image: us-central1-docker.pkg.dev/aquareum-tv/streamplace/build@sha256:e65bdd65b7bf5df060e3303e5a782147665a80458e30b5955ad10ffeb4df0949
-  # temporary workaround for https://github.com/streamplace/streamplace/issues/269
   variables:
     TARGET: darwin-arm64
 
 build-darwin-amd64:
+  image: "$DOCKER_REPO:builder-osxcross-$DOCKERFILE_HASH"
   extends:
     - .build
   variables:
-    TARGET: darwin-amd64
+    TARGET: darwin-arm64
 
 leak-test-viewers:
   stage: build

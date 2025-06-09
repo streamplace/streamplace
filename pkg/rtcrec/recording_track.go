@@ -7,12 +7,12 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-type WrappedTrackRemote struct {
+type RecordingTrackRemote struct {
 	track  *webrtc.TrackRemote
 	stream *RecorderStream
 }
 
-func (t *WrappedTrackRemote) Read(p []byte) (n int, attrs interceptor.Attributes, err error) {
+func (t *RecordingTrackRemote) Read(p []byte) (n int, attrs interceptor.Attributes, err error) {
 	n, attrs, err = t.track.Read(p)
 	now := time.Now()
 	b2 := make([]byte, n)
@@ -36,7 +36,7 @@ func (t *WrappedTrackRemote) Read(p []byte) (n int, attrs interceptor.Attributes
 	return n, attrs, err
 }
 
-func (t *WrappedTrackRemote) Codec() webrtc.RTPCodecParameters {
+func (t *RecordingTrackRemote) Codec() webrtc.RTPCodecParameters {
 	now := time.Now()
 	codec := t.track.Codec()
 	go func() {
@@ -51,11 +51,11 @@ func (t *WrappedTrackRemote) Codec() webrtc.RTPCodecParameters {
 	return codec
 }
 
-func (t *WrappedTrackRemote) ID() string {
+func (t *RecordingTrackRemote) ID() string {
 	return t.track.ID()
 }
 
-func (t *WrappedTrackRemote) Kind() webrtc.RTPCodecType {
+func (t *RecordingTrackRemote) Kind() webrtc.RTPCodecType {
 	now := time.Now()
 	kind := t.track.Kind()
 	go func() {
@@ -70,7 +70,7 @@ func (t *WrappedTrackRemote) Kind() webrtc.RTPCodecType {
 	return kind
 }
 
-func (t *WrappedTrackRemote) PayloadType() webrtc.PayloadType {
+func (t *RecordingTrackRemote) PayloadType() webrtc.PayloadType {
 	now := time.Now()
 	payloadType := t.track.PayloadType()
 	go func() {
@@ -85,7 +85,7 @@ func (t *WrappedTrackRemote) PayloadType() webrtc.PayloadType {
 	return payloadType
 }
 
-func (t *WrappedTrackRemote) SSRC() webrtc.SSRC {
+func (t *RecordingTrackRemote) SSRC() webrtc.SSRC {
 	now := time.Now()
 	ssrc := t.track.SSRC()
 	go func() {

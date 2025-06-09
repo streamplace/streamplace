@@ -11,5 +11,5 @@ func (mm *MediaManager) NewPeerConnection(ctx context.Context, user string) (rtc
 	if err != nil {
 		return nil, err
 	}
-	return rtcrec.NewRecorderPeerConnection(ctx, *mm.cli, user, pionpc)
+	return rtcrec.NewRecordingPeerConnection(ctx, *mm.cli, user, pionpc)
 }

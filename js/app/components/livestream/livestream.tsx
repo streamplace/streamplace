@@ -14,7 +14,6 @@ import Avatar from "components/home/avatar";
 import Loading from "components/loading/loading";
 import { Player } from "components/player/player";
 import { PlayerProps } from "components/player/props";
-import Popup from "components/popup";
 import Timer from "components/timer";
 import Viewers from "components/viewers";
 import { useFullscreen } from "contexts/FullscreenContext";
@@ -23,10 +22,6 @@ import {
   setSidebarUnhidden,
 } from "features/base/sidebarSlice";
 import { getProfile } from "features/bluesky/blueskySlice";
-import {
-  selectTelemetry,
-  telemetryOpt,
-} from "features/streamplace/streamplaceSlice";
 import useAvatars from "hooks/useAvatars";
 import { useKeyboard } from "hooks/useKeyboard";
 import usePlatform from "hooks/usePlatform";
@@ -38,10 +33,9 @@ import {
   SafeAreaView,
 } from "react-native";
 import storage from "storage";
-import { useAppDispatch, useAppSelector } from "store/hooks";
+import { useAppDispatch } from "store/hooks";
 import {
   Button,
-  H3,
   isWeb,
   ScrollView,
   Text,
@@ -62,7 +56,6 @@ export default function Livestream(props: Partial<PlayerProps>) {
 }
 
 export function LivestreamInner(props: Partial<PlayerProps>) {
-  const telemetry = useAppSelector(selectTelemetry);
   const toast = useToastController();
   const viewers = useViewers();
 
@@ -184,48 +177,6 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
               <Loading />
             </View>
           )}
-          {telemetry === null && (
-            <Popup
-              onClose={() => {
-                dispatch(telemetryOpt(false));
-              }}
-              containerProps={{
-                bottom: "$8",
-                zIndex: 1000,
-              }}
-              bubbleProps={{
-                backgroundColor: "$accentBackground",
-                gap: "$3",
-                maxWidth: 400,
-              }}
-            >
-              <H3 textAlign="center">Player Telemetry</H3>
-              <Text>
-                Streamplace is beta software and it helps us out to have the
-                player report back on how playback is working. Would you like to
-                opt in to optional player telemetry?
-              </Text>
-              <View flexDirection="row" gap="$2" f={1}>
-                <Button
-                  f={3}
-                  backgroundColor="$accentColor"
-                  onPress={() => {
-                    dispatch(telemetryOpt(true));
-                  }}
-                >
-                  Opt in
-                </Button>
-                <Button
-                  f={3}
-                  onPress={() => {
-                    dispatch(telemetryOpt(false));
-                  }}
-                >
-                  Opt out
-                </Button>
-              </View>
-            </Popup>
-          )}
           <View
             f={1}
             opacity={videoWidth === 0 ? 0 : 1}
@@ -250,7 +201,6 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                 }}
               >
                 <Player
-                  telemetry={telemetry === true}
                   src={src}
                   fullscreen={fullscreen}
                   setFullscreen={setFullscreen}

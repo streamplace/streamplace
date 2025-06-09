@@ -3,11 +3,11 @@ import { ArrowRight } from "@tamagui/lucide-icons";
 import AQLink from "components/aqlink";
 import Container from "components/container";
 import {
-  DEFAULT_URL,
-  selectTelemetry,
-  setURL,
-  telemetryOpt,
-} from "features/streamplace/streamplaceSlice";
+  createServerSettingsRecord,
+  getServerSettingsFromPDS,
+  selectServerSettings,
+} from "features/bluesky/blueskySlice";
+import { DEFAULT_URL, setURL } from "features/streamplace/streamplaceSlice";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "store/hooks";
@@ -20,6 +20,7 @@ export function Settings() {
   const defaultUrl = DEFAULT_URL;
   const [newUrl, setNewUrl] = useState("");
   const [overrideEnabled, setOverrideEnabled] = useState(false);
+  const serverSettings = useAppSelector(selectServerSettings) || {};
 
   // are we logged in?
   const loggedIn = useAppSelector(
@@ -40,17 +41,17 @@ export function Settings() {
     }
   };
 
+  useEffect(() => {
+    dispatch(getServerSettingsFromPDS());
+  }, []);
+
+  const u = new URL(url);
+
   const handleToggleOverride = (enabled: boolean) => {
     setOverrideEnabled(enabled);
     if (!enabled) {
       dispatch(setURL(defaultUrl));
     }
-  };
-
-  const telemetry = useAppSelector(selectTelemetry);
-
-  const handleTelemetryToggle = (checked: boolean) => {
-    dispatch(telemetryOpt(checked));
   };
 
   return (
@@ -133,16 +134,34 @@ export function Settings() {
             width="100%"
           >
             <View flex={1} pr="$3">
-              <H3 fontSize="$7">Player Telemetry</H3>
+              <H3 fontSize="$8">
+                Allow {u.host} to record your livestream for debugging and
+                improving the service
+              </H3>
               <Text fontSize="$5" color="$gray10">
                 Optional
               </Text>
             </View>
             <Switch
               size="$3"
-              checked={telemetry === true}
-              onCheckedChange={handleTelemetryToggle}
-              theme="purple"
+              checked={serverSettings?.debugRecording === true}
+              onCheckedChange={(checked) => {
+                if (checked === true) {
+                  dispatch(
+                    createServerSettingsRecord({
+                      ...serverSettings,
+                      debugRecording: true,
+                    }),
+                  );
+                } else {
+                  dispatch(
+                    createServerSettingsRecord({
+                      ...serverSettings,
+                      debugRecording: false,
+                    }),
+                  );
+                }
+              }}
             >
               <Switch.Thumb animation="bouncy" />
             </Switch>

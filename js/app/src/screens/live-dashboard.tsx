@@ -7,17 +7,17 @@ import StreamKeyScreen from "components/live-dashboard/stream-key";
 import Waiting from "components/live-dashboard/waiting";
 import Loading from "components/loading/loading";
 import { Player } from "components/player/player";
+import Popup from "components/popup";
 import ButtonSelector from "components/ui/button-selector";
 import { VideoElementProvider } from "contexts/VideoElementContext";
 import {
   selectIsReady,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
-import { selectTelemetry } from "features/streamplace/streamplaceSlice";
 import { useLiveUser } from "hooks/useLiveUser";
 import React, { useCallback, useState } from "react";
 import { useAppSelector } from "store/hooks";
-import { Button, H6, isWeb, Text, View } from "tamagui";
+import { Button, H3, H6, isWeb, Text, View } from "tamagui";
 
 enum StreamSource {
   Start,
@@ -30,7 +30,6 @@ export default function LiveDashboard() {
   const userProfile = useAppSelector(selectUserProfile);
   const [streamSource, setStreamSource] = useState(StreamSource.Start);
   const isLive = useLiveUser();
-  const telemetry = useAppSelector(selectTelemetry);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
   );
@@ -57,7 +56,6 @@ export default function LiveDashboard() {
   if (isLive && streamSource !== StreamSource.Camera) {
     topPane = (
       <Player
-        telemetry={telemetry === true}
         src={userProfile.did}
         name={userProfile.handle}
         videoRef={videoRef}
@@ -93,6 +91,7 @@ export default function LiveDashboard() {
       </Button>
     );
   }
+
   return (
     <LivestreamProvider src={userProfile.did}>
       <VideoElementProvider videoElement={videoElement}>
@@ -134,6 +133,51 @@ const elems = [
     to: StreamSource.StreamKey,
   },
 ];
+
+export function DebugRecordingPopup() {
+  return (
+    <Popup
+      onClose={() => {
+        // dispatch(telemetryOpt(false));
+      }}
+      containerProps={{
+        bottom: "$8",
+        zIndex: 1000,
+      }}
+      bubbleProps={{
+        backgroundColor: "$accentBackground",
+        gap: "$3",
+        maxWidth: 400,
+      }}
+    >
+      <H3 textAlign="center">Player Telemetry</H3>
+      <Text>
+        Streamplace is beta software and it helps us out to have the player
+        report back on how playback is working. Would you like to opt in to
+        optional player telemetry?
+      </Text>
+      <View flexDirection="row" gap="$2" f={1}>
+        <Button
+          f={3}
+          backgroundColor="$accentColor"
+          onPress={() => {
+            // dispatch(telemetryOpt(true));
+          }}
+        >
+          Opt in
+        </Button>
+        <Button
+          f={3}
+          onPress={() => {
+            // dispatch(telemetryOpt(false));
+          }}
+        >
+          Opt out
+        </Button>
+      </View>
+    </Popup>
+  );
+}
 
 export function StreamSourcePicker({
   onPick,

@@ -5,6 +5,7 @@ import { StreamKey } from "features/base/baseSlice";
 import {
   PlaceStreamChatProfile,
   PlaceStreamLivestream,
+  PlaceStreamServerSettings,
   StreamplaceAgent,
 } from "streamplace";
 import { StreamplaceOAuthClient } from "./oauthClient";
@@ -48,4 +49,5 @@ export interface BlueskyState {
     error: null | string;
     profile: null | PlaceStreamChatProfile.Record;
   };
+  serverSettings: null | PlaceStreamServerSettings.Record;
 }

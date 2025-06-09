@@ -22,6 +22,7 @@ import {
   PlaceStreamChatProfile,
   PlaceStreamKey,
   PlaceStreamLivestream,
+  PlaceStreamServerSettings,
   StreamplaceAgent,
 } from "streamplace";
 import { isWeb } from "tamagui";
@@ -62,6 +63,7 @@ const initialState: BlueskyState = {
     records: null,
   },
   newLivestream: null,
+  serverSettings: null,
 };
 
 const uploadThumbnail = async (
@@ -1282,6 +1284,115 @@ export const blueskySlice = createAppSlice({
         },
       },
     ),
+
+    getServerSettingsFromPDS: create.asyncThunk(
+      async (_, thunkAPI) => {
+        const { bluesky, streamplace } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+          streamplace: StreamplaceState;
+        };
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const profile = bluesky.profiles[did];
+        if (!profile) {
+          throw new Error("No profile");
+        }
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const u = new URL(streamplace.url);
+        const res = await bluesky.pdsAgent.com.atproto.repo.getRecord({
+          repo: did,
+          collection: "place.stream.server.settings",
+          rkey: u.host,
+        });
+        if (!res.success) {
+          throw new Error("Failed to get chat profile record");
+        }
+
+        if (PlaceStreamServerSettings.isRecord(res.data.value)) {
+          return res.data.value;
+        } else {
+          console.log("not a record", res.data.value);
+        }
+        return null;
+      },
+      {
+        pending: (state) => {
+          return {
+            ...state,
+          };
+        },
+        fulfilled: (state, action) => {
+          if (!action.payload) {
+            return state;
+          }
+          return {
+            ...state,
+            serverSettings: action.payload,
+          };
+        },
+      },
+    ),
+
+    createServerSettingsRecord: create.asyncThunk(
+      async ({ debugRecording }: { debugRecording: boolean }, thunkAPI) => {
+        const { bluesky, streamplace } = thunkAPI.getState() as {
+          bluesky: BlueskyState;
+          streamplace: StreamplaceState;
+        };
+        if (!bluesky.pdsAgent) {
+          throw new Error("No agent");
+        }
+        const did = bluesky.oauthSession?.did;
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const profile = bluesky.profiles[did];
+        if (!profile) {
+          throw new Error("No profile");
+        }
+        if (!did) {
+          throw new Error("No DID");
+        }
+        const u = new URL(streamplace.url);
+        const serverSettings: PlaceStreamServerSettings.Record = {
+          debugRecording: debugRecording,
+        };
+
+        const res = await bluesky.pdsAgent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: "place.stream.server.settings",
+          record: serverSettings,
+          rkey: u.host,
+        });
+        if (!res.success) {
+          throw new Error("Failed to create server settings record");
+        }
+        return serverSettings;
+      },
+      {
+        pending: (state) => {
+          return {
+            ...state,
+          };
+        },
+        fulfilled: (state, action) => {
+          return {
+            ...state,
+            serverSettings: action.payload,
+          };
+        },
+        rejected: (state, action) => {
+          console.error("createServerSettingsRecord rejected", action.error);
+          return {
+            ...state,
+          };
+        },
+      },
+    ),
   }),
 
   // You can define your selectors here. These selectors receive the slice
@@ -1293,6 +1404,7 @@ export const blueskySlice = createAppSlice({
     selectProfiles: (bluesky) => bluesky.profiles,
     selectStoredKey: (bluesky) => bluesky.storedKey,
     selectKeyRecords: (bluesky) => bluesky.streamKeysResponse,
+    selectServerSettings: (bluesky) => bluesky.serverSettings,
     selectUserProfile: (bluesky) => {
       const did = bluesky.oauthSession?.did;
       if (!did) return null;
@@ -1342,6 +1454,8 @@ export const {
   createBlockRecord,
   followUser,
   unfollowUser,
+  getServerSettingsFromPDS,
+  createServerSettingsRecord,
 } = blueskySlice.actions;
 
 // Selectors returned by `slice.selectors` take the root state as their first argument.
@@ -1357,4 +1471,5 @@ export const {
   selectNewLivestream,
   selectChatProfile,
   selectCachedProfiles,
+  selectServerSettings,
 } = blueskySlice.selectors;

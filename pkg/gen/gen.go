@@ -23,6 +23,7 @@ func main() {
 		streamplace.ChatProfile{},
 		streamplace.ChatProfile_Color{},
 		streamplace.ChatMessage_ReplyRef{},
+		streamplace.ServerSettings{},
 	); err != nil {
 		panic(err)
 	}

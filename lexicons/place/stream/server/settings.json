@@ -1,0 +1,21 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.server.settings",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Record containing user settings for a particular Streamplace node",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "debugRecording": {
+            "type": "boolean",
+            "description": "Whether this node may archive your livestream for improving the service"
+          }
+        }
+      }
+    }
+  }
+}

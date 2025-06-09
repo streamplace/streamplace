@@ -48,7 +48,6 @@ export interface StreamplaceState {
     firstRequest: boolean;
   };
   mySegments: PlaceStreamSegment.SegmentView[];
-  telemetry: boolean | null;
   userMuted: boolean | null;
   chatWarned: boolean;
 }
@@ -64,13 +63,11 @@ const initialState: StreamplaceState = {
     firstRequest: true,
   },
   mySegments: [],
-  telemetry: null,
   userMuted: null,
   chatWarned: false,
 };
 
 const USER_MUTED_KEY = "streamplaceUserMuted";
-const TELEMETRY_KEY = "streamplaceTelemetry";
 const URL_KEY = "streamplaceUrl";
 const CHAT_WARNING_KEY = "streamplaceChatWarning2";
 
@@ -80,21 +77,13 @@ export const streamplaceSlice = createAppSlice({
   reducers: (create) => ({
     initialize: create.asyncThunk(
       async (_, { getState }) => {
-        let [url, telemetryStr, userMutedStr, chatWarningStr] =
-          await Promise.all([
-            Storage.getItem(URL_KEY),
-            Storage.getItem(TELEMETRY_KEY),
-            Storage.getItem(USER_MUTED_KEY),
-            Storage.getItem(CHAT_WARNING_KEY),
-          ]);
+        let [url, userMutedStr, chatWarningStr] = await Promise.all([
+          Storage.getItem(URL_KEY),
+          Storage.getItem(USER_MUTED_KEY),
+          Storage.getItem(CHAT_WARNING_KEY),
+        ]);
         if (!url) {
           url = DEFAULT_URL;
-        }
-        let telemetry: boolean | null = null;
-        if (typeof telemetryStr === "string") {
-          telemetry = JSON.parse(telemetryStr);
-        } else {
-          telemetry = null;
         }
         let userMuted: boolean | null = null;
         console.log("userMutedStr", userMutedStr);
@@ -107,18 +96,17 @@ export const streamplaceSlice = createAppSlice({
         if (typeof chatWarningStr === "string") {
           chatWarned = chatWarningStr === "true";
         }
-        return { url, telemetry, userMuted, chatWarned };
+        return { url, userMuted, chatWarned };
       },
       {
         pending: (state) => {
           // state.status = "loading";
         },
         fulfilled: (state, action) => {
-          const { url, telemetry, userMuted, chatWarned } = action.payload;
+          const { url, userMuted, chatWarned } = action.payload;
           return {
             ...state,
             url,
-            telemetry,
             userMuted,
             initialized: true,
             chatWarned,
@@ -138,18 +126,6 @@ export const streamplaceSlice = createAppSlice({
       return {
         ...state,
         url: action.payload,
-      };
-    }),
-
-    telemetryOpt: create.reducer((state, action: { payload: boolean }) => {
-      Storage.setItem(TELEMETRY_KEY, JSON.stringify(action.payload)).catch(
-        (err) => {
-          console.error("telemetryOpt error", err);
-        },
-      );
-      return {
-        ...state,
-        telemetry: action.payload,
       };
     }),
 
@@ -248,7 +224,6 @@ export const streamplaceSlice = createAppSlice({
     selectUrl: (streamplace) => streamplace.url,
     selectRecentSegments: (streamplace) => streamplace.recentSegments,
     selectMySegments: (streamplace) => streamplace.mySegments,
-    selectTelemetry: (streamplace) => streamplace.telemetry,
     selectUserMuted: (streamplace) => streamplace.userMuted,
     selectChatWarned: (streamplace) => streamplace.chatWarned,
   },
@@ -260,14 +235,12 @@ export const {
   setURL,
   initialize,
   pollMySegments,
-  telemetryOpt,
   userMute,
   chatWarn,
 } = streamplaceSlice.actions;
 export const {
   selectStreamplace,
   selectMySegments,
-  selectTelemetry,
   selectUserMuted,
   selectChatWarned,
   selectUrl,

@@ -161,6 +161,21 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to create chat profile", "err", err)
 		}
 
+	case *streamplace.ServerSettings:
+		_, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		settings := &model.ServerSettings{
+			Server:  rkey.String(),
+			RepoDID: userDID,
+			Record:  recCBOR,
+		}
+		err = atsync.Model.UpdateServerSettings(ctx, settings)
+		if err != nil {
+			log.Error(ctx, "failed to create server settings", "err", err)
+		}
+
 	case *bsky.FeedPost:
 		// jsonData, err := json.Marshal(d)
 		// if err != nil {

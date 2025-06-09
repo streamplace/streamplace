@@ -437,7 +437,7 @@ windows-amd64-startup-test:
 
 .PHONY: darwin-amd64
 darwin-amd64:
-	export CC=x86_64-apple-darwin24.4-clang \
+	export CC=x86_64-apple-darwin24.2-clang \
 	&& export CROSS_COMPILE=1 \
 	&& meson setup --buildtype debugoptimized --cross-file util/osxcross-darwin-amd64.ini build-darwin-amd64 $(OPTS) \
 	&& meson compile -C build-darwin-amd64 streamplace \
@@ -453,7 +453,7 @@ desktop-darwin-amd64:
 
 .PHONY: darwin-amd64
 darwin-arm64:
-	export CC=aarch64-apple-darwin24.4-clang \
+	export CC=aarch64-apple-darwin24.2-clang \
 	&& export CROSS_COMPILE=1 \
 	&& meson setup --buildtype debugoptimized --cross-file util/osxcross-darwin-arm64.ini build-darwin-arm64 $(OPTS) \
 	&& meson compile -C build-darwin-arm64 streamplace \

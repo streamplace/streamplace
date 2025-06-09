@@ -402,6 +402,27 @@ function ChatMessageRow({
                 </View>
               </View>
             )}
+            {/* Message content */}
+            <View
+              flexDirection="row"
+              alignItems="flex-start"
+              justifyContent="flex-start"
+              gap="$2"
+            >
+              <Text
+                color="$gray10"
+                fontSize="$2"
+                mt="$0.5"
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {new Date(message.record.createdAt).toLocaleString(undefined, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })}
+              </Text>
+              <ChatMessageText message={message} chat={chat} />
+            </View>
           </View>
         </View>
       </ReanimatedSwipeable>

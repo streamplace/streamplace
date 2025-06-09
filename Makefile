@@ -353,6 +353,7 @@ BASE_OPTS = \
 		-D "gst-plugins-bad:glib_assert=false" \
 		-D "gst-plugins-base:glib_assert=false" \
 		-D "gst-plugins-ugly:glib_assert=false" \
+		-D "gst-plugins-good:adaptivedemux2=disabled" \
 		-D "glib:glib_assert=false"
 
 OPTS = \

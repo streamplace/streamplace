@@ -14,12 +14,19 @@ import (
 )
 
 type RecordingPeerConnection struct {
-	pionpc *webrtc.PeerConnection
-	file   *os.File
-	stream *RecorderStream
+	enabled bool
+	pionpc  *webrtc.PeerConnection
+	file    *os.File
+	stream  *RecorderStream
 }
 
-func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string, pionpc *webrtc.PeerConnection) (PeerConnection, error) {
+func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string, pionpc *webrtc.PeerConnection, enabled bool) (PeerConnection, error) {
+	if !enabled {
+		return &RecordingPeerConnection{
+			pionpc:  pionpc,
+			enabled: enabled,
+		}, nil
+	}
 	aqt := aqtime.FromTime(time.Now())
 	f, err := cli.DataFileCreate([]string{user, "rtcrec", fmt.Sprintf("%s.cbor", aqt.FileSafeString())}, true)
 	if err != nil {
@@ -31,10 +38,17 @@ func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string
 		return nil, fmt.Errorf("failed to create recorder stream: %w", err)
 	}
 	return &RecordingPeerConnection{
-		pionpc: pionpc,
-		file:   f,
-		stream: stream,
+		pionpc:  pionpc,
+		file:    f,
+		stream:  stream,
+		enabled: enabled,
 	}, nil
+}
+
+func (pc *RecordingPeerConnection) Do(f func()) {
+	if pc.enabled {
+		go f()
+	}
 }
 
 func (pc *RecordingPeerConnection) Close() error {
@@ -47,54 +61,54 @@ func (pc *RecordingPeerConnection) CreateAnswer(options *webrtc.AnswerOptions) (
 	if err != nil {
 		return ret, err
 	}
-	go func() {
+	pc.Do(func() {
 		pc.stream.Event(WebRTCEvent{
 			CreateAnswer: &CreateAnswer{
 				SDPAnswer: ret.SDP,
 			},
 			Time: now,
 		})
-	}()
+	})
 	return ret, nil
 }
 
 func (pc *RecordingPeerConnection) SetLocalDescription(desc webrtc.SessionDescription) error {
 	now := time.Now()
-	go func() {
+	pc.Do(func() {
 		pc.stream.Event(WebRTCEvent{
 			SetRemoteDescription: &SetRemoteDescription{
 				SDPRemoteDescription: desc.SDP,
 			},
 			Time: now,
 		})
-	}()
+	})
 	return pc.pionpc.SetLocalDescription(desc)
 }
 
 func (pc *RecordingPeerConnection) SetRemoteDescription(desc webrtc.SessionDescription) error {
 	now := time.Now()
-	go func() {
+	pc.Do(func() {
 		pc.stream.Event(WebRTCEvent{
 			SetRemoteDescription: &SetRemoteDescription{
 				SDPRemoteDescription: desc.SDP,
 			},
 			Time: now,
 		})
-	}()
+	})
 	return pc.pionpc.SetRemoteDescription(desc)
 }
 
 func (pc *RecordingPeerConnection) LocalDescription() *webrtc.SessionDescription {
 	now := time.Now()
 	desc := pc.pionpc.LocalDescription()
-	go func() {
+	pc.Do(func() {
 		pc.stream.Event(WebRTCEvent{
 			LocalDescription: &LocalDescription{
 				SDPLocalDescription: pc.pionpc.LocalDescription().SDP,
 			},
 			Time: now,
 		})
-	}()
+	})
 	return desc
 }
 
@@ -105,14 +119,14 @@ func (pc *RecordingPeerConnection) LocalDescription() *webrtc.SessionDescription
 func (pc *RecordingPeerConnection) OnICEConnectionStateChange(f func(webrtc.ICEConnectionState)) {
 	pc.pionpc.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
 		now := time.Now()
-		go func() {
+		pc.Do(func() {
 			pc.stream.Event(WebRTCEvent{
 				ICEConnectionStateChange: &ICEConnectionStateChange{
 					ICEConnectionState: state,
 				},
 				Time: now,
 			})
-		}()
+		})
 		f(state)
 	})
 }
@@ -120,14 +134,14 @@ func (pc *RecordingPeerConnection) OnICEConnectionStateChange(f func(webrtc.ICEC
 func (pc *RecordingPeerConnection) OnConnectionStateChange(f func(webrtc.PeerConnectionState)) {
 	pc.pionpc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		now := time.Now()
-		go func() {
+		pc.Do(func() {
 			pc.stream.Event(WebRTCEvent{
 				ConnectionStateChange: &ConnectionStateChange{
 					ConnectionState: state,
 				},
 				Time: now,
 			})
-		}()
+		})
 		f(state)
 	})
 }
@@ -135,7 +149,7 @@ func (pc *RecordingPeerConnection) OnConnectionStateChange(f func(webrtc.PeerCon
 func (pc *RecordingPeerConnection) OnTrack(f func(TrackRemote, RTPReceiver)) {
 	pc.pionpc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		now := time.Now()
-		wrappedTrack := &RecordingTrackRemote{track: track, stream: pc.stream}
+		wrappedTrack := &RecordingTrackRemote{track: track, stream: pc.stream, pc: pc}
 		id := track.ID()
 		kind := track.Kind()
 		ssrc := track.SSRC()
@@ -143,7 +157,7 @@ func (pc *RecordingPeerConnection) OnTrack(f func(TrackRemote, RTPReceiver)) {
 		streamID := track.StreamID()
 		msid := track.Msid()
 		rid := track.RID()
-		go func() {
+		pc.Do(func() {
 			pc.stream.Event(WebRTCEvent{
 				Track: &Track{
 					ID:          id,
@@ -156,7 +170,7 @@ func (pc *RecordingPeerConnection) OnTrack(f func(TrackRemote, RTPReceiver)) {
 				},
 				Time: now,
 			})
-		}()
+		})
 		f(wrappedTrack, receiver)
 	})
 }
@@ -168,42 +182,42 @@ func (pc *RecordingPeerConnection) WriteRTCP(pkts []rtcp.Packet) error {
 func (pc *RecordingPeerConnection) AddTransceiverFromKind(kind webrtc.RTPCodecType, init ...webrtc.RTPTransceiverInit) (RTPTransceiver, error) {
 	now := time.Now()
 	ret, err := pc.pionpc.AddTransceiverFromKind(kind, init...)
-	go func() {
+	pc.Do(func() {
 		pc.stream.Event(WebRTCEvent{
 			AddTransceiverFromKind: &AddTransceiverFromKind{
 				Kind: kind,
 			},
 			Time: now,
 		})
-	}()
+	})
 	return ret, err
 }
 
 func (pc *RecordingPeerConnection) ICEGatheringState() webrtc.ICEGatheringState {
 	now := time.Now()
 	state := pc.pionpc.ICEGatheringState()
-	go func() {
+	pc.Do(func() {
 		pc.stream.Event(WebRTCEvent{
 			ICEGatheringState: &ICEGatheringState{
 				State: state,
 			},
 			Time: now,
 		})
-	}()
+	})
 	return state
 }
 
 func (pc *RecordingPeerConnection) OnDataChannel(f func(*webrtc.DataChannel)) {
 	pc.pionpc.OnDataChannel(func(dc *webrtc.DataChannel) {
 		now := time.Now()
-		go func() {
+		pc.Do(func() {
 			pc.stream.Event(WebRTCEvent{
 				DataChannel: &DataChannel{
 					Label: dc.Label(),
 				},
 				Time: now,
 			})
-		}()
+		})
 		f(dc)
 	})
 }
@@ -211,12 +225,12 @@ func (pc *RecordingPeerConnection) OnDataChannel(f func(*webrtc.DataChannel)) {
 func (pc *RecordingPeerConnection) OnNegotiationNeeded(f func()) {
 	pc.pionpc.OnNegotiationNeeded(func() {
 		now := time.Now()
-		go func() {
+		pc.Do(func() {
 			pc.stream.Event(WebRTCEvent{
 				NegotiationNeeded: &NegotiationNeeded{},
 				Time:              now,
 			})
-		}()
+		})
 		f()
 	})
 }

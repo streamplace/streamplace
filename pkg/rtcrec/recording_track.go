@@ -10,6 +10,11 @@ import (
 type RecordingTrackRemote struct {
 	track  *webrtc.TrackRemote
 	stream *RecorderStream
+	pc     *RecordingPeerConnection
+}
+
+func (t *RecordingTrackRemote) do(f func()) {
+	go f()
 }
 
 func (t *RecordingTrackRemote) Read(p []byte) (n int, attrs interceptor.Attributes, err error) {
@@ -17,7 +22,7 @@ func (t *RecordingTrackRemote) Read(p []byte) (n int, attrs interceptor.Attribut
 	now := time.Now()
 	b2 := make([]byte, n)
 	copy(b2, p)
-	go func() {
+	t.pc.Do(func() {
 		errString := ""
 		if err != nil {
 			errString = err.Error()
@@ -32,14 +37,14 @@ func (t *RecordingTrackRemote) Read(p []byte) (n int, attrs interceptor.Attribut
 			},
 			Time: now,
 		})
-	}()
+	})
 	return n, attrs, err
 }
 
 func (t *RecordingTrackRemote) Codec() webrtc.RTPCodecParameters {
 	now := time.Now()
 	codec := t.track.Codec()
-	go func() {
+	t.pc.Do(func() {
 		t.stream.Event(WebRTCEvent{
 			TrackCodec: &TrackCodec{
 				SSRC:  t.track.SSRC(),
@@ -47,7 +52,7 @@ func (t *RecordingTrackRemote) Codec() webrtc.RTPCodecParameters {
 			},
 			Time: now,
 		})
-	}()
+	})
 	return codec
 }
 
@@ -58,7 +63,7 @@ func (t *RecordingTrackRemote) ID() string {
 func (t *RecordingTrackRemote) Kind() webrtc.RTPCodecType {
 	now := time.Now()
 	kind := t.track.Kind()
-	go func() {
+	t.pc.Do(func() {
 		t.stream.Event(WebRTCEvent{
 			TrackKind: &TrackKind{
 				SSRC: t.track.SSRC(),
@@ -66,14 +71,14 @@ func (t *RecordingTrackRemote) Kind() webrtc.RTPCodecType {
 			},
 			Time: now,
 		})
-	}()
+	})
 	return kind
 }
 
 func (t *RecordingTrackRemote) PayloadType() webrtc.PayloadType {
 	now := time.Now()
 	payloadType := t.track.PayloadType()
-	go func() {
+	t.pc.Do(func() {
 		t.stream.Event(WebRTCEvent{
 			TrackPayloadType: &TrackPayloadType{
 				SSRC:        t.track.SSRC(),
@@ -81,20 +86,20 @@ func (t *RecordingTrackRemote) PayloadType() webrtc.PayloadType {
 			},
 			Time: now,
 		})
-	}()
+	})
 	return payloadType
 }
 
 func (t *RecordingTrackRemote) SSRC() webrtc.SSRC {
 	now := time.Now()
 	ssrc := t.track.SSRC()
-	go func() {
+	t.pc.Do(func() {
 		t.stream.Event(WebRTCEvent{
 			Time: now,
 			TrackSSRC: &TrackSSRC{
 				SSRC: ssrc,
 			},
 		})
-	}()
+	})
 	return ssrc
 }

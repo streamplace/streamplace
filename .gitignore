@@ -19,3 +19,4 @@ build-*
 /api
 oom
 *.tsbuildinfo
+node-compile-cache

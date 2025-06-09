@@ -94,10 +94,9 @@ RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v2.1.6/g
 
 WORKDIR /osxcross
 
-RUN git clone https://github.com/tpoechtrager/osxcross.git . \
-    && git checkout 2.0-llvm-based
+RUN git clone https://github.com/tpoechtrager/osxcross.git .
 # RUN UNATTENDED=1 ./build_apple_clang.sh
-ENV MAC_SDK_VERSION 15.2
+ENV MAC_SDK_VERSION 15.4
 RUN curl -L --fail https://github.com/joseluisq/macosx-sdks/releases/download/$MAC_SDK_VERSION/MacOSX$MAC_SDK_VERSION.sdk.tar.xz -o /osxcross/tarballs/MacOSX$MAC_SDK_VERSION.sdk.tar.xz
 RUN UNATTENDED=1 ./build.sh
 RUN cargo install apple-codesign

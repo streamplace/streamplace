@@ -97,6 +97,8 @@ build-windows-amd64:
 build-darwin-arm64:
   extends:
     - .build
+  image: us-central1-docker.pkg.dev/aquareum-tv/streamplace/build@sha256:e65bdd65b7bf5df060e3303e5a782147665a80458e30b5955ad10ffeb4df0949
+  # temporary workaround for https://github.com/streamplace/streamplace/issues/269
   variables:
     TARGET: darwin-arm64
 

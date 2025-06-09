@@ -12,6 +12,7 @@ import ButtonSelector from "components/ui/button-selector";
 import { VideoElementProvider } from "contexts/VideoElementContext";
 import {
   selectIsReady,
+  selectServerSettings,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
 import { useLiveUser } from "hooks/useLiveUser";
@@ -29,6 +30,9 @@ export default function LiveDashboard() {
   const isReady = useAppSelector(selectIsReady);
   const userProfile = useAppSelector(selectUserProfile);
   const [streamSource, setStreamSource] = useState(StreamSource.Start);
+  const serverSettings = useAppSelector(selectServerSettings);
+  const madeChoiceAboutDebugRecording =
+    serverSettings?.debugRecording !== undefined;
   const isLive = useLiveUser();
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
@@ -115,6 +119,7 @@ export default function LiveDashboard() {
             {page === "update" && isLive ? <UpdateLivestream /> : null}
             {page === "create" ? <CreateLivestream /> : null}
           </View>
+          {madeChoiceAboutDebugRecording ? null : <DebugRecordingPopup />}
         </View>
       </VideoElementProvider>
     </LivestreamProvider>
@@ -150,11 +155,11 @@ export function DebugRecordingPopup() {
         maxWidth: 400,
       }}
     >
-      <H3 textAlign="center">Player Telemetry</H3>
+      <H3 textAlign="center">Debug Recording</H3>
       <Text>
-        Streamplace is beta software and it helps us out to have the player
-        report back on how playback is working. Would you like to opt in to
-        optional player telemetry?
+        Streamplace is beta software and it helps us to archive livestreams so
+        we can later use them for debugging. Would you like to opt in to debug
+        recording?
       </Text>
       <View flexDirection="row" gap="$2" f={1}>
         <Button
@@ -164,7 +169,7 @@ export function DebugRecordingPopup() {
             // dispatch(telemetryOpt(true));
           }}
         >
-          Opt in
+          Allow
         </Button>
         <Button
           f={3}
@@ -172,7 +177,7 @@ export function DebugRecordingPopup() {
             // dispatch(telemetryOpt(false));
           }}
         >
-          Opt out
+          Don't Allow
         </Button>
       </View>
     </Popup>

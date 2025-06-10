@@ -21,6 +21,7 @@ export default function Popup({
       f={1}
       alignItems="center"
       width="100%"
+      pointerEvents="none"
       {...viewProps}
     >
       <View
@@ -28,6 +29,7 @@ export default function Popup({
         alignItems="stretch"
         padding="$4"
         borderRadius="$4"
+        pointerEvents="auto"
         onPress={() => {
           if (onPress) {
             onPress();

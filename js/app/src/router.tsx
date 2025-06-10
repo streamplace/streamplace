@@ -12,6 +12,7 @@ import {
   NavigatorScreenParams,
   useLinkTo,
   useNavigation,
+  useRoute,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
@@ -49,7 +50,7 @@ import { pollMySegments } from "features/streamplace/streamplaceSlice";
 import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
-import { ReactElement, useEffect, useState } from "react";
+import { Fragment, ReactElement, useEffect, useState } from "react";
 import {
   ImageBackground,
   ImageSourcePropType,
@@ -332,8 +333,9 @@ export function StreamplaceDrawer() {
   const userIsLive = useLiveUser();
   const toast = useToastController();
 
+  const [isLiveDashboard, setIsLiveDashboard] = useState(true);
   useEffect(() => {
-    if (userIsLive && !poppedUp) {
+    if (!isLiveDashboard && userIsLive && !poppedUp) {
       setPoppedUp(true);
       setLivePopup(true);
     }
@@ -358,7 +360,13 @@ export function StreamplaceDrawer() {
               : undefined,
           },
           // rest
-          headerLeft: () => <NavigationButton />,
+          headerLeft: () => (
+            <>
+              {/* this is a hack to give the popup the navigator context */}
+              <PopupChecker setIsLiveDashboard={setIsLiveDashboard} />
+              <NavigationButton />
+            </>
+          ),
           headerRight: () => <AvatarButton />,
           drawerActiveTintColor: theme.accentColor.val,
           unmountOnBlur: true,
@@ -547,6 +555,22 @@ export function StreamplaceDrawer() {
     </>
   );
 }
+
+export const PopupChecker = ({
+  setIsLiveDashboard,
+}: {
+  setIsLiveDashboard: (isLiveDashboard: boolean) => void;
+}) => {
+  const route = useRoute();
+  useEffect(() => {
+    if (route.name === "LiveDashboard") {
+      setIsLiveDashboard(true);
+    } else {
+      setIsLiveDashboard(false);
+    }
+  }, [route.name]);
+  return <Fragment />;
+};
 
 const MainTab = () => {
   const theme = useTheme();

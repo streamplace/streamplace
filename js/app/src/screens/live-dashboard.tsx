@@ -11,13 +11,15 @@ import Popup from "components/popup";
 import ButtonSelector from "components/ui/button-selector";
 import { VideoElementProvider } from "contexts/VideoElementContext";
 import {
+  createServerSettingsRecord,
+  getServerSettingsFromPDS,
   selectIsReady,
   selectServerSettings,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
 import { useLiveUser } from "hooks/useLiveUser";
-import React, { useCallback, useState } from "react";
-import { useAppSelector } from "store/hooks";
+import React, { useCallback, useEffect, useState } from "react";
+import { useAppDispatch, useAppSelector } from "store/hooks";
 import { Button, H3, H6, isWeb, Text, View } from "tamagui";
 
 enum StreamSource {
@@ -31,12 +33,25 @@ export default function LiveDashboard() {
   const userProfile = useAppSelector(selectUserProfile);
   const [streamSource, setStreamSource] = useState(StreamSource.Start);
   const serverSettings = useAppSelector(selectServerSettings);
-  const madeChoiceAboutDebugRecording =
-    serverSettings?.debugRecording !== undefined;
   const isLive = useLiveUser();
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
   );
+  const [gotSettings, setGotSettings] = useState(false);
+  const dispatch = useAppDispatch();
+  useEffect(() => {
+    if (isReady) {
+      (async () => {
+        await dispatch(getServerSettingsFromPDS());
+        setGotSettings(true);
+      })();
+    }
+  }, [isReady]);
+
+  let madeChoiceAboutDebugRecording = true;
+  if (gotSettings && serverSettings?.debugRecording === undefined) {
+    madeChoiceAboutDebugRecording = false;
+  }
 
   const [page, setPage] = useState<"update" | "create">("create");
 
@@ -140,11 +155,18 @@ const elems = [
 ];
 
 export function DebugRecordingPopup() {
+  const dispatch = useAppDispatch();
+  const serverSettings = useAppSelector(selectServerSettings) || {};
+  const opt = (choice) => () =>
+    dispatch(
+      createServerSettingsRecord({
+        ...serverSettings,
+        debugRecording: choice,
+      }),
+    );
   return (
     <Popup
-      onClose={() => {
-        // dispatch(telemetryOpt(false));
-      }}
+      onClose={opt(false)}
       containerProps={{
         bottom: "$8",
         zIndex: 1000,
@@ -162,21 +184,10 @@ export function DebugRecordingPopup() {
         recording?
       </Text>
       <View flexDirection="row" gap="$2" f={1}>
-        <Button
-          f={3}
-          backgroundColor="$accentColor"
-          onPress={() => {
-            // dispatch(telemetryOpt(true));
-          }}
-        >
+        <Button f={3} backgroundColor="$accentColor" onPress={opt(true)}>
           Allow
         </Button>
-        <Button
-          f={3}
-          onPress={() => {
-            // dispatch(telemetryOpt(false));
-          }}
-        >
+        <Button f={3} onPress={opt(false)}>
           Don't Allow
         </Button>
       </View>

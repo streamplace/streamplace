@@ -447,6 +447,7 @@ darwin-amd64:
 	&& export LD=x86_64-apple-darwin24.4-ld \
 	&& export CROSS_COMPILE=1 \
 	&& meson setup --buildtype debugoptimized --cross-file util/osxcross-darwin-amd64.ini build-darwin-amd64 $(OPTS) \
+	&& meson compile -C build-darwin-amd64 subprojects/glib-2.82.4/gio/gioenumtypes.h \
 	&& meson compile -C build-darwin-amd64 streamplace \
 	&& ./util/osxcross-codesign.sh ./build-darwin-amd64/streamplace \
 	&& mkdir -p bin \

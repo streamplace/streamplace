@@ -40,7 +40,7 @@ jobs:
       - name: make node
         run: |
           sudo apt install podman -y
-          make in-container DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
+          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
       - name: Upload bin artifacts
         if: matrix.name == 'windows-amd64'

@@ -68,6 +68,8 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 		busErr <- err
 	}()
 
+	go mm.HandleKeyRevocation(ctx, ms, pipeline)
+
 	err = pipeline.SetState(gst.StatePlaying)
 	if err != nil {
 		return err

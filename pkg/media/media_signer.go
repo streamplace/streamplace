@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqio"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers"
@@ -26,6 +27,7 @@ type MediaSigner interface {
 	SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error)
 	Pub() aqpub.Pub
 	Streamer() string
+	DID() string
 }
 
 type MediaSignerLocal struct {
@@ -34,6 +36,7 @@ type MediaSignerLocal struct {
 	AQPub        aqpub.Pub
 	Cert         []byte
 	TAURL        string
+	did          string
 }
 
 func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]byte, string, error) {
@@ -77,12 +80,17 @@ func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, sign
 	if err != nil {
 		return nil, err
 	}
+	did, err := atproto.ParsePubKey(signer.Public().(*ecdsa.PublicKey))
+	if err != nil {
+		return nil, err
+	}
 	return &MediaSignerLocal{
 		Signer:       signer,
 		Cert:         cert,
 		StreamerName: streamer,
 		TAURL:        cli.TAURL,
 		AQPub:        pub,
+		did:          did.DIDKey(),
 	}, nil
 }
 
@@ -172,4 +180,8 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 
 func (ms *MediaSignerLocal) Pub() aqpub.Pub {
 	return ms.AQPub
+}
+
+func (ms *MediaSignerLocal) DID() string {
+	return ms.did
 }

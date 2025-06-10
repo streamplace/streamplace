@@ -14,6 +14,7 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/mr-tron/base58"
 	"go.opentelemetry.io/otel"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/spmetrics"
@@ -27,6 +28,7 @@ type MediaSignerExt struct {
 	streamer string
 	keyBs    []byte
 	taURL    string
+	did      string
 }
 
 func MakeMediaSignerExt(ctx context.Context, cli *config.CLI, streamer string, keyBs []byte) (MediaSigner, error) {
@@ -43,6 +45,10 @@ func MakeMediaSignerExt(ctx context.Context, cli *config.CLI, streamer string, k
 	if err != nil {
 		return nil, err
 	}
+	did, err := atproto.ParsePubKey(signer.Public().(*ecdsa.PublicKey))
+	if err != nil {
+		return nil, err
+	}
 	return &MediaSignerExt{
 		// cli:        cli,
 		signer:   signer,
@@ -51,6 +57,7 @@ func MakeMediaSignerExt(ctx context.Context, cli *config.CLI, streamer string, k
 		pub:      pub,
 		keyBs:    keyBs,
 		taURL:    cli.TAURL,
+		did:      did.DIDKey(),
 	}, nil
 }
 
@@ -114,4 +121,8 @@ func (ms *MediaSignerExt) Pub() aqpub.Pub {
 
 func (ms *MediaSignerExt) Streamer() string {
 	return ms.streamer
+}
+
+func (ms *MediaSignerExt) DID() string {
+	return ms.did
 }

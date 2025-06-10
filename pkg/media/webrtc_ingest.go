@@ -99,13 +99,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	}
 	audioSrc := app.SrcFromElement(audioSrcElem)
 
-	go func() {
-		<-ctx.Done()
-		if cErr := peerConnection.Close(); cErr != nil {
-			log.Log(ctx, "cannot close peerConnection: %v\n", cErr)
-		}
-	}()
-
 	// Set the remote SessionDescription
 	if err = peerConnection.SetRemoteDescription(*offer); err != nil {
 		return nil, fmt.Errorf("failed to set remote description: %w", err)
@@ -145,9 +138,19 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 
 		go func() {
 			if err := HandleBusMessages(ctx, pipeline); err != nil {
-				log.Log(ctx, "pipeilne error", "error", err)
+				log.Log(ctx, "pipeline error", "error", err)
 			}
 			cancel()
+		}()
+
+		// subscription to bus messages for key revocation
+		go mm.HandleKeyRevocation(ctx, signer, pipeline)
+
+		go func() {
+			<-ctx.Done()
+			if cErr := peerConnection.Close(); cErr != nil {
+				log.Log(ctx, "cannot close peerConnection: %v\n", cErr)
+			}
 		}()
 
 		log.Debug(ctx, "starting pipeline")

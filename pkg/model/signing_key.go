@@ -35,7 +35,7 @@ func (m *DBModel) GetSigningKey(ctx context.Context, did, repoDID string) (*Sign
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
-	if key.RevokedAt != nil && key.RevokedAt.After(time.Now()) {
+	if key.RevokedAt != nil {
 		return nil, fmt.Errorf("signing key revoked")
 	}
 	if res.Error != nil {
@@ -52,7 +52,7 @@ func (m *DBModel) GetSigningKeyByRKey(ctx context.Context, rkey string) (*Signin
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
-	if key.RevokedAt != nil && key.RevokedAt.After(time.Now()) {
+	if key.RevokedAt != nil {
 		return nil, fmt.Errorf("signing key revoked")
 	}
 	if res.Error != nil {

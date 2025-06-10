@@ -248,7 +248,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 
 			if collection.String() == constants.PLACE_STREAM_KEY {
 				log.Warn(ctx, "revoking stream key", "userDID", evt.Repo, "rkey", rkey.String())
-				key, err := atsync.Model.GetSigningKey(ctx, evt.Repo, rkey.String())
+				key, err := atsync.Model.GetSigningKeyByRKey(ctx, rkey.String())
 				if err != nil {
 					log.Error(ctx, "failed to get signing key", "err", err)
 					continue
@@ -263,6 +263,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				if err != nil {
 					log.Error(ctx, "failed to revoke signing key", "err", err)
 				}
+				atsync.Bus.Publish(evt.Repo, key)
 			}
 
 		default:

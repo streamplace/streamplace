@@ -20,7 +20,7 @@ jobs:
         run: |
           sudo apt install podman -y
           sudo ln -s $(realpath ./hack/golangci-lint) /usr/bin/golangci-lint
-          make golangci-lint-container
+          make golangci-lint-container BUILDER_TARGET=builder-no-darwin
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8

@@ -446,7 +446,7 @@ darwin-amd64:
 	&& export CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER=x86_64-apple-darwin24.4-clang \
 	&& export LD=x86_64-apple-darwin24.4-ld \
 	&& export CROSS_COMPILE=1 \
-	&& meson setup --buildtype debugoptimized --cross-file util/osxcross-darwin-amd64.ini build-darwin-amd64 $(OPTS) \
+	&& meson setup --buildtype debugoptimized --cross-file util/osxcross-darwin-amd64.ini build-darwin-amd64 $(OPTS) -D "gstreamer:coretracers=disabled" \
 	&& meson compile -C build-darwin-amd64 streamplace \
 	&& ./util/osxcross-codesign.sh ./build-darwin-amd64/streamplace \
 	&& mkdir -p bin \

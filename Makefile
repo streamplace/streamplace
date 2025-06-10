@@ -543,7 +543,7 @@ golangci-lint-container: docker-build-builder
 		-e PKG_CONFIG_PATH=$$(pwd)/build-linux-amd64/meson-uninstalled \
 		-d \
 		--name golangci-lint \
-		dist.stream.place/streamplace/streamplace:builder \
+		dist.stream.place/streamplace/streamplace:$(BUILDER_TARGET) \
 		tail -f /dev/null
 	podman exec golangci-lint mkdir -p js/app/dist
 	podman exec golangci-lint touch js/app/dist/skip-build.txt
@@ -551,15 +551,15 @@ golangci-lint-container: docker-build-builder
 
 .PHONY: docker-build-in-container
 docker-build-in-container:
-	podman run -v $$(pwd):$$(pwd) -w $$(pwd) --rm -it dist.stream.place/streamplace/streamplace:builder make app-and-node
+	podman run -v $$(pwd):$$(pwd) -w $$(pwd) --rm -it dist.stream.place/streamplace/streamplace:$(BUILDER_TARGET) make app-and-node
 
 .PHONY: docker-test-in-container
 docker-test-in-container:
-	podman run -v $$(pwd):$$(pwd) -w $$(pwd) --rm -it dist.stream.place/streamplace/streamplace:builder make app-and-node-and-test
+	podman run -v $$(pwd):$$(pwd) -w $$(pwd) --rm -it dist.stream.place/streamplace/streamplace:$(BUILDER_TARGET) make app-and-node-and-test
 
 IN_CONTAINER_CMD?=echo 'usage: make in-container IN_CONTAINER_CMD=\"<command>\"'
 DOCKER_BIN?=podman
-DOCKER_REF?=dist.stream.place/streamplace/streamplace:builder
+DOCKER_REF?=dist.stream.place/streamplace/streamplace:$(BUILDER_TARGET)
 DOCKER_OPTS?=
 .PHONY: in-container
 in-container: docker-build-builder

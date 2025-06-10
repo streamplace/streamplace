@@ -55,11 +55,15 @@ js/app/dist/index.html: install
 
 .PHONY: dev-setup
 dev-setup: schema install js/app/dist/index.html
+	$(MAKE) dev-setup-meson
+	$(MAKE) dev
+
+.PHONY: dev-setup-meson
+dev-setup-meson:
 	meson setup --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson configure --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson compile -C $(BUILDDIR) streamplace
 	meson install --destdir lib -C $(BUILDDIR)
-	$(MAKE) dev
 
 .PHONY: dev
 dev:
@@ -354,16 +358,17 @@ BASE_OPTS = \
 		-D "gst-plugins-base:glib_assert=false" \
 		-D "gst-plugins-ugly:glib_assert=false" \
 		-D "gst-plugins-good:adaptivedemux2=disabled" \
-		-D "gstreamer:registry=false" \
 		-D "glib:glib_assert=false"
 
 OPTS = \
 	$(BASE_OPTS) \
-	-D "gstreamer-full:gst-full-target-type=static_library"
+	-D "gstreamer-full:gst-full-target-type=static_library" \
+	-D "gstreamer:registry=false"
 
 SHARED_OPTS = \
 	$(BASE_OPTS) \
-	-D "FFmpeg:default_library=shared"
+	-D "FFmpeg:default_library=shared" \
+	-D "gstreamer:registry=true"
 
 .PHONY: meson-setup
 meson-setup:

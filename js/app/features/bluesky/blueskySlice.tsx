@@ -1334,6 +1334,12 @@ export const blueskySlice = createAppSlice({
             serverSettings: action.payload,
           };
         },
+        rejected: (state, action) => {
+          console.error("getServerSettingsFromPDS rejected", action.error);
+          return {
+            ...state,
+          };
+        },
       },
     ),
 

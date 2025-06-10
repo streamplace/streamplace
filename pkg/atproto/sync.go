@@ -87,17 +87,19 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		streamerRepo, err := atsync.SyncBlueskyRepoCached(ctx, rec.Streamer, atsync.Model)
+
+		_, err = atsync.SyncBlueskyRepoCached(ctx, rec.Streamer, atsync.Model)
 		if err != nil {
-			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+			log.Error(ctx, "failed to sync bluesky repo", "err", err)
 		}
+
 		log.Debug(ctx, "streamplace.ChatMessage detected", "message", rec.Text, "repo", repo.Handle)
-		block, err := atsync.Model.GetUserBlock(ctx, streamerRepo.DID, userDID)
+		block, err := atsync.Model.GetUserBlock(ctx, rec.Streamer, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to get user block: %w", err)
 		}
 		if block != nil {
-			log.Debug(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", streamerRepo.DID)
+			log.Debug(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", rec.Streamer)
 			return nil
 		}
 		mcm := &model.ChatMessage{
@@ -107,7 +109,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			ChatMessage:     recCBOR,
 			RepoDID:         userDID,
 			Repo:            repo,
-			StreamerRepoDID: streamerRepo.DID,
+			StreamerRepoDID: rec.Streamer,
 			IndexedAt:       &now,
 		}
 		if rec.Reply != nil && rec.Reply.Parent != nil && rec.Reply.Root != nil {
@@ -129,11 +131,11 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
 		}
-		go atsync.Bus.Publish(streamerRepo.DID, scm)
+		go atsync.Bus.Publish(rec.Streamer, scm)
 
 		if !isUpdate && !isFirstSync {
 			for _, webhook := range atsync.CLI.DiscordWebhooks {
-				if webhook.DID == streamerRepo.DID && webhook.Type == "chat" {
+				if webhook.DID == rec.Streamer && webhook.Type == "chat" {
 					go func() {
 						err := discord.SendChat(ctx, webhook, r, scm)
 						if err != nil {
@@ -362,6 +364,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		key := model.SigningKey{
 			DID:       rec.SigningKey,
+			RKey:      rkey.String(),
 			CreatedAt: time.Time(),
 			RepoDID:   userDID,
 		}

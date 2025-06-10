@@ -30,6 +30,15 @@ func (m *DBModel) GetRepo(did string) (*Repo, error) {
 	return &repoModel, nil
 }
 
+func (m *DBModel) GetAllRepos() ([]Repo, error) {
+	var repos []Repo
+	res := m.DB.Find(&repos)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	return repos, nil
+}
+
 func (m *DBModel) GetRepoByHandle(handle string) (*Repo, error) {
 	var repoModel Repo
 	res := m.DB.Where("handle = ?", handle).First(&repoModel)

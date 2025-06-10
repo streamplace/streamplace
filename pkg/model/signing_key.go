@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -10,11 +11,12 @@ import (
 )
 
 type SigningKey struct {
-	DID       string    `gorm:"primaryKey;column:did" json:"did"`
-	RepoDID   string    `gorm:"primaryKey;column:repo_did" json:"repoDID"`
-	Repo      *Repo     `json:"repo,omitempty" gorm:"foreignKey:RepoDID;references:DID"`
-	CreatedAt time.Time `json:"createdAt"`
-	RevokedAt time.Time `json:"revokedAt"`
+	DID       string     `gorm:"primaryKey;column:did" json:"did"`
+	RepoDID   string     `gorm:"primaryKey;column:repo_did" json:"repoDID"`
+	RKey      string     `gorm:"column:rkey;index" json:"rkey"`
+	Repo      *Repo      `json:"repo,omitempty" gorm:"foreignKey:RepoDID;references:DID"`
+	CreatedAt time.Time  `json:"createdAt"`
+	RevokedAt *time.Time `json:"revokedAt"`
 }
 
 func (SigningKey) TableName() string {
@@ -32,6 +34,26 @@ func (m *DBModel) GetSigningKey(ctx context.Context, did, repoDID string) (*Sign
 	res := m.DB.Model(SigningKey{}).Where("did = ?", did).Where("repo_did = ?", repoDID).First(&key)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
+	}
+	if key.RevokedAt != nil && key.RevokedAt.After(time.Now()) {
+		return nil, fmt.Errorf("signing key revoked")
+	}
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	return &key, nil
+}
+
+func (m *DBModel) GetSigningKeyByRKey(ctx context.Context, rkey string) (*SigningKey, error) {
+	_, span := otel.Tracer("signer").Start(ctx, "GetSigningKeyByRKey")
+	defer span.End()
+	var key SigningKey
+	res := m.DB.Model(SigningKey{}).Where("rkey = ?", rkey).First(&key)
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if key.RevokedAt != nil && key.RevokedAt.After(time.Now()) {
+		return nil, fmt.Errorf("signing key revoked")
 	}
 	if res.Error != nil {
 		return nil, res.Error

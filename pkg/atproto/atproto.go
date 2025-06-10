@@ -4,12 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strings"
-	"sync"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	_ "github.com/bluesky-social/indigo/api/bsky"
-	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/repo"
@@ -17,34 +14,11 @@ import (
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqhttp"
-	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
-
-// handleLocks provides per-handle synchronization
-var handleLocks = struct {
-	sync.Mutex
-	locks map[string]*sync.Mutex
-}{
-	locks: make(map[string]*sync.Mutex),
-}
-
-// getHandleLock returns a mutex for the given handle
-func getHandleLock(handle string) *sync.Mutex {
-	handleLocks.Lock()
-	defer handleLocks.Unlock()
-
-	if lock, exists := handleLocks.locks[handle]; exists {
-		return lock
-	}
-
-	lock := &sync.Mutex{}
-	handleLocks.locks[handle] = lock
-	return lock
-}
 
 func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "SyncBlueskyRepoCached")
@@ -66,13 +40,12 @@ type mstNode struct {
 }
 
 func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
-	ctx = log.WithLogValues(ctx, "func", "SyncBlueskyRepo", "handle", handle)
-	// Get handle-specific lock and ensure synchronized access
-
 	ident, err := ResolveIdent(ctx, handle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve Bluesky handle %s: %w", handle, err)
 	}
+
+	ctx = log.WithLogValues(ctx, "did", ident.DID.String(), "handle", ident.Handle.String())
 
 	handleLock := getHandleLock(ident.DID.String())
 	handleLock.Lock()
@@ -102,6 +75,7 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	}
 
 	log.Log(ctx, "resolved bluesky identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())
+	pdsLock := getPDSLock(ident.PDSEndpoint())
 	xrpcc := xrpc.Client{
 		Host:   ident.PDSEndpoint(),
 		Client: &aqhttp.Client,
@@ -109,7 +83,9 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	if xrpcc.Host == "" {
 		return nil, fmt.Errorf("no PDS endpoint found for Bluesky identity %s", handle)
 	}
+	pdsLock.Lock()
 	repoBytes, err := SyncGetRepo(ctx, &xrpcc, ident.DID.String(), rev)
+	pdsLock.Unlock()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch repo for %s from PDS %s: %w", ident.DID.String(), xrpcc.Host, err)
 	}
@@ -124,7 +100,7 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	// 	return nil, fmt.Errorf("failed to write encoded repo bytes to file: %w", err)
 	// }
 
-	log.Log(ctx, "got diff", "bytes", len(repoBytes))
+	log.Debug(ctx, "got diff", "bytes", len(repoBytes))
 
 	r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repoBytes))
 	if err != nil {
@@ -177,17 +153,6 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	}
 
 	return &newRepo, nil
-}
-
-func parseSigningKey(ctx context.Context, key string) error {
-	if !strings.HasPrefix(key, constants.DID_KEY_PREFIX) {
-		return fmt.Errorf("invalid key format for DID key: %s", key)
-	}
-	_, err := atcrypto.ParsePublicDIDKey(key)
-	if err != nil {
-		return fmt.Errorf("failed to parse multibase key %s: %w", key, err)
-	}
-	return nil
 }
 
 var ResolveIdent = resolveIdent

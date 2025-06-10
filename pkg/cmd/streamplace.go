@@ -29,6 +29,7 @@ import (
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/replication/boring"
+	"stream.place/streamplace/pkg/resync"
 	"stream.place/streamplace/pkg/rtmps"
 	v0 "stream.place/streamplace/pkg/schema/v0"
 	"stream.place/streamplace/pkg/spmetrics"
@@ -206,6 +207,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	spmetrics.Version.WithLabelValues(build.Version).Inc()
 
 	aqhttp.UserAgent = fmt.Sprintf("streamplace/%s", build.Version)
+	if len(os.Args) > 1 && os.Args[1] == "resync" {
+		return resync.Resync(ctx, &cli)
+	}
 
 	err = os.MkdirAll(cli.DataDir, os.ModePerm)
 	if err != nil {

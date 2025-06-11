@@ -54,7 +54,7 @@ export function NativeIngestPlayer() {
       mediaDevices
         .getUserMedia({
           audio: {
-            deviceId: "audio-1",
+            // deviceId: "audio-1",
             echoCancellation: false,
             autoGainControl: false,
             noiseSuppression: false,
@@ -62,7 +62,7 @@ export function NativeIngestPlayer() {
             // channelCount: false,
           },
           video: {
-            deviceId: "1",
+            // deviceId: "1",
             width: { min: 200, ideal: 1920, max: 3840 },
             height: { min: 200, ideal: 1080, max: 2160 },
           },

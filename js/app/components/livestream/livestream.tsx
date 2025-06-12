@@ -163,6 +163,17 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
 
   const dir = width < height && width < 980 ? "column" : "row";
 
+  if (fullscreen && dir === "row") {
+    return (
+      <Player
+        src={src}
+        fullscreen={fullscreen}
+        setFullscreen={setFullscreen}
+        {...extraProps}
+      />
+    );
+  }
+
   return (
     <RNView style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }} onLayout={onOuterLayout}>
@@ -219,21 +230,24 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                 <View
                   fg={0}
                   px="$4"
-                  py="$2"
+                  py="$3"
                   flexDirection="row"
                   justifyContent="space-between"
                   maxWidth="100%"
-                  bg="$black3"
                   borderBottomWidth="$0.5"
                   borderTopWidth="$0.5"
                   borderColor="$black5"
                   style={
-                    dir === "row" && {
-                      backgroundColor: "$colorTransparent",
-                      paddingHorizontal: 6,
-                      borderBottomWidth: 0,
-                      borderTopWidth: 0,
-                    }
+                    dir === "row"
+                      ? {
+                          backgroundColor: "$colorTransparent",
+                          paddingHorizontal: 6,
+                          borderBottomWidth: 0,
+                          borderTopWidth: 0,
+                        }
+                      : {
+                          backgroundColor: "121212",
+                        }
                   }
                 >
                   <View
@@ -323,8 +337,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                       backgroundColor="transparent"
                       onPress={() => setIsChatVisible(!isChatVisible)}
                       marginLeft="$2"
-                      display="none"
-                      $gtXs={{ display: "flex" }}
+                      style={{ display: dir === "row" ? "hidden" : "flex" }}
                     >
                       {isChatVisible ? (
                         <MessageCircleOff size={22} />

@@ -481,7 +481,7 @@ const ChatMessageText = ({
   });
 
   return (
-    <Text fontSize={13}>
+    <Text fontSize={13} flex={1}>
       <Text
         color={getRgbColor(message.chatProfile?.color)}
         cursor="pointer"

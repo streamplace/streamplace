@@ -494,7 +494,6 @@ const ChatMessageText = ({
           : message.author.did}
         :
       </Text>
-      <Text> </Text>
       <RichTextMessage
         text={message.record.text}
         facets={rt.facets as Facet[]}

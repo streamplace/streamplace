@@ -163,17 +163,6 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
 
   const dir = width < height && width < 980 ? "column" : "row";
 
-  if (fullscreen && dir === "row") {
-    return (
-      <Player
-        src={src}
-        fullscreen={fullscreen}
-        setFullscreen={setFullscreen}
-        {...extraProps}
-      />
-    );
-  }
-
   return (
     <RNView style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }} onLayout={onOuterLayout}>
@@ -246,7 +235,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                           borderTopWidth: 0,
                         }
                       : {
-                          backgroundColor: "121212",
+                          backgroundColor: "#121212",
                         }
                   }
                 >
@@ -357,7 +346,7 @@ export function LivestreamInner(props: Partial<PlayerProps>) {
                 zIndex={1}
                 backgroundColor="$background2"
                 animation={"quick"}
-                pt="$10"
+                pt="$11"
                 transform={
                   isIOS
                     ? [

@@ -143,12 +143,20 @@ export function Fullscreen(props: { src: string; playerId?: string }) {
 
     // When in custom fullscreen mode
     return (
-      <View style={[styles.fullscreenContainer]}>
+      <View
+        style={[
+          styles.fullscreenContainer,
+          {
+            width: dimensions.width,
+            height: dimensions.height,
+          },
+        ]}
+      >
         <View
           style={[
             styles.videoContainer,
             {
-              width: isLandscape ? videoWidth + 40 : videoWidth,
+              width: videoWidth,
               height: videoHeight,
               left: leftPosition,
               top: topPosition,

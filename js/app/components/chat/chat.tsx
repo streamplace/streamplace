@@ -338,6 +338,11 @@ function ChatMessageRow({
             : "transparent"
         }
         borderRadius={isWeb ? 4 : 4}
+        onLongPress={() => {
+            if (!isWeb) {
+               handleReply();
+            }
+          }
         onPress={() => {
           if (!isWeb) {
             moderateMessage();

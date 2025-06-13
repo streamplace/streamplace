@@ -119,6 +119,8 @@ export function NativeWHEP() {
   const muted = usePlayerStore((x) => x.muted);
   const volume = usePlayerStore((x) => x.volume);
 
+  console.log("native whep rendered");
+
   useEffect(() => {
     if (stuck) {
       setStatus(PlayerStatus.STALLED);

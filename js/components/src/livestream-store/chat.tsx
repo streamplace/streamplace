@@ -125,13 +125,15 @@ export const useCreateChatMessage = () => {
   };
 };
 
+const CHAT_LIMIT = 20;
+
 export const reduceChat = (
   state: LivestreamState,
   messages: ChatMessageViewHydrated[],
   blocks: PlaceStreamDefs.BlockView[],
 ): LivestreamState => {
   state = { ...state } as LivestreamState;
-  const newChat: { [key: string]: ChatMessageViewHydrated } = {
+  let newChat: { [key: string]: ChatMessageViewHydrated } = {
     ...state.chatIndex,
   };
 
@@ -200,9 +202,19 @@ export const reduceChat = (
     }
   }
 
-  const newChatList = Object.keys(newChat)
-    .sort((a, b) => (a > b ? 1 : -1))
-    .map((key) => newChat[key]);
+  let newChatList = Object.values(newChat).sort((a, b) =>
+    new Date(a.record.createdAt) > new Date(b.record.createdAt) ? 1 : -1,
+  );
+
+  newChatList = newChatList.slice(-CHAT_LIMIT);
+
+  newChat = newChatList.reduce(
+    (acc, msg) => {
+      acc[msg.uri] = msg;
+      return acc;
+    },
+    {} as { [key: string]: ChatMessageViewHydrated },
+  );
 
   return {
     ...state,

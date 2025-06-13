@@ -20,9 +20,7 @@ import {
   Link,
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
-import ReanimatedSwipeable, {
-  SwipeableMethods,
-} from "react-native-gesture-handler/ReanimatedSwipeable";
+import { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
   SharedValue,
   useAnimatedStyle,
@@ -313,7 +311,7 @@ function ChatMessageRow({
           </TouchableOpacity>
         )}
       </View>
-      <ReanimatedSwipeable
+      {/* <ReanimatedSwipeable
         ref={swipeableRef}
         renderRightActions={RightAction}
         overshootRight={false}
@@ -326,105 +324,106 @@ function ChatMessageRow({
           }
           close();
         }}
-      >
-        <View
-          flexDirection="row"
-          display="block"
-          paddingVertical={isWeb ? 6 : 4} // Adjust padding for web
-          paddingHorizontal={isWeb ? 6 : 4} // Adjust padding for web
-          position="relative"
-          hoverStyle={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-          backgroundColor={
-            currentReplyTo?.cid === message.cid
-              ? "rgba(180,180,255,0.1)"
-              : "transparent"
+      > */}
+      <View
+        flexDirection="row"
+        display="block"
+        paddingVertical={isWeb ? 6 : 4} // Adjust padding for web
+        paddingHorizontal={isWeb ? 6 : 4} // Adjust padding for web
+        position="relative"
+        hoverStyle={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+        backgroundColor={
+          currentReplyTo?.cid === message.cid
+            ? "rgba(180,180,255,0.1)"
+            : "transparent"
+        }
+        borderRadius={isWeb ? 4 : 4}
+        onPress={() => {
+          if (!isWeb) {
+            moderateMessage();
           }
-          borderRadius={isWeb ? 4 : 4}
-          onPress={() => {
-            if (!isWeb) {
-              moderateMessage();
-            }
-          }}
-          overflow="visible"
-        >
+        }}
+        overflow="visible"
+      >
+        {hasReply && (
+          <View
+            position="absolute"
+            left={6}
+            top={-8}
+            width={2}
+            height={16}
+            opacity={0.7}
+          />
+        )}
+        <View flexDirection="column" gap="$1" flex={1} overflow="visible">
+          {/* Reply section */}
           {hasReply && (
             <View
-              position="absolute"
-              left={6}
-              top={-8}
-              width={2}
-              height={16}
-              opacity={0.7}
-            />
-          )}
-          <View flexDirection="column" gap="$1" flex={1} overflow="visible">
-            {/* Reply section */}
-            {hasReply && (
-              <View
-                flexDirection="column"
-                marginBottom="$2"
-                paddingLeft="$3"
-                position="relative"
-              >
-                {/* Vertical reply line */}
-                <View
-                  position="absolute"
-                  left={6}
-                  top={0}
-                  bottom={0}
-                  width={2}
-                  borderRadius={2}
-                  backgroundColor="$accentColor"
-                  opacity={0.5}
-                />
-                {/* Reply preview */}
-                <View
-                  flexDirection="row"
-                  alignItems="center"
-                  gap="$1"
-                  paddingVertical="$1"
-                  paddingHorizontal="$2"
-                  borderRadius="$2"
-                >
-                  <Text fontSize={12} color={replyToColor} fontWeight="bold">
-                    {replyToHandle ? `@${replyToHandle}` : ""}
-                  </Text>
-                  <Text
-                    fontSize={12}
-                    color="$color"
-                    opacity={0.7}
-                    numberOfLines={1}
-                    flex={1}
-                  >
-                    {replyToText || ""}
-                  </Text>
-                </View>
-              </View>
-            )}
-            {/* Message content */}
-            <View
-              flexDirection="row"
-              alignItems="flex-start"
-              justifyContent="flex-start"
-              gap="$2"
+              flexDirection="column"
+              marginBottom="$2"
+              paddingLeft="$3"
+              position="relative"
             >
-              <Text
-                color="$gray10"
-                fontSize="$2"
-                mt="$0.5"
-                style={{ fontVariantNumeric: "tabular-nums" }}
+              {/* Vertical reply line */}
+              <View
+                position="absolute"
+                left={6}
+                top={0}
+                bottom={0}
+                width={2}
+                borderRadius={2}
+                backgroundColor="$accentColor"
+                opacity={0.5}
+              />
+              {/* Reply preview */}
+              <View
+                flexDirection="row"
+                alignItems="center"
+                gap="$1"
+                paddingVertical="$1"
+                paddingHorizontal="$2"
+                borderRadius="$2"
+                marginLeft="-$1"
               >
-                {new Date(message.record.createdAt).toLocaleString(undefined, {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: false,
-                })}
-              </Text>
-              <ChatMessageText message={message} chat={chat} />
+                <Text fontSize={12} color={replyToColor} fontWeight="bold">
+                  {replyToHandle ? `@${replyToHandle}` : ""}
+                </Text>
+                <Text
+                  fontSize={12}
+                  color="$color"
+                  opacity={0.7}
+                  numberOfLines={1}
+                  flex={1}
+                >
+                  {replyToText || ""}
+                </Text>
+              </View>
             </View>
+          )}
+          {/* Message content */}
+          <View
+            flexDirection="row"
+            alignItems="flex-start"
+            justifyContent="flex-start"
+            gap="$2"
+          >
+            <Text
+              color="$gray10"
+              fontSize="$2"
+              mt="$0.5"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {new Date(message.record.createdAt).toLocaleString(undefined, {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })}
+            </Text>
+            <ChatMessageText message={message} chat={chat} />
           </View>
         </View>
-      </ReanimatedSwipeable>
+      </View>
+      {/* </ReanimatedSwipeable> */}
     </View>
   );
 }
@@ -480,7 +479,7 @@ const ChatMessageText = ({
   });
 
   return (
-    <Text fontSize={13} flex={1}>
+    <Text fontSize={13}>
       <Text
         color={getRgbColor(message.chatProfile?.color)}
         cursor="pointer"

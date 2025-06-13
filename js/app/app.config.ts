@@ -1,5 +1,6 @@
 import {
   ConfigPlugin,
+  withAndroidManifest,
   withEntitlementsPlist,
   withXcodeProject,
 } from "expo/config-plugins";
@@ -18,6 +19,30 @@ export const withoutNotificationsIOS: ConfigPlugin = (config) => {
     return config;
   });
   return config;
+};
+
+const withAndroidProfileable = (config) => {
+  return withAndroidManifest(config, (config) => {
+    const androidManifest = config.modResults.manifest;
+    if (
+      !androidManifest.application ||
+      androidManifest.application.length === 0
+    ) {
+      throw new Error("No application found in AndroidManifest.xml");
+    }
+    const mainApplication = androidManifest.application[0];
+
+    (mainApplication as any).profileable = [
+      {
+        $: {
+          "android:shell": "true",
+          "android:enabled": "true",
+        },
+      },
+    ];
+
+    return config;
+  });
 };
 
 const withConsistentVersionNumber = (
@@ -119,6 +144,7 @@ export default function () {
         favicon: "./assets/images/favicon.png",
       },
       plugins: [
+        withAndroidProfileable,
         streamplaceReactNativeWebRTC,
         ["expo-sqlite", { useSQLCipher: true }],
         "expo-file-system",

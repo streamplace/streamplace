@@ -11,6 +11,7 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/media/segchanman"
 )
 
 func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string, m3u8 *M3U8) error {
@@ -26,27 +27,82 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 		return fmt.Errorf("error creating ToHLS pipeline: %w", err)
 	}
 
-	outputQueue, done, err := ConcatStream(ctx, pipeline, user, rendition, mm)
+	segBuffer := make(chan *segchanman.Seg, 1024)
+	go func() {
+		ch := mm.SubscribeSegment(ctx, user, rendition)
+		defer mm.UnsubscribeSegment(ctx, user, rendition, ch)
+		for {
+			select {
+			case <-ctx.Done():
+				log.Debug(ctx, "exiting segment reader")
+				return
+			case file := <-ch:
+				log.Warn(ctx, "got segment", "file", file.Filepath)
+				segBuffer <- file
+			}
+		}
+	}()
+
+	segCh := make(chan *segchanman.Seg)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				log.Debug(ctx, "exiting segment reader")
+				return
+			case seg := <-segBuffer:
+				select {
+				case <-ctx.Done():
+					return
+				case segCh <- seg:
+				}
+			}
+		}
+	}()
+
+	concatBin, err := ConcatBin(ctx, segCh)
 	if err != nil {
-		return fmt.Errorf("failed to get output queue: %w", err)
+		return fmt.Errorf("failed to create concat demux bin: %w", err)
+	}
+	err = pipeline.Add(concatBin.Element)
+	if err != nil {
+		return fmt.Errorf("failed to add concat demux bin to pipeline: %w", err)
+	}
+
+	videoPad := concatBin.GetStaticPad("video_0")
+	if videoPad == nil {
+		return fmt.Errorf("video pad not found")
+	}
+
+	audioPad := concatBin.GetStaticPad("audio_0")
+	if audioPad == nil {
+		return fmt.Errorf("audio pad not found")
 	}
 
 	videoParse, err := pipeline.GetElementByName("videoparse")
 	if err != nil {
 		return fmt.Errorf("failed to get video sink element from pipeline: %w", err)
 	}
-	err = outputQueue.Link(videoParse)
-	if err != nil {
-		return fmt.Errorf("failed to link output queue to video parse: %w", err)
+	videoParsePad := videoParse.GetStaticPad("sink")
+	if videoParsePad == nil {
+		return fmt.Errorf("video parse pad not found")
+	}
+	ok := videoPad.Link(videoParsePad)
+	if ok != gst.PadLinkOK {
+		return fmt.Errorf("failed to link output queue to video parse")
 	}
 
 	audioParse, err := pipeline.GetElementByName("audioparse")
 	if err != nil {
 		return fmt.Errorf("failed to get audio parse element from pipeline: %w", err)
 	}
-	err = outputQueue.Link(audioParse)
-	if err != nil {
-		return fmt.Errorf("failed to link output queue to audio parse: %w", err)
+	audioParsePad := audioParse.GetStaticPad("sink")
+	if audioParsePad == nil {
+		return fmt.Errorf("audio parse pad not found")
+	}
+	ok = audioPad.Link(audioParsePad)
+	if ok != gst.PadLinkOK {
+		return fmt.Errorf("failed to link output queue to audio parse")
 	}
 
 	splitmuxsink, err := gst.NewElementWithProperties("splitmuxsink", map[string]any{
@@ -97,17 +153,6 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 		return fmt.Errorf("error linking audioenc to splitmuxsink: %w", err)
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-
-	go func() {
-		select {
-		case <-ctx.Done():
-			return
-		case <-done:
-			cancel()
-		}
-	}()
-
 	_, err = splitmuxsink.Connect("sink-added", func(split, sinkEle *gst.Element) {
 		log.Debug(ctx, "hls-check sink-added")
 		vf, err := ps.GetNextSegment(ctx)
@@ -150,6 +195,8 @@ func (mm *MediaManager) ToHLS(ctx context.Context, user string, rendition string
 	if err != nil {
 		return fmt.Errorf("failed to add pad: %w", err)
 	}
+
+	ctx, cancel := context.WithCancel(ctx)
 
 	defer cancel()
 	go func() {

@@ -79,21 +79,24 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 
 	g, ctx := errgroup.WithContext(ctx)
 
-	// for _, r := range allRenditions {
-	// 	g.Go(func() error {
-	// 		for {
-	// 			if ctx.Err() != nil {
-	// 				return nil
-	// 			}
-	// 			err := ss.mm.ToHLS(ctx, spseg.Creator, r.Name, ss.hls)
-	// 			if ctx.Err() != nil {
-	// 				return nil
-	// 			}
-	// 			log.Warn(ctx, "hls failed, retrying in 5 seconds", "error", err)
-	// 			time.Sleep(time.Second * 5)
-	// 		}
-	// 	})
-	// }
+	if ss.cli.HLSMode == config.HLSModePipeline {
+		for _, r := range allRenditions {
+			log.Warn(ctx, "starting toHLS for rendition", "rendition", r.Name)
+			g.Go(func() error {
+				for {
+					if ctx.Err() != nil {
+						return nil
+					}
+					err := ss.mm.ToHLS(ctx, spseg.Creator, r.Name, ss.hls)
+					if ctx.Err() != nil {
+						return nil
+					}
+					log.Warn(ctx, "hls failed, retrying in 5 seconds", "error", err)
+					time.Sleep(time.Second * 5)
+				}
+			})
+		}
+	}
 
 	for {
 		select {
@@ -384,6 +387,7 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 		if err != nil {
 			return fmt.Errorf("failed to write transcoded segment file: %w", err)
 		}
+
 		go ss.TryAddToHLS(ctx, spseg, rs[i].Name, seg)
 		go ss.mm.PublishSegment(ctx, spseg.Creator, rs[i].Name, &segchanman.Seg{
 			Filepath: fd.Name(),
@@ -394,6 +398,9 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 }
 
 func (ss *StreamSession) TryAddToHLS(ctx context.Context, spseg *streamplace.Segment, rendition string, data []byte) {
+	if ss.cli.HLSMode != config.HLSModeSegment {
+		return
+	}
 	ctx = log.WithLogValues(ctx, "rendition", rendition)
 	err := ss.AddToHLS(ctx, spseg, rendition, data)
 	if err != nil {

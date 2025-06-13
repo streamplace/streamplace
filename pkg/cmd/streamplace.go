@@ -169,6 +169,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	fs.StringVar(&cli.RTMPServerAddon, "rtmp-server-addon", "", "address of external RTMP server to forward streams to")
 	fs.StringVar(&cli.RtmpsAddr, "rtmps-addr", ":1935", "address to listen for RTMPS connections")
 	cli.JSONFlag(fs, &cli.DiscordWebhooks, "discord-webhooks", "[]", "JSON array of Discord webhooks to send notifications to")
+	fs.StringVar(&cli.HLSMode, "hls-mode", "pipeline", fmt.Sprintf("hls mode to use for transcoding (%s, %s)", config.HLSModeSegment, config.HLSModePipeline))
 	version := fs.Bool("version", false, "print version and exit")
 
 	if runtime.GOOS == "linux" {

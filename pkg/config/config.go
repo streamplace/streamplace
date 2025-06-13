@@ -29,6 +29,11 @@ import (
 const SPDataDir = "$SP_DATA_DIR"
 const SegmentsDir = "segments"
 
+const (
+	HLSModeSegment  string = "segment"
+	HLSModePipeline string = "pipeline"
+)
+
 type BuildFlags struct {
 	Version   string
 	BuildTime int64
@@ -103,6 +108,7 @@ type CLI struct {
 	AccessJWK              jwk.Key
 	dataDirFlags           []*string
 	DiscordWebhooks        []*discordtypes.Webhook
+	HLSMode                string
 }
 
 var StreamplaceSchemePrefix = "streamplace://"

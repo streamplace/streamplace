@@ -163,6 +163,55 @@
         ]
       }
     },
+    "/xrpc/com.atproto.server.describeServer": {
+      "get": {
+        "summary": "Describes the server's account creation requirements and capabilities. Implemented by PDS.",
+        "operationId": "com.atproto.server.describeServer",
+        "tags": ["com.atproto.server"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "inviteCodeRequired": {
+                      "type": "boolean",
+                      "description": "If true, an invite code must be supplied to create an account on this instance."
+                    },
+                    "phoneVerificationRequired": {
+                      "type": "boolean",
+                      "description": "If true, a phone verification token must be supplied to create an account on this instance."
+                    },
+                    "availableUserDomains": {
+                      "type": "array",
+                      "description": "List of domain suffixes that can be used in account handles.",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "links": {
+                      "$ref": "#/components/schemas/com.atproto.server.describeServer_links",
+                      "description": "URLs of service policy documents."
+                    },
+                    "contact": {
+                      "$ref": "#/components/schemas/com.atproto.server.describeServer_contact",
+                      "description": "Contact information"
+                    },
+                    "did": {
+                      "type": "string",
+                      "format": "did"
+                    }
+                  },
+                  "required": ["did", "availableUserDomains"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/com.atproto.repo.uploadBlob": {
       "post": {
         "summary": "Upload a new blob, to be referenced from a repository record. The blob will be deleted if it is not referenced within a time window (eg, minutes). Blob restrictions (mimetype, size, etc) are enforced when the reference is created. Requires auth, implemented by PDS.",
@@ -778,6 +827,27 @@
           }
         },
         "required": ["uri", "cid"]
+      },
+      "com.atproto.server.describeServer_links": {
+        "type": "object",
+        "properties": {
+          "privacyPolicy": {
+            "type": "string",
+            "format": "uri"
+          },
+          "termsOfService": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "com.atproto.server.describeServer_contact": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
       },
       "app.bsky.feed.defs_skeletonFeedPost": {
         "type": "object",

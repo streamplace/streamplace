@@ -7,7 +7,7 @@ package streamplace
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // LiveGetSegments_Output is the output of a place.stream.live.getSegments call.
@@ -18,15 +18,18 @@ type LiveGetSegments_Output struct {
 // LiveGetSegments calls the XRPC method "place.stream.live.getSegments".
 //
 // userDID: The DID of the potentially-following user
-func LiveGetSegments(ctx context.Context, c *xrpc.Client, before string, limit int64, userDID string) (*LiveGetSegments_Output, error) {
+func LiveGetSegments(ctx context.Context, c util.LexClient, before string, limit int64, userDID string) (*LiveGetSegments_Output, error) {
 	var out LiveGetSegments_Output
 
-	params := map[string]interface{}{
-		"before":  before,
-		"limit":   limit,
-		"userDID": userDID,
+	params := map[string]interface{}{}
+	if before != "" {
+		params["before"] = before
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "place.stream.live.getSegments", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	params["userDID"] = userDID
+	if err := c.LexDo(ctx, util.Query, "", "place.stream.live.getSegments", params, nil, &out); err != nil {
 		return nil, err
 	}
 

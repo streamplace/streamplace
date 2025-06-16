@@ -8,7 +8,7 @@ import (
 	"context"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // GraphGetFollowingUser_Output is the output of a place.stream.graph.getFollowingUser call.
@@ -20,14 +20,13 @@ type GraphGetFollowingUser_Output struct {
 //
 // subjectDID: The DID of the user potentially being followed
 // userDID: The DID of the potentially-following user
-func GraphGetFollowingUser(ctx context.Context, c *xrpc.Client, subjectDID string, userDID string) (*GraphGetFollowingUser_Output, error) {
+func GraphGetFollowingUser(ctx context.Context, c util.LexClient, subjectDID string, userDID string) (*GraphGetFollowingUser_Output, error) {
 	var out GraphGetFollowingUser_Output
 
-	params := map[string]interface{}{
-		"subjectDID": subjectDID,
-		"userDID":    userDID,
-	}
-	if err := c.Do(ctx, xrpc.Query, "", "place.stream.graph.getFollowingUser", params, nil, &out); err != nil {
+	params := map[string]interface{}{}
+	params["subjectDID"] = subjectDID
+	params["userDID"] = userDID
+	if err := c.LexDo(ctx, util.Query, "", "place.stream.graph.getFollowingUser", params, nil, &out); err != nil {
 		return nil, err
 	}
 

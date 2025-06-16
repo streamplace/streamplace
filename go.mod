@@ -10,6 +10,8 @@ replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.4
 
 replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4
 
+replace github.com/bluesky-social/indigo => ../indigo
+
 require (
 	firebase.google.com/go/v4 v4.14.1
 	git.stream.place/streamplace/c2pa-go v0.7.0
@@ -67,7 +69,6 @@ require (
 	golang.org/x/term v0.31.0
 	golang.org/x/time v0.11.0
 	golang.org/x/tools v0.32.0
-	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
 	google.golang.org/api v0.228.0
 	gorm.io/datatypes v1.2.4
 	gorm.io/driver/sqlite v1.5.7
@@ -419,6 +420,7 @@ require (
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
+	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/appengine/v2 v2.0.2 // indirect
 	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250218202821-56aae31c358a // indirect

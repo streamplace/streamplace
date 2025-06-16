@@ -3,6 +3,7 @@ package main
 import (
 	"stream.place/streamplace/pkg/streamplace"
 
+	"github.com/bluesky-social/indigo/atproto/lexicon"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -24,6 +25,7 @@ func main() {
 		streamplace.ChatProfile_Color{},
 		streamplace.ChatMessage_ReplyRef{},
 		streamplace.ServerSettings{},
+		lexicon.SchemaFile{},
 	); err != nil {
 		panic(err)
 	}

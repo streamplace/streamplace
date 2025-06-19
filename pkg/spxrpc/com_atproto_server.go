@@ -13,5 +13,8 @@ func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*com
 	return &comatprototypes.ServerDescribeServer_Output{
 		Did:                did,
 		InviteCodeRequired: &trueVar,
+		AvailableUserDomains: []string{
+			fmt.Sprintf(".%s", s.cli.PublicHost),
+		},
 	}, nil
 }

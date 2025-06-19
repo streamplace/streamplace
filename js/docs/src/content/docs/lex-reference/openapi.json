@@ -163,6 +163,144 @@
         ]
       }
     },
+    "/xrpc/com.atproto.sync.getRecord": {
+      "get": {
+        "summary": "Get data blocks needed to prove the existence or non-existence of record in the current version of repo. Does not require auth.",
+        "operationId": "com.atproto.sync.getRecord",
+        "tags": ["com.atproto.sync"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/vnd.ipld.car": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "RecordNotFound"
+                        },
+                        {
+                          "const": "RepoNotFound"
+                        },
+                        {
+                          "const": "RepoTakendown"
+                        },
+                        {
+                          "const": "RepoSuspended"
+                        },
+                        {
+                          "const": "RepoDeactivated"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "did",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the repo.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "nsid"
+            }
+          },
+          {
+            "name": "rkey",
+            "in": "query",
+            "required": true,
+            "description": "Record Key",
+            "schema": {
+              "type": "string",
+              "description": "Record Key",
+              "format": "record-key"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/com.atproto.sync.listRepos": {
+      "get": {
+        "summary": "Enumerates all the DID, rev, and commit CID for all repos hosted by this service. Does not require auth; implemented by PDS and Relay.",
+        "operationId": "com.atproto.sync.listRepos",
+        "tags": ["com.atproto.sync"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cursor": {
+                      "type": "string"
+                    },
+                    "repos": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/com.atproto.sync.listRepos_repo"
+                      }
+                    }
+                  },
+                  "required": ["repos"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 500,
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/com.atproto.server.describeServer": {
       "get": {
         "summary": "Describes the server's account creation requirements and capabilities. Implemented by PDS.",
@@ -210,6 +348,257 @@
             }
           }
         }
+      }
+    },
+    "/xrpc/com.atproto.repo.describeRepo": {
+      "get": {
+        "summary": "Get information about an account and repository, including the list of collections. Does not require auth.",
+        "operationId": "com.atproto.repo.describeRepo",
+        "tags": ["com.atproto.repo"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "handle": {
+                      "type": "string",
+                      "format": "handle"
+                    },
+                    "did": {
+                      "type": "string",
+                      "format": "did"
+                    },
+                    "didDoc": {
+                      "description": "The complete DID document for this account."
+                    },
+                    "collections": {
+                      "type": "array",
+                      "description": "List of all the collections (NSIDs) for which this repo contains at least one record.",
+                      "items": {
+                        "type": "string",
+                        "format": "nsid"
+                      }
+                    },
+                    "handleIsCorrect": {
+                      "type": "boolean",
+                      "description": "Indicates if handle is currently valid (resolves bi-directionally)"
+                    }
+                  },
+                  "required": [
+                    "handle",
+                    "did",
+                    "didDoc",
+                    "collections",
+                    "handleIsCorrect"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "query",
+            "required": true,
+            "description": "The handle or DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The handle or DID of the repo.",
+              "format": "at-identifier"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/com.atproto.repo.getRecord": {
+      "get": {
+        "summary": "Get a single record from a repository. Does not require auth.",
+        "operationId": "com.atproto.repo.getRecord",
+        "tags": ["com.atproto.repo"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "format": "cid"
+                    },
+                    "value": {}
+                  },
+                  "required": ["uri", "value"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "RecordNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "query",
+            "required": true,
+            "description": "The handle or DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The handle or DID of the repo.",
+              "format": "at-identifier"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "query",
+            "required": true,
+            "description": "The NSID of the record collection.",
+            "schema": {
+              "type": "string",
+              "description": "The NSID of the record collection.",
+              "format": "nsid"
+            }
+          },
+          {
+            "name": "rkey",
+            "in": "query",
+            "required": true,
+            "description": "The Record Key.",
+            "schema": {
+              "type": "string",
+              "description": "The Record Key.",
+              "format": "record-key"
+            }
+          },
+          {
+            "name": "cid",
+            "in": "query",
+            "required": false,
+            "description": "The CID of the version of the record. If not specified, then return the most recent version.",
+            "schema": {
+              "type": "string",
+              "description": "The CID of the version of the record. If not specified, then return the most recent version.",
+              "format": "cid"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/com.atproto.repo.listRecords": {
+      "get": {
+        "summary": "List a range of records in a repository, matching a specific collection. Does not require auth.",
+        "operationId": "com.atproto.repo.listRecords",
+        "tags": ["com.atproto.repo"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cursor": {
+                      "type": "string"
+                    },
+                    "records": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/com.atproto.repo.listRecords_record"
+                      }
+                    }
+                  },
+                  "required": ["records"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "query",
+            "required": true,
+            "description": "The handle or DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The handle or DID of the repo.",
+              "format": "at-identifier"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "query",
+            "required": true,
+            "description": "The NSID of the record type.",
+            "schema": {
+              "type": "string",
+              "description": "The NSID of the record type.",
+              "format": "nsid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "The number of records to return.",
+            "schema": {
+              "type": "integer",
+              "description": "The number of records to return.",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reverse",
+            "in": "query",
+            "required": false,
+            "description": "Flag to reverse the order of the returned records.",
+            "schema": {
+              "type": "boolean",
+              "description": "Flag to reverse the order of the returned records."
+            }
+          }
+        ]
       }
     },
     "/xrpc/com.atproto.repo.uploadBlob": {
@@ -828,6 +1217,32 @@
         },
         "required": ["uri", "cid"]
       },
+      "com.atproto.sync.listRepos_repo": {
+        "type": "object",
+        "properties": {
+          "did": {
+            "type": "string",
+            "format": "did"
+          },
+          "head": {
+            "type": "string",
+            "description": "Current repo commit CID",
+            "format": "cid"
+          },
+          "rev": {
+            "type": "string",
+            "format": "tid"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "description": "If active=false, this optional field indicates a possible reason for why the account is not active. If active=false and no status is supplied, then the host makes no claim for why the repository is no longer being hosted."
+          }
+        },
+        "required": ["did", "head", "rev"]
+      },
       "com.atproto.server.describeServer_links": {
         "type": "object",
         "properties": {
@@ -848,6 +1263,21 @@
             "type": "string"
           }
         }
+      },
+      "com.atproto.repo.listRecords_record": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "value": {}
+        },
+        "required": ["uri", "cid", "value"]
       },
       "app.bsky.feed.defs_skeletonFeedPost": {
         "type": "object",

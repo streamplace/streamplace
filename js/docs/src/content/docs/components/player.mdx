@@ -1,0 +1,121 @@
+---
+title: Player Component
+description:
+  How to set up and use the Player component from @streamplace/components.
+---
+
+# Player Component
+
+This guide explains how to set up and use the `Player` component from the
+`@streamplace/components` library to embed a video player in your application.
+
+## Project Setup
+
+First, ensure you have the `@streamplace/components` library installed in your
+project.
+
+```bash
+npm install @streamplace/components
+```
+
+## Component Structure
+
+The player is composed of a few key components that you'll need to wrap around
+your player instance. Here's the basic structure:
+
+```tsx
+import {
+  LivestreamProvider,
+  Player as PlayerInner,
+  PlayerProvider,
+} from "@streamplace/components";
+
+function MyPlayer(props) {
+  return (
+    <LivestreamProvider src={props.src}>
+      <PlayerProvider>
+        <PlayerInner {...props} />
+        {/* You can add your custom UI components here */}
+      </PlayerProvider>
+    </LivestreamProvider>
+  );
+}
+```
+
+### Providers
+
+#### `LivestreamProvider`
+
+This is the outermost provider. It takes a `src` prop, which is the identifier
+for the livestream. This provider is responsible for fetching and managing the
+livestream data.
+
+#### `PlayerProvider`
+
+This provider manages the player's state. It should wrap the `Player` component
+and any UI components that need to interact with the player. It can optionally
+take a `defaultId` prop if you need to manage multiple player instances.
+
+## The Player Component
+
+The main player component is `Player`. It accepts the following props:
+
+| Prop            | Type                              | Description                                                                                        |
+| :-------------- | :-------------------------------- | :------------------------------------------------------------------------------------------------- |
+| `src`           | `string`                          | **Required.** The source identifier for the livestream.                                            |
+| `playerId`      | `string`                          | An optional ID for the player, useful when managing multiple players.                              |
+| `muted`         | `boolean`                         | Whether the player should start muted. Defaults to `false`.                                        |
+| `telemetry`     | `boolean`                         | Whether to enable telemetry. Defaults to `false`.                                                  |
+| `fullscreen`    | `boolean`                         | Controls the fullscreen state of the player.                                                       |
+| `setFullscreen` | `(isFullscreen: boolean) => void` | A callback function to toggle fullscreen mode.                                                     |
+| `ingest`        | `boolean`                         | Set to `true` if this player is for ingesting a stream (e.g., from a camera). Defaults to `false`. |
+| `embedded`      | `boolean`                         | Whether the player is embedded. Defaults to `false`.                                               |
+
+## Example Usage
+
+Here is a more complete example of how you might set up a player component in
+your application.
+
+```tsx
+import {
+  LivestreamProvider,
+  Player as PlayerInner,
+  PlayerProps,
+  PlayerProvider,
+} from "@streamplace/components";
+import { MyPlayerUI } from "./MyPlayerUI"; // Your custom UI component
+
+export function Player(props: Partial<PlayerProps>) {
+  return (
+    <LivestreamProvider src={props.src ?? ""}>
+      <PlayerProvider defaultId={props.playerId || undefined}>
+        <PlayerInner {...props} />
+        <MyPlayerUI />
+      </PlayerProvider>
+    </LivestreamProvider>
+  );
+}
+```
+
+In this example, `MyPlayerUI` would be your custom component for player
+controls, which can use hooks from `@streamplace/components` to interact with
+the player state.
+
+## UI Components
+
+The `@streamplace/components` library provides several pre-built UI components
+that you can use to build your player controls. These are available under the
+`PlayerUI` export.
+
+- `PlayerUI.ContextMenu`: A context menu for player settings, like quality and
+  latency.
+- `PlayerUI.MetricsPanel`: A panel to display connection quality and other
+  metrics.
+- `PlayerUI.InputPanel`: An input panel for setting a stream title when
+  ingesting.
+- `PlayerUI.CountdownOverlay`: A countdown overlay for when a stream is about to
+  start.
+
+You can see an example of how these are used, or how to create your own custom
+UI components, in the
+[Custom Player UI documentation](/docs/components/custom_ui).

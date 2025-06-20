@@ -60,6 +60,10 @@ export default defineConfig({
         //   autogenerate: { directory: "reference" },
         // },
         {
+          label: "Components",
+          autogenerate: { directory: "components" },
+        },
+        {
           label: "Lexicon Reference",
           autogenerate: { directory: "lex-reference" },
         },

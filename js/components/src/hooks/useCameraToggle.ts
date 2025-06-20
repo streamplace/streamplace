@@ -1,4 +1,4 @@
-import { usePlayerStore } from "@streamplace/components";
+import { usePlayerStore } from "../player-store";
 
 export function useCameraToggle() {
   const ingestCamera = usePlayerStore((x) => x.ingestCamera);

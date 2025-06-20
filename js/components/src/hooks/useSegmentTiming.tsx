@@ -1,5 +1,5 @@
-import { useLivestreamStore } from "@streamplace/components";
 import { useEffect, useRef, useState } from "react";
+import { useLivestreamStore } from "../livestream-store";
 
 export type ConnectionQuality = "good" | "degraded" | "poor";
 

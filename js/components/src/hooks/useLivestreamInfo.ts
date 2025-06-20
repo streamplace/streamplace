@@ -1,5 +1,6 @@
-import { useLivestreamStore, usePlayerStore } from "@streamplace/components";
 import { useState } from "react";
+import { useLivestreamStore } from "../livestream-store";
+import { usePlayerStore } from "../player-store";
 import { useCreateStreamRecord } from "../streamplace-store";
 
 export function useLivestreamInfo() {

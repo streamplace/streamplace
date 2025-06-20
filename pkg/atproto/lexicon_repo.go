@@ -15,13 +15,9 @@ import (
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/repomgr"
-	"github.com/google/uuid"
-	"github.com/ipfs/go-cid"
 
 	"github.com/whyrusleeping/go-did"
 	secpEc "gitlab.com/yawning/secp256k1-voi/secec"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 	"stream.place/streamplace/lexicons"
 	"stream.place/streamplace/pkg/config"
 )
@@ -118,16 +114,8 @@ func (km *SPKeyManager) SignForUser(ctx context.Context, did string, sb []byte) 
 }
 
 func MakeLexiconRepo(ctx context.Context, cli *config.CLI) error {
-	db, err := gorm.Open(sqlite.Open(":memory:"))
-	if err != nil {
-		return fmt.Errorf("failed to open in-memory sqlite db: %w", err)
-	}
-	uu := uuid.New()
-	if err != nil {
-		return fmt.Errorf("failed to generate uuid: %w", err)
-	}
-	cs, err := carstore.NewCarStore(db, []string{fmt.Sprintf("/tmp/lexicon-repo-%s", uu.String())})
-	// cs, err := carstore.NewNonArchivalCarstore(db)
+	cs := &carstore.SQLiteStore{}
+	err := cs.Open("/home/iameli/carstore.db")
 	if err != nil {
 		return fmt.Errorf("failed to create carstore: %w", err)
 	}
@@ -159,22 +147,6 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) error {
 		return fmt.Errorf("failed to get public key from private key: %w", err)
 	}
 	LexiconPubMultibase = pub.Multibase()
-	c, _, err := repoman.GetRecord(ctx, RepoUser, "app.bsky.actor.profile", "self", cid.Cid{})
-	if err != nil {
-		return fmt.Errorf("failed to get record: %w", err)
-	}
-	fmt.Printf("record cid: %s\n", c.String())
-	// signer := func(ctx context.Context, did string, sb []byte) ([]byte, error) {
-	// 	return priv.HashAndSign(sb)
-	// }
-	// catalog := lexicon.NewBaseCatalog()
-	// err := catalog.LoadEmbedFS(lexicons.AllFiles)
-	// if err != nil {
-	// 	return err
-	// }
-	// bs := atrepo.NewTinyBlockstore()
-	// did := fmt.Sprintf("did:web:%s", cli.PublicHost)
-	// LexiconRepo = repo.NewRepo(ctx, did, bs)
 	lexs, err := walkLexicons(ctx, lexicons.AllFiles, "/")
 	if err != nil {
 		return fmt.Errorf("failed to walk lexicon files: %w", err)

@@ -23,6 +23,10 @@ export function ChatPanel({
         zIndex[10],
         w.percent[100],
         { transform: [{ translateY: slideKeyboard }] },
+        {
+          backgroundColor: "rgba(0, 0, 0, 0.4)",
+          borderRadius: borderRadius["2xl"],
+        },
       ]}
     >
       <Chat isChatVisible={true} setIsChatVisible={() => true} />

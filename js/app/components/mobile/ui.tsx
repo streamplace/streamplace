@@ -1,38 +1,55 @@
-import { atoms, PlayerUI, Text, Toast, View } from "@streamplace/components";
+import { useNavigation } from "@react-navigation/native";
+import {
+  atoms,
+  PlayerUI,
+  Text,
+  Toast,
+  useAvatars,
+  useCameraToggle,
+  useKeyboardSlide,
+  useLivestreamInfo,
+  usePlayerDimensions,
+  useSegmentTiming as useSegmentMetrics,
+  View,
+} from "@streamplace/components";
 import { ChevronLeft, SwitchCamera } from "lucide-react-native";
+import { useEffect } from "react";
 import { Image, Pressable } from "react-native";
 import { ChatPanel } from "./chat";
-import useMobileUiState from "./ui-state";
 
 const { borders, colors, gap, h, layout, position, w } = atoms;
-// Dropdown imports
 
 export function MobileUi() {
+  const navigation = useNavigation();
   const {
     ingest,
     profile,
-    width,
-    height,
     title,
     setTitle,
     showCountdown,
     setShowCountdown,
     recordSubmitted,
     setRecordSubmitted,
-    avatars,
-    isPlayerRatioGreater,
-    isSelfAndNotLive,
-    isLive,
     ingestStarting,
-    slideKeyboard,
-    segmentDeltas,
-    mean,
-    range,
-    connectionQuality,
+    setIngestStarting,
     toggleGoLive,
-    doSetIngestCamera,
-    navigation,
-  } = useMobileUiState();
+  } = useLivestreamInfo();
+  const { width, height, isPlayerRatioGreater } = usePlayerDimensions();
+  const { slideKeyboard } = useKeyboardSlide();
+  const { connectionQuality, segmentDeltas, mean, range } = useSegmentMetrics();
+  const { doSetIngestCamera } = useCameraToggle();
+  const avatars = useAvatars(profile?.did ? [profile?.did] : []);
+
+  useEffect(() => {
+    return () => {
+      if (ingestStarting) {
+        setIngestStarting(false);
+      }
+    };
+  }, [ingestStarting, setIngestStarting]);
+
+  const isSelfAndNotLive = ingest === "new";
+  const isLive = ingest !== null && ingest !== "new";
 
   return (
     <>

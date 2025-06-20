@@ -2,7 +2,7 @@ import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/act
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePDSAgent } from "../streamplace-store/xrpc";
 
-export default function useAvatars(
+export function useAvatars(
   dids: string[],
 ): Record<string, ProfileViewDetailed> {
   let agent = usePDSAgent();

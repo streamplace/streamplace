@@ -12,14 +12,24 @@ import (
 	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/lexicon"
-	atrepo "github.com/bluesky-social/indigo/atproto/repo"
-	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/models"
+	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/google/uuid"
+	"github.com/ipfs/go-cid"
+
+	"github.com/whyrusleeping/go-did"
+	secpEc "gitlab.com/yawning/secp256k1-voi/secec"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 	"stream.place/streamplace/lexicons"
 	"stream.place/streamplace/pkg/config"
 )
 
-var LexiconRepo *repo.Repo
+// var LexiconRepo *repo.Repo
+var LexiconRepo *repomgr.RepoManager
 var LexiconPubMultibase string
+var RepoUser models.Uid = models.Uid(1)
 
 func init() {
 	err := MakeLexiconRepo(context.Background(), &config.CLI{
@@ -53,11 +63,12 @@ func walkLexicons(ctx context.Context, bundle embed.FS, path string) ([][]byte, 
 }
 
 type SchemaFileWrapper struct {
-	schemaFile lexicon.SchemaFile
+	LexiconTypeID string `json:"$type,const=com.atproto.lexicon.schema" cborgen:"$type,const=com.atproto.lexicon.schema"`
+	SchemaFile    lexicon.SchemaFile
 }
 
 func (sfw *SchemaFileWrapper) MarshalCBOR(w io.Writer) error {
-	bs, err := json.Marshal(sfw.schemaFile)
+	bs, err := json.Marshal(sfw.SchemaFile)
 	if err != nil {
 		return err
 	}
@@ -77,8 +88,25 @@ func (sfw *SchemaFileWrapper) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
+func (sfw *SchemaFileWrapper) MarshalJSON() ([]byte, error) {
+	bs, err := json.Marshal(sfw.SchemaFile)
+	if err != nil {
+		return nil, err
+	}
+	mapObj, err := data.UnmarshalJSON(bs)
+	if err != nil {
+		return nil, err
+	}
+	mapObj["$type"] = "com.atproto.lexicon.schema"
+	bs, err = json.Marshal(mapObj)
+	if err != nil {
+		return nil, err
+	}
+	return bs, nil
+}
+
 type SPKeyManager struct {
-	priv atcrypto.PrivateKey
+	priv *did.PrivKey
 }
 
 func (km *SPKeyManager) VerifyUserSignature(ctx context.Context, did string, sb []byte, sig []byte) error {
@@ -86,78 +114,93 @@ func (km *SPKeyManager) VerifyUserSignature(ctx context.Context, did string, sb 
 }
 
 func (km *SPKeyManager) SignForUser(ctx context.Context, did string, sb []byte) ([]byte, error) {
-	return km.priv.HashAndSign(sb)
+	return km.priv.Sign(sb)
 }
 
 func MakeLexiconRepo(ctx context.Context, cli *config.CLI) error {
-	// db, err := gorm.Open(sqlite.Open(":memory:"))
-	// if err != nil {
-	// 	return err
-	// }
+	db, err := gorm.Open(sqlite.Open(":memory:"))
+	if err != nil {
+		return fmt.Errorf("failed to open in-memory sqlite db: %w", err)
+	}
+	uu := uuid.New()
+	if err != nil {
+		return fmt.Errorf("failed to generate uuid: %w", err)
+	}
+	cs, err := carstore.NewCarStore(db, []string{fmt.Sprintf("/tmp/lexicon-repo-%s", uu.String())})
 	// cs, err := carstore.NewNonArchivalCarstore(db)
-	// if err != nil {
-	// 	return err
-	// }
+	if err != nil {
+		return fmt.Errorf("failed to create carstore: %w", err)
+	}
 	priv, err := atcrypto.GeneratePrivateKeyK256()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to generate private key: %w", err)
 	}
 
-	// km := &SPKeyManager{
-	// 	priv: priv,
-	// }
+	k, err := secpEc.NewPrivateKey(priv.Bytes())
+	if err != nil {
+		return fmt.Errorf("failed to create secp256k1 private key: %w", err)
+	}
+	serkey := &did.PrivKey{
+		Raw:  k,
+		Type: did.KeyTypeSecp256k1,
+	}
 
-	// repoman := repomgr.NewRepoManager(cs, km)
+	km := &SPKeyManager{
+		priv: serkey,
+	}
 
-	// if err := repoman.InitNewActor(ctx, models.Uid(0), cli.PublicHost, fmt.Sprintf("did:web:%s", cli.PublicHost), "", "", ""); err != nil {
-	// 	return err
-	// }
+	repoman := repomgr.NewRepoManager(cs, km)
 
+	if err := repoman.InitNewActor(ctx, RepoUser, cli.PublicHost, fmt.Sprintf("did:web:%s", cli.PublicHost), "foo", "", ""); err != nil {
+		return fmt.Errorf("failed to initialize new actor: %w", err)
+	}
 	pub, err := priv.PublicKey()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get public key from private key: %w", err)
 	}
 	LexiconPubMultibase = pub.Multibase()
-	signer := func(ctx context.Context, did string, sb []byte) ([]byte, error) {
-		return priv.HashAndSign(sb)
+	c, _, err := repoman.GetRecord(ctx, RepoUser, "app.bsky.actor.profile", "self", cid.Cid{})
+	if err != nil {
+		return fmt.Errorf("failed to get record: %w", err)
 	}
+	fmt.Printf("record cid: %s\n", c.String())
+	// signer := func(ctx context.Context, did string, sb []byte) ([]byte, error) {
+	// 	return priv.HashAndSign(sb)
+	// }
 	// catalog := lexicon.NewBaseCatalog()
 	// err := catalog.LoadEmbedFS(lexicons.AllFiles)
 	// if err != nil {
 	// 	return err
 	// }
-	bs := atrepo.NewTinyBlockstore()
-	did := fmt.Sprintf("did:web:%s", cli.PublicHost)
-	LexiconRepo = repo.NewRepo(ctx, did, bs)
+	// bs := atrepo.NewTinyBlockstore()
+	// did := fmt.Sprintf("did:web:%s", cli.PublicHost)
+	// LexiconRepo = repo.NewRepo(ctx, did, bs)
 	lexs, err := walkLexicons(ctx, lexicons.AllFiles, "/")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to walk lexicon files: %w", err)
 	}
 	for _, lex := range lexs {
 		lexFile := lexicon.SchemaFile{}
 		err := json.Unmarshal(lex, &lexFile)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to unmarshal lexicon file: %w", err)
 		}
 		if !strings.HasPrefix(lexFile.ID, "place.stream") {
 			continue
 		}
-		sfw := &SchemaFileWrapper{schemaFile: lexFile}
+		sfw := &SchemaFileWrapper{SchemaFile: lexFile}
 		rpath := fmt.Sprintf("com.atproto.lexicon.schema/%s", lexFile.ID)
-		_, err = LexiconRepo.PutRecord(context.TODO(), rpath, sfw)
+		_, _, err = repoman.PutRecord(context.TODO(), RepoUser, "com.atproto.lexicon.schema", lexFile.ID, sfw)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to put record %s: %w", rpath, err)
 		}
-		_, _, err = LexiconRepo.GetRecord(context.TODO(), rpath)
-		if err != nil {
-			return fmt.Errorf("failed to get record %s: %w", rpath, err)
-		} else {
-			fmt.Printf("put record %s\n", rpath)
-		}
+		// _, _, err = repoman.GetRecord(context.TODO(), RepoUser, "com.atproto.lexicon.schema", rkey, cid.Cid{})
+		// if err != nil {
+		// 	return fmt.Errorf("failed to get record %s: %w", rpath, err)
+		// } else {
+		// 	fmt.Printf("put record %s\n", rpath)
+		// }
 	}
-	_, _, err = LexiconRepo.Commit(context.TODO(), signer)
-	if err != nil {
-		return err
-	}
+	LexiconRepo = repoman
 	return nil
 }

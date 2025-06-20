@@ -345,7 +345,6 @@ export function NativeIngestPlayer() {
       objectFit={"cover"}
       streamURL={localMediaStream.toURL()}
       zOrder={0}
-      // width is set to 5000 to ensure it fills the screen
       style={{
         minWidth: "100%",
         minHeight: "100%",

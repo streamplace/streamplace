@@ -7,7 +7,7 @@ import { schemas as appSchemas } from "./lexicons/lexicons";
 
 export class StreamplaceAgent extends Agent {
   place = new PlaceNS(this);
-  lex: Lexicons;
+  declare lex: Lexicons;
 
   constructor(options: string | URL | SessionManager) {
     super(options);

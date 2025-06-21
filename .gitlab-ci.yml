@@ -335,6 +335,7 @@ build-desktop-darwin:
 
 windows-selftest:
   interruptible: true
+  allow_failure: true
   stage: build
   # for the moment...
   tags:

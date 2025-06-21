@@ -7,7 +7,6 @@
   "types": "src/index.tsx",
   "exports": {
     ".": {
-      "@streamplace/dev": "./src/index.tsx",
       "types": "./dist/index.d.mjs",
       "default": "./dist/index.mjs"
     }

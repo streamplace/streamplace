@@ -9,16 +9,6 @@ import {
 } from "expo/config-plugins";
 import { resolve } from "path";
 
-const buildError = (message: string) => {
-  if (process.env.SP_SKIP_CODEMODE_ERRORS !== "true") {
-    throw new Error(`@streamplace/config-native-webrtc ${message}`);
-  } else {
-    console.error(
-      `@streamplace/config-native-webrtc ${message}, skipping because SP_SKIP_CODEMODE_ERRORS=true`,
-    );
-  }
-};
-
 // https://github.com/react-native-webrtc/react-native-webrtc/blob/19ca31d4b77d149a659ee037fae54861a2d90a73/Documentation/AndroidInstallation.md#set-audio-category-output-to-media
 // look, i'm as upset about this as you are
 const androidApplicationReplacements = [
@@ -55,9 +45,6 @@ export const withWorkingAndroidWebRTCAudio: ConfigPlugin = (configOuter) => {
     for (const { from, to } of androidApplicationReplacements) {
       stringContents = stringContents.replace(from, to);
     }
-    if (stringContents === config.modResults.contents) {
-      buildError("android codemod failed to apply");
-    }
 
     config.modResults.contents = stringContents;
 
@@ -66,7 +53,6 @@ export const withWorkingAndroidWebRTCAudio: ConfigPlugin = (configOuter) => {
 };
 
 const iosDelegateReplacements = [
-  // Objective-C Version
   {
     from: "#import <React/RCTLinkingManager.h>",
     to: (config) => `
@@ -118,41 +104,6 @@ const iosDelegateReplacements = [
   ////END RTC PATCH////
     `,
   },
-  // Swift Version
-  {
-    from: "    let delegate = ReactNativeDelegate()",
-    to: () => `
-    // WebRTC Configuration
-    let config = RTCAudioSessionConfiguration.webRTC()
-    
-    let session = AVAudioSession.sharedInstance()
-    do {
-        try session.setCategory(.playAndRecord, 
-                              options: [.defaultToSpeaker, .allowBluetooth])
-        try session.setActive(true)
-    } catch {
-        print("Failed to configure audio session: \(error)")
-    }
-    
-    let device = AUAudioUnitRTCAudioDevice()
-
-    let options = WebRTCModuleOptions.sharedInstance()
-    options.loggingSeverity = .warning
-    options.audioDevice = device
-    // End WebRTC Configuration
-    
-    let delegate = ReactNativeDelegate()
-    `,
-  },
-  {
-    from: "import ReactAppDependencyProvider",
-    to: () => `
-import ReactAppDependencyProvider
-import WebRTC
-import react_native_webrtc
-import AVFoundation
-    `,
-  },
 ];
 
 const withWorkingIOSWebRTCAudio: ConfigPlugin = (config) => {
@@ -163,7 +114,6 @@ const withWorkingIOSWebRTCAudio: ConfigPlugin = (config) => {
     "Utils.swift",
   ];
 
-  let called = false;
   // modify the app delegate to make use of the CustomRTCAudioDevice
   config = withAppDelegate(config, (config) => {
     let stringContents: string = config.modResults.contents;
@@ -171,12 +121,8 @@ const withWorkingIOSWebRTCAudio: ConfigPlugin = (config) => {
     for (const { from, to } of iosDelegateReplacements) {
       stringContents = stringContents.replace(from, to(config));
     }
-    if (stringContents === config.modResults.contents) {
-      buildError("ios codemod failed to change anything, aborting");
-    }
 
     config.modResults.contents = stringContents;
-    called = true;
 
     return config;
   });

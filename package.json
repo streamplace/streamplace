@@ -17,8 +17,8 @@
     "prepare": "husky",
     "release": "lerna version --force-publish=@streamplace/app",
     "precommit": "make precommit",
-    "app": "cd js/app && pnpm run",
-    "desktop": "cd js/desktop && pnpm run",
+    "app": "pnpm run -r --stream --filter @streamplace/app... --parallel",
+    "desktop": "pnpm run -r --stream --filter streamplace-desktop... --parallel",
     "docs": "cd js/docs && pnpm run",
     "start": "pnpm run -r --stream --parallel start",
     "knip": "knip"

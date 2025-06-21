@@ -1,4 +1,8 @@
+// Web-only provider
+import "@rainbow-me/rainbowkit/styles.css";
+
 import { LinkingOptions } from "@react-navigation/native";
+import { WalletProvider } from "hooks/useWallet";
 import React, { useEffect } from "react";
 import SharedProvider from "./provider.shared";
 
@@ -17,5 +21,9 @@ export default function Provider({
       document.location.href = u.toString();
     }
   }, []);
-  return <SharedProvider linking={linking}>{children}</SharedProvider>;
+  return (
+    <WalletProvider>
+      <SharedProvider linking={linking}>{children}</SharedProvider>
+    </WalletProvider>
+  );
 }

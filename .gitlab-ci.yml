@@ -367,11 +367,11 @@ windows-selftest:
     - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+$/'
   timeout: 2 hours
 
-npm-release:
-  extends:
-    - .release-template
-  script:
-    - make ci-npm-release
+# npm-release:
+#   extends:
+#     - .release-template
+#   script:
+#     - make ci-npm-release
 
 release:
   extends:

@@ -12,6 +12,7 @@ import (
 	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/test/remote"
 )
 
 func TestThumbnail(t *testing.T) {
@@ -62,4 +63,21 @@ func TestThumbnail(t *testing.T) {
 
 	err = g.Wait()
 	require.NoError(t, err)
+}
+
+// This segment once caused a segfault in gst-libav.
+// It doesn't gotta work but it does gotta not crash.
+func TestKryptoniteThumbnail(t *testing.T) {
+	gstinit.InitGST()
+
+	inputFile, err := os.Open(remote.RemoteFixture("46c876d5e6c4124275b8856431833adaad31cb5246caca8ded9dc4d37de400a4/kryptonite-screenshot.mp4"))
+	require.NoError(t, err)
+	defer inputFile.Close()
+	bs, err := io.ReadAll(inputFile)
+	require.NoError(t, err)
+
+	thumbnail := bytes.Buffer{}
+	err = Thumbnail(context.Background(), bytes.NewReader(bs), &thumbnail, "png")
+	require.NoError(t, err)
+	require.Equal(t, 561486, thumbnail.Len())
 }

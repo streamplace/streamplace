@@ -60,8 +60,16 @@ dev-setup: schema install js/app/dist/index.html
 
 .PHONY: dev-setup-meson
 dev-setup-meson:
+	$(MAKE) dev-setup-meson-configure
+	$(MAKE) dev-setup-meson-compile
+
+.PHONY: dev-setup-meson-configure
+dev-setup-meson-configure:
 	meson setup --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson configure --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
+
+.PHONY: dev-setup-meson-compile
+dev-setup-meson-compile:
 	meson compile -C $(BUILDDIR) streamplace
 	meson install --destdir lib -C $(BUILDDIR)
 
@@ -355,15 +363,17 @@ BASE_OPTS = \
 		-D "gstreamer-full:ugly=enabled" \
 		-D "gstreamer-full:gpl=enabled" \
 		-D "gstreamer-full:gst-full-typefind-functions=" \
+		-D "gstreamer:coretracers=enabled" \
 		-D "gstreamer-full:glib_assert=false" \
 		-D "gstreamer:glib_assert=false" \
-		-D "gstreamer:coretracers=enabled" \
 		-D "gst-plugins-good:glib_assert=false" \
 		-D "gst-plugins-bad:glib_assert=false" \
 		-D "gst-plugins-base:glib_assert=false" \
 		-D "gst-plugins-ugly:glib_assert=false" \
-		-D "gst-plugins-good:adaptivedemux2=disabled" \
-		-D "glib:glib_assert=false"
+		-D "glib:glib_assert=false" \
+		-D "glib:glib_assert=false" \
+		-D "gst-libav:glib_assert=false" \
+		-D "gst-plugins-good:adaptivedemux2=disabled"
 
 OPTS = \
 	$(BASE_OPTS) \

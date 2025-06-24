@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   react-native-webrtc:
-    hash: 11eed2e52e2ad4821ddf58975c0363f8cbe538d3b150d759a823343d3328f7cd
+    hash: 06d214c321948efa72e9c9e30237c0b5e0fb321c8fa306c77355787ee2e1c687
     path: patches/react-native-webrtc.patch
 
 importers:
@@ -241,7 +241,7 @@ importers:
         version: 0.20.0(encoding@0.1.13)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       react-native-webrtc:
         specifier: git+https://github.com/EdgarJMesquita/react-native-webrtc.git#8bae93dc32d6c80b61f12a04974886a6812fbca6
-        version: https://codeload.github.com/EdgarJMesquita/react-native-webrtc/tar.gz/8bae93dc32d6c80b61f12a04974886a6812fbca6(patch_hash=11eed2e52e2ad4821ddf58975c0363f8cbe538d3b150d759a823343d3328f7cd)(react-native@0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))
+        version: https://codeload.github.com/EdgarJMesquita/react-native-webrtc/tar.gz/8bae93dc32d6c80b61f12a04974886a6812fbca6(patch_hash=06d214c321948efa72e9c9e30237c0b5e0fb321c8fa306c77355787ee2e1c687)(react-native@0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))
       react-native-webview:
         specifier: 13.15.0
         version: 13.15.0(react-native@0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
@@ -435,7 +435,7 @@ importers:
         version: 5.4.1(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
       react-native-webrtc:
         specifier: git+https://github.com/EdgarJMesquita/react-native-webrtc.git#8bae93dc32d6c80b61f12a04974886a6812fbca6
-        version: https://codeload.github.com/EdgarJMesquita/react-native-webrtc/tar.gz/8bae93dc32d6c80b61f12a04974886a6812fbca6(patch_hash=11eed2e52e2ad4821ddf58975c0363f8cbe538d3b150d759a823343d3328f7cd)(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))
+        version: https://codeload.github.com/EdgarJMesquita/react-native-webrtc/tar.gz/8bae93dc32d6c80b61f12a04974886a6812fbca6(patch_hash=06d214c321948efa72e9c9e30237c0b5e0fb321c8fa306c77355787ee2e1c687)(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))
       react-use-websocket:
         specifier: ^4.13.0
         version: 4.13.0
@@ -459,8 +459,8 @@ importers:
         specifier: 10.0.0
         version: 10.0.0(expo@53.0.11(@babel/core@7.26.0)(@expo/metro-runtime@5.0.4(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(react-native-webview@13.15.0(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)(utf-8-validate@5.0.10))
       react-native-webrtc:
-        specifier: 124.0.4
-        version: 124.0.4(patch_hash=11eed2e52e2ad4821ddf58975c0363f8cbe538d3b150d759a823343d3328f7cd)(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))
+        specifier: git+https://github.com/EdgarJMesquita/react-native-webrtc.git#8bae93dc32d6c80b61f12a04974886a6812fbca6
+        version: https://codeload.github.com/EdgarJMesquita/react-native-webrtc/tar.gz/8bae93dc32d6c80b61f12a04974886a6812fbca6(patch_hash=06d214c321948efa72e9c9e30237c0b5e0fb321c8fa306c77355787ee2e1c687)(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))
       rtcaudiodevice:
         specifier: git+https://github.com/streamplace/RTCAudioDevice.git#7b4659fe845545d366623cbc813936987144b76f
         version: https://codeload.github.com/streamplace/RTCAudioDevice/tar.gz/7b4659fe845545d366623cbc813936987144b76f
@@ -10121,11 +10121,6 @@ packages:
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
-
-  react-native-webrtc@124.0.4:
-    resolution: {integrity: sha512-ZbhSz1f+kc1v5VE0B84+v6ujIWTHa2fIuocrYzGUIFab7E5izmct7PNHb9dzzs0xhBGqh4c2rUa49jbL+P/e2w==}
-    peerDependencies:
-      react-native: '>=0.60.0'
 
   react-native-webrtc@https://codeload.github.com/EdgarJMesquita/react-native-webrtc/tar.gz/8bae93dc32d6c80b61f12a04974886a6812fbca6:
     resolution: {tarball: https://codeload.github.com/EdgarJMesquita/react-native-webrtc/tar.gz/8bae93dc32d6c80b61f12a04974886a6812fbca6}
@@ -25639,16 +25634,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  react-native-webrtc@124.0.4(patch_hash=11eed2e52e2ad4821ddf58975c0363f8cbe538d3b150d759a823343d3328f7cd)(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)):
-    dependencies:
-      base64-js: 1.5.1
-      debug: 4.3.4
-      event-target-shim: 6.0.2
-      react-native: 0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)
-    transitivePeerDependencies:
-      - supports-color
-
-  react-native-webrtc@https://codeload.github.com/EdgarJMesquita/react-native-webrtc/tar.gz/8bae93dc32d6c80b61f12a04974886a6812fbca6(patch_hash=11eed2e52e2ad4821ddf58975c0363f8cbe538d3b150d759a823343d3328f7cd)(react-native@0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)):
+  react-native-webrtc@https://codeload.github.com/EdgarJMesquita/react-native-webrtc/tar.gz/8bae93dc32d6c80b61f12a04974886a6812fbca6(patch_hash=06d214c321948efa72e9c9e30237c0b5e0fb321c8fa306c77355787ee2e1c687)(react-native@0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)):
     dependencies:
       base64-js: 1.5.1
       debug: 4.3.4
@@ -25657,7 +25643,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  react-native-webrtc@https://codeload.github.com/EdgarJMesquita/react-native-webrtc/tar.gz/8bae93dc32d6c80b61f12a04974886a6812fbca6(patch_hash=11eed2e52e2ad4821ddf58975c0363f8cbe538d3b150d759a823343d3328f7cd)(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)):
+  react-native-webrtc@https://codeload.github.com/EdgarJMesquita/react-native-webrtc/tar.gz/8bae93dc32d6c80b61f12a04974886a6812fbca6(patch_hash=06d214c321948efa72e9c9e30237c0b5e0fb321c8fa306c77355787ee2e1c687)(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)):
     dependencies:
       base64-js: 1.5.1
       debug: 4.3.4

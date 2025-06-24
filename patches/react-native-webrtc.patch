@@ -1,11 +1,11 @@
 diff --git a/package.json b/package.json
-index fb92c10a98ead4fd9abb3fdfff643d8e46d8bf91..076960be36d5c95609c9c3125783879d64a9cac8 100644
+index b2a72ee3bb97deaaf0c56cd1f0d0330886abe1fa..6155d481a96068f65bd2aea674a14520e03279a4 100644
 --- a/package.json
 +++ b/package.json
-@@ -29,7 +29,7 @@
-   },
+@@ -30,7 +30,7 @@
    "scripts": {
      "lint": "eslint --max-warnings 0 . && tsc --noEmit",
+     "lintfix": "eslint --max-warnings 0 --fix . && tsc --noEmit",
 -    "prepare": "husky install && bob build",
 +    "prepare": "bob build",
      "format": "tools/format.sh"

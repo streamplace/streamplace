@@ -39,6 +39,8 @@ type StreamSession struct {
 	lastStatus     time.Time
 	lastStatusLock sync.Mutex
 	g              *errgroup.Group
+	started        chan struct{}
+	ctx            context.Context
 	packets        []bus.PacketizedSegment
 }
 
@@ -47,6 +49,7 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 	ss.g, ctx = errgroup.WithContext(ctx)
 	sid := livepeer.RandomTrailer(8)
 	ctx = log.WithLogValues(ctx, "sid", sid)
+	ss.ctx = ctx
 	log.Log(ctx, "starting stream session")
 	defer cancel()
 	spseg, err := not.Segment.ToStreamplaceSegment()
@@ -94,6 +97,8 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 	// 	})
 	// }
 
+	close(ss.started)
+
 	for {
 		select {
 		case <-ss.segmentChan:
@@ -112,6 +117,7 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 // non-fatal; if you actually want to melt the universe on an error you
 // should panic()
 func (ss *StreamSession) Go(ctx context.Context, f func() error) {
+	<-ss.started
 	ss.g.Go(func() error {
 		err := f()
 		if err != nil {
@@ -122,10 +128,14 @@ func (ss *StreamSession) Go(ctx context.Context, f func() error) {
 }
 
 func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNotification) error {
-	if ctx.Err() != nil {
-		return nil
-	}
-	ss.segmentChan <- struct{}{}
+	<-ss.started
+	go func() {
+		select {
+		case <-ss.ctx.Done():
+			return
+		case ss.segmentChan <- struct{}{}:
+		}
+	}()
 	aqt := aqtime.FromTime(not.Segment.StartTime)
 	ctx = log.WithLogValues(ctx, "segID", not.Segment.ID, "repoDID", not.Segment.RepoDID, "timestamp", aqt.FileSafeString())
 	err := ss.mod.CreateSegment(not.Segment)

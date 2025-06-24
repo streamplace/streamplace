@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "10.0.0",
-    "react-native-webrtc": "git+https://github.com/streamplace/react-native-webrtc.git#db232dbbc5d198c3a35afb8fa9240827eba71243",
+    "react-native-webrtc": "git+https://github.com/streamplace/react-native-webrtc.git#6b8472a771ac47f89217d327058a8a4124a6ae56",
     "rtcaudiodevice": "git+https://github.com/streamplace/RTCAudioDevice.git#7b4659fe845545d366623cbc813936987144b76f"
   },
   "devDependencies": {

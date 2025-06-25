@@ -16,8 +16,11 @@ import (
 
 	"github.com/acarl005/stripansi"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 	"stream.place/streamplace/pkg/gstinit"
 )
+
+var LeakTestMutex sync.Mutex
 
 const IgnoreLeaks = "STREAMPLACE_IGNORE_LEAKS"
 const GSTDebugNeeded = "leaks:9,GST_TRACER:9"
@@ -152,6 +155,17 @@ func checkGStreamerLeaks(t *testing.T, expected int) {
 			fmt.Println(l)
 		}
 		LeakReportMutex.Unlock()
+		require.Equal(t, expected, len(LeakReport), "Leaks found")
 	}
-	require.Equal(t, expected, len(LeakReport), "Leaks found")
+}
+
+func withNoGSTLeaks(t *testing.T, f func()) {
+	LeakTestMutex.Lock()
+	defer LeakTestMutex.Unlock()
+	gstinit.InitGST()
+	before := getLeakCount(t)
+	defer checkGStreamerLeaks(t, before)
+	ignore := goleak.IgnoreCurrent()
+	defer goleak.VerifyNone(t, ignore)
+	f()
 }

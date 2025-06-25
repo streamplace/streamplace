@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -19,6 +20,19 @@ import (
 	"go.uber.org/goleak"
 	"stream.place/streamplace/pkg/gstinit"
 )
+
+var streamplaceTestCount = 50
+
+func init() {
+	testRunsStr := os.Getenv("STREAMPLACE_TEST_COUNT")
+	if testRunsStr != "" {
+		var err error
+		streamplaceTestCount, err = strconv.Atoi(testRunsStr)
+		if err != nil {
+			panic(fmt.Sprintf("STREAMPLACE_TEST_COUNT is not a number: %s", testRunsStr))
+		}
+	}
+}
 
 var LeakTestMutex sync.Mutex
 
@@ -104,7 +118,7 @@ func getLeakCount(t *testing.T) int {
 	// we want CI to be extra reliable here and a little slower is okay
 	flushes := 2
 	if os.Getenv("CI") != "" {
-		flushes = 5
+		flushes = 20
 	}
 
 	for range flushes {

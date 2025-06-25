@@ -12,11 +12,9 @@ import (
 	"github.com/go-gst/go-gst/gst/pbutils"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
-	"stream.place/streamplace/pkg/gstinit"
 )
 
 func TestAudioSmear(t *testing.T) {
-	gstinit.InitGST()
 	withNoGSTLeaks(t, func() {
 
 		g, _ := errgroup.WithContext(context.Background())

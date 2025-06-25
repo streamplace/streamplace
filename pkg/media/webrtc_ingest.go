@@ -47,15 +47,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		return nil, fmt.Errorf("failed to get queue element from pipeline: %w", err)
 	}
 
-	signerElem, err := mm.SegmentAndSignElem(ctx, signer)
-	if err != nil {
-		return nil, fmt.Errorf("failed create signer element: %w", err)
-	}
-	err = pipeline.Add(signerElem)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add signer element to pipeline: %w", err)
-	}
-
 	// err = queue.Link(signerElem)
 	// if err != nil {
 	// 	return nil, fmt.Errorf("failed to link queue to signer element: %w", err)
@@ -69,18 +60,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	}
 	videoSrcPad := videoSrcPads[0]
 	audioSrcPad := videoSrcPads[1]
-
-	signerElemPads, err := signerElem.GetPads()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get signerElemPads from signer element: %w", err)
-	}
-	if len(signerElemPads) != 2 {
-		return nil, fmt.Errorf("failed to get signerElemPads from signer element")
-	}
-	signerElemVideoPad := signerElemPads[0]
-	signerElemAudioPad := signerElemPads[1]
-	videoSrcPad.Link(signerElemVideoPad)
-	audioSrcPad.Link(signerElemAudioPad)
 
 	videoSrcElem, err := pipeline.GetElementByName("videosrc")
 	if err != nil {
@@ -113,10 +92,41 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	// Create channel that is blocked until ICE Gathering is complete
 	gatherComplete := rtcrec.GatheringCompletePromise(peerConnection)
 
-	// Setup complete! Now we boot up streaming in the background while returning the SDP offer to the user.
+	ctx, cancel := context.WithCancel(ctx)
+	signerElem, err := mm.SegmentAndSignElem(ctx, signer)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed create signer element: %w", err)
+	}
+	err = pipeline.Add(signerElem)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to add signer element to pipeline: %w", err)
+	}
+	signerElemPads, err := signerElem.GetPads()
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to get signerElemPads from signer element: %w", err)
+	}
+	if len(signerElemPads) != 2 {
+		cancel()
+		return nil, fmt.Errorf("failed to get signerElemPads from signer element")
+	}
+	signerElemVideoPad := signerElemPads[0]
+	signerElemAudioPad := signerElemPads[1]
+	linked := videoSrcPad.Link(signerElemVideoPad)
+	if linked != gst.PadLinkOK {
+		cancel()
+		return nil, fmt.Errorf("failed to link videoSrcPad to signerElemVideoPad")
+	}
+	linked = audioSrcPad.Link(signerElemAudioPad)
+	if linked != gst.PadLinkOK {
+		cancel()
+		return nil, fmt.Errorf("failed to link audioSrcPad to signerElemAudioPad")
+	}
 
+	// Setup complete! Now we boot up streaming in the background while returning the SDP offer to the user.
 	go func() {
-		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		defer func() { close(done) }()
 

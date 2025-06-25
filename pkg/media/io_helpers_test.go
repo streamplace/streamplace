@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"testing"
 
 	"github.com/go-gst/go-gst/gst"
@@ -15,19 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/log"
 )
-
-var streamplaceTestCount = 50
-
-func init() {
-	testRunsStr := os.Getenv("STREAMPLACE_TEST_COUNT")
-	if testRunsStr != "" {
-		var err error
-		streamplaceTestCount, err = strconv.Atoi(testRunsStr)
-		if err != nil {
-			panic(fmt.Sprintf("STREAMPLACE_TEST_COUNT is not a number: %s", testRunsStr))
-		}
-	}
-}
 
 func TestWriterNewSample(t *testing.T) {
 	withNoGSTLeaks(t, func() {

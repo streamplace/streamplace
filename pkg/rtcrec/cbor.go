@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
@@ -39,9 +40,10 @@ func (d *WebRTCEventDecoder) Next() (*WebRTCEvent, error) {
 }
 
 type WebRTCEventGroup struct {
-	Events    map[string][]*WebRTCEvent
-	Tracks    map[webrtc.SSRC]map[string][]*WebRTCEvent
-	FirstTime time.Time
+	Events     map[string][]*WebRTCEvent
+	Tracks     map[webrtc.SSRC]map[string][]*WebRTCEvent
+	FirstTime  time.Time
+	EventMutex sync.Mutex
 }
 
 const (
@@ -200,8 +202,10 @@ func (g *WebRTCEventGroup) Next(eventType string) *WebRTCEvent {
 	if len(g.Events[eventType]) == 0 {
 		return nil
 	}
+	g.EventMutex.Lock()
 	ev := g.Events[eventType][0]
 	g.Events[eventType] = g.Events[eventType][1:]
+	g.EventMutex.Unlock()
 	return ev
 }
 

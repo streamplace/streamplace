@@ -142,9 +142,7 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 			if dur != nil {
 				segDur += *dur
 			} else {
-				log.Log(ctx, "no audio duration", "samples", len(samples))
-				err := fmt.Errorf("no audio duration")
-				pipeline.Error(err.Error(), err)
+				log.Error(ctx, "no audio duration", "samples", len(samples))
 				return gst.FlowError
 			}
 

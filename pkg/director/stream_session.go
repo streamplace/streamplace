@@ -108,6 +108,9 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 		// case <-time.After(time.Minute * 1):
 		case <-time.After(time.Second * 60):
 			log.Log(ctx, "no new segments for 1 minute, shutting down")
+			for _, r := range allRenditions {
+				ss.bus.EndSession(ctx, spseg.Creator, r.Name)
+			}
 			cancel()
 		}
 	}

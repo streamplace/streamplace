@@ -113,24 +113,25 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	// Create channel that is blocked until ICE Gathering is complete
 	gatherComplete := rtcrec.GatheringCompletePromise(peerConnection)
 
-	go func() {
-		ticker := time.NewTicker(time.Second * 1)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				state := pipeline.GetCurrentState()
-				log.Debug(ctx, "pipeline state", "state", state)
-			}
-		}
-	}()
 	// Setup complete! Now we boot up streaming in the background while returning the SDP offer to the user.
 
 	go func() {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		defer func() { close(done) }()
+
+		go func() {
+			ticker := time.NewTicker(time.Second * 1)
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					state := pipeline.GetCurrentState()
+					log.Debug(ctx, "pipeline state", "state", state)
+				}
+			}
+		}()
 
 		go func() {
 			if err := HandleBusMessages(ctx, pipeline); err != nil {
@@ -294,6 +295,8 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		if err := videoSrcElem.SetState(gst.StateNull); err != nil {
 			log.Log(ctx, "failed to set videoSrcElem state to null", "error", err)
 		}
+
+		log.Log(ctx, "webrtc ingest pipeline done")
 
 	}()
 	select {

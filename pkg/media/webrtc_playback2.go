@@ -72,20 +72,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
-		started := time.Now()
-		elapsed := time.Duration(0)
 		latency := time.Duration(0)
-
-		go func() {
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-time.After(time.Second * 5):
-					log.Log(ctx, "check elapsed", "elapsed", elapsed, "duration", time.Since(started))
-				}
-			}
-		}()
 
 		packetQueue := make(chan *bus.PacketizedSegment, 1024)
 		go func() {

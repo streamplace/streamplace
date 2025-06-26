@@ -159,7 +159,7 @@ test:
     STREAMPLACE_TEST_COUNT: "1"
   script:
     - git fetch --unshallow || echo 'already unshallow'
-    - make ci-test -j$(nproc) && make ci-lexicons
+    - make dev-setup && make dev-test && make ci-lexicons
 
 build-docker-mistserver:
   stage: build

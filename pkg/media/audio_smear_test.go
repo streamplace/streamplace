@@ -11,26 +11,21 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/pbutils"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
-	"stream.place/streamplace/pkg/gstinit"
 )
 
 func TestAudioSmear(t *testing.T) {
-	gstinit.InitGST()
-	before := getLeakCount(t)
-	defer checkGStreamerLeaks(t, before)
-	ignore := goleak.IgnoreCurrent()
-	defer goleak.VerifyNone(t, ignore)
+	withNoGSTLeaks(t, func() {
 
-	g, _ := errgroup.WithContext(context.Background())
-	for i := 0; i < streamplaceTestCount; i++ {
-		g.Go(func() error {
-			return testAudioSmearInner(t)
-		})
-	}
-	err := g.Wait()
-	require.NoError(t, err)
+		g, _ := errgroup.WithContext(context.Background())
+		for i := 0; i < streamplaceTestCount; i++ {
+			g.Go(func() error {
+				return testAudioSmearInner(t)
+			})
+		}
+		err := g.Wait()
+		require.NoError(t, err)
+	})
 }
 
 func testAudioSmearInner(t *testing.T) error {

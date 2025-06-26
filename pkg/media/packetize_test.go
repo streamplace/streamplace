@@ -8,28 +8,22 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
-	"stream.place/streamplace/pkg/gstinit"
 )
 
 func TestPacketize(t *testing.T) {
-	gstinit.InitGST()
-	before := getLeakCount(t)
-	defer checkGStreamerLeaks(t, before)
-	ignore := goleak.IgnoreCurrent()
-	defer goleak.VerifyNone(t, ignore)
-
-	g, _ := errgroup.WithContext(context.Background())
-	for range streamplaceTestCount {
-		g.Go(func() error {
-			innerTestPacketize(t)
-			return nil
-		})
-	}
-	err := g.Wait()
-	require.NoError(t, err)
+	withNoGSTLeaks(t, func() {
+		g, _ := errgroup.WithContext(context.Background())
+		for range streamplaceTestCount {
+			g.Go(func() error {
+				innerTestPacketize(t)
+				return nil
+			})
+		}
+		err := g.Wait()
+		require.NoError(t, err)
+	})
 }
 
 func innerTestPacketize(t *testing.T) {

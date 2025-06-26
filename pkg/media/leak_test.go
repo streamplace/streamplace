@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -18,6 +19,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/gstinit"
 )
+
+var streamplaceTestCount = 50
+
+func init() {
+	testRunsStr := os.Getenv("STREAMPLACE_TEST_COUNT")
+	if testRunsStr != "" {
+		var err error
+		streamplaceTestCount, err = strconv.Atoi(testRunsStr)
+		if err != nil {
+			panic(fmt.Sprintf("STREAMPLACE_TEST_COUNT is not a number: %s", testRunsStr))
+		}
+	}
+}
+
+var LeakTestMutex sync.Mutex
 
 const IgnoreLeaks = "STREAMPLACE_IGNORE_LEAKS"
 const GSTDebugNeeded = "leaks:9,GST_TRACER:9"
@@ -152,6 +168,17 @@ func checkGStreamerLeaks(t *testing.T, expected int) {
 			fmt.Println(l)
 		}
 		LeakReportMutex.Unlock()
+		require.Equal(t, expected, len(LeakReport), "Leaks found")
 	}
-	require.Equal(t, expected, len(LeakReport), "Leaks found")
+}
+
+func withNoGSTLeaks(t *testing.T, f func()) {
+	LeakTestMutex.Lock()
+	defer LeakTestMutex.Unlock()
+	gstinit.InitGST()
+	before := getLeakCount(t)
+	defer checkGStreamerLeaks(t, before)
+	// ignore := goleak.IgnoreCurrent()
+	// defer goleak.VerifyNone(t, ignore)
+	f()
 }

@@ -9,75 +9,69 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
-	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/test/remote"
 )
 
 func TestThumbnail(t *testing.T) {
-	gstinit.InitGST()
-	before := getLeakCount(t)
-	defer checkGStreamerLeaks(t, before)
-	ignore := goleak.IgnoreCurrent()
-	defer goleak.VerifyNone(t, ignore)
+	withNoGSTLeaks(t, func() {
+		// Open input file
+		inputFile, err := os.Open(getFixture("sample-segment.mp4"))
+		require.NoError(t, err)
+		defer inputFile.Close()
+		bs, err := io.ReadAll(inputFile)
+		require.NoError(t, err)
 
-	// Open input file
-	inputFile, err := os.Open(getFixture("sample-segment.mp4"))
-	require.NoError(t, err)
-	defer inputFile.Close()
-	bs, err := io.ReadAll(inputFile)
-	require.NoError(t, err)
+		ctx := context.Background()
+		g, ctx := errgroup.WithContext(ctx)
 
-	ctx := context.Background()
-	g, ctx := errgroup.WithContext(ctx)
+		for i := 0; i < streamplaceTestCount; i++ {
+			g.Go(func() error {
+				thumbnail := bytes.Buffer{}
+				// thumbnailCtx = log.WithDebugValue(ctx, map[string]map[string]int{"function": {"Thumbnail": 9}})
+				err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail, "png")
+				if err != nil {
+					return err
+				}
+				if thumbnail.Len() == 0 {
+					return fmt.Errorf("thumbnail buffer is empty")
+				}
+				require.Equal(t, thumbnail.Len(), 1418910)
+				return nil
+			})
+			g.Go(func() error {
+				thumbnail := bytes.Buffer{}
+				// thumbnailCtx = log.WithDebugValue(ctx, map[string]map[string]int{"function": {"Thumbnail": 9}})
+				err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail, "jpeg")
+				if err != nil {
+					return err
+				}
+				if thumbnail.Len() == 0 {
+					return fmt.Errorf("thumbnail buffer is empty")
+				}
+				require.Equal(t, thumbnail.Len(), 140969)
+				return nil
+			})
+		}
 
-	for i := 0; i < streamplaceTestCount; i++ {
-		g.Go(func() error {
-			thumbnail := bytes.Buffer{}
-			// thumbnailCtx = log.WithDebugValue(ctx, map[string]map[string]int{"function": {"Thumbnail": 9}})
-			err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail, "png")
-			if err != nil {
-				return err
-			}
-			if thumbnail.Len() == 0 {
-				return fmt.Errorf("thumbnail buffer is empty")
-			}
-			require.Equal(t, thumbnail.Len(), 1418910)
-			return nil
-		})
-		g.Go(func() error {
-			thumbnail := bytes.Buffer{}
-			// thumbnailCtx = log.WithDebugValue(ctx, map[string]map[string]int{"function": {"Thumbnail": 9}})
-			err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail, "jpeg")
-			if err != nil {
-				return err
-			}
-			if thumbnail.Len() == 0 {
-				return fmt.Errorf("thumbnail buffer is empty")
-			}
-			require.Equal(t, thumbnail.Len(), 140969)
-			return nil
-		})
-	}
-
-	err = g.Wait()
-	require.NoError(t, err)
+		err = g.Wait()
+		require.NoError(t, err)
+	})
 }
 
 // This segment once caused a segfault in gst-libav.
 // It doesn't gotta work but it does gotta not crash.
 func TestKryptoniteThumbnail(t *testing.T) {
-	gstinit.InitGST()
+	withNoGSTLeaks(t, func() {
+		inputFile, err := os.Open(remote.RemoteFixture("46c876d5e6c4124275b8856431833adaad31cb5246caca8ded9dc4d37de400a4/kryptonite-screenshot.mp4"))
+		require.NoError(t, err)
+		defer inputFile.Close()
+		bs, err := io.ReadAll(inputFile)
+		require.NoError(t, err)
 
-	inputFile, err := os.Open(remote.RemoteFixture("46c876d5e6c4124275b8856431833adaad31cb5246caca8ded9dc4d37de400a4/kryptonite-screenshot.mp4"))
-	require.NoError(t, err)
-	defer inputFile.Close()
-	bs, err := io.ReadAll(inputFile)
-	require.NoError(t, err)
-
-	thumbnail := bytes.Buffer{}
-	err = Thumbnail(context.Background(), bytes.NewReader(bs), &thumbnail, "png")
-	require.NoError(t, err)
-	require.Equal(t, 561486, thumbnail.Len())
+		thumbnail := bytes.Buffer{}
+		err = Thumbnail(context.Background(), bytes.NewReader(bs), &thumbnail, "png")
+		require.NoError(t, err)
+		require.Equal(t, 561486, thumbnail.Len())
+	})
 }

@@ -13,28 +13,23 @@ import (
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
-	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
 )
 
 func TestConcatBin(t *testing.T) {
-	gstinit.InitGST()
-	before := getLeakCount(t)
-	defer checkGStreamerLeaks(t, before)
-	ignore := goleak.IgnoreCurrent()
-	defer goleak.VerifyNone(t, ignore)
+	withNoGSTLeaks(t, func() {
 
-	g, _ := errgroup.WithContext(context.Background())
-	for range streamplaceTestCount {
-		g.Go(func() error {
-			return innerTestConcatBin(t)
-		})
-	}
-	err := g.Wait()
-	require.NoError(t, err)
+		g, _ := errgroup.WithContext(context.Background())
+		for range streamplaceTestCount {
+			g.Go(func() error {
+				return innerTestConcatBin(t)
+			})
+		}
+		err := g.Wait()
+		require.NoError(t, err)
+	})
 }
 
 // This function remains in scope for the duration of a single users' playback

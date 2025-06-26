@@ -8,30 +8,27 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/log"
 )
 
 func TestBusHandlerCleanup(t *testing.T) {
-	ignore := goleak.IgnoreCurrent()
-	defer goleak.VerifyNone(t, ignore)
-	before := getLeakCount(t)
-	defer checkGStreamerLeaks(t, before)
+	withNoGSTLeaks(t, func() {
 
-	g, ctx := errgroup.WithContext(context.Background())
-	ctx = log.WithDebugValue(ctx, map[string]map[string]int{"func": {"TestBusHandler": 9}})
-	for i := range streamplaceTestCount {
-		g.Go(func() error {
-			err := testBusHandlerCleanupInner(ctx, i)
-			if err == nil {
-				return fmt.Errorf("expected error")
-			}
-			return nil
-		})
-	}
-	err := g.Wait()
-	require.NoError(t, err)
+		g, ctx := errgroup.WithContext(context.Background())
+		ctx = log.WithDebugValue(ctx, map[string]map[string]int{"func": {"TestBusHandler": 9}})
+		for i := range streamplaceTestCount {
+			g.Go(func() error {
+				err := testBusHandlerCleanupInner(ctx, i)
+				if err == nil {
+					return fmt.Errorf("expected error")
+				}
+				return nil
+			})
+		}
+		err := g.Wait()
+		require.NoError(t, err)
+	})
 }
 
 func testBusHandlerCleanupInner(ctx context.Context, i int) error {

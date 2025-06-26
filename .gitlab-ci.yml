@@ -156,11 +156,10 @@ test:
   image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
   timeout: 2 hours
   variables:
-    STREAMPLACE_IGNORE_LEAKS: "true"
     STREAMPLACE_TEST_COUNT: "1"
   script:
     - git fetch --unshallow || echo 'already unshallow'
-    - make ci-test -j$(nproc) && make ci-lexicons
+    - make dev-setup && make dev-test && make ci-lexicons
 
 build-docker-mistserver:
   stage: build
@@ -284,7 +283,6 @@ build-android-release:
   tags:
     - tart-installed
   variables:
-    STREAMPLACE_IGNORE_LEAKS: "true"
     STREAMPLACE_TEST_COUNT: "1"
     NODE_OPTIONS: "--max_old_space_size=4096"
   timeout: 2 hours

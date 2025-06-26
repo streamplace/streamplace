@@ -12,10 +12,6 @@ import (
 
 func TestMediaDataParser(t *testing.T) {
 	withNoGSTLeaks(t, func() {
-
-		// ignore := goleak.IgnoreCurrent()
-		// defer goleak.VerifyNone(t, ignore)
-
 		// Open input file
 		inputFile, err := os.Open(getFixture("sample-segment.mp4"))
 		require.NoError(t, err)

@@ -98,8 +98,7 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 				return gst.FlowError
 			}
 
-			samples := buffer.Map(gst.MapRead).Bytes()
-			defer buffer.Unmap()
+			samples := buffer.Bytes()
 
 			videoOutput = append(videoOutput, samples)
 
@@ -115,9 +114,6 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 		},
 		EOSFunc: func(sink *app.Sink) {
 			log.Debug(ctx, "videoappsink EOSFunc")
-			// go func() {
-			// 	eosCh <- struct{}{}
-			// }()
 		},
 	})
 
@@ -128,6 +124,7 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
 			sample := sink.PullSample()
 			if sample == nil {
+				log.Warn(ctx, "audioappsink NewSampleFunc EOS")
 				return gst.FlowEOS
 			}
 
@@ -136,8 +133,7 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 				return gst.FlowError
 			}
 
-			samples := buffer.Map(gst.MapRead).Bytes()
-			defer buffer.Unmap()
+			samples := buffer.Bytes()
 
 			audioOutput = append(audioOutput, samples)
 
@@ -146,9 +142,7 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 			if dur != nil {
 				segDur += *dur
 			} else {
-				log.Log(ctx, "no audio duration", "samples", len(samples))
-				err := fmt.Errorf("no audio duration")
-				pipeline.Error(err.Error(), err)
+				log.Error(ctx, "no audio duration", "samples", len(samples))
 				return gst.FlowError
 			}
 
@@ -156,9 +150,6 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 		},
 		EOSFunc: func(sink *app.Sink) {
 			log.Debug(ctx, "audioappsink EOSFunc")
-			// go func() {
-			// 	eosCh <- struct{}{}
-			// }()
 		},
 	})
 
@@ -181,10 +172,11 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 		if err != nil {
 			log.Error(ctx, "failed to set pipeline to null state", "error", err)
 		}
+		err = pipeline.Remove(demuxBin.Element)
+		if err != nil {
+			log.Error(ctx, "failed to remove demux bin from bin", "error", err)
+		}
 	}()
-
-	// <-eosCh
-	// <-eosCh
 
 	err = <-busErr
 	if err != nil {

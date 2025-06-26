@@ -118,7 +118,7 @@ func getLeakCount(t *testing.T) int {
 	// we want CI to be extra reliable here and a little slower is okay
 	flushes := 2
 	if os.Getenv("CI") != "" {
-		flushes = 20
+		flushes = 5
 	}
 
 	for range flushes {

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/intervalpli"
+	"github.com/pion/logging"
 	"github.com/pion/webrtc/v4"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqtime"
@@ -59,6 +60,42 @@ func RunSelfTest(ctx context.Context) error {
 	return SelfTest(ctx)
 }
 
+type customLogger struct{}
+
+// Print all messages except trace.
+func (c customLogger) Trace(msg string) { fmt.Printf("pion Trace: %s\n", msg) }
+func (c customLogger) Tracef(format string, args ...interface{}) {
+	c.Trace(fmt.Sprintf(format, args...))
+}
+
+func (c customLogger) Debug(msg string) { fmt.Printf("pion Debug: %s\n", msg) }
+func (c customLogger) Debugf(format string, args ...interface{}) {
+	c.Debug(fmt.Sprintf(format, args...))
+}
+func (c customLogger) Info(msg string) { fmt.Printf("pion Info: %s\n", msg) }
+func (c customLogger) Infof(format string, args ...interface{}) {
+	c.Trace(fmt.Sprintf(format, args...))
+}
+func (c customLogger) Warn(msg string) { fmt.Printf("pion Warn: %s\n", msg) }
+func (c customLogger) Warnf(format string, args ...interface{}) {
+	c.Warn(fmt.Sprintf(format, args...))
+}
+func (c customLogger) Error(msg string) { fmt.Printf("pion Error: %s\n", msg) }
+func (c customLogger) Errorf(format string, args ...interface{}) {
+	c.Error(fmt.Sprintf(format, args...))
+}
+
+// customLoggerFactory satisfies the interface logging.LoggerFactory
+// This allows us to create different loggers per subsystem. So we can
+// add custom behavior.
+type customLoggerFactory struct{}
+
+func (c customLoggerFactory) NewLogger(subsystem string) logging.LeveledLogger {
+	fmt.Printf("Creating logger for %s \n", subsystem)
+
+	return customLogger{}
+}
+
 func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, rep replication.Replicator, mod model.Model, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer) (*MediaManager, error) {
 	gstinit.InitGST()
 	err := SelfTest(ctx)
@@ -102,7 +139,10 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	}
 
 	// Create the API object with the MediaEngine
-	api := webrtc.NewAPI(webrtc.WithMediaEngine(m), webrtc.WithInterceptorRegistry(i))
+	s := webrtc.SettingEngine{
+		LoggerFactory: customLoggerFactory{},
+	}
+	api := webrtc.NewAPI(webrtc.WithMediaEngine(m), webrtc.WithInterceptorRegistry(i), webrtc.WithSettingEngine(s))
 
 	// Prepare the configuration
 	config := webrtc.Configuration{

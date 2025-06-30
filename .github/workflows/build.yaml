@@ -37,10 +37,17 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
       - name: make node
         run: |
           sudo apt install podman -y
-          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
+          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace:cache --cache-from ghcr.io/streamplace/streamplace:cache -e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
       - name: Upload bin artifacts
         if: matrix.name == 'windows-amd64'

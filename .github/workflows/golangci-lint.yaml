@@ -16,11 +16,18 @@ jobs:
           fetch-tags: true
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
       - name: run build for linting
         run: |
           sudo apt install podman -y
           sudo ln -s $(realpath ./hack/golangci-lint) /usr/bin/golangci-lint
-          make golangci-lint-container BUILDER_TARGET=builder-no-darwin
+          make golangci-lint-container BUILDER_TARGET=builder-no-darwin DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace"
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8

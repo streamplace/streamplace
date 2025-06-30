@@ -550,10 +550,11 @@ docker-build: docker-build-builder docker-build-in-container
 .PHONY: docker-test
 docker-test: docker-build-builder docker-test-in-container
 
+DOCKER_BUILD_OPTS?=
 BUILDER_TARGET?=builder
 .PHONY: docker-build-builder
 docker-build-builder:
-	podman build --target=$(BUILDER_TARGET) --os=linux --arch=amd64 -f docker/build.Dockerfile -t dist.stream.place/streamplace/streamplace:$(BUILDER_TARGET) .
+	podman build --target=$(BUILDER_TARGET) --os=linux --arch=amd64 -f docker/build.Dockerfile -t dist.stream.place/streamplace/streamplace:$(BUILDER_TARGET) $(DOCKER_BUILD_OPTS) .
 
 .PHONY: golangci-lint-container
 golangci-lint-container: docker-build-builder

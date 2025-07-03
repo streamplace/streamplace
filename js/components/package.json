@@ -2,13 +2,14 @@
   "name": "@streamplace/components",
   "version": "0.7.2",
   "description": "Streamplace React (Native) Components",
+  "type": "module",
   "main": "dist/index.js",
   "types": "src/index.tsx",
   "exports": {
     ".": {
       "@streamplace/dev": "./src/index.tsx",
-      "types": "./src/index.tsx",
-      "default": "./dist/index.js"
+      "types": "./dist/index.d.mjs",
+      "default": "./dist/index.mjs"
     }
   },
   "scripts": {

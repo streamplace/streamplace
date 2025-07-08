@@ -72,7 +72,6 @@ export function PlayerInner(
     chatPanelWidth,
     screenWidth,
     contentWidth,
-    screenHeight,
     availableHeight,
   } = useResponsiveLayout({
     sidebarWidth: sb.animatedWidth,
@@ -90,9 +89,11 @@ export function PlayerInner(
   // Calculate optimal height for desktop mode (90% of available height)
   const maxDesktopHeight = availableHeight * 0.8;
   const chatVisible = shouldShowChatSidePanel && props.showChat;
+
   const calculatedWidth = chatVisible
     ? contentWidth - chatPanelWidth
     : contentWidth;
+
   const calculatedHeight = isDesktopMode
     ? Math.min(calculatedWidth / aspectRatio, maxDesktopHeight)
     : height;

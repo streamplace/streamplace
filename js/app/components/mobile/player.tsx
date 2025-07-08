@@ -34,10 +34,8 @@ export function Player(
             flex: 1,
             width: "100%",
             height: "100%",
-            paddingTop: safeAreaInsets.top,
             paddingLeft: safeAreaInsets.left,
             paddingRight: safeAreaInsets.right,
-            paddingBottom: safeAreaInsets.bottom,
           }}
         >
           <PlayerInner

@@ -11,6 +11,7 @@ import { useState } from "react";
 import { Animated, ScrollView } from "react-native";
 import { BottomMetadata } from "./bottom-metadata";
 import { DesktopChatPanel } from "./chat";
+import { DesktopUi } from "./desktop-ui";
 import { MobileUi } from "./ui";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
@@ -96,8 +97,11 @@ export function PlayerInner(
     width: calculatedWidth,
     height: calculatedHeight,
   };
+  // i don't really like this, but it's the only way to ensure the
+  // player is sized correctly on both desktop and mobile views
+  const ContainerElement = shouldShowChatSidePanel ? ScrollView : View;
   return (
-    <ScrollView
+    <ContainerElement
       style={
         shouldShowChatSidePanel
           ? {
@@ -109,29 +113,32 @@ export function PlayerInner(
             }
       }
       contentContainerStyle={{
-        width: calculatedWidth, // Ensure content container has proper width
+        width: calculatedWidth,
       }}
-      showsVerticalScrollIndicator={false} // Optional: hide scroll indicator
-      bounces={false} // Optional: disable bounce effect
+      showsVerticalScrollIndicator={false}
+      bounces={false}
     >
       <Animated.View
         style={[
-          !shouldShowChatSidePanel
+          shouldShowChatSidePanel
             ? {
-                width: "100%", // Use 100% instead of flex: 1 inside ScrollView
+                width: calculatedWidth,
+                height: calculatedHeight,
               }
             : {
-                width: calculatedWidth,
+                flex: 1,
               },
-          { height: calculatedHeight }, // Separate height to avoid playerStyle conflicts
         ]}
       >
         <PlayerInnerInner {...props} />
+        {aspectRatio > 1 && <DesktopUi />}
       </Animated.View>
-      <BottomMetadata
-        setShowChat={props.setShowChat}
-        showChat={props.showChat}
-      />
-    </ScrollView>
+      {aspectRatio > 1 && (
+        <BottomMetadata
+          setShowChat={props.setShowChat}
+          showChat={props.showChat}
+        />
+      )}
+    </ContainerElement>
   );
 }

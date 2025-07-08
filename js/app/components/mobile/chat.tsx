@@ -1,4 +1,11 @@
-import { Chat, ChatBox, Resizable, View, zero } from "@streamplace/components";
+import {
+  Chat,
+  ChatBox,
+  Resizable,
+  useLivestreamInfo,
+  View,
+  zero,
+} from "@streamplace/components";
 import { useEffect } from "react";
 import Animated, {
   useAnimatedStyle,
@@ -79,7 +86,7 @@ export function MobileChatPanel({ isPlayerRatioGreater }) {
 
 function ChatPanel() {
   const { shouldShowChatSidePanel, safeAreaInsets } = useResponsiveLayout();
-
+  const { profile } = useLivestreamInfo();
   return (
     <View
       style={[
@@ -98,7 +105,7 @@ function ChatPanel() {
         ...(shouldShowChatSidePanel ? [px[4]] : []),
       ]}
     >
-      <Chat />
+      <Chat canModerate={false} />
       <View style={[layout.flex.column, gap.all[2], px[4], py[2]]}>
         <ChatBox chatBoxStyle={{ borderRadius: borderRadius.xl }} />
       </View>

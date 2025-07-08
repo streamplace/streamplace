@@ -5,16 +5,8 @@ import { SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export interface ResponsiveLayoutConfig {
-  screenWidth: number;
-  screenHeight: number;
-  isLandscape: boolean;
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
-  shouldShowFloatingMetrics: boolean;
-  shouldShowBottomMetadata: boolean;
   shouldShowChatSidePanel: boolean;
-  shouldShowChatOverlay: boolean;
+  shouldShowFloatingMetrics: boolean;
   chatPanelWidth: number;
   safeAreaInsets: {
     top: number;
@@ -22,6 +14,8 @@ export interface ResponsiveLayoutConfig {
     left: number;
     right: number;
   };
+  screenWidth: number;
+  availableHeight: number;
 }
 
 export function useResponsiveLayout({
@@ -34,8 +28,6 @@ export function useResponsiveLayout({
   showChatSidePanelOnLandscape?: boolean;
 } = {}): ResponsiveLayoutConfig & {
   contentWidth: number;
-  availableWidth: number;
-  availableHeight: number;
 } {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const safeAreaInsets = useSafeAreaInsets();
@@ -47,69 +39,39 @@ export function useResponsiveLayout({
     return sidebarWidth;
   }, [sidebarWidth]);
 
-  const layout = useMemo(() => {
-    // Calculate available dimensions after safe area insets
-    const availableWidth =
-      screenWidth - safeAreaInsets.left - safeAreaInsets.right;
-    const availableHeight =
-      screenHeight - safeAreaInsets.top - safeAreaInsets.bottom;
+  const isLandscape = screenWidth > screenHeight;
+  const shouldShowChatSidePanel =
+    isLandscape && screenWidth >= 768 && showChatSidePanelOnLandscape;
 
-    const isLandscape = screenWidth > screenHeight;
-    const isMobile = screenWidth < 768;
-    const isTablet = screenWidth >= 768 && screenWidth < 980;
-    const isDesktop = screenWidth >= 980;
+  const shouldShowFloatingMetrics = screenWidth < 768;
+  const availableHeight =
+    screenHeight - safeAreaInsets.top - safeAreaInsets.bottom;
 
-    const shouldShowFloatingMetrics = isMobile;
-    const shouldShowBottomMetadata = isDesktop;
-    const shouldShowChatSidePanel =
-      isLandscape && screenWidth >= 768 && showChatSidePanelOnLandscape;
-    const shouldShowChatOverlay = !(isLandscape && screenWidth >= 768);
-
-    const chatPanelWidth = responsiveValue(
-      {
-        md: 320,
-        lg: 400,
-        xl: 480,
-        default: 300,
-      },
-      screenWidth,
-    );
-
-    const contentWidth =
-      !sidebarHidden && sidebarWidthValue > 0
-        ? availableWidth - sidebarWidthValue
-        : availableWidth;
-
-    return {
-      screenWidth,
-      screenHeight,
-      availableWidth,
-      availableHeight,
-      isLandscape,
-      isMobile,
-      isTablet,
-      isDesktop,
-      shouldShowFloatingMetrics,
-      shouldShowBottomMetadata,
-      shouldShowChatSidePanel,
-      shouldShowChatOverlay,
-      chatPanelWidth,
-      contentWidth,
-    };
-  }, [
+  const chatPanelWidth = responsiveValue(
+    {
+      md: 320,
+      lg: 400,
+      xl: 480,
+      default: 300,
+    },
     screenWidth,
-    screenHeight,
-    safeAreaInsets.left,
-    safeAreaInsets.right,
-    safeAreaInsets.top,
-    safeAreaInsets.bottom,
-    sidebarWidthValue,
-    sidebarHidden,
-    showChatSidePanelOnLandscape,
-  ]);
+  );
+
+  const availableWidth =
+    screenWidth - safeAreaInsets.left - safeAreaInsets.right / 2;
+
+  const contentWidth =
+    !sidebarHidden && sidebarWidthValue > 0
+      ? availableWidth - sidebarWidthValue
+      : availableWidth;
 
   return {
-    ...layout,
+    shouldShowChatSidePanel,
+    shouldShowFloatingMetrics,
+    chatPanelWidth,
     safeAreaInsets,
+    contentWidth,
+    screenWidth,
+    availableHeight,
   };
 }

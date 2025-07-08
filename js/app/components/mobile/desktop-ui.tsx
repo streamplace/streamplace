@@ -5,6 +5,7 @@ import {
   Toast,
   useAvatars,
   useCameraToggle,
+  useKeyboardSlide,
   useLivestreamInfo,
   usePlayerDimensions,
   View,
@@ -40,6 +41,7 @@ export function DesktopUi() {
   const { width, height } = usePlayerDimensions();
   const { doSetIngestCamera } = useCameraToggle();
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
+  const { slideKeyboard } = useKeyboardSlide();
 
   const { safeAreaInsets, shouldShowFloatingMetrics } = useResponsiveLayout();
 
@@ -92,7 +94,12 @@ export function DesktopUi() {
               r[2],
               layout.position.absolute,
               position.left[2],
-              { top: safeAreaInsets.top + 12 },
+              { top: safeAreaInsets.top },
+              {
+                transform: [
+                  { translateY: -slideKeyboard + safeAreaInsets.bottom },
+                ],
+              },
             ]}
           >
             <View style={[layout.flex.row, layout.flex.center, gap.all[3]]}>
@@ -132,7 +139,7 @@ export function DesktopUi() {
             <View
               style={[
                 layout.position.absolute,
-                { top: safeAreaInsets.top + 12 },
+                { top: safeAreaInsets.top },
                 position.left[0],
                 position.right[0],
                 layout.flex.column,
@@ -166,7 +173,7 @@ export function DesktopUi() {
               r[2],
               layout.position.absolute,
               position.right[2],
-              { top: safeAreaInsets.top + 12 },
+              { top: safeAreaInsets.top },
               gap.all[4],
             ]}
           >

@@ -34,6 +34,10 @@ export function Player(
             flex: 1,
             width: "100%",
             height: "100%",
+            paddingTop: safeAreaInsets.top,
+            paddingLeft: safeAreaInsets.left,
+            paddingRight: safeAreaInsets.right,
+            paddingBottom: safeAreaInsets.bottom,
           }}
         >
           <PlayerInner
@@ -69,6 +73,7 @@ export function PlayerInner(
     screenWidth,
     contentWidth,
     screenHeight,
+    availableHeight,
   } = useResponsiveLayout({
     sidebarWidth: sb.animatedWidth,
     sidebarHidden: !sb.isActive,
@@ -82,8 +87,8 @@ export function PlayerInner(
   const aspectRatio = width > 0 && height > 0 ? width / height : 16 / 9;
   const isDesktopMode = shouldShowChatSidePanel || screenWidth > 768;
 
-  // Calculate optimal height for desktop mode (90% of screen height)
-  const maxDesktopHeight = screenHeight * 0.8;
+  // Calculate optimal height for desktop mode (90% of available height)
+  const maxDesktopHeight = availableHeight * 0.8;
   const chatVisible = shouldShowChatSidePanel && props.showChat;
   const calculatedWidth = chatVisible
     ? contentWidth - chatPanelWidth
@@ -92,6 +97,8 @@ export function PlayerInner(
     ? Math.min(calculatedWidth / aspectRatio, maxDesktopHeight)
     : height;
 
+  const showBottomMetaPanel = aspectRatio > 1 && screenWidth > 980;
+
   // Direct responsive styling without animations
   const playerStyle = {
     width: calculatedWidth,
@@ -99,7 +106,7 @@ export function PlayerInner(
   };
   // i don't really like this, but it's the only way to ensure the
   // player is sized correctly on both desktop and mobile views
-  const ContainerElement = shouldShowChatSidePanel ? ScrollView : View;
+  const ContainerElement = showBottomMetaPanel ? ScrollView : View;
   return (
     <ContainerElement
       style={
@@ -109,6 +116,7 @@ export function PlayerInner(
               width: calculatedWidth, // Add explicit width
             }
           : {
+              height: "100%",
               flex: 1,
             }
       }
@@ -120,7 +128,7 @@ export function PlayerInner(
     >
       <Animated.View
         style={[
-          shouldShowChatSidePanel
+          showBottomMetaPanel
             ? {
                 width: calculatedWidth,
                 height: calculatedHeight,
@@ -131,9 +139,9 @@ export function PlayerInner(
         ]}
       >
         <PlayerInnerInner {...props} />
-        {aspectRatio > 1 && <DesktopUi />}
+        {showBottomMetaPanel && <DesktopUi />}
       </Animated.View>
-      {aspectRatio > 1 && (
+      {showBottomMetaPanel && (
         <BottomMetadata
           setShowChat={props.setShowChat}
           showChat={props.showChat}

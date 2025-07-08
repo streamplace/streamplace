@@ -106,7 +106,7 @@ export function MobileUi() {
                 r[2],
                 layout.position.absolute,
                 position.left[1],
-                { top: safeAreaInsets.top + 8 },
+                { top: 8 },
               ]}
             >
               <View style={[layout.flex.row, layout.flex.center, gap.all[2]]}>
@@ -156,7 +156,7 @@ export function MobileUi() {
                   r[2],
                   layout.position.absolute,
                   position.right[12],
-                  { top: safeAreaInsets.top + 16 },
+                  { top: 12 },
                   gap.all[4],
                 ]}
               >
@@ -173,7 +173,7 @@ export function MobileUi() {
                 r[2],
                 layout.position.absolute,
                 position.right[1],
-                { top: safeAreaInsets.top + 8 },
+                { top: 8 },
                 gap.all[4],
               ]}
             >

@@ -46,6 +46,7 @@ export function DesktopChatPanel({
         {
           top: safeAreaInsets.top,
           bottom: safeAreaInsets.bottom,
+          right: safeAreaInsets.right / 2,
           width: chatPanelWidth,
           backgroundColor: "rgba(0, 0, 0, 0.85)",
           borderLeftWidth: 1,
@@ -98,15 +99,14 @@ function ChatPanel() {
           height: "100%",
           justifyContent: "flex-end",
           ...(shouldShowChatSidePanel && {
-            paddingTop: shouldShowChatSidePanel ? 0 : safeAreaInsets.top + 60, // Account for top UI elements and safe area
-            paddingBottom: safeAreaInsets.bottom,
+            paddingTop: shouldShowChatSidePanel ? 0 : safeAreaInsets.top, // Account for top UI elements and safe area
           }),
         },
         ...(shouldShowChatSidePanel ? [px[4]] : []),
       ]}
     >
       <Chat canModerate={false} />
-      <View style={[layout.flex.column, gap.all[2], px[4], py[2]]}>
+      <View style={[layout.flex.column, gap.all[2], px[4]]}>
         <ChatBox chatBoxStyle={{ borderRadius: borderRadius.xl }} />
       </View>
     </View>

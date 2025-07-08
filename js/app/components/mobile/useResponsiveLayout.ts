@@ -32,7 +32,11 @@ export function useResponsiveLayout({
   sidebarWidth?: number | SharedValue<number>;
   sidebarHidden?: boolean;
   showChatSidePanelOnLandscape?: boolean;
-} = {}): ResponsiveLayoutConfig & { contentWidth: number } {
+} = {}): ResponsiveLayoutConfig & {
+  contentWidth: number;
+  availableWidth: number;
+  availableHeight: number;
+} {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const safeAreaInsets = useSafeAreaInsets();
 
@@ -44,6 +48,12 @@ export function useResponsiveLayout({
   }, [sidebarWidth]);
 
   const layout = useMemo(() => {
+    // Calculate available dimensions after safe area insets
+    const availableWidth =
+      screenWidth - safeAreaInsets.left - safeAreaInsets.right;
+    const availableHeight =
+      screenHeight - safeAreaInsets.top - safeAreaInsets.bottom;
+
     const isLandscape = screenWidth > screenHeight;
     const isMobile = screenWidth < 768;
     const isTablet = screenWidth >= 768 && screenWidth < 980;
@@ -67,12 +77,14 @@ export function useResponsiveLayout({
 
     const contentWidth =
       !sidebarHidden && sidebarWidthValue > 0
-        ? screenWidth - sidebarWidthValue
-        : screenWidth;
+        ? availableWidth - sidebarWidthValue
+        : availableWidth;
 
     return {
       screenWidth,
       screenHeight,
+      availableWidth,
+      availableHeight,
       isLandscape,
       isMobile,
       isTablet,
@@ -87,6 +99,10 @@ export function useResponsiveLayout({
   }, [
     screenWidth,
     screenHeight,
+    safeAreaInsets.left,
+    safeAreaInsets.right,
+    safeAreaInsets.top,
+    safeAreaInsets.bottom,
     sidebarWidthValue,
     sidebarHidden,
     showChatSidePanelOnLandscape,

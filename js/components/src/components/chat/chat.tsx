@@ -49,7 +49,9 @@ function LeftAction(prog: SharedValue<number>, drag: SharedValue<number>) {
   );
 }
 
-const SHOWN_MSGS = 100;
+// ios/android, 25, else 100 msgs
+const SHOWN_MSGS =
+  Platform.OS === "ios" || Platform.OS === "android" ? 25 : 100;
 
 const keyExtractor = (item: ChatMessageViewHydrated, index: number) => {
   return `${item.uri}`;
@@ -159,7 +161,6 @@ const ChatLine = memo(
     };
 
     const handleHoverOut = () => {
-      // Add a small delay before hiding to allow mouse movement to actions bar
       hoverTimeoutRef.current = setTimeout(() => {
         setIsHovered(false);
       }, 50);
@@ -262,7 +263,7 @@ export function Chat({
     <View style={[flex.shrink[1]].concat(propsStyle || [])}>
       <FlatList
         style={[flex.grow[1], flex.shrink[1], w.percent[100]]}
-        data={chat}
+        data={chat.slice(0, shownMessages)}
         inverted={true}
         keyExtractor={keyExtractor}
         renderItem={({ item, index }) => (

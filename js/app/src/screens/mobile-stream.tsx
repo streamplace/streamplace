@@ -1,4 +1,4 @@
-import { theme } from "@streamplace/components";
+import { ThemeProvider } from "@streamplace/components";
 import KeepAwake from "components/keep-awake";
 import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
@@ -21,11 +21,11 @@ export default function MobileStream({ route }) {
   useTitle(user);
 
   return (
-    <theme.ThemeProvider>
+    <ThemeProvider>
       <KeepAwake />
       <FullscreenProvider>
         <Player src={src} {...extraProps} />
       </FullscreenProvider>
-    </theme.ThemeProvider>
+    </ThemeProvider>
   );
 }

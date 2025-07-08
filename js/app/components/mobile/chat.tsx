@@ -6,7 +6,9 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import { useKeyboard } from "hooks/useKeyboard";
 import { useEffect } from "react";
+import { Keyboard, TouchableWithoutFeedback } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -23,6 +25,8 @@ export function DesktopChatPanel({
 }) {
   const sidebarOffset = useSharedValue(chatVisible ? 0 : chatPanelWidth);
 
+  const kb = useKeyboard();
+
   useEffect(() => {
     console.log(
       "Setting sidebar offset x to",
@@ -35,31 +39,36 @@ export function DesktopChatPanel({
   }, [chatVisible, chatPanelWidth, sidebarOffset]);
 
   const animatedSidebarStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: sidebarOffset.value }],
+    transform: [
+      { translateX: sidebarOffset.value },
+      { translateY: -kb.keyboardHeight },
+    ],
   }));
 
   return (
-    <Animated.View
-      style={[
-        layout.position.absolute,
-        position.right[0],
-        {
-          top: safeAreaInsets.top,
-          bottom: safeAreaInsets.bottom,
-          right: safeAreaInsets.right / 2,
-          width: chatPanelWidth,
-          backgroundColor: "rgba(0, 0, 0, 0.85)",
-          borderLeftWidth: 1,
-          borderLeftColor: "rgba(255, 255, 255, 0.1)",
-          zIndex: 999,
-        },
-        animatedSidebarStyle,
-      ]}
-    >
-      <View style={{ flex: 1, position: "relative" }}>
-        <ChatPanel />
-      </View>
-    </Animated.View>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <Animated.View
+        style={[
+          layout.position.absolute,
+          position.right[0],
+          {
+            top: safeAreaInsets.top,
+            bottom: safeAreaInsets.bottom,
+            right: safeAreaInsets.right / 2,
+            width: chatPanelWidth,
+            backgroundColor: "rgba(0, 0, 0, 0.85)",
+            borderLeftWidth: 1,
+            borderLeftColor: "rgba(255, 255, 255, 0.1)",
+            zIndex: 999,
+          },
+          animatedSidebarStyle,
+        ]}
+      >
+        <View style={{ flex: 1, position: "relative" }}>
+          <ChatPanel />
+        </View>
+      </Animated.View>
+    </TouchableWithoutFeedback>
   );
 }
 

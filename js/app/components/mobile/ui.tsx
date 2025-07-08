@@ -45,7 +45,6 @@ export function MobileUi() {
   const { doSetIngestCamera } = useCameraToggle();
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
 
-  // Mobile layout configuration
   const { shouldShowFloatingMetrics, safeAreaInsets } = useResponsiveLayout();
 
   useEffect(() => {
@@ -59,9 +58,7 @@ export function MobileUi() {
   const isSelfAndNotLive = ingest === "new";
   const isLive = ingest !== null && ingest !== "new";
 
-  // Mobile UI fade animation
-
-  const FADE_OUT_DELAY = 4000; // ms
+  const FADE_OUT_DELAY = 4000;
   const fadeOpacity = useSharedValue(1);
   const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -149,7 +146,6 @@ export function MobileUi() {
               </View>
             </View>
 
-            {/* Top Right - Viewers (only on mobile/smaller screens) */}
             {shouldShowFloatingMetrics && (
               <View
                 style={[
@@ -168,7 +164,6 @@ export function MobileUi() {
               </View>
             )}
 
-            {/* Top Right Corner - Context Menu/Camera Toggle */}
             <View
               style={[
                 {
@@ -191,7 +186,6 @@ export function MobileUi() {
               )}
             </View>
 
-            {/* Floating Metrics Panel (mobile only) */}
             {shouldShowFloatingMetrics && isLive && (
               <View
                 style={[
@@ -209,7 +203,7 @@ export function MobileUi() {
               </View>
             )}
           </View>
-          {/* Input Panel for self streams */}
+
           {isSelfAndNotLive && (
             <PlayerUI.InputPanel
               title={title}
@@ -237,7 +231,7 @@ export function MobileUi() {
           />
         </Animated.View>
       </TouchableWithoutFeedback>
-      {/* Mobile Chat Panel */}
+
       {!isSelfAndNotLive && (
         <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
       )}

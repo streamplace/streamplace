@@ -18,10 +18,12 @@ export * as ui from "./components/ui";
 
 export * from "./components/ui";
 
-export * as theme from "./lib/theme";
-export * as atoms from "./lib/theme/atoms";
+export * as zero from "./ui";
 
 export * from "./hooks";
+
+// Theme system exports
+export * from "./lib/theme";
 
 export * from "./components/chat/chat";
 export * from "./components/chat/chat-box";

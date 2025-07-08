@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { flex, layout, w, zIndex } from "../../lib/theme/atoms";
+import { flex, h, layout, w, zIndex } from "../../lib/theme/atoms";
 import { useSegment } from "../../livestream-store";
 import {
   PlayerStatus,
@@ -75,7 +75,13 @@ export function Player(props: Partial<PlayerProps>) {
   return (
     <>
       <View
-        style={[zIndex[0], flex.values[1], w.percent[100], layout.flex.center]}
+        style={[
+          zIndex[0],
+          w.percent[100],
+          h.percent[100],
+          flex.shrink[1],
+          layout.flex.center,
+        ]}
       >
         <Fullscreen src={props.src}></Fullscreen>
       </View>

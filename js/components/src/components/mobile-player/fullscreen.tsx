@@ -72,7 +72,10 @@ export function Fullscreen(props: { src: string }) {
   }, []);
 
   return (
-    <View ref={divRef}>
+    <View
+      ref={divRef}
+      style={{ width: "100%", height: "100%", overflow: "hidden" }}
+    >
       <Video />
     </View>
   );

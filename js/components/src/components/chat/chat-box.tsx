@@ -12,7 +12,19 @@ import {
   useSetReplyToMessage,
   View,
 } from "../../";
-import { bg, flex, gap, h, layout, mb, pl, pr, w } from "../../lib/theme/atoms";
+import {
+  bg,
+  flex,
+  gap,
+  h,
+  layout,
+  mb,
+  mr,
+  pl,
+  pr,
+  py,
+  w,
+} from "../../lib/theme/atoms";
 import { usePDSAgent } from "../../streamplace-store/xrpc";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
@@ -110,10 +122,11 @@ export function ChatBox({
             layout.flex.row,
             layout.flex.alignCenter,
             layout.flex.spaceBetween,
-            h[12],
             pl[2],
-            pr[10],
+            pr[6],
+            mr[6],
             mb[2],
+            py[1],
             bg.gray[800],
             { borderRadius: 16 },
           ]}

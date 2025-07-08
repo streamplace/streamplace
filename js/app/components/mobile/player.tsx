@@ -1,105 +1,137 @@
-import { useNavigation } from "@react-navigation/native";
 import {
-  Button,
-  layout,
   LivestreamProvider,
-  Player as PlayerInner,
+  Player as PlayerInnerInner,
   PlayerProps,
   PlayerProvider,
-  Text,
+  usePlayerDimensions,
   View,
 } from "@streamplace/components";
-import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
-import { ArrowLeft, ArrowRight } from "@tamagui/lucide-icons";
-import { selectUserProfile } from "features/bluesky/blueskySlice";
-import { useLiveUser } from "hooks/useLiveUser";
-import { useEffect, useState } from "react";
-import { useAppSelector } from "store/hooks";
+import { useSidebarControl } from "hooks/useSidebarControl";
+import { useState } from "react";
+import { Animated, ScrollView } from "react-native";
+import { BottomMetadata } from "./bottom-metadata";
+import { DesktopChatPanel } from "./chat";
 import { MobileUi } from "./ui";
+import { useResponsiveLayout } from "./useResponsiveLayout";
 
 export function Player(
   props: Partial<PlayerProps> & {
     setFullscreen?: (fullscreen: boolean) => void;
   },
 ) {
-  const [isStreamingElsewhere, setIsStreamingElsewhere] = useState<
-    boolean | null
-  >(null);
-  // are we currently streaming on another device?
-  const userIsLive = useLiveUser();
-  const userProfile = useAppSelector(selectUserProfile);
+  const [showChat, setShowChat] = useState(true);
+  const { shouldShowChatSidePanel, chatPanelWidth, safeAreaInsets } =
+    useResponsiveLayout();
+  const chatVisible = shouldShowChatSidePanel && showChat;
 
-  useEffect(() => {
-    if (props.ingest && userIsLive && isStreamingElsewhere === null) {
-      setIsStreamingElsewhere(true);
-    } else if (props.ingest && userIsLive === false) {
-      setIsStreamingElsewhere(false);
-    }
-  }, [userIsLive]);
-
-  const navigation = useNavigation();
-
-  if (isStreamingElsewhere) {
-    return (
-      <View style={[layout.flex.center, h.percent[100], gap.all[4]]}>
-        <Text weight="semibold" size="3xl" style={[pt[2]]}>
-          Oeps!
-        </Text>
-        <View>
-          <Text center>You're already streaming from another device.</Text>
-          <Text>Please end your other stream before starting one here.</Text>
-        </View>
-        <View
-          style={[
-            layout.flex.row,
-            w.percent[100],
-            gap.column[2],
-            layout.flex.center,
-          ]}
-        >
-          <Button
-            variant="secondary"
-            style={[w.percent[40]]}
-            onPress={() =>
-              navigation.canGoBack()
-                ? navigation.goBack()
-                : navigation.navigate("Home", { screen: "StreamList" })
-            }
-          >
-            <View
-              centered
-              style={[layout.flex.center, layout.flex.row, gap.all[1]]}
-            >
-              <ArrowLeft />
-              <Text>Back</Text>
-            </View>
-          </Button>
-          {userProfile?.did && (
-            <Button
-              style={[w.percent[40]]}
-              onPress={() =>
-                navigation.navigate("MobileStream", { user: userProfile?.did })
-              }
-            >
-              <View
-                centered
-                style={[layout.flex.center, layout.flex.row, gap.all[1]]}
-              >
-                <Text>Your stream</Text>
-                <ArrowRight />
-              </View>
-            </Button>
-          )}
-        </View>
-      </View>
-    );
-  }
   return (
     <LivestreamProvider src={props.src ?? ""}>
       <PlayerProvider defaultId={props.playerId || undefined}>
-        <PlayerInner {...props} />
-        <MobileUi />
+        <View
+          style={{
+            flexDirection: chatVisible ? "row" : "column",
+            flex: 1,
+            width: "100%",
+            height: "100%",
+          }}
+        >
+          <PlayerInner
+            {...props}
+            showChat={showChat}
+            setShowChat={setShowChat}
+          />
+          {shouldShowChatSidePanel ? (
+            <DesktopChatPanel
+              chatVisible={chatVisible}
+              chatPanelWidth={chatPanelWidth}
+              safeAreaInsets={safeAreaInsets}
+            />
+          ) : (
+            <MobileUi />
+          )}
+        </View>
       </PlayerProvider>
     </LivestreamProvider>
+  );
+}
+
+export function PlayerInner(
+  props: Partial<PlayerProps> & {
+    showChat: boolean;
+    setShowChat: (show: boolean) => void;
+  },
+) {
+  let sb = useSidebarControl();
+  const {
+    shouldShowChatSidePanel,
+    chatPanelWidth,
+    screenWidth,
+    contentWidth,
+    screenHeight,
+  } = useResponsiveLayout({
+    sidebarWidth: sb.animatedWidth,
+    sidebarHidden: !sb.isActive,
+    showChatSidePanelOnLandscape: props.showChat,
+  });
+
+  // content info
+  const { width, height } = usePlayerDimensions();
+
+  // Calculate aspect ratio and determine if we're in desktop mode
+  const aspectRatio = width > 0 && height > 0 ? width / height : 16 / 9;
+  const isDesktopMode = shouldShowChatSidePanel || screenWidth > 768;
+
+  // Calculate optimal height for desktop mode (90% of screen height)
+  const maxDesktopHeight = screenHeight * 0.8;
+  const chatVisible = shouldShowChatSidePanel && props.showChat;
+  const calculatedWidth = chatVisible
+    ? contentWidth - chatPanelWidth
+    : contentWidth;
+  const calculatedHeight = isDesktopMode
+    ? Math.min(calculatedWidth / aspectRatio, maxDesktopHeight)
+    : height;
+
+  // Direct responsive styling without animations
+  const playerStyle = {
+    width: calculatedWidth,
+    height: calculatedHeight,
+  };
+  return (
+    <ScrollView
+      style={
+        shouldShowChatSidePanel
+          ? {
+              height: "100%",
+              width: calculatedWidth, // Add explicit width
+            }
+          : {
+              flex: 1,
+            }
+      }
+      contentContainerStyle={{
+        width: calculatedWidth, // Ensure content container has proper width
+      }}
+      showsVerticalScrollIndicator={false} // Optional: hide scroll indicator
+      bounces={false} // Optional: disable bounce effect
+    >
+      <Animated.View
+        style={[
+          !shouldShowChatSidePanel
+            ? {
+                width: "100%", // Use 100% instead of flex: 1 inside ScrollView
+              }
+            : {
+                width: calculatedWidth,
+              },
+          { height: calculatedHeight }, // Separate height to avoid playerStyle conflicts
+        ]}
+      >
+        <PlayerInnerInner {...props} />
+      </Animated.View>
+      <BottomMetadata
+        setShowChat={props.setShowChat}
+        showChat={props.showChat}
+      />
+    </ScrollView>
   );
 }

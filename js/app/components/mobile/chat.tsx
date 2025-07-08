@@ -108,16 +108,7 @@ function ChatPanel() {
       style={[
         layout.flex.column,
         flex.shrink[1],
-        {
-          width: "100%",
-          maxWidth: "100%",
-          height: "100%",
-          justifyContent: "flex-end",
-          ...(shouldShowChatSidePanel && {
-            paddingTop: shouldShowChatSidePanel ? 0 : safeAreaInsets.top, // Account for top UI elements and safe area
-          }),
-        },
-        ...(shouldShowChatSidePanel ? [px[4]] : []),
+        { width: "100%", maxWidth: "100%" },
       ]}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>

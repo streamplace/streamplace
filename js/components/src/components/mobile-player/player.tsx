@@ -15,7 +15,9 @@ const OFFLINE_THRESHOLD = 10000;
 
 export * as PlayerUI from "./ui";
 
-export function Player(props: Partial<PlayerProps>) {
+export function Player(
+  props: Partial<PlayerProps> & { children?: React.ReactNode },
+) {
   const playing = usePlayerStore((x) => x.status === PlayerStatus.PLAYING);
 
   const setOffline = usePlayerStore((x) => x.setOffline);
@@ -83,7 +85,7 @@ export function Player(props: Partial<PlayerProps>) {
           layout.flex.center,
         ]}
       >
-        <Fullscreen src={props.src}></Fullscreen>
+        <Fullscreen src={props.src}>{props.children}</Fullscreen>
       </View>
     </>
   );

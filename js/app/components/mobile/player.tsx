@@ -4,6 +4,7 @@ import {
   PlayerProps,
   PlayerProvider,
   usePlayerDimensions,
+  usePlayerStore,
   View,
 } from "@streamplace/components";
 import { useSidebarControl } from "hooks/useSidebarControl";
@@ -65,6 +66,7 @@ export function PlayerInner(
   },
 ) {
   let sb = useSidebarControl();
+  let fullscreen = usePlayerStore((x) => x.fullscreen);
   const {
     shouldShowChatSidePanel,
     chatPanelWidth,
@@ -137,8 +139,9 @@ export function PlayerInner(
               },
         ]}
       >
-        <PlayerInnerInner {...props} />
-        {showBottomMetaPanel && <DesktopUi />}
+        <PlayerInnerInner {...props}>
+          {(showBottomMetaPanel || fullscreen) && <DesktopUi />}
+        </PlayerInnerInner>
       </Animated.View>
       {showBottomMetaPanel && (
         <BottomMetadata

@@ -4,7 +4,7 @@ import { getFirstPlayerID, usePlayerStore } from "../..";
 import { View } from "../../components/ui";
 import Video from "./video";
 
-export function Fullscreen(props: { src: string }) {
+export function Fullscreen(props: { src: string; children?: React.ReactNode }) {
   const playerId = getFirstPlayerID();
   const protocol = usePlayerStore((x) => x.protocol, playerId);
   const fullscreen = usePlayerStore((x) => x.fullscreen, playerId);
@@ -77,6 +77,7 @@ export function Fullscreen(props: { src: string }) {
       style={{ width: "100%", height: "100%", overflow: "hidden" }}
     >
       <Video />
+      {props.children}
     </View>
   );
 }

@@ -6,7 +6,6 @@ import {
   Toast,
   useAvatars,
   useCameraToggle,
-  useKeyboardSlide,
   useLivestreamInfo,
   usePlayerDimensions,
   usePlayerStore,
@@ -23,13 +22,10 @@ import {
   VolumeX,
 } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Image,
-  Platform,
-  Pressable,
-  TouchableWithoutFeedback,
-} from "react-native";
+import { Image, Platform, Pressable } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -147,7 +143,6 @@ export function DesktopUi() {
   const { width, height } = usePlayerDimensions();
   const { doSetIngestCamera } = useCameraToggle();
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
-  const { slideKeyboard } = useKeyboardSlide();
   const { safeAreaInsets, shouldShowFloatingMetrics } = useResponsiveLayout();
 
   const fullscreen = usePlayerStore((state) => state.fullscreen);
@@ -157,7 +152,7 @@ export function DesktopUi() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const fadeOpacity = useSharedValue(1);
   const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
-  const FADE_OUT_DELAY = 4000;
+  const FADE_OUT_DELAY = 2500;
 
   const isSelfAndNotLive = ingest === "new";
   const isActivelyLive = ingest !== null && ingest !== "new";
@@ -173,7 +168,8 @@ export function DesktopUi() {
     }, FADE_OUT_DELAY);
   }, [fadeOpacity]);
 
-  const onPressPlayer = useCallback(() => {
+  const onPlayerHover = useCallback(() => {
+    console.log("player hovered");
     resetFadeTimer();
   }, [resetFadeTimer]);
 
@@ -196,8 +192,10 @@ export function DesktopUi() {
     opacity: shouldShowFloatingMetrics ? 1 : fadeOpacity.value,
   }));
 
+  const hover = Gesture.Hover().onStart((_) => runOnJS(onPlayerHover)());
+
   return (
-    <TouchableWithoutFeedback onPress={onPressPlayer}>
+    <GestureDetector gesture={hover}>
       <View style={[layout.position.absolute, h.percent[100], w.percent[100]]}>
         <Animated.View
           style={[
@@ -378,6 +376,6 @@ export function DesktopUi() {
           duration={5}
         />
       </View>
-    </TouchableWithoutFeedback>
+    </GestureDetector>
   );
 }

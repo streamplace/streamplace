@@ -1,4 +1,4 @@
-import { Menu } from "lucide-react-native";
+import { Settings } from "lucide-react-native";
 import { colors } from "../../../lib/theme";
 import { useLivestreamStore } from "../../../livestream-store";
 import { PlayerProtocol, usePlayerStore } from "../../../player-store/";
@@ -33,9 +33,9 @@ export function ContextMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
-        <Menu size={32} color={colors.gray[200]} />
+        <Settings color={colors.gray[200]} />
       </DropdownMenuTrigger>
-      <ResponsiveDropdownMenuContent>
+      <ResponsiveDropdownMenuContent side="top" align="end">
         <DropdownMenuGroup title="Resolution">
           <DropdownMenuRadioGroup value={quality} onValueChange={setQuality}>
             <DropdownMenuRadioItem value="source">

@@ -32,6 +32,7 @@
     "@react-navigation/native": "^6.1.18",
     "@rn-primitives/dropdown-menu": "^1.2.0",
     "@rn-primitives/portal": "^1.3.0",
+    "@rn-primitives/slider": "^1.2.0",
     "class-variance-authority": "^0.6.1",
     "expo-video": "~2.2.1",
     "hls.js": "^1.5.17",

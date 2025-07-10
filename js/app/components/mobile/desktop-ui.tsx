@@ -74,6 +74,11 @@ function VolumeSlider() {
   const fadeAnim = useSharedValue(0);
   const widthAnim = useSharedValue(0);
 
+  const onVolumeHover = useCallback(() => {
+    fadeAnim.value = withTiming(1, { duration: 200 });
+    widthAnim.value = withTiming(200, { duration: 200 });
+  }, [fadeAnim, widthAnim]);
+
   // Toggle mute state
   const handleMuteToggle = useCallback(() => {
     setMuted(!muted);
@@ -81,73 +86,80 @@ function VolumeSlider() {
 
   const VolumeIcon = muted ? VolumeX : Volume2;
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+    width: widthAnim.value,
+  }));
+
   // Convert volume (0-1) to percentage (0-100) for slider
   const sliderValue = (muted ? 0 : volume) * 100;
-
   return (
-    <Pressable
+    <View
+      onPointerEnter={onVolumeHover}
       style={[layout.flex.row, layout.flex.alignCenter, { height: 50 }]}
     >
       <Pressable onPress={handleMuteToggle} style={[p[2], r[1]]}>
         <VolumeIcon size={20} color="white" />
       </Pressable>
 
-      <Slider.Root
-        style={{
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          flex: 1,
-          width: 200,
-          height: 20,
-        }}
-        value={sliderValue}
-        min={0}
-        max={100} // Slider max value is 100 for percentage
-        onValueChange={(vals) => {
-          const newVolume = vals[0] / 100; // Convert back to 0-1 range
-          setVolume(newVolume);
-          if (newVolume === 0) {
-            setMuted(true);
-          } else {
-            setMuted(false);
-          }
-        }}
-        asChild
-      >
-        <Slider.Track
+      <Animated.View style={[{ height: 30 }, animatedStyle]}>
+        <Slider.Root
           style={{
-            flexGrow: 1,
-            height: 30,
             position: "relative",
+            display: "flex",
+            alignItems: "center",
             flex: 1,
+            width: 200,
+            height: 20,
           }}
+          value={sliderValue}
+          min={0}
+          max={100} // Slider max value is 100 for percentage
+          onValueChange={(vals) => {
+            const newVolume = vals[0] / 100; // Convert back to 0-1 range
+            setVolume(newVolume);
+            if (newVolume === 0) {
+              setMuted(true);
+            } else {
+              setMuted(false);
+            }
+          }}
+          asChild
         >
-          <Slider.Range
+          <Slider.Track
             style={{
-              position: "absolute",
-              backgroundColor: "white",
-              borderRadius: 999,
-              height: 3,
+              flexGrow: 1,
+              height: 30,
+              position: "relative",
               flex: 1,
-              width: "100%",
-              transform: [{ translateY: 14 }],
             }}
-          />
-          <Slider.Thumb
-            style={{
-              position: "absolute",
-              width: 16,
-              height: 16,
-              borderRadius: 8,
-              backgroundColor: "white",
-              boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
-              transform: [{ translateX: -8 }, { translateY: 7 }],
-            }}
-          />
-        </Slider.Track>
-      </Slider.Root>
-    </Pressable>
+          >
+            <Slider.Range
+              style={{
+                position: "absolute",
+                backgroundColor: "white",
+                borderRadius: 999,
+                height: 3,
+                flex: 1,
+                width: "100%",
+                transform: [{ translateY: 14 }],
+              }}
+            />
+            <Slider.Thumb
+              style={{
+                position: "absolute",
+                width: 16,
+                height: 16,
+                borderRadius: 8,
+                backgroundColor: "white",
+                boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
+                transform: [{ translateX: -8 }, { translateY: 7 }],
+              }}
+            />
+          </Slider.Track>
+        </Slider.Root>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -181,7 +193,7 @@ export function DesktopUi() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const fadeOpacity = useSharedValue(1);
   const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
-  const FADE_OUT_DELAY = 2500;
+  const FADE_OUT_DELAY = 500;
 
   const isSelfAndNotLive = ingest === "new";
   const isActivelyLive = ingest !== null && ingest !== "new";
@@ -198,7 +210,6 @@ export function DesktopUi() {
   }, [fadeOpacity]);
 
   const onPlayerHover = useCallback(() => {
-    console.log("player hovered");
     resetFadeTimer();
   }, [resetFadeTimer]);
 
@@ -221,7 +232,7 @@ export function DesktopUi() {
     opacity: shouldShowFloatingMetrics ? 1 : fadeOpacity.value,
   }));
 
-  const hover = Gesture.Hover().onStart((_) => runOnJS(onPlayerHover)());
+  const hover = Gesture.Hover().onChange((_) => runOnJS(onPlayerHover)());
 
   return (
     <GestureDetector gesture={hover}>

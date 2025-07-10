@@ -334,7 +334,6 @@ const primitiveStyles = StyleSheet.create({
     padding: 16,
   },
   content: {
-    backgroundColor: "white",
     borderRadius: 8,
     overflow: "hidden",
   },

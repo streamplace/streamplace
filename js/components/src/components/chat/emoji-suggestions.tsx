@@ -1,5 +1,5 @@
 import { Pressable } from "react-native";
-import { Text, View } from "../..";
+import { Code, Text, View } from "../..";
 import { bg, layout, left, right, zIndex } from "../../lib/theme/atoms";
 
 export interface EmojiData {
@@ -85,7 +85,7 @@ export function EmojiSuggestions({
             {emoji.skins[0]?.native}
           </Text>
           <Text style={{ color: "white", fontSize: 14 }}>
-            :{emoji.id}: {emoji.name}
+            <Code style={[bg.gray[950]]}>:{emoji.id}:</Code> {emoji.name}
           </Text>
         </Pressable>
       ))}

@@ -16,6 +16,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
+import emojiData from "assets/emoji-data.json";
+
 const { borderRadius, gap, layout, flex, px, py, r, position, bottom } = zero;
 
 export function DesktopChatPanel({
@@ -116,7 +118,10 @@ function ChatPanel() {
         <Chat canModerate={false} />
       </TouchableWithoutFeedback>
       <View style={[layout.flex.column, gap.all[2], px[4]]}>
-        <ChatBox chatBoxStyle={{ borderRadius: borderRadius.xl }} />
+        <ChatBox
+          emojiData={emojiData}
+          chatBoxStyle={{ borderRadius: borderRadius.xl }}
+        />
       </View>
     </View>
   );

@@ -1,11 +1,15 @@
 import {
+  Button,
   Dialog,
   DialogFooter,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
+  ModalContent,
+  Text,
+  Textarea,
+  zero,
 } from "@streamplace/components";
+import { CheckCircle, Circle } from "@tamagui/lucide-icons";
 import React, { useState } from "react";
-import { Button } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 
 const REPORT_REASONS = [
   "Terrorism",
@@ -57,28 +61,48 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       title={title}
       description={description}
       showCloseButton
-      dismissible
       variant="default"
       size="md"
+      dismissible={false}
       position="center"
     >
-      <DropdownMenuRadioGroup
-        value={selectedReason || undefined}
-        onValueChange={setSelectedReason}
-      >
+      <ModalContent style={[zero.pb[2]]}>
         {REPORT_REASONS.map((reason) => (
-          <DropdownMenuRadioItem key={reason} value={reason}>
-            {reason}
-          </DropdownMenuRadioItem>
+          <TouchableOpacity
+            key={reason}
+            onPress={() => setSelectedReason(reason)}
+            style={[
+              zero.layout.flex.row,
+              zero.gap.all[2],
+              zero.py[1],
+              zero.px[2],
+              zero.borderRadius[8],
+              zero.layout.flex.alignCenter,
+            ]}
+          >
+            <View>
+              {selectedReason === reason ? <CheckCircle /> : <Circle />}
+            </View>
+            <Text>{reason}</Text>
+          </TouchableOpacity>
         ))}
-      </DropdownMenuRadioGroup>
+
+        <View style={[zero.pb[4], zero.mt[4], zero.px[2]]}>
+          <Text style={[zero.mb[2]]}>Additional Comments (optional)</Text>
+          <Textarea maxLength={500} numberOfLines={2} />
+        </View>
+      </ModalContent>
       <DialogFooter>
-        <Button title="Cancel" onPress={handleCancel} color="#888" />
+        <Button variant="secondary" onPress={handleCancel}>
+          <Text>Cancel</Text>
+        </Button>
         <Button
-          title="Submit"
+          variant="primary"
           onPress={handleSubmit}
           disabled={!selectedReason}
-        />
+        >
+          Submit
+        </Button>
       </DialogFooter>
     </Dialog>
   );

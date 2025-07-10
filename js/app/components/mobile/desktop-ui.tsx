@@ -32,6 +32,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import ReportModal from "./report-modal";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
 const { borders, colors, gap, h, layout, position, w, px, py, r, p, bg, text } =
@@ -189,6 +190,8 @@ export function DesktopUi() {
   const { doSetIngestCamera } = useCameraToggle();
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
   const { safeAreaInsets, shouldShowFloatingMetrics } = useResponsiveLayout();
+
+  const [reporting, setReporting] = useState(false);
 
   const fullscreen = usePlayerStore((state) => state.fullscreen);
   const setFullscreen = usePlayerStore((state) => state.setFullscreen);
@@ -454,6 +457,13 @@ export function DesktopUi() {
             onDone={() => {
               setShowCountdown(false);
             }}
+          />
+
+          <ReportModal
+            open={reporting}
+            onOpenChange={setReporting}
+            title={`Report ${profile?.handle}`}
+            onSubmit={() => {}}
           />
 
           <Toast

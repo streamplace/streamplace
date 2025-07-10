@@ -168,9 +168,9 @@ export const reduceChatIncremental = (
 
     // only change the ref if the profile is different to avoid re-renders elsewhere
     if (
-      profileIsDifferent(message.chatProfile, newAuthors[message.author.handle])
+      profileIsDifferent(message.chatProfile, newAuthors[message.author.did])
     ) {
-      newAuthors[message.author.handle] = message.chatProfile;
+      newAuthors[message.author.did] = message.chatProfile;
     }
 
     // skip messages we already have
@@ -253,6 +253,7 @@ export const reduceChatIncremental = (
 
   return {
     ...state,
+    authors: newAuthors,
     chatIndex: newChatIndex,
     chat: newChatList,
   };

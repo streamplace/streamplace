@@ -254,7 +254,7 @@ DialogFooter.displayName = "DialogFooter";
 
 // Dialog Close Icon component (Lucide X)
 const DialogCloseIcon = () => {
-  return <ThemedX size="md" variant="muted" />;
+  return <ThemedX size="md" variant="default" />;
 };
 
 // Create theme-aware styles

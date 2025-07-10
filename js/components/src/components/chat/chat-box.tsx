@@ -1,3 +1,4 @@
+import Picker from "@emoji-mart/react";
 import { X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, TextInput } from "react-native";
@@ -28,22 +29,35 @@ import {
 import { usePDSAgent } from "../../streamplace-store/xrpc";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
+import { EmojiData, EmojiSuggestions } from "./emoji-suggestions";
 import { MentionSuggestions } from "./mention-suggestions";
+
+const COOL_EMOJI_LIST = [
+  ..."😀🥸😍😘😁🥸😆🥸😜🥸😂😅🥸🙂🤫😱🥸🤣😗😄🥸😎🤓😲😯😰🥸😥🥸😣🥸😞😓🥸😩😩🥸😤🥱",
+];
 
 export function ChatBox({
   isPopout,
   chatBoxStyle,
+  emojiData,
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
+  emojiData: EmojiData;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showEmojiSuggestions, setShowEmojiSuggestions] = useState(false);
+  const [showEmojiSelector, setShowEmojiSelector] = useState(false);
+  const [emojiIconIndex, setEmojiIconIndex] = useState(
+    Math.floor(Math.random() * COOL_EMOJI_LIST.length),
+  );
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [filteredAuthors, setFilteredAuthors] = useState<Map<string, any>>(
     new Map(),
   );
+  const [filteredEmojis, setFilteredEmojis] = useState<any[]>([]);
 
   const chat = useChat();
   const createChatMessage = useCreateChatMessage();
@@ -75,25 +89,145 @@ export function ChatBox({
     setShowSuggestions(false);
   };
 
+  const handleEmojiSelect = (emoji: any) => {
+    const beforeColon = message.slice(0, message.lastIndexOf(":"));
+    setMessage(`${beforeColon}${emoji.skins[0]?.native} `);
+    setShowEmojiSuggestions(false);
+  };
+
   const updateSuggestions = (text: string) => {
+    // Handle mentions
     const atIndex = text.lastIndexOf("@");
-    if (atIndex === -1 || !authors) {
+    if (atIndex !== -1 && authors) {
+      const searchText = text.slice(atIndex + 1).toLowerCase();
+      const filteredAuthorsMap = new Map(
+        Array.from(authors.entries()).filter(([handle]) =>
+          handle.toLowerCase().includes(searchText),
+        ),
+      );
+      setFilteredAuthors(filteredAuthorsMap);
+      setHighlightedIndex(0);
+      setShowSuggestions(filteredAuthorsMap.size > 0);
+      setShowEmojiSuggestions(false);
+    } else {
       setShowSuggestions(false);
-      return;
     }
 
-    const searchText = text.slice(atIndex + 1).toLowerCase();
+    const colonIndex = text.lastIndexOf(":");
+    if (colonIndex !== -1) {
+      const searchText = text.slice(colonIndex + 1).toLowerCase();
+      if (searchText.length > 0) {
+        const aliasMatches = Object.entries(emojiData.aliases)
+          .map(([alias, emojiId]) => {
+            const aliasLower = alias.toLowerCase();
+            if (aliasLower === searchText) {
+              return { emojiId, alias, matchType: 0, index: 0 };
+            } else if (aliasLower.startsWith(searchText)) {
+              return { emojiId, alias, matchType: 1, index: 0 };
+            } else if (aliasLower.includes(searchText)) {
+              return {
+                emojiId,
+                alias,
+                matchType: 2,
+                index: aliasLower.indexOf(searchText),
+              }; // includes
+            }
+            return null;
+          })
+          .filter(Boolean);
 
-    const filteredAuthorsMap = new Map(
-      Array.from(authors.entries()).filter(([handle]) =>
-        handle.toLowerCase().includes(searchText),
-      ),
-    );
+        // Map emojiId to best alias match info
+        const bestAliasMatch: Record<
+          string,
+          { matchType: number; index: number; alias: string }
+        > = {};
+        for (const match of aliasMatches) {
+          if (!match) continue;
+          const prev = bestAliasMatch[match.emojiId];
+          if (
+            !prev ||
+            match?.matchType < prev.matchType ||
+            (match.matchType === prev.matchType && match.index < prev.index)
+          ) {
+            bestAliasMatch[match.emojiId] = match;
+          }
+        }
 
-    setFilteredAuthors(filteredAuthorsMap);
+        // Collect all matching emojis by id, name, keywords, or alias
+        const allEmojis = Object.values(emojiData.emojis);
+        const filtered = allEmojis
+          .map((emoji: any) => {
+            // Check alias match
+            const aliasMatch = bestAliasMatch[emoji.id];
+            if (aliasMatch) {
+              return {
+                emoji,
+                sort: [aliasMatch.matchType, aliasMatch.index, 0],
+              };
+            }
+            // Check id, name, keywords
+            if (emoji.id.toLowerCase() === searchText) {
+              return { emoji, sort: [3, 0, 0] }; // exact id
+            }
+            if (emoji.id.toLowerCase().startsWith(searchText)) {
+              return { emoji, sort: [4, 0, 0] }; // startsWith id
+            }
+            if (emoji.id.toLowerCase().includes(searchText)) {
+              return {
+                emoji,
+                sort: [5, emoji.id.toLowerCase().indexOf(searchText), 0],
+              }; // includes id
+            }
+            if (emoji.name.toLowerCase().includes(searchText)) {
+              return {
+                emoji,
+                sort: [6, emoji.name.toLowerCase().indexOf(searchText), 0],
+              };
+            }
+            if (
+              emoji.keywords &&
+              emoji.keywords.some((keyword: string) =>
+                keyword.toLowerCase().includes(searchText),
+              )
+            ) {
+              return { emoji, sort: [7, 0, 0] };
+            }
+            return null;
+          })
+          .filter(Boolean)
+          // Remove duplicates by emoji id (keep best match)
+          .reduce((acc: any[], curr: any) => {
+            if (!acc.find((e) => e.emoji.id === curr.emoji.id)) {
+              acc.push(curr);
+            }
+            return acc;
+          }, [])
+          // Sort by alias match type, then position, then fallback
+          .sort((a, b) => {
+            for (let i = 0; i < a.sort.length; ++i) {
+              if (a.sort[i] !== b.sort[i]) return a.sort[i] - b.sort[i];
+            }
+            return 0;
+          })
+          .slice(0, 10) // Limit to 10 results
+          .map((entry) => entry.emoji);
 
-    setHighlightedIndex(0);
-    setShowSuggestions(filteredAuthorsMap.size > 0);
+        setFilteredEmojis(filtered);
+        setHighlightedIndex(0);
+        setShowEmojiSuggestions(filtered.length > 0);
+        setShowSuggestions(false);
+      } else {
+        setShowEmojiSuggestions(false);
+      }
+    } else {
+      setShowEmojiSuggestions(false);
+    }
+
+    // If neither mention nor emoji, hide all suggestions
+    if (atIndex === -1 && colonIndex === -1) {
+      setShowSuggestions(false);
+      setShowEmojiSuggestions(false);
+    }
   };
 
   const submit = () => {
@@ -153,6 +287,35 @@ export function ChatBox({
           </Pressable>
         </View>
       )}
+      {showEmojiSelector && (
+        <>
+          {/* Overlay to catch outside clicks */}
+          <Pressable
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 200,
+            }}
+            onPress={() => setShowEmojiSelector(false)}
+          />
+          <View
+            style={{
+              position: "absolute",
+              bottom: "100%",
+              left: 0,
+              zIndex: 2001,
+            }}
+          >
+            <Picker
+              data={emojiData}
+              onEmojiSelect={(e) => setMessage(message + e.native)}
+            />
+          </View>
+        </>
+      )}
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
         <Textarea
           ref={textAreaRef}
@@ -173,16 +336,40 @@ export function ChatBox({
                 if (handles.length > 0) {
                   handleMentionSelect(handles[highlightedIndex]);
                 }
-              } else submit();
+              } else if (showEmojiSuggestions) {
+                k.preventDefault();
+                if (filteredEmojis.length > 0) {
+                  handleEmojiSelect(filteredEmojis[highlightedIndex]);
+                }
+              } else {
+                submit();
+              }
             } else if (k.nativeEvent.key === "ArrowUp") {
-              setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+              if (showSuggestions || showEmojiSuggestions) {
+                k.preventDefault();
+                setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+              }
             } else if (k.nativeEvent.key === "ArrowDown") {
-              setHighlightedIndex((prev) =>
-                Math.min(
-                  prev + 1,
-                  Array.from(filteredAuthors.keys()).length - 1,
-                ),
-              );
+              if (showSuggestions) {
+                k.preventDefault();
+                setHighlightedIndex((prev) =>
+                  Math.min(
+                    prev + 1,
+                    Array.from(filteredAuthors.keys()).length - 1,
+                  ),
+                );
+              } else if (showEmojiSuggestions) {
+                k.preventDefault();
+                setHighlightedIndex((prev) =>
+                  Math.min(prev + 1, filteredEmojis.length - 1),
+                );
+              }
+            } else if (k.nativeEvent.key === "Escape") {
+              if (showSuggestions || showEmojiSuggestions) {
+                k.preventDefault();
+                setShowSuggestions(false);
+                setShowEmojiSuggestions(false);
+              }
             }
           }}
           style={[chatBoxStyle]}
@@ -198,11 +385,48 @@ export function ChatBox({
       </View>
       {showSuggestions && (
         <MentionSuggestions
-          authors={filteredAuthors || []}
+          authors={filteredAuthors || new Map()}
           highlightedIndex={highlightedIndex}
           onSelect={handleMentionSelect}
         />
       )}
+      {showEmojiSuggestions && (
+        <EmojiSuggestions
+          emojis={filteredEmojis}
+          highlightedIndex={highlightedIndex}
+          onSelect={handleEmojiSelect}
+        />
+      )}
+      <View
+        style={[
+          layout.flex.row,
+          mb[2],
+          gap.all[2],
+          { justifyContent: "flex-end" },
+        ]}
+      >
+        <Pressable onPress={() => setShowEmojiSelector(!showEmojiSelector)}>
+          <Button
+            variant="secondary"
+            style={{ borderRadius: 16, height: 36, maxWidth: 36 }}
+            onPress={() => {
+              !message.endsWith("@") && setMessage(message + "@");
+              setShowSuggestions(true);
+            }}
+          >
+            <Text>@</Text>
+          </Button>
+        </Pressable>
+        <Pressable onPress={() => setShowEmojiSelector(!showEmojiSelector)}>
+          <Button
+            variant="secondary"
+            style={{ borderRadius: 16, height: 36, maxWidth: 36 }}
+            onPress={() => setShowEmojiSelector(!showEmojiSelector)}
+          >
+            <Text>{COOL_EMOJI_LIST[emojiIconIndex]}</Text>
+          </Button>
+        </Pressable>
+      </View>
     </View>
   );
 }

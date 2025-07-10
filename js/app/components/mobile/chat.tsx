@@ -46,29 +46,27 @@ export function DesktopChatPanel({
   }));
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-      <Animated.View
-        style={[
-          layout.position.absolute,
-          position.right[0],
-          {
-            top: safeAreaInsets.top,
-            bottom: safeAreaInsets.bottom,
-            right: safeAreaInsets.right / 2,
-            width: chatPanelWidth,
-            backgroundColor: "rgba(0, 0, 0, 0.85)",
-            borderLeftWidth: 1,
-            borderLeftColor: "rgba(255, 255, 255, 0.1)",
-            zIndex: 999,
-          },
-          animatedSidebarStyle,
-        ]}
-      >
-        <View style={{ flex: 1, position: "relative" }}>
-          <ChatPanel />
-        </View>
-      </Animated.View>
-    </TouchableWithoutFeedback>
+    <Animated.View
+      style={[
+        layout.position.absolute,
+        position.right[0],
+        {
+          top: safeAreaInsets.top,
+          bottom: safeAreaInsets.bottom,
+          right: safeAreaInsets.right / 2,
+          width: chatPanelWidth,
+          backgroundColor: "rgba(0, 0, 0, 0.85)",
+          borderLeftWidth: 1,
+          borderLeftColor: "rgba(255, 255, 255, 0.1)",
+          zIndex: 999,
+        },
+        animatedSidebarStyle,
+      ]}
+    >
+      <View style={{ flex: 1, position: "relative" }}>
+        <ChatPanel />
+      </View>
+    </Animated.View>
   );
 }
 
@@ -114,7 +112,9 @@ function ChatPanel() {
         ...(shouldShowChatSidePanel ? [px[4]] : []),
       ]}
     >
-      <Chat canModerate={false} />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <Chat canModerate={false} />
+      </TouchableWithoutFeedback>
       <View style={[layout.flex.column, gap.all[2], px[4]]}>
         <ChatBox chatBoxStyle={{ borderRadius: borderRadius.xl }} />
       </View>

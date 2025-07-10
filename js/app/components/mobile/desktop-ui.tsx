@@ -79,15 +79,6 @@ function VolumeSlider() {
     setMuted(!muted);
   }, [muted, setMuted]);
 
-  // Create animated styles
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: fadeAnim.value,
-      width: widthAnim.value,
-      overflow: "hidden",
-    };
-  });
-
   const VolumeIcon = muted ? VolumeX : Volume2;
 
   // Convert volume (0-1) to percentage (0-100) for slider
@@ -101,26 +92,61 @@ function VolumeSlider() {
         <VolumeIcon size={20} color="white" />
       </Pressable>
 
-      {Platform.OS === "web" && (
-        <Animated.View style={animatedStyle}>
-          <Slider.Root
-            value={sliderValue}
-            onValueChange={(vals) => {
-              const nextValue = vals[0];
-              if (typeof nextValue !== "number") return;
-              // Convert percentage back to 0-1 range
-              const newVolume = nextValue / 100;
-              setVolume(newVolume);
-              if (muted) setMuted(false);
+      <Slider.Root
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          flex: 1,
+          width: 200,
+          height: 20,
+        }}
+        value={sliderValue}
+        min={0}
+        max={100} // Slider max value is 100 for percentage
+        onValueChange={(vals) => {
+          const newVolume = vals[0] / 100; // Convert back to 0-1 range
+          setVolume(newVolume);
+          if (newVolume === 0) {
+            setMuted(true);
+          } else {
+            setMuted(false);
+          }
+        }}
+        asChild
+      >
+        <Slider.Track
+          style={{
+            flexGrow: 1,
+            height: 30,
+            position: "relative",
+            flex: 1,
+          }}
+        >
+          <Slider.Range
+            style={{
+              position: "absolute",
+              backgroundColor: "white",
+              borderRadius: 999,
+              height: 3,
+              flex: 1,
+              width: "100%",
+              transform: [{ translateY: 14 }],
             }}
-          >
-            <Slider.Track>
-              <Slider.Range />
-              <Slider.Thumb />
-            </Slider.Track>
-          </Slider.Root>
-        </Animated.View>
-      )}
+          />
+          <Slider.Thumb
+            style={{
+              position: "absolute",
+              width: 16,
+              height: 16,
+              borderRadius: 8,
+              backgroundColor: "white",
+              boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
+              transform: [{ translateX: -8 }, { translateY: 7 }],
+            }}
+          />
+        </Slider.Track>
+      </Slider.Root>
     </Pressable>
   );
 }
@@ -147,6 +173,9 @@ export function DesktopUi() {
 
   const fullscreen = usePlayerStore((state) => state.fullscreen);
   const setFullscreen = usePlayerStore((state) => state.setFullscreen);
+  const muteWasForced = usePlayerStore((state) => state.muteWasForced);
+  const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
+  const setMuted = usePlayerStore((state) => state.setMuted);
 
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -196,186 +225,222 @@ export function DesktopUi() {
 
   return (
     <GestureDetector gesture={hover}>
-      <View style={[layout.position.absolute, h.percent[100], w.percent[100]]}>
-        <Animated.View
-          style={[
-            layout.position.absolute,
-            w.percent[100],
-            {
-              top: safeAreaInsets.top,
-              paddingHorizontal: 16,
-              paddingVertical: 16,
-            },
-            animatedFadeStyle,
-          ]}
+      <>
+        <View
+          style={[layout.position.absolute, h.percent[100], w.percent[100]]}
         >
-          <View
-            style={[
-              layout.flex.row,
-              layout.flex.spaceBetween,
-              layout.flex.alignCenter,
-            ]}
-          >
-            <View
-              style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
-            >
-              {Platform.OS !== "web" && (
-                <Pressable
-                  onPress={() => {
-                    navigation.canGoBack()
-                      ? navigation.goBack()
-                      : navigation.navigate("Home", { screen: "StreamList" });
-                  }}
-                  style={[p[2], r[1]]}
-                >
-                  <ChevronLeft color="white" size={24} />
-                </Pressable>
-              )}
-              <Image
-                source={
-                  profile?.did
-                    ? { uri: avatars[profile?.did]?.avatar }
-                    : require("assets/images/goose.png")
-                }
-                style={[
-                  {
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: colors.gray[800],
-                  },
-                  borders.width.thin,
-                  borders.color.gray[700],
-                ]}
-              />
-
-              <View style={[layout.flex.column, gap.all[1]]}>
-                <Text style={[text.white, { fontSize: 16, fontWeight: "600" }]}>
-                  {profile?.handle}
-                </Text>
-                {isActivelyLive && <LiveBubble />}
-              </View>
-            </View>
-
-            <View
-              style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
-            >
-              {isActivelyLive && (
-                <>
-                  <PlayerUI.Viewers />
-
-                  <Pressable onPress={toggleChat} style={[p[2], r[1]]}>
-                    <MessageSquare
-                      size={20}
-                      color={isChatOpen ? colors.primary[500] : colors.white}
-                    />
-                  </Pressable>
-                </>
-              )}
-              {ingest !== null && (
-                <Pressable onPress={doSetIngestCamera} style={[p[2], r[1]]}>
-                  <SwitchCamera size={24} color={colors.gray[200]} />
-                </Pressable>
-              )}
-            </View>
-          </View>
-        </Animated.View>
-
-        {isActivelyLive && isControlsVisible && (
-          <View
+          <Animated.View
             style={[
               layout.position.absolute,
+              w.percent[100],
               {
-                transform: [{ translateX: -100 }, { translateY: -25 }],
+                top: safeAreaInsets.top,
+                paddingHorizontal: 16,
+                paddingVertical: 16,
               },
+              animatedFadeStyle,
             ]}
           >
-            <Animated.View
+            <View
               style={[
-                {
-                  padding: 12,
-                  backgroundColor: "rgba(0, 0, 0, 0.5)",
-                },
-                r[3],
-                animatedFadeStyle,
+                layout.flex.row,
+                layout.flex.spaceBetween,
+                layout.flex.alignCenter,
               ]}
             >
-              <PlayerUI.MetricsPanel showMetrics={isActivelyLive} />
-            </Animated.View>
-          </View>
-        )}
+              <View
+                style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
+              >
+                {Platform.OS !== "web" && (
+                  <Pressable
+                    onPress={() => {
+                      navigation.canGoBack()
+                        ? navigation.goBack()
+                        : navigation.navigate("Home", { screen: "StreamList" });
+                    }}
+                    style={[p[2], r[1]]}
+                  >
+                    <ChevronLeft color="white" size={24} />
+                  </Pressable>
+                )}
+                <Image
+                  source={
+                    profile?.did
+                      ? { uri: avatars[profile?.did]?.avatar }
+                      : require("assets/images/goose.png")
+                  }
+                  style={[
+                    {
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: colors.gray[800],
+                    },
+                    borders.width.thin,
+                    borders.color.gray[700],
+                  ]}
+                />
 
-        <Animated.View
-          style={[
-            layout.position.absolute,
-            position.bottom[0],
-            w.percent[100],
-            {
-              backgroundColor: "rgba(0, 0, 0, 0.6)",
-              paddingHorizontal: 16,
-              paddingVertical: 2,
-              paddingBottom: 2,
-            },
-            animatedFadeStyle,
-          ]}
-        >
-          <View
+                <View style={[layout.flex.column, gap.all[1]]}>
+                  <Text
+                    style={[text.white, { fontSize: 16, fontWeight: "600" }]}
+                  >
+                    {profile?.handle}
+                  </Text>
+                  {isActivelyLive && <LiveBubble />}
+                </View>
+              </View>
+
+              <View
+                style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
+              >
+                {isActivelyLive && (
+                  <>
+                    <PlayerUI.Viewers />
+
+                    <Pressable onPress={toggleChat} style={[p[2], r[1]]}>
+                      <MessageSquare
+                        size={20}
+                        color={isChatOpen ? colors.primary[500] : colors.white}
+                      />
+                    </Pressable>
+                  </>
+                )}
+                {ingest !== null && (
+                  <Pressable onPress={doSetIngestCamera} style={[p[2], r[1]]}>
+                    <SwitchCamera size={24} color={colors.gray[200]} />
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          </Animated.View>
+
+          {isActivelyLive && isControlsVisible && (
+            <View
+              style={[
+                layout.position.absolute,
+                {
+                  transform: [{ translateX: -100 }, { translateY: -25 }],
+                },
+              ]}
+            >
+              <Animated.View
+                style={[
+                  {
+                    padding: 12,
+                    backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  },
+                  r[3],
+                  animatedFadeStyle,
+                ]}
+              >
+                <PlayerUI.MetricsPanel showMetrics={isActivelyLive} />
+              </Animated.View>
+            </View>
+          )}
+
+          <Animated.View
             style={[
-              layout.flex.row,
-              layout.flex.spaceBetween,
-              layout.flex.alignCenter,
+              layout.position.absolute,
+              position.bottom[0],
+              w.percent[100],
+              {
+                backgroundColor: "rgba(0, 0, 0, 0.6)",
+                paddingHorizontal: 16,
+                paddingVertical: 2,
+                paddingBottom: 2,
+              },
+              animatedFadeStyle,
             ]}
           >
             <View
-              style={[layout.flex.row, layout.flex.alignCenter, gap.all[4]]}
+              style={[
+                layout.flex.row,
+                layout.flex.spaceBetween,
+                layout.flex.alignCenter,
+              ]}
             >
-              <VolumeSlider />
-            </View>
+              <View
+                style={[layout.flex.row, layout.flex.alignCenter, gap.all[4]]}
+              >
+                <VolumeSlider />
+              </View>
 
-            <View
-              style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
-            >
-              {Platform.OS === "web" && (
-                <Pressable
-                  onPress={() => {
-                    setFullscreen(!fullscreen);
-                  }}
-                  style={[p[2], r[1]]}
-                >
-                  {fullscreen ? <Minimize /> : <Fullscreen />}
-                </Pressable>
-              )}
-              {ingest === null && <PlayerUI.ContextMenu />}
+              <View
+                style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
+              >
+                {Platform.OS === "web" && (
+                  <Pressable
+                    onPress={() => {
+                      setFullscreen(!fullscreen);
+                    }}
+                    style={[p[2], r[1]]}
+                  >
+                    {fullscreen ? <Minimize /> : <Fullscreen />}
+                  </Pressable>
+                )}
+                {ingest === null && <PlayerUI.ContextMenu />}
+              </View>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
 
-        {isSelfAndNotLive && (
-          <PlayerUI.InputPanel
-            title={title}
-            setTitle={setTitle}
-            ingestStarting={ingestStarting}
-            toggleGoLive={toggleGoLive}
+          {isSelfAndNotLive && (
+            <PlayerUI.InputPanel
+              title={title}
+              setTitle={setTitle}
+              ingestStarting={ingestStarting}
+              toggleGoLive={toggleGoLive}
+            />
+          )}
+
+          <PlayerUI.CountdownOverlay
+            visible={showCountdown}
+            width={width}
+            height={height}
+            onDone={() => {
+              setShowCountdown(false);
+            }}
           />
-        )}
 
-        <PlayerUI.CountdownOverlay
-          visible={showCountdown}
-          width={width}
-          height={height}
-          onDone={() => {
-            setShowCountdown(false);
-          }}
-        />
-
-        <Toast
-          open={recordSubmitted}
-          onOpenChange={setRecordSubmitted}
-          title="You're live!"
-          description="We're notifying your followers that you just went live."
-          duration={5}
-        />
-      </View>
+          <Toast
+            open={recordSubmitted}
+            onOpenChange={setRecordSubmitted}
+            title="You're live!"
+            description="We're notifying your followers that you just went live."
+            duration={5}
+          />
+          {muteWasForced && (
+            <View
+              style={[
+                layout.position.absolute,
+                layout.flex.center,
+                h.percent[100],
+                w.percent[100],
+              ]}
+            >
+              <Pressable
+                onPress={() => {
+                  if (muteWasForced) {
+                    setMuted(false);
+                    setMuteWasForced(false);
+                  }
+                }}
+                style={[
+                  p[4],
+                  {
+                    backgroundColor: "rgba(50, 30, 30, 0.7)",
+                    borderRadius: 999,
+                    borderWidth: 2,
+                    borderColor: colors.gray[300],
+                  },
+                ]}
+              >
+                <VolumeX size="48" color="rgba(255,200,200)" />
+              </Pressable>
+            </View>
+          )}
+        </View>
+      </>
     </GestureDetector>
   );
 }

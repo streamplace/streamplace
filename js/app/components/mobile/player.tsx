@@ -6,19 +6,19 @@ import {
   Player as PlayerInnerInner,
   PlayerProps,
   PlayerProvider,
+  Text,
   usePlayerDimensions,
   usePlayerStore,
-  Text,
   View,
 } from "@streamplace/components";
 import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
 import { ArrowLeft, ArrowRight } from "@tamagui/lucide-icons";
 import { selectUserProfile } from "features/bluesky/blueskySlice";
 import { useLiveUser } from "hooks/useLiveUser";
-import { useEffect, useState } from "react";
-import { useAppSelector } from "store/hooks";
 import { useSidebarControl } from "hooks/useSidebarControl";
+import { useEffect, useState } from "react";
 import { Animated, ScrollView } from "react-native";
+import { useAppSelector } from "store/hooks";
 import { BottomMetadata } from "./bottom-metadata";
 import { DesktopChatPanel } from "./chat";
 import { DesktopUi } from "./desktop-ui";
@@ -30,7 +30,6 @@ export function Player(
     setFullscreen?: (fullscreen: boolean) => void;
   },
 ) {
-
   const [showChat, setShowChat] = useState(true);
   const { shouldShowChatSidePanel, chatPanelWidth, safeAreaInsets } =
     useResponsiveLayout();

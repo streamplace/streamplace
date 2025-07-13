@@ -21,8 +21,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { MobileChatPanel } from "./chat";
 import { useResponsiveLayout } from "./useResponsiveLayout";
-import { Image, Pressable } from "react-native";
-import { ChatPanel } from "./chat";
 
 const { borders, colors, gap, h, layout, position, w, bottom, px, py, r } =
   zero;
@@ -209,8 +207,6 @@ export function MobileUi() {
                 />
               </View>
             )}
-            />
-            <Text>@{profile?.handle}</Text>
           </View>
 
           {isSelfAndNotLive && (
@@ -222,32 +218,34 @@ export function MobileUi() {
             />
           )}
 
-      <PlayerUI.CountdownOverlay
-        visible={showCountdown}
-        width={width}
-        height={height - 150}
-        onDone={() => {
-          if (!recordSubmitted && title != "") {
-            setShowLoading(true);
-          }
-          setShowCountdown(false);
-        }}
-      />
+          <PlayerUI.CountdownOverlay
+            visible={showCountdown}
+            width={width}
+            height={height - 150}
+            onDone={() => {
+              if (!recordSubmitted && title != "") {
+                setShowLoading(true);
+              }
+              setShowCountdown(false);
+            }}
+          />
 
-      <PlayerUI.LoadingOverlay
-        visible={showLoading}
-        width={width}
-        height={height - 150}
-        subtitle="We're setting up your stream."
-      />
+          <PlayerUI.LoadingOverlay
+            visible={showLoading}
+            width={width}
+            height={height - 150}
+            subtitle="We're setting up your stream."
+          />
 
-      <Toast
-        open={recordSubmitted}
-        onOpenChange={setRecordSubmitted}
-        title="You're live!"
-        description="We're notifying your followers that you just went live."
-        duration={5}
-      />
+          <Toast
+            open={recordSubmitted}
+            onOpenChange={setRecordSubmitted}
+            title="You're live!"
+            description="We're notifying your followers that you just went live."
+            duration={5}
+          />
+        </Animated.View>
+      </TouchableWithoutFeedback>
       {!isSelfAndNotLive && (
         <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
       )}

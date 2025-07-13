@@ -83,6 +83,11 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     pipMode: false,
     setPipMode: (pipMode: boolean) => set(() => ({ pipMode })),
 
+    // Picture-in-Picture action function (set by player component)
+    pipAction: undefined,
+    setPipAction: (action: (() => void) | undefined) =>
+      set(() => ({ pipAction: action })),
+
     // Player element width/height setters for global sync
     playerWidth: undefined,
     setPlayerWidth: (playerWidth: number) => set(() => ({ playerWidth })),

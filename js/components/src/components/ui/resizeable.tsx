@@ -15,7 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardSlide } from "../../hooks";
-import { bottom, layout, p, w, zIndex } from "../../lib/theme/atoms";
+import { bottom, h, layout, p, w, zIndex } from "../../lib/theme/atoms";
 import { View } from "./view";
 
 const AnimatedView = Animated.createAnimatedComponent(View);
@@ -154,24 +154,35 @@ export function Resizable({
           style,
         ]}
       >
-        <View style={[layout.flex.row, layout.flex.justifyCenter]}>
+        <View style={[layout.flex.row, layout.flex.justifyCenter, h[2]]}>
           <GestureDetector gesture={panGesture}>
             <View
-              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-              style={[
-                w[32],
-                {
-                  height: 6,
-                  transform: [{ translateY: -10 }],
-                  backgroundColor: "#eeeeee66",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 999,
-                },
-              ]}
-            />
+              // Make the touch area much larger, but keep the visible handle small
+              style={{
+                height: 30, // Large touch area
+                width: 120, // Wide enough for thumbs
+                alignItems: "center",
+                justifyContent: "center",
+                //backgroundColor: "rgba(0,255,255,0.1)",
+                transform: [{ translateY: -30 }],
+              }}
+            >
+              <View
+                style={[
+                  w[32],
+                  {
+                    height: 6,
+                    backgroundColor: "#eeeeee66",
+                    borderRadius: 999,
+
+                    transform: [{ translateY: 5 }],
+                  },
+                ]}
+              />
+            </View>
           </GestureDetector>
         </View>
+
         {children}
       </AnimatedView>
     </>

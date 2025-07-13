@@ -6,41 +6,62 @@ import { LivestreamViewHydrated } from "streamplace/src/useful-types";
 import { useUrl } from "./streamplace-store";
 import { usePDSAgent } from "./xrpc";
 
-const uploadThumbnail = async (
-  pdsAgent: StreamplaceAgent,
-  customThumbnail?: Blob,
-) => {
-  if (customThumbnail) {
-    let tries = 0;
-    try {
-      let thumbnail = await pdsAgent.uploadBlob(customThumbnail);
+import { useEffect, useRef } from "react";
 
-      while (
-        thumbnail.data.blob.size === 0 &&
-        customThumbnail.size !== 0 &&
-        tries < 3
-      ) {
-        console.warn(
-          "Reuploading blob as blob sizes don't match! Blob size recieved is",
-          thumbnail.data.blob.size,
-          "and sent blob size is",
-          customThumbnail.size,
-        );
-        thumbnail = await pdsAgent.uploadBlob(customThumbnail);
-      }
+const useUploadThumbnail = () => {
+  const abortRef = useRef<AbortController | null>(null);
 
-      if (tries === 3) {
-        throw new Error("Could not successfully upload blob (tried thrice)");
-      }
+  useEffect(() => {
+    return () => {
+      // On unmount, abort any ongoing upload
+      abortRef.current?.abort();
+    };
+  }, []);
 
-      if (thumbnail.success) {
-        console.log("Successfully uploaded thumbnail");
-        return thumbnail.data.blob;
+  const uploadThumbnail = async (
+    pdsAgent: StreamplaceAgent,
+    customThumbnail?: Blob,
+  ) => {
+    if (!customThumbnail) return undefined;
+
+    abortRef.current = new AbortController();
+    const { signal } = abortRef.current;
+
+    const maxTries = 3;
+    let lastError: unknown = null;
+
+    for (let tries = 0; tries < maxTries; tries++) {
+      try {
+        const thumbnail = await pdsAgent.uploadBlob(customThumbnail, {
+          signal,
+        });
+        if (
+          thumbnail.success &&
+          thumbnail.data.blob.size === customThumbnail.size
+        ) {
+          console.log("Successfully uploaded thumbnail");
+          return thumbnail.data.blob;
+        } else {
+          console.warn(
+            `Blob size mismatch (attempt ${tries + 1}): received ${thumbnail.data.blob.size}, expected ${customThumbnail.size}`,
+          );
+        }
+      } catch (e) {
+        if (signal.aborted) {
+          console.warn("Upload aborted");
+          return undefined;
+        }
+        lastError = e;
+        console.warn(`Error uploading thumbnail (attempt ${tries + 1}): ${e}`);
       }
-    } catch (e) {
-      throw new Error("Error uploading thumbnail: " + e);
     }
-  }
+
+    throw new Error(
+      `Could not successfully upload blob after ${maxTries} attempts. Last error: ${lastError}`,
+    );
+  };
+
+  return uploadThumbnail;
 };
 
 async function createNewPost(
@@ -99,6 +120,7 @@ function buildGoLivePost(
 export function useCreateStreamRecord() {
   let agent = usePDSAgent();
   let url = useUrl();
+  const uploadThumbnail = useUploadThumbnail();
 
   return async (
     title: string,
@@ -206,6 +228,7 @@ export function useCreateStreamRecord() {
 export function useUpdateStreamRecord() {
   let agent = usePDSAgent();
   let url = useUrl();
+  const uploadThumbnail = useUploadThumbnail();
 
   return async (
     title: string,

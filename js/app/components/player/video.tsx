@@ -59,7 +59,7 @@ const updateEvents = {
 };
 
 const VideoElement = forwardRef(
-  (props: VideoProps, ref: ForwardedRef<HTMLVideoElement | null>) => {
+  (props: VideoProps, refCallback: ForwardedRef<HTMLVideoElement | null>) => {
     const x = usePlayerStore((x) => x);
     const url = useStreamplaceStore((x) => x.url);
     const playerEvent = usePlayerStore((x) => x.playerEvent);
@@ -83,6 +83,43 @@ const VideoElement = forwardRef(
     const [firstAttempt, setFirstAttempt] = useState(true);
 
     const localVideoRef = useRef<HTMLVideoElement | null>(null);
+
+    // setPipAction comes from Zustand store
+    useEffect(() => {
+      if (typeof x.setPipAction === "function") {
+        const fn = () => {
+          if (localVideoRef.current) {
+            try {
+              localVideoRef.current.requestPictureInPicture?.();
+            } catch (err) {
+              console.error("Error requesting Picture-in-Picture:", err);
+            }
+          } else {
+            console.log("No video ref available for PiP");
+          }
+        };
+        x.setPipAction(fn);
+      }
+      // Cleanup on unmount
+      return () => {
+        if (typeof x.setPipAction === "function") {
+          x.setPipAction(undefined);
+        }
+      };
+    }, []);
+
+    // Memoized callback ref for video element
+    const handleVideoRef = useCallback(
+      (videoElement: HTMLVideoElement | null) => {
+        localVideoRef.current = videoElement;
+        if (typeof refCallback === "function") {
+          refCallback(videoElement);
+        } else if (refCallback && "current" in refCallback) {
+          refCallback.current = videoElement;
+        }
+      },
+      [refCallback],
+    );
 
     // attempts to autoplay the video. if that fails, it attempts
     // to play the video muted; some browsers will only let you
@@ -115,7 +152,7 @@ const VideoElement = forwardRef(
       return () => {
         setStatus(PlayerStatus.START);
       };
-    }, []);
+    }, [setStatus]);
 
     useEffect(() => {
       if (localVideoRef.current) {
@@ -123,20 +160,6 @@ const VideoElement = forwardRef(
         console.log("Setting volume to", volume);
       }
     }, [volume]);
-
-    // Use a callback ref to handle when the video element is mounted
-    const handleVideoRef = (videoElement: HTMLVideoElement | null) => {
-      if (videoElement && typeof ref === "function") {
-        ref(videoElement);
-      } else if (videoElement && ref && "current" in ref) {
-        ref.current = videoElement;
-      }
-
-      // Additional initialization can be done here when the video element is first mounted
-      if (videoElement) {
-        localVideoRef.current = videoElement;
-      }
-    };
 
     return (
       <View
@@ -356,7 +379,7 @@ export function WebRTCPlayerInner({ url }: { url: string }) {
     }
     if (typeof videoRef === "function") {
       videoRef(node);
-    } else if (videoRef) {
+    } else if (setVideoRef) {
       setVideoRef(localVideoRef);
     }
   }, []);

@@ -119,6 +119,10 @@ export interface PlayerState {
       | undefined,
   ) => void;
 
+  pipAction: (() => void) | undefined;
+  /** Function to set the Picture-in-Picture action */
+  setPipAction: (action: (() => void) | undefined) => void;
+
   /** Player element width (CSS value or number) */
   playerWidth?: string | number;
   /** Function to set the player width */

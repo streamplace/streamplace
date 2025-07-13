@@ -12,7 +12,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { ChevronLeft, SwitchCamera } from "lucide-react-native";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, TouchableWithoutFeedback } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -21,6 +21,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { MobileChatPanel } from "./chat";
 import { useResponsiveLayout } from "./useResponsiveLayout";
+import { Image, Pressable } from "react-native";
+import { ChatPanel } from "./chat";
 
 const { borders, colors, gap, h, layout, position, w, bottom, px, py, r } =
   zero;
@@ -46,6 +48,7 @@ export function MobileUi() {
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
 
   const { shouldShowFloatingMetrics, safeAreaInsets } = useResponsiveLayout();
+  const [showLoading, setShowLoading] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -54,6 +57,10 @@ export function MobileUi() {
       }
     };
   }, [ingestStarting, setIngestStarting]);
+
+  useEffect(() => {
+    if (recordSubmitted) setShowLoading(false);
+  }, [recordSubmitted]);
 
   const isSelfAndNotLive = ingest === "new";
   const isLive = ingest !== null && ingest !== "new";
@@ -202,6 +209,8 @@ export function MobileUi() {
                 />
               </View>
             )}
+            />
+            <Text>@{profile?.handle}</Text>
           </View>
 
           {isSelfAndNotLive && (
@@ -213,25 +222,32 @@ export function MobileUi() {
             />
           )}
 
-          <PlayerUI.CountdownOverlay
-            visible={showCountdown}
-            width={width}
-            height={height}
-            onDone={() => {
-              setShowCountdown(false);
-            }}
-          />
+      <PlayerUI.CountdownOverlay
+        visible={showCountdown}
+        width={width}
+        height={height - 150}
+        onDone={() => {
+          if (!recordSubmitted && title != "") {
+            setShowLoading(true);
+          }
+          setShowCountdown(false);
+        }}
+      />
 
-          <Toast
-            open={recordSubmitted}
-            onOpenChange={setRecordSubmitted}
-            title="You're live!"
-            description="We're notifying your followers that you just went live."
-            duration={5}
-          />
-        </Animated.View>
-      </TouchableWithoutFeedback>
+      <PlayerUI.LoadingOverlay
+        visible={showLoading}
+        width={width}
+        height={height - 150}
+        subtitle="We're setting up your stream."
+      />
 
+      <Toast
+        open={recordSubmitted}
+        onOpenChange={setRecordSubmitted}
+        title="You're live!"
+        description="We're notifying your followers that you just went live."
+        duration={5}
+      />
       {!isSelfAndNotLive && (
         <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
       )}

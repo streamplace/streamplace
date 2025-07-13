@@ -177,7 +177,7 @@ const StreamCard = ({
               numberOfLines={1}
               ellipsizeMode="tail"
             >
-              {streamerName}
+              @{streamerName}
             </Text>
           )}
           {category.length > 0 && (

@@ -19,16 +19,16 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 	var encoder string
 	switch format {
 	case "jpeg":
-		encoder = "jpegenc snapshot=true"
+		encoder = "jpegenc"
 	case "png":
 		encoder = "pngenc snapshot=true"
 	default:
-		log.Error(ctx, "media.Thumbnail: expected jpeg or png as format and recieved %s", format)
+		log.Error(ctx, "media.Thumbnail: expected jpeg or png as format and received %s", format)
 		encoder = "pngenc snapshot=true"
 	}
 
 	pipelineSlice := []string{
-		"appsrc name=appsrc ! qtdemux name=demux ! decodebin ! videoconvert ! videoscale ! videorate ! capsfilter name=capsfilter caps=video/x-raw,width=[1,1280],height=[1,720],pixel-aspect-ratio=1/1,framerate=1/999999 ! queue ! ",
+		"appsrc name=appsrc ! qtdemux name=demux ! decodebin ! videoconvert ! videoscale ! videorate ! capsfilter name=capsfilter caps=video/x-raw,width=[1,1280],height=[1,720],pixel-aspect-ratio=1/1,framerate=1/999999 ! ",
 		encoder,
 		" ! appsink name=appsink",
 	}

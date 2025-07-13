@@ -224,6 +224,7 @@ export default function Controls(props: { name: string; playerId?: string }) {
     playerId,
   );
   const isIngesting = usePlayerStore((x) => x.ingestConnectionState !== null);
+  const pipAction = usePlayerStore((x) => x.pipAction);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -248,14 +249,9 @@ export default function Controls(props: { name: string; playerId?: string }) {
     if (isRefObject(videoRef)) {
       video = videoRef.current;
     }
-    if (video) {
-      setPipSupported(
-        !!document.pictureInPictureEnabled &&
-          typeof video.requestPictureInPicture === "function",
-      );
-    } else {
-      setPipSupported(false);
-    }
+    setPipSupported(
+      !!document.pictureInPictureEnabled && pipAction !== undefined,
+    );
   }, [videoRef]);
 
   useEffect(() => {
@@ -281,14 +277,7 @@ export default function Controls(props: { name: string; playerId?: string }) {
   }, [videoRef]);
 
   const handlePip = useCallback(() => {
-    let video: HTMLVideoElement | null = null;
-    if (isRefObject(videoRef)) {
-      video = videoRef.current;
-    }
-    if (!video) return;
-    video.requestPictureInPicture().catch((err) => {
-      console.error("Failed to enter Picture-in-Picture mode", err);
-    });
+    if (pipAction) pipAction();
   }, [videoRef]);
 
   const userInteraction = () => {
@@ -351,7 +340,7 @@ export default function Controls(props: { name: string; playerId?: string }) {
         <Part justifyContent="flex-start" overflow="hidden">
           <View justifyContent="center" paddingLeft="$5" maxWidth="100%">
             <Text wordWrap="break-word" numberOfLines={1} ellipsizeMode="tail">
-              {props.name}
+              @{props.name}
             </Text>
           </View>
         </Part>

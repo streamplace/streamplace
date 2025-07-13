@@ -12,7 +12,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { ChevronLeft, SwitchCamera } from "lucide-react-native";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, TouchableWithoutFeedback } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -46,6 +46,7 @@ export function MobileUi() {
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
 
   const { shouldShowFloatingMetrics, safeAreaInsets } = useResponsiveLayout();
+  const [showLoading, setShowLoading] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -54,6 +55,10 @@ export function MobileUi() {
       }
     };
   }, [ingestStarting, setIngestStarting]);
+
+  useEffect(() => {
+    if (recordSubmitted) setShowLoading(false);
+  }, [recordSubmitted]);
 
   const isSelfAndNotLive = ingest === "new";
   const isLive = ingest !== null && ingest !== "new";
@@ -216,10 +221,20 @@ export function MobileUi() {
           <PlayerUI.CountdownOverlay
             visible={showCountdown}
             width={width}
-            height={height}
+            height={height - 150}
             onDone={() => {
+              if (!recordSubmitted && title != "") {
+                setShowLoading(true);
+              }
               setShowCountdown(false);
             }}
+          />
+
+          <PlayerUI.LoadingOverlay
+            visible={showLoading}
+            width={width}
+            height={height - 150}
+            subtitle="We're setting up your stream."
           />
 
           <Toast
@@ -231,7 +246,6 @@ export function MobileUi() {
           />
         </Animated.View>
       </TouchableWithoutFeedback>
-
       {!isSelfAndNotLive && (
         <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
       )}

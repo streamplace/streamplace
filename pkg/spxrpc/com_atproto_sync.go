@@ -75,3 +75,82 @@ func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection s
 
 	return bytes.NewReader(buf.Bytes()), nil
 }
+
+// func (s *Server) handleComAtprotoSyncSubscribeRepos(c echo.Context) error {
+	// conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// ctx := c.Request().Context()
+
+	// ident := c.RealIP() + "-" + c.Request().UserAgent()
+
+	// evts, cancel, err := s.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
+	// 	if !s.enforcePeering {
+	// 		return true
+	// 	}
+	// 	if peering.ID == 0 {
+	// 		return true
+	// 	}
+
+	// 	for _, pid := range evt.PrivRelevantPds {
+	// 		if pid == peering.ID {
+	// 			return true
+	// 		}
+	// 	}
+
+	// 	return false
+	// }, nil)
+	// if err != nil {
+	// 	return err
+	// }
+	// defer cancel()
+
+	// header := events.EventHeader{Op: events.EvtKindMessage}
+	// for evt := range evts {
+	// 	wc, err := conn.NextWriter(websocket.BinaryMessage)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	var obj lexutil.CBOR
+
+	// 	switch {
+	// 	case evt.Error != nil:
+	// 		header.Op = events.EvtKindErrorFrame
+	// 		obj = evt.Error
+	// 	case evt.RepoCommit != nil:
+	// 		header.MsgType = "#commit"
+	// 		obj = evt.RepoCommit
+	// 	case evt.RepoSync != nil:
+	// 		header.MsgType = "#sync"
+	// 		obj = evt.RepoSync
+	// 	case evt.RepoIdentity != nil:
+	// 		header.MsgType = "#identity"
+	// 		obj = evt.RepoIdentity
+	// 	case evt.RepoAccount != nil:
+	// 		header.MsgType = "#account"
+	// 		obj = evt.RepoAccount
+	// 	case evt.RepoInfo != nil:
+	// 		header.MsgType = "#info"
+	// 		obj = evt.RepoInfo
+	// 	default:
+	// 		return fmt.Errorf("unrecognized event kind")
+	// 	}
+
+	// 	if err := header.MarshalCBOR(wc); err != nil {
+	// 		return fmt.Errorf("failed to write header: %w", err)
+	// 	}
+
+	// 	if err := obj.MarshalCBOR(wc); err != nil {
+	// 		return fmt.Errorf("failed to write event: %w", err)
+	// 	}
+
+	// 	if err := wc.Close(); err != nil {
+	// 		return fmt.Errorf("failed to flush-close our event write: %w", err)
+	// 	}
+	// }
+
+// 	return nil
+// }

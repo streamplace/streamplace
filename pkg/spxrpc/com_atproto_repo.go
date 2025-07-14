@@ -55,7 +55,7 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 }
 
 func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse *bool) (*comatprototypes.RepoListRecords_Output, error) {
-	r, ses, err := atproto.OpenLexiconRepo(ctx, s.cli)
+	r, ses, err := atproto.OpenLexiconRepo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to open repo: %w", err)
 	}
@@ -82,7 +82,7 @@ func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection
 }
 
 func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, repo string, rkey string) (*comatprototypes.RepoGetRecord_Output, error) {
-	r, ses, err := atproto.OpenLexiconRepo(ctx, s.cli)
+	r, ses, err := atproto.OpenLexiconRepo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to open repo: %w", err)
 	}

@@ -19,6 +19,15 @@ func TestLexiconRepo(t *testing.T) {
 	// creating a new repo
 	handle, err := MakeLexiconRepo(context.Background(), &cli)
 	require.NoError(t, err)
+	r, sess, err := OpenLexiconRepo(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	require.NotNil(t, sess)
+	c, _, err := r.GetRecord(context.Background(), "com.atproto.lexicon.schema/place.stream.chat.message")
+	require.NoError(t, err)
+	rec, err := GetRecordCBOR(context.Background(), sess, c, "com.atproto.lexicon.schema", "place.stream.chat.message")
+	require.NoError(t, err)
+	require.NotNil(t, rec)
 	handle.Close()
 
 	// opening an existing repo

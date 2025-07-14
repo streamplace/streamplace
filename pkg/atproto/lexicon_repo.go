@@ -118,6 +118,7 @@ type Closer interface {
 }
 
 func MakeLexiconRepo(ctx context.Context, cli *config.CLI) (Closer, error) {
+	ctx = log.WithLogValues(ctx, "func", "MakeLexiconRepo")
 	fd, err := cli.DataFileCreate([]string{"carstore", "empty"}, true)
 	if err != nil {
 		return nil, err
@@ -186,17 +187,22 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) (Closer, error) {
 		return nil, fmt.Errorf("failed to create delta session: %w", err)
 	}
 
-	root, err := CarStore.GetUserRepoHead(ctx, RepoUser)
+	currentRoot, err := CarStore.GetUserRepoHead(ctx, RepoUser)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user repo head: %w", err)
 	}
+	currentRev := ""
 
-	if root == cid.Undef {
+	if currentRoot == cid.Undef {
 		LexiconRepo = atrepo.NewRepo(ctx, cli.MyDID(), ses)
 	} else {
-		LexiconRepo, err = atrepo.OpenRepo(ctx, ses, root)
+		LexiconRepo, err = atrepo.OpenRepo(ctx, ses, currentRoot)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open repo: %w", err)
+		}
+		currentRev, err = CarStore.GetUserRepoRev(ctx, RepoUser)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user repo rev: %w", err)
 		}
 	}
 
@@ -242,29 +248,21 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) (Closer, error) {
 				}
 			}
 		}
+		currentRoot, currentRev, err = LexiconRepo.Commit(ctx, signer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to commit: %w", err)
+		}
+		log.Log(ctx, "LexiconRepo committed", "cid", currentRoot.String(), "rev", currentRev)
 	}
-	c, rev, err := LexiconRepo.Commit(ctx, signer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to commit: %w", err)
-	}
-	log.Log(ctx, "LexiconRepo committed", "cid", c.String(), "rev", rev)
-	_, err = ses.CloseWithRoot(ctx, c, rev)
+	_, err = ses.CloseWithRoot(ctx, currentRoot, currentRev)
 	if err != nil {
 		return nil, fmt.Errorf("failed to close delta session: %w", err)
 	}
-	roses, err := CarStore.NewDeltaSession(ctx, RepoUser, &rev)
-	if err != nil {
-		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to create delta session: %w", err)
-	}
 
-	base := roses.BaseCid()
-	if base == cid.Undef {
-		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: delta session has no base cid")
-	}
 	return sqlDB, nil
 }
 
-func OpenLexiconRepo(ctx context.Context, cli *config.CLI) (*atrepo.Repo, *carstore.DeltaSession, error) {
+func OpenLexiconRepo(ctx context.Context) (*atrepo.Repo, *carstore.DeltaSession, error) {
 	ses, err := CarStore.NewDeltaSession(ctx, RepoUser, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to create delta session: %w", err)

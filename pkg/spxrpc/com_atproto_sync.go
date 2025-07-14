@@ -31,7 +31,7 @@ func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context, cursor strin
 }
 
 func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, did string, rkey string) (io.Reader, error) {
-	_, robs, err := atproto.OpenLexiconRepo(ctx, s.cli)
+	_, robs, err := atproto.OpenLexiconRepo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to open repo: %w", err)
 	}
@@ -77,80 +77,80 @@ func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection s
 }
 
 // func (s *Server) handleComAtprotoSyncSubscribeRepos(c echo.Context) error {
-	// conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
-	// if err != nil {
-	// 	return err
-	// }
+// 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// ctx := c.Request().Context()
+// 	ctx := c.Request().Context()
 
-	// ident := c.RealIP() + "-" + c.Request().UserAgent()
+// 	ident := c.RealIP() + "-" + c.Request().UserAgent()
 
-	// evts, cancel, err := s.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
-	// 	if !s.enforcePeering {
-	// 		return true
-	// 	}
-	// 	if peering.ID == 0 {
-	// 		return true
-	// 	}
+// 	evts, cancel, err := s.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
+// 		if !s.enforcePeering {
+// 			return true
+// 		}
+// 		if peering.ID == 0 {
+// 			return true
+// 		}
 
-	// 	for _, pid := range evt.PrivRelevantPds {
-	// 		if pid == peering.ID {
-	// 			return true
-	// 		}
-	// 	}
+// 		for _, pid := range evt.PrivRelevantPds {
+// 			if pid == peering.ID {
+// 				return true
+// 			}
+// 		}
 
-	// 	return false
-	// }, nil)
-	// if err != nil {
-	// 	return err
-	// }
-	// defer cancel()
+// 		return false
+// 	}, nil)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer cancel()
 
-	// header := events.EventHeader{Op: events.EvtKindMessage}
-	// for evt := range evts {
-	// 	wc, err := conn.NextWriter(websocket.BinaryMessage)
-	// 	if err != nil {
-	// 		return err
-	// 	}
+// 	header := events.EventHeader{Op: events.EvtKindMessage}
+// 	for evt := range evts {
+// 		wc, err := conn.NextWriter(websocket.BinaryMessage)
+// 		if err != nil {
+// 			return err
+// 		}
 
-	// 	var obj lexutil.CBOR
+// 		var obj lexutil.CBOR
 
-	// 	switch {
-	// 	case evt.Error != nil:
-	// 		header.Op = events.EvtKindErrorFrame
-	// 		obj = evt.Error
-	// 	case evt.RepoCommit != nil:
-	// 		header.MsgType = "#commit"
-	// 		obj = evt.RepoCommit
-	// 	case evt.RepoSync != nil:
-	// 		header.MsgType = "#sync"
-	// 		obj = evt.RepoSync
-	// 	case evt.RepoIdentity != nil:
-	// 		header.MsgType = "#identity"
-	// 		obj = evt.RepoIdentity
-	// 	case evt.RepoAccount != nil:
-	// 		header.MsgType = "#account"
-	// 		obj = evt.RepoAccount
-	// 	case evt.RepoInfo != nil:
-	// 		header.MsgType = "#info"
-	// 		obj = evt.RepoInfo
-	// 	default:
-	// 		return fmt.Errorf("unrecognized event kind")
-	// 	}
+// 		switch {
+// 		case evt.Error != nil:
+// 			header.Op = events.EvtKindErrorFrame
+// 			obj = evt.Error
+// 		case evt.RepoCommit != nil:
+// 			header.MsgType = "#commit"
+// 			obj = evt.RepoCommit
+// 		case evt.RepoSync != nil:
+// 			header.MsgType = "#sync"
+// 			obj = evt.RepoSync
+// 		case evt.RepoIdentity != nil:
+// 			header.MsgType = "#identity"
+// 			obj = evt.RepoIdentity
+// 		case evt.RepoAccount != nil:
+// 			header.MsgType = "#account"
+// 			obj = evt.RepoAccount
+// 		case evt.RepoInfo != nil:
+// 			header.MsgType = "#info"
+// 			obj = evt.RepoInfo
+// 		default:
+// 			return fmt.Errorf("unrecognized event kind")
+// 		}
 
-	// 	if err := header.MarshalCBOR(wc); err != nil {
-	// 		return fmt.Errorf("failed to write header: %w", err)
-	// 	}
+// 		if err := header.MarshalCBOR(wc); err != nil {
+// 			return fmt.Errorf("failed to write header: %w", err)
+// 		}
 
-	// 	if err := obj.MarshalCBOR(wc); err != nil {
-	// 		return fmt.Errorf("failed to write event: %w", err)
-	// 	}
+// 		if err := obj.MarshalCBOR(wc); err != nil {
+// 			return fmt.Errorf("failed to write event: %w", err)
+// 		}
 
-	// 	if err := wc.Close(); err != nil {
-	// 		return fmt.Errorf("failed to flush-close our event write: %w", err)
-	// 	}
-	// }
+// 		if err := wc.Close(); err != nil {
+// 			return fmt.Errorf("failed to flush-close our event write: %w", err)
+// 		}
+// 	}
 
 // 	return nil
 // }

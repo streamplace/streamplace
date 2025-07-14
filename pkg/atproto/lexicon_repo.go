@@ -193,9 +193,6 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) (Closer, error) {
 
 	if root == cid.Undef {
 		LexiconRepo = atrepo.NewRepo(ctx, cli.MyDID(), ses)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create new repo: %w", err)
-		}
 	} else {
 		LexiconRepo, err = atrepo.OpenRepo(ctx, ses, root)
 		if err != nil {

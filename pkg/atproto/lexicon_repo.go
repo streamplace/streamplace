@@ -3,7 +3,6 @@ package atproto
 import (
 	"bytes"
 	"context"
-	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,7 +34,7 @@ var LexiconPubMultibase string
 var RepoUser models.Uid = models.Uid(1)
 var CarStore carstore.CarStore
 
-func walkLexicons(ctx context.Context, bundle embed.FS, path string) ([][]byte, error) {
+func walkLexicons(ctx context.Context, bundle fs.FS, path string) ([][]byte, error) {
 	ret := [][]byte{}
 	err := fs.WalkDir(bundle, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -47,7 +46,7 @@ func walkLexicons(ctx context.Context, bundle embed.FS, path string) ([][]byte, 
 		if !strings.HasSuffix(path, ".json") {
 			return nil
 		}
-		lex, err := bundle.ReadFile(path)
+		lex, err := fs.ReadFile(bundle, path)
 		if err != nil {
 			return err
 		}
@@ -112,68 +111,69 @@ func (km *SPKeyManager) SignForUser(ctx context.Context, did string, sb []byte) 
 	return km.priv.Sign(sb)
 }
 
-func MakeLexiconRepo(ctx context.Context, cli *config.CLI) error {
+var AllFiles fs.FS = lexicons.AllFiles
 
-	// CarStore = &carstore.SQLiteStore{}
-	// err := CarStore.Open(cli.DataFilePath([]string{"carstore.db"}))
+type Closer interface {
+	Close() error
+}
 
-	// This just makes an empty file in "carstore" to verify the directory exists
+func MakeLexiconRepo(ctx context.Context, cli *config.CLI) (Closer, error) {
 	fd, err := cli.DataFileCreate([]string{"carstore", "empty"}, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sqlitePath := cli.DataFilePath([]string{"carstore", "meta.sqlite"})
 
-    db, err := gorm.Open(sqlite.Open(sqlitePath))
+	db, err := gorm.Open(sqlite.Open(sqlitePath))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = fd.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	CarStore, err = carstore.NewCarStore(db, []string{
 		cli.DataFilePath([]string{"carstore"}),
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// err := CarStore.Open(":memory:")
-	// if err != nil {
-	// 	return fmt.Errorf("failed to create carstore: %w", err)
-	// }
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
 
 	var priv *atcrypto.PrivateKeyK256
 	exists, err := cli.DataFileExists([]string{"carstore", "repo.key"})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if exists {
 		buf := bytes.Buffer{}
 		err := cli.DataFileRead([]string{"carstore", "repo.key"}, &buf)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		priv, err = atcrypto.ParsePrivateBytesK256(buf.Bytes())
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		priv, err = atcrypto.GeneratePrivateKeyK256()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		bs := priv.Bytes()
 		err = cli.DataFileWrite([]string{"carstore", "repo.key"}, bytes.NewReader(bs), true)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	pub, err := priv.PublicKey()
 	if err != nil {
-		return fmt.Errorf("failed to get public key from private key: %w", err)
+		return nil, fmt.Errorf("failed to get public key from private key: %w", err)
 	}
 
 	LexiconPubMultibase = pub.Multibase()
@@ -183,31 +183,36 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) error {
 
 	ses, err := CarStore.NewDeltaSession(ctx, RepoUser, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create delta session: %w", err)
+		return nil, fmt.Errorf("failed to create delta session: %w", err)
 	}
 
 	root, err := CarStore.GetUserRepoHead(ctx, RepoUser)
 	if err != nil {
-		return fmt.Errorf("failed to get user repo head: %w", err)
+		return nil, fmt.Errorf("failed to get user repo head: %w", err)
 	}
 
-	LexiconRepo, err = atrepo.OpenRepo(ctx, ses, root)
-	if err != nil {
-		return fmt.Errorf("failed to open repo: %w", err)
+	if root == cid.Undef {
+		LexiconRepo = atrepo.NewRepo(ctx, cli.MyDID(), ses)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create new repo: %w", err)
+		}
+	} else {
+		LexiconRepo, err = atrepo.OpenRepo(ctx, ses, root)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open repo: %w", err)
+		}
 	}
-
-	// LexiconRepo = atrepo.NewRepo(ctx, cli.MyDID(), ses)
 
 	LexiconPubMultibase = pub.Multibase()
-	lexs, err := walkLexicons(ctx, lexicons.AllFiles, "/")
+	lexs, err := walkLexicons(ctx, AllFiles, "/")
 	if err != nil {
-		return fmt.Errorf("failed to walk lexicon files: %w", err)
+		return nil, fmt.Errorf("failed to walk lexicon files: %w", err)
 	}
 	for _, lex := range lexs {
 		lexFile := lexicon.SchemaFile{}
 		err := json.Unmarshal(lex, &lexFile)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !strings.HasPrefix(lexFile.ID, "place.stream") {
 			continue
@@ -216,18 +221,18 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) error {
 		rpath := fmt.Sprintf("com.atproto.lexicon.schema/%s", lexFile.ID)
 		newCid, err := GetCID(sfw)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		oldCid, _, err := LexiconRepo.GetRecord(ctx, rpath)
 		if errors.Is(err, mst.ErrNotFound) {
 			_, err = LexiconRepo.PutRecord(ctx, rpath, sfw)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			log.Log(ctx, "created new lexicon record", "rpath", rpath, "cid", newCid.String())
 		} else if err != nil {
-			return err
+			return nil, err
 		} else {
 			if newCid.Equals(oldCid) {
 				log.Log(ctx, "new cid is the same as old cid, skipping lexicon record", "rpath", rpath, "cid", newCid.String())
@@ -236,30 +241,30 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) error {
 				log.Log(ctx, "new cid is different from old cid, updating lexicon record", "rpath", rpath, "old", oldCid.String(), "new", newCid.String())
 				_, err = LexiconRepo.UpdateRecord(ctx, rpath, sfw)
 				if err != nil {
-					return err
+					return nil, err
 				}
 			}
 		}
 	}
 	c, rev, err := LexiconRepo.Commit(ctx, signer)
 	if err != nil {
-		return fmt.Errorf("failed to commit: %w", err)
+		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 	log.Log(ctx, "LexiconRepo committed", "cid", c.String(), "rev", rev)
 	_, err = ses.CloseWithRoot(ctx, c, rev)
 	if err != nil {
-		return fmt.Errorf("failed to close delta session: %w", err)
+		return nil, fmt.Errorf("failed to close delta session: %w", err)
 	}
 	roses, err := CarStore.NewDeltaSession(ctx, RepoUser, &rev)
 	if err != nil {
-		return fmt.Errorf("handleComAtprotoRepoListRecords: failed to create delta session: %w", err)
+		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to create delta session: %w", err)
 	}
 
 	base := roses.BaseCid()
 	if base == cid.Undef {
-		return   fmt.Errorf("handleComAtprotoRepoListRecords: delta session has no base cid")
+		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: delta session has no base cid")
 	}
-	return nil
+	return sqlDB, nil
 }
 
 func OpenLexiconRepo(ctx context.Context, cli *config.CLI) (*atrepo.Repo, *carstore.DeltaSession, error) {
@@ -270,7 +275,7 @@ func OpenLexiconRepo(ctx context.Context, cli *config.CLI) (*atrepo.Repo, *carst
 
 	base := ses.BaseCid()
 	if base == cid.Undef {
-		return   nil, nil, fmt.Errorf("handleComAtprotoRepoListRecords: delta session has no base cid")
+		return nil, nil, fmt.Errorf("handleComAtprotoRepoListRecords: delta session has no base cid")
 	}
 
 	r, err := atrepo.OpenRepo(ctx, ses, base)

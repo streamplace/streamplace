@@ -14,27 +14,21 @@ import (
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/bluesky-social/indigo/models"
-	"github.com/bluesky-social/indigo/repomgr"
+	atrepo "github.com/bluesky-social/indigo/repo"
+	"github.com/ipfs/go-cid"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 
 	"github.com/whyrusleeping/go-did"
-	secpEc "gitlab.com/yawning/secp256k1-voi/secec"
 	"stream.place/streamplace/lexicons"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/log"
 )
 
-// var LexiconRepo *repo.Repo
-var LexiconRepo *repomgr.RepoManager
+var LexiconRepo *atrepo.Repo
 var LexiconPubMultibase string
 var RepoUser models.Uid = models.Uid(1)
-
-func init() {
-	err := MakeLexiconRepo(context.Background(), &config.CLI{
-		PublicHost: "fairway.iameli.link",
-	})
-	if err != nil {
-		panic(err)
-	}
-}
+var CarStore carstore.CarStore
 
 func walkLexicons(ctx context.Context, bundle embed.FS, path string) ([][]byte, error) {
 	ret := [][]byte{}
@@ -114,38 +108,55 @@ func (km *SPKeyManager) SignForUser(ctx context.Context, did string, sb []byte) 
 }
 
 func MakeLexiconRepo(ctx context.Context, cli *config.CLI) error {
-	cs := &carstore.SQLiteStore{}
-	err := cs.Open("/home/iameli/carstore.db")
+
+	// CarStore = &carstore.SQLiteStore{}
+	// err := CarStore.Open(cli.DataFilePath([]string{"carstore.db"}))
+
+    db, err := gorm.Open(sqlite.Open(":memory:"))
 	if err != nil {
-		return fmt.Errorf("failed to create carstore: %w", err)
+		return err
 	}
+	fd, err := cli.DataFileCreate([]string{"carstore", "example"}, true)
+	if err != nil {
+		return err
+	}
+	err = fd.Close()
+	if err != nil {
+		return err
+	}
+	CarStore, err = carstore.NewCarStore(db, []string{
+		cli.DataFilePath([]string{"carstore"}),
+	})
+	if err != nil {
+		return err
+	}
+
+	// err := CarStore.Open(":memory:")
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create carstore: %w", err)
+	// }
 	priv, err := atcrypto.GeneratePrivateKeyK256()
 	if err != nil {
-		return fmt.Errorf("failed to generate private key: %w", err)
+		return err
 	}
 
-	k, err := secpEc.NewPrivateKey(priv.Bytes())
-	if err != nil {
-		return fmt.Errorf("failed to create secp256k1 private key: %w", err)
-	}
-	serkey := &did.PrivKey{
-		Raw:  k,
-		Type: did.KeyTypeSecp256k1,
-	}
-
-	km := &SPKeyManager{
-		priv: serkey,
-	}
-
-	repoman := repomgr.NewRepoManager(cs, km)
-
-	if err := repoman.InitNewActor(ctx, RepoUser, cli.PublicHost, fmt.Sprintf("did:web:%s", cli.PublicHost), "foo", "", ""); err != nil {
-		return fmt.Errorf("failed to initialize new actor: %w", err)
-	}
 	pub, err := priv.PublicKey()
 	if err != nil {
 		return fmt.Errorf("failed to get public key from private key: %w", err)
 	}
+
+	LexiconPubMultibase = pub.Multibase()
+	signer := func(ctx context.Context, did string, sb []byte) ([]byte, error) {
+		return priv.HashAndSign(sb)
+	}
+
+	ses, err := CarStore.NewDeltaSession(ctx, RepoUser, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create delta session: %w", err)
+	}
+
+	LexiconRepo = atrepo.NewRepo(ctx, cli.MyDID(), ses)
+
 	LexiconPubMultibase = pub.Multibase()
 	lexs, err := walkLexicons(ctx, lexicons.AllFiles, "/")
 	if err != nil {
@@ -155,24 +166,41 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) error {
 		lexFile := lexicon.SchemaFile{}
 		err := json.Unmarshal(lex, &lexFile)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal lexicon file: %w", err)
+			return err
 		}
 		if !strings.HasPrefix(lexFile.ID, "place.stream") {
 			continue
 		}
 		sfw := &SchemaFileWrapper{SchemaFile: lexFile}
 		rpath := fmt.Sprintf("com.atproto.lexicon.schema/%s", lexFile.ID)
-		_, _, err = repoman.PutRecord(context.TODO(), RepoUser, "com.atproto.lexicon.schema", lexFile.ID, sfw)
+		_, err = LexiconRepo.PutRecord(context.TODO(), rpath, sfw)
 		if err != nil {
-			return fmt.Errorf("failed to put record %s: %w", rpath, err)
+			return err
 		}
-		// _, _, err = repoman.GetRecord(context.TODO(), RepoUser, "com.atproto.lexicon.schema", rkey, cid.Cid{})
-		// if err != nil {
-		// 	return fmt.Errorf("failed to get record %s: %w", rpath, err)
-		// } else {
-		// 	fmt.Printf("put record %s\n", rpath)
-		// }
+		_, _, err = LexiconRepo.GetRecord(context.TODO(), rpath)
+		if err != nil {
+			return fmt.Errorf("failed to get record %s: %w", rpath, err)
+		} else {
+			fmt.Printf("put record %s\n", rpath)
+		}
 	}
-	LexiconRepo = repoman
+	c, rev, err := LexiconRepo.Commit(ctx, signer)
+	if err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
+	log.Log(ctx, "LexiconRepo committed", "cid", c.String(), "rev", rev)
+	_, err = ses.CloseWithRoot(ctx, c, rev)
+	if err != nil {
+		return fmt.Errorf("failed to close delta session: %w", err)
+	}
+	roses, err := CarStore.NewDeltaSession(ctx, RepoUser, &rev)
+	if err != nil {
+		return fmt.Errorf("handleComAtprotoRepoListRecords: failed to create delta session: %w", err)
+	}
+
+	base := roses.BaseCid()
+	if base == cid.Undef {
+		return   fmt.Errorf("handleComAtprotoRepoListRecords: delta session has no base cid")
+	}
 	return nil
 }

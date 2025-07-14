@@ -158,6 +158,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if err != nil {
 		return fmt.Errorf("error creating streamplace dir at %s:%w", cli.DataDir, err)
 	}
+	err = atproto.MakeLexiconRepo(ctx, &cli)
+	if err != nil {
+		return err
+	}
 	schema, err := v0.MakeV0Schema()
 	if err != nil {
 		return err

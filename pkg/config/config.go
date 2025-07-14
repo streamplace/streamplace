@@ -452,3 +452,7 @@ func (cli *CLI) StreamIsAllowed(did string) error {
 	}
 	return fmt.Errorf("user is not allowed to stream")
 }
+
+func (cli *CLI) MyDID() string {
+	return fmt.Sprintf("did:web:%s", cli.PublicHost)
+}

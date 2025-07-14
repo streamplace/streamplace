@@ -11,13 +11,13 @@ import (
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repo"
+	atrepo "github.com/bluesky-social/indigo/repo"
+	cbg "github.com/whyrusleeping/cbor-gen"
+
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-libipfs/blocks"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
-	cbg "github.com/whyrusleeping/cbor-gen"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/log"
@@ -59,29 +59,28 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 	}, nil
 }
 
-func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repoStr string, reverse *bool) (*comatprototypes.RepoListRecords_Output, error) {
+func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse *bool) (*comatprototypes.RepoListRecords_Output, error) {
+	ses, err := atproto.CarStore.NewDeltaSession(ctx, atproto.RepoUser, nil)
+	if err != nil {
+		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to create delta session: %w", err)
+	}
+
+	base := ses.BaseCid()
+	if base == cid.Undef {
+		return   nil, fmt.Errorf("handleComAtprotoRepoListRecords: delta session has no base cid")
+	}
+
+	r, err := atrepo.OpenRepo(ctx, ses, base)
+	if err != nil {
+		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to open repo: %w", err)
+	}
 	out := &comatprototypes.RepoListRecords_Output{
 		Records: []*comatprototypes.RepoListRecords_Record{},
 	}
-
-	root, err := atproto.LexiconRepo.GetRepoRoot(ctx, atproto.RepoUser)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get repo root: %w", err)
-	}
-	cs := atproto.LexiconRepo.CarStore()
-	ses, err := cs.ReadOnlySession(atproto.RepoUser)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create read-only session: %w", err)
-	}
-	r, err := repo.OpenRepo(ctx, ses, root)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open repo: %w", err)
-	}
-
-	err = r.ForEach(ctx, collection, func(rpath string, cid cid.Cid) error {
-		b, err := ses.Get(ctx, cid)
+	err = r.ForEach(ctx, "", func(rkey string, c cid.Cid) error {
+		b, err := ses.Get(ctx, c)
 		if err != nil {
-			return fmt.Errorf("failed to get block: %w", err)
+			return fmt.Errorf("handleComAtprotoRepoListRecords: failed to get record for collection %q, rkey %q: %w", collection, rkey, err)
 		}
 		var val cbg.CBORMarshaler
 		if collection == "com.atproto.lexicon.schema" {
@@ -109,63 +108,28 @@ func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection
 		}
 
 		out.Records = append(out.Records, &comatprototypes.RepoListRecords_Record{
-			Uri:   fmt.Sprintf("at://%s/%s", repoStr, rpath),
-			Cid:   cid.String(),
+			Uri:   fmt.Sprintf("at://%s/%s/%s", repo, collection, rkey),
+			Cid:   c.String(),
 			Value: &lexutil.LexiconTypeDecoder{Val: val},
 		})
 
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to iterate through records: %w", err)
+		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: error iterating records for collection %q: %w", collection, err)
 	}
 	return out, nil
 }
 
-func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, _ string, collection string, repo string, rkey string) (*comatprototypes.RepoGetRecord_Output, error) {
-	var val cbg.CBORMarshaler
-	outCID, val, err := atproto.LexiconRepo.GetRecord(ctx, atproto.RepoUser, collection, rkey, cid.Cid{})
+func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, cid string, collection string, repo string, rkey string) (*comatprototypes.RepoGetRecord_Output, error) {
+	outCID, rec, err := atproto.LexiconRepo.GetRecord(ctx, fmt.Sprintf("%s/%s", collection, rkey))
 	if err != nil {
 		return nil, err
-	}
-	if collection == "com.atproto.lexicon.schema" {
-		// repomgr doesn't support getting the raw blocks for a schema file, so we
-		// have to get the proof and find the schema file in it.
-		_, blks, err := atproto.LexiconRepo.GetRecordProof(ctx, atproto.RepoUser, collection, rkey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get record proof: %w", err)
-		}
-		var b blocks.Block
-		for _, blk := range blks {
-			if blk.Cid().Equals(outCID) {
-				b = blk
-				break
-			}
-		}
-		if b == nil {
-			return nil, fmt.Errorf("couldn't find schema file in merkle proof")
-		}
-		sfMap, err := data.UnmarshalCBOR(b.RawData())
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal schema file: %w", err)
-		}
-		jbs, err := json.Marshal(sfMap)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal schema file: %w", err)
-		}
-		sf := lexicon.SchemaFile{}
-		err = json.Unmarshal(jbs, &sf)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal schema file: %w", err)
-		}
-		val = &atproto.SchemaFileWrapper{
-			SchemaFile: sf,
-		}
 	}
 	str := outCID.String()
 	return &comatprototypes.RepoGetRecord_Output{
 		Uri:   fmt.Sprintf("at://%s/%s/%s", repo, collection, rkey),
 		Cid:   &str,
-		Value: &lexutil.LexiconTypeDecoder{Val: val},
+		Value: &lexutil.LexiconTypeDecoder{Val: rec},
 	}, nil
 }

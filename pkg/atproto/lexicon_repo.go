@@ -13,9 +13,11 @@ import (
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 	"github.com/bluesky-social/indigo/carstore"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	atrepo "github.com/bluesky-social/indigo/repo"
 	"github.com/ipfs/go-cid"
+	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -203,4 +205,55 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) error {
 		return   fmt.Errorf("handleComAtprotoRepoListRecords: delta session has no base cid")
 	}
 	return nil
+}
+
+func OpenLexiconRepo(ctx context.Context, cli *config.CLI) (*atrepo.Repo, *carstore.DeltaSession, error) {
+	ses, err := CarStore.NewDeltaSession(ctx, RepoUser, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to create delta session: %w", err)
+	}
+
+	base := ses.BaseCid()
+	if base == cid.Undef {
+		return   nil, nil, fmt.Errorf("handleComAtprotoRepoListRecords: delta session has no base cid")
+	}
+
+	r, err := atrepo.OpenRepo(ctx, ses, base)
+	if err != nil {
+		return nil, nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to open repo: %w", err)
+	}
+	return r, ses, nil
+}
+
+// Get record that handles special-casing for com.atproto.lexicon.schema
+func GetRecordCBOR(ctx context.Context, ses *carstore.DeltaSession, c cid.Cid, collection string, rkey string) (cbg.CBORMarshaler, error) {
+	b, err := ses.Get(ctx, c)
+	if err != nil {
+		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to get record for collection %q, rkey %q: %w", collection, rkey, err)
+	}
+	var val cbg.CBORMarshaler
+	if collection == "com.atproto.lexicon.schema" {
+		sfMap, err := data.UnmarshalCBOR(b.RawData())
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal schema file: %w", err)
+		}
+		jbs, err := json.Marshal(sfMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal schema file: %w", err)
+		}
+		sf := lexicon.SchemaFile{}
+		err = json.Unmarshal(jbs, &sf)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal schema file: %w", err)
+		}
+		val = &SchemaFileWrapper{
+			SchemaFile: sf,
+		}
+	} else {
+		val, err = lexutil.CborDecodeValue(b.RawData())
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode record: %w", err)
+		}
+	}
+	return val, nil
 }

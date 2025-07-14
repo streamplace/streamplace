@@ -2,17 +2,12 @@ package spxrpc
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/data"
-	"github.com/bluesky-social/indigo/atproto/lexicon"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
-	atrepo "github.com/bluesky-social/indigo/repo"
-	cbg "github.com/whyrusleeping/cbor-gen"
 
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
@@ -60,17 +55,7 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 }
 
 func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse *bool) (*comatprototypes.RepoListRecords_Output, error) {
-	ses, err := atproto.CarStore.NewDeltaSession(ctx, atproto.RepoUser, nil)
-	if err != nil {
-		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to create delta session: %w", err)
-	}
-
-	base := ses.BaseCid()
-	if base == cid.Undef {
-		return   nil, fmt.Errorf("handleComAtprotoRepoListRecords: delta session has no base cid")
-	}
-
-	r, err := atrepo.OpenRepo(ctx, ses, base)
+	r, ses, err := atproto.OpenLexiconRepo(ctx, s.cli)
 	if err != nil {
 		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to open repo: %w", err)
 	}
@@ -78,35 +63,10 @@ func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection
 		Records: []*comatprototypes.RepoListRecords_Record{},
 	}
 	err = r.ForEach(ctx, "", func(rkey string, c cid.Cid) error {
-		b, err := ses.Get(ctx, c)
+		val, err := atproto.GetRecordCBOR(ctx, ses, c, collection, rkey)
 		if err != nil {
 			return fmt.Errorf("handleComAtprotoRepoListRecords: failed to get record for collection %q, rkey %q: %w", collection, rkey, err)
 		}
-		var val cbg.CBORMarshaler
-		if collection == "com.atproto.lexicon.schema" {
-			sfMap, err := data.UnmarshalCBOR(b.RawData())
-			if err != nil {
-				return fmt.Errorf("failed to unmarshal schema file: %w", err)
-			}
-			jbs, err := json.Marshal(sfMap)
-			if err != nil {
-				return fmt.Errorf("failed to marshal schema file: %w", err)
-			}
-			sf := lexicon.SchemaFile{}
-			err = json.Unmarshal(jbs, &sf)
-			if err != nil {
-				return fmt.Errorf("failed to unmarshal schema file: %w", err)
-			}
-			val = &atproto.SchemaFileWrapper{
-				SchemaFile: sf,
-			}
-		} else {
-			val, err = lexutil.CborDecodeValue(b.RawData())
-			if err != nil {
-				return fmt.Errorf("failed to decode record: %w", err)
-			}
-		}
-
 		out.Records = append(out.Records, &comatprototypes.RepoListRecords_Record{
 			Uri:   fmt.Sprintf("at://%s/%s/%s", repo, collection, rkey),
 			Cid:   c.String(),
@@ -121,10 +81,18 @@ func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection
 	return out, nil
 }
 
-func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, cid string, collection string, repo string, rkey string) (*comatprototypes.RepoGetRecord_Output, error) {
-	outCID, rec, err := atproto.LexiconRepo.GetRecord(ctx, fmt.Sprintf("%s/%s", collection, rkey))
+func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, repo string, rkey string) (*comatprototypes.RepoGetRecord_Output, error) {
+	r, ses, err := atproto.OpenLexiconRepo(ctx, s.cli)
+	if err != nil {
+		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to open repo: %w", err)
+	}
+	outCID, _, err := r.GetRecord(ctx, fmt.Sprintf("%s/%s", collection, rkey))
 	if err != nil {
 		return nil, err
+	}
+	rec, err := atproto.GetRecordCBOR(ctx, ses, outCID, collection, rkey)
+	if err != nil {
+		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to get record: %w", err)
 	}
 	str := outCID.String()
 	return &comatprototypes.RepoGetRecord_Output{

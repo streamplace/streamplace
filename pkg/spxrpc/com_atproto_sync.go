@@ -1,10 +1,18 @@
 package spxrpc
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"io"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
+	"github.com/ipfs/go-cid"
+	cbor "github.com/ipfs/go-ipld-cbor"
+	"github.com/ipld/go-car"
 	"stream.place/streamplace/pkg/atproto"
 )
 
@@ -23,29 +31,47 @@ func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context, cursor strin
 }
 
 func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, did string, rkey string) (io.Reader, error) {
-	panic("NYI")
-	// root, blocks, err := atproto.LexiconRepo.GetRecordProof(ctx, atproto.RepoUser, collection, rkey)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get record proof: %w", err)
-	// }
+	_, robs, err := atproto.OpenLexiconRepo(ctx, s.cli)
+	if err != nil {
+		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to open repo: %w", err)
+	}
 
-	// buf := new(bytes.Buffer)
-	// hb, err := cbor.DumpObject(&car.CarHeader{
-	// 	Roots:   []cid.Cid{root},
-	// 	Version: 1,
-	// })
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to dump car header: %w", err)
-	// }
-	// if _, err := carstore.LdWrite(buf, hb); err != nil {
-	// 	return nil, err
-	// }
+	bs := util.NewLoggingBstore(robs)
 
-	// for _, blk := range blocks {
-	// 	if _, err := carstore.LdWrite(buf, blk.Cid().Bytes(), blk.RawData()); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
+	root, err := atproto.CarStore.GetUserRepoHead(ctx, atproto.RepoUser)
+	if err != nil {
+		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to get user repo head: %w", err)
+	}
 
-	// return buf, nil
+	r, err := repo.OpenRepo(ctx, bs, root)
+	if err != nil {
+		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to open repo: %w", err)
+	}
+
+	_, _, err = r.GetRecordBytes(ctx, collection+"/"+rkey)
+	if err != nil {
+		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to get record bytes: %w", err)
+	}
+
+	blocks := bs.GetLoggedBlocks()
+
+	buf := new(bytes.Buffer)
+	hb, err := cbor.DumpObject(&car.CarHeader{
+		Roots:   []cid.Cid{root},
+		Version: 1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to dump car header: %w", err)
+	}
+	if _, err := carstore.LdWrite(buf, hb); err != nil {
+		return nil, err
+	}
+
+	for _, blk := range blocks {
+		if _, err := carstore.LdWrite(buf, blk.Cid().Bytes(), blk.RawData()); err != nil {
+			return nil, err
+		}
+	}
+
+	return bytes.NewReader(buf.Bytes()), nil
 }

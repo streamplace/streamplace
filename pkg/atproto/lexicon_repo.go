@@ -9,7 +9,9 @@ import (
 	"io"
 	"io/fs"
 	"strings"
+	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/lexicon"
@@ -18,6 +20,7 @@ import (
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/mst"
 	atrepo "github.com/bluesky-social/indigo/repo"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/driver/sqlite"
@@ -27,12 +30,16 @@ import (
 	"stream.place/streamplace/lexicons"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 )
 
 var LexiconRepo *atrepo.Repo
 var LexiconPubMultibase string
 var RepoUser models.Uid = models.Uid(1)
 var CarStore carstore.CarStore
+var ActionCreate = "create"
+var ActionUpdate = "update"
+var ActionDelete = "delete"
 
 func walkLexicons(ctx context.Context, bundle fs.FS, path string) ([][]byte, error) {
 	ret := [][]byte{}
@@ -117,7 +124,7 @@ type Closer interface {
 	Close() error
 }
 
-func MakeLexiconRepo(ctx context.Context, cli *config.CLI) (Closer, error) {
+func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model) (Closer, error) {
 	ctx = log.WithLogValues(ctx, "func", "MakeLexiconRepo")
 	fd, err := cli.DataFileCreate([]string{"carstore", "empty"}, true)
 	if err != nil {
@@ -211,6 +218,9 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) (Closer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk lexicon files: %w", err)
 	}
+
+	ops := []*comatproto.SyncSubscribeRepos_RepoOp{}
+
 	for _, lex := range lexs {
 		lexFile := lexicon.SchemaFile{}
 		err := json.Unmarshal(lex, &lexFile)
@@ -226,6 +236,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) (Closer, error) {
 		if err != nil {
 			return nil, err
 		}
+		cidLink := lexutil.LexLink(*newCid)
 
 		oldCid, _, err := LexiconRepo.GetRecord(ctx, rpath)
 		if errors.Is(err, mst.ErrNotFound) {
@@ -234,6 +245,11 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) (Closer, error) {
 				return nil, err
 			}
 			log.Log(ctx, "created new lexicon record", "rpath", rpath, "cid", newCid.String())
+			ops = append(ops, &comatproto.SyncSubscribeRepos_RepoOp{
+				Action: ActionCreate,
+				Path:   rpath,
+				Cid:    &cidLink,
+			})
 		} else if err != nil {
 			return nil, err
 		} else {
@@ -246,17 +262,41 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI) (Closer, error) {
 				if err != nil {
 					return nil, err
 				}
+				oldLink := lexutil.LexLink(oldCid)
+				ops = append(ops, &comatproto.SyncSubscribeRepos_RepoOp{
+					Action: ActionUpdate,
+					Path:   rpath,
+					Prev:   &oldLink,
+					Cid:    &cidLink,
+				})
 			}
 		}
 		currentRoot, currentRev, err = LexiconRepo.Commit(ctx, signer)
 		if err != nil {
 			return nil, fmt.Errorf("failed to commit: %w", err)
 		}
+
 		log.Log(ctx, "LexiconRepo committed", "cid", currentRoot.String(), "rev", currentRev)
 	}
-	_, err = ses.CloseWithRoot(ctx, currentRoot, currentRev)
+	blocks, err := ses.CloseWithRoot(ctx, currentRoot, currentRev)
 	if err != nil {
 		return nil, fmt.Errorf("failed to close delta session: %w", err)
+	}
+	if len(ops) > 0 {
+		commit := &comatproto.SyncSubscribeRepos_Commit{
+			Repo:   cli.MyDID(),
+			Blocks: blocks,
+			Rev:    currentRev,
+			// Since:  currentRev,
+			Commit: lexutil.LexLink(currentRoot),
+			Time:   time.Now().Format(util.ISO8601),
+			Ops:    ops,
+			TooBig: false,
+		}
+		err := mod.CreateCommitEvent(commit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create commit event: %w", err)
+		}
 	}
 
 	return sqlDB, nil

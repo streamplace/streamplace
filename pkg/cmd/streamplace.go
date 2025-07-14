@@ -158,11 +158,6 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if err != nil {
 		return fmt.Errorf("error creating streamplace dir at %s:%w", cli.DataDir, err)
 	}
-	handle, err := atproto.MakeLexiconRepo(ctx, &cli)
-	if err != nil {
-		return err
-	}
-	defer handle.Close()
 	schema, err := v0.MakeV0Schema()
 	if err != nil {
 		return err
@@ -252,6 +247,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if err != nil {
 		return err
 	}
+	handle, err := atproto.MakeLexiconRepo(ctx, &cli, mod)
+	if err != nil {
+		return err
+	}
+	defer handle.Close()
 	var noter notifications.FirebaseNotifier
 	if cli.FirebaseServiceAccount != "" {
 		noter, err = notifications.MakeFirebaseNotifier(ctx, cli.FirebaseServiceAccount)

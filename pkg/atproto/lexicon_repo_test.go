@@ -6,18 +6,24 @@ import (
 	"io/fs"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/lexicons"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/model"
 )
 
 func TestLexiconRepo(t *testing.T) {
-	cli := config.CLI{}
+	cli := config.CLI{
+		PublicHost: "example.com",
+	}
 	cli.DataDir = t.TempDir()
+	mod, err := model.MakeDB(":memory:")
+	require.NoError(t, err)
 
 	// creating a new repo
-	handle, err := MakeLexiconRepo(context.Background(), &cli)
+	handle, err := MakeLexiconRepo(context.Background(), &cli, mod)
 	require.NoError(t, err)
 	r, sess, err := OpenLexiconRepo(context.Background())
 	require.NoError(t, err)
@@ -30,8 +36,13 @@ func TestLexiconRepo(t *testing.T) {
 	require.NotNil(t, rec)
 	handle.Close()
 
+	evts, err := mod.GetCommitEventsSince(cli.MyDID(), time.Time{})
+	require.NoError(t, err)
+	require.Len(t, evts, 1)
+	require.Equal(t, evts[0].RepoDID, cli.MyDID())
+
 	// opening an existing repo
-	handle, err = MakeLexiconRepo(context.Background(), &cli)
+	handle, err = MakeLexiconRepo(context.Background(), &cli, mod)
 	require.NoError(t, err)
 	handle.Close()
 
@@ -81,9 +92,16 @@ func TestLexiconRepo(t *testing.T) {
 	AllFiles = modifiedFS
 
 	// opening an existing repo with modified lexicon
-	handle, err = MakeLexiconRepo(context.Background(), &cli)
+	handle, err = MakeLexiconRepo(context.Background(), &cli, mod)
 	require.NoError(t, err)
 	handle.Close()
 
-	// Now modifiedFS is a fs.FS with the first file modified
+	evts, err = mod.GetCommitEventsSince(cli.MyDID(), time.Time{})
+	require.NoError(t, err)
+	require.Len(t, evts, 2)
+	require.Equal(t, evts[0].RepoDID, cli.MyDID())
+	require.Equal(t, evts[1].RepoDID, cli.MyDID())
+	commit, err := evts[1].ToCommitEvent()
+	require.NoError(t, err)
+	require.Equal(t, commit.Since, &evts[0].CID)
 }

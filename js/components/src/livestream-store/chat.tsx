@@ -255,17 +255,20 @@ export const reduceChatIncremental = (
 
         if (parentMsgKey) {
           const parentMsg = newChatIndex[parentMsgKey];
-          processedMessage = {
-            ...message,
-            replyTo: {
-              cid: parentMsg.cid,
-              uri: parentMsg.uri,
-              author: parentMsg.author,
-              record: parentMsg.record,
-              chatProfile: parentMsg.chatProfile,
-              indexedAt: parentMsg.indexedAt,
-            },
-          };
+          // Don't allow replies to system messages
+          if (parentMsg.author.did !== "system") {
+            processedMessage = {
+              ...message,
+              replyTo: {
+                cid: parentMsg.cid,
+                uri: parentMsg.uri,
+                author: parentMsg.author,
+                record: parentMsg.record,
+                chatProfile: parentMsg.chatProfile,
+                indexedAt: parentMsg.indexedAt,
+              },
+            };
+          }
         }
       }
     }

@@ -10,6 +10,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { ChatMessageViewHydrated } from "streamplace";
 import {
+  SystemMessage,
   Text,
   useChat,
   usePlayerStore,
@@ -173,6 +174,21 @@ const ChatLine = memo(
         }
       };
     }, []);
+
+    // Check if this is a system message
+    const isSystemMessage = item.author.did === "did:sys:system";
+
+    // For system messages, render without swipe gestures
+    if (isSystemMessage) {
+      return (
+        <View style={[py[1]]}>
+          <SystemMessage
+            title={item.record.text}
+            timestamp={new Date(item.record.createdAt)}
+          />
+        </View>
+      );
+    }
 
     if (isMouseDriven) {
       return (

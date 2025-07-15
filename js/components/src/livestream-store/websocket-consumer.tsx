@@ -9,6 +9,7 @@ import {
   PlaceStreamLivestream,
   PlaceStreamSegment,
 } from "streamplace";
+import { SystemMessages } from "../lib/system-messages";
 import { reduceChat } from "./chat";
 import { LivestreamState } from "./livestream-state";
 
@@ -18,9 +19,23 @@ export const handleWebSocketMessages = (
 ): LivestreamState => {
   for (const message of messages) {
     if (PlaceStreamLivestream.isLivestreamView(message)) {
+      const newLivestream = message as LivestreamViewHydrated;
+      const oldLivestream = state.livestream;
+
+      // check if this is actually new
+      if (!oldLivestream || oldLivestream.uri !== newLivestream.uri) {
+        const streamTitle = newLivestream.record.title || "something cool!";
+        const systemMessage = SystemMessages.streamStart(streamTitle);
+        // set proper times
+        systemMessage.indexedAt = newLivestream.indexedAt;
+        systemMessage.record.createdAt = newLivestream.record.createdAt;
+
+        state = reduceChat(state, [systemMessage], []);
+      }
+
       state = {
         ...state,
-        livestream: message as LivestreamViewHydrated,
+        livestream: newLivestream,
       };
     } else if (PlaceStreamLivestream.isViewerCount(message)) {
       state = {

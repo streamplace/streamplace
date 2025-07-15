@@ -186,7 +186,8 @@ export const RenderChatMessage = memo(
   (prevProps, nextProps) => {
     return (
       prevProps.item.author.handle === nextProps.item.author.handle &&
-      prevProps.item.record.text === nextProps.item.record.text
+      prevProps.item.record.text === nextProps.item.record.text &&
+      prevProps.item.uri === nextProps.item.uri
     );
   },
 );

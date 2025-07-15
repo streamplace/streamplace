@@ -100,7 +100,10 @@ func TestLexiconRepo(t *testing.T) {
 	require.Len(t, evts, 2)
 	require.Equal(t, evts[0].RepoDID, cli.MyDID())
 	require.Equal(t, evts[1].RepoDID, cli.MyDID())
-	commit, err := evts[1].ToCommitEvent()
+	oldCommit, err := evts[0].ToCommitEvent()
 	require.NoError(t, err)
-	require.Equal(t, commit.Since, &evts[0].CID)
+	newCommit, err := evts[1].ToCommitEvent()
+	require.NoError(t, err)
+	require.Equal(t, newCommit.Since, &oldCommit.Rev)
+	require.Equal(t, newCommit.PrevData.String(), evts[0].SignedData)
 }

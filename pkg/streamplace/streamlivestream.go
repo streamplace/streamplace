@@ -24,7 +24,7 @@ type Livestream struct {
 	// post: The post that announced this livestream.
 	Post  *comatprototypes.RepoStrongRef `json:"post,omitempty" cborgen:"post,omitempty"`
 	Thumb *util.LexBlob                  `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
-	// title: The title of the livestream, as it will be announced to followers.
+	// title: The title of the livestream, as it will be announced to followers!
 	Title string `json:"title" cborgen:"title"`
 	// url: The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.
 	Url *string `json:"url,omitempty" cborgen:"url,omitempty"`

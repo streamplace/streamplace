@@ -6,15 +6,19 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
+	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
 )
 
 type XrpcStreamEvent struct {
-	CID       string    `json:"cid" gorm:"primaryKey"`
-	RepoDID   string    `json:"repoDID" gorm:"index:idx_repo_timestamp,priority:1;column:repo_did"`
-	Timestamp time.Time `json:"timestamp" gorm:"index:idx_repo_timestamp,priority:2;column:timestamp"`
-	Data      []byte    `json:"data"`
+	CID        string    `json:"cid" gorm:"primaryKey"`
+	RepoDID    string    `json:"repoDID" gorm:"index:idx_repo_timestamp,priority:1;index:idx_repo_seq,priority:1;column:repo_did"`
+	Timestamp  time.Time `json:"timestamp" gorm:"index:idx_repo_timestamp,priority:2;column:timestamp"`
+	Data       []byte    `json:"data"`
+	SignedData string    `json:"signedData" gorm:"column:signed_data"`
+	Seq        int64     `json:"seq" gorm:"index:idx_repo_seq,priority:2;column:seq"`
 }
 
 func (ev *XrpcStreamEvent) ToCommitEvent() (*comatproto.SyncSubscribeRepos_Commit, error) {
@@ -26,13 +30,26 @@ func (ev *XrpcStreamEvent) ToCommitEvent() (*comatproto.SyncSubscribeRepos_Commi
 	return commit, nil
 }
 
-func (m *DBModel) CreateCommitEvent(commit *comatproto.SyncSubscribeRepos_Commit) error {
+func (m *DBModel) CreateCommitEvent(commit *comatproto.SyncSubscribeRepos_Commit, signedData string) error {
 	prev, err := m.GetMostRecentCommitEvent(commit.Repo)
 	if err != nil {
 		return err
 	}
 	if prev != nil {
-		commit.Since = &prev.CID
+		prevCommit, err := prev.ToCommitEvent()
+		if err != nil {
+			return err
+		}
+		commit.Seq = prevCommit.Seq + 1
+		c, err := cid.Parse(prev.SignedData)
+		if err != nil {
+			return err
+		}
+		ll := lexutil.LexLink(c)
+		commit.PrevData = &ll
+		commit.Since = &prevCommit.Rev
+	} else {
+		commit.Seq = 1
 	}
 	buf := bytes.Buffer{}
 	err = commit.MarshalCBOR(&buf)
@@ -44,10 +61,12 @@ func (m *DBModel) CreateCommitEvent(commit *comatproto.SyncSubscribeRepos_Commit
 		return err
 	}
 	event := &XrpcStreamEvent{
-		CID:       commit.Commit.String(),
-		RepoDID:   commit.Repo,
-		Timestamp: timestamp.UTC(),
-		Data:      buf.Bytes(),
+		CID:        commit.Commit.String(),
+		RepoDID:    commit.Repo,
+		Timestamp:  timestamp.UTC(),
+		Data:       buf.Bytes(),
+		Seq:        commit.Seq,
+		SignedData: signedData,
 	}
 	return m.DB.Create(event).Error
 }
@@ -56,6 +75,17 @@ func (m *DBModel) GetCommitEventsSince(repoDID string, t time.Time) ([]*XrpcStre
 	var events []*XrpcStreamEvent
 	query := m.DB.Where("repo_did = ?", repoDID)
 	query = query.Where("timestamp > ?", t.UTC())
+	err := query.Order("timestamp ASC").Find(&events).Error
+	if err != nil {
+		return nil, err
+	}
+	return events, nil
+}
+
+func (m *DBModel) GetCommitEventsSinceSeq(repoDID string, seq int64) ([]*XrpcStreamEvent, error) {
+	var events []*XrpcStreamEvent
+	query := m.DB.Where("repo_did = ?", repoDID)
+	query = query.Where("seq > ?", seq)
 	err := query.Order("timestamp ASC").Find(&events).Error
 	if err != nil {
 		return nil, err

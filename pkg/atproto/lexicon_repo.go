@@ -282,18 +282,20 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model) (Clo
 	if err != nil {
 		return nil, fmt.Errorf("failed to close delta session: %w", err)
 	}
+	signed := LexiconRepo.SignedCommit()
+	log.Log(ctx, "signed commit", "did", signed.Did, "data", signed.Data, "prev", signed.Prev, "rev", signed.Rev)
+	log.Log(ctx, "closeWithRoot", "currentRoot", currentRoot.String(), "currentRev", currentRev)
 	if len(ops) > 0 {
 		commit := &comatproto.SyncSubscribeRepos_Commit{
 			Repo:   cli.MyDID(),
 			Blocks: blocks,
 			Rev:    currentRev,
-			// Since:  currentRev,
 			Commit: lexutil.LexLink(currentRoot),
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    ops,
 			TooBig: false,
 		}
-		err := mod.CreateCommitEvent(commit)
+		err := mod.CreateCommitEvent(commit, signed.Data.String())
 		if err != nil {
 			return nil, fmt.Errorf("failed to create commit event: %w", err)
 		}

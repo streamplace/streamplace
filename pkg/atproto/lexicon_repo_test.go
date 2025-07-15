@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"testing"
 	"testing/fstest"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/lexicons"
@@ -36,7 +35,7 @@ func TestLexiconRepo(t *testing.T) {
 	require.NotNil(t, rec)
 	handle.Close()
 
-	evts, err := mod.GetCommitEventsSince(cli.MyDID(), time.Time{})
+	evts, err := mod.GetCommitEventsSinceSeq(cli.MyDID(), 0)
 	require.NoError(t, err)
 	require.Len(t, evts, 1)
 	require.Equal(t, evts[0].RepoDID, cli.MyDID())
@@ -96,7 +95,7 @@ func TestLexiconRepo(t *testing.T) {
 	require.NoError(t, err)
 	handle.Close()
 
-	evts, err = mod.GetCommitEventsSince(cli.MyDID(), time.Time{})
+	evts, err = mod.GetCommitEventsSinceSeq(cli.MyDID(), 0)
 	require.NoError(t, err)
 	require.Len(t, evts, 2)
 	require.Equal(t, evts[0].RepoDID, cli.MyDID())

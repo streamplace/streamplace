@@ -44,6 +44,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, op *oatp
 	e.GET("/xrpc/_health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"version": cli.Build.Version})
 	})
+	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleComAtprotoSyncSubscribeRepos)
 	e.GET("/xrpc/*", s.HandleWildcard)
 	e.POST("/xrpc/*", s.HandleWildcard)
 	return s, nil

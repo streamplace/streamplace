@@ -92,4 +92,3 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 
 	return liveUsers, nil
 }
-

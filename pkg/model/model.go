@@ -98,8 +98,9 @@ type Model interface {
 	GetServerSettings(ctx context.Context, server string, repoDID string) (*ServerSettings, error)
 	DeleteServerSettings(ctx context.Context, server string, repoDID string) error
 
-	CreateCommitEvent(commit *comatproto.SyncSubscribeRepos_Commit) error
+	CreateCommitEvent(commit *comatproto.SyncSubscribeRepos_Commit, signedData string) error
 	GetCommitEventsSince(repoDID string, t time.Time) ([]*XrpcStreamEvent, error)
+	GetCommitEventsSinceSeq(repoDID string, seq int64) ([]*XrpcStreamEvent, error)
 	GetMostRecentCommitEvent(repoDID string) (*XrpcStreamEvent, error)
 }
 

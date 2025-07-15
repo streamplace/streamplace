@@ -5,15 +5,21 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+	"strconv"
 
 	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
+	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
+	"github.com/gorilla/websocket"
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car"
+	"github.com/labstack/echo/v4"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/log"
 )
 
 func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
@@ -76,81 +82,71 @@ func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection s
 	return bytes.NewReader(buf.Bytes()), nil
 }
 
-// func (s *Server) handleComAtprotoSyncSubscribeRepos(c echo.Context) error {
-// 	conn, err := websocket.Upgrade(c.Response().Writer, c.Request(), c.Response().Header(), 1<<10, 1<<10)
-// 	if err != nil {
-// 		return err
-// 	}
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
 
-// 	ctx := c.Request().Context()
+func (s *Server) handleComAtprotoSyncSubscribeRepos(c echo.Context) error {
+	ctx := log.WithLogValues(c.Request().Context(), "client_ip", c.RealIP(), "user_agent", c.Request().UserAgent())
+	cursor := c.QueryParam("cursor")
 
-// 	ident := c.RealIP() + "-" + c.Request().UserAgent()
+	if cursor == "" {
+		cursor = "0"
+	}
 
-// 	evts, cancel, err := s.events.Subscribe(ctx, ident, func(evt *events.XRPCStreamEvent) bool {
-// 		if !s.enforcePeering {
-// 			return true
-// 		}
-// 		if peering.ID == 0 {
-// 			return true
-// 		}
+	seq, err := strconv.Atoi(cursor)
+	if err != nil {
+		return err
+	}
 
-// 		for _, pid := range evt.PrivRelevantPds {
-// 			if pid == peering.ID {
-// 				return true
-// 			}
-// 		}
+	conn, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+	if err != nil {
+		return err
+	}
 
-// 		return false
-// 	}, nil)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer cancel()
+	evts, err := s.model.GetCommitEventsSinceSeq(atproto.LexiconRepo.RepoDid(), int64(seq))
+	if err != nil {
+		return err
+	}
 
-// 	header := events.EventHeader{Op: events.EvtKindMessage}
-// 	for evt := range evts {
-// 		wc, err := conn.NextWriter(websocket.BinaryMessage)
-// 		if err != nil {
-// 			return err
-// 		}
+	log.Log(ctx, "got com.atproto.sync.subscribeRepos", "cursor", c.QueryParam("cursor"), "eventCount", len(evts))
 
-// 		var obj lexutil.CBOR
+	header := events.EventHeader{Op: events.EvtKindMessage}
+	for _, evt := range evts {
+		commit, err := evt.ToCommitEvent()
+		if err != nil {
+			return err
+		}
 
-// 		switch {
-// 		case evt.Error != nil:
-// 			header.Op = events.EvtKindErrorFrame
-// 			obj = evt.Error
-// 		case evt.RepoCommit != nil:
-// 			header.MsgType = "#commit"
-// 			obj = evt.RepoCommit
-// 		case evt.RepoSync != nil:
-// 			header.MsgType = "#sync"
-// 			obj = evt.RepoSync
-// 		case evt.RepoIdentity != nil:
-// 			header.MsgType = "#identity"
-// 			obj = evt.RepoIdentity
-// 		case evt.RepoAccount != nil:
-// 			header.MsgType = "#account"
-// 			obj = evt.RepoAccount
-// 		case evt.RepoInfo != nil:
-// 			header.MsgType = "#info"
-// 			obj = evt.RepoInfo
-// 		default:
-// 			return fmt.Errorf("unrecognized event kind")
-// 		}
+		wc, err := conn.NextWriter(websocket.BinaryMessage)
+		if err != nil {
+			return err
+		}
+		header.MsgType = "#commit"
 
-// 		if err := header.MarshalCBOR(wc); err != nil {
-// 			return fmt.Errorf("failed to write header: %w", err)
-// 		}
+		if err := header.MarshalCBOR(wc); err != nil {
+			return fmt.Errorf("failed to write header: %w", err)
+		}
 
-// 		if err := obj.MarshalCBOR(wc); err != nil {
-// 			return fmt.Errorf("failed to write event: %w", err)
-// 		}
+		if err := commit.MarshalCBOR(wc); err != nil {
+			return fmt.Errorf("failed to write event: %w", err)
+		}
 
-// 		if err := wc.Close(); err != nil {
-// 			return fmt.Errorf("failed to flush-close our event write: %w", err)
-// 		}
-// 	}
+		if err := wc.Close(); err != nil {
+			return fmt.Errorf("failed to flush-close our event write: %w", err)
+		}
+	}
 
-// 	return nil
-// }
+	// We don't have anything else to do but we'll keep the socket open until the client disconnects
+	for {
+		_, _, err = conn.ReadMessage()
+		if err != nil {
+			log.Log(c.Request().Context(), "client disconnected", "error", err)
+			return nil
+		}
+	}
+}

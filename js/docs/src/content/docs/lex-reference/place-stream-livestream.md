@@ -21,7 +21,7 @@ Record announcing a livestream is happening
 
 | Name        | Type                                                                                                                                   | Req'd | Description                                                                                                                      | Constraints                                   |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `title`     | `string`                                                                                                                               | ✅    | The title of the livestream, as it will be announced to followers.                                                               | Max Length: 1400<br/>Max Graphemes: 140       |
+| `title`     | `string`                                                                                                                               | ✅    | The title of the livestream, as it will be announced to followers!                                                               | Max Length: 1400<br/>Max Graphemes: 140       |
 | `url`       | `string`                                                                                                                               | ❌    | The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream. | Format: `uri`                                 |
 | `createdAt` | `string`                                                                                                                               | ✅    | Client-declared timestamp when this livestream started.                                                                          | Format: `datetime`                            |
 | `post`      | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | The post that announced this livestream.                                                                                         |                                               |
@@ -95,7 +95,7 @@ Record announcing a livestream is happening
             "type": "string",
             "maxLength": 1400,
             "maxGraphemes": 140,
-            "description": "The title of the livestream, as it will be announced to followers."
+            "description": "The title of the livestream, as it will be announced to followers!"
           },
           "url": {
             "type": "string",

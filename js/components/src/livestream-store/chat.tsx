@@ -215,7 +215,7 @@ export const reduceChatIncremental = (
         if (parentMsgKey) {
           const parentMsg = newChatIndex[parentMsgKey];
           // Don't allow replies to system messages
-          if (parentMsg.author.did !== "system") {
+          if (parentMsg.author.did !== "did:sys:system") {
             processedMessage = {
               ...message,
               replyTo: {

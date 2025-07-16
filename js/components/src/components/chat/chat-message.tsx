@@ -59,7 +59,6 @@ const segmentedObject = (
     } else if (ftr.$type === "app.bsky.richtext.facet#mention") {
       let mtnftr = ftr as $Typed<Mention>;
       const profile = userCache?.[mtnftr.did];
-      console.log(profile, mtnftr.did, userCache);
       return (
         <Text
           key={`mention-${index}`}

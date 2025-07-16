@@ -91,7 +91,10 @@ export function Player(
             <Button
               style={[w.percent[40]]}
               onPress={() =>
-                navigation.navigate("MobileStream", { user: userProfile?.did })
+                navigation.navigate("Home", {
+                  screen: "Stream",
+                  params: { user: userProfile?.did },
+                })
               }
             >
               <View

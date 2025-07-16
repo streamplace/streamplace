@@ -121,7 +121,7 @@ type RootStackParamList = {
   Download: undefined;
   PopoutChat: { user: string };
   Embed: { user: string };
-  MobileStream: { user: string };
+  LegacyStream: { user: string };
   MobileGoLive: undefined;
 };
 
@@ -157,7 +157,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Download: "download",
       PopoutChat: "chat-popout/:user",
       Embed: "embed/:user",
-      MobileStream: "mobile/:user",
+      LegacyStream: "legacy/:user",
       MobileGoLive: "mobile-golive",
     },
   },
@@ -556,8 +556,8 @@ export function StreamplaceDrawer() {
           }}
         />
         <Drawer.Screen
-          name="MobileStream"
-          component={MobileStream}
+          name="LegacyStream"
+          component={StreamScreen}
           options={{
             headerTitle: "Stream",
             drawerItemStyle: { display: "none" },
@@ -641,7 +641,7 @@ const MainTab = () => {
       />
       <Stack.Screen
         name="Stream"
-        component={isWeb ? StreamScreen : MobileStream}
+        component={MobileStream}
         options={{
           headerTitle: "Stream",
           title: "Streamplace Stream",

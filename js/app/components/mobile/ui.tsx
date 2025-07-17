@@ -251,6 +251,7 @@ export function MobileUi() {
           />
         </Animated.View>
       </TouchableWithoutFeedback>
+
       {!isSelfAndNotLive && (
         <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
       )}

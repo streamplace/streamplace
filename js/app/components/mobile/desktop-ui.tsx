@@ -10,6 +10,7 @@ import {
   useLivestreamInfo,
   usePlayerDimensions,
   usePlayerStore,
+  useSegment,
   View,
   zero,
 } from "@streamplace/components";
@@ -31,6 +32,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { OfflineCounter } from "./offline-counter";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
 const { borders, colors, gap, h, layout, position, w, px, py, r, p, bg, text } =
@@ -194,6 +196,9 @@ export function DesktopUi() {
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
   const setMuted = usePlayerStore((state) => state.setMuted);
+  const offline = usePlayerStore((state) => state.offline);
+
+  const segment = useSegment();
 
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -237,6 +242,38 @@ export function DesktopUi() {
   const animatedFadeStyle = useAnimatedStyle(() => ({
     opacity: shouldShowFloatingMetrics ? 1 : fadeOpacity.value,
   }));
+
+  // Live timer for offline overlay
+  const [timeSinceLastSeen, setTimeSinceLastSeen] = useState("Unknown");
+
+  useEffect(() => {
+    if (!offline || !segment?.startTime) {
+      setTimeSinceLastSeen("Unknown");
+      return;
+    }
+
+    const updateTimer = () => {
+      const now = new Date();
+      const lastSeen = new Date(segment.startTime);
+      const diffMs = now.getTime() - lastSeen.getTime();
+      const diffMinutes = Math.floor(diffMs / 60000);
+      const diffSeconds = Math.floor((diffMs % 60000) / 1000);
+
+      if (diffMinutes > 0) {
+        setTimeSinceLastSeen(`${diffMinutes}m ${diffSeconds}s ago`);
+      } else {
+        setTimeSinceLastSeen(`${diffSeconds}s ago`);
+      }
+    };
+
+    // Update immediately
+    updateTimer();
+
+    // Update every second while offline
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [offline, segment?.startTime]);
 
   const hover = Gesture.Hover().onChange((_) => runOnJS(onPlayerHover)());
 
@@ -304,7 +341,7 @@ export function DesktopUi() {
                   >
                     {profile?.handle}
                   </Text>
-                  <LiveBubble />
+                  {!offline && <LiveBubble />}
                 </View>
               </View>
 
@@ -426,6 +463,9 @@ export function DesktopUi() {
             description="We're notifying your followers that you just went live."
             duration={5}
           />
+
+          {offline && <OfflineCounter />}
+
           {muteWasForced && (
             <View
               style={[

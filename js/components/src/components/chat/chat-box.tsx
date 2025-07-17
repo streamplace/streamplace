@@ -1,7 +1,7 @@
 import Picker from "@emoji-mart/react";
-import { X } from "lucide-react-native";
+import { AtSignIcon, X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, TextInput } from "react-native";
+import { Platform, Pressable, TextInput } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import {
   Button,
@@ -397,39 +397,25 @@ export function ChatBox({
           onSelect={handleEmojiSelect}
         />
       )}
-      <View
-        style={[
-          layout.flex.row,
-          mb[2],
-          gap.all[2],
-          { justifyContent: "flex-end" },
-        ]}
-      >
-        <Pressable onPress={() => setShowEmojiSelector(!showEmojiSelector)}>
+      {Platform.OS === "web" && (
+        <View
+          style={[
+            layout.flex.row,
+            mb[2],
+            gap.all[2],
+            { justifyContent: "flex-end" },
+          ]}
+        >
           <Button
             variant="secondary"
             style={{ borderRadius: 16, height: 36, maxWidth: 36 }}
             onPress={() => {
               !message.endsWith("@") && setMessage(message + "@");
-              updateSuggestions("@");
+              setShowSuggestions(true);
             }}
           >
-            <Text>@</Text>
+            <AtSignIcon size={20} color="white" />
           </Button>
-        </Pressable>
-        <Pressable
-          onHoverOut={() => {
-            let oldMoji = COOL_EMOJI_LIST[emojiIconIndex];
-            let newMojiIndex = Math.floor(
-              Math.random() * COOL_EMOJI_LIST.length,
-            );
-            while (COOL_EMOJI_LIST[newMojiIndex] === oldMoji) {
-              newMojiIndex = Math.floor(Math.random() * COOL_EMOJI_LIST.length);
-            }
-            setEmojiIconIndex(newMojiIndex);
-          }}
-          onPress={() => setShowEmojiSelector(!showEmojiSelector)}
-        >
           <Button
             variant="secondary"
             style={{ borderRadius: 16, height: 36, maxWidth: 36 }}
@@ -437,8 +423,8 @@ export function ChatBox({
           >
             <Text>{COOL_EMOJI_LIST[emojiIconIndex]}</Text>
           </Button>
-        </Pressable>
-      </View>
+        </View>
+      )}
     </View>
   );
 }

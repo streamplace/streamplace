@@ -147,22 +147,29 @@ const VideoElement = forwardRef<
   const localVideoRef = props.videoRef ?? useRef<HTMLVideoElement | null>(null);
 
   const canPlayThrough = (e) => {
+    console.log("canPlayThrough called", {
+      firstAttempt,
+      videoRef: !!localVideoRef.current,
+    });
     event("canplaythrough")(e);
     if (firstAttempt && localVideoRef.current) {
       setFirstAttempt(false);
+      console.log("Attempting to play video");
       localVideoRef.current.play().catch((err) => {
+        console.log("error playing video", err.name);
         if (err.name === "NotAllowedError") {
           if (localVideoRef.current) {
+            console.log("Setting muted and retrying");
             setMuted(true);
             localVideoRef.current.muted = true;
             localVideoRef.current
               .play()
               .then(() => {
-                console.warn("Browser forced video to start muted");
+                console.log("Muted play succeeded");
                 setMuteWasForced(true);
               })
               .catch((err) => {
-                console.error("error playing video", err);
+                console.error("Muted play also failed", err);
               });
           }
         }
@@ -195,9 +202,17 @@ const VideoElement = forwardRef<
       (ref as React.MutableRefObject<HTMLVideoElement | null>).current =
         videoElement;
     }
-    // if (localVideoRef && typeof localVideoRef !== "function") {
-    //   localVideoRef.current = videoElement;
-    // }
+    (localVideoRef as any).current = videoElement;
+  };
+
+  const eventLogger = (evType) => (e) => {
+    console.log("📺 Video event:", evType);
+    const now = new Date();
+    if (updateEvents[evType]) {
+      x.setStatus(evType);
+    }
+    console.log("Sending", evType, "status to", url);
+    playerEvent(url, now.toISOString(), evType, {});
   };
 
   return (
@@ -212,7 +227,8 @@ const VideoElement = forwardRef<
       onMouseMove={setUserInteraction}
       onClick={setUserInteraction}
       onAbort={event("abort")}
-      onCanPlay={event("canplay")}
+      onCanPlay={eventLogger}
+      onCanPlayThroughCapture={eventLogger}
       onCanPlayThrough={canPlayThrough}
       onEmptied={event("emptied")}
       onEncrypted={event("encrypted")}

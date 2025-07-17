@@ -1,5 +1,4 @@
-import { Player } from "components";
-import { PlayerProps } from "components/player/props";
+import { Player, PlayerProps } from "@streamplace/components";
 import { useEffect, useState } from "react";
 import { Text, View, XStack, YStack } from "tamagui";
 

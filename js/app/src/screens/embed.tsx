@@ -1,5 +1,5 @@
-import { Player } from "components";
-import { PlayerProps } from "components/player/props";
+import { PlayerProps } from "@streamplace/components";
+import { EmbeddedPlayer } from "components/mobile/embedded-player";
 import {
   setSidebarHidden,
   setSidebarUnhidden,
@@ -27,5 +27,5 @@ export default function EmbedScreen({ route }) {
   if (user === "stream") {
     src = url;
   }
-  return <Player src={src} embedded={true} {...extraProps} />;
+  return <EmbeddedPlayer src={src} embedded={true} {...extraProps} />;
 }

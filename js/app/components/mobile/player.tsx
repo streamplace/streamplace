@@ -22,6 +22,7 @@ import { useAppSelector } from "store/hooks";
 import { BottomMetadata } from "./bottom-metadata";
 import { DesktopChatPanel } from "./chat";
 import { DesktopUi } from "./desktop-ui";
+import { OfflineCounter } from "./offline-counter";
 import { MobileUi } from "./ui";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
@@ -226,6 +227,7 @@ export function PlayerInner(
       >
         <PlayerInnerInner {...props}>
           {(showBottomMetaPanel || fullscreen) && <DesktopUi />}
+          <OfflineCounter isMobile={true} />
         </PlayerInnerInner>
       </Animated.View>
       {showBottomMetaPanel && (

@@ -3,6 +3,7 @@ import { View as RNView } from "react-native";
 import { getFirstPlayerID, usePlayerStore } from "../..";
 import { View } from "../../components/ui";
 import Video from "./video";
+import VideoRetry from "./video-retry";
 
 export function Fullscreen(props: { src: string; children?: React.ReactNode }) {
   const playerId = getFirstPlayerID();
@@ -76,7 +77,9 @@ export function Fullscreen(props: { src: string; children?: React.ReactNode }) {
       ref={divRef}
       style={{ width: "100%", height: "100%", overflow: "hidden" }}
     >
-      <Video />
+      <VideoRetry>
+        <Video />
+      </VideoRetry>
       {props.children}
     </View>
   );

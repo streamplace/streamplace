@@ -405,19 +405,7 @@ export function ChatBox({
           { justifyContent: "flex-end" },
         ]}
       >
-        <Pressable
-          onPress={() => setShowEmojiSelector(!showEmojiSelector)}
-          onHoverOut={() => {
-            let oldMoji = COOL_EMOJI_LIST[emojiIconIndex];
-            let newMojiIndex = Math.floor(
-              Math.random() * COOL_EMOJI_LIST.length,
-            );
-            while (COOL_EMOJI_LIST[newMojiIndex] === oldMoji) {
-              newMojiIndex = Math.floor(Math.random() * COOL_EMOJI_LIST.length);
-            }
-            setEmojiIconIndex(newMojiIndex);
-          }}
-        >
+        <Pressable onPress={() => setShowEmojiSelector(!showEmojiSelector)}>
           <Button
             variant="secondary"
             style={{ borderRadius: 16, height: 36, maxWidth: 36 }}
@@ -429,7 +417,19 @@ export function ChatBox({
             <Text>@</Text>
           </Button>
         </Pressable>
-        <Pressable onPress={() => setShowEmojiSelector(!showEmojiSelector)}>
+        <Pressable
+          onHoverOut={() => {
+            let oldMoji = COOL_EMOJI_LIST[emojiIconIndex];
+            let newMojiIndex = Math.floor(
+              Math.random() * COOL_EMOJI_LIST.length,
+            );
+            while (COOL_EMOJI_LIST[newMojiIndex] === oldMoji) {
+              newMojiIndex = Math.floor(Math.random() * COOL_EMOJI_LIST.length);
+            }
+            setEmojiIconIndex(newMojiIndex);
+          }}
+          onPress={() => setShowEmojiSelector(!showEmojiSelector)}
+        >
           <Button
             variant="secondary"
             style={{ borderRadius: 16, height: 36, maxWidth: 36 }}

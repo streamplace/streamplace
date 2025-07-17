@@ -244,7 +244,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model) (Clo
 			if err != nil {
 				return nil, err
 			}
-			log.Log(ctx, "created new lexicon record", "rpath", rpath, "cid", newCid.String())
+			log.Debug(ctx, "created new lexicon record", "rpath", rpath, "cid", newCid.String())
 			ops = append(ops, &comatproto.SyncSubscribeRepos_RepoOp{
 				Action: ActionCreate,
 				Path:   rpath,
@@ -254,10 +254,10 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model) (Clo
 			return nil, err
 		} else {
 			if newCid.Equals(oldCid) {
-				log.Log(ctx, "new cid is the same as old cid, skipping lexicon record", "rpath", rpath, "cid", newCid.String())
+				log.Debug(ctx, "new cid is the same as old cid, skipping lexicon record", "rpath", rpath, "cid", newCid.String())
 				continue
 			} else {
-				log.Log(ctx, "new cid is different from old cid, updating lexicon record", "rpath", rpath, "old", oldCid.String(), "new", newCid.String())
+				log.Debug(ctx, "new cid is different from old cid, updating lexicon record", "rpath", rpath, "old", oldCid.String(), "new", newCid.String())
 				_, err = LexiconRepo.UpdateRecord(ctx, rpath, sfw)
 				if err != nil {
 					return nil, err
@@ -276,16 +276,15 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model) (Clo
 			return nil, fmt.Errorf("failed to commit: %w", err)
 		}
 
-		log.Log(ctx, "LexiconRepo committed", "cid", currentRoot.String(), "rev", currentRev)
+		log.Debug(ctx, "LexiconRepo committed", "cid", currentRoot.String(), "rev", currentRev)
 	}
 	blocks, err := ses.CloseWithRoot(ctx, currentRoot, currentRev)
 	if err != nil {
 		return nil, fmt.Errorf("failed to close delta session: %w", err)
 	}
 	signed := LexiconRepo.SignedCommit()
-	log.Log(ctx, "signed commit", "did", signed.Did, "data", signed.Data, "prev", signed.Prev, "rev", signed.Rev)
-	log.Log(ctx, "closeWithRoot", "currentRoot", currentRoot.String(), "currentRev", currentRev)
 	if len(ops) > 0 {
+		log.Log(ctx, "created new lexicon commit for changes", "did", signed.Did, "data", signed.Data, "prev", signed.Prev, "rev", signed.Rev)
 		commit := &comatproto.SyncSubscribeRepos_Commit{
 			Repo:   cli.MyDID(),
 			Blocks: blocks,

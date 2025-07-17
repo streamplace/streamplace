@@ -10,8 +10,6 @@ replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.4
 
 replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4
 
-replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0-20250711234620-07b55db471c7
-
 require (
 	firebase.google.com/go/v4 v4.14.1
 	git.stream.place/streamplace/c2pa-go v0.7.0
@@ -34,6 +32,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/ipfs/go-cid v0.5.0
+	github.com/ipfs/go-ipld-cbor v0.2.0
+	github.com/ipld/go-car v0.6.1-0.20230509095817-92d28eb23ba4
 	github.com/johncgriffin/overflow v0.0.0-20211019200055-46fa312c352c
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/labstack/echo/v4 v4.13.3
@@ -240,7 +240,6 @@ require (
 	github.com/ipfs/go-ipfs-ds-help v1.1.1 // indirect
 	github.com/ipfs/go-ipfs-exchange-interface v0.2.1 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.3 // indirect
-	github.com/ipfs/go-ipld-cbor v0.2.0 // indirect
 	github.com/ipfs/go-ipld-format v0.6.1 // indirect
 	github.com/ipfs/go-ipld-legacy v0.2.1 // indirect
 	github.com/ipfs/go-libipfs v0.7.0 // indirect
@@ -249,7 +248,6 @@ require (
 	github.com/ipfs/go-merkledag v0.11.0 // indirect
 	github.com/ipfs/go-metrics-interface v0.3.0 // indirect
 	github.com/ipfs/go-verifcid v0.0.3 // indirect
-	github.com/ipld/go-car v0.6.1-0.20230509095817-92d28eb23ba4 // indirect
 	github.com/ipld/go-codec-dagpb v1.7.0 // indirect
 	github.com/ipld/go-ipld-prime v0.21.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

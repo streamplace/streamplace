@@ -1,5 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import {
+  Code,
   PlayerUI,
   Slider,
   Text,
@@ -44,22 +45,27 @@ function LiveBubble() {
         layout.flex.alignCenter,
         gap.all[1],
         px[2],
-        py[1],
         r[2],
         bg.destructive[500],
         borders.width.thin,
         borders.color.gray[800],
+        { paddingVertical: 3, maxWidth: "12" },
       ]}
     >
-      <View style={[h[2], w[2], bg.white]} />
-      <Text
+      <View style={[h[2], w[2], bg.white, { borderRadius: 999 }]} />
+      <Code
         style={[
           text.white,
-          { fontSize: 12, lineHeight: 16, fontWeight: "600" },
+          {
+            fontSize: 12,
+            lineHeight: 8,
+            fontWeight: "600",
+            letterSpacing: 1.75,
+          },
         ]}
       >
         LIVE
-      </Text>
+      </Code>
     </View>
   );
 }
@@ -292,13 +298,13 @@ export function DesktopUi() {
                   ]}
                 />
 
-                <View style={[layout.flex.column, gap.all[1]]}>
+                <View style={[layout.flex.column]}>
                   <Text
                     style={[text.white, { fontSize: 16, fontWeight: "600" }]}
                   >
                     {profile?.handle}
                   </Text>
-                  {isActivelyLive && <LiveBubble />}
+                  <LiveBubble />
                 </View>
               </View>
 
@@ -437,16 +443,46 @@ export function DesktopUi() {
                   }
                 }}
                 style={[
-                  p[4],
                   {
-                    backgroundColor: "rgba(50, 30, 30, 0.7)",
-                    borderRadius: 999,
-                    borderWidth: 2,
-                    borderColor: colors.gray[300],
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
                   },
                 ]}
               >
-                <VolumeX size="48" color="rgba(255,200,200)" />
+                <View
+                  style={[
+                    p[4],
+                    {
+                      backgroundColor: "rgba(50, 30, 30, 0.4)",
+                      borderRadius: 999,
+                      borderWidth: 2,
+                      borderColor: "rgba(255, 120, 120, 0.2)",
+                      boxShadow: "0 2px 4px rgba(0, 0, 0, 1)",
+                      shadowColor: "rgba(0, 0, 0, 1)",
+                    },
+                  ]}
+                >
+                  <VolumeX size="48" color="rgba(255,120,120,0.8)" />
+                </View>
+                <View
+                  style={[
+                    px[2],
+                    {
+                      backgroundColor: "rgba(0,0,0, 0.8)",
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: "rgba(255, 120, 120, 0.1)",
+                      boxShadow: "0 2px 4px rgba(0, 0, 0, 1)",
+                      shadowColor: "rgba(0, 0, 0, 1)",
+                    },
+                  ]}
+                >
+                  <Text style={{ color: "rgba(180,180,180,0.8)" }} size="base">
+                    Press to unmute
+                  </Text>
+                </View>
               </Pressable>
             </View>
           )}

@@ -7,11 +7,12 @@ import {
   useCameraToggle,
   useLivestreamInfo,
   usePlayerDimensions,
+  usePlayerStore,
   useSegmentDimensions,
   View,
   zero,
 } from "@streamplace/components";
-import { ChevronLeft, SwitchCamera } from "lucide-react-native";
+import { ChevronLeft, SwitchCamera, VolumeX } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, TouchableWithoutFeedback } from "react-native";
 import Animated, {
@@ -44,6 +45,10 @@ export function MobileUi() {
   const { isPlayerRatioGreater } = useSegmentDimensions();
   const { doSetIngestCamera } = useCameraToggle();
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
+
+  const muteWasForced = usePlayerStore((state) => state.muteWasForced);
+  const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
+  const setMuted = usePlayerStore((state) => state.setMuted);
 
   const { shouldShowFloatingMetrics, safeAreaInsets } = useResponsiveLayout();
   const [showLoading, setShowLoading] = useState(false);
@@ -248,6 +253,50 @@ export function MobileUi() {
       </TouchableWithoutFeedback>
       {!isSelfAndNotLive && (
         <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
+      )}
+      {muteWasForced && (
+        <View
+          style={[
+            layout.position.absolute,
+            position.top[14],
+            position.right[2],
+            layout.flex.column,
+            layout.flex.center,
+          ]}
+        >
+          <Pressable
+            onPress={() => {
+              if (muteWasForced) {
+                setMuted(false);
+                setMuteWasForced(false);
+              }
+            }}
+            style={[
+              {
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+              },
+            ]}
+          >
+            <Text color="muted" size="sm">
+              Tap to unmute
+            </Text>
+            <View
+              style={[
+                {
+                  padding: 4,
+                  backgroundColor: "rgba(50, 30, 30, 0.4)",
+                  borderRadius: 999,
+                  borderWidth: 2,
+                  borderColor: "rgba(255, 120, 120, 0.2)",
+                },
+              ]}
+            >
+              <VolumeX size="24" color="rgba(255,120,120,0.8)" />
+            </View>
+          </Pressable>
+        </View>
       )}
     </>
   );

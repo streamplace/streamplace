@@ -423,13 +423,21 @@ export function ChatBox({
           >
             <AtSignIcon size={20} color="white" />
           </Button>
-          <Button
-            variant="secondary"
-            style={{ borderRadius: 16, height: 36, maxWidth: 36 }}
-            onPress={() => setShowEmojiSelector(!showEmojiSelector)}
+          <Pressable
+            onHoverOut={() => {
+              setEmojiIconIndex(
+                Math.floor(Math.random() * COOL_EMOJI_LIST.length),
+              );
+            }}
           >
-            <Text>{COOL_EMOJI_LIST[emojiIconIndex]}</Text>
-          </Button>
+            <Button
+              variant="secondary"
+              style={{ borderRadius: 16, height: 36, maxWidth: 36 }}
+              onPress={() => setShowEmojiSelector(!showEmojiSelector)}
+            >
+              <Text>{COOL_EMOJI_LIST[emojiIconIndex]}</Text>
+            </Button>
+          </Pressable>
         </View>
       )}
     </View>

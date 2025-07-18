@@ -196,6 +196,7 @@ export function DesktopUi() {
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
   const setMuted = usePlayerStore((state) => state.setMuted);
   const offline = usePlayerStore((state) => state.offline);
+  const showMetrics = usePlayerStore((state) => state.showDebugInfo);
 
   const segment = useSegment();
 
@@ -524,6 +525,26 @@ export function DesktopUi() {
             </View>
           )}
         </View>
+        {showMetrics && (
+          <View
+            style={[
+              layout.position.absolute,
+              position.top[20],
+              position.left[4],
+              px[4],
+              py[2],
+              {
+                backgroundColor: "rgba(0, 0, 0, 0.7)",
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: colors.gray[700],
+              },
+            ]}
+          >
+            <Text>Segment Timing</Text>
+            <PlayerUI.MetricsPanel showMetrics={showMetrics} />
+          </View>
+        )}
       </>
     </GestureDetector>
   );

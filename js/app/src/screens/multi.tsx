@@ -4,6 +4,7 @@ import {
   PlayerProps,
   PlayerProvider,
   ThemeProvider,
+  usePlayerStore,
   zero,
 } from "@streamplace/components";
 import KeepAwake from "components/keep-awake";
@@ -13,6 +14,17 @@ import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 
 const { layout, flex } = zero;
+
+function IdViewer({ reqid }) {
+  const id = usePlayerStore((p) => p.id);
+  return (
+    <View style={[layout.flex.center, layout.flex.row]}>
+      <Text>
+        {reqid} {id}
+      </Text>
+    </View>
+  );
+}
 
 export default function MultiScreen({ route }) {
   const config = route.params?.config;
@@ -69,9 +81,10 @@ export default function MultiScreen({ route }) {
                     <View />
                   ) : (
                     <LivestreamProvider src={props.src || ""}>
-                      <PlayerProvider>
+                      <PlayerProvider defaultId={props.playerId}>
                         <Player {...props}>
                           <DesktopUi />
+                          <IdViewer reqid={props.playerId} />
                         </Player>
                       </PlayerProvider>
                     </LivestreamProvider>

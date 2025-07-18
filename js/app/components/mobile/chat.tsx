@@ -2,6 +2,8 @@ import {
   Chat,
   ChatBox,
   Resizable,
+  Text,
+  useHandle,
   useLivestreamInfo,
   View,
   zero,
@@ -17,7 +19,6 @@ import Animated, {
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
 import emojiData from "assets/emoji-data.json";
-
 const { borderRadius, gap, layout, flex, px, py, r, position, bottom } = zero;
 
 export function DesktopChatPanel({
@@ -97,6 +98,7 @@ export function MobileChatPanel({ isPlayerRatioGreater }) {
 function ChatPanel() {
   const { shouldShowChatSidePanel, safeAreaInsets } = useResponsiveLayout();
   const { profile } = useLivestreamInfo();
+  const handle = useHandle();
   return (
     <View
       style={[
@@ -118,10 +120,27 @@ function ChatPanel() {
         <Chat canModerate={false} />
       </TouchableWithoutFeedback>
       <View style={[layout.flex.column, gap.all[2], px[4]]}>
-        <ChatBox
-          emojiData={emojiData}
-          chatBoxStyle={{ borderRadius: borderRadius.xl }}
-        />
+        {handle ? (
+          <ChatBox
+            emojiData={emojiData}
+            chatBoxStyle={{ borderRadius: borderRadius.xl }}
+          />
+        ) : (
+          <View
+            style={[
+              layout.flex.row,
+              layout.flex.center,
+              gap.all[2],
+              {
+                padding: 16,
+                borderRadius: borderRadius.xl,
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              },
+            ]}
+          >
+            <Text>Log in or sign up to chat</Text>
+          </View>
+        )}
       </View>
     </View>
   );

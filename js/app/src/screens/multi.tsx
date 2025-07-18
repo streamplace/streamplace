@@ -1,6 +1,18 @@
-import { Player, PlayerProps } from "@streamplace/components";
+import {
+  LivestreamProvider,
+  Player,
+  PlayerProps,
+  PlayerProvider,
+  ThemeProvider,
+  zero,
+} from "@streamplace/components";
+import KeepAwake from "components/keep-awake";
+import { DesktopUi } from "components/mobile/desktop-ui";
+import { FullscreenProvider } from "contexts/FullscreenContext";
 import { useEffect, useState } from "react";
-import { Text, View, XStack, YStack } from "tamagui";
+import { Text, View } from "react-native";
+
+const { layout, flex } = zero;
 
 export default function MultiScreen({ route }) {
   const config = route.params?.config;
@@ -10,6 +22,7 @@ export default function MultiScreen({ route }) {
 
   const [rows, setRows] = useState<Partial<PlayerProps | null>[][]>([]);
   const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     try {
       let nearestSquareExpo = 1;
@@ -38,20 +51,37 @@ export default function MultiScreen({ route }) {
       setError(e.message);
     }
   }, [config]);
+
   if (error) {
     return <Text>{error}</Text>;
   }
+
   return (
-    <YStack f={1} fb={0}>
-      {rows.map((players, i) => (
-        <XStack key={i} f={1} fb={0}>
-          {players.map((props, j) => (
-            <View key={j} f={1} fb={0}>
-              {props === null ? <View /> : <Player {...props}></Player>}
+    <ThemeProvider>
+      <KeepAwake />
+      <FullscreenProvider>
+        <View style={[flex.values[1]]}>
+          {rows.map((players, i) => (
+            <View key={i} style={[flex.values[1], layout.flex.row]}>
+              {players.map((props, j) => (
+                <View key={j} style={[flex.values[1]]}>
+                  {props === null ? (
+                    <View />
+                  ) : (
+                    <LivestreamProvider src={props.src || ""}>
+                      <PlayerProvider>
+                        <Player {...props}>
+                          <DesktopUi />
+                        </Player>
+                      </PlayerProvider>
+                    </LivestreamProvider>
+                  )}
+                </View>
+              ))}
             </View>
           ))}
-        </XStack>
-      ))}
-    </YStack>
+        </View>
+      </FullscreenProvider>
+    </ThemeProvider>
   );
 }

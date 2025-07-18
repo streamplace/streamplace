@@ -1,5 +1,11 @@
-import { PlayerProps } from "@streamplace/components";
-import { EmbeddedPlayer } from "components/mobile/embedded-player";
+import {
+  LivestreamProvider,
+  Player,
+  PlayerProps,
+  PlayerProvider,
+  ThemeProvider,
+} from "@streamplace/components";
+import { DesktopUi } from "components/mobile/desktop-ui";
 import {
   setSidebarHidden,
   setSidebarUnhidden,
@@ -27,5 +33,15 @@ export default function EmbedScreen({ route }) {
   if (user === "stream") {
     src = url;
   }
-  return <EmbeddedPlayer src={src} embedded={true} {...extraProps} />;
+  return (
+    <ThemeProvider>
+      <LivestreamProvider src={src}>
+        <PlayerProvider>
+          <Player src={src} {...extraProps}>
+            <DesktopUi />
+          </Player>
+        </PlayerProvider>
+      </LivestreamProvider>
+    </ThemeProvider>
+  );
 }

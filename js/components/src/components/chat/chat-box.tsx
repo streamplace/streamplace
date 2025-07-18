@@ -410,8 +410,15 @@ export function ChatBox({
             variant="secondary"
             style={{ borderRadius: 16, height: 36, maxWidth: 36 }}
             onPress={() => {
+              // if the last character is not @, add it
               !message.endsWith("@") && setMessage(message + "@");
+              // get all the text after the last @
+              const atIndex = message.lastIndexOf("@");
+              const searchText = message.slice(atIndex + 1).toLowerCase();
+              updateSuggestions(searchText);
               setShowSuggestions(true);
+              // focus the textarea
+              textAreaRef.current?.focus();
             }}
           >
             <AtSignIcon size={20} color="white" />

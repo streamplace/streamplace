@@ -36,7 +36,7 @@ export default function EmbedScreen({ route }) {
   return (
     <ThemeProvider>
       <LivestreamProvider src={src}>
-        <PlayerProvider>
+        <PlayerProvider {...extraProps}>
           <Player src={src} {...extraProps}>
             <DesktopUi />
           </Player>

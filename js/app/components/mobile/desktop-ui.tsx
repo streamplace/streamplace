@@ -32,7 +32,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { OfflineCounter } from "./offline-counter";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
 const { borders, colors, gap, h, layout, position, w, px, py, r, p, bg, text } =
@@ -463,8 +462,6 @@ export function DesktopUi() {
             description="We're notifying your followers that you just went live."
             duration={5}
           />
-
-          {offline && <OfflineCounter />}
 
           {muteWasForced && (
             <View

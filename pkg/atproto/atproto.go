@@ -14,6 +14,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )
@@ -167,36 +168,52 @@ func resolveIdent(ctx context.Context, arg string) (*identity.Identity, error) {
 	return dir.Lookup(ctx, *id)
 }
 
-func DIDDoc(host string) map[string]any {
-	return map[string]any{
+func DIDDoc(cli *config.CLI) map[string]any {
+	service := []map[string]any{
+		{
+			"id":              "#bsky_fg",
+			"type":            "BskyFeedGenerator",
+			"serviceEndpoint": fmt.Sprintf("https://%s", cli.PublicHost),
+		},
+		{
+			"id":              "#atproto_pds",
+			"type":            "AtprotoPersonalDataServer",
+			"serviceEndpoint": fmt.Sprintf("https://%s", cli.PublicHost),
+		},
+	}
+	verificationMethod := []map[string]any{
+		{
+			"id":                 fmt.Sprintf("did:web:%s#atproto", cli.PublicHost),
+			"type":               "Multikey",
+			"controller":         fmt.Sprintf("did:web:%s", cli.PublicHost),
+			"publicKeyMultibase": LexiconPubMultibase,
+		},
+	}
+	if cli.OzoneURL != "" && cli.LabelerSigningKeyPub != nil {
+		service = append(service, map[string]any{
+			"id":              "#atproto_labeler",
+			"serviceEndpoint": fmt.Sprintf("https://%s", cli.PublicHost),
+			"type":            "AtprotoLabeler",
+		})
+		verificationMethod = append(verificationMethod, map[string]any{
+			"controller":         cli.MyDID(),
+			"id":                 fmt.Sprintf("%s#atproto_label", cli.MyDID()),
+			"publicKeyMultibase": cli.LabelerSigningKeyPub.Multibase(),
+			"type":               "Multikey",
+		})
+	}
+	doc := map[string]any{
 		"@context": []string{
 			"https://www.w3.org/ns/did/v1",
 			"https://w3id.org/security/multikey/v1",
 			"https://w3id.org/security/suites/secp256k1-2019/v1",
 		},
-		"id": fmt.Sprintf("did:web:%s", host),
-		"alsoKnownAs": []string{
-			fmt.Sprintf("at://%s", host),
-		},
-		"service": []map[string]any{
-			{
-				"id":              "#bsky_fg",
-				"type":            "BskyFeedGenerator",
-				"serviceEndpoint": fmt.Sprintf("https://%s", host),
-			},
-			{
-				"id":              "#atproto_pds",
-				"type":            "AtprotoPersonalDataServer",
-				"serviceEndpoint": fmt.Sprintf("https://%s", host),
-			},
-		},
-		"verificationMethod": []map[string]any{
-			{
-				"id":                 fmt.Sprintf("did:web:%s#atproto", host),
-				"type":               "Multikey",
-				"controller":         fmt.Sprintf("did:web:%s", host),
-				"publicKeyMultibase": LexiconPubMultibase,
-			},
-		},
+		"id": cli.MyDID(),
+		// "alsoKnownAs": []string{
+		// 	fmt.Sprintf("at://%s", cli.PublicHost),
+		// },
+		"service":            service,
+		"verificationMethod": verificationMethod,
 	}
+	return doc
 }

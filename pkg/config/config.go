@@ -3,12 +3,14 @@ package config
 import (
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net"
 	"os"
 	"path/filepath"
@@ -17,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"math/rand/v2"
+	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/peterbourgon/ff/v3"
@@ -107,6 +109,9 @@ type CLI struct {
 	NewWebRTCPlayback      bool
 	AppleTeamID            string
 	AndroidCertFingerprint string
+	OzoneURL               string
+	LabelerSigningKeyPriv  *atcrypto.PrivateKeyK256
+	LabelerSigningKeyPub   atcrypto.PublicKey
 }
 
 func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
@@ -164,6 +169,8 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.BoolVar(&cli.NewWebRTCPlayback, "new-webrtc-playback", true, "enable new webrtc playback")
 	fs.StringVar(&cli.AppleTeamID, "apple-team-id", "", "apple team id for deep linking")
 	fs.StringVar(&cli.AndroidCertFingerprint, "android-cert-fingerprint", "", "android cert fingerprint for deep linking")
+	fs.StringVar(&cli.OzoneURL, "ozone-url", "", "url of ozone instance for moderation")
+	cli.K256KeyFlag(fs, &cli.LabelerSigningKeyPriv, &cli.LabelerSigningKeyPub, "labeler-signing-key", "", "signing key for ozone moderation")
 
 	if runtime.GOOS == "linux" {
 		fs.BoolVar(&cli.NoMist, "no-mist", true, "Disable MistServer")
@@ -432,6 +439,33 @@ func (cli *CLI) DebugFlag(fs *flag.FlagSet, dest *map[string]map[string]int, nam
 
 		return nil
 	})
+}
+
+func (cli *CLI) K256KeyFlag(fs *flag.FlagSet, privateDest **atcrypto.PrivateKeyK256, publicDest *atcrypto.PublicKey, name, defaultValue, usage string) {
+	fs.Func(name, usage, func(s string) error {
+		if s == "" {
+			return nil
+		}
+		if len(s) != 64 {
+			return fmt.Errorf("invalid k256 key length: expected 64 hex chars, got %d", len(s))
+		}
+		bs, err := hex.DecodeString(s)
+		if err != nil {
+			return fmt.Errorf("invalid k256 key hex: %w", err)
+		}
+		priv, err := atcrypto.ParsePrivateBytesK256(bs)
+		if err != nil {
+			return fmt.Errorf("invalid k256 key: %w", err)
+		}
+		pub, err := priv.PublicKey()
+		if err != nil {
+			return fmt.Errorf("invalid k256 key: %w", err)
+		}
+		*privateDest = priv
+		*publicDest = pub
+		return nil
+	})
+
 }
 
 func (cli *CLI) StreamIsAllowed(did string) error {

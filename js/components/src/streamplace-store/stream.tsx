@@ -78,13 +78,14 @@ async function createNewPost(
   }
 }
 
-function buildGoLivePost(
+async function buildGoLivePost(
   text: string,
   url: URL,
   profile: ProfileViewDetailed,
   params: URLSearchParams,
   thumbnail: BlobRef | undefined,
-): AppBskyFeedPost.Record {
+  agent: StreamplaceAgent,
+): Promise<AppBskyFeedPost.Record> {
   const now = new Date();
   const linkUrl = `${url.protocol}//${url.host}/${profile.handle}?${params.toString()}`;
   const prefix = `🔴 LIVE `;
@@ -93,7 +94,7 @@ function buildGoLivePost(
   const content = prefix + textUrl + suffix;
 
   const rt = new RichText({ text: content });
-  rt.detectFacetsWithoutResolution();
+  await rt.detectFacets(agent);
   const record: AppBskyFeedPost.Record = {
     $type: "app.bsky.feed.post",
     text: content,
@@ -197,7 +198,14 @@ export function useCreateStreamRecord() {
         time: new Date().toISOString(),
       });
 
-      let post = buildGoLivePost(title, u, profile.data, params, thumbnail);
+      let post = await buildGoLivePost(
+        title,
+        u,
+        profile.data,
+        params,
+        thumbnail,
+        agent,
+      );
 
       newPost = await createNewPost(agent, post);
 

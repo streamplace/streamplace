@@ -166,3 +166,37 @@ func resolveIdent(ctx context.Context, arg string) (*identity.Identity, error) {
 	dir := identity.DefaultDirectory()
 	return dir.Lookup(ctx, *id)
 }
+
+func DIDDoc(host string) map[string]any {
+	return map[string]any{
+		"@context": []string{
+			"https://www.w3.org/ns/did/v1",
+			"https://w3id.org/security/multikey/v1",
+			"https://w3id.org/security/suites/secp256k1-2019/v1",
+		},
+		"id": fmt.Sprintf("did:web:%s", host),
+		"alsoKnownAs": []string{
+			fmt.Sprintf("at://%s", host),
+		},
+		"service": []map[string]any{
+			{
+				"id":              "#bsky_fg",
+				"type":            "BskyFeedGenerator",
+				"serviceEndpoint": fmt.Sprintf("https://%s", host),
+			},
+			{
+				"id":              "#atproto_pds",
+				"type":            "AtprotoPersonalDataServer",
+				"serviceEndpoint": fmt.Sprintf("https://%s", host),
+			},
+		},
+		"verificationMethod": []map[string]any{
+			{
+				"id":                 fmt.Sprintf("did:web:%s#atproto", host),
+				"type":               "Multikey",
+				"controller":         fmt.Sprintf("did:web:%s", host),
+				"publicKeyMultibase": LexiconPubMultibase,
+			},
+		},
+	}
+}

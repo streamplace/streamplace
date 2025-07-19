@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/lmittmann/tint"
 	slogGorm "github.com/orandin/slog-gorm"
@@ -96,6 +97,11 @@ type Model interface {
 	UpdateServerSettings(ctx context.Context, settings *ServerSettings) error
 	GetServerSettings(ctx context.Context, server string, repoDID string) (*ServerSettings, error)
 	DeleteServerSettings(ctx context.Context, server string, repoDID string) error
+
+	CreateCommitEvent(commit *comatproto.SyncSubscribeRepos_Commit, signedData string) error
+	GetCommitEventsSince(repoDID string, t time.Time) ([]*XrpcStreamEvent, error)
+	GetCommitEventsSinceSeq(repoDID string, seq int64) ([]*XrpcStreamEvent, error)
+	GetMostRecentCommitEvent(repoDID string) (*XrpcStreamEvent, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -156,6 +162,7 @@ func MakeDB(dbURL string) (Model, error) {
 		ChatProfile{},
 		oatproxy.OAuthSession{},
 		ServerSettings{},
+		XrpcStreamEvent{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

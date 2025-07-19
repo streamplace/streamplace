@@ -28,7 +28,7 @@ func (s *Server) HandleWildcard(c echo.Context) error {
 	segments := strings.Split(path, "/")
 	lastSegment := segments[len(segments)-1]
 
-	var xrpcType xrpc.XRPCRequestType
+	var xrpcType string
 	var err error
 	if c.Request().Method == "GET" {
 		xrpcType = xrpc.Query

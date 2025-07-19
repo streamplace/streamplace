@@ -1,3 +1,10 @@
+# DEPRECATED
+
+I highly recommend using the much cleaner
+[expo-atproto-auth](https://github.com/haileyok/expo-atproto-auth) library
+instead of this one. It uses native crypto functions and should be much faster
+than this library. It's also maintained by a Bluesky team member.
+
 # atproto OAuth Client for React Native
 
 This package implements an atproto OAuth client usable on the React Native

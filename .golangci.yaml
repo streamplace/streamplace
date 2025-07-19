@@ -5,6 +5,8 @@ linters:
       checks:
         - all
         - -QF1003 # "could use tagged switch"
+        - -ST1003 # "should not use underscores in Go names" - indigo's code gen makes some
+        - -SA5008 # "unknown JSON option" doesn't care for the const stuff
   disable:
     - unused
   exclusions:

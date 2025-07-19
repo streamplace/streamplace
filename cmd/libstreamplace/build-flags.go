@@ -1,5 +1,13 @@
 package main
 
-var Version = "unknown"
-var BuildTime = "0"
-var UUID = "unknown"
+import (
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+var Version = os.Getenv("STREAMPLACE_DEV_VERSION")
+var BuildTime = fmt.Sprint(time.Now().Unix())
+var UUID = uuid.New().String()

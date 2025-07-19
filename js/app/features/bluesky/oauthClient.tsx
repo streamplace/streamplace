@@ -70,36 +70,64 @@ export default async function createOAuthClient(
   clientMetadataSchema.parse(meta);
   return new ReactNativeOAuthClient({
     fetch: async (input, init) => {
-      // Normalize input to a Request object
-      let request: Request;
-      if (typeof input === "string" || input instanceof URL) {
-        request = new Request(input, init);
-      } else {
-        request = input;
-      }
+      const timeout = 120000; // 60 seconds
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-      // Lie to the oauth client and use our upstream server instead
-      if (
-        request.url.includes("plc.directory") ||
-        request.url.endsWith("did.json")
-      ) {
-        const res = await fetch(request, init);
-        if (!res.ok) {
-          return res;
-        }
-        const data = await res.json();
-        const service = data.service.find((s: any) => s.id === "#atproto_pds");
-        if (!service) {
-          return res;
-        }
-        service.serviceEndpoint = streamplaceUrl;
-        return new Response(JSON.stringify(data), {
-          status: res.status,
-          headers: res.headers,
-        });
-      }
+      try {
+        const mergedInit = {
+          ...init,
+          signal: init?.signal
+            ? // If there's already a signal, we need to handle both
+              (function () {
+                const existingSignal = init.signal;
+                if (existingSignal.aborted) {
+                  controller.abort();
+                } else {
+                  existingSignal.addEventListener("abort", () =>
+                    controller.abort(),
+                  );
+                }
+                return controller.signal;
+              })()
+            : controller.signal,
+        };
 
-      return fetch(request, init);
+        // Normalize input to a Request object
+        let request: Request;
+        if (typeof input === "string" || input instanceof URL) {
+          request = new Request(input, mergedInit);
+        } else {
+          request = input;
+        }
+
+        // Lie to the oauth client and use our upstream server instead
+        if (
+          request.url.includes("plc.directory") ||
+          request.url.endsWith("did.json")
+        ) {
+          const res = await fetch(request, mergedInit);
+          if (!res.ok) {
+            return res;
+          }
+          const data = await res.json();
+          const service = data.service.find(
+            (s: any) => s.id === "#atproto_pds",
+          );
+          if (!service) {
+            return res;
+          }
+          service.serviceEndpoint = streamplaceUrl;
+          return new Response(JSON.stringify(data), {
+            status: res.status,
+            headers: res.headers,
+          });
+        }
+
+        return fetch(request, mergedInit);
+      } finally {
+        clearTimeout(timeoutId);
+      }
     },
     handleResolver: streamplaceUrl,
     responseMode: "query", // or "fragment" (frontend only) or "form_post" (backend only)

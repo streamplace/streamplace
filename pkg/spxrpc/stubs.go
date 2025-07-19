@@ -63,6 +63,7 @@ func (s *Server) RegisterHandlersChatBsky(e *echo.Echo) error {
 
 func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
+	e.POST("/xrpc/com.atproto.moderation.createReport", s.HandleComAtprotoModerationCreateReport)
 	e.GET("/xrpc/com.atproto.repo.describeRepo", s.HandleComAtprotoRepoDescribeRepo)
 	e.GET("/xrpc/com.atproto.repo.getRecord", s.HandleComAtprotoRepoGetRecord)
 	e.GET("/xrpc/com.atproto.repo.listRecords", s.HandleComAtprotoRepoListRecords)
@@ -81,6 +82,24 @@ func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context,handle string) (*comatprototypes.IdentityResolveHandle_Output, error)
 	out, handleErr = s.handleComAtprotoIdentityResolveHandle(ctx, handle)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoModerationCreateReport(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoModerationCreateReport")
+	defer span.End()
+
+	var body comatprototypes.ModerationCreateReport_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatprototypes.ModerationCreateReport_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context,body *comatprototypes.ModerationCreateReport_Input) (*comatprototypes.ModerationCreateReport_Output, error)
+	out, handleErr = s.handleComAtprotoModerationCreateReport(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

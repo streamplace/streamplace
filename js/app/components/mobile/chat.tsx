@@ -117,7 +117,7 @@ function ChatPanel() {
       ]}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <Chat canModerate={false} />
+        <Chat canModerate={true} />
       </TouchableWithoutFeedback>
       <View style={[layout.flex.column, gap.all[2], px[4]]}>
         {handle ? (

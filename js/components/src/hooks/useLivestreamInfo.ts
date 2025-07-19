@@ -9,6 +9,7 @@ export function useLivestreamInfo() {
   const ingestStarting = usePlayerStore((x) => x.ingestStarting);
   const setIngestStarting = usePlayerStore((x) => x.setIngestStarting);
   const setIngestLive = usePlayerStore((x) => x.setIngestLive);
+  const livestream = useLivestreamStore((x) => x.livestream);
 
   const createStreamRecord = useCreateStreamRecord();
 
@@ -63,5 +64,6 @@ export function useLivestreamInfo() {
     setIngestStarting,
     handleSubmit,
     toggleGoLive,
+    livestream,
   };
 }

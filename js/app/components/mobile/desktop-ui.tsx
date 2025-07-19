@@ -19,6 +19,7 @@ import {
   Fullscreen,
   MessageSquare,
   Minimize,
+  Shield,
   SwitchCamera,
   Volume2,
   VolumeX,
@@ -185,6 +186,7 @@ export function DesktopUi() {
     ingestStarting,
     setIngestStarting,
     toggleGoLive,
+    livestream,
   } = useLivestreamInfo();
   const { width, height } = usePlayerDimensions();
   const { doSetIngestCamera } = useCameraToggle();
@@ -437,6 +439,9 @@ export function DesktopUi() {
                   </Pressable>
                 )}
                 {ingest === null && <PlayerUI.ContextMenu />}
+                <Pressable onPress={() => setReporting(true)}>
+                  <Shield />
+                </Pressable>
               </View>
             </View>
           </Animated.View>
@@ -459,12 +464,18 @@ export function DesktopUi() {
             }}
           />
 
-          <ReportModal
-            open={reporting}
-            onOpenChange={setReporting}
-            title={`Report ${profile?.handle}`}
-            onSubmit={() => {}}
-          />
+          {livestream && (
+            <ReportModal
+              open={reporting}
+              onOpenChange={setReporting}
+              title={`Report ${profile?.handle}`}
+              subject={{
+                cid: livestream.cid,
+                uri: livestream.uri,
+              }}
+              onSubmit={() => {}}
+            />
+          )}
 
           <Toast
             open={recordSubmitted}

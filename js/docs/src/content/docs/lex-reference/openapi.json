@@ -705,6 +705,97 @@
         }
       }
     },
+    "/xrpc/com.atproto.moderation.createReport": {
+      "post": {
+        "summary": "Submit a moderation report regarding an atproto account or record. Implemented by moderation services (with PDS proxying), and requires auth.",
+        "operationId": "com.atproto.moderation.createReport",
+        "tags": ["com.atproto.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "reasonType": {
+                      "$ref": "#/components/schemas/com.atproto.moderation.defs_reasonType"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "maxLength": 20000
+                    },
+                    "subject": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/com.atproto.admin.defs_repoRef"
+                        },
+                        {
+                          "$ref": "#/components/schemas/com.atproto.repo.strongRef"
+                        }
+                      ]
+                    },
+                    "reportedBy": {
+                      "type": "string",
+                      "format": "did"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "reasonType",
+                    "subject",
+                    "reportedBy",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reasonType": {
+                    "$ref": "#/components/schemas/com.atproto.moderation.defs_reasonType",
+                    "description": "Indicates the broad category of violation the report is for."
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Additional context about the content and violation.",
+                    "maxLength": 20000
+                  },
+                  "subject": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/com.atproto.admin.defs_repoRef"
+                      },
+                      {
+                        "$ref": "#/components/schemas/com.atproto.repo.strongRef"
+                      }
+                    ]
+                  },
+                  "modTool": {
+                    "$ref": "#/components/schemas/com.atproto.moderation.createReport_modTool"
+                  }
+                },
+                "required": ["reasonType", "subject"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/com.atproto.identity.resolveHandle": {
       "get": {
         "summary": "Resolves an atproto handle (hostname) to a DID. Does not necessarily bi-directionally verify against the the DID document.",
@@ -1549,6 +1640,33 @@
           "value": {}
         },
         "required": ["uri", "cid", "value"]
+      },
+      "com.atproto.moderation.defs_reasonType": {
+        "type": "string"
+      },
+      "com.atproto.admin.defs_repoRef": {
+        "type": "object",
+        "properties": {
+          "did": {
+            "type": "string",
+            "format": "did"
+          }
+        },
+        "required": ["did"]
+      },
+      "com.atproto.moderation.createReport_modTool": {
+        "type": "object",
+        "description": "Moderation tool information for tracing the source of the action",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name/identifier of the source (e.g., 'bsky-app/android', 'bsky-web/chrome')"
+          },
+          "meta": {
+            "description": "Additional arbitrary metadata about the source"
+          }
+        },
+        "required": ["name"]
       },
       "app.bsky.feed.defs_skeletonFeedPost": {
         "type": "object",

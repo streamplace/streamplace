@@ -1,3 +1,4 @@
+import { $Typed, ComAtprotoRepoStrongRef } from "@atproto/api";
 import {
   Button,
   Dialog,
@@ -5,6 +6,7 @@ import {
   ModalContent,
   Text,
   Textarea,
+  useCreateReport,
   zero,
 } from "@streamplace/components";
 import { CheckCircle, Circle } from "@tamagui/lucide-icons";
@@ -28,6 +30,7 @@ interface ReportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (reason: string) => void;
+  subject: ComAtprotoRepoStrongRef.Main;
   title?: string;
   description?: string;
 }
@@ -36,10 +39,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   open,
   onOpenChange,
   onSubmit,
+  subject,
   title = "Report",
   description = "Why are you submitting this report?",
 }) => {
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
+  const { createReport, error } = useCreateReport();
+  const [reason, setReason] = useState<string>("");
 
   const handleCancel = () => {
     setSelectedReason(null);
@@ -89,7 +95,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
         <View style={[zero.pb[4], zero.mt[4], zero.px[2]]}>
           <Text style={[zero.mb[2]]}>Additional Comments (optional)</Text>
-          <Textarea maxLength={500} numberOfLines={2} />
+          <Textarea
+            maxLength={500}
+            numberOfLines={2}
+            value={reason}
+            onChangeText={setReason}
+          />
         </View>
       </ModalContent>
       <DialogFooter>
@@ -98,7 +109,20 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         </Button>
         <Button
           variant="primary"
-          onPress={handleSubmit}
+          onPress={() => {
+            if (!selectedReason) {
+              return;
+            }
+            createReport({
+              reasonType: selectedReason,
+              reason: reason,
+              subject: {
+                $type: "com.atproto.repo.strongRef",
+                ...subject,
+              } as $Typed<ComAtprotoRepoStrongRef.Main>,
+            });
+            handleSubmit();
+          }}
           disabled={!selectedReason}
         >
           Submit

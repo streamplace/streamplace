@@ -45,8 +45,8 @@ func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context, r io.Reader
 func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*comatprototypes.RepoDescribeRepo_Output, error) {
 	return &comatprototypes.RepoDescribeRepo_Output{
 		Handle: s.cli.PublicHost,
-		Did:    fmt.Sprintf("did:web:%s", s.cli.PublicHost),
-		DidDoc: atproto.DIDDoc(s.cli.PublicHost),
+		Did:    s.cli.MyDID(),
+		DidDoc: atproto.DIDDoc(s.cli),
 		Collections: []string{
 			"com.atproto.lexicon.schema",
 		},

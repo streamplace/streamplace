@@ -23,7 +23,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react-native";
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Platform, Pressable } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -37,6 +37,14 @@ import { useResponsiveLayout } from "./useResponsiveLayout";
 
 const { borders, colors, gap, h, layout, position, w, px, py, r, p, bg, text } =
   zero;
+
+function isRefObject(
+  ref: any,
+): ref is
+  | React.RefObject<HTMLVideoElement>
+  | React.MutableRefObject<HTMLVideoElement | null> {
+  return ref && typeof ref === "object" && "current" in ref;
+}
 
 // Live indicator bubble component
 function LiveBubble() {
@@ -198,11 +206,15 @@ export function DesktopUi() {
   const setMuted = usePlayerStore((state) => state.setMuted);
   const offline = usePlayerStore((state) => state.offline);
   const showMetrics = usePlayerStore((state) => state.showDebugInfo);
+  const pipAction = usePlayerStore((state) => state.pipAction);
+  const videoRef = usePlayerStore((state) => state.videoRef);
 
   const segment = useSegment();
 
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [pipSupported, setPipSupported] = useState(false);
+  const [pipActive, setPipActive] = useState(false);
   const fadeOpacity = useSharedValue(1);
   const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
   const FADE_OUT_DELAY = 500;
@@ -243,6 +255,47 @@ export function DesktopUi() {
   const animatedFadeStyle = useAnimatedStyle(() => ({
     opacity: shouldShowFloatingMetrics ? 1 : fadeOpacity.value,
   }));
+
+  // Picture-in-Picture support detection
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      setPipSupported(
+        !!document.pictureInPictureEnabled && pipAction !== undefined,
+      );
+    }
+  }, [pipAction]);
+
+  // Picture-in-Picture event listeners
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    let video: HTMLVideoElement | null = null;
+    if (isRefObject(videoRef)) {
+      video = videoRef.current;
+    }
+    if (!video) return;
+
+    function onEnter() {
+      setPipActive(true);
+    }
+    function onLeave() {
+      setPipActive(false);
+    }
+
+    video.addEventListener("enterpictureinpicture", onEnter);
+    video.addEventListener("leavepictureinpicture", onLeave);
+
+    return () => {
+      if (video) {
+        video.removeEventListener("enterpictureinpicture", onEnter);
+        video.removeEventListener("leavepictureinpicture", onLeave);
+      }
+    };
+  }, [videoRef]);
+
+  const handlePip = useCallback(() => {
+    if (pipAction) pipAction();
+  }, [pipAction]);
 
   // Live timer for offline overlay
   const [timeSinceLastSeen, setTimeSinceLastSeen] = useState("Unknown");
@@ -484,6 +537,29 @@ export function DesktopUi() {
               <View
                 style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
               >
+                {Platform.OS === "web" && pipSupported && (
+                  <Pressable
+                    onPress={handlePip}
+                    disabled={pipActive}
+                    style={[p[2], r[1]]}
+                  >
+                    <View style={{ opacity: pipActive ? 0.5 : 1 }}>
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="3" width="18" height="14" rx="2" />
+                        <rect x="15" y="13" width="6" height="6" rx="1" />
+                      </svg>
+                    </View>
+                  </Pressable>
+                )}
                 {Platform.OS === "web" && (
                   <Pressable
                     onPress={() => {

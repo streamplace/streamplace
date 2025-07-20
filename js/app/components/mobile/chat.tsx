@@ -10,7 +10,7 @@ import {
 } from "@streamplace/components";
 import { useKeyboard } from "hooks/useKeyboard";
 import { useEffect } from "react";
-import { Keyboard, TouchableWithoutFeedback } from "react-native";
+import { Keyboard, Pressable, TouchableWithoutFeedback } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -18,6 +18,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
+import { useNavigation } from "@react-navigation/native";
+import { ArrowRight } from "@tamagui/lucide-icons";
 import emojiData from "assets/emoji-data.json";
 const { borderRadius, gap, layout, flex, px, py, r, position, bottom } = zero;
 
@@ -99,6 +101,8 @@ function ChatPanel() {
   const { shouldShowChatSidePanel, safeAreaInsets } = useResponsiveLayout();
   const { profile } = useLivestreamInfo();
   const handle = useHandle();
+  const navigation = useNavigation();
+  let canModerate = profile?.handle === handle;
   return (
     <View
       style={[
@@ -117,7 +121,7 @@ function ChatPanel() {
       ]}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <Chat canModerate={false} />
+        <Chat canModerate={canModerate} />
       </TouchableWithoutFeedback>
       <View style={[layout.flex.column, gap.all[2], px[4]]}>
         {handle ? (
@@ -126,7 +130,8 @@ function ChatPanel() {
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
           />
         ) : (
-          <View
+          <Pressable
+            onPress={() => navigation.navigate("Login")}
             style={[
               layout.flex.row,
               layout.flex.center,
@@ -139,7 +144,8 @@ function ChatPanel() {
             ]}
           >
             <Text>Log in or sign up to chat</Text>
-          </View>
+            <ArrowRight />
+          </Pressable>
         )}
       </View>
     </View>

@@ -7,16 +7,12 @@ import pkg from "../../package.json";
 
 export function Updates() {
   const version = pkg.version;
-  const { currentlyRunning, isUpdateAvailable, isUpdatePending } =
-    ExpoUpdates.useUpdates();
+  const updateInfo = ExpoUpdates.useUpdates();
+  const { currentlyRunning, isUpdateAvailable, isUpdatePending } = updateInfo;
+
+  console.log(`updateInfo: ${JSON.stringify(updateInfo)}`);
 
   const [checked, setChecked] = useState(false);
-
-  useEffect(() => {
-    if (isUpdatePending) {
-      ExpoUpdates.reloadAsync();
-    }
-  }, [isUpdatePending]);
 
   useEffect(() => {
     if (isUpdateAvailable && checked) {
@@ -74,6 +70,16 @@ export function Updates() {
         >
           <Text>{buttonText}</Text>
         </Button>
+        {isUpdatePending && (
+          <Button
+            mt="$2"
+            onPress={() => {
+              ExpoUpdates.reloadAsync();
+            }}
+          >
+            <Text>Reload app for new version</Text>
+          </Button>
+        )}
       </View>
     </View>
   );

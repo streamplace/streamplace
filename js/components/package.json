@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/components",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Streamplace React (Native) Components",
   "main": "dist/index.js",
   "types": "src/index.tsx",

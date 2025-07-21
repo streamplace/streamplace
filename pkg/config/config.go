@@ -17,9 +17,10 @@ import (
 	"strings"
 	"time"
 
+	"math/rand/v2"
+
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/peterbourgon/ff/v3"
-	"golang.org/x/exp/rand"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/aqpub"
@@ -208,7 +209,7 @@ func RandomTrailer(length int) string {
 
 	res := make([]byte, length)
 	for i := 0; i < length; i++ {
-		res[i] = charset[rand.Intn(len(charset))]
+		res[i] = charset[rand.IntN(len(charset))]
 	}
 	return string(res)
 }
@@ -450,4 +451,8 @@ func (cli *CLI) StreamIsAllowed(did string) error {
 		}
 	}
 	return fmt.Errorf("user is not allowed to stream")
+}
+
+func (cli *CLI) MyDID() string {
+	return fmt.Sprintf("did:web:%s", cli.PublicHost)
 }

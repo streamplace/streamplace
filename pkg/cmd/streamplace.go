@@ -87,11 +87,21 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "live" {
-		if len(os.Args) != 3 {
-			fmt.Println("usage: streamplace live [stream-key]")
+		cli := config.CLI{Build: build}
+		fs := cli.NewFlagSet("streamplace live")
+
+		err := cli.Parse(fs, os.Args[2:])
+		if err != nil {
+			return err
+		}
+
+		args := fs.Args()
+		if len(args) != 1 {
+			fmt.Println("usage: streamplace live [flags] [stream-key]")
 			os.Exit(1)
 		}
-		return Live(os.Args[2])
+
+		return Live(args[0], cli.HTTPInternalAddr)
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "sign" {
@@ -247,6 +257,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if err != nil {
 		return err
 	}
+	handle, err := atproto.MakeLexiconRepo(ctx, &cli, mod)
+	if err != nil {
+		return err
+	}
+	defer handle.Close()
 	var noter notifications.FirebaseNotifier
 	if cli.FirebaseServiceAccount != "" {
 		noter, err = notifications.MakeFirebaseNotifier(ctx, cli.FirebaseServiceAccount)
@@ -365,6 +380,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	})
 
 	if cli.TestStream {
+		// regular stream self-test
 		testSigner, err := eip712.MakeEIP712Signer(ctx, &eip712.EIP712SignerOptions{
 			Schema:          schema,
 			EthKeystorePath: filepath.Join(cli.DataDir, "test-signer"),
@@ -393,6 +409,53 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		a.Aliases["self-test"] = did
 		group.Go(func() error {
 			return mm.TestSource(ctx, testMediaSigner)
+		})
+
+		// Start a test stream that will run intermittently
+		intermittentSigner, err := eip712.MakeEIP712Signer(ctx, &eip712.EIP712SignerOptions{
+			Schema:          schema,
+			EthKeystorePath: filepath.Join(cli.DataDir, "intermittent-signer"),
+		})
+		if err != nil {
+			return err
+		}
+		atkey2, err := atproto.ParsePubKey(intermittentSigner.Public())
+		if err != nil {
+			return err
+		}
+		did2 := atkey2.DIDKey()
+		intermittentMediaSigner, err := media.MakeMediaSigner(ctx, &cli, did2, intermittentSigner)
+		if err != nil {
+			return err
+		}
+		err = mod.UpdateIdentity(&model.Identity{
+			ID:     intermittentMediaSigner.Pub().String(),
+			Handle: "stream-intermittent-tester",
+			DID:    "",
+		})
+		if err != nil {
+			return err
+		}
+		cli.AllowedStreams = append(cli.AllowedStreams, did2)
+		a.Aliases["intermittent-self-test"] = did2
+
+		group.Go(func() error {
+			for {
+				// Start intermittent stream
+				intermittentCtx, cancel := context.WithCancel(ctx)
+				done := make(chan struct{})
+				go func() {
+					_ = mm.TestSource(intermittentCtx, intermittentMediaSigner)
+					close(done)
+				}()
+				// Stream ON for 15 seconds
+				time.Sleep(15 * time.Second)
+				// Stop stream
+				cancel()
+				<-done // Wait for TestSource to exit
+				// Stream OFF for 15 seconds
+				time.Sleep(15 * time.Second)
+			}
 		})
 	}
 

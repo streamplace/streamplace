@@ -26,6 +26,8 @@ import (
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 
+	"slices"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -149,6 +151,7 @@ var CollectionFilter = []string{
 	constants.APP_BSKY_FEED_POST,
 	constants.APP_BSKY_GRAPH_BLOCK,
 	constants.PLACE_STREAM_SERVER_SETTINGS,
+	constants.PLACE_STREAM_CHAT_GATE,
 }
 
 func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) {
@@ -176,13 +179,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 		ctx = log.WithLogValues(ctx, "eventKind", op.Action, "collection", collection.String(), "rkey", rkey.String())
 
 		if len(CollectionFilter) > 0 {
-			keep := false
-			for _, c := range CollectionFilter {
-				if collection.String() == c {
-					keep = true
-					break
-				}
-			}
+			keep := slices.Contains(CollectionFilter, collection.String())
 			if !keep {
 				continue
 			}

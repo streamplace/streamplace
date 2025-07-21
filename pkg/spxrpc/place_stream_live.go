@@ -1,17 +1,14 @@
 package spxrpc
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/repo"
-	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
-	"github.com/multiformats/go-multihash"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/spmetrics"
 
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
@@ -45,7 +42,7 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert segment to streamplace segment: %s", err))
 		}
-		c, err := getCID(record)
+		c, err := atproto.GetCID(record)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to get CID: %s", err))
 		}
@@ -94,18 +91,4 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 	}
 
 	return liveUsers, nil
-}
-
-func getCID(record repo.CborMarshaler) (*cid.Cid, error) {
-	builder := cid.NewPrefixV1(cid.DagCBOR, multihash.SHA2_256)
-	buf := bytes.NewBuffer(nil)
-	err := record.MarshalCBOR(buf)
-	if err != nil {
-		return nil, err
-	}
-	c, err := builder.Sum(buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
-	return &c, nil
 }

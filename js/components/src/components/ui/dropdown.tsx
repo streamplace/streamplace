@@ -73,6 +73,14 @@ export const DropdownMenuBottomSheet = forwardRef<
         index={open ? 3 : -1}
         snapPoints={snapPoints}
         enablePanDownToClose
+        enableDynamicSizing
+        enableContentPanningGesture={false}
+        backdropComponent={({ style }) => (
+          <Pressable
+            style={[style, StyleSheet.absoluteFill]}
+            onPress={() => onOpenChange?.(false)}
+          />
+        )}
         onClose={() => onOpenChange?.(false)}
         style={[overlayStyle]}
         backgroundStyle={[bg.black, a.radius.all.md, a.shadows.md, p[1]]}

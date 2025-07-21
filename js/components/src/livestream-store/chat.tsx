@@ -23,6 +23,27 @@ export const useSetReplyToMessage = () => {
   );
 };
 
+export const usePendingHides = () =>
+  useLivestreamStore((state) => state.pendingHides);
+
+export const useAddPendingHide = () => {
+  const store = getStoreFromContext();
+  return useCallback(
+    (messageUri: string) => {
+      const state = store.getState();
+      if (!state.pendingHides.includes(messageUri)) {
+        const newPendingHides = [...state.pendingHides, messageUri];
+        const newState = reduceChat(state, [], [], [messageUri]);
+        store.setState({
+          ...newState,
+          pendingHides: newPendingHides,
+        });
+      }
+    },
+    [store],
+  );
+};
+
 export type NewChatMessage = {
   text: string;
   reply?: {
@@ -87,7 +108,7 @@ export const useCreateChatMessage = () => {
       chatProfile: chatProfile || undefined,
     };
 
-    state = reduceChat(state, [localChat], []);
+    state = reduceChat(state, [localChat], [], []);
     store.setState(state);
 
     await pdsAgent.com.atproto.repo.createRecord({
@@ -138,8 +159,13 @@ export const reduceChatIncremental = (
   state: LivestreamState,
   newMessages: ChatMessageViewHydrated[],
   blocks: PlaceStreamDefs.BlockView[],
+  hideUris: string[] = [],
 ): LivestreamState => {
-  if (newMessages.length === 0 && blocks.length === 0) {
+  if (
+    newMessages.length === 0 &&
+    blocks.length === 0 &&
+    hideUris.length === 0
+  ) {
     return state;
   }
 
@@ -160,9 +186,24 @@ export const reduceChatIncremental = (
     }
   }
 
+  if (hideUris.length > 0) {
+    for (const [key, message] of Object.entries(newChatIndex)) {
+      if (hideUris.includes(message.uri)) {
+        delete newChatIndex[key];
+        removedKeys.add(key);
+        hasChanges = true;
+      }
+    }
+  }
+
   const messagesToAdd: { key: string; message: ChatMessageViewHydrated }[] = [];
 
   for (const message of newMessages) {
+    // don't worry about messages that will be hidden
+    if (state.pendingHides.includes(message.uri)) {
+      continue;
+    }
+
     const date = new Date(message.record.createdAt);
     const key = `${date.getTime()}-${message.uri}`;
 
@@ -254,11 +295,20 @@ export const reduceChatIncremental = (
     removedKeys,
   );
 
+  // Clean up pendingHides - remove URIs that we've now processed
+  let newPendingHides = state.pendingHides;
+  if (hideUris.length > 0) {
+    newPendingHides = state.pendingHides.filter(
+      (uri) => !hideUris.includes(uri),
+    );
+  }
+
   return {
     ...state,
     authors: newAuthors,
     chatIndex: newChatIndex,
     chat: newChatList,
+    pendingHides: newPendingHides,
   };
 };
 

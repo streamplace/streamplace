@@ -7,9 +7,9 @@ import (
 	"os"
 )
 
-func Live(streamKey string) error {
+func Live(streamKey string, httpInternalAddr string) error {
 	// Create the URL for the live stream endpoint
-	url := fmt.Sprintf("http://127.0.0.1:39090/live/%s", streamKey)
+	url := fmt.Sprintf("http://%s/live/%s", httpInternalAddr, streamKey)
 
 	// Create a new HTTP request with POST method
 	req, err := http.NewRequest("POST", url, os.Stdin)

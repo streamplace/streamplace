@@ -147,7 +147,31 @@ export default function () {
               {
                 scheme: "https",
                 host: "stream.place",
-                pathPrefix: "/",
+                pathPattern: "/.*:.*",
+              },
+            ],
+            category: ["BROWSABLE", "DEFAULT"],
+          },
+          {
+            action: "VIEW",
+            autoVerify: true,
+            data: [
+              {
+                scheme: "https",
+                host: "stream.place",
+                pathPattern: "/.*\\\\..*",
+              },
+            ],
+            category: ["BROWSABLE", "DEFAULT"],
+          },
+          {
+            action: "VIEW",
+            autoVerify: true,
+            data: [
+              {
+                scheme: "https",
+                host: "stream.place",
+                path: "/",
               },
             ],
             category: ["BROWSABLE", "DEFAULT"],

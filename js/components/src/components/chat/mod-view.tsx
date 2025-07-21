@@ -1,11 +1,17 @@
 import { TriggerRef } from "@rn-primitives/dropdown-menu";
-import { forwardRef, useEffect, useRef } from "react";
-import { gap, mr } from "../../lib/theme/atoms";
+import { forwardRef, useEffect, useRef, useState } from "react";
+import { gap, mr, w } from "../../lib/theme/atoms";
 import { usePlayerStore } from "../../player-store";
-import { useCreateBlockRecord } from "../../streamplace-store/block";
+import {
+  useCreateBlockRecord,
+  useCreateHideChatRecord,
+} from "../../streamplace-store/block";
 import { usePDSAgent } from "../../streamplace-store/xrpc";
 
+import { Linking } from "react-native";
+import { useStreamplaceStore } from "../../streamplace-store";
 import {
+  atoms,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -15,7 +21,8 @@ import {
   Text,
   View,
 } from "../ui";
-import { RenderChatMessage } from "./chat-message";
+
+const BSKY_FRONTEND_DOMAIN = "bsky.app";
 
 type ModViewProps = {
   onClose?: () => void;
@@ -33,7 +40,14 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
   const message = usePlayerStore((state) => state.modMessage);
 
   let agent = usePDSAgent();
-  let createBlockRecord = useCreateBlockRecord();
+  let [messageRemoved, setMessageRemoved] = useState(false);
+  let { createBlock, isLoading: isBlockLoading } = useCreateBlockRecord();
+  let { createHideChat, isLoading: isHideLoading } = useCreateHideChatRecord();
+
+  // get the channel did
+  const channelId = usePlayerStore((state) => state.src);
+  // get the logged in user's identity
+  const handle = useStreamplaceStore((state) => state.handle);
 
   if (!agent?.did) {
     <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
@@ -44,6 +58,7 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
   useEffect(() => {
     if (message) {
       console.log("opening mod view");
+      setMessageRemoved(false);
       triggerRef.current?.open();
     } else {
       console.log("closing mod view");
@@ -52,7 +67,9 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
   }, [message]);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      style={[layout.flex.row, layout.flex.alignCenter, gap.all[2], w[80]]}
+    >
       <DropdownMenuTrigger ref={triggerRef}>
         {/* Hidden trigger */}
         <View />
@@ -62,52 +79,86 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
           <>
             <DropdownMenuGroup>
               <DropdownMenuItem>
-                <View style={[layout.flex.column, mr[5], { gap: 6 }]}>
-                  <RenderChatMessage item={message} />
+                <View
+                  style={[
+                    layout.flex.column,
+                    mr[5],
+                    { gap: 6, maxWidth: "100%" },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      fontVariant: ["tabular-nums"],
+                      color: atoms.colors.gray[300],
+                    }}
+                  >
+                    {new Date(message.record.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}{" "}
+                    @{message.author.handle}: {message.record.text}
+                  </Text>
                 </View>
               </DropdownMenuItem>
             </DropdownMenuGroup>
 
-            <DropdownMenuGroup title={`Moderation actions`}>
-              {/* <DropdownMenuItem
-                  onPress={
-                    onDeleteMessage
-                      ? () => onDeleteMessage(modMessage)
-                      : undefined
-                  }
+            {/* TODO: Checking for non-owner moderators */}
+            {channelId === handle && (
+              <DropdownMenuGroup title={`Moderation actions`}>
+                <DropdownMenuItem
+                  disabled={isHideLoading || messageRemoved}
+                  onPress={() => {
+                    if (isHideLoading || messageRemoved) return;
+                    createHideChat(message.uri)
+                      .then((r) => setMessageRemoved(true))
+                      .catch((e) => console.error(e));
+                  }}
                 >
-                  <Text customColor={colors.ios.systemTeal}>
-                    Delete message
+                  <Text
+                    color={
+                      isHideLoading || messageRemoved ? "muted" : "destructive"
+                    }
+                  >
+                    {isHideLoading
+                      ? "Removing..."
+                      : messageRemoved
+                        ? "Message removed"
+                        : "Remove this message"}
                   </Text>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onPress={
-                    onBanUser
-                      ? () => onBanUser(modMessage.author.handle)
-                      : undefined
-                  }
+                  disabled={message.author.did === agent?.did || isBlockLoading}
+                  onPress={() => {
+                    createBlock(message.author.did)
+                      .then((r) => console.log(r))
+                      .catch((e) => console.error(e));
+                  }}
                 >
-                  <Text color="destructive">
-                    Ban user @{modMessage.author.handle}
-                  </Text>
-                </DropdownMenuItem> */}
+                  {message.author.did === agent?.did ? (
+                    <Text color="muted">
+                      Block yourself (you can't block yourself)
+                    </Text>
+                  ) : (
+                    <Text color="destructive">
+                      {isBlockLoading
+                        ? "Blocking..."
+                        : `Block user @${message.author.handle} from this channel`}
+                    </Text>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            )}
+
+            <DropdownMenuGroup title={`User actions`}>
               <DropdownMenuItem
-                disabled={message.author.did === agent?.did}
                 onPress={() => {
-                  console.log("Creating block record");
-                  createBlockRecord(message.author.did)
-                    .then((r) => console.log(r))
-                    .catch((e) => console.error(e));
+                  Linking.openURL(
+                    `https://${BSKY_FRONTEND_DOMAIN}/profile/${channelId}`,
+                  );
                 }}
               >
-                <Text color="destructive">
-                  {message.author.did === agent?.did ? (
-                    <>Block yourself (you can't block yourself)</>
-                  ) : (
-                    <>Block user @{message.author.handle} from this channel</>
-                  )}
-                </Text>
+                <Text color="primary">View user on {BSKY_FRONTEND_DOMAIN}</Text>
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </>

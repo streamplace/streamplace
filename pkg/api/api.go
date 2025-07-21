@@ -208,6 +208,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("PATCH", "/xrpc/*resource", xrpcHandler)
 	router.Handler("DELETE", "/xrpc/*resource", xrpcHandler)
 	router.GET("/.well-known/did.json", a.HandleDidJSON(ctx))
+	router.GET("/.well-known/atproto-did", a.HandleAtprotoDID(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
 	router.POST("/", a.HandleWebRTCIngest(ctx))
 	for _, redirect := range a.CLI.Redirects {

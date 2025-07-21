@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/lmittmann/tint"
 	slogGorm "github.com/orandin/slog-gorm"
@@ -84,6 +85,11 @@ type Model interface {
 	MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDefs_MessageView, error)
 	GetChatMessage(cid string) (*ChatMessage, error)
 
+	CreateGate(ctx context.Context, gate *Gate) error
+	DeleteGate(ctx context.Context, rkey string) error
+	GetGate(ctx context.Context, rkey string) (*Gate, error)
+	GetUserGates(ctx context.Context, userDID string) ([]*Gate, error)
+
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
 	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
 
@@ -96,6 +102,11 @@ type Model interface {
 	UpdateServerSettings(ctx context.Context, settings *ServerSettings) error
 	GetServerSettings(ctx context.Context, server string, repoDID string) (*ServerSettings, error)
 	DeleteServerSettings(ctx context.Context, server string, repoDID string) error
+
+	CreateCommitEvent(commit *comatproto.SyncSubscribeRepos_Commit, signedData string) error
+	GetCommitEventsSince(repoDID string, t time.Time) ([]*XrpcStreamEvent, error)
+	GetCommitEventsSinceSeq(repoDID string, seq int64) ([]*XrpcStreamEvent, error)
+	GetMostRecentCommitEvent(repoDID string) (*XrpcStreamEvent, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -154,8 +165,10 @@ func MakeDB(dbURL string) (Model, error) {
 		Block{},
 		ChatMessage{},
 		ChatProfile{},
+		Gate{},
 		oatproxy.OAuthSession{},
 		ServerSettings{},
+		XrpcStreamEvent{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

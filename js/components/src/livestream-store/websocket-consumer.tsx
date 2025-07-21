@@ -3,6 +3,7 @@ import {
   ChatMessageViewHydrated,
   LivestreamViewHydrated,
   PlaceStreamChatDefs,
+  PlaceStreamChatGate,
   PlaceStreamChatMessage,
   PlaceStreamDefs,
   PlaceStreamLivestream,
@@ -52,7 +53,7 @@ export const handleWebSocketMessages = (
         chatProfile: (message as any).chatProfile,
         replyTo: (message as any).replyTo,
       };
-      state = reduceChat(state, [hydrated], []);
+      state = reduceChat(state, [hydrated], [], []);
     } else if (PlaceStreamSegment.isRecord(message)) {
       state = {
         ...state,
@@ -60,7 +61,7 @@ export const handleWebSocketMessages = (
       };
     } else if (PlaceStreamDefs.isBlockView(message)) {
       const block = message as PlaceStreamDefs.BlockView;
-      state = reduceChat(state, [], [block]);
+      state = reduceChat(state, [], [block], []);
     } else if (PlaceStreamDefs.isRenditions(message)) {
       state = {
         ...state,
@@ -71,7 +72,20 @@ export const handleWebSocketMessages = (
         ...state,
         profile: message,
       };
+    } else if (PlaceStreamChatGate.isRecord(message)) {
+      const hideRecord = message as PlaceStreamChatGate.Record;
+      const hiddenMessageUri = hideRecord.hiddenMessage;
+      const newPendingHides = [...state.pendingHides];
+      if (!newPendingHides.includes(hiddenMessageUri)) {
+        newPendingHides.push(hiddenMessageUri);
+      }
+
+      state = {
+        ...state,
+        pendingHides: newPendingHides,
+      };
+      state = reduceChat(state, [], [], [hiddenMessageUri]);
     }
   }
-  return reduceChat(state, [], []);
+  return reduceChat(state, [], [], []);
 };

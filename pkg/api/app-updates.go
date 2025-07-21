@@ -238,6 +238,21 @@ func PrepareUpdater(cli *config.CLI) (*Updater, error) {
 		return nil, fmt.Errorf("package.json has runtimeVersion that's not a string")
 	}
 
+	expoConfig, err := fs.Open("expoConfig.json")
+	if err != nil {
+		return nil, fmt.Errorf("couldn't open expoConfig.json: %w", err)
+	}
+	expoConfigBytes, err := io.ReadAll(expoConfig)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't read expoConfig.json: %w", err)
+	}
+	expoConfigJSON := map[string]any{}
+	err = json.Unmarshal(expoConfigBytes, &expoConfigJSON)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse expoConfig.json: %w", err)
+	}
+	extra["expoClient"] = expoConfigJSON
+
 	var privateKey *rsa.PrivateKey
 	if cli.SigningKeyPath != "" {
 		privateKey, err = cli.ParseSigningKey()
@@ -257,10 +272,14 @@ func PrepareUpdater(cli *config.CLI) (*Updater, error) {
 
 func (a *StreamplaceAPI) HandleAppUpdates(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		prefix := fmt.Sprintf("http://%s", req.Host)
+		proto := "http"
 		if req.TLS != nil {
-			prefix = fmt.Sprintf("https://%s", req.Host)
+			proto = "https"
 		}
+		if xfproto := req.Header.Get("x-forwarded-proto"); xfproto == "https" {
+			proto = "https"
+		}
+		prefix := fmt.Sprintf("%s://%s", proto, req.Host)
 		log.Log(ctx, "got app-updates request", "method", req.Method, "headers", req.Header)
 		plat := req.Header.Get("expo-platform")
 		if plat == "" {

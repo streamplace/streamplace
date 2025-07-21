@@ -13,6 +13,7 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     chat: [],
     livestream: null,
     viewers: null,
+    pendingHides: [],
     segment: null,
     renditions: [],
     replyToMessage: null,

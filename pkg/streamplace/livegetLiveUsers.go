@@ -7,7 +7,7 @@ package streamplace
 import (
 	"context"
 
-	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/bluesky-social/indigo/lex/util"
 )
 
 // LiveGetLiveUsers_Output is the output of a place.stream.live.getLiveUsers call.
@@ -16,14 +16,17 @@ type LiveGetLiveUsers_Output struct {
 }
 
 // LiveGetLiveUsers calls the XRPC method "place.stream.live.getLiveUsers".
-func LiveGetLiveUsers(ctx context.Context, c *xrpc.Client, before string, limit int64) (*LiveGetLiveUsers_Output, error) {
+func LiveGetLiveUsers(ctx context.Context, c util.LexClient, before string, limit int64) (*LiveGetLiveUsers_Output, error) {
 	var out LiveGetLiveUsers_Output
 
-	params := map[string]interface{}{
-		"before": before,
-		"limit":  limit,
+	params := map[string]interface{}{}
+	if before != "" {
+		params["before"] = before
 	}
-	if err := c.Do(ctx, xrpc.Query, "", "place.stream.live.getLiveUsers", params, nil, &out); err != nil {
+	if limit != 0 {
+		params["limit"] = limit
+	}
+	if err := c.LexDo(ctx, util.Query, "", "place.stream.live.getLiveUsers", params, nil, &out); err != nil {
 		return nil, err
 	}
 

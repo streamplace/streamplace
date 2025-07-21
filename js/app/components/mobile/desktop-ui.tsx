@@ -19,6 +19,7 @@ import {
   Fullscreen,
   MessageSquare,
   Minimize,
+  PictureInPicture2,
   SwitchCamera,
   Volume2,
   VolumeX,
@@ -32,7 +33,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { OfflineCounter } from "./offline-counter";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
 const { borders, colors, gap, h, layout, position, w, px, py, r, p, bg, text } =
@@ -49,33 +49,33 @@ function isRefObject(
 // Live indicator bubble component
 function LiveBubble() {
   return (
-    <View
-      style={[
-        layout.flex.row,
-        layout.flex.alignCenter,
-        gap.all[1],
-        px[2],
-        r[2],
-        bg.destructive[500],
-        borders.width.thin,
-        borders.color.gray[800],
-        { paddingVertical: 3, maxWidth: "12" },
-      ]}
-    >
-      <View style={[h[2], w[2], bg.white, { borderRadius: 999 }]} />
-      <Code
+    <View style={[layout.flex.row]}>
+      <View
         style={[
-          text.white,
-          {
-            fontSize: 12,
-            lineHeight: 8,
-            fontWeight: "600",
-            letterSpacing: 1.75,
-          },
+          layout.flex.row,
+          layout.flex.alignCenter,
+          gap.all[1],
+          px[2],
+          bg.destructive[500],
+          borders.color.gray[800],
+          { paddingVertical: 3 },
         ]}
       >
-        LIVE
-      </Code>
+        <View style={[h[2], w[2], bg.white, { borderRadius: 999 }]} />
+        <Code
+          style={[
+            text.white,
+            {
+              fontSize: 12,
+              lineHeight: 8,
+              fontWeight: "600",
+              letterSpacing: 2,
+            },
+          ]}
+        >
+          LIVE
+        </Code>
+      </View>
     </View>
   );
 }
@@ -538,25 +538,9 @@ export function DesktopUi() {
                 style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
               >
                 {Platform.OS === "web" && pipSupported && (
-                  <Pressable
-                    onPress={handlePip}
-                    disabled={pipActive}
-                    style={[p[2], r[1]]}
-                  >
+                  <Pressable onPress={handlePip} disabled={pipActive}>
                     <View style={{ opacity: pipActive ? 0.5 : 1 }}>
-                      <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="white"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <rect x="3" y="3" width="18" height="14" rx="2" />
-                        <rect x="15" y="13" width="6" height="6" rx="1" />
-                      </svg>
+                      <PictureInPicture2 />
                     </View>
                   </Pressable>
                 )}
@@ -600,68 +584,6 @@ export function DesktopUi() {
             description="We're notifying your followers that you just went live."
             duration={5}
           />
-          {offline && <OfflineCounter />}
-
-          {muteWasForced && (
-            <View
-              style={[
-                layout.position.absolute,
-                layout.flex.center,
-                h.percent[100],
-                w.percent[100],
-              ]}
-            >
-              <Pressable
-                onPress={() => {
-                  if (muteWasForced) {
-                    setMuted(false);
-                    setMuteWasForced(false);
-                  }
-                }}
-                style={[
-                  {
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    p[4],
-                    {
-                      backgroundColor: "rgba(50, 30, 30, 0.4)",
-                      borderRadius: 999,
-                      borderWidth: 2,
-                      borderColor: "rgba(255, 120, 120, 0.2)",
-                      boxShadow: "0 2px 4px rgba(0, 0, 0, 1)",
-                      shadowColor: "rgba(0, 0, 0, 1)",
-                    },
-                  ]}
-                >
-                  <VolumeX size="48" color="rgba(255,120,120,0.8)" />
-                </View>
-                <View
-                  style={[
-                    px[2],
-                    {
-                      backgroundColor: "rgba(0,0,0, 0.8)",
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: "rgba(255, 120, 120, 0.1)",
-                      boxShadow: "0 2px 4px rgba(0, 0, 0, 1)",
-                      shadowColor: "rgba(0, 0, 0, 1)",
-                    },
-                  ]}
-                >
-                  <Text style={{ color: "rgba(180,180,180,0.8)" }} size="base">
-                    Press to unmute
-                  </Text>
-                </View>
-              </Pressable>
-            </View>
-          )}
         </View>
         {showMetrics && (
           <View

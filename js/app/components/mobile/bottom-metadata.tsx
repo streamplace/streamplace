@@ -2,6 +2,7 @@ import {
   Button,
   layout,
   PlayerUI,
+  ShareSheet,
   Text,
   useAvatars,
   useLivestreamInfo,
@@ -74,6 +75,7 @@ export function BottomMetadata({
         <View style={[layout.flex.row, layout.flex.center, gap.all[4]]}>
           <View style={[layout.flex.row, layout.flex.center, gap.all[2]]}>
             <PlayerUI.Viewers />
+            <ShareSheet />
           </View>
           <Button
             variant="outline"

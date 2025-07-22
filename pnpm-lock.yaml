@@ -437,6 +437,9 @@ importers:
       react-native-safe-area-context:
         specifier: 5.4.1
         version: 5.4.1(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
+      react-native-svg:
+        specifier: 15.12.0
+        version: 15.12.0(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
       react-native-webrtc:
         specifier: git+https://github.com/streamplace/react-native-webrtc.git#6b8472a771ac47f89217d327058a8a4124a6ae56
         version: https://codeload.github.com/streamplace/react-native-webrtc/tar.gz/6b8472a771ac47f89217d327058a8a4124a6ae56(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))

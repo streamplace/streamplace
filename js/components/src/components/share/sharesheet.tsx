@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   ResponsiveDropdownMenuContent,
   Text,
@@ -151,6 +152,7 @@ export function ShareSheet({ onShare }: ShareSheetProps = {}) {
               <Text>Copy Link</Text>
             </View>
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             onPress={() => copyToClipboard(getEmbedCode(), "Embed code")}
             disabled={isCopying}
@@ -163,6 +165,7 @@ export function ShareSheet({ onShare }: ShareSheetProps = {}) {
               <Text>Copy Embed Code</Text>
             </View>
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             closeOnPress={true}
             onPress={() => copyToClipboard(getEmbedUrl(), "Embed URL")}

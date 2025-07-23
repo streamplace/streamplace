@@ -17,7 +17,7 @@ import {
   pl,
   w,
 } from "../../lib/theme/atoms";
-import { atoms, layout } from "../ui";
+import { atoms, colors, layout } from "../ui";
 
 interface Facet {
   index: {
@@ -35,7 +35,7 @@ import { useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
 
 const getRgbColor = (color?: { red: number; green: number; blue: number }) =>
-  color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : "$accentColor";
+  color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : colors.gray[500];
 
 const segmentedObject = (
   obj: RichtextSegment,
@@ -114,7 +114,6 @@ export const RenderChatMessage = memo(
         hour12: false,
       });
     }, []);
-
     return (
       <>
         {item.replyTo && showReply && (
@@ -141,7 +140,7 @@ export const RenderChatMessage = memo(
               </Text>{" "}
               <Text
                 style={{
-                  color: atoms.colors.gray[300],
+                  color: colors.gray[300],
                   fontStyle: "italic",
                 }}
               >
@@ -155,7 +154,7 @@ export const RenderChatMessage = memo(
             <Text
               style={{
                 fontVariant: ["tabular-nums"],
-                color: atoms.colors.gray[300],
+                color: colors.gray[400],
               }}
             >
               {formatTime(item.record.createdAt)}

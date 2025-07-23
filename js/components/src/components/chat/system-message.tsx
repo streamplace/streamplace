@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { flex, gap, layout, ml, p, pl, w } from "../../ui";
+import { flex, gap, layout, ml, pb, pl, px, w } from "../../ui";
 import { atoms } from "../ui";
 import { Code, Text } from "../ui/text";
 
@@ -10,7 +10,7 @@ interface SystemMessageProps {
 
 export function SystemMessage({ title, timestamp }: SystemMessageProps) {
   return (
-    <View style={[w.percent[100], p[2]]}>
+    <View style={[w.percent[100], px[2], pb[2]]}>
       <Code color="muted" tracking="widest" style={[pl[12], ml[1]]}>
         SYSTEM MESSAGE
       </Code>

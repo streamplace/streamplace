@@ -1,4 +1,4 @@
-import { Reply, ShieldEllipsis } from "lucide-react-native";
+import { Ellipsis, Reply, ShieldEllipsis } from "lucide-react-native";
 import { ComponentProps, memo, useEffect, useRef, useState } from "react";
 import { FlatList, Platform, Pressable } from "react-native";
 import Swipeable, {
@@ -14,7 +14,6 @@ import {
   Text,
   useChat,
   usePlayerStore,
-  usePointerDevice,
   useSetReplyToMessage,
   View,
 } from "../../";
@@ -63,12 +62,10 @@ const ActionsBar = memo(
   ({
     item,
     visible,
-    canModerate,
     hoverTimeoutRef,
   }: {
     item: ChatMessageViewHydrated;
     visible: boolean;
-    canModerate: boolean;
     hoverTimeoutRef: React.MutableRefObject<NodeJS.Timeout | null>;
   }) => {
     const setReply = useSetReplyToMessage();
@@ -112,27 +109,25 @@ const ActionsBar = memo(
         >
           <Reply color="white" size={16} />
         </Pressable>
-        {canModerate && (
-          <Pressable
-            onPress={() => setModMsg(item)}
-            style={[
-              {
-                padding: 6,
-                borderRadius: 4,
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-              },
-            ]}
-            onHoverIn={() => {
-              // Keep the actions bar visible when hovering over it
-              if (hoverTimeoutRef.current) {
-                clearTimeout(hoverTimeoutRef.current);
-                hoverTimeoutRef.current = null;
-              }
-            }}
-          >
-            <ShieldEllipsis color="white" size={16} />
-          </Pressable>
-        )}
+        <Pressable
+          onPress={() => setModMsg(item)}
+          style={[
+            {
+              padding: 6,
+              borderRadius: 4,
+              backgroundColor: "rgba(255, 255, 255, 0.1)",
+            },
+          ]}
+          onHoverIn={() => {
+            // Keep the actions bar visible when hovering over it
+            if (hoverTimeoutRef.current) {
+              clearTimeout(hoverTimeoutRef.current);
+              hoverTimeoutRef.current = null;
+            }
+          }}
+        >
+          <Ellipsis color="white" size={16} />
+        </Pressable>
       </View>
     );
   },
@@ -149,7 +144,6 @@ const ChatLine = memo(
     const setReply = useSetReplyToMessage();
     const setModMsg = usePlayerStore((state) => state.setModMessage);
     const swipeableRef = useRef<SwipeableMethods | null>(null);
-    const { isMouseDriven } = usePointerDevice();
     const [isHovered, setIsHovered] = useState(false);
     const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -175,22 +169,16 @@ const ChatLine = memo(
       };
     }, []);
 
-    // Check if this is a system message
-    const isSystemMessage = item.author.did === "did:sys:system";
-
-    // For system messages, render without swipe gestures
-    if (isSystemMessage) {
+    if (item.author.did === "did:sys:system") {
       return (
-        <View style={[py[1]]}>
-          <SystemMessage
-            title={item.record.text}
-            timestamp={new Date(item.record.createdAt)}
-          />
-        </View>
+        <SystemMessage
+          timestamp={new Date(item.record.createdAt)}
+          title={item.record.text}
+        />
       );
     }
 
-    if (isMouseDriven) {
+    if (Platform.OS === "web") {
       return (
         <View
           style={[
@@ -202,15 +190,12 @@ const ChatLine = memo(
           onPointerEnter={handleHoverIn}
           onPointerLeave={handleHoverOut}
         >
-          <Pressable
-            onLongPress={canModerate ? () => setModMsg(item) : undefined}
-          >
+          <Pressable>
             <RenderChatMessage item={item} />
           </Pressable>
           <ActionsBar
             item={item}
             visible={isHovered}
-            canModerate={canModerate}
             hoverTimeoutRef={hoverTimeoutRef}
           />
         </View>
@@ -218,12 +203,13 @@ const ChatLine = memo(
     }
 
     return (
-      <Pressable onLongPress={canModerate ? () => setModMsg(item) : undefined}>
+      <>
         <Swipeable
           containerStyle={[py[1]]}
           friction={2}
           enableTrackpadTwoFingerGesture
           rightThreshold={40}
+          leftThreshold={40}
           renderRightActions={
             Platform.OS === "android" ? undefined : RightAction
           }
@@ -236,10 +222,7 @@ const ChatLine = memo(
             if (r === (Platform.OS === "android" ? "right" : "left")) {
               setReply(item);
             }
-            if (
-              r === (Platform.OS === "android" ? "left" : "right") &&
-              canModerate
-            ) {
+            if (r === (Platform.OS === "android" ? "left" : "right")) {
               setModMsg(item);
             }
             // close this swipeable
@@ -251,7 +234,7 @@ const ChatLine = memo(
         >
           <RenderChatMessage item={item} />
         </Swipeable>
-      </Pressable>
+      </>
     );
   },
 );

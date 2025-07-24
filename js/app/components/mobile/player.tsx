@@ -115,8 +115,31 @@ export function Player(
   return (
     <LivestreamProvider src={props.src ?? ""}>
       <PlayerProvider defaultId={props.playerId || undefined}>
-        <PlayerInner {...props} />
-        <MobileUi />
+        <View
+          style={{
+            flexDirection: chatVisible ? "row" : "column",
+            flex: 1,
+            width: "100%",
+            height: "100%",
+            paddingLeft: safeAreaInsets.left,
+            paddingRight: safeAreaInsets.right,
+          }}
+        >
+          <PlayerInner
+            {...props}
+            showChat={showChat}
+            setShowChat={setShowChat}
+          />
+          {shouldShowChatSidePanel ? (
+            <DesktopChatPanel
+              chatVisible={chatVisible}
+              chatPanelWidth={chatPanelWidth}
+              safeAreaInsets={safeAreaInsets}
+            />
+          ) : (
+            <MobileUi />
+          )}
+        </View>
       </PlayerProvider>
     </LivestreamProvider>
   );

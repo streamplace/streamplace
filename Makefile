@@ -135,7 +135,7 @@ js-lexicons:
 
 .PHONY: md-lexicons
 md-lexicons:
-	mkdir js/docs/src/content/docs/lex-reference/ \
+	mkdir -p js/docs/src/content/docs/lex-reference/ \
 	&& pnpm exec lexmd \
 	    ./lexicons \
 		.build/temp \

@@ -138,6 +138,8 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/butuzov/ireturn v0.4.0 // indirect
 	github.com/butuzov/mirror v1.3.0 // indirect
+	github.com/caddyserver/certmagic v0.23.0 // indirect
+	github.com/caddyserver/zerossl v0.1.3 // indirect
 	github.com/carlmjohnson/versioninfo v0.22.5 // indirect
 	github.com/catenacyber/perfsprint v0.9.1 // indirect
 	github.com/ccojocar/zxcvbn-go v1.0.2 // indirect
@@ -280,6 +282,7 @@ require (
 	github.com/lestrrat-go/httprc v1.0.6 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
+	github.com/libdns/libdns v1.0.0-beta.1 // indirect
 	github.com/livepeer/m3u8 v0.11.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/macabu/inamedparam v0.2.0 // indirect
@@ -292,6 +295,8 @@ require (
 	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mgechev/revive v1.9.0 // indirect
+	github.com/mholt/acmez/v3 v3.1.2 // indirect
+	github.com/miekg/dns v1.1.66 // indirect
 	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -395,6 +400,7 @@ require (
 	github.com/yagipy/maintidx v1.0.0 // indirect
 	github.com/yeya24/promlinter v0.3.0 // indirect
 	github.com/ykadowak/zerologlint v0.1.5 // indirect
+	github.com/zeebo/blake3 v0.2.4 // indirect
 	gitlab.com/bosi/decorder v0.4.2 // indirect
 	gitlab.com/yawning/secp256k1-voi v0.0.0-20230925100816-f2616030848b // indirect
 	gitlab.com/yawning/tuplehash v0.0.0-20230713102510-df83abbf9a02 // indirect
@@ -412,6 +418,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
+	go.uber.org/zap/exp v0.3.0 // indirect
 	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/exp v0.0.0-20250606033433-dcc06ee1d476 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20250210185358-939b2ce775ac // indirect

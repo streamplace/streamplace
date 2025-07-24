@@ -9,6 +9,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/caddyserver/certmagic"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 )
@@ -19,14 +20,29 @@ func ServeRTMPS(ctx context.Context, cli *config.CLI) error {
 		return fmt.Errorf("RTMP server address not configured")
 	}
 
-	cert, err := tls.LoadX509KeyPair(cli.TLSCertPath, cli.TLSKeyPath)
-	if err != nil {
-		return fmt.Errorf("failed to load TLS certificate: %w", err)
-	}
+	var tlsConfig *tls.Config
 
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
+	if cli.UseCertMagic {
+		if cli.PublicHost == "" {
+			return fmt.Errorf("public-host must be set when using CertMagic")
+		}
+
+		tlsConfig = certmagic.Default.TLSConfig()
+		tlsConfig.NextProtos = []string{"rtmp"} // RTMPS doesn't use ALPN but set it anyway
+
+		log.Log(ctx, "rtmps server using CertMagic certificates",
+			"domain", cli.PublicHost)
+	} else {
+		// Use manually configured certificates
+		cert, err := tls.LoadX509KeyPair(cli.TLSCertPath, cli.TLSKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificate: %w", err)
+		}
+
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}
 	}
 
 	listener, err := tls.Listen("tcp", cli.RtmpsAddr, tlsConfig)
@@ -36,7 +52,8 @@ func ServeRTMPS(ctx context.Context, cli *config.CLI) error {
 
 	log.Log(ctx, "rtmps server starting",
 		"addr", cli.RtmpsAddr,
-		"forwarding_to", cli.RTMPServerAddon)
+		"forwarding_to", cli.RTMPServerAddon,
+		"certmagic", cli.UseCertMagic)
 
 	go func() {
 		<-ctx.Done()

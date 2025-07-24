@@ -69,6 +69,8 @@ type CLI struct {
 	TAURL                  string
 	TLSCertPath            string
 	TLSKeyPath             string
+	UseCertMagic           bool
+	CertMagicCAURL         string
 	PKCS11ModulePath       string
 	PKCS11Pin              string
 	PKCS11TokenSlot        string
@@ -118,6 +120,8 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.BoolVar(&cli.Secure, "secure", false, "Run with HTTPS. Required for WebRTC output")
 	cli.DataDirFlag(fs, &cli.TLSCertPath, "tls-cert", filepath.Join("tls", "tls.crt"), "Path to TLS certificate")
 	cli.DataDirFlag(fs, &cli.TLSKeyPath, "tls-key", filepath.Join("tls", "tls.key"), "Path to TLS key")
+	fs.BoolVar(&cli.UseCertMagic, "use-certmagic", false, "Use CertMagic for automatic HTTPS certificate management")
+	fs.StringVar(&cli.CertMagicCAURL, "certmagic-ca-url", "", "ACME CA URL for CertMagic (default: Let's Encrypt)")
 	fs.StringVar(&cli.SigningKeyPath, "signing-key", "", "Path to signing key for pushing OTA updates to the app")
 	cli.DataDirFlag(fs, &cli.DBPath, "db-path", "db.sqlite", "path to sqlite database file")
 	fs.StringVar(&cli.AdminAccount, "admin-account", "", "ethereum account that administrates this streamplace node")

@@ -748,6 +748,12 @@ func (a *StreamplaceAPI) ServeHTTPRedirect(ctx context.Context) error {
 }
 
 func (a *StreamplaceAPI) ServeHTTPS(ctx context.Context) error {
+	// Use CertMagic if enabled
+	if a.CLI.UseCertMagic {
+		return a.ServeHTTPSWithCertMagic(ctx)
+	}
+
+	// Otherwise use provided certificates
 	handler, err := a.Handler(ctx)
 	if err != nil {
 		return err

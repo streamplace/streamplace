@@ -5,10 +5,9 @@
   "scripts": {
     "dev": "astro dev --host 0.0.0.0 --port 38082",
     "start": "astro dev --host 0.0.0.0 --port 38082",
-    "build": "astro build && rm -rf ../app/dist/docs && mkdir -p ../app/dist && cp -r dist ../app/dist/docs",
+    "build": "cd ../.. && make md-lexicons && cd - && astro build && rm -rf ../app/dist/docs && mkdir -p ../app/dist && cp -r dist ../app/dist/docs",
     "preview": "astro preview",
-    "astro": "astro",
-    "prepare": "cd ../.. && make md-lexicons && cd - "
+    "astro": "astro"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.34.1",

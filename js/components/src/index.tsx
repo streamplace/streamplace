@@ -30,3 +30,5 @@ export * from "./components/chat/chat-box";
 export * from "./components/chat/system-message";
 export { default as VideoRetry } from "./components/mobile-player/video-retry";
 export * from "./lib/system-messages";
+
+export * from "./components/share/sharesheet";

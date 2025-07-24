@@ -2,6 +2,7 @@ import {
   Button,
   layout,
   PlayerUI,
+  ShareSheet,
   Text,
   useAvatars,
   useLivestreamInfo,
@@ -72,9 +73,8 @@ export function BottomMetadata({
 
         {/* Right side - Viewer count and collapse chat */}
         <View style={[layout.flex.row, layout.flex.center, gap.all[4]]}>
-          <View style={[layout.flex.row, layout.flex.center, gap.all[2]]}>
-            <PlayerUI.Viewers />
-          </View>
+          <PlayerUI.Viewers />
+          <ShareSheet />
           <Button
             variant="outline"
             size="sm"

@@ -8,7 +8,7 @@
     "build": "astro build && rm -rf ../app/dist/docs && mkdir -p ../app/dist && cp -r dist ../app/dist/docs",
     "preview": "astro preview",
     "astro": "astro",
-    "prepare": "cd ../.. && make md-lexicons"
+    "prepare": "cd ../.. && make md-lexicons && cd - "
   },
   "dependencies": {
     "@astrojs/starlight": "^0.34.1",

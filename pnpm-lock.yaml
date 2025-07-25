@@ -594,6 +594,8 @@ importers:
         specifier: workspace:*
         version: link:../streamplace
 
+  js/server: {}
+
   js/streamplace:
     dependencies:
       '@atproto/api':

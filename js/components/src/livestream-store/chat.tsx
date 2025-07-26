@@ -312,4 +312,65 @@ export const reduceChatIncremental = (
   };
 };
 
+export const useSubmitReport = () => {
+  const pdsAgent = usePDSAgent();
+  const userDID = useDID();
+
+  return useCallback(
+    async (
+      reportSubject: { $type: string; uri: string; cid?: string },
+      reasonType: string,
+      reason?: string,
+      // no clue about this
+      moderationSvcDid: string = "did:web:stream.place",
+    ) => {
+      if (!pdsAgent || !userDID) {
+        throw new Error("No PDS agent or user DID found");
+      }
+
+      try {
+        const response = await pdsAgent.com.atproto.moderation.createReport(
+          {
+            reasonType,
+            reason,
+            subject: reportSubject,
+          },
+          {
+            headers: {
+              "atproto-proxy": `${userDID}#atproto_labeler`,
+            },
+          },
+        );
+
+        return response;
+      } catch (error) {
+        console.error("Failed to submit report:", error);
+        throw error;
+      }
+    },
+    [pdsAgent, userDID],
+  );
+};
+
+export const useReportChatMessage = () => {
+  const submitReport = useSubmitReport();
+
+  return useCallback(
+    async (
+      message: ChatMessageViewHydrated,
+      reasonType: string,
+      reason?: string,
+    ) => {
+      const reportSubject = {
+        $type: "com.atproto.repo.strongRef",
+        uri: message.uri,
+        cid: message.cid,
+      };
+
+      return await submitReport(reportSubject, reasonType, reason);
+    },
+    [submitReport],
+  );
+};
+
 export const reduceChat = reduceChatIncremental;

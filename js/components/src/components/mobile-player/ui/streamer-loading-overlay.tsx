@@ -18,7 +18,7 @@ type LoadingOverlayProps = {
 };
 
 const defaultMessages = [
-  "Creating your stream",
+  "Creating the stream",
   "Uploading thumbnails",
   "Getting things ready",
   "Doing some magic",

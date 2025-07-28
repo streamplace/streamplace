@@ -329,6 +329,7 @@ export function HLSPlayer(props: VideoProps) {
       });
     }
   }, [props.url]);
+
   return <VideoElement {...props} ref={localRef} />;
 }
 

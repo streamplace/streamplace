@@ -94,6 +94,7 @@ export function MobileUi() {
   return (
     <>
       <TouchableWithoutFeedback onPress={resetFadeTimer}>
+        <PlayerUI.ViewerLoadingOverlay />
         <Animated.View
           style={[
             layout.position.absolute,

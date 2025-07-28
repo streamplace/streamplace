@@ -1,12 +1,6 @@
-import { useNavigation } from "@react-navigation/native";
 import {
-  Code,
   PlayerUI,
-  Slider,
-  Text,
   Toast,
-  useAvatars,
-  useCameraToggle,
   useLivestreamInfo,
   usePlayerDimensions,
   usePlayerStore,
@@ -14,18 +8,8 @@ import {
   View,
   zero,
 } from "@streamplace/components";
-import {
-  ChevronLeft,
-  Fullscreen,
-  MessageSquare,
-  Minimize,
-  PictureInPicture2,
-  SwitchCamera,
-  Volume2,
-  VolumeX,
-} from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Image, Platform, Pressable } from "react-native";
+import { Platform } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -33,10 +17,14 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import {
+  BottomControlBar,
+  MuteOverlay,
+  TopControlBar,
+} from "./desktop-ui/index";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
-const { borders, colors, gap, h, layout, position, w, px, py, r, p, bg, text } =
-  zero;
+const { h, layout, position, w, px, py, r, p } = zero;
 
 function isRefObject(
   ref: any,
@@ -46,144 +34,9 @@ function isRefObject(
   return ref && typeof ref === "object" && "current" in ref;
 }
 
-// Live indicator bubble component
-function LiveBubble() {
-  return (
-    <View style={[layout.flex.row]}>
-      <View
-        style={[
-          layout.flex.row,
-          layout.flex.alignCenter,
-          gap.all[1],
-          px[2],
-          bg.destructive[500],
-          borders.color.gray[800],
-          { paddingVertical: 3 },
-        ]}
-      >
-        <View style={[h[2], w[2], bg.white, { borderRadius: 999 }]} />
-        <Code
-          style={[
-            text.white,
-            {
-              fontSize: 12,
-              lineHeight: 8,
-              fontWeight: "600",
-              letterSpacing: 2,
-            },
-          ]}
-        >
-          LIVE
-        </Code>
-      </View>
-    </View>
-  );
-}
-
-// Volume slider component
-function VolumeSlider() {
-  const muted = usePlayerStore((state) => state.muted);
-  const setMuted = usePlayerStore((state) => state.setMuted);
-  const volume = usePlayerStore((state) => state.volume);
-  const setVolume = usePlayerStore((state) => state.setVolume);
-
-  const fadeAnim = useSharedValue(0);
-  const widthAnim = useSharedValue(0);
-
-  const onVolumeHover = useCallback(() => {
-    fadeAnim.value = withTiming(1, { duration: 200 });
-    widthAnim.value = withTiming(200, { duration: 200 });
-  }, [fadeAnim, widthAnim]);
-
-  // Toggle mute state
-  const handleMuteToggle = useCallback(() => {
-    setMuted(!muted);
-  }, [muted, setMuted]);
-
-  const VolumeIcon = muted ? VolumeX : Volume2;
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: fadeAnim.value,
-    width: widthAnim.value,
-  }));
-
-  // Convert volume (0-1) to percentage (0-100) for slider
-  const sliderValue = (muted ? 0 : volume) * 100;
-  return (
-    <View
-      onPointerEnter={onVolumeHover}
-      style={[layout.flex.row, layout.flex.alignCenter, { height: 50 }]}
-    >
-      <Pressable onPress={handleMuteToggle} style={[p[2], r[1]]}>
-        <VolumeIcon size={20} color="white" />
-      </Pressable>
-
-      <Animated.View style={[{ height: 30 }, animatedStyle]}>
-        <Slider.Root
-          style={{
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            flex: 1,
-            width: 200,
-            height: 20,
-          }}
-          value={sliderValue}
-          min={0}
-          max={100} // Slider max value is 100 for percentage
-          onValueChange={(vals) => {
-            const newVolume = vals[0] / 100; // Convert back to 0-1 range
-            setVolume(newVolume);
-            if (newVolume === 0) {
-              setMuted(true);
-            } else {
-              setMuted(false);
-            }
-          }}
-          asChild
-        >
-          <Slider.Track
-            style={{
-              flexGrow: 1,
-              height: 30,
-              position: "relative",
-              flex: 1,
-            }}
-          >
-            <Slider.Range
-              style={{
-                position: "absolute",
-                backgroundColor: "white",
-                borderRadius: 999,
-                height: 3,
-                flex: 1,
-                width: "100%",
-                transform: [{ translateY: 14 }],
-              }}
-            />
-            <Slider.Thumb
-              style={{
-                position: "absolute",
-                width: 16,
-                height: 16,
-                borderRadius: 8,
-                backgroundColor: "white",
-                boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
-                transform: [{ translateX: -8 }, { translateY: 7 }],
-              }}
-            />
-          </Slider.Track>
-        </Slider.Root>
-      </Animated.View>
-    </View>
-  );
-}
-
 export function DesktopUi() {
-  const navigation = useNavigation();
   const {
     ingest,
-    profile,
     title,
     setTitle,
     showCountdown,
@@ -195,15 +48,8 @@ export function DesktopUi() {
     toggleGoLive,
   } = useLivestreamInfo();
   const { width, height } = usePlayerDimensions();
-  const { doSetIngestCamera } = useCameraToggle();
-  const avatars = useAvatars(profile?.did ? [profile?.did] : []);
   const { safeAreaInsets, shouldShowFloatingMetrics } = useResponsiveLayout();
 
-  const fullscreen = usePlayerStore((state) => state.fullscreen);
-  const setFullscreen = usePlayerStore((state) => state.setFullscreen);
-  const muteWasForced = usePlayerStore((state) => state.muteWasForced);
-  const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
-  const setMuted = usePlayerStore((state) => state.setMuted);
   const offline = usePlayerStore((state) => state.offline);
   const showMetrics = usePlayerStore((state) => state.showDebugInfo);
   const pipAction = usePlayerStore((state) => state.pipAction);
@@ -337,66 +183,8 @@ export function DesktopUi() {
         <View
           style={[layout.position.absolute, h.percent[100], w.percent[100]]}
         >
-          {muteWasForced && (
-            <View
-              style={[
-                layout.position.absolute,
-                layout.flex.center,
-                h.percent[100],
-                w.percent[100],
-              ]}
-            >
-              <Pressable
-                onPress={() => {
-                  if (muteWasForced) {
-                    setMuted(false);
-                    setMuteWasForced(false);
-                  }
-                }}
-                style={[
-                  {
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    p[4],
-                    {
-                      backgroundColor: "rgba(50, 30, 30, 0.4)",
-                      borderRadius: 999,
-                      borderWidth: 2,
-                      borderColor: "rgba(255, 120, 120, 0.2)",
-                      boxShadow: "0 2px 4px rgba(0, 0, 0, 1)",
-                      shadowColor: "rgba(0, 0, 0, 1)",
-                    },
-                  ]}
-                >
-                  <VolumeX size="48" color="rgba(255,120,120,0.8)" />
-                </View>
-                <View
-                  style={[
-                    px[2],
-                    {
-                      backgroundColor: "rgba(0,0,0, 0.8)",
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: "rgba(255, 120, 120, 0.1)",
-                      boxShadow: "0 2px 4px rgba(0, 0, 0, 1)",
-                      shadowColor: "rgba(0, 0, 0, 1)",
-                    },
-                  ]}
-                >
-                  <Text style={{ color: "rgba(180,180,180,0.8)" }} size="base">
-                    Press to unmute
-                  </Text>
-                </View>
-              </Pressable>
-            </View>
-          )}
+          <MuteOverlay />
+          <PlayerUI.ViewerLoadingOverlay />
           <Animated.View
             style={[
               layout.position.absolute,
@@ -409,78 +197,14 @@ export function DesktopUi() {
               animatedFadeStyle,
             ]}
           >
-            <View
-              style={[
-                layout.flex.row,
-                layout.flex.spaceBetween,
-                layout.flex.alignCenter,
-              ]}
-            >
-              <View
-                style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
-              >
-                {Platform.OS !== "web" && (
-                  <Pressable
-                    onPress={() => {
-                      navigation.canGoBack()
-                        ? navigation.goBack()
-                        : navigation.navigate("Home", { screen: "StreamList" });
-                    }}
-                    style={[p[2], r[1]]}
-                  >
-                    <ChevronLeft color="white" size={24} />
-                  </Pressable>
-                )}
-                <Image
-                  source={
-                    profile?.did
-                      ? { uri: avatars[profile?.did]?.avatar }
-                      : require("assets/images/goose.png")
-                  }
-                  style={[
-                    {
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: colors.gray[800],
-                    },
-                    borders.width.thin,
-                    borders.color.gray[700],
-                  ]}
-                />
-
-                <View style={[layout.flex.column]}>
-                  <Text
-                    style={[text.white, { fontSize: 16, fontWeight: "600" }]}
-                  >
-                    {profile?.handle}
-                  </Text>
-                  {!offline && <LiveBubble />}
-                </View>
-              </View>
-
-              <View
-                style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
-              >
-                {isActivelyLive && (
-                  <>
-                    <PlayerUI.Viewers />
-
-                    <Pressable onPress={toggleChat} style={[p[2], r[1]]}>
-                      <MessageSquare
-                        size={20}
-                        color={isChatOpen ? colors.primary[500] : colors.white}
-                      />
-                    </Pressable>
-                  </>
-                )}
-                {ingest !== null && (
-                  <Pressable onPress={doSetIngestCamera} style={[p[2], r[1]]}>
-                    <SwitchCamera size={24} color={colors.gray[200]} />
-                  </Pressable>
-                )}
-              </View>
-            </View>
+            <TopControlBar
+              offline={offline}
+              isActivelyLive={isActivelyLive}
+              ingest={ingest}
+              isChatOpen={isChatOpen}
+              onToggleChat={toggleChat}
+              safeAreaInsets={safeAreaInsets}
+            />
           </Animated.View>
 
           {isActivelyLive && isControlsVisible && (
@@ -521,42 +245,12 @@ export function DesktopUi() {
               animatedFadeStyle,
             ]}
           >
-            <View
-              style={[
-                layout.flex.row,
-                layout.flex.spaceBetween,
-                layout.flex.alignCenter,
-              ]}
-            >
-              <View
-                style={[layout.flex.row, layout.flex.alignCenter, gap.all[4]]}
-              >
-                <VolumeSlider />
-              </View>
-
-              <View
-                style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
-              >
-                {Platform.OS === "web" && pipSupported && (
-                  <Pressable onPress={handlePip} disabled={pipActive}>
-                    <View style={{ opacity: pipActive ? 0.5 : 1 }}>
-                      <PictureInPicture2 />
-                    </View>
-                  </Pressable>
-                )}
-                {Platform.OS === "web" && (
-                  <Pressable
-                    onPress={() => {
-                      setFullscreen(!fullscreen);
-                    }}
-                    style={[p[2], r[1]]}
-                  >
-                    {fullscreen ? <Minimize /> : <Fullscreen />}
-                  </Pressable>
-                )}
-                {ingest === null && <PlayerUI.ContextMenu />}
-              </View>
-            </View>
+            <BottomControlBar
+              ingest={ingest}
+              pipSupported={pipSupported}
+              pipActive={pipActive}
+              onHandlePip={handlePip}
+            />
           </Animated.View>
 
           {isSelfAndNotLive && (
@@ -597,11 +291,10 @@ export function DesktopUi() {
                 backgroundColor: "rgba(0, 0, 0, 0.7)",
                 borderRadius: 8,
                 borderWidth: 1,
-                borderColor: colors.gray[700],
+                borderColor: "#374151",
               },
             ]}
           >
-            <Text>Segment Timing</Text>
             <PlayerUI.MetricsPanel showMetrics={showMetrics} />
           </View>
         )}

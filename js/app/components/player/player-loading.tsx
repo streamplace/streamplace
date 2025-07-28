@@ -1,6 +1,9 @@
-import { PlayerStatus, usePlayerStore } from "@streamplace/components";
+import {
+  KeepAwake,
+  PlayerStatus,
+  usePlayerStore,
+} from "@streamplace/components";
 import { Play } from "@tamagui/lucide-icons";
-import KeepAwake from "components/keep-awake";
 import { Spinner } from "components/loading/loading";
 import { useTheme, View } from "tamagui";
 

@@ -5,8 +5,13 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { Loader, PlayerStatus, usePlayerStore, useTheme } from "../../..";
-import KeepAwake from "../../keep-awake";
+import {
+  KeepAwake,
+  Loader,
+  PlayerStatus,
+  usePlayerStore,
+  useTheme,
+} from "../../..";
 
 export function ViewerLoadingOverlay() {
   const status = usePlayerStore((x) => x.status);

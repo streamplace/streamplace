@@ -1,6 +1,5 @@
-import { ThemeProvider } from "@streamplace/components";
+import { KeepAwake, ThemeProvider } from "@streamplace/components";
 import { Redirect } from "components/aqlink";
-import KeepAwake from "components/keep-awake";
 import { Player } from "components/mobile/player";
 import { FullscreenProvider } from "contexts/FullscreenContext";
 import { selectUserProfile } from "features/bluesky/blueskySlice";

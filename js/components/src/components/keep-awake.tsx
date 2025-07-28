@@ -1,3 +1,3 @@
-export default function KeepAwake() {
+export function KeepAwake() {
   return <></>;
 }

@@ -1,4 +1,5 @@
 import {
+  KeepAwake,
   LivestreamProvider,
   Player,
   PlayerProps,
@@ -7,7 +8,6 @@ import {
   usePlayerStore,
   zero,
 } from "@streamplace/components";
-import KeepAwake from "components/keep-awake";
 import { DesktopUi } from "components/mobile/desktop-ui";
 import { FullscreenProvider } from "contexts/FullscreenContext";
 import { useEffect, useState } from "react";

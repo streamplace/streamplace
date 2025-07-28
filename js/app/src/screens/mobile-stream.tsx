@@ -1,5 +1,4 @@
-import { ThemeProvider } from "@streamplace/components";
-import KeepAwake from "components/keep-awake";
+import { KeepAwake, ThemeProvider } from "@streamplace/components";
 import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
 import { FullscreenProvider } from "contexts/FullscreenContext";

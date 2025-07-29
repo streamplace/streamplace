@@ -93,6 +93,8 @@ RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v2.1.6/g
   && mv golangci-lint-2.1.6-linux-amd64/golangci-lint /usr/local/bin/ \
   && rm -rf golangci-lint.tar.gz golangci-lint-2.1.6-linux-amd64
 
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=false
+
 FROM builder-no-darwin AS builder
 
 WORKDIR /osxcross

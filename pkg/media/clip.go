@@ -39,18 +39,18 @@ func Clip(ctx context.Context, sources []string, w io.Writer) error {
 	}
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String())
 	ctx = log.WithLogValues(ctx, "mediafunc", "Clip")
-	ctx, cancel := context.WithCancel(ctx) //nolint:all
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	pipelineSlice := []string{
-		"matroskamux name=muxer ! appsink sync=false name=mp4sink",
-		"h264parse name=videoparse ! muxer.video_0",
+		"mp4mux name=muxer ! appsink sync=false name=mp4sink",
+		"h264parse name=videoparse ! h264timestamper ! muxer.video_0",
 		"opusparse name=audioparse ! muxer.audio_0",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
-		return fmt.Errorf("failed to create GStreamer pipeline: %w", err) //nolint:all
+		return fmt.Errorf("failed to create GStreamer pipeline: %w", err)
 	}
 
 	segCh := make(chan *bus.Seg)
@@ -123,7 +123,6 @@ func Clip(ctx context.Context, sources []string, w io.Writer) error {
 	appSink.SetCallbacks(&app.SinkCallbacks{
 		NewSampleFunc: WriterNewSample(ctx, w),
 		EOSFunc: func(sink *app.Sink) {
-			log.Log(ctx, "mp4sink EOSFunc")
 			close(eos)
 		},
 	})
@@ -133,6 +132,12 @@ func Clip(ctx context.Context, sources []string, w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to set pipeline state to playing: %w", err)
 	}
+	defer func() {
+		err := pipeline.BlockSetState(gst.StateNull)
+		if err != nil {
+			log.Error(ctx, "failed to set pipeline state to null", "error", err)
+		}
+	}()
 
 	// Handle bus messages
 	err = HandleBusMessages(ctx, pipeline)

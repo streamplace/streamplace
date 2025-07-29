@@ -114,7 +114,15 @@ func ConcatBin(ctx context.Context, segCh <-chan *bus.Seg) (*gst.Bin, error) {
 			select {
 			case seg := <-segCh:
 				if seg == nil {
-					bin.Error(ErrConcatDone.Error(), ErrConcatDone)
+					ok := syncPadVideoSrc.PushEvent(gst.NewEOSEvent())
+					if !ok {
+						log.Error(ctx, "failed to post EOS message", "error", ok)
+					}
+					ok = syncPadAudioSrc.PushEvent(gst.NewEOSEvent())
+					if !ok {
+						log.Error(ctx, "failed to post EOS message", "error", ok)
+					}
+					log.Debug(ctx, "concat completed")
 					return
 				}
 				err := addConcatDemuxer(ctx, bin, seg, syncPadVideoSink, syncPadAudioSink)

@@ -115,6 +115,20 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return WHIP(os.Args[2:])
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "clip" {
+		cli := config.CLI{Build: build}
+		fs := cli.NewFlagSet("streamplace clip")
+		out := fs.String("out", "", "output file")
+
+		err := cli.Parse(fs, os.Args[2:])
+		if err != nil {
+			return err
+		}
+		ctx := context.Background()
+		ctx = log.WithDebugValue(ctx, cli.Debug)
+		return Clip(ctx, fs.Args(), *out)
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "self-test" {
 		err := media.RunSelfTest(context.Background())
 		if err != nil {

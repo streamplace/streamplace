@@ -113,6 +113,7 @@ type Model interface {
 	UpdateLabelerCursor(did string, cursor int64) error
 
 	CreateLabel(label *Label) error
+	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)
 }
 
 func MakeDB(dbURL string) (Model, error) {

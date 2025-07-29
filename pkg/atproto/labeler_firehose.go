@@ -10,8 +10,10 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/label"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/gorilla/websocket"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
@@ -108,7 +110,6 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 
 	rsc := &events.RepoStreamCallbacks{
 		LabelLabels: func(evt *comatproto.LabelSubscribeLabels_Labels) error {
-			log.Log(ctx, "labeler labels", "labels", evt.Labels, "seq", evt.Seq)
 			err = atsync.Model.UpdateLabelerCursor(did, evt.Seq)
 			if err != nil {
 				log.Error(ctx, "failed to update labeler cursor", "err", err)
@@ -131,22 +132,66 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 					log.Error(ctx, "failed to marshal label", "err", err)
 					continue
 				}
+				cts, err := time.Parse(util.ISO8601, l.CreatedAt)
+				if err != nil {
+					log.Error(ctx, "failed to parse label created time", "err", err)
+					continue
+				}
+				var exp time.Time
+				if l.ExpiresAt != nil {
+					e, err := time.Parse(util.ISO8601, *l.ExpiresAt)
+					if err != nil {
+						log.Error(ctx, "failed to parse label expiration time", "err", err)
+						continue
+					}
+					exp = e.UTC()
+				} else {
+					exp = time.Time{}
+				}
+				neg := false
+				if l.Negated != nil {
+					neg = *l.Negated
+				}
+
+				var targetDID string
+
+				// the URI can either be a true URI or a DID, so
+				aturi, err1 := syntax.ParseATURI(l.URI)
+				if err1 != nil {
+					did, err2 := syntax.ParseDID(l.URI)
+					if err2 != nil {
+						log.Error(ctx, "failed to parse label URI as either ATURI or DID", "err1", err1, "err2", err2)
+						continue
+					}
+					targetDID = did.String()
+				} else {
+					did, err := aturi.Authority().AsDID()
+					if err != nil {
+						log.Error(ctx, "failed to parse label URI as ATURI", "err", err)
+						continue
+					}
+					targetDID = did.String()
+				}
+
+				log.Log(ctx, "labeler label", "targetDID", targetDID, "uri", l.URI, "cid", l.CID, "createdAt", cts, "expiresAt", exp, "negated", neg, "sourceDID", l.SourceDID, "val", l.Val, "version", l.Version)
 				err = atsync.Model.CreateLabel(&model.Label{
-					Cid:    l.CID,
-					Cts:    l.CreatedAt,
-					Exp:    l.ExpiresAt,
-					Neg:    l.Negated,
-					Sig:    l.Sig,
-					Src:    l.SourceDID,
-					Uri:    l.URI,
-					Val:    l.Val,
-					Ver:    &l.Version,
-					Record: bs.Bytes(),
+					Cid:     l.CID,
+					Cts:     cts.UTC(),
+					Exp:     exp,
+					Neg:     neg,
+					Sig:     l.Sig,
+					Src:     l.SourceDID,
+					Uri:     l.URI,
+					Val:     l.Val,
+					Ver:     &l.Version,
+					Record:  bs.Bytes(),
+					RepoDID: targetDID,
 				})
 				if err != nil {
 					log.Error(ctx, "failed to create label", "err", err)
 					continue
 				}
+				atsync.Bus.Publish(targetDID, labelLex)
 			}
 			return nil
 		},

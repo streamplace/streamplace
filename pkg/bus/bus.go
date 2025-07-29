@@ -62,7 +62,11 @@ func (b *Bus) Unsubscribe(user string, ch <-chan Message) {
 func (b *Bus) Publish(user string, msg Message) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	for _, sub := range b.clients[user] {
+	subs, ok := b.clients[user]
+	if !ok {
+		return
+	}
+	for _, sub := range subs {
 		go func(sub Subscription) {
 			sub <- msg
 		}(sub)

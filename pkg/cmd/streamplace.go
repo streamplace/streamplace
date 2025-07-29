@@ -365,11 +365,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		group.Go(func() error {
 			return atsync.StartFirehose(ctx)
 		})
-		for _, labeler := range cli.Labelers {
-			group.Go(func() error {
-				return atsync.StartLabelerFirehose(ctx, labeler)
-			})
-		}
+	}
+	for _, labeler := range cli.Labelers {
+		group.Go(func() error {
+			return atsync.StartLabelerFirehose(ctx, labeler)
+		})
 	}
 
 	group.Go(func() error {

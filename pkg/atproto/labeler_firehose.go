@@ -1,6 +1,7 @@
 package atproto
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 )
 
 func (atsync *ATProtoSynchronizer) StartLabelerFirehose(ctx context.Context, did string) error {
@@ -83,8 +85,18 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 	} else {
 		return fmt.Errorf("invalid labeler URI scheme: %s", labeler.URL)
 	}
+	dbLabeler, err := atsync.Model.GetLabeler(did)
+	if err != nil {
+		return fmt.Errorf("failed to get labeler %s: %w", did, err)
+	}
+	if dbLabeler == nil {
+		dbLabeler, err = atsync.Model.CreateLabeler(did)
+		if err != nil {
+			return fmt.Errorf("failed to create labeler %s: %w", did, err)
+		}
+	}
 	query := u.Query()
-	query.Set("cursor", "0")
+	query.Set("cursor", fmt.Sprintf("%d", dbLabeler.Cursor))
 	u.RawQuery = query.Encode()
 
 	con, _, err := dialer.Dial(u.String(), http.Header{
@@ -97,6 +109,10 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 	rsc := &events.RepoStreamCallbacks{
 		LabelLabels: func(evt *comatproto.LabelSubscribeLabels_Labels) error {
 			log.Log(ctx, "labeler labels", "labels", evt.Labels, "seq", evt.Seq)
+			err = atsync.Model.UpdateLabelerCursor(did, evt.Seq)
+			if err != nil {
+				log.Error(ctx, "failed to update labeler cursor", "err", err)
+			}
 			for _, labelLex := range evt.Labels {
 				l := label.FromLexicon(labelLex)
 				err = l.VerifySignature(pub)
@@ -109,7 +125,28 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 					log.Error(ctx, "failed to verify label syntax", "err", err)
 					continue
 				}
-				log.Log(ctx, "labeler label", "cid", l.CID, "createdAt", l.CreatedAt, "expiresAt", l.ExpiresAt, "negated", l.Negated, "sourceDID", l.SourceDID, "uri", l.URI, "val", l.Val, "version", l.Version)
+				bs := bytes.Buffer{}
+				err = labelLex.MarshalCBOR(&bs)
+				if err != nil {
+					log.Error(ctx, "failed to marshal label", "err", err)
+					continue
+				}
+				err = atsync.Model.CreateLabel(&model.Label{
+					Cid:    l.CID,
+					Cts:    l.CreatedAt,
+					Exp:    l.ExpiresAt,
+					Neg:    l.Negated,
+					Sig:    l.Sig,
+					Src:    l.SourceDID,
+					Uri:    l.URI,
+					Val:    l.Val,
+					Ver:    &l.Version,
+					Record: bs.Bytes(),
+				})
+				if err != nil {
+					log.Error(ctx, "failed to create label", "err", err)
+					continue
+				}
 			}
 			return nil
 		},

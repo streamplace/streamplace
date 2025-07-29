@@ -107,6 +107,12 @@ type Model interface {
 	GetCommitEventsSince(repoDID string, t time.Time) ([]*XrpcStreamEvent, error)
 	GetCommitEventsSinceSeq(repoDID string, seq int64) ([]*XrpcStreamEvent, error)
 	GetMostRecentCommitEvent(repoDID string) (*XrpcStreamEvent, error)
+
+	CreateLabeler(did string) (*Labeler, error)
+	GetLabeler(did string) (*Labeler, error)
+	UpdateLabelerCursor(did string, cursor int64) error
+
+	CreateLabel(label *Label) error
 }
 
 func MakeDB(dbURL string) (Model, error) {
@@ -169,6 +175,8 @@ func MakeDB(dbURL string) (Model, error) {
 		oatproxy.OAuthSession{},
 		ServerSettings{},
 		XrpcStreamEvent{},
+		Labeler{},
+		Label{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

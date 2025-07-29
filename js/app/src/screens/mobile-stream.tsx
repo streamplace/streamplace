@@ -20,7 +20,7 @@ export default function MobileStream({ route }) {
   useTitle(user);
 
   return (
-    <ThemeProvider>
+    <ThemeProvider forcedTheme="dark">
       <KeepAwake />
       <FullscreenProvider>
         <Player src={src} {...extraProps} />

@@ -1,4 +1,4 @@
-import { RichText } from "@atproto/api";
+import { ComAtprotoModerationCreateReport, RichText } from "@atproto/api";
 import { useCallback } from "react";
 import {
   ChatMessageViewHydrated,
@@ -318,7 +318,7 @@ export const useSubmitReport = () => {
 
   return useCallback(
     async (
-      reportSubject: { $type: string; uri: string; cid?: string },
+      subject: ComAtprotoModerationCreateReport.InputSchema["subject"],
       reasonType: string,
       reason?: string,
       // no clue about this
@@ -333,11 +333,11 @@ export const useSubmitReport = () => {
           {
             reasonType,
             reason,
-            subject: reportSubject,
+            subject: subject,
           },
           {
             headers: {
-              "atproto-proxy": `${userDID}#atproto_labeler`,
+              // "atproto-proxy": `${userDID}#atproto_labeler`,
             },
           },
         );

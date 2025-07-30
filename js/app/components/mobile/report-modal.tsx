@@ -1,4 +1,7 @@
-import { ComAtprotoModerationDefs } from "@atproto/api";
+import {
+  ComAtprotoModerationCreateReport,
+  ComAtprotoModerationDefs,
+} from "@atproto/api";
 import {
   Button,
   Dialog,
@@ -6,13 +9,12 @@ import {
   ModalContent,
   Text,
   Textarea,
-  useReportChatMessage,
+  useSubmitReport,
   zero,
 } from "@streamplace/components";
 import { CheckCircle, Circle, Loader2 } from "@tamagui/lucide-icons";
 import React, { useState } from "react";
 import { TouchableOpacity, View } from "react-native";
-import { ChatMessageViewHydrated } from "streamplace";
 
 // AT Protocol moderation reason types with proper labels
 const REPORT_REASONS = [
@@ -52,7 +54,7 @@ interface ReportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit?: (reason: string, additionalComments?: string) => void;
-  message?: ChatMessageViewHydrated;
+  subject: ComAtprotoModerationCreateReport.InputSchema["subject"];
   title?: string;
   description?: string;
 }
@@ -61,7 +63,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   open,
   onOpenChange,
   onSubmit,
-  message,
+  subject,
   title = "Report",
   description = "Why are you submitting this report?",
 }) => {
@@ -70,7 +72,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const reportChatMessage = useReportChatMessage();
+  const submitReport = useSubmitReport();
 
   const handleCancel = () => {
     setSelectedReason(null);
@@ -86,17 +88,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     setSubmitError(null);
 
     try {
-      if (message) {
-        // Use the integrated chat message reporting
-        await reportChatMessage(
-          message,
-          selectedReason,
-          additionalComments.trim() || undefined,
-        );
-      } else if (onSubmit) {
-        // Fallback to custom onSubmit prop
-        onSubmit(selectedReason, additionalComments.trim() || undefined);
-      }
+      submitReport(
+        subject,
+        selectedReason,
+        additionalComments.trim() || undefined,
+      );
 
       // Reset form and close modal on success
       setSelectedReason(null);

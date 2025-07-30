@@ -583,6 +583,36 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 	})
 
+	router.GET("/clip/:did/clip.mp4", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		did := p.ByName("did")
+		if did == "" {
+			errors.WriteHTTPBadRequest(w, "did required", nil)
+			return
+		}
+		user, err := a.NormalizeUser(ctx, did)
+		if err != nil {
+			errors.WriteHTTPBadRequest(w, "invalid user", err)
+			return
+		}
+		secsStr := r.URL.Query().Get("secs")
+		secs := 60 // Default to 60 seconds
+		if secsStr != "" {
+			parsedSecs, err := strconv.Atoi(secsStr)
+			if err != nil {
+				errors.WriteHTTPBadRequest(w, "invalid secs parameter", err)
+				return
+			}
+			secs = parsedSecs
+		}
+		after := time.Now().Add(-time.Duration(secs) * time.Second)
+		w.Header().Set("Content-Type", "video/mp4")
+		err = a.MediaManager.ClipUser(ctx, user, w, nil, &after)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to clip user", err)
+			return
+		}
+	})
+
 	handler := sloghttp.Recovery(router)
 	if log.Level(4) {
 		handler = sloghttp.New(slog.Default())(handler)

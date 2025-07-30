@@ -27,7 +27,7 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 		beforeTime = &parsedTime
 	}
 
-	segments, err := s.model.LatestSegmentsForUser(userDID, limit, beforeTime)
+	segments, err := s.model.LatestSegmentsForUser(userDID, limit, beforeTime, nil)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch segments")
 	}

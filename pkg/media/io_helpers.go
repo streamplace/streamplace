@@ -14,7 +14,7 @@ import (
 func ReaderNeedData(ctx context.Context, input io.Reader) func(self *app.Source, length uint) {
 	bsCopy, err := io.ReadAll(input)
 	if err != nil {
-		panic(err)
+		log.Error(ctx, "error reading from input", "error", err)
 	}
 	return func(self *app.Source, length uint) {
 		if ctx.Err() != nil {
@@ -81,7 +81,8 @@ func WriterNewSample(ctx context.Context, output io.Writer) func(sink *app.Sink)
 		_, err := output.Write(bs)
 
 		if err != nil {
-			panic(err)
+			log.Error(ctx, "error writing to output", "error", err)
+			return gst.FlowError
 		}
 
 		return gst.FlowOK

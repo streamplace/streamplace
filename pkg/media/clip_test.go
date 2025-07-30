@@ -22,7 +22,6 @@ func TestClip(t *testing.T) {
 	})
 }
 
-// This function remains in scope for the duration of a single users' playback
 func innerTestClip(t *testing.T) error {
 	fName := getFixture("sample-segment.mp4")
 	inputFiles := []string{fName, fName, fName}

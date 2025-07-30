@@ -155,13 +155,17 @@ func (m *DBModel) LatestSegmentForUser(user string) (*Segment, error) {
 	return &seg, nil
 }
 
-func (m *DBModel) LatestSegmentsForUser(user string, limit int, before *time.Time) ([]Segment, error) {
+func (m *DBModel) LatestSegmentsForUser(user string, limit int, before *time.Time, after *time.Time) ([]Segment, error) {
 	var segs []Segment
 	if before == nil {
 		later := time.Now().Add(1000 * time.Hour)
 		before = &later
 	}
-	err := m.DB.Model(Segment{}).Where("repo_did = ? AND start_time < ?", user, before.UTC()).Order("start_time DESC").Limit(limit).Find(&segs).Error
+	if after == nil {
+		earlier := time.Time{}
+		after = &earlier
+	}
+	err := m.DB.Model(Segment{}).Where("repo_did = ? AND start_time < ? AND start_time > ?", user, before.UTC(), after.UTC()).Order("start_time DESC").Limit(limit).Find(&segs).Error
 	if err != nil {
 		return nil, err
 	}

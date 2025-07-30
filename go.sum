@@ -119,6 +119,8 @@ github.com/bkielbasa/cyclop v1.2.3 h1:faIVMIGDIANuGPWH031CZJTi2ymOQBULs9H21HSMa5
 github.com/bkielbasa/cyclop v1.2.3/go.mod h1:kHTwA9Q0uZqOADdupvcFJQtp/ksSnytRMe8ztxG8Fuo=
 github.com/blizzy78/varnamelen v0.8.0 h1:oqSblyuQvFsW1hbBHh1zfwrKe3kcSj0rnXkKzsQ089M=
 github.com/blizzy78/varnamelen v0.8.0/go.mod h1:V9TzQZ4fLJ1DSrjVDfl89H7aMnTvKkApdHeyESmyR7k=
+github.com/bluesky-social/indigo v0.0.0-20250729223159-573ae927246a h1:S12KN45uIkRglMHC8PqD/Vsz0+u3KbIaBF/6rit8/Pg=
+github.com/bluesky-social/indigo v0.0.0-20250729223159-573ae927246a/go.mod h1:0XUyOCRtL4/OiyeqMTmr6RlVHQMDgw3LS7CfibuZR5Q=
 github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 h1:DDGfHa7BWjL4YnC6+E63dPcxHo2sUxDIu8g3QgEJdRY=
 github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869/go.mod h1:Ekp36dRnpXw/yCqJaO+ZrUyxD+3VXMFFr56k5XYrpB4=
 github.com/bombsimon/wsl/v4 v4.7.0 h1:1Ilm9JBPRczjyUs6hvOPKvd7VL1Q++PL8M0SXBDf+jQ=
@@ -934,10 +936,8 @@ github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac h
 github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac/go.mod h1:9LlKkqciiO5lRfbX0n4Wn5KNY9nvFb4R3by8FdW2TWc=
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4 h1:L1fS4HJSaAyNnkwfuZubgfeZy8rkWmA0cMtH5Z0HqNc=
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4/go.mod h1:bGUXY9Wd4mnd+XUrOYZr358J2f6z9QO/dLhL1SsiD+0=
-github.com/streamplace/indigo v0.0.0-20250729000314-d9cf6fb86611 h1:xk4uA9CyEg9HaEHnIpnBAGq/zU72YA7kiFx08XsxJQk=
-github.com/streamplace/indigo v0.0.0-20250729000314-d9cf6fb86611/go.mod h1:0XUyOCRtL4/OiyeqMTmr6RlVHQMDgw3LS7CfibuZR5Q=
-github.com/streamplace/oatproxy v0.0.0-20250619231549-b15df1b82a3a h1:rbfSEm9IgK6jhXXtOExexL+ACNDOE/zJ5VYp6ujTpCA=
-github.com/streamplace/oatproxy v0.0.0-20250619231549-b15df1b82a3a/go.mod h1:pXi24hA7xBHj8eEywX6wGqJOR9FaEYlGwQ/72rN6okw=
+github.com/streamplace/oatproxy v0.0.0-20250722215839-1c878921d185 h1:knTi1I/zbppb+CmbDRmPKNgqO4QPOKdZBds63mMWTms=
+github.com/streamplace/oatproxy v0.0.0-20250722215839-1c878921d185/go.mod h1:pXi24hA7xBHj8eEywX6wGqJOR9FaEYlGwQ/72rN6okw=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=

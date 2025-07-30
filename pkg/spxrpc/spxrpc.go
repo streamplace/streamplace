@@ -27,6 +27,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, op *oatp
 		model: model,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
+	e.Use(s.ContextPreservingMiddleware())
 	e.Use(echomiddleware.Handler("", mdlw))
 	e.Use(op.OAuthMiddleware)
 	err := s.RegisterHandlersPlaceStream(e)
@@ -68,6 +69,26 @@ func (s *Server) ErrorHandlingMiddleware() echo.MiddlewareFunc {
 			}
 			log.Error(c.Request().Context(), "unhandled error", "error", err)
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
+}
+
+// unique type to prevent assignment.
+type echoContextKeyType struct{}
+
+// singleton value to identify our logging metadata in context
+var echoContextKey = echoContextKeyType{}
+
+func (s *Server) ContextPreservingMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			ctx := c.Request().Context()
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			ctx = context.WithValue(ctx, echoContextKey, c)
+			c.SetRequest(c.Request().WithContext(ctx))
+			return next(c)
 		}
 	}
 }

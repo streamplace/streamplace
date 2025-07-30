@@ -209,9 +209,9 @@ export const reduceChatIncremental = (
 
     // only change the ref if the profile is different to avoid re-renders elsewhere
     if (
-      profileIsDifferent(message.chatProfile, newAuthors[message.author.handle])
+      profileIsDifferent(message.chatProfile, newAuthors[message.author.did])
     ) {
-      newAuthors[message.author.handle] = message.chatProfile;
+      newAuthors[message.author.did] = message.chatProfile;
     }
 
     // skip messages we already have
@@ -255,17 +255,20 @@ export const reduceChatIncremental = (
 
         if (parentMsgKey) {
           const parentMsg = newChatIndex[parentMsgKey];
-          processedMessage = {
-            ...message,
-            replyTo: {
-              cid: parentMsg.cid,
-              uri: parentMsg.uri,
-              author: parentMsg.author,
-              record: parentMsg.record,
-              chatProfile: parentMsg.chatProfile,
-              indexedAt: parentMsg.indexedAt,
-            },
-          };
+          // Don't allow replies to system messages
+          if (parentMsg.author.did !== "did:sys:system") {
+            processedMessage = {
+              ...message,
+              replyTo: {
+                cid: parentMsg.cid,
+                uri: parentMsg.uri,
+                author: parentMsg.author,
+                record: parentMsg.record,
+                chatProfile: parentMsg.chatProfile,
+                indexedAt: parentMsg.indexedAt,
+              },
+            };
+          }
         }
       }
     }
@@ -302,10 +305,72 @@ export const reduceChatIncremental = (
 
   return {
     ...state,
+    authors: newAuthors,
     chatIndex: newChatIndex,
     chat: newChatList,
     pendingHides: newPendingHides,
   };
+};
+
+export const useSubmitReport = () => {
+  const pdsAgent = usePDSAgent();
+  const userDID = useDID();
+
+  return useCallback(
+    async (
+      reportSubject: { $type: string; uri: string; cid?: string },
+      reasonType: string,
+      reason?: string,
+      // no clue about this
+      moderationSvcDid: string = "did:web:stream.place",
+    ) => {
+      if (!pdsAgent || !userDID) {
+        throw new Error("No PDS agent or user DID found");
+      }
+
+      try {
+        const response = await pdsAgent.com.atproto.moderation.createReport(
+          {
+            reasonType,
+            reason,
+            subject: reportSubject,
+          },
+          {
+            headers: {
+              "atproto-proxy": `${userDID}#atproto_labeler`,
+            },
+          },
+        );
+
+        return response;
+      } catch (error) {
+        console.error("Failed to submit report:", error);
+        throw error;
+      }
+    },
+    [pdsAgent, userDID],
+  );
+};
+
+export const useReportChatMessage = () => {
+  const submitReport = useSubmitReport();
+
+  return useCallback(
+    async (
+      message: ChatMessageViewHydrated,
+      reasonType: string,
+      reason?: string,
+    ) => {
+      const reportSubject = {
+        $type: "com.atproto.repo.strongRef",
+        uri: message.uri,
+        cid: message.cid,
+      };
+
+      return await submitReport(reportSubject, reasonType, reason);
+    },
+    [submitReport],
+  );
 };
 
 export const reduceChat = reduceChatIncremental;

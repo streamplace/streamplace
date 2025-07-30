@@ -7,8 +7,9 @@ import {
   usePlayerStore,
   useStreamplaceStore,
 } from "../..";
-import { borderRadius, colors, mt, p } from "../../lib/theme/atoms";
+import { borderRadius, colors, mt } from "../../lib/theme/atoms";
 import { Text, View } from "../ui/index";
+import { Loader } from "../ui/loader";
 import { srcToUrl } from "./shared";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
 import {
@@ -146,23 +147,54 @@ const VideoElement = forwardRef<
 
   const localVideoRef = props.videoRef ?? useRef<HTMLVideoElement | null>(null);
 
+  // setPipAction comes from Zustand store
+  useEffect(() => {
+    if (typeof x.setPipAction === "function") {
+      const fn = () => {
+        if (localVideoRef.current) {
+          try {
+            localVideoRef.current.requestPictureInPicture?.();
+          } catch (err) {
+            console.error("Error requesting Picture-in-Picture:", err);
+          }
+        } else {
+          console.log("No video ref available for PiP");
+        }
+      };
+      x.setPipAction(fn);
+    }
+    // Cleanup on unmount
+    return () => {
+      if (typeof x.setPipAction === "function") {
+        x.setPipAction(undefined);
+      }
+    };
+  }, []);
+
   const canPlayThrough = (e) => {
+    console.log("canPlayThrough called", {
+      firstAttempt,
+      videoRef: !!localVideoRef.current,
+    });
     event("canplaythrough")(e);
     if (firstAttempt && localVideoRef.current) {
       setFirstAttempt(false);
+      console.log("Attempting to play video");
       localVideoRef.current.play().catch((err) => {
+        console.log("error playing video", err.name);
         if (err.name === "NotAllowedError") {
           if (localVideoRef.current) {
+            console.log("Setting muted and retrying");
             setMuted(true);
             localVideoRef.current.muted = true;
             localVideoRef.current
               .play()
               .then(() => {
-                console.warn("Browser forced video to start muted");
+                console.log("Muted play succeeded");
                 setMuteWasForced(true);
               })
               .catch((err) => {
-                console.error("error playing video", err);
+                console.error("Muted play also failed", err);
               });
           }
         }
@@ -195,9 +227,17 @@ const VideoElement = forwardRef<
       (ref as React.MutableRefObject<HTMLVideoElement | null>).current =
         videoElement;
     }
-    // if (localVideoRef && typeof localVideoRef !== "function") {
-    //   localVideoRef.current = videoElement;
-    // }
+    (localVideoRef as any).current = videoElement;
+  };
+
+  const eventLogger = (evType) => (e) => {
+    console.log("📺 Video event:", evType);
+    const now = new Date();
+    if (updateEvents[evType]) {
+      x.setStatus(evType);
+    }
+    console.log("Sending", evType, "status to", url);
+    playerEvent(url, now.toISOString(), evType, {});
   };
 
   return (
@@ -212,7 +252,8 @@ const VideoElement = forwardRef<
       onMouseMove={setUserInteraction}
       onClick={setUserInteraction}
       onAbort={event("abort")}
-      onCanPlay={event("canplay")}
+      onCanPlay={eventLogger}
+      onCanPlayThroughCapture={eventLogger}
       onCanPlayThrough={canPlayThrough}
       onEmptied={event("emptied")}
       onEncrypted={event("encrypted")}
@@ -236,6 +277,8 @@ const VideoElement = forwardRef<
         backgroundColor: "transparent",
         width: "100%",
         height: "100%",
+        maxWidth: "100%",
+        maxHeight: "100%",
         transform: ingest ? "scaleX(-1)" : undefined,
       }}
     />
@@ -348,6 +391,15 @@ export function WebRTCPlayer(
   return <WebRTCPlayerInner url={props.url} videoRef={props.videoRef} />;
 }
 
+const connectionStatusMessages: Record<string, string> = {
+  initializing: "Starting up...",
+  connecting: "Connecting...",
+  "connection-failed": "Connecting...",
+  connected: "Connected",
+  reconnecting: "Reconnecting...",
+  checking: "Checking connection...",
+};
+
 export function WebRTCPlayerInner({
   videoRef,
   url,
@@ -431,19 +483,30 @@ export function WebRTCPlayerInner({
   }, [mediaStream]);
 
   if (!mediaStream) {
+    const isError = connectionStatus === "connection-failed";
     return (
       <View
         backgroundColor="#111"
-        style={{ minWidth: "100%", minHeight: "100%" }}
+        style={{
+          minWidth: "100%",
+          minHeight: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
       >
         <View
-          backgroundColor={colors.primary[800]}
-          style={{ borderRadius: borderRadius.md }}
+          style={{
+            borderRadius: borderRadius.md,
+            padding: 24,
+            alignItems: "center",
+            gap: 16,
+          }}
         >
-          <View>
-            <Text>Connecting...</Text>
-          </View>
-          <Text>Establishing WebRTC connection ({connectionStatus})</Text>
+          {!isError && <Loader size="large" />}
+          <Text size="lg" weight="semibold">
+            {connectionStatusMessages[connectionStatus] || "Connecting..."}
+          </Text>
         </View>
       </View>
     );
@@ -540,15 +603,29 @@ export function WebcamIngestPlayer(props: VideoProps) {
   if (error) {
     return (
       <View
-        backgroundColor={colors.destructive[900]}
-        style={[p[4], { borderRadius: borderRadius.md }]}
+        backgroundColor="#111"
+        style={{
+          minWidth: "100%",
+          minHeight: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
       >
-        <View>
-          <Text size="xl" weight="extrabold">
-            Error encountered!
+        <View
+          backgroundColor={colors.destructive[900]}
+          style={{
+            borderRadius: borderRadius.md,
+            padding: 24,
+            alignItems: "center",
+            gap: 16,
+            maxWidth: 400,
+          }}
+        >
+          <Text size="xl" weight="extrabold" color="default">
+            {error.message}
           </Text>
         </View>
-        <Text>{error.message}</Text>
       </View>
     );
   }

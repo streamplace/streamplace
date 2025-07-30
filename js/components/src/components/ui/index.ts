@@ -12,7 +12,9 @@ export * from "./icons";
 export * from "./input";
 export * from "./loader";
 export * from "./resizeable";
+export * from "./slider";
 export * from "./text";
+export * from "./textarea";
 export * from "./toast";
 export * from "./view";
 

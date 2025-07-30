@@ -17,7 +17,7 @@ import {
   pl,
   w,
 } from "../../lib/theme/atoms";
-import { atoms, layout } from "../ui";
+import { atoms, colors, layout } from "../ui";
 
 interface Facet {
   index: {
@@ -35,7 +35,7 @@ import { useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
 
 const getRgbColor = (color?: { red: number; green: number; blue: number }) =>
-  color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : "$accentColor";
+  color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : colors.gray[500];
 
 const segmentedObject = (
   obj: RichtextSegment,
@@ -59,7 +59,6 @@ const segmentedObject = (
     } else if (ftr.$type === "app.bsky.richtext.facet#mention") {
       let mtnftr = ftr as $Typed<Mention>;
       const profile = userCache?.[mtnftr.did];
-      console.log(profile, mtnftr.did, userCache);
       return (
         <Text
           key={`mention-${index}`}
@@ -115,7 +114,6 @@ export const RenderChatMessage = memo(
         hour12: false,
       });
     }, []);
-
     return (
       <>
         {item.replyTo && showReply && (
@@ -142,7 +140,7 @@ export const RenderChatMessage = memo(
               </Text>{" "}
               <Text
                 style={{
-                  color: atoms.colors.gray[300],
+                  color: colors.gray[300],
                   fontStyle: "italic",
                 }}
               >
@@ -156,7 +154,7 @@ export const RenderChatMessage = memo(
             <Text
               style={{
                 fontVariant: ["tabular-nums"],
-                color: atoms.colors.gray[300],
+                color: colors.gray[400],
               }}
             >
               {formatTime(item.record.createdAt)}
@@ -186,7 +184,8 @@ export const RenderChatMessage = memo(
   (prevProps, nextProps) => {
     return (
       prevProps.item.author.handle === nextProps.item.author.handle &&
-      prevProps.item.record.text === nextProps.item.record.text
+      prevProps.item.record.text === nextProps.item.record.text &&
+      prevProps.item.uri === nextProps.item.uri
     );
   },
 );

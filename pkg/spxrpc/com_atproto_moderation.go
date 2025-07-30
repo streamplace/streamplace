@@ -26,7 +26,11 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 
 	atprotoProxy := c.Request().Header.Get("Atproto-Proxy")
 	if atprotoProxy == "" {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "Atproto-Proxy header is required (where are you sending this report?)")
+		if len(s.cli.Labelers) > 0 {
+			atprotoProxy = fmt.Sprintf("%s#atproto_labeler", s.cli.Labelers[0])
+		} else {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "Atproto-Proxy header is required (where are you sending this report?)")
+		}
 	}
 
 	log.Log(ctx, "handleComAtprotoModerationCreateReport", "body", body)
@@ -68,13 +72,13 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 		// we still want the report to go through!
 		log.Error(ctx, "failed to make clip for report", "error", err)
 	} else {
-		clipURL := fmt.Sprintf("https://%s/data/%s/clips/%s.mp4", s.cli.PublicHost, did, clipID)
+		clipURL := fmt.Sprintf("https://%s/api/clip/%s/%s.mp4", s.cli.PublicHost, did, clipID)
 		newReason := fmt.Sprintf("%s\n\nClip: %s", *body.Reason, clipURL)
 		body.Reason = &newReason
 	}
 
 	client.SetHeaders(map[string]string{
-		"Atproto-Proxy": c.Request().Header.Get("Atproto-Proxy"),
+		"Atproto-Proxy": atprotoProxy,
 	})
 
 	var output comatprototypes.ModerationCreateReport_Output

@@ -194,6 +194,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "GET", "/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
 	addHandle(apiRouter, "GET", "/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	addHandle(apiRouter, "GET", "/api/view-count/:user", a.HandleViewCount(ctx))
+	addHandle(apiRouter, "GET", "/api/clip/:user/:file", a.HandleClip(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	apiRouterHandler := a.RateLimitMiddleware(ctx)(apiRouter)
 	xrpcHandler := a.RateLimitMiddleware(ctx)(xrpc)
@@ -799,6 +800,42 @@ func (a *StreamplaceAPI) getLimiter(ip string) *rate.Limiter {
 	}
 
 	return limiter
+}
+
+func (a *StreamplaceAPI) HandleClip(ctx context.Context) httprouter.Handle {
+	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
+		user := params.ByName("user")
+		file := params.ByName("file")
+		if user == "" || file == "" {
+			apierrors.WriteHTTPBadRequest(w, "user and file required", nil)
+			return
+		}
+		user, err := a.NormalizeUser(ctx, user)
+		if err != nil {
+			apierrors.WriteHTTPNotFound(w, "user not found", err)
+			return
+		}
+		fPath := []string{user, "clips", file}
+		exists, err := a.CLI.DataFileExists(fPath)
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not check if file exists", err)
+			return
+		}
+		if !exists {
+			apierrors.WriteHTTPNotFound(w, "file not found", nil)
+			return
+		}
+		fd, err := os.Open(a.CLI.DataFilePath(fPath))
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not open file", err)
+			return
+		}
+		defer fd.Close()
+		w.Header().Set("Content-Type", "video/mp4")
+		if _, err := io.Copy(w, fd); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
+	}
 }
 
 func NewWebsocketTracker(maxConns int) *WebsocketTracker {

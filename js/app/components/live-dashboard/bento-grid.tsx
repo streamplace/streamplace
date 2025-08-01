@@ -27,7 +27,6 @@ export default function BentoGrid({
         style={[
           layout.flex.column,
           bg.gray[900],
-          p[4],
           { minWidth: isWeb ? 400 : "100%" },
         ]}
       >

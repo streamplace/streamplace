@@ -23,6 +23,7 @@ type StreamplaceCertStorage struct {
 }
 
 type fileLock struct {
+	name     string
 	path     string
 	lockFile *os.File
 	cancel   context.CancelFunc
@@ -230,6 +231,7 @@ func (s *StreamplaceCertStorage) Lock(ctx context.Context, name string) error {
 	// Create a file lock struct and start the renewal goroutine
 	ctx, cancel := context.WithCancel(ctx)
 	lock := &fileLock{
+		name:   name,
 		path:   lockPath,
 		cancel: cancel,
 		done:   make(chan struct{}),
@@ -313,7 +315,7 @@ func (s *StreamplaceCertStorage) renewLock(ctx context.Context, lock *fileLock) 
 				if err != nil {
 					// lock is probably stale, remove it
 					s.locksMu.Lock()
-					delete(s.locks, lock.path)
+					delete(s.locks, lock.name)
 					s.locksMu.Unlock()
 					return
 				}

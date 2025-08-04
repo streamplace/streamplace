@@ -35,6 +35,7 @@ RUN apt update \
   mono-runtime nuget mono-xsp4 squashfs-tools \
   libc6:arm64 libstdc++6:arm64 \
   cmake libssl-dev libssl-dev:arm64 \
+  ruby-rubygems \
   && pip install meson tomli \
   && curl -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
   && tar -C /usr/local -xf go.tar.gz \
@@ -92,6 +93,8 @@ RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v2.1.6/g
   && tar -xf golangci-lint.tar.gz \
   && mv golangci-lint-2.1.6-linux-amd64/golangci-lint /usr/local/bin/ \
   && rm -rf golangci-lint.tar.gz golangci-lint-2.1.6-linux-amd64
+
+RUN gem install fpm
 
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=false
 

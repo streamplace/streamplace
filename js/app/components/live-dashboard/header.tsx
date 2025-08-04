@@ -1,4 +1,9 @@
-import { useProfile, zero } from "@streamplace/components";
+import {
+  useLivestreamStore,
+  usePlayerStore,
+  useProfile,
+  zero,
+} from "@streamplace/components";
 import {
   Activity,
   Monitor,
@@ -8,20 +13,10 @@ import {
   Wifi,
 } from "@tamagui/lucide-icons";
 import { Text, View } from "react-native";
+import { useLiveUser } from "../../hooks/useLiveUser";
+import { useSegmentTiming } from "../../hooks/useSegmentTiming";
 
 const { flex, bg, r, borders, p, px, py, text, layout, gap } = zero;
-
-// Mock data - replace with real data from your stores
-const mockStreamMetrics = {
-  viewers: 1337,
-  bitrate: "2500 kbps",
-  fps: 30,
-  resolution: "1920x1080",
-  uptime: "02:34:12",
-  connectionStatus: "excellent", // excellent, good, poor, offline
-  droppedFrames: 0,
-  ping: "23ms",
-};
 
 interface MetricItemProps {
   icon: any;
@@ -115,11 +110,47 @@ function StatusIndicator({ status, isLive }: StatusIndicatorProps) {
 }
 
 interface HeaderProps {
-  isLive: boolean;
+  isLive?: boolean;
 }
 
-export default function Header({ isLive }: HeaderProps) {
-  let userProfile = useProfile();
+export default function Header({ isLive: propIsLive }: HeaderProps) {
+  // Get real data from hooks
+  const userProfile = useProfile();
+  const isUserLive = useLiveUser();
+  const viewers = useLivestreamStore((x) => x.viewers);
+  const segmentTiming = useSegmentTiming();
+  const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
+  const ingestStarted = usePlayerStore((x) => x.ingestStarted);
+
+  // Use hook data primarily, fallback to props
+  const isLive = propIsLive ?? isUserLive;
+
+  // Calculate uptime from ingest start time
+  const getUptime = (): string => {
+    if (!ingestStarted || !isLive) return "00:00:00";
+    const uptimeMs = Date.now() - ingestStarted;
+    const seconds = Math.floor(uptimeMs / 1000);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // Map connection quality to status
+  const getConnectionStatus = (): "excellent" | "good" | "poor" | "offline" => {
+    if (!isLive) return "offline";
+    switch (segmentTiming.connectionQuality) {
+      case "good":
+        return "excellent";
+      case "degraded":
+        return "good";
+      case "poor":
+        return "poor";
+      default:
+        return "offline";
+    }
+  };
+
   const getFpsStatus = (fps: number): "good" | "warning" | "error" => {
     if (fps >= 30) return "good";
     if (fps >= 20) return "warning";
@@ -152,10 +183,7 @@ export default function Header({ isLive }: HeaderProps) {
           <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
             {userProfile?.displayName || userProfile?.handle || "Live Stream"}
           </Text>
-          <StatusIndicator
-            status={mockStreamMetrics.connectionStatus as any}
-            isLive={isLive}
-          />
+          <StatusIndicator status={getConnectionStatus()} isLive={isLive} />
         </View>
       </View>
 
@@ -166,35 +194,43 @@ export default function Header({ isLive }: HeaderProps) {
             <MetricItem
               icon={Users}
               label="Viewers"
-              value={mockStreamMetrics.viewers.toLocaleString()}
+              value={(viewers || 0).toLocaleString()}
             />
             <MetricItem
               icon={Activity}
-              label="Bitrate"
-              value={mockStreamMetrics.bitrate}
-              status={getBitrateStatus(mockStreamMetrics.bitrate)}
+              label="Segments"
+              value={`${segmentTiming.timeBetweenSegments || 0}ms`}
+              status={
+                segmentTiming.connectionQuality === "good"
+                  ? "good"
+                  : segmentTiming.connectionQuality === "degraded"
+                    ? "warning"
+                    : "error"
+              }
             />
             <MetricItem
               icon={Monitor}
-              label="FPS"
-              value={mockStreamMetrics.fps.toString()}
-              status={getFpsStatus(mockStreamMetrics.fps)}
+              label="Quality"
+              value={segmentTiming.connectionQuality.toUpperCase()}
+              status={
+                segmentTiming.connectionQuality === "good"
+                  ? "good"
+                  : segmentTiming.connectionQuality === "degraded"
+                    ? "warning"
+                    : "error"
+              }
             />
             <MetricItem
               icon={Radio}
-              label="Resolution"
-              value={mockStreamMetrics.resolution}
+              label="Connection"
+              value={ingestConnectionState || "disconnected"}
             />
             <MetricItem
               icon={Wifi}
-              label="Ping"
-              value={mockStreamMetrics.ping}
+              label="Range"
+              value={segmentTiming.range ? `${segmentTiming.range}ms` : "N/A"}
             />
-            <MetricItem
-              icon={Signal}
-              label="Uptime"
-              value={mockStreamMetrics.uptime}
-            />
+            <MetricItem icon={Signal} label="Uptime" value={getUptime()} />
           </>
         )}
 

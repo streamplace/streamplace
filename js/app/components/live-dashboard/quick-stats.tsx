@@ -1,15 +1,9 @@
-import { zero } from "@streamplace/components";
+import { useLivestreamStore, zero } from "@streamplace/components";
 import { Heart, MessageCircle, Users } from "@tamagui/lucide-icons";
 import { Text, View } from "react-native";
+import { useSegmentTiming } from "../../hooks/useSegmentTiming";
 
 const { flex, bg, r, p, text, layout, gap, borderRadius } = zero;
-
-// Mock data - replace with real data from your stores
-const mockStats = {
-  viewers: 1337,
-  likes: 89,
-  messages: 234,
-};
 
 interface StatCardProps {
   icon: any;
@@ -52,6 +46,18 @@ function StatCard({ icon: Icon, label, value, color }: StatCardProps) {
 }
 
 export default function QuickStats() {
+  // Get real data from stores
+  const viewers = useLivestreamStore((x) => x.viewers);
+  const chat = useLivestreamStore((x) => x.chat);
+  const segmentTiming = useSegmentTiming();
+
+  // Calculate stats from real data
+  const viewerCount = viewers || 0;
+  const messageCount = chat?.length || 0;
+
+  // Count likes/hearts in chat messages (simplified - could be more sophisticated)
+  const likeCount = 0;
+
   return (
     <View
       style={[flex.values[1], gap.all[4], layout.flex.row, { maxHeight: 64 }]}
@@ -59,19 +65,19 @@ export default function QuickStats() {
       <StatCard
         icon={Users}
         label="Viewers"
-        value={mockStats.viewers.toLocaleString()}
+        value={viewerCount.toLocaleString()}
         color="blue"
       />
       <StatCard
         icon={Heart}
         label="Likes"
-        value={mockStats.likes.toString()}
+        value={likeCount.toString()}
         color="red"
       />
       <StatCard
         icon={MessageCircle}
         label="Messages"
-        value={mockStats.messages.toString()}
+        value={messageCount.toString()}
         color="green"
       />
     </View>

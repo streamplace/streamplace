@@ -1,0 +1,59 @@
+[Unit]
+Description=Live video for the AT Protocol. Solving video for everybody forever.
+Documentation=https://stream.place/docs
+After=network-online.target
+Wants=network-online.target
+Wants=streamplace-http.socket streamplace-https.socket
+Requires=network.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/streamplace
+Restart=always
+RestartSec=3
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+User=streamplace
+Group=streamplace
+
+# Environment
+Environment=SP_DATA_DIR=/var/lib/streamplace
+
+# Additional environment file for user customization
+EnvironmentFile=-/etc/streamplace/streamplace.env
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+PrivateTmp=yes
+
+# Allow access to necessary directories
+ReadWritePaths=/var/lib/streamplace
+ReadOnlyPaths=/etc/streamplace
+
+# Network access
+PrivateNetwork=no
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=streamplace
+
+# Working directory
+WorkingDirectory=/var/lib/streamplace
+
+[Install]
+WantedBy=multi-user.target

@@ -12,6 +12,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -720,15 +721,41 @@ func (a *StreamplaceAPI) RateLimitMiddleware(ctx context.Context) func(http.Hand
 	}
 }
 
+// helper for getting a listener from a systemd file descriptor
+func getListenerFromFD(fdName string) (net.Listener, error) {
+	log.Log(context.TODO(), "getting listener from fd", "fdName", fdName, "LISTEN_PID", os.Getenv("LISTEN_PID"), "LISTEN_FDNAMES", os.Getenv("LISTEN_FDNAMES"))
+	if os.Getenv("LISTEN_PID") == strconv.Itoa(os.Getpid()) {
+		names := strings.Split(os.Getenv("LISTEN_FDNAMES"), ":")
+		for i, name := range names {
+			if name == fdName {
+				f1 := os.NewFile(uintptr(i+3), fdName)
+				return net.FileListener(f1)
+			}
+		}
+	}
+	return nil, nil
+}
+
 func (a *StreamplaceAPI) ServeHTTP(ctx context.Context) error {
 	handler, err := a.Handler(ctx)
 	if err != nil {
 		return err
 	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
-		s.Addr = a.CLI.HTTPAddr
-		log.Log(ctx, "http server starting", "addr", s.Addr)
-		return s.ListenAndServe()
+		ln, err := getListenerFromFD("http")
+		if err != nil {
+			return err
+		}
+		if ln == nil {
+			ln, err = net.Listen("tcp", a.CLI.HTTPAddr)
+			if err != nil {
+				return err
+			}
+		} else {
+			log.Warn(ctx, "api server listening for http over systemd socket", "addr", ln.Addr())
+		}
+		log.Log(ctx, "http server starting", "addr", ln.Addr())
+		return s.Serve(ln)
 	})
 }
 
@@ -738,9 +765,20 @@ func (a *StreamplaceAPI) ServeHTTPRedirect(ctx context.Context) error {
 		return err
 	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
-		s.Addr = a.CLI.HTTPAddr
-		log.Log(ctx, "http tls redirecct server starting", "addr", s.Addr)
-		return s.ListenAndServe()
+		ln, err := getListenerFromFD("http")
+		if err != nil {
+			return err
+		}
+		if ln == nil {
+			ln, err = net.Listen("tcp", a.CLI.HTTPAddr)
+			if err != nil {
+				return err
+			}
+		} else {
+			log.Warn(ctx, "http tls redirect server listening for http over systemd socket", "addr", ln.Addr())
+		}
+		log.Log(ctx, "http tls redirect server starting", "addr", ln.Addr())
+		return s.Serve(ln)
 	})
 }
 
@@ -750,13 +788,24 @@ func (a *StreamplaceAPI) ServeHTTPS(ctx context.Context) error {
 		return err
 	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
-		s.Addr = a.CLI.HTTPSAddr
+		ln, err := getListenerFromFD("https")
+		if err != nil {
+			return err
+		}
+		if ln == nil {
+			ln, err = net.Listen("tcp", a.CLI.HTTPSAddr)
+			if err != nil {
+				return err
+			}
+		} else {
+			log.Warn(ctx, "https server listening for https over systemd socket", "addr", ln.Addr())
+		}
 		log.Log(ctx, "https server starting",
-			"addr", s.Addr,
+			"addr", ln.Addr(),
 			"certPath", a.CLI.TLSCertPath,
 			"keyPath", a.CLI.TLSKeyPath,
 		)
-		return s.ListenAndServeTLS(a.CLI.TLSCertPath, a.CLI.TLSKeyPath)
+		return s.ServeTLS(ln, a.CLI.TLSCertPath, a.CLI.TLSKeyPath)
 	})
 }
 

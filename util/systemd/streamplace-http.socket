@@ -1,0 +1,10 @@
+[Unit]
+Description=streamplace http socket
+
+[Socket]
+ListenStream=80
+FileDescriptorName=http
+Service=streamplace.service
+
+[Install]
+WantedBy=sockets.target

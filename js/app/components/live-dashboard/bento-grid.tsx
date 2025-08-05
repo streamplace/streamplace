@@ -4,7 +4,6 @@ import ChatPanel from "./chat-panel";
 import Header from "./header";
 import LivestreamPanel from "./livestream-panel";
 import ModActions from "./mod-actions";
-import QuickStats from "./quick-stats";
 import StreamMonitor from "./stream-monitor";
 
 const { flex, p, gap, layout, bg } = zero;
@@ -53,7 +52,6 @@ export default function BentoGrid({
           <View style={[layout.flex.row, gap.all[4], flex.values[1]]}>
             <ModActions isLive={isLive} />
           </View>
-          <QuickStats />
         </View>
 
         <View

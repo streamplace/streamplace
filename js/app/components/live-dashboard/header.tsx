@@ -2,16 +2,10 @@ import {
   useLivestreamStore,
   usePlayerStore,
   useProfile,
+  useSegment,
   zero,
 } from "@streamplace/components";
-import {
-  Activity,
-  Monitor,
-  Radio,
-  Signal,
-  Users,
-  Wifi,
-} from "@tamagui/lucide-icons";
+import { Activity, Car, Radio, Signal, Users } from "@tamagui/lucide-icons";
 import { Text, View } from "react-native";
 import { useLiveUser } from "../../hooks/useLiveUser";
 import { useSegmentTiming } from "../../hooks/useSegmentTiming";
@@ -119,6 +113,7 @@ export default function Header({ isLive: propIsLive }: HeaderProps) {
   const isUserLive = useLiveUser();
   const viewers = useLivestreamStore((x) => x.viewers);
   const segmentTiming = useSegmentTiming();
+  const seg = useSegment();
   const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
   const ingestStarted = usePlayerStore((x) => x.ingestStarted);
 
@@ -151,18 +146,7 @@ export default function Header({ isLive: propIsLive }: HeaderProps) {
     }
   };
 
-  const getFpsStatus = (fps: number): "good" | "warning" | "error" => {
-    if (fps >= 30) return "good";
-    if (fps >= 20) return "warning";
-    return "error";
-  };
-
-  const getBitrateStatus = (bitrate: string): "good" | "warning" | "error" => {
-    const value = parseInt(bitrate);
-    if (value >= 2000) return "good";
-    if (value >= 1000) return "warning";
-    return "error";
-  };
+  console.log(seg);
 
   return (
     <View
@@ -198,7 +182,7 @@ export default function Header({ isLive: propIsLive }: HeaderProps) {
             />
             <MetricItem
               icon={Activity}
-              label="Segments"
+              label="Time between Segments"
               value={`${segmentTiming.timeBetweenSegments || 0}ms`}
               status={
                 segmentTiming.connectionQuality === "good"
@@ -209,26 +193,13 @@ export default function Header({ isLive: propIsLive }: HeaderProps) {
               }
             />
             <MetricItem
-              icon={Monitor}
-              label="Quality"
-              value={segmentTiming.connectionQuality.toUpperCase()}
-              status={
-                segmentTiming.connectionQuality === "good"
-                  ? "good"
-                  : segmentTiming.connectionQuality === "degraded"
-                    ? "warning"
-                    : "error"
+              icon={Car}
+              label="Bitrate"
+              value={
+                seg?.size
+                  ? `${((seg.size * 8) / ((seg.duration || 1000000000) / 1000000000) / 1000 / 1000).toFixed(2)} kbps`
+                  : "0 kbps"
               }
-            />
-            <MetricItem
-              icon={Radio}
-              label="Connection"
-              value={ingestConnectionState || "disconnected"}
-            />
-            <MetricItem
-              icon={Wifi}
-              label="Range"
-              value={segmentTiming.range ? `${segmentTiming.range}ms` : "N/A"}
             />
             <MetricItem icon={Signal} label="Uptime" value={getUptime()} />
           </>

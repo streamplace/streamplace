@@ -1,5 +1,6 @@
 import {
   Player,
+  useLivestream,
   useLivestreamStore,
   usePlayerStore,
   zero,
@@ -26,6 +27,7 @@ export default function StreamMonitor({
   const isUserLive = useLiveUser();
   const profile = useLivestreamStore((x) => x.profile);
   const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
+  const ls = useLivestream();
   const segmentTiming = useSegmentTiming();
 
   // Use hook data primarily, fallback to props
@@ -73,33 +75,6 @@ export default function StreamMonitor({
         layout.flex.column,
       ]}
     >
-      <View
-        style={[
-          layout.flex.row,
-          layout.flex.spaceBetween,
-          layout.flex.alignCenter,
-          p[4],
-          borders.bottom.width.thin,
-          borders.bottom.color.gray[700],
-        ]}
-      >
-        <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
-          Stream Monitor
-        </Text>
-        <View style={[layout.flex.row, layout.flex.alignCenter, { gap: 8 }]}>
-          {getConnectionIcon()}
-          <View style={[w[2], h[2], r[1], bg[getConnectionColor()][500]]} />
-          <Text style={[text.gray[400], { fontSize: 14 }]}>
-            {isLive ? "LIVE" : "OFFLINE"}
-          </Text>
-          {isLive && segmentTiming.timeBetweenSegments && (
-            <Text style={[text.gray[500], { fontSize: 12 }]}>
-              {Math.round(segmentTiming.timeBetweenSegments)}ms
-            </Text>
-          )}
-        </View>
-      </View>
-
       <View style={[flex.values[1], layout.flex.center, bg.gray[900]]}>
         {isLive && userProfile ? (
           <Player src={userProfile.did} name={userProfile.handle} />
@@ -116,6 +91,32 @@ export default function StreamMonitor({
             )}
           </View>
         )}
+      </View>
+      <View
+        style={[
+          layout.flex.row,
+          layout.flex.spaceBetween,
+          layout.flex.alignCenter,
+          p[4],
+          borders.bottom.width.thin,
+          borders.bottom.color.gray[700],
+        ]}
+      >
+        <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
+          {ls?.record.title || "Stream Title"}
+        </Text>
+        <View style={[layout.flex.row, layout.flex.center, { gap: 8 }]}>
+          {getConnectionIcon()}
+          <View style={[w[2], h[2], r[1], bg[getConnectionColor()][500]]} />
+          <Text style={[text.gray[400], { fontSize: 14 }]}>
+            {isLive ? "LIVE" : "OFFLINE"}
+          </Text>
+          {isLive && segmentTiming.timeBetweenSegments && (
+            <Text style={[text.gray[500], { fontSize: 12 }]}>
+              {Math.round(segmentTiming.timeBetweenSegments)}ms
+            </Text>
+          )}
+        </View>
       </View>
     </View>
   );

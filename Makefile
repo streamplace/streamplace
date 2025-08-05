@@ -635,6 +635,7 @@ deb-pkg:
 		build-linux-$(SP_ARCH_NAME)/streamplace=/usr/bin/streamplace \
 	&& fpm $(FPM_BASE_OPTS) \
 		-n streamplace-default-http \
+		-a $(SP_ARCH_NAME) \
 		-d streamplace \
 		--deb-systemd-auto-start \
 		--deb-systemd-enable \
@@ -752,6 +753,15 @@ ci-release:
 	go install gitlab.com/gitlab-org/release-cli/cmd/release-cli
 	go run ./pkg/config/git/git.go -release -o release.yml
 	release-cli create-from-file --file release.yml
+
+.PHONY: deb-release
+deb-release:
+	aptly repo create -distribution=all -component=main streamplace-releases
+	aptly repo add streamplace-releases \
+		bin/streamplace-default-http-$(VERSION)-linux-arm64.deb \
+		bin/streamplace-$(VERSION)-linux-arm64.deb \
+		bin/streamplace-default-http-$(VERSION)-linux-amd64.deb \
+		bin/streamplace-$(VERSION)-linux-amd64.deb
 
 .PHONY: check
 check: install

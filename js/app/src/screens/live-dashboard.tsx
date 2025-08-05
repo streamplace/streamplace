@@ -42,7 +42,7 @@ export default function LiveDashboard() {
   }
 
   return (
-    <ThemeProvider>
+    <ThemeProvider forcedTheme="dark">
       <LivestreamProvider src={userProfile.did}>
         <VideoElementProvider videoElement={videoElement}>
           <PlayerProvider>

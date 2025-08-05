@@ -5,18 +5,12 @@ import {
   usePlayerStore,
   zero,
 } from "@streamplace/components";
-import {
-  Camera,
-  Eye,
-  EyeOff,
-  Signal,
-  Wifi,
-  WifiOff,
-} from "@tamagui/lucide-icons";
+import { Eye, EyeOff, Signal, Wifi, WifiOff } from "@tamagui/lucide-icons";
 import { useEffect, useState } from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 import { useLiveUser } from "../../hooks/useLiveUser";
 import { useSegmentTiming } from "../../hooks/useSegmentTiming";
+import StreamScreen from "./live-selector";
 
 const { flex, bg, r, borders, layout, p, text, w, h } = zero;
 
@@ -138,17 +132,7 @@ export default function StreamMonitor({
             </View>
           )
         ) : (
-          <View style={[layout.flex.center, { gap: 12 }]}>
-            <Camera size={48} color="#6b7280" />
-            <Text style={[text.gray[400]]}>
-              {!userProfile ? "No Profile" : "Stream Offline"}
-            </Text>
-            {ingestConnectionState && (
-              <Text style={[text.gray[500], { fontSize: 12 }]}>
-                Connection: {ingestConnectionState}
-              </Text>
-            )}
-          </View>
+          <StreamScreen route={profile?.did} />
         )}
       </View>
       <View

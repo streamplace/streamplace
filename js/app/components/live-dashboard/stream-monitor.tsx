@@ -5,8 +5,16 @@ import {
   usePlayerStore,
   zero,
 } from "@streamplace/components";
-import { Camera, Signal, Wifi, WifiOff } from "@tamagui/lucide-icons";
-import { Text, View } from "react-native";
+import {
+  Camera,
+  Eye,
+  EyeOff,
+  Signal,
+  Wifi,
+  WifiOff,
+} from "@tamagui/lucide-icons";
+import { useEffect, useState } from "react";
+import { Image, Text, TouchableOpacity, View } from "react-native";
 import { useLiveUser } from "../../hooks/useLiveUser";
 import { useSegmentTiming } from "../../hooks/useSegmentTiming";
 
@@ -33,6 +41,24 @@ export default function StreamMonitor({
   // Use hook data primarily, fallback to props
   const isLive = propIsLive ?? isUserLive;
   const userProfile = propUserProfile ?? profile;
+
+  // State for hiding/showing stream and thumbnail rotation
+  const [isStreamVisible, setIsStreamVisible] = useState(true);
+  const [currentThumbnail, setCurrentThumbnail] = useState<null | string>(null);
+
+  // Mock thumbnails - in a real implementation, these would come from your stream service
+  const thumbnails = "/api/playback/" + profile?.did + "/stream.jpg";
+
+  // Rotate thumbnails every 30 seconds when stream is hidden
+  useEffect(() => {
+    if (!isStreamVisible && isLive) {
+      const interval = setInterval(() => {
+        setCurrentThumbnail(thumbnails + "?ts=" + String(Date.now()));
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [isStreamVisible, isLive, thumbnails.length]);
 
   // Connection quality indicator
   const getConnectionIcon = () => {
@@ -77,7 +103,40 @@ export default function StreamMonitor({
     >
       <View style={[flex.values[1], layout.flex.center, bg.gray[900]]}>
         {isLive && userProfile ? (
-          <Player src={userProfile.did} name={userProfile.handle} />
+          isStreamVisible ? (
+            <Player src={userProfile.did} name={userProfile.handle} />
+          ) : (
+            <View
+              style={[
+                layout.flex.center,
+                { position: "relative", width: "100%", height: "100%" },
+              ]}
+            >
+              <Image
+                source={{ uri: currentThumbnail || thumbnails }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  resizeMode: "contain",
+                }}
+              />
+              <View
+                style={{
+                  position: "absolute",
+                  top: 12,
+                  left: 12,
+                  backgroundColor: "rgba(0, 0, 0, 0.9)",
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 4,
+                }}
+              >
+                <Text style={[text.white, { fontSize: 12 }]}>
+                  Thumbnail Preview
+                </Text>
+              </View>
+            </View>
+          )
         ) : (
           <View style={[layout.flex.center, { gap: 12 }]}>
             <Camera size={48} color="#6b7280" />
@@ -102,11 +161,26 @@ export default function StreamMonitor({
           borders.bottom.color.gray[700],
         ]}
       >
-        <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
-          {ls?.record.title || "Stream Title"}
-        </Text>
-        <View style={[layout.flex.row, layout.flex.center, { gap: 8 }]}>
-          {getConnectionIcon()}
+        <View style={[layout.flex.row, layout.flex.alignCenter, { gap: 12 }]}>
+          <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
+            {ls?.record.title || "Stream Title"}
+          </Text>
+          {isLive && userProfile && (
+            <TouchableOpacity
+              onPress={() => setIsStreamVisible(!isStreamVisible)}
+              style={{
+                padding: 4,
+                borderRadius: 4,
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              }}
+            >
+              {isStreamVisible ? (
+                <EyeOff size={16} color="#9ca3af" />
+              ) : (
+                <Eye size={16} color="#9ca3af" />
+              )}
+            </TouchableOpacity>
+          )}
           <View style={[w[2], h[2], r[1], bg[getConnectionColor()][500]]} />
           <Text style={[text.gray[400], { fontSize: 14 }]}>
             {isLive ? "LIVE" : "OFFLINE"}

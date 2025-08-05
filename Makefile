@@ -756,12 +756,15 @@ ci-release:
 
 .PHONY: deb-release
 deb-release:
-	aptly repo create -distribution=all -component=main streamplace-releases
-	aptly repo add streamplace-releases \
+	aptly mirror create old-version http://localhost:9000/streamplace-releases all \
+	&& aptly repo create -distribution=all -component=main streamplace-releases \
+	&& aptly repo add streamplace-releases \
 		bin/streamplace-default-http-$(VERSION)-linux-arm64.deb \
 		bin/streamplace-$(VERSION)-linux-arm64.deb \
 		bin/streamplace-default-http-$(VERSION)-linux-amd64.deb \
-		bin/streamplace-$(VERSION)-linux-amd64.deb
+		bin/streamplace-$(VERSION)-linux-amd64.deb \
+	&& aptly snapshot create streamplace-$(VERSION) from repo streamplace-releases \
+	&& aptly publish snapshot -gpg-key=204BB5DA22E228F5235B8B68140AF63A474D8999 -distribution=all streamplace-$(VERSION) s3:local-minio:
 
 .PHONY: check
 check: install

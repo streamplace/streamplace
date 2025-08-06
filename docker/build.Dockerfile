@@ -95,6 +95,11 @@ RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v2.1.6/g
   && rm -rf golangci-lint.tar.gz golangci-lint-2.1.6-linux-amd64
 
 RUN gem install fpm
+ENV APTLY_VERSION 1.6.2
+RUN curl --fail -L https://github.com/aptly-dev/aptly/releases/download/v${APTLY_VERSION}/aptly_${APTLY_VERSION}_linux_amd64.zip -o aptly.zip \
+  && unzip aptly.zip \
+  && mv aptly_${APTLY_VERSION}_linux_amd64/aptly /usr/local/bin/ \
+  && rm -rf aptly.zip aptly_${APTLY_VERSION}_linux_amd64
 
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=false
 

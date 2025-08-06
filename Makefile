@@ -756,15 +756,24 @@ ci-release:
 
 .PHONY: deb-release
 deb-release:
-	aptly mirror create old-version http://localhost:9000/streamplace-releases all \
-	&& aptly repo create -distribution=all -component=main streamplace-releases \
-	&& aptly repo add streamplace-releases \
+	aptly repo create -distribution=all -component=main streamplace-releases
+#	aptly mirror create old-version $$S3_PUBLIC_URL/streamplace-releases all
+#	aptly mirror update old-version
+#	aptly repo import old-version streamplace-releases streamplace streamplace-default-http
+	aptly repo add streamplace-releases \
 		bin/streamplace-default-http-$(VERSION)-linux-arm64.deb \
 		bin/streamplace-$(VERSION)-linux-arm64.deb \
 		bin/streamplace-default-http-$(VERSION)-linux-amd64.deb \
-		bin/streamplace-$(VERSION)-linux-amd64.deb \
-	&& aptly snapshot create streamplace-$(VERSION) from repo streamplace-releases \
-	&& aptly publish snapshot -gpg-key=204BB5DA22E228F5235B8B68140AF63A474D8999 -distribution=all streamplace-$(VERSION) s3:local-minio:
+		bin/streamplace-$(VERSION)-linux-amd64.deb
+	aptly snapshot create streamplace-$(VERSION) from repo streamplace-releases
+	aptly publish snapshot -distribution=all streamplace-$(VERSION) s3:streamplace-releases:
+
+.PHONY: ci-deb-release
+ci-deb-release:
+	gpg --import $$CI_SIGNING_KEY_PATH
+	gpg --armor --export | gpg --no-default-keyring --keyring trustedkeys.gpg --import
+	echo '{"S3PublishEndpoints":{"streamplace-releases":{"region":"ignored","bucket":"'$$S3_BUCKET_NAME'","endpoint":"'$$S3_ENDPOINT'","acl":"public-read","prefix":"debian"}}}' > ~/.aptly.conf
+	$(MAKE) deb-release
 
 .PHONY: check
 check: install

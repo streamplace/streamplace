@@ -6,25 +6,11 @@ import {
   zero,
 } from "@streamplace/components";
 import emojiData from "assets/emoji-data.json";
-import React, { useEffect, useState } from "react";
+import { useState } from "react";
 import { Text, View } from "react-native";
 import { useLiveUser } from "../../hooks/useLiveUser";
 
 const { flex, bg, r, borders, p, text, layout } = zero;
-
-function useNewItemsPer(array: any[], interval = 60) {
-  const [newItems, setNewItems] = useState(0);
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      setNewItems(array.length);
-    }, interval * 1000);
-
-    return () => clearInterval(intervalId);
-  }, [array, interval]);
-
-  return newItems;
-}
 
 export default function ChatPanel() {
   // Get real data from hooks
@@ -36,7 +22,7 @@ export default function ChatPanel() {
   const canModerate = isLive && isConnected;
 
   // Track initial load timestamp (when component mounts)
-  const [initialLoadTime] = React.useState(() => Date.now());
+  const [initialLoadTime] = useState(() => Date.now());
 
   // Calculate new messages per minute (received after initial load)
   const now = Date.now();

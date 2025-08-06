@@ -743,6 +743,15 @@ ci-upload-file:
 		--upload-file bin/$(upload_file) \
 		"$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/$(upload_file)";
 
+download_file?=""
+.PHONY: ci-download-file
+ci-download-file:
+	curl \
+		--fail-with-body \
+		--header "JOB-TOKEN: $$CI_JOB_TOKEN" \
+		-o bin/$(download_file) \
+		"$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/$(download_file)";
+
 .PHONY: release
 release: install
 	$(MAKE) lexicons
@@ -757,9 +766,9 @@ ci-release:
 .PHONY: deb-release
 deb-release:
 	aptly repo create -distribution=all -component=main streamplace-releases
-#	aptly mirror create old-version $$S3_PUBLIC_URL/streamplace-releases all
-#	aptly mirror update old-version
-#	aptly repo import old-version streamplace-releases streamplace streamplace-default-http
+	aptly mirror create old-version $$S3_PUBLIC_URL/debian all
+	aptly mirror update old-version
+	aptly repo import old-version streamplace-releases streamplace streamplace-default-http
 	aptly repo add streamplace-releases \
 		bin/streamplace-default-http-$(VERSION)-linux-arm64.deb \
 		bin/streamplace-$(VERSION)-linux-arm64.deb \
@@ -770,6 +779,10 @@ deb-release:
 
 .PHONY: ci-deb-release
 ci-deb-release:
+	$(MAKE) ci-download-file download_file=streamplace-default-http-$(VERSION)-linux-amd64.deb
+	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-linux-amd64.deb
+	$(MAKE) ci-download-file download_file=streamplace-default-http-$(VERSION)-linux-arm64.deb
+	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-linux-arm64.deb
 	gpg --import $$CI_SIGNING_KEY_PATH
 	gpg --armor --export | gpg --no-default-keyring --keyring trustedkeys.gpg --import
 	echo '{"S3PublishEndpoints":{"streamplace-releases":{"region":"ignored","bucket":"'$$S3_BUCKET_NAME'","endpoint":"'$$S3_ENDPOINT'","acl":"public-read","prefix":"debian"}}}' > ~/.aptly.conf

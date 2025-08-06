@@ -347,6 +347,25 @@ windows-selftest:
   script:
     - C:\msys64\usr\bin\bash -lc "bash -x ./util/windows-selftest.sh $STREAMPLACE_DESKTOP_URL_WINDOWS_AMD64"
 
+test-release:
+  stage: build
+  interruptible: true
+  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
+  needs:
+    - build-darwin-amd64
+    - build-darwin-arm64
+    - build-android-debug
+    - build-android-release
+    - build-docker-amd64
+    - build-docker-arm64
+    - build-docker-manifest
+    - build-desktop-darwin
+    - build-ios
+    - test
+  timeout: 2 hours
+  script:
+    - make ci-deb-release
+
 .release-template:
   stage: build
   interruptible: true

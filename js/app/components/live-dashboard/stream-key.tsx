@@ -1,4 +1,4 @@
-import { Body, Code, Row, Text, View } from "@streamplace/components";
+import { Body, Button, Code, Row, View } from "@streamplace/components";
 import { Redirect } from "components/aqlink";
 import Loading from "components/loading/loading";
 import {
@@ -8,7 +8,6 @@ import {
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
 import { useEffect, useState } from "react";
-import { Pressable } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 
 const FormRow = ({ children }: { children: React.ReactNode }) => {
@@ -35,41 +34,6 @@ const Content = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-const Button = ({
-  children,
-  onPress,
-  active = false,
-  disabled = false,
-}: {
-  children: React.ReactNode;
-  onPress: () => void;
-  active?: boolean;
-  disabled?: boolean;
-}) => {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={[
-        {
-          backgroundColor: active ? "#3b82f6" : "#f3f4f6",
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-          borderRadius: 6,
-          marginHorizontal: 8,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: disabled ? 0.6 : 1,
-        },
-      ]}
-    >
-      <Text color={active ? "default" : "muted"} weight="medium">
-        {children}
-      </Text>
-    </Pressable>
-  );
-};
-
 export function StreamKeyScreen() {
   const [protocol, setProtocol] = useState<"whip" | "rtmp">("rtmp");
   const isReady = useAppSelector(selectIsReady);
@@ -90,13 +54,13 @@ export function StreamKeyScreen() {
       <View fullWidth style={{ maxWidth: 600 }}>
         <FormRow>
           <Button
-            active={protocol === "rtmp"}
+            variant={protocol !== "rtmp" ? "secondary" : "primary"}
             onPress={() => setProtocol("rtmp")}
           >
             RTMP
           </Button>
           <Button
-            active={protocol === "whip"}
+            variant={protocol !== "whip" ? "secondary" : "primary"}
             onPress={() => setProtocol("whip")}
           >
             WHIP

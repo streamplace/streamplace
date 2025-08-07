@@ -384,6 +384,12 @@ deb-release:
   script:
     - make ci-deb-release
 
+deb-release:
+  extends:
+    - .release-template
+  script:
+    - make ci-homebrew
+
 .report-status:
   tags:
     - tiny-job
@@ -427,11 +433,3 @@ failure:
     - .report-status
   rules:
     - when: on_failure
-
-homebrew-release:
-  stage: build
-  interruptible: true
-  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
-  timeout: 2 hours
-  script:
-    - CI_COMMIT_TAG=v0.7.11 STREAMPLACE_VERSION_OVERRIDE=v0.7.11 make ci-homebrew

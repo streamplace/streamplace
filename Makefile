@@ -817,7 +817,7 @@ homebrew:
 	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-linux-arm64.tar.gz
 	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-darwin-amd64.tar.gz
 	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-darwin-arm64.tar.gz
-	git clone https://github.com/streamplace/homebrew-streamplace.git /tmp/homebrew-streamplace
+	git clone git@github.com:streamplace/homebrew-streamplace.git /tmp/homebrew-streamplace
 	go run ./pkg/config/git/git.go -homebrew -o /tmp/homebrew-streamplace/Formula/streamplace.rb
 
 .PHONY: ci-homebrew

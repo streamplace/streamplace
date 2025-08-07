@@ -5,6 +5,12 @@ sidebar:
   order: 20
 ---
 
+## macOS
+
+```shell
+brew install streamplace/streamplace/streamplace
+```
+
 ## Linux
 
 We distribute two Linux packages for Streamplace:

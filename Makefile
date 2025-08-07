@@ -783,9 +783,9 @@ ci-deb-release:
 	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-linux-amd64.deb
 	$(MAKE) ci-download-file download_file=streamplace-default-http-$(VERSION)-linux-arm64.deb
 	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-linux-arm64.deb
-	gpg --import $$CI_SIGNING_KEY_PATH
+	echo $$CI_SIGNING_KEY_BASE64 | base64 -d | gpg --import
 	gpg --armor --export | gpg --no-default-keyring --keyring trustedkeys.gpg --import
-	echo '{"S3PublishEndpoints":{"streamplace-releases":{"region":"ignored","bucket":"'$$S3_BUCKET_NAME'","endpoint":"'$$S3_ENDPOINT'","acl":"public-read","prefix":"debian"}}}' > ~/.aptly.conf
+	echo '{"S3PublishEndpoints":{"streamplace-releases":{"region":"$$S3_REGION","bucket":"'$$S3_BUCKET_NAME'","endpoint":"'$$S3_ENDPOINT'","acl":"public-read","prefix":"debian"}}}' > ~/.aptly.conf
 	$(MAKE) deb-release
 
 .PHONY: check

@@ -50,6 +50,10 @@ export default defineConfig({
               autogenerate: { directory: "guides/start-streaming" },
             },
             {
+              label: "Installing Streamplace",
+              autogenerate: { directory: "guides/installing" },
+            },
+            {
               label: "Start Contributing",
               autogenerate: { directory: "guides/start-contributing" },
             },

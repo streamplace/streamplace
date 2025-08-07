@@ -395,6 +395,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	})
 
 	group.Go(func() error {
+		return GoLivepeer(ctx)
+	})
+
+	group.Go(func() error {
 		return d.Start(ctx)
 	})
 

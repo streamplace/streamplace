@@ -825,10 +825,9 @@ ci-homebrew:
 	git config --global user.name "Streamplace Homebrew Robot"
 	git config --global user.email support@stream.place
 	mkdir -p ~/.ssh
-	echo "Host *
-	StrictHostKeyChecking no
-	UserKnownHostsFile=/dev/null" > ~/.ssh/config
-	# Write SSH key to disk
+	echo "Host * \n\
+	  StrictHostKeyChecking no \n\
+	  UserKnownHostsFile=/dev/null" > ~/.ssh/config
 	echo "$$CI_HOMEBREW_KEY_BASE64" | base64 -d > ~/.ssh/id_ed25519
 	chmod 600 ~/.ssh/id_ed25519
 

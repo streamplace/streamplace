@@ -1,4 +1,10 @@
-import { useLivestream, useToast, zero } from "@streamplace/components";
+import {
+  Button,
+  Textarea,
+  useLivestream,
+  useToast,
+  zero,
+} from "@streamplace/components";
 import ThumbnailSelector from "components/thumbnail-selector";
 import ButtonSelector from "components/ui/button-selector";
 import {
@@ -12,16 +18,31 @@ import { useLiveUser } from "hooks/useLiveUser";
 import { useEffect, useState } from "react";
 import {
   Platform,
-  Pressable,
   ScrollView,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
 
-const { flex, p, px, py, mt, gap, layout, bg, borders, text, r, w } = zero;
+const {
+  flex,
+  p,
+  px,
+  py,
+  h,
+  gap,
+  layout,
+  bg,
+  borders,
+  mt,
+  pt,
+  pb,
+  text,
+  r,
+  w,
+  typography,
+} = zero;
 const isWeb = Platform.OS === "web";
 
 interface LivestreamPanelProps {
@@ -161,10 +182,10 @@ export default function LivestreamPanel({
         <View
           style={[
             flex.values[1],
-            bg.gray[800],
-            r[3],
+            bg.neutral[900],
+            r.lg,
             borders.width.thin,
-            borders.color.gray[700],
+            borders.color.neutral[700],
             layout.flex.column,
           ]}
         >
@@ -172,35 +193,36 @@ export default function LivestreamPanel({
             style={[
               layout.flex.row,
               layout.flex.spaceBetween,
-              layout.flex.alignCenter,
-              p[4],
+              layout.flex.align.center,
+              px[4],
+              pt[4],
+              pb[4],
               borders.bottom.width.thin,
-              borders.bottom.color.gray[700],
+              borders.bottom.color.neutral[700],
             ]}
           >
             <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
-              Live Chat
+              Stream settings
             </Text>
             <ButtonSelector
               values={[
                 { label: "Create", value: "create" },
                 { label: "Edit", value: "edit" },
               ]}
+              style={[{ marginVertical: -2 }]}
               selectedValue={mode}
               setSelectedValue={setSelectedMode}
               disabledValues={livestream ? [] : ["edit"]}
             />
           </View>
           {mode === "edit" && (
-            <Text
-              style={[px[4], text.white, { fontSize: 20, fontWeight: "bold" }]}
-            >
+            <Text style={[p[4], text.white, typography.universal["xl"]]}>
               Change your Current Livestream Title
             </Text>
           )}
           {mode === "edit" && noLivestream ? (
             <View style={[layout.flex.center, p[4]]}>
-              <Text style={[text.gray[400], { fontSize: 16 }]}>
+              <Text style={[text.neutral[400], { fontSize: 16 }]}>
                 No active livestream to edit. Start a livestream first!
               </Text>
             </View>
@@ -208,7 +230,7 @@ export default function LivestreamPanel({
             <View
               style={[
                 { flexDirection: useTwoColumns ? "row" : "column" },
-                useTwoColumns ? gap.row[12] : gap.column[4],
+                useTwoColumns ? gap.row[12] : gap.all[8],
                 w.percent[100],
                 { alignSelf: "center" },
                 p[4],
@@ -219,14 +241,7 @@ export default function LivestreamPanel({
               ]}
             >
               {/* Left column: labels and fields */}
-              <View
-                style={[
-                  flex.values[2],
-                  { minWidth: 0 },
-                  gap.column[3],
-                  w.percent[100],
-                ]}
-              >
+              <View style={[{ minWidth: 0 }, gap.column[3], w.percent[100]]}>
                 <View
                   style={[
                     layout.flex.row,
@@ -236,7 +251,7 @@ export default function LivestreamPanel({
                 >
                   <Text
                     style={[
-                      text.gray[300],
+                      text.neutral[300],
                       { minWidth: 100, textAlign: "left", paddingBottom: 8 },
                     ]}
                   >
@@ -260,20 +275,20 @@ export default function LivestreamPanel({
                 >
                   <Text
                     style={[
-                      text.gray[300],
+                      text.neutral[300],
                       { minWidth: 100, textAlign: "left", paddingBottom: 8 },
                     ]}
                   >
                     Title
                   </Text>
                   <View style={[flex.values[1]]}>
-                    <TextInput
+                    <Textarea
                       value={title}
                       onChangeText={setTitle}
                       style={[
                         p[2],
                         r[1],
-                        bg.gray[900],
+                        bg.neutral[800],
                         text.white,
                         w.percent[100],
                         { minHeight: 100, fontSize: 16 },
@@ -288,12 +303,12 @@ export default function LivestreamPanel({
                     style={[
                       layout.flex.row,
                       layout.flex.alignCenter,
+                      mt[2],
                       w.percent[100],
-                      { marginTop: -16 },
                     ]}
                   >
                     <View style={[flex.values[1]]}>
-                      <Text style={[text.gray[400], { fontSize: 12 }]}>
+                      <Text style={[text.neutral[400], { fontSize: 12 }]}>
                         Updating will not send out notifications to viewers or
                         create a new social media post.
                       </Text>
@@ -310,7 +325,7 @@ export default function LivestreamPanel({
                     gap.column[4],
                     { alignItems: "center" },
                     { justifyContent: "flex-start" },
-                    { marginTop: 12 },
+                    h.percent[100],
                   ]}
                 >
                   <Text
@@ -328,33 +343,24 @@ export default function LivestreamPanel({
                   </View>
                 </View>
               )}
-              <View
+              <Button
+                disabled={disabled}
                 style={[
+                  bg.primary[500],
+                  r[1],
+                  py[2],
                   w.percent[100],
                   { alignItems: "center" },
-                  mode === "edit" ? { marginTop: -16 } : mt[4],
+                  { opacity: disabled ? 0.5 : 1 },
                 ]}
+                onPress={handleSubmit}
               >
-                <Pressable
-                  disabled={disabled}
-                  style={[
-                    bg.primary[500],
-                    r[1],
-                    px[4],
-                    py[2],
-                    w.percent[100],
-                    { alignItems: "center" },
-                    { opacity: disabled ? 0.5 : 1 },
-                  ]}
-                  onPress={handleSubmit}
+                <Text
+                  style={[text.white, { fontSize: 16, fontWeight: "bold" }]}
                 >
-                  <Text
-                    style={[text.white, { fontSize: 16, fontWeight: "bold" }]}
-                  >
-                    {buttonText}
-                  </Text>
-                </Pressable>
-              </View>
+                  {buttonText}
+                </Text>
+              </Button>
             </View>
           )}
         </View>

@@ -9,8 +9,7 @@ import emojiData from "assets/emoji-data.json";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { useLiveUser } from "../../hooks/useLiveUser";
-
-const { flex, bg, r, borders, p, text, layout } = zero;
+const { flex, bg, r, borders, p, px, py, text, layout } = zero;
 
 export default function ChatPanel() {
   // Get real data from hooks
@@ -38,11 +37,12 @@ export default function ChatPanel() {
     <View
       style={[
         flex.values[1],
-        bg.gray[800],
-        r[3],
+        bg.neutral[900],
         borders.width.thin,
-        borders.color.gray[700],
+        borders.color.neutral[700],
         layout.flex.column,
+        r.lg,
+        { minWidth: 300, maxWidth: 600, flexShrink: 0 },
       ]}
     >
       <View
@@ -50,39 +50,43 @@ export default function ChatPanel() {
           layout.flex.row,
           layout.flex.spaceBetween,
           layout.flex.alignCenter,
-          p[4],
           borders.bottom.width.thin,
-          borders.bottom.color.gray[700],
+          borders.bottom.color.neutral[700],
+          p[4],
         ]}
       >
         <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
           Live Chat
         </Text>
-        <View style={[layout.flex.row, layout.flex.alignCenter, { gap: 8 }]}>
+        <View style={[layout.flex.row, layout.flex.alignCenter]}>
           <View
             style={[
               { width: 6, height: 6, borderRadius: 3 },
               isLive && isConnected ? bg.green[500] : bg.gray[500],
             ]}
           />
-          <Text style={[text.gray[400], { fontSize: 12 }]}>
+          <Text style={[text.gray[400], { fontSize: 12, marginLeft: 8 }]}>
             {messagesPerMinute} msg/min
           </Text>
         </View>
       </View>
-      <View style={[flex.values[1], p[2]]}>
-        <Chat canModerate={canModerate} shownMessages={50} />
-        <ChatBox
-          emojiData={emojiData}
-          chatBoxStyle={[
-            bg.gray[700],
-            borders.width.thin,
-            borders.color.gray[600],
-            r[2],
-            p[3],
-            !isConnected && { opacity: 0.6 },
-          ]}
-        />
+      <View style={[flex.values[1], px[2], { minHeight: 0 }]}>
+        <View style={[flex.values[1], { minHeight: 0 }]}>
+          <Chat canModerate={canModerate} shownMessages={50} />
+        </View>
+        <View style={[{ flexShrink: 0 }]}>
+          <ChatBox
+            emojiData={emojiData}
+            chatBoxStyle={[
+              bg.gray[700],
+              borders.width.thin,
+              borders.color.gray[600],
+              r.md,
+              p[3],
+              !isConnected && { opacity: 0.6 },
+            ]}
+          />
+        </View>
       </View>
     </View>
   );

@@ -22,14 +22,8 @@ export default function BentoGrid({
   const isWeb = Platform.OS === "web";
 
   return (
-    <View style={[flex.values[1], gap.all[4], p[4]]}>
-      <View
-        style={[
-          layout.flex.column,
-          bg.gray[900],
-          { minWidth: isWeb ? 400 : "100%" },
-        ]}
-      >
+    <View style={[flex.values[1], gap.all[4], p[4], bg.black]}>
+      <View style={[layout.flex.column, { minWidth: isWeb ? 400 : "100%" }]}>
         <Header isLive={isLive} />
       </View>
       <View style={[flex.values[1], layout.flex.row, gap.all[4]]}>

@@ -12,7 +12,7 @@ import { useLiveUser } from "../../hooks/useLiveUser";
 import { useSegmentTiming } from "../../hooks/useSegmentTiming";
 import StreamScreen from "./live-selector";
 
-const { flex, bg, r, borders, layout, p, text, w, h } = zero;
+const { flex, bg, r, borders, layout, p, text, w, h, mt } = zero;
 
 interface StreamMonitorProps {
   userProfile?: any;
@@ -89,13 +89,14 @@ export default function StreamMonitor({
       style={[
         flex.values[2],
         bg.gray[800],
-        r[3],
+        r.lg,
+        bg.neutral[900],
         borders.width.thin,
-        borders.color.gray[700],
+        borders.color.neutral[700],
         layout.flex.column,
       ]}
     >
-      <View style={[flex.values[1], layout.flex.center, bg.gray[900]]}>
+      <View style={[flex.values[1], layout.flex.center, bg.neutral[900]]}>
         {isLive && userProfile ? (
           isStreamVisible ? (
             <Player src={userProfile.did} name={userProfile.handle} />
@@ -141,39 +142,64 @@ export default function StreamMonitor({
           layout.flex.spaceBetween,
           layout.flex.alignCenter,
           p[4],
-          borders.bottom.width.thin,
-          borders.bottom.color.gray[700],
+          borders.top.width.thin,
+          borders.top.color.gray[700],
         ]}
       >
-        <View style={[layout.flex.row, layout.flex.alignCenter, { gap: 12 }]}>
+        <View
+          style={[
+            layout.flex.row,
+            layout.flex.spaceBetween,
+            layout.flex.alignCenter,
+            flex.grow[1],
+            { gap: 12 },
+          ]}
+        >
           <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
             {ls?.record.title || "Stream Title"}
           </Text>
-          {isLive && userProfile && (
-            <TouchableOpacity
-              onPress={() => setIsStreamVisible(!isStreamVisible)}
-              style={{
-                padding: 4,
-                borderRadius: 4,
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-              }}
-            >
-              {isStreamVisible ? (
-                <EyeOff size={16} color="#9ca3af" />
-              ) : (
-                <Eye size={16} color="#9ca3af" />
-              )}
-            </TouchableOpacity>
-          )}
-          <View style={[w[2], h[2], r[1], bg[getConnectionColor()][500]]} />
-          <Text style={[text.gray[400], { fontSize: 14 }]}>
-            {isLive ? "LIVE" : "OFFLINE"}
-          </Text>
-          {isLive && segmentTiming.timeBetweenSegments && (
-            <Text style={[text.gray[500], { fontSize: 12 }]}>
-              {Math.round(segmentTiming.timeBetweenSegments)}ms
+          <View
+            style={[
+              layout.flex.row,
+              layout.flex.justify.end,
+              layout.flex.align.start,
+              { gap: 8, flexShrink: 0 },
+            ]}
+          >
+            {isLive && userProfile && (
+              <TouchableOpacity
+                onPress={() => setIsStreamVisible(!isStreamVisible)}
+                style={{
+                  padding: 4,
+                  borderRadius: 4,
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                }}
+              >
+                {isStreamVisible ? (
+                  <EyeOff size={16} color="#9ca3af" />
+                ) : (
+                  <Eye size={16} color="#9ca3af" />
+                )}
+              </TouchableOpacity>
+            )}
+            <View
+              style={[
+                w[3],
+                h[3],
+                r.full,
+                { marginTop: 3 },
+                bg[getConnectionColor()][500],
+              ]}
+            />
+            <Text style={[text.gray[400], { fontSize: 14 }]}>
+              {isLive ? "LIVE" : "OFFLINE"}
             </Text>
-          )}
+            {isLive && segmentTiming.timeBetweenSegments && (
+              <Text style={[text.gray[500], { fontSize: 12 }]}>
+                {Math.round(segmentTiming.timeBetweenSegments)}ms
+              </Text>
+            )}
+          </View>
         </View>
       </View>
     </View>

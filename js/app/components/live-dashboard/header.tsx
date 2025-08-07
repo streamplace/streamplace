@@ -10,7 +10,7 @@ import { Text, View } from "react-native";
 import { useLiveUser } from "../../hooks/useLiveUser";
 import { useSegmentTiming } from "../../hooks/useSegmentTiming";
 
-const { flex, bg, r, borders, p, px, py, text, layout, gap } = zero;
+const { bg, r, borders, px, py, text, layout, gap } = zero;
 
 interface MetricItemProps {
   icon: any;
@@ -151,14 +151,14 @@ export default function Header({ isLive: propIsLive }: HeaderProps) {
   return (
     <View
       style={[
-        bg.gray[800],
-        borders.bottom.width.thin,
-        borders.bottom.color.gray[700],
         px[4],
         py[3],
+        r.lg,
         layout.flex.row,
-        layout.flex.alignCenter,
         layout.flex.spaceBetween,
+        bg.neutral[900],
+        borders.width.thin,
+        borders.color.neutral[700],
       ]}
     >
       {/* Left side - Stream title and status */}

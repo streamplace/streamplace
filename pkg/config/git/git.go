@@ -279,6 +279,9 @@ func (g *Git) getTagMap() error {
 
 // Describe the reference as 'git describe --tags' will do
 func (g *Git) Describe(reference *plumbing.Reference) (string, error) {
+	if os.Getenv("STREAMPLACE_VERSION_OVERRIDE") != "" {
+		return os.Getenv("STREAMPLACE_VERSION_OVERRIDE"), nil
+	}
 
 	// Fetch the reference log
 	cIter, err := g.Log(&git.LogOptions{

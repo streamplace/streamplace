@@ -9,13 +9,23 @@ import (
 	"github.com/peterbourgon/ff/v3"
 )
 
-func GoLivepeer(ctx context.Context) error {
+func GoLivepeer(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("streamplace", flag.ExitOnError)
 	cfg := starter.NewLivepeerConfig(fs)
 
+	err := flag.Set("logtostderr", "true")
+	if err != nil {
+		return err
+	}
+	vFlag := flag.Lookup("v")
+	err = vFlag.Value.Set("3")
+	if err != nil {
+		return err
+	}
+
 	// Config file
 	_ = flag.String("config", "", "Config file in the format 'key value', flags and env vars take precedence over the config file")
-	err := ff.Parse(fs, []string{},
+	err = ff.Parse(fs, args,
 		ff.WithConfigFileFlag("config"),
 		ff.WithEnvVarPrefix("LP"),
 		ff.WithConfigFileParser(ff.PlainParser),

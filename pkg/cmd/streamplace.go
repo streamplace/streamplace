@@ -138,6 +138,16 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		fmt.Println("self-test successful!")
 		os.Exit(0)
 	}
+
+	if len(os.Args) > 1 && os.Args[1] == "livepeer" {
+		err = GoLivepeer(context.Background(), os.Args[2:])
+		if err != nil {
+			log.Error(context.Background(), "error in livepeer", "error", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	_ = flag.Set("logtostderr", "true")
 	vFlag := flag.Lookup("v")
 	cli := config.CLI{Build: build}
@@ -395,7 +405,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	})
 
 	group.Go(func() error {
-		return GoLivepeer(ctx)
+		return GoLivepeer(ctx, os.Args[2:])
 	})
 
 	group.Go(func() error {

@@ -21,6 +21,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
+	"github.com/patrickmn/go-cache"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/time/rate"
@@ -71,6 +72,7 @@ type StreamplaceAPI struct {
 	limitersMu    sync.Mutex
 	SignerCache   map[string]media.MediaSigner
 	SignerCacheMu sync.Mutex
+	OGImageCache  *cache.Cache
 	op            *oatproxy.OATProxy
 }
 
@@ -99,6 +101,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712S
 		connTracker:      NewWebsocketTracker(cli.RateLimitWebsocket),
 		limiters:         make(map[string]*rate.Limiter),
 		SignerCache:      make(map[string]media.MediaSigner),
+		OGImageCache:     cache.New(5*time.Minute, 10*time.Minute), // 5min TTL, 10min cleanup
 		op:               op,
 	}
 	a.Mimes, err = updater.GetMimes()
@@ -190,6 +193,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "GET", "/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	addHandle(apiRouter, "GET", "/api/view-count/:user", a.HandleViewCount(ctx))
 	addHandle(apiRouter, "GET", "/api/clip/:user/:file", a.HandleClip(ctx))
+	addHandle(apiRouter, "GET", "/api/og/:username/og.jpg", a.HandleOGImage(ctx))
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	apiRouterHandler := a.RateLimitMiddleware(ctx)(apiRouter)
 	xrpcHandler := a.RateLimitMiddleware(ctx)(xrpc)

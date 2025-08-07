@@ -1,14 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"os"
 	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -75,6 +79,7 @@ func makeGit() error {
 	doBranch := flag.Bool("branch", false, "print branch")
 	doRelease := flag.Bool("release", false, "print release json file")
 	javascript := flag.Bool("js", false, "print code in javascript format")
+	homebrew := flag.Bool("homebrew", false, "print homebrew formula")
 
 	flag.Parse()
 	r, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true})
@@ -163,6 +168,25 @@ func makeGit() error {
 		out = string(bs)
 	} else if *javascript {
 		out = fmt.Sprintf(tmplJS, desc, ts, u)
+	} else if *homebrew {
+		bs := bytes.Buffer{}
+		versionNoV := strings.TrimPrefix(desc, "v")
+		darwinAmd64File := fmt.Sprintf("streamplace-%s-darwin-amd64.tar.gz", desc)
+		darwinArm64File := fmt.Sprintf("streamplace-%s-darwin-arm64.tar.gz", desc)
+		linuxAmd64File := fmt.Sprintf("streamplace-%s-linux-amd64.tar.gz", desc)
+		linuxArm64File := fmt.Sprintf("streamplace-%s-linux-arm64.tar.gz", desc)
+
+		err = homebrewTmpl.Execute(&bs, Homebrew{
+			Version:     versionNoV,
+			DarwinArm64: getHash(darwinArm64File),
+			DarwinAmd64: getHash(darwinAmd64File),
+			LinuxArm64:  getHash(linuxArm64File),
+			LinuxAmd64:  getHash(linuxAmd64File),
+		})
+		if err != nil {
+			return err
+		}
+		out = bs.String()
 	} else {
 		out = fmt.Sprintf(tmpl, desc, ts, u)
 	}
@@ -175,6 +199,35 @@ func makeGit() error {
 		fmt.Print(out)
 	}
 	return nil
+}
+
+func getHash(fileName string) string {
+	filePath := fmt.Sprintf("bin/%s", fileName)
+	f, err := os.Open(filePath)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	buf := make([]byte, 1024*1024) // 1MB buffer
+
+	for {
+		n, err := f.Read(buf)
+		if n > 0 {
+			if _, err := h.Write(buf[:n]); err != nil {
+				panic(err)
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			panic(err)
+		}
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func branch() string {
@@ -270,3 +323,48 @@ func (g *Git) Describe(reference *plumbing.Reference) (string, error) {
 		), nil
 	}
 }
+
+type Homebrew struct {
+	Version     string
+	DarwinArm64 string
+	DarwinAmd64 string
+	LinuxArm64  string
+	LinuxAmd64  string
+}
+
+var homebrewTmpl = template.Must(template.New("homebrew").Parse(`
+class Streamplace < Formula
+  desc "Live video for the AT Protocol. Solving video for everybody forever."
+  homepage "https://stream.place"
+  license "GPL-3.0-or-later"
+  version "{{.Version}}"
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "https://git-cloudflare.stream.place/api/v4/projects/1/packages/generic/latest/v{{.Version}}/streamplace-v{{.Version}}-darwin-arm64.tar.gz"
+      sha256 "{{.DarwinArm64}}"
+    end
+
+    if Hardware::CPU.intel?
+      url "https://git-cloudflare.stream.place/api/v4/projects/1/packages/generic/latest/v{{.Version}}/streamplace-v{{.Version}}-darwin-amd64.tar.gz"
+      sha256 "{{.DarwinAmd64}}"
+    end
+  end
+
+  on_linux do
+    if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
+      url "https://git-cloudflare.stream.place/api/v4/projects/1/packages/generic/latest/v{{.Version}}/streamplace-v{{.Version}}-linux-arm64.tar.gz"
+      sha256 "{{.LinuxArm64}}"
+    end
+
+    if Hardware::CPU.intel?
+      url "https://git-cloudflare.stream.place/api/v4/projects/1/packages/generic/latest/v{{.Version}}/streamplace-v{{.Version}}-linux-amd64.tar.gz"
+      sha256 "{{.LinuxAmd64}}"
+    end
+  end
+
+  def install
+    bin.install "streamplace" => "streamplace"
+  end
+end
+`))

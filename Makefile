@@ -810,3 +810,33 @@ dockerfile-hash-precommit:
 .PHONY: rtcrec
 rtcrec:
 	go build -o $(BUILDDIR)/rtcrec ./pkg/rtcrec/cmd/...
+
+.PHONY: homebrew
+homebrew:
+	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-linux-amd64.tar.gz
+	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-linux-arm64.tar.gz
+	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-darwin-amd64.tar.gz
+	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-darwin-arm64.tar.gz
+	git clone https://github.com/streamplace/homebrew-streamplace.git /tmp/homebrew-streamplace
+	go run ./pkg/config/git/git.go -homebrew -o /tmp/homebrew-streamplace/Formula/streamplace.rb
+
+.PHONY: ci-homebrew
+ci-homebrew:
+	mkdir -p ~/.ssh
+	echo "Host *
+	StrictHostKeyChecking no
+	UserKnownHostsFile=/dev/null" > ~/.ssh/config
+	# Write SSH key to disk
+	echo "$$CI_HOMEBREW_KEY_BASE64" | base64 -d > ~/.ssh/id_ed25519
+	chmod 600 ~/.ssh/id_ed25519
+
+	# Configure SSH to use the key for tangled.sh
+	echo "Host github.com
+	IdentityFile ~/.ssh/id_ed25519" >> ~/.ssh/config
+
+	chmod 600 ~/.ssh/config
+	$(MAKE) homebrew
+	cd /tmp/homebrew-streamplace \
+	&& git add . \
+	&& git commit -m "Update streamplace $(VERSION)" \
+	&& git push

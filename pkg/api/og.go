@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -13,8 +14,7 @@ import (
 	"io"
 	"math"
 	"net/http"
-	"os"
-	"path/filepath"
+	"strings"
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -172,6 +172,11 @@ func (a *StreamplaceAPI) HandleOGImage(ctx context.Context) httprouter.Handle {
 
 		if werr != nil {
 			log.Error(ctx, "failed to write generated OG image", "username", username, "error", werr)
+			// if includes "no repo found" in error, return 404
+			if strings.Contains(werr.Error(), "no repo found") {
+				http.Error(w, "User not found", http.StatusNotFound)
+				return
+			}
 			http.Error(w, "Failed to write image: "+werr.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -181,7 +186,7 @@ func (a *StreamplaceAPI) HandleOGImage(ctx context.Context) httprouter.Handle {
 
 func downloadImage(url string) ([]byte, error) {
 	if url == "" {
-		return nil, fmt.Errorf("empty URL provided")
+		return nil, errors.New("empty URL provided")
 	}
 
 	resp, err := http.Get(url)
@@ -244,22 +249,6 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 
 	fontAHN := canvas.NewFontFamily("Atkinson Hyperlegible Next")
 
-	// Create temporary font files from embedded data
-	regularFontFile := filepath.Join(os.TempDir(), "atkinson-regular.ttf")
-	boldFontFile := filepath.Join(os.TempDir(), "atkinson-bold.ttf")
-
-	// Write embedded font data to temporary files
-	if err := os.WriteFile(regularFontFile, fonts.GetAtkinsonRegular(), 0644); err != nil {
-		log.Warn(ctx, "failed to write regular font to temp file", "error", err)
-	}
-	defer os.Remove(regularFontFile)
-
-	if err := os.WriteFile(boldFontFile, fonts.GetAtkinsonBold(), 0644); err != nil {
-		log.Warn(ctx, "failed to write bold font to temp file", "error", err)
-	}
-	defer os.Remove(boldFontFile)
-
-	// Load fonts from temporary files
 	regularErr := fontAHN.LoadFont(fonts.GetAtkinsonRegular(), 0, canvas.FontRegular)
 	boldErr := fontAHN.LoadFont(fonts.GetAtkinsonBold(), 0, canvas.FontBold)
 
@@ -439,7 +428,7 @@ func (a *StreamplaceAPI) fetchUserProfile(ctx context.Context, username string) 
 		// Use the DID as it's the most reliable identifier
 		actor = repo.DID
 	} else {
-		return nil, fmt.Errorf("no repo found for username %s", username)
+		return nil, fmt.Errorf("no repo found for username: %s", username)
 	}
 
 	// TODO: check if actor is restricted

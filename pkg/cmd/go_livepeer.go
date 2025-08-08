@@ -18,7 +18,7 @@ func GoLivepeer(ctx context.Context, args []string) error {
 		return err
 	}
 	vFlag := flag.Lookup("v")
-	err = vFlag.Value.Set("6")
+	err = vFlag.Value.Set("3")
 	if err != nil {
 		return err
 	}
@@ -26,7 +26,7 @@ func GoLivepeer(ctx context.Context, args []string) error {
 	// Config file
 	err = ff.Parse(fs, args,
 		ff.WithConfigFileFlag("config"),
-		// ff.WithEnvVarPrefix("LP"),
+		ff.WithEnvVarPrefix("LP"),
 	)
 	if err != nil {
 		glog.Exit("Error parsing config: ", err)

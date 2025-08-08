@@ -404,27 +404,18 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return mod.StartSegmentCleaner(ctx)
 	})
 
-	fd, err := cli.DataFileCreate([]string{"livepeer", "gateway", "empty"}, true)
-	if err != nil {
-		return err
+	if cli.LivepeerGateway {
+		// make a file to make sure the directory exists
+		fd, err := cli.DataFileCreate([]string{"livepeer", "gateway", "empty"}, true)
+		if err != nil {
+			return err
+		}
+		fd.Close()
+		gatewayPath := cli.DataFilePath([]string{"livepeer", "gateway"})
+		group.Go(func() error {
+			return GoLivepeer(ctx, []string{"--gateway=true", "--network=offchain", "--orchAddr=127.0.0.1:9001", "--httpAddr=127.0.0.1:8935", "--dataDir", gatewayPath})
+		})
 	}
-	fd.Close()
-	fd, err = cli.DataFileCreate([]string{"livepeer", "orchestrator", "empty"}, true)
-	if err != nil {
-		return err
-	}
-	fd.Close()
-	gatewayPath := cli.DataFilePath([]string{"livepeer", "gateway"})
-	// orchPath := cli.DataFilePath([]string{"livepeer", "orchestrator"})
-	// gateway
-	group.Go(func() error {
-		return GoLivepeer(ctx, []string{"--gateway=true", "--network=offchain", "--orchAddr=127.0.0.1:9001", "--httpAddr=127.0.0.1:8935", "--dataDir", gatewayPath})
-	})
-
-	// o+t
-	// group.Go(func() error {
-	// 	return GoLivepeer(ctx, []string{"--orchestrator", "--transcoder", "--network=offchain", "--serviceAddr=127.0.0.1:9001", "--dataDir", orchPath})
-	// })
 
 	group.Go(func() error {
 		return d.Start(ctx)

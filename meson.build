@@ -110,7 +110,6 @@ ffmpeg_opts = {
   'concat_filter': 'enabled',
   'concat_protocol': 'enabled',
   'concatf_protocol': 'enabled',
-  'cuda': 'enabled',
   'extract_extradata_bsf': 'enabled',
   'fd_protocol': 'enabled',
   'fifo_muxer': 'enabled',
@@ -136,7 +135,6 @@ ffmpeg_opts = {
   'hls_muxer': 'enabled',
   'http_protocol': 'enabled',
   'hwdownload_filter': 'enabled',
-  'hwupload_cuda_filter': 'enabled',
   'image2_demuxer': 'enabled',
   'libxcb': 'enabled',
   'matroska_audio_muxer': 'enabled',
@@ -158,12 +156,10 @@ ffmpeg_opts = {
   'png_decoder': 'enabled',
   'png_parser': 'enabled',
   'rtmp_protocol': 'enabled',
-  'scale_cuda_filter': 'enabled',
   'scale_filter': 'enabled',
   'segment_muxer': 'enabled',
   'stream_segment_muxer': 'enabled',
   'select_filter': 'enabled',
-  'signature_cuda_filter': 'enabled',
   'signature_filter': 'enabled',
   'tcp_protocol': 'enabled',
   'vorbis_decoder': 'enabled',
@@ -192,6 +188,24 @@ ffmpeg_opts = {
 if host_machine.system() != 'windows'
   ffmpeg_opts += {'nanosleep': 'enabled'}
 endif
+
+# Someday maybe once the meson port of ffmpeg supports cuda
+
+# if host_machine.system() != 'darwin'
+#   ffmpeg_opts += {
+#     'ff_cuda_llvm': 'enabled',
+#     'cuda': 'enabled',
+#     'hwupload_cuda_filter': 'enabled',
+#     'scale_cuda_filter': 'enabled',
+#     # 'signature_cuda_filter': 'enabled',
+#     'ffnvcodec': 'enabled',
+#     'h264_nvenc_encoder': 'enabled',
+#     'nvenc': 'enabled',
+#     'nvdec': 'enabled',
+#     'h264_nvdec_hwaccel': 'enabled',
+#     'libdl': 'enabled',
+#   }
+# endif
 
 ffmpeg_proj = subproject(
   'FFmpeg',

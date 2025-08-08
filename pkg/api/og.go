@@ -39,7 +39,7 @@ const (
 
 	// Image dimensions and positioning
 	imageX      = 25.0
-	imageY      = 45.0
+	imageY      = 55.0
 	imageWidth  = 400
 	imageHeight = 480
 	imageRadius = 180.0
@@ -49,7 +49,7 @@ const (
 	textStartX = 135.0
 	joinY      = 142.0
 	subtitleY  = 115.0
-	descY      = 94.0
+	descY      = 90.0
 
 	// Font sizes
 	joinFontSize        = 56.0
@@ -83,6 +83,8 @@ const (
 	maxDescriptionLength = 120
 	descriptionTruncate  = 117
 )
+
+var ErrUserNotFound = errors.New("user not found")
 
 // createResponsiveJoinText creates a text box for "Join [username]" that fits within the available width
 // by reducing font size and truncating with ellipsis if necessary
@@ -150,9 +152,13 @@ func (a *StreamplaceAPI) HandleOGImage(ctx context.Context) httprouter.Handle {
 		}
 
 		// Generate the OG image
-		log.Debug(ctx, "OG image cache miss, generating new image", "username", username)
 		imgData, err := a.generateOGImage(ctx, username)
 		if err != nil {
+			if errors.Is(err, ErrUserNotFound) {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+			log.Error(ctx, "failed to generate OG image", "username", username, "error", err)
 			http.Error(w, "Failed to generate image: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -304,83 +310,72 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 		imageText := canvas.NewTextBox(imageFace, "Stream.place", 100, 30, canvas.Center, canvas.Center, &canvas.TextOptions{})
 		canvasCtx.DrawText(imageX, 100, imageText)
 	} else {
-		// Create circular mask using image/draw.DrawMask approach with high resolution
-		maskWidth, maskHeight := imageWidth, imageHeight
+		// Create efficient circular masked avatar
+		avatarSize := int(imageRadius * 2)
+		center := avatarSize / 2
 
-		// Create circular mask image
-		mask := image.NewRGBA(image.Rect(0, 0, maskWidth, maskHeight))
-		centerX, centerY := maskWidth/2, maskHeight/2
-		radius := int(imageRadius)
+		// Create circular mask using efficient alpha channel
+		mask := image.NewAlpha(image.Rect(0, 0, avatarSize, avatarSize))
 
-		// anti-alias
-		for y := range maskHeight {
-			for x := range maskWidth {
-				dx := x - centerX
-				dy := y - centerY
-				distance := math.Sqrt(float64(dx*dx + dy*dy))
+		// Draw anti-aliased circle using efficient algorithm
+		for y := 0; y < avatarSize; y++ {
+			for x := 0; x < avatarSize; x++ {
+				dx := float64(x - center)
+				dy := float64(y - center)
+				distance := math.Sqrt(dx*dx + dy*dy)
 
-				if distance <= float64(radius) {
-					alpha := uint8(255)
-					// Anti-aliasing: smooth edges over 2-pixel border
-					if distance > float64(radius-2) {
-						alpha = uint8(255 * (float64(radius) - distance) / 2.0)
+				if distance <= float64(center) {
+					// Anti-aliasing on edge
+					alpha := 255.0
+					if distance > float64(center-1) {
+						alpha = 255.0 * (float64(center) - distance)
 					}
-					mask.Set(x, y, color.RGBA{255, 255, 255, alpha}) // White with smooth alpha
-				} else {
-					mask.Set(x, y, color.RGBA{0, 0, 0, 0}) // Transparent = hidden
+					mask.SetAlpha(x, y, color.Alpha{uint8(math.Max(0, alpha))})
 				}
 			}
 		}
 
-		// Create destination image for the masked result
-		dst := image.NewRGBA(image.Rect(0, 0, maskWidth, maskHeight))
+		// Create destination for final masked image
+		dst := image.NewRGBA(image.Rect(0, 0, avatarSize, avatarSize))
 
-		// Apply circular mask to the source image using DrawMask
+		// Scale source image to fill circle (crop to fit)
 		bounds := img.Bounds()
-		scaledImg := image.NewRGBA(image.Rect(0, 0, maskWidth, maskHeight))
+		srcWidth, srcHeight := bounds.Dx(), bounds.Dy()
 
-		// Scale image while preserving aspect ratio
-		imgWidth := float64(bounds.Dx())
-		imgHeight := float64(bounds.Dy())
-		maskWidthF := float64(maskWidth)
-		maskHeightF := float64(maskHeight)
+		// Calculate scale to fill circle completely
+		scale := math.Max(float64(avatarSize)/float64(srcWidth), float64(avatarSize)/float64(srcHeight))
+		scaledWidth := int(float64(srcWidth) * scale)
+		scaledHeight := int(float64(srcHeight) * scale)
 
-		// Calculate scale to fit image within mask while preserving aspect ratio
-		scaleX := maskWidthF / imgWidth
-		scaleY := maskHeightF / imgHeight
-		scale := min(scaleY, scaleX)
+		// Create properly scaled image
+		scaledImg := image.NewRGBA(image.Rect(0, 0, avatarSize, avatarSize))
+		offsetX := (avatarSize - scaledWidth) / 2
+		offsetY := (avatarSize - scaledHeight) / 2
 
-		// Calculate scaled dimensions and centering offsets
-		scaledWidth := int(imgWidth * scale)
-		scaledHeight := int(imgHeight * scale)
-		offsetX := (maskWidth - scaledWidth) / 2
-		offsetY := (maskHeight - scaledHeight) / 2
-
-		// Draw scaled image centered in mask
-		for y := range scaledHeight {
-			for x := range scaledWidth {
-				srcX := bounds.Min.X + int((float64(x)*imgWidth)/float64(scaledWidth))
-				srcY := bounds.Min.Y + int((float64(y)*imgHeight)/float64(scaledHeight))
+		// Efficient nearest-neighbor scaling
+		for y := 0; y < scaledHeight; y++ {
+			for x := 0; x < scaledWidth; x++ {
+				srcX := bounds.Min.X + (x * srcWidth / scaledWidth)
+				srcY := bounds.Min.Y + (y * srcHeight / scaledHeight)
 				scaledImg.Set(x+offsetX, y+offsetY, img.At(srcX, srcY))
 			}
 		}
 
-		// Apply the circular mask
+		// Apply circular mask using efficient DrawMask
 		draw.DrawMask(dst, dst.Bounds(), scaledImg, image.Point{}, mask, image.Point{}, draw.Over)
 
-		// Add border around the circular image
-		// Calculate exact center and radius based on image positioning and scaling
-		borderImgWidth := float64(imageWidth) / imageDPMM
-		borderImgHeight := float64(imageHeight) / imageDPMM
-		borderCenterX := imageX + borderImgWidth/2
-		borderCenterY := imageY + borderImgHeight/2
-		borderRadius := imageRadius / imageDPMM
+		// Add circular border
+		avatarDisplaySize := imageRadius * 2 / imageDPMM
+		borderCenterX := imageX + avatarDisplaySize/2
+		borderCenterY := imageY + avatarDisplaySize/2
+		borderRadius := avatarDisplaySize / 2
 
 		canvasCtx.SetStrokeColor(imageBorderColor)
 		canvasCtx.SetStrokeWidth(3)
 		canvasCtx.DrawPath(borderCenterX, borderCenterY, canvas.Circle(borderRadius))
 		canvasCtx.Stroke()
 
+		// Draw the masked image to canvas
 		canvasCtx.DrawImage(imageX, imageY, dst, canvas.DPMM(imageDPMM))
 	}
 
@@ -423,12 +418,12 @@ func (a *StreamplaceAPI) fetchUserProfile(ctx context.Context, username string) 
 		// 	actor = username + ".bsky.social"
 		// }
 
-		return nil, fmt.Errorf("username '%s' not on this node: %w", username, err)
+		return nil, fmt.Errorf("%w: %w", ErrUserNotFound, err)
 	} else if repo != nil {
 		// Use the DID as it's the most reliable identifier
 		actor = repo.DID
 	} else {
-		return nil, fmt.Errorf("no repo found for username: %s", username)
+		return nil, fmt.Errorf("no repo found for username: %s (%w)", username, ErrUserNotFound)
 	}
 
 	// TODO: check if actor is restricted

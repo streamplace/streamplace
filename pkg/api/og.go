@@ -8,13 +8,16 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/draw"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
 	"math"
 	"net/http"
 	"strings"
+
+	imagedraw "image/draw"
+
+	"golang.org/x/image/draw"
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -310,77 +313,72 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 		imageText := canvas.NewTextBox(imageFace, "Stream.place", 100, 30, canvas.Center, canvas.Center, &canvas.TextOptions{})
 		canvasCtx.DrawText(imageX, 100, imageText)
 	} else {
-		// Create efficient circular masked avatar
-		avatarSize := int(imageRadius * 2)
-		center := avatarSize / 2
+		// High-quality avatar processing with circular masking
+		avatarDisplaySize := imageRadius * 2 / imageDPMM
+		avatarSize := int(avatarDisplaySize * canvasDPMM)
 
-		// Create circular mask using efficient alpha channel
+		// High-quality scaling with center cropping
+		bounds := img.Bounds()
+		srcWidth, srcHeight := bounds.Dx(), bounds.Dy()
+
+		// Calculate square crop (center crop for circular fit)
+		cropSize := srcWidth
+		if srcHeight < cropSize {
+			cropSize = srcHeight
+		}
+		cropOffsetX := (srcWidth - cropSize) / 2
+		cropOffsetY := (srcHeight - cropSize) / 2
+		cropRect := image.Rect(
+			bounds.Min.X+cropOffsetX,
+			bounds.Min.Y+cropOffsetY,
+			bounds.Min.X+cropOffsetX+cropSize,
+			bounds.Min.Y+cropOffsetY+cropSize,
+		)
+
+		// Create scaled avatar using high-quality Catmull-Rom resampling
+		scaledAvatar := image.NewRGBA(image.Rect(0, 0, avatarSize, avatarSize))
+		draw.CatmullRom.Scale(scaledAvatar, scaledAvatar.Bounds(), img, cropRect, draw.Over, nil)
+
+		// Create circular alpha mask
 		mask := image.NewAlpha(image.Rect(0, 0, avatarSize, avatarSize))
+		center := avatarSize / 2
+		radius := float64(center)
 
-		// Draw anti-aliased circle using efficient algorithm
+		// Generate anti-aliased circular mask
 		for y := 0; y < avatarSize; y++ {
 			for x := 0; x < avatarSize; x++ {
 				dx := float64(x - center)
 				dy := float64(y - center)
 				distance := math.Sqrt(dx*dx + dy*dy)
 
-				if distance <= float64(center) {
-					// Anti-aliasing on edge
+				if distance <= radius {
 					alpha := 255.0
-					if distance > float64(center-1) {
-						alpha = 255.0 * (float64(center) - distance)
+					if distance > radius-1 {
+						alpha = 255.0 * (radius - distance)
 					}
-					mask.SetAlpha(x, y, color.Alpha{uint8(math.Max(0, alpha))})
+					mask.SetAlpha(x, y, color.Alpha{uint8(alpha)})
 				}
 			}
 		}
 
-		// Create destination for final masked image
-		dst := image.NewRGBA(image.Rect(0, 0, avatarSize, avatarSize))
-
-		// Scale source image to fill circle (crop to fit)
-		bounds := img.Bounds()
-		srcWidth, srcHeight := bounds.Dx(), bounds.Dy()
-
-		// Calculate scale to fill circle completely
-		scale := math.Max(float64(avatarSize)/float64(srcWidth), float64(avatarSize)/float64(srcHeight))
-		scaledWidth := int(float64(srcWidth) * scale)
-		scaledHeight := int(float64(srcHeight) * scale)
-
-		// Create properly scaled image
-		scaledImg := image.NewRGBA(image.Rect(0, 0, avatarSize, avatarSize))
-		offsetX := (avatarSize - scaledWidth) / 2
-		offsetY := (avatarSize - scaledHeight) / 2
-
-		// Efficient nearest-neighbor scaling
-		for y := 0; y < scaledHeight; y++ {
-			for x := 0; x < scaledWidth; x++ {
-				srcX := bounds.Min.X + (x * srcWidth / scaledWidth)
-				srcY := bounds.Min.Y + (y * srcHeight / scaledHeight)
-				scaledImg.Set(x+offsetX, y+offsetY, img.At(srcX, srcY))
-			}
-		}
-
-		// Apply circular mask using efficient DrawMask
-		draw.DrawMask(dst, dst.Bounds(), scaledImg, image.Point{}, mask, image.Point{}, draw.Over)
+		// Apply circular mask using DrawMask
+		maskedAvatar := image.NewRGBA(image.Rect(0, 0, avatarSize, avatarSize))
+		imagedraw.DrawMask(maskedAvatar, maskedAvatar.Bounds(), scaledAvatar, image.Point{}, mask, image.Point{}, imagedraw.Over)
 
 		// Add circular border
-		avatarDisplaySize := imageRadius * 2 / imageDPMM
-		borderCenterX := imageX + avatarDisplaySize/2
-		borderCenterY := imageY + avatarDisplaySize/2
-		borderRadius := avatarDisplaySize / 2
-
+		avatarCenterX := imageX + avatarDisplaySize/2
+		avatarCenterY := imageY + avatarDisplaySize/2
 		canvasCtx.SetStrokeColor(imageBorderColor)
 		canvasCtx.SetStrokeWidth(3)
-		canvasCtx.DrawPath(borderCenterX, borderCenterY, canvas.Circle(borderRadius))
+		canvasCtx.DrawPath(avatarCenterX, avatarCenterY, canvas.Circle(avatarDisplaySize/2))
 		canvasCtx.Stroke()
 
-		// Draw the masked image to canvas
-		canvasCtx.DrawImage(imageX, imageY, dst, canvas.DPMM(imageDPMM))
+		// Draw the final circular avatar
+		canvasCtx.DrawImage(imageX, imageY, maskedAvatar, canvas.DPMM(canvasDPMM))
 	}
 
 	// Create unified responsive "Join @handle" text
-	joinUserContent := fmt.Sprintf("Catch @%s", handle)
+	joinUserContent := fmt.Sprintf("Join @%s", handle)
 
 	availableWidth := textAvailableWidth // Full available width for the text
 	joinText, _ := createResponsiveJoinText(fontAHN, joinUserContent, availableWidth)

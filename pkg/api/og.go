@@ -380,7 +380,7 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 	}
 
 	// Create unified responsive "Join @handle" text
-	joinUserContent := fmt.Sprintf("Join @%s", handle)
+	joinUserContent := fmt.Sprintf("Catch @%s", handle)
 
 	availableWidth := textAvailableWidth // Full available width for the text
 	joinText, _ := createResponsiveJoinText(fontAHN, joinUserContent, availableWidth)

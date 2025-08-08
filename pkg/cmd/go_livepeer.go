@@ -18,17 +18,15 @@ func GoLivepeer(ctx context.Context, args []string) error {
 		return err
 	}
 	vFlag := flag.Lookup("v")
-	err = vFlag.Value.Set("3")
+	err = vFlag.Value.Set("6")
 	if err != nil {
 		return err
 	}
 
 	// Config file
-	_ = flag.String("config", "", "Config file in the format 'key value', flags and env vars take precedence over the config file")
 	err = ff.Parse(fs, args,
 		ff.WithConfigFileFlag("config"),
-		ff.WithEnvVarPrefix("LP"),
-		ff.WithConfigFileParser(ff.PlainParser),
+		// ff.WithEnvVarPrefix("LP"),
 	)
 	if err != nil {
 		glog.Exit("Error parsing config: ", err)

@@ -45,7 +45,7 @@ func RandomTrailer(length int) string {
 func NewLivepeerSession(ctx context.Context, did string, gatewayURL string) (*LivepeerSession, error) {
 	sessionID := RandomTrailer(8)
 	return &LivepeerSession{
-		SessionID:  fmt.Sprintf("%s-%s", did, sessionID),
+		SessionID:  strings.ReplaceAll(fmt.Sprintf("%s-%s", did, sessionID), ":", ""),
 		Count:      0,
 		GatewayURL: gatewayURL,
 		Guard:      make(chan struct{}, SegmentsInFlight),

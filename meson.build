@@ -92,6 +92,11 @@ streamplace_deps = []
 #   streamplace_deps += mistserver
 # endif
 
+x264_proj = subproject(
+  'x264',
+  default_options: {},
+)
+
 ffmpeg_opts = {
   'aac_adtstoasc_bsf': 'enabled',
   'aac_decoder': 'enabled',
@@ -175,6 +180,13 @@ ffmpeg_opts = {
   'vp9_superframe_bsf': 'enabled',
   'ac3_parser': 'enabled',
   'pgs_frame_merge_bsf': 'enabled',
+  'libx264': 'enabled',
+  'libx264_encoder': 'enabled',
+  'libx264rgb_encoder': 'enabled',
+  'mpegtsraw_demuxer': 'enabled',
+  'adts_muxer': 'enabled',
+  'latm_muxer': 'enabled',
+  'vvc_mp4toannexb_bsf': 'enabled',
 }
 
 if host_machine.system() != 'windows'

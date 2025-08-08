@@ -8,7 +8,7 @@ replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.4
 
 replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4
 
-replace github.com/livepeer/go-livepeer => ../go-livepeer
+replace github.com/livepeer/go-livepeer => github.com/streamplace/go-livepeer v0.0.0-20250808222032-772e21f285c7
 
 require (
 	firebase.google.com/go/v4 v4.14.1

@@ -54,7 +54,7 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *stre
 	pageTitle := fmt.Sprintf("@%s | %s", lsv.Author.Handle, u.Host)
 
 	thumbURL, _ := url.Parse(u.String())
-	thumbURL.Path = fmt.Sprintf("/api/playback/%s/stream.jpg", lsv.Author.Did)
+	thumbURL.Path = fmt.Sprintf("/api/og/%s/og.jpg", lsv.Author.Did)
 
 	// Define all meta tags
 	metaTags := []MetaTag{

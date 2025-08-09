@@ -196,13 +196,13 @@ func (g *WebRTCEventGroup) PeekTrack(ssrc webrtc.SSRC, eventType string) *WebRTC
 }
 
 func (g *WebRTCEventGroup) Next(eventType string) *WebRTCEvent {
+	g.EventMutex.Lock()
 	if g.Events[eventType] == nil {
 		panic(fmt.Sprintf("no events of type %s", eventType))
 	}
 	if len(g.Events[eventType]) == 0 {
 		return nil
 	}
-	g.EventMutex.Lock()
 	ev := g.Events[eventType][0]
 	g.Events[eventType] = g.Events[eventType][1:]
 	g.EventMutex.Unlock()

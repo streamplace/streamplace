@@ -2,8 +2,9 @@ import { zero } from "@streamplace/components";
 import { Platform, View } from "react-native";
 import ChatPanel from "./chat-panel";
 import Header from "./header";
+import InformationWidget from "./information-widget";
 import LivestreamPanel from "./livestream-panel";
-import ModActions from "./mod-actions";
+
 import StreamMonitor from "./stream-monitor";
 
 const { flex, p, gap, layout, bg } = zero;
@@ -44,7 +45,7 @@ export default function BentoGrid({
           </View>
 
           <View style={[layout.flex.row, gap.all[4], flex.values[1]]}>
-            <ModActions isLive={isLive} />
+            <InformationWidget wideMode={true} />
           </View>
         </View>
 

@@ -68,6 +68,7 @@ import AVSyncScreen from "./screens/av-sync";
 import PopoutChat from "./screens/chat-popout";
 import DownloadScreen from "./screens/download";
 import EmbedScreen from "./screens/embed";
+import InfoWidgetEmbed from "./screens/info-widget-embed";
 import LiveDashboard from "./screens/live-dashboard";
 import MultiScreen from "./screens/multi";
 import StreamScreen from "./screens/stream";
@@ -121,6 +122,7 @@ type RootStackParamList = {
   Download: undefined;
   PopoutChat: { user: string };
   Embed: { user: string };
+  InfoWidgetEmbed: undefined;
   LegacyStream: { user: string };
   MobileGoLive: undefined;
 };
@@ -157,6 +159,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Download: "download",
       PopoutChat: "chat-popout/:user",
       Embed: "embed/:user",
+      InfoWidgetEmbed: "info-widget",
       LegacyStream: "legacy/:user",
       MobileGoLive: "mobile-golive",
     },
@@ -549,6 +552,15 @@ export function StreamplaceDrawer() {
         <Drawer.Screen
           name="Embed"
           component={EmbedScreen}
+          options={{
+            drawerLabel: () => null,
+            drawerItemStyle: { display: "none" },
+            headerShown: false,
+          }}
+        />
+        <Drawer.Screen
+          name="InfoWidgetEmbed"
+          component={InfoWidgetEmbed}
           options={{
             drawerLabel: () => null,
             drawerItemStyle: { display: "none" },

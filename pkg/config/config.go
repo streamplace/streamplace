@@ -20,6 +20,7 @@ import (
 	"math/rand/v2"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
 	"github.com/peterbourgon/ff/v3"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
@@ -110,6 +111,7 @@ type CLI struct {
 	AndroidCertFingerprint string
 	Labelers               []string
 	AtprotoDID             string
+	LivepeerHelp           bool
 }
 
 func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
@@ -170,6 +172,14 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.StringVar(&cli.AndroidCertFingerprint, "android-cert-fingerprint", "", "android cert fingerprint for deep linking")
 	cli.StringSliceFlag(fs, &cli.Labelers, "labelers", "", "did of labelers that this instance should subscribe to")
 	fs.StringVar(&cli.AtprotoDID, "atproto-did", "", "atproto did to respond to on /.well-known/atproto-did (default did:web:PUBLIC_HOST)")
+	fs.BoolVar(&cli.LivepeerHelp, "livepeer-help", false, "print help for livepeer flags and exit")
+
+	lpFlags := flag.NewFlagSet("livepeer", flag.ContinueOnError)
+	_ = starter.NewLivepeerConfig(lpFlags)
+	lpFlags.VisitAll(func(f *flag.Flag) {
+		adapted := LivepeerFlags.CamelToSnake[f.Name]
+		fs.Var(f.Value, fmt.Sprintf("livepeer.%s", adapted), f.Usage)
+	})
 
 	if runtime.GOOS == "linux" {
 		fs.BoolVar(&cli.NoMist, "no-mist", true, "Disable MistServer")
@@ -230,6 +240,12 @@ func DefaultDataDir() string {
 }
 
 func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
+	// Split out livepeer-specific args
+	// livepeerArgs := []string{}
+	// nonLivepeerArgs := []string{}
+
+	// // Replace args with filtered list
+	// args = nonLivepeerArgs
 	err := ff.Parse(
 		fs, args,
 		ff.WithEnvVarPrefix("SP"),
@@ -239,6 +255,25 @@ func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 	}
 	if cli.DataDir == "" {
 		return fmt.Errorf("could not determine default data dir (no $HOME) and none provided, please set --data-dir")
+	}
+	if cli.LivepeerGateway && cli.LivepeerGatewayURL != "" {
+		return fmt.Errorf("defining both livepeer-gateway and livepeer-gateway-url doesn't make sense. do you want an embedded gateway or an external one?")
+	}
+	if cli.LivepeerGateway {
+		gatewayPath := cli.DataFilePath([]string{"livepeer", "gateway"})
+		err = fs.Set("livepeer.data-dir", gatewayPath)
+		if err != nil {
+			return err
+		}
+		err = fs.Set("livepeer.gateway", "true")
+		if err != nil {
+			return err
+		}
+		err = fs.Set("livepeer.http-addr", "127.0.0.1:8935")
+		if err != nil {
+			return err
+		}
+		cli.LivepeerGatewayURL = "http://127.0.0.1:8935"
 	}
 	for _, dest := range cli.dataDirFlags {
 		*dest = strings.Replace(*dest, SPDataDir, cli.DataDir, 1)

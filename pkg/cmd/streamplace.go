@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
+	"github.com/peterbourgon/ff/v3"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/term"
 	"stream.place/streamplace/pkg/aqhttp"
@@ -140,7 +142,16 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "livepeer" {
-		err = GoLivepeer(context.Background(), os.Args[2:])
+		lpfs := flag.NewFlagSet("livepeer", flag.ExitOnError)
+		_ = starter.NewLivepeerConfig(lpfs)
+		err = ff.Parse(lpfs, os.Args[2:],
+			ff.WithConfigFileFlag("config"),
+			ff.WithEnvVarPrefix("LP"),
+		)
+		if err != nil {
+			return err
+		}
+		err = GoLivepeer(context.Background(), lpfs)
 		if err != nil {
 			log.Error(context.Background(), "error in livepeer", "error", err)
 			os.Exit(1)
@@ -181,7 +192,20 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if *version {
 		return nil
 	}
-	spmetrics.Version.WithLabelValues(build.Version).Inc()
+	if cli.LivepeerHelp {
+		lpFlags := flag.NewFlagSet("livepeer", flag.ContinueOnError)
+		_ = starter.NewLivepeerConfig(lpFlags)
+		lpFlags.VisitAll(func(f *flag.Flag) {
+			adapted := config.ToSnakeCase(f.Name)
+			fmt.Printf("  -%s\n", fmt.Sprintf("livepeer.%s", adapted))
+			usage := fmt.Sprintf("    	%s", f.Usage)
+			if f.DefValue != "" {
+				usage = fmt.Sprintf("%s (default %s)", usage, f.DefValue)
+			}
+			fmt.Printf("    	%s\n", usage)
+		})
+		return nil
+	}
 
 	aqhttp.UserAgent = fmt.Sprintf("streamplace/%s", build.Version)
 	if len(os.Args) > 1 && os.Args[1] == "resync" {
@@ -411,9 +435,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			return err
 		}
 		fd.Close()
-		gatewayPath := cli.DataFilePath([]string{"livepeer", "gateway"})
+		if err != nil {
+			return err
+		}
 		group.Go(func() error {
-			return GoLivepeer(ctx, []string{"--gateway=true", "--network=offchain", "--orchAddr=127.0.0.1:9001", "--httpAddr=127.0.0.1:8935", "--dataDir", gatewayPath})
+			return GoLivepeer(ctx, fs)
 		})
 	}
 

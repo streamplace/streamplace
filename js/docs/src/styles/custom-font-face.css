@@ -1,3 +1,31 @@
 :root {
   --sl-font: "Atkinson Hyperlegible Next", serif;
 }
+
+/*
+    from mnvr here:
+    https://gist.github.com/miguelmota/322c89234d60de578f37d3c6d30f7e41?permalink_comment_id=5519791#gistcomment-5519791
+    Add an indicator after external links that'll open in a new window.
+*/
+a[target="_blank"]::after {
+  /* &nearr;, but nicer. SVG adapted from Inter's rendition of "↗". */
+  content: url("data:image/svg+xml,%3Csvg viewBox='0 0 7 7' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1.04261 6.80966L0.377841 6.14489L5.32102 1.19318H1.50284L1.51136 0.272727H6.90625V5.67614H5.97727L5.9858 1.85795L1.04261 6.80966Z' fill='white'/%3E%3C/svg%3E%0A");
+  /* inline => inline-block, so that we can give it a height */
+  display: inline-block;
+  height: 0.55em;
+  padding-inline: 0em;
+  aspect-ratio: 1;
+  line-height: 1;
+  vertical-align: text-top;
+  padding-top: 0.25rem;
+}
+
+/* Default: invert for light themes */
+a[target="_blank"]::after {
+  filter: invert(1);
+}
+
+/* Don't invert when theme is dark */
+:root[data-theme="dark"] a[target="_blank"]::after {
+  filter: none;
+}

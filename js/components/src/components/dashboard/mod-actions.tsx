@@ -1,59 +1,57 @@
-import {
-  useLivestreamStore,
-  usePlayerStore,
-  zero,
-} from "@streamplace/components";
-import {
-  AlertTriangle,
-  Eye,
-  MessageCircle,
-  Shield,
-} from "@tamagui/lucide-icons";
+import { AlertTriangle, Eye, MessageCircle, Shield } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
-import { useLiveUser } from "../../hooks/useLiveUser";
+import * as zero from "../../ui";
 
 const { flex, bg, r, borders, p, text, layout, gap, mb } = zero;
 
-interface ModActionsProps {
-  isLive?: boolean;
+interface ModActionItem {
+  icon: any;
+  label: string;
+  color: string;
+  action: () => void;
 }
 
-export default function ModActions({ isLive: propIsLive }: ModActionsProps) {
-  // Get real data from hooks
-  const isUserLive = useLiveUser();
-  const chat = useLivestreamStore((x) => x.chat);
-  const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
+interface ModActionsProps {
+  isLive: boolean;
+  isConnected: boolean;
+  messageCount?: number;
+  actions?: ModActionItem[];
+}
 
-  // Use hook data primarily, fallback to props
-  const isLive = propIsLive ?? isUserLive;
-  const isConnected = ingestConnectionState === "connected";
+const defaultActions: ModActionItem[] = [
+  {
+    icon: Shield,
+    label: "Ban User",
+    color: "red",
+    action: () => console.log("Ban user action"),
+  },
+  {
+    icon: MessageCircle,
+    label: "Timeout",
+    color: "yellow",
+    action: () => console.log("Timeout user action"),
+  },
+  {
+    icon: Eye,
+    label: "Monitor",
+    color: "blue",
+    action: () => console.log("Monitor stream action"),
+  },
+  {
+    icon: AlertTriangle,
+    label: "Report",
+    color: "orange",
+    action: () => console.log("Report content action"),
+  },
+];
+
+export default function ModActions({
+  isLive,
+  isConnected,
+  messageCount = 0,
+  actions = defaultActions,
+}: ModActionsProps) {
   const canModerate = isLive && isConnected;
-  const actions = [
-    {
-      icon: Shield,
-      label: "Ban User",
-      color: "red",
-      action: () => console.log("Ban user action"),
-    },
-    {
-      icon: MessageCircle,
-      label: "Timeout",
-      color: "yellow",
-      action: () => console.log("Timeout user action"),
-    },
-    {
-      icon: Eye,
-      label: "Monitor",
-      color: "blue",
-      action: () => console.log("Monitor stream action"),
-    },
-    {
-      icon: AlertTriangle,
-      label: "Report",
-      color: "orange",
-      action: () => console.log("Report content action"),
-    },
-  ];
 
   return (
     <View
@@ -77,11 +75,9 @@ export default function ModActions({ isLive: propIsLive }: ModActionsProps) {
         <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
           Moderation
         </Text>
-        {chat && (
-          <Text style={[text.gray[400], { fontSize: 12 }]}>
-            {chat.length} messages
-          </Text>
-        )}
+        <Text style={[text.gray[400], { fontSize: 12 }]}>
+          {messageCount} messages
+        </Text>
       </View>
 
       <View style={[layout.flex.row, gap.all[3]]}>

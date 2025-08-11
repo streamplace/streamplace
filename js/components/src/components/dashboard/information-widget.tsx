@@ -1,11 +1,4 @@
 import {
-  useLivestreamStore,
-  usePlayerStore,
-  useProfile,
-  useSegment,
-  zero,
-} from "@streamplace/components";
-import {
   Activity,
   Clock,
   Monitor,
@@ -16,15 +9,26 @@ import {
   Volume2,
   Wifi,
   Zap,
-} from "@tamagui/lucide-icons";
+} from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
-import { useLiveUser } from "../../hooks/useLiveUser";
-import { useSegmentTiming } from "../../hooks/useSegmentTiming";
+import * as zero from "../../ui";
 
 interface InformationWidgetProps {
   embedMode?: boolean;
   wideMode?: boolean;
+  isLive: boolean;
+  viewers?: number;
+  uptime?: string;
+  connectionStatus?: "good" | "warning" | "error" | "neutral";
+  timeBetweenSegments?: number;
+  bitrate?: string;
+  resolution?: string;
+  fps?: string;
+  videoCodec?: string;
+  audioCodec?: string;
+  audioChannels?: string;
+  sampleRate?: string;
 }
 
 const { bg, r, borders, px, py, text, layout, gap, flex } = zero;
@@ -111,17 +115,20 @@ function Section({ title, children }: SectionProps) {
 export default function InformationWidget({
   embedMode = false,
   wideMode = false,
-}: InformationWidgetProps = {}) {
+  isLive,
+  viewers = 0,
+  uptime = "00:00:00",
+  connectionStatus = "neutral",
+  timeBetweenSegments = 0,
+  bitrate = "0 kbps",
+  resolution = "Unknown",
+  fps = "Unknown",
+  videoCodec = "Unknown",
+  audioCodec = "Unknown",
+  audioChannels = "Unknown",
+  sampleRate = "Unknown",
+}: InformationWidgetProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
-
-  // Hooks for data
-  const userProfile = useProfile();
-  const isLive = useLiveUser();
-  const viewers = useLivestreamStore((x) => x.viewers);
-  const segmentTiming = useSegmentTiming();
-  const seg = useSegment();
-  const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
-  const ingestStarted = usePlayerStore((x) => x.ingestStarted);
 
   // Update time every second
   useEffect(() => {
@@ -131,125 +138,14 @@ export default function InformationWidget({
     return () => clearInterval(timer);
   }, []);
 
-  // Calculate uptime
-  const getUptime = (): string => {
-    if (!ingestStarted || !isLive) return "00:00:00";
-    const uptimeMs = Date.now() - ingestStarted;
-    const seconds = Math.floor(uptimeMs / 1000);
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  // Get bitrate status based on value
+  const getBitrateStatus = (): "good" | "warning" | "error" | "neutral" => {
+    const numericBitrate = parseInt(bitrate);
+    if (numericBitrate > 2000) return "good";
+    if (numericBitrate > 1000) return "warning";
+    if (numericBitrate > 0) return "error";
+    return "neutral";
   };
-
-  // Calculate bitrate
-  const getBitrate = (): {
-    value: string;
-    status: "good" | "warning" | "error" | "neutral";
-  } => {
-    if (!seg?.size || !seg?.duration) {
-      return { value: "0 kbps", status: "neutral" };
-    }
-
-    const kbps =
-      (seg.size * 8) /
-      ((seg.duration || 1000000000) / 1000000000) /
-      1000 /
-      1000;
-
-    // Determine status based on bitrate
-    let status: "good" | "warning" | "error" | "neutral" = "neutral";
-    if (kbps > 2000) status = "good";
-    else if (kbps > 1000) status = "warning";
-    else if (kbps > 0) status = "error";
-
-    return {
-      value: `${kbps.toFixed(0)} kbps`,
-      status,
-    };
-  };
-
-  // Get connection quality status
-  const getConnectionStatus = (): "good" | "warning" | "error" | "neutral" => {
-    if (!isLive) return "neutral";
-    switch (segmentTiming.connectionQuality) {
-      case "good":
-        return "good";
-      case "degraded":
-        return "warning";
-      case "poor":
-        return "error";
-      default:
-        return "neutral";
-    }
-  };
-
-  // Get stream status
-  const getStreamStatus = (): "live" | "offline" | "starting" | "error" => {
-    if (!isLive) return "offline";
-    if (ingestConnectionState === "connecting") return "starting";
-    if (segmentTiming.connectionQuality === "poor") return "error";
-    return "live";
-  };
-
-  const bitrate = getBitrate();
-  const streamStatus = getStreamStatus();
-
-  // Extract video and audio information from segment
-  const getMediaInfo = () => {
-    const video = seg?.video?.[0];
-    const audio = seg?.audio?.[0];
-
-    if (!video && !audio) {
-      return {
-        resolution: "Unknown",
-        fps: "Unknown",
-        codec: "Unknown",
-        profile: "Unknown",
-        audioCodec: "Unknown",
-        audioChannels: "Unknown",
-        sampleRate: "Unknown",
-      };
-    }
-
-    // Video info
-    const resolution =
-      video?.width && video?.height
-        ? `${video.width}x${video.height}`
-        : "Unknown";
-
-    // Handle fractional framerate (num/den format)
-    let fps = "Unknown";
-    if (video?.framerate?.num && video?.framerate?.den) {
-      const fpsValue = video.framerate.num / video.framerate.den;
-      fps = `${fpsValue.toFixed(2)} FPS`;
-    } else if (video?.frameRate || video?.fps) {
-      const fpsValue = video.frameRate || video.fps;
-      fps = `${fpsValue} FPS`;
-    }
-
-    const codec = video?.codec ? video.codec.toUpperCase() : "Unknown";
-    const profile = video?.profile || "";
-
-    // Audio info
-    const audioCodec = audio?.codec ? audio.codec.toUpperCase() : "Unknown";
-    const audioChannels = audio?.channels ? `${audio.channels} ch` : "Unknown";
-    const sampleRate = audio?.rate
-      ? `${(audio.rate / 1000).toFixed(1)}kHz`
-      : "Unknown";
-
-    return {
-      resolution,
-      fps,
-      codec,
-      profile,
-      audioCodec,
-      audioChannels,
-      sampleRate,
-    };
-  };
-
-  const mediaInfo = getMediaInfo();
 
   return (
     <View
@@ -301,16 +197,14 @@ export default function InformationWidget({
                   <InfoRow
                     icon={Signal}
                     label="Uptime"
-                    value={getUptime()}
+                    value={uptime}
                     status={isLive ? "good" : "neutral"}
                   />
                   <InfoRow
                     icon={Users}
                     label="Viewers"
-                    value={isLive ? (viewers || 0).toLocaleString() : "0"}
-                    status={
-                      isLive && viewers && viewers > 0 ? "good" : "neutral"
-                    }
+                    value={isLive ? viewers.toLocaleString() : "0"}
+                    status={isLive && viewers > 0 ? "good" : "neutral"}
                   />
                 </Section>
               </View>
@@ -320,30 +214,23 @@ export default function InformationWidget({
                   <InfoRow
                     icon={Wifi}
                     label="Connection"
-                    value={segmentTiming.connectionQuality || "Unknown"}
-                    status={getConnectionStatus()}
+                    value={connectionStatus}
+                    status={connectionStatus}
                   />
                   <InfoRow
                     icon={Activity}
                     label="Segment Timing"
-                    value={
-                      segmentTiming.timeBetweenSegments
-                        ? `${segmentTiming.timeBetweenSegments}ms`
-                        : "0ms"
-                    }
-                    status={getConnectionStatus()}
+                    value={`${timeBetweenSegments}ms`}
+                    status={connectionStatus}
                     subtext={
-                      segmentTiming.timeBetweenSegments &&
-                      segmentTiming.timeBetweenSegments > 5000
-                        ? "High latency"
-                        : undefined
+                      timeBetweenSegments > 5000 ? "High latency" : undefined
                     }
                   />
                   <InfoRow
                     icon={Zap}
                     label="Bitrate"
-                    value={bitrate.value}
-                    status={bitrate.status}
+                    value={bitrate}
+                    status={getBitrateStatus()}
                   />
                 </Section>
               </View>
@@ -355,13 +242,13 @@ export default function InformationWidget({
                   <InfoRow
                     icon={Monitor}
                     label="Resolution"
-                    value={mediaInfo.resolution}
-                    subtext={mediaInfo.fps}
+                    value={resolution}
+                    subtext={fps}
                   />
                   <InfoRow
                     icon={Video}
                     label="Video Codec"
-                    value={mediaInfo.codec}
+                    value={videoCodec}
                   />
                 </Section>
               </View>
@@ -371,17 +258,17 @@ export default function InformationWidget({
                   <InfoRow
                     icon={Volume2}
                     label="Audio Codec"
-                    value={mediaInfo.audioCodec}
+                    value={audioCodec}
                   />
                   <InfoRow
                     icon={Radio}
                     label="Channels"
-                    value={mediaInfo.audioChannels}
+                    value={audioChannels}
                   />
                   <InfoRow
                     icon={Activity}
                     label="Sample Rate"
-                    value={mediaInfo.sampleRate}
+                    value={sampleRate}
                   />
                 </Section>
               </View>

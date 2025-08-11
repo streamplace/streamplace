@@ -1,38 +1,26 @@
-import {
-  Chat,
-  ChatBox,
-  useLivestreamStore,
-  usePlayerStore,
-  zero,
-} from "@streamplace/components";
-import emojiData from "assets/emoji-data.json";
-import { useState } from "react";
 import { Text, View } from "react-native";
-import { useLiveUser } from "../../hooks/useLiveUser";
+import emojiData from "../../assets/emoji-data.json";
+import * as zero from "../../ui";
+import { Chat } from "../chat/chat";
+import { ChatBox } from "../chat/chat-box";
+
 const { flex, bg, r, borders, p, px, py, text, layout } = zero;
 
-export default function ChatPanel() {
-  // Get real data from hooks
-  const isLive = useLiveUser();
-  const chat = useLivestreamStore((x) => x.chat);
-  const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
+interface ChatPanelProps {
+  isLive: boolean;
+  isConnected: boolean;
+  messagesPerMinute?: number;
+  canModerate?: boolean;
+  shownMessages?: number;
+}
 
-  const isConnected = ingestConnectionState === "connected";
-  const canModerate = isLive && isConnected;
-
-  // Track initial load timestamp (when component mounts)
-  const [initialLoadTime] = useState(() => Date.now());
-
-  // Calculate new messages per minute (received after initial load)
-  const now = Date.now();
-  const oneMinuteAgo = now - 60 * 1000;
-  const newMessages =
-    chat?.filter((msg) =>
-      typeof msg.timestamp === "number"
-        ? msg.timestamp > initialLoadTime && msg.timestamp > oneMinuteAgo
-        : false,
-    ) ?? [];
-  const messagesPerMinute = newMessages.length;
+export default function ChatPanel({
+  isLive,
+  isConnected,
+  messagesPerMinute = 0,
+  canModerate = false,
+  shownMessages = 50,
+}: ChatPanelProps) {
   return (
     <View
       style={[
@@ -72,7 +60,7 @@ export default function ChatPanel() {
       </View>
       <View style={[flex.values[1], px[2], { minHeight: 0 }]}>
         <View style={[flex.values[1], { minHeight: 0 }]}>
-          <Chat canModerate={canModerate} shownMessages={50} />
+          <Chat canModerate={canModerate} shownMessages={shownMessages} />
         </View>
         <View style={[{ flexShrink: 0 }]}>
           <ChatBox

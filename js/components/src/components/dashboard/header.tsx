@@ -1,14 +1,6 @@
-import {
-  useLivestreamStore,
-  usePlayerStore,
-  useProfile,
-  useSegment,
-  zero,
-} from "@streamplace/components";
-import { Activity, Car, Radio, Signal, Users } from "@tamagui/lucide-icons";
+import { Activity, Car, Radio, Signal, Users } from "lucide-react-native";
 import { Text, View } from "react-native";
-import { useLiveUser } from "../../hooks/useLiveUser";
-import { useSegmentTiming } from "../../hooks/useSegmentTiming";
+import * as zero from "../../ui";
 
 const { bg, r, borders, px, py, text, layout, gap } = zero;
 
@@ -104,49 +96,29 @@ function StatusIndicator({ status, isLive }: StatusIndicatorProps) {
 }
 
 interface HeaderProps {
-  isLive?: boolean;
+  isLive: boolean;
+  streamTitle?: string;
+  viewers?: number;
+  uptime?: string;
+  bitrate?: string;
+  timeBetweenSegments?: number;
+  connectionStatus?: "excellent" | "good" | "poor" | "offline";
 }
 
-export default function Header({ isLive: propIsLive }: HeaderProps) {
-  // Get real data from hooks
-  const userProfile = useProfile();
-  const isUserLive = useLiveUser();
-  const viewers = useLivestreamStore((x) => x.viewers);
-  const segmentTiming = useSegmentTiming();
-  const seg = useSegment();
-  const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
-  const ingestStarted = usePlayerStore((x) => x.ingestStarted);
-
-  // Use hook data primarily, fallback to props
-  const isLive = propIsLive ?? isUserLive;
-
-  // Calculate uptime from ingest start time
-  const getUptime = (): string => {
-    if (!ingestStarted || !isLive) return "00:00:00";
-    const uptimeMs = Date.now() - ingestStarted;
-    const seconds = Math.floor(uptimeMs / 1000);
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+export default function Header({
+  isLive,
+  streamTitle = "Live Stream",
+  viewers = 0,
+  uptime = "00:00:00",
+  bitrate = "0 kbps",
+  timeBetweenSegments = 0,
+  connectionStatus = "offline",
+}: HeaderProps) {
+  const getConnectionQuality = (): "good" | "warning" | "error" => {
+    if (timeBetweenSegments <= 1500) return "good";
+    if (timeBetweenSegments <= 3000) return "warning";
+    return "error";
   };
-
-  // Map connection quality to status
-  const getConnectionStatus = (): "excellent" | "good" | "poor" | "offline" => {
-    if (!isLive) return "offline";
-    switch (segmentTiming.connectionQuality) {
-      case "good":
-        return "excellent";
-      case "degraded":
-        return "good";
-      case "poor":
-        return "poor";
-      default:
-        return "offline";
-    }
-  };
-
-  console.log(seg);
 
   return (
     <View
@@ -165,9 +137,9 @@ export default function Header({ isLive: propIsLive }: HeaderProps) {
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[4]]}>
         <View>
           <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
-            {userProfile?.displayName || userProfile?.handle || "Live Stream"}
+            {streamTitle}
           </Text>
-          <StatusIndicator status={getConnectionStatus()} isLive={isLive} />
+          <StatusIndicator status={connectionStatus} isLive={isLive} />
         </View>
       </View>
 
@@ -178,30 +150,16 @@ export default function Header({ isLive: propIsLive }: HeaderProps) {
             <MetricItem
               icon={Users}
               label="Viewers"
-              value={(viewers || 0).toLocaleString()}
+              value={viewers.toLocaleString()}
             />
             <MetricItem
               icon={Activity}
               label="Time between Segments"
-              value={`${segmentTiming.timeBetweenSegments || 0}ms`}
-              status={
-                segmentTiming.connectionQuality === "good"
-                  ? "good"
-                  : segmentTiming.connectionQuality === "degraded"
-                    ? "warning"
-                    : "error"
-              }
+              value={`${timeBetweenSegments}ms`}
+              status={getConnectionQuality()}
             />
-            <MetricItem
-              icon={Car}
-              label="Bitrate"
-              value={
-                seg?.size
-                  ? `${((seg.size * 8) / ((seg.duration || 1000000000) / 1000000000) / 1000 / 1000).toFixed(2)} kbps`
-                  : "0 kbps"
-              }
-            />
-            <MetricItem icon={Signal} label="Uptime" value={getUptime()} />
+            <MetricItem icon={Car} label="Bitrate" value={bitrate} />
+            <MetricItem icon={Signal} label="Uptime" value={uptime} />
           </>
         )}
 

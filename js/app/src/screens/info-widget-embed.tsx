@@ -1,10 +1,11 @@
-import { ThemeProvider, zero } from "@streamplace/components";
-import InformationWidget from "components/live-dashboard/information-widget";
+import { Dashboard, ThemeProvider, zero } from "@streamplace/components";
+import { useLiveUser } from "hooks/useLiveUser";
 import { View } from "react-native";
 
 const { layout, p, flex } = zero;
 
 export default function InfoWidgetEmbed() {
+  const isLive = useLiveUser();
   return (
     <ThemeProvider>
       <View
@@ -20,7 +21,7 @@ export default function InfoWidgetEmbed() {
           },
         ]}
       >
-        <InformationWidget embedMode={true} />
+        <Dashboard.InformationWidget embedMode={true} isLive={isLive} />
       </View>
     </ThemeProvider>
   );

@@ -240,12 +240,6 @@ func DefaultDataDir() string {
 }
 
 func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
-	// Split out livepeer-specific args
-	// livepeerArgs := []string{}
-	// nonLivepeerArgs := []string{}
-
-	// // Replace args with filtered list
-	// args = nonLivepeerArgs
 	err := ff.Parse(
 		fs, args,
 		ff.WithEnvVarPrefix("SP"),
@@ -269,11 +263,19 @@ func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 		if err != nil {
 			return err
 		}
-		err = fs.Set("livepeer.http-addr", "127.0.0.1:8935")
-		if err != nil {
-			return err
+		httpAddrFlag := fs.Lookup("livepeer.http-addr")
+		if httpAddrFlag == nil {
+			return fmt.Errorf("livepeer.http-addr not found")
 		}
-		cli.LivepeerGatewayURL = "http://127.0.0.1:8935"
+		httpAddr := httpAddrFlag.Value.String()
+		if httpAddr == "" {
+			httpAddr = "127.0.0.1:8935"
+			err = fs.Set("livepeer.http-addr", httpAddr)
+			if err != nil {
+				return err
+			}
+		}
+		cli.LivepeerGatewayURL = fmt.Sprintf("http://%s", httpAddr)
 	}
 	for _, dest := range cli.dataDirFlags {
 		*dest = strings.Replace(*dest, SPDataDir, cli.DataDir, 1)

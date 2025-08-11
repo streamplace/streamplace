@@ -51,7 +51,7 @@ type metadata [][]string
 // LOG: I0809 17:23:01.893821  255904 mediaserver.go:1046] manifestID=didplcdkh4rwafdcda4ko7lewe43ml-84zq1aff-4ren nonce=9899027318953397582 seqNo=2 orchSessionID=cdc9e3b9 orchestrator=https://127.0.0.1:9001 clientIP=127.0.0.1 Finished transcoding push request at url=http://127.0.0.1:8935/live/didplcdkh4rwafdcda4ko7lewe43ml-84zq1aff-4ren/2.ts took=160.894832ms
 
 var realStderr = os.Stderr
-var logLineRegex = regexp.MustCompile(`^([IWEF])\d+ \d{2}:\d{2}:\d{2}\.\d{6}\s+\d+\s+([^:]+:\d+)\](.*)$`)
+var logLineRegex = regexp.MustCompile(`^([IWEF])\d+ \d{2}:\d{2}:\d{2}\.\d{6}\s+\d+\s+([^:]+:\d+)\]\s*(.*)$`)
 
 func SetColorLogger(color string) {
 	noColor := false
@@ -84,7 +84,7 @@ func init() {
 		for scanner.Scan() {
 			match := logLineRegex.FindStringSubmatch(scanner.Text())
 			if len(match) == 0 {
-				fmt.Fprintf(realStderr, "UNKNOWN LOG LINE: %s\n", scanner.Text())
+				fmt.Fprintf(realStderr, "%s\n", scanner.Text())
 				continue
 			}
 			level := match[1]

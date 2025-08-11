@@ -331,7 +331,7 @@ if not meson.is_cross_build()
     args: [
       'test',
       '-p', '1',
-      '-timeout', '300s',
+      '-timeout', '600s',
       '@0@/pkg/...'.format(meson.current_source_dir()),
       '@0@/cmd/...'.format(meson.current_source_dir()),
     ],

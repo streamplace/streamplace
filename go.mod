@@ -8,8 +8,6 @@ replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.4
 
 replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4
 
-replace github.com/livepeer/go-livepeer => github.com/streamplace/go-livepeer v0.0.0-20250808222032-772e21f285c7
-
 require (
 	firebase.google.com/go/v4 v4.14.1
 	git.stream.place/streamplace/c2pa-go v0.7.0
@@ -38,7 +36,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/lestrrat-go/jwx/v2 v2.1.6
-	github.com/livepeer/go-livepeer v0.0.0-00010101000000-000000000000
+	github.com/livepeer/go-livepeer v0.8.7-0.20250811105915-31d2e1f89f81
 	github.com/lmittmann/tint v1.1.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multihash v0.2.3

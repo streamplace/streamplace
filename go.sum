@@ -857,6 +857,8 @@ github.com/libp2p/go-msgio v0.3.0 h1:mf3Z8B1xcFN314sWX+2vOTShIE0Mmn2TXn3YCUQGNj0
 github.com/libp2p/go-msgio v0.3.0/go.mod h1:nyRM819GmVaF9LX3l03RMh10QdOroF++NBbxAb0mmDM=
 github.com/libp2p/go-netroute v0.2.2 h1:Dejd8cQ47Qx2kRABg6lPwknU7+nBnFRpko45/fFPuZ8=
 github.com/libp2p/go-netroute v0.2.2/go.mod h1:Rntq6jUAH0l9Gg17w5bFGhcC9a+vk4KNXs6s7IljKYE=
+github.com/livepeer/go-livepeer v0.8.7-0.20250811105915-31d2e1f89f81 h1:ObaUiy1Jl5n7yTG96sVnU+SDqntYRZi45qdebl6RoXk=
+github.com/livepeer/go-livepeer v0.8.7-0.20250811105915-31d2e1f89f81/go.mod h1:3sDsXYtDJLKcwCE8TmYjjj6yz2mPQXBHa+24u2PfWh8=
 github.com/livepeer/go-tools v0.3.6-0.20240130205227-92479de8531b h1:VQcnrqtCA2UROp7q8ljkh2XA/u0KRgVv0S1xoUvOweE=
 github.com/livepeer/go-tools v0.3.6-0.20240130205227-92479de8531b/go.mod h1:hwJ5DKhl+pTanFWl+EUpw1H7ukPO/H+MFpgA7jjshzw=
 github.com/livepeer/joy4 v0.1.2-0.20191121080656-b2fea45cbded h1:ZQlvR5RB4nfT+cOQee+WqmaDOgGtP2oDMhcVvR4L0yA=
@@ -1223,8 +1225,6 @@ github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac h
 github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac/go.mod h1:9LlKkqciiO5lRfbX0n4Wn5KNY9nvFb4R3by8FdW2TWc=
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4 h1:L1fS4HJSaAyNnkwfuZubgfeZy8rkWmA0cMtH5Z0HqNc=
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4/go.mod h1:bGUXY9Wd4mnd+XUrOYZr358J2f6z9QO/dLhL1SsiD+0=
-github.com/streamplace/go-livepeer v0.0.0-20250808222032-772e21f285c7 h1:MT9sCKZ88ziOo/nTUpfHwiWMYCBeEWc5NYx/PwUXy90=
-github.com/streamplace/go-livepeer v0.0.0-20250808222032-772e21f285c7/go.mod h1:3sDsXYtDJLKcwCE8TmYjjj6yz2mPQXBHa+24u2PfWh8=
 github.com/streamplace/oatproxy v0.0.0-20250722215839-1c878921d185 h1:knTi1I/zbppb+CmbDRmPKNgqO4QPOKdZBds63mMWTms=
 github.com/streamplace/oatproxy v0.0.0-20250722215839-1c878921d185/go.mod h1:pXi24hA7xBHj8eEywX6wGqJOR9FaEYlGwQ/72rN6okw=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

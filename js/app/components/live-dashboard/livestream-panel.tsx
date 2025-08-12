@@ -1,10 +1,10 @@
 import {
-  Button,
-  Textarea,
+  useCreateStreamRecord,
   useLivestream,
-  useToast,
+  useUpdateStreamRecord,
   zero,
 } from "@streamplace/components";
+import { useToast } from "@streamplace/components/src/components/ui/toast";
 import { ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -15,15 +15,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import {
-  createLivestreamRecord,
-  selectNewLivestream,
-  selectUserProfile,
-  updateLivestreamRecord,
-} from "../../features/bluesky/blueskySlice";
+import { Button } from "../../../components/src/components/ui/button";
+import { Textarea } from "../../../components/src/components/ui/textarea";
+import { selectUserProfile } from "../../features/bluesky/blueskySlice";
 import { useCaptureVideoFrame } from "../../hooks/useCaptureVideoFrame";
 import { useLiveUser } from "../../hooks/useLiveUser";
-import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { useAppSelector } from "../../store/hooks";
 
 const { flex, p, px, py, gap, layout, bg, borders, text, r, w, typography } =
   zero;
@@ -48,12 +45,10 @@ const ButtonSelector = ({
       <Button
         key={value}
         variant={selectedValue === value ? "primary" : "secondary"}
-        size="sm"
+        size="pill"
         disabled={disabledValues.includes(value)}
         onPress={() => setSelectedValue(value)}
         style={[
-          px[3],
-          py[2],
           r.md,
           {
             opacity: disabledValues.includes(value) ? 0.5 : 1,
@@ -153,7 +148,7 @@ const ImageUploadComponent = ({
             Add thumbnail image
           </Text>
           <Text style={[text.gray[500], { fontSize: 12, marginTop: 4 }]}>
-            Optional • JPG, PNG up to 10MB
+            Optional • JPG, PNG up to 975KB
           </Text>
         </TouchableOpacity>
       )}
@@ -162,13 +157,13 @@ const ImageUploadComponent = ({
 };
 
 function LivestreamPanel() {
-  const dispatch = useAppDispatch();
   const { toastController, ToastComponent } = useToast();
   const userIsLive = useLiveUser();
   const captureFrame = useCaptureVideoFrame();
   const profile = useAppSelector(selectUserProfile);
-  const newLivestream = useAppSelector(selectNewLivestream);
   const livestream = useLivestream();
+  const createStreamRecord = useCreateStreamRecord();
+  const updateStreamRecord = useUpdateStreamRecord();
 
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
@@ -178,29 +173,9 @@ function LivestreamPanel() {
   const [mode, setMode] = useState<"create" | "edit">(
     livestream ? "edit" : "create",
   );
-
-  // Handle success/error responses
-  useEffect(() => {
-    if (newLivestream?.record) {
-      toastController.show(
-        mode === "create" ? "Livestream announced" : "Livestream updated",
-        newLivestream.record.title,
-      );
-      setTitle("");
-      setSelectedImage(undefined);
-    }
-  }, [newLivestream?.record, mode, toastController]);
-
-  useEffect(() => {
-    if (newLivestream?.error) {
-      toastController.show(
-        mode === "create"
-          ? "Error creating livestream"
-          : "Error updating livestream",
-        String(newLivestream.error),
-      );
-    }
-  }, [newLivestream?.error, mode, toastController]);
+  const [toastTimeoutId, setToastTimeoutId] = useState<NodeJS.Timeout | null>(
+    null,
+  );
 
   const handleModeChange = useCallback((newMode: "create" | "edit") => {
     setMode(newMode);
@@ -227,28 +202,72 @@ function LivestreamPanel() {
       }
 
       if (mode === "create") {
-        await dispatch(
-          createLivestreamRecord({
-            title: title.trim(),
-            customThumbnail: thumbnailToUse as Blob | undefined,
-          }),
+        await createStreamRecord(
+          title.trim(),
+          thumbnailToUse as Blob | undefined,
+          true,
         );
       } else {
-        await dispatch(
-          updateLivestreamRecord({
-            title: title.trim(),
-            livestream,
-          }),
+        await updateStreamRecord(
+          title.trim(),
+          livestream,
+          thumbnailToUse as Blob | undefined,
         );
+      }
+
+      // Clear any existing timeout
+      if (toastTimeoutId) {
+        clearTimeout(toastTimeoutId);
+      }
+
+      // Show success message
+      const toastTitle =
+        mode === "create" ? "Livestream announced" : "Livestream updated";
+
+      toastController.show(toastTitle, title.trim(), { duration: 4 });
+
+      // Add manual timeout as fallback
+      const timeoutId = setTimeout(() => {
+        toastController.hide();
+      }, 4500);
+      setToastTimeoutId(timeoutId);
+
+      // Clear form on successful create
+      if (mode === "create") {
+        setTitle("");
+        setSelectedImage(undefined);
       }
     } catch (error) {
       console.error("Error with livestream:", error);
-      toastController.show(
-        mode === "create"
-          ? "Error creating livestream"
-          : "Error updating livestream",
-        String(error),
-      );
+
+      try {
+        // Clear any existing timeout
+        if (toastTimeoutId) {
+          clearTimeout(toastTimeoutId);
+        }
+
+        // Truncate very long error messages
+        const errorMessage = String(error);
+        const truncatedError =
+          errorMessage.length > 200
+            ? errorMessage.substring(0, 200) + "..."
+            : errorMessage;
+
+        const errorTitle =
+          mode === "create"
+            ? "Error creating livestream"
+            : "Error updating livestream";
+
+        toastController.show(errorTitle, truncatedError, { duration: 5 });
+
+        // Add manual timeout as fallback
+        const timeoutId = setTimeout(() => {
+          toastController.hide();
+        }, 5500);
+        setToastTimeoutId(timeoutId);
+      } catch (toastError) {
+        console.error("Error showing toast:", toastError);
+      }
     } finally {
       setLoading(false);
     }
@@ -257,7 +276,8 @@ function LivestreamPanel() {
     selectedImage,
     mode,
     captureFrame,
-    dispatch,
+    createStreamRecord,
+    updateStreamRecord,
     livestream,
     toastController,
   ]);
@@ -297,9 +317,18 @@ function LivestreamPanel() {
     return mode === "create" ? "Announce Livestream!" : "Update Livestream!";
   }, [loading, userIsLive, mode]);
 
+  // Clean up toast and timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutId) {
+        clearTimeout(toastTimeoutId);
+      }
+      toastController.hide();
+    };
+  }, [toastController]);
+
   return (
     <>
-      {ToastComponent}
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
@@ -497,6 +526,7 @@ function LivestreamPanel() {
           )}
         </View>
       </ScrollView>
+      {ToastComponent}
     </>
   );
 }

@@ -18,6 +18,7 @@ import (
 	imagedraw "image/draw"
 
 	"golang.org/x/image/draw"
+	"golang.org/x/net/context/ctxhttp"
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -25,6 +26,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers"
+	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/fonts"
 	"stream.place/streamplace/pkg/log"
 )
@@ -193,12 +195,17 @@ func (a *StreamplaceAPI) HandleOGImage(ctx context.Context) httprouter.Handle {
 	}
 }
 
-func downloadImage(url string) ([]byte, error) {
+func downloadImage(ctx context.Context, url string) ([]byte, error) {
 	if url == "" {
 		return nil, errors.New("empty URL provided")
 	}
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := ctxhttp.Do(ctx, &aqhttp.Client, req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
@@ -288,7 +295,7 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 	// Try to download and decode the image in memory
 	var img image.Image
 	if imageURL != "" {
-		imageData, downloadErr := downloadImage(imageURL)
+		imageData, downloadErr := downloadImage(ctx, imageURL)
 		if downloadErr != nil {
 			log.Warn(ctx, "failed to download profile image", "username", username, "image_url", imageURL, "error", downloadErr)
 		} else {
@@ -335,7 +342,6 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 			bounds.Min.Y+cropOffsetY+cropSize,
 		)
 
-		// Create scaled avatar using high-quality Catmull-Rom resampling
 		scaledAvatar := image.NewRGBA(image.Rect(0, 0, avatarSize, avatarSize))
 		draw.CatmullRom.Scale(scaledAvatar, scaledAvatar.Bounds(), img, cropRect, draw.Over, nil)
 
@@ -361,7 +367,7 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 			}
 		}
 
-		// Apply circular mask using DrawMask
+		// Apply circular mask
 		maskedAvatar := image.NewRGBA(image.Rect(0, 0, avatarSize, avatarSize))
 		imagedraw.DrawMask(maskedAvatar, maskedAvatar.Bounds(), scaledAvatar, image.Point{}, mask, image.Point{}, imagedraw.Over)
 

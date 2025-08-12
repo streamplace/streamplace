@@ -83,9 +83,11 @@ func TestMain(m *testing.M) {
 		// Read and print each line from FD
 		scanner := bufio.NewScanner(pipe)
 		for scanner.Scan() {
-			line := scanner.Text()
-			fmt.Println(line)
-			line = stripansi.Strip(line)
+			lineAnsi := scanner.Text()
+			line := stripansi.Strip(lineAnsi)
+			if !strings.Contains(line, " TRACE ") {
+				fmt.Println(lineAnsi)
+			}
 			if strings.Contains(line, LeakLine) {
 				LeakReportMutex.Lock()
 				LeakReport = append(LeakReport, line)

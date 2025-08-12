@@ -1,5 +1,17 @@
-import { zero } from "@streamplace/components";
-import { Platform, Text, View } from "react-native";
+import {
+  Dashboard,
+  useLivestreamStore,
+  usePlayerStore,
+  useProfile,
+  useSegment,
+  useSegmentTiming,
+  zero,
+} from "@streamplace/components";
+import { useCallback, useMemo } from "react";
+import { Platform, View } from "react-native";
+import { useLiveUser } from "../../hooks/useLiveUser";
+import LivestreamPanel from "./livestream-panel";
+import StreamMonitor from "./stream-monitor";
 
 const { flex, p, gap, layout, bg } = zero;
 
@@ -16,15 +28,176 @@ export default function BentoGrid({
 }: BentoGridProps) {
   const isWeb = Platform.OS === "web";
 
+  // Get data from hooks for Dashboard components
+  const profile = useProfile();
+  const viewers = useLivestreamStore((x) => x.viewers);
+  const chat = useLivestreamStore((x) => x.chat);
+  const segmentTiming = useSegmentTiming();
+  const seg = useSegment();
+  const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
+  const ingestStarted = usePlayerStore((x) => x.ingestStarted);
+  const userIsLive = useLiveUser();
+
+  // Calculate derived values
+  const isConnected = ingestConnectionState === "connected";
+  const canModerate = isLive && isConnected;
+
+  // Calculate uptime
+  const getUptime = useCallback((): string => {
+    if (!ingestStarted || !isLive) return "00:00:00";
+    const uptimeMs = Date.now() - ingestStarted;
+    const seconds = Math.floor(uptimeMs / 1000);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }, [ingestStarted, isLive]);
+
+  // Calculate bitrate
+  const getBitrate = useCallback((): string => {
+    if (!seg?.size || !seg?.duration) return "0 kbps";
+    const kbps =
+      (seg.size * 8) /
+      ((seg.duration || 1000000000) / 1000000000) /
+      1000 /
+      1000;
+    return `${kbps.toFixed(2)} kbps`;
+  }, [seg?.size, seg?.duration]);
+
+  // Map connection quality to status
+  const getConnectionStatus = useMemo(():
+    | "excellent"
+    | "good"
+    | "poor"
+    | "offline" => {
+    if (!isLive) return "offline";
+    switch (segmentTiming.connectionQuality) {
+      case "good":
+        return "excellent";
+      case "degraded":
+        return "good";
+      case "poor":
+        return "poor";
+      default:
+        return "offline";
+    }
+  }, [isLive, segmentTiming.connectionQuality]);
+
+  // Calculate messages per minute
+  const messagesPerMinute = useMemo((): number => {
+    const now = Date.now();
+    const oneMinuteAgo = now - 60 * 1000;
+    return (
+      chat?.filter(
+        (msg) =>
+          typeof msg.timestamp === "number" && msg.timestamp > oneMinuteAgo,
+      )?.length || 0
+    );
+  }, [chat]);
+
+  // Get media info
+  const mediaInfo = useMemo(() => {
+    const video = seg?.video?.[0];
+    const audio = seg?.audio?.[0];
+
+    return {
+      resolution:
+        video?.width && video?.height
+          ? `${video.width}x${video.height}`
+          : "Unknown",
+      fps:
+        video?.framerate?.num && video?.framerate?.den
+          ? `${(video.framerate.num / video.framerate.den).toFixed(2)} FPS`
+          : "Unknown",
+      videoCodec: video?.codec ? video.codec.toUpperCase() : "Unknown",
+      audioCodec: audio?.codec ? audio.codec.toUpperCase() : "Unknown",
+      audioChannels: audio?.channels ? `${audio.channels} ch` : "Unknown",
+      sampleRate: audio?.rate
+        ? `${(audio.rate / 1000).toFixed(1)}kHz`
+        : "Unknown",
+    };
+  }, [seg?.video, seg?.audio]);
+
   return (
     <View style={[flex.values[1], gap.all[4], p[4], bg.black]}>
-      <View style={[layout.flex.center]}>
-        <Text style={{ color: "white", fontSize: 18 }}>
-          Dashboard Components Coming Soon
-        </Text>
-        <Text style={{ color: "gray", fontSize: 14, marginTop: 8 }}>
-          Live Status: {isLive ? "LIVE" : "OFFLINE"}
-        </Text>
+      <View style={[layout.flex.column, { minWidth: isWeb ? 400 : "100%" }]}>
+        <Dashboard.Header
+          isLive={isLive}
+          streamTitle={profile?.displayName || profile?.handle || "Live Stream"}
+          viewers={viewers || 0}
+          uptime={getUptime()}
+          bitrate={getBitrate()}
+          timeBetweenSegments={segmentTiming.timeBetweenSegments || 0}
+          connectionStatus={getConnectionStatus}
+        />
+      </View>
+      <View style={[flex.values[1], layout.flex.row, gap.all[4]]}>
+        <View style={[flex.values[4], gap.all[4]]}>
+          <View
+            style={[
+              flex.values[2],
+              layout.flex.row,
+              gap.all[4],
+              { height: isWeb ? 300 : 200 },
+            ]}
+          >
+            <StreamMonitor
+              isLive={isLive}
+              userProfile={profile}
+              videoRef={videoRef}
+            />
+          </View>
+
+          <View style={[layout.flex.row, gap.all[4], flex.values[1]]}>
+            <Dashboard.InformationWidget
+              wideMode={true}
+              isLive={isLive}
+              viewers={viewers || 0}
+              uptime={getUptime()}
+              connectionStatus={
+                segmentTiming.connectionQuality === "good"
+                  ? "good"
+                  : segmentTiming.connectionQuality === "degraded"
+                    ? "warning"
+                    : "error"
+              }
+              timeBetweenSegments={segmentTiming.timeBetweenSegments || 0}
+              bitrate={getBitrate()}
+              resolution={mediaInfo.resolution}
+              fps={mediaInfo.fps}
+              videoCodec={mediaInfo.videoCodec}
+              audioCodec={mediaInfo.audioCodec}
+              audioChannels={mediaInfo.audioChannels}
+              sampleRate={mediaInfo.sampleRate}
+            />
+          </View>
+        </View>
+
+        <View
+          style={[
+            flex.values[2],
+            layout.flex.column,
+            gap.all[4],
+            { maxWidth: isWeb ? 600 : "100%" },
+          ]}
+        >
+          <Dashboard.ChatPanel
+            isLive={isLive}
+            isConnected={isConnected}
+            messagesPerMinute={messagesPerMinute}
+            canModerate={canModerate}
+          />
+        </View>
+        <View
+          style={[
+            flex.values[2],
+            layout.flex.column,
+            gap.all[4],
+            { maxWidth: isWeb ? 600 : "100%" },
+          ]}
+        >
+          <LivestreamPanel />
+        </View>
       </View>
     </View>
   );

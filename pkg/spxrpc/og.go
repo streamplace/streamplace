@@ -1,4 +1,4 @@
-package api
+package spxrpc
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ import (
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/julienschmidt/httprouter"
+	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers"
@@ -98,12 +98,19 @@ func createResponsiveJoinText(fontFamily *canvas.FontFamily, text string, availa
 	minFontSize := minJoinFontSize
 
 	for fontSize >= minFontSize {
+		// Try bold first, fall back to regular if bold fails
 		face := fontFamily.Face(fontSize, joinTextColor, canvas.FontBold, canvas.FontNormal)
-		textBox := canvas.NewTextBox(face, text, availableWidth, 40, canvas.Left, canvas.Center, &canvas.TextOptions{})
+		if face == nil {
+			face = fontFamily.Face(fontSize, joinTextColor, canvas.FontRegular, canvas.FontNormal)
+		}
 
-		// Check if text fits
-		if textBox.Bounds().W() <= availableWidth {
-			return textBox, fontSize
+		if face != nil {
+			textBox := canvas.NewTextBox(face, text, availableWidth, 40, canvas.Left, canvas.Center, &canvas.TextOptions{})
+
+			// Check if text fits
+			if textBox.Bounds().W() <= availableWidth {
+				return textBox, fontSize
+			}
 		}
 
 		fontSize -= 2.0 // Reduce font size by 2px each iteration
@@ -111,6 +118,9 @@ func createResponsiveJoinText(fontFamily *canvas.FontFamily, text string, availa
 
 	// If we get here, even minimum size doesn't fit, so we need to truncate
 	face := fontFamily.Face(minFontSize, joinTextColor, canvas.FontBold, canvas.FontNormal)
+	if face == nil {
+		face = fontFamily.Face(minFontSize, joinTextColor, canvas.FontRegular, canvas.FontNormal)
+	}
 
 	// Try progressively shorter versions with ellipsis
 	for i := len(text) - 1; i > 0; i-- {
@@ -125,74 +135,40 @@ func createResponsiveJoinText(fontFamily *canvas.FontFamily, text string, availa
 	return canvas.NewTextBox(face, "...", availableWidth, 40, canvas.Left, canvas.Center, &canvas.TextOptions{}), minFontSize
 }
 
-func (a *StreamplaceAPI) HandleOGImage(ctx context.Context) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-		username := ps.ByName("username")
-		if username == "" {
-			http.Error(w, "Username required", http.StatusBadRequest)
-			return
-		}
-
-		// Check cache first
-		cacheKey := fmt.Sprintf("og_image_%s", username)
-		if cached, found := a.OGImageCache.Get(cacheKey); found {
-			imgData := cached.([]byte)
-			log.Debug(ctx, "OG image cache hit", "username", username, "size_bytes", len(imgData))
-
-			// Set headers
-			w.Header().Set("Content-Type", "image/jpeg")
-			w.Header().Set("Cache-Control", "public, max-age=3600") // Cache for 1 hour
-			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(imgData)))
-			w.Header().Set("X-Cache", "HIT")
-
-			// Write the cached image data
-			code, werr := w.Write(imgData)
-			if werr != nil {
-				log.Error(ctx, "failed to write cached OG image", "username", username, "error", werr)
-				http.Error(w, "Failed to write cached image: "+werr.Error(), http.StatusInternalServerError)
-				return
-			}
-			log.Debug(ctx, "OG image served from cache", "username", username, "code", code)
-			return
-		}
-
-		// Generate the OG image
-		imgData, err := a.generateOGImage(ctx, username)
-		if err != nil {
-			if errors.Is(err, ErrUserNotFound) {
-				http.Error(w, err.Error(), http.StatusNotFound)
-				return
-			}
-			log.Error(ctx, "failed to generate OG image", "username", username, "error", err)
-			http.Error(w, "Failed to generate image: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Store in cache
-		a.OGImageCache.Set(cacheKey, imgData, cache.DefaultExpiration)
-		log.Debug(ctx, "OG image generated and cached", "username", username, "size_bytes", len(imgData))
-
-		// Set headers
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.Header().Set("Cache-Control", "public, max-age=3600") // Cache for 1 hour
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(imgData)))
-		w.Header().Set("X-Cache", "MISS")
-
-		// Write the image data
-		code, werr := w.Write(imgData)
-
-		if werr != nil {
-			log.Error(ctx, "failed to write generated OG image", "username", username, "error", werr)
-			// if includes "no repo found" in error, return 404
-			if strings.Contains(werr.Error(), "no repo found") {
-				http.Error(w, "User not found", http.StatusNotFound)
-				return
-			}
-			http.Error(w, "Failed to write image: "+werr.Error(), http.StatusInternalServerError)
-			return
-		}
-		log.Debug(ctx, "OG image generated and served", "username", username, "code", code)
+func (s *Server) handlePlaceStreamLiveGetOGImage(ctx context.Context, id string) (io.Reader, error) {
+	if id == "" {
+		return nil, errors.New("id required")
 	}
+
+	// Get Echo context to set response headers
+	c, ok := ctx.Value(echoContextKey).(echo.Context)
+	if ok {
+		// Set appropriate headers for image response
+		c.Response().Header().Set("Content-Type", "image/jpeg")
+		c.Response().Header().Set("Cache-Control", "public, max-age=300") // 5 minutes
+		c.Response().Header().Set("X-Content-Type-Options", "nosniff")
+	}
+
+	// trim ending slash if any
+	username := strings.TrimRight(id, "/")
+
+	cacheKey := fmt.Sprintf("og_image_%s", username)
+	if cached, found := s.OGImageCache.Get(cacheKey); found {
+		imgData := cached.([]byte)
+		log.Debug(ctx, "OG image cache hit", "username", username, "size_bytes", len(imgData))
+		return bytes.NewReader(imgData), nil
+	}
+
+	imgData, err := s.generateOGImage(ctx, username)
+	if err != nil {
+		log.Error(ctx, "failed to generate OG image", "username", username, "error", err)
+		return nil, err
+	}
+
+	s.OGImageCache.Set(cacheKey, imgData, cache.DefaultExpiration)
+	log.Debug(ctx, "OG image generated and cached", "username", username, "size_bytes", len(imgData))
+
+	return bytes.NewReader(imgData), nil
 }
 
 func downloadImage(ctx context.Context, url string) ([]byte, error) {
@@ -223,7 +199,7 @@ func downloadImage(ctx context.Context, url string) ([]byte, error) {
 	return imageData, nil
 }
 
-func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) ([]byte, error) {
+func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, error) {
 	// Fetch user profile and avatar from Bluesky
 	var imageURL string
 	var handle, description string
@@ -232,7 +208,7 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 	handle = username
 	description = "Live streaming platform for creators and their communities."
 
-	profileData, err := a.fetchUserProfile(ctx, username)
+	profileData, err := s.fetchUserProfile(ctx, username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch profile, because %w", err)
 	} else if profileData != nil {
@@ -291,6 +267,12 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 		log.Warn(ctx, "failed to load bold Atkinson font, using fallback", "error", boldErr)
 	}
 
+	// If both custom fonts failed to load, ensure we have a working font family
+	if (regularDataErr != nil || regularErr != nil) && (boldDataErr != nil || boldErr != nil) {
+		log.Warn(ctx, "all custom fonts failed to load, using system default")
+		fontAHN = canvas.NewFontFamily("sans-serif")
+	}
+
 	// Set black background
 	canvasCtx.SetFillColor(bgColor)
 	canvasCtx.DrawPath(0, 0, canvas.Rectangle(ogWidth, ogHeight))
@@ -332,7 +314,7 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 		canvasCtx.Fill()
 
 		imageFace := fontAHN.Face(placeholderFontSize, placeholderTextColor, canvas.FontBold, canvas.FontNormal)
-		imageText := canvas.NewTextBox(imageFace, "Stream.place", 100, 30, canvas.Center, canvas.Center, &canvas.TextOptions{})
+		imageText := canvas.NewTextBox(imageFace, "Streamplace", 100, 30, canvas.Center, canvas.Center, &canvas.TextOptions{})
 		canvasCtx.DrawText(imageX, 100, imageText)
 	} else {
 		// High-quality avatar processing with circular masking
@@ -425,12 +407,12 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 
 // getAtkinsonRegular returns the regular Atkinson Hyperlegible Next font data from app filesystem
 func getAtkinsonRegular() ([]byte, error) {
-	files, err := app.Files()
+	files, err := app.Assets()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get app files: %w", err)
+		return nil, fmt.Errorf("failed to get app assets: %w", err)
 	}
 
-	file, err := files.Open("assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf")
+	file, err := files.Open("fonts/AtkinsonHyperlegibleNext-Regular.ttf")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open regular font: %w", err)
 	}
@@ -446,12 +428,12 @@ func getAtkinsonRegular() ([]byte, error) {
 
 // getAtkinsonBold returns the bold Atkinson Hyperlegible Next font data from app filesystem
 func getAtkinsonBold() ([]byte, error) {
-	files, err := app.Files()
+	files, err := app.Assets()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get app files: %w", err)
+		return nil, fmt.Errorf("failed to get app assets: %w", err)
 	}
 
-	file, err := files.Open("assets/fonts/AtkinsonHyperlegibleNext-Bold.ttf")
+	file, err := files.Open("fonts/AtkinsonHyperlegibleNext-Bold.ttf")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bold font: %w", err)
 	}
@@ -465,12 +447,12 @@ func getAtkinsonBold() ([]byte, error) {
 	return data, nil
 }
 
-func (a *StreamplaceAPI) fetchUserProfile(ctx context.Context, username string) (*bsky.ActorDefs_ProfileViewDetailed, error) {
+func (s *Server) fetchUserProfile(ctx context.Context, username string) (*bsky.ActorDefs_ProfileViewDetailed, error) {
 	// Use ATSync to resolve username to DID, then fetch full profile from Bluesky
 	var actor string
 
 	// First try to resolve via internal DB
-	repo, err := a.ATSync.Model.GetRepoByHandleOrDID(username)
+	repo, err := s.ATSync.Model.GetRepoByHandleOrDID(username)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrUserNotFound, err)
 	} else if repo != nil {

@@ -417,8 +417,6 @@ func (a *StreamplaceAPI) fetchUserProfile(ctx context.Context, username string) 
 		return nil, fmt.Errorf("no repo found for username: %s (%w)", username, ErrUserNotFound)
 	}
 
-	// TODO: check if actor is restricted
-
 	// Fetch full profile from Bluesky public API
 	client := &xrpc.Client{
 		Host: "https://public.api.bsky.app",
@@ -434,22 +432,4 @@ func (a *StreamplaceAPI) fetchUserProfile(ctx context.Context, username string) 
 	}
 
 	return profile, nil
-}
-
-// GetOGImageCacheStats returns statistics about the OG image cache
-func (a *StreamplaceAPI) GetOGImageCacheStats() map[string]any {
-	return map[string]any{
-		"item_count": a.OGImageCache.ItemCount(),
-	}
-}
-
-// InvalidateOGImageCache removes a specific user's OG image from cache
-func (a *StreamplaceAPI) InvalidateOGImageCache(username string) {
-	cacheKey := fmt.Sprintf("og_image_%s", username)
-	a.OGImageCache.Delete(cacheKey)
-}
-
-// ClearOGImageCache removes all cached OG images
-func (a *StreamplaceAPI) ClearOGImageCache() {
-	a.OGImageCache.Flush()
 }

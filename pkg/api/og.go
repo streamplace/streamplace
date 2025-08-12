@@ -26,8 +26,8 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers"
+	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/aqhttp"
-	"stream.place/streamplace/pkg/fonts"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -265,8 +265,23 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 
 	fontAHN := canvas.NewFontFamily("Atkinson Hyperlegible Next")
 
-	regularErr := fontAHN.LoadFont(fonts.GetAtkinsonRegular(), 0, canvas.FontRegular)
-	boldErr := fontAHN.LoadFont(fonts.GetAtkinsonBold(), 0, canvas.FontBold)
+	regularData, regularDataErr := getAtkinsonRegular()
+	if regularDataErr != nil {
+		log.Warn(ctx, "failed to load regular Atkinson font data", "error", regularDataErr)
+	}
+
+	boldData, boldDataErr := getAtkinsonBold()
+	if boldDataErr != nil {
+		log.Warn(ctx, "failed to load bold Atkinson font data", "error", boldDataErr)
+	}
+
+	var regularErr, boldErr error
+	if regularDataErr == nil {
+		regularErr = fontAHN.LoadFont(regularData, 0, canvas.FontRegular)
+	}
+	if boldDataErr == nil {
+		boldErr = fontAHN.LoadFont(boldData, 0, canvas.FontBold)
+	}
 
 	// If font loading fails, the canvas library will fall back to default fonts
 	if regularErr != nil {
@@ -406,6 +421,48 @@ func (a *StreamplaceAPI) generateOGImage(ctx context.Context, username string) (
 	}
 
 	return b.Bytes(), nil
+}
+
+// getAtkinsonRegular returns the regular Atkinson Hyperlegible Next font data from app filesystem
+func getAtkinsonRegular() ([]byte, error) {
+	files, err := app.Files()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get app files: %w", err)
+	}
+
+	file, err := files.Open("assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open regular font: %w", err)
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read regular font: %w", err)
+	}
+
+	return data, nil
+}
+
+// getAtkinsonBold returns the bold Atkinson Hyperlegible Next font data from app filesystem
+func getAtkinsonBold() ([]byte, error) {
+	files, err := app.Files()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get app files: %w", err)
+	}
+
+	file, err := files.Open("assets/fonts/AtkinsonHyperlegibleNext-Bold.ttf")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open bold font: %w", err)
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read bold font: %w", err)
+	}
+
+	return data, nil
 }
 
 func (a *StreamplaceAPI) fetchUserProfile(ctx context.Context, username string) (*bsky.ActorDefs_ProfileViewDetailed, error) {

@@ -409,13 +409,6 @@ func (a *StreamplaceAPI) fetchUserProfile(ctx context.Context, username string) 
 	// First try to resolve via internal DB
 	repo, err := a.ATSync.Model.GetRepoByHandleOrDID(username)
 	if err != nil {
-		// log.Warn(ctx, "failed to resolve via ATSync, trying username directly", "username", username, "error", err)
-		// // Fall back to using the username directly
-		// actor = username
-		// if !strings.HasPrefix(username, "did:") && !strings.Contains(username, ".") {
-		// 	actor = username + ".bsky.social"
-		// }
-
 		return nil, fmt.Errorf("%w: %w", ErrUserNotFound, err)
 	} else if repo != nil {
 		// Use the DID as it's the most reliable identifier

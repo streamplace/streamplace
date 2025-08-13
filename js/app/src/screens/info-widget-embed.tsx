@@ -21,7 +21,7 @@ export default function InfoWidgetEmbed() {
           },
         ]}
       >
-        <Dashboard.InformationWidget embedMode={true} isLive={isLive} />
+        <Dashboard.InformationWidget embedMode={true} />
       </View>
     </ThemeProvider>
   );

@@ -149,27 +149,7 @@ export default function BentoGrid({
           </View>
 
           <View style={[layout.flex.row, gap.all[4], flex.values[1]]}>
-            <Dashboard.InformationWidget
-              wideMode={true}
-              isLive={isLive}
-              viewers={viewers || 0}
-              uptime={getUptime()}
-              connectionStatus={
-                segmentTiming.connectionQuality === "good"
-                  ? "good"
-                  : segmentTiming.connectionQuality === "degraded"
-                    ? "warning"
-                    : "error"
-              }
-              timeBetweenSegments={segmentTiming.timeBetweenSegments || 0}
-              bitrate={getBitrate()}
-              resolution={mediaInfo.resolution}
-              fps={mediaInfo.fps}
-              videoCodec={mediaInfo.videoCodec}
-              audioCodec={mediaInfo.audioCodec}
-              audioChannels={mediaInfo.audioChannels}
-              sampleRate={mediaInfo.sampleRate}
-            />
+            <Dashboard.InformationWidget />
           </View>
         </View>
 

@@ -12,7 +12,7 @@ import React, { useState } from "react";
 import { useAppSelector } from "store/hooks";
 import { StreamKeyScreen } from "./stream-key";
 
-const { spacing, bg, text, layout, gap, r } = zero;
+const { layout, gap } = zero;
 
 const elems = [
   {

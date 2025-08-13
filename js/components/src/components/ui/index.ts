@@ -9,6 +9,8 @@ export * from "./button";
 export * from "./dialog";
 export * from "./dropdown";
 export * from "./icons";
+export * from "./info-box";
+export * from "./info-row";
 export * from "./input";
 export * from "./loader";
 export * from "./resizeable";

@@ -20,11 +20,11 @@ import { InfoBox, InfoRow } from "../ui";
 
 interface InformationWidgetProps {
   embedMode?: boolean;
-  wideMode?: boolean; // Optional override for wide mode
+  wideMode?: boolean;
   showChart?: boolean;
 }
 
-const BITRATE_HISTORY_LENGTH = 30; // Number of history points to keep
+const BITRATE_HISTORY_LENGTH = 30;
 
 const { bg, r, borders, px, py, text, layout, gap, flex, p } = zero;
 
@@ -38,22 +38,13 @@ export default function InformationWidget({
   );
   const [showViewers, setShowViewers] = useState(false);
   const [componentWidth, setComponentWidth] = useState<number>(220);
+  const [componentHeight, setComponentHeight] = useState<number>(400);
   const [streamStartTime, setStreamStartTime] = useState<Date | null>(null);
   const [layoutMeasured, setLayoutMeasured] = useState(false);
-
   const isWideMode =
-    wideMode !== undefined ? wideMode : layoutMeasured && componentWidth > 650;
+    wideMode !== undefined ? wideMode : layoutMeasured && componentWidth > 400;
 
-  useEffect(() => {
-    if (layoutMeasured) {
-      console.log(
-        "InformationWidget - Component width:",
-        componentWidth,
-        "Wide mode:",
-        isWideMode,
-      );
-    }
-  }, [componentWidth, isWideMode, layoutMeasured]);
+  const isCompactHeight = layoutMeasured && componentHeight < 350;
 
   const seg = useSegment();
   const livestream = useLivestreamStore((x) => x.livestream);
@@ -130,10 +121,11 @@ export default function InformationWidget({
   const viewerCount = viewers ?? 0;
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width } = event.nativeEvent.layout;
-    console.log("InformationWidget onLayout - width:", width);
-    if (width > 0) {
+    const { width, height } = event.nativeEvent.layout;
+    console.log("InformationWidget onLayout - size:", `${width}x${height}`);
+    if (width > 0 && height > 0) {
       setComponentWidth(width);
+      setComponentHeight(height);
       setLayoutMeasured(true);
     }
   }, []);
@@ -192,55 +184,60 @@ export default function InformationWidget({
 
       {isWideMode ? (
         <View style={[gap.all[3]]}>
-          <View style={[layout.flex.row, gap.all[4]]}>
-            <View style={[flex.values[1], gap.all[1]]}>
-              <Text
-                style={[text.gray[400], { fontSize: 12, fontWeight: "500" }]}
-              >
-                STREAM TITLE
-              </Text>
-              <Text
-                style={[text.white, { fontSize: 14, fontWeight: "600" }]}
-                numberOfLines={2}
-              >
-                {streamTitle}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={() => setShowViewers(!showViewers)}
-              style={[
-                layout.flex.column,
-                layout.flex.alignCenter,
-                gap.all[1],
-                { minWidth: 120 },
-              ]}
-            >
-              <View
-                style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
-              >
-                <Eye size={16} color="#9ca3af" />
+          {!isCompactHeight && (
+            <View style={[layout.flex.row, gap.all[4]]}>
+              <View style={[flex.values[1], gap.all[1]]}>
                 <Text
-                  style={[text.gray[300], { fontSize: 13, fontWeight: "500" }]}
+                  style={[text.gray[400], { fontSize: 12, fontWeight: "500" }]}
                 >
-                  Viewers
+                  STREAM TITLE
                 </Text>
-                {showViewers ? (
-                  <ChevronUp size={14} color="#9ca3af" />
-                ) : (
-                  <ChevronDown size={14} color="#9ca3af" />
-                )}
+                <Text
+                  style={[text.white, { fontSize: 14, fontWeight: "600" }]}
+                  numberOfLines={2}
+                >
+                  {streamTitle}
+                </Text>
               </View>
-              <Text
+
+              <TouchableOpacity
+                onPress={() => setShowViewers(!showViewers)}
                 style={[
-                  showViewers ? text.green[400] : text.white,
-                  { fontSize: 16, fontWeight: "600", textAlign: "center" },
+                  layout.flex.column,
+                  layout.flex.alignCenter,
+                  gap.all[1],
+                  { minWidth: 120 },
                 ]}
               >
-                {showViewers ? `${viewerCount}` : "•••"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+                <View
+                  style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+                >
+                  <Eye size={16} color="#9ca3af" />
+                  <Text
+                    style={[
+                      text.gray[300],
+                      { fontSize: 13, fontWeight: "500" },
+                    ]}
+                  >
+                    Viewers
+                  </Text>
+                  {showViewers ? (
+                    <ChevronUp size={14} color="#9ca3af" />
+                  ) : (
+                    <ChevronDown size={14} color="#9ca3af" />
+                  )}
+                </View>
+                <Text
+                  style={[
+                    showViewers ? text.green[400] : text.white,
+                    { fontSize: 16, fontWeight: "600", textAlign: "center" },
+                  ]}
+                >
+                  {showViewers ? `${viewerCount}` : "•••"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <View style={[layout.flex.row, gap.all[2]]}>
             <InfoBox
@@ -271,118 +268,132 @@ export default function InformationWidget({
 
           {showChart && (
             <View style={[gap.all[2]]}>
-              <View
-                style={[
-                  layout.flex.row,
-                  layout.flex.spaceBetween,
-                  layout.flex.alignCenter,
-                ]}
-              >
-                <Text
-                  style={[text.gray[200], { fontSize: 14, fontWeight: "600" }]}
+              {!isCompactHeight && (
+                <View
+                  style={[
+                    layout.flex.row,
+                    layout.flex.spaceBetween,
+                    layout.flex.alignCenter,
+                  ]}
                 >
-                  Live Performance
-                </Text>
-                <View style={[layout.flex.row, gap.all[4]]}>
-                  <View style={[layout.flex.alignCenter]}>
-                    <Text
-                      style={[
-                        text.gray[400],
-                        { fontSize: 11, fontWeight: "500" },
-                      ]}
-                    >
-                      AVG
-                    </Text>
-                    <Text
-                      style={[text.white, { fontSize: 13, fontWeight: "600" }]}
-                    >
-                      {avgBitrate > 0
-                        ? `${(avgBitrate / 1000).toFixed(1)}M`
-                        : "0M"}
-                    </Text>
-                  </View>
-                  <View style={[layout.flex.alignCenter]}>
-                    <Text
-                      style={[
-                        text.gray[400],
-                        { fontSize: 11, fontWeight: "500" },
-                      ]}
-                    >
-                      PEAK
-                    </Text>
-                    <Text
-                      style={[text.white, { fontSize: 13, fontWeight: "600" }]}
-                    >
-                      {peakBitrate > 0
-                        ? `${(peakBitrate / 1000).toFixed(1)}M`
-                        : "0M"}
-                    </Text>
-                  </View>
-                  <View style={[layout.flex.alignCenter]}>
-                    <Text
-                      style={[
-                        text.gray[400],
-                        { fontSize: 11, fontWeight: "500" },
-                      ]}
-                    >
-                      UPTIME
-                    </Text>
-                    <Text
-                      style={[text.white, { fontSize: 13, fontWeight: "600" }]}
-                    >
-                      {uptimeMinutes > 60
-                        ? `${Math.floor(uptimeMinutes / 60)}h ${uptimeMinutes % 60}m`
-                        : `${uptimeMinutes}m`}
-                    </Text>
-                  </View>
-                  <View style={[layout.flex.alignCenter]}>
-                    <Text
-                      style={[
-                        text.gray[400],
-                        { fontSize: 11, fontWeight: "500" },
-                      ]}
-                    >
-                      LATENCY
-                    </Text>
-                    <Text
-                      style={[
-                        estimatedLatency > 10
-                          ? text.yellow[400]
-                          : text.green[400],
-                        { fontSize: 13, fontWeight: "600" },
-                      ]}
-                    >
-                      {estimatedLatency > 0 ? `${estimatedLatency}s` : "~2s"}
-                    </Text>
-                  </View>
-                  <View style={[layout.flex.alignCenter]}>
-                    <Text
-                      style={[
-                        text.gray[400],
-                        { fontSize: 11, fontWeight: "500" },
-                      ]}
-                    >
-                      STABILITY
-                    </Text>
-                    <Text
-                      style={[
-                        bitrateHistory.filter((b) => b > avgBitrate * 0.8)
+                  <Text
+                    style={[
+                      text.gray[200],
+                      { fontSize: 14, fontWeight: "600" },
+                    ]}
+                  >
+                    Live Performance
+                  </Text>
+                  <View style={[layout.flex.row, gap.all[4]]}>
+                    <View style={[layout.flex.alignCenter]}>
+                      <Text
+                        style={[
+                          text.gray[400],
+                          { fontSize: 11, fontWeight: "500" },
+                        ]}
+                      >
+                        AVG
+                      </Text>
+                      <Text
+                        style={[
+                          text.white,
+                          { fontSize: 13, fontWeight: "600" },
+                        ]}
+                      >
+                        {avgBitrate > 0
+                          ? `${(avgBitrate / 1000).toFixed(1)}M`
+                          : "0M"}
+                      </Text>
+                    </View>
+                    <View style={[layout.flex.alignCenter]}>
+                      <Text
+                        style={[
+                          text.gray[400],
+                          { fontSize: 11, fontWeight: "500" },
+                        ]}
+                      >
+                        PEAK
+                      </Text>
+                      <Text
+                        style={[
+                          text.white,
+                          { fontSize: 13, fontWeight: "600" },
+                        ]}
+                      >
+                        {peakBitrate > 0
+                          ? `${(peakBitrate / 1000).toFixed(1)}M`
+                          : "0M"}
+                      </Text>
+                    </View>
+                    <View style={[layout.flex.alignCenter]}>
+                      <Text
+                        style={[
+                          text.gray[400],
+                          { fontSize: 11, fontWeight: "500" },
+                        ]}
+                      >
+                        UPTIME
+                      </Text>
+                      <Text
+                        style={[
+                          text.white,
+                          { fontSize: 13, fontWeight: "600" },
+                        ]}
+                      >
+                        {uptimeMinutes > 60
+                          ? `${Math.floor(uptimeMinutes / 60)}h ${uptimeMinutes % 60}m`
+                          : `${uptimeMinutes}m`}
+                      </Text>
+                    </View>
+                    <View style={[layout.flex.alignCenter]}>
+                      <Text
+                        style={[
+                          text.gray[400],
+                          { fontSize: 11, fontWeight: "500" },
+                        ]}
+                      >
+                        LATENCY
+                      </Text>
+                      <Text
+                        style={[
+                          estimatedLatency > 10
+                            ? text.yellow[400]
+                            : text.green[400],
+                          { fontSize: 13, fontWeight: "600" },
+                        ]}
+                      >
+                        {estimatedLatency > 0 ? `${estimatedLatency}s` : "~2s"}
+                      </Text>
+                    </View>
+                    <View style={[layout.flex.alignCenter]}>
+                      <Text
+                        style={[
+                          text.gray[400],
+                          { fontSize: 11, fontWeight: "500" },
+                        ]}
+                      >
+                        STABILITY
+                      </Text>
+                      <Text
+                        style={[
+                          bitrateHistory.filter((b) => b > avgBitrate * 0.8)
+                            .length >
+                          bitrateHistory.length * 0.8
+                            ? text.green[400]
+                            : text.yellow[400],
+                          { fontSize: 13, fontWeight: "600" },
+                        ]}
+                      >
+                        {bitrateHistory.filter((b) => b > avgBitrate * 0.8)
                           .length >
                         bitrateHistory.length * 0.8
-                          ? text.green[400]
-                          : text.yellow[400],
-                        { fontSize: 13, fontWeight: "600" },
-                      ]}
-                    >
-                      {bitrateHistory.filter((b) => b > avgBitrate * 0.8)
-                        .length >
-                      bitrateHistory.length * 0.8
-                        ? "Stable"
-                        : "Variable"}
-                    </Text>
+                          ? "Stable"
+                          : "Variable"}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
+              )}
 
               <BitrateChart
                 data={bitrateHistory}
@@ -394,70 +405,80 @@ export default function InformationWidget({
         </View>
       ) : (
         <View style={[gap.all[3]]}>
-          <TouchableOpacity
-            onPress={() => setShowViewers(!showViewers)}
-            style={[
-              layout.flex.row,
-              layout.flex.spaceBetween,
-              layout.flex.alignCenter,
-              py[2],
-            ]}
-          >
-            <View
-              style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
+          {!isCompactHeight && (
+            <TouchableOpacity
+              onPress={() => setShowViewers(!showViewers)}
+              style={[
+                layout.flex.row,
+                layout.flex.spaceBetween,
+                layout.flex.alignCenter,
+                py[2],
+              ]}
             >
-              <Eye size={16} color="#9ca3af" />
-              <Text
-                style={[text.gray[300], { fontSize: 13, fontWeight: "500" }]}
+              <View
+                style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
               >
-                Viewers
-              </Text>
-            </View>
-            <View
-              style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
-            >
-              <Text
-                style={[
-                  showViewers ? text.green[400] : text.white,
-                  { fontSize: 13, fontWeight: "600" },
-                ]}
+                <Eye size={16} color="#9ca3af" />
+                <Text
+                  style={[text.gray[300], { fontSize: 13, fontWeight: "500" }]}
+                >
+                  Viewers
+                </Text>
+              </View>
+              <View
+                style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
               >
-                {showViewers ? `${viewerCount} watching` : "•••"}
-              </Text>
-              {showViewers ? (
-                <ChevronUp size={14} color="#9ca3af" />
-              ) : (
-                <ChevronDown size={14} color="#9ca3af" />
-              )}
-            </View>
-          </TouchableOpacity>
+                <Text
+                  style={[
+                    showViewers ? text.green[400] : text.white,
+                    { fontSize: 13, fontWeight: "600" },
+                  ]}
+                >
+                  {showViewers ? `${viewerCount} watching` : "•••"}
+                </Text>
+                {showViewers ? (
+                  <ChevronUp size={14} color="#9ca3af" />
+                ) : (
+                  <ChevronDown size={14} color="#9ca3af" />
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
 
           {showChart && (
             <View style={[gap.all[2]]}>
-              <View
-                style={[
-                  layout.flex.row,
-                  layout.flex.spaceBetween,
-                  layout.flex.alignCenter,
-                ]}
-              >
-                <Text
-                  style={[text.gray[200], { fontSize: 14, fontWeight: "600" }]}
+              {!isCompactHeight && (
+                <View
+                  style={[
+                    layout.flex.row,
+                    layout.flex.spaceBetween,
+                    layout.flex.alignCenter,
+                  ]}
                 >
-                  Performance
-                </Text>
-                <Text
-                  style={[text.gray[400], { fontSize: 11, fontWeight: "500" }]}
-                >
-                  {avgBitrate > 0
-                    ? `AVG ${(avgBitrate / 1000).toFixed(1)}M`
-                    : "No data"}
-                </Text>
-              </View>
+                  <Text
+                    style={[
+                      text.gray[200],
+                      { fontSize: 14, fontWeight: "600" },
+                    ]}
+                  >
+                    Performance
+                  </Text>
+                  <Text
+                    style={[
+                      text.gray[400],
+                      { fontSize: 11, fontWeight: "500" },
+                    ]}
+                  >
+                    {avgBitrate > 0
+                      ? `AVG ${(avgBitrate / 1000).toFixed(1)}M`
+                      : "No data"}
+                  </Text>
+                </View>
+              )}
               <BitrateChart
                 data={bitrateHistory}
                 width={componentWidth - 40}
-                height={120}
+                height={isCompactHeight ? 80 : 120}
               />
             </View>
           )}

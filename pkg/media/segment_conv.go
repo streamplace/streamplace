@@ -528,7 +528,6 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 	onPadAdded := func(element *gst.Element, pad *gst.Pad) {
 		if pad.GetDirection() == gst.PadDirectionSource {
 			ok := pad.Link(videoParseSinkPad)
-			defer func() { videoParseSinkPad = nil }()
 			if ok != gst.PadLinkOK {
 				log.Error(ctx, "failed to link video parse sink pad to video demux pad", "error", ok)
 				cancel()
@@ -539,13 +538,12 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 		return fmt.Errorf("failed connect pad-added handler: %w", err)
 	}
 
-	// Handle bus messages in a separate goroutine
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
+	errCh := make(chan error)
+	go func() {
 		err = HandleBusMessages(ctx, pipeline)
 		cancel()
-		return err
-	})
+		errCh <- err
+	}()
 
 	// Start the pipeline
 	err = pipeline.SetState(gst.StatePlaying)
@@ -553,14 +551,13 @@ func MPEGTSVideoMP4AudioToMP4(ctx context.Context, videoInput io.Reader, audioIn
 		return fmt.Errorf("failed to set pipeline state to playing: %w", err)
 	}
 
-	// Wait for the pipeline to finish or context to be canceled
-	<-ctx.Done()
+	defer func() {
+		err = pipeline.SetState(gst.StateNull)
+		if err != nil {
+			log.Error(ctx, "failed to set pipeline state to null", "error", err)
+		}
+		videoParseSinkPad = nil
+	}()
 
-	// Clean up
-	err = pipeline.SetState(gst.StateNull)
-	if err != nil {
-		return fmt.Errorf("failed to set pipeline state to null: %w", err)
-	}
-
-	return g.Wait()
+	return <-errCh
 }

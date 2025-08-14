@@ -2,7 +2,7 @@
 
 package streamplace
 
-// schema: place.stream.live.getOGImage
+// schema: place.stream.live.getProfileCard
 
 import (
 	"bytes"
@@ -11,15 +11,15 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 )
 
-// LiveGetOGImage calls the XRPC method "place.stream.live.getOGImage".
+// LiveGetProfileCard calls the XRPC method "place.stream.live.getProfileCard".
 //
 // id: The DID or handle of the account.
-func LiveGetOGImage(ctx context.Context, c util.LexClient, id string) ([]byte, error) {
+func LiveGetProfileCard(ctx context.Context, c util.LexClient, id string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
 	params["id"] = id
-	if err := c.LexDo(ctx, util.Query, "", "place.stream.live.getOGImage", params, nil, buf); err != nil {
+	if err := c.LexDo(ctx, util.Query, "", "place.stream.live.getProfileCard", params, nil, buf); err != nil {
 		return nil, err
 	}
 

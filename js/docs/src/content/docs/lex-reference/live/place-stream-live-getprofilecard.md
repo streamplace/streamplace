@@ -1,6 +1,6 @@
 ---
-title: place.stream.live.getOGImage
-description: Reference for the place.stream.live.getOGImage lexicon
+title: place.stream.live.getProfileCard
+description: Reference for the place.stream.live.getProfileCard lexicon
 ---
 
 **Lexicon Version:** 1
@@ -37,7 +37,7 @@ _Schema not defined._ **Possible Errors:**
 ```json
 {
   "lexicon": 1,
-  "id": "place.stream.live.getOGImage",
+  "id": "place.stream.live.getProfileCard",
   "defs": {
     "main": {
       "type": "query",

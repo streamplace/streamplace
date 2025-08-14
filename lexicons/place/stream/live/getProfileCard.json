@@ -1,6 +1,6 @@
 {
   "lexicon": 1,
-  "id": "place.stream.live.getOGImage",
+  "id": "place.stream.live.getProfileCard",
   "defs": {
     "main": {
       "type": "query",

@@ -135,7 +135,7 @@ func createResponsiveJoinText(fontFamily *canvas.FontFamily, text string, availa
 	return canvas.NewTextBox(face, "...", availableWidth, 40, canvas.Left, canvas.Center, &canvas.TextOptions{}), minFontSize
 }
 
-func (s *Server) handlePlaceStreamLiveGetOGImage(ctx context.Context, id string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamLiveGetProfileCard(ctx context.Context, id string) (io.Reader, error) {
 	if id == "" {
 		return nil, errors.New("id required")
 	}

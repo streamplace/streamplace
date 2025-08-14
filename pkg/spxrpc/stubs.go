@@ -245,7 +245,7 @@ func (s *Server) HandleComAtprotoSyncListRepos(c echo.Context) error {
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.graph.getFollowingUser", s.HandlePlaceStreamGraphGetFollowingUser)
 	e.GET("/xrpc/place.stream.live.getLiveUsers", s.HandlePlaceStreamLiveGetLiveUsers)
-	e.GET("/xrpc/place.stream.live.getOGImage", s.HandlePlaceStreamLiveGetOGImage)
+	e.GET("/xrpc/place.stream.live.getProfileCard", s.HandlePlaceStreamLiveGetProfileCard)
 	e.GET("/xrpc/place.stream.live.getSegments", s.HandlePlaceStreamLiveGetSegments)
 	return nil
 }
@@ -290,14 +290,14 @@ func (s *Server) HandlePlaceStreamLiveGetLiveUsers(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
-func (s *Server) HandlePlaceStreamLiveGetOGImage(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveGetOGImage")
+func (s *Server) HandlePlaceStreamLiveGetProfileCard(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveGetProfileCard")
 	defer span.End()
 	id := c.QueryParam("id")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamLiveGetOGImage(ctx context.Context,id string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamLiveGetOGImage(ctx, id)
+	// func (s *Server) handlePlaceStreamLiveGetProfileCard(ctx context.Context,id string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamLiveGetProfileCard(ctx, id)
 	if handleErr != nil {
 		return handleErr
 	}

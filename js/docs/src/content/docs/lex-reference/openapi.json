@@ -55,10 +55,10 @@
         ]
       }
     },
-    "/xrpc/place.stream.live.getOGImage": {
+    "/xrpc/place.stream.live.getProfileCard": {
       "get": {
         "summary": "Get an OG image associated with a given account.",
-        "operationId": "place.stream.live.getOGImage",
+        "operationId": "place.stream.live.getProfileCard",
         "tags": ["place.stream.live"],
         "responses": {
           "200": {

@@ -1,11 +1,14 @@
 import {
   Player,
+  PlayerUI,
   useLivestream,
   useLivestreamStore,
   usePlayerStore,
   zero,
 } from "@streamplace/components";
 import { Eye, EyeOff, Signal, Wifi, WifiOff } from "@tamagui/lucide-icons";
+import { DesktopUi } from "components/mobile/desktop-ui";
+import { OfflineCounter } from "components/mobile/offline-counter";
 import { useEffect, useState } from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
 import { useLiveUser } from "../../hooks/useLiveUser";
@@ -99,7 +102,11 @@ export default function StreamMonitor({
       <View style={[flex.values[1], layout.flex.center, bg.neutral[900]]}>
         {isLive && userProfile ? (
           isStreamVisible ? (
-            <Player src={userProfile.did} name={userProfile.handle} />
+            <Player src={userProfile.did} name={userProfile.handle}>
+              <DesktopUi />
+              <PlayerUI.ViewerLoadingOverlay />
+              <OfflineCounter isMobile={true} />
+            </Player>
           ) : (
             <View
               style={[
@@ -149,15 +156,19 @@ export default function StreamMonitor({
         <View
           style={[
             layout.flex.row,
-            layout.flex.spaceBetween,
             layout.flex.alignCenter,
-            flex.grow[1],
-            { gap: 12 },
+            { flex: 1, minWidth: 0, gap: 12 },
           ]}
         >
-          <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
-            {ls?.record.title || "Stream Title"}
-          </Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text
+              style={[text.white, { fontSize: 18, fontWeight: "600" }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {ls?.record.title || "Stream Title"}
+            </Text>
+          </View>
           <View
             style={[
               layout.flex.row,
@@ -194,11 +205,6 @@ export default function StreamMonitor({
             <Text style={[text.gray[400], { fontSize: 14 }]}>
               {isLive ? "LIVE" : "OFFLINE"}
             </Text>
-            {isLive && segmentTiming.timeBetweenSegments && (
-              <Text style={[text.gray[500], { fontSize: 12 }]}>
-                {Math.round(segmentTiming.timeBetweenSegments)}ms
-              </Text>
-            )}
           </View>
         </View>
       </View>

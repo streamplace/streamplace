@@ -30,7 +30,6 @@ export default function ChatPanel({
         borders.color.neutral[700],
         layout.flex.column,
         r.lg,
-        { minWidth: 300, maxWidth: 600, flexShrink: 0 },
       ]}
     >
       <View
@@ -44,7 +43,7 @@ export default function ChatPanel({
         ]}
       >
         <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
-          Live Chat
+          Chat
         </Text>
         <View style={[layout.flex.row, layout.flex.alignCenter]}>
           <View

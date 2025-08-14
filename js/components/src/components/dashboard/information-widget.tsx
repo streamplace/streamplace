@@ -1,7 +1,9 @@
 import {
+  Car,
   ChevronDown,
   ChevronUp,
   Eye,
+  EyeClosed,
   Monitor,
   Signal,
   Video,
@@ -180,80 +182,39 @@ export default function InformationWidget({
             ]}
           />
         </View>
+        <TouchableOpacity
+          onPress={() => setShowViewers(!showViewers)}
+          style={[
+            layout.flex.column,
+            layout.flex.alignCenter,
+            gap.all[1],
+            { minWidth: 120 },
+          ]}
+        >
+          <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
+            {showViewers ? (
+              <Eye size={14} color="#9ca3af" />
+            ) : (
+              <EyeClosed size={14} color="#9ca3af" />
+            )}
+            <Text
+              style={[
+                text.white,
+                { fontSize: 16, fontWeight: "600", textAlign: "center" },
+              ]}
+            >
+              {showViewers ? `${viewerCount}` : "..."} viewer
+              {showViewers && viewerCount !== 1 ? "s" : ""}
+            </Text>
+          </View>
+        </TouchableOpacity>
       </View>
 
       {isWideMode ? (
         <View style={[gap.all[3]]}>
-          {!isCompactHeight && (
-            <View style={[layout.flex.row, gap.all[4]]}>
-              <View style={[flex.values[1], gap.all[1]]}>
-                <Text
-                  style={[text.gray[400], { fontSize: 12, fontWeight: "500" }]}
-                >
-                  STREAM TITLE
-                </Text>
-                <Text
-                  style={[text.white, { fontSize: 14, fontWeight: "600" }]}
-                  numberOfLines={2}
-                >
-                  {streamTitle}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => setShowViewers(!showViewers)}
-                style={[
-                  layout.flex.column,
-                  layout.flex.alignCenter,
-                  gap.all[1],
-                  { minWidth: 120 },
-                ]}
-              >
-                <View
-                  style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
-                >
-                  <Eye size={16} color="#9ca3af" />
-                  <Text
-                    style={[
-                      text.gray[300],
-                      { fontSize: 13, fontWeight: "500" },
-                    ]}
-                  >
-                    Viewers
-                  </Text>
-                  {showViewers ? (
-                    <ChevronUp size={14} color="#9ca3af" />
-                  ) : (
-                    <ChevronDown size={14} color="#9ca3af" />
-                  )}
-                </View>
-                <Text
-                  style={[
-                    showViewers ? text.green[400] : text.white,
-                    { fontSize: 16, fontWeight: "600", textAlign: "center" },
-                  ]}
-                >
-                  {showViewers ? `${viewerCount}` : "•••"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
           <View style={[layout.flex.row, gap.all[2]]}>
             <InfoBox
-              icon={Signal}
-              label="Connection"
-              value={
-                getConnectionStatus() === "good"
-                  ? "Excellent"
-                  : getConnectionStatus() === "warning"
-                    ? "Good"
-                    : "Poor"
-              }
-              status={getConnectionStatus()}
-            />
-            <InfoBox
-              icon={Zap}
+              icon={Car}
               label="Bitrate"
               value={displayBitrate}
               status={getBitrateStatus()}
@@ -332,7 +293,7 @@ export default function InformationWidget({
                           { fontSize: 11, fontWeight: "500" },
                         ]}
                       >
-                        UPTIME
+                        CAPTURED
                       </Text>
                       <Text
                         style={[
@@ -343,52 +304,6 @@ export default function InformationWidget({
                         {uptimeMinutes > 60
                           ? `${Math.floor(uptimeMinutes / 60)}h ${uptimeMinutes % 60}m`
                           : `${uptimeMinutes}m`}
-                      </Text>
-                    </View>
-                    <View style={[layout.flex.alignCenter]}>
-                      <Text
-                        style={[
-                          text.gray[400],
-                          { fontSize: 11, fontWeight: "500" },
-                        ]}
-                      >
-                        LATENCY
-                      </Text>
-                      <Text
-                        style={[
-                          estimatedLatency > 10
-                            ? text.yellow[400]
-                            : text.green[400],
-                          { fontSize: 13, fontWeight: "600" },
-                        ]}
-                      >
-                        {estimatedLatency > 0 ? `${estimatedLatency}s` : "~2s"}
-                      </Text>
-                    </View>
-                    <View style={[layout.flex.alignCenter]}>
-                      <Text
-                        style={[
-                          text.gray[400],
-                          { fontSize: 11, fontWeight: "500" },
-                        ]}
-                      >
-                        STABILITY
-                      </Text>
-                      <Text
-                        style={[
-                          bitrateHistory.filter((b) => b > avgBitrate * 0.8)
-                            .length >
-                          bitrateHistory.length * 0.8
-                            ? text.green[400]
-                            : text.yellow[400],
-                          { fontSize: 13, fontWeight: "600" },
-                        ]}
-                      >
-                        {bitrateHistory.filter((b) => b > avgBitrate * 0.8)
-                          .length >
-                        bitrateHistory.length * 0.8
-                          ? "Stable"
-                          : "Variable"}
                       </Text>
                     </View>
                   </View>

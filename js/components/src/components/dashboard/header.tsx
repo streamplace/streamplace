@@ -1,4 +1,4 @@
-import { Activity, Car, Radio, Signal, Users } from "lucide-react-native";
+import { Car, Radio, Users } from "lucide-react-native";
 import { Text, View } from "react-native";
 import * as zero from "../../ui";
 
@@ -110,7 +110,7 @@ export default function Header({
   streamTitle = "Live Stream",
   viewers = 0,
   uptime = "00:00:00",
-  bitrate = "0 kbps",
+  bitrate = "0 mbps",
   timeBetweenSegments = 0,
   connectionStatus = "offline",
 }: HeaderProps) {
@@ -152,14 +152,7 @@ export default function Header({
               label="Viewers"
               value={viewers.toLocaleString()}
             />
-            <MetricItem
-              icon={Activity}
-              label="Time between Segments"
-              value={`${timeBetweenSegments}ms`}
-              status={getConnectionQuality()}
-            />
             <MetricItem icon={Car} label="Bitrate" value={bitrate} />
-            <MetricItem icon={Signal} label="Uptime" value={uptime} />
           </>
         )}
 

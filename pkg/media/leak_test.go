@@ -37,6 +37,7 @@ func init() {
 var LeakTestMutex sync.Mutex
 
 const IgnoreLeaks = "STREAMPLACE_IGNORE_LEAKS"
+const ShowTrace = "STREAMPLACE_SHOW_TRACE"
 const GSTDebugNeeded = "leaks:9,GST_TRACER:9"
 const LeakLine = "GST_TRACER :0:: object-alive"
 
@@ -52,6 +53,7 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 		return
 	}
+	showTrace := os.Getenv(ShowTrace) != ""
 	gstDebug := os.Getenv("GST_DEBUG")
 	if gstDebug == "" {
 		gstDebug = GSTDebugNeeded
@@ -85,7 +87,7 @@ func TestMain(m *testing.M) {
 		for scanner.Scan() {
 			lineAnsi := scanner.Text()
 			line := stripansi.Strip(lineAnsi)
-			if !strings.Contains(line, " TRACE ") {
+			if !strings.Contains(line, " TRACE ") || showTrace {
 				fmt.Println(lineAnsi)
 			}
 			if strings.Contains(line, LeakLine) {

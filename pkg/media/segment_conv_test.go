@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/log"
 )
 
 func TestMP4ToMPEGTS(t *testing.T) {
@@ -124,6 +125,16 @@ func TestMPEGTSToMP4(t *testing.T) {
 	})
 }
 
+func TestMPEGTSToMP4Invalid(t *testing.T) {
+	withNoGSTLeaks(t, func() {
+		ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"func": {"MPEGTSToMP4": 9}})
+		inputData := getRandomData()
+		buf := bytes.Buffer{}
+		err := MPEGTSToMP4(ctx, inputData, &buf)
+		require.Error(t, err)
+	})
+}
+
 func TestMP4ToMPEGTSVideoMP4Audio(t *testing.T) {
 	withNoGSTLeaks(t, func() {
 
@@ -158,30 +169,39 @@ func TestMP4ToMPEGTSVideoMP4Audio(t *testing.T) {
 	})
 }
 
+func TestMP4ToMPEGTSVideoMP4AudioInvalid(t *testing.T) {
+	withNoGSTLeaks(t, func() {
+
+		inputBuf := getRandomData()
+
+		videoBuf := bytes.Buffer{}
+		audioBuf := bytes.Buffer{}
+
+		err := MP4ToMPEGTSVideoMP4Audio(context.Background(), inputBuf, &videoBuf, &audioBuf)
+		require.Error(t, err)
+	})
+}
+
 func TestMPEGTSVideoMP4AudioToMP4Invalid(t *testing.T) {
 	withNoGSTLeaks(t, func() {
 
-		// Join video and audio back together
-		videoBuf := bytes.Buffer{}
-		audioBuf := bytes.Buffer{}
-		// Fill buffers with 1MB of random data
-
-		rng := rand.New(rand.NewSource(42))
-		randomData := make([]byte, 1024*1024) // 1MB
-		_, err := rng.Read(randomData)
-		require.NoError(t, err)
-		_, err = videoBuf.Write(randomData)
-		require.NoError(t, err)
-
-		randomData = make([]byte, 1024*1024) // 1MB
-		_, err = rng.Read(randomData)
-		require.NoError(t, err)
-		_, err = audioBuf.Write(randomData)
-		require.NoError(t, err)
+		videoBuf := getRandomData()
+		audioBuf := getRandomData()
 
 		buf := bytes.Buffer{}
 
-		err = MPEGTSVideoMP4AudioToMP4(context.Background(), &videoBuf, &audioBuf, &buf)
+		err := MPEGTSVideoMP4AudioToMP4(context.Background(), videoBuf, audioBuf, &buf)
 		require.Error(t, err)
 	})
+}
+
+// returns 1mb of random data
+func getRandomData() io.Reader {
+	rng := rand.New(rand.NewSource(42))
+	randomData := make([]byte, 1024*1024) // 10MB
+	_, err := rng.Read(randomData)
+	if err != nil {
+		panic(err)
+	}
+	return bytes.NewReader(randomData)
 }

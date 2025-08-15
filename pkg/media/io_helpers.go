@@ -16,8 +16,9 @@ func ReaderNeedData(ctx context.Context, input io.Reader) func(self *app.Source,
 	if err != nil {
 		log.Error(ctx, "error reading from input", "error", err)
 	}
+	done := false
 	return func(self *app.Source, length uint) {
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || done {
 			self.EndStream()
 			return
 		}
@@ -30,6 +31,8 @@ func ReaderNeedData(ctx context.Context, input io.Reader) func(self *app.Source,
 		} else {
 			log.Debug(ctx, "pushed buffer", "length", len(bsCopy))
 		}
+		done = true
+		self.EndStream()
 	}
 }
 
@@ -55,7 +58,12 @@ func ReaderNeedDataIncremental(ctx context.Context, input io.Reader) func(self *
 			buffer := gst.NewBufferWithSize(int64(len(toPush)))
 			buffer.Map(gst.MapWrite).WriteData(toPush)
 			defer buffer.Unmap()
-			self.PushBuffer(buffer)
+			ret := self.PushBuffer(buffer)
+			if ret != gst.FlowOK {
+				log.Error(ctx, "failed to push buffer", "error", ret.String())
+			} else {
+				log.Debug(ctx, "pushed buffer", "length", len(toPush))
+			}
 		}
 		if err != nil && errors.Is(err, io.EOF) {
 			log.Debug(ctx, "EOF, ending stream", "length", read)

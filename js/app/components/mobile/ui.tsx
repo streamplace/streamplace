@@ -7,6 +7,7 @@ import {
   useAvatars,
   useCameraToggle,
   useLivestreamInfo,
+  useMediaSourceToggle,
   useMuted,
   usePlayerDimensions,
   usePlayerStore,
@@ -22,6 +23,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Fullscreen,
+  Monitor,
   Minimize,
   SwitchCamera,
   Volume2,
@@ -66,6 +68,7 @@ export function MobileUi({
   const { width, height } = usePlayerDimensions();
   const { isPlayerRatioGreater } = useSegmentDimensions();
   const { doSetIngestCamera } = useCameraToggle();
+  const { toggleMediaSource, ingestMediaSource } = useMediaSourceToggle();
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
 
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
@@ -245,6 +248,11 @@ export function MobileUi({
                   showChat={showChat}
                   setShowChat={setShowChat}
                 />
+                {ingest !== null &&                <>
+                  <Pressable onPress={toggleMediaSource}>
+                    <Monitor size={32} color={colors.gray[200]} />
+                  </Pressable>
+                </>} 
               </View>
 
               {shouldShowFloatingMetrics && isLive && (

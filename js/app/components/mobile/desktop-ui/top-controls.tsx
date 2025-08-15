@@ -6,9 +6,15 @@ import {
   useAvatars,
   useCameraToggle,
   useLivestreamInfo,
+  useMediaSourceToggle,
   zero,
 } from "@streamplace/components";
-import { ChevronLeft, MessageSquare, SwitchCamera } from "lucide-react-native";
+import {
+  ChevronLeft,
+  MessageSquare,
+  Monitor,
+  SwitchCamera,
+} from "lucide-react-native";
 import { Image, Platform, Pressable } from "react-native";
 import { LiveBubble } from "./live-bubble";
 
@@ -34,6 +40,7 @@ export function TopControlBar({
   const navigation = useNavigation();
   const { profile } = useLivestreamInfo();
   const { doSetIngestCamera } = useCameraToggle();
+  const { toggleMediaSource, ingestMediaSource } = useMediaSourceToggle();
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
 
   return (
@@ -97,9 +104,14 @@ export function TopControlBar({
           </>
         )}
         {ingest !== null && (
-          <Pressable onPress={doSetIngestCamera} style={[p[2], r[1]]}>
-            <SwitchCamera size={24} color={colors.gray[200]} />
-          </Pressable>
+          <>
+            <Pressable onPress={doSetIngestCamera} style={[p[2], r[1]]}>
+              <SwitchCamera size={24} color={colors.gray[200]} />
+            </Pressable>
+            <Pressable onPress={toggleMediaSource} style={[p[2], r[1]]}>
+              <Monitor size={24} color={colors.gray[200]} />
+            </Pressable>
+          </>
         )}
       </View>
     </View>

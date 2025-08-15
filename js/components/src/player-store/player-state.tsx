@@ -21,7 +21,6 @@ export enum PlayerStatus {
 export type PlayerStatusTracker = Partial<Record<PlayerStatus, number>>;
 
 export enum IngestMediaSource {
-  USER = "user",
   DISPLAY = "display",
 }
 
@@ -54,8 +53,8 @@ export interface PlayerState {
   /** Function to update the ingest connection state */
   setIngestConnectionState: (state: RTCPeerConnectionState | null) => void;
 
-  ingestMediaSource?: IngestMediaSource;
-  setIngestMediaSource?: (source: IngestMediaSource) => void;
+  ingestMediaSource: IngestMediaSource | undefined;
+  setIngestMediaSource: (source: IngestMediaSource | undefined) => void;
 
   ingestCamera: "user" | "environment";
   setIngestCamera: (camera: "user" | "environment") => void;

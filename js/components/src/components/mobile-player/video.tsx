@@ -565,7 +565,6 @@ export function WebcamIngestPlayer(props: VideoProps) {
   // we assign a stream key in the webrtcingest hook
   const [remoteMediaStream, setRemoteMediaStream] = useWebRTCIngest({
     endpoint: `${url}/api/ingest/webrtc`,
-    key: ingestMediaSource, // Force restart when media source changes
   });
 
   useEffect(() => {

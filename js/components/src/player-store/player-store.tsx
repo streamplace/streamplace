@@ -176,7 +176,11 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
 
     reportSubject: null,
     setReportSubject: (
-      subject: ComAtprotoModerationCreateReport.InputSchema["subject"] | null,
+      subject:
+        | (ComAtprotoModerationCreateReport.InputSchema["subject"] & {
+            context?: any;
+          })
+        | null,
     ) => set(() => ({ reportSubject: subject })),
   }));
 };

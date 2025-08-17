@@ -185,11 +185,19 @@ export interface PlayerState {
   setReportModalOpen: (reportModalOpen: boolean) => void;
 
   /** Subject to report */
-  reportSubject: ComAtprotoModerationCreateReport.InputSchema["subject"] | null;
+  reportSubject:
+    | (ComAtprotoModerationCreateReport.InputSchema["subject"] & {
+        context?: any;
+      })
+    | null;
 
   /** Function to set the report subject */
   setReportSubject: (
-    subject: ComAtprotoModerationCreateReport.InputSchema["subject"] | null,
+    subject:
+      | (ComAtprotoModerationCreateReport.InputSchema["subject"] & {
+          context?: any;
+        })
+      | null,
   ) => void;
 }
 

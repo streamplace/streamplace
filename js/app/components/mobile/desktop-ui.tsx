@@ -35,7 +35,11 @@ function isRefObject(
   return ref && typeof ref === "object" && "current" in ref;
 }
 
-export function DesktopUi() {
+export function DesktopUi({
+  dropdownPortalContainer,
+}: {
+  dropdownPortalContainer?: any;
+}) {
   const {
     ingest,
     title,
@@ -251,6 +255,7 @@ export function DesktopUi() {
               pipSupported={pipSupported}
               pipActive={pipActive}
               onHandlePip={handlePip}
+              dropdownPortalContainer={dropdownPortalContainer}
             />
           </Animated.View>
 

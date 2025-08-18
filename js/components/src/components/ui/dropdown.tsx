@@ -8,7 +8,7 @@ import {
   ChevronUp,
   Circle,
 } from "lucide-react-native";
-import { forwardRef, ReactNode, useMemo, useRef } from "react";
+import React, { forwardRef, ReactNode, useMemo, useRef } from "react";
 import {
   Platform,
   Pressable,
@@ -200,6 +200,41 @@ export const DropdownMenuContent = forwardRef<
   );
 });
 
+export const DropdownMenuContentWithoutPortal = forwardRef<
+  any,
+  DropdownMenuPrimitive.ContentProps & {
+    overlayStyle?: any;
+  }
+>(({ overlayStyle, ...props }, ref) => {
+  return (
+    <DropdownMenuPrimitive.Overlay
+      style={[
+        Platform.OS !== "web" ? StyleSheet.absoluteFill : undefined,
+        overlayStyle,
+      ]}
+    >
+      <DropdownMenuPrimitive.Content
+        ref={ref}
+        style={
+          [
+            { zIndex: 999999 },
+            a.sizes.minWidth[32],
+            a.sizes.maxWidth[64],
+            a.overflow.hidden,
+            a.radius.all.md,
+            a.borders.width.thin,
+            a.borders.color.gray[800],
+            bg.gray[950],
+            p[2],
+            a.shadows.md,
+          ] as any
+        }
+        {...props}
+      />
+    </DropdownMenuPrimitive.Overlay>
+  );
+});
+
 /// Responsive Dropdown Menu Content. On mobile this will render a *bottom sheet* that is **portaled to the root of the app**.
 /// Prefer passing scoped content in as **otherwise it may crash the app**.
 export const ResponsiveDropdownMenuContent = forwardRef<any, any>(
@@ -223,8 +258,6 @@ export const ResponsiveDropdownMenuContent = forwardRef<any, any>(
     );
   },
 );
-
-import React from "react";
 
 export const DropdownMenuItem = forwardRef<
   any,

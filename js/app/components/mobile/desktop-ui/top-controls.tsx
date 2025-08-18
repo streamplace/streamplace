@@ -1,5 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import {
+  IngestMediaSource,
   PlayerUI,
   Text,
   View,
@@ -14,6 +15,7 @@ import {
   MessageSquare,
   Monitor,
   SwitchCamera,
+  Webcam,
 } from "lucide-react-native";
 import { Image, Platform, Pressable } from "react-native";
 import { LiveBubble } from "./live-bubble";
@@ -105,11 +107,17 @@ export function TopControlBar({
         )}
         {ingest !== null && (
           <>
-            <Pressable onPress={doSetIngestCamera} style={[p[2], r[1]]}>
-              <SwitchCamera size={24} color={colors.gray[200]} />
-            </Pressable>
+            {ingestMediaSource !== IngestMediaSource.DISPLAY && (
+              <Pressable onPress={doSetIngestCamera} style={[p[2], r[1]]}>
+                <SwitchCamera size={24} color={colors.gray[200]} />
+              </Pressable>
+            )}
             <Pressable onPress={toggleMediaSource} style={[p[2], r[1]]}>
-              <Monitor size={24} color={colors.gray[200]} />
+              {ingestMediaSource === IngestMediaSource.DISPLAY ? (
+                <Webcam size={24} color={colors.gray[200]} />
+              ) : (
+                <Monitor size={24} color={colors.gray[200]} />
+              )}
             </Pressable>
           </>
         )}

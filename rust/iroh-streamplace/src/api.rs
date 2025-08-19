@@ -4,7 +4,12 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use bytes::Bytes;
 use iroh::{Endpoint, NodeId, protocol::ProtocolHandler};
-use irpc::{Client, WithChannels, channel::oneshot, rpc::RemoteService, rpc_requests};
+use irpc::{
+    Client, WithChannels,
+    channel::{mpsc, oneshot},
+    rpc::RemoteService,
+    rpc_requests,
+};
 use irpc_iroh::{IrohProtocol, IrohRemoteConnection};
 use n0_future::future::Boxed;
 use serde::{Deserialize, Serialize};
@@ -38,11 +43,35 @@ struct RecvSegment {
     data: Bytes,
 }
 
+/// List all peers, and the subscriptions that they're believed to have
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Peers {}
+
+/// Request a node list out it's current subscriptions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct GetSubscriptions {}
+
+/// List subscriptions this node has for given streams
+#[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct PeerSubscriptions {
+    node_id: NodeId,
+    subscriptions: BTreeSet<String>,
+}
+
 // Use the macro to generate both the Protocol and Message enums
 // plus implement Channels for each type
 #[rpc_requests(message = Message)]
 #[derive(Serialize, Deserialize, Debug)]
 enum Protocol {
+    // swarm coordination
+    #[rpc(tx=mpsc::Sender<PeerSubscriptions>)]
+    Peers(Peers),
+    #[rpc(tx=oneshot::Sender<()>)]
+    AnnounceSubscriptions(PeerSubscriptions),
+    #[rpc(tx=oneshot::Sender<PeerSubscriptions>)]
+    GetSubscriptions(GetSubscriptions),
+
+    // stream replication
     #[rpc(tx=oneshot::Sender<()>)]
     Subscribe(Subscribe),
     #[rpc(tx=oneshot::Sender<()>)]
@@ -56,6 +85,7 @@ enum Protocol {
 struct Actor {
     endpoint: iroh::Endpoint,
     recv: tokio::sync::mpsc::Receiver<Message>,
+    peers: BTreeSet<PeerSubscriptions>,
     subscriptions: BTreeMap<String, BTreeSet<NodeId>>,
     connections: BTreeMap<NodeId, Connection>,
     handler: Box<dyn Fn(String, Vec<u8>) -> Boxed<()> + Send + Sync + 'static>,
@@ -76,6 +106,7 @@ impl Actor {
         let actor = Self {
             endpoint: endpoint.clone(),
             recv: rx,
+            peers: BTreeSet::new(),
             subscriptions: BTreeMap::new(),
             connections: BTreeMap::new(),
             handler: Box::new(handler),
@@ -92,8 +123,39 @@ impl Actor {
         }
     }
 
+    fn subs(&self) -> PeerSubscriptions {
+        // TODO: keep local state about our own subscriptions, format that here & deliver
+        // as a fresh struct
+        todo!();
+    }
+
     async fn handle(&mut self, msg: Message) {
         match msg {
+            // stream coordination
+            Message::Peers(sub) => {
+                debug!("peers {:?}", sub);
+                let WithChannels { tx, .. } = sub;
+
+                // stream over the list of peers we know about
+                for sub in &self.peers {
+                    if tx.send(sub.clone()).await.is_err() {
+                        break;
+                    }
+                }
+            }
+            Message::AnnounceSubscriptions(sub) => {
+                let WithChannels { inner, tx, .. } = sub;
+                // update our tracked state about this peer
+                self.peers.insert(inner);
+
+                tx.send(()).await.ok();
+            }
+            Message::GetSubscriptions(sub) => {
+                let WithChannels { tx, .. } = sub;
+                tx.send(self.subs()).await.ok();
+            }
+
+            // stream replication
             Message::Subscribe(sub) => {
                 debug!("subscribe {:?}", sub);
                 let WithChannels { tx, inner, .. } = sub;
@@ -198,6 +260,10 @@ impl Api {
             .as_local()
             .expect("can not listen on remote service");
         IrohProtocol::new(Protocol::remote_handler(local))
+    }
+
+    pub(crate) async fn peers(&self) -> irpc::Result<mpsc::Receiver<PeerSubscriptions>> {
+        self.inner.server_streaming(Peers {}, 100).await
     }
 
     pub(crate) async fn subscribe(&self, key: String, self_id: NodeId) -> irpc::Result<()> {

@@ -66,11 +66,9 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
 
   useEffect(() => {
     if (message) {
-      console.log("opening mod view");
       setMessageRemoved(false);
       triggerRef.current?.open();
     } else {
-      console.log("closing mod view");
       triggerRef.current?.close();
     }
   }, [message]);

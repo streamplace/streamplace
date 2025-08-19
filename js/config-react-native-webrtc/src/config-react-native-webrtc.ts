@@ -46,6 +46,8 @@ class MainApplication : Application(), ReactApplication {`,
       .setUseStereoInput(true)
       .setUseStereoOutput(true)
       .createAudioDeviceModule()
+    // enable screenshare
+    options.enableMediaProjectionService = true;
 `,
   },
 ];

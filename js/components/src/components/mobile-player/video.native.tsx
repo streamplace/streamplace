@@ -6,6 +6,7 @@ import {
   LayoutChangeEvent,
   Linking,
   NativeModules,
+  Platform,
 } from "react-native";
 import {
   MediaStream,
@@ -227,8 +228,10 @@ export function NativeIngestPlayer() {
           setLocalMediaStream(stream);
 
           // set up screen capture view?
-          const reactTag = findNodeHandle(screenCaptureView.current);
-          return NativeModules.ScreenCapturePickerViewManager.show(reactTag);
+          if (Platform.OS === "ios") {
+            const reactTag = findNodeHandle(screenCaptureView.current);
+            return NativeModules.ScreenCapturePickerViewManager.show(reactTag);
+          }
         })
         .catch((e: any) => {
           console.log("error getting display media", e);
@@ -323,7 +326,9 @@ export function NativeIngestPlayer() {
           flex: 1,
         }}
       />
-      <ScreenCapturePickerView ref={screenCaptureView} />
+      {Platform.OS === "ios" && (
+        <ScreenCapturePickerView ref={screenCaptureView} />
+      )}
     </>
   );
 }

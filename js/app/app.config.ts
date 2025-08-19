@@ -178,13 +178,19 @@ export default function () {
             category: ["BROWSABLE", "DEFAULT"],
           },
         ],
+        permissions: [
+          "android.permission.FOREGROUND_SERVICE",
+          "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
+          ...(isProd
+            ? [
+                "android.permission.SCHEDULE_EXACT_ALARM",
+                "android.permission.POST_NOTIFICATIONS",
+              ]
+            : []),
+        ],
         ...(isProd
           ? {
               googleServicesFile: "./google-services.json",
-              permissions: [
-                "android.permission.SCHEDULE_EXACT_ALARM",
-                "android.permission.POST_NOTIFICATIONS",
-              ],
             }
           : {}),
       },

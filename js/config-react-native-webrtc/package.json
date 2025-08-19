@@ -3,7 +3,7 @@
   "version": "0.7.21",
   "description": "react-native-webrtc config mod with some changes to make it useful for streamplace",
   "scripts": {
-    "prepare": "tsc -p tsconfig.json",
+    "prepare": "tsc -p tsconfig.json && mkdir -p dist && cp -r src/BroadcastExtension dist/",
     "start": "tsc -p tsconfig.json --watch"
   },
   "dependencies": {

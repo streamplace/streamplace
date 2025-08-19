@@ -1,5 +1,5 @@
+import type { ConfigPlugin } from "expo/config-plugins";
 import {
-  ConfigPlugin,
   withAndroidManifest,
   withEntitlementsPlist,
   withXcodeProject,
@@ -87,7 +87,7 @@ export default function () {
   const enableSentry = process.env["SP_ENABLE_SENTRY"] === "true";
   const pkg = require("./package.json");
   const name = isProd ? "Streamplace" : "Devplace";
-  let bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev";
+  let bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev.teal.fm";
   if (process.env["SP_BUNDLE_OVERRIDE"]) {
     bundle = process.env["SP_BUNDLE_OVERRIDE"];
   }
@@ -203,7 +203,14 @@ export default function () {
         withAndroidProfileable,
         "expo-video",
         "expo-web-browser",
-        streamplaceReactNativeWebRTC,
+        [
+          streamplaceReactNativeWebRTC,
+          {
+            broadcastExtension: {
+              appGroupIdentifier: `group.${bundle}.broadcast`,
+            },
+          },
+        ],
         [
           "expo-video",
           {

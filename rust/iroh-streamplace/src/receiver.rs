@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use iroh::protocol::Router;
 
-use crate::api::Api;
+use crate::api::{Api, DEFAULT_PEER_INFO_REPUBLISH_INTERVAL, DEFAULT_PEER_PRUNE_INTERVAL};
 use crate::endpoint::Endpoint;
 use crate::error::Error;
 use crate::key::PublicKey;
@@ -31,12 +31,18 @@ impl Receiver {
                 remote_id
             })
             .collect::<Vec<iroh::NodeId>>();
-        let api = Api::spawn_with_handler(&endpoint.endpoint, anchor_peers, move |id, data| {
-            let handler = handler.clone();
-            Box::pin(async move {
-                handler.handle_data(id, data).await;
-            })
-        });
+        let api = Api::spawn_with_opts(
+            &endpoint.endpoint,
+            anchor_peers,
+            move |id, data| {
+                let handler = handler.clone();
+                Box::pin(async move {
+                    handler.handle_data(id, data).await;
+                })
+            },
+            DEFAULT_PEER_INFO_REPUBLISH_INTERVAL,
+            DEFAULT_PEER_PRUNE_INTERVAL,
+        );
         let router = Router::builder(endpoint.endpoint.clone())
             .accept(Api::ALPN, api.expose())
             .spawn();

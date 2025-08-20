@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use crate::api::PeerInfo;
 use crate::error::Error;
@@ -98,4 +99,11 @@ impl From<iroh::NodeAddr> for NodeAddr {
                 .collect(),
         }
     }
+}
+
+pub(crate) fn timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_millis() as u64
 }

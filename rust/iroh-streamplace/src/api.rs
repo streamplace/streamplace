@@ -1,6 +1,9 @@
 //! Protocol API
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    time::Duration,
+};
 
 use bytes::Bytes;
 use iroh::{Endpoint, NodeId, protocol::ProtocolHandler};
@@ -13,7 +16,13 @@ use irpc::{
 use irpc_iroh::{IrohProtocol, IrohRemoteConnection};
 use n0_future::future::Boxed;
 use serde::{Deserialize, Serialize};
+use tokio::task::JoinHandle;
 use tracing::{debug, warn};
+
+use crate::utils::timestamp;
+
+pub(crate) const DEFAULT_PEER_INFO_REPUBLISH_INTERVAL: Duration = Duration::from_secs(10);
+pub(crate) const DEFAULT_PEER_PRUNE_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Subscribe to the given `key`
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,6 +59,12 @@ struct RecvSegment {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Peers {}
 
+/// Prune peers that haven't been seen since the given timestamp
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PrunePeers {
+    cutoff_timestamp: u64,
+}
+
 /// Inform a remote node about our subscriptions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SendPeerInfo {
@@ -75,6 +90,7 @@ struct GetSubscriptions {
 pub(crate) struct PeerInfo {
     pub(crate) node_id: NodeId,
     pub(crate) subscriptions: BTreeSet<String>,
+    pub(crate) timestamp: u64,
 }
 
 // Use the macro to generate both the Protocol and Message enums
@@ -91,6 +107,8 @@ enum Protocol {
     SendPeerInfo(SendPeerInfo),
     #[rpc(tx=oneshot::Sender<()>)]
     RecvPeerInfo(PeerInfo),
+    #[rpc(tx=oneshot::Sender<()>)]
+    PrunePeers(PrunePeers),
 
     // stream replication
     #[rpc(tx=oneshot::Sender<()>)]
@@ -142,11 +160,12 @@ impl Actor {
             connections: BTreeMap::new(),
             handler: Box::new(handler),
         };
+
+        let info = actor.my_peer_info();
         n0_future::task::spawn(actor.run());
         let client = Client::local(tx);
 
         // tell anchor peers we exist
-        let my_id = endpoint.node_id();
         let client2 = client.clone();
         n0_future::task::spawn(async move {
             for anchor in anchors {
@@ -154,10 +173,7 @@ impl Actor {
                 client2
                     .rpc(SendPeerInfo {
                         remote_id: anchor,
-                        info: PeerInfo {
-                            node_id: my_id,
-                            subscriptions: BTreeSet::new(),
-                        },
+                        info: info.clone(),
                     })
                     .await
                     .unwrap();
@@ -173,7 +189,7 @@ impl Actor {
         }
     }
 
-    fn subs(&self) -> PeerInfo {
+    fn my_peer_info(&self) -> PeerInfo {
         let mut subscriptions = BTreeSet::new();
         for key in self.subscriptions.keys() {
             subscriptions.insert(key.clone());
@@ -182,6 +198,7 @@ impl Actor {
         PeerInfo {
             node_id: self.endpoint.node_id(),
             subscriptions,
+            timestamp: timestamp(),
         }
     }
 
@@ -206,7 +223,7 @@ impl Actor {
 
     async fn handle(&mut self, msg: Message) {
         match msg {
-            // stream coordination
+            // swarm coordination
             Message::Peers(sub) => {
                 debug!("peers {:?}", sub);
                 let WithChannels { tx, .. } = sub;
@@ -231,6 +248,7 @@ impl Actor {
                     let sub = PeerInfo {
                         node_id: *anchor,
                         subscriptions: BTreeSet::new(),
+                        timestamp: timestamp(),
                     };
                     if tx.send(sub).await.is_err() {
                         break;
@@ -239,7 +257,7 @@ impl Actor {
             }
             Message::MyPeerInfo(sub) => {
                 let WithChannels { tx, .. } = sub;
-                tx.send(self.subs()).await.ok();
+                tx.send(self.my_peer_info()).await.ok();
             }
             Message::SendPeerInfo(info) => {
                 let WithChannels { inner, tx, .. } = info;
@@ -260,9 +278,18 @@ impl Actor {
                 tx.send(()).await.ok();
             }
             Message::RecvPeerInfo(sub) => {
-                let WithChannels { tx, inner, .. } = sub;
-                // update our tracked state about this peer
+                let WithChannels { tx, mut inner, .. } = sub;
+                // update our tracked state about this peer, using timestamps
+                // to avoid confusion from external sources
+                inner.timestamp = timestamp();
                 self.peers.insert(inner);
+                tx.send(()).await.ok();
+            }
+            Message::PrunePeers(sub) => {
+                let WithChannels { tx, inner, .. } = sub;
+                // prune peers that haven't been seen since the given timestamp
+                self.peers
+                    .retain(|peer| peer.timestamp >= inner.cutoff_timestamp);
                 tx.send(()).await.ok();
             }
 
@@ -327,6 +354,7 @@ impl Actor {
 }
 
 /// The actual API to interact with
+#[derive(Debug, Clone)]
 pub(crate) struct Api {
     inner: Client<Protocol>,
 }
@@ -335,15 +363,52 @@ impl Api {
     pub(crate) const ALPN: &[u8] = b"/iroh/streamplace/1";
 
     pub(crate) fn spawn(endpoint: &iroh::Endpoint, anchor_peers: Vec<NodeId>) -> Self {
-        Actor::spawn(endpoint, anchor_peers, |_, _| Box::pin(async move {}))
+        Api::spawn_with_opts(
+            endpoint,
+            anchor_peers,
+            |_, _| Box::pin(async move {}),
+            DEFAULT_PEER_INFO_REPUBLISH_INTERVAL,
+            DEFAULT_PEER_PRUNE_INTERVAL,
+        )
     }
 
-    pub(crate) fn spawn_with_handler(
+    pub(crate) fn spawn_with_opts(
         endpoint: &iroh::Endpoint,
         anchor_peers: Vec<NodeId>,
         handler: impl Fn(String, Vec<u8>) -> Boxed<()> + Send + Sync + 'static,
+        peer_info_broadcast_interval: Duration,
+        peer_prune_interval: Duration,
     ) -> Self {
-        Actor::spawn(endpoint, anchor_peers, handler)
+        let api = Actor::spawn(endpoint, anchor_peers, handler);
+
+        // re-broadcast our subscriptions every interval
+        if peer_info_broadcast_interval > Duration::from_millis(0) {
+            let api2 = api.clone();
+            n0_future::task::spawn(async move {
+                loop {
+                    tokio::time::sleep(peer_info_broadcast_interval).await;
+                    if let Err(e) = api2.broadcast_peer_info().await {
+                        tracing::error!("broadcasting peer info: {:?}", e);
+                    }
+                }
+            });
+        }
+
+        // prune stale subscriptione every prune interval
+        if peer_prune_interval > Duration::from_millis(0) {
+            let api2 = api.clone();
+            n0_future::task::spawn(async move {
+                loop {
+                    tokio::time::sleep(peer_prune_interval).await;
+                    let cutoff_timestamp = timestamp() - peer_prune_interval.as_secs();
+                    if let Err(e) = api2.inner.rpc(PrunePeers { cutoff_timestamp }).await {
+                        tracing::error!("pruning stale subscriptions: {:?}", e);
+                    }
+                }
+            });
+        }
+
+        api
     }
 
     pub(crate) fn connect(endpoint: Endpoint, addr: impl Into<iroh::NodeAddr>) -> Api {
@@ -383,17 +448,22 @@ impl Api {
             })
             .await?;
 
-        // we've subscribed. announce our sub to all known peers
+        // subscription set has changed. announce our updated info to all known peers
+        self.broadcast_peer_info().await?;
+
+        Ok(())
+    }
+
+    async fn broadcast_peer_info(&self) -> irpc::Result<JoinHandle<()>> {
         let peers = self.peers().await?;
         let subs = self.my_subscriptions().await?;
         let client = self.inner.clone();
-        n0_future::task::spawn(async move {
-            if let Err(e) = broadcast_announce_subscriptions(client, peers, subs).await {
+        let handle = n0_future::task::spawn(async move {
+            if let Err(e) = broadcast_peer_info_inner(client, peers, subs).await {
                 tracing::error!("Peer announcement task failed: {:?}", e);
             }
         });
-
-        Ok(())
+        Ok(handle)
     }
 
     pub(crate) async fn unsubscribe(&self, key: String, self_id: NodeId) -> irpc::Result<()> {
@@ -402,7 +472,12 @@ impl Api {
                 key,
                 remote_id: self_id,
             })
-            .await
+            .await?;
+
+        // subscription set has changed. announce our updated info to all known peers
+        self.broadcast_peer_info().await?;
+
+        Ok(())
     }
 
     /// Send this segment to all subscriptions.
@@ -412,8 +487,7 @@ impl Api {
     }
 }
 
-/// announce our subscription to all known peers
-async fn broadcast_announce_subscriptions(
+async fn broadcast_peer_info_inner(
     client: Client<Protocol>,
     peers: Vec<PeerInfo>,
     my_subs: PeerInfo,

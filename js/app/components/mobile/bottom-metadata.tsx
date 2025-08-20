@@ -11,7 +11,7 @@ import {
 } from "@streamplace/components";
 import { ChevronLeft } from "@tamagui/lucide-icons";
 import { ChevronRight } from "lucide-react-native";
-import { Image, View } from "react-native";
+import { Image, Linking, TouchableOpacity, View } from "react-native";
 const { gap, px, py, colors } = zero;
 
 export function BottomMetadata({
@@ -69,9 +69,17 @@ export function BottomMetadata({
             />
           )}
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{ color: "white", fontWeight: "600" }}>
-              @{profile?.handle || "user"}
-            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (profile?.handle) {
+                  Linking.openURL(`https://bsky.app/profile/${profile.handle}`);
+                }
+              }}
+            >
+              <Text style={{ color: "white", fontWeight: "600" }}>
+                @{profile?.handle || "user"}
+              </Text>
+            </TouchableOpacity>
             <Text
               style={{ color: colors.gray[400] }}
               numberOfLines={1}

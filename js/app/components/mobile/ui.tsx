@@ -14,7 +14,13 @@ import {
 } from "@streamplace/components";
 import { ChevronLeft, SwitchCamera, VolumeX } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Image, Pressable, TouchableWithoutFeedback } from "react-native";
+import {
+  Image,
+  Linking,
+  Pressable,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+} from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -152,7 +158,17 @@ export function MobileUi() {
                         borders.color.gray[700],
                       ]}
                     />
-                    <Text>{profile?.handle}</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (profile?.handle) {
+                          Linking.openURL(
+                            `https://bsky.app/profile/${profile.handle}`,
+                          );
+                        }
+                      }}
+                    >
+                      <Text>{profile?.handle}</Text>
+                    </TouchableOpacity>
                   </>
                 )}
               </View>

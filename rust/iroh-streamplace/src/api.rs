@@ -50,9 +50,25 @@ struct RecvSegment {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Peers {}
 
+/// Inform a remote node about our subscriptions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AnnounceSubscriptions {
+    // the peer we're going to announce to
+    remote_id: NodeId,
+    // our nodeID and set of subscriptions
+    subs: PeerSubscriptions,
+}
+
+/// list out our local subscriptions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct MySubscriptions {}
+
 /// Request a node list out it's current subscriptions
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct GetSubscriptions {}
+struct GetSubscriptions {
+    // the peer to get subscriptions from
+    node_id: NodeId,
+}
 
 /// List subscriptions this node has for given streams
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
@@ -70,7 +86,9 @@ enum Protocol {
     #[rpc(tx=mpsc::Sender<PeerSubscriptions>)]
     Peers(Peers),
     #[rpc(tx=oneshot::Sender<()>)]
-    AnnounceSubscriptions(PeerSubscriptions),
+    AnnounceSubscriptions(AnnounceSubscriptions),
+    #[rpc(tx=oneshot::Sender<PeerSubscriptions>)]
+    MySubscriptions(MySubscriptions),
     #[rpc(tx=oneshot::Sender<PeerSubscriptions>)]
     GetSubscriptions(GetSubscriptions),
 
@@ -160,9 +178,13 @@ impl Actor {
             Message::AnnounceSubscriptions(sub) => {
                 let WithChannels { inner, tx, .. } = sub;
                 // update our tracked state about this peer
-                self.peers.insert(inner);
+                self.peers.insert(inner.subs);
 
                 tx.send(()).await.ok();
+            }
+            Message::MySubscriptions(sub) => {
+                let WithChannels { tx, .. } = sub;
+                tx.send(self.subs()).await.ok();
             }
             Message::GetSubscriptions(sub) => {
                 let WithChannels { tx, .. } = sub;
@@ -276,8 +298,18 @@ impl Api {
         IrohProtocol::new(Protocol::remote_handler(local))
     }
 
-    pub(crate) async fn peers(&self) -> irpc::Result<mpsc::Receiver<PeerSubscriptions>> {
-        self.inner.server_streaming(Peers {}, 100).await
+    /// List all peers we know about, and the subscriptions they have
+    pub(crate) async fn peers(&self) -> irpc::Result<Vec<PeerSubscriptions>> {
+        let mut rx = self.inner.server_streaming(Peers {}, 1000).await?;
+        let mut peers = Vec::new();
+        while let Some(peer) = rx.recv().await? {
+            peers.push(peer);
+        }
+        Ok(peers)
+    }
+
+    pub(crate) async fn my_subscriptions(&self) -> irpc::Result<PeerSubscriptions> {
+        self.inner.rpc(MySubscriptions {}).await
     }
 
     pub(crate) async fn subscribe(&self, key: String, self_id: NodeId) -> irpc::Result<()> {
@@ -286,7 +318,19 @@ impl Api {
                 key,
                 remote_id: self_id,
             })
-            .await
+            .await?;
+
+        // we've subscribed. announce our sub to all known peers
+        let peers = self.peers().await?;
+        let subs = self.my_subscriptions().await?;
+        let client = self.inner.clone();
+        tokio::spawn(async move {
+            if let Err(e) = broadcast_announce_subscriptions(client, peers, subs).await {
+                tracing::error!("Peer announcement task failed: {:?}", e);
+            }
+        });
+
+        Ok(())
     }
 
     pub(crate) async fn unsubscribe(&self, key: String, self_id: NodeId) -> irpc::Result<()> {
@@ -303,4 +347,21 @@ impl Api {
         let msg = SendSegment { key, data };
         self.inner.rpc(msg).await
     }
+}
+
+/// announce our subscription to all known peers
+async fn broadcast_announce_subscriptions(
+    client: Client<Protocol>,
+    peers: Vec<PeerSubscriptions>,
+    my_subs: PeerSubscriptions,
+) -> irpc::Result<()> {
+    for peer in peers.iter() {
+        client
+            .rpc(AnnounceSubscriptions {
+                remote_id: peer.node_id,
+                subs: my_subs.clone(),
+            })
+            .await?;
+    }
+    Ok(())
 }

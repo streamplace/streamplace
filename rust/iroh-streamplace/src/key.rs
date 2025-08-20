@@ -39,6 +39,7 @@ impl PublicKey {
 
     /// Make a PublicKey from base32 string
     #[uniffi::constructor]
+    #[allow(clippy::result_large_err)]
     pub fn from_string(s: String) -> Result<Self, Error> {
         let key = iroh::PublicKey::from_str(&s).map_err(|_| InvalidPublicKeySnafu.build())?;
         Ok(key.into())
@@ -46,6 +47,7 @@ impl PublicKey {
 
     /// Make a PublicKey from byte array
     #[uniffi::constructor]
+    #[allow(clippy::result_large_err)]
     pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, Error> {
         if bytes.len() != 32 {
             InvalidPublicKeySnafu.fail()?;

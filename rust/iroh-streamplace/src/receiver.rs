@@ -45,12 +45,12 @@ impl Receiver {
     pub async fn peers(&self, remote_id: Arc<PublicKey>) -> Result<Vec<Arc<Peer>>, Error> {
         let remote_id: iroh::NodeId = remote_id.as_ref().into();
         let api = Api::connect(self.endpoint.endpoint.clone(), remote_id);
-        let mut rx = api.peers().await?;
-        let mut subs = Vec::new();
-        while let Some(sub) = rx.recv().await? {
-            subs.push(Arc::new(sub.into()));
+        let subs = api.peers().await?;
+        let mut subs_arc = Vec::new();
+        for sub in subs {
+            subs_arc.push(Arc::new(sub.into()));
         }
-        Ok(subs)
+        Ok(subs_arc)
     }
 
     /// Subscribe to the given topic on the remote.
@@ -92,6 +92,18 @@ mod tests {
 
     use super::*;
 
+    #[derive(Debug, Clone)]
+    struct TestHandler {
+        messages: tokio::sync::mpsc::Sender<(String, Vec<u8>)>,
+    }
+
+    #[async_trait::async_trait]
+    impl DataHandler for TestHandler {
+        async fn handle_data(&self, topic: String, data: Vec<u8>) {
+            self.messages.send((topic, data)).await.unwrap();
+        }
+    }
+
     #[tokio::test]
     async fn test_subscription_roundtrip() {
         tracing_subscriber::fmt()
@@ -102,18 +114,6 @@ mod tests {
         let sender = Sender::new(&ep1).await.unwrap();
 
         let (s, mut r) = tokio::sync::mpsc::channel(5);
-
-        #[derive(Debug, Clone)]
-        struct TestHandler {
-            messages: tokio::sync::mpsc::Sender<(String, Vec<u8>)>,
-        }
-
-        #[async_trait::async_trait]
-        impl DataHandler for TestHandler {
-            async fn handle_data(&self, topic: String, data: Vec<u8>) {
-                self.messages.send((topic, data)).await.unwrap();
-            }
-        }
 
         let handler = TestHandler { messages: s };
         let ep2 = Endpoint::new().await.unwrap();

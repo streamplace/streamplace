@@ -123,8 +123,9 @@ func createResponsiveJoinText(fontFamily *canvas.FontFamily, text string, availa
 	}
 
 	// Try progressively shorter versions with ellipsis
-	for i := len(text) - 1; i > 0; i-- {
-		truncatedText := text[:i] + "..."
+	runes := []rune(text)
+	for i := len(runes) - 1; i > 0; i-- {
+		truncatedText := string(runes[:i]) + "..."
 		textBox := canvas.NewTextBox(face, truncatedText, availableWidth, 40, canvas.Left, canvas.Center, &canvas.TextOptions{})
 		if textBox.Bounds().W() <= availableWidth {
 			return textBox, minFontSize
@@ -222,10 +223,11 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 		}
 
 		if profileData.Description != nil && *profileData.Description != "" {
-			// Truncate description if too long for the image
 			desc := *profileData.Description
-			if len(desc) > maxDescriptionLength {
-				desc = desc[:descriptionTruncate] + "..."
+			// runes are used to properly handle multi-byte characters
+			runes := []rune(desc)
+			if len(runes) > maxDescriptionLength {
+				desc = string(runes[:descriptionTruncate]) + "..."
 			}
 			description = desc
 		}

@@ -192,6 +192,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if *version {
 		return nil
 	}
+	spmetrics.Version.WithLabelValues(build.Version).Inc()
 	if cli.LivepeerHelp {
 		lpFlags := flag.NewFlagSet("livepeer", flag.ContinueOnError)
 		_ = starter.NewLivepeerConfig(lpFlags)

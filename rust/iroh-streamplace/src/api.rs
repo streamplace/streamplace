@@ -31,12 +31,14 @@ struct Unsubscribe {
     remote_id: NodeId,
 }
 
+/// Send a segment of video to another peer in a subscription
 #[derive(Debug, Serialize, Deserialize)]
 struct SendSegment {
     key: String,
     data: Bytes,
 }
 
+/// Receive a segment of video from another peer in a subscription
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct RecvSegment {
     key: String,
@@ -44,6 +46,7 @@ struct RecvSegment {
 }
 
 /// List all peers, and the subscriptions that they're believed to have
+/// "believed", because subscription info can be out of date
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Peers {}
 
@@ -54,8 +57,8 @@ struct GetSubscriptions {}
 /// List subscriptions this node has for given streams
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct PeerSubscriptions {
-    node_id: NodeId,
-    subscriptions: BTreeSet<String>,
+    pub(crate) node_id: NodeId,
+    pub(crate) subscriptions: BTreeSet<String>,
 }
 
 // Use the macro to generate both the Protocol and Message enums
@@ -82,11 +85,16 @@ enum Protocol {
     RecvSegment(RecvSegment),
 }
 
+/// Actor holds all state necessary to respond to all RPC requests. The actor
+/// handles rpc message requests & emits responses
 struct Actor {
     endpoint: iroh::Endpoint,
     recv: tokio::sync::mpsc::Receiver<Message>,
+    /// set of all peers we believe to be life in the swarm
     peers: BTreeSet<PeerSubscriptions>,
+    /// set of stream subscriptions we're receiving data for
     subscriptions: BTreeMap<String, BTreeSet<NodeId>>,
+    /// pool of open RPC connections
     connections: BTreeMap<NodeId, Connection>,
     handler: Box<dyn Fn(String, Vec<u8>) -> Boxed<()> + Send + Sync + 'static>,
 }
@@ -124,9 +132,15 @@ impl Actor {
     }
 
     fn subs(&self) -> PeerSubscriptions {
-        // TODO: keep local state about our own subscriptions, format that here & deliver
-        // as a fresh struct
-        todo!();
+        let mut subscriptions = BTreeSet::new();
+        for key in self.subscriptions.keys() {
+            subscriptions.insert(key.clone());
+        }
+
+        PeerSubscriptions {
+            node_id: self.endpoint.node_id(),
+            subscriptions,
+        }
     }
 
     async fn handle(&mut self, msg: Message) {

@@ -6,7 +6,7 @@ use crate::api::Api;
 use crate::endpoint::Endpoint;
 use crate::error::Error;
 use crate::key::PublicKey;
-use crate::utils::NodeAddr;
+use crate::utils::{NodeAddr, Peer};
 
 #[derive(uniffi::Object)]
 pub struct Receiver {
@@ -38,6 +38,19 @@ impl Receiver {
             _api: api,
             _router: router,
         })
+    }
+
+    /// list all subscriptions the remote knows about
+    #[uniffi::method(async_runtime = "tokio")]
+    pub async fn peers(&self, remote_id: Arc<PublicKey>) -> Result<Vec<Arc<Peer>>, Error> {
+        let remote_id: iroh::NodeId = remote_id.as_ref().into();
+        let api = Api::connect(self.endpoint.endpoint.clone(), remote_id);
+        let mut rx = api.peers().await?;
+        let mut subs = Vec::new();
+        while let Some(sub) = rx.recv().await? {
+            subs.push(Arc::new(sub.into()));
+        }
+        Ok(subs)
     }
 
     /// Subscribe to the given topic on the remote.
@@ -80,7 +93,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_roundtrip() {
+    async fn test_subscription_roundtrip() {
         tracing_subscriber::fmt()
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
             .init();

@@ -19,4 +19,6 @@ pub enum Error {
     InvalidPublicKey,
     #[snafu(display("RPC error"), context(false))]
     Irpc { source: irpc::Error },
+    #[snafu(display("RPC streaming error"), context(false))]
+    IrpcStreaming { source: irpc::channel::RecvError },
 }

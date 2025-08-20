@@ -52,11 +52,11 @@ struct Peers {}
 
 /// Inform a remote node about our subscriptions
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct AnnounceSubscriptions {
-    // the peer we're going to announce to
+struct SendPeerInfo {
+    // the peer receiving the announcement
     remote_id: NodeId,
-    // our nodeID and set of subscriptions
-    subs: PeerSubscriptions,
+    // info about the peer being announced
+    info: PeerInfo,
 }
 
 /// list out our local subscriptions
@@ -70,9 +70,9 @@ struct GetSubscriptions {
     node_id: NodeId,
 }
 
-/// List subscriptions this node has for given streams
+/// details about a peer in the network
 #[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct PeerSubscriptions {
+pub(crate) struct PeerInfo {
     pub(crate) node_id: NodeId,
     pub(crate) subscriptions: BTreeSet<String>,
 }
@@ -83,14 +83,14 @@ pub(crate) struct PeerSubscriptions {
 #[derive(Serialize, Deserialize, Debug)]
 enum Protocol {
     // swarm coordination
-    #[rpc(tx=mpsc::Sender<PeerSubscriptions>)]
+    #[rpc(tx=mpsc::Sender<PeerInfo>)]
     Peers(Peers),
+    #[rpc(tx=oneshot::Sender<PeerInfo>)]
+    MyPeerInfo(MySubscriptions),
     #[rpc(tx=oneshot::Sender<()>)]
-    AnnounceSubscriptions(AnnounceSubscriptions),
-    #[rpc(tx=oneshot::Sender<PeerSubscriptions>)]
-    MySubscriptions(MySubscriptions),
-    #[rpc(tx=oneshot::Sender<PeerSubscriptions>)]
-    GetSubscriptions(GetSubscriptions),
+    SendPeerInfo(SendPeerInfo),
+    #[rpc(tx=oneshot::Sender<()>)]
+    RecvPeerInfo(PeerInfo),
 
     // stream replication
     #[rpc(tx=oneshot::Sender<()>)]
@@ -108,8 +108,10 @@ enum Protocol {
 struct Actor {
     endpoint: iroh::Endpoint,
     recv: tokio::sync::mpsc::Receiver<Message>,
+    /// peers we'll permanently broadcast to
+    anchor_peers: Vec<NodeId>,
     /// set of all peers we believe to be life in the swarm
-    peers: BTreeSet<PeerSubscriptions>,
+    peers: BTreeSet<PeerInfo>,
     /// set of stream subscriptions we're receiving data for
     subscriptions: BTreeMap<String, BTreeSet<NodeId>>,
     /// pool of open RPC connections
@@ -126,21 +128,43 @@ struct Connection {
 impl Actor {
     fn spawn(
         endpoint: &iroh::Endpoint,
+        anchor_peers: Vec<NodeId>,
         handler: impl Fn(String, Vec<u8>) -> Boxed<()> + Send + Sync + 'static,
     ) -> Api {
+        let anchors = anchor_peers.clone();
         let (tx, rx) = tokio::sync::mpsc::channel(1);
         let actor = Self {
             endpoint: endpoint.clone(),
             recv: rx,
+            anchor_peers,
             peers: BTreeSet::new(),
             subscriptions: BTreeMap::new(),
             connections: BTreeMap::new(),
             handler: Box::new(handler),
         };
         n0_future::task::spawn(actor.run());
-        Api {
-            inner: Client::local(tx),
-        }
+        let client = Client::local(tx);
+
+        // tell anchor peers we exist
+        let my_id = endpoint.node_id();
+        let client2 = client.clone();
+        n0_future::task::spawn(async move {
+            for anchor in anchors {
+                debug!("Announcing subscriptions to anchor peer: {}", anchor);
+                client2
+                    .rpc(SendPeerInfo {
+                        remote_id: anchor,
+                        info: PeerInfo {
+                            node_id: my_id,
+                            subscriptions: BTreeSet::new(),
+                        },
+                    })
+                    .await
+                    .unwrap();
+            }
+        });
+
+        Api { inner: client }
     }
 
     async fn run(mut self) {
@@ -149,16 +173,35 @@ impl Actor {
         }
     }
 
-    fn subs(&self) -> PeerSubscriptions {
+    fn subs(&self) -> PeerInfo {
         let mut subscriptions = BTreeSet::new();
         for key in self.subscriptions.keys() {
             subscriptions.insert(key.clone());
         }
 
-        PeerSubscriptions {
+        PeerInfo {
             node_id: self.endpoint.node_id(),
             subscriptions,
         }
+    }
+
+    // ensure a connection to exists, re-using from the pool if present
+    async fn get_conn(&mut self, remote: &iroh::PublicKey) -> &Connection {
+        // ensure connection
+        if !self.connections.contains_key(remote) {
+            let conn = IrohRemoteConnection::new(
+                self.endpoint.clone(),
+                (*remote).into(),
+                Api::ALPN.to_vec(),
+            );
+
+            let conn = Connection {
+                rpc: Client::boxed(conn),
+                _id: *remote,
+            };
+            self.connections.insert(*remote, conn);
+        }
+        self.connections.get(remote).expect("just checked")
     }
 
     async fn handle(&mut self, msg: Message) {
@@ -168,27 +211,59 @@ impl Actor {
                 debug!("peers {:?}", sub);
                 let WithChannels { tx, .. } = sub;
 
+                // keep track of peers we've already sent
+                let mut sent = BTreeSet::new();
+
                 // stream over the list of peers we know about
                 for sub in &self.peers {
+                    sent.insert(&sub.node_id);
                     if tx.send(sub.clone()).await.is_err() {
                         break;
                     }
                 }
+
+                // send over any anchor peers we know about, but haven't already sent
+                // these go with empty subscription sets, which isn't great.
+                for anchor in &self.anchor_peers {
+                    if sent.contains(anchor) {
+                        continue;
+                    }
+                    let sub = PeerInfo {
+                        node_id: *anchor,
+                        subscriptions: BTreeSet::new(),
+                    };
+                    if tx.send(sub).await.is_err() {
+                        break;
+                    }
+                }
             }
-            Message::AnnounceSubscriptions(sub) => {
-                let WithChannels { inner, tx, .. } = sub;
-                // update our tracked state about this peer
-                self.peers.insert(inner.subs);
+            Message::MyPeerInfo(sub) => {
+                let WithChannels { tx, .. } = sub;
+                tx.send(self.subs()).await.ok();
+            }
+            Message::SendPeerInfo(info) => {
+                let WithChannels { inner, tx, .. } = info;
+                debug!(
+                    "Received announce subscriptions. me: {:?} them: {:?}",
+                    self.endpoint.node_id().fmt_short(),
+                    inner.info.node_id.fmt_short()
+                );
+                let conn = self.get_conn(&inner.remote_id).await;
+                // conn.rpc.rpc(inner.info).await?;
+
+                if let Err(err) = conn.rpc.rpc(inner.info).await {
+                    warn!("failed to send to {}: {:?}", inner.remote_id, err);
+                    // remove conn on failure
+                    self.connections.remove(&inner.remote_id);
+                }
 
                 tx.send(()).await.ok();
             }
-            Message::MySubscriptions(sub) => {
-                let WithChannels { tx, .. } = sub;
-                tx.send(self.subs()).await.ok();
-            }
-            Message::GetSubscriptions(sub) => {
-                let WithChannels { tx, .. } = sub;
-                tx.send(self.subs()).await.ok();
+            Message::RecvPeerInfo(sub) => {
+                let WithChannels { tx, inner, .. } = sub;
+                // update our tracked state about this peer
+                self.peers.insert(inner);
+                tx.send(()).await.ok();
             }
 
             // stream replication
@@ -222,26 +297,13 @@ impl Actor {
                     data: inner.data.clone(),
                 };
 
-                for (key, remotes) in &self.subscriptions {
+                for (key, remotes) in &self.subscriptions.clone() {
                     if key == &inner.key {
                         for remote in remotes {
                             debug!("sending to topic {}: {}", key, remote);
 
                             // ensure connection
-                            if !self.connections.contains_key(remote) {
-                                let conn = IrohRemoteConnection::new(
-                                    self.endpoint.clone(),
-                                    (*remote).into(),
-                                    Api::ALPN.to_vec(),
-                                );
-
-                                let conn = Connection {
-                                    rpc: Client::boxed(conn),
-                                    _id: *remote,
-                                };
-                                self.connections.insert(*remote, conn);
-                            }
-                            let conn = self.connections.get(remote).expect("just checked");
+                            let conn = self.get_conn(remote).await;
 
                             if let Err(err) = conn.rpc.rpc(msg.clone()).await {
                                 warn!("failed to send to {}: {:?}", remote, err);
@@ -272,15 +334,16 @@ pub(crate) struct Api {
 impl Api {
     pub(crate) const ALPN: &[u8] = b"/iroh/streamplace/1";
 
-    pub(crate) fn spawn(endpoint: &iroh::Endpoint) -> Self {
-        Actor::spawn(endpoint, |_, _| Box::pin(async move {}))
+    pub(crate) fn spawn(endpoint: &iroh::Endpoint, anchor_peers: Vec<NodeId>) -> Self {
+        Actor::spawn(endpoint, anchor_peers, |_, _| Box::pin(async move {}))
     }
 
     pub(crate) fn spawn_with_handler(
         endpoint: &iroh::Endpoint,
+        anchor_peers: Vec<NodeId>,
         handler: impl Fn(String, Vec<u8>) -> Boxed<()> + Send + Sync + 'static,
     ) -> Self {
-        Actor::spawn(endpoint, handler)
+        Actor::spawn(endpoint, anchor_peers, handler)
     }
 
     pub(crate) fn connect(endpoint: Endpoint, addr: impl Into<iroh::NodeAddr>) -> Api {
@@ -299,7 +362,7 @@ impl Api {
     }
 
     /// List all peers we know about, and the subscriptions they have
-    pub(crate) async fn peers(&self) -> irpc::Result<Vec<PeerSubscriptions>> {
+    pub(crate) async fn peers(&self) -> irpc::Result<Vec<PeerInfo>> {
         let mut rx = self.inner.server_streaming(Peers {}, 1000).await?;
         let mut peers = Vec::new();
         while let Some(peer) = rx.recv().await? {
@@ -308,7 +371,7 @@ impl Api {
         Ok(peers)
     }
 
-    pub(crate) async fn my_subscriptions(&self) -> irpc::Result<PeerSubscriptions> {
+    pub(crate) async fn my_subscriptions(&self) -> irpc::Result<PeerInfo> {
         self.inner.rpc(MySubscriptions {}).await
     }
 
@@ -324,7 +387,7 @@ impl Api {
         let peers = self.peers().await?;
         let subs = self.my_subscriptions().await?;
         let client = self.inner.clone();
-        tokio::spawn(async move {
+        n0_future::task::spawn(async move {
             if let Err(e) = broadcast_announce_subscriptions(client, peers, subs).await {
                 tracing::error!("Peer announcement task failed: {:?}", e);
             }
@@ -352,14 +415,14 @@ impl Api {
 /// announce our subscription to all known peers
 async fn broadcast_announce_subscriptions(
     client: Client<Protocol>,
-    peers: Vec<PeerSubscriptions>,
-    my_subs: PeerSubscriptions,
+    peers: Vec<PeerInfo>,
+    my_subs: PeerInfo,
 ) -> irpc::Result<()> {
     for peer in peers.iter() {
         client
-            .rpc(AnnounceSubscriptions {
+            .rpc(SendPeerInfo {
                 remote_id: peer.node_id,
-                subs: my_subs.clone(),
+                info: my_subs.clone(),
             })
             .await?;
     }

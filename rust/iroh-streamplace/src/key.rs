@@ -19,6 +19,7 @@ impl From<iroh::PublicKey> for PublicKey {
         }
     }
 }
+
 impl From<&PublicKey> for iroh::PublicKey {
     fn from(key: &PublicKey) -> Self {
         iroh::PublicKey::from_bytes(&key.key).unwrap()

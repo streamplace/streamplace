@@ -1,19 +1,19 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::api::PeerSubscriptions;
+use crate::api::PeerInfo;
 use crate::error::Error;
 use crate::key::PublicKey;
 
 /// A peer in a streamplace swarm
-#[derive(uniffi::Object)]
+#[derive(uniffi::Object, Debug)]
 pub struct Peer {
     pub node_addr: NodeAddr,
     pub subscriptions: Vec<String>,
 }
 
-impl From<PeerSubscriptions> for Peer {
-    fn from(value: PeerSubscriptions) -> Self {
+impl From<PeerInfo> for Peer {
+    fn from(value: PeerInfo) -> Self {
         Self {
             node_addr: NodeAddr {
                 node_id: Arc::new(value.node_id.into()),

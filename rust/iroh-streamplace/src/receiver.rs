@@ -11,7 +11,7 @@ use crate::utils::{NodeAddr, Peer};
 #[derive(uniffi::Object)]
 pub struct Receiver {
     endpoint: Endpoint,
-    _api: Api,
+    api: Api,
     _router: iroh::protocol::Router,
 }
 
@@ -21,9 +21,17 @@ impl Receiver {
     #[uniffi::constructor(async_runtime = "tokio")]
     pub async fn new(
         endpoint: &Endpoint,
+        anchor_peers: Vec<Arc<PublicKey>>,
         handler: Arc<dyn DataHandler>,
     ) -> Result<Receiver, Error> {
-        let api = Api::spawn_with_handler(&endpoint.endpoint, move |id, data| {
+        let anchor_peers = anchor_peers
+            .into_iter()
+            .map(|key| {
+                let remote_id: iroh::NodeId = key.as_ref().into();
+                remote_id
+            })
+            .collect::<Vec<iroh::NodeId>>();
+        let api = Api::spawn_with_handler(&endpoint.endpoint, anchor_peers, move |id, data| {
             let handler = handler.clone();
             Box::pin(async move {
                 handler.handle_data(id, data).await;
@@ -35,17 +43,15 @@ impl Receiver {
 
         Ok(Receiver {
             endpoint: endpoint.clone(),
-            _api: api,
+            api,
             _router: router,
         })
     }
 
     /// list all subscriptions the remote knows about
     #[uniffi::method(async_runtime = "tokio")]
-    pub async fn peers(&self, remote_id: Arc<PublicKey>) -> Result<Vec<Arc<Peer>>, Error> {
-        let remote_id: iroh::NodeId = remote_id.as_ref().into();
-        let api = Api::connect(self.endpoint.endpoint.clone(), remote_id);
-        let subs = api.peers().await?;
+    pub async fn peers(&self) -> Result<Vec<Arc<Peer>>, Error> {
+        let subs = self.api.peers().await?;
         let mut subs_arc = Vec::new();
         for sub in subs {
             subs_arc.push(Arc::new(sub.into()));
@@ -87,10 +93,11 @@ pub trait DataHandler: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-
-    use crate::sender::Sender;
+    use std::time::Duration;
 
     use super::*;
+    use crate::sender::Sender;
+    use iroh::NodeId;
 
     #[derive(Debug, Clone)]
     struct TestHandler {
@@ -104,6 +111,21 @@ mod tests {
         }
     }
 
+    async fn new_test_receiver(
+        handler_msg_sender: tokio::sync::mpsc::Sender<(String, Vec<u8>)>,
+        anchors: Vec<NodeId>,
+    ) -> Result<Receiver, Error> {
+        let ep = Endpoint::new().await.unwrap();
+        let handler = TestHandler {
+            messages: handler_msg_sender,
+        };
+        let anchors = anchors
+            .iter()
+            .map(|anchor| Arc::new(anchor.clone().into()))
+            .collect::<Vec<_>>();
+        Receiver::new(&ep, anchors, Arc::new(handler.clone())).await
+    }
+
     #[tokio::test]
     async fn test_subscription_roundtrip() {
         tracing_subscriber::fmt()
@@ -111,15 +133,11 @@ mod tests {
             .init();
 
         let ep1 = Endpoint::new().await.unwrap();
-        let sender = Sender::new(&ep1).await.unwrap();
+        let sender = Sender::new(&ep1, vec![]).await.unwrap();
 
         let (s, mut r) = tokio::sync::mpsc::channel(5);
 
-        let handler = TestHandler { messages: s };
-        let ep2 = Endpoint::new().await.unwrap();
-        let receiver = Receiver::new(&ep2, Arc::new(handler.clone()))
-            .await
-            .unwrap();
+        let receiver = new_test_receiver(s, vec![]).await.unwrap();
 
         let sender_addr = sender.node_addr().await;
         println!("sender addr: {:?}", sender_addr);
@@ -160,5 +178,43 @@ mod tests {
         })
         .await;
         assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_swarm_membership_maintenance() {
+        let (no_op_s, _) = tokio::sync::mpsc::channel(5);
+        let bootstrap = new_test_receiver(no_op_s, vec![]).await.unwrap();
+        let bootstrap_addr = bootstrap.node_addr().await;
+        println!("bootstrap addr: {:?}", bootstrap_addr);
+
+        let ep1 = Endpoint::new().await.unwrap();
+        let sender = Sender::new(&ep1, vec![Arc::new(bootstrap_addr.node_id())])
+            .await
+            .unwrap();
+
+        let (s, _) = tokio::sync::mpsc::channel(5);
+        let receiver = new_test_receiver(s, vec![(&bootstrap_addr.node_id()).into()])
+            .await
+            .unwrap();
+
+        let sender_addr = sender.node_addr().await;
+        println!("sender addr: {:?}", sender_addr);
+
+        let receiver_addr = receiver.node_addr().await;
+        println!("recv addr: {:?}", receiver_addr);
+
+        let mut i = 0;
+        loop {
+            let peers = bootstrap.peers().await.unwrap();
+            println!("peers: {:?}", peers);
+            if !peers.is_empty() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            i += 1;
+            if i > 10 {
+                panic!("no peers found after 10 checks");
+            }
+        }
     }
 }

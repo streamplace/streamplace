@@ -200,7 +200,10 @@ impl Actor {
         let client2 = client.clone();
         n0_future::task::spawn(async move {
             for anchor in anchors {
-                debug!("Announcing subscriptions to anchor peer: {}", anchor);
+                debug!(
+                    message = "Announcing subscriptions to anchor peer",
+                    anchor = anchor.fmt_short()
+                );
                 client2
                     .rpc(SendPeerInfo {
                         remote_id: anchor,
@@ -257,13 +260,14 @@ impl Actor {
             // swarm coordination
             Message::MyPeers(sub) => {
                 let WithChannels { tx, .. } = sub;
-
+                let mut send_count = 0;
                 // keep track of peers we've already sent
                 let mut sent = BTreeSet::new();
 
                 // stream over the list of peers we know about
                 for (id, sub) in &self.peers {
                     sent.insert(*id);
+                    send_count += 1;
                     if tx.send(sub.clone()).await.is_err() {
                         break;
                     }
@@ -281,10 +285,13 @@ impl Actor {
                         subscriptions: BTreeSet::new(),
                         timestamp: timestamp(),
                     };
+                    send_count += 1;
                     if tx.send(sub).await.is_err() {
                         break;
                     }
                 }
+
+                debug!(message="Finished sending local peer infos", me=%self.endpoint.node_id().fmt_short(), count=send_count);
             }
             Message::MyPeerInfo(sub) => {
                 let WithChannels { tx, .. } = sub;
@@ -303,23 +310,31 @@ impl Actor {
             }
 
             Message::RequestPeerInfos(list) => {
+                let WithChannels { inner, tx, .. } = list;
                 debug!(
                     message = "RequestPeerInfos",
-                    node_id = %self.endpoint.node_id().fmt_short()
+                    me = %self.endpoint.node_id().fmt_short(),
+                    them = %inner.remote_id.fmt_short()
                 );
-                let WithChannels { inner, tx, .. } = list;
                 let conn = self.get_conn(&inner.remote_id).await;
                 let mut rx = conn
                     .rpc
                     .server_streaming(HandlePeerInfosRequest {}, 1000)
                     .await
                     .unwrap();
+                let mut received = 0;
                 while let Some(mut peer_info) = rx.recv().await.unwrap() {
                     // update our tracked state about this peer, using timestamps
                     // to avoid confusion from external sources
                     peer_info.timestamp = timestamp();
                     self.peers.insert(peer_info.node_id, peer_info);
+                    received += 1;
                 }
+                debug!(
+                    message = "Received PeerInfos",
+                    me = self.endpoint.node_id().fmt_short(),
+                    count = received
+                );
 
                 tx.send(()).await.ok();
             }
@@ -339,12 +354,11 @@ impl Actor {
             Message::SendPeerInfo(info) => {
                 let WithChannels { inner, tx, .. } = info;
                 debug!(
-                    "Received announce subscriptions. me: {:?} them: {:?}",
-                    self.endpoint.node_id().fmt_short(),
-                    inner.info.node_id.fmt_short()
+                    message = "SendPeerInfo",
+                    me = %self.endpoint.node_id().fmt_short(),
+                    them = %inner.remote_id.fmt_short()
                 );
                 let conn = self.get_conn(&inner.remote_id).await;
-                // conn.rpc.rpc(inner.info).await?;
 
                 if let Err(err) = conn.rpc.rpc(inner.info).await {
                     warn!("failed to send to {}: {:?}", inner.remote_id, err);
@@ -355,11 +369,13 @@ impl Actor {
                 tx.send(()).await.ok();
             }
             Message::RecvPeerInfo(sub) => {
+                let WithChannels { tx, mut inner, .. } = sub;
                 debug!(
                     message = "RecvPeerInfo",
-                    node_id = %self.endpoint.node_id().fmt_short()
+                    me = %self.endpoint.node_id().fmt_short(),
+                    them = %inner.node_id.fmt_short(),
+                    subscriptions_len = %inner.subscriptions.len(),
                 );
-                let WithChannels { tx, mut inner, .. } = sub;
                 // update our tracked state about this peer, using timestamps
                 // to avoid confusion from external sources
                 inner.timestamp = timestamp();
@@ -399,7 +415,7 @@ impl Actor {
 
             // stream replication
             Message::Subscribe(sub) => {
-                debug!("subscribe {:?}", sub);
+                debug!(message = "Subscribe", key = sub.inner.key);
                 let WithChannels { tx, inner, .. } = sub;
 
                 self.subscriptions
@@ -410,7 +426,7 @@ impl Actor {
                 tx.send(()).await.ok();
             }
             Message::Unsubscribe(sub) => {
-                debug!("unsubscribe {:?}", sub);
+                debug!(message = "Unsubscribe", key = sub.inner.key);
                 let WithChannels { tx, inner, .. } = sub;
 
                 if let Some(e) = self.subscriptions.get_mut(&inner.key) {
@@ -420,7 +436,11 @@ impl Actor {
                 tx.send(()).await.ok();
             }
             Message::SendSegment(segment) => {
-                debug!("send segment {:?}", segment);
+                debug!(
+                    messags = "SendSegment",
+                    key = segment.inner.key,
+                    data_len = segment.inner.data.len()
+                );
                 let WithChannels { tx, inner, .. } = segment;
 
                 let msg = RecvSegment {
@@ -431,7 +451,11 @@ impl Actor {
                 for (key, remotes) in &self.subscriptions.clone() {
                     if key == &inner.key {
                         for remote in remotes {
-                            debug!("sending to topic {}: {}", key, remote);
+                            debug!(
+                                message = "sending to topic",
+                                key = key,
+                                remote = remote.fmt_short()
+                            );
 
                             // ensure connection
                             let conn = self.get_conn(remote).await;
@@ -448,7 +472,11 @@ impl Actor {
                 tx.send(()).await.ok();
             }
             Message::RecvSegment(segment) => {
-                debug!("recv segment {:?}", segment);
+                debug!(
+                    message = "RecvSegment",
+                    key = segment.inner.key,
+                    data_len = segment.inner.data.len(),
+                );
                 let WithChannels { tx, inner, .. } = segment;
                 (self.handler)(inner.key, inner.data.to_vec()).await;
                 tx.send(()).await.ok();

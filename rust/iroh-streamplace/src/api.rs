@@ -104,11 +104,11 @@ enum Protocol {
     #[rpc(tx=oneshot::Sender<PeerInfo>)]
     MyPeerInfo(MySubscriptions),
     #[rpc(tx=oneshot::Sender<()>)]
+    PrunePeers(PrunePeers),
+    #[rpc(tx=oneshot::Sender<()>)]
     SendPeerInfo(SendPeerInfo),
     #[rpc(tx=oneshot::Sender<()>)]
     RecvPeerInfo(PeerInfo),
-    #[rpc(tx=oneshot::Sender<()>)]
-    PrunePeers(PrunePeers),
 
     // stream replication
     #[rpc(tx=oneshot::Sender<()>)]

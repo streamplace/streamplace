@@ -256,7 +256,6 @@ impl Actor {
         match msg {
             // swarm coordination
             Message::MyPeers(sub) => {
-                debug!("peers {:?}", sub);
                 let WithChannels { tx, .. } = sub;
 
                 // keep track of peers we've already sent
@@ -292,6 +291,10 @@ impl Actor {
                 tx.send(self.my_peer_info()).await.ok();
             }
             Message::PruneMyPeers(sub) => {
+                debug!(
+                    message = "PruneMyPeers",
+                    node_id = %self.endpoint.node_id().fmt_short()
+                );
                 let WithChannels { tx, inner, .. } = sub;
                 // prune peers that haven't been seen since the given timestamp
                 self.peers
@@ -300,6 +303,10 @@ impl Actor {
             }
 
             Message::RequestPeerInfos(list) => {
+                debug!(
+                    message = "RequestPeerInfos",
+                    node_id = %self.endpoint.node_id().fmt_short()
+                );
                 let WithChannels { inner, tx, .. } = list;
                 let conn = self.get_conn(&inner.remote_id).await;
                 let mut rx = conn
@@ -317,6 +324,10 @@ impl Actor {
                 tx.send(()).await.ok();
             }
             Message::HandlePeerInfosRequest(list) => {
+                debug!(
+                    message = "HandlePeerInfosRequest",
+                    node_id = %self.endpoint.node_id().fmt_short()
+                );
                 let WithChannels { tx, .. } = list;
                 for (_, peer) in self.peers.clone() {
                     if let Err(e) = tx.send(peer).await {
@@ -344,6 +355,10 @@ impl Actor {
                 tx.send(()).await.ok();
             }
             Message::RecvPeerInfo(sub) => {
+                debug!(
+                    message = "RecvPeerInfo",
+                    node_id = %self.endpoint.node_id().fmt_short()
+                );
                 let WithChannels { tx, mut inner, .. } = sub;
                 // update our tracked state about this peer, using timestamps
                 // to avoid confusion from external sources
@@ -352,6 +367,10 @@ impl Actor {
                 tx.send(()).await.ok();
             }
             Message::BroadcastLeaving(leaving) => {
+                debug!(
+                    message = "BroadcastLeaving",
+                    node_id = %self.endpoint.node_id().fmt_short()
+                );
                 let WithChannels { tx, .. } = leaving;
                 let node_id = self.endpoint.node_id();
                 let remotes = self
@@ -369,6 +388,10 @@ impl Actor {
                 tx.send(()).await.ok();
             }
             Message::HandleLeaving(leaving) => {
+                debug!(
+                    message = "HandleLeaving",
+                    node_id = %self.endpoint.node_id().fmt_short()
+                );
                 let WithChannels { tx, inner, .. } = leaving;
                 self.peers.remove(&inner.node_id);
                 tx.send(()).await.ok();

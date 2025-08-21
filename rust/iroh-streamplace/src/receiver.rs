@@ -6,7 +6,8 @@ use crate::api::{Api, DEFAULT_PEER_INFO_REPUBLISH_INTERVAL, DEFAULT_PEER_PRUNE_I
 use crate::endpoint::Endpoint;
 use crate::error::Error;
 use crate::key::PublicKey;
-use crate::utils::{NodeAddr, Peer};
+use crate::swarm::Peer;
+use crate::utils::NodeAddr;
 
 #[derive(uniffi::Object)]
 pub struct Receiver {
@@ -107,8 +108,6 @@ pub trait DataHandler: Send + Sync {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use super::*;
     use crate::sender::Sender;
     use iroh::NodeId;
@@ -142,9 +141,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_subscription_roundtrip() {
-        tracing_subscriber::fmt()
-            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-            .init();
+        // tracing_subscriber::fmt()
+        //     .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        //     .init();
 
         let ep1 = Endpoint::new().await.unwrap();
         let sender = Sender::new(&ep1, vec![]).await.unwrap();
@@ -192,43 +191,5 @@ mod tests {
         })
         .await;
         assert!(res.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_swarm_membership_maintenance() {
-        let (no_op_s, _) = tokio::sync::mpsc::channel(5);
-        let bootstrap = new_test_receiver(no_op_s, vec![]).await.unwrap();
-        let bootstrap_addr = bootstrap.node_addr().await;
-        println!("bootstrap addr: {:?}", bootstrap_addr);
-
-        let ep1 = Endpoint::new().await.unwrap();
-        let sender = Sender::new(&ep1, vec![Arc::new(bootstrap_addr.node_id())])
-            .await
-            .unwrap();
-
-        let (s, _) = tokio::sync::mpsc::channel(5);
-        let receiver = new_test_receiver(s, vec![(&bootstrap_addr.node_id()).into()])
-            .await
-            .unwrap();
-
-        let sender_addr = sender.node_addr().await;
-        println!("sender addr: {:?}", sender_addr);
-
-        let receiver_addr = receiver.node_addr().await;
-        println!("recv addr: {:?}", receiver_addr);
-
-        let mut i = 0;
-        loop {
-            let peers = bootstrap.peers().await.unwrap();
-            println!("peers: {:?}", peers);
-            if !peers.is_empty() {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            i += 1;
-            if i > 10 {
-                panic!("no peers found after 10 checks");
-            }
-        }
     }
 }

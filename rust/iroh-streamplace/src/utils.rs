@@ -2,29 +2,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use crate::api::PeerInfo;
 use crate::error::Error;
 use crate::key::PublicKey;
-
-/// A peer in a streamplace swarm
-#[derive(uniffi::Object, Debug)]
-pub struct Peer {
-    pub node_addr: NodeAddr,
-    pub subscriptions: Vec<String>,
-}
-
-impl From<PeerInfo> for Peer {
-    fn from(value: PeerInfo) -> Self {
-        Self {
-            node_addr: NodeAddr {
-                node_id: Arc::new(value.node_id.into()),
-                relay_url: None,
-                addresses: vec![],
-            },
-            subscriptions: value.subscriptions.into_iter().collect::<_>(),
-        }
-    }
-}
 
 /// A peer's addressing information.
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Object)]
@@ -38,10 +17,10 @@ pub struct NodeAddr {
 impl NodeAddr {
     /// Create a new [`NodeAddr`] with empty [`AddrInfo`].
     #[uniffi::constructor]
-    pub fn new(node_id: &PublicKey, derp_url: Option<String>, addresses: Vec<String>) -> Self {
+    pub fn new(node_id: &PublicKey, relay_url: Option<String>, addresses: Vec<String>) -> Self {
         Self {
             node_id: Arc::new(node_id.clone()),
-            relay_url: derp_url,
+            relay_url,
             addresses,
         }
     }

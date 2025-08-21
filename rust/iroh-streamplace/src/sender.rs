@@ -7,6 +7,7 @@ use crate::api::Api;
 use crate::endpoint::Endpoint;
 use crate::error::Error;
 use crate::key::PublicKey;
+use crate::swarm::Peer;
 use crate::utils::NodeAddr;
 
 #[derive(uniffi::Object)]
@@ -47,6 +48,17 @@ impl Sender {
             api,
             _router: router,
         })
+    }
+
+    /// list all subscriptions the remote knows about
+    #[uniffi::method(async_runtime = "tokio")]
+    pub async fn peers(&self) -> Result<Vec<Arc<Peer>>, Error> {
+        let subs = self.api.peers().await?;
+        let mut subs_arc = Vec::new();
+        for sub in subs {
+            subs_arc.push(Arc::new(sub.into()));
+        }
+        Ok(subs_arc)
     }
 
     /// Sends the given data to all subscribers that have subscribed to this `key`.

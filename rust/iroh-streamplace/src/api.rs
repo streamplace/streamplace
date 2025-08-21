@@ -324,6 +324,10 @@ impl Actor {
                     .unwrap();
                 let mut received = 0;
                 while let Some(mut peer_info) = rx.recv().await.unwrap() {
+                    // skip any reference to us
+                    if peer_info.node_id == self.endpoint.node_id() {
+                        continue;
+                    }
                     // update our tracked state about this peer, using timestamps
                     // to avoid confusion from external sources
                     peer_info.timestamp = timestamp();
@@ -339,16 +343,30 @@ impl Actor {
                 tx.send(()).await.ok();
             }
             Message::HandlePeerInfosRequest(list) => {
+                let WithChannels { tx, .. } = list;
                 debug!(
                     message = "HandlePeerInfosRequest",
-                    node_id = %self.endpoint.node_id().fmt_short()
+                    me = %self.endpoint.node_id().fmt_short(),
                 );
-                let WithChannels { tx, .. } = list;
+                let mut sent = 0;
                 for (_, peer) in self.peers.clone() {
                     if let Err(e) = tx.send(peer).await {
                         tracing::error!("send peer error: {:?}", e);
                     }
+                    sent += 1;
                 }
+
+                // send ourselves
+                let my_info = self.my_peer_info();
+                if let Err(e) = tx.send(my_info).await {
+                    tracing::error!("send peer error: {:?}", e);
+                }
+                sent += 1;
+                debug!(
+                    message = "Sent PeerInfos",
+                    me = %self.endpoint.node_id().fmt_short(),
+                    count = sent
+                );
             }
 
             Message::SendPeerInfo(info) => {
@@ -376,6 +394,11 @@ impl Actor {
                     them = %inner.node_id.fmt_short(),
                     subscriptions_len = %inner.subscriptions.len(),
                 );
+                if inner.node_id == self.endpoint.node_id() {
+                    warn!("received peer info from self");
+                    tx.send(()).await.ok();
+                    return;
+                }
                 // update our tracked state about this peer, using timestamps
                 // to avoid confusion from external sources
                 inner.timestamp = timestamp();
@@ -437,7 +460,7 @@ impl Actor {
             }
             Message::SendSegment(segment) => {
                 debug!(
-                    messags = "SendSegment",
+                    message = "SendSegment",
                     key = segment.inner.key,
                     data_len = segment.inner.data.len()
                 );

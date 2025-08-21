@@ -85,9 +85,17 @@ impl Receiver {
         Ok(())
     }
 
+    /// Get our node address
     #[uniffi::method(async_runtime = "tokio")]
     pub async fn node_addr(&self) -> NodeAddr {
         self.endpoint.node_addr().await
+    }
+
+    /// tell the network that we're leaving. This should only be called just before disconnecting.
+    #[uniffi::method(async_runtime = "tokio")]
+    pub async fn leaving(&self) -> Result<(), Error> {
+        self.api.leaving().await?;
+        Ok(())
     }
 }
 

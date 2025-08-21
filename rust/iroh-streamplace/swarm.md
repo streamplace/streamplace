@@ -22,10 +22,13 @@ These messages are sent between nodes using a custom `iroh-streamplace` protocol
 * when a node unsubscribes from a feed, it broadcasts it's updated `PeerInfo` to all known peers
 * every `DEFAULT_PEER_INFO_REPUBLISH_INTERVAL`, a node broadcasts it's current `PeerInfo` to all known peers
 
-every `DEFAULT_PEER_PRUNE_INTERVAL`, nodes will examine their local list of peers, and prune any who's latest timestamp is older than the current time, minus the prune interval, this is to purge peers that die off without notice
+every `DEFAULT_PEER_PRUNE_INTERVAL`, nodes will examine their local list of peers, and prune any who's latest timestamp is older than the current time, minus the prune interval, this is to purge peers that die off without notice.
 
 ### Anchor Peers
-Anchor peers are _always_ transmitted to. They're expcted to be high-availability nodes. Any broadcast message will always try to
+Anchor peers are _always_ transmitted to. They're expected to be high-availability nodes. Any broadcast message will always broadcast to anchor peers, regardless of whether they are online at the time, or not.
+
+### Peer Listing Messages
+At startup, the new nodes will send a `RequestPeerInfos` request to all anchor nodes. Each anchor node will respond with their list of `PeerInfo`s to inform new nodes of their current view of the swarm. There's room to grow on maintaining swarm health, but this message type is a good primitive as a start.
 
 ### FFI API
-The FFI API to goland is a single method on the `Receiver`: `peers`. It returns an array of `PeerInfo`, representing the nodes current view of the swarm.
+The FFI API to goland is 2 methods on the `Receiver`: `peers`, and `leaving`. It returns an array of `PeerInfo`, representing the nodes current view of the swarm. `leaving` should be called just before a node shuts down to notify the network that the node is going away. It's not a critical that `leaving` is called, but will cut down on stale data living in the network.

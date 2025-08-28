@@ -27,8 +27,6 @@ import (
 
 	"git.stream.place/streamplace/c2pa-go/pkg/c2pa/generated/manifeststore"
 	"github.com/piprate/json-gold/ld"
-
-	irohStreamplace "stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 )
 
 // #cgo pkg-config: streamplacedeps-uninstalled
@@ -133,7 +131,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	}, nil
 }
 
-func (mm *MediaManager) HandleData(node *irohStreamplace.PublicKey, data []byte) {
+func (mm *MediaManager) HandleData(node string, data []byte) {
 	r := bytes.NewReader(data)
 	ctx := context.Background()
 	err := mm.ValidateMP4(ctx, r)

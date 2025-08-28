@@ -1,8 +1,11 @@
 package config
 
 import (
+	"bytes"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -17,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"math/rand/v2"
+	mathRand "math/rand/v2"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
@@ -112,6 +115,7 @@ type CLI struct {
 	Labelers               []string
 	AtprotoDID             string
 	LivepeerHelp           bool
+	IrohAnchorNodes        []string
 }
 
 func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
@@ -173,6 +177,7 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	cli.StringSliceFlag(fs, &cli.Labelers, "labelers", "", "did of labelers that this instance should subscribe to")
 	fs.StringVar(&cli.AtprotoDID, "atproto-did", "", "atproto did to respond to on /.well-known/atproto-did (default did:web:PUBLIC_HOST)")
 	fs.BoolVar(&cli.LivepeerHelp, "livepeer-help", false, "print help for livepeer flags and exit")
+	cli.StringSliceFlag(fs, &cli.IrohAnchorNodes, "iroh-anchor-nodes", "", "iroh anchor nodes to connect to")
 
 	lpFlags := flag.NewFlagSet("livepeer", flag.ContinueOnError)
 	_ = starter.NewLivepeerConfig(lpFlags)
@@ -225,7 +230,7 @@ func RandomTrailer(length int) string {
 
 	res := make([]byte, length)
 	for i := 0; i < length; i++ {
-		res[i] = charset[rand.IntN(len(charset))]
+		res[i] = charset[mathRand.IntN(len(charset))]
 	}
 	return string(res)
 }
@@ -498,4 +503,38 @@ func (cli *CLI) StreamIsAllowed(did string) error {
 
 func (cli *CLI) MyDID() string {
 	return fmt.Sprintf("did:web:%s", cli.PublicHost)
+}
+
+func (cli *CLI) EnsureIrohSecretKey() (string, error) {
+	exists, err := cli.DataFileExists([]string{"iroh-secret.key"})
+	if err != nil {
+		return "", err
+	}
+	var irohSecretKey string
+	if !exists {
+		// Generate a random 32-byte secret key for iroh
+		secretKey := make([]byte, 32)
+		_, err = rand.Read(secretKey)
+		if err != nil {
+			return "", fmt.Errorf("error generating random secret key: %w", err)
+		}
+		irohSecretKey = hex.EncodeToString(secretKey)
+		fd, err := cli.DataFileCreate([]string{"iroh-secret.key"}, true)
+		if err != nil {
+			return "", err
+		}
+		defer fd.Close()
+		_, err = fd.WriteString(irohSecretKey)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		bs := bytes.Buffer{}
+		err := cli.DataFileRead([]string{"iroh-secret.key"}, &bs)
+		if err != nil {
+			return "", err
+		}
+		irohSecretKey = bs.String()
+	}
+	return irohSecretKey, nil
 }

@@ -14,10 +14,10 @@ type IrohReplicator struct {
 	sender *irohStreamplace.Sender
 }
 
-func NewIrohReplicator(ctx context.Context, ep *irohStreamplace.Endpoint, topic string) (*IrohReplicator, error) {
-	sender, err := irohStreamplace.NewSender(ep)
-	if err.AsError() != nil {
-		return nil, err.AsError()
+func NewIrohReplicator(ctx context.Context, ep *irohStreamplace.Endpoint, topic string, anchorNodes []*irohStreamplace.PublicKey) (*IrohReplicator, error) {
+	sender, rustErr := irohStreamplace.NewSender(ep, anchorNodes)
+	if rustErr.AsError() != nil {
+		return nil, rustErr.AsError()
 	}
 
 	return &IrohReplicator{
@@ -27,10 +27,13 @@ func NewIrohReplicator(ctx context.Context, ep *irohStreamplace.Endpoint, topic 
 }
 
 func (rep *IrohReplicator) NewSegment(ctx context.Context, bs []byte) {
+	log.Log(ctx, "replicating segment", "topic", rep.topic)
 	go func(topic string) {
 		err := sendSegment(rep.sender, topic, bs)
 		if err != nil {
 			log.Log(ctx, "error replicating segment", "error", err)
+		} else {
+			log.Log(ctx, "replicated segment", "topic", topic)
 		}
 	}(rep.topic)
 }

@@ -432,8 +432,7 @@ void uniffi_iroh_streamplace_fn_free_endpoint(void* ptr, RustCallStatus *out_sta
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CONSTRUCTOR_ENDPOINT_NEW
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CONSTRUCTOR_ENDPOINT_NEW
-uint64_t uniffi_iroh_streamplace_fn_constructor_endpoint_new(void
-    
+uint64_t uniffi_iroh_streamplace_fn_constructor_endpoint_new(RustBuffer secret_key
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_ENDPOINT_NODE_ADDR
@@ -453,7 +452,7 @@ void uniffi_iroh_streamplace_fn_free_nodeaddr(void* ptr, RustCallStatus *out_sta
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CONSTRUCTOR_NODEADDR_NEW
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CONSTRUCTOR_NODEADDR_NEW
-void* uniffi_iroh_streamplace_fn_constructor_nodeaddr_new(void* node_id, RustBuffer derp_url, RustBuffer addresses, RustCallStatus *out_status
+void* uniffi_iroh_streamplace_fn_constructor_nodeaddr_new(void* node_id, RustBuffer relay_url, RustBuffer addresses, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_NODEADDR_DIRECT_ADDRESSES
@@ -474,6 +473,16 @@ void* uniffi_iroh_streamplace_fn_method_nodeaddr_node_id(void* ptr, RustCallStat
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_NODEADDR_RELAY_URL
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_NODEADDR_RELAY_URL
 RustBuffer uniffi_iroh_streamplace_fn_method_nodeaddr_relay_url(void* ptr, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_PEER
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_PEER
+void* uniffi_iroh_streamplace_fn_clone_peer(void* ptr, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FREE_PEER
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FREE_PEER
+void uniffi_iroh_streamplace_fn_free_peer(void* ptr, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_PUBLICKEY
@@ -528,12 +537,22 @@ void uniffi_iroh_streamplace_fn_free_receiver(void* ptr, RustCallStatus *out_sta
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CONSTRUCTOR_RECEIVER_NEW
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CONSTRUCTOR_RECEIVER_NEW
-uint64_t uniffi_iroh_streamplace_fn_constructor_receiver_new(void* endpoint, void* handler
+uint64_t uniffi_iroh_streamplace_fn_constructor_receiver_new(void* endpoint, RustBuffer anchor_peers, void* handler
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_RECEIVER_LEAVING
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_RECEIVER_LEAVING
+uint64_t uniffi_iroh_streamplace_fn_method_receiver_leaving(void* ptr
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_RECEIVER_NODE_ADDR
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_RECEIVER_NODE_ADDR
 uint64_t uniffi_iroh_streamplace_fn_method_receiver_node_addr(void* ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_RECEIVER_PEERS
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_RECEIVER_PEERS
+uint64_t uniffi_iroh_streamplace_fn_method_receiver_peers(void* ptr
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_RECEIVER_SUBSCRIBE
@@ -558,12 +577,17 @@ void uniffi_iroh_streamplace_fn_free_sender(void* ptr, RustCallStatus *out_statu
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CONSTRUCTOR_SENDER_NEW
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CONSTRUCTOR_SENDER_NEW
-uint64_t uniffi_iroh_streamplace_fn_constructor_sender_new(void* endpoint
+uint64_t uniffi_iroh_streamplace_fn_constructor_sender_new(void* endpoint, RustBuffer anchor_peers
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SENDER_NODE_ADDR
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SENDER_NODE_ADDR
 uint64_t uniffi_iroh_streamplace_fn_method_sender_node_addr(void* ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SENDER_PEERS
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SENDER_PEERS
+uint64_t uniffi_iroh_streamplace_fn_method_sender_peers(void* ptr
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SENDER_SEND
@@ -905,9 +929,21 @@ uint16_t uniffi_iroh_streamplace_checksum_method_publickey_to_bytes(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_RECEIVER_LEAVING
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_RECEIVER_LEAVING
+uint16_t uniffi_iroh_streamplace_checksum_method_receiver_leaving(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_RECEIVER_NODE_ADDR
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_RECEIVER_NODE_ADDR
 uint16_t uniffi_iroh_streamplace_checksum_method_receiver_node_addr(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_RECEIVER_PEERS
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_RECEIVER_PEERS
+uint16_t uniffi_iroh_streamplace_checksum_method_receiver_peers(void
     
 );
 #endif
@@ -926,6 +962,12 @@ uint16_t uniffi_iroh_streamplace_checksum_method_receiver_unsubscribe(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SENDER_NODE_ADDR
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SENDER_NODE_ADDR
 uint16_t uniffi_iroh_streamplace_checksum_method_sender_node_addr(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SENDER_PEERS
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SENDER_PEERS
+uint16_t uniffi_iroh_streamplace_checksum_method_sender_peers(void
     
 );
 #endif

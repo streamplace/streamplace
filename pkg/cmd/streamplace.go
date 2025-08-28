@@ -302,13 +302,25 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		log.Log(ctx, "successfully initialized hardware signer", "address", addr)
 		signer = hwsigner
 	}
-	irohEndpoint, err2 := irohStreamplace.NewEndpoint()
+	anchorNodes := make([]*irohStreamplace.PublicKey, len(cli.IrohAnchorNodes))
+	for i, anchorNode := range cli.IrohAnchorNodes {
+		pubkey, rustErr := irohStreamplace.PublicKeyFromString(anchorNode)
+		if rustErr.AsError() != nil {
+			return fmt.Errorf("error parsing iroh anchor node: %w", err)
+		}
+		anchorNodes[i] = pubkey
+	}
+	irohSecretKey, err := cli.EnsureIrohSecretKey()
+	if err != nil {
+		return err
+	}
+	irohEndpoint, err2 := irohStreamplace.NewEndpoint(irohSecretKey)
 	if err2.AsError() != nil {
 		return err2.AsError()
 	}
 	// TODO: something more useful
 	defaultTopic := "iroh-topic"
-	rep, err := iroh.NewIrohReplicator(ctx, irohEndpoint, defaultTopic)
+	rep, err := iroh.NewIrohReplicator(ctx, irohEndpoint, defaultTopic, anchorNodes)
 	if err != nil {
 		return err
 	}
@@ -359,16 +371,35 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	}
 
 	// TODO: based on a flag, subscribe
-	// rec, err2 := irohStreamplace.NewReceiver(irohEndpoint, mm)
-	// if err2.AsError() != nil {
-	// 	return err2.AsError()
-	// }
-	// rec.Subscribe(peer, defaultTopic)
-
+	rec, err2 := irohStreamplace.NewReceiver(irohEndpoint, anchorNodes, mm)
+	if err2.AsError() != nil {
+		return err2.AsError()
+	}
 	ms, err := media.MakeMediaSigner(ctx, &cli, cli.StreamerName, signer)
 	if err != nil {
 		return err
 	}
+
+	go func() {
+		for {
+			peers, rustErr := rec.Peers()
+			if rustErr.AsError() != nil {
+				log.Error(ctx, "error getting iroh peers", "error", rustErr.AsError())
+			}
+			log.Warn(ctx, "iroh peers", "peers", peers)
+			time.Sleep(time.Second * 10)
+		}
+	}()
+
+	go func() {
+		time.Sleep(time.Second * 10)
+		log.Warn(ctx, "subscribing to iroh topic", "topic", defaultTopic)
+		rustErr := rec.Subscribe(anchorNodes[0], defaultTopic)
+		if rustErr.AsError() != nil {
+			log.Error(ctx, "error subscribing to iroh topic", "error", rustErr.AsError())
+		}
+		log.Warn(ctx, "subscribed to iroh topic", "topic", defaultTopic)
+	}()
 
 	clientMetadata := &oatproxy.OAuthClientMetadata{
 		Scope:      "atproto transition:generic",

@@ -10,7 +10,7 @@ import (
 
 // IrohReplicator implements the replication mechanism using iroh
 type IrohReplicator struct {
-	topic string
+	topic  string
 	sender *irohStreamplace.Sender
 }
 
@@ -20,9 +20,8 @@ func NewIrohReplicator(ctx context.Context, ep *irohStreamplace.Endpoint, topic 
 		return nil, err.AsError()
 	}
 
-
 	return &IrohReplicator{
-		topic: topic,
+		topic:  topic,
 		sender: sender,
 	}, nil
 }

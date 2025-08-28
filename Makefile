@@ -18,6 +18,10 @@ endif
 ifeq ($(BUILDARCH),x86_64)
 		BUILDARCH=amd64
 endif
+MACOS_VERSION_FLAG=
+ifeq ($(BUILDOS),darwin)
+	MACOS_VERSION_FLAG=-mmacosx-version-min=$(shell sw_vers -productVersion)
+endif
 BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
 SHARED_LD_LIBRARY_PATH=$(shell pwd)/$(BUILDDIR)/lib/usr/local/lib/x86_64-linux-gnu
 SHARED_DYLD_LIBRARY_PATH=$(shell pwd)/$(BUILDDIR)/lib/usr/local/lib
@@ -90,7 +94,7 @@ dev:
 	PKG_CONFIG_PATH=$(SHARED_PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(SHARED_LD_LIBRARY_PATH) \
 	DYLD_LIBRARY_PATH=$(SHARED_DYLD_LIBRARY_PATH) \
-	go build -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" go build -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
 .PHONY: golangci-lint
 golangci-lint:

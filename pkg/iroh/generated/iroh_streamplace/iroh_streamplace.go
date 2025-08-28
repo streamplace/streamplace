@@ -405,6 +405,15 @@ func uniffiCheckChecksums() {
 	}
 	{
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_peer_node_addr()
+		})
+		if checksum != 44725 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_peer_node_addr: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_iroh_streamplace_checksum_method_publickey_equal()
 		})
 		if checksum != 25030 {
@@ -1166,6 +1175,8 @@ func (_ FfiDestroyerNodeAddr) Destroy(value *NodeAddr) {
 
 // A peer in a streamplace swarm
 type PeerInterface interface {
+	// Get the node address of this peer
+	NodeAddr() *NodeAddr
 }
 
 // A peer in a streamplace swarm
@@ -1173,6 +1184,15 @@ type Peer struct {
 	ffiObject FfiObject
 }
 
+// Get the node address of this peer
+func (_self *Peer) NodeAddr() *NodeAddr {
+	_pointer := _self.ffiObject.incrementPointer("*Peer")
+	defer _self.ffiObject.decrementPointer()
+	return FfiConverterNodeAddrINSTANCE.Lift(rustCall(func(_uniffiStatus *C.RustCallStatus) unsafe.Pointer {
+		return C.uniffi_iroh_streamplace_fn_method_peer_node_addr(
+			_pointer, _uniffiStatus)
+	}))
+}
 func (object *Peer) Destroy() {
 	runtime.SetFinalizer(object, nil)
 	object.ffiObject.destroy()

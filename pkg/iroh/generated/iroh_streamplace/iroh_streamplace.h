@@ -485,6 +485,11 @@ void* uniffi_iroh_streamplace_fn_clone_peer(void* ptr, RustCallStatus *out_statu
 void uniffi_iroh_streamplace_fn_free_peer(void* ptr, RustCallStatus *out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_PEER_NODE_ADDR
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_PEER_NODE_ADDR
+void* uniffi_iroh_streamplace_fn_method_peer_node_addr(void* ptr, RustCallStatus *out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_PUBLICKEY
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_PUBLICKEY
 void* uniffi_iroh_streamplace_fn_clone_publickey(void* ptr, RustCallStatus *out_status
@@ -908,6 +913,12 @@ uint16_t uniffi_iroh_streamplace_checksum_method_nodeaddr_node_id(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_NODEADDR_RELAY_URL
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_NODEADDR_RELAY_URL
 uint16_t uniffi_iroh_streamplace_checksum_method_nodeaddr_relay_url(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_PEER_NODE_ADDR
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_PEER_NODE_ADDR
+uint16_t uniffi_iroh_streamplace_checksum_method_peer_node_addr(void
     
 );
 #endif

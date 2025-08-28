@@ -386,21 +386,25 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			if rustErr.AsError() != nil {
 				log.Error(ctx, "error getting iroh peers", "error", rustErr.AsError())
 			} else {
-				log.Warn(ctx, "iroh peers", "peers", peers)
+				for _, peer := range peers {
+					log.Warn(ctx, "iroh peer", "peer", peer.NodeAddr().NodeId().String())
+				}
 			}
 			time.Sleep(time.Second * 10)
 		}
 	}()
 
-	go func() {
-		time.Sleep(time.Second * 10)
-		log.Warn(ctx, "subscribing to iroh topic", "topic", defaultTopic)
-		rustErr := rec.Subscribe(anchorNodes[0], defaultTopic)
-		if rustErr.AsError() != nil {
-			log.Error(ctx, "error subscribing to iroh topic", "error", rustErr.AsError())
-		}
-		log.Warn(ctx, "subscribed to iroh topic", "topic", defaultTopic)
-	}()
+	if len(cli.IrohAnchorNodes) > 0 {
+		go func() {
+			time.Sleep(time.Second * 10)
+			log.Warn(ctx, "subscribing to iroh topic", "topic", defaultTopic)
+			rustErr := rec.Subscribe(anchorNodes[0], defaultTopic)
+			if rustErr.AsError() != nil {
+				log.Error(ctx, "error subscribing to iroh topic", "error", rustErr.AsError())
+			}
+			log.Warn(ctx, "subscribed to iroh topic", "topic", defaultTopic)
+		}()
+	}
 
 	clientMetadata := &oatproxy.OAuthClientMetadata{
 		Scope:      "atproto transition:generic",

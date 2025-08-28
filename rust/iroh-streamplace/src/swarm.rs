@@ -8,6 +8,14 @@ pub struct Peer {
     pub subscriptions: Vec<String>,
 }
 
+#[uniffi::export]
+impl Peer {
+    /// Get the node address of this peer
+    pub fn node_addr(&self) -> NodeAddr {
+        self.node_addr.clone()
+    }
+}
+
 impl From<PeerInfo> for Peer {
     fn from(value: PeerInfo) -> Self {
         Self {

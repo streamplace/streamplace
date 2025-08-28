@@ -1,0 +1,5 @@
+@media (min-width: 1151px) {
+  :root {
+    --sl-content-width: min(60vw, 65rem);
+  }
+}

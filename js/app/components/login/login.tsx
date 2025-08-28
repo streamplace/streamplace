@@ -142,7 +142,15 @@ export default function Login() {
               <Input
                 id="pdsUrl"
                 value={handle}
-                onChangeText={(text) => setHandle(text.toLowerCase())}
+                onChangeText={(text) =>
+                  setHandle(
+                    text
+                      .toLowerCase()
+                      // copying from bsky.app often includes some RTL/LTR characters
+                      .replace(/[\u202A\u202C\u200E\u200F\u2066-\u2069]/g, "")
+                      .trim(),
+                  )
+                }
                 backgroundColor="$color2"
                 onSubmitEditing={onEnterPress}
                 autoCapitalize="none"

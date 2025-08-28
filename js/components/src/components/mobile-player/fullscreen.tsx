@@ -5,7 +5,12 @@ import { View } from "../../components/ui";
 import Video from "./video";
 import VideoRetry from "./video-retry";
 
-export function Fullscreen(props: { src: string; children?: React.ReactNode }) {
+export function Fullscreen(props: {
+  src: string;
+  children?: React.ReactNode;
+  objectFit?: "contain" | "cover";
+  pictureInPictureEnabled?: boolean;
+}) {
   const playerId = getFirstPlayerID();
   const protocol = usePlayerStore((x) => x.protocol, playerId);
   const fullscreen = usePlayerStore((x) => x.fullscreen, playerId);
@@ -78,7 +83,10 @@ export function Fullscreen(props: { src: string; children?: React.ReactNode }) {
       style={{ width: "100%", height: "100%", overflow: "hidden" }}
     >
       <VideoRetry>
-        <Video />
+        <Video
+          objectFit={props.objectFit}
+          pictureInPictureEnabled={props.pictureInPictureEnabled}
+        />
       </VideoRetry>
       {props.children}
     </View>

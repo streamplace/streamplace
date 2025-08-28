@@ -250,7 +250,15 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 6
+	fieldCount := 8
+
+	if t.Agent == nil {
+		fieldCount--
+	}
+
+	if t.CanonicalUrl == nil {
+		fieldCount--
+	}
 
 	if t.Post == nil {
 		fieldCount--
@@ -338,6 +346,38 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.Agent (string) (string)
+	if t.Agent != nil {
+
+		if len("agent") > 1000000 {
+			return xerrors.Errorf("Value in field \"agent\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("agent"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("agent")); err != nil {
+			return err
+		}
+
+		if t.Agent == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Agent) > 1000000 {
+				return xerrors.Errorf("Value in field t.Agent was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Agent))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.Agent)); err != nil {
+				return err
+			}
+		}
+	}
+
 	// t.Thumb (util.LexBlob) (struct)
 	if t.Thumb != nil {
 
@@ -402,6 +442,38 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
 	}
+
+	// t.CanonicalUrl (string) (string)
+	if t.CanonicalUrl != nil {
+
+		if len("canonicalUrl") > 1000000 {
+			return xerrors.Errorf("Value in field \"canonicalUrl\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("canonicalUrl"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("canonicalUrl")); err != nil {
+			return err
+		}
+
+		if t.CanonicalUrl == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.CanonicalUrl) > 1000000 {
+				return xerrors.Errorf("Value in field t.CanonicalUrl was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.CanonicalUrl))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.CanonicalUrl)); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -430,7 +502,7 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 9)
+	nameBuf := make([]byte, 12)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -498,6 +570,27 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.LexiconTypeID = string(sval)
 			}
+			// t.Agent (string) (string)
+		case "agent":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.Agent = (*string)(&sval)
+				}
+			}
 			// t.Thumb (util.LexBlob) (struct)
 		case "thumb":
 
@@ -539,6 +632,27 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.CreatedAt = string(sval)
+			}
+			// t.CanonicalUrl (string) (string)
+		case "canonicalUrl":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.CanonicalUrl = (*string)(&sval)
+				}
 			}
 
 		default:

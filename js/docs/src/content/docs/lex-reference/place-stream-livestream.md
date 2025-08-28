@@ -19,13 +19,15 @@ Record announcing a livestream is happening
 
 **Record Properties:**
 
-| Name        | Type                                                                                                                                   | Req'd | Description                                                                                                                      | Constraints                                   |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `title`     | `string`                                                                                                                               | ✅    | The title of the livestream, as it will be announced to followers.                                                               | Max Length: 1400<br/>Max Graphemes: 140       |
-| `url`       | `string`                                                                                                                               | ❌    | The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream. | Format: `uri`                                 |
-| `createdAt` | `string`                                                                                                                               | ✅    | Client-declared timestamp when this livestream started.                                                                          | Format: `datetime`                            |
-| `post`      | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | The post that announced this livestream.                                                                                         |                                               |
-| `thumb`     | `blob`                                                                                                                                 | ❌    |                                                                                                                                  | Accept: `image/*`<br/>Max Size: 1000000 bytes |
+| Name           | Type                                                                                                                                   | Req'd | Description                                                                                                                              | Constraints                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `title`        | `string`                                                                                                                               | ✅    | The title of the livestream, as it will be announced to followers.                                                                       | Max Length: 1400<br/>Max Graphemes: 140       |
+| `url`          | `string`                                                                                                                               | ❌    | The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.         | Format: `uri`                                 |
+| `createdAt`    | `string`                                                                                                                               | ✅    | Client-declared timestamp when this livestream started.                                                                                  | Format: `datetime`                            |
+| `post`         | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | The post that announced this livestream.                                                                                                 |                                               |
+| `agent`        | `string`                                                                                                                               | ❌    | The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS |                                               |
+| `canonicalUrl` | `string`                                                                                                                               | ❌    | The primary URL where this livestream can be viewed, if available.                                                                       | Format: `uri`                                 |
+| `thumb`        | `blob`                                                                                                                                 | ❌    |                                                                                                                                          | Accept: `image/*`<br/>Max Size: 1000000 bytes |
 
 ---
 
@@ -111,6 +113,15 @@ Record announcing a livestream is happening
             "type": "ref",
             "ref": "com.atproto.repo.strongRef",
             "description": "The post that announced this livestream."
+          },
+          "agent": {
+            "type": "string",
+            "description": "The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS"
+          },
+          "canonicalUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "The primary URL where this livestream can be viewed, if available."
           },
           "thumb": {
             "type": "blob",

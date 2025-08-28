@@ -19,6 +19,10 @@ func init() {
 // RECORDTYPE: Livestream
 type Livestream struct {
 	LexiconTypeID string `json:"$type,const=place.stream.livestream" cborgen:"$type,const=place.stream.livestream"`
+	// agent: The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS
+	Agent *string `json:"agent,omitempty" cborgen:"agent,omitempty"`
+	// canonicalUrl: The primary URL where this livestream can be viewed, if available.
+	CanonicalUrl *string `json:"canonicalUrl,omitempty" cborgen:"canonicalUrl,omitempty"`
 	// createdAt: Client-declared timestamp when this livestream started.
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	// post: The post that announced this livestream.

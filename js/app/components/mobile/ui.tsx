@@ -110,13 +110,15 @@ export function MobileUi() {
             <View
               style={[
                 {
-                  padding: 6.5,
-                  backgroundColor: "rgba(0, 0, 0, 0.6)",
+                  padding: 3,
+                  paddingRight: 8,
+                  backgroundColor: "rgba(90,90,90, 0.25)",
+                  borderRadius: 12,
                 },
                 r[2],
                 layout.position.absolute,
-                position.left[1],
-                { top: 8 },
+                position.left[2],
+                { top: 12 },
               ]}
             >
               <View style={[layout.flex.row, layout.flex.center, gap.all[2]]}>
@@ -160,12 +162,13 @@ export function MobileUi() {
               <View
                 style={[
                   {
-                    padding: 10,
-                    backgroundColor: "rgba(0, 0, 0, 0.5)",
+                    padding: 9,
+                    backgroundColor: "rgba(90,90,90, 0.3)",
+                    borderRadius: 12,
                   },
                   r[2],
                   layout.position.absolute,
-                  position.right[12],
+                  position.right[14],
                   { top: 12 },
                   gap.all[4],
                 ]}
@@ -177,8 +180,9 @@ export function MobileUi() {
             <View
               style={[
                 {
-                  padding: 10,
+                  padding: 13,
                   backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  borderRadius: 12,
                 },
                 r[2],
                 layout.position.absolute,

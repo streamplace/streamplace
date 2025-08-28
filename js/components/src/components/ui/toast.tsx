@@ -13,6 +13,116 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../lib/theme/theme";
 
+import { useCallback } from "react";
+
+type ToastController = {
+  show: (
+    title: string,
+    description?: string,
+    options?: {
+      duration?: number;
+      actionLabel?: string;
+      onAction?: () => void;
+    },
+  ) => void;
+  hide: () => void;
+};
+
+type UseToastReturn = {
+  open: boolean;
+  title: string;
+  description?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  duration?: number;
+  setOpen: (open: boolean) => void;
+  setTitle: (title: string) => void;
+  setDescription: (description: string) => void;
+  setActionLabel: (label: string) => void;
+  setOnAction: (cb?: () => void) => void;
+  setDuration: (duration: number) => void;
+  toastController: ToastController;
+};
+
+/**
+ * useToast - a hook to manage Toast state and provide a toastController.
+ * Returns a ready-to-render ToastComponent.
+ */
+export function useToast(
+  initial: {
+    title?: string;
+    description?: string;
+    duration?: number;
+    actionLabel?: string;
+    onAction?: () => void;
+  } = {},
+) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(initial.title ?? "");
+  const [description, setDescription] = useState(initial.description ?? "");
+  const [duration, setDuration] = useState(initial.duration ?? 3);
+  const [actionLabel, setActionLabel] = useState(
+    initial.actionLabel ?? "Action",
+  );
+  const [onAction, setOnAction] = useState<(() => void) | undefined>(
+    initial.onAction,
+  );
+
+  const show = useCallback(
+    (
+      toastTitle: string,
+      toastDescription?: string,
+      options?: {
+        duration?: number;
+        actionLabel?: string;
+        onAction?: () => void;
+      },
+    ) => {
+      setTitle(toastTitle);
+      setDescription(toastDescription ?? "");
+      setDuration(options?.duration ?? 3);
+      setActionLabel(options?.actionLabel ?? "Action");
+      setOnAction(options?.onAction);
+      setOpen(true);
+    },
+    [],
+  );
+
+  const hide = useCallback(() => {
+    setOpen(false);
+  }, []);
+
+  // Ready-to-render Toast component
+  const ToastComponent = (
+    <Toast
+      open={open}
+      onOpenChange={setOpen}
+      title={title}
+      description={description}
+      actionLabel={actionLabel}
+      onAction={onAction}
+      duration={duration}
+    />
+  );
+
+  return {
+    open,
+    title,
+    description,
+    actionLabel,
+    onAction,
+    duration,
+    setOpen,
+    setTitle,
+    setDescription,
+    setActionLabel,
+    setOnAction,
+    setDuration,
+    toastController: { show, hide },
+    ToastComponent,
+  };
+}
+
 type ToastProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;

@@ -10,6 +10,7 @@ interface BottomControlBarProps {
   pipSupported: boolean;
   pipActive: boolean;
   onHandlePip: () => void;
+  dropdownPortalContainer?: any;
 }
 
 export function BottomControlBar({
@@ -17,6 +18,7 @@ export function BottomControlBar({
   pipSupported,
   pipActive,
   onHandlePip,
+  dropdownPortalContainer,
 }: BottomControlBarProps) {
   const fullscreen = usePlayerStore((state) => state.fullscreen);
   const setFullscreen = usePlayerStore((state) => state.setFullscreen);
@@ -51,7 +53,11 @@ export function BottomControlBar({
             {fullscreen ? <Minimize /> : <Fullscreen />}
           </Pressable>
         )}
-        {ingest === null && <PlayerUI.ContextMenu />}
+        {ingest === null && (
+          <PlayerUI.ContextMenu
+            dropdownPortalContainer={dropdownPortalContainer}
+          />
+        )}
       </View>
     </View>
   );

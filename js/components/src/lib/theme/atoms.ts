@@ -107,15 +107,53 @@ export const layout = {
     spaceEvenly: {
       justifyContent: "space-evenly" as const,
     },
+    direction: pairify(
+      {
+        row: "row",
+        column: "column",
+        "row-reverse": "row-reverse",
+        "column-reverse": "column-reverse",
+      },
+      "flexDirection",
+    ),
+    justify: pairify(
+      {
+        start: "flex-start",
+        end: "flex-end",
+        center: "center",
+        between: "space-between",
+        around: "space-around",
+        evenly: "space-evenly",
+      },
+      "justifyContent",
+    ),
+    align: pairify(
+      {
+        start: "flex-start",
+        end: "flex-end",
+        center: "center",
+        stretch: "stretch",
+        baseline: "baseline",
+      },
+      "alignItems",
+    ),
+    wrap: pairify(
+      {
+        wrap: "wrap",
+        nowrap: "nowrap",
+        reverse: "wrap-reverse",
+      },
+      "flexWrap",
+    ),
   },
-  position: {
-    absolute: {
-      position: "absolute" as const,
+  position: pairify(
+    {
+      absolute: "absolute",
+      relative: "relative",
+      static: "static",
     },
-    relative: {
-      position: "relative" as const,
-    },
-  },
+    "position",
+  ),
 };
 
 // Enhanced border utilities with pairified colors and widths
@@ -129,11 +167,14 @@ export const borders = {
     "borderWidth",
   ),
 
-  style: {
-    solid: { borderStyle: "solid" as const },
-    dashed: { borderStyle: "dashed" as const },
-    dotted: { borderStyle: "dotted" as const },
-  },
+  style: pairify(
+    {
+      solid: "solid",
+      dashed: "dashed",
+      dotted: "dotted",
+    },
+    "borderStyle",
+  ),
 
   // Pairified color borders
   color: pairify(rawColors, "borderColor"),
@@ -347,20 +388,26 @@ export const zIndex = pairify(
 );
 
 // Overflow utilities
-export const overflow = {
-  visible: { overflow: "visible" as const },
-  hidden: { overflow: "hidden" as const },
-  scroll: { overflow: "scroll" as const },
-};
+export const overflow = pairify(
+  {
+    visible: "visible",
+    hidden: "hidden",
+    scroll: "scroll",
+  },
+  "overflow",
+);
 
 // Text alignment utilities
-export const textAlign = {
-  left: { textAlign: "left" as const },
-  center: { textAlign: "center" as const },
-  right: { textAlign: "right" as const },
-  justify: { textAlign: "justify" as const },
-  auto: { textAlign: "auto" as const },
-};
+export const textAlign = pairify(
+  {
+    left: "left",
+    center: "center",
+    right: "right",
+    justify: "justify",
+    auto: "auto",
+  },
+  "textAlign",
+);
 
 // Font weight utilities
 export const fontWeight = pairify(
@@ -433,30 +480,37 @@ export const letterSpacing = pairify(
 );
 
 // Text transform utilities
-export const textTransform = {
-  uppercase: { textTransform: "uppercase" as const },
-  lowercase: { textTransform: "lowercase" as const },
-  capitalize: { textTransform: "capitalize" as const },
-  none: { textTransform: "none" as const },
-};
+export const textTransform = pairify(
+  {
+    uppercase: "uppercase",
+    lowercase: "lowercase",
+    capitalize: "capitalize",
+    none: "none",
+  },
+  "textTransform",
+);
 
 // Text decoration utilities
-export const textDecoration = {
-  none: { textDecorationLine: "none" as const },
-  underline: { textDecorationLine: "underline" as const },
-  lineThrough: { textDecorationLine: "line-through" as const },
-  underlineLineThrough: {
-    textDecorationLine: "underline line-through" as const,
+export const textDecoration = pairify(
+  {
+    none: "none",
+    underline: "underline",
+    lineThrough: "line-through",
+    underlineLineThrough: "underline line-through",
   },
-};
+  "textDecorationLine",
+);
 
 // Text align vertical utilities (React Native specific)
-export const textAlignVertical = {
-  auto: { textAlignVertical: "auto" as const },
-  top: { textAlignVertical: "top" as const },
-  bottom: { textAlignVertical: "bottom" as const },
-  center: { textAlignVertical: "center" as const },
-};
+export const textAlignVertical = pairify(
+  {
+    auto: "auto",
+    top: "top",
+    bottom: "bottom",
+    center: "center",
+  },
+  "textAlignVertical",
+);
 
 // Transform utilities
 export const transforms = {

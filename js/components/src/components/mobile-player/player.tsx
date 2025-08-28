@@ -69,7 +69,13 @@ export function Player(
           onOpenChange={setReportModalOpen}
           subject={reportSubject!}
         />
-        <Fullscreen src={props.src}>{props.children}</Fullscreen>
+        <Fullscreen
+          src={props.src}
+          objectFit={props.objectFit}
+          pictureInPictureEnabled={props.pictureInPictureEnabled}
+        >
+          {props.children}
+        </Fullscreen>
       </View>
     </>
   );

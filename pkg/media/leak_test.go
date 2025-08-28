@@ -37,6 +37,7 @@ func init() {
 var LeakTestMutex sync.Mutex
 
 const IgnoreLeaks = "STREAMPLACE_IGNORE_LEAKS"
+const ShowTrace = "STREAMPLACE_SHOW_TRACE"
 const GSTDebugNeeded = "leaks:9,GST_TRACER:9"
 const LeakLine = "GST_TRACER :0:: object-alive"
 
@@ -52,6 +53,7 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 		return
 	}
+	showTrace := os.Getenv(ShowTrace) != ""
 	gstDebug := os.Getenv("GST_DEBUG")
 	if gstDebug == "" {
 		gstDebug = GSTDebugNeeded
@@ -83,9 +85,11 @@ func TestMain(m *testing.M) {
 		// Read and print each line from FD
 		scanner := bufio.NewScanner(pipe)
 		for scanner.Scan() {
-			line := scanner.Text()
-			fmt.Println(line)
-			line = stripansi.Strip(line)
+			lineAnsi := scanner.Text()
+			line := stripansi.Strip(lineAnsi)
+			if !strings.Contains(line, " TRACE ") || showTrace {
+				fmt.Println(lineAnsi)
+			}
 			if strings.Contains(line, LeakLine) {
 				LeakReportMutex.Lock()
 				LeakReport = append(LeakReport, line)

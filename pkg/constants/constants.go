@@ -20,13 +20,13 @@ const StreamplaceMetadata = "place.stream.metadata" //nolint:all
 
 // Streamplace metadata license values
 const (
-	LicenseCC0_1_0         = "place.stream.metadata.contentRights#cc0_1__0"
-	LicenseCCBy_4_0        = "place.stream.metadata.contentRights#cc-by_4__0"
-	LicenseCCBySA_4_0      = "place.stream.metadata.contentRights#cc-by-sa_4__0"
-	LicenseCCByNC_4_0      = "place.stream.metadata.contentRights#cc-by-nc_4__0"
-	LicenseCCByNCSA_4_0    = "place.stream.metadata.contentRights#cc-by-nc-sa_4__0"
-	LicenseCCByND_4_0      = "place.stream.metadata.contentRights#cc-by-nd_4__0"
-	LicenseCCByNCND_4_0    = "place.stream.metadata.contentRights#cc-by-nc-nd_4__0"
+	LicenseCC0_1_0           = "place.stream.metadata.contentRights#cc0_1__0"
+	LicenseCCBy_4_0          = "place.stream.metadata.contentRights#cc-by_4__0"
+	LicenseCCBySA_4_0        = "place.stream.metadata.contentRights#cc-by-sa_4__0"
+	LicenseCCByNC_4_0        = "place.stream.metadata.contentRights#cc-by-nc_4__0"
+	LicenseCCByNCSA_4_0      = "place.stream.metadata.contentRights#cc-by-nc-sa_4__0"
+	LicenseCCByND_4_0        = "place.stream.metadata.contentRights#cc-by-nd_4__0"
+	LicenseCCByNCND_4_0      = "place.stream.metadata.contentRights#cc-by-nc-nd_4__0"
 	LicenseAllRightsReserved = "place.stream.metadata.contentRights#all-rights-reserved"
 )
 

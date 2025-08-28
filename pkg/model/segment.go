@@ -163,7 +163,7 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 	}
 	duration := s.MediaData.Duration
 	sizei64 := int64(s.Size)
-	
+
 	// Convert model metadata to streamplace metadata
 	var contentRights *streamplace.MetadataContentRights
 	if s.ContentRights != nil {
@@ -175,14 +175,14 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 			License:         s.ContentRights.License,
 		}
 	}
-	
+
 	var contentWarnings *streamplace.MetadataContentWarnings
 	if len(s.ContentWarnings) > 0 {
 		contentWarnings = &streamplace.MetadataContentWarnings{
 			Warnings: []string(s.ContentWarnings),
 		}
 	}
-	
+
 	var distributionPolicy *streamplace.MetadataDistributionPolicy
 	if s.DistributionPolicy != nil && s.DistributionPolicy.ExpiresAt != nil {
 		expiryStr := s.DistributionPolicy.ExpiresAt.Format(time.RFC3339)
@@ -190,7 +190,7 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 			DeleteAfter: &expiryStr,
 		}
 	}
-	
+
 	return &streamplace.Segment{
 		LexiconTypeID:      "place.stream.segment",
 		Creator:            s.RepoDID,

@@ -334,8 +334,8 @@ func extractContentRights(mani *manifeststore.Manifest) *model.ContentRights {
 	}
 
 	// Return nil if no rights information was found
-	if rights.CopyrightNotice == nil && rights.CopyrightYear == nil && 
-	   rights.Creator == nil && rights.CreditLine == nil && rights.License == nil {
+	if rights.CopyrightNotice == nil && rights.CopyrightYear == nil &&
+		rights.Creator == nil && rights.CreditLine == nil && rights.License == nil {
 		return nil
 	}
 

@@ -385,8 +385,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			peers, rustErr := rec.Peers()
 			if rustErr.AsError() != nil {
 				log.Error(ctx, "error getting iroh peers", "error", rustErr.AsError())
+			} else {
+				log.Warn(ctx, "iroh peers", "peers", peers)
 			}
-			log.Warn(ctx, "iroh peers", "peers", peers)
 			time.Sleep(time.Second * 10)
 		}
 	}()

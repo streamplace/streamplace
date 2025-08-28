@@ -20,6 +20,7 @@ import (
 	"math/rand/v2"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
 	"github.com/peterbourgon/ff/v3"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
@@ -90,6 +91,7 @@ type CLI struct {
 	PrintChat              bool
 	Color                  string
 	LivepeerGatewayURL     string
+	LivepeerGateway        bool
 	WHIPTest               string
 	Thumbnail              bool
 	SmearAudio             bool
@@ -110,6 +112,7 @@ type CLI struct {
 	Labelers               []string
 	AtprotoDID             string
 	ContentFilters         *ContentFilters
+	LivepeerHelp           bool
 }
 
 // ContentFilters represents the content filtering configuration
@@ -152,6 +155,7 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.StringVar(&cli.StreamerName, "streamer-name", "", "name of the person streaming from this streamplace node")
 	fs.StringVar(&cli.FrontendProxy, "dev-frontend-proxy", "", "(FOR DEVELOPMENT ONLY) proxy frontend requests to this address instead of using the bundled frontend")
 	fs.StringVar(&cli.LivepeerGatewayURL, "livepeer-gateway-url", "", "URL of the Livepeer Gateway to use for transcoding")
+	fs.BoolVar(&cli.LivepeerGateway, "livepeer-gateway", false, "enable embedded Livepeer Gateway")
 	fs.BoolVar(&cli.WideOpen, "wide-open", false, "allow ALL streams to be uploaded to this node (not recommended for production)")
 	cli.StringSliceFlag(fs, &cli.AllowedStreams, "allowed-streams", "", "if set, only allow these addresses or atproto DIDs to upload to this node")
 	cli.StringSliceFlag(fs, &cli.Peers, "peers", "", "other streamplace nodes to replicate to")
@@ -181,6 +185,14 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	cli.StringSliceFlag(fs, &cli.Labelers, "labelers", "", "did of labelers that this instance should subscribe to")
 	fs.StringVar(&cli.AtprotoDID, "atproto-did", "", "atproto did to respond to on /.well-known/atproto-did (default did:web:PUBLIC_HOST)")
 	cli.JSONFlag(fs, &cli.ContentFilters, "content-filters", "{}", "JSON content filtering rules")
+	fs.BoolVar(&cli.LivepeerHelp, "livepeer-help", false, "print help for livepeer flags and exit")
+
+	lpFlags := flag.NewFlagSet("livepeer", flag.ContinueOnError)
+	_ = starter.NewLivepeerConfig(lpFlags)
+	lpFlags.VisitAll(func(f *flag.Flag) {
+		adapted := LivepeerFlags.CamelToSnake[f.Name]
+		fs.Var(f.Value, fmt.Sprintf("livepeer.%s", adapted), f.Usage)
+	})
 
 	if runtime.GOOS == "linux" {
 		fs.BoolVar(&cli.NoMist, "no-mist", true, "Disable MistServer")
@@ -250,6 +262,33 @@ func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 	}
 	if cli.DataDir == "" {
 		return fmt.Errorf("could not determine default data dir (no $HOME) and none provided, please set --data-dir")
+	}
+	if cli.LivepeerGateway && cli.LivepeerGatewayURL != "" {
+		return fmt.Errorf("defining both livepeer-gateway and livepeer-gateway-url doesn't make sense. do you want an embedded gateway or an external one?")
+	}
+	if cli.LivepeerGateway {
+		gatewayPath := cli.DataFilePath([]string{"livepeer", "gateway"})
+		err = fs.Set("livepeer.data-dir", gatewayPath)
+		if err != nil {
+			return err
+		}
+		err = fs.Set("livepeer.gateway", "true")
+		if err != nil {
+			return err
+		}
+		httpAddrFlag := fs.Lookup("livepeer.http-addr")
+		if httpAddrFlag == nil {
+			return fmt.Errorf("livepeer.http-addr not found")
+		}
+		httpAddr := httpAddrFlag.Value.String()
+		if httpAddr == "" {
+			httpAddr = "127.0.0.1:8935"
+			err = fs.Set("livepeer.http-addr", httpAddr)
+			if err != nil {
+				return err
+			}
+		}
+		cli.LivepeerGatewayURL = fmt.Sprintf("http://%s", httpAddr)
 	}
 	for _, dest := range cli.dataDirFlags {
 		*dest = strings.Replace(*dest, SPDataDir, cli.DataDir, 1)

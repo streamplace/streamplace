@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
+	"github.com/peterbourgon/ff/v3"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/term"
 	"stream.place/streamplace/pkg/aqhttp"
@@ -138,6 +140,25 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		fmt.Println("self-test successful!")
 		os.Exit(0)
 	}
+
+	if len(os.Args) > 1 && os.Args[1] == "livepeer" {
+		lpfs := flag.NewFlagSet("livepeer", flag.ExitOnError)
+		_ = starter.NewLivepeerConfig(lpfs)
+		err = ff.Parse(lpfs, os.Args[2:],
+			ff.WithConfigFileFlag("config"),
+			ff.WithEnvVarPrefix("LP"),
+		)
+		if err != nil {
+			return err
+		}
+		err = GoLivepeer(context.Background(), lpfs)
+		if err != nil {
+			log.Error(context.Background(), "error in livepeer", "error", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	_ = flag.Set("logtostderr", "true")
 	vFlag := flag.Lookup("v")
 	cli := config.CLI{Build: build}
@@ -173,6 +194,20 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return nil
 	}
 	spmetrics.Version.WithLabelValues(build.Version).Inc()
+	if cli.LivepeerHelp {
+		lpFlags := flag.NewFlagSet("livepeer", flag.ContinueOnError)
+		_ = starter.NewLivepeerConfig(lpFlags)
+		lpFlags.VisitAll(func(f *flag.Flag) {
+			adapted := config.ToSnakeCase(f.Name)
+			fmt.Printf("  -%s\n", fmt.Sprintf("livepeer.%s", adapted))
+			usage := fmt.Sprintf("    	%s", f.Usage)
+			if f.DefValue != "" {
+				usage = fmt.Sprintf("%s (default %s)", usage, f.DefValue)
+			}
+			fmt.Printf("    	%s\n", usage)
+		})
+		return nil
+	}
 
 	aqhttp.UserAgent = fmt.Sprintf("streamplace/%s", build.Version)
 	if len(os.Args) > 1 && os.Args[1] == "resync" {
@@ -394,6 +429,21 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	group.Go(func() error {
 		return mod.StartSegmentCleaner(ctx)
 	})
+
+	if cli.LivepeerGateway {
+		// make a file to make sure the directory exists
+		fd, err := cli.DataFileCreate([]string{"livepeer", "gateway", "empty"}, true)
+		if err != nil {
+			return err
+		}
+		fd.Close()
+		if err != nil {
+			return err
+		}
+		group.Go(func() error {
+			return GoLivepeer(ctx, fs)
+		})
+	}
 
 	group.Go(func() error {
 		return d.Start(ctx)

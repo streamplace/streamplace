@@ -6,7 +6,7 @@ project(
     'cpp_std': 'c++11',
     'default_library': 'static',
     'auto_features': 'disabled',
-    'force_fallback_for': 'gio-2.0,gstreamer-controller-1.0,gstreamer-app-1.0,gstreamer-pbutils-1.0,glib-2.0,gobject-2.0,gio-2.0,gio-unix-2.0,fdk-aac,zlib,libffi,pcre2,intl,x264,freetype2,libpng,libjpeg,fontconfig,pango,opus,fribidi,harfbuzz,nettle,cairo,pixman,expat,openssl',
+    'force_fallback_for': 'gio-2.0,gstreamer-controller-1.0,gstreamer-app-1.0,gstreamer-pbutils-1.0,glib-2.0,gobject-2.0,gio-2.0,gio-unix-2.0,fdk-aac,zlib,libffi,pcre2,intl,proxy-libintl,x264,freetype2,libpng,libjpeg,fontconfig,pango,opus,fribidi,harfbuzz,nettle,cairo,pixman,expat,openssl',
     'buildtype': 'debugoptimized',
     'prefix': '/usr/local', # otherwise mac meson will try and do /opt/homebrew sometimes
   },
@@ -92,6 +92,16 @@ streamplace_deps = []
 #   streamplace_deps += mistserver
 # endif
 
+x264_proj = subproject(
+  'x264',
+  default_options: {},
+)
+
+proxy_libintl_proj = subproject(
+  'proxy-libintl',
+  default_options: {},
+)
+
 ffmpeg_opts = {
   'aac_adtstoasc_bsf': 'enabled',
   'aac_decoder': 'enabled',
@@ -105,7 +115,6 @@ ffmpeg_opts = {
   'concat_filter': 'enabled',
   'concat_protocol': 'enabled',
   'concatf_protocol': 'enabled',
-  'cuda': 'enabled',
   'extract_extradata_bsf': 'enabled',
   'fd_protocol': 'enabled',
   'fifo_muxer': 'enabled',
@@ -131,7 +140,6 @@ ffmpeg_opts = {
   'hls_muxer': 'enabled',
   'http_protocol': 'enabled',
   'hwdownload_filter': 'enabled',
-  'hwupload_cuda_filter': 'enabled',
   'image2_demuxer': 'enabled',
   'libxcb': 'enabled',
   'matroska_audio_muxer': 'enabled',
@@ -153,12 +161,10 @@ ffmpeg_opts = {
   'png_decoder': 'enabled',
   'png_parser': 'enabled',
   'rtmp_protocol': 'enabled',
-  'scale_cuda_filter': 'enabled',
   'scale_filter': 'enabled',
   'segment_muxer': 'enabled',
   'stream_segment_muxer': 'enabled',
   'select_filter': 'enabled',
-  'signature_cuda_filter': 'enabled',
   'signature_filter': 'enabled',
   'tcp_protocol': 'enabled',
   'vorbis_decoder': 'enabled',
@@ -175,11 +181,36 @@ ffmpeg_opts = {
   'vp9_superframe_bsf': 'enabled',
   'ac3_parser': 'enabled',
   'pgs_frame_merge_bsf': 'enabled',
+  'libx264': 'enabled',
+  'libx264_encoder': 'enabled',
+  'libx264rgb_encoder': 'enabled',
+  'mpegtsraw_demuxer': 'enabled',
+  'adts_muxer': 'enabled',
+  'latm_muxer': 'enabled',
+  'vvc_mp4toannexb_bsf': 'enabled',
 }
 
 if host_machine.system() != 'windows'
   ffmpeg_opts += {'nanosleep': 'enabled'}
 endif
+
+# Someday maybe once the meson port of ffmpeg supports cuda
+
+# if host_machine.system() != 'darwin'
+#   ffmpeg_opts += {
+#     'ff_cuda_llvm': 'enabled',
+#     'cuda': 'enabled',
+#     'hwupload_cuda_filter': 'enabled',
+#     'scale_cuda_filter': 'enabled',
+#     # 'signature_cuda_filter': 'enabled',
+#     'ffnvcodec': 'enabled',
+#     'h264_nvenc_encoder': 'enabled',
+#     'nvenc': 'enabled',
+#     'nvdec': 'enabled',
+#     'h264_nvdec_hwaccel': 'enabled',
+#     'libdl': 'enabled',
+#   }
+# endif
 
 ffmpeg_proj = subproject(
   'FFmpeg',
@@ -305,7 +336,7 @@ if not meson.is_cross_build()
     args: [
       'test',
       '-p', '1',
-      '-timeout', '300s',
+      '-timeout', '600s',
       '@0@/pkg/...'.format(meson.current_source_dir()),
       '@0@/cmd/...'.format(meson.current_source_dir()),
     ],

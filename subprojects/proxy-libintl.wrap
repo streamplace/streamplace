@@ -1,0 +1,10 @@
+[wrap-file]
+directory = proxy-libintl-0.4
+source_url = https://github.com/frida/proxy-libintl/archive/refs/tags/0.4.tar.gz
+source_filename = proxy-libintl-0.4.tar.gz
+source_hash = 13ef3eea0a3bc0df55293be368dfbcff5a8dd5f4759280f28e030d1494a5dffb
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/proxy-libintl_0.4-1/proxy-libintl-0.4.tar.gz
+wrapdb_version = 0.4-1
+
+[provide]
+intl = intl_dep

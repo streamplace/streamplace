@@ -250,8 +250,8 @@ importers:
         specifier: ^4.0.0
         version: 4.0.0(expo@53.0.11(@babel/core@7.26.0)(@expo/metro-runtime@5.0.4(react-native@0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(react-native-webview@13.15.0(react-native@0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)(utf-8-validate@5.0.10))(react-native-gesture-handler@2.26.0(react-native@0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0))(react-native-reanimated@3.18.0(@babel/core@7.26.0)(react-native@0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
       rtcaudiodevice:
-        specifier: git+https://github.com/streamplace/RTCAudioDevice.git#7b4659fe845545d366623cbc813936987144b76f
-        version: https://codeload.github.com/streamplace/RTCAudioDevice/tar.gz/7b4659fe845545d366623cbc813936987144b76f
+        specifier: git+https://github.com/streamplace/RTCAudioDevice.git#918e08a0f6f0818fb495a0db0b696b44d11d1336
+        version: https://codeload.github.com/streamplace/RTCAudioDevice/tar.gz/918e08a0f6f0818fb495a0db0b696b44d11d1336
       stream-http:
         specifier: ^3.2.0
         version: 3.2.0
@@ -395,9 +395,6 @@ importers:
       '@gorhom/bottom-sheet':
         specifier: ^5.1.6
         version: 5.1.6(react-native-gesture-handler@2.26.0(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0))(react-native-reanimated@3.18.0(@babel/core@7.26.0)(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
-      '@react-navigation/native':
-        specifier: ^6.1.18
-        version: 6.1.18(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
       '@rn-primitives/dropdown-menu':
         specifier: ^1.2.0
         version: 1.2.0(@rn-primitives/portal@1.3.0(immer@10.1.1)(react-native-web@0.20.0(encoding@0.1.13)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)(use-sync-external-store@1.2.2(react@19.0.0)))(react-dom@19.0.0(react@19.0.0))(react-native-web@0.20.0(encoding@0.1.13)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
@@ -411,10 +408,10 @@ importers:
         specifier: ^0.6.1
         version: 0.6.1
       expo-keep-awake:
-        specifier: ~14.1.4
+        specifier: ^14.0.0
         version: 14.1.4(expo@53.0.11(@babel/core@7.26.0)(@expo/metro-runtime@5.0.4(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(react-native-webview@13.15.0(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
       expo-video:
-        specifier: ~2.2.1
+        specifier: ^2.0.0
         version: 2.2.1(expo@53.0.11(@babel/core@7.26.0)(@expo/metro-runtime@5.0.4(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)))(bufferutil@4.0.8)(react-native-webview@13.15.0(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)(utf-8-validate@5.0.10))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
       hls.js:
         specifier: ^1.5.17
@@ -426,22 +423,22 @@ importers:
         specifier: '*'
         version: 19.0.0
       react-native:
-        specifier: 0.79.3
+        specifier: ^0.79.0
         version: 0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)
       react-native-edge-to-edge:
         specifier: ^1.6.2
         version: 1.6.2(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
       react-native-gesture-handler:
-        specifier: ~2.26.0
+        specifier: ^2.20.0
         version: 2.26.0(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
       react-native-reanimated:
-        specifier: ~3.18.0
+        specifier: ^3.0.0
         version: 3.18.0(@babel/core@7.26.0)(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
       react-native-safe-area-context:
-        specifier: 5.4.1
+        specifier: ^5.0.0
         version: 5.4.1(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
       react-native-svg:
-        specifier: 15.12.0
+        specifier: ^15.0.0
         version: 15.12.0(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
       react-native-webrtc:
         specifier: git+https://github.com/streamplace/react-native-webrtc.git#6b8472a771ac47f89217d327058a8a4124a6ae56
@@ -472,8 +469,8 @@ importers:
         specifier: git+https://github.com/streamplace/react-native-webrtc.git#6b8472a771ac47f89217d327058a8a4124a6ae56
         version: https://codeload.github.com/streamplace/react-native-webrtc/tar.gz/6b8472a771ac47f89217d327058a8a4124a6ae56(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))
       rtcaudiodevice:
-        specifier: git+https://github.com/streamplace/RTCAudioDevice.git#7b4659fe845545d366623cbc813936987144b76f
-        version: https://codeload.github.com/streamplace/RTCAudioDevice/tar.gz/7b4659fe845545d366623cbc813936987144b76f
+        specifier: git+https://github.com/streamplace/RTCAudioDevice.git#918e08a0f6f0818fb495a0db0b696b44d11d1336
+        version: https://codeload.github.com/streamplace/RTCAudioDevice/tar.gz/918e08a0f6f0818fb495a0db0b696b44d11d1336
     devDependencies:
       typescript:
         specifier: ~5.3.3
@@ -10616,8 +10613,8 @@ packages:
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
 
-  rtcaudiodevice@https://codeload.github.com/streamplace/RTCAudioDevice/tar.gz/7b4659fe845545d366623cbc813936987144b76f:
-    resolution: {tarball: https://codeload.github.com/streamplace/RTCAudioDevice/tar.gz/7b4659fe845545d366623cbc813936987144b76f}
+  rtcaudiodevice@https://codeload.github.com/streamplace/RTCAudioDevice/tar.gz/918e08a0f6f0818fb495a0db0b696b44d11d1336:
+    resolution: {tarball: https://codeload.github.com/streamplace/RTCAudioDevice/tar.gz/918e08a0f6f0818fb495a0db0b696b44d11d1336}
     version: 0.0.1
 
   run-async@2.4.1:
@@ -10887,6 +10884,7 @@ packages:
   source-map@0.8.0-beta.0:
     resolution: {integrity: sha512-2ymg6oRBpebeZi9UUNsgQ89bhx01TcTkmNTGnNO88imTmbSgy4nfujrgVEFKWpMTEGA11EDkTt7mqObTPdigIA==}
     engines: {node: '>= 8'}
+    deprecated: The work that was done in this beta branch won't be included in future versions
 
   space-separated-tokens@2.0.2:
     resolution: {integrity: sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q==}
@@ -16441,15 +16439,6 @@ snapshots:
       nanoid: 3.3.11
       react: 19.0.0
       react-native: 0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)
-
-  '@react-navigation/native@6.1.18(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)':
-    dependencies:
-      '@react-navigation/core': 6.4.17(react@19.0.0)
-      escape-string-regexp: 4.0.0
-      fast-deep-equal: 3.1.3
-      nanoid: 3.3.11
-      react: 19.0.0
-      react-native: 0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)
 
   '@react-navigation/routers@6.1.9':
     dependencies:
@@ -26386,7 +26375,7 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.40.1
       fsevents: 2.3.3
 
-  rtcaudiodevice@https://codeload.github.com/streamplace/RTCAudioDevice/tar.gz/7b4659fe845545d366623cbc813936987144b76f: {}
+  rtcaudiodevice@https://codeload.github.com/streamplace/RTCAudioDevice/tar.gz/918e08a0f6f0818fb495a0db0b696b44d11d1336: {}
 
   run-async@2.4.1: {}
 

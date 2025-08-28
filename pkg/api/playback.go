@@ -1,19 +1,16 @@
 package api
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/pion/webrtc/v4"
-	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/errors"
@@ -36,114 +33,6 @@ func (a *StreamplaceAPI) NormalizeUser(ctx context.Context, user string) (string
 		return "", err
 	}
 	return repo.DID, nil
-}
-
-func (a *StreamplaceAPI) HandleMP4Playback(ctx context.Context) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		rendition := getRendition(r)
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		var delayMS int64 = 3000
-		userDelay := r.URL.Query().Get("delayms")
-		if userDelay != "" {
-			var err error
-			delayMS, err = strconv.ParseInt(userDelay, 10, 64)
-			if err != nil {
-				errors.WriteHTTPBadRequest(w, "error parsing delay", err)
-				return
-			}
-			if delayMS > 10000 {
-				errors.WriteHTTPBadRequest(w, "delay too large, maximum 10000", nil)
-				return
-			}
-		}
-		spmetrics.ViewerInc(user)
-		defer spmetrics.ViewerDec(user)
-		w.Header().Set("Content-Type", "video/mp4")
-		w.WriteHeader(200)
-		g, ctx := errgroup.WithContext(ctx)
-		pr, pw := io.Pipe()
-		bufw := bufio.NewWriter(pw)
-		g.Go(func() error {
-			return a.MediaManager.SegmentToMP4(ctx, user, rendition, bufw)
-		})
-		g.Go(func() error {
-			<-ctx.Done()
-			pr.Close()
-			pw.Close()
-			return nil
-		})
-		g.Go(func() error {
-			time.Sleep(time.Duration(delayMS) * time.Millisecond)
-			_, err := io.Copy(w, pr)
-			return err
-		})
-		if err := g.Wait(); err != nil {
-			errors.WriteHTTPBadRequest(w, "request failed", err)
-		}
-	}
-}
-
-func (a *StreamplaceAPI) HandleMKVPlayback(ctx context.Context) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		rendition := getRendition(r)
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		var delayMS int64 = 1000
-		userDelay := r.URL.Query().Get("delayms")
-		if userDelay != "" {
-			var err error
-			delayMS, err = strconv.ParseInt(userDelay, 10, 64)
-			if err != nil {
-				errors.WriteHTTPBadRequest(w, "error parsing delay", err)
-				return
-			}
-			if delayMS > 10000 {
-				errors.WriteHTTPBadRequest(w, "delay too large, maximum 10000", nil)
-				return
-			}
-		}
-		spmetrics.ViewerInc(user)
-		defer spmetrics.ViewerDec(user)
-		w.Header().Set("Content-Type", "video/webm")
-		w.WriteHeader(200)
-		g, ctx := errgroup.WithContext(ctx)
-		pr, pw := io.Pipe()
-		bufw := bufio.NewWriter(pw)
-		g.Go(func() error {
-			return a.MediaManager.SegmentToMKV(ctx, user, rendition, bufw)
-		})
-		g.Go(func() error {
-			<-ctx.Done()
-			pr.Close()
-			pw.Close()
-			return nil
-		})
-		g.Go(func() error {
-			time.Sleep(time.Duration(delayMS) * time.Millisecond)
-			_, err := io.Copy(w, pr)
-			return err
-		})
-		if err := g.Wait(); err != nil {
-			errors.WriteHTTPBadRequest(w, "request failed", err)
-		}
-	}
 }
 
 func (a *StreamplaceAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Handle {

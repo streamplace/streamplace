@@ -90,11 +90,11 @@ jobs:
           - name: darwin-arm64
             runs-on: macos-15
             cmd: make && make test && make check
-            xcode-version: "16.1.0"
+            xcode-version: "16.4"
           - name: ios
             runs-on: macos-15
             cmd: make ios
-            xcode-version: "16.1.0"
+            xcode-version: "16.4"
           - name: darwin-amd64
             runs-on: macos-13
             cmd: make

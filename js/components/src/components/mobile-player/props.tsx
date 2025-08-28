@@ -9,4 +9,11 @@ export type PlayerProps = {
   ingest?: boolean;
   embedded?: boolean;
   reportingURL?: string;
+  objectFit?: "contain" | "cover";
+  pictureInPictureEnabled?: boolean;
+};
+
+export type VideoNativeProps = {
+  objectFit?: "contain" | "cover";
+  pictureInPictureEnabled?: boolean;
 };

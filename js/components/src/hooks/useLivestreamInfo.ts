@@ -3,7 +3,7 @@ import { useLivestreamStore } from "../livestream-store";
 import { usePlayerStore } from "../player-store";
 import { useCreateStreamRecord } from "../streamplace-store";
 
-export function useLivestreamInfo() {
+export function useLivestreamInfo(url?: string) {
   const ingest = usePlayerStore((x) => x.ingestConnectionState);
   const profile = useLivestreamStore((x) => x.profile);
   const ingestStarting = usePlayerStore((x) => x.ingestStarting);
@@ -20,7 +20,11 @@ export function useLivestreamInfo() {
     try {
       if (title !== "") {
         setRecordSubmitted(true);
-        await createStreamRecord(title);
+        // Create the livestream record with title and custom url if available
+        await createStreamRecord({
+          title,
+          customUrl: url || null,
+        });
       }
     } catch (error) {
       console.error("Error creating livestream:", error);

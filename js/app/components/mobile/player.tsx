@@ -17,7 +17,7 @@ import { ArrowLeft, ArrowRight } from "@tamagui/lucide-icons";
 import { selectUserProfile } from "features/bluesky/blueskySlice";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useSidebarControl } from "hooks/useSidebarControl";
-import { useEffect, useState } from "react";
+import { ComponentRef, useEffect, useRef, useState } from "react";
 import { Animated, ScrollView } from "react-native";
 import { useAppSelector } from "store/hooks";
 import { BottomMetadata } from "./bottom-metadata";
@@ -154,6 +154,7 @@ export function PlayerInner(
 ) {
   let sb = useSidebarControl();
   let fullscreen = usePlayerStore((x) => x.fullscreen);
+  const dropdownPortalRef = useRef<ComponentRef<typeof View> | null>(null);
   const {
     shouldShowChatSidePanel,
     chatPanelWidth,
@@ -187,11 +188,6 @@ export function PlayerInner(
 
   const showBottomMetaPanel = aspectRatio > 1 && screenWidth > 980;
 
-  // Direct responsive styling without animations
-  const playerStyle = {
-    width: calculatedWidth,
-    height: calculatedHeight,
-  };
   // i don't really like this, but it's the only way to ensure the
   // player is sized correctly on both desktop and mobile views
   const ContainerElement = showBottomMetaPanel ? ScrollView : View;
@@ -227,9 +223,22 @@ export function PlayerInner(
         ]}
       >
         <PlayerInnerInner {...props}>
-          {(showBottomMetaPanel || fullscreen) && <DesktopUi />}
+          {(showBottomMetaPanel || fullscreen) && (
+            <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
+          )}
           <PlayerUI.ViewerLoadingOverlay />
           <OfflineCounter isMobile={true} />
+          <View
+            ref={dropdownPortalRef}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              pointerEvents: "none",
+            }}
+          />
         </PlayerInnerInner>
       </Animated.View>
       {showBottomMetaPanel && (

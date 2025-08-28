@@ -300,11 +300,17 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 		return fmt.Errorf("livestream is not a streamplace livestream")
 	}
 
+	canonicalUrl := fmt.Sprintf("https://%s/%s", ss.cli.PublicHost, repo.Handle)
+
+	if lsr.CanonicalUrl != nil {
+		canonicalUrl = *lsr.CanonicalUrl
+	}
+
 	actorStatusEmbed := bsky.ActorStatus_Embed{
 		EmbedExternal: &bsky.EmbedExternal{
 			External: &bsky.EmbedExternal_External{
 				Title:       lsr.Title,
-				Uri:         fmt.Sprintf("https://%s/%s", ss.cli.PublicHost, repo.Handle),
+				Uri:         canonicalUrl,
 				Description: fmt.Sprintf("@%s is 🔴LIVE on %s", repo.Handle, ss.cli.PublicHost),
 				Thumb:       thumb,
 			},
@@ -313,7 +319,7 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 
 	duration := int64(2)
 	status := bsky.ActorStatus{
-		Status:          "live",
+		Status:          "app.bsky.actor.status#live",
 		DurationMinutes: &duration,
 		Embed:           &actorStatusEmbed,
 		CreatedAt:       time.Now().Format(time.RFC3339),

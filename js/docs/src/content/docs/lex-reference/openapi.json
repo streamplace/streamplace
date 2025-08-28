@@ -55,6 +55,59 @@
         ]
       }
     },
+    "/xrpc/place.stream.live.getProfileCard": {
+      "get": {
+        "summary": "Get an OG image associated with a given account.",
+        "operationId": "place.stream.live.getProfileCard",
+        "tags": ["place.stream.live"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "*/*": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "RepoNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "description": "The DID or handle of the account.",
+            "schema": {
+              "type": "string",
+              "description": "The DID or handle of the account."
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.live.getSegments": {
       "get": {
         "summary": "Get a list of livestream segments for a user",

@@ -34,6 +34,8 @@ function assignVideoRef(
 type VideoProps = {
   url: string;
   videoRef?: React.RefObject<HTMLVideoElement>;
+  objectFit?: "contain" | "cover";
+  pictureInPictureEnabled?: boolean;
 };
 
 function useVideoDimensions(videoRef: React.RefObject<HTMLVideoElement>) {
@@ -67,7 +69,10 @@ function useVideoDimensions(videoRef: React.RefObject<HTMLVideoElement>) {
   return dimensions;
 }
 
-export default function WebVideo() {
+export default function WebVideo(props?: {
+  objectFit?: "contain" | "cover";
+  pictureInPictureEnabled?: boolean;
+}) {
   const inProto = usePlayerStore((x) => x.protocol);
   const isIngesting = usePlayerStore((x) => x.ingestConnectionState !== null);
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
@@ -86,7 +91,12 @@ export default function WebVideo() {
     }
   }, [dimensions, setPlayerWidth, setPlayerHeight]);
 
-  const playerProps = { url, videoRef };
+  const playerProps = {
+    url,
+    videoRef,
+    objectFit: props?.objectFit,
+    pictureInPictureEnabled: props?.pictureInPictureEnabled,
+  };
 
   return (
     <>
@@ -274,7 +284,7 @@ const VideoElement = forwardRef<
       onVolumeChange={event("volumechange")}
       onWaiting={event("waiting")}
       style={{
-        objectFit: "contain",
+        objectFit: props.objectFit || "contain",
         backgroundColor: "transparent",
         width: "100%",
         height: "100%",
@@ -282,6 +292,7 @@ const VideoElement = forwardRef<
         maxHeight: "100%",
         transform: ingest ? "scaleX(-1)" : undefined,
       }}
+      disablePictureInPicture={props.pictureInPictureEnabled === false}
     />
   );
 });

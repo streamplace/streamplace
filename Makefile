@@ -802,12 +802,14 @@ ci-deb-release:
 check: install
 	$(MAKE) golangci-lint
 	pnpm run check
+	cargo fmt --check --all
 	if [ "`gofmt -l . | wc -l`" -gt 0 ]; then echo 'gofmt failed, run make fix'; exit 1; fi
 
 .PHONY: fix
 fix:
 	pnpm run fix
 	gofmt -w .
+	cargo fmt --all
 
 .PHONY: precommit
 precommit: dockerfile-hash-precommit

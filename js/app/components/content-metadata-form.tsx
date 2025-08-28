@@ -1,18 +1,17 @@
+import {
+  useContentMetadata,
+  useContentMetadataError,
+  useGetContentMetadata,
+  useIsCreating,
+  useIsUpdating,
+  useSaveContentMetadata,
+} from "@streamplace/components";
 import { ChevronDown, Info } from "@tamagui/lucide-icons";
 import { useToastController } from "@tamagui/toast";
 import {
   createStreamKeyRecord,
   selectStoredKey,
 } from "features/bluesky/blueskySlice";
-import {
-  createContentMetadata,
-  getContentMetadata,
-  selectError,
-  selectIsCreating,
-  selectIsUpdating,
-  selectLastCreatedRecord,
-  updateContentMetadata,
-} from "features/bluesky/contentMetadataSlice";
 import React, { useEffect, useState } from "react";
 import { useWindowDimensions } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
@@ -217,11 +216,14 @@ export default function ContentMetadataForm({
   const useTwoColumns = isWide;
   const dispatch = useAppDispatch();
   const toast = useToastController();
-  const isUpdating = useAppSelector(selectIsUpdating);
-  const isCreating = useAppSelector(selectIsCreating);
-  const error = useAppSelector(selectError);
-  const lastCreatedRecord = useAppSelector(selectLastCreatedRecord);
+  const isUpdating = useIsUpdating();
+  const isCreating = useIsCreating();
+  const error = useContentMetadataError();
+  const lastCreatedRecord = useContentMetadata();
   const storedKey = useAppSelector(selectStoredKey);
+
+  const saveContentMetadata = useSaveContentMetadata();
+  const getContentMetadata = useGetContentMetadata();
 
   const isLoading = isUpdating || isCreating;
   // Check if we have metadata based on the fetched record
@@ -256,8 +258,10 @@ export default function ContentMetadataForm({
   // Fetch existing metadata on component mount
   useEffect(() => {
     // Always check if metadata record exists when component mounts
-    dispatch(getContentMetadata({ rkey: "self" }));
-  }, [dispatch]);
+    getContentMetadata({ rkey: "self" }).catch((error) => {
+      console.warn("Failed to fetch content metadata:", error);
+    });
+  }, [getContentMetadata]);
 
   // Pre-populate form fields when existing metadata is fetched
   useEffect(() => {
@@ -266,7 +270,11 @@ export default function ContentMetadataForm({
 
       // Update content warnings
       if (record.contentWarnings && record.contentWarnings.warnings) {
-        setContentWarnings(record.contentWarnings.warnings);
+        setContentWarnings(
+          Array.isArray(record.contentWarnings.warnings)
+            ? record.contentWarnings.warnings
+            : [],
+        );
       }
 
       // Update distribution policy
@@ -310,7 +318,11 @@ export default function ContentMetadataForm({
 
       // Update the parent component with the loaded metadata
       const metadata: ContentMetadata = {
-        contentWarnings: record.contentWarnings || { warnings: [] },
+        contentWarnings: {
+          warnings: Array.isArray(record.contentWarnings?.warnings)
+            ? record.contentWarnings.warnings
+            : [],
+        },
         distributionPolicy: {
           deleteAfter: record.distributionPolicy?.deleteAfter,
         },
@@ -448,33 +460,19 @@ export default function ContentMetadataForm({
         }),
       };
 
-      if (hasMetadata) {
-        // Update existing metadata
-        await dispatch(
-          updateContentMetadata({
-            rkey: "self",
-            ...metadataPayload,
-          }),
-        ).unwrap();
-        toast.show("Success", {
-          message: "Content metadata updated successfully",
-        });
-      } else {
-        // Create new metadata
-        await dispatch(
-          (createContentMetadata as any)({
-            contentWarnings,
-            distributionPolicy,
-            contentRights,
-          }),
-        ).unwrap();
-        toast.show("Success", {
-          message: "Content metadata created successfully",
-        });
-      }
+      // Use saveContentMetadata which handles both create and update with putRecord
+      await saveContentMetadata({
+        contentWarnings,
+        distributionPolicy,
+        contentRights,
+        _isUpdate: hasMetadata,
+      });
+      toast.show("Success", {
+        message: "Content metadata saved successfully",
+      });
     } catch (error) {
       toast.show("Error", {
-        message: `Failed to ${hasMetadata ? "update" : "create"} metadata: ${error.message || error}`,
+        message: `Failed to save metadata: ${error.message || error}`,
       });
     }
   };

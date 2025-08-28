@@ -4,7 +4,7 @@ import { setupListeners } from "@reduxjs/toolkit/query";
 import { baseSlice } from "features/base/baseSlice";
 import { sidebarSlice } from "features/base/sidebarSlice";
 import { blueskySlice } from "features/bluesky/blueskySlice";
-import { contentMetadataSlice } from "features/bluesky/contentMetadataSlice";
+
 import { platformSlice } from "features/platform/platformSlice";
 import { streamplaceSlice } from "features/streamplace/streamplaceSlice";
 
@@ -12,7 +12,6 @@ import { listenerMiddleware } from "./listener";
 
 const rootReducer = combineSlices(
   blueskySlice,
-  contentMetadataSlice,
   streamplaceSlice,
   platformSlice,
   sidebarSlice,

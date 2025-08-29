@@ -14,12 +14,9 @@ let randomString = Math.random().toString(36);
 // cloudflare only!
 const fetchIp = async () => {
   try {
-    const res = await fetch("/cdn-cgi/trace");
-    const text = await res.text();
-    const match = text.match(/ip=([^\n]+)/);
-    if (match && match[1]) {
-      errorReportingConfig.ip = match[1];
-    }
+    const res = await fetch("https://api.ipify.org?format=json");
+    const j = await res.json();
+    errorReportingConfig.ip = j.ip;
   } catch (e) {
     // ignore
   }

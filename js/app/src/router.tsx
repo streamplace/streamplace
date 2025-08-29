@@ -86,11 +86,14 @@ import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
 } from "react-native-reanimated";
+import { register } from "utils/errorReporting";
 import MobileGoLive from "./screens/mobile-go-live";
 import MobileStream from "./screens/mobile-stream";
 store.dispatch(loadStateFromStorage());
 
 const Stack = createNativeStackNavigator();
+
+register();
 
 // disabled strict b/c chat swipeable triggers it a LOT and the resulting logging
 // slows down the whole app

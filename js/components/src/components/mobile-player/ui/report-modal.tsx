@@ -223,7 +223,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       switch (stepNumber) {
         case 1:
           return (
-            <View style={[zero.mt[3], { width: "100%", maxWidth: 300 }]}>
+            <View style={[zero.mt[3], { width: "100%" }, zero.bg.destructive]}>
               {REPORT_REASONS.map((reason) => (
                 <TouchableOpacity
                   key={reason.value}
@@ -287,14 +287,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
         case 2:
           return (
-            <View
-              style={[
-                zero.mt[3],
-                zero.ml[9],
-                zero.pr[4],
-                { width: "100%", maxWidth: 300 },
-              ]}
-            >
+            <View style={[zero.mt[3], { width: "100%" }]}>
               <Text style={[zero.mb[2]]}>Additional Comments (optional)</Text>
               <Textarea
                 maxLength={500}
@@ -319,14 +312,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             (r) => r.value === selectedReason,
           );
           return (
-            <View
-              style={[
-                zero.mt[3],
-                zero.ml[9],
-                zero.pr[4],
-                { width: "100%", maxWidth: 300 },
-              ]}
-            >
+            <View style={[zero.mt[3], { width: "100%" }]}>
               <View
                 style={[
                   zero.mb[4],
@@ -377,7 +363,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 zero.mt[3],
 
                 zero.layout.flex.alignCenter,
-                { width: "100%", maxWidth: 300 },
+                { width: "100%" },
               ]}
             >
               <CheckCircle size={48} color="#00C851" style={[zero.mb[4]]} />
@@ -425,7 +411,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       if (!currentStepData) return <></>;
 
       return (
-        <View style={[zero.mb[4], { minWidth: 320 }]}>
+        <View style={[zero.mb[4]]}>
           <View style={[zero.layout.flex.row, zero.mb[3]]}>
             <View
               style={[
@@ -467,7 +453,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     }
 
     return (
-      <View style={[zero.mb[4], zero.px[4], { minWidth: 320 }]}>
+      <View style={[zero.mb[4], zero.px[4]]}>
         {steps.map((step, index) => (
           <View
             key={step.number}
@@ -587,16 +573,21 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       case 1:
         return (
           <>
-            <Button variant="secondary" onPress={handleCancel}>
+            <Button
+              style={{ width: "50%" }}
+              variant="secondary"
+              onPress={handleCancel}
+            >
               <Text>Cancel</Text>
             </Button>
             <Button
+              style={{ width: "50%" }}
               variant="primary"
               onPress={handleNext}
               disabled={!canProceed()}
+              rightIcon={<ChevronRight size={16} style={[{ marginLeft: 4 }]} />}
             >
               <Text>Next</Text>
-              <ChevronRight size={16} style={[{ marginLeft: 4 }]} />
             </Button>
           </>
         );
@@ -604,13 +595,21 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       case 2:
         return (
           <>
-            <Button variant="secondary" onPress={handleBack}>
-              <ChevronLeft size={16} style={[{ marginRight: 4 }]} />
+            <Button
+              style={{ width: "50%" }}
+              variant="secondary"
+              onPress={handleBack}
+            >
               <Text>Back</Text>
             </Button>
-            <Button variant="primary" onPress={handleNext}>
+            <Button
+              style={{ width: "50%" }}
+              variant="primary"
+              onPress={handleNext}
+              disabled={!canProceed()}
+              rightIcon={<ChevronRight size={16} style={[{ marginLeft: 4 }]} />}
+            >
               <Text>Next</Text>
-              <ChevronRight size={16} style={[{ marginLeft: 4 }]} />
             </Button>
           </>
         );
@@ -619,6 +618,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         return (
           <>
             <Button
+              style={{ width: "50%" }}
               variant="secondary"
               onPress={handleBack}
               disabled={isSubmitting}
@@ -627,15 +627,16 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <Text>Back</Text>
             </Button>
             <Button
+              style={{ width: "50%" }}
               variant="primary"
               onPress={handleSubmitReport}
               disabled={isSubmitting || !subject}
+              leftIcon={
+                isSubmitting ? <Loader2 style={[{ marginRight: 8 }]} /> : null
+              }
             >
               {isSubmitting ? (
-                <>
-                  <Loader2 style={[{ marginRight: 8 }]} />
-                  <Text>Submitting...</Text>
-                </>
+                <Text>Submitting...</Text>
               ) : (
                 <Text>Submit Report</Text>
               )}
@@ -646,10 +647,18 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       case 4:
         return (
           <>
-            <Button variant="destructive" onPress={handleBlock}>
+            <Button
+              style={{ width: "50%" }}
+              variant="destructive"
+              onPress={handleBlock}
+            >
               <Text>Block User</Text>
             </Button>
-            <Button variant="primary" onPress={handleFinish}>
+            <Button
+              style={{ width: "50%" }}
+              variant="primary"
+              onPress={handleFinish}
+            >
               <Text>Done</Text>
             </Button>
           </>
@@ -682,28 +691,31 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   let lexSubType = lexidParts?.[2];
 
   return (
-    <Dialog
+    <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
       title={getStepTitle}
       description={getStepDescription}
       showCloseButton={!isSubmitting}
-      variant="default"
       size="md"
       dismissible={currentStep === 1 && !isSubmitting}
-      style={{ minWidth: 360, maxWidth: 400 }}
+      style={{}}
       position="center"
     >
-      <ModalContent style={[zero.pb[2]]}>
+      <View style={[zero.pb[2]]}>
         <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ flexGrow: 1 }}
+          style={{ flex: 1, width: "100%" }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: 0,
+            width: "100%",
+            minWidth: "100%",
+          }}
           showsVerticalScrollIndicator={false}
         >
           {!subject ? (
             <View
               style={[
-                zero.mx[4],
                 zero.mb[4],
                 zero.p[3],
                 zero.borderRadius[8],
@@ -762,9 +774,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           )}
           {VerticalStepper}
         </ScrollView>
-      </ModalContent>
-      <DialogFooter>{renderFooterButtons}</DialogFooter>
-    </Dialog>
+      </View>
+      <View style={[zero.layout.flex.row, zero.flex.basis[1], zero.gap.all[2]]}>
+        {renderFooterButtons}
+      </View>
+    </ResponsiveDialog>
   );
 };
 

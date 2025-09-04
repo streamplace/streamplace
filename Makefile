@@ -300,22 +300,28 @@ android: app .build/bundletool.jar
 android-release: .build/bundletool.jar android-keystore
 	export NODE_ENV=production \
 	&& cd ./js/app/android \
-	&& ./gradlew :app:bundleRelease \
+	&& ./gradlew :app:bundleRelease assembleAndroidTest -DtestBuildType=release \
 	&& cd - \
+	&& rm -rf ./bin/streamplace-$(VERSION)-android-release.aab ./bin/streamplace-$(VERSION)-android-release.apks ./bin/streamplace-$(VERSION)-android-release.apk ./bin/streamplace-$(VERSION)-android-release-androidTest.apk \
 	&& mv ./js/app/android/app/build/outputs/bundle/release/app-release.aab ./bin/streamplace-$(VERSION)-android-release.aab \
+	&& mv ./js/app/android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk ./bin/streamplace-$(VERSION)-android-release-androidTest.apk \
 	&& cd bin \
 	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-release.aab --output=streamplace-$(VERSION)-android-release.apks --mode=universal \
+	&& apksigner sign --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) streamplace-$(VERSION)-android-release-androidTest.apk \
 	&& unzip streamplace-$(VERSION)-android-release.apks && mv universal.apk streamplace-$(VERSION)-android-release.apk && rm toc.pb
 
 .PHONY: android-debug
 android-debug: .build/bundletool.jar android-keystore
 	export NODE_ENV=production \
 	&& cd ./js/app/android \
-	&& ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug \
+	&& ./gradlew :app:bundleDebug assembleAndroidTest -DtestBuildType=debug \
 	&& cd - \
+	&& rm -rf ./bin/streamplace-$(VERSION)-android-debug.aab ./bin/streamplace-$(VERSION)-android-debug.apks ./bin/streamplace-$(VERSION)-android-debug.apk ./bin/streamplace-$(VERSION)-android-debug-androidTest.apk \
 	&& mv ./js/app/android/app/build/outputs/bundle/debug/app-debug.aab ./bin/streamplace-$(VERSION)-android-debug.aab \
+	&& mv ./js/app/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk ./bin/streamplace-$(VERSION)-android-debug-androidTest.apk \
 	&& cd bin \
 	&& java -jar ../.build/bundletool.jar build-apks --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) --bundle=streamplace-$(VERSION)-android-debug.aab --output=streamplace-$(VERSION)-android-debug.apks --mode=universal \
+	&& apksigner sign --ks ../my-release-key.keystore --ks-key-alias alias_name --ks-pass pass:$(ANDROID_KEYSTORE_PASSWORD) streamplace-$(VERSION)-android-debug-androidTest.apk \
 	&& unzip streamplace-$(VERSION)-android-debug.apks && mv universal.apk streamplace-$(VERSION)-android-debug.apk && rm toc.pb
 
 .PHONY: ios
@@ -734,11 +740,13 @@ ci-upload-android: android
 .PHONY: ci-upload-android-debug
 ci-upload-android-debug:
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.apk \
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug-androidTest.apk \
 	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-debug.aab
 
 .PHONY: ci-upload-android-release
 ci-upload-android-release:
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.apk \
+	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release-androidTest.apk \
 	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-android-release.aab
 
 .PHONY: ci-upload-ios

@@ -1,7 +1,7 @@
 packages:
   - js/*
 onlyBuiltDependencies:
-  - "@swc/core"
+  - '@swc/core'
   - better-sqlite3
   - bufferutil
   - cbor-extract
@@ -16,3 +16,5 @@ onlyBuiltDependencies:
   - quietjs-bundle
   - sharp
   - utf-8-validate
+patchedDependencies:
+  expo-dev-client: patches/expo-dev-client.patch

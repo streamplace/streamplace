@@ -105,7 +105,7 @@ android-release: .build/bundletool.jar android-keystore
 android-debug: .build/bundletool.jar android-keystore
 	export NODE_ENV=production \
 	&& cd ./js/app/android \
-	&& ./gradlew :app:bundleDebug \
+	&& ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug \
 	&& cd - \
 	&& mv ./js/app/android/app/build/outputs/bundle/debug/app-debug.aab ./bin/streamplace-$(VERSION)-android-debug.aab \
 	&& cd bin \

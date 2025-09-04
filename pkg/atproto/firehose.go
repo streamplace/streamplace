@@ -10,6 +10,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
@@ -25,6 +26,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/statedb"
 
 	"slices"
 
@@ -32,12 +34,14 @@ import (
 )
 
 type ATProtoSynchronizer struct {
-	CLI       *config.CLI
-	Model     model.Model
-	LastSeen  time.Time
-	LastEvent time.Time
-	Noter     notificationpkg.FirebaseNotifier
-	Bus       *bus.Bus
+	CLI          *config.CLI
+	Model        model.Model
+	StatefulDB   *statedb.StatefulDB
+	LastSeen     time.Time
+	LastEvent    time.Time
+	Noter        notificationpkg.FirebaseNotifier
+	Bus          *bus.Bus
+	PLCDirectory identity.Directory
 }
 
 func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
@@ -114,7 +118,12 @@ func (atsync *ATProtoSynchronizer) StartFirehoseRetry(ctx context.Context) error
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		return events.HandleRepoStream(ctx, con, scheduler, nil)
+		err := events.HandleRepoStream(ctx, con, scheduler, nil)
+		if err != nil {
+			log.Error(ctx, "firehose error", "err", err)
+			return err
+		}
+		return nil
 	})
 
 	g.Go(func() error {
@@ -173,6 +182,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 
 	for _, op := range evt.Ops {
 		collection, rkey, err := syntax.ParseRepoPath(op.Path)
+		uri := fmt.Sprintf("at://%s/%s", evt.Repo, op.Path)
 		if err != nil {
 			log.Error(ctx, "invalid path in repo op", "eventKind", op.Action, "path", op.Path)
 			return
@@ -191,7 +201,8 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 			log.Error(ctx, "failed to parse time", "err", err)
 			continue
 		}
-		atsync.LastEvent = aqt.Time()
+		opTime := aqt.Time()
+		atsync.LastEvent = opTime
 
 		r, err := atsync.Model.GetRepo(evt.Repo)
 		if err != nil {
@@ -263,6 +274,32 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 					log.Error(ctx, "failed to revoke signing key", "err", err)
 				}
 				atsync.Bus.Publish(evt.Repo, key)
+			}
+
+			if collection.String() == constants.PLACE_STREAM_CHAT_MESSAGE {
+				msg, err := atsync.Model.GetChatMessage(uri)
+				if err != nil {
+					log.Error(ctx, "failed to get chat message", "err", err)
+					continue
+				}
+				if msg == nil {
+					log.Warn(ctx, "no chat message found for uri", "uri", uri)
+					continue
+				}
+				log.Warn(ctx, "deleting chat message", "userDID", evt.Repo, "uri", uri)
+				err = atsync.Model.DeleteChatMessage(ctx, uri, &opTime)
+				if err != nil {
+					log.Error(ctx, "failed to delete chat message", "err", err)
+					continue
+				}
+				mv, err := msg.ToStreamplaceMessageView()
+				if err != nil {
+					log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
+					continue
+				}
+				isTrue := true
+				mv.Deleted = &isTrue
+				atsync.Bus.Publish(msg.StreamerRepoDID, mv)
 			}
 
 		default:

@@ -1,7 +1,7 @@
 {
   "name": "@streamplace/app",
   "main": "./src/entrypoint.tsx",
-  "version": "0.7.12",
+  "version": "0.7.24",
   "runtimeVersion": "0.7.2",
   "scripts": {
     "start": "npx expo start -c --port 38081",
@@ -91,7 +91,7 @@
     "react-redux": "^9.1.2",
     "react-use-websocket": "^4.13.0",
     "reanimated-color-picker": "^4.0.0",
-    "rtcaudiodevice": "git+https://github.com/streamplace/RTCAudioDevice.git#7b4659fe845545d366623cbc813936987144b76f",
+    "rtcaudiodevice": "git+https://github.com/streamplace/RTCAudioDevice.git#918e08a0f6f0818fb495a0db0b696b44d11d1336",
     "stream-http": "^3.2.0",
     "streamplace": "workspace:*",
     "tamagui": "^1.126.16",

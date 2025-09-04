@@ -1,4 +1,13 @@
-import { Button, Text, XStack, YStack, YStackProps } from "tamagui";
+import {
+  Button,
+  Text,
+  useTheme,
+  View,
+  ViewProps,
+  zero,
+} from "@streamplace/components";
+
+const { gap, pt, w, bg, r, spacing, layout, colors } = zero;
 
 export default function ButtonSelector({
   text,
@@ -6,6 +15,7 @@ export default function ButtonSelector({
   selectedValue,
   setSelectedValue,
   disabledValues,
+  style,
   ...props
 }: {
   text?: string;
@@ -13,44 +23,45 @@ export default function ButtonSelector({
   selectedValue: string;
   setSelectedValue: (value: any) => void;
   disabledValues?: string[];
-} & YStackProps) {
+} & ViewProps) {
+  let theme = useTheme();
   return (
-    <YStack ai="flex-start" gap="$2" pt="$2" {...props}>
+    <View align="start" style={[gap.all[2], style as any]} {...props}>
       {text && (
-        <Text fontSize="$base" fontWeight="semibold">
+        <Text variant="body1" weight="semibold">
           {text}
         </Text>
       )}
-      <XStack
-        ai="center"
-        jc="space-around"
-        gap="$1"
-        w="100%"
-        bg="$background"
-        borderRadius="$xl"
+      <View
+        direction="row"
+        align="center"
+        justify="around"
+        style={[gap.all[1], w.percent[100], r.full]}
       >
-        {values.map(({ label, value }) => (
-          <Button
-            key={value}
-            onPress={() => setSelectedValue(value)}
-            f={1}
-            height="$2"
-            disabled={disabledValues?.includes(value)}
-            opacity={disabledValues?.includes(value) ? 0.5 : 1}
-            variant={selectedValue === value ? "outlined" : undefined}
-          >
-            <Text
-              color={
-                selectedValue === value
-                  ? "$color.foreground"
-                  : "$color.mutedForeground"
-              }
+        {values.map(({ label, value }) => {
+          const isSelected = selectedValue === value;
+          const isDisabled = disabledValues?.includes(value);
+
+          return (
+            <Button
+              key={value}
+              onPress={() => setSelectedValue(value)}
+              variant={isSelected ? "outline" : "ghost"}
+              size="pill"
+              disabled={isDisabled}
+              style={[
+                { flex: 1, maxHeight: 20 },
+                isSelected
+                  ? { backgroundColor: theme.theme.colors.primary }
+                  : { backgroundColor: theme.theme.colors.secondary },
+                isDisabled && { opacity: 0.5 },
+              ]}
             >
               {label}
-            </Text>
-          </Button>
-        ))}
-      </XStack>
-    </YStack>
+            </Button>
+          );
+        })}
+      </View>
+    </View>
   );
 }

@@ -119,6 +119,28 @@ export const useCreateChatMessage = () => {
   };
 };
 
+export const useDeleteChatMessage = () => {
+  const pdsAgent = usePDSAgent();
+  if (!pdsAgent) {
+    throw new Error("No PDS agent found");
+  }
+  const userDID = useDID();
+  if (!userDID) {
+    throw new Error("No user DID found");
+  }
+  return async (uri: string) => {
+    const rkey = uri.split("/").pop();
+    if (!rkey) {
+      throw new Error("No rkey found");
+    }
+    return await pdsAgent.com.atproto.repo.deleteRecord({
+      repo: userDID,
+      collection: "place.stream.chat.message",
+      rkey: rkey,
+    });
+  };
+};
+
 const buildSortedChatList = (
   chatIndex: { [key: string]: ChatMessageViewHydrated },
   existingChatList: ChatMessageViewHydrated[],

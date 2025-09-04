@@ -1,6 +1,5 @@
-import { useVideoElement } from "contexts/VideoElementContext";
+import { usePlayerStore } from "@streamplace/components";
 import { useCallback } from "react";
-import { isWeb } from "tamagui";
 import { captureVideoFrame } from "utils/videoCapture";
 
 /**
@@ -12,11 +11,21 @@ import { captureVideoFrame } from "utils/videoCapture";
  * @returns A function that captures a frame from the video element
  */
 export function useCaptureVideoFrame() {
-  const videoElement = useVideoElement();
+  const ref = usePlayerStore((state) => state.videoRef);
+
+  // if ref is a function return null
+  if (typeof ref === "function") {
+    console.warn(
+      "Video ref is a function (native player), cannot capture frame",
+    );
+    return null;
+  }
+
+  const videoElement = ref?.current;
 
   const captureFrame = useCallback(
     async (maxWidth = 1280, quality = 0.85): Promise<Blob | null> => {
-      if (!isWeb || !videoElement) {
+      if (!videoElement) {
         console.warn("Video element not available or not on web platform");
         return null;
       }

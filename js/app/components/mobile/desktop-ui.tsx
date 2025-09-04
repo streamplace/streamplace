@@ -35,7 +35,11 @@ function isRefObject(
   return ref && typeof ref === "object" && "current" in ref;
 }
 
-export function DesktopUi() {
+export function DesktopUi({
+  dropdownPortalContainer,
+}: {
+  dropdownPortalContainer?: any;
+}) {
   const {
     ingest,
     title,
@@ -185,6 +189,7 @@ export function DesktopUi() {
           style={[layout.position.absolute, h.percent[100], w.percent[100]]}
         >
           <MuteOverlay />
+          <PlayerUI.AutoplayButton />
           <PlayerUI.ViewerLoadingOverlay />
           <Animated.View
             style={[
@@ -251,6 +256,7 @@ export function DesktopUi() {
               pipSupported={pipSupported}
               pipActive={pipActive}
               onHandlePip={handlePip}
+              dropdownPortalContainer={dropdownPortalContainer}
             />
           </Animated.View>
 

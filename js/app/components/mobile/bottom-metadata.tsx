@@ -50,7 +50,14 @@ export function BottomMetadata({
         style={[layout.flex.row, layout.flex.spaceBetween, { height: "100%" }]}
       >
         {/* Left side - Profile info */}
-        <View style={[layout.flex.row, layout.flex.center, gap.all[3]]}>
+        <View
+          style={[
+            layout.flex.row,
+            layout.flex.center,
+            gap.all[3],
+            { flex: 1, minWidth: 0 },
+          ]}
+        >
           {profile?.did && avatars[profile?.did]?.avatar && (
             <Image
               key="avatar"
@@ -69,11 +76,15 @@ export function BottomMetadata({
               resizeMode="cover"
             />
           )}
-          <View>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ color: "white", fontWeight: "600" }}>
               @{profile?.handle || "user"}
             </Text>
-            <Text style={{ color: colors.gray[400] }}>
+            <Text
+              style={{ color: colors.gray[400] }}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {ls?.record.title || "Stream Title"}
             </Text>
           </View>

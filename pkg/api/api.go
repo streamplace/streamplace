@@ -41,6 +41,7 @@ import (
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/spxrpc"
+	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
 
 	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
@@ -53,6 +54,7 @@ import (
 type StreamplaceAPI struct {
 	CLI              *config.CLI
 	Model            model.Model
+	StatefulDB       *statedb.StatefulDB
 	Updater          *Updater
 	Signer           *eip712.EIP712Signer
 	Mimes            map[string]string
@@ -80,13 +82,14 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
 	}
 	a := &StreamplaceAPI{CLI: cli,
 		Model:            mod,
+		StatefulDB:       statefulDB,
 		Updater:          updater,
 		Signer:           signer,
 		FirebaseNotifier: noter,
@@ -135,7 +138,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		Recorder: metrics.NewRecorder(metrics.Config{}),
 	})
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.op, mdlw)
+	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync)
 	if err != nil {
 		return nil, err
 	}
@@ -173,8 +176,6 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
 	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
 	addHandle(apiRouter, "GET", "/api/playback/:user/hls/*file", a.HandleHLSPlayback(ctx))
-	addHandle(apiRouter, "GET", "/api/playback/:user/stream.mp4", a.HandleMP4Playback(ctx))
-	addHandle(apiRouter, "GET", "/api/playback/:user/stream.webm", a.HandleMKVPlayback(ctx))
 	// they're jpegs now
 	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	// this one is actually a jpeg (used previously and shouldn't remove for historical reasons)
@@ -475,7 +476,7 @@ func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFun
 			w.WriteHeader(400)
 			return
 		}
-		err = a.Model.CreateNotification(n.Token, n.RepoDID)
+		err = a.StatefulDB.CreateNotification(n.Token, n.RepoDID)
 		if err != nil {
 			log.Log(ctx, "error creating notification", "error", err)
 			w.WriteHeader(400)

@@ -34,3 +34,6 @@ export * from "./lib/system-messages";
 export * from "./components/share/sharesheet";
 
 export * from "./components/keep-awake";
+
+// Dashboard components
+export * as Dashboard from "./components/dashboard";

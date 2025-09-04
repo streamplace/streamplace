@@ -142,6 +142,12 @@ export interface PlayerState {
   /** Function to set the muteWasForced flag */
   setMuteWasForced: (muteWasForced: boolean) => void;
 
+  /** Flag indicating if autoplay failed and needs user interaction */
+  autoplayFailed: boolean;
+
+  /** Function to set the autoplayFailed flag */
+  setAutoplayFailed: (autoplayFailed: boolean) => void;
+
   /** Flag indicating if the player is embedded in another context */
   embedded: boolean;
 

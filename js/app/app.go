@@ -9,6 +9,9 @@ import (
 //go:embed all:dist/**
 var AllFiles embed.FS
 
+//go:embed all:assets/**
+var AssetFiles embed.FS
+
 //go:embed package.json
 var pkg []byte
 
@@ -19,6 +22,15 @@ func Files() (fs.FS, error) {
 		return nil, err
 	}
 	return rootFiles, nil
+}
+
+// fetch assets including fonts
+func Assets() (fs.FS, error) {
+	assetFiles, err := fs.Sub(AssetFiles, "assets")
+	if err != nil {
+		return nil, err
+	}
+	return assetFiles, nil
 }
 
 func PackageJSON() (map[string]any, error) {

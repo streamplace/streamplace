@@ -10,6 +10,7 @@ import { usePDSAgent } from "../../streamplace-store/xrpc";
 
 import { Linking } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
+import { useDeleteChatMessage } from "../../livestream-store";
 import { useStreamplaceStore } from "../../streamplace-store";
 import {
   atoms,
@@ -47,6 +48,7 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
 
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
   const setReportSubject = usePlayerStore((x) => x.setReportSubject);
+  const setModMessage = usePlayerStore((x) => x.setModMessage);
 
   // get the channel did
   const channelId = usePlayerStore((state) => state.src);
@@ -59,13 +61,15 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
     </View>;
   }
 
+  const cleanup = () => {
+    setModMessage(null);
+  };
+
   useEffect(() => {
     if (message) {
-      console.log("opening mod view");
       setMessageRemoved(false);
       triggerRef.current?.open();
     } else {
-      console.log("closing mod view");
       triggerRef.current?.close();
     }
   }, [message]);
@@ -73,6 +77,11 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
   return (
     <DropdownMenu
       style={[layout.flex.row, layout.flex.alignCenter, gap.all[2], w[80]]}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          cleanup();
+        }
+      }}
     >
       <DropdownMenuTrigger ref={triggerRef}>
         {/* Hidden trigger */}
@@ -164,11 +173,16 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
               >
                 <Text color="primary">View user on {BSKY_FRONTEND_DOMAIN}</Text>
               </DropdownMenuItem>
-              <ReportButton
-                message={message}
-                setReportModalOpen={setReportModalOpen}
-                setReportSubject={setReportSubject}
-              />
+              {message.author.did === agent?.did && (
+                <DeleteButton message={message} />
+              )}
+              {message.author.did !== agent?.did && (
+                <ReportButton
+                  message={message}
+                  setReportModalOpen={setReportModalOpen}
+                  setReportSubject={setReportSubject}
+                />
+              )}
             </DropdownMenuGroup>
           </>
         )}
@@ -176,6 +190,34 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
     </DropdownMenu>
   );
 });
+
+export function DeleteButton({
+  message,
+}: {
+  message: ChatMessageViewHydrated;
+}) {
+  const deleteChatMessage = useDeleteChatMessage();
+  const [confirming, setConfirming] = useState(false);
+  const { onOpenChange } = useRootContext();
+  return (
+    <DropdownMenuItem
+      onPress={() => {
+        if (!message) return;
+        if (!confirming) {
+          setConfirming(true);
+          return;
+        }
+        deleteChatMessage(message.uri).then(() => {
+          onOpenChange?.(false);
+        });
+      }}
+    >
+      <Text color="destructive">
+        {confirming ? "Are you sure?" : "Delete message"}
+      </Text>
+    </DropdownMenuItem>
+  );
+}
 
 export function ReportButton({
   message,
@@ -197,6 +239,7 @@ export function ReportButton({
           $type: "com.atproto.repo.strongRef",
           uri: message.uri,
           cid: message.cid,
+          context: message,
         });
       }}
     >

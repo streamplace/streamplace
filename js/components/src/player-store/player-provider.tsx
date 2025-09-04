@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import React, { useCallback, useMemo, useState } from "react";
 import { StoreApi } from "zustand";
 import { PlayerContext } from "./context";
@@ -33,7 +34,7 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({
   );
 
   const createPlayer = useCallback((id?: string) => {
-    const playerId = id || Math.random().toString(36).slice(8);
+    const playerId = id || randomUUID();
     const playerStore = makePlayerStore(playerId);
 
     setPlayers((prev) => ({

@@ -35,7 +35,7 @@ RUN apt update \
   mono-runtime nuget mono-xsp4 squashfs-tools \
   libc6:arm64 libstdc++6:arm64 \
   cmake libssl-dev libssl-dev:arm64 \
-  ruby-rubygems \
+  ruby-rubygems postgresql sudo \
   && pip install meson tomli \
   && curl -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
   && tar -C /usr/local -xf go.tar.gz \
@@ -102,6 +102,10 @@ RUN curl --fail -L https://github.com/aptly-dev/aptly/releases/download/v${APTLY
   && rm -rf aptly.zip aptly_${APTLY_VERSION}_linux_amd64
 
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=false
+ENV STREAMPLACE_TEST_POSTGRES_COMMAND="sudo -u postgres /usr/lib/postgresql/14/bin/postgres -D /etc/postgresql/14/main/"
+ENV STREAMPLACE_TEST_POSTGRES_URL="postgresql://postgres:postgres@localhost:5432/streamplace"
+# allow all postgres connections
+RUN bash -c 'echo -en "local   all             postgres                                peer\nhost    all             all             0.0.0.0/0            trust\n" > /etc/postgresql/14/main/pg_hba.conf'
 
 FROM builder-no-darwin AS builder
 

@@ -6,7 +6,11 @@ import { LivestreamViewHydrated } from "streamplace/src/useful-types";
 import { useUrl } from "./streamplace-store";
 import { usePDSAgent } from "./xrpc";
 
+import PackageJson from "../../package.json";
+
 import { useEffect, useRef } from "react";
+import { Platform } from "react-native";
+import { getBrowserName } from "../lib/browser";
 
 const useUploadThumbnail = () => {
   const abortRef = useRef<AbortController | null>(null);
@@ -123,11 +127,23 @@ export function useCreateStreamRecord() {
   let url = useUrl();
   const uploadThumbnail = useUploadThumbnail();
 
-  return async (
-    title: string,
-    customThumbnail?: Blob,
-    submitPost: boolean = true,
-  ) => {
+  return async ({
+    title,
+    customThumbnail,
+    submitPost,
+    customUrl,
+  }: {
+    title: string;
+    customThumbnail?: Blob;
+    submitPost?: boolean;
+    customUrl?: string | null;
+  }) => {
+    if (!submitPost) {
+      submitPost = true;
+    }
+    if (!customUrl) {
+      customUrl = null;
+    }
     if (!agent) {
       throw new Error("No PDS agent found");
     }
@@ -136,9 +152,11 @@ export function useCreateStreamRecord() {
       throw new Error("No user DID found, assuming not logged in");
     }
 
-    let thumbnail: BlobRef | undefined = undefined;
+    // Use customUrl if provided, otherwise fall back to the store URL
+    const finalUrl = customUrl || url;
+    const u = new URL(finalUrl);
 
-    const u = new URL(url);
+    let thumbnail: BlobRef | undefined = undefined;
 
     if (customThumbnail) {
       try {
@@ -185,10 +203,10 @@ export function useCreateStreamRecord() {
 
     let newPost: undefined | { uri: string; cid: string } = undefined;
 
-    if (submitPost) {
-      const did = agent.did;
-      const profile = await agent.getProfile({ actor: did });
+    const did = agent.did;
+    const profile = await agent.getProfile({ actor: did });
 
+    if (submitPost) {
       if (!profile) {
         throw new Error("No profile found for the user DID");
       }
@@ -216,10 +234,28 @@ export function useCreateStreamRecord() {
       }
     }
 
+    let platform: string = Platform.OS;
+    let platVersion: string = Platform.Version
+      ? Platform.Version.toString()
+      : "";
+    // no Platform.Version on web, so use browser name instead
+    if (
+      platform === "web" &&
+      typeof window !== "undefined" &&
+      window.navigator
+    ) {
+      platVersion = getBrowserName(window.navigator.userAgent);
+    }
+
     const record: PlaceStreamLivestream.Record = {
       title: title,
-      url: url,
+      url: finalUrl,
       createdAt: new Date().toISOString(),
+      // would match up with e.g. https://stream.place/iame.li
+      canonicalUrl: `${finalUrl}/${profile.data.handle}`,
+      // user agent style string
+      // e.g. `@streamplace/components/0.1.0 (ios, 32.0)`
+      agent: `@streamplace/components/${PackageJson.version} (${platform}, ${platVersion})`,
       post: newPost,
       thumb: thumbnail,
     };
@@ -273,7 +309,7 @@ export function useCreateStreamRecord() {
   };
 }
 
-export function useUpdateStreamRecord() {
+export function useUpdateStreamRecord(customUrl: string | null = null) {
   let agent = usePDSAgent();
   let url = useUrl();
   const uploadThumbnail = useUploadThumbnail();
@@ -295,6 +331,9 @@ export function useUpdateStreamRecord() {
       throw new Error("No latest record");
     }
 
+    // Use customUrl if provided, otherwise fall back to the store URL
+    const finalUrl = customUrl || url;
+
     let rkey = livestream.uri.split("/").pop();
     let oldRecordValue: PlaceStreamLivestream.Record = livestream.record;
 
@@ -315,7 +354,7 @@ export function useUpdateStreamRecord() {
 
     const record: PlaceStreamLivestream.Record = {
       title: title,
-      url: url,
+      url: finalUrl,
       createdAt: new Date().toISOString(),
       post: oldRecordValue.post,
       thumb: thumbnail,

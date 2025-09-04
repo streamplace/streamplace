@@ -2,7 +2,9 @@ packages:
   - js/*
 onlyBuiltDependencies:
   - "@swc/core"
+  - better-sqlite3
   - bufferutil
+  - cbor-extract
   - electron
   - electron-winstaller
   - esbuild

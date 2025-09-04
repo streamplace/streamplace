@@ -64,13 +64,12 @@ import { useAppDispatch, useAppSelector } from "store/hooks";
 import { H3, Text, useTheme, View } from "tamagui";
 import AboutScreen from "./screens/about";
 import AppReturnScreen from "./screens/app-return";
-import AVSyncScreen from "./screens/av-sync";
 import PopoutChat from "./screens/chat-popout";
 import DownloadScreen from "./screens/download";
 import EmbedScreen from "./screens/embed";
+import InfoWidgetEmbed from "./screens/info-widget-embed";
 import LiveDashboard from "./screens/live-dashboard";
 import MultiScreen from "./screens/multi";
-import StreamScreen from "./screens/stream";
 import SupportScreen from "./screens/support";
 
 // probabl should move this
@@ -121,6 +120,7 @@ type RootStackParamList = {
   Download: undefined;
   PopoutChat: { user: string };
   Embed: { user: string };
+  InfoWidgetEmbed: undefined;
   LegacyStream: { user: string };
   MobileGoLive: undefined;
 };
@@ -157,6 +157,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Download: "download",
       PopoutChat: "chat-popout/:user",
       Embed: "embed/:user",
+      InfoWidgetEmbed: "info-widget",
       LegacyStream: "legacy/:user",
       MobileGoLive: "mobile-golive",
     },
@@ -511,15 +512,6 @@ export function StreamplaceDrawer() {
           }}
         />
         <Drawer.Screen
-          name="AVSync"
-          component={AVSyncScreen}
-          options={{
-            drawerLabel: () => null,
-            drawerItemStyle: { display: "none" },
-            headerShown: false,
-          }}
-        />
-        <Drawer.Screen
           name="Login"
           component={Login}
           options={{
@@ -556,12 +548,12 @@ export function StreamplaceDrawer() {
           }}
         />
         <Drawer.Screen
-          name="LegacyStream"
-          component={StreamScreen}
+          name="InfoWidgetEmbed"
+          component={InfoWidgetEmbed}
           options={{
-            headerTitle: "Stream",
+            drawerLabel: () => null,
             drawerItemStyle: { display: "none" },
-            title: "Streamplace Stream",
+            headerShown: false,
           }}
         />
         <Drawer.Screen

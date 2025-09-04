@@ -13,18 +13,17 @@ import (
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
-func SendChat(ctx context.Context, w *discordtypes.Webhook, r *model.Repo, scm *streamplace.ChatDefs_MessageView) error {
+func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *streamplace.ChatDefs_MessageView) error {
 
 	msg, ok := scm.Record.Val.(*streamplace.ChatMessage)
 	if !ok {
 		return fmt.Errorf("failed to cast chat message to streamplace chat message")
 	}
 
-	avatarURL, err := getAvatarURL(ctx, r)
+	avatarURL, err := getAvatarURL(ctx, did)
 	if err != nil {
 		log.Warn(ctx, "failed to get avatar URL", "err", err)
 	}

@@ -1,66 +1,88 @@
+import { useNavigation } from "@react-navigation/native";
+import { Button, Text, View, zero } from "@streamplace/components";
+import { flex } from "@streamplace/components/src/ui";
 import { Camera, FerrisWheel } from "@tamagui/lucide-icons";
-import AQLink, { Redirect } from "components/aqlink";
+import { Redirect } from "components/aqlink";
 import Loading from "components/loading/loading";
 import {
   selectIsReady,
   selectUserProfile,
 } from "features/bluesky/blueskySlice";
-import React from "react";
+import React, { useState } from "react";
 import { useAppSelector } from "store/hooks";
-import { H6, Text, View } from "tamagui";
+import { StreamKeyScreen } from "./stream-key";
+
+const { layout, gap } = zero;
+
 const elems = [
   {
-    title: "Stream your camera!",
+    title: "Stream your camera",
     Icon: Camera,
-    to: "Webcam",
+    key: "webcam",
   },
   {
-    title: "Stream from OBS!",
+    title: "Stream from OBS",
     Icon: FerrisWheel,
-    to: "StreamKey",
+    key: "streamkey",
   },
 ];
 
 export default function StreamScreen({ route }) {
+  const [selectedMode, setSelectedMode] = useState<string | null>(null);
   const isReady = useAppSelector(selectIsReady);
   const userProfile = useAppSelector(selectUserProfile);
+  const navigation = useNavigation();
+
   if (!isReady) {
     return <Loading />;
   }
   if (!userProfile) {
     return <Redirect to={{ screen: "Login" }} />;
   }
+
+  if (selectedMode === "webcam") {
+    navigation.navigate("MobileGoLive");
+  }
+
+  if (selectedMode === "streamkey") {
+    return (
+      <View flex={1} style={[flex.grow[1], { width: "100%" }]}>
+        <View padding="md" direction="row" justify="between" align="end">
+          <Button variant="ghost" onPress={() => setSelectedMode(null)}>
+            ← Back
+          </Button>
+          <Text variant="h4" weight="bold">
+            Stream from OBS
+          </Text>
+          <Button variant="ghost" style={{ opacity: 0 }}>
+            ← Back
+          </Button>
+        </View>
+        <StreamKeyScreen />
+      </View>
+    );
+  }
+
   return (
-    <View f={1} jc="space-around" ai="stretch" padding="$3" flexDirection="row">
-      <View f={1} maxWidth={250} alignItems="stretch" justifyContent="center">
-        {elems.map(({ Icon, title, to }, i) => (
+    <View
+      flex={1}
+      justify="around"
+      align="stretch"
+      padding="md"
+      direction="row"
+    >
+      <View flex={1} align="stretch" justify="center" style={[gap.all[4]]}>
+        {elems.map(({ Icon, title, key }, i) => (
           <React.Fragment key={i}>
-            <AQLink
-              to={{ screen: to }}
-              style={{ display: "flex", flex: 1, flexGrow: 0, flexBasis: 75 }}
+            <Button
+              onPress={() => setSelectedMode(key)}
+              variant="primary"
+              size="xl"
+              style={[{ flexGrow: 0 }, layout.flex.column]}
+              leftIcon={<Icon size={24} color="white" />}
             >
-              <View
-                f={1}
-                flexDirection="row"
-                ai="center"
-                jc="space-between"
-                backgroundColor="$accentColor"
-                // padding="$5"
-                borderRadius="$10"
-              >
-                <View padding="$5" paddingRight={0}>
-                  <Icon size={48} />
-                </View>
-                <Text f={1} textAlign="right" paddingRight="$5">
-                  {title}
-                </Text>
-              </View>
-            </AQLink>
-            {i < elems.length - 1 && (
-              <View jc="center" ai="center">
-                <H6 padding="$5">OR</H6>
-              </View>
-            )}
+              {title}
+            </Button>
           </React.Fragment>
         ))}
       </View>

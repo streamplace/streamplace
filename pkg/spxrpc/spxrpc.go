@@ -3,28 +3,38 @@ package spxrpc
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/patrickmn/go-cache"
 	"github.com/slok/go-http-metrics/middleware"
 	echomiddleware "github.com/slok/go-http-metrics/middleware/echo"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 type Server struct {
-	e     *echo.Echo
-	cli   *config.CLI
-	model model.Model
+	e            *echo.Echo
+	cli          *config.CLI
+	model        model.Model
+	OGImageCache *cache.Cache
+	ATSync       *atproto.ATProtoSynchronizer
+	statefulDB   *statedb.StatefulDB
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, op *oatproxy.OATProxy, mdlw middleware.Middleware) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer) (*Server, error) {
 	e := echo.New()
 	s := &Server{
-		e:     e,
-		cli:   cli,
-		model: model,
+		e:            e,
+		cli:          cli,
+		model:        model,
+		OGImageCache: cache.New(5*time.Minute, 10*time.Minute), // 5min TTL, 10min cleanup
+		ATSync:       atsync,
+		statefulDB:   statefulDB,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())

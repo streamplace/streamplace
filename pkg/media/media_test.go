@@ -42,9 +42,10 @@ func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
 		AllowedStreams: []string{"did:key:zQ3shhoPCrDZWE8CryCEHYCrb1x8mCkr2byTkF5EGJT7dgazC"},
 	})
 	atsync := &atproto.ATProtoSynchronizer{
-		CLI:   cli,
-		Model: mod,
-		Bus:   bus.NewBus(),
+		CLI:        cli,
+		Model:      mod,
+		StatefulDB: nil, // Test doesn't need StatefulDB for now
+		Bus:        bus.NewBus(),
 	}
 	mm, err := MakeMediaManager(context.Background(), cli, signer, &boring.BoringReplicator{}, mod, bus.NewBus(), atsync)
 	require.NoError(t, err)

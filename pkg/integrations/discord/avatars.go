@@ -2,13 +2,11 @@ package discord
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/xrpc"
 	"stream.place/streamplace/pkg/aqhttp"
-	"stream.place/streamplace/pkg/model"
 )
 
 var avatarCache = make(map[string]string)
@@ -17,15 +15,11 @@ var avatarCacheMutex = sync.Mutex{}
 // getAvatarURL gets the avatar URL for a Bluesky from the public appview
 // pretty ugly. we're going to replace this with indexing bluesky profiles
 // at some point.
-func getAvatarURL(ctx context.Context, r *model.Repo) (string, error) {
+func getAvatarURL(ctx context.Context, did string) (string, error) {
 	avatarCacheMutex.Lock()
 	defer avatarCacheMutex.Unlock()
 
-	if r == nil || r.DID == "" {
-		return "", fmt.Errorf("repo or DID is nil or empty")
-	}
-
-	if avatar, ok := avatarCache[r.DID]; ok {
+	if avatar, ok := avatarCache[did]; ok {
 		return avatar, nil
 	}
 
@@ -34,13 +28,13 @@ func getAvatarURL(ctx context.Context, r *model.Repo) (string, error) {
 		Client: &aqhttp.Client,
 	}
 
-	profile, err := bsky.ActorGetProfile(ctx, xrpc, r.DID)
+	profile, err := bsky.ActorGetProfile(ctx, xrpc, did)
 	if err != nil {
 		return "", err
 	}
 
 	if profile.Avatar != nil {
-		avatarCache[r.DID] = *profile.Avatar
+		avatarCache[did] = *profile.Avatar
 		return *profile.Avatar, nil
 	}
 

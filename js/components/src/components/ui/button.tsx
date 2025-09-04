@@ -231,8 +231,8 @@ function createStyles(theme: any) {
     },
 
     pillButton: {
-      paddingHorizontal: theme.spacing[3],
-      paddingVertical: theme.spacing[2],
+      paddingHorizontal: theme.spacing[2],
+      paddingVertical: theme.spacing[1],
       borderRadius: tokens.borderRadius.full,
       minHeight: tokens.touchTargets.minimum / 2,
     },

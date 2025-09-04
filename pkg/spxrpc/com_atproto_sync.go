@@ -49,6 +49,8 @@ func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection s
 		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to get user repo head: %w", err)
 	}
 
+	log.Warn(ctx, "got root", "root", root.String())
+
 	r, err := repo.OpenRepo(ctx, bs, root)
 	if err != nil {
 		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to open repo: %w", err)
@@ -74,6 +76,7 @@ func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection s
 	}
 
 	for _, blk := range blocks {
+		log.Warn(ctx, "writing block", "cid", blk.Cid().String(), "version", blk.Cid().Version())
 		if _, err := carstore.LdWrite(buf, blk.Cid().Bytes(), blk.RawData()); err != nil {
 			return nil, err
 		}
@@ -108,7 +111,7 @@ func (s *Server) handleComAtprotoSyncSubscribeRepos(c echo.Context) error {
 		return err
 	}
 
-	evts, err := s.model.GetCommitEventsSinceSeq(atproto.LexiconRepo.RepoDid(), int64(seq))
+	evts, err := s.statefulDB.GetCommitEventsSinceSeq(atproto.LexiconRepo.RepoDid(), int64(seq))
 	if err != nil {
 		return err
 	}

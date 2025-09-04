@@ -7,16 +7,7 @@ import { memo, useCallback } from "react";
 import { Linking, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { RichtextSegment, segmentize } from "../../lib/facet";
-import {
-  borders,
-  flex,
-  gap,
-  ml,
-  mr,
-  opacity,
-  pl,
-  w,
-} from "../../lib/theme/atoms";
+import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
 import { atoms, colors, layout } from "../ui";
 
 interface Facet {
@@ -121,7 +112,7 @@ export const RenderChatMessage = memo(
             style={[
               gap.all[2],
               layout.flex.row,
-              w.percent[100],
+              { minWidth: 0, maxWidth: "100%" },
               borders.left.width.medium,
               borders.left.color.gray[700],
               ml[4],
@@ -129,7 +120,14 @@ export const RenderChatMessage = memo(
               opacity[80],
             ]}
           >
-            <Text numberOfLines={1} style={[flex.shrink[1], mr[4]]}>
+            <Text
+              numberOfLines={1}
+              style={[
+                flex.shrink[1],
+                mr[4],
+                { minWidth: 0, overflow: "hidden" },
+              ]}
+            >
               <Text
                 style={{
                   color: getRgbColor((item.replyTo.chatProfile as any).color),
@@ -149,7 +147,13 @@ export const RenderChatMessage = memo(
             </Text>
           </View>
         )}
-        <View style={[gap.all[2], layout.flex.row, w.percent[100]]}>
+        <View
+          style={[
+            gap.all[2],
+            layout.flex.row,
+            { minWidth: 0, maxWidth: "100%" },
+          ]}
+        >
           {showTime && (
             <Text
               style={{
@@ -160,7 +164,11 @@ export const RenderChatMessage = memo(
               {formatTime(item.record.createdAt)}
             </Text>
           )}
-          <Text weight="bold" color="default" style={[flex.shrink[1]]}>
+          <Text
+            weight="bold"
+            color="default"
+            style={[flex.shrink[1], { minWidth: 0, overflow: "hidden" }]}
+          >
             <Text
               style={[
                 {

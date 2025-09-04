@@ -31,6 +31,15 @@
             "ref": "com.atproto.repo.strongRef",
             "description": "The post that announced this livestream."
           },
+          "agent": {
+            "type": "string",
+            "description": "The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS"
+          },
+          "canonicalUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "The primary URL where this livestream can be viewed, if available."
+          },
           "thumb": {
             "type": "blob",
             "accept": ["image/*"],

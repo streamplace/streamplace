@@ -1,4 +1,3 @@
-import { useNavigation } from "@react-navigation/native";
 import { VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
 import { BackHandler, Dimensions, StyleSheet, View } from "react-native";
@@ -15,10 +14,14 @@ import Video from "./video.native";
 // Standard 16:9 video aspect ratio
 const VIDEO_ASPECT_RATIO = 16 / 9;
 
-export function Fullscreen(props: { src: string; children?: React.ReactNode }) {
+export function Fullscreen(props: {
+  src: string;
+  children?: React.ReactNode;
+  objectFit?: "contain" | "cover";
+  pictureInPictureEnabled?: boolean;
+}) {
   const ref = useRef<VideoView>(null);
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
   const [dimensions, setDimensions] = useState(Dimensions.get("window"));
 
   // Get state from player store
@@ -55,11 +58,6 @@ export function Fullscreen(props: { src: string; children?: React.ReactNode }) {
       SystemBars.setHidden(true);
       console.log("setting sidebar hidden");
 
-      // Hide the navigation header
-      navigation.setOptions({
-        headerShown: false,
-      });
-
       // Handle hardware back button
       const backHandler = BackHandler.addEventListener(
         "hardwareBackPress",
@@ -74,21 +72,12 @@ export function Fullscreen(props: { src: string; children?: React.ReactNode }) {
       };
     } else {
       SystemBars.setHidden(false);
-
-      // Restore the navigation header
-      navigation.setOptions({
-        headerShown: true,
-      });
     }
 
     return () => {
       SystemBars.setHidden(false);
-      // Ensure header is restored if component unmounts
-      navigation.setOptions({
-        headerShown: true,
-      });
     };
-  }, [fullscreen, navigation, setFullscreen]);
+  }, [fullscreen, setFullscreen]);
 
   // Handle fullscreen state changes for native video players
   useEffect(() => {
@@ -161,7 +150,10 @@ export function Fullscreen(props: { src: string; children?: React.ReactNode }) {
             },
           ]}
         >
-          <Video />
+          <Video
+            objectFit={props.objectFit}
+            pictureInPictureEnabled={props.pictureInPictureEnabled}
+          />
           {props.children}
         </View>
       </View>
@@ -172,7 +164,10 @@ export function Fullscreen(props: { src: string; children?: React.ReactNode }) {
   return (
     <>
       <VideoRetry>
-        <Video />
+        <Video
+          objectFit={props.objectFit}
+          pictureInPictureEnabled={props.pictureInPictureEnabled}
+        />
       </VideoRetry>
       {props.children}
     </>

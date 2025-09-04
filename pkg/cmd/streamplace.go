@@ -16,6 +16,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluesky-social/indigo/carstore"
+	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
+	"github.com/peterbourgon/ff/v3"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/term"
 	"stream.place/streamplace/pkg/aqhttp"
@@ -29,10 +32,10 @@ import (
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/replication/boring"
-	"stream.place/streamplace/pkg/resync"
 	"stream.place/streamplace/pkg/rtmps"
 	v0 "stream.place/streamplace/pkg/schema/v0"
 	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/statedb"
 
 	"github.com/ThalesGroup/crypto11"
 	_ "github.com/go-gst/go-glib/glib"
@@ -138,6 +141,25 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		fmt.Println("self-test successful!")
 		os.Exit(0)
 	}
+
+	if len(os.Args) > 1 && os.Args[1] == "livepeer" {
+		lpfs := flag.NewFlagSet("livepeer", flag.ExitOnError)
+		_ = starter.NewLivepeerConfig(lpfs)
+		err = ff.Parse(lpfs, os.Args[2:],
+			ff.WithConfigFileFlag("config"),
+			ff.WithEnvVarPrefix("LP"),
+		)
+		if err != nil {
+			return err
+		}
+		err = GoLivepeer(context.Background(), lpfs)
+		if err != nil {
+			log.Error(context.Background(), "error in livepeer", "error", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	_ = flag.Set("logtostderr", "true")
 	vFlag := flag.Lookup("v")
 	cli := config.CLI{Build: build}
@@ -172,12 +194,28 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if *version {
 		return nil
 	}
+
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		return statedb.Migrate(&cli)
+	}
+
 	spmetrics.Version.WithLabelValues(build.Version).Inc()
+	if cli.LivepeerHelp {
+		lpFlags := flag.NewFlagSet("livepeer", flag.ContinueOnError)
+		_ = starter.NewLivepeerConfig(lpFlags)
+		lpFlags.VisitAll(func(f *flag.Flag) {
+			adapted := config.ToSnakeCase(f.Name)
+			fmt.Printf("  -%s\n", fmt.Sprintf("livepeer.%s", adapted))
+			usage := fmt.Sprintf("    	%s", f.Usage)
+			if f.DefValue != "" {
+				usage = fmt.Sprintf("%s (default %s)", usage, f.DefValue)
+			}
+			fmt.Printf("    	%s\n", usage)
+		})
+		return nil
+	}
 
 	aqhttp.UserAgent = fmt.Sprintf("streamplace/%s", build.Version)
-	if len(os.Args) > 1 && os.Args[1] == "resync" {
-		return resync.Resync(ctx, &cli)
-	}
 
 	err = os.MkdirAll(cli.DataDir, os.ModePerm)
 	if err != nil {
@@ -268,15 +306,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		signer = hwsigner
 	}
 	var rep replication.Replicator = &boring.BoringReplicator{Peers: cli.Peers}
-	mod, err := model.MakeDB(cli.DBPath)
+
+	mod, err := model.MakeDB(cli.DataFilePath([]string{"index"}))
 	if err != nil {
 		return err
 	}
-	handle, err := atproto.MakeLexiconRepo(ctx, &cli, mod)
-	if err != nil {
-		return err
-	}
-	defer handle.Close()
 	var noter notifications.FirebaseNotifier
 	if cli.FirebaseServiceAccount != "" {
 		noter, err = notifications.MakeFirebaseNotifier(ctx, cli.FirebaseServiceAccount)
@@ -285,15 +319,28 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		}
 	}
 
-	jwkPath := cli.DataFilePath([]string{"jwk.json"})
-	jwk, err := atproto.EnsureJWK(ctx, jwkPath)
+	out := carstore.SQLiteStore{}
+	err = out.Open(":memory:")
+	if err != nil {
+		return err
+	}
+	state, err := statedb.MakeDB(&cli, noter, mod)
+	if err != nil {
+		return err
+	}
+	handle, err := atproto.MakeLexiconRepo(ctx, &cli, mod, state)
+	if err != nil {
+		return err
+	}
+	defer handle.Close()
+
+	jwk, err := state.EnsureJWK(ctx, "jwk")
 	if err != nil {
 		return err
 	}
 	cli.JWK = jwk
 
-	accessJWKPath := cli.DataFilePath([]string{"access-jwk.json"})
-	accessJWK, err := atproto.EnsureJWK(ctx, accessJWKPath)
+	accessJWK, err := state.EnsureJWK(ctx, "access-jwk")
 	if err != nil {
 		return err
 	}
@@ -301,11 +348,17 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 
 	b := bus.NewBus()
 	atsync := &atproto.ATProtoSynchronizer{
-		CLI:   &cli,
-		Model: mod,
-		Noter: noter,
-		Bus:   b,
+		CLI:        &cli,
+		Model:      mod,
+		StatefulDB: state,
+		Noter:      noter,
+		Bus:        b,
 	}
+	err = atsync.Migrate(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to migrate: %w", err)
+	}
+
 	mm, err := media.MakeMediaManager(ctx, &cli, signer, rep, mod, b, atsync)
 	if err != nil {
 		return err
@@ -327,16 +380,17 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 
 	op := oatproxy.New(&oatproxy.Config{
 		Host:               cli.PublicHost,
-		CreateOAuthSession: mod.CreateOAuthSession,
-		UpdateOAuthSession: mod.UpdateOAuthSession,
-		GetOAuthSession:    mod.LoadOAuthSession,
+		CreateOAuthSession: state.CreateOAuthSession,
+		UpdateOAuthSession: state.UpdateOAuthSession,
+		GetOAuthSession:    state.LoadOAuthSession,
+		Lock:               state.GetNamedLock,
 		Scope:              "atproto transition:generic",
 		UpstreamJWK:        cli.JWK,
 		DownstreamJWK:      cli.AccessJWK,
 		ClientMetadata:     clientMetadata,
 	})
-	d := director.NewDirector(mm, mod, &cli, b, op)
-	a, err := api.MakeStreamplaceAPI(&cli, mod, eip712signer, noter, mm, ms, b, atsync, d, op)
+	d := director.NewDirector(mm, mod, &cli, b, op, state)
+	a, err := api.MakeStreamplaceAPI(&cli, mod, state, eip712signer, noter, mm, ms, b, atsync, d, op)
 	if err != nil {
 		return err
 	}
@@ -346,6 +400,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 
 	group.Go(func() error {
 		return handleSignals(ctx)
+	})
+
+	group.Go(func() error {
+		return state.ProcessQueue(ctx)
 	})
 
 	if cli.TracingEndpoint != "" {
@@ -394,6 +452,21 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	group.Go(func() error {
 		return mod.StartSegmentCleaner(ctx)
 	})
+
+	if cli.LivepeerGateway {
+		// make a file to make sure the directory exists
+		fd, err := cli.DataFileCreate([]string{"livepeer", "gateway", "empty"}, true)
+		if err != nil {
+			return err
+		}
+		fd.Close()
+		if err != nil {
+			return err
+		}
+		group.Go(func() error {
+			return GoLivepeer(ctx, fs)
+		})
+	}
 
 	group.Go(func() error {
 		return d.Start(ctx)

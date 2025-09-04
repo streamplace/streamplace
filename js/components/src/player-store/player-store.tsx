@@ -99,6 +99,10 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     setMuteWasForced: (muteWasForced: boolean) =>
       set(() => ({ muteWasForced })),
 
+    autoplayFailed: false,
+    setAutoplayFailed: (autoplayFailed: boolean) =>
+      set(() => ({ autoplayFailed })),
+
     embedded: false,
     setEmbedded: (embedded: boolean) => set(() => ({ embedded })),
 

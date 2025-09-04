@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bufio"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -23,7 +22,6 @@ import (
 	"github.com/pion/webrtc/v4"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	sloghttp "github.com/samber/slog-http"
-	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
@@ -175,54 +173,6 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			return
 		}
 		http.ServeFile(w, r, fullpath)
-	})
-
-	router.GET("/playback/:user/:rendition/stream.mp4", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		rendition := p.ByName("rendition")
-		if rendition == "" {
-			errors.WriteHTTPBadRequest(w, "rendition required", nil)
-			return
-		}
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		var delayMS int64 = 1000
-		userDelay := r.URL.Query().Get("delayms")
-		if userDelay != "" {
-			var err error
-			delayMS, err = strconv.ParseInt(userDelay, 10, 64)
-			if err != nil {
-				errors.WriteHTTPBadRequest(w, "error parsing delay", err)
-				return
-			}
-			if delayMS > 10000 {
-				errors.WriteHTTPBadRequest(w, "delay too large, maximum 10000", nil)
-				return
-			}
-		}
-		w.Header().Set("Content-Type", "video/mp4")
-		w.WriteHeader(200)
-		g, ctx := errgroup.WithContext(ctx)
-		pr, pw := io.Pipe()
-		bufw := bufio.NewWriter(pw)
-		g.Go(func() error {
-			return a.MediaManager.SegmentToMP4(ctx, user, rendition, bufw)
-		})
-		g.Go(func() error {
-			time.Sleep(time.Duration(delayMS) * time.Millisecond)
-			_, err := io.Copy(w, pr)
-			return err
-		})
-		if err := g.Wait(); err != nil {
-			errors.WriteHTTPBadRequest(w, "request failed", err)
-		}
 	})
 
 	router.HEAD("/playback/:user/:rendition/stream.mkv", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -429,7 +379,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	router.GET("/notifications", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		notifications, err := a.Model.ListNotifications()
+		notifications, err := a.StatefulDB.ListNotifications()
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to get notifications", err)
 			return
@@ -460,13 +410,13 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 	})
 
-	router.GET("/chat/:cid", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		cid := p.ByName("cid")
-		if cid == "" {
-			errors.WriteHTTPBadRequest(w, "cid required", nil)
+	router.GET("/chat/:uri", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		uri := p.ByName("uri")
+		if uri == "" {
+			errors.WriteHTTPBadRequest(w, "uri required", nil)
 			return
 		}
-		msg, err := a.Model.GetChatMessage(cid)
+		msg, err := a.Model.GetChatMessage(uri)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to get chat posts", err)
 			return
@@ -487,7 +437,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	router.GET("/oauth-sessions", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		sessions, err := a.Model.ListOAuthSessions()
+		sessions, err := a.StatefulDB.ListOAuthSessions()
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to get oauth sessions", err)
 			return
@@ -508,7 +458,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPBadRequest(w, "invalid request body", err)
 			return
 		}
-		notifications, err := a.Model.ListNotifications()
+		notifications, err := a.StatefulDB.ListNotifications()
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to get notifications", err)
 			return

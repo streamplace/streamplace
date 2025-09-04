@@ -13,15 +13,15 @@ import (
 )
 
 type Livestream struct {
-	CID        string    `json:"cid" gorm:"primaryKey;column:cid"`
-	URI        string    `json:"uri"`
+	URI        string    `json:"uri" gorm:"primaryKey;column:uri"`
+	CID        string    `json:"cid" gorm:"column:cid"`
 	CreatedAt  time.Time `json:"createdAt" gorm:"column:created_at;index:idx_repo_created,priority:2"`
 	Livestream *[]byte   `json:"livestream"`
 	RepoDID    string    `json:"repoDID" gorm:"column:repo_did;index:idx_repo_created,priority:1"`
 	Repo       *Repo     `json:"repo,omitempty" gorm:"foreignKey:DID;references:RepoDID"`
 	Post       *FeedPost `json:"post,omitempty" gorm:"foreignKey:CID;references:PostCID"`
-	PostCID    string    `json:"postCID" gorm:"column:post_cid;index:idx_post_cid"`
-	PostURI    string    `json:"postURI" gorm:"column:post_uri"`
+	PostCID    string    `json:"postCID" gorm:"column:post_cid"`
+	PostURI    string    `json:"postURI" gorm:"column:post_uri;index:idx_post_uri"`
 }
 
 func (ls *Livestream) ToLivestreamView() (*streamplace.Livestream_LivestreamView, error) {
@@ -62,18 +62,18 @@ func (m *DBModel) GetLatestLivestreamForRepo(repoDID string) (*Livestream, error
 	return &livestream, nil
 }
 
-func (m *DBModel) GetLivestreamByPostCID(postCID string) (*Livestream, error) {
+func (m *DBModel) GetLivestreamByPostURI(postURI string) (*Livestream, error) {
 	var livestream Livestream
 	err := m.DB.
 		Preload("Repo").
 		Preload("Post").
-		Where("post_cid = ?", postCID).
+		Where("post_uri = ?", postURI).
 		First(&livestream).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving livestream by postCID: %w", err)
+		return nil, fmt.Errorf("error retrieving livestream by postURI: %w", err)
 	}
 	return &livestream, nil
 }

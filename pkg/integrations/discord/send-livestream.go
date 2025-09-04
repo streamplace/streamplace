@@ -20,7 +20,7 @@ import (
 	"stream.place/streamplace/pkg/streamplace"
 )
 
-func SendLivestream(ctx context.Context, w *discordtypes.Webhook, r *model.Repo, lsv *streamplace.Livestream_LivestreamView, postView *bsky.FeedDefs_PostView, spcp *streamplace.ChatProfile) error {
+func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string, lsv *streamplace.Livestream_LivestreamView, postView *bsky.FeedDefs_PostView, spcp *streamplace.ChatProfile) error {
 	ctx = log.WithLogValues(ctx, "func", "SendLivestream")
 	ls, ok := lsv.Record.Val.(*streamplace.Livestream)
 	if !ok {
@@ -33,11 +33,11 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, r *model.Repo,
 	}
 
 	payload := discordtypes.Payload{
-		Username: fmt.Sprintf("@%s", r.Handle),
+		Username: fmt.Sprintf("@%s", lsv.Author.Handle),
 		Content:  fmt.Sprintf("%s%s%s", w.Prefix, content, w.Suffix),
 	}
 
-	avatarURL, err := getAvatarURL(ctx, r)
+	avatarURL, err := getAvatarURL(ctx, lsv.Author.Did)
 	if err != nil {
 		log.Warn(ctx, "failed to get avatar URL", "err", err)
 	}
@@ -67,19 +67,19 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, r *model.Repo,
 			log.Warn(ctx, "failed to parse URL", "err", err)
 		} else {
 			suffix = fmt.Sprintf(" on %s!", u.Host)
-			payload.Embeds[0].URL = fmt.Sprintf("%s/%s", *ls.Url, r.Handle)
+			payload.Embeds[0].URL = fmt.Sprintf("%s/%s", *ls.Url, lsv.Author.Handle)
 		}
 	}
 
-	payload.Embeds[0].Title = fmt.Sprintf("@%s is LIVE%s", r.Handle, suffix)
+	payload.Embeds[0].Title = fmt.Sprintf("@%s is LIVE%s", lsv.Author.Handle, suffix)
 
 	if ls.Thumb != nil {
-		u, err := url.Parse(fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob", r.PDS))
+		u, err := url.Parse(fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob", pdsURL))
 		if err != nil {
 			return fmt.Errorf("failed to parse base URL: %w", err)
 		}
 		q := u.Query()
-		q.Set("did", r.DID)
+		q.Set("did", lsv.Author.Did)
 		q.Set("cid", ls.Thumb.Ref.String())
 		u.RawQuery = q.Encode()
 		imageURL := u.String()

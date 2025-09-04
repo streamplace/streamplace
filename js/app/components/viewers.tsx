@@ -1,4 +1,4 @@
-import { User } from "@tamagui/lucide-icons";
+import { Eye } from "@tamagui/lucide-icons";
 import { Text, View } from "tamagui";
 
 export default function Viewers({ viewers }: { viewers: number }) {
@@ -7,10 +7,11 @@ export default function Viewers({ viewers }: { viewers: number }) {
       justifyContent="center"
       flexDirection="row"
       alignItems="center"
+      gap="$2"
       paddingHorizontal="$2"
       paddingVertical="$1"
     >
-      <User color="#fd5050" />
+      <Eye color="#fd5050" />
       <Text
         color="#fd5050"
         textShadowColor="black"

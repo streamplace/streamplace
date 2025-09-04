@@ -83,6 +83,9 @@ export function ChatBox({
   const authors = useMemo(() => {
     if (!chat) return null;
     return chat.reduce((acc, msg) => {
+      // our fake system user "did"
+      if (msg.author.did === "did:sys:system") return acc;
+      if (acc.has(msg.author.handle)) return acc;
       acc.set(msg.author.handle, msg.chatProfile);
       return acc;
     }, new Map<string, ChatMessageViewHydrated["chatProfile"]>());
@@ -246,6 +249,15 @@ export function ChatBox({
       reply: replyTo || undefined,
     });
     setSubmitting(false);
+
+    // if we press "send" button, we want the same action as pressing "Enter"
+    // if we're already focused no need to do extra work
+    if (textAreaRef.current && !textAreaRef.current.isFocused()) {
+      textAreaRef.current.focus();
+      requestAnimationFrame(() => {
+        textAreaRef.current?.focus();
+      });
+    }
   };
   useEffect(() => {
     if (replyTo && textAreaRef.current) {
@@ -327,7 +339,10 @@ export function ChatBox({
           numberOfLines={1}
           value={message}
           enterKeyHint="send"
-          onSubmitEditing={submit}
+          onSubmitEditing={(e) => {
+            e.preventDefault();
+            submit();
+          }}
           multiline={false}
           onChangeText={(text) => {
             setMessage(text);
@@ -346,6 +361,9 @@ export function ChatBox({
                 if (filteredEmojis.length > 0) {
                   handleEmojiSelect(filteredEmojis[highlightedIndex]);
                 }
+              } else {
+                k.preventDefault();
+                submit();
               }
             } else if (k.nativeEvent.key === "ArrowUp") {
               if (showSuggestions || showEmojiSuggestions) {
@@ -376,6 +394,9 @@ export function ChatBox({
             }
           }}
           style={[chatBoxStyle]}
+          // "submit" won't blur on enter
+          submitBehavior="submit"
+          placeholder="Type a message..."
         />
         <Button
           disabled={submitting}

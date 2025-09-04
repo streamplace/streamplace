@@ -1,5 +1,7 @@
 import {
   Button,
+  ContentRights,
+  ContentWarnings,
   layout,
   PlayerUI,
   ShareSheet,
@@ -10,8 +12,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { ChevronLeft } from "@tamagui/lucide-icons";
-import ContentRights from "components/content-rights";
-import ContentWarnings from "components/content-warnings";
+
 import { ChevronRight } from "lucide-react-native";
 import { Image, View } from "react-native";
 const { gap, px, py, colors } = zero;
@@ -115,9 +116,7 @@ export function BottomMetadata({
         (contentRights && Object.keys(contentRights).length > 0)) && (
         <View style={[py[2]]}>
           <ContentWarnings warnings={contentWarnings} compact={true} />
-          {contentRights && (
-            <ContentRights contentRights={contentRights} compact={true} />
-          )}
+          {contentRights && <ContentRights contentRights={contentRights} />}
         </View>
       )}
     </View>

@@ -1,5 +1,7 @@
 import { useNavigation } from "@react-navigation/native";
 import {
+  ContentRights,
+  ContentWarnings,
   PlayerUI,
   Text,
   Toast,
@@ -13,8 +15,6 @@ import {
   View,
   zero,
 } from "@streamplace/components";
-import ContentRights from "components/content-rights";
-import ContentWarnings from "components/content-warnings";
 import { ChevronLeft, SwitchCamera, VolumeX } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Image, Pressable, TouchableWithoutFeedback } from "react-native";
@@ -180,7 +180,7 @@ export function MobileUi() {
               >
                 <ContentWarnings warnings={contentWarnings} compact={true} />
                 {contentRights && (
-                  <ContentRights contentRights={contentRights} compact={true} />
+                  <ContentRights contentRights={contentRights} />
                 )}
               </View>
             )}

@@ -1,7 +1,5 @@
+import { ContentMetadata, ContentMetadataForm } from "@streamplace/components";
 import { useToastController } from "@tamagui/toast";
-import ContentMetadataForm, {
-  ContentMetadata,
-} from "components/content-metadata-form";
 import ThumbnailSelector from "components/thumbnail-selector";
 import {
   createLivestreamRecord,

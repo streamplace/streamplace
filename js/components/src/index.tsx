@@ -37,3 +37,6 @@ export * from "./components/keep-awake";
 
 // Dashboard components
 export * as Dashboard from "./components/dashboard";
+
+// Content metadata components
+export * from "./components/content-metadata";

@@ -266,45 +266,6 @@ export function useCreateStreamRecord() {
       record,
     });
 
-    // Create default metadata record if it doesn't exist
-    try {
-      // Check if default metadata record already exists
-      await agent.com.atproto.repo.getRecord({
-        repo: agent.did,
-        collection: "place.stream.metadata.configuration",
-        rkey: "self",
-      });
-      // Record exists, no need to create
-    } catch (err) {
-      // Record doesn't exist, create it with default values
-      if (
-        err instanceof Error &&
-        (err.message.includes("not found") ||
-          err.message.includes("mst: not found") ||
-          err.message.includes("RecordNotFound"))
-      ) {
-        const defaultMetadataRecord = {
-          $type: "place.stream.metadata.configuration",
-          createdAt: new Date().toISOString(),
-          contentWarnings: [],
-          distributionPolicy: {
-            deleteAfter: undefined, // No expiration means forever
-          },
-          contentRights: {},
-        };
-
-        await agent.com.atproto.repo.createRecord({
-          repo: agent.did,
-          collection: "place.stream.metadata.configuration",
-          rkey: "self",
-          record: defaultMetadataRecord,
-        });
-      } else {
-        // Some other error occurred, log it but don't fail the livestream creation
-        console.warn("Failed to check/create default metadata record:", err);
-      }
-    }
-
     return record;
   };
 }

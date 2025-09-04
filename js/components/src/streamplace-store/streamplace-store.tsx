@@ -4,6 +4,13 @@ import { PlaceStreamChatProfile, PlaceStreamLivestream } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import { StreamplaceContext } from "../streamplace-provider/context";
 
+export interface ContentMetadataResult {
+  record: any;
+  uri: string;
+  cid: string;
+  rkey?: string;
+}
+
 // there are three categories of XRPC that we need to handle:
 // 1. Public (probably) OAuth XRPC to the users' PDS for apps that use this API.
 // 2. Confidental OAuth to the Streamplace server for doing things that require
@@ -31,6 +38,10 @@ export interface StreamplaceState {
   oauthSession: SessionManager | null;
   handle: string | null;
   chatProfile: PlaceStreamChatProfile.Record | null;
+
+  // Content metadata state
+  contentMetadata: ContentMetadataResult | null;
+  setContentMetadata: (metadata: ContentMetadataResult | null) => void;
 }
 
 export type StreamplaceStore = StoreApi<StreamplaceState>;
@@ -59,6 +70,10 @@ export const makeStreamplaceStore = ({
     oauthSession: null,
     handle: null,
     chatProfile: null,
+
+    // Content metadata
+    contentMetadata: null,
+    setContentMetadata: (metadata) => set({ contentMetadata: metadata }),
   }));
 };
 
@@ -87,3 +102,15 @@ export const useSetHandle = (): ((handle: string) => void) => {
   const store = getStreamplaceStoreFromContext();
   return (handle: string) => store.setState({ handle });
 };
+
+// Content metadata hooks
+export const useContentMetadata = () =>
+  useStreamplaceStore((x) => x.contentMetadata);
+
+export const useSetContentMetadata = () => {
+  const store = getStreamplaceStoreFromContext();
+  return (metadata: ContentMetadataResult | null) =>
+    store.setState({ contentMetadata: metadata });
+};
+
+export { useCreateStreamRecord, useUpdateStreamRecord } from "./stream";

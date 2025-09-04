@@ -1,4 +1,4 @@
-import ContentWarnings from "components/content-warnings";
+import { ContentWarnings } from "@streamplace/components";
 import Viewers from "components/viewers";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { Image } from "react-native";

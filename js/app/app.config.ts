@@ -1,3 +1,4 @@
+import { ExpoConfig } from "expo/config";
 import {
   ConfigPlugin,
   withAndroidManifest,
@@ -193,6 +194,12 @@ export default function () {
         favicon: "./assets/images/favicon.png",
       },
       plugins: [
+        [
+          "@config-plugins/detox",
+          {
+            subdomains: ["192.168.8.136", "localhost", "127.0.0.1"],
+          },
+        ],
         withAndroidProfileable,
         "expo-video",
         "expo-web-browser",
@@ -289,6 +296,6 @@ export default function () {
             },
           }
         : {},
-    },
+    } as ExpoConfig,
   };
 }

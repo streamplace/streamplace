@@ -215,6 +215,7 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
       flexDirection="row"
       marginLeft={Platform.OS === "android" ? "$0" : "$3"}
       marginRight={Platform.OS === "android" ? "$3" : "$0"}
+      testID="sidebar-button"
     >
       {icon && (
         <Pressable style={{ padding: 5 }} onPress={handlePress}>
@@ -465,7 +466,7 @@ export function StreamplaceDrawer() {
           component={Settings}
           options={{
             drawerIcon: () => <SettingsIcon />,
-            drawerLabel: () => <Text>Settings</Text>,
+            drawerLabel: () => <Text testID="settings-button">Settings</Text>,
           }}
         />
 

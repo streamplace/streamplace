@@ -34,7 +34,6 @@ RUN apt update \
   && apt install -y curl git openjdk-17-jdk unzip jq python3-pip ninja-build \
   && pip install meson tomli
 
-RUN echo "TARGETARCH: $TARGETARCH" && exit 1
 RUN export TARGETARCH="$TARGETARCH" \
   curl -v -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
   && tar -C /usr/local -xf go.tar.gz \

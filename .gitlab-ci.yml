@@ -54,6 +54,9 @@ builder-amd64:
     TARGETARCH: amd64
 
 builder-arm64:
+  tags:
+    - linux
+    - arm64
   extends:
     - .builder
   stage: build

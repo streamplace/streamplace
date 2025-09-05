@@ -856,3 +856,9 @@ ci-homebrew:
 	&& git add . \
 	&& git commit -m "Update streamplace $(VERSION)" \
 	&& git push
+
+.PHONY: ci-android-e2e
+ci-android-e2e: install
+	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-android-release-androidTest.apk
+	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-android-release.apk
+	pnpm run app ci-android-e2e

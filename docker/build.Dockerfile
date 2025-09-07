@@ -72,6 +72,7 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then export ANDROIDARCH="x86_64"; fi \
   && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager --install emulator \
   && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager "system-images;android-28;default;$ANDROIDARCH" \
   && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager 'platform-tools' \
+  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager 'build-tools;36.0.0' \
   && $ANDROID_HOME/cmdline-tools/tools/bin/avdmanager create avd -n Pixel_API_28_AOSP -d pixel --package "system-images;android-28;default;$ANDROIDARCH"
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh \

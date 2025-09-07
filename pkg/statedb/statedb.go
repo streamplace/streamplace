@@ -62,11 +62,11 @@ func MakeDB(cli *config.CLI, noter notificationpkg.FirebaseNotifier, model model
 	} else if strings.HasPrefix(dbURL, "sqlite://") {
 		dial = sqlite.Open(dbURL[len("sqlite://"):])
 		dbType = DBTypeSQLite
-	} else if strings.HasPrefix(dbURL, "postgres://") {
+	} else if strings.HasPrefix(dbURL, "postgres://") || strings.HasPrefix(dbURL, "postgresql://") {
 		dial = postgres.Open(dbURL)
 		dbType = DBTypePostgres
 	} else {
-		return nil, fmt.Errorf("unsupported database URL (most start with sqlite:// or postgres://): %s", redactDBURL(dbURL))
+		return nil, fmt.Errorf("unsupported database URL (most start with sqlite:// or postgresql://): %s", redactDBURL(dbURL))
 	}
 
 	db, err := openDB(dial)

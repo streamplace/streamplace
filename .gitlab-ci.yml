@@ -1,7 +1,7 @@
 include: ".ci/dockerfile-hash.yaml"
 
 variables:
-  DOCKER_REPO: "us-central1-docker.pkg.dev/aquareum-tv/streamplace/build"
+  DOCKER_REPO: "975050346355.dkr.ecr.us-east-2.amazonaws.com/streamplace"
 
 build-bunny:
   stage: build

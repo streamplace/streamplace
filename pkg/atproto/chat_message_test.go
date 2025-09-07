@@ -121,6 +121,16 @@ func TestChatMessage(t *testing.T) {
 		}
 		return 0
 	})
+	slices.SortFunc(busMessages, func(a, b bus.Message) int {
+		aTime := a.(*streamplace.ChatDefs_MessageView).Record.Val.(*streamplace.ChatMessage).CreatedAt
+		bTime := b.(*streamplace.ChatDefs_MessageView).Record.Val.(*streamplace.ChatMessage).CreatedAt
+		if aTime < bTime {
+			return -1
+		} else if aTime > bTime {
+			return 1
+		}
+		return 0
+	})
 	require.Equal(t, msg.Text, messages[0].Record.Val.(*streamplace.ChatMessage).Text)
 	require.Equal(t, msg2.Text, messages[1].Record.Val.(*streamplace.ChatMessage).Text)
 	busMessage1 := busMessages[0].(*streamplace.ChatDefs_MessageView)

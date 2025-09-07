@@ -8,28 +8,31 @@ import (
 )
 
 func (state *StatefulDB) GetNamedLock(name string) (func(), error) {
-	// temp while we debug postgres
-	return state.getNamedLockSQLite(name)
-	// switch state.Type {
-	// case DBTypeSQLite:
-	// 	return state.getNamedLockSQLite(name)
-	// case DBTypePostgres:
-	// 	return state.getNamedLockPostgres(name)
-	// }
-	// panic("unsupported database type")
+	switch state.Type {
+	case DBTypeSQLite:
+		return state.getNamedLockSQLite(name)
+	case DBTypePostgres:
+		return state.getNamedLockPostgres(name)
+	}
+	panic("unsupported database type")
 }
 
 func (state *StatefulDB) getNamedLockPostgres(name string) (func(), error) {
+	// we also use a local lock here - whoever is locking wants exclusive access even within the node
+	lock := state.locks.GetLock(name)
+	lock.Lock()
 	// Convert string to sha256 hash and use decimal value for advisory lock
 	h := sha256.Sum256([]byte(name))
 	nameInt := int64(binary.BigEndian.Uint64(h[:8]))
 
 	err := state.DB.Exec("SELECT pg_advisory_lock($1)", nameInt).Error
 	if err != nil {
+		lock.Unlock()
 		return nil, err
 	}
 	return func() {
 		err := state.DB.Exec("SELECT pg_advisory_unlock($1)", nameInt).Error
+		lock.Unlock()
 		if err != nil {
 			// unfortunate, but the risk is that we're holding on to the lock forever,
 			// so it's responsible to crash in this case

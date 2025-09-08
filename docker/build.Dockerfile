@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM ubuntu:22.04 AS builder-no-darwin
+FROM ubuntu:22.04 AS builder-no-android
 
 ARG TARGETARCH
 ENV TARGETARCH $TARGETARCH
@@ -68,14 +68,6 @@ RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
   rm *tools*linux*.zip && \
   curl -L https://raw.githubusercontent.com/thyrlian/AndroidSDK/bfcbf0cdfd6bb1ef45579e6ddc4d3876264cbdd1/android-sdk/license_accepter.sh | bash
 
-RUN if [ "$TARGETARCH" = "amd64" ]; then export ANDROIDARCH="x86_64"; fi \
-  && if [ "$TARGETARCH" = "arm64" ]; then export ANDROIDARCH="arm64-v8a"; fi \
-  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager --install emulator \
-  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager "system-images;android-28;default;$ANDROIDARCH" \
-  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager 'platform-tools' \
-  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager 'build-tools;36.0.0' \
-  && $ANDROID_HOME/cmdline-tools/tools/bin/avdmanager create avd -n Pixel_API_28_AOSP -d pixel --package "system-images;android-28;default;$ANDROIDARCH"
-
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh \
   && bash rustup.sh -y \
   && rustup target add aarch64-unknown-linux-gnu \
@@ -115,6 +107,16 @@ ENV STREAMPLACE_TEST_POSTGRES_COMMAND="sudo -u postgres /usr/lib/postgresql/14/b
 ENV STREAMPLACE_TEST_POSTGRES_URL="postgresql://postgres:postgres@localhost:5432/streamplace"
 # allow all postgres connections
 RUN bash -c 'echo -en "local   all             postgres                                peer\nhost    all             all             0.0.0.0/0            trust\n" > /etc/postgresql/14/main/pg_hba.conf'
+
+FROM builder-no-android AS builder-no-darwin
+
+RUN if [ "$TARGETARCH" = "amd64" ]; then export ANDROIDARCH="x86_64"; fi \
+  && if [ "$TARGETARCH" = "arm64" ]; then export ANDROIDARCH="arm64-v8a"; fi \
+  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager --install emulator \
+  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager "system-images;android-28;default;$ANDROIDARCH" \
+  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager 'platform-tools' \
+  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager 'build-tools;36.0.0' \
+  && $ANDROID_HOME/cmdline-tools/tools/bin/avdmanager create avd -n Pixel_API_28_AOSP -d pixel --package "system-images;android-28;default;$ANDROIDARCH"
 
 FROM builder-no-darwin AS builder
 

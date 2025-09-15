@@ -273,6 +273,7 @@ export function ReportButton({
           $type: "com.atproto.repo.strongRef",
           uri: livestream.uri,
           cid: livestream.cid,
+          record: livestream.record,
         });
       }}
     >

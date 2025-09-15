@@ -1,6 +1,10 @@
 import { ComAtprotoModerationCreateReport } from "@atproto/api";
 import { useContext, useEffect, useState } from "react";
-import { ChatMessageViewHydrated } from "streamplace";
+import {
+  ChatMessageViewHydrated,
+  PlaceStreamChatMessage,
+  PlaceStreamLivestream,
+} from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import { useLivestreamStore } from "../livestream-store";
 import { useStreamplaceStore } from "../streamplace-store";
@@ -178,7 +182,9 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     setReportSubject: (
       subject:
         | (ComAtprotoModerationCreateReport.InputSchema["subject"] & {
-            context?: any;
+            record?:
+              | PlaceStreamChatMessage.Record
+              | PlaceStreamLivestream.Record;
           })
         | null,
     ) => set(() => ({ reportSubject: subject })),

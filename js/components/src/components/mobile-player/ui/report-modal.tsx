@@ -61,12 +61,29 @@ interface ReportModalProps {
   onOpenChange: (open: boolean) => void;
   onSubmit?: (reason: string, additionalComments?: string) => void;
   onBlock?: () => void;
-  subject: ComAtprotoModerationCreateReport.InputSchema["subject"];
+  subject: ComAtprotoModerationCreateReport.InputSchema["subject"] & {
+    record?: {
+      $type: string;
+      text?: string;
+      title?: string;
+      createdAt?: string;
+      [key: string]: unknown;
+    };
+  };
   context?: {
     text?: string;
     content?: string;
     message?: string;
-    [key: string]: any;
+    author?: {
+      handle?: string;
+      displayName?: string;
+      [key: string]: unknown;
+    };
+    record?: {
+      text?: string;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
   };
   title?: string;
   description?: string;
@@ -680,7 +697,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     handleBlock,
   ]);
 
-  let aturi = (subject as any)?.uri;
+  let aturi = (subject as { uri?: string })?.uri;
 
   // Lexicon NSID (second to last part )
   let lexid = aturi?.split("/")[3] || null;
@@ -744,32 +761,35 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               ]}
             >
               <Text style={[{ fontSize: 14, fontWeight: "500" }]}>
-                {lexSubType?.charAt(0).toUpperCase() + lexSubType?.slice(1)}{" "}
+                {(lexSubType?.charAt(0).toUpperCase() ?? "") +
+                  (lexSubType?.slice(1) ?? "")}{" "}
                 {lexSubject}
               </Text>
 
-              {/* Show chat message content */}
-              {subject &&
-                (subject as any).context?.record?.text &&
-                (subject as any).context?.author.handle && (
-                  <Text
-                    style={[
-                      zero.mt[2],
-                      zero.p[2],
-                      zero.r.sm,
-                      {
-                        fontSize: 13,
-                        color: "rgba(255,255,255,0.8)",
-                        backgroundColor: "rgba(255,255,255,0.03)",
-                        fontStyle: "italic",
-                      },
-                    ]}
-                    numberOfLines={3}
-                  >
-                    {(subject as any).context?.author.handle}: "
-                    {(subject as any).context?.record?.text}"
-                  </Text>
-                )}
+              {/* Show record content */}
+              {subject.record && (
+                <Text
+                  style={[
+                    zero.mt[2],
+                    zero.p[2],
+                    zero.r.sm,
+                    {
+                      fontSize: 13,
+                      color: "rgba(255,255,255,0.8)",
+                      backgroundColor: "rgba(255,255,255,0.03)",
+                      fontStyle: "italic",
+                    },
+                  ]}
+                  numberOfLines={3}
+                >
+                  {subject.record.$type === "place.stream.chat.message" &&
+                    subject.record.text &&
+                    `"${subject.record.text}"`}
+                  {subject.record.$type === "place.stream.livestream" &&
+                    subject.record.title &&
+                    `"${subject.record.title}"`}
+                </Text>
+              )}
             </View>
           )}
           {VerticalStepper}

@@ -1,5 +1,9 @@
 import { ComAtprotoModerationCreateReport } from "@atproto/api";
-import { ChatMessageViewHydrated } from "streamplace";
+import {
+  ChatMessageViewHydrated,
+  PlaceStreamChatMessage,
+  PlaceStreamLivestream,
+} from "streamplace";
 
 export enum PlayerProtocol {
   WEBRTC = "webrtc",
@@ -187,7 +191,7 @@ export interface PlayerState {
   /** Subject to report */
   reportSubject:
     | (ComAtprotoModerationCreateReport.InputSchema["subject"] & {
-        context?: any;
+        record?: PlaceStreamChatMessage.Record | PlaceStreamLivestream.Record;
       })
     | null;
 
@@ -195,7 +199,7 @@ export interface PlayerState {
   setReportSubject: (
     subject:
       | (ComAtprotoModerationCreateReport.InputSchema["subject"] & {
-          context?: any;
+          record?: PlaceStreamChatMessage.Record | PlaceStreamLivestream.Record;
         })
       | null,
   ) => void;

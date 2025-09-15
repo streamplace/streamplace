@@ -267,7 +267,8 @@ export function ReportButton({
           $type: "com.atproto.repo.strongRef",
           uri: message.uri,
           cid: message.cid,
-          context: message,
+
+          record: message.record,
         });
       }}
     >

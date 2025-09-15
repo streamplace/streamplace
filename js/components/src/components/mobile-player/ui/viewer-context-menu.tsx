@@ -274,6 +274,10 @@ export function ReportButton({
           uri: livestream.uri,
           cid: livestream.cid,
           record: livestream.record,
+          author: {
+            handle: livestream.author?.handle,
+            did: livestream.author?.did,
+          },
         });
       }}
     >

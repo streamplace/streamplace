@@ -192,6 +192,11 @@ export interface PlayerState {
   reportSubject:
     | (ComAtprotoModerationCreateReport.InputSchema["subject"] & {
         record?: PlaceStreamChatMessage.Record | PlaceStreamLivestream.Record;
+        author?: {
+          handle?: string;
+          did?: string;
+          [key: string]: unknown;
+        };
       })
     | null;
 
@@ -200,6 +205,11 @@ export interface PlayerState {
     subject:
       | (ComAtprotoModerationCreateReport.InputSchema["subject"] & {
           record?: PlaceStreamChatMessage.Record | PlaceStreamLivestream.Record;
+          author?: {
+            handle?: string;
+            did?: string;
+            [key: string]: unknown;
+          };
         })
       | null,
   ) => void;

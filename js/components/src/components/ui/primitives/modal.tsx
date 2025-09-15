@@ -331,7 +331,6 @@ const primitiveStyles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 16,
   },
   content: {
     borderRadius: 8,
@@ -380,8 +379,6 @@ const primitiveStyles = StyleSheet.create({
     borderRadius: 0,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -392,12 +389,8 @@ const primitiveStyles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
   },
   footer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,

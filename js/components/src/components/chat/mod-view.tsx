@@ -267,8 +267,11 @@ export function ReportButton({
           $type: "com.atproto.repo.strongRef",
           uri: message.uri,
           cid: message.cid,
-
           record: message.record,
+          author: {
+            handle: message.author?.handle,
+            did: message.author?.did,
+          },
         });
       }}
     >

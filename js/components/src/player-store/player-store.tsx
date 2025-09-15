@@ -185,6 +185,11 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
             record?:
               | PlaceStreamChatMessage.Record
               | PlaceStreamLivestream.Record;
+            author?: {
+              handle?: string;
+              did?: string;
+              [key: string]: unknown;
+            };
           })
         | null,
     ) => set(() => ({ reportSubject: subject })),

@@ -117,9 +117,8 @@ export const DropdownMenuSubContent = forwardRef<
     <DropdownMenuPrimitive.SubContent
       ref={ref}
       style={[
-        a.zIndex[50],
-        a.sizes.minWidth[64],
-        a.sizes.maxWidth[64],
+        a.zIndex[10],
+        a.sizes.minWidth[32],
         a.overflow.hidden,
         a.radius.all.md,
         a.borders.width.thin,
@@ -159,8 +158,8 @@ export const DropdownMenuContent = forwardRef<
           ref={ref}
           style={
             [
-              a.zIndex[50],
-              a.sizes.minWidth[64],
+              a.zIndex[10],
+              a.sizes.minWidth[32],
               a.sizes.maxWidth[64],
               { maxHeight: maxHeight },
               a.overflow.hidden,

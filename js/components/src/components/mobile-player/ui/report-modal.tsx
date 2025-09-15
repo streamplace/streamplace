@@ -10,13 +10,20 @@ import {
   Loader2,
 } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { ScrollView, TouchableOpacity, View } from "react-native";
-import { zero } from "../../..";
+import { TouchableOpacity, View } from "react-native";
+import { PlaceStreamChatMessage, PlaceStreamLivestream } from "streamplace";
+import { useDID, zero } from "../../..";
 import { useSubmitReport } from "../../../livestream-store";
+import { usePDSAgent } from "../../../streamplace-store/xrpc";
 import {
   Button,
-  DialogFooter,
-  ResponsiveDialog,
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogOverlay,
+  DialogTitle,
   Text,
   Textarea,
   useTheme,
@@ -62,11 +69,10 @@ interface ReportModalProps {
   onSubmit?: (reason: string, additionalComments?: string) => void;
   onBlock?: () => void;
   subject: ComAtprotoModerationCreateReport.InputSchema["subject"] & {
-    record?: {
-      $type: string;
-      text?: string;
-      title?: string;
-      createdAt?: string;
+    record?: PlaceStreamChatMessage.Record | PlaceStreamLivestream.Record;
+    author?: {
+      handle?: string;
+      did?: string;
       [key: string]: unknown;
     };
   };
@@ -76,7 +82,6 @@ interface ReportModalProps {
     message?: string;
     author?: {
       handle?: string;
-      displayName?: string;
       [key: string]: unknown;
     };
     record?: {
@@ -101,6 +106,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   title = "Report",
   description = "Why are you submitting this report?",
 }) => {
+  const { theme } = useTheme();
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [additionalComments, setAdditionalComments] = useState<string>("");
@@ -111,6 +117,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
   const submitReport = useSubmitReport();
+  const pdsAgent = usePDSAgent();
+  const userDID = useDID();
+
+  const isLoggedIn = pdsAgent && userDID;
 
   const handleCancel = useCallback(() => {
     resetForm();
@@ -145,7 +155,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     setSubmitError(null);
 
     try {
-      submitReport(
+      await submitReport(
         subject,
         selectedReason,
         additionalComments.trim() || undefined,
@@ -154,7 +164,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       setCurrentStep(4);
     } catch (error) {
       console.error("Failed to submit report:", error);
-      setSubmitError("Failed to submit report. Please try again.");
+      setSubmitError("Failed to submit report. " + (error as Error).message);
     } finally {
       setIsSubmitting(false);
     }
@@ -240,7 +250,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       switch (stepNumber) {
         case 1:
           return (
-            <View style={[zero.mt[3], { width: "100%" }, zero.bg.destructive]}>
+            <View style={[zero.mt[3], { width: "100%" }]}>
               {REPORT_REASONS.map((reason) => (
                 <TouchableOpacity
                   key={reason.value}
@@ -258,15 +268,15 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                     ],
                     zero.borders.width.thin,
                     selectedReason === reason.value && {
-                      backgroundColor: "rgba(0, 122, 255, 0.1)",
+                      backgroundColor: theme.colors.primary + "1A",
                     },
                   ]}
                 >
                   <View>
                     {selectedReason === reason.value ? (
-                      <CheckCircle size="18" />
+                      <CheckCircle size="18" color={theme.colors.primary} />
                     ) : (
-                      <Circle size="18" />
+                      <Circle size="18" color={theme.colors.text} />
                     )}
                   </View>
                   <View
@@ -288,7 +298,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                       style={[
                         {
                           fontSize: 12,
-                          color: "rgba(255,255,255,0.7)",
+                          color: theme.colors.textMuted,
                           // why is the line height soo high?
                           lineHeight: 16,
                         },
@@ -316,7 +326,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <Text
                 style={[
                   zero.mt[2],
-                  { fontSize: 12, color: "rgba(255,255,255,0.5)" },
+                  { fontSize: 12, color: theme.colors.textMuted },
                 ]}
               >
                 {additionalComments.length}/500
@@ -334,15 +344,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 style={[
                   zero.mb[4],
                   zero.p[3],
-                  zero.borderRadius[8],
-                  { backgroundColor: "rgba(255,255,255,0.05)" },
+                  zero.r.md,
+                  { backgroundColor: theme.colors.background },
                 ]}
               >
                 <Text style={[zero.mb[2], { fontWeight: "600" }]}>Reason:</Text>
                 <Text style={[zero.mb[1]]}>{selectedReasonData?.label}</Text>
-                <Text
-                  style={[{ fontSize: 14, color: "rgba(255,255,255,0.7)" }]}
-                >
+                <Text style={[{ fontSize: 14, color: theme.colors.textMuted }]}>
                   {selectedReasonData?.description}
                 </Text>
               </View>
@@ -352,21 +360,26 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   style={[
                     zero.mb[4],
                     zero.p[3],
-                    zero.borderRadius[8],
-                    { backgroundColor: "rgba(255,255,255,0.05)" },
+                    zero.r.md,
+                    { backgroundColor: theme.colors.background },
                   ]}
                 >
                   <Text style={[zero.mb[2], { fontWeight: "600" }]}>
                     Additional Comments:
                   </Text>
-                  <Text style={[{ color: "rgba(255,255,255,0.9)" }]}>
+                  <Text style={[{ color: theme.colors.text }]}>
                     {additionalComments.trim()}
                   </Text>
                 </View>
               )}
 
               {submitError && (
-                <Text style={[zero.mt[2], { color: "red", fontSize: 14 }]}>
+                <Text
+                  style={[
+                    zero.mt[2],
+                    { color: theme.colors.destructive, fontSize: 14 },
+                  ]}
+                >
                   {submitError}
                 </Text>
               )}
@@ -383,7 +396,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 { width: "100%" },
               ]}
             >
-              <CheckCircle size={48} color="#00C851" style={[zero.mb[4]]} />
+              <CheckCircle
+                size={48}
+                color={theme.colors.success}
+                style={[zero.mb[4]]}
+              />
               <Text style={[zero.mb[2], { fontSize: 18, fontWeight: "600" }]}>
                 Report Submitted
               </Text>
@@ -392,7 +409,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   zero.mb[4],
                   {
                     fontSize: 14,
-                    color: "rgba(255,255,255,0.7)",
+                    color: theme.colors.textMuted,
                     textAlign: "center",
                   },
                 ]}
@@ -407,7 +424,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 style={[
                   {
                     fontSize: 14,
-                    color: "rgba(255,255,255,0.6)",
+                    color: theme.colors.textMuted,
                     textAlign: "center",
                   },
                 ]}
@@ -438,23 +455,25 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   borderRadius: 12,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: "#00C851",
+                  backgroundColor: theme.colors.success,
                   marginRight: 12,
                 },
               ]}
             >
-              <CheckCircle size={14} color="white" />
+              <CheckCircle size={14} color={theme.colors.primaryForeground} />
             </View>
             <View style={[zero.mb[3]]}>
               <Text
-                style={[{ color: "white", fontWeight: "600", fontSize: 14 }]}
+                style={[
+                  { color: theme.colors.text, fontWeight: "600", fontSize: 14 },
+                ]}
               >
                 {currentStepData.title}
               </Text>
               <Text
                 style={[
                   {
-                    color: "rgba(255,255,255,0.7)",
+                    color: theme.colors.textMuted,
                     marginTop: 4,
                     fontSize: 12,
                   },
@@ -487,16 +506,19 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                     justifyContent: "center",
                     backgroundColor:
                       step.number < currentStep
-                        ? "#00C851"
+                        ? theme.colors.success
                         : step.number === currentStep
-                          ? "#007AFF"
-                          : "rgba(255,255,255,0.3)",
+                          ? theme.colors.primary
+                          : theme.colors.muted,
                     marginRight: 12,
                   },
                 ]}
               >
                 {step.number < currentStep ? (
-                  <CheckCircle size={14} color="white" />
+                  <CheckCircle
+                    size={14}
+                    color={theme.colors.successForeground}
+                  />
                 ) : (
                   <Text
                     style={[
@@ -505,8 +527,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                         fontWeight: "600",
                         color:
                           step.number === currentStep
-                            ? "white"
-                            : "rgba(255,255,255,0.6)",
+                            ? theme.colors.primaryForeground
+                            : theme.colors.textMuted,
                       },
                     ]}
                   >
@@ -524,8 +546,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                       fontSize: 14,
                       color:
                         step.number <= currentStep
-                          ? "white"
-                          : "rgba(255,255,255,0.6)",
+                          ? theme.colors.text
+                          : theme.colors.textMuted,
                     },
                   ]}
                 >
@@ -537,8 +559,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                       fontSize: 12,
                       color:
                         step.number <= currentStep
-                          ? "rgba(255,255,255,0.7)"
-                          : "rgba(255,255,255,0.4)",
+                          ? theme.colors.textMuted
+                          : theme.colors.textDisabled,
                     },
                   ]}
                 >
@@ -558,8 +580,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                     width: 2,
                     backgroundColor:
                       step.number < currentStep
-                        ? "#00C851"
-                        : "rgba(255,255,255,0.2)",
+                        ? theme.colors.success
+                        : theme.colors.muted,
                     zIndex: -1,
                   },
                 ]}
@@ -591,18 +613,18 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         return (
           <>
             <Button
-              style={{ width: "50%" }}
+              style={[zero.flex.grow[1]]}
               variant="secondary"
               onPress={handleCancel}
             >
               <Text>Cancel</Text>
             </Button>
             <Button
-              style={{ width: "50%" }}
+              style={[zero.flex.grow[1]]}
               variant="primary"
               onPress={handleNext}
               disabled={!canProceed()}
-              rightIcon={<ChevronRight size={16} style={[{ marginLeft: 4 }]} />}
+              rightIcon={<ChevronRight size={16} color={theme.colors.text} />}
             >
               <Text>Next</Text>
             </Button>
@@ -613,14 +635,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         return (
           <>
             <Button
-              style={{ width: "50%" }}
+              style={[zero.flex.grow[1]]}
               variant="secondary"
               onPress={handleBack}
             >
               <Text>Back</Text>
             </Button>
             <Button
-              style={{ width: "50%" }}
+              style={[zero.flex.grow[1]]}
               variant="primary"
               onPress={handleNext}
               disabled={!canProceed()}
@@ -635,7 +657,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         return (
           <>
             <Button
-              style={{ width: "50%" }}
+              style={[zero.flex.grow[1]]}
               variant="secondary"
               onPress={handleBack}
               disabled={isSubmitting}
@@ -644,7 +666,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <Text>Back</Text>
             </Button>
             <Button
-              style={{ width: "50%" }}
+              style={[zero.flex.grow[1]]}
               variant="primary"
               onPress={handleSubmitReport}
               disabled={isSubmitting || !subject}
@@ -665,14 +687,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         return (
           <>
             <Button
-              style={{ width: "50%" }}
+              style={[zero.flex.grow[1]]}
               variant="destructive"
               onPress={handleBlock}
             >
               <Text>Block User</Text>
             </Button>
             <Button
-              style={{ width: "50%" }}
+              style={[zero.flex.grow[1]]}
               variant="primary"
               onPress={handleFinish}
             >
@@ -706,99 +728,180 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   let lexidParts = lexid?.split(".");
   let lexSubject = lexidParts?.[3];
   let lexSubType = lexidParts?.[2];
-
+  console.log(subject);
   return (
-    <ResponsiveDialog
+    <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title={getStepTitle}
-      description={getStepDescription}
-      showCloseButton={!isSubmitting}
-      size="md"
       dismissible={currentStep === 1 && !isSubmitting}
-      style={{}}
+      onClose={() => onOpenChange(false)}
+      variant="default"
+      size="md"
       position="center"
     >
-      <View style={[zero.pb[2]]}>
-        <ScrollView
-          style={{ flex: 1, width: "100%" }}
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingHorizontal: 0,
+      <DialogOverlay
+        dismissible={currentStep === 1 && !isSubmitting}
+        onDismiss={() => onOpenChange(false)}
+      >
+        <DialogContent
+          size="full"
+          position="top"
+          style={{
             width: "100%",
-            minWidth: "100%",
+            maxWidth: "100%",
+            backgroundColor: "transparent",
+            margin: 0,
+            borderRadius: 0,
           }}
-          showsVerticalScrollIndicator={false}
         >
-          {!subject ? (
+          <DialogHeader withBorder={false}>
+            <DialogTitle>Report</DialogTitle>
+            {!isSubmitting && (
+              <DialogClose onClose={() => onOpenChange(false)} />
+            )}
+          </DialogHeader>
+
+          {!isLoggedIn ? (
             <View
               style={[
-                zero.mb[4],
-                zero.p[3],
+                zero.p[4],
                 zero.borderRadius[8],
-                { backgroundColor: "rgba(255,255,255,0.05)" },
+                zero.flex.grow[1],
+                zero.layout.flex.center,
               ]}
             >
-              <Text
+              <Text center size="2xl">
+                Sorry, but you need to be logged in to submit a report.
+              </Text>
+            </View>
+          ) : !subject ? (
+            <DialogBody scrollable>
+              <View
                 style={[
-                  {
-                    fontSize: 14,
-                    color: "rgba(255,255,255,0.7)",
-                    textAlign: "center",
-                  },
+                  zero.mb[4],
+                  zero.p[3],
+                  zero.borderRadius[8],
+                  { backgroundColor: theme.colors.background },
                 ]}
               >
-                No content selected for reporting
-              </Text>
+                <Text
+                  style={[
+                    {
+                      fontSize: 14,
+                      color: theme.colors.textMuted,
+                      textAlign: "center",
+                    },
+                  ]}
+                >
+                  No content selected for reporting
+                </Text>
+              </View>
+              {/* Step content */}
+              {isLoggedIn && VerticalStepper}
+            </DialogBody>
+          ) : (
+            <DialogBody scrollable>
+              <View
+                style={[
+                  zero.p[2],
+                  zero.mb[4],
+                  zero.r.md,
+                  { backgroundColor: theme.colors.background },
+                ]}
+              >
+                <Text style={[{ fontSize: 14, fontWeight: "500" }]}>
+                  {(lexSubType?.charAt(0).toUpperCase() ?? "") +
+                    (lexSubType?.slice(1) ?? "")}{" "}
+                  {lexSubject}
+                  {subject.author?.handle && (
+                    <Text
+                      style={[
+                        {
+                          fontSize: 13,
+                          color: theme.colors.textMuted,
+                          fontWeight: "400",
+                        },
+                      ]}
+                    ></Text>
+                  )}
+                </Text>
+
+                {/* Show record content */}
+                {subject.record && (
+                  <Text
+                    style={[
+                      zero.mt[2],
+                      zero.p[2],
+                      zero.r.sm,
+                      {
+                        fontSize: 13,
+                        color: theme.colors.text,
+                        backgroundColor: theme.colors.muted,
+                      },
+                    ]}
+                    numberOfLines={3}
+                  >
+                    {subject.record.$type === "place.stream.chat.message" &&
+                      subject.record.text &&
+                      subject.author && (
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            color: theme.colors.text,
+                            backgroundColor: theme.colors.muted,
+                            fontWeight: "500",
+                          }}
+                        >
+                          {subject.author.handle}:{" "}
+                        </Text>
+                      )}
+
+                    {subject.record.$type === "place.stream.chat.message" &&
+                      subject.record.text &&
+                      subject.record.text}
+                    {subject.record.$type === "place.stream.livestream" &&
+                      subject.record.title &&
+                      `${subject.record.title}`}
+                  </Text>
+                )}
+              </View>
+              {/* Step content */}
+              {isLoggedIn && VerticalStepper}
+            </DialogBody>
+          )}
+
+          {/* Footer with buttons */}
+          {isLoggedIn ? (
+            <View
+              style={[
+                zero.layout.flex.row,
+                zero.gap.all[4],
+                zero.px[4],
+                zero.pt[4],
+              ]}
+            >
+              {renderFooterButtons}
             </View>
           ) : (
             <View
               style={[
-                zero.p[2],
-                zero.mb[4],
-                zero.r.md,
-                { backgroundColor: "rgba(255,255,255,0.05)" },
+                zero.layout.flex.row,
+                zero.gap.all[4],
+                zero.px[4],
+                zero.pt[4],
               ]}
             >
-              <Text style={[{ fontSize: 14, fontWeight: "500" }]}>
-                {(lexSubType?.charAt(0).toUpperCase() ?? "") +
-                  (lexSubType?.slice(1) ?? "")}{" "}
-                {lexSubject}
-              </Text>
-
-              {/* Show record content */}
-              {subject.record && (
-                <Text
-                  style={[
-                    zero.mt[2],
-                    zero.p[2],
-                    zero.r.sm,
-                    {
-                      fontSize: 13,
-                      color: "rgba(255,255,255,0.8)",
-                      backgroundColor: "rgba(255,255,255,0.03)",
-                      fontStyle: "italic",
-                    },
-                  ]}
-                  numberOfLines={3}
-                >
-                  {subject.record.$type === "place.stream.chat.message" &&
-                    subject.record.text &&
-                    `"${subject.record.text}"`}
-                  {subject.record.$type === "place.stream.livestream" &&
-                    subject.record.title &&
-                    `"${subject.record.title}"`}
-                </Text>
-              )}
+              <Button
+                onPress={() => onOpenChange(false)}
+                style={[zero.flex.grow[1]]}
+              >
+                Close
+              </Button>
             </View>
           )}
-          {VerticalStepper}
-        </ScrollView>
-      </View>
-      <View style={[zero.layout.flex.row, zero.flex.basis[1], zero.gap.all[2]]}>
-        {renderFooterButtons}
-      </View>
-    </ResponsiveDialog>
+        </DialogContent>
+      </DialogOverlay>
+    </Dialog>
   );
 };
 

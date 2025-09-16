@@ -41,6 +41,7 @@ build-bunny:
       --destination "$FQ_IMAGE_NAME"
       --target "$TARGET"
       --customPlatform=linux/$TARGETARCH
+      --skip-unused-stages
 
 builder-amd64:
   extends:

@@ -30,6 +30,8 @@ RUN dpkg --add-architecture i386 && dpkg --add-architecture arm64
 # apt-mirror
 # mc mirror --overwrite /var/spool/apt-mirror/mirror/dl.winehq.org/ streamplace-crap/streamplace-crap/dl.winehq.org/
 
+ENV PATH /usr/lib/llvm-21/bin:$PATH:/usr/local/go/bin:/root/go/bin:/root/.cargo/bin
+
 RUN apt update \
   && apt install -y curl git openjdk-17-jdk unzip jq python3-pip ninja-build \
   && pip install meson tomli
@@ -100,8 +102,6 @@ RUN ./boot-android-vm.sh firstboot
 FROM builder-base AS builder-no-darwin
 
 RUN dpkg --add-architecture i386 && dpkg --add-architecture arm64 && dpkg --add-architecture amd64
-
-ENV PATH /usr/lib/llvm-21/bin:$PATH:/usr/local/go/bin:/root/go/bin:/root/.cargo/bin
 
 RUN apt update && apt install -y \
   build-essential g++ apksigner \

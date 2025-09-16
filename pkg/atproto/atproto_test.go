@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/stretchr/testify/require"
 )
 
 func TestKeyResolution(t *testing.T) {
+	require.FailNow(t, "not implemented")
 	// dir, err := os.MkdirTemp("", "atproto-test-*")
 	// require.NoError(t, err)
 	// defer os.RemoveAll(dir)

@@ -1,7 +1,6 @@
 import {
   LivestreamProvider,
   PlayerProvider,
-  ThemeProvider,
   zero,
 } from "@streamplace/components";
 import { Redirect } from "components/aqlink";
@@ -42,20 +41,18 @@ export default function LiveDashboard() {
   }
 
   return (
-    <ThemeProvider forcedTheme="dark">
-      <LivestreamProvider src={userProfile.did}>
-        <VideoElementProvider videoElement={videoElement}>
-          <PlayerProvider>
-            <View style={[flex.values[1], bg.gray[900]]}>
-              <BentoGrid
-                userProfile={userProfile}
-                isLive={isLive}
-                videoRef={videoRef}
-              />
-            </View>
-          </PlayerProvider>
-        </VideoElementProvider>
-      </LivestreamProvider>
-    </ThemeProvider>
+    <LivestreamProvider src={userProfile.did}>
+      <VideoElementProvider videoElement={videoElement}>
+        <PlayerProvider>
+          <View style={[flex.values[1], bg.gray[900]]}>
+            <BentoGrid
+              userProfile={userProfile}
+              isLive={isLive}
+              videoRef={videoRef}
+            />
+          </View>
+        </PlayerProvider>
+      </VideoElementProvider>
+    </LivestreamProvider>
   );
 }

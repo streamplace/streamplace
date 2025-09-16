@@ -46,6 +46,7 @@ export const createSystemMessage = (
     indexedAt: now.toISOString(),
     chatProfile: {
       color: { red: 128, green: 128, blue: 128 }, // Gray color for system messages
+      $type: "place.stream.chat.profile",
     },
   };
 };

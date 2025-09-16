@@ -1,0 +1,4 @@
+[workspace]
+resolver = "3"
+members = ["rust/iroh-streamplace"]
+exclude = ["subprojects/c2pa_go"]

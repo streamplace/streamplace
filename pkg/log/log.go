@@ -274,6 +274,14 @@ func Level(level glog.Level) glog.Verbose {
 	return glog.V(level)
 }
 
+func GetValue(ctx context.Context, key string) string {
+	meta, metaOk := ctx.Value(clogContextKey).(metadata)
+	if !metaOk {
+		return ""
+	}
+	return meta.Map()[key]
+}
+
 // returns filenames relative to streamplace root
 // e.g. handlers/misttriggers/triggers.go:58
 func caller(depth int) string {

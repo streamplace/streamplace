@@ -4,7 +4,10 @@ import {
   IngestMediaSource,
   PlayerProtocol,
   PlayerStatus,
+  useEffectiveVolume,
+  useMuted,
   usePlayerStore,
+  useSetMuted,
   useStreamplaceStore,
 } from "../..";
 import { borderRadius, colors, mt } from "../../lib/theme/atoms";
@@ -135,11 +138,11 @@ const VideoElement = forwardRef<
   const x = usePlayerStore((x) => x);
   const url = useStreamplaceStore((x) => x.url);
   const playerEvent = usePlayerStore((x) => x.playerEvent);
-  const setMuted = usePlayerStore((x) => x.setMuted);
   const setMuteWasForced = usePlayerStore((x) => x.setMuteWasForced);
-  const muted = usePlayerStore((x) => x.muted);
   const ingest = usePlayerStore((x) => x.ingestConnectionState !== null);
-  const volume = usePlayerStore((x) => x.volume);
+  const volume = useEffectiveVolume();
+  const muted = useMuted();
+  const setMuted = useSetMuted();
   const setStatus = usePlayerStore((x) => x.setStatus);
   const setUserInteraction = usePlayerStore((x) => x.setUserInteraction);
   const setVideoRef = usePlayerStore((x) => x.setVideoRef);
@@ -154,6 +157,7 @@ const VideoElement = forwardRef<
     playerEvent(url, now.toISOString(), evType, {});
   };
   const [firstAttempt, setFirstAttempt] = useState(true);
+  const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
 
   const localVideoRef = props.videoRef ?? useRef<HTMLVideoElement | null>(null);
 
@@ -206,11 +210,20 @@ const VideoElement = forwardRef<
               })
               .catch((err) => {
                 console.error("Muted play also failed", err);
+                setAutoplayFailed(true);
               });
           }
+        } else {
+          // For other errors (not NotAllowedError), also show play button
+          setAutoplayFailed(true);
         }
       });
     }
+  };
+
+  const handlePlaying = (e) => {
+    setAutoplayFailed(false);
+    event("playing")(e);
   };
 
   useEffect(() => {
@@ -275,7 +288,7 @@ const VideoElement = forwardRef<
       onLoadStart={event("loadstart")}
       onPause={event("pause")}
       onPlay={event("play")}
-      onPlaying={event("playing")}
+      onPlaying={handlePlaying}
       onRateChange={event("ratechange")}
       onSeeked={event("seeked")}
       onSeeking={event("seeking")}

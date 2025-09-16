@@ -6,6 +6,7 @@ import {
   PlaceStreamMetadataConfiguration,
 } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
+import storage from "../storage";
 import { StreamplaceContext } from "../streamplace-provider/context";
 
 // there are three categories of XRPC that we need to handle:
@@ -39,7 +40,7 @@ export interface StreamplaceState {
   liveUsersRefresh: number;
   liveUsersLoading: boolean;
   liveUsersError: string | null;
-  oauthSession: SessionManager | null;
+  oauthSession: SessionManager | null | undefined;
   handle: string | null;
   chatProfile: PlaceStreamChatProfile.Record | null;
 
@@ -54,6 +55,12 @@ export interface StreamplaceState {
     updating?: boolean;
     error?: string | null;
   }) => void;
+
+  // Volume state
+  volume: number;
+  muted: boolean;
+  setVolume: (volume: number) => void;
+  setMuted: (muted: boolean) => void;
 }
 
 export type StreamplaceStore = StoreApi<StreamplaceState>;
@@ -63,7 +70,10 @@ export const makeStreamplaceStore = ({
 }: {
   url: string;
 }): StoreApi<StreamplaceState> => {
-  return createStore<StreamplaceState>()((set) => ({
+  const VOLUME_STORAGE_KEY = "globalVolume";
+  const MUTED_STORAGE_KEY = "globalMuted";
+
+  const store = createStore<StreamplaceState>()((set) => ({
     url,
     liveUsers: null,
     setLiveUsers: (opts: {
@@ -107,7 +117,73 @@ export const makeStreamplaceStore = ({
         ...(opts.error !== undefined && { contentMetadataError: opts.error }),
       });
     },
+
+    // Volume state - start with defaults
+    volume: 1.0,
+    muted: false,
+
+    setVolume: (volume: number) => {
+      // Ensure the value is finite and within bounds
+      if (!Number.isFinite(volume)) {
+        console.warn("Invalid volume value:", volume, "- using 1.0");
+        volume = 1.0;
+      }
+      const clampedVolume = Math.max(0, Math.min(1, volume));
+
+      set({ volume: clampedVolume });
+
+      // Auto-unmute if volume > 0
+      if (clampedVolume > 0) {
+        set({ muted: false });
+        storage.setItem(MUTED_STORAGE_KEY, "false").catch(console.error);
+      }
+
+      storage
+        .setItem(VOLUME_STORAGE_KEY, clampedVolume.toString())
+        .catch(console.error);
+    },
+
+    setMuted: (muted: boolean) => {
+      set({ muted });
+      storage.setItem(MUTED_STORAGE_KEY, muted.toString()).catch(console.error);
+    },
   }));
+
+  // Load initial volume state from storage asynchronously
+  (async () => {
+    try {
+      const storedVolume = await storage.getItem(VOLUME_STORAGE_KEY);
+      const storedMuted = await storage.getItem(MUTED_STORAGE_KEY);
+
+      let initialVolume = 1.0;
+      let initialMuted = false;
+
+      if (storedVolume) {
+        const parsedVolume = parseFloat(storedVolume);
+        if (
+          Number.isFinite(parsedVolume) &&
+          parsedVolume >= 0 &&
+          parsedVolume <= 1
+        ) {
+          initialVolume = parsedVolume;
+        }
+      }
+
+      if (storedMuted) {
+        initialMuted = storedMuted === "true";
+      }
+
+      // Update the store with loaded values
+      store.setState({
+        volume: initialVolume,
+        muted: initialMuted,
+      });
+    } catch (e) {
+      console.warn("Failed to load volume settings from storage:", e);
+    }
+  })();
+
+  return store;
 };
 
 export function getStreamplaceStoreFromContext(): StreamplaceStore {
@@ -150,3 +226,17 @@ export const useSetContentMetadata = () => {
   const store = getStreamplaceStoreFromContext();
   return store.getState().setContentMetadata;
 };
+
+// Volume convenience hooks
+export const useVolume = () => useStreamplaceStore((x) => x.volume);
+export const useMuted = () => useStreamplaceStore((x) => x.muted);
+export const useSetVolume = () => useStreamplaceStore((x) => x.setVolume);
+export const useSetMuted = () => useStreamplaceStore((x) => x.setMuted);
+
+// Composite hook for effective volume (0 if muted) - used by video components
+export const useEffectiveVolume = () =>
+  useStreamplaceStore((state) => {
+    const effectiveVolume = state.muted ? 0 : state.volume;
+    // Ensure we always return a finite number for HTMLMediaElement.volume
+    return Number.isFinite(effectiveVolume) ? effectiveVolume : 1.0;
+  });

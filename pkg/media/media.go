@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"encoding/json"
@@ -19,18 +20,20 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/model"
 
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/replication"
 
 	"git.stream.place/streamplace/c2pa-go/pkg/c2pa/generated/manifeststore"
 	"github.com/piprate/json-gold/ld"
-	"stream.place/streamplace/pkg/constants"
-)
 
-// #cgo pkg-config: streamplacedeps-uninstalled
-import "C"
+	irohStreamplace "stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
+
+	_ "stream.place/streamplace/pkg/streamplacedeps"
+)
 
 const CertFile = "cert.pem"
 const SegmentsDir = "segments"
@@ -117,6 +120,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 			},
 		},
 	}
+
 	return &MediaManager{
 		cli:          cli,
 		replicator:   rep,
@@ -128,6 +132,15 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		webrtcAPI:    api,
 		webrtcConfig: config,
 	}, nil
+}
+
+func (mm *MediaManager) HandleData(node *irohStreamplace.PublicKey, data []byte) {
+	r := bytes.NewReader(data)
+	ctx := context.Background()
+	err := mm.ValidateMP4(ctx, r)
+	if err != nil {
+		log.Log(ctx, "invalid incoming segment", "error", err)
+	}
 }
 
 // replacement for os.Pipe that works on windows

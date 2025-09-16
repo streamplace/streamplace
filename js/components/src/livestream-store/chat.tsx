@@ -75,7 +75,21 @@ export const useCreateChatMessage = () => {
     const rt = new RichText({ text: msg.text });
     await rt.detectFacets(pdsAgent);
 
+    // filter out any facets that aren't in the allowed list
+    rt.facets = rt.facets?.filter((facet) => {
+      return (
+        // if all features are in the allowed list
+        facet.features.every((feature) =>
+          [
+            "app.bsky.richtext.facet#link",
+            "app.bsky.richtext.facet#mention",
+          ].includes(feature.$type),
+        )
+      );
+    });
+
     const record: PlaceStreamChatMessage.Record = {
+      $type: "place.stream.chat.message",
       text: msg.text,
       createdAt: new Date().toISOString(),
       streamer: streamerProfile.did,
@@ -115,6 +129,28 @@ export const useCreateChatMessage = () => {
       repo: userDID,
       collection: "place.stream.chat.message",
       record,
+    });
+  };
+};
+
+export const useDeleteChatMessage = () => {
+  const pdsAgent = usePDSAgent();
+  if (!pdsAgent) {
+    throw new Error("No PDS agent found");
+  }
+  const userDID = useDID();
+  if (!userDID) {
+    throw new Error("No user DID found");
+  }
+  return async (uri: string) => {
+    const rkey = uri.split("/").pop();
+    if (!rkey) {
+      throw new Error("No rkey found");
+    }
+    return await pdsAgent.com.atproto.repo.deleteRecord({
+      repo: userDID,
+      collection: "place.stream.chat.message",
+      rkey: rkey,
     });
   };
 };
@@ -176,12 +212,9 @@ export const reduceChatIncremental = (
   let hasChanges = false;
   const removedKeys = new Set<string>();
 
-  console.log("newMessages", newMessages);
-
   for (const msg of newMessages) {
     if (msg.deleted) {
       hasChanges = true;
-      console.log("deleted", msg.uri);
       removedKeys.add(msg.uri);
     }
   }
@@ -273,6 +306,7 @@ export const reduceChatIncremental = (
             processedMessage = {
               ...message,
               replyTo: {
+                $type: "place.stream.chat.defs#messageView",
                 cid: parentMsg.cid,
                 uri: parentMsg.uri,
                 author: parentMsg.author,

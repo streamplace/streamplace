@@ -1,0 +1,161 @@
+---
+title: place.stream.server.updateWebhook
+description: Reference for the place.stream.server.updateWebhook lexicon
+---
+
+**Lexicon Version:** 1
+
+## Definitions
+
+<a name="main"></a>
+
+### `main`
+
+**Type:** `procedure`
+
+Update an existing webhook configuration.
+
+**Parameters:** _(None defined)_
+
+**Input:**
+
+- **Encoding:** `application/json`
+- **Schema:**
+
+**Schema Type:** `object`
+
+| Name          | Type                                                                                                   | Req'd | Description                                      | Constraints     |
+| ------------- | ------------------------------------------------------------------------------------------------------ | ----- | ------------------------------------------------ | --------------- |
+| `id`          | `string`                                                                                               | ✅    | The ID of the webhook to update.                 |                 |
+| `url`         | `string`                                                                                               | ❌    | The webhook URL where events will be sent.       | Format: `uri`   |
+| `events`      | Array of `string`                                                                                      | ❌    | The types of events this webhook should receive. |                 |
+| `active`      | `boolean`                                                                                              | ❌    | Whether this webhook should be active.           |                 |
+| `prefix`      | `string`                                                                                               | ❌    | Text to prepend to webhook messages.             | Max Length: 100 |
+| `suffix`      | `string`                                                                                               | ❌    | Text to append to webhook messages.              | Max Length: 100 |
+| `rewrite`     | Array of [`place.stream.server.defs#rewriteRule`](/lex-reference/place-stream-server-defs#rewriterule) | ❌    | Text replacement rules for webhook messages.     |                 |
+| `name`        | `string`                                                                                               | ❌    | A user-friendly name for this webhook.           | Max Length: 100 |
+| `description` | `string`                                                                                               | ❌    | A description of what this webhook is used for.  | Max Length: 500 |
+
+**Output:**
+
+- **Encoding:** `application/json`
+- **Schema:**
+
+**Schema Type:** `object`
+
+| Name      | Type                                                                                  | Req'd | Description | Constraints |
+| --------- | ------------------------------------------------------------------------------------- | ----- | ----------- | ----------- |
+| `webhook` | [`place.stream.server.defs#webhook`](/lex-reference/place-stream-server-defs#webhook) | ✅    |             |             |
+
+**Possible Errors:**
+
+- `WebhookNotFound`: The specified webhook was not found.
+- `Unauthorized`: The authenticated user does not have access to this webhook.
+- `InvalidUrl`: The provided webhook URL is invalid or unreachable.
+- `DuplicateWebhook`: A webhook with this URL already exists for this user.
+
+---
+
+## Lexicon Source
+
+```json
+{
+  "lexicon": 1,
+  "id": "place.stream.server.updateWebhook",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Update an existing webhook configuration.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The ID of the webhook to update."
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "The webhook URL where events will be sent."
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["chat", "livestream", "follow", "mention"]
+              },
+              "description": "The types of events this webhook should receive."
+            },
+            "active": {
+              "type": "boolean",
+              "description": "Whether this webhook should be active."
+            },
+            "prefix": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Text to prepend to webhook messages."
+            },
+            "suffix": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Text to append to webhook messages."
+            },
+            "rewrite": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.server.defs#rewriteRule"
+              },
+              "description": "Text replacement rules for webhook messages."
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "A user-friendly name for this webhook."
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 500,
+              "description": "A description of what this webhook is used for."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["webhook"],
+          "properties": {
+            "webhook": {
+              "type": "ref",
+              "ref": "place.stream.server.defs#webhook"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "WebhookNotFound",
+          "description": "The specified webhook was not found."
+        },
+        {
+          "name": "Unauthorized",
+          "description": "The authenticated user does not have access to this webhook."
+        },
+        {
+          "name": "InvalidUrl",
+          "description": "The provided webhook URL is invalid or unreachable."
+        },
+        {
+          "name": "DuplicateWebhook",
+          "description": "A webhook with this URL already exists for this user."
+        }
+      ]
+    }
+  }
+}
+```

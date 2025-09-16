@@ -12,15 +12,15 @@ import (
 )
 
 type FeedPost struct {
-	CID              string     `json:"cid" gorm:"primaryKey;column:cid"`
-	URI              string     `json:"uri"`
+	URI              string     `json:"uri" gorm:"primaryKey;column:uri"`
+	CID              string     `json:"cid" gorm:"column:cid"`
 	CreatedAt        time.Time  `json:"createdAt" gorm:"column:created_at;index:recent_replies"`
-	FeedPost         *[]byte    `json:"feedPost"`
+	FeedPost         *[]byte    `json:"feedPost" gorm:"column:feed_post"`
 	RepoDID          string     `json:"repoDID"              gorm:"column:repo_did"`
 	Repo             *Repo      `json:"repo,omitempty"       gorm:"foreignKey:DID;references:RepoDID"`
 	Type             string     `json:"type"                 gorm:"column:type"`
-	ReplyRootCID     *string    `json:"replyRootCID,omitempty" gorm:"column:reply_root_cid"`
-	ReplyRoot        *FeedPost  `json:"replyRoot,omitempty" gorm:"foreignKey:cid;references:ReplyRootCID"`
+	ReplyRootURI     *string    `json:"replyRootURI,omitempty" gorm:"column:reply_root_uri"`
+	ReplyRoot        *FeedPost  `json:"replyRoot,omitempty" gorm:"foreignKey:uri;references:ReplyRootURI"`
 	ReplyRootRepoDID *string    `json:"replyRootRepoDID,omitempty" gorm:"column:reply_root_repo_did;index:recent_replies"`
 	ReplyRootRepo    *Repo      `json:"replyRootRepo,omitempty" gorm:"foreignKey:DID;references:ReplyRootRepoDID"`
 	IndexedAt        *time.Time `json:"indexedAt,omitempty" gorm:"column:indexed_at"`
@@ -77,9 +77,9 @@ func (m *DBModel) ListFeedPostsByType(feedType string, limit int, after int64) (
 	return posts, nil
 }
 
-func (m *DBModel) GetFeedPost(cid string) (*FeedPost, error) {
+func (m *DBModel) GetFeedPost(uri string) (*FeedPost, error) {
 	post := FeedPost{}
-	err := m.DB.Where("CID = ?", cid).First(&post).Error
+	err := m.DB.Where("uri = ?", uri).First(&post).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

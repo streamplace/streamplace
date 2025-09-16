@@ -1,8 +1,8 @@
+import { storage } from "@streamplace/components";
 import { BlueskyState } from "features/bluesky/blueskyTypes";
 import { PlaceStreamLivestream, PlaceStreamSegment } from "streamplace";
 import { isWeb } from "tamagui";
 import { createAppSlice } from "../../hooks/createSlice";
-import Storage from "../../storage";
 
 let DEFAULT_URL = process.env.EXPO_PUBLIC_STREAMPLACE_URL as string;
 if (isWeb && process.env.EXPO_PUBLIC_WEB_TRY_LOCAL === "true") {
@@ -78,9 +78,9 @@ export const streamplaceSlice = createAppSlice({
     initialize: create.asyncThunk(
       async (_, { getState }) => {
         let [url, userMutedStr, chatWarningStr] = await Promise.all([
-          Storage.getItem(URL_KEY),
-          Storage.getItem(USER_MUTED_KEY),
-          Storage.getItem(CHAT_WARNING_KEY),
+          storage.getItem(URL_KEY),
+          storage.getItem(USER_MUTED_KEY),
+          storage.getItem(CHAT_WARNING_KEY),
         ]);
         if (!url) {
           url = DEFAULT_URL;
@@ -120,7 +120,7 @@ export const streamplaceSlice = createAppSlice({
 
     setURL: create.reducer((state, action: { payload: string }) => {
       console.log("setURL", action);
-      Storage.setItem(URL_KEY, action.payload).catch((err) => {
+      storage.setItem(URL_KEY, action.payload).catch((err) => {
         console.error("setURL error", err);
       });
       return {
@@ -130,11 +130,11 @@ export const streamplaceSlice = createAppSlice({
     }),
 
     userMute: create.reducer((state, action: { payload: boolean }) => {
-      Storage.setItem(USER_MUTED_KEY, JSON.stringify(action.payload)).catch(
-        (err) => {
+      storage
+        .setItem(USER_MUTED_KEY, JSON.stringify(action.payload))
+        .catch((err) => {
           console.error("userMute error", err);
-        },
-      );
+        });
       return {
         ...state,
         userMuted: action.payload,
@@ -142,11 +142,11 @@ export const streamplaceSlice = createAppSlice({
     }),
 
     chatWarn: create.reducer((state, action: { payload: boolean }) => {
-      Storage.setItem(CHAT_WARNING_KEY, JSON.stringify(action.payload)).catch(
-        (err) => {
+      storage
+        .setItem(CHAT_WARNING_KEY, JSON.stringify(action.payload))
+        .catch((err) => {
           console.error("chatWarn error", err);
-        },
-      );
+        });
       return {
         ...state,
         chatWarned: action.payload,

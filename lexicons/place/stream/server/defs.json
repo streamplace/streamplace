@@ -1,0 +1,95 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.server.defs",
+  "defs": {
+    "webhook": {
+      "type": "object",
+      "description": "A webhook configuration for receiving Streamplace events.",
+      "required": ["id", "url", "events", "active", "createdAt"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this webhook."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "The webhook URL where events will be sent."
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["chat", "livestream", "follow", "mention"]
+          },
+          "description": "The types of events this webhook should receive."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Whether this webhook is currently active."
+        },
+        "prefix": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Text to prepend to webhook messages."
+        },
+        "suffix": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Text to append to webhook messages."
+        },
+        "rewrite": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#rewriteRule" },
+          "description": "Text replacement rules for webhook messages."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When this webhook was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When this webhook was last updated."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "A user-friendly name for this webhook."
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "A description of what this webhook is used for."
+        },
+        "lastTriggered": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When this webhook was last triggered."
+        },
+        "errorCount": {
+          "type": "integer",
+          "description": "Number of consecutive errors for this webhook."
+        }
+      }
+    },
+    "rewriteRule": {
+      "type": "object",
+      "required": ["from", "to"],
+      "properties": {
+        "from": {
+          "type": "string",
+          "maxLength": 100,
+          "minLength": 1,
+          "description": "Text to search for and replace."
+        },
+        "to": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Text to replace with."
+        }
+      }
+    }
+  }
+}

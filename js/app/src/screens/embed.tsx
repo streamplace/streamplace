@@ -3,7 +3,6 @@ import {
   Player,
   PlayerProps,
   PlayerProvider,
-  ThemeProvider,
 } from "@streamplace/components";
 import { DesktopUi } from "components/mobile/desktop-ui";
 import {
@@ -34,14 +33,12 @@ export default function EmbedScreen({ route }) {
     src = url;
   }
   return (
-    <ThemeProvider>
-      <LivestreamProvider src={src}>
-        <PlayerProvider {...extraProps}>
-          <Player src={src} {...extraProps}>
-            <DesktopUi />
-          </Player>
-        </PlayerProvider>
-      </LivestreamProvider>
-    </ThemeProvider>
+    <LivestreamProvider src={src}>
+      <PlayerProvider {...extraProps}>
+        <Player src={src} {...extraProps}>
+          <DesktopUi />
+        </Player>
+      </PlayerProvider>
+    </LivestreamProvider>
   );
 }

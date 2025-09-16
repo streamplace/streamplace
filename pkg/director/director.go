@@ -12,6 +12,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 // director is responsible for managing the lifecycle of a stream, making business
@@ -28,9 +29,10 @@ type Director struct {
 	streamSessions   map[string]*StreamSession
 	streamSessionsMu sync.Mutex
 	op               *oatproxy.OATProxy
+	statefulDB       *statedb.StatefulDB
 }
 
-func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy) *Director {
+func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy, statefulDB *statedb.StatefulDB) *Director {
 	return &Director{
 		mm:               mm,
 		mod:              mod,
@@ -39,6 +41,7 @@ func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *
 		streamSessions:   make(map[string]*StreamSession),
 		streamSessionsMu: sync.Mutex{},
 		op:               op,
+		statefulDB:       statefulDB,
 	}
 }
 
@@ -68,6 +71,7 @@ func (d *Director) Start(ctx context.Context) error {
 					op:          d.op,
 					packets:     make([]bus.PacketizedSegment, 0),
 					started:     make(chan struct{}),
+					statefulDB:  d.statefulDB,
 				}
 				d.streamSessions[not.Segment.RepoDID] = ss
 				g.Go(func() error {

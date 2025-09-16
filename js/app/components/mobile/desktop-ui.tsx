@@ -189,6 +189,7 @@ export function DesktopUi({
           style={[layout.position.absolute, h.percent[100], w.percent[100]]}
         >
           <MuteOverlay />
+          <PlayerUI.AutoplayButton />
           <PlayerUI.ViewerLoadingOverlay />
           <Animated.View
             style={[

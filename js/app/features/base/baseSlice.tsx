@@ -1,5 +1,5 @@
+import { storage } from "@streamplace/components";
 import { createAppSlice } from "../../hooks/createSlice";
-import Storage from "../../storage";
 export const STORED_KEY_KEY = "storedKey";
 export const DID_KEY = "did";
 
@@ -26,7 +26,7 @@ export const baseSlice = createAppSlice({
         let storedKey: StreamKey | null = null;
         // Async operation would go here
         try {
-          const storedKeyStr = await Storage.getItem(STORED_KEY_KEY);
+          const storedKeyStr = await storage.getItem(STORED_KEY_KEY);
           if (storedKeyStr) {
             storedKey = JSON.parse(storedKeyStr);
           }

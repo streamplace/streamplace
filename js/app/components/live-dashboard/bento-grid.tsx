@@ -113,10 +113,14 @@ export default function BentoGrid({
     const now = Date.now();
     const oneMinuteAgo = now - 60 * 1000;
     return (
-      chat?.filter(
-        (msg) =>
-          typeof msg.timestamp === "number" && msg.timestamp > oneMinuteAgo,
-      )?.length || 0
+      chat?.filter((msg) => {
+        try {
+          const ts = new Date(msg.indexedAt).getTime();
+          return ts > oneMinuteAgo;
+        } catch (e) {
+          return false;
+        }
+      })?.length || 0
     );
   }, [chat]);
 

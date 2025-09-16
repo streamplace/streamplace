@@ -1,7 +1,7 @@
 {
   "name": "@streamplace/app",
   "main": "./src/entrypoint.tsx",
-  "version": "0.7.18",
+  "version": "0.7.27",
   "runtimeVersion": "0.7.2",
   "scripts": {
     "start": "npx expo start -c --port 38081",
@@ -23,13 +23,13 @@
     "preset": "jest-expo"
   },
   "dependencies": {
-    "@atproto-labs/pipe": "^0.1.0",
-    "@atproto/api": "^0.15.7",
+    "@atproto-labs/pipe": "^0.1.1",
+    "@atproto/api": "^0.16.7",
     "@atproto/crypto": "^0.4.4",
-    "@atproto/jwk-jose": "^0.1.6",
-    "@atproto/jwk-webcrypto": "^0.1.6",
-    "@atproto/oauth-client": "^0.3.16",
-    "@atproto/oauth-client-browser": "^0.3.16",
+    "@atproto/jwk-jose": "^0.1.10",
+    "@atproto/jwk-webcrypto": "^0.1.10",
+    "@atproto/oauth-client": "^0.5.5",
+    "@atproto/oauth-client-browser": "^0.3.31",
     "@bacons/text-decoder": "^0.0.0",
     "@emoji-mart/react": "^1.1.1",
     "@react-native-firebase/app": "^22.2.1",

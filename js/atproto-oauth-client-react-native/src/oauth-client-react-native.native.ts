@@ -1,8 +1,8 @@
 import { SimpleStore } from "@atproto-labs/simple-store";
-import { jwkValidator } from "@atproto/jwk";
 import { JoseKey } from "@atproto/jwk-jose";
 import {
   InternalStateData,
+  Jwk,
   OAuthClient,
   OAuthClientFetchMetadataOptions,
   OAuthClientOptions,
@@ -74,7 +74,6 @@ export class ReactNativeOAuthClient extends OAuthClient {
       responseMode,
       runtimeImplementation: {
         createKey: async (algs): Promise<JoseKey> => {
-          console.log("GOT HEREEEE!");
           const errors: unknown[] = [];
           for (const alg of algs) {
             try {
@@ -103,12 +102,27 @@ export class ReactNativeOAuthClient extends OAuthClient {
                 .digest("hex");
               const use = "sig";
 
-              return new JoseKey(jwkValidator.parse({ ...ex, kid, use }));
+              const newKey = {
+                ...ex,
+                kid,
+                use,
+              };
+
+              let joseKey: JoseKey | null = null;
+              try {
+                joseKey = new JoseKey(newKey as Jwk);
+              } catch (err) {
+                throw new Error(`error creating jose key: ${err}`);
+              }
+
+              return joseKey;
             } catch (err) {
               errors.push(err);
             }
           }
-          throw new Error("None of the algorithms worked");
+          throw new Error(
+            `None of the algorithms worked: ${errors.join(", ")}`,
+          );
         },
         getRandomValues: (length) =>
           new Uint8Array(QuickCrypto.randomBytes(length)),

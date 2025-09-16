@@ -27,7 +27,6 @@ import {
   py,
   w,
 } from "../../lib/theme/atoms";
-import { usePDSAgent } from "../../streamplace-store/xrpc";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
 import { EmojiData, EmojiSuggestions } from "./emoji-suggestions";
@@ -70,19 +69,12 @@ export function ChatBox({
   const setReplyToMessage = useSetReplyToMessage();
   const textAreaRef = useRef<TextInput>(null);
 
-  // are we logged in?
-
-  let agent = usePDSAgent();
-
-  if (!agent?.did) {
-    <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-      <Text>Log in to chat.</Text>
-    </View>;
-  }
-
   const authors = useMemo(() => {
     if (!chat) return null;
     return chat.reduce((acc, msg) => {
+      // our fake system user "did"
+      if (msg.author.did === "did:sys:system") return acc;
+      if (acc.has(msg.author.handle)) return acc;
       acc.set(msg.author.handle, msg.chatProfile);
       return acc;
     }, new Map<string, ChatMessageViewHydrated["chatProfile"]>());

@@ -23,7 +23,6 @@ import {
   Home,
   LogIn,
   Menu,
-  Notebook,
   PanelLeftClose,
   PanelLeftOpen,
   Settings as SettingsIcon,
@@ -72,8 +71,6 @@ import LiveDashboard from "./screens/live-dashboard";
 import MultiScreen from "./screens/multi";
 import SupportScreen from "./screens/support";
 
-// probabl should move this
-import SignUp from "components/login/signup";
 import KeyManager from "components/settings/key-manager";
 import { loadStateFromStorage } from "features/base/sidebarSlice";
 import { store } from "store/store";
@@ -113,7 +110,6 @@ type RootStackParamList = {
   GoLive: undefined;
   LiveDashboard: undefined;
   Login: undefined;
-  Signup: undefined;
   AVSync: undefined;
   AppReturn: { scheme: string };
   About: undefined;
@@ -150,7 +146,6 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       GoLive: "golive",
       LiveDashboard: "live",
       Login: "login",
-      Signup: "signup",
       AVSync: "sync-test",
       AppReturn: "app-return/:scheme",
       About: "about",
@@ -517,15 +512,6 @@ export function StreamplaceDrawer() {
           options={{
             drawerIcon: () => <LogIn />,
             drawerLabel: () => <Text>Login</Text>,
-          }}
-        />
-        <Drawer.Screen
-          name="Signup"
-          component={SignUp}
-          options={{
-            drawerIcon: () => <Notebook />,
-            drawerItemStyle: { display: "none" },
-            drawerLabel: () => <Text>Sign up</Text>,
           }}
         />
         <Drawer.Screen

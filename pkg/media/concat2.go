@@ -141,6 +141,9 @@ func ConcatBin(ctx context.Context, segCh <-chan *bus.Seg) (*gst.Bin, error) {
 }
 
 func addConcatDemuxer(ctx context.Context, bin *gst.Bin, seg *bus.Seg, syncPadVideoSink *gst.Pad, syncPadAudioSink *gst.Pad) error {
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(ctx)
+	defer cancel()
 
 	log.Debug(ctx, "adding concat demuxer", "seg", seg.Filepath)
 	demuxBin, err := ConcatDemuxBin(ctx, seg)

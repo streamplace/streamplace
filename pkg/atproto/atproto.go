@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	_ "github.com/bluesky-social/indigo/api/bsky"
@@ -40,14 +42,14 @@ type mstNode struct {
 }
 
 func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
-	ident, err := ResolveIdent(ctx, handle)
+	ident, err := atsync.resolveIdent(ctx, handle, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve Bluesky handle %s: %w", handle, err)
 	}
 
 	ctx = log.WithLogValues(ctx, "did", ident.DID.String(), "handle", ident.Handle.String())
 
-	handleLock := getHandleLock(ident.DID.String())
+	handleLock := handleLocks.GetLock(ident.DID.String())
 	handleLock.Lock()
 	defer handleLock.Unlock()
 
@@ -72,10 +74,14 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		if err != nil {
 			return nil, fmt.Errorf("failed to create empty DID record for %s: %w", ident.DID.String(), err)
 		}
+		err = atsync.StatefulDB.AddRepo(ident.DID.String())
+		if err != nil {
+			return nil, fmt.Errorf("failed to add repo to stateful DB for %s: %w", ident.DID.String(), err)
+		}
 	}
 
 	log.Log(ctx, "resolved bluesky identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())
-	pdsLock := getPDSLock(ident.PDSEndpoint())
+	pdsLock := pdsLocks.GetLock(ident.PDSEndpoint())
 	xrpcc := xrpc.Client{
 		Host:   ident.PDSEndpoint(),
 		Client: &aqhttp.Client,
@@ -151,20 +157,71 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	if err != nil {
 		return nil, fmt.Errorf("failed to update DID record for %s: %w", sc.Did, err)
 	}
+	err = atsync.StatefulDB.AddRepo(ident.DID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to add repo to stateful DB for %s: %w", ident.DID.String(), err)
+	}
 
 	return &newRepo, nil
 }
 
-var ResolveIdent = resolveIdent
+func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did string) (*identity.Identity, error) {
+	id, err := atsync.resolveIdent(ctx, did, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve ident: %w", err)
+	}
+	newRepo := model.Repo{
+		DID:    id.DID.String(),
+		PDS:    id.PDSEndpoint(),
+		Handle: id.Handle.String(),
+	}
+	err = atsync.Model.UpdateRepo(&newRepo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update repo: %w", err)
+	}
+	return id, nil
+}
 
-func resolveIdent(ctx context.Context, arg string) (*identity.Identity, error) {
+func (atsync *ATProtoSynchronizer) resolveIdent(ctx context.Context, arg string, cached bool) (*identity.Identity, error) {
+	if atsync.PLCDirectory == nil {
+		atsync.PLCDirectory = CustomDirectory(atsync.CLI.PLCURL)
+	}
+	if atsync.CachedPLCDirectory == nil {
+		cachedDir := identity.NewCacheDirectory(atsync.PLCDirectory, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)
+		atsync.CachedPLCDirectory = &cachedDir
+	}
+	dir := atsync.PLCDirectory
+	if cached {
+		dir = atsync.CachedPLCDirectory
+	}
 	id, err := syntax.ParseAtIdentifier(arg)
 	if err != nil {
 		return nil, err
 	}
 
-	dir := identity.DefaultDirectory()
-	return dir.Lookup(ctx, *id)
+	resolvedID, err := dir.Lookup(ctx, *id)
+	if err != nil {
+		return nil, err
+	}
+	log.Log(ctx, "resolved ident", "id", resolvedID.DID.String(), "handle", resolvedID.Handle.String())
+
+	return resolvedID, nil
+}
+func CustomDirectory(plcURL string) identity.Directory {
+	base := identity.BaseDirectory{
+		PLCURL:     plcURL,
+		HTTPClient: aqhttp.Client,
+		Resolver: net.Resolver{
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{Timeout: time.Second * 3}
+				return d.DialContext(ctx, network, address)
+			},
+		},
+		TryAuthoritativeDNS: true,
+		// primary Bluesky PDS instance only supports HTTP resolution method
+		SkipDNSDomainSuffixes: []string{".bsky.social"},
+	}
+	return &base
 }
 
 func DIDDoc(host string) map[string]any {

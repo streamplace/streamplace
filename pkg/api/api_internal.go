@@ -379,7 +379,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	router.GET("/notifications", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		notifications, err := a.Model.ListNotifications()
+		notifications, err := a.StatefulDB.ListNotifications()
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to get notifications", err)
 			return
@@ -410,13 +410,13 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 	})
 
-	router.GET("/chat/:cid", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		cid := p.ByName("cid")
-		if cid == "" {
-			errors.WriteHTTPBadRequest(w, "cid required", nil)
+	router.GET("/chat/:uri", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		uri := p.ByName("uri")
+		if uri == "" {
+			errors.WriteHTTPBadRequest(w, "uri required", nil)
 			return
 		}
-		msg, err := a.Model.GetChatMessage(cid)
+		msg, err := a.Model.GetChatMessage(uri)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to get chat posts", err)
 			return
@@ -437,7 +437,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	router.GET("/oauth-sessions", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		sessions, err := a.Model.ListOAuthSessions()
+		sessions, err := a.StatefulDB.ListOAuthSessions()
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to get oauth sessions", err)
 			return
@@ -458,7 +458,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPBadRequest(w, "invalid request body", err)
 			return
 		}
-		notifications, err := a.Model.ListNotifications()
+		notifications, err := a.StatefulDB.ListNotifications()
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to get notifications", err)
 			return

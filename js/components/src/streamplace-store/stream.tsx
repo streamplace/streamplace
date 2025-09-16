@@ -154,7 +154,7 @@ export function useCreateStreamRecord() {
 
     // Use customUrl if provided, otherwise fall back to the store URL
     const finalUrl = customUrl || url;
-    const u = new URL(finalUrl);
+    const u = new URL(url);
 
     let thumbnail: BlobRef | undefined = undefined;
 
@@ -248,6 +248,7 @@ export function useCreateStreamRecord() {
     }
 
     const record: PlaceStreamLivestream.Record = {
+      $type: "place.stream.livestream",
       title: title,
       url: finalUrl,
       createdAt: new Date().toISOString(),
@@ -353,6 +354,7 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
     }
 
     const record: PlaceStreamLivestream.Record = {
+      $type: "place.stream.livestream",
       title: title,
       url: finalUrl,
       createdAt: new Date().toISOString(),

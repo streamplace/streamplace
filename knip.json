@@ -4,5 +4,8 @@
   "entry": ["js/streamplace/src/index.ts"],
   "ignoreWorkspaces": ["js/app", "js/desktop", "js/config-react-native-webrtc"],
   "include": ["unlisted"],
-  "ignore": [".*tamagui.config.ts.*"]
+  "ignore": [
+    ".*tamagui.config.ts.*",
+    "js/components/src/crypto-polyfill.native.tsx"
+  ]
 }

@@ -11,10 +11,9 @@ import (
 	"github.com/bluesky-social/indigo/atproto/data"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"stream.place/streamplace/pkg/aqtime"
-	"stream.place/streamplace/pkg/integrations/discord"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	notificationpkg "stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -88,10 +87,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
 
-		_, err = atsync.SyncBlueskyRepoCached(ctx, rec.Streamer, atsync.Model)
-		if err != nil {
-			log.Error(ctx, "failed to sync bluesky repo", "err", err)
-		}
+		go func() {
+			_, err = atsync.SyncBlueskyRepoCached(ctx, rec.Streamer, atsync.Model)
+			if err != nil {
+				log.Error(ctx, "failed to sync bluesky repo", "err", err)
+			}
+		}()
 
 		log.Debug(ctx, "streamplace.ChatMessage detected", "message", rec.Text, "repo", repo.Handle)
 		block, err := atsync.Model.GetUserBlock(ctx, rec.Streamer, userDID)
@@ -118,10 +119,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		err = atsync.Model.CreateChatMessage(ctx, mcm)
 		if err != nil {
 			log.Error(ctx, "failed to create chat message", "err", err)
+			return nil
 		}
-		mcm, err = atsync.Model.GetChatMessage(cid)
+		mcm, err = atsync.Model.GetChatMessage(aturi.String())
 		if err != nil {
 			log.Error(ctx, "failed to get just-saved chat message", "err", err)
+			return nil
 		}
 		if mcm == nil {
 			log.Error(ctx, "failed to retrieve just-saved chat message", "err", err)
@@ -130,21 +133,19 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		scm, err := mcm.ToStreamplaceMessageView()
 		if err != nil {
 			log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
+			return nil
 		}
 		go atsync.Bus.Publish(rec.Streamer, scm)
 
 		if !isUpdate && !isFirstSync {
-			for _, webhook := range atsync.CLI.DiscordWebhooks {
-				if webhook.DID == rec.Streamer && webhook.Type == "chat" {
-					go func() {
-						err := discord.SendChat(ctx, webhook, repo, scm)
-						if err != nil {
-							log.Error(ctx, "failed to send livestream to discord", "err", err)
-						} else {
-							log.Log(ctx, "sent livestream to discord", "user", userDID, "webhook", webhook.URL)
-						}
-					}()
-				}
+
+			task := &statedb.ChatTask{
+				MessageView: scm,
+			}
+
+			_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskChat, task, statedb.WithTaskKey(fmt.Sprintf("chat-message::%s", aturi.String())))
+			if err != nil {
+				log.Error(ctx, "failed to enqueue notification task", "err", err)
 			}
 		}
 
@@ -253,7 +254,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if rec.Reply == nil || rec.Reply.Root == nil {
 				return nil
 			}
-			livestream, err := atsync.Model.GetLivestreamByPostCID(rec.Reply.Root.Cid)
+			livestream, err := atsync.Model.GetLivestreamByPostURI(rec.Reply.Root.Uri)
 			if err != nil {
 				return fmt.Errorf("failed to get livestream: %w", err)
 			}
@@ -287,7 +288,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				RepoDID:          userDID,
 				Type:             "reply",
 				Repo:             repo,
-				ReplyRootCID:     &livestream.PostCID,
+				ReplyRootURI:     &livestream.PostURI,
 				ReplyRootRepoDID: &livestream.RepoDID,
 				URI:              aturi.String(),
 				IndexedAt:        &now,
@@ -304,10 +305,6 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 	case *streamplace.Livestream:
-		var u string
-		if rec.Url != nil {
-			u = *rec.Url
-		}
 		if r == nil {
 			// we don't know about this repo
 			return nil
@@ -342,64 +339,36 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, lsv)
 
+		var postView *bsky.FeedDefs_PostView
+		if lsHydrated.Post != nil {
+			postView, err = lsHydrated.Post.ToBskyPostView()
+			if err != nil {
+				return fmt.Errorf("failed to convert livestream post to bsky post view: %w", err)
+			}
+		}
+
+		task := &statedb.NotificationTask{
+			Livestream: lsv,
+			FeedPost:   postView,
+			PDSURL:     r.PDS,
+		}
+
+		cp, err := atsync.Model.GetChatProfile(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to get chat profile: %w", err)
+		}
+		if cp != nil {
+			spcp, err := cp.ToStreamplaceChatProfile()
+			if err != nil {
+				return fmt.Errorf("failed to convert chat profile to streamplace chat profile: %w", err)
+			}
+			task.ChatProfile = spcp
+		}
+
 		if !isUpdate && !isFirstSync {
-			log.Warn(ctx, "Livestream detected! Blasting followers!", "title", rec.Title, "url", u, "createdAt", rec.CreatedAt, "repo", userDID)
-			notifications, err := atsync.Model.GetFollowersNotificationTokens(userDID)
+			_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskNotification, task, statedb.WithTaskKey(fmt.Sprintf("notification-blast::%s", aturi.String())))
 			if err != nil {
-				return err
-			}
-
-			nb := &notificationpkg.NotificationBlast{
-				Title: fmt.Sprintf("🔴 @%s is LIVE!", r.Handle),
-				Body:  rec.Title,
-				Data: map[string]string{
-					"path": fmt.Sprintf("/%s", r.Handle),
-				},
-			}
-			if atsync.Noter != nil {
-				err := atsync.Noter.Blast(ctx, notifications, nb)
-				if err != nil {
-					log.Error(ctx, "failed to blast notifications", "err", err)
-				} else {
-					log.Log(ctx, "sent notifications", "user", userDID, "count", len(notifications), "content", nb)
-				}
-			} else {
-				log.Log(ctx, "no notifier configured, skipping notifications", "user", userDID, "count", len(notifications), "content", nb)
-			}
-
-			var postView *bsky.FeedDefs_PostView
-			if lsHydrated.Post != nil {
-				postView, err = lsHydrated.Post.ToBskyPostView()
-				if err != nil {
-					log.Error(ctx, "failed to convert livestream post to bsky post view", "err", err)
-				}
-			} else {
-				log.Warn(ctx, "no post found for livestream", "livestream", lsHydrated)
-			}
-
-			var spcp *streamplace.ChatProfile
-			cp, err := atsync.Model.GetChatProfile(ctx, userDID)
-			if err != nil {
-				log.Error(ctx, "failed to get chat profile", "err", err)
-			}
-			if cp != nil {
-				spcp, err = cp.ToStreamplaceChatProfile()
-				if err != nil {
-					log.Error(ctx, "failed to convert chat profile to streamplace chat profile", "err", err)
-				}
-			}
-
-			for _, webhook := range atsync.CLI.DiscordWebhooks {
-				if webhook.DID == userDID && webhook.Type == "livestream" {
-					go func() {
-						err := discord.SendLivestream(ctx, webhook, r, lsv, postView, spcp)
-						if err != nil {
-							log.Error(ctx, "failed to send livestream to discord", "err", err)
-						} else {
-							log.Log(ctx, "sent livestream to discord", "user", userDID, "webhook", webhook.URL)
-						}
-					}()
-				}
+				log.Error(ctx, "failed to enqueue notification task", "err", err)
 			}
 		}
 

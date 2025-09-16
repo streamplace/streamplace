@@ -40,6 +40,9 @@ export default function Login() {
     if (handle.startsWith("@")) clean = handle.slice(1);
     dispatch(login(clean));
   };
+  const onSignup = () => {
+    dispatch(login("https://bsky.social"));
+  };
   const onEnterPress = (e: any) => {
     if (e.nativeEvent.key === "Enter") {
       submit();
@@ -141,6 +144,7 @@ export default function Login() {
               </Text>
               <Input
                 id="pdsUrl"
+                placeholder="example.bsky.social"
                 value={handle}
                 onChangeText={(text) =>
                   setHandle(
@@ -158,14 +162,17 @@ export default function Login() {
                 keyboardType="url"
               />
             </YStack>
-            <XStack justifyContent="space-between">
-              <Button
-                onPress={() => navigation.navigate("Signup")}
-                backgroundColor="$gray3"
-                color="$color"
-              >
-                Sign Up
-              </Button>
+            <XStack justifyContent="flex-end" gap="$4">
+              {!loginState.loading && (
+                <Button
+                  onPress={() => onSignup()}
+                  variant="outlined"
+                  hoverStyle={{ backgroundColor: "$color4" }}
+                  borderWidth={0}
+                >
+                  Sign Up on Bluesky
+                </Button>
+              )}
               <Form.Trigger asChild>
                 <Button
                   px="$6"

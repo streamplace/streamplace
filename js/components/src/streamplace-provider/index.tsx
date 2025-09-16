@@ -11,8 +11,9 @@ export function StreamplaceProvider({
 }: {
   children: React.ReactNode;
   url: string;
-  oauthSession?: SessionManager;
+  oauthSession?: SessionManager | null;
 }) {
+  console.log("session in provider is", oauthSession);
   // todo: handle url changes?
   const store = useRef(makeStreamplaceStore({ url })).current;
 

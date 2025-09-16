@@ -75,6 +75,7 @@ export const useStreamKey = (): {
       }
 
       const record: PlaceStreamKey.Record = {
+        $type: "place.stream.key",
         signingKey: keypair.did(),
         createdAt: new Date().toISOString(),
         createdBy: "Streamplace on " + platform,
@@ -89,7 +90,7 @@ export const useStreamKey = (): {
       setKey(newKey);
     };
 
-    generateKey();
+    generateKey().catch((err) => setError(err.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, setStreamKey]);
 

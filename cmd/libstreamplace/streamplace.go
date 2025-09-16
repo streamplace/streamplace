@@ -10,11 +10,11 @@ import (
 	"stream.place/streamplace/pkg/log"
 
 	"stream.place/streamplace/pkg/cmd"
+	_ "stream.place/streamplace/pkg/streamplacedeps"
 	// _ "github.com/go-gst/go-glib/glib"
 	// _ "github.com/go-gst/go-gst/gst"
 )
 
-//#cgo pkg-config: streamplacedeps-uninstalled
 import "C"
 
 var cleanExits = []error{

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo } from "react";
 import { StoreApi, useStore } from "zustand";
-import { usePlayerContext } from "../player-store";
 import { PlayerProtocol, PlayerState } from "./player-state";
+import { usePlayerContext } from "./player-store";
 
 // Context for a single player
 interface SinglePlayerContextType {

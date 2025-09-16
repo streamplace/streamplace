@@ -10,6 +10,7 @@ import {
   usePlayerDimensions,
   usePlayerStore,
   useSegmentDimensions,
+  useSetMuted,
   View,
   zero,
 } from "@streamplace/components";
@@ -57,7 +58,7 @@ export function MobileUi() {
 
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
-  const setMuted = usePlayerStore((state) => state.setMuted);
+  const setMuted = useSetMuted();
 
   const { shouldShowFloatingMetrics, safeAreaInsets } = useResponsiveLayout();
   const [showLoading, setShowLoading] = useState(false);
@@ -127,7 +128,7 @@ export function MobileUi() {
                 r[2],
                 layout.position.absolute,
                 position.left[2],
-                { top: 12 },
+                { top: safeAreaInsets.top + 12 },
               ]}
             >
               <View style={[layout.flex.row, layout.flex.center, gap.all[2]]}>
@@ -196,7 +197,7 @@ export function MobileUi() {
                   r[2],
                   layout.position.absolute,
                   position.right[14],
-                  { top: 12 },
+                  { top: safeAreaInsets.top + 12 },
                   gap.all[4],
                 ]}
               >
@@ -207,14 +208,15 @@ export function MobileUi() {
             <View
               style={[
                 {
-                  padding: 13,
-                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  padding: 9,
+                  backgroundColor: "rgba(90,90,90, 0.3)",
                   borderRadius: 12,
                 },
                 r[2],
                 layout.position.absolute,
                 position.right[1],
-                { top: 8 },
+
+                { top: safeAreaInsets.top + 12 },
                 gap.all[4],
               ]}
             >
@@ -222,7 +224,7 @@ export function MobileUi() {
                 <PlayerUI.ContextMenu />
               ) : (
                 <Pressable onPress={doSetIngestCamera}>
-                  <SwitchCamera size={32} color={colors.gray[200]} />
+                  <SwitchCamera color={colors.gray[200]} />
                 </Pressable>
               )}
             </View>
@@ -329,6 +331,7 @@ export function MobileUi() {
           </Pressable>
         </View>
       )}
+      <PlayerUI.AutoplayButton />
     </>
   );
 }

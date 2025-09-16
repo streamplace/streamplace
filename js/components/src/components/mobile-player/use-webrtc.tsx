@@ -205,6 +205,11 @@ export function useWebRTCIngest({
     (x) => x.setIngestConnectionState,
   );
   const storedKey = useStreamKey();
+  useEffect(() => {
+    if (storedKey?.error) {
+      console.error("error creating stream key", storedKey.error);
+    }
+  }, [storedKey?.error]);
   const [peerConnection, setPeerConnection] =
     useState<RTCPeerConnection | null>(null);
 
@@ -249,7 +254,11 @@ export function useWebRTCIngest({
     });
 
     peerConnection.addEventListener("track", (ev) => {
-      console.log(ev);
+      console.log(
+        `got peerconnection track with ${ev.track.kind}`,
+        ev.track.id,
+      );
+      // console.log(ev);
     });
 
     setPeerConnection(peerConnection);

@@ -10,6 +10,7 @@ import { usePDSAgent } from "../../streamplace-store/xrpc";
 
 import { Linking } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
+import { useDeleteChatMessage } from "../../livestream-store";
 import { useStreamplaceStore } from "../../streamplace-store";
 import {
   atoms,
@@ -172,11 +173,16 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
               >
                 <Text color="primary">View user on {BSKY_FRONTEND_DOMAIN}</Text>
               </DropdownMenuItem>
-              <ReportButton
-                message={message}
-                setReportModalOpen={setReportModalOpen}
-                setReportSubject={setReportSubject}
-              />
+              {message.author.did === agent?.did && (
+                <DeleteButton message={message} />
+              )}
+              {message.author.did !== agent?.did && (
+                <ReportButton
+                  message={message}
+                  setReportModalOpen={setReportModalOpen}
+                  setReportSubject={setReportSubject}
+                />
+              )}
             </DropdownMenuGroup>
           </>
         )}
@@ -184,6 +190,34 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
     </DropdownMenu>
   );
 });
+
+export function DeleteButton({
+  message,
+}: {
+  message: ChatMessageViewHydrated;
+}) {
+  const deleteChatMessage = useDeleteChatMessage();
+  const [confirming, setConfirming] = useState(false);
+  const { onOpenChange } = useRootContext();
+  return (
+    <DropdownMenuItem
+      onPress={() => {
+        if (!message) return;
+        if (!confirming) {
+          setConfirming(true);
+          return;
+        }
+        deleteChatMessage(message.uri).then(() => {
+          onOpenChange?.(false);
+        });
+      }}
+    >
+      <Text color="destructive">
+        {confirming ? "Are you sure?" : "Delete message"}
+      </Text>
+    </DropdownMenuItem>
+  );
+}
 
 export function ReportButton({
   message,

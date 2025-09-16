@@ -40,25 +40,12 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	errCh := make(chan error)
 	go func() {
 		err := HandleBusMessages(ctx, pipeline)
-		cancel()
 		errCh <- err
-		close(errCh)
-	}()
-
-	defer func() {
-		cancel()
-		err := <-errCh
-		if err != nil {
-			t.Errorf("bus handler error: %v", err)
-		}
-		err = pipeline.BlockSetState(gst.StateNull)
-		if err != nil {
-			t.Errorf("failed to set pipeline to null state: %v", err)
-		}
 	}()
 
 	filename := getFixture("sample-segment.mp4")
@@ -163,10 +150,17 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 		return fmt.Errorf("failed to set pipeline to playing state: %w", err)
 	}
 
-	<-ctx.Done()
-
-	require.Equal(t, 987248, videoBuf.Len())
-	require.Equal(t, 6440, audioBuf.Len())
+	defer func() {
+		if err != nil {
+			t.Errorf("bus handler error: %v", err)
+		}
+		err = pipeline.BlockSetState(gst.StateNull)
+		if err != nil {
+			t.Errorf("failed to set pipeline to null state: %v", err)
+		}
+		require.Equal(t, 987248, videoBuf.Len())
+		require.Equal(t, 6440, audioBuf.Len())
+	}()
 
 	return <-errCh
 }

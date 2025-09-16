@@ -1,7 +1,5 @@
+import { storage } from "@streamplace/components";
 import { createAppSlice } from "../../hooks/createSlice";
-import WebStorage from "../../storage/storage";
-
-const storage = new WebStorage();
 export const SIDEBAR_STORAGE_KEY = "sidebarState";
 
 export interface SidebarState {

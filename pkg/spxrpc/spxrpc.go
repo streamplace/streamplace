@@ -14,6 +14,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 type Server struct {
@@ -22,9 +23,10 @@ type Server struct {
 	model        model.Model
 	OGImageCache *cache.Cache
 	ATSync       *atproto.ATProtoSynchronizer
+	statefulDB   *statedb.StatefulDB
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer) (*Server, error) {
 	e := echo.New()
 	s := &Server{
 		e:            e,
@@ -32,6 +34,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, op *oatp
 		model:        model,
 		OGImageCache: cache.New(5*time.Minute, 10*time.Minute), // 5min TTL, 10min cleanup
 		ATSync:       atsync,
+		statefulDB:   statefulDB,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())

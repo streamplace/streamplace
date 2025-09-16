@@ -47,19 +47,28 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		return nil, fmt.Errorf("failed to add audio track to peer connection: %w", err)
 	}
 
+	close := func() {
+		if cErr := peerConnection.Close(); cErr != nil {
+			log.Log(ctx, "cannot close peerConnection: %v\n", cErr)
+		}
+	}
+
 	// Set the remote SessionDescription
 	if err = peerConnection.SetRemoteDescription(*offer); err != nil {
+		close()
 		return nil, fmt.Errorf("failed to set remote description: %w", err)
 	}
 
 	// Create answer
 	answer, err := peerConnection.CreateAnswer(nil)
 	if err != nil {
+		close()
 		return nil, fmt.Errorf("failed to create answer: %w", err)
 	}
 
 	// Sets the LocalDescription, and starts our UDP listeners
 	if err = peerConnection.SetLocalDescription(answer); err != nil {
+		close()
 		return nil, fmt.Errorf("failed to set local description: %w", err)
 	}
 

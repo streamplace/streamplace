@@ -20,7 +20,7 @@ export const handleWebSocketMessages = (
   state: LivestreamState,
   messages: any[],
 ): LivestreamState => {
-  for (const message of messages) {
+  for (let message of messages) {
     if (PlaceStreamLivestream.isLivestreamView(message)) {
       const newLivestream = message as LivestreamViewHydrated;
       const oldLivestream = state.livestream;
@@ -41,11 +41,13 @@ export const handleWebSocketMessages = (
         livestream: newLivestream,
       };
     } else if (PlaceStreamLivestream.isViewerCount(message)) {
+      message = message as PlaceStreamLivestream.ViewerCount;
       state = {
         ...state,
         viewers: message.count,
       };
     } else if (PlaceStreamChatDefs.isMessageView(message)) {
+      message = message as PlaceStreamChatDefs.MessageView;
       // Explicitly map MessageView to MessageViewHydrated
       const hydrated: ChatMessageViewHydrated = {
         uri: message.uri,
@@ -74,6 +76,7 @@ export const handleWebSocketMessages = (
       const block = message as PlaceStreamDefs.BlockView;
       state = reduceChat(state, [], [block], []);
     } else if (PlaceStreamDefs.isRenditions(message)) {
+      message = message as PlaceStreamDefs.Renditions;
       state = {
         ...state,
         renditions: message.renditions,

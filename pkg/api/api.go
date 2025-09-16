@@ -41,6 +41,7 @@ import (
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/spxrpc"
+	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
 
 	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
@@ -53,6 +54,7 @@ import (
 type StreamplaceAPI struct {
 	CLI              *config.CLI
 	Model            model.Model
+	StatefulDB       *statedb.StatefulDB
 	Updater          *Updater
 	Signer           *eip712.EIP712Signer
 	Mimes            map[string]string
@@ -80,13 +82,14 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
 	}
 	a := &StreamplaceAPI{CLI: cli,
 		Model:            mod,
+		StatefulDB:       statefulDB,
 		Updater:          updater,
 		Signer:           signer,
 		FirebaseNotifier: noter,
@@ -135,7 +138,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		Recorder: metrics.NewRecorder(metrics.Config{}),
 	})
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.op, mdlw, a.ATSync)
+	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync)
 	if err != nil {
 		return nil, err
 	}
@@ -268,11 +271,11 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 
 	return handler, nil
 }
-func (a *StreamplaceAPI) ContextMiddleware(ctx context.Context) func(next http.Handler) http.Handler {
+func (a *StreamplaceAPI) ContextMiddleware(parentContext context.Context) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			uuid := uuid.New().String()
-			ctx = log.WithLogValues(ctx, "requestID", uuid, "method", r.Method, "path", r.URL.Path)
+			ctx := log.WithLogValues(parentContext, "requestID", uuid, "method", r.Method, "path", r.URL.Path)
 			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
 		})
@@ -473,7 +476,7 @@ func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFun
 			w.WriteHeader(400)
 			return
 		}
-		err = a.Model.CreateNotification(n.Token, n.RepoDID)
+		err = a.StatefulDB.CreateNotification(n.Token, n.RepoDID)
 		if err != nil {
 			log.Log(ctx, "error creating notification", "error", err)
 			w.WriteHeader(400)

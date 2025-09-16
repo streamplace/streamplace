@@ -1,4 +1,4 @@
-import { KeepAwake, ThemeProvider } from "@streamplace/components";
+import { KeepAwake } from "@streamplace/components";
 import { Redirect } from "components/aqlink";
 import { Player } from "components/mobile/player";
 import { FullscreenProvider } from "contexts/FullscreenContext";
@@ -13,11 +13,11 @@ export default function MobileGoLive() {
   }
   // get player
   return (
-    <ThemeProvider forcedTheme="dark">
+    <>
       <KeepAwake />
       <FullscreenProvider>
         <Player ingest src={userProfile.did} name={userProfile.handle} />
       </FullscreenProvider>
-    </ThemeProvider>
+    </>
   );
 }

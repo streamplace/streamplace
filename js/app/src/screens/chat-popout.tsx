@@ -3,7 +3,6 @@ import {
   ChatBox,
   LivestreamProvider,
   PlayerProvider,
-  ThemeProvider,
   usePlayerStore,
 } from "@streamplace/components";
 import emojiData from "assets/emoji-data.json";
@@ -19,13 +18,11 @@ export default function PopoutChat({ route }) {
   }
 
   return (
-    <ThemeProvider>
-      <LivestreamProvider src={user}>
-        <PlayerProvider>
-          <PopoutChatInner user={user} />
-        </PlayerProvider>
-      </LivestreamProvider>
-    </ThemeProvider>
+    <LivestreamProvider src={user}>
+      <PlayerProvider>
+        <PopoutChatInner user={user} />
+      </PlayerProvider>
+    </LivestreamProvider>
   );
 }
 

@@ -1,0 +1,28 @@
+[package]
+name = "iroh-streamplace"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "iroh_streamplace"
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+iroh = { version = "0.91.1", features = ["discovery-local-network"] }
+tokio = "1.47.1"
+
+uniffi = { version = "=0.28.3", features = ["tokio"] }
+url = "2.5.4"
+bytes = { version = "1.10.1", features = ["serde"] }
+n0-future = "0.2.0"
+async-trait = "0.1.88"
+tracing = "0.1.41"
+snafu = "0.8.6"
+anyhow = "1.0.99"
+serde = { version = "1.0.219", features = ["derive"] }
+postcard = { version = "1.1.3", features = ["use-std"] }
+irpc = "0.7.0"
+irpc-iroh = "0.7.0"
+
+[dev-dependencies]
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }

@@ -1,5 +1,5 @@
 import { SimpleStore } from "@atproto-labs/simple-store";
-import { jwkValidator, Key } from "@atproto/jwk";
+import { Jwk, Key } from "@atproto/jwk";
 import { JoseKey } from "@atproto/jwk-jose";
 import Storage from "expo-sqlite/kv-store";
 
@@ -25,7 +25,7 @@ export class JoseKeyStore<T extends HasDPoPKey> {
     if (!itemStr) return undefined;
     const item = JSON.parse(itemStr) as T;
     if (item.dpopKey) {
-      item.dpopKey = new JoseKey(jwkValidator.parse(item.dpopKey));
+      item.dpopKey = new JoseKey(item.dpopKey as unknown as Jwk);
     }
     return item;
   }

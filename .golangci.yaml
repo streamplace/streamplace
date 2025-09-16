@@ -7,6 +7,8 @@ linters:
         - -QF1003 # "could use tagged switch"
         - -ST1003 # "should not use underscores in Go names" - indigo's code gen makes some
         - -SA5008 # "unknown JSON option" doesn't care for the const stuff
+        - -ST1006 # receiver name should be a reflection of its identity; don't use generic names such as "this" or "self" (uniffi-bindgen-go uses this)
+        - -ST1005 # error strings should not be capitalized (uniffi-bindgen-go uses this)
   disable:
     - unused
   exclusions:

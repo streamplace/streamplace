@@ -7,6 +7,7 @@ export interface WebRTCDiagnostics {
   rtcSessionDescription: boolean;
   getUserMedia: boolean;
   getDisplayMedia: boolean;
+  isHwH264Supported: boolean;
   errors: string[];
   warnings: string[];
 }
@@ -19,6 +20,7 @@ export function useWebRTCDiagnostics(): WebRTCDiagnostics {
     rtcSessionDescription: false,
     getUserMedia: false,
     getDisplayMedia: false,
+    isHwH264Supported: false,
     errors: [],
     warnings: [],
   });
@@ -26,6 +28,23 @@ export function useWebRTCDiagnostics(): WebRTCDiagnostics {
   useEffect(() => {
     const errors: string[] = [];
     const warnings: string[] = [];
+
+    const checkH264Support = async (): Promise<boolean> => {
+      try {
+        const pc = new RTCPeerConnection();
+        const offer = await pc.createOffer();
+        pc.close();
+
+        if (offer.sdp) {
+          const h264Match = offer.sdp.search(/rtpmap:([0-9]+) H264/g);
+          return h264Match !== -1;
+        }
+        return false;
+      } catch (error) {
+        console.warn("Failed to check H.264 support:", error);
+        return false;
+      }
+    };
 
     // Check if we're in a browser environment
     if (typeof window === "undefined") {
@@ -37,6 +56,7 @@ export function useWebRTCDiagnostics(): WebRTCDiagnostics {
         rtcSessionDescription: false,
         getUserMedia: false,
         getDisplayMedia: false,
+        isHwH264Supported: false,
         errors,
         warnings,
       });
@@ -105,22 +125,45 @@ export function useWebRTCDiagnostics(): WebRTCDiagnostics {
 
     const browserSupport = rtcPeerConnection && rtcSessionDescription;
 
-    setDiagnostics({
-      done: true,
-      browserSupport,
-      rtcPeerConnection,
-      rtcSessionDescription,
-      getUserMedia,
-      getDisplayMedia,
-      errors,
-      warnings,
-    });
+    // Check H.264 support asynchronously
+    if (rtcPeerConnection) {
+      checkH264Support().then((isHwH264Supported) => {
+        if (!isHwH264Supported) {
+          warnings.push(
+            "H.264 hardware acceleration is not supported\n In Firefox, try enabling 'media.webrtc.hw.h264.enabled' in about:config",
+          );
+        }
+        setDiagnostics({
+          done: true,
+          browserSupport,
+          rtcPeerConnection,
+          rtcSessionDescription,
+          getUserMedia,
+          getDisplayMedia,
+          isHwH264Supported,
+          errors,
+          warnings,
+        });
+      });
+    } else {
+      setDiagnostics({
+        done: true,
+        browserSupport,
+        rtcPeerConnection,
+        rtcSessionDescription,
+        getUserMedia,
+        getDisplayMedia,
+        isHwH264Supported: false,
+        errors,
+        warnings,
+      });
+    }
   }, []);
 
   return diagnostics;
 }
 
-export function logWebRTCDiagnostics() {
+export async function logWebRTCDiagnostics() {
   console.group("WebRTC Diagnostics");
 
   // Log browser support
@@ -133,17 +176,32 @@ export function logWebRTCDiagnostics() {
   console.log("User Agent:", navigator.userAgent);
   console.log("Protocol:", location.protocol);
   console.log("Host:", location.hostname);
-
-  // Test basic WebRTC functionality
+  console.groupEnd();
   if (window.RTCPeerConnection) {
     try {
       const pc = new RTCPeerConnection();
-      console.log("RTCPeerConnection creation: ✓ Success");
+      // Check H.264 support
+      try {
+        const offer = await pc.createOffer({ offerToReceiveVideo: true });
+        const isHwH264Supported = offer.sdp
+          ? offer.sdp.search(/rtpmap:([0-9]+) H264/g) !== -1
+          : false;
+        console.group("WebRTC Peer Connection Test");
+        console.log("RTCPeerConnection creation: ✓ Success");
+        console.log(
+          "H.264 support:",
+          isHwH264Supported ? "✓ Supported" : "✗ Not supported",
+        );
+      } catch (error) {
+        console.group("WebRTC Peer Connection Test");
+        console.error("H.264 check failed:", error);
+      }
+
       pc.close();
     } catch (error) {
+      console.group("WebRTC Peer Connection Test");
       console.error("RTCPeerConnection creation: ✗ Failed", error);
     }
   }
-
   console.groupEnd();
 }

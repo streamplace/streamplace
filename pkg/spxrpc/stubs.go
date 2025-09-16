@@ -62,6 +62,7 @@ func (s *Server) RegisterHandlersChatBsky(e *echo.Echo) error {
 }
 
 func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
+	e.POST("/xrpc/com.atproto.identity.refreshIdentity", s.HandleComAtprotoIdentityRefreshIdentity)
 	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
 	e.POST("/xrpc/com.atproto.moderation.createReport", s.HandleComAtprotoModerationCreateReport)
 	e.GET("/xrpc/com.atproto.repo.describeRepo", s.HandleComAtprotoRepoDescribeRepo)
@@ -72,6 +73,24 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.GET("/xrpc/com.atproto.sync.getRecord", s.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.listRepos", s.HandleComAtprotoSyncListRepos)
 	return nil
+}
+
+func (s *Server) HandleComAtprotoIdentityRefreshIdentity(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityRefreshIdentity")
+	defer span.End()
+
+	var body comatprototypes.IdentityRefreshIdentity_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatprototypes.IdentityDefs_IdentityInfo
+	var handleErr error
+	// func (s *Server) handleComAtprotoIdentityRefreshIdentity(ctx context.Context,body *comatprototypes.IdentityRefreshIdentity_Input) (*comatprototypes.IdentityDefs_IdentityInfo, error)
+	out, handleErr = s.handleComAtprotoIdentityRefreshIdentity(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
@@ -247,6 +266,11 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.live.getLiveUsers", s.HandlePlaceStreamLiveGetLiveUsers)
 	e.GET("/xrpc/place.stream.live.getProfileCard", s.HandlePlaceStreamLiveGetProfileCard)
 	e.GET("/xrpc/place.stream.live.getSegments", s.HandlePlaceStreamLiveGetSegments)
+	e.POST("/xrpc/place.stream.server.createWebhook", s.HandlePlaceStreamServerCreateWebhook)
+	e.POST("/xrpc/place.stream.server.deleteWebhook", s.HandlePlaceStreamServerDeleteWebhook)
+	e.GET("/xrpc/place.stream.server.getWebhook", s.HandlePlaceStreamServerGetWebhook)
+	e.GET("/xrpc/place.stream.server.listWebhooks", s.HandlePlaceStreamServerListWebhooks)
+	e.POST("/xrpc/place.stream.server.updateWebhook", s.HandlePlaceStreamServerUpdateWebhook)
 	return nil
 }
 
@@ -324,6 +348,109 @@ func (s *Server) HandlePlaceStreamLiveGetSegments(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context,before string,limit int,userDID string) (*placestreamtypes.LiveGetSegments_Output, error)
 	out, handleErr = s.handlePlaceStreamLiveGetSegments(ctx, before, limit, userDID)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamServerCreateWebhook(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerCreateWebhook")
+	defer span.End()
+
+	var body placestreamtypes.ServerCreateWebhook_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestreamtypes.ServerCreateWebhook_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamServerCreateWebhook(ctx context.Context,body *placestreamtypes.ServerCreateWebhook_Input) (*placestreamtypes.ServerCreateWebhook_Output, error)
+	out, handleErr = s.handlePlaceStreamServerCreateWebhook(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamServerDeleteWebhook(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerDeleteWebhook")
+	defer span.End()
+
+	var body placestreamtypes.ServerDeleteWebhook_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestreamtypes.ServerDeleteWebhook_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamServerDeleteWebhook(ctx context.Context,body *placestreamtypes.ServerDeleteWebhook_Input) (*placestreamtypes.ServerDeleteWebhook_Output, error)
+	out, handleErr = s.handlePlaceStreamServerDeleteWebhook(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamServerGetWebhook(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerGetWebhook")
+	defer span.End()
+	id := c.QueryParam("id")
+	var out *placestreamtypes.ServerGetWebhook_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamServerGetWebhook(ctx context.Context,id string) (*placestreamtypes.ServerGetWebhook_Output, error)
+	out, handleErr = s.handlePlaceStreamServerGetWebhook(ctx, id)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamServerListWebhooks(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerListWebhooks")
+	defer span.End()
+
+	var active *bool
+	if p := c.QueryParam("active"); p != "" {
+		active_val, err := strconv.ParseBool(p)
+		if err != nil {
+			return err
+		}
+		active = &active_val
+	}
+	cursor := c.QueryParam("cursor")
+	event := c.QueryParam("event")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	var out *placestreamtypes.ServerListWebhooks_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamServerListWebhooks(ctx context.Context,active *bool,cursor string,event string,limit int) (*placestreamtypes.ServerListWebhooks_Output, error)
+	out, handleErr = s.handlePlaceStreamServerListWebhooks(ctx, active, cursor, event, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamServerUpdateWebhook(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerUpdateWebhook")
+	defer span.End()
+
+	var body placestreamtypes.ServerUpdateWebhook_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestreamtypes.ServerUpdateWebhook_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamServerUpdateWebhook(ctx context.Context,body *placestreamtypes.ServerUpdateWebhook_Input) (*placestreamtypes.ServerUpdateWebhook_Output, error)
+	out, handleErr = s.handlePlaceStreamServerUpdateWebhook(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

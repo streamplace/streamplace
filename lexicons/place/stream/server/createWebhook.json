@@ -1,0 +1,93 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.server.createWebhook",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Create a new webhook for receiving Streamplace events.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["url", "events"],
+          "properties": {
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "description": "The webhook URL where events will be sent."
+            },
+
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["chat", "livestream", "follow", "mention"]
+              },
+              "description": "The types of events this webhook should receive."
+            },
+            "active": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether this webhook should be active upon creation."
+            },
+            "prefix": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Text to prepend to webhook messages."
+            },
+            "suffix": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Text to append to webhook messages."
+            },
+            "rewrite": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.server.defs#rewriteRule"
+              },
+              "description": "Text replacement rules for webhook messages."
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "A user-friendly name for this webhook."
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 500,
+              "description": "A description of what this webhook is used for."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["webhook"],
+          "properties": {
+            "webhook": {
+              "type": "ref",
+              "ref": "place.stream.server.defs#webhook"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "InvalidUrl",
+          "description": "The provided webhook URL is invalid or unreachable."
+        },
+        {
+          "name": "DuplicateWebhook",
+          "description": "A webhook with this URL already exists for this user."
+        },
+        {
+          "name": "TooManyWebhooks",
+          "description": "The user has reached their maximum number of webhooks."
+        }
+      ]
+    }
+  }
+}

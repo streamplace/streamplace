@@ -22,6 +22,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/thumbnail"
 )
@@ -42,6 +43,7 @@ type StreamSession struct {
 	started        chan struct{}
 	ctx            context.Context
 	packets        []bus.PacketizedSegment
+	statefulDB     *statedb.StatefulDB
 }
 
 func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotification) error {
@@ -252,7 +254,7 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 		return nil
 	}
 
-	session, err := ss.mod.GetSessionByDID(repoDID)
+	session, err := ss.statefulDB.GetSessionByDID(repoDID)
 	if err != nil {
 		return fmt.Errorf("could not get OAuth session for repoDID: %w", err)
 	}
@@ -274,7 +276,7 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 		return fmt.Errorf("could not convert livestream to streamplace livestream: %w", err)
 	}
 
-	post, err := ss.mod.GetFeedPost(ls.PostCID)
+	post, err := ss.mod.GetFeedPost(ls.PostURI)
 	if err != nil {
 		return fmt.Errorf("could not get feed post: %w", err)
 	}

@@ -1,3 +1,4 @@
+export * from "./autoplay-button";
 export * from "./countdown";
 export * from "./input";
 export * from "./metrics";

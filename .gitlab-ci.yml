@@ -1,7 +1,7 @@
 include: ".ci/dockerfile-hash.yaml"
 
 variables:
-  DOCKER_REPO: "us-central1-docker.pkg.dev/aquareum-tv/streamplace/build"
+  DOCKER_REPO: "975050346355.dkr.ecr.us-east-2.amazonaws.com/streamplace"
 
 build-bunny:
   stage: build
@@ -71,7 +71,7 @@ builder-rebuild:
   script:
     - rm -rf /usr/x86_64-w64-mingw32/include/d3dcompiler.h /usr/share/mingw-w64/include/d3dcompiler.h /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp.dll.a /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp.dll.a
     - git fetch --unshallow || echo 'already unshallow'
-    - bash -c "make version && make app && make $TARGET && make desktop-$TARGET && make pkg-$TARGET && make ci-upload-node-$TARGET -j$(nproc)"
+    - bash -c "make version && make $TARGET && make desktop-$TARGET && make pkg-$TARGET && make ci-upload-node-$TARGET -j$(nproc)"
   artifacts:
     reports:
       dotenv: .ci/build.env
@@ -160,6 +160,12 @@ test:
   script:
     - git fetch --unshallow || echo 'already unshallow'
     - make dev-setup && make dev-test && make ci-lexicons
+  artifacts:
+    when: always
+    paths:
+      - test.xml
+    reports:
+      junit: test.xml
 
 build-docker-mistserver:
   stage: build

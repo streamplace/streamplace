@@ -1,7 +1,7 @@
 {
   "name": "streamplace-desktop",
   "productName": "streamplace-desktop",
-  "version": "0.7.7",
+  "version": "0.7.26",
   "description": "Streamplace Desktop Application",
   "main": ".webpack/main",
   "scripts": {
@@ -11,7 +11,7 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "nolint": "eslint --ext .ts,.tsx .",
-    "prepare": "go run ../../pkg/config/git/git.go --js > src/version.ts"
+    "prepare": "CGO_ENABLED=0 go run ../../pkg/config/git/git.go --js > src/version.ts"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.5.0",

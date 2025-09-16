@@ -1,6 +1,6 @@
 import { Ellipsis, Reply } from "lucide-react-native";
 import { ComponentProps, memo, useEffect, useRef, useState } from "react";
-import { Platform, Pressable } from "react-native";
+import { Keyboard, Platform, Pressable } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
 import Swipeable, {
   SwipeableMethods,
@@ -223,9 +223,7 @@ const ChatLine = memo(
           }
           renderLeftActions={Platform.OS === "android" ? undefined : LeftAction}
           overshootFriction={9}
-          ref={(ref) => {
-            swipeableRef.current = ref;
-          }}
+          ref={swipeableRef}
           onSwipeableOpen={(r) => {
             if (r === (Platform.OS === "android" ? "right" : "left")) {
               setReply(item);
@@ -258,6 +256,22 @@ export function Chat({
   canModerate?: boolean;
 }) {
   const chat = useChat();
+  const [isScrolledUp, setIsScrolledUp] = useState(false);
+
+  const handleScroll = (event: any) => {
+    const { contentOffset } = event.nativeEvent;
+
+    const scrolledUp = contentOffset.y > 20; // threshold
+
+    if (scrolledUp !== isScrolledUp) {
+      setIsScrolledUp(scrolledUp);
+
+      // Dismiss keyboard when scrolled up
+      if (scrolledUp && Platform.OS !== "web") {
+        Keyboard.dismiss();
+      }
+    }
+  };
 
   if (!chat)
     return (
@@ -288,6 +302,8 @@ export function Chat({
         maxToRenderPerBatch={10}
         initialNumToRender={10}
         updateCellsBatchingPeriod={50}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       />
       <ModView />
     </View>

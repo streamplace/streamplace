@@ -1,4 +1,10 @@
-import { Text, View, usePlayerStore, zero } from "@streamplace/components";
+import {
+  Text,
+  View,
+  usePlayerStore,
+  useSetMuted,
+  zero,
+} from "@streamplace/components";
 import { VolumeX } from "lucide-react-native";
 import { Pressable } from "react-native";
 
@@ -6,7 +12,7 @@ const { layout, h, w, p, px } = zero;
 
 export function MuteOverlay() {
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
-  const setMuted = usePlayerStore((state) => state.setMuted);
+  const setMuted = useSetMuted();
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
 
   if (!muteWasForced) return null;

@@ -8,49 +8,21 @@ project(
     'auto_features': 'disabled',
     'force_fallback_for': 'gio-2.0,gstreamer-controller-1.0,gstreamer-app-1.0,gstreamer-pbutils-1.0,glib-2.0,gobject-2.0,gio-2.0,gio-unix-2.0,fdk-aac,zlib,libffi,pcre2,intl,proxy-libintl,x264,freetype2,libpng,libjpeg,fontconfig,pango,opus,fribidi,harfbuzz,nettle,cairo,pixman,expat,openssl',
     'buildtype': 'debugoptimized',
-    'prefix': '/usr/local', # otherwise mac meson will try and do /opt/homebrew sometimes
+    'prefix': meson.current_build_dir(), # otherwise mac meson will try and do /opt/homebrew sometimes
+    'libdir': 'lib'
   },
 )
 
-fs = import('fs')
-
-prog_go = find_program('go')
-
-flagbuilder = custom_target(
-  'flagbuilder',
-  input: ['pkg/config/git/git.go'],
-  output: ['flagbuilder'],
-  command: [prog_go, 'build', '-o', '@OUTPUT0@', '@INPUT@'],
-  build_always_stale: true,
-  env: {
-    'CGO_ENABLED': '0',
-  },
-)
-
-flags = custom_target(
-  'flags',
-  input: [],
-  output: ['build-flags.go'],
-  command: [flagbuilder, '-o', '@OUTPUT0@'],
-  build_always_stale: true,
-)
-
-version_cmd = run_command(prog_go, 'run', 'pkg/config/git/git.go', '-v', check: true, env: {
-  'CGO_ENABLED': '0',
-})
-version = version_cmd.stdout().strip()
-
-streamplace_go = custom_target(
-  'streamplace.go',
-  input: 'cmd/libstreamplace/streamplace.go',
-  output: 'streamplace.go',
-  command: ['cp', '@INPUT@', '@OUTPUT@'],
-)
-
-# todo: teach meson to automatically populate this CPATH thing for go
-env = {
-  'PKG_CONFIG_PATH': meson.current_build_dir() + '/meson-uninstalled',
-}
+env = {}
+if get_option('default_library') == 'static'
+  env = {
+    'PKG_CONFIG_PATH': meson.current_build_dir() + '/meson-uninstalled',
+  }
+else
+  env = {
+    'PKG_CONFIG_PATH': meson.current_build_dir() + '/lib/pkgconfig',
+  }
+endif
 
 GOOS = meson.get_external_property('GOOS', host_machine.system())
 GOARCH = meson.get_external_property('GOARCH', host_machine.cpu())
@@ -231,6 +203,7 @@ streamplace_deps += [
   dependency('gstreamer-controller-1.0'),
   dependency('gstreamer-app-1.0'),
   dependency('gstreamer-pbutils-1.0'),
+  dependency('libffi'),
 ]
 
 atproto = subproject(
@@ -246,24 +219,15 @@ if get_option('default_library') == 'static'
   ]
 endif
 
-libstreamplace = custom_target(
-  'libstreamplace',
-  input: [streamplace_go, flags],
-  output: ['streamplace.a', 'streamplace.h'],
-  command: [
-    prog_go,
-    'build',
-    '-o', '@OUTPUT0@',
-    '-buildmode', 'c-archive',
-    '-tags', 'netgo',
-    '@INPUT@',
-  ],
-  build_always_stale: true,
-  env: env,
-)
+subdir('rust/iroh-streamplace')
 
 if host_machine.system() == 'darwin'
-  streamplace_deps += [dependency('appleframeworks', modules: ['CoreFoundation', 'Security'])]
+  streamplace_deps += [
+    dependency(
+      'appleframeworks',
+      modules: ['CoreFoundation', 'Security', 'SystemConfiguration'],
+    ),
+  ]
 endif
 if host_machine.system() == 'windows'
   add_project_link_arguments(
@@ -282,90 +246,150 @@ endif
 pkg = import('pkgconfig')
 pkg.generate(
   name: 'streamplacedeps',
-  libraries: [streamplace_deps, c2pa_go_dep],
+  libraries: [streamplace_deps, c2pa_go_dep, iroh_streamplace_dep],
   description: 'all streamplace dependencies bundled for easy inclusion',
 )
 
-if build_machine.system() == 'linux' and host_machine.system() == 'darwin'
-  # this only exists to convince meson to build all of the streamplace dependencies
-  # the real binary comes from the `go build` command below
-  cstreamplace = executable(
-    'cstreamplace',
-    ['cmd/streamplace/streamplace.c', libstreamplace],
-    dependencies: [
-      streamplace_deps,
-    ],
-    link_with: [c2pa_go_dep],
+# dummy executable that we use as a target to convince meson to build all the streamplace dependencies
+executable(
+  'streamplacedeps',
+  ['cmd/streamplace/empty.c'],
+  dependencies: [
+    streamplace_deps,
+  ],
+  link_with: [c2pa_go_dep, iroh_streamplace_dep],
+  install_tag: 'streamplacedeps',
+)
+
+if get_option('default_library') == 'static'
+  prog_go = find_program('go')
+
+  flagbuilder = custom_target(
+    'flagbuilder',
+    input: ['pkg/config/git/git.go'],
+    output: ['flagbuilder'],
+    command: [prog_go, 'build', '-o', '@OUTPUT0@', '@INPUT@'],
+    build_always_stale: true,
+    env: {
+      'CGO_ENABLED': '0',
+    },
+  )
+  version_cmd = run_command(prog_go, 'run', 'pkg/config/git/git.go', '-v', check: true, env: {
+    'CGO_ENABLED': '0',
+  })
+  version = version_cmd.stdout().strip()
+
+  streamplace_go = custom_target(
+    'streamplace.go',
+    input: 'cmd/libstreamplace/streamplace.go',
+    output: 'streamplace.go',
+    command: ['cp', '@INPUT@', '@OUTPUT@'],
+  )
+  flags = custom_target(
+    'flags',
+    input: [],
+    output: ['build-flags.go'],
+    command: [flagbuilder, '-o', '@OUTPUT0@'],
+    build_always_stale: true,
   )
 
-  streamplace = custom_target(
-    'streamplace',
-    input: [cstreamplace, flags],
-    output: ['streamplace'],
+  libstreamplace = custom_target(
+    'libstreamplace',
+    input: [streamplace_go, flags],
+    output: ['streamplace.a', 'streamplace.h'],
     command: [
       prog_go,
       'build',
       '-o', '@OUTPUT0@',
-      '-tags', 'netgo',
-      'streamplace.go',
-      '@INPUT1@'
+      '-buildmode', 'c-archive',
+      '-tags', 'netgo,static',
+      '@INPUT@',
     ],
     build_always_stale: true,
     env: env,
   )
-else
-  streamplace = executable(
-    'streamplace',
-    ['cmd/streamplace/streamplace.c', libstreamplace],
-    dependencies: [
-      streamplace_deps,
-    ],
-    link_with: [c2pa_go_dep],
-  )
-endif
+
+  if build_machine.system() == 'linux' and host_machine.system() == 'darwin'
+    # this only exists to convince meson to build all of the streamplace dependencies
+    # the real binary comes from the `go build` command below
+    cstreamplace = executable(
+      'cstreamplace',
+      ['cmd/streamplace/streamplace.c', libstreamplace],
+      dependencies: [
+        streamplace_deps,
+      ],
+      link_with: [c2pa_go_dep, iroh_streamplace_dep],
+    )
+
+    streamplace = custom_target(
+      'streamplace',
+      input: [cstreamplace, flags],
+      output: ['streamplace'],
+      command: [
+        prog_go,
+        'build',
+        '-o', '@OUTPUT0@',
+        '-tags', 'netgo,static',
+        'streamplace.go',
+        '@INPUT1@'
+      ],
+      build_always_stale: true,
+      env: env,
+    )
+  else
+    streamplace = executable(
+      'streamplace',
+      ['cmd/streamplace/streamplace.c', libstreamplace],
+      dependencies: [
+        streamplace_deps,
+      ],
+      link_with: [c2pa_go_dep, iroh_streamplace_dep],
+    )
+  endif
 
 
-if not meson.is_cross_build()
-  test(
-    'go-tests',
-    prog_go,
-    depends: [streamplace],
-    env: env,
-    verbose: true,
-    timeout: 0,
-    args: [
-      'test',
-      '-p', '1',
-      '-timeout', '600s',
-      '@0@/pkg/...'.format(meson.current_source_dir()),
-      '@0@/cmd/...'.format(meson.current_source_dir()),
-    ],
-  )
-endif
+  if not meson.is_cross_build()
+    test(
+      'go-tests',
+      prog_go,
+      depends: [streamplace],
+      env: env,
+      verbose: true,
+      timeout: 0,
+      args: [
+        'test',
+        '-p', '1',
+        '-timeout', '600s',
+        '@0@/pkg/...'.format(meson.current_source_dir()),
+        '@0@/cmd/...'.format(meson.current_source_dir()),
+      ],
+    )
+  endif
 
-if host_machine.system() == 'windows'
-  prog_zip = find_program('zip')
-  archive_name = 'streamplace-' + version + '-' + GOOS + '-' + GOARCH + '.zip'
-  custom_target(
-    'archive',
-    input: [streamplace],
-    output: ['streamplace.zip'],
-    command: [prog_zip, '../bin/' + archive_name, '@INPUT@'],
-    install: true,
-    install_dir: './bin',
-    build_by_default: false,
-  )
-else
-  prog_tar = find_program('tar')
-  # archive_name = streamplace-$(VERSION)-$$GOOS-$$GOARCH.tar.gz
-  archive_name = 'streamplace-' + version + '-' + GOOS + '-' + GOARCH + '.tar.gz'
-  custom_target(
-    'archive',
-    input: [streamplace],
-    output: ['streamplace.tar.gz'],
-    command: [prog_tar, '-czvf', '../bin/' + archive_name, '@INPUT@'],
-    install: true,
-    install_dir: './bin',
-    build_by_default: false,
-  )
+  if host_machine.system() == 'windows'
+    prog_zip = find_program('zip')
+    archive_name = 'streamplace-' + version + '-' + GOOS + '-' + GOARCH + '.zip'
+    custom_target(
+      'archive',
+      input: [streamplace],
+      output: ['streamplace.zip'],
+      command: [prog_zip, '../bin/' + archive_name, '@INPUT@'],
+      install: true,
+      install_dir: './bin',
+      build_by_default: false,
+    )
+  else
+    prog_tar = find_program('tar')
+    # archive_name = streamplace-$(VERSION)-$$GOOS-$$GOARCH.tar.gz
+    archive_name = 'streamplace-' + version + '-' + GOOS + '-' + GOARCH + '.tar.gz'
+    custom_target(
+      'archive',
+      input: [streamplace],
+      output: ['streamplace.tar.gz'],
+      command: [prog_tar, '-czvf', '../bin/' + archive_name, '@INPUT@'],
+      install: true,
+      install_dir: './bin',
+      build_by_default: false,
+    )
+  endif
 endif

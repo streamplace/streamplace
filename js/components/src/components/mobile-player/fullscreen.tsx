@@ -16,12 +16,14 @@ export function Fullscreen(props: {
   const fullscreen = usePlayerStore((x) => x.fullscreen, playerId);
   const setFullscreen = usePlayerStore((x) => x.setFullscreen, playerId);
   const setSrc = usePlayerStore((x) => x.setSrc);
+  const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
 
   const divRef = useRef<RNView>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     setSrc(props.src);
+    setAutoplayFailed(false);
   }, [props.src]);
 
   useEffect(() => {

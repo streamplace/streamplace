@@ -19,11 +19,12 @@ jobs:
         include:
           - name: linux-amd64
             cmd: >-
-              make && (make test || make test) && make check && make ci-lexicons
+              make linux-amd64 && make static-test && make check && make
+              ci-lexicons
           - name: linux-arm64
-            cmd: "make app && make linux-arm64"
+            cmd: "make linux-arm64"
           - name: windows-amd64
-            cmd: "make app && make windows-amd64 && make desktop-windows-amd64"
+            cmd: "make windows-amd64 && make desktop-windows-amd64"
           - name: android
             cmd: "make app && make android-release"
     steps:
@@ -48,6 +49,12 @@ jobs:
         run: |
           sudo apt install podman -y
           make in-container BUILDER_TARGET=builder-no-darwin DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
+
+      - name: Publish Test Report
+        if: matrix.name == 'linux-amd64' && (success() || failure())
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: "test.xml"
 
       - name: Upload bin artifacts
         if: matrix.name == 'windows-amd64'

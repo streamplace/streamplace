@@ -7,3 +7,4 @@
 !atproto.wrap
 !packagefiles/
 !packagefiles/**
+!iroh_streamplace.wrap

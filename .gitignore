@@ -20,3 +20,6 @@ build-*
 oom
 *.tsbuildinfo
 node-compile-cache
+target
+my-release-key.keystore
+test.xml

@@ -14,3 +14,15 @@ func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, hand
 	}
 	return &comatprototypes.IdentityResolveHandle_Output{Did: did}, nil
 }
+
+func (s *Server) handleComAtprotoIdentityRefreshIdentity(ctx context.Context, body *comatprototypes.IdentityRefreshIdentity_Input) (*comatprototypes.IdentityDefs_IdentityInfo, error) {
+	ident, err := s.ATSync.RefreshIdentity(ctx, body.Identifier)
+	if err != nil {
+		return nil, err
+	}
+	return &comatprototypes.IdentityDefs_IdentityInfo{
+		Did:    ident.DID.String(),
+		Handle: ident.Handle.String(),
+		DidDoc: ident.DIDDocument(),
+	}, nil
+}

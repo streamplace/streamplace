@@ -25,12 +25,7 @@ func getFixture(name string) string {
 }
 
 func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
-	dir, err := os.MkdirTemp("", "atproto-test-*")
-	require.NoError(t, err)
-	// defer os.RemoveAll(dir)
-
-	fname := filepath.Join(dir, "db.sqlite")
-	mod, err := model.MakeDB(fname)
+	mod, err := model.MakeDB(":memory:")
 	require.NoError(t, err)
 	signer, err := c2pa.MakeStaticSigner(eip712test.KeyBytes)
 	require.NoError(t, err)
@@ -42,9 +37,10 @@ func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
 		AllowedStreams: []string{"did:key:zQ3shhoPCrDZWE8CryCEHYCrb1x8mCkr2byTkF5EGJT7dgazC"},
 	})
 	atsync := &atproto.ATProtoSynchronizer{
-		CLI:   cli,
-		Model: mod,
-		Bus:   bus.NewBus(),
+		CLI:        cli,
+		Model:      mod,
+		StatefulDB: nil, // Test doesn't need StatefulDB for now
+		Bus:        bus.NewBus(),
 	}
 	mm, err := MakeMediaManager(context.Background(), cli, signer, &boring.BoringReplicator{}, mod, bus.NewBus(), atsync)
 	require.NoError(t, err)

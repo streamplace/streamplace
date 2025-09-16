@@ -1,4 +1,12 @@
-import { Slider, View, usePlayerStore, zero } from "@streamplace/components";
+import {
+  Slider,
+  useMuted,
+  useSetMuted,
+  useSetVolume,
+  useVolume,
+  View,
+  zero,
+} from "@streamplace/components";
 import { Volume2, VolumeX } from "lucide-react-native";
 import { useCallback } from "react";
 import { Pressable } from "react-native";
@@ -11,10 +19,10 @@ import Animated, {
 const { layout, p, r } = zero;
 
 export function VolumeSlider() {
-  const muted = usePlayerStore((state) => state.muted);
-  const setMuted = usePlayerStore((state) => state.setMuted);
-  const volume = usePlayerStore((state) => state.volume);
-  const setVolume = usePlayerStore((state) => state.setVolume);
+  const muted = useMuted();
+  const setMuted = useSetMuted();
+  const volume = useVolume();
+  const setVolume = useSetVolume();
 
   const fadeAnim = useSharedValue(0);
   const widthAnim = useSharedValue(0);

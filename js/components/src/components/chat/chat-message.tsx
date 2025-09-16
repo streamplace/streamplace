@@ -66,6 +66,9 @@ const segmentedObject = (
           {obj.text}
         </Text>
       );
+    } else {
+      // render as normal text if we don't recognize the facet type
+      return <Text key={`unknown-facet-${index}`}>{obj.text}</Text>;
     }
   } else {
     return <Text key={`text-${index}`}>{obj.text}</Text>;
@@ -105,9 +108,10 @@ export const RenderChatMessage = memo(
         hour12: false,
       });
     }, []);
+    const replyTo = (item.replyTo as ChatMessageViewHydrated) || null;
     return (
       <>
-        {item.replyTo && showReply && (
+        {replyTo && showReply && (
           <View
             style={[
               gap.all[2],
@@ -130,11 +134,11 @@ export const RenderChatMessage = memo(
             >
               <Text
                 style={{
-                  color: getRgbColor((item.replyTo.chatProfile as any).color),
+                  color: getRgbColor(replyTo.chatProfile?.color),
                   fontWeight: "thin",
                 }}
               >
-                @{(item.replyTo.author as any).handle}
+                @{(replyTo.author as any).handle}
               </Text>{" "}
               <Text
                 style={{
@@ -142,7 +146,7 @@ export const RenderChatMessage = memo(
                   fontStyle: "italic",
                 }}
               >
-                {(item.replyTo.record as any).text}
+                {replyTo.record.text}
               </Text>
             </Text>
           </View>

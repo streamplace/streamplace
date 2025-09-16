@@ -52,14 +52,6 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     setIngestStarted: (timestamp: number | null) =>
       set(() => ({ ingestStarted: timestamp })),
 
-    muted: false,
-    setMuted: (isMuted: boolean) =>
-      set(() => ({ muted: isMuted, muteWasForced: false })),
-
-    volume: 1.0,
-    setVolume: (volume: number) =>
-      set(() => ({ volume, muteWasForced: false })),
-
     fullscreen: false,
     setFullscreen: (isFullscreen: boolean) =>
       set(() => ({ fullscreen: isFullscreen })),
@@ -98,6 +90,10 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     muteWasForced: false,
     setMuteWasForced: (muteWasForced: boolean) =>
       set(() => ({ muteWasForced })),
+
+    autoplayFailed: false,
+    setAutoplayFailed: (autoplayFailed: boolean) =>
+      set(() => ({ autoplayFailed })),
 
     embedded: false,
     setEmbedded: (embedded: boolean) => set(() => ({ embedded })),

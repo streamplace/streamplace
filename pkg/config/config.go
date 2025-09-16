@@ -21,6 +21,8 @@ import (
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
+	"github.com/lmittmann/tint"
+	slogGorm "github.com/orandin/slog-gorm"
 	"github.com/peterbourgon/ff/v3"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
@@ -51,7 +53,7 @@ type CLI struct {
 	AdminAccount           string
 	Build                  *BuildFlags
 	DataDir                string
-	DBPath                 string
+	DBURL                  string
 	EthAccountAddr         string
 	EthKeystorePath        string
 	EthPassword            string
@@ -113,6 +115,8 @@ type CLI struct {
 	AtprotoDID             string
 	ContentFilters         *ContentFilters
 	LivepeerHelp           bool
+	PLCURL                 string
+	SQLLogging             bool
 }
 
 // ContentFilters represents the content filtering configuration
@@ -136,7 +140,8 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	cli.DataDirFlag(fs, &cli.TLSCertPath, "tls-cert", filepath.Join("tls", "tls.crt"), "Path to TLS certificate")
 	cli.DataDirFlag(fs, &cli.TLSKeyPath, "tls-key", filepath.Join("tls", "tls.key"), "Path to TLS key")
 	fs.StringVar(&cli.SigningKeyPath, "signing-key", "", "Path to signing key for pushing OTA updates to the app")
-	cli.DataDirFlag(fs, &cli.DBPath, "db-path", "db.sqlite", "path to sqlite database file")
+	fs.StringVar(&cli.DBURL, "db-url", "sqlite://$SP_DATA_DIR/state.sqlite", "URL of the database to use for storing private streamplace state")
+	cli.dataDirFlags = append(cli.dataDirFlags, &cli.DBURL)
 	fs.StringVar(&cli.AdminAccount, "admin-account", "", "ethereum account that administrates this streamplace node")
 	fs.StringVar(&cli.FirebaseServiceAccount, "firebase-service-account", "", "JSON string of a firebase service account key")
 	fs.StringVar(&cli.GitLabURL, "gitlab-url", "https://git.stream.place/api/v4/projects/1", "gitlab url for generating download links")
@@ -186,6 +191,8 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.StringVar(&cli.AtprotoDID, "atproto-did", "", "atproto did to respond to on /.well-known/atproto-did (default did:web:PUBLIC_HOST)")
 	cli.JSONFlag(fs, &cli.ContentFilters, "content-filters", "{}", "JSON content filtering rules")
 	fs.BoolVar(&cli.LivepeerHelp, "livepeer-help", false, "print help for livepeer flags and exit")
+	fs.StringVar(&cli.PLCURL, "plc-url", "https://plc.directory", "url of the plc directory")
+	fs.BoolVar(&cli.SQLLogging, "sql-logging", false, "enable sql logging")
 
 	lpFlags := flag.NewFlagSet("livepeer", flag.ContinueOnError)
 	_ = starter.NewLivepeerConfig(lpFlags)
@@ -252,6 +259,13 @@ func DefaultDataDir() string {
 	return filepath.Join(home, ".streamplace")
 }
 
+var GormLogger = slogGorm.New(
+	slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+		TimeFormat: time.RFC3339,
+	})),
+	// slogGorm.WithTraceAll(),
+)
+
 func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 	err := ff.Parse(
 		fs, args,
@@ -292,6 +306,13 @@ func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 	}
 	for _, dest := range cli.dataDirFlags {
 		*dest = strings.Replace(*dest, SPDataDir, cli.DataDir, 1)
+	}
+	if !cli.SQLLogging {
+		GormLogger = slogGorm.New(
+			slogGorm.WithHandler(tint.NewHandler(os.Stderr, &tint.Options{
+				TimeFormat: time.RFC3339,
+			})),
+		)
 	}
 	return nil
 }

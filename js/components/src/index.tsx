@@ -1,4 +1,6 @@
 // barrel file :)
+import "./crypto-polyfill";
+
 export * from "./livestream-provider";
 export * from "./livestream-store";
 export * from "./player-store";
@@ -37,3 +39,7 @@ export * from "./components/keep-awake";
 
 // Dashboard components
 export * as Dashboard from "./components/dashboard";
+
+// Storage exports
+export { default as storage } from "./storage";
+export type { AQStorage } from "./storage/storage.shared";

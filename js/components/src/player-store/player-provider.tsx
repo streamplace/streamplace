@@ -10,6 +10,19 @@ interface PlayerProviderProps {
   defaultId?: string;
 }
 
+function randomUUID(): string {
+  let dt = new Date().getTime();
+  var uuid = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+    /[xy]/g,
+    function (c) {
+      var r = (dt + Math.random() * 16) % 16 | 0;
+      dt = Math.floor(dt / 16);
+      return (c == "x" ? r : (r & 0x3) | 0x8).toString(16);
+    },
+  );
+  return uuid;
+}
+
 export const PlayerProvider: React.FC<PlayerProviderProps> = ({
   children,
   initialPlayers = [],
@@ -33,7 +46,7 @@ export const PlayerProvider: React.FC<PlayerProviderProps> = ({
   );
 
   const createPlayer = useCallback((id?: string) => {
-    const playerId = id || Math.random().toString(36).slice(8);
+    const playerId = id || randomUUID();
     const playerStore = makePlayerStore(playerId);
 
     setPlayers((prev) => ({

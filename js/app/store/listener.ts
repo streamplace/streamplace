@@ -1,6 +1,6 @@
 import { createListenerMiddleware, isAnyOf } from "@reduxjs/toolkit";
+import { storage } from "@streamplace/components";
 import { SIDEBAR_STORAGE_KEY, sidebarSlice } from "features/base/sidebarSlice";
-import storage from "storage";
 import { RootState } from "./store";
 
 export const listenerMiddleware = createListenerMiddleware();

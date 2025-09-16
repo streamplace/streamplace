@@ -4,10 +4,13 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 )
@@ -80,4 +83,35 @@ type MockFirebase struct {
 
 func (m *MockFirebase) Blast(ctx context.Context, nots []string, nb *notifications.NotificationBlast) error {
 	return nil
+}
+
+func TestContextMiddleware(t *testing.T) {
+	cli := &config.CLI{HTTPAddr: "0.0.0.0:80", HTTPSAddr: "0.0.0.0:443"}
+	mod := &model.DBModel{}
+	a := StreamplaceAPI{CLI: cli, Model: mod}
+
+	runtime.GC()
+
+	requestID := ""
+	lastContext := context.Background()
+	handler := a.ContextMiddleware(context.Background())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestID = log.GetValue(r.Context(), "requestID")
+		lastContext = r.Context()
+	}))
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", nil)
+	for i := 0; i < 1000000; i++ {
+		handler.ServeHTTP(rr, req)
+		require.NotEmpty(t, requestID, "requestID should not be empty")
+	}
+	var m1, m2 runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&m1)
+	runtime.KeepAlive(lastContext)
+	lastContext = context.Background()
+	runtime.GC()
+	runtime.ReadMemStats(&m2)
+	memoryRatio := float64(m1.Alloc) / float64(m2.Alloc)
+	require.Less(t, memoryRatio, 5.0, "memory allocated should be less than 5x")
 }

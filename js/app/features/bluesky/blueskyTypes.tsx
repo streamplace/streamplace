@@ -19,7 +19,7 @@ type NewLivestream = {
 export interface BlueskyState {
   status: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
-  oauthSession: null | OAuthSession;
+  oauthSession?: null | OAuthSession;
   pdsAgent: null | StreamplaceAgent;
   anonPDSAgent: null | StreamplaceAgent;
   profiles: { [key: string]: ProfileViewDetailed };

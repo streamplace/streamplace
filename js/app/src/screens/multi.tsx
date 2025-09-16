@@ -4,7 +4,6 @@ import {
   Player,
   PlayerProps,
   PlayerProvider,
-  ThemeProvider,
   usePlayerStore,
   zero,
 } from "@streamplace/components";
@@ -69,7 +68,7 @@ export default function MultiScreen({ route }) {
   }
 
   return (
-    <ThemeProvider>
+    <>
       <KeepAwake />
       <FullscreenProvider>
         <View style={[flex.values[1]]}>
@@ -95,6 +94,6 @@ export default function MultiScreen({ route }) {
           ))}
         </View>
       </FullscreenProvider>
-    </ThemeProvider>
+    </>
   );
 }

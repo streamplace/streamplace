@@ -14,7 +14,9 @@ import {
   PlayerProtocol,
   PlayerStatus,
   Text,
+  useEffectiveVolume,
   usePlayerStore as useIngestPlayerStore,
+  useMuted,
   usePlayerStore,
   useStreamplaceStore,
   View,
@@ -71,8 +73,8 @@ export function NativeVideo(props?: {
   const src = usePlayerStore((x) => x.src);
   const { url } = srcToUrl({ src: src, selectedRendition }, protocol);
   const setStatus = usePlayerStore((x) => x.setStatus);
-  const muted = usePlayerStore((x) => x.muted);
-  const volume = usePlayerStore((x) => x.volume);
+  const muted = useMuted();
+  const volume = useEffectiveVolume();
   const setFullscreen = usePlayerStore((x) => x.setFullscreen);
   const fullscreen = usePlayerStore((x) => x.fullscreen);
   const playerEvent = usePlayerStore((x) => x.playerEvent);
@@ -211,8 +213,8 @@ export function NativeWHEP(props?: {
   }, []);
 
   const setStatus = usePlayerStore((x) => x.setStatus);
-  const muted = usePlayerStore((x) => x.muted);
-  const volume = usePlayerStore((x) => x.volume);
+  const muted = useMuted();
+  const volume = useEffectiveVolume();
 
   useEffect(() => {
     if (stuck && status === PlayerStatus.PLAYING) {

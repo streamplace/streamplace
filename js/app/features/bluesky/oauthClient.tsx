@@ -57,6 +57,8 @@ export default async function createOAuthClient(
       // > These clients use web URLs, but have application_type set to native in the generated client metadata.
       application_type: "native",
       dpop_bound_access_tokens: true,
+      subject_type: "public",
+      authorization_signed_response_alg: "ES256",
     };
   } else {
     const redirectURI = isWeb

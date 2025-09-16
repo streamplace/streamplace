@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/components",
-  "version": "0.7.18",
+  "version": "0.7.27",
   "description": "Streamplace React (Native) Components",
   "main": "dist/index.js",
   "types": "src/index.tsx",
@@ -20,7 +20,7 @@
     "tsup": "^8.5.0"
   },
   "dependencies": {
-    "@atproto/api": "^0.15.7",
+    "@atproto/api": "^0.16.7",
     "@atproto/crypto": "^0.4.4",
     "@emoji-mart/react": "^1.1.1",
     "@gorhom/bottom-sheet": "^5.1.6",
@@ -29,6 +29,7 @@
     "@rn-primitives/slider": "^1.2.0",
     "class-variance-authority": "^0.6.1",
     "expo-keep-awake": "^14.0.0",
+    "expo-sqlite": "~15.2.12",
     "expo-video": "^2.0.0",
     "hls.js": "^1.5.17",
     "lucide-react-native": "^0.514.0",
@@ -49,6 +50,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "tsc --watch --preserveWatchOutput"
+    "start": "tsc --watch --preserveWatchOutput",
+    "prepare": "tsc"
   }
 }

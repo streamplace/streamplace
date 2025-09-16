@@ -1,0 +1,43 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.server.getWebhook",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get details for a specific webhook.",
+      "parameters": {
+        "type": "params",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the webhook to retrieve."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["webhook"],
+          "properties": {
+            "webhook": {
+              "type": "ref",
+              "ref": "place.stream.server.defs#webhook"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "WebhookNotFound",
+          "description": "The specified webhook was not found."
+        },
+        {
+          "name": "Unauthorized",
+          "description": "The authenticated user does not have access to this webhook."
+        }
+      ]
+    }
+  }
+}

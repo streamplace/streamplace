@@ -137,7 +137,6 @@ func getLeakCountInner(t *testing.T) int {
 	LeakReport = []string{}
 	LeakReportMutex.Unlock()
 
-	// we want CI to be extra reliable here and a little slower is okay
 	flushes := 2
 
 	for range flushes {

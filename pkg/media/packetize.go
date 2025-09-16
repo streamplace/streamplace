@@ -15,6 +15,9 @@ import (
 // take in a segment and return a bunch of packets suitable for webrtc
 func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error) {
 
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
 	pipelineSlice := []string{
 		"h264parse name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink sync=false name=videoappsink",
 		"opusparse name=audioparse ! appsink sync=false name=audioappsink",
@@ -180,7 +183,7 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 
 	err = <-busErr
 	if err != nil {
-		return nil, fmt.Errorf("pipeline error: %w", err)
+		return nil, fmt.Errorf("packetize pipeline error filename=%s, error=%w", seg.Filepath, err)
 	}
 
 	return &bus.PacketizedSegment{

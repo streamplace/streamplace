@@ -1,6 +1,7 @@
 import {
   Chat,
   ChatBox,
+  Loader,
   Resizable,
   Text,
   useHandle,
@@ -10,7 +11,7 @@ import {
 } from "@streamplace/components";
 import { useKeyboard } from "hooks/useKeyboard";
 import { useEffect } from "react";
-import { Keyboard, Pressable, TouchableWithoutFeedback } from "react-native";
+import { Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -19,6 +20,7 @@ import Animated, {
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
 import { useNavigation } from "@react-navigation/native";
+import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { ArrowRight } from "@tamagui/lucide-icons";
 import emojiData from "assets/emoji-data.json";
 const { borderRadius, gap, layout, flex, px, position, bottom } = zero;
@@ -101,8 +103,12 @@ function ChatPanel() {
   const { shouldShowChatSidePanel, safeAreaInsets } = useResponsiveLayout();
   const { profile } = useLivestreamInfo();
   const handle = useHandle();
+
+  let agent = usePDSAgent();
+
   const navigation = useNavigation();
   let canModerate = profile?.handle === handle;
+
   return (
     <View
       style={[
@@ -111,17 +117,30 @@ function ChatPanel() {
         { width: "100%", maxWidth: "100%" },
       ]}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View style={[flex.values[1]]}>
-          <Chat canModerate={canModerate} />
-        </View>
-      </TouchableWithoutFeedback>
+      <View style={[flex.values[1]]}>
+        <Chat canModerate={canModerate} />
+      </View>
       <View style={[layout.flex.column, gap.all[2], px[4]]}>
-        {handle ? (
+        {agent?.did ? (
           <ChatBox
             emojiData={emojiData}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
           />
+        ) : !agent ? (
+          <View
+            style={[
+              layout.flex.row,
+              layout.flex.center,
+              gap.all[1],
+              zero.p[3],
+              {
+                borderRadius: borderRadius.xl,
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              },
+            ]}
+          >
+            <Loader size="large" />
+          </View>
         ) : (
           <Pressable
             onPress={() => navigation.navigate("Login")}
@@ -130,7 +149,7 @@ function ChatPanel() {
               layout.flex.center,
               gap.all[2],
               {
-                padding: 16,
+                padding: 18,
                 borderRadius: borderRadius.xl,
                 backgroundColor: "rgba(255, 255, 255, 0.1)",
               },

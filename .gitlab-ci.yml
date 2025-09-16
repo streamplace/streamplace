@@ -93,7 +93,7 @@ builder-rebuild:
 .build:
   stage: build
   interruptible: true
-  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
+  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH-amd64"
   timeout: 2 hours
   script:
     - rm -rf /usr/x86_64-w64-mingw32/include/d3dcompiler.h /usr/share/mingw-w64/include/d3dcompiler.h /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp.dll.a /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp.dll.a
@@ -194,7 +194,7 @@ leak-test-streamers:
 test:
   stage: build
   interruptible: true
-  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
+  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH-amd64"
   timeout: 2 hours
   variables:
     STREAMPLACE_TEST_COUNT: "1"
@@ -305,7 +305,7 @@ build-docker-manifest:
 .build-android:
   stage: build
   interruptible: true
-  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
+  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH-amd64"
   timeout: 2 hours
   script:
     - git fetch --unshallow || echo 'already unshallow'
@@ -397,7 +397,7 @@ windows-selftest:
 .release-template:
   stage: build
   interruptible: true
-  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
+  image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH-amd64"
   needs:
     - build-darwin-amd64
     - build-darwin-arm64

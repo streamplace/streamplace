@@ -105,7 +105,7 @@ android-release: .build/bundletool.jar android-keystore
 android-debug: .build/bundletool.jar android-keystore
 	export NODE_ENV=production \
 	&& cd ./js/app/android \
-	&& ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug \
+	&& ./gradlew :app:bundleDebug \
 	&& cd - \
 	&& mv ./js/app/android/app/build/outputs/bundle/debug/app-debug.aab ./bin/streamplace-$(VERSION)-android-debug.aab \
 	&& cd bin \
@@ -972,3 +972,10 @@ ci-download-file:
 		--header "JOB-TOKEN: $$CI_JOB_TOKEN" \
 		-o bin/$(download_file) \
 		"$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/$(download_file)";
+
+.PHONY: ci-android-e2e
+ci-android-e2e: install
+	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-android-release-androidTest.apk
+	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-android-release.apk
+	bash util/boot-android-vm.sh
+	pnpm run app ci-android-e2e

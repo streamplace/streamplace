@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM ubuntu:22.04 AS builder-no-darwin
+ARG TARGETARCH
+
+FROM --platform=linux/$TARGETARCH ubuntu:22.04 AS builder-base
 
 ARG TARGETARCH
 ENV TARGETARCH $TARGETARCH
@@ -29,25 +31,12 @@ RUN dpkg --add-architecture i386 && dpkg --add-architecture arm64
 # mc mirror --overwrite /var/spool/apt-mirror/mirror/dl.winehq.org/ streamplace-crap/streamplace-crap/dl.winehq.org/
 
 RUN apt update \
-  && apt install -y build-essential curl git openjdk-17-jdk unzip jq g++ python3-pip ninja-build \
-  gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user-static pkg-config \
-  nasm gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64-tools zip bison flex expect \
-  mono-runtime nuget mono-xsp4 squashfs-tools \
-  libc6:arm64 libstdc++6:arm64 \
-  cmake libssl-dev libssl-dev:arm64 \
-  ruby-rubygems postgresql sudo \
-  && pip install meson tomli \
-  && curl -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
+  && apt install -y curl git openjdk-17-jdk unzip jq python3-pip ninja-build \
+  && pip install meson tomli
+
+RUN curl -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
   && tar -C /usr/local -xf go.tar.gz \
   && rm go.tar.gz
-
-RUN echo 'deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/winehq-archive.key] https://storage.googleapis.com/streamplace-crap/dl.winehq.org/wine-builds/ubuntu/ jammy main' >> /etc/apt/sources.list \
-  && echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/llvm-snapshot.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-21 main' >> /etc/apt/sources.list \
-  && apt update \
-  && apt install -y --install-recommends winehq-stable \
-  clang-21 lldb-21 lld-21 clangd-21
-
-ENV PATH /usr/lib/llvm-21/bin:$PATH:/usr/local/go/bin:/root/go/bin:/root/.cargo/bin
 
 RUN export NODEARCH="$TARGETARCH" \
   && if [ "$TARGETARCH" = "amd64" ]; then export NODEARCH="x64"; fi \
@@ -58,7 +47,7 @@ RUN export NODEARCH="$TARGETARCH" \
 
 RUN npm install -g corepack@latest
 
-ARG ANDROID_SDK_VERSION=11076708
+ARG ANDROID_SDK_VERSION=13114758
 ENV ANDROID_HOME /opt/android-sdk
 RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
   curl -L -O https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip && \
@@ -66,6 +55,68 @@ RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
   mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/tools && \
   rm *tools*linux*.zip && \
   curl -L https://raw.githubusercontent.com/thyrlian/AndroidSDK/bfcbf0cdfd6bb1ef45579e6ddc4d3876264cbdd1/android-sdk/license_accepter.sh | bash
+
+RUN export NODEARCH="$TARGETARCH" \
+  && if [ "$TARGETARCH" = "amd64" ]; then export NODEARCH="x64"; fi \
+  && curl -L --fail https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$NODEARCH.tar.xz -o node.tar.gz \
+  && tar -xf node.tar.gz \
+  && cp -r node-v$NODE_VERSION-linux-$NODEARCH/* /usr/local \
+  && rm -rf node.tar.gz node-v$NODE_VERSION-linux-$NODEARCH
+
+FROM builder-base AS builder-android-arm64
+
+RUN curl --silent --fail -L https://storage.googleapis.com/streamplace-crap/1ceadb23-da33-47ef-b6be-7a14deb24464/sdk-repo-linux_aarch64-emulator-13288691.zip \
+  -o android-emulator.zip \
+  && unzip android-emulator.zip \
+  && rm android-emulator.zip \
+  && mv /emulator/ $ANDROID_HOME/emulator/
+
+ADD docker/emulator.xml /opt/android-sdk/emulator/package.xml
+
+RUN if [ "$TARGETARCH" = "amd64" ]; then export ANDROIDARCH="x86_64"; fi \
+  && if [ "$TARGETARCH" = "arm64" ]; then export ANDROIDARCH="arm64-v8a"; fi \
+  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager "system-images;android-28;default;$ANDROIDARCH" \
+  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager 'platform-tools' \
+  && $ANDROID_HOME/cmdline-tools/tools/bin/sdkmanager 'build-tools;36.0.0'
+
+ENV PATH=$PATH:$ANDROID_HOME/emulator:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/cmdline-tools/tools/bin:$ANDROID_HOME/platform-tools
+
+RUN echo no | avdmanager -v create avd -f -n Pixel_API_28_AOSP -k "system-images;android-28;default;arm64-v8a" -p "/opt/android-sdk/avd"
+
+# # RUN apt install -y qemu-user-static && dpkg --add-architecture amd64 && apt install -y libc6:amd64 && update-binfmts --enable
+RUN apt update && apt install -y adb
+
+RUN echo "Vulkan = off" >> /root/.android/advancedFeatures.ini && echo "GLDirectMem = on" >> /root/.android/advancedFeatures.ini
+
+RUN echo "hw.lcd.density=440" >> /opt/android-sdk/avd/config.ini \
+  && echo "hw.lcd.height=2280" >> /opt/android-sdk/avd/config.ini \
+  && echo "hw.lcd.width=1080" >> /opt/android-sdk/avd/config.ini \
+  && echo "vm.heapSize=576" >> /opt/android-sdk/avd/config.ini \
+  && echo "hw.ramSize=2048" >> /opt/android-sdk/avd/config.ini
+
+ADD ./util/boot-android-vm.sh /boot-android-vm.sh
+RUN ./boot-android-vm.sh firstboot
+
+FROM builder-base AS builder-no-darwin
+
+RUN dpkg --add-architecture i386 && dpkg --add-architecture arm64 && dpkg --add-architecture amd64
+
+ENV PATH /usr/lib/llvm-21/bin:$PATH:/usr/local/go/bin:/root/go/bin:/root/.cargo/bin
+
+RUN apt update && apt install -y \
+  build-essential g++ apksigner \
+  gcc-aarch64-linux-gnu g++-aarch64-linux-gnu qemu-user-static pkg-config \
+  nasm gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 mingw-w64-tools zip bison flex expect \
+  mono-runtime nuget mono-xsp4 squashfs-tools \
+  libc6:arm64 libstdc++6:arm64 \
+  cmake libssl-dev libssl-dev:arm64 \
+  ruby-rubygems postgresql sudo
+
+RUN echo 'deb [arch=amd64,i386 signed-by=/etc/apt/keyrings/winehq-archive.key] https://storage.googleapis.com/streamplace-crap/dl.winehq.org/wine-builds/ubuntu/ jammy main' >> /etc/apt/sources.list \
+  && echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/llvm-snapshot.key] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-21 main' >> /etc/apt/sources.list \
+  && apt update \
+  && apt install -y --install-recommends winehq-stable \
+  clang-21 lldb-21 lld-21 clangd-21
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh \
   && bash rustup.sh -y \

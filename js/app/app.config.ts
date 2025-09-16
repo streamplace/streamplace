@@ -197,7 +197,7 @@ export default function () {
         [
           "@config-plugins/detox",
           {
-            subdomains: ["192.168.8.136", "localhost", "127.0.0.1"],
+            subdomains: ["localhost", "127.0.0.1"],
           },
         ],
         withAndroidProfileable,

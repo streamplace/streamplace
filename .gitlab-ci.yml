@@ -18,7 +18,7 @@ build-bunny:
       --dockerfile "${CI_PROJECT_DIR}/docker/bunny.Dockerfile"
       --destination "$DOCKER_REPO:bunny"
 
-builder:
+.builder:
   stage: build
   interruptible: true
   allow_failure: true
@@ -26,20 +26,46 @@ builder:
     name: gcr.io/kaniko-project/executor:v1.14.0-debug
     entrypoint: [""]
   variables:
-    FQ_IMAGE_NAME: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
+    FQ_IMAGE_NAME: "$DOCKER_REPO:builder-$DOCKERFILE_HASH-amd64"
     TARGET: builder
   timeout: 2 hours
   script:
     - mkdir -p /kaniko/.docker
     - cp "$DOCKER_AUTH_CONFIG" /kaniko/.docker/config.json
     - /kaniko/executor
-      --build-arg TARGETARCH=amd64
+      --build-arg TARGETARCH=$TARGETARCH
       --build-arg DOCKERFILE_HASH=$DOCKERFILE_HASH
       --cache=true
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/docker/build.Dockerfile"
       --destination "$FQ_IMAGE_NAME"
       --target "$TARGET"
+      --customPlatform=linux/$TARGETARCH
+
+builder-amd64:
+  extends:
+    - .builder
+  stage: build
+  interruptible: true
+  allow_failure: true
+  variables:
+    FQ_IMAGE_NAME: "$DOCKER_REPO:builder-$DOCKERFILE_HASH-amd64"
+    TARGET: builder
+    TARGETARCH: amd64
+
+builder-arm64:
+  tags:
+    - linux
+    - arm64
+  extends:
+    - .builder
+  stage: build
+  interruptible: true
+  allow_failure: true
+  variables:
+    FQ_IMAGE_NAME: "$DOCKER_REPO:builder-$DOCKERFILE_HASH-arm64"
+    TARGET: builder-android-arm64
+    TARGETARCH: arm64
 
 builder-rebuild:
   tags:
@@ -51,7 +77,8 @@ builder-rebuild:
     name: curlimages/curl:latest
     entrypoint: [""]
   needs:
-    - job: builder
+    - job: builder-amd64
+    - job: builder-arm64
   timeout: 2 hours
   script:
     - echo "CI_PIPELINE_ID=$CI_PIPELINE_ID"
@@ -105,6 +132,20 @@ build-darwin-amd64:
     - .build
   variables:
     TARGET: darwin-amd64
+
+test-android-e2e:
+  stage: build
+  interruptible: true
+  tags:
+    - linux
+    - arm64
+  needs:
+    - job: build-android-release
+  image:
+    name: "$DOCKER_REPO:builder-$DOCKERFILE_HASH-arm64"
+  timeout: "20 minutes"
+  script:
+    - make ci-android-e2e
 
 leak-test-viewers:
   stage: build

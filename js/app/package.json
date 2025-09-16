@@ -17,7 +17,8 @@
     "prepare": "which pod && pnpm run prepare-ios || echo 'not a mac, not installing pods'",
     "prepare-ios": "cd ios && pod install && pnpm run find-node",
     "find-node": "node -p '`NODE_BINARY=${process.argv[0]}`' > ios/.xcode.env.local",
-    "code-signing-dev": "mkdir -p code-signing-dev/keys code-signing-dev/certs && expo-updates codesigning:generate --key-output-directory code-signing-dev/keys --certificate-output-directory code-signing-dev/certs --certificate-validity-duration-years 10 --certificate-common-name 'Streamplace'"
+    "code-signing-dev": "mkdir -p code-signing-dev/keys code-signing-dev/certs && expo-updates codesigning:generate --key-output-directory code-signing-dev/keys --certificate-output-directory code-signing-dev/certs --certificate-validity-duration-years 10 --certificate-common-name 'Streamplace'",
+    "ci-android-e2e": "detox test -c android.emu.release"
   },
   "jest": {
     "preset": "jest-expo"

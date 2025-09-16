@@ -1,4 +1,20 @@
 /** @type {Detox.DetoxConfig} */
+
+const { execSync } = require("child_process");
+const { resolve } = require("path");
+
+let versionStr;
+try {
+  versionStr = execSync("go run ../../pkg/config/git/git.go -v", {
+    encoding: "utf8",
+    cwd: __dirname,
+  }).trim();
+  console.log(`Version string: ${versionStr}`);
+} catch (e) {
+  console.error(`Could not get version string: ${e}`);
+  process.exit(1);
+}
+
 module.exports = {
   testRunner: {
     args: {
@@ -25,16 +41,30 @@ module.exports = {
     },
     "android.debug": {
       type: "android.apk",
-      binaryPath: "android/app/build/outputs/apk/debug/app-debug.apk",
-      build:
-        "cd android && ./gradlew assembleDebug assembleAndroidTest -DtestBuildType=debug",
+      binaryPath: resolve(
+        "..",
+        "..",
+        "bin",
+        `streamplace-${versionStr}-android-debug.apk`,
+      ),
+      build: "cd ../.. && make android-debug",
       // reversePorts: [8081],
     },
     "android.release": {
       type: "android.apk",
-      binaryPath: "android/app/build/outputs/apk/release/app-release.apk",
-      build:
-        "cd android && ./gradlew assembleRelease assembleAndroidTest -DtestBuildType=release",
+      binaryPath: resolve(
+        "..",
+        "..",
+        "bin",
+        `streamplace-${versionStr}-android-release.apk`,
+      ),
+      testBinaryPath: resolve(
+        "..",
+        "..",
+        "bin",
+        `streamplace-${versionStr}-android-release-androidTest.apk`,
+      ),
+      build: "cd ../.. && make android-release",
     },
   },
   devices: {
@@ -53,7 +83,7 @@ module.exports = {
     emulator: {
       type: "android.emulator",
       device: {
-        avdName: "Pixel_3a_API_30_x86",
+        avdName: "Pixel_API_28_AOSP",
       },
     },
   },

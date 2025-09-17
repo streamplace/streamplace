@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/bsky"
@@ -18,6 +20,37 @@ import (
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
+
+var writeMutex = sync.Mutex{}
+var writeFile *os.File
+var writeErrs *os.File
+
+func writeProblematic(recCBOR *[]byte, errMsg error) {
+	writeMutex.Lock()
+	defer writeMutex.Unlock()
+	if writeFile == nil {
+		var err error
+		writeFile, err = os.Create("problematic.cbor")
+		if err != nil {
+			panic(err)
+		}
+	}
+	if writeErrs == nil {
+		var err error
+		writeErrs, err = os.Create("problematic.txt")
+		if err != nil {
+			panic(err)
+		}
+	}
+	_, err := writeFile.Write(*recCBOR)
+	if err != nil {
+		panic(fmt.Sprintf("failed to write to problematic.cbor: %s", err))
+	}
+	_, err = writeErrs.WriteString(errMsg.Error() + "\n")
+	if err != nil {
+		panic(fmt.Sprintf("failed to write to problematic.txt: %s", err))
+	}
+}
 
 func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool, isFirstSync bool) error {
 	ctx = log.WithLogValues(ctx, "func", "handleCreateUpdate", "userDID", userDID, "rkey", rkey.String(), "cid", cid, "collection", collection.String())
@@ -33,14 +66,18 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 	}
 	d, err := data.UnmarshalCBOR(*recCBOR)
 	if err != nil {
-		return fmt.Errorf("failed to unmarhsal record CBOR: %w", err)
+		ret := fmt.Errorf("failed to unmarshal record CBOR: %w aturi=%s cid=%s handle=%s", err, aturi.String(), cid, r.Handle)
+		go writeProblematic(recCBOR, ret)
+		return ret
 	}
 	cb, err := lexutil.CborDecodeValue(*recCBOR)
 	if errors.Is(err, lexutil.ErrUnrecognizedType) {
 		log.Debug(ctx, "unrecognized record type", "key", rkey.String(), "type", err)
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to decode record CBOR: %w", err)
+		ret := fmt.Errorf("failed to decode record CBOR: %w aturi=%s cid=%s handle=%s", err, aturi.String(), cid, r.Handle)
+		go writeProblematic(recCBOR, ret)
+		return ret
 	}
 	switch rec := cb.(type) {
 	case *bsky.GraphFollow:

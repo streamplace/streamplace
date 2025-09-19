@@ -101,6 +101,24 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 
 	close(ss.started)
 
+	ss.Go(ctx, func() error {
+		for {
+			err := ss.mm.RTMPPush(ctx, spseg.Creator, "source", "rtmp://localhost:21935/live/live")
+			if err != nil {
+				log.Error(ctx, "failed to push to RTMP server", "error", err)
+			}
+			if ctx.Err() != nil {
+				return nil
+			}
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(time.Second * 5):
+				continue
+			}
+		}
+	})
+
 	for {
 		select {
 		case <-ss.segmentChan:

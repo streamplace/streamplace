@@ -8,7 +8,7 @@ import (
 
 	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/labstack/echo/v4"
-	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
 
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
@@ -42,7 +42,7 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert segment to streamplace segment: %s", err))
 		}
-		c, err := atproto.GetCID(record)
+		c, err := spid.GetCID(record)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to get CID: %s", err))
 		}

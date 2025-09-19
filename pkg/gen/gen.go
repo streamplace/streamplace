@@ -25,6 +25,7 @@ func main() {
 		streamplace.ChatMessage_ReplyRef{},
 		streamplace.ServerSettings{},
 		streamplace.ChatGate{},
+		streamplace.MultistreamTarget{},
 	); err != nil {
 		panic(err)
 	}

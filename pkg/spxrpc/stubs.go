@@ -266,6 +266,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.live.getLiveUsers", s.HandlePlaceStreamLiveGetLiveUsers)
 	e.GET("/xrpc/place.stream.live.getProfileCard", s.HandlePlaceStreamLiveGetProfileCard)
 	e.GET("/xrpc/place.stream.live.getSegments", s.HandlePlaceStreamLiveGetSegments)
+	e.POST("/xrpc/place.stream.multistream.createTarget", s.HandlePlaceStreamMultistreamCreateTarget)
 	e.POST("/xrpc/place.stream.server.createWebhook", s.HandlePlaceStreamServerCreateWebhook)
 	e.POST("/xrpc/place.stream.server.deleteWebhook", s.HandlePlaceStreamServerDeleteWebhook)
 	e.GET("/xrpc/place.stream.server.getWebhook", s.HandlePlaceStreamServerGetWebhook)
@@ -348,6 +349,24 @@ func (s *Server) HandlePlaceStreamLiveGetSegments(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context,before string,limit int,userDID string) (*placestreamtypes.LiveGetSegments_Output, error)
 	out, handleErr = s.handlePlaceStreamLiveGetSegments(ctx, before, limit, userDID)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamMultistreamCreateTarget(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMultistreamCreateTarget")
+	defer span.End()
+
+	var body placestreamtypes.MultistreamCreateTarget_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestreamtypes.MultistreamDefs_TargetView
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMultistreamCreateTarget(ctx context.Context,body *placestreamtypes.MultistreamCreateTarget_Input) (*placestreamtypes.MultistreamDefs_TargetView, error)
+	out, handleErr = s.handlePlaceStreamMultistreamCreateTarget(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

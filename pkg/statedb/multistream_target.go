@@ -110,8 +110,8 @@ func (state *StatefulDB) UpdateMultistreamTarget(uri string, input *streamplace.
 
 	// Update the database record
 	updates := map[string]interface{}{
-		"cid":                cid.String(),
-		"multistream_target": buf.Bytes(),
+		"cid":    cid.String(),
+		"record": buf.Bytes(),
 	}
 
 	result := state.DB.Model(&MultistreamTarget{}).Where("uri = ?", uri).Updates(updates)

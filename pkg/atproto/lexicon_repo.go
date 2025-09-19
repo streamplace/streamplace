@@ -29,6 +29,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
 )
 
@@ -247,7 +248,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 		}
 		sfw := &SchemaFileWrapper{SchemaFile: lexFile}
 		rpath := fmt.Sprintf("com.atproto.lexicon.schema/%s", lexFile.ID)
-		newCid, err := GetCID(sfw)
+		newCid, err := spid.GetCID(sfw)
 		if err != nil {
 			return nil, err
 		}

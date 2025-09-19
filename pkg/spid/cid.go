@@ -1,4 +1,4 @@
-package atproto
+package spid
 
 import (
 	"bytes"

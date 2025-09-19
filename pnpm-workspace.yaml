@@ -1,10 +1,12 @@
 packages:
   - js/*
 onlyBuiltDependencies:
-  - "@swc/core"
+  - '@swc/core'
   - better-sqlite3
   - bufferutil
   - cbor-extract
+  - detox
+  - dtrace-provider
   - electron
   - electron-winstaller
   - esbuild
@@ -16,3 +18,5 @@ onlyBuiltDependencies:
   - quietjs-bundle
   - sharp
   - utf-8-validate
+patchedDependencies:
+  expo-dev-client: patches/expo-dev-client.patch

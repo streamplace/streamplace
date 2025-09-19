@@ -1,0 +1,17 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 3e5e4b5664f3587208849eaef4ec9a4b3d0e6d45..854b46c527158ec0a0c775ecd580dc12e2ae7e53 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -28,6 +28,12 @@ android {
+     buildConfig true
+     viewBinding true
+   }
++
++  packaging {
++    resources {
++      merges.add("/META-INF/LICENSE*")
++    }
++  }
+ }
+ 
+ dependencies {

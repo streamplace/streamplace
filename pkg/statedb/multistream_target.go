@@ -56,6 +56,31 @@ func (state *StatefulDB) GetMultistreamTarget(uri string) (*streamplace.Multistr
 	return nil, nil
 }
 
+func (state *StatefulDB) ListMultistreamTargets(repoDID string) ([]*streamplace.MultistreamDefs_TargetView, error) {
+	var targets []MultistreamTarget
+	err := state.DB.Where("repo_did = ?", repoDID).Find(&targets).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to list multistream targets: %w", err)
+	}
+
+	result := make([]*streamplace.MultistreamDefs_TargetView, len(targets))
+	for i, target := range targets {
+		var multistreamTarget streamplace.MultistreamTarget
+		err = multistreamTarget.UnmarshalCBOR(bytes.NewReader(target.MultistreamTarget))
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal multistream target: %w", err)
+		}
+
+		result[i] = &streamplace.MultistreamDefs_TargetView{
+			Uri:    target.URI,
+			Cid:    target.CID,
+			Record: &util.LexiconTypeDecoder{Val: &multistreamTarget},
+		}
+	}
+
+	return result, nil
+}
+
 func (state *StatefulDB) UpdateMultistreamTarget(uri string, input *streamplace.MultistreamCreateTarget_Input) (*streamplace.MultistreamDefs_TargetView, error) {
 	return nil, nil
 }

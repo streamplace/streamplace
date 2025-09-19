@@ -101,23 +101,29 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 
 	close(ss.started)
 
-	ss.Go(ctx, func() error {
-		for {
-			err := ss.mm.RTMPPush(ctx, spseg.Creator, "source", "rtmp://localhost:21935/live/live")
-			if err != nil {
-				log.Error(ctx, "failed to push to RTMP server", "error", err)
+	targets, err := ss.statefulDB.ListMultistreamTargets(spseg.Creator)
+	if err != nil {
+		return fmt.Errorf("failed to list multistream targets: %w", err)
+	}
+	for _, target := range targets {
+		ss.Go(ctx, func() error {
+			for {
+				err := ss.mm.RTMPPush(ctx, spseg.Creator, "source", target.Record.Val.(*streamplace.MultistreamTarget).Url)
+				if err != nil {
+					log.Error(ctx, "failed to push to RTMP server", "error", err)
+				}
+				if ctx.Err() != nil {
+					return nil
+				}
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-time.After(time.Second * 5):
+					continue
+				}
 			}
-			if ctx.Err() != nil {
-				return nil
-			}
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-time.After(time.Second * 5):
-				continue
-			}
-		}
-	})
+		})
+	}
 
 	for {
 		select {

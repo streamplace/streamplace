@@ -59,7 +59,7 @@ func (s *Server) handlePlaceStreamMultistreamListTargets(ctx context.Context, cu
 		}
 	}
 
-	targets, err := s.statefulDB.ListMultistreamTargets(session.DID, limit+1, offset)
+	targets, err := s.statefulDB.ListMultistreamTargets(session.DID, limit+1, offset, nil)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to list multistream targets")
 	}

@@ -75,6 +75,7 @@ export default function MultistreamManager() {
   const [deletingTargets, setDeletingTargets] = useState<Set<string>>(
     new Set(),
   );
+  const [formError, setFormError] = useState<string>("");
 
   const loadMultistreamTargets = async () => {
     if (!agent) return;
@@ -101,6 +102,7 @@ export default function MultistreamManager() {
   ) => {
     if (!agent) return;
     try {
+      setFormError("");
       setFormLoading(true);
       await agent.place.stream.multistream.createTarget({
         multistreamTarget: {
@@ -112,11 +114,7 @@ export default function MultistreamManager() {
       await loadMultistreamTargets();
       setFormLoading(false);
     } catch (error) {
-      console.error("Failed to create multistream target:", error);
-      Alert.alert(
-        "Error",
-        "Failed to create multistream target. Please try again.",
-      );
+      setFormError(error.message);
     } finally {
       setFormLoading(false);
     }
@@ -128,6 +126,7 @@ export default function MultistreamManager() {
   ) => {
     if (!agent) return;
     try {
+      setFormError("");
       setFormLoading(true);
       await agent.place.stream.multistream.putTarget({
         multistreamTarget: record,
@@ -138,10 +137,7 @@ export default function MultistreamManager() {
       setFormLoading(false);
     } catch (error) {
       console.error("Failed to edit multistream target:", error);
-      Alert.alert(
-        "Error",
-        "Failed to edit multistream target. Please try again.",
-      );
+      setFormError(error.message);
     } finally {
       setFormLoading(false);
     }
@@ -150,6 +146,7 @@ export default function MultistreamManager() {
   const deleteMultistreamTarget = async (uri: string) => {
     if (!agent) return;
     try {
+      setFormError("");
       setDeletingTargets((prev) => new Set(prev).add(uri));
       await agent.place.stream.multistream.deleteTarget({
         rkey: uri.split("/").pop() || "",
@@ -159,10 +156,7 @@ export default function MultistreamManager() {
       setDeleteDialog({ isVisible: false, target: null, isLoading: false });
     } catch (error) {
       console.error("Failed to delete multistream target:", error);
-      Alert.alert(
-        "Error",
-        "Failed to delete multistream target. Please try again.",
-      );
+      setFormError(error.message);
     } finally {
       setDeletingTargets((prev) => {
         const newSet = new Set(prev);
@@ -273,6 +267,7 @@ export default function MultistreamManager() {
             }
           }}
           isLoading={formLoading}
+          formError={formError}
         />
 
         <MultistreamTargetDeleteDialog
@@ -290,6 +285,7 @@ export default function MultistreamManager() {
             deleteMultistreamTarget(deleteDialog.target.uri)
           }
           isLoading={deleteDialog.isLoading}
+          formError={formError}
         />
       </View>
     </ThemeProvider>
@@ -414,12 +410,14 @@ function MultistreamTargetForm({
   onClose,
   onSubmit,
   isLoading,
+  formError,
 }: {
   target?: MultistreamTargetViewHydrated;
   isVisible: boolean;
   onClose: () => void;
   onSubmit: (record: PlaceStreamMultistreamTarget.Record) => void;
   isLoading: boolean;
+  formError: string;
 }) {
   const [formData, setFormData] = useState<PlaceStreamMultistreamTarget.Record>(
     {
@@ -435,8 +433,8 @@ function MultistreamTargetForm({
 
   // Update form data when webhook prop changes (for editing)
   useEffect(() => {
+    setErrors({});
     if (target) {
-      setErrors({});
       setFormData({
         $type: "place.stream.multistream.target",
         name: target.record.name || "",
@@ -445,7 +443,6 @@ function MultistreamTargetForm({
         createdAt: target.record.createdAt || "",
       });
     } else {
-      setErrors({});
       // Reset form for new webhook
       setFormData({
         $type: "place.stream.multistream.target",
@@ -455,7 +452,7 @@ function MultistreamTargetForm({
         createdAt: "",
       });
     }
-  }, [target]);
+  }, [target, isVisible]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -543,6 +540,9 @@ function MultistreamTargetForm({
             }
           />
         </View>
+        <Text style={[text.red[600], mt[1], { fontSize: 12 }]}>
+          &nbsp;{formError}
+        </Text>
       </View>
 
       <DialogFooter>
@@ -563,12 +563,14 @@ const MultistreamTargetDeleteDialog = ({
   onClose,
   onSubmit,
   isLoading,
+  formError,
 }: {
   target?: MultistreamTargetViewHydrated;
   isVisible: boolean;
   onClose: () => void;
   onSubmit: () => void;
   isLoading: boolean;
+  formError: string;
 }) => {
   return (
     <Dialog
@@ -590,6 +592,10 @@ const MultistreamTargetDeleteDialog = ({
           The webhook will no longer receive events.
         </Text>
       </View>
+
+      <Text style={[text.red[600], mt[1], { fontSize: 12 }]}>
+        &nbsp;{formError}
+      </Text>
 
       <View style={[layout.flex.row, layout.flex.justify.end, gap.all[3]]}>
         <Button

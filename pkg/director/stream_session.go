@@ -50,7 +50,7 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 	ctx, cancel := context.WithCancel(ctx)
 	ss.g, ctx = errgroup.WithContext(ctx)
 	sid := livepeer.RandomTrailer(8)
-	ctx = log.WithLogValues(ctx, "sid", sid)
+	ctx = log.WithLogValues(ctx, "sid", sid, "repoDID", ss.repoDID)
 	ss.ctx = ctx
 	log.Log(ctx, "starting stream session")
 	defer cancel()
@@ -101,29 +101,9 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 
 	close(ss.started)
 
-	targets, err := ss.statefulDB.ListMultistreamTargets(spseg.Creator, 100, 0)
-	if err != nil {
-		return fmt.Errorf("failed to list multistream targets: %w", err)
-	}
-	for _, target := range targets {
-		ss.Go(ctx, func() error {
-			for {
-				err := ss.mm.RTMPPush(ctx, spseg.Creator, "source", target.Record.Val.(*streamplace.MultistreamTarget).Url)
-				if err != nil {
-					log.Error(ctx, "failed to push to RTMP server", "error", err)
-				}
-				if ctx.Err() != nil {
-					return nil
-				}
-				select {
-				case <-ctx.Done():
-					return nil
-				case <-time.After(time.Second * 5):
-					continue
-				}
-			}
-		})
-	}
+	ss.Go(ctx, func() error {
+		return ss.HandleMultistreamTargets(ctx)
+	})
 
 	for {
 		select {
@@ -138,6 +118,80 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 				ss.bus.EndSession(ctx, spseg.Creator, r.Name)
 			}
 			cancel()
+		}
+	}
+}
+
+type runningMultistream struct {
+	cancel func()
+	uri    string
+}
+
+func (rm *runningMultistream) Cancel() {
+	rm.cancel()
+}
+
+// we're making an attempt here not to log (sensitive) stream keys, so we're
+// referencing by atproto URI
+func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "system", "multistreaming")
+	isTrue := true
+	// {target.Uri}:{rec.Url} -> runningMultistream
+	// no concurrency issues, it's only used from this one loop
+	running := map[string]*runningMultistream{}
+	for {
+		targets, err := ss.statefulDB.ListMultistreamTargets(ss.repoDID, 100, 0, &isTrue)
+		if err != nil {
+			return fmt.Errorf("failed to list multistream targets: %w", err)
+		}
+		currentRunning := map[string]bool{}
+		for _, target := range targets {
+			rec, ok := target.Record.Val.(*streamplace.MultistreamTarget)
+			if !ok {
+				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", target.Uri)
+				continue
+			}
+			key := fmt.Sprintf("%s:%s", target.Uri, rec.Url)
+			if running[key] == nil {
+				childCtx, childCancel := context.WithCancel(ctx)
+				ss.Go(ctx, func() error {
+					log.Log(ctx, "starting multistream target", "uri", target.Uri)
+					return ss.StartMultistreamTarget(childCtx, target.Record.Val.(*streamplace.MultistreamTarget))
+				})
+				running[key] = &runningMultistream{
+					cancel: childCancel,
+					uri:    key,
+				}
+			}
+			currentRunning[key] = true
+		}
+		for key := range running {
+			if !currentRunning[key] {
+				log.Log(ctx, "stopping multistream target", "uri", running[key].uri)
+				running[key].Cancel()
+				delete(running, key)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(time.Second * 5):
+			continue
+		}
+	}
+}
+
+func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, target *streamplace.MultistreamTarget) error {
+	for {
+		err := ss.mm.RTMPPush(ctx, ss.repoDID, "source", target.Url)
+		if err != nil {
+			log.Error(ctx, "failed to push to RTMP server", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(time.Second * 5):
+			continue
 		}
 	}
 }

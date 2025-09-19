@@ -101,7 +101,7 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 
 	close(ss.started)
 
-	targets, err := ss.statefulDB.ListMultistreamTargets(spseg.Creator)
+	targets, err := ss.statefulDB.ListMultistreamTargets(spseg.Creator, 100, 0)
 	if err != nil {
 		return fmt.Errorf("failed to list multistream targets: %w", err)
 	}

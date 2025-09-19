@@ -12,6 +12,7 @@ import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useEffect, useState } from "react";
 import { ScrollView, Switch } from "react-native";
 import { useAppDispatch, useAppSelector } from "store/hooks";
+import MultistreamManager from "./multistream-manager";
 import { Updates } from "./updates";
 import WebhookManager from "./webhook-manager";
 
@@ -165,7 +166,7 @@ export function Settings() {
                 </View>
               </AQLink>
               <WebhookManager />
-              <Button></Button>
+              <MultistreamManager />
             </>
           )}
         </View>

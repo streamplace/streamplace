@@ -38,6 +38,7 @@ func (state *StatefulDB) CreateMultistreamTarget(input *streamplace.MultistreamC
 
 	dbTarget := &MultistreamTarget{
 		URI:               uri,
+		CID:               cid.String(),
 		RepoDID:           repoDID,
 		MultistreamTarget: buf.Bytes(),
 	}
@@ -56,9 +57,13 @@ func (state *StatefulDB) GetMultistreamTarget(uri string) (*streamplace.Multistr
 	return nil, nil
 }
 
-func (state *StatefulDB) ListMultistreamTargets(repoDID string) ([]*streamplace.MultistreamDefs_TargetView, error) {
+func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offset int) ([]*streamplace.MultistreamDefs_TargetView, error) {
 	var targets []MultistreamTarget
-	err := state.DB.Where("repo_did = ?", repoDID).Find(&targets).Error
+	err := state.DB.Where("repo_did = ?", repoDID).
+		Limit(limit).
+		Offset(offset).
+		Order("uri ASC").
+		Find(&targets).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to list multistream targets: %w", err)
 	}
@@ -70,10 +75,14 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string) ([]*streamplace.
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal multistream target: %w", err)
 		}
+		cid, err := spid.GetCID(&multistreamTarget)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get CID: %w", err)
+		}
 
 		result[i] = &streamplace.MultistreamDefs_TargetView{
 			Uri:    target.URI,
-			Cid:    target.CID,
+			Cid:    cid.String(),
 			Record: &util.LexiconTypeDecoder{Val: &multistreamTarget},
 		}
 	}
@@ -81,10 +90,52 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string) ([]*streamplace.
 	return result, nil
 }
 
-func (state *StatefulDB) UpdateMultistreamTarget(uri string, input *streamplace.MultistreamCreateTarget_Input) (*streamplace.MultistreamDefs_TargetView, error) {
-	return nil, nil
+func (state *StatefulDB) UpdateMultistreamTarget(uri string, input *streamplace.MultistreamPutTarget_Input) (*streamplace.MultistreamDefs_TargetView, error) {
+	if input.MultistreamTarget == nil {
+		return nil, fmt.Errorf("multistream target is required")
+	}
+
+	// Get CID for the updated target
+	cid, err := spid.GetCID(input.MultistreamTarget)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CID: %w", err)
+	}
+
+	// Marshal the target data
+	buf := bytes.Buffer{}
+	err = input.MultistreamTarget.MarshalCBOR(&buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal multistream target: %w", err)
+	}
+
+	// Update the database record
+	updates := map[string]interface{}{
+		"cid":                cid.String(),
+		"multistream_target": buf.Bytes(),
+	}
+
+	result := state.DB.Model(&MultistreamTarget{}).Where("uri = ?", uri).Updates(updates)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to update multistream target: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return nil, fmt.Errorf("multistream target not found")
+	}
+
+	return &streamplace.MultistreamDefs_TargetView{
+		Uri:    uri,
+		Cid:    cid.String(),
+		Record: &util.LexiconTypeDecoder{Val: input.MultistreamTarget},
+	}, nil
 }
 
 func (state *StatefulDB) DeleteMultistreamTarget(uri string) error {
+	result := state.DB.Where("uri = ?", uri).Delete(&MultistreamTarget{})
+	if result.Error != nil {
+		return fmt.Errorf("failed to delete multistream target: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("multistream target not found")
+	}
 	return nil
 }

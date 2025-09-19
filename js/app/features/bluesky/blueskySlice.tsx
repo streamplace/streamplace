@@ -298,10 +298,19 @@ export const blueskySlice = createAppSlice({
         const { bluesky } = thunkAPI.getState() as {
           bluesky: BlueskyState;
         };
-        if (!bluesky.oauthSession) {
-          throw new Error("No oauth session");
-        }
-        return bluesky.oauthSession.signOut();
+        bluesky.pdsAgent?.place.stream.multistream.createTarget({
+          multistreamTarget: {
+            $type: "place.stream.multistream.target",
+            url: "rtmp://localhost:21935/live/live",
+            active: true,
+            createdAt: new Date().toISOString(),
+            name: "Test",
+          },
+        });
+        // if (!bluesky.oauthSession) {
+        //   throw new Error("No oauth session");
+        // }
+        // return bluesky.oauthSession.signOut();
       },
       {
         pending: (state) => {

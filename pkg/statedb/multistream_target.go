@@ -3,8 +3,10 @@ package statedb
 import (
 	"bytes"
 	"fmt"
+	"time"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/util"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/streamplace"
 )
@@ -76,7 +78,7 @@ func (state *StatefulDB) CreateMultistreamTarget(input *streamplace.MultistreamC
 	return &streamplace.MultistreamDefs_TargetView{
 		Uri:    uri,
 		Cid:    cid.String(),
-		Record: &util.LexiconTypeDecoder{Val: input.MultistreamTarget},
+		Record: &lexutil.LexiconTypeDecoder{Val: input.MultistreamTarget},
 	}, nil
 }
 
@@ -84,9 +86,22 @@ func (state *StatefulDB) GetMultistreamTarget(uri string) (*streamplace.Multistr
 	return nil, nil
 }
 
+type TargetWithEvent struct {
+	MultistreamTarget
+	LatestEventID        *string    `gorm:"column:latest_event_id"`
+	LatestEventStatus    *string    `gorm:"column:latest_event_status"`
+	LatestEventMessage   *string    `gorm:"column:latest_event_message"`
+	LatestEventCreatedAt *time.Time `gorm:"column:latest_event_created_at"`
+}
+
 func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offset int, active *bool) ([]*streamplace.MultistreamDefs_TargetView, error) {
-	var targets []MultistreamTarget
-	query := state.DB.Where("repo_did = ?", repoDID)
+
+	var targets []TargetWithEvent
+	query := state.DB.Table("multistream_targets").
+		Select("multistream_targets.*, me.id as latest_event_id, me.status as latest_event_status, me.message as latest_event_message, me.created_at as latest_event_created_at").
+		Joins(`LEFT JOIN multistream_events me ON multistream_targets.uri = me.target_uri 
+		       AND me.created_at = (SELECT MAX(created_at) FROM multistream_events WHERE target_uri = multistream_targets.uri)`).
+		Where("repo_did = ?", repoDID)
 
 	if active != nil {
 		query = query.Where("active = ?", *active)
@@ -103,7 +118,7 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offse
 	result := make([]*streamplace.MultistreamDefs_TargetView, len(targets))
 	for i, target := range targets {
 		var multistreamTarget streamplace.MultistreamTarget
-		err = multistreamTarget.UnmarshalCBOR(bytes.NewReader(target.MultistreamTarget))
+		err = multistreamTarget.UnmarshalCBOR(bytes.NewReader(target.MultistreamTarget.MultistreamTarget))
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal multistream target: %w", err)
 		}
@@ -112,11 +127,23 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offse
 			return nil, fmt.Errorf("failed to get CID: %w", err)
 		}
 
-		result[i] = &streamplace.MultistreamDefs_TargetView{
+		targetView := &streamplace.MultistreamDefs_TargetView{
 			Uri:    target.URI,
 			Cid:    cid.String(),
-			Record: &util.LexiconTypeDecoder{Val: &multistreamTarget},
+			Record: &lexutil.LexiconTypeDecoder{Val: &multistreamTarget},
 		}
+
+		// Add the latest event if it exists
+		if target.LatestEventID != nil {
+			event := &streamplace.MultistreamDefs_Event{
+				Status:    *target.LatestEventStatus,
+				Message:   *target.LatestEventMessage,
+				CreatedAt: target.LatestEventCreatedAt.Format(util.ISO8601),
+			}
+			targetView.LatestEvent = event
+		}
+
+		result[i] = targetView
 	}
 
 	return result, nil
@@ -177,7 +204,7 @@ func (state *StatefulDB) UpdateMultistreamTarget(uri string, input *streamplace.
 	return &streamplace.MultistreamDefs_TargetView{
 		Uri:    uri,
 		Cid:    cid.String(),
-		Record: &util.LexiconTypeDecoder{Val: input.MultistreamTarget},
+		Record: &lexutil.LexiconTypeDecoder{Val: input.MultistreamTarget},
 	}, nil
 }
 

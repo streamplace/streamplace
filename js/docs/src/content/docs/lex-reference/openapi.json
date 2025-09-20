@@ -1889,9 +1889,29 @@
             "type": "string",
             "format": "cid"
           },
-          "record": {}
+          "record": {},
+          "latestEvent": {
+            "$ref": "#/components/schemas/place.stream.multistream.defs_event"
+          }
         },
         "required": ["uri", "cid", "record"]
+      },
+      "place.stream.multistream.defs_event": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["inactive", "pending", "active", "error"]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["message", "status", "createdAt"]
       },
       "place.stream.livestream_livestreamView": {
         "type": "object",

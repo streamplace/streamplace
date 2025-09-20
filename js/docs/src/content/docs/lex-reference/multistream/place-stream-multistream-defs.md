@@ -15,11 +15,28 @@ description: Reference for the place.stream.multistream.defs lexicon
 
 **Properties:**
 
-| Name     | Type      | Req'd | Description | Constraints      |
-| -------- | --------- | ----- | ----------- | ---------------- |
-| `uri`    | `string`  | ✅    |             | Format: `at-uri` |
-| `cid`    | `string`  | ✅    |             | Format: `cid`    |
-| `record` | `unknown` | ✅    |             |                  |
+| Name          | Type                                                                                        | Req'd | Description | Constraints      |
+| ------------- | ------------------------------------------------------------------------------------------- | ----- | ----------- | ---------------- |
+| `uri`         | `string`                                                                                    | ✅    |             | Format: `at-uri` |
+| `cid`         | `string`                                                                                    | ✅    |             | Format: `cid`    |
+| `record`      | `unknown`                                                                                   | ✅    |             |                  |
+| `latestEvent` | [`place.stream.multistream.defs#event`](/lex-reference/place-stream-multistream-defs#event) | ❌    |             |                  |
+
+---
+
+<a name="event"></a>
+
+### `event`
+
+**Type:** `object`
+
+**Properties:**
+
+| Name        | Type     | Req'd | Description | Constraints                                    |
+| ----------- | -------- | ----- | ----------- | ---------------------------------------------- |
+| `message`   | `string` | ✅    |             |                                                |
+| `status`    | `string` | ✅    |             | Enum: `inactive`, `pending`, `active`, `error` |
+| `createdAt` | `string` | ✅    |             | Format: `datetime`                             |
 
 ---
 
@@ -44,6 +61,27 @@ description: Reference for the place.stream.multistream.defs lexicon
         },
         "record": {
           "type": "unknown"
+        },
+        "latestEvent": {
+          "type": "ref",
+          "ref": "place.stream.multistream.defs#event"
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "required": ["message", "status", "createdAt"],
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["inactive", "pending", "active", "error"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
         }
       }
     }

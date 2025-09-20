@@ -7,24 +7,32 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"reflect"
 	"strings"
+	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
 // This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition string, targetURL string) error {
+func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition string, targetView *streamplace.MultistreamDefs_TargetView) error {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return err
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	ctx = log.WithLogValues(ctx, "webrtcID", uu.String())
+	ctx = log.WithLogValues(ctx, "pushID", uu.String())
 	ctx = log.WithLogValues(ctx, "mediafunc", "RTMPPush")
+	rec, ok := targetView.Record.Val.(*streamplace.MultistreamTarget)
+	if !ok {
+		return fmt.Errorf("failed to convert target view to multistream target")
+	}
+	targetURL := rec.Url
 
 	pipelineSlice := []string{
 		"flvmux name=muxer ! rtmp2sink name=rtmp2sink",
@@ -65,6 +73,52 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	} else {
 		return fmt.Errorf("invalid target URL scheme: %s", u.Scheme)
 	}
+
+	go func() {
+		pollFreq := time.Second * 1
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(pollFreq):
+				prop, err := rtmp2sink.GetProperty("stats")
+				if err != nil {
+					log.Error(ctx, "error getting rtmp2sink peak-kbps", "error", err)
+					continue
+				}
+				if prop == nil {
+					log.Error(ctx, "failed to get rtmp2sink peak-kbps", "prop", prop)
+					continue
+				}
+				log.Warn(ctx, "rtmp2sink peak-kbps", "prop", reflect.TypeOf(prop))
+				propVal, ok := prop.(*gst.Structure)
+				if !ok {
+					log.Error(ctx, "failed to convert rtmp2sink peak-kbps", "prop", prop)
+					continue
+				}
+				outBytesAcked, err := propVal.GetValue("out-bytes-acked")
+				if err != nil {
+					log.Error(ctx, "failed to get rtmp2sink out-bytes-acked", "error", err)
+					continue
+				}
+				outBytesAckedVal, ok := outBytesAcked.(uint64)
+				if !ok {
+					log.Error(ctx, "failed to convert rtmp2sink out-bytes-acked", "prop", prop)
+					continue
+				}
+				if outBytesAckedVal > 0 {
+					err = mm.atsync.StatefulDB.CreateMultistreamEvent(targetView.Uri, fmt.Sprintf("wrote %d bytes", outBytesAckedVal), "active")
+					if err != nil {
+						log.Error(ctx, "failed to create multistream event", "error", err)
+					}
+					// increase pollFreq, once it's working we don't need to spam the database
+					pollFreq = time.Second * 15
+				}
+				log.Debug(ctx, "rtmp2sink out-bytes-acked", "outBytesAckedVal", outBytesAckedVal)
+			}
+
+		}
+	}()
 
 	segBuffer := make(chan *bus.Seg, 1024)
 	go func() {

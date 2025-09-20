@@ -127,10 +127,6 @@ type runningMultistream struct {
 	uri    string
 }
 
-func (rm *runningMultistream) Cancel() {
-	rm.cancel()
-}
-
 // we're making an attempt here not to log (sensitive) stream keys, so we're
 // referencing by atproto URI
 func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
@@ -145,18 +141,22 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 			return fmt.Errorf("failed to list multistream targets: %w", err)
 		}
 		currentRunning := map[string]bool{}
-		for _, target := range targets {
-			rec, ok := target.Record.Val.(*streamplace.MultistreamTarget)
+		for _, targetView := range targets {
+			rec, ok := targetView.Record.Val.(*streamplace.MultistreamTarget)
 			if !ok {
-				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", target.Uri)
+				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", targetView.Uri)
 				continue
 			}
-			key := fmt.Sprintf("%s:%s", target.Uri, rec.Url)
+			key := fmt.Sprintf("%s:%s", targetView.Uri, rec.Url)
 			if running[key] == nil {
 				childCtx, childCancel := context.WithCancel(ctx)
 				ss.Go(ctx, func() error {
-					log.Log(ctx, "starting multistream target", "uri", target.Uri)
-					return ss.StartMultistreamTarget(childCtx, target.Record.Val.(*streamplace.MultistreamTarget))
+					log.Log(ctx, "starting multistream target", "uri", targetView.Uri)
+					err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, "starting multistream target", "pending")
+					if err != nil {
+						log.Error(ctx, "failed to create multistream event", "error", err)
+					}
+					return ss.StartMultistreamTarget(childCtx, targetView)
 				})
 				running[key] = &runningMultistream{
 					cancel: childCancel,
@@ -168,7 +168,7 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 		for key := range running {
 			if !currentRunning[key] {
 				log.Log(ctx, "stopping multistream target", "uri", running[key].uri)
-				running[key].Cancel()
+				running[key].cancel()
 				delete(running, key)
 			}
 		}
@@ -181,11 +181,15 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 	}
 }
 
-func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, target *streamplace.MultistreamTarget) error {
+func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView *streamplace.MultistreamDefs_TargetView) error {
 	for {
-		err := ss.mm.RTMPPush(ctx, ss.repoDID, "source", target.Url)
+		err := ss.mm.RTMPPush(ctx, ss.repoDID, "source", targetView)
 		if err != nil {
 			log.Error(ctx, "failed to push to RTMP server", "error", err)
+			err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, err.Error(), "error")
+			if err != nil {
+				log.Error(ctx, "failed to create multistream event", "error", err)
+			}
 		}
 		select {
 		case <-ctx.Done():

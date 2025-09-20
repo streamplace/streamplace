@@ -16,6 +16,20 @@ import (
 
 var allowedSchemes = []string{"rtmp", "rtmps"}
 
+func validateMultistreamTargetURL(urlStr string) error {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("invalid multistream target URL: %w", err)
+	}
+	if !slices.Contains(allowedSchemes, u.Scheme) {
+		return fmt.Errorf("invalid multistream target scheme (must be rtmp or rtmps)")
+	}
+	if u.Scheme == "rtmps" && u.Port() == "" {
+		return fmt.Errorf("rtmps URLs must include a port")
+	}
+	return nil
+}
+
 func (s *Server) handlePlaceStreamMultistreamCreateTarget(ctx context.Context, body *placestreamtypes.MultistreamCreateTarget_Input) (*placestreamtypes.MultistreamDefs_TargetView, error) {
 	ctx, span := otel.Tracer("server").Start(ctx, "handleComAtprotoRepoUploadBlob")
 	defer span.End()
@@ -25,13 +39,11 @@ func (s *Server) handlePlaceStreamMultistreamCreateTarget(ctx context.Context, b
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
 
-	u, err := url.Parse(body.MultistreamTarget.Url)
+	err := validateMultistreamTargetURL(body.MultistreamTarget.Url)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid multistream target URL")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	if !slices.Contains(allowedSchemes, u.Scheme) {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid multistream target scheme (must be rtmp or rtmps)")
-	}
+
 	return s.statefulDB.CreateMultistreamTarget(body, session.DID)
 }
 
@@ -86,15 +98,9 @@ func (s *Server) handlePlaceStreamMultistreamPutTarget(ctx context.Context, body
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
 
-	// Validate the URL if provided
-	if body.MultistreamTarget != nil {
-		u, err := url.Parse(body.MultistreamTarget.Url)
-		if err != nil {
-			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid multistream target URL")
-		}
-		if !slices.Contains(allowedSchemes, u.Scheme) {
-			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid multistream target scheme (must be rtmp or rtmps)")
-		}
+	err := validateMultistreamTargetURL(body.MultistreamTarget.Url)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	// Build URI from rkey

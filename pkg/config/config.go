@@ -116,6 +116,7 @@ type CLI struct {
 	LivepeerHelp           bool
 	PLCURL                 string
 	SQLLogging             bool
+	StreamSessionTimeout   time.Duration
 }
 
 func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
@@ -180,6 +181,7 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.BoolVar(&cli.LivepeerHelp, "livepeer-help", false, "print help for livepeer flags and exit")
 	fs.StringVar(&cli.PLCURL, "plc-url", "https://plc.directory", "url of the plc directory")
 	fs.BoolVar(&cli.SQLLogging, "sql-logging", false, "enable sql logging")
+	fs.DurationVar(&cli.StreamSessionTimeout, "stream-session-timeout", time.Minute*1, "how long to wait before ending a stream session if no new segments are received")
 
 	lpFlags := flag.NewFlagSet("livepeer", flag.ContinueOnError)
 	_ = starter.NewLivepeerConfig(lpFlags)

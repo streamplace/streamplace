@@ -2,7 +2,11 @@ package media
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"io"
+	"net"
+	"net/url"
 	"strings"
 
 	"github.com/go-gst/go-gst/gst"
@@ -12,7 +16,7 @@ import (
 )
 
 // This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition string, url string) error {
+func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition string, targetURL string) error {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return err
@@ -37,9 +41,29 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	if err != nil {
 		return fmt.Errorf("failed to get rtmp2sink element from pipeline: %w", err)
 	}
-	err = rtmp2sink.SetProperty("location", url)
+
+	u, err := url.Parse(targetURL)
 	if err != nil {
-		return fmt.Errorf("failed to set rtmp2sink location: %w", err)
+		return fmt.Errorf("failed to parse target URL: %w", err)
+	}
+	if u.Scheme == "rtmps" {
+		localAddr, err := mm.RunTLSFForwarder(ctx, targetURL)
+		if err != nil {
+			return fmt.Errorf("failed to run TLS forwarder: %w", err)
+		}
+		local := fmt.Sprintf("rtmp://%s%s", localAddr, u.Path)
+		log.Debug(ctx, "running TLS forwarder", "localAddr", local, "destination", targetURL)
+		err = rtmp2sink.SetProperty("location", local)
+		if err != nil {
+			return fmt.Errorf("failed to set rtmp2sink location: %w", err)
+		}
+	} else if u.Scheme == "rtmp" {
+		err = rtmp2sink.SetProperty("location", targetURL)
+		if err != nil {
+			return fmt.Errorf("failed to set rtmp2sink location: %w", err)
+		}
+	} else {
+		return fmt.Errorf("invalid target URL scheme: %s", u.Scheme)
 	}
 
 	segBuffer := make(chan *bus.Seg, 1024)
@@ -95,15 +119,6 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 		return fmt.Errorf("audio pad not found")
 	}
 
-	// queuePadVideo := outputQueue.GetRequestPad("src_%u")
-	// if queuePadVideo == nil {
-	// 	return fmt.Errorf("failed to get queue video pad")
-	// }
-	// queuePadAudio := outputQueue.GetRequestPad("src_%u")
-	// if queuePadAudio == nil {
-	// 	return fmt.Errorf("failed to get queue audio pad")
-	// }
-
 	videoParse, err := pipeline.GetElementByName("videoparse")
 	if err != nil {
 		return fmt.Errorf("failed to get video sink element from pipeline: %w", err)
@@ -149,4 +164,79 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	}()
 
 	return <-errCh
+}
+func (mm *MediaManager) RunTLSFForwarder(ctx context.Context, dest string) (string, error) {
+	// Parse the destination URL to extract host and port
+	destURL, err := url.Parse(dest)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse destination URL: %w", err)
+	}
+
+	// Default to port 1935 if not specified
+	destHost := destURL.Host
+	if !strings.Contains(destHost, ":") {
+		destHost = destHost + ":1935"
+	}
+
+	// Listen on a random port
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", fmt.Errorf("failed to listen on random port: %w", err)
+	}
+
+	log.Debug(ctx, "RTMP to RTMPS forwarder listening", "localAddr", listener.Addr().String(), "destination", dest)
+
+	go func() {
+		<-ctx.Done()
+		listener.Close()
+	}()
+
+	go func() {
+		defer listener.Close()
+		if ctx.Err() != nil {
+			return
+		}
+		// Accept incoming RTMP connection
+		clientConn, err := listener.Accept()
+		if err != nil {
+			log.Error(ctx, "failed to accept connection", "error", err)
+			return
+		}
+
+		// Only one connection so we don't need a goroutine
+		defer clientConn.Close()
+
+		// Establish TLS connection to destination
+		tlsConn, err := tls.Dial("tcp", destHost, &tls.Config{
+			ServerName: destURL.Hostname(),
+		})
+		if err != nil {
+			log.Error(ctx, "failed to establish TLS connection to destination", "error", err)
+			return
+		}
+		defer tlsConn.Close()
+
+		// Proxy data bidirectionally
+		done := make(chan error, 2)
+
+		// Copy from client to server
+		go func() {
+			_, err := io.Copy(tlsConn, clientConn)
+			done <- err
+		}()
+
+		// Copy from server to client
+		go func() {
+			_, err := io.Copy(clientConn, tlsConn)
+			done <- err
+		}()
+
+		// Wait for either direction to complete or error
+		err = <-done
+		if err != nil {
+			log.Error(ctx, "proxy connection error", "error", err)
+		}
+	}()
+
+	return listener.Addr().String(), nil
 }

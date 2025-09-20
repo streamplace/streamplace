@@ -23,8 +23,8 @@ import {
   text,
   w,
 } from "@streamplace/components/src/ui";
-import { Edit3, Plus, RefreshCw, Trash2 } from "@tamagui/lucide-icons";
 import Loading from "components/loading/loading";
+import { Edit3, Plus, RefreshCw, Trash2 } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Switch, View } from "react-native";
 import {

@@ -144,7 +144,7 @@ func SegmentFile(ctx context.Context, input string, outDir string) error {
 		seg := segCount.Load()
 		segCount.Add(1)
 		g.Go(func() error {
-			fpath := fmt.Sprintf("%s/%d.mp4", outDir, seg)
+			fpath := fmt.Sprintf("%s/%06d.mp4", outDir, seg)
 			log.Log(ctx, "writing segment", "path", fpath)
 			fd, err := os.Create(fpath)
 			if err != nil {

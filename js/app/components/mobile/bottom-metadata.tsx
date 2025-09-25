@@ -73,7 +73,7 @@ export function BottomMetadata({
             </Text>
             <Text
               style={{ color: colors.gray[400] }}
-              numberOfLines={1}
+              numberOfLines={3}
               ellipsizeMode="tail"
             >
               {ls?.record.title || "Stream Title"}

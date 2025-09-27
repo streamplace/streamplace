@@ -1,4 +1,4 @@
-import { Text, View } from "react-native";
+import { Text, View } from "../..";
 import emojiData from "../../assets/emoji-data.json";
 import * as zero from "../../ui";
 import { Chat } from "../chat/chat";
@@ -42,9 +42,7 @@ export default function ChatPanel({
           p[4],
         ]}
       >
-        <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
-          Chat
-        </Text>
+        <Text size="xl">Chat</Text>
         <View style={[layout.flex.row, layout.flex.alignCenter]}>
           <View
             style={[

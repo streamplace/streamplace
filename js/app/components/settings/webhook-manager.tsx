@@ -4,6 +4,7 @@ import {
   DialogFooter,
   Input,
   Text,
+  useToast,
   zero,
 } from "@streamplace/components";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
@@ -232,12 +233,14 @@ function WebhookForm({
   onClose,
   onSubmit,
   isLoading,
+  formError,
 }: {
   webhook?: Webhook;
   isVisible: boolean;
   onClose: () => void;
   onSubmit: (data: WebhookFormData) => void;
   isLoading: boolean;
+  formError: Error | null;
 }) {
   const [formData, setFormData] = useState<WebhookFormData>({
     name: webhook?.name || "",
@@ -590,13 +593,30 @@ function WebhookForm({
         </View>
       </View>
 
-      <DialogFooter>
-        <Button variant="secondary" onPress={onClose} disabled={isLoading}>
-          <Text>Cancel</Text>
-        </Button>
-        <Button onPress={handleSubmit} disabled={isLoading}>
-          <Text>{isLoading ? "Saving..." : webhook ? "Update" : "Create"}</Text>
-        </Button>
+      <DialogFooter style={[layout.flex.column, layout.flex.align.end]}>
+        {formError && (
+          <View>
+            <Text color="destructive">Error: {formError.message}</Text>
+          </View>
+        )}
+
+        <View
+          style={[
+            flex.values[1],
+            zero.layout.flex.row,
+            zero.layout.flex.justify.end,
+            gap.all[3],
+          ]}
+        >
+          <Button variant="secondary" onPress={onClose} disabled={isLoading}>
+            <Text>Cancel</Text>
+          </Button>
+          <Button onPress={handleSubmit} disabled={isLoading}>
+            <Text>
+              {isLoading ? "Saving..." : webhook ? "Update" : "Create"}
+            </Text>
+          </Button>
+        </View>
       </DialogFooter>
     </Dialog>
   );
@@ -613,10 +633,12 @@ export default function WebhookManager() {
   const [editingWebhook, setEditingWebhook] = useState<Webhook | undefined>();
   const [showForm, setShowForm] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<Error | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
     isVisible: boolean;
     webhook: Webhook | null;
   }>({ isVisible: false, webhook: null });
+  let t = useToast();
 
   const loadWebhooks = async () => {
     if (!agent) return;
@@ -649,6 +671,7 @@ export default function WebhookManager() {
 
     try {
       setFormLoading(true);
+      setFormError(null);
 
       // Filter out empty rewrite rules
       const rewriteRules = data.rewrite.filter(
@@ -670,10 +693,7 @@ export default function WebhookManager() {
       await loadWebhooks();
     } catch (error: any) {
       console.error("Failed to create webhook:", error);
-      Alert.alert(
-        "Error",
-        error.message || "Failed to create webhook. Please try again.",
-      );
+      setFormError(error);
     } finally {
       setFormLoading(false);
     }
@@ -684,6 +704,7 @@ export default function WebhookManager() {
 
     try {
       setFormLoading(true);
+      setFormError(null);
 
       // Filter out empty rewrite rules
       const rewriteRules = data.rewrite.filter(
@@ -706,10 +727,7 @@ export default function WebhookManager() {
       await loadWebhooks();
     } catch (error: any) {
       console.error("Failed to update webhook:", error);
-      Alert.alert(
-        "Error",
-        error.message || "Failed to update webhook. Please try again.",
-      );
+      setFormError(error);
     } finally {
       setFormLoading(false);
     }
@@ -734,10 +752,7 @@ export default function WebhookManager() {
       setDeleteDialog({ isVisible: false, webhook: null });
     } catch (error: any) {
       console.error("Failed to delete webhook:", error);
-      Alert.alert(
-        "Error",
-        error.message || "Failed to delete webhook. Please try again.",
-      );
+      setFormError(error);
     } finally {
       setDeletingWebhooks((prev) => {
         const newSet = new Set(prev);
@@ -748,11 +763,13 @@ export default function WebhookManager() {
   };
 
   const handleEdit = (webhook: Webhook) => {
+    setFormError(null);
     setEditingWebhook(webhook);
     setShowForm(true);
   };
 
   const handleCreate = () => {
+    setFormError(null);
     setEditingWebhook(undefined);
     setShowForm(true);
   };
@@ -864,9 +881,11 @@ export default function WebhookManager() {
         onClose={() => {
           setShowForm(false);
           setEditingWebhook(undefined);
+          setFormError(null);
         }}
         onSubmit={handleSubmit}
         isLoading={formLoading}
+        formError={formError}
       />
 
       <Dialog

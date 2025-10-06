@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -22,14 +21,6 @@ import (
 )
 
 func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string, lsv *streamplace.Livestream_LivestreamView, postView *bsky.FeedDefs_PostView, spcp *streamplace.ChatProfile) error {
-
-	// get safe IP
-	resolv := aqhttp.NewDoHResolver("")
-	targetIP, parsedURL, err := resolv.ValidateAndGetIP(w.URL)
-	if err != nil {
-		return fmt.Errorf("webhook URL validation failed: %w", err)
-	}
-
 	ctx = log.WithLogValues(ctx, "func", "SendLivestream")
 	ls, ok := lsv.Record.Val.(*streamplace.Livestream)
 	if !ok {
@@ -104,22 +95,11 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string,
 
 	log.Warn(ctx, "sending livestream to discord", "payload", string(jsonPayload))
 
-	port := parsedURL.Port()
-	if port == "" {
-		if parsedURL.Scheme == "https" {
-			port = "443"
-		} else {
-			port = "80"
-		}
-	}
-	requestURL := fmt.Sprintf("%s://%s%s", parsedURL.Scheme, net.JoinHostPort(targetIP, port), parsedURL.RequestURI())
-
-	req, err := http.NewRequestWithContext(ctx, "POST", requestURL, bytes.NewReader(jsonPayload))
+	req, err := http.NewRequestWithContext(ctx, "POST", w.URL, bytes.NewReader(jsonPayload))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Host = parsedURL.Host
 
 	resp, err := ctxhttp.Do(ctx, &aqhttp.Client, req)
 	if err != nil {

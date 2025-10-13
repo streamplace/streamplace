@@ -21,7 +21,9 @@ import {
   PlayerProtocol,
   PlayerStatus,
   Text,
+  useEffectiveVolume,
   usePlayerStore as useIngestPlayerStore,
+  useMuted,
   usePlayerStore,
   useStreamplaceStore,
   View,
@@ -40,25 +42,36 @@ import { srcToUrl } from "./shared";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
 import { mediaDevices, WebRTCMediaStream } from "./webrtc-primitives.native";
 
-// Add NativeIngestPlayer to the switch below!
-export default function VideoNative() {
+export default function VideoNative(props?: {
+  objectFit?: "contain" | "cover";
+  pictureInPictureEnabled?: boolean;
+}) {
   const protocol = usePlayerStore((x) => x.protocol);
   const ingest = usePlayerStore((x) => x.ingestConnectionState) != null;
 
   return (
     <View>
       {ingest ? (
-        <NativeIngestPlayer />
+        <NativeIngestPlayer objectFit={props?.objectFit} />
       ) : protocol === PlayerProtocol.WEBRTC ? (
-        <NativeWHEP />
+        <NativeWHEP
+          objectFit={props?.objectFit}
+          pictureInPictureEnabled={props?.pictureInPictureEnabled}
+        />
       ) : (
-        <NativeVideo />
+        <NativeVideo
+          objectFit={props?.objectFit}
+          pictureInPictureEnabled={props?.pictureInPictureEnabled}
+        />
       )}
     </View>
   );
 }
 
-export function NativeVideo() {
+export function NativeVideo(props?: {
+  objectFit?: "contain" | "cover" | "fill" | "none" | "scale-down";
+  pictureInPictureEnabled?: boolean;
+}) {
   const videoRef = useRef<VideoView | null>(null);
   const protocol = usePlayerStore((x) => x.protocol);
 
@@ -66,8 +79,8 @@ export function NativeVideo() {
   const src = usePlayerStore((x) => x.src);
   const { url } = srcToUrl({ src: src, selectedRendition }, protocol);
   const setStatus = usePlayerStore((x) => x.setStatus);
-  const muted = usePlayerStore((x) => x.muted);
-  const volume = usePlayerStore((x) => x.volume);
+  const muted = useMuted();
+  const volume = useEffectiveVolume();
   const setFullscreen = usePlayerStore((x) => x.setFullscreen);
   const fullscreen = usePlayerStore((x) => x.fullscreen);
   const playerEvent = usePlayerStore((x) => x.playerEvent);
@@ -76,48 +89,141 @@ export function NativeVideo() {
   const setPlayerWidth = usePlayerStore((x) => x.setPlayerWidth);
   const setPlayerHeight = usePlayerStore((x) => x.setPlayerHeight);
 
-  // State for live dimensions
   const [dimensions, setDimensions] = useState<{
     width: number;
     height: number;
   }>({ width: 0, height: 0 });
 
-  const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setDimensions({ width, height });
-    setPlayerWidth(width);
-    setPlayerHeight(height);
-  }, []);
-import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
-import { VideoNativeProps } from "./props";
-
-let importPromise: Promise<typeof import("./video-async.native")> | null = null;
-
-export default function VideoNative(props: VideoNativeProps) {
-  if (!importPromise) {
-    importPromise = import("./video-async.native");
-  }
-
-  const [videoNativeModule, setVideoNativeModule] = useState<
-    typeof import("./video-async.native") | null
-  >(null);
-
-  const [error, setError] = useState<string | null>(null);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { width, height } = event.nativeEvent.layout;
+      setDimensions({ width, height });
+      setPlayerWidth(width);
+      setPlayerHeight(height);
+    },
+    [setPlayerWidth, setPlayerHeight],
+  );
 
   useEffect(() => {
-    importPromise
-      ?.then((module) => {
-        setVideoNativeModule(module);
-      })
-      .catch((err) => {
-        setError(err.message);
+    return () => {
+      setStatus(PlayerStatus.START);
+    };
+  }, [setStatus]);
+
+  const player = useVideoPlayer(url, (player) => {
+    player.addListener("playingChange", (newIsPlaying) => {
+      console.log("playingChange", newIsPlaying);
+      if (newIsPlaying) {
+        setStatus(PlayerStatus.PLAYING);
+      } else {
+        setStatus(PlayerStatus.WAITING);
+      }
+    });
+    player.loop = true;
+    player.muted = muted;
+    player.play();
+  });
+
+  useEffect(() => {
+    player.muted = muted;
+  }, [muted, player]);
+
+  useEffect(() => {
+    player.volume = volume;
+  }, [volume, player]);
+
+  useEffect(() => {
+    const subs = (
+      [
+        "playToEnd",
+        "playbackRateChange",
+        "playingChange",
+        "sourceChange",
+        "statusChange",
+        "volumeChange",
+      ] as (keyof VideoPlayerEvents)[]
+    ).map((evType) => {
+      return player.addListener(evType, (...args) => {
+        const now = new Date();
+        console.log("video native event", evType);
+        playerEvent(spurl, now.toISOString(), evType, { args: args });
       });
-  }, []);
+    });
+
+    subs.push(
+      player.addListener("playingChange", (newIsPlaying) => {
+        console.log("playingChange", newIsPlaying);
+        if (newIsPlaying) {
+          setStatus(PlayerStatus.PLAYING);
+        } else {
+          setStatus(PlayerStatus.WAITING);
+        }
+      }),
+    );
+
+    return () => {
+      for (const sub of subs) {
+        sub.remove();
+      }
+    };
+  }, [player, playerEvent, setStatus, spurl]);
+
+  return (
+    <>
+      <VideoView
+        ref={videoRef}
+        player={player}
+        allowsFullscreen
+        nativeControls={fullscreen}
+        onFullscreenEnter={() => {
+          setFullscreen(true);
+        }}
+        onFullscreenExit={() => {
+          setFullscreen(false);
+        }}
+        allowsPictureInPicture={props?.pictureInPictureEnabled !== false}
+        onLayout={handleLayout}
+      />
+    </>
+  );
+}
+
+export function NativeWHEP(props?: {
+  objectFit?: "contain" | "cover";
+  pictureInPictureEnabled?: boolean;
+}) {
+  const selectedRendition = usePlayerStore((x) => x.selectedRendition);
+  const src = usePlayerStore((x) => x.src);
+  const { url } = srcToUrl(
+    { src: src, selectedRendition },
+    PlayerProtocol.WEBRTC,
+  );
+  const [stream, stuck] = useWebRTC(url);
+  const status = usePlayerStore((x) => x.status);
+
+  const setPlayerWidth = usePlayerStore((x) => x.setPlayerWidth);
+  const setPlayerHeight = usePlayerStore((x) => x.setPlayerHeight);
+
+  const setVideoRef = usePlayerStore((x) => x.setVideoRef);
+
+  const [dimensions, setDimensions] = useState<{
+    width: number;
+    height: number;
+  }>({ width: 0, height: 0 });
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { width, height } = event.nativeEvent.layout;
+      setDimensions({ width, height });
+      setPlayerWidth(width);
+      setPlayerHeight(height);
+    },
+    [setPlayerWidth, setPlayerHeight],
+  );
 
   const setStatus = usePlayerStore((x) => x.setStatus);
-  const muted = usePlayerStore((x) => x.muted);
-  const volume = usePlayerStore((x) => x.volume);
+  const muted = useMuted();
+  const volume = useEffectiveVolume();
 
   useEffect(() => {
     if (stuck && status === PlayerStatus.PLAYING) {
@@ -128,17 +234,9 @@ export default function VideoNative(props: VideoNativeProps) {
       console.log("setting status to playing", status);
       setStatus(PlayerStatus.PLAYING);
     }
-  }, [stuck, status]);
+  }, [stuck, status, setStatus]);
 
   const mediaStream = stream as unknown as MediaStream;
-
-  // useEffect(() => {
-  //   if (!mediaStream) {
-  //     setStatus(PlayerStatus.WAITING);
-  //     return;
-  //   }
-  //   setStatus(PlayerStatus.PLAYING);
-  // }, [mediaStream, setStatus]);
 
   useEffect(() => {
     if (!mediaStream) {
@@ -151,10 +249,9 @@ export default function VideoNative(props: VideoNativeProps) {
     });
   }, [mediaStream, muted, volume]);
 
-  // Keep the playerStore videoRef in sync for PiP (if possible)
   useEffect(() => {
     if (typeof setVideoRef === "function") {
-      setVideoRef(null); // No direct ref for RTCView, but keep API consistent
+      setVideoRef(null);
     }
   }, [setVideoRef]);
 
@@ -166,10 +263,10 @@ export default function VideoNative(props: VideoNativeProps) {
     <>
       <RTCView
         mirror={false}
-        objectFit={"contain"}
+        objectFit={props?.objectFit || "contain"}
         streamURL={mediaStream.toURL()}
         onLayout={handleLayout}
-        pictureInPictureEnabled={true}
+        pictureInPictureEnabled={props?.pictureInPictureEnabled !== false}
         autoStartPictureInPicture={true}
         pictureInPicturePreferredSize={{
           width: 160,
@@ -185,7 +282,9 @@ export default function VideoNative(props: VideoNativeProps) {
   );
 }
 
-export function NativeIngestPlayer() {
+export function NativeIngestPlayer(props?: {
+  objectFit?: "contain" | "cover";
+}) {
   const ingestStarting = useIngestPlayerStore((x) => x.ingestStarting);
   const ingestMediaSource = useIngestPlayerStore((x) => x.ingestMediaSource);
   const ingestAutoStart = useIngestPlayerStore((x) => x.ingestAutoStart);
@@ -193,7 +292,6 @@ export function NativeIngestPlayer() {
   const setVideoRef = usePlayerStore((x) => x.setVideoRef);
 
   const screenCaptureView = useRef(null);
-  const [videoStream, setVideoStream] = useState<string>("");
 
   const [error, setError] = useState<Error | null>(null);
 
@@ -215,7 +313,6 @@ export function NativeIngestPlayer() {
     endpoint: `${url}/api/ingest/webrtc`,
   });
 
-  // Use lms directly as localMediaStream
   const localMediaStream = lms;
 
   useEffect(() => {
@@ -227,7 +324,6 @@ export function NativeIngestPlayer() {
           console.log("video tracks", stream.getVideoTracks());
           setLocalMediaStream(stream);
 
-          // set up screen capture view?
           if (Platform.OS === "ios") {
             const reactTag = findNodeHandle(screenCaptureView.current);
             return NativeModules.ScreenCapturePickerViewManager.show(reactTag);
@@ -305,10 +401,30 @@ export function NativeIngestPlayer() {
   }
 
   if (error) {
-    console.error(error);
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text>{error}</Text>
+      <View
+        backgroundColor={colors.destructive[900]}
+        style={[p[4], m[4], gap.all[2], { borderRadius: borderRadius.md }]}
+      >
+        <View>
+          <Text style={[fontWeight.semibold]} size="2xl">
+            Error encountered!
+          </Text>
+        </View>
+        <Text>{error.message}</Text>
+        {error.message.includes(
+          "To stream, you need to give us permission to access these.",
+        ) && (
+          <Button
+            onPress={Linking.openSettings}
+            style={[h[10]]}
+            variant="secondary"
+          >
+            <View style={[layout.flex.row, gap.all[1]]}>
+              <Text>Open Settings</Text> <ArrowRight color="white" size="18" />
+            </View>
+          </Button>
+        )}
       </View>
     );
   }
@@ -317,7 +433,7 @@ export function NativeIngestPlayer() {
     <>
       <RTCViewIngest
         mirror={ingestCamera !== "environment"}
-        objectFit={"contain"}
+        objectFit={props?.objectFit || "contain"}
         streamURL={localMediaStream.toURL()}
         zOrder={0}
         style={{

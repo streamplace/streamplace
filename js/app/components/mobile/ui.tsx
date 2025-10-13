@@ -1,5 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import {
+  colors,
   PlayerUI,
   Slider,
   Text,
@@ -23,8 +24,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Fullscreen,
-  Monitor,
   Minimize,
+  Monitor,
   SwitchCamera,
   Volume2,
   VolumeX,
@@ -248,11 +249,13 @@ export function MobileUi({
                   showChat={showChat}
                   setShowChat={setShowChat}
                 />
-                {ingest !== null &&                <>
-                  <Pressable onPress={toggleMediaSource}>
-                    <Monitor size={32} color={colors.gray[200]} />
-                  </Pressable>
-                </>} 
+                {ingest !== null && (
+                  <>
+                    <Pressable onPress={toggleMediaSource}>
+                      <Monitor size={32} color={colors.gray[200]} />
+                    </Pressable>
+                  </>
+                )}
               </View>
 
               {shouldShowFloatingMetrics && isLive && (

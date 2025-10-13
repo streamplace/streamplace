@@ -89,7 +89,6 @@ type CLI struct {
 	Redirects              []string
 	TestStream             bool
 	FrontendProxy          string
-	PublicOAuth            bool
 	AppBundleID            string
 	NoFirehose             bool
 	PrintChat              bool
@@ -151,7 +150,6 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.StringVar(&cli.AppBundleID, "app-bundle-id", "", "bundle id of an app that we facilitate oauth login for")
 	fs.StringVar(&cli.StreamerName, "streamer-name", "", "name of the person streaming from this streamplace node")
 	fs.StringVar(&cli.FrontendProxy, "dev-frontend-proxy", "", "(FOR DEVELOPMENT ONLY) proxy frontend requests to this address instead of using the bundled frontend")
-	fs.BoolVar(&cli.PublicOAuth, "dev-public-oauth", false, "(FOR DEVELOPMENT ONLY) enable public oauth login for http://127.0.0.1 development")
 	fs.StringVar(&cli.LivepeerGatewayURL, "livepeer-gateway-url", "", "URL of the Livepeer Gateway to use for transcoding")
 	fs.BoolVar(&cli.LivepeerGateway, "livepeer-gateway", false, "enable embedded Livepeer Gateway")
 	fs.BoolVar(&cli.WideOpen, "wide-open", false, "allow ALL streams to be uploaded to this node (not recommended for production)")
@@ -205,18 +203,6 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 }
 
 var StreamplaceSchemePrefix = "streamplace://"
-
-func (cli *CLI) OwnPublicURL() string {
-	//  No errors because we know it's valid from AddrFlag
-	host, port, _ := net.SplitHostPort(cli.HTTPAddr)
-
-	ip := net.ParseIP(host)
-	if host == "" || ip.IsUnspecified() {
-		host = "127.0.0.1"
-	}
-	addr := net.JoinHostPort(host, port)
-	return fmt.Sprintf("http://%s", addr)
-}
 
 func (cli *CLI) OwnInternalURL() string {
 	//  No errors because we know it's valid from AddrFlag

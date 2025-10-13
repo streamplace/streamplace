@@ -386,29 +386,17 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return err
 	}
 
-	var clientMetadata *oatproxy.OAuthClientMetadata
-	if cli.PublicOAuth {
-		clientMetadata = &oatproxy.OAuthClientMetadata{
-			Scope:      "atproto transition:generic",
-			ClientName: "Streamplace",
-			RedirectURIs: []string{
-				fmt.Sprintf("%s/login", cli.OwnPublicURL()),
-				fmt.Sprintf("%s/api/app-return", cli.OwnPublicURL()),
-			},
-		}
-	} else {
-		clientMetadata = &oatproxy.OAuthClientMetadata{
-			Scope:      "atproto transition:generic",
-			ClientName: "Streamplace",
-			RedirectURIs: []string{
-				fmt.Sprintf("https://%s/login", cli.PublicHost),
-				fmt.Sprintf("https://%s/api/app-return", cli.PublicHost),
-			},
-		}
+	clientMetadata := &oatproxy.OAuthClientMetadata{
+		Scope:      "atproto transition:generic",
+		ClientName: "Streamplace",
+		RedirectURIs: []string{
+			fmt.Sprintf("https://%s/login", cli.PublicHost),
+			fmt.Sprintf("https://%s/api/app-return", cli.PublicHost),
+		},
 	}
 
 	op := oatproxy.New(&oatproxy.Config{
-		Host:               "127.0.0.1:38080",
+		Host:               cli.PublicHost,
 		CreateOAuthSession: state.CreateOAuthSession,
 		UpdateOAuthSession: state.UpdateOAuthSession,
 		GetOAuthSession:    state.LoadOAuthSession,
@@ -417,7 +405,6 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		UpstreamJWK:        cli.JWK,
 		DownstreamJWK:      cli.AccessJWK,
 		ClientMetadata:     clientMetadata,
-		Public:             true,
 	})
 	d := director.NewDirector(mm, mod, &cli, b, op, state)
 	a, err := api.MakeStreamplaceAPI(&cli, mod, state, eip712signer, noter, mm, ms, b, atsync, d, op)

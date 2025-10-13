@@ -253,11 +253,6 @@ export const blueskySlice = createAppSlice({
           throw new Error("No client");
         }
         const u = await bluesky.client.authorize(handle, {});
-        if (document.location.href.startsWith("http://127.0.0.1")) {
-          const hostUrl = new URL(document.location.href);
-          u.host = hostUrl.host;
-          u.protocol = hostUrl.protocol;
-        }
         thunkAPI.dispatch(openLoginLink(u.toString()));
         // cheeky 500ms delay so you don't see the text flash back
         await new Promise((resolve) => setTimeout(resolve, 5000));

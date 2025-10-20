@@ -1,6 +1,7 @@
 package multitest
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,15 +11,36 @@ import (
 	"testing"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/crypto/spkey"
 	"stream.place/streamplace/pkg/devenv"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
 func TestMultinodeSyndication(t *testing.T) {
 	dev := devenv.WithDevEnv(t)
 	startStreamplaceNode(t, dev)
-	startStreamplaceNode(t, dev)
-	time.Sleep(10 * time.Second)
+	// startStreamplaceNode(t, dev)
+	acct := dev.CreateAccount(t)
+	_, pub, err := spkey.GenerateStreamKeyForDID(acct.DID)
+	require.NoError(t, err)
+	createdBy := "multitest"
+	streamKey := streamplace.Key{
+		SigningKey: pub.DIDKey(),
+		CreatedAt:  time.Now().Format(util.ISO8601),
+		CreatedBy:  &createdBy,
+	}
+	_, err = comatproto.RepoCreateRecord(context.TODO(), acct.XRPC, &comatproto.RepoCreateRecord_Input{
+		Collection: "place.stream.key",
+		Repo:       acct.DID,
+		Record:     &lexutil.LexiconTypeDecoder{Val: &streamKey},
+	})
+	require.NoError(t, err)
+	log.Log(context.Background(), "created stream key", "did", acct.DID, "pub", pub.DIDKey())
 }
 
 var currentPort = 10000

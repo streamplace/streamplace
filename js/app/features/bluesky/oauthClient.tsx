@@ -11,6 +11,8 @@ export type StreamplaceOAuthClient = Omit<
   "keyset" | "serverFactory" | "jwks"
 >;
 
+const PLC_DIRECTORY = "https://plc.directory";
+
 export default async function createOAuthClient(
   streamplaceUrl: string,
 ): Promise<StreamplaceOAuthClient> {
@@ -87,7 +89,7 @@ export default async function createOAuthClient(
       if (streamplaceUrl.startsWith("http://127.0.0.1")) {
         // everything other than PDS resolution gets rewritten to the host
         if (
-          request.url.includes("plc.directory") ||
+          request.url.includes(PLC_DIRECTORY) ||
           request.url.endsWith("did.json") ||
           request.url.endsWith("/.well-known/oauth-protected-resource") ||
           request.url.endsWith("/.well-known/oauth-authorization-server")
@@ -117,7 +119,7 @@ export default async function createOAuthClient(
       } else {
         // Lie to the oauth client and use our upstream server instead
         if (
-          request.url.includes("plc.directory") ||
+          request.url.includes(PLC_DIRECTORY) ||
           request.url.endsWith("did.json")
         ) {
           const res = await fetch(request, init);

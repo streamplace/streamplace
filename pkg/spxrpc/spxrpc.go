@@ -29,6 +29,7 @@ type Server struct {
 	OGImageCache *cache.Cache
 	ATSync       *atproto.ATProtoSynchronizer
 	statefulDB   *statedb.StatefulDB
+	op           *oatproxy.OATProxy
 }
 
 func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer) (*Server, error) {
@@ -40,6 +41,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		OGImageCache: cache.New(5*time.Minute, 10*time.Minute), // 5min TTL, 10min cleanup
 		ATSync:       atsync,
 		statefulDB:   statefulDB,
+		op:           op,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())
@@ -67,7 +69,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 }
 
 func (s *Server) isLocalPDS(ctx context.Context, repo string) (bool, string, error) {
-	did, svc, _, err := resolveRepoService(ctx, repo)
+	did, svc, _, err := s.resolveRepoService(ctx, repo)
 	if err != nil {
 		return false, "", fmt.Errorf("resolveRepoService: %w", err)
 	}

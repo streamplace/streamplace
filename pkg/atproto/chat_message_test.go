@@ -24,10 +24,12 @@ import (
 func TestChatMessage(t *testing.T) {
 	dev := devenv.WithDevEnv(t)
 	t.Logf("dev: %+v", dev)
+
+	// select {}
 	cli := config.CLI{
 		BroadcasterHost: "example.com",
 		DBURL:           ":memory:",
-		RelayHost:       strings.ReplaceAll(dev.PDSURL, "http://", "ws://"),
+		RelayHost:       strings.Replace(dev.PDSURL, "http", "ws", 1),
 		PLCURL:          dev.PLCURL,
 	}
 	t.Logf("cli: %+v", cli)
@@ -56,6 +58,9 @@ func TestChatMessage(t *testing.T) {
 
 	user := dev.CreateAccount(t)
 	user2 := dev.CreateAccount(t)
+	t.Logf("user: %+v", user)
+
+	select {}
 
 	ch := b.Subscribe(user.DID)
 	defer b.Unsubscribe(user.DID, ch)
@@ -110,6 +115,7 @@ func TestChatMessage(t *testing.T) {
 		}
 		return nil
 	})
+	require.NoError(t, err)
 	// Reverse the messages slice to match expected order (most recent first)
 	slices.SortFunc(messages, func(a, b *streamplace.ChatDefs_MessageView) int {
 		aTime := a.Record.Val.(*streamplace.ChatMessage).CreatedAt

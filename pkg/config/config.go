@@ -128,6 +128,7 @@ type CLI struct {
 	Tickets                    []string
 	IrohTopic                  string
 	DID                        string
+	DevPDSURL                  string
 }
 
 // ContentFilters represents the content filtering configuration
@@ -212,6 +213,7 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.BoolVar(&cli.LivepeerDebug, "livepeer-debug", false, "log livepeer segments to $SP_DATA_DIR/livepeer-debug")
 	cli.StringSliceFlag(fs, &cli.Tickets, "tickets", "[]", "tickets to join the swarm with")
 	fs.StringVar(&cli.IrohTopic, "iroh-topic", "", "topic to use for the iroh swarm (must be 32 bytes in hex)")
+	fs.StringVar(&cli.DevPDSURL, "dev-pds-url", "", "(FOR DEVELOPMENT ONLY) URL of a PDS that we should resolve .test domains to")
 
 	lpFlags := flag.NewFlagSet("livepeer", flag.ContinueOnError)
 	_ = starter.NewLivepeerConfig(lpFlags)

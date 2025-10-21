@@ -12,6 +12,7 @@ import { ADMIN_PASSWORD, JWT_SECRET } from "./constants.js";
 
 export interface PdsServerOptions extends Partial<pds.ServerEnvironment> {
   didPlcUrl: string;
+  publicUrl: string;
 }
 
 export interface AdditionalPdsContext {
@@ -33,7 +34,7 @@ export class TestPdsServer {
     const recoveryKey = (await Secp256k1Keypair.create()).did();
 
     const port = config.port || (await getPort());
-    const url = `http://localhost:${port}`;
+    // const url = `http://localhost:${port}`;
 
     const blobstoreLoc = path.join(os.tmpdir(), randomStr(8, "base32"));
     const dataDirectory = path.join(os.tmpdir(), randomStr(8, "base32"));
@@ -76,7 +77,7 @@ export class TestPdsServer {
 
     await server.start();
 
-    return new TestPdsServer(server, url, port, {
+    return new TestPdsServer(server, config.publicUrl, port, {
       dataDirectory: dataDirectory,
       blobstoreLoc: blobstoreLoc,
     });

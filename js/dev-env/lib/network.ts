@@ -15,7 +15,11 @@ export class TestNetwork {
 
   static async create(cfg: Partial<NetworkConfig>): Promise<TestNetwork> {
     const plc = await TestPlcServer.create(cfg.plc ?? {});
-    const pds = await TestPdsServer.create({ didPlcUrl: plc.url, ...cfg.pds });
+    const pds = await TestPdsServer.create({
+      didPlcUrl: plc.url,
+      publicUrl: cfg.pds?.publicUrl ?? "",
+      ...cfg.pds,
+    });
 
     mockNetworkUtilities(pds);
 

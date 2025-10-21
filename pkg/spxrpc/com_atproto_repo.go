@@ -21,17 +21,17 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-func resolveRepoService(ctx context.Context, repo string) (string, string, string, error) {
+func (s *Server) resolveRepoService(ctx context.Context, repo string) (string, string, string, error) {
 	did := repo
 	var err error
 	if !strings.HasPrefix(repo, "did:") {
-		did, err = oatproxy.ResolveHandle(ctx, repo)
+		did, err = s.op.ResolveHandle(ctx, repo)
 		if err != nil {
 			return "", "", "", fmt.Errorf("failed to resolve handle %q: %w", repo, err)
 		}
 	}
 
-	service, handle, err := oatproxy.ResolveService(ctx, did)
+	service, handle, err := s.op.ResolveService(ctx, did)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to resolve service for did %q: %w", did, err)
 	}

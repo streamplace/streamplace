@@ -10,6 +10,8 @@ replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop 
 
 replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0-20250813192504-b19ccd82854b
 
+replace github.com/streamplace/oatproxy => ../oatproxy
+
 require (
 	firebase.google.com/go/v4 v4.14.1
 	github.com/99designs/gqlgen v0.17.64

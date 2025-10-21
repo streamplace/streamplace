@@ -1,4 +1,7 @@
 import {
+  Button,
+  Text,
+  Textarea,
   useCreateStreamRecord,
   useLivestream,
   useToast,
@@ -11,16 +14,14 @@ import {
   Image,
   Platform,
   ScrollView,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { Button } from "../../../components/src/components/ui/button";
-import { Textarea } from "../../../components/src/components/ui/textarea";
 import { selectUserProfile } from "../../features/bluesky/blueskySlice";
 import { useCaptureVideoFrame } from "../../hooks/useCaptureVideoFrame";
 import { useLiveUser } from "../../hooks/useLiveUser";
 import { useAppSelector } from "../../store/hooks";
+import MultistreamStatus from "./multistream-status";
 
 const { flex, p, px, py, gap, layout, bg, borders, text, r, w, typography } =
   zero;
@@ -50,17 +51,13 @@ const ButtonSelector = ({
         onPress={() => setSelectedValue(value)}
         style={[
           r.md,
+          py[0],
           {
             opacity: disabledValues.includes(value) ? 0.5 : 1,
           },
         ]}
       >
-        <Text
-          style={[
-            selectedValue === value ? text.white : text.gray[300],
-            { fontSize: 14, fontWeight: "600" },
-          ]}
-        >
+        <Text style={[selectedValue === value ? text.white : text.gray[300]]}>
           {label}
         </Text>
       </Button>
@@ -320,9 +317,7 @@ function LivestreamPanel() {
               borders.bottom.color.neutral[700],
             ]}
           >
-            <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
-              Stream Settings
-            </Text>
+            <Text size="xl">Stream Settings</Text>
             <ButtonSelector
               values={[
                 { label: "Create", value: "create" },
@@ -336,9 +331,7 @@ function LivestreamPanel() {
           </View>
 
           {mode === "edit" && (
-            <Text
-              style={[p[4], text.white, typography.universal?.xl || text.white]}
-            >
+            <Text style={[p[4], typography.universal?.xl || text.white]}>
               Change your Current Livestream Title
             </Text>
           )}
@@ -488,6 +481,12 @@ function LivestreamPanel() {
               </Button>
             </View>
           )}
+          {/* Multistream Status Section */}
+          <View
+            style={[borders.top.width.thin, borders.top.color.neutral[700]]}
+          >
+            <MultistreamStatus />
+          </View>
         </View>
       </ScrollView>
     </>

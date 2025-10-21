@@ -9,10 +9,11 @@ import {
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import AQLink from "components/aqlink";
 import Loading from "components/loading/loading";
-import { Edit3, Plus, RefreshCw, Trash2, X } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { Plus, RefreshCw, X } from "lucide-react-native";
+import { ReactNode, useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, Switch, View } from "react-native";
 import { timeAgo } from "utils/timeAgo";
+import { SettingsListItem } from "./settings-list-item";
 
 const {
   atoms,
@@ -84,145 +85,59 @@ function WebhookRow({
   onDelete: (id: string) => void;
   isDeleting: boolean;
 }) {
-  const { theme } = zero.useTheme();
   const isDiscord = webhook.url
     .toLowerCase()
     .startsWith("https://discord.com/api/webhooks");
 
+  const badges = isDiscord
+    ? [{ text: "Discord", color: "#6366f1", bgColor: "#312e81" }]
+    : [];
+
+  const metadata = [
+    {
+      label: "Events",
+      value: webhook.events.map(
+        (event) =>
+          EVENT_OPTIONS.find((opt) => opt.value === event)?.label || event,
+      ),
+    },
+  ];
+
+  const getFooterRight = () => {
+    const items: ReactNode[] = [];
+    if (webhook.errorCount !== undefined && webhook.errorCount > 0) {
+      items.push(
+        <Text key="errors" style={[text.red[600], { fontSize: 11 }]}>
+          {webhook.errorCount} errors
+        </Text>,
+      );
+    }
+    if (webhook.lastTriggered) {
+      items.push(
+        <Text key="triggered" style={[text.gray[400], { fontSize: 11 }]}>
+          Last triggered {timeAgo(new Date(webhook.lastTriggered))}
+        </Text>,
+      );
+    }
+    return items.length > 0 ? <>{items}</> : null;
+  };
+
   return (
-    <View
-      style={[
-        flex.shrink[1],
-        borders.width.thin,
-        borders.color.gray[200],
-        bg.neutral[800],
-        r.xl,
-        p[4],
-        mb[3],
-        layout.flex.column,
-        gap.all[3],
-        { opacity: isDeleting ? 0.5 : webhook.active ? 1 : 0.7 },
-      ]}
-    >
-      {/* Header */}
-      <View
-        style={[
-          layout.flex.row,
-          layout.flex.spaceBetween,
-          layout.flex.alignCenter,
-        ]}
-      >
-        <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-          <View
-            style={[
-              w[3],
-              h[3],
-              r.full,
-              { backgroundColor: webhook.active ? "#22c55e" : "#6b7280" },
-            ]}
-          />
-          <Text style={[{ fontSize: 16, fontWeight: "600" }]}>
-            {webhook.name || "Untitled Webhook"}
-          </Text>
-          {isDiscord && (
-            <View style={[bg.indigo[800], px[2], r.full]}>
-              <Text style={[text.indigo[300], { fontSize: 12 }]}>Discord</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={[layout.flex.row, gap.all[2]]}>
-          <Pressable
-            style={[
-              bg.blue[600],
-              p[2],
-              r.md,
-              layout.flex.center,
-              { minWidth: 32, minHeight: 32 },
-            ]}
-            onPress={() => onEdit(webhook)}
-            disabled={isDeleting}
-          >
-            <Edit3 size={16} color={theme.colors.text} />
-          </Pressable>
-
-          <Pressable
-            style={[
-              bg.red[800],
-              p[2],
-              r.md,
-              layout.flex.center,
-              { minWidth: 32, minHeight: 32 },
-            ]}
-            onPress={() => onDelete(webhook.id)}
-            disabled={isDeleting}
-          >
-            <Trash2 size={16} color={theme.colors.text} />
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Description */}
-      {webhook.description && (
-        <Text style={[text.gray[300], { fontSize: 14 }]}>
-          {webhook.description}
-        </Text>
-      )}
-
-      {/* URL */}
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-        <Text style={[text.gray[300], { fontSize: 12 }]}>URL:</Text>
-        <Text
-          style={[text.gray[400], { fontSize: 12, fontFamily: "monospace" }]}
-          numberOfLines={1}
-        >
-          {webhook.url.length > 50
-            ? webhook.url.slice(0, 45) +
-              "..." +
-              webhook.url.slice(webhook.url.length - 5)
-            : webhook.url}
-        </Text>
-      </View>
-
-      {/* Events */}
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-        <Text style={[text.gray[300], { fontSize: 12 }]}>Events:</Text>
-        {webhook.events.map((event, index) => (
-          <View key={event} style={[bg.blue[700], px[2], r.full]}>
-            <Text style={[text.blue[300], { fontSize: 11 }]}>
-              {EVENT_OPTIONS.find((opt) => opt.value === event)?.label || event}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Status info */}
-      <View
-        style={[
-          layout.flex.row,
-          layout.flex.spaceBetween,
-          pt[2],
-          borders.top.width.thin,
-          borders.top.color.gray[100],
-        ]}
-      >
-        <Text style={[text.gray[400], { fontSize: 11 }]}>
-          Created {timeAgo(new Date(webhook.createdAt))}
-        </Text>
-        <View style={[layout.flex.row, gap.all[4]]}>
-          {webhook.errorCount !== undefined && webhook.errorCount > 0 && (
-            <Text style={[text.red[600], { fontSize: 11 }]}>
-              {webhook.errorCount} errors
-            </Text>
-          )}
-          {webhook.lastTriggered && (
-            <Text style={[text.gray[400], { fontSize: 11 }]}>
-              Last triggered {timeAgo(new Date(webhook.lastTriggered))}
-            </Text>
-          )}
-        </View>
-      </View>
-    </View>
+    <SettingsListItem
+      title={webhook.name || "Untitled Webhook"}
+      subtitle={webhook.description}
+      url={webhook.url}
+      active={webhook.active}
+      isDeleting={isDeleting}
+      badges={badges}
+      metadata={metadata}
+      footer={{
+        left: `Created ${timeAgo(new Date(webhook.createdAt))}`,
+        right: getFooterRight(),
+      }}
+      onEdit={() => onEdit(webhook)}
+      onDelete={() => onDelete(webhook.id)}
+    />
   );
 }
 

@@ -8,30 +8,25 @@ import {
 import { ThemeProvider } from "@streamplace/components/src/lib/theme/theme";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import {
-  bg,
-  borders,
   flex,
   gap,
-  h,
   layout,
   mb,
   mt,
   mx,
-  p,
-  pt,
-  r,
   text,
   w,
 } from "@streamplace/components/src/ui";
 import Loading from "components/loading/loading";
-import { Edit3, Plus, RefreshCw, Trash2 } from "lucide-react-native";
+import { Plus, RefreshCw } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, Switch, View } from "react-native";
+import { Alert, ScrollView, Switch, View } from "react-native";
 import {
   PlaceStreamMultistreamDefs,
   PlaceStreamMultistreamTarget,
 } from "streamplace";
 import { timeAgo } from "utils/timeAgo";
+import { SettingsListItem } from "./settings-list-item";
 
 interface MultistreamTargetViewHydrated
   extends PlaceStreamMultistreamDefs.TargetView {
@@ -73,6 +68,9 @@ export default function MultistreamManager() {
     isLoading: boolean;
   }>({ isVisible: false, target: null, isLoading: false });
   const [deletingTargets, setDeletingTargets] = useState<Set<string>>(
+    new Set(),
+  );
+  const [togglingTargets, setTogglingTargets] = useState<Set<string>>(
     new Set(),
   );
   const [formError, setFormError] = useState<string>("");
@@ -140,6 +138,36 @@ export default function MultistreamManager() {
       setFormError(error.message);
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const toggleMultistreamTarget = async (
+    target: MultistreamTargetViewHydrated,
+    newActiveState: boolean,
+  ) => {
+    if (!agent) return;
+    try {
+      setTogglingTargets((prev) => new Set(prev).add(target.uri));
+      await agent.place.stream.multistream.putTarget({
+        multistreamTarget: {
+          ...target.record,
+          active: newActiveState,
+        },
+        rkey: target.uri.split("/").pop() || "",
+      });
+      await loadMultistreamTargets();
+    } catch (error) {
+      console.error("Failed to toggle multistream target:", error);
+      Alert.alert(
+        "Error",
+        "Failed to toggle multistream target. Please try again.",
+      );
+    } finally {
+      setTogglingTargets((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(target.uri);
+        return newSet;
+      });
     }
   };
 
@@ -245,9 +273,9 @@ export default function MultistreamManager() {
                       isLoading: false,
                     })
                   }
-                  isDeleting={false}
-                  // onEdit={handleEdit}
-                  // isDeleting={deletingWebhooks.has(webhook.id)}
+                  onToggle={toggleMultistreamTarget}
+                  isDeleting={deletingTargets.has(target.uri)}
+                  isToggling={togglingTargets.has(target.uri)}
                 />
               ))}
             </>
@@ -296,111 +324,49 @@ export function MultistreamRow({
   target,
   onEdit,
   onDelete,
+  onToggle,
   isDeleting,
+  isToggling,
 }: {
   target: MultistreamTargetViewHydrated;
   onEdit: (target: MultistreamTargetViewHydrated) => void;
   onDelete: (uri: string) => void;
+  onToggle: (target: MultistreamTargetViewHydrated, active: boolean) => void;
   isDeleting: boolean;
+  isToggling: boolean;
 }) {
-  return (
-    <View
-      style={[
-        flex.shrink[1],
-        borders.width.thin,
-        borders.color.gray[200],
-        bg.neutral[800],
-        r.xl,
-        p[4],
-        mb[3],
-        layout.flex.column,
-        gap.all[3],
-        { opacity: isDeleting ? 0.5 : target.record.active ? 1 : 0.7 },
-      ]}
-    >
-      {/* Header */}
-      <View
-        style={[
-          layout.flex.row,
-          layout.flex.spaceBetween,
-          layout.flex.alignCenter,
-        ]}
-      >
-        <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-          <View
-            style={[
-              w[3],
-              h[3],
-              r.full,
-              { backgroundColor: target.record.active ? "#22c55e" : "#6b7280" },
-            ]}
-          />
-          <Text style={[{ fontSize: 16, fontWeight: "600" }]}>
-            {mulistreamTitle(target)}
+  // Determine latest event status for footer
+  const getStatusInfo = () => {
+    if (target.latestEvent) {
+      return (
+        <View style={[layout.flex.row, gap.all[4]]}>
+          <Text style={[text.gray[400], { fontSize: 11 }]}>
+            Status: {target.latestEvent.status}
+          </Text>
+          <Text style={[text.gray[400], { fontSize: 11 }]}>
+            {timeAgo(new Date(target.latestEvent.createdAt))}
           </Text>
         </View>
+      );
+    }
+    return null;
+  };
 
-        <View style={[layout.flex.row, gap.all[2]]}>
-          <Pressable
-            style={[
-              bg.gray[100],
-              p[2],
-              r.md,
-              layout.flex.center,
-              { minWidth: 32, minHeight: 32 },
-            ]}
-            onPress={() => onEdit(target)}
-            disabled={isDeleting}
-          >
-            <Edit3 size={16} color="#374151" />
-          </Pressable>
-
-          <Pressable
-            style={[
-              bg.red[800],
-              p[2],
-              r.md,
-              layout.flex.center,
-              { minWidth: 32, minHeight: 32 },
-            ]}
-            onPress={() => onDelete(target.uri)}
-            disabled={isDeleting}
-          >
-            <Trash2 size={16} />
-          </Pressable>
-        </View>
-      </View>
-
-      {/* URL */}
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-        <Text style={[text.gray[300], { fontSize: 12 }]}>URL:</Text>
-        <Text
-          style={[text.gray[400], { fontSize: 12, fontFamily: "monospace" }]}
-          numberOfLines={1}
-        >
-          {target.record.url.length > 50
-            ? target.record.url.slice(0, 45) +
-              "..." +
-              target.record.url.slice(target.record.url.length - 5)
-            : target.record.url}
-        </Text>
-      </View>
-
-      {/* Status info */}
-      <View
-        style={[
-          layout.flex.row,
-          layout.flex.spaceBetween,
-          pt[2],
-          borders.top.width.thin,
-          borders.top.color.gray[100],
-        ]}
-      >
-        <Text style={[text.gray[400], { fontSize: 11 }]}>
-          Created {timeAgo(new Date(target.record.createdAt))}
-        </Text>
-      </View>
-    </View>
+  return (
+    <SettingsListItem
+      title={mulistreamTitle(target)}
+      url={target.record.url}
+      active={target.record.active}
+      isDeleting={isDeleting}
+      isToggling={isToggling}
+      footer={{
+        left: `Created ${timeAgo(new Date(target.record.createdAt))}`,
+        right: getStatusInfo(),
+      }}
+      onEdit={() => onEdit(target)}
+      onDelete={() => onDelete(target.uri)}
+      onToggle={(active) => onToggle(target, active)}
+    />
   );
 }
 

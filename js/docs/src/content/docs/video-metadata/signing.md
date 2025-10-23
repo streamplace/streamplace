@@ -22,15 +22,16 @@ standard to produce a verifiable stream. At a high level, this is how it works:
    and **distribution policy**. This record is also synced by nodes to their
    local database.
 5. **Stream Authentication**: When a user starts a stream, they include their
-   stream key as a param in the WHIP or RTMPS request to the node. The node decodes the
-   key, extracts the private key and DID, and verifies that the public key
-   exists and is valid.
+   stream key as a param in the WHIP or RTMPS request to the node. The node
+   decodes the key, extracts the private key and DID, and verifies that the
+   public key exists and is valid.
 6. **Signer Creation**: Once authenticated, the node creates a signer instance
    using the user's private key.
 7. **Segmentation**: The incoming live stream is segmented into one-second MP4
    chunks.
 8. **Manifest Creation and Signing**: For each segment, the node creates a C2PA
-   manifest using the user's metadata configuration. It then uses the streamer's private key to sign the manifest, and embeds the signed manifest directly into
-   the MP4 segment.
+   manifest using the user's metadata configuration. It then uses the streamer's
+   private key to sign the manifest, and embeds the signed manifest directly
+   into the MP4 segment.
 9. **Signed Segments**: The output is a continuous stream of MP4 segments, each
    cryptographically signed and containing its own C2PA manifest.

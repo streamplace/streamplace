@@ -20,7 +20,8 @@ three main components:
    the
    [IPTC controlled vocabulary for content warnings](https://cv.iptc.org/newscodes/contentwarning/).
    Each warning provides descriptions to help creators properly categorize their
-   content. Streamplace node operators may also configure their nodes to exclude certain types of content.
+   content. Streamplace node operators may also configure their nodes to exclude
+   certain types of content.
 2. **Content Rights** (`place.stream.metadata.contentRights`): This section
    captures copyright and attribution information, including the creator’s name,
    copyright notice, publication year, license type, and credit line. The system
@@ -31,7 +32,8 @@ three main components:
 3. **Distribution Policy** (`place.stream.metadata.distributionPolicy`): This
    section currently allows creators to specify a `deleteAfter` property, which
    is meant to indicate the time after which the user no longer wants the stream
-   to be made available for playback. It also allows you to optionally restrict syndication of your livestream to a certain set of broadcasters.
+   to be made available for playback. It also allows you to optionally restrict
+   syndication of your livestream to a certain set of broadcasters.
 
 When a user creates or updates their metadata configuration through the
 frontend, the record is published to their Personal Data Server (PDS) with the

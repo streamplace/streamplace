@@ -6,9 +6,9 @@ sidebar:
 
 The actual metadata insertion and signing done to each video segment is through
 [C2PA](https://c2pa.org/) tooling. A
-[fork](https://github.com/streamplace/c2pa-rs) of their Rust
-SDK that adds support for ES256K is used, and called in Go through FFI. The code
-for this can be seen in `rust/iroh-streamplace/src/c2pa.rs`.
+[fork](https://github.com/streamplace/c2pa-rs) of their Rust SDK that adds
+support for ES256K is used, and called in Go through FFI. The code for this can
+be seen in `rust/iroh-streamplace/src/c2pa.rs`.
 
 The metadata stored in the video with C2PA must be in a valid C2PA "manifest"
 format, documented in the specification. Here is an example Streamplace
@@ -97,12 +97,8 @@ manifest, extracted from the MP4 segment using
               "Iptc4xmpExt": "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
             },
             "dc:creator": "did:plc:y3lae7hmqiwyq7w2v3bcb2c2",
-            "dc:title": [
-              "🦎🦎"
-            ],
-            "dc:date": [
-              "2025-10-21T19:24:24.156Z"
-            ],
+            "dc:title": ["🦎🦎"],
+            "dc:date": ["2025-10-21T19:24:24.156Z"],
             "distributionPolicy": {
               "deleteAfter": "2025-10-21T19:29:24.000Z"
             },
@@ -157,18 +153,24 @@ manifest, extracted from the MP4 segment using
 
 The official version of c2patool can extract this manifest, but will not
 consider it valid due to the use of ES256K. If you build c2patool from the
-[fork](https://github.com/streamplace/c2pa-rs) used by
-Streamplace, it will validate.
+[fork](https://github.com/streamplace/c2pa-rs) used by Streamplace, it will
+validate.
 
 Note the variety of information stored in the manifest: user DID, signing key,
 timestamp, content warnings, copyright, etc. More can be added in the future,
 for example whether you consent to remixing.
 
-You can see several assertions with the name `place.stream.*`. This is 
-where Streamplace-specific metadata is stored, and is related to the lexicon.
-It's the easiest place to parse out this metadata.
+You can see several assertions with the name `place.stream.*`. This is where
+Streamplace-specific metadata is stored, and is related to the lexicon. It's the
+easiest place to parse out this metadata.
 
-In addition to the primary `place.stream` assertions, we make a best-effort attempt to translate the Streamplace assertions into spec-compliant C2PA metadata assertions, which are also included in the signed manifest. This allows other C2PA-compliant software to parse out information about Streamplace segments, such as content warnings. However, not everything Streamplace does fits neatly into C2PA-compliant metadata, so the primary source of truth for metadata on a Streamplace segment remains the `place.stream` assertions.
+In addition to the primary `place.stream` assertions, we make a best-effort
+attempt to translate the Streamplace assertions into spec-compliant C2PA
+metadata assertions, which are also included in the signed manifest. This allows
+other C2PA-compliant software to parse out information about Streamplace
+segments, such as content warnings. However, not everything Streamplace does
+fits neatly into C2PA-compliant metadata, so the primary source of truth for
+metadata on a Streamplace segment remains the `place.stream` assertions.
 
 ## Code paths
 

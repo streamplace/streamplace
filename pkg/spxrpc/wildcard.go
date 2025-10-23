@@ -16,21 +16,27 @@ func (s *Server) HandleWildcard(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleWildcard")
 	defer span.End()
 
-	session, client := oatproxy.GetOAuthSession(ctx)
-	if session == nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
-	}
-
-	var out map[string]any
-
 	// Get the last path segment in the URL
 	path := c.Request().URL.Path
 	segments := strings.Split(path, "/")
 	lastSegment := segments[len(segments)-1]
 
+	session, client := oatproxy.GetOAuthSession(ctx)
+
+	// Allow app.bsky.* GET requests without authentication
+	isAppBskyMethod := strings.HasPrefix(lastSegment, "app.bsky.")
+	isGetRequest := c.Request().Method == "GET"
+
+	// Require authentication for non-app.bsky methods and all POST requests
+	if !isAppBskyMethod && session == nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
+	}
+
+	var out map[string]any
 	var xrpcType string
 	var err error
-	if c.Request().Method == "GET" {
+
+	if isGetRequest {
 		xrpcType = xrpc.Query
 		queryParams := make(map[string]any)
 		for k, v := range c.QueryParams() {
@@ -38,8 +44,23 @@ func (s *Server) HandleWildcard(c echo.Context) error {
 				queryParams[k] = vv
 			}
 		}
-		err = client.Do(ctx, xrpcType, "application/json", lastSegment, queryParams, nil, &out)
+
+		// make unauthed request if this is an app.bsky method
+		if client != nil && !isAppBskyMethod {
+			err = client.Do(ctx, xrpcType, "application/json", lastSegment, queryParams, nil, &out)
+		} else if isAppBskyMethod {
+			log.Log(ctx, "making unauthenticated request for app.bsky method", "method", lastSegment)
+			err = makeUnauthenticatedRequest(ctx, "https://public.api.bsky.app", lastSegment, queryParams, &out)
+		} else {
+			// just in case?
+			return echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found for non-app.bsky method")
+		}
 	} else {
+		// POST/PUT/DELETE requests require authentication
+		if session == nil {
+			return echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
+		}
+
 		xrpcType = xrpc.Procedure
 		var body map[string]any
 		if err := c.Bind(&body); err != nil {

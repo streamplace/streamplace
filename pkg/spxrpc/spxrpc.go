@@ -92,8 +92,6 @@ func makeUnauthenticatedRequest(ctx context.Context, service, method string, par
 	}
 	u.RawQuery = query.Encode()
 
-	log.Error(ctx, "making unauthenticated request", "url", u.String())
-
 	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)

@@ -23,11 +23,10 @@ func (s *Server) HandleWildcard(c echo.Context) error {
 
 	session, client := oatproxy.GetOAuthSession(ctx)
 
-	// Allow app.bsky.* GET requests without authentication
 	isAppBskyMethod := strings.HasPrefix(lastSegment, "app.bsky.")
 	isGetRequest := c.Request().Method == "GET"
 
-	// Require authentication for non-app.bsky methods and all POST requests
+	// if not an app.bsky method, we need an oauth session
 	if !isAppBskyMethod && session == nil {
 		return echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
@@ -36,6 +35,7 @@ func (s *Server) HandleWildcard(c echo.Context) error {
 	var xrpcType string
 	var err error
 
+	// make unauthed request if this is a get and app.bsky method
 	if isGetRequest {
 		xrpcType = xrpc.Query
 		queryParams := make(map[string]any)
@@ -45,7 +45,6 @@ func (s *Server) HandleWildcard(c echo.Context) error {
 			}
 		}
 
-		// make unauthed request if this is an app.bsky method
 		if client != nil && !isAppBskyMethod {
 			err = client.Do(ctx, xrpcType, "application/json", lastSegment, queryParams, nil, &out)
 		} else if isAppBskyMethod {
@@ -56,7 +55,6 @@ func (s *Server) HandleWildcard(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found for non-app.bsky method")
 		}
 	} else {
-		// POST/PUT/DELETE requests require authentication
 		if session == nil {
 			return echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 		}

@@ -459,6 +459,7 @@ impl Actor {
                         .entry(key.clone())
                         .or_default()
                         .insert(remote_id);
+                    debug!(key = %key, remote = %remote_id.fmt_short(), count = state.subscribers.get(&key).map(|s| s.len()).unwrap_or(0), "added subscriber");
                 }
                 Self::update_subscriber_meta_unlocked(state.clone(), &key).await;
                 tx.send(()).await.ok();
@@ -565,14 +566,22 @@ impl Actor {
                     )
                 };
                 trace!(remote = %remote_id.fmt_short(), key = %key, "send rpc::Subscribe message");
-                conn.rpc
+                let result = conn
+                    .rpc
                     .rpc(rpc::Subscribe {
                         key: key.clone(),
                         remote_id: node_id,
                     })
-                    .await
-                    .ok();
-                state.lock().await.subscriptions.insert(key, remote_id);
+                    .await;
+                match &result {
+                    Ok(_) => {
+                        debug!(remote = %remote_id.fmt_short(), key = %key, "subscribe RPC succeeded");
+                        state.lock().await.subscriptions.insert(key, remote_id);
+                    }
+                    Err(e) => {
+                        error!(remote = %remote_id.fmt_short(), key = %key, error = %e, "subscribe RPC failed");
+                    }
+                }
                 tx.send(()).await.ok();
             }
             ApiMessage::Unsubscribe(msg) => {

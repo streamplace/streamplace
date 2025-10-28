@@ -293,8 +293,8 @@ impl Actor {
         config: Config,
         handler: HandlerMode,
     ) -> Result<(Node, impl Future<Output = ()>), iroh_gossip::api::ApiError> {
-        let (rpc_tx, rpc_rx) = tokio::sync::mpsc::channel::<RpcMessage>(32);
-        let (api_tx, api_rx) = tokio::sync::mpsc::channel::<ApiMessage>(32);
+        let (rpc_tx, rpc_rx) = tokio::sync::mpsc::channel::<RpcMessage>(512);
+        let (api_tx, api_rx) = tokio::sync::mpsc::channel::<ApiMessage>(512);
         let gossip = Gossip::builder().spawn(endpoint.clone());
         let id = endpoint.node_id();
         let router = iroh::protocol::Router::builder(endpoint.clone())

@@ -557,12 +557,13 @@ impl Actor {
                     inner: api::Subscribe { key, remote_id },
                     ..
                 } = msg;
-                let conn = {
+                let (conn, node_id) = {
                     let mut state = state.lock().await;
-                    state.connections.get(&remote_id)
+                    (
+                        state.connections.get(&remote_id),
+                        state.router.endpoint().node_id(),
+                    )
                 };
-                let node_id = state.lock().await.router.endpoint().node_id();
-                tx.send(()).await.ok();
                 trace!(remote = %remote_id.fmt_short(), key = %key, "send rpc::Subscribe message");
                 conn.rpc
                     .rpc(rpc::Subscribe {
@@ -571,7 +572,7 @@ impl Actor {
                     })
                     .await
                     .ok();
-                self.subscriptions.insert(key, remote_id);
+                state.lock().await.subscriptions.insert(key, remote_id);
                 tx.send(()).await.ok();
             }
             ApiMessage::Unsubscribe(msg) => {
@@ -581,12 +582,14 @@ impl Actor {
                     inner: api::Unsubscribe { key, remote_id },
                     ..
                 } = msg;
-                let conn = {
+                let (conn, node_id) = {
                     let mut state = state.lock().await;
-                    state.connections.get(&remote_id)
+                    (
+                        state.connections.get(&remote_id),
+                        state.router.endpoint().node_id(),
+                    )
                 };
-                let node_id = state.lock().await.router.endpoint().node_id();
-                tx.send(()).await.ok();
+                trace!(remote = %remote_id.fmt_short(), key = %key, "send rpc::Unsubscribe message");
                 conn.rpc
                     .rpc(rpc::Unsubscribe {
                         key: key.clone(),

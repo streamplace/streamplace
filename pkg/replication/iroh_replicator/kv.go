@@ -189,7 +189,6 @@ func (swarm *IrohSwarm) startKV(ctx context.Context) error {
 			log.Debug(ctx, "SubscribeItemOther", "other", item)
 		}
 	}
-	return nil
 }
 
 func (swarm *IrohSwarm) handleIrohMessage(ctx context.Context, item iroh_streamplace.SubscribeItemEntry) error {

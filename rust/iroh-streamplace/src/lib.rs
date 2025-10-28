@@ -388,21 +388,26 @@ impl Actor {
                 }
                 else => {
                     trace!("processing task");
-                    // poll tasks
-                    let mut state = self.state.lock().await;
-                    if !state.tasks.is_empty() {
-                        if let Some((remote_id, res)) = state.tasks.next().await {
-                            match res {
-                                Ok(()) => {}
-                                Err(RpcTaskError::Timeout { source }) => {
-                                    warn!("call to {remote_id} timed out: {source}");
-                                }
-                                Err(RpcTaskError::Task { source }) => {
-                                    warn!("call to {remote_id} failed: {source}");
-                                }
-                            }
-                            state.connections.remove(&remote_id);
+                    // poll tasks - briefly lock to check and poll
+                    let poll_result = {
+                        let mut state = self.state.lock().await;
+                        if !state.tasks.is_empty() {
+                            state.tasks.next().await
+                        } else {
+                            None
                         }
+                    };
+                    if let Some((remote_id, res)) = poll_result {
+                        match res {
+                            Ok(()) => {}
+                            Err(RpcTaskError::Timeout { source }) => {
+                                warn!("call to {remote_id} timed out: {source}");
+                            }
+                            Err(RpcTaskError::Task { source }) => {
+                                warn!("call to {remote_id} failed: {source}");
+                            }
+                        }
+                        self.state.lock().await.connections.remove(&remote_id);
                     }
                 }
             }
@@ -410,15 +415,19 @@ impl Actor {
         warn!("RPC Actor loop has closed");
     }
 
-    async fn update_subscriber_meta(state: &mut ActorState, key: &str) {
-        let n = state
-            .subscribers
-            .get(key)
-            .map(|s| s.len())
-            .unwrap_or_default();
+    /// Update subscriber meta in the gossip database. Will lock internally to fetch subscribers.
+    async fn update_subscriber_meta_unlocked(state: Arc<Mutex<ActorState>>, key: &str) {
+        let (n, write) = {
+            let state = state.lock().await;
+            let n = state
+                .subscribers
+                .get(key)
+                .map(|s| s.len())
+                .unwrap_or_default();
+            (n, state.write.clone())
+        };
         let v = n.to_string().into_bytes();
-        state
-            .write
+        write
             .put_impl(Some(key.as_bytes().to_vec()), b"subscribers", v.into())
             .await
             .ok();
@@ -442,8 +451,8 @@ impl Actor {
                         .entry(key.clone())
                         .or_default()
                         .insert(remote_id);
-                    Self::update_subscriber_meta(&mut state, &key).await;
                 }
+                Self::update_subscriber_meta_unlocked(state.clone(), &key).await;
                 tx.send(()).await.ok();
             }
             RpcMessage::Unsubscribe(msg) => {
@@ -468,8 +477,8 @@ impl Actor {
                     {
                         state.subscribers.remove(&key);
                     }
-                    Self::update_subscriber_meta(&mut state, &key).await;
                 }
+                Self::update_subscriber_meta_unlocked(state.clone(), &key).await;
                 tx.send(()).await.ok();
             }
             RpcMessage::RecvSegment(msg) => {
@@ -491,6 +500,7 @@ impl Actor {
                         } else {
                             trace!("no subscribers for stream {}", key);
                         }
+                        drop(state); // release lock
                     }
                     HandlerMode::Receiver(handler) => {
                         if state.subscriptions.contains_key(&key) {
@@ -500,6 +510,7 @@ impl Actor {
                             handler.handle_data(from, key, data.to_vec()).await;
                         } else {
                             warn!("received segment for unsubscribed key: {}", key);
+                            drop(state);
                         }
                     }
                 };
@@ -585,9 +596,12 @@ impl Actor {
                     inner: api::AddTickets { peers },
                     ..
                 } = msg;
-                let state = state.lock().await;
+                let sp = {
+                    let state = state.lock().await;
+                    state.sp.clone()
+                };
                 for addr in &peers {
-                    state.sp.add_node_info(addr.clone());
+                    sp.add_node_info(addr.clone());
                 }
                 tx.send(()).await.ok();
             }
@@ -616,11 +630,14 @@ impl Actor {
             ApiMessage::GetNodeAddr(msg) => {
                 trace!(inner = ?msg.inner, "ApiMessage::GetNodeAddr");
                 let WithChannels { tx, .. } = msg;
-                let state = state.lock().await;
-                if !state.config.disable_relay {
-                    state.router.endpoint().online().await;
+                let (disable_relay, endpoint) = {
+                    let state = state.lock().await;
+                    (state.config.disable_relay, state.router.endpoint().clone())
+                };
+                if !disable_relay {
+                    endpoint.online().await;
                 }
-                let addr = state.router.endpoint().node_addr();
+                let addr = endpoint.node_addr();
                 tx.send(addr).await.ok();
             }
             ApiMessage::Shutdown(msg) => {

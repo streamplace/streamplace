@@ -158,9 +158,18 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 				log.Log(ctx, "WHIP connection State has changed", "state", connectionState.String())
 				for _, state := range failureStates {
 					if connectionState == state {
-						log.Log(ctx, "connection failed, cancelling")
+						log.Log(ctx, "WHIP connection failed, cancelling", "state", connectionState.String())
 						cancel()
 					}
+				}
+			})
+
+			// Add ICE candidate logging
+			conn.peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+				if candidate != nil {
+					log.Debug(ctx, "WHIP ICE candidate", "candidate", candidate.String())
+				} else {
+					log.Debug(ctx, "WHIP ICE gathering complete")
 				}
 			})
 			go func() {
@@ -305,14 +314,30 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 
 func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, did string) (*WHIPConnection, error) {
 
-	// Prepare the configuration
-	config := webrtc.Configuration{}
+	// Prepare the configuration with STUN servers for ICE connectivity
+	config := webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:stun.l.google.com:19302"},
+			},
+		},
+	}
 
 	// Create a new RTCPeerConnection
 	peerConnection, err := webrtc.NewPeerConnection(config)
 	if err != nil {
+		log.Error(ctx, "Failed to create peer connection", "error", err)
 		return nil, err
 	}
+
+	// Add connection state logging
+	peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		log.Log(ctx, "WHIP peer connection state changed", "state", state.String())
+	})
+
+	peerConnection.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		log.Log(ctx, "WHIP ICE connection state changed", "state", state.String())
+	})
 
 	// Create a audio track
 	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "pion1")
@@ -353,26 +378,42 @@ func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, 
 	// Create HTTP client and prepare the request
 	client := &http.Client{}
 
+	log.Log(ctx, "Sending WHIP request", "endpoint", w.Endpoint, "streamKey", streamKey)
+
 	// Send the WHIP request to the server
 	req, err := http.NewRequest("POST", w.Endpoint, strings.NewReader(offer.SDP))
 	if err != nil {
+		log.Error(ctx, "Failed to create WHIP request", "error", err)
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+streamKey)
 	req.Header.Set("Content-Type", "application/sdp")
 
+	log.Debug(ctx, "Sending WHIP offer", "endpoint", w.Endpoint, "offerSize", len(offer.SDP))
+
 	// Execute the request
 	resp, err := client.Do(req)
 	if err != nil {
+		log.Error(ctx, "WHIP request failed", "error", err, "endpoint", w.Endpoint)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	log.Debug(ctx, "WHIP response received", "status", resp.Status)
+
 	// Read and process the answer
 	answerBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Error(ctx, "Failed to read WHIP response", "error", err)
 		return nil, err
 	}
+
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		log.Error(ctx, "WHIP request returned error status", "status", resp.Status, "response", string(answerBytes))
+		return nil, fmt.Errorf("WHIP request failed with status %s: %s", resp.Status, string(answerBytes))
+	}
+
+	log.Debug(ctx, "WHIP answer received", "answerSize", len(answerBytes))
 
 	// Parse the SDP answer
 	var answer webrtc.SessionDescription
@@ -382,11 +423,16 @@ func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, 
 	// Apply the answer as remote description
 	err = peerConnection.SetRemoteDescription(answer)
 	if err != nil {
+		log.Error(ctx, "Failed to set remote description", "error", err)
 		return nil, err
 	}
 
+	log.Debug(ctx, "Remote description set successfully")
+
+	log.Debug(ctx, "Waiting for ICE gathering to complete")
 	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
 	<-gatherComplete
+	log.Debug(ctx, "ICE gathering completed")
 
 	conn := &WHIPConnection{
 		peerConnection: peerConnection,

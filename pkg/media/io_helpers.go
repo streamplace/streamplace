@@ -67,9 +67,12 @@ func ReaderNeedDataIncremental(ctx context.Context, input io.Reader) func(self *
 
 // WriterNewSample is a function that reads from a gstreamer sink and writes the data to an io.Writer.
 func WriterNewSample(ctx context.Context, output io.Writer) func(sink *app.Sink) gst.FlowReturn {
+	sampleCount := 0
 	return func(sink *app.Sink) gst.FlowReturn {
+		sampleCount++
 		sample := sink.PullSample()
 		if sample == nil {
+			log.Debug(ctx, "WriterNewSample: got nil sample")
 			return gst.FlowOK
 		}
 
@@ -77,6 +80,12 @@ func WriterNewSample(ctx context.Context, output io.Writer) func(sink *app.Sink)
 		buffer := sample.GetBuffer()
 		bs := buffer.Map(gst.MapRead).Bytes()
 		defer buffer.Unmap()
+
+		if sampleCount == 1 {
+			log.Log(ctx, "WriterNewSample: got first sample", "size", len(bs))
+		} else if sampleCount%100 == 0 {
+			log.Debug(ctx, "WriterNewSample: sample", "count", sampleCount, "size", len(bs))
+		}
 
 		_, err := output.Write(bs)
 

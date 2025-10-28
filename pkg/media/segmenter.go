@@ -65,6 +65,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		appsink.SetCallbacks(&app.SinkCallbacks{
 			NewSampleFunc: WriterNewSample(ctx, buf),
 			EOSFunc: func(sink *app.Sink) {
+				log.Log(ctx, "EOSFunc called - segment complete", "streamer", ms.Streamer(), "bufferSize", buf.Len())
 				ctx, span := otel.Tracer("signer").Start(ctx, "SegmentAndSignElem", trace.WithAttributes(
 					attribute.String("streamer", ms.Streamer()),
 				))
@@ -72,6 +73,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 				resetTimer <- struct{}{}
 				now := time.Now().UnixMilli()
 				bs := buf.Bytes()
+				log.Debug(ctx, "processing segment data", "segmentSize", len(bs))
 				if mm.cli.SmearAudio {
 					smearedBuf := &bytes.Buffer{}
 					err := SmearAudioTimestamps(ctx, bytes.NewReader(buf.Bytes()), smearedBuf)
@@ -87,6 +89,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 					return
 				}
 
+				log.Debug(ctx, "calling ValidateMP4 for segment", "segmentSize", len(bs))
 				err = mm.ValidateMP4(ctx, bytes.NewReader(bs), true)
 				if err != nil {
 					log.Error(ctx, "error validating segment", "error", err)
@@ -96,6 +99,7 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 					// phones. Better we drop one weird segment than force the stream to restart
 					return
 				}
+				log.Log(ctx, "segment successfully validated and processed", "segmentSize", len(bs))
 			},
 		})
 	})

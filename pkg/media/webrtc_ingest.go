@@ -74,22 +74,41 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	audioSrc := app.SrcFromElement(audioSrcElem)
 
 	// Set the remote SessionDescription
+	log.Debug(ctx, "Setting remote description", "offerSize", len(offer.SDP))
 	if err = peerConnection.SetRemoteDescription(*offer); err != nil {
+		log.Error(ctx, "Failed to set remote description", "error", err)
 		return nil, fmt.Errorf("failed to set remote description: %w", err)
 	}
+	log.Debug(ctx, "Remote description set successfully")
 
 	// Create answer
+	log.Debug(ctx, "Creating answer")
 	answer, err := peerConnection.CreateAnswer(nil)
 	if err != nil {
+		log.Error(ctx, "Failed to create answer", "error", err)
 		return nil, fmt.Errorf("failed to create answer: %w", err)
 	}
+	log.Debug(ctx, "Answer created successfully", "answerSize", len(answer.SDP))
 
 	// Sets the LocalDescription, and starts our UDP listeners
+	log.Debug(ctx, "Setting local description")
 	if err = peerConnection.SetLocalDescription(answer); err != nil {
+		log.Error(ctx, "Failed to set local description", "error", err)
 		return nil, fmt.Errorf("failed to set local description: %w", err)
 	}
+	log.Debug(ctx, "Local description set successfully")
+
+	// Add connection state logging
+	peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
+		log.Log(ctx, "Server peer connection state changed", "state", s.String())
+	})
+
+	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+		log.Log(ctx, "Server ICE connection state changed", "state", connectionState.String())
+	})
 
 	// Create channel that is blocked until ICE Gathering is complete
+	log.Debug(ctx, "Waiting for ICE gathering to complete")
 	gatherComplete := rtcrec.GatheringCompletePromise(peerConnection)
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -172,19 +191,19 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		// Set the handler for ICE connection state
 		// This will notify you when the peer has connected/disconnected
 		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-			log.Log(ctx, "Connection State has changed", "state", connectionState.String())
+			log.Log(ctx, "Server ICE Connection State has changed", "state", connectionState.String())
 		})
 
 		// Set the handler for Peer connection state
 		// This will notify you when the peer has connected/disconnected
 		peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
-			log.Log(ctx, "Peer Connection State has changed", "state", s.String())
+			log.Log(ctx, "Server Peer Connection State has changed", "state", s.String())
 
 			if s == webrtc.PeerConnectionStateFailed || s == webrtc.PeerConnectionStateDisconnected {
 				// Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
 				// Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
 				// Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
-				log.Log(ctx, "Peer Connection has ended, exiting", "state", s.String())
+				log.Log(ctx, "Server Peer Connection has ended, exiting", "state", s.String())
 				cancel()
 			}
 		})
@@ -193,7 +212,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		audioFirst := false
 
 		peerConnection.OnTrack(func(track rtcrec.TrackRemote, _ rtcrec.RTPReceiver) {
-			log.Warn(ctx, "OnTrack", "kind", track.Kind())
+			log.Log(ctx, "Server OnTrack received", "kind", track.Kind(), "codec", track.Codec().MimeType)
 			if track.Kind() == webrtc.RTPCodecTypeVideo {
 				// Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval
 				go func() {
@@ -230,7 +249,9 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					}
 					if !videoFirst {
 						videoFirst = true
-						log.Debug(ctx, "got video data", "len", len(buf[:i]))
+						log.Log(ctx, "got first video RTP packet", "len", len(buf[:i]))
+					} else {
+						log.Debug(ctx, "got video RTP packet", "len", len(buf[:i]))
 					}
 
 					gbuf := gst.NewBufferWithSize(int64(len(buf[:i])))
@@ -239,9 +260,11 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 
 					ret := videoSrc.PushBuffer(gbuf)
 					if ret != gst.FlowOK {
-						log.Log(ctx, "failed to push buffer", "error", ret)
+						log.Error(ctx, "failed to push video buffer", "error", ret)
 						cancel()
 						return
+					} else {
+						log.Debug(ctx, "pushed video buffer successfully", "size", len(buf[:i]))
 					}
 					// state := pipeline.GetCurrentState()
 					// if state != gst.StatePlaying {
@@ -269,7 +292,9 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					}
 					if !audioFirst {
 						audioFirst = true
-						log.Debug(ctx, "got audio data", "len", len(buf[:i]))
+						log.Log(ctx, "got first audio RTP packet", "len", len(buf[:i]))
+					} else {
+						log.Debug(ctx, "got audio RTP packet", "len", len(buf[:i]))
 					}
 
 					gbuf := gst.NewBufferWithSize(int64(len(buf[:i])))
@@ -277,9 +302,11 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					gbuf.Unmap()
 					ret := audioSrc.PushBuffer(gbuf)
 					if ret != gst.FlowOK {
-						log.Log(ctx, "failed to push buffer", "error", ret)
+						log.Error(ctx, "failed to push audio buffer", "error", ret)
 						cancel()
 						return
+					} else {
+						log.Debug(ctx, "pushed audio buffer successfully", "size", len(buf[:i]))
 					}
 					// state := pipeline.GetCurrentState()
 					// if state != gst.StatePlaying {

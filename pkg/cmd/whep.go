@@ -67,8 +67,14 @@ type TrackStats struct {
 
 func (w *WHEPClient) StartWHEPConnection(ctx context.Context, stats map[string]*TrackStats) (*WHEPConnection, error) {
 
-	// Prepare the configuration
-	config := webrtc.Configuration{}
+	// Prepare the configuration with STUN servers for ICE connectivity
+	config := webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:stun.l.google.com:19302"},
+			},
+		},
+	}
 
 	// Create a new RTCPeerConnection
 	peerConnection, err := webrtc.NewPeerConnection(config)

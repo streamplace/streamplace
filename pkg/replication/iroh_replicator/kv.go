@@ -206,7 +206,7 @@ func (swarm *IrohSwarm) handleIrohMessage(ctx context.Context, item iroh_streamp
 	}
 	switch message := rawMessage.(type) {
 	case SwarmOriginInfo:
-		err = swarm.checkOrigins(ctx, message.Streamer, message.NodeID)
+		err = swarm.checkOrigins(ctx, message.Streamer, message.NodeID, "")
 		if err != nil {
 			return fmt.Errorf("could not check origins: %w", err)
 		}
@@ -327,19 +327,15 @@ func (swarm *IrohSwarm) handleOriginMessage(ctx context.Context, view *streampla
 	if err != nil {
 		return fmt.Errorf("could not get node id from ticket: %w", err)
 	}
-	err = swarm.Node.AddTickets([]string{*origin.IrohTicket})
-	if err != nil {
-		return fmt.Errorf("could not add tickets: %w", err)
-	}
 	pubKeyStr := pubKey.String()
-	err = swarm.checkOrigins(ctx, origin.Streamer, pubKeyStr)
+	err = swarm.checkOrigins(ctx, origin.Streamer, pubKeyStr, *origin.IrohTicket)
 	if err != nil {
 		return fmt.Errorf("could not check origin: %w", err)
 	}
 	return nil
 }
 
-func (swarm *IrohSwarm) checkOrigins(ctx context.Context, streamer string, nodeID string) error {
+func (swarm *IrohSwarm) checkOrigins(ctx context.Context, streamer string, nodeID string, ticket string) error {
 	ctx = log.WithLogValues(ctx, "streamer", streamer, "nodeID", nodeID, "func", "checkOrigins")
 	err := swarm.cli.StreamIsAllowed(streamer)
 	if err != nil {
@@ -373,17 +369,32 @@ func (swarm *IrohSwarm) checkOrigins(ctx context.Context, streamer string, nodeI
 		// oh, i have this stream. cool. do nothing.
 		return nil
 	}
-	log.Log(ctx, "Subscribing to stream start", "new_node", nodeID, "streamer", streamer)
-	pubKey, err := iroh_streamplace.PublicKeyFromString(nodeID)
-	if err != nil {
-		log.Error(ctx, "could not create public key", "error", err)
-		return err
-	}
-	err = swarm.Node.Subscribe(streamer, pubKey)
-	log.Log(ctx, "Subscribing to stream done", "new_node", nodeID, "streamer", streamer, "pubKey", pubKey, "error", err)
-	if err != nil {
-		log.Error(ctx, "could not subscribe to key", "error", err)
-		return err
+
+	if ticket != "" {
+		// We have a ticket, use the atomic SubscribeWithTicket operation
+		log.Log(ctx, "Subscribing to stream with ticket", "new_node", nodeID, "streamer", streamer)
+		err = swarm.Node.SubscribeWithTicket(streamer, ticket)
+		if err != nil {
+			log.Error(ctx, "could not subscribe with ticket", "error", err)
+			return err
+		}
+		log.Log(ctx, "Successfully subscribed to stream", "new_node", nodeID, "streamer", streamer)
+	} else {
+		// We only have nodeID (from SwarmOriginInfo), fall back to old method
+		log.Log(ctx, "Subscribing to stream with nodeID only", "new_node", nodeID, "streamer", streamer)
+		pubKey, err := iroh_streamplace.PublicKeyFromString(nodeID)
+		if err != nil {
+			log.Error(ctx, "could not create public key", "error", err)
+			return err
+		}
+
+		// Try to subscribe directly - the peer should already be discoverable via gossip
+		err = swarm.Node.Subscribe(streamer, pubKey)
+		if err != nil {
+			log.Error(ctx, "could not subscribe to key", "error", err)
+			return err
+		}
+		log.Log(ctx, "Successfully subscribed to stream", "new_node", nodeID, "streamer", streamer)
 	}
 	swarm.activeSubs[streamer] = &SwarmOriginInfo{
 		Type:     "place.stream.swarm.originInfo",

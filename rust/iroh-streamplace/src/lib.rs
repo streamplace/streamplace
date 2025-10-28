@@ -124,6 +124,13 @@ mod api {
         pub peers: Vec<NodeAddr>,
     }
 
+    /// Subscribe to a key with a ticket - handles discovery, dialing, and subscription atomically
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct SubscribeWithTicket {
+        pub key: String,
+        pub ticket: NodeAddr,
+    }
+
     #[derive(Debug, Serialize, Deserialize)]
     pub struct GetNodeAddr;
 
@@ -145,6 +152,8 @@ mod api {
         JoinPeers(JoinPeers),
         #[rpc(tx=oneshot::Sender<()>)]
         AddTickets(AddTickets),
+        #[rpc(tx=oneshot::Sender<()>)]
+        SubscribeWithTicket(SubscribeWithTicket),
         #[rpc(tx=oneshot::Sender<NodeAddr>)]
         GetNodeAddr(GetNodeAddr),
         #[rpc(tx=oneshot::Sender<()>)]
@@ -647,6 +656,94 @@ impl Actor {
                 client.inner().join_peers(ids).await.ok();
                 tx.send(()).await.ok();
             }
+            ApiMessage::SubscribeWithTicket(msg) => {
+                trace!(inner = ?msg.inner, "ApiMessage::SubscribeWithTicket");
+                let WithChannels {
+                    tx,
+                    inner: api::SubscribeWithTicket { key, ticket },
+                    ..
+                } = msg;
+
+                // Extract remote node ID from ticket
+                let remote_id = ticket.node_id;
+                let node_id = {
+                    let state = state.lock().await;
+                    state.router.endpoint().node_id()
+                };
+
+                // Don't subscribe to ourselves
+                if remote_id == node_id {
+                    debug!(key = %key, "skipping self-subscription");
+                    tx.send(()).await.ok();
+                    return None;
+                }
+
+                // Add to discovery and join peers atomically
+                {
+                    let state = state.lock().await;
+                    state.sp.add_node_info(ticket.clone());
+                    let client = state.client.clone();
+                    drop(state);
+
+                    // Wait for join to complete before proceeding
+                    if let Err(e) = client.inner().join_peers([remote_id]).await {
+                        error!(remote = %remote_id.fmt_short(), key = %key, error = ?e, "failed to join peer");
+                        tx.send(()).await.ok();
+                        return None;
+                    }
+                }
+
+                debug!(remote = %remote_id.fmt_short(), key = %key, "joined peer, now subscribing with retries");
+
+                // Retry subscribe with backoff to handle connection timing
+                const MAX_RETRIES: usize = 5;
+                let mut attempt = 0;
+                let mut backoff = std::time::Duration::from_millis(200);
+                let mut last_error;
+
+                while attempt < MAX_RETRIES {
+                    attempt += 1;
+
+                    // Get connection and subscribe
+                    let result = {
+                        let mut state = state.lock().await;
+                        let conn = state.connections.get(&remote_id);
+                        conn.rpc
+                            .rpc(rpc::Subscribe {
+                                key: key.clone(),
+                                remote_id: node_id,
+                            })
+                            .await
+                    };
+
+                    match result {
+                        Ok(_) => {
+                            debug!(remote = %remote_id.fmt_short(), key = %key, attempt = attempt, "SubscribeWithTicket succeeded");
+                            state.lock().await.subscriptions.insert(key, remote_id);
+                            break;
+                        }
+                        Err(e) => {
+                            last_error = Some(e);
+                            if attempt >= MAX_RETRIES {
+                                if let Some(ref err) = last_error {
+                                    error!(remote = %remote_id.fmt_short(), key = %key, error = ?err, "SubscribeWithTicket failed after all retries");
+                                }
+                            } else {
+                                if let Some(ref err) = last_error {
+                                    debug!(remote = %remote_id.fmt_short(), key = %key, attempt = attempt, error = ?err, backoff_ms = backoff.as_millis(), "SubscribeWithTicket attempt failed, retrying");
+                                }
+                                tokio::time::sleep(backoff).await;
+                                // Exponential backoff with cap at 2s
+                                if backoff < std::time::Duration::from_secs(2) {
+                                    backoff = std::cmp::min(backoff * 2, std::time::Duration::from_secs(2));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                tx.send(()).await.ok();
+            }
             ApiMessage::GetNodeAddr(msg) => {
                 trace!(inner = ?msg.inner, "ApiMessage::GetNodeAddr");
                 let WithChannels { tx, .. } = msg;
@@ -885,6 +982,21 @@ impl Node {
             .collect::<Vec<_>>();
         self.api
             .rpc(api::AddTickets { peers: addrs })
+            .await
+            .map_err(|e| JoinPeersError::Irpc {
+                message: e.to_string(),
+            })
+    }
+
+    /// Subscribe to a stream with a ticket - handles discovery, dialing, and subscription atomically
+    pub async fn subscribe_with_ticket(&self, key: String, ticket: String) -> Result<(), JoinPeersError> {
+        let node_ticket = NodeTicket::from_str(&ticket)
+            .map_err(|e| JoinPeersError::Ticket {
+                message: e.to_string(),
+            })?;
+        let addr = node_ticket.node_addr().clone();
+        self.api
+            .rpc(api::SubscribeWithTicket { key, ticket: addr })
             .await
             .map_err(|e| JoinPeersError::Irpc {
                 message: e.to_string(),

@@ -613,6 +613,11 @@ uint64_t uniffi_iroh_streamplace_fn_method_node_shutdown(void* ptr
 uint64_t uniffi_iroh_streamplace_fn_method_node_subscribe(void* ptr, RustBuffer key, void* remote_id
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_NODE_SUBSCRIBE_WITH_TICKET
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_NODE_SUBSCRIBE_WITH_TICKET
+uint64_t uniffi_iroh_streamplace_fn_method_node_subscribe_with_ticket(void* ptr, RustBuffer key, RustBuffer ticket
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_NODE_TICKET
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_NODE_TICKET
 uint64_t uniffi_iroh_streamplace_fn_method_node_ticket(void* ptr
@@ -1209,6 +1214,12 @@ uint16_t uniffi_iroh_streamplace_checksum_method_node_shutdown(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_NODE_SUBSCRIBE
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_NODE_SUBSCRIBE
 uint16_t uniffi_iroh_streamplace_checksum_method_node_subscribe(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_NODE_SUBSCRIBE_WITH_TICKET
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_NODE_SUBSCRIBE_WITH_TICKET
+uint16_t uniffi_iroh_streamplace_checksum_method_node_subscribe_with_ticket(void
     
 );
 #endif

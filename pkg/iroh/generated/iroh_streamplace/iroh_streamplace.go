@@ -606,6 +606,15 @@ func uniffiCheckChecksums() {
 	}
 	{
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_node_subscribe_with_ticket()
+		})
+		if checksum != 58552 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_node_subscribe_with_ticket: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_iroh_streamplace_checksum_method_node_ticket()
 		})
 		if checksum != 37020 {
@@ -1675,6 +1684,8 @@ type NodeInterface interface {
 	Shutdown() error
 	// Subscribe to updates for a given stream from a remote node.
 	Subscribe(key string, remoteId *PublicKey) error
+	// Subscribe to a stream with a ticket - handles discovery, dialing, and subscription atomically
+	SubscribeWithTicket(key string, ticket string) error
 	// Get this node's ticket.
 	Ticket() (string, error)
 	// Unsubscribe from updates for a given stream from a remote node.
@@ -1976,6 +1987,38 @@ func (_self *Node) Subscribe(key string, remoteId *PublicKey) error {
 		func(_ struct{}) struct{} { return struct{}{} },
 		C.uniffi_iroh_streamplace_fn_method_node_subscribe(
 			_pointer, FfiConverterStringINSTANCE.Lower(key), FfiConverterPublicKeyINSTANCE.Lower(remoteId)),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_void(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_void(handle)
+		},
+	)
+
+	if err == nil {
+		return nil
+	}
+
+	return err
+}
+
+// Subscribe to a stream with a ticket - handles discovery, dialing, and subscription atomically
+func (_self *Node) SubscribeWithTicket(key string, ticket string) error {
+	_pointer := _self.ffiObject.incrementPointer("*Node")
+	defer _self.ffiObject.decrementPointer()
+	_, err := uniffiRustCallAsync[JoinPeersError](
+		FfiConverterJoinPeersErrorINSTANCE,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) struct{} {
+			C.ffi_iroh_streamplace_rust_future_complete_void(handle, status)
+			return struct{}{}
+		},
+		// liftFn
+		func(_ struct{}) struct{} { return struct{}{} },
+		C.uniffi_iroh_streamplace_fn_method_node_subscribe_with_ticket(
+			_pointer, FfiConverterStringINSTANCE.Lower(key), FfiConverterStringINSTANCE.Lower(ticket)),
 		// pollFn
 		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
 			C.ffi_iroh_streamplace_rust_future_poll_void(handle, continuation, data)

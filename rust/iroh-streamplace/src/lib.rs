@@ -377,13 +377,21 @@ impl Actor {
                     let Some(msg) = msg else {
                         break;
                     };
-                    let state = self.state.clone();
-                    let shutdown = tokio::spawn(async move {
-                        Self::handle_api(state, msg).instrument(trace_span!("api")).await
-                    }).await.ok().flatten();
-                    if let Some(shutdown) = shutdown {
-                        shutdown.send(()).await.ok();
+                    // check if it's a shutdown message before spawning
+                    if matches!(msg, ApiMessage::Shutdown(_)) {
+                        let state = self.state.clone();
+                        let shutdown = tokio::spawn(async move {
+                            Self::handle_api(state, msg).instrument(trace_span!("api")).await
+                        }).await.ok().flatten();
+                        if let Some(shutdown) = shutdown {
+                            shutdown.send(()).await.ok();
+                        }
                         break;
+                    } else {
+                        let state = self.state.clone();
+                        tokio::spawn(async move {
+                            Self::handle_api(state, msg).instrument(trace_span!("api")).await;
+                        });
                     }
                 }
                 else => {

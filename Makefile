@@ -254,6 +254,7 @@ static:
 .PHONY: static-test
 static-test:
 	go install github.com/jstemmer/go-junit-report/v2@latest \
+	RUST_LOG=trace \
 	&& PKG_CONFIG_PATH=$(shell realpath $(BUILDDIR)/meson-uninstalled) \
 	bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
@@ -307,6 +308,7 @@ dev-test:
 	go install github.com/jstemmer/go-junit-report/v2@latest \
 	&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
+	RUST_LOG=trace \
 	bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
 .PHONY: dev-test-multinode
@@ -314,6 +316,7 @@ dev-test-multinode:
 		go install github.com/jstemmer/go-junit-report/v2@latest \
 		&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 		LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
+		RUST_LOG=trace \
 		bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/multitest -v | tee /dev/stderr | go-junit-report -out test.xml"
 
 .PHONY: iroh-test

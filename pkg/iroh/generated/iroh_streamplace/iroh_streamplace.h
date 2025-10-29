@@ -738,6 +738,11 @@ uint64_t uniffi_iroh_streamplace_fn_method_writescope_put(void* ptr, RustBuffer 
 RustBuffer uniffi_iroh_streamplace_fn_func_get_manifest_and_cert(RustBuffer data, RustCallStatus *out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_GET_MANIFESTS
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_GET_MANIFESTS
+RustBuffer uniffi_iroh_streamplace_fn_func_get_manifests(RustBuffer data, RustCallStatus *out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_INIT_LOGGING
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_INIT_LOGGING
 void uniffi_iroh_streamplace_fn_func_init_logging(RustCallStatus *out_status
@@ -754,9 +759,19 @@ void uniffi_iroh_streamplace_fn_func_init_logging_with_level(RustBuffer level, R
 void* uniffi_iroh_streamplace_fn_func_node_id_from_ticket(RustBuffer ticket_str, RustCallStatus *out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_RESIGN
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_RESIGN
+RustBuffer uniffi_iroh_streamplace_fn_func_resign(RustBuffer unsigned_seg_label, RustBuffer unsigned_seg_data, RustBuffer signed_concat_data, RustBuffer certs, void* gosigner, RustCallStatus *out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SIGN
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SIGN
 RustBuffer uniffi_iroh_streamplace_fn_func_sign(RustBuffer manifest, RustBuffer data, RustBuffer certs, void* gosigner, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SIGN_WITH_INGREDIENTS
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SIGN_WITH_INGREDIENTS
+RustBuffer uniffi_iroh_streamplace_fn_func_sign_with_ingredients(RustBuffer manifest, RustBuffer data, RustBuffer certs, RustBuffer ingredients, void* gosigner, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SUBSCRIBE_ITEM_DEBUG
@@ -1050,6 +1065,12 @@ uint16_t uniffi_iroh_streamplace_checksum_func_get_manifest_and_cert(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_GET_MANIFESTS
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_GET_MANIFESTS
+uint16_t uniffi_iroh_streamplace_checksum_func_get_manifests(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_INIT_LOGGING
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_INIT_LOGGING
 uint16_t uniffi_iroh_streamplace_checksum_func_init_logging(void
@@ -1068,9 +1089,21 @@ uint16_t uniffi_iroh_streamplace_checksum_func_node_id_from_ticket(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_RESIGN
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_RESIGN
+uint16_t uniffi_iroh_streamplace_checksum_func_resign(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_SIGN
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_SIGN
 uint16_t uniffi_iroh_streamplace_checksum_func_sign(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_SIGN_WITH_INGREDIENTS
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_SIGN_WITH_INGREDIENTS
+uint16_t uniffi_iroh_streamplace_checksum_func_sign_with_ingredients(void
     
 );
 #endif

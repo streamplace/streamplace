@@ -4,19 +4,19 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
-	"stream.place/streamplace/pkg/globalerror"
+	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/log"
 )
 
 // element that takes the input stream, muxes to mp4, and signs the result
-func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) (*gst.Element, error) {
+func SegmentElem(ctx context.Context, cb func(ctx context.Context, buf []byte, now int64) error) (*gst.Element, error) {
 	// elem, err := gst.NewElement("splitmuxsink name=splitter async-finalize=true sink-factory=appsink muxer-factory=matroskamux max-size-bytes=1")
 	elem, err := gst.NewElementWithProperties("splitmuxsink", map[string]any{
 		"name":           "signer",
@@ -55,8 +55,31 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		}
 	}()
 
+	// we didn't need faststart but i'm leaving this commented here in case
+	// you want to change any other muxer properties in the future
+
+	_, err = elem.Connect("muxer-added", func(split, muxEle *gst.Element) {
+		err := muxEle.SetProperty("presentation-time", false)
+		if err != nil {
+			panic("error setting interleave-bytes to 4000: " + err.Error())
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect muxer-added handler: %w", err)
+	}
+
+	// channel to make sure data is emitted in order
+	var ch chan struct{}
+
 	_, err = elem.Connect("sink-added", func(split, sinkEle *gst.Element) {
+		previousSegCh := ch
+		mySegCh := make(chan struct{}, 1)
+		ch = mySegCh
 		buf := &bytes.Buffer{}
+		err := sinkEle.SetProperty("sync", false)
+		if err != nil {
+			panic("error setting sync to false: " + err.Error())
+		}
 		appsink := app.SinkFromElement(sinkEle)
 		if appsink == nil {
 			panic("appsink should not be nil")
@@ -65,37 +88,24 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		appsink.SetCallbacks(&app.SinkCallbacks{
 			NewSampleFunc: WriterNewSample(ctx, buf),
 			EOSFunc: func(sink *app.Sink) {
-				ctx, span := otel.Tracer("signer").Start(ctx, "SegmentAndSignElem", trace.WithAttributes(
-					attribute.String("streamer", ms.Streamer()),
-				))
-				defer span.End()
-				resetTimer <- struct{}{}
+				// ctx, span := otel.Tracer("signer").Start(ctx, "SegmentAndSignElem", trace.WithAttributes(
+				// 	attribute.String("streamer", ms.Streamer()),
+				// ))
+				// defer span.End()
 				now := time.Now().UnixMilli()
+				resetTimer <- struct{}{}
 				bs := buf.Bytes()
-				if mm.cli.SmearAudio {
-					smearedBuf := &bytes.Buffer{}
-					err := SmearAudioTimestamps(ctx, bytes.NewReader(buf.Bytes()), smearedBuf)
-					if err != nil {
-						log.Error(ctx, "error smearing audio timestamps", "error", err)
-						return
-					}
-					bs = smearedBuf.Bytes()
+
+				if previousSegCh != nil {
+					<-previousSegCh
 				}
-				bs, err := ms.SignMP4(ctx, bytes.NewReader(bs), now)
+				err := cb(ctx, bs, now)
 				if err != nil {
 					log.Error(ctx, "error signing segment", "error", err)
 					return
 				}
+				close(mySegCh)
 
-				err = mm.ValidateMP4(ctx, bytes.NewReader(bs), true)
-				if err != nil {
-					log.Error(ctx, "error validating segment", "error", err)
-					globalerror.GlobalError(err)
-					// We don't want to stop the pipeline here because we want to keep the stream
-					// alive. Lots of weird invalid data coming in from WebRTC connections on
-					// phones. Better we drop one weird segment than force the stream to restart
-					return
-				}
 			},
 		})
 	})
@@ -104,4 +114,116 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 	}
 
 	return elem, nil
+}
+
+func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) (*gst.Element, error) {
+	return SegmentElem(ctx, func(ctx context.Context, bs []byte, now int64) error {
+		if mm.cli.SmearAudio {
+			smearedBuf := &bytes.Buffer{}
+			err := SmearAudioTimestamps(ctx, bytes.NewReader(bs), smearedBuf)
+			if err != nil {
+				return fmt.Errorf("error smearing audio timestamps: %w", err)
+			}
+			bs = smearedBuf.Bytes()
+		}
+		signedBs, err := ms.SignMP4(ctx, bytes.NewReader(bs), now)
+		if err != nil {
+			return err
+		}
+		return mm.ValidateMP4(ctx, bytes.NewReader(signedBs), true)
+	})
+}
+
+func SegmentFile(ctx context.Context, input string, outDir string) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
+	pipelineSlice := []string{
+		"filesrc name=filesrc ! qtdemux name=demux",
+		"demux. ! queue ! h264parse ! rtph264pay ! rtph264depay ! h264parse name=videoparse",
+		"demux. ! queue ! opusparse name=audioparse",
+	}
+	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
+	if err != nil {
+		return fmt.Errorf("error creating MKVIngest pipeline: %w", err)
+	}
+
+	srcele, err := pipeline.GetElementByName("filesrc")
+	if err != nil {
+		return err
+	}
+	if err := srcele.Set("location", input); err != nil {
+		return err
+	}
+
+	videoParseEle, err := pipeline.GetElementByName("videoparse")
+	if err != nil {
+		return err
+	}
+
+	var segCount atomic.Int64
+
+	segmenter, err := SegmentElem(ctx, func(ctx context.Context, buf []byte, now int64) error {
+		seg := segCount.Load()
+		segCount.Add(1)
+		g.Go(func() error {
+			fpath := fmt.Sprintf("%s/%06d.mp4", outDir, seg)
+			log.Log(ctx, "writing segment", "path", fpath)
+			fd, err := os.Create(fpath)
+			if err != nil {
+				return err
+			}
+			defer fd.Close()
+			_, err = fd.Write(buf)
+			return err
+		})
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	err = pipeline.Add(segmenter)
+	if err != nil {
+		return err
+	}
+	err = videoParseEle.Link(segmenter)
+	if err != nil {
+		return err
+	}
+	audioparse, err := pipeline.GetElementByName("audioparse")
+	if err != nil {
+		return err
+	}
+	err = audioparse.Link(segmenter)
+	if err != nil {
+		return err
+	}
+
+	busErr := make(chan error)
+	go func() {
+		err := HandleBusMessages(ctx, pipeline)
+		cancel()
+		busErr <- err
+	}()
+
+	err = pipeline.SetState(gst.StatePlaying)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err := pipeline.SetState(gst.StateNull)
+		if err != nil {
+			log.Error(ctx, "error setting pipeline to null state", "error", err)
+		}
+	}()
+
+	<-busErr
+	err = g.Wait()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

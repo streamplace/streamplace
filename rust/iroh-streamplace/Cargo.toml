@@ -25,7 +25,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 postcard = { version = "1.1.3", features = ["use-std"] }
 irpc = "0.9.0"
 irpc-iroh = "0.9.0"
-c2pa = { git = "https://github.com/hyphacoop/c2pa-rs.git", rev = "1b84d40219b27340a30fc309250e774e8a7b7761", features = [
+c2pa = { git = "https://github.com/streamplace/c2pa-rs.git", rev = "544825abfaf9e588813e18dba70c8d5afd039d46", features = [
   "openssl",
   "file_io",
 ] }

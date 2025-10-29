@@ -29,7 +29,10 @@ type MediaSigner interface {
 	Pub() aqpub.Pub
 	Streamer() string
 	DID() string
+	SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients [][]byte) ([]byte, error)
 }
+
+var DoReplay = false
 
 type MediaSignerLocal struct {
 	StreamerName     string
@@ -40,6 +43,7 @@ type MediaSignerLocal struct {
 	did              string
 	manifestBuilder  *ManifestBuilder
 	PrebuiltManifest []byte // Optional: use this manifest instead of building one
+	sigs             [][]byte
 }
 
 func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]byte, error) {
@@ -170,6 +174,80 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 	spmetrics.SigningDuration.WithLabelValues(ms.StreamerName).Observe(float64(time.Since(startTime).Milliseconds()))
 	return bs, nil
 }
+
+func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients [][]byte) ([]byte, error) {
+	startTime := time.Now()
+	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4")
+	defer span.End()
+	for _, ingredient := range ingredients {
+		_, err := iroh_streamplace.GetManifestAndCert(ingredient)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// title := "livestream"
+	mani := obj{
+		"title": "Livestream Clip",
+		// "assertions": []obj{
+		// 	{
+		// 		"label": "c2pa.actions",
+		// 		"data": obj{
+		// 			"actions": []obj{
+		// 				{"action": "c2pa.created"},
+		// 				{"action": "c2pa.published"},
+		// 			},
+		// 		},
+		// 	},
+		// 	{
+		// 		"label": StreamplaceMetadata,
+		// 		"data": obj{
+		// 			"@context": obj{
+		// 				"dc": "http://purl.org/dc/elements/1.1/",
+		// 			},
+		// 			"dc:creator": ms.StreamerName,
+		// 			"dc:title":   []string{title},
+		// 			"dc:date":    []string{aqtime.FromMillis(start).String()},
+		// 		},
+		// 	},
+		// },
+	}
+	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_MarshalManifest")
+	manifestBs, err := json.Marshal(mani)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal manifest: %w", err)
+	}
+	var manifest c2patypes.ManifestDefinition
+	err = json.Unmarshal(manifestBs, &manifest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal manifest: %w", err)
+	}
+	span.End()
+
+	bs, err := io.ReadAll(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read input: %w", err)
+	}
+	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_Sign")
+	rustCallbackSigner := &RustCallbackSigner{
+		Signer: ms.Signer,
+	}
+	bs, err = iroh_streamplace.SignWithIngredients(string(manifestBs), bs, ms.Cert, ingredients, rustCallbackSigner)
+	if err != nil {
+		return nil, err
+	}
+	span.End()
+
+	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_OutputBytes")
+	defer ctx.Done()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get output bytes: %w", err)
+	}
+	span.End()
+	spmetrics.SigningDuration.WithLabelValues(ms.StreamerName).Observe(float64(time.Since(startTime).Milliseconds()))
+	return bs, nil
+}
+
+// don't call externally! this is used as a callback for the rust library
 
 func (ms *MediaSignerLocal) Pub() aqpub.Pub {
 	return ms.AQPub

@@ -363,6 +363,15 @@ func uniffiCheckChecksums() {
 	}
 	{
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_func_get_manifests()
+		})
+		if checksum != 17 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_func_get_manifests: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_iroh_streamplace_checksum_func_init_logging()
 		})
 		if checksum != 40911 {
@@ -390,11 +399,29 @@ func uniffiCheckChecksums() {
 	}
 	{
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_func_resign()
+		})
+		if checksum != 33363 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_func_resign: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_iroh_streamplace_checksum_func_sign()
 		})
 		if checksum != 23786 {
 			// If this happens try cleaning and rebuilding your project
 			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_func_sign: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_func_sign_with_ingredients()
+		})
+		if checksum != 63680 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_func_sign_with_ingredients: UniFFI API checksum mismatch")
 		}
 	}
 	{
@@ -4540,6 +4567,49 @@ func (FfiDestroyerSequenceString) Destroy(sequence []string) {
 	}
 }
 
+type FfiConverterSequenceBytes struct{}
+
+var FfiConverterSequenceBytesINSTANCE = FfiConverterSequenceBytes{}
+
+func (c FfiConverterSequenceBytes) Lift(rb RustBufferI) [][]byte {
+	return LiftFromRustBuffer[[][]byte](c, rb)
+}
+
+func (c FfiConverterSequenceBytes) Read(reader io.Reader) [][]byte {
+	length := readInt32(reader)
+	if length == 0 {
+		return nil
+	}
+	result := make([][]byte, 0, length)
+	for i := int32(0); i < length; i++ {
+		result = append(result, FfiConverterBytesINSTANCE.Read(reader))
+	}
+	return result
+}
+
+func (c FfiConverterSequenceBytes) Lower(value [][]byte) C.RustBuffer {
+	return LowerIntoRustBuffer[[][]byte](c, value)
+}
+
+func (c FfiConverterSequenceBytes) Write(writer io.Writer, value [][]byte) {
+	if len(value) > math.MaxInt32 {
+		panic("[][]byte is too large to fit into Int32")
+	}
+
+	writeInt32(writer, int32(len(value)))
+	for _, item := range value {
+		FfiConverterBytesINSTANCE.Write(writer, item)
+	}
+}
+
+type FfiDestroyerSequenceBytes struct{}
+
+func (FfiDestroyerSequenceBytes) Destroy(sequence [][]byte) {
+	for _, value := range sequence {
+		FfiDestroyerBytes{}.Destroy(value)
+	}
+}
+
 type FfiConverterSequencePublicKey struct{}
 
 var FfiConverterSequencePublicKeyINSTANCE = FfiConverterSequencePublicKey{}
@@ -4703,6 +4773,20 @@ func GetManifestAndCert(data []byte) (string, error) {
 	}
 }
 
+func GetManifests(data []byte) (string, error) {
+	_uniffiRV, _uniffiErr := rustCallWithError[SpError](FfiConverterSpError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
+		return GoRustBuffer{
+			inner: C.uniffi_iroh_streamplace_fn_func_get_manifests(FfiConverterBytesINSTANCE.Lower(data), _uniffiStatus),
+		}
+	})
+	if _uniffiErr != nil {
+		var _uniffiDefaultValue string
+		return _uniffiDefaultValue, _uniffiErr
+	} else {
+		return FfiConverterStringINSTANCE.Lift(_uniffiRV), nil
+	}
+}
+
 // Initialize logging with the default subscriber that respects RUST_LOG environment variable.
 // This function is safe to call multiple times - it will only initialize logging once.
 func InitLogging() {
@@ -4737,10 +4821,38 @@ func NodeIdFromTicket(ticketStr string) (*PublicKey, error) {
 	}
 }
 
+func Resign(unsignedSegLabel string, unsignedSegData []byte, signedConcatData []byte, certs []byte, gosigner GoSigner) ([]byte, error) {
+	_uniffiRV, _uniffiErr := rustCallWithError[SpError](FfiConverterSpError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
+		return GoRustBuffer{
+			inner: C.uniffi_iroh_streamplace_fn_func_resign(FfiConverterStringINSTANCE.Lower(unsignedSegLabel), FfiConverterBytesINSTANCE.Lower(unsignedSegData), FfiConverterBytesINSTANCE.Lower(signedConcatData), FfiConverterBytesINSTANCE.Lower(certs), FfiConverterGoSignerINSTANCE.Lower(gosigner), _uniffiStatus),
+		}
+	})
+	if _uniffiErr != nil {
+		var _uniffiDefaultValue []byte
+		return _uniffiDefaultValue, _uniffiErr
+	} else {
+		return FfiConverterBytesINSTANCE.Lift(_uniffiRV), nil
+	}
+}
+
 func Sign(manifest string, data []byte, certs []byte, gosigner GoSigner) ([]byte, error) {
 	_uniffiRV, _uniffiErr := rustCallWithError[SpError](FfiConverterSpError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
 		return GoRustBuffer{
 			inner: C.uniffi_iroh_streamplace_fn_func_sign(FfiConverterStringINSTANCE.Lower(manifest), FfiConverterBytesINSTANCE.Lower(data), FfiConverterBytesINSTANCE.Lower(certs), FfiConverterGoSignerINSTANCE.Lower(gosigner), _uniffiStatus),
+		}
+	})
+	if _uniffiErr != nil {
+		var _uniffiDefaultValue []byte
+		return _uniffiDefaultValue, _uniffiErr
+	} else {
+		return FfiConverterBytesINSTANCE.Lift(_uniffiRV), nil
+	}
+}
+
+func SignWithIngredients(manifest string, data []byte, certs []byte, ingredients [][]byte, gosigner GoSigner) ([]byte, error) {
+	_uniffiRV, _uniffiErr := rustCallWithError[SpError](FfiConverterSpError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
+		return GoRustBuffer{
+			inner: C.uniffi_iroh_streamplace_fn_func_sign_with_ingredients(FfiConverterStringINSTANCE.Lower(manifest), FfiConverterBytesINSTANCE.Lower(data), FfiConverterBytesINSTANCE.Lower(certs), FfiConverterSequenceBytesINSTANCE.Lower(ingredients), FfiConverterGoSignerINSTANCE.Lower(gosigner), _uniffiStatus),
 		}
 	})
 	if _uniffiErr != nil {

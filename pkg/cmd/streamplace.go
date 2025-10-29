@@ -141,6 +141,20 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return Clip(ctx, fs.Args(), *out)
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "segment" {
+		cli := config.CLI{Build: build}
+		fs := cli.NewFlagSet("streamplace clip")
+		out := fs.String("out-dir", "", "output directory")
+
+		err := cli.Parse(fs, os.Args[2:])
+		if err != nil {
+			return err
+		}
+		ctx := context.Background()
+		ctx = log.WithDebugValue(ctx, cli.Debug)
+		return media.SegmentFile(ctx, fs.Args()[0], *out)
+	}
+
 	if len(os.Args) > 1 && os.Args[1] == "self-test" {
 		err := media.RunSelfTest(context.Background())
 		if err != nil {

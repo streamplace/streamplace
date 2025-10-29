@@ -18,6 +18,7 @@ import (
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 type ManifestAndCert struct {
@@ -132,10 +133,22 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		Metadata: meta,
 		Local:    local,
 	}
+
+	// DEBUG: Log notification publishing details
+	log.Log(ctx, "publishing NewSegmentNotification",
+		"local", local,
+		"repoDID", repoDID,
+		"segmentID", *maniCert.Manifest.Label,
+		"subscriberCount", len(mm.newSegmentSubs))
+
+	// Increment metric to track notifications published
+	spmetrics.NewSegmentNotifications.Inc()
+
 	for _, ch := range mm.newSegmentSubs {
 		go func() {
 			select {
 			case ch <- not:
+				log.Debug(ctx, "successfully sent notification to subscriber", "repoDID", repoDID, "segmentID", *maniCert.Manifest.Label)
 			case <-ctx.Done():
 				return
 			case <-time.After(1 * time.Minute):

@@ -173,6 +173,10 @@ func (mm *MediaManager) NewSegment() <-chan *NewSegmentNotification {
 	mm.newSegmentSubsMutex.Lock()
 	defer mm.newSegmentSubsMutex.Unlock()
 	mm.newSegmentSubs = append(mm.newSegmentSubs, ch)
+	log.Log(context.Background(), "DEBUG: NewSegment subscriber registered",
+		"mmPtr", fmt.Sprintf("%p", mm),
+		"subscriberCount", len(mm.newSegmentSubs),
+		"channelPtr", fmt.Sprintf("%p", ch))
 	return ch
 }
 

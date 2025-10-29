@@ -31,6 +31,11 @@ var SendSegmentCalls = promauto.NewGauge(prometheus.GaugeOpts{
 	Help: "total number of send segment calls currently in flight",
 })
 
+var NewSegmentNotifications = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_new_segment_notifications_total",
+	Help: "total number of new segment notifications published",
+})
+
 var SwarmPutCalls = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_swarm_put_calls",
 	Help: "total number of swarm put calls currently in flight",

@@ -137,20 +137,26 @@ func (swarm *IrohSwarm) Start(ctx context.Context, tickets []string) error {
 	log.Log(ctx, "Node ID:", "node_id", nodeIdStr)
 
 	g, ctx := errgroup.WithContext(ctx)
+	log.Log(ctx, "DEBUG: Starting errgroup goroutines", "nodeID", swarm.NodeID)
 	g.Go(func() error {
+		log.Log(ctx, "DEBUG: Starting startKV goroutine", "nodeID", swarm.NodeID)
 		return swarm.startKV(ctx)
 	})
 	g.Go(func() error {
+		log.Log(ctx, "DEBUG: Starting startSegmentSender goroutine", "nodeID", swarm.NodeID)
 		return swarm.startSegmentSender(ctx)
 	})
 	g.Go(func() error {
+		log.Log(ctx, "DEBUG: Starting shutdown goroutine", "nodeID", swarm.NodeID)
 		<-ctx.Done()
 		return swarm.Node.Shutdown()
 	})
 	g.Go(func() error {
+		log.Log(ctx, "DEBUG: Starting startBusSubscribe goroutine", "nodeID", swarm.NodeID)
 		return swarm.startBusSubscribe(ctx)
 	})
 	g.Go(func() error {
+		log.Log(ctx, "DEBUG: Starting startViewerCountSubscribe goroutine", "nodeID", swarm.NodeID)
 		return swarm.startViewerCountSubscribe(ctx)
 	})
 	return g.Wait()
@@ -406,12 +412,15 @@ func (swarm *IrohSwarm) checkOrigins(ctx context.Context, streamer string, nodeI
 }
 
 func (swarm *IrohSwarm) startSegmentSender(ctx context.Context) error {
+	log.Log(ctx, "DEBUG: startSegmentSender starting", "nodeID", swarm.NodeID)
 	ch := swarm.mm.NewSegment()
+	log.Log(ctx, "DEBUG: startSegmentSender got channel from MediaManager", "nodeID", swarm.NodeID, "mmPtr", fmt.Sprintf("%p", swarm.mm))
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case not := <-ch:
+			log.Log(ctx, "DEBUG: startSegmentSender received notification", "nodeID", swarm.NodeID, "repoDID", not.Segment.RepoDID, "segmentID", not.Segment.ID, "local", not.Local)
 			err := swarm.SendSegment(ctx, not)
 			if err != nil {
 				log.Error(ctx, "could not send segment to swarm", "error", err)
@@ -426,7 +435,9 @@ func (swarm *IrohSwarm) HandleData(pubKey *iroh_streamplace.PublicKey, topic str
 }
 
 func (swarm *IrohSwarm) SendSegment(ctx context.Context, not *media.NewSegmentNotification) error {
+	log.Log(ctx, "DEBUG: SendSegment ENTRY", "nodeID", swarm.NodeID, "repoDID", not.Segment.RepoDID, "segmentID", not.Segment.ID, "local", not.Local)
 	if !not.Local {
+		log.Log(ctx, "DEBUG: SendSegment early return - not local", "nodeID", swarm.NodeID, "repoDID", not.Segment.RepoDID, "local", not.Local)
 		return nil
 	}
 	originInfo := SwarmOriginInfo{
@@ -450,11 +461,19 @@ func (swarm *IrohSwarm) SendSegment(ctx context.Context, not *media.NewSegmentNo
 		}
 	}()
 	go func() {
+		log.Log(ctx, "DEBUG: About to increment SendSegmentCalls metric", "nodeID", swarm.NodeID, "repoDID", not.Segment.RepoDID, "segmentID", not.Segment.ID)
 		spmetrics.SendSegmentCalls.Inc()
-		defer spmetrics.SendSegmentCalls.Dec()
+		log.Log(ctx, "DEBUG: SendSegmentCalls metric incremented", "nodeID", swarm.NodeID, "repoDID", not.Segment.RepoDID, "segmentID", not.Segment.ID)
+		defer func() {
+			spmetrics.SendSegmentCalls.Dec()
+			log.Log(ctx, "DEBUG: SendSegmentCalls metric decremented", "nodeID", swarm.NodeID, "repoDID", not.Segment.RepoDID, "segmentID", not.Segment.ID)
+		}()
+		log.Log(ctx, "DEBUG: Calling Rust Node.SendSegment", "nodeID", swarm.NodeID, "repoDID", not.Segment.RepoDID, "segmentID", not.Segment.ID, "dataLen", len(not.Data))
 		err = swarm.Node.SendSegment(not.Segment.RepoDID, not.Data)
 		if err != nil {
 			log.Error(ctx, "could not send segment to swarm", "error", err)
+		} else {
+			log.Log(ctx, "DEBUG: Rust Node.SendSegment completed successfully", "nodeID", swarm.NodeID, "repoDID", not.Segment.RepoDID, "segmentID", not.Segment.ID)
 		}
 	}()
 	return nil

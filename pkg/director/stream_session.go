@@ -462,6 +462,11 @@ func (ss *StreamSession) UpdateBroadcastOrigin(ctx context.Context) error {
 		UpdatedAt:   time.Now().UTC().Format(util.ISO8601),
 		IrohTicket:  &ss.swarm.NodeTicket,
 	}
+	log.Log(ctx, "BROADCAST_ORIGIN: Creating BroadcastOrigin record",
+		"streamerDID", ss.repoDID,
+		"serverDID", origin.Server,
+		"irohTicket", *origin.IrohTicket,
+		"origin", origin)
 
 	client, err := ss.GetClientByDID(ss.repoDID)
 	if err != nil {

@@ -212,6 +212,11 @@ func (swarm *IrohSwarm) handleIrohMessage(ctx context.Context, item iroh_streamp
 	}
 	switch message := rawMessage.(type) {
 	case SwarmOriginInfo:
+		log.Log(ctx, "SUBSCRIPTION_DISCOVERY: Received SwarmOriginInfo",
+			"receivedStreamerDID", message.Streamer,
+			"receivedNodeID", message.NodeID,
+			"myNodeID", swarm.NodeID,
+			"message", message)
 		err = swarm.checkOrigins(ctx, message.Streamer, message.NodeID, "")
 		if err != nil {
 			return fmt.Errorf("could not check origins: %w", err)
@@ -343,6 +348,11 @@ func (swarm *IrohSwarm) handleOriginMessage(ctx context.Context, view *streampla
 
 func (swarm *IrohSwarm) checkOrigins(ctx context.Context, streamer string, nodeID string, ticket string) error {
 	ctx = log.WithLogValues(ctx, "streamer", streamer, "nodeID", nodeID, "func", "checkOrigins")
+	log.Log(ctx, "SUBSCRIPTION_LOGIC: checkOrigins called",
+		"targetStreamerDID", streamer,
+		"targetNodeID", nodeID,
+		"myNodeID", swarm.NodeID,
+		"ticket", ticket)
 	err := swarm.cli.StreamIsAllowed(streamer)
 	if err != nil {
 		return fmt.Errorf("user %s is not allowlisted on this node: %w", streamer, err)
@@ -368,26 +378,40 @@ func (swarm *IrohSwarm) checkOrigins(ctx context.Context, streamer string, nodeI
 			log.Error(ctx, "could not unsubscribe from key", "error", err)
 			return err
 		}
+		// Remove old subscription metric
+		spmetrics.ActiveStreamSubscriptions.DeleteLabelValues(streamer, swarm.NodeID)
 		delete(swarm.activeSubs, streamer)
 	}
 	if nodeID == swarm.NodeID {
-		log.Debug(ctx, "I already have this stream", "streamer", streamer)
+		log.Log(ctx, "SUBSCRIPTION_LOGIC: I already have this stream (skipping)",
+			"streamerDID", streamer,
+			"myNodeID", swarm.NodeID)
 		// oh, i have this stream. cool. do nothing.
 		return nil
 	}
 
 	if ticket != "" {
 		// We have a ticket, use the atomic SubscribeWithTicket operation
-		log.Log(ctx, "Subscribing to stream with ticket", "new_node", nodeID, "streamer", streamer)
+		log.Log(ctx, "SUBSCRIPTION_LOGIC: Subscribing to stream with ticket",
+			"targetNodeID", nodeID,
+			"targetStreamerDID", streamer,
+			"myNodeID", swarm.NodeID,
+			"ticket", ticket)
 		err = swarm.Node.SubscribeWithTicket(streamer, ticket)
 		if err != nil {
 			log.Error(ctx, "could not subscribe with ticket", "error", err)
 			return err
 		}
-		log.Log(ctx, "Successfully subscribed to stream", "new_node", nodeID, "streamer", streamer)
+		log.Log(ctx, "SUBSCRIPTION_LOGIC: Successfully subscribed to stream with ticket",
+			"targetNodeID", nodeID,
+			"targetStreamerDID", streamer,
+			"myNodeID", swarm.NodeID)
 	} else {
 		// We only have nodeID (from SwarmOriginInfo), fall back to old method
-		log.Log(ctx, "Subscribing to stream with nodeID only", "new_node", nodeID, "streamer", streamer)
+		log.Log(ctx, "SUBSCRIPTION_LOGIC: Subscribing to stream with nodeID only",
+			"targetNodeID", nodeID,
+			"targetStreamerDID", streamer,
+			"myNodeID", swarm.NodeID)
 		pubKey, err := iroh_streamplace.PublicKeyFromString(nodeID)
 		if err != nil {
 			log.Error(ctx, "could not create public key", "error", err)
@@ -400,14 +424,26 @@ func (swarm *IrohSwarm) checkOrigins(ctx context.Context, streamer string, nodeI
 			log.Error(ctx, "could not subscribe to key", "error", err)
 			return err
 		}
-		log.Log(ctx, "Successfully subscribed to stream", "new_node", nodeID, "streamer", streamer)
+		log.Log(ctx, "SUBSCRIPTION_LOGIC: Successfully subscribed to stream with nodeID",
+			"targetNodeID", nodeID,
+			"targetStreamerDID", streamer,
+			"myNodeID", swarm.NodeID)
 	}
-	swarm.activeSubs[streamer] = &SwarmOriginInfo{
+	newActiveSub := &SwarmOriginInfo{
 		Type:     "place.stream.swarm.originInfo",
 		NodeID:   nodeID,
 		Time:     time.Now().Format(util.ISO8601),
 		Streamer: streamer,
 	}
+	swarm.activeSubs[streamer] = newActiveSub
+	// Update subscription metric
+	spmetrics.ActiveStreamSubscriptions.WithLabelValues(streamer, swarm.NodeID).Set(1)
+	log.Log(ctx, "SUBSCRIPTION_LOGIC: Added to activeSubs",
+		"streamerDID", streamer,
+		"targetNodeID", nodeID,
+		"myNodeID", swarm.NodeID,
+		"activeSub", newActiveSub,
+		"totalActiveSubs", len(swarm.activeSubs))
 	return nil
 }
 
@@ -446,12 +482,23 @@ func (swarm *IrohSwarm) SendSegment(ctx context.Context, not *media.NewSegmentNo
 		Time:     not.Segment.StartTime.Format(util.ISO8601),
 		Streamer: not.Segment.RepoDID,
 	}
+	log.Log(ctx, "ORIGIN_ADVERTISEMENT: Creating origin info",
+		"nodeID", swarm.NodeID,
+		"streamerDID", not.Segment.RepoDID,
+		"segmentID", not.Segment.ID,
+		"originInfo", originInfo)
 	bs, err := json.Marshal(originInfo)
 	if err != nil {
 		log.Error(ctx, "could not marshal origin info", "error", err)
 		return err
 	}
 	keyBs := []byte(fmt.Sprintf("origin::%s", not.Segment.RepoDID))
+	log.Log(ctx, "ORIGIN_ADVERTISEMENT: Writing to KV store",
+		"key", string(keyBs),
+		"streamerDID", not.Segment.RepoDID,
+		"nodeID", swarm.NodeID)
+	// Update origin advertisement metric
+	spmetrics.OriginAdvertisements.WithLabelValues(not.Segment.RepoDID, swarm.NodeID).Set(1)
 	go func() {
 		spmetrics.SwarmPutCalls.WithLabelValues(not.Segment.RepoDID).Inc()
 		defer spmetrics.SwarmPutCalls.WithLabelValues(not.Segment.RepoDID).Dec()

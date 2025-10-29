@@ -309,6 +309,13 @@ dev-test:
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
 	bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
+.PHONY: dev-test-multinode
+dev-test-multinode:
+		go install github.com/jstemmer/go-junit-report/v2@latest \
+		&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
+		LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
+		bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/multitest -v | tee /dev/stderr | go-junit-report -out test.xml"
+
 .PHONY: iroh-test
 iroh-test:
 	$(MAKE) dev-rust

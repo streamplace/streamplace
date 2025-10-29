@@ -88,6 +88,16 @@ var SegmentSubscriptionsOpen = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "number of open new segment subscriptions",
 }, []string{"streamer", "rendition"})
 
+var ActiveStreamSubscriptions = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_active_stream_subscriptions",
+	Help: "number of active P2P stream subscriptions by target streamer DID",
+}, []string{"streamer", "node"})
+
+var OriginAdvertisements = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_origin_advertisements",
+	Help: "number of active origin advertisements by streamer DID",
+}, []string{"streamer", "node"})
+
 func ViewerInc(user string, protocol string) {
 	go func() {
 		viewersLock.Lock()

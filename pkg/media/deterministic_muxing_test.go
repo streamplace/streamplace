@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/test/remote"
 )
 
@@ -46,6 +47,7 @@ func splitAndCombineTest(t *testing.T, tempDir string, inputDir string) string {
 		outFilePath := filepath.Join(tempDir, fmt.Sprintf("combined_%d.mp4", i))
 		combinedFiles = append(combinedFiles, outFilePath)
 		outFile, err := os.Create(outFilePath)
+		log.Log(context.Background(), "creating combined file", "file", outFilePath)
 		require.NoError(t, err)
 		defer outFile.Close()
 		err = Clip(context.Background(), firstReport.Segs, outFile)

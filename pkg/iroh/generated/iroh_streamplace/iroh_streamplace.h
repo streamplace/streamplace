@@ -761,7 +761,7 @@ void* uniffi_iroh_streamplace_fn_func_node_id_from_ticket(RustBuffer ticket_str,
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_RESIGN
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_RESIGN
-RustBuffer uniffi_iroh_streamplace_fn_func_resign(RustBuffer unsigned_seg_label, RustBuffer unsigned_seg_data, RustBuffer signed_concat_data, RustBuffer certs, RustCallStatus *out_status
+RustBuffer uniffi_iroh_streamplace_fn_func_resign(RustBuffer unsigned_seg_data, RustBuffer signed_concat_data, RustBuffer manifest_list, RustBuffer certs, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SIGN

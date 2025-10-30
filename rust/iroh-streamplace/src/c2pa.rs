@@ -156,11 +156,11 @@ pub fn get_manifests(data: Vec<u8>) -> Result<String, SPError> {
 
 #[uniffi::export]
 pub fn resign(
-    unsigned_seg_label: String,
-    unsigned_seg_data: Vec<u8>,
+    unsigned_seg_data: Vec<Vec<u8>>,
     signed_concat_data: Vec<u8>,
+    manifest_list: Vec<String>,
     certs: Vec<u8>,
-) -> Result<Vec<u8>, SPError> {
+) -> Result<Vec<Vec<u8>>, SPError> {
     let mut validation_log = StatusTracker::default();
 
     let combined_store = Store::from_stream(
@@ -171,43 +171,54 @@ pub fn resign(
     )
     .map_err(|e| SPError::C2paError(format!("from_stream failed: {}", e)))?;
 
-    let seg_claim = combined_store
-        .get_claim(unsigned_seg_label.as_str())
-        .ok_or(SPError::C2paError(format!(
-            "Segment claim not found: {}",
-            unsigned_seg_label
-        )))?;
+    // let seg_claim = combined_store
+    //     .get_claim(unsigned_seg_label.as_str())
+    //     .ok_or(SPError::C2paError(format!(
+    //         "Segment claim not found: {}",
+    //         unsigned_seg_label
+    //     )))?;
+    let mut outputs = Vec::<Vec<u8>>::new();
 
-    let signature_val = seg_claim.signature_val().clone();
+    for (i, manifest_id) in manifest_list.iter().enumerate() {
+        let mut output = Vec::<u8>::new();
+        let seg_claim =
+            combined_store
+                .get_claim(manifest_id.as_str())
+                .ok_or(SPError::C2paError(format!(
+                    "Segment claim not found: {}",
+                    manifest_id
+                )))?;
+        let signature_val = seg_claim.signature_val().clone();
 
-    let callback_signer = CallbackSigner::new(
-        move |_context: *const (), _data: &[u8]| Ok(signature_val.clone()),
-        c2pa::SigningAlg::Es256K,
-        certs,
-    );
+        let callback_signer = CallbackSigner::new(
+            move |_context: *const (), _data: &[u8]| Ok(signature_val.clone()),
+            c2pa::SigningAlg::Es256K,
+            certs.clone(),
+        );
 
-    let mut seg_store = Store::new();
-    let _provenance = seg_store
-        .commit_claim(seg_claim.clone())
-        .map_err(|e| SPError::C2paError(format!("commit_claim failed: {}", e)))?;
+        let mut seg_store = Store::new();
+        let _provenance = seg_store
+            .commit_claim(seg_claim.clone())
+            .map_err(|e| SPError::C2paError(format!("commit_claim failed: {}", e)))?;
 
-    let mut output = Vec::new();
-    let mut output_cursor = Cursor::new(&mut output);
-    let mut input_cursor = Cursor::new(unsigned_seg_data);
+        let mut output_cursor = Cursor::new(&mut output);
+        let mut input_cursor = Cursor::new(unsigned_seg_data[i].clone());
 
-    let jumbf_bytes = seg_store
-        .to_jumbf(&callback_signer)
-        .map_err(|e| SPError::C2paError(format!("to_jumbf failed: {}", e)))?;
+        let jumbf_bytes = seg_store
+            .to_jumbf(&callback_signer)
+            .map_err(|e| SPError::C2paError(format!("to_jumbf failed: {}", e)))?;
 
-    jumbf_io::save_jumbf_to_stream(
-        "video/mp4",
-        &mut input_cursor,
-        &mut output_cursor,
-        &jumbf_bytes,
-    )
-    .map_err(|e| SPError::C2paError(format!("save_jumbf_to_stream failed: {}", e)))?;
+        jumbf_io::save_jumbf_to_stream(
+            "video/mp4",
+            &mut input_cursor,
+            &mut output_cursor,
+            &jumbf_bytes,
+        )
+        .map_err(|e| SPError::C2paError(format!("save_jumbf_to_stream failed: {}", e)))?;
+        outputs.push(output);
+    }
 
-    Ok(output)
+    Ok(outputs)
 }
 
 #[uniffi::export]

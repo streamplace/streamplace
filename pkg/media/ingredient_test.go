@@ -91,20 +91,6 @@ func TestIngredientConcat(t *testing.T) {
 		splitReport, err := makeSegDirReport(t, splitSegDir)
 		require.NoError(t, err)
 		require.NoError(t, splitReport.CheckEquals(firstReport), "split segments are not equal to original segments")
-		DoReplay = true
-		// splitSignedSegDir := makeTestSubdir(t, tempDir, "split-signed-segments")
-		// for i, vid := range splitReport.Segs {
-		// 	ts := startTS.Add(time.Duration(i) * time.Second)
-		// 	bs, err := os.ReadFile(vid)
-		// 	require.NoError(t, err)
-		// 	signedBS, err := ms.SignMP4(context.Background(), bytes.NewReader(bs), ts.UnixMilli())
-		// 	require.NoError(t, err)
-		// 	err = os.WriteFile(filepath.Join(splitSignedSegDir, fmt.Sprintf("signed_%06d.mp4", i)), signedBS, 0644)
-		// 	require.NoError(t, err)
-		// }
-		// signedSplitReport, err := makeSegDirReport(t, splitSignedSegDir)
-		// require.NoError(t, err)
-		// require.NoError(t, signedSplitReport.CheckEquals(signedReport), "split signed segments are not equal to signed segments")
 		manifestsStr, err := iroh_streamplace.GetManifests(signedConcatBS)
 		require.NoError(t, err)
 		var manifests ManifestResult
@@ -128,14 +114,21 @@ func TestIngredientConcat(t *testing.T) {
 			m2 := manifestList[j]
 			return m1.SegmentMetadata.StartTime.Time().Before(m2.SegmentMetadata.StartTime.Time())
 		})
-		signedSplitSegDir := makeTestSubdir(t, tempDir, "signed-split-segments")
-		for i, vid := range testVids {
+		manifestStrs := []string{}
+		for _, manifest := range manifestList {
+			manifestStrs = append(manifestStrs, *manifest.Manifest.Label)
+		}
+		unsignedSegs := [][]byte{}
+		for _, vid := range testVids {
 			bs, err := os.ReadFile(vid)
 			require.NoError(t, err)
-			fmt.Println("resigning", *manifestList[i].Manifest.Label)
-			signedBS, err := iroh_streamplace.Resign(*manifestList[i].Manifest.Label, bs, signedConcatBS, ms.Cert)
-			require.NoError(t, err)
-			err = os.WriteFile(filepath.Join(signedSplitSegDir, fmt.Sprintf("signed_%06d.mp4", i)), signedBS, 0644)
+			unsignedSegs = append(unsignedSegs, bs)
+		}
+		resignedSegs, err := iroh_streamplace.Resign(unsignedSegs, signedConcatBS, manifestStrs, ms.Cert)
+		require.NoError(t, err)
+		signedSplitSegDir := makeTestSubdir(t, tempDir, "signed-split-segments")
+		for i, resignedSeg := range resignedSegs {
+			err = os.WriteFile(filepath.Join(signedSplitSegDir, fmt.Sprintf("signed_%06d.mp4", i)), resignedSeg, 0644)
 			require.NoError(t, err)
 		}
 		signedSplitReport, err := makeSegDirReport(t, signedSplitSegDir)

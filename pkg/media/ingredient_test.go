@@ -38,9 +38,8 @@ func TestIngredientConcat(t *testing.T) {
 		require.NoError(t, err)
 		// defer os.RemoveAll(tempDir)
 		segments := remote.RemoteArchive("14ba49843a56c0510e2b5059123abd2f98a502b1f4c7d706b0ae1066d438468c/BigBuckBunny_1sGOP_4kp60_NoBframes.1min.tar.gz")
-		// segments := "/home/iameli/testvids/three"
+		// segments := "/Users/iameli/testvids/three"
 		testVids := []string{}
-		sort.Strings(testVids)
 		segEntries, err := os.ReadDir(segments)
 		require.NoError(t, err)
 		for _, segEntry := range segEntries {
@@ -133,11 +132,8 @@ func TestIngredientConcat(t *testing.T) {
 		for i, vid := range testVids {
 			bs, err := os.ReadFile(vid)
 			require.NoError(t, err)
-			rustCallbackSigner := &RustCallbackSigner{
-				Signer: ms.Signer,
-			}
 			fmt.Println("resigning", *manifestList[i].Manifest.Label)
-			signedBS, err := iroh_streamplace.Resign(*manifestList[i].Manifest.Label, bs, signedConcatBS, ms.Cert, rustCallbackSigner)
+			signedBS, err := iroh_streamplace.Resign(*manifestList[i].Manifest.Label, bs, signedConcatBS, ms.Cert)
 			require.NoError(t, err)
 			err = os.WriteFile(filepath.Join(signedSplitSegDir, fmt.Sprintf("signed_%06d.mp4", i)), signedBS, 0644)
 			require.NoError(t, err)

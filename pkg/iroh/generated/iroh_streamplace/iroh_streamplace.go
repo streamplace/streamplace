@@ -401,7 +401,7 @@ func uniffiCheckChecksums() {
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_iroh_streamplace_checksum_func_resign()
 		})
-		if checksum != 33363 {
+		if checksum != 32678 {
 			// If this happens try cleaning and rebuilding your project
 			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_func_resign: UniFFI API checksum mismatch")
 		}
@@ -4821,10 +4821,10 @@ func NodeIdFromTicket(ticketStr string) (*PublicKey, error) {
 	}
 }
 
-func Resign(unsignedSegLabel string, unsignedSegData []byte, signedConcatData []byte, certs []byte, gosigner GoSigner) ([]byte, error) {
+func Resign(unsignedSegLabel string, unsignedSegData []byte, signedConcatData []byte, certs []byte) ([]byte, error) {
 	_uniffiRV, _uniffiErr := rustCallWithError[SpError](FfiConverterSpError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
 		return GoRustBuffer{
-			inner: C.uniffi_iroh_streamplace_fn_func_resign(FfiConverterStringINSTANCE.Lower(unsignedSegLabel), FfiConverterBytesINSTANCE.Lower(unsignedSegData), FfiConverterBytesINSTANCE.Lower(signedConcatData), FfiConverterBytesINSTANCE.Lower(certs), FfiConverterGoSignerINSTANCE.Lower(gosigner), _uniffiStatus),
+			inner: C.uniffi_iroh_streamplace_fn_func_resign(FfiConverterStringINSTANCE.Lower(unsignedSegLabel), FfiConverterBytesINSTANCE.Lower(unsignedSegData), FfiConverterBytesINSTANCE.Lower(signedConcatData), FfiConverterBytesINSTANCE.Lower(certs), _uniffiStatus),
 		}
 	})
 	if _uniffiErr != nil {

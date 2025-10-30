@@ -160,18 +160,7 @@ pub fn resign(
     unsigned_seg_data: Vec<u8>,
     signed_concat_data: Vec<u8>,
     certs: Vec<u8>,
-    gosigner: Arc<dyn GoSigner>,
 ) -> Result<Vec<u8>, SPError> {
-    let callback_signer = CallbackSigner::new(
-        move |_context: *const (), data: &[u8]| {
-            gosigner
-                .sign(data.to_vec())
-                .map_err(|e| c2pa::Error::BadParam(e.to_string()))
-        },
-        c2pa::SigningAlg::Es256K,
-        certs,
-    );
-
     let mut validation_log = StatusTracker::default();
 
     let combined_store = Store::from_stream(
@@ -189,11 +178,17 @@ pub fn resign(
             unsigned_seg_label
         )))?;
 
-    let seg_claim_clone = seg_claim.clone();
+    let signature_val = seg_claim.signature_val().clone();
+
+    let callback_signer = CallbackSigner::new(
+        move |_context: *const (), _data: &[u8]| Ok(signature_val.clone()),
+        c2pa::SigningAlg::Es256K,
+        certs,
+    );
 
     let mut seg_store = Store::new();
     let _provenance = seg_store
-        .commit_claim(seg_claim_clone)
+        .commit_claim(seg_claim.clone())
         .map_err(|e| SPError::C2paError(format!("commit_claim failed: {}", e)))?;
 
     let mut output = Vec::new();
@@ -212,14 +207,6 @@ pub fn resign(
     )
     .map_err(|e| SPError::C2paError(format!("save_jumbf_to_stream failed: {}", e)))?;
 
-    // seg_store
-    //     .save_to_stream(
-    //         "video/mp4",
-    //         &mut input_cursor,
-    //         &mut output_cursor,
-    //         &callback_signer,
-    //     )
-    //     .map_err(|e| SPError::C2paError(format!("save_to_stream failed: {}", e)))?;
     Ok(output)
 }
 

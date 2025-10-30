@@ -506,18 +506,22 @@ impl Actor {
                     inner: api::Subscribe { key, remote_id },
                     ..
                 } = msg;
-                let conn = self.connections.get(&remote_id);
-                tx.send(()).await.ok();
                 trace!(remote = %remote_id.fmt_short(), key = %key, "send rpc::Subscribe message");
-                conn.rpc
-                    .rpc(rpc::Subscribe {
-                        key: key.clone(),
-                        remote_id: self.node_id(),
-                    })
-                    .await
-                    .ok();
+                let conn = self.connections.get(&remote_id);
+                let my_id = self.node_id();
+                let key_2 = key.clone();
+                tokio::spawn(async move {
+                    conn.rpc
+                        .rpc(rpc::Subscribe {
+                            key: key_2,
+                            remote_id: my_id,
+                        })
+                        .await
+                        .ok();
+                });
                 trace!(remote = %remote_id.fmt_short(), key = %key, "inserting subscription");
                 self.subscriptions.insert(key, remote_id);
+                tx.send(()).await.ok();
                 trace!("finished inserting subscription");
             }
             ApiMessage::Unsubscribe(msg) => {
@@ -528,7 +532,6 @@ impl Actor {
                     ..
                 } = msg;
                 let conn = self.connections.get(&remote_id);
-                tx.send(()).await.ok();
                 conn.rpc
                     .rpc(rpc::Unsubscribe {
                         key: key.clone(),
@@ -537,6 +540,7 @@ impl Actor {
                     .await
                     .ok();
                 self.subscriptions.remove(&key);
+                tx.send(()).await.ok();
             }
             ApiMessage::AddTickets(msg) => {
                 trace!(inner = ?msg.inner, "ApiMessage::AddTickets");

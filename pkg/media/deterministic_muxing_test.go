@@ -64,8 +64,12 @@ func splitAndCombineTest(t *testing.T, tempDir string, inputDir string) string {
 	for i := 0; i < muxTestCount; i++ {
 		segDir, err := os.MkdirTemp(tempDir, "segs")
 		require.NoError(t, err)
-		err = SegmentFile(context.Background(), combinedFiles[0], segDir)
+		splitSegs, err := SegmentFileUnsigned(context.Background(), combinedFiles[0])
 		require.NoError(t, err)
+		for i, unsignedSeg := range splitSegs {
+			err = os.WriteFile(filepath.Join(segDir, fmt.Sprintf("unsigned_%06d.mp4", i)), unsignedSeg, 0644)
+			require.NoError(t, err)
+		}
 		report, err := makeSegDirReport(t, segDir)
 		require.NoError(t, err)
 		require.NoError(t, report.CheckEquals(firstReport), "round-trip muxing is not deterministic")

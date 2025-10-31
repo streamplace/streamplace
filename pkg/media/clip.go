@@ -36,7 +36,7 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []string, w io.Writer)
 	defer cancel()
 
 	pipelineSlice := []string{
-		"mp4mux name=muxer ! appsink sync=false name=mp4sink",
+		"mp4mux name=muxer faststart=true ! appsink sync=false name=mp4sink",
 		"h264parse name=videoparse ! h264timestamper ! muxer.video_0",
 		"opusparse name=audioparse ! muxer.audio_0",
 	}

@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
-	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -134,70 +133,66 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 	})
 }
 
-func SegmentFile(ctx context.Context, input string, outDir string) error {
+func SegmentFileUnsigned(ctx context.Context, input string) ([][]byte, error) {
+	fd, err := os.OpenFile(input, os.O_RDONLY, 0644)
+	log.Log(ctx, "reading file", "file", input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	defer fd.Close()
+	return SegmentUnsigned(ctx, fd)
+}
+
+func SegmentUnsigned(ctx context.Context, input io.Reader) ([][]byte, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	g, ctx := errgroup.WithContext(ctx)
 	pipelineSlice := []string{
-		"filesrc name=filesrc ! qtdemux name=demux",
+		"appsrc name=appsrc ! qtdemux name=demux",
 		"demux. ! queue ! h264parse ! rtph264pay ! rtph264depay ! h264parse name=videoparse",
 		"demux. ! queue ! opusparse name=audioparse",
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
-		return fmt.Errorf("error creating MKVIngest pipeline: %w", err)
+		return nil, fmt.Errorf("error creating MKVIngest pipeline: %w", err)
 	}
 
-	srcele, err := pipeline.GetElementByName("filesrc")
+	srcele, err := pipeline.GetElementByName("appsrc")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := srcele.Set("location", input); err != nil {
-		return err
-	}
-
+	src := app.SrcFromElement(srcele)
+	src.SetCallbacks(&app.SourceCallbacks{
+		NeedDataFunc: ReaderNeedData(ctx, input),
+	})
 	videoParseEle, err := pipeline.GetElementByName("videoparse")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	var segCount atomic.Int64
-
+	segs := [][]byte{}
 	segmenter, err := SegmentElem(ctx, func(ctx context.Context, buf []byte, now int64) error {
-		seg := segCount.Load()
-		segCount.Add(1)
-		g.Go(func() error {
-			fpath := fmt.Sprintf("%s/%06d.mp4", outDir, seg)
-			log.Log(ctx, "writing segment", "path", fpath)
-			fd, err := os.Create(fpath)
-			if err != nil {
-				return err
-			}
-			defer fd.Close()
-			_, err = fd.Write(buf)
-			return err
-		})
+		segs = append(segs, buf)
 		return nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = pipeline.Add(segmenter)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = videoParseEle.Link(segmenter)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	audioparse, err := pipeline.GetElementByName("audioparse")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	err = audioparse.Link(segmenter)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	busErr := make(chan error)
@@ -209,7 +204,7 @@ func SegmentFile(ctx context.Context, input string, outDir string) error {
 
 	err = pipeline.SetState(gst.StatePlaying)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -219,11 +214,10 @@ func SegmentFile(ctx context.Context, input string, outDir string) error {
 		}
 	}()
 
-	<-busErr
-	err = g.Wait()
+	err = <-busErr
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return segs, nil
 }

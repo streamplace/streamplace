@@ -13,7 +13,6 @@ import (
 
 	"github.com/bluesky-social/indigo/util"
 	"github.com/stretchr/testify/require"
-	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/config"
 	ct "stream.place/streamplace/pkg/config/configtesting"
 	"stream.place/streamplace/pkg/crypto/spkey"
@@ -22,15 +21,6 @@ import (
 )
 
 var testTimestamp = "2025-01-01T00:00:00.000Z"
-
-type ManifestResult struct {
-	Manifests map[string]c2patypes.Manifest `json:"manifests"`
-}
-
-type ManifestAndMetadata struct {
-	Manifest        c2patypes.Manifest
-	SegmentMetadata *SegmentMetadata
-}
 
 func TestIngredientConcat(t *testing.T) {
 	withNoGSTLeaks(t, func() {
@@ -85,9 +75,13 @@ func TestIngredientConcat(t *testing.T) {
 		concatSegment := filepath.Join(tempDir, "ingredient-concat.mp4")
 		err = os.WriteFile(concatSegment, signedConcatBS, 0644)
 		require.NoError(t, err)
-		splitSegDir := makeTestSubdir(t, tempDir, "split-segments")
-		err = SegmentFile(context.Background(), concatSegment, splitSegDir)
+		splitSegs, err := SegmentFileUnsigned(context.Background(), concatSegment)
 		require.NoError(t, err)
+		splitSegDir := makeTestSubdir(t, tempDir, "split-segments")
+		for i, unsignedSeg := range splitSegs {
+			err = os.WriteFile(filepath.Join(splitSegDir, fmt.Sprintf("unsigned_%06d.mp4", i)), unsignedSeg, 0644)
+			require.NoError(t, err)
+		}
 		splitReport, err := makeSegDirReport(t, splitSegDir)
 		require.NoError(t, err)
 		require.NoError(t, splitReport.CheckEquals(firstReport), "split segments are not equal to original segments")
@@ -115,8 +109,10 @@ func TestIngredientConcat(t *testing.T) {
 			return m1.SegmentMetadata.StartTime.Time().Before(m2.SegmentMetadata.StartTime.Time())
 		})
 		manifestStrs := []string{}
+		certList := [][]byte{}
 		for _, manifest := range manifestList {
 			manifestStrs = append(manifestStrs, *manifest.Manifest.Label)
+			certList = append(certList, []byte(manifests.Certs[*manifest.Manifest.Label]))
 		}
 		unsignedSegs := [][]byte{}
 		for _, vid := range testVids {
@@ -124,7 +120,7 @@ func TestIngredientConcat(t *testing.T) {
 			require.NoError(t, err)
 			unsignedSegs = append(unsignedSegs, bs)
 		}
-		resignedSegs, err := iroh_streamplace.Resign(unsignedSegs, signedConcatBS, manifestStrs, ms.Cert)
+		resignedSegs, err := iroh_streamplace.Resign(unsignedSegs, signedConcatBS, manifestStrs, certList)
 		require.NoError(t, err)
 		signedSplitSegDir := makeTestSubdir(t, tempDir, "signed-split-segments")
 		for i, resignedSeg := range resignedSegs {

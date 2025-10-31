@@ -136,10 +136,9 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return Combine(ctx, cli, fs.Args())
 	}
 
-	if len(os.Args) > 1 && os.Args[1] == "segment" {
+	if len(os.Args) > 1 && os.Args[1] == "split" {
 		cli := config.CLI{Build: build}
 		fs := cli.NewFlagSet("streamplace split")
-		out := fs.String("out-dir", "", "output directory")
 
 		err := cli.Parse(fs, os.Args[2:])
 		if err != nil {
@@ -147,7 +146,12 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		}
 		ctx := context.Background()
 		ctx = log.WithDebugValue(ctx, cli.Debug)
-		return media.SegmentFile(ctx, fs.Args()[0], *out)
+		if len(fs.Args()) != 2 {
+			fmt.Println("usage: streamplace split [flags] [input file] [output directory]")
+			os.Exit(1)
+		}
+		gstinit.InitGST()
+		return Split(ctx, fs.Args()[0], fs.Args()[1])
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "self-test" {

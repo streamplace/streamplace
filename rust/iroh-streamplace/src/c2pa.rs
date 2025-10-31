@@ -148,8 +148,20 @@ pub fn sign(
 pub fn get_manifests(data: Vec<u8>) -> Result<String, SPError> {
     let store = Reader::from_stream("video/mp4", Cursor::new(data))
         .map_err(|e| SPError::C2paError(e.to_string()))?;
+    let mut certs: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for (label, manifest) in store.manifests() {
+        let cert_chain = manifest
+            .signature_info()
+            .ok_or(SPError::C2paError(format!(
+                "No signature info for manifest: {}",
+                label
+            )))?
+            .cert_chain();
+        certs.insert(label.clone(), cert_chain.to_string());
+    }
     let result = serde_json::json!({
-        "manifests": store.manifests()
+        "manifests": store.manifests(),
+        "certs": certs
     });
     Ok(result.to_string())
 }
@@ -159,7 +171,7 @@ pub fn resign(
     unsigned_seg_data: Vec<Vec<u8>>,
     signed_concat_data: Vec<u8>,
     manifest_list: Vec<String>,
-    certs: Vec<u8>,
+    certs: Vec<Vec<u8>>,
 ) -> Result<Vec<Vec<u8>>, SPError> {
     let mut validation_log = StatusTracker::default();
 
@@ -193,7 +205,7 @@ pub fn resign(
         let callback_signer = CallbackSigner::new(
             move |_context: *const (), _data: &[u8]| Ok(signature_val.clone()),
             c2pa::SigningAlg::Es256K,
-            certs.clone(),
+            certs[i].clone(),
         );
 
         let mut seg_store = Store::new();

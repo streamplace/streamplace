@@ -3,11 +3,9 @@ package media
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"testing"
 	"time"
 
@@ -16,7 +14,6 @@ import (
 	"stream.place/streamplace/pkg/config"
 	ct "stream.place/streamplace/pkg/config/configtesting"
 	"stream.place/streamplace/pkg/crypto/spkey"
-	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/test/remote"
 )
 
@@ -85,46 +82,11 @@ func TestIngredientConcat(t *testing.T) {
 		splitReport, err := makeSegDirReport(t, splitSegDir)
 		require.NoError(t, err)
 		require.NoError(t, splitReport.CheckEquals(firstReport), "split segments are not equal to original segments")
-		manifestsStr, err := iroh_streamplace.GetManifests(signedConcatBS)
-		require.NoError(t, err)
-		var manifests ManifestResult
-		err = json.Unmarshal([]byte(manifestsStr), &manifests)
-		require.NoError(t, err)
-		require.Greater(t, len(manifests.Manifests), 0)
-		manifestList := []ManifestAndMetadata{}
-		for _, manifest := range manifests.Manifests {
-			metadata, err := ParseSegmentAssertions(context.Background(), &manifest)
-			if err == ErrMissingMetadata {
-				continue
-			}
-			require.NoError(t, err)
-			manifestList = append(manifestList, ManifestAndMetadata{
-				Manifest:        manifest,
-				SegmentMetadata: metadata,
-			})
-		}
-		sort.Slice(manifestList, func(i, j int) bool {
-			m1 := manifestList[i]
-			m2 := manifestList[j]
-			return m1.SegmentMetadata.StartTime.Time().Before(m2.SegmentMetadata.StartTime.Time())
-		})
-		manifestStrs := []string{}
-		certList := [][]byte{}
-		for _, manifest := range manifestList {
-			manifestStrs = append(manifestStrs, *manifest.Manifest.Label)
-			certList = append(certList, []byte(manifests.Certs[*manifest.Manifest.Label]))
-		}
-		unsignedSegs := [][]byte{}
-		for _, vid := range testVids {
-			bs, err := os.ReadFile(vid)
-			require.NoError(t, err)
-			unsignedSegs = append(unsignedSegs, bs)
-		}
-		resignedSegs, err := iroh_streamplace.Resign(unsignedSegs, signedConcatBS, manifestStrs, certList)
-		require.NoError(t, err)
 		signedSplitSegDir := makeTestSubdir(t, tempDir, "signed-split-segments")
-		for i, resignedSeg := range resignedSegs {
-			err = os.WriteFile(filepath.Join(signedSplitSegDir, fmt.Sprintf("signed_%06d.mp4", i)), resignedSeg, 0644)
+		resignedSegs, err := SplitSegments(context.Background(), signedConcatBS)
+		require.NoError(t, err)
+		for _, resignedSeg := range resignedSegs {
+			err = os.WriteFile(filepath.Join(signedSplitSegDir, resignedSeg.Filename), resignedSeg.Data, 0644)
 			require.NoError(t, err)
 		}
 		signedSplitReport, err := makeSegDirReport(t, signedSplitSegDir)

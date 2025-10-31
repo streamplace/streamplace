@@ -50,7 +50,7 @@ func splitAndCombineTest(t *testing.T, tempDir string, inputDir string) string {
 		log.Log(context.Background(), "creating combined file", "file", outFilePath)
 		require.NoError(t, err)
 		defer outFile.Close()
-		err = Clip(context.Background(), firstReport.Segs, outFile)
+		err = CombineSegmentsUnsigned(context.Background(), firstReport.Segs, outFile)
 		require.NoError(t, err)
 		hash, err := hashFile(outFilePath)
 		require.NoError(t, err)

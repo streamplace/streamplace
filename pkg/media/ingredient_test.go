@@ -61,7 +61,7 @@ func TestIngredientConcat(t *testing.T) {
 		require.NoError(t, err)
 		ms := msInterface.(*MediaSignerLocal)
 		buf := bytes.Buffer{}
-		err = Clip(context.Background(), testVids, &buf)
+		err = CombineSegmentsUnsigned(context.Background(), testVids, &buf)
 		require.NoError(t, err)
 		ingredients := [][]byte{}
 		startTS, err := time.Parse(util.ISO8601, testTimestamp)

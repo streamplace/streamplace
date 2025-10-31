@@ -26,7 +26,7 @@ func innerTestClip(t *testing.T) error {
 	fName := getFixture("sample-segment.mp4")
 	inputFiles := []string{fName, fName, fName}
 	buf := bytes.NewBuffer(nil)
-	err := Clip(context.Background(), inputFiles, buf)
+	err := CombineSegmentsUnsigned(context.Background(), inputFiles, buf)
 	require.NoError(t, err)
 	require.Greater(t, buf.Len(), 2900000)
 	require.Less(t, buf.Len(), 3100000)

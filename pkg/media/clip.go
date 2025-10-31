@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
-	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/log"
 )
@@ -31,20 +30,14 @@ func readFile(ctx context.Context, source string) (*bus.Seg, error) {
 	return seg, nil
 }
 
-// This function remains in scope for the duration of a single users' playback
-func Clip(ctx context.Context, sources []string, w io.Writer) error {
-	uu, err := uuid.NewV7()
-	if err != nil {
-		return err
-	}
-	ctx = log.WithLogValues(ctx, "webrtcID", uu.String())
-	ctx = log.WithLogValues(ctx, "mediafunc", "Clip")
+func CombineSegmentsUnsigned(ctx context.Context, sources []string, w io.Writer) error {
+	ctx = log.WithLogValues(ctx, "mediafunc", "CombineSegmentsUnsigned")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	pipelineSlice := []string{
 		"mp4mux name=muxer ! appsink sync=false name=mp4sink",
-		"h264parse name=videoparse ! muxer.video_0",
+		"h264parse name=videoparse ! h264timestamper ! muxer.video_0",
 		"opusparse name=audioparse ! muxer.audio_0",
 	}
 

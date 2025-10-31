@@ -319,29 +319,6 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		w.WriteHeader(204)
 	})
 
-	router.GET("/settings", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		id := a.Signer.Hex()
-
-		ident, err := a.Model.GetIdentity(id)
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "unable to get settings", err)
-			return
-		}
-
-		bs, err := json.Marshal(ident)
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
-			return
-		}
-		if _, err := w.Write(bs); err != nil {
-			log.Error(ctx, "error writing response", "error", err)
-		}
-	})
-
 	router.GET("/followers/:user", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
 		if user == "" {

@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"crypto"
 	"crypto/rand"
 	"errors"
 	"flag"
@@ -11,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"slices"
@@ -25,13 +23,11 @@ import (
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
 	"github.com/peterbourgon/ff/v3"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
-	"golang.org/x/term"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
-	"stream.place/streamplace/pkg/crypto/signers"
-	"stream.place/streamplace/pkg/crypto/signers/eip712"
 	"stream.place/streamplace/pkg/director"
+	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
@@ -40,12 +36,10 @@ import (
 	"stream.place/streamplace/pkg/replication/iroh_replicator"
 	"stream.place/streamplace/pkg/replication/websocketrep"
 	"stream.place/streamplace/pkg/rtmps"
-	v0 "stream.place/streamplace/pkg/schema/v0"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
 
-	"github.com/ThalesGroup/crypto11"
 	_ "github.com/go-gst/go-glib/glib"
 	_ "github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/api"
@@ -127,23 +121,24 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return WHIP(os.Args[2:])
 	}
 
-	if len(os.Args) > 1 && os.Args[1] == "clip" {
-		cli := config.CLI{Build: build}
-		fs := cli.NewFlagSet("streamplace clip")
-		out := fs.String("out", "", "output file")
+	if len(os.Args) > 1 && os.Args[1] == "combine" {
+		gstinit.InitGST()
+		cli := &config.CLI{Build: build}
+		fs := cli.NewFlagSet("streamplace combine")
 
 		err := cli.Parse(fs, os.Args[2:])
 		if err != nil {
 			return err
 		}
+		log.Debug(context.Background(), "combine command: starting", "args", fs.Args())
 		ctx := context.Background()
 		ctx = log.WithDebugValue(ctx, cli.Debug)
-		return Clip(ctx, fs.Args(), *out)
+		return Combine(ctx, cli, fs.Args())
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "segment" {
 		cli := config.CLI{Build: build}
-		fs := cli.NewFlagSet("streamplace clip")
+		fs := cli.NewFlagSet("streamplace split")
 		out := fs.String("out-dir", "", "output directory")
 
 		err := cli.Parse(fs, os.Args[2:])
@@ -217,6 +212,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	if *version {
 		return nil
 	}
+	signer, err := createSigner(ctx, &cli)
+	if err != nil {
+		return err
+	}
 
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
 		return statedb.Migrate(&cli)
@@ -243,90 +242,6 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	err = os.MkdirAll(cli.DataDir, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("error creating streamplace dir at %s:%w", cli.DataDir, err)
-	}
-	schema, err := v0.MakeV0Schema()
-	if err != nil {
-		return err
-	}
-	eip712signer, err := eip712.MakeEIP712Signer(ctx, &eip712.EIP712SignerOptions{
-		Schema:              schema,
-		EthKeystorePath:     cli.EthKeystorePath,
-		EthAccountAddr:      cli.EthAccountAddr,
-		EthKeystorePassword: cli.EthPassword,
-	})
-	if err != nil {
-		return err
-	}
-	var signer crypto.Signer = eip712signer
-	if cli.PKCS11ModulePath != "" {
-		conf := &crypto11.Config{
-			Path: cli.PKCS11ModulePath,
-		}
-		count := 0
-		for _, val := range []string{cli.PKCS11TokenSlot, cli.PKCS11TokenLabel, cli.PKCS11TokenSerial} {
-			if val != "" {
-				count += 1
-			}
-		}
-		if count != 1 {
-			return fmt.Errorf("need exactly one of pkcs11-token-slot, pkcs11-token-label, or pkcs11-token-serial (got %d)", count)
-		}
-		if cli.PKCS11TokenSlot != "" {
-			num, err := strconv.ParseInt(cli.PKCS11TokenSlot, 10, 16)
-			if err != nil {
-				return fmt.Errorf("error parsing pkcs11-slot: %w", err)
-			}
-			numint := int(num)
-			// why does crypto11 want this as a reference? odd.
-			conf.SlotNumber = &numint
-		}
-		if cli.PKCS11TokenLabel != "" {
-			conf.TokenLabel = cli.PKCS11TokenLabel
-		}
-		if cli.PKCS11TokenSerial != "" {
-			conf.TokenSerial = cli.PKCS11TokenSerial
-		}
-		pin := cli.PKCS11Pin
-		if pin == "" {
-			fmt.Printf("Please enter PKCS11 PIN: ")
-			password, err := term.ReadPassword(int(os.Stdin.Fd()))
-			fmt.Println("")
-			if err != nil {
-				return fmt.Errorf("error reading PKCS11 password: %w", err)
-			}
-			pin = string(password)
-		}
-		conf.Pin = pin
-
-		sc, err := crypto11.Configure(conf)
-		if err != nil {
-			return fmt.Errorf("error initalizing PKCS11 HSM: %w", err)
-		}
-		var id []byte = nil
-		var label []byte = nil
-		if cli.PKCS11KeypairID != "" {
-			num, err := strconv.ParseInt(cli.PKCS11KeypairID, 10, 8)
-			if err != nil {
-				return fmt.Errorf("error parsing pkcs11-keypair-id: %w", err)
-			}
-			id = []byte{byte(num)}
-		}
-		if cli.PKCS11KeypairLabel != "" {
-			label = []byte(cli.PKCS11KeypairLabel)
-		}
-		hwsigner, err := sc.FindKeyPair(id, label)
-		if err != nil {
-			return fmt.Errorf("error finding keypair on PKCS11 token: %w", err)
-		}
-		if hwsigner == nil {
-			return fmt.Errorf("keypair on token not found (tried id='%s' label='%s')", cli.PKCS11KeypairID, cli.PKCS11KeypairLabel)
-		}
-		addr, err := signers.HexAddrFromSigner(hwsigner)
-		if err != nil {
-			return fmt.Errorf("error getting ethereum address for hardware keypair: %w", err)
-		}
-		log.Log(ctx, "successfully initialized hardware signer", "address", addr)
-		signer = hwsigner
 	}
 
 	mod, err := model.MakeDB(cli.DataFilePath([]string{"index"}))
@@ -473,7 +388,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		Public:             cli.PublicOAuth,
 	})
 	d := director.NewDirector(mm, mod, &cli, b, op, state, replicator)
-	a, err := api.MakeStreamplaceAPI(&cli, mod, state, eip712signer, noter, mm, ms, b, atsync, d, op)
+	a, err := api.MakeStreamplaceAPI(&cli, mod, state, noter, mm, ms, b, atsync, d, op)
 	if err != nil {
 		return err
 	}
@@ -571,20 +486,12 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	})
 
 	if cli.TestStream {
-		// regular stream self-test
-		testSigner, err := eip712.MakeEIP712Signer(ctx, &eip712.EIP712SignerOptions{
-			Schema:          schema,
-			EthKeystorePath: filepath.Join(cli.DataDir, "test-signer"),
-		})
-		if err != nil {
-			return err
-		}
 		atkey, err := atproto.ParsePubKey(signer.Public())
 		if err != nil {
 			return err
 		}
 		did := atkey.DIDKey()
-		testMediaSigner, err := media.MakeMediaSigner(ctx, &cli, did, testSigner, mod)
+		testMediaSigner, err := media.MakeMediaSigner(ctx, &cli, did, signer, mod)
 		if err != nil {
 			return err
 		}
@@ -603,19 +510,15 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		})
 
 		// Start a test stream that will run intermittently
-		intermittentSigner, err := eip712.MakeEIP712Signer(ctx, &eip712.EIP712SignerOptions{
-			Schema:          schema,
-			EthKeystorePath: filepath.Join(cli.DataDir, "intermittent-signer"),
-		})
 		if err != nil {
 			return err
 		}
-		atkey2, err := atproto.ParsePubKey(intermittentSigner.Public())
+		atkey2, err := atproto.ParsePubKey(signer.Public())
 		if err != nil {
 			return err
 		}
 		did2 := atkey2.DIDKey()
-		intermittentMediaSigner, err := media.MakeMediaSigner(ctx, &cli, did2, intermittentSigner, mod)
+		intermittentMediaSigner, err := media.MakeMediaSigner(ctx, &cli, did2, signer, mod)
 		if err != nil {
 			return err
 		}

@@ -10,11 +10,10 @@ use c2pa::jumbf_io;
 use c2pa::status_tracker::StatusTracker;
 use c2pa::store::Store;
 
+use crate::streams::ManyStreams;
 use crate::streams::Stream;
 use crate::streams::StreamAdapter;
-
 use serde_json;
-use tracing::info;
 
 use crate::error::SPError;
 #[uniffi::export]
@@ -164,11 +163,12 @@ pub fn get_manifests(data: &dyn Stream) -> Result<String, SPError> {
 
 #[uniffi::export]
 pub fn resign(
-    unsigned_seg_data: Vec<Vec<u8>>,
+    unsigned_seg_data: &dyn ManyStreams,
     signed_concat_data: &dyn Stream,
     manifest_list: Vec<String>,
     certs: Vec<Vec<u8>>,
-) -> Result<Vec<Vec<u8>>, SPError> {
+    output: &dyn ManyStreams,
+) -> Result<(), SPError> {
     let mut validation_log = StatusTracker::default();
 
     let combined_store = Store::from_stream(
@@ -179,16 +179,31 @@ pub fn resign(
     )
     .map_err(|e| SPError::C2paError(format!("from_stream failed: {}", e)))?;
 
-    // let seg_claim = combined_store
-    //     .get_claim(unsigned_seg_label.as_str())
-    //     .ok_or(SPError::C2paError(format!(
-    //         "Segment claim not found: {}",
-    //         unsigned_seg_label
-    //     )))?;
-    let mut outputs = Vec::<Vec<u8>>::new();
-
     for (i, manifest_id) in manifest_list.iter().enumerate() {
-        let mut output = Vec::<u8>::new();
+        let unsigned_seg_data_stream = match unsigned_seg_data.next() {
+            Ok(Some(stream)) => stream,
+            Ok(None) => return Err(SPError::C2paError("Input stream not found".to_string())),
+            Err(e) => {
+                return Err(SPError::C2paError(format!(
+                    "Error getting input stream: {}",
+                    e
+                )));
+            }
+        };
+        let output_stream = match output.next() {
+            Ok(Some(stream)) => stream,
+            Ok(None) => return Err(SPError::C2paError("Output stream not found".to_string())),
+            Err(e) => {
+                return Err(SPError::C2paError(format!(
+                    "Error getting output stream: {}",
+                    e
+                )));
+            }
+        };
+        let mut input_cursor = StreamAdapter::from(&*unsigned_seg_data_stream);
+        let mut output_cursor = StreamAdapter::from(&*output_stream);
+
+        // let mut output = Vec::<u8>::new();
         let seg_claim =
             combined_store
                 .get_claim(manifest_id.as_str())
@@ -209,9 +224,6 @@ pub fn resign(
             .commit_claim(seg_claim.clone())
             .map_err(|e| SPError::C2paError(format!("commit_claim failed: {}", e)))?;
 
-        let mut output_cursor = Cursor::new(&mut output);
-        let mut input_cursor = Cursor::new(unsigned_seg_data[i].clone());
-
         let jumbf_bytes = seg_store
             .to_jumbf(&callback_signer)
             .map_err(|e| SPError::C2paError(format!("to_jumbf failed: {}", e)))?;
@@ -223,10 +235,9 @@ pub fn resign(
             &jumbf_bytes,
         )
         .map_err(|e| SPError::C2paError(format!("save_jumbf_to_stream failed: {}", e)))?;
-        outputs.push(output);
     }
 
-    Ok(outputs)
+    Ok(())
 }
 
 #[uniffi::export]
@@ -234,7 +245,7 @@ pub fn sign_with_ingredients(
     manifest: String,
     data: &dyn Stream,
     certs: Vec<u8>,
-    ingredients: Vec<Vec<u8>>,
+    ingredients: &dyn ManyStreams,
     gosigner: Arc<dyn GoSigner>,
     output: &dyn Stream,
 ) -> Result<(), SPError> {
@@ -250,8 +261,8 @@ pub fn sign_with_ingredients(
     );
     let mut builder =
         Builder::from_json(&manifest).map_err(|e| SPError::C2paError(e.to_string()))?;
-    for (i, ingredient) in ingredients.into_iter().enumerate() {
-        let mut cursor = Cursor::new(ingredient);
+    while let Ok(Some(ingredient)) = ingredients.next() {
+        let mut cursor = StreamAdapter::from(&*ingredient);
         let ingredient = Ingredient::from_stream("video/mp4", &mut cursor)
             .map_err(|e| SPError::C2paError(e.to_string()))?;
         builder.add_ingredient(ingredient);

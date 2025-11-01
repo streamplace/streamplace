@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
+	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 )
 
 // type Stream interface {
@@ -120,4 +122,32 @@ func writeStream(w io.ReadWriteSeeker, data []byte) (uint64, error) {
 		return uint64(wrote), err
 	}
 	return uint64(wrote), nil
+}
+
+type ManyStreams struct {
+	Streams []io.ReadSeeker
+	index   int
+}
+
+func NewManyStreams() *ManyStreams {
+	return &ManyStreams{Streams: []io.ReadSeeker{}, index: 0}
+}
+
+func (m *ManyStreams) AddStream(stream io.ReadSeeker) {
+	m.Streams = append(m.Streams, stream)
+}
+
+func (m *ManyStreams) Next() (*iroh_streamplace.Stream, error) {
+	if m.index >= len(m.Streams) {
+		return nil, nil
+	}
+	stream := m.Streams[m.index]
+	m.index++
+	var r iroh_streamplace.Stream
+	if rws, ok := stream.(io.ReadWriteSeeker); ok {
+		r = NewWriter(rws)
+	} else {
+		r = NewReader(stream)
+	}
+	return &r, nil
 }

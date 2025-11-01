@@ -2,7 +2,6 @@ package aqio
 
 import (
 	"errors"
-	"fmt"
 	"io"
 
 	"github.com/johncgriffin/overflow"
@@ -19,11 +18,13 @@ type ReadWriteSeeker struct {
 }
 
 // Write implements the io.Writer interface
+// TODO: This would probably be better as a linked list for writing; the read
+// requirements are minimal so doing a bit more math is okay
 func (rws *ReadWriteSeeker) Write(p []byte) (n int, err error) {
-	fmt.Printf("Write: pos=%d len(p)=%d\n", rws.pos, len(p))
+	// fmt.Printf("Write: pos=%d len(p)=%d\n", rws.pos, len(p))
 	minCap := overflow.Addp(rws.pos, len(p))
 	if minCap > cap(rws.buf) { // Make sure buf has enough capacity:
-		fmt.Printf("Write: pos=%d len(p)=%d minCap=%d\n", rws.pos, len(p), minCap)
+		// fmt.Printf("Write: pos=%d len(p)=%d minCap=%d\n", rws.pos, len(p), minCap)
 		newCap := cap(rws.buf) * 2
 		if newCap == 0 {
 			newCap = 128

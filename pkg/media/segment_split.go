@@ -69,17 +69,28 @@ func SplitSegments(ctx context.Context, input []byte) ([]SplitSegment, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to segment file: %w", err)
 	}
-	resignedSegs, err := iroh_streamplace.Resign(unsignedSegs, c2patypes.NewReader(aqio.NewReadWriteSeeker(input)), manifestStrs, certList)
+	inputStreams := c2patypes.NewManyStreams()
+	outputStreams := c2patypes.NewManyStreams()
+	for _, unsignedSeg := range unsignedSegs {
+		inputStreams.AddStream(aqio.NewReadWriteSeeker(unsignedSeg))
+		outputStreams.AddStream(aqio.NewReadWriteSeeker([]byte{}))
+	}
+	err = iroh_streamplace.Resign(inputStreams, c2patypes.NewReader(aqio.NewReadWriteSeeker(input)), manifestStrs, certList, outputStreams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resign segments: %w", err)
 	}
 	splitSegments := []SplitSegment{}
-	for i, resignedSeg := range resignedSegs {
+	for i, resignedSeg := range outputStreams.Streams {
+		aqrws := resignedSeg.(*aqio.ReadWriteSeeker)
+		data, err := aqrws.Bytes()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read resigned segment: %w", err)
+		}
 		meta := manifestList[i].SegmentMetadata
 		fname := fmt.Sprintf("%s.mp4", meta.StartTime.FileSafeString())
 		splitSegments = append(splitSegments, SplitSegment{
 			Filename: fname,
-			Data:     resignedSeg,
+			Data:     data,
 		})
 	}
 	return splitSegments, nil

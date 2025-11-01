@@ -228,8 +228,12 @@ func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeek
 	rustCallbackSigner := &RustCallbackSigner{
 		Signer: ms.Signer,
 	}
+	many := c2patypes.NewManyStreams()
+	for _, ingredient := range ingredients {
+		many.AddStream(aqio.NewReadWriteSeeker(ingredient))
+	}
 	rws := aqio.NewReadWriteSeeker([]byte{})
-	err = iroh_streamplace.SignWithIngredients(string(manifestBs), c2patypes.NewReader(input), ms.Cert, ingredients, rustCallbackSigner, c2patypes.NewWriter(rws))
+	err = iroh_streamplace.SignWithIngredients(string(manifestBs), c2patypes.NewReader(input), ms.Cert, many, rustCallbackSigner, c2patypes.NewWriter(rws))
 	if err != nil {
 		return nil, err
 	}

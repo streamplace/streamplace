@@ -124,6 +124,12 @@ impl<'a> Write for StreamAdapter<'a> {
     }
 }
 
+#[uniffi::export(with_foreign)]
+pub trait ManyStreams: Send + Sync {
+    /// Get the next stream from the many streams
+    fn next(&self) -> Result<Option<Arc<dyn Stream>>, SPError>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

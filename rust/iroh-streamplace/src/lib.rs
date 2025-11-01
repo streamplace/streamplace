@@ -1,8 +1,10 @@
 uniffi::setup_scaffolding!();
 
 pub mod c2pa;
+pub mod error;
 pub mod node_addr;
 pub mod public_key;
+pub mod streams;
 
 use std::sync::{LazyLock, Once};
 
@@ -10,6 +12,9 @@ mod db;
 pub use db::*;
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod test_stream;
 
 /// Lazily initialized Tokio runtime for use in uniffi methods that need a runtime.
 static RUNTIME: LazyLock<tokio::runtime::Runtime> =

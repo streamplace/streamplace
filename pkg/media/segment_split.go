@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 
+	"stream.place/streamplace/pkg/aqio"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/log"
@@ -29,7 +30,7 @@ type ManifestAndMetadata struct {
 
 // split a signed concatenated mp4 into its constituent signed segments
 func SplitSegments(ctx context.Context, input []byte) ([]SplitSegment, error) {
-	manifestsStr, err := iroh_streamplace.GetManifests(input)
+	manifestsStr, err := iroh_streamplace.GetManifests(c2patypes.NewReader(aqio.NewReadWriteSeeker(input)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get manifests: %w", err)
 	}
@@ -68,7 +69,7 @@ func SplitSegments(ctx context.Context, input []byte) ([]SplitSegment, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to segment file: %w", err)
 	}
-	resignedSegs, err := iroh_streamplace.Resign(unsignedSegs, input, manifestStrs, certList)
+	resignedSegs, err := iroh_streamplace.Resign(unsignedSegs, c2patypes.NewReader(aqio.NewReadWriteSeeker(input)), manifestStrs, certList)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resign segments: %w", err)
 	}

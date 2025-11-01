@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
+	"stream.place/streamplace/pkg/aqio"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
@@ -159,7 +160,7 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 	rustCallbackSigner := &RustCallbackSigner{
 		Signer: ms.Signer,
 	}
-	bs, err = iroh_streamplace.Sign(string(manifestBs), bs, ms.Cert, rustCallbackSigner)
+	bs, err = iroh_streamplace.Sign(string(manifestBs), c2patypes.NewReader(aqio.NewReadWriteSeeker(bs)), ms.Cert, rustCallbackSigner)
 	if err != nil {
 		return nil, err
 	}
@@ -179,12 +180,12 @@ func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeek
 	startTime := time.Now()
 	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4")
 	defer span.End()
-	for _, ingredient := range ingredients {
-		_, err := iroh_streamplace.GetManifestAndCert(ingredient)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// for _, ingredient := range ingredients {
+	// 	_, err := iroh_streamplace.GetManifestAndCert(c2patypes.NewReader(aqio.NewReadWriteSeeker(ingredient)))
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 	// title := "livestream"
 	mani := obj{
 		"title": "Livestream Clip",
@@ -223,15 +224,12 @@ func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeek
 	}
 	span.End()
 
-	bs, err := io.ReadAll(input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read input: %w", err)
-	}
 	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_Sign")
 	rustCallbackSigner := &RustCallbackSigner{
 		Signer: ms.Signer,
 	}
-	bs, err = iroh_streamplace.SignWithIngredients(string(manifestBs), bs, ms.Cert, ingredients, rustCallbackSigner)
+	rws := aqio.NewReadWriteSeeker([]byte{})
+	err = iroh_streamplace.SignWithIngredients(string(manifestBs), c2patypes.NewReader(input), ms.Cert, ingredients, rustCallbackSigner, c2patypes.NewWriter(rws))
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +242,7 @@ func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeek
 	}
 	span.End()
 	spmetrics.SigningDuration.WithLabelValues(ms.StreamerName).Observe(float64(time.Since(startTime).Milliseconds()))
-	return bs, nil
+	return rws.Bytes()
 }
 
 // don't call externally! this is used as a callback for the rust library

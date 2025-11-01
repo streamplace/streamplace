@@ -2,10 +2,15 @@ package aqio
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/johncgriffin/overflow"
 )
+
+func NewReadWriteSeeker(buf []byte) *ReadWriteSeeker {
+	return &ReadWriteSeeker{buf: buf, pos: 0}
+}
 
 // ReadWriteSeeker is an in-memory io.ReadWriteSeeker implementation
 type ReadWriteSeeker struct {
@@ -15,9 +20,17 @@ type ReadWriteSeeker struct {
 
 // Write implements the io.Writer interface
 func (rws *ReadWriteSeeker) Write(p []byte) (n int, err error) {
+	fmt.Printf("Write: pos=%d len(p)=%d\n", rws.pos, len(p))
 	minCap := overflow.Addp(rws.pos, len(p))
 	if minCap > cap(rws.buf) { // Make sure buf has enough capacity:
-		buf2 := make([]byte, len(rws.buf), overflow.Addp(minCap, len(p))) // add some extra
+		fmt.Printf("Write: pos=%d len(p)=%d minCap=%d\n", rws.pos, len(p), minCap)
+		newCap := cap(rws.buf) * 2
+		if newCap == 0 {
+			newCap = 128
+		} else if newCap < minCap {
+			newCap = minCap * 2
+		}
+		buf2 := make([]byte, len(rws.buf), newCap) // double
 		copy(buf2, rws.buf)
 		rws.buf = buf2
 	}

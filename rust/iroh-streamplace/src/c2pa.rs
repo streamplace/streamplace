@@ -10,20 +10,16 @@ use c2pa::jumbf_io;
 use c2pa::status_tracker::StatusTracker;
 use c2pa::store::Store;
 
+use crate::streams::Stream;
+use crate::streams::StreamAdapter;
+
 use serde_json;
+use tracing::info;
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
-#[uniffi(flat_error)]
-pub enum SPError {
-    #[error("No certificate chain found")]
-    NoCertificateChainFound,
-    #[error("C2PA error: {0}")]
-    C2paError(String),
-}
-
+use crate::error::SPError;
 #[uniffi::export]
-pub fn get_manifest_and_cert(data: Vec<u8>) -> Result<String, SPError> {
-    let reader = Reader::from_stream("video/mp4", Cursor::new(data))
+pub fn get_manifest_and_cert(data: &dyn Stream) -> Result<String, SPError> {
+    let reader = Reader::from_stream("video/mp4", StreamAdapter::from(data))
         .map_err(|e| SPError::C2paError(e.to_string()))?;
 
     if let Some(manifest) = reader.active_manifest() {
@@ -113,7 +109,7 @@ enabled = true
 #[uniffi::export]
 pub fn sign(
     manifest: String,
-    data: Vec<u8>,
+    data: &dyn Stream,
     certs: Vec<u8>,
     gosigner: Arc<dyn GoSigner>,
 ) -> Result<Vec<u8>, SPError> {
@@ -131,7 +127,7 @@ pub fn sign(
     let mut builder =
         Builder::from_json(&manifest).map_err(|e| SPError::C2paError(e.to_string()))?;
     let mut output = Vec::new();
-    let mut input_cursor = Cursor::new(data);
+    let mut input_cursor = StreamAdapter::from(data);
     let mut output_cursor = Cursor::new(&mut output);
     builder
         .sign(
@@ -145,8 +141,8 @@ pub fn sign(
 }
 
 #[uniffi::export]
-pub fn get_manifests(data: Vec<u8>) -> Result<String, SPError> {
-    let store = Reader::from_stream("video/mp4", Cursor::new(data))
+pub fn get_manifests(data: &dyn Stream) -> Result<String, SPError> {
+    let store = Reader::from_stream("video/mp4", StreamAdapter::from(data))
         .map_err(|e| SPError::C2paError(e.to_string()))?;
     let mut certs: std::collections::HashMap<String, String> = std::collections::HashMap::new();
     for (label, manifest) in store.manifests() {
@@ -169,7 +165,7 @@ pub fn get_manifests(data: Vec<u8>) -> Result<String, SPError> {
 #[uniffi::export]
 pub fn resign(
     unsigned_seg_data: Vec<Vec<u8>>,
-    signed_concat_data: Vec<u8>,
+    signed_concat_data: &dyn Stream,
     manifest_list: Vec<String>,
     certs: Vec<Vec<u8>>,
 ) -> Result<Vec<Vec<u8>>, SPError> {
@@ -177,7 +173,7 @@ pub fn resign(
 
     let combined_store = Store::from_stream(
         "video/mp4",
-        Cursor::new(signed_concat_data),
+        StreamAdapter::from(signed_concat_data),
         true,
         &mut validation_log,
     )
@@ -236,11 +232,12 @@ pub fn resign(
 #[uniffi::export]
 pub fn sign_with_ingredients(
     manifest: String,
-    data: Vec<u8>,
+    data: &dyn Stream,
     certs: Vec<u8>,
     ingredients: Vec<Vec<u8>>,
     gosigner: Arc<dyn GoSigner>,
-) -> Result<Vec<u8>, SPError> {
+    output: &dyn Stream,
+) -> Result<(), SPError> {
     Settings::from_toml(TOML_SETTINGS).map_err(|e| SPError::C2paError(e.to_string()))?;
     let callback_signer = CallbackSigner::new(
         move |_context: *const (), data: &[u8]| {
@@ -253,15 +250,14 @@ pub fn sign_with_ingredients(
     );
     let mut builder =
         Builder::from_json(&manifest).map_err(|e| SPError::C2paError(e.to_string()))?;
-    for ingredient in ingredients {
+    for (i, ingredient) in ingredients.into_iter().enumerate() {
         let mut cursor = Cursor::new(ingredient);
         let ingredient = Ingredient::from_stream("video/mp4", &mut cursor)
             .map_err(|e| SPError::C2paError(e.to_string()))?;
         builder.add_ingredient(ingredient);
     }
-    let mut output = Vec::new();
-    let mut input_cursor = Cursor::new(data);
-    let mut output_cursor = Cursor::new(&mut output);
+    let mut input_cursor = StreamAdapter::from(data);
+    let mut output_cursor = StreamAdapter::from(output);
     builder
         .sign(
             &callback_signer,
@@ -270,5 +266,5 @@ pub fn sign_with_ingredients(
             &mut output_cursor,
         )
         .map_err(|e| SPError::C2paError(e.to_string()))?;
-    Ok(output)
+    Ok(())
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/crypto"
 	"go.opentelemetry.io/otel"
+	"stream.place/streamplace/pkg/aqio"
 	"stream.place/streamplace/pkg/aqtime"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/constants"
@@ -209,7 +210,7 @@ type ValidationResult struct {
 // validate a signed mp4 file unto itself, ignoring whether this user is allowed and whatnot
 func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error) {
 	var maniCert ManifestAndCert
-	maniStr, err := iroh_streamplace.GetManifestAndCert(buf)
+	maniStr, err := iroh_streamplace.GetManifestAndCert(c2patypes.NewReader(aqio.NewReadWriteSeeker(buf)))
 	if err != nil {
 		return nil, err
 	}

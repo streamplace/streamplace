@@ -406,6 +406,48 @@ static void call_UniffiCallbackInterfaceGoSignerMethod0(
 
 
 #endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_STREAM_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_STREAM_METHOD0
+typedef void (*UniffiCallbackInterfaceStreamMethod0)(uint64_t uniffi_handle, uint64_t length, RustBuffer* uniffi_out_return, RustCallStatus* callStatus );
+
+// Making function static works arround:
+// https://github.com/golang/go/issues/11263
+static void call_UniffiCallbackInterfaceStreamMethod0(
+				UniffiCallbackInterfaceStreamMethod0 cb, uint64_t uniffi_handle, uint64_t length, RustBuffer* uniffi_out_return, RustCallStatus* callStatus )
+{
+	return cb(uniffi_handle, length, uniffi_out_return, callStatus );
+}
+
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_STREAM_METHOD1
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_STREAM_METHOD1
+typedef void (*UniffiCallbackInterfaceStreamMethod1)(uint64_t uniffi_handle, int64_t pos, uint64_t mode, uint64_t* uniffi_out_return, RustCallStatus* callStatus );
+
+// Making function static works arround:
+// https://github.com/golang/go/issues/11263
+static void call_UniffiCallbackInterfaceStreamMethod1(
+				UniffiCallbackInterfaceStreamMethod1 cb, uint64_t uniffi_handle, int64_t pos, uint64_t mode, uint64_t* uniffi_out_return, RustCallStatus* callStatus )
+{
+	return cb(uniffi_handle, pos, mode, uniffi_out_return, callStatus );
+}
+
+
+#endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_STREAM_METHOD2
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_STREAM_METHOD2
+typedef void (*UniffiCallbackInterfaceStreamMethod2)(uint64_t uniffi_handle, RustBuffer data, uint64_t* uniffi_out_return, RustCallStatus* callStatus );
+
+// Making function static works arround:
+// https://github.com/golang/go/issues/11263
+static void call_UniffiCallbackInterfaceStreamMethod2(
+				UniffiCallbackInterfaceStreamMethod2 cb, uint64_t uniffi_handle, RustBuffer data, uint64_t* uniffi_out_return, RustCallStatus* callStatus )
+{
+	return cb(uniffi_handle, data, uniffi_out_return, callStatus );
+}
+
+
+#endif
 #ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_DATA_HANDLER
 #define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_DATA_HANDLER
 typedef struct UniffiVTableCallbackInterfaceDataHandler {
@@ -420,6 +462,16 @@ typedef struct UniffiVTableCallbackInterfaceGoSigner {
     UniffiCallbackInterfaceGoSignerMethod0 sign;
     UniffiCallbackInterfaceFree uniffiFree;
 } UniffiVTableCallbackInterfaceGoSigner;
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_STREAM
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_STREAM
+typedef struct UniffiVTableCallbackInterfaceStream {
+    UniffiCallbackInterfaceStreamMethod0 readStream;
+    UniffiCallbackInterfaceStreamMethod1 seekStream;
+    UniffiCallbackInterfaceStreamMethod2 writeStream;
+    UniffiCallbackInterfaceFree uniffiFree;
+} UniffiVTableCallbackInterfaceStream;
 
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_DATAHANDLER
@@ -698,6 +750,36 @@ RustBuffer uniffi_iroh_streamplace_fn_method_publickey_fmt_short(void* ptr, Rust
 RustBuffer uniffi_iroh_streamplace_fn_method_publickey_uniffi_trait_display(void* ptr, RustCallStatus *out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_STREAM
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_STREAM
+void* uniffi_iroh_streamplace_fn_clone_stream(void* ptr, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FREE_STREAM
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FREE_STREAM
+void uniffi_iroh_streamplace_fn_free_stream(void* ptr, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_INIT_CALLBACK_VTABLE_STREAM
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_INIT_CALLBACK_VTABLE_STREAM
+void uniffi_iroh_streamplace_fn_init_callback_vtable_stream(UniffiVTableCallbackInterfaceStream* vtable
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM_READ_STREAM
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM_READ_STREAM
+RustBuffer uniffi_iroh_streamplace_fn_method_stream_read_stream(void* ptr, uint64_t length, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM_SEEK_STREAM
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM_SEEK_STREAM
+uint64_t uniffi_iroh_streamplace_fn_method_stream_seek_stream(void* ptr, int64_t pos, uint64_t mode, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM_WRITE_STREAM
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM_WRITE_STREAM
+uint64_t uniffi_iroh_streamplace_fn_method_stream_write_stream(void* ptr, RustBuffer data, RustCallStatus *out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_SUBSCRIBERESPONSE
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_SUBSCRIBERESPONSE
 void* uniffi_iroh_streamplace_fn_clone_subscriberesponse(void* ptr, RustCallStatus *out_status
@@ -735,12 +817,12 @@ uint64_t uniffi_iroh_streamplace_fn_method_writescope_put(void* ptr, RustBuffer 
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_GET_MANIFEST_AND_CERT
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_GET_MANIFEST_AND_CERT
-RustBuffer uniffi_iroh_streamplace_fn_func_get_manifest_and_cert(RustBuffer data, RustCallStatus *out_status
+RustBuffer uniffi_iroh_streamplace_fn_func_get_manifest_and_cert(void* data, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_GET_MANIFESTS
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_GET_MANIFESTS
-RustBuffer uniffi_iroh_streamplace_fn_func_get_manifests(RustBuffer data, RustCallStatus *out_status
+RustBuffer uniffi_iroh_streamplace_fn_func_get_manifests(void* data, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_INIT_LOGGING
@@ -761,17 +843,17 @@ void* uniffi_iroh_streamplace_fn_func_node_id_from_ticket(RustBuffer ticket_str,
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_RESIGN
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_RESIGN
-RustBuffer uniffi_iroh_streamplace_fn_func_resign(RustBuffer unsigned_seg_data, RustBuffer signed_concat_data, RustBuffer manifest_list, RustBuffer certs, RustCallStatus *out_status
+RustBuffer uniffi_iroh_streamplace_fn_func_resign(RustBuffer unsigned_seg_data, void* signed_concat_data, RustBuffer manifest_list, RustBuffer certs, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SIGN
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SIGN
-RustBuffer uniffi_iroh_streamplace_fn_func_sign(RustBuffer manifest, RustBuffer data, RustBuffer certs, void* gosigner, RustCallStatus *out_status
+RustBuffer uniffi_iroh_streamplace_fn_func_sign(RustBuffer manifest, void* data, RustBuffer certs, void* gosigner, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SIGN_WITH_INGREDIENTS
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SIGN_WITH_INGREDIENTS
-RustBuffer uniffi_iroh_streamplace_fn_func_sign_with_ingredients(RustBuffer manifest, RustBuffer data, RustBuffer certs, RustBuffer ingredients, void* gosigner, RustCallStatus *out_status
+void uniffi_iroh_streamplace_fn_func_sign_with_ingredients(RustBuffer manifest, void* data, RustBuffer certs, RustBuffer ingredients, void* gosigner, void* output, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SUBSCRIBE_ITEM_DEBUG
@@ -1299,6 +1381,24 @@ uint16_t uniffi_iroh_streamplace_checksum_method_publickey_fmt_short(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM_READ_STREAM
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM_READ_STREAM
+uint16_t uniffi_iroh_streamplace_checksum_method_stream_read_stream(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM_SEEK_STREAM
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM_SEEK_STREAM
+uint16_t uniffi_iroh_streamplace_checksum_method_stream_seek_stream(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM_WRITE_STREAM
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM_WRITE_STREAM
+uint16_t uniffi_iroh_streamplace_checksum_method_stream_write_stream(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SUBSCRIBERESPONSE_NEXT_RAW
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SUBSCRIBERESPONSE_NEXT_RAW
 uint16_t uniffi_iroh_streamplace_checksum_method_subscriberesponse_next_raw(void
@@ -1364,6 +1464,10 @@ uint32_t ffi_iroh_streamplace_uniffi_contract_version(void
  void iroh_streamplace_cgo_dispatchCallbackInterfaceDataHandlerFree(uint64_t handle);
  void iroh_streamplace_cgo_dispatchCallbackInterfaceGoSignerMethod0(uint64_t uniffi_handle, RustBuffer data, RustBuffer* uniffi_out_return, RustCallStatus* callStatus );
  void iroh_streamplace_cgo_dispatchCallbackInterfaceGoSignerFree(uint64_t handle);
+ void iroh_streamplace_cgo_dispatchCallbackInterfaceStreamMethod0(uint64_t uniffi_handle, uint64_t length, RustBuffer* uniffi_out_return, RustCallStatus* callStatus );
+ void iroh_streamplace_cgo_dispatchCallbackInterfaceStreamMethod1(uint64_t uniffi_handle, int64_t pos, uint64_t mode, uint64_t* uniffi_out_return, RustCallStatus* callStatus );
+ void iroh_streamplace_cgo_dispatchCallbackInterfaceStreamMethod2(uint64_t uniffi_handle, RustBuffer data, uint64_t* uniffi_out_return, RustCallStatus* callStatus );
+ void iroh_streamplace_cgo_dispatchCallbackInterfaceStreamFree(uint64_t handle);
 
 void iroh_streamplace_uniffiFutureContinuationCallback(uint64_t, int8_t);
 void iroh_streamplace_uniffiFreeGorutine(uint64_t);

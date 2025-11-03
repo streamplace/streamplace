@@ -6,7 +6,7 @@ import {
   ParamListBase,
   useNavigation,
 } from "@react-navigation/native";
-import { Text, zero } from "@streamplace/components";
+import { Text, useMainLogo, useSiteTitle, zero } from "@streamplace/components";
 import { useAQLinkHref } from "components/aqlink";
 import React from "react";
 import { Image, Platform, Pressable, View } from "react-native";
@@ -46,6 +46,9 @@ export default function Sidebar({
   externalItems = [],
 }: SidebarProps) {
   const navigation = useNavigation();
+  const siteTitle = useSiteTitle();
+  const mainLogo = useMainLogo();
+
   const animatedSidebarStyle = useAnimatedStyle(() => {
     return {
       minWidth: widthAnim.value,
@@ -87,13 +90,22 @@ export default function Sidebar({
           },
         ]}
       >
-        <Image
-          source={require("../../assets/images/cube.png")}
-          height={30}
-          width={28}
-          style={{ width: 28, height: 30, resizeMode: "contain" }}
-        />
-        {!collapsed && <Text size="2xl">Streamplace</Text>}
+        {mainLogo ? (
+          <Image
+            source={{ uri: mainLogo }}
+            height={30}
+            width={28}
+            style={{ width: 28, height: 30, resizeMode: "contain" }}
+          />
+        ) : (
+          <Image
+            source={require("../../assets/images/cube.png")}
+            height={30}
+            width={28}
+            style={{ width: 28, height: 30, resizeMode: "contain" }}
+          />
+        )}
+        {!collapsed && <Text size="2xl">{siteTitle}</Text>}
       </Pressable>
 
       {state.routes.map((route) => {

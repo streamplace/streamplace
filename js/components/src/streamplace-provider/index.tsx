@@ -1,5 +1,6 @@
 import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useEffect, useRef } from "react";
+import { useDocumentTitle } from "../hooks";
 import {
   useBrandingAutoFetch,
   useFetchBroadcasterDID,
@@ -43,6 +44,7 @@ export function StreamplaceProvider({
 export function BrandingFetcher({ children }: { children: React.ReactNode }) {
   const fetchBroadcasterDID = useFetchBroadcasterDID();
   useBrandingAutoFetch();
+  useDocumentTitle();
 
   useEffect(() => {
     fetchBroadcasterDID();

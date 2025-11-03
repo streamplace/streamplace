@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Branding Admin</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background: #0a0a0a;
+        color: #e4e4e7;
+        padding: 2rem;
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: #fafafa;
+      }
+
+      .subtitle {
+        color: #a1a1aa;
+        margin-bottom: 2rem;
+      }
+
+      .section {
+        background: #18181b;
+        border: 1px solid #27272a;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .section-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #fafafa;
+      }
+
+      .section-subtitle {
+        font-size: 0.875rem;
+        color: #a1a1aa;
+        margin-bottom: 1rem;
+      }
+
+      .input-group {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+
+      input[type="text"],
+      input[type="file"] {
+        flex: 1;
+        padding: 0.625rem;
+        background: #27272a;
+        border: 1px solid #3f3f46;
+        border-radius: 6px;
+        color: #e4e4e7;
+        font-size: 0.875rem;
+      }
+
+      input[type="text"]:focus,
+      input[type="file"]:focus {
+        outline: none;
+        border-color: #6366f1;
+      }
+
+      button {
+        padding: 0.625rem 1.25rem;
+        background: #6366f1;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      button:hover {
+        background: #4f46e5;
+      }
+
+      button:disabled {
+        background: #3f3f46;
+        cursor: not-allowed;
+      }
+
+      button.secondary {
+        background: #27272a;
+        border: 1px solid #3f3f46;
+      }
+
+      button.secondary:hover {
+        background: #3f3f46;
+      }
+
+      button.danger {
+        background: #dc2626;
+      }
+
+      button.danger:hover {
+        background: #b91c1c;
+      }
+
+      .toast {
+        position: fixed;
+        top: 2rem;
+        right: 2rem;
+        padding: 1rem 1.5rem;
+        background: #18181b;
+        border: 1px solid #27272a;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.3s ease-out;
+        z-index: 1000;
+      }
+
+      .toast.success {
+        border-color: #16a34a;
+      }
+
+      .toast.error {
+        border-color: #dc2626;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      .info {
+        font-size: 0.875rem;
+        color: #71717a;
+        margin-top: 1.5rem;
+      }
+
+      .button-group {
+        display: flex;
+        gap: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Branding Administration</h1>
+      <p class="subtitle">Customize your Streamplace instance</p>
+
+      <!-- Site Title -->
+      <div class="section">
+        <div class="section-title">Site Title</div>
+        <div class="section-subtitle" id="currentTitle">
+          Current: Loading...
+        </div>
+        <div class="input-group">
+          <input
+            type="text"
+            id="siteTitleInput"
+            placeholder="Enter new site title"
+          />
+          <button
+            onclick="uploadText('siteTitle', document.getElementById('siteTitleInput').value)"
+          >
+            Update
+          </button>
+        </div>
+      </div>
+
+      <!-- Site Description -->
+      <div class="section">
+        <div class="section-title">Site Description</div>
+        <div class="section-subtitle" id="currentDescription">
+          Current: Loading...
+        </div>
+        <div class="input-group">
+          <input
+            type="text"
+            id="siteDescriptionInput"
+            placeholder="Enter site description"
+          />
+          <button
+            onclick="uploadText('siteDescription', document.getElementById('siteDescriptionInput').value)"
+          >
+            Update
+          </button>
+        </div>
+      </div>
+
+      <!-- Primary Color -->
+      <div class="section">
+        <div class="section-title">Primary Color</div>
+        <div class="section-subtitle" id="currentPrimaryColor">
+          Current: Loading...
+        </div>
+        <div class="input-group">
+          <input type="text" id="primaryColorInput" placeholder="#6366f1" />
+          <button
+            onclick="uploadText('primaryColor', document.getElementById('primaryColorInput').value)"
+          >
+            Update
+          </button>
+        </div>
+      </div>
+
+      <!-- Accent Color -->
+      <div class="section">
+        <div class="section-title">Accent Color</div>
+        <div class="section-subtitle" id="currentAccentColor">
+          Current: Loading...
+        </div>
+        <div class="input-group">
+          <input type="text" id="accentColorInput" placeholder="#8b5cf6" />
+          <button
+            onclick="uploadText('accentColor', document.getElementById('accentColorInput').value)"
+          >
+            Update
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Logo -->
+      <div class="section">
+        <div class="section-title">Main Logo</div>
+        <div class="section-subtitle" id="currentLogo">
+          SVG, PNG, or JPEG (max 500KB)
+        </div>
+        <div class="input-group">
+          <input
+            type="file"
+            id="logoInput"
+            accept="image/svg+xml,image/png,image/jpeg"
+          />
+          <button
+            onclick="uploadFile('mainLogo', document.getElementById('logoInput'))"
+          >
+            Upload
+          </button>
+        </div>
+        <div class="button-group" style="margin-top: 0.5rem">
+          <button class="danger" onclick="deleteBlob('mainLogo')">
+            Delete Logo
+          </button>
+        </div>
+      </div>
+
+      <!-- Favicon -->
+      <div class="section">
+        <div class="section-title">Favicon</div>
+        <div class="section-subtitle" id="currentFavicon">
+          SVG, PNG, or ICO (max 100KB)
+        </div>
+        <div class="input-group">
+          <input
+            type="file"
+            id="faviconInput"
+            accept="image/svg+xml,image/png,image/x-icon"
+          />
+          <button
+            onclick="uploadFile('favicon', document.getElementById('faviconInput'))"
+          >
+            Upload
+          </button>
+        </div>
+        <div class="button-group" style="margin-top: 0.5rem">
+          <button class="danger" onclick="deleteBlob('favicon')">
+            Delete Favicon
+          </button>
+        </div>
+      </div>
+
+      <div class="info" id="info">Loading branding information...</div>
+    </div>
+
+    <script>
+      let currentBranding = {};
+
+      async function loadBranding() {
+        try {
+          // try to fetch from public API first to get current values
+          const response = await fetch(
+            "/xrpc/place.stream.branding.getBranding",
+          );
+          if (!response.ok) {
+            throw new Error("Failed to load branding");
+          }
+
+          const data = await response.json();
+          currentBranding = {};
+
+          data.assets.forEach((asset) => {
+            currentBranding[asset.key] = asset.data;
+          });
+
+          // update UI with current values
+          document.getElementById("currentTitle").textContent =
+            "Current: " + (currentBranding["siteTitle"] || "Streamplace");
+          document.getElementById("currentDescription").textContent =
+            "Current: " +
+            (currentBranding["siteDescription"] || "Live streaming platform");
+          document.getElementById("currentPrimaryColor").textContent =
+            "Current: " + (currentBranding["primaryColor"] || "#6366f1");
+          document.getElementById("currentAccentColor").textContent =
+            "Current: " + (currentBranding["accentColor"] || "#8b5cf6");
+          document.getElementById("currentLogo").textContent = currentBranding[
+            "mainLogo"
+          ]
+            ? "Logo is set"
+            : "No custom logo";
+          document.getElementById("currentFavicon").textContent =
+            currentBranding["favicon"] ? "Favicon is set" : "No custom favicon";
+
+          document.getElementById("info").textContent =
+            "Branding loaded successfully";
+        } catch (err) {
+          showToast("Failed to load branding: " + err.message, "error");
+          document.getElementById("info").textContent =
+            "Error loading branding: " + err.message;
+        }
+      }
+
+      async function uploadText(key, value) {
+        if (!value.trim()) {
+          showToast("Please enter a value", "error");
+          return;
+        }
+
+        try {
+          const response = await fetch(`/branding/${key}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "text/plain",
+            },
+            body: value.trim(),
+          });
+
+          if (!response.ok) {
+            throw new Error("Upload failed: " + response.statusText);
+          }
+
+          showToast(`${key} updated successfully`, "success");
+
+          // clear input
+          document.getElementById(key + "Input").value = "";
+
+          // reload branding
+          setTimeout(() => loadBranding(), 500);
+        } catch (err) {
+          showToast("Failed to upload: " + err.message, "error");
+        }
+      }
+
+      async function uploadFile(key, inputElement) {
+        const file = inputElement.files[0];
+        if (!file) {
+          showToast("Please select a file", "error");
+          return;
+        }
+
+        try {
+          const response = await fetch(`/branding/${key}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": file.type,
+            },
+            body: file,
+          });
+
+          if (!response.ok) {
+            throw new Error("Upload failed: " + response.statusText);
+          }
+
+          showToast(`${key} uploaded successfully`, "success");
+
+          // clear input
+          inputElement.value = "";
+
+          // reload branding
+          setTimeout(() => loadBranding(), 500);
+        } catch (err) {
+          showToast("Failed to upload: " + err.message, "error");
+        }
+      }
+
+      async function deleteBlob(key) {
+        if (!confirm(`Are you sure you want to delete ${key}?`)) {
+          return;
+        }
+
+        try {
+          const response = await fetch(`/branding/${key}`, {
+            method: "DELETE",
+          });
+
+          if (!response.ok) {
+            throw new Error("Delete failed: " + response.statusText);
+          }
+
+          showToast(`${key} deleted successfully`, "success");
+
+          // reload branding
+          setTimeout(() => loadBranding(), 500);
+        } catch (err) {
+          showToast("Failed to delete: " + err.message, "error");
+        }
+      }
+
+      function showToast(message, type = "success") {
+        const toast = document.createElement("div");
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+          toast.remove();
+        }, 3000);
+      }
+
+      // load branding on page load
+      loadBranding();
+    </script>
+  </body>
+</html>

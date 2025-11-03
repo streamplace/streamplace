@@ -449,6 +449,26 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 	})
 
+	router.GET("/branding-admin", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		http.ServeFile(w, r, "pkg/api/branding-admin.html")
+	})
+
+	router.GET("/xrpc/place.stream.branding.getBranding", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		// proxy to public API
+		resp, err := http.Get(fmt.Sprintf("%s/xrpc/place.stream.branding.getBranding", a.CLI.OwnPublicURL()))
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "failed to fetch branding", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(resp.StatusCode)
+		if _, err := io.Copy(w, resp.Body); err != nil {
+			log.Error(ctx, "error copying response", "error", err)
+		}
+	})
+
 	router.PUT("/branding/:key", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		key := p.ByName("key")
 		if key == "" {

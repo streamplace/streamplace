@@ -9,8 +9,8 @@ import { usePossiblyUnauthedPDSAgent } from "./xrpc";
 export interface BrandingAsset {
   key: string;
   mimeType: string;
-  url: string;
-  data?: string; // base64 or text content
+  url?: string; // URL for images
+  data?: string; // inline data for text, or base64 for images
 }
 
 // helper to convert blob to base64
@@ -94,14 +94,12 @@ export function useFetchBranding() {
       for (const asset of assets) {
         brandingMap[asset.key] = { ...asset };
 
-        // construct full URL
-        const fullUrl = `${url}${asset.url}`;
-
-        // fetch blob data for images/text
-        if (asset.mimeType.startsWith("text/")) {
-          const textRes = await fetch(fullUrl);
-          brandingMap[asset.key].data = await textRes.text();
-        } else if (asset.mimeType.startsWith("image/")) {
+        // if data is already inline (text assets), use it directly
+        if (asset.data) {
+          brandingMap[asset.key].data = asset.data;
+        } else if (asset.url) {
+          // for images, construct full URL and fetch blob
+          const fullUrl = `${url}${asset.url}`;
           const blobRes = await fetch(fullUrl);
           const blob = await blobRes.blob();
           brandingMap[asset.key].data = await blobToBase64(blob);

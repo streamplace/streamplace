@@ -37,7 +37,7 @@
     },
     "brandingAsset": {
       "type": "object",
-      "required": ["key", "mimeType", "url"],
+      "required": ["key", "mimeType"],
       "properties": {
         "key": {
           "type": "string",
@@ -49,7 +49,11 @@
         },
         "url": {
           "type": "string",
-          "description": "URL to fetch the asset blob"
+          "description": "URL to fetch the asset blob (for images)"
+        },
+        "data": {
+          "type": "string",
+          "description": "Inline data for text assets"
         }
       }
     }

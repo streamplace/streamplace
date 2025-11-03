@@ -12,12 +12,14 @@ import (
 
 // BrandingGetBranding_BrandingAsset is a "brandingAsset" in the place.stream.branding.getBranding schema.
 type BrandingGetBranding_BrandingAsset struct {
+	// data: Inline data for text assets
+	Data *string `json:"data,omitempty" cborgen:"data,omitempty"`
 	// key: Asset key identifier
 	Key string `json:"key" cborgen:"key"`
 	// mimeType: MIME type of the asset
 	MimeType string `json:"mimeType" cborgen:"mimeType"`
-	// url: URL to fetch the asset blob
-	Url string `json:"url" cborgen:"url"`
+	// url: URL to fetch the asset blob (for images)
+	Url *string `json:"url,omitempty" cborgen:"url,omitempty"`
 }
 
 // BrandingGetBranding_Output is the output of a place.stream.branding.getBranding call.

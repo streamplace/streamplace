@@ -167,6 +167,20 @@
       <h1>Branding Administration</h1>
       <p class="subtitle">Customize your Streamplace instance</p>
 
+      <!-- Broadcaster DID -->
+      <div class="section">
+        <div class="section-title">Broadcaster DID</div>
+        <div class="section-subtitle">Leave empty to use server default</div>
+        <div class="input-group">
+          <input
+            type="text"
+            id="broadcasterDIDInput"
+            placeholder="did:plc:..."
+            value=""
+          />
+        </div>
+      </div>
+
       <!-- Site Title -->
       <div class="section">
         <div class="section-title">Site Title</div>
@@ -293,11 +307,20 @@
     <script>
       let currentBranding = {};
 
+      function getBroadcasterDID() {
+        return document.getElementById("broadcasterDIDInput").value.trim();
+      }
+
+      function getBroadcasterParam() {
+        const did = getBroadcasterDID();
+        return did ? `?broadcaster=${encodeURIComponent(did)}` : "";
+      }
+
       async function loadBranding() {
         try {
           // fetch branding metadata
           const response = await fetch(
-            "/xrpc/place.stream.branding.getBranding",
+            `/xrpc/place.stream.branding.getBranding${getBroadcasterParam()}`,
           );
           if (!response.ok) {
             throw new Error("Failed to load branding");
@@ -306,19 +329,13 @@
           const data = await response.json();
           currentBranding = {};
 
-          // fetch actual data for text assets
+          // process assets - use inline data for text, URLs for images
           for (const asset of data.assets) {
-            if (asset.mimeType === "text/plain") {
-              try {
-                const blobResponse = await fetch(asset.url);
-                if (blobResponse.ok) {
-                  currentBranding[asset.key] = await blobResponse.text();
-                }
-              } catch (e) {
-                console.warn(`Failed to fetch ${asset.key}:`, e);
-              }
-            } else {
-              // for images, store the URL
+            if (asset.data) {
+              // text asset with inline data
+              currentBranding[asset.key] = asset.data;
+            } else if (asset.url) {
+              // image asset with URL
               currentBranding[asset.key] = asset.url;
             }
           }
@@ -370,13 +387,16 @@
         }
 
         try {
-          const response = await fetch(`/branding/${key}`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "text/plain",
+          const response = await fetch(
+            `/branding/${key}${getBroadcasterParam()}`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "text/plain",
+              },
+              body: value.trim(),
             },
-            body: value.trim(),
-          });
+          );
 
           if (!response.ok) {
             throw new Error("Upload failed: " + response.statusText);
@@ -402,13 +422,16 @@
         }
 
         try {
-          const response = await fetch(`/branding/${key}`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": file.type,
+          const response = await fetch(
+            `/branding/${key}${getBroadcasterParam()}`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type,
+              },
+              body: file,
             },
-            body: file,
-          });
+          );
 
           if (!response.ok) {
             throw new Error("Upload failed: " + response.statusText);
@@ -432,9 +455,12 @@
         }
 
         try {
-          const response = await fetch(`/branding/${key}`, {
-            method: "DELETE",
-          });
+          const response = await fetch(
+            `/branding/${key}${getBroadcasterParam()}`,
+            {
+              method: "DELETE",
+            },
+          );
 
           if (!response.ok) {
             throw new Error("Delete failed: " + response.statusText);

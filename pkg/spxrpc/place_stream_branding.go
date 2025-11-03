@@ -116,19 +116,26 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 	// build output
 	assets := make([]*placestreamtypes.BrandingGetBranding_BrandingAsset, 0, len(allKeys))
 	for key := range allKeys {
-		_, mimeType, err := s.getBrandingBlobCached(ctx, broadcasterID, key)
+		data, mimeType, err := s.getBrandingBlobCached(ctx, broadcasterID, key)
 		if err != nil {
 			continue // skip if error
 		}
 
-		// construct URL - need to get base URL from echo context
-		url := fmt.Sprintf("/xrpc/place.stream.branding.getBlob?key=%s", key)
-
-		assets = append(assets, &placestreamtypes.BrandingGetBranding_BrandingAsset{
+		asset := &placestreamtypes.BrandingGetBranding_BrandingAsset{
 			Key:      key,
 			MimeType: mimeType,
-			Url:      url,
-		})
+		}
+
+		// for text assets, include data inline; for images, provide URL
+		if mimeType == "text/plain" {
+			str := string(data)
+			asset.Data = &str
+		} else {
+			url := fmt.Sprintf("/xrpc/place.stream.branding.getBlob?key=%s", key)
+			asset.Url = &url
+		}
+
+		assets = append(assets, asset)
 	}
 
 	return &placestreamtypes.BrandingGetBranding_Output{

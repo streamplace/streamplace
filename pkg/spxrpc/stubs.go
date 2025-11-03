@@ -283,11 +283,12 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 func (s *Server) HandlePlaceStreamBrandingGetBlob(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingGetBlob")
 	defer span.End()
+	broadcaster := c.QueryParam("broadcaster")
 	key := c.QueryParam("key")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context,key string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamBrandingGetBlob(ctx, key)
+	// func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context,broadcaster string,key string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamBrandingGetBlob(ctx, broadcaster, key)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -297,10 +298,11 @@ func (s *Server) HandlePlaceStreamBrandingGetBlob(c echo.Context) error {
 func (s *Server) HandlePlaceStreamBrandingGetBranding(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingGetBranding")
 	defer span.End()
+	broadcaster := c.QueryParam("broadcaster")
 	var out *placestreamtypes.BrandingGetBranding_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context) (*placestreamtypes.BrandingGetBranding_Output, error)
-	out, handleErr = s.handlePlaceStreamBrandingGetBranding(ctx)
+	// func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context,broadcaster string) (*placestreamtypes.BrandingGetBranding_Output, error)
+	out, handleErr = s.handlePlaceStreamBrandingGetBranding(ctx, broadcaster)
 	if handleErr != nil {
 		return handleErr
 	}

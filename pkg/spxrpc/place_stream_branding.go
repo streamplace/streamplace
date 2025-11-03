@@ -31,9 +31,11 @@ var defaultBrandingAssets = map[string]struct {
 	"defaultStreamKey": {data: []byte(""), mime: "text/plain"},
 }
 
-func (s *Server) getBroadcasterID(ctx context.Context) string {
-	// for now, use BroadcasterHost as the ID
-	// in the future, this could come from session/auth context
+func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) string {
+	// if broadcaster param provided, use it; otherwise use server's default
+	if broadcasterDID != "" {
+		return broadcasterDID
+	}
 	return s.cli.BroadcasterHost
 }
 
@@ -74,8 +76,8 @@ func (s *Server) getBrandingBlobCached(ctx context.Context, broadcasterID, key s
 	return blob.Data, blob.MimeType, nil
 }
 
-func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, key string) (io.Reader, error) {
-	broadcasterID := s.getBroadcasterID(ctx)
+func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
+	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
 	data, _, err := s.getBrandingBlobCached(ctx, broadcasterID, key)
 	if err != nil {
 		return nil, err
@@ -83,8 +85,8 @@ func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, key strin
 	return bytes.NewReader(data), nil
 }
 
-func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context) (*placestreamtypes.BrandingGetBranding_Output, error) {
-	broadcasterID := s.getBroadcasterID(ctx)
+func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context, broadcasterDID string) (*placestreamtypes.BrandingGetBranding_Output, error) {
+	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
 
 	// get all keys from database
 	dbKeys, err := s.statefulDB.ListBrandingKeys(broadcasterID)

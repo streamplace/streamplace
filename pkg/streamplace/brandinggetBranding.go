@@ -27,10 +27,15 @@ type BrandingGetBranding_Output struct {
 }
 
 // BrandingGetBranding calls the XRPC method "place.stream.branding.getBranding".
-func BrandingGetBranding(ctx context.Context, c util.LexClient) (*BrandingGetBranding_Output, error) {
+//
+// broadcaster: DID of the broadcaster. If not provided, uses the server's default broadcaster.
+func BrandingGetBranding(ctx context.Context, c util.LexClient, broadcaster string) (*BrandingGetBranding_Output, error) {
 	var out BrandingGetBranding_Output
 
 	params := map[string]interface{}{}
+	if broadcaster != "" {
+		params["broadcaster"] = broadcaster
+	}
 	if err := c.LexDo(ctx, util.Query, "", "place.stream.branding.getBranding", params, nil, &out); err != nil {
 		return nil, err
 	}

@@ -13,11 +13,15 @@ import (
 
 // BrandingGetBlob calls the XRPC method "place.stream.branding.getBlob".
 //
+// broadcaster: DID of the broadcaster. If not provided, uses the server's default broadcaster.
 // key: Branding asset key (mainLogo, favicon, siteTitle, etc.)
-func BrandingGetBlob(ctx context.Context, c util.LexClient, key string) ([]byte, error) {
+func BrandingGetBlob(ctx context.Context, c util.LexClient, broadcaster string, key string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
+	if broadcaster != "" {
+		params["broadcaster"] = broadcaster
+	}
 	params["key"] = key
 	if err := c.LexDo(ctx, util.Query, "", "place.stream.branding.getBlob", params, nil, buf); err != nil {
 		return nil, err

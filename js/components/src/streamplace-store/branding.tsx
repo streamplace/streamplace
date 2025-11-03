@@ -4,7 +4,7 @@ import {
   getStreamplaceStoreFromContext,
   useStreamplaceStore,
 } from "./streamplace-store";
-import { usePDSAgent } from "./xrpc";
+import { usePossiblyUnauthedPDSAgent } from "./xrpc";
 
 export interface BrandingAsset {
   key: string;
@@ -23,9 +23,31 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   });
 };
 
+// hook to fetch broadcaster DID (unauthenticated)
+export function useFetchBroadcasterDID() {
+  const streamplaceAgent = usePossiblyUnauthedPDSAgent();
+  const store = getStreamplaceStoreFromContext();
+
+  return useCallback(async () => {
+    try {
+      if (!streamplaceAgent) {
+        throw new Error("Streamplace agent not available");
+      }
+      const result =
+        await streamplaceAgent.place.stream.broadcast.getBroadcaster();
+      store.setState({ broadcasterDID: result.data.broadcaster });
+      if (result.data.server) {
+        store.setState({ serverDID: result.data.server });
+      }
+    } catch (err) {
+      console.error("Failed to fetch broadcaster DID:", err);
+    }
+  }, [streamplaceAgent, store]);
+}
+
 // hook to fetch branding data from the server
 export function useFetchBranding() {
-  const streamplaceAgent = usePDSAgent();
+  const streamplaceAgent = usePossiblyUnauthedPDSAgent();
   const broadcasterDID = useStreamplaceStore((state) => state.broadcasterDID);
   const url = useStreamplaceStore((state) => state.url);
   const store = getStreamplaceStoreFromContext();
@@ -62,7 +84,7 @@ export function useFetchBranding() {
         throw new Error("Streamplace agent not available");
       }
       const res = await streamplaceAgent.place.stream.branding.getBranding({
-        did: broadcasterDID,
+        broadcaster: broadcasterDID,
       });
       const assets = res.data.assets;
 

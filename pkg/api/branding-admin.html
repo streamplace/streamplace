@@ -297,7 +297,7 @@
 
       async function loadBranding() {
         try {
-          // try to fetch from public API first to get current values
+          // fetch branding metadata
           const response = await fetch(
             "/xrpc/place.stream.branding.getBranding",
           );
@@ -308,9 +308,22 @@
           const data = await response.json();
           currentBranding = {};
 
-          data.assets.forEach((asset) => {
-            currentBranding[asset.key] = asset.data;
-          });
+          // fetch actual data for text assets
+          for (const asset of data.assets) {
+            if (asset.mimeType === "text/plain") {
+              try {
+                const blobResponse = await fetch(asset.url);
+                if (blobResponse.ok) {
+                  currentBranding[asset.key] = await blobResponse.text();
+                }
+              } catch (e) {
+                console.warn(`Failed to fetch ${asset.key}:`, e);
+              }
+            } else {
+              // for images, just store that they exist
+              currentBranding[asset.key] = true;
+            }
+          }
 
           // update UI with current values
           document.getElementById("currentTitle").textContent =

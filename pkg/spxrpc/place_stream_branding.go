@@ -77,6 +77,11 @@ func (s *Server) getBrandingBlobCached(ctx context.Context, broadcasterID, key s
 }
 
 func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
+	return s.HandlePlaceStreamBrandingGetBlobDirect(ctx, broadcasterDID, key)
+}
+
+// HandlePlaceStreamBrandingGetBlobDirect is the exported version for direct calls
+func (s *Server) HandlePlaceStreamBrandingGetBlobDirect(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
 	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
 	data, _, err := s.getBrandingBlobCached(ctx, broadcasterID, key)
 	if err != nil {

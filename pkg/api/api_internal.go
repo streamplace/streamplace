@@ -473,6 +473,20 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 	})
 
+	router.GET("/xrpc/place.stream.branding.getBlob", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		// call XRPC handler directly instead of proxying
+		key := r.URL.Query().Get("key")
+		broadcasterDID := r.URL.Query().Get("broadcaster")
+		reader, err := a.XRPCServer.HandlePlaceStreamBrandingGetBlobDirect(ctx, broadcasterDID, key)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "failed to fetch blob", err)
+			return
+		}
+		if _, err := io.Copy(w, reader); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
+		}
+	})
+
 	router.PUT("/branding/:key", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		key := p.ByName("key")
 		if key == "" {

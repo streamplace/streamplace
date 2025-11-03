@@ -454,18 +454,22 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	router.GET("/xrpc/place.stream.branding.getBranding", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		// proxy to public API
-		resp, err := http.Get(fmt.Sprintf("%s/xrpc/place.stream.branding.getBranding", a.CLI.OwnPublicURL()))
+		// call XRPC handler directly instead of proxying
+		broadcasterDID := r.URL.Query().Get("broadcaster")
+		output, err := a.XRPCServer.HandlePlaceStreamBrandingGetBrandingDirect(ctx, broadcasterDID)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "failed to fetch branding", err)
 			return
 		}
-		defer resp.Body.Close()
 
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(resp.StatusCode)
-		if _, err := io.Copy(w, resp.Body); err != nil {
-			log.Error(ctx, "error copying response", "error", err)
+		bs, err := json.Marshal(output)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
+			return
+		}
+		if _, err := w.Write(bs); err != nil {
+			log.Error(ctx, "error writing response", "error", err)
 		}
 	})
 

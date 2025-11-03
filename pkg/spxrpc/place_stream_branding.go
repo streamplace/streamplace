@@ -86,6 +86,11 @@ func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, broadcast
 }
 
 func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context, broadcasterDID string) (*placestreamtypes.BrandingGetBranding_Output, error) {
+	return s.HandlePlaceStreamBrandingGetBrandingDirect(ctx, broadcasterDID)
+}
+
+// HandlePlaceStreamBrandingGetBrandingDirect is the exported version for direct calls
+func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context, broadcasterDID string) (*placestreamtypes.BrandingGetBranding_Output, error) {
 	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
 
 	// get all keys from database

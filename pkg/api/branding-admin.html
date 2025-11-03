@@ -242,9 +242,8 @@
       <!-- Main Logo -->
       <div class="section">
         <div class="section-title">Main Logo</div>
-        <div class="section-subtitle" id="currentLogo">
-          SVG, PNG, or JPEG (max 500KB)
-        </div>
+        <div class="section-subtitle">SVG, PNG, or JPEG (max 500KB)</div>
+        <div id="currentLogoPreview" style="margin-bottom: 1rem"></div>
         <div class="input-group">
           <input
             type="file"
@@ -267,9 +266,8 @@
       <!-- Favicon -->
       <div class="section">
         <div class="section-title">Favicon</div>
-        <div class="section-subtitle" id="currentFavicon">
-          SVG, PNG, or ICO (max 100KB)
-        </div>
+        <div class="section-subtitle">SVG, PNG, or ICO (max 100KB)</div>
+        <div id="currentFaviconPreview" style="margin-bottom: 1rem"></div>
         <div class="input-group">
           <input
             type="file"
@@ -320,8 +318,8 @@
                 console.warn(`Failed to fetch ${asset.key}:`, e);
               }
             } else {
-              // for images, just store that they exist
-              currentBranding[asset.key] = true;
+              // for images, store the URL
+              currentBranding[asset.key] = asset.url;
             }
           }
 
@@ -335,13 +333,26 @@
             "Current: " + (currentBranding["primaryColor"] || "#6366f1");
           document.getElementById("currentAccentColor").textContent =
             "Current: " + (currentBranding["accentColor"] || "#8b5cf6");
-          document.getElementById("currentLogo").textContent = currentBranding[
-            "mainLogo"
-          ]
-            ? "Logo is set"
-            : "No custom logo";
-          document.getElementById("currentFavicon").textContent =
-            currentBranding["favicon"] ? "Favicon is set" : "No custom favicon";
+
+          // render logo preview
+          const logoPreview = document.getElementById("currentLogoPreview");
+          if (currentBranding["mainLogo"]) {
+            logoPreview.innerHTML = `<img src="${currentBranding["mainLogo"]}" style="max-width: 200px; max-height: 100px; background: #27272a; padding: 1rem; border-radius: 6px;" alt="Main Logo">`;
+          } else {
+            logoPreview.innerHTML =
+              '<div style="color: #71717a; font-size: 0.875rem;">No custom logo</div>';
+          }
+
+          // render favicon preview
+          const faviconPreview = document.getElementById(
+            "currentFaviconPreview",
+          );
+          if (currentBranding["favicon"]) {
+            faviconPreview.innerHTML = `<img src="${currentBranding["favicon"]}" style="max-width: 64px; max-height: 64px; background: #27272a; padding: 0.5rem; border-radius: 6px;" alt="Favicon">`;
+          } else {
+            faviconPreview.innerHTML =
+              '<div style="color: #71717a; font-size: 0.875rem;">No custom favicon</div>';
+          }
 
           document.getElementById("info").textContent =
             "Branding loaded successfully";

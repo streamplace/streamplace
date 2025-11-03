@@ -449,6 +449,76 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 	})
 
+	router.PUT("/branding/:key", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		key := p.ByName("key")
+		if key == "" {
+			errors.WriteHTTPBadRequest(w, "key required", nil)
+			return
+		}
+
+		// get broadcaster from query param or use default
+		broadcasterID := r.URL.Query().Get("broadcaster")
+		if broadcasterID == "" {
+			broadcasterID = a.CLI.BroadcasterHost
+		}
+
+		// read body
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			errors.WriteHTTPBadRequest(w, "unable to read request body", err)
+			return
+		}
+
+		// validate size based on key type
+		maxSize := 500 * 1024 // 500KB default for logos
+		if key == "favicon" {
+			maxSize = 100 * 1024 // 100KB for favicons
+		} else if key == "siteTitle" || key == "siteDescription" || key == "primaryColor" || key == "accentColor" || key == "defaultStreamKey" {
+			maxSize = 1024 // 1KB for text values
+		}
+		if len(data) > maxSize {
+			errors.WriteHTTPBadRequest(w, fmt.Sprintf("blob too large (max %d bytes)", maxSize), nil)
+			return
+		}
+
+		// determine mime type from content-type header
+		mimeType := r.Header.Get("Content-Type")
+		if mimeType == "" {
+			mimeType = "application/octet-stream"
+		}
+
+		// store in database
+		err = a.StatefulDB.PutBrandingBlob(broadcasterID, key, mimeType, data)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to store branding blob", err)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	router.DELETE("/branding/:key", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		key := p.ByName("key")
+		if key == "" {
+			errors.WriteHTTPBadRequest(w, "key required", nil)
+			return
+		}
+
+		// get broadcaster from query param or use default
+		broadcasterID := r.URL.Query().Get("broadcaster")
+		if broadcasterID == "" {
+			broadcasterID = a.CLI.BroadcasterHost
+		}
+
+		err := a.StatefulDB.DeleteBrandingBlob(broadcasterID, key)
+		if err != nil {
+			errors.WriteHTTPInternalServerError(w, "unable to delete branding blob", err)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	})
+
 	router.POST("/notification-blast", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		var payload notificationpkg.NotificationBlast
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {

@@ -86,21 +86,22 @@ function ProviderInner({
 
   return (
     <SafeAreaProvider>
-      <BrandedThemeProvider forcedTheme="dark">
-        <NavigationContainer theme={SPDarkTheme} linking={linking}>
-          <I18nProvider i18n={i18n}>
-            <NavigationContainer theme={SPDarkTheme} linking={linking}>
-              <StreamplaceProvider>
-                <BlueskyProvider>
-                  <NewStreamplaceProvider>
+
+      <NavigationContainer theme={SPDarkTheme} linking={linking}>
+        <I18nProvider i18n={i18n}>
+          <NavigationContainer theme={SPDarkTheme} linking={linking}>
+            <StreamplaceProvider>
+              <BlueskyProvider>
+                <NewStreamplaceProvider>
+                  <BrandedThemeProvider forcedTheme="dark">
                     <FontProvider>{children}</FontProvider>
-                  </NewStreamplaceProvider>
-                </BlueskyProvider>
-              </StreamplaceProvider>
-            </NavigationContainer>
-          </I18nProvider>
-        </NavigationContainer>
-      </BrandedThemeProvider>
+                  </BrandedThemeProvider>
+                </NewStreamplaceProvider>
+              </BlueskyProvider>
+            </StreamplaceProvider>
+          </NavigationContainer>
+        </I18nProvider>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }

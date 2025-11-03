@@ -61,6 +61,7 @@ type StreamplaceAPI struct {
 	FirebaseNotifier notifications.FirebaseNotifier
 	MediaManager     *media.MediaManager
 	MediaSigner      media.MediaSigner
+	XRPCServer       *spxrpc.Server
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus
@@ -154,6 +155,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
+	a.XRPCServer = xrpc.(*spxrpc.Server)
 	router := httprouter.New()
 
 	// Create our middleware factory with the default settings.

@@ -514,6 +514,10 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			return
 		}
 
+		// invalidate cache
+		cacheKey := fmt.Sprintf("%s:%s", broadcasterID, key)
+		a.XRPCServer.BrandingCache.Delete(cacheKey)
+
 		w.WriteHeader(http.StatusNoContent)
 	})
 
@@ -535,6 +539,10 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to delete branding blob", err)
 			return
 		}
+
+		// invalidate cache
+		cacheKey := fmt.Sprintf("%s:%s", broadcasterID, key)
+		a.XRPCServer.BrandingCache.Delete(cacheKey)
 
 		w.WriteHeader(http.StatusNoContent)
 	})

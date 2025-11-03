@@ -1,0 +1,52 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.branding.getBranding",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get all branding configuration for the broadcaster.",
+      "parameters": {
+        "type": "params",
+        "required": [],
+        "properties": {}
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["assets"],
+          "properties": {
+            "assets": {
+              "type": "array",
+              "description": "List of available branding assets",
+              "items": {
+                "type": "ref",
+                "ref": "#brandingAsset"
+              }
+            }
+          }
+        }
+      },
+      "errors": []
+    },
+    "brandingAsset": {
+      "type": "object",
+      "required": ["key", "mimeType", "url"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Asset key identifier"
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type of the asset"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to fetch the asset blob"
+        }
+      }
+    }
+  }
+}

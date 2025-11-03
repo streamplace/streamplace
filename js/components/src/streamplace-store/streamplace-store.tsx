@@ -4,6 +4,7 @@ import { PlaceStreamChatProfile, PlaceStreamLivestream } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import storage from "../storage";
 import { StreamplaceContext } from "../streamplace-provider/context";
+import { BrandingAsset } from "./branding";
 
 export interface ContentMetadataResult {
   record: any;
@@ -48,6 +49,11 @@ export interface StreamplaceState {
   setBroadcasterDID: (broadcasterDID: string | null) => void;
   serverDID: string | null;
   setServerDID: (serverDID: string | null) => void;
+
+  // Branding state
+  branding: Record<string, BrandingAsset> | null;
+  brandingLoading: boolean;
+  brandingError: string | null;
 
   // Volume state
   volume: number;
@@ -115,6 +121,11 @@ export const makeStreamplaceStore = ({
     // Content metadata
     contentMetadata: null,
     setContentMetadata: (metadata) => set({ contentMetadata: metadata }),
+
+    // Branding state
+    branding: null,
+    brandingLoading: false,
+    brandingError: null,
 
     // Volume state - start with defaults
     volume: 1.0,

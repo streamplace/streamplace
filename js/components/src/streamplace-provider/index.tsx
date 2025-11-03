@@ -1,6 +1,6 @@
 import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useEffect, useRef } from "react";
-import { useGetChatProfile } from "../streamplace-store";
+import { useBrandingAutoFetch, useGetChatProfile } from "../streamplace-store";
 import { makeStreamplaceStore } from "../streamplace-store/streamplace-store";
 import { StreamplaceContext } from "./context";
 import Poller from "./poller";
@@ -27,11 +27,18 @@ export function StreamplaceProvider({
 
   return (
     <StreamplaceContext.Provider value={{ store: store }}>
-      <ChatProfileCreator oauthSession={oauthSession}>
-        <Poller>{children}</Poller>
-      </ChatProfileCreator>
+      <BrandingFetcher>
+        <ChatProfileCreator oauthSession={oauthSession}>
+          <Poller>{children}</Poller>
+        </ChatProfileCreator>
+      </BrandingFetcher>
     </StreamplaceContext.Provider>
   );
+}
+
+export function BrandingFetcher({ children }: { children: React.ReactNode }) {
+  useBrandingAutoFetch();
+  return <>{children}</>;
 }
 
 export function ChatProfileCreator({

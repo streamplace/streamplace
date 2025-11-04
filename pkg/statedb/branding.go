@@ -27,19 +27,32 @@ func (state *StatefulDB) GetBrandingBlob(broadcasterID, key string) (*BrandingBl
 
 // PutBrandingBlob stores or updates a branding asset
 func (state *StatefulDB) PutBrandingBlob(broadcasterID, key, mimeType string, data []byte) error {
-	blob := BrandingBlob{
-		BroadcasterID: broadcasterID,
-		Key:           key,
-		MimeType:      mimeType,
-		Data:          data,
+	// try to find existing blob (including soft-deleted ones)
+	var existing BrandingBlob
+	err := state.DB.Unscoped().Where("broadcaster_id = ? AND key = ?", broadcasterID, key).First(&existing).Error
+
+	if err == gorm.ErrRecordNotFound {
+		// create new blob
+		blob := BrandingBlob{
+			BroadcasterID: broadcasterID,
+			Key:           key,
+			MimeType:      mimeType,
+			Data:          data,
+		}
+		if err := state.DB.Create(&blob).Error; err != nil {
+			return fmt.Errorf("error creating branding blob: %w", err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("error checking for existing branding blob: %w", err)
 	}
 
-	// upsert using ON CONFLICT
-	err := state.DB.Where("broadcaster_id = ? AND key = ?", broadcasterID, key).
-		Assign(BrandingBlob{MimeType: mimeType, Data: data}).
-		FirstOrCreate(&blob).Error
-	if err != nil {
-		return fmt.Errorf("error storing branding blob: %w", err)
+	// update existing blob (restore if soft-deleted)
+	existing.MimeType = mimeType
+	existing.Data = data
+	existing.DeletedAt = gorm.DeletedAt{} // clear soft delete
+	if err := state.DB.Unscoped().Save(&existing).Error; err != nil {
+		return fmt.Errorf("error updating branding blob: %w", err)
 	}
 
 	return nil

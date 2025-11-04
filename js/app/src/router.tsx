@@ -524,7 +524,7 @@ export function StreamplaceDrawer() {
           options={{
             drawerIcon: () => <Home color={foregroundColor} size={24} />,
             drawerLabel: () => <Text variant="h5">Home</Text>,
-            headerTitle: isWeb ? "Home" : "Streamplace",
+            headerTitle: isWeb ? "Home" : siteTitle,
             headerShown: isWeb,
             title: siteTitle,
           }}
@@ -708,20 +708,13 @@ export const PopupChecker = ({
 };
 
 const MainTab = () => {
-  const theme = useTheme();
   const { isWeb } = usePlatform();
   const siteTitle = useSiteTitle();
   const defaultStreamer = useDefaultStreamer();
 
-  // if defaultStreamer is set, show stream directly instead of home screen
-  const initialRouteName =
-    defaultStreamer && defaultStreamer.trim() ? "Stream" : "StreamList";
-
-  if (!defaultStreamer || defaultStreamer === "") return null;
-
   return (
     <Stack.Navigator
-      initialRouteName={initialRouteName}
+      initialRouteName="StreamList"
       screenOptions={{
         headerLeft: ({ canGoBack }) => (
           <NavigationButton canGoBack={canGoBack} />
@@ -732,13 +725,14 @@ const MainTab = () => {
     >
       <Stack.Screen
         name="StreamList"
-        component={!defaultStreamer ? HomeScreen : MobileStream}
+        component={
+          defaultStreamer && defaultStreamer !== "" ? MobileStream : HomeScreen
+        }
         options={{ headerTitle: siteTitle, title: siteTitle }}
       />
       <Stack.Screen
         name="Stream"
         component={MobileStream}
-        initialParams={{ user: defaultStreamer || undefined }}
         options={{
           headerTitle: "Stream",
           title: "Streamplace Stream",

@@ -132,7 +132,7 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 			str := string(data)
 			asset.Data = &str
 		} else {
-			url := fmt.Sprintf("/xrpc/place.stream.branding.getBlob?key=%s", key)
+			url := fmt.Sprintf("/xrpc/place.stream.branding.getBlob?key=%s&broadcaster=%s", key, broadcasterID)
 			asset.Url = &url
 		}
 

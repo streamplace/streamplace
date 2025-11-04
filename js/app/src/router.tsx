@@ -717,6 +717,8 @@ const MainTab = () => {
   const initialRouteName =
     defaultStreamer && defaultStreamer.trim() ? "Stream" : "StreamList";
 
+  if (!defaultStreamer || defaultStreamer === "") return null;
+
   return (
     <Stack.Navigator
       initialRouteName={initialRouteName}
@@ -730,7 +732,7 @@ const MainTab = () => {
     >
       <Stack.Screen
         name="StreamList"
-        component={HomeScreen}
+        component={!defaultStreamer ? HomeScreen : MobileStream}
         options={{ headerTitle: siteTitle, title: siteTitle }}
       />
       <Stack.Screen

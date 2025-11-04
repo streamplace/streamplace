@@ -2,6 +2,7 @@ import {
   KeepAwake,
   LivestreamProvider,
   PlayerProvider,
+  useDefaultStreamer,
   useLivestreamStore,
 } from "@streamplace/components";
 import { Player } from "components/mobile/player";
@@ -58,18 +59,33 @@ function MobileStreamInner({
 }
 
 export default function MobileStream({ route }) {
-  const { user, protocol, url } = route.params;
+  let user: string | undefined = route.params?.user;
+  const url: string | undefined = route.params?.url;
+
+  const defaultStreamer = useDefaultStreamer();
+
+  if (!user) user = defaultStreamer;
   let extraProps: Partial<PlayerProps> = {};
   if (isWeb) {
     extraProps = queryToProps(new URLSearchParams(window.location.search));
   }
+
+  if (!user) {
+    return <StreamError message="No streamer specified." />;
+  }
   let src = user;
   if (user === "stream") {
+    if (!url) {
+      return <StreamError message="No stream URL specified." />;
+    }
     src = url;
   }
 
+  useTitle(user);
+
   return (
     <LivestreamProvider src={src}>
+      <KeepAwake />
       <PlayerProvider>
         <MobileStreamInner user={user} src={src} extraProps={extraProps} />
       </PlayerProvider>

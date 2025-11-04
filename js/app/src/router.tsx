@@ -15,7 +15,12 @@ import {
   useRoute,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Text, useTheme, useToast } from "@streamplace/components";
+import {
+  Text,
+  useSiteTitle,
+  useTheme,
+  useToast,
+} from "@streamplace/components";
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
 import Login from "components/login/login";
@@ -395,6 +400,7 @@ export function StreamplaceDrawer() {
   const showLoginModal = useStore((state) => state.showLoginModal);
   const closeLoginModal = useStore((state) => state.closeLoginModal);
   const [livePopup, setLivePopup] = useState(false);
+  const siteTitle = useSiteTitle();
 
   const sidebar = useSidebarControl();
 
@@ -519,7 +525,7 @@ export function StreamplaceDrawer() {
             drawerLabel: () => <Text variant="h5">Home</Text>,
             headerTitle: isWeb ? "Home" : "Streamplace",
             headerShown: isWeb,
-            title: "Streamplace",
+            title: siteTitle,
           }}
           listeners={{
             drawerItemPress: (e) => {
@@ -703,6 +709,7 @@ export const PopupChecker = ({
 const MainTab = () => {
   const theme = useTheme();
   const { isWeb } = usePlatform();
+  const siteTitle = useSiteTitle();
   return (
     <Stack.Navigator
       initialRouteName="StreamList"
@@ -717,7 +724,7 @@ const MainTab = () => {
       <Stack.Screen
         name="StreamList"
         component={HomeScreen}
-        options={{ headerTitle: "Streamplace", title: "Streamplace" }}
+        options={{ headerTitle: siteTitle, title: siteTitle }}
       />
       <Stack.Screen
         name="Stream"

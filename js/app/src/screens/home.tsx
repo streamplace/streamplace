@@ -1,10 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
-import {
-  Text,
-  useDefaultStreamer,
-  useStreamplaceStore,
-  zero,
-} from "@streamplace/components";
+import { Text, useStreamplaceStore, zero } from "@streamplace/components";
 import AQLink from "components/aqlink";
 import Container from "components/container";
 import ErrorBox from "components/error/error";
@@ -168,18 +162,6 @@ export default function HomeScreen({
   const liveUsersError = useStreamplaceStore((state) => state.liveUsersError);
   const [manualRefresh, setManualRefresh] = useState(false);
   const { width } = useWindowDimensions();
-  const navigation = useNavigation();
-  const defaultStreamer = useDefaultStreamer();
-
-  // if defaultStreamer is set, redirect to that stream
-  useEffect(() => {
-    if (defaultStreamer && defaultStreamer.trim()) {
-      navigation.navigate("Home", {
-        screen: "Stream",
-        params: { user: defaultStreamer },
-      });
-    }
-  }, [defaultStreamer, navigation]);
 
   // Use mock data for development/testing if needed
   //const segments = generateMockSegments(1).streams; // Uncomment this line to use mock data

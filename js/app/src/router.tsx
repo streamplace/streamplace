@@ -17,6 +17,7 @@ import {
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
   Text,
+  useDefaultStreamer,
   useSiteTitle,
   useTheme,
   useToast,
@@ -710,9 +711,15 @@ const MainTab = () => {
   const theme = useTheme();
   const { isWeb } = usePlatform();
   const siteTitle = useSiteTitle();
+  const defaultStreamer = useDefaultStreamer();
+
+  // if defaultStreamer is set, show stream directly instead of home screen
+  const initialRouteName =
+    defaultStreamer && defaultStreamer.trim() ? "Stream" : "StreamList";
+
   return (
     <Stack.Navigator
-      initialRouteName="StreamList"
+      initialRouteName={initialRouteName}
       screenOptions={{
         headerLeft: ({ canGoBack }) => (
           <NavigationButton canGoBack={canGoBack} />
@@ -729,6 +736,7 @@ const MainTab = () => {
       <Stack.Screen
         name="Stream"
         component={MobileStream}
+        initialParams={{ user: defaultStreamer || undefined }}
         options={{
           headerTitle: "Stream",
           title: "Streamplace Stream",

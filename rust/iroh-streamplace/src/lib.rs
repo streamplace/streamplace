@@ -395,20 +395,6 @@ impl Actor {
                             tx.send(()).await.ok();
                         }
                     }
-                    // let Some((remote_id, res)) = res else {
-                    //     error!("task finished but no result");
-                    //     break;
-                    // };
-                    // match res {
-                    //     Ok(()) => {}
-                    //     Err(RpcTaskError::Timeout { source }) => {
-                    //         warn!("call to {remote_id} timed out: {source}");
-                    //     }
-                    //     Err(RpcTaskError::Task { source }) => {
-                    //         warn!("call to {remote_id} failed: {source}");
-                    //     }
-                    // }
-                    // self.connections.remove(&remote_id);
                 }
             }
         }

@@ -28,10 +28,17 @@ use std::{
 };
 
 use bytes::Bytes;
-use iroh::{NodeId, PublicKey, RelayMode, SecretKey, discovery::static_provider::StaticProvider, endpoint::ConnectError};
+use iroh::{
+    NodeId, PublicKey, RelayMode, SecretKey, discovery::static_provider::StaticProvider,
+    endpoint::ConnectError,
+};
 use iroh_base::ticket::NodeTicket;
 use iroh_gossip::{net::Gossip, proto::TopicId};
-use irpc::{WithChannels, channel::oneshot, rpc::{RemoteConnection, RemoteService}};
+use irpc::{
+    WithChannels,
+    channel::oneshot,
+    rpc::{RemoteConnection, RemoteService},
+};
 use irpc_iroh::IrohProtocol;
 use n0_future::future::Boxed;
 
@@ -221,7 +228,25 @@ enum TaskResult {
     },
 }
 
-type Tasks = FuturesUnordered<Boxed<TaskResult>>;
+struct Tasks(FuturesUnordered<Boxed<TaskResult>>);
+
+impl Tasks {
+    pub fn new() -> Self {
+        Self(FuturesUnordered::new())
+    }
+
+    pub async fn next(&mut self) -> Option<TaskResult> {
+        self.0.next().await
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn spawn(&mut self, fut: impl Future<Output = TaskResult> + Send + 'static) {
+        self.0.push(Box::pin(fut));
+    }
+}
 
 /// Actor that contains both a kv db for metadata and a handler for the rpc protocol.
 ///
@@ -259,7 +284,9 @@ enum RpcTaskError {
     #[snafu(transparent)]
     Task { source: irpc::Error },
     #[snafu(transparent)]
-    Connect { source: iroh::endpoint::ConnectError },
+    Connect {
+        source: iroh::endpoint::ConnectError,
+    },
     #[snafu(transparent)]
     Timeout { source: tokio::time::error::Elapsed },
 }
@@ -299,7 +326,7 @@ impl Actor {
             sp,
             write: write.clone(),
             client: client.clone(),
-            tasks: FuturesUnordered::new(),
+            tasks: Tasks::new(),
             config: Arc::new(config),
             rpc_pool: RpcPool::new(endpoint),
         };
@@ -563,12 +590,14 @@ impl Actor {
 
     fn handle_subscribe(&mut self, msg: WithChannels<api::Subscribe, ApiProtocol>) {
         trace!(inner = ?msg.inner, "ApiMessage::Subscribe");
-        self.spawn(Self::subscribe_task(self.rpc_pool.clone(), msg));
+        self.tasks
+            .spawn(Self::subscribe_task(self.rpc_pool.clone(), msg));
     }
 
     fn handle_unsubscribe(&mut self, msg: WithChannels<api::Unsubscribe, ApiProtocol>) {
         trace!(inner = ?msg.inner, "ApiMessage::Unsubscribe");
-        self.spawn(Self::unsubscribe_task(self.rpc_pool.clone(), msg));
+        self.tasks
+            .spawn(Self::unsubscribe_task(self.rpc_pool.clone(), msg));
     }
 
     fn handle_send(
@@ -587,12 +616,12 @@ impl Actor {
         };
         for remote_id in remotes {
             trace!(remote = %remote_id.fmt_short(), key = %msg.key, "handle_send to remote");
-            tasks.push(Box::pin(Self::forward_task(
+            tasks.spawn(Self::forward_task(
                 config.max_send_duration,
                 pool.clone(),
                 *remote_id,
                 msg.clone(),
-            )));
+            ));
         }
     }
 
@@ -607,14 +636,14 @@ impl Actor {
         } = msg;
         let res = async {
             let rpc = pool.get_rpc(remote_id).await?;
-            rpc
-                .rpc(rpc::Subscribe {
-                    key: key.clone(),
-                    remote_id: pool.endpoint_id(),
-                })
-                .await?;
+            rpc.rpc(rpc::Subscribe {
+                key: key.clone(),
+                remote_id: pool.endpoint_id(),
+            })
+            .await?;
             Ok(())
-        }.await;
+        }
+        .await;
         TaskResult::Subscribe {
             key,
             remote_id,
@@ -634,20 +663,15 @@ impl Actor {
         } = msg;
         let res = async {
             let rpc = pool.get_rpc(remote_id).await?;
-            rpc
-                .rpc(rpc::Unsubscribe {
-                    key: key.clone(),
-                    remote_id: pool.endpoint_id(),
-                })
-                .await?;
+            rpc.rpc(rpc::Unsubscribe {
+                key: key.clone(),
+                remote_id: pool.endpoint_id(),
+            })
+            .await?;
             Ok(())
         }
         .await;
-        TaskResult::Unsubscribe {
-            key,
-            tx,
-            res,
-        }
+        TaskResult::Unsubscribe { key, tx, res }
     }
 
     async fn forward_task(
@@ -662,26 +686,16 @@ impl Actor {
             Ok(())
         }
         .await;
-        TaskResult::Forward {
-            remote_id,
-            res,
-        }
+        TaskResult::Forward { remote_id, res }
     }
 
     fn node_id(&self) -> PublicKey {
         self.router.endpoint().node_id()
     }
-
-    fn spawn<F>(&mut self, fut: F)
-    where
-        F: std::future::Future<Output = TaskResult> + Send + 'static,
-    {
-        self.tasks.push(Box::pin(fut));
-    }
 }
 
 /// For now this is not much of a pool, just a wrapper around the endpoint.
-/// 
+///
 /// We can insert a proper pool here later, e.g. the one from iroh-blobs.
 #[derive(Clone, Debug)]
 struct RpcPool {
@@ -689,7 +703,6 @@ struct RpcPool {
 }
 
 impl RpcPool {
-
     pub fn new(endpoint: iroh::Endpoint) -> Self {
         Self { endpoint }
     }
@@ -698,10 +711,7 @@ impl RpcPool {
         self.endpoint.node_id()
     }
 
-    async fn get_rpc(
-        &self,
-        remote_id: NodeId,
-    ) -> Result<irpc::Client<RpcProtocol>, ConnectError> {
+    async fn get_rpc(&self, remote_id: NodeId) -> Result<irpc::Client<RpcProtocol>, ConnectError> {
         let conn = self.endpoint.connect(remote_id, rpc::ALPN).await?;
         Ok(irpc::Client::boxed(IrohWrappedRemoteConnection(conn)))
     }
@@ -716,8 +726,13 @@ impl RemoteConnection for IrohWrappedRemoteConnection {
     }
 
     fn open_bi(
-                &self,
-            ) -> Boxed<std::result::Result<(iroh::endpoint::SendStream, iroh::endpoint::RecvStream), irpc::RequestError>> {
+        &self,
+    ) -> Boxed<
+        std::result::Result<
+            (iroh::endpoint::SendStream, iroh::endpoint::RecvStream),
+            irpc::RequestError,
+        >,
+    > {
         let conn = self.0.clone();
         Box::pin(async move {
             let (send, recv) = conn.open_bi().await?;

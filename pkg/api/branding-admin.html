@@ -253,6 +253,26 @@
         </div>
       </div>
 
+      <!-- Default Streamer -->
+      <div class="section">
+        <div class="section-title">Default Streamer</div>
+        <div class="section-subtitle" id="currentDefaultStreamer">
+          Current: None
+        </div>
+        <div class="input-group">
+          <input
+            type="text"
+            id="defaultStreamerInput"
+            placeholder="did:plc:..."
+          />
+          <button
+            onclick="uploadText('defaultStreamer', document.getElementById('defaultStreamerInput').value)"
+          >
+            Update
+          </button>
+        </div>
+      </div>
+
       <!-- Main Logo -->
       <div class="section">
         <div class="section-title">Main Logo</div>
@@ -350,6 +370,8 @@
             "Current: " + (currentBranding["primaryColor"] || "#6366f1");
           document.getElementById("currentAccentColor").textContent =
             "Current: " + (currentBranding["accentColor"] || "#8b5cf6");
+          document.getElementById("currentDefaultStreamer").textContent =
+            "Current: " + (currentBranding["defaultStreamer"] || "None");
 
           // render logo preview
           const logoPreview = document.getElementById("currentLogoPreview");

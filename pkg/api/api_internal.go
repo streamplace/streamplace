@@ -511,7 +511,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		maxSize := 500 * 1024 // 500KB default for logos
 		if key == "favicon" {
 			maxSize = 100 * 1024 // 100KB for favicons
-		} else if key == "siteTitle" || key == "siteDescription" || key == "primaryColor" || key == "accentColor" || key == "defaultStreamKey" {
+		} else if key == "siteTitle" || key == "siteDescription" || key == "primaryColor" || key == "accentColor" || key == "defaultStreamKey" || key == "defaultStreamer" {
 			maxSize = 1024 // 1KB for text values
 		}
 		if len(data) > maxSize {

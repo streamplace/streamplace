@@ -177,6 +177,12 @@ export function useDefaultStreamKey(): string | undefined {
   return asset?.data || undefined;
 }
 
+// convenience hook for default streamer
+export function useDefaultStreamer(): string | undefined {
+  const asset = useBrandingAsset("defaultStreamer");
+  return asset?.data || undefined;
+}
+
 // hook to auto-fetch branding when broadcaster changes
 export function useBrandingAutoFetch() {
   const fetchBranding = useFetchBranding();

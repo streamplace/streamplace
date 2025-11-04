@@ -29,6 +29,7 @@ var defaultBrandingAssets = map[string]struct {
 	"primaryColor":     {data: []byte("#6366f1"), mime: "text/plain"},
 	"accentColor":      {data: []byte("#8b5cf6"), mime: "text/plain"},
 	"defaultStreamKey": {data: []byte(""), mime: "text/plain"},
+	"defaultStreamer":  {data: []byte(""), mime: "text/plain"},
 }
 
 func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) string {

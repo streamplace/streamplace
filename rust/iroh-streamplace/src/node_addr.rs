@@ -1,5 +1,6 @@
-use iroh_base::ticket::NodeTicket;
 use std::{str::FromStr, sync::Arc};
+
+use iroh_base::ticket::NodeTicket;
 
 use crate::public_key::PublicKey;
 

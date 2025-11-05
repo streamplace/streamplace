@@ -64,7 +64,6 @@ export default function MobileStream({ route }) {
 
   const defaultStreamer = useDefaultStreamer();
 
-  console.log(user, defaultStreamer);
 
   if (!user) user = defaultStreamer;
   let extraProps: Partial<PlayerProps> = {};

@@ -64,10 +64,19 @@ func splitAndCombineTest(t *testing.T, tempDir string, inputDir string) string {
 	for i := 0; i < muxTestCount; i++ {
 		segDir, err := os.MkdirTemp(tempDir, "segs")
 		require.NoError(t, err)
-		splitSegs, err := SegmentFileUnsigned(context.Background(), combinedFiles[0])
+		splitSegsCh := make(chan *SplitSegment)
+		go func() {
+			err := SegmentFileUnsigned(context.Background(), combinedFiles[0], splitSegsCh)
+			require.NoError(t, err)
+			close(splitSegsCh)
+		}()
+		splitSegs := []*SplitSegment{}
+		for seg := range splitSegsCh {
+			splitSegs = append(splitSegs, seg)
+		}
 		require.NoError(t, err)
 		for i, unsignedSeg := range splitSegs {
-			err = os.WriteFile(filepath.Join(segDir, fmt.Sprintf("unsigned_%06d.mp4", i)), unsignedSeg, 0644)
+			err = os.WriteFile(filepath.Join(segDir, fmt.Sprintf("unsigned_%06d.mp4", i)), unsignedSeg.Data, 0644)
 			require.NoError(t, err)
 		}
 		report, err := makeSegDirReport(t, segDir)

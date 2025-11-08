@@ -23,8 +23,9 @@ import (
 )
 
 type ManifestAndCert struct {
-	Manifest c2patypes.Manifest `json:"manifest"`
-	Cert     string             `json:"cert"`
+	Manifest          c2patypes.Manifest          `json:"manifest"`
+	Cert              string                      `json:"cert"`
+	ValidationResults c2patypes.ValidationResults `json:"validation_results"`
 }
 
 func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local bool) error {
@@ -217,6 +218,17 @@ func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error
 	err = json.Unmarshal([]byte(maniStr), &maniCert)
 	if err != nil {
 		return nil, err
+	}
+	activeManifest := maniCert.ValidationResults.ActiveManifest
+	if activeManifest == nil {
+		return nil, fmt.Errorf("no active manifest found")
+	}
+	if activeManifest.Failure == nil {
+		return nil, fmt.Errorf("active manifest failure array not found?!")
+	}
+	if len(activeManifest.Failure) > 0 {
+		bs, _ := json.Marshal(activeManifest.Failure)
+		return nil, fmt.Errorf("active manifest has failures: %s", string(bs))
 	}
 	pub, err := signers.ParseES256KCert([]byte(maniCert.Cert))
 	if err != nil {

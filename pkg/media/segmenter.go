@@ -133,17 +133,17 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 	})
 }
 
-func SegmentFileUnsigned(ctx context.Context, input string) ([][]byte, error) {
+func SegmentFileUnsigned(ctx context.Context, input string, ch chan *SplitSegment) error {
 	fd, err := os.OpenFile(input, os.O_RDONLY, 0644)
 	log.Log(ctx, "reading file", "file", input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
+		return fmt.Errorf("failed to read file: %w", err)
 	}
 	defer fd.Close()
-	return SegmentUnsigned(ctx, fd)
+	return SegmentUnsigned(ctx, fd, ch)
 }
 
-func SegmentUnsigned(ctx context.Context, input io.Reader) ([][]byte, error) {
+func SegmentUnsigned(ctx context.Context, input io.Reader, ch chan *SplitSegment) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	pipelineSlice := []string{
@@ -153,12 +153,12 @@ func SegmentUnsigned(ctx context.Context, input io.Reader) ([][]byte, error) {
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
-		return nil, fmt.Errorf("error creating MKVIngest pipeline: %w", err)
+		return fmt.Errorf("error creating MKVIngest pipeline: %w", err)
 	}
 
 	srcele, err := pipeline.GetElementByName("appsrc")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	src := app.SrcFromElement(srcele)
 	src.SetCallbacks(&app.SourceCallbacks{
@@ -166,33 +166,35 @@ func SegmentUnsigned(ctx context.Context, input io.Reader) ([][]byte, error) {
 	})
 	videoParseEle, err := pipeline.GetElementByName("videoparse")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	segs := [][]byte{}
 	segmenter, err := SegmentElem(ctx, func(ctx context.Context, buf []byte, now int64) error {
-		segs = append(segs, buf)
+		ch <- &SplitSegment{
+			Filename: fmt.Sprintf("%d.mp4", now),
+			Data:     buf,
+		}
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = pipeline.Add(segmenter)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = videoParseEle.Link(segmenter)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	audioparse, err := pipeline.GetElementByName("audioparse")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = audioparse.Link(segmenter)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	busErr := make(chan error)
@@ -204,7 +206,7 @@ func SegmentUnsigned(ctx context.Context, input io.Reader) ([][]byte, error) {
 
 	err = pipeline.SetState(gst.StatePlaying)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer func() {
@@ -216,8 +218,8 @@ func SegmentUnsigned(ctx context.Context, input io.Reader) ([][]byte, error) {
 
 	err = <-busErr
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return segs, nil
+	return nil
 }

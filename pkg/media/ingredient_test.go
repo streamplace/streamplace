@@ -25,6 +25,7 @@ func TestIngredientConcat(t *testing.T) {
 		require.NoError(t, err)
 		// defer os.RemoveAll(tempDir)
 		segments := remote.RemoteArchive("14ba49843a56c0510e2b5059123abd2f98a502b1f4c7d706b0ae1066d438468c/BigBuckBunny_1sGOP_4kp60_NoBframes.1min.tar.gz")
+		// segments := "/Users/iameli/testvids/hour-of-silksong/unsigned-minute"
 		// segments := "/Users/iameli/testvids/three"
 		testVids := []string{}
 		segEntries, err := os.ReadDir(segments)
@@ -72,23 +73,32 @@ func TestIngredientConcat(t *testing.T) {
 		concatSegment := filepath.Join(tempDir, "ingredient-concat.mp4")
 		err = os.WriteFile(concatSegment, signedConcatBS, 0644)
 		require.NoError(t, err)
-		splitSegs, err := SegmentFileUnsigned(context.Background(), concatSegment)
+		splitSegsCh := make(chan *SplitSegment)
+		go func() {
+			err := SegmentFileUnsigned(context.Background(), concatSegment, splitSegsCh)
+			require.NoError(t, err)
+			close(splitSegsCh)
+		}()
+		splitSegs := []*SplitSegment{}
+		for seg := range splitSegsCh {
+			splitSegs = append(splitSegs, seg)
+		}
 		require.NoError(t, err)
 		splitSegDir := makeTestSubdir(t, tempDir, "split-segments")
 		for i, unsignedSeg := range splitSegs {
-			err = os.WriteFile(filepath.Join(splitSegDir, fmt.Sprintf("unsigned_%06d.mp4", i)), unsignedSeg, 0644)
+			err = os.WriteFile(filepath.Join(splitSegDir, fmt.Sprintf("unsigned_%06d.mp4", i)), unsignedSeg.Data, 0644)
 			require.NoError(t, err)
 		}
 		splitReport, err := makeSegDirReport(t, splitSegDir)
 		require.NoError(t, err)
 		require.NoError(t, splitReport.CheckEquals(firstReport), "split segments are not equal to original segments")
 		signedSplitSegDir := makeTestSubdir(t, tempDir, "signed-split-segments")
-		resignedSegs, err := SplitSegments(context.Background(), signedConcatBS)
-		require.NoError(t, err)
-		for _, resignedSeg := range resignedSegs {
-			err = os.WriteFile(filepath.Join(signedSplitSegDir, resignedSeg.Filename), resignedSeg.Data, 0644)
+		err = SplitSegments(context.Background(), bytes.NewReader(signedConcatBS), func(fname string) ReadWriteSeekCloser {
+			fd, err := os.Create(filepath.Join(signedSplitSegDir, fname))
 			require.NoError(t, err)
-		}
+			return fd
+		})
+		require.NoError(t, err)
 		signedSplitReport, err := makeSegDirReport(t, signedSplitSegDir)
 		require.NoError(t, err)
 		require.NoError(t, signedSplitReport.CheckEquals(signedReport), "split signed segments are not equal to signed segments")

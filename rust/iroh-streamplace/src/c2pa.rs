@@ -30,7 +30,8 @@ pub fn get_manifest_and_cert(data: &dyn Stream) -> Result<String, SPError> {
 
         let result = serde_json::json!({
             "manifest": manifest,
-            "cert": cert_chain
+            "cert": cert_chain,
+            "validation_results": reader.validation_results(),
         });
 
         return Ok(result.to_string());
@@ -161,13 +162,24 @@ pub fn get_manifests(data: &dyn Stream) -> Result<String, SPError> {
     Ok(result.to_string())
 }
 
+#[uniffi::export(with_foreign)]
+pub trait SegmentToSign: Send + Sync {
+    fn unsigned_seg_stream(&self) -> Arc<dyn Stream>;
+    fn manifest_id(&self) -> String;
+    fn cert(&self) -> Vec<u8>;
+    fn output_seg_stream(&self) -> Arc<dyn Stream>;
+    fn close(&self);
+}
+
+#[uniffi::export(with_foreign)]
+pub trait ManySegmentsToSign: Send + Sync {
+    fn next(&self) -> Option<Arc<dyn SegmentToSign>>;
+}
+
 #[uniffi::export]
 pub fn resign(
-    unsigned_seg_data: &dyn ManyStreams,
+    segs_to_sign: &dyn ManySegmentsToSign,
     signed_concat_data: &dyn Stream,
-    manifest_list: Vec<String>,
-    certs: Vec<Vec<u8>>,
-    output: &dyn ManyStreams,
 ) -> Result<(), SPError> {
     let mut validation_log = StatusTracker::default();
 
@@ -179,27 +191,11 @@ pub fn resign(
     )
     .map_err(|e| SPError::C2paError(format!("from_stream failed: {}", e)))?;
 
-    for (i, manifest_id) in manifest_list.iter().enumerate() {
-        let unsigned_seg_data_stream = match unsigned_seg_data.next() {
-            Ok(Some(stream)) => stream,
-            Ok(None) => return Err(SPError::C2paError("Input stream not found".to_string())),
-            Err(e) => {
-                return Err(SPError::C2paError(format!(
-                    "Error getting input stream: {}",
-                    e
-                )));
-            }
-        };
-        let output_stream = match output.next() {
-            Ok(Some(stream)) => stream,
-            Ok(None) => return Err(SPError::C2paError("Output stream not found".to_string())),
-            Err(e) => {
-                return Err(SPError::C2paError(format!(
-                    "Error getting output stream: {}",
-                    e
-                )));
-            }
-        };
+    while let Some(seg) = segs_to_sign.next() {
+        let unsigned_seg_data_stream = seg.unsigned_seg_stream();
+        let manifest_id = seg.manifest_id();
+        let cert = seg.cert();
+        let output_stream = seg.output_seg_stream();
         let mut input_cursor = StreamAdapter::from(&*unsigned_seg_data_stream);
         let mut output_cursor = StreamAdapter::from(&*output_stream);
 
@@ -216,7 +212,7 @@ pub fn resign(
         let callback_signer = CallbackSigner::new(
             move |_context: *const (), _data: &[u8]| Ok(signature_val.clone()),
             c2pa::SigningAlg::Es256K,
-            certs[i].clone(),
+            cert,
         );
 
         let mut seg_store = Store::new();
@@ -235,6 +231,7 @@ pub fn resign(
             &jumbf_bytes,
         )
         .map_err(|e| SPError::C2paError(format!("save_jumbf_to_stream failed: {}", e)))?;
+        seg.close();
     }
 
     Ok(())
@@ -261,7 +258,7 @@ pub fn sign_with_ingredients(
     );
     let mut builder =
         Builder::from_json(&manifest).map_err(|e| SPError::C2paError(e.to_string()))?;
-    while let Ok(Some(ingredient)) = ingredients.next() {
+    while let Some(ingredient) = ingredients.next() {
         let mut cursor = StreamAdapter::from(&*ingredient);
         let ingredient = Ingredient::from_stream("video/mp4", &mut cursor)
             .map_err(|e| SPError::C2paError(e.to_string()))?;

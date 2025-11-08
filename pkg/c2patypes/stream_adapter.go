@@ -137,9 +137,9 @@ func (m *ManyStreams) AddStream(stream io.ReadSeeker) {
 	m.Streams = append(m.Streams, stream)
 }
 
-func (m *ManyStreams) Next() (*iroh_streamplace.Stream, error) {
+func (m *ManyStreams) Next() *iroh_streamplace.Stream {
 	if m.index >= len(m.Streams) {
-		return nil, nil
+		return nil
 	}
 	stream := m.Streams[m.index]
 	m.index++
@@ -149,5 +149,5 @@ func (m *ManyStreams) Next() (*iroh_streamplace.Stream, error) {
 	} else {
 		r = NewReader(stream)
 	}
-	return &r, nil
+	return &r
 }

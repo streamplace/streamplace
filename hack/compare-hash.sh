@@ -2,14 +2,19 @@
 
 set -euo pipefail
 
-openssl sha256 "$1" "$2"
+ONE="$(realpath "$1")"
+TWO="$(realpath "$2")"
 
-xxd "$1" > "1.xxd"
-xxd "$2" > "2.xxd"
-(diff --color=always "1.xxd" "2.xxd" || true) | head -n 20
-ffmpeg -y -loglevel fatal -i "$1" -c copy -f framemd5 "1.md5"
-ffmpeg -y -loglevel fatal -i "$2" -c copy -f framemd5 "2.md5"
-(diff --color=always "1.md5" "2.md5" || true)
+cd "$(mktemp -d)"
+openssl sha256 "$ONE" "$TWO"
+
+xxd "$ONE" > "1.xxd"
+xxd "$TWO" > "2.xxd"
+(diff --color=always "1.xxd" "2.xxd" || true) | head -n 50
+
+ffmpeg -y -loglevel fatal -i "$ONE" -c copy -f framemd5 "1.md5"
+ffmpeg -y -loglevel fatal -i "$TWO" -c copy -f framemd5 "2.md5"
+(diff --color=always "1.md5" "2.md5" || true) | head -n 20
 
 # ffprobe -loglevel fatal -show_frames "$1" > "1.frames"
 # ffprobe -loglevel fatal -show_frames "$2" > "2.frames"

@@ -162,7 +162,7 @@ func SegmentUnsigned(ctx context.Context, input io.Reader, ch chan *SplitSegment
 	}
 	src := app.SrcFromElement(srcele)
 	src.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedData(ctx, input),
+		NeedDataFunc: ReaderNeedDataIncremental(ctx, input),
 	})
 	videoParseEle, err := pipeline.GetElementByName("videoparse")
 	if err != nil {

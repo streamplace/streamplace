@@ -23,14 +23,36 @@ func TestDeterministicMuxing(t *testing.T) {
 		tempDir, err := os.MkdirTemp("", "deterministic_muxing_test")
 		require.NoError(t, err)
 
-		startFile := remote.RemoteArchive("14ba49843a56c0510e2b5059123abd2f98a502b1f4c7d706b0ae1066d438468c/BigBuckBunny_1sGOP_4kp60_NoBframes.1min.tar.gz")
-
-		require.NoError(t, err)
-		for i := 0; i < muxTestCount; i++ {
-			splitAndCombineTest(t, tempDir, startFile)
+		testCases := []string{
+			remote.RemoteArchive("14ba49843a56c0510e2b5059123abd2f98a502b1f4c7d706b0ae1066d438468c/BigBuckBunny_1sGOP_4kp60_NoBframes.1min.tar.gz"),
+			splitToUnsignedDir(t, tempDir, remote.RemoteFixture("58b4d419ae13d814555f7a4c3481e8159c20b81f8440d09b679471a92a41f918/1min-of-silksong.mp4")),
+		}
+		for _, startDir := range testCases {
+			tempSubDir, err := os.MkdirTemp(tempDir, fmt.Sprintf("test_%s", filepath.Base(startDir)))
 			require.NoError(t, err)
+			for i := 0; i < muxTestCount; i++ {
+				splitAndCombineTest(t, tempSubDir, startDir)
+			}
 		}
 	})
+}
+
+func splitToUnsignedDir(t *testing.T, tempDir string, inputFile string) string {
+	splitSegsCh := make(chan *SplitSegment)
+	go func() {
+		err := SegmentFileUnsigned(context.Background(), inputFile, splitSegsCh)
+		require.NoError(t, err)
+		close(splitSegsCh)
+	}()
+	segDir := filepath.Join(tempDir, "split_to_unsigned_"+fmt.Sprint(os.Getpid(), "_", t.Name()))
+	require.NoError(t, os.MkdirAll(segDir, 0755))
+	for seg := range splitSegsCh {
+		path := filepath.Join(segDir, seg.Filename)
+		err := os.WriteFile(path, seg.Data, 0644)
+		log.Log(context.Background(), "wrote segment", "path", path)
+		require.NoError(t, err)
+	}
+	return segDir
 }
 
 func splitAndCombineTest(t *testing.T, tempDir string, inputDir string) string {

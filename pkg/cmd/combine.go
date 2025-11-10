@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"stream.place/streamplace/pkg/aqio"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/media"
@@ -37,6 +38,24 @@ func Combine(ctx context.Context, cli *config.CLI, args []string) error {
 		inputFds[i] = fd
 	}
 	err = media.CombineSegments(ctx, inputFds, ms, outFd)
+	if err != nil {
+		return err
+	}
+	err = CheckCombined(ctx, outFd)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func CheckCombined(ctx context.Context, inFD io.ReadWriteSeeker) error {
+	_, err := inFD.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+	err = media.SplitSegments(ctx, inFD, func(fname string) media.ReadWriteSeekCloser {
+		return aqio.NewReadWriteSeeker([]byte{})
+	})
 	if err != nil {
 		return err
 	}

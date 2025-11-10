@@ -168,6 +168,7 @@ func SplitSegments(ctx context.Context, input io.ReadSeeker, cb func(fname strin
 		}
 		return nil
 	})
+	validationErrors := []error{}
 	g.Go(func() error {
 		defer close(segmentCh)
 		i := 0
@@ -180,7 +181,20 @@ func SplitSegments(ctx context.Context, input io.ReadSeeker, cb func(fname strin
 			i += 1
 			segmentCh <- ss
 			ss.Done()
-			err := rwsc.Close()
+			_, err := rwsc.Seek(0, io.SeekStart)
+			if err != nil {
+				return fmt.Errorf("failed to seek to start: %w", err)
+			}
+			bs, err := io.ReadAll(rwsc)
+			if err != nil {
+				return fmt.Errorf("failed to read segment file: %w", err)
+			}
+			_, validationError := ValidateMP4Media(ctx, bs)
+			if validationError != nil {
+				validationErrors = append(validationErrors, validationError)
+			}
+			log.Log(ctx, "validated segment file", "path", fname)
+			err = rwsc.Close()
 			if err != nil {
 				return fmt.Errorf("failed to close segment file: %w", err)
 			}
@@ -192,24 +206,8 @@ func SplitSegments(ctx context.Context, input io.ReadSeeker, cb func(fname strin
 	if err != nil {
 		return fmt.Errorf("failed to split segments: %w", err)
 	}
-
-	// err = iroh_streamplace.Resign(inputStreams, c2patypes.NewReader(aqio.NewReadWriteSeeker(input)), manifestStrs, certList, outputStreams)
-	// if err != nil {
-	// 	fmt.Errorf("failed to resign segments: %w", err)
-	// }
-	// splitSegments := []SplitSegment{}
-	// for i, resignedSeg := range outputStreams.Streams {
-	// 	aqrws := resignedSeg.(*aqio.ReadWriteSeeker)
-	// 	data, err := aqrws.Bytes()
-	// 	if err != nil {
-	// 		fmt.Errorf("failed to read resigned segment: %w", err)
-	// 	}
-	// 	meta := manifestList[i].SegmentMetadata
-	// 	fname := fmt.Sprintf("%s.mp4", meta.StartTime.FileSafeString())
-	// 	splitSegments = append(splitSegments, SplitSegment{
-	// 		Filename: fname,
-	// 		Data:     data,
-	// 	})
-	// }
+	if len(validationErrors) > 0 {
+		return fmt.Errorf("%d errors validating segments; first error: %w", len(validationErrors), validationErrors[0])
+	}
 	return nil
 }

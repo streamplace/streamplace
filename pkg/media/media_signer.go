@@ -30,7 +30,7 @@ type MediaSigner interface {
 	Pub() aqpub.Pub
 	Streamer() string
 	DID() string
-	SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients []io.ReadSeeker) ([]byte, error)
+	SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients []io.ReadSeeker, output io.ReadWriteSeeker) error
 }
 
 var DoReplay = false
@@ -176,7 +176,7 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 	return bs, nil
 }
 
-func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients []io.ReadSeeker) ([]byte, error) {
+func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients []io.ReadSeeker, output io.ReadWriteSeeker) error {
 	startTime := time.Now()
 	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4")
 	defer span.End()
@@ -215,12 +215,12 @@ func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeek
 	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_MarshalManifest")
 	manifestBs, err := json.Marshal(mani)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal manifest: %w", err)
+		return fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 	var manifest c2patypes.ManifestDefinition
 	err = json.Unmarshal(manifestBs, &manifest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal manifest: %w", err)
+		return fmt.Errorf("failed to unmarshal manifest: %w", err)
 	}
 	span.End()
 
@@ -232,21 +232,20 @@ func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeek
 	for _, ingredient := range ingredients {
 		many.AddStream(ingredient)
 	}
-	rws := aqio.NewReadWriteSeeker([]byte{})
-	err = iroh_streamplace.SignWithIngredients(string(manifestBs), c2patypes.NewReader(input), ms.Cert, many, rustCallbackSigner, c2patypes.NewWriter(rws))
+	err = iroh_streamplace.SignWithIngredients(string(manifestBs), c2patypes.NewReader(input), ms.Cert, many, rustCallbackSigner, c2patypes.NewWriter(output))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	span.End()
 
 	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_OutputBytes")
 	defer ctx.Done()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get output bytes: %w", err)
+		return fmt.Errorf("failed to get output bytes: %w", err)
 	}
 	span.End()
 	spmetrics.SigningDuration.WithLabelValues(ms.StreamerName).Observe(float64(time.Since(startTime).Milliseconds()))
-	return rws.Bytes()
+	return nil
 }
 
 // don't call externally! this is used as a callback for the rust library

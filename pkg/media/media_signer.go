@@ -30,7 +30,7 @@ type MediaSigner interface {
 	Pub() aqpub.Pub
 	Streamer() string
 	DID() string
-	SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients [][]byte) ([]byte, error)
+	SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients []io.ReadSeeker) ([]byte, error)
 }
 
 var DoReplay = false
@@ -176,7 +176,7 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 	return bs, nil
 }
 
-func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients [][]byte) ([]byte, error) {
+func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients []io.ReadSeeker) ([]byte, error) {
 	startTime := time.Now()
 	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4")
 	defer span.End()
@@ -230,7 +230,7 @@ func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeek
 	}
 	many := c2patypes.NewManyStreams()
 	for _, ingredient := range ingredients {
-		many.AddStream(aqio.NewReadWriteSeeker(ingredient))
+		many.AddStream(ingredient)
 	}
 	rws := aqio.NewReadWriteSeeker([]byte{})
 	err = iroh_streamplace.SignWithIngredients(string(manifestBs), c2patypes.NewReader(input), ms.Cert, many, rustCallbackSigner, c2patypes.NewWriter(rws))

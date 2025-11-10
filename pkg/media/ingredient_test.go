@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/bluesky-social/indigo/util"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/aqio"
 	"stream.place/streamplace/pkg/config"
 	ct "stream.place/streamplace/pkg/config/configtesting"
 	"stream.place/streamplace/pkg/crypto/spkey"
@@ -27,14 +29,20 @@ func TestIngredientConcat(t *testing.T) {
 		segments := remote.RemoteArchive("14ba49843a56c0510e2b5059123abd2f98a502b1f4c7d706b0ae1066d438468c/BigBuckBunny_1sGOP_4kp60_NoBframes.1min.tar.gz")
 		// segments := "/Users/iameli/testvids/hour-of-silksong/unsigned-minute"
 		// segments := "/Users/iameli/testvids/three"
-		testVids := []string{}
-		segEntries, err := os.ReadDir(segments)
-		require.NoError(t, err)
-		for _, segEntry := range segEntries {
-			if segEntry.Type().IsRegular() {
-				testVids = append(testVids, filepath.Join(segments, segEntry.Name()))
+		getTestVids := func() []io.ReadSeeker {
+			testVids := []io.ReadSeeker{}
+			segEntries, err := os.ReadDir(segments)
+			require.NoError(t, err)
+			for _, segEntry := range segEntries {
+				if segEntry.Type().IsRegular() {
+					fd, err := os.Open(filepath.Join(segments, segEntry.Name()))
+					require.NoError(t, err)
+					testVids = append(testVids, fd)
+				}
 			}
+			return testVids
 		}
+
 		firstReport, err := makeSegDirReport(t, segments)
 		require.NoError(t, err)
 		priv, _, err := spkey.GenerateStreamKey()
@@ -48,26 +56,28 @@ func TestIngredientConcat(t *testing.T) {
 		msInterface, err := MakeMediaSigner(context.Background(), cli, "test-person", signer, nil)
 		require.NoError(t, err)
 		ms := msInterface.(*MediaSignerLocal)
-		buf := bytes.Buffer{}
-		err = CombineSegmentsUnsigned(context.Background(), testVids, &buf)
+		rws := aqio.NewReadWriteSeeker([]byte{})
+		err = CombineSegmentsUnsigned(context.Background(), getTestVids(), rws)
 		require.NoError(t, err)
-		ingredients := [][]byte{}
+		ingredients := []io.ReadSeeker{}
 		startTS, err := time.Parse(util.ISO8601, testTimestamp)
 		require.NoError(t, err)
 		signedSegDir := makeTestSubdir(t, tempDir, "signed-segments")
-		for i, vid := range testVids {
+		for i, vid := range getTestVids() {
 			ts := startTS.Add(time.Duration(i) * time.Second)
-			bs, err := os.ReadFile(vid)
+			bs, err := io.ReadAll(vid)
 			require.NoError(t, err)
 			signedBS, err := ms.SignMP4(context.Background(), bytes.NewReader(bs), ts.UnixMilli())
 			require.NoError(t, err)
-			ingredients = append(ingredients, signedBS)
+			ingredients = append(ingredients, bytes.NewReader(signedBS))
 			err = os.WriteFile(filepath.Join(signedSegDir, fmt.Sprintf("signed_%06d.mp4", i)), signedBS, 0644)
 			require.NoError(t, err)
 		}
 		signedReport, err := makeSegDirReport(t, signedSegDir)
 		require.NoError(t, err)
-		signedConcatBS, err := ms.SignConcatMP4(context.Background(), bytes.NewReader(buf.Bytes()), ingredients)
+		signedBs, err := rws.Bytes()
+		require.NoError(t, err)
+		signedConcatBS, err := ms.SignConcatMP4(context.Background(), bytes.NewReader(signedBs), ingredients)
 		require.NoError(t, err)
 		require.Greater(t, len(signedConcatBS), 0)
 		concatSegment := filepath.Join(tempDir, "ingredient-concat.mp4")

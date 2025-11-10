@@ -3,25 +3,40 @@ package media
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
+
+	"stream.place/streamplace/pkg/aqio"
 )
 
 // CombineSegments combines a list of segments into a single segment that maintains all of the manifests
 func CombineSegments(ctx context.Context, sources []string, ms MediaSigner) ([]byte, error) {
-	buf := bytes.Buffer{}
-	err := CombineSegmentsUnsigned(ctx, sources, &buf)
-	if err != nil {
-		return nil, err
-	}
-	ingredients := [][]byte{}
-	for _, source := range sources {
-		bs, err := os.ReadFile(source)
+	inputFds := make([]io.ReadSeeker, len(sources))
+	for i, source := range sources {
+		fd, err := os.Open(source)
 		if err != nil {
 			return nil, err
 		}
-		ingredients = append(ingredients, bs)
+		inputFds[i] = fd
+		defer fd.Close()
 	}
-	signedConcatBS, err := ms.SignConcatMP4(context.Background(), bytes.NewReader(buf.Bytes()), ingredients)
+	rws := aqio.NewReadWriteSeeker([]byte{})
+	err := CombineSegmentsUnsigned(ctx, inputFds, rws)
+	if err != nil {
+		return nil, err
+	}
+	// rewind all the inputs for the signer
+	for _, fd := range inputFds {
+		_, err := fd.Seek(0, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+	}
+	bs, err := rws.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	signedConcatBS, err := ms.SignConcatMP4(context.Background(), bytes.NewReader(bs), inputFds)
 	if err != nil {
 		return nil, err
 	}

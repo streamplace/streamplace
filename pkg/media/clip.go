@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/go-gst/go-gst/gst"
@@ -13,24 +12,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-func readFile(ctx context.Context, source string) (*bus.Seg, error) {
-	fd, err := os.Open(source)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open source file: %w", err)
-	}
-	defer fd.Close()
-	bs, err := io.ReadAll(fd)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read source file: %w", err)
-	}
-	seg := &bus.Seg{
-		Filepath: source,
-		Data:     bs,
-	}
-	return seg, nil
-}
-
-func CombineSegmentsUnsigned(ctx context.Context, sources []string, w io.Writer) error {
+func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.Writer) error {
 	ctx = log.WithLogValues(ctx, "mediafunc", "CombineSegmentsUnsigned")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -49,15 +31,16 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []string, w io.Writer)
 	segCh := make(chan *bus.Seg)
 	go func() {
 		for _, source := range sources {
-			log.Log(ctx, "reading file", "source", source)
-			seg, err := readFile(ctx, source)
+			bs, err := io.ReadAll(source)
 			if err != nil {
 				err = fmt.Errorf("failed to read file: %w", err)
 				pipeline.Error(err.Error(), err)
 				return
 			}
-
-			segCh <- seg
+			segCh <- &bus.Seg{
+				Filepath: "ignored",
+				Data:     bs,
+			}
 		}
 		close(segCh)
 	}()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"time"
 
@@ -24,14 +25,19 @@ func ClipUser(ctx context.Context, mod model.Model, cli *config.CLI, user string
 	sort.Slice(segments, func(i, j int) bool {
 		return segments[i].StartTime.Before(segments[j].StartTime)
 	})
-	segmentFiles := []string{}
+	segmentFiles := []io.ReadSeeker{}
 	for _, segment := range segments {
 		aqt := aqtime.FromTime(segment.StartTime)
 		fpath, err := cli.SegmentFilePath(user, fmt.Sprintf("%s.%s", aqt.FileSafeString(), "mp4"))
 		if err != nil {
 			return fmt.Errorf("unable to get segment file path: %w", err)
 		}
-		segmentFiles = append(segmentFiles, fpath)
+		fd, err := os.Open(fpath)
+		if err != nil {
+			return fmt.Errorf("unable to open segment file: %w", err)
+		}
+		defer fd.Close()
+		segmentFiles = append(segmentFiles, fd)
 	}
 	err = CombineSegmentsUnsigned(ctx, segmentFiles, writer)
 	if err != nil {

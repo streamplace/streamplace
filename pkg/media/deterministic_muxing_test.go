@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -72,7 +73,14 @@ func splitAndCombineTest(t *testing.T, tempDir string, inputDir string) string {
 		log.Log(context.Background(), "creating combined file", "file", outFilePath)
 		require.NoError(t, err)
 		defer outFile.Close()
-		err = CombineSegmentsUnsigned(context.Background(), firstReport.Segs, outFile)
+		inputFds := make([]io.ReadSeeker, len(firstReport.Segs))
+		for i, segPath := range firstReport.Segs {
+			fd, err := os.Open(segPath)
+			require.NoError(t, err)
+			defer fd.Close()
+			inputFds[i] = fd
+		}
+		err = CombineSegmentsUnsigned(context.Background(), inputFds, outFile)
 		require.NoError(t, err)
 		hash, err := hashFile(outFilePath)
 		require.NoError(t, err)

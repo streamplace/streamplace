@@ -19,7 +19,7 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 
 	pipelineSlice := []string{
 		fmt.Sprintf("mp4mux name=muxer faststart=true interleave-bytes=%d interleave-time=%d ! appsink sync=false name=mp4sink", InterleaveBytes, InterleaveTime),
-		"h264parse name=videoparse ! queue ! muxer.",
+		"capsfilter caps=video/x-h264,parsed=true name=videoqueue ! queue  ! muxer.",
 		"opusparse name=audioparse ! queue ! muxer.",
 	}
 
@@ -66,7 +66,7 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 	}
 
 	// Get the videoparse and audioparse elements from the pipeline
-	videoParse, err := pipeline.GetElementByName("videoparse")
+	videoQueue, err := pipeline.GetElementByName("videoqueue")
 	if err != nil {
 		return fmt.Errorf("failed to get video parse element: %w", err)
 	}
@@ -77,7 +77,7 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 	}
 
 	// Link the concat bin pads to the parse element sink pads
-	linked := videoPad.Link(videoParse.GetStaticPad("sink"))
+	linked := videoPad.Link(videoQueue.GetStaticPad("sink"))
 	if linked != gst.PadLinkOK {
 		return fmt.Errorf("failed to link video pad to video parse element: %v", linked)
 	}

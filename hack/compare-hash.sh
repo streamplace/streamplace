@@ -8,8 +8,8 @@ BASE_ONE="$(basename "$ONE")"
 BASE_TWO="$(basename "$TWO")"
 
 if [[ -d "$ONE" && -d "$TWO" ]]; then
-  FILES_ONE=$(find "$ONE" -maxdepth 1 -mindepth 1 -type f | xargs basename | sort)
-  FILES_TWO=$(find "$TWO" -maxdepth 1 -mindepth 1 -type f | xargs basename | sort)
+  FILES_ONE=$(find "$ONE" -maxdepth 1 -mindepth 1 -type f | xargs -L 1 basename | sort)
+  FILES_TWO=$(find "$TWO" -maxdepth 1 -mindepth 1 -type f | xargs -L 1 basename | sort)
 
   NUM_FILES_ONE=$(echo "$FILES_ONE" | wc -l)
   NUM_FILES_TWO=$(echo "$FILES_TWO" | wc -l)
@@ -40,7 +40,7 @@ cd "$(mktemp -d)"
 HASH_ONE=$(openssl sha256 "$ONE" | awk '{print $2}')
 HASH_TWO=$(openssl sha256 "$TWO" | awk '{print $2}')
 if [ "$HASH_ONE" = "$HASH_TWO" ]; then
-  echo "Identical: $BASE_ONE $BASE_TWO"
+  echo "Identical: $BASE_ONE $BASE_TWO $(pwd)"
   exit 0
 fi
 pwd

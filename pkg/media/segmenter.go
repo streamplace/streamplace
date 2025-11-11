@@ -62,13 +62,13 @@ func SegmentElem(ctx context.Context, cb func(ctx context.Context, buf []byte, n
 		if err != nil {
 			panic("error setting presentation-time to false: " + err.Error())
 		}
-		err = muxEle.SetProperty("interleave-bytes", uint64(2000))
+		err = muxEle.SetProperty("interleave-bytes", InterleaveBytes)
 		if err != nil {
-			panic("error setting interleave-bytes to 2000: " + err.Error())
+			panic("error setting interleave-bytes" + err.Error())
 		}
-		err = muxEle.SetProperty("interleave-time", uint64(0))
+		err = muxEle.SetProperty("interleave-time", InterleaveTime)
 		if err != nil {
-			panic("error setting interleave-time to 0: " + err.Error())
+			panic("error setting interleave-time" + err.Error())
 		}
 	})
 	if err != nil {

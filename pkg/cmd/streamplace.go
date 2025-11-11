@@ -122,18 +122,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "combine" {
-		gstinit.InitGST()
-		cli := &config.CLI{Build: build}
-		fs := cli.NewFlagSet("streamplace combine")
-
-		err := cli.Parse(fs, os.Args[2:])
-		if err != nil {
-			return err
-		}
-		log.Debug(context.Background(), "combine command: starting", "args", fs.Args())
-		ctx := context.Background()
-		ctx = log.WithDebugValue(ctx, cli.Debug)
-		return Combine(ctx, cli, fs.Args())
+		return Combine(context.Background(), build, os.Args[2:])
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "split" {

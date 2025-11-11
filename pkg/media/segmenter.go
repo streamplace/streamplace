@@ -60,7 +60,15 @@ func SegmentElem(ctx context.Context, cb func(ctx context.Context, buf []byte, n
 	_, err = elem.Connect("muxer-added", func(split, muxEle *gst.Element) {
 		err := muxEle.SetProperty("presentation-time", false)
 		if err != nil {
-			panic("error setting interleave-bytes to 4000: " + err.Error())
+			panic("error setting presentation-time to false: " + err.Error())
+		}
+		err = muxEle.SetProperty("interleave-bytes", uint64(2000))
+		if err != nil {
+			panic("error setting interleave-bytes to 2000: " + err.Error())
+		}
+		err = muxEle.SetProperty("interleave-time", uint64(0))
+		if err != nil {
+			panic("error setting interleave-time to 0: " + err.Error())
 		}
 	})
 	if err != nil {
@@ -148,7 +156,7 @@ func SegmentUnsigned(ctx context.Context, input io.Reader, ch chan *SplitSegment
 	defer cancel()
 	pipelineSlice := []string{
 		"appsrc name=appsrc ! qtdemux name=demux",
-		"demux. ! queue ! h264parse ! rtph264pay ! rtph264depay ! h264parse name=videoparse",
+		"demux. ! queue ! h264parse name=videoparse disable-passthrough=true config-interval=0",
 		"demux. ! queue ! opusparse name=audioparse",
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

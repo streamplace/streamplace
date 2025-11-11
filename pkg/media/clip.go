@@ -18,9 +18,9 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 	defer cancel()
 
 	pipelineSlice := []string{
-		"mp4mux name=muxer faststart=true ! appsink sync=false name=mp4sink",
-		"h264parse name=videoparse ! h264timestamper ! muxer.video_0",
-		"opusparse name=audioparse ! muxer.audio_0",
+		fmt.Sprintf("mp4mux name=muxer faststart=true interleave-bytes=%d interleave-time=%d ! appsink sync=false name=mp4sink", InterleaveBytes, InterleaveTime),
+		"h264parse name=videoparse ! queue ! muxer.",
+		"opusparse name=audioparse ! queue ! muxer.",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

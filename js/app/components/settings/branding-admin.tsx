@@ -2,6 +2,7 @@ import {
   Button,
   Input,
   Text,
+  useStreamplaceStore,
   useToast,
   View,
   zero,
@@ -18,6 +19,7 @@ export function BrandingAdmin() {
   const agent = usePDSAgent();
   const fetchBranding = useFetchBranding();
   const toast = useToast();
+  const currentBroadcasterDID = useStreamplaceStore((s) => s.broadcasterDID);
 
   // state for form inputs
   const [siteTitle, setSiteTitle] = useState("");
@@ -40,6 +42,7 @@ export function BrandingAdmin() {
   // load current branding on mount
   useEffect(() => {
     fetchBranding();
+    setBroadcasterDID(currentBroadcasterDID || "");
   }, []);
 
   const uploadText = async (key: string, value: string) => {

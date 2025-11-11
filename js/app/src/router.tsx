@@ -323,6 +323,12 @@ const AvatarButton = () => {
 const useExternalItems = (): ExternalDrawerItem[] => {
   const streamplaceUrl = useUrl();
   const { theme } = useTheme();
+  const defaultStreamer = useDefaultStreamer();
+
+  if (defaultStreamer) {
+    return [];
+  }
+
   return [
     {
       item: React.memo(() => <Book size={24} color={theme.colors.text} />),
@@ -404,6 +410,7 @@ export function StreamplaceDrawer() {
   const closeLoginModal = useStore((state) => state.closeLoginModal);
   const [livePopup, setLivePopup] = useState(false);
   const siteTitle = useSiteTitle();
+  const defaultStreamer = useDefaultStreamer();
 
   const sidebar = useSidebarControl();
 
@@ -419,6 +426,10 @@ export function StreamplaceDrawer() {
   const notificationToken = useNotificationToken();
   const userProfile = useUserProfile();
   const hydrated = useHydrated();
+
+  // check if current user is the default streamer
+  const isDefaultStreamer =
+    defaultStreamer && userProfile?.did === defaultStreamer;
   useEffect(() => {
     if (notificationToken) {
       registerNotificationToken();
@@ -557,7 +568,8 @@ export function StreamplaceDrawer() {
             drawerIcon: () => (
               <ShieldQuestion color={foregroundColor} size={24} />
             ),
-            drawerItemStyle: isNative ? { display: "none" } : undefined,
+            drawerItemStyle:
+              isNative || defaultStreamer ? { display: "none" } : undefined,
           }}
         />
         <Drawer.Screen
@@ -566,7 +578,8 @@ export function StreamplaceDrawer() {
           options={{
             drawerLabel: () => <Text variant="h5">Download</Text>,
             drawerIcon: () => <Download color={foregroundColor} size={24} />,
-            drawerItemStyle: isBrowser ? undefined : { display: "none" },
+            drawerItemStyle:
+              !isBrowser || defaultStreamer ? { display: "none" } : undefined,
           }}
         />
         <Drawer.Screen
@@ -625,7 +638,10 @@ export function StreamplaceDrawer() {
           options={{
             drawerLabel: () => <Text variant="h5">Live Dashboard</Text>,
             drawerIcon: () => <Video color={foregroundColor} size={24} />,
-            drawerItemStyle: isNative ? { display: "none" } : undefined,
+            drawerItemStyle:
+              isNative || (defaultStreamer && !isDefaultStreamer)
+                ? { display: "none" }
+                : undefined,
           }}
         />
         <Drawer.Screen
@@ -695,7 +711,10 @@ export function StreamplaceDrawer() {
           component={MobileGoLive}
           options={{
             headerTitle: "Go Live",
-            drawerItemStyle: isNative ? undefined : { display: "none" },
+            drawerItemStyle:
+              !isNative || (defaultStreamer && !isDefaultStreamer)
+                ? { display: "none" }
+                : undefined,
             drawerLabel: () => <Text variant="h5">Go Live</Text>,
             title: "Go live",
             drawerIcon: () => <Video color={foregroundColor} size={24} />,

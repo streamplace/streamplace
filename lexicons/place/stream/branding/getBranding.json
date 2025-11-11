@@ -54,6 +54,14 @@
         "data": {
           "type": "string",
           "description": "Inline data for text assets"
+        },
+        "width": {
+          "type": "integer",
+          "description": "Image width in pixels (optional, for images only)"
+        },
+        "height": {
+          "type": "integer",
+          "description": "Image height in pixels (optional, for images only)"
         }
       }
     }

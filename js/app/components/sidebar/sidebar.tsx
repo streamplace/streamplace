@@ -6,7 +6,13 @@ import {
   ParamListBase,
   useNavigation,
 } from "@react-navigation/native";
-import { Text, useMainLogo, useSiteTitle, zero } from "@streamplace/components";
+import {
+  Text,
+  useMainLogo,
+  useSidebarBackgroundImage,
+  useSiteTitle,
+  zero,
+} from "@streamplace/components";
 import { useAQLinkHref } from "components/aqlink";
 import React from "react";
 import { Image, Platform, Pressable, View } from "react-native";
@@ -48,6 +54,7 @@ export default function Sidebar({
   const navigation = useNavigation();
   const siteTitle = useSiteTitle();
   const mainLogo = useMainLogo();
+  const sidebarBackgroundImageAsset = useSidebarBackgroundImage();
 
   const animatedSidebarStyle = useAnimatedStyle(() => {
     return {
@@ -73,9 +80,31 @@ export default function Sidebar({
         animatedSidebarStyle,
         zero.p[2],
         zero.gap.all[2],
+        zero.flex.values[1],
         zero.layout.flex.column,
+        { position: "relative" },
       ]}
     >
+      {sidebarBackgroundImageAsset?.data && (
+        <Image
+          source={{ uri: sidebarBackgroundImageAsset.data }}
+          style={{
+            //opacity: 0.3,
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            width: "100%",
+            height: "auto",
+            aspectRatio:
+              sidebarBackgroundImageAsset.width &&
+              sidebarBackgroundImageAsset.height
+                ? sidebarBackgroundImageAsset.width /
+                  sidebarBackgroundImageAsset.height
+                : undefined,
+            resizeMode: "contain",
+          }}
+        />
+      )}
       <Pressable
         // @ts-ignore This makes it render as <a> on web!
         href={route ? href : undefined}

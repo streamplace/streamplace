@@ -11,6 +11,8 @@ export interface BrandingAsset {
   mimeType: string;
   url?: string; // URL for images
   data?: string; // inline data for text, or base64 for images
+  width?: number; // image width in pixels
+  height?: number; // image height in pixels
 }
 
 // helper to convert blob to base64
@@ -181,6 +183,11 @@ export function useDefaultStreamKey(): string | undefined {
 export function useDefaultStreamer(): string | undefined {
   const asset = useBrandingAsset("defaultStreamer");
   return asset?.data || undefined;
+}
+
+// convenience hook for sidebar background image
+export function useSidebarBackgroundImage(): BrandingAsset | undefined {
+  return useBrandingAsset("sidebarBackgroundImage");
 }
 
 // hook to auto-fetch branding when broadcaster changes

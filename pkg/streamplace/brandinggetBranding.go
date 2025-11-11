@@ -14,12 +14,16 @@ import (
 type BrandingGetBranding_BrandingAsset struct {
 	// data: Inline data for text assets
 	Data *string `json:"data,omitempty" cborgen:"data,omitempty"`
+	// height: Image height in pixels (optional, for images only)
+	Height *int64 `json:"height,omitempty" cborgen:"height,omitempty"`
 	// key: Asset key identifier
 	Key string `json:"key" cborgen:"key"`
 	// mimeType: MIME type of the asset
 	MimeType string `json:"mimeType" cborgen:"mimeType"`
 	// url: URL to fetch the asset blob (for images)
 	Url *string `json:"url,omitempty" cborgen:"url,omitempty"`
+	// width: Image width in pixels (optional, for images only)
+	Width *int64 `json:"width,omitempty" cborgen:"width,omitempty"`
 }
 
 // BrandingGetBranding_Output is the output of a place.stream.branding.getBranding call.

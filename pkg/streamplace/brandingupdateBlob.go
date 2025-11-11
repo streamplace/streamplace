@@ -16,10 +16,14 @@ type BrandingUpdateBlob_Input struct {
 	Broadcaster *string `json:"broadcaster,omitempty" cborgen:"broadcaster,omitempty"`
 	// data: Base64-encoded blob data
 	Data string `json:"data" cborgen:"data"`
+	// height: Image height in pixels (optional, for images only)
+	Height *int64 `json:"height,omitempty" cborgen:"height,omitempty"`
 	// key: Branding asset key (mainLogo, favicon, siteTitle, etc.)
 	Key string `json:"key" cborgen:"key"`
 	// mimeType: MIME type of the blob (e.g., image/png, text/plain)
 	MimeType string `json:"mimeType" cborgen:"mimeType"`
+	// width: Image width in pixels (optional, for images only)
+	Width *int64 `json:"width,omitempty" cborgen:"width,omitempty"`
 }
 
 // BrandingUpdateBlob_Output is the output of a place.stream.branding.updateBlob call.

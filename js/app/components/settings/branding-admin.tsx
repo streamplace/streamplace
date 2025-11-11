@@ -10,6 +10,7 @@ import {
 import {
   useBrandingAsset,
   useFetchBranding,
+  useSidebarBackgroundImage,
 } from "@streamplace/components/src/streamplace-store/branding";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { useEffect, useState } from "react";
@@ -38,12 +39,16 @@ export function BrandingAdmin() {
   const currentDefaultStreamer = useBrandingAsset("defaultStreamer");
   const currentLogo = useBrandingAsset("mainLogo");
   const currentFavicon = useBrandingAsset("favicon");
+  const currentSidebarBg = useSidebarBackgroundImage();
 
   // load current branding on mount
   useEffect(() => {
     fetchBranding();
-    setBroadcasterDID(currentBroadcasterDID || "");
   }, []);
+
+  useEffect(() => {
+    setBroadcasterDID(currentBroadcasterDID || "");
+  }, [currentBroadcasterDID]);
 
   const uploadText = async (key: string, value: string) => {
     if (!agent) {
@@ -118,11 +123,36 @@ export function BrandingAdmin() {
       const uint8Array = new Uint8Array(arrayBuffer);
       const base64Data = btoa(String.fromCharCode(...uint8Array));
 
+      // detect image dimensions if it's an image
+      let width: number | undefined;
+      let height: number | undefined;
+
+      if (file.type.startsWith("image/") && Platform.OS === "web") {
+        const img = new window.Image();
+        const imageUrl = URL.createObjectURL(file);
+
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => {
+            width = img.naturalWidth;
+            height = img.naturalHeight;
+            URL.revokeObjectURL(imageUrl);
+            resolve();
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(imageUrl);
+            reject(new Error("Failed to load image"));
+          };
+          img.src = imageUrl;
+        });
+      }
+
       await agent.place.stream.branding.updateBlob({
         key,
         broadcaster: broadcasterDID || undefined,
         data: base64Data,
         mimeType: file.type,
+        width,
+        height,
       });
 
       toast.show("Success", `${key} uploaded successfully`, {
@@ -223,7 +253,7 @@ export function BrandingAdmin() {
           )}
 
           {/* Broadcaster DID */}
-          <View style={[zero.gap.all[8]]}>
+          <View style={[zero.gap.all[2]]}>
             <Text size="lg" weight="semibold">
               Broadcaster DID
             </Text>
@@ -238,14 +268,14 @@ export function BrandingAdmin() {
           </View>
 
           {/* Site Title */}
-          <View style={[zero.gap.all[8]]}>
+          <View style={[zero.gap.all[2]]}>
             <Text size="lg" weight="semibold">
               Site Title
             </Text>
             <Text size="sm" color="muted">
               Current: {currentTitle?.data || "Streamplace"}
             </Text>
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[8]]}>
+            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
               <View style={{ flex: 1 }}>
                 <Input
                   placeholder="Enter new site title"
@@ -263,14 +293,14 @@ export function BrandingAdmin() {
           </View>
 
           {/* Site Description */}
-          <View style={[zero.gap.all[8]]}>
+          <View style={[zero.gap.all[2]]}>
             <Text size="lg" weight="semibold">
               Site Description
             </Text>
             <Text size="sm" color="muted">
               Current: {currentDescription?.data || "Live streaming platform"}
             </Text>
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[8]]}>
+            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
               <View style={{ flex: 1 }}>
                 <Input
                   placeholder="Enter site description"
@@ -288,14 +318,14 @@ export function BrandingAdmin() {
           </View>
 
           {/* Primary Color */}
-          <View style={[zero.gap.all[8]]}>
+          <View style={[zero.gap.all[2]]}>
             <Text size="lg" weight="semibold">
               Primary Color
             </Text>
             <Text size="sm" color="muted">
               Current: {currentPrimaryColor?.data || "#6366f1"}
             </Text>
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[8]]}>
+            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
               <View style={{ flex: 1 }}>
                 <Input
                   placeholder="#6366f1"
@@ -313,14 +343,14 @@ export function BrandingAdmin() {
           </View>
 
           {/* Accent Color */}
-          <View style={[zero.gap.all[8]]}>
+          <View style={[zero.gap.all[2]]}>
             <Text size="lg" weight="semibold">
               Accent Color
             </Text>
             <Text size="sm" color="muted">
               Current: {currentAccentColor?.data || "#8b5cf6"}
             </Text>
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[8]]}>
+            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
               <View style={{ flex: 1 }}>
                 <Input
                   placeholder="#8b5cf6"
@@ -338,14 +368,14 @@ export function BrandingAdmin() {
           </View>
 
           {/* Default Streamer */}
-          <View style={[zero.gap.all[8]]}>
+          <View style={[zero.gap.all[2]]}>
             <Text size="lg" weight="semibold">
               Default Streamer
             </Text>
             <Text size="sm" color="muted">
               Current: {currentDefaultStreamer?.data || "None"}
             </Text>
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[8]]}>
+            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
               <View style={{ flex: 1 }}>
                 <Input
                   placeholder="did:plc:..."
@@ -370,12 +400,12 @@ export function BrandingAdmin() {
           </View>
 
           {/* Main Logo */}
-          <View style={[zero.gap.all[8]]}>
+          <View style={[zero.gap.all[2]]}>
             <Text size="lg" weight="semibold">
               Main Logo
             </Text>
             <Text size="sm" color="muted">
-              SVG, PNG, or JPEG (max 500KB) - Web only
+              SVG, PNG, or JPEG (max 500KB)
             </Text>
             {currentLogo?.data && (
               <Image
@@ -383,7 +413,7 @@ export function BrandingAdmin() {
                 style={{ width: 200, height: 100, resizeMode: "contain" }}
               />
             )}
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[8]]}>
+            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
               <Button
                 onPress={() =>
                   handleFileSelect(
@@ -406,12 +436,12 @@ export function BrandingAdmin() {
           </View>
 
           {/* Favicon */}
-          <View style={[zero.gap.all[8]]}>
+          <View style={[zero.gap.all[2]]}>
             <Text size="lg" weight="semibold">
               Favicon
             </Text>
             <Text size="sm" color="muted">
-              SVG, PNG, or ICO (max 100KB) - Web only
+              SVG, PNG, or ICO (max 100KB)
             </Text>
             {currentFavicon?.data && (
               <Image
@@ -419,7 +449,7 @@ export function BrandingAdmin() {
                 style={{ width: 64, height: 64, resizeMode: "contain" }}
               />
             )}
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[8]]}>
+            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
               <Button
                 onPress={() =>
                   handleFileSelect(
@@ -441,10 +471,54 @@ export function BrandingAdmin() {
             </View>
           </View>
 
+          {/* Sidebar Background Image */}
+          <View style={[zero.gap.all[1]]}>
+            <Text size="lg" weight="semibold">
+              Sidebar Background Image
+            </Text>
+            <Text size="sm" color="muted">
+              SVG, PNG, or JPEG (max 500kb) - appears aligned to bottom of
+              sidebar, full width.
+            </Text>
+            <Text size="sm" color="muted">
+              Upload an image with opacity for best results, as there is not
+              currently a separate opacity option.
+            </Text>
+            {currentSidebarBg?.data && (
+              <Image
+                source={{ uri: currentSidebarBg.data }}
+                style={{ width: 200, height: 200, resizeMode: "contain" }}
+              />
+            )}
+            <Text>
+              {currentSidebarBg?.height || "unknown"} x{" "}
+              {currentSidebarBg?.width || "unknown"}
+            </Text>
+            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
+              <Button
+                onPress={() =>
+                  handleFileSelect(
+                    "sidebarBackgroundImage",
+                    "image/svg+xml,image/png,image/jpeg",
+                  )
+                }
+                disabled={uploading || Platform.OS !== "web"}
+              >
+                Upload Background
+              </Button>
+              <Button
+                variant="destructive"
+                onPress={() => deleteBlob("sidebarBackgroundImage")}
+                disabled={uploading}
+              >
+                Delete Background
+              </Button>
+            </View>
+          </View>
+
           <Text size="sm" color="muted" style={{ marginTop: 16 }}>
-            Note: You must be an authorized admin DID to make changes.
             {Platform.OS !== "web" &&
-              " Image uploads are only available on web."}
+              "Image uploads are only available on web."}
           </Text>
         </View>
       </View>

@@ -45,16 +45,18 @@ func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) st
 	return s.cli.BroadcasterHost
 }
 
-func (s *Server) getBrandingBlobCached(ctx context.Context, broadcasterID, key string) ([]byte, string, error) {
+func (s *Server) getBrandingBlobCached(ctx context.Context, broadcasterID, key string) ([]byte, string, *int, *int, error) {
 	cacheKey := fmt.Sprintf("%s:%s", broadcasterID, key)
 
 	// check cache first
 	if cached, found := s.BrandingCache.Get(cacheKey); found {
 		blob := cached.(struct {
-			data []byte
-			mime string
+			data   []byte
+			mime   string
+			width  *int
+			height *int
 		})
-		return blob.data, blob.mime, nil
+		return blob.data, blob.mime, blob.width, blob.height, nil
 	}
 
 	// cache miss - fetch from db
@@ -63,23 +65,31 @@ func (s *Server) getBrandingBlobCached(ctx context.Context, broadcasterID, key s
 		// not in db, use default
 		if def, ok := defaultBrandingAssets[key]; ok {
 			// cache the default too
-			s.BrandingCache.Set(cacheKey, def, cache.DefaultExpiration)
-			return def.data, def.mime, nil
+			cacheData := struct {
+				data   []byte
+				mime   string
+				width  *int
+				height *int
+			}{data: def.data, mime: def.mime, width: nil, height: nil}
+			s.BrandingCache.Set(cacheKey, cacheData, cache.DefaultExpiration)
+			return def.data, def.mime, nil, nil, nil
 		}
-		return nil, "", fmt.Errorf("unknown branding key: %s", key)
+		return nil, "", nil, nil, fmt.Errorf("unknown branding key: %s", key)
 	}
 	if err != nil {
-		return nil, "", fmt.Errorf("error fetching branding blob: %w", err)
+		return nil, "", nil, nil, fmt.Errorf("error fetching branding blob: %w", err)
 	}
 
 	// store in cache
 	cacheData := struct {
-		data []byte
-		mime string
-	}{data: blob.Data, mime: blob.MimeType}
+		data   []byte
+		mime   string
+		width  *int
+		height *int
+	}{data: blob.Data, mime: blob.MimeType, width: blob.Width, height: blob.Height}
 	s.BrandingCache.Set(cacheKey, cacheData, cache.DefaultExpiration)
 
-	return blob.Data, blob.MimeType, nil
+	return blob.Data, blob.MimeType, blob.Width, blob.Height, nil
 }
 
 func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
@@ -89,7 +99,7 @@ func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, broadcast
 // HandlePlaceStreamBrandingGetBlobDirect is the exported version for direct calls
 func (s *Server) HandlePlaceStreamBrandingGetBlobDirect(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
 	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
-	data, _, err := s.getBrandingBlobCached(ctx, broadcasterID, key)
+	data, _, _, _, err := s.getBrandingBlobCached(ctx, broadcasterID, key)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +132,7 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 	// build output
 	assets := make([]*placestreamtypes.BrandingGetBranding_BrandingAsset, 0, len(allKeys))
 	for key := range allKeys {
-		data, mimeType, err := s.getBrandingBlobCached(ctx, broadcasterID, key)
+		data, mimeType, width, height, err := s.getBrandingBlobCached(ctx, broadcasterID, key)
 		if err != nil {
 			continue // skip if error
 		}
@@ -130,6 +140,16 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 		asset := &placestreamtypes.BrandingGetBranding_BrandingAsset{
 			Key:      key,
 			MimeType: mimeType,
+		}
+
+		// add dimensions if available
+		if width != nil {
+			w := int64(*width)
+			asset.Width = &w
+		}
+		if height != nil {
+			h := int64(*height)
+			asset.Height = &h
 		}
 
 		// for text assets, include data inline; for images, provide URL
@@ -190,12 +210,23 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 	} else if input.Key == "siteTitle" || input.Key == "siteDescription" || input.Key == "primaryColor" || input.Key == "accentColor" || input.Key == "defaultStreamKey" || input.Key == "defaultStreamer" {
 		maxSize = 1024 // 1KB for text values
 	}
+	// sidebarBackgroundImage uses default 500KB limit
 	if len(data) > maxSize {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("blob too large (max %d bytes)", maxSize))
 	}
 
 	// store in database
-	err = s.statefulDB.PutBrandingBlob(broadcasterID, input.Key, input.MimeType, data)
+	var width, height *int
+	if input.Width != nil {
+		w := int(*input.Width)
+		width = &w
+	}
+	if input.Height != nil {
+		h := int(*input.Height)
+		height = &h
+	}
+
+	err = s.statefulDB.PutBrandingBlob(broadcasterID, input.Key, input.MimeType, data, width, height)
 	if err != nil {
 		log.Error(ctx, "failed to store branding blob", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to store branding blob")

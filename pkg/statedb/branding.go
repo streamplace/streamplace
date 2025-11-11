@@ -13,6 +13,8 @@ type BrandingBlob struct {
 	Key           string `gorm:"index:idx_broadcaster_key,priority:2,unique"` // "mainLogo", "favicon", "siteTitle", etc.
 	MimeType      string // "image/svg+xml", "image/png", "text/plain"
 	Data          []byte `gorm:"type:bytea"` // actual blob data
+	Width         *int   // image width in pixels (nullable)
+	Height        *int   // image height in pixels (nullable)
 }
 
 // GetBrandingBlob fetches a single branding asset
@@ -26,7 +28,7 @@ func (state *StatefulDB) GetBrandingBlob(broadcasterID, key string) (*BrandingBl
 }
 
 // PutBrandingBlob stores or updates a branding asset
-func (state *StatefulDB) PutBrandingBlob(broadcasterID, key, mimeType string, data []byte) error {
+func (state *StatefulDB) PutBrandingBlob(broadcasterID, key, mimeType string, data []byte, width, height *int) error {
 	// try to find existing blob (including soft-deleted ones)
 	var existing BrandingBlob
 	err := state.DB.Unscoped().Where("broadcaster_id = ? AND key = ?", broadcasterID, key).First(&existing).Error
@@ -38,6 +40,8 @@ func (state *StatefulDB) PutBrandingBlob(broadcasterID, key, mimeType string, da
 			Key:           key,
 			MimeType:      mimeType,
 			Data:          data,
+			Width:         width,
+			Height:        height,
 		}
 		if err := state.DB.Create(&blob).Error; err != nil {
 			return fmt.Errorf("error creating branding blob: %w", err)
@@ -50,6 +54,8 @@ func (state *StatefulDB) PutBrandingBlob(broadcasterID, key, mimeType string, da
 	// update existing blob (restore if soft-deleted)
 	existing.MimeType = mimeType
 	existing.Data = data
+	existing.Width = width
+	existing.Height = height
 	existing.DeletedAt = gorm.DeletedAt{} // clear soft delete
 	if err := state.DB.Unscoped().Save(&existing).Error; err != nil {
 		return fmt.Errorf("error updating branding blob: %w", err)

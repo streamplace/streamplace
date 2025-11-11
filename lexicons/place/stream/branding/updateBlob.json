@@ -27,6 +27,14 @@
             "mimeType": {
               "type": "string",
               "description": "MIME type of the blob (e.g., image/png, text/plain)"
+            },
+            "width": {
+              "type": "integer",
+              "description": "Image width in pixels (optional, for images only)"
+            },
+            "height": {
+              "type": "integer",
+              "description": "Image height in pixels (optional, for images only)"
             }
           }
         }

@@ -42,12 +42,14 @@ Get all branding configuration for the broadcaster.
 
 **Properties:**
 
-| Name       | Type     | Req'd | Description                              | Constraints |
-| ---------- | -------- | ----- | ---------------------------------------- | ----------- |
-| `key`      | `string` | ✅    | Asset key identifier                     |             |
-| `mimeType` | `string` | ✅    | MIME type of the asset                   |             |
-| `url`      | `string` | ❌    | URL to fetch the asset blob (for images) |             |
-| `data`     | `string` | ❌    | Inline data for text assets              |             |
+| Name       | Type      | Req'd | Description                                        | Constraints |
+| ---------- | --------- | ----- | -------------------------------------------------- | ----------- |
+| `key`      | `string`  | ✅    | Asset key identifier                               |             |
+| `mimeType` | `string`  | ✅    | MIME type of the asset                             |             |
+| `url`      | `string`  | ❌    | URL to fetch the asset blob (for images)           |             |
+| `data`     | `string`  | ❌    | Inline data for text assets                        |             |
+| `width`    | `integer` | ❌    | Image width in pixels (optional, for images only)  |             |
+| `height`   | `integer` | ❌    | Image height in pixels (optional, for images only) |             |
 
 ---
 
@@ -110,6 +112,14 @@ Get all branding configuration for the broadcaster.
         "data": {
           "type": "string",
           "description": "Inline data for text assets"
+        },
+        "width": {
+          "type": "integer",
+          "description": "Image width in pixels (optional, for images only)"
+        },
+        "height": {
+          "type": "integer",
+          "description": "Image height in pixels (optional, for images only)"
         }
       }
     }

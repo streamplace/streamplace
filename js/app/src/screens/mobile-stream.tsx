@@ -64,7 +64,6 @@ export default function MobileStream({ route }) {
 
   const defaultStreamer = useDefaultStreamer();
 
-
   if (!user) user = defaultStreamer;
   let extraProps: Partial<PlayerProps> = {};
   if (isWeb) {

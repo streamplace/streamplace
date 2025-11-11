@@ -4,11 +4,16 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/base64"
 	"fmt"
 	"io"
+	"net/http"
 
+	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/log"
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
 
@@ -141,5 +146,103 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 
 	return &placestreamtypes.BrandingGetBranding_Output{
 		Assets: assets,
+	}, nil
+}
+
+func (s *Server) isAdminDID(did string) bool {
+	for _, adminDID := range s.cli.AdminDIDs {
+		if adminDID == did {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input *placestreamtypes.BrandingUpdateBlob_Input) (*placestreamtypes.BrandingUpdateBlob_Output, error) {
+	// check authentication
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
+	}
+
+	// check admin authorization
+	if !s.isAdminDID(session.DID) {
+		log.Warn(ctx, "unauthorized branding update attempt", "did", session.DID)
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "not authorized to modify branding")
+	}
+
+	var broadcasterDID string
+	if input.Broadcaster != nil {
+		broadcasterDID = *input.Broadcaster
+	}
+	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
+
+	// decode base64 data
+	data, err := base64.StdEncoding.DecodeString(input.Data)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid base64 data")
+	}
+
+	// validate size based on key type
+	maxSize := 500 * 1024 // 500KB default for logos
+	if input.Key == "favicon" {
+		maxSize = 100 * 1024 // 100KB for favicons
+	} else if input.Key == "siteTitle" || input.Key == "siteDescription" || input.Key == "primaryColor" || input.Key == "accentColor" || input.Key == "defaultStreamKey" || input.Key == "defaultStreamer" {
+		maxSize = 1024 // 1KB for text values
+	}
+	if len(data) > maxSize {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("blob too large (max %d bytes)", maxSize))
+	}
+
+	// store in database
+	err = s.statefulDB.PutBrandingBlob(broadcasterID, input.Key, input.MimeType, data)
+	if err != nil {
+		log.Error(ctx, "failed to store branding blob", "err", err)
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to store branding blob")
+	}
+
+	// invalidate cache
+	cacheKey := fmt.Sprintf("%s:%s", broadcasterID, input.Key)
+	s.BrandingCache.Delete(cacheKey)
+
+	return &placestreamtypes.BrandingUpdateBlob_Output{
+		Success: true,
+	}, nil
+}
+
+func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input *placestreamtypes.BrandingDeleteBlob_Input) (*placestreamtypes.BrandingDeleteBlob_Output, error) {
+	// check authentication
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
+	}
+
+	// check admin authorization
+	if !s.isAdminDID(session.DID) {
+		log.Warn(ctx, "unauthorized branding delete attempt", "did", session.DID)
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "not authorized to modify branding")
+	}
+
+	var broadcasterDID string
+	if input.Broadcaster != nil {
+		broadcasterDID = *input.Broadcaster
+	}
+	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
+
+	err := s.statefulDB.DeleteBrandingBlob(broadcasterID, input.Key)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, echo.NewHTTPError(http.StatusNotFound, "branding asset not found")
+		}
+		log.Error(ctx, "failed to delete branding blob", "err", err)
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to delete branding blob")
+	}
+
+	// invalidate cache
+	cacheKey := fmt.Sprintf("%s:%s", broadcasterID, input.Key)
+	s.BrandingCache.Delete(cacheKey)
+
+	return &placestreamtypes.BrandingDeleteBlob_Output{
+		Success: true,
 	}, nil
 }

@@ -22,7 +22,7 @@ import {
   useTheme,
   useToast,
 } from "@streamplace/components";
-import { Provider, Settings } from "components";
+import { BrandingAdmin, Provider, Settings } from "components";
 import AQLink from "components/aqlink";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
@@ -136,6 +136,7 @@ type RootStackParamList = {
   Multi: { config: string };
   Support: undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList>;
+  BrandingAdmin: undefined;
   KeyManagement: undefined;
   GoLive: undefined;
   LiveDashboard: undefined;
@@ -186,6 +187,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
           DeveloperSettings: "settings/developer",
         },
       },
+      BrandingAdmin: "admin",
       KeyManagement: "key-management",
       GoLive: "golive",
       LiveDashboard: "live",
@@ -593,7 +595,22 @@ export function StreamplaceDrawer() {
             },
           }}
         />
-
+        <Drawer.Screen
+          name="BrandingAdmin"
+          component={BrandingAdmin}
+          options={{
+            drawerLabel: () => <Text variant="h5">Branding Admin</Text>,
+            drawerItemStyle: { display: "none" },
+          }}
+        />
+        <Drawer.Screen
+          name="KeyManagement"
+          component={KeyManager}
+          options={{
+            drawerLabel: () => <Text variant="h5">Key Manager</Text>,
+            drawerItemStyle: { display: "none" },
+          }}
+        />
         <Drawer.Screen
           name="Support"
           component={SupportScreen}

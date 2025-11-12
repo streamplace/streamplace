@@ -1,17 +1,25 @@
 package media
 
 import (
-	"bytes"
 	"context"
 	"io"
-
-	"stream.place/streamplace/pkg/aqio"
+	"os"
+	"path/filepath"
 )
 
 // CombineSegments combines a list of segments into a single segment that maintains all of the manifests
 func CombineSegments(ctx context.Context, inputFds []io.ReadSeeker, ms MediaSigner, output io.ReadWriteSeeker) error {
-	rws := aqio.NewReadWriteSeeker([]byte{})
-	err := CombineSegmentsUnsigned(ctx, inputFds, rws)
+	tempDir, err := os.MkdirTemp("", "streamplace-combine-segments")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tempDir)
+	fd, err := os.Create(filepath.Join(tempDir, "combined-unsigned.mp4"))
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	err = CombineSegmentsUnsigned(ctx, inputFds, fd)
 	if err != nil {
 		return err
 	}
@@ -22,11 +30,11 @@ func CombineSegments(ctx context.Context, inputFds []io.ReadSeeker, ms MediaSign
 			return err
 		}
 	}
-	bs, err := rws.Bytes()
+	_, err = fd.Seek(0, io.SeekStart)
 	if err != nil {
 		return err
 	}
-	err = ms.SignConcatMP4(context.Background(), bytes.NewReader(bs), inputFds, output)
+	err = ms.SignConcatMP4(context.Background(), fd, inputFds, output)
 	if err != nil {
 		return err
 	}

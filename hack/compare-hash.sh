@@ -8,8 +8,8 @@ BASE_ONE="$(basename "$ONE")"
 BASE_TWO="$(basename "$TWO")"
 
 if [[ -d "$ONE" && -d "$TWO" ]]; then
-  FILES_ONE=$(find "$ONE" -maxdepth 1 -mindepth 1 -type f | xargs -L 1 basename | sort)
-  FILES_TWO=$(find "$TWO" -maxdepth 1 -mindepth 1 -type f | xargs -L 1 basename | sort)
+  FILES_ONE=$(find "$ONE" -maxdepth 1 -mindepth 1 -type f -name '*.mp4' | xargs -L 1 basename | sort)
+  FILES_TWO=$(find "$TWO" -maxdepth 1 -mindepth 1 -type f -name '*.mp4' | xargs -L 1 basename | sort)
 
   NUM_FILES_ONE=$(echo "$FILES_ONE" | wc -l)
   NUM_FILES_TWO=$(echo "$FILES_TWO" | wc -l)
@@ -25,7 +25,9 @@ if [[ -d "$ONE" && -d "$TWO" ]]; then
     # skip if either file entry is empty (may only occur if line counts mismatched, but that's handled above)
     [ -n "$file_one" ] && [ -n "$file_two" ] || continue
     echo "Comparing $file_one <=> $file_two"
+    set +e
     "$0" "$ONE/$file_one" "$TWO/$file_two"
+    set -e
   done
   exit 0
 fi

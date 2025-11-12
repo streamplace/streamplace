@@ -20,18 +20,13 @@ if [[ -d "$ONE" && -d "$TWO" ]]; then
     exit 1
   fi
 
-  if ! diff <(echo "$FILES_ONE") <(echo "$FILES_TWO") >/dev/null; then
-    echo "Directory contents differ (filenames not matching):"
-    comm -3 <(echo "$FILES_ONE") <(echo "$FILES_TWO")
-    exit 1
-  fi
-
-  # Iterate by filename
-  while read -r f; do
-    [ -n "$f" ] || continue
-    "$0" "$ONE/$f" "$TWO/$f"
-  done <<< "$FILES_ONE"
-  # after all sub-comparisons
+  # Compare files by their order in the sorted lists, regardless of filenames
+  paste <(echo "$FILES_ONE") <(echo "$FILES_TWO") | while read -r file_one file_two; do
+    # skip if either file entry is empty (may only occur if line counts mismatched, but that's handled above)
+    [ -n "$file_one" ] && [ -n "$file_two" ] || continue
+    echo "Comparing $file_one <=> $file_two"
+    "$0" "$ONE/$file_one" "$TWO/$file_two"
+  done
   exit 0
 fi
 

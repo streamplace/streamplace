@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
@@ -86,6 +87,8 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 
 	videoOutput := [][]byte{}
 	audioOutput := [][]byte{}
+	combinedOutput := []*bus.MediaPacket{}
+	combinedMu := sync.Mutex{}
 	// eosCh := make(chan struct{})
 
 	videoappsink := app.SinkFromElement(videoSink)
@@ -104,6 +107,13 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 			samples := buffer.Bytes()
 
 			videoOutput = append(videoOutput, samples)
+
+			combinedMu.Lock()
+			defer combinedMu.Unlock()
+			combinedOutput = append(combinedOutput, &bus.MediaPacket{
+				MediaType: "video",
+				Data:      samples,
+			})
 
 			// clockTime := buffer.Duration()
 			// dur := clockTime.AsDuration()
@@ -148,6 +158,13 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 				log.Error(ctx, "no audio duration", "samples", len(samples))
 				return gst.FlowError
 			}
+
+			combinedMu.Lock()
+			defer combinedMu.Unlock()
+			combinedOutput = append(combinedOutput, &bus.MediaPacket{
+				MediaType: "audio",
+				Data:      samples,
+			})
 
 			return gst.FlowOK
 		},

@@ -18,9 +18,15 @@ type Seg struct {
 	PacketizedData *PacketizedSegment
 }
 
+type MediaPacket struct {
+	MediaType string
+	Data      []byte
+}
+
 type PacketizedSegment struct {
 	Video    [][]byte
 	Audio    [][]byte
+	Combined []*MediaPacket
 	Duration time.Duration
 }
 

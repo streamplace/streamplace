@@ -24,6 +24,22 @@ func initMP4Sync() {
 	})
 }
 
+type VideoBuffer struct {
+	Buffer *gst.Buffer
+}
+
+type AudioBuffer struct {
+	Buffer *gst.Buffer
+}
+
+type VideoEvent struct {
+	Event *gst.Event
+}
+
+type AudioEvent struct {
+	Event *gst.Event
+}
+
 func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.Writer) error {
 	initMP4Sync()
 	ctx = log.WithLogValues(ctx, "mediafunc", "CombineSegmentsUnsigned")
@@ -105,8 +121,7 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 	videoReady := make(chan struct{})
 	var audioCaps string
 	audioReady := make(chan struct{})
-	videoCh := make(chan *SegmentBuffer)
-	audioCh := make(chan *SegmentBuffer)
+	outputCh := make(chan any, 1024)
 
 	videoSinkElem, err := pipeline.GetElementByName("videosink")
 	if err != nil {
@@ -133,21 +148,54 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 			if buffer == nil {
 				return gst.FlowError
 			}
-			bs := buffer.Map(gst.MapRead).Bytes()
-			defer buffer.Unmap()
-			videoCh <- &SegmentBuffer{
-				bytes: bs,
-				pts:   buffer.PresentationTimestamp().AsDuration(),
-				dur:   buffer.Duration().AsDuration(),
+			// bs := buffer.Map(gst.MapRead).Bytes()
+			// defer buffer.Unmap()
+			log.Warn(ctx, "video buffer", "presentation_timestamp", buffer.PresentationTimestamp(), "duration", buffer.Duration())
+			outputCh <- &VideoBuffer{
+				Buffer: buffer,
 			}
+			// videoCh <- &SegmentBuffer{
+			// 	bytes: bs,
+			// 	pts:   buffer.PresentationTimestamp().AsDuration(),
+			// 	dur:   buffer.Duration().AsDuration(),
+			// }
 			return gst.FlowOK
 		},
 		EOSFunc: func(sink *app.Sink) {
 			go func() {
-				close(videoCh)
+				outputCh <- &VideoBuffer{
+					Buffer: nil,
+				}
 				eos <- struct{}{}
 			}()
 		},
+	})
+
+	videoSinkSinkPad := videoSink.GetStaticPad("sink")
+	videoSinkSinkPad.AddProbe(gst.PadProbeTypeEventBoth, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+		log.Warn(ctx, "probe event", "event", fmt.Sprintf("%+v", info.GetEvent().Type()), "direction", pad.GetDirection())
+		// if info.GetEvent().Type() == gst.EventTypeSegment {
+		// 	segmentCount++
+		// 	if segmentCount > 1 {
+		// 		log.Warn(ctx, "more than one segment, pausing video element")
+		// 		err := videoSink.BlockSetState(gst.StatePaused)
+		// 		if err != nil {
+		// 			log.Error(ctx, "failed to pause video element", "error", err)
+		// 		}
+		// 	}
+		// 	// segment := info.GetEvent().ParseSegment()
+		// }
+		if info.GetEvent().Type() == gst.EventTypeEOS {
+			log.Warn(ctx, "video sink EOS")
+			return gst.PadProbeRemove
+		}
+		if info.GetEvent().Type() != gst.EventTypeSegment {
+			return gst.PadProbeOK
+		}
+		outputCh <- &VideoEvent{
+			Event: info.GetEvent().Copy(),
+		}
+		return gst.PadProbeOK
 	})
 
 	audioSinkElem, err := pipeline.GetElementByName("audiosink")
@@ -175,21 +223,55 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 			if buffer == nil {
 				return gst.FlowError
 			}
-			bs := buffer.Map(gst.MapRead).Bytes()
-			defer buffer.Unmap()
-			audioCh <- &SegmentBuffer{
-				bytes: bs,
-				pts:   buffer.PresentationTimestamp().AsDuration(),
-				dur:   buffer.Duration().AsDuration(),
+			log.Warn(ctx, "audio buffer", "presentation_timestamp", buffer.PresentationTimestamp(), "duration", buffer.Duration())
+			outputCh <- &AudioBuffer{
+				Buffer: buffer,
 			}
+
+			// bs := buffer.Map(gst.MapRead).Bytes()
+			// defer buffer.Unmap()
+			// audioCh <- &SegmentBuffer{
+			// 	bytes: bs,
+			// 	pts:   buffer.PresentationTimestamp().AsDuration(),
+			// 	dur:   buffer.Duration().AsDuration(),
+			// }
 			return gst.FlowOK
 		},
 		EOSFunc: func(sink *app.Sink) {
 			go func() {
-				close(audioCh)
+				outputCh <- &AudioBuffer{
+					Buffer: nil,
+				}
 				eos <- struct{}{}
 			}()
 		},
+	})
+
+	audioSinkSinkPad := audioSink.GetStaticPad("sink")
+	audioSinkSinkPad.AddProbe(gst.PadProbeTypeEventBoth, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+		// log.Warn(ctx, "probe event", "event", fmt.Sprintf("%+v", info.GetEvent().Type()))
+		// if info.GetEvent().Type() == gst.EventTypeSegment {
+		// 	audioSegmentCount++
+		// 	if audioSegmentCount > 1 {
+		// 		log.Warn(ctx, "more than one segment, pausing audio element")
+		// 		err := audioSink.BlockSetState(gst.StatePaused)
+		// 		if err != nil {
+		// 			log.Error(ctx, "failed to pause audio element", "error", err)
+		// 		}
+		// 	}
+		// 	// segment := info.GetEvent().ParseSegment()
+		// }
+		// if info.GetEvent().Type() == gst.EventTypeEOS {
+		// 	log.Warn(ctx, "audio sink EOS")
+		// 	return gst.PadProbeRemove
+		// }
+		if info.GetEvent().Type() != gst.EventTypeSegment {
+			return gst.PadProbeOK
+		}
+		outputCh <- &AudioEvent{
+			Event: info.GetEvent().Copy(),
+		}
+		return gst.PadProbeOK
 	})
 
 	outputErrCh := make(chan error)
@@ -204,7 +286,7 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 			return
 		case <-audioReady:
 		}
-		outputErrCh <- SegmentsToMP4(ctx, videoCaps, audioCaps, videoCh, audioCh, w)
+		outputErrCh <- SegmentsToMP4(ctx, videoCaps, audioCaps, outputCh, w)
 	}()
 
 	// Start the pipeline
@@ -224,6 +306,7 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 
 	<-eos
 	<-eos
+	log.Warn(ctx, "closing output channel")
 
 	outputErr := <-outputErrCh
 	if outputErr != nil {
@@ -239,7 +322,7 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 	return nil
 }
 
-func SegmentsToMP4(ctx context.Context, videoCaps, audioCaps string, videoCh, audioCh chan *SegmentBuffer, w io.Writer) error {
+func SegmentsToMP4(ctx context.Context, videoCaps, audioCaps string, ch chan any, w io.Writer) error {
 	pipelineSlice := []string{
 		"appsrc format=time name=videosrc ! queue ! mux.video_0",
 		"appsrc format=time name=audiosrc ! queue ! mux.audio_0",
@@ -253,6 +336,9 @@ func SegmentsToMP4(ctx context.Context, videoCaps, audioCaps string, videoCh, au
 
 	eos := make(chan struct{})
 
+	videoCh := make(chan *VideoBuffer)
+	audioCh := make(chan *AudioBuffer)
+
 	videoSrcElem, err := pipeline.GetElementByName("videosrc")
 	if err != nil {
 		return fmt.Errorf("failed to get video src element: %w", err)
@@ -261,30 +347,37 @@ func SegmentsToMP4(ctx context.Context, videoCaps, audioCaps string, videoCh, au
 	if videoSrc == nil {
 		return fmt.Errorf("failed to get video src element: %w", err)
 	}
-	videoSrc.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: func(self *app.Source, length uint) {
-			select {
-			case <-ctx.Done():
-				return
-			case seg := <-videoCh:
-				if seg == nil {
-					log.Warn(ctx, "video source ended")
-					self.EndStream()
-					return
-				}
-				buf := gst.NewBufferFromBytes(seg.bytes)
-				if seg.pts != nil {
-					buf.SetPresentationTimestamp(gst.ClockTime(uint64(seg.pts.Nanoseconds())))
-				}
-				if seg.dur != nil {
-					buf.SetDuration(gst.ClockTime(uint64(seg.dur.Nanoseconds())))
-				}
-				videoSrc.PushBuffer(buf)
-				return
-			}
-		},
-	})
+	// videoSrc.SetCallbacks(&app.SourceCallbacks{
+	// 	NeedDataFunc: func(self *app.Source, length uint) {
+	// 		select {
+	// 		case <-ctx.Done():
+	// 			log.Warn(ctx, "video source context done (cancellation implied?)")
+	// 			return
+	// 		case buf := <-videoCh:
+	// 			if buf == nil {
+	// 				log.Warn(ctx, "video source ended")
+	// 				self.EndStream()
+	// 				return
+	// 			}
+	// 			// buf := gst.NewBufferFromBytes(seg.bytes)
+	// 			// if seg.pts != nil {
+	// 			// 	buf.SetPresentationTimestamp(gst.ClockTime(uint64(seg.pts.Nanoseconds())))
+	// 			// }
+	// 			// if seg.dur != nil {
+	// 			// 	buf.SetDuration(gst.ClockTime(uint64(seg.dur.Nanoseconds())))
+	// 			// }
+	// 			result := videoSrc.PushBuffer(buf.Buffer)
+	// 			if result != gst.FlowOK {
+	// 				log.Error(ctx, "failed to push video buffer", "error", "push buffer returned false")
+	// 				self.EndStream()
+	// 				return
+	// 			}
+	// 			return
+	// 		}
+	// 	},
+	// })
 	videoSrc.SetCaps(gst.NewCapsFromString(videoCaps))
+	videoSrcPad := videoSrc.GetStaticPad("src")
 
 	audioSrcElem, err := pipeline.GetElementByName("audiosrc")
 	if err != nil {
@@ -294,30 +387,36 @@ func SegmentsToMP4(ctx context.Context, videoCaps, audioCaps string, videoCh, au
 	if audioSrc == nil {
 		return fmt.Errorf("failed to get audio src element: %w", err)
 	}
-	audioSrc.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: func(self *app.Source, length uint) {
-			select {
-			case <-ctx.Done():
-				return
-			case seg := <-audioCh:
-				if seg == nil {
-					log.Warn(ctx, "audio source ended")
-					self.EndStream()
-					return
-				}
-				buf := gst.NewBufferFromBytes(seg.bytes)
-				if seg.pts != nil {
-					buf.SetPresentationTimestamp(gst.ClockTime(uint64(seg.pts.Nanoseconds())))
-				}
-				if seg.dur != nil {
-					buf.SetDuration(gst.ClockTime(uint64(seg.dur.Nanoseconds())))
-				}
-				audioSrc.PushBuffer(buf)
-				return
-			}
-		},
-	})
+	// audioSrc.SetCallbacks(&app.SourceCallbacks{
+	// 	NeedDataFunc: func(self *app.Source, length uint) {
+	// 		select {
+	// 		case <-ctx.Done():
+	// 			return
+	// 		case buf := <-audioCh:
+	// 			if buf == nil {
+	// 				log.Warn(ctx, "audio source ended")
+	// 				self.EndStream()
+	// 				return
+	// 			}
+	// 			// buf := gst.NewBufferFromBytes(seg.bytes)
+	// 			// if seg.pts != nil {
+	// 			// 	buf.SetPresentationTimestamp(gst.ClockTime(uint64(seg.pts.Nanoseconds())))
+	// 			// }
+	// 			// if seg.dur != nil {
+	// 			// 	buf.SetDuration(gst.ClockTime(uint64(seg.dur.Nanoseconds())))
+	// 			// }
+	// 			result := audioSrc.PushBuffer(buf.Buffer)
+	// 			if result != gst.FlowOK {
+	// 				log.Error(ctx, "failed to push audio buffer", "error", "push buffer returned false")
+	// 				self.EndStream()
+	// 				return
+	// 			}
+	// 			return
+	// 		}
+	// 	},
+	// })
 	audioSrc.SetCaps(gst.NewCapsFromString(audioCaps))
+	audioSrcPad := audioSrc.GetStaticPad("src")
 
 	mp4SinkElem, err := pipeline.GetElementByName("mp4sink")
 	if err != nil {
@@ -341,6 +440,55 @@ func SegmentsToMP4(ctx context.Context, videoCaps, audioCaps string, videoCh, au
 	if err != nil {
 		return fmt.Errorf("failed to set pipeline state to playing: %w", err)
 	}
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case buf := <-ch:
+				if buf == nil {
+					log.Warn(ctx, "source ended")
+					close(videoCh)
+					close(audioCh)
+					return
+				}
+				switch buf := buf.(type) {
+				case *VideoBuffer:
+					if buf.Buffer == nil {
+						log.Warn(ctx, "video buffer is nil")
+						videoSrc.EndStream()
+						continue
+					}
+					log.Warn(ctx, "video buffer", "presentation_timestamp", buf.Buffer.PresentationTimestamp(), "duration", buf.Buffer.Duration())
+					ret := videoSrc.PushBuffer(buf.Buffer)
+					if ret != gst.FlowOK {
+						log.Error(ctx, "failed to push video buffer", "error", ret.String())
+					}
+					// videoCh <- buf
+				case *AudioBuffer:
+					// audioCh <- buf
+					if buf.Buffer == nil {
+						log.Warn(ctx, "audio buffer is nil")
+						audioSrc.EndStream()
+						continue
+					}
+					log.Warn(ctx, "audio buffer", "presentation_timestamp", buf.Buffer.PresentationTimestamp(), "duration", buf.Buffer.Duration())
+					ret := audioSrc.PushBuffer(buf.Buffer)
+					if ret != gst.FlowOK {
+						log.Error(ctx, "failed to push audio buffer", "error", ret.String())
+					}
+				case *VideoEvent:
+					log.Warn(ctx, "video event", "event", fmt.Sprintf("%+v", buf.Event.Type()))
+					videoSrcPad.PushEvent(buf.Event)
+				case *AudioEvent:
+					log.Warn(ctx, "audio event", "event", fmt.Sprintf("%+v", buf.Event.Type()))
+					audioSrcPad.PushEvent(buf.Event)
+				}
+			}
+		}
+	}()
+
 	defer func() {
 		err := pipeline.BlockSetState(gst.StateNull)
 		if err != nil {

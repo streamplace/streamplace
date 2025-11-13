@@ -403,6 +403,7 @@ func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 		}
 		cli.FirebaseServiceAccount = string(bs)
 	}
+	log.SetColorLogger(cli.Color)
 	return nil
 }
 

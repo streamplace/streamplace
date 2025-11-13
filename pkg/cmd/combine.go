@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -20,10 +21,18 @@ func Combine(ctx context.Context, build *config.BuildFlags, allArgs []string) er
 	fs := cli.NewFlagSet("streamplace combine")
 	debugDir := fs.String("debug-dir", "", "directory to write debug files to")
 
+	vFlag := flag.Lookup("v")
+	verbosity := fs.String("v", "3", "log verbosity level")
+
 	err := cli.Parse(fs, allArgs)
 	if err != nil {
 		return err
 	}
+	err = flag.CommandLine.Parse(nil)
+	if err != nil {
+		return err
+	}
+	_ = vFlag.Value.Set(*verbosity)
 	if *debugDir != "" {
 		err := os.MkdirAll(*debugDir, 0755)
 		if err != nil {

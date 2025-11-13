@@ -190,7 +190,6 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return err
 	}
 	_ = vFlag.Value.Set(*verbosity)
-	log.SetColorLogger(cli.Color)
 	ctx := context.Background()
 	ctx = log.WithDebugValue(ctx, cli.Debug)
 

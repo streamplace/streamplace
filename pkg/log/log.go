@@ -175,7 +175,7 @@ func WithLogValues(ctx context.Context, args ...string) context.Context {
 	return context.WithValue(ctx, clogContextKey, newMetadata)
 }
 
-// Return a new context, adding in the provided values to the logging metadata
+// Return a new context with the pertinent debug values set
 func WithDebugValue(ctx context.Context, debug map[string]map[string]int) context.Context {
 	return context.WithValue(ctx, clogDebugKey, debug)
 }
@@ -263,7 +263,7 @@ func Log(ctx context.Context, message string, args ...any) {
 }
 
 func Debug(ctx context.Context, message string, args ...any) {
-	V(debugLogLevel).log(ctx, message, slog.Debug, args...)
+	V(debugLogLevel).log(ctx, message, slog.Info, args...)
 }
 
 func Trace(ctx context.Context, message string, args ...any) {

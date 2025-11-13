@@ -21,6 +21,7 @@ type Seg struct {
 type MediaPacket struct {
 	MediaType string
 	Data      []byte
+	Timestamp *time.Time
 }
 
 type PacketizedSegment struct {

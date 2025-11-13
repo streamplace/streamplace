@@ -19,7 +19,6 @@ else
 fi
 
 DEBUG_DIR="$(mktemp -d)"
-mkdir -p "$DEBUG_DIR/segments"
 set +e
 $SCRIPT_DIR/../$BUILD_DIR/streamplace combine --debug-dir="$DEBUG_DIR/segments-1" "$DEBUG_DIR/combined.mp4" $(find "$@" -name '*.mp4' | sort)
 $SCRIPT_DIR/../$BUILD_DIR/streamplace combine --debug-dir="$DEBUG_DIR/segments-2" "$DEBUG_DIR/combined2.mp4" $(find "$DEBUG_DIR/segments-1" -name '*.mp4' | sort)

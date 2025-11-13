@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -108,20 +109,15 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 
 			videoOutput = append(videoOutput, samples)
 
+			timestamp := buffer.PresentationTimestamp().AsTimestamp()
+
 			combinedMu.Lock()
 			defer combinedMu.Unlock()
 			combinedOutput = append(combinedOutput, &bus.MediaPacket{
 				MediaType: "video",
 				Data:      samples,
+				Timestamp: timestamp,
 			})
-
-			// clockTime := buffer.Duration()
-			// dur := clockTime.AsDuration()
-			// if dur != nil {
-			// 	log.Log(ctx, "video duration", "duration", *dur)
-			// } else {
-			// 	log.Error(ctx, "no video duration", "samples", len(samples))
-			// }
 
 			return gst.FlowOK
 		},
@@ -130,7 +126,7 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 		},
 	})
 
-	segDur := time.Duration(0)
+	audioDur := time.Duration(0)
 
 	audioappsink := app.SinkFromElement(audioSink)
 	audioappsink.SetCallbacks(&app.SinkCallbacks{
@@ -150,10 +146,12 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 
 			audioOutput = append(audioOutput, samples)
 
+			timestamp := buffer.PresentationTimestamp().AsTimestamp()
+
 			clockTime := buffer.Duration()
 			dur := clockTime.AsDuration()
 			if dur != nil {
-				segDur += *dur
+				audioDur += *dur
 			} else {
 				log.Error(ctx, "no audio duration", "samples", len(samples))
 				return gst.FlowError
@@ -164,6 +162,7 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 			combinedOutput = append(combinedOutput, &bus.MediaPacket{
 				MediaType: "audio",
 				Data:      samples,
+				Timestamp: timestamp,
 			})
 
 			return gst.FlowOK
@@ -203,9 +202,23 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 		return nil, fmt.Errorf("packetize pipeline error filename=%s, error=%w", seg.Filepath, err)
 	}
 
+	sort.Slice(combinedOutput, func(i, j int) bool {
+		if combinedOutput[i].Timestamp == nil && combinedOutput[j].Timestamp == nil {
+			return false
+		}
+		if combinedOutput[i].Timestamp == nil {
+			return false
+		}
+		if combinedOutput[j].Timestamp == nil {
+			return true
+		}
+		return combinedOutput[i].Timestamp.Before(*combinedOutput[j].Timestamp)
+	})
+
 	return &bus.PacketizedSegment{
 		Video:    videoOutput,
 		Audio:    audioOutput,
-		Duration: segDur,
+		Combined: combinedOutput,
+		Duration: audioDur,
 	}, nil
 }

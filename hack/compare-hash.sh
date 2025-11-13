@@ -46,15 +46,30 @@ echo "Hash for $TWO: $HASH_TWO"
 
 xxd "$ONE" > "1.xxd"
 xxd "$TWO" > "2.xxd"
-(diff --color=always "1.xxd" "2.xxd" || true) | head -n 20
+(diff --color=always "1.xxd" "2.xxd" || true) | head -n 5
 
 ffmpeg -y -loglevel fatal -i "$ONE" -c copy -f framemd5 "1.md5"
 ffmpeg -y -loglevel fatal -i "$TWO" -c copy -f framemd5 "2.md5"
-(diff --color=always "1.md5" "2.md5" || true) | head -n 20
+(diff --color=always "1.md5" "2.md5" || true) | head -n 5
 
 ffprobe -loglevel fatal -show_frames "$ONE" > "1.frames"
 ffprobe -loglevel fatal -show_frames "$TWO" > "2.frames"
-(diff --color=always "1.frames" "2.frames" || true) | head -n 20
+(diff --color=always "1.frames" "2.frames" || true) | head -n 5
+
+echo -e "\033[0m"
+video_frames_one="$(cat 1.frames | grep media_type=video | wc -l | xargs)"
+video_frames_two="$(cat 2.frames | grep media_type=video | wc -l | xargs)"
+if [[ "$video_frames_one" -ne "$video_frames_two" ]]; then
+  echo "Video frame count mismatch: $video_frames_one -> $video_frames_two"
+  exit 1
+fi
+
+audio_frames_one="$(cat 1.frames | grep media_type=video | wc -l | xargs)"
+audio_frames_two="$(cat 2.frames | grep media_type=video | wc -l | xargs)"
+if [[ "$audio_frames_one" -ne "$audio_frames_two" ]]; then
+  echo "Audio frame count mismatch: $audio_frames_one -> $audio_frames_two"
+  exit 1
+fi
 
 # ffmpeg -y -loglevel fatal -i "$ONE" -frames:v 1 -c copy -an 1frame.h264
 # ffmpeg -y -loglevel fatal -i "$TWO" -frames:v 1 -c copy -an 2frame.h264

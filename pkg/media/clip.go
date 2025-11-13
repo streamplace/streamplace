@@ -56,20 +56,78 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 		return fmt.Errorf("failed to create GStreamer pipeline: %w", err)
 	}
 
+	orderCh := make(chan any)
+	outputCh := make(chan any)
+	videoCh := make(chan *VideoBuffer, 5000)
+	audioCh := make(chan *AudioBuffer, 5000)
 	segCh := make(chan *bus.Seg)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case buf := <-orderCh:
+				if buf == nil {
+					log.Warn(ctx, "source ended")
+					return
+				}
+				switch buf := buf.(type) {
+				case *VideoBuffer:
+					videoCh <- buf
+				case *AudioBuffer:
+					audioCh <- buf
+				case *VideoEvent:
+					outputCh <- buf
+				case *AudioEvent:
+					outputCh <- buf
+				}
+			}
+		}
+	}()
+
 	go func() {
 		for _, source := range sources {
+			log.Warn(ctx, "new segment starting")
 			bs, err := io.ReadAll(source)
 			if err != nil {
 				err = fmt.Errorf("failed to read file: %w", err)
 				pipeline.Error(err.Error(), err)
 				return
 			}
-			segCh <- &bus.Seg{
+			seg := &bus.Seg{
 				Filepath: "ignored",
 				Data:     bs,
 			}
+			done := make(chan struct{})
+			go func() {
+				segCh <- seg
+				close(done)
+			}()
+			packetizedData, err := Packetize(ctx, seg)
+			if err != nil {
+				err = fmt.Errorf("failed to parse segment media data: %w", err)
+				pipeline.Error(err.Error(), err)
+				return
+			}
+
+			for _, frame := range packetizedData.Combined {
+				switch frame.MediaType {
+				case "video":
+					outputCh <- <-videoCh
+				case "audio":
+					outputCh <- <-audioCh
+				}
+			}
+			<-done
 		}
+		// one more for the "we're done" signal
+		go func() {
+			outputCh <- <-videoCh
+		}()
+		go func() {
+			outputCh <- <-audioCh
+		}()
 		close(segCh)
 	}()
 
@@ -121,7 +179,6 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 	// videoReady := make(chan struct{})
 	// var audioCaps string
 	// audioReady := make(chan struct{})
-	outputCh := make(chan any)
 
 	videoSinkElem, err := pipeline.GetElementByName("videosink")
 	if err != nil {
@@ -151,7 +208,7 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 			// bs := buffer.Map(gst.MapRead).Bytes()
 			// defer buffer.Unmap()
 			log.Debug(ctx, "video buffer input", "presentation_timestamp", buffer.PresentationTimestamp(), "duration", buffer.Duration())
-			outputCh <- &VideoBuffer{
+			orderCh <- &VideoBuffer{
 				Buffer: buffer,
 			}
 			// videoCh <- &SegmentBuffer{
@@ -163,7 +220,8 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 		},
 		EOSFunc: func(sink *app.Sink) {
 			go func() {
-				outputCh <- &VideoBuffer{
+				log.Debug(ctx, "pushing nil videobuffer")
+				orderCh <- &VideoBuffer{
 					Buffer: nil,
 				}
 				eos <- struct{}{}
@@ -178,11 +236,11 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 			segment := info.GetEvent().ParseSegment()
 			log.Debug(ctx, "video segment", "segment", fmt.Sprintf("%+v", segment.GetFormat().String()))
 		}
-		if info.GetEvent().Type() != gst.EventTypeSegment && info.GetEvent().Type() != gst.EventTypeCaps && info.GetEvent().Type() != gst.EventTypeStreamStart {
-			return gst.PadProbeOK
-		}
+		// if info.GetEvent().Type() != gst.EventTypeSegment && info.GetEvent().Type() != gst.EventTypeCaps && info.GetEvent().Type() != gst.EventTypeStreamStart {
+		// 	return gst.PadProbeOK
+		// }
 		log.Debug(ctx, "video event input", "event", fmt.Sprintf("%+v", info.GetEvent().Type()), "pointer", info.GetEvent())
-		outputCh <- &VideoEvent{
+		orderCh <- &VideoEvent{
 			Event: info.GetEvent().Copy(),
 		}
 		return gst.PadProbeOK
@@ -214,7 +272,7 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 				return gst.FlowError
 			}
 			log.Debug(ctx, "audio buffer input", "presentation_timestamp", buffer.PresentationTimestamp(), "duration", buffer.Duration())
-			outputCh <- &AudioBuffer{
+			orderCh <- &AudioBuffer{
 				Buffer: buffer,
 			}
 
@@ -229,7 +287,8 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 		},
 		EOSFunc: func(sink *app.Sink) {
 			go func() {
-				outputCh <- &AudioBuffer{
+				log.Debug(ctx, "pushing nil audiobuffer")
+				orderCh <- &AudioBuffer{
 					Buffer: nil,
 				}
 				eos <- struct{}{}
@@ -248,11 +307,11 @@ func CombineSegmentsUnsigned(ctx context.Context, sources []io.ReadSeeker, w io.
 		if info.GetEvent().Type() == gst.EventTypeStreamStart {
 			info.GetEvent().ParseStreamStart()
 		}
-		if info.GetEvent().Type() != gst.EventTypeSegment && info.GetEvent().Type() != gst.EventTypeCaps {
-			return gst.PadProbeOK
-		}
+		// if info.GetEvent().Type() != gst.EventTypeSegment && info.GetEvent().Type() != gst.EventTypeCaps && info.GetEvent().Type() != gst.EventTypeStreamStart {
+		// 	return gst.PadProbeOK
+		// }
 		log.Debug(ctx, "audio event input", "event", fmt.Sprintf("%+v", info.GetEvent().Type()), "pointer", info.GetEvent())
-		outputCh <- &AudioEvent{
+		orderCh <- &AudioEvent{
 			Event: info.GetEvent().Copy(),
 		}
 		return gst.PadProbeOK

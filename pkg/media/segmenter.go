@@ -156,7 +156,7 @@ func SegmentUnsigned(ctx context.Context, input io.Reader, ch chan *SplitSegment
 	defer cancel()
 	pipelineSlice := []string{
 		"appsrc name=appsrc ! qtdemux name=demux",
-		"demux. ! queue ! h264parse name=videoparse disable-passthrough=true config-interval=0",
+		"demux. ! queue ! h264parse name=videoparse disable-passthrough=true config-interval=-1",
 		"demux. ! queue ! opusparse name=audioparse",
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

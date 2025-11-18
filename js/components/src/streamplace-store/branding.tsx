@@ -173,12 +173,6 @@ export function useAccentColor(): string {
   return asset?.data || "#8b5cf6";
 }
 
-// convenience hook for default stream key
-export function useDefaultStreamKey(): string | undefined {
-  const asset = useBrandingAsset("defaultStreamKey");
-  return asset?.data || undefined;
-}
-
 // convenience hook for default streamer
 export function useDefaultStreamer(): string | undefined {
   const asset = useBrandingAsset("defaultStreamer");

@@ -24,27 +24,25 @@ import (
 )
 
 type Server struct {
-	e             *echo.Echo
-	cli           *config.CLI
-	model         model.Model
-	OGImageCache  *cache.Cache
-	BrandingCache *cache.Cache
-	ATSync        *atproto.ATProtoSynchronizer
-	statefulDB    *statedb.StatefulDB
-	bus           *bus.Bus
+	e            *echo.Echo
+	cli          *config.CLI
+	model        model.Model
+	OGImageCache *cache.Cache
+	ATSync       *atproto.ATProtoSynchronizer
+	statefulDB   *statedb.StatefulDB
+	bus          *bus.Bus
 }
 
 func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus) (*Server, error) {
 	e := echo.New()
 	s := &Server{
-		e:             e,
-		cli:           cli,
-		model:         model,
-		OGImageCache:  cache.New(5*time.Minute, 10*time.Minute), // 5min TTL, 10min cleanup
-		BrandingCache: cache.New(1*time.Hour, 15*time.Minute),   // 1hr TTL, 15min cleanup
-		ATSync:        atsync,
-		statefulDB:    statefulDB,
-		bus:           bus,
+		e:            e,
+		cli:          cli,
+		model:        model,
+		OGImageCache: cache.New(5*time.Minute, 10*time.Minute), // 5min TTL, 10min cleanup
+		ATSync:       atsync,
+		statefulDB:   statefulDB,
+		bus:          bus,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())
@@ -65,7 +63,6 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	e.GET("/xrpc/_health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"version": cli.Build.Version})
 	})
-	e.GET("/favicon.ico", s.HandleFaviconICO)
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleComAtprotoSyncSubscribeRepos)
 	e.GET("/xrpc/place.stream.live.subscribeSegments", s.handlePlaceStreamLiveSubscribeSegments)
 	e.GET("/xrpc/*", s.HandleWildcard)

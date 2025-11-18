@@ -449,44 +449,6 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 	})
 
-	router.GET("/branding-admin", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		http.ServeFile(w, r, "pkg/api/branding-admin.html")
-	})
-
-	router.GET("/xrpc/place.stream.branding.getBranding", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		// call XRPC handler directly instead of proxying
-		broadcasterDID := r.URL.Query().Get("broadcaster")
-		output, err := a.XRPCServer.HandlePlaceStreamBrandingGetBrandingDirect(ctx, broadcasterDID)
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "failed to fetch branding", err)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		bs, err := json.Marshal(output)
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)
-			return
-		}
-		if _, err := w.Write(bs); err != nil {
-			log.Error(ctx, "error writing response", "error", err)
-		}
-	})
-
-	router.GET("/xrpc/place.stream.branding.getBlob", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		// call XRPC handler directly instead of proxying
-		key := r.URL.Query().Get("key")
-		broadcasterDID := r.URL.Query().Get("broadcaster")
-		reader, err := a.XRPCServer.HandlePlaceStreamBrandingGetBlobDirect(ctx, broadcasterDID, key)
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "failed to fetch blob", err)
-			return
-		}
-		if _, err := io.Copy(w, reader); err != nil {
-			log.Error(ctx, "error writing response", "error", err)
-		}
-	})
-
 	router.POST("/notification-blast", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		var payload notificationpkg.NotificationBlast
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {

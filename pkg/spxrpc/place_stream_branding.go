@@ -23,12 +23,11 @@ var defaultBrandingAssets = map[string]struct {
 }{
 	// "mainLogo":         {data: defaultLogoSVG, mime: "image/svg+xml"},
 	// "favicon":          {data: defaultFaviconSVG, mime: "image/svg+xml"},
-	"siteTitle":        {data: []byte("Streamplace"), mime: "text/plain"},
-	"siteDescription":  {data: []byte("Live streaming platform"), mime: "text/plain"},
-	"primaryColor":     {data: []byte("#6366f1"), mime: "text/plain"},
-	"accentColor":      {data: []byte("#8b5cf6"), mime: "text/plain"},
-	"defaultStreamKey": {data: []byte(""), mime: "text/plain"},
-	"defaultStreamer":  {data: []byte(""), mime: "text/plain"},
+	"siteTitle":       {data: []byte("Streamplace"), mime: "text/plain"},
+	"siteDescription": {data: []byte("Live streaming platform"), mime: "text/plain"},
+	"primaryColor":    {data: []byte("#6366f1"), mime: "text/plain"},
+	"accentColor":     {data: []byte("#8b5cf6"), mime: "text/plain"},
+	"defaultStreamer": {data: []byte(""), mime: "text/plain"},
 }
 
 func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) string {
@@ -170,7 +169,7 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 	maxSize := 500 * 1024 // 500KB default for logos
 	if input.Key == "favicon" {
 		maxSize = 100 * 1024 // 100KB for favicons
-	} else if input.Key == "siteTitle" || input.Key == "siteDescription" || input.Key == "primaryColor" || input.Key == "accentColor" || input.Key == "defaultStreamKey" || input.Key == "defaultStreamer" {
+	} else if input.Key == "siteTitle" || input.Key == "siteDescription" || input.Key == "primaryColor" || input.Key == "accentColor" || input.Key == "defaultStreamer" {
 		maxSize = 1024 // 1KB for text values
 	}
 	// sidebarBackgroundImage uses default 500KB limit
@@ -194,10 +193,6 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 		log.Error(ctx, "failed to store branding blob", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to store branding blob")
 	}
-
-	// invalidate cache
-	cacheKey := fmt.Sprintf("%s:%s", broadcasterID, input.Key)
-	s.BrandingCache.Delete(cacheKey)
 
 	return &placestreamtypes.BrandingUpdateBlob_Output{
 		Success: true,
@@ -231,10 +226,6 @@ func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input 
 		log.Error(ctx, "failed to delete branding blob", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to delete branding blob")
 	}
-
-	// invalidate cache
-	cacheKey := fmt.Sprintf("%s:%s", broadcasterID, input.Key)
-	s.BrandingCache.Delete(cacheKey)
 
 	return &placestreamtypes.BrandingDeleteBlob_Output{
 		Success: true,

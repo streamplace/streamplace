@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
+	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/log"
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
@@ -38,33 +39,12 @@ func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) st
 	return s.cli.BroadcasterHost
 }
 
-func (s *Server) getBrandingBlobCached(ctx context.Context, broadcasterID, key string) ([]byte, string, *int, *int, error) {
-	cacheKey := fmt.Sprintf("%s:%s", broadcasterID, key)
-
-	// check cache first
-	if cached, found := s.BrandingCache.Get(cacheKey); found {
-		blob := cached.(struct {
-			data   []byte
-			mime   string
-			width  *int
-			height *int
-		})
-		return blob.data, blob.mime, blob.width, blob.height, nil
-	}
-
+func (s *Server) getBrandingBlob(ctx context.Context, broadcasterID, key string) ([]byte, string, *int, *int, error) {
 	// cache miss - fetch from db
 	blob, err := s.statefulDB.GetBrandingBlob(broadcasterID, key)
 	if err == gorm.ErrRecordNotFound {
 		// not in db, use default
 		if def, ok := defaultBrandingAssets[key]; ok {
-			// cache the default too
-			cacheData := struct {
-				data   []byte
-				mime   string
-				width  *int
-				height *int
-			}{data: def.data, mime: def.mime, width: nil, height: nil}
-			s.BrandingCache.Set(cacheKey, cacheData, cache.DefaultExpiration)
 			return def.data, def.mime, nil, nil, nil
 		}
 		return nil, "", nil, nil, fmt.Errorf("unknown branding key: %s", key)
@@ -72,16 +52,6 @@ func (s *Server) getBrandingBlobCached(ctx context.Context, broadcasterID, key s
 	if err != nil {
 		return nil, "", nil, nil, fmt.Errorf("error fetching branding blob: %w", err)
 	}
-
-	// store in cache
-	cacheData := struct {
-		data   []byte
-		mime   string
-		width  *int
-		height *int
-	}{data: blob.Data, mime: blob.MimeType, width: blob.Width, height: blob.Height}
-	s.BrandingCache.Set(cacheKey, cacheData, cache.DefaultExpiration)
-
 	return blob.Data, blob.MimeType, blob.Width, blob.Height, nil
 }
 
@@ -92,7 +62,7 @@ func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, broadcast
 // HandlePlaceStreamBrandingGetBlobDirect is the exported version for direct calls
 func (s *Server) HandlePlaceStreamBrandingGetBlobDirect(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
 	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
-	data, _, _, _, err := s.getBrandingBlobCached(ctx, broadcasterID, key)
+	data, _, _, _, err := s.getBrandingBlob(ctx, broadcasterID, key)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +95,7 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 	// build output
 	assets := make([]*placestreamtypes.BrandingGetBranding_BrandingAsset, 0, len(allKeys))
 	for key := range allKeys {
-		data, mimeType, width, height, err := s.getBrandingBlobCached(ctx, broadcasterID, key)
+		data, mimeType, width, height, err := s.getBrandingBlob(ctx, broadcasterID, key)
 		if err != nil {
 			continue // skip if error
 		}
@@ -269,4 +239,37 @@ func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input 
 	return &placestreamtypes.BrandingDeleteBlob_Output{
 		Success: true,
 	}, nil
+}
+
+// HandleFaviconICO serves the favicon at /favicon.ico
+func (s *Server) HandleFaviconICO(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	broadcasterID := s.cli.BroadcasterHost
+	log.Log(ctx, "fetching favicon", "broadcasterID", broadcasterID)
+	data, mimeType, _, _, err := s.getBrandingBlob(ctx, "did:web:"+broadcasterID, "favicon")
+
+	if err != nil || data == nil {
+		log.Log(ctx, "using fallback favicon", "err", err, "data_nil", data == nil)
+		distFiles, fsErr := app.Files()
+		if fsErr != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch favicon")
+		}
+
+		faviconFile, fsErr := distFiles.Open("favicon.ico")
+		if fsErr != nil {
+			return echo.NewHTTPError(http.StatusNotFound, "favicon not found")
+		}
+		defer faviconFile.Close()
+
+		data, fsErr = io.ReadAll(faviconFile)
+		if fsErr != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "failed to read favicon")
+		}
+
+		// detect mime type based on file extension (ico)
+		mimeType = "image/x-icon"
+	}
+
+	return c.Blob(http.StatusOK, mimeType, data)
 }

@@ -10,25 +10,18 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/patrickmn/go-cache"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/log"
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
 
-//go:embed assets/logo.svg
-var defaultLogoSVG []byte
-
-//go:embed assets/favicon.svg
-var defaultFaviconSVG []byte
-
 var defaultBrandingAssets = map[string]struct {
 	data []byte
 	mime string
 }{
-	"mainLogo":         {data: defaultLogoSVG, mime: "image/svg+xml"},
-	"favicon":          {data: defaultFaviconSVG, mime: "image/svg+xml"},
+	// "mainLogo":         {data: defaultLogoSVG, mime: "image/svg+xml"},
+	// "favicon":          {data: defaultFaviconSVG, mime: "image/svg+xml"},
 	"siteTitle":        {data: []byte("Streamplace"), mime: "text/plain"},
 	"siteDescription":  {data: []byte("Live streaming platform"), mime: "text/plain"},
 	"primaryColor":     {data: []byte("#6366f1"), mime: "text/plain"},

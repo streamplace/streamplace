@@ -3,16 +3,17 @@ import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import * as Portal from "@rn-primitives/portal";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react-native";
-import { forwardRef, ReactNode, useCallback, useMemo, useRef } from "react";
+import React, { forwardRef, useRef } from "react";
 import {
   Platform,
   Pressable,
   StyleSheet,
   useWindowDimensions,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { zero } from "../..";
 import { useTheme } from "../../lib/theme/theme";
+import { px } from "../../ui";
 import { createThemedIcon } from "./icons";
 import { ModalPrimitive, ModalPrimitiveProps } from "./primitives/modal";
 import { Text } from "./text";
@@ -52,8 +53,11 @@ const dialogVariants = cva("", {
 export interface DialogProps
   extends Omit<ModalPrimitiveProps, "children">,
     VariantProps<typeof dialogVariants> {
-  children?: ReactNode;
+  children?: React.ReactNode;
+  title?: string;
+  description?: string;
   dismissible?: boolean;
+  showCloseButton?: boolean;
   onClose?: () => void;
 }
 
@@ -69,6 +73,9 @@ const DialogBottomSheet = forwardRef<
     overlayStyle,
     portalHost,
     children,
+    title,
+    description,
+    showCloseButton = true,
     onClose,
     open = false,
     onOpenChange,
@@ -77,11 +84,11 @@ const DialogBottomSheet = forwardRef<
   _ref,
 ) {
   const { theme } = useTheme();
-  const snapPoints = useMemo(() => ["25%", "50%", "75%", "90%"], []);
   const sheetRef = useRef<BottomSheet>(null);
-  const insets = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
+  const dims = useWindowDimensions();
 
-  const handleClose = useCallback(() => {
+  const handleClose = React.useCallback(() => {
     if (onClose) {
       onClose();
     }
@@ -98,11 +105,13 @@ const DialogBottomSheet = forwardRef<
     <Portal.Portal name="dialog">
       <BottomSheet
         ref={sheetRef}
-        index={open ? 3 : -1}
-        snapPoints={snapPoints}
+        index={open ? 0 : -1}
         enablePanDownToClose
-        enableDynamicSizing={false}
-        enableContentPanningGesture={false}
+        enableDynamicSizing={true}
+        maxDynamicContentSize={dims.height - top}
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="restore"
+        enableContentPanningGesture={true}
         backdropComponent={({ style }) => (
           <Pressable
             style={[style, StyleSheet.absoluteFill]}
@@ -123,12 +132,43 @@ const DialogBottomSheet = forwardRef<
         }}
       >
         <BottomSheetScrollView
-          style={[zero.px[4]]}
+          style={[px[4]]}
           contentContainerStyle={{
-            paddingBottom: insets.bottom,
+            paddingBottom: bottom + theme.spacing[4],
             overflow: "hidden",
           }}
         >
+          {/* Header */}
+          {(title || showCloseButton) && (
+            <View
+              style={{
+                paddingVertical: theme.spacing[4],
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: "100%",
+              }}
+            >
+              {title && <DialogTitle>{title}</DialogTitle>}
+              {showCloseButton && (
+                <Pressable
+                  onPress={handleClose}
+                  style={{
+                    width: theme.touchTargets.minimum,
+                    height: theme.touchTargets.minimum,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: theme.borderRadius.sm,
+                    marginLeft: theme.spacing[2],
+                  }}
+                >
+                  <DialogCloseIcon />
+                </Pressable>
+              )}
+            </View>
+          )}
+
+          {description && <DialogDescription>{description}</DialogDescription>}
           {children}
         </BottomSheetScrollView>
       </BottomSheet>
@@ -143,7 +183,10 @@ export const Dialog = forwardRef<any, DialogProps>(
       size = "md",
       position = "center",
       children,
+      title,
+      description,
       dismissible = true,
+      showCloseButton = true,
       onClose,
       open = false,
       onOpenChange,
@@ -154,9 +197,9 @@ export const Dialog = forwardRef<any, DialogProps>(
     const { theme } = useTheme();
 
     // Create dynamic styles based on theme
-    const styles = useMemo(() => createStyles(theme), [theme]);
+    const styles = React.useMemo(() => createStyles(theme), [theme]);
 
-    const handleClose = useCallback(() => {
+    const handleClose = React.useCallback(() => {
       if (onClose) {
         onClose();
       }
@@ -165,7 +208,7 @@ export const Dialog = forwardRef<any, DialogProps>(
       }
     }, [onClose, onOpenChange]);
 
-    const presentationStyle = useMemo(() => {
+    const presentationStyle = React.useMemo(() => {
       if (variant === "sheet" && Platform.OS === "ios") {
         return "pageSheet" as const;
       }
@@ -177,7 +220,7 @@ export const Dialog = forwardRef<any, DialogProps>(
         : ("fullScreen" as const);
     }, [variant]);
 
-    const animationType = useMemo(() => {
+    const animationType = React.useMemo(() => {
       if (variant === "sheet") {
         return "slide" as const;
       }
@@ -203,7 +246,6 @@ export const Dialog = forwardRef<any, DialogProps>(
             size={size || "md"}
             style={[
               styles.content,
-              zero.p[6],
               variant === "sheet" && styles.sheetContent,
               variant === "fullscreen" && styles.fullscreenContent,
               size === "sm" && styles.smContent,
@@ -213,7 +255,32 @@ export const Dialog = forwardRef<any, DialogProps>(
               size === "full" && styles.fullContent,
             ]}
           >
-            {children}
+            {(title || showCloseButton) && (
+              <ModalPrimitive.Header
+                withBorder={variant !== "sheet"}
+                style={styles.header}
+              >
+                <DialogTitle>{title}</DialogTitle>
+                {showCloseButton && (
+                  <ModalPrimitive.Close
+                    onClose={handleClose}
+                    style={styles.closeButton}
+                  >
+                    <DialogCloseIcon />
+                  </ModalPrimitive.Close>
+                )}
+              </ModalPrimitive.Header>
+            )}
+
+            <ModalPrimitive.Body
+              scrollable={variant !== "fullscreen"}
+              style={styles.body}
+            >
+              {description && (
+                <DialogDescription>{description}</DialogDescription>
+              )}
+              {children}
+            </ModalPrimitive.Body>
           </ModalPrimitive.Content>
         </ModalPrimitive.Overlay>
       </ModalPrimitive.Root>
@@ -221,238 +288,9 @@ export const Dialog = forwardRef<any, DialogProps>(
   },
 );
 
+export const LegacyDialog = Dialog;
+
 Dialog.displayName = "Dialog";
-
-// Composable Dialog Components
-export const DialogOverlay = forwardRef<
-  any,
-  {
-    dismissible?: boolean;
-    onDismiss?: () => void;
-    style?: any;
-    children?: ReactNode;
-  }
->(({ dismissible = true, onDismiss, style, children, ...props }, ref) => {
-  const { theme } = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-
-  return (
-    <ModalPrimitive.Overlay
-      ref={ref}
-      dismissible={dismissible}
-      onDismiss={onDismiss}
-      style={[styles.overlay, style]}
-      {...props}
-    >
-      {children}
-    </ModalPrimitive.Overlay>
-  );
-});
-
-DialogOverlay.displayName = "DialogOverlay";
-
-export const DialogContent = forwardRef<
-  any,
-  {
-    variant?: "default" | "sheet" | "fullscreen";
-    size?: "sm" | "md" | "lg" | "xl" | "full";
-    position?: "center" | "top" | "bottom" | "left" | "right";
-    style?: any;
-    children?: ReactNode;
-  }
->(
-  (
-    {
-      variant = "default",
-      size = "md",
-      position = "center",
-      style,
-      children,
-      ...props
-    },
-    ref,
-  ) => {
-    const { theme } = useTheme();
-    const styles = useMemo(() => createStyles(theme), [theme]);
-
-    return (
-      <ModalPrimitive.Content
-        ref={ref}
-        position={position}
-        size={size}
-        style={[
-          styles.content,
-          variant === "sheet" && styles.sheetContent,
-          variant === "fullscreen" && styles.fullscreenContent,
-          size === "sm" && styles.smContent,
-          size === "md" && styles.mdContent,
-          size === "lg" && styles.lgContent,
-          size === "xl" && styles.xlContent,
-          size === "full" && styles.fullContent,
-          style,
-        ]}
-        {...props}
-      >
-        {children}
-      </ModalPrimitive.Content>
-    );
-  },
-);
-
-DialogContent.displayName = "DialogContent";
-
-export const DialogHeader = forwardRef<
-  any,
-  {
-    withBorder?: boolean;
-    style?: any;
-    children?: ReactNode;
-  }
->(({ withBorder = true, style, children, ...props }, ref) => {
-  const { theme } = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-
-  if (!children) return null;
-
-  return (
-    <ModalPrimitive.Header
-      ref={ref}
-      withBorder={withBorder}
-      style={[styles.header, style]}
-      {...props}
-    >
-      {children}
-    </ModalPrimitive.Header>
-  );
-});
-
-DialogHeader.displayName = "DialogHeader";
-
-export const DialogBody = forwardRef<
-  any,
-  {
-    scrollable?: boolean;
-    style?: any;
-    children?: ReactNode;
-  }
->(({ scrollable = true, style, children, ...props }, ref) => {
-  const { theme } = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-
-  if (!children) return null;
-
-  return (
-    <ModalPrimitive.Body
-      ref={ref}
-      scrollable={scrollable}
-      style={[styles.body, style]}
-      {...props}
-    >
-      {children}
-    </ModalPrimitive.Body>
-  );
-});
-
-DialogBody.displayName = "DialogBody";
-
-export const DialogClose = forwardRef<
-  any,
-  {
-    onClose?: () => void;
-    style?: any;
-    children?: ReactNode;
-  }
->(({ onClose, style, children, ...props }, ref) => {
-  const { theme } = useTheme();
-  const styles = useMemo(() => createStyles(theme), [theme]);
-
-  return (
-    <ModalPrimitive.Close
-      ref={ref}
-      onClose={onClose}
-      style={[styles.closeButton, style]}
-      {...props}
-    >
-      {children || <DialogCloseIcon />}
-    </ModalPrimitive.Close>
-  );
-});
-
-DialogClose.displayName = "DialogClose";
-
-// Backward-compatible wrapper with the old API
-export const LegacyDialog = forwardRef<
-  any,
-  DialogProps & {
-    title?: string;
-    description?: string;
-    showCloseButton?: boolean;
-  }
->(
-  (
-    {
-      variant = "default",
-      size = "md",
-      position = "center",
-      children,
-      title,
-      description,
-      dismissible = true,
-      showCloseButton = true,
-      onClose,
-      open = false,
-      onOpenChange,
-      ...props
-    },
-    ref,
-  ) => {
-    const handleClose = useCallback(() => {
-      if (onClose) {
-        onClose();
-      }
-      if (onOpenChange) {
-        onOpenChange(false);
-      }
-    }, [onClose, onOpenChange]);
-
-    return (
-      <Dialog
-        ref={ref}
-        variant={variant}
-        size={size}
-        position={position}
-        dismissible={dismissible}
-        onClose={onClose}
-        open={open}
-        onOpenChange={onOpenChange}
-        {...props}
-      >
-        <DialogOverlay dismissible={dismissible} onDismiss={handleClose}>
-          <DialogContent
-            variant={variant || undefined}
-            size={size || undefined}
-            position={position || undefined}
-          >
-            {(title || showCloseButton) && (
-              <DialogHeader withBorder={variant !== "sheet"}>
-                {title && <DialogTitle>{title}</DialogTitle>}
-                {showCloseButton && <DialogClose onClose={handleClose} />}
-              </DialogHeader>
-            )}
-            <DialogBody scrollable={variant !== "fullscreen"}>
-              {description && (
-                <DialogDescription>{description}</DialogDescription>
-              )}
-              {children}
-            </DialogBody>
-          </DialogContent>
-        </DialogOverlay>
-      </Dialog>
-    );
-  },
-);
-
-LegacyDialog.displayName = "LegacyDialog";
 
 /// Responsive Dialog Component. On mobile this will render a *bottom sheet*.
 /// Prefer this over the regular Dialog component for better mobile UX.
@@ -462,7 +300,7 @@ export const ResponsiveDialog = forwardRef<any, DialogProps>(
 
     // On web, you might want to always use the normal dialog
     // On mobile (width < 800), use the bottom sheet
-    const isBottomSheet = Platform.OS !== "web" || width < 800;
+    const isBottomSheet = Platform.OS !== "web" && width < 800;
 
     if (isBottomSheet) {
       return (
@@ -470,6 +308,7 @@ export const ResponsiveDialog = forwardRef<any, DialogProps>(
           ref={ref}
           {...props}
           size={"full"}
+          showCloseButton={false}
           variant="fullscreen"
         >
           {children}
@@ -492,14 +331,14 @@ ResponsiveDialog.displayName = "ResponsiveDialog";
 
 // Dialog Title component
 export interface DialogTitleProps {
-  children?: ReactNode;
+  children?: React.ReactNode;
   style?: any;
 }
 
 export const DialogTitle = forwardRef<any, DialogTitleProps>(
   ({ children, style, ...props }, ref) => {
     const { theme } = useTheme();
-    const styles = useMemo(() => createStyles(theme), [theme]);
+    const styles = React.useMemo(() => createStyles(theme), [theme]);
 
     if (!children) return null;
 
@@ -515,14 +354,14 @@ DialogTitle.displayName = "DialogTitle";
 
 // Dialog Description component
 export interface DialogDescriptionProps {
-  children?: ReactNode;
+  children?: React.ReactNode;
   style?: any;
 }
 
 export const DialogDescription = forwardRef<any, DialogDescriptionProps>(
   ({ children, style, ...props }, ref) => {
     const { theme } = useTheme();
-    const styles = useMemo(() => createStyles(theme), [theme]);
+    const styles = React.useMemo(() => createStyles(theme), [theme]);
 
     if (!children) return null;
 
@@ -538,7 +377,7 @@ DialogDescription.displayName = "DialogDescription";
 
 // Dialog Footer component
 export interface DialogFooterProps {
-  children?: ReactNode;
+  children?: React.ReactNode;
   direction?: "row" | "column";
   justify?:
     | "flex-start"
@@ -563,7 +402,7 @@ export const DialogFooter = forwardRef<any, DialogFooterProps>(
     ref,
   ) => {
     const { theme } = useTheme();
-    const styles = useMemo(() => createStyles(theme), [theme]);
+    const styles = React.useMemo(() => createStyles(theme), [theme]);
 
     if (!children) return null;
 
@@ -600,6 +439,8 @@ function createStyles(theme: any) {
       backgroundColor: theme.colors.card,
       borderRadius: theme.borderRadius.lg,
       ...theme.shadows.lg,
+      maxHeight: "90%",
+      maxWidth: "90%",
     },
 
     // Variant styles
@@ -610,6 +451,9 @@ function createStyles(theme: any) {
       borderBottomRightRadius: 0,
       marginTop: "auto",
       marginBottom: 0,
+      maxHeight: "80%",
+      width: "100%",
+      maxWidth: "100%",
     },
 
     fullscreenContent: {
@@ -651,7 +495,7 @@ function createStyles(theme: any) {
 
     header: {
       paddingHorizontal: theme.spacing[6],
-      paddingBottom: theme.spacing[4],
+      paddingVertical: theme.spacing[4],
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
@@ -665,6 +509,7 @@ function createStyles(theme: any) {
 
     footer: {
       paddingHorizontal: theme.spacing[6],
+      paddingVertical: theme.spacing[4],
       gap: theme.spacing[2],
       width: "100%",
     },

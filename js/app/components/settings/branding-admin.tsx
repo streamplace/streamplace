@@ -1,9 +1,16 @@
 import {
   Button,
   Input,
+  MenuContainer,
+  MenuGroup,
+  MenuInfo,
+  MenuItem,
+  MenuLabel,
+  MenuSeparator,
   Text,
   useStreamplaceStore,
   useToast,
+  useTranslation,
   View,
   zero,
 } from "@streamplace/components";
@@ -15,8 +22,10 @@ import {
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, Platform, ScrollView } from "react-native";
+import { SettingsRowItem } from "./components/settings-navigation-item";
 
 export function BrandingAdmin() {
+  const { t } = useTranslation("settings");
   const agent = usePDSAgent();
   const fetchBranding = useFetchBranding();
   const toast = useToast();
@@ -52,14 +61,20 @@ export function BrandingAdmin() {
 
   const uploadText = async (key: string, value: string) => {
     if (!agent) {
-      toast.show("Not authenticated", "Please log in first", {
-        variant: "error",
-      });
+      toast.show(
+        t("branding-not-authenticated"),
+        t("branding-not-authenticated"),
+        {
+          variant: "error",
+        },
+      );
       return;
     }
 
     if (!value.trim()) {
-      toast.show("Empty value", "Please enter a value", { variant: "error" });
+      toast.show(t("branding-empty-value"), t("branding-empty-value"), {
+        variant: "error",
+      });
       return;
     }
 
@@ -75,9 +90,13 @@ export function BrandingAdmin() {
         mimeType: "text/plain",
       });
 
-      toast.show("Success", `${key} updated successfully`, {
-        variant: "success",
-      });
+      toast.show(
+        t("branding-update-success", { key }),
+        t("branding-update-success", { key }),
+        {
+          variant: "success",
+        },
+      );
 
       // clear input based on key
       switch (key) {
@@ -101,9 +120,13 @@ export function BrandingAdmin() {
       // reload branding
       setTimeout(() => fetchBranding(), 500);
     } catch (err: any) {
-      toast.show("Upload failed", err.message || "Failed to upload", {
-        variant: "error",
-      });
+      toast.show(
+        t("branding-upload-failed"),
+        err.message || t("branding-upload-failed"),
+        {
+          variant: "error",
+        },
+      );
     } finally {
       setUploading(false);
     }
@@ -111,9 +134,13 @@ export function BrandingAdmin() {
 
   const uploadFile = async (key: string, file: File) => {
     if (!agent) {
-      toast.show("Not authenticated", "Please log in first", {
-        variant: "error",
-      });
+      toast.show(
+        t("branding-not-authenticated"),
+        t("branding-not-authenticated"),
+        {
+          variant: "error",
+        },
+      );
       return;
     }
 
@@ -155,16 +182,24 @@ export function BrandingAdmin() {
         height,
       });
 
-      toast.show("Success", `${key} uploaded successfully`, {
-        variant: "success",
-      });
+      toast.show(
+        t("branding-update-success", { key }),
+        t("branding-upload-success", { key }),
+        {
+          variant: "success",
+        },
+      );
 
       // reload branding
       setTimeout(() => fetchBranding(), 500);
     } catch (err: any) {
-      toast.show("Upload failed", err.message || "Failed to upload", {
-        variant: "error",
-      });
+      toast.show(
+        t("branding-upload-failed"),
+        err.message || t("branding-upload-failed"),
+        {
+          variant: "error",
+        },
+      );
     } finally {
       setUploading(false);
     }
@@ -172,7 +207,7 @@ export function BrandingAdmin() {
 
   const handleFileSelect = (key: string, accept: string) => {
     if (Platform.OS !== "web") {
-      toast.show("Not available", "File uploads are only available on web", {
+      toast.show(t("branding-not-available"), t("branding-not-available"), {
         variant: "error",
       });
       return;
@@ -194,9 +229,13 @@ export function BrandingAdmin() {
 
   const deleteBlob = async (key: string) => {
     if (!agent) {
-      toast.show("Not authenticated", "Please log in first", {
-        variant: "error",
-      });
+      toast.show(
+        t("branding-not-authenticated"),
+        t("branding-not-authenticated"),
+        {
+          variant: "error",
+        },
+      );
       return;
     }
 
@@ -207,16 +246,24 @@ export function BrandingAdmin() {
         broadcaster: broadcasterDID || undefined,
       });
 
-      toast.show("Success", `${key} deleted successfully`, {
-        variant: "success",
-      });
+      toast.show(
+        t("branding-update-success", { key }),
+        t("branding-delete-success", { key }),
+        {
+          variant: "success",
+        },
+      );
 
       // reload branding
       setTimeout(() => fetchBranding(), 500);
     } catch (err: any) {
-      toast.show("Delete failed", err.message || "Failed to delete", {
-        variant: "error",
-      });
+      toast.show(
+        t("branding-delete-failed"),
+        err.message || t("branding-delete-failed"),
+        {
+          variant: "error",
+        },
+      );
     } finally {
       setUploading(false);
     }
@@ -225,301 +272,402 @@ export function BrandingAdmin() {
   if (!agent) {
     return (
       <View style={[zero.layout.flex.align.center, zero.px[16], zero.py[24]]}>
-        <Text>Please log in to manage branding</Text>
+        <Text>{t("branding-login-required")}</Text>
       </View>
     );
   }
 
   return (
     <ScrollView>
-      <View style={[zero.layout.flex.align.center, zero.px[16], zero.py[24]]}>
-        <View
-          style={[
-            zero.gap.all[12],
-            { paddingVertical: 24, maxWidth: 600, width: "100%" },
-          ]}
-        >
-          <View>
-            <Text size="2xl" weight="bold">
-              Branding Administration
-            </Text>
-            <Text color="muted">Customize your Streamplace instance</Text>
-          </View>
-
-          {uploading && (
-            <View style={[zero.layout.flex.align.center, zero.py[16]]}>
-              <ActivityIndicator />
+      <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
+        <View style={{ maxWidth: 500, width: "100%" }}>
+          <MenuContainer>
+            <View style={[zero.gap.all[2]]}>
+              <Text size="2xl" weight="bold">
+                {t("branding-admin")}
+              </Text>
+              <Text color="muted">{t("branding-admin-description")}</Text>
             </View>
-          )}
 
-          {/* Broadcaster DID */}
-          <View style={[zero.gap.all[2]]}>
-            <Text size="lg" weight="semibold">
-              Broadcaster DID
-            </Text>
-            <Text size="sm" color="muted">
-              Leave empty to use server default
-            </Text>
-            <Input
-              placeholder="did:plc:..."
-              value={broadcasterDID}
-              onChangeText={setBroadcasterDID}
-            />
-          </View>
-
-          {/* Site Title */}
-          <View style={[zero.gap.all[2]]}>
-            <Text size="lg" weight="semibold">
-              Site Title
-            </Text>
-            <Text size="sm" color="muted">
-              Current: {currentTitle?.data || "Streamplace"}
-            </Text>
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  placeholder="Enter new site title"
-                  value={siteTitle}
-                  onChangeText={setSiteTitle}
-                />
+            {uploading && (
+              <View style={[zero.layout.flex.align.center, zero.py[16]]}>
+                <ActivityIndicator />
               </View>
-              <Button
-                onPress={() => uploadText("siteTitle", siteTitle)}
-                disabled={uploading || !siteTitle.trim()}
-              >
-                Update
-              </Button>
-            </View>
-          </View>
-
-          {/* Site Description */}
-          <View style={[zero.gap.all[2]]}>
-            <Text size="lg" weight="semibold">
-              Site Description
-            </Text>
-            <Text size="sm" color="muted">
-              Current: {currentDescription?.data || "Live streaming platform"}
-            </Text>
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  placeholder="Enter site description"
-                  value={siteDescription}
-                  onChangeText={setSiteDescription}
-                />
-              </View>
-              <Button
-                onPress={() => uploadText("siteDescription", siteDescription)}
-                disabled={uploading || !siteDescription.trim()}
-              >
-                Update
-              </Button>
-            </View>
-          </View>
-
-          {/* Primary Color */}
-          <View style={[zero.gap.all[2]]}>
-            <Text size="lg" weight="semibold">
-              Primary Color
-            </Text>
-            <Text size="sm" color="muted">
-              Current: {currentPrimaryColor?.data || "#6366f1"}
-            </Text>
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  placeholder="#6366f1"
-                  value={primaryColor}
-                  onChangeText={setPrimaryColor}
-                />
-              </View>
-              <Button
-                onPress={() => uploadText("primaryColor", primaryColor)}
-                disabled={uploading || !primaryColor.trim()}
-              >
-                Update
-              </Button>
-            </View>
-          </View>
-
-          {/* Accent Color */}
-          <View style={[zero.gap.all[2]]}>
-            <Text size="lg" weight="semibold">
-              Accent Color
-            </Text>
-            <Text size="sm" color="muted">
-              Current: {currentAccentColor?.data || "#8b5cf6"}
-            </Text>
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  placeholder="#8b5cf6"
-                  value={accentColor}
-                  onChangeText={setAccentColor}
-                />
-              </View>
-              <Button
-                onPress={() => uploadText("accentColor", accentColor)}
-                disabled={uploading || !accentColor.trim()}
-              >
-                Update
-              </Button>
-            </View>
-          </View>
-
-          {/* Default Streamer */}
-          <View style={[zero.gap.all[2]]}>
-            <Text size="lg" weight="semibold">
-              Default Streamer
-            </Text>
-            <Text size="sm" color="muted">
-              Current: {currentDefaultStreamer?.data || "None"}
-            </Text>
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  placeholder="did:plc:..."
-                  value={defaultStreamer}
-                  onChangeText={setDefaultStreamer}
-                />
-              </View>
-              <Button
-                onPress={() => uploadText("defaultStreamer", defaultStreamer)}
-                disabled={uploading || !defaultStreamer.trim()}
-              >
-                Update
-              </Button>
-            </View>
-            <Button
-              variant="destructive"
-              onPress={() => deleteBlob("defaultStreamer")}
-              disabled={uploading}
-            >
-              Clear Default Streamer
-            </Button>
-          </View>
-
-          {/* Main Logo */}
-          <View style={[zero.gap.all[2]]}>
-            <Text size="lg" weight="semibold">
-              Main Logo
-            </Text>
-            <Text size="sm" color="muted">
-              SVG, PNG, or JPEG (max 500KB)
-            </Text>
-            {currentLogo?.data && (
-              <Image
-                source={{ uri: currentLogo.data }}
-                style={{ width: 200, height: 100, resizeMode: "contain" }}
-              />
             )}
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
-              <Button
-                onPress={() =>
-                  handleFileSelect(
-                    "mainLogo",
-                    "image/svg+xml,image/png,image/jpeg",
-                  )
-                }
-                disabled={uploading || Platform.OS !== "web"}
-              >
-                Upload Logo
-              </Button>
-              <Button
-                variant="destructive"
-                onPress={() => deleteBlob("mainLogo")}
-                disabled={uploading}
-              >
-                Delete Logo
-              </Button>
-            </View>
-          </View>
 
-          {/* Favicon */}
-          <View style={[zero.gap.all[2]]}>
-            <Text size="lg" weight="semibold">
-              Favicon
-            </Text>
-            <Text size="sm" color="muted">
-              SVG, PNG, or ICO (max 100KB)
-            </Text>
-            {currentFavicon?.data && (
-              <Image
-                source={{ uri: currentFavicon.data }}
-                style={{ width: 64, height: 64, resizeMode: "contain" }}
-              />
-            )}
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
-              <Button
-                onPress={() =>
-                  handleFileSelect(
-                    "favicon",
-                    "image/svg+xml,image/png,image/x-icon",
-                  )
-                }
-                disabled={uploading || Platform.OS !== "web"}
-              >
-                Upload Favicon
-              </Button>
-              <Button
-                variant="destructive"
-                onPress={() => deleteBlob("favicon")}
-                disabled={uploading}
-              >
-                Delete Favicon
-              </Button>
-            </View>
-          </View>
+            <MenuLabel>{t("branding-configuration")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-broadcaster-did")}
+                    </Text>
+                    <Input
+                      placeholder={t("branding-default-streamer-placeholder")}
+                      value={broadcasterDID}
+                      onChangeText={setBroadcasterDID}
+                    />
+                    <MenuInfo
+                      description={t("branding-broadcaster-did-description")}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+            </MenuGroup>
 
-          {/* Sidebar Background Image */}
-          <View style={[zero.gap.all[1]]}>
-            <Text size="lg" weight="semibold">
-              Sidebar Background Image
-            </Text>
-            <Text size="sm" color="muted">
-              SVG, PNG, or JPEG (max 500kb) - appears aligned to bottom of
-              sidebar, full width.
-            </Text>
-            <Text size="sm" color="muted">
-              Upload an image with opacity for best results, as there is not
-              currently a separate opacity option.
-            </Text>
-            {currentSidebarBg?.data && (
-              <Image
-                source={{ uri: currentSidebarBg.data }}
-                style={{ width: 200, height: 200, resizeMode: "contain" }}
-              />
-            )}
-            <Text>
-              {currentSidebarBg?.height || "unknown"} x{" "}
-              {currentSidebarBg?.width || "unknown"}
-            </Text>
-            <View style={[zero.layout.flex.direction.row, zero.gap.all[2]]}>
-              <Button
-                onPress={() =>
-                  handleFileSelect(
-                    "sidebarBackgroundImage",
-                    "image/svg+xml,image/png,image/jpeg",
-                  )
-                }
-                disabled={uploading || Platform.OS !== "web"}
-              >
-                Upload Background
-              </Button>
-              <Button
-                variant="destructive"
-                onPress={() => deleteBlob("sidebarBackgroundImage")}
-                disabled={uploading}
-              >
-                Delete Background
-              </Button>
-            </View>
-          </View>
+            <MenuLabel>{t("branding-text-settings")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-site-title")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value: currentTitle?.data || "Streamplace",
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={t("branding-site-title-placeholder")}
+                          value={siteTitle}
+                          onChangeText={setSiteTitle}
+                        />
+                      </View>
+                      <Button
+                        onPress={() => uploadText("siteTitle", siteTitle)}
+                        disabled={uploading || !siteTitle.trim()}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-site-description")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          currentDescription?.data || "Live streaming platform",
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={t(
+                            "branding-site-description-placeholder",
+                          )}
+                          value={siteDescription}
+                          onChangeText={setSiteDescription}
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText("siteDescription", siteDescription)
+                        }
+                        disabled={uploading || !siteDescription.trim()}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-default-streamer")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value:
+                          currentDefaultStreamer?.data ||
+                          t("branding-default-streamer-none"),
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={t(
+                            "branding-default-streamer-placeholder",
+                          )}
+                          value={defaultStreamer}
+                          onChangeText={setDefaultStreamer}
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText("defaultStreamer", defaultStreamer)
+                        }
+                        disabled={uploading || !defaultStreamer.trim()}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                    </View>
+                    <Button
+                      variant="destructive"
+                      onPress={() => deleteBlob("defaultStreamer")}
+                      disabled={uploading}
+                    >
+                      {t("branding-clear-default-streamer")}
+                    </Button>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+            </MenuGroup>
 
-          <Text size="sm" color="muted" style={{ marginTop: 16 }}>
-            {Platform.OS !== "web" &&
-              "Image uploads are only available on web."}
-          </Text>
+            <MenuLabel>{t("branding-colors")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-primary-color")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value: currentPrimaryColor?.data || "#6366f1",
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={t("branding-primary-color-placeholder")}
+                          value={primaryColor}
+                          onChangeText={setPrimaryColor}
+                        />
+                      </View>
+                      <Button
+                        onPress={() => uploadText("primaryColor", primaryColor)}
+                        disabled={uploading || !primaryColor.trim()}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-accent-color")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-current", {
+                        value: currentAccentColor?.data || "#8b5cf6",
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder={t("branding-accent-color-placeholder")}
+                          value={accentColor}
+                          onChangeText={setAccentColor}
+                        />
+                      </View>
+                      <Button
+                        onPress={() => uploadText("accentColor", accentColor)}
+                        disabled={uploading || !accentColor.trim()}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+            </MenuGroup>
+
+            <MenuLabel>{t("branding-images")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-main-logo")}
+                    </Text>
+                    <MenuInfo
+                      description={t("branding-main-logo-description")}
+                    />
+                    {currentLogo?.data && (
+                      <Image
+                        source={{ uri: currentLogo.data }}
+                        style={{
+                          width: 200,
+                          height: 100,
+                          resizeMode: "contain",
+                        }}
+                      />
+                    )}
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() =>
+                          handleFileSelect(
+                            "mainLogo",
+                            "image/svg+xml,image/png,image/jpeg",
+                          )
+                        }
+                        disabled={uploading || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-upload-logo")}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onPress={() => deleteBlob("mainLogo")}
+                        disabled={uploading}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-delete-logo")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-favicon")}
+                    </Text>
+                    <MenuInfo description={t("branding-favicon-description")} />
+                    {currentFavicon?.data && (
+                      <Image
+                        source={{ uri: currentFavicon.data }}
+                        style={{ width: 64, height: 64, resizeMode: "contain" }}
+                      />
+                    )}
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() =>
+                          handleFileSelect(
+                            "favicon",
+                            "image/svg+xml,image/png,image/x-icon",
+                          )
+                        }
+                        disabled={uploading || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-upload-favicon")}
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onPress={() => deleteBlob("favicon")}
+                        disabled={uploading}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-delete-favicon")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <View style={[zero.gap.all[2], { flex: 1 }]}>
+                  <Text size="sm" weight="semibold">
+                    {t("branding-sidebar-bg")}
+                  </Text>
+                  <MenuInfo
+                    description={t("branding-sidebar-bg-description")}
+                  />
+                  {currentSidebarBg?.data && (
+                    <>
+                      <Image
+                        source={{ uri: currentSidebarBg.data }}
+                        style={{
+                          width: 200,
+                          height: 200,
+                          resizeMode: "contain",
+                        }}
+                      />
+                      <Text size="xs" color="muted">
+                        {currentSidebarBg?.height || "unknown"} x{" "}
+                        {currentSidebarBg?.width || "unknown"}
+                      </Text>
+                    </>
+                  )}
+                  <View
+                    style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                  >
+                    <Button
+                      onPress={() =>
+                        handleFileSelect(
+                          "sidebarBackgroundImage",
+                          "image/svg+xml,image/png,image/jpeg",
+                        )
+                      }
+                      disabled={uploading || Platform.OS !== "web"}
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("branding-upload-background")}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onPress={() => deleteBlob("sidebarBackgroundImage")}
+                      disabled={uploading}
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("branding-delete-background")}
+                    </Button>
+                  </View>
+                </View>
+              </MenuItem>
+              <MenuSeparator />
+              {Platform.OS !== "web" && (
+                <MenuItem>
+                  <SettingsRowItem>
+                    <Text size="sm" color="muted">
+                      {t("branding-web-only")}
+                    </Text>
+                  </SettingsRowItem>
+                </MenuItem>
+              )}
+            </MenuGroup>
+          </MenuContainer>
         </View>
       </View>
     </ScrollView>

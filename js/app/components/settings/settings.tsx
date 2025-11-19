@@ -5,10 +5,24 @@ import {
   MenuSeparator,
   Text,
   useDanmuUnlocked,
+  useDID,
+  useStreamplaceStore,
   useTranslation,
   View,
   zero,
 } from "@streamplace/components";
+import AQLink from "components/aqlink";
+import { SettingsNavigationItem } from "components/settings/components/settings-navigation-item";
+import {
+  Brush,
+  Globe,
+  Info,
+  Lock,
+  LogIn,
+  Shield,
+  Video,
+} from "lucide-react-native";
+import { ImageBackground, Pressable, ScrollView } from "react-native";
 import {
   SettingsNavigationItem,
   SettingsRowItem,
@@ -44,6 +58,12 @@ export function Settings() {
     }
     return { name: route.name, params: route.params };
   });
+
+  const adminDids = useStreamplaceStore((state) => state.adminDIDs);
+  const did = useDID();
+
+  // Determine if the user is an admin
+  const isAdmin = did && adminDids && adminDids.includes(did) ? true : false;
 
   const { t } = useTranslation("settings");
 
@@ -138,6 +158,15 @@ export function Settings() {
                   title={t("danmu")}
                   screen="DanmuCategory"
                   icon={Mu as any}
+                />
+              </MenuGroup>
+            )}
+            {isAdmin && (
+              <MenuGroup>
+                <SettingsNavigationItem
+                  title={t("branding")}
+                  screen="BrandingAdmin"
+                  icon={Brush}
                 />
               </MenuGroup>
             )}

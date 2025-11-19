@@ -22,7 +22,7 @@ import {
   useTheme,
   useToast,
 } from "@streamplace/components";
-import { BrandingAdmin, Provider, Settings } from "components";
+import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
@@ -78,6 +78,7 @@ import KeyManager from "components/settings/key-manager";
 import HomeScreen from "./screens/home";
 
 import { useUrl } from "@streamplace/components";
+import { BrandingAdmin } from "components/settings/branding-admin";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
 import RecommendationsManager from "components/settings/recommendations-manager";
 import Constants from "expo-constants";
@@ -129,6 +130,7 @@ type SettingsStackParamList = {
   LanguagesCategory: undefined;
   DeveloperSettings: undefined;
   KeyManagement: undefined;
+  BrandingAdmin: undefined;
 };
 
 type RootStackParamList = {
@@ -136,7 +138,6 @@ type RootStackParamList = {
   Multi: { config: string };
   Support: undefined;
   Settings: NavigatorScreenParams<SettingsStackParamList>;
-  BrandingAdmin: undefined;
   KeyManagement: undefined;
   GoLive: undefined;
   LiveDashboard: undefined;
@@ -185,9 +186,9 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
           DanmuCategory: "settings/danmu",
           AdvancedCategory: "settings/advanced",
           DeveloperSettings: "settings/developer",
+          BrandingAdmin: "settings/branding",
         },
       },
-      BrandingAdmin: "admin",
       KeyManagement: "key-management",
       GoLive: "golive",
       LiveDashboard: "live",
@@ -609,14 +610,6 @@ export function StreamplaceDrawer() {
           }}
         />
         <Drawer.Screen
-          name="BrandingAdmin"
-          component={BrandingAdmin}
-          options={{
-            drawerLabel: () => <Text variant="h5">Branding Admin</Text>,
-            drawerItemStyle: { display: "none" },
-          }}
-        />
-        <Drawer.Screen
           name="KeyManagement"
           component={KeyManager}
           options={{
@@ -848,6 +841,14 @@ const SettingsStack = () => {
         name="KeyManagement"
         component={KeyManager}
         options={{ headerTitle: "Key Manager", title: "Key Manager" }}
+      />
+      <Drawer.Screen
+        name="BrandingAdmin"
+        component={BrandingAdmin}
+        options={{
+          drawerLabel: () => <Text variant="h5">Branding Admin</Text>,
+          drawerItemStyle: { display: "none" },
+        }}
       />
     </Stack.Navigator>
   );

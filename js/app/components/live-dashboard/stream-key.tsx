@@ -5,10 +5,8 @@ import {
   Code,
   Row,
   Text,
-  Text,
   useTheme,
   useToast,
-  View,
   View,
 } from "@streamplace/components";
 import Loading from "components/loading/loading";

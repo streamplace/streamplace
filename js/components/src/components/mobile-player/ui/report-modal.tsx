@@ -2,32 +2,14 @@ import {
   ComAtprotoModerationCreateReport,
   ComAtprotoModerationDefs,
 } from "@atproto/api";
-import {
-  CheckCircle,
-  ChevronLeft,
-  ChevronRight,
-  Circle,
-  Loader2,
-} from "lucide-react-native";
+import { CheckCircle, Circle, Loader2 } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { TouchableOpacity, View } from "react-native";
 import { PlaceStreamChatMessage, PlaceStreamLivestream } from "streamplace";
 import { useDID, zero } from "../../..";
 import { useSubmitReport } from "../../../livestream-store";
 import { usePDSAgent } from "../../../streamplace-store/xrpc";
-import {
-  Button,
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogHeader,
-  DialogOverlay,
-  DialogTitle,
-  Text,
-  Textarea,
-  useTheme,
-} from "../../ui";
+import { Button, ResponsiveDialog, Text, Textarea, useTheme } from "../../ui";
 
 // AT Protocol moderation reason types with proper labels
 const REPORT_REASONS = [
@@ -112,8 +94,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [additionalComments, setAdditionalComments] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-
-  const { theme } = useTheme();
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
   const submitReport = useSubmitReport();
@@ -498,12 +478,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             <View style={[zero.layout.flex.row]}>
               <View
                 style={[
+                  zero.h[6],
+                  zero.w[6],
+                  zero.r.full,
+                  zero.layout.flex.center,
                   {
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
-                    alignItems: "center",
-                    justifyContent: "center",
                     backgroundColor:
                       step.number < currentStep
                         ? theme.colors.success
@@ -521,9 +500,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   />
                 ) : (
                   <Text
+                    size="sm"
                     style={[
                       {
-                        fontSize: 12,
                         fontWeight: "600",
                         color:
                           step.number === currentStep
@@ -611,62 +590,67 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     switch (currentStep) {
       case 1:
         return (
-          <>
+          <View
+            style={[zero.layout.flex.row, zero.gap.all[4], zero.flex.grow[1]]}
+          >
             <Button
-              style={[zero.flex.grow[1]]}
+              style={[zero.flex.values[1]]}
               variant="secondary"
               onPress={handleCancel}
             >
               <Text>Cancel</Text>
             </Button>
             <Button
-              style={[zero.flex.grow[1]]}
+              style={[zero.flex.values[1]]}
               variant="primary"
               onPress={handleNext}
               disabled={!canProceed()}
-              rightIcon={<ChevronRight size={16} color={theme.colors.text} />}
             >
               <Text>Next</Text>
             </Button>
-          </>
+          </View>
         );
 
       case 2:
         return (
-          <>
+          <View
+            style={[zero.layout.flex.row, zero.gap.all[4], zero.flex.grow[1]]}
+          >
             <Button
-              style={[zero.flex.grow[1]]}
+              style={[zero.flex.values[1]]}
               variant="secondary"
+              width="min"
               onPress={handleBack}
             >
               <Text>Back</Text>
             </Button>
             <Button
-              style={[zero.flex.grow[1]]}
+              style={[zero.flex.values[1]]}
               variant="primary"
+              width="min"
               onPress={handleNext}
               disabled={!canProceed()}
-              rightIcon={<ChevronRight size={16} style={[{ marginLeft: 4 }]} />}
             >
               <Text>Next</Text>
             </Button>
-          </>
+          </View>
         );
 
       case 3:
         return (
-          <>
+          <View
+            style={[zero.layout.flex.row, zero.gap.all[4], zero.flex.grow[1]]}
+          >
             <Button
-              style={[zero.flex.grow[1]]}
+              style={[zero.flex.values[1]]}
               variant="secondary"
               onPress={handleBack}
               disabled={isSubmitting}
             >
-              <ChevronLeft size={16} style={[{ marginRight: 4 }]} />
               <Text>Back</Text>
             </Button>
             <Button
-              style={[zero.flex.grow[1]]}
+              style={[zero.flex.values[1]]}
               variant="primary"
               onPress={handleSubmitReport}
               disabled={isSubmitting || !subject}
@@ -680,27 +664,29 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 <Text>Submit Report</Text>
               )}
             </Button>
-          </>
+          </View>
         );
 
       case 4:
         return (
-          <>
+          <View
+            style={[zero.layout.flex.row, zero.gap.all[4], zero.flex.grow[1]]}
+          >
             <Button
-              style={[zero.flex.grow[1]]}
+              style={[zero.flex.values[1]]}
               variant="destructive"
               onPress={handleBlock}
             >
               <Text>Block User</Text>
             </Button>
             <Button
-              style={[zero.flex.grow[1]]}
+              style={[zero.flex.values[1]]}
               variant="primary"
               onPress={handleFinish}
             >
               <Text>Done</Text>
             </Button>
-          </>
+          </View>
         );
 
       default:
@@ -730,178 +716,155 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   let lexSubType = lexidParts?.[2];
   console.log(subject);
   return (
-    <Dialog
+    <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
       dismissible={currentStep === 1 && !isSubmitting}
       onClose={() => onOpenChange(false)}
+      title={`Report this ${lexSubType} ${lexSubject ? lexSubject : ""}`}
       variant="default"
-      size="md"
       position="center"
     >
-      <DialogOverlay
-        dismissible={currentStep === 1 && !isSubmitting}
-        onDismiss={() => onOpenChange(false)}
-      >
-        <DialogContent
-          size="full"
-          position="top"
-          style={{
-            width: "100%",
-            maxWidth: "100%",
-            backgroundColor: "transparent",
-            margin: 0,
-            borderRadius: 0,
-          }}
-        >
-          <DialogHeader withBorder={false}>
-            <DialogTitle>Report</DialogTitle>
-            {!isSubmitting && (
-              <DialogClose onClose={() => onOpenChange(false)} />
-            )}
-          </DialogHeader>
-
-          {!isLoggedIn ? (
+      <View style={[zero.w.percent[100]]}>
+        {!isLoggedIn ? (
+          <View
+            style={[
+              zero.p[4],
+              zero.borderRadius[8],
+              zero.flex.grow[1],
+              zero.layout.flex.center,
+            ]}
+          >
+            <Text center size="2xl">
+              Sorry, but you need to be logged in to submit a report.
+            </Text>
+          </View>
+        ) : !subject ? (
+          <>
             <View
               style={[
-                zero.p[4],
+                zero.mb[4],
+                zero.p[3],
                 zero.borderRadius[8],
-                zero.flex.grow[1],
-                zero.layout.flex.center,
+                { backgroundColor: theme.colors.background },
               ]}
             >
-              <Text center size="2xl">
-                Sorry, but you need to be logged in to submit a report.
+              <Text
+                style={[
+                  {
+                    fontSize: 14,
+                    color: theme.colors.textMuted,
+                    textAlign: "center",
+                  },
+                ]}
+              >
+                No content selected for reporting
               </Text>
             </View>
-          ) : !subject ? (
-            <DialogBody scrollable>
-              <View
-                style={[
-                  zero.mb[4],
-                  zero.p[3],
-                  zero.borderRadius[8],
-                  { backgroundColor: theme.colors.background },
-                ]}
-              >
-                <Text
-                  style={[
-                    {
-                      fontSize: 14,
-                      color: theme.colors.textMuted,
-                      textAlign: "center",
-                    },
-                  ]}
-                >
-                  No content selected for reporting
-                </Text>
-              </View>
-              {/* Step content */}
-              {isLoggedIn && VerticalStepper}
-            </DialogBody>
-          ) : (
-            <DialogBody scrollable>
-              <View
-                style={[
-                  zero.p[2],
-                  zero.mb[4],
-                  zero.r.md,
-                  { backgroundColor: theme.colors.background },
-                ]}
-              >
-                <Text style={[{ fontSize: 14, fontWeight: "500" }]}>
-                  {(lexSubType?.charAt(0).toUpperCase() ?? "") +
-                    (lexSubType?.slice(1) ?? "")}{" "}
-                  {lexSubject}
-                  {subject.author?.handle && (
-                    <Text
-                      style={[
-                        {
-                          fontSize: 13,
-                          color: theme.colors.textMuted,
-                          fontWeight: "400",
-                        },
-                      ]}
-                    ></Text>
-                  )}
-                </Text>
-
-                {/* Show record content */}
-                {subject.record && (
+            {/* Step content */}
+            {isLoggedIn && VerticalStepper}
+          </>
+        ) : (
+          <>
+            <View
+              style={[
+                zero.p[2],
+                zero.mb[4],
+                zero.r.md,
+                { backgroundColor: theme.colors.background },
+              ]}
+            >
+              <Text style={[{ fontSize: 14, fontWeight: "500" }]}>
+                {(lexSubType?.charAt(0).toUpperCase() ?? "") +
+                  (lexSubType?.slice(1) ?? "")}{" "}
+                {lexSubject}
+                {subject.author?.handle && (
                   <Text
                     style={[
-                      zero.mt[2],
-                      zero.p[2],
-                      zero.r.sm,
                       {
                         fontSize: 13,
-                        color: theme.colors.text,
-                        backgroundColor: theme.colors.muted,
+                        color: theme.colors.textMuted,
+                        fontWeight: "400",
                       },
                     ]}
-                    numberOfLines={3}
-                  >
-                    {subject.record.$type === "place.stream.chat.message" &&
-                      subject.record.text &&
-                      subject.author && (
-                        <Text
-                          style={{
-                            fontSize: 13,
-                            color: theme.colors.text,
-                            backgroundColor: theme.colors.muted,
-                            fontWeight: "500",
-                          }}
-                        >
-                          {subject.author.handle}:{" "}
-                        </Text>
-                      )}
-
-                    {subject.record.$type === "place.stream.chat.message" &&
-                      subject.record.text &&
-                      subject.record.text}
-                    {subject.record.$type === "place.stream.livestream" &&
-                      subject.record.title &&
-                      `${subject.record.title}`}
-                  </Text>
+                  ></Text>
                 )}
-              </View>
-              {/* Step content */}
-              {isLoggedIn && VerticalStepper}
-            </DialogBody>
-          )}
+              </Text>
 
-          {/* Footer with buttons */}
-          {isLoggedIn ? (
-            <View
-              style={[
-                zero.layout.flex.row,
-                zero.gap.all[4],
-                zero.px[4],
-                zero.pt[4],
-              ]}
-            >
-              {renderFooterButtons}
+              {/* Show record content */}
+              {subject.record && (
+                <Text
+                  style={[
+                    zero.mt[2],
+                    zero.p[2],
+                    zero.r.sm,
+                    {
+                      fontSize: 13,
+                      color: theme.colors.text,
+                      backgroundColor: theme.colors.muted,
+                    },
+                  ]}
+                  numberOfLines={3}
+                >
+                  {subject.record.$type === "place.stream.chat.message" &&
+                    subject.record.text &&
+                    subject.author && (
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          color: theme.colors.text,
+                          backgroundColor: theme.colors.muted,
+                          fontWeight: "500",
+                        }}
+                      >
+                        {subject.author.handle}:{" "}
+                      </Text>
+                    )}
+                  {subject.record.$type === "place.stream.chat.message" &&
+                    subject.record.text &&
+                    subject.record.text}
+                  {subject.record.$type === "place.stream.livestream" &&
+                    subject.record.title &&
+                    `${subject.record.title} - @${subject.author?.handle || subject.author?.did}`}
+                </Text>
+              )}
             </View>
-          ) : (
-            <View
-              style={[
-                zero.layout.flex.row,
-                zero.gap.all[4],
-                zero.px[4],
-                zero.pt[4],
-              ]}
+            {/* Step content */}
+            {isLoggedIn && VerticalStepper}
+          </>
+        )}
+
+        {/* Footer with buttons */}
+        {isLoggedIn ? (
+          <View
+            style={[
+              zero.layout.flex.row,
+              zero.gap.all[4],
+              zero.px[4],
+              zero.pt[4],
+            ]}
+          >
+            {renderFooterButtons}
+          </View>
+        ) : (
+          <View
+            style={[
+              zero.layout.flex.row,
+              zero.gap.all[4],
+              zero.px[4],
+              zero.pt[4],
+            ]}
+          >
+            <Button
+              onPress={() => onOpenChange(false)}
+              style={[zero.flex.values[1]]}
             >
-              <Button
-                onPress={() => onOpenChange(false)}
-                style={[zero.flex.grow[1]]}
-              >
-                Close
-              </Button>
-            </View>
-          )}
-        </DialogContent>
-      </DialogOverlay>
-    </Dialog>
+              Close
+            </Button>
+          </View>
+        )}
+      </View>
+    </ResponsiveDialog>
   );
 };
 

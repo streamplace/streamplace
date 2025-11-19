@@ -49,6 +49,8 @@ export interface StreamplaceState {
   setBroadcasterDID: (broadcasterDID: string | null) => void;
   serverDID: string | null;
   setServerDID: (serverDID: string | null) => void;
+  adminDIDs: string[];
+  setAdminDIDs: (adminDIDs: string[]) => void;
 
   // Branding state
   branding: Record<string, BrandingAsset> | null;
@@ -117,6 +119,8 @@ export const makeStreamplaceStore = ({
       set({ broadcasterDID }),
     serverDID: null,
     setServerDID: (serverDID: string | null) => set({ serverDID }),
+    adminDIDs: [],
+    setAdminDIDs: (adminDIDs: string[]) => set({ adminDIDs }),
 
     // Content metadata
     contentMetadata: null,

@@ -881,6 +881,14 @@
                       "type": "string",
                       "description": "DID of this particular Streamplace server",
                       "format": "did"
+                    },
+                    "admins": {
+                      "type": "array",
+                      "description": "Array of DIDs authorized as admins",
+                      "items": {
+                        "type": "string",
+                        "format": "did"
+                      }
                     }
                   },
                   "required": ["broadcaster"]

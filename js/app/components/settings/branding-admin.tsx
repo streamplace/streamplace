@@ -127,7 +127,7 @@ export function BrandingAdmin() {
       }
 
       // reload branding
-      setTimeout(() => fetchBranding(), 500);
+      setTimeout(() => fetchBranding({ force: true }), 500);
     } catch (err: any) {
       toast.show(
         t("branding-upload-failed"),
@@ -200,7 +200,7 @@ export function BrandingAdmin() {
       );
 
       // reload branding
-      setTimeout(() => fetchBranding(), 500);
+      setTimeout(() => fetchBranding({ force: true }), 500);
     } catch (err: any) {
       toast.show(
         t("branding-upload-failed"),

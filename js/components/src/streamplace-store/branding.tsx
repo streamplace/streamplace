@@ -57,82 +57,85 @@ export function useFetchBranding() {
   const url = useStreamplaceStore((state) => state.url);
   const store = getStreamplaceStoreFromContext();
 
-  return useCallback(async () => {
-    if (!broadcasterDID) return;
+  return useCallback(
+    async ({ force = true } = {}) => {
+      if (!broadcasterDID) return;
 
-    try {
-      store.setState({ brandingLoading: true });
+      try {
+        store.setState({ brandingLoading: true });
 
-      // check localStorage first
-      const cacheKey = `branding:${broadcasterDID}`;
-      const cached = await storage.getItem(cacheKey);
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          // check if cache is less than 1 hour old
-          if (Date.now() - parsed.timestamp < 60 * 60 * 1000) {
-            store.setState({
-              branding: parsed.data,
-              brandingLoading: false,
-              brandingError: null,
-            });
-            return;
+        // check localStorage first
+        const cacheKey = `branding:${broadcasterDID}`;
+        const cached = await storage.getItem(cacheKey);
+        if (!force && cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            // check if cache is less than 1 hour old
+            if (Date.now() - parsed.timestamp < 60 * 60 * 1000) {
+              store.setState({
+                branding: parsed.data,
+                brandingLoading: false,
+                brandingError: null,
+              });
+              return;
+            }
+          } catch (e) {
+            // invalid cache, continue to fetch
+            console.warn("Invalid branding cache, refetching", e);
           }
-        } catch (e) {
-          // invalid cache, continue to fetch
-          console.warn("Invalid branding cache, refetching", e);
         }
-      }
 
-      // fetch branding metadata from server
-      if (!streamplaceAgent) {
-        throw new Error("Streamplace agent not available");
-      }
-      const res = await streamplaceAgent.place.stream.branding.getBranding({
-        broadcaster: broadcasterDID,
-      });
-      const assets = res.data.assets;
-
-      // convert assets array to keyed object and fetch blob data
-      const brandingMap: Record<string, BrandingAsset> = {};
-
-      for (const asset of assets) {
-        brandingMap[asset.key] = { ...asset };
-
-        // if data is already inline (text assets), use it directly
-        if (asset.data) {
-          brandingMap[asset.key].data = asset.data;
-        } else if (asset.url) {
-          // for images, construct full URL and fetch blob
-          const fullUrl = `${url}${asset.url}`;
-          const blobRes = await fetch(fullUrl);
-          const blob = await blobRes.blob();
-          brandingMap[asset.key].data = await blobToBase64(blob);
+        // fetch branding metadata from server
+        if (!streamplaceAgent) {
+          throw new Error("Streamplace agent not available");
         }
+        const res = await streamplaceAgent.place.stream.branding.getBranding({
+          broadcaster: broadcasterDID,
+        });
+        const assets = res.data.assets;
+
+        // convert assets array to keyed object and fetch blob data
+        const brandingMap: Record<string, BrandingAsset> = {};
+
+        for (const asset of assets) {
+          brandingMap[asset.key] = { ...asset };
+
+          // if data is already inline (text assets), use it directly
+          if (asset.data) {
+            brandingMap[asset.key].data = asset.data;
+          } else if (asset.url) {
+            // for images, construct full URL and fetch blob
+            const fullUrl = `${url}${asset.url}`;
+            const blobRes = await fetch(fullUrl);
+            const blob = await blobRes.blob();
+            brandingMap[asset.key].data = await blobToBase64(blob);
+          }
+        }
+
+        // cache in localStorage
+        storage.setItem(
+          cacheKey,
+          JSON.stringify({
+            timestamp: Date.now(),
+            data: brandingMap,
+          }),
+        );
+
+        store.setState({
+          branding: brandingMap,
+          brandingLoading: false,
+          brandingError: null,
+        });
+      } catch (err: any) {
+        console.error("Failed to fetch branding:", err);
+        store.setState({
+          brandingLoading: false,
+          brandingError: err.message || "Failed to fetch branding",
+        });
       }
-
-      // cache in localStorage
-      storage.setItem(
-        cacheKey,
-        JSON.stringify({
-          timestamp: Date.now(),
-          data: brandingMap,
-        }),
-      );
-
-      store.setState({
-        branding: brandingMap,
-        brandingLoading: false,
-        brandingError: null,
-      });
-    } catch (err: any) {
-      console.error("Failed to fetch branding:", err);
-      store.setState({
-        brandingLoading: false,
-        brandingError: err.message || "Failed to fetch branding",
-      });
-    }
-  }, [broadcasterDID, streamplaceAgent, url, store]);
+    },
+    [broadcasterDID, streamplaceAgent, url, store],
+  );
 }
 
 // hook to get a specific branding asset by key

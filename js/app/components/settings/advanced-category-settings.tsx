@@ -1,18 +1,24 @@
 import {
   Button,
   Input,
+  Loader,
   MenuContainer,
   MenuGroup,
   Text,
+  useFetchBranding,
   View,
   zero,
 } from "@streamplace/components";
+import { Check } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView } from "react-native";
 import { useStore } from "store";
 import { DEFAULT_URL } from "store/slices/streamplaceSlice";
 import { SettingToggle } from "./components/setting-toggle";
+import { SettingsRowItem } from "./components/settings-navigation-item";
+
+type Status = "ready" | "active" | "done";
 
 export function AdvancedCategorySettings() {
   const url = useStore((state) => state.url);
@@ -21,6 +27,10 @@ export function AdvancedCategorySettings() {
   const [newUrl, setNewUrl] = useState("");
   const [overrideEnabled, setOverrideEnabled] = useState(false);
   const { t } = useTranslation("settings");
+
+  const fetchBranding = useFetchBranding();
+
+  const [refreshBranding, setRefreshBranding] = useState<Status>("ready");
 
   useEffect(() => {
     setOverrideEnabled(url !== defaultUrl);
@@ -101,6 +111,30 @@ export function AdvancedCategorySettings() {
                 </Button>
               </View>
             )}
+            <MenuGroup>
+              <SettingsRowItem
+                onPress={() => {
+                  setRefreshBranding("active");
+                  fetchBranding({ force: true }).then(() => {
+                    setRefreshBranding("done");
+                    // set back to ready after a short delay
+                    setTimeout(() => {
+                      setRefreshBranding("ready");
+                    }, 2500);
+                  });
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text size="lg">{t("refresh-branding")}</Text>
+                </View>
+                <View>
+                  {refreshBranding === "active" && <Loader />}
+                  {refreshBranding === "done" && (
+                    <Check size={20} color="#4ade80" />
+                  )}
+                </View>
+              </SettingsRowItem>
+            </MenuGroup>
           </MenuContainer>
         </View>
       </View>

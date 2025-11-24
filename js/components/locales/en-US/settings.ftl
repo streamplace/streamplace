@@ -185,6 +185,7 @@ branding-delete-background = Delete Background
 branding-web-only = Image uploads are only available on web.
 
 ## Branding Legal Links
+refresh-branding = Refresh branding assets
 branding-add-legal-link = Add Legal Link
 branding-edit-legal-link = Edit Legal Link
 branding-legal-link-text-placeholder = Link text (e.g., Privacy Policy)

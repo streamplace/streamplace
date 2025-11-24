@@ -143,7 +143,7 @@ no-languages-found = No languages found
 
 ## Branding Administration
 branding-admin = Branding Administration
-branding-admin-description = Customize your Streamplace instance
+branding-admin-description = Customize your Streamplace instance. Note that settings may take a few hours to propagate.
 branding-login-required = Please log in to manage branding
 branding-configuration = Configuration
 branding-text-settings = Text Settings

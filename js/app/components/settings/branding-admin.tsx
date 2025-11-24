@@ -39,6 +39,9 @@ export function BrandingAdmin() {
   const [defaultStreamer, setDefaultStreamer] = useState("");
   const [broadcasterDID, setBroadcasterDID] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [legalLinkText, setLegalLinkText] = useState("");
+  const [legalLinkUrl, setLegalLinkUrl] = useState("");
+  const [editingLinkIndex, setEditingLinkIndex] = useState<number | null>(null);
 
   // get current values
   const currentTitle = useBrandingAsset("siteTitle");
@@ -49,6 +52,12 @@ export function BrandingAdmin() {
   const currentLogo = useBrandingAsset("mainLogo");
   const currentFavicon = useBrandingAsset("favicon");
   const currentSidebarBg = useSidebarBackgroundImage();
+  const currentLegalLinks = useBrandingAsset("legalLinks");
+
+  // parse legal links
+  const legalLinks: { text: string; url: string }[] = currentLegalLinks?.data
+    ? JSON.parse(currentLegalLinks.data)
+    : [];
 
   // load current branding on mount
   useEffect(() => {
@@ -267,6 +276,50 @@ export function BrandingAdmin() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const saveLegalLink = async () => {
+    if (!legalLinkText.trim() || !legalLinkUrl.trim()) {
+      toast.show(t("branding-empty-value"), t("branding-empty-value"), {
+        variant: "error",
+      });
+      return;
+    }
+
+    const updatedLinks = [...legalLinks];
+    const newLink = { text: legalLinkText.trim(), url: legalLinkUrl.trim() };
+
+    if (editingLinkIndex !== null) {
+      updatedLinks[editingLinkIndex] = newLink;
+    } else {
+      updatedLinks.push(newLink);
+    }
+
+    await uploadText("legalLinks", JSON.stringify(updatedLinks));
+    setLegalLinkText("");
+    setLegalLinkUrl("");
+    setEditingLinkIndex(null);
+  };
+
+  const deleteLegalLink = async (index: number) => {
+    const updatedLinks = legalLinks.filter((_, i) => i !== index);
+    if (updatedLinks.length === 0) {
+      await deleteBlob("legalLinks");
+    } else {
+      await uploadText("legalLinks", JSON.stringify(updatedLinks));
+    }
+  };
+
+  const startEditingLink = (index: number) => {
+    setEditingLinkIndex(index);
+    setLegalLinkText(legalLinks[index].text);
+    setLegalLinkUrl(legalLinks[index].url);
+  };
+
+  const cancelEditingLink = () => {
+    setEditingLinkIndex(null);
+    setLegalLinkText("");
+    setLegalLinkUrl("");
   };
 
   if (!agent) {
@@ -508,6 +561,105 @@ export function BrandingAdmin() {
                   </View>
                 </SettingsRowItem>
               </MenuItem>
+            </MenuGroup>
+
+            <MenuLabel>{t("branding-legal-links")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {editingLinkIndex !== null
+                        ? t("branding-edit-legal-link")
+                        : t("branding-add-legal-link")}
+                    </Text>
+                    <Input
+                      placeholder={t("branding-legal-link-text-placeholder")}
+                      value={legalLinkText}
+                      onChangeText={setLegalLinkText}
+                    />
+                    <Input
+                      placeholder={t("branding-legal-link-url-placeholder")}
+                      value={legalLinkUrl}
+                      onChangeText={setLegalLinkUrl}
+                    />
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={saveLegalLink}
+                        disabled={
+                          uploading ||
+                          !legalLinkText.trim() ||
+                          !legalLinkUrl.trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {editingLinkIndex !== null ? t("update") : t("add")}
+                      </Button>
+                      {editingLinkIndex !== null && (
+                        <Button
+                          variant="outline"
+                          onPress={cancelEditingLink}
+                          disabled={uploading}
+                          width="min"
+                          style={{ height: 42 }}
+                        >
+                          {t("cancel")}
+                        </Button>
+                      )}
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              {legalLinks.length > 0 && (
+                <>
+                  <MenuSeparator />
+                  {legalLinks.map((link, index) => (
+                    <View key={index}>
+                      <MenuItem>
+                        <SettingsRowItem>
+                          <View style={[zero.gap.all[2], { flex: 1 }]}>
+                            <Text size="sm" weight="semibold">
+                              {link.text}
+                            </Text>
+                            <Text size="xs" color="muted">
+                              {link.url}
+                            </Text>
+                            <View
+                              style={[
+                                zero.layout.flex.direction.row,
+                                zero.gap.all[2],
+                              ]}
+                            >
+                              <Button
+                                variant="outline"
+                                onPress={() => startEditingLink(index)}
+                                disabled={uploading}
+                                width="min"
+                                style={{ height: 42 }}
+                              >
+                                {t("edit")}
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                onPress={() => deleteLegalLink(index)}
+                                disabled={uploading}
+                                width="min"
+                                style={{ height: 42 }}
+                              >
+                                {t("delete")}
+                              </Button>
+                            </View>
+                          </View>
+                        </SettingsRowItem>
+                      </MenuItem>
+                      {index < legalLinks.length - 1 && <MenuSeparator />}
+                    </View>
+                  ))}
+                </>
+              )}
             </MenuGroup>
 
             <MenuLabel>{t("branding-images")}</MenuLabel>

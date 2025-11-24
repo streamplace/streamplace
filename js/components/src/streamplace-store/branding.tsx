@@ -187,6 +187,19 @@ export function useSidebarBackgroundImage(): BrandingAsset | undefined {
   return useBrandingAsset("sidebarBackgroundImage");
 }
 
+// convenience hook for legal links
+export function useLegalLinks(): { text: string; url: string }[] {
+  const asset = useBrandingAsset("legalLinks");
+  if (!asset?.data) {
+    return [];
+  }
+  try {
+    return JSON.parse(asset.data);
+  } catch {
+    return [];
+  }
+}
+
 // hook to auto-fetch branding when broadcaster changes
 export function useBrandingAutoFetch() {
   const fetchBranding = useFetchBranding();

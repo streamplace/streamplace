@@ -148,6 +148,7 @@ branding-login-required = Please log in to manage branding
 branding-configuration = Configuration
 branding-text-settings = Text Settings
 branding-colors = Colors
+branding-legal-links = Legal Links
 branding-images = Images
 
 ## Branding Fields
@@ -183,6 +184,14 @@ branding-upload-background = Upload Background
 branding-delete-background = Delete Background
 branding-web-only = Image uploads are only available on web.
 
+## Branding Legal Links
+branding-add-legal-link = Add Legal Link
+branding-edit-legal-link = Edit Legal Link
+branding-legal-link-text-placeholder = Link text (e.g., Privacy Policy)
+branding-legal-link-url-placeholder = URL (e.g., https://example.com/privacy)
+add = Add
+edit = Edit
+
 ## Branding Toast Messages
 branding-not-authenticated = Please log in first
 branding-empty-value = Please enter a value
@@ -192,3 +201,6 @@ branding-delete-success = { $key } deleted successfully
 branding-upload-failed = Failed to upload
 branding-delete-failed = Failed to delete
 branding-not-available = File uploads are only available on web
+
+## Navigation Categories (About Page)
+node-legal-documents = Broadcaster-specific Documents

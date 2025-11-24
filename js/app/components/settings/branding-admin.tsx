@@ -690,7 +690,7 @@ export function BrandingAdmin() {
                         onPress={() =>
                           handleFileSelect(
                             "mainLogo",
-                            "image/svg+xml,image/png,image/jpeg",
+                            "image/svg+xml,image/png,image/jpeg,image/webp",
                           )
                         }
                         disabled={uploading || Platform.OS !== "web"}
@@ -787,7 +787,7 @@ export function BrandingAdmin() {
                       onPress={() =>
                         handleFileSelect(
                           "sidebarBackgroundImage",
-                          "image/svg+xml,image/png,image/jpeg",
+                          "image/svg+xml,image/png,image/jpeg,image/webp",
                         )
                       }
                       disabled={uploading || Platform.OS !== "web"}

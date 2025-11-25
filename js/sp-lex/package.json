@@ -1,0 +1,32 @@
+{
+  "name": "@streamplace/sp-lex",
+  "version": "0.8.0",
+  "description": "Streamplace Lexicons",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "@streamplace/dev": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "pnpm run build",
+    "test-import": "node -e 'require(\".\")' || (echo 'require(\".\") failed, npm package is not working' && exit 1)",
+    "start": "tsc --watch --preserveWatchOutput"
+  },
+  "keywords": [
+    "streamplace",
+    "livepeer",
+    "atproto"
+  ],
+  "author": "Streamplace",
+  "license": "MIT",
+  "packageManager": "pnpm@10.11.0",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

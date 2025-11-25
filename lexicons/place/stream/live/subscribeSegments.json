@@ -17,8 +17,8 @@
       },
       "message": {
         "schema": {
-          "type": "union",
-          "refs": ["#segment"]
+          "type": "ref",
+          "ref": "#segment"
         }
       },
       "errors": []

@@ -1,13 +1,15 @@
-import { AppBskyFeedPost, BlobRef, RichText } from "@atproto/api";
+import { BlobRef, RichText } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { StreamplaceAgent } from "streamplace/src/agent";
 import { PlaceStreamLivestream } from "streamplace/src/lexicons";
 import { LivestreamViewHydrated } from "streamplace/src/useful-types";
-import { useUrl } from "./streamplace-store";
+import { useOAuthSession, useUrl } from "./streamplace-store";
 import { usePDSAgent } from "./xrpc";
 
+import * as SPLEX from "@streamplace/sp-lex";
 import PackageJson from "../../package.json";
 
+import { Client } from "@atproto/lex";
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { getBrowserName } from "../lib/browser";
@@ -68,19 +70,19 @@ const useUploadThumbnail = () => {
   return uploadThumbnail;
 };
 
-async function createNewPost(
-  agent: StreamplaceAgent,
-  record: AppBskyFeedPost.Record,
-): Promise<{ uri: string; cid: string }> {
-  try {
-    const post = await agent.post(record);
+// async function createNewPost(
+//   record: AppBskyFeedPost.Record,
+//   client: Client,
+// ): Promise<{ uri: string; cid: string }> {
+//   try {
+//     const post = await client.create(SPLEX.app.bsky.feed.post, record);
 
-    return { uri: post.uri, cid: post.cid };
-  } catch (error) {
-    console.error("Error creating new post:", error);
-    throw error;
-  }
-}
+//     return { uri: post.uri, cid: post.cid };
+//   } catch (error) {
+//     console.error("Error creating new post:", error);
+//     throw error;
+//   }
+// }
 
 async function buildGoLivePost(
   text: string,
@@ -89,7 +91,7 @@ async function buildGoLivePost(
   params: URLSearchParams,
   thumbnail: BlobRef | undefined,
   agent: StreamplaceAgent,
-): Promise<AppBskyFeedPost.Record> {
+): Promise<SPLEX.app.bsky.feed.post.Main> {
   const now = new Date();
   const linkUrl = `${url.protocol}//${url.host}/${profile.handle}?${params.toString()}`;
   const prefix = `🔴 LIVE `;
@@ -99,25 +101,25 @@ async function buildGoLivePost(
 
   const rt = new RichText({ text: content });
   await rt.detectFacets(agent);
-  const record: AppBskyFeedPost.Record = {
+  const record: SPLEX.app.bsky.feed.post.Main = {
     $type: "app.bsky.feed.post",
     text: content,
-    "place.stream.livestream": {
-      url: linkUrl,
-      title: text,
-    },
-    facets: rt.facets,
+    // "place.stream.livestream": {
+    //   url: linkUrl,
+    //   title: text,
+    // },
+    // facets: rt.facets,
     createdAt: now.toISOString(),
   };
-  record.embed = {
-    $type: "app.bsky.embed.external",
-    external: {
-      description: text,
-      thumb: thumbnail,
-      title: `@${profile.handle} is 🔴LIVE on ${url.host}!`,
-      uri: linkUrl,
-    },
-  };
+  // record.embed = {
+  //   $type: "app.bsky.embed.external",
+  //   external: {
+  //     description: text,
+  //     thumb: thumbnail,
+  //     title: `@${profile.handle} is 🔴LIVE on ${url.host}!`,
+  //     uri: linkUrl,
+  //   },
+  // };
 
   return record;
 }
@@ -126,6 +128,7 @@ export function useCreateStreamRecord() {
   let agent = usePDSAgent();
   let url = useUrl();
   const uploadThumbnail = useUploadThumbnail();
+  const oauthSession = useOAuthSession();
 
   return async ({
     title,
@@ -150,10 +153,15 @@ export function useCreateStreamRecord() {
     if (!agent.did) {
       throw new Error("No user DID found, assuming not logged in");
     }
+    if (!oauthSession) {
+      throw new Error("No OAuth session found");
+    }
 
     const u = new URL(url);
 
     let thumbnail: BlobRef | undefined = undefined;
+
+    const client = new Client(oauthSession as any);
 
     if (customThumbnail) {
       try {
@@ -222,7 +230,9 @@ export function useCreateStreamRecord() {
         agent,
       );
 
-      newPost = await createNewPost(agent, post);
+      const newPost = await client.create(SPLEX.app.bsky.feed.post, post);
+
+      // newPost = await createNewPost(agent, post);
 
       if (!newPost.uri || !newPost.cid) {
         throw new Error(

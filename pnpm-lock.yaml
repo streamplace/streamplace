@@ -16,14 +16,14 @@ importers:
         version: 0.1.0
       prettier-plugin-organize-imports:
         specifier: ^4.1.0
-        version: 4.1.0(prettier@3.4.2)(typescript@5.8.3)
+        version: 4.1.0(prettier@3.4.2)(typescript@5.9.3)
       quicktype:
         specifier: ^23.2.6
         version: 23.2.6(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13)
     devDependencies:
-      '@atproto/lex-cli':
-        specifier: ^0.9.4
-        version: 0.9.4
+      '@atproto/lex':
+        specifier: ^0.0.3
+        version: 0.0.3
       '@types/node':
         specifier: ^22.15.17
         version: 22.15.17
@@ -32,7 +32,7 @@ importers:
         version: 9.1.6
       knip:
         specifier: ^5.59.1
-        version: 5.59.1(@types/node@22.15.17)(typescript@5.8.3)
+        version: 5.59.1(@types/node@22.15.17)(typescript@5.9.3)
       lerna:
         specifier: ^8.2.2
         version: 8.2.2(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13)
@@ -44,7 +44,7 @@ importers:
         version: 3.4.2
       typescript:
         specifier: ^5.8.3
-        version: 5.8.3
+        version: 5.9.3
 
   js/app:
     dependencies:
@@ -63,6 +63,9 @@ importers:
       '@atproto/jwk-webcrypto':
         specifier: ^0.1.10
         version: 0.1.10
+      '@atproto/lex':
+        specifier: ^0.0.3
+        version: 0.0.3
       '@atproto/oauth-client':
         specifier: ^0.5.5
         version: 0.5.5
@@ -111,6 +114,9 @@ importers:
       '@streamplace/components':
         specifier: workspace:*
         version: link:../components
+      '@streamplace/sp-lex':
+        specifier: workspace:*
+        version: link:../sp-lex
       '@tanstack/react-query':
         specifier: ^5.59.19
         version: 5.59.19(react@19.0.0)
@@ -415,7 +421,7 @@ importers:
         version: 22.15.17
       typescript:
         specifier: ^5.6.3
-        version: 5.8.3
+        version: 5.9.3
 
   js/components:
     dependencies:
@@ -449,6 +455,9 @@ importers:
       '@rn-primitives/slider':
         specifier: ^1.2.0
         version: 1.2.0(react-dom@19.0.0(react@19.0.0))(react-native-web@0.20.0(encoding@0.1.13)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)
+      '@streamplace/sp-lex':
+        specifier: workspace:*
+        version: link:../sp-lex
       class-variance-authority:
         specifier: ^0.6.1
         version: 0.6.1
@@ -475,7 +484,7 @@ importers:
         version: 1.5.17
       i18next:
         specifier: ^25.4.2
-        version: 25.5.2(typescript@5.8.3)
+        version: 25.5.2(typescript@5.9.3)
       i18next-browser-languagedetector:
         specifier: ^8.2.0
         version: 8.2.0
@@ -499,7 +508,7 @@ importers:
         version: 19.0.0
       react-i18next:
         specifier: ^15.7.3
-        version: 15.7.4(i18next@25.5.2(typescript@5.8.3))(react-dom@19.0.0(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)(typescript@5.8.3)
+        version: 15.7.4(i18next@25.5.2(typescript@5.9.3))(react-dom@19.0.0(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)(typescript@5.9.3)
       react-native:
         specifier: ^0.79.0
         version: 0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)
@@ -529,7 +538,7 @@ importers:
         version: link:../streamplace
       viem:
         specifier: ^2.21.44
-        version: 2.21.44(bufferutil@4.0.8)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.24.4)
+        version: 2.21.44(bufferutil@4.0.8)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.24.4)
       zustand:
         specifier: ^5.0.5
         version: 5.0.5(@types/react@18.3.12)(immer@10.1.1)(react@19.0.0)(use-sync-external-store@1.2.2(react@19.0.0))
@@ -545,7 +554,7 @@ importers:
         version: 3.1.10
       tsup:
         specifier: ^8.5.0
-        version: 8.5.0(@swc/core@1.8.0(@swc/helpers@0.5.17))(jiti@2.4.2)(postcss@8.5.3)(typescript@5.8.3)(yaml@2.5.1)
+        version: 8.5.0(@swc/core@1.8.0(@swc/helpers@0.5.17))(jiti@2.4.2)(postcss@8.5.3)(typescript@5.9.3)(yaml@2.5.1)
 
   js/config-react-native-webrtc:
     dependencies:
@@ -688,7 +697,7 @@ importers:
         version: 7.1.0
       typescript:
         specifier: ^5.8.2
-        version: 5.8.3
+        version: 5.9.3
       uint8arrays:
         specifier: ^5.1.0
         version: 5.1.0
@@ -697,7 +706,7 @@ importers:
     dependencies:
       '@astrojs/starlight':
         specifier: ^0.34.1
-        version: 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
+        version: 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1))
       '@fontsource/atkinson-hyperlegible-next':
         specifier: ^5.2.2
         version: 5.2.2
@@ -706,19 +715,25 @@ importers:
         version: link:../app
       astro:
         specifier: ^5.6.1
-        version: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
+        version: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1)
       sharp:
         specifier: ^0.32.5
         version: 0.32.6
       starlight-openapi:
         specifier: ^0.17.0
-        version: 0.17.0(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3)
+        version: 0.17.0(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1))(openapi-types@12.1.3)
       starlight-openapi-rapidoc:
         specifier: ^0.8.1-beta
-        version: 0.8.1-beta(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3)
+        version: 0.8.1-beta(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1))(openapi-types@12.1.3)
       streamplace:
         specifier: workspace:*
         version: link:../streamplace
+
+  js/sp-lex:
+    devDependencies:
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
 
   js/streamplace:
     dependencies:
@@ -805,6 +820,9 @@ packages:
   '@atproto-labs/did-resolver@0.2.1':
     resolution: {integrity: sha512-zSoHyqwwRYUtMNLW+RrWsImt1U5S47nJv5FfmAXTmon6wVKjxKD/PFrD1pg/4G6THqJmQHTs1Hj+54XVupYnvQ==}
 
+  '@atproto-labs/did-resolver@0.2.3':
+    resolution: {integrity: sha512-NAAVMthPD98eEYprpU7+MccDxFzwa3OhecweitL0/4ntjjcmqy1ytTl+ynOcTEC69H/ENjlpo36BB+b2obDcvA==}
+
   '@atproto-labs/fetch-node@0.1.10':
     resolution: {integrity: sha512-o7hGaonA71A6p7O107VhM6UBUN/g9tTyYohMp1q0Kf6xQ4npnuZYRSHSf2g6reSfGQJ1GoFNjBObETTT1ge/jQ==}
     engines: {node: '>=18.7.0'}
@@ -864,6 +882,9 @@ packages:
   '@atproto/did@0.2.0':
     resolution: {integrity: sha512-BskT39KYbwY1DUsWekkHh47xS+wvJpFq5F9acsicNfYniinyAMnNTzGKQEhnjQuG7K0qQItg/SnmC+y0tJXV7Q==}
 
+  '@atproto/did@0.2.2':
+    resolution: {integrity: sha512-IfOcEIpGp3owcaWA/e8VSIjdi/ocz5JbT3Ghg9jgFgnxLlwE8ndrihiR4xbRdcdPLza9YQjrPQhfRYdCu7s4Yw==}
+
   '@atproto/identity@0.4.8':
     resolution: {integrity: sha512-Z0sLnJ87SeNdAifT+rqpgE1Rc3layMMW25gfWNo4u40RGuRODbdfAZlTwBSU2r+Vk45hU+iE+xeQspfednCEnA==}
     engines: {node: '>=18.7.0'}
@@ -877,9 +898,35 @@ packages:
   '@atproto/jwk@0.5.0':
     resolution: {integrity: sha512-Qi2NtEqhkG+uz3CKia4+H05WMV/z//dz3ESo5+cyBKrOnxVTJ5ZubMyltWjoYvy6v/jLhorXdDWcjn07yky7MQ==}
 
-  '@atproto/lex-cli@0.9.4':
-    resolution: {integrity: sha512-qi337hWfdd+BRTB/VYoqdSHy5YdezOaTmbDz+IxtAnFNShV+YSNOdBnVp0FjH6m7sRW2MpYojhatmT5cnbMKgg==}
-    engines: {node: '>=18.7.0'}
+  '@atproto/lex-builder@0.0.3':
+    resolution: {integrity: sha512-mrj/3AYaJXZDqKgHuLW4sCTfac6pRYroKSCUm8judhzKP2Gxh0fmc2+Rtv1wMGnpsBJIzhIAPBNVtWSNA4ZCYA==}
+
+  '@atproto/lex-cbor@0.0.1':
+    resolution: {integrity: sha512-GCgowcC041tYmsoIxalIECJq4ZRHgREk6lFa4BzNRUZarMqwz57YF/7eUlo2Q6hoaMUL7Bjr6FvXwcZFaKrhvA==}
+
+  '@atproto/lex-client@0.0.1':
+    resolution: {integrity: sha512-qKI1A330iV35VojWKdJR+Bb9s3tSegPynpUQ/KqTBkqLk3DeS9wkwQlq93hLyHiAazs2GEt3uDDYYsxZIwXl5w==}
+
+  '@atproto/lex-data@0.0.1':
+    resolution: {integrity: sha512-DrS/8cQcQs3s5t9ELAFNtyDZ8/PdiCx47ALtFEP2GnX2uCBHZRkqWG7xmu6ehjc787nsFzZBvlnz3T/gov5fGA==}
+
+  '@atproto/lex-document@0.0.2':
+    resolution: {integrity: sha512-AW3czs1q6Q6jUmULQjzmBJS2CdFmcbPrYhdSnB8wZdzj8GvL7TIJB3yeyzhZOB+rbLaasfcrKhFsydxBjdqpxQ==}
+
+  '@atproto/lex-installer@0.0.3':
+    resolution: {integrity: sha512-GjHcGI9MSRkm0iKorWeXIBzq3KLWYZV9rGdMCS50O5pkf/4jr3lZeWMfQbgXMpeFljArKlwRzbG0YJz/AlKZCg==}
+
+  '@atproto/lex-json@0.0.1':
+    resolution: {integrity: sha512-ivcF7+pDRuD/P97IEKQ/9TruunXj0w58Khvwk3M6psaI5eZT6LRsRZ4cWcKaXiFX4SHnjy+x43g0f7pPtIsERg==}
+
+  '@atproto/lex-resolver@0.0.2':
+    resolution: {integrity: sha512-YzYW/wpFC3dRnZrNRWzNmty1YMedkUDFn+yzvqZvnhk06awjSdL1uYH26+ZY5Fll6PK0cTWJtBsETtB2xSBxRA==}
+
+  '@atproto/lex-schema@0.0.1':
+    resolution: {integrity: sha512-Qf3wAb5PNJ6s0BDTSzonLzrt0SVlNU5N0m1+tRSI3MifwSj4s0eXKpoG4Z8oRDt9U7qsJf6vYW9vaB1AjEcGXw==}
+
+  '@atproto/lex@0.0.3':
+    resolution: {integrity: sha512-TH544Yk8PM98z5FmVBGMpA3qQ525ZxNr0D8IkPJVdTwe4Mf+88h1xVmrGDQBAHhXG/zYn5VeSND0uaYYtGqzxw==}
     hasBin: true
 
   '@atproto/lexicon-resolver@0.2.0':
@@ -2782,6 +2829,14 @@ packages:
   '@ipld/dag-cbor@7.0.3':
     resolution: {integrity: sha512-1VVh2huHsuohdXC1bGJNE8WR72slZ9XE2T3wbBBq31dm7ZBatmKLLxrB+XAqafxfRFjv08RZmj/W/ZqaM13AuA==}
 
+  '@isaacs/balanced-match@4.0.1':
+    resolution: {integrity: sha512-yzMTt9lEb8Gv7zRioUilSglI0c0smZ9k5D65677DLWLtWJaXIS3CqcGyUFByYKlnUj6TkjLVs54fBl6+TiGQDQ==}
+    engines: {node: 20 || >=22}
+
+  '@isaacs/brace-expansion@5.0.0':
+    resolution: {integrity: sha512-ZT55BDLV0yv0RBm2czMiZ+SqCGO7AvmOM3G/w2xhVPH+te0aKgFjmBvGlL1dH+ql2tgGO3MVrbb3jCKyvpgnxA==}
+    engines: {node: 20 || >=22}
+
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
     engines: {node: '>=12'}
@@ -4551,8 +4606,8 @@ packages:
     resolution: {integrity: sha512-XCuKFP5PS55gnMVu3dty8KPatLqUoy/ZYzDzAGCQ8JNFCkLXzmI7vNHCR+XpbZaMWQK/vQubr7PkYq8g470J/A==}
     engines: {node: '>= 10'}
 
-  '@ts-morph/common@0.25.0':
-    resolution: {integrity: sha512-kMnZz+vGGHi4GoHnLmMhGNjm44kGtKUXGnOvrKmMwAuvNjM/PgKVGfUnL7IDvK7Jb2QQ82jq3Zmp04Gy+r3Dkg==}
+  '@ts-morph/common@0.28.1':
+    resolution: {integrity: sha512-W74iWf7ILp1ZKNYXY5qbddNaml7e9Sedv5lvU1V8lftlitkc9Pq1A+jlH23ltDgWYeZFFEqGCD1Ies9hqu3O+g==}
 
   '@tsconfig/node10@1.0.11':
     resolution: {integrity: sha512-DcRjDCujK/kCk/cUe8Xz8ZSpm8mS3mNNpta+jGCA6USEDfktlNvm1+IuZ9eTcDbNk41BHwpHHeW+N1lKCz4zOw==}
@@ -6091,6 +6146,9 @@ packages:
   core-js-compat@3.39.0:
     resolution: {integrity: sha512-VgEUx3VwlExr5no0tXlBt+silBvhTryPwCXRI2Id1PN8WTKu7MreethvddqOubrYxkFdv/RnYrqlv1sFNAUelw==}
 
+  core-js@3.47.0:
+    resolution: {integrity: sha512-c3Q2VVkGAUyupsjRnaNX6u8Dq2vAdzm9iuPj5FW0fRxzlxgq9Q39MDq10IvmQSpLgHQNyQzQmOo6bgGHmH3NNg==}
+
   core-util-is@1.0.3:
     resolution: {integrity: sha512-ZQBvi1DcpJ4GDqanjucZ2Hj3wEO5pZDS89BWbkcrvdxksJorwUDDZamX9ldFkp9aw2lmBDLgkObEA4DWNJ9FYQ==}
 
@@ -7168,6 +7226,15 @@ packages:
 
   fdir@6.4.4:
     resolution: {integrity: sha512-1NZP+GK4GfuAv3PqKvxQRDMjdSRZjnkq7KfhlNrCNNlZ0ygQFpebfrnfnq/W7fpUnAv9aGWmY1zKx7FYL3gwhg==}
+    peerDependencies:
+      picomatch: ^3 || ^4
+    peerDependenciesMeta:
+      picomatch:
+        optional: true
+
+  fdir@6.5.0:
+    resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
+    engines: {node: '>=12.0.0'}
     peerDependencies:
       picomatch: ^3 || ^4
     peerDependenciesMeta:
@@ -9334,6 +9401,10 @@ packages:
   minimalistic-crypto-utils@1.0.1:
     resolution: {integrity: sha512-JIYlbt6g8i5jKfJ3xz7rF0LXmv2TkDxBLUkiBeZ7bAx4GnnNMr8xFpGnOxn6GhTEHx3SjRrZEoU+j04prX1ktg==}
 
+  minimatch@10.1.1:
+    resolution: {integrity: sha512-enIvLvRAFZYXJzkCYG5RKmPfrFArdLv+R+lbQ53BmIMLIry74bjKzX6iHAm8WYamJkhSSEabrWN5D97XnKObjQ==}
+    engines: {node: 20 || >=22}
+
   minimatch@3.0.5:
     resolution: {integrity: sha512-tUpxzX0VAzJHjLu0xUfFv1gwVp9ba3IOuRAVH2EGuRW8a5emA2FlACLqiT/lDVtS1W+TGNwqz3sWaNyLgDJWuw==}
 
@@ -10151,6 +10222,10 @@ packages:
 
   picomatch@4.0.2:
     resolution: {integrity: sha512-M7BAV6Rlcy5u+m6oPhAPFgJTzAioX/6B0DxyvDlo9l8+T3nLKbrczg2WLUyzd45L8RqfUMyGPzekbMvX2Ldkwg==}
+    engines: {node: '>=12'}
+
+  picomatch@4.0.3:
+    resolution: {integrity: sha512-5gTmgEY/sqK6gFXLIsQNH19lWb4ebPDLA4SdLP7dsWkIXHWlG66oPuVvXSGFPppYZz8ZDZq0dYYrbHfBCVUb1Q==}
     engines: {node: '>=12'}
 
   pidtree@0.3.1:
@@ -11768,6 +11843,10 @@ packages:
     resolution: {integrity: sha512-mEwzpUgrLySlveBwEVDMKk5B57bhLPYovRfPAXD5gA/98Opn0rCDj3GtLwFvCvH5RK9uPCExUROW5NjDwvqkxw==}
     engines: {node: '>=12.0.0'}
 
+  tinyglobby@0.2.15:
+    resolution: {integrity: sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==}
+    engines: {node: '>=12.0.0'}
+
   tlds@1.255.0:
     resolution: {integrity: sha512-tcwMRIioTcF/FcxLev8MJWxCp+GUALRhFEqbDoZrnowmKSGqPrl5pqS+Sut2m8BgJ6S4FExCSSpGffZ0Tks6Aw==}
     hasBin: true
@@ -11861,8 +11940,8 @@ packages:
       typescript: '*'
       webpack: ^5.0.0
 
-  ts-morph@24.0.0:
-    resolution: {integrity: sha512-2OAOg/Ob5yx9Et7ZX4CvTCc0UFoZHwLEJ+dpDPSUi5TgwwlTlX47w+iFRrEwzUZwYACjq83cgjS/Da50Ga37uw==}
+  ts-morph@27.0.2:
+    resolution: {integrity: sha512-fhUhgeljcrdZ+9DZND1De1029PrE+cMkIP7ooqkLRTrRLTqcki2AstsyJm0vRNbTbVCNJ0idGlbBrfqc7/nA8w==}
 
   ts-node@10.9.2:
     resolution: {integrity: sha512-f0FFpIdcHgn8zcPSbf1dRevwt047YMnaiJM3u2w2RewrB+fob/zePZcrOyQoLMMO7aBIddLcQIEK5dYjkLnGrQ==}
@@ -12023,6 +12102,11 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   typical@4.0.0:
     resolution: {integrity: sha512-VAH4IvQ7BDFYglMd7BPRDfLgxZZX4O4TFcRDA6EN5X7erNJJq+McIEp8np9aVtxrCJ6qx4GTYVfOWNjcqwZgRw==}
     engines: {node: '>=8'}
@@ -12103,6 +12187,9 @@ packages:
   unicode-property-aliases-ecmascript@2.1.0:
     resolution: {integrity: sha512-6t3foTQI9qne+OZoVQB/8x8rk2k1eVy1gRXhV3oFQ5T6R1dqQ1xtin3XqSlx3+ATBkliTaR/hHyJBm+LVPNM8w==}
     engines: {node: '>=4'}
+
+  unicode-segmenter@0.14.0:
+    resolution: {integrity: sha512-AH4lhPCJANUnSLEKnM4byboctePJzltF4xj8b+NbNiYeAkAXGh7px2K/4NANFp7dnr6+zB3e6HLu8Jj8SKyvYg==}
 
   unicode-trie@2.0.0:
     resolution: {integrity: sha512-x7bc76x0bm4prf1VLg79uhAzKw8DVboClSN5VxJuQ+LKDOVEW9CdH+VY7SP+vX7xCYQqzzgQpFqz15zeLvAtZQ==}
@@ -12784,9 +12871,6 @@ packages:
   yauzl@2.10.0:
     resolution: {integrity: sha512-p4a9I6X6nu6IhoGmBqAcbJy1mlC4j27vEPZX9F4L4/vZT3Lyq1VkFHw/V/PUcB9Buo+DG3iHkT0x3Qya58zc3g==}
 
-  yesno@0.4.0:
-    resolution: {integrity: sha512-tdBxmHvbXPBKYIg81bMCB7bVeDmHkRzk5rVJyYYXurwKkHq/MCd8rz4HSJUP7hW0H2NlXiq8IFiWvYKEHhlotA==}
-
   yn@3.1.1:
     resolution: {integrity: sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q==}
     engines: {node: '>=6'}
@@ -12893,12 +12977,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/mdx@4.2.6(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))':
+  '@astrojs/mdx@4.2.6(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1))':
     dependencies:
       '@astrojs/markdown-remark': 6.3.1
       '@mdx-js/mdx': 3.1.0(acorn@8.14.1)
       acorn: 8.14.1
-      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
+      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1)
       es-module-lexer: 1.7.0
       estree-util-visit: 2.0.0
       hast-util-to-html: 9.0.5
@@ -12922,17 +13006,17 @@ snapshots:
       stream-replace-string: 2.0.0
       zod: 3.24.4
 
-  '@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))':
+  '@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1))':
     dependencies:
       '@astrojs/markdown-remark': 6.3.1
-      '@astrojs/mdx': 4.2.6(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
+      '@astrojs/mdx': 4.2.6(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1))
       '@astrojs/sitemap': 3.3.1
       '@pagefind/default-ui': 1.3.0
       '@types/hast': 3.0.4
       '@types/js-yaml': 4.0.9
       '@types/mdast': 4.0.4
-      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
-      astro-expressive-code: 0.41.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
+      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1)
+      astro-expressive-code: 0.41.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1))
       bcp-47: 2.1.0
       hast-util-from-html: 2.0.3
       hast-util-select: 6.0.4
@@ -12976,6 +13060,15 @@ snapshots:
       '@atproto-labs/simple-store': 0.3.0
       '@atproto-labs/simple-store-memory': 0.1.4
       '@atproto/did': 0.2.0
+      zod: 3.24.4
+
+  '@atproto-labs/did-resolver@0.2.3':
+    dependencies:
+      '@atproto-labs/fetch': 0.2.3
+      '@atproto-labs/pipe': 0.1.1
+      '@atproto-labs/simple-store': 0.3.0
+      '@atproto-labs/simple-store-memory': 0.1.4
+      '@atproto/did': 0.2.2
       zod: 3.24.4
 
   '@atproto-labs/fetch-node@0.1.10':
@@ -13100,6 +13193,10 @@ snapshots:
     dependencies:
       zod: 3.24.4
 
+  '@atproto/did@0.2.2':
+    dependencies:
+      zod: 3.24.4
+
   '@atproto/identity@0.4.8':
     dependencies:
       '@atproto/common-web': 0.4.2
@@ -13121,16 +13218,78 @@ snapshots:
       multiformats: 9.9.0
       zod: 3.24.4
 
-  '@atproto/lex-cli@0.9.4':
+  '@atproto/lex-builder@0.0.3':
     dependencies:
-      '@atproto/lexicon': 0.5.0
-      '@atproto/syntax': 0.4.1
-      chalk: 4.1.2
-      commander: 9.5.0
+      '@atproto/lex-document': 0.0.2
+      '@atproto/lex-schema': 0.0.1
       prettier: 3.4.2
-      ts-morph: 24.0.0
-      yesno: 0.4.0
-      zod: 3.24.4
+      ts-morph: 27.0.2
+      tslib: 2.8.1
+
+  '@atproto/lex-cbor@0.0.1':
+    dependencies:
+      '@atproto/lex-data': 0.0.1
+      multiformats: 9.9.0
+      tslib: 2.8.1
+
+  '@atproto/lex-client@0.0.1':
+    dependencies:
+      '@atproto/lex-data': 0.0.1
+      '@atproto/lex-json': 0.0.1
+      '@atproto/lex-schema': 0.0.1
+      tslib: 2.8.1
+
+  '@atproto/lex-data@0.0.1':
+    dependencies:
+      '@atproto/syntax': 0.4.1
+      multiformats: 9.9.0
+      tslib: 2.8.1
+      uint8arrays: 3.0.0
+      unicode-segmenter: 0.14.0
+
+  '@atproto/lex-document@0.0.2':
+    dependencies:
+      '@atproto/lex-schema': 0.0.1
+      core-js: 3.47.0
+      tslib: 2.8.1
+
+  '@atproto/lex-installer@0.0.3':
+    dependencies:
+      '@atproto/lex-builder': 0.0.3
+      '@atproto/lex-cbor': 0.0.1
+      '@atproto/lex-data': 0.0.1
+      '@atproto/lex-document': 0.0.2
+      '@atproto/lex-resolver': 0.0.2
+      '@atproto/lex-schema': 0.0.1
+      '@atproto/syntax': 0.4.1
+      tslib: 2.8.1
+
+  '@atproto/lex-json@0.0.1':
+    dependencies:
+      '@atproto/lex-data': 0.0.1
+      tslib: 2.8.1
+
+  '@atproto/lex-resolver@0.0.2':
+    dependencies:
+      '@atproto-labs/did-resolver': 0.2.3
+      '@atproto/lex-client': 0.0.1
+      '@atproto/lex-document': 0.0.2
+      '@atproto/syntax': 0.4.1
+      tslib: 2.8.1
+
+  '@atproto/lex-schema@0.0.1':
+    dependencies:
+      '@atproto/lex-data': 0.0.1
+      '@atproto/syntax': 0.4.1
+      tslib: 2.8.1
+
+  '@atproto/lex@0.0.3':
+    dependencies:
+      '@atproto/lex-builder': 0.0.3
+      '@atproto/lex-client': 0.0.1
+      '@atproto/lex-installer': 0.0.3
+      '@atproto/lex-schema': 0.0.1
+      yargs: 17.7.2
 
   '@atproto/lexicon-resolver@0.2.0':
     dependencies:
@@ -16503,6 +16662,12 @@ snapshots:
       cborg: 1.10.2
       multiformats: 9.9.0
 
+  '@isaacs/balanced-match@4.0.1': {}
+
+  '@isaacs/brace-expansion@5.0.0':
+    dependencies:
+      '@isaacs/balanced-match': 4.0.1
+
   '@isaacs/cliui@8.0.2':
     dependencies:
       string-width: 5.1.2
@@ -16617,7 +16782,7 @@ snapshots:
 
   '@leichtgewicht/ip-codec@2.0.5': {}
 
-  '@lerna/create@8.2.2(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13)(typescript@5.8.3)':
+  '@lerna/create@8.2.2(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13)(typescript@5.9.3)':
     dependencies:
       '@npmcli/arborist': 7.5.4
       '@npmcli/package-json': 5.2.0
@@ -16635,7 +16800,7 @@ snapshots:
       console-control-strings: 1.1.0
       conventional-changelog-core: 5.0.1
       conventional-recommended-bump: 7.0.1
-      cosmiconfig: 9.0.0(typescript@5.8.3)
+      cosmiconfig: 9.0.0(typescript@5.9.3)
       dedent: 1.5.3
       execa: 5.0.0
       fs-extra: 11.2.0
@@ -18688,11 +18853,11 @@ snapshots:
 
   '@tootallnate/once@2.0.0': {}
 
-  '@ts-morph/common@0.25.0':
+  '@ts-morph/common@0.28.1':
     dependencies:
-      minimatch: 9.0.5
+      minimatch: 10.1.1
       path-browserify: 1.0.1
-      tinyglobby: 0.2.13
+      tinyglobby: 0.2.15
 
   '@tsconfig/node10@1.0.11': {}
 
@@ -19212,9 +19377,9 @@ snapshots:
       typescript: 5.6.3
       zod: 3.24.4
 
-  abitype@1.0.6(typescript@5.8.3)(zod@3.24.4):
+  abitype@1.0.6(typescript@5.9.3)(zod@3.24.4):
     optionalDependencies:
-      typescript: 5.8.3
+      typescript: 5.9.3
       zod: 3.24.4
 
   abort-controller@3.0.0:
@@ -19487,12 +19652,12 @@ snapshots:
 
   astring@1.9.0: {}
 
-  astro-expressive-code@0.41.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)):
+  astro-expressive-code@0.41.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1)):
     dependencies:
-      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
+      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1)
       rehype-expressive-code: 0.41.2
 
-  astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1):
+  astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1):
     dependencies:
       '@astrojs/compiler': 2.12.0
       '@astrojs/internal-helpers': 0.6.1
@@ -19539,7 +19704,7 @@ snapshots:
       shiki: 3.3.0
       tinyexec: 0.3.2
       tinyglobby: 0.2.13
-      tsconfck: 3.1.5(typescript@5.8.3)
+      tsconfck: 3.1.5(typescript@5.9.3)
       ultrahtml: 1.6.0
       unifont: 0.4.1
       unist-util-visit: 5.0.0
@@ -19552,7 +19717,7 @@ snapshots:
       yocto-spinner: 0.2.2
       zod: 3.24.4
       zod-to-json-schema: 3.24.5(zod@3.24.4)
-      zod-to-ts: 1.2.0(typescript@5.8.3)(zod@3.24.4)
+      zod-to-ts: 1.2.0(typescript@5.9.3)(zod@3.24.4)
     optionalDependencies:
       sharp: 0.33.5
     transitivePeerDependencies:
@@ -20572,6 +20737,8 @@ snapshots:
     dependencies:
       browserslist: 4.24.2
 
+  core-js@3.47.0: {}
+
   core-util-is@1.0.3: {}
 
   cors@2.8.5:
@@ -20595,14 +20762,14 @@ snapshots:
     optionalDependencies:
       typescript: 5.6.3
 
-  cosmiconfig@9.0.0(typescript@5.8.3):
+  cosmiconfig@9.0.0(typescript@5.9.3):
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.0
       js-yaml: 4.1.0
       parse-json: 5.2.0
     optionalDependencies:
-      typescript: 5.8.3
+      typescript: 5.9.3
 
   create-require@1.1.1: {}
 
@@ -21993,6 +22160,10 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.2
 
+  fdir@6.5.0(picomatch@4.0.3):
+    optionalDependencies:
+      picomatch: 4.0.3
+
   figures@3.2.0:
     dependencies:
       escape-string-regexp: 1.0.5
@@ -23178,11 +23349,11 @@ snapshots:
     optionalDependencies:
       typescript: 5.3.3
 
-  i18next@25.5.2(typescript@5.8.3):
+  i18next@25.5.2(typescript@5.9.3):
     dependencies:
       '@babel/runtime': 7.28.4
     optionalDependencies:
-      typescript: 5.8.3
+      typescript: 5.9.3
 
   iconv-lite@0.4.24:
     dependencies:
@@ -23804,7 +23975,7 @@ snapshots:
 
   klona@2.0.6: {}
 
-  knip@5.59.1(@types/node@22.15.17)(typescript@5.8.3):
+  knip@5.59.1(@types/node@22.15.17)(typescript@5.9.3):
     dependencies:
       '@nodelib/fs.walk': 1.2.8
       '@types/node': 22.15.17
@@ -23818,7 +23989,7 @@ snapshots:
       picomatch: 4.0.2
       smol-toml: 1.3.4
       strip-json-comments: 5.0.1
-      typescript: 5.8.3
+      typescript: 5.9.3
       zod: 3.24.4
       zod-validation-error: 3.4.1(zod@3.24.4)
 
@@ -23837,7 +24008,7 @@ snapshots:
 
   lerna@8.2.2(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13):
     dependencies:
-      '@lerna/create': 8.2.2(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13)(typescript@5.8.3)
+      '@lerna/create': 8.2.2(@swc/core@1.8.0(@swc/helpers@0.5.17))(encoding@0.1.13)(typescript@5.9.3)
       '@npmcli/arborist': 7.5.4
       '@npmcli/package-json': 5.2.0
       '@npmcli/run-script': 8.1.0
@@ -23855,7 +24026,7 @@ snapshots:
       conventional-changelog-angular: 7.0.0
       conventional-changelog-core: 5.0.1
       conventional-recommended-bump: 7.0.1
-      cosmiconfig: 9.0.0(typescript@5.8.3)
+      cosmiconfig: 9.0.0(typescript@5.9.3)
       dedent: 1.5.3
       envinfo: 7.13.0
       execa: 5.0.0
@@ -23907,7 +24078,7 @@ snapshots:
       strong-log-transformer: 2.1.0
       tar: 6.2.1
       temp-dir: 1.0.0
-      typescript: 5.8.3
+      typescript: 5.9.3
       upath: 2.0.1
       uuid: 10.0.0
       validate-npm-package-license: 3.0.4
@@ -25066,6 +25237,10 @@ snapshots:
 
   minimalistic-crypto-utils@1.0.1: {}
 
+  minimatch@10.1.1:
+    dependencies:
+      '@isaacs/brace-expansion': 5.0.0
+
   minimatch@3.0.5:
     dependencies:
       brace-expansion: 1.1.11
@@ -25691,17 +25866,17 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
-  ox@0.1.2(typescript@5.8.3)(zod@3.24.4):
+  ox@0.1.2(typescript@5.9.3)(zod@3.24.4):
     dependencies:
       '@adraffy/ens-normalize': 1.11.0
       '@noble/curves': 1.8.0
       '@noble/hashes': 1.7.0
       '@scure/bip32': 1.5.0
       '@scure/bip39': 1.4.0
-      abitype: 1.0.6(typescript@5.8.3)(zod@3.24.4)
+      abitype: 1.0.6(typescript@5.9.3)(zod@3.24.4)
       eventemitter3: 5.0.1
     optionalDependencies:
-      typescript: 5.8.3
+      typescript: 5.9.3
     transitivePeerDependencies:
       - zod
 
@@ -26025,6 +26200,8 @@ snapshots:
 
   picomatch@4.0.2: {}
 
+  picomatch@4.0.3: {}
+
   pidtree@0.3.1: {}
 
   pidtree@0.6.0: {}
@@ -26175,10 +26352,10 @@ snapshots:
 
   prelude-ls@1.2.1: {}
 
-  prettier-plugin-organize-imports@4.1.0(prettier@3.4.2)(typescript@5.8.3):
+  prettier-plugin-organize-imports@4.1.0(prettier@3.4.2)(typescript@5.9.3):
     dependencies:
       prettier: 3.4.2
-      typescript: 5.8.3
+      typescript: 5.9.3
 
   prettier@3.4.2: {}
 
@@ -26449,16 +26626,16 @@ snapshots:
       react-native: 0.79.3(@babel/core@7.26.0)(@types/react@18.3.12)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)
       typescript: 5.3.3
 
-  react-i18next@15.7.4(i18next@25.5.2(typescript@5.8.3))(react-dom@19.0.0(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)(typescript@5.8.3):
+  react-i18next@15.7.4(i18next@25.5.2(typescript@5.9.3))(react-dom@19.0.0(react@19.0.0))(react-native@0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10))(react@19.0.0)(typescript@5.9.3):
     dependencies:
       '@babel/runtime': 7.28.4
       html-parse-stringify: 3.0.1
-      i18next: 25.5.2(typescript@5.8.3)
+      i18next: 25.5.2(typescript@5.9.3)
       react: 19.0.0
     optionalDependencies:
       react-dom: 19.0.0(react@19.0.0)
       react-native: 0.79.3(@babel/core@7.26.0)(bufferutil@4.0.8)(react@19.0.0)(utf-8-validate@5.0.10)
-      typescript: 5.8.3
+      typescript: 5.9.3
 
   react-is@16.13.1: {}
 
@@ -27735,22 +27912,22 @@ snapshots:
 
   standard-as-callback@2.1.0: {}
 
-  starlight-openapi-rapidoc@0.8.1-beta(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3):
+  starlight-openapi-rapidoc@0.8.1-beta(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1))(openapi-types@12.1.3):
     dependencies:
-      '@astrojs/starlight': 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
+      '@astrojs/starlight': 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1))
       '@astropub/md': 0.4.0
       '@readme/openapi-parser': 2.5.0(openapi-types@12.1.3)
-      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
+      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1)
       github-slugger: 2.0.0
     transitivePeerDependencies:
       - '@astrojs/markdown-remark'
       - openapi-types
 
-  starlight-openapi@0.17.0(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))(openapi-types@12.1.3):
+  starlight-openapi@0.17.0(@astrojs/starlight@0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1)))(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1))(openapi-types@12.1.3):
     dependencies:
-      '@astrojs/starlight': 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1))
+      '@astrojs/starlight': 0.34.2(astro@5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1))
       '@readme/openapi-parser': 2.7.0(openapi-types@12.1.3)
-      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.8.3)(yaml@2.5.1)
+      astro: 5.7.10(@types/node@22.15.17)(encoding@0.1.13)(idb-keyval@6.2.1)(ioredis@5.7.0)(jiti@2.4.2)(lightningcss@1.29.1)(rollup@4.40.1)(terser@5.32.0)(typescript@5.9.3)(yaml@2.5.1)
       github-slugger: 2.0.0
       url-template: 3.1.1
     transitivePeerDependencies:
@@ -28131,6 +28308,11 @@ snapshots:
       fdir: 6.4.4(picomatch@4.0.2)
       picomatch: 4.0.2
 
+  tinyglobby@0.2.15:
+    dependencies:
+      fdir: 6.5.0(picomatch@4.0.3)
+      picomatch: 4.0.3
+
   tlds@1.255.0: {}
 
   tmp-promise@3.0.3:
@@ -28209,9 +28391,9 @@ snapshots:
       typescript: 5.6.3
       webpack: 5.94.0(@swc/core@1.8.0(@swc/helpers@0.5.17))
 
-  ts-morph@24.0.0:
+  ts-morph@27.0.2:
     dependencies:
-      '@ts-morph/common': 0.25.0
+      '@ts-morph/common': 0.28.1
       code-block-writer: 13.0.3
 
   ts-node@10.9.2(@swc/core@1.8.0(@swc/helpers@0.5.17))(@types/node@16.18.126)(typescript@4.9.4):
@@ -28254,9 +28436,9 @@ snapshots:
     optionalDependencies:
       '@swc/core': 1.8.0(@swc/helpers@0.5.17)
 
-  tsconfck@3.1.5(typescript@5.8.3):
+  tsconfck@3.1.5(typescript@5.9.3):
     optionalDependencies:
-      typescript: 5.8.3
+      typescript: 5.9.3
 
   tsconfig-paths@3.15.0:
     dependencies:
@@ -28273,7 +28455,7 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  tsup@8.5.0(@swc/core@1.8.0(@swc/helpers@0.5.17))(jiti@2.4.2)(postcss@8.5.3)(typescript@5.8.3)(yaml@2.5.1):
+  tsup@8.5.0(@swc/core@1.8.0(@swc/helpers@0.5.17))(jiti@2.4.2)(postcss@8.5.3)(typescript@5.9.3)(yaml@2.5.1):
     dependencies:
       bundle-require: 5.1.0(esbuild@0.25.3)
       cac: 6.7.14
@@ -28295,7 +28477,7 @@ snapshots:
     optionalDependencies:
       '@swc/core': 1.8.0(@swc/helpers@0.5.17)
       postcss: 8.5.3
-      typescript: 5.8.3
+      typescript: 5.9.3
     transitivePeerDependencies:
       - jiti
       - supports-color
@@ -28394,6 +28576,8 @@ snapshots:
 
   typescript@5.8.3: {}
 
+  typescript@5.9.3: {}
+
   typical@4.0.0: {}
 
   typical@7.3.0: {}
@@ -28459,6 +28643,8 @@ snapshots:
       unicode-trie: 2.0.0
 
   unicode-property-aliases-ecmascript@2.1.0: {}
+
+  unicode-segmenter@0.14.0: {}
 
   unicode-trie@2.0.0:
     dependencies:
@@ -28719,19 +28905,19 @@ snapshots:
       - utf-8-validate
       - zod
 
-  viem@2.21.44(bufferutil@4.0.8)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.24.4):
+  viem@2.21.44(bufferutil@4.0.8)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.24.4):
     dependencies:
       '@noble/curves': 1.6.0
       '@noble/hashes': 1.5.0
       '@scure/bip32': 1.5.0
       '@scure/bip39': 1.4.0
-      abitype: 1.0.6(typescript@5.8.3)(zod@3.24.4)
+      abitype: 1.0.6(typescript@5.9.3)(zod@3.24.4)
       isows: 1.0.6(ws@8.18.0(bufferutil@4.0.8)(utf-8-validate@5.0.10))
-      ox: 0.1.2(typescript@5.8.3)(zod@3.24.4)
+      ox: 0.1.2(typescript@5.9.3)(zod@3.24.4)
       webauthn-p256: 0.0.10
       ws: 8.18.0(bufferutil@4.0.8)(utf-8-validate@5.0.10)
     optionalDependencies:
-      typescript: 5.8.3
+      typescript: 5.9.3
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -29183,8 +29369,6 @@ snapshots:
       buffer-crc32: 0.2.13
       fd-slicer: 1.1.0
 
-  yesno@0.4.0: {}
-
   yn@3.1.1: {}
 
   yocto-queue@0.1.0: {}
@@ -29201,9 +29385,9 @@ snapshots:
     dependencies:
       zod: 3.24.4
 
-  zod-to-ts@1.2.0(typescript@5.8.3)(zod@3.24.4):
+  zod-to-ts@1.2.0(typescript@5.9.3)(zod@3.24.4):
     dependencies:
-      typescript: 5.8.3
+      typescript: 5.9.3
       zod: 3.24.4
 
   zod-validation-error@3.4.1(zod@3.24.4):

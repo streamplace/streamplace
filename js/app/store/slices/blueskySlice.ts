@@ -1,15 +1,11 @@
-import {
-  Agent,
-  AppBskyFeedPost,
-  AppBskyGraphBlock,
-  BlobRef,
-  RichText,
-} from "@atproto/api";
+import { Agent, AppBskyGraphBlock, BlobRef, RichText } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/listRecords";
 import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
+import { Client } from "@atproto/lex";
 import { OAuthSession } from "@atproto/oauth-client";
 import { storage } from "@streamplace/components";
+import * as SPLEX from "@streamplace/sp-lex";
 import { Platform } from "react-native";
 import { AppStore } from "store";
 import {
@@ -441,6 +437,8 @@ export const createBlueskySlice: StateCreator<
       time: new Date().toISOString(),
     });
 
+    const client = new Client(state.oauthSession!);
+
     const linkUrl = `${u.protocol}//${u.host}/${profile.handle}?${params.toString()}`;
     const prefix = `🔴 LIVE `;
     const textUrl = `${u.protocol}//${u.host}/${profile.handle}`;
@@ -450,27 +448,31 @@ export const createBlueskySlice: StateCreator<
     const rt = new RichText({ text: content });
     rt.detectFacetsWithoutResolution();
 
-    const record: AppBskyFeedPost.Record = {
+    const record: SPLEX.app.bsky.feed.post.Main = {
       $type: "app.bsky.feed.post",
       text: content,
-      "place.stream.livestream": {
-        url: linkUrl,
-        title: text,
-      },
-      facets: rt.facets,
+      // "place.stream.livestream": {
+      //   url: linkUrl,
+      //   title: text,
+      // },
+      // facets: rt.facets,
       createdAt: now.toISOString(),
     };
-    record.embed = {
-      $type: "app.bsky.embed.external",
-      external: {
-        description: text,
-        thumb: thumbnail,
-        title: `@${profile.handle} is 🔴LIVE on ${u.host}!`,
-        uri: linkUrl,
-      },
-    };
+    // record.embed = {
+    //   $type: "app.bsky.embed.external",
+    //   external: {
+    //     description: text,
+    //     thumb: thumbnail,
+    //     title: `@${profile.handle} is 🔴LIVE on ${u.host}!`,
+    //     uri: linkUrl,
+    //   },
+    // };
     console.log("golivePost record", record);
-    return await state.pdsAgent.post(record);
+
+    const result = await client.create(SPLEX.app.bsky.feed.post, record);
+    console.log("golivePost result", result);
+
+    return result;
   },
 
   createBlockRecord: async (subjectDID: string) => {

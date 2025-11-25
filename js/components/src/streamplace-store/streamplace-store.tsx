@@ -311,6 +311,8 @@ export const useUrl = () => useStreamplaceStore((x) => x.url);
 
 export const useDID = () => useStreamplaceStore((x) => x.oauthSession?.did);
 
+export const useOAuthSession = () => useStreamplaceStore((x) => x.oauthSession);
+
 export const useHandle = () => useStreamplaceStore((x) => x.handle);
 export const useSetHandle = (): ((handle: string) => void) => {
   const store = getStreamplaceStoreFromContext();

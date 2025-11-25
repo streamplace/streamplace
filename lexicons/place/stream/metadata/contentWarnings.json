@@ -17,7 +17,7 @@
               "place.stream.metadata.contentWarnings#flashingLights",
               "place.stream.metadata.contentWarnings#language",
               "place.stream.metadata.contentWarnings#nudity",
-              "place.stream.metadata.contentWarnings#PII",
+              "place.stream.metadata.contentWarnings#personallyIdentifiableInformation",
               "place.stream.metadata.contentWarnings#sexuality",
               "place.stream.metadata.contentWarnings#suffering",
               "place.stream.metadata.contentWarnings#violence"
@@ -50,7 +50,7 @@
       "type": "token",
       "description": "The content could be perceived as offensive due to nudity."
     },
-    "PII": {
+    "personallyIdentifiableInformation": {
       "type": "token",
       "description": "The content contains information that can be used to identify a particular individual, such as a name, phone number, email address, physical address, or IP address."
     },

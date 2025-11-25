@@ -9,4 +9,7 @@ const lexicons = fs.readFileSync(
 
 const stableLexicons = jss(JSON.parse(lexicons), { space: "  " });
 
-fs.writeFileSync(path.join(__dirname, "../lexicons.json"), stableLexicons);
+fs.writeFileSync(
+  path.join(__dirname, "../lexicons.json"),
+  stableLexicons + "\n",
+);

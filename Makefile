@@ -372,8 +372,10 @@ go-lexicons:
 
 .PHONY: js-lexicons
 js-lexicons:
-	npx lex build --out ./js/sp-lex/src/lexicons --clear \
-	&& sed -i.bak "s/\.js//" $$(find ./js/sp-lex/src/lexicons -type f -name '*.ts')
+	npx lex install --no-build \
+	&& npx lex build --out ./js/sp-lex/src/lexicons --clear \
+	&& sed -i.bak "s/\.js//" $$(find ./js/sp-lex/src/lexicons -type f -name '*.ts') \
+	&& node hack/stable-lexicons-json.js
 # 	node_modules/.bin/lex gen-api ./js/streamplace/src/lexicons $$(find ./lexicons -type f -name '*.json') --yes \
 # 		&& rm -rf ./js/streamplace/src/lexicons/types/com ./js/streamplace/src/lexicons/types/app \
 # 		&& sed -i.bak "s/^..port.*app\/bsky.*//g" $$(find ./js/streamplace/src/lexicons -type f) \

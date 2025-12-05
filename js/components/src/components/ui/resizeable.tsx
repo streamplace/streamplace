@@ -9,6 +9,7 @@ import {
 import Animated, {
   Extrapolation,
   interpolate,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -48,6 +49,7 @@ export function Resizable({
   const sheetHeight = useSharedValue(MIN_HEIGHT);
   const startHeight = useSharedValue(MIN_HEIGHT);
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const wasCollapsed = useSharedValue(true);
 
   useEffect(() => {
     setTimeout(() => {
@@ -69,11 +71,14 @@ export function Resizable({
       if (newHeight < MIN_HEIGHT) newHeight = MIN_HEIGHT;
       sheetHeight.value = newHeight;
 
-      if (newHeight < COLLAPSE_HEIGHT) {
+      const nowCollapsed = newHeight < COLLAPSE_HEIGHT;
+      if (nowCollapsed && !wasCollapsed.value) {
         sheetHeight.value = withSpring(MIN_HEIGHT, SPRING_CONFIG);
-        setIsCollapsed(true);
-      } else {
-        setIsCollapsed(false);
+        wasCollapsed.value = true;
+        runOnJS(setIsCollapsed)(true);
+      } else if (!nowCollapsed && wasCollapsed.value) {
+        wasCollapsed.value = false;
+        runOnJS(setIsCollapsed)(false);
       }
     });
 
@@ -209,7 +214,15 @@ export function Resizable({
         {children}
       </AnimatedView>
       <Animated.View
-        style={[aboveElementStyle, { width: "100%", pointerEvents: "none" }]}
+        style={[
+          aboveElementStyle,
+          {
+            width: "100%",
+            pointerEvents: "none",
+            position: "absolute",
+            bottom: 0,
+          },
+        ]}
       >
         <View style={{ pointerEvents: "auto" }}>
           {renderAbove?.(isCollapsed)}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -12,21 +12,37 @@ import { Button, Text, useTheme, zero } from "../../";
 export function TeleportNotification({
   targetHandle,
   countdown,
+  startTime,
   onDismiss,
 }: {
   targetHandle: string;
   countdown: number;
+  startTime?: number;
   onDismiss: () => void;
 }) {
   const { zero: z } = useTheme();
-  const [showStripes, setShowStripes] = useState(true);
-  const [timeLeft, setTimeLeft] = useState(countdown);
+  const w = useWindowDimensions().width;
+
+  // calculate initial time left based on start time
+  const initialTimeLeft = startTime
+    ? Math.max(0, countdown - Math.floor((Date.now() - startTime) / 1000))
+    : countdown;
+  const [timeLeft, setTimeLeft] = useState(initialTimeLeft);
+
+  // if we're past 5 seconds from start, stripes should already be hidden
+  const elapsedTime = startTime ? (Date.now() - startTime) / 1000 : 0;
+  const [showStripes, setShowStripes] = useState(elapsedTime < 5);
 
   const stripeX = useSharedValue(0);
   const stripeOpacity = useSharedValue(1);
   const progressWidth = useSharedValue(100);
 
   useEffect(() => {
+    // if stripes are already hidden, fade out asap and return
+    if (!showStripes) {
+      stripeOpacity.value = withTiming(0, { duration: 0 });
+      return;
+    }
     // warning stripes animation
     stripeX.value = withRepeat(
       withTiming(30 * 2, {
@@ -47,7 +63,7 @@ export function TeleportNotification({
       // after animation, set stripes as hidden
       setTimeout(() => {
         setShowStripes(false);
-      }, 500);
+      }, 350);
     }, 1500);
 
     return () => clearTimeout(stripesTimer);
@@ -99,10 +115,12 @@ export function TeleportNotification({
           zero.layout.flex.alignCenter,
           zero.layout.flex.spaceBetween,
           zero.px[3],
-          zero.py[4],
+          w > 650 ? zero.py[4] : zero.py[2],
         ]}
       >
-        <Text size="xl">Teleporting to @{targetHandle}</Text>
+        <Text size={w > 650 ? "xl" : "base"}>
+          Teleporting to @{targetHandle}
+        </Text>
         <View
           style={[
             zero.layout.flex.row,

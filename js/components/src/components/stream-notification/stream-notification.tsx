@@ -140,7 +140,7 @@ function NotificationItem({
       ]}
     >
       {notification.render ? (
-        notification.render(isExiting, handleDismiss)
+        notification.render(isExiting, handleDismiss, notification.startTime)
       ) : (
         <View style={styles.content}>
           <Text style={[styles.message, { color: theme.colors.foreground }]}>

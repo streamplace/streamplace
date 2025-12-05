@@ -11,18 +11,18 @@ export const StreamNotifications = {
   }) => {
     streamNotification.show({
       id: "teleport",
-      render: (isExiting, onDismiss) => {
+      render: (isExiting, onDismiss, startTime) => {
         return React.createElement(TeleportNotification, {
           targetHandle: params.targetHandle,
           countdown: params.countdown,
+          startTime: startTime,
           onDismiss: () => {
             params.onCancel?.();
             onDismiss();
           },
         });
       },
-      // allow some extra time for the countdown animation to finish
-      duration: 30 + 7,
+      duration: 30 + 2, // manually dismissed by countdown or user cancel
       variant: "warning",
       onUserDismiss: params.onCancel,
     });

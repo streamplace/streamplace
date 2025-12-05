@@ -1,7 +1,11 @@
 export type NotificationConfig = {
   id?: string;
   message?: string;
-  render?: (isExiting: boolean, onDismiss: () => void) => React.ReactNode;
+  render?: (
+    isExiting: boolean,
+    onDismiss: () => void,
+    startTime?: number,
+  ) => React.ReactNode;
   duration?: number; // seconds, 0 = manual dismiss only
   actionLabel?: string;
   onAction?: () => void;
@@ -16,6 +20,7 @@ export type StreamNotification = NotificationConfig & {
   visible: boolean;
   shouldDismiss?: boolean;
   dismissReason?: "user" | "auto";
+  startTime?: number;
 };
 
 type Listener = (notifications: StreamNotification[]) => void;
@@ -38,6 +43,7 @@ class StreamNotificationManager {
       onAutoDismiss: config.onAutoDismiss,
       variant: config.variant ?? "default",
       visible: true,
+      startTime: Date.now(),
     };
 
     // if notification with same ID exists, dismiss it first

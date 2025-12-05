@@ -37,6 +37,8 @@ export * from "./components/chat/system-message";
 export { default as VideoRetry } from "./components/mobile-player/video-retry";
 export * from "./lib/system-messages";
 
+export * from "./components/stream-notification";
+
 export * from "./utils/format-handle";
 
 export { DanmuOverlay } from "./components/danmu/danmu-overlay";

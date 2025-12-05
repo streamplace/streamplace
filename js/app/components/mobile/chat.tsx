@@ -3,6 +3,7 @@ import {
   ChatBox,
   Loader,
   Resizable,
+  StreamNotificationProvider,
   Text,
   useHandle,
   useLivestreamInfo,
@@ -87,9 +88,11 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
           animatedSidebarStyle,
         ]}
       >
-        <View style={{ flex: 1, position: "relative" }}>
-          <ChatPanel />
-        </View>
+        <StreamNotificationProvider>
+          <View style={{ flex: 1, position: "relative" }}>
+            <ChatPanel />
+          </View>
+        </StreamNotificationProvider>
       </Animated.View>
     </>
   );
@@ -110,6 +113,9 @@ export function MobileChatPanel({ isPlayerRatioGreater }) {
       <Resizable
         isPlayerRatioGreater={isPlayerRatioGreater}
         startingPercentage={0.4}
+        renderAbove={(isCollapsed) => (
+          <StreamNotificationProvider position="bottom" />
+        )}
       >
         <ChatPanel />
       </Resizable>

@@ -380,6 +380,30 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			task.ChatProfile = spcp
 		}
 
+	case *streamplace.LiveTeleport:
+		if r == nil {
+			return nil
+		}
+		startsAt, err := time.Parse(time.RFC3339, rec.StartsAt)
+		if err != nil {
+			log.Error(ctx, "failed to parse startsAt", "err", err)
+			return nil
+		}
+		tp := &model.Teleport{
+			CID:             cid,
+			URI:             aturi.String(),
+			StartsAt:        startsAt,
+			DurationSeconds: rec.DurationSeconds,
+			Teleport:        recCBOR,
+			RepoDID:         userDID,
+			TargetDID:       rec.Streamer,
+		}
+		err = atsync.Model.CreateTeleport(ctx, tp)
+		if err != nil {
+			return fmt.Errorf("failed to create teleport: %w", err)
+		}
+		go atsync.Bus.Publish(userDID, rec)
+
 	case *streamplace.Key:
 		log.Debug(ctx, "creating key", "key", rec)
 		time, err := aqtime.FromString(rec.CreatedAt)

@@ -15,6 +15,9 @@ import {
   useTheme,
   View,
 } from "../../";
+import { handleSlashCommand } from "../../lib/slash-commands";
+import { registerTeleportCommand } from "../../lib/slash-commands/teleport";
+import { StreamNotifications } from "../../lib/stream-notifications";
 import {
   borders,
   flex,
@@ -28,6 +31,7 @@ import {
   r,
   w,
 } from "../../lib/theme/atoms";
+import { useDID, usePDSAgent } from "../../streamplace-store";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
 import { EmojiData, EmojiSuggestions } from "./emoji-suggestions";
@@ -72,6 +76,15 @@ export function ChatBox({
   const replyTo = useReplyToMessage();
   const setReplyToMessage = useSetReplyToMessage();
   const textAreaRef = useRef<TextInput>(null);
+
+  const pdsAgent = usePDSAgent();
+  const userDID = useDID();
+
+  useEffect(() => {
+    if (pdsAgent && userDID) {
+      registerTeleportCommand(pdsAgent, userDID);
+    }
+  }, [pdsAgent, userDID]);
 
   const authors = useMemo(() => {
     if (!chat) return null;
@@ -232,20 +245,33 @@ export function ChatBox({
     }
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!message.trim()) return;
+
+    const messageText = message;
     setMessage("");
     setReplyToMessage(null);
-
     setSubmitting(true);
-    createChatMessage({
-      text: message,
-      reply: replyTo || undefined,
-    });
-    setSubmitting(false);
 
-    // if we press "send" button, we want the same action as pressing "Enter"
-    // if we're already focused no need to do extra work
+    try {
+      const result = await handleSlashCommand(messageText);
+
+      if (result.handled) {
+        if (result.error) {
+          console.error("Slash command error:", result.error);
+        }
+      } else {
+        createChatMessage({
+          text: messageText,
+          reply: replyTo || undefined,
+        });
+      }
+    } catch (err) {
+      console.error("Error submitting message:", err);
+    } finally {
+      setSubmitting(false);
+    }
+
     if (textAreaRef.current && !textAreaRef.current.isFocused()) {
       textAreaRef.current.focus();
       requestAnimationFrame(() => {
@@ -454,17 +480,28 @@ export function ChatBox({
         >
           <Button
             variant="secondary"
+            style={{ borderRadius: 16 }}
+            onPress={() => {
+              StreamNotifications.teleport({
+                targetHandle: "test.bsky.social",
+                targetDID: "did:plc:test",
+                countdown: 30,
+                onCancel: () => console.log("teleport cancelled"),
+              });
+            }}
+          >
+            Test Notification
+          </Button>
+          <Button
+            variant="secondary"
             style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
             aria-label="Insert Mention"
             onPress={() => {
-              // if the last character is not @, add it
               !message.endsWith("@") && setMessage(message + "@");
-              // get all the text after the last @
               const atIndex = message.lastIndexOf("@");
               const searchText = message.slice(atIndex + 1).toLowerCase();
               updateSuggestions(searchText);
               setShowSuggestions(true);
-              // focus the textarea
               textAreaRef.current?.focus();
             }}
           >

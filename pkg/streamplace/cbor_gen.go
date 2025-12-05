@@ -5526,15 +5526,20 @@ func (t *ModerationPermission) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
+func (t *LiveTeleport) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 
 	cw := cbg.NewCborWriter(w)
+	fieldCount := 4
 
-	if _, err := cw.Write([]byte{163}); err != nil {
+	if t.DurationSeconds == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
 		return err
 	}
 
@@ -5550,73 +5555,95 @@ func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.live.recommendations"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.live.teleport"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("place.stream.live.recommendations")); err != nil {
-		return err
-	}
-
-	// t.CreatedAt (string) (string)
-	if len("createdAt") > 1000000 {
-		return xerrors.Errorf("Value in field \"createdAt\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("createdAt")); err != nil {
+	if _, err := cw.WriteString(string("place.stream.live.teleport")); err != nil {
 		return err
 	}
 
-	if len(t.CreatedAt) > 1000000 {
-		return xerrors.Errorf("Value in field t.CreatedAt was too long")
+	// t.StartsAt (string) (string)
+	if len("startsAt") > 1000000 {
+		return xerrors.Errorf("Value in field \"startsAt\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("startsAt"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
-		return err
-	}
-
-	// t.Streamers ([]string) (slice)
-	if len("streamers") > 1000000 {
-		return xerrors.Errorf("Value in field \"streamers\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("streamers"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("streamers")); err != nil {
+	if _, err := cw.WriteString(string("startsAt")); err != nil {
 		return err
 	}
 
-	if len(t.Streamers) > 8192 {
-		return xerrors.Errorf("Slice value in field t.Streamers was too long")
+	if len(t.StartsAt) > 1000000 {
+		return xerrors.Errorf("Value in field t.StartsAt was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Streamers))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.StartsAt))); err != nil {
 		return err
 	}
-	for _, v := range t.Streamers {
-		if len(v) > 1000000 {
-			return xerrors.Errorf("Value in field v was too long")
+	if _, err := cw.WriteString(string(t.StartsAt)); err != nil {
+		return err
+	}
+
+	// t.Streamer (string) (string)
+	if len("streamer") > 1000000 {
+		return xerrors.Errorf("Value in field \"streamer\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("streamer"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("streamer")); err != nil {
+		return err
+	}
+
+	if len(t.Streamer) > 1000000 {
+		return xerrors.Errorf("Value in field t.Streamer was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Streamer))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Streamer)); err != nil {
+		return err
+	}
+
+	// t.DurationSeconds (int64) (int64)
+	if t.DurationSeconds != nil {
+
+		if len("durationSeconds") > 1000000 {
+			return xerrors.Errorf("Value in field \"durationSeconds\" was too long")
 		}
 
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(v))); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("durationSeconds"))); err != nil {
 			return err
 		}
-		if _, err := cw.WriteString(string(v)); err != nil {
+		if _, err := cw.WriteString(string("durationSeconds")); err != nil {
 			return err
+		}
+
+		if t.DurationSeconds == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if *t.DurationSeconds >= 0 {
+				if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(*t.DurationSeconds)); err != nil {
+					return err
+				}
+			} else {
+				if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-*t.DurationSeconds-1)); err != nil {
+					return err
+				}
+			}
 		}
 
 	}
 	return nil
 }
 
-func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = LiveRecommendations{}
+func (t *LiveTeleport) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = LiveTeleport{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -5635,12 +5662,12 @@ func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("LiveRecommendations: map struct too large (%d)", extra)
+		return fmt.Errorf("LiveTeleport: map struct too large (%d)", extra)
 	}
 
 	n := extra
 
-	nameBuf := make([]byte, 9)
+	nameBuf := make([]byte, 15)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -5667,8 +5694,8 @@ func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.LexiconTypeID = string(sval)
 			}
-			// t.CreatedAt (string) (string)
-		case "createdAt":
+			// t.StartsAt (string) (string)
+		case "startsAt":
 
 			{
 				sval, err := cbg.ReadStringWithMax(cr, 1000000)
@@ -5676,46 +5703,53 @@ func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) (err error) {
 					return err
 				}
 
-				t.CreatedAt = string(sval)
+				t.StartsAt = string(sval)
 			}
-			// t.Streamers ([]string) (slice)
-		case "streamers":
+			// t.Streamer (string) (string)
+		case "streamer":
 
-			maj, extra, err = cr.ReadHeader()
-			if err != nil {
-				return err
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.Streamer = string(sval)
 			}
+			// t.DurationSeconds (int64) (int64)
+		case "durationSeconds":
+			{
 
-			if extra > 8192 {
-				return fmt.Errorf("t.Streamers: array too large (%d)", extra)
-			}
-
-			if maj != cbg.MajArray {
-				return fmt.Errorf("expected cbor array")
-			}
-
-			if extra > 0 {
-				t.Streamers = make([]string, extra)
-			}
-
-			for i := 0; i < int(extra); i++ {
-				{
-					var maj byte
-					var extra uint64
-					var err error
-					_ = maj
-					_ = extra
-					_ = err
-
-					{
-						sval, err := cbg.ReadStringWithMax(cr, 1000000)
-						if err != nil {
-							return err
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					maj, extra, err := cr.ReadHeader()
+					if err != nil {
+						return err
+					}
+					var extraI int64
+					switch maj {
+					case cbg.MajUnsignedInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 positive overflow")
 						}
-
-						t.Streamers[i] = string(sval)
+					case cbg.MajNegativeInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 negative overflow")
+						}
+						extraI = -1 - extraI
+					default:
+						return fmt.Errorf("wrong type for int64 field: %d", maj)
 					}
 
+					t.DurationSeconds = (*int64)(&extraI)
 				}
 			}
 

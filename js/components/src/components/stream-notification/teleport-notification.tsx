@@ -1,0 +1,162 @@
+import { useEffect, useState } from "react";
+import { View } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
+import { Button, Text, useTheme, zero } from "../../";
+
+export function TeleportNotification({
+  targetHandle,
+  countdown,
+  onDismiss,
+}: {
+  targetHandle: string;
+  countdown: number;
+  onDismiss: () => void;
+}) {
+  const { zero: z } = useTheme();
+  const [showStripes, setShowStripes] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(countdown);
+
+  const stripeX = useSharedValue(0);
+  const stripeOpacity = useSharedValue(1);
+  const progressWidth = useSharedValue(100);
+
+  useEffect(() => {
+    // warning stripes animation
+    stripeX.value = withRepeat(
+      withTiming(30 * 2, {
+        duration: 1000,
+        easing: Easing.linear,
+      }),
+      3,
+      false,
+    );
+
+    // hide stripes after 500ms
+    const stripesTimer = setTimeout(() => {
+      // woosh the stripes off to the right before hiding
+      stripeX.value = withTiming(30 * 80, {
+        duration: 1500,
+        easing: Easing.cubic,
+      });
+      // after animation, set stripes as hidden
+      setTimeout(() => {
+        setShowStripes(false);
+      }, 500);
+    }, 1500);
+
+    return () => clearTimeout(stripesTimer);
+  }, []);
+
+  useEffect(() => {
+    if (showStripes) return;
+
+    // countdown timer
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showStripes, onDismiss]);
+
+  useEffect(() => {
+    if (showStripes) return;
+
+    // animate progress bar
+    const percentage = (timeLeft / countdown) * 100;
+    progressWidth.value = withTiming(percentage, {
+      duration: 1000,
+      easing: Easing.linear,
+    });
+  }, [timeLeft, countdown, showStripes]);
+
+  const stripesStyle = useAnimatedStyle(() => ({
+    opacity: stripeOpacity.value,
+    transform: [{ translateX: stripeX.value }],
+  }));
+
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progressWidth.value}%`,
+  }));
+
+  return (
+    <View style={[{ overflow: "hidden" }, zero.r.lg, zero.bg.neutral[900]]}>
+      <View
+        style={[
+          zero.layout.flex.row,
+          zero.layout.flex.alignCenter,
+          zero.layout.flex.spaceBetween,
+          zero.px[3],
+          zero.py[4],
+        ]}
+      >
+        <Text size="xl">Teleporting to @{targetHandle}</Text>
+        <View
+          style={[
+            zero.layout.flex.row,
+            zero.layout.flex.alignCenter,
+            zero.gap.all[3],
+          ]}
+        >
+          <Text color="muted">{timeLeft}s</Text>
+          <Button onPress={onDismiss} width="min" variant="destructive">
+            Cancel
+          </Button>
+        </View>
+      </View>
+      <View
+        style={{
+          height: 4,
+          width: "100%",
+          borderRadius: 2,
+          overflow: "hidden",
+          backgroundColor: "#0f0f1e",
+        }}
+      >
+        <Animated.View
+          style={[
+            { height: "100%", borderRadius: 2, backgroundColor: "#16f4d0" },
+            progressStyle,
+          ]}
+        />
+      </View>
+      <Animated.View
+        style={[
+          {
+            position: "absolute",
+            flexDirection: "row",
+            height: 180,
+            width: "200%",
+            //clickthrough
+            pointerEvents: "none",
+          },
+          stripesStyle,
+        ]}
+      >
+        {[...Array(80)].map((_, i) => (
+          <View
+            key={i}
+            style={{
+              width: 30,
+              height: "100%",
+              backgroundColor: i % 2 === 0 ? "#FFA500" : "#000000",
+              transform: [{ skewX: "-45deg" }, { translateX: -30 * 8 }],
+            }}
+          />
+        ))}
+      </Animated.View>
+    </View>
+  );
+}

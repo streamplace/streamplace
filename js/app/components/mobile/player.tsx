@@ -188,30 +188,45 @@ function PlayerWithProvider(
     );
   }
 
+  const handleTeleport = (targetHandle: string, targetDID: string) => {
+    console.log("Teleporting to", targetHandle, targetDID);
+    navigation.navigate("Home", {
+      screen: "Stream",
+      params: { user: targetDID },
+    });
+  };
+
   return (
-    <View
-      style={{
-        flexDirection: chatVisible ? "row" : "column",
-        flex: 1,
-        width: "100%",
-        height: "100%",
-      }}
-    >
-      <PlayerInner
-        {...props}
-        showChat={showChat}
-        setShowChat={setShowChat}
-        showUnavailable={showUnavailable}
-      />
-      {shouldShowChatSidePanel ? (
-        <DesktopChatPanel
-          chatVisible={chatVisible}
-          chatPanelWidth={chatPanelWidth}
-        />
-      ) : (
-        !showUnavailable && <MobileUi />
-      )}
-    </View>
+    <RotationProvider enabled={Platform.OS !== "web"}>
+      <LivestreamProvider src={props.src ?? ""} onTeleport={handleTeleport}>
+        <StatusBar hidden={true} />
+        <PlayerProvider defaultId={props.playerId || undefined}>
+          <View
+            style={{
+              flexDirection: chatVisible ? "row" : "column",
+              flex: 1,
+              width: "100%",
+              height: "100%",
+            }}
+          >
+            <PlayerInner
+              {...props}
+              showChat={showChat}
+              setShowChat={setShowChat}
+              showUnavailable={showUnavailable}
+            />
+            {shouldShowChatSidePanel ? (
+              <DesktopChatPanel
+                chatVisible={chatVisible}
+                chatPanelWidth={chatPanelWidth}
+              />
+            ) : (
+              !showUnavailable && <MobileUi />
+            )}
+          </View>
+        </PlayerProvider>
+      </LivestreamProvider>
+    </RotationProvider>
   );
 }
 

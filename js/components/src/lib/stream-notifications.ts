@@ -8,6 +8,7 @@ export const StreamNotifications = {
     targetDID: string;
     countdown: number;
     onCancel?: () => void;
+    onAutoDismiss?: () => void;
   }) => {
     streamNotification.show({
       id: "teleport",
@@ -16,15 +17,13 @@ export const StreamNotifications = {
           targetHandle: params.targetHandle,
           countdown: params.countdown,
           startTime: startTime,
-          onDismiss: () => {
-            params.onCancel?.();
-            onDismiss();
-          },
+          onDismiss: onDismiss,
         });
       },
-      duration: 30 + 2, // manually dismissed by countdown or user cancel
+      duration: 0, // manually dismissed by countdown or user cancel
       variant: "warning",
       onUserDismiss: params.onCancel,
+      onAutoDismiss: params.onAutoDismiss,
     });
   },
 

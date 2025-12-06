@@ -18,7 +18,7 @@ export function TeleportNotification({
   targetHandle: string;
   countdown: number;
   startTime?: number;
-  onDismiss: () => void;
+  onDismiss: (reason?: "user" | "auto") => void;
 }) {
   const { zero: z } = useTheme();
   const w = useWindowDimensions().width;
@@ -77,7 +77,7 @@ export function TeleportNotification({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-
+          onDismiss("auto");
           return 0;
         }
         return prev - 1;
@@ -129,7 +129,11 @@ export function TeleportNotification({
           ]}
         >
           <Text color="muted">{timeLeft}s</Text>
-          <Button onPress={onDismiss} width="min" variant="destructive">
+          <Button
+            onPress={() => onDismiss("user")}
+            width="min"
+            variant="destructive"
+          >
             Cancel
           </Button>
         </View>

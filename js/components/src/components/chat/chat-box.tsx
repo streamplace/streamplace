@@ -97,6 +97,12 @@ export function ChatBox({
     }, new Map<string, ChatMessageViewHydrated["chatProfile"]>());
   }, [chat]);
 
+  useEffect(() => {
+    if (pdsAgent && linfo?.author?.did && pdsAgent.did === linfo.author.did) {
+      registerTeleportCommand(pdsAgent, pdsAgent.did);
+    }
+  }, [pdsAgent, linfo?.author?.did]);
+
   const handleMentionSelect = (handle: string) => {
     const beforeAt = message.slice(0, message.lastIndexOf("@"));
     setMessage(`${beforeAt}@${handle} `);
@@ -251,7 +257,22 @@ export function ChatBox({
     const messageText = message;
     setMessage("");
     setReplyToMessage(null);
+
+    if (messageText.startsWith("/")) {
+      const result = await handleSlashCommand(messageText);
+      if (result.handled) {
+        if (result.error) {
+          console.error("Slash command error:", result.error);
+        }
+        return;
+      }
+    }
     setSubmitting(true);
+    createChatMessage({
+      text: message,
+      reply: replyTo || undefined,
+    });
+    setSubmitting(false);
 
     try {
       const result = await handleSlashCommand(messageText);

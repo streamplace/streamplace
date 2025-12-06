@@ -84,6 +84,10 @@ class StreamNotificationManager {
     notification.shouldDismiss = true;
     notification.dismissReason = reason;
     this.notifyListeners();
+    // after 500ms, just hide it for real
+    setTimeout(() => {
+      this.hide(id, reason);
+    }, 500);
   }
 
   hide(id: string, reason: "user" | "auto" = "user") {

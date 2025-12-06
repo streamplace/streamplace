@@ -52,7 +52,7 @@ function MobileStreamInner({
     <>
       <KeepAwake />
       <FullscreenProvider>
-        <Player src={src} {...extraProps} />
+        <Player key={src} src={src} {...extraProps} />
       </FullscreenProvider>
     </>
   );

@@ -74,8 +74,19 @@ function NotificationItem({
   useEffect(() => {
     if (notification.shouldDismiss && !isExiting) {
       setIsExiting(true);
+      setTimeout(() => {
+        streamNotificationManager.hide(
+          notification.id,
+          notification.dismissReason || "auto",
+        );
+      }, 200);
     }
-  }, [notification.shouldDismiss, isExiting]);
+  }, [
+    notification.shouldDismiss,
+    isExiting,
+    notification.id,
+    notification.dismissReason,
+  ]);
 
   useEffect(() => {
     if (isExiting) {
@@ -109,15 +120,14 @@ function NotificationItem({
     },
   };
 
-  const handleDismiss = () => {
+  const handleDismiss = (reason: "user" | "auto" = "user") => {
     console.log("Dismissing notification:", notification.id);
     setIsExiting(true);
     setTimeout(() => {
-      streamNotificationManager.hide(
-        notification.id,
-        notification.dismissReason || "user",
-      );
+      console.log("Requesting dismiss for notification:", notification.id);
+      streamNotificationManager.hide(notification.id, reason);
     }, 200);
+    console.log(streamNotificationManager.getAll());
   };
 
   const handleAction = () => {
@@ -158,7 +168,10 @@ function NotificationItem({
               </Pressable>
             )}
 
-            <Pressable onPress={handleDismiss} style={styles.closeButton}>
+            <Pressable
+              onPress={() => handleDismiss("user")}
+              style={styles.closeButton}
+            >
               <X size={16} color={theme.colors.mutedForeground} />
             </Pressable>
           </View>

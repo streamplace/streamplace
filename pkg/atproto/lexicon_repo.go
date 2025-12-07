@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"slices"
 	"strings"
 	"time"
 
@@ -237,6 +238,8 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 
 	ops := []*comatproto.SyncSubscribeRepos_RepoOp{}
 
+	lexSchemas := []lexicon.SchemaFile{}
+
 	for _, lex := range lexs {
 		lexFile := lexicon.SchemaFile{}
 		err := json.Unmarshal(lex, &lexFile)
@@ -246,6 +249,15 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 		if !strings.HasPrefix(lexFile.ID, "place.stream") {
 			continue
 		}
+		lexSchemas = append(lexSchemas, lexFile)
+	}
+
+	err = populatePermissionSets(ctx, lexSchemas)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate permission sets: %w", err)
+	}
+
+	for _, lexFile := range lexSchemas {
 		sfw := &SchemaFileWrapper{SchemaFile: lexFile}
 		rpath := fmt.Sprintf("com.atproto.lexicon.schema/%s", lexFile.ID)
 		newCid, err := spid.GetCID(sfw)
@@ -368,4 +380,50 @@ func GetRecordCBOR(ctx context.Context, ses *carstore.DeltaSession, c cid.Cid, c
 		}
 	}
 	return val, nil
+}
+
+const AllStreamplaceRecords = "place.stream.*"
+
+func populatePermissionSets(ctx context.Context, lexs []lexicon.SchemaFile) error {
+	recordLexicons := []*lexicon.SchemaFile{}
+	permissionSets := []*lexicon.SchemaFile{}
+	for _, lex := range lexs {
+		main, ok := lex.Defs["main"]
+		if !ok {
+			continue
+		}
+		switch main.Inner.(type) {
+		case lexicon.SchemaRecord:
+			recordLexicons = append(recordLexicons, &lex)
+		case lexicon.SchemaPermissionSet:
+			permissionSets = append(permissionSets, &lex)
+		}
+	}
+
+	allRecords := []string{}
+	allCollectionStrings := []string{}
+	for _, record := range recordLexicons {
+		allRecords = append(allRecords, record.ID)
+		allCollectionStrings = append(allCollectionStrings, fmt.Sprintf("collection=%s", record.ID))
+	}
+
+	log.Warn(ctx, "oauth string", "string", fmt.Sprintf("repo?%s", strings.Join(allCollectionStrings, "&")))
+
+	for _, permSetLex := range permissionSets {
+		permSet := permSetLex.Defs["main"].Inner.(lexicon.SchemaPermissionSet)
+		for i := range permSet.Permissions {
+			if permSet.Permissions[i].Resource != "repo" {
+				continue
+			}
+			if !slices.Contains(permSet.Permissions[i].Collection, AllStreamplaceRecords) {
+				continue
+			}
+			if len(permSet.Permissions[i].Collection) != 1 {
+				return fmt.Errorf("invalid permission set: found %s with other collections, but only one collection is allowed", AllStreamplaceRecords)
+			}
+			permSet.Permissions[i].Collection = allRecords
+		}
+	}
+
+	return nil
 }

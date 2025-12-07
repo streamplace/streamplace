@@ -23,7 +23,8 @@ import (
 
 func (atsync *ATProtoSynchronizer) StartLabelerFirehose(ctx context.Context, did string) error {
 	retryCount := 0
-	retryWindow := time.Now()
+	backoffDuration := time.Second
+	timeSinceStarted := time.Now()
 
 	for {
 		if ctx.Err() != nil {
@@ -31,22 +32,33 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehose(ctx context.Context, did
 		}
 		err := atsync.StartLabelerFirehoseRetry(ctx, did)
 		if err != nil {
-			log.Error(ctx, "firehose error", "err", err)
+			retryCount++
+			log.Error(ctx, "labeler firehose connection failed, retrying with backoff",
+				"err", err,
+				"retryCount", retryCount,
+				"backoffDuration", backoffDuration,
+				"labelerDID", did)
 
-			// Check if we're within the 1-minute window
-			now := time.Now()
-			if now.Sub(retryWindow) > time.Minute {
-				// Reset the counter if more than a minute has passed
-				retryCount = 1
-				retryWindow = now
-			} else {
-				// Increment retry count if within the window
-				retryCount++
-				if retryCount >= 3 {
-					log.Error(ctx, "firehose failed 3 times within a minute, crashing", "err", err)
-					return fmt.Errorf("firehose failed 3 times within a minute: %w", err)
+			// Wait with exponential backoff before retrying
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(backoffDuration):
+				// Exponential backoff with max of 5 minutes
+				backoffDuration = backoffDuration * 2
+				if backoffDuration > 5*time.Minute {
+					backoffDuration = 5 * time.Minute
+				}
+				// if we've reached a minute, sound the alarm
+				if time.Since(timeSinceStarted) >= time.Minute {
+					log.Error(ctx, "labeler firehose connection has been failing for over a minute, Ozone may need a restart",
+						"labelerDID", did)
 				}
 			}
+		} else {
+			// Reset backoff on successful connection
+			retryCount = 0
+			backoffDuration = time.Second
 		}
 	}
 }

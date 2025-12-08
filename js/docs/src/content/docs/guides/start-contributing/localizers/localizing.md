@@ -27,11 +27,13 @@ You'll be translating user-facing text such as:
 
 ## Getting started
 
-:::caution[Under Development] Translations are under rapid development. Most of
+:::caution[Under Development]
+Translations are under rapid development. Most of
 this is final, but some may change.
 
 A localization service is in the works. For discussion, please
-[visit the Discord](https://discord.stream.place). :::
+[visit the Discord](https://discord.stream.place).
+:::
 
 ### 1. File organization
 

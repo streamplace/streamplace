@@ -956,6 +956,16 @@ void* uniffi_iroh_streamplace_fn_method_segmenttosign_output_seg_stream(void* pt
 void uniffi_iroh_streamplace_fn_method_segmenttosign_close(void* ptr, RustCallStatus *out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_SOCKET
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_SOCKET
+void* uniffi_iroh_streamplace_fn_clone_socket(void* ptr, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FREE_SOCKET
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FREE_SOCKET
+void uniffi_iroh_streamplace_fn_free_socket(void* ptr, RustCallStatus *out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_STREAM
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_STREAM
 void* uniffi_iroh_streamplace_fn_clone_stream(void* ptr, RustCallStatus *out_status
@@ -984,6 +994,16 @@ uint64_t uniffi_iroh_streamplace_fn_method_stream_seek_stream(void* ptr, int64_t
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM_WRITE_STREAM
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM_WRITE_STREAM
 uint64_t uniffi_iroh_streamplace_fn_method_stream_write_stream(void* ptr, RustBuffer data, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_STREAM2
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_STREAM2
+void* uniffi_iroh_streamplace_fn_clone_stream2(void* ptr, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FREE_STREAM2
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FREE_STREAM2
+void uniffi_iroh_streamplace_fn_free_stream2(void* ptr, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_SUBSCRIBERESPONSE

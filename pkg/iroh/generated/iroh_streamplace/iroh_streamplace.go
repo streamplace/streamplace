@@ -2920,6 +2920,64 @@ func (c FfiConverterSegmentToSign) register() {
 	C.uniffi_iroh_streamplace_fn_init_callback_vtable_segmenttosign(&UniffiVTableCallbackInterfaceSegmentToSignINSTANCE)
 }
 
+// A wrapper for an iroh endpoint that works basically as a socket for streams.
+type SocketInterface interface {
+}
+
+// A wrapper for an iroh endpoint that works basically as a socket for streams.
+type Socket struct {
+	ffiObject FfiObject
+}
+
+func (object *Socket) Destroy() {
+	runtime.SetFinalizer(object, nil)
+	object.ffiObject.destroy()
+}
+
+type FfiConverterSocket struct{}
+
+var FfiConverterSocketINSTANCE = FfiConverterSocket{}
+
+func (c FfiConverterSocket) Lift(pointer unsafe.Pointer) *Socket {
+	result := &Socket{
+		newFfiObject(
+			pointer,
+			func(pointer unsafe.Pointer, status *C.RustCallStatus) unsafe.Pointer {
+				return C.uniffi_iroh_streamplace_fn_clone_socket(pointer, status)
+			},
+			func(pointer unsafe.Pointer, status *C.RustCallStatus) {
+				C.uniffi_iroh_streamplace_fn_free_socket(pointer, status)
+			},
+		),
+	}
+	runtime.SetFinalizer(result, (*Socket).Destroy)
+	return result
+}
+
+func (c FfiConverterSocket) Read(reader io.Reader) *Socket {
+	return c.Lift(unsafe.Pointer(uintptr(readUint64(reader))))
+}
+
+func (c FfiConverterSocket) Lower(value *Socket) unsafe.Pointer {
+	// TODO: this is bad - all synchronization from ObjectRuntime.go is discarded here,
+	// because the pointer will be decremented immediately after this function returns,
+	// and someone will be left holding onto a non-locked pointer.
+	pointer := value.ffiObject.incrementPointer("*Socket")
+	defer value.ffiObject.decrementPointer()
+	return pointer
+
+}
+
+func (c FfiConverterSocket) Write(writer io.Writer, value *Socket) {
+	writeUint64(writer, uint64(uintptr(c.Lower(value))))
+}
+
+type FfiDestroyerSocket struct{}
+
+func (_ FfiDestroyerSocket) Destroy(value *Socket) {
+	value.Destroy()
+}
+
 // This allows for a callback stream over the Uniffi interface.
 // Implement these stream functions in the foreign language
 // and this will provide Rust Stream trait implementations
@@ -3159,6 +3217,61 @@ func iroh_streamplace_cgo_dispatchCallbackInterfaceStreamFree(handle C.uint64_t)
 
 func (c FfiConverterStream) register() {
 	C.uniffi_iroh_streamplace_fn_init_callback_vtable_stream(&UniffiVTableCallbackInterfaceStreamINSTANCE)
+}
+
+type Stream2Interface interface {
+}
+type Stream2 struct {
+	ffiObject FfiObject
+}
+
+func (object *Stream2) Destroy() {
+	runtime.SetFinalizer(object, nil)
+	object.ffiObject.destroy()
+}
+
+type FfiConverterStream2 struct{}
+
+var FfiConverterStream2INSTANCE = FfiConverterStream2{}
+
+func (c FfiConverterStream2) Lift(pointer unsafe.Pointer) *Stream2 {
+	result := &Stream2{
+		newFfiObject(
+			pointer,
+			func(pointer unsafe.Pointer, status *C.RustCallStatus) unsafe.Pointer {
+				return C.uniffi_iroh_streamplace_fn_clone_stream2(pointer, status)
+			},
+			func(pointer unsafe.Pointer, status *C.RustCallStatus) {
+				C.uniffi_iroh_streamplace_fn_free_stream2(pointer, status)
+			},
+		),
+	}
+	runtime.SetFinalizer(result, (*Stream2).Destroy)
+	return result
+}
+
+func (c FfiConverterStream2) Read(reader io.Reader) *Stream2 {
+	return c.Lift(unsafe.Pointer(uintptr(readUint64(reader))))
+}
+
+func (c FfiConverterStream2) Lower(value *Stream2) unsafe.Pointer {
+	// TODO: this is bad - all synchronization from ObjectRuntime.go is discarded here,
+	// because the pointer will be decremented immediately after this function returns,
+	// and someone will be left holding onto a non-locked pointer.
+	pointer := value.ffiObject.incrementPointer("*Stream2")
+	defer value.ffiObject.decrementPointer()
+	return pointer
+
+}
+
+func (c FfiConverterStream2) Write(writer io.Writer, value *Stream2) {
+	writeUint64(writer, uint64(uintptr(c.Lower(value))))
+}
+
+type FfiDestroyerStream2 struct{}
+
+func (_ FfiDestroyerStream2) Destroy(value *Stream2) {
+	value.Destroy()
 }
 
 // A response to a subscribe request.
@@ -3515,6 +3628,190 @@ type FfiDestroyerSubscribeOpts struct{}
 
 func (_ FfiDestroyerSubscribeOpts) Destroy(value SubscribeOpts) {
 	value.Destroy()
+}
+
+type AcceptError struct {
+	err error
+}
+
+// Convience method to turn *AcceptError into error
+// Avoiding treating nil pointer as non nil error interface
+func (err *AcceptError) AsError() error {
+	if err == nil {
+		return nil
+	} else {
+		return err
+	}
+}
+
+func (err AcceptError) Error() string {
+	return fmt.Sprintf("AcceptError: %s", err.err.Error())
+}
+
+func (err AcceptError) Unwrap() error {
+	return err.err
+}
+
+// Err* are used for checking error type with `errors.Is`
+var ErrAcceptErrorOther = fmt.Errorf("AcceptErrorOther")
+
+// Variant structs
+type AcceptErrorOther struct {
+	message string
+}
+
+func NewAcceptErrorOther() *AcceptError {
+	return &AcceptError{err: &AcceptErrorOther{}}
+}
+
+func (e AcceptErrorOther) destroy() {
+}
+
+func (err AcceptErrorOther) Error() string {
+	return fmt.Sprintf("Other: %s", err.message)
+}
+
+func (self AcceptErrorOther) Is(target error) bool {
+	return target == ErrAcceptErrorOther
+}
+
+type FfiConverterAcceptError struct{}
+
+var FfiConverterAcceptErrorINSTANCE = FfiConverterAcceptError{}
+
+func (c FfiConverterAcceptError) Lift(eb RustBufferI) *AcceptError {
+	return LiftFromRustBuffer[*AcceptError](c, eb)
+}
+
+func (c FfiConverterAcceptError) Lower(value *AcceptError) C.RustBuffer {
+	return LowerIntoRustBuffer[*AcceptError](c, value)
+}
+
+func (c FfiConverterAcceptError) Read(reader io.Reader) *AcceptError {
+	errorID := readUint32(reader)
+
+	message := FfiConverterStringINSTANCE.Read(reader)
+	switch errorID {
+	case 1:
+		return &AcceptError{&AcceptErrorOther{message}}
+	default:
+		panic(fmt.Sprintf("Unknown error code %d in FfiConverterAcceptError.Read()", errorID))
+	}
+
+}
+
+func (c FfiConverterAcceptError) Write(writer io.Writer, value *AcceptError) {
+	switch variantValue := value.err.(type) {
+	case *AcceptErrorOther:
+		writeInt32(writer, 1)
+	default:
+		_ = variantValue
+		panic(fmt.Sprintf("invalid error value `%v` in FfiConverterAcceptError.Write", value))
+	}
+}
+
+type FfiDestroyerAcceptError struct{}
+
+func (_ FfiDestroyerAcceptError) Destroy(value *AcceptError) {
+	switch variantValue := value.err.(type) {
+	case AcceptErrorOther:
+		variantValue.destroy()
+	default:
+		_ = variantValue
+		panic(fmt.Sprintf("invalid error value `%v` in FfiDestroyerAcceptError.Destroy", value))
+	}
+}
+
+type ConnectError struct {
+	err error
+}
+
+// Convience method to turn *ConnectError into error
+// Avoiding treating nil pointer as non nil error interface
+func (err *ConnectError) AsError() error {
+	if err == nil {
+		return nil
+	} else {
+		return err
+	}
+}
+
+func (err ConnectError) Error() string {
+	return fmt.Sprintf("ConnectError: %s", err.err.Error())
+}
+
+func (err ConnectError) Unwrap() error {
+	return err.err
+}
+
+// Err* are used for checking error type with `errors.Is`
+var ErrConnectErrorOther = fmt.Errorf("ConnectErrorOther")
+
+// Variant structs
+type ConnectErrorOther struct {
+	message string
+}
+
+func NewConnectErrorOther() *ConnectError {
+	return &ConnectError{err: &ConnectErrorOther{}}
+}
+
+func (e ConnectErrorOther) destroy() {
+}
+
+func (err ConnectErrorOther) Error() string {
+	return fmt.Sprintf("Other: %s", err.message)
+}
+
+func (self ConnectErrorOther) Is(target error) bool {
+	return target == ErrConnectErrorOther
+}
+
+type FfiConverterConnectError struct{}
+
+var FfiConverterConnectErrorINSTANCE = FfiConverterConnectError{}
+
+func (c FfiConverterConnectError) Lift(eb RustBufferI) *ConnectError {
+	return LiftFromRustBuffer[*ConnectError](c, eb)
+}
+
+func (c FfiConverterConnectError) Lower(value *ConnectError) C.RustBuffer {
+	return LowerIntoRustBuffer[*ConnectError](c, value)
+}
+
+func (c FfiConverterConnectError) Read(reader io.Reader) *ConnectError {
+	errorID := readUint32(reader)
+
+	message := FfiConverterStringINSTANCE.Read(reader)
+	switch errorID {
+	case 1:
+		return &ConnectError{&ConnectErrorOther{message}}
+	default:
+		panic(fmt.Sprintf("Unknown error code %d in FfiConverterConnectError.Read()", errorID))
+	}
+
+}
+
+func (c FfiConverterConnectError) Write(writer io.Writer, value *ConnectError) {
+	switch variantValue := value.err.(type) {
+	case *ConnectErrorOther:
+		writeInt32(writer, 1)
+	default:
+		_ = variantValue
+		panic(fmt.Sprintf("invalid error value `%v` in FfiConverterConnectError.Write", value))
+	}
+}
+
+type FfiDestroyerConnectError struct{}
+
+func (_ FfiDestroyerConnectError) Destroy(value *ConnectError) {
+	switch variantValue := value.err.(type) {
+	case ConnectErrorOther:
+		variantValue.destroy()
+	default:
+		_ = variantValue
+		panic(fmt.Sprintf("invalid error value `%v` in FfiDestroyerConnectError.Destroy", value))
+	}
 }
 
 // Error creating a new database node.
@@ -4353,6 +4650,98 @@ func (_ FfiDestroyerPutError) Destroy(value *PutError) {
 	default:
 		_ = variantValue
 		panic(fmt.Sprintf("invalid error value `%v` in FfiDestroyerPutError.Destroy", value))
+	}
+}
+
+type ReadError struct {
+	err error
+}
+
+// Convience method to turn *ReadError into error
+// Avoiding treating nil pointer as non nil error interface
+func (err *ReadError) AsError() error {
+	if err == nil {
+		return nil
+	} else {
+		return err
+	}
+}
+
+func (err ReadError) Error() string {
+	return fmt.Sprintf("ReadError: %s", err.err.Error())
+}
+
+func (err ReadError) Unwrap() error {
+	return err.err
+}
+
+// Err* are used for checking error type with `errors.Is`
+var ErrReadErrorOther = fmt.Errorf("ReadErrorOther")
+
+// Variant structs
+type ReadErrorOther struct {
+	message string
+}
+
+func NewReadErrorOther() *ReadError {
+	return &ReadError{err: &ReadErrorOther{}}
+}
+
+func (e ReadErrorOther) destroy() {
+}
+
+func (err ReadErrorOther) Error() string {
+	return fmt.Sprintf("Other: %s", err.message)
+}
+
+func (self ReadErrorOther) Is(target error) bool {
+	return target == ErrReadErrorOther
+}
+
+type FfiConverterReadError struct{}
+
+var FfiConverterReadErrorINSTANCE = FfiConverterReadError{}
+
+func (c FfiConverterReadError) Lift(eb RustBufferI) *ReadError {
+	return LiftFromRustBuffer[*ReadError](c, eb)
+}
+
+func (c FfiConverterReadError) Lower(value *ReadError) C.RustBuffer {
+	return LowerIntoRustBuffer[*ReadError](c, value)
+}
+
+func (c FfiConverterReadError) Read(reader io.Reader) *ReadError {
+	errorID := readUint32(reader)
+
+	message := FfiConverterStringINSTANCE.Read(reader)
+	switch errorID {
+	case 1:
+		return &ReadError{&ReadErrorOther{message}}
+	default:
+		panic(fmt.Sprintf("Unknown error code %d in FfiConverterReadError.Read()", errorID))
+	}
+
+}
+
+func (c FfiConverterReadError) Write(writer io.Writer, value *ReadError) {
+	switch variantValue := value.err.(type) {
+	case *ReadErrorOther:
+		writeInt32(writer, 1)
+	default:
+		_ = variantValue
+		panic(fmt.Sprintf("invalid error value `%v` in FfiConverterReadError.Write", value))
+	}
+}
+
+type FfiDestroyerReadError struct{}
+
+func (_ FfiDestroyerReadError) Destroy(value *ReadError) {
+	switch variantValue := value.err.(type) {
+	case ReadErrorOther:
+		variantValue.destroy()
+	default:
+		_ = variantValue
+		panic(fmt.Sprintf("invalid error value `%v` in FfiDestroyerReadError.Destroy", value))
 	}
 }
 
@@ -5204,6 +5593,98 @@ func (_ FfiDestroyerWriteError) Destroy(value *WriteError) {
 	default:
 		_ = variantValue
 		panic(fmt.Sprintf("invalid error value `%v` in FfiDestroyerWriteError.Destroy", value))
+	}
+}
+
+type WriteError2 struct {
+	err error
+}
+
+// Convience method to turn *WriteError2 into error
+// Avoiding treating nil pointer as non nil error interface
+func (err *WriteError2) AsError() error {
+	if err == nil {
+		return nil
+	} else {
+		return err
+	}
+}
+
+func (err WriteError2) Error() string {
+	return fmt.Sprintf("WriteError2: %s", err.err.Error())
+}
+
+func (err WriteError2) Unwrap() error {
+	return err.err
+}
+
+// Err* are used for checking error type with `errors.Is`
+var ErrWriteError2Other = fmt.Errorf("WriteError2Other")
+
+// Variant structs
+type WriteError2Other struct {
+	message string
+}
+
+func NewWriteError2Other() *WriteError2 {
+	return &WriteError2{err: &WriteError2Other{}}
+}
+
+func (e WriteError2Other) destroy() {
+}
+
+func (err WriteError2Other) Error() string {
+	return fmt.Sprintf("Other: %s", err.message)
+}
+
+func (self WriteError2Other) Is(target error) bool {
+	return target == ErrWriteError2Other
+}
+
+type FfiConverterWriteError2 struct{}
+
+var FfiConverterWriteError2INSTANCE = FfiConverterWriteError2{}
+
+func (c FfiConverterWriteError2) Lift(eb RustBufferI) *WriteError2 {
+	return LiftFromRustBuffer[*WriteError2](c, eb)
+}
+
+func (c FfiConverterWriteError2) Lower(value *WriteError2) C.RustBuffer {
+	return LowerIntoRustBuffer[*WriteError2](c, value)
+}
+
+func (c FfiConverterWriteError2) Read(reader io.Reader) *WriteError2 {
+	errorID := readUint32(reader)
+
+	message := FfiConverterStringINSTANCE.Read(reader)
+	switch errorID {
+	case 1:
+		return &WriteError2{&WriteError2Other{message}}
+	default:
+		panic(fmt.Sprintf("Unknown error code %d in FfiConverterWriteError2.Read()", errorID))
+	}
+
+}
+
+func (c FfiConverterWriteError2) Write(writer io.Writer, value *WriteError2) {
+	switch variantValue := value.err.(type) {
+	case *WriteError2Other:
+		writeInt32(writer, 1)
+	default:
+		_ = variantValue
+		panic(fmt.Sprintf("invalid error value `%v` in FfiConverterWriteError2.Write", value))
+	}
+}
+
+type FfiDestroyerWriteError2 struct{}
+
+func (_ FfiDestroyerWriteError2) Destroy(value *WriteError2) {
+	switch variantValue := value.err.(type) {
+	case WriteError2Other:
+		variantValue.destroy()
+	default:
+		_ = variantValue
+		panic(fmt.Sprintf("invalid error value `%v` in FfiDestroyerWriteError2.Destroy", value))
 	}
 }
 

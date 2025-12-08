@@ -11,9 +11,12 @@
 // specific language governing permissions and limitations under
 // each license.
 
+use std::{
+    io::{Read, Seek, SeekFrom, Write},
+    sync::Arc,
+};
+
 use crate::error::SPError;
-use std::io::{Read, Seek, SeekFrom, Write};
-use std::sync::Arc;
 
 // #[repr(C)]
 // #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -126,7 +129,6 @@ pub trait ManyStreams: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use crate::test_stream::TestStream;
 
     #[test]

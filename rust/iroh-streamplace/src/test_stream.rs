@@ -11,12 +11,12 @@
 // specific language governing permissions and limitations under
 // each license.
 
-use std::io::{Read, Seek, SeekFrom, Write};
-use std::sync::RwLock;
+use std::{
+    io::{Cursor, Read, Seek, SeekFrom, Write},
+    sync::RwLock,
+};
 
-use crate::error::SPError;
-use crate::streams::Stream;
-use std::io::Cursor;
+use crate::{error::SPError, streams::Stream};
 
 pub struct TestStream {
     stream: RwLock<Cursor<Vec<u8>>>,

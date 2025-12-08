@@ -1,22 +1,16 @@
 use std::{io::Cursor, sync::Arc};
 
-use c2pa::Builder;
-use c2pa::CallbackSigner;
-use c2pa::Reader;
-use c2pa::settings::Settings;
-
-use c2pa::Ingredient;
-use c2pa::jumbf_io;
-use c2pa::status_tracker::StatusTracker;
-use c2pa::store::Store;
-
-use crate::streams::ManyStreams;
-use crate::streams::Stream;
-use crate::streams::StreamAdapter;
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use c2pa::{
+    Builder, CallbackSigner, Ingredient, Reader, jumbf_io, settings::Settings,
+    status_tracker::StatusTracker, store::Store,
+};
 use serde_json;
 
-use crate::error::SPError;
-use base64::{Engine as _, engine::general_purpose::STANDARD};
+use crate::{
+    error::SPError,
+    streams::{ManyStreams, Stream, StreamAdapter},
+};
 #[uniffi::export]
 pub fn get_manifest_and_cert(data: &dyn Stream) -> Result<String, SPError> {
     let reader = Reader::from_stream("video/mp4", StreamAdapter::from(data))

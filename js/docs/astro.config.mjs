@@ -62,7 +62,20 @@ export default defineConfig({
             },
             {
               label: "Start Contributing",
-              autogenerate: { directory: "guides/start-contributing" },
+              items: [
+                {
+                  label: "For Developers",
+                  autogenerate: {
+                    directory: "guides/start-contributing/developers",
+                  },
+                },
+                {
+                  label: "For Localizers",
+                  autogenerate: {
+                    directory: "guides/start-contributing/localizers",
+                  },
+                },
+              ],
             },
           ],
         },

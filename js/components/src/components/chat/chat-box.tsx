@@ -3,18 +3,7 @@ import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, TextInput } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
-import {
-  Button,
-  Loader,
-  Text,
-  useChat,
-  useCreateChatMessage,
-  useLivestream,
-  useReplyToMessage,
-  useSetReplyToMessage,
-  useTheme,
-  View,
-} from "../../";
+import { Button, Loader, Text, useTheme, View } from "../../";
 import { handleSlashCommand } from "../../lib/slash-commands";
 import { registerTeleportCommand } from "../../lib/slash-commands/teleport";
 import { StreamNotifications } from "../../lib/stream-notifications";
@@ -31,6 +20,14 @@ import {
   r,
   w,
 } from "../../lib/theme/atoms";
+import {
+  useChat,
+  useCreateChatMessage,
+  useLivestream,
+  useLivestreamStore,
+  useReplyToMessage,
+  useSetReplyToMessage,
+} from "../../livestream-store";
 import { useDID, usePDSAgent } from "../../streamplace-store";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
@@ -79,12 +76,15 @@ export function ChatBox({
 
   const pdsAgent = usePDSAgent();
   const userDID = useDID();
+  const setActiveTeleportUri = useLivestreamStore(
+    (state) => state.setActiveTeleportUri,
+  );
 
   useEffect(() => {
     if (pdsAgent && userDID) {
-      registerTeleportCommand(pdsAgent, userDID);
+      registerTeleportCommand(pdsAgent, userDID, setActiveTeleportUri);
     }
-  }, [pdsAgent, userDID]);
+  }, [pdsAgent, userDID, setActiveTeleportUri]);
 
   const authors = useMemo(() => {
     if (!chat) return null;
@@ -99,9 +99,9 @@ export function ChatBox({
 
   useEffect(() => {
     if (pdsAgent && linfo?.author?.did && pdsAgent.did === linfo.author.did) {
-      registerTeleportCommand(pdsAgent, pdsAgent.did);
+      registerTeleportCommand(pdsAgent, pdsAgent.did, setActiveTeleportUri);
     }
-  }, [pdsAgent, linfo?.author?.did]);
+  }, [pdsAgent, linfo?.author?.did, setActiveTeleportUri]);
 
   const handleMentionSelect = (handle: string) => {
     const beforeAt = message.slice(0, message.lastIndexOf("@"));
@@ -268,11 +268,6 @@ export function ChatBox({
       }
     }
     setSubmitting(true);
-    createChatMessage({
-      text: message,
-      reply: replyTo || undefined,
-    });
-    setSubmitting(false);
 
     try {
       const result = await handleSlashCommand(messageText);

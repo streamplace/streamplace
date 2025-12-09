@@ -1,11 +1,13 @@
 import React, { useContext, useEffect, useRef } from "react";
 import { useAvatars } from "../hooks";
+import { deleteTeleport } from "../lib/slash-commands/teleport";
 import { StreamNotifications } from "../lib/stream-notifications";
 import {
   LivestreamContext,
   makeLivestreamStore,
   useLivestreamStore,
 } from "../livestream-store";
+import { useDID, usePDSAgent } from "../streamplace-store";
 import { useLivestreamWebsocket } from "./websocket";
 
 export function LivestreamProvider({
@@ -50,7 +52,13 @@ export function TeleportWatcher({
   onTeleport?: (targetHandle: string, targetDID: string) => void;
 }) {
   const activeTeleport = useLivestreamStore((state) => state.activeTeleport);
+  const activeTeleportUri = useLivestreamStore(
+    (state) => state.activeTeleportUri,
+  );
   const profile = useAvatars(activeTeleport ? [activeTeleport.streamer] : []);
+  const pdsAgent = usePDSAgent();
+  const userDID = useDID();
+  const prevActiveTeleportRef = useRef(activeTeleport);
 
   useEffect(() => {
     if (!activeTeleport || !profile[activeTeleport.streamer]) return;
@@ -70,8 +78,14 @@ export function TeleportWatcher({
       targetHandle: targetHandle,
       targetDID: activeTeleport.streamer,
       countdown: countdown,
-      onCancel: () => {
-        console.log("Teleport cancelled by user");
+      onCancel: async () => {
+        if (activeTeleportUri && pdsAgent && userDID) {
+          try {
+            await deleteTeleport(pdsAgent, userDID, activeTeleportUri);
+          } catch (err) {
+            console.error("Failed to delete teleport:", err);
+          }
+        }
       },
       onAutoDismiss: () => {
         console.log("Teleport dismissed bestie!");
@@ -81,7 +95,25 @@ export function TeleportWatcher({
         }
       },
     });
-  }, [activeTeleport, profile, onTeleport]);
+  }, [
+    activeTeleport,
+    activeTeleportUri,
+    profile,
+    onTeleport,
+    pdsAgent,
+    userDID,
+  ]);
+
+  useEffect(() => {
+    if (
+      prevActiveTeleportRef.current &&
+      !activeTeleport &&
+      !activeTeleportUri
+    ) {
+      StreamNotifications.teleportCancelled();
+    }
+    prevActiveTeleportRef.current = activeTeleport;
+  }, [activeTeleport, activeTeleportUri]);
 
   return <></>;
 }

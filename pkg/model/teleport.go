@@ -18,6 +18,7 @@ type Teleport struct {
 	Teleport        *[]byte   `json:"teleport"`
 	RepoDID         string    `json:"repoDID" gorm:"column:repo_did;index:idx_repo_starts,priority:1"`
 	TargetDID       string    `json:"targetDID" gorm:"column:target_did;index:idx_target_did"`
+	Denied          bool      `json:"denied" gorm:"column:denied;default:false"`
 	Repo            *Repo     `json:"repo,omitempty" gorm:"foreignKey:DID;references:RepoDID"`
 	Target          *Repo     `json:"target,omitempty" gorm:"foreignKey:DID;references:TargetDID"`
 }
@@ -53,6 +54,7 @@ func (m *DBModel) GetActiveTeleportsForRepo(repoDID string) ([]Teleport, error) 
 		Preload("Repo").
 		Preload("Target").
 		Where("repo_did = ?", repoDID).
+		Where("denied = ?", false).
 		Where("starts_at <= ?", now).
 		Where("(duration_seconds IS NULL OR DATE_ADD(starts_at, INTERVAL duration_seconds SECOND) > ?)", now).
 		Order("starts_at DESC").
@@ -64,4 +66,49 @@ func (m *DBModel) GetActiveTeleportsForRepo(repoDID string) ([]Teleport, error) 
 		return nil, fmt.Errorf("error retrieving active teleports: %w", err)
 	}
 	return teleports, nil
+}
+
+func (m *DBModel) GetActiveTeleportsToRepo(targetDID string) ([]Teleport, error) {
+	now := time.Now()
+	var teleports []Teleport
+	err := m.DB.
+		Preload("Repo").
+		Preload("Target").
+		Where("target_did = ?", targetDID).
+		Where("denied = ?", false).
+		Where("starts_at <= ?", now).
+		Where("(duration_seconds IS NULL OR datetime(starts_at, '+' || duration_seconds || ' seconds') > ?)", now).
+		Order("starts_at DESC").
+		Find(&teleports).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving active teleports to repo: %w", err)
+	}
+	return teleports, nil
+}
+
+func (m *DBModel) GetTeleportByURI(uri string) (*Teleport, error) {
+	var teleport Teleport
+	err := m.DB.
+		Preload("Repo").
+		Preload("Target").
+		Where("uri = ?", uri).
+		First(&teleport).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving teleport by uri: %w", err)
+	}
+	return &teleport, nil
+}
+
+func (m *DBModel) DeleteTeleport(ctx context.Context, uri string) error {
+	return m.DB.Where("uri = ?", uri).Delete(&Teleport{}).Error
+}
+
+func (m *DBModel) DenyTeleport(ctx context.Context, uri string) error {
+	return m.DB.Model(&Teleport{}).Where("uri = ?", uri).Update("denied", true).Error
 }

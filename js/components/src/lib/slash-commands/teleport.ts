@@ -1,9 +1,26 @@
 import { PlaceStreamLiveTeleport, StreamplaceAgent } from "streamplace";
 import { registerSlashCommand, SlashCommandResult } from "../slash-commands";
 
+export async function deleteTeleport(
+  pdsAgent: StreamplaceAgent,
+  userDID: string,
+  uri: string,
+) {
+  const rkey = uri.split("/").pop();
+  if (!rkey) {
+    throw new Error("No rkey found in teleport URI");
+  }
+  return await pdsAgent.com.atproto.repo.deleteRecord({
+    repo: userDID,
+    collection: "place.stream.live.teleport",
+    rkey: rkey,
+  });
+}
+
 export function registerTeleportCommand(
   pdsAgent: StreamplaceAgent,
   userDID: string,
+  setActiveTeleportUri?: (uri: string | null) => void,
 ) {
   registerSlashCommand({
     name: "teleport",
@@ -72,11 +89,16 @@ export function registerTeleportCommand(
       };
 
       try {
-        await pdsAgent.com.atproto.repo.createRecord({
+        const result = await pdsAgent.com.atproto.repo.createRecord({
           repo: userDID,
           collection: "place.stream.live.teleport",
           record,
         });
+
+        // store the URI in the livestream store
+        if (setActiveTeleportUri) {
+          setActiveTeleportUri(result.data.uri);
+        }
 
         return { handled: true };
       } catch (err) {

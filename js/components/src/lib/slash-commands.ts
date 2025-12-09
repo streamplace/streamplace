@@ -44,7 +44,8 @@ export async function handleSlashCommand(
   const command = commands.get(commandName);
   if (!command) {
     return {
-      handled: true,
+      // for now - return false
+      handled: false,
       error: `Unknown command: /${commandName}`,
     };
   }

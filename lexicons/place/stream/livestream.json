@@ -88,6 +88,47 @@
         "count": { "type": "integer" }
       }
     },
+    "teleportArrival": {
+      "type": "object",
+      "required": ["teleportUri", "source", "viewerCount", "startsAt"],
+      "properties": {
+        "teleportUri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The URI of the teleport record"
+        },
+        "source": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic",
+          "description": "The streamer who is teleporting their viewers here"
+        },
+        "viewerCount": {
+          "type": "integer",
+          "description": "How many viewers are arriving from this teleport"
+        },
+        "startsAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When this teleport started"
+        }
+      }
+    },
+    "teleportCanceled": {
+      "type": "object",
+      "required": ["teleportUri", "reason"],
+      "properties": {
+        "teleportUri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The URI of the teleport record that was canceled"
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["deleted", "denied", "expired"],
+          "description": "Why this teleport was canceled"
+        }
+      }
+    },
     "streamplaceAnything": {
       "type": "object",
       "required": ["livestream"],
@@ -97,6 +138,8 @@
           "refs": [
             "#livestreamView",
             "#viewerCount",
+            "#teleportArrival",
+            "#teleportCanceled",
             "place.stream.defs#blockView",
             "place.stream.defs#renditions",
             "place.stream.defs#rendition",

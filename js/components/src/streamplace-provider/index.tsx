@@ -19,6 +19,7 @@ export function StreamplaceProvider({
   url: string;
   oauthSession?: SessionManager | null;
 }) {
+  console.log("yeh");
   // todo: handle url changes?
   const store = useRef(makeStreamplaceStore({ url })).current;
 

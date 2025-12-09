@@ -59,12 +59,14 @@ type Livestream_StreamplaceAnything struct {
 }
 
 type Livestream_StreamplaceAnything_Livestream struct {
-	Livestream_LivestreamView *Livestream_LivestreamView
-	Livestream_ViewerCount    *Livestream_ViewerCount
-	Defs_BlockView            *Defs_BlockView
-	Defs_Renditions           *Defs_Renditions
-	Defs_Rendition            *Defs_Rendition
-	ChatDefs_MessageView      *ChatDefs_MessageView
+	Livestream_LivestreamView   *Livestream_LivestreamView
+	Livestream_ViewerCount      *Livestream_ViewerCount
+	Livestream_TeleportArrival  *Livestream_TeleportArrival
+	Livestream_TeleportCanceled *Livestream_TeleportCanceled
+	Defs_BlockView              *Defs_BlockView
+	Defs_Renditions             *Defs_Renditions
+	Defs_Rendition              *Defs_Rendition
+	ChatDefs_MessageView        *ChatDefs_MessageView
 }
 
 func (t *Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error) {
@@ -75,6 +77,14 @@ func (t *Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error
 	if t.Livestream_ViewerCount != nil {
 		t.Livestream_ViewerCount.LexiconTypeID = "place.stream.livestream#viewerCount"
 		return json.Marshal(t.Livestream_ViewerCount)
+	}
+	if t.Livestream_TeleportArrival != nil {
+		t.Livestream_TeleportArrival.LexiconTypeID = "place.stream.livestream#teleportArrival"
+		return json.Marshal(t.Livestream_TeleportArrival)
+	}
+	if t.Livestream_TeleportCanceled != nil {
+		t.Livestream_TeleportCanceled.LexiconTypeID = "place.stream.livestream#teleportCanceled"
+		return json.Marshal(t.Livestream_TeleportCanceled)
 	}
 	if t.Defs_BlockView != nil {
 		t.Defs_BlockView.LexiconTypeID = "place.stream.defs#blockView"
@@ -108,6 +118,12 @@ func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalJSON(b []byte) erro
 	case "place.stream.livestream#viewerCount":
 		t.Livestream_ViewerCount = new(Livestream_ViewerCount)
 		return json.Unmarshal(b, t.Livestream_ViewerCount)
+	case "place.stream.livestream#teleportArrival":
+		t.Livestream_TeleportArrival = new(Livestream_TeleportArrival)
+		return json.Unmarshal(b, t.Livestream_TeleportArrival)
+	case "place.stream.livestream#teleportCanceled":
+		t.Livestream_TeleportCanceled = new(Livestream_TeleportCanceled)
+		return json.Unmarshal(b, t.Livestream_TeleportCanceled)
 	case "place.stream.defs#blockView":
 		t.Defs_BlockView = new(Defs_BlockView)
 		return json.Unmarshal(b, t.Defs_BlockView)
@@ -123,6 +139,28 @@ func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalJSON(b []byte) erro
 	default:
 		return nil
 	}
+}
+
+// Livestream_TeleportArrival is a "teleportArrival" in the place.stream.livestream schema.
+type Livestream_TeleportArrival struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.livestream#teleportArrival"`
+	// source: The streamer who is teleporting their viewers here
+	Source *appbsky.ActorDefs_ProfileViewBasic `json:"source" cborgen:"source"`
+	// startsAt: When this teleport started
+	StartsAt string `json:"startsAt" cborgen:"startsAt"`
+	// teleportUri: The URI of the teleport record
+	TeleportUri string `json:"teleportUri" cborgen:"teleportUri"`
+	// viewerCount: How many viewers are arriving from this teleport
+	ViewerCount int64 `json:"viewerCount" cborgen:"viewerCount"`
+}
+
+// Livestream_TeleportCanceled is a "teleportCanceled" in the place.stream.livestream schema.
+type Livestream_TeleportCanceled struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.livestream#teleportCanceled"`
+	// reason: Why this teleport was canceled
+	Reason string `json:"reason" cborgen:"reason"`
+	// teleportUri: The URI of the teleport record that was canceled
+	TeleportUri string `json:"teleportUri" cborgen:"teleportUri"`
 }
 
 // Livestream_ViewerCount is a "viewerCount" in the place.stream.livestream schema.

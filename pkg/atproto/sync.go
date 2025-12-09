@@ -404,6 +404,49 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, rec)
 
+		// schedule arrival notification 10 seconds after startsAt
+		arrivalTime := startsAt.Add(10 * time.Second)
+		waitDuration := time.Until(arrivalTime)
+		if waitDuration < 0 {
+			waitDuration = 0
+		}
+
+		time.AfterFunc(waitDuration, func() {
+			// verify the teleport still exists
+			existingTp, err := atsync.Model.GetTeleportByURI(aturi.String())
+			if err != nil {
+				log.Error(ctx, "failed to get teleport by uri", "err", err)
+				return
+			}
+			if existingTp == nil || existingTp.Denied {
+				log.Debug(ctx, "teleport no longer active, skipping arrival notification", "uri", aturi.String())
+				return
+			}
+
+			// get the source profile
+			sourceRepo, err := atsync.Model.GetRepo(userDID)
+			if err != nil {
+				log.Error(ctx, "failed to get source repo", "err", err)
+				return
+			}
+
+			viewerCount := atsync.Bus.GetViewerCount(userDID)
+
+			arrivalMsg := &streamplace.Livestream_TeleportArrival{
+				LexiconTypeID: "place.stream.livestream#teleportArrival",
+				TeleportUri:   aturi.String(),
+				Source: &bsky.ActorDefs_ProfileViewBasic{
+					Did:    userDID,
+					Handle: sourceRepo.Handle,
+				},
+				ViewerCount: int64(viewerCount),
+				StartsAt:    rec.StartsAt,
+			}
+
+			log.Log(ctx, "sending teleport arrival notification", "from", userDID, "to", rec.Streamer, "uri", aturi.String())
+			atsync.Bus.Publish(rec.Streamer, arrivalMsg)
+		})
+
 	case *streamplace.Key:
 		log.Debug(ctx, "creating key", "key", rec)
 		time, err := aqtime.FromString(rec.CreatedAt)

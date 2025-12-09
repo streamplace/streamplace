@@ -122,6 +122,25 @@ export const handleWebSocketMessages = (
           pendingHides: newPendingHides,
         };
         state = reduceChat(state, [], [], [hiddenMessageUri]);
+    } else if (PlaceStreamLiveTeleport.isRecord(message)) {
+      const teleportRecord = message as PlaceStreamLiveTeleport.Record;
+      state = {
+        ...state,
+        activeTeleport: teleportRecord,
+      };
+    } else if (PlaceStreamLivestream.isTeleportArrival(message)) {
+      const arrival = message as PlaceStreamLivestream.TeleportArrival;
+      // when receiving a teleportArrival, we're the target
+      // the source is teleporting to us
+      console.log("Received teleport arrival", arrival);
+      // TODO: show notification or UI for incoming teleport
+    } else if (PlaceStreamLivestream.isTeleportCanceled(message)) {
+      // teleport was canceled (deleted or denied)
+      state = {
+        ...state,
+        activeTeleport: null,
+        activeTeleportUri: null,
+      };
       }
     }
   }

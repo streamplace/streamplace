@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
@@ -238,6 +239,34 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			}
 			for _, message := range messages {
 				initialBurst <- message
+			}
+		}()
+
+		go func() {
+			teleports, err := a.Model.GetActiveTeleportsToRepo(repoDID)
+			if err != nil {
+				log.Error(ctx, "could not get active teleports", "error", err)
+				return
+			}
+			log.Log(ctx, "found active teleports in initial burst", "count", len(teleports), "targetDID", repoDID)
+			for _, tp := range teleports {
+				if tp.Repo == nil {
+					log.Error(ctx, "teleport repo is nil", "uri", tp.URI)
+					continue
+				}
+				viewerCount := a.Bus.GetViewerCount(tp.RepoDID)
+				arrivalMsg := streamplace.Livestream_TeleportArrival{
+					LexiconTypeID: "place.stream.livestream#teleportArrival",
+					TeleportUri:   tp.URI,
+					Source: &bsky.ActorDefs_ProfileViewBasic{
+						Did:    tp.RepoDID,
+						Handle: tp.Repo.Handle,
+					},
+					ViewerCount: int64(viewerCount),
+					StartsAt:    tp.StartsAt.Format(time.RFC3339),
+				}
+				log.Log(ctx, "sending teleport arrival in initial burst", "from", tp.RepoDID, "to", repoDID)
+				initialBurst <- arrivalMsg
 			}
 		}()
 

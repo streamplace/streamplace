@@ -24,6 +24,8 @@ export interface LivestreamState {
   streamKey: string | null;
   setStreamKey: (key: string | null) => void;
   activeTeleport: PlaceStreamLiveTeleport.Record | null;
+  activeTeleportUri: string | null;
+  setActiveTeleportUri: (uri: string | null) => void;
   websocketConnected: boolean;
   hasReceivedSegment: boolean;
   moderationPermissions: PlaceStreamModerationPermission.Record[];

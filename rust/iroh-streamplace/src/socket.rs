@@ -46,16 +46,16 @@ impl Socket {
         self.alpn.clone()
     }
 
-    /// Accept an incoming connection and return a [`Stream2`].
-    pub async fn accept(&self) -> Result<Arc<Stream2>, AcceptError> {
+    /// Accept an incoming connection and return a [`Stream`].
+    pub async fn accept(&self) -> Result<Arc<Stream>, AcceptError> {
         RUNTIME.block_on(self.accept0())
     }
 
-    /// Connect to a peer at the given [`NodeAddr`] and return a [`Stream2`].
+    /// Connect to a peer at the given [`NodeAddr`] and return a [`Stream`].
     pub async fn connect(
         &self,
         addr: Arc<crate::node_addr::NodeAddr>,
-    ) -> Result<Arc<Stream2>, ConnectError> {
+    ) -> Result<Arc<Stream>, ConnectError> {
         RUNTIME.block_on(self.connect0(addr))
     }
 
@@ -83,7 +83,7 @@ impl Socket {
         })
     }
 
-    async fn accept0(&self) -> Result<Arc<Stream2>, AcceptError> {
+    async fn accept0(&self) -> Result<Arc<Stream>, AcceptError> {
         let incoming = self
             .endpoint
             .accept()
@@ -97,7 +97,7 @@ impl Socket {
         let (send, recv) = conn.accept_bi().await.map_err(|e| AcceptError::Other {
             message: e.to_string(),
         })?;
-        Ok(Arc::new(Stream2 {
+        Ok(Arc::new(Stream {
             recv: tokio::sync::Mutex::new(recv),
             send: tokio::sync::Mutex::new(send),
             conn,
@@ -107,7 +107,7 @@ impl Socket {
     async fn connect0(
         &self,
         addr: Arc<crate::node_addr::NodeAddr>,
-    ) -> Result<Arc<Stream2>, ConnectError> {
+    ) -> Result<Arc<Stream>, ConnectError> {
         let node_addr: iroh::NodeAddr =
             (*addr)
                 .clone()
@@ -125,7 +125,7 @@ impl Socket {
         let (send, recv) = conn.open_bi().await.map_err(|e| ConnectError::Other {
             message: e.to_string(),
         })?;
-        Ok(Arc::new(Stream2 {
+        Ok(Arc::new(Stream {
             recv: tokio::sync::Mutex::new(recv),
             send: tokio::sync::Mutex::new(send),
             conn,
@@ -156,7 +156,7 @@ pub enum ReadError {
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 #[uniffi(flat_error)]
-pub enum WriteError2 {
+pub enum WriteError {
     #[error("Other error: {message}")]
     Other { message: String },
 }
@@ -168,15 +168,29 @@ pub enum SocketNewError {
     Other { message: String },
 }
 
+/// A bidirectional stream over an iroh connection.
+/// 
+/// In QUIC streams and connections are separate concepts. A connection can have multiple streams.
+/// For simplicity we expose a single bidirectional stream per connection here.
 #[derive(Debug, uniffi::Object)]
-pub struct Stream2 {
+pub struct Stream {
     recv: tokio::sync::Mutex<iroh::endpoint::RecvStream>,
     send: tokio::sync::Mutex<iroh::endpoint::SendStream>,
     conn: iroh::endpoint::Connection,
 }
 
 #[uniffi::export]
-impl Stream2 {
+impl Stream {
+
+    /// Read up to n bytes from the stream.
+    ///
+    /// Due to the way uniffi works, this can't have the signature that is
+    /// usually used in golang code. Instead of taking a mutable buffer and
+    /// returning the number of bytes read, it takes the number of bytes to read
+    /// and returns a vector with the data read.
+    /// 
+    /// Wrapping this into a more idiomatic golang interface needs a few lines
+    /// on the golang side.
     pub async fn read(&self, n: u64) -> Result<Vec<u8>, ReadError> {
         let mut buf = vec![0u8; n as usize];
         let n = self
@@ -195,31 +209,39 @@ impl Stream2 {
         Ok(buf)
     }
 
-    pub async fn write_all(&self, buf: &[u8]) -> Result<(), WriteError2> {
-        self.send.lock().await.write_all(buf).await.map_err(|e| WriteError2::Other {
+    /// Write all bytes in buf to the stream.
+    pub async fn write_all(&self, buf: &[u8]) -> Result<(), WriteError> {
+        self.send.lock().await.write_all(buf).await.map_err(|e| WriteError::Other {
             message: e.to_string(),
         })
     }
 
-    pub async fn write(&self, buf: &[u8]) -> Result<u32, WriteError2> {
+    /// Write up to n bytes from buf to the stream.
+    pub async fn write(&self, buf: &[u8]) -> Result<u32, WriteError> {
         let n = self.send
             .lock()
             .await
             .write(&buf)
             .await
-            .map_err(|e| WriteError2::Other {
+            .map_err(|e| WriteError::Other {
                 message: e.to_string(),
             })?;
         Ok(n as u32)
     }
 
-    pub async fn close_write(&self) -> Result<(), WriteError2> {
-        self.send.lock().await.finish().map_err(|e| WriteError2::Other {
+    /// Close the write side of the stream.
+    /// 
+    /// Note: this does not close the underlying connection.
+    pub async fn close_write(&self) -> Result<(), WriteError> {
+        self.send.lock().await.finish().map_err(|e| WriteError::Other {
             message: e.to_string(),
         })?;
         Ok(())
     }
 
+    /// Close the read side of the stream.
+    /// 
+    /// Note: this does not close the underlying connection.
     pub async fn close_read(&self) -> Result<(), ReadError> {
         self.recv.lock().await.stop(0u32.into()).map_err(|e| ReadError::Other {
             message: e.to_string(),
@@ -227,10 +249,12 @@ impl Stream2 {
         Ok(())
     }
 
+    /// Close the underlying connection.
     pub fn close(&self) {
         self.conn.close(0u32.into(), b"");
     }
 
+    /// Wait until the connection is closed.
     pub async fn closed(&self) {
         RUNTIME.block_on(async {
             let _reason = self.conn.closed().await;

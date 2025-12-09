@@ -13,6 +13,16 @@ pub struct NodeAddr {
 }
 
 #[uniffi::export]
+pub fn node_addr_from_ticket(
+    ticket_str: String,
+) -> Result<NodeAddr, TicketError> {
+    let ticket = NodeTicket::from_str(&ticket_str).map_err(|e| TicketError::ParseError {
+        message: e.to_string(),
+    })?;
+    Ok(NodeAddr::from(ticket.node_addr().clone()))
+}
+
+#[uniffi::export]
 impl NodeAddr {
     /// Create a new [`NodeAddr`] with empty [`AddrInfo`].
     #[uniffi::constructor]

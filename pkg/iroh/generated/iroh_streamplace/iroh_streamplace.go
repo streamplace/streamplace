@@ -394,6 +394,15 @@ func uniffiCheckChecksums() {
 	}
 	{
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_func_node_addr_from_ticket()
+		})
+		if checksum != 8919 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_func_node_addr_from_ticket: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_iroh_streamplace_checksum_func_node_id_from_ticket()
 		})
 		if checksum != 36085 {
@@ -781,6 +790,60 @@ func uniffiCheckChecksums() {
 	}
 	{
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_socket_accept()
+		})
+		if checksum != 12240 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_socket_accept: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_socket_alpn()
+		})
+		if checksum != 42300 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_socket_alpn: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_socket_close()
+		})
+		if checksum != 32603 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_socket_close: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_socket_connect()
+		})
+		if checksum != 63133 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_socket_connect: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_socket_online()
+		})
+		if checksum != 52016 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_socket_online: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_socket_ticket()
+		})
+		if checksum != 29083 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_socket_ticket: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_iroh_streamplace_checksum_method_stream_read_stream()
 		})
 		if checksum != 62815 {
@@ -804,6 +867,69 @@ func uniffiCheckChecksums() {
 		if checksum != 59847 {
 			// If this happens try cleaning and rebuilding your project
 			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_stream_write_stream: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_stream2_close()
+		})
+		if checksum != 7588 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_stream2_close: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_stream2_close_read()
+		})
+		if checksum != 15135 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_stream2_close_read: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_stream2_close_write()
+		})
+		if checksum != 35288 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_stream2_close_write: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_stream2_closed()
+		})
+		if checksum != 48312 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_stream2_closed: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_stream2_read()
+		})
+		if checksum != 55348 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_stream2_read: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_stream2_write()
+		})
+		if checksum != 35047 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_stream2_write: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_method_stream2_write_all()
+		})
+		if checksum != 29695 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_method_stream2_write_all: UniFFI API checksum mismatch")
 		}
 	}
 	{
@@ -887,7 +1013,40 @@ func uniffiCheckChecksums() {
 			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_constructor_publickey_from_string: UniFFI API checksum mismatch")
 		}
 	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_constructor_socket_new()
+		})
+		if checksum != 4547 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_constructor_socket_new: UniFFI API checksum mismatch")
+		}
+	}
 }
+
+type FfiConverterUint32 struct{}
+
+var FfiConverterUint32INSTANCE = FfiConverterUint32{}
+
+func (FfiConverterUint32) Lower(value uint32) C.uint32_t {
+	return C.uint32_t(value)
+}
+
+func (FfiConverterUint32) Write(writer io.Writer, value uint32) {
+	writeUint32(writer, value)
+}
+
+func (FfiConverterUint32) Lift(value C.uint32_t) uint32 {
+	return uint32(value)
+}
+
+func (FfiConverterUint32) Read(reader io.Reader) uint32 {
+	return readUint32(reader)
+}
+
+type FfiDestroyerUint32 struct{}
+
+func (FfiDestroyerUint32) Destroy(_ uint32) {}
 
 type FfiConverterUint64 struct{}
 
@@ -2922,6 +3081,15 @@ func (c FfiConverterSegmentToSign) register() {
 
 // A wrapper for an iroh endpoint that works basically as a socket for streams.
 type SocketInterface interface {
+	// Accept an incoming connection and return a [`Stream2`].
+	Accept() (*Stream2, error)
+	// Get the ALPN for this socket.
+	Alpn() []byte
+	Close()
+	// Connect to a peer at the given [`NodeAddr`] and return a [`Stream2`].
+	Connect(addr *NodeAddr) (*Stream2, error)
+	Online()
+	Ticket() string
 }
 
 // A wrapper for an iroh endpoint that works basically as a socket for streams.
@@ -2929,6 +3097,179 @@ type Socket struct {
 	ffiObject FfiObject
 }
 
+// Create a new [`Socket`] with the given [`SocketConfig`].
+func NewSocket(config SocketConfig) (*Socket, error) {
+	res, err := uniffiRustCallAsync[SocketNewError](
+		FfiConverterSocketNewErrorINSTANCE,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) unsafe.Pointer {
+			res := C.ffi_iroh_streamplace_rust_future_complete_pointer(handle, status)
+			return res
+		},
+		// liftFn
+		func(ffi unsafe.Pointer) *Socket {
+			return FfiConverterSocketINSTANCE.Lift(ffi)
+		},
+		C.uniffi_iroh_streamplace_fn_constructor_socket_new(FfiConverterSocketConfigINSTANCE.Lower(config)),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_pointer(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_pointer(handle)
+		},
+	)
+
+	if err == nil {
+		return res, nil
+	}
+
+	return res, err
+}
+
+// Accept an incoming connection and return a [`Stream2`].
+func (_self *Socket) Accept() (*Stream2, error) {
+	_pointer := _self.ffiObject.incrementPointer("*Socket")
+	defer _self.ffiObject.decrementPointer()
+	res, err := uniffiRustCallAsync[AcceptError](
+		FfiConverterAcceptErrorINSTANCE,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) unsafe.Pointer {
+			res := C.ffi_iroh_streamplace_rust_future_complete_pointer(handle, status)
+			return res
+		},
+		// liftFn
+		func(ffi unsafe.Pointer) *Stream2 {
+			return FfiConverterStream2INSTANCE.Lift(ffi)
+		},
+		C.uniffi_iroh_streamplace_fn_method_socket_accept(
+			_pointer),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_pointer(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_pointer(handle)
+		},
+	)
+
+	if err == nil {
+		return res, nil
+	}
+
+	return res, err
+}
+
+// Get the ALPN for this socket.
+func (_self *Socket) Alpn() []byte {
+	_pointer := _self.ffiObject.incrementPointer("*Socket")
+	defer _self.ffiObject.decrementPointer()
+	return FfiConverterBytesINSTANCE.Lift(rustCall(func(_uniffiStatus *C.RustCallStatus) RustBufferI {
+		return GoRustBuffer{
+			inner: C.uniffi_iroh_streamplace_fn_method_socket_alpn(
+				_pointer, _uniffiStatus),
+		}
+	}))
+}
+
+func (_self *Socket) Close() {
+	_pointer := _self.ffiObject.incrementPointer("*Socket")
+	defer _self.ffiObject.decrementPointer()
+	uniffiRustCallAsync[error](
+		nil,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) struct{} {
+			C.ffi_iroh_streamplace_rust_future_complete_void(handle, status)
+			return struct{}{}
+		},
+		// liftFn
+		func(_ struct{}) struct{} { return struct{}{} },
+		C.uniffi_iroh_streamplace_fn_method_socket_close(
+			_pointer),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_void(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_void(handle)
+		},
+	)
+
+}
+
+// Connect to a peer at the given [`NodeAddr`] and return a [`Stream2`].
+func (_self *Socket) Connect(addr *NodeAddr) (*Stream2, error) {
+	_pointer := _self.ffiObject.incrementPointer("*Socket")
+	defer _self.ffiObject.decrementPointer()
+	res, err := uniffiRustCallAsync[ConnectError](
+		FfiConverterConnectErrorINSTANCE,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) unsafe.Pointer {
+			res := C.ffi_iroh_streamplace_rust_future_complete_pointer(handle, status)
+			return res
+		},
+		// liftFn
+		func(ffi unsafe.Pointer) *Stream2 {
+			return FfiConverterStream2INSTANCE.Lift(ffi)
+		},
+		C.uniffi_iroh_streamplace_fn_method_socket_connect(
+			_pointer, FfiConverterNodeAddrINSTANCE.Lower(addr)),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_pointer(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_pointer(handle)
+		},
+	)
+
+	if err == nil {
+		return res, nil
+	}
+
+	return res, err
+}
+
+func (_self *Socket) Online() {
+	_pointer := _self.ffiObject.incrementPointer("*Socket")
+	defer _self.ffiObject.decrementPointer()
+	uniffiRustCallAsync[error](
+		nil,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) struct{} {
+			C.ffi_iroh_streamplace_rust_future_complete_void(handle, status)
+			return struct{}{}
+		},
+		// liftFn
+		func(_ struct{}) struct{} { return struct{}{} },
+		C.uniffi_iroh_streamplace_fn_method_socket_online(
+			_pointer),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_void(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_void(handle)
+		},
+	)
+
+}
+
+func (_self *Socket) Ticket() string {
+	_pointer := _self.ffiObject.incrementPointer("*Socket")
+	defer _self.ffiObject.decrementPointer()
+	return FfiConverterStringINSTANCE.Lift(rustCall(func(_uniffiStatus *C.RustCallStatus) RustBufferI {
+		return GoRustBuffer{
+			inner: C.uniffi_iroh_streamplace_fn_method_socket_ticket(
+				_pointer, _uniffiStatus),
+		}
+	}))
+}
 func (object *Socket) Destroy() {
 	runtime.SetFinalizer(object, nil)
 	object.ffiObject.destroy()
@@ -3220,11 +3561,214 @@ func (c FfiConverterStream) register() {
 }
 
 type Stream2Interface interface {
+	Close()
+	CloseRead() error
+	CloseWrite() error
+	Closed()
+	Read(n uint64) ([]byte, error)
+	Write(buf []byte) (uint32, error)
+	WriteAll(buf []byte) error
 }
 type Stream2 struct {
 	ffiObject FfiObject
 }
 
+func (_self *Stream2) Close() {
+	_pointer := _self.ffiObject.incrementPointer("*Stream2")
+	defer _self.ffiObject.decrementPointer()
+	rustCall(func(_uniffiStatus *C.RustCallStatus) bool {
+		C.uniffi_iroh_streamplace_fn_method_stream2_close(
+			_pointer, _uniffiStatus)
+		return false
+	})
+}
+
+func (_self *Stream2) CloseRead() error {
+	_pointer := _self.ffiObject.incrementPointer("*Stream2")
+	defer _self.ffiObject.decrementPointer()
+	_, err := uniffiRustCallAsync[ReadError](
+		FfiConverterReadErrorINSTANCE,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) struct{} {
+			C.ffi_iroh_streamplace_rust_future_complete_void(handle, status)
+			return struct{}{}
+		},
+		// liftFn
+		func(_ struct{}) struct{} { return struct{}{} },
+		C.uniffi_iroh_streamplace_fn_method_stream2_close_read(
+			_pointer),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_void(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_void(handle)
+		},
+	)
+
+	if err == nil {
+		return nil
+	}
+
+	return err
+}
+
+func (_self *Stream2) CloseWrite() error {
+	_pointer := _self.ffiObject.incrementPointer("*Stream2")
+	defer _self.ffiObject.decrementPointer()
+	_, err := uniffiRustCallAsync[WriteError2](
+		FfiConverterWriteError2INSTANCE,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) struct{} {
+			C.ffi_iroh_streamplace_rust_future_complete_void(handle, status)
+			return struct{}{}
+		},
+		// liftFn
+		func(_ struct{}) struct{} { return struct{}{} },
+		C.uniffi_iroh_streamplace_fn_method_stream2_close_write(
+			_pointer),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_void(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_void(handle)
+		},
+	)
+
+	if err == nil {
+		return nil
+	}
+
+	return err
+}
+
+func (_self *Stream2) Closed() {
+	_pointer := _self.ffiObject.incrementPointer("*Stream2")
+	defer _self.ffiObject.decrementPointer()
+	uniffiRustCallAsync[error](
+		nil,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) struct{} {
+			C.ffi_iroh_streamplace_rust_future_complete_void(handle, status)
+			return struct{}{}
+		},
+		// liftFn
+		func(_ struct{}) struct{} { return struct{}{} },
+		C.uniffi_iroh_streamplace_fn_method_stream2_closed(
+			_pointer),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_void(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_void(handle)
+		},
+	)
+
+}
+
+func (_self *Stream2) Read(n uint64) ([]byte, error) {
+	_pointer := _self.ffiObject.incrementPointer("*Stream2")
+	defer _self.ffiObject.decrementPointer()
+	res, err := uniffiRustCallAsync[ReadError](
+		FfiConverterReadErrorINSTANCE,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) RustBufferI {
+			res := C.ffi_iroh_streamplace_rust_future_complete_rust_buffer(handle, status)
+			return GoRustBuffer{
+				inner: res,
+			}
+		},
+		// liftFn
+		func(ffi RustBufferI) []byte {
+			return FfiConverterBytesINSTANCE.Lift(ffi)
+		},
+		C.uniffi_iroh_streamplace_fn_method_stream2_read(
+			_pointer, FfiConverterUint64INSTANCE.Lower(n)),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_rust_buffer(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_rust_buffer(handle)
+		},
+	)
+
+	if err == nil {
+		return res, nil
+	}
+
+	return res, err
+}
+
+func (_self *Stream2) Write(buf []byte) (uint32, error) {
+	_pointer := _self.ffiObject.incrementPointer("*Stream2")
+	defer _self.ffiObject.decrementPointer()
+	res, err := uniffiRustCallAsync[WriteError2](
+		FfiConverterWriteError2INSTANCE,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) C.uint32_t {
+			res := C.ffi_iroh_streamplace_rust_future_complete_u32(handle, status)
+			return res
+		},
+		// liftFn
+		func(ffi C.uint32_t) uint32 {
+			return FfiConverterUint32INSTANCE.Lift(ffi)
+		},
+		C.uniffi_iroh_streamplace_fn_method_stream2_write(
+			_pointer, FfiConverterBytesINSTANCE.Lower(buf)),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_u32(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_u32(handle)
+		},
+	)
+
+	if err == nil {
+		return res, nil
+	}
+
+	return res, err
+}
+
+func (_self *Stream2) WriteAll(buf []byte) error {
+	_pointer := _self.ffiObject.incrementPointer("*Stream2")
+	defer _self.ffiObject.decrementPointer()
+	_, err := uniffiRustCallAsync[WriteError2](
+		FfiConverterWriteError2INSTANCE,
+		// completeFn
+		func(handle C.uint64_t, status *C.RustCallStatus) struct{} {
+			C.ffi_iroh_streamplace_rust_future_complete_void(handle, status)
+			return struct{}{}
+		},
+		// liftFn
+		func(_ struct{}) struct{} { return struct{}{} },
+		C.uniffi_iroh_streamplace_fn_method_stream2_write_all(
+			_pointer, FfiConverterBytesINSTANCE.Lower(buf)),
+		// pollFn
+		func(handle C.uint64_t, continuation C.UniffiRustFutureContinuationCallback, data C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_poll_void(handle, continuation, data)
+		},
+		// freeFn
+		func(handle C.uint64_t) {
+			C.ffi_iroh_streamplace_rust_future_free_void(handle)
+		},
+	)
+
+	if err == nil {
+		return nil
+	}
+
+	return err
+}
 func (object *Stream2) Destroy() {
 	runtime.SetFinalizer(object, nil)
 	object.ffiObject.destroy()
@@ -3583,6 +4127,47 @@ func (c FfiConverterEntry) Write(writer io.Writer, value Entry) {
 type FfiDestroyerEntry struct{}
 
 func (_ FfiDestroyerEntry) Destroy(value Entry) {
+	value.Destroy()
+}
+
+// Configuration for creating a [`Socket`].
+type SocketConfig struct {
+	Secret []byte
+	Alpn   []byte
+}
+
+func (r *SocketConfig) Destroy() {
+	FfiDestroyerBytes{}.Destroy(r.Secret)
+	FfiDestroyerBytes{}.Destroy(r.Alpn)
+}
+
+type FfiConverterSocketConfig struct{}
+
+var FfiConverterSocketConfigINSTANCE = FfiConverterSocketConfig{}
+
+func (c FfiConverterSocketConfig) Lift(rb RustBufferI) SocketConfig {
+	return LiftFromRustBuffer[SocketConfig](c, rb)
+}
+
+func (c FfiConverterSocketConfig) Read(reader io.Reader) SocketConfig {
+	return SocketConfig{
+		FfiConverterBytesINSTANCE.Read(reader),
+		FfiConverterBytesINSTANCE.Read(reader),
+	}
+}
+
+func (c FfiConverterSocketConfig) Lower(value SocketConfig) C.RustBuffer {
+	return LowerIntoRustBuffer[SocketConfig](c, value)
+}
+
+func (c FfiConverterSocketConfig) Write(writer io.Writer, value SocketConfig) {
+	FfiConverterBytesINSTANCE.Write(writer, value.Secret)
+	FfiConverterBytesINSTANCE.Write(writer, value.Alpn)
+}
+
+type FfiDestroyerSocketConfig struct{}
+
+func (_ FfiDestroyerSocketConfig) Destroy(value SocketConfig) {
 	value.Destroy()
 }
 
@@ -4996,6 +5581,98 @@ func (_ FfiDestroyerShutdownError) Destroy(value *ShutdownError) {
 	}
 }
 
+type SocketNewError struct {
+	err error
+}
+
+// Convience method to turn *SocketNewError into error
+// Avoiding treating nil pointer as non nil error interface
+func (err *SocketNewError) AsError() error {
+	if err == nil {
+		return nil
+	} else {
+		return err
+	}
+}
+
+func (err SocketNewError) Error() string {
+	return fmt.Sprintf("SocketNewError: %s", err.err.Error())
+}
+
+func (err SocketNewError) Unwrap() error {
+	return err.err
+}
+
+// Err* are used for checking error type with `errors.Is`
+var ErrSocketNewErrorOther = fmt.Errorf("SocketNewErrorOther")
+
+// Variant structs
+type SocketNewErrorOther struct {
+	message string
+}
+
+func NewSocketNewErrorOther() *SocketNewError {
+	return &SocketNewError{err: &SocketNewErrorOther{}}
+}
+
+func (e SocketNewErrorOther) destroy() {
+}
+
+func (err SocketNewErrorOther) Error() string {
+	return fmt.Sprintf("Other: %s", err.message)
+}
+
+func (self SocketNewErrorOther) Is(target error) bool {
+	return target == ErrSocketNewErrorOther
+}
+
+type FfiConverterSocketNewError struct{}
+
+var FfiConverterSocketNewErrorINSTANCE = FfiConverterSocketNewError{}
+
+func (c FfiConverterSocketNewError) Lift(eb RustBufferI) *SocketNewError {
+	return LiftFromRustBuffer[*SocketNewError](c, eb)
+}
+
+func (c FfiConverterSocketNewError) Lower(value *SocketNewError) C.RustBuffer {
+	return LowerIntoRustBuffer[*SocketNewError](c, value)
+}
+
+func (c FfiConverterSocketNewError) Read(reader io.Reader) *SocketNewError {
+	errorID := readUint32(reader)
+
+	message := FfiConverterStringINSTANCE.Read(reader)
+	switch errorID {
+	case 1:
+		return &SocketNewError{&SocketNewErrorOther{message}}
+	default:
+		panic(fmt.Sprintf("Unknown error code %d in FfiConverterSocketNewError.Read()", errorID))
+	}
+
+}
+
+func (c FfiConverterSocketNewError) Write(writer io.Writer, value *SocketNewError) {
+	switch variantValue := value.err.(type) {
+	case *SocketNewErrorOther:
+		writeInt32(writer, 1)
+	default:
+		_ = variantValue
+		panic(fmt.Sprintf("invalid error value `%v` in FfiConverterSocketNewError.Write", value))
+	}
+}
+
+type FfiDestroyerSocketNewError struct{}
+
+func (_ FfiDestroyerSocketNewError) Destroy(value *SocketNewError) {
+	switch variantValue := value.err.(type) {
+	case SocketNewErrorOther:
+		variantValue.destroy()
+	default:
+		_ = variantValue
+		panic(fmt.Sprintf("invalid error value `%v` in FfiDestroyerSocketNewError.Destroy", value))
+	}
+}
+
 type StreamFilter interface {
 	Destroy()
 }
@@ -6112,6 +6789,18 @@ func InitLoggingWithLevel(level string) {
 		C.uniffi_iroh_streamplace_fn_func_init_logging_with_level(FfiConverterStringINSTANCE.Lower(level), _uniffiStatus)
 		return false
 	})
+}
+
+func NodeAddrFromTicket(ticketStr string) (*NodeAddr, error) {
+	_uniffiRV, _uniffiErr := rustCallWithError[TicketError](FfiConverterTicketError{}, func(_uniffiStatus *C.RustCallStatus) unsafe.Pointer {
+		return C.uniffi_iroh_streamplace_fn_func_node_addr_from_ticket(FfiConverterStringINSTANCE.Lower(ticketStr), _uniffiStatus)
+	})
+	if _uniffiErr != nil {
+		var _uniffiDefaultValue *NodeAddr
+		return _uniffiDefaultValue, _uniffiErr
+	} else {
+		return FfiConverterNodeAddrINSTANCE.Lift(_uniffiRV), nil
+	}
 }
 
 // Get this node's ticket.

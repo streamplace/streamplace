@@ -966,6 +966,41 @@ void* uniffi_iroh_streamplace_fn_clone_socket(void* ptr, RustCallStatus *out_sta
 void uniffi_iroh_streamplace_fn_free_socket(void* ptr, RustCallStatus *out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CONSTRUCTOR_SOCKET_NEW
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CONSTRUCTOR_SOCKET_NEW
+uint64_t uniffi_iroh_streamplace_fn_constructor_socket_new(RustBuffer config
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_ACCEPT
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_ACCEPT
+uint64_t uniffi_iroh_streamplace_fn_method_socket_accept(void* ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_ALPN
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_ALPN
+RustBuffer uniffi_iroh_streamplace_fn_method_socket_alpn(void* ptr, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_CLOSE
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_CLOSE
+uint64_t uniffi_iroh_streamplace_fn_method_socket_close(void* ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_CONNECT
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_CONNECT
+uint64_t uniffi_iroh_streamplace_fn_method_socket_connect(void* ptr, void* addr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_ONLINE
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_ONLINE
+uint64_t uniffi_iroh_streamplace_fn_method_socket_online(void* ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_TICKET
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_SOCKET_TICKET
+RustBuffer uniffi_iroh_streamplace_fn_method_socket_ticket(void* ptr, RustCallStatus *out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_STREAM
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_STREAM
 void* uniffi_iroh_streamplace_fn_clone_stream(void* ptr, RustCallStatus *out_status
@@ -1004,6 +1039,41 @@ void* uniffi_iroh_streamplace_fn_clone_stream2(void* ptr, RustCallStatus *out_st
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FREE_STREAM2
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FREE_STREAM2
 void uniffi_iroh_streamplace_fn_free_stream2(void* ptr, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_CLOSE
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_CLOSE
+void uniffi_iroh_streamplace_fn_method_stream2_close(void* ptr, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_CLOSE_READ
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_CLOSE_READ
+uint64_t uniffi_iroh_streamplace_fn_method_stream2_close_read(void* ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_CLOSE_WRITE
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_CLOSE_WRITE
+uint64_t uniffi_iroh_streamplace_fn_method_stream2_close_write(void* ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_CLOSED
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_CLOSED
+uint64_t uniffi_iroh_streamplace_fn_method_stream2_closed(void* ptr
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_READ
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_READ
+uint64_t uniffi_iroh_streamplace_fn_method_stream2_read(void* ptr, uint64_t n
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_WRITE
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_WRITE
+uint64_t uniffi_iroh_streamplace_fn_method_stream2_write(void* ptr, RustBuffer buf
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_WRITE_ALL
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_METHOD_STREAM2_WRITE_ALL
+uint64_t uniffi_iroh_streamplace_fn_method_stream2_write_all(void* ptr, RustBuffer buf
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_CLONE_SUBSCRIBERESPONSE
@@ -1060,6 +1130,11 @@ void uniffi_iroh_streamplace_fn_func_init_logging(RustCallStatus *out_status
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_INIT_LOGGING_WITH_LEVEL
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_INIT_LOGGING_WITH_LEVEL
 void uniffi_iroh_streamplace_fn_func_init_logging_with_level(RustBuffer level, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_NODE_ADDR_FROM_TICKET
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_NODE_ADDR_FROM_TICKET
+void* uniffi_iroh_streamplace_fn_func_node_addr_from_ticket(RustBuffer ticket_str, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_NODE_ID_FROM_TICKET
@@ -1391,6 +1466,12 @@ uint16_t uniffi_iroh_streamplace_checksum_func_init_logging_with_level(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_NODE_ADDR_FROM_TICKET
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_NODE_ADDR_FROM_TICKET
+uint16_t uniffi_iroh_streamplace_checksum_func_node_addr_from_ticket(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_NODE_ID_FROM_TICKET
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_NODE_ID_FROM_TICKET
 uint16_t uniffi_iroh_streamplace_checksum_func_node_id_from_ticket(void
@@ -1649,6 +1730,42 @@ uint16_t uniffi_iroh_streamplace_checksum_method_segmenttosign_close(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_ACCEPT
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_ACCEPT
+uint16_t uniffi_iroh_streamplace_checksum_method_socket_accept(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_ALPN
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_ALPN
+uint16_t uniffi_iroh_streamplace_checksum_method_socket_alpn(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_CLOSE
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_CLOSE
+uint16_t uniffi_iroh_streamplace_checksum_method_socket_close(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_CONNECT
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_CONNECT
+uint16_t uniffi_iroh_streamplace_checksum_method_socket_connect(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_ONLINE
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_ONLINE
+uint16_t uniffi_iroh_streamplace_checksum_method_socket_online(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_TICKET
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_SOCKET_TICKET
+uint16_t uniffi_iroh_streamplace_checksum_method_socket_ticket(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM_READ_STREAM
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM_READ_STREAM
 uint16_t uniffi_iroh_streamplace_checksum_method_stream_read_stream(void
@@ -1664,6 +1781,48 @@ uint16_t uniffi_iroh_streamplace_checksum_method_stream_seek_stream(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM_WRITE_STREAM
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM_WRITE_STREAM
 uint16_t uniffi_iroh_streamplace_checksum_method_stream_write_stream(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_CLOSE
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_CLOSE
+uint16_t uniffi_iroh_streamplace_checksum_method_stream2_close(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_CLOSE_READ
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_CLOSE_READ
+uint16_t uniffi_iroh_streamplace_checksum_method_stream2_close_read(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_CLOSE_WRITE
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_CLOSE_WRITE
+uint16_t uniffi_iroh_streamplace_checksum_method_stream2_close_write(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_CLOSED
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_CLOSED
+uint16_t uniffi_iroh_streamplace_checksum_method_stream2_closed(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_READ
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_READ
+uint16_t uniffi_iroh_streamplace_checksum_method_stream2_read(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_WRITE
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_WRITE
+uint16_t uniffi_iroh_streamplace_checksum_method_stream2_write(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_WRITE_ALL
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_METHOD_STREAM2_WRITE_ALL
+uint16_t uniffi_iroh_streamplace_checksum_method_stream2_write_all(void
     
 );
 #endif
@@ -1718,6 +1877,12 @@ uint16_t uniffi_iroh_streamplace_checksum_constructor_publickey_from_bytes(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_CONSTRUCTOR_PUBLICKEY_FROM_STRING
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_CONSTRUCTOR_PUBLICKEY_FROM_STRING
 uint16_t uniffi_iroh_streamplace_checksum_constructor_publickey_from_string(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_CONSTRUCTOR_SOCKET_NEW
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_CONSTRUCTOR_SOCKET_NEW
+uint16_t uniffi_iroh_streamplace_checksum_constructor_socket_new(void
     
 );
 #endif

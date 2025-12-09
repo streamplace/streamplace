@@ -443,7 +443,6 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				StartsAt:    rec.StartsAt,
 			}
 
-			log.Log(ctx, "sending teleport arrival notification", "from", userDID, "to", rec.Streamer, "uri", aturi.String())
 			atsync.Bus.Publish(rec.Streamer, arrivalMsg)
 		})
 

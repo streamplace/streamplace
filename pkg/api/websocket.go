@@ -265,7 +265,6 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					ViewerCount: int64(viewerCount),
 					StartsAt:    tp.StartsAt.Format(time.RFC3339),
 				}
-				log.Log(ctx, "sending teleport arrival in initial burst", "from", tp.RepoDID, "to", repoDID)
 				initialBurst <- arrivalMsg
 			}
 		}()

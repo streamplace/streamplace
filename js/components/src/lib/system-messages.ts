@@ -73,6 +73,16 @@ export const SystemMessages = {
       { duration },
     ),
 
+  teleportArrival: (
+    streamerName: string,
+    count: number,
+  ): ChatMessageViewHydrated =>
+    createSystemMessage(
+      SystemMessageType.notification,
+      `${count} viewer${count !== 1 ? "s" : ""} teleported from ${streamerName}'s stream! Say hi!`,
+      { streamerName, count },
+    ),
+
   notification: (message: string): ChatMessageViewHydrated =>
     createSystemMessage(SystemMessageType.notification, message),
 };

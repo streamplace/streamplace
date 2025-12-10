@@ -12,6 +12,7 @@ import {
   PlaceStreamSegment,
 } from "streamplace";
 import { SystemMessages } from "../lib/system-messages";
+import { formatHandleWithAt } from "../utils/format-handle";
 import { reduceChat } from "./chat";
 import { LivestreamState } from "./livestream-state";
 import { findProblems } from "./problems";
@@ -129,11 +130,18 @@ export const handleWebSocketMessages = (
         activeTeleport: teleportRecord,
       };
     } else if (PlaceStreamLivestream.isTeleportArrival(message)) {
+      console.log("teleport succeeded");
+      // teleport has succeeded, we are now at the target stream
       const arrival = message as PlaceStreamLivestream.TeleportArrival;
-      // when receiving a teleportArrival, we're the target
-      // the source is teleporting to us
-      console.log("Received teleport arrival", arrival);
-      // TODO: show notification or UI for incoming teleport
+      const systemMessage = SystemMessages.teleportArrival(
+        formatHandleWithAt(arrival.source),
+        arrival.viewerCount,
+      );
+      // set proper times
+      systemMessage.indexedAt = arrival.startsAt;
+      systemMessage.record.createdAt = arrival.startsAt;
+
+      state = reduceChat(state, [systemMessage], []);
     } else if (PlaceStreamLivestream.isTeleportCanceled(message)) {
       // teleport was canceled (deleted or denied)
       state = {

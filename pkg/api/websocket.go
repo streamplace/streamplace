@@ -248,11 +248,11 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				log.Error(ctx, "could not get active teleports", "error", err)
 				return
 			}
-			log.Log(ctx, "found active teleports in initial burst", "count", len(teleports), "targetDID", repoDID)
-			for _, tp := range teleports {
+			// just send the latest one if it started <3m ago
+			if len(teleports) > 0 && teleports[0].StartsAt.After(time.Now().Add(-3*time.Minute)) {
+				tp := teleports[0]
 				if tp.Repo == nil {
-					log.Error(ctx, "teleport repo is nil", "uri", tp.URI)
-					continue
+					log.Error(ctx, "teleportee repo is nil", "uri", tp.URI)
 				}
 				viewerCount := a.Bus.GetViewerCount(tp.RepoDID)
 				arrivalMsg := streamplace.Livestream_TeleportArrival{

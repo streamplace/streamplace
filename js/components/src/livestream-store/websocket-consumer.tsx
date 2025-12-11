@@ -130,7 +130,6 @@ export const handleWebSocketMessages = (
         activeTeleport: teleportRecord,
       };
     } else if (PlaceStreamLivestream.isTeleportArrival(message)) {
-      console.log("teleport succeeded");
       // teleport has succeeded, we are now at the target stream
       const arrival = message as PlaceStreamLivestream.TeleportArrival;
 

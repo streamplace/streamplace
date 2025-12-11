@@ -88,9 +88,7 @@ export function TeleportWatcher({
         }
       },
       onAutoDismiss: () => {
-        console.log("Teleport dismissed bestie!");
         if (onTeleport) {
-          console.log("Calling onTeleport callback");
           onTeleport(targetHandle, activeTeleport.streamer);
         }
       },

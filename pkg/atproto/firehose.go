@@ -306,7 +306,6 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 			}
 
 			if collection.String() == constants.PLACE_STREAM_LIVE_TELEPORT {
-				log.Warn(ctx, "deleting teleport", "userDID", evt.Repo, "uri", uri)
 				err := atsync.Model.DeleteTeleport(ctx, uri)
 				if err != nil {
 					log.Error(ctx, "failed to delete teleport", "err", err)

@@ -1,5 +1,6 @@
 import Picker from "@emoji-mart/react";
 import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
+import { env } from "process";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, TextInput } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
@@ -494,20 +495,23 @@ export function ChatBox({
             { justifyContent: "flex-end" },
           ]}
         >
-          <Button
-            variant="secondary"
-            style={{ borderRadius: 16 }}
-            onPress={() => {
-              StreamNotifications.teleport({
-                targetHandle: "test.bsky.social",
-                targetDID: "did:plc:test",
-                countdown: 30,
-                onCancel: () => console.log("teleport cancelled"),
-              });
-            }}
-          >
-            Test Notification
-          </Button>
+          {env.NODE_ENV === "development" && (
+            <Button
+              variant="secondary"
+              style={{ borderRadius: 16 }}
+              width="min"
+              onPress={() => {
+                StreamNotifications.teleport({
+                  targetHandle: "test.bsky.social",
+                  targetDID: "did:plc:test",
+                  countdown: 30,
+                  onCancel: () => console.log("teleport cancelled"),
+                });
+              }}
+            >
+              Test Notification
+            </Button>
+          )}
           <Button
             variant="secondary"
             style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}

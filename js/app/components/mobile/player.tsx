@@ -189,7 +189,6 @@ function PlayerWithProvider(
   }
 
   const handleTeleport = (targetHandle: string, targetDID: string) => {
-    console.log("Teleporting to", targetHandle, targetDID);
     navigation.navigate("Home", {
       screen: "Stream",
       params: { user: targetDID },

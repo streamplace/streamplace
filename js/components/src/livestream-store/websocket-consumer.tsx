@@ -133,9 +133,23 @@ export const handleWebSocketMessages = (
       console.log("teleport succeeded");
       // teleport has succeeded, we are now at the target stream
       const arrival = message as PlaceStreamLivestream.TeleportArrival;
+
+      // add the teleporter's chat profile to the authors cache FIRST so mention rendering works
+      if (arrival.chatProfile && arrival.source.did) {
+        state = {
+          ...state,
+          authors: {
+            ...state.authors,
+            [arrival.source.did]: arrival.chatProfile,
+          },
+        };
+      }
+
       const systemMessage = SystemMessages.teleportArrival(
         formatHandleWithAt(arrival.source),
+        arrival.source.did,
         arrival.viewerCount,
+        arrival.chatProfile,
       );
       // set proper times
       systemMessage.indexedAt = arrival.startsAt;

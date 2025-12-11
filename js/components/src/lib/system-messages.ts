@@ -22,6 +22,8 @@ export interface SystemMessageMetadata {
  * @param metadata Optional metadata for the message
  * @returns A properly formatted ChatMessageViewHydrated object
  */
+let systemMessageCounter = 0;
+
 export const createSystemMessage = (
   type: SystemMessageType,
   text: string,
@@ -29,10 +31,11 @@ export const createSystemMessage = (
   date: Date = new Date(),
 ): ChatMessageViewHydrated => {
   const now = date;
+  const uniqueId = `${now.getTime()}-${systemMessageCounter++}`;
 
   return {
-    uri: `at://did:sys:system/place.stream.chat.message/${now.getTime()}`,
-    cid: `system-${now.getTime()}`,
+    uri: `at://did:sys:system/place.stream.chat.message/${uniqueId}`,
+    cid: `system-${uniqueId}`,
     author: {
       did: "did:sys:system",
       handle: type, // Use handle to specify the type of system message
@@ -75,13 +78,43 @@ export const SystemMessages = {
 
   teleportArrival: (
     streamerName: string,
+    streamerDid: string,
     count: number,
-  ): ChatMessageViewHydrated =>
-    createSystemMessage(
-      SystemMessageType.notification,
-      `${count} viewer${count !== 1 ? "s" : ""} teleported from ${streamerName}'s stream! Say hi!`,
-      { streamerName, count },
-    ),
+    chatProfile?: any,
+  ): ChatMessageViewHydrated => {
+    const text = `${count} viewer${count !== 1 ? "s" : ""} teleported from ${streamerName}'s stream! Say hi!`;
+    const message = createSystemMessage(SystemMessageType.notification, text, {
+      streamerName,
+      count,
+    });
+
+    // create a mention facet for the streamer name so it gets colored using existing mention rendering
+    if (chatProfile && streamerDid) {
+      const nameStart = text.indexOf(streamerName);
+
+      // encode byte positions
+      const encoder = new TextEncoder();
+      const byteStart = encoder.encode(text.substring(0, nameStart)).length;
+      const byteEnd = byteStart + encoder.encode(streamerName).length;
+
+      message.record.facets = [
+        {
+          index: {
+            byteStart,
+            byteEnd,
+          },
+          features: [
+            {
+              $type: "app.bsky.richtext.facet#mention",
+              did: streamerDid,
+            },
+          ],
+        },
+      ];
+    }
+
+    return message;
+  },
 
   notification: (message: string): ChatMessageViewHydrated =>
     createSystemMessage(SystemMessageType.notification, message),

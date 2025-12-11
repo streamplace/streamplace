@@ -173,6 +173,7 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
       <SystemMessage
         timestamp={new Date(item.record.createdAt)}
         title={item.record.text}
+        facets={item.record.facets}
       />
     );
   }

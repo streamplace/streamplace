@@ -1,14 +1,20 @@
 import { View } from "react-native";
-import { flex, gap, layout, ml, pb, pl, px, w } from "../../ui";
-import { atoms } from "../ui";
+import { Main } from "streamplace/src/lexicons/types/place/stream/richtext/facet";
+import { colors, flex, gap, layout, ml, pb, pl, px, w } from "../../ui";
 import { Code, Text } from "../ui/text";
+import { RichTextMessage } from "./chat-message";
 
 interface SystemMessageProps {
   title: string;
   timestamp: Date;
+  facets?: Main[];
 }
 
-export function SystemMessage({ title, timestamp }: SystemMessageProps) {
+export function SystemMessage({
+  title,
+  timestamp,
+  facets,
+}: SystemMessageProps) {
   return (
     <View style={[w.percent[100], px[2], pb[2]]}>
       <Code color="muted" tracking="widest" style={[pl[12], ml[1]]}>
@@ -18,7 +24,7 @@ export function SystemMessage({ title, timestamp }: SystemMessageProps) {
         <Text
           style={{
             fontVariant: ["tabular-nums"],
-            color: atoms.colors.gray[300],
+            color: colors.gray[400],
           }}
         >
           {timestamp.toLocaleTimeString([], {
@@ -28,7 +34,7 @@ export function SystemMessage({ title, timestamp }: SystemMessageProps) {
           })}
         </Text>
         <Text weight="bold" color="default" style={[flex.shrink[1]]}>
-          {title}
+          <RichTextMessage facets={facets} text={title} />
         </Text>
       </View>
     </View>

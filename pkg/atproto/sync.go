@@ -443,6 +443,16 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				StartsAt:    rec.StartsAt,
 			}
 
+			// get the source chat profile
+			chatProfile, err := atsync.Model.GetChatProfile(ctx, userDID)
+			if err == nil && chatProfile != nil {
+				spcp, err := chatProfile.ToStreamplaceChatProfile()
+				if err == nil {
+					arrivalMsg.ChatProfile = spcp
+				}
+			}
+
+			log.Log(ctx, "sending teleport arrival notification", "from", userDID, "to", rec.Streamer, "uri", aturi.String())
 			atsync.Bus.Publish(rec.Streamer, arrivalMsg)
 		})
 

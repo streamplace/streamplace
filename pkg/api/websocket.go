@@ -265,6 +265,16 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					ViewerCount: int64(viewerCount),
 					StartsAt:    tp.StartsAt.Format(time.RFC3339),
 				}
+
+				// get the source chat profile
+				chatProfile, err := a.Model.GetChatProfile(ctx, tp.RepoDID)
+				if err == nil && chatProfile != nil {
+					spcp, err := chatProfile.ToStreamplaceChatProfile()
+					if err == nil {
+						arrivalMsg.ChatProfile = spcp
+					}
+				}
+
 				initialBurst <- arrivalMsg
 			}
 		}()

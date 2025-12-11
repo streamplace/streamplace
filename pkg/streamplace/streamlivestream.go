@@ -144,6 +144,8 @@ func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalJSON(b []byte) erro
 // Livestream_TeleportArrival is a "teleportArrival" in the place.stream.livestream schema.
 type Livestream_TeleportArrival struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.livestream#teleportArrival"`
+	// chatProfile: The chat profile of the source streamer
+	ChatProfile *ChatProfile `json:"chatProfile,omitempty" cborgen:"chatProfile,omitempty"`
 	// source: The streamer who is teleporting their viewers here
 	Source *appbsky.ActorDefs_ProfileViewBasic `json:"source" cborgen:"source"`
 	// startsAt: When this teleport started

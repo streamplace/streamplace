@@ -91,6 +91,7 @@ Record announcing a livestream is happening
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | -------------------------------------------------- | ------------------ |
 | `teleportUri` | `string`                                                                                                                                         | ✅    | The URI of the teleport record                     | Format: `at-uri`   |
 | `source`      | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    | The streamer who is teleporting their viewers here |                    |
+| `chatProfile` | [`place.stream.chat.profile`](/lex-reference/place-stream-chat-profile)                                                                          | ❌    | The chat profile of the source streamer            |                    |
 | `viewerCount` | `integer`                                                                                                                                        | ✅    | How many viewers are arriving from this teleport   |                    |
 | `startsAt`    | `string`                                                                                                                                         | ✅    | When this teleport started                         | Format: `datetime` |
 
@@ -244,6 +245,11 @@ Record announcing a livestream is happening
           "type": "ref",
           "ref": "app.bsky.actor.defs#profileViewBasic",
           "description": "The streamer who is teleporting their viewers here"
+        },
+        "chatProfile": {
+          "type": "ref",
+          "ref": "place.stream.chat.profile",
+          "description": "The chat profile of the source streamer"
         },
         "viewerCount": {
           "type": "integer",

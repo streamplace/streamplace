@@ -102,6 +102,11 @@
           "ref": "app.bsky.actor.defs#profileViewBasic",
           "description": "The streamer who is teleporting their viewers here"
         },
+        "chatProfile": {
+          "type": "ref",
+          "ref": "place.stream.chat.profile",
+          "description": "The chat profile of the source streamer"
+        },
         "viewerCount": {
           "type": "integer",
           "description": "How many viewers are arriving from this teleport"

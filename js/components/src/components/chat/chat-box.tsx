@@ -1,7 +1,13 @@
 import Picker from "@emoji-mart/react";
 import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, TextInput } from "react-native";
+import { Platform, TextInput } from "react-native";
+import { Pressable } from "react-native-gesture-handler";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { ChatMessageViewHydrated } from "streamplace";
 import {
   Button,
@@ -61,6 +67,8 @@ export function ChatBox({
     new Map(),
   );
   const [filteredEmojis, setFilteredEmojis] = useState<any[]>([]);
+  const emojiScale = useSharedValue(1);
+  const emojiRotate = useSharedValue(0);
 
   let linfo = useLivestream();
 
@@ -256,6 +264,14 @@ export function ChatBox({
       textAreaRef.current.focus();
     }
   }, [replyTo]);
+
+  const animatedEmojiStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: emojiScale.value },
+      { rotate: `${emojiRotate.value}deg` },
+    ],
+    transformOrigin: "center",
+  }));
 
   return (
     <View style={[layout.flex.column, flex.shrink[1], gap.all[2]]}>
@@ -457,10 +473,27 @@ export function ChatBox({
             <AtSignIcon size={20} color="white" />
           </Button>
           <Pressable
+            style={{
+              alignContent: "center",
+              justifyContent: "center",
+              transformOrigin: "center",
+            }}
+            onHoverIn={() => {
+              emojiScale.value = withSpring(1.8);
+              setTimeout(() => {
+                emojiScale.value = withSpring(1.2);
+              }, 150);
+            }}
             onHoverOut={() => {
-              setEmojiIconIndex(
-                Math.floor(Math.random() * COOL_EMOJI_LIST.length),
-              );
+              emojiScale.value = withSpring(0);
+              emojiRotate.value = withSpring(360 * Math.random());
+              setTimeout(() => {
+                setEmojiIconIndex(
+                  Math.floor(Math.random() * COOL_EMOJI_LIST.length),
+                );
+                emojiRotate.value = withSpring(0);
+                emojiScale.value = withSpring(1);
+              }, 150);
             }}
           >
             <Button
@@ -469,7 +502,16 @@ export function ChatBox({
               style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
               onPress={() => setShowEmojiSelector(!showEmojiSelector)}
             >
-              <Text>{COOL_EMOJI_LIST[emojiIconIndex]}</Text>
+              <Animated.View
+                style={[
+                  animatedEmojiStyle,
+                  { transformOrigin: "center", height: 20, width: 20 },
+                ]}
+              >
+                <Text style={{ transformOrigin: "center", fontSize: 20 }}>
+                  {COOL_EMOJI_LIST[emojiIconIndex]}
+                </Text>
+              </Animated.View>
             </Button>
           </Pressable>
           {!isPopout && (

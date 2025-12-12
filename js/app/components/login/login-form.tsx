@@ -26,6 +26,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const { theme } = useTheme();
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
+  const authStatus = useStore((state) => state.authStatus);
   const loginState = useLogin();
   const [handle, setHandle] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
@@ -101,6 +102,12 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       Alert.alert("Login error", loginState.error);
     }
   }, [loginState?.error]);
+
+  useEffect(() => {
+    if (authStatus === "loggedIn" && onSuccess) {
+      onSuccess();
+    }
+  }, [authStatus, onSuccess]);
 
   return (
     <>

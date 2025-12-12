@@ -1,4 +1,4 @@
-import { Pressable } from "react-native";
+import { Pressable, ScrollView } from "react-native";
 import { Code, Text, View } from "../..";
 import { bg, layout, left, right, zIndex } from "../../lib/theme/atoms";
 
@@ -58,37 +58,38 @@ export function EmojiSuggestions({
         zIndex[50],
         {
           bottom: "100%",
+          marginBottom: 8,
           borderRadius: 8,
           boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)",
-          maxHeight: 200,
-          overflow: "auto",
         },
       ]}
     >
-      {emojis.map((emoji, index) => (
-        <Pressable
-          key={emoji.id}
-          onPress={() => onSelect(emoji)}
-          style={[
-            {
-              padding: 8,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor:
-                index === highlightedIndex
-                  ? "rgba(255, 255, 255, 0.1)"
-                  : "transparent",
-            },
-          ]}
-        >
-          <Text style={{ fontSize: 16, marginRight: 8 }}>
-            {emoji.skins[0]?.native}
-          </Text>
-          <Text style={{ color: "white", fontSize: 14 }}>
-            <Code style={[bg.gray[950]]}>:{emoji.id}:</Code> {emoji.name}
-          </Text>
-        </Pressable>
-      ))}
+      <ScrollView style={{ maxHeight: 300 }}>
+        {emojis.map((emoji, index) => (
+          <Pressable
+            key={emoji.id}
+            onPress={() => onSelect(emoji)}
+            style={[
+              {
+                padding: 8,
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor:
+                  index === highlightedIndex
+                    ? "rgba(255, 255, 255, 0.1)"
+                    : "transparent",
+              },
+            ]}
+          >
+            <Text leading="normal" style={{ fontSize: 16, marginRight: 8 }}>
+              {emoji.skins[0]?.native}
+            </Text>
+            <Text style={{ color: "white", fontSize: 14 }}>
+              <Code style={[bg.gray[950]]}>:{emoji.id}:</Code> {emoji.name}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
     </View>
   );
 }

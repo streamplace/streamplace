@@ -1,4 +1,4 @@
-import { Pressable } from "react-native";
+import { Pressable, ScrollView } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Text, View } from "../..";
 import { bg, layout, left, right, zIndex } from "../../lib/theme/atoms";
@@ -30,42 +30,45 @@ export function MentionSuggestions({
         zIndex[50],
         {
           bottom: "100%",
+          marginBottom: 8,
           borderRadius: 8,
           boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)",
         },
       ]}
     >
-      {authorHandles.map((handle, index) => {
-        let profile = authors.get(handle);
-        return (
-          <Pressable
-            key={handle}
-            onPress={() => onSelect(handle)}
-            style={[
-              {
-                padding: 8,
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor:
-                  index === highlightedIndex
-                    ? "rgba(0, 0, 0, 0.1)"
-                    : "rgba(0, 0, 0, 0.5)",
-              },
-            ]}
-          >
-            <Text
-              style={{
-                color: profile?.color
-                  ? `rgb(${profile.color.red}, ${profile.color.green}, ${profile.color.blue})`
-                  : "black",
-                fontWeight: "bold",
-              }}
+      <ScrollView>
+        {authorHandles.map((handle, index) => {
+          let profile = authors.get(handle);
+          return (
+            <Pressable
+              key={handle}
+              onPress={() => onSelect(handle)}
+              style={[
+                {
+                  padding: 8,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor:
+                    index === highlightedIndex
+                      ? "rgba(0, 0, 0, 0.1)"
+                      : "rgba(0, 0, 0, 0.5)",
+                },
+              ]}
             >
-              @{handle}
-            </Text>
-          </Pressable>
-        );
-      })}
+              <Text
+                style={{
+                  color: profile?.color
+                    ? `rgb(${profile.color.red}, ${profile.color.green}, ${profile.color.blue})`
+                    : "black",
+                  fontWeight: "bold",
+                }}
+              >
+                @{handle}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }

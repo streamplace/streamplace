@@ -286,13 +286,13 @@ func (s *Server) HandlePlaceStreamBrandingDeleteBlob(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingDeleteBlob")
 	defer span.End()
 
-	var body placestreamtypes.BrandingDeleteBlob_Input
+	var body placestream.BrandingDeleteBlob_Input
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *placestreamtypes.BrandingDeleteBlob_Output
+	var out *placestream.BrandingDeleteBlob_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context,body *placestreamtypes.BrandingDeleteBlob_Input) (*placestreamtypes.BrandingDeleteBlob_Output, error)
+	// func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context,body *placestream.BrandingDeleteBlob_Input) (*placestream.BrandingDeleteBlob_Output, error)
 	out, handleErr = s.handlePlaceStreamBrandingDeleteBlob(ctx, &body)
 	if handleErr != nil {
 		return handleErr
@@ -319,9 +319,9 @@ func (s *Server) HandlePlaceStreamBrandingGetBranding(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingGetBranding")
 	defer span.End()
 	broadcaster := c.QueryParam("broadcaster")
-	var out *placestreamtypes.BrandingGetBranding_Output
+	var out *placestream.BrandingGetBranding_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context,broadcaster string) (*placestreamtypes.BrandingGetBranding_Output, error)
+	// func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context,broadcaster string) (*placestream.BrandingGetBranding_Output, error)
 	out, handleErr = s.handlePlaceStreamBrandingGetBranding(ctx, broadcaster)
 	if handleErr != nil {
 		return handleErr
@@ -333,13 +333,13 @@ func (s *Server) HandlePlaceStreamBrandingUpdateBlob(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingUpdateBlob")
 	defer span.End()
 
-	var body placestreamtypes.BrandingUpdateBlob_Input
+	var body placestream.BrandingUpdateBlob_Input
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
-	var out *placestreamtypes.BrandingUpdateBlob_Output
+	var out *placestream.BrandingUpdateBlob_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context,body *placestreamtypes.BrandingUpdateBlob_Input) (*placestreamtypes.BrandingUpdateBlob_Output, error)
+	// func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context,body *placestream.BrandingUpdateBlob_Input) (*placestream.BrandingUpdateBlob_Output, error)
 	out, handleErr = s.handlePlaceStreamBrandingUpdateBlob(ctx, &body)
 	if handleErr != nil {
 		return handleErr

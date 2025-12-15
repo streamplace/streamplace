@@ -283,6 +283,7 @@ dev: app-cached
 dev-setup-meson:
 	$(MAKE) dev-setup-meson-configure
 	$(MAKE) meson-compile
+	if [ "$(BUILDOS)" = "linux" ]; then find ./build-linux-amd64/lib -maxdepth 2 -mindepth 1 -type f | grep so | xargs patchelf --set-rpath $$(realpath ./build-linux-amd64/lib); fi
 
 .PHONY: dev-setup-meson-configure
 dev-setup-meson-configure:

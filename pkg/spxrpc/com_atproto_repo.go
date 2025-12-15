@@ -9,11 +9,9 @@ import (
 	"net/http"
 	"strings"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 
 	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"go.opentelemetry.io/otel"
@@ -41,7 +39,7 @@ func resolveRepoService(ctx context.Context, repo string) (string, string, strin
 
 var maxBlobSize int64 = 1024 * 1024 * 10 // 10MB
 
-func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context, r io.Reader, contentType string) (*comatprototypes.RepoUploadBlob_Output, error) {
+func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context, r io.Reader, contentType string) (*comatproto.RepoUploadBlob_Output, error) {
 	ctx, span := otel.Tracer("server").Start(ctx, "handleComAtprotoRepoUploadBlob")
 	defer span.End()
 
@@ -61,7 +59,7 @@ func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context, r io.Reader
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to copy reader to buffer")
 	}
 
-	var out comatprototypes.RepoUploadBlob_Output
+	var out comatproto.RepoUploadBlob_Output
 
 	err = client.Do(ctx, xrpc.Procedure, contentType, "com.atproto.repo.uploadBlob", nil, bytes.NewReader(buf.Bytes()), &out)
 
@@ -73,13 +71,13 @@ func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context, r io.Reader
 	return &out, nil
 }
 
-func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*comatprototypes.RepoDescribeRepo_Output, error) {
+func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo string) (*comatproto.RepoDescribeRepo_Output, error) {
 	isLocal, svc, err := s.isLocalPDS(ctx, repo)
 	if err != nil {
 		return nil, fmt.Errorf("error checking for local PDS: %w", err)
 	}
 	if !isLocal {
-		var out comatprototypes.RepoDescribeRepo_Output
+		var out comatproto.RepoDescribeRepo_Output
 		params := make(map[string]interface{})
 		params["repo"] = repo
 
@@ -92,7 +90,7 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 
 	}
 
-	return &comatprototypes.RepoDescribeRepo_Output{
+	return &comatproto.RepoDescribeRepo_Output{
 		Handle: s.cli.MyDID(),
 		Did:    s.cli.MyDID(),
 		DidDoc: atproto.DIDDoc(s.cli.BroadcasterHost),
@@ -103,13 +101,13 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 	}, nil
 }
 
-func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse *bool) (*comatprototypes.RepoListRecords_Output, error) {
+func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse *bool) (*comatproto.RepoListRecords_Output, error) {
 	isLocal, svc, err := s.isLocalPDS(ctx, repo)
 	if err != nil {
 		return nil, fmt.Errorf("error checking for local PDS: %w", err)
 	}
 	if !isLocal {
-		var out comatprototypes.RepoListRecords_Output
+		var out comatproto.RepoListRecords_Output
 		params := make(map[string]interface{})
 		params["collection"] = collection
 		if cursor != "" {
@@ -131,39 +129,16 @@ func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection
 		return &out, nil
 	}
 
-	r, ses, err := atproto.OpenLexiconRepo(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to open repo: %w", err)
-	}
-	out := &comatprototypes.RepoListRecords_Output{
-		Records: []*comatprototypes.RepoListRecords_Record{},
-	}
-	err = r.ForEach(ctx, "", func(rkey string, c cid.Cid) error {
-		val, err := atproto.GetRecordCBOR(ctx, ses, c, collection, rkey)
-		if err != nil {
-			return fmt.Errorf("handleComAtprotoRepoListRecords: failed to get record for collection %q, rkey %q: %w", collection, rkey, err)
-		}
-		out.Records = append(out.Records, &comatprototypes.RepoListRecords_Record{
-			Uri:   fmt.Sprintf("at://%s/%s/%s", repo, collection, rkey),
-			Cid:   c.String(),
-			Value: &lexutil.LexiconTypeDecoder{Val: val},
-		})
-
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: error iterating records for collection %q: %w", collection, err)
-	}
-	return out, nil
+	return atproto.LexiconRepoListRecords(ctx, collection, cursor, limit, repo, reverse)
 }
 
-func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, repo string, rkey string) (*comatprototypes.RepoGetRecord_Output, error) {
+func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, repo string, rkey string) (*comatproto.RepoGetRecord_Output, error) {
 	isLocal, svc, err := s.isLocalPDS(ctx, repo)
 	if err != nil {
 		return nil, fmt.Errorf("error checking for local PDS: %w", err)
 	}
 	if !isLocal {
-		var out comatprototypes.RepoGetRecord_Output
+		var out comatproto.RepoGetRecord_Output
 		params := make(map[string]interface{})
 		params["repo"] = repo
 		params["collection"] = collection
@@ -180,22 +155,5 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 		return &out, nil
 	}
 
-	r, ses, err := atproto.OpenLexiconRepo(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to open repo: %w", err)
-	}
-	outCID, _, err := r.GetRecord(ctx, fmt.Sprintf("%s/%s", collection, rkey))
-	if err != nil {
-		return nil, err
-	}
-	rec, err := atproto.GetRecordCBOR(ctx, ses, outCID, collection, rkey)
-	if err != nil {
-		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to get record: %w", err)
-	}
-	str := outCID.String()
-	return &comatprototypes.RepoGetRecord_Output{
-		Uri:   fmt.Sprintf("at://%s/%s/%s", repo, collection, rkey),
-		Cid:   &str,
-		Value: &lexutil.LexiconTypeDecoder{Val: rec},
-	}, nil
+	return atproto.LexiconRepoGetRecord(ctx, repo, collection, rkey)
 }

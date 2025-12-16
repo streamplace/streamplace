@@ -189,6 +189,10 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		ss.Go(ctx, func() error {
 			return ss.UpdateBroadcastOrigin(ctx)
 		})
+
+		ss.Go(ctx, func() error {
+			return ss.PublishPublisherKey(ctx)
+		})
 	}
 
 	if ss.cli.LivepeerGatewayURL != "" {
@@ -509,6 +513,66 @@ func (ss *StreamSession) UpdateBroadcastOrigin(ctx context.Context) error {
 	}
 
 	ss.lastOriginTime = time.Now()
+	return nil
+}
+
+func (ss *StreamSession) PublishPublisherKey(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "func", "PublishPublisherKey")
+
+	_, pubKey, err := ss.statefulDB.EnsurePublisherKey(ctx)
+	if err != nil {
+		return fmt.Errorf("could not get publisher key: %w", err)
+	}
+
+	publisherKey := streamplace.BroadcastPublisherKey{
+		SigningKey: pubKey.DIDKey(),
+		CreatedAt:  time.Now().UTC().Format(util.ISO8601),
+		CreatedBy:  util.StringPtr(fmt.Sprintf("streamplace-server:%s", ss.cli.ServerHost)),
+	}
+
+	client, err := ss.GetClientByDID(ss.repoDID)
+	if err != nil {
+		return fmt.Errorf("could not get xrpc client for repoDID: %w", err)
+	}
+
+	rkey := fmt.Sprintf("did:web:%s", ss.cli.ServerHost)
+
+	var swapRecord *string
+	getOutput := comatproto.RepoGetRecord_Output{}
+	err = client.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.getRecord", map[string]any{
+		"repo":       ss.repoDID,
+		"collection": "place.stream.broadcast.publisherKey",
+		"rkey":       rkey,
+	}, nil, &getOutput)
+	if err != nil {
+		xErr, ok := err.(*xrpc.Error)
+		if !ok {
+			return fmt.Errorf("could not get record: %w", err)
+		}
+		if xErr.StatusCode != 400 {
+			return fmt.Errorf("could not get record: %w", err)
+		}
+		log.Debug(ctx, "record not found, creating", "repoDID", ss.repoDID)
+	} else {
+		log.Debug(ctx, "got record", "record", getOutput)
+		swapRecord = getOutput.Cid
+	}
+
+	inp := comatproto.RepoPutRecord_Input{
+		Collection: "place.stream.broadcast.publisherKey",
+		Record:     &lexutil.LexiconTypeDecoder{Val: &publisherKey},
+		Rkey:       rkey,
+		Repo:       ss.repoDID,
+		SwapRecord: swapRecord,
+	}
+	out := comatproto.RepoPutRecord_Output{}
+
+	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out)
+	if err != nil {
+		return fmt.Errorf("could not create/update publisherKey record: %w", err)
+	}
+
+	log.Debug(ctx, "published publisherKey record", "out", out)
 	return nil
 }
 

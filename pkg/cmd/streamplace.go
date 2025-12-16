@@ -278,6 +278,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	}
 	cli.AccessJWK = accessJWK
 
+	_, _, err = state.EnsurePublisherKey(ctx)
+	if err != nil {
+		return err
+	}
+
 	b := bus.NewBus()
 	atsync := &atproto.ATProtoSynchronizer{
 		CLI:        &cli,

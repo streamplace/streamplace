@@ -304,6 +304,22 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				atsync.Bus.Publish(msg.StreamerRepoDID, mv)
 			}
 
+			if collection.String() == constants.PLACE_STREAM_MODERATION_PERMISSION {
+				log.Debug(ctx, "deleting moderation delegation", "userDID", evt.Repo, "rkey", rkey.String())
+				err := atsync.Model.DeleteModerationDelegation(ctx, rkey.String())
+				if err != nil {
+					log.Error(ctx, "failed to delete moderation delegation", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_CHAT_GATE {
+				log.Debug(ctx, "deleting gate", "userDID", evt.Repo, "rkey", rkey.String())
+				err := atsync.Model.DeleteGate(ctx, rkey.String())
+				if err != nil {
+					log.Error(ctx, "failed to delete gate", "err", err)
+				}
+			}
+
 		default:
 			log.Error(ctx, "unexpected record op kind")
 		}

@@ -107,6 +107,16 @@ type Model interface {
 	CreateMetadataConfiguration(ctx context.Context, metadata *MetadataConfiguration) error
 	GetMetadataConfiguration(ctx context.Context, repoDID string) (*MetadataConfiguration, error)
 	DeleteMetadataConfiguration(ctx context.Context, repoDID string) error
+
+	CreateModerationDelegation(ctx context.Context, delegation *ModerationDelegation) error
+	DeleteModerationDelegation(ctx context.Context, rkey string) error
+	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*ModerationDelegation, error)
+	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]*ModerationDelegation, error)
+	GetStreamerModerators(ctx context.Context, streamerDID string) ([]*ModerationDelegation, error)
+
+	CreateAuditLog(ctx context.Context, log *ModerationAuditLog) error
+	GetAuditLogs(ctx context.Context, streamerDID string, limit int, before *time.Time) ([]*ModerationAuditLog, error)
+	GetModeratorAuditLogs(ctx context.Context, moderatorDID string, limit int, before *time.Time) ([]*ModerationAuditLog, error)
 }
 
 var DBRevision = 2
@@ -175,6 +185,8 @@ func MakeDB(dbURL string) (Model, error) {
 		Label{},
 		BroadcastOrigin{},
 		MetadataConfiguration{},
+		ModerationDelegation{},
+		ModerationAuditLog{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

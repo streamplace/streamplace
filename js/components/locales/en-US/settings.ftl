@@ -81,6 +81,32 @@ keys-count = { $count ->
    *[other] { $count } keys
 }
 
+## Backup Settings
+backup = Backup
+backup-enabled = S3 Backup
+backup-enabled-description = Automatically backup recordings to S3-compatible storage
+backup-connection-url = Connection URL
+backup-connection-url-placeholder = s3+https://ACCESS_KEY:SECRET_KEY@s3.example.com/bucket
+backup-endpoint = Endpoint
+backup-endpoint-placeholder = s3.example.com
+backup-bucket = Bucket
+backup-bucket-placeholder = my-backup-bucket
+backup-access-key = Access Key
+backup-access-key-placeholder = AKIAIOSFODNN7EXAMPLE
+backup-secret-key = Secret Key
+backup-secret-key-placeholder = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+backup-region = Region
+backup-region-placeholder = us-east-1
+backup-test-connection = Test Connection
+backup-testing-connection = Testing connection...
+backup-connection-successful = Connection successful
+backup-connection-failed = Failed to connect
+show-password-in-url = Show password in URL
+show-password-in-url-description = Display the secret key in the connection URL
+requested-seconds-per-segment = Seconds per segment
+requested-seconds-per-segment-description = Set the seconds per segment you wish to request the server use
+
+
 ## Recommendations
 recommendations = Recommendations
 manage-recommendations = Manage Recommendations
@@ -232,3 +258,8 @@ branding-not-available = File uploads are only available on web
 
 ## Navigation Categories (About Page)
 node-legal-documents = Broadcaster-specific Documents
+
+# Newly extracted keys
+backup-connection-url-placeholder_Must be a valid S3 URL in the format s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket = backup-connection-url-placeholder_Must be a valid S3 URL in the format s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket
+keys-count_one = keys-count_one
+keys-count_other = keys-count_other

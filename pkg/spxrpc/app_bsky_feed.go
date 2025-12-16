@@ -2,9 +2,11 @@ package spxrpc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -60,17 +62,33 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get recent segments: %v", err))
 		}
+		livestreams := []model.Livestream{}
 		for _, seg := range segs {
 			ls, err := s.model.GetLatestLivestreamForRepo(seg.RepoDID)
 			if err != nil {
 				log.Error(ctx, "failed to get latest livestream, skipping", "repoDID", seg.RepoDID, "error", err)
 				continue
 			}
-			if ls.PostURI != "" {
-				posts = append(posts, model.FeedPost{
-					URI: ls.PostURI,
-				})
+			if ls.PostURI != "" && (ts == 0 || ls.CreatedAt.UnixMilli() < ts) {
+				livestreams = append(livestreams, *ls)
 			}
+		}
+		// Sort livestreams by createdAt, newest first
+		sort.Slice(livestreams, func(i, j int) bool {
+			return livestreams[i].CreatedAt.After(livestreams[j].CreatedAt)
+		})
+		for _, ls := range livestreams {
+			posts = append(posts, model.FeedPost{
+				URI:       ls.PostURI,
+				CreatedAt: ls.CreatedAt,
+				CID:       ls.CID,
+			})
+			break // workaround for https://github.com/streamplace/streamplace/issues/744
+		}
+		if len(posts) > 0 {
+			last := posts[len(posts)-1]
+			ts := last.CreatedAt.UnixMilli()
+			outCursor = fmt.Sprintf("%d::%s", ts, last.CID)
 		}
 	} else {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid feed name: %s", name))
@@ -85,6 +103,10 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 		res.Feed = append(res.Feed, &bsky.FeedDefs_SkeletonFeedPost{
 			Post: post.URI,
 		})
+	}
+	bs, err := json.Marshal(res)
+	if err == nil {
+		fmt.Printf("feed: %s\n", string(bs))
 	}
 	return &res, nil
 }

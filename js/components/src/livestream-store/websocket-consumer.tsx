@@ -7,6 +7,7 @@ import {
   PlaceStreamChatMessage,
   PlaceStreamDefs,
   PlaceStreamLivestream,
+  PlaceStreamModerationPermission,
   PlaceStreamSegment,
 } from "streamplace";
 import { SystemMessages } from "../lib/system-messages";
@@ -120,6 +121,49 @@ export const handleWebSocketMessages = (
           pendingHides: newPendingHides,
         };
         state = reduceChat(state, [], [], [hiddenMessageUri]);
+      } else if (
+        PlaceStreamModerationPermission.isRecord(message) ||
+        (message &&
+          typeof message === "object" &&
+          "$type" in message &&
+          (message as { $type?: string }).$type ===
+          "place.stream.moderation.permission")
+      ) {
+        // Handle moderation permission record updates
+        // This can be a new permission or a deletion marker
+        const permRecord = message as
+          | PlaceStreamModerationPermission.Record
+          | { deleted?: boolean; rkey?: string; streamer?: string };
+
+        if ((permRecord as any).deleted) {
+          // Handle deletion: clear permissions to trigger refetch
+          // The useCanModerate hook will refetch and repopulate
+          state = {
+            ...state,
+            moderationPermissions: [],
+          };
+        } else {
+          // Handle new/updated permission: add or update in the list
+          const newPerm = permRecord as PlaceStreamModerationPermission.Record;
+          const existingIndex = state.moderationPermissions.findIndex(
+            (p) => p.moderator === newPerm.moderator,
+          );
+
+          let newPermissions: PlaceStreamModerationPermission.Record[];
+          if (existingIndex >= 0) {
+            // Update existing
+            newPermissions = [...state.moderationPermissions];
+            newPermissions[existingIndex] = newPerm;
+          } else {
+            // Add new
+            newPermissions = [...state.moderationPermissions, newPerm];
+          }
+
+          state = {
+            ...state,
+            moderationPermissions: newPermissions,
+          };
+        }
       }
     }
   }

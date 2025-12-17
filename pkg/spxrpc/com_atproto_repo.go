@@ -90,10 +90,16 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 
 	}
 
+	_, pub, err := s.statefulDB.EnsurePublisherKey(ctx)
+	if err != nil {
+		log.Error(ctx, "error getting publisher key", "error", err)
+		return nil, err
+	}
+
 	return &comatproto.RepoDescribeRepo_Output{
 		Handle: s.cli.MyDID(),
 		Did:    s.cli.MyDID(),
-		DidDoc: atproto.DIDDoc(s.cli.BroadcasterHost),
+		DidDoc: atproto.DIDDoc(s.cli.BroadcasterHost, pub),
 		Collections: []string{
 			"com.atproto.lexicon.schema",
 		},

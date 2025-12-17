@@ -524,10 +524,11 @@ func (ss *StreamSession) PublishPublisherKey(ctx context.Context) error {
 		return fmt.Errorf("could not get publisher key: %w", err)
 	}
 
+	createdBy := fmt.Sprintf("streamplace-server:%s", ss.cli.ServerHost)
 	publisherKey := streamplace.BroadcastPublisherKey{
 		SigningKey: pubKey.DIDKey(),
 		CreatedAt:  time.Now().UTC().Format(util.ISO8601),
-		CreatedBy:  util.StringPtr(fmt.Sprintf("streamplace-server:%s", ss.cli.ServerHost)),
+		CreatedBy:  &createdBy,
 	}
 
 	client, err := ss.GetClientByDID(ss.repoDID)

@@ -33,7 +33,7 @@ func makeServerMediaSigner(t *testing.T) *MediaSignerLocal {
 		TAURL:    "http://timestamp.digicert.com",
 		WideOpen: true,
 	})
-	msInterface, err := MakeMediaSigner(context.Background(), cli, "test-person", signer, nil)
+	msInterface, err := MakeMediaSigner(context.Background(), cli, "test-person", signer, nil, nil)
 	require.NoError(t, err)
 	ms := msInterface.(*MediaSignerLocal)
 	return ms

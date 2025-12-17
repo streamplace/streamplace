@@ -57,6 +57,11 @@ type Model interface {
 	GetSigningKeyByRKey(ctx context.Context, rkey string) (*SigningKey, error)
 	GetSigningKeysForRepo(repoDID string) ([]SigningKey, error)
 
+	UpdatePublisherKey(key *PublisherKey) error
+	GetPublisherKey(ctx context.Context, did, repoDID string) (*PublisherKey, error)
+	GetPublisherKeyByRKey(ctx context.Context, rkey string) (*PublisherKey, error)
+	GetPublisherKeysForRepo(repoDID string) ([]PublisherKey, error)
+
 	CreateFollow(ctx context.Context, userDID, rev string, follow *bsky.GraphFollow) error
 	GetUserFollowing(ctx context.Context, userDID string) ([]Follow, error)
 	GetUserFollowers(ctx context.Context, userDID string) ([]Follow, error)

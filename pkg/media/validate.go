@@ -23,9 +23,10 @@ import (
 )
 
 type ManifestAndCert struct {
-	Manifest          c2patypes.Manifest          `json:"manifest"`
-	Cert              string                      `json:"cert"`
-	ValidationResults c2patypes.ValidationResults `json:"validation_results"`
+	Manifests           map[string]c2patypes.Manifest `json:"manifests"`
+	Certs               map[string]string             `json:"certs"`
+	ActiveManifestLabel string                        `json:"active_manifest_label"`
+	ValidationResults   c2patypes.ValidationResults   `json:"validation_results"`
 }
 
 func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local bool) error {
@@ -68,6 +69,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		}
 	}
 
+	// Check streamer key is allowed
 	var repoDID string
 	var signingKeyDID string
 	// special case for test signers that are only signed with a key
@@ -88,6 +90,15 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		}
 		repoDID = repo.DID
 		signingKeyDID = signingKey.DID
+	}
+
+	// Check the key the publisher used to sign is indeed the key the streamer allowed
+	pubSigKey, err := mm.model.GetPublisherKey(ctx, valid.Publisher.Pub.DIDKey(), repoDID)
+	if err != nil {
+		return err
+	}
+	if pubSigKey == nil {
+		return fmt.Errorf("no broadcaster signing key found for %s", valid.Publisher.Pub.DIDKey())
 	}
 
 	err = mm.cli.StreamIsAllowed(repoDID)
@@ -208,6 +219,10 @@ type ValidationResult struct {
 	MediaData *model.SegmentMediaData
 	Manifest  *c2patypes.Manifest
 	Cert      string
+	Publisher struct {
+		Pub  *atcrypto.PublicKeyK256
+		Cert string
+	}
 }
 
 // validate a signed mp4 file unto itself, ignoring whether this user is allowed and whatnot
@@ -231,23 +246,38 @@ func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error
 			return nil, fmt.Errorf("active manifest has failures: %s", string(bs))
 		}
 	}
-	pub, err := signers.ParseES256KCert([]byte(maniCert.Cert))
-	if err != nil {
-		return nil, err
+
+	if len(maniCert.Manifests) != 2 {
+		return nil, fmt.Errorf("can't handle media without two manifests (streamer and publisher)")
 	}
-	meta, err := ParseSegmentAssertions(ctx, &maniCert.Manifest)
-	if err != nil {
-		return nil, err
+
+	var valRes ValidationResult
+	for label, manifest := range maniCert.Manifests {
+		if label == maniCert.ActiveManifestLabel {
+			// The active manifest should be the latest one, the publisher signing
+			valRes.Publisher.Pub, err = signers.ParseES256KCert([]byte(maniCert.Certs[label]))
+			if err != nil {
+				return nil, err
+			}
+			valRes.Publisher.Cert = maniCert.Certs[label]
+		} else {
+			// First signing operation, streamer sign with metadata
+			valRes.Pub, err = signers.ParseES256KCert([]byte(maniCert.Certs[label]))
+			if err != nil {
+				return nil, err
+			}
+			valRes.Cert = maniCert.Certs[label]
+			valRes.Manifest = &manifest
+			valRes.Meta, err = ParseSegmentAssertions(ctx, &manifest)
+			if err != nil {
+				return nil, err
+			}
+			valRes.MediaData, err = ParseSegmentMediaData(ctx, buf)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	mediaData, err := ParseSegmentMediaData(ctx, buf)
-	if err != nil {
-		return nil, err
-	}
-	return &ValidationResult{
-		Pub:       pub,
-		Meta:      meta,
-		MediaData: mediaData,
-		Manifest:  &maniCert.Manifest,
-		Cert:      maniCert.Cert,
-	}, nil
+
+	return &valRes, nil
 }

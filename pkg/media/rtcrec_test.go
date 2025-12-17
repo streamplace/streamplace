@@ -74,7 +74,7 @@ func TestRTCRecording(t *testing.T) {
 				require.NoError(t, err)
 				signer, err := spkey.KeyToSigner(priv)
 				require.NoError(t, err)
-				mediaSigner, err := MakeMediaSigner(ctx, cli, pub.DIDKey(), signer, nil)
+				mediaSigner, err := MakeMediaSigner(ctx, cli, pub.DIDKey(), signer, nil, nil)
 				require.NoError(t, err)
 
 				segsub := mm.NewSegment()

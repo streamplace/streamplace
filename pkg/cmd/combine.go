@@ -36,7 +36,7 @@ func Combine(ctx context.Context, build *config.BuildFlags, allArgs []string) er
 	if err != nil {
 		return err
 	}
-	ms, err := media.MakeMediaSigner(ctx, cli, "combine", cryptoSigner, nil)
+	ms, err := media.MakeMediaSigner(ctx, cli, "combine", cryptoSigner, nil, nil)
 	if err != nil {
 		return err
 	}

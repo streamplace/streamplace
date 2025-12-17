@@ -9,6 +9,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	_ "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/repo"
@@ -224,7 +225,7 @@ func CustomDirectory(plcURL string) identity.Directory {
 	return &base
 }
 
-func DIDDoc(host string) map[string]any {
+func DIDDoc(host string, publisherKey *atcrypto.PublicKeyK256) map[string]any {
 	return map[string]any{
 		"@context": []string{
 			"https://www.w3.org/ns/did/v1",
@@ -254,6 +255,10 @@ func DIDDoc(host string) map[string]any {
 				"controller":         fmt.Sprintf("did:web:%s", host),
 				"publicKeyMultibase": LexiconPubMultibase,
 			},
+		},
+		// Frontend uses this to retrieve publisher key
+		"assertionMethod": []string{
+			publisherKey.DIDKey(),
 		},
 	}
 }

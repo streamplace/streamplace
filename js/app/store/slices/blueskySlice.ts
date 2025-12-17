@@ -615,11 +615,27 @@ export const createBlueskySlice: StateCreator<
         platform = "Windows";
       }
 
+      const streamplaceUrl = get().url;
+      const didDocResponse = await fetch(
+        `${streamplaceUrl}/.well-known/did.json`,
+      );
+      if (!didDocResponse.ok) {
+        throw new Error(
+          `Failed to fetch publisher key: ${didDocResponse.statusText}`,
+        );
+      }
+      const didDoc = await didDocResponse.json();
+      if (!didDoc.assertionMethod || didDoc.assertionMethod.length === 0) {
+        throw new Error("No publisher key found in DID document");
+      }
+      const publisherKey = didDoc.assertionMethod[0];
+
       const record: PlaceStreamKey.Record = {
         $type: "place.stream.key",
         signingKey: keypair.did(),
         createdAt: new Date().toISOString(),
         createdBy: "Streamplace on " + platform,
+        publisher: publisherKey,
       };
       await state.pdsAgent.com.atproto.repo.createRecord({
         repo: did,

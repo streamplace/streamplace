@@ -23,6 +23,8 @@ export interface LivestreamState {
   setStreamKey: (key: string | null) => void;
   websocketConnected: boolean;
   hasReceivedSegment: boolean;
+  publisherKey: string | null;
+  setPublisherKey: (key: string | null) => void;
 }
 
 export interface LivestreamProblem {

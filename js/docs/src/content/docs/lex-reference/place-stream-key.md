@@ -19,11 +19,13 @@ Record linking an atproto identity with a stream signing key
 
 **Record Properties:**
 
-| Name         | Type     | Req'd | Description                                          | Constraints                       |
-| ------------ | -------- | ----- | ---------------------------------------------------- | --------------------------------- |
-| `signingKey` | `string` | ✅    | The did:key signing key for the stream.              | Min Length: 57<br/>Max Length: 57 |
-| `createdAt`  | `string` | ✅    | Client-declared timestamp when this key was created. | Format: `datetime`                |
-| `createdBy`  | `string` | ❌    | The name of the client that created this key.        |                                   |
+| Name         | Type     | Req'd | Description                                                                                   | Constraints                       |
+| ------------ | -------- | ----- | --------------------------------------------------------------------------------------------- | --------------------------------- |
+| `signingKey` | `string` | ✅    | The did:key signing key for the stream.                                                       | Min Length: 57<br/>Max Length: 57 |
+| `createdAt`  | `string` | ✅    | Client-declared timestamp when this key was created.                                          | Format: `datetime`                |
+| `createdBy`  | `string` | ❌    | The name of the client that created this key.                                                 |                                   |
+| `publisher`  | `string` | ✅    | The did:key signing key for the publisher, also found in place.stream.broadcast.publisherKey. | Min Length: 57<br/>Max Length: 57 |
+| `expiresAt`  | `string` | ❌    | Client-declared timestamp when this key expires.                                              | Format: `datetime`                |
 
 ---
 
@@ -40,7 +42,7 @@ Record linking an atproto identity with a stream signing key
       "key": "tid",
       "record": {
         "type": "object",
-        "required": ["signingKey", "createdAt"],
+        "required": ["signingKey", "createdAt", "publisher"],
         "properties": {
           "signingKey": {
             "type": "string",
@@ -56,6 +58,17 @@ Record linking an atproto identity with a stream signing key
           "createdBy": {
             "type": "string",
             "description": "The name of the client that created this key."
+          },
+          "publisher": {
+            "type": "string",
+            "maxLength": 57,
+            "minLength": 57,
+            "description": "The did:key signing key for the publisher, also found in place.stream.broadcast.publisherKey."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this key expires."
           }
         }
       }

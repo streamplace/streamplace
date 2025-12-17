@@ -14,7 +14,13 @@ import (
 func (a *StreamplaceAPI) HandleDidJSON(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		host := a.CLI.BroadcasterHost
-		didJSON := atproto.DIDDoc(host)
+		_, pub, err := a.StatefulDB.EnsurePublisherKey(ctx)
+		if err != nil {
+			log.Error(ctx, "could not get publisher key", "error", err)
+			http.Error(w, "could not get publisher key", http.StatusInternalServerError)
+			return
+		}
+		didJSON := atproto.DIDDoc(host, pub)
 		w.WriteHeader(200)
 		w.Header().Set("Content-Type", "application/json")
 		bs, err := json.Marshal(didJSON)

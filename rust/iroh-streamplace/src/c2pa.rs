@@ -22,23 +22,34 @@ pub fn get_manifest_and_cert(data: &dyn Stream) -> Result<String, SPError> {
     let reader = Reader::from_stream("video/mp4", StreamAdapter::from(data))
         .map_err(|e| SPError::C2paError(e.to_string()))?;
 
-    if let Some(manifest) = reader.active_manifest() {
-        let cert_chain = if let Some(si) = manifest.signature_info() {
-            si.cert_chain()
-        } else {
-            return Err(SPError::NoCertificateChainFound);
-        };
+    let mut certs: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for (label, manifest) in reader.manifests() {
+        let cert_chain = manifest
+            .signature_info()
+            .ok_or(SPError::C2paError(format!(
+                "No signature info for manifest: {}",
+                label
+            )))?
+            .cert_chain();
+        certs.insert(label.clone(), cert_chain.to_string());
+    }
 
-        let result = serde_json::json!({
-            "manifest": manifest,
-            "cert": cert_chain,
-            "validation_results": reader.validation_results(),
-            "validation_state": reader.validation_state(),
+    let active_label = reader.active_manifest()
+        .and_then(|m| {
+            reader.manifests().iter().find(|(_, manifest)| {
+                std::ptr::eq(*manifest, m)
+            }).map(|(label, _)| label.clone())
         });
 
-        return Ok(result.to_string());
-    }
-    Err(SPError::NoCertificateChainFound)
+    let result = serde_json::json!({
+        "manifests": reader.manifests(),
+        "certs": certs,
+        "active_manifest_label": active_label,
+        "validation_results": reader.validation_results(),
+        "validation_state": reader.validation_state(),
+    });
+
+    Ok(result.to_string())
 }
 
 #[uniffi::export(with_foreign)]

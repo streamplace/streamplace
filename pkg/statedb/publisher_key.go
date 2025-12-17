@@ -2,9 +2,11 @@ package statedb
 
 import (
 	"context"
+	"crypto"
 	"fmt"
 
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
+	"github.com/decred/dcrd/dcrec/secp256k1"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -41,4 +43,19 @@ func (state *StatefulDB) EnsurePublisherKey(ctx context.Context) (*atcrypto.Priv
 	}
 
 	return priv, pub.(*atcrypto.PublicKeyK256), nil
+}
+
+func (state *StatefulDB) GetPublisherKeySigner() (crypto.Signer, error) {
+	keyBs, err := state.GetConfig("publisher-key")
+	if err != nil {
+		return nil, err
+	}
+	if keyBs == nil {
+		return nil, fmt.Errorf("publisher key missing")
+	}
+	priv, _ := secp256k1.PrivKeyFromBytes(keyBs.Value)
+	if priv == nil {
+		return nil, fmt.Errorf("publisher key is invalid")
+	}
+	return priv.ToECDSA(), nil
 }

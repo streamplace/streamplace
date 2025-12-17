@@ -28,9 +28,13 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 4
+	fieldCount := 6
 
 	if t.CreatedBy == nil {
+		fieldCount--
+	}
+
+	if t.ExpiresAt == nil {
 		fieldCount--
 	}
 
@@ -110,6 +114,61 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		}
+	}
+
+	// t.ExpiresAt (string) (string)
+	if t.ExpiresAt != nil {
+
+		if len("expiresAt") > 1000000 {
+			return xerrors.Errorf("Value in field \"expiresAt\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("expiresAt"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("expiresAt")); err != nil {
+			return err
+		}
+
+		if t.ExpiresAt == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.ExpiresAt) > 1000000 {
+				return xerrors.Errorf("Value in field t.ExpiresAt was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.ExpiresAt))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.ExpiresAt)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// t.Publisher (string) (string)
+	if len("publisher") > 1000000 {
+		return xerrors.Errorf("Value in field \"publisher\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("publisher"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("publisher")); err != nil {
+		return err
+	}
+
+	if len(t.Publisher) > 1000000 {
+		return xerrors.Errorf("Value in field t.Publisher was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Publisher))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Publisher)); err != nil {
+		return err
 	}
 
 	// t.SigningKey (string) (string)
@@ -220,6 +279,38 @@ func (t *Key) UnmarshalCBOR(r io.Reader) (err error) {
 
 					t.CreatedBy = (*string)(&sval)
 				}
+			}
+			// t.ExpiresAt (string) (string)
+		case "expiresAt":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.ExpiresAt = (*string)(&sval)
+				}
+			}
+			// t.Publisher (string) (string)
+		case "publisher":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.Publisher = string(sval)
 			}
 			// t.SigningKey (string) (string)
 		case "signingKey":
@@ -3806,6 +3897,285 @@ func (t *BroadcastOrigin) UnmarshalCBOR(r io.Reader) (err error) {
 
 					t.WebsocketURL = (*string)(&sval)
 				}
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *BroadcastPublisherKey) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+	fieldCount := 5
+
+	if t.CreatedBy == nil {
+		fieldCount--
+	}
+
+	if t.ExpiresAt == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 1000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.broadcast.publisherKey"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("place.stream.broadcast.publisherKey")); err != nil {
+		return err
+	}
+
+	// t.CreatedAt (string) (string)
+	if len("createdAt") > 1000000 {
+		return xerrors.Errorf("Value in field \"createdAt\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
+		return err
+	}
+
+	if len(t.CreatedAt) > 1000000 {
+		return xerrors.Errorf("Value in field t.CreatedAt was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
+		return err
+	}
+
+	// t.CreatedBy (string) (string)
+	if t.CreatedBy != nil {
+
+		if len("createdBy") > 1000000 {
+			return xerrors.Errorf("Value in field \"createdBy\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdBy"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("createdBy")); err != nil {
+			return err
+		}
+
+		if t.CreatedBy == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.CreatedBy) > 1000000 {
+				return xerrors.Errorf("Value in field t.CreatedBy was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.CreatedBy))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.CreatedBy)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// t.ExpiresAt (string) (string)
+	if t.ExpiresAt != nil {
+
+		if len("expiresAt") > 1000000 {
+			return xerrors.Errorf("Value in field \"expiresAt\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("expiresAt"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("expiresAt")); err != nil {
+			return err
+		}
+
+		if t.ExpiresAt == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.ExpiresAt) > 1000000 {
+				return xerrors.Errorf("Value in field t.ExpiresAt was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.ExpiresAt))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.ExpiresAt)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// t.SigningKey (string) (string)
+	if len("signingKey") > 1000000 {
+		return xerrors.Errorf("Value in field \"signingKey\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("signingKey"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("signingKey")); err != nil {
+		return err
+	}
+
+	if len(t.SigningKey) > 1000000 {
+		return xerrors.Errorf("Value in field t.SigningKey was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.SigningKey))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.SigningKey)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *BroadcastPublisherKey) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = BroadcastPublisherKey{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("BroadcastPublisherKey: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 10)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.CreatedAt (string) (string)
+		case "createdAt":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.CreatedAt = string(sval)
+			}
+			// t.CreatedBy (string) (string)
+		case "createdBy":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.CreatedBy = (*string)(&sval)
+				}
+			}
+			// t.ExpiresAt (string) (string)
+		case "expiresAt":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.ExpiresAt = (*string)(&sval)
+				}
+			}
+			// t.SigningKey (string) (string)
+		case "signingKey":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.SigningKey = string(sval)
 			}
 
 		default:

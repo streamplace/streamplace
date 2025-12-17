@@ -27,6 +27,7 @@ func main() {
 		streamplace.ServerSettings{},
 		streamplace.ChatGate{},
 		streamplace.BroadcastOrigin{},
+		streamplace.BroadcastPublisherKey{},
 		streamplace.BroadcastSyndication{},
 		streamplace.MetadataConfiguration{},
 		streamplace.MetadataDistributionPolicy{},

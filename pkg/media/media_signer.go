@@ -28,6 +28,7 @@ import (
 
 type MediaSigner interface {
 	SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error)
+	SignMP4Publisher(ctx context.Context, input io.ReadSeeker) ([]byte, error)
 	Pub() aqpub.Pub
 	Streamer() string
 	DID() string
@@ -39,8 +40,10 @@ var DoReplay = false
 type MediaSignerLocal struct {
 	StreamerName     string
 	Signer           crypto.Signer
+	SignerPublisher  crypto.Signer
 	AQPub            aqpub.Pub
 	Cert             []byte
+	CertPublisher    []byte
 	TAURL            string
 	did              string
 	manifestBuilder  *ManifestBuilder
@@ -48,18 +51,16 @@ type MediaSignerLocal struct {
 	sigs             [][]byte
 }
 
-func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]byte, error) {
-
+func prepareCert(ctx context.Context, signer crypto.Signer) ([]byte, error) {
 	cert, err := signers.GenerateES256KCert(signer)
 	if err != nil {
 		return nil, err
 	}
-
 	return cert, nil
 }
 
-func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, signer crypto.Signer, model model.Model) (MediaSigner, error) {
-	cert, err := prepareCert(ctx, cli, signer)
+func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, signer, signerPublisher crypto.Signer, model model.Model) (MediaSigner, error) {
+	cert, err := prepareCert(ctx, signer)
 	if err != nil {
 		return nil, err
 	}
@@ -71,9 +72,28 @@ func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, sign
 	if err != nil {
 		return nil, err
 	}
+
+	if signerPublisher == nil {
+		return &MediaSignerLocal{
+			Signer:          signer,
+			Cert:            cert,
+			StreamerName:    streamer,
+			TAURL:           cli.TAURL,
+			AQPub:           pub,
+			did:             did.DIDKey(),
+			manifestBuilder: NewManifestBuilder(model),
+		}, nil
+	}
+
+	certPub, err := prepareCert(ctx, signerPublisher)
+	if err != nil {
+		return nil, err
+	}
 	return &MediaSignerLocal{
 		Signer:          signer,
+		SignerPublisher: signerPublisher,
 		Cert:            cert,
+		CertPublisher:   certPub,
 		StreamerName:    streamer,
 		TAURL:           cli.TAURL,
 		AQPub:           pub,
@@ -122,10 +142,6 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 						"actions": []obj{
 							{
 								"action": "c2pa.created",
-								"when":   startTime,
-							},
-							{
-								"action": "c2pa.published",
 								"when":   startTime,
 							},
 						},
@@ -181,6 +197,53 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 	}
 	span.End()
 	spmetrics.SigningDuration.WithLabelValues(ms.StreamerName).Observe(float64(time.Since(startTime).Milliseconds()))
+	return bs, nil
+}
+
+func (ms *MediaSignerLocal) SignMP4Publisher(ctx context.Context, input io.ReadSeeker) ([]byte, error) {
+	startTime := time.Now()
+	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4Publisher")
+	defer span.End()
+
+	if ms.SignerPublisher == nil {
+		return nil, fmt.Errorf("missing publisher signer on Make")
+	}
+
+	// Manifest that only states published action
+	mani := obj{
+		"assertions": []obj{
+			{
+				"label": "c2pa.actions",
+				"data": obj{
+					"actions": []obj{
+						{
+							"action": "c2pa.published",
+							"when":   startTime,
+						},
+					},
+				},
+			},
+		},
+	}
+	manifestBs, err := json.Marshal(mani)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal basic manifest: %w", err)
+	}
+	bs, err := io.ReadAll(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read input: %w", err)
+	}
+	_, span = otel.Tracer("signer").Start(ctx, "SignMP4_Sign")
+	// Uses publisher key to sign and publisher cert
+	rustCallbackSigner := &RustCallbackSigner{
+		Signer: ms.SignerPublisher,
+	}
+	bs, err = iroh_streamplace.Sign(string(manifestBs), c2patypes.NewReader(aqio.NewReadWriteSeeker(bs)),
+		base64.StdEncoding.EncodeToString(ms.CertPublisher), rustCallbackSigner)
+	if err != nil {
+		return nil, err
+	}
+	span.End()
 	return bs, nil
 }
 

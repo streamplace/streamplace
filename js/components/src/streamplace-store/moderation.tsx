@@ -1,0 +1,175 @@
+import { useEffect, useState } from "react";
+import { PlaceStreamModerationPermission } from "streamplace";
+import { useLivestreamStore } from "../livestream-store/livestream-store";
+import { usePDSAgent } from "./xrpc";
+
+export interface ModerationPermissions {
+  canBan: boolean;
+  canHide: boolean;
+  canManageLivestream: boolean;
+  isOwner: boolean;
+  isLoading: boolean;
+  error: string | null;
+}
+
+/**
+ * Hook to check if the current user can moderate for a given streamer.
+ * Returns permission flags based on:
+ * - Owner: full permissions if userDID === streamerDID
+ * - Delegated: permissions from place.stream.moderation.permission records
+ */
+export function useCanModerate(
+  streamerDID: string | null | undefined,
+): ModerationPermissions {
+  const agent = usePDSAgent();
+  const userDID = agent?.did;
+
+  // Get moderation permissions from livestream store (updated via WebSocket)
+  const moderationPermissions = useLivestreamStore(
+    (state) => state.moderationPermissions,
+  );
+  const setModerationPermissions = useLivestreamStore(
+    (state) => state.setModerationPermissions,
+  );
+
+  const [isOwner, setIsOwner] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!userDID || !streamerDID) {
+      setModerationPermissions([]);
+      setIsOwner(false);
+      setError(null);
+      return;
+    }
+
+    // If user is the streamer, they have full permissions
+    if (userDID === streamerDID) {
+      setIsOwner(true);
+      setModerationPermissions([]); // Not needed for owner
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
+
+    // Otherwise, fetch delegation records from the streamer's repo
+    // This initial fetch populates the store, then WebSocket updates will keep it in sync
+    const fetchDelegation = async () => {
+      if (!agent) {
+        setModerationPermissions([]);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+      setIsOwner(false);
+
+      try {
+        // Use authenticated agent to list permission records from the streamer's repo
+        const result = await agent.com.atproto.repo.listRecords({
+          repo: streamerDID,
+          collection: "place.stream.moderation.permission",
+          limit: 100,
+        });
+
+        const records = result.data.records || [];
+        const permissionRecords: PlaceStreamModerationPermission.Record[] =
+          records
+            .map((r: { value: any }) => r.value)
+            .filter(
+              (v: any) => v && v.$type === "place.stream.moderation.permission",
+            );
+
+        // Store all permissions in the livestream store
+        // WebSocket updates will keep this in sync
+        setModerationPermissions(permissionRecords);
+      } catch (err) {
+        console.error("[useCanModerate] Error fetching permissions:", err);
+        setError(
+          `Could not fetch moderation permissions: ${err instanceof Error ? err.message : `Unknown error: ${err}`}`,
+        );
+        setModerationPermissions([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Fetch immediately on mount or when dependencies change
+    fetchDelegation();
+  }, [userDID, streamerDID, agent, setModerationPermissions]);
+
+  // If permissions were cleared (e.g., due to deletion), trigger a refetch
+  useEffect(() => {
+    // If permissions were cleared and we're not the owner, refetch
+    if (
+      moderationPermissions.length === 0 &&
+      !isOwner &&
+      userDID &&
+      streamerDID &&
+      agent
+    ) {
+      const fetchDelegation = async () => {
+        try {
+          const result = await agent.com.atproto.repo.listRecords({
+            repo: streamerDID,
+            collection: "place.stream.moderation.permission",
+            limit: 100,
+          });
+
+          const records = result.data.records || [];
+          const permissionRecords: PlaceStreamModerationPermission.Record[] =
+            records
+              .map((r: { value: any }) => r.value)
+              .filter(
+                (v: any) =>
+                  v && v.$type === "place.stream.moderation.permission",
+              );
+
+          setModerationPermissions(permissionRecords);
+        } catch (err) {
+          console.error("[useCanModerate] Error refetching permissions:", err);
+        }
+      };
+
+      // Small delay to avoid rapid refetches
+      const timeout = setTimeout(fetchDelegation, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [
+    moderationPermissions.length,
+    isOwner,
+    userDID,
+    streamerDID,
+    agent,
+    setModerationPermissions,
+  ]);
+
+  const delegation = moderationPermissions.find(
+    (perm) => perm.moderator === userDID,
+  );
+
+  // Extract permissions from the delegation record
+  const permissions: string[] = delegation
+    ? (() => {
+        // Check if delegation has expired
+        if (delegation.expirationTime) {
+          const expiration = new Date(delegation.expirationTime);
+          if (new Date() > expiration) {
+            return [];
+          }
+        }
+        return delegation.permissions || [];
+      })()
+    : [];
+
+  return {
+    canBan: isOwner || permissions.includes("ban"),
+    canHide: isOwner || permissions.includes("hide"),
+    canManageLivestream: isOwner || permissions.includes("livestream.manage"),
+    isOwner,
+    isLoading,
+    error,
+  };
+}

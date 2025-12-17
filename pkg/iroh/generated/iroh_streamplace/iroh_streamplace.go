@@ -430,6 +430,15 @@ func uniffiCheckChecksums() {
 	}
 	{
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_iroh_streamplace_checksum_func_sign_with_parent()
+		})
+		if checksum != 36476 {
+			// If this happens try cleaning and rebuilding your project
+			panic("iroh_streamplace: uniffi_iroh_streamplace_checksum_func_sign_with_parent: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_iroh_streamplace_checksum_func_subscribe_item_debug()
 		})
 		if checksum != 8233 {
@@ -5674,6 +5683,20 @@ func SignWithIngredients(manifest string, data Stream, certsStr string, ingredie
 		return false
 	})
 	return _uniffiErr.AsError()
+}
+
+func SignWithParent(manifest string, data Stream, certsStr string, parent Stream, gosigner GoSigner) ([]byte, error) {
+	_uniffiRV, _uniffiErr := rustCallWithError[SpError](FfiConverterSpError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
+		return GoRustBuffer{
+			inner: C.uniffi_iroh_streamplace_fn_func_sign_with_parent(FfiConverterStringINSTANCE.Lower(manifest), FfiConverterStreamINSTANCE.Lower(data), FfiConverterStringINSTANCE.Lower(certsStr), FfiConverterStreamINSTANCE.Lower(parent), FfiConverterGoSignerINSTANCE.Lower(gosigner), _uniffiStatus),
+		}
+	})
+	if _uniffiErr != nil {
+		var _uniffiDefaultValue []byte
+		return _uniffiDefaultValue, _uniffiErr
+	} else {
+		return FfiConverterBytesINSTANCE.Lift(_uniffiRV), nil
+	}
 }
 
 func SubscribeItemDebug(item SubscribeItem) string {

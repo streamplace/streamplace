@@ -248,6 +248,7 @@ func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error
 	}
 
 	if len(maniCert.Manifests) != 2 {
+		log.Error(ctx, "ValidateMP4Media: not two manifest", "maniCert", maniCert)
 		return nil, fmt.Errorf("can't handle media without two manifests (streamer and publisher)")
 	}
 

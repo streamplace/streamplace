@@ -178,6 +178,50 @@ pub fn get_manifests(data: &dyn Stream) -> Result<String, SPError> {
     Ok(result.to_string())
 }
 
+#[uniffi::export]
+pub fn sign_with_parent(
+    manifest: String,
+    data: &dyn Stream,
+    certs_str: String,
+    parent: &dyn Stream,
+    gosigner: Arc<dyn GoSigner>,
+) -> Result<Vec<u8>, SPError> {
+    let certs = STANDARD
+        .decode(certs_str)
+        .map_err(|e| SPError::C2paError(e.to_string()))?;
+    Settings::from_toml(TOML_SETTINGS).map_err(|e| SPError::C2paError(e.to_string()))?;
+    let callback_signer = CallbackSigner::new(
+        move |_context: *const (), data: &[u8]| {
+            gosigner
+                .sign(data.to_vec())
+                .map_err(|e| c2pa::Error::BadParam(e.to_string()))
+        },
+        c2pa::SigningAlg::Es256K,
+        certs,
+    );
+    let mut builder =
+        Builder::from_json(&manifest).map_err(|e| SPError::C2paError(e.to_string()))?;
+
+    let mut parent_cursor = StreamAdapter::from(parent);
+    let mut parent_ingredient = Ingredient::from_stream("video/mp4", &mut parent_cursor)
+        .map_err(|e| SPError::C2paError(e.to_string()))?;
+    parent_ingredient.set_is_parent();
+    builder.add_ingredient(parent_ingredient);
+
+    let mut output = Vec::new();
+    let mut input_cursor = StreamAdapter::from(data);
+    let mut output_cursor = Cursor::new(&mut output);
+    builder
+        .sign(
+            &callback_signer,
+            "video/mp4",
+            &mut input_cursor,
+            &mut output_cursor,
+        )
+        .map_err(|e| SPError::C2paError(e.to_string()))?;
+    Ok(output)
+}
+
 #[uniffi::export(with_foreign)]
 pub trait SegmentToSign: Send + Sync {
     fn unsigned_seg_stream(&self) -> Arc<dyn Stream>;

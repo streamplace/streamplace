@@ -229,17 +229,28 @@ func (ms *MediaSignerLocal) SignMP4Publisher(ctx context.Context, input io.ReadS
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal basic manifest: %w", err)
 	}
-	bs, err := io.ReadAll(input)
+	streamerSigned, err := io.ReadAll(input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read input: %w", err)
 	}
-	_, span = otel.Tracer("signer").Start(ctx, "SignMP4_Sign")
+	_, span = otel.Tracer("signer").Start(ctx, "SignMP4Publisher_SignWithParent")
 	// Uses publisher key to sign and publisher cert
+	// Adds the streamer-signed input as a parent ingredient
 	rustCallbackSigner := &RustCallbackSigner{
 		Signer: ms.SignerPublisher,
 	}
-	bs, err = iroh_streamplace.Sign(string(manifestBs), c2patypes.NewReader(aqio.NewReadWriteSeeker(bs)),
-		base64.StdEncoding.EncodeToString(ms.CertPublisher), rustCallbackSigner)
+
+	// Create two independent copies for the parent and data parameters
+	parentData := make([]byte, len(streamerSigned))
+	copy(parentData, streamerSigned)
+
+	bs, err := iroh_streamplace.SignWithParent(
+		string(manifestBs),
+		c2patypes.NewReader(aqio.NewReadWriteSeeker(streamerSigned)),
+		base64.StdEncoding.EncodeToString(ms.CertPublisher),
+		c2patypes.NewReader(aqio.NewReadWriteSeeker(parentData)),
+		rustCallbackSigner,
+	)
 	if err != nil {
 		return nil, err
 	}

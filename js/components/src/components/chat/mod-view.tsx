@@ -1,16 +1,20 @@
 import { TriggerRef, useRootContext } from "@rn-primitives/dropdown-menu";
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { gap, mr, w } from "../../lib/theme/atoms";
-import { useIsMyStream, usePlayerStore } from "../../player-store";
+import { usePlayerStore } from "../../player-store";
 import {
   useCreateBlockRecord,
   useCreateHideChatRecord,
 } from "../../streamplace-store/block";
+import { useCanModerate } from "../../streamplace-store/moderation";
 import { usePDSAgent } from "../../streamplace-store/xrpc";
 
 import { Linking } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
-import { useDeleteChatMessage } from "../../livestream-store";
+import {
+  useDeleteChatMessage,
+  useLivestreamStore,
+} from "../../livestream-store";
 import { useStreamplaceStore } from "../../streamplace-store";
 import { formatHandle, formatHandleWithAt } from "../../utils/format-handle";
 import {
@@ -52,7 +56,11 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
   const setReportSubject = usePlayerStore((x) => x.setReportSubject);
   const setModMessage = usePlayerStore((x) => x.setModMessage);
   const deleteChatMessage = useDeleteChatMessage();
-  const isMyStream = useIsMyStream();
+
+  // Get the streamer's DID from the livestream profile
+  const streamerDID = useLivestreamStore((x) => x.profile?.did);
+  // Check moderation permissions for the current user on this streamer's channel
+  const modPermissions = useCanModerate(streamerDID);
 
   // get the channel did
   const channelId = usePlayerStore((state) => state.src);
@@ -77,6 +85,9 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
       triggerRef.current?.close();
     }
   }, [message]);
+
+  // Can show moderation actions if user can hide or ban
+  const canModerate = modPermissions.canHide || modPermissions.canBan;
 
   return (
     <DropdownMenu
@@ -120,50 +131,57 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
               </DropdownMenuItem>
             </DropdownMenuGroup>
 
-            {/* TODO: Checking for non-owner moderators */}
-            {isMyStream() && (
+            {canModerate && (
               <DropdownMenuGroup title={`Moderation actions`}>
-                <DropdownMenuItem
-                  disabled={isHideLoading || messageRemoved}
-                  onPress={() => {
-                    if (isHideLoading || messageRemoved) return;
-                    createHideChat(message.uri)
-                      .then((r) => setMessageRemoved(true))
-                      .catch((e) => console.error(e));
-                  }}
-                >
-                  <Text
-                    color={
-                      isHideLoading || messageRemoved ? "muted" : "destructive"
-                    }
+                {modPermissions.canHide && (
+                  <DropdownMenuItem
+                    disabled={isHideLoading || messageRemoved}
+                    onPress={() => {
+                      if (isHideLoading || messageRemoved) return;
+                      createHideChat(message.uri, streamerDID ?? undefined)
+                        .then((r) => setMessageRemoved(true))
+                        .catch((e) => console.error(e));
+                    }}
                   >
-                    {isHideLoading
-                      ? "Removing..."
-                      : messageRemoved
-                        ? "Message removed"
-                        : "Remove this message"}
-                  </Text>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={message.author.did === agent?.did || isBlockLoading}
-                  onPress={() => {
-                    createBlock(message.author.did)
-                      .then((r) => console.log(r))
-                      .catch((e) => console.error(e));
-                  }}
-                >
-                  {message.author.did === agent?.did ? (
-                    <Text color="muted">
-                      Block yourself (you can't block yourself)
+                    <Text
+                      color={
+                        isHideLoading || messageRemoved
+                          ? "muted"
+                          : "destructive"
+                      }
+                    >
+                      {isHideLoading
+                        ? "Removing..."
+                        : messageRemoved
+                          ? "Message removed"
+                          : "Remove this message"}
                     </Text>
-                  ) : (
-                    <Text color="destructive">
-                      {isBlockLoading
-                        ? "Blocking..."
-                        : `Block user ${formatHandleWithAt(message.author)} from this channel`}
-                    </Text>
-                  )}
-                </DropdownMenuItem>
+                  </DropdownMenuItem>
+                )}
+                {modPermissions.canBan && (
+                  <DropdownMenuItem
+                    disabled={
+                      message.author.did === agent?.did || isBlockLoading
+                    }
+                    onPress={() => {
+                      createBlock(message.author.did, streamerDID ?? undefined)
+                        .then((r) => console.log(r))
+                        .catch((e) => console.error(e));
+                    }}
+                  >
+                    {message.author.did === agent?.did ? (
+                      <Text color="muted">
+                        Block yourself (you can't block yourself)
+                      </Text>
+                    ) : (
+                      <Text color="destructive">
+                        {isBlockLoading
+                          ? "Blocking..."
+                          : `Block user ${formatHandleWithAt(message.author)} from this channel`}
+                      </Text>
+                    )}
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuGroup>
             )}
 

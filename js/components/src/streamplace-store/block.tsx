@@ -2,11 +2,21 @@ import { AppBskyGraphBlock } from "@atproto/api";
 import { useState } from "react";
 import { usePDSAgent } from "./xrpc";
 
+/**
+ * Hook to create a block record (ban user from chat).
+ *
+ * When the caller is the stream owner (agent.did === streamerDID), creates the
+ * block record directly via ATProto writes to their repo.
+ *
+ * When the caller is a delegated moderator, uses the place.stream.moderation.createBlock
+ * XRPC endpoint which validates permissions and creates the record using the
+ * streamer's OAuth session.
+ */
 export function useCreateBlockRecord() {
   let agent = usePDSAgent();
   const [isLoading, setIsLoading] = useState(false);
 
-  const createBlock = async (subjectDID: string) => {
+  const createBlock = async (subjectDID: string, streamerDID?: string) => {
     if (!agent) {
       throw new Error("No PDS agent found");
     }
@@ -17,15 +27,25 @@ export function useCreateBlockRecord() {
 
     setIsLoading(true);
     try {
-      const record: AppBskyGraphBlock.Record = {
-        $type: "app.bsky.graph.block",
+      // If no streamerDID provided or caller is the streamer, use direct ATProto write
+      if (!streamerDID || agent.did === streamerDID) {
+        const record: AppBskyGraphBlock.Record = {
+          $type: "app.bsky.graph.block",
+          subject: subjectDID,
+          createdAt: new Date().toISOString(),
+        };
+        const result = await agent.com.atproto.repo.createRecord({
+          repo: agent.did,
+          collection: "app.bsky.graph.block",
+          record,
+        });
+        return result;
+      }
+
+      // Otherwise, use delegated moderation endpoint
+      const result = await agent.place.stream.moderation.createBlock({
+        streamer: streamerDID,
         subject: subjectDID,
-        createdAt: new Date().toISOString(),
-      };
-      const result = await agent.com.atproto.repo.createRecord({
-        repo: agent.did,
-        collection: "app.bsky.graph.block",
-        record,
       });
       return result;
     } finally {
@@ -36,11 +56,24 @@ export function useCreateBlockRecord() {
   return { createBlock, isLoading };
 }
 
+/**
+ * Hook to create a gate record (hide a chat message).
+ *
+ * When the caller is the stream owner (agent.did === streamerDID), creates the
+ * gate record directly via ATProto writes to their repo.
+ *
+ * When the caller is a delegated moderator, uses the place.stream.moderation.createGate
+ * XRPC endpoint which validates permissions and creates the record using the
+ * streamer's OAuth session.
+ */
 export function useCreateHideChatRecord() {
   let agent = usePDSAgent();
   const [isLoading, setIsLoading] = useState(false);
 
-  const createHideChat = async (chatMessageUri: string) => {
+  const createHideChat = async (
+    chatMessageUri: string,
+    streamerDID?: string,
+  ) => {
     if (!agent) {
       throw new Error("No PDS agent found");
     }
@@ -51,15 +84,25 @@ export function useCreateHideChatRecord() {
 
     setIsLoading(true);
     try {
-      const record = {
-        $type: "place.stream.chat.gate",
-        hiddenMessage: chatMessageUri,
-      };
+      // If no streamerDID provided or caller is the streamer, use direct ATProto write
+      if (!streamerDID || agent.did === streamerDID) {
+        const record = {
+          $type: "place.stream.chat.gate",
+          hiddenMessage: chatMessageUri,
+        };
 
-      const result = await agent.com.atproto.repo.createRecord({
-        repo: agent.did,
-        collection: "place.stream.chat.gate",
-        record,
+        const result = await agent.com.atproto.repo.createRecord({
+          repo: agent.did,
+          collection: "place.stream.chat.gate",
+          record,
+        });
+        return result;
+      }
+
+      // Otherwise, use delegated moderation endpoint
+      const result = await agent.place.stream.moderation.createGate({
+        streamer: streamerDID,
+        messageUri: chatMessageUri,
       });
       return result;
     } finally {

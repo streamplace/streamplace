@@ -41,14 +41,14 @@ func (s *Server) handlePlaceStreamModerationCreateBlock(ctx context.Context, inp
 		CreatedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 
-	putInput := comatproto.RepoPutRecord_Input{
+	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.APP_BSKY_GRAPH_BLOCK,
 		Record:     &lexutil.LexiconTypeDecoder{Val: block},
 		Repo:       input.Streamer,
 	}
-	putOutput := comatproto.RepoPutRecord_Output{}
+	createOutput := comatproto.RepoCreateRecord_Output{}
 
-	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, putInput, &putOutput)
+	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, createInput, &createOutput)
 	if err != nil {
 		log.Error(ctx, "failed to create block record", "err", err)
 		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createBlock", "", input.Subject, "", false, err.Error()); auditErr != nil {
@@ -58,13 +58,13 @@ func (s *Server) handlePlaceStreamModerationCreateBlock(ctx context.Context, inp
 	}
 
 	// Log successful audit entry
-	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createBlock", "", input.Subject, putOutput.Uri, true, ""); err != nil {
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createBlock", "", input.Subject, createOutput.Uri, true, ""); err != nil {
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
 	return &streamplace.ModerationCreateBlock_Output{
-		Uri: putOutput.Uri,
-		Cid: putOutput.Cid,
+		Uri: createOutput.Uri,
+		Cid: createOutput.Cid,
 	}, nil
 }
 
@@ -138,14 +138,14 @@ func (s *Server) handlePlaceStreamModerationCreateGate(ctx context.Context, inpu
 		HiddenMessage: input.MessageUri,
 	}
 
-	putInput := comatproto.RepoPutRecord_Input{
+	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_CHAT_GATE,
 		Record:     &lexutil.LexiconTypeDecoder{Val: gate},
 		Repo:       input.Streamer,
 	}
-	putOutput := comatproto.RepoPutRecord_Output{}
+	createOutput := comatproto.RepoCreateRecord_Output{}
 
-	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, putInput, &putOutput)
+	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, createInput, &createOutput)
 	if err != nil {
 		log.Error(ctx, "failed to create gate record", "err", err)
 		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createGate", input.MessageUri, "", "", false, err.Error()); auditErr != nil {
@@ -155,13 +155,13 @@ func (s *Server) handlePlaceStreamModerationCreateGate(ctx context.Context, inpu
 	}
 
 	// Log successful audit entry
-	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createGate", input.MessageUri, "", putOutput.Uri, true, ""); err != nil {
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createGate", input.MessageUri, "", createOutput.Uri, true, ""); err != nil {
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
 	return &streamplace.ModerationCreateGate_Output{
-		Uri: putOutput.Uri,
-		Cid: putOutput.Cid,
+		Uri: createOutput.Uri,
+		Cid: createOutput.Cid,
 	}, nil
 }
 

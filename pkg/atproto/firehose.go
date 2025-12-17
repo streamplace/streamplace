@@ -310,6 +310,15 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				if err != nil {
 					log.Error(ctx, "failed to delete moderation delegation", "err", err)
 				}
+				// Publish deletion to WebSocket bus for real-time updates
+				// Create a deleted record marker to notify frontend
+				deletedRecord := map[string]any{
+					"$type":     "place.stream.moderation.permission",
+					"deleted":   true,
+					"rkey":      rkey.String(),
+					"streamer":  evt.Repo,
+				}
+				go atsync.Bus.Publish(evt.Repo, deletedRecord)
 			}
 
 			if collection.String() == constants.PLACE_STREAM_CHAT_GATE {

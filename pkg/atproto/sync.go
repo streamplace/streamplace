@@ -469,6 +469,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to create moderation delegation: %w", err)
 		}
 
+		// Publish moderation permission record to WebSocket bus for real-time updates
+		// This allows moderators to see their permissions instantly without page refresh
+		go atsync.Bus.Publish(userDID, rec)
+
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 	}

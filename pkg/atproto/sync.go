@@ -373,10 +373,11 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to parse createdAt: %w", err)
 		}
 		key := model.SigningKey{
-			DID:       rec.SigningKey,
-			RKey:      rkey.String(),
-			CreatedAt: time.Time(),
-			RepoDID:   userDID,
+			DID:          rec.SigningKey,
+			RKey:         rkey.String(),
+			CreatedAt:    time.Time(),
+			RepoDID:      userDID,
+			PublisherKey: rec.Publisher,
 		}
 		err = atsync.Model.UpdateSigningKey(&key)
 		if err != nil {

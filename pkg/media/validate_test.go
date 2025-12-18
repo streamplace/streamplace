@@ -153,10 +153,11 @@ func TestValidateMP4(t *testing.T) {
 		require.NoError(t, err)
 
 		err = mod.UpdateSigningKey(&model.SigningKey{
-			DID:       streamerKeyDID,
-			RepoDID:   repoDID,
-			RKey:      "test-key",
-			CreatedAt: time.Now(),
+			DID:          streamerKeyDID,
+			RepoDID:      repoDID,
+			RKey:         "test-key",
+			CreatedAt:    time.Now(),
+			PublisherKey: publisherKeyDID,
 		})
 		require.NoError(t, err)
 

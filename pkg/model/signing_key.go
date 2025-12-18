@@ -11,12 +11,13 @@ import (
 )
 
 type SigningKey struct {
-	DID       string     `gorm:"primaryKey;column:did" json:"did"`
-	RepoDID   string     `gorm:"primaryKey;column:repo_did" json:"repoDID"`
-	RKey      string     `gorm:"column:rkey;index" json:"rkey"`
-	Repo      *Repo      `json:"repo,omitempty" gorm:"foreignKey:RepoDID;references:DID"`
-	CreatedAt time.Time  `json:"createdAt"`
-	RevokedAt *time.Time `json:"revokedAt"`
+	DID          string     `gorm:"primaryKey;column:did" json:"did"`
+	RepoDID      string     `gorm:"primaryKey;column:repo_did" json:"repoDID"`
+	PublisherKey string     `json:"publisherKey"`
+	RKey         string     `gorm:"column:rkey;index" json:"rkey"`
+	Repo         *Repo      `json:"repo,omitempty" gorm:"foreignKey:RepoDID;references:DID"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	RevokedAt    *time.Time `json:"revokedAt"`
 }
 
 func (SigningKey) TableName() string {

@@ -90,15 +90,14 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		}
 		repoDID = repo.DID
 		signingKeyDID = signingKey.DID
-	}
 
-	// Check the key the publisher used to sign is indeed the key the streamer allowed
-	pubSigKey, err := mm.model.GetPublisherKey(ctx, valid.Publisher.Pub.DIDKey(), repoDID)
-	if err != nil {
-		return err
-	}
-	if pubSigKey == nil {
-		return fmt.Errorf("no broadcaster signing key found for %s", valid.Publisher.Pub.DIDKey())
+		// Check the key the publisher used to sign is indeed the key the streamer allowed
+		// For now, just grab this from the stream key record.
+		// Ideally it would come from the broadcast key record, but the security implications
+		// are the same: both are controlled by the streamer and the broadcaster.
+		if valid.Publisher.Pub.DIDKey() != signingKey.PublisherKey {
+			return fmt.Errorf("invalid broadcaster key: c2pa=%s record=%s", valid.Publisher.Pub.DIDKey(), signingKey.PublisherKey)
+		}
 	}
 
 	err = mm.cli.StreamIsAllowed(repoDID)

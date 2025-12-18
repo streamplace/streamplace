@@ -146,23 +146,33 @@ export function useCanModerate(
     setModerationPermissions,
   ]);
 
-  const delegation = moderationPermissions.find(
+  // Find ALL delegation records for this moderator and merge their permissions
+  const delegations = moderationPermissions.filter(
     (perm) => perm.moderator === userDID,
   );
 
-  // Extract permissions from the delegation record
-  const permissions: string[] = delegation
-    ? (() => {
-        // Check if delegation has expired
-        if (delegation.expirationTime) {
-          const expiration = new Date(delegation.expirationTime);
-          if (new Date() > expiration) {
-            return [];
-          }
+  // Merge permissions from all delegation records for this moderator
+  const permissions: string[] = delegations.reduce(
+    (acc: string[], delegation) => {
+      // Check if delegation has expired
+      if (delegation.expirationTime) {
+        const expiration = new Date(delegation.expirationTime);
+        if (new Date() > expiration) {
+          return acc; // Skip expired delegations
         }
-        return delegation.permissions || [];
-      })()
-    : [];
+      }
+
+      // Add all permissions from this delegation, avoiding duplicates
+      const delegationPerms = delegation.permissions || [];
+      for (const perm of delegationPerms) {
+        if (!acc.includes(perm)) {
+          acc.push(perm);
+        }
+      }
+      return acc;
+    },
+    [],
+  );
 
   return {
     canBan: isOwner || permissions.includes("ban"),

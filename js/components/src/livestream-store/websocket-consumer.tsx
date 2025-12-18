@@ -144,18 +144,33 @@ export const handleWebSocketMessages = (
           };
         } else {
           // Handle new/updated permission: add or update in the list
-          const newPerm = permRecord as PlaceStreamModerationPermission.Record;
-          const existingIndex = state.moderationPermissions.findIndex(
-            (p) => p.moderator === newPerm.moderator,
-          );
+          // Use createdAt as a unique identifier since multiple records can exist for the same moderator
+          // (e.g., one record with "ban" permission, another with "hide" permission)
+          // Note: rkey would be ideal but isn't always present in the WebSocket message
+          const newPerm = permRecord as PlaceStreamModerationPermission.Record & {
+            rkey?: string;
+          };
+          const existingIndex = state.moderationPermissions.findIndex((p) => {
+            const pWithRkey = p as PlaceStreamModerationPermission.Record & {
+              rkey?: string;
+            };
+            // Prefer matching by rkey if available, fall back to createdAt
+            if (newPerm.rkey && pWithRkey.rkey) {
+              return pWithRkey.rkey === newPerm.rkey;
+            }
+            return (
+              p.moderator === newPerm.moderator &&
+              p.createdAt === newPerm.createdAt
+            );
+          });
 
           let newPermissions: PlaceStreamModerationPermission.Record[];
           if (existingIndex >= 0) {
-            // Update existing
+            // Update existing record with same moderator AND createdAt
             newPermissions = [...state.moderationPermissions];
             newPermissions[existingIndex] = newPerm;
           } else {
-            // Add new
+            // Add new record (could be a new record for an existing moderator with different permissions)
             newPermissions = [...state.moderationPermissions, newPerm];
           }
 

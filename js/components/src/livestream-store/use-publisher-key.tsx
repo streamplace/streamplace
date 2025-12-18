@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useStreamplaceStore } from "../streamplace-store";
 import { useLivestreamStore } from "./livestream-store";
 
 interface DIDDoc {
@@ -15,6 +16,7 @@ export const usePublisherKey = (): {
   error: string | null;
   loading: boolean;
 } => {
+  const streamplaceUrl = useStreamplaceStore((state) => state.url);
   const publisherKey = useLivestreamStore((state) => state.publisherKey);
   const setPublisherKey = useLivestreamStore((state) => state.setPublisherKey);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export const usePublisherKey = (): {
       setError(null);
 
       try {
-        const response = await fetch("/.well-known/did.json");
+        const response = await fetch(`${streamplaceUrl}/.well-known/did.json`);
         if (!response.ok) {
           throw new Error(`Failed to fetch DID doc: ${response.statusText}`);
         }
@@ -52,7 +54,7 @@ export const usePublisherKey = (): {
     };
 
     fetchPublisherKey();
-  }, [publisherKey, setPublisherKey]);
+  }, [streamplaceUrl, publisherKey, setPublisherKey]);
 
   return { publisherKey, error, loading };
 };

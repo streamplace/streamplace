@@ -33,7 +33,9 @@ export const useStreamKey = (): {
     if (publisherKeyLoading) return;
 
     if (publisherKeyError) {
-      setError(`Failed to fetch publisher key (required for stream key record): ${publisherKeyError}`);
+      setError(
+        `Failed to fetch publisher key (required for stream key record): ${publisherKeyError}`,
+      );
       return;
     }
 

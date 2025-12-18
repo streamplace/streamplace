@@ -44,6 +44,19 @@ func (m *DBModel) GetModerationDelegation(ctx context.Context, streamerDID, mode
 	return &delegation, nil
 }
 
+// GetModerationDelegations returns ALL delegation records for a moderator from a specific streamer.
+// This allows multiple separate permission records (e.g., one for "ban", one for "hide") to be merged.
+func (m *DBModel) GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*ModerationDelegation, error) {
+	var delegations []*ModerationDelegation
+	err := m.DB.WithContext(ctx).Preload("Repo").
+		Where("repo_did = ? AND moderator_did = ?", streamerDID, moderatorDID).
+		Find(&delegations).Error
+	if err != nil {
+		return nil, err
+	}
+	return delegations, nil
+}
+
 func (m *DBModel) GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]*ModerationDelegation, error) {
 	var delegations []*ModerationDelegation
 	err := m.DB.WithContext(ctx).Preload("Repo").

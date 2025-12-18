@@ -111,6 +111,7 @@ type Model interface {
 	CreateModerationDelegation(ctx context.Context, delegation *ModerationDelegation) error
 	DeleteModerationDelegation(ctx context.Context, rkey string) error
 	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*ModerationDelegation, error)
+	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*ModerationDelegation, error)
 	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]*ModerationDelegation, error)
 	GetStreamerModerators(ctx context.Context, streamerDID string) ([]*ModerationDelegation, error)
 

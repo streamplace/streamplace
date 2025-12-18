@@ -62,38 +62,42 @@ func (pc *PermissionChecker) CheckPermission(ctx context.Context, moderatorDID, 
 	return nil
 }
 
-// HasPermission checks if a moderator has a specific permission for a streamer
+// HasPermission checks if a moderator has a specific permission for a streamer.
+// It merges permissions from ALL delegation records for the moderator.
 func (pc *PermissionChecker) HasPermission(ctx context.Context, moderatorDID, streamerDID, permission string) (bool, error) {
 	// Streamers always have all permissions for their own content
 	if moderatorDID == streamerDID {
 		return true, nil
 	}
 
-	// Look up delegation record
-	delegation, err := pc.model.GetModerationDelegation(ctx, streamerDID, moderatorDID)
+	// Look up ALL delegation records for this moderator
+	delegations, err := pc.model.GetModerationDelegations(ctx, streamerDID, moderatorDID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get moderation delegation: %w", err)
+		return false, fmt.Errorf("failed to get moderation delegations: %w", err)
 	}
 
-	if delegation == nil {
+	if len(delegations) == 0 {
 		return false, nil
 	}
 
-	// Check if delegation has expired
-	if delegation.ExpirationTime != nil && time.Now().After(*delegation.ExpirationTime) {
-		return false, nil
-	}
+	// Check all delegation records and merge their permissions
+	for _, delegation := range delegations {
+		// Skip expired delegations
+		if delegation.ExpirationTime != nil && time.Now().After(*delegation.ExpirationTime) {
+			continue
+		}
 
-	// Parse permissions JSON array
-	var permissions []string
-	if err := json.Unmarshal(delegation.Permissions, &permissions); err != nil {
-		return false, fmt.Errorf("failed to unmarshal permissions: %w", err)
-	}
+		// Parse permissions JSON array
+		var permissions []string
+		if err := json.Unmarshal(delegation.Permissions, &permissions); err != nil {
+			return false, fmt.Errorf("failed to unmarshal permissions: %w", err)
+		}
 
-	// Check if moderator has the required permission
-	for _, p := range permissions {
-		if p == permission {
-			return true, nil
+		// Check if this delegation has the required permission
+		for _, p := range permissions {
+			if p == permission {
+				return true, nil
+			}
 		}
 	}
 

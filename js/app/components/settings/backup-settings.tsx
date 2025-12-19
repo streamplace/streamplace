@@ -1,5 +1,6 @@
 import {
   Input,
+  Loader,
   MenuContainer,
   MenuGroup,
   MenuInfo,
@@ -7,7 +8,6 @@ import {
   MenuLabel,
   MenuSeparator,
   Text,
-  useTheme,
   View,
   zero,
 } from "@streamplace/components";
@@ -30,6 +30,7 @@ interface ValidationErrors {
   bucket?: string;
   accessKey?: string;
   secretKey?: string;
+  requestedSecondsPerSegment?: string;
 }
 
 function validateS3Config(config: S3Config): ValidationErrors {
@@ -100,9 +101,8 @@ export function BackupSettings() {
     useState("20");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const isCensored = config.secretKey === "***";
-
-  const theme = useTheme();
 
   useEffect(() => {
     loadStorage();
@@ -112,76 +112,59 @@ export function BackupSettings() {
     setFullUrl(buildS3Url(config, showPassword));
   }, [showPassword]);
 
+  useEffect(() => {
+    const num = parseInt(requestedSecondsPerSegment, 10);
+    if (isNaN(num) || num < 1 || num > 60) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        requestedSecondsPerSegment: "Must be between 1 and 60 seconds",
+      }));
+    } else {
+      setValidationErrors((prev) => {
+        const { requestedSecondsPerSegment, ...rest } = prev;
+        return rest;
+      });
+    }
+  }, [requestedSecondsPerSegment]);
+
   const loadStorage = async () => {
     if (!agent) return;
 
     try {
       setLoading(true);
+      setError(null);
       const response = await agent.place.stream.server.getStorage();
       if (response.data.storage) {
         setOriginalUrl(response.data.storage.url);
+        setEnabled(response.data.storage.isActive);
         const parsed = parseS3Url(response.data.storage.url);
         if (parsed) {
           setConfig(parsed);
           setFullUrl(buildS3Url(parsed, showPassword));
-          setEnabled(true);
           setRequestedSecondsPerSegment(
             String(response.data.storage.requestedSecondsPerSegment),
           );
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to load storage settings:", error);
+      setError(error.message || "Failed to load storage settings");
     } finally {
       setLoading(false);
     }
   };
 
-  const saveStorage = async () => {
-    if (!agent || !fullUrl) return;
-
-    try {
-      setSaving(true);
-      await agent.place.stream.server.upsertStorage({
-        url: fullUrl,
-        requestedSecondsPerSegment: parseInt(requestedSecondsPerSegment, 10),
-      });
-      await loadStorage();
-    } catch (error) {
-      console.error("Failed to save storage settings:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const deleteStorage = async () => {
-    if (!agent) return;
-
-    try {
-      setSaving(true);
-      await agent.place.stream.server.deleteStorage();
-      setEnabled(false);
-      setFullUrl("");
-      setOriginalUrl("");
-      setConfig({
-        endpoint: "",
-        bucket: "",
-        accessKey: "",
-        secretKey: "",
-      });
-      setRequestedSecondsPerSegment("6");
-    } catch (error) {
-      console.error("Failed to delete storage settings:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleEnabledChange = async (value: boolean) => {
-    if (!value) {
-      await deleteStorage();
-    } else {
-      setEnabled(true);
+    if (!agent) return;
+    const previous = enabled;
+    setEnabled(value);
+    setError(null);
+    try {
+      await agent.place.stream.server.upsertStorage({ isActive: value });
+    } catch (err: any) {
+      console.error("Failed to toggle backup:", err);
+      setEnabled(previous);
+      setError(err.message || "Failed to update backup status");
     }
   };
 
@@ -200,7 +183,10 @@ export function BackupSettings() {
     const newConfig = { ...config, [key]: value };
     setConfig(newConfig);
     setFullUrl(buildS3Url(newConfig, showPassword));
-    setValidationErrors(validateS3Config(newConfig));
+    setValidationErrors((prev) => ({
+      ...prev,
+      ...validateS3Config(newConfig),
+    }));
   };
 
   const isComplete =
@@ -213,6 +199,7 @@ export function BackupSettings() {
 
   const handleSave = async () => {
     if (!agent || !canSave) return;
+    setError(null);
 
     try {
       setSaving(true);
@@ -224,34 +211,61 @@ export function BackupSettings() {
         requestedSecondsPerSegment: parseInt(requestedSecondsPerSegment, 10),
       };
 
-      if (config.secretKey !== "***" && realUrl !== originalUrl) {
-        payload.url = realUrl;
+      if (config.secretKey !== "***") {
+        if (realUrl !== originalUrl) {
+          payload.url = realUrl;
+        }
+      } else {
+        // If secret key is masked, we check if other parts changed.
+        // If they changed, we can't save without the secret key.
+        const parsedOriginal = parseS3Url(originalUrl);
+        if (parsedOriginal) {
+          if (
+            parsedOriginal.endpoint !== config.endpoint ||
+            parsedOriginal.bucket !== config.bucket ||
+            parsedOriginal.accessKey !== config.accessKey
+          ) {
+            throw new Error(
+              "Cannot update S3 settings without the secret key. Please re-enter it.",
+            );
+          }
+        }
       }
 
       await agent.place.stream.server.upsertStorage(payload);
       await loadStorage();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save storage settings:", error);
+      setError(error.message || "Failed to save storage settings");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleTestConnection = async () => {
-    setTesting(true);
-    setTestResult(null);
-
-    // call the
-    setTimeout(() => {
-      //
-    }, 1500);
-  };
+  if (loading) {
+    return (
+      <View
+        style={[
+          zero.layout.flex.justify.center,
+          zero.layout.flex.align.center,
+          { height: 200 },
+        ]}
+      >
+        <Loader />
+      </View>
+    );
+  }
 
   return (
     <ScrollView>
       <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
         <View style={{ maxWidth: 500, width: "100%" }}>
           <MenuContainer>
+            {error && (
+              <View style={{ padding: 16, paddingBottom: 0 }}>
+                <Text style={{ color: zero.colors.red[500] }}>{error}</Text>
+              </View>
+            )}
             <MenuGroup>
               <SettingToggle
                 title={t("backup-enabled")}
@@ -406,6 +420,7 @@ export function BackupSettings() {
                         keyboardType="numeric"
                         containerStyle={{ width: "100%" }}
                         inputStyle={{ textAlign: "right" }}
+                        error={validationErrors.requestedSecondsPerSegment}
                       />
                     </View>
                   </MenuItem>

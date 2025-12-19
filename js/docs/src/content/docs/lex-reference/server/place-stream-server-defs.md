@@ -65,6 +65,7 @@ S3 storage configuration for backups.
 | ---------------------------- | --------- | ----- | --------------------------------------------------------------------------------------------- | ------------------ |
 | `url`                        | `string`  | ✅    | S3 storage URL with masked secret key in format: s3+https://ACCESS_KEY:\*\*\*@endpoint/bucket |                    |
 | `requestedSecondsPerSegment` | `integer` | ✅    | Requested duration for each HLS segment in seconds.                                           | Min: 1<br/>Max: 60 |
+| `isActive`                   | `boolean` | ✅    | Whether backup storage is currently active.                                                   |                    |
 
 ---
 
@@ -178,7 +179,7 @@ S3 storage configuration for backups.
     "storage": {
       "type": "object",
       "description": "S3 storage configuration for backups.",
-      "required": ["url", "requestedSecondsPerSegment"],
+      "required": ["url", "requestedSecondsPerSegment", "isActive"],
       "properties": {
         "url": {
           "type": "string",
@@ -189,6 +190,10 @@ S3 storage configuration for backups.
           "minimum": 1,
           "maximum": 60,
           "description": "Requested duration for each HLS segment in seconds."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether backup storage is currently active."
         }
       }
     }

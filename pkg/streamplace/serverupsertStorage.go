@@ -12,6 +12,8 @@ import (
 
 // ServerUpsertStorage_Input is the input argument to a place.stream.server.upsertStorage call.
 type ServerUpsertStorage_Input struct {
+	// isActive: Whether backup storage is currently active.
+	IsActive *bool `json:"isActive,omitempty" cborgen:"isActive,omitempty"`
 	// requestedSecondsPerSegment: Requested duration for each HLS segment in seconds.
 	RequestedSecondsPerSegment *int64 `json:"requestedSecondsPerSegment,omitempty" cborgen:"requestedSecondsPerSegment,omitempty"`
 	// url: S3 storage URL in format: s3+https://ACCESS_KEY:SECRET_KEY@endpoint/bucket

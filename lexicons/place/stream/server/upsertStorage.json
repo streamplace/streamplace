@@ -21,6 +21,10 @@
               "maximum": 60,
               "default": 6,
               "description": "Requested duration for each HLS segment in seconds."
+            },
+            "isActive": {
+              "type": "boolean",
+              "description": "Whether backup storage is currently active."
             }
           }
         }

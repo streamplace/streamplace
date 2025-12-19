@@ -28,6 +28,7 @@ Create or update S3 storage configuration for backups.
 | ---------------------------- | --------- | ----- | -------------------------------------------------------------------------- | ----------------------------------- |
 | `url`                        | `string`  | ❌    | S3 storage URL in format: s3+https://ACCESS_KEY:SECRET_KEY@endpoint/bucket |                                     |
 | `requestedSecondsPerSegment` | `integer` | ❌    | Requested duration for each HLS segment in seconds.                        | Min: 1<br/>Max: 60<br/>Default: `6` |
+| `isActive`                   | `boolean` | ❌    | Whether backup storage is currently active.                                |                                     |
 
 **Output:**
 
@@ -77,6 +78,10 @@ Create or update S3 storage configuration for backups.
               "maximum": 60,
               "default": 6,
               "description": "Requested duration for each HLS segment in seconds."
+            },
+            "isActive": {
+              "type": "boolean",
+              "description": "Whether backup storage is currently active."
             }
           }
         }

@@ -258,8 +258,6 @@ branding-not-available = File uploads are only available on web
 
 ## Navigation Categories (About Page)
 node-legal-documents = Broadcaster-specific Documents
-
-# Newly extracted keys
-backup-connection-url-placeholder_Must be a valid S3 URL in the format s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket = backup-connection-url-placeholder_Must be a valid S3 URL in the format s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket
-keys-count_one = keys-count_one
-keys-count_other = keys-count_other
+backup-save = Save backup settings
+backup-saving = Saving backup settings...
+backup-secret-key-set-placeholder = (Password already set)

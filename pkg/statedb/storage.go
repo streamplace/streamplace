@@ -12,6 +12,7 @@ import (
 // Storage represents S3 storage configuration for a user
 type Storage struct {
 	ID                         string    `gorm:"column:id;primarykey"`
+	IsActive                   bool      `gorm:"column:is_active;default:true"`
 	UserDID                    string    `gorm:"column:user_did;not null;unique"`
 	URL                        string    `gorm:"column:url;not null"`
 	RequestedSecondsPerSegment int       `gorm:"column:requested_seconds_per_segment;default:6"`
@@ -62,13 +63,14 @@ func (state *StatefulDB) DeleteStorage(userDID string) error {
 
 func (s *Storage) ToLexicon() *streamplace.ServerDefs_Storage {
 	return &streamplace.ServerDefs_Storage{
+		IsActive:                   s.IsActive,
 		Url:                        maskSecretKey(s.URL),
 		RequestedSecondsPerSegment: int64(s.RequestedSecondsPerSegment),
 	}
 }
 
 func StorageFromLexiconInput(input *streamplace.ServerUpsertStorage_Input, userDID string) *Storage {
-	requestedSeconds := 20
+	requestedSeconds := 6
 	if input.RequestedSecondsPerSegment != nil {
 		requestedSeconds = int(*input.RequestedSecondsPerSegment)
 	}
@@ -78,9 +80,16 @@ func StorageFromLexiconInput(input *streamplace.ServerUpsertStorage_Input, userD
 		url = *input.Url
 	}
 
-	return &Storage{
+	storage := &Storage{
 		UserDID:                    userDID,
 		URL:                        url,
 		RequestedSecondsPerSegment: requestedSeconds,
+		IsActive:                   true,
 	}
+
+	if input.IsActive != nil {
+		storage.IsActive = *input.IsActive
+	}
+
+	return storage
 }

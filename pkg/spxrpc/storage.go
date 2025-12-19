@@ -27,16 +27,14 @@ func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input
 	var url string
 	if input.Url != nil {
 		url = *input.Url
-		// If the client sent back the masked version, use the existing URL
 		if existing != nil && url != "" {
-			// Check if the URL matches the masked format from ToLexicon
 			maskedExisting := existing.ToLexicon().Url
 			if url == maskedExisting {
 				url = existing.URL
 			}
 		}
 
-		// Check if URL contains masked credentials but was otherwise modified
+		// if url contains masked password, return an error
 		if strings.Contains(url, ":***@") {
 			return nil, &xrpc.Error{
 				StatusCode: http.StatusBadRequest,
@@ -44,7 +42,6 @@ func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input
 			}
 		}
 
-		// Validate S3 URL format if we have a new one
 		if url != "" && !isValidS3URL(url) {
 			return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid S3 URL format. Expected: s3+https://ACCESS_KEY:SECRET_KEY@endpoint/bucket")
 		}
@@ -52,22 +49,21 @@ func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input
 		url = existing.URL
 	}
 
-	if url == "" {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "S3 URL is required")
-	}
-
-	// Convert input to database model
 	storage := statedb.StorageFromLexiconInput(input, session.DID)
 	storage.URL = url
+	if input.IsActive == nil && existing != nil {
+		storage.IsActive = existing.IsActive
+	}
+	if input.RequestedSecondsPerSegment == nil && existing != nil {
+		storage.RequestedSecondsPerSegment = existing.RequestedSecondsPerSegment
+	}
 
-	// Upsert storage
 	err := s.statefulDB.UpsertStorage(storage)
 	if err != nil {
 		log.Error(ctx, "failed to upsert storage", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to save storage configuration")
 	}
 
-	// Get the saved storage to return
 	savedStorage, err := s.statefulDB.GetStorage(session.DID)
 	if err != nil {
 		log.Error(ctx, "failed to get storage after upsert", "err", err)
@@ -80,16 +76,13 @@ func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input
 }
 
 func (s *Server) handlePlaceStreamServerGetStorage(ctx context.Context) (*placestreamtypes.ServerGetStorage_Output, error) {
-	// Get authenticated user
 	session, _ := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
 
-	// Get storage
 	storage, err := s.statefulDB.GetStorage(session.DID)
 	if err != nil {
-		// Return empty response if no storage configured
 		return &placestreamtypes.ServerGetStorage_Output{
 			Storage: nil,
 		}, nil

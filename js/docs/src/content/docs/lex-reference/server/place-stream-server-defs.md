@@ -51,6 +51,23 @@ A webhook configuration for receiving Streamplace events.
 
 ---
 
+<a name="storage"></a>
+
+### `storage`
+
+**Type:** `object`
+
+S3 storage configuration for backups.
+
+**Properties:**
+
+| Name                         | Type      | Req'd | Description                                                                                   | Constraints        |
+| ---------------------------- | --------- | ----- | --------------------------------------------------------------------------------------------- | ------------------ |
+| `url`                        | `string`  | ✅    | S3 storage URL with masked secret key in format: s3+https://ACCESS_KEY:\*\*\*@endpoint/bucket |                    |
+| `requestedSecondsPerSegment` | `integer` | ✅    | Requested duration for each HLS segment in seconds.                                           | Min: 1<br/>Max: 60 |
+
+---
+
 ## Lexicon Source
 
 ```json
@@ -155,6 +172,23 @@ A webhook configuration for receiving Streamplace events.
           "type": "string",
           "maxLength": 100,
           "description": "Text to replace with."
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "description": "S3 storage configuration for backups.",
+      "required": ["url", "requestedSecondsPerSegment"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "S3 storage URL with masked secret key in format: s3+https://ACCESS_KEY:***@endpoint/bucket"
+        },
+        "requestedSecondsPerSegment": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Requested duration for each HLS segment in seconds."
         }
       }
     }

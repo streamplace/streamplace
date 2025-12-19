@@ -8,6 +8,7 @@ import {
   MenuLabel,
   MenuSeparator,
   Text,
+  useToast,
   View,
   zero,
 } from "@streamplace/components";
@@ -33,19 +34,21 @@ interface ValidationErrors {
   requestedSecondsPerSegment?: string;
 }
 
-function validateS3Config(config: S3Config): ValidationErrors {
+function validateS3Config(
+  config: S3Config,
+  t: (key: string) => string,
+): ValidationErrors {
   const errors: ValidationErrors = {};
 
   if (
     config.endpoint &&
     !/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(config.endpoint)
   ) {
-    errors.endpoint = "Must be a valid domain name";
+    errors.endpoint = t("backup-error-invalid-endpoint");
   }
 
   if (config.bucket && !/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/.test(config.bucket)) {
-    errors.bucket =
-      "Must contain only lowercase letters, numbers, dots, and hyphens";
+    errors.bucket = t("backup-error-invalid-bucket");
   }
 
   return errors;
@@ -78,7 +81,8 @@ function buildS3Url(config: S3Config, showPassword: boolean): string {
 }
 
 export function BackupSettings() {
-  const { t } = useTranslation("settings");
+  const { t } = useTranslation(["settings", "common"]);
+  const toast = useToast();
   const agent = usePDSAgent();
   const [enabled, setEnabled] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -101,7 +105,6 @@ export function BackupSettings() {
     useState("20");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const isCensored = config.secretKey === "***";
 
   useEffect(() => {
@@ -117,7 +120,7 @@ export function BackupSettings() {
     if (isNaN(num) || num < 1 || num > 60) {
       setValidationErrors((prev) => ({
         ...prev,
-        requestedSecondsPerSegment: "Must be between 1 and 60 seconds",
+        requestedSecondsPerSegment: t("backup-error-invalid-segment-duration"),
       }));
     } else {
       setValidationErrors((prev) => {
@@ -132,7 +135,6 @@ export function BackupSettings() {
 
     try {
       setLoading(true);
-      setError(null);
       const response = await agent.place.stream.server.getStorage();
       if (response.data.storage) {
         setOriginalUrl(response.data.storage.url);
@@ -148,7 +150,13 @@ export function BackupSettings() {
       }
     } catch (error: any) {
       console.error("Failed to load storage settings:", error);
-      setError(error.message || "Failed to load storage settings");
+      toast.show(
+        t("common:error"),
+        error.message || t("backup-error-load-failed"),
+        {
+          variant: "error",
+        },
+      );
     } finally {
       setLoading(false);
     }
@@ -158,13 +166,18 @@ export function BackupSettings() {
     if (!agent) return;
     const previous = enabled;
     setEnabled(value);
-    setError(null);
     try {
       await agent.place.stream.server.upsertStorage({ isActive: value });
     } catch (err: any) {
       console.error("Failed to toggle backup:", err);
       setEnabled(previous);
-      setError(err.message || "Failed to update backup status");
+      toast.show(
+        t("common:error"),
+        err.message || t("backup-error-update-failed"),
+        {
+          variant: "error",
+        },
+      );
     }
   };
 
@@ -185,7 +198,7 @@ export function BackupSettings() {
     setFullUrl(buildS3Url(newConfig, showPassword));
     setValidationErrors((prev) => ({
       ...prev,
-      ...validateS3Config(newConfig),
+      ...validateS3Config(newConfig, t),
     }));
   };
 
@@ -199,7 +212,6 @@ export function BackupSettings() {
 
   const handleSave = async () => {
     if (!agent || !canSave) return;
-    setError(null);
 
     try {
       setSaving(true);
@@ -225,9 +237,7 @@ export function BackupSettings() {
             parsedOriginal.bucket !== config.bucket ||
             parsedOriginal.accessKey !== config.accessKey
           ) {
-            throw new Error(
-              "Cannot update S3 settings without the secret key. Please re-enter it.",
-            );
+            throw new Error(t("backup-error-missing-secret"));
           }
         }
       }
@@ -236,7 +246,13 @@ export function BackupSettings() {
       await loadStorage();
     } catch (error: any) {
       console.error("Failed to save storage settings:", error);
-      setError(error.message || "Failed to save storage settings");
+      toast.show(
+        t("common:error"),
+        error.message || t("backup-error-save-failed"),
+        {
+          variant: "error",
+        },
+      );
     } finally {
       setSaving(false);
     }
@@ -261,11 +277,6 @@ export function BackupSettings() {
       <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
         <View style={{ maxWidth: 500, width: "100%" }}>
           <MenuContainer>
-            {error && (
-              <View style={{ padding: 16, paddingBottom: 0 }}>
-                <Text style={{ color: zero.colors.red[500] }}>{error}</Text>
-              </View>
-            )}
             <MenuGroup>
               <SettingToggle
                 title={t("backup-enabled")}
@@ -415,7 +426,7 @@ export function BackupSettings() {
                       <Input
                         value={requestedSecondsPerSegment}
                         onChangeText={setRequestedSecondsPerSegment}
-                        placeholder="6"
+                        placeholder={t("backup-segment-duration-placeholder")}
                         variant="underlined"
                         keyboardType="numeric"
                         containerStyle={{ width: "100%" }}

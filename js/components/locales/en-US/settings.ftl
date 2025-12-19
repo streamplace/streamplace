@@ -42,6 +42,7 @@ manage-keys = Manage Keys
 
 ## Settings Page Specific
 settings-title = Settings
+error = Error
 
 ## Navigation Categories
 about = About
@@ -261,3 +262,11 @@ node-legal-documents = Broadcaster-specific Documents
 backup-save = Save backup settings
 backup-saving = Saving backup settings...
 backup-secret-key-set-placeholder = (Password already set)
+backup-error-invalid-endpoint = Must be a valid domain name
+backup-error-invalid-bucket = Must contain only lowercase letters, numbers, dots, and hyphens
+backup-error-invalid-segment-duration = Must be between 1 and 60 seconds
+backup-error-load-failed = Failed to load storage settings
+backup-error-update-failed = Failed to update backup status
+backup-error-save-failed = Failed to save storage settings
+backup-error-missing-secret = Cannot update S3 settings without the secret key. Please re-enter it.
+backup-segment-duration-placeholder = 6

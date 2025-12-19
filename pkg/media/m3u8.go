@@ -33,10 +33,11 @@ type Segment struct {
 }
 
 type M3U8 struct {
-	curSeg          uint64
-	pendingSegments []*Segment
-	waits           []chan struct{}
-	renditions      []*M3U8Rendition
+	curSeg           uint64
+	pendingSegments  []*Segment
+	waits            []chan struct{}
+	renditions       []*M3U8Rendition
+	subtitlesEnabled bool
 }
 
 type M3U8Rendition struct {
@@ -60,11 +61,14 @@ func NewM3U8(renditions renditions.Renditions) *M3U8 {
 	}
 }
 
-func (r *M3U8Rendition) GetMediaLine(session string) string {
+func (r *M3U8Rendition) GetMediaLine(session string, subtitlesEnabled bool) string {
 	// m.waitForStart()
 	lines := []string{}
-	lines = append(lines, "#EXTM3U")
-	lines = append(lines, fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d", r.Rendition.Bitrate, r.Rendition.Width, r.Rendition.Height))
+	if subtitlesEnabled {
+		lines = append(lines, fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d,SUBTITLES=\"subs\"", r.Rendition.Bitrate, r.Rendition.Width, r.Rendition.Height))
+	} else {
+		lines = append(lines, fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d", r.Rendition.Bitrate, r.Rendition.Width, r.Rendition.Height))
+	}
 	lines = append(lines, fmt.Sprintf("%s/%s?session=%s", r.Rendition.Name, IndexM3U8, session))
 	return strings.Join(lines, "\n")
 }
@@ -129,9 +133,12 @@ func (m *M3U8) GetMultivariantPlaylist(rendition string) []byte {
 	// m.waitForStart()
 	lines := []string{}
 	lines = append(lines, "#EXTM3U")
+	if m.subtitlesEnabled {
+		lines = append(lines, fmt.Sprintf(`#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en",URI="subtitles/%s?session=%s"`, IndexM3U8, uu.String()))
+	}
 	for _, r := range m.renditions {
 		if rendition == "" || r.Rendition.Name == rendition {
-			lines = append(lines, r.GetMediaLine(uu.String()))
+			lines = append(lines, r.GetMediaLine(uu.String(), m.subtitlesEnabled))
 		}
 	}
 	return []byte(strings.Join(lines, "\n"))
@@ -189,4 +196,12 @@ func (m *M3U8) GetRendition(rendition string) (*M3U8Rendition, error) {
 		}
 	}
 	return nil, fmt.Errorf("rendition not found")
+}
+
+func (m *M3U8) SetSubtitlesEnabled(enabled bool) {
+	m.subtitlesEnabled = enabled
+}
+
+func (m *M3U8) SubtitlesEnabled() bool {
+	return m.subtitlesEnabled
 }

@@ -45,6 +45,9 @@ export function ContextMenu({
   const protocol = usePlayerStore((x) => x.protocol);
   const setProtocol = usePlayerStore((x) => x.setProtocol);
 
+  const showSubtitles = usePlayerStore((x) => x.showSubtitles);
+  const setShowSubtitles = usePlayerStore((x) => x.setShowSubtitles);
+
   const debugInfo = usePlayerStore((x) => x.showDebugInfo);
   const setShowDebugInfo = usePlayerStore((x) => x.setShowDebugInfo);
 
@@ -215,6 +218,14 @@ export function ContextMenu({
                     onCheckedChange={() => setLowLatency(!lowLatency)}
                   >
                     <Text>Low Latency</Text>
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuGroup>
+                <DropdownMenuGroup>
+                  <DropdownMenuCheckboxItem
+                    checked={showSubtitles}
+                    onCheckedChange={() => setShowSubtitles(!showSubtitles)}
+                  >
+                    <Text>Subtitles</Text>
                   </DropdownMenuCheckboxItem>
                 </DropdownMenuGroup>
                 <DropdownMenuInfo description="Reduces the delay between video and chat for a more real-time experience." />

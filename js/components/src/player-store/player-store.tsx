@@ -21,9 +21,13 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     selectedRendition: "source",
     setSelectedRendition: (rendition: string) =>
       set((state) => ({ ...state, selectedRendition: rendition })),
-    protocol: PlayerProtocol.WEBRTC,
+    protocol: PlayerProtocol.HLS,
     setProtocol: (protocol: PlayerProtocol) =>
       set((state) => ({ ...state, protocol: protocol })),
+
+    showSubtitles: true,
+    setShowSubtitles: (showSubtitles: boolean) =>
+      set((state) => ({ ...state, showSubtitles })),
 
     src: "",
     setSrc: (src: string) => set(() => ({ src })),
@@ -249,7 +253,7 @@ export const intoPlayerProtocol = (protocol: string): PlayerProtocol => {
     case "progressive-webm":
       return PlayerProtocol.PROGRESSIVE_WEBM;
     default:
-      return PlayerProtocol.WEBRTC;
+      return PlayerProtocol.HLS;
   }
 };
 

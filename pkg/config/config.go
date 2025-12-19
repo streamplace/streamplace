@@ -52,96 +52,96 @@ func (b BuildFlags) BuildTimeStrExpo() string {
 }
 
 type CLI struct {
-	AdminAccount                 string
-	Build                        *BuildFlags
-	DataDir                      string
-	DBURL                        string
-	EthAccountAddr               string
-	EthKeystorePath              string
-	EthPassword                  string
-	FirebaseServiceAccount       string
-	FirebaseServiceAccountFile   string
-	GitLabURL                    string
-	HTTPAddr                     string
-	HTTPInternalAddr             string
-	HTTPSAddr                    string
-	RtmpsAddr                    string
-	Secure                       bool
-	NoMist                       bool
-	MistAdminPort                int
-	MistHTTPPort                 int
-	MistRTMPPort                 int
-	SigningKeyPath               string
-	TAURL                        string
-	TLSCertPath                  string
-	TLSKeyPath                   string
-	PKCS11ModulePath             string
-	PKCS11Pin                    string
-	PKCS11TokenSlot              string
-	PKCS11TokenLabel             string
-	PKCS11TokenSerial            string
-	PKCS11KeypairLabel           string
-	PKCS11KeypairID              string
-	StreamerName                 string
-	RelayHost                    string
-	Debug                        map[string]map[string]int
-	AllowedStreams               []string
-	WideOpen                     bool
-	Peers                        []string
-	Redirects                    []string
-	TestStream                   bool
-	FrontendProxy                string
-	PublicOAuth                  bool
-	AppBundleID                  string
-	NoFirehose                   bool
-	PrintChat                    bool
-	Color                        string
-	LivepeerGatewayURL           string
-	LivepeerGateway              bool
-	WHIPTest                     string
-	Thumbnail                    bool
-	SmearAudio                   bool
-	ExternalSigning              bool
-	RTMPServerAddon              string
-	TracingEndpoint              string
-	BroadcasterHost              string
-	XXDeprecatedPublicHost       string
-	ServerHost                   string
-	RateLimitPerSecond           int
-	RateLimitBurst               int
-	RateLimitWebsocket           int
-	JWK                          jwk.Key
-	AccessJWK                    jwk.Key
-	dataDirFlags                 []*string
-	DiscordWebhooks              []*discordtypes.Webhook
-	NewWebRTCPlayback            bool
-	AppleTeamID                  string
-	AndroidCertFingerprint       string
-	Labelers                     []string
-	AtprotoDID                   string
-	LivepeerHelp                 bool
-	PLCURL                       string
-	ContentFilters               *ContentFilters
-	SQLLogging                   bool
-	SentryDSN                    string
-	LivepeerDebug                bool
-	Tickets                      []string
-	IrohTopic                    string
-	DID                          string
-	DisableIrohRelay             bool
-	DevAccountCreds              map[string]string
-	StreamSessionTimeout         time.Duration
-	Replicators                  []string
-	WebsocketURL                 string
-	BehindHTTPSProxy             bool
-	SegmentDebugDir              string
-	Syndicate                    []string
-	LivepeerAIProcessing         bool
-	LivepeerAICapability         string
-	LivepeerAIEnableVideoIngress bool
-	LivepeerAIEnableVideoEgress  bool
-	LivepeerAIEnableDataOutput   bool
-	LivepeerAIStreamKey          string
+	AdminAccount               string
+	Build                      *BuildFlags
+	DataDir                    string
+	DBURL                      string
+	EthAccountAddr             string
+	EthKeystorePath            string
+	EthPassword                string
+	FirebaseServiceAccount     string
+	FirebaseServiceAccountFile string
+	GitLabURL                  string
+	HTTPAddr                   string
+	HTTPInternalAddr           string
+	HTTPSAddr                  string
+	RtmpsAddr                  string
+	Secure                     bool
+	NoMist                     bool
+	MistAdminPort              int
+	MistHTTPPort               int
+	MistRTMPPort               int
+	SigningKeyPath             string
+	TAURL                      string
+	TLSCertPath                string
+	TLSKeyPath                 string
+	PKCS11ModulePath           string
+	PKCS11Pin                  string
+	PKCS11TokenSlot            string
+	PKCS11TokenLabel           string
+	PKCS11TokenSerial          string
+	PKCS11KeypairLabel         string
+	PKCS11KeypairID            string
+	StreamerName               string
+	RelayHost                  string
+	Debug                      map[string]map[string]int
+	AllowedStreams             []string
+	WideOpen                   bool
+	Peers                      []string
+	Redirects                  []string
+	TestStream                 bool
+	FrontendProxy              string
+	PublicOAuth                bool
+	AppBundleID                string
+	NoFirehose                 bool
+	PrintChat                  bool
+	Color                      string
+	LivepeerGatewayURL         string
+	LivepeerGateway            bool
+	WHIPTest                   string
+	Thumbnail                  bool
+	SmearAudio                 bool
+	ExternalSigning            bool
+	RTMPServerAddon            string
+	TracingEndpoint            string
+	BroadcasterHost            string
+	XXDeprecatedPublicHost     string
+	ServerHost                 string
+	RateLimitPerSecond         int
+	RateLimitBurst             int
+	RateLimitWebsocket         int
+	JWK                        jwk.Key
+	AccessJWK                  jwk.Key
+	dataDirFlags               []*string
+	DiscordWebhooks            []*discordtypes.Webhook
+	NewWebRTCPlayback          bool
+	AppleTeamID                string
+	AndroidCertFingerprint     string
+	Labelers                   []string
+	AtprotoDID                 string
+	LivepeerHelp               bool
+	PLCURL                     string
+	ContentFilters             *ContentFilters
+	SQLLogging                 bool
+	SentryDSN                  string
+	LivepeerDebug              bool
+	Tickets                    []string
+	IrohTopic                  string
+	DID                        string
+	DisableIrohRelay           bool
+	DevAccountCreds            map[string]string
+	StreamSessionTimeout       time.Duration
+	Replicators                []string
+	WebsocketURL               string
+	BehindHTTPSProxy           bool
+	SegmentDebugDir            string
+	Syndicate                  []string
+	AIGatewayBaseURL           string
+	AIGatewayPathPrefix        string
+	AIGatewayRewriteURLsTo     string
+	AIGatewayPipeline          string
+	AIGatewayRTMPHost          string
+	AIGatewayFFmpegBin         string
 }
 
 // ContentFilters represents the content filtering configuration
@@ -243,6 +243,13 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.StringVar(&cli.WebsocketURL, "websocket-url", "", "override the websocket (ws:// or wss://) url to use for replication (normally not necessary, used for testing)")
 	fs.BoolVar(&cli.BehindHTTPSProxy, "behind-https-proxy", false, "set to true if this node is behind an https proxy and we should report https URLs even though the node isn't serving HTTPS")
 	cli.StringSliceFlag(fs, &cli.Syndicate, "syndicate", []string{}, "list of DIDs that we should rebroadcast ('*' for everybody)")
+
+	fs.StringVar(&cli.AIGatewayBaseURL, "ai-gateway-base-url", "", "base URL of the AI transcription gateway (e.g. http://localhost:5937)")
+	fs.StringVar(&cli.AIGatewayPathPrefix, "ai-gateway-path-prefix", "", "path prefix for AI gateway requests (e.g. 'gateway' when behind proxy)")
+	fs.StringVar(&cli.AIGatewayRewriteURLsTo, "ai-gateway-rewrite-urls-to", "", "rewrite returned URLs to use this base for local access")
+	fs.StringVar(&cli.AIGatewayPipeline, "ai-gateway-pipeline", "transcription", "AI pipeline capability name")
+	fs.StringVar(&cli.AIGatewayRTMPHost, "ai-gateway-rtmp-host", "localhost:1937", "RTMP host:port for AI gateway media ingress")
+	fs.StringVar(&cli.AIGatewayFFmpegBin, "ai-gateway-ffmpeg-bin", "ffmpeg", "path to ffmpeg binary for AI gateway publisher")
 
 	fs.Bool("external-signing", true, "DEPRECATED, does nothing.")
 	fs.Bool("insecure", false, "DEPRECATED, does nothing.")

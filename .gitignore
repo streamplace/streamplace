@@ -24,3 +24,5 @@ target
 my-release-key.keystore
 test.xml
 js/app/src/build-info.json
+*.mp4
+*.mkv

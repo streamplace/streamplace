@@ -93,7 +93,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	gatherComplete := rtcrec.GatheringCompletePromise(peerConnection)
 
 	ctx, cancel := context.WithCancel(ctx)
-	signerElem, err := mm.SegmentAndSignElem(ctx, signer)
+	signerElem, err := mm.SegmentAndSignElemH264Parse(ctx, signer)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed create signer element: %w", err)

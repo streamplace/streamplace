@@ -320,21 +320,37 @@ export function ProgressiveWebMPlayer(props: VideoProps) {
 
 export function HLSPlayer(props: VideoProps) {
   const localRef = useRef<HTMLVideoElement | null>(null);
+  const showSubtitles = usePlayerStore((x) => x.showSubtitles);
+
+  const hlsRef = useRef<Hls | null>(null);
 
   useEffect(() => {
     if (!localRef.current) {
       return;
     }
     if (Hls.isSupported()) {
-      var hls = new Hls({ maxAudioFramesDrift: 20 });
+      const mediaEl = localRef.current;
+      const hls = new Hls({
+        maxAudioFramesDrift: 20,
+        enableWebVTT: true,
+        renderTextTracksNatively: true,
+      });
+      hlsRef.current = hls;
       hls.loadSource(props.url);
       try {
-        hls.attachMedia(localRef.current);
+        hls.attachMedia(mediaEl);
       } catch (e) {
         console.error("error on attachMedia");
         hls.stopLoad();
         return;
       }
+      hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_evt, data) => {
+        if (!data?.subtitleTracks?.length) {
+          return;
+        }
+        hls.subtitleTrack = showSubtitles ? 0 : -1;
+        hls.subtitleDisplay = showSubtitles;
+      });
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         if (!localRef.current) {
           return;
@@ -342,7 +358,8 @@ export function HLSPlayer(props: VideoProps) {
         localRef.current.play();
       });
       return () => {
-        hls.stopLoad();
+        hlsRef.current = null;
+        hls.destroy();
       };
     } else if (localRef.current.canPlayType("application/vnd.apple.mpegurl")) {
       localRef.current.src = props.url;
@@ -354,6 +371,27 @@ export function HLSPlayer(props: VideoProps) {
       });
     }
   }, [props.url]);
+
+  useEffect(() => {
+    const mediaEl = localRef.current;
+    if (!mediaEl) {
+      return;
+    }
+
+    const hls = hlsRef.current;
+    if (hls) {
+      hls.subtitleTrack = showSubtitles ? 0 : -1;
+      hls.subtitleDisplay = showSubtitles;
+    }
+
+    try {
+      for (let i = 0; i < mediaEl.textTracks.length; i++) {
+        mediaEl.textTracks[i].mode = showSubtitles ? "showing" : "disabled";
+      }
+    } catch (_e) {
+      // ignore
+    }
+  }, [showSubtitles]);
 
   return <VideoElement {...props} ref={localRef} />;
 }

@@ -11,10 +11,12 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/pion/webrtc/v4"
+	"stream.place/streamplace/pkg/aigateway"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/spmetrics"
 )
 
@@ -234,6 +236,14 @@ func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handl
 			errors.WriteHTTPBadRequest(w, "file required", nil)
 			return
 		}
+
+		file = strings.TrimPrefix(file, "/")
+
+		if strings.HasPrefix(file, "subtitles/") {
+			a.handleSubtitles(ctx, w, r, user, file)
+			return
+		}
+
 		m3u8, err := a.Director.GetM3U8(ctx, user)
 		if err != nil {
 			errors.WriteHTTPNotFound(w, "could not get m3u8", err)
@@ -289,4 +299,60 @@ func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter
 		}
 		http.ServeFile(w, r, fpath)
 	}
+}
+
+func (a *StreamplaceAPI) handleSubtitles(ctx context.Context, w http.ResponseWriter, r *http.Request, user string, file string) {
+	m3u8, err := a.Director.GetM3U8(ctx, user)
+	if err != nil {
+		errors.WriteHTTPNotFound(w, "could not get m3u8", err)
+		return
+	}
+
+	if !m3u8.SubtitlesEnabled() {
+		errors.WriteHTTPNotFound(w, "subtitles not enabled", nil)
+		return
+	}
+
+	subFile := strings.TrimPrefix(file, "subtitles/")
+
+	if subFile == media.IndexM3U8 {
+		rend, err := m3u8.GetRendition("source")
+		if err != nil {
+			errors.WriteHTTPNotFound(w, "could not get source rendition", err)
+			return
+		}
+
+		rend.SegmentLock.RLock()
+		segCount := len(rend.Segments)
+		var msn int
+		var targetDur int
+		if segCount > 0 {
+			msn = int(rend.Segments[0].MSN)
+			targetDur = int(rend.Segments[segCount-1].Duration.Seconds()) + 1
+		} else {
+			msn = 0
+			targetDur = 4
+		}
+		rend.SegmentLock.RUnlock()
+
+		if segCount > media.LivePlaylistSize {
+			segCount = media.LivePlaylistSize
+		}
+
+		playlist := aigateway.GenerateSubtitlesPlaylist(targetDur, msn, segCount)
+		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+		http.ServeContent(w, r, subFile, time.Now(), bytes.NewReader(playlist))
+		return
+	}
+
+	if strings.HasSuffix(subFile, ".vtt") {
+		events := a.MediaManager.GetTranscriptEvents(user)
+		vtt := aigateway.GenerateVTT(events)
+		w.Header().Set("X-Streamplace-Transcript-Events", fmt.Sprintf("%d", len(events)))
+		w.Header().Set("Content-Type", "text/vtt")
+		http.ServeContent(w, r, subFile, time.Now(), bytes.NewReader(vtt))
+		return
+	}
+
+	errors.WriteHTTPNotFound(w, "subtitle file not found", nil)
 }

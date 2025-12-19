@@ -91,6 +91,11 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
 	ss.hls = media.NewM3U8(allRenditions)
 
+	if ss.cli.AIGatewayBaseURL != "" {
+		ss.hls.SetSubtitlesEnabled(true)
+		log.Log(ctx, "AI gateway configured, subtitles enabled")
+	}
+
 	// for _, r := range allRenditions {
 	// 	g.Go(func() error {
 	// 		for {

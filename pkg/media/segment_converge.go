@@ -5,12 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/Eyevinn/mp4ff/mp4"
-	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 )
@@ -20,8 +18,6 @@ var MaxSegmentTries = 10
 // run this segment through the segmenter/splitter until it comes out the
 // same, meaning we can cleanly get it in and out of a concatenated mp4 file
 func ConvergeSegment(ctx context.Context, cli *config.CLI, bs []byte, now int64, streamer string, doH264Parse bool) ([]byte, error) {
-	cli.DumpDebugSegment(ctx, fmt.Sprintf("converge-segment-%s.mp4", streamer), bytes.NewReader(bs))
-
 	log.Debug(ctx, "parsing segment media data", "size", len(bs))
 	_, err := ParseSegmentMediaData(ctx, bs)
 	if err != nil {
@@ -45,23 +41,15 @@ func ConvergeSegment(ctx context.Context, cli *config.CLI, bs []byte, now int64,
 		if slices.Compare(previousBs, currentBs) == 0 {
 			break
 		}
-		if cli.SegmentDebugDir != "" {
-			mydir := filepath.Join(cli.SegmentDebugDir, streamer)
-			err := os.MkdirAll(mydir, 0755)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create debug directory: %w", err)
-			}
-			aqt := aqtime.FromMillis(now)
-			outFile := filepath.Join(cli.SegmentDebugDir, fmt.Sprintf("%s-attempt-%03d.mp4", aqt.FileSafeString(), i))
-			err = os.WriteFile(outFile, currentBs, 0644)
-			if err != nil {
-				return nil, fmt.Errorf("failed to write debug file: %w", err)
-			}
-			log.Log(ctx, "wrote debug file", "path", outFile)
-		}
 		buf := bytes.Buffer{}
 		err := CombineSegmentsUnsigned(ctx, []io.ReadSeeker{bytes.NewReader(currentBs)}, &buf, doH264Parse)
 		if err != nil {
+			// mp4mux sometimes fails transiently (e.g. "Could not multiplex stream");
+			// treat that as a retryable convergence attempt rather than a fatal error.
+			if strings.Contains(err.Error(), "Could not multiplex stream") {
+				log.Warn(ctx, "transient mux error during convergence, retrying", "try", i, "error", err)
+				continue
+			}
 			return nil, fmt.Errorf("failed to attempt segment convergence: %w", err)
 		}
 		previousBs = currentBs
@@ -70,9 +58,31 @@ func ConvergeSegment(ctx context.Context, cli *config.CLI, bs []byte, now int64,
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode segment: %w", err)
 		}
-		btrt := mp4file.Moov.Trak.Mdia.Minf.Stbl.Stsd.AvcX.Btrt
-		btrt.AvgBitrate = 0
-		btrt.MaxBitrate = 0
+		if mp4file != nil && mp4file.Moov != nil {
+			if mp4file.Moov.Mvhd != nil {
+				mp4file.Moov.Mvhd.CreationTime = 0
+				mp4file.Moov.Mvhd.ModificationTime = 0
+			}
+			for _, trak := range mp4file.Moov.Traks {
+				if trak == nil {
+					continue
+				}
+				if trak.Tkhd != nil {
+					trak.Tkhd.CreationTime = 0
+					trak.Tkhd.ModificationTime = 0
+				}
+				if trak.Mdia != nil && trak.Mdia.Mdhd != nil {
+					trak.Mdia.Mdhd.CreationTime = 0
+					trak.Mdia.Mdhd.ModificationTime = 0
+				}
+			}
+
+			if mp4file.Moov.Trak != nil && mp4file.Moov.Trak.Mdia != nil && mp4file.Moov.Trak.Mdia.Minf != nil && mp4file.Moov.Trak.Mdia.Minf.Stbl != nil && mp4file.Moov.Trak.Mdia.Minf.Stbl.Stsd != nil && mp4file.Moov.Trak.Mdia.Minf.Stbl.Stsd.AvcX != nil && mp4file.Moov.Trak.Mdia.Minf.Stbl.Stsd.AvcX.Btrt != nil {
+				btrt := mp4file.Moov.Trak.Mdia.Minf.Stbl.Stsd.AvcX.Btrt
+				btrt.AvgBitrate = 0
+				btrt.MaxBitrate = 0
+			}
+		}
 		// log.Log(ctx, "btrt", "average bitrate", btrt.AvgBitrate, "max bitrate", btrt.MaxBitrate)
 		encodedBuf := bytes.Buffer{}
 		err = mp4file.Encode(&encodedBuf)

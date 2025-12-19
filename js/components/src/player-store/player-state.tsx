@@ -32,6 +32,9 @@ export interface PlayerState {
   protocol: PlayerProtocol;
   setProtocol: (protocol: PlayerProtocol) => void;
 
+  showSubtitles: boolean;
+  setShowSubtitles: (showSubtitles: boolean) => void;
+
   /** Source */
   src: string;
 

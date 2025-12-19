@@ -313,10 +313,10 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				// Publish deletion to WebSocket bus for real-time updates
 				// Create a deleted record marker to notify frontend
 				deletedRecord := map[string]any{
-					"$type":     "place.stream.moderation.permission",
-					"deleted":   true,
-					"rkey":      rkey.String(),
-					"streamer":  evt.Repo,
+					"$type":    "place.stream.moderation.permission",
+					"deleted":  true,
+					"rkey":     rkey.String(),
+					"streamer": evt.Repo,
 				}
 				go atsync.Bus.Publish(evt.Repo, deletedRecord)
 			}

@@ -11,8 +11,8 @@ import {
   View,
   zero,
 } from "@streamplace/components";
-import { Check, X } from "lucide-react-native";
-import { useState } from "react";
+import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView } from "react-native";
 import { SettingToggle } from "./components/setting-toggle";
@@ -68,28 +68,21 @@ function parseS3Url(url: string): S3Config | null {
   }
 }
 
-function getRandomBlockElements(length: number): string {
-  const blockEls = ["▚", "▞", "▛", "▜", "▟", "▙"];
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += blockEls[Math.floor(Math.random() * blockEls.length)];
-  }
-  return result;
-}
-
 function buildS3Url(config: S3Config, showPassword: boolean): string {
   const secretKey =
-    showPassword || !config.secretKey
+    (showPassword && config.secretKey !== "***") || !config.secretKey
       ? config.secretKey
-      : getRandomBlockElements(config.secretKey.length);
+      : "[hidden]";
   return `s3+https://${config.accessKey}:${secretKey}@${config.endpoint}/${config.bucket}`;
 }
 
 export function BackupSettings() {
   const { t } = useTranslation("settings");
+  const agent = usePDSAgent();
   const [enabled, setEnabled] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [fullUrl, setFullUrl] = useState("");
+  const [originalUrl, setOriginalUrl] = useState("");
   const [config, setConfig] = useState<S3Config>({
     endpoint: "",
     bucket: "",
@@ -104,14 +97,101 @@ export function BackupSettings() {
     {},
   );
   const [requestedSecondsPerSegment, setRequestedSecondsPerSegment] =
-    useState("6");
+    useState("20");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const isCensored = config.secretKey === "***";
 
   const theme = useTheme();
+
+  useEffect(() => {
+    loadStorage();
+  }, [agent]);
+
+  useEffect(() => {
+    setFullUrl(buildS3Url(config, showPassword));
+  }, [showPassword]);
+
+  const loadStorage = async () => {
+    if (!agent) return;
+
+    try {
+      setLoading(true);
+      const response = await agent.place.stream.server.getStorage();
+      if (response.data.storage) {
+        setOriginalUrl(response.data.storage.url);
+        const parsed = parseS3Url(response.data.storage.url);
+        if (parsed) {
+          setConfig(parsed);
+          setFullUrl(buildS3Url(parsed, showPassword));
+          setEnabled(true);
+          setRequestedSecondsPerSegment(
+            String(response.data.storage.requestedSecondsPerSegment),
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load storage settings:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveStorage = async () => {
+    if (!agent || !fullUrl) return;
+
+    try {
+      setSaving(true);
+      await agent.place.stream.server.upsertStorage({
+        url: fullUrl,
+        requestedSecondsPerSegment: parseInt(requestedSecondsPerSegment, 10),
+      });
+      await loadStorage();
+    } catch (error) {
+      console.error("Failed to save storage settings:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteStorage = async () => {
+    if (!agent) return;
+
+    try {
+      setSaving(true);
+      await agent.place.stream.server.deleteStorage();
+      setEnabled(false);
+      setFullUrl("");
+      setOriginalUrl("");
+      setConfig({
+        endpoint: "",
+        bucket: "",
+        accessKey: "",
+        secretKey: "",
+      });
+      setRequestedSecondsPerSegment("6");
+    } catch (error) {
+      console.error("Failed to delete storage settings:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEnabledChange = async (value: boolean) => {
+    if (!value) {
+      await deleteStorage();
+    } else {
+      setEnabled(true);
+    }
+  };
 
   const handleFullUrlChange = (url: string) => {
     setFullUrl(url);
     const parsed = parseS3Url(url);
     if (parsed) {
+      if (parsed.secretKey === "[hidden]") {
+        parsed.secretKey = config.secretKey;
+      }
       setConfig(parsed);
     }
   };
@@ -123,16 +203,47 @@ export function BackupSettings() {
     setValidationErrors(validateS3Config(newConfig));
   };
 
+  const isComplete =
+    !!config.endpoint &&
+    !!config.bucket &&
+    !!config.accessKey &&
+    !!config.secretKey;
+  const hasErrors = Object.keys(validationErrors).length > 0;
+  const canSave = isComplete && !hasErrors && !saving;
+
+  const handleSave = async () => {
+    if (!agent || !canSave) return;
+
+    try {
+      setSaving(true);
+      const realUrl = `s3+https://${config.accessKey}:${config.secretKey}@${config.endpoint}/${config.bucket}`;
+      const payload: {
+        url?: string;
+        requestedSecondsPerSegment: number;
+      } = {
+        requestedSecondsPerSegment: parseInt(requestedSecondsPerSegment, 10),
+      };
+
+      if (config.secretKey !== "***" && realUrl !== originalUrl) {
+        payload.url = realUrl;
+      }
+
+      await agent.place.stream.server.upsertStorage(payload);
+      await loadStorage();
+    } catch (error) {
+      console.error("Failed to save storage settings:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleTestConnection = async () => {
     setTesting(true);
     setTestResult(null);
 
-    // TODO: implement actual test connection
+    // call the
     setTimeout(() => {
-      setTesting(false);
-      setTestResult({
-        success: Math.random() > 0.5,
-      });
+      //
     }, 1500);
   };
 
@@ -146,7 +257,7 @@ export function BackupSettings() {
                 title={t("backup-enabled")}
                 description={t("backup-enabled-description")}
                 value={enabled}
-                onValueChange={setEnabled}
+                onValueChange={handleEnabledChange}
               />
             </MenuGroup>
 
@@ -262,13 +373,17 @@ export function BackupSettings() {
                     </Text>
                     <View style={{ flex: 1 }}>
                       <Input
-                        value={config.secretKey}
+                        value={isCensored ? "" : config.secretKey}
                         onChangeText={(value) =>
                           handleConfigChange("secretKey", value)
                         }
-                        placeholder={t("backup-secret-key-placeholder")}
+                        placeholder={
+                          isCensored
+                            ? t("backup-secret-key-set-placeholder")
+                            : t("backup-secret-key-placeholder")
+                        }
                         variant="underlined"
-                        secureTextEntry
+                        secureTextEntry={!isCensored}
                         autoCapitalize="none"
                         autoCorrect={false}
                         containerStyle={{ width: "100%" }}
@@ -276,39 +391,6 @@ export function BackupSettings() {
                       />
                     </View>
                   </MenuItem>
-                </MenuGroup>
-
-                <MenuGroup>
-                  <SettingsRowItem
-                    onPress={
-                      !testing && fullUrl ? handleTestConnection : undefined
-                    }
-                  >
-                    <View
-                      style={[
-                        zero.layout.flex.justify.between,
-                        zero.layout.flex.alignCenter,
-                        zero.layout.flex.row,
-                        { flex: 1 },
-                      ]}
-                    >
-                      <Text
-                        style={{
-                          opacity: !fullUrl || testing ? 0.5 : 1,
-                        }}
-                      >
-                        {testing
-                          ? t("backup-testing-connection")
-                          : t("backup-test-connection")}
-                      </Text>
-                      {testResult !== null &&
-                        (testResult.success ? (
-                          <Check color={theme.theme.colors.success} />
-                        ) : (
-                          <X color={theme.theme.colors.destructive} />
-                        ))}
-                    </View>
-                  </SettingsRowItem>
                 </MenuGroup>
                 <MenuGroup>
                   <MenuItem style={{ marginVertical: -4 }}>
@@ -331,6 +413,26 @@ export function BackupSettings() {
                 <MenuInfo
                   description={t("requested-seconds-per-segment-description")}
                 />
+                <MenuGroup>
+                  <SettingsRowItem onPress={canSave ? handleSave : undefined}>
+                    <View
+                      style={[
+                        zero.layout.flex.justify.between,
+                        zero.layout.flex.alignCenter,
+                        zero.layout.flex.row,
+                        { flex: 1 },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          opacity: canSave ? 1 : 0.5,
+                        }}
+                      >
+                        {saving ? t("backup-saving") : t("backup-save")}
+                      </Text>
+                    </View>
+                  </SettingsRowItem>
+                </MenuGroup>
               </>
             )}
           </MenuContainer>

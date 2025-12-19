@@ -304,6 +304,31 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				atsync.Bus.Publish(msg.StreamerRepoDID, mv)
 			}
 
+			if collection.String() == constants.PLACE_STREAM_MODERATION_PERMISSION {
+				log.Debug(ctx, "deleting moderation delegation", "userDID", evt.Repo, "rkey", rkey.String())
+				err := atsync.Model.DeleteModerationDelegation(ctx, rkey.String())
+				if err != nil {
+					log.Error(ctx, "failed to delete moderation delegation", "err", err)
+				}
+				// Publish deletion to WebSocket bus for real-time updates
+				// Create a deleted record marker to notify frontend
+				deletedRecord := map[string]any{
+					"$type":    "place.stream.moderation.permission",
+					"deleted":  true,
+					"rkey":     rkey.String(),
+					"streamer": evt.Repo,
+				}
+				go atsync.Bus.Publish(evt.Repo, deletedRecord)
+			}
+
+			if collection.String() == constants.PLACE_STREAM_CHAT_GATE {
+				log.Debug(ctx, "deleting gate", "userDID", evt.Repo, "rkey", rkey.String())
+				err := atsync.Model.DeleteGate(ctx, rkey.String())
+				if err != nil {
+					log.Error(ctx, "failed to delete gate", "err", err)
+				}
+			}
+
 		default:
 			log.Error(ctx, "unexpected record op kind")
 		}

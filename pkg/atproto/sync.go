@@ -2,6 +2,7 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -422,6 +423,55 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			log.Error(ctx, "failed to create metadata configuration", "err", err)
 		}
+
+	case *streamplace.ModerationPermission:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		if repo == nil {
+			// someone we don't know about
+			return nil
+		}
+		log.Debug(ctx, "creating moderation delegation", "streamerDID", userDID, "moderatorDID", rec.Moderator)
+
+		permissionsJSON, err := json.Marshal(rec.Permissions)
+		if err != nil {
+			return fmt.Errorf("failed to marshal permissions: %w", err)
+		}
+
+		// Parse optional expiration time
+		var expirationTime *time.Time
+		if rec.ExpirationTime != nil {
+			t, err := time.Parse(time.RFC3339, *rec.ExpirationTime)
+			if err != nil {
+				log.Warn(ctx, "failed to parse expiration time", "value", *rec.ExpirationTime, "err", err)
+			} else {
+				expirationTime = &t
+			}
+		}
+
+		delegation := &model.ModerationDelegation{
+			RKey:           rkey.String(),
+			CID:            cid,
+			RepoDID:        userDID,
+			Repo:           repo,
+			ModeratorDID:   rec.Moderator,
+			Permissions:    permissionsJSON,
+			ExpirationTime: expirationTime,
+			Record:         *recCBOR,
+			CreatedAt:      now,
+			IndexedAt:      now,
+		}
+
+		err = atsync.Model.CreateModerationDelegation(ctx, delegation)
+		if err != nil {
+			return fmt.Errorf("failed to create moderation delegation: %w", err)
+		}
+
+		// Publish moderation permission record to WebSocket bus for real-time updates
+		// This allows moderators to see their permissions instantly without page refresh
+		go atsync.Bus.Publish(userDID, rec)
 
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))

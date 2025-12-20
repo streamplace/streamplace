@@ -285,6 +285,8 @@ type TranscriptEvent struct {
 	// TimestampMS is the timestamp in milliseconds when the transcript was generated.
 	TimestampMS int64 `json:"timestamp_ms"`
 
+	Timing *Timing `json:"timing,omitempty"`
+
 	// CycleID identifies the transcription cycle this event belongs to.
 	CycleID string `json:"cycle_id"`
 
@@ -296,6 +298,36 @@ type TranscriptEvent struct {
 
 	// ReceivedAt is when Streamplace received this event (not from JSON).
 	ReceivedAt time.Time `json:"-"`
+
+	// Segments is an optional structured transcript payload with explicit media-clock
+	// timestamps. When present, Streamplace should prefer this over Text/TimestampMS.
+	Segments []TranscriptSegment `json:"segments,omitempty"`
+}
+
+// TranscriptSegment represents a timed subtitle unit (phrase/line) in media-clock time.
+// Times are stream-relative milliseconds.
+type TranscriptSegment struct {
+	ID      string          `json:"id"`
+	StartMS int64           `json:"start_ms"`
+	EndMS   int64           `json:"end_ms"`
+	Text    string          `json:"text"`
+	Words   []WordTimestamp `json:"words,omitempty"`
+}
+
+// WordTimestamp is an optional word-level timing payload.
+// Times are stream-relative milliseconds.
+type WordTimestamp struct {
+	StartMS int64  `json:"start_ms"`
+	EndMS   int64  `json:"end_ms"`
+	Text    string `json:"text"`
+}
+
+type Timing struct {
+	MediaWindowStartMS    int64 `json:"media_window_start_ms"`
+	MediaWindowEndMS      int64 `json:"media_window_end_ms"`
+	AudioWindowSeq        int64 `json:"audio_window_seq"`
+	AudioWindowEndSamples int64 `json:"audio_window_end_samples"`
+	MediaClockRateHz      int64 `json:"media_clock_rate_hz"`
 }
 
 // Stats contains performance statistics for a transcription event.

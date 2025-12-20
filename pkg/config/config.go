@@ -125,6 +125,12 @@ type CLI struct {
 	SQLLogging                 bool
 	SentryDSN                  string
 	LivepeerDebug              bool
+	LivepeerAIProcessing       bool
+	LivepeerAICapability       string
+	LivepeerAIEnableVideoIngress bool
+	LivepeerAIEnableVideoEgress  bool
+	LivepeerAIEnableDataOutput   bool
+	LivepeerAIStreamKey          string
 	Tickets                    []string
 	IrohTopic                  string
 	DID                        string

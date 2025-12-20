@@ -1,91 +1,178 @@
 package aigateway
 
 import (
+	"fmt"
+	"hash/fnv"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 )
 
 const (
 	// MaxTranscriptEvents is the maximum number of events to retain per streamer.
-	MaxTranscriptEvents = 100
+	MaxTranscriptEvents = 1000
 
 	// TranscriptRetention is how long to retain transcript events before cleanup.
 	TranscriptRetention = 5 * time.Minute
 )
 
-// TranscriptStore provides thread-safe storage for transcript events per streamer.
-// Events are automatically limited to MaxTranscriptEvents per streamer.
+// TranscriptStore provides thread-safe storage for transcript segments (timed cues)
+// per streamer. Segments are automatically deduplicated and limited to
+// MaxTranscriptEvents per streamer.
 type TranscriptStore struct {
 	mu     sync.RWMutex
-	events map[string][]TranscriptEvent
+	segs   map[string][]TranscriptSegment
+	seen   map[string]map[string]struct{}
 }
 
 // NewTranscriptStore creates a new empty TranscriptStore.
 func NewTranscriptStore() *TranscriptStore {
 	return &TranscriptStore{
-		events: make(map[string][]TranscriptEvent),
+		segs: make(map[string][]TranscriptSegment),
+		seen: make(map[string]map[string]struct{}),
 	}
 }
 
-// AddEvent adds a transcript event for the given streamer.
-// If the event count exceeds MaxTranscriptEvents, older events are discarded.
+func stableSegmentID(seg TranscriptSegment) string {
+	if seg.ID != "" {
+		return seg.ID
+	}
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(seg.Text))
+	return fmt.Sprintf("%d-%d-%08x", seg.StartMS, seg.EndMS, h.Sum32())
+}
+
+func eventToLegacySegment(e TranscriptEvent) (TranscriptSegment, bool) {
+	text := e.Text
+	if strings.TrimSpace(text) == "" {
+		return TranscriptSegment{}, false
+	}
+	// Legacy fallback: anchor the segment around an inferred event time.
+	t := eventTimeMS(e)
+	start := t
+	end := t + defaultLastCueDurationMS
+	if e.Stats != nil && e.Stats.AudioDurationMS > 0 {
+		// Approximate segment as spanning the recognition window duration.
+		end = start + int64(e.Stats.AudioDurationMS)
+	}
+	seg := TranscriptSegment{StartMS: start, EndMS: end, Text: text}
+	seg.ID = stableSegmentID(seg)
+	return seg, true
+}
+
+// AddEvent ingests a transcript event for the given streamer.
+// If the event contains structured Segments, they are added as timed cues.
+// Otherwise, a legacy Text-only event is converted into a best-effort segment.
+// If the segment count exceeds MaxTranscriptEvents, older segments are discarded.
 func (ts *TranscriptStore) AddEvent(streamer string, event TranscriptEvent) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
-	if _, ok := ts.events[streamer]; !ok {
-		ts.events[streamer] = make([]TranscriptEvent, 0, MaxTranscriptEvents)
+	if _, ok := ts.segs[streamer]; !ok {
+		ts.segs[streamer] = make([]TranscriptSegment, 0, MaxTranscriptEvents)
+	}
+	if _, ok := ts.seen[streamer]; !ok {
+		ts.seen[streamer] = make(map[string]struct{}, MaxTranscriptEvents)
 	}
 
-	ts.events[streamer] = append(ts.events[streamer], event)
-
-	// Trim to max events, keeping the most recent
-	if len(ts.events[streamer]) > MaxTranscriptEvents {
-		ts.events[streamer] = ts.events[streamer][len(ts.events[streamer])-MaxTranscriptEvents:]
-	}
-}
-
-// GetEvents returns a copy of all transcript events for the given streamer.
-// Returns nil if no events exist for the streamer.
-func (ts *TranscriptStore) GetEvents(streamer string) []TranscriptEvent {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
-	events, ok := ts.events[streamer]
-	if !ok {
-		return nil
+	abs64 := func(v int64) int64 {
+		if v < 0 {
+			return -v
+		}
+		return v
 	}
 
-	result := make([]TranscriptEvent, len(events))
-	copy(result, events)
-	return result
-}
+	addSeg := func(seg TranscriptSegment) {
+		if seg.EndMS <= seg.StartMS {
+			return
+		}
+		seg.ID = stableSegmentID(seg)
 
-// GetEventsSince returns transcript events received after the given time.
-// Returns nil if no matching events exist.
-func (ts *TranscriptStore) GetEventsSince(streamer string, since time.Time) []TranscriptEvent {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
+		// If a producer revises the same logical segment (same time range) with slightly
+		// different text/ID, replace the old entry in-place.
+		// Scan from the end since new segments tend to be recent.
+		replaceIdx := -1
+		for i := len(ts.segs[streamer]) - 1; i >= 0; i-- {
+			old := ts.segs[streamer][i]
+			if abs64(old.StartMS-seg.StartMS) <= 50 && abs64(old.EndMS-seg.EndMS) <= 50 {
+				replaceIdx = i
+				break
+			}
+		}
+		if replaceIdx >= 0 {
+			old := ts.segs[streamer][replaceIdx]
+			if old.ID == seg.ID {
+				ts.segs[streamer][replaceIdx] = seg
+				return
+			}
+			if _, ok := ts.seen[streamer][seg.ID]; ok {
+				return
+			}
+			delete(ts.seen[streamer], old.ID)
+			ts.seen[streamer][seg.ID] = struct{}{}
+			ts.segs[streamer][replaceIdx] = seg
+			return
+		}
 
-	events, ok := ts.events[streamer]
-	if !ok {
-		return nil
-	}
-
-	var result []TranscriptEvent
-	for _, e := range events {
-		if e.ReceivedAt.After(since) {
-			result = append(result, e)
+		if _, ok := ts.seen[streamer][seg.ID]; ok {
+			return
+		}
+		ts.seen[streamer][seg.ID] = struct{}{}
+		ts.segs[streamer] = append(ts.segs[streamer], seg)
+		if len(ts.segs[streamer]) > MaxTranscriptEvents {
+			// Trim to max segments, keeping the most recent
+			removeCount := len(ts.segs[streamer]) - MaxTranscriptEvents
+			for _, old := range ts.segs[streamer][:removeCount] {
+				delete(ts.seen[streamer], old.ID)
+			}
+			ts.segs[streamer] = ts.segs[streamer][removeCount:]
 		}
 	}
+
+	if len(event.Segments) > 0 {
+		for _, seg := range event.Segments {
+			if strings.TrimSpace(seg.Text) == "" {
+				continue
+			}
+			addSeg(seg)
+		}
+		return
+	}
+
+	if seg, ok := eventToLegacySegment(event); ok {
+		addSeg(seg)
+	}
+}
+
+// GetSegments returns a copy of all transcript segments for the given streamer.
+// Returns nil if no segments exist for the streamer.
+func (ts *TranscriptStore) GetSegments(streamer string) []TranscriptSegment {
+	ts.mu.RLock()
+	defer ts.mu.RUnlock()
+
+	segs, ok := ts.segs[streamer]
+	if !ok {
+		return nil
+	}
+
+	result := make([]TranscriptSegment, len(segs))
+	copy(result, segs)
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].StartMS == result[j].StartMS {
+			return result[i].EndMS < result[j].EndMS
+		}
+		return result[i].StartMS < result[j].StartMS
+	})
 	return result
 }
 
-// Clear removes all transcript events for the given streamer.
+// Clear removes all transcript segments for the given streamer.
 func (ts *TranscriptStore) Clear(streamer string) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	delete(ts.events, streamer)
+	delete(ts.segs, streamer)
+	delete(ts.seen, streamer)
 }
 
 // Cleanup removes events older than TranscriptRetention and removes
@@ -93,19 +180,17 @@ func (ts *TranscriptStore) Clear(streamer string) {
 func (ts *TranscriptStore) Cleanup() {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-
-	cutoff := time.Now().Add(-TranscriptRetention)
-	for streamer, events := range ts.events {
-		var kept []TranscriptEvent
-		for _, e := range events {
-			if e.ReceivedAt.After(cutoff) {
-				kept = append(kept, e)
-			}
-		}
+	_ = time.Now().Add(-TranscriptRetention)
+	for streamer, segs := range ts.segs {
+		var kept []TranscriptSegment
+		// We don't currently carry ReceivedAt on segments, so use stream-relative time
+		// retention only as a bounded list via MaxTranscriptEvents.
+		kept = append(kept, segs...)
 		if len(kept) == 0 {
-			delete(ts.events, streamer)
+			delete(ts.segs, streamer)
+			delete(ts.seen, streamer)
 		} else {
-			ts.events[streamer] = kept
+			ts.segs[streamer] = kept
 		}
 	}
 }

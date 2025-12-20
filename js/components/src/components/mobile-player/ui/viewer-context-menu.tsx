@@ -48,6 +48,9 @@ export function ContextMenu({
   const showSubtitles = usePlayerStore((x) => x.showSubtitles);
   const setShowSubtitles = usePlayerStore((x) => x.setShowSubtitles);
 
+  const subtitleOffsetMS = usePlayerStore((x) => x.subtitleOffsetMS);
+  const setSubtitleOffsetMS = usePlayerStore((x) => x.setSubtitleOffsetMS);
+
   const debugInfo = usePlayerStore((x) => x.showDebugInfo);
   const setShowDebugInfo = usePlayerStore((x) => x.setShowDebugInfo);
 
@@ -227,6 +230,55 @@ export function ContextMenu({
                   >
                     <Text>Subtitles</Text>
                   </DropdownMenuCheckboxItem>
+                </DropdownMenuGroup>
+
+                <DropdownMenuGroup
+                  title={`Subtitle Sync (${subtitleOffsetMS === 0 ? "0s" : `${subtitleOffsetMS > 0 ? "+" : ""}${subtitleOffsetMS / 1000}s`})`}
+                >
+                  <DropdownMenuItem
+                    closeOnPress={false}
+                    onPress={() => setSubtitleOffsetMS(subtitleOffsetMS - 1000)}
+                  >
+                    <View
+                      style={[
+                        zero.layout.flex.row,
+                        zero.layout.flex.spaceBetween,
+                        { flex: 1 },
+                      ]}
+                    >
+                      <Text>-1s</Text>
+                      <Text muted size="sm">
+                        {subtitleOffsetMS === 0
+                          ? "0s"
+                          : `${subtitleOffsetMS > 0 ? "+" : ""}${subtitleOffsetMS / 1000}s`}
+                      </Text>
+                    </View>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    closeOnPress={false}
+                    onPress={() => setSubtitleOffsetMS(subtitleOffsetMS + 1000)}
+                  >
+                    <View
+                      style={[
+                        zero.layout.flex.row,
+                        zero.layout.flex.spaceBetween,
+                        { flex: 1 },
+                      ]}
+                    >
+                      <Text>+1s</Text>
+                      <Text muted size="sm">
+                        {subtitleOffsetMS === 0
+                          ? "0s"
+                          : `${subtitleOffsetMS > 0 ? "+" : ""}${subtitleOffsetMS / 1000}s`}
+                      </Text>
+                    </View>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    closeOnPress={false}
+                    onPress={() => setSubtitleOffsetMS(0)}
+                  >
+                    <Text>Reset</Text>
+                  </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuInfo description="Reduces the delay between video and chat for a more real-time experience." />
               </DropdownMenuSubContent>

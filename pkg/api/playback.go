@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -257,6 +259,45 @@ func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handl
 			return
 		}
 
+		// Propagate subtitle offset from the master playlist URL into the subtitle track URI.
+		// This keeps the subtitle playlist/segments consistently parameterized for hls.js.
+		if strings.HasSuffix(file, ".m3u8") && file == media.IndexM3U8 {
+			subOffsetMS := strings.TrimSpace(r.URL.Query().Get("sub_offset_ms"))
+			if subOffsetMS != "" {
+				if _, err := strconv.ParseInt(subOffsetMS, 10, 64); err == nil {
+					playlist := string(buf)
+					lines := strings.Split(playlist, "\n")
+					for i := range lines {
+						line := lines[i]
+						if !strings.HasPrefix(line, "#EXT-X-MEDIA:TYPE=SUBTITLES") {
+							continue
+						}
+						uriStart := strings.Index(line, "URI=\"")
+						if uriStart < 0 {
+							continue
+						}
+						uriStart += len("URI=\"")
+						uriEnd := strings.Index(line[uriStart:], "\"")
+						if uriEnd < 0 {
+							continue
+						}
+						uriEnd = uriStart + uriEnd
+						uri := line[uriStart:uriEnd]
+						if strings.Contains(uri, "sub_offset_ms=") {
+							continue
+						}
+						sep := "?"
+						if strings.Contains(uri, "?") {
+							sep = "&"
+						}
+						uri = uri + sep + "sub_offset_ms=" + subOffsetMS
+						lines[i] = line[:uriStart] + uri + line[uriEnd:]
+					}
+					buf = []byte(strings.Join(lines, "\n"))
+				}
+			}
+		}
+
 		if strings.HasSuffix(file, ".m3u8") {
 			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 		} else {
@@ -314,6 +355,13 @@ func (a *StreamplaceAPI) handleSubtitles(ctx context.Context, w http.ResponseWri
 	}
 
 	subFile := strings.TrimPrefix(file, "subtitles/")
+	subOffsetMSStr := strings.TrimSpace(r.URL.Query().Get("sub_offset_ms"))
+	subOffsetMS := int64(0)
+	if subOffsetMSStr != "" {
+		if v, err := strconv.ParseInt(subOffsetMSStr, 10, 64); err == nil {
+			subOffsetMS = v
+		}
+	}
 
 	if subFile == media.IndexM3U8 {
 		rend, err := m3u8.GetRendition("source")
@@ -323,32 +371,119 @@ func (a *StreamplaceAPI) handleSubtitles(ctx context.Context, w http.ResponseWri
 		}
 
 		rend.SegmentLock.RLock()
-		segCount := len(rend.Segments)
-		var msn int
-		var targetDur int
-		if segCount > 0 {
-			msn = int(rend.Segments[0].MSN)
-			targetDur = int(rend.Segments[segCount-1].Duration.Seconds()) + 1
-		} else {
-			msn = 0
-			targetDur = 4
-		}
+		mediaSegs := make([]*media.Segment, len(rend.Segments))
+		copy(mediaSegs, rend.Segments)
 		rend.SegmentLock.RUnlock()
 
-		if segCount > media.LivePlaylistSize {
-			segCount = media.LivePlaylistSize
+		// Mirror the source rendition playlist structure so players can align subtitle
+		// fragments to the media timeline.
+		segCount := len(mediaSegs)
+		startWith := segCount - media.LivePlaylistSize
+		if startWith < 0 {
+			startWith = 0
+		}
+		if segCount == 0 {
+			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+			http.ServeContent(w, r, subFile, time.Now(), bytes.NewReader([]byte("")))
+			return
 		}
 
-		playlist := aigateway.GenerateSubtitlesPlaylist(targetDur, msn, segCount)
+		firstSeg := mediaSegs[startWith]
+		lastSeg := mediaSegs[len(mediaSegs)-1]
+		targetDur := int64(math.Round(lastSeg.Duration.Seconds()))
+
+		lines := []string{}
+		lines = append(lines, "#EXTM3U")
+		lines = append(lines, "#EXT-X-VERSION:3")
+		lines = append(lines, fmt.Sprintf("#EXT-X-TARGETDURATION:%d", targetDur+1))
+		lines = append(lines, fmt.Sprintf("#EXT-X-MEDIA-SEQUENCE:%d", firstSeg.MSN))
+		lines = append(lines, fmt.Sprintf("#EXT-X-DISCONTINUITY-SEQUENCE:%d", firstSeg.MSN))
+		lines = append(lines, "")
+
+		for _, seg := range mediaSegs[startWith:] {
+			lines = append(lines, "#EXT-X-DISCONTINUITY")
+			lines = append(lines, fmt.Sprintf("#EXT-X-PROGRAM-DATE-TIME:%s", seg.Time.Format(time.RFC3339Nano)))
+			lines = append(lines, fmt.Sprintf("#EXTINF:%f,", seg.Duration.Seconds()))
+			if subOffsetMS != 0 {
+				lines = append(lines, fmt.Sprintf("segment%05d.vtt?sub_offset_ms=%d", seg.MSN, subOffsetMS))
+			} else {
+				lines = append(lines, fmt.Sprintf("segment%05d.vtt", seg.MSN))
+			}
+		}
+		lines = append(lines, "")
+		playlist := []byte(strings.Join(lines, "\n"))
 		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 		http.ServeContent(w, r, subFile, time.Now(), bytes.NewReader(playlist))
 		return
 	}
 
 	if strings.HasSuffix(subFile, ".vtt") {
-		events := a.MediaManager.GetTranscriptEvents(user)
-		vtt := aigateway.GenerateVTT(events)
-		w.Header().Set("X-Streamplace-Transcript-Events", fmt.Sprintf("%d", len(events)))
+		// HLS WebVTT segments must have cue times relative to the segment.
+		// We map the requested segment MSN to a time window based on the source rendition
+		// segment durations, then filter transcript events into that window.
+		var msn int
+		if _, err := fmt.Sscanf(subFile, "segment%05d.vtt", &msn); err != nil {
+			if _, err2 := fmt.Sscanf(subFile, "segment%d.vtt", &msn); err2 != nil {
+				errors.WriteHTTPNotFound(w, "invalid subtitle segment", err)
+				return
+			}
+		}
+
+		rend, err := m3u8.GetRendition("source")
+		if err != nil {
+			errors.WriteHTTPNotFound(w, "could not get source rendition", err)
+			return
+		}
+
+		rend.SegmentLock.RLock()
+		mediaSegs := make([]*media.Segment, len(rend.Segments))
+		copy(mediaSegs, rend.Segments)
+		rend.SegmentLock.RUnlock()
+
+		// Compute segment start/end in a synthetic media timeline where segs[0] starts at t=0.
+		segIdx := -1
+		for i, s := range mediaSegs {
+			if int(s.MSN) == msn {
+				segIdx = i
+				break
+			}
+		}
+		if segIdx == -1 {
+			// Segment not in retention window.
+			w.Header().Set("X-Streamplace-Transcript-Events", fmt.Sprintf("%d", len(a.MediaManager.GetTranscriptSegments(user))))
+			w.Header().Set("Content-Type", "text/vtt")
+			http.ServeContent(w, r, subFile, time.Now(), bytes.NewReader([]byte("WEBVTT\n\n")))
+			return
+		}
+
+		segmentStartMS := mediaSegs[segIdx].StartMS
+		segmentEndMS := segmentStartMS + mediaSegs[segIdx].Duration.Milliseconds()
+
+		transcriptSegs := a.MediaManager.GetTranscriptSegments(user)
+		// Apply a constant offset to subtitle timing by shifting the transcript window.
+		// Positive offset delays subtitles; negative offset makes them earlier.
+		vtt := aigateway.GenerateVTTForSegment(transcriptSegs, segmentStartMS-subOffsetMS, segmentEndMS-subOffsetMS)
+		// HLS WebVTT cues are in LOCAL time (relative to the VTT). Players need a
+		// mapping onto the media timeline. If we don't have a measured MPEGTS start
+		// timestamp, derive it from our synthetic segment timeline (ms -> 90kHz ticks).
+		mpegts := uint64(segmentStartMS * 90)
+		mpegtsSource := "start_ms"
+		if mediaSegs[segIdx].StartTS != nil {
+			// StartTS is splitmuxsink running-time in nanoseconds. Convert to 90kHz ticks.
+			mpegts = (*mediaSegs[segIdx].StartTS * 90) / 1_000_000
+			mpegtsSource = "start_ns"
+		}
+		prefix := fmt.Sprintf("WEBVTT\n\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:%d\n\n", mpegts)
+		if bytes.HasPrefix(vtt, []byte("WEBVTT\n\n")) {
+			vtt = append([]byte(prefix), vtt[len([]byte("WEBVTT\n\n")):]...)
+		} else {
+			vtt = append([]byte(prefix), vtt...)
+		}
+		w.Header().Set("X-Streamplace-VTT-Segment-StartMS", fmt.Sprintf("%d", segmentStartMS))
+		w.Header().Set("X-Streamplace-VTT-SubOffsetMS", fmt.Sprintf("%d", subOffsetMS))
+		w.Header().Set("X-Streamplace-VTT-MPEGTS", fmt.Sprintf("%d", mpegts))
+		w.Header().Set("X-Streamplace-VTT-MPEGTS-Source", mpegtsSource)
+		w.Header().Set("X-Streamplace-Transcript-Events", fmt.Sprintf("%d", len(transcriptSegs)))
 		w.Header().Set("Content-Type", "text/vtt")
 		http.ServeContent(w, r, subFile, time.Now(), bytes.NewReader(vtt))
 		return

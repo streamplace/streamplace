@@ -29,6 +29,10 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     setShowSubtitles: (showSubtitles: boolean) =>
       set((state) => ({ ...state, showSubtitles })),
 
+    subtitleOffsetMS: 0,
+    setSubtitleOffsetMS: (subtitleOffsetMS: number) =>
+      set((state) => ({ ...state, subtitleOffsetMS })),
+
     src: "",
     setSrc: (src: string) => set(() => ({ src })),
 

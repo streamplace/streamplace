@@ -25,6 +25,7 @@ const IndexM3U8 = "index.m3u8"
 type Segment struct {
 	MSN      uint64 // media sequence number
 	Duration time.Duration
+	StartMS  int64
 	Buf      *bytes.Buffer
 	Time     time.Time
 	Closed   bool
@@ -177,6 +178,15 @@ func (m *M3U8) GetFile(str string, session string, rendition string) ([]byte, er
 func (r *M3U8Rendition) NewSegment(seg *Segment) error {
 	r.SegmentLock.Lock()
 	defer r.SegmentLock.Unlock()
+	if seg.StartTS != nil {
+		// StartTS is splitmuxsink running-time in nanoseconds.
+		seg.StartMS = int64(*seg.StartTS / 1_000_000)
+	} else if len(r.Segments) > 0 {
+		last := r.Segments[len(r.Segments)-1]
+		seg.StartMS = last.StartMS + last.Duration.Milliseconds()
+	} else {
+		seg.StartMS = 0
+	}
 	seg.MSN = r.MSN
 	r.MSN += 1
 	r.Segments = append(r.Segments, seg)

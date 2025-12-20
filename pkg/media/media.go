@@ -134,8 +134,8 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	}, nil
 }
 
-func (mm *MediaManager) GetTranscriptEvents(streamer string) []aigateway.TranscriptEvent {
-	return mm.transcriptStore.GetEvents(streamer)
+func (mm *MediaManager) GetTranscriptSegments(streamer string) []aigateway.TranscriptSegment {
+	return mm.transcriptStore.GetSegments(streamer)
 }
 
 func (mm *MediaManager) HandleData(node *irohStreamplace.PublicKey, data []byte) {

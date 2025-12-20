@@ -31,13 +31,22 @@ if command -v curl >/dev/null 2>&1; then
   fi
 fi
 
-# Generate a fresh stream key (multibase private key) + derived did:key
-read -r STREAM_KEY STREAM_DID < <(
-  ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-  TMP_GO="$(mktemp -t streamplace-keygen.XXXXXX.go)"
-  cleanup() { rm -f "${TMP_GO}"; }
-  trap cleanup RETURN
-  cat <<'EOF' >"${TMP_GO}"
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+STATE_FILE="${ROOT_DIR}/util/.live_mkv_with_new_did.state"
+
+if [[ -z "${STREAM_KEY:-}" || -z "${STREAM_DID:-}" ]]; then
+  if [[ "${STREAMPLACE_LIVE_NEW_KEY:-}" != "1" && -f "${STATE_FILE}" ]]; then
+    # shellcheck disable=SC1090
+    source "${STATE_FILE}"
+  fi
+fi
+
+if [[ -z "${STREAM_KEY:-}" || -z "${STREAM_DID:-}" ]]; then
+  read -r STREAM_KEY STREAM_DID < <(
+    TMP_GO="$(mktemp -t streamplace-keygen.XXXXXX.go)"
+    cleanup() { rm -f "${TMP_GO}"; }
+    trap cleanup RETURN
+    cat <<'EOF' >"${TMP_GO}"
 package main
 
 import (
@@ -55,11 +64,18 @@ func main() {
   fmt.Printf("%s %s\n", priv.Multibase(), pub.DIDKey())
 }
 EOF
-  (
-    cd -- "${ROOT_DIR}"
-    go run "${TMP_GO}"
+    (
+      cd -- "${ROOT_DIR}"
+      go run "${TMP_GO}"
+    )
   )
-)
+
+  umask 077
+  {
+    echo "STREAM_KEY=${STREAM_KEY}"
+    echo "STREAM_DID=${STREAM_DID}"
+  } >"${STATE_FILE}"
+fi
 
 if [[ -z "${STREAM_KEY}" || -z "${STREAM_DID}" ]]; then
   echo "failed to generate stream key" >&2

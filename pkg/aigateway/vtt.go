@@ -3,6 +3,7 @@ package aigateway
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 )
@@ -28,6 +29,50 @@ func FormatVTTTime(ms int64) string {
 	return fmt.Sprintf("%02d:%02d:%02d.%03d", hours, minutes, seconds, millis)
 }
 
+func eventTimeMS(e TranscriptEvent) int64 {
+	if e.Timing != nil {
+		if e.Timing.MediaWindowStartMS > 0 && e.Timing.MediaWindowEndMS > 0 {
+			return (e.Timing.MediaWindowStartMS + e.Timing.MediaWindowEndMS) / 2
+		}
+		if e.Timing.MediaWindowEndMS > 0 {
+			// For windowed ASR, placing the event at the middle of the window usually
+			// aligns better than anchoring at the end.
+			if e.Stats != nil && e.Stats.AudioDurationMS > 0 {
+				return e.Timing.MediaWindowEndMS - int64(e.Stats.AudioDurationMS)/2
+			}
+			return e.Timing.MediaWindowEndMS
+		}
+		if e.Timing.MediaWindowStartMS > 0 {
+			return e.Timing.MediaWindowStartMS
+		}
+	}
+	return e.TimestampMS
+}
+
+func clampInt64(v, lo, hi int64) int64 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+func minInt64(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func maxInt64(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // GenerateVTT creates a WebVTT subtitle file from transcript events.
 // It normalizes timestamps relative to the first event and extracts delta text
 // to avoid showing repeated content from rolling transcript snapshots.
@@ -39,8 +84,9 @@ func GenerateVTT(events []TranscriptEvent) []byte {
 	// Find the minimum timestamp to use as a base for relative timing
 	baseMS := int64(math.MaxInt64)
 	for _, e := range events {
-		if e.TimestampMS > 0 && e.TimestampMS < baseMS {
-			baseMS = e.TimestampMS
+		ts := eventTimeMS(e)
+		if ts > 0 && ts < baseMS {
+			baseMS = ts
 		}
 	}
 	if baseMS == int64(math.MaxInt64) {
@@ -50,7 +96,6 @@ func GenerateVTT(events []TranscriptEvent) []byte {
 	var sb strings.Builder
 	sb.WriteString("WEBVTT\n\n")
 
-	cueNum := 0
 	prevFullText := ""
 	for i, event := range events {
 		fullText := strings.TrimSpace(event.Text)
@@ -66,14 +111,14 @@ func GenerateVTT(events []TranscriptEvent) []byte {
 		}
 
 		// Calculate cue timing
-		startMS := event.TimestampMS - baseMS
+		startMS := eventTimeMS(event) - baseMS
 		if startMS < 0 {
 			startMS = 0
 		}
 
 		nextStartMS := int64(-1)
 		if i+1 < len(events) {
-			nextStartMS = events[i+1].TimestampMS - baseMS
+			nextStartMS = eventTimeMS(events[i+1]) - baseMS
 			if nextStartMS < 0 {
 				nextStartMS = 0
 			}
@@ -81,13 +126,77 @@ func GenerateVTT(events []TranscriptEvent) []byte {
 
 		endMS := calculateCueEndTime(startMS, nextStartMS, event.Stats)
 
-		cueNum++
-		sb.WriteString(fmt.Sprintf("%d\n", cueNum))
 		sb.WriteString(fmt.Sprintf("%s --> %s\n", FormatVTTTime(startMS), FormatVTTTime(endMS)))
 		sb.WriteString(deltaText)
 		sb.WriteString("\n\n")
 
 		prevFullText = fullText
+	}
+
+	return []byte(sb.String())
+}
+
+
+// GenerateVTTForSegment generates a WebVTT file suitable for use as an HLS subtitle
+// segment. Cue times are relative to the segment start (i.e., within the segment
+// duration window), and only transcript segments that overlap the segment time
+// window are included.
+func GenerateVTTForSegment(segs []TranscriptSegment, segmentStartMS, segmentEndMS int64) []byte {
+	if len(segs) == 0 {
+		return []byte("WEBVTT\n\n")
+	}
+	if segmentEndMS <= segmentStartMS {
+		return []byte("WEBVTT\n\n")
+	}
+	segmentDurMS := segmentEndMS - segmentStartMS
+
+	// Ensure stable ordering even if producers resend or arrive out of order.
+	ordered := make([]TranscriptSegment, 0, len(segs))
+	for _, s := range segs {
+		if strings.TrimSpace(s.Text) == "" {
+			continue
+		}
+		if s.EndMS <= s.StartMS {
+			continue
+		}
+		ordered = append(ordered, s)
+	}
+	sort.SliceStable(ordered, func(i, j int) bool {
+		if ordered[i].StartMS == ordered[j].StartMS {
+			return ordered[i].EndMS < ordered[j].EndMS
+		}
+		return ordered[i].StartMS < ordered[j].StartMS
+	})
+
+	var sb strings.Builder
+	sb.WriteString("WEBVTT\n\n")
+
+	for _, seg := range ordered {
+		// Include if overlapping [segmentStartMS, segmentEndMS)
+		if seg.EndMS <= segmentStartMS || seg.StartMS >= segmentEndMS {
+			continue
+		}
+
+		startAbs := maxInt64(seg.StartMS, segmentStartMS)
+		endAbs := minInt64(seg.EndMS, segmentEndMS)
+
+		startMS := clampInt64(startAbs-segmentStartMS, 0, segmentDurMS)
+		endMS := clampInt64(endAbs-segmentStartMS, 0, segmentDurMS)
+		if endMS < startMS+minCueDurationMS {
+			endMS = clampInt64(startMS+minCueDurationMS, 0, segmentDurMS)
+		}
+		if endMS <= startMS {
+			continue
+		}
+
+		cueText := strings.TrimSpace(seg.Text)
+		if cueText == "" {
+			continue
+		}
+
+		sb.WriteString(fmt.Sprintf("%s --> %s\n", FormatVTTTime(startMS), FormatVTTTime(endMS)))
+		sb.WriteString(cueText)
+		sb.WriteString("\n\n")
 	}
 
 	return []byte(sb.String())

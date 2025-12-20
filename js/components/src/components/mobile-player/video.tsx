@@ -1,5 +1,12 @@
 import Hls from "hls.js";
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   IngestMediaSource,
   PlayerProtocol,
@@ -321,8 +328,23 @@ export function ProgressiveWebMPlayer(props: VideoProps) {
 export function HLSPlayer(props: VideoProps) {
   const localRef = useRef<HTMLVideoElement | null>(null);
   const showSubtitles = usePlayerStore((x) => x.showSubtitles);
+  const subtitleOffsetMS = usePlayerStore((x) => x.subtitleOffsetMS);
+
+  const showSubtitlesRef = useRef(showSubtitles);
+  useEffect(() => {
+    showSubtitlesRef.current = showSubtitles;
+  }, [showSubtitles]);
 
   const hlsRef = useRef<Hls | null>(null);
+
+  const urlWithSubOffset = useMemo(() => {
+    const off = subtitleOffsetMS || 0;
+    if (!off) {
+      return props.url;
+    }
+    const sep = props.url.includes("?") ? "&" : "?";
+    return `${props.url}${sep}sub_offset_ms=${off}`;
+  }, [props.url, subtitleOffsetMS]);
 
   useEffect(() => {
     if (!localRef.current) {
@@ -336,7 +358,8 @@ export function HLSPlayer(props: VideoProps) {
         renderTextTracksNatively: true,
       });
       hlsRef.current = hls;
-      hls.loadSource(props.url);
+
+      hls.loadSource(urlWithSubOffset);
       try {
         hls.attachMedia(mediaEl);
       } catch (e) {
@@ -348,8 +371,18 @@ export function HLSPlayer(props: VideoProps) {
         if (!data?.subtitleTracks?.length) {
           return;
         }
-        hls.subtitleTrack = showSubtitles ? 0 : -1;
-        hls.subtitleDisplay = showSubtitles;
+
+        const enabled = showSubtitlesRef.current;
+        hls.subtitleTrack = enabled ? 0 : -1;
+        hls.subtitleDisplay = enabled;
+
+        try {
+          for (let i = 0; i < mediaEl.textTracks.length; i++) {
+            mediaEl.textTracks[i].mode = enabled ? "showing" : "disabled";
+          }
+        } catch (_e) {
+          // ignore
+        }
       });
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         if (!localRef.current) {
@@ -362,7 +395,7 @@ export function HLSPlayer(props: VideoProps) {
         hls.destroy();
       };
     } else if (localRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-      localRef.current.src = props.url;
+      localRef.current.src = urlWithSubOffset;
       localRef.current.addEventListener("canplay", () => {
         if (!localRef.current) {
           return;
@@ -370,7 +403,7 @@ export function HLSPlayer(props: VideoProps) {
         localRef.current.play();
       });
     }
-  }, [props.url]);
+  }, [urlWithSubOffset]);
 
   useEffect(() => {
     const mediaEl = localRef.current;

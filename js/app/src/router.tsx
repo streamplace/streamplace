@@ -217,6 +217,7 @@ const Drawer = createDrawerNavigator();
 const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
   const sidebar = useSidebarControl();
   const navigation = useNavigation();
+  const route = useRoute();
   const { theme } = useTheme();
 
   const handlePress = () => {
@@ -225,9 +226,28 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
     }
   };
 
+  const parent = navigation.getParent();
+  const drawerState = parent?.getState();
+  const drawerIndex = drawerState?.index ?? 0;
+  const drawerName = drawerState?.routes[drawerIndex]?.name;
+
+  // too manual for my taste, but it works great
+  const isStackRoot =
+    (drawerName === "Settings" && route.name === "MainSettings") ||
+    (drawerName === "Home" && route.name === "Home") ||
+    (drawerName !== "Settings" && drawerName !== "Home");
+
+  const hasBackAction = canGoBack || !isStackRoot;
+
   const handleGoBackPress = () => {
     if (canGoBack) {
       navigation.goBack();
+    } else if (!isStackRoot) {
+      if (drawerName === "Settings") {
+        navigation.navigate("Settings", { screen: "MainSettings" } as any);
+      } else if (drawerName === "Home") {
+        navigation.navigate("Home", { screen: "StreamList" } as any);
+      }
     } else {
       navigation.dispatch(DrawerActions.toggleDrawer());
     }
@@ -252,7 +272,7 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
               <PanelLeftClose size={24} color={theme.colors.accentForeground} />
             )}
           </Pressable>
-          {canGoBack && (
+          {hasBackAction && (
             <Pressable
               style={{ marginLeft: 10, paddingVertical: 5 }}
               onPress={handleGoBackPress}
@@ -263,7 +283,7 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
         </>
       ) : (
         <Pressable style={{ padding: 5 }} onPress={handleGoBackPress}>
-          {canGoBack ? (
+          {hasBackAction ? (
             <ArrowLeft size={24} color={theme.colors.accentForeground} />
           ) : (
             <Menu size={24} color={theme.colors.accentForeground} />

@@ -151,6 +151,7 @@ export function MobileUi({
       <GestureDetector gesture={combined}>
         <View
           style={[layout.position.absolute, h.percent[100], w.percent[100]]}
+          pointerEvents="box-none"
         >
           <Animated.View
             style={[
@@ -159,6 +160,7 @@ export function MobileUi({
               w.percent[100],
               animatedFadeStyle,
             ]}
+            pointerEvents="box-none"
           >
             {/* Main UI Overlay */}
             <View style={[h.percent[100], w.percent[100]]}>

@@ -70,3 +70,5 @@ export type { AQStorage } from "./storage/storage.shared";
 
 // Content metadata components
 export * from "./components/content-metadata";
+export { SensitiveContentOverlay } from "./components/mobile-player/ui/sensitive-content-overlay";
+export * from "./lib/metadata-constants";

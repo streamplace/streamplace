@@ -381,7 +381,7 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}
-		lsv, err := ls.ToLivestreamView()
+		lsv, err := a.Model.GetLivestreamView(ctx, ls)
 		if err != nil || lsv == nil {
 			log.Error(ctx, "no livestream view found", "repoDID", repo.DID)
 			defaultHandler.ServeHTTP(w, req)
@@ -663,7 +663,7 @@ func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle
 			return
 		}
 
-		doc, err := livestream.ToLivestreamView()
+		doc, err := a.Model.GetLivestreamView(ctx, livestream)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal livestream", err)
 			return

@@ -121,6 +121,8 @@ function HomeScreenItem({
         category={[]}
         viewers={item.viewerCount?.count}
         isLive={true}
+        labels={item.labels}
+        contentWarnings={item.contentWarnings}
       />
     </AQLink>
   );

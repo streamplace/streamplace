@@ -54,14 +54,16 @@ Record announcing a livestream is happening
 
 **Properties:**
 
-| Name          | Type                                                                                                                                             | Req'd | Description                                                                                              | Constraints        |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | -------------------------------------------------------------------------------------------------------- | ------------------ |
-| `uri`         | `string`                                                                                                                                         | ✅    |                                                                                                          | Format: `at-uri`   |
-| `cid`         | `string`                                                                                                                                         | ✅    |                                                                                                          | Format: `cid`      |
-| `author`      | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |                                                                                                          |                    |
-| `record`      | `unknown`                                                                                                                                        | ✅    |                                                                                                          |                    |
-| `indexedAt`   | `string`                                                                                                                                         | ✅    |                                                                                                          | Format: `datetime` |
-| `viewerCount` | [`#viewerCount`](#viewercount)                                                                                                                   | ❌    | The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly. |                    |
+| Name              | Type                                                                                                                                             | Req'd | Description                                                                                              | Constraints        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | -------------------------------------------------------------------------------------------------------- | ------------------ |
+| `uri`             | `string`                                                                                                                                         | ✅    |                                                                                                          | Format: `at-uri`   |
+| `cid`             | `string`                                                                                                                                         | ✅    |                                                                                                          | Format: `cid`      |
+| `author`          | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |                                                                                                          |                    |
+| `record`          | `unknown`                                                                                                                                        | ✅    |                                                                                                          |                    |
+| `indexedAt`       | `string`                                                                                                                                         | ✅    |                                                                                                          | Format: `datetime` |
+| `viewerCount`     | [`#viewerCount`](#viewercount)                                                                                                                   | ❌    | The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly. |                    |
+| `labels`          | Array of [`com.atproto.label.defs#label`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/label/defs.json#label)        | ❌    |                                                                                                          |                    |
+| `contentWarnings` | [`place.stream.metadata.contentWarnings`](/lex-reference/place-stream-metadata-contentwarnings)                                                  | ❌    |                                                                                                          |                    |
 
 ---
 
@@ -220,6 +222,17 @@ Record announcing a livestream is happening
           "type": "ref",
           "description": "The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly.",
           "ref": "#viewerCount"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "com.atproto.label.defs#label"
+          }
+        },
+        "contentWarnings": {
+          "type": "ref",
+          "ref": "place.stream.metadata.contentWarnings"
         }
       }
     },

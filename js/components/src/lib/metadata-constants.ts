@@ -178,3 +178,23 @@ export const C2PA_WARNING_LABELS: Record<string, string> = {
   "place.stream.metadata.contentWarnings#suffering": "Upsetting or Disturbing",
   "place.stream.metadata.contentWarnings#violence": "Violence",
 } as const;
+
+// content warnings that should trigger a blur
+export const BLUR_WARNINGS: Record<string, boolean> = {
+  "place.stream.metadata.contentWarnings#violence": true,
+  "place.stream.metadata.contentWarnings#death": true,
+  "place.stream.metadata.contentWarnings#suffering": true,
+  "place.stream.metadata.contentWarnings#nudity": true,
+  "place.stream.metadata.contentWarnings#sexuality": true,
+};
+
+// labels that should trigger a blur
+export const BLUR_LABELS: Record<string, boolean> = {
+  porn: true,
+  sexual: true,
+  nudity: true,
+  nsfl: true,
+  gore: true,
+  "sexual-figurative": true,
+  "graphic-media": true,
+};

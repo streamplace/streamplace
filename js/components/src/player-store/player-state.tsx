@@ -191,6 +191,11 @@ export interface PlayerState {
   setReportSubject: (
     subject: ComAtprotoModerationCreateReport.InputSchema["subject"] | null,
   ) => void;
+
+  /** Has the user acknowledged the sensitive content warning? */
+  sensitiveContentAcknowledged: boolean;
+  /** Function to set the sensitive content acknowledgement state */
+  setSensitiveContentAcknowledged: (acknowledged: boolean) => void;
 }
 
 export type PlayerEvent = {

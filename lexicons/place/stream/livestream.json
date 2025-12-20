@@ -78,6 +78,14 @@
           "type": "ref",
           "description": "The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly.",
           "ref": "#viewerCount"
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "com.atproto.label.defs#label" }
+        },
+        "contentWarnings": {
+          "type": "ref",
+          "ref": "place.stream.metadata.contentWarnings"
         }
       }
     },

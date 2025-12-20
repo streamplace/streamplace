@@ -233,7 +233,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 				log.Warn(ctx, "no livestream found, skipping notification blast", "repoDID", spseg.Creator)
 				return nil
 			}
-			lsv, err := livestreamModel.ToLivestreamView()
+			lsv, err := ss.mod.GetLivestreamView(ctx, livestreamModel)
 			if err != nil {
 				return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
 			}
@@ -365,7 +365,7 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 	if err != nil {
 		return fmt.Errorf("could not get latest livestream for repoDID: %w", err)
 	}
-	lsv, err := ls.ToLivestreamView()
+	lsv, err := ss.mod.GetLivestreamView(ctx, ls)
 	if err != nil {
 		return fmt.Errorf("could not convert livestream to streamplace livestream: %w", err)
 	}

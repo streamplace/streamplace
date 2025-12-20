@@ -218,7 +218,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				log.Error(ctx, "could not get latest livestream", "error", err)
 				return
 			}
-			lsv, err := ls.ToLivestreamView()
+			lsv, err := a.Model.GetLivestreamView(ctx, ls)
 			if err != nil {
 				log.Error(ctx, "could not marshal livestream", "error", err)
 				return

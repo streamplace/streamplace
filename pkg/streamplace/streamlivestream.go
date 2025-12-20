@@ -37,12 +37,14 @@ type Livestream struct {
 
 // Livestream_LivestreamView is a "livestreamView" in the place.stream.livestream schema.
 type Livestream_LivestreamView struct {
-	LexiconTypeID string                              `json:"$type" cborgen:"$type,const=place.stream.livestream#livestreamView"`
-	Author        *appbsky.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
-	Cid           string                              `json:"cid" cborgen:"cid"`
-	IndexedAt     string                              `json:"indexedAt" cborgen:"indexedAt"`
-	Record        *lexutil.LexiconTypeDecoder         `json:"record" cborgen:"record"`
-	Uri           string                              `json:"uri" cborgen:"uri"`
+	LexiconTypeID   string                              `json:"$type" cborgen:"$type,const=place.stream.livestream#livestreamView"`
+	Author          *appbsky.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
+	Cid             string                              `json:"cid" cborgen:"cid"`
+	ContentWarnings *MetadataContentWarnings            `json:"contentWarnings,omitempty" cborgen:"contentWarnings,omitempty"`
+	IndexedAt       string                              `json:"indexedAt" cborgen:"indexedAt"`
+	Labels          []*comatproto.LabelDefs_Label       `json:"labels,omitempty" cborgen:"labels,omitempty"`
+	Record          *lexutil.LexiconTypeDecoder         `json:"record" cborgen:"record"`
+	Uri             string                              `json:"uri" cborgen:"uri"`
 	// viewerCount: The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly.
 	ViewerCount *Livestream_ViewerCount `json:"viewerCount,omitempty" cborgen:"viewerCount,omitempty"`
 }

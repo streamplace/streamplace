@@ -2,6 +2,7 @@ export * from "./autoplay-button";
 export * from "./countdown";
 export * from "./input";
 export * from "./metrics";
+export * from "./sensitive-content-overlay";
 export * from "./streamer-context-menu";
 export * from "./streamer-loading-overlay";
 export * from "./viewer-context-menu";

@@ -14,6 +14,7 @@ import { Text, View } from "../ui";
 import { Fullscreen } from "./fullscreen";
 import { PlayerProps } from "./props";
 import ReportModal from "./ui/report-modal";
+import { SensitiveContentOverlay } from "./ui/sensitive-content-overlay";
 
 const OFFLINE_THRESHOLD = 10000;
 
@@ -102,6 +103,7 @@ export function Player(
         >
           {props.children}
         </Fullscreen>
+        <SensitiveContentOverlay />
       </View>
     </>
   );

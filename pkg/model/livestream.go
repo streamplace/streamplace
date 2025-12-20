@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"gorm.io/gorm"
@@ -25,7 +26,7 @@ type Livestream struct {
 	PostURI    string    `json:"postURI" gorm:"column:post_uri;index:idx_post_uri"`
 }
 
-func (ls *Livestream) ToLivestreamView() (*streamplace.Livestream_LivestreamView, error) {
+func (ls *Livestream) ToLivestreamView(labels []*comatproto.LabelDefs_Label, contentWarnings *streamplace.MetadataContentWarnings) (*streamplace.Livestream_LivestreamView, error) {
 	rec, err := lexutil.CborDecodeValue(*ls.Livestream)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding feed post: %w", err)
@@ -38,8 +39,10 @@ func (ls *Livestream) ToLivestreamView() (*streamplace.Livestream_LivestreamView
 			Did:    ls.RepoDID,
 			Handle: ls.Repo.Handle,
 		},
-		Record:    &lexutil.LexiconTypeDecoder{Val: rec},
-		IndexedAt: time.Now().Format(time.RFC3339),
+		Record:          &lexutil.LexiconTypeDecoder{Val: rec},
+		IndexedAt:       time.Now().Format(time.RFC3339),
+		Labels:          labels,
+		ContentWarnings: contentWarnings,
 	}
 	return &postView, nil
 }
@@ -147,4 +150,23 @@ func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time, dids []stri
 	}
 
 	return recentLivestreams, nil
+}
+
+func (m *DBModel) GetLivestreamView(ctx context.Context, ls *Livestream) (*streamplace.Livestream_LivestreamView, error) {
+	labels, err := m.GetActiveLabels(ls.RepoDID)
+	if err != nil {
+		return nil, err
+	}
+	var contentWarnings *streamplace.MetadataContentWarnings
+	metadata, err := m.GetMetadataConfiguration(ctx, ls.RepoDID)
+	if err != nil {
+		return nil, err
+	}
+	if metadata != nil {
+		sdm, err := metadata.ToStreamplaceMetadataConfiguration()
+		if err == nil {
+			contentWarnings = sdm.ContentWarnings
+		}
+	}
+	return ls.ToLivestreamView(labels, contentWarnings)
 }

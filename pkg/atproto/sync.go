@@ -348,7 +348,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to get latest livestream for repo: %w", err)
 		}
-		lsv, err := lsHydrated.ToLivestreamView()
+		lsv, err := atsync.Model.GetLivestreamView(ctx, lsHydrated)
 		if err != nil {
 			return fmt.Errorf("failed to convert livestream to bsky post view: %w", err)
 		}

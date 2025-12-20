@@ -143,7 +143,7 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 	streams := make([]*placestreamtypes.Livestream_LivestreamView, len(ls))
 
 	for i, l := range ls {
-		stream, err := l.ToLivestreamView()
+		stream, err := s.model.GetLivestreamView(ctx, &l)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert livestream to streamplace livestream: %s", err))
 		}

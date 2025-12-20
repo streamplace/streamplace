@@ -2987,6 +2987,15 @@
           "viewerCount": {
             "$ref": "#/components/schemas/place.stream.livestream_viewerCount",
             "description": "The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly."
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/com.atproto.label.defs_label"
+            }
+          },
+          "contentWarnings": {
+            "$ref": "#/components/schemas/place.stream.metadata.contentWarnings"
           }
         },
         "required": ["uri", "cid", "author", "record", "indexedAt"]
@@ -3336,6 +3345,18 @@
           }
         },
         "required": ["count"]
+      },
+      "place.stream.metadata.contentWarnings": {
+        "type": "object",
+        "description": "Content warnings for a stream.",
+        "properties": {
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       },
       "place.stream.live.getRecommendations_livestreamRecommendation": {
         "type": "object",

@@ -122,7 +122,7 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 			log.Warn(ctx, "ManifestBuilder: failed to retrieve livestream, using default title", "error", err, "did", streamerName)
 		} else if livestream != nil {
 			// Extract title from livestream record
-			livestreamRecord, err := livestream.ToLivestreamView()
+			livestreamRecord, err := mb.model.GetLivestreamView(ctx, livestream)
 			if err != nil {
 				log.Warn(ctx, "ManifestBuilder: failed to convert livestream to view, using default title", "error", err, "did", streamerName)
 			} else {

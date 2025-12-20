@@ -178,6 +178,10 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     setReportSubject: (
       subject: ComAtprotoModerationCreateReport.InputSchema["subject"] | null,
     ) => set(() => ({ reportSubject: subject })),
+
+    sensitiveContentAcknowledged: false,
+    setSensitiveContentAcknowledged: (acknowledged: boolean) =>
+      set(() => ({ sensitiveContentAcknowledged: acknowledged })),
   }));
 };
 

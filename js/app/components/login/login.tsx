@@ -68,11 +68,7 @@ export default function Login() {
         to={{ screen: localReturnRoute.name, params: localReturnRoute.params }}
       />;
     }
-    return (
-      <Redirect
-        to={{ screen: "Settings", params: { screen: "AccountCategory" } }}
-      />
-    );
+    return <Redirect to={{ screen: "AccountCategory", params: {} }} />;
   }
 
   return (

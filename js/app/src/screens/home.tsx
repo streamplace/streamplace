@@ -10,11 +10,13 @@ import useAvatars from "hooks/useAvatars";
 import { useEffect, useState } from "react";
 import {
   Image,
+  Platform,
   RefreshControl,
   ScrollView,
   View,
   useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PlaceStreamLivestream } from "streamplace";
 
 // as we're not using a specific grid library these are necessary
@@ -153,6 +155,7 @@ export default function HomeScreen({
 }: {
   contentContainerStyle?: any;
 }) {
+  const safeAreaInsets = useSafeAreaInsets();
   const liveUsers = useStreamplaceStore((state) => state.liveUsers);
   const setLiveUsers = useStreamplaceStore((state) => state.setLiveUsers);
   const refreshLiveUsers = () => setLiveUsers({ liveUsersRefresh: Date.now() });
@@ -254,6 +257,8 @@ export default function HomeScreen({
         style={{
           minHeight: "80%",
           width: "100%",
+          inset: "auto",
+          paddingTop: Platform.OS === "ios" ? 32 + safeAreaInsets.top : 0,
         }}
         contentContainerStyle={contentContainerStyle} // Apply passed contentContainerStyle
         refreshControl={
@@ -389,6 +394,11 @@ export default function HomeScreen({
             </View>
           )}
         </Container>
+        <View
+          style={{
+            height: Platform.OS === "ios" ? 48 + safeAreaInsets.bottom : 0,
+          }}
+        />
       </ScrollView>
     </>
   );

@@ -232,6 +232,9 @@ export default function () {
           {
             ios: {
               useFrameworks: "static",
+              forceStaticLinking: ["RNFBApp", "RNFBMessaging"],
+              // useful if you can't get forceStaticLinking to work
+              //buildReactNativeFromSource: true,
             },
             // uncomment to test OTA updates to http://localhost:8080
             // android: {

@@ -4,12 +4,12 @@ import {
 } from "@gorhom/bottom-sheet";
 import React, { forwardRef } from "react";
 import {
-  NativeSyntheticEvent,
+  BlurEvent,
+  FocusEvent,
   Platform,
   StyleSheet,
   Text,
   TextInput,
-  TextInputFocusEventData,
   TextInputProps,
   TextProps,
   TouchableOpacity,
@@ -19,13 +19,14 @@ import {
 import { tokens } from "../../../ui";
 
 // Base input primitive interface
-export interface InputPrimitiveProps extends Omit<TextInputProps, "onChange"> {
+export interface InputPrimitiveProps
+  extends Omit<TextInputProps, "onChange" | "onFocus" | "onBlur"> {
   error?: boolean;
   disabled?: boolean;
   loading?: boolean;
   onChange?: (text: string) => void;
-  onFocus?: (event: NativeSyntheticEvent<TextInputFocusEventData>) => void;
-  onBlur?: (event: NativeSyntheticEvent<TextInputFocusEventData>) => void;
+  onFocus?: (event: FocusEvent) => void;
+  onBlur?: (event: BlurEvent) => void;
 }
 
 // Input root primitive - the main TextInput component
@@ -75,7 +76,7 @@ export const InputRoot = forwardRef<any, InputPrimitiveProps>(
     );
 
     const handleFocus = React.useCallback(
-      (event: NativeSyntheticEvent<TextInputFocusEventData>) => {
+      (event: FocusEvent) => {
         setIsFocused(true);
         if (onFocus) {
           onFocus(event);
@@ -85,7 +86,7 @@ export const InputRoot = forwardRef<any, InputPrimitiveProps>(
     );
 
     const handleBlur = React.useCallback(
-      (event: NativeSyntheticEvent<TextInputFocusEventData>) => {
+      (event: BlurEvent) => {
         setIsFocused(false);
         if (onBlur) {
           onBlur(event);
@@ -272,13 +273,21 @@ export const InputAddon = forwardRef<
       style,
     ];
 
+    // Filter out null event handlers for TouchableOpacity compatibility
+    const { onBlur, onFocus, ...restProps } = props;
+    const touchableProps = {
+      ...restProps,
+      ...(onBlur !== null && onBlur !== undefined && { onBlur }),
+      ...(onFocus !== null && onFocus !== undefined && { onFocus }),
+    };
+
     if (touchable && onPress) {
       return (
         <TouchableOpacity
           ref={ref as React.Ref<React.ComponentRef<typeof TouchableOpacity>>}
           style={addonStyle as any}
           onPress={onPress}
-          {...props}
+          {...touchableProps}
         >
           {children}
         </TouchableOpacity>

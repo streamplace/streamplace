@@ -1,18 +1,7 @@
 import "@expo/metro-runtime";
 import {
-  createDrawerNavigator,
-  DrawerContentScrollView,
-  DrawerItem,
-  DrawerItemList,
-} from "@react-navigation/drawer";
-import {
-  CommonActions,
-  DrawerActions,
   LinkingOptions,
   NavigatorScreenParams,
-  useLinkTo,
-  useNavigation,
-  useRoute,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
@@ -36,6 +25,7 @@ import { PrivacyCategorySettings } from "components/settings/privacy-category-se
 import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
 import WebhookManager from "components/settings/webhook-manager";
 import Sidebar, { ExternalDrawerItem } from "components/sidebar/sidebar";
+import { Provider } from "components";
 import * as ExpoLinking from "expo-linking";
 import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
@@ -81,33 +71,17 @@ import KeyManager from "components/settings/key-manager";
 import HomeScreen from "./screens/home";
 
 import { useUrl } from "@streamplace/components";
-import { BrandingAdmin } from "components/settings/branding-admin";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
-import MultistreamManager from "components/settings/multistream-manager";
-import RecommendationsManager from "components/settings/recommendations-manager";
 import Constants from "expo-constants";
-import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
-import { SystemBars } from "react-native-edge-to-edge";
 import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
-  useAnimatedStyle,
 } from "react-native-reanimated";
+import Shell from "src/shell";
 import { useStore } from "store";
-import {
-  useHydrated,
-  useNotificationDestination,
-  useNotificationToken,
-  useUserProfile,
-} from "store/hooks";
-import DanmuOBSScreen from "./screens/danmu-obs";
-import MobileGoLive from "./screens/mobile-go-live";
-import MobileStream from "./screens/mobile-stream";
 
 // Initialize sidebar state on app load
 useStore.getState().loadStateFromStorage();
-
-const Stack = createNativeStackNavigator();
 
 // disabled strict b/c chat swipeable triggers it a LOT and the resulting logging
 // slows down the whole app
@@ -218,16 +192,16 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
 const associatedDomain = Constants.expoConfig?.ios?.associatedDomains?.[0];
 if (associatedDomain && associatedDomain.startsWith("applinks:")) {
   const domain = associatedDomain.slice("applinks:".length);
-  linking.prefixes.push(`https://${domain}`);
+  linking.prefixes?.push(`https://${domain}`);
 }
 
 // https://github.com/streamplace/streamplace/issues/377
-const hasDevDomain = linking.prefixes.some((prefix) =>
+const hasDevDomain = linking.prefixes?.some((prefix) =>
   prefix.includes("tv.aquareum.dev"),
 );
 if (hasDevDomain) {
-  linking.prefixes.push("tv.aquareum://");
-  linking.prefixes.push("https://stream.place");
+  linking.prefixes?.push("tv.aquareum://");
+  linking.prefixes?.push("https://stream.place");
 }
 
 console.log("Linking prefixes", linking.prefixes);
@@ -392,12 +366,6 @@ const AvatarButton = () => {
 const useExternalItems = (): ExternalDrawerItem[] => {
   const streamplaceUrl = useUrl();
   const { theme } = useTheme();
-  const defaultStreamer = useDefaultStreamer();
-
-  if (defaultStreamer) {
-    return [];
-  }
-
   return [
     {
       item: React.memo(() => <Book size={24} color={theme.colors.text} />),
@@ -457,7 +425,7 @@ function CustomDrawerContent(props) {
 export default function Router() {
   return (
     <Provider linking={linking}>
-      <StreamplaceDrawer />
+      <Shell />
     </Provider>
   );
 }

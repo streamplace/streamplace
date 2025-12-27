@@ -22,11 +22,11 @@ function getLiveConnectionQuality(
 export function useSegmentTiming() {
   const latestSegment = useLivestreamStore((x) => x.segment);
   const [segmentDeltas, setSegmentDeltas] = useState<number[]>([]);
-  const prevSegmentRef = useRef<any>();
+  const prevSegmentRef = useRef(latestSegment);
   const prevTimestampRef = useRef<number | null>(null);
 
   // Dummy state to force update every second
-  const [, setNow] = useState(Date.now());
+  const [, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -70,19 +70,17 @@ export function useSegmentTiming() {
       ? Math.max(...segmentDeltas) - Math.min(...segmentDeltas)
       : null;
 
-  let to_ret = {
-    segmentDeltas,
-    timeBetweenSegments,
-    mean,
-    range,
-    connectionQuality: "poor",
-  };
-
-  to_ret.connectionQuality = getLiveConnectionQuality(
+  const connectionQuality = getLiveConnectionQuality(
     timeBetweenSegments,
     range,
     segmentDeltas.length,
   );
 
-  return to_ret;
+  return {
+    segmentDeltas,
+    timeBetweenSegments,
+    mean,
+    range,
+    connectionQuality,
+  };
 }

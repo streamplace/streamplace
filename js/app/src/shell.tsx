@@ -1,107 +1,247 @@
-import {
-  createDrawerNavigator,
-  DrawerContentScrollView,
-  DrawerItem,
-  DrawerItemList,
-} from "@react-navigation/drawer";
-import {
-  CommonActions,
-  useLinkTo,
-  useNavigation,
-} from "@react-navigation/native";
-import { Text, useTheme, useToast, useUrl } from "@streamplace/components";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useLinkTo, useNavigation } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useToast } from "@streamplace/components";
+import { Settings } from "components";
+import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
-import Sidebar, { ExternalDrawerItem } from "components/sidebar/sidebar";
+import { AboutCategorySettings } from "components/settings/about-category-settings";
+import { AccountCategorySettings } from "components/settings/account-category-settings";
+import { AdvancedCategorySettings } from "components/settings/advanced-category-settings";
+import { DanmuCategorySettings } from "components/settings/danmu-category-settings";
+import KeyManager from "components/settings/key-manager";
+import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
+import { PrivacyCategorySettings } from "components/settings/privacy-category-settings";
+import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
+import WebhookManager from "components/settings/webhook-manager";
+import { SidebarOverlay } from "components/sidebar/sidebar-overlay";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
-import {
-  Book,
-  Download,
-  ExternalLink,
-  Home,
-  LogIn,
-  Settings as SettingsIcon,
-  ShieldQuestion,
-  Video,
-} from "lucide-react-native";
-import React, { Fragment, useEffect, useState } from "react";
-import { Linking, StatusBar, View } from "react-native";
-import { runOnJS, useAnimatedReaction } from "react-native-reanimated";
+import { useEffect, useState } from "react";
+import { Platform, StatusBar, View } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import "src/navigation-types";
-import { RootNavigator } from "src/root-navigator";
+import AboutScreen from "src/screens/about";
+import AppReturnScreen from "src/screens/app-return";
+import PopoutChat from "src/screens/chat-popout";
+import DanmuOBSScreen from "src/screens/danmu-obs";
+import DownloadScreen from "src/screens/download";
+import EmbedScreen from "src/screens/embed";
+import HomeScreen from "src/screens/home";
+import InfoWidgetEmbed from "src/screens/info-widget-embed";
+import LaunchGoLive from "src/screens/launch-go-live";
+import LiveDashboard from "src/screens/live-dashboard";
+import MobileGoLive from "src/screens/mobile-go-live";
+import MobileStream from "src/screens/mobile-stream";
+import MultiScreen from "src/screens/multi";
+import SupportScreen from "src/screens/support";
 import { useStore } from "store";
 import {
   useHydrated,
   useNotificationDestination,
   useNotificationToken,
 } from "store/hooks";
-import { AvatarButton, NavigationButton } from "./router";
+import { AvatarButton, LGAvatarButton, NavigationButton } from "./router";
 
-const Drawer = createDrawerNavigator();
+const Tab = createBottomTabNavigator();
+const RootStack = createNativeStackNavigator();
+const HomeStack = createNativeStackNavigator();
+const SettingsStack = createNativeStackNavigator();
 
-const useExternalItems = (): ExternalDrawerItem[] => {
-  const streamplaceUrl = useUrl();
-  const { theme } = useTheme();
-  return [
-    {
-      item: React.memo(() => <Book size={24} color={theme.colors.text} />),
-      label: (
-        <Text variant="h5" style={{ alignSelf: "flex-start" }}>
-          Documentation{" "}
-          <ExternalLink
-            size={16}
-            color={theme.colors.mutedForeground}
-            style={{
-              position: "relative",
-              top: 2,
-            }}
-          />
-        </Text>
-      ) as any,
-      onPress: () => {
-        const u = new URL(streamplaceUrl);
-        u.pathname = "/docs";
-        Linking.openURL(u.toString());
-      },
-    },
-  ];
-};
-
-function CustomDrawerContent(props) {
-  let { theme } = useTheme();
+// Home navigator (contains home + all general navigation screens)
+function HomeNavigator() {
   return (
-    <DrawerContentScrollView {...props}>
-      <DrawerItemList {...props} />
-      <DrawerItem
-        icon={() => <Book size={24} color={theme.colors.text} />}
-        label={() => (
-          <Text style={{ alignSelf: "flex-start" }}>
-            Documentation{" "}
-            <ExternalLink
-              size={16}
-              color="#666"
-              style={{
-                position: "relative",
-                top: 2,
-              }}
-            />
-          </Text>
-        )}
-        onPress={() => {
-          const u = new URL(window.location.href);
-          u.pathname = "/docs";
-          Linking.openURL(u.toString());
+    <HomeStack.Navigator
+      screenOptions={{
+        headerShown: true,
+        headerTransparent: Platform.OS === "ios",
+      }}
+    >
+      <HomeStack.Screen
+        name="HomeMain"
+        component={HomeScreen}
+        options={{
+          title: "Streamplace",
+          headerLeft:
+            Platform.OS !== "ios"
+              ? ({ canGoBack }) => <NavigationButton canGoBack={canGoBack} />
+              : undefined,
+          headerRight: () => <AvatarButton />,
+          ...(Platform.OS === "ios" && {
+            unstable_headerRightItems: () => [
+              {
+                type: "custom",
+                hidesSharedBackground: true,
+                element: <LGAvatarButton />,
+              },
+            ],
+          }),
         }}
       />
-    </DrawerContentScrollView>
+      <HomeStack.Screen
+        name="About"
+        component={AboutScreen}
+        options={{ title: "What's Streamplace?" }}
+      />
+      <HomeStack.Screen
+        name="Download"
+        component={DownloadScreen}
+        options={{ title: "Download" }}
+      />
+      <HomeStack.Screen
+        name="LiveDashboard"
+        component={LiveDashboard}
+        options={{ title: "Live Dashboard" }}
+      />
+      <HomeStack.Screen
+        name="Login"
+        component={Login}
+        options={{ title: "Login" }}
+      />
+      <HomeStack.Screen
+        name="Multi"
+        component={MultiScreen}
+        options={{ title: "Multi-stream" }}
+      />
+      <HomeStack.Screen
+        name="Support"
+        component={SupportScreen}
+        options={{ title: "Support" }}
+      />
+    </HomeStack.Navigator>
   );
 }
 
-export default function WebShell() {
-  const theme = useTheme();
-  const { isWeb, isElectron, isNative, isBrowser } = usePlatform();
+// Settings stack navigator (shared by all platforms)
+function SettingsNavigator() {
+  return (
+    <SettingsStack.Navigator
+      initialRouteName="MainSettings"
+      screenOptions={{
+        headerShown: true,
+        headerTransparent: Platform.OS === "ios",
+        headerBackButtonDisplayMode:
+          Platform.OS === "ios" ? "minimal" : "default",
+      }}
+    >
+      <SettingsStack.Screen
+        name="MainSettings"
+        component={Settings}
+        options={{ title: "Settings" }}
+      />
+      <SettingsStack.Screen
+        name="AboutCategory"
+        component={AboutCategorySettings}
+        options={{ title: "About" }}
+      />
+      <SettingsStack.Screen
+        name="AccountCategory"
+        component={AccountCategorySettings}
+        options={{ title: "Account" }}
+      />
+      <SettingsStack.Screen
+        name="StreamingCategory"
+        component={StreamingCategorySettings}
+        options={{ title: "Streaming" }}
+      />
+      <SettingsStack.Screen
+        name="WebhooksSettings"
+        component={WebhookManager}
+        options={{ title: "Webhooks" }}
+      />
+      <SettingsStack.Screen
+        name="PrivacyCategory"
+        component={PrivacyCategorySettings}
+        options={{ title: "Privacy & Security" }}
+      />
+      <SettingsStack.Screen
+        name="DanmuCategory"
+        component={DanmuCategorySettings}
+        options={{ title: "Danmu" }}
+      />
+      <SettingsStack.Screen
+        name="AdvancedCategory"
+        component={AdvancedCategorySettings}
+        options={{ title: "Advanced" }}
+      />
+      <SettingsStack.Screen
+        name="LanguagesCategory"
+        component={LanguagesCategorySettings}
+        options={{ title: "Languages" }}
+      />
+      <SettingsStack.Screen
+        name="KeyManagement"
+        component={KeyManager}
+        options={{ title: "Key Manager" }}
+      />
+    </SettingsStack.Navigator>
+  );
+}
+
+// Tab navigator (all platforms, tab bar hidden on web)
+function TabNavigator() {
+  const { isNative, isBrowser } = usePlatform();
+
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        lazy: true,
+        headerShown: false,
+        // Hide tab bar on web
+        tabBarStyle: isNative ? undefined : { display: "none" },
+      }}
+    >
+      <Tab.Screen
+        name="HomeTab"
+        component={HomeNavigator}
+        options={{
+          title: "Home",
+          ...(isNative && {
+            tabBarIcon: {
+              type: "sfSymbol",
+              name: "house",
+            },
+          }),
+        }}
+      />
+      <Tab.Screen
+        name="GoLiveTab"
+        component={LaunchGoLive}
+        options={{
+          title: "Go Live",
+          ...(isNative && {
+            tabBarIcon: {
+              type: "sfSymbol",
+              name: "video",
+            },
+          }),
+          headerShown: true,
+          headerTransparent: true,
+        }}
+      />
+      <Tab.Screen
+        name="SettingsTab"
+        component={SettingsNavigator}
+        options={{
+          title: "Settings",
+          ...(isNative && {
+            tabBarIcon: {
+              type: "sfSymbol",
+              name: "gearshape",
+            },
+          }),
+          headerShown: false,
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
+
+export default function Shell() {
+  const { isNative } = usePlatform();
+  const sidebar = useSidebarControl();
   const navigation = useNavigation();
   const hydrate = useStore((state) => state.hydrate);
   const initPushNotifications = useStore(
@@ -116,33 +256,24 @@ export default function WebShell() {
   const closeLoginModal = useStore((state) => state.closeLoginModal);
   const [livePopup, setLivePopup] = useState(false);
 
-  const sidebar = useSidebarControl();
-  const [drawerWidth, setDrawerWidth] = useState(sidebar.animatedWidth.value);
-
-  useAnimatedReaction(
-    () => sidebar.animatedWidth.value,
-    (current) => {
-      runOnJS(setDrawerWidth)(current);
-    },
-    [sidebar.animatedWidth],
-  );
-
   const toast = useToast();
 
-  // Top-level stuff to handle push notification registration
+  // Top-level hydration and initialization
   useEffect(() => {
     hydrate();
     initPushNotifications();
   }, []);
+
   const notificationToken = useNotificationToken();
   const hydrated = useHydrated();
+
   useEffect(() => {
     if (notificationToken) {
       registerNotificationToken();
     }
   }, [notificationToken]);
 
-  // Stuff to handle incoming push notification routing
+  // Handle incoming push notification routing
   const notificationDestination = useNotificationDestination();
   const linkTo = useLinkTo();
 
@@ -153,7 +284,7 @@ export default function WebShell() {
     }
   }, [notificationDestination]);
 
-  // Top-level stuff to handle polling for live streamers
+  // Poll for live streamers
   useEffect(() => {
     let handle: NodeJS.Timeout;
     handle = setInterval(() => {
@@ -166,9 +297,7 @@ export default function WebShell() {
   const userIsLive = useLiveUser();
   useBlueskyNotifications();
 
-  let foregroundColor = theme.theme.colors.text || "#fff";
-
-  // Track if we're on LiveDashboard
+  // Track current route
   const [currentRouteName, setCurrentRouteName] = useState<
     string | undefined
   >();
@@ -186,13 +315,17 @@ export default function WebShell() {
 
   const isLiveDashboard = currentRouteName === "LiveDashboard";
 
+  // Show "You are live!" toast
   useEffect(() => {
     if (!isLiveDashboard && userIsLive && !livePopup) {
       setLivePopup(true);
       toast.show("You are live!", "Do you want to go to your Live Dashboard?", {
         actionLabel: "Go",
         onAction: () => {
-          navigation.navigate("LiveDashboard" as never);
+          navigation.navigate("MainTabs" as any, {
+            screen: "HomeTab",
+            params: { screen: "LiveDashboard" },
+          });
           setLivePopup(false);
         },
         onClose: () => setLivePopup(false),
@@ -201,7 +334,16 @@ export default function WebShell() {
       });
     }
   }, [userIsLive, isLiveDashboard, livePopup]);
-  const externalItems = useExternalItems();
+
+  // Animate content margin when sidebar is active (web only)
+  const animatedContentStyle = useAnimatedStyle(() => {
+    if (isNative || !sidebar.isActive) {
+      return { marginLeft: 0 };
+    }
+    return {
+      marginLeft: sidebar.animatedWidth.value,
+    };
+  });
 
   if (!hydrated) {
     return <View />;
@@ -210,172 +352,67 @@ export default function WebShell() {
   return (
     <>
       <StatusBar barStyle="light-content" />
-      <Drawer.Navigator
-        screenOptions={{
-          // for the custom sidebar
-          drawerType: sidebar.isActive ? "permanent" : "front",
-          swipeEnabled: !sidebar.isActive,
-          drawerStyle: {
-            zIndex: 128000,
-            width: sidebar.isActive ? drawerWidth : undefined,
-          },
-          headerLeft: ({ canGoBack }) => (
-            <NavigationButton canGoBack={canGoBack} />
-          ),
-          headerRight: () => <AvatarButton />,
-          headerShown: true,
-          drawerActiveTintColor: "#a0287c33",
-        }}
-        drawerContent={
-          sidebar.isActive
-            ? (props) => (
-                <Sidebar
-                  {...props}
-                  collapsed={sidebar.isCollapsed}
-                  hidden={sidebar.isHidden}
-                  widthAnim={sidebar.animatedWidth}
-                  externalItems={externalItems}
-                />
-              )
-            : CustomDrawerContent
-        }
-      >
-        <Drawer.Screen
-          name="HomeDrawer"
-          component={RootNavigator}
-          options={{
-            drawerIcon: () => <Home color={foregroundColor} size={24} />,
-            drawerLabel: () => <Text variant="h5">Home</Text>,
-            headerShown: true,
-            title: "Streamplace",
-          }}
-          listeners={{
-            drawerItemPress: (e) => {
-              e.preventDefault();
-              navigation.dispatch(
-                CommonActions.navigate({
-                  name: "StreamList",
-                }),
-              );
-            },
-          }}
-        />
-        <Drawer.Screen
-          name="AboutDrawer"
-          component={Fragment}
-          options={{
-            drawerLabel: () => <Text variant="h5">What's Streamplace?</Text>,
-            drawerIcon: () => (
-              <ShieldQuestion color={foregroundColor} size={24} />
+      {!isNative && <SidebarOverlay />}
+      <Animated.View style={[{ flex: 1 }, animatedContentStyle]}>
+        <RootStack.Navigator
+          screenOptions={{
+            headerShown: !isNative,
+            headerLeft: ({ canGoBack }) => (
+              <NavigationButton canGoBack={canGoBack} />
             ),
-            drawerItemStyle: isNative ? { display: "none" } : undefined,
+            headerRight: () => <LGAvatarButton />,
+            ...(isNative && {
+              headerTransparent: true,
+            }),
           }}
-          listeners={{
-            drawerItemPress: (e) => {
-              e.preventDefault();
-              navigation.dispatch(
-                CommonActions.navigate({
-                  name: "About",
-                }),
-              );
-            },
-          }}
-        />
-        <Drawer.Screen
-          name="DownloadDrawer"
-          component={Fragment}
-          options={{
-            drawerLabel: () => <Text variant="h5">Download</Text>,
-            drawerIcon: () => <Download color={foregroundColor} size={24} />,
-            drawerItemStyle: isBrowser ? undefined : { display: "none" },
-          }}
-          listeners={{
-            drawerItemPress: (e) => {
-              e.preventDefault();
-              navigation.dispatch(
-                CommonActions.navigate({
-                  name: "Download",
-                }),
-              );
-            },
-          }}
-        />
-        <Drawer.Screen
-          name="SettingsDrawer"
-          component={Fragment}
-          options={{
-            drawerIcon: () => (
-              <SettingsIcon color={foregroundColor} size={24} />
-            ),
-            drawerLabel: () => <Text variant="h5">Settings</Text>,
-          }}
-          listeners={{
-            drawerItemPress: (e) => {
-              e.preventDefault();
-              navigation.dispatch(
-                CommonActions.navigate({
-                  name: "MainSettings",
-                }),
-              );
-            },
-          }}
-        />
-        <Drawer.Screen
-          name="SupportDrawer"
-          component={Fragment}
-          options={{
-            drawerLabel: () => <Text variant="h5">Support</Text>,
-            drawerItemStyle: { display: "none" },
-          }}
-          listeners={{
-            drawerItemPress: (e) => {
-              e.preventDefault();
-              navigation.dispatch(
-                CommonActions.navigate({
-                  name: "Support",
-                }),
-              );
-            },
-          }}
-        />
-        <Drawer.Screen
-          name="LiveDashboardDrawer"
-          component={Fragment}
-          options={{
-            drawerLabel: () => <Text variant="h5">Live Dashboard</Text>,
-            drawerIcon: () => <Video color={foregroundColor} size={24} />,
-            drawerItemStyle: isNative ? { display: "none" } : undefined,
-          }}
-          listeners={{
-            drawerItemPress: (e) => {
-              e.preventDefault();
-              navigation.dispatch(
-                CommonActions.navigate({
-                  name: "LiveDashboard",
-                }),
-              );
-            },
-          }}
-        />
-        <Drawer.Screen
-          name="LoginDrawer"
-          component={Fragment}
-          options={{
-            drawerIcon: () => <LogIn color={foregroundColor} size={24} />,
-            drawerLabel: () => <Text variant="h5">Login</Text>,
-          }}
-          listeners={{
-            drawerItemPress: (e) => {
-              e.preventDefault();
-              navigation.dispatch(
-                CommonActions.navigate({
-                  name: "Login",
-                }),
-              );
-            },
-          }}
-        />
-      </Drawer.Navigator>
+        >
+          {/* Main tabs (initial screen for all platforms) */}
+          <RootStack.Screen
+            name="MainTabs"
+            component={TabNavigator}
+            options={{ headerShown: false }}
+          />
+
+          {/* Full-screen screens that should NOT have tab bar accessible */}
+          <RootStack.Screen
+            name="Stream"
+            component={MobileStream}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="MobileGoLive"
+            component={MobileGoLive}
+            options={{ headerShown: false }}
+          />
+
+          {/* Utility/embed screens */}
+          <RootStack.Screen
+            name="AppReturn"
+            component={AppReturnScreen}
+            options={{ title: "Returning to app..." }}
+          />
+          <RootStack.Screen
+            name="PopoutChat"
+            component={PopoutChat}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="Embed"
+            component={EmbedScreen}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="InfoWidgetEmbed"
+            component={InfoWidgetEmbed}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="DanmuOBS"
+            component={DanmuOBSScreen}
+            options={{ headerShown: false }}
+          />
+        </RootStack.Navigator>
+      </Animated.View>
       <LoginModal visible={showLoginModal} onClose={closeLoginModal} />
     </>
   );

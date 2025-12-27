@@ -1,7 +1,5 @@
 import type { LinkParams } from "components/aqlink";
-import { Platform } from "react-native";
 
-// Settings screens that are nested in the SettingsStack on iOS
 const SETTINGS_SCREENS = [
   "MainSettings",
   "AboutCategory",
@@ -15,58 +13,64 @@ const SETTINGS_SCREENS = [
   "KeyManagement",
 ];
 
+// Screens that are in the HomeTab stack
+const HOME_TAB_SCREENS = [
+  "HomeMain",
+  "About",
+  "Download",
+  "LiveDashboard",
+  "Login",
+  "Multi",
+  "Support",
+];
+
 /**
- * Converts navigation params to platform-specific format.
- *
- * Web uses flat navigation: { screen: "AccountCategory" }
- * iOS uses nested navigation: { screen: "MainTabs", params: { screen: "SettingsTab", params: { screen: "AccountCategory" } } }
+ * Converts navigation params to nested tab structure.
+ * Most screens are inside HomeTab or SettingsTab, only full-screen experiences like
+ * Stream and MobileGoLive are at root stack level.
  */
 export function convertNavigationParams(to: LinkParams): LinkParams {
-  // On web, use flat navigation
-  if (Platform.OS === "web") {
-    return to;
+  // Handle settings screens - nest them in SettingsTab
+  if (SETTINGS_SCREENS.includes(to.screen)) {
+    return {
+      screen: "MainTabs",
+      params: {
+        screen: "SettingsTab",
+        params: {
+          screen: to.screen,
+          params: to.params,
+        },
+      },
+    };
   }
 
-  // On iOS, handle nested navigation for settings screens
-  if (Platform.OS === "ios") {
-    // If navigating to a settings screen, nest it properly
-    if (SETTINGS_SCREENS.includes(to.screen)) {
-      return {
-        screen: "MainTabs",
-        params: {
-          screen: "SettingsTab",
-          params: {
-            screen: to.screen,
-            params: to.params,
-          },
-        },
-      };
-    }
+  // Handle screens that are in HomeTab (includes both current and legacy names)
+  // Legacy: StreamList → HomeMain
+  const homeScreen = to.screen === "StreamList" ? "HomeMain" : to.screen;
 
-    // StreamList is in HomeTab
-    if (to.screen === "StreamList") {
-      return {
-        screen: "MainTabs",
+  if (HOME_TAB_SCREENS.includes(homeScreen)) {
+    return {
+      screen: "MainTabs",
+      params: {
+        screen: "HomeTab",
         params: {
-          screen: "HomeTab",
+          screen: homeScreen,
+          params: to.params,
         },
-      };
-    }
-
-    // LaunchGoLive is in GoLiveTab
-    if (to.screen === "LaunchGoLive") {
-      return {
-        screen: "MainTabs",
-        params: {
-          screen: "GoLiveTab",
-        },
-      };
-    }
-
-    // All other screens are at root level
-    return to;
+      },
+    };
   }
 
-  // Android and other platforms use flat navigation like web
+  // GoLiveTab
+  if (to.screen === "LaunchGoLive" || to.screen === "GoLiveTab") {
+    return {
+      screen: "MainTabs",
+      params: {
+        screen: "GoLiveTab",
+      },
+    };
+  }
+
+  // All other screens (Stream, MobileGoLive, embeds, etc.) are at root stack level
   return to;
 }

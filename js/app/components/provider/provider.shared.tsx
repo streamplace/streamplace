@@ -2,7 +2,6 @@ import {
   DarkTheme,
   LinkingOptions,
   NavigationContainer,
-  RootParamList,
 } from "@react-navigation/native";
 import * as Sentry from "@sentry/react-native";
 import {
@@ -56,7 +55,7 @@ function ProviderInner({
   linking,
 }: {
   children: React.ReactNode;
-  linking: LinkingOptions<RootParamList>;
+  linking: LinkingOptions<ReactNavigation.RootParamList>;
 }) {
   // get proper DSN for environment
   // on ios/android it's process.env.EXPO_PUBLIC_SENTRY_DSN

@@ -16,7 +16,7 @@ import {
   View,
   ViewProps,
 } from "react-native";
-import { tokens } from "../../../ui";
+import * as tokens from "../../../lib/theme/tokens";
 
 // Base input primitive interface
 export interface InputPrimitiveProps

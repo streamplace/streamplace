@@ -18,6 +18,7 @@ import {
   Pressable,
   useWindowDimensions,
 } from "react-native";
+import { convertNavigationParams } from "../../../src/navigation-helper";
 import { LiveBubble } from "./live-bubble";
 
 const { borders, colors, gap, layout, p, px, py, r, text } = zero;
@@ -65,9 +66,14 @@ export function TopControlBar({
           {Platform.OS !== "web" && !embedded && (
             <Pressable
               onPress={() => {
-                navigation.canGoBack()
-                  ? navigation.goBack()
-                  : navigation.navigate("StreamList");
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  const params = convertNavigationParams({
+                    screen: "StreamList",
+                  });
+                  navigation.navigate(params.screen as any, params.params);
+                }
               }}
               style={[p[2], r[1]]}
             >

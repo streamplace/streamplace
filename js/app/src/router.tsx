@@ -1,10 +1,7 @@
 import { LiquidGlassView } from "@callstack/liquid-glass";
 import "@expo/metro-runtime";
-import {
-  DrawerActions,
-  LinkingOptions,
-  useNavigation,
-} from "@react-navigation/native";
+import { getStateFromPath } from "@react-navigation/core";
+import { LinkingOptions, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
   Button,
@@ -78,7 +75,6 @@ import Constants from "expo-constants";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import {
   ArrowLeft,
-  Menu,
   PanelLeftClose,
   PanelLeftOpen,
   User,
@@ -111,45 +107,119 @@ configureReanimatedLogger({
 
 const linking: LinkingOptions<ReactNavigation.RootParamList> = {
   prefixes: [ExpoLinking.createURL("")],
+  getStateFromPath: (path, config) => {
+    // Use default parsing
+    const state = getStateFromPath(path, config);
+
+    if (state) {
+      // Check if we're navigating to a settings detail screen
+      const routes = state.routes;
+      const mainTabsRoute = routes.find((r: any) => r.name === "MainTabs");
+
+      if (mainTabsRoute?.state) {
+        const settingsTabRoute = mainTabsRoute.state.routes?.find(
+          (r: any) => r.name === "SettingsTab",
+        );
+
+        // if we're going to a settings detail screen, but MainSettings is not in the stack,
+        // we need to insert it at the bottom of the stack so we can escape to MainSettings
+        if (settingsTabRoute?.state) {
+          const settingsStack = settingsTabRoute.state.routes;
+          const firstRoute = settingsStack?.[0];
+          if (
+            firstRoute?.name !== "MainSettings" &&
+            settingsStack?.length === 1
+          ) {
+            return {
+              ...state,
+              routes: state.routes.map((r: any) => {
+                if (r.name === "MainTabs" && r.state) {
+                  return {
+                    ...r,
+                    state: {
+                      ...r.state,
+                      routes: r.state.routes.map((tabRoute: any) => {
+                        if (tabRoute.name === "SettingsTab" && tabRoute.state) {
+                          return {
+                            ...tabRoute,
+                            state: {
+                              ...tabRoute.state,
+                              routes: [
+                                { name: "MainSettings" },
+                                ...tabRoute.state.routes,
+                              ],
+                            },
+                          };
+                        }
+                        return tabRoute;
+                      }),
+                    },
+                  };
+                }
+                return r;
+              }),
+            };
+          }
+        }
+      }
+    }
+
+    return state;
+  },
   config: {
     screens: {
-      StreamList: "",
-      Stream: {
-        path: ":user",
-      },
-      Multi: "multi/:config",
-      Support: "support",
-      Settings: {
+      // Main tabs (used on all platforms, tab bar hidden on web)
+      MainTabs: {
+        screens: {
+          HomeTab: {
+            screens: {
+              HomeMain: "",
+              About: "about",
+              Download: "download",
+              LiveDashboard: "live",
+              Login: "login",
+              Multi: "multi/:config",
+              Support: "support",
+            },
+          },
+          GoLiveTab: "go-live",
+          SettingsTab: {
+            screens: {
+              Settings: {
         screens: {
           MainSettings: "settings",
-          AboutCategory: "settings/about",
-          AccountCategory: "settings/account",
-          StreamingCategory: "settings/streaming",
-          WebhooksSettings: "settings/streaming/webhooks",
-          RecommendationsSettings: "settings/streaming/recommendations",
+                  AboutCategory: "settings/about",
+                  AccountCategory: "settings/account",
+                  StreamingCategory: "settings/streaming",
+                  WebhooksSettings: "settings/streaming/webhooks",
+                  RecommendationsSettings: "settings/streaming/recommendations",
           PrivacyCategory: "settings/privacy",
-          DanmuCategory: "settings/danmu",
-          AdvancedCategory: "settings/advanced",
-          DeveloperSettings: "settings/developer",
+                  DanmuCategory: "settings/danmu",
+                  AdvancedCategory: "settings/advanced",
+                  DeveloperSettings: "settings/developer",
           MultistreamCategory: "settings/streaming/multistream",
           KeyManagement: "settings/streaming/key-management",
           LanguagesCategory: "settings/languages",
-          BrandingAdmin: "settings/branding",
-        },
+                  BrandingAdmin: "settings/branding",
+                },
       },
       KeyManagement: "key-management",
-      LiveDashboard: "live",
-      Login: "login",
+            },
+          },
+        },
+      },
+      // Root stack screens (outside tabs - full-screen experiences)
+      Stream: {
+        path: ":user",
+      },
+      MobileGoLive: "mobile-golive",
       AVSync: "sync-test",
       AppReturn: "app-return/:scheme",
-      About: "about",
-      Download: "download",
       PopoutChat: "chat-popout/:user",
       Embed: "embed/:user",
       InfoWidgetEmbed: "info-widget",
       LegacyStream: "legacy/:user",
       DanmuOBS: "widgets/:user/danmu",
-      MobileGoLive: "mobile-golive",
     },
   },
 };
@@ -409,8 +479,6 @@ export const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
   const handleGoBackPress = () => {
     if (canGoBack) {
       navigation.goBack();
-    } else {
-      navigation.dispatch(DrawerActions.toggleDrawer());
     }
   };
 
@@ -443,13 +511,11 @@ export const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
           )}
         </>
       ) : (
-        <Pressable style={{ padding: 5 }} onPress={handleGoBackPress}>
-          {canGoBack ? (
+        canGoBack && (
+          <Pressable style={{ padding: 5 }} onPress={handleGoBackPress}>
             <ArrowLeft size={24} color={theme.colors.accentForeground} />
-          ) : (
-            <Menu size={24} color={theme.colors.accentForeground} />
-          )}
-        </Pressable>
+          </Pressable>
+        )
       )}
     </View>
   );

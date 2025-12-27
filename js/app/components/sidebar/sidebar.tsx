@@ -1,7 +1,6 @@
 import { DrawerNavigationOptions } from "@react-navigation/drawer";
 import { DrawerDescriptorMap } from "@react-navigation/drawer/lib/typescript/src/types";
 import {
-  CommonActions,
   DrawerNavigationState,
   ParamListBase,
   useNavigation,
@@ -175,34 +174,14 @@ export default function Sidebar({
             route={route}
             onPress={(ev) => {
               ev.preventDefault();
-              // bleh
-              if (route.name === "Home") {
-                // reset the stack (b/c streamlist is in the same stack as home)
-                navigation.dispatch(
-                  CommonActions.reset({
-                    index: 0,
-                    routes: [
-                      {
-                        name: "Home",
-                        state: {
-                          routes: [{ name: "StreamList" }],
-                        },
-                      },
-                    ],
-                  }),
-                );
-              } else if (route.name === "Settings") {
-                navigation.dispatch(
-                  CommonActions.reset({
-                    index: 0,
-                    routes: [
-                      {
-                        name: "Settings",
-                      },
-                    ],
-                  }),
-                );
+              // Direct navigation to drawer screens
+              if (
+                route.name === "HomeDrawer" ||
+                route.name === "SettingsDrawer"
+              ) {
+                navigation.navigate(route.name as never);
               } else {
+                // For any other route, just navigate directly
                 navigation.navigate(route.name as any);
               }
             }}

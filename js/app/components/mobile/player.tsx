@@ -27,6 +27,7 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 import { useUserProfile } from "store/hooks";
+import { convertNavigationParams } from "../../src/navigation-helper";
 import { BottomMetadata } from "./bottom-metadata";
 import { DesktopChatPanel } from "./chat";
 import { DesktopUi } from "./desktop-ui";
@@ -152,11 +153,16 @@ function PlayerWithProvider(
           <Button
             variant="secondary"
             style={[w.percent[40]]}
-            onPress={() =>
-              navigation.canGoBack()
-                ? navigation.goBack()
-                : navigation.navigate("StreamList")
-            }
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                const params = convertNavigationParams({
+                  screen: "StreamList",
+                });
+                navigation.navigate(params.screen as any, params.params);
+              }
+            }}
           >
             <View
               centered

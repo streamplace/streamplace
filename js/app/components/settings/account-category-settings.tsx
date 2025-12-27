@@ -15,6 +15,7 @@ import { Edit3, LogOut, Palette, X } from "lucide-react-native";
 import { Image, ScrollView } from "react-native";
 import { useStore } from "store";
 import { useChatProfile, useUserProfile } from "store/hooks";
+import { convertNavigationParams } from "../../src/navigation-helper";
 import {
   SettingsExternalItem,
   SettingsRowItem,
@@ -50,11 +51,16 @@ export function AccountCategorySettings() {
           <Button
             width="min"
             variant="secondary"
-            onPress={() =>
-              navigation.canGoBack()
-                ? navigation.goBack()
-                : navigation.navigate("MainSettings")
-            }
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                const params = convertNavigationParams({
+                  screen: "MainSettings",
+                });
+                navigation.navigate(params.screen as any, params.params);
+              }
+            }}
           >
             {tn("go-back")}
           </Button>
@@ -131,7 +137,10 @@ export function AccountCategorySettings() {
                   logout();
                   // wait a bit to debounce
                   setTimeout(() => {
-                    navigation.navigate("MainSettings");
+                    const params = convertNavigationParams({
+                      screen: "MainSettings",
+                    });
+                    navigation.navigate(params.screen as any, params.params);
                   }, 100);
                 }}
               >

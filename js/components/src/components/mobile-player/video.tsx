@@ -36,12 +36,14 @@ function assignVideoRef(
 
 type VideoProps = {
   url: string;
-  videoRef?: React.RefObject<HTMLVideoElement>;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
   objectFit?: "contain" | "cover";
   pictureInPictureEnabled?: boolean;
 };
 
-function useVideoDimensions(videoRef: React.RefObject<HTMLVideoElement>) {
+function useVideoDimensions(
+  videoRef: React.RefObject<HTMLVideoElement | null>,
+) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
@@ -133,7 +135,7 @@ const updateEvents = {
 
 const VideoElement = forwardRef<
   HTMLVideoElement,
-  VideoProps & { videoRef?: React.RefObject<HTMLVideoElement> }
+  VideoProps & { videoRef?: React.RefObject<HTMLVideoElement | null> }
 >((props, ref) => {
   const x = usePlayerStore((x) => x);
   const url = useStreamplaceStore((x) => x.url);
@@ -359,7 +361,7 @@ export function HLSPlayer(props: VideoProps) {
 }
 
 export function WebRTCPlayer(
-  props: VideoProps & { videoRef?: React.RefObject<HTMLVideoElement> },
+  props: VideoProps & { videoRef?: React.RefObject<HTMLVideoElement | null> },
 ) {
   const [webrtcError, setWebrtcError] = useState<string | null>(null);
   const setStatus = usePlayerStore((x) => x.setStatus);
@@ -432,7 +434,7 @@ export function WebRTCPlayerInner({
   width,
   height,
 }: {
-  videoRef?: React.RefObject<HTMLVideoElement>;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
   url: string;
   width?: string | number;
   height?: string | number;

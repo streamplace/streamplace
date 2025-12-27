@@ -1,3 +1,4 @@
+import { LiquidGlassView } from "@callstack/liquid-glass";
 import { PlayerUI, Text, useTheme, zero } from "@streamplace/components";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { Image, Platform, View } from "react-native";
@@ -45,7 +46,8 @@ const StreamCard = ({
   const horizontalContentSectionWidth = avatarSize * 2 + contentPadding;
 
   return (
-    <View
+    <LiquidGlassView
+      interactive
       style={[
         zero.flex.values[1],
         {
@@ -108,7 +110,7 @@ const StreamCard = ({
         )}
       </View>
 
-      {/* Content Section */}
+      {/* Content */}
       <View
         style={[
           {
@@ -159,7 +161,7 @@ const StreamCard = ({
           )}
         </View>
 
-        {/* Text Content */}
+        {/* Text content */}
         <View
           style={[
             zero.flex.values[1],
@@ -246,7 +248,7 @@ const StreamCard = ({
           )}
         </View>
       </View>
-    </View>
+    </LiquidGlassView>
   );
 };
 

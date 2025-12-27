@@ -27,6 +27,7 @@ import {
 } from "lucide-react-native";
 import { ImageBackground, ScrollView } from "react-native";
 
+import { LiquidGlassView } from "@callstack/liquid-glass";
 import { useNavigationState } from "@react-navigation/native";
 import Mu from "components/mobile/desktop-ui/mu";
 import { useStore } from "store";
@@ -72,15 +73,24 @@ export function Settings() {
                       zero.py[2],
                     ]}
                   >
-                    <ImageBackground
-                      source={{ uri: userProfile.avatar }}
+                    <LiquidGlassView
+                      interactive
                       style={{
                         width: 48,
                         height: 48,
                         borderRadius: 24,
-                        overflow: "hidden",
                       }}
-                    />
+                    >
+                      <ImageBackground
+                        source={{ uri: userProfile.avatar }}
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 24,
+                          overflow: "hidden",
+                        }}
+                      />
+                    </LiquidGlassView>
                     <View style={{ flex: 1 }}>
                       <Text size="2xl" leading="tight">
                         @{userProfile.handle}

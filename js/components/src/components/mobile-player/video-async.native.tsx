@@ -91,6 +91,9 @@ export function NativeVideo(props?: {
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
+    if (dimensions.width === width && dimensions.height === height) {
+      return;
+    }
     setDimensions({ width, height });
     setPlayerWidth(width);
     setPlayerHeight(height);

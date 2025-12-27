@@ -8,7 +8,7 @@ interface TitleProps {
 
 export default function Title({ children, style, ...props }: TitleProps) {
   return (
-    <Text size="3xl" style={[style as any]} {...props}>
+    <Text size="2xl" style={[style as any]} {...props}>
       {children}
     </Text>
   );

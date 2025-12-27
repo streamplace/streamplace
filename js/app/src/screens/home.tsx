@@ -5,16 +5,12 @@ import ErrorBox from "components/error/error";
 import StreamCardHorizontal, { StreamCardSize } from "components/home/cards";
 import LiveDot from "components/home/live-dot";
 import Loading from "components/loading/loading";
+import PullToRefreshScrollView from "components/pull-to-refresh";
 import Title from "components/title";
 import useAvatars from "hooks/useAvatars";
 import { useEffect, useState } from "react";
-import {
-  Image,
-  RefreshControl,
-  ScrollView,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { Image, Platform, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PlaceStreamLivestream } from "streamplace";
 
 // as we're not using a specific grid library these are necessary
@@ -153,6 +149,7 @@ export default function HomeScreen({
 }: {
   contentContainerStyle?: any;
 }) {
+  const safeAreaInsets = useSafeAreaInsets();
   const liveUsers = useStreamplaceStore((state) => state.liveUsers);
   const setLiveUsers = useStreamplaceStore((state) => state.setLiveUsers);
   const refreshLiveUsers = () => setLiveUsers({ liveUsersRefresh: Date.now() });
@@ -221,6 +218,8 @@ export default function HomeScreen({
     rows.push(row);
   }
 
+  const indicatorTop = safeAreaInsets.top;
+
   return (
     <>
       {liveUsersError && (
@@ -250,21 +249,21 @@ export default function HomeScreen({
           </Container>
         </View>
       )}
-      <ScrollView
-        style={{
-          minHeight: "80%",
-          width: "100%",
+      <PullToRefreshScrollView
+        style={[
+          {
+            minHeight: "100%",
+            width: "100%",
+          },
+          Platform.OS != "web" ? zero.pt[24] : zero.pt[4],
+        ]}
+        contentContainerStyle={contentContainerStyle}
+        refreshing={manualRefresh}
+        onRefresh={() => {
+          refreshLiveUsers();
+          setManualRefresh(true);
         }}
-        contentContainerStyle={contentContainerStyle} // Apply passed contentContainerStyle
-        refreshControl={
-          <RefreshControl
-            refreshing={manualRefresh}
-            onRefresh={() => {
-              refreshLiveUsers();
-              setManualRefresh(true);
-            }}
-          />
-        }
+        indicatorTop={indicatorTop}
       >
         <Container>
           {segments.length > 0 && (
@@ -389,7 +388,12 @@ export default function HomeScreen({
             </View>
           )}
         </Container>
-      </ScrollView>
+        <View
+          style={{
+            height: Platform.OS === "ios" ? 48 + safeAreaInsets.bottom : 0,
+          }}
+        />
+      </PullToRefreshScrollView>
     </>
   );
 }

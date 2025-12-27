@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { StreamplaceAgent } from "streamplace";
-import { useStreamplaceStore, useUrl } from ".";
+import { useStreamplaceStore, useUrl } from "./streamplace-store";
 
 export function usePDSAgent(): StreamplaceAgent | null {
   const oauthSession = useStreamplaceStore((state) => state.oauthSession);

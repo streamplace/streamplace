@@ -7,6 +7,7 @@ import * as Sentry from "@sentry/react-native";
 import {
   BrandedThemeProvider,
   I18nProvider,
+  ThemeProvider,
   StreamplaceProvider as ZustandStreamplaceProvider,
 } from "@streamplace/components";
 import { useFonts } from "expo-font";
@@ -24,6 +25,7 @@ import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 import { Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+
 Sentry.setExtras({
   manifest: Updates.manifest,
   linkingUri: Constants.linkingUri,
@@ -85,19 +87,21 @@ function ProviderInner({
 
   return (
     <SafeAreaProvider>
-      <I18nProvider i18n={i18n}>
-        <NavigationContainer theme={SPDarkTheme} linking={linking}>
-          <StreamplaceProvider>
-            <BlueskyProvider>
-              <NewStreamplaceProvider>
-                <BrandedThemeProvider forcedTheme="dark">
-                  <FontProvider>{children}</FontProvider>
-                </BrandedThemeProvider>
-              </NewStreamplaceProvider>
-            </BlueskyProvider>
-          </StreamplaceProvider>
-        </NavigationContainer>
-      </I18nProvider>
+      <NavigationContainer theme={SPDarkTheme} linking={linking}>
+        <ThemeProvider forcedTheme="dark">
+          <I18nProvider i18n={i18n}>
+            <StreamplaceProvider>
+              <BlueskyProvider>
+                <NewStreamplaceProvider>
+                  <BrandedThemeProvider forcedTheme="dark">
+                    <FontProvider>{children}</FontProvider>
+                  </BrandedThemeProvider>
+                </NewStreamplaceProvider>
+              </BlueskyProvider>
+            </StreamplaceProvider>
+          </I18nProvider>
+        </ThemeProvider>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }

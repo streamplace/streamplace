@@ -21,7 +21,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Circle, Svg } from "react-native-svg";
-import { useTheme } from "../../ui";
+import { useTheme } from "../../lib/theme/theme";
 import { Button } from "./button";
 import { Text } from "./text";
 

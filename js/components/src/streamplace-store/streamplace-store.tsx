@@ -418,5 +418,3 @@ export const useDanmuSettings = () => {
     setDanmuMaxMessages,
   };
 };
-
-export { useCreateStreamRecord, useUpdateStreamRecord } from "./stream";

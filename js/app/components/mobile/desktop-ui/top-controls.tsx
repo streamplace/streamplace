@@ -67,7 +67,7 @@ export function TopControlBar({
               onPress={() => {
                 navigation.canGoBack()
                   ? navigation.goBack()
-                  : navigation.navigate("Home", { screen: "StreamList" });
+                  : navigation.navigate("StreamList");
               }}
               style={[p[2], r[1]]}
             >

@@ -2,6 +2,7 @@ import {
   DarkTheme,
   LinkingOptions,
   NavigationContainer,
+  RootParamList,
 } from "@react-navigation/native";
 import * as Sentry from "@sentry/react-native";
 import {
@@ -24,6 +25,8 @@ import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 import { Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import React from "react";
+import { FontProvider } from "./provider.shared_LOCAL_96695";
 Sentry.setExtras({
   manifest: Updates.manifest,
   linkingUri: Constants.linkingUri,
@@ -53,7 +56,7 @@ function ProviderInner({
   linking,
 }: {
   children: React.ReactNode;
-  linking: LinkingOptions<ReactNavigation.RootParamList>;
+  linking: LinkingOptions<RootParamList>;
 }) {
   // get proper DSN for environment
   // on ios/android it's process.env.EXPO_PUBLIC_SENTRY_DSN
@@ -85,19 +88,21 @@ function ProviderInner({
 
   return (
     <SafeAreaProvider>
-      <I18nProvider i18n={i18n}>
-        <NavigationContainer theme={SPDarkTheme} linking={linking}>
-          <StreamplaceProvider>
-            <BlueskyProvider>
-              <NewStreamplaceProvider>
-                <BrandedThemeProvider forcedTheme="dark">
-                  <FontProvider>{children}</FontProvider>
-                </BrandedThemeProvider>
-              </NewStreamplaceProvider>
-            </BlueskyProvider>
-          </StreamplaceProvider>
-        </NavigationContainer>
-      </I18nProvider>
+      <NavigationContainer theme={SPDarkTheme} linking={linking}>
+        <ThemeProvider forcedTheme="dark">
+          <I18nProvider i18n={i18n}>
+            <StreamplaceProvider>
+              <BlueskyProvider>
+                <NewStreamplaceProvider>
+                  <BrandedThemeProvider forcedTheme="dark">
+                    <FontProvider>{children}</FontProvider>
+                  </BrandedThemeProvider>
+                </NewStreamplaceProvider>
+              </BlueskyProvider>
+            </StreamplaceProvider>
+          </I18nProvider>
+        </ThemeProvider>
+      </NavigationContainer>
     </SafeAreaProvider>
   );
 }

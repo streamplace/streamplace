@@ -1,7 +1,5 @@
 import {
   Link,
-  NavigationProp,
-  ParamListBase,
   useLinkBuilder,
   useNavigation,
   useNavigationState,
@@ -11,9 +9,10 @@ import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
 import { Pressable, StyleProp, ViewStyle } from "react-native";
 import { useStore } from "store";
+import { convertNavigationParams } from "../src/navigation-helper";
 import Loading from "./loading/loading";
 
-export type LinkParams = { screen: string; params?: Record<string, string> };
+export type LinkParams = { screen: string; params?: Record<string, any> };
 
 // Web and native have some disagreements about link styling
 // so we have a custom component that handles that
@@ -27,7 +26,7 @@ export default function AQLink({
   style?: StyleProp<ViewStyle>;
 }) {
   const { isWeb } = usePlatform();
-  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const navigation = useNavigation();
   const route = useRoute();
   const openLoginModal = useStore((state) => state.openLoginModal);
 
@@ -54,7 +53,10 @@ export default function AQLink({
       openLoginModal(currentRoute as any);
       return;
     }
-    navigation.navigate(to.screen, to.params);
+    // Convert to platform-specific navigation params
+    const converted = convertNavigationParams(to);
+    // @ts-expect-error - dynamic navigation with LinkParams
+    navigation.navigate(converted.screen, converted.params);
   };
 
   if (isWeb) {
@@ -67,7 +69,8 @@ export default function AQLink({
       );
     }
     return (
-      <Link style={[baseStyle, style]} to={to as any}>
+      // @ts-expect-error - Link component types don't support our dynamic LinkParams
+      <Link style={[baseStyle, style]} to={to}>
         {children}
       </Link>
     );
@@ -81,10 +84,12 @@ export default function AQLink({
 }
 
 export function Redirect({ to }: { to: LinkParams }) {
-  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const navigation = useNavigation();
   useEffect(() => {
     console.log("redirecting to", to);
-    navigation.navigate(to.screen, to.params);
+    const converted = convertNavigationParams(to);
+    // @ts-expect-error - dynamic navigation with LinkParams
+    navigation.navigate(converted.screen, converted.params);
   }, []);
   return <Loading />;
 }
@@ -99,6 +104,7 @@ export function useAQLinkHref(to: LinkParams): { href?: string } {
   }
 
   try {
+    // @ts-expect-error - buildLink expects specific types but we're using dynamic LinkParams
     const href = buildLink(to.screen, to.params);
     return { href };
   } catch (e) {

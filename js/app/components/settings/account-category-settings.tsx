@@ -53,7 +53,7 @@ export function AccountCategorySettings() {
             onPress={() =>
               navigation.canGoBack()
                 ? navigation.goBack()
-                : navigation.navigate("Settings", { screen: "MainSettings" })
+                : navigation.navigate("MainSettings")
             }
           >
             {tn("go-back")}
@@ -131,7 +131,7 @@ export function AccountCategorySettings() {
                   logout();
                   // wait a bit to debounce
                   setTimeout(() => {
-                    navigation.navigate("Settings", { screen: "MainSettings" });
+                    navigation.navigate("MainSettings");
                   }, 100);
                 }}
               >

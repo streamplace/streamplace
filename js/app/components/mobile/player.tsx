@@ -155,7 +155,7 @@ function PlayerWithProvider(
             onPress={() =>
               navigation.canGoBack()
                 ? navigation.goBack()
-                : navigation.navigate("Home", { screen: "StreamList" })
+                : navigation.navigate("StreamList")
             }
           >
             <View
@@ -170,9 +170,8 @@ function PlayerWithProvider(
             <Button
               style={[w.percent[40]]}
               onPress={() =>
-                navigation.navigate("Home", {
-                  screen: "Stream",
-                  params: { user: userProfile?.did },
+                navigation.navigate("Stream", {
+                  user: userProfile?.did,
                 })
               }
             >

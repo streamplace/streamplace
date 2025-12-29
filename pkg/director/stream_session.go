@@ -302,6 +302,21 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 		// we have a thumbnail <60sec old, skip generating a new one
 		return nil
 	}
+
+	// check if we should blur based on content warnings
+	shouldBlur := false
+	if not.Metadata != nil && len(not.Metadata.ContentWarnings) > 0 {
+		log.Log(ctx, "checking content warnings for blur", "warnings", not.Metadata.ContentWarnings)
+		for _, warning := range not.Metadata.ContentWarnings {
+			if media.BlurWarnings[warning] {
+				shouldBlur = true
+				log.Log(ctx, "content warning matched, will blur thumbnail", "warning", warning)
+				break
+			}
+		}
+	}
+	log.Log(ctx, "generating thumbnail", "shouldBlur", shouldBlur)
+
 	r := bytes.NewReader(not.Data)
 	aqt := aqtime.FromTime(not.Segment.StartTime)
 	fd, err := ss.cli.SegmentFileCreate(not.Segment.RepoDID, aqt, "jpeg")
@@ -309,7 +324,7 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 		return err
 	}
 	defer fd.Close()
-	err = media.Thumbnail(ctx, r, fd, "jpeg")
+	err = media.Thumbnail(ctx, r, fd, "jpeg", shouldBlur)
 	if err != nil {
 		return err
 	}

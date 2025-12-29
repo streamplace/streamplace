@@ -1,14 +1,6 @@
 import { ComAtprotoLabelDefs } from "@atproto/api";
-import {
-  BLUR_LABELS,
-  BLUR_WARNINGS,
-  PlayerUI,
-  Text,
-  useTheme,
-  zero,
-} from "@streamplace/components";
+import { PlayerUI, Text, useTheme, zero } from "@streamplace/components";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
-import { useMemo } from "react";
 import { Image, Platform, View } from "react-native";
 import { PlaceStreamMetadataContentWarnings } from "streamplace";
 
@@ -45,12 +37,6 @@ const StreamCard = ({
   const { url } = useStreamplaceNode();
   const { theme } = useTheme();
   const isWeb = Platform.OS === "web";
-
-  const shouldBlur = useMemo(() => {
-    if (labels?.some((l) => BLUR_LABELS[l.val])) return true;
-    if (contentWarnings?.warnings?.some((w) => BLUR_WARNINGS[w])) return true;
-    return false;
-  }, [labels, contentWarnings]);
 
   // Define dynamic styles
   const borderRadius = 12;
@@ -102,33 +88,7 @@ const StreamCard = ({
             aspectRatio: 16 / 9,
           }}
           resizeMode="contain"
-          blurRadius={shouldBlur ? 20 : 0}
         />
-        {shouldBlur && (
-          <View
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0,0,0,0.4)",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text
-              style={{
-                color: "white",
-                fontSize: size === "xs" ? 12 : 16,
-                textAlign: "center",
-                padding: 4,
-              }}
-            >
-              Sensitive Content
-            </Text>
-          </View>
-        )}
         {isLive && (
           <View
             style={[
@@ -193,7 +153,6 @@ const StreamCard = ({
                   height: "100%",
                 }}
                 resizeMode="cover"
-                blurRadius={shouldBlur ? 10 : 0}
               />
             </View>
           )}

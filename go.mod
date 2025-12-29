@@ -206,6 +206,7 @@ require (
 	github.com/earthboundkid/versioninfo/v2 v2.24.1 // indirect
 	github.com/emicklei/dot v1.9.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/esimov/stackblur-go v1.1.1 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.1 // indirect
 	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/ettle/strcase v0.2.0 // indirect

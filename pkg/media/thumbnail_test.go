@@ -29,7 +29,7 @@ func TestThumbnail(t *testing.T) {
 			g.Go(func() error {
 				thumbnail := bytes.Buffer{}
 				// thumbnailCtx = log.WithDebugValue(ctx, map[string]map[string]int{"function": {"Thumbnail": 9}})
-				err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail, "png")
+				err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail, "png", false)
 				if err != nil {
 					return err
 				}
@@ -42,7 +42,7 @@ func TestThumbnail(t *testing.T) {
 			g.Go(func() error {
 				thumbnail := bytes.Buffer{}
 				// thumbnailCtx = log.WithDebugValue(ctx, map[string]map[string]int{"function": {"Thumbnail": 9}})
-				err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail, "jpeg")
+				err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail, "jpeg", false)
 				if err != nil {
 					return err
 				}
@@ -74,7 +74,7 @@ func TestThumbnailKryptonite(t *testing.T) {
 		require.NoError(t, err)
 
 		thumbnail := bytes.Buffer{}
-		err = Thumbnail(context.Background(), bytes.NewReader(bs), &thumbnail, "png")
+		err = Thumbnail(context.Background(), bytes.NewReader(bs), &thumbnail, "png", false)
 		require.NoError(t, err)
 		require.Equal(t, 561486, thumbnail.Len())
 	})
@@ -90,7 +90,7 @@ func TestThumbnailStall(t *testing.T) {
 		bs, err := io.ReadAll(inputFile)
 		require.NoError(t, err)
 		thumbnail := bytes.Buffer{}
-		err = Thumbnail(context.Background(), bytes.NewReader(bs), &thumbnail, "jpeg")
+		err = Thumbnail(context.Background(), bytes.NewReader(bs), &thumbnail, "jpeg", false)
 		require.NoError(t, err)
 		// This is inconsistent. Which is concerning.
 		// Testing gave ~22000 bytes

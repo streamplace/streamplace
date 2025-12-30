@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"gorm.io/gorm"
@@ -24,27 +23,6 @@ type Livestream struct {
 	Post       *FeedPost `json:"post,omitempty" gorm:"foreignKey:CID;references:PostCID"`
 	PostCID    string    `json:"postCID" gorm:"column:post_cid"`
 	PostURI    string    `json:"postURI" gorm:"column:post_uri;index:idx_post_uri"`
-}
-
-func (ls *Livestream) ToLivestreamView(labels []*comatproto.LabelDefs_Label, contentWarnings *streamplace.MetadataContentWarnings) (*streamplace.Livestream_LivestreamView, error) {
-	rec, err := lexutil.CborDecodeValue(*ls.Livestream)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding feed post: %w", err)
-	}
-	postView := streamplace.Livestream_LivestreamView{
-		LexiconTypeID: "place.stream.livestream#livestreamView",
-		Cid:           ls.CID,
-		Uri:           ls.URI,
-		Author: &bsky.ActorDefs_ProfileViewBasic{
-			Did:    ls.RepoDID,
-			Handle: ls.Repo.Handle,
-		},
-		Record:          &lexutil.LexiconTypeDecoder{Val: rec},
-		IndexedAt:       time.Now().Format(time.RFC3339),
-		Labels:          labels,
-		ContentWarnings: contentWarnings,
-	}
-	return &postView, nil
 }
 
 func (m *DBModel) CreateLivestream(ctx context.Context, ls *Livestream) error {
@@ -168,5 +146,24 @@ func (m *DBModel) GetLivestreamView(ctx context.Context, ls *Livestream) (*strea
 			contentWarnings = sdm.ContentWarnings
 		}
 	}
-	return ls.ToLivestreamView(labels, contentWarnings)
+
+	// apply labels, content warnings
+	rec, err := lexutil.CborDecodeValue(*ls.Livestream)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding feed post: %w", err)
+	}
+	postView := streamplace.Livestream_LivestreamView{
+		LexiconTypeID: "place.stream.livestream#livestreamView",
+		Cid:           ls.CID,
+		Uri:           ls.URI,
+		Author: &bsky.ActorDefs_ProfileViewBasic{
+			Did:    ls.RepoDID,
+			Handle: ls.Repo.Handle,
+		},
+		Record:          &lexutil.LexiconTypeDecoder{Val: rec},
+		IndexedAt:       time.Now().Format(time.RFC3339),
+		Labels:          labels,
+		ContentWarnings: contentWarnings,
+	}
+	return &postView, nil
 }

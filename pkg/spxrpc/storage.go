@@ -54,9 +54,6 @@ func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input
 	if input.IsActive == nil && existing != nil {
 		storage.IsActive = existing.IsActive
 	}
-	if input.RequestedSecondsPerSegment == nil && existing != nil {
-		storage.RequestedSecondsPerSegment = existing.RequestedSecondsPerSegment
-	}
 
 	err := s.statefulDB.UpsertStorage(storage)
 	if err != nil {

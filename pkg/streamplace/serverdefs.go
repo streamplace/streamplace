@@ -18,8 +18,6 @@ type ServerDefs_RewriteRule struct {
 type ServerDefs_Storage struct {
 	// isActive: Whether backup storage is currently active.
 	IsActive bool `json:"isActive" cborgen:"isActive"`
-	// requestedSecondsPerSegment: Requested duration for each HLS segment in seconds.
-	RequestedSecondsPerSegment int64 `json:"requestedSecondsPerSegment" cborgen:"requestedSecondsPerSegment"`
 	// url: S3 storage URL with masked secret key in format: s3+https://ACCESS_KEY:***@endpoint/bucket
 	Url string `json:"url" cborgen:"url"`
 }

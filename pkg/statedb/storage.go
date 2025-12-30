@@ -11,13 +11,12 @@ import (
 
 // Storage represents S3 storage configuration for a user
 type Storage struct {
-	ID                         string    `gorm:"column:id;primarykey"`
-	IsActive                   bool      `gorm:"column:is_active;default:true"`
-	UserDID                    string    `gorm:"column:user_did;not null;unique"`
-	URL                        string    `gorm:"column:url;not null"`
-	RequestedSecondsPerSegment int       `gorm:"column:requested_seconds_per_segment;default:6"`
-	CreatedAt                  time.Time `gorm:"column:created_at"`
-	UpdatedAt                  time.Time `gorm:"column:updated_at"`
+	ID        string    `gorm:"column:id;primarykey"`
+	IsActive  bool      `gorm:"column:is_active;default:true"`
+	UserDID   string    `gorm:"column:user_did;not null;unique"`
+	URL       string    `gorm:"column:url;not null"`
+	CreatedAt time.Time `gorm:"column:created_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at"`
 }
 
 func (s *Storage) TableName() string {
@@ -37,11 +36,12 @@ func (state *StatefulDB) UpsertStorage(storage *Storage) error {
 
 	var existing Storage
 	err := state.DB.Where("user_did = ?", storage.UserDID).First(&existing).Error
-	if err == nil {
+	switch err {
+	case nil:
 		storage.ID = existing.ID
 		storage.CreatedAt = existing.CreatedAt
 		return state.DB.Save(storage).Error
-	} else if err == gorm.ErrRecordNotFound {
+	case gorm.ErrRecordNotFound:
 		return state.DB.Create(storage).Error
 	}
 
@@ -63,17 +63,12 @@ func (state *StatefulDB) DeleteStorage(userDID string) error {
 
 func (s *Storage) ToLexicon() *streamplace.ServerDefs_Storage {
 	return &streamplace.ServerDefs_Storage{
-		IsActive:                   s.IsActive,
-		Url:                        maskSecretKey(s.URL),
-		RequestedSecondsPerSegment: int64(s.RequestedSecondsPerSegment),
+		IsActive: s.IsActive,
+		Url:      maskSecretKey(s.URL),
 	}
 }
 
 func StorageFromLexiconInput(input *streamplace.ServerUpsertStorage_Input, userDID string) *Storage {
-	requestedSeconds := 6
-	if input.RequestedSecondsPerSegment != nil {
-		requestedSeconds = int(*input.RequestedSecondsPerSegment)
-	}
 
 	var url string
 	if input.Url != nil {
@@ -81,10 +76,9 @@ func StorageFromLexiconInput(input *streamplace.ServerUpsertStorage_Input, userD
 	}
 
 	storage := &Storage{
-		UserDID:                    userDID,
-		URL:                        url,
-		RequestedSecondsPerSegment: requestedSeconds,
-		IsActive:                   true,
+		UserDID:  userDID,
+		URL:      url,
+		IsActive: true,
 	}
 
 	if input.IsActive != nil {

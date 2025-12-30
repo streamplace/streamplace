@@ -3,7 +3,6 @@ import {
   Loader,
   MenuContainer,
   MenuGroup,
-  MenuInfo,
   MenuItem,
   MenuLabel,
   MenuSeparator,
@@ -31,7 +30,6 @@ interface ValidationErrors {
   bucket?: string;
   accessKey?: string;
   secretKey?: string;
-  requestedSecondsPerSegment?: string;
 }
 
 function validateS3Config(
@@ -101,8 +99,6 @@ export function BackupSettings() {
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>(
     {},
   );
-  const [requestedSecondsPerSegment, setRequestedSecondsPerSegment] =
-    useState("20");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const isCensored = config.secretKey === "***";
@@ -114,21 +110,6 @@ export function BackupSettings() {
   useEffect(() => {
     setFullUrl(buildS3Url(config, showPassword));
   }, [showPassword]);
-
-  useEffect(() => {
-    const num = parseInt(requestedSecondsPerSegment, 10);
-    if (isNaN(num) || num < 1 || num > 60) {
-      setValidationErrors((prev) => ({
-        ...prev,
-        requestedSecondsPerSegment: t("backup-error-invalid-segment-duration"),
-      }));
-    } else {
-      setValidationErrors((prev) => {
-        const { requestedSecondsPerSegment, ...rest } = prev;
-        return rest;
-      });
-    }
-  }, [requestedSecondsPerSegment]);
 
   const loadStorage = async () => {
     if (!agent) return;
@@ -143,9 +124,6 @@ export function BackupSettings() {
         if (parsed) {
           setConfig(parsed);
           setFullUrl(buildS3Url(parsed, showPassword));
-          setRequestedSecondsPerSegment(
-            String(response.data.storage.requestedSecondsPerSegment),
-          );
         }
       }
     } catch (error: any) {
@@ -218,10 +196,7 @@ export function BackupSettings() {
       const realUrl = `s3+https://${config.accessKey}:${config.secretKey}@${config.endpoint}/${config.bucket}`;
       const payload: {
         url?: string;
-        requestedSecondsPerSegment: number;
-      } = {
-        requestedSecondsPerSegment: parseInt(requestedSecondsPerSegment, 10),
-      };
+      } = {};
 
       if (config.secretKey !== "***") {
         if (realUrl !== originalUrl) {
@@ -417,28 +392,6 @@ export function BackupSettings() {
                     </View>
                   </MenuItem>
                 </MenuGroup>
-                <MenuGroup>
-                  <MenuItem style={{ marginVertical: -4 }}>
-                    <Text style={{ minWidth: 100 }}>
-                      {t("requested-seconds-per-segment")}
-                    </Text>
-                    <View style={{ flex: 1, paddingVertical: -24 }}>
-                      <Input
-                        value={requestedSecondsPerSegment}
-                        onChangeText={setRequestedSecondsPerSegment}
-                        placeholder={t("backup-segment-duration-placeholder")}
-                        variant="underlined"
-                        keyboardType="numeric"
-                        containerStyle={{ width: "100%" }}
-                        inputStyle={{ textAlign: "right" }}
-                        error={validationErrors.requestedSecondsPerSegment}
-                      />
-                    </View>
-                  </MenuItem>
-                </MenuGroup>
-                <MenuInfo
-                  description={t("requested-seconds-per-segment-description")}
-                />
                 <MenuGroup>
                   <SettingsRowItem onPress={canSave ? handleSave : undefined}>
                     <View

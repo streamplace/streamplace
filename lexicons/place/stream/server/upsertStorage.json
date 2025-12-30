@@ -15,13 +15,6 @@
               "type": "string",
               "description": "S3 storage URL in format: s3+https://ACCESS_KEY:SECRET_KEY@endpoint/bucket"
             },
-            "requestedSecondsPerSegment": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 60,
-              "default": 6,
-              "description": "Requested duration for each HLS segment in seconds."
-            },
             "isActive": {
               "type": "boolean",
               "description": "Whether backup storage is currently active."

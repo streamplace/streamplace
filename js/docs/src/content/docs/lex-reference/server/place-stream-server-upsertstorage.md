@@ -24,11 +24,10 @@ Create or update S3 storage configuration for backups.
 
 **Schema Type:** `object`
 
-| Name                         | Type      | Req'd | Description                                                                | Constraints                         |
-| ---------------------------- | --------- | ----- | -------------------------------------------------------------------------- | ----------------------------------- |
-| `url`                        | `string`  | ❌    | S3 storage URL in format: s3+https://ACCESS_KEY:SECRET_KEY@endpoint/bucket |                                     |
-| `requestedSecondsPerSegment` | `integer` | ❌    | Requested duration for each HLS segment in seconds.                        | Min: 1<br/>Max: 60<br/>Default: `6` |
-| `isActive`                   | `boolean` | ❌    | Whether backup storage is currently active.                                |                                     |
+| Name       | Type      | Req'd | Description                                                                | Constraints |
+| ---------- | --------- | ----- | -------------------------------------------------------------------------- | ----------- |
+| `url`      | `string`  | ❌    | S3 storage URL in format: s3+https://ACCESS_KEY:SECRET_KEY@endpoint/bucket |             |
+| `isActive` | `boolean` | ❌    | Whether backup storage is currently active.                                |             |
 
 **Output:**
 
@@ -71,13 +70,6 @@ Create or update S3 storage configuration for backups.
             "url": {
               "type": "string",
               "description": "S3 storage URL in format: s3+https://ACCESS_KEY:SECRET_KEY@endpoint/bucket"
-            },
-            "requestedSecondsPerSegment": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 60,
-              "default": 6,
-              "description": "Requested duration for each HLS segment in seconds."
             },
             "isActive": {
               "type": "boolean",

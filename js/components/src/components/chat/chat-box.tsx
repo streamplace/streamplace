@@ -264,6 +264,9 @@ export function ChatBox({
       if (result.handled) {
         if (result.error) {
           console.error("Slash command error:", result.error);
+          createChatMessage({
+            text: result.error,
+          });
         }
         return;
       }

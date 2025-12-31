@@ -8,6 +8,7 @@ import { Button, Loader, Text, useTheme, View } from "../../";
 import { handleSlashCommand } from "../../lib/slash-commands";
 import { registerTeleportCommand } from "../../lib/slash-commands/teleport";
 import { StreamNotifications } from "../../lib/stream-notifications";
+import { SystemMessages } from "../../lib/system-messages";
 import {
   borders,
   flex,
@@ -264,9 +265,7 @@ export function ChatBox({
       if (result.handled) {
         if (result.error) {
           console.error("Slash command error:", result.error);
-          createChatMessage({
-            text: result.error,
-          });
+          SystemMessages.commandError(result.error);
         }
         return;
       }

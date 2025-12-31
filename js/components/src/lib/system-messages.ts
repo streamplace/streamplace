@@ -4,6 +4,7 @@ export enum SystemMessageType {
   stream_start = "stream_start",
   stream_end = "stream_end",
   notification = "notification",
+  command_error = "command_error",
 }
 
 export interface SystemMessageMetadata {
@@ -121,6 +122,9 @@ export const SystemMessages = {
 
   notification: (message: string): ChatMessageViewHydrated =>
     createSystemMessage(SystemMessageType.notification, message),
+
+  commandError: (message: string): ChatMessageViewHydrated =>
+    createSystemMessage(SystemMessageType.command_error, `⚠️ ${message}`),
 };
 
 /**

@@ -124,7 +124,7 @@ export const SystemMessages = {
     createSystemMessage(SystemMessageType.notification, message),
 
   commandError: (message: string): ChatMessageViewHydrated =>
-    createSystemMessage(SystemMessageType.command_error, `⚠️ ${message}`),
+    createSystemMessage(SystemMessageType.command_error, message),
 };
 
 /**

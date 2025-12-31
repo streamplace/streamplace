@@ -1,5 +1,9 @@
 import { PlaceStreamLiveTeleport, StreamplaceAgent } from "streamplace";
-import { registerSlashCommand, SlashCommandResult } from "../slash-commands";
+import {
+  registerSlashCommand,
+  SlashCommandHandler,
+  SlashCommandResult,
+} from "../slash-commands";
 
 export async function deleteTeleport(
   pdsAgent: StreamplaceAgent,
@@ -22,100 +26,111 @@ export function registerTeleportCommand(
   userDID: string,
   setActiveTeleportUri?: (uri: string | null) => void,
 ) {
+  const teleportHandler: SlashCommandHandler = async (
+    args,
+    rawInput,
+  ): Promise<SlashCommandResult> => {
+    if (args.length === 0) {
+      return {
+        handled: true,
+        error: "Usage: /teleport @handle.bsky.social [duration_seconds]",
+      };
+    }
+
+    let targetHandle = args[0];
+
+    if (targetHandle.startsWith("@")) {
+      targetHandle = targetHandle.slice(1);
+    }
+
+    if (!targetHandle.includes(".")) {
+      return {
+        handled: true,
+        error: "Invalid handle format. Expected: handle.bsky.social",
+      };
+    }
+
+    let countdownSeconds = 10;
+    if (args.length > 1) {
+      const parsedDuration = parseInt(args[1], 10);
+      if (isNaN(parsedDuration)) {
+        return {
+          handled: true,
+          error: "Countdown must be a number (seconds)",
+        };
+      }
+      if (parsedDuration < 5 || parsedDuration > 300) {
+        return {
+          handled: true,
+          error: "Countdown must be between 5 seconds and 5 minutes",
+        };
+      }
+      countdownSeconds = parsedDuration;
+    }
+
+    let targetDID: string;
+    try {
+      const resolution = await pdsAgent.resolveHandle({
+        handle: targetHandle,
+      });
+      targetDID = resolution.data.did;
+    } catch (err) {
+      return {
+        handled: true,
+        error: `Could not resolve handle: ${targetHandle}`,
+      };
+    }
+
+    if (targetDID === userDID) {
+      return {
+        handled: true,
+        error: "You cannot teleport to yourself",
+      };
+    }
+
+    const startsAt = new Date(
+      Date.now() + countdownSeconds * 1000,
+    ).toISOString();
+
+    const record: PlaceStreamLiveTeleport.Record = {
+      $type: "place.stream.live.teleport",
+      streamer: targetDID,
+      startsAt,
+      countdownSeconds,
+    };
+
+    try {
+      const result = await pdsAgent.com.atproto.repo.createRecord({
+        repo: userDID,
+        collection: "place.stream.live.teleport",
+        record,
+      });
+
+      // store the URI in the livestream store
+      if (setActiveTeleportUri) {
+        setActiveTeleportUri(result.data.uri);
+      }
+
+      return { handled: true };
+    } catch (err) {
+      return {
+        handled: true,
+        error: err instanceof Error ? err.message : "Failed to create teleport",
+      };
+    }
+  };
+
   registerSlashCommand({
     name: "teleport",
     description: "Start a teleport to another streamer",
     usage: "/teleport @handle.bsky.social [duration_seconds]",
-    handler: async (args, rawInput): Promise<SlashCommandResult> => {
-      if (args.length === 0) {
-        return {
-          handled: true,
-          error: "Usage: /teleport @handle.bsky.social [duration_seconds]",
-        };
-      }
+    handler: teleportHandler,
+  });
 
-      let targetHandle = args[0];
-
-      if (targetHandle.startsWith("@")) {
-        targetHandle = targetHandle.slice(1);
-      }
-
-      if (!targetHandle.includes(".")) {
-        return {
-          handled: true,
-          error: "Invalid handle format. Expected: handle.bsky.social",
-        };
-      }
-
-      let countdownSeconds = 10;
-      if (args.length > 1) {
-        const parsedDuration = parseInt(args[1], 10);
-        if (isNaN(parsedDuration)) {
-          return {
-            handled: true,
-            error: "Countdown must be a number (seconds)",
-          };
-        }
-        if (parsedDuration < 5 || parsedDuration > 300) {
-          return {
-            handled: true,
-            error: "Countdown must be between 5 seconds and 5 minutes",
-          };
-        }
-        countdownSeconds = parsedDuration;
-      }
-
-      let targetDID: string;
-      try {
-        const resolution = await pdsAgent.resolveHandle({
-          handle: targetHandle,
-        });
-        targetDID = resolution.data.did;
-      } catch (err) {
-        return {
-          handled: true,
-          error: `Could not resolve handle: ${targetHandle}`,
-        };
-      }
-
-      if (targetDID === userDID) {
-        return {
-          handled: true,
-          error: "You cannot teleport to yourself",
-        };
-      }
-
-      const startsAt = new Date(
-        Date.now() + countdownSeconds * 1000,
-      ).toISOString();
-
-      const record: PlaceStreamLiveTeleport.Record = {
-        $type: "place.stream.live.teleport",
-        streamer: targetDID,
-        startsAt,
-        countdownSeconds,
-      };
-
-      try {
-        const result = await pdsAgent.com.atproto.repo.createRecord({
-          repo: userDID,
-          collection: "place.stream.live.teleport",
-          record,
-        });
-
-        // store the URI in the livestream store
-        if (setActiveTeleportUri) {
-          setActiveTeleportUri(result.data.uri);
-        }
-
-        return { handled: true };
-      } catch (err) {
-        return {
-          handled: true,
-          error:
-            err instanceof Error ? err.message : "Failed to create teleport",
-        };
-      }
-    },
+  registerSlashCommand({
+    name: "tp",
+    description: "Start a teleport to another streamer (alias for /teleport)",
+    usage: "/tp @handle.bsky.social [duration_seconds]",
+    handler: teleportHandler,
   });
 }

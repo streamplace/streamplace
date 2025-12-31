@@ -12,11 +12,13 @@ import { Button, Text, useTheme, zero } from "../../";
 export function TeleportNotification({
   targetHandle,
   countdown,
+  canCancel,
   startTime,
   onDismiss,
 }: {
   targetHandle: string;
   countdown: number;
+  canCancel: boolean;
   startTime?: number;
   onDismiss: (reason?: "user" | "auto") => void;
 }) {
@@ -129,13 +131,15 @@ export function TeleportNotification({
           ]}
         >
           <Text color="muted">{timeLeft}s</Text>
-          <Button
-            onPress={() => onDismiss("user")}
-            width="min"
-            variant="destructive"
-          >
-            Cancel
-          </Button>
+          {canCancel && (
+            <Button
+              onPress={() => onDismiss("user")}
+              width="min"
+              variant="destructive"
+            >
+              Cancel
+            </Button>
+          )}
         </View>
       </View>
       <View

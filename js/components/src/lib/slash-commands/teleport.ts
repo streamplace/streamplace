@@ -47,23 +47,22 @@ export function registerTeleportCommand(
         };
       }
 
-      let durationSeconds: number | undefined;
+      let countdownSeconds = 10;
       if (args.length > 1) {
         const parsedDuration = parseInt(args[1], 10);
         if (isNaN(parsedDuration)) {
           return {
             handled: true,
-            error: "Duration must be a number (seconds)",
+            error: "Countdown must be a number (seconds)",
           };
         }
-        if (parsedDuration < 60 || parsedDuration > 32400) {
+        if (parsedDuration < 5 || parsedDuration > 300) {
           return {
             handled: true,
-            error:
-              "Duration must be between 60 seconds and 32400 seconds (9 hours)",
+            error: "Countdown must be between 5 seconds and 5 minutes",
           };
         }
-        durationSeconds = parsedDuration;
+        countdownSeconds = parsedDuration;
       }
 
       let targetDID: string;
@@ -79,13 +78,22 @@ export function registerTeleportCommand(
         };
       }
 
-      const startsAt = new Date(Date.now() + 30000).toISOString();
+      if (targetDID === userDID) {
+        return {
+          handled: true,
+          error: "You cannot teleport to yourself",
+        };
+      }
+
+      const startsAt = new Date(
+        Date.now() + countdownSeconds * 1000,
+      ).toISOString();
 
       const record: PlaceStreamLiveTeleport.Record = {
         $type: "place.stream.live.teleport",
         streamer: targetDID,
         startsAt,
-        ...(durationSeconds ? { durationSeconds } : {}),
+        countdownSeconds,
       };
 
       try {

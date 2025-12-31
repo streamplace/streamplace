@@ -505,7 +505,9 @@ export function ChatBox({
                   targetHandle: "test.bsky.social",
                   targetDID: "did:plc:test",
                   countdown: 30,
-                  onCancel: () => console.log("teleport cancelled"),
+                  canCancel: true,
+                  onDismiss: (reason) =>
+                    console.log("teleport dismissed:", reason),
                 });
               }}
             >

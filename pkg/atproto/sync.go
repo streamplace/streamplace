@@ -389,11 +389,13 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to parse startsAt", "err", err)
 			return nil
 		}
+		viewerCount := atsync.Bus.GetViewerCount(userDID)
 		tp := &model.Teleport{
 			CID:             cid,
 			URI:             aturi.String(),
 			StartsAt:        startsAt,
 			DurationSeconds: rec.DurationSeconds,
+			ViewerCount:     int64(viewerCount),
 			Teleport:        recCBOR,
 			RepoDID:         userDID,
 			TargetDID:       rec.Streamer,
@@ -412,7 +414,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 		time.AfterFunc(waitDuration, func() {
-			// verify the teleport still exists
+			// verify teleport still exists
 			existingTp, err := atsync.Model.GetTeleportByURI(aturi.String())
 			if err != nil {
 				log.Error(ctx, "failed to get teleport by uri", "err", err)
@@ -430,7 +432,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				return
 			}
 
-			viewerCount := atsync.Bus.GetViewerCount(userDID)
+			viewerCount := existingTp.ViewerCount
 
 			arrivalMsg := &streamplace.Livestream_TeleportArrival{
 				LexiconTypeID: "place.stream.livestream#teleportArrival",

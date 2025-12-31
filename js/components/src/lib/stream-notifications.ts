@@ -7,8 +7,8 @@ export const StreamNotifications = {
     targetHandle: string;
     targetDID: string;
     countdown: number;
-    onCancel?: () => void;
-    onAutoDismiss?: () => void;
+    canCancel: boolean;
+    onDismiss?: (reason?: "user" | "auto") => void;
   }) => {
     streamNotification.show({
       id: "teleport",
@@ -16,14 +16,14 @@ export const StreamNotifications = {
         return React.createElement(TeleportNotification, {
           targetHandle: params.targetHandle,
           countdown: params.countdown,
+          canCancel: params.canCancel,
           startTime: startTime,
           onDismiss: onDismiss,
         });
       },
       duration: 0, // manually dismissed by countdown or user cancel
       variant: "warning",
-      onUserDismiss: params.onCancel,
-      onAutoDismiss: params.onAutoDismiss,
+      onDismiss: params.onDismiss,
     });
   },
 

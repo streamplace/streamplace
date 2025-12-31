@@ -43,6 +43,7 @@ const SEGMENT_TIMEOUT = 500; // half a sec
 export function Player(
   props: Partial<PlayerProps> & {
     setFullscreen?: (fullscreen: boolean) => void;
+    onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
   return (
@@ -188,12 +189,14 @@ function PlayerWithProvider(
     );
   }
 
-  const handleTeleport = (targetHandle: string, targetDID: string) => {
+  const defaultHandleTeleport = (targetHandle: string, targetDID: string) => {
     navigation.navigate("Home", {
       screen: "Stream",
-      params: { user: targetDID },
+      params: { user: targetHandle },
     });
   };
+
+  const handleTeleport = props.onTeleport || defaultHandleTeleport;
 
   return (
     <RotationProvider enabled={Platform.OS !== "web"}>

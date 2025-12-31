@@ -82,7 +82,10 @@ export const SystemMessages = {
     count: number,
     chatProfile?: any,
   ): ChatMessageViewHydrated => {
-    const text = `${count} viewer${count !== 1 ? "s" : ""} teleported from ${streamerName}'s stream! Say hi!`;
+    const text =
+      count > 0
+        ? `${count} viewer${count !== 1 ? "s" : ""} teleported from ${streamerName}'s stream! Say hi!`
+        : `Someone teleported from ${streamerName}'s stream! Say hi!`;
     const message = createSystemMessage(SystemMessageType.notification, text, {
       streamerName,
       count,

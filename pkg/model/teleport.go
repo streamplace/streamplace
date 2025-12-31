@@ -15,6 +15,7 @@ type Teleport struct {
 	CID             string    `json:"cid" gorm:"column:cid"`
 	StartsAt        time.Time `json:"startsAt" gorm:"column:starts_at;index:idx_repo_starts,priority:2"`
 	DurationSeconds *int64    `json:"durationSeconds" gorm:"column:duration_seconds"`
+	ViewerCount     int64     `json:"viewerCount" gorm:"column:viewer_count;default:0"`
 	Teleport        *[]byte   `json:"teleport"`
 	RepoDID         string    `json:"repoDID" gorm:"column:repo_did;index:idx_repo_starts,priority:1"`
 	TargetDID       string    `json:"targetDID" gorm:"column:target_did;index:idx_target_did"`
@@ -26,7 +27,7 @@ type Teleport struct {
 func (m *DBModel) CreateTeleport(ctx context.Context, tp *Teleport) error {
 	return m.DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "uri"}},
-		DoUpdates: clause.AssignmentColumns([]string{"cid", "starts_at", "duration_seconds", "teleport", "repo_did", "target_did"}),
+		DoUpdates: clause.AssignmentColumns([]string{"cid", "starts_at", "duration_seconds", "viewer_count", "teleport", "repo_did", "target_did"}),
 	}).Create(tp).Error
 }
 

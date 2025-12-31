@@ -56,6 +56,7 @@ export function TeleportWatcher({
     (state) => state.activeTeleportUri,
   );
   const profile = useAvatars(activeTeleport ? [activeTeleport.streamer] : []);
+  const livestreamProfile = useLivestreamStore((state) => state.profile);
   const pdsAgent = usePDSAgent();
   const userDID = useDID();
   const prevActiveTeleportRef = useRef(activeTeleport);
@@ -74,22 +75,39 @@ export function TeleportWatcher({
     const targetHandle =
       profile[activeTeleport.streamer]?.handle || activeTeleport.streamer;
 
+    // check if the current user is the streamer of the current livestream
+    const canCancel = livestreamProfile?.did === userDID;
+
     StreamNotifications.teleport({
       targetHandle: targetHandle,
       targetDID: activeTeleport.streamer,
       countdown: countdown,
-      onCancel: async () => {
-        if (activeTeleportUri && pdsAgent && userDID) {
+      canCancel: canCancel,
+      onDismiss: async (reason) => {
+        console.log(
+          "🔍 StreamNotifications.onDismiss called with reason:",
+          reason,
+        );
+        if (reason === "user" && activeTeleportUri && pdsAgent && userDID) {
           try {
             await deleteTeleport(pdsAgent, userDID, activeTeleportUri);
           } catch (err) {
             console.error("Failed to delete teleport:", err);
           }
         }
-      },
-      onAutoDismiss: () => {
-        if (onTeleport) {
+        if (reason === "auto" && onTeleport) {
+          console.log(
+            "🔍 Calling onTeleport with:",
+            targetHandle,
+            activeTeleport.streamer,
+          );
           onTeleport(targetHandle, activeTeleport.streamer);
+        } else if (reason === "auto" && !onTeleport) {
+          console.log("🔍 onTeleport is not defined!");
+        } else if (reason === "auto") {
+          console.log(
+            "🔍 Reason is auto but teleport function not called for unknown reason",
+          );
         }
       },
     });

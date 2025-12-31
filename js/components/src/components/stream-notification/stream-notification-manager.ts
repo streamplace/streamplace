@@ -3,15 +3,13 @@ export type NotificationConfig = {
   message?: string;
   render?: (
     isExiting: boolean,
-    onDismiss: () => void,
+    onDismiss: (reason?: "user" | "auto") => void,
     startTime?: number,
   ) => React.ReactNode;
   duration?: number; // seconds, 0 = manual dismiss only
   actionLabel?: string;
   onAction?: () => void;
-  onDismiss?: () => void;
-  onUserDismiss?: () => void;
-  onAutoDismiss?: () => void;
+  onDismiss?: (reason?: "user" | "auto") => void;
   variant?: "default" | "info" | "warning";
 };
 
@@ -39,8 +37,6 @@ class StreamNotificationManager {
       actionLabel: config.actionLabel,
       onAction: config.onAction,
       onDismiss: config.onDismiss,
-      onUserDismiss: config.onUserDismiss,
-      onAutoDismiss: config.onAutoDismiss,
       variant: config.variant ?? "default",
       visible: true,
       startTime: Date.now(),
@@ -115,12 +111,7 @@ class StreamNotificationManager {
     );
     this.notifyListeners();
 
-    notification.onDismiss?.();
-    if (reason === "user") {
-      notification.onUserDismiss?.();
-    } else {
-      notification.onAutoDismiss?.();
-    }
+    notification.onDismiss?.(reason);
   }
 
   getAll(): StreamNotification[] {

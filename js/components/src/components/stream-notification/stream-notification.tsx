@@ -184,6 +184,7 @@ function NotificationItem({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    pointerEvents: "box-none",
   },
   notification: {
     position: "absolute",

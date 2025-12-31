@@ -55,7 +55,10 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
       { translateX: sidebarOffset.value },
       { translateY: -kb.keyboardHeight },
     ],
-    opacity: sidebarOpacity.value,
+  }));
+
+  const notificationOffsetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -sidebarOffset.value }],
   }));
 
   return (
@@ -88,11 +91,25 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
           animatedSidebarStyle,
         ]}
       >
-        <StreamNotificationProvider>
-          <View style={{ flex: 1, position: "relative" }}>
-            <ChatPanel />
-          </View>
-        </StreamNotificationProvider>
+        <View style={{ flex: 1, position: "relative" }}>
+          <Animated.View
+            style={[
+              {
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: 0,
+                right: 0,
+                zIndex: 2,
+                pointerEvents: "none",
+              },
+              notificationOffsetStyle,
+            ]}
+          >
+            <StreamNotificationProvider position="top" />
+          </Animated.View>
+          <ChatPanel />
+        </View>
       </Animated.View>
     </>
   );

@@ -1,16 +1,19 @@
 import { View } from "react-native";
 import { Main } from "streamplace/src/lexicons/types/place/stream/richtext/facet";
+import { SystemMessageType } from "../../lib/system-messages";
 import { colors, flex, gap, layout, ml, pb, pl, px, w } from "../../ui";
 import { Code, Text } from "../ui/text";
 import { RichTextMessage } from "./chat-message";
 
 interface SystemMessageProps {
+  variant: SystemMessageType;
   title: string;
   timestamp: Date;
   facets?: Main[];
 }
 
 export function SystemMessage({
+  variant,
   title,
   timestamp,
   facets,

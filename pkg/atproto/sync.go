@@ -429,10 +429,6 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		if repo == nil {
-			// someone we don't know about
-			return nil
-		}
 		log.Debug(ctx, "creating moderation delegation", "streamerDID", userDID, "moderatorDID", rec.Moderator)
 
 		permissionsJSON, err := json.Marshal(rec.Permissions)

@@ -271,38 +271,47 @@ func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to decode livestream record")
 	}
 
-	// Update only the provided fields
+	// Create new record (don't edit existing - old records serve as "chapter markers")
+	// Copy fields from existing record and update title
 	if input.Title != nil {
 		livestream.Title = *input.Title
 	}
 
-	// Update the record
-	putInput := comatproto.RepoPutRecord_Input{
+	// Ensure notificationSettings.pushNotification is false for mods
+	if livestream.NotificationSettings == nil {
+		livestream.NotificationSettings = &streamplace.Livestream_NotificationSettings{}
+	}
+	pushNotificationFalse := false
+	livestream.NotificationSettings.PushNotification = &pushNotificationFalse
+
+	// Update createdAt to current time for new record
+	livestream.CreatedAt = time.Now().UTC().Format(time.RFC3339)
+
+	// Create new record instead of updating existing
+	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_LIVESTREAM,
 		Record:     &lexutil.LexiconTypeDecoder{Val: livestream},
-		Rkey:       rkey,
 		Repo:       input.Streamer,
-		SwapRecord: getOutput.Cid,
 	}
-	putOutput := comatproto.RepoPutRecord_Output{}
+	createOutput := comatproto.RepoCreateRecord_Output{}
 
-	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, putInput, &putOutput)
+	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, createInput, &createOutput)
 	if err != nil {
-		log.Error(ctx, "failed to update livestream record", "err", err)
+		log.Error(ctx, "failed to create livestream record", "err", err)
 		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "updateLivestream", input.LivestreamUri, "", "", false, err.Error()); auditErr != nil {
 			log.Error(ctx, "failed to create audit log", "error", auditErr)
 		}
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to update livestream: %v", err))
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create livestream: %v", err))
 	}
 
 	// Log successful audit entry
-	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "updateLivestream", input.LivestreamUri, "", putOutput.Uri, true, ""); err != nil {
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "updateLivestream", input.LivestreamUri, "", createOutput.Uri, true, ""); err != nil {
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
 	return &streamplace.ModerationUpdateLivestream_Output{
-		Uri: putOutput.Uri,
-		Cid: putOutput.Cid,
+		Uri: createOutput.Uri,
+		Cid: createOutput.Cid,
 	}, nil
 }
 

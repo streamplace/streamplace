@@ -1,4 +1,4 @@
-import { Shield, Trash2, UserPlus } from "lucide-react-native";
+import { Check, Shield, Trash2, UserPlus } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import {
@@ -28,6 +28,7 @@ const {
   layout,
   gap,
   mb,
+  my,
   px,
   py,
 } = atoms;
@@ -433,7 +434,7 @@ function AddModeratorDialog({
       dismissible={false}
     >
       {/* DID Input */}
-      <View style={[mb[4]]}>
+      <View style={[my[4]]}>
         <Text style={[textStyle.gray[300], { fontSize: 13, marginBottom: 8 }]}>
           Moderator DID or Handle
         </Text>
@@ -478,9 +479,7 @@ function AddModeratorDialog({
                 { marginRight: 12 },
               ]}
             >
-              {permissions.ban && (
-                <Text style={[textStyle.white, { fontSize: 12 }]}>✓</Text>
-              )}
+              {permissions.ban && <Check size={12} color="white" />}
             </View>
             <View>
               <Text
@@ -605,10 +604,16 @@ function AddModeratorDialog({
 
       {/* Actions */}
       <DialogFooter>
-        <Button variant="secondary" onPress={onClose} disabled={isLoading}>
-          <Text>Cancel</Text>
+        <Button
+          width="min"
+          variant="secondary"
+          onPress={onClose}
+          disabled={isLoading}
+        >
+          Cancel
         </Button>
         <Button
+          width="min"
           variant="primary"
           onPress={handleAdd}
           disabled={
@@ -617,7 +622,7 @@ function AddModeratorDialog({
             Object.values(permissions).every((p) => !p)
           }
         >
-          <Text>{isLoading ? "Adding..." : "Add Moderator"}</Text>
+          {isLoading ? "Adding..." : "Add Moderator"}
         </Button>
       </DialogFooter>
     </ResponsiveDialog>

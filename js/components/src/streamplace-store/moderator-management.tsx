@@ -106,21 +106,16 @@ export function useAddModerator() {
     try {
       // Resolve handle to DID if needed
       let moderatorDID = params.moderatorDID.trim();
-      if (moderatorDID.startsWith("@")) {
-        // It's a handle, resolve to DID
-        const resolved = await agent.com.atproto.identity.resolveHandle({
-          handle: moderatorDID.substring(1), // Remove @
-        });
-        moderatorDID = resolved.data.did;
-      } else if (!moderatorDID.startsWith("did:")) {
-        // Try to resolve as handle without @
+      if (!moderatorDID.startsWith("did:")) {
+        if (moderatorDID.startsWith("@")) {
+          moderatorDID = moderatorDID.substring(1); // Remove @
+        }
         try {
           const resolved = await agent.com.atproto.identity.resolveHandle({
             handle: moderatorDID,
           });
           moderatorDID = resolved.data.did;
         } catch (e) {
-          // If resolution fails, assume it's already a DID
           throw new Error(
             `Invalid DID or handle: ${moderatorDID}. Please use a valid DID (did:plc:...) or handle (@handle.bsky.social)`,
           );

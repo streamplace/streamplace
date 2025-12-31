@@ -568,6 +568,7 @@ function UpdateStreamTitleDialog({
 
       <DialogFooter>
         <Button
+          width="min"
           variant="secondary"
           onPress={() => {
             onClose();
@@ -580,6 +581,7 @@ function UpdateStreamTitleDialog({
         </Button>
         <Button
           variant="primary"
+          width="min"
           onPress={handleUpdate}
           disabled={isLoading || !title.trim()}
         >

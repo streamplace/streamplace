@@ -150,7 +150,7 @@ export function useUpdateLivestreamRecord() {
           throw new Error("Invalid livestream URI");
         }
 
-        // Get existing record first
+        // Get existing record to copy fields
         const getResult = await agent.com.atproto.repo.getRecord({
           repo: agent.did,
           collection: "place.stream.livestream",
@@ -159,22 +159,18 @@ export function useUpdateLivestreamRecord() {
 
         const oldRecord = getResult.data.value as any;
 
-        // Update the record
+        // Create new record (don't edit - old records are "chapter markers")
+        // Spread entire record to preserve all fields (agent, canonicalUrl, notificationSettings, etc.)
         const record = {
-          $type: "place.stream.livestream",
-          title: title,
-          url: oldRecord.url,
-          createdAt: oldRecord.createdAt,
-          post: oldRecord.post,
-          thumb: oldRecord.thumb,
+          ...oldRecord,
+          title: title, // Override title
+          createdAt: new Date().toISOString(), // Override timestamp for new chapter marker
         };
 
-        const result = await agent.com.atproto.repo.putRecord({
+        const result = await agent.com.atproto.repo.createRecord({
           repo: agent.did,
           collection: "place.stream.livestream",
-          rkey,
           record,
-          swapRecord: getResult.data.cid,
         });
         return result;
       }

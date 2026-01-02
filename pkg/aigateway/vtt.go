@@ -2,7 +2,6 @@ package aigateway
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 )
@@ -62,28 +61,16 @@ func GenerateVTTForSegment(segs []TranscriptSegment, segmentStartMS, segmentEndM
 	}
 	segmentDurMS := segmentEndMS - segmentStartMS
 
-	// Ensure stable ordering even if producers resend or arrive out of order.
-	ordered := make([]TranscriptSegment, 0, len(segs))
-	for _, s := range segs {
-		if strings.TrimSpace(s.Text) == "" {
-			continue
-		}
-		if s.EndMS <= s.StartMS {
-			continue
-		}
-		ordered = append(ordered, s)
-	}
-	sort.SliceStable(ordered, func(i, j int) bool {
-		if ordered[i].StartMS == ordered[j].StartMS {
-			return ordered[i].EndMS < ordered[j].EndMS
-		}
-		return ordered[i].StartMS < ordered[j].StartMS
-	})
-
 	var sb strings.Builder
 	sb.WriteString("WEBVTT\n\n")
 
-	for _, seg := range ordered {
+	for _, seg := range segs {
+		if strings.TrimSpace(seg.Text) == "" {
+			continue
+		}
+		if seg.EndMS <= seg.StartMS {
+			continue
+		}
 		// Include if overlapping [segmentStartMS, segmentEndMS)
 		if seg.EndMS <= segmentStartMS || seg.StartMS >= segmentEndMS {
 			continue

@@ -114,7 +114,7 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(time.Second * 60):
+		case <-time.After(time.Second * 10):
 			log.Debug(ctx, "pipeline is taking too long to start, cancelling")
 			err := fmt.Errorf("pipeline is taking too long to start, cancelling")
 			pipeline.Error(err.Error(), err)

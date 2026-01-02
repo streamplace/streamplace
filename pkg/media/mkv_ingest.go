@@ -123,7 +123,6 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 func (mm *MediaManager) startAIGatewayTee(ctx context.Context, input io.Reader, streamer string) (io.Reader, func()) {
 	cfg := aigateway.Config{
 		BaseURL:       mm.cli.AIGatewayBaseURL,
-		PathPrefix:    mm.cli.AIGatewayPathPrefix,
 		Pipeline:      mm.cli.AIGatewayPipeline,
 		RTMPHost:      mm.cli.AIGatewayRTMPHost,
 	}

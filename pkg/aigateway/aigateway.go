@@ -41,9 +41,6 @@ type Config struct {
 	// BaseURL is the base URL of the AI gateway (e.g., "http://localhost:5937").
 	BaseURL string
 
-	// PathPrefix is an optional path prefix for gateway requests (e.g., "gateway").
-	PathPrefix string
-
 	// Pipeline is the AI pipeline capability name (e.g., "transcriber").
 	Pipeline string
 
@@ -113,16 +110,10 @@ type envelope struct {
 // StartStream initiates a new transcription session with the AI gateway.
 // It returns a Session containing the endpoints for media ingress and transcript output.
 func StartStream(ctx context.Context, cfg Config, streamName string) (*Session, error) {
-	prefix := ""
-	if cfg.PathPrefix != "" {
-		prefix = "/" + strings.Trim(cfg.PathPrefix, "/")
-	}
 	base := strings.TrimRight(cfg.BaseURL, "/")
-	urlPrefix := base + prefix
 	startCandidates := []string{
-		urlPrefix + "/process/stream/start",
-		base + "/gateway/process/stream/start",
-		urlPrefix + "/ai/stream/start",
+		base + "/process/stream/start",
+		base + "/ai/stream/start",
 	}
 
 	env := envelope{
@@ -226,17 +217,10 @@ func StopStream(ctx context.Context, cfg Config, streamID string) error {
 	if streamID == "" {
 		return fmt.Errorf("empty streamID")
 	}
-
-	prefix := ""
-	if cfg.PathPrefix != "" {
-		prefix = "/" + strings.Trim(cfg.PathPrefix, "/")
-	}
 	base := strings.TrimRight(cfg.BaseURL, "/")
-	urlPrefix := base + prefix
 	stopCandidates := []string{
-		urlPrefix + "/process/stream/" + streamID + "/stop",
-		base + "/gateway/process/stream/" + streamID + "/stop",
-		urlPrefix + "/ai/stream/" + streamID + "/stop",
+		base + "/process/stream/" + streamID + "/stop",
+		base + "/ai/stream/" + streamID + "/stop",
 	}
 
 	env := envelope{

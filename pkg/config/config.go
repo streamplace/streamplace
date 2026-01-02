@@ -139,7 +139,6 @@ type CLI struct {
 	SegmentDebugDir             string
 	Syndicate                   []string
 	AIGatewayBaseURL           string
-	AIGatewayPathPrefix        string
 	AIGatewayPipeline          string
 	AIGatewayRTMPHost          string
 	AIGatewayFFmpegBin         string
@@ -243,7 +242,6 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	cli.StringSliceFlag(fs, &cli.Syndicate, "syndicate", []string{}, "list of DIDs that we should rebroadcast ('*' for everybody)")
 
 	fs.StringVar(&cli.AIGatewayBaseURL, "ai-gateway-base-url", "", "base URL of the AI transcription gateway (e.g. http://localhost:5937)")
-	fs.StringVar(&cli.AIGatewayPathPrefix, "ai-gateway-path-prefix", "", "path prefix for AI gateway requests (e.g. 'gateway' when behind proxy)")
 	fs.StringVar(&cli.AIGatewayPipeline, "ai-gateway-pipeline", "transcription", "AI pipeline capability name")
 	fs.StringVar(&cli.AIGatewayRTMPHost, "ai-gateway-rtmp-host", "localhost:1937", "RTMP host:port for AI gateway media ingress")
 	fs.StringVar(&cli.AIGatewayFFmpegBin, "ai-gateway-ffmpeg-bin", "ffmpeg", "path to ffmpeg binary for AI gateway publisher")

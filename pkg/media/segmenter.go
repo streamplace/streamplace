@@ -201,29 +201,6 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 	})
 }
 
-func (mm *MediaManager) SegmentAndSignElemH264Parse(ctx context.Context, ms MediaSigner) (*gst.Element, error) {
-	return SegmentElem(ctx, mm.cli, ms.Streamer(), true, func(ctx context.Context, bs []byte, now int64) error {
-		if mm.cli.SmearAudio {
-			smearedBuf := &bytes.Buffer{}
-			err := RewriteAudioTimestamps(ctx, mm.cli, bytes.NewReader(bs), smearedBuf, true)
-			if err != nil {
-				return fmt.Errorf("error smearing audio timestamps: %w", err)
-			}
-			bs = smearedBuf.Bytes()
-		}
-		signedBs, err := ms.SignMP4(ctx, bytes.NewReader(bs), now)
-		if err != nil {
-			return fmt.Errorf("error calling SignMP4: %w", err)
-		}
-		log.Debug(ctx, "signed segment", "size", len(signedBs))
-		err = mm.ValidateMP4(ctx, bytes.NewReader(signedBs), true)
-		if err != nil {
-			return fmt.Errorf("error validating just-signed segment: %w", err)
-		}
-		return nil
-	})
-}
-
 func SegmentFileUnsigned(ctx context.Context, cli *config.CLI, streamer string, input string, ch chan *SplitSegment) error {
 	fd, err := os.OpenFile(input, os.O_RDONLY, 0644)
 	log.Log(ctx, "reading file", "file", input)

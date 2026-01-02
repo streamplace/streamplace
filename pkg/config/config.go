@@ -125,12 +125,6 @@ type CLI struct {
 	SQLLogging                 bool
 	SentryDSN                  string
 	LivepeerDebug              bool
-	LivepeerAIProcessing       bool
-	LivepeerAICapability       string
-	LivepeerAIEnableVideoIngress bool
-	LivepeerAIEnableVideoEgress  bool
-	LivepeerAIEnableDataOutput   bool
-	LivepeerAIStreamKey          string
 	Tickets                    []string
 	IrohTopic                  string
 	DID                        string
@@ -233,12 +227,6 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.BoolVar(&cli.SQLLogging, "sql-logging", false, "enable sql logging")
 	fs.StringVar(&cli.SentryDSN, "sentry-dsn", "", "sentry dsn for error reporting")
 	fs.BoolVar(&cli.LivepeerDebug, "livepeer-debug", false, "log livepeer segments to $SP_DATA_DIR/livepeer-debug")
-	fs.BoolVar(&cli.LivepeerAIProcessing, "livepeer-ai-processing", false, "enable AI processing in Livepeer transcode requests")
-	fs.StringVar(&cli.LivepeerAICapability, "livepeer-ai-capability", "video-analysis", "AI capability to use (e.g., video-analysis)")
-	fs.BoolVar(&cli.LivepeerAIEnableVideoIngress, "livepeer-ai-enable-video-ingress", true, "enable video ingress for AI processing")
-	fs.BoolVar(&cli.LivepeerAIEnableVideoEgress, "livepeer-ai-enable-video-egress", false, "enable video egress for AI processing")
-	fs.BoolVar(&cli.LivepeerAIEnableDataOutput, "livepeer-ai-enable-data-output", true, "enable data output for AI processing")
-	fs.StringVar(&cli.LivepeerAIStreamKey, "livepeer-ai-stream-key", "", "stream key for AI processing (optional)")
 	fs.StringVar(&cli.SegmentDebugDir, "segment-debug-dir", "", "directory to log segment validation to")
 	cli.StringSliceFlag(fs, &cli.Tickets, "tickets", []string{}, "tickets to join the swarm with")
 	fs.StringVar(&cli.IrohTopic, "iroh-topic", "", "topic to use for the iroh swarm (must be 32 bytes in hex)")

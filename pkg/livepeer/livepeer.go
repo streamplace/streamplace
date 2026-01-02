@@ -65,47 +65,6 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 		"manifestID": sessionIDRen,
 		"profiles":   lpProfiles,
 	}
-
-	if ls.CLI.LivepeerAIProcessing {
-		aiJobSettings := map[string]any{
-				"enable_video_ingress": true,
-				"enable_video_egress": false,
-				"enable_data_output": true,
-		}
-
-		aiJobSettingsJSON, err := json.Marshal(aiJobSettings)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal AI job params: %w", err)
-		}
-		aiJobSettingsStr := string(aiJobSettingsJSON)
-
-		aiJobParams := map[string]any{
-			"modality": "audio",
-			"correction_enabled": false,
-			"audio_window_s": 2.0,
-		}
-
-		aiJobParamsStr, err := json.Marshal(aiJobParams)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal AI job params: %w", err)
-		}
-
-		transcodingConfiguration["aiParams"] = map[string]any{
-			"capability": ls.CLI.LivepeerAICapability,
-			"parameters": string(aiJobSettingsStr),
-			"request": "{}",
-			"timeout_seconds": 60,
-			"stream_id": sessionIDRen,
-			"params": string(aiJobParamsStr),
-		}
-
-		if ls.CLI.LivepeerAIStreamKey != "" {
-			transcodingConfiguration["streamKey"] = ls.CLI.LivepeerAIStreamKey
-		}
-	}
-
-	log.Debug(ctx, "transcoding configuration", "transcodingConfiguration", transcodingConfiguration)
-
 	bs, err := json.Marshal(transcodingConfiguration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal livepeer profile: %w", err)
@@ -132,9 +91,7 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 	ctx, cancel := context.WithTimeout(ctx, time.Minute*5)
 	defer cancel()
 	seqNo := ls.Count
-
-	//# TODO: do a replace /live with live2 if ai processing is enabled
-	url := fmt.Sprintf("%s/live2/%s/%d.ts", ls.GatewayURL, sessionIDRen, seqNo)
+	url := fmt.Sprintf("%s/live/%s/%d.ts", ls.GatewayURL, sessionIDRen, seqNo)
 	ls.Count++
 
 	dur := time.Duration(*spseg.Duration)

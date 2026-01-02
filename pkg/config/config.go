@@ -52,90 +52,92 @@ func (b BuildFlags) BuildTimeStrExpo() string {
 }
 
 type CLI struct {
-	AdminAccount               string
-	Build                      *BuildFlags
-	DataDir                    string
-	DBURL                      string
-	EthAccountAddr             string
-	EthKeystorePath            string
-	EthPassword                string
-	FirebaseServiceAccount     string
-	FirebaseServiceAccountFile string
-	GitLabURL                  string
-	HTTPAddr                   string
-	HTTPInternalAddr           string
-	HTTPSAddr                  string
-	RtmpsAddr                  string
-	Secure                     bool
-	NoMist                     bool
-	MistAdminPort              int
-	MistHTTPPort               int
-	MistRTMPPort               int
-	SigningKeyPath             string
-	TAURL                      string
-	TLSCertPath                string
-	TLSKeyPath                 string
-	PKCS11ModulePath           string
-	PKCS11Pin                  string
-	PKCS11TokenSlot            string
-	PKCS11TokenLabel           string
-	PKCS11TokenSerial          string
-	PKCS11KeypairLabel         string
-	PKCS11KeypairID            string
-	StreamerName               string
-	RelayHost                  string
-	Debug                      map[string]map[string]int
-	AllowedStreams             []string
-	WideOpen                   bool
-	Peers                      []string
-	Redirects                  []string
-	TestStream                 bool
-	FrontendProxy              string
-	PublicOAuth                bool
-	AppBundleID                string
-	NoFirehose                 bool
-	PrintChat                  bool
-	Color                      string
-	LivepeerGatewayURL         string
-	LivepeerGateway            bool
-	WHIPTest                   string
-	Thumbnail                  bool
-	SmearAudio                 bool
-	ExternalSigning            bool
-	RTMPServerAddon            string
-	TracingEndpoint            string
-	BroadcasterHost            string
-	XXDeprecatedPublicHost     string
-	ServerHost                 string
-	RateLimitPerSecond         int
-	RateLimitBurst             int
-	RateLimitWebsocket         int
-	JWK                        jwk.Key
-	AccessJWK                  jwk.Key
-	dataDirFlags               []*string
-	DiscordWebhooks            []*discordtypes.Webhook
-	NewWebRTCPlayback          bool
-	AppleTeamID                string
-	AndroidCertFingerprint     string
-	Labelers                   []string
-	AtprotoDID                 string
-	LivepeerHelp               bool
-	PLCURL                     string
-	ContentFilters             *ContentFilters
-	SQLLogging                 bool
-	SentryDSN                  string
-	LivepeerDebug              bool
-	Tickets                    []string
-	IrohTopic                  string
-	DID                        string
-	DisableIrohRelay           bool
-	DevAccountCreds            map[string]string
-	StreamSessionTimeout       time.Duration
-	Replicators                []string
-	WebsocketURL               string
-	BehindHTTPSProxy           bool
-	SegmentDebugDir            string
-	Syndicate                  []string
+	AdminAccount                string
+	Build                       *BuildFlags
+	DataDir                     string
+	DBURL                       string
+	EthAccountAddr              string
+	EthKeystorePath             string
+	EthPassword                 string
+	FirebaseServiceAccount      string
+	FirebaseServiceAccountFile  string
+	GitLabURL                   string
+	HTTPAddr                    string
+	HTTPInternalAddr            string
+	HTTPSAddr                   string
+	RTMPAddr                    string
+	RTMPSAddr                   string
+	Secure                      bool
+	NoMist                      bool
+	MistAdminPort               int
+	MistHTTPPort                int
+	MistRTMPPort                int
+	SigningKeyPath              string
+	TAURL                       string
+	TLSCertPath                 string
+	TLSKeyPath                  string
+	PKCS11ModulePath            string
+	PKCS11Pin                   string
+	PKCS11TokenSlot             string
+	PKCS11TokenLabel            string
+	PKCS11TokenSerial           string
+	PKCS11KeypairLabel          string
+	PKCS11KeypairID             string
+	StreamerName                string
+	RelayHost                   string
+	Debug                       map[string]map[string]int
+	AllowedStreams              []string
+	WideOpen                    bool
+	Peers                       []string
+	Redirects                   []string
+	TestStream                  bool
+	FrontendProxy               string
+	PublicOAuth                 bool
+	AppBundleID                 string
+	NoFirehose                  bool
+	PrintChat                   bool
+	Color                       string
+	LivepeerGatewayURL          string
+	LivepeerGateway             bool
+	WHIPTest                    string
+	Thumbnail                   bool
+	SmearAudio                  bool
+	ExternalSigning             bool
+	RTMPServerAddon             string
+	TracingEndpoint             string
+	BroadcasterHost             string
+	XXDeprecatedPublicHost      string
+	ServerHost                  string
+	RateLimitPerSecond          int
+	RateLimitBurst              int
+	RateLimitWebsocket          int
+	JWK                         jwk.Key
+	AccessJWK                   jwk.Key
+	dataDirFlags                []*string
+	DiscordWebhooks             []*discordtypes.Webhook
+	NewWebRTCPlayback           bool
+	AppleTeamID                 string
+	AndroidCertFingerprint      string
+	Labelers                    []string
+	AtprotoDID                  string
+	LivepeerHelp                bool
+	PLCURL                      string
+	ContentFilters              *ContentFilters
+	DefaultRecommendedStreamers []string
+	SQLLogging                  bool
+	SentryDSN                   string
+	LivepeerDebug               bool
+	Tickets                     []string
+	IrohTopic                   string
+	DID                         string
+	DisableIrohRelay            bool
+	DevAccountCreds             map[string]string
+	StreamSessionTimeout        time.Duration
+	Replicators                 []string
+	WebsocketURL                string
+	BehindHTTPSProxy            bool
+	SegmentDebugDir             string
+	Syndicate                   []string
 	AIGatewayBaseURL           string
 	AIGatewayPathPrefix        string
 	AIGatewayRewriteURLsTo     string
@@ -209,12 +211,14 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.StringVar(&cli.ServerHost, "server-host", "", "public host for this particular physical streamplace node. defaults to broadcaster-host and only must be set for multi-node broadcasters")
 	fs.BoolVar(&cli.Thumbnail, "thumbnail", true, "enable thumbnail generation")
 	fs.BoolVar(&cli.SmearAudio, "smear-audio", false, "enable audio smearing to create 'perfect' segment timestamps")
+
 	fs.StringVar(&cli.TracingEndpoint, "tracing-endpoint", "", "gRPC endpoint to send traces to")
 	fs.IntVar(&cli.RateLimitPerSecond, "rate-limit-per-second", 0, "rate limit for requests per second per ip")
 	fs.IntVar(&cli.RateLimitBurst, "rate-limit-burst", 0, "rate limit burst for requests per ip")
 	fs.IntVar(&cli.RateLimitWebsocket, "rate-limit-websocket", 10, "number of concurrent websocket connections allowed per ip")
 	fs.StringVar(&cli.RTMPServerAddon, "rtmp-server-addon", "", "address of external RTMP server to forward streams to")
-	fs.StringVar(&cli.RtmpsAddr, "rtmps-addr", ":1935", "address to listen for RTMPS connections")
+	fs.StringVar(&cli.RTMPSAddr, "rtmps-addr", ":1935", "address to listen for RTMPS connections (when --secure=true)")
+	fs.StringVar(&cli.RTMPAddr, "rtmp-addr", ":1935", "address to listen for RTMP connections (when --secure=false)")
 	cli.JSONFlag(fs, &cli.DiscordWebhooks, "discord-webhooks", "[]", "JSON array of Discord webhooks to send notifications to")
 	fs.BoolVar(&cli.NewWebRTCPlayback, "new-webrtc-playback", true, "enable new webrtc playback")
 	fs.StringVar(&cli.AppleTeamID, "apple-team-id", "", "apple team id for deep linking")
@@ -222,6 +226,7 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	cli.StringSliceFlag(fs, &cli.Labelers, "labelers", []string{}, "did of labelers that this instance should subscribe to")
 	fs.StringVar(&cli.AtprotoDID, "atproto-did", "", "atproto did to respond to on /.well-known/atproto-did (default did:web:PUBLIC_HOST)")
 	cli.JSONFlag(fs, &cli.ContentFilters, "content-filters", "{}", "JSON content filtering rules")
+	cli.StringSliceFlag(fs, &cli.DefaultRecommendedStreamers, "default-recommended-streamers", []string{}, "comma-separated list of streamer DIDs to recommend by default when no other recommendations are available")
 	fs.BoolVar(&cli.LivepeerHelp, "livepeer-help", false, "print help for livepeer flags and exit")
 	fs.StringVar(&cli.PLCURL, "plc-url", "https://plc.directory", "url of the plc directory")
 	fs.BoolVar(&cli.SQLLogging, "sql-logging", false, "enable sql logging")

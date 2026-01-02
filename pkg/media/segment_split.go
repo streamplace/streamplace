@@ -126,6 +126,9 @@ func SplitSegments(ctx context.Context, cli *config.CLI, input io.ReadSeeker, cb
 			SegmentMetadata: metadata,
 		})
 	}
+	if len(manifestList) == 0 {
+		return fmt.Errorf("no manifests found")
+	}
 	sort.Slice(manifestList, func(i, j int) bool {
 		m1 := manifestList[i]
 		m2 := manifestList[j]

@@ -62,7 +62,7 @@ export function TopControlBar({
         ]}
       >
         <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
-          {Platform.OS !== "web" && (
+          {Platform.OS !== "web" && !embedded && (
             <Pressable
               onPress={() => {
                 navigation.canGoBack()
@@ -97,7 +97,7 @@ export function TopControlBar({
                   ]}
                 />
 
-                <View style={[layout.flex.column, gap.all[2]]}>
+                <View style={[layout.flex.column, gap.all[1]]}>
                   <Text
                     style={[text.white, { fontSize: 16, fontWeight: "600" }]}
                   >

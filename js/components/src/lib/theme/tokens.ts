@@ -595,7 +595,7 @@ export const typography = {
     xs: {
       fontSize: 12,
       lineHeight: 16,
-      marginBottom: -0.7,
+      marginBottom: -0.3,
       fontWeight: "400" as const,
       fontFamily: "AtkinsonHyperlegibleNext-Regular",
     },

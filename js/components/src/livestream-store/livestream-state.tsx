@@ -21,6 +21,8 @@ export interface LivestreamState {
   replyToMessage: ChatMessageViewHydrated | null;
   streamKey: string | null;
   setStreamKey: (key: string | null) => void;
+  websocketConnected: boolean;
+  hasReceivedSegment: boolean;
 }
 
 export interface LivestreamProblem {

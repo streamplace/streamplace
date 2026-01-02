@@ -32,6 +32,7 @@ type Model interface {
 	MostRecentSegments() ([]Segment, error)
 	LatestSegmentForUser(user string) (*Segment, error)
 	LatestSegmentsForUser(user string, limit int, before *time.Time, after *time.Time) ([]Segment, error)
+	FilterLiveRepoDIDs(repoDIDs []string) ([]string, error)
 	CreateThumbnail(thumb *Thumbnail) error
 	LatestThumbnailForUser(user string) (*Thumbnail, error)
 	GetSegment(id string) (*Segment, error)
@@ -48,6 +49,7 @@ type Model interface {
 	GetRepoByHandleOrDID(arg string) (*Repo, error)
 	GetRepoBySigningKey(signingKey string) (*Repo, error)
 	GetAllRepos() ([]Repo, error)
+	SearchReposByHandle(query string, limit int) ([]Repo, error)
 	UpdateRepo(repo *Repo) error
 
 	UpdateSigningKey(key *SigningKey) error
@@ -107,6 +109,9 @@ type Model interface {
 	CreateMetadataConfiguration(ctx context.Context, metadata *MetadataConfiguration) error
 	GetMetadataConfiguration(ctx context.Context, repoDID string) (*MetadataConfiguration, error)
 	DeleteMetadataConfiguration(ctx context.Context, repoDID string) error
+
+	GetRecommendation(userDID string) (*Recommendation, error)
+	UpsertRecommendation(rec *Recommendation) error
 }
 
 var DBRevision = 2
@@ -175,6 +180,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Label{},
 		BroadcastOrigin{},
 		MetadataConfiguration{},
+		Recommendation{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

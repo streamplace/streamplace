@@ -266,7 +266,9 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.graph.getFollowingUser", s.HandlePlaceStreamGraphGetFollowingUser)
 	e.GET("/xrpc/place.stream.live.getLiveUsers", s.HandlePlaceStreamLiveGetLiveUsers)
 	e.GET("/xrpc/place.stream.live.getProfileCard", s.HandlePlaceStreamLiveGetProfileCard)
+	e.GET("/xrpc/place.stream.live.getRecommendations", s.HandlePlaceStreamLiveGetRecommendations)
 	e.GET("/xrpc/place.stream.live.getSegments", s.HandlePlaceStreamLiveGetSegments)
+	e.GET("/xrpc/place.stream.live.searchActorsTypeahead", s.HandlePlaceStreamLiveSearchActorsTypeahead)
 	e.POST("/xrpc/place.stream.server.createWebhook", s.HandlePlaceStreamServerCreateWebhook)
 	e.POST("/xrpc/place.stream.server.deleteWebhook", s.HandlePlaceStreamServerDeleteWebhook)
 	e.GET("/xrpc/place.stream.server.getServerTime", s.HandlePlaceStreamServerGetServerTime)
@@ -343,6 +345,20 @@ func (s *Server) HandlePlaceStreamLiveGetProfileCard(c echo.Context) error {
 	return c.Stream(200, "application/octet-stream", out)
 }
 
+func (s *Server) HandlePlaceStreamLiveGetRecommendations(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveGetRecommendations")
+	defer span.End()
+	userDID := c.QueryParam("userDID")
+	var out *placestream.LiveGetRecommendations_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context,userDID string) (*placestream.LiveGetRecommendations_Output, error)
+	out, handleErr = s.handlePlaceStreamLiveGetRecommendations(ctx, userDID)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamLiveGetSegments(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveGetSegments")
 	defer span.End()
@@ -363,6 +379,31 @@ func (s *Server) HandlePlaceStreamLiveGetSegments(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context,before string,limit int,userDID string) (*placestream.LiveGetSegments_Output, error)
 	out, handleErr = s.handlePlaceStreamLiveGetSegments(ctx, before, limit, userDID)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamLiveSearchActorsTypeahead(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveSearchActorsTypeahead")
+	defer span.End()
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 10
+	}
+	q := c.QueryParam("q")
+	var out *placestream.LiveSearchActorsTypeahead_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLiveSearchActorsTypeahead(ctx context.Context,limit int,q string) (*placestream.LiveSearchActorsTypeahead_Output, error)
+	out, handleErr = s.handlePlaceStreamLiveSearchActorsTypeahead(ctx, limit, q)
 	if handleErr != nil {
 		return handleErr
 	}

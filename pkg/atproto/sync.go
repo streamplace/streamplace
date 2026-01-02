@@ -2,6 +2,7 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -421,6 +422,38 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		err = atsync.Model.CreateMetadataConfiguration(ctx, metadata)
 		if err != nil {
 			log.Error(ctx, "failed to create metadata configuration", "err", err)
+		}
+
+	case *streamplace.LiveRecommendations:
+		log.Debug(ctx, "creating recommendations", "userDID", userDID, "count", len(rec.Streamers))
+
+		// Validate max 8 streamers
+		if len(rec.Streamers) > 8 {
+			log.Warn(ctx, "recommendations exceed maximum of 8", "count", len(rec.Streamers))
+			return fmt.Errorf("maximum 8 recommendations allowed, got %d", len(rec.Streamers))
+		}
+
+		// Marshal streamers to JSON
+		streamersJSON, err := json.Marshal(rec.Streamers)
+		if err != nil {
+			return fmt.Errorf("failed to marshal streamers: %w", err)
+		}
+
+		// Parse createdAt timestamp
+		createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse createdAt: %w", err)
+		}
+
+		recommendation := &model.Recommendation{
+			UserDID:   userDID,
+			Streamers: json.RawMessage(streamersJSON),
+			CreatedAt: createdAt,
+		}
+
+		err = atsync.Model.UpsertRecommendation(recommendation)
+		if err != nil {
+			return fmt.Errorf("failed to upsert recommendation: %w", err)
 		}
 
 	default:

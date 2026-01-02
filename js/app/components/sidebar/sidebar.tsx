@@ -7,8 +7,9 @@ import {
   useNavigation,
 } from "@react-navigation/native";
 import { Text, zero } from "@streamplace/components";
+import { useAQLinkHref } from "components/aqlink";
 import React from "react";
-import { Image, Platform, View } from "react-native";
+import { Image, Platform, Pressable, View } from "react-native";
 import Animated, {
   SharedValue,
   useAnimatedStyle,
@@ -52,6 +53,13 @@ export default function Sidebar({
     };
   });
 
+  // home route
+  const route = state.routes.find((r) => r.name === "Home");
+  const { href } = useAQLinkHref({
+    screen: route ? route.name : "Home",
+    params: route?.params as any,
+  });
+
   if (hidden) {
     return <View />;
   }
@@ -65,7 +73,9 @@ export default function Sidebar({
         zero.layout.flex.column,
       ]}
     >
-      <View
+      <Pressable
+        // @ts-ignore This makes it render as <a> on web!
+        href={route ? href : undefined}
         style={[
           zero.layout.flex.row,
           zero.layout.flex.alignCenter,
@@ -84,7 +94,7 @@ export default function Sidebar({
           style={{ width: 28, height: 30, resizeMode: "contain" }}
         />
         {!collapsed && <Text size="2xl">Streamplace</Text>}
-      </View>
+      </Pressable>
 
       {state.routes.map((route) => {
         const descriptor = descriptors[route.key];
@@ -124,6 +134,7 @@ export default function Sidebar({
             route={route}
             onPress={(ev) => {
               ev.preventDefault();
+              // bleh
               if (route.name === "Home") {
                 // reset the stack (b/c streamlist is in the same stack as home)
                 navigation.dispatch(
@@ -135,6 +146,17 @@ export default function Sidebar({
                         state: {
                           routes: [{ name: "StreamList" }],
                         },
+                      },
+                    ],
+                  }),
+                );
+              } else if (route.name === "Settings") {
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: 0,
+                    routes: [
+                      {
+                        name: "Settings",
                       },
                     ],
                   }),

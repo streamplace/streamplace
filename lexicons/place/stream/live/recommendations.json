@@ -1,0 +1,32 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.live.recommendations",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A list of recommended streamers, in order of preference",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["streamers", "createdAt"],
+        "properties": {
+          "streamers": {
+            "type": "array",
+            "description": "Ordered list of recommended streamer DIDs",
+            "items": {
+              "type": "string",
+              "format": "did"
+            },
+            "maxLength": 8,
+            "minLength": 0
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this list was created."
+          }
+        }
+      }
+    }
+  }
+}

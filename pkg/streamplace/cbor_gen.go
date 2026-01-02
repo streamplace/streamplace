@@ -4975,3 +4975,206 @@ func (t *MetadataContentWarnings) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
+func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 1000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.live.recommendations"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("place.stream.live.recommendations")); err != nil {
+		return err
+	}
+
+	// t.CreatedAt (string) (string)
+	if len("createdAt") > 1000000 {
+		return xerrors.Errorf("Value in field \"createdAt\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
+		return err
+	}
+
+	if len(t.CreatedAt) > 1000000 {
+		return xerrors.Errorf("Value in field t.CreatedAt was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
+		return err
+	}
+
+	// t.Streamers ([]string) (slice)
+	if len("streamers") > 1000000 {
+		return xerrors.Errorf("Value in field \"streamers\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("streamers"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("streamers")); err != nil {
+		return err
+	}
+
+	if len(t.Streamers) > 8192 {
+		return xerrors.Errorf("Slice value in field t.Streamers was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Streamers))); err != nil {
+		return err
+	}
+	for _, v := range t.Streamers {
+		if len(v) > 1000000 {
+			return xerrors.Errorf("Value in field v was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(v))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string(v)); err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
+
+func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = LiveRecommendations{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("LiveRecommendations: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 9)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.CreatedAt (string) (string)
+		case "createdAt":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.CreatedAt = string(sval)
+			}
+			// t.Streamers ([]string) (slice)
+		case "streamers":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.Streamers: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Streamers = make([]string, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+						sval, err := cbg.ReadStringWithMax(cr, 1000000)
+						if err != nil {
+							return err
+						}
+
+						t.Streamers[i] = string(sval)
+					}
+
+				}
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}

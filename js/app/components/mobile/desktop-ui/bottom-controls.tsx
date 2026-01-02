@@ -30,7 +30,7 @@ interface BottomControlBarProps {
   onHandlePip: () => void;
   dropdownPortalContainer?: any;
   showChat: boolean;
-  setShowChat: (show: boolean) => void;
+  setShowChat?: (show: boolean) => void;
 }
 
 export function BottomControlBar({
@@ -103,7 +103,7 @@ export function BottomControlBar({
           />
         )}
         {/* if not web, then add the collapse chat controls here */}
-        {Platform.OS !== "web" && (
+        {Platform.OS !== "web" && setShowChat && (
           <Button
             variant="outline"
             size="sm"

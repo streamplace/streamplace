@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * i18n key extraction script
- * 1. Scans the codebase for i18n keys (t('key'), Trans components, etc)
- * 2. Extracts keys into namespace JSON files (common.json, settings.json, etc)
- * 3. Migrates new keys to corresponding .ftl files for translation
+ * i18n migration script
+ * Migrates extracted JSON keys to .ftl files for translation
+ *
+ * This script expects that i18next-cli has already extracted keys to JSON files.
+ * It reads those JSON files, compares them to existing .ftl files, and adds any
+ * new keys to the .ftl files.
+ *
+ * For keys with i18next context/plural suffixes (e.g., key_male, key_female, key_one, key_other),
+ * it will convert them into Fluent select expressions.
  *
  * Usage:
- *   node extract-i18n.js                    # Extract keys and report new ones
- *   node extract-i18n.js --add-to=common    # Add new keys to common.ftl
- *   node extract-i18n.js --add-to=settings  # Add new keys to settings.ftl
+ *   node migrate-i18n.js                    # Report new keys
+ *   node migrate-i18n.js --add-to=common    # Add new keys to common.ftl
+ *   node migrate-i18n.js --add-to=settings  # Add new keys to settings.ftl
  */
 
-const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -24,7 +28,6 @@ const addToNamespace = args
 
 // Paths
 const COMPONENTS_ROOT = path.join(__dirname, "..");
-const APP_ROOT = path.join(__dirname, "..", "..", "app");
 const MANIFEST_PATH = path.join(COMPONENTS_ROOT, "locales/manifest.json");
 const LOCALES_FTL_DIR = path.join(COMPONENTS_ROOT, "locales");
 const LOCALES_JSON_DIR = path.join(COMPONENTS_ROOT, "public/locales");
@@ -32,72 +35,141 @@ const LOCALES_JSON_DIR = path.join(COMPONENTS_ROOT, "public/locales");
 // Load manifest
 const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
 
-// Configuration for i18next-parser
-const parserConfig = {
-  contextSeparator: "_",
-  createOldCatalogs: false,
-  defaultNamespace: "messages",
-  defaultValue: "",
-  indentation: 2,
-  keepRemoved: true,
-  keySeparator: false,
-  namespaceSeparator: false,
+// Plural forms that i18next uses
+const PLURAL_FORMS = ["zero", "one", "two", "few", "many", "other"];
 
-  lexers: {
-    js: ["JavascriptLexer"],
-    ts: ["JavascriptLexer"],
-    jsx: ["JsxLexer"],
-    tsx: ["JsxLexer"],
-    html: false,
-    htm: false,
-    handlebars: false,
-    hbs: false,
-  },
-
-  locales: manifest.supportedLocales,
-  output: path.join(LOCALES_JSON_DIR, "$LOCALE/$NAMESPACE.json"),
-  input: [
-    path.join(COMPONENTS_ROOT, "src/**/*.{js,jsx,ts,tsx}"),
-    path.join(APP_ROOT, "src/**/*.{js,jsx,ts,tsx}"),
-    path.join(APP_ROOT, "components/**/*.{js,jsx,ts,tsx}"),
-    "!**/node_modules/**",
-    "!**/dist/**",
-    "!**/*.test.{js,jsx,ts,tsx}",
-    "!**/*.spec.{js,jsx,ts,tsx}",
-  ],
-
-  verbose: true,
-  sort: true,
-  failOnWarnings: false,
-  failOnUpdate: false,
-};
+// Separators used by i18next-cli (configured in i18next.config.js)
+const CONTEXT_SEPARATOR = "|";
+const PLURAL_SEPARATOR = "/";
 
 /**
- * Extract keys from codebase using i18next-parser
+ * Group keys by base name, detecting context and plural variants
+ * Returns { baseKey: { base: true, variants: { context: Set, plurals: Set } } }
  */
-function extractKeys() {
-  const configPath = path.join(__dirname, ".i18next-parser.config.js");
-  const configContent = `module.exports = ${JSON.stringify(parserConfig, null, 2)};`;
+function groupKeysByBase(keys) {
+  const groups = {};
 
-  try {
-    fs.writeFileSync(configPath, configContent);
-    console.log("🔍 Extracting i18n keys from codebase...");
+  for (const key of keys) {
+    if (!key.includes(CONTEXT_SEPARATOR) && !key.includes(PLURAL_SEPARATOR)) {
+      // Simple key with no variants
+      if (!groups[key]) {
+        groups[key] = {
+          base: true,
+          variants: { contexts: new Set(), plurals: new Set() },
+        };
+      }
+      groups[key].base = true;
+    } else {
+      // Key with variants
+      // Format: base|context/plural or base/plural or base|context
+      let baseKey = key;
+      const detectedContexts = new Set();
+      const detectedPlurals = new Set();
 
-    execSync(`npx i18next-parser --config ${configPath}`, {
-      stdio: "inherit",
-      cwd: __dirname,
-    });
+      // Split by context separator first
+      if (key.includes(CONTEXT_SEPARATOR)) {
+        const contextParts = key.split(CONTEXT_SEPARATOR);
+        baseKey = contextParts[0];
 
-    console.log("✅ Keys extracted successfully!");
-    return true;
-  } catch (error) {
-    console.error("❌ Error extracting i18n keys:", error.message);
-    return false;
-  } finally {
-    if (fs.existsSync(configPath)) {
-      fs.unlinkSync(configPath);
+        // The remaining part might have plurals
+        const contextAndPlural = contextParts[1];
+
+        if (contextAndPlural.includes(PLURAL_SEPARATOR)) {
+          const pluralParts = contextAndPlural.split(PLURAL_SEPARATOR);
+          detectedContexts.add(pluralParts[0]);
+          pluralParts.slice(1).forEach((p) => {
+            if (PLURAL_FORMS.includes(p)) {
+              detectedPlurals.add(p);
+            }
+          });
+        } else {
+          detectedContexts.add(contextAndPlural);
+        }
+      } else if (key.includes(PLURAL_SEPARATOR)) {
+        // No context, just plural
+        const pluralParts = key.split(PLURAL_SEPARATOR);
+        baseKey = pluralParts[0];
+        pluralParts.slice(1).forEach((p) => {
+          if (PLURAL_FORMS.includes(p)) {
+            detectedPlurals.add(p);
+          }
+        });
+      }
+
+      if (!groups[baseKey]) {
+        groups[baseKey] = {
+          base: false,
+          variants: { contexts: new Set(), plurals: new Set() },
+        };
+      }
+
+      detectedContexts.forEach((c) => groups[baseKey].variants.contexts.add(c));
+      detectedPlurals.forEach((p) => groups[baseKey].variants.plurals.add(p));
     }
   }
+
+  return groups;
+}
+
+/**
+ * Convert a group of keys into Fluent format
+ */
+function convertToFluentFormat(baseKey, group) {
+  const hasContexts = group.variants.contexts.size > 0;
+  const hasPlurals = group.variants.plurals.size > 0;
+
+  if (!hasContexts && !hasPlurals) {
+    // Simple key
+    return `${baseKey} = ${baseKey}`;
+  }
+
+  // Build Fluent select expression
+  let selector = "";
+  let variants = [];
+
+  if (hasContexts && hasPlurals) {
+    // Both context and plural - outer selector is context, inner is plural
+    selector = "$context";
+    const contextsList = Array.from(group.variants.contexts).sort();
+    const pluralsList = Array.from(group.variants.plurals).sort();
+
+    contextsList.forEach((context, idx) => {
+      const isDefault = idx === contextsList.length - 1;
+      const prefix = isDefault ? "*" : " ";
+
+      // Build inner plural select
+      const pluralVariants = pluralsList
+        .map((p) => {
+          const pluralPrefix = p === "other" ? "*" : "";
+          return `${pluralPrefix}[${p}] ${baseKey}`;
+        })
+        .join(" ");
+
+      variants.push(
+        `\n   ${prefix}[${context}] { $count -> ${pluralVariants} }`,
+      );
+    });
+  } else if (hasContexts) {
+    // Only context
+    selector = "$context";
+    const contextsList = Array.from(group.variants.contexts).sort();
+    contextsList.forEach((context, idx) => {
+      const isDefault = idx === contextsList.length - 1;
+      const prefix = isDefault ? "*" : " ";
+      variants.push(`\n   ${prefix}[${context}] ${baseKey}`);
+    });
+  } else if (hasPlurals) {
+    // Only plural
+    selector = "$count";
+    const pluralsList = Array.from(group.variants.plurals).sort();
+    pluralsList.forEach((plural) => {
+      const isDefault = plural === "other";
+      const prefix = isDefault ? "*" : " ";
+      variants.push(`\n   ${prefix}[${plural}] ${baseKey}`);
+    });
+  }
+
+  return `# TODO: Convert to proper Fluent select expression\n${baseKey} = { ${selector} ->${variants.join("")}\n}`;
 }
 
 /**
@@ -151,7 +223,7 @@ function getNamespaces(localeJsonDir) {
 }
 
 /**
- * Add new keys to a .ftl file
+ * Add new keys to a .ftl file, converting context/plural keys to Fluent format
  */
 function addKeysToFtlFile(localeDir, namespace, newKeys, locale) {
   const targetFile = path.join(localeDir, `${namespace}.ftl`);
@@ -169,6 +241,15 @@ function addKeysToFtlFile(localeDir, namespace, newKeys, locale) {
     fs.writeFileSync(targetFile, header);
   }
 
+  // Group keys by base to detect context/plural variants
+  const keyGroups = groupKeysByBase(newKeys);
+
+  // Build content
+  const fluentEntries = [];
+  for (const [baseKey, group] of Object.entries(keyGroups)) {
+    fluentEntries.push(convertToFluentFormat(baseKey, group));
+  }
+
   // Append new keys
   let content = fs.readFileSync(targetFile, "utf8");
 
@@ -177,7 +258,7 @@ function addKeysToFtlFile(localeDir, namespace, newKeys, locale) {
   }
 
   content += "\n# Newly extracted keys\n";
-  content += newKeys.map((key) => `${key} = ${key}`).join("\n") + "\n";
+  content += fluentEntries.join("\n\n") + "\n";
 
   fs.writeFileSync(targetFile, content);
 
@@ -188,7 +269,7 @@ function addKeysToFtlFile(localeDir, namespace, newKeys, locale) {
  * Migrate extracted JSON keys to .ftl files
  */
 function migrateKeysToFtl() {
-  console.log("\n🔄 Analyzing extracted keys...");
+  console.log("🔄 Analyzing extracted keys...");
 
   const newKeysByLocaleAndNamespace = {}; // locale -> namespace -> [keys]
 
@@ -297,7 +378,9 @@ function migrateKeysToFtl() {
 
     console.log("\n💡 Next steps:");
     console.log("   1. Review the new keys in your .ftl files");
-    console.log("   2. Replace placeholder values with actual translations");
+    console.log(
+      "   2. Convert TODO placeholders to proper Fluent translations",
+    );
     console.log("   3. Run `pnpm i18n:compile` to update compiled JSON files");
   } else {
     // Just report
@@ -318,19 +401,13 @@ function migrateKeysToFtl() {
     );
     console.log("\nTo add these keys to a specific namespace file, run:");
     Array.from(namespaceSet).forEach((ns) => {
-      console.log(`   node extract-i18n.js --add-to=${ns}`);
+      console.log(`   node migrate-i18n.js --add-to=${ns}`);
     });
   }
 }
 
 function main() {
-  const success = extractKeys();
-
-  if (success) {
-    migrateKeysToFtl();
-  } else {
-    process.exit(1);
-  }
+  migrateKeysToFtl();
 }
 
 main();

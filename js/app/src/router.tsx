@@ -73,6 +73,7 @@ import HomeScreen from "./screens/home";
 
 import { useUrl } from "@streamplace/components";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
+import RecommendationsManager from "components/settings/recommendations-manager";
 import Constants from "expo-constants";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import { SystemBars } from "react-native-edge-to-edge";
@@ -115,6 +116,7 @@ type SettingsStackParamList = {
   AccountCategory: undefined;
   StreamingCategory: undefined;
   WebhooksSettings: undefined;
+  RecommendationsSettings: undefined;
   PrivacyCategory: undefined;
   DanmuCategory: undefined;
   AdvancedCategory: undefined;
@@ -171,6 +173,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
           AccountCategory: "settings/account",
           StreamingCategory: "settings/streaming",
           WebhooksSettings: "settings/streaming/webhooks",
+          RecommendationsSettings: "settings/streaming/recommendations",
           PrivacyCategory: "settings/privacy",
           DanmuCategory: "settings/danmu",
           AdvancedCategory: "settings/advanced",
@@ -514,7 +517,7 @@ export function StreamplaceDrawer() {
           options={{
             drawerIcon: () => <Home color={foregroundColor} size={24} />,
             drawerLabel: () => <Text variant="h5">Home</Text>,
-            headerTitle: "Streamplace",
+            headerTitle: isWeb ? "Home" : "Streamplace",
             headerShown: isWeb,
             title: "Streamplace",
           }}
@@ -566,6 +569,21 @@ export function StreamplaceDrawer() {
             ),
             drawerLabel: () => <Text variant="h5">Settings</Text>,
             headerShown: false,
+          }}
+          listeners={{
+            drawerItemPress: (e) => {
+              e.preventDefault();
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [
+                    {
+                      name: "Settings",
+                    },
+                  ],
+                }),
+              );
+            },
           }}
         />
 
@@ -750,6 +768,11 @@ const SettingsStack = () => {
         name="WebhooksSettings"
         component={WebhookManager}
         options={{ headerTitle: "Webhooks", title: "Webhooks" }}
+      />
+      <Stack.Screen
+        name="RecommendationsSettings"
+        component={RecommendationsManager}
+        options={{ headerTitle: "Recommendations", title: "Recommendations" }}
       />
       <Stack.Screen
         name="PrivacyCategory"

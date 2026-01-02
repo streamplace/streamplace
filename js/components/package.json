@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/components",
-  "version": "0.8.14",
+  "version": "0.8.18",
   "description": "Streamplace React (Native) Components",
   "main": "dist/index.js",
   "types": "src/index.tsx",
@@ -19,6 +19,7 @@
   "devDependencies": {
     "@fluent/syntax": "^0.19.0",
     "@types/sdp-transform": "^2.15.0",
+    "i18next-cli": "^1.32.0",
     "nodemon": "^3.1.10",
     "tsup": "^8.5.0"
   },
@@ -74,7 +75,7 @@
     "start": "tsc --watch --preserveWatchOutput",
     "prepare": "node scripts/compile-translations.js && tsc",
     "i18n:compile": "node scripts/compile-translations.js",
-    "i18n:watch": "nodemon scripts/compile-translations.js --watch locales/**/*.ftl",
-    "i18n:extract": "node scripts/extract-i18n.js"
+    "i18n:watch": "nodemon --watch 'locales/**/*.ftl' --exec 'node scripts/compile-translations.js'",
+    "i18n:extract": "i18next-cli extract && node scripts/migrate-i18n.js"
   }
 }

@@ -113,8 +113,9 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		return err
 	}
 	var deleteAfter *time.Time
-	if meta.DistributionPolicy != nil && meta.DistributionPolicy.ExpiresAt != nil {
-		deleteAfter = meta.DistributionPolicy.ExpiresAt
+	if meta.DistributionPolicy != nil && meta.DistributionPolicy.DeleteAfterSeconds != nil {
+		expiryTime := meta.StartTime.Time().Add(time.Duration(*meta.DistributionPolicy.DeleteAfterSeconds) * time.Second)
+		deleteAfter = &expiryTime
 	}
 	seg := &model.Segment{
 		ID:                 *label,
@@ -173,15 +174,16 @@ func (mm *MediaManager) applyContentFilters(ctx context.Context, meta *SegmentMe
 
 	// Check distribution policy (if enabled)
 	if mm.cli.ContentFilters.DistributionPolicy.Enabled && meta.DistributionPolicy != nil {
-		if meta.DistributionPolicy.ExpiresAt != nil {
-			if time.Now().After(*meta.DistributionPolicy.ExpiresAt) {
-				reason := fmt.Sprintf("distribution policy expired: segment expires at %s", meta.DistributionPolicy.ExpiresAt)
+		if meta.DistributionPolicy.DeleteAfterSeconds != nil {
+			expiresAt := meta.StartTime.Time().Add(time.Duration(*meta.DistributionPolicy.DeleteAfterSeconds) * time.Second)
+			if time.Now().After(expiresAt) {
+				reason := fmt.Sprintf("distribution policy expired: segment expires at %s", expiresAt)
 				log.Log(ctx, "content filtered",
 					"reason", reason,
 					"filter_type", "distribution_policy",
 					"creator", meta.Creator,
 					"start_time", meta.StartTime,
-					"expires_at", *meta.DistributionPolicy.ExpiresAt)
+					"expires_at", expiresAt)
 				return fmt.Errorf("content filtered: %s", reason)
 			}
 		}

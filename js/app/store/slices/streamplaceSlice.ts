@@ -38,6 +38,15 @@ export interface StreamplaceSlice {
   chatWarn: (warned: boolean) => void;
   getIdentity: () => Promise<void>;
   pollMySegments: () => Promise<void>;
+  getRecommendations: (userDID: string) => Promise<{
+    recommendations: Array<{
+      $type: string;
+      did?: string;
+      source?: string;
+      uri?: string;
+    }>;
+    userDID?: string;
+  }>;
 }
 
 export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
@@ -113,5 +122,15 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
     } catch (err) {
       // silently fail
     }
+  },
+  getRecommendations: async (userDID: string) => {
+    const state = get() as any; // need to access bluesky slice
+    if (!state.pdsAgent) {
+      throw new Error("no pdsAgent");
+    }
+    const result = await state.pdsAgent.place.stream.live.getRecommendations({
+      userDID,
+    });
+    return result.data;
   },
 });

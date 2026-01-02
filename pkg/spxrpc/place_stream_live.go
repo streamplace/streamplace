@@ -153,3 +153,102 @@ func (s *Server) handlePlaceStreamLiveSubscribeSegments(c echo.Context) error {
 		log.Debug(c.Request().Context(), "received message", "message", string(msg))
 	}
 }
+
+func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, userDID string) (*placestreamtypes.LiveGetRecommendations_Output, error) {
+	if userDID == "" {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "userDID is required")
+	}
+
+	// Try to get streamer's recommendation list
+	rec, err := s.model.GetRecommendation(userDID)
+	// If we have a recommendation list, filter for live streamers
+	if err == nil {
+		streamers, err := rec.GetStreamersArray()
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to parse recommendations")
+		}
+
+		// Filter for only live streamers
+		liveStreamers, err := s.model.FilterLiveRepoDIDs(streamers)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to filter live streamers")
+		}
+
+		if len(liveStreamers) > 0 {
+			var recommendations []*placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem
+			for _, did := range liveStreamers {
+				recommendations = append(recommendations, &placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem{
+					LiveGetRecommendations_LivestreamRecommendation: &placestreamtypes.LiveGetRecommendations_LivestreamRecommendation{
+						Did:    did,
+						Source: "streamer",
+					},
+				})
+			}
+			return &placestreamtypes.LiveGetRecommendations_Output{
+				Recommendations: recommendations,
+				UserDID:         &userDID,
+			}, nil
+		}
+	} else {
+		// not a big issue but we should log anyways
+		log.Log(ctx, "no recommendations found for user", "userDID", userDID)
+	}
+
+	// get user's follows and check which are live
+	follows, err := s.model.GetUserFollowing(ctx, userDID)
+	if err == nil && len(follows) > 0 {
+		followDIDs := make([]string, len(follows))
+		for i, follow := range follows {
+			followDIDs[i] = follow.SubjectDID
+		}
+
+		liveFollows, err := s.model.FilterLiveRepoDIDs(followDIDs)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to filter live follows")
+		}
+
+		if len(liveFollows) > 0 {
+			var recommendations []*placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem
+			for _, did := range liveFollows {
+				recommendations = append(recommendations, &placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem{
+					LiveGetRecommendations_LivestreamRecommendation: &placestreamtypes.LiveGetRecommendations_LivestreamRecommendation{
+						Did:    did,
+						Source: "follows",
+					},
+				})
+			}
+			return &placestreamtypes.LiveGetRecommendations_Output{
+				Recommendations: recommendations,
+				UserDID:         &userDID,
+			}, nil
+		}
+	}
+
+	// Final fallback: use host's default recommendations
+	defaultStreamers := s.cli.DefaultRecommendedStreamers
+	if len(defaultStreamers) > 0 {
+		liveDefaults, err := s.model.FilterLiveRepoDIDs(defaultStreamers)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to filter default streamers")
+		}
+		var recommendations []*placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem
+		for _, did := range liveDefaults {
+			recommendations = append(recommendations, &placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem{
+				LiveGetRecommendations_LivestreamRecommendation: &placestreamtypes.LiveGetRecommendations_LivestreamRecommendation{
+					Did:    did,
+					Source: "host",
+				},
+			})
+		}
+		return &placestreamtypes.LiveGetRecommendations_Output{
+			Recommendations: recommendations,
+			UserDID:         &userDID,
+		}, nil
+	}
+
+	// No recommendations available
+	return &placestreamtypes.LiveGetRecommendations_Output{
+		Recommendations: []*placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem{},
+		UserDID:         &userDID,
+	}, nil
+}

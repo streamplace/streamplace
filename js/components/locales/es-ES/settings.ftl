@@ -113,7 +113,7 @@ key-manager = Gestor de Claves
 manage-keys = Gestionar Claves
 your-stream-pubkeys = Tus Claves Públicas de Transmisión
 no-keys = No hay claves configuradas
-pubkey-description = Las claves públicas se emparejan con claves de transmisión (usadas en software de streaming) para firmar y verificar tu transmisión
+pubkey-description = Las claves públicas se emparejan con claves de transmisión (usadas en software de transmitiendo) para firmar y verificar tu transmisión
 
 keys-count = { $count ->
     [one] { $count } clave

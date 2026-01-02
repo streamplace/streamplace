@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"context"
+
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
-	"golang.org/x/net/context"
 	"google.golang.org/api/option"
 	"stream.place/streamplace/pkg/log"
 )

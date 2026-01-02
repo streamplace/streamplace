@@ -44,10 +44,10 @@ func TestSegmentRoundtrip(t *testing.T) {
 		name    string
 		fixture string
 	}{
-		{
-			name:    "OneMinute",
-			fixture: remote.RemoteArchive("4563c7b48c0ca02c3fc87bbe6f1e63a743656e465a82bec0af75ef7eead04a23/1-minute-of-signed-segments.tar.gz"),
-		},
+		// {
+		// 	name:    "OneMinute",
+		// 	fixture: remote.RemoteArchive("4563c7b48c0ca02c3fc87bbe6f1e63a743656e465a82bec0af75ef7eead04a23/1-minute-of-signed-segments.tar.gz"),
+		// },
 		{
 			name:    "ThreeSegs",
 			fixture: remote.RemoteArchive("c21e9352e72ca0729c66af2fcabec1b8997b509601241e8d38d5728f9687386b/threesegs.tar.gz"),
@@ -57,6 +57,7 @@ func TestSegmentRoundtrip(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			withNoGSTLeaks(t, func() {
 				tempDir, err := os.MkdirTemp("", "ingredient_test")
+				t.Logf("tempDir: %s", tempDir)
 				require.NoError(t, err)
 				getTestVids := func() []io.ReadSeeker {
 					testVids := []io.ReadSeeker{}

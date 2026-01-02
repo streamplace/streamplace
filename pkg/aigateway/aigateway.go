@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -43,9 +44,6 @@ type Config struct {
 	// PathPrefix is an optional path prefix for gateway requests (e.g., "gateway").
 	PathPrefix string
 
-	// RewriteURLsTo rewrites returned URLs to use this base for local access.
-	RewriteURLsTo string
-
 	// Pipeline is the AI pipeline capability name (e.g., "transcriber").
 	Pipeline string
 
@@ -57,6 +55,9 @@ type Config struct {
 type Session struct {
 	// ID is the unique identifier for this session.
 	ID string
+
+	// StopURL is the URL for stopping the session (if provided by gateway).
+	StopURL string
 
 	// StatusURL is the URL to check session status.
 	StatusURL string
@@ -91,6 +92,7 @@ type streamStartResponse struct {
 	WhipURL   string `json:"whip_url"`
 	WhepURL   string `json:"whep_url"`
 	RTMPURL   string `json:"rtmp_url"`
+	StopURL   string `json:"stop_url"`
 	StreamID  string `json:"stream_id"`
 }
 
@@ -115,7 +117,13 @@ func StartStream(ctx context.Context, cfg Config, streamName string) (*Session, 
 	if cfg.PathPrefix != "" {
 		prefix = "/" + strings.Trim(cfg.PathPrefix, "/")
 	}
-	startURL := strings.TrimRight(cfg.BaseURL, "/") + prefix + "/ai/stream/start"
+	base := strings.TrimRight(cfg.BaseURL, "/")
+	urlPrefix := base + prefix
+	startCandidates := []string{
+		urlPrefix + "/process/stream/start",
+		base + "/gateway/process/stream/start",
+		urlPrefix + "/ai/stream/start",
+	}
 
 	env := envelope{
 		Request:        "{}",
@@ -146,53 +154,71 @@ func StartStream(ctx context.Context, cfg Config, streamName string) (*Session, 
 		return nil, fmt.Errorf("marshal request body: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, startURL, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return nil, fmt.Errorf("new request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Livepeer", livepeerHeader)
+	var lastNotFoundStatus string
+	var lastNotFoundBody string
+	var lastErr error
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("do request: %w", err)
-	}
-	defer resp.Body.Close()
+	for _, startURL := range startCandidates {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, startURL, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return nil, fmt.Errorf("new request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Livepeer", livepeerHeader)
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
-		return nil, fmt.Errorf("start stream failed: %s: %s", resp.Status, string(b))
+		_ = resp.Body.Close()
+
+		if resp.StatusCode == http.StatusNotFound {
+			lastNotFoundStatus = resp.Status
+			lastNotFoundBody = string(b)
+			continue
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return nil, fmt.Errorf("start stream failed: %s: %s", resp.Status, string(b))
+		}
+
+		var sr streamStartResponse
+		if err := json.Unmarshal(b, &sr); err != nil {
+			return nil, fmt.Errorf("decode response: %w", err)
+		}
+
+		if sr.StreamID == "" {
+			return nil, fmt.Errorf("start response missing stream_id")
+		}
+
+		session := &Session{
+			ID:        sr.StreamID,
+			StopURL:   sr.StopURL,
+			StatusURL: sr.StatusURL,
+			DataURL:   sr.DataURL,
+			UpdateURL: sr.UpdateURL,
+			WhipURL:   sr.WhipURL,
+			WhepURL:   sr.WhepURL,
+			RTMPURL:   sr.RTMPURL,
+		}
+
+		normalizeBase := strings.TrimRight(cfg.BaseURL, "/")
+		session.StopURL = normalizeGatewayURL(normalizeBase, session.StopURL)
+		session.StatusURL = normalizeGatewayURL(normalizeBase, session.StatusURL)
+		session.DataURL = normalizeGatewayURL(normalizeBase, session.DataURL)
+		session.UpdateURL = normalizeGatewayURL(normalizeBase, session.UpdateURL)
+		session.WhipURL = normalizeGatewayURL(normalizeBase, session.WhipURL)
+		session.WhepURL = normalizeGatewayURL(normalizeBase, session.WhepURL)
+		session.RTMPURL = normalizeGatewayURL(normalizeBase, session.RTMPURL)
+
+		return session, nil
 	}
 
-	var sr streamStartResponse
-	if err := json.NewDecoder(resp.Body).Decode(&sr); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+	if lastErr != nil {
+		return nil, fmt.Errorf("do request: %w", lastErr)
 	}
-
-	if sr.StreamID == "" {
-		return nil, fmt.Errorf("start response missing stream_id")
-	}
-
-	session := &Session{
-		ID:        sr.StreamID,
-		StatusURL: sr.StatusURL,
-		DataURL:   sr.DataURL,
-		UpdateURL: sr.UpdateURL,
-		WhipURL:   sr.WhipURL,
-		WhepURL:   sr.WhepURL,
-		RTMPURL:   sr.RTMPURL,
-	}
-
-	if cfg.RewriteURLsTo != "" {
-		session.StatusURL = rewriteURL(session.StatusURL, cfg.RewriteURLsTo)
-		session.DataURL = rewriteURL(session.DataURL, cfg.RewriteURLsTo)
-		session.UpdateURL = rewriteURL(session.UpdateURL, cfg.RewriteURLsTo)
-		session.WhipURL = rewriteURL(session.WhipURL, cfg.RewriteURLsTo)
-		session.WhepURL = rewriteURL(session.WhepURL, cfg.RewriteURLsTo)
-		session.RTMPURL = rewriteURL(session.RTMPURL, cfg.RewriteURLsTo)
-	}
-
-	return session, nil
+	return nil, fmt.Errorf("start stream failed: %s: %s", lastNotFoundStatus, lastNotFoundBody)
 }
 
 // StopStream terminates an active transcription session.
@@ -205,7 +231,13 @@ func StopStream(ctx context.Context, cfg Config, streamID string) error {
 	if cfg.PathPrefix != "" {
 		prefix = "/" + strings.Trim(cfg.PathPrefix, "/")
 	}
-	stopURL := strings.TrimRight(cfg.BaseURL, "/") + prefix + "/ai/stream/" + streamID + "/stop"
+	base := strings.TrimRight(cfg.BaseURL, "/")
+	urlPrefix := base + prefix
+	stopCandidates := []string{
+		urlPrefix + "/process/stream/" + streamID + "/stop",
+		base + "/gateway/process/stream/" + streamID + "/stop",
+		urlPrefix + "/ai/stream/" + streamID + "/stop",
+	}
 
 	env := envelope{
 		Request:        mustJSON(map[string]string{"stream_id": streamID}),
@@ -225,25 +257,40 @@ func StopStream(ctx context.Context, cfg Config, streamID string) error {
 		return fmt.Errorf("marshal body: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, stopURL, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return fmt.Errorf("new request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Livepeer", livepeerHeader)
+	var lastNotFoundStatus string
+	var lastNotFoundBody string
+	var lastErr error
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("do request: %w", err)
-	}
-	defer resp.Body.Close()
+	for _, stopURL := range stopCandidates {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, stopURL, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return fmt.Errorf("new request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Livepeer", livepeerHeader)
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
-		return fmt.Errorf("stop stream failed: %s: %s", resp.Status, string(b))
+		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusNotFound {
+			lastNotFoundStatus = resp.Status
+			lastNotFoundBody = string(b)
+			continue
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return fmt.Errorf("stop stream failed: %s: %s", resp.Status, string(b))
+		}
+		return nil
 	}
 
-	return nil
+	if lastErr != nil {
+		return fmt.Errorf("do request: %w", lastErr)
+	}
+	return fmt.Errorf("stop stream failed: %s: %s", lastNotFoundStatus, lastNotFoundBody)
 }
 
 // ConstructRTMPURL builds an RTMP URL using the provided host and the session ID.
@@ -251,22 +298,38 @@ func (s *Session) ConstructRTMPURL(rtmpHost string) string {
 	return fmt.Sprintf("rtmp://%s/%s", rtmpHost, s.ID)
 }
 
-func rewriteURL(original, newBase string) string {
-	if original == "" || newBase == "" {
-		return original
+func normalizeGatewayURL(base, raw string) string {
+	if raw == "" || base == "" {
+		return raw
 	}
-	idx := strings.Index(original, "://")
-	if idx == -1 {
-		return original
+	baseURL, err := url.Parse(base)
+	if err != nil {
+		return raw
 	}
-	rest := original[idx+3:]
-	slashIdx := strings.Index(rest, "/")
-	if slashIdx == -1 {
-		return newBase
+	if baseURL.Scheme == "" || baseURL.Host == "" {
+		return raw
 	}
-	path := rest[slashIdx:]
-	path = strings.TrimPrefix(path, "/gateway")
-	return strings.TrimRight(newBase, "/") + path
+	if strings.HasPrefix(raw, "/") {
+		ref, err := url.Parse(raw)
+		if err != nil {
+			return raw
+		}
+		return baseURL.ResolveReference(ref).String()
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	if u.Scheme == "" || u.Host == "" {
+		ref, err := url.Parse(raw)
+		if err != nil {
+			return raw
+		}
+		return baseURL.ResolveReference(ref).String()
+	}
+	u.Scheme = baseURL.Scheme
+	u.Host = baseURL.Host
+	return u.String()
 }
 
 func mustJSON(v any) string {
@@ -282,13 +345,11 @@ type TranscriptEvent struct {
 	// Type is the event type (e.g., "transcript").
 	Type string `json:"type"`
 
-	// TimestampMS is the timestamp in milliseconds when the transcript was generated.
-	TimestampMS int64 `json:"timestamp_ms"`
+	// TimestampUTC is the wall-clock timestamp when the transcript was generated.
+	// The SSE format uses an RFC3339 timestamp string.
+	TimestampUTC *time.Time `json:"timestamp_utc,omitempty"`
 
 	Timing *Timing `json:"timing,omitempty"`
-
-	// CycleID identifies the transcription cycle this event belongs to.
-	CycleID string `json:"cycle_id"`
 
 	// Text is the transcribed text content.
 	Text string `json:"text"`
@@ -300,8 +361,43 @@ type TranscriptEvent struct {
 	ReceivedAt time.Time `json:"-"`
 
 	// Segments is an optional structured transcript payload with explicit media-clock
-	// timestamps. When present, Streamplace should prefer this over Text/TimestampMS.
+	// timestamps.
 	Segments []TranscriptSegment `json:"segments,omitempty"`
+}
+
+func (e *TranscriptEvent) UnmarshalJSON(b []byte) error {
+	// Accept the SSE format (timestamp_utc RFC3339 string).
+	type rawEvent struct {
+		Type         string             `json:"type"`
+		TimestampUTC string             `json:"timestamp_utc"`
+		Timing       *Timing            `json:"timing"`
+		Text         string             `json:"text"`
+		Stats        *Stats              `json:"stats"`
+		Segments     []TranscriptSegment `json:"segments"`
+	}
+
+	var r rawEvent
+	if err := json.Unmarshal(b, &r); err != nil {
+		return err
+	}
+
+	e.Type = r.Type
+	e.Timing = r.Timing
+	e.Text = r.Text
+	e.Stats = r.Stats
+	e.Segments = r.Segments
+
+	if strings.TrimSpace(r.TimestampUTC) == "" {
+		return fmt.Errorf("missing timestamp_utc")
+	}
+	// RFC3339Nano handles both second and sub-second precision.
+	ts, err := time.Parse(time.RFC3339Nano, r.TimestampUTC)
+	if err != nil {
+		return fmt.Errorf("parse timestamp_utc: %w", err)
+	}
+	e.TimestampUTC = &ts
+
+	return nil
 }
 
 // TranscriptSegment represents a timed subtitle unit (phrase/line) in media-clock time.
@@ -325,23 +421,13 @@ type WordTimestamp struct {
 type Timing struct {
 	MediaWindowStartMS    int64 `json:"media_window_start_ms"`
 	MediaWindowEndMS      int64 `json:"media_window_end_ms"`
-	AudioWindowSeq        int64 `json:"audio_window_seq"`
-	AudioWindowEndSamples int64 `json:"audio_window_end_samples"`
-	MediaClockRateHz      int64 `json:"media_clock_rate_hz"`
 }
 
 // Stats contains performance statistics for a transcription event.
 type Stats struct {
-	FrameCount      int     `json:"frame_count"`
-	AudioDurationMS int     `json:"audio_duration_ms"`
-	MaxNewTokens    int     `json:"max_new_tokens"`
-	TimingsMS       Timings `json:"timings_ms"`
+	AudioDurationMS int `json:"audio_duration_ms"`
 }
 
-// Timings contains timing information for transcription generation.
-type Timings struct {
-	Generate int `json:"generate"`
-}
 
 // EventHandler is a callback function for processing transcript events.
 type EventHandler func(ctx context.Context, event TranscriptEvent)
@@ -426,6 +512,18 @@ func ReadSSE(ctx context.Context, dataURL string, handler EventHandler) error {
 }
 
 func parseSSEPayload(data string) ([]TranscriptEvent, error) {
+	var directMany []TranscriptEvent
+	if err := json.Unmarshal([]byte(data), &directMany); err == nil {
+		return directMany, nil
+	}
+
+	var wrapper struct {
+		Events []TranscriptEvent `json:"events"`
+	}
+	if err := json.Unmarshal([]byte(data), &wrapper); err == nil && len(wrapper.Events) > 0 {
+		return wrapper.Events, nil
+	}
+
 	var outer []string
 	if err := json.Unmarshal([]byte(data), &outer); err != nil {
 		var single TranscriptEvent

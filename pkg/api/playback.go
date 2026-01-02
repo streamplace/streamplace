@@ -467,11 +467,9 @@ func (a *StreamplaceAPI) handleSubtitles(ctx context.Context, w http.ResponseWri
 		// mapping onto the media timeline. If we don't have a measured MPEGTS start
 		// timestamp, derive it from our synthetic segment timeline (ms -> 90kHz ticks).
 		mpegts := uint64(segmentStartMS * 90)
-		mpegtsSource := "start_ms"
 		if mediaSegs[segIdx].StartTS != nil {
 			// StartTS is splitmuxsink running-time in nanoseconds. Convert to 90kHz ticks.
 			mpegts = (*mediaSegs[segIdx].StartTS * 90) / 1_000_000
-			mpegtsSource = "start_ns"
 		}
 		prefix := fmt.Sprintf("WEBVTT\n\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:%d\n\n", mpegts)
 		if bytes.HasPrefix(vtt, []byte("WEBVTT\n\n")) {
@@ -479,10 +477,6 @@ func (a *StreamplaceAPI) handleSubtitles(ctx context.Context, w http.ResponseWri
 		} else {
 			vtt = append([]byte(prefix), vtt...)
 		}
-		w.Header().Set("X-Streamplace-VTT-Segment-StartMS", fmt.Sprintf("%d", segmentStartMS))
-		w.Header().Set("X-Streamplace-VTT-SubOffsetMS", fmt.Sprintf("%d", subOffsetMS))
-		w.Header().Set("X-Streamplace-VTT-MPEGTS", fmt.Sprintf("%d", mpegts))
-		w.Header().Set("X-Streamplace-VTT-MPEGTS-Source", mpegtsSource)
 		w.Header().Set("X-Streamplace-Transcript-Events", fmt.Sprintf("%d", len(transcriptSegs)))
 		w.Header().Set("Content-Type", "text/vtt")
 		http.ServeContent(w, r, subFile, time.Now(), bytes.NewReader(vtt))

@@ -124,7 +124,6 @@ func (mm *MediaManager) startAIGatewayTee(ctx context.Context, input io.Reader, 
 	cfg := aigateway.Config{
 		BaseURL:       mm.cli.AIGatewayBaseURL,
 		PathPrefix:    mm.cli.AIGatewayPathPrefix,
-		RewriteURLsTo: mm.cli.AIGatewayRewriteURLsTo,
 		Pipeline:      mm.cli.AIGatewayPipeline,
 		RTMPHost:      mm.cli.AIGatewayRTMPHost,
 	}
@@ -359,7 +358,8 @@ func (mm *MediaManager) startSSEReader(ctx context.Context, dataURL string, stre
 			log.Debug(ctx, "received transcript event",
 				"type", event.Type,
 				"text", event.Text,
-				"timestamp_ms", event.TimestampMS,
+				"timestamp_utc", event.TimestampUTC,
+				"segments", len(event.Segments),
 			)
 			mm.transcriptStore.AddEvent(streamer, event)
 		})

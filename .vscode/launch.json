@@ -8,7 +8,7 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
-        "./build-linux-amd64/streamplace --broadcaster-host=127.0.0.1:38080 --no-firehose --wide-open --ai-gateway-base-url=http://localhost:5937 --ai-gateway-rewrite-urls-to=http://localhost:5937 --ai-gateway-pipeline=transcriber"
+        "./build-linux-amd64/streamplace --broadcaster-host=127.0.0.1:38080 --no-firehose --wide-open --ai-gateway-base-url=http://localhost:5937 --ai-gateway-pipeline=transcriber"
       ],
       "cwd": "${workspaceFolder}",
       "env": {

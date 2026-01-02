@@ -140,7 +140,6 @@ type CLI struct {
 	Syndicate                   []string
 	AIGatewayBaseURL           string
 	AIGatewayPathPrefix        string
-	AIGatewayRewriteURLsTo     string
 	AIGatewayPipeline          string
 	AIGatewayRTMPHost          string
 	AIGatewayFFmpegBin         string
@@ -245,7 +244,6 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 
 	fs.StringVar(&cli.AIGatewayBaseURL, "ai-gateway-base-url", "", "base URL of the AI transcription gateway (e.g. http://localhost:5937)")
 	fs.StringVar(&cli.AIGatewayPathPrefix, "ai-gateway-path-prefix", "", "path prefix for AI gateway requests (e.g. 'gateway' when behind proxy)")
-	fs.StringVar(&cli.AIGatewayRewriteURLsTo, "ai-gateway-rewrite-urls-to", "", "rewrite returned URLs to use this base for local access")
 	fs.StringVar(&cli.AIGatewayPipeline, "ai-gateway-pipeline", "transcription", "AI pipeline capability name")
 	fs.StringVar(&cli.AIGatewayRTMPHost, "ai-gateway-rtmp-host", "localhost:1937", "RTMP host:port for AI gateway media ingress")
 	fs.StringVar(&cli.AIGatewayFFmpegBin, "ai-gateway-ffmpeg-bin", "ffmpeg", "path to ffmpeg binary for AI gateway publisher")

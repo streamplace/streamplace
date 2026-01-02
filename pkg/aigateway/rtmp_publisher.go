@@ -21,7 +21,6 @@ type RTMPPublisher struct {
 	rtmpURL    string
 	started    bool
 	startedMu  sync.Mutex
-	err        error
 }
 
 // NewRTMPPublisher creates a new RTMP publisher that will stream to the given URL.
@@ -82,7 +81,6 @@ func (p *RTMPPublisher) Start() (io.WriteCloser, error) {
 		err := p.cmd.Wait()
 		if err != nil && p.ctx.Err() == nil {
 			log.Error(p.ctx, "ffmpeg RTMP publisher exited with error", "error", err)
-			p.err = err
 		} else {
 			log.Log(p.ctx, "ffmpeg RTMP publisher exited")
 		}
@@ -113,12 +111,4 @@ func (p *RTMPPublisher) Stop() {
 	}
 
 	p.wg.Wait()
-}
-
-// Error returns any error that occurred during ffmpeg execution.
-// This should be checked after Stop() returns.
-func (p *RTMPPublisher) Error() error {
-	p.startedMu.Lock()
-	defer p.startedMu.Unlock()
-	return p.err
 }

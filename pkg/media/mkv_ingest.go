@@ -356,7 +356,6 @@ func (mm *MediaManager) startSSEReader(ctx context.Context, dataURL string, stre
 		err := aigateway.ReadSSE(ctx, dataURL, func(ctx context.Context, event aigateway.TranscriptEvent) {
 			log.Debug(ctx, "received transcript event",
 				"type", event.Type,
-				"text", event.Text,
 				"timestamp_utc", event.TimestampUTC,
 				"segments", len(event.Segments),
 			)

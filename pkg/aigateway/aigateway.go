@@ -335,17 +335,13 @@ type TranscriptEvent struct {
 
 	Timing *Timing `json:"timing,omitempty"`
 
-	// Text is the transcribed text content.
-	Text string `json:"text"`
-
 	// Stats contains optional performance statistics for this transcription.
 	Stats *Stats `json:"stats,omitempty"`
 
 	// ReceivedAt is when Streamplace received this event (not from JSON).
 	ReceivedAt time.Time `json:"-"`
 
-	// Segments is an optional structured transcript payload with explicit media-clock
-	// timestamps.
+	// Segments contains the structured transcript payload with explicit media-clock timestamps.
 	Segments []TranscriptSegment `json:"segments,omitempty"`
 }
 
@@ -355,8 +351,7 @@ func (e *TranscriptEvent) UnmarshalJSON(b []byte) error {
 		Type         string             `json:"type"`
 		TimestampUTC string             `json:"timestamp_utc"`
 		Timing       *Timing            `json:"timing"`
-		Text         string             `json:"text"`
-		Stats        *Stats              `json:"stats"`
+		Stats        *Stats             `json:"stats"`
 		Segments     []TranscriptSegment `json:"segments"`
 	}
 
@@ -367,7 +362,6 @@ func (e *TranscriptEvent) UnmarshalJSON(b []byte) error {
 
 	e.Type = r.Type
 	e.Timing = r.Timing
-	e.Text = r.Text
 	e.Stats = r.Stats
 	e.Segments = r.Segments
 
@@ -452,17 +446,15 @@ func ReadSSE(ctx context.Context, dataURL string, handler EventHandler) error {
 			return
 		}
 
-		events, err := parseSSEPayload(data)
+		event, err := parseSSEPayload(data)
 		if err != nil {
-			log.Debug(ctx, "failed to parse SSE payload", "error", err, "data", data)
+			log.Debug(ctx, "failed to parse SSE payload", "error", err)
 			eventBuf.Reset()
 			return
 		}
 
-		for _, event := range events {
-			event.ReceivedAt = time.Now()
-			handler(ctx, event)
-		}
+		event.ReceivedAt = time.Now()
+		handler(ctx, event)
 		eventBuf.Reset()
 	}
 
@@ -495,37 +487,25 @@ func ReadSSE(ctx context.Context, dataURL string, handler EventHandler) error {
 	return nil
 }
 
-func parseSSEPayload(data string) ([]TranscriptEvent, error) {
-	var directMany []TranscriptEvent
-	if err := json.Unmarshal([]byte(data), &directMany); err == nil {
-		return directMany, nil
-	}
-
-	var wrapper struct {
-		Events []TranscriptEvent `json:"events"`
-	}
-	if err := json.Unmarshal([]byte(data), &wrapper); err == nil && len(wrapper.Events) > 0 {
-		return wrapper.Events, nil
-	}
-
+func parseSSEPayload(data string) (TranscriptEvent, error) {
 	var outer []string
 	if err := json.Unmarshal([]byte(data), &outer); err != nil {
-		var single TranscriptEvent
-		if err2 := json.Unmarshal([]byte(data), &single); err2 == nil {
-			return []TranscriptEvent{single}, nil
-		}
-		return nil, fmt.Errorf("unmarshal outer array: %w", err)
+		return TranscriptEvent{}, fmt.Errorf("unmarshal SSE outer payload: %w", err)
+	}
+	if len(outer) != 1 {
+		return TranscriptEvent{}, fmt.Errorf("unexpected SSE outer payload length: %d", len(outer))
 	}
 
-	var events []TranscriptEvent
-	for _, s := range outer {
-		var event TranscriptEvent
-		if err := json.Unmarshal([]byte(s), &event); err != nil {
-			continue
-		}
-		events = append(events, event)
+	inner := strings.TrimSpace(outer[0])
+	if inner == "" {
+		return TranscriptEvent{}, fmt.Errorf("empty SSE inner payload")
 	}
-	return events, nil
+
+	var event TranscriptEvent
+	if err := json.Unmarshal([]byte(inner), &event); err != nil {
+		return TranscriptEvent{}, fmt.Errorf("unmarshal SSE inner transcript event: %w", err)
+	}
+	return event, nil
 }
 
 func isContextError(err error, ctx context.Context) bool {

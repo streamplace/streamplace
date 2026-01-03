@@ -18,6 +18,7 @@ import { ArrowRight } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { loadEmojiData } from "utils/emoji";
 import LivestreamPanel from "./livestream-panel";
 import StreamMonitor from "./stream-monitor";
 
@@ -194,6 +195,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 isLive={isLive}
                 isConnected={isConnected}
                 messagesPerMinute={messagesPerMinute}
+                emojiData={loadEmojiData()}
               />
             </View>
             <View

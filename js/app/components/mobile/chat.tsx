@@ -20,10 +20,10 @@ import Animated, {
 
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
-import emojiData from "assets/emoji-data.json";
 import { ArrowRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
+import { loadEmojiData } from "utils/emoji";
 const { borderRadius, gap, layout, flex, px, position, bottom } = zero;
 
 export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
@@ -150,7 +150,7 @@ function ChatPanel() {
       <View style={[layout.flex.column, gap.all[2]]}>
         {agent?.did ? (
           <ChatBox
-            emojiData={emojiData}
+            emojiData={loadEmojiData() || null}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
           />
         ) : !agent ? (

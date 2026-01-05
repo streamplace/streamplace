@@ -150,15 +150,16 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 	return dur, busErr
 }
 
-// MPEGTSToMP4 converts an MPEG-TS file with H264 video and Opus audio to an MP4 file.
+// MPEGTSToMP4 converts an MPEG-TS file with H264 video and AAC audio to an MP4 file.
 // It reads from the provided reader and writes the converted MP4 to the writer.
+// Uses dynamic pad linking to handle varying PIDs in the TS stream.
 func MPEGTSToMP4(ctx context.Context, input io.Reader, output io.Writer) error {
 	ctx = log.WithLogValues(ctx, "func", "MPEGTSToMP4")
 	pipelineStr := strings.Join([]string{
 		"appsrc name=appsrc ! tsdemux name=demux",
 		"mp4mux name=mux ! appsink sync=false name=appsink",
-		"demux.video_0_0100 ! h264parse ! video/x-h264,stream-format=avc ! queue name=videoqueue",
-		"demux.audio_0_0101 ! opusdec ! opusenc ! queue name=audioqueue",
+		"h264parse name=videoparse ! video/x-h264,stream-format=avc ! queue name=videoqueue",
+		"aacparse name=audioparse ! queue name=audioqueue",
 	}, " ")
 
 	pipeline, err := gst.NewPipelineFromString(pipelineStr)
@@ -204,6 +205,27 @@ func MPEGTSToMP4(ctx context.Context, input io.Reader, output io.Writer) error {
 		return fmt.Errorf("failed to link audio queue source pad to mux audio sink pad: %v", ok)
 	}
 
+	demux, err := pipeline.GetElementByName("demux")
+	if err != nil {
+		return err
+	}
+	videoparse, err := pipeline.GetElementByName("videoparse")
+	if err != nil {
+		return err
+	}
+	audioparse, err := pipeline.GetElementByName("audioparse")
+	if err != nil {
+		return err
+	}
+	videoParseSinkPad := videoparse.GetStaticPad("sink")
+	if videoParseSinkPad == nil {
+		return fmt.Errorf("failed to get video parse sink pad")
+	}
+	audioParseSinkPad := audioparse.GetStaticPad("sink")
+	if audioParseSinkPad == nil {
+		return fmt.Errorf("failed to get audio parse sink pad")
+	}
+
 	// Get elements
 	appsrc, err := pipeline.GetElementByName("appsrc")
 	if err != nil {
@@ -238,6 +260,30 @@ func MPEGTSToMP4(ctx context.Context, input io.Reader, output io.Writer) error {
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	// Dynamic pad linking for tsdemux - link video pads to videoparse, audio pads to audiodec
+	onPadAdded := func(element *gst.Element, pad *gst.Pad) {
+		if pad.GetDirection() != gst.PadDirectionSource {
+			return
+		}
+		padName := pad.GetName()
+		if strings.HasPrefix(padName, "video") {
+			linkOk := pad.Link(videoParseSinkPad)
+			if linkOk != gst.PadLinkOK {
+				log.Error(ctx, "failed to link video pad to video parse", "pad", padName, "error", linkOk)
+				cancel()
+			}
+		} else if strings.HasPrefix(padName, "audio") {
+			linkOk := pad.Link(audioParseSinkPad)
+			if linkOk != gst.PadLinkOK {
+				log.Error(ctx, "failed to link audio pad to audio parse", "pad", padName, "error", linkOk)
+				cancel()
+			}
+		}
+	}
+	if _, err := demux.Connect("pad-added", onPadAdded); err != nil {
+		return fmt.Errorf("failed to connect pad-added handler: %w", err)
+	}
 
 	busErr := make(chan error)
 	go func() {

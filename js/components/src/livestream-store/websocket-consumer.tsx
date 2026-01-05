@@ -120,6 +120,10 @@ export const handleWebSocketMessages = (
           pendingHides: newPendingHides,
         };
         state = reduceChat(state, [], [], [hiddenMessageUri]);
+      } else if ((message as any)?.$type === "place.stream.ai#dataOutput") {
+        // Log AI data output from the gateway for debugging.
+        const aiMsg = message as any;
+        console.log("Received AI data output:", aiMsg);
       }
     }
   }

@@ -2,7 +2,6 @@ package atproto
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -431,43 +430,23 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "creating moderation delegation", "streamerDID", userDID, "moderatorDID", rec.Moderator)
 
-		permissionsJSON, err := json.Marshal(rec.Permissions)
-		if err != nil {
-			return fmt.Errorf("failed to marshal permissions: %w", err)
-		}
-
-		// Parse optional expiration time
-		var expirationTime *time.Time
-		if rec.ExpirationTime != nil {
-			t, err := time.Parse(time.RFC3339, *rec.ExpirationTime)
-			if err != nil {
-				log.Warn(ctx, "failed to parse expiration time", "value", *rec.ExpirationTime, "err", err)
-			} else {
-				expirationTime = &t
-			}
-		}
-
-		delegation := &model.ModerationDelegation{
-			RKey:           rkey.String(),
-			CID:            cid,
-			RepoDID:        userDID,
-			Repo:           repo,
-			ModeratorDID:   rec.Moderator,
-			Permissions:    permissionsJSON,
-			ExpirationTime: expirationTime,
-			Record:         *recCBOR,
-			CreatedAt:      now,
-			IndexedAt:      now,
-		}
-
-		err = atsync.Model.CreateModerationDelegation(ctx, delegation)
+		err = atsync.Model.CreateModerationDelegation(ctx, rec, aturi)
 		if err != nil {
 			return fmt.Errorf("failed to create moderation delegation: %w", err)
 		}
 
-		// Publish moderation permission record to WebSocket bus for real-time updates
+		view := &streamplace.ModerationDefs_PermissionView{
+			Uri: aturi.String(),
+			Cid: cid,
+			Author: &bsky.ActorDefs_ProfileViewBasic{
+				Did:    userDID,
+				Handle: repo.Handle,
+			},
+			Record: &lexutil.LexiconTypeDecoder{Val: rec},
+		}
+		// Publish moderation permission view to WebSocket bus for real-time updates
 		// This allows moderators to see their permissions instantly without page refresh
-		go atsync.Bus.Publish(userDID, rec)
+		go atsync.Bus.Publish(userDID, view)
 
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))

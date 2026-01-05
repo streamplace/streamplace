@@ -2,11 +2,11 @@ package moderation
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
 // Permission scope constants
@@ -81,20 +81,26 @@ func (pc *PermissionChecker) HasPermission(ctx context.Context, moderatorDID, st
 	}
 
 	// Check all delegation records and merge their permissions
-	for _, delegation := range delegations {
-		// Skip expired delegations
-		if delegation.ExpirationTime != nil && time.Now().After(*delegation.ExpirationTime) {
-			continue
+	for _, delegationView := range delegations {
+		// Extract the actual permission record from the view
+		permRecord, ok := delegationView.Record.Val.(*streamplace.ModerationPermission)
+		if !ok {
+			return false, fmt.Errorf("failed to cast record to ModerationPermission")
 		}
 
-		// Parse permissions JSON array
-		var permissions []string
-		if err := json.Unmarshal(delegation.Permissions, &permissions); err != nil {
-			return false, fmt.Errorf("failed to unmarshal permissions: %w", err)
+		// Skip expired delegations
+		if permRecord.ExpirationTime != nil {
+			expirationTime, err := time.Parse(time.RFC3339, *permRecord.ExpirationTime)
+			if err != nil {
+				return false, fmt.Errorf("failed to parse expiration time: %w", err)
+			}
+			if time.Now().After(expirationTime) {
+				continue
+			}
 		}
 
 		// Check if this delegation has the required permission
-		for _, p := range permissions {
+		for _, p := range permRecord.Permissions {
 			if p == permission {
 				return true, nil
 			}

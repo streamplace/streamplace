@@ -108,12 +108,12 @@ type Model interface {
 	GetMetadataConfiguration(ctx context.Context, repoDID string) (*MetadataConfiguration, error)
 	DeleteMetadataConfiguration(ctx context.Context, repoDID string) error
 
-	CreateModerationDelegation(ctx context.Context, delegation *ModerationDelegation) error
+	CreateModerationDelegation(ctx context.Context, rec *streamplace.ModerationPermission, aturi syntax.ATURI) error
 	DeleteModerationDelegation(ctx context.Context, rkey string) error
-	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*ModerationDelegation, error)
-	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*ModerationDelegation, error)
-	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]*ModerationDelegation, error)
-	GetStreamerModerators(ctx context.Context, streamerDID string) ([]*ModerationDelegation, error)
+	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*streamplace.ModerationDefs_PermissionView, error)
+	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
+	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
+	GetStreamerModerators(ctx context.Context, streamerDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
 
 	CreateAuditLog(ctx context.Context, log *ModerationAuditLog) error
 	GetAuditLogs(ctx context.Context, streamerDID string, limit int, before *time.Time) ([]*ModerationAuditLog, error)

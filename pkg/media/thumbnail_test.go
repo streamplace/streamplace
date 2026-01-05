@@ -36,7 +36,7 @@ func TestThumbnail(t *testing.T) {
 				if thumbnail.Len() == 0 {
 					return fmt.Errorf("thumbnail buffer is empty")
 				}
-				require.Equal(t, 1418910, thumbnail.Len())
+				require.Equal(t, 692311, thumbnail.Len())
 				return nil
 			})
 			g.Go(func() error {

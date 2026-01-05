@@ -15,7 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -346,7 +346,7 @@ func validateATURI(uri string) error {
 
 // logAudit logs a moderation action to the audit log
 func (s *Server) logAudit(ctx context.Context, streamerDID, moderatorDID, action, targetURI, targetDID, resultURI string, success bool, errorMsg string) error {
-	auditLog := &model.ModerationAuditLog{
+	auditLog := &statedb.ModerationAuditLog{
 		StreamerDID:  streamerDID,
 		ModeratorDID: moderatorDID,
 		Action:       action,
@@ -358,5 +358,5 @@ func (s *Server) logAudit(ctx context.Context, streamerDID, moderatorDID, action
 		CreatedAt:    time.Now(),
 	}
 
-	return s.model.CreateAuditLog(ctx, auditLog)
+	return s.statefulDB.CreateAuditLog(ctx, auditLog)
 }

@@ -1,4 +1,4 @@
-package model
+package statedb
 
 import (
 	"context"
@@ -18,13 +18,17 @@ type ModerationAuditLog struct {
 	CreatedAt    time.Time `gorm:"column:created_at;index:idx_streamer_time,priority:2"`
 }
 
-func (m *DBModel) CreateAuditLog(ctx context.Context, log *ModerationAuditLog) error {
-	return m.DB.WithContext(ctx).Create(log).Error
+func (ModerationAuditLog) TableName() string {
+	return "moderation_audit_logs"
 }
 
-func (m *DBModel) GetAuditLogs(ctx context.Context, streamerDID string, limit int, before *time.Time) ([]*ModerationAuditLog, error) {
+func (state *StatefulDB) CreateAuditLog(ctx context.Context, log *ModerationAuditLog) error {
+	return state.DB.WithContext(ctx).Create(log).Error
+}
+
+func (state *StatefulDB) GetAuditLogs(ctx context.Context, streamerDID string, limit int, before *time.Time) ([]*ModerationAuditLog, error) {
 	var logs []*ModerationAuditLog
-	query := m.DB.WithContext(ctx).Where("streamer_did = ?", streamerDID).
+	query := state.DB.WithContext(ctx).Where("streamer_did = ?", streamerDID).
 		Order("created_at DESC").
 		Limit(limit)
 
@@ -39,9 +43,9 @@ func (m *DBModel) GetAuditLogs(ctx context.Context, streamerDID string, limit in
 	return logs, nil
 }
 
-func (m *DBModel) GetModeratorAuditLogs(ctx context.Context, moderatorDID string, limit int, before *time.Time) ([]*ModerationAuditLog, error) {
+func (state *StatefulDB) GetModeratorAuditLogs(ctx context.Context, moderatorDID string, limit int, before *time.Time) ([]*ModerationAuditLog, error) {
 	var logs []*ModerationAuditLog
-	query := m.DB.WithContext(ctx).Where("moderator_did = ?", moderatorDID).
+	query := state.DB.WithContext(ctx).Where("moderator_did = ?", moderatorDID).
 		Order("created_at DESC").
 		Limit(limit)
 

@@ -114,10 +114,6 @@ type Model interface {
 	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
 	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
 	GetStreamerModerators(ctx context.Context, streamerDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
-
-	CreateAuditLog(ctx context.Context, log *ModerationAuditLog) error
-	GetAuditLogs(ctx context.Context, streamerDID string, limit int, before *time.Time) ([]*ModerationAuditLog, error)
-	GetModeratorAuditLogs(ctx context.Context, moderatorDID string, limit int, before *time.Time) ([]*ModerationAuditLog, error)
 }
 
 var DBRevision = 2
@@ -187,7 +183,6 @@ func MakeDB(dbURL string) (Model, error) {
 		BroadcastOrigin{},
 		MetadataConfiguration{},
 		ModerationDelegation{},
-		ModerationAuditLog{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

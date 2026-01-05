@@ -49,6 +49,7 @@ var StatefulDBModels = []any{
 	AppTask{},
 	Repo{},
 	Webhook{},
+	ModerationAuditLog{},
 }
 
 var NoPostgresDatabaseCode = "3D000"

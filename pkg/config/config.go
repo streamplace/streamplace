@@ -141,9 +141,7 @@ type CLI struct {
 	LivepeerAIProcessing         bool
 	LivepeerAICapability         string
 	LivepeerAIEnableVideoIngress bool
-	LivepeerAIEnableAudioIngress bool
 	LivepeerAIEnableVideoEgress  bool
-	LivepeerAIEnableAudioEgress  bool
 	LivepeerAIEnableDataOutput   bool
 	LivepeerAIStreamKey          string
 }
@@ -237,9 +235,7 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.BoolVar(&cli.LivepeerAIProcessing, "livepeer-ai-processing", false, "enable AI processing in Livepeer transcode requests")
 	fs.StringVar(&cli.LivepeerAICapability, "livepeer-ai-capability", "video-analysis", "AI capability to use (e.g., video-analysis)")
 	fs.BoolVar(&cli.LivepeerAIEnableVideoIngress, "livepeer-ai-enable-video-ingress", true, "enable video ingress for AI processing")
-	fs.BoolVar(&cli.LivepeerAIEnableAudioIngress, "livepeer-ai-enable-audio-ingress", true, "enable audio ingress for AI processing")
 	fs.BoolVar(&cli.LivepeerAIEnableVideoEgress, "livepeer-ai-enable-video-egress", true, "enable video egress for AI processing")
-	fs.BoolVar(&cli.LivepeerAIEnableAudioEgress, "livepeer-ai-enable-audio-egress", true, "enable audio egress for AI processing")
 	fs.BoolVar(&cli.LivepeerAIEnableDataOutput, "livepeer-ai-enable-data-output", true, "enable data output for AI processing")
 	fs.StringVar(&cli.LivepeerAIStreamKey, "livepeer-ai-stream-key", "", "stream key for AI processing (optional)")
 	fs.StringVar(&cli.SegmentDebugDir, "segment-debug-dir", "", "directory to log segment validation to")

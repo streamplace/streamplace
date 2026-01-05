@@ -134,6 +134,7 @@ func TestValidateMP4(t *testing.T) {
 		cli := ct.CLI(t, &config.CLI{
 			AllowedStreams: []string{repoDID},
 			DataDir:        dir,
+			DBURL:          ":memory:",
 		})
 
 		state, err := statedb.MakeDB(ctx, cli, nil, mod)

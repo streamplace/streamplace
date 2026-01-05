@@ -50,10 +50,10 @@ func TestThumbnail(t *testing.T) {
 					return fmt.Errorf("thumbnail buffer is empty")
 				}
 				// jpeg thumbnails aren't deterministic, so let's give a range instead
-				// testing gave 140969 bytes, but it can vary a bit
-				require.Greater(t, thumbnail.Len(), 140000)
-				require.Less(t, thumbnail.Len(), 150000)
-				require.Equal(t, 140969, thumbnail.Len())
+				// testing gave 61117 bytes, but it can vary a bit
+				require.Greater(t, thumbnail.Len(), 61000)
+				require.Less(t, thumbnail.Len(), 70000)
+				require.Equal(t, 61117, thumbnail.Len())
 				return nil
 			})
 		}

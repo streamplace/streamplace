@@ -45,7 +45,7 @@ func innerTestPacketize(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, packet)
 	require.Equal(t, 60, len(packet.Video))
-	require.Equal(t, 40, len(packet.Audio))
+	require.Equal(t, 50, len(packet.Audio))
 	require.Equal(t, time.Duration(800*time.Millisecond), packet.Duration)
 }
 

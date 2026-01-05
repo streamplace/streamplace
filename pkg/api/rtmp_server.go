@@ -15,6 +15,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/rtmprec"
 )
 
 // This example shows how to:
@@ -288,8 +289,10 @@ func (a *StreamplaceAPI) ServeRTMPInternalPlayback(ctx context.Context) error {
 			return fmt.Errorf("error accepting RTMP connection: %w", err)
 		}
 
+		recordingConn := rtmprec.NewRecordingConn(conn)
+
 		go func() {
-			err := a.HandleRTMPPlaybackConn(ctx, conn)
+			err := a.HandleRTMPPlaybackConn(ctx, recordingConn)
 			if err != nil {
 				log.Error(ctx, "error handling RTMP internal playback connection", "error", err)
 			}
@@ -333,8 +336,9 @@ func (a *StreamplaceAPI) ServeRTMPS(ctx context.Context, cli *config.CLI) error 
 			if err != nil {
 				return fmt.Errorf("error accepting RTMP connection: %w", err)
 			}
+			recordingConn := rtmprec.NewRecordingConn(conn)
 			go func() {
-				err := a.HandleRTMPPublishConn(ctx, conn)
+				err := a.HandleRTMPPublishConn(ctx, recordingConn)
 				if err != nil {
 					log.Error(ctx, "error handling RTMP publish connection", "error", err)
 				}

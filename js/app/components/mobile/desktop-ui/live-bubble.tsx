@@ -29,13 +29,12 @@ export function LiveBubble() {
           ]}
         >
           <Code
+            size="xs"
             style={[
               text.white,
               {
-                fontSize: 12,
-                lineHeight: 8,
                 fontWeight: "600",
-                letterSpacing: 1.5,
+                letterSpacing: 2,
               },
             ]}
           >
@@ -59,11 +58,10 @@ export function LiveBubble() {
       >
         <View style={[h[2], w[2], bg.white, { borderRadius: 999 }]} />
         <Code
+          size="xs"
           style={[
             text.white,
             {
-              fontSize: 12,
-              lineHeight: 8,
               fontWeight: "600",
               letterSpacing: 2,
             },

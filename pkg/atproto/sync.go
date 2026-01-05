@@ -2,6 +2,7 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -447,6 +448,38 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// Publish moderation permission view to WebSocket bus for real-time updates
 		// This allows moderators to see their permissions instantly without page refresh
 		go atsync.Bus.Publish(userDID, view)
+
+	case *streamplace.LiveRecommendations:
+		log.Debug(ctx, "creating recommendations", "userDID", userDID, "count", len(rec.Streamers))
+
+		// Validate max 8 streamers
+		if len(rec.Streamers) > 8 {
+			log.Warn(ctx, "recommendations exceed maximum of 8", "count", len(rec.Streamers))
+			return fmt.Errorf("maximum 8 recommendations allowed, got %d", len(rec.Streamers))
+		}
+
+		// Marshal streamers to JSON
+		streamersJSON, err := json.Marshal(rec.Streamers)
+		if err != nil {
+			return fmt.Errorf("failed to marshal streamers: %w", err)
+		}
+
+		// Parse createdAt timestamp
+		createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse createdAt: %w", err)
+		}
+
+		recommendation := &model.Recommendation{
+			UserDID:   userDID,
+			Streamers: json.RawMessage(streamersJSON),
+			CreatedAt: createdAt,
+		}
+
+		err = atsync.Model.UpsertRecommendation(recommendation)
+		if err != nil {
+			return fmt.Errorf("failed to upsert recommendation: %w", err)
+		}
 
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))

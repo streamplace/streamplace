@@ -522,6 +522,7 @@ export const createBlueskySlice: StateCreator<
       },
       facets: rt.facets,
       createdAt: now.toISOString(),
+      langs: ["en"],
     };
     record.embed = {
       $type: "app.bsky.embed.external",
@@ -532,7 +533,6 @@ export const createBlueskySlice: StateCreator<
         uri: linkUrl,
       },
     };
-    console.log("golivePost record", record);
     return await state.pdsAgent.post(record);
   },
 

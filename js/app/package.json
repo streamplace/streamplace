@@ -1,7 +1,7 @@
 {
   "name": "@streamplace/app",
   "main": "./src/entrypoint.tsx",
-  "version": "0.8.15",
+  "version": "0.8.18",
   "runtimeVersion": "0.7.2",
   "scripts": {
     "start": "npx expo start -c --port 38081",
@@ -92,6 +92,7 @@
     "react-dom": "19.0.0",
     "react-i18next": "^15.7.3",
     "react-native": "0.79.3",
+    "react-native-draggable-flatlist": "^4.0.3",
     "react-native-edge-to-edge": "^1.6.2",
     "react-native-gesture-handler": "~2.26.0",
     "react-native-localize": "^3.5.2",
@@ -100,6 +101,7 @@
     "react-native-reanimated": "~3.18.0",
     "react-native-safe-area-context": "5.4.1",
     "react-native-screens": "~4.11.1",
+    "react-native-sortables": "^1.9.4",
     "react-native-svg": "15.12.0",
     "react-native-web": "^0.20.0",
     "react-native-webrtc": "git+https://github.com/streamplace/react-native-webrtc.git#6b8472a771ac47f89217d327058a8a4124a6ae56",

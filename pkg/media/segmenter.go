@@ -127,9 +127,11 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 				}
 				resetTimer <- struct{}{}
 				convergeAndSign := func() error {
-					bs, err := ConvergeSegment(ctx, cli, bs, now, streamer, doH264Parse)
+					convergedBs, err := ConvergeSegment(ctx, cli, bs, now, streamer, doH264Parse)
 					if err != nil {
-						return fmt.Errorf("error converging segment: %w", err)
+						log.Error(ctx, "error converging segment", "error", err)
+					} else {
+						bs = convergedBs
 					}
 					log.Debug(ctx, "signing segment", "size", len(bs))
 					err = cb(ctx, bs, now)

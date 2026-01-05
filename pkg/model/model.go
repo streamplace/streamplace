@@ -32,6 +32,7 @@ type Model interface {
 	MostRecentSegments() ([]Segment, error)
 	LatestSegmentForUser(user string) (*Segment, error)
 	LatestSegmentsForUser(user string, limit int, before *time.Time, after *time.Time) ([]Segment, error)
+	FilterLiveRepoDIDs(repoDIDs []string) ([]string, error)
 	CreateThumbnail(thumb *Thumbnail) error
 	LatestThumbnailForUser(user string) (*Thumbnail, error)
 	GetSegment(id string) (*Segment, error)
@@ -48,6 +49,7 @@ type Model interface {
 	GetRepoByHandleOrDID(arg string) (*Repo, error)
 	GetRepoBySigningKey(signingKey string) (*Repo, error)
 	GetAllRepos() ([]Repo, error)
+	SearchReposByHandle(query string, limit int) ([]Repo, error)
 	UpdateRepo(repo *Repo) error
 
 	UpdateSigningKey(key *SigningKey) error
@@ -114,6 +116,9 @@ type Model interface {
 	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
 	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
 	GetStreamerModerators(ctx context.Context, streamerDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
+
+	GetRecommendation(userDID string) (*Recommendation, error)
+	UpsertRecommendation(rec *Recommendation) error
 }
 
 var DBRevision = 2
@@ -183,6 +188,7 @@ func MakeDB(dbURL string) (Model, error) {
 		BroadcastOrigin{},
 		MetadataConfiguration{},
 		ModerationDelegation{},
+		Recommendation{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

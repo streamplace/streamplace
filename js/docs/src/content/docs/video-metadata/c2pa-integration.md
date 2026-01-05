@@ -17,9 +17,9 @@ manifest, extracted from the MP4 segment using
 
 ```json
 {
-  "active_manifest": "urn:c2pa:b23b55a7-bd34-4138-99d8-ce565fab3934",
+  "active_manifest": "urn:c2pa:66130743-a4cd-4f73-a4c7-201079ef127a",
   "manifests": {
-    "urn:c2pa:b23b55a7-bd34-4138-99d8-ce565fab3934": {
+    "urn:c2pa:66130743-a4cd-4f73-a4c7-201079ef127a": {
       "claim_generator_info": [
         {
           "name": "c2pa-rs",
@@ -27,8 +27,8 @@ manifest, extracted from the MP4 segment using
           "org.contentauth.c2pa_rs": "0.58.0"
         }
       ],
-      "title": "Livestream Segment at 2025-10-21T19:24:24.156Z",
-      "instance_id": "xmp:iid:17f3177c-7cfe-4de2-9a23-019dcdb00559",
+      "title": "Livestream Segment at 2025-11-13T20:41:30.499Z",
+      "instance_id": "xmp:iid:a031a30d-e1eb-4548-a20f-6453e15c2ace",
       "ingredients": [],
       "assertions": [
         {
@@ -36,10 +36,12 @@ manifest, extracted from the MP4 segment using
           "data": {
             "actions": [
               {
-                "action": "c2pa.created"
+                "action": "c2pa.created",
+                "when": "2025-11-13T20:41:30.499Z"
               },
               {
-                "action": "c2pa.published"
+                "action": "c2pa.published",
+                "when": "2025-11-13T20:41:30.499Z"
               }
             ],
             "allActionsIncluded": false
@@ -83,26 +85,24 @@ manifest, extracted from the MP4 segment using
               }
             ],
             "alg": "sha256",
-            "hash": "HrLwGm+HdaZh9TkBiWhJH1Mo7QcvLgmhMThcG8f3qZc=",
+            "hash": "ZHobn5CtL1NsTLAMMPT8D7koSrMr2Ijm5eJt73ED4HA=",
             "name": "jumbf manifest"
           }
         },
         {
-          "label": "place.stream.metadata",
+          "label": "cawg.metadata",
           "data": {
             "@context": {
               "photoshop": "http://ns.adobe.com/photoshop/1.0/",
-              "dc": "http://purl.org/dc/elements/1.1/",
               "xmpRights": "http://ns.adobe.com/xap/1.0/rights/",
-              "Iptc4xmpExt": "http://iptc.org/std/Iptc4xmpExt/2008-02-29/"
+              "Iptc4xmpExt": "http://iptc.org/std/Iptc4xmpExt/2008-02-29/",
+              "dc": "http://purl.org/dc/elements/1.1/"
             },
-            "dc:creator": "did:plc:y3lae7hmqiwyq7w2v3bcb2c2",
-            "dc:title": ["🦎🦎"],
-            "dc:date": ["2025-10-21T19:24:24.156Z"],
-            "distributionPolicy": {
-              "deleteAfter": "2025-10-21T19:29:24.000Z"
-            },
-            "Iptc4xmpExt:LinkedEncRightsExpr": "http://creativecommons.org/publicdomain/zero/1.0/"
+            "xmpRights:UsageTerms": "All rights reserved",
+            "dc:creator": "did:plc:2j2ounbiyi3ftihronlw5qhj",
+            "dc:date": "2025-11-13T20:41:30.499Z",
+            "Iptc4xmpExt:ContentWarning": ["cwarn:flashingLights"],
+            "dc:title": "Test"
           },
           "kind": "Json"
         },
@@ -111,7 +111,10 @@ manifest, extracted from the MP4 segment using
           "data": {
             "$type": "place.stream.metadata.configuration",
             "contentRights": {
-              "license": "place.stream.metadata.contentRights#cc0_1__0"
+              "license": "place.stream.metadata.contentRights#all-rights-reserved"
+            },
+            "contentWarnings": {
+              "warnings": ["cwarn:flashingLights"]
             },
             "distributionPolicy": {
               "deleteAfter": 300
@@ -121,31 +124,33 @@ manifest, extracted from the MP4 segment using
         {
           "label": "place.stream.livestream",
           "data": {
-            "url": "https://picnic-labs-nicholas-not.trycloudflare.com",
+            "url": "https://headphones-glad-thunder-guide.trycloudflare.com",
             "post": {
-              "cid": "bafyreicucf722xnyf74psia5ghd5usdnona4e7bkcgbqhdma2a6dokqh5m",
-              "uri": "at://did:plc:y3lae7hmqiwyq7w2v3bcb2c2/app.bsky.feed.post/3lxyfybn55m2o"
+              "cid": "bafyreigxivgp5rjgohv7y6z3r4wdjw6qbu56ozartttuvtydoth45app7e",
+              "uri": "at://did:plc:2j2ounbiyi3ftihronlw5qhj/app.bsky.feed.post/3m2k26c2l4u2g"
             },
             "$type": "place.stream.livestream",
+            "agent": "@streamplace/components/0.7.35 (web, Firefox)",
             "thumb": {
               "ref": {
-                "$link": "bafkreiauoc74hcintbaua7tvp233qbfl4iymiyocc5aclhyohkz3bdinty"
+                "$link": "bafkreihzmf7rywllxelclvnweuefl2bpqkkazznflnhdh24aexnqzh4xum"
               },
-              "size": 9231,
+              "size": 60106,
               "$type": "blob",
               "mimeType": "image/jpeg"
             },
-            "title": "🦎🦎",
-            "createdAt": "2025-10-06T16:25:06.950Z"
+            "title": "Test",
+            "createdAt": "2025-10-06T16:35:03.719Z",
+            "canonicalUrl": "https://headphones-glad-thunder-guide.trycloudflare.com/makeworld.space"
           }
         }
       ],
       "signature_info": {
         "issuer": "Streamplace",
-        "common_name": "did:key:zQ3shfmFgwDstMiGaAkS4HhMJ7p3pTVhyLTHz9ABbhd4v4KJn",
-        "cert_serial_number": "54472225560857906834076190516168844896"
+        "common_name": "did:key:zQ3shiYS17LRhT7x6mfd6HfsHHzz1aD9DpGJUP3aT5f2ghdAy",
+        "cert_serial_number": "34409281865771434870888029768053492928"
       },
-      "label": "urn:c2pa:b23b55a7-bd34-4138-99d8-ce565fab3934"
+      "label": "urn:c2pa:66130743-a4cd-4f73-a4c7-201079ef127a"
     }
   }
 }
@@ -171,6 +176,10 @@ other C2PA-compliant software to parse out information about Streamplace
 segments, such as content warnings. However, not everything Streamplace does
 fits neatly into C2PA-compliant metadata, so the primary source of truth for
 metadata on a Streamplace segment remains the `place.stream` assertions.
+
+You can see existing metadata standards being used in the `cawg.metadata`
+assertion, which is an assertion defined outside of the C2PA spec for extra
+metadata, by the [Creator Assertions Working Group](https://cawg.io/).
 
 ## Code paths
 

@@ -79,6 +79,10 @@ type StreamplaceAPI struct {
 	HTTPRedirectTLSPort *int
 	sessions            map[string]map[string]time.Time
 	sessionsLock        sync.RWMutex
+
+	rtmpSessions             map[string]*media.RTMPSession
+	rtmpSessionsLock         sync.Mutex
+	rtmpInternalPlaybackAddr string
 }
 
 type WebsocketTracker struct {
@@ -109,6 +113,8 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		op:               op,
 		sessions:         make(map[string]map[string]time.Time),
 		sessionsLock:     sync.RWMutex{},
+		rtmpSessions:     make(map[string]*media.RTMPSession),
+		rtmpSessionsLock: sync.Mutex{},
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {

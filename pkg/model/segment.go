@@ -85,7 +85,7 @@ func (c ContentRights) Value() (driver.Value, error) {
 
 // DistributionPolicy represents distribution policy information
 type DistributionPolicy struct {
-	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+	DeleteAfterSeconds *int64 `json:"deleteAfterSeconds,omitempty"`
 }
 
 // Scan scan value into DistributionPolicy, implements sql.Scanner interface
@@ -185,13 +185,9 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 	}
 
 	var distributionPolicy *streamplace.MetadataDistributionPolicy
-	if s.DistributionPolicy != nil && s.DistributionPolicy.ExpiresAt != nil {
-		// Convert the absolute timestamp back to a duration (in seconds) from segment start
-		startTimeUnix := s.StartTime.Unix()
-		expiresAtUnix := s.DistributionPolicy.ExpiresAt.Unix()
-		deleteAfterSecs := expiresAtUnix - startTimeUnix
+	if s.DistributionPolicy != nil && s.DistributionPolicy.DeleteAfterSeconds != nil {
 		distributionPolicy = &streamplace.MetadataDistributionPolicy{
-			DeleteAfter: &deleteAfterSecs,
+			DeleteAfter: s.DistributionPolicy.DeleteAfterSeconds,
 		}
 	}
 
@@ -281,6 +277,27 @@ func (m *DBModel) LatestSegmentForUser(user string) (*Segment, error) {
 		return nil, err
 	}
 	return &seg, nil
+}
+
+func (m *DBModel) FilterLiveRepoDIDs(repoDIDs []string) ([]string, error) {
+	if len(repoDIDs) == 0 {
+		return []string{}, nil
+	}
+
+	thirtySecondsAgo := time.Now().Add(-30 * time.Second)
+
+	var liveDIDs []string
+
+	err := m.DB.Table("segments").
+		Select("DISTINCT repo_did").
+		Where("repo_did IN ? AND start_time > ?", repoDIDs, thirtySecondsAgo.UTC()).
+		Pluck("repo_did", &liveDIDs).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return liveDIDs, nil
 }
 
 func (m *DBModel) LatestSegmentsForUser(user string, limit int, before *time.Time, after *time.Time) ([]Segment, error) {

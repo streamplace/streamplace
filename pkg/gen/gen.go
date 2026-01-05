@@ -33,6 +33,7 @@ func main() {
 		streamplace.MetadataContentRights{},
 		streamplace.MetadataContentWarnings{},
 		streamplace.ModerationPermission{},
+		streamplace.LiveRecommendations{},
 	); err != nil {
 		panic(err)
 	}

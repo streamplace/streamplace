@@ -10,18 +10,20 @@ get started:
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/)
+Except for the C/C++ compilers, we'd highly recommend using
+[mise](https://mise.jdx.dev/) to get your workspace set up for development.
+
+- [Node.js](https://nodejs.org/) (version 22 [important!])
 - [pnpm](https://pnpm.io/)
-  - A way to install it is with `npm install -g pnpm` if corepack is not enabled
-    in your node install.
 - Go (version 1.24)
-  - If you use `mise`, you can install latest Go 1.24 with
-    `mise install go@prefix:1.24`
+- Rust
 - Meson
 - Ninja
 - pkg-config
-- Rust
 - Working C and C++ compilers: `gcc` on Linux or `clang` (via Xcode) on macOS.
+  - On most unix-like systems, a c/++ compiler is included with the distro's
+    version of `build-essential`/`base-devel` (`xcode-select –-install` on
+    macOS)
 
 ## Get Started
 

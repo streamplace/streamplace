@@ -170,12 +170,14 @@ BASE_OPTS = \
 		-D "gst-plugins-good:multifile=enabled" \
 		-D "gst-plugins-good:rtp=enabled" \
 		-D "gst-plugins-bad:fdkaac=enabled" \
+		-D "gst-plugins-bad:rtmp2=enabled" \
 		-D "gst-plugins-good:audioparsers=enabled" \
 		-D "gst-plugins-good:isomp4=enabled" \
 		-D "gst-plugins-good:png=enabled" \
 		-D "gst-plugins-good:videobox=enabled" \
 		-D "gst-plugins-good:jpeg=enabled" \
 		-D "gst-plugins-good:audioparsers=enabled" \
+		-D "gst-plugins-good:flv=enabled" \
 		-D "gst-plugins-bad:videoparsers=enabled" \
 		-D "gst-plugins-bad:mpegtsmux=enabled" \
 		-D "gst-plugins-bad:mpegtsdemux=enabled" \
@@ -185,7 +187,7 @@ BASE_OPTS = \
 		-D "gst-plugins-ugly:gpl=enabled" \
 		-D "x264:asm=enabled" \
 		-D "gstreamer-full:gst-full=enabled" \
-		-D "gstreamer-full:gst-full-plugins=libgstopusparse.a;libgstcodectimestamper.a;libgstrtp.a;libgstaudioresample.a;libgstlibav.a;libgstmatroska.a;libgstmultifile.a;libgstjpeg.a;libgstaudiotestsrc.a;libgstaudioconvert.a;libgstaudioparsers.a;libgstfdkaac.a;libgstisomp4.a;libgstapp.a;libgstvideoconvertscale.a;libgstvideobox.a;libgstvideorate.a;libgstpng.a;libgstcompositor.a;libgstaudiorate.a;libgstx264.a;libgstopus.a;libgstvideotestsrc.a;libgstvideoparsersbad.a;libgstaudioparsers.a;libgstmpegtsmux.a;libgstmpegtsdemux.a;libgstplayback.a;libgsttypefindfunctions.a;libgstcoretracers.a;libgstcodec2json.a" \
+		-D "gstreamer-full:gst-full-plugins=libgstflv.a;libgstrtmp2.a;libgstopusparse.a;libgstcodectimestamper.a;libgstrtp.a;libgstaudioresample.a;libgstlibav.a;libgstmatroska.a;libgstmultifile.a;libgstjpeg.a;libgstaudiotestsrc.a;libgstaudioconvert.a;libgstaudioparsers.a;libgstfdkaac.a;libgstisomp4.a;libgstapp.a;libgstvideoconvertscale.a;libgstvideobox.a;libgstvideorate.a;libgstpng.a;libgstcompositor.a;libgstaudiorate.a;libgstx264.a;libgstopus.a;libgstvideotestsrc.a;libgstvideoparsersbad.a;libgstaudioparsers.a;libgstmpegtsmux.a;libgstmpegtsdemux.a;libgstplayback.a;libgsttypefindfunctions.a;libgstcoretracers.a;libgstcodec2json.a" \
 		-D "gstreamer-full:gst-full-libraries=gstreamer-controller-1.0,gstreamer-plugins-base-1.0,gstreamer-pbutils-1.0" \
 		-D "gstreamer-full:gst-full-elements=coreelements:concat,filesrc,filesink,queue,queue2,multiqueue,typefind,tee,capsfilter,fakesink,identity" \
 		-D "gstreamer-full:bad=enabled" \
@@ -307,6 +309,7 @@ dev-test:
 	go install github.com/jstemmer/go-junit-report/v2@latest \
 	&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
+	CGO_LDFLAGS="-lm" \
 	bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
 .PHONY: iroh-test

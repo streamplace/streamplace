@@ -1,0 +1,59 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.live.getRecommendations",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get the list of streamers recommended by a user",
+      "parameters": {
+        "type": "params",
+        "required": ["userDID"],
+        "properties": {
+          "userDID": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the user whose recommendations to fetch"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["recommendations"],
+          "properties": {
+            "recommendations": {
+              "type": "array",
+              "description": "Ordered list of recommendations",
+              "items": {
+                "type": "union",
+                "refs": ["#livestreamRecommendation"]
+              }
+            },
+            "userDID": {
+              "type": "string",
+              "format": "did",
+              "description": "The user DID this recommendation is for"
+            }
+          }
+        }
+      }
+    },
+    "livestreamRecommendation": {
+      "type": "object",
+      "required": ["did", "source"],
+      "properties": {
+        "did": {
+          "type": "string",
+          "format": "did",
+          "description": "The DID of the recommended streamer"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["streamer", "follows", "host"],
+          "description": "Source of the recommendation"
+        }
+      }
+    }
+  }
+}

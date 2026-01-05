@@ -119,6 +119,7 @@ const FollowButton: React.FC<FollowButtonProps> = ({
         onPress={isFollowing ? handleUnfollow : handleFollow}
         variant={isFollowing ? "secondary" : "primary"}
         size="pill"
+        width="min"
         disabled={isFollowing === null}
         loading={isFollowing === null}
         leftIcon={!isFollowing && <Icon icon={Plus} size="sm" />}

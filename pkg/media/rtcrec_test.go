@@ -36,6 +36,13 @@ var RTCRecTestCases = []struct {
 		expectedSegmentsMin: 1,
 		expectedSegmentsMax: 10,
 	},
+	{
+		name:                "NekomimiPet",
+		fixture:             remote.RemoteFixture("91176de4b92fb4c8e84116bd2be0070e96f964fcb8e127da4bfa7020317f4195/nekomimi.pet.rtcrec.cbor"),
+		fatalErrors:         true,
+		expectedSegmentsMin: 29,
+		expectedSegmentsMax: 29,
+	},
 }
 
 func TestRTCRecording(t *testing.T) {
@@ -58,6 +65,7 @@ func TestRTCRecording(t *testing.T) {
 				err = cli.Parse(fs, []string{
 					"--data-dir", dir,
 					"-wide-open=true",
+					"--segment-debug-dir", "/home/iameli/testvids/nekomimi.pet",
 				})
 				require.NoError(t, err)
 				mm, err := MakeMediaManager(context.Background(), cli, nil, nil, nil, nil)

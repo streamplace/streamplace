@@ -411,12 +411,19 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		})
 		if cli.RTMPServerAddon != "" {
 			group.Go(func() error {
-				return rtmps.ServeRTMPS(ctx, &cli)
+				return rtmps.ServeRTMPSAddon(ctx, &cli)
+			})
+		} else {
+			group.Go(func() error {
+				return a.ServeRTMPS(ctx, &cli)
 			})
 		}
 	} else {
 		group.Go(func() error {
 			return a.ServeHTTP(ctx)
+		})
+		group.Go(func() error {
+			return a.ServeRTMP(ctx)
 		})
 	}
 

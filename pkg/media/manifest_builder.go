@@ -48,20 +48,29 @@ func toObj(record any) (obj, error) {
 func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName string, start int64) ([]byte, error) {
 	log.Debug(ctx, "🔍 BuildManifest ENTRY", "streamer", streamerName, "start", start)
 	// Start with base manifest
+	startTime := aqtime.FromMillis(start).String()
 	mani := obj{
-		"title": fmt.Sprintf("Livestream Segment at %s", aqtime.FromMillis(start)),
+		"title": fmt.Sprintf("Livestream Segment at %s", startTime),
 		"assertions": []obj{
+			// Required by spec, just basic info
 			{
 				"label": "c2pa.actions",
 				"data": obj{
 					"actions": []obj{
-						{"action": "c2pa.created"},
-						{"action": "c2pa.published"},
+						{
+							"action": "c2pa.created",
+							"when":   startTime,
+						},
+						{
+							"action": "c2pa.published",
+							"when":   startTime,
+						},
 					},
 				},
 			},
+			// Content metadata, with extra custom fields added later
 			{
-				"label": constants.StreamplaceMetadata,
+				"label": "cawg.metadata",
 				"data": obj{
 					"@context": obj{
 						"dc":          "http://purl.org/dc/elements/1.1/",
@@ -70,9 +79,8 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 						"xmpRights":   "http://ns.adobe.com/xap/1.0/rights/",
 					},
 					"dc:creator": streamerName,
-					// TODO: Add the title of the livestream. This should come from the livestream record.
-					"dc:title": []string{"livestream"},
-					"dc:date":  []string{aqtime.FromMillis(start).String()},
+					"dc:title":   "livestream",
+					"dc:date":    startTime,
 				},
 			},
 		},
@@ -134,7 +142,7 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 	}
 
 	// Update the manifest title with the retrieved livestream title
-	mani["assertions"].([]obj)[1]["data"].(obj)["dc:title"] = []string{livestreamTitle}
+	mani["assertions"].([]obj)[1]["data"].(obj)["dc:title"] = livestreamTitle
 
 	// Convert manifest to JSON bytes for use with Rust c2pa library
 	manifestBs, err := json.Marshal(mani)
@@ -228,24 +236,6 @@ func (mb *ManifestBuilder) enhanceManifestWithMetadata(mani obj, metadata *strea
 			// Unknown warnings remain unchanged
 		}
 		mani["assertions"].([]obj)[1]["data"].(obj)["Iptc4xmpExt:ContentWarning"] = metadata.ContentWarnings.Warnings
-	}
-
-	if metadata.DistributionPolicy != nil {
-		// Convert the distribution policy duration to an absolute expiry timestamp
-		// deleteAfter is in seconds, startTimeMillis is in milliseconds
-		if metadata.DistributionPolicy.DeleteAfter != nil {
-			// Calculate expiry: start time (seconds) + duration (seconds) = expiry timestamp (seconds)
-			startTimeSeconds := startTimeMillis / 1000
-			expiresAtSeconds := startTimeSeconds + *metadata.DistributionPolicy.DeleteAfter
-
-			// Convert to ISO 8601 datetime string for C2PA manifest
-			// Note: In the manifest, we store this in "deleteAfter" field but with timestamp value instead of duration
-			deleteAfterTimestamp := aqtime.FromMillis(expiresAtSeconds * 1000).String()
-
-			mani["assertions"].([]obj)[1]["data"].(obj)["distributionPolicy"] = obj{
-				"deleteAfter": deleteAfterTimestamp,
-			}
-		}
 	}
 
 	return mani

@@ -12,6 +12,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	ct "stream.place/streamplace/pkg/config/configtesting"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 func getFixture(name string) string {
@@ -30,12 +31,15 @@ func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
 	}
 	cli := ct.CLI(t, &config.CLI{
 		TAURL:          "http://timestamp.digicert.com",
-		AllowedStreams: []string{"did:key:zQ3shhoPCrDZWE8CryCEHYCrb1x8mCkr2byTkF5EGJT7dgazC"},
+		AllowedStreams: []string{"did:plc:2j2ounbiyi3ftihronlw5qhj"},
+		DBURL:          ":memory:",
 	})
+	statedb, err := statedb.MakeDB(context.Background(), cli, nil, mod)
+	require.NoError(t, err)
 	atsync := &atproto.ATProtoSynchronizer{
 		CLI:        cli,
 		Model:      mod,
-		StatefulDB: nil, // Test doesn't need StatefulDB for now
+		StatefulDB: statedb,
 		Bus:        bus.NewBus(),
 	}
 	mm, err := MakeMediaManager(context.Background(), cli, nil, mod, bus.NewBus(), atsync)

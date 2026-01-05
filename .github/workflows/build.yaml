@@ -38,6 +38,12 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: mise check
+        if: matrix.name == 'linux-amd64'
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+
       - name: Log in to the Container registry
         uses: docker/login-action@v2
         with:

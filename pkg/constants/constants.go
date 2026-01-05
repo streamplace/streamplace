@@ -12,12 +12,10 @@ var APP_BSKY_FEED_POST = "app.bsky.feed.post"                                 //
 var APP_BSKY_GRAPH_BLOCK = "app.bsky.graph.block"                             //nolint:all
 var PLACE_STREAM_CHAT_GATE = "place.stream.chat.gate"                         //nolint:all
 var PLACE_STREAM_DEFAULT_METADATA = "place.stream.metadata.configuration"     //nolint:all
+var PLACE_STREAM_LIVE_RECOMMENDATIONS = "place.stream.live.recommendations"   //nolint:all
 
 const DID_KEY_PREFIX = "did:key" //nolint:all
 const ADDRESS_KEY_PREFIX = "0x"  //nolint:all
-
-// Streamplace metadata constant
-const StreamplaceMetadata = "place.stream.metadata" //nolint:all
 
 // Streamplace metadata license values
 const (

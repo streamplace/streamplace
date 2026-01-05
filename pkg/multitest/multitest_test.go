@@ -116,6 +116,7 @@ func startStreamplaceNode(ctx context.Context, name string, t *testing.T, dev *d
 	env := map[string]string{
 		"SP_HTTP_ADDR":              fmt.Sprintf("127.0.0.1:%d", apiPort),
 		"SP_HTTP_INTERNAL_ADDR":     fmt.Sprintf("127.0.0.1:%d", nextPort()),
+		"SP_RTMP_ADDR":              fmt.Sprintf("127.0.0.1:%d", nextPort()),
 		"SP_RELAY_HOST":             strings.ReplaceAll(dev.PDSURL, "http://", "ws://"),
 		"SP_PLC_URL":                dev.PLCURL,
 		"SP_DATA_DIR":               dataDir,

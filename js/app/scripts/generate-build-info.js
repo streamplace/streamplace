@@ -3,6 +3,7 @@
 const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const pkg = require("../package.json");
 
 function getGitInfo() {
   try {
@@ -13,9 +14,17 @@ function getGitInfo() {
     const branch = execSync("git rev-parse --abbrev-ref HEAD", {
       encoding: "utf-8",
     }).trim();
-    const tag = execSync("git describe --tags --always --dirty", {
-      encoding: "utf-8",
-    }).trim();
+
+    let tag;
+    try {
+      tag = execSync("git describe --tags --always --dirty", {
+        encoding: "utf-8",
+      }).trim();
+    } catch (error) {
+      // git describe fails in shallow clones, use package.json version + short hash
+      tag = `v${pkg.version}-${shortHash}`;
+    }
+
     const isDirty = tag.endsWith("-dirty");
 
     return {

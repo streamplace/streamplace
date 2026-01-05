@@ -50,9 +50,13 @@ const { borders, gap, h, layout, position, w, r } = zero;
 export function MobileUi({
   setShowChat,
   showChat,
+  hideMobileChat,
+  embed = false,
 }: {
   setShowChat?: (show: boolean) => void;
   showChat?: boolean;
+  hideMobileChat?: boolean;
+  embed?: boolean;
 }) {
   const { theme } = useTheme();
   const navigation = useNavigation();

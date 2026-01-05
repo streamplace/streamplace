@@ -22,6 +22,8 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     authors: {},
     recentSegments: [],
     problems: [],
+    websocketConnected: false,
+    hasReceivedSegment: false,
   }));
 };
 
@@ -58,5 +60,8 @@ export const useViewers = () => useLivestreamStore((x) => x.viewers);
 export const useLivestream = () => useLivestreamStore((x) => x.livestream);
 
 export const useSegment = () => useLivestreamStore((x) => x.segment);
+
+export const useRecentSegments = () =>
+  useLivestreamStore((x) => x.recentSegments);
 
 export const useRenditions = () => useLivestreamStore((x) => x.renditions);

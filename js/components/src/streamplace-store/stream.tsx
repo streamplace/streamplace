@@ -108,6 +108,7 @@ async function buildGoLivePost(
     },
     facets: rt.facets,
     createdAt: now.toISOString(),
+    langs: ["en"],
   };
   record.embed = {
     $type: "app.bsky.embed.external",

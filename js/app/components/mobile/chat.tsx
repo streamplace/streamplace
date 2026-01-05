@@ -23,7 +23,7 @@ import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc"
 import { ArrowRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
-import { loadEmojiData } from "utils/emoji";
+import { useEmojiData } from "utils/emoji";
 const { borderRadius, gap, layout, flex, px, position, bottom } = zero;
 
 export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
@@ -125,6 +125,7 @@ function ChatPanel() {
 
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const emojiData = useEmojiData();
 
   // get the deepest active route for nested navigators
   const currentRoute = useNavigationState((state) => {
@@ -150,7 +151,7 @@ function ChatPanel() {
       <View style={[layout.flex.column, gap.all[2]]}>
         {agent?.did ? (
           <ChatBox
-            emojiData={loadEmojiData() || null}
+            emojiData={emojiData}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
           />
         ) : !agent ? (

@@ -1,19 +1,18 @@
 // emoji cache file
 
 import { EmojiData } from "@streamplace/components/src/components/chat/emoji-suggestions";
+import { useState } from "react";
 
-let emoji: EmojiData | null = null;
+let emojiPromise: Promise<typeof import("../assets/emoji-data.json")> | null =
+  null;
 
-export function loadEmojiData(): EmojiData | null {
-  if (emoji) {
-    return emoji;
+export function useEmojiData(): EmojiData | null {
+  const [emoji, setEmoji] = useState<EmojiData | null>(null);
+  if (!emojiPromise) {
+    emojiPromise = import("../assets/emoji-data.json");
   }
-  try {
-    // dynamically import the emoji data
-    emoji = require("../assets/emoji-data.json");
-    return emoji;
-  } catch (e) {
-    console.warn("Failed to load emoji data:", e);
-    return null;
-  }
+  emojiPromise.then((emoji) => {
+    setEmoji(emoji);
+  });
+  return emoji;
 }

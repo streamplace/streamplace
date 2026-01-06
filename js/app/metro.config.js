@@ -63,9 +63,6 @@ config.transformer = {
       inlineRequires: true,
     },
   }),
-  babelTransformerPath: require.resolve(
-    "@react-native/metro-babel-transformer",
-  ),
 };
 
 // Transform @streamplace/components workspace package

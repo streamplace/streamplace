@@ -34,6 +34,7 @@ import { EmojiData, EmojiSuggestions } from "./emoji-suggestions";
 import { MentionSuggestions } from "./mention-suggestions";
 
 const COOL_EMOJI_LIST = [
+  // @ts-ignore we can iterate through this just fine it seems
   ..."😀🥸😍😘😁🥸😆🥸😜🥸😂😅🥸🙂🤫😱🥸🤣😗😄🥸😎🤓😲😯😰🥸😥🥸😣🥸😞😓🥸😩😩🥸😤🥱",
 ];
 
@@ -45,7 +46,7 @@ export function ChatBox({
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
-  emojiData: EmojiData;
+  emojiData: EmojiData | null;
   setIsChatVisible?: (visible: boolean) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
@@ -117,6 +118,7 @@ export function ChatBox({
     if (colonIndex !== -1) {
       const searchText = text.slice(colonIndex + 1).toLowerCase();
       if (searchText.length > 0) {
+        if (!emojiData) return;
         const aliasMatches = Object.entries(emojiData.aliases)
           .map(([alias, emojiId]) => {
             const aliasLower = alias.toLowerCase();

@@ -9,6 +9,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/stretchr/testify/require"
@@ -91,13 +92,19 @@ func TestDelegatedModeration(t *testing.T) {
 	t.Log("✓ Delegation record ingested successfully")
 
 	// Verify delegation details including expiration time
-	delegation, err := mod.GetModerationDelegation(ctx, streamer.DID, moderator.DID)
+	view, err := mod.GetModerationDelegation(ctx, streamer.DID, moderator.DID)
 	require.NoError(t, err)
+	require.NotNil(t, view)
+	require.Equal(t, streamer.DID, view.Author.Did)
+
+	delegation := view.Record.Val.(*streamplace.ModerationPermission)
 	require.NotNil(t, delegation)
-	require.Equal(t, streamer.DID, delegation.RepoDID)
-	require.Equal(t, moderator.DID, delegation.ModeratorDID)
+	require.Equal(t, moderator.DID, delegation.Moderator)
 	require.NotNil(t, delegation.ExpirationTime, "expiration time should be set")
-	require.True(t, delegation.ExpirationTime.After(time.Now()), "expiration time should be in the future")
+
+	exp, err := time.Parse(time.RFC3339, *delegation.ExpirationTime)
+	require.NoError(t, err)
+	require.True(t, exp.After(time.Now()), "expiration time should be in the future")
 	t.Log("✓ Delegation details verified (including expiration time)")
 
 	// Test 2: Create block (ban user)
@@ -202,12 +209,13 @@ func TestDelegatedModeration(t *testing.T) {
 
 	// Test 5: Delete delegation (revoke permissions)
 	t.Log("Test 5: Deleting delegation record")
-	delegationRkey := delegation.RKey
+	uri, err := syntax.ParseATURI(view.Uri)
+	require.NoError(t, err)
 
 	_, err = comatproto.RepoDeleteRecord(ctx, streamer.XRPC, &comatproto.RepoDeleteRecord_Input{
 		Collection: constants.PLACE_STREAM_MODERATION_PERMISSION,
 		Repo:       streamer.DID,
-		Rkey:       delegationRkey,
+		Rkey:       uri.RecordKey().String(),
 	})
 	require.NoError(t, err)
 

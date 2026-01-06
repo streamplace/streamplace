@@ -57,7 +57,7 @@ func TestModerationCreateBlock_WithPermission(t *testing.T) {
 	require.True(t, blockExists, "block should exist in database")
 
 	// Verify audit log
-	auditLog := getLatestAuditLog(t, env.model, env.ctx, env.streamer.DID, env.moderator.DID)
+	auditLog := getLatestAuditLog(t, env.statefulDB, env.ctx, env.streamer.DID, env.moderator.DID)
 	require.NotNil(t, auditLog, "audit log should exist")
 	require.Equal(t, "createBlock", auditLog.Action)
 	require.True(t, auditLog.Success, "audit log should show success")
@@ -87,7 +87,7 @@ func TestModerationCreateBlock_WithoutPermission(t *testing.T) {
 
 	// Verify audit log shows failure
 	time.Sleep(100 * time.Millisecond) // Give time for audit log to be written
-	auditLog := getLatestAuditLog(t, env.model, env.ctx, env.streamer.DID, env.moderator.DID)
+	auditLog := getLatestAuditLog(t, env.statefulDB, env.ctx, env.streamer.DID, env.moderator.DID)
 	if auditLog != nil {
 		require.Equal(t, "createBlock", auditLog.Action)
 		require.False(t, auditLog.Success, "audit log should show failure")
@@ -170,7 +170,7 @@ func TestModerationCreateGate_WithPermission(t *testing.T) {
 	require.True(t, gateExists, "gate should exist in database")
 
 	// Verify audit log
-	auditLog := getLatestAuditLog(t, env.model, env.ctx, env.streamer.DID, env.moderator.DID)
+	auditLog := getLatestAuditLog(t, env.statefulDB, env.ctx, env.streamer.DID, env.moderator.DID)
 	require.NotNil(t, auditLog, "audit log should exist")
 	require.Equal(t, "createGate", auditLog.Action)
 	require.True(t, auditLog.Success, "audit log should show success")
@@ -247,7 +247,7 @@ func TestModerationDeleteBlock(t *testing.T) {
 	require.True(t, blockDeleted, "block should be deleted from database")
 
 	// Verify audit log for delete operation
-	auditLog := getLatestAuditLog(t, env.model, env.ctx, env.streamer.DID, env.moderator.DID)
+	auditLog := getLatestAuditLog(t, env.statefulDB, env.ctx, env.streamer.DID, env.moderator.DID)
 	require.NotNil(t, auditLog, "audit log should exist")
 	require.Equal(t, "deleteBlock", auditLog.Action)
 	require.True(t, auditLog.Success, "audit log should show success")
@@ -328,7 +328,7 @@ func TestModerationUpdateLivestream_WithPermission(t *testing.T) {
 	require.NotEmpty(t, output.Cid)
 
 	// Verify audit log
-	auditLog := getLatestAuditLog(t, env.model, env.ctx, env.streamer.DID, env.moderator.DID)
+	auditLog := getLatestAuditLog(t, env.statefulDB, env.ctx, env.streamer.DID, env.moderator.DID)
 	require.NotNil(t, auditLog, "audit log should exist")
 	require.Equal(t, "updateLivestream", auditLog.Action)
 	require.True(t, auditLog.Success, "audit log should show success")
@@ -362,7 +362,7 @@ func TestModerationUpdateLivestream_WithoutPermission(t *testing.T) {
 
 	// Verify audit log shows failure
 	time.Sleep(100 * time.Millisecond) // Give time for audit log to be written
-	auditLog := getLatestAuditLog(t, env.model, env.ctx, env.streamer.DID, env.moderator.DID)
+	auditLog := getLatestAuditLog(t, env.statefulDB, env.ctx, env.streamer.DID, env.moderator.DID)
 	if auditLog != nil {
 		require.Equal(t, "updateLivestream", auditLog.Action)
 		require.False(t, auditLog.Success, "audit log should show failure")
@@ -662,9 +662,9 @@ func extractRKeyFromURI(uri string) string {
 	return ""
 }
 
-func getLatestAuditLog(t *testing.T, m model.Model, ctx context.Context, streamerDID, moderatorDID string) *model.ModerationAuditLog {
+func getLatestAuditLog(t *testing.T, db *statedb.StatefulDB, ctx context.Context, streamerDID, moderatorDID string) *statedb.ModerationAuditLog {
 	// Get recent audit logs for the streamer
-	logs, err := m.GetAuditLogs(ctx, streamerDID, 10, nil)
+	logs, err := db.GetAuditLogs(ctx, streamerDID, 10, nil)
 	if err != nil {
 		t.Fatalf("failed to get audit logs: %v", err)
 	}

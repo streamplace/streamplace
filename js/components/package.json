@@ -14,6 +14,7 @@
   "keywords": [
     "streamplace"
   ],
+  "sideEffects": false,
   "author": "Streamplace",
   "license": "MIT",
   "devDependencies": {
@@ -49,7 +50,7 @@
     "i18next-http-backend": "^3.0.2",
     "i18next-resources-to-backend": "^1.2.1",
     "intl-pluralrules": "^2.0.1",
-    "lucide-react-native": "^0.514.0",
+    "lucide-react-native": "^0.562.0",
     "react-i18next": "^15.7.3",
     "react-native": "^0.81.0",
     "react-native-edge-to-edge": "^1.6.2",

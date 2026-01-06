@@ -53,4 +53,27 @@ config.resolver.assetExts.push("md");
 
 config.resolver.unstable_conditionNames.push("@streamplace/dev", "browser");
 
+// Ensure workspace packages get transformed by babel
+config.watchFolders = [path.resolve(__dirname, "../..")];
+config.transformer = {
+  ...config.transformer,
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: true,
+      inlineRequires: true,
+    },
+  }),
+  babelTransformerPath: require.resolve(
+    "@react-native/metro-babel-transformer",
+  ),
+};
+
+// Transform @streamplace/components workspace package
+const { getDefaultConfig } = require("expo/metro-config");
+const defaultConfig = getDefaultConfig(__dirname);
+config.resolver.nodeModulesPaths = [
+  ...defaultConfig.resolver.nodeModulesPaths,
+  path.resolve(__dirname, "../components"),
+];
+
 module.exports = config;

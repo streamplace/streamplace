@@ -127,7 +127,7 @@ export const handleWebSocketMessages = (
           typeof message === "object" &&
           "$type" in message &&
           (message as { $type?: string }).$type ===
-          "place.stream.moderation.permission")
+            "place.stream.moderation.permission")
       ) {
         // Handle moderation permission record updates
         // This can be a new permission or a deletion marker
@@ -147,9 +147,10 @@ export const handleWebSocketMessages = (
           // Use createdAt as a unique identifier since multiple records can exist for the same moderator
           // (e.g., one record with "ban" permission, another with "hide" permission)
           // Note: rkey would be ideal but isn't always present in the WebSocket message
-          const newPerm = permRecord as PlaceStreamModerationPermission.Record & {
-            rkey?: string;
-          };
+          const newPerm =
+            permRecord as PlaceStreamModerationPermission.Record & {
+              rkey?: string;
+            };
           const existingIndex = state.moderationPermissions.findIndex((p) => {
             const pWithRkey = p as PlaceStreamModerationPermission.Record & {
               rkey?: string;

@@ -374,8 +374,6 @@ export const useSubmitReport = () => {
       subject: ComAtprotoModerationCreateReport.InputSchema["subject"],
       reasonType: string,
       reason?: string,
-      // no clue about this
-      moderationSvcDid: string = "did:web:stream.place",
     ) => {
       if (!pdsAgent || !userDID) {
         throw new Error("No PDS agent or user DID found");

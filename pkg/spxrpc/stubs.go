@@ -273,6 +273,11 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.live.getRecommendations", s.HandlePlaceStreamLiveGetRecommendations)
 	e.GET("/xrpc/place.stream.live.getSegments", s.HandlePlaceStreamLiveGetSegments)
 	e.GET("/xrpc/place.stream.live.searchActorsTypeahead", s.HandlePlaceStreamLiveSearchActorsTypeahead)
+	e.POST("/xrpc/place.stream.moderation.createBlock", s.HandlePlaceStreamModerationCreateBlock)
+	e.POST("/xrpc/place.stream.moderation.createGate", s.HandlePlaceStreamModerationCreateGate)
+	e.POST("/xrpc/place.stream.moderation.deleteBlock", s.HandlePlaceStreamModerationDeleteBlock)
+	e.POST("/xrpc/place.stream.moderation.deleteGate", s.HandlePlaceStreamModerationDeleteGate)
+	e.POST("/xrpc/place.stream.moderation.updateLivestream", s.HandlePlaceStreamModerationUpdateLivestream)
 	e.POST("/xrpc/place.stream.server.createWebhook", s.HandlePlaceStreamServerCreateWebhook)
 	e.POST("/xrpc/place.stream.server.deleteWebhook", s.HandlePlaceStreamServerDeleteWebhook)
 	e.GET("/xrpc/place.stream.server.getServerTime", s.HandlePlaceStreamServerGetServerTime)
@@ -473,6 +478,96 @@ func (s *Server) HandlePlaceStreamLiveSearchActorsTypeahead(c echo.Context) erro
 	var handleErr error
 	// func (s *Server) handlePlaceStreamLiveSearchActorsTypeahead(ctx context.Context,limit int,q string) (*placestream.LiveSearchActorsTypeahead_Output, error)
 	out, handleErr = s.handlePlaceStreamLiveSearchActorsTypeahead(ctx, limit, q)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamModerationCreateBlock(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationCreateBlock")
+	defer span.End()
+
+	var body placestream.ModerationCreateBlock_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationCreateBlock_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationCreateBlock(ctx context.Context,body *placestream.ModerationCreateBlock_Input) (*placestream.ModerationCreateBlock_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationCreateBlock(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamModerationCreateGate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationCreateGate")
+	defer span.End()
+
+	var body placestream.ModerationCreateGate_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationCreateGate_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationCreateGate(ctx context.Context,body *placestream.ModerationCreateGate_Input) (*placestream.ModerationCreateGate_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationCreateGate(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamModerationDeleteBlock(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationDeleteBlock")
+	defer span.End()
+
+	var body placestream.ModerationDeleteBlock_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationDeleteBlock_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationDeleteBlock(ctx context.Context,body *placestream.ModerationDeleteBlock_Input) (*placestream.ModerationDeleteBlock_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationDeleteBlock(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamModerationDeleteGate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationDeleteGate")
+	defer span.End()
+
+	var body placestream.ModerationDeleteGate_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationDeleteGate_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationDeleteGate(ctx context.Context,body *placestream.ModerationDeleteGate_Input) (*placestream.ModerationDeleteGate_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationDeleteGate(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamModerationUpdateLivestream(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationUpdateLivestream")
+	defer span.End()
+
+	var body placestream.ModerationUpdateLivestream_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationUpdateLivestream_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context,body *placestream.ModerationUpdateLivestream_Input) (*placestream.ModerationUpdateLivestream_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationUpdateLivestream(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

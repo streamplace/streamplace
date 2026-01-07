@@ -6,10 +6,10 @@ import {
   usePlayerStore,
   zero,
 } from "@streamplace/components";
-import emojiData from "assets/emoji-data.json";
 import { useEffect } from "react";
 import { View } from "react-native";
 import { useUserProfile } from "store/hooks";
+import { useEmojiData } from "utils/emoji";
 
 export default function PopoutChat({ route }) {
   const user = route.params?.user;
@@ -29,6 +29,7 @@ export default function PopoutChat({ route }) {
 export function PopoutChatInner({ user }: { user: string }) {
   const setSrc = usePlayerStore((x) => x.setSrc);
   const profile = useUserProfile();
+  const emojiData = useEmojiData();
   useEffect(() => {
     setSrc(user);
   }, [user]);

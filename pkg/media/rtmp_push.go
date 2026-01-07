@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"net/url"
-	"reflect"
 	"strings"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	"stream.place/streamplace/pkg/streamplace"
 )
 
-// This function remains in scope for the duration of a single users' playback
 func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition string, targetView *streamplace.MultistreamDefs_TargetView) error {
 	uu, err := uuid.NewV7()
 	if err != nil {
@@ -90,7 +88,6 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 					log.Error(ctx, "failed to get rtmp2sink peak-kbps", "prop", prop)
 					continue
 				}
-				log.Warn(ctx, "rtmp2sink peak-kbps", "prop", reflect.TypeOf(prop))
 				propVal, ok := prop.(*gst.Structure)
 				if !ok {
 					log.Error(ctx, "failed to convert rtmp2sink peak-kbps", "prop", prop)

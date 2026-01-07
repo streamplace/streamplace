@@ -73,6 +73,7 @@ import HomeScreen from "./screens/home";
 
 import { useUrl } from "@streamplace/components";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
+import MultistreamManager from "components/settings/multistream-manager";
 import RecommendationsManager from "components/settings/recommendations-manager";
 import Constants from "expo-constants";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
@@ -123,6 +124,7 @@ type SettingsStackParamList = {
   LanguagesCategory: undefined;
   DeveloperSettings: undefined;
   KeyManagement: undefined;
+  MultistreamCategory: undefined;
 };
 
 type RootStackParamList = {
@@ -178,6 +180,9 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
           DanmuCategory: "settings/danmu",
           AdvancedCategory: "settings/advanced",
           DeveloperSettings: "settings/developer",
+          MultistreamCategory: "settings/streaming/multistream",
+          KeyManagement: "settings/streaming/key-management",
+          LanguagesCategory: "settings/languages",
         },
       },
       KeyManagement: "key-management",
@@ -801,6 +806,11 @@ const SettingsStack = () => {
         name="KeyManagement"
         component={KeyManager}
         options={{ headerTitle: "Key Manager", title: "Key Manager" }}
+      />
+      <Stack.Screen
+        name="MultistreamCategory"
+        component={MultistreamManager}
+        options={{ headerTitle: "Multistream", title: "Multistream" }}
       />
     </Stack.Navigator>
   );

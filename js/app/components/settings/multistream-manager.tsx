@@ -4,19 +4,12 @@ import {
   DialogFooter,
   Input,
   Text,
+  TFunction,
+  useTranslation,
+  zero,
 } from "@streamplace/components";
-import { ThemeProvider } from "@streamplace/components/src/lib/theme/theme";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
-import {
-  flex,
-  gap,
-  layout,
-  mb,
-  mt,
-  mx,
-  text,
-  w,
-} from "@streamplace/components/src/ui";
+import { gap, layout, mb, mt, text, w } from "@streamplace/components/src/ui";
 import Loading from "components/loading/loading";
 import { Plus, RefreshCw } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -33,9 +26,12 @@ interface MultistreamTargetViewHydrated
   record: PlaceStreamMultistreamTarget.Record;
 }
 
-const mulistreamTitle = (target?: MultistreamTargetViewHydrated) => {
+const multistreamTitle = (
+  target: MultistreamTargetViewHydrated | undefined,
+  t: TFunction,
+) => {
   if (!target) {
-    return "Untitled Target";
+    return t("untitled-multistream-target");
   }
   if (target.record.name) {
     return target.record.name;
@@ -45,13 +41,15 @@ const mulistreamTitle = (target?: MultistreamTargetViewHydrated) => {
       const u = new URL(target.record.url);
       return u.host;
     } catch (error) {
-      return "Untitled Target";
+      return t("untitled-multistream-target");
     }
   }
-  return "Untitled Target";
+  return t("untitled-multistream-target");
 };
 
 export default function MultistreamManager() {
+  const { theme } = zero.useTheme();
+  const { t } = useTranslation("settings");
   const agent = usePDSAgent();
   const [loading, setLoading] = useState(true);
   const [targets, setTargets] = useState<
@@ -86,10 +84,7 @@ export default function MultistreamManager() {
       setTargets(targetViews.data.targets as MultistreamTargetViewHydrated[]);
     } catch (error) {
       console.error("Failed to load multistream targets:", error);
-      Alert.alert(
-        "Error",
-        "Failed to load multistream targets. Please try again.",
-      );
+      Alert.alert("Error", t("failed-load-multistream-targets"));
     } finally {
       setLoading(false);
     }
@@ -158,10 +153,7 @@ export default function MultistreamManager() {
       await loadMultistreamTargets();
     } catch (error) {
       console.error("Failed to toggle multistream target:", error);
-      Alert.alert(
-        "Error",
-        "Failed to toggle multistream target. Please try again.",
-      );
+      Alert.alert("Error", t("failed-toggle-multistream-target"));
     } finally {
       setTogglingTargets((prev) => {
         const newSet = new Set(prev);
@@ -209,31 +201,46 @@ export default function MultistreamManager() {
   };
 
   return (
-    <ThemeProvider>
-      <View style={[flex.values[1]]}>
-        <ScrollView style={[flex.values[1]]}>
-          <View style={[{ maxWidth: 800 }, mx.auto]}>
+    <>
+      <ScrollView>
+        <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
+          <View style={{ maxWidth: 800, width: "100%" }}>
             {/* Header */}
             <View style={[mb[6]]}>
               <Text style={[mb[2], { fontSize: 24, fontWeight: "700" }]}>
-                Multistream Targets
+                {t("multistream-targets")}
               </Text>
               <Text style={[text.gray[400], mb[4], { fontSize: 14 }]}>
-                Automatically push your Streamplace livestreams to other
-                streaming services like Twitch or YouTube.
+                {t("multistream-description")}
               </Text>
-              <View style={[layout.flex.row, gap.all[3]]}>
-                <Button onPress={handleCreate} size="sm" leftIcon={<Plus />}>
-                  <Text>Create Multistream Target</Text>
+
+              <View
+                style={[
+                  layout.flex.row,
+                  layout.flex.justify.start,
+                  gap.all[3],
+                  w.percent[100],
+                  mt[2],
+                ]}
+              >
+                <Button
+                  onPress={handleCreate}
+                  size="pill"
+                  width="min"
+                  leftIcon={<Plus color={theme.colors.text} />}
+                >
+                  <Text>{t("create-multistream-target")}</Text>
                 </Button>
 
                 <Button
                   onPress={loadMultistreamTargets}
                   disabled={loading}
-                  leftIcon={<RefreshCw />}
-                  size="sm"
+                  leftIcon={<RefreshCw color={theme.colors.text} />}
+                  size="pill"
+                  width="min"
+                  variant="secondary"
                 >
-                  <Text>Refresh</Text>
+                  <Text>{t("refresh")}</Text>
                 </Button>
               </View>
             </View>
@@ -245,20 +252,20 @@ export default function MultistreamManager() {
           ) : targets === null ? (
             <View style={[layout.flex.center, mt[8]]}>
               <Text style={[text.gray[600]]}>
-                Failed to load multistream targets
+                {t("failed-load-multistream-targets")}
               </Text>
             </View>
           ) : targets.length === 0 ? (
             <View style={[layout.flex.center, mt[8]]}>
               <Text style={[text.gray[600], mb[4], { fontSize: 16 }]}>
-                No targets yet!
+                {t("no-multistream-targets-yet")}
               </Text>
             </View>
           ) : (
             <>
               <View style={[mb[4]]}>
                 <Text style={[text.gray[600], { fontSize: 14 }]}>
-                  {targets.length} target{targets.length !== 1 && "s"}
+                  {t("multistream-targets-count", { count: targets.length })}
                 </Text>
               </View>
               {targets.map((target) => (
@@ -280,43 +287,43 @@ export default function MultistreamManager() {
               ))}
             </>
           )}
-        </ScrollView>
-        <MultistreamTargetForm
-          target={editingTarget}
-          isVisible={showForm}
-          onClose={() => {
-            setShowForm(false);
-          }}
-          onSubmit={(record: PlaceStreamMultistreamTarget.Record) => {
-            if (editingTarget) {
-              editMultistreamTarget(editingTarget.uri, record);
-            } else {
-              createMultistreamTarget(record);
-            }
-          }}
-          isLoading={formLoading}
-          formError={formError}
-        />
+        </View>
+      </ScrollView>
+      <MultistreamTargetForm
+        target={editingTarget}
+        isVisible={showForm}
+        onClose={() => {
+          setShowForm(false);
+        }}
+        onSubmit={(record: PlaceStreamMultistreamTarget.Record) => {
+          if (editingTarget) {
+            editMultistreamTarget(editingTarget.uri, record);
+          } else {
+            createMultistreamTarget(record);
+          }
+        }}
+        isLoading={formLoading}
+        formError={formError}
+      />
 
-        <MultistreamTargetDeleteDialog
-          target={deleteDialog.target || undefined}
-          isVisible={deleteDialog.isVisible}
-          onClose={() =>
-            setDeleteDialog({
-              isVisible: false,
-              target: null,
-              isLoading: false,
-            })
-          }
-          onSubmit={() =>
-            deleteDialog.target &&
-            deleteMultistreamTarget(deleteDialog.target.uri)
-          }
-          isLoading={deleteDialog.isLoading}
-          formError={formError}
-        />
-      </View>
-    </ThemeProvider>
+      <MultistreamTargetDeleteDialog
+        target={deleteDialog.target || undefined}
+        isVisible={deleteDialog.isVisible}
+        onClose={() =>
+          setDeleteDialog({
+            isVisible: false,
+            target: null,
+            isLoading: false,
+          })
+        }
+        onSubmit={() =>
+          deleteDialog.target &&
+          deleteMultistreamTarget(deleteDialog.target.uri)
+        }
+        isLoading={deleteDialog.isLoading}
+        formError={formError}
+      />
+    </>
   );
 }
 
@@ -335,13 +342,14 @@ export function MultistreamRow({
   isDeleting: boolean;
   isToggling: boolean;
 }) {
+  const { t } = useTranslation("settings");
   // Determine latest event status for footer
   const getStatusInfo = () => {
     if (target.latestEvent) {
       return (
         <View style={[layout.flex.row, gap.all[4]]}>
           <Text style={[text.gray[400], { fontSize: 11 }]}>
-            Status: {target.latestEvent.status}
+            {t("status")}: {target.latestEvent.status}
           </Text>
           <Text style={[text.gray[400], { fontSize: 11 }]}>
             {timeAgo(new Date(target.latestEvent.createdAt))}
@@ -354,13 +362,13 @@ export function MultistreamRow({
 
   return (
     <SettingsListItem
-      title={mulistreamTitle(target)}
+      title={multistreamTitle(target, t)}
       url={target.record.url}
       active={target.record.active}
       isDeleting={isDeleting}
       isToggling={isToggling}
       footer={{
-        left: `Created ${timeAgo(new Date(target.record.createdAt))}`,
+        left: `${t("created")} ${timeAgo(new Date(target.record.createdAt))}`,
         right: getStatusInfo(),
       }}
       onEdit={() => onEdit(target)}
@@ -385,6 +393,7 @@ function MultistreamTargetForm({
   isLoading: boolean;
   formError: string;
 }) {
+  const { t } = useTranslation("settings");
   const [formData, setFormData] = useState<PlaceStreamMultistreamTarget.Record>(
     {
       $type: "place.stream.multistream.target",
@@ -443,7 +452,9 @@ function MultistreamTargetForm({
     <Dialog
       open={isVisible}
       onOpenChange={(open) => !open && onClose()}
-      title={target ? "Edit Target" : "Create Target"}
+      title={
+        target ? t("multistream-edit-target") : t("multistream-create-target")
+      }
       size="lg"
       dismissible={false}
     >
@@ -453,14 +464,14 @@ function MultistreamTargetForm({
           <Text
             style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
           >
-            Name (optional)
+            {t("rtmp-target-name")} ({t("optional")})
           </Text>
           <Input
             value={formData.name}
             onChangeText={(text) =>
               setFormData((prev) => ({ ...prev, name: text }))
             }
-            placeholder="My Multistream Target"
+            placeholder={t("rtmp-target-name-placeholder")}
           />
         </View>
 
@@ -469,7 +480,7 @@ function MultistreamTargetForm({
           <Text
             style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
           >
-            Webhook URL *
+            {t("rtmp-target-url")} *
           </Text>
           <Input
             value={formData.url}
@@ -497,7 +508,7 @@ function MultistreamTargetForm({
           ]}
         >
           <Text style={[text.gray[300], { fontSize: 14, fontWeight: "500" }]}>
-            Active
+            {t("active")}
           </Text>
           <Switch
             value={formData.active}
@@ -512,10 +523,15 @@ function MultistreamTargetForm({
       </View>
 
       <DialogFooter>
-        <Button variant="secondary" onPress={onClose} disabled={isLoading}>
+        <Button
+          variant="secondary"
+          onPress={onClose}
+          disabled={isLoading}
+          width="min"
+        >
           <Text>Cancel</Text>
         </Button>
-        <Button onPress={handleSubmit} disabled={isLoading}>
+        <Button onPress={handleSubmit} disabled={isLoading} width="min">
           <Text>{isLoading ? "Saving..." : target ? "Update" : "Create"}</Text>
         </Button>
       </DialogFooter>
@@ -538,6 +554,7 @@ const MultistreamTargetDeleteDialog = ({
   isLoading: boolean;
   formError: string;
 }) => {
+  const { t } = useTranslation("settings");
   return (
     <Dialog
       open={isVisible}
@@ -547,15 +564,14 @@ const MultistreamTargetDeleteDialog = ({
     >
       <View style={[w.percent[100], mb[8], mt[2]]}>
         <Text style={[{ fontSize: 24 }]}>
-          Are you sure you want to delete "{mulistreamTitle(target)}"?
+          {t("multistream-delete-target-confirmation", {
+            target: multistreamTitle(target, t),
+          })}
         </Text>
         <Text
           style={[text.gray[400], mt[4], { fontSize: 18, fontWeight: "700" }]}
         >
-          This action cannot be undone.
-        </Text>
-        <Text style={[text.gray[400], { fontSize: 18, fontWeight: "700" }]}>
-          The webhook will no longer receive events.
+          {t("this-action-cannot-be-undone")}
         </Text>
       </View>
 
@@ -573,7 +589,7 @@ const MultistreamTargetDeleteDialog = ({
         </Button>
         <Button variant="destructive" onPress={onSubmit} disabled={isLoading}>
           <Text style={[text.white, { fontSize: 14, fontWeight: "500" }]}>
-            {isLoading ? "Deleting..." : "Delete"}
+            {isLoading ? t("deleting") : t("delete")}
           </Text>
         </Button>
       </View>

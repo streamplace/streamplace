@@ -177,7 +177,6 @@ BASE_OPTS = \
 		-D "gst-plugins-good:videobox=enabled" \
 		-D "gst-plugins-good:jpeg=enabled" \
 		-D "gst-plugins-good:audioparsers=enabled" \
-		-D "gst-plugins-good:flv=enabled" \
 		-D "gst-plugins-bad:videoparsers=enabled" \
 		-D "gst-plugins-bad:mpegtsmux=enabled" \
 		-D "gst-plugins-bad:mpegtsdemux=enabled" \

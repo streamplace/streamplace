@@ -28,7 +28,6 @@ import {
 import { useUserProfile } from "store/hooks";
 import { useCaptureVideoFrame } from "../../hooks/useCaptureVideoFrame";
 import { useLiveUser } from "../../hooks/useLiveUser";
-import MultistreamStatus from "./multistream-status";
 
 const { flex, p, px, py, gap, layout, bg, borders, text, r, w, typography } =
   zero;
@@ -593,9 +592,6 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
               </Button>
             </View>
           )}
-        </View>
-        <View style={[borders.top.width.thin, borders.top.color.neutral[700]]}>
-          <MultistreamStatus />
         </View>
       </Wrapper>
     </>

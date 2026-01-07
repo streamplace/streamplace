@@ -62,6 +62,7 @@ save-button = Save
 sign-in = Sign In
 update = Update
 log-out = Log out
+optional = optional
 
 ## Account Settings
 account-greeting = Hey, @{ $handle }.
@@ -117,6 +118,31 @@ events-livestream = Livestream Events
 events-chat = Chat Events
 untitled-webhook = Untitled Webhook
 inactive = Inactive
+active = Active
+
+## Multistreaming
+multistreaming = Multistreaming
+multistream-targets = Multistream Targets
+multistream-description = Automatically push your Streamplace livestreams to other streaming services like Twitch or YouTube.
+create-multistream-target = Create Multistream Target
+untitled-multistream-target = Untitled Target
+failed-load-multistream-targets = Failed to load multistream targets. Please try again.
+failed-toggle-multistream-target = Failed to toggle multistream target. Please try again.
+failed-delete-multistream-target = Failed to delete multistream target. Please try again.
+no-multistream-targets-yet = No targets yet!
+multistream-targets-count = { $count ->
+    [one] { $count } target
+   *[other] { $count } targets
+}
+multistream-delete-target-confirmation = Are you sure you want to delete "{ $target }"?
+this-action-cannot-be-undone = This action cannot be undone.
+rtmp-target-name = RTMP Target
+rtmp-target-url = RTMP URL
+rtmp-target-name-placeholder = My Multistream Target
+multistream-create-target = Create Target
+multistream-edit-target = Edit Target
+created = created
+status = status
 
 ## Debug Recording
 debug-recording = Debug Recording

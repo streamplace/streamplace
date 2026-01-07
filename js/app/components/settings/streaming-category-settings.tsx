@@ -5,7 +5,7 @@ import {
   View,
   zero,
 } from "@streamplace/components";
-import { Heart, Key, Webhook } from "lucide-react-native";
+import { Globe, Heart, Key, Webhook } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { ScrollView } from "react-native";
 import { SettingsNavigationItem } from "./components/settings-navigation-item";
@@ -34,6 +34,12 @@ export function StreamingCategorySettings() {
                 title={t("webhooks")}
                 screen="WebhooksSettings"
                 icon={Webhook}
+              />
+              <MenuSeparator />
+              <SettingsNavigationItem
+                title={t("multistream")}
+                screen="MultistreamCategory"
+                icon={Globe}
               />
             </MenuGroup>
           </MenuContainer>

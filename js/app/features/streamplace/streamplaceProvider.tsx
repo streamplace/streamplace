@@ -1,4 +1,3 @@
-import { Text } from "@streamplace/components";
 import Loading from "components/loading/loading";
 import { createContext, useEffect } from "react";
 import { View } from "react-native";
@@ -28,7 +27,6 @@ export default function StreamplaceProvider({
   if (!initialized) {
     return (
       <View style={[{ flex: 1 }]}>
-        <Text style={[{ color: "#fff" }]}>StreamplaceProvider loading...</Text>
         <Loading />
       </View>
     );

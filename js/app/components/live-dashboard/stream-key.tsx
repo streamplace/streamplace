@@ -93,13 +93,15 @@ export function StreamKeyScreen() {
           <FormRow>
             <Label>Output Settings</Label>
             <Content>
-              <Text>Output mode: Advanced</Text>
-              <Text>
-                Keyframe Interval: <Code>1s</Code>
-              </Text>
-              <Text>
-                x264 Options: <Code>bframes=0</Code>
-              </Text>
+              <Body>
+                <Text>Output mode: Advanced</Text>
+                <Text>
+                  Keyframe Interval: <Code>1s</Code>
+                </Text>
+                <Text>
+                  x264 Options: <Code>bframes=0</Code>
+                </Text>
+              </Body>
             </Content>
           </FormRow>
         </View>

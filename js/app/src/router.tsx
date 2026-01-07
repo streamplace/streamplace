@@ -15,7 +15,13 @@ import {
   useRoute,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Text, useTheme, useToast } from "@streamplace/components";
+import {
+  Text,
+  useDefaultStreamer,
+  useSiteTitle,
+  useTheme,
+  useToast,
+} from "@streamplace/components";
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
 import Login from "components/login/login";
@@ -72,6 +78,7 @@ import KeyManager from "components/settings/key-manager";
 import HomeScreen from "./screens/home";
 
 import { useUrl } from "@streamplace/components";
+import { BrandingAdmin } from "components/settings/branding-admin";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
 import RecommendationsManager from "components/settings/recommendations-manager";
 import Constants from "expo-constants";
@@ -123,6 +130,7 @@ type SettingsStackParamList = {
   LanguagesCategory: undefined;
   DeveloperSettings: undefined;
   KeyManagement: undefined;
+  BrandingAdmin: undefined;
 };
 
 type RootStackParamList = {
@@ -178,6 +186,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
           DanmuCategory: "settings/danmu",
           AdvancedCategory: "settings/advanced",
           DeveloperSettings: "settings/developer",
+          BrandingAdmin: "settings/branding",
         },
       },
       KeyManagement: "key-management",
@@ -315,6 +324,12 @@ const AvatarButton = () => {
 const useExternalItems = (): ExternalDrawerItem[] => {
   const streamplaceUrl = useUrl();
   const { theme } = useTheme();
+  const defaultStreamer = useDefaultStreamer();
+
+  if (defaultStreamer) {
+    return [];
+  }
+
   return [
     {
       item: React.memo(() => <Book size={24} color={theme.colors.text} />),
@@ -395,6 +410,8 @@ export function StreamplaceDrawer() {
   const showLoginModal = useStore((state) => state.showLoginModal);
   const closeLoginModal = useStore((state) => state.closeLoginModal);
   const [livePopup, setLivePopup] = useState(false);
+  const siteTitle = useSiteTitle();
+  const defaultStreamer = useDefaultStreamer();
 
   const sidebar = useSidebarControl();
 
@@ -410,6 +427,10 @@ export function StreamplaceDrawer() {
   const notificationToken = useNotificationToken();
   const userProfile = useUserProfile();
   const hydrated = useHydrated();
+
+  // check if current user is the default streamer
+  const isDefaultStreamer =
+    defaultStreamer && userProfile?.did === defaultStreamer;
   useEffect(() => {
     if (notificationToken) {
       registerNotificationToken();
@@ -517,9 +538,9 @@ export function StreamplaceDrawer() {
           options={{
             drawerIcon: () => <Home color={foregroundColor} size={24} />,
             drawerLabel: () => <Text variant="h5">Home</Text>,
-            headerTitle: isWeb ? "Home" : "Streamplace",
+            headerTitle: isWeb ? "Home" : siteTitle,
             headerShown: isWeb,
-            title: "Streamplace",
+            title: siteTitle,
           }}
           listeners={{
             drawerItemPress: (e) => {
@@ -548,7 +569,8 @@ export function StreamplaceDrawer() {
             drawerIcon: () => (
               <ShieldQuestion color={foregroundColor} size={24} />
             ),
-            drawerItemStyle: isNative ? { display: "none" } : undefined,
+            drawerItemStyle:
+              isNative || defaultStreamer ? { display: "none" } : undefined,
           }}
         />
         <Drawer.Screen
@@ -557,7 +579,8 @@ export function StreamplaceDrawer() {
           options={{
             drawerLabel: () => <Text variant="h5">Download</Text>,
             drawerIcon: () => <Download color={foregroundColor} size={24} />,
-            drawerItemStyle: isBrowser ? undefined : { display: "none" },
+            drawerItemStyle:
+              !isBrowser || defaultStreamer ? { display: "none" } : undefined,
           }}
         />
         <Drawer.Screen
@@ -586,7 +609,14 @@ export function StreamplaceDrawer() {
             },
           }}
         />
-
+        <Drawer.Screen
+          name="KeyManagement"
+          component={KeyManager}
+          options={{
+            drawerLabel: () => <Text variant="h5">Key Manager</Text>,
+            drawerItemStyle: { display: "none" },
+          }}
+        />
         <Drawer.Screen
           name="Support"
           component={SupportScreen}
@@ -601,7 +631,10 @@ export function StreamplaceDrawer() {
           options={{
             drawerLabel: () => <Text variant="h5">Live Dashboard</Text>,
             drawerIcon: () => <Video color={foregroundColor} size={24} />,
-            drawerItemStyle: isNative ? { display: "none" } : undefined,
+            drawerItemStyle:
+              isNative || (defaultStreamer && !isDefaultStreamer)
+                ? { display: "none" }
+                : undefined,
           }}
         />
         <Drawer.Screen
@@ -671,7 +704,10 @@ export function StreamplaceDrawer() {
           component={MobileGoLive}
           options={{
             headerTitle: "Go Live",
-            drawerItemStyle: isNative ? undefined : { display: "none" },
+            drawerItemStyle:
+              !isNative || (defaultStreamer && !isDefaultStreamer)
+                ? { display: "none" }
+                : undefined,
             drawerLabel: () => <Text variant="h5">Go Live</Text>,
             title: "Go live",
             drawerIcon: () => <Video color={foregroundColor} size={24} />,
@@ -701,8 +737,10 @@ export const PopupChecker = ({
 };
 
 const MainTab = () => {
-  const theme = useTheme();
   const { isWeb } = usePlatform();
+  const siteTitle = useSiteTitle();
+  const defaultStreamer = useDefaultStreamer();
+
   return (
     <Stack.Navigator
       initialRouteName="StreamList"
@@ -716,8 +754,10 @@ const MainTab = () => {
     >
       <Stack.Screen
         name="StreamList"
-        component={HomeScreen}
-        options={{ headerTitle: "Streamplace", title: "Streamplace" }}
+        component={
+          defaultStreamer && defaultStreamer !== "" ? MobileStream : HomeScreen
+        }
+        options={{ headerTitle: siteTitle, title: siteTitle }}
       />
       <Stack.Screen
         name="Stream"
@@ -801,6 +841,14 @@ const SettingsStack = () => {
         name="KeyManagement"
         component={KeyManager}
         options={{ headerTitle: "Key Manager", title: "Key Manager" }}
+      />
+      <Drawer.Screen
+        name="BrandingAdmin"
+        component={BrandingAdmin}
+        options={{
+          drawerLabel: () => <Text variant="h5">Branding Admin</Text>,
+          drawerItemStyle: { display: "none" },
+        }}
       />
     </Stack.Navigator>
   );

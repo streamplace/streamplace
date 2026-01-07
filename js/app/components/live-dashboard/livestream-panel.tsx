@@ -1,26 +1,33 @@
 import {
   Button,
-  Text,
+  Checkbox,
+  ContentMetadataForm,
+  Dashboard,
+  formatHandle,
+  formatHandleWithAt,
+  Input,
   Textarea,
+  Tooltip,
   useCreateStreamRecord,
   useLivestream,
   useToast,
   useUpdateStreamRecord,
+  useUrl,
   zero,
 } from "@streamplace/components";
 import { ImagePlus, X } from "lucide-react-native";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Platform,
   ScrollView,
+  Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { selectUserProfile } from "../../features/bluesky/blueskySlice";
+import { useUserProfile } from "store/hooks";
 import { useCaptureVideoFrame } from "../../hooks/useCaptureVideoFrame";
 import { useLiveUser } from "../../hooks/useLiveUser";
-import { useAppSelector } from "../../store/hooks";
 import MultistreamStatus from "./multistream-status";
 
 const { flex, p, px, py, gap, layout, bg, borders, text, r, w, typography } =
@@ -47,17 +54,22 @@ const ButtonSelector = ({
         key={value}
         variant={selectedValue === value ? "primary" : "secondary"}
         size="pill"
+        width="min"
         disabled={disabledValues.includes(value)}
         onPress={() => setSelectedValue(value)}
         style={[
           r.md,
-          py[0],
           {
             opacity: disabledValues.includes(value) ? 0.5 : 1,
           },
         ]}
       >
-        <Text style={[selectedValue === value ? text.white : text.gray[300]]}>
+        <Text
+          style={[
+            selectedValue === value ? text.white : text.gray[300],
+            { fontSize: 14, fontWeight: "600" },
+          ]}
+        >
           {label}
         </Text>
       </Button>
@@ -153,27 +165,61 @@ const ImageUploadComponent = ({
   );
 };
 
-function LivestreamPanel() {
+function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const toast = useToast();
   const userIsLive = useLiveUser();
   const captureFrame = useCaptureVideoFrame();
-  const profile = useAppSelector(selectUserProfile);
+  const profile = useUserProfile();
   const livestream = useLivestream();
   const createStreamRecord = useCreateStreamRecord();
   const updateStreamRecord = useUpdateStreamRecord();
+  const url = useUrl();
 
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<
     string | File | Blob | undefined
   >();
-  const [mode, setMode] = useState<"create" | "edit">(
-    livestream ? "edit" : "create",
+  const [mode, setMode] = useState<"create" | "metadata" | "moderation">(
+    "create",
   );
 
-  const handleModeChange = useCallback((newMode: "create" | "edit") => {
-    setMode(newMode);
-  }, []);
+  const [createPost, setCreatePost] = useState(true);
+  const [sendPushNotification, setSendPushNotification] = useState(true);
+  const [canonicalUrl, setCanonicalUrl] = useState<string>(
+    livestream?.record.canonicalUrl || "",
+  );
+  const defaultCanonicalUrl = useMemo(() => {
+    return `${url}/${profile && formatHandle(profile)}`;
+  }, [url, profile?.handle]);
+
+  useEffect(() => {
+    if (!livestream) {
+      return;
+    }
+    if (
+      livestream.record.canonicalUrl &&
+      livestream.record.canonicalUrl !== defaultCanonicalUrl
+    ) {
+      setCanonicalUrl(livestream.record.canonicalUrl);
+    }
+    if (
+      typeof livestream.record.notificationSettings?.pushNotification ===
+      "boolean"
+    ) {
+      setSendPushNotification(
+        livestream.record.notificationSettings.pushNotification,
+      );
+    }
+    setCreatePost(typeof livestream.record.post !== "undefined");
+  }, [livestream, defaultCanonicalUrl]);
+
+  const handleModeChange = useCallback(
+    (newMode: "create" | "metadata" | "moderation") => {
+      setMode(newMode);
+    },
+    [],
+  );
 
   const handleSubmit = useCallback(async () => {
     if (!title.trim()) return;
@@ -199,7 +245,11 @@ function LivestreamPanel() {
         await createStreamRecord({
           title: title.trim(),
           customThumbnail: thumbnailToUse as Blob | undefined,
-          submitPost: true,
+          submitPost: createPost,
+          notificationSettings: {
+            pushNotification: sendPushNotification,
+          },
+          canonicalUrl: canonicalUrl || undefined,
         });
       } else {
         await updateStreamRecord(
@@ -271,11 +321,9 @@ function LivestreamPanel() {
     setSelectedImage(undefined);
   }, []);
 
-  const noLivestream = mode === "edit" && !livestream;
-
   const disabled = useMemo(
-    () => !userIsLive || loading || title.trim() === "" || noLivestream,
-    [userIsLive, loading, title, noLivestream],
+    () => !userIsLive || loading || title.trim() === "",
+    [userIsLive, loading, title],
   );
 
   const buttonText = useMemo(() => {
@@ -288,14 +336,19 @@ function LivestreamPanel() {
     return mode === "create" ? "Announce Livestream!" : "Update Livestream!";
   }, [loading, userIsLive, mode]);
 
+  const Wrapper = scrollable ? ScrollView : View;
+  const wrapperProps = scrollable
+    ? {
+        contentContainerStyle: {
+          flexGrow: 1,
+        },
+        showsVerticalScrollIndicator: false,
+      }
+    : {};
+
   return (
     <>
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
+      <Wrapper {...wrapperProps}>
         <View
           style={[
             flex.values[1],
@@ -317,32 +370,37 @@ function LivestreamPanel() {
               borders.bottom.color.neutral[700],
             ]}
           >
-            <Text size="xl">Stream Settings</Text>
+            <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
+              Stream Settings
+            </Text>
             <ButtonSelector
               values={[
                 { label: "Create", value: "create" },
-                { label: "Edit", value: "edit" },
+                { label: "Metadata", value: "metadata" },
+                { label: "Moderation", value: "moderation" },
               ]}
               style={[{ marginVertical: -2 }]}
               selectedValue={mode}
               setSelectedValue={handleModeChange as any}
-              disabledValues={livestream ? [] : ["edit"]}
+              disabledValues={[]}
             />
           </View>
 
-          {mode === "edit" && (
-            <Text style={[p[4], typography.universal?.xl || text.white]}>
-              Change your Current Livestream Title
-            </Text>
-          )}
-
-          {noLivestream ? (
-            <View style={[layout.flex.center, p[4]]}>
-              <Text style={[text.neutral[400], { fontSize: 16 }]}>
-                No active livestream to edit. Start a livestream first!
-              </Text>
+          {mode === "metadata" ? (
+            // Metadata view
+            <View style={[flex.values[1], p[4]]}>
+              <ContentMetadataForm
+                showUpdateButton={!userIsLive}
+                style={{ flex: 1, height: "100%" }}
+              />
+            </View>
+          ) : mode === "moderation" ? (
+            // Moderation view
+            <View style={[flex.values[1], { minHeight: 400 }]}>
+              <Dashboard.ModeratorPanel isLive={userIsLive} embedded={true} />
             </View>
           ) : (
+            // Create/Edit view
             <View
               style={[
                 gap.all[8],
@@ -375,7 +433,7 @@ function LivestreamPanel() {
                       { fontWeight: "bold", paddingBottom: 8 },
                     ]}
                   >
-                    @{profile?.handle || "streamer"}
+                    {profile && formatHandleWithAt(profile)}
                   </Text>
                 </View>
                 <View
@@ -434,7 +492,11 @@ function LivestreamPanel() {
                     </View>
                   </View>
                 </View>
-                {mode === "edit" && (
+
+                <Tooltip
+                  content="Set this to have the livestream announced with a link to this URL instead of the default URL."
+                  position="top"
+                >
                   <View
                     style={[
                       layout.flex.row,
@@ -442,14 +504,64 @@ function LivestreamPanel() {
                       w.percent[100],
                     ]}
                   >
+                    <Text
+                      style={[
+                        text.neutral[300],
+                        {
+                          minWidth: 100,
+                          textAlign: "left",
+                          paddingBottom: 8,
+                          fontSize: 14,
+                        },
+                      ]}
+                    >
+                      Canonical URL
+                    </Text>
                     <View style={[flex.values[1]]}>
-                      <Text style={[text.neutral[400], { fontSize: 12 }]}>
-                        Updating will not send out notifications to viewers or
-                        create a new social media post.
-                      </Text>
+                      <Input
+                        value={canonicalUrl}
+                        onChange={(value) => setCanonicalUrl(value)}
+                        placeholder={defaultCanonicalUrl}
+                        variant="filled"
+                        inputStyle={[
+                          p[3],
+                          r.md,
+                          bg.neutral[800],
+                          text.white,
+                          borders.width.thin,
+                          borders.color.neutral[600],
+                          w.percent[100],
+                        ]}
+                      />
                     </View>
                   </View>
-                )}
+                </Tooltip>
+
+                <Tooltip
+                  content="Create a Bluesky post announcing you're live with a link to the stream."
+                  position="top"
+                >
+                  <Checkbox
+                    checked={createPost}
+                    onCheckedChange={(checked) => setCreatePost(checked)}
+                    label={"Create Bluesky post"}
+                    style={[{ fontSize: 12 }]}
+                  />
+                </Tooltip>
+
+                <Tooltip
+                  content="Send a push notification to your followers on the Streamplace iOS/Android app."
+                  position="top"
+                >
+                  <Checkbox
+                    checked={sendPushNotification}
+                    onCheckedChange={(checked) =>
+                      setSendPushNotification(checked)
+                    }
+                    label={"Send push notification"}
+                    style={[{ fontSize: 12 }]}
+                  />
+                </Tooltip>
               </View>
 
               {/* Image upload for create mode */}
@@ -481,14 +593,11 @@ function LivestreamPanel() {
               </Button>
             </View>
           )}
-          {/* Multistream Status Section */}
-          <View
-            style={[borders.top.width.thin, borders.top.color.neutral[700]]}
-          >
-            <MultistreamStatus />
-          </View>
         </View>
-      </ScrollView>
+        <View style={[borders.top.width.thin, borders.top.color.neutral[700]]}>
+          <MultistreamStatus />
+        </View>
+      </Wrapper>
     </>
   );
 }

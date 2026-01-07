@@ -2,18 +2,11 @@ import { responsiveValue } from "@streamplace/components/src/lib/utils";
 import { useMemo } from "react";
 import { useWindowDimensions } from "react-native";
 import { SharedValue } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export interface ResponsiveLayoutConfig {
   shouldShowChatSidePanel: boolean;
   shouldShowFloatingMetrics: boolean;
   chatPanelWidth: number;
-  safeAreaInsets: {
-    top: number;
-    bottom: number;
-    left: number;
-    right: number;
-  };
   screenWidth: number;
   availableHeight: number;
 }
@@ -30,22 +23,26 @@ export function useResponsiveLayout({
   contentWidth: number;
 } {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const safeAreaInsets = useSafeAreaInsets();
 
   const sidebarWidthValue = useMemo(() => {
     if (typeof sidebarWidth === "object" && "value" in sidebarWidth) {
       return sidebarWidth.value;
     }
     return sidebarWidth;
-  }, [sidebarWidth]);
+  }, [
+    sidebarWidth,
+    // weirddd
+    (sidebarWidth as any)?.value,
+    sidebarHidden,
+    showChatSidePanelOnLandscape,
+  ]);
 
   const isLandscape = screenWidth > screenHeight;
   const shouldShowChatSidePanel =
     isLandscape && screenWidth >= 768 && showChatSidePanelOnLandscape;
 
   const shouldShowFloatingMetrics = screenWidth < 768;
-  const availableHeight =
-    screenHeight - safeAreaInsets.top - safeAreaInsets.bottom;
+  const availableHeight = screenHeight;
 
   const chatPanelWidth = responsiveValue(
     {
@@ -57,8 +54,7 @@ export function useResponsiveLayout({
     screenWidth,
   );
 
-  const availableWidth =
-    screenWidth - safeAreaInsets.left - safeAreaInsets.right / 2;
+  const availableWidth = screenWidth;
 
   const contentWidth =
     !sidebarHidden && sidebarWidthValue > 0
@@ -69,7 +65,6 @@ export function useResponsiveLayout({
     shouldShowChatSidePanel,
     shouldShowFloatingMetrics,
     chatPanelWidth,
-    safeAreaInsets,
     contentWidth,
     screenWidth,
     availableHeight,

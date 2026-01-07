@@ -84,6 +84,7 @@ export const versionCode = (verStr: string) => {
 export default function () {
   const isProd =
     process.env["SP_PRODUCTION_RELEASE"] === "true" || !!process.env.CI;
+  const enableSentry = process.env["SP_ENABLE_SENTRY"] === "true";
   const pkg = require("./package.json");
   const name = isProd ? "Streamplace" : "Devplace";
   let bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev";
@@ -196,6 +197,7 @@ export default function () {
         withAndroidProfileable,
         "expo-video",
         "expo-web-browser",
+        "expo-screen-orientation",
         streamplaceReactNativeWebRTC,
         [
           "expo-video",
@@ -260,6 +262,18 @@ export default function () {
               [withNotificationsIOS, {}],
             ]
           : ["expo-dev-launcher", withoutNotificationsIOS]),
+        ...(enableSentry
+          ? [
+              [
+                "@sentry/react-native/expo",
+                {
+                  url: "https://sentry.io/",
+                  project: process.env["SP_SENTRY_APP"] || "app",
+                  organization: process.env["SP_SENTRY_ORG"] || "streamplace",
+                },
+              ],
+            ]
+          : []),
       ],
       experiments: {
         typedRoutes: true,

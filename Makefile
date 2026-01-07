@@ -139,6 +139,11 @@ ios: app
 rtcrec:
 	go build -o $(BUILDDIR)/rtcrec ./pkg/rtcrec/cmd/...
 
+# Go takes care of this automatically but we can speed up the build by downloading go deps while the build is running
+.PHONY: godeps
+godeps:
+	go get ./pkg/...
+
 #   __  __ ______  _____  ____  _   _
 #  |  \/  |  ____|/ ____|/ __ \| \ | |
 #  | \  / | |__  | (___ | |  | |  \| |
@@ -165,12 +170,14 @@ BASE_OPTS = \
 		-D "gst-plugins-good:multifile=enabled" \
 		-D "gst-plugins-good:rtp=enabled" \
 		-D "gst-plugins-bad:fdkaac=enabled" \
+		-D "gst-plugins-bad:rtmp2=enabled" \
 		-D "gst-plugins-good:audioparsers=enabled" \
 		-D "gst-plugins-good:isomp4=enabled" \
 		-D "gst-plugins-good:png=enabled" \
 		-D "gst-plugins-good:videobox=enabled" \
 		-D "gst-plugins-good:jpeg=enabled" \
 		-D "gst-plugins-good:audioparsers=enabled" \
+		-D "gst-plugins-good:flv=enabled" \
 		-D "gst-plugins-bad:videoparsers=enabled" \
 		-D "gst-plugins-bad:mpegtsmux=enabled" \
 		-D "gst-plugins-bad:mpegtsdemux=enabled" \
@@ -182,7 +189,7 @@ BASE_OPTS = \
 		-D "gst-plugins-ugly:gpl=enabled" \
 		-D "x264:asm=enabled" \
 		-D "gstreamer-full:gst-full=enabled" \
-		-D "gstreamer-full:gst-full-plugins=libgstopusparse.a;libgstcodectimestamper.a;libgstrtp.a;libgstaudioresample.a;libgstlibav.a;libgstmatroska.a;libgstmultifile.a;libgstjpeg.a;libgstaudiotestsrc.a;libgstaudioconvert.a;libgstaudioparsers.a;libgstfdkaac.a;libgstisomp4.a;libgstapp.a;libgstvideoconvertscale.a;libgstvideobox.a;libgstvideorate.a;libgstpng.a;libgstcompositor.a;libgstaudiorate.a;libgstx264.a;libgstopus.a;libgstvideotestsrc.a;libgstvideoparsersbad.a;libgstaudioparsers.a;libgstmpegtsmux.a;libgstmpegtsdemux.a;libgstplayback.a;libgsttypefindfunctions.a;libgstcoretracers.a" \
+		-D "gstreamer-full:gst-full-plugins=libgstflv.a;libgstrtmp2.a;libgstopusparse.a;libgstcodectimestamper.a;libgstrtp.a;libgstaudioresample.a;libgstlibav.a;libgstmatroska.a;libgstmultifile.a;libgstjpeg.a;libgstaudiotestsrc.a;libgstaudioconvert.a;libgstaudioparsers.a;libgstfdkaac.a;libgstisomp4.a;libgstapp.a;libgstvideoconvertscale.a;libgstvideobox.a;libgstvideorate.a;libgstpng.a;libgstcompositor.a;libgstaudiorate.a;libgstx264.a;libgstopus.a;libgstvideotestsrc.a;libgstvideoparsersbad.a;libgstaudioparsers.a;libgstmpegtsmux.a;libgstmpegtsdemux.a;libgstplayback.a;libgsttypefindfunctions.a;libgstcoretracers.a;libgstcodec2json.a" \
 		-D "gstreamer-full:gst-full-libraries=gstreamer-controller-1.0,gstreamer-plugins-base-1.0,gstreamer-pbutils-1.0" \
 		-D "gstreamer-full:gst-full-elements=coreelements:concat,filesrc,filesink,queue,queue2,multiqueue,typefind,tee,capsfilter,fakesink,identity" \
 		-D "gstreamer-full:bad=enabled" \
@@ -201,7 +208,8 @@ BASE_OPTS = \
 		-D "glib:glib_assert=false" \
 		-D "glib:glib_assert=false" \
 		-D "gst-libav:glib_assert=false" \
-		-D "gst-plugins-good:adaptivedemux2=disabled"
+		-D "gst-plugins-good:adaptivedemux2=disabled" \
+		-D "gst-plugins-bad:codec2json=enabled"
 
 STATIC_OPTS = \
 	$(BASE_OPTS) \
@@ -273,7 +281,7 @@ dev: app-cached
 	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
-	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
 
 .PHONY: dev-setup-meson
 dev-setup-meson:
@@ -282,25 +290,36 @@ dev-setup-meson:
 
 .PHONY: dev-setup-meson-configure
 dev-setup-meson-configure:
-	if ! which uniffi-bindgen-go; then cargo install uniffi-bindgen-go --git https://github.com/NordSecurity/uniffi-bindgen-go --tag v0.3.0+v0.28.3; fi
 	meson setup --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson configure --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 
 .PHONY: dev-rust
-dev-rust:
+dev-rust: .build/bin/uniffi-bindgen-go-forked
 	cargo build
 	EXT=so; \
 	if [ "$(BUILDOS)" = "darwin" ]; then EXT=dylib; fi; \
-	uniffi-bindgen-go --out-dir pkg/iroh/generated --library ./target/debug/libiroh_streamplace.$$EXT \
-	&& cp ./target/debug/libiroh_streamplace.$$EXT $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT \
-	&& cp ./target/debug/libiroh_streamplace.$$EXT $(BUILDDIR)/lib/libiroh_streamplace.$$EXT
+	.build/bin/uniffi-bindgen-go-forked --out-dir pkg/iroh/generated --library ./target/debug/libiroh_streamplace.$$EXT \
+	&& mkdir -p $(BUILDDIR)/rust/iroh-streamplace/ \
+	&& mkdir -p $(BUILDDIR)/lib/ \
+	&& cp ./target/debug/libiroh_streamplace.$$EXT $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT.tmp \
+	&& mv $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT.tmp $(BUILDDIR)/rust/iroh-streamplace/libiroh_streamplace.$$EXT \
+	&& cp ./target/debug/libiroh_streamplace.$$EXT $(BUILDDIR)/lib/libiroh_streamplace.$$EXT.tmp \
+	&& mv $(BUILDDIR)/lib/libiroh_streamplace.$$EXT.tmp $(BUILDDIR)/lib/libiroh_streamplace.$$EXT
 
 .PHONY: dev-test
 dev-test:
 	go install github.com/jstemmer/go-junit-report/v2@latest \
 	&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
-	bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
+	CGO_LDFLAGS="-lm" \
+	bash -euo pipefail -c "go test -p 1 -timeout 30m ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
+
+.PHONY: iroh-test
+iroh-test:
+	$(MAKE) dev-rust
+	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
+	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
+	go build -o $(BUILDDIR)/iroh-test ./pkg/iroh/iroh_test/...
 
 #   _      _____ _   _ _______ _____ _   _  _____
 #  | |    |_   _| \ | |__   __|_   _| \ | |/ ____|
@@ -314,11 +333,13 @@ check: install
 	$(MAKE) golangci-lint
 	pnpm run check
 	if [ "`gofmt -l . | wc -l`" -gt 0 ]; then echo 'gofmt failed, run make fix'; exit 1; fi
+	RUSTFLAGS="-D warnings" cargo check
 
 .PHONY: fix
 fix:
 	pnpm run fix
 	gofmt -w .
+	cargo fix --allow-dirty
 
 .PHONY: golangci-lint
 golangci-lint:
@@ -347,7 +368,7 @@ go-lexicons:
 	&& mkdir -p ./pkg/streamplace \
 	&& rm -rf ./pkg/streamplace/cbor_gen.go \
 	&& $(MAKE) lexgen \
-	&& sed -i.bak 's/\tutil/\/\/\tutil/' $$(find ./pkg/streamplace -type f) \
+	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace -type f) \
 	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace -type f) \
 	&& go run ./pkg/gen/gen.go \
 	&& $(MAKE) lexgen \
@@ -490,6 +511,11 @@ ci-npm-release: install
 	echo //registry.npmjs.org/:_authToken=$$NPM_TOKEN > ~/.npmrc \
 	&& npx lerna publish from-package --yes
 
+.build/bin/uniffi-bindgen-go-forked:
+	mkdir -p .build \
+	&& cargo install uniffi-bindgen-go --git https://github.com/kegsay/uniffi-bindgen-go --rev f1f1064871faf05377c75e098d525d530d402d38 --root .build \
+	&& mv .build/bin/uniffi-bindgen-go .build/bin/uniffi-bindgen-go-forked
+
 .build/bundletool.jar:
 	mkdir -p .build \
 	&& curl -L -o ./.build/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.0/bundletool-all-1.17.0.jar
@@ -564,7 +590,7 @@ streamplace: app-cached meson-setup-static
 	meson compile -C $(BUILDDIR) streamplace | grep -v drectve
 
 .PHONY: archive
-archive: app-cached meson-setup-static
+archive: app-cached meson-setup-static godeps
 	meson compile -C $(BUILDDIR) archive | grep -v drectve
 
 .PHONY: linux-amd64
@@ -611,7 +637,7 @@ darwin-amd64:
 	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \
 	&& cd -
 
-.PHONY: darwin-arm64
+.PHONY: darwin-arm64gofmt -w .
 darwin-arm64:
 	export CC=aarch64-apple-darwin24.4-clang \
 	&& export CC_AARCH64_APPLE_DARWIN=aarch64-apple-darwin24.4-clang \
@@ -659,12 +685,6 @@ desktop-darwin:
 link-mist:
 	rm -rf subprojects/mistserver
 	ln -s $$(realpath ../mistserver) ./subprojects/mistserver
-
-# link your local version of c2pa-go for dev
-.PHONY: link-c2pa-go
-link-c2pa-go:
-	rm -rf subprojects/c2pa_go
-	ln -s $$(realpath ../c2pa-go) ./subprojects/c2pa_go
 
 # link your local version of gstreamer
 .PHONY: link-gstreamer
@@ -824,16 +844,7 @@ deb-pkg:
 		--deb-systemd-restart-after-upgrade \
 		--after-install=util/systemd/after-install.sh \
 		--description="Live video for the AT Protocol. Solving video for everybody forever." \
-		build-linux-$(SP_ARCH_NAME)/streamplace=/usr/bin/streamplace \
-	&& fpm $(FPM_BASE_OPTS) \
-		-n streamplace-default-http \
-		-a $(SP_ARCH_NAME) \
-		-d streamplace \
-		--deb-systemd-restart-after-upgrade \
-		-p bin/streamplace-default-http-$(VERSION)-linux-$(SP_ARCH_NAME).deb \
-		--description="Installing this package will install Streamplace as the default HTTP server on ports 80 and 443." \
-		util/systemd/streamplace-http.socket=/lib/systemd/system/streamplace-http.socket \
-		util/systemd/streamplace-https.socket=/lib/systemd/system/streamplace-https.socket
+		build-linux-$(SP_ARCH_NAME)/streamplace=/usr/bin/streamplace
 
 .PHONY: pkg-linux-amd64
 pkg-linux-amd64:
@@ -860,20 +871,16 @@ deb-release:
 	aptly repo create -distribution=all -component=main streamplace-releases
 	aptly mirror create old-version $$S3_PUBLIC_URL/debian all
 	aptly mirror update old-version
-	aptly repo import old-version streamplace-releases streamplace streamplace-default-http
+	aptly repo import old-version streamplace-releases streamplace
 	aptly repo add streamplace-releases \
-		bin/streamplace-default-http-$(VERSION)-linux-arm64.deb \
 		bin/streamplace-$(VERSION)-linux-arm64.deb \
-		bin/streamplace-default-http-$(VERSION)-linux-amd64.deb \
 		bin/streamplace-$(VERSION)-linux-amd64.deb
 	aptly snapshot create streamplace-$(VERSION) from repo streamplace-releases
 	aptly publish snapshot -distribution=all streamplace-$(VERSION) s3:streamplace-releases:
 
 .PHONY: ci-deb-release
 ci-deb-release:
-	$(MAKE) ci-download-file download_file=streamplace-default-http-$(VERSION)-linux-amd64.deb
 	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-linux-amd64.deb
-	$(MAKE) ci-download-file download_file=streamplace-default-http-$(VERSION)-linux-arm64.deb
 	$(MAKE) ci-download-file download_file=streamplace-$(VERSION)-linux-arm64.deb
 	echo $$CI_SIGNING_KEY_BASE64 | base64 -d | gpg --import
 	gpg --armor --export | gpg --no-default-keyring --keyring trustedkeys.gpg --import
@@ -896,14 +903,12 @@ ci-upload: ci-upload-node ci-upload-android
 ci-upload-node-linux-amd64:
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-linux-amd64.tar.gz \
 	&& $(MAKE) ci-upload-file upload_file=streamplace-desktop-$(VERSION)-linux-amd64.AppImage \
-	&& $(MAKE) ci-upload-file upload_file=streamplace-default-http-$(VERSION)-linux-amd64.deb \
 	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-linux-amd64.deb
 
 .PHONY: ci-upload-node-linux-arm64
 ci-upload-node-linux-arm64:
 	$(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-linux-arm64.tar.gz \
 	&& $(MAKE) ci-upload-file upload_file=streamplace-desktop-$(VERSION)-linux-arm64.AppImage \
-	&& $(MAKE) ci-upload-file upload_file=streamplace-default-http-$(VERSION)-linux-arm64.deb \
 	&& $(MAKE) ci-upload-file upload_file=streamplace-$(VERSION)-linux-arm64.deb
 
 .PHONY: ci-upload-node-darwin-arm64
@@ -975,3 +980,10 @@ ci-download-file:
 		--header "JOB-TOKEN: $$CI_JOB_TOKEN" \
 		-o bin/$(download_file) \
 		"$$CI_API_V4_URL/projects/$$CI_PROJECT_ID/packages/generic/$(BRANCH)/$(VERSION)/$(download_file)";
+
+.PHONY: c2pa-types
+c2pa-types:
+	$(MAKE) dev-rust
+	./target/debug/export_c2pa_schema
+	npx quicktype --lang go --src-lang schema --package c2patypes --out pkg/c2patypes/c2patypes.go ./target/schema/C2PA.schema.json
+	gofmt -w pkg/c2patypes/c2patypes.go

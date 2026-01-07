@@ -10,11 +10,12 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
-	"golang.org/x/net/context/ctxhttp"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/renditions"
@@ -29,6 +30,7 @@ type LivepeerSession struct {
 	Count      int
 	GatewayURL string
 	Guard      chan struct{}
+	CLI        *config.CLI
 }
 
 // borrowed from catalyst-api
@@ -42,13 +44,16 @@ func RandomTrailer(length int) string {
 	return string(res)
 }
 
-func NewLivepeerSession(ctx context.Context, did string, gatewayURL string) (*LivepeerSession, error) {
-	sessionID := RandomTrailer(8)
+func NewLivepeerSession(ctx context.Context, cli *config.CLI, did string, gatewayURL string) (*LivepeerSession, error) {
+	sessionID := fmt.Sprintf("%s-%s", did, RandomTrailer(8))
+	sessionID = strings.ReplaceAll(sessionID, ":", "")
+	sessionID = strings.ReplaceAll(sessionID, ".", "")
 	return &LivepeerSession{
-		SessionID:  strings.ReplaceAll(fmt.Sprintf("%s-%s", did, sessionID), ":", ""),
+		SessionID:  sessionID,
 		Count:      0,
 		GatewayURL: gatewayURL,
 		Guard:      make(chan struct{}, SegmentsInFlight),
+		CLI:        cli,
 	}, nil
 }
 
@@ -107,7 +112,30 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 	req.Header.Set("Content-Resolution", fmt.Sprintf("%dx%d", width, height))
 	req.Header.Set("Livepeer-Transcode-Configuration", string(bs))
 
-	resp, err := ctxhttp.Do(ctx, &aqhttp.Client, req)
+	if ls.CLI.LivepeerDebug {
+		debugDir := ls.CLI.DataFilePath([]string{"livepeer-debug"})
+		err = os.MkdirAll(debugDir, 0755)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create debug directory: %w", err)
+		}
+		debugFile := fmt.Sprintf("%s/livepeer-debug/%s-%06d-input.ts", ls.CLI.DataDir, sessionIDRen, seqNo)
+		err = os.WriteFile(debugFile, tsSeg.Bytes(), 0644)
+		if err != nil {
+			return nil, fmt.Errorf("failed to write debug file: %w", err)
+		}
+		bs, err := json.MarshalIndent(req.Header, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal livepeer profile: %w", err)
+		}
+		configFile := fmt.Sprintf("%s/livepeer-debug/%s-%06d-config.json", ls.CLI.DataDir, sessionIDRen, seqNo)
+		err = os.WriteFile(configFile, bs, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("failed to write debug file: %w", err)
+		}
+		log.Log(ctx, "wrote debug file", "file", debugFile)
+	}
+
+	resp, err := aqhttp.DoTrusted(ctx, req)
 	if err != nil {
 		<-ls.Guard
 		return nil, fmt.Errorf("failed to send segment to gateway (config %s): %w", string(bs), err)
@@ -139,6 +167,14 @@ func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte,
 			}
 			mp4Bs := bytes.Buffer{}
 			audioReader := bytes.NewReader(audioSeg.Bytes())
+			if ls.CLI.LivepeerDebug {
+				debugFile := fmt.Sprintf("%s/livepeer-debug/%s-%06d-output-%s", ls.CLI.DataDir, sessionIDRen, seqNo, p.FileName())
+				err = os.WriteFile(debugFile, tsSeg.Bytes(), 0644)
+				if err != nil {
+					return nil, fmt.Errorf("failed to write debug file: %w", err)
+				}
+				log.Log(ctx, "wrote debug file", "file", debugFile)
+			}
 			err = media.MPEGTSVideoMP4AudioToMP4(ctx, p, audioReader, &mp4Bs)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert ts to mp4: %w", err)

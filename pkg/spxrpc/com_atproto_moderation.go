@@ -81,7 +81,7 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 		// we still want the report to go through!
 		log.Error(ctx, "failed to make clip for report", "error", err)
 	} else {
-		clipURL := fmt.Sprintf("https://%s/api/clip/%s/%s.mp4", s.cli.PublicHost, did, clipID)
+		clipURL := fmt.Sprintf("https://%s/api/clip/%s/%s.mp4", s.cli.BroadcasterHost, did, clipID)
 		newReason := fmt.Sprintf("%s\n\nClip: %s", *body.Reason, clipURL)
 		body.Reason = &newReason
 	}

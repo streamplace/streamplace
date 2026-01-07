@@ -39,7 +39,7 @@ export function Resizable({
 }: ResizableChatSheetProps) {
   const { slideKeyboard } = useKeyboardSlide();
   const { bottom: safeBottom } = useSafeAreaInsets();
-  const MAX_HEIGHT = (SCREEN_HEIGHT - safeBottom) * 0.5;
+  const MAX_HEIGHT = (SCREEN_HEIGHT - safeBottom) * 0.55;
   const MIN_HEIGHT = -(SCREEN_HEIGHT - safeBottom) * 0.2;
   const COLLAPSE_HEIGHT = (SCREEN_HEIGHT - safeBottom) * 0.1;
 

@@ -77,3 +77,14 @@ func (m *DBModel) GetRepoByHandleOrDID(arg string) (*Repo, error) {
 func (m *DBModel) UpdateRepo(repo *Repo) error {
 	return m.DB.Save(repo).Error
 }
+
+func (m *DBModel) SearchReposByHandle(query string, limit int) ([]Repo, error) {
+	var repos []Repo
+	// Search for repos where handle starts with the query (case-insensitive)
+	// Use LIKE with LOWER for sqlite/postgres compatibility
+	res := m.DB.Where("LOWER(handle) LIKE LOWER(?)", query+"%").Limit(limit).Find(&repos)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	return repos, nil
+}

@@ -1,5 +1,4 @@
-import { Text, View } from "../..";
-import emojiData from "../../assets/emoji-data.json";
+import { Text, View } from "react-native";
 import * as zero from "../../ui";
 import { Chat } from "../chat/chat";
 import { ChatBox } from "../chat/chat-box";
@@ -10,16 +9,16 @@ interface ChatPanelProps {
   isLive: boolean;
   isConnected: boolean;
   messagesPerMinute?: number;
-  canModerate?: boolean;
   shownMessages?: number;
+  emojiData?: any;
 }
 
 export default function ChatPanel({
   isLive,
   isConnected,
   messagesPerMinute = 0,
-  canModerate = false,
   shownMessages = 50,
+  emojiData = null,
 }: ChatPanelProps) {
   return (
     <View
@@ -42,7 +41,9 @@ export default function ChatPanel({
           p[4],
         ]}
       >
-        <Text size="xl">Chat</Text>
+        <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
+          Chat
+        </Text>
         <View style={[layout.flex.row, layout.flex.alignCenter]}>
           <View
             style={[
@@ -57,7 +58,7 @@ export default function ChatPanel({
       </View>
       <View style={[flex.values[1], px[2], { minHeight: 0 }]}>
         <View style={[flex.values[1], { minHeight: 0 }]}>
-          <Chat canModerate={canModerate} shownMessages={shownMessages} />
+          <Chat shownMessages={shownMessages} />
         </View>
         <View style={[{ flexShrink: 0 }]}>
           <ChatBox

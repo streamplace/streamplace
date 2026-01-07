@@ -29,7 +29,6 @@ func TestConcatDemuxBin(t *testing.T) {
 	})
 }
 
-// This function remains in scope for the duration of a single users' playback
 func innerTestConcatDemuxBin(t *testing.T) error {
 	ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"func": {"ConcatStream": 9, "TestConcat2": 9, "SegDemuxBin": 9}})
 	ctx = log.WithLogValues(ctx, "func", "TestConcat2")
@@ -65,7 +64,7 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 		Filepath: filename,
 	}
 
-	concatBin, err := ConcatDemuxBin(ctx, testSeg)
+	concatBin, err := ConcatDemuxBin(ctx, testSeg, true)
 	if err != nil {
 		return fmt.Errorf("failed to create concat bin: %w", err)
 	}
@@ -158,7 +157,7 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 		if err != nil {
 			t.Errorf("failed to set pipeline to null state: %v", err)
 		}
-		require.Equal(t, 987248, videoBuf.Len())
+		require.Equal(t, 987291, videoBuf.Len())
 		require.Equal(t, 6440, audioBuf.Len())
 	}()
 

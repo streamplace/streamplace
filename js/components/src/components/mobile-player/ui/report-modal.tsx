@@ -9,11 +9,11 @@ import { zero } from "../../..";
 import { useSubmitReport } from "../../../livestream-store";
 import {
   Button,
-  Dialog,
   DialogFooter,
-  ModalContent,
+  ResponsiveDialog,
   Text,
   Textarea,
+  useTheme,
 } from "../../ui";
 
 // AT Protocol moderation reason types with proper labels
@@ -72,6 +72,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const { theme } = useTheme();
+
   const submitReport = useSubmitReport();
 
   const handleCancel = () => {
@@ -107,7 +109,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   };
 
   return (
-    <Dialog
+    <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
       title={title}
@@ -118,7 +120,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       dismissible={false}
       position="center"
     >
-      <ModalContent style={[zero.pb[2]]}>
+      <View style={[zero.pb[2]]}>
         {REPORT_REASONS.map((reason) => (
           <TouchableOpacity
             key={reason.value}
@@ -136,7 +138,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             ]}
           >
             <View>
-              {selectedReason === reason.value ? <CheckCircle /> : <Circle />}
+              {selectedReason === reason.value ? (
+                <CheckCircle color={theme.colors.foreground} />
+              ) : (
+                <Circle color={theme.colors.foreground} />
+              )}
             </View>
             <View
               style={[zero.layout.flex.column, zero.gap.all[1], zero.flex[1]]}
@@ -164,7 +170,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             </Text>
           )}
         </View>
-      </ModalContent>
+      </View>
       <DialogFooter>
         <Button
           variant="secondary"
@@ -188,7 +194,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           )}
         </Button>
       </DialogFooter>
-    </Dialog>
+    </ResponsiveDialog>
   );
 };
 

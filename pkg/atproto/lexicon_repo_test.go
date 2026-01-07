@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/lexicons"
+
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
@@ -16,8 +17,8 @@ import (
 
 func TestLexiconRepo(t *testing.T) {
 	cli := config.CLI{
-		PublicHost: "example.com",
-		DBURL:      ":memory:",
+		BroadcasterHost: "example.com",
+		DBURL:           ":memory:",
 	}
 	cli.DataDir = t.TempDir()
 	mod, err := model.MakeDB(":memory:")

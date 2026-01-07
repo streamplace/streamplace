@@ -1,12 +1,15 @@
-import { Text, useTheme } from "@streamplace/components";
+import { DrawerNavigationState, ParamListBase } from "@react-navigation/native";
+import { Text, useTheme, zero } from "@streamplace/components";
+import { useAQLinkHref } from "components/aqlink";
 import React, { ReactNode, useState } from "react";
 import {
+  GestureResponderEvent,
+  Pressable,
   PressableStateCallbackType,
   StyleProp,
   View,
   ViewStyle,
 } from "react-native";
-import { Pressable } from "react-native-gesture-handler";
 
 export default function SidebarItem({
   icon,
@@ -14,6 +17,7 @@ export default function SidebarItem({
   collapsed,
   active,
   onPress,
+  route,
   style = null,
   tint = "rgba(189, 110, 134)",
 }: {
@@ -24,7 +28,8 @@ export default function SidebarItem({
   label: string | ReactNode;
   collapsed: boolean;
   active: boolean;
-  onPress: () => void;
+  onPress: (event: GestureResponderEvent) => void;
+  route?: DrawerNavigationState<ParamListBase>["routes"][number];
   style?:
     | StyleProp<ViewStyle>
     | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>);
@@ -32,6 +37,10 @@ export default function SidebarItem({
 }) {
   const [hover, setHover] = useState<boolean>(false);
   const theme = useTheme();
+  const { href } = useAQLinkHref({
+    screen: route?.name || "Home",
+    params: route?.params as any,
+  });
 
   // Handle different icon types - component, JSX element, or function returning JSX
   const renderIcon = () => {
@@ -62,7 +71,13 @@ export default function SidebarItem({
     }
 
     // Fallback
-    console.log("tried to render item, but couldn't", (icon as any).$$typeof);
+    console.log(
+      "tried to render item for route",
+      label,
+      href,
+      ", but couldn't",
+      (icon as any).$$typeof,
+    );
 
     return <Text>📄</Text>;
   };
@@ -73,9 +88,18 @@ export default function SidebarItem({
       style={style}
       onHoverIn={() => setHover(true)}
       onHoverOut={() => setHover(false)}
+      role="link"
+      accessibilityLabel={typeof label === "string" ? label : "Link to " + href}
+      // @ts-ignore This makes it render as <a> on web!
+      href={route ? href : undefined}
     >
       <View
         style={[
+          zero.r.md,
+          zero.layout.flex.row,
+          zero.layout.flex.alignCenter,
+          zero.px[3],
+          zero.gap.all[2],
           {
             backgroundColor:
               hover || active
@@ -84,17 +108,11 @@ export default function SidebarItem({
                     ", " + (active && !hover ? "0.1" : "0.25") + ")",
                   )
                 : undefined,
-            borderRadius: 12,
-            flexDirection: "row",
-            justifyContent: "flex-start",
-            alignItems: "center",
-            paddingHorizontal: 12,
-            gap: 8,
             overflow: "hidden",
           },
         ]}
       >
-        <View style={[{ width: 32, paddingVertical: 12 }]}>{renderIcon()}</View>
+        <View style={[zero.w[8], zero.py[3]]}>{renderIcon()}</View>
         {!collapsed && (
           <View
             style={[
@@ -105,9 +123,7 @@ export default function SidebarItem({
               },
             ]}
           >
-            <Text style={[{ fontSize: 24, textAlign: "left", color: "#fff" }]}>
-              {label}
-            </Text>
+            <Text>{label}</Text>
           </View>
         )}
       </View>

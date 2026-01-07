@@ -1,0 +1,9 @@
+{
+  "content_warnings": {
+    "enabled": true,
+    "blocked_warnings": ["cwarn:violence", "cwarn:nudity", "cwarn:death"]
+  },
+  "distribution_policy": {
+    "enabled": true
+  }
+}

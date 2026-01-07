@@ -66,9 +66,11 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 				log.Error(ctx, "failed to get latest livestream, skipping", "repoDID", seg.RepoDID, "error", err)
 				continue
 			}
-			posts = append(posts, model.FeedPost{
-				URI: ls.PostURI,
-			})
+			if ls.PostURI != "" {
+				posts = append(posts, model.FeedPost{
+					URI: ls.PostURI,
+				})
+			}
 		}
 	} else {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid feed name: %s", name))

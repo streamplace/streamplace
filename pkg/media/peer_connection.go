@@ -7,23 +7,29 @@ import (
 	"stream.place/streamplace/pkg/rtcrec"
 )
 
-func (mm *MediaManager) NewPeerConnection(ctx context.Context, user string) (rtcrec.PeerConnection, error) {
+func (mm *MediaManager) shouldRecord(ctx context.Context, user string) (bool, error) {
 	shouldRecord := false
-	settings, err := mm.model.GetServerSettings(ctx, mm.cli.PublicHost, user)
+	settings, err := mm.model.GetServerSettings(ctx, mm.cli.BroadcasterHost, user)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 	if settings != nil {
 		spsettings, err := settings.ToStreamplaceServerSettings()
 		if err != nil {
-			return nil, err
+			return false, err
 		}
 		if spsettings.DebugRecording != nil {
 			shouldRecord = *spsettings.DebugRecording
 		}
 	}
-	if !shouldRecord {
-		log.Warn(ctx, "no server settings found, will not record")
+	return shouldRecord, nil
+}
+
+func (mm *MediaManager) NewPeerConnection(ctx context.Context, user string) (rtcrec.PeerConnection, error) {
+	ctx = log.WithLogValues(ctx, "func", "NewPeerConnection", "streamer", user)
+	shouldRecord, err := mm.shouldRecord(ctx, user)
+	if err != nil {
+		return nil, err
 	}
 	pionpc, err := mm.webrtcAPI.NewPeerConnection(mm.webrtcConfig)
 	if err != nil {

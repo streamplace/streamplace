@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strings"
 
-	"golang.org/x/net/context/ctxhttp"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
@@ -60,7 +59,7 @@ func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *str
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := ctxhttp.Do(ctx, &aqhttp.Client, req)
+	resp, err := aqhttp.Do(ctx, req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}

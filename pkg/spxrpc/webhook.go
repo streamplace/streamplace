@@ -214,6 +214,13 @@ func (s *Server) handlePlaceStreamServerUpdateWebhook(ctx context.Context, input
 	if input.Description != nil {
 		updates["description"] = *input.Description
 	}
+	if input.MuteWords != nil {
+		muteWordsJSON, err := json.Marshal(input.MuteWords)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid mute words format")
+		}
+		updates["mute_words"] = json.RawMessage(muteWordsJSON)
+	}
 
 	if len(updates) == 0 {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "No fields to update")

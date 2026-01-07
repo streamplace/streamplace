@@ -32,9 +32,9 @@ export const ModalRoot = forwardRef<View, ModalPrimitiveProps>(
       children,
       onRequestClose,
       animationType = "fade",
-      presentationStyle = Platform.OS === "ios" ? "pageSheet" : "fullScreen",
+      presentationStyle = Platform.OS === "ios" ? "pageSheet" : "formSheet",
+      statusBarTranslucent = Platform.OS !== "ios",
       transparent = true,
-      statusBarTranslucent = Platform.OS === "android",
       ...props
     },
     ref,
@@ -57,8 +57,8 @@ export const ModalRoot = forwardRef<View, ModalPrimitiveProps>(
         onRequestClose={handleRequestClose}
         animationType={animationType}
         presentationStyle={presentationStyle}
-        transparent={transparent}
         statusBarTranslucent={statusBarTranslucent}
+        transparent={transparent}
         {...props}
       >
         <View ref={ref} style={primitiveStyles.container}>

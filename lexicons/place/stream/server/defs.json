@@ -71,6 +71,14 @@
         "errorCount": {
           "type": "integer",
           "description": "Number of consecutive errors for this webhook."
+        },
+        "muteWords": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": "Words to filter out from chat messages. Messages containing any of these words will not be forwarded."
         }
       }
     },

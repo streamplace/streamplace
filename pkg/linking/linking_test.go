@@ -62,7 +62,7 @@ func TestGenerateLinkCard(t *testing.T) {
 		Record:    &lexutil.LexiconTypeDecoder{Val: ls},
 		Uri:       "at://did:plc:2zmxikig2sj7gqaezl5gntae/place.stream.livestream/3ll5zuop2k22x",
 	}
-	linkCard, err := linker.GenerateStreamerCard(context.Background(), u, lsv)
+	linkCard, err := linker.GenerateStreamerCard(context.Background(), u, lsv, "")
 	require.NoError(t, err)
 	linkStr := string(linkCard)
 	require.True(t, strings.Contains(linkStr, "iame.li"))

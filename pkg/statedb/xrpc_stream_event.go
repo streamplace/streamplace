@@ -30,7 +30,14 @@ func (ev *XrpcStreamEvent) ToCommitEvent() (*comatproto.SyncSubscribeRepos_Commi
 	return commit, nil
 }
 
+const CommitLockKey = "commit_lock"
+
 func (state *StatefulDB) CreateCommitEvent(commit *comatproto.SyncSubscribeRepos_Commit, signedData string) error {
+	unlock, err := state.GetNamedLock(CommitLockKey)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	prev, err := state.GetMostRecentCommitEvent(commit.Repo)
 	if err != nil {
 		return err

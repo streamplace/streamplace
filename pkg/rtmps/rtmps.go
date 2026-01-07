@@ -14,7 +14,7 @@ import (
 )
 
 // passthrough RTMPS TLS terminator to external RTMP server
-func ServeRTMPS(ctx context.Context, cli *config.CLI) error {
+func ServeRTMPSAddon(ctx context.Context, cli *config.CLI) error {
 	if cli.RTMPServerAddon == "" {
 		return fmt.Errorf("RTMP server address not configured")
 	}
@@ -29,13 +29,13 @@ func ServeRTMPS(ctx context.Context, cli *config.CLI) error {
 		MinVersion:   tls.VersionTLS12,
 	}
 
-	listener, err := tls.Listen("tcp", cli.RtmpsAddr, tlsConfig)
+	listener, err := tls.Listen("tcp", cli.RTMPAddr, tlsConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create RTMPS listener: %w", err)
 	}
 
 	log.Log(ctx, "rtmps server starting",
-		"addr", cli.RtmpsAddr,
+		"addr", cli.RTMPAddr,
 		"forwarding_to", cli.RTMPServerAddon)
 
 	go func() {

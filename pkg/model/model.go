@@ -9,16 +9,17 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/plugin/prometheus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
 type DBModel struct {
-	DB  *gorm.DB
-	CLI *config.CLI
+	DB *gorm.DB
 }
 
 type Model interface {
@@ -31,10 +32,14 @@ type Model interface {
 	MostRecentSegments() ([]Segment, error)
 	LatestSegmentForUser(user string) (*Segment, error)
 	LatestSegmentsForUser(user string, limit int, before *time.Time, after *time.Time) ([]Segment, error)
+	FilterLiveRepoDIDs(repoDIDs []string) ([]string, error)
 	CreateThumbnail(thumb *Thumbnail) error
 	LatestThumbnailForUser(user string) (*Thumbnail, error)
 	GetSegment(id string) (*Segment, error)
+	GetExpiredSegments(ctx context.Context) ([]Segment, error)
+	DeleteSegment(ctx context.Context, id string) error
 	StartSegmentCleaner(ctx context.Context) error
+	SegmentCleaner(ctx context.Context) error
 
 	GetIdentity(id string) (*Identity, error)
 	UpdateIdentity(ident *Identity) error
@@ -44,6 +49,7 @@ type Model interface {
 	GetRepoByHandleOrDID(arg string) (*Repo, error)
 	GetRepoBySigningKey(signingKey string) (*Repo, error)
 	GetAllRepos() ([]Repo, error)
+	SearchReposByHandle(query string, limit int) ([]Repo, error)
 	UpdateRepo(repo *Repo) error
 
 	UpdateSigningKey(key *SigningKey) error
@@ -96,6 +102,23 @@ type Model interface {
 
 	CreateLabel(label *Label) error
 	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)
+
+	UpdateBroadcastOrigin(ctx context.Context, origin *streamplace.BroadcastOrigin, aturi syntax.ATURI) error
+	GetRecentBroadcastOrigins(ctx context.Context) ([]*streamplace.BroadcastDefs_BroadcastOriginView, error)
+
+	CreateMetadataConfiguration(ctx context.Context, metadata *MetadataConfiguration) error
+	GetMetadataConfiguration(ctx context.Context, repoDID string) (*MetadataConfiguration, error)
+	DeleteMetadataConfiguration(ctx context.Context, repoDID string) error
+
+	CreateModerationDelegation(ctx context.Context, rec *streamplace.ModerationPermission, aturi syntax.ATURI) error
+	DeleteModerationDelegation(ctx context.Context, rkey string) error
+	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*streamplace.ModerationDefs_PermissionView, error)
+	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
+	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
+	GetStreamerModerators(ctx context.Context, streamerDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
+
+	GetRecommendation(userDID string) (*Recommendation, error)
+	UpsertRecommendation(rec *Recommendation) error
 }
 
 var DBRevision = 2
@@ -130,6 +153,16 @@ func MakeDB(dbURL string) (Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error setting journal mode: %w", err)
 	}
+
+	err = db.Use(prometheus.New(prometheus.Config{
+		DBName:          "index",
+		RefreshInterval: 10,
+		StartServer:     false,
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("error using prometheus plugin: %w", err)
+	}
+
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, fmt.Errorf("error getting database: %w", err)
@@ -152,6 +185,10 @@ func MakeDB(dbURL string) (Model, error) {
 		ServerSettings{},
 		Labeler{},
 		Label{},
+		BroadcastOrigin{},
+		MetadataConfiguration{},
+		ModerationDelegation{},
+		Recommendation{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

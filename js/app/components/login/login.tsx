@@ -1,61 +1,51 @@
 import { useNavigation } from "@react-navigation/native";
-import { Button, Text, useTheme, zero } from "@streamplace/components";
+import { storage, Text, useTheme, zero } from "@streamplace/components";
+import { Redirect } from "components/aqlink";
 import Loading from "components/loading/loading";
-import NameColorPicker from "components/name-color-picker/name-color-picker";
-import {
-  login,
-  logout,
-  selectChatProfile,
-  selectIsReady,
-  selectLogin,
-  selectUserProfile,
-} from "features/bluesky/blueskySlice";
-import { Info, LogOut, UserRoundPen } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
-} from "react-native";
-import { useAppDispatch, useAppSelector } from "store/hooks";
+import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import { useStore } from "store";
+import { useIsReady, useUserProfile } from "store/hooks";
+import { navigateToRoute } from "../../utils/navigation";
+import LoginForm from "./login-form";
 
 export default function Login() {
   const { theme } = useTheme();
-  const dispatch = useAppDispatch();
-  const chatProfile = useAppSelector(selectChatProfile);
-  const userProfile = useAppSelector(selectUserProfile);
-  const loginState = useAppSelector(selectLogin);
-  const [handle, setHandle] = useState("");
-  const isReady = useAppSelector(selectIsReady);
+  const closeLoginModal = useStore((state) => state.closeLoginModal);
+  const userProfile = useUserProfile();
   const navigation = useNavigation();
+  const isReady = useIsReady();
+  const [localReturnRoute, setLocalReturnRoute] = useState<
+    | {
+        name: string;
+        params?: any;
+      }
+    | null
+    | undefined
+  >();
 
-  const submit = () => {
-    let clean = handle;
-    if (handle.startsWith("@")) clean = handle.slice(1);
-    dispatch(login(clean));
-  };
-  const onSignup = () => {
-    dispatch(login("https://bsky.social"));
-  };
-  const onEnterPress = (e: any) => {
-    if (e.nativeEvent.key === "Enter") {
-      submit();
-    }
-  };
-
+  // check for stored return route on mount
   useEffect(() => {
-    if (loginState?.error) {
-      Alert.alert("Login error", loginState.error);
-    }
-  }, [loginState?.error]);
+    storage.getItem("returnRoute").then((stored) => {
+      if (stored) {
+        try {
+          const route = JSON.parse(stored);
+          console.log("Login page - found stored returnRoute:", route);
+          setLocalReturnRoute(route);
+          storage.removeItem("returnRoute");
+          closeLoginModal();
+          navigateToRoute(navigation, route);
+        } catch (e) {
+          console.error("Failed to parse returnRoute from storage", e);
+          setLocalReturnRoute(null);
+        }
+      } else {
+        setLocalReturnRoute(null);
+      }
+    });
+  }, [navigation, closeLoginModal]);
 
-  if (!isReady) {
+  if (!isReady || localReturnRoute === undefined) {
     return (
       <View
         style={[
@@ -69,92 +59,17 @@ export default function Login() {
     );
   }
 
-  let rgb =
-    chatProfile.profile?.color &&
-    `rgb(${chatProfile.profile?.color?.red},${chatProfile.profile?.color?.green},${chatProfile.profile?.color?.blue})`;
-
   if (userProfile) {
-    navigation.setOptions({ title: `Account` });
+    // if return route is set, go there
+    if (localReturnRoute) {
+      <Redirect
+        to={{ screen: localReturnRoute.name, params: localReturnRoute.params }}
+      />;
+    }
     return (
-      <View
-        style={[
-          zero.flex.values[1],
-          { justifyContent: "center", alignItems: "stretch" },
-          zero.gap.all[3],
-        ]}
-      >
-        <Text size="3xl" style={[{ textAlign: "center" }, zero.pb[4]]}>
-          Hey,{" "}
-          <Text size="3xl" style={{ color: rgb || "#bd6e86" }}>
-            @{userProfile.handle}
-          </Text>
-          .
-        </Text>
-        <View
-          style={[
-            { flexDirection: "row" },
-            zero.gap.all[2],
-            { justifyContent: "center" },
-          ]}
-        >
-          <Button
-            onPress={() => dispatch(logout())}
-            variant="secondary"
-            leftIcon={<LogOut color={theme.colors.text} />}
-            style={[
-              {
-                maxWidth: 300,
-                flexBasis: 250,
-                alignItems: "center",
-              },
-            ]}
-          >
-            <Text style={[{ color: theme.colors.text, textAlign: "center" }]}>
-              Log out
-            </Text>
-          </Button>
-        </View>
-        <View
-          style={[
-            { flexDirection: "row" },
-            zero.gap.all[2],
-            { justifyContent: "center" },
-          ]}
-        >
-          {/* link to bsky.app/settings */}
-          <Button
-            onPress={() => {
-              const u = new URL(
-                "https://bsky.app/profile/" + userProfile.handle,
-              );
-              Linking.openURL(u.toString());
-            }}
-            variant="secondary"
-            leftIcon={<UserRoundPen color="white" />}
-            style={[
-              {
-                maxWidth: 300,
-                flexBasis: 250,
-                alignItems: "center",
-              },
-            ]}
-          >
-            <Text style={[{ color: "white", textAlign: "center" }]}>
-              Edit profile (on Bluesky)
-            </Text>
-          </Button>
-        </View>
-        <NameColorPicker
-          buttonProps={{
-            style: {
-              textAlign: "center",
-              flexBasis: 250,
-              maxWidth: 300,
-              marginHorizontal: "auto",
-            },
-          }}
-        />
-      </View>
+      <Redirect
+        to={{ screen: "Settings", params: { screen: "AccountCategory" } }}
+      />
     );
   }
 
@@ -188,86 +103,7 @@ export default function Login() {
             <Text style={[{ fontSize: 36, fontWeight: "200", color: "white" }]}>
               Log in
             </Text>
-            <View
-              style={[
-                { flexWrap: "wrap", flexDirection: "row" },
-                zero.gap.all[1],
-              ]}
-            >
-              <Text style={[{ color: theme.colors.textMuted }]}>
-                Sign in using your handle on the AT Protocol
-              </Text>
-              <Pressable
-                onPress={() => {
-                  const u = new URL(
-                    "https://atproto.academy/docs/Authentication/why",
-                  );
-                  Linking.openURL(u.toString());
-                }}
-              >
-                <Info
-                  size={16}
-                  style={{ paddingTop: 4 }}
-                  color={theme.colors.ring}
-                />
-              </Pressable>
-              <Text style={[{ color: theme.colors.textMuted }]}>
-                (e.g. your Bluesky handle)
-              </Text>
-            </View>
-            <View style={[zero.pb[2]]}>
-              <Text style={[{ color: "#aaa" }]}>Handle</Text>
-              <TextInput
-                value={handle}
-                onChangeText={(text) =>
-                  setHandle(
-                    text
-                      .toLowerCase()
-                      // copying from bsky.app often includes some RTL/LTR characters
-                      .replace(/[\u202A\u202C\u200E\u200F\u2066-\u2069]/g, "")
-                      .trim(),
-                  )
-                }
-                style={[
-                  {
-                    backgroundColor: "#1a1a1a",
-                    borderWidth: 1,
-                    borderColor: "#333",
-                    borderRadius: 8,
-                    padding: 12,
-                    color: "white",
-                  },
-                ]}
-                onSubmitEditing={onEnterPress}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-                placeholderTextColor="#666"
-              />
-            </View>
-            <View
-              style={[
-                { flexDirection: "row", justifyContent: "flex-end" },
-                zero.gap.all[3],
-              ]}
-            >
-              <Button onPress={() => onSignup()} variant="ghost">
-                <Text style={[{ color: "white" }]}>Sign Up on Bluesky</Text>
-              </Button>
-              <Button
-                onPress={submit}
-                disabled={loginState.loading}
-                style={[zero.px[6]]}
-              >
-                <Text style={[{ color: "white" }]}>
-                  {loginState.loading ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    "Log in"
-                  )}
-                </Text>
-              </Button>
-            </View>
+            <LoginForm />
           </View>
         </View>
       </ScrollView>

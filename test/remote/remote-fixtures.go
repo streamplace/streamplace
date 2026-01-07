@@ -1,6 +1,8 @@
 package remote
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -79,4 +81,69 @@ func RemoteFixture(name string) string {
 	}
 
 	return finalPath
+}
+
+// takes a tarball, returns a directory with the contents
+func RemoteArchive(name string) string {
+	fpath := RemoteFixture(name)
+
+	// Create extracted directory adjacent to the archive file
+	dir := filepath.Dir(fpath)
+	extractedDir := filepath.Join(dir, "extracted")
+
+	if err := os.MkdirAll(extractedDir, 0755); err != nil {
+		panic(err)
+	}
+
+	// Extract the tarball contents into the directory
+	file, err := os.Open(fpath)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	// Create gzip reader
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		panic(err)
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			panic(err)
+		}
+
+		target := filepath.Join(extractedDir, header.Name)
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0755); err != nil {
+				panic(err)
+			}
+		case tar.TypeReg:
+			// Create parent directories if needed
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				panic(err)
+			}
+
+			outFile, err := os.Create(target)
+			if err != nil {
+				panic(err)
+			}
+
+			if _, err := io.Copy(outFile, tr); err != nil {
+				outFile.Close()
+				panic(err)
+			}
+			outFile.Close()
+		}
+	}
+
+	return extractedDir
 }

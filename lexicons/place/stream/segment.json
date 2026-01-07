@@ -48,6 +48,18 @@
           "size": {
             "type": "integer",
             "description": "The size of the segment in bytes"
+          },
+          "contentWarnings": {
+            "type": "ref",
+            "ref": "place.stream.metadata.contentWarnings"
+          },
+          "contentRights": {
+            "type": "ref",
+            "ref": "place.stream.metadata.contentRights"
+          },
+          "distributionPolicy": {
+            "type": "ref",
+            "ref": "place.stream.metadata.distributionPolicy"
           }
         }
       }

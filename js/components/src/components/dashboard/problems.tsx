@@ -1,11 +1,31 @@
-import { ExternalLink } from "lucide-react-native";
-import { useState } from "react";
-import { Linking, Pressable, Text, View } from "react-native";
+import {
+  CircleAlert,
+  CircleX,
+  ExternalLink,
+  Info,
+  Sparkle,
+} from "lucide-react-native";
+import { forwardRef, useImperativeHandle, useState } from "react";
+import { Linking, Pressable, View } from "react-native";
 import { useLivestreamStore } from "../../livestream-store";
 import { LivestreamProblem } from "../../livestream-store/livestream-state";
 import * as zero from "../../ui";
+import { Button, Text } from "../ui";
 
 const { bg, r, borders, p, text, layout, gap } = zero;
+
+const getIcon = (severity: string) => {
+  switch (severity) {
+    case "error":
+      return <CircleX size={24} color="white" />;
+    case "warning":
+      return <CircleAlert size={24} color="white" />;
+    case "info":
+      return <Info size={24} color="white" />;
+    default:
+      return <Sparkle size={24} color="white" />;
+  }
+};
 
 const Problems = ({
   probs,
@@ -15,9 +35,9 @@ const Problems = ({
   onIgnore: () => void;
 }) => {
   return (
-    <View style={[gap.all[3]]}>
-      <View>
-        <Text style={[text.white, { fontSize: 24, fontWeight: "bold" }]}>
+    <View style={[gap.all[4]]}>
+      <View style={[gap.all[2]]}>
+        <Text size="2xl" style={[text.white, { fontWeight: "600" }]}>
           Optimize Your Stream
         </Text>
         <Text style={[text.gray[300]]}>
@@ -34,26 +54,22 @@ const Problems = ({
               { gap: 8, alignItems: "flex-start" },
             ]}
           >
-            <Text
+            <View
               style={[
-                r.sm,
-                p[2],
+                zero.r.full,
+                zero.p[1],
                 {
-                  width: 82,
-                  textAlign: "center",
                   backgroundColor:
                     p.severity === "error"
                       ? "#7f1d1d"
                       : p.severity === "warning"
                         ? "#7c2d12"
                         : "#1e3a8a",
-                  color: "white",
-                  fontSize: 12,
                 },
               ]}
             >
-              {p.severity}
-            </Text>
+              {getIcon(p.severity)}
+            </View>
             <View style={[{ flex: 1 }, gap.all[1]]}>
               <Text style={[text.white, { fontWeight: "600" }]}>{p.code}</Text>
               <Text style={[text.gray[400], { fontSize: 14 }]}>
@@ -79,39 +95,34 @@ const Problems = ({
           </View>
         </View>
       ))}
-
-      <Pressable
-        onPress={onIgnore}
-        style={[
-          bg.blue[600],
-          r.md,
-          p[3],
-          layout.flex.center,
-          { marginTop: 16 },
-        ]}
-      >
-        <Text style={[text.white, { fontWeight: "600" }]}>Ignore</Text>
-      </Pressable>
+      <View style={[layout.flex.row, layout.flex.justify.end]}>
+        <Button onPress={onIgnore} variant="secondary">
+          <Text style={[text.white, { fontWeight: "600" }]}>Acknowledge</Text>
+        </Button>
+      </View>
     </View>
   );
 };
 
-export const ProblemsWrapper = ({
-  children,
-}: {
-  children: React.ReactElement;
-}) => {
+export interface ProblemsWrapperRef {
+  setDismiss: (value: boolean) => void;
+}
+
+export const ProblemsWrapper = forwardRef<
+  ProblemsWrapperRef,
+  {
+    children: React.ReactElement;
+  }
+>(({ children }, ref) => {
   const problems = useLivestreamStore((x) => x.problems);
   const [dismiss, setDismiss] = useState(false);
 
+  useImperativeHandle(ref, () => ({
+    setDismiss,
+  }));
+
   return (
-    <View
-      style={[
-        { position: "relative", flex: 1 },
-        layout.flex.center,
-        { flexBasis: 0 },
-      ]}
-    >
+    <>
       {children}
       {problems.length > 0 && !dismiss && (
         <View
@@ -127,16 +138,16 @@ export const ProblemsWrapper = ({
             },
             layout.flex.center,
             { justifyContent: "flex-start" },
-            p[8],
+            p[12],
           ]}
         >
           <View
             style={[
-              bg.gray[900],
-              borders.color.gray[700],
+              bg.neutral[900],
+              borders.color.neutral[700],
               borders.width.thin,
               r.lg,
-              p[4],
+              p[8],
               { maxWidth: 700, width: "100%" },
             ]}
           >
@@ -144,8 +155,8 @@ export const ProblemsWrapper = ({
           </View>
         </View>
       )}
-    </View>
+    </>
   );
-};
+});
 
 export default Problems;

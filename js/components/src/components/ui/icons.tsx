@@ -48,3 +48,17 @@ export function createThemedIcon(
     );
   };
 }
+
+// usage of createThemedIcon
+export function Icon({
+  icon,
+  variant = "default",
+  size = "md",
+  color,
+  ...restProps
+}: { icon: React.ComponentType<LucideProps> } & IconProps) {
+  const ThemedIcon = createThemedIcon(icon);
+  return (
+    <ThemedIcon variant={variant} size={size} color={color} {...restProps} />
+  );
+}

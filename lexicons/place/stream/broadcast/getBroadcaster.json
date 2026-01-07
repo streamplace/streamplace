@@ -1,0 +1,35 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.broadcast.getBroadcaster",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get information about a Streamplace broadcaster.",
+      "parameters": {
+        "type": "params",
+        "required": [],
+        "properties": {}
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["broadcaster"],
+          "properties": {
+            "broadcaster": {
+              "type": "string",
+              "format": "did",
+              "description": "DID of the Streamplace broadcaster to which this server belongs"
+            },
+            "server": {
+              "type": "string",
+              "format": "did",
+              "description": "DID of this particular Streamplace server"
+            }
+          }
+        }
+      },
+      "errors": []
+    }
+  }
+}

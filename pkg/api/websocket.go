@@ -139,7 +139,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				case msg := <-initialBurst:
 					send(msg)
 				case <-ticker.C:
-					count := spmetrics.GetViewCount(repoDID)
+					count := a.Bus.GetViewerCount(repoDID)
 					bs, err := json.Marshal(streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
 					if err != nil {
 						log.Error(ctx, "could not marshal view count", "error", err)
@@ -226,7 +226,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		}()
 
 		go func() {
-			count := spmetrics.GetViewCount(repoDID)
+			count := a.Bus.GetViewerCount(repoDID)
 			initialBurst <- streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"}
 		}()
 

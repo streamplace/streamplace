@@ -47,6 +47,7 @@ type WHEPClient struct {
 	Endpoint    string
 	Count       int
 	FreezeAfter time.Duration
+	Stats       []map[string]*TrackStats
 }
 
 type WHEPConnection struct {
@@ -57,7 +58,14 @@ type WHEPConnection struct {
 	Done           func() <-chan struct{}
 }
 
-func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, error) {
+type TrackStats struct {
+	Total      int
+	lastTotal  int
+	lastUpdate time.Time
+	mu         sync.Mutex
+}
+
+func (w *WHEPClient) StartWHEPConnection(ctx context.Context, stats map[string]*TrackStats) (*WHEPConnection, error) {
 
 	// Prepare the configuration
 	config := webrtc.Configuration{}
@@ -66,19 +74,6 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, 
 	peerConnection, err := webrtc.NewPeerConnection(config)
 	if err != nil {
 		return nil, err
-	}
-
-	// Track statistics
-	type trackStats struct {
-		total      int
-		lastTotal  int
-		lastUpdate time.Time
-		mu         sync.Mutex
-	}
-
-	stats := map[string]*trackStats{
-		"video": {lastUpdate: time.Now()},
-		"audio": {lastUpdate: time.Now()},
 	}
 
 	// Create a ticker to print combined bitrate every 5 seconds
@@ -102,8 +97,8 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, 
 				videoElapsed := currentTime.Sub(videoStats.lastUpdate).Seconds()
 				audioElapsed := currentTime.Sub(audioStats.lastUpdate).Seconds()
 
-				videoBytes := videoStats.total - videoStats.lastTotal
-				audioBytes := audioStats.total - audioStats.lastTotal
+				videoBytes := videoStats.Total - videoStats.lastTotal
+				audioBytes := audioStats.Total - audioStats.lastTotal
 
 				videoBitrate := float64(videoBytes) * 8 / videoElapsed / 1000 // kbps
 				audioBitrate := float64(audioBytes) * 8 / audioElapsed / 1000 // kbps
@@ -114,9 +109,9 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, 
 					"total", fmt.Sprintf("%.2f kbps", videoBitrate+audioBitrate))
 
 				// Update last values
-				videoStats.lastTotal = videoStats.total
+				videoStats.lastTotal = videoStats.Total
 				videoStats.lastUpdate = currentTime
-				audioStats.lastTotal = audioStats.total
+				audioStats.lastTotal = audioStats.Total
 				audioStats.lastUpdate = currentTime
 
 				// Unlock stats
@@ -156,7 +151,7 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, 
 				}
 
 				trackStat.mu.Lock()
-				trackStat.total += len(rtp.Payload)
+				trackStat.Total += len(rtp.Payload)
 				trackStat.mu.Unlock()
 			}
 		})
@@ -252,14 +247,20 @@ func (w *WHEPClient) StartWHEPConnection(ctx context.Context) (*WHEPConnection, 
 }
 
 func (w *WHEPClient) WHEP(ctx context.Context) error {
+	w.Stats = []map[string]*TrackStats{}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	conns := make([]*WHEPConnection, w.Count)
 	g := &errgroup.Group{}
 	for i := 0; i < w.Count; i++ {
+		stats := map[string]*TrackStats{
+			"video": {lastUpdate: time.Now()},
+			"audio": {lastUpdate: time.Now()},
+		}
+		w.Stats = append(w.Stats, stats)
 		g.Go(func() error {
-			conn, err := w.StartWHEPConnection(ctx)
+			conn, err := w.StartWHEPConnection(ctx, stats)
 			if err != nil {
 				return err
 			}

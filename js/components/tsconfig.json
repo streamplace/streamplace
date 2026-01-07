@@ -5,7 +5,16 @@
     "outDir": "./dist",
     "jsx": "react-jsx",
     "module": "commonjs",
-    "skipLibCheck": true
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "resolveJsonModule": true
   },
-  "include": ["./src"]
+  "include": ["./src"],
+  "ts-node": {
+    "compilerOptions": {
+      "resolveJsonModule": true
+    }
+  }
 }

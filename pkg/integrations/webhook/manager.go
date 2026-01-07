@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	"stream.place/streamplace/pkg/integrations/discord"
@@ -12,6 +13,19 @@ import (
 
 // SendChatWebhook sends chat message to a specific webhook
 func SendChatWebhook(ctx context.Context, webhook *streamplace.ServerDefs_Webhook, authorDID string, scm *streamplace.ChatDefs_MessageView) error {
+	// Check if message should be muted
+	if msg, ok := scm.Record.Val.(*streamplace.ChatMessage); ok {
+		if len(webhook.MuteWords) > 0 {
+			messageText := strings.ToLower(msg.Text)
+			for _, muteWord := range webhook.MuteWords {
+				if strings.Contains(messageText, strings.ToLower(muteWord)) {
+					// Message contains a mute word, skip forwarding
+					return nil
+				}
+			}
+		}
+	}
+
 	discordWebhook, err := webhookToDiscordWebhook(webhook)
 	if err != nil {
 		return fmt.Errorf("failed to convert webhook: %w", err)

@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/config-react-native-webrtc",
-  "version": "0.7.21",
+  "version": "0.8.0",
   "description": "react-native-webrtc config mod with some changes to make it useful for streamplace",
   "scripts": {
     "prepare": "tsc -p tsconfig.json",

@@ -1,12 +1,9 @@
-// Learn more https://docs.expo.io/guides/customizing-metro
-/**
- * @type {import('expo/metro-config').MetroConfig}
- */
-const { getDefaultConfig } = require("expo/metro-config");
 const { FileStore } = require("metro-cache");
 const path = require("path");
 
-let config = getDefaultConfig(__dirname, {
+const { getSentryExpoConfig } = require("@sentry/react-native/metro");
+
+let config = getSentryExpoConfig(__dirname, {
   // [Web-only]: Enables CSS support in Metro.
   isCSSEnabled: true,
 });

@@ -2,13 +2,14 @@ package atproto
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
@@ -31,7 +32,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 	if err != nil {
 		return fmt.Errorf("failed to parse ATURI: %w", err)
 	}
-	d, err := data.UnmarshalCBOR(*recCBOR)
+	d, err := atdata.UnmarshalCBOR(*recCBOR)
 	if err != nil {
 		return fmt.Errorf("failed to unmarhsal record CBOR: %w", err)
 	}
@@ -365,13 +366,6 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			task.ChatProfile = spcp
 		}
 
-		if !isUpdate && !isFirstSync {
-			_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskNotification, task, statedb.WithTaskKey(fmt.Sprintf("notification-blast::%s", aturi.String())))
-			if err != nil {
-				log.Error(ctx, "failed to enqueue notification task", "err", err)
-			}
-		}
-
 	case *streamplace.Key:
 		log.Debug(ctx, "creating key", "key", rec)
 		time, err := aqtime.FromString(rec.CreatedAt)
@@ -387,6 +381,104 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		err = atsync.Model.UpdateSigningKey(&key)
 		if err != nil {
 			log.Error(ctx, "failed to create signing key", "err", err)
+		}
+
+	case *streamplace.BroadcastOrigin:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		if err != nil {
+			return fmt.Errorf("failed to sync broadcast origin creator bluesky repo: %w", err)
+		}
+		_, err = atsync.SyncBlueskyRepoCached(ctx, rec.Streamer, atsync.Model)
+		if err != nil {
+			return fmt.Errorf("failed to sync broadcast origin streamer bluesky repo: %w", err)
+		}
+		err = atsync.Model.UpdateBroadcastOrigin(ctx, rec, aturi)
+		if err != nil {
+			log.Error(ctx, "failed to update broadcast origin", "err", err)
+		}
+		view := &streamplace.BroadcastDefs_BroadcastOriginView{
+			Uri: aturi.String(),
+			Cid: cid,
+			Author: &bsky.ActorDefs_ProfileViewBasic{
+				Did:    userDID,
+				Handle: repo.Handle,
+			},
+			Record: &lexutil.LexiconTypeDecoder{Val: rec},
+		}
+		// publishes with an empty string because we're discovering the stream
+		go atsync.Bus.Publish("", view)
+
+	case *streamplace.MetadataConfiguration:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		log.Debug(ctx, "creating metadata configuration", "metadata", rec)
+		metadata := &model.MetadataConfiguration{
+			RepoDID: userDID,
+			Record:  recCBOR,
+			Repo:    repo,
+		}
+		err = atsync.Model.CreateMetadataConfiguration(ctx, metadata)
+		if err != nil {
+			log.Error(ctx, "failed to create metadata configuration", "err", err)
+		}
+
+	case *streamplace.ModerationPermission:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		log.Debug(ctx, "creating moderation delegation", "streamerDID", userDID, "moderatorDID", rec.Moderator)
+
+		err = atsync.Model.CreateModerationDelegation(ctx, rec, aturi)
+		if err != nil {
+			return fmt.Errorf("failed to create moderation delegation: %w", err)
+		}
+
+		view := &streamplace.ModerationDefs_PermissionView{
+			Uri: aturi.String(),
+			Cid: cid,
+			Author: &bsky.ActorDefs_ProfileViewBasic{
+				Did:    userDID,
+				Handle: repo.Handle,
+			},
+			Record: &lexutil.LexiconTypeDecoder{Val: rec},
+		}
+		// Publish moderation permission view to WebSocket bus for real-time updates
+		// This allows moderators to see their permissions instantly without page refresh
+		go atsync.Bus.Publish(userDID, view)
+
+	case *streamplace.LiveRecommendations:
+		log.Debug(ctx, "creating recommendations", "userDID", userDID, "count", len(rec.Streamers))
+
+		// Validate max 8 streamers
+		if len(rec.Streamers) > 8 {
+			log.Warn(ctx, "recommendations exceed maximum of 8", "count", len(rec.Streamers))
+			return fmt.Errorf("maximum 8 recommendations allowed, got %d", len(rec.Streamers))
+		}
+
+		// Marshal streamers to JSON
+		streamersJSON, err := json.Marshal(rec.Streamers)
+		if err != nil {
+			return fmt.Errorf("failed to marshal streamers: %w", err)
+		}
+
+		// Parse createdAt timestamp
+		createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse createdAt: %w", err)
+		}
+
+		recommendation := &model.Recommendation{
+			UserDID:   userDID,
+			Streamers: json.RawMessage(streamersJSON),
+			CreatedAt: createdAt,
+		}
+
+		err = atsync.Model.UpsertRecommendation(recommendation)
+		if err != nil {
+			return fmt.Errorf("failed to upsert recommendation: %w", err)
 		}
 
 	default:

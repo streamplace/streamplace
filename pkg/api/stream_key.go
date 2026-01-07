@@ -5,7 +5,7 @@ import (
 	"crypto"
 	"fmt"
 
-	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/mr-tron/base58"
 	"stream.place/streamplace/pkg/atproto"
@@ -82,12 +82,7 @@ func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (me
 		return nil, err
 	}
 
-	var mediaSigner media.MediaSigner
-	if a.CLI.ExternalSigning {
-		mediaSigner, err = media.MakeMediaSignerExt(ctx, a.CLI, did, addrBytes)
-	} else {
-		mediaSigner, err = media.MakeMediaSigner(ctx, a.CLI, did, signer)
-	}
+	mediaSigner, err := media.MakeMediaSigner(ctx, a.CLI, did, signer, a.Model)
 	if err != nil {
 		return nil, fmt.Errorf("invalid authorization key (not valid secp256k1): %w", err)
 	}

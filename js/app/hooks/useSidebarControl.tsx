@@ -5,15 +5,12 @@ import {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { useDispatch, useSelector } from "react-redux";
-
+import { useStore } from "store";
 import {
-  selectIsSidebarCollapsed,
-  selectIsSidebarHidden,
-  selectSidebarTargetWidth,
-  toggleSidebar,
-} from "../features/base/sidebarSlice";
-import { RootState } from "../store/store";
+  useIsSidebarCollapsed,
+  useIsSidebarHidden,
+  useSidebarTargetWidth,
+} from "store/hooks";
 
 // Returns *true* if the screen is > 1024px
 function useIsLargeScreen() {
@@ -41,17 +38,11 @@ export interface UseSidebarOutput {
  * - toggle: () => void - A function to dispatch the Redux action to toggle the sidebar.
  */
 export function useSidebarControl(): UseSidebarOutput {
-  const dispatch = useDispatch();
-  const isCollapsed = useSelector((state: RootState) =>
-    selectIsSidebarCollapsed(state),
-  );
-  const targetWidth = useSelector((state: RootState) =>
-    selectSidebarTargetWidth(state),
-  );
+  const toggleSidebar = useStore((state) => state.toggleSidebar);
+  const isCollapsed = useIsSidebarCollapsed();
+  const targetWidth = useSidebarTargetWidth();
 
-  const isHidden = useSelector((state: RootState) =>
-    selectIsSidebarHidden(state),
-  );
+  const isHidden = useIsSidebarHidden();
 
   const animatedWidth = useSharedValue(targetWidth);
 
@@ -69,7 +60,7 @@ export function useSidebarControl(): UseSidebarOutput {
   const handleToggle = () => {
     if (isActive) {
       // Only allow toggle if the sidebar functionality is active
-      dispatch(toggleSidebar());
+      toggleSidebar();
     }
   };
 

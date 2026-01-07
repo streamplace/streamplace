@@ -4,10 +4,12 @@ import {
   CommonActions,
   DrawerNavigationState,
   ParamListBase,
+  useNavigation,
 } from "@react-navigation/native";
-import { Text, useTheme } from "@streamplace/components";
+import { Text, zero } from "@streamplace/components";
+import { useAQLinkHref } from "components/aqlink";
 import React from "react";
-import { Image, Platform, View } from "react-native";
+import { Image, Platform, Pressable, View } from "react-native";
 import Animated, {
   SharedValue,
   useAnimatedStyle,
@@ -43,13 +45,19 @@ export default function Sidebar({
   widthAnim,
   externalItems = [],
 }: SidebarProps) {
-  const theme = useTheme();
-  // Apply the defined type to the component props
+  const navigation = useNavigation();
   const animatedSidebarStyle = useAnimatedStyle(() => {
     return {
       minWidth: widthAnim.value,
       maxWidth: widthAnim.value,
     };
+  });
+
+  // home route
+  const route = state.routes.find((r) => r.name === "Home");
+  const { href } = useAQLinkHref({
+    screen: route ? route.name : "Home",
+    params: route?.params as any,
   });
 
   if (hidden) {
@@ -59,29 +67,34 @@ export default function Sidebar({
   return (
     <Animated.View
       style={[
-        animatedSidebarStyle, // Apply the animated style
-        { padding: 8, gap: 8, flexDirection: "column" },
+        animatedSidebarStyle,
+        zero.p[2],
+        zero.gap.all[2],
+        zero.layout.flex.column,
       ]}
     >
-      <View
+      <Pressable
+        // @ts-ignore This makes it render as <a> on web!
+        href={route ? href : undefined}
         style={[
+          zero.layout.flex.row,
+          zero.layout.flex.alignCenter,
+          zero.gap.all[3],
           {
-            marginTop: Platform.OS === "ios" ? 29 : 12,
+            marginTop: Platform.OS === "ios" ? 29 : 8,
             marginBottom: 20,
-            paddingLeft: 10,
-            gap: 12,
-            flexDirection: "row",
-            justifyContent: "flex-start",
-            alignItems: "center",
+            paddingLeft: 11,
           },
         ]}
       >
         <Image
           source={require("../../assets/images/cube.png")}
-          style={[{ height: 30, width: 28 }]}
+          height={30}
+          width={28}
+          style={{ width: 28, height: 30, resizeMode: "contain" }}
         />
         {!collapsed && <Text size="2xl">Streamplace</Text>}
-      </View>
+      </Pressable>
 
       {state.routes.map((route) => {
         const descriptor = descriptors[route.key];
@@ -96,6 +109,21 @@ export default function Sidebar({
           | React.ComponentType<any>
           | undefined;
 
+        // if we have style display: none on the drawer item, completely skip rendering it
+        const drawerItemStyle = options.drawerItemStyle;
+        let isHidden = false;
+        if (
+          drawerItemStyle &&
+          typeof drawerItemStyle === "object" &&
+          "display" in drawerItemStyle &&
+          (drawerItemStyle as any).display === "none"
+        ) {
+          isHidden = true;
+        }
+        if (isHidden) {
+          return null;
+        }
+
         return (
           <SidebarItem
             key={route.key}
@@ -103,10 +131,13 @@ export default function Sidebar({
             label={label}
             active={descriptor.navigation.isFocused()}
             collapsed={collapsed}
-            onPress={() => {
+            route={route}
+            onPress={(ev) => {
+              ev.preventDefault();
+              // bleh
               if (route.name === "Home") {
-                // copy logic for 'Home' to reset the stack
-                descriptor.navigation.dispatch(
+                // reset the stack (b/c streamlist is in the same stack as home)
+                navigation.dispatch(
                   CommonActions.reset({
                     index: 0,
                     routes: [
@@ -119,12 +150,23 @@ export default function Sidebar({
                     ],
                   }),
                 );
+              } else if (route.name === "Settings") {
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: 0,
+                    routes: [
+                      {
+                        name: "Settings",
+                      },
+                    ],
+                  }),
+                );
               } else {
-                descriptor.navigation.navigate(route.name);
+                navigation.navigate(route.name as any);
               }
             }}
             style={options.drawerItemStyle}
-            tint={options.drawerActiveTintColor as string} // Assuming tint is a string color or undefined
+            tint={options.drawerActiveTintColor as string}
           />
         );
       })}

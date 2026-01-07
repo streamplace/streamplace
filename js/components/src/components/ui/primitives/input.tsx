@@ -1,3 +1,7 @@
+import {
+  BottomSheetTextInput,
+  useBottomSheetInternal,
+} from "@gorhom/bottom-sheet";
 import React, { forwardRef } from "react";
 import {
   NativeSyntheticEvent,
@@ -12,6 +16,7 @@ import {
   View,
   ViewProps,
 } from "react-native";
+import { tokens } from "../../../ui";
 
 // Base input primitive interface
 export interface InputPrimitiveProps extends Omit<TextInputProps, "onChange"> {
@@ -24,7 +29,7 @@ export interface InputPrimitiveProps extends Omit<TextInputProps, "onChange"> {
 }
 
 // Input root primitive - the main TextInput component
-export const InputRoot = forwardRef<TextInput, InputPrimitiveProps>(
+export const InputRoot = forwardRef<any, InputPrimitiveProps>(
   (
     {
       value,
@@ -43,6 +48,19 @@ export const InputRoot = forwardRef<TextInput, InputPrimitiveProps>(
     ref,
   ) => {
     const [isFocused, setIsFocused] = React.useState(false);
+
+    let isInBottomSheet = false;
+    try {
+      useBottomSheetInternal();
+      isInBottomSheet = true;
+    } catch {
+      isInBottomSheet = false;
+    }
+
+    const InputComponent =
+      isInBottomSheet && Platform.OS !== "web"
+        ? BottomSheetTextInput
+        : TextInput;
 
     const handleChangeText = React.useCallback(
       (text: string) => {
@@ -77,7 +95,7 @@ export const InputRoot = forwardRef<TextInput, InputPrimitiveProps>(
     );
 
     return (
-      <TextInput
+      <InputComponent
         ref={ref}
         value={value}
         onChangeText={handleChangeText}
@@ -312,7 +330,8 @@ const primitiveStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#d1d5db",
     borderRadius: 8,
-    backgroundColor: "white",
+    boxShadow: "none",
+    fontFamily: tokens.fontFamilies.regular,
     ...Platform.select({
       ios: {
         paddingVertical: 12,

@@ -6,7 +6,7 @@ import (
 	"crypto/elliptic"
 	"fmt"
 
-	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 )
 

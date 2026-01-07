@@ -43,6 +43,8 @@ class MainApplication : Application(), ReactApplication {`,
       .build()
     options.audioDeviceModule = JavaAudioDeviceModule.builder(this)
       .setAudioAttributes(audioAttributes)
+      .setUseStereoInput(true)
+      .setUseStereoOutput(true)
       .createAudioDeviceModule()
 `,
   },
@@ -115,6 +117,8 @@ const iosDelegateReplacements = [
   WebRTCModuleOptions *options = [WebRTCModuleOptions sharedInstance];
   options.loggingSeverity = RTCLoggingSeverityWarning;
   options.audioDevice = device;
+  // Enable stereo audio
+  options.enableStereoOutput = YES;
   ////END RTC PATCH////
     `,
   },
@@ -124,23 +128,23 @@ const iosDelegateReplacements = [
     to: () => `
     // WebRTC Configuration
     let config = RTCAudioSessionConfiguration.webRTC()
-    
+
     let session = AVAudioSession.sharedInstance()
     do {
-        try session.setCategory(.playAndRecord, 
+        try session.setCategory(.playAndRecord,
                               options: [.defaultToSpeaker, .allowBluetooth])
         try session.setActive(true)
     } catch {
         print("Failed to configure audio session: \(error)")
     }
-    
+
     let device = AUAudioUnitRTCAudioDevice()
 
     let options = WebRTCModuleOptions.sharedInstance()
     options.loggingSeverity = .warning
     options.audioDevice = device
     // End WebRTC Configuration
-    
+
     let delegate = ReactNativeDelegate()
     `,
   },

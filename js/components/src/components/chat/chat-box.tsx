@@ -12,6 +12,7 @@ import {
   useLivestream,
   useReplyToMessage,
   useSetReplyToMessage,
+  useTheme,
   View,
 } from "../../";
 import {
@@ -33,6 +34,7 @@ import { EmojiData, EmojiSuggestions } from "./emoji-suggestions";
 import { MentionSuggestions } from "./mention-suggestions";
 
 const COOL_EMOJI_LIST = [
+  // @ts-ignore we can iterate through this just fine it seems
   ..."😀🥸😍😘😁🥸😆🥸😜🥸😂😅🥸🙂🤫😱🥸🤣😗😄🥸😎🤓😲😯😰🥸😥🥸😣🥸😞😓🥸😩😩🥸😤🥱",
 ];
 
@@ -44,7 +46,7 @@ export function ChatBox({
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
-  emojiData: EmojiData;
+  emojiData: EmojiData | null;
   setIsChatVisible?: (visible: boolean) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
@@ -62,6 +64,8 @@ export function ChatBox({
   const [filteredEmojis, setFilteredEmojis] = useState<any[]>([]);
 
   let linfo = useLivestream();
+
+  const { theme } = useTheme();
 
   const chat = useChat();
   const createChatMessage = useCreateChatMessage();
@@ -114,6 +118,7 @@ export function ChatBox({
     if (colonIndex !== -1) {
       const searchText = text.slice(colonIndex + 1).toLowerCase();
       if (searchText.length > 0) {
+        if (!emojiData) return;
         const aliasMatches = Object.entries(emojiData.aliases)
           .map(([alias, emojiId]) => {
             const aliasLower = alias.toLowerCase();
@@ -354,6 +359,19 @@ export function ChatBox({
                 k.preventDefault();
                 submit();
               }
+            } else if (k.nativeEvent.key === "Tab") {
+              if (showSuggestions) {
+                k.preventDefault();
+                const handles = Array.from(filteredAuthors.keys());
+                if (handles.length > 0) {
+                  handleMentionSelect(handles[highlightedIndex]);
+                }
+              } else if (showEmojiSuggestions) {
+                k.preventDefault();
+                if (filteredEmojis.length > 0) {
+                  handleEmojiSelect(filteredEmojis[highlightedIndex]);
+                }
+              }
             } else if (k.nativeEvent.key === "ArrowUp") {
               if (showSuggestions || showEmojiSuggestions) {
                 k.preventDefault();
@@ -387,14 +405,17 @@ export function ChatBox({
           submitBehavior="submit"
           placeholder="Type a message..."
         />
-        <Button
-          disabled={submitting}
-          variant="secondary"
-          style={{ borderRadius: 16, height: 36, minWidth: 80 }}
-          onPress={submit}
-        >
-          {submitting ? <Loader /> : "Send"}
-        </Button>
+        <View>
+          <Button
+            disabled={submitting}
+            variant="secondary"
+            width="min"
+            style={{ borderRadius: 16, height: 43 }}
+            onPress={submit}
+          >
+            {submitting ? <Loader /> : "Send"}
+          </Button>
+        </View>
       </View>
       {showSuggestions && (
         <MentionSuggestions
@@ -421,7 +442,8 @@ export function ChatBox({
         >
           <Button
             variant="secondary"
-            style={{ borderRadius: 16, height: 36, maxWidth: 36 }}
+            style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
+            aria-label="Insert Mention"
             onPress={() => {
               // if the last character is not @, add it
               !message.endsWith("@") && setMessage(message + "@");
@@ -445,7 +467,8 @@ export function ChatBox({
           >
             <Button
               variant="secondary"
-              style={{ borderRadius: 16, height: 36, maxWidth: 36 }}
+              aria-label="Insert Emoji"
+              style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
               onPress={() => setShowEmojiSelector(!showEmojiSelector)}
             >
               <Text>{COOL_EMOJI_LIST[emojiIconIndex]}</Text>
@@ -454,7 +477,8 @@ export function ChatBox({
           {!isPopout && (
             <Button
               variant="secondary"
-              style={{ borderRadius: 16, height: 36, maxWidth: 36 }}
+              aria-label="Popout Chat"
+              style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
               onPress={() => {
                 if (!linfo) return;
                 const u = new URL(window.location.href);
@@ -463,7 +487,7 @@ export function ChatBox({
                 setIsChatVisible?.(false);
               }}
             >
-              <ExternalLink size={16} />
+              <ExternalLink color={theme.colors.primaryForeground} size={16} />
             </Button>
           )}
         </View>

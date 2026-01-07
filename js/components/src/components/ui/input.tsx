@@ -238,7 +238,13 @@ export const Input = forwardRef<any, InputProps>(
           error={!!error}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          style={[containerStyles, textStyles, containerStyle, inputStyle]}
+          style={[
+            containerStyles,
+            textStyles,
+            containerStyle,
+            inputStyle,
+            { outline: "none" },
+          ]}
           placeholderTextColor={
             disabled ? theme.colors.textDisabled : theme.colors.textMuted
           }

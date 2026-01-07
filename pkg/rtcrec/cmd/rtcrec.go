@@ -22,6 +22,9 @@ func main() {
 }
 
 func Start() error {
+	if len(os.Args) == 1 {
+		return fmt.Errorf("usage: rtcrec [decode|trim]")
+	}
 	if len(os.Args) > 1 && os.Args[1] == "decode" {
 		return Decode()
 	}
@@ -77,7 +80,7 @@ func Trim() error {
 		startCutoff = &time.Time{}
 	}
 	if endDuration == 0 {
-		t := time.Unix(math.MaxInt64, 0)
+		t := time.Unix(math.MaxInt64/2, 0) // i had it set to max but there were rollover issues
 		endCutoff = &t
 	}
 	included := 0
@@ -103,8 +106,8 @@ func Trim() error {
 			}
 			continue
 		}
-		if ev.Time.Before(*startCutoff) || ev.Time.After(*endCutoff) {
-			// fmt.Printf("dropped: %s < %s\n", ev.Time.Format(time.RFC3339Nano), cutoff.Format(time.RFC3339Nano))
+		// fmt.Printf("ev.Time: %+v, startCutoff: %+v, endCutoff: %+v\n", ev.Time, *startCutoff, *endCutoff)
+		if ev.Time.Before(*startCutoff) {
 			dropped++
 			continue
 		}
@@ -119,7 +122,10 @@ func Trim() error {
 func Decode() error {
 	var path string
 	flag.StringVar(&path, "path", "", "path to the file to decode")
-	flag.Parse()
+	err := flag.CommandLine.Parse(os.Args[2:])
+	if err != nil {
+		return err
+	}
 	if path == "" {
 		return fmt.Errorf("path is required")
 	}

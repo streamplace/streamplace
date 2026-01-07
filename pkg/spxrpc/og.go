@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"image"
 	"image/color"
 	_ "image/jpeg"
@@ -18,7 +19,6 @@ import (
 	imagedraw "image/draw"
 
 	"golang.org/x/image/draw"
-	"golang.org/x/net/context/ctxhttp"
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -29,22 +29,23 @@ import (
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 )
 
 const (
 	// Canvas dimensions
 	ogWidth  = 400.0
-	ogHeight = 200.0
+	ogHeight = 210.0
 
 	// Card dimensions and positioning
 	cardPadding = 10.0
 	cardWidth   = 380.0
-	cardHeight  = 180.0
+	cardHeight  = 190.0
 	cardRadius  = 12.0
 
 	// Image dimensions and positioning
-	imageX      = 25.0
-	imageY      = 55.0
+	imageX      = 27.5
+	imageY      = 60.0
 	imageWidth  = 400
 	imageHeight = 480
 	imageRadius = 180.0
@@ -52,22 +53,22 @@ const (
 
 	// Text positioning
 	textStartX = 135.0
-	joinY      = 142.0
-	subtitleY  = 115.0
-	descY      = 90.0
+	joinY      = 147.0
+	subtitleY  = 120.0
+	descY      = 95.0
 
 	// Font sizes
 	joinFontSize        = 56.0
-	minJoinFontSize     = 40.0
+	minJoinFontSize     = 48.0
 	subtitleFontSize    = 48.0
 	descFontSize        = 28.0
 	placeholderFontSize = 18.0
 
 	// Available text width
-	textAvailableWidth = 255.0
+	textAvailableWidth = 245.0
 
 	// Canvas DPI
-	canvasDPMM = 2.0
+	canvasDPMM = 3.0
 )
 
 var (
@@ -77,10 +78,10 @@ var (
 	cardBorderColor      = color.RGBA{R: 64, G: 64, B: 64, A: 255}
 	placeholderColor     = color.RGBA{R: 240, G: 240, B: 240, A: 255}
 	placeholderTextColor = color.RGBA{R: 100, G: 100, B: 100, A: 255}
-	joinTextColor        = color.RGBA{R: 255, G: 200, B: 50, A: 255}
+	joinTextColor        = color.RGBA{R: 248, G: 186, B: 202, A: 255}
 	subtitleColor        = color.RGBA{R: 200, G: 200, B: 200, A: 255}
 	descColor            = color.RGBA{R: 180, G: 180, B: 180, A: 255}
-	imageBorderColor     = color.RGBA{R: 200, G: 200, B: 200, A: 255}
+	imageBorderColor     = color.RGBA{R: 248, G: 186, B: 202, A: 255}
 )
 
 const (
@@ -91,25 +92,39 @@ const (
 
 var ErrUserNotFound = errors.New("user not found")
 
-// createResponsiveJoinText creates a text box for "Join [username]" that fits within the available width
+// blendWithBackground creates a pseudo-transparent color by blending the given color with the background
+// alpha should be between 0.0 (fully background) and 1.0 (fully foreground color)
+func blendWithBackground(fg color.RGBA, bg color.RGBA, alpha float64) color.RGBA {
+	return color.RGBA{
+		R: uint8(float64(bg.R)*(1-alpha) + float64(fg.R)*alpha),
+		G: uint8(float64(bg.G)*(1-alpha) + float64(fg.G)*alpha),
+		B: uint8(float64(bg.B)*(1-alpha) + float64(fg.B)*alpha),
+		A: 255,
+	}
+}
+
+// createResponsiveJoinText creates a text line for "Join [username]" that fits within the available width
 // by reducing font size and truncating with ellipsis if necessary
-func createResponsiveJoinText(fontFamily *canvas.FontFamily, text string, availableWidth float64) (*canvas.Text, float64) {
+// Returns the text object and the font size used
+func createResponsiveJoinText(fontFamily *canvas.FontFamily, text string, availableWidth float64, textColor color.RGBA) *canvas.Text {
 	fontSize := joinFontSize
 	minFontSize := minJoinFontSize
 
 	for fontSize >= minFontSize {
 		// Try bold first, fall back to regular if bold fails
-		face := fontFamily.Face(fontSize, joinTextColor, canvas.FontBold, canvas.FontNormal)
+		face := fontFamily.Face(fontSize, textColor, canvas.FontBold, canvas.FontNormal)
 		if face == nil {
-			face = fontFamily.Face(fontSize, joinTextColor, canvas.FontRegular, canvas.FontNormal)
+			face = fontFamily.Face(fontSize, textColor, canvas.FontRegular, canvas.FontNormal)
 		}
 
 		if face != nil {
-			textBox := canvas.NewTextBox(face, text, availableWidth, 40, canvas.Left, canvas.Center, &canvas.TextOptions{})
+			// Measure actual text width
+			textWidth := face.TextWidth(text)
 
-			// Check if text fits
-			if textBox.Bounds().W() <= availableWidth {
-				return textBox, fontSize
+			// Check if text fits with some margin
+			if textWidth <= availableWidth {
+				textObj := canvas.NewTextLine(face, text, canvas.Bottom)
+				return textObj
 			}
 		}
 
@@ -117,23 +132,33 @@ func createResponsiveJoinText(fontFamily *canvas.FontFamily, text string, availa
 	}
 
 	// If we get here, even minimum size doesn't fit, so we need to truncate
-	face := fontFamily.Face(minFontSize, joinTextColor, canvas.FontBold, canvas.FontNormal)
+	face := fontFamily.Face(minFontSize, textColor, canvas.FontBold, canvas.FontNormal)
 	if face == nil {
-		face = fontFamily.Face(minFontSize, joinTextColor, canvas.FontRegular, canvas.FontNormal)
+		face = fontFamily.Face(minFontSize, textColor, canvas.FontRegular, canvas.FontNormal)
+	}
+
+	// Ensure we have a valid face before truncating
+	if face == nil {
+		// Absolute fallback - just return "Join"
+		fallbackFace := fontFamily.Face(minFontSize, textColor, canvas.FontRegular, canvas.FontNormal)
+		if fallbackFace == nil {
+			return canvas.NewTextLine(nil, "Join", canvas.Bottom)
+		}
+		face = fallbackFace
 	}
 
 	// Try progressively shorter versions with ellipsis
 	runes := []rune(text)
-	for i := len(runes) - 1; i > 0; i-- {
+	for i := len(runes) - 1; i >= 7; i-- { // Keep at least "Join @" + one char
 		truncatedText := string(runes[:i]) + "..."
-		textBox := canvas.NewTextBox(face, truncatedText, availableWidth, 40, canvas.Left, canvas.Center, &canvas.TextOptions{})
-		if textBox.Bounds().W() <= availableWidth {
-			return textBox, minFontSize
+		textWidth := face.TextWidth(truncatedText)
+		if textWidth <= availableWidth {
+			return canvas.NewTextLine(face, truncatedText, canvas.Bottom)
 		}
 	}
 
-	// Fallback - just ellipsis
-	return canvas.NewTextBox(face, "...", availableWidth, 40, canvas.Left, canvas.Center, &canvas.TextOptions{}), minFontSize
+	// Final fallback - just "Join ..."
+	return canvas.NewTextLine(face, "Join ...", canvas.Bottom)
 }
 
 func (s *Server) handlePlaceStreamLiveGetProfileCard(ctx context.Context, id string) (io.Reader, error) {
@@ -182,7 +207,7 @@ func downloadImage(ctx context.Context, url string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	resp, err := ctxhttp.Do(ctx, &aqhttp.Client, req)
+	resp, err := aqhttp.Do(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
@@ -204,6 +229,7 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 	// Fetch user profile and avatar from Bluesky
 	var imageURL string
 	var handle, description string
+	var userDID string
 
 	// Set default fallbacks
 	handle = username
@@ -214,6 +240,8 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 		return nil, fmt.Errorf("failed to fetch profile, because %w", err)
 	} else if profileData != nil {
 		// Safely extract profile data with nil checks
+		userDID = profileData.Did
+
 		if profileData.Avatar != nil && *profileData.Avatar != "" {
 			imageURL = *profileData.Avatar
 		}
@@ -233,6 +261,37 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 		}
 	} else {
 		log.Warn(ctx, "received nil profile data, using fallbacks", "username", username)
+	}
+
+	// Fetch user's chat profile color
+	var userColor = joinTextColor      // default
+	var borderColor = imageBorderColor // default
+	if userDID != "" {
+		chatProfile, err := s.ATSync.Model.GetChatProfile(ctx, userDID)
+		if err != nil {
+			log.Warn(ctx, "failed to fetch chat profile", "did", userDID, "error", err)
+			clr := model.DefaultColors[hashString(userDID)%len(model.DefaultColors)]
+			userColor = color.RGBA{
+				R: uint8(clr.Red),
+				G: uint8(clr.Green),
+				B: uint8(clr.Blue),
+				A: 255,
+			}
+		} else if chatProfile != nil {
+			streamplaceChatProfile, err := chatProfile.ToStreamplaceChatProfile()
+			if err != nil {
+				log.Warn(ctx, "failed to decode chat profile", "did", userDID, "error", err)
+			} else if streamplaceChatProfile != nil && streamplaceChatProfile.Color != nil {
+				userColor = color.RGBA{
+					R: uint8(streamplaceChatProfile.Color.Red),
+					G: uint8(streamplaceChatProfile.Color.Green),
+					B: uint8(streamplaceChatProfile.Color.Blue),
+					A: 255,
+				}
+				borderColor = userColor
+				log.Debug(ctx, "using user's custom color", "did", userDID, "color", userColor)
+			}
+		}
 	}
 
 	// Create new canvas of dimension ogWidth x ogHeight mm for profile card
@@ -281,12 +340,13 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 	canvasCtx.Fill()
 
 	// Create neutral-800 rounded card
-	canvasCtx.SetFillColor(cardColor)
+	canvasCtx.SetFillColor(blendWithBackground(borderColor, cardColor, 0.04))
 	canvasCtx.DrawPath(cardPadding, cardPadding, canvas.RoundedRectangle(cardWidth, cardHeight, cardRadius))
 	canvasCtx.Fill()
 
-	// Add subtle border to card
-	canvasCtx.SetStrokeColor(cardBorderColor)
+	// border
+	cardBorderTransparent := blendWithBackground(blendWithBackground(borderColor, color.RGBA{R: 180, G: 180, B: 180}, 0.3), bgColor, 0.3)
+	canvasCtx.SetStrokeColor(cardBorderTransparent)
 	canvasCtx.SetStrokeWidth(1)
 	canvasCtx.DrawPath(cardPadding, cardPadding, canvas.RoundedRectangle(cardWidth, cardHeight, cardRadius))
 	canvasCtx.Stroke()
@@ -312,12 +372,12 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 	if img == nil {
 		// Fallback to placeholder if download or loading fails - positioned within card
 		canvasCtx.SetFillColor(placeholderColor)
-		canvasCtx.DrawPath(imageX, 50, canvas.RoundedRectangle(100, 120, 8))
+		canvasCtx.DrawPath(imageX, 55, canvas.RoundedRectangle(100, 120, 8))
 		canvasCtx.Fill()
 
 		imageFace := fontAHN.Face(placeholderFontSize, placeholderTextColor, canvas.FontBold, canvas.FontNormal)
 		imageText := canvas.NewTextBox(imageFace, "Streamplace", 100, 30, canvas.Center, canvas.Center, &canvas.TextOptions{})
-		canvasCtx.DrawText(imageX, 100, imageText)
+		canvasCtx.DrawText(imageX, 105, imageText)
 	} else {
 		// High-quality avatar processing with circular masking
 		avatarDisplaySize := imageRadius * 2 / imageDPMM
@@ -370,32 +430,31 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 		maskedAvatar := image.NewRGBA(image.Rect(0, 0, avatarSize, avatarSize))
 		imagedraw.DrawMask(maskedAvatar, maskedAvatar.Bounds(), scaledAvatar, image.Point{}, mask, image.Point{}, imagedraw.Over)
 
-		// Add circular border
+		// Add circular border with user's color (50% opacity for subtle effect)
 		avatarCenterX := imageX + avatarDisplaySize/2
 		avatarCenterY := imageY + avatarDisplaySize/2
-		canvasCtx.SetStrokeColor(imageBorderColor)
-		canvasCtx.SetStrokeWidth(3)
+		avatarBorderTransparent := blendWithBackground(blendWithBackground(borderColor, color.RGBA{R: 180, G: 180, B: 180}, 0.5), bgColor, 0.5)
+		canvasCtx.SetStrokeColor(avatarBorderTransparent)
+		canvasCtx.SetStrokeWidth(1)
 		canvasCtx.DrawPath(avatarCenterX, avatarCenterY, canvas.Circle(avatarDisplaySize/2))
 		canvasCtx.Stroke()
 
-		// Draw the final circular avatar
 		canvasCtx.DrawImage(imageX, imageY, maskedAvatar, canvas.DPMM(canvasDPMM))
 	}
 
-	// Create unified responsive "Join @handle" text
 	joinUserContent := fmt.Sprintf("Join @%s", handle)
 
-	availableWidth := textAvailableWidth // Full available width for the text
-	joinText, _ := createResponsiveJoinText(fontAHN, joinUserContent, availableWidth)
-	canvasCtx.DrawText(textStartX, joinY, joinText)
+	availableWidth := textAvailableWidth
+	joinText := createResponsiveJoinText(fontAHN, joinUserContent, availableWidth, userColor)
+	canvasCtx.DrawText(textStartX, joinY-(joinFontSize*0.5), joinText)
 
 	// Add "streaming on Stream.place" subtitle
-	onFace := fontAHN.Face(subtitleFontSize, subtitleColor, canvas.FontRegular, canvas.FontNormal)
+	onFace := fontAHN.Face(subtitleFontSize, blendWithBackground(borderColor, subtitleColor, 0.2), canvas.FontRegular, canvas.FontNormal)
 	onText := canvas.NewTextBox(onFace, "streaming on Stream.place", 250, 30, canvas.Left, canvas.Center, &canvas.TextOptions{})
 	canvasCtx.DrawText(textStartX, subtitleY, onText)
 
 	// Add user description or promotional text
-	descFace := fontAHN.Face(descFontSize, descColor, canvas.FontRegular, canvas.FontNormal)
+	descFace := fontAHN.Face(descFontSize, blendWithBackground(borderColor, descColor, 0.2), canvas.FontRegular, canvas.FontNormal)
 	descText := canvas.NewTextBox(descFace, description, 230, 30, canvas.Left, canvas.Center, &canvas.TextOptions{})
 	canvasCtx.DrawText(textStartX, descY, descText)
 
@@ -405,6 +464,12 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 	}
 
 	return b.Bytes(), nil
+}
+
+func hashString(s string) int {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return int(h.Sum32())
 }
 
 // getAtkinsonRegular returns the regular Atkinson Hyperlegible Next font data from app filesystem

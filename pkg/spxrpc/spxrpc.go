@@ -2,7 +2,11 @@ package spxrpc
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -10,7 +14,9 @@ import (
 	"github.com/slok/go-http-metrics/middleware"
 	echomiddleware "github.com/slok/go-http-metrics/middleware/echo"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
@@ -24,9 +30,11 @@ type Server struct {
 	OGImageCache *cache.Cache
 	ATSync       *atproto.ATProtoSynchronizer
 	statefulDB   *statedb.StatefulDB
+	bus          *bus.Bus
+	op           *oatproxy.OATProxy
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus) (*Server, error) {
 	e := echo.New()
 	s := &Server{
 		e:            e,
@@ -35,6 +43,8 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		OGImageCache: cache.New(5*time.Minute, 10*time.Minute), // 5min TTL, 10min cleanup
 		ATSync:       atsync,
 		statefulDB:   statefulDB,
+		bus:          bus,
+		op:           op,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())
@@ -56,9 +66,65 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		return c.JSON(http.StatusOK, map[string]string{"version": cli.Build.Version})
 	})
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleComAtprotoSyncSubscribeRepos)
+	e.GET("/xrpc/place.stream.live.subscribeSegments", s.handlePlaceStreamLiveSubscribeSegments)
 	e.GET("/xrpc/*", s.HandleWildcard)
 	e.POST("/xrpc/*", s.HandleWildcard)
 	return s, nil
+}
+
+func (s *Server) isLocalPDS(ctx context.Context, repo string) (bool, string, error) {
+	did, svc, _, err := resolveRepoService(ctx, repo)
+	if err != nil {
+		return false, "", fmt.Errorf("resolveRepoService: %w", err)
+	}
+	if did == s.cli.MyDID() {
+		return true, svc, nil
+	}
+	return false, svc, nil
+}
+
+func makeUnauthenticatedRequest(ctx context.Context, service, method string, params map[string]interface{}, out interface{}) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	u, err := url.Parse(fmt.Sprintf("%s/xrpc/%s", service, method))
+	if err != nil {
+		return fmt.Errorf("failed to parse URL: %w", err)
+	}
+
+	// add query parameters
+	query := u.Query()
+	for k, v := range params {
+		query.Set(k, fmt.Sprintf("%v", v))
+	}
+	u.RawQuery = query.Encode()
+
+	log.Error(ctx, "making unauthenticated request", "url", u.String())
+
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := aqhttp.Client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("upstream request failed with status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if err := json.Unmarshal(body, out); err != nil {
+		return fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

@@ -69,6 +69,7 @@ export default async function runTests(
               testEnv.env = {
                 SP_HTTP_ADDR: `127.0.0.1:${randomPort()}`,
                 SP_HTTP_INTERNAL_ADDR: `127.0.0.1:${randomPort()}`,
+                SP_RTMP_ADDR: `127.0.0.1:${randomPort()}`,
                 SP_DATA_DIR: tmpDir,
               };
             }

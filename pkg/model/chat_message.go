@@ -62,7 +62,7 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageV
 		message.ChatProfile = scp
 	} else {
 		// If no chat profile exists, create a default one with a color based on the user's DID
-		defaultColor := defaultColors[hashString(m.RepoDID)%len(defaultColors)]
+		defaultColor := DefaultColors[hashString(m.RepoDID)%len(DefaultColors)]
 		message.ChatProfile = &streamplace.ChatProfile{
 			Color: defaultColor,
 		}

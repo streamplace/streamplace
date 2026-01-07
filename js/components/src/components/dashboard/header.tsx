@@ -1,5 +1,5 @@
-import { Car, Radio, Users } from "lucide-react-native";
-import { Text, View } from "react-native";
+import { AlertCircle, Car, Radio, Users } from "lucide-react-native";
+import { Pressable, Text, View } from "react-native";
 import * as zero from "../../ui";
 
 const { bg, r, borders, px, py, text, layout, gap } = zero;
@@ -103,6 +103,8 @@ interface HeaderProps {
   bitrate?: string;
   timeBetweenSegments?: number;
   connectionStatus?: "excellent" | "good" | "poor" | "offline";
+  problemsCount?: number;
+  onProblemsPress?: () => void;
 }
 
 export default function Header({
@@ -113,6 +115,8 @@ export default function Header({
   bitrate = "0 mbps",
   timeBetweenSegments = 0,
   connectionStatus = "offline",
+  problemsCount = 0,
+  onProblemsPress,
 }: HeaderProps) {
   const getConnectionQuality = (): "good" | "warning" | "error" => {
     if (timeBetweenSegments <= 1500) return "good";
@@ -139,7 +143,37 @@ export default function Header({
           <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
             {streamTitle}
           </Text>
-          <StatusIndicator status={connectionStatus} isLive={isLive} />
+          <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
+            <StatusIndicator status={connectionStatus} isLive={isLive} />
+            {problemsCount > 0 && (
+              <Pressable onPress={onProblemsPress}>
+                <View
+                  style={[
+                    layout.flex.row,
+                    layout.flex.alignCenter,
+                    gap.all[1],
+                    px[2],
+                    py[1],
+                    r.md,
+                    bg.orange[900],
+                    borders.width.thin,
+                    borders.color.orange[700],
+                    { marginVertical: -8 },
+                  ]}
+                >
+                  <AlertCircle size={14} color="#fb923c" />
+                  <Text
+                    style={[
+                      text.orange[400],
+                      { fontSize: 11, fontWeight: "600" },
+                    ]}
+                  >
+                    {problemsCount} {problemsCount === 1 ? "Issue" : "Issues"}
+                  </Text>
+                </View>
+              </Pressable>
+            )}
+          </View>
         </View>
       </View>
 

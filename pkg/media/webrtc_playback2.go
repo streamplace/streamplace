@@ -11,7 +11,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/spmetrics"
 )
 
 // This function remains in scope for the duration of a single users' playback
@@ -181,8 +180,8 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 			}
 		}()
 
-		spmetrics.ViewerInc(user)
-		defer spmetrics.ViewerDec(user)
+		mm.IncrementViewerCount(user, "webrtc")
+		defer mm.DecrementViewerCount(user, "webrtc")
 
 		go func() {
 			rtcpBuf := make([]byte, 1500)

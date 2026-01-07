@@ -5,14 +5,33 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
 )
 
 // ingest a H264+AAC MKV stream (prolly from an RTMP server)
 func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms MediaSigner) error {
+	shouldRecord, err := mm.shouldRecord(ctx, ms.Streamer())
+	if err != nil {
+		return err
+	}
+	if shouldRecord {
+		log.Log(ctx, "recording RTMP stream to file", "streamer", ms.Streamer())
+		pr, pw := io.Pipe()
+		input = io.TeeReader(input, pw)
+		go func() {
+			err := mm.dumpToFile(ctx, pr, ms.Streamer(), ".rtmp.mkv")
+			if err != nil {
+				log.Error(ctx, "error dumping to file", "error", err)
+			}
+		}()
+	} else {
+		log.Log(ctx, "not recording RTMP stream to file", "streamer", ms.Streamer())
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	pipelineSlice := []string{
@@ -64,7 +83,6 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 	busErr := make(chan error)
 	go func() {
 		err := HandleBusMessages(ctx, pipeline)
-		cancel()
 		busErr <- err
 	}()
 
@@ -82,7 +100,22 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 		}
 	}()
 
-	<-busErr
+	err = <-busErr
 
+	return err
+}
+
+func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, filesuffix string) error {
+	now := aqtime.FromTime(time.Now())
+	filename := fmt.Sprintf("%s%s", now.FileSafeString(), filesuffix)
+	f, err := mm.cli.DataFileCreate([]string{"debug-recordings", user, filename}, false)
+	if err != nil {
+		return fmt.Errorf("failed to create data file: %w", err)
+	}
+	defer f.Close()
+	_, err = io.Copy(f, r)
+	if err != nil {
+		return fmt.Errorf("failed to copy to file: %w", err)
+	}
 	return nil
 }

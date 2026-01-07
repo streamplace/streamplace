@@ -5,5 +5,6 @@ export * from "./metrics";
 export * from "./streamer-context-menu";
 export * from "./streamer-loading-overlay";
 export * from "./viewer-context-menu";
+export * from "./viewer-count";
 export * from "./viewer-loading-overlay";
 export * from "./viewers";

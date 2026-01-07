@@ -16,7 +16,7 @@ import (
 )
 
 // This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionDescription, signer MediaSigner, peerConnection rtcrec.PeerConnection, done chan struct{}) (*webrtc.SessionDescription, error) {
+func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionDescription, signer MediaSigner, peerConnection rtcrec.PeerConnection, done chan error) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
@@ -127,8 +127,18 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 
 	// Setup complete! Now we boot up streaming in the background while returning the SDP offer to the user.
 	go func() {
+		busErrorChan := make(chan error)
+		go func() {
+			err := HandleBusMessages(ctx, pipeline)
+			if err != nil {
+				log.Log(ctx, "pipeline error", "error", err)
+			}
+			cancel()
+			busErrorChan <- err
+		}()
+
 		defer cancel()
-		defer func() { close(done) }()
+		defer func() { done <- <-busErrorChan }()
 
 		go func() {
 			ticker := time.NewTicker(time.Second * 1)
@@ -141,13 +151,6 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					log.Debug(ctx, "pipeline state", "state", state)
 				}
 			}
-		}()
-
-		go func() {
-			if err := HandleBusMessages(ctx, pipeline); err != nil {
-				log.Log(ctx, "pipeline error", "error", err)
-			}
-			cancel()
 		}()
 
 		// subscription to bus messages for key revocation
@@ -222,12 +225,12 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					i, _, readErr := track.Read(buf)
 					if readErr != nil {
 						log.Log(ctx, "failed to read track", "error", readErr)
-						cancel()
+						videoSrc.EndStream()
 						return
 					}
-					if ctx.Err() != nil {
-						return
-					}
+					// if ctx.Err() != nil {
+					// 	return
+					// }
 					if !videoFirst {
 						videoFirst = true
 						log.Debug(ctx, "got video data", "len", len(buf[:i]))
@@ -261,12 +264,12 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 					i, _, readErr := track.Read(buf)
 					if readErr != nil {
 						log.Log(ctx, "failed to read track", "error", readErr)
-						cancel()
+						audioSrc.EndStream()
 						return
 					}
-					if ctx.Err() != nil {
-						return
-					}
+					// if ctx.Err() != nil {
+					// 	return
+					// }
 					if !audioFirst {
 						audioFirst = true
 						log.Debug(ctx, "got audio data", "len", len(buf[:i]))

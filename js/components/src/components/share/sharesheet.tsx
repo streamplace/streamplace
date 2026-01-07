@@ -4,6 +4,7 @@ import { Clipboard, Linking, Platform, View } from "react-native";
 import { colors } from "../../lib/theme";
 import { useLivestreamStore } from "../../livestream-store";
 import { useUrl } from "../../streamplace-store";
+import { formatHandle } from "../../utils/format-handle";
 import { BlueskyIcon } from "../icons/bluesky-icon";
 import {
   DropdownMenu,
@@ -26,12 +27,12 @@ export function ShareSheet({ onShare }: ShareSheetProps = {}) {
 
   // Get the current stream URL
   const getStreamUrl = useCallback(() => {
-    return url + (profile ? `/@${profile.handle}` : "");
+    return url + (profile ? `/${formatHandle(profile)}` : "");
   }, [profile]);
 
   // Get the embed URL
   const getEmbedUrl = useCallback(() => {
-    return url + (profile ? `/embed/${profile.handle}` : "");
+    return url + (profile ? `/embed/${formatHandle(profile)}` : "");
   }, [profile]);
 
   // Get embed code
@@ -63,31 +64,22 @@ export function ShareSheet({ onShare }: ShareSheetProps = {}) {
   // Share to Bluesky
   const shareToBluesky = useCallback(() => {
     const streamUrl = getStreamUrl();
-    const text = profile
-      ? `Check out @${profile.handle} live on Streamplace! ${streamUrl}`
-      : `Check out this stream on Streamplace! ${streamUrl}`;
+    const text =
+      profile && profile.handle
+        ? `Check out @${profile.handle} live on Streamplace! ${streamUrl}`
+        : `Check out this stream on Streamplace! ${streamUrl}`;
     const blueskyUrl = `https://bsky.app/intent/compose?text=${encodeURIComponent(text)}`;
     Linking.openURL(blueskyUrl);
     onShare?.("share_bluesky", true);
   }, [profile, getStreamUrl, onShare]);
 
-  // Share to Twitter/X
-  const shareToTwitter = useCallback(() => {
-    const streamUrl = getStreamUrl();
-    const text = profile
-      ? `Check out @${profile.handle} live on Streamplace!`
-      : `Check out this stream on Streamplace!`;
-    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(streamUrl)}`;
-    Linking.openURL(twitterUrl);
-    onShare?.("share_twitter", true);
-  }, [profile, getStreamUrl, onShare]);
-
   // Native share (mobile)
   const nativeShare = useCallback(async () => {
     const streamUrl = getStreamUrl();
-    const text = profile
-      ? `Check out @${profile.handle} live on Streamplace!`
-      : `Check out this stream on Streamplace!`;
+    const text =
+      profile && profile.handle
+        ? `Check out @${profile.handle} live on Streamplace!`
+        : `Check out this stream on Streamplace!`;
 
     if (Platform.OS === "web" && navigator.share) {
       try {
@@ -119,14 +111,6 @@ export function ShareSheet({ onShare }: ShareSheetProps = {}) {
               <Text>Share to Bluesky</Text>
             </View>
           </DropdownMenuItem>
-          {/* <DropdownMenuItem onPress={shareToTwitter}>
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
-            >
-              <MessageCircle size={20} color={colors.gray[400]} />
-              <Text>Share to X</Text>
-            </View>
-          </DropdownMenuItem> */}
           {/* navigator isn't on non-web */}
           {Platform.OS !== "web" || (navigator && (navigator as any).share) ? (
             <DropdownMenuItem onPress={nativeShare}>

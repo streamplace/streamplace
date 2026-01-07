@@ -19,9 +19,9 @@ Record containing customizations for a user's chat profile.
 
 **Record Properties:**
 
-| Name    | Type                                                                                | Req'd | Description | Constraints |
-| ------- | ----------------------------------------------------------------------------------- | ----- | ----------- | ----------- |
-| `color` | [`place.stream.chat.profile#color`](/lex-reference/place-stream-chat-profile#color) | ❌    |             |             |
+| Name    | Type               | Req'd | Description | Constraints |
+| ------- | ------------------ | ----- | ----------- | ----------- |
+| `color` | [`#color`](#color) | ❌    |             |             |
 
 ---
 
@@ -60,7 +60,7 @@ Customizations for the color of a user's name in chat
         "properties": {
           "color": {
             "type": "ref",
-            "ref": "place.stream.chat.profile#color"
+            "ref": "#color"
           }
         }
       }

@@ -5,13 +5,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/google/uuid"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -28,27 +28,22 @@ type SegmentData struct {
 	VideoCaps string
 }
 
-func SmearAudioTimestamps(ctx context.Context, input io.Reader, output io.Writer) error {
+func RewriteAudioTimestamps(ctx context.Context, cli *config.CLI, input io.Reader, output io.Writer, doSmear bool) error {
 	bs, err := io.ReadAll(input)
 	if err != nil {
 		return err
 	}
 	seg, err := ToBuffers(ctx, bytes.NewReader(bs))
 	if err != nil {
-		// Write the input bytes to a file for debugging
-		debugFile := fmt.Sprintf("audio_smear_debug_%s.mp4", uuid.New().String())
-		err = os.WriteFile(debugFile, bs, 0644)
-		if err != nil {
-			log.Log(ctx, "failed to write debug file", "error", err, "path", debugFile)
-		} else {
-			log.Log(ctx, "wrote debug file", "path", debugFile)
-		}
+		cli.DumpDebugSegment(ctx, "audio_smear_input", bytes.NewReader(bs))
 		return err
 	}
 
-	err = seg.Normalize(ctx)
-	if err != nil {
-		return err
+	if doSmear {
+		err = seg.Normalize(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	return JoinAudioVideo(ctx, seg, output)
@@ -90,40 +85,21 @@ func (s *SegmentData) Normalize(ctx context.Context) error {
 }
 
 func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	ctx = log.WithLogValues(ctx, "func", "SplitAudioVideo")
 
 	pipelineSlice := []string{
 		"appsrc name=mp4src ! qtdemux name=demux",
-		"demux.video_0 ! queue ! h264parse name=videoparse disable-passthrough=true config-interval=-1 ! appsink sync=false name=videoappsink",
+		"demux.video_0 ! queue ! appsink sync=false name=videoappsink",
 		"demux.audio_0 ! queue ! opusparse name=audioparse ! appsink sync=false name=audioappsink",
 	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: %w", err)
 	}
-
-	errCh := make(chan error)
-	go func() {
-		err := HandleBusMessages(ctx, pipeline)
-		cancel()
-		errCh <- err
-		close(errCh)
-	}()
-
-	defer func() {
-		err := <-errCh
-		if err != nil {
-			log.Error(ctx, "bus handler error", "error", err)
-		}
-		err = pipeline.BlockSetState(gst.StateNull)
-		if err != nil {
-			log.Error(ctx, "failed to set pipeline to null state", "error", err)
-		}
-	}()
 
 	mp4src, err := pipeline.GetElementByName("mp4src")
 	if err != nil {
@@ -230,14 +206,40 @@ func ToBuffers(ctx context.Context, input io.Reader) (*SegmentData, error) {
 			return gst.FlowOK
 		},
 	})
+	errCh := make(chan error)
+	go func() {
+		err := HandleBusMessages(ctx, pipeline)
+		errCh <- err
+	}()
+
+	defer func() {
+		if err != nil {
+			log.Error(ctx, "bus handler error", "error", err)
+		}
+		err = pipeline.SetState(gst.StateNull)
+		if err != nil {
+			log.Error(ctx, "failed to set pipeline to null state", "error", err)
+		}
+	}()
 
 	if err := pipeline.SetState(gst.StatePlaying); err != nil {
 		return nil, fmt.Errorf("failed to set pipeline state: %w", err)
 	}
 
-	<-ctx.Done()
+	pipelineErr := <-errCh
 
-	return &seg, <-errCh
+	if pipelineErr != nil {
+		return nil, fmt.Errorf("pipeline error: %w", pipelineErr)
+	}
+
+	if len(seg.Video) == 0 {
+		return nil, fmt.Errorf("no video segments when rewriting audio")
+	}
+	if len(seg.Audio) == 0 {
+		return nil, fmt.Errorf("no audio segments when rewriting audio")
+	}
+
+	return &seg, nil
 }
 
 func JoinAudioVideo(ctx context.Context, seg *SegmentData, output io.Writer) error {
@@ -261,20 +263,7 @@ func JoinAudioVideo(ctx context.Context, seg *SegmentData, output io.Writer) err
 	errCh := make(chan error)
 	go func() {
 		err := HandleBusMessages(ctx, pipeline)
-		cancel()
 		errCh <- err
-		close(errCh)
-	}()
-
-	defer func() {
-		err := <-errCh
-		if err != nil {
-			log.Error(ctx, "bus handler error", "error", err)
-		}
-		err = pipeline.BlockSetState(gst.StateNull)
-		if err != nil {
-			log.Error(ctx, "failed to set pipeline to null state", "error", err)
-		}
 	}()
 
 	videoSrcElem, err := pipeline.GetElementByName("videosrc")
@@ -340,11 +329,16 @@ func JoinAudioVideo(ctx context.Context, seg *SegmentData, output io.Writer) err
 		NewSampleFunc: WriterNewSample(ctx, output),
 	})
 
+	defer func() {
+		err = pipeline.SetState(gst.StateNull)
+		if err != nil {
+			log.Error(ctx, "failed to set pipeline to null state", "error", err)
+		}
+	}()
+
 	if err := pipeline.SetState(gst.StatePlaying); err != nil {
 		return fmt.Errorf("failed to set pipeline state: %w", err)
 	}
-
-	<-ctx.Done()
 
 	return <-errCh
 }

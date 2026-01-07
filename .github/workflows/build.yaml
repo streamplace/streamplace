@@ -38,6 +38,12 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: mise check
+        if: matrix.name == 'linux-amd64'
+        uses: jdx/mise-action@v2
+        with:
+          install: true
+
       - name: Log in to the Container registry
         uses: docker/login-action@v2
         with:
@@ -48,7 +54,7 @@ jobs:
       - name: make node
         run: |
           sudo apt install podman -y
-          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
+          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
       - name: Publish Test Report
         if: matrix.name == 'linux-amd64' && (success() || failure())
@@ -103,9 +109,9 @@ jobs:
             cmd: make ios
             xcode-version: "16.4"
           - name: darwin-amd64
-            runs-on: macos-13
+            runs-on: macos-15-intel
             cmd: make
-            xcode-version: "15.2.0"
+            xcode-version: "16.4"
     steps:
       - name: Check out code
         uses: actions/checkout@v4.1.7
@@ -129,7 +135,7 @@ jobs:
         run: |
           npm install -g corepack@latest \
           && corepack enable \
-          && export GOTOOLCHAIN=go1.24.2 \
+          && export GOTOOLCHAIN=go1.25.1 \
           && brew install go \
           && python -m pip install virtualenv \
           && python -m virtualenv ~/venv \

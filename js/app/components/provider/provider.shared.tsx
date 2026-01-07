@@ -3,41 +3,102 @@ import {
   LinkingOptions,
   NavigationContainer,
 } from "@react-navigation/native";
+import * as Sentry from "@sentry/react-native";
 import {
+  I18nProvider,
   ThemeProvider,
   StreamplaceProvider as ZustandStreamplaceProvider,
 } from "@streamplace/components";
 import { useFonts } from "expo-font";
 import BlueskyProvider from "features/bluesky/blueskyProvider";
-import { selectOAuthSession } from "features/bluesky/blueskySlice";
 import StreamplaceProvider from "features/streamplace/streamplaceProvider";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import React from "react";
-import { Provider as ReduxProvider } from "react-redux";
-import { useAppSelector } from "store/hooks";
-import { store } from "store/store";
+import { useOAuthSession } from "store/hooks";
 
-export default function Provider({
+export default Sentry.wrap(ProviderInner);
+
+import { i18n } from "@streamplace/components";
+import * as Application from "expo-application";
+import Constants from "expo-constants";
+import * as Updates from "expo-updates";
+import { Platform } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+Sentry.setExtras({
+  manifest: Updates.manifest,
+  linkingUri: Constants.linkingUri,
+});
+Sentry.setTag("expoChannel", Updates.channel);
+Sentry.setTag("appVersion", Application.nativeApplicationVersion);
+Sentry.setTag("deviceId", Constants.sessionId);
+Sentry.setTag("executionEnvironment", Constants.executionEnvironment);
+Sentry.setTag("expoGoVersion", Constants.expoVersion);
+Sentry.setTag("expoRuntimeVersion", Constants.expoRuntimeVersion);
+
+const isWeb = Platform.OS === "web";
+
+// set transparent dark theme on web for easier OBS browser sourcing
+const darkTheme = isWeb ? { background: "transparent" } : {};
+
+const SPDarkTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    ...darkTheme,
+  },
+};
+
+function ProviderInner({
   children,
   linking,
 }: {
   children: React.ReactNode;
   linking: LinkingOptions<ReactNavigation.RootParamList>;
 }) {
+  // get proper DSN for environment
+  // on ios/android it's process.env.EXPO_PUBLIC_SENTRY_DSN
+  // on web it will be injected at runtime
+  let dsn = undefined;
+  if (Platform.OS === "web") {
+    dsn = (window as any).SENTRY_DSN;
+  } else {
+    dsn = process.env.EXPO_PUBLIC_SENTRY_DSN || undefined;
+  }
+
+  Sentry.init({
+    dsn,
+    // Adds more context data to events (IP address, cookies, user, etc.)
+    // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+    sendDefaultPii: true,
+
+    // Configure Session Replay
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1,
+    integrations: [
+      Sentry.mobileReplayIntegration(),
+      Sentry.feedbackIntegration(),
+    ],
+
+    // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+    spotlight: __DEV__,
+  });
+
   return (
-    <ThemeProvider forcedTheme="dark">
-      <NavigationContainer theme={DarkTheme} linking={linking}>
-        <ReduxProvider store={store}>
-          <StreamplaceProvider>
-            <BlueskyProvider>
-              <NewStreamplaceProvider>
-                <FontProvider>{children}</FontProvider>
-              </NewStreamplaceProvider>
-            </BlueskyProvider>
-          </StreamplaceProvider>
-        </ReduxProvider>
-      </NavigationContainer>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider forcedTheme="dark">
+        <I18nProvider i18n={i18n}>
+          <NavigationContainer theme={SPDarkTheme} linking={linking}>
+            <StreamplaceProvider>
+              <BlueskyProvider>
+                <NewStreamplaceProvider>
+                  <FontProvider>{children}</FontProvider>
+                </NewStreamplaceProvider>
+              </BlueskyProvider>
+            </StreamplaceProvider>
+          </NavigationContainer>
+        </I18nProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 
@@ -47,7 +108,7 @@ export const NewStreamplaceProvider = ({
   children: React.ReactNode;
 }) => {
   const { url } = useStreamplaceNode();
-  const oauthSession = useAppSelector(selectOAuthSession);
+  const oauthSession = useOAuthSession();
   return (
     <ZustandStreamplaceProvider url={url} oauthSession={oauthSession}>
       {children}

@@ -414,7 +414,8 @@ export function NativeIngestPlayer(props?: {
             variant="secondary"
           >
             <View style={[layout.flex.row, gap.all[1]]}>
-              <Text>Open Settings</Text> <ArrowRight color="white" size="18" />
+              <Text>Open Settings</Text>
+              <ArrowRight color="white" size="18" />
             </View>
           </Button>
         )}

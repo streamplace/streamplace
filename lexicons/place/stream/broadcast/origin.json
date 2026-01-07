@@ -1,0 +1,47 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.broadcast.origin",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "Record indicating a livestream is published and available for replication at a given address. By convention, the record key is streamer::server",
+      "record": {
+        "type": "object",
+        "required": ["streamer", "server", "updatedAt"],
+        "properties": {
+          "streamer": {
+            "type": "string",
+            "format": "did",
+            "description": "DID of the streamer whose livestream is being published"
+          },
+          "server": {
+            "type": "string",
+            "format": "did",
+            "description": "did of the server that's currently rebroadcasting the livestream"
+          },
+          "broadcaster": {
+            "type": "string",
+            "format": "did",
+            "description": "did of the broadcaster that operates the server syndicating the livestream"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Periodically updated timestamp when this origin last saw a livestream"
+          },
+          "irohTicket": {
+            "type": "string",
+            "maxLength": 2048,
+            "description": "Iroh ticket that can be used to access the livestream from the server"
+          },
+          "websocketURL": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL of the websocket endpoint for the livestream"
+          }
+        }
+      }
+    }
+  }
+}

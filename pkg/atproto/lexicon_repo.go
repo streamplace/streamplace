@@ -12,8 +12,8 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	atcrypto "github.com/bluesky-social/indigo/atproto/crypto"
-	"github.com/bluesky-social/indigo/atproto/data"
+	"github.com/bluesky-social/indigo/atproto/atcrypto"
+	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 	"github.com/bluesky-social/indigo/carstore"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -73,12 +73,12 @@ func (sfw *SchemaFileWrapper) MarshalCBOR(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	mapObj, err := data.UnmarshalJSON(bs)
+	mapObj, err := atdata.UnmarshalJSON(bs)
 	if err != nil {
 		return err
 	}
 	mapObj["$type"] = "com.atproto.lexicon.schema"
-	cbs, err := data.MarshalCBOR(mapObj)
+	cbs, err := atdata.MarshalCBOR(mapObj)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (sfw *SchemaFileWrapper) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	mapObj, err := data.UnmarshalJSON(bs)
+	mapObj, err := atdata.UnmarshalJSON(bs)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ func GetRecordCBOR(ctx context.Context, ses *carstore.DeltaSession, c cid.Cid, c
 	}
 	var val cbg.CBORMarshaler
 	if collection == "com.atproto.lexicon.schema" {
-		sfMap, err := data.UnmarshalCBOR(b.RawData())
+		sfMap, err := atdata.UnmarshalCBOR(b.RawData())
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal schema file: %w", err)
 		}

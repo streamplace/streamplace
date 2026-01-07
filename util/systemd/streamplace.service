@@ -3,7 +3,6 @@ Description=Live video for the AT Protocol. Solving video for everybody forever.
 Documentation=https://stream.place/docs
 After=network-online.target
 Wants=network-online.target
-Wants=streamplace-http.socket streamplace-https.socket
 Requires=network.target
 
 [Service]
@@ -23,9 +22,12 @@ Environment=SP_DATA_DIR=/var/lib/streamplace
 # Additional environment file for user customization
 EnvironmentFile=-/etc/streamplace/streamplace.env
 
+# Grant capability to bind to privileged ports
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
 # Security hardening
 NoNewPrivileges=yes
-ProtectSystem=strict
 ProtectHome=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
@@ -34,14 +36,6 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RemoveIPC=yes
 PrivateTmp=yes
-
-# Allow access to necessary directories
-ReadWritePaths=/var/lib/streamplace
-ReadOnlyPaths=/etc/streamplace
-
-# Network access
-PrivateNetwork=no
-RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 
 # Resource limits
 LimitNOFILE=65536

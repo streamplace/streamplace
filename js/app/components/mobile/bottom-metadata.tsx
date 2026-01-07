@@ -1,16 +1,22 @@
 import {
   Button,
+  ContentRights,
+  ContentWarnings,
+  formatHandle,
+  formatHandleWithAt,
   layout,
   PlayerUI,
   ShareSheet,
   Text,
   useAvatars,
+  useDID,
   useLivestreamInfo,
   useLivestreamStore,
   zero,
 } from "@streamplace/components";
+import FollowButton from "components/follow-button";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
-import { Image, View } from "react-native";
+import { Image, Linking, Pressable, View } from "react-native";
 const { gap, px, py, colors } = zero;
 
 export function BottomMetadata({
@@ -23,6 +29,14 @@ export function BottomMetadata({
   const { profile } = useLivestreamInfo();
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
   const ls = useLivestreamStore((x) => x.livestream);
+  const segment = useLivestreamStore((x) => x.segment);
+
+  const did = useDID();
+
+  // Get content warnings and rights directly from the latest segment
+  const contentWarnings =
+    (segment?.contentWarnings?.warnings as string[]) || [];
+  const contentRights = segment?.contentRights;
 
   return (
     <View
@@ -38,7 +52,11 @@ export function BottomMetadata({
       ]}
     >
       <View
-        style={[layout.flex.row, layout.flex.spaceBetween, { height: "100%" }]}
+        style={[
+          layout.flex.row,
+          layout.flex.spaceBetween,
+          { height: "100%", flex: "auto" as any },
+        ]}
       >
         {/* Left side - Profile info */}
         <View
@@ -68,12 +86,28 @@ export function BottomMetadata({
             />
           )}
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{ color: "white", fontWeight: "600" }}>
-              @{profile?.handle || "user"}
-            </Text>
+            <View
+              style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+            >
+              <Pressable
+                onPress={() => {
+                  if (profile?.handle) {
+                    const url = `https://bsky.app/profile/${formatHandle(profile)}`;
+                    Linking.openURL(url);
+                  }
+                }}
+              >
+                <Text style={{ color: "white", fontWeight: "600" }}>
+                  {profile ? formatHandleWithAt(profile) : "@user"}
+                </Text>
+              </Pressable>
+              {did && profile && (
+                <FollowButton streamerDID={profile?.did} currentUserDID={did} />
+              )}
+            </View>
             <Text
               style={{ color: colors.gray[400] }}
-              numberOfLines={1}
+              numberOfLines={3}
               ellipsizeMode="tail"
             >
               {ls?.record.title || "Stream Title"}
@@ -82,24 +116,39 @@ export function BottomMetadata({
         </View>
 
         {/* Right side - Viewer count and collapse chat */}
-        <View style={[layout.flex.row, layout.flex.center, gap.all[4]]}>
+        <View style={[layout.flex.row, layout.flex.align.center, gap.all[4]]}>
           <PlayerUI.Viewers />
           <ShareSheet />
-          <Button
-            variant="outline"
-            size="sm"
-            onPress={() => {
-              setShowChat(!showChat);
-            }}
-          >
-            {showChat ? (
-              <ChevronRight color="white" size={16} />
-            ) : (
-              <ChevronLeft color="white" size={16} />
-            )}
-          </Button>
+          <View>
+            <Button
+              variant="outline"
+              size="sm"
+              width="min"
+              style={{ aspectRatio: 1 }}
+              onPress={() => {
+                setShowChat(!showChat);
+              }}
+            >
+              {showChat ? (
+                <ChevronRight color="white" size={16} />
+              ) : (
+                <ChevronLeft color="white" size={16} />
+              )}
+            </Button>
+          </View>
         </View>
       </View>
+
+      {/* Content Metadata - Below the main profile/controls bar */}
+      {(contentWarnings.length > 0 ||
+        (contentRights && Object.keys(contentRights).length > 0)) && (
+        <View style={[py[2]]}>
+          <ContentWarnings warnings={contentWarnings} compact={true} />
+          {contentRights && (
+            <ContentRights contentRights={contentRights} compact={true} />
+          )}
+        </View>
+      )}
     </View>
   );
 }

@@ -6,11 +6,10 @@ import {
   usePlayerStore,
   zero,
 } from "@streamplace/components";
-import emojiData from "assets/emoji-data.json";
-import { selectUserProfile } from "features/bluesky/blueskySlice";
 import { useEffect } from "react";
 import { View } from "react-native";
-import { useAppSelector } from "store/hooks";
+import { useUserProfile } from "store/hooks";
+import { useEmojiData } from "utils/emoji";
 
 export default function PopoutChat({ route }) {
   const user = route.params?.user;
@@ -29,10 +28,12 @@ export default function PopoutChat({ route }) {
 
 export function PopoutChatInner({ user }: { user: string }) {
   const setSrc = usePlayerStore((x) => x.setSrc);
-  const profile = useAppSelector(selectUserProfile);
+  const profile = useUserProfile();
+  const emojiData = useEmojiData();
   useEffect(() => {
     setSrc(user);
   }, [user]);
+
   return (
     <View style={[{ position: "relative" }, zero.flex.values[1], zero.m[2]]}>
       <View
@@ -41,7 +42,7 @@ export function PopoutChatInner({ user }: { user: string }) {
           { position: "absolute", width: "100%", minHeight: "100%", bottom: 0 },
         ]}
       >
-        <Chat canModerate={profile?.handle === user} />
+        <Chat />
         {profile && <ChatBox emojiData={emojiData} isPopout={true} />}
       </View>
     </View>

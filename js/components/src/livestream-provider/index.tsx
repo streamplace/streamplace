@@ -5,9 +5,11 @@ import { useLivestreamWebsocket } from "./websocket";
 export function LivestreamProvider({
   children,
   src,
+  ignoreOuterContext = false,
 }: {
   children: React.ReactNode;
   src: string;
+  ignoreOuterContext?: boolean;
 }) {
   const context = useContext(LivestreamContext);
   const store = useRef(makeLivestreamStore()).current;
@@ -15,7 +17,9 @@ export function LivestreamProvider({
     // this is ok, there's use cases for having one in another
     // like having a player component that's independently usable
     // but can also be embedded within an entire livestream page
-    return <>{children}</>;
+    if (!ignoreOuterContext) {
+      return <>{children}</>;
+    }
   }
   (window as any).livestreamStore = store;
   return (

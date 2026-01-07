@@ -5,6 +5,7 @@ import {
 } from "@streamplace/atproto-oauth-client-react-native";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
+import { StreamplaceOAuthResolver } from "./oauthResolver";
 
 export type StreamplaceOAuthClient = Omit<
   ReactNativeOAuthClient,
@@ -17,6 +18,10 @@ export default async function createOAuthClient(
   if (!streamplaceUrl) {
     throw new Error("streamplaceUrl is required");
   }
+
+  // Will be set after we create the custom resolver
+  let customResolver: StreamplaceOAuthResolver | null = null;
+
   let meta: ClientMetadata;
   if (
     streamplaceUrl.startsWith("http://localhost") ||
@@ -69,8 +74,13 @@ export default async function createOAuthClient(
     );
     meta = await res.json();
   }
-  clientMetadataSchema.parse(meta);
-  return new ReactNativeOAuthClient({
+  try {
+    clientMetadataSchema.parse(meta);
+  } catch (e) {
+    console.error("error parsing client metadata", e, meta);
+    throw e;
+  }
+  const client = new ReactNativeOAuthClient({
     fetch: async (input, init) => {
       // Normalize input to a Request object
       let request: Request;
@@ -80,28 +90,82 @@ export default async function createOAuthClient(
         request = input;
       }
 
-      // Lie to the oauth client and use our upstream server instead
+      // Add login_hint parameter to PAR requests
       if (
-        request.url.includes("plc.directory") ||
-        request.url.endsWith("did.json")
+        customResolver &&
+        request.url.includes("/oauth/par") &&
+        request.method === "POST"
       ) {
-        const res = await fetch(request, init);
-        if (!res.ok) {
-          return res;
+        const resourceServer = customResolver.getCurrentResourceServer();
+        if (resourceServer) {
+          const clonedRequest = request.clone();
+          const body = await clonedRequest.text();
+          const params = new URLSearchParams(body);
+          params.set("login_hint", resourceServer);
+          request = new Request(request.url, {
+            method: request.method,
+            headers: request.headers,
+            body: params.toString(),
+          });
         }
-        const data = await res.json();
-        const service = data.service.find((s: any) => s.id === "#atproto_pds");
-        if (!service) {
-          return res;
-        }
-        service.serviceEndpoint = streamplaceUrl;
-        return new Response(JSON.stringify(data), {
-          status: res.status,
-          headers: res.headers,
-        });
       }
 
-      return fetch(request, init);
+      if (streamplaceUrl.startsWith("http://127.0.0.1")) {
+        // everything other than PDS resolution gets rewritten to the host
+        if (
+          request.url.includes("plc.directory") ||
+          request.url.endsWith("did.json") ||
+          request.url.endsWith("/.well-known/oauth-protected-resource") ||
+          request.url.endsWith("/.well-known/oauth-authorization-server")
+        ) {
+          return fetch(request, init) as any;
+        }
+        const newUrl = new URL(request.url.toString());
+        newUrl.protocol = "http:";
+        newUrl.host = "127.0.0.1:38080";
+        let newRequest: Request;
+        if (request.method === "POST") {
+          const data = await request.blob();
+          newRequest = new Request(newUrl.toString(), {
+            body: data,
+            method: "POST",
+            headers: request.headers,
+          });
+        } else if (request.method === "GET") {
+          newRequest = new Request(newUrl.toString(), {
+            method: "GET",
+            headers: request.headers,
+          });
+        } else {
+          throw new Error("Unsupported method: " + request.method);
+        }
+        return fetch(newRequest) as any;
+      } else {
+        // Lie to the oauth client and use our upstream server instead
+        if (
+          request.url.includes("plc.directory") ||
+          request.url.endsWith("did.json")
+        ) {
+          const res = await fetch(request, init);
+          if (!res.ok) {
+            return res;
+          }
+          const data = await res.json();
+          const service = data.service.find(
+            (s: any) => s.id === "#atproto_pds",
+          );
+          if (!service) {
+            return res;
+          }
+          service.serviceEndpoint = streamplaceUrl;
+          return new Response(JSON.stringify(data), {
+            status: res.status,
+            headers: res.headers,
+          });
+        } else {
+          return fetch(request, init);
+        }
+      }
     },
     handleResolver: streamplaceUrl,
     responseMode: "query", // or "fragment" (frontend only) or "form_post" (backend only)
@@ -110,4 +174,16 @@ export default async function createOAuthClient(
     // "client_id" endpoint (except when using a loopback client)
     clientMetadata: meta,
   });
+
+  // Replace the default OAuth resolver with our custom one
+  customResolver = new StreamplaceOAuthResolver(
+    streamplaceUrl,
+    client.oauthResolver.identityResolver,
+    client.oauthResolver.protectedResourceMetadataResolver,
+    client.oauthResolver.authorizationServerMetadataResolver,
+  );
+  // @ts-ignore override readonly property
+  client.oauthResolver = customResolver;
+
+  return client;
 }

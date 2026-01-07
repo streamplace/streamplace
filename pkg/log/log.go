@@ -14,8 +14,8 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
-	"time"
 
+	"github.com/bluesky-social/indigo/util"
 	"github.com/golang/glog"
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
@@ -65,20 +65,31 @@ func SetColorLogger(color string) {
 	// set global logger with custom options
 	slog.SetDefault(slog.New(
 		tint.NewHandler(realStderr, &tint.Options{
-			Level:      slog.LevelDebug,
-			TimeFormat: time.RFC3339,
+			Level: slog.LevelDebug,
+			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+				if a.Key != "time" {
+					return a
+				}
+				t := a.Value.Time().UTC()
+				return slog.Attr{
+					Key:   "time",
+					Value: slog.TimeValue(t),
+				}
+			},
+			TimeFormat: util.ISO8601,
 			NoColor:    noColor,
 		}),
 	))
 }
 
-func init() {
+func MonkeypatchStderr() {
 	r, w, err := os.Pipe()
 	if err != nil {
 		panic(err)
 	}
 	realStderr := os.Stderr
 	os.Stderr = w
+	ctx := WithLogValues(context.Background(), "component", "livepeer")
 	go func() {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
@@ -91,15 +102,15 @@ func init() {
 			caller := match[2]
 			message := match[3]
 			if level == "I" {
-				Log(context.Background(), message, "caller", caller)
+				Log(ctx, message, "caller", caller)
 			} else if level == "W" {
-				Warn(context.Background(), message)
+				Warn(ctx, message)
 			} else if level == "E" {
-				Error(context.Background(), message)
+				Error(ctx, message)
 			} else if level == "F" {
-				Warn(context.Background(), message)
+				Warn(ctx, message)
 			} else {
-				fmt.Fprintf(realStderr, "UNKNOWN LOG LEVEL: %s\n", level)
+				fmt.Fprintf(realStderr, "UNKNOWN LOG LEVEL: %s %s\n", level, message)
 			}
 		}
 		if err := scanner.Err(); err != nil {
@@ -262,11 +273,11 @@ func Log(ctx context.Context, message string, args ...any) {
 }
 
 func Debug(ctx context.Context, message string, args ...any) {
-	V(debugLogLevel).log(ctx, message, slog.Debug, args...)
+	V(debugLogLevel).log(ctx, message, slog.Info, args...)
 }
 
 func Trace(ctx context.Context, message string, args ...any) {
-	V(traceLogLevel).log(ctx, message, slog.Debug, args...)
+	V(traceLogLevel).log(ctx, message, slog.Info, args...)
 }
 
 // returns true if we are at least the given level

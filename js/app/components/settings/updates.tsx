@@ -1,31 +1,18 @@
 import { Text } from "@streamplace/components";
-import { View } from "react-native";
+import { useTranslation } from "react-i18next";
 import pkg from "../../package.json";
+import { SettingsRowItem } from "./components/settings-navigation-item";
 
-// maybe someday some PWA update stuff will live here
-export function Updates() {
+export function StreamplaceVersionRow() {
+  const { t } = useTranslation("settings");
+
   return (
-    <View
-      style={[
-        { alignItems: "center" },
-        { justifyContent: "center" },
-        { paddingVertical: 24 },
-      ]}
-    >
-      <View>
-        <Text
-          style={[
-            {
-              fontSize: 24,
-              fontWeight: "bold",
-              textAlign: "center",
-              color: "#fff",
-            },
-          ]}
-        >
-          Streamplace v{pkg.version}
-        </Text>
-      </View>
-    </View>
+    <SettingsRowItem>
+      <Text size="lg">{t("app-version", { version: pkg.version })}</Text>
+    </SettingsRowItem>
   );
+}
+
+export function StreamplaceUpdatesRow() {
+  return null;
 }

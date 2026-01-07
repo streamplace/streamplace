@@ -41,17 +41,6 @@ if meson.is_cross_build()
   }
 endif
 
-c2pa_go_opts = {}
-triple = meson.get_external_property('RUST_TRIPLE', '')
-if triple != ''
-  c2pa_go_opts += {'RUST_TRIPLE': triple}
-endif
-c2pa_go_proj = subproject(
-  'c2pa_go',
-  default_options: c2pa_go_opts,
-)
-c2pa_go_dep = c2pa_go_proj.get_variable('c2pa_go_dep')
-
 streamplace_deps = []
 # if host_machine.system() == 'linux'
 #   mistserver_proj = subproject(
@@ -246,7 +235,7 @@ endif
 pkg = import('pkgconfig')
 pkg.generate(
   name: 'streamplacedeps',
-  libraries: [streamplace_deps, c2pa_go_dep, iroh_streamplace_dep],
+  libraries: [streamplace_deps, iroh_streamplace_dep],
   description: 'all streamplace dependencies bundled for easy inclusion',
 )
 
@@ -257,7 +246,7 @@ executable(
   dependencies: [
     streamplace_deps,
   ],
-  link_with: [c2pa_go_dep, iroh_streamplace_dep],
+  link_with: [iroh_streamplace_dep],
   install_tag: 'streamplacedeps',
 )
 
@@ -302,7 +291,7 @@ if get_option('default_library') == 'static'
       'build',
       '-o', '@OUTPUT0@',
       '-buildmode', 'c-archive',
-      '-tags', 'netgo,static',
+      '-tags', 'netgo,static,mainnet',
       '@INPUT@',
     ],
     build_always_stale: true,
@@ -318,7 +307,7 @@ if get_option('default_library') == 'static'
       dependencies: [
         streamplace_deps,
       ],
-      link_with: [c2pa_go_dep, iroh_streamplace_dep],
+      link_with: [iroh_streamplace_dep],
     )
 
     streamplace = custom_target(
@@ -329,7 +318,7 @@ if get_option('default_library') == 'static'
         prog_go,
         'build',
         '-o', '@OUTPUT0@',
-        '-tags', 'netgo,static',
+        '-tags', 'netgo,static,mainnet',
         'streamplace.go',
         '@INPUT1@'
       ],
@@ -343,7 +332,7 @@ if get_option('default_library') == 'static'
       dependencies: [
         streamplace_deps,
       ],
-      link_with: [c2pa_go_dep, iroh_streamplace_dep],
+      link_with: [iroh_streamplace_dep],
     )
   endif
 

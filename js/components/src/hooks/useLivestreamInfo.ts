@@ -23,7 +23,7 @@ export function useLivestreamInfo(url?: string) {
         // Create the livestream record with title and custom url if available
         await createStreamRecord({
           title,
-          customUrl: url || null,
+          canonicalUrl: url || undefined,
         });
       }
     } catch (error) {

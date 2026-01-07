@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.server.getServerTime",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get the current server time for client clock synchronization",
+      "parameters": {
+        "type": "params",
+        "properties": {}
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["serverTime"],
+          "properties": {
+            "serverTime": {
+              "type": "string",
+              "format": "datetime",
+              "description": "Current server time in RFC3339 format"
+            }
+          }
+        }
+      }
+    }
+  }
+}

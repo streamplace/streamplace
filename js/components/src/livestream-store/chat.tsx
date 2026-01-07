@@ -135,14 +135,14 @@ export const useCreateChatMessage = () => {
 
 export const useDeleteChatMessage = () => {
   const pdsAgent = usePDSAgent();
-  if (!pdsAgent) {
-    throw new Error("No PDS agent found");
-  }
   const userDID = useDID();
-  if (!userDID) {
-    throw new Error("No user DID found");
-  }
   return async (uri: string) => {
+    if (!pdsAgent) {
+      throw new Error("No PDS agent found");
+    }
+    if (!userDID) {
+      throw new Error("No user DID found");
+    }
     const rkey = uri.split("/").pop();
     if (!rkey) {
       throw new Error("No rkey found");
@@ -215,7 +215,13 @@ export const reduceChatIncremental = (
   for (const msg of newMessages) {
     if (msg.deleted) {
       hasChanges = true;
-      removedKeys.add(msg.uri);
+      // find and remove the message from the index
+      for (const [key, message] of Object.entries(newChatIndex)) {
+        if (message.uri === msg.uri) {
+          delete newChatIndex[key];
+          removedKeys.add(key);
+        }
+      }
     }
   }
   newMessages = newMessages.filter((msg) => msg.deleted !== true);
@@ -368,8 +374,6 @@ export const useSubmitReport = () => {
       subject: ComAtprotoModerationCreateReport.InputSchema["subject"],
       reasonType: string,
       reason?: string,
-      // no clue about this
-      moderationSvcDid: string = "did:web:stream.place",
     ) => {
       if (!pdsAgent || !userDID) {
         throw new Error("No PDS agent or user DID found");

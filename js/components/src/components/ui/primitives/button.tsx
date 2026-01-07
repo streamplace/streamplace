@@ -244,7 +244,6 @@ const primitiveStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 44, // iOS minimum touch target
   },
   disabled: {
     opacity: 0.5,
@@ -263,12 +262,6 @@ const primitiveStyles = StyleSheet.create({
   icon: {
     alignItems: "center",
     justifyContent: "center",
-  },
-  iconLeft: {
-    marginRight: 8,
-  },
-  iconRight: {
-    marginLeft: 8,
   },
   iconDisabled: {
     opacity: 0.5,

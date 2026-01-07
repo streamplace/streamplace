@@ -1,5 +1,4 @@
-import { Text, useTheme, zero } from "@streamplace/components";
-import Viewers from "components/viewers";
+import { PlayerUI, Text, useTheme, zero } from "@streamplace/components";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { Image, Platform, View } from "react-native";
 
@@ -101,7 +100,7 @@ const StreamCard = ({
               },
             ]}
           >
-            <Viewers viewers={viewers} />
+            <PlayerUI.DehydratedViewers viewers={viewers} />
           </View>
         )}
       </View>

@@ -7,6 +7,7 @@ import {
   useStreamplaceStore,
 } from "../streamplace-store";
 import { usePDSAgent } from "../streamplace-store/xrpc";
+import { useTimeSync } from "../time-sync";
 
 export default function Poller({ children }: { children: React.ReactNode }) {
   const url = useStreamplaceStore((state) => state.url);
@@ -18,6 +19,8 @@ export default function Poller({ children }: { children: React.ReactNode }) {
   const liveUserRefresh = useStreamplaceStore(
     (state) => state.liveUsersRefresh,
   );
+
+  useTimeSync();
 
   useEffect(() => {
     if (pdsAgent && did) {

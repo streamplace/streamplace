@@ -39,6 +39,7 @@ export interface ButtonProps
   rightIcon?: React.ReactNode;
   loading?: boolean;
   loadingText?: string;
+  width?: "full" | "min" | number;
 }
 
 export const Button = forwardRef<any, ButtonProps>(
@@ -53,6 +54,7 @@ export const Button = forwardRef<any, ButtonProps>(
       loadingText,
       disabled,
       style,
+      width = "full",
       ...props
     },
     ref,
@@ -109,7 +111,7 @@ export const Button = forwardRef<any, ButtonProps>(
               { borderRadius: zero.borderRadius.md },
             ],
             inner: { gap: 4 },
-            text: zt.text.sm,
+            text: zero.typography.universal.sm,
           };
         case "lg":
           return {
@@ -118,8 +120,8 @@ export const Button = forwardRef<any, ButtonProps>(
               zero.py[3],
               { borderRadius: zero.borderRadius.md },
             ],
-            inner: { gap: 8 },
-            text: zt.text.lg,
+            inner: { gap: 12 },
+            text: zero.typography.universal.lg,
           };
         case "xl":
           return {
@@ -129,17 +131,17 @@ export const Button = forwardRef<any, ButtonProps>(
               { borderRadius: zero.borderRadius.lg },
             ],
             inner: { gap: 12 },
-            text: zt.text.xl,
+            text: zero.typography.universal.xl,
           };
         case "pill":
           return {
             button: [
-              zero.px[4],
-              zero.py[2],
+              zero.px[2],
+              zero.py[1],
               { borderRadius: zero.borderRadius.full },
             ],
             inner: { gap: 4 },
-            text: zt.text.sm,
+            text: zero.typography.universal.xs,
           };
         case "md":
         default:
@@ -150,7 +152,7 @@ export const Button = forwardRef<any, ButtonProps>(
               { borderRadius: zero.borderRadius.md },
             ],
             inner: { gap: 6 },
-            text: zt.text.md,
+            text: zero.typography.universal.sm,
           };
       }
     }, [size, zt]);
@@ -198,11 +200,21 @@ export const Button = forwardRef<any, ButtonProps>(
       }
     }, [variant, icons]);
 
+    const widthStyle = useMemo(() => {
+      if (width === "full") {
+        return { width: "100%" };
+      } else if (width === "min") {
+        return { alignSelf: "flex-start" as const };
+      } else {
+        return { width };
+      }
+    }, [width]);
+
     return (
       <ButtonPrimitive.Root
         ref={ref}
         disabled={disabled || loading}
-        style={[buttonStyle, sizeStyles.button, style]}
+        style={[buttonStyle, sizeStyles.button, widthStyle, style]}
         {...props}
       >
         <ButtonPrimitive.Content style={sizeStyles.inner}>
@@ -211,17 +223,20 @@ export const Button = forwardRef<any, ButtonProps>(
               <ActivityIndicator size={spinnerSize} color={spinnerColor} />
             </ButtonPrimitive.Icon>
           ) : leftIcon ? (
-            <ButtonPrimitive.Icon
-              position="left"
-              style={{ width: iconSize, height: iconSize }}
-            >
+            <ButtonPrimitive.Icon position="left">
               {leftIcon}
             </ButtonPrimitive.Icon>
           ) : null}
 
-          <TextPrimitive.Root style={[textStyle, sizeStyles.text]}>
-            {loading && loadingText ? loadingText : children}
-          </TextPrimitive.Root>
+          {typeof children === "string" ? (
+            <TextPrimitive.Root style={[textStyle as any, sizeStyles.text]}>
+              {loading && loadingText ? loadingText : children}
+            </TextPrimitive.Root>
+          ) : loading && loadingText ? (
+            loadingText
+          ) : (
+            children
+          )}
 
           {loading && rightIcon ? (
             <ButtonPrimitive.Icon position="right">

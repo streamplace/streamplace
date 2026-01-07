@@ -22,6 +22,7 @@ type Webhook struct {
 	Prefix        string          `gorm:"column:prefix"`
 	Suffix        string          `gorm:"column:suffix"`
 	Rewrite       json.RawMessage `gorm:"column:rewrite;type:json"`
+	MuteWords     json.RawMessage `gorm:"column:mute_words;type:json"`
 	Name          string          `gorm:"column:name"`
 	Description   string          `gorm:"column:description"`
 	CreatedAt     time.Time       `gorm:"column:created_at"`
@@ -172,6 +173,14 @@ func (w *Webhook) ToLexicon() (*streamplace.ServerDefs_Webhook, error) {
 		}
 	}
 
+	var muteWords []string
+	if len(w.MuteWords) > 0 {
+		err := json.Unmarshal(w.MuteWords, &muteWords)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal mute words: %w", err)
+		}
+	}
+
 	createdAt := w.CreatedAt.Format(time.RFC3339)
 
 	webhook := &streamplace.ServerDefs_Webhook{
@@ -194,6 +203,9 @@ func (w *Webhook) ToLexicon() (*streamplace.ServerDefs_Webhook, error) {
 	}
 	if w.Description != "" {
 		webhook.Description = &w.Description
+	}
+	if len(muteWords) > 0 {
+		webhook.MuteWords = muteWords
 	}
 	if !w.UpdatedAt.IsZero() {
 		updatedAt := w.UpdatedAt.Format(time.RFC3339)
@@ -248,6 +260,15 @@ func WebhookFromLexiconInput(input *streamplace.ServerCreateWebhook_Input, userD
 		rewriteJSON = json.RawMessage(jsonBytes)
 	}
 
+	var muteWordsJSON json.RawMessage
+	if len(input.MuteWords) > 0 {
+		jsonBytes, err := json.Marshal(input.MuteWords)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal mute words: %w", err)
+		}
+		muteWordsJSON = json.RawMessage(jsonBytes)
+	}
+
 	webhook := &Webhook{
 		ID:        id,
 		UserDID:   userDID,
@@ -257,6 +278,7 @@ func WebhookFromLexiconInput(input *streamplace.ServerCreateWebhook_Input, userD
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 		Rewrite:   rewriteJSON,
+		MuteWords: muteWordsJSON,
 	}
 
 	// if active is provided, use that value

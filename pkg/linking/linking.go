@@ -25,8 +25,9 @@ func NewLinker(ctx context.Context, baseHTML []byte) (*Linker, error) {
 }
 
 type PageConfig struct {
-	Title string
-	Metas []MetaTag
+	Title     string
+	Metas     []MetaTag
+	SentryDSN string
 }
 
 // Define all meta tags in a structured way
@@ -36,7 +37,7 @@ type MetaTag struct {
 	Content string
 }
 
-func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *streamplace.Livestream_LivestreamView) ([]byte, error) {
+func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *streamplace.Livestream_LivestreamView, sentryDSN string) ([]byte, error) {
 	if u == nil {
 		return nil, errors.New("url is nil")
 	}
@@ -79,12 +80,13 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *stre
 	}
 
 	return l.GenerateHTML(ctx, &PageConfig{
-		Title: pageTitle,
-		Metas: metaTags,
+		Title:     pageTitle,
+		Metas:     metaTags,
+		SentryDSN: sentryDSN,
 	})
 }
 
-func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL) ([]byte, error) {
+func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN string) ([]byte, error) {
 	if u == nil {
 		return nil, errors.New("url is nil")
 	}
@@ -114,8 +116,9 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL) ([]byte, e
 	}
 
 	return l.GenerateHTML(ctx, &PageConfig{
-		Title: "Stream.place",
-		Metas: metaTags,
+		Title:     "Stream.place",
+		Metas:     metaTags,
+		SentryDSN: sentryDSN,
 	})
 }
 
@@ -180,6 +183,19 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 				{Key: tag.Type, Val: tag.Key},
 				{Key: "content", Val: tag.Content},
 			},
+		})
+	}
+
+	// Add Sentry DSN script if configured
+	if pc.SentryDSN != "" {
+		script := &html.Node{
+			Type: html.ElementNode,
+			Data: "script",
+		}
+		head.AppendChild(script)
+		script.AppendChild(&html.Node{
+			Type: html.TextNode,
+			Data: `window.SENTRY_DSN = "` + pc.SentryDSN + `";`,
 		})
 	}
 

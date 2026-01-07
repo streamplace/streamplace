@@ -118,7 +118,7 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 			errors.WriteHTTPInternalServerError(w, "unable to create peer connection", err)
 			return
 		}
-		answer, err := a.MediaManager.WebRTCIngest(ctx, &offer, mediaSigner, pc, make(chan struct{}))
+		answer, err := a.MediaManager.WebRTCIngest(ctx, &offer, mediaSigner, pc, make(chan error, 1))
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "error playing back", err)
 			return
@@ -177,6 +177,46 @@ func NoCache(h httprouter.Handle) httprouter.Handle {
 	}
 }
 
+const SessionExpireTime = 30 * time.Second
+
+func (a *StreamplaceAPI) SessionSeen(ctx context.Context, user string, session string) {
+	now := time.Now()
+	go func() {
+		a.sessionsLock.Lock()
+		defer a.sessionsLock.Unlock()
+		if _, ok := a.sessions[user]; !ok {
+			a.sessions[user] = map[string]time.Time{}
+		}
+		if _, ok := a.sessions[user][session]; !ok {
+			log.Warn(ctx, "ViewerInc", "user", user, "session", session)
+			spmetrics.ViewerInc(user, "hls")
+			a.Bus.IncrementViewerCount(user, "local")
+		}
+		a.sessions[user][session] = now
+	}()
+}
+
+func (a *StreamplaceAPI) ExpireSessions(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(5 * time.Second):
+			a.sessionsLock.Lock()
+			for user, sessions := range a.sessions {
+				for session, seen := range sessions {
+					if time.Since(seen) > SessionExpireTime {
+						delete(sessions, session)
+						spmetrics.ViewerDec(user, "hls")
+						a.Bus.DecrementViewerCount(user, "local")
+					}
+				}
+			}
+			a.sessionsLock.Unlock()
+		}
+	}
+}
+
 func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
 	return NoCache(func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
@@ -211,7 +251,7 @@ func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handl
 			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 		} else {
 			if session != "" {
-				spmetrics.SessionSeen(user, session)
+				a.SessionSeen(ctx, user, session)
 			}
 			w.Header().Set("Content-Type", "video/mp2t")
 		}

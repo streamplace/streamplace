@@ -12,7 +12,7 @@ import (
 
 var ErrConcatDone = errors.New("concat done")
 
-func ConcatBin(ctx context.Context, segCh <-chan *bus.Seg) (*gst.Bin, error) {
+func ConcatBin(ctx context.Context, segCh <-chan *bus.Seg, doH264Parse bool) (*gst.Bin, error) {
 	ctx = log.WithLogValues(ctx, "func", "ConcatBin")
 	bin := gst.NewBin("concat-bin")
 
@@ -57,6 +57,20 @@ func ConcatBin(ctx context.Context, segCh <-chan *bus.Seg) (*gst.Bin, error) {
 	err = bin.Add(mq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add multiqueue to bin: %w", err)
+	}
+
+	// 10x default multiqueue size
+	err = mq.SetProperty("max-size-time", uint64(200000000000))
+	if err != nil {
+		return nil, fmt.Errorf("failed to set max-size-time: %w", err)
+	}
+	err = mq.SetProperty("max-size-bytes", uint(1048576000))
+	if err != nil {
+		return nil, fmt.Errorf("failed to set max-size-bytes: %w", err)
+	}
+	err = mq.SetProperty("max-size-buffers", uint(500))
+	if err != nil {
+		return nil, fmt.Errorf("failed to set max-size-buffers: %w", err)
 	}
 
 	mqVideoSink := mq.GetRequestPad("sink_%u")
@@ -114,6 +128,7 @@ func ConcatBin(ctx context.Context, segCh <-chan *bus.Seg) (*gst.Bin, error) {
 			select {
 			case seg := <-segCh:
 				if seg == nil {
+
 					ok := syncPadVideoSrc.PushEvent(gst.NewEOSEvent())
 					if !ok {
 						log.Error(ctx, "failed to post EOS message", "error", ok)
@@ -123,9 +138,10 @@ func ConcatBin(ctx context.Context, segCh <-chan *bus.Seg) (*gst.Bin, error) {
 						log.Error(ctx, "failed to post EOS message", "error", ok)
 					}
 					log.Debug(ctx, "concat completed")
+
 					return
 				}
-				err := addConcatDemuxer(ctx, bin, seg, syncPadVideoSink, syncPadAudioSink)
+				err := addConcatDemuxer(ctx, bin, seg, syncPadVideoSink, syncPadAudioSink, doH264Parse)
 				if err != nil {
 					log.Error(ctx, "failed to add concat demuxer", "error", err)
 					bin.Error(err.Error(), err)
@@ -140,13 +156,14 @@ func ConcatBin(ctx context.Context, segCh <-chan *bus.Seg) (*gst.Bin, error) {
 	return bin, nil
 }
 
-func addConcatDemuxer(ctx context.Context, bin *gst.Bin, seg *bus.Seg, syncPadVideoSink *gst.Pad, syncPadAudioSink *gst.Pad) error {
+func addConcatDemuxer(ctx context.Context, bin *gst.Bin, seg *bus.Seg, syncPadVideoSink *gst.Pad, syncPadAudioSink *gst.Pad, doH264Parse bool) error {
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithCancel(ctx)
 	defer cancel()
+	ctx = log.WithLogValues(ctx, "func", "ConcatBin")
 
 	log.Debug(ctx, "adding concat demuxer", "seg", seg.Filepath)
-	demuxBin, err := ConcatDemuxBin(ctx, seg)
+	demuxBin, err := ConcatDemuxBin(ctx, seg, doH264Parse)
 	if err != nil {
 		return fmt.Errorf("failed to create demux bin: %w", err)
 	}

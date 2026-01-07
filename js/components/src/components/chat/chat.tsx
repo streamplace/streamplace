@@ -136,124 +136,112 @@ const ActionsBar = memo(
   },
 );
 
-const ChatLine = memo(
-  ({
-    item,
-    canModerate,
-  }: {
-    item: ChatMessageViewHydrated;
-    canModerate: boolean;
-  }) => {
-    const setReply = useSetReplyToMessage();
-    const setModMsg = usePlayerStore((state) => state.setModMessage);
-    const swipeableRef = useRef<SwipeableMethods | null>(null);
-    const [isHovered, setIsHovered] = useState(false);
-    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
+  const setReply = useSetReplyToMessage();
+  const setModMsg = usePlayerStore((state) => state.setModMessage);
+  const swipeableRef = useRef<SwipeableMethods | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const handleHoverIn = () => {
+  const handleHoverIn = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setIsHovered(true);
+  };
+
+  const handleHoverOut = () => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 50);
+  };
+
+  useEffect(() => {
+    return () => {
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
-        hoverTimeoutRef.current = null;
       }
-      setIsHovered(true);
     };
+  }, []);
 
-    const handleHoverOut = () => {
-      hoverTimeoutRef.current = setTimeout(() => {
-        setIsHovered(false);
-      }, 50);
-    };
-
-    useEffect(() => {
-      return () => {
-        if (hoverTimeoutRef.current) {
-          clearTimeout(hoverTimeoutRef.current);
-        }
-      };
-    }, []);
-
-    if (item.author.did === "did:sys:system") {
-      return (
-        <SystemMessage
-          timestamp={new Date(item.record.createdAt)}
-          title={item.record.text}
-        />
-      );
-    }
-
-    if (Platform.OS === "web") {
-      return (
-        <View
-          style={[
-            py[1],
-            px[2],
-            {
-              position: "relative",
-              borderRadius: 8,
-              minWidth: 0,
-              maxWidth: "100%",
-            },
-            isHovered && bg.gray[950],
-          ]}
-          onPointerEnter={handleHoverIn}
-          onPointerLeave={handleHoverOut}
-        >
-          <Pressable style={[{ minWidth: 0, maxWidth: "100%" }]}>
-            <RenderChatMessage item={item} />
-          </Pressable>
-          <ActionsBar
-            item={item}
-            visible={isHovered}
-            hoverTimeoutRef={hoverTimeoutRef}
-          />
-        </View>
-      );
-    }
-
+  if (item.author.did === "did:sys:system") {
     return (
-      <>
-        <Swipeable
-          containerStyle={[py[1]]}
-          friction={2}
-          enableTrackpadTwoFingerGesture
-          rightThreshold={40}
-          leftThreshold={40}
-          renderRightActions={
-            Platform.OS === "android" ? undefined : RightAction
-          }
-          renderLeftActions={Platform.OS === "android" ? undefined : LeftAction}
-          overshootFriction={9}
-          ref={swipeableRef}
-          onSwipeableOpen={(r) => {
-            if (r === (Platform.OS === "android" ? "right" : "left")) {
-              setReply(item);
-            }
-            if (r === (Platform.OS === "android" ? "left" : "right")) {
-              setModMsg(item);
-            }
-            // close this swipeable
-            const swipeable = swipeableRef.current;
-            if (swipeable) {
-              swipeable.close();
-            }
-          }}
-        >
-          <RenderChatMessage item={item} />
-        </Swipeable>
-      </>
+      <SystemMessage
+        timestamp={new Date(item.record.createdAt)}
+        title={item.record.text}
+      />
     );
-  },
-);
+  }
+
+  if (Platform.OS === "web") {
+    return (
+      <View
+        style={[
+          py[1],
+          px[2],
+          {
+            position: "relative",
+            borderRadius: 8,
+            minWidth: 0,
+            maxWidth: "100%",
+          },
+          isHovered && bg.gray[950],
+        ]}
+        onPointerEnter={handleHoverIn}
+        onPointerLeave={handleHoverOut}
+      >
+        <Pressable style={[{ minWidth: 0, maxWidth: "100%" }]}>
+          <RenderChatMessage item={item} />
+        </Pressable>
+        <ActionsBar
+          item={item}
+          visible={isHovered}
+          hoverTimeoutRef={hoverTimeoutRef}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <Swipeable
+        containerStyle={[py[1]]}
+        friction={2}
+        enableTrackpadTwoFingerGesture
+        rightThreshold={40}
+        leftThreshold={40}
+        renderRightActions={Platform.OS === "android" ? undefined : RightAction}
+        renderLeftActions={Platform.OS === "android" ? undefined : LeftAction}
+        overshootFriction={9}
+        ref={swipeableRef}
+        onSwipeableOpen={(r) => {
+          if (r === (Platform.OS === "android" ? "right" : "left")) {
+            setReply(item);
+          }
+          if (r === (Platform.OS === "android" ? "left" : "right")) {
+            setModMsg(item);
+          }
+          // close this swipeable
+          const swipeable = swipeableRef.current;
+          if (swipeable) {
+            swipeable.close();
+          }
+        }}
+      >
+        <RenderChatMessage item={item} />
+      </Swipeable>
+    </>
+  );
+});
 
 export function Chat({
   shownMessages = SHOWN_MSGS,
   style: propsStyle,
-  canModerate = false,
   ...props
 }: ComponentProps<typeof View> & {
   shownMessages?: number;
   style?: ComponentProps<typeof View>["style"];
-  canModerate?: boolean;
 }) {
   const chat = useChat();
   const [isScrolledUp, setIsScrolledUp] = useState(false);
@@ -276,7 +264,7 @@ export function Chat({
   if (!chat)
     return (
       <View style={[flex.shrink[1], { minWidth: 0, maxWidth: "100%" }]}>
-        <Text>Loading chaat...</Text>
+        <Text>Loading chat...</Text>
       </View>
     );
 
@@ -295,15 +283,14 @@ export function Chat({
         data={chat.slice(0, shownMessages)}
         inverted={true}
         keyExtractor={keyExtractor}
-        renderItem={({ item, index }) => (
-          <ChatLine item={item} canModerate={canModerate} />
-        )}
+        renderItem={({ item, index }) => <ChatLine item={item} />}
         removeClippedSubviews={true}
         maxToRenderPerBatch={10}
         initialNumToRender={10}
         updateCellsBatchingPeriod={50}
         onScroll={handleScroll}
         scrollEventThrottle={16}
+        nestedScrollEnabled={true}
       />
       <ModView />
     </View>

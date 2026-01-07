@@ -1,4 +1,4 @@
 [workspace]
 resolver = "3"
-members = ["rust/iroh-streamplace"]
+members = ["rust/export-c2pa-schema", "rust/iroh-streamplace"]
 exclude = ["subprojects/c2pa_go"]

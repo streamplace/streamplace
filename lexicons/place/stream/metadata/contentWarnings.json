@@ -1,0 +1,70 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.metadata.contentWarnings",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "Content warnings for a stream.",
+      "properties": {
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "knownValues": [
+              "place.stream.metadata.contentWarnings#death",
+              "place.stream.metadata.contentWarnings#drugUse",
+              "place.stream.metadata.contentWarnings#fantasyViolence",
+              "place.stream.metadata.contentWarnings#flashingLights",
+              "place.stream.metadata.contentWarnings#language",
+              "place.stream.metadata.contentWarnings#nudity",
+              "place.stream.metadata.contentWarnings#PII",
+              "place.stream.metadata.contentWarnings#sexuality",
+              "place.stream.metadata.contentWarnings#suffering",
+              "place.stream.metadata.contentWarnings#violence"
+            ]
+          }
+        }
+      }
+    },
+    "death": {
+      "type": "token",
+      "description": "The content could be perceived as offensive due to the discussion or display of death."
+    },
+    "drugUse": {
+      "type": "token",
+      "description": "The content contains a portrayal of the use or abuse of mind altering substances."
+    },
+    "fantasyViolence": {
+      "type": "token",
+      "description": "The content contains violent actions of a fantasy nature, involving human or non-human characters in situations easily distinguishable from real life."
+    },
+    "flashingLights": {
+      "type": "token",
+      "description": "The content contains flashing lights that could be harmful to viewers with seizure disorders such as photosensitive epilepsy."
+    },
+    "language": {
+      "type": "token",
+      "description": "The content could be perceived as offensive due to the language used."
+    },
+    "nudity": {
+      "type": "token",
+      "description": "The content could be perceived as offensive due to nudity."
+    },
+    "PII": {
+      "type": "token",
+      "description": "The content contains information that can be used to identify a particular individual, such as a name, phone number, email address, physical address, or IP address."
+    },
+    "sexuality": {
+      "type": "token",
+      "description": "The content could be perceived as offensive due to the discussion or display of sexuality."
+    },
+    "suffering": {
+      "type": "token",
+      "description": "The content could be perceived as distressing due to the discussion or display of suffering or triggering topics, including suicide, eating disorders or self harm."
+    },
+    "violence": {
+      "type": "token",
+      "description": "The content could be perceived as offensive due to the discussion or display of violence."
+    }
+  }
+}

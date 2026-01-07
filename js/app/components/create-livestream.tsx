@@ -1,10 +1,5 @@
-import { zero } from "@streamplace/components";
+import { formatHandleWithAt, zero } from "@streamplace/components";
 import ThumbnailSelector from "components/thumbnail-selector";
-import {
-  createLivestreamRecord,
-  selectNewLivestream,
-  selectUserProfile,
-} from "features/bluesky/blueskySlice";
 import { useCaptureVideoFrame } from "hooks/useCaptureVideoFrame";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useEffect, useState } from "react";
@@ -17,12 +12,16 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { useAppDispatch, useAppSelector } from "store/hooks";
+import { useStore } from "store";
+import { useNewLivestream, useUserProfile } from "store/hooks";
 
 const isWeb = Platform.OS === "web";
 
 export default function CreateLivestream() {
-  const dispatch = useAppDispatch();
+  const createLivestreamRecord = useStore(
+    (state) => state.createLivestreamRecord,
+  );
+  const streamplaceUrl = useStore((state) => state.url);
   // Note: Toast functionality removed, would need simple alert replacement
   const userIsLive = useLiveUser();
   const [title, setTitle] = useState("");
@@ -30,8 +29,8 @@ export default function CreateLivestream() {
   const [customThumbnail, setCustomThumbnail] = useState<Blob | undefined>(
     undefined,
   );
-  const profile = useAppSelector(selectUserProfile);
-  const newLivestream = useAppSelector(selectNewLivestream);
+  const profile = useUserProfile();
+  const newLivestream = useNewLivestream();
   const captureFrame = useCaptureVideoFrame();
   const { width } = useWindowDimensions();
 
@@ -66,12 +65,7 @@ export default function CreateLivestream() {
         }
       }
 
-      await dispatch(
-        createLivestreamRecord({
-          title,
-          customThumbnail: thumbnailToUse,
-        }),
-      );
+      await createLivestreamRecord(title, thumbnailToUse);
     } catch (error) {
       console.error("Error creating livestream:", error);
       // Would show toast: "Error creating livestream"
@@ -129,7 +123,7 @@ export default function CreateLivestream() {
               Streamer
             </Text>
             <Text style={[{ paddingBottom: 8, fontWeight: "bold" }]}>
-              @{profile?.handle}
+              {profile && formatHandleWithAt(profile)}
             </Text>
           </View>
 

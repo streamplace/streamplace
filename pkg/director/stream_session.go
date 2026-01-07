@@ -7,12 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/atproto"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/lex/util"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
@@ -21,6 +23,7 @@ import (
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/renditions"
+	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
@@ -38,23 +41,28 @@ type StreamSession struct {
 	repoDID        string
 	segmentChan    chan struct{}
 	lastStatus     time.Time
+	lastStatusCID  *string
 	lastStatusLock sync.Mutex
+	lastOriginTime time.Time
+	lastOriginLock sync.Mutex
 	g              *errgroup.Group
 	started        chan struct{}
 	ctx            context.Context
 	packets        []bus.PacketizedSegment
 	statefulDB     *statedb.StatefulDB
+	replicator     replication.Replicator
 }
 
-func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotification) error {
+func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
 	ctx, cancel := context.WithCancel(ctx)
+	spmetrics.StreamSessions.WithLabelValues(notif.Segment.RepoDID).Inc()
 	ss.g, ctx = errgroup.WithContext(ctx)
 	sid := livepeer.RandomTrailer(8)
-	ctx = log.WithLogValues(ctx, "sid", sid, "repoDID", ss.repoDID)
+	ctx = log.WithLogValues(ctx, "sid", sid, "streamer", notif.Segment.RepoDID)
 	ss.ctx = ctx
 	log.Log(ctx, "starting stream session")
 	defer cancel()
-	spseg, err := not.Segment.ToStreamplaceSegment()
+	spseg, err := notif.Segment.ToStreamplaceSegment()
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
 	}
@@ -72,7 +80,7 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 		return fmt.Errorf("segment duration is required to calculate bitrate")
 	}
 	dur := time.Duration(*spseg.Duration)
-	byteLen := len(not.Data)
+	byteLen := len(notif.Data)
 	bitrate := int(float64(byteLen) / dur.Seconds() * 8)
 	sourceRendition := renditions.Rendition{
 		Name:    "source",
@@ -101,10 +109,6 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 
 	close(ss.started)
 
-	ss.Go(ctx, func() error {
-		return ss.HandleMultistreamTargets(ctx)
-	})
-
 	for {
 		select {
 		case <-ss.segmentChan:
@@ -113,89 +117,17 @@ func (ss *StreamSession) Start(ctx context.Context, not *media.NewSegmentNotific
 			return ss.g.Wait()
 		// case <-time.After(time.Minute * 1):
 		case <-time.After(ss.cli.StreamSessionTimeout):
-			log.Log(ctx, "no new segments, shutting down", "timeout", ss.cli.StreamSessionTimeout)
+			log.Log(ctx, "stream session timeout, shutting down", "timeout", ss.cli.StreamSessionTimeout)
+			spmetrics.StreamSessions.WithLabelValues(notif.Segment.RepoDID).Dec()
 			for _, r := range allRenditions {
 				ss.bus.EndSession(ctx, spseg.Creator, r.Name)
 			}
-			cancel()
-		}
-	}
-}
-
-type runningMultistream struct {
-	cancel func()
-	uri    string
-}
-
-// we're making an attempt here not to log (sensitive) stream keys, so we're
-// referencing by atproto URI
-func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
-	ctx = log.WithLogValues(ctx, "system", "multistreaming")
-	isTrue := true
-	// {target.Uri}:{rec.Url} -> runningMultistream
-	// no concurrency issues, it's only used from this one loop
-	running := map[string]*runningMultistream{}
-	for {
-		targets, err := ss.statefulDB.ListMultistreamTargets(ss.repoDID, 100, 0, &isTrue)
-		if err != nil {
-			return fmt.Errorf("failed to list multistream targets: %w", err)
-		}
-		currentRunning := map[string]bool{}
-		for _, targetView := range targets {
-			rec, ok := targetView.Record.Val.(*streamplace.MultistreamTarget)
-			if !ok {
-				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", targetView.Uri)
-				continue
-			}
-			key := fmt.Sprintf("%s:%s", targetView.Uri, rec.Url)
-			if running[key] == nil {
-				childCtx, childCancel := context.WithCancel(ctx)
+			if notif.Local {
 				ss.Go(ctx, func() error {
-					log.Log(ctx, "starting multistream target", "uri", targetView.Uri)
-					err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, "starting multistream target", "pending")
-					if err != nil {
-						log.Error(ctx, "failed to create multistream event", "error", err)
-					}
-					return ss.StartMultistreamTarget(childCtx, targetView)
+					return ss.DeleteStatus(spseg.Creator)
 				})
-				running[key] = &runningMultistream{
-					cancel: childCancel,
-					uri:    key,
-				}
 			}
-			currentRunning[key] = true
-		}
-		for key := range running {
-			if !currentRunning[key] {
-				log.Log(ctx, "stopping multistream target", "uri", running[key].uri)
-				running[key].cancel()
-				delete(running, key)
-			}
-		}
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(time.Second * 5):
-			continue
-		}
-	}
-}
-
-func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView *streamplace.MultistreamDefs_TargetView) error {
-	for {
-		err := ss.mm.RTMPPush(ctx, ss.repoDID, "source", targetView)
-		if err != nil {
-			log.Error(ctx, "failed to push to RTMP server", "error", err)
-			err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, err.Error(), "error")
-			if err != nil {
-				log.Error(ctx, "failed to create multistream event", "error", err)
-			}
-		}
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(time.Second * 5):
-			continue
+			cancel()
 		}
 	}
 }
@@ -208,13 +140,13 @@ func (ss *StreamSession) Go(ctx context.Context, f func() error) {
 	ss.g.Go(func() error {
 		err := f()
 		if err != nil {
-			log.Error(ctx, "error in goroutine", "error", err)
+			log.Error(ctx, "error in stream_session goroutine", "error", err)
 		}
 		return nil
 	})
 }
 
-func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNotification) error {
+func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegmentNotification) error {
 	<-ss.started
 	go func() {
 		select {
@@ -223,14 +155,14 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 		case ss.segmentChan <- struct{}{}:
 		}
 	}()
-	aqt := aqtime.FromTime(not.Segment.StartTime)
-	ctx = log.WithLogValues(ctx, "segID", not.Segment.ID, "repoDID", not.Segment.RepoDID, "timestamp", aqt.FileSafeString())
-	not.Segment.MediaData.Size = len(not.Data)
-	err := ss.mod.CreateSegment(not.Segment)
+	aqt := aqtime.FromTime(notif.Segment.StartTime)
+	ctx = log.WithLogValues(ctx, "segID", notif.Segment.ID, "repoDID", notif.Segment.RepoDID, "timestamp", aqt.FileSafeString())
+	notif.Segment.MediaData.Size = len(notif.Data)
+	err := ss.mod.CreateSegment(notif.Segment)
 	if err != nil {
 		return fmt.Errorf("could not add segment to database: %w", err)
 	}
-	spseg, err := not.Segment.ToStreamplaceSegment()
+	spseg, err := notif.Segment.ToStreamplaceSegment()
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
 	}
@@ -238,32 +170,102 @@ func (ss *StreamSession) NewSegment(ctx context.Context, not *media.NewSegmentNo
 	ss.bus.Publish(spseg.Creator, spseg)
 	ss.Go(ctx, func() error {
 		return ss.AddPlaybackSegment(ctx, spseg, "source", &bus.Seg{
-			Filepath: not.Segment.ID,
-			Data:     not.Data,
+			Filepath: notif.Segment.ID,
+			Data:     notif.Data,
 		})
 	})
 
 	if ss.cli.Thumbnail {
 		ss.Go(ctx, func() error {
-			return ss.Thumbnail(ctx, spseg.Creator, not)
+			return ss.Thumbnail(ctx, spseg.Creator, notif)
 		})
 	}
 
-	ss.Go(ctx, func() error {
-		return ss.UpdateStatus(ctx, spseg.Creator)
-	})
+	if notif.Local {
+		ss.Go(ctx, func() error {
+			return ss.UpdateStatus(ctx, spseg.Creator)
+		})
+
+		ss.Go(ctx, func() error {
+			return ss.UpdateBroadcastOrigin(ctx)
+		})
+	}
 
 	if ss.cli.LivepeerGatewayURL != "" {
 		ss.Go(ctx, func() error {
 			start := time.Now()
-			err := ss.Transcode(ctx, spseg, not.Data)
+			err := ss.Transcode(ctx, spseg, notif.Data)
 			took := time.Since(start)
 			spmetrics.QueuedTranscodeDuration.WithLabelValues(spseg.Creator).Set(float64(took.Milliseconds()))
 			return err
 		})
 	}
 
+	// trigger a notification blast if this is a new livestream
+	if notif.Metadata.Livestream != nil {
+		ss.Go(ctx, func() error {
+			r, err := ss.mod.GetRepoByHandleOrDID(spseg.Creator)
+			if err != nil {
+				return fmt.Errorf("failed to get repo: %w", err)
+			}
+			livestreamModel, err := ss.mod.GetLatestLivestreamForRepo(spseg.Creator)
+			if err != nil {
+				return fmt.Errorf("failed to get latest livestream for repo: %w", err)
+			}
+			if livestreamModel == nil {
+				log.Warn(ctx, "no livestream found, skipping notification blast", "repoDID", spseg.Creator)
+				return nil
+			}
+			lsv, err := livestreamModel.ToLivestreamView()
+			if err != nil {
+				return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
+			}
+			if !shouldNotify(lsv) {
+				log.Debug(ctx, "is not set to notify", "repoDID", spseg.Creator)
+				return nil
+			}
+			task := &statedb.NotificationTask{
+				Livestream: lsv,
+				PDSURL:     r.PDS,
+			}
+			cp, err := ss.mod.GetChatProfile(ctx, spseg.Creator)
+			if err != nil {
+				return fmt.Errorf("failed to get chat profile: %w", err)
+			}
+			if cp != nil {
+				spcp, err := cp.ToStreamplaceChatProfile()
+				if err != nil {
+					return fmt.Errorf("failed to convert chat profile to streamplace chat profile: %w", err)
+				}
+				task.ChatProfile = spcp
+			}
+
+			_, err = ss.statefulDB.EnqueueTask(ctx, statedb.TaskNotification, task, statedb.WithTaskKey(fmt.Sprintf("notification-blast::%s", lsv.Uri)))
+			if err != nil {
+				log.Error(ctx, "failed to enqueue notification task", "err", err)
+			}
+			return ss.UpdateStatus(ctx, spseg.Creator)
+		})
+	} else {
+		log.Warn(ctx, "no livestream detected in stream, skipping notification blast", "repoDID", spseg.Creator)
+	}
+
 	return nil
+}
+
+func shouldNotify(lsv *streamplace.Livestream_LivestreamView) bool {
+	lsvr, ok := lsv.Record.Val.(*streamplace.Livestream)
+	if !ok {
+		return true
+	}
+	if lsvr.NotificationSettings == nil {
+		return true
+	}
+	settings := lsvr.NotificationSettings
+	if settings.PushNotification == nil {
+		return true
+	}
+	return *settings.PushNotification
 }
 
 func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *media.NewSegmentNotification) error {
@@ -304,29 +306,6 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 	return nil
 }
 
-func getThumbnailCID(pv *bsky.FeedDefs_PostView) (*util.LexBlob, error) {
-	if pv == nil {
-		return nil, fmt.Errorf("post view is nil")
-	}
-	rec, ok := pv.Record.Val.(*bsky.FeedPost)
-	if !ok {
-		return nil, fmt.Errorf("post view record is not a feed post")
-	}
-	if rec.Embed == nil {
-		return nil, fmt.Errorf("post view embed is nil")
-	}
-	if rec.Embed.EmbedExternal == nil {
-		return nil, fmt.Errorf("post view embed external view is nil")
-	}
-	if rec.Embed.EmbedExternal.External == nil {
-		return nil, fmt.Errorf("post view embed external is nil")
-	}
-	if rec.Embed.EmbedExternal.External.Thumb == nil {
-		return nil, fmt.Errorf("post view embed external thumb is nil")
-	}
-	return rec.Embed.EmbedExternal.External.Thumb, nil
-}
-
 func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error {
 	ctx = log.WithLogValues(ctx, "func", "UpdateStatus")
 	ss.lastStatusLock.Lock()
@@ -336,17 +315,9 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 		return nil
 	}
 
-	session, err := ss.statefulDB.GetSessionByDID(repoDID)
+	client, err := ss.GetClientByDID(repoDID)
 	if err != nil {
-		return fmt.Errorf("could not get OAuth session for repoDID: %w", err)
-	}
-	if session == nil {
-		return fmt.Errorf("no session found for repoDID: %s", repoDID)
-	}
-
-	session, err = ss.op.RefreshIfNeeded(session)
-	if err != nil {
-		return fmt.Errorf("could not refresh session for repoDID: %w", err)
+		return fmt.Errorf("could not get xrpc client: %w", err)
 	}
 
 	ls, err := ss.mod.GetLatestLivestreamForRepo(repoDID)
@@ -358,21 +329,11 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 		return fmt.Errorf("could not convert livestream to streamplace livestream: %w", err)
 	}
 
-	post, err := ss.mod.GetFeedPost(ls.PostURI)
-	if err != nil {
-		return fmt.Errorf("could not get feed post: %w", err)
+	lsvr, ok := lsv.Record.Val.(*streamplace.Livestream)
+	if !ok {
+		return fmt.Errorf("livestream is not a streamplace livestream")
 	}
-	if post == nil {
-		return fmt.Errorf("feed post not found for livestream: %w", err)
-	}
-	postView, err := post.ToBskyPostView()
-	if err != nil {
-		return fmt.Errorf("could not convert feed post to bsky post view: %w", err)
-	}
-	thumb, err := getThumbnailCID(postView)
-	if err != nil {
-		return fmt.Errorf("could not get thumbnail cid: %w", err)
-	}
+	thumb := lsvr.Thumb
 
 	repo, err := ss.mod.GetRepoByHandleOrDID(repoDID)
 	if err != nil {
@@ -384,7 +345,7 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 		return fmt.Errorf("livestream is not a streamplace livestream")
 	}
 
-	canonicalUrl := fmt.Sprintf("https://%s/%s", ss.cli.PublicHost, repo.Handle)
+	canonicalUrl := fmt.Sprintf("https://%s/%s", ss.cli.BroadcasterHost, repo.Handle)
 
 	if lsr.CanonicalUrl != nil {
 		canonicalUrl = *lsr.CanonicalUrl
@@ -395,13 +356,13 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 			External: &bsky.EmbedExternal_External{
 				Title:       lsr.Title,
 				Uri:         canonicalUrl,
-				Description: fmt.Sprintf("@%s is 🔴LIVE on %s", repo.Handle, ss.cli.PublicHost),
+				Description: fmt.Sprintf("@%s is 🔴LIVE on %s", repo.Handle, ss.cli.BroadcasterHost),
 				Thumb:       thumb,
 			},
 		},
 	}
 
-	duration := int64(2)
+	duration := int64(120)
 	status := bsky.ActorStatus{
 		Status:          "app.bsky.actor.status#live",
 		DurationMinutes: &duration,
@@ -409,13 +370,8 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 		CreatedAt:       time.Now().Format(time.RFC3339),
 	}
 
-	client, err := ss.op.GetXrpcClient(session)
-	if err != nil {
-		return fmt.Errorf("could not get xrpc client: %w", err)
-	}
-
 	var swapRecord *string
-	getOutput := atproto.RepoGetRecord_Output{}
+	getOutput := comatproto.RepoGetRecord_Output{}
 	err = client.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.getRecord", map[string]any{
 		"repo":       repoDID,
 		"collection": "app.bsky.actor.status",
@@ -435,14 +391,16 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 		swapRecord = getOutput.Cid
 	}
 
-	inp := atproto.RepoPutRecord_Input{
+	inp := comatproto.RepoPutRecord_Input{
 		Collection: "app.bsky.actor.status",
-		Record:     &util.LexiconTypeDecoder{Val: &status},
+		Record:     &lexutil.LexiconTypeDecoder{Val: &status},
 		Rkey:       "self",
 		Repo:       repoDID,
 		SwapRecord: swapRecord,
 	}
-	out := atproto.RepoPutRecord_Output{}
+	out := comatproto.RepoPutRecord_Output{}
+
+	ss.lastStatusCID = &out.Cid
 
 	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out)
 	if err != nil {
@@ -455,6 +413,105 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 	return nil
 }
 
+func (ss *StreamSession) DeleteStatus(repoDID string) error {
+	// need a special extra context because the stream session context is already cancelled
+	ctx := log.WithLogValues(context.Background(), "func", "DeleteStatus", "repoDID", repoDID)
+	ss.lastStatusLock.Lock()
+	defer ss.lastStatusLock.Unlock()
+	if ss.lastStatusCID == nil {
+		log.Debug(ctx, "no status cid to delete")
+		return nil
+	}
+	inp := comatproto.RepoDeleteRecord_Input{
+		Collection: "app.bsky.actor.status",
+		Rkey:       "self",
+		Repo:       repoDID,
+	}
+	inp.SwapRecord = ss.lastStatusCID
+	out := comatproto.RepoDeleteRecord_Output{}
+
+	client, err := ss.GetClientByDID(repoDID)
+	if err != nil {
+		return fmt.Errorf("could not get xrpc client: %w", err)
+	}
+
+	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", map[string]any{}, inp, &out)
+	if err != nil {
+		return fmt.Errorf("could not delete record: %w", err)
+	}
+
+	ss.lastStatusCID = nil
+	return nil
+}
+
+var originUpdateInterval = time.Second * 30
+
+func (ss *StreamSession) UpdateBroadcastOrigin(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "func", "UpdateStatus")
+	ss.lastOriginLock.Lock()
+	defer ss.lastOriginLock.Unlock()
+	if time.Since(ss.lastOriginTime) < originUpdateInterval {
+		log.Debug(ctx, "not updating origin, last origin was less than 30 seconds ago")
+		return nil
+	}
+	broadcaster := fmt.Sprintf("did:web:%s", ss.cli.BroadcasterHost)
+	origin := streamplace.BroadcastOrigin{
+		Streamer:    ss.repoDID,
+		Server:      fmt.Sprintf("did:web:%s", ss.cli.ServerHost),
+		Broadcaster: &broadcaster,
+		UpdatedAt:   time.Now().UTC().Format(util.ISO8601),
+	}
+	err := ss.replicator.BuildOriginRecord(&origin)
+	if err != nil {
+		return fmt.Errorf("could not build origin record: %w", err)
+	}
+
+	client, err := ss.GetClientByDID(ss.repoDID)
+	if err != nil {
+		return fmt.Errorf("could not get xrpc client for repoDID: %w", err)
+	}
+
+	rkey := fmt.Sprintf("%s::did:web:%s", ss.repoDID, ss.cli.ServerHost)
+
+	var swapRecord *string
+	getOutput := comatproto.RepoGetRecord_Output{}
+	err = client.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.getRecord", map[string]any{
+		"repo":       ss.repoDID,
+		"collection": "place.stream.broadcast.origin",
+		"rkey":       rkey,
+	}, nil, &getOutput)
+	if err != nil {
+		xErr, ok := err.(*xrpc.Error)
+		if !ok {
+			return fmt.Errorf("could not get record: %w", err)
+		}
+		if xErr.StatusCode != 400 { // yes, they return "400" for "not found"
+			return fmt.Errorf("could not get record: %w", err)
+		}
+		log.Debug(ctx, "record not found, creating", "repoDID", ss.repoDID)
+	} else {
+		log.Debug(ctx, "got record", "record", getOutput)
+		swapRecord = getOutput.Cid
+	}
+
+	inp := comatproto.RepoPutRecord_Input{
+		Collection: "place.stream.broadcast.origin",
+		Record:     &lexutil.LexiconTypeDecoder{Val: &origin},
+		Rkey:       rkey,
+		Repo:       ss.repoDID,
+		SwapRecord: swapRecord,
+	}
+	out := comatproto.RepoPutRecord_Output{}
+
+	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out)
+	if err != nil {
+		return fmt.Errorf("could not create record: %w", err)
+	}
+
+	ss.lastOriginTime = time.Now()
+	return nil
+}
+
 func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segment, data []byte) error {
 	rs, err := renditions.GenerateRenditions(spseg)
 	if err != nil {
@@ -463,7 +520,7 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 
 	if ss.lp == nil {
 		var err error
-		ss.lp, err = livepeer.NewLivepeerSession(ctx, spseg.Creator, ss.cli.LivepeerGatewayURL)
+		ss.lp, err = livepeer.NewLivepeerSession(ctx, ss.cli, spseg.Creator, ss.cli.LivepeerGatewayURL)
 		if err != nil {
 			return err
 		}
@@ -561,4 +618,64 @@ func (ss *StreamSession) AddToHLS(ctx context.Context, spseg *streamplace.Segmen
 	}
 
 	return nil
+}
+
+type XRPCClient interface {
+	Do(ctx context.Context, method string, contentType string, path string, queryParams map[string]any, body any, out any) error
+}
+
+func (ss *StreamSession) GetClientByDID(did string) (XRPCClient, error) {
+	password, ok := ss.cli.DevAccountCreds[did]
+	if ok {
+		repo, err := ss.mod.GetRepoByHandleOrDID(did)
+		if err != nil {
+			return nil, fmt.Errorf("could not get repo by did: %w", err)
+		}
+		if repo == nil {
+			return nil, fmt.Errorf("repo not found for did: %s", did)
+		}
+		anonXRPCC := &xrpc.Client{
+			Host:   repo.PDS,
+			Client: &aqhttp.Client,
+		}
+		session, err := comatproto.ServerCreateSession(context.Background(), anonXRPCC, &comatproto.ServerCreateSession_Input{
+			Identifier: repo.DID,
+			Password:   password,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("could not create session: %w", err)
+		}
+
+		log.Warn(context.Background(), "created session for dev account", "did", repo.DID, "handle", repo.Handle, "pds", repo.PDS)
+
+		return &xrpc.Client{
+			Host:   repo.PDS,
+			Client: &aqhttp.Client,
+			Auth: &xrpc.AuthInfo{
+				Did:        repo.DID,
+				AccessJwt:  session.AccessJwt,
+				RefreshJwt: session.RefreshJwt,
+				Handle:     repo.Handle,
+			},
+		}, nil
+	}
+	session, err := ss.statefulDB.GetSessionByDID(ss.repoDID)
+	if err != nil {
+		return nil, fmt.Errorf("could not get OAuth session for repoDID: %w", err)
+	}
+	if session == nil {
+		return nil, fmt.Errorf("no session found for repoDID: %s", ss.repoDID)
+	}
+
+	session, err = ss.op.RefreshIfNeeded(session)
+	if err != nil {
+		return nil, fmt.Errorf("could not refresh session for repoDID: %w", err)
+	}
+
+	client, err := ss.op.GetXrpcClient(session)
+	if err != nil {
+		return nil, fmt.Errorf("could not get xrpc client: %w", err)
+	}
+
+	return client, nil
 }

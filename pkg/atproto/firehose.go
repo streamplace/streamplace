@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -157,15 +158,10 @@ func (atsync *ATProtoSynchronizer) StartFirehoseRetry(ctx context.Context) error
 }
 
 var CollectionFilter = []string{
-	constants.PLACE_STREAM_KEY,
-	constants.PLACE_STREAM_LIVESTREAM,
-	constants.PLACE_STREAM_CHAT_MESSAGE,
-	constants.PLACE_STREAM_CHAT_PROFILE,
 	constants.APP_BSKY_GRAPH_FOLLOW,
 	constants.APP_BSKY_FEED_POST,
 	constants.APP_BSKY_GRAPH_BLOCK,
-	constants.PLACE_STREAM_SERVER_SETTINGS,
-	constants.PLACE_STREAM_CHAT_GATE,
+	constants.PLACE_STREAM_LIVE_RECOMMENDATIONS,
 }
 
 func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) {
@@ -195,6 +191,9 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 
 		if len(CollectionFilter) > 0 {
 			keep := slices.Contains(CollectionFilter, collection.String())
+			if strings.HasPrefix(collection.String(), "place.stream.") {
+				keep = true
+			}
 			if !keep {
 				continue
 			}
@@ -304,6 +303,31 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				isTrue := true
 				mv.Deleted = &isTrue
 				atsync.Bus.Publish(msg.StreamerRepoDID, mv)
+			}
+
+			if collection.String() == constants.PLACE_STREAM_MODERATION_PERMISSION {
+				log.Debug(ctx, "deleting moderation delegation", "userDID", evt.Repo, "rkey", rkey.String())
+				err := atsync.Model.DeleteModerationDelegation(ctx, rkey.String())
+				if err != nil {
+					log.Error(ctx, "failed to delete moderation delegation", "err", err)
+				}
+				// Publish deletion to WebSocket bus for real-time updates
+				// Create a deleted record marker to notify frontend
+				deletedRecord := map[string]any{
+					"$type":    "place.stream.moderation.permission",
+					"deleted":  true,
+					"rkey":     rkey.String(),
+					"streamer": evt.Repo,
+				}
+				go atsync.Bus.Publish(evt.Repo, deletedRecord)
+			}
+
+			if collection.String() == constants.PLACE_STREAM_CHAT_GATE {
+				log.Debug(ctx, "deleting gate", "userDID", evt.Repo, "rkey", rkey.String())
+				err := atsync.Model.DeleteGate(ctx, rkey.String())
+				if err != nil {
+					log.Error(ctx, "failed to delete gate", "err", err)
+				}
 			}
 
 		default:

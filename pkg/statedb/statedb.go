@@ -11,6 +11,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/plugin/prometheus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
@@ -36,6 +37,7 @@ type StatefulDB struct {
 	// pgLockConn is used to hold a connection to the database for locking
 	pgLockConn   *gorm.DB
 	pgLockConnMu sync.Mutex
+	op           *oatproxy.OATProxy
 }
 
 // list tables here so we can migrate them
@@ -49,6 +51,7 @@ var StatefulDBModels = []any{
 	Webhook{},
 	MultistreamTarget{},
 	MultistreamEvent{},
+	ModerationAuditLog{},
 }
 
 var NoPostgresDatabaseCode = "3D000"
@@ -101,6 +104,16 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Firebase
 			return nil, err
 		}
 	}
+
+	err = db.Use(prometheus.New(prometheus.Config{
+		DBName:          "state",
+		RefreshInterval: 10,
+		StartServer:     false,
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("error using prometheus plugin: %w", err)
+	}
+
 	state := &StatefulDB{
 		DB:        db,
 		CLI:       cli,

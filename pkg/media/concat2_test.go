@@ -95,7 +95,7 @@ func innerTestConcatBin(t *testing.T) error {
 		close(segCh)
 	}()
 
-	concatBin, err := ConcatBin(ctx, segCh)
+	concatBin, err := ConcatBin(ctx, segCh, true)
 	if err != nil {
 		return fmt.Errorf("failed to create concat bin: %w", err)
 	}
@@ -214,7 +214,7 @@ func innerTestConcatBin(t *testing.T) error {
 	<-padIdleCh
 	<-padIdleCh
 
-	require.Equal(t, 4936240, videoBuf.Len(), fmt.Sprintf("uuid: %s", uuidStr))
+	require.Equal(t, 4936455, videoBuf.Len(), fmt.Sprintf("uuid: %s", uuidStr))
 	require.Equal(t, 32200, audioBuf.Len(), fmt.Sprintf("uuid: %s", uuidStr))
 
 	return <-errCh

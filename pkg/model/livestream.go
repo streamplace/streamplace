@@ -9,6 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -44,7 +45,11 @@ func (ls *Livestream) ToLivestreamView() (*streamplace.Livestream_LivestreamView
 }
 
 func (m *DBModel) CreateLivestream(ctx context.Context, ls *Livestream) error {
-	return m.DB.Create(ls).Error
+	// upsert livestream record, actually
+	return m.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "uri"}},
+		DoUpdates: clause.AssignmentColumns([]string{"cid", "created_at", "livestream", "repo_did", "post_cid", "post_uri"}),
+	}).Create(ls).Error
 }
 
 // GetLatestLivestreamForRepo returns the most recent livestream for a given repo DID

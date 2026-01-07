@@ -9,7 +9,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/atproto/label"
+	"github.com/bluesky-social/indigo/atproto/labeling"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
@@ -19,6 +19,7 @@ import (
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 func (atsync *ATProtoSynchronizer) StartLabelerFirehose(ctx context.Context, did string) error {
@@ -43,8 +44,10 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehose(ctx context.Context, did
 				// Increment retry count if within the window
 				retryCount++
 				if retryCount >= 3 {
-					log.Error(ctx, "firehose failed 3 times within a minute, crashing", "err", err)
-					return fmt.Errorf("firehose failed 3 times within a minute: %w", err)
+					log.Warn(ctx, "firehose failed 3 times within a minute, backing off", "err", err)
+					time.Sleep(5 * time.Second)
+					retryCount = 0
+					retryWindow = time.Now()
 				}
 			}
 		}
@@ -107,7 +110,8 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 	if err != nil {
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
 	}
-
+	spmetrics.LabelerFirehosesConnected.WithLabelValues(did).Inc()
+	defer spmetrics.LabelerFirehosesConnected.WithLabelValues(did).Dec()
 	rsc := &events.RepoStreamCallbacks{
 		LabelLabels: func(evt *comatproto.LabelSubscribeLabels_Labels) error {
 			err = atsync.Model.UpdateLabelerCursor(did, evt.Seq)
@@ -115,7 +119,7 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 				log.Error(ctx, "failed to update labeler cursor", "err", err)
 			}
 			for _, labelLex := range evt.Labels {
-				l := label.FromLexicon(labelLex)
+				l := labeling.FromLexicon(labelLex)
 				err = l.VerifySignature(pub)
 				if err != nil {
 					log.Error(ctx, "failed to verify label signature", "err", err)

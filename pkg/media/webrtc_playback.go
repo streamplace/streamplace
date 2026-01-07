@@ -13,7 +13,6 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/spmetrics"
 )
 
 // we have a bug that prevents us from correctly probing video durations
@@ -74,7 +73,7 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 		}
 	}()
 
-	concatBin, err := ConcatBin(ctx, segCh)
+	concatBin, err := ConcatBin(ctx, segCh, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create concat bin: %w", err)
 	}
@@ -303,8 +302,8 @@ func (mm *MediaManager) WebRTCPlayback(ctx context.Context, user string, renditi
 		if err != nil {
 			log.Log(ctx, "failed to set pipeline state to null", "error", err)
 		}
-		spmetrics.ViewerInc(user)
-		defer spmetrics.ViewerDec(user)
+		mm.IncrementViewerCount(user, "webrtc")
+		defer mm.DecrementViewerCount(user, "webrtc")
 
 		go func() {
 			rtcpBuf := make([]byte, 1500)

@@ -590,52 +590,61 @@ export const typography = {
   },
 
   // Universal typography scale
+  // Atkinson's center is weird so the marginBottom is there to correct it?
   universal: {
     xs: {
       fontSize: 12,
       lineHeight: 16,
+      marginBottom: -0.3,
       fontWeight: "400" as const,
       fontFamily: "AtkinsonHyperlegibleNext-Regular",
     },
     sm: {
       fontSize: 14,
       lineHeight: 20,
+      marginBottom: -1,
       fontWeight: "400" as const,
       fontFamily: "AtkinsonHyperlegibleNext-Regular",
     },
     base: {
       fontSize: 16,
       lineHeight: 24,
+      marginBottom: -1.2,
       fontWeight: "400" as const,
       fontFamily: "AtkinsonHyperlegibleNext-Regular",
     },
     lg: {
       fontSize: 18,
       lineHeight: 28,
+      marginBottom: -1.5,
       fontWeight: "400" as const,
       fontFamily: "AtkinsonHyperlegibleNext-Regular",
     },
     xl: {
       fontSize: 20,
       lineHeight: 28,
+      marginBottom: -1.75,
       fontWeight: "500" as const,
       fontFamily: "AtkinsonHyperlegibleNext-Medium",
     },
     "2xl": {
       fontSize: 24,
       lineHeight: 32,
+      marginBottom: -2,
       fontWeight: "600" as const,
       fontFamily: "AtkinsonHyperlegibleNext-SemiBold",
     },
     "3xl": {
       fontSize: 30,
       lineHeight: 36,
+      marginBottom: -2.5,
       fontWeight: "700" as const,
       fontFamily: "AtkinsonHyperlegibleNext-Bold",
     },
     "4xl": {
       fontSize: 36,
       lineHeight: 40,
+      marginBottom: -3,
       fontWeight: "700" as const,
       fontFamily: "AtkinsonHyperlegibleNext-ExtraBold",
     },

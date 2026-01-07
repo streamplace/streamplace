@@ -18,14 +18,14 @@ import (
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
+	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/streamplace"
 
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/replication"
 
-	"git.stream.place/streamplace/c2pa-go/pkg/c2pa/generated/manifeststore"
 	"github.com/piprate/json-gold/ld"
 
 	irohStreamplace "stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
@@ -36,11 +36,10 @@ import (
 const CertFile = "cert.pem"
 const SegmentsDir = "segments"
 
-var StreamplaceMetadata = "place.stream.metadata"
+const StreamplaceMetadata = "cawg.metadata"
 
 type MediaManager struct {
 	cli                 *config.CLI
-	replicator          replication.Replicator
 	hlsRunning          map[string]*M3U8
 	hlsRunningMut       sync.Mutex
 	httpPipes           map[string]io.Writer
@@ -58,6 +57,7 @@ type NewSegmentNotification struct {
 	Segment  *model.Segment
 	Data     []byte
 	Metadata *SegmentMetadata
+	Local    bool
 }
 
 func RunSelfTest(ctx context.Context) error {
@@ -65,7 +65,7 @@ func RunSelfTest(ctx context.Context) error {
 	return SelfTest(ctx)
 }
 
-func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, rep replication.Replicator, mod model.Model, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer) (*MediaManager, error) {
+func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, mod model.Model, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer) (*MediaManager, error) {
 	gstinit.InitGST()
 	err := SelfTest(ctx)
 	if err != nil {
@@ -118,10 +118,8 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 			},
 		},
 	}
-
 	return &MediaManager{
 		cli:          cli,
-		replicator:   rep,
 		hlsRunning:   map[string]*M3U8{},
 		httpPipes:    map[string]io.Writer{},
 		model:        mod,
@@ -135,7 +133,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 func (mm *MediaManager) HandleData(node *irohStreamplace.PublicKey, data []byte) {
 	r := bytes.NewReader(data)
 	ctx := context.Background()
-	err := mm.ValidateMP4(ctx, r)
+	err := mm.ValidateMP4(ctx, r, true)
 	if err != nil {
 		log.Log(ctx, "invalid incoming segment", "error", err)
 	}
@@ -188,25 +186,36 @@ type ExpandedSchemaOrg []struct {
 }
 
 type SegmentMetadata struct {
-	StartTime aqtime.AQTime
-	Title     string
-	Creator   string
+	StartTime             aqtime.AQTime
+	Title                 string
+	Creator               string
+	ContentWarnings       []string
+	ContentRights         *model.ContentRights
+	DistributionPolicy    *model.DistributionPolicy
+	MetadataConfiguration *streamplace.MetadataConfiguration
+	Livestream            *streamplace.Livestream
 }
 
+var ErrMissingMetadata = errors.New("missing segment metadata")
 var ErrInvalidMetadata = errors.New("invalid segment metadata")
 
-func ParseSegmentAssertions(ctx context.Context, mani *manifeststore.Manifest) (*SegmentMetadata, error) {
+func ParseSegmentAssertions(ctx context.Context, mani *c2patypes.Manifest) (*SegmentMetadata, error) {
 	_, span := otel.Tracer("signer").Start(ctx, "ParseSegmentAssertions")
 	defer span.End()
-	var ass *manifeststore.ManifestAssertion
+	var ass *c2patypes.ManifestAssertion
 	for _, a := range mani.Assertions {
 		if a.Label == StreamplaceMetadata {
 			ass = &a
 			break
 		}
+		if a.Label == "place.stream.metadata" {
+			// backwards compatibility for old manifests
+			ass = &a
+			break
+		}
 	}
 	if ass == nil {
-		return nil, fmt.Errorf("couldn't find %s assertions", StreamplaceMetadata)
+		return nil, ErrMissingMetadata
 	}
 	proc := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")
@@ -240,10 +249,187 @@ func ParseSegmentAssertions(ctx context.Context, mani *manifeststore.Manifest) (
 	if err != nil {
 		return nil, err
 	}
+
+	contentWarnings := extractContentWarnings(mani)
+	contentRights := extractContentRights(mani)
+	distributionPolicy := extractDistributionPolicy(mani, start)
+	metadataConfiguration := extractMetadataConfiguration(mani)
+	livestream := extractLivestream(mani)
+
 	out := SegmentMetadata{
-		StartTime: start,
-		Title:     meta.Title[0].Value,
-		Creator:   meta.Creator[0].Value,
+		StartTime:             start,
+		Title:                 meta.Title[0].Value,
+		Creator:               meta.Creator[0].Value,
+		ContentWarnings:       contentWarnings,
+		ContentRights:         contentRights,
+		DistributionPolicy:    distributionPolicy,
+		MetadataConfiguration: metadataConfiguration,
+		Livestream:            livestream,
 	}
 	return &out, nil
+}
+
+// findAssertion finds an assertion by label
+func findAssertion(mani *c2patypes.Manifest, label string) *c2patypes.ManifestAssertion {
+	for _, a := range mani.Assertions {
+		if a.Label == label {
+			return &a
+		}
+	}
+	return nil
+}
+
+// extractContentWarnings extracts content warnings from the C2PA manifest
+func extractContentWarnings(mani *c2patypes.Manifest) []string {
+	ass := findAssertion(mani, StreamplaceMetadata)
+	if ass == nil {
+		return nil
+	}
+
+	data, ok := ass.Data.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	warnings, ok := data["Iptc4xmpExt:ContentWarning"]
+	if !ok {
+		return nil
+	}
+
+	warningList, ok := warnings.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	result := make([]string, 0, len(warningList))
+	for _, warning := range warningList {
+		if warningStr, ok := warning.(string); ok {
+			result = append(result, warningStr)
+		}
+	}
+
+	return result
+}
+
+// extractContentRights extracts content rights from the C2PA manifest
+func extractContentRights(mani *c2patypes.Manifest) *model.ContentRights {
+	ass := findAssertion(mani, StreamplaceMetadata)
+	if ass == nil {
+		return nil
+	}
+
+	data, ok := ass.Data.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	rights := &model.ContentRights{}
+
+	// Extract copyright notice
+	if notice, ok := data["dc:rights"]; ok {
+		if noticeStr, ok := notice.(string); ok {
+			rights.CopyrightNotice = &noticeStr
+		}
+	}
+
+	// Extract copyright year
+	if year, ok := data["Iptc4xmpExt:CopyrightYear"]; ok {
+		if yearNum, ok := year.(float64); ok {
+			yearInt := int64(yearNum)
+			rights.CopyrightYear = &yearInt
+		}
+	}
+
+	// Extract creator
+	if creator, ok := data["dc:creator"]; ok {
+		if creatorStr, ok := creator.(string); ok {
+			rights.Creator = &creatorStr
+		}
+	}
+
+	// Extract credit line
+	if credit, ok := data["photoshop:Credit"]; ok {
+		if creditStr, ok := credit.(string); ok {
+			rights.CreditLine = &creditStr
+		}
+	}
+
+	// Extract license information
+	if license, ok := data["Iptc4xmpExt:LinkedEncRightsExpr"]; ok {
+		if licenseStr, ok := license.(string); ok {
+			rights.License = &licenseStr
+		}
+	} else if usageTerms, ok := data["xmpRights:UsageTerms"]; ok {
+		if usageStr, ok := usageTerms.(string); ok {
+			rights.License = &usageStr
+		}
+	}
+
+	// Return nil if no rights information was found
+	if rights.CopyrightNotice == nil && rights.CopyrightYear == nil &&
+		rights.Creator == nil && rights.CreditLine == nil && rights.License == nil {
+		return nil
+	}
+
+	return rights
+}
+
+// extractDistributionPolicy extracts distribution policy from the C2PA manifest
+func extractDistributionPolicy(mani *c2patypes.Manifest, segmentStart aqtime.AQTime) *model.DistributionPolicy {
+	metadataConfig := extractMetadataConfiguration(mani)
+	if metadataConfig == nil {
+		return nil
+	}
+
+	if metadataConfig.DistributionPolicy == nil {
+		return nil
+	}
+
+	if metadataConfig.DistributionPolicy.DeleteAfter == nil {
+		return nil
+	}
+
+	// deleteAfter contains an offset in seconds from creation time
+	deleteAfterSeconds := *metadataConfig.DistributionPolicy.DeleteAfter
+
+	return &model.DistributionPolicy{
+		DeleteAfterSeconds: &deleteAfterSeconds,
+	}
+}
+
+// extractMetadataConfiguration extracts the place.stream.metadata.configuration from the C2PA manifest
+func extractMetadataConfiguration(mani *c2patypes.Manifest) *streamplace.MetadataConfiguration {
+	ass := findAssertion(mani, "place.stream.metadata.configuration")
+	if ass == nil {
+		return nil
+	}
+
+	bs, err := json.Marshal(ass.Data)
+	if err != nil {
+		return nil
+	}
+	var metadataConfiguration streamplace.MetadataConfiguration
+	err = json.Unmarshal(bs, &metadataConfiguration)
+	if err != nil {
+		return nil
+	}
+	return &metadataConfiguration
+}
+
+func extractLivestream(mani *c2patypes.Manifest) *streamplace.Livestream {
+	ass := findAssertion(mani, "place.stream.livestream")
+	if ass == nil {
+		return nil
+	}
+	bs, err := json.Marshal(ass.Data)
+	if err != nil {
+		return nil
+	}
+
+	var livestream streamplace.Livestream
+	err = json.Unmarshal(bs, &livestream)
+	if err != nil {
+		return nil
+	}
+	return &livestream
 }

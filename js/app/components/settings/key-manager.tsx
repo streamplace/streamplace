@@ -1,22 +1,21 @@
 import { useNavigation } from "@react-navigation/native";
 import AQLink from "components/aqlink";
 import Loading from "components/loading/loading";
-import {
-  deleteStreamKeyRecord,
-  getStreamKeyRecords,
-  selectKeyRecords,
-} from "features/bluesky/blueskySlice";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { useAppDispatch, useAppSelector } from "store/hooks";
+import { useStore } from "store";
+import { useKeyRecords } from "store/hooks";
 import { PlaceStreamKey } from "streamplace";
 import { timeAgo } from "utils/timeAgo";
+
+import { Text, zero } from "@streamplace/components";
+import { X } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 
 function KeyRow({
   keyRecord,
@@ -32,24 +31,17 @@ function KeyRow({
   return (
     <View
       style={[
-        { justifyContent: "space-between" },
-        { alignItems: "stretch" },
+        zero.layout.flex.row,
+        zero.layout.flex.justify.between,
+        zero.layout.flex.align.center,
+        zero.gap.all[2],
         {
-          gap: 16,
           opacity: isDeleting ? 0.5 : 1,
           pointerEvents: isDeleting ? "none" : "auto",
-          flexDirection: "row",
         },
       ]}
     >
-      <View
-        style={[
-          {
-            flexDirection: "row",
-            gap: 8,
-          },
-        ]}
-      >
+      <View style={[zero.flex.values[1], zero.gap.all[1]]}>
         {keyRecord?.signingKey && (
           <Text
             style={[
@@ -60,29 +52,26 @@ function KeyRow({
               },
             ]}
             numberOfLines={1}
-            ellipsizeMode="tail"
+            ellipsizeMode="middle"
           >
             {keyRecord?.signingKey}
           </Text>
         )}
         {keyRecord?.createdAt && (
-          <Text style={[{ fontSize: 12, flex: 1, color: "#fff" }]}>
-            made {timeAgo(new Date(keyRecord.createdAt))}
+          <Text style={[{ fontSize: 12, color: "#999" }]}>
+            made {timeAgo(new Date(keyRecord.createdAt))}{" "}
+            {keyRecord.createdBy && "by " + keyRecord.createdBy}
           </Text>
         )}
       </View>
       <TouchableOpacity
         style={[
-          {
-            width: 32,
-            height: 32,
-            aspectRatio: 1,
-            padding: 8,
-            backgroundColor: isDeleting ? "#666" : "#333",
-            borderRadius: 8,
-            alignItems: "center",
-            justifyContent: "center",
-          },
+          zero.h[6],
+          zero.w[6],
+          zero.r.md,
+          zero.layout.flex.align.center,
+          zero.layout.flex.justify.center,
+          { backgroundColor: isDeleting ? "#666" : "#333" },
         ]}
         onPress={() => deleteKeyRecord(rkey)}
         disabled={isDeleting}
@@ -90,7 +79,7 @@ function KeyRow({
         {isDeleting ? (
           <ActivityIndicator size="small" color="#fff" />
         ) : (
-          <Text style={[{ fontSize: 16, color: "#fff" }]}>×</Text>
+          <X size={16} color="#fff" />
         )}
       </TouchableOpacity>
     </View>
@@ -98,16 +87,20 @@ function KeyRow({
 }
 
 export default function KeyManager() {
-  const dispatch = useAppDispatch();
-  const keyObj = useAppSelector(selectKeyRecords);
+  const deleteStreamKeyRecord = useStore(
+    (state) => state.deleteStreamKeyRecord,
+  );
+  const getStreamKeyRecords = useStore((state) => state.getStreamKeyRecords);
+  const keyObj = useKeyRecords();
   const keyRecords = keyObj?.records || null;
   const navigation = useNavigation();
+  const { t } = useTranslation("settings");
 
   const [deletingKeys, setDeletingKeys] = useState<Set<string>>(new Set());
   const deleteKeyRecord = (rkey: string) => {
     if (deletingKeys.has(rkey)) return; // Prevent double deletes
     setDeletingKeys((prev) => new Set(prev).add(rkey));
-    dispatch(deleteStreamKeyRecord({ rkey })).finally(() => {
+    deleteStreamKeyRecord(rkey).finally(() => {
       setDeletingKeys((prev) => {
         const newSet = new Set(prev);
         newSet.delete(rkey);
@@ -119,98 +112,60 @@ export default function KeyManager() {
   useEffect(() => {
     // delay 500ms to allow the screen to render
     setTimeout(() => {
-      dispatch(getStreamKeyRecords());
+      getStreamKeyRecords();
     }, 500);
   }, []);
 
-  navigation.setOptions({ title: `Key Manager` });
+  navigation.setOptions({ title: t("key-manager") });
 
   return (
-    <ScrollView
-      contentContainerStyle={[
-        { justifyContent: "flex-start" },
-        { alignItems: "center" },
-      ]}
-    >
-      <View style={[{ flex: 1 }, { padding: 16, gap: 16, maxWidth: 650 }]}>
-        {keyRecords === null || keyObj === null ? (
-          <Loading />
-        ) : keyRecords.records.length === 0 ? (
-          <>
-            <Text style={[{ marginTop: 32, fontSize: 16, color: "#fff" }]}>
-              No keys here!
-            </Text>
-            <AQLink to={{ screen: "LiveDashboard" }}>
-              <Text style={[{ fontSize: 12, color: "#007AFF" }]}>
-                Go to the live dashboard to create a key.
-              </Text>
-            </AQLink>
-            <TouchableOpacity
-              style={[
-                {
-                  width: 32,
-                  height: 32,
-                  padding: 8,
-                  backgroundColor: "#333",
-                  borderRadius: 8,
-                  alignItems: "center",
-                  justifyContent: "center",
-                },
-              ]}
-              onPress={() => dispatch(getStreamKeyRecords())}
-            >
-              <Text style={[{ fontSize: 16, color: "#fff" }]}>↻</Text>
-            </TouchableOpacity>
-          </>
-        ) : keyObj.loading == true || keyRecords === null ? (
-          <Loading />
-        ) : keyRecords.records.length === 0 ? (
-          <>
-            <Text style={[{ marginTop: 32, fontSize: 16, color: "#fff" }]}>
-              No keys here!
-            </Text>
-            <AQLink to={{ screen: "LiveDashboard" }}>
-              <Text style={[{ fontSize: 12, color: "#007AFF" }]}>
-                Go to the live dashboard to create a key.
-              </Text>
-            </AQLink>
-          </>
-        ) : (
-          <>
-            <View
-              style={[
-                {
-                  gap: 8,
-                  borderBottomWidth: 1,
-                  borderBottomColor: "#333",
-                  paddingBottom: 8,
-                  marginBottom: 8,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  {
-                    gap: 8,
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#333",
-                    paddingBottom: 8,
-                    marginBottom: 8,
-                  },
-                ]}
-              >
-                <Text
-                  style={[{ fontSize: 32, fontWeight: "bold", color: "#fff" }]}
-                >
-                  Your Stream Pubkeys
+    <ScrollView>
+      <View style={[zero.layout.flex.align.center, zero.px[8]]}>
+        <View style={[zero.py[2], { maxWidth: 500, width: "100%" }]}>
+          {keyRecords === null || keyObj === null ? (
+            <Loading />
+          ) : keyRecords.records.length === 0 ? (
+            <>
+              <Text size="xl">{t("no-keys")}</Text>
+              <AQLink to={{ screen: "LiveDashboard" }}>
+                <Text size="lg" color="muted">
+                  {t("go-to-dashboard")}
                 </Text>
-                <Text style={[{ fontSize: 12, color: "#999" }]}>
-                  A pubkey is a pair to one of your stream keys. You can revoke
-                  access for a specific stream key by revoking its associated
-                  pubkey below.
+              </AQLink>
+              <TouchableOpacity
+                style={[
+                  zero.px[12],
+                  zero.py[12],
+                  zero.r.md,
+                  zero.layout.flex.align.center,
+                  zero.layout.flex.justify.center,
+                  { backgroundColor: "#333" },
+                ]}
+                onPress={() => getStreamKeyRecords()}
+              >
+                <Text size="lg">{t("refresh")}</Text>
+              </TouchableOpacity>
+            </>
+          ) : keyObj.loading == true || keyRecords === null ? (
+            <Loading />
+          ) : keyRecords.records.length === 0 ? (
+            <>
+              <Text size="xl">{t("no-keys")}</Text>
+              <AQLink to={{ screen: "LiveDashboard" }}>
+                <Text size="lg" color="muted">
+                  {t("go-to-dashboard")}
+                </Text>
+              </AQLink>
+            </>
+          ) : (
+            <>
+              <View style={[zero.mb[4]]}>
+                <Text size="xl">{t("your-stream-pubkeys")}</Text>
+                <Text size="lg" color="muted">
+                  {t("pubkey-description")}
                 </Text>
               </View>
-              <View style={[{ gap: 8 }]}>
+              <View style={[zero.gap.all[4]]}>
                 {keyRecords.records.map((keyRecord) => {
                   const rkey = keyRecord.uri.split("/").pop() as string;
                   return (
@@ -224,17 +179,12 @@ export default function KeyManager() {
                   );
                 })}
               </View>
-              <Text style={[{ fontSize: 12, color: "#999" }]}>
-                {keyRecords.records.length} key
-                {keyRecords.records.length > 1 && "s"}
+              <Text size="lg" color="muted">
+                {t("keys-count", { count: keyRecords.records.length })}
               </Text>
-            </View>
-
-            <Text style={[{ fontSize: 12, color: "#999" }]}>
-              Go to the live dashboard to create a key.
-            </Text>
-          </>
-        )}
+            </>
+          )}
+        </View>
       </View>
     </ScrollView>
   );

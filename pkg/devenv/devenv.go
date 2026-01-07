@@ -25,8 +25,9 @@ import (
 )
 
 type DevEnv struct {
-	PDSURL string `json:"pds-url"`
-	PLCURL string `json:"plc-url"`
+	PDSURL   string           `json:"pds-url"`
+	PLCURL   string           `json:"plc-url"`
+	Accounts []*DevEnvAccount `json:"accounts"`
 }
 
 func WithDevEnv(t *testing.T) *DevEnv {
@@ -55,6 +56,7 @@ func WithDevEnv(t *testing.T) *DevEnv {
 		t.Logf("Error unmarshalling dev-env stdout: %v", err)
 		t.FailNow()
 	}
+	env.Accounts = []*DevEnvAccount{}
 
 	go func() {
 		scanner := bufio.NewScanner(stdout)
@@ -124,14 +126,15 @@ func (d *DevEnv) CreateAccount(t *testing.T) *DevEnvAccount {
 			Handle:     out.Handle,
 		},
 	}
-
-	return &DevEnvAccount{
+	acct := &DevEnvAccount{
 		Handle:   out.Handle,
 		Email:    email,
 		Password: password,
 		DID:      out.Did,
 		XRPC:     xrpcc,
 	}
+	d.Accounts = append(d.Accounts, acct)
+	return acct
 }
 
 // Custom RoundTripper for intercepting .test domain requests

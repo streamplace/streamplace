@@ -28,7 +28,7 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 		return nil, fmt.Errorf("failed to create GStreamer pipeline: %w", err) //nolint:all
 	}
 
-	demuxBin, err := ConcatDemuxBin(ctx, seg)
+	demuxBin, err := ConcatDemuxBin(ctx, seg, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create concat bin: %w", err)
 	}

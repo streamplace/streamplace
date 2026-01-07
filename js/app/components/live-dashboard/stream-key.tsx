@@ -1,18 +1,24 @@
-import { Body, Button, Code, Row, View } from "@streamplace/components";
-import { Redirect } from "components/aqlink";
-import Loading from "components/loading/loading";
+import { useRoute } from "@react-navigation/native";
 import {
-  clearStreamKeyRecord,
-  createStreamKeyRecord,
-  selectIsReady,
-  selectUserProfile,
-} from "features/bluesky/blueskySlice";
+  Body,
+  Button,
+  Code,
+  Row,
+  Text,
+  useTheme,
+  useToast,
+  View,
+} from "@streamplace/components";
+import Loading from "components/loading/loading";
+import { Clipboard, ClipboardCheck } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { useAppDispatch, useAppSelector } from "store/hooks";
+import { ScrollView, TextInput } from "react-native";
+import { useStore } from "store";
+import { useIsReady, useUserProfile } from "store/hooks";
 
 const FormRow = ({ children }: { children: React.ReactNode }) => {
   return (
-    <Row fullWidth padding="lg" align="start">
+    <Row fullWidth align="start">
       {children}
     </Row>
   );
@@ -36,54 +42,69 @@ const Content = ({ children }: { children: React.ReactNode }) => {
 
 export function StreamKeyScreen() {
   const [protocol, setProtocol] = useState<"whip" | "rtmp">("rtmp");
-  const isReady = useAppSelector(selectIsReady);
+  const isReady = useIsReady();
+  const userProfile = useUserProfile();
+  const openLoginModal = useStore((state) => state.openLoginModal);
+  const route = useRoute();
+  const url = useStore((state) => state.url);
+
+  useEffect(() => {
+    if (isReady && !userProfile) {
+      openLoginModal({ name: route.name, params: route.params });
+    }
+  }, [isReady, userProfile, openLoginModal, route.name, route.params]);
 
   if (!isReady) {
     return <Loading />;
   }
 
-  const userProfile = useAppSelector(selectUserProfile);
   if (!userProfile) {
-    return <Redirect to={{ screen: "Login" }} />;
+    return <Loading />;
   }
 
-  const url = useAppSelector((state) => state.streamplace.url);
-
   return (
-    <View flex={1} centered fullWidth padding="lg">
-      <View fullWidth style={{ maxWidth: 600 }}>
-        <FormRow>
-          <Button
-            variant={protocol !== "rtmp" ? "secondary" : "primary"}
-            onPress={() => setProtocol("rtmp")}
-          >
-            RTMP
-          </Button>
-          <Button
-            variant={protocol !== "whip" ? "secondary" : "primary"}
-            onPress={() => setProtocol("whip")}
-          >
-            WHIP
-          </Button>
-        </FormRow>
-
-        {protocol === "whip" && <WHIPDescription url={url} />}
-        {protocol === "rtmp" && <RTMPDescription url={url} />}
-
-        <FormRow>
-          <Label>Output Settings</Label>
-          <Content>
-            <Body>Output mode: Advanced</Body>
-            <Body>
-              Keyframe Interval: <Code>1s</Code>
-            </Body>
-            <Body>
-              x264 Options: <Code>bframes=0</Code>
-            </Body>
-          </Content>
-        </FormRow>
+    <ScrollView>
+      <View flex={1} align="center" justify="start" padding="md" fullWidth>
+        <View fullWidth style={{ maxWidth: 600 }}>
+          <FormRow>
+            <Button
+              variant={protocol !== "rtmp" ? "secondary" : "primary"}
+              onPress={() => setProtocol("rtmp")}
+              style={{
+                borderTopRightRadius: "0px",
+                borderBottomRightRadius: "0px",
+              }}
+            >
+              RTMP
+            </Button>
+            <Button
+              variant={protocol !== "whip" ? "secondary" : "primary"}
+              onPress={() => setProtocol("whip")}
+              style={{
+                borderTopLeftRadius: "0px",
+                borderBottomLeftRadius: "0px",
+              }}
+            >
+              WHIP
+            </Button>
+          </FormRow>
+          {protocol === "whip" && <WHIPDescription url={url} />}
+          {protocol === "rtmp" && <RTMPDescription url={url} />}
+          <FormRow>
+            <Label>Output Settings</Label>
+            <Content>
+              <Text>Output mode: Advanced</Text>
+              <Text>
+                Keyframe Interval: <Code>1s</Code>
+              </Text>
+              <Text>
+                x264 Options: <Code>bframes=0</Code>
+              </Text>
+            </Content>
+          </FormRow>
+        </View>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -99,7 +120,20 @@ export function WHIPDescription({ url }: { url: string }) {
       <FormRow>
         <Label>Server</Label>
         <Content>
-          <Body>{url}</Body>
+          <TextInput
+            value={url}
+            readOnly={true}
+            style={[
+              {
+                backgroundColor: "#1a1a1a",
+                borderWidth: 1,
+                borderColor: "#333",
+                borderRadius: 8,
+                padding: 12,
+                color: "white",
+              },
+            ]}
+          />
         </Content>
       </FormRow>
       <FormRow>
@@ -127,7 +161,20 @@ export function RTMPDescription({ url }: { url: string }) {
       <FormRow>
         <Label>Server</Label>
         <Content>
-          <Body>{rtmpUrl}</Body>
+          <TextInput
+            value={rtmpUrl}
+            readOnly={true}
+            style={[
+              {
+                backgroundColor: "#1a1a1a",
+                borderWidth: 1,
+                borderColor: "#333",
+                borderRadius: 8,
+                padding: 12,
+                color: "white",
+              },
+            ]}
+          />
         </Content>
       </FormRow>
       <FormRow>
@@ -143,37 +190,101 @@ export function RTMPDescription({ url }: { url: string }) {
 export default StreamKeyScreen;
 
 export function StreamKey() {
-  const dispatch = useAppDispatch();
+  const theme = useTheme();
+  const toast = useToast();
+
+  const createStreamKeyRecord = useStore(
+    (state) => state.createStreamKeyRecord,
+  );
+  const clearStreamKeyRecord = useStore((state) => state.clearStreamKeyRecord);
   const [generating, setGenerating] = useState(false);
-  const newKey = useAppSelector((state) => state.bluesky.newKey);
+  const [hidekey, setHidekey] = useState(true);
+  const [didcopy, setDidcopy] = useState(false);
+  const newKey = useStore((state) => state.newKey);
+
+  let foregroundColor = theme.theme.colors.text || "#fff";
 
   useEffect(() => {
     if (!newKey) {
       return;
     }
 
-    (async () => {
-      try {
-        await navigator.clipboard.writeText(newKey.privateKey);
-        // TODO: Replace with custom toast implementation
-        console.log("Bearer token copied to clipboard");
-      } catch (e) {
-        // not allowed. oh well.
-        console.log("Could not copy to clipboard");
-      }
-    })();
-
     return () => {
-      dispatch(clearStreamKeyRecord());
+      clearStreamKeyRecord();
     };
-  }, [newKey, dispatch]);
+  }, [newKey]);
+
+  const handleCopy = async () => {
+    if (!newKey) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(newKey.privateKey);
+      setDidcopy(true);
+
+      toast.show("Stream Key", "Stream Key was copied to your clipboard", {
+        duration: 4,
+      });
+    } catch (e) {
+      // not allowed. oh well.
+      toast.show(
+        "Stream Key",
+        "Failed to copy the Stream Key to your clipboard",
+        { duration: 4 },
+      );
+    }
+  };
 
   if (generating) {
     return <Loading />;
   }
 
   if (newKey) {
-    return <Code>{newKey.privateKey}</Code>;
+    return (
+      <Row fullWidth flex={1} align="start">
+        <TextInput
+          value={newKey.privateKey}
+          secureTextEntry={hidekey}
+          readOnly={true}
+          style={[
+            {
+              backgroundColor: "#1a1a1a",
+              borderWidth: 1,
+              borderColor: "#333",
+              borderRadius: 8,
+              padding: 12,
+              color: "white",
+              flex: 1,
+              borderTopRightRadius: "0px",
+              borderBottomRightRadius: "0px",
+            },
+          ]}
+          onFocus={(e) => {
+            setHidekey(false);
+          }}
+          onBlur={() => {
+            setHidekey(true);
+          }}
+          selectTextOnFocus={true}
+        />
+        <Button
+          onPress={handleCopy}
+          style={[
+            {
+              borderTopLeftRadius: "0px",
+              borderBottomLeftRadius: "0px",
+            },
+          ]}
+        >
+          {didcopy ? (
+            <ClipboardCheck color={foregroundColor} size={24} />
+          ) : (
+            <Clipboard color={foregroundColor} size={24} />
+          )}
+        </Button>
+      </Row>
+    );
   }
 
   return (
@@ -181,7 +292,8 @@ export function StreamKey() {
       onPress={async () => {
         try {
           setGenerating(true);
-          await dispatch(createStreamKeyRecord({ store: false }));
+          setDidcopy(false);
+          await createStreamKeyRecord(false);
         } catch (e) {
           console.error("failed to generate stream key", e);
         } finally {

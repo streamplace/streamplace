@@ -1,0 +1,36 @@
+{
+  "supportedLocales": ["en-US", "pt-BR", "es-ES", "zh-Hant", "fr-FR"],
+  "fallbackChain": ["en-US"],
+  "languages": {
+    "en-US": {
+      "code": "en-US",
+      "name": "English",
+      "nativeName": "English",
+      "flag": "🇺🇸"
+    },
+    "pt-BR": {
+      "code": "pt-BR",
+      "name": "Portuguese",
+      "nativeName": "Português",
+      "flag": "🇧🇷"
+    },
+    "es-ES": {
+      "code": "es-ES",
+      "name": "Spanish",
+      "nativeName": "Español",
+      "flag": "🇪🇸"
+    },
+    "zh-Hant": {
+      "code": "zh-Hant",
+      "name": "Chinese (Traditional)",
+      "nativeName": "繁體中文",
+      "flag": "漢"
+    },
+    "fr-FR": {
+      "code": "fr-FR",
+      "name": "French",
+      "nativeName": "Français",
+      "flag": "🇫🇷"
+    }
+  }
+}

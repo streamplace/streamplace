@@ -1,19 +1,15 @@
-import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import * as DropdownMenuPrimitive from "@rn-primitives/dropdown-menu";
 import {
   Check,
-  CheckCircle,
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  Circle,
 } from "lucide-react-native";
-import React, { forwardRef, ReactNode, useMemo, useRef } from "react";
+import React, { forwardRef, ReactNode } from "react";
 import {
   Platform,
-  Pressable,
+  ScrollView,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -39,77 +35,50 @@ import {
   objectFromObjects,
   TextContext as TextClassContext,
 } from "./primitives/text";
+import { Text } from "./text";
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 export const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
-export const DropdownMenuSub = DropdownMenuPrimitive.Sub;
-export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
-export const DropdownMenuBottomSheet = forwardRef<
-  any,
-  DropdownMenuPrimitive.ContentProps & {
-    overlayStyle?: any;
-    portalHost?: string;
-  }
->(function DropdownMenuBottomSheet(
-  { overlayStyle, portalHost, children },
-  _ref,
-) {
-  // Use the primitives' context to know if open
-  const { open, onOpenChange } = DropdownMenuPrimitive.useRootContext();
-  const { zero: zt } = useTheme();
-  const snapPoints = useMemo(() => ["25%", "50%", "80%"], []);
-  const sheetRef = useRef<BottomSheet>(null);
-
+export const DropdownMenuRadioGroup = forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.RadioGroup>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioGroup>
+>(({ children, ...props }, ref) => {
   return (
-    <DropdownMenuPrimitive.Portal hostName={portalHost}>
-      <BottomSheet
-        ref={sheetRef}
-        // why the heck is this 1-indexed
-        index={open ? 3 : -1}
-        snapPoints={snapPoints}
-        enablePanDownToClose
-        enableDynamicSizing
-        enableContentPanningGesture={false}
-        backdropComponent={({ style }) => (
-          <Pressable
-            style={[style, StyleSheet.absoluteFill]}
-            onPress={() => onOpenChange?.(false)}
-          />
-        )}
-        onClose={() => onOpenChange?.(false)}
-        style={[overlayStyle]}
-        backgroundStyle={[zt.bg.popover, a.radius.all.md, a.shadows.md, p[1]]}
-        handleIndicatorStyle={[
-          a.sizes.width[12],
-          a.sizes.height[1],
-          zt.bg.mutedForeground,
-        ]}
-      >
-        <BottomSheetView style={[px[2]]}>
-          {typeof children === "function"
-            ? children({ pressed: true })
-            : children}
-        </BottomSheetView>
-      </BottomSheet>
-    </DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.RadioGroup ref={ref} {...props}>
+      {children}
+    </DropdownMenuPrimitive.RadioGroup>
   );
 });
 
+export const DropdownMenuSub = forwardRef<any, any>(
+  ({ children, ...props }, ref) => {
+    return (
+      <DropdownMenuPrimitive.Sub ref={ref} {...props}>
+        {children}
+      </DropdownMenuPrimitive.Sub>
+    );
+  },
+);
+
 export const DropdownMenuSubTrigger = forwardRef<
   any,
-  DropdownMenuPrimitive.SubTriggerProps & { inset?: boolean } & {
+  DropdownMenuPrimitive.SubTriggerProps & {
+    inset?: boolean;
+    subMenuTitle?: string;
+  } & {
     ref?: React.RefObject<DropdownMenuPrimitive.SubTriggerRef>;
     className?: string;
     inset?: boolean;
     children?: React.ReactNode;
   }
->(({ inset, children, ...props }, ref) => {
-  const { open } = DropdownMenuPrimitive.useSubContext();
+>(({ inset, children, subMenuTitle, ...props }, ref) => {
   const { icons } = useTheme();
+  const { open } = DropdownMenuPrimitive.useSubContext();
   const Icon =
     Platform.OS === "web" ? ChevronRight : open ? ChevronUp : ChevronDown;
+
   return (
     <TextClassContext.Provider
       value={objectFromObjects([
@@ -140,15 +109,17 @@ export const DropdownMenuSubTrigger = forwardRef<
 
 export const DropdownMenuSubContent = forwardRef<
   any,
-  DropdownMenuPrimitive.SubContentProps
->((props, ref) => {
+  DropdownMenuPrimitive.SubContentProps & { children?: ReactNode }
+>(({ children, ...props }, ref) => {
   const { zero: zt } = useTheme();
+
   return (
     <DropdownMenuPrimitive.SubContent
       ref={ref}
       style={[
         a.zIndex[50],
-        a.sizes.minWidth[32],
+        a.sizes.minWidth[64],
+        a.sizes.maxWidth[64],
         a.overflow.hidden,
         a.radius.all.md,
         a.borders.width.thin,
@@ -159,7 +130,9 @@ export const DropdownMenuSubContent = forwardRef<
         a.shadows.md,
       ]}
       {...props}
-    />
+    >
+      {children}
+    </DropdownMenuPrimitive.SubContent>
   );
 });
 
@@ -169,8 +142,11 @@ export const DropdownMenuContent = forwardRef<
     overlayStyle?: any;
     portalHost?: string;
   }
->(({ overlayStyle, portalHost, ...props }, ref) => {
+>(({ overlayStyle, portalHost, style, children, ...props }, ref) => {
   const { zero: zt } = useTheme();
+  const { height } = useWindowDimensions();
+  const maxHeight = height * 0.9;
+
   return (
     <DropdownMenuPrimitive.Portal hostName={portalHost}>
       <DropdownMenuPrimitive.Overlay
@@ -184,8 +160,9 @@ export const DropdownMenuContent = forwardRef<
           style={
             [
               a.zIndex[50],
-              a.sizes.minWidth[32],
+              a.sizes.minWidth[64],
               a.sizes.maxWidth[64],
+              { maxHeight: maxHeight },
               a.overflow.hidden,
               a.radius.all.md,
               a.borders.width.thin,
@@ -193,10 +170,17 @@ export const DropdownMenuContent = forwardRef<
               zt.bg.popover,
               p[2],
               a.shadows.md,
+              style,
             ] as any
           }
           {...props}
-        />
+        >
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {typeof children === "function"
+              ? children({ pressed: false })
+              : children}
+          </ScrollView>
+        </DropdownMenuPrimitive.Content>
       </DropdownMenuPrimitive.Overlay>
     </DropdownMenuPrimitive.Portal>
   );
@@ -206,61 +190,80 @@ export const DropdownMenuContentWithoutPortal = forwardRef<
   any,
   DropdownMenuPrimitive.ContentProps & {
     overlayStyle?: any;
+    maxHeightPercentage?: number;
   }
->(({ overlayStyle, ...props }, ref) => {
-  const { theme } = useTheme();
-  return (
-    <DropdownMenuPrimitive.Overlay
-      style={[
-        Platform.OS !== "web" ? StyleSheet.absoluteFill : undefined,
-        overlayStyle,
-      ]}
-    >
-      <DropdownMenuPrimitive.Content
-        ref={ref}
-        style={
-          [
-            { zIndex: 999999 },
-            a.sizes.minWidth[32],
-            a.sizes.maxWidth[64],
-            a.overflow.hidden,
-            a.radius.all.md,
-            a.borders.width.thin,
-            { borderColor: theme.colors.border },
-            { backgroundColor: theme.colors.popover },
-            p[2],
-            a.shadows.md,
-          ] as any
-        }
-        {...props}
-      />
-    </DropdownMenuPrimitive.Overlay>
-  );
-});
+>(
+  (
+    { overlayStyle, maxHeightPercentage = 0.9, children, style, ...props },
+    ref,
+  ) => {
+    const { theme } = useTheme();
+    const { height } = useWindowDimensions();
+    const maxHeight = height * maxHeightPercentage;
 
-/// Responsive Dropdown Menu Content. On mobile this will render a *bottom sheet* that is **portaled to the root of the app**.
-/// Prefer passing scoped content in as **otherwise it may crash the app**.
-export const ResponsiveDropdownMenuContent = forwardRef<any, any>(
-  ({ children, ...props }, ref) => {
-    const { width } = useWindowDimensions();
-
-    // On web, you might want to always use the normal dropdown
-    const isBottomSheet = Platform.OS !== "web" && width < 800;
-
-    if (isBottomSheet) {
-      return (
-        <DropdownMenuBottomSheet ref={ref} {...props}>
-          {children}
-        </DropdownMenuBottomSheet>
-      );
-    }
     return (
-      <DropdownMenuContent ref={ref} {...props}>
-        {children}
-      </DropdownMenuContent>
+      <DropdownMenuPrimitive.Overlay
+        style={[
+          Platform.OS !== "web" ? StyleSheet.absoluteFill : undefined,
+          overlayStyle,
+        ]}
+      >
+        <DropdownMenuPrimitive.Content
+          ref={ref}
+          style={
+            [
+              { zIndex: 999999 },
+              a.sizes.minWidth[64],
+              a.sizes.maxWidth[64],
+              { maxHeight: maxHeight },
+              a.radius.all.md,
+              a.borders.width.thin,
+              { borderColor: theme.colors.border },
+              { backgroundColor: theme.colors.popover },
+              p[2],
+              a.shadows.md,
+              style,
+            ] as any
+          }
+          {...props}
+        >
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {typeof children === "function"
+              ? children({ pressed: false })
+              : children}
+          </ScrollView>
+        </DropdownMenuPrimitive.Content>
+      </DropdownMenuPrimitive.Overlay>
     );
   },
 );
+
+export const ResponsiveDropdownMenuContent = forwardRef<
+  any,
+  any & { onModeChange?: (isSheet: boolean) => void }
+>(({ children, onModeChange, ...props }, ref) => {
+  const { width } = useWindowDimensions();
+
+  const isBottomSheet =
+    Platform.OS !== "web" || (Platform.OS === "web" && width <= 980);
+
+  React.useEffect(() => {
+    onModeChange?.(isBottomSheet);
+  }, [isBottomSheet, onModeChange]);
+
+  if (isBottomSheet) {
+    return (
+      <DropdownMenuContent align="start" ref={ref} {...props}>
+        {children}
+      </DropdownMenuContent>
+    );
+  }
+  return (
+    <DropdownMenuContent ref={ref} {...props}>
+      {children}
+    </DropdownMenuContent>
+  );
+});
 
 export const DropdownMenuItem = forwardRef<
   any,
@@ -268,7 +271,7 @@ export const DropdownMenuItem = forwardRef<
 >(({ inset, disabled, style, children, ...props }, ref) => {
   const { theme } = useTheme();
   return (
-    <Pressable {...props}>
+    <DropdownMenuPrimitive.Item ref={ref} {...props}>
       <TextClassContext.Provider
         value={objectFromObjects([
           { color: theme.colors.popoverForeground },
@@ -285,12 +288,18 @@ export const DropdownMenuItem = forwardRef<
             pr[2],
           ]}
         >
-          {typeof children === "function"
-            ? children({ pressed: true })
-            : children}
+          {typeof children === "function" ? (
+            children({ pressed: true })
+          ) : typeof children === "string" ? (
+            <Text style={[inset && gap[2], disabled && { opacity: 0.5 }]}>
+              {children}
+            </Text>
+          ) : (
+            children
+          )}
         </View>
       </TextClassContext.Provider>
-    </Pressable>
+    </DropdownMenuPrimitive.Item>
   );
 });
 
@@ -302,6 +311,7 @@ export const DropdownMenuCheckboxItem = forwardRef<
   }
 >(({ children, checked, ...props }, ref) => {
   const { theme } = useTheme();
+
   return (
     <DropdownMenuPrimitive.CheckboxItem
       ref={ref}
@@ -322,19 +332,9 @@ export const DropdownMenuCheckboxItem = forwardRef<
       >
         {children}
         <View style={[pl[1], layout.position.absolute, right[1]]}>
-          {checked ? (
-            <CheckCircle
-              size={14}
-              strokeWidth={3}
-              color={theme.colors.foreground}
-            />
-          ) : (
-            <Circle
-              size={14}
-              strokeWidth={3}
-              color={theme.colors.mutedForeground}
-            />
-          )}
+          <DropdownMenuPrimitive.ItemIndicator>
+            <Check size={14} strokeWidth={3} color={theme.colors.foreground} />
+          </DropdownMenuPrimitive.ItemIndicator>
         </View>
       </View>
     </DropdownMenuPrimitive.CheckboxItem>
@@ -346,13 +346,16 @@ export const DropdownMenuRadioItem = forwardRef<
   DropdownMenuPrimitive.RadioItemProps & {
     ref?: React.RefObject<DropdownMenuPrimitive.RadioItemRef>;
     children?: React.ReactNode;
+    value?: string;
   }
->(({ children, ...props }, ref) => {
+>(({ children, value, ...props }, ref) => {
   const { theme } = useTheme();
+
   return (
     <DropdownMenuPrimitive.RadioItem
       ref={ref}
       closeOnPress={props.closeOnPress || false}
+      value={value}
       {...props}
     >
       <View
@@ -384,13 +387,15 @@ export const DropdownMenuLabel = forwardRef<
   return (
     <Text
       ref={ref}
-      style={[
-        px[2],
-        py[2],
-        { color: theme.colors.textMuted },
-        a.fontSize.base,
-        inset && gap[2],
-      ]}
+      style={
+        [
+          px[2],
+          py[2],
+          { color: theme.colors.textMuted },
+          a.fontSize.base,
+          (inset && gap[2]) as any,
+        ] as any
+      }
       {...props}
     />
   );
@@ -404,7 +409,13 @@ export const DropdownMenuSeparator = forwardRef<
   return (
     <View
       ref={ref}
-      style={[{ height: 0.5 }, { backgroundColor: theme.colors.border }]}
+      style={[
+        {
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.border,
+          marginVertical: -0.5,
+        },
+      ]}
       {...props}
     />
   );
@@ -470,3 +481,6 @@ export const DropdownMenuInfo = forwardRef<any, any>(
     );
   },
 );
+
+// Re-export DropdownMenuBottomSheet for compatibility with native
+export const DropdownMenuBottomSheet = DropdownMenuContent;

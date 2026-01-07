@@ -44,7 +44,21 @@
             "type": "blob",
             "accept": ["image/*"],
             "maxSize": 1000000
+          },
+          "notificationSettings": {
+            "type": "ref",
+            "ref": "place.stream.livestream#notificationSettings"
           }
+        }
+      }
+    },
+    "notificationSettings": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "pushNotification": {
+          "type": "boolean",
+          "description": "Whether this livestream should trigger a push notification to followers."
         }
       }
     },
@@ -63,7 +77,7 @@
         "viewerCount": {
           "type": "ref",
           "description": "The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly.",
-          "ref": "place.stream.livestream#viewerCount"
+          "ref": "#viewerCount"
         }
       }
     },

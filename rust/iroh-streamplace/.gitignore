@@ -1,1 +1,2 @@
-/target
+/go/iroh_streamplace/*
+/go/*.dylib

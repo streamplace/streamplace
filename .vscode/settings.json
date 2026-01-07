@@ -10,15 +10,16 @@
   },
   "mesonbuild.configureOnOpen": false,
   "cSpell.words": ["Devplace", "streamplace", "webrtc"],
-  "go.lintTool": "golangci-lint",
-  "go.lintFlags": ["--path-mode=abs"],
+  "go.lintTool": "golangci-lint-v2",
+  "go.lintFlags": ["--path-mode=abs", "--fast-only"],
   "go.formatTool": "custom",
   "go.alternateTools": {
-    "customFormatter": "golangci-lint"
+    "customFormatter": "golangci-lint-v2"
   },
   "go.formatFlags": ["fmt", "--stdin"],
   "editor.codeActionsOnSave": {
     "source.addMissingImports": "explicit",
     "source.organizeImports": "explicit"
-  }
+  },
+  "editor.tabSize": 2
 }

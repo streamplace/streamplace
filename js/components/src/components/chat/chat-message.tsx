@@ -8,6 +8,7 @@ import { Linking, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { RichtextSegment, segmentize } from "../../lib/facet";
 import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
+import { formatHandleWithAt } from "../../utils/format-handle";
 import { atoms, colors, layout } from "../ui";
 
 interface Facet {
@@ -138,7 +139,7 @@ export const RenderChatMessage = memo(
                   fontWeight: "thin",
                 }}
               >
-                @{(replyTo.author as any).handle}
+                {formatHandleWithAt(replyTo.author)}
               </Text>{" "}
               <Text
                 style={{
@@ -181,7 +182,7 @@ export const RenderChatMessage = memo(
                 },
               ]}
             >
-              @{item.author.handle}
+              {formatHandleWithAt(item.author)}
             </Text>
             :{" "}
             <RichTextMessage

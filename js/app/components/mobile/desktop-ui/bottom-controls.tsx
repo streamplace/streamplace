@@ -2,7 +2,10 @@ import {
   Button,
   PlayerUI,
   View,
+  useDanmuEnabled,
+  useDanmuUnlocked,
   usePlayerStore,
+  useSetDanmuEnabled,
   useTheme,
   zero,
 } from "@streamplace/components";
@@ -16,7 +19,9 @@ import {
 import { Platform, Pressable } from "react-native";
 import { VolumeSlider } from "./volume-slider";
 
-const { gap, layout, p, r } = zero;
+import { Mu } from "./mu";
+
+const { gap, layout, p, r, py, px } = zero;
 
 interface BottomControlBarProps {
   ingest: string | null;
@@ -25,7 +30,7 @@ interface BottomControlBarProps {
   onHandlePip: () => void;
   dropdownPortalContainer?: any;
   showChat: boolean;
-  setShowChat: (show: boolean) => void;
+  setShowChat?: (show: boolean) => void;
 }
 
 export function BottomControlBar({
@@ -40,6 +45,9 @@ export function BottomControlBar({
   let { theme } = useTheme();
   const fullscreen = usePlayerStore((state) => state.fullscreen);
   const setFullscreen = usePlayerStore((state) => state.setFullscreen);
+  const danmuUnlocked = useDanmuUnlocked();
+  const danmuEnabled = useDanmuEnabled();
+  const setDanmuEnabled = useSetDanmuEnabled();
 
   return (
     <View
@@ -57,14 +65,23 @@ export function BottomControlBar({
         {Platform.OS === "web" && pipSupported && (
           <Pressable onPress={onHandlePip} disabled={pipActive}>
             <View style={{ opacity: pipActive ? 0.5 : 1 }}>
-              <PictureInPicture2 />
+              <PictureInPicture2 color={theme.colors.text} />
             </View>
           </Pressable>
         )}
-        {ingest === null && (
-          <PlayerUI.ContextMenu
-            dropdownPortalContainer={dropdownPortalContainer}
-          />
+        {danmuUnlocked && (
+          <Pressable
+            onPress={() => {
+              setDanmuEnabled(!danmuEnabled);
+            }}
+            style={[px[0], r[1]]}
+          >
+            <Mu
+              size={22}
+              color={theme.colors.text}
+              style={{ opacity: danmuEnabled ? 1 : 0.5 }}
+            />
+          </Pressable>
         )}
         {Platform.OS === "web" && (
           <Pressable
@@ -80,8 +97,13 @@ export function BottomControlBar({
             )}
           </Pressable>
         )}
+        {ingest === null && (
+          <PlayerUI.ContextMenu
+            dropdownPortalContainer={dropdownPortalContainer}
+          />
+        )}
         {/* if not web, then add the collapse chat controls here */}
-        {Platform.OS !== "web" && (
+        {Platform.OS !== "web" && setShowChat && (
           <Button
             variant="outline"
             size="sm"

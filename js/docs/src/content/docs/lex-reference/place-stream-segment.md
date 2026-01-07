@@ -19,16 +19,19 @@ Media file representing a segment of a livestream
 
 **Record Properties:**
 
-| Name         | Type                        | Req'd | Description                                      | Constraints        |
-| ------------ | --------------------------- | ----- | ------------------------------------------------ | ------------------ |
-| `id`         | `string`                    | ✅    | Unique identifier for the segment                |                    |
-| `signingKey` | `string`                    | ✅    | The DID of the signing key used for this segment |                    |
-| `startTime`  | `string`                    | ✅    | When this segment started                        | Format: `datetime` |
-| `duration`   | `integer`                   | ❌    | The duration of the segment in nanoseconds       |                    |
-| `creator`    | `string`                    | ✅    |                                                  | Format: `did`      |
-| `video`      | Array of [`#video`](#video) | ❌    |                                                  |                    |
-| `audio`      | Array of [`#audio`](#audio) | ❌    |                                                  |                    |
-| `size`       | `integer`                   | ❌    | The size of the segment in bytes                 |                    |
+| Name                 | Type                                                                                                  | Req'd | Description                                      | Constraints        |
+| -------------------- | ----------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------ | ------------------ |
+| `id`                 | `string`                                                                                              | ✅    | Unique identifier for the segment                |                    |
+| `signingKey`         | `string`                                                                                              | ✅    | The DID of the signing key used for this segment |                    |
+| `startTime`          | `string`                                                                                              | ✅    | When this segment started                        | Format: `datetime` |
+| `duration`           | `integer`                                                                                             | ❌    | The duration of the segment in nanoseconds       |                    |
+| `creator`            | `string`                                                                                              | ✅    |                                                  | Format: `did`      |
+| `video`              | Array of [`#video`](#video)                                                                           | ❌    |                                                  |                    |
+| `audio`              | Array of [`#audio`](#audio)                                                                           | ❌    |                                                  |                    |
+| `size`               | `integer`                                                                                             | ❌    | The size of the segment in bytes                 |                    |
+| `contentWarnings`    | [`place.stream.metadata.contentWarnings`](/lex-reference/place-stream-metadata-contentwarnings)       | ❌    |                                                  |                    |
+| `contentRights`      | [`place.stream.metadata.contentRights`](/lex-reference/place-stream-metadata-contentrights)           | ❌    |                                                  |                    |
+| `distributionPolicy` | [`place.stream.metadata.distributionPolicy`](/lex-reference/place-stream-metadata-distributionpolicy) | ❌    |                                                  |                    |
 
 ---
 
@@ -149,6 +152,18 @@ Media file representing a segment of a livestream
           "size": {
             "type": "integer",
             "description": "The size of the segment in bytes"
+          },
+          "contentWarnings": {
+            "type": "ref",
+            "ref": "place.stream.metadata.contentWarnings"
+          },
+          "contentRights": {
+            "type": "ref",
+            "ref": "place.stream.metadata.contentRights"
+          },
+          "distributionPolicy": {
+            "type": "ref",
+            "ref": "place.stream.metadata.distributionPolicy"
           }
         }
       }

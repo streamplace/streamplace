@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import * as sdpTransform from "sdp-transform";
 import { PlayerStatus, usePlayerStore, useStreamKey } from "../..";
 import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
 
@@ -107,6 +108,13 @@ export async function negotiateConnectionWithClientOffer(
     offerToReceiveAudio: true,
     offerToReceiveVideo: true,
   });
+  if (!offer.sdp) {
+    throw Error("no SDP in offer");
+  }
+
+  const newSDP = forceStereoAudio(offer.sdp);
+
+  offer.sdp = newSDP;
   /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/setLocalDescription */
   await peerConnection.setLocalDescription(offer);
 
@@ -296,4 +304,27 @@ export function useWebRTCIngest({
   }, [peerConnection, mediaStream, ingestLive]);
 
   return [mediaStream, setMediaStream];
+}
+
+export function forceStereoAudio(sdp: string): string {
+  const parsedSDP = sdpTransform.parse(sdp);
+  const audioMedia = parsedSDP.media.find((m) => m.type === "audio");
+  if (!audioMedia) {
+    throw Error("no audio media in SDP");
+  }
+  const opusCodec = audioMedia.rtp.find((c) => c.codec === "opus");
+  if (!opusCodec) {
+    throw Error("no opus codec in SDP");
+  }
+  const opusFMTP = audioMedia.fmtp.find((c) => c.payload === opusCodec.payload);
+  if (!opusFMTP) {
+    throw Error("no opus fmtp in SDP");
+  }
+  const opusParams = sdpTransform.parseParams(opusFMTP.config);
+  opusParams.stereo = 1;
+  const newParams = Object.entries(opusParams)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(";");
+  opusFMTP.config = newParams;
+  return sdpTransform.write(parsedSDP);
 }

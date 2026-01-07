@@ -23,7 +23,7 @@ description: Reference for the place.stream.chat.defs lexicon
 | `record`      | `unknown`                                                                                                                                        | ✅    |                                                                                        |                    |
 | `indexedAt`   | `string`                                                                                                                                         | ✅    |                                                                                        | Format: `datetime` |
 | `chatProfile` | [`place.stream.chat.profile`](/lex-reference/place-stream-chat-profile)                                                                          | ❌    |                                                                                        |                    |
-| `replyTo`     | Union of:<br/>&nbsp;&nbsp;[`place.stream.chat.defs#messageView`](/lex-reference/place-stream-chat-defs#messageview)                              | ❌    |                                                                                        |                    |
+| `replyTo`     | Union of:<br/>&nbsp;&nbsp;[`#messageView`](#messageview)                                                                                         | ❌    |                                                                                        |                    |
 | `deleted`     | `boolean`                                                                                                                                        | ❌    | If true, this message has been deleted or labeled and should be cleared from the cache |                    |
 
 ---
@@ -64,7 +64,7 @@ description: Reference for the place.stream.chat.defs lexicon
         },
         "replyTo": {
           "type": "union",
-          "refs": ["place.stream.chat.defs#messageView"]
+          "refs": ["#messageView"]
         },
         "deleted": {
           "type": "boolean",

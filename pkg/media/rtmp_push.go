@@ -153,7 +153,7 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 		}
 	}()
 
-	concatBin, err := ConcatBin(ctx, segCh)
+	concatBin, err := ConcatBin(ctx, segCh, true)
 	if err != nil {
 		return fmt.Errorf("failed to create concat bin: %w", err)
 	}

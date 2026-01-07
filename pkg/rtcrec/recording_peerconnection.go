@@ -28,7 +28,7 @@ func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string
 		}, nil
 	}
 	aqt := aqtime.FromTime(time.Now())
-	f, err := cli.DataFileCreate([]string{user, "rtcrec", fmt.Sprintf("%s.cbor", aqt.FileSafeString())}, true)
+	f, err := cli.DataFileCreate([]string{"debug-recordings", user, fmt.Sprintf("%s.rtcrec.cbor", aqt.FileSafeString())}, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create data file: %w", err)
 	}

@@ -74,6 +74,15 @@ type StreamplaceAPI struct {
 	SignerCache   map[string]media.MediaSigner
 	SignerCacheMu sync.Mutex
 	op            *oatproxy.OATProxy
+
+	// override tls port for http redirect server if we're using systemd file descriptors
+	HTTPRedirectTLSPort *int
+	sessions            map[string]map[string]time.Time
+	sessionsLock        sync.RWMutex
+
+	rtmpSessions             map[string]*media.RTMPSession
+	rtmpSessionsLock         sync.Mutex
+	rtmpInternalPlaybackAddr string
 }
 
 type WebsocketTracker struct {
@@ -82,7 +91,7 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, signer *eip712.EIP712Signer, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -91,7 +100,6 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		Model:            mod,
 		StatefulDB:       statefulDB,
 		Updater:          updater,
-		Signer:           signer,
 		FirebaseNotifier: noter,
 		MediaManager:     mm,
 		MediaSigner:      ms,
@@ -103,6 +111,10 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		limiters:         make(map[string]*rate.Limiter),
 		SignerCache:      make(map[string]media.MediaSigner),
 		op:               op,
+		sessions:         make(map[string]map[string]time.Time),
+		sessionsLock:     sync.RWMutex{},
+		rtmpSessions:     make(map[string]*media.RTMPSession),
+		rtmpSessionsLock: sync.Mutex{},
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {
@@ -138,7 +150,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		Recorder: metrics.NewRecorder(metrics.Config{}),
 	})
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync)
+	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync, a.Bus)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +326,7 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 			return
 		}
 		if errors.Is(err, ErrorIndex) || f == "" {
-			bs, err := linker.GenerateDefaultCard(ctx, req.URL)
+			bs, err := linker.GenerateDefaultCard(ctx, req.URL, a.CLI.SentryDSN)
 			if err != nil {
 				log.Error(ctx, "error generating default card", "error", err)
 			}
@@ -339,6 +351,11 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 		req.URL.Host = req.Host
 		req.URL.Scheme = proto
 		maybeHandle := strings.TrimPrefix(req.URL.Path, "/")
+		// quick check for things that aren't valid handles/dids
+		if strings.ContainsAny(maybeHandle, "/_") {
+			defaultHandler.ServeHTTP(w, req)
+			return
+		}
 		repo, err := a.Model.GetRepoByHandleOrDID(maybeHandle)
 		if err != nil || repo == nil {
 			log.Error(ctx, "no repo found", "maybeHandle", maybeHandle)
@@ -357,7 +374,7 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}
-		bs, err := linker.GenerateStreamerCard(ctx, req.URL, lsv)
+		bs, err := linker.GenerateStreamerCard(ctx, req.URL, lsv, a.CLI.SentryDSN)
 		if err != nil {
 			log.Error(ctx, "error generating html", "error", err)
 			defaultHandler.ServeHTTP(w, req)
@@ -427,9 +444,15 @@ func (a *StreamplaceAPI) FileHandler(ctx context.Context, fs http.Handler) http.
 }
 
 func (a *StreamplaceAPI) RedirectHandler(ctx context.Context) (http.Handler, error) {
-	_, tlsPort, err := net.SplitHostPort(a.CLI.HTTPSAddr)
-	if err != nil {
-		return nil, err
+	var tlsPort string
+	var err error
+	if a.HTTPRedirectTLSPort != nil {
+		tlsPort = fmt.Sprintf("%d", *a.HTTPRedirectTLSPort)
+	} else {
+		_, tlsPort, err = net.SplitHostPort(a.CLI.HTTPSAddr)
+		if err != nil {
+			return nil, err
+		}
 	}
 	handleRedirect := func(w http.ResponseWriter, req *http.Request) {
 		host, _, err := net.SplitHostPort(req.Host)
@@ -497,7 +520,7 @@ func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFun
 
 func (a *StreamplaceAPI) HandleSegment(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		err := a.MediaManager.ValidateMP4(ctx, req.Body)
+		err := a.MediaManager.ValidateMP4(ctx, req.Body, false)
 		if err != nil {
 			apierrors.WriteHTTPBadRequest(w, "could not ingest segment", err)
 			return
@@ -724,11 +747,12 @@ func (a *StreamplaceAPI) RateLimitMiddleware(ctx context.Context) func(http.Hand
 
 // helper for getting a listener from a systemd file descriptor
 func getListenerFromFD(fdName string) (net.Listener, error) {
-	log.Log(context.TODO(), "getting listener from fd", "fdName", fdName, "LISTEN_PID", os.Getenv("LISTEN_PID"), "LISTEN_FDNAMES", os.Getenv("LISTEN_FDNAMES"))
+	log.Debug(context.TODO(), "getting listener from fd", "fdName", fdName, "LISTEN_PID", os.Getenv("LISTEN_PID"), "LISTEN_FDNAMES", os.Getenv("LISTEN_FDNAMES"))
 	if os.Getenv("LISTEN_PID") == strconv.Itoa(os.Getpid()) {
 		names := strings.Split(os.Getenv("LISTEN_FDNAMES"), ":")
 		for i, name := range names {
 			if name == fdName {
+				log.Warn(context.TODO(), "using systemd file descriptor", "fdName", fdName, "fdIndex", i+3)
 				f1 := os.NewFile(uintptr(i+3), fdName)
 				return net.FileListener(f1)
 			}
@@ -799,6 +823,9 @@ func (a *StreamplaceAPI) ServeHTTPS(ctx context.Context) error {
 				return err
 			}
 		} else {
+			// tell the redirect handler we're using systemd and they should go to 443
+			port443 := 443
+			a.HTTPRedirectTLSPort = &port443
 			log.Warn(ctx, "https server listening for https over systemd socket", "addr", ln.Addr())
 		}
 		log.Log(ctx, "https server starting",

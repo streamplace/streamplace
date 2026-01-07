@@ -66,10 +66,14 @@ export default defineConfig({
             },
           ],
         },
-        // {
-        //   label: "Reference",
-        //   autogenerate: { directory: "reference" },
-        // },
+        {
+          label: "Features",
+          autogenerate: { directory: "features" },
+        },
+        {
+          label: "Video Metadata",
+          autogenerate: { directory: "video-metadata" },
+        },
         {
           label: "Components",
           autogenerate: { directory: "components" },

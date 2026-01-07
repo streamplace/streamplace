@@ -23,6 +23,7 @@ export function Player(
   const clearControlsTimeout = usePlayerStore((x) => x.clearControlsTimeout);
 
   const setReportingURL = usePlayerStore((x) => x.setReportingURL);
+  const setEmbedded = usePlayerStore((x) => x.setEmbedded);
 
   const reportModalOpen = usePlayerStore((x) => x.reportModalOpen);
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
@@ -31,6 +32,10 @@ export function Player(
   useEffect(() => {
     setReportingURL(props.reportingURL ?? null);
   }, [props.reportingURL]);
+
+  useEffect(() => {
+    setEmbedded(props.embedded ?? false);
+  }, [props.embedded]);
 
   // Will call back every few seconds to send health updates
   usePlayerStatus();

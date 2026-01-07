@@ -1,19 +1,25 @@
 package model
 
 import (
-	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/config"
 )
 
-func TestSegmentCleaner(t *testing.T) {
+func TestSegmentPerf(t *testing.T) {
+	config.DisableSQLLogging()
+	// dburl := filepath.Join(t.TempDir(), "test.db")
 	db, err := MakeDB(":memory:")
 	require.NoError(t, err)
 	// Create a model instance
 	model := db.(*DBModel)
+	t.Cleanup(func() {
+		// os.Remove(dburl)
+	})
 
 	// Create a repo for testing
 	repo := &Repo{
@@ -22,43 +28,39 @@ func TestSegmentCleaner(t *testing.T) {
 	err = model.DB.Create(repo).Error
 	require.NoError(t, err)
 
-	// Create 100 segments with timestamps 1 hour ago, each one second apart
-	baseTime := time.Now().Add(-1 * time.Hour)
-	for i := 0; i < 100; i++ {
+	defer config.EnableSQLLogging()
+	// Create 250000 segments with timestamps 1 hour ago, each one second apart
+	wg := sync.WaitGroup{}
+	segCount := 250000
+	wg.Add(segCount)
+	baseTime := time.Now()
+	for i := 0; i < segCount; i++ {
 		segment := &Segment{
 			ID:        fmt.Sprintf("segment-%d", i),
 			RepoDID:   repo.DID,
-			StartTime: baseTime.Add(time.Duration(i) * time.Second),
+			StartTime: baseTime.Add(-time.Duration(i) * time.Second).UTC(),
 		}
-		err = model.DB.Create(segment).Error
-		require.NoError(t, err)
+		go func() {
+			defer wg.Done()
+			err = model.DB.Create(segment).Error
+			require.NoError(t, err)
+		}()
 	}
+	wg.Wait()
 
-	// Verify we have 100 segments
-	var count int64
-	err = model.DB.Model(&Segment{}).Count(&count).Error
-	require.NoError(t, err)
-	require.Equal(t, int64(100), count)
-
-	// Run the segment cleaner
-	err = model.SegmentCleaner(context.Background())
-	require.NoError(t, err)
-
-	// Verify we now have only 10 segments
-	err = model.DB.Model(&Segment{}).Count(&count).Error
-	require.NoError(t, err)
-	require.Equal(t, int64(10), count)
-
-	// Verify the remaining segments are the most recent ones
-	var segments []Segment
-	err = model.DB.Model(&Segment{}).Order("start_time DESC").Find(&segments).Error
-	require.NoError(t, err)
-	require.Len(t, segments, 10)
-
-	// The segments should be the last 10 we created (the most recent ones)
-	for i, segment := range segments {
-		expectedTime := baseTime.Add(time.Duration(99-i) * time.Second)
-		// Allow a small tolerance for time comparison
-		require.WithinDuration(t, expectedTime, segment.StartTime, time.Second)
+	startTime := time.Now()
+	wg = sync.WaitGroup{}
+	runs := 1000
+	wg.Add(runs)
+	for i := 0; i < runs; i++ {
+		go func() {
+			defer wg.Done()
+			_, err := model.MostRecentSegments()
+			require.NoError(t, err)
+			// require.Len(t, segments, 1)
+		}()
 	}
+	wg.Wait()
+	fmt.Printf("Time taken: %s\n", time.Since(startTime))
+	require.Less(t, time.Since(startTime), 10*time.Second)
 }

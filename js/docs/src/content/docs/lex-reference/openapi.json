@@ -110,6 +110,14 @@
                     "type": "string",
                     "description": "A description of what this webhook is used for.",
                     "maxLength": 500
+                  },
+                  "muteWords": {
+                    "type": "array",
+                    "description": "Words to filter out from chat messages. Messages containing any of these words will not be forwarded.",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 100
+                    }
                   }
                 },
                 "required": ["url", "events"]
@@ -183,6 +191,33 @@
                   }
                 },
                 "required": ["id"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.server.getServerTime": {
+      "get": {
+        "summary": "Get the current server time for client clock synchronization",
+        "operationId": "place.stream.server.getServerTime",
+        "tags": ["place.stream.server"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "serverTime": {
+                      "type": "string",
+                      "description": "Current server time in RFC3339 format",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": ["serverTime"]
+                }
               }
             }
           }
@@ -465,6 +500,14 @@
                     "type": "string",
                     "description": "A description of what this webhook is used for.",
                     "maxLength": 500
+                  },
+                  "muteWords": {
+                    "type": "array",
+                    "description": "Words to filter out from chat messages. Messages containing any of these words will not be forwarded.",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 100
+                    }
                   }
                 },
                 "required": ["id"]
@@ -690,6 +733,420 @@
         }
       }
     },
+    "/xrpc/place.stream.moderation.createBlock": {
+      "post": {
+        "summary": "Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates an app.bsky.graph.block record in the streamer's repository.",
+        "operationId": "place.stream.moderation.createBlock",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "The AT-URI of the created block record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "The CID of the created block record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer whose chat this block applies to.",
+                    "format": "did"
+                  },
+                  "subject": {
+                    "type": "string",
+                    "description": "The DID of the user being blocked from chat.",
+                    "format": "did"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Optional reason for the block.",
+                    "maxLength": 300
+                  }
+                },
+                "required": ["streamer", "subject"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.createGate": {
+      "post": {
+        "summary": "Create a gate (hide message) on behalf of a streamer. Requires 'hide' permission. Creates a place.stream.chat.gate record in the streamer's repository.",
+        "operationId": "place.stream.moderation.createGate",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "The AT-URI of the created gate record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "The CID of the created gate record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "messageUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the chat message to hide.",
+                    "format": "uri"
+                  }
+                },
+                "required": ["streamer", "messageUri"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.deleteBlock": {
+      "post": {
+        "summary": "Delete a block (unban) on behalf of a streamer. Requires 'ban' permission. Deletes an app.bsky.graph.block record from the streamer's repository.",
+        "operationId": "place.stream.moderation.deleteBlock",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "blockUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the block record to delete.",
+                    "format": "uri"
+                  }
+                },
+                "required": ["streamer", "blockUri"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.deleteGate": {
+      "post": {
+        "summary": "Delete a gate (unhide message) on behalf of a streamer. Requires 'hide' permission. Deletes a place.stream.chat.gate record from the streamer's repository.",
+        "operationId": "place.stream.moderation.deleteGate",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "gateUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the gate record to delete.",
+                    "format": "uri"
+                  }
+                },
+                "required": ["streamer", "gateUri"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.updateLivestream": {
+      "post": {
+        "summary": "Update livestream metadata on behalf of a streamer. Requires 'livestream.manage' permission. Updates a place.stream.livestream record in the streamer's repository.",
+        "operationId": "place.stream.moderation.updateLivestream",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "The AT-URI of the updated livestream record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "The CID of the updated livestream record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        },
+                        {
+                          "const": "RecordNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "livestreamUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the livestream record to update.",
+                    "format": "uri"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "New title for the livestream.",
+                    "maxLength": 1400
+                  }
+                },
+                "required": ["streamer", "livestreamUri"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.live.getLiveUsers": {
       "get": {
         "summary": "Get a list of livestream segments for a user",
@@ -792,6 +1249,57 @@
         ]
       }
     },
+    "/xrpc/place.stream.live.getRecommendations": {
+      "get": {
+        "summary": "Get the list of streamers recommended by a user",
+        "operationId": "place.stream.live.getRecommendations",
+        "tags": ["place.stream.live"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "recommendations": {
+                      "type": "array",
+                      "description": "Ordered list of recommendations",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/place.stream.live.getRecommendations_livestreamRecommendation"
+                          }
+                        ]
+                      }
+                    },
+                    "userDID": {
+                      "type": "string",
+                      "description": "The user DID this recommendation is for",
+                      "format": "did"
+                    }
+                  },
+                  "required": ["recommendations"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "userDID",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the user whose recommendations to fetch",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the user whose recommendations to fetch",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.live.getSegments": {
       "get": {
         "summary": "Get a list of livestream segments for a user",
@@ -852,6 +1360,87 @@
         ]
       }
     },
+    "/xrpc/place.stream.live.searchActorsTypeahead": {
+      "get": {
+        "summary": "Find actor suggestions for a prefix search term. Expected use is for auto-completion during text field entry.",
+        "operationId": "place.stream.live.searchActorsTypeahead",
+        "tags": ["place.stream.live"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "actors": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.live.searchActorsTypeahead_actor"
+                      }
+                    }
+                  },
+                  "required": ["actors"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Search query prefix; not a full query string.",
+            "schema": {
+              "type": "string",
+              "description": "Search query prefix; not a full query string."
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.live.subscribeSegments": {
+      "get": {
+        "summary": "Subscribe to a stream's new segments as they come in!",
+        "operationId": "place.stream.live.subscribeSegments",
+        "tags": ["place.stream.live"],
+        "x-websocket": true,
+        "responses": {},
+        "parameters": [
+          {
+            "name": "streamer",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the streamer to subscribe to",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the streamer to subscribe to"
+            }
+          }
+        ],
+        "x-websocket-message": {
+          "schema": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/place.stream.live.subscribeSegments_segment"
+              }
+            ]
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.graph.getFollowingUser": {
       "get": {
         "summary": "Get whether or not user A is following user B.",
@@ -898,6 +1487,38 @@
             }
           }
         ]
+      }
+    },
+    "/xrpc/place.stream.broadcast.getBroadcaster": {
+      "get": {
+        "summary": "Get information about a Streamplace broadcaster.",
+        "operationId": "place.stream.broadcast.getBroadcaster",
+        "tags": ["place.stream.broadcast"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "broadcaster": {
+                      "type": "string",
+                      "description": "DID of the Streamplace broadcaster to which this server belongs",
+                      "format": "did"
+                    },
+                    "server": {
+                      "type": "string",
+                      "description": "DID of this particular Streamplace server",
+                      "format": "did"
+                    }
+                  },
+                  "required": ["broadcaster"]
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/xrpc/com.atproto.sync.getRecord": {
@@ -1871,6 +2492,14 @@
           "errorCount": {
             "type": "integer",
             "description": "Number of consecutive errors for this webhook."
+          },
+          "muteWords": {
+            "type": "array",
+            "description": "Words to filter out from chat messages. Messages containing any of these words will not be forwarded.",
+            "items": {
+              "type": "string",
+              "maxLength": 100
+            }
           }
         },
         "required": ["id", "url", "events", "active", "createdAt"]
@@ -2285,6 +2914,22 @@
         },
         "required": ["count"]
       },
+      "place.stream.live.getRecommendations_livestreamRecommendation": {
+        "type": "object",
+        "properties": {
+          "did": {
+            "type": "string",
+            "description": "The DID of the recommended streamer",
+            "format": "did"
+          },
+          "source": {
+            "type": "string",
+            "description": "Source of the recommendation",
+            "enum": ["streamer", "follows", "host"]
+          }
+        },
+        "required": ["did", "source"]
+      },
       "place.stream.segment_segmentView": {
         "type": "object",
         "properties": {
@@ -2295,6 +2940,27 @@
           "record": {}
         },
         "required": ["cid", "record"]
+      },
+      "place.stream.live.searchActorsTypeahead_actor": {
+        "type": "object",
+        "properties": {
+          "did": {
+            "type": "string",
+            "description": "The actor's DID",
+            "format": "did"
+          },
+          "handle": {
+            "type": "string",
+            "description": "The actor's handle",
+            "format": "handle"
+          }
+        },
+        "required": ["did", "handle"]
+      },
+      "place.stream.live.subscribeSegments_segment": {
+        "type": "string",
+        "format": "byte",
+        "description": "MP4 file of a user's signed livestream segment"
       },
       "com.atproto.repo.strongRef": {
         "type": "object",

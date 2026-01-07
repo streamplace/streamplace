@@ -58,3 +58,7 @@ ios
 android
 code-signing-dev
 generated
+
+.env.local
+
+public/locales/*

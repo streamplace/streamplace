@@ -1,0 +1,22 @@
+[package]
+name = "export_c2pa_schema"
+authors = ["Streamplace <support@stream.place>"]
+license = "MIT OR Apache-2.0"
+edition = "2018"
+rust-version = "1.86.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(test)'] }
+# Workaround for https://github.com/est31/cargo-udeps/issues/293.
+
+[dependencies]
+anyhow = "1.0.40"
+c2pa = { git = "https://github.com/hyphacoop/c2pa-rs.git", rev = "1b84d40219b27340a30fc309250e774e8a7b7761", features = [
+  "openssl",
+  "file_io",
+  "json_schema",
+] }
+schemars = "0.8.21"
+serde_json = "1.0.117"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_with = "3.11.0"

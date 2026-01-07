@@ -72,18 +72,17 @@ function getHomeScreenItemSize(width: number): StreamCardSize {
 }
 
 function getHomeScreenCols(width: number): number {
-  if (width >= 1550) return 4; // Wide screens get 4 columns
-  if (width >= 1280) return 3; // xl gets 3 columns
-  if (width >= 1024) return 2; // lg gets 2 columns
-  if (width >= 768) return 2; // md gets 2 columns
-  return 1; // sm and below get 1 column
+  if (width >= 1550) return 4;
+  if (width >= 1280) return 3;
+  if (width >= 1024) return 2;
+  if (width >= 768) return 2;
+  return 1;
 }
 
-// Get the ratio for the first icon padding based on column count
+// Get the ratio for the first card based on column count
 function getPadPercentage(cols: number): number {
-  if (cols >= 4) return 2; // Less padding for 4+ columns
-  if (cols >= 3) return 1.3; // Original padding for 3 columns
-  return 1; // No extra padding for 2 or fewer columns
+  if (cols >= 3) return 2.07;
+  return 1;
 }
 
 function HomeScreenItem({
@@ -326,7 +325,7 @@ export default function HomeScreen({
                       flex:
                         itemIndex == 0 && useHorizontalFirst
                           ? getPadPercentage(cols)
-                          : 0.97,
+                          : 1,
                     },
                     { justifyContent: "center" },
                   ]}

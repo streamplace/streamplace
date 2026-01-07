@@ -1,27 +1,25 @@
+import { useRoute } from "@react-navigation/native";
 import {
   LivestreamProvider,
   PlayerProvider,
   zero,
 } from "@streamplace/components";
-import { Redirect } from "components/aqlink";
 import BentoGrid from "components/live-dashboard/bento-grid";
 import Loading from "components/loading/loading";
 import { VideoElementProvider } from "contexts/VideoElementContext";
-import {
-  selectIsReady,
-  selectUserProfile,
-} from "features/bluesky/blueskySlice";
 import { useLiveUser } from "hooks/useLiveUser";
-import { useCallback, useState } from "react";
-import { View } from "react-native";
-import { useAppSelector } from "store/hooks";
+import { useCallback, useEffect, useState } from "react";
+import { useStore } from "store";
+import { useIsReady, useUserProfile } from "store/hooks";
 
 const { flex, bg } = zero;
 
 export default function LiveDashboard() {
-  const isReady = useAppSelector(selectIsReady);
-  const userProfile = useAppSelector(selectUserProfile);
+  const isReady = useIsReady();
+  const userProfile = useUserProfile();
   const isLive = useLiveUser();
+  const openLoginModal = useStore((state) => state.openLoginModal);
+  const route = useRoute();
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
     null,
   );
@@ -32,25 +30,25 @@ export default function LiveDashboard() {
     }
   }, []);
 
+  useEffect(() => {
+    if (isReady && !userProfile) {
+      openLoginModal({ name: route.name, params: route.params });
+    }
+  }, [isReady, userProfile, openLoginModal, route.name, route.params]);
+
   if (!isReady) {
     return <Loading />;
   }
 
   if (!userProfile) {
-    return <Redirect to={{ screen: "Login" }} />;
+    return <Loading />;
   }
 
   return (
     <LivestreamProvider src={userProfile.did}>
       <VideoElementProvider videoElement={videoElement}>
         <PlayerProvider>
-          <View style={[flex.values[1], bg.gray[900]]}>
-            <BentoGrid
-              userProfile={userProfile}
-              isLive={isLive}
-              videoRef={videoRef}
-            />
-          </View>
+          <BentoGrid isLive={isLive} videoRef={videoRef} />
         </PlayerProvider>
       </VideoElementProvider>
     </LivestreamProvider>

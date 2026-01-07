@@ -20,7 +20,7 @@
         },
         "replyTo": {
           "type": "union",
-          "refs": ["place.stream.chat.defs#messageView"]
+          "refs": ["#messageView"]
         },
         "deleted": {
           "type": "boolean",

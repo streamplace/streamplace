@@ -160,28 +160,40 @@ func TestMP4ToMPEGTSVideoMP4Audio(t *testing.T) {
 
 func TestMPEGTSVideoMP4AudioToMP4Invalid(t *testing.T) {
 	withNoGSTLeaks(t, func() {
-
-		// Join video and audio back together
-		videoBuf := bytes.Buffer{}
-		audioBuf := bytes.Buffer{}
-		// Fill buffers with 1MB of random data
-
-		rng := rand.New(rand.NewSource(42))
-		randomData := make([]byte, 1024*1024) // 1MB
-		_, err := rng.Read(randomData)
+		g, _ := errgroup.WithContext(context.Background())
+		for range streamplaceTestCount {
+			g.Go(func() error {
+				return innerTestMPEGTSVideoMP4AudioToMP4Invalid(t)
+			})
+		}
+		err := g.Wait()
 		require.NoError(t, err)
-		_, err = videoBuf.Write(randomData)
-		require.NoError(t, err)
-
-		randomData = make([]byte, 1024*1024) // 1MB
-		_, err = rng.Read(randomData)
-		require.NoError(t, err)
-		_, err = audioBuf.Write(randomData)
-		require.NoError(t, err)
-
-		buf := bytes.Buffer{}
-
-		err = MPEGTSVideoMP4AudioToMP4(context.Background(), &videoBuf, &audioBuf, &buf)
-		require.Error(t, err)
 	})
+}
+
+func innerTestMPEGTSVideoMP4AudioToMP4Invalid(t *testing.T) error {
+	// Join video and audio back together
+	videoBuf := bytes.Buffer{}
+	audioBuf := bytes.Buffer{}
+	// Fill buffers with 1MB of random data
+
+	rng := rand.New(rand.NewSource(42))
+	randomData := make([]byte, 1024*1024) // 1MB
+	_, err := rng.Read(randomData)
+	require.NoError(t, err)
+	_, err = videoBuf.Write(randomData)
+	require.NoError(t, err)
+
+	randomData = make([]byte, 1024*1024) // 1MB
+	_, err = rng.Read(randomData)
+	require.NoError(t, err)
+	_, err = audioBuf.Write(randomData)
+	require.NoError(t, err)
+
+	buf := bytes.Buffer{}
+
+	err = MPEGTSVideoMP4AudioToMP4(context.Background(), &videoBuf, &audioBuf, &buf)
+	require.Empty(t, buf.Bytes())
+	require.Error(t, err)
+	return nil
 }

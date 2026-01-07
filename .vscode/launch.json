@@ -13,7 +13,7 @@
       "type": "go",
       "request": "launch",
       "mode": "exec",
-      "program": "${workspaceFolder}/build-darwin-amd64/libstreamplace"
+      "program": "${workspaceFolder}/build-darwin-arm64/libstreamplace"
     }
   ]
 }

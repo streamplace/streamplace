@@ -1,0 +1,7 @@
+[tools]
+go = "latest"
+rust = "latest"
+node = "22"
+meson = "latest"
+ninja = "latest"
+pnpm = "latest"

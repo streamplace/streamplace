@@ -61,7 +61,7 @@ func testAudioSmearInner(t *testing.T) error {
 		return err
 	}
 
-	require.Equal(t, 1191255, buf.Len())
+	require.Equal(t, 1191212, buf.Len())
 
 	// // Write audio and video buffers to temporary files for further analysis
 	// tempDir := t.TempDir()

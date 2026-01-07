@@ -19,15 +19,30 @@ Record announcing a livestream is happening
 
 **Record Properties:**
 
-| Name           | Type                                                                                                                                   | Req'd | Description                                                                                                                              | Constraints                                   |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `title`        | `string`                                                                                                                               | ✅    | The title of the livestream, as it will be announced to followers.                                                                       | Max Length: 1400<br/>Max Graphemes: 140       |
-| `url`          | `string`                                                                                                                               | ❌    | The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.         | Format: `uri`                                 |
-| `createdAt`    | `string`                                                                                                                               | ✅    | Client-declared timestamp when this livestream started.                                                                                  | Format: `datetime`                            |
-| `post`         | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | The post that announced this livestream.                                                                                                 |                                               |
-| `agent`        | `string`                                                                                                                               | ❌    | The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS |                                               |
-| `canonicalUrl` | `string`                                                                                                                               | ❌    | The primary URL where this livestream can be viewed, if available.                                                                       | Format: `uri`                                 |
-| `thumb`        | `blob`                                                                                                                                 | ❌    |                                                                                                                                          | Accept: `image/*`<br/>Max Size: 1000000 bytes |
+| Name                   | Type                                                                                                                                   | Req'd | Description                                                                                                                              | Constraints                                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `title`                | `string`                                                                                                                               | ✅    | The title of the livestream, as it will be announced to followers.                                                                       | Max Length: 1400<br/>Max Graphemes: 140       |
+| `url`                  | `string`                                                                                                                               | ❌    | The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.         | Format: `uri`                                 |
+| `createdAt`            | `string`                                                                                                                               | ✅    | Client-declared timestamp when this livestream started.                                                                                  | Format: `datetime`                            |
+| `post`                 | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | The post that announced this livestream.                                                                                                 |                                               |
+| `agent`                | `string`                                                                                                                               | ❌    | The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS |                                               |
+| `canonicalUrl`         | `string`                                                                                                                               | ❌    | The primary URL where this livestream can be viewed, if available.                                                                       | Format: `uri`                                 |
+| `thumb`                | `blob`                                                                                                                                 | ❌    |                                                                                                                                          | Accept: `image/*`<br/>Max Size: 1000000 bytes |
+| `notificationSettings` | [`place.stream.livestream#notificationSettings`](/lex-reference/place-stream-livestream#notificationsettings)                          | ❌    |                                                                                                                                          |                                               |
+
+---
+
+<a name="notificationsettings"></a>
+
+### `notificationSettings`
+
+**Type:** `object`
+
+**Properties:**
+
+| Name               | Type      | Req'd | Description                                                              | Constraints |
+| ------------------ | --------- | ----- | ------------------------------------------------------------------------ | ----------- |
+| `pushNotification` | `boolean` | ❌    | Whether this livestream should trigger a push notification to followers. |             |
 
 ---
 
@@ -46,7 +61,7 @@ Record announcing a livestream is happening
 | `author`      | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |                                                                                                          |                    |
 | `record`      | `unknown`                                                                                                                                        | ✅    |                                                                                                          |                    |
 | `indexedAt`   | `string`                                                                                                                                         | ✅    |                                                                                                          | Format: `datetime` |
-| `viewerCount` | [`place.stream.livestream#viewerCount`](/lex-reference/place-stream-livestream#viewercount)                                                      | ❌    | The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly. |                    |
+| `viewerCount` | [`#viewerCount`](#viewercount)                                                                                                                   | ❌    | The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly. |                    |
 
 ---
 
@@ -127,7 +142,21 @@ Record announcing a livestream is happening
             "type": "blob",
             "accept": ["image/*"],
             "maxSize": 1000000
+          },
+          "notificationSettings": {
+            "type": "ref",
+            "ref": "place.stream.livestream#notificationSettings"
           }
+        }
+      }
+    },
+    "notificationSettings": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "pushNotification": {
+          "type": "boolean",
+          "description": "Whether this livestream should trigger a push notification to followers."
         }
       }
     },
@@ -157,7 +186,7 @@ Record announcing a livestream is happening
         "viewerCount": {
           "type": "ref",
           "description": "The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly.",
-          "ref": "place.stream.livestream#viewerCount"
+          "ref": "#viewerCount"
         }
       }
     },

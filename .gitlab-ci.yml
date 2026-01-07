@@ -1,7 +1,7 @@
 include: ".ci/dockerfile-hash.yaml"
 
 variables:
-  DOCKER_REPO: "975050346355.dkr.ecr.us-east-2.amazonaws.com/streamplace"
+  DOCKER_REPO: "public.ecr.aws/m4j3c0j7/streamplace"
 
 build-bunny:
   stage: build
@@ -159,7 +159,7 @@ test:
     STREAMPLACE_TEST_COUNT: "1"
   script:
     - git fetch --unshallow || echo 'already unshallow'
-    - make dev-setup && make dev-test && make ci-lexicons
+    - make dev-setup && make dev && make dev-test && make ci-lexicons
   artifacts:
     when: always
     paths:
@@ -206,8 +206,6 @@ build-docker-amd64:
       --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_AMD64
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/docker/release.Dockerfile"
-      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-amd64"
-      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-amd64"
       --destination "$DOCKER_REPO:$STREAMPLACE_BRANCH-amd64"
       --destination "$DOCKER_REPO:$STREAMPLACE_VERSION-amd64"
 
@@ -232,8 +230,6 @@ build-docker-arm64:
       --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_ARM64
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/docker/release.Dockerfile"
-      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_BRANCH-arm64"
-      --destination "$CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-arm64"
       --destination "$DOCKER_REPO:$STREAMPLACE_BRANCH-arm64"
       --destination "$DOCKER_REPO:$STREAMPLACE_VERSION-arm64"
       --customPlatform=linux/arm64
@@ -255,11 +251,11 @@ build-docker-manifest:
     - chmod +x ./manifest-tool
   timeout: 2 hours
   script:
-    - ./manifest-tool --username "${CI_REGISTRY_USER}" --password "${CI_REGISTRY_PASSWORD}" push from-args
+    - ./manifest-tool --docker-cfg "$DOCKER_AUTH_CONFIG" push from-args
       --platforms linux/amd64,linux/arm64
-      --template $CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION-ARCH
+      --template $DOCKER_REPO:$STREAMPLACE_VERSION-ARCH
       --tags $STREAMPLACE_BRANCH
-      --target $CI_REGISTRY_IMAGE:$STREAMPLACE_VERSION
+      --target $DOCKER_REPO:$STREAMPLACE_VERSION
 
 .build-android:
   stage: build
@@ -314,7 +310,7 @@ build-android-release:
     - 'echo "xcodeproj --version: $(xcodeproj --version)"'
     - "$(which xcodeproj) --version"
     - >
-      export GOTOOLCHAIN=go1.24.2
+      export GOTOOLCHAIN=go1.25.1
       && python3 -m pip install virtualenv
       && python3 -m virtualenv ~/venv
       && source ~/venv/bin/activate

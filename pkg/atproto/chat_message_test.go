@@ -25,10 +25,10 @@ func TestChatMessage(t *testing.T) {
 	dev := devenv.WithDevEnv(t)
 	t.Logf("dev: %+v", dev)
 	cli := config.CLI{
-		PublicHost: "example.com",
-		DBURL:      ":memory:",
-		RelayHost:  strings.ReplaceAll(dev.PDSURL, "http://", "ws://"),
-		PLCURL:     dev.PLCURL,
+		BroadcasterHost: "example.com",
+		DBURL:           ":memory:",
+		RelayHost:       strings.ReplaceAll(dev.PDSURL, "http://", "ws://"),
+		PLCURL:          dev.PLCURL,
 	}
 	t.Logf("cli: %+v", cli)
 	b := bus.NewBus()

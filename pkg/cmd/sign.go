@@ -12,6 +12,7 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/mr-tron/base58"
 	"stream.place/streamplace/pkg/crypto/aqpub"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 )
 
@@ -22,9 +23,15 @@ func Sign(ctx context.Context) error {
 	streamerName := fs.String("streamer", "", "streamer name")
 	taURL := fs.String("ta-url", "http://timestamp.digicert.com", "timestamp authority server for signing")
 	startTime := fs.Int64("start-time", 0, "start time of the stream")
+	manifestJSON := fs.String("manifest", "", "JSON manifest to use for signing")
 	if err := fs.Parse(os.Args[2:]); err != nil {
 		return err
 	}
+
+	log.Debug(ctx, "Sign command: starting",
+		"streamer", *streamerName,
+		"startTime", *startTime,
+		"hasManifest", len(*manifestJSON) > 0)
 
 	keyBs, err := base58.Decode(*key)
 	if err != nil {
@@ -52,11 +59,16 @@ func Sign(ctx context.Context) error {
 	}
 
 	ms := &media.MediaSignerLocal{
-		Signer:       signer,
-		Cert:         certBs,
-		StreamerName: *streamerName,
-		TAURL:        *taURL,
-		AQPub:        pub,
+		Signer:           signer,
+		Cert:             certBs,
+		StreamerName:     *streamerName,
+		TAURL:            *taURL,
+		AQPub:            pub,
+		PrebuiltManifest: []byte(*manifestJSON), // Pass the manifest from parent process
+	}
+
+	if len(*manifestJSON) > 0 {
+		log.Debug(ctx, "Sign command: using provided manifest", "manifestLength", len(*manifestJSON))
 	}
 
 	inputBs, err := io.ReadAll(os.Stdin)

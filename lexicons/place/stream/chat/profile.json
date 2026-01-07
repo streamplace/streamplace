@@ -12,7 +12,7 @@
         "properties": {
           "color": {
             "type": "ref",
-            "ref": "place.stream.chat.profile#color"
+            "ref": "#color"
           }
         }
       }

@@ -16,6 +16,11 @@ func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string)
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
 
+	// in case the end user doesn't have a default fallback client in the pds
+	client.SetHeaders(map[string]string{
+		"Atproto-Proxy": "did:web:api.bsky.app#bsky_appview",
+	})
+
 	// brief check to make sure we can actually do stuff
 	var out appbskytypes.ActorDefs_ProfileViewDetailed
 	err := client.Do(ctx, xrpc.Query, "application/json", "app.bsky.actor.getProfile", map[string]any{"actor": actor}, nil, &out)

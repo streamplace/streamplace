@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/streamplace"
 )
+
+type delegationGetter interface {
+	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
+}
 
 // Permission scope constants
 const (
@@ -27,11 +30,11 @@ var ActionPermissions = map[string]string{
 
 // PermissionChecker validates moderation permissions
 type PermissionChecker struct {
-	model model.Model
+	model delegationGetter
 }
 
 // NewPermissionChecker creates a new permission checker
-func NewPermissionChecker(m model.Model) *PermissionChecker {
+func NewPermissionChecker(m delegationGetter) *PermissionChecker {
 	return &PermissionChecker{model: m}
 }
 

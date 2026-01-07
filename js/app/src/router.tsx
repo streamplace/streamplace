@@ -660,6 +660,7 @@ export function StreamplaceDrawer() {
           options={{
             drawerIcon: () => <LogIn color={foregroundColor} size={24} />,
             drawerLabel: () => <Text variant="h5">Login</Text>,
+            drawerItemStyle: { display: userProfile ? "none" : undefined },
           }}
         />
         <Drawer.Screen

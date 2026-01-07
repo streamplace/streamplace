@@ -59,7 +59,7 @@ function MobileStreamInner({
 }
 
 export default function MobileStream({ route }) {
-  const { user, protocol, url } = route.params;
+  const { user, protocol, url } = route?.params ?? {};
   let extraProps: Partial<PlayerProps> = {};
   if (isWeb) {
     extraProps = queryToProps(new URLSearchParams(window.location.search));

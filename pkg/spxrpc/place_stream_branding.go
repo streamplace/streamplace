@@ -23,8 +23,8 @@ var defaultBrandingAssets = map[string]struct {
 }{
 	// "mainLogo":         {data: defaultLogoSVG, mime: "image/svg+xml"},
 	// "favicon":          {data: defaultFaviconSVG, mime: "image/svg+xml"},
-	"siteTitle":       {data: []byte("Streamplace"), mime: "text/plain"},
-	"siteDescription": {data: []byte("Live streaming platform"), mime: "text/plain"},
+	"siteTitle":       {data: []byte(""), mime: "text/plain"},
+	"siteDescription": {data: []byte(""), mime: "text/plain"},
 	"primaryColor":    {data: []byte("#6366f1"), mime: "text/plain"},
 	"accentColor":     {data: []byte("#8b5cf6"), mime: "text/plain"},
 	"defaultStreamer": {data: []byte(""), mime: "text/plain"},

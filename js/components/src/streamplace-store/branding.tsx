@@ -158,7 +158,7 @@ export function useFavicon(): string | undefined {
 // convenience hook for site title
 export function useSiteTitle(): string {
   const asset = useBrandingAsset("siteTitle");
-  return asset?.data || "Streamplace";
+  return asset?.data || "My Streamplace Station";
 }
 
 // convenience hook for site description

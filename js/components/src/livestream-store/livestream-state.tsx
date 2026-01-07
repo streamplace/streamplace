@@ -3,6 +3,7 @@ import {
   ChatMessageViewHydrated,
   LivestreamViewHydrated,
   PlaceStreamDefs,
+  PlaceStreamModerationPermission,
   PlaceStreamSegment,
 } from "streamplace";
 
@@ -25,6 +26,10 @@ export interface LivestreamState {
   hasReceivedSegment: boolean;
   publisherKey: string | null;
   setPublisherKey: (key: string | null) => void;
+  moderationPermissions: PlaceStreamModerationPermission.Record[];
+  setModerationPermissions: (
+    permissions: PlaceStreamModerationPermission.Record[],
+  ) => void;
 }
 
 export interface LivestreamProblem {

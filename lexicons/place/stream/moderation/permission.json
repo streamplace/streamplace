@@ -1,0 +1,40 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.moderation.permission",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "Record granting moderation permissions to a user for this streamer's content.",
+      "record": {
+        "type": "object",
+        "required": ["moderator", "permissions", "createdAt"],
+        "properties": {
+          "moderator": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the user granted moderator permissions."
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["ban", "hide", "livestream.manage"]
+            },
+            "description": "Array of permissions granted to this moderator. 'ban' covers blocks/bans (with optional expiration), 'hide' covers message gates, 'livestream.manage' allows updating livestream metadata."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this moderator was added."
+          },
+          "expirationTime": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Optional expiration time for this delegation. If set, the delegation is invalid after this time."
+          }
+        }
+      }
+    }
+  }
+}

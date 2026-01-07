@@ -13,7 +13,14 @@ if (!rnqc && !expoCrypto) {
   throw new Error(
     "Livestreaming requires one of react-native-quick-crypto or expo-crypto",
   );
-} else if (!rnqc && expoCrypto) {
+}
+if (rnqc) {
+  console.log("Using react-native-quick-crypto for crypto polyfill");
+  // we import this in the main app, but in case this file is used standalone:
+  globalThis.crypto = rnqc as any as Crypto;
+}
+if (expoCrypto) {
+  console.log("Using expo-crypto for crypto polyfill");
   // @atproto/crypto dependencies expect crypto.getRandomValues to be a function
   if (typeof globalThis.crypto === "undefined") {
     globalThis.crypto = {} as any;

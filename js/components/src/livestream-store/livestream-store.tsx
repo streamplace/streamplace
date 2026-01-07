@@ -26,6 +26,8 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     problems: [],
     websocketConnected: false,
     hasReceivedSegment: false,
+    moderationPermissions: [],
+    setModerationPermissions: (perms) => set({ moderationPermissions: perms }),
   }));
 };
 

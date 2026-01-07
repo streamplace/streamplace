@@ -31,6 +31,7 @@ type Server struct {
 	ATSync       *atproto.ATProtoSynchronizer
 	statefulDB   *statedb.StatefulDB
 	bus          *bus.Bus
+	op           *oatproxy.OATProxy
 }
 
 func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus) (*Server, error) {
@@ -43,6 +44,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		ATSync:       atsync,
 		statefulDB:   statefulDB,
 		bus:          bus,
+		op:           op,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())

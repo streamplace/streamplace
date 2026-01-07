@@ -1,9 +1,15 @@
-import { KeepAwake, Text, useDefaultStreamer } from "@streamplace/components";
+import {
+  KeepAwake,
+  LivestreamProvider,
+  PlayerProvider,
+  Text,
+  useLivestreamStore,
+} from "@streamplace/components";
 import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
 import { FullscreenProvider } from "contexts/FullscreenContext";
 import useTitle from "hooks/useTitle";
-import { Platform, Text, View } from "react-native";
+import { Platform, View } from "react-native";
 import { queryToProps } from "./util";
 
 const isWeb = Platform.OS === "web";
@@ -49,5 +55,25 @@ function MobileStreamInner({
         <Player src={src} {...extraProps} />
       </FullscreenProvider>
     </>
+  );
+}
+
+export default function MobileStream({ route }) {
+  const { user, protocol, url } = route.params;
+  let extraProps: Partial<PlayerProps> = {};
+  if (isWeb) {
+    extraProps = queryToProps(new URLSearchParams(window.location.search));
+  }
+  let src = user;
+  if (user === "stream") {
+    src = url;
+  }
+
+  return (
+    <LivestreamProvider src={src}>
+      <PlayerProvider>
+        <MobileStreamInner user={user} src={src} extraProps={extraProps} />
+      </PlayerProvider>
+    </LivestreamProvider>
   );
 }

@@ -109,6 +109,10 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 
 	close(ss.started)
 
+	ss.Go(ctx, func() error {
+		return ss.HandleMultistreamTargets(ctx)
+	})
+
 	for {
 		select {
 		case <-ss.segmentChan:
@@ -678,4 +682,82 @@ func (ss *StreamSession) GetClientByDID(did string) (XRPCClient, error) {
 	}
 
 	return client, nil
+}
+
+type runningMultistream struct {
+	cancel func()
+	uri    string
+}
+
+// we're making an attempt here not to log (sensitive) stream keys, so we're
+// referencing by atproto URI
+func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "system", "multistreaming")
+	isTrue := true
+	// {target.Uri}:{rec.Url} -> runningMultistream
+	// no concurrency issues, it's only used from this one loop
+	running := map[string]*runningMultistream{}
+	for {
+		targets, err := ss.statefulDB.ListMultistreamTargets(ss.repoDID, 100, 0, &isTrue)
+		if err != nil {
+			return fmt.Errorf("failed to list multistream targets: %w", err)
+		}
+		currentRunning := map[string]bool{}
+		for _, targetView := range targets {
+			rec, ok := targetView.Record.Val.(*streamplace.MultistreamTarget)
+			if !ok {
+				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", targetView.Uri)
+				continue
+			}
+			key := fmt.Sprintf("%s:%s", targetView.Uri, rec.Url)
+			if running[key] == nil {
+				childCtx, childCancel := context.WithCancel(ctx)
+				ss.Go(ctx, func() error {
+					log.Log(ctx, "starting multistream target", "uri", targetView.Uri)
+					err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, "starting multistream target", "pending")
+					if err != nil {
+						log.Error(ctx, "failed to create multistream event", "error", err)
+					}
+					return ss.StartMultistreamTarget(childCtx, targetView)
+				})
+				running[key] = &runningMultistream{
+					cancel: childCancel,
+					uri:    key,
+				}
+			}
+			currentRunning[key] = true
+		}
+		for key := range running {
+			if !currentRunning[key] {
+				log.Log(ctx, "stopping multistream target", "uri", running[key].uri)
+				running[key].cancel()
+				delete(running, key)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(time.Second * 5):
+			continue
+		}
+	}
+}
+
+func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView *streamplace.MultistreamDefs_TargetView) error {
+	for {
+		err := ss.mm.RTMPPush(ctx, ss.repoDID, "source", targetView)
+		if err != nil {
+			log.Error(ctx, "failed to push to RTMP server", "error", err)
+			err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, err.Error(), "error")
+			if err != nil {
+				log.Error(ctx, "failed to create multistream event", "error", err)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(time.Second * 5):
+			continue
+		}
+	}
 }

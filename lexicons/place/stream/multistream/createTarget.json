@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.multistream.createTarget",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Create a new target for rebroadcasting a Streamplace stream.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["multistreamTarget"],
+          "properties": {
+            "multistreamTarget": {
+              "type": "ref",
+              "ref": "place.stream.multistream.target"
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "ref",
+          "ref": "place.stream.multistream.defs#targetView"
+        }
+      },
+      "errors": [
+        {
+          "name": "InvalidTargetUrl",
+          "description": "The provided target URL is invalid or unreachable."
+        }
+      ]
+    }
+  }
+}

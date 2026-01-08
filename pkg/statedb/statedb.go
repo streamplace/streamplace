@@ -49,6 +49,8 @@ var StatefulDBModels = []any{
 	AppTask{},
 	Repo{},
 	Webhook{},
+	MultistreamTarget{},
+	MultistreamEvent{},
 	BrandingBlob{},
 	ModerationAuditLog{},
 }

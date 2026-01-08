@@ -1,0 +1,32 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.multistream.deleteTarget",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Delete a target for rebroadcasting a Streamplace stream.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["rkey"],
+          "properties": {
+            "rkey": {
+              "type": "string",
+              "format": "record-key",
+              "description": "The Record Key of the target to delete."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      "errors": []
+    }
+  }
+}

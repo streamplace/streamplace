@@ -1,5 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import {
+  borders,
   Button,
   Dashboard,
   useLivestreamStore,
@@ -20,6 +21,7 @@ import { Dimensions, Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEmojiData } from "utils/emoji";
 import LivestreamPanel from "./livestream-panel";
+import MultistreamStatus from "./multistream-status";
 import StreamMonitor from "./stream-monitor";
 
 const { flex, p, gap, layout, bg } = zero;
@@ -192,6 +194,14 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 { maxWidth: isWeb ? 600 : "100%" },
               ]}
             >
+              <View
+                style={[
+                  borders.bottom.width.thin,
+                  borders.bottom.color.neutral[700],
+                ]}
+              >
+                <MultistreamStatus />
+              </View>
               <Dashboard.ChatPanel
                 isLive={isLive}
                 isConnected={isConnected}

@@ -278,6 +278,10 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.moderation.deleteBlock", s.HandlePlaceStreamModerationDeleteBlock)
 	e.POST("/xrpc/place.stream.moderation.deleteGate", s.HandlePlaceStreamModerationDeleteGate)
 	e.POST("/xrpc/place.stream.moderation.updateLivestream", s.HandlePlaceStreamModerationUpdateLivestream)
+	e.POST("/xrpc/place.stream.multistream.createTarget", s.HandlePlaceStreamMultistreamCreateTarget)
+	e.POST("/xrpc/place.stream.multistream.deleteTarget", s.HandlePlaceStreamMultistreamDeleteTarget)
+	e.GET("/xrpc/place.stream.multistream.listTargets", s.HandlePlaceStreamMultistreamListTargets)
+	e.POST("/xrpc/place.stream.multistream.putTarget", s.HandlePlaceStreamMultistreamPutTarget)
 	e.POST("/xrpc/place.stream.server.createWebhook", s.HandlePlaceStreamServerCreateWebhook)
 	e.POST("/xrpc/place.stream.server.deleteWebhook", s.HandlePlaceStreamServerDeleteWebhook)
 	e.GET("/xrpc/place.stream.server.getServerTime", s.HandlePlaceStreamServerGetServerTime)
@@ -568,6 +572,85 @@ func (s *Server) HandlePlaceStreamModerationUpdateLivestream(c echo.Context) err
 	var handleErr error
 	// func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context,body *placestream.ModerationUpdateLivestream_Input) (*placestream.ModerationUpdateLivestream_Output, error)
 	out, handleErr = s.handlePlaceStreamModerationUpdateLivestream(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamMultistreamCreateTarget(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMultistreamCreateTarget")
+	defer span.End()
+
+	var body placestream.MultistreamCreateTarget_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.MultistreamDefs_TargetView
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMultistreamCreateTarget(ctx context.Context,body *placestream.MultistreamCreateTarget_Input) (*placestream.MultistreamDefs_TargetView, error)
+	out, handleErr = s.handlePlaceStreamMultistreamCreateTarget(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamMultistreamDeleteTarget(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMultistreamDeleteTarget")
+	defer span.End()
+
+	var body placestream.MultistreamDeleteTarget_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.MultistreamDeleteTarget_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMultistreamDeleteTarget(ctx context.Context,body *placestream.MultistreamDeleteTarget_Input) (*placestream.MultistreamDeleteTarget_Output, error)
+	out, handleErr = s.handlePlaceStreamMultistreamDeleteTarget(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamMultistreamListTargets(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMultistreamListTargets")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	var out *placestream.MultistreamListTargets_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMultistreamListTargets(ctx context.Context,cursor string,limit int) (*placestream.MultistreamListTargets_Output, error)
+	out, handleErr = s.handlePlaceStreamMultistreamListTargets(ctx, cursor, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamMultistreamPutTarget(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMultistreamPutTarget")
+	defer span.End()
+
+	var body placestream.MultistreamPutTarget_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.MultistreamDefs_TargetView
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMultistreamPutTarget(ctx context.Context,body *placestream.MultistreamPutTarget_Input) (*placestream.MultistreamDefs_TargetView, error)
+	out, handleErr = s.handlePlaceStreamMultistreamPutTarget(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

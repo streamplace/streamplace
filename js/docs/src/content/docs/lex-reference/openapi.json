@@ -517,6 +517,222 @@
         }
       }
     },
+    "/xrpc/place.stream.multistream.createTarget": {
+      "post": {
+        "summary": "Create a new target for rebroadcasting a Streamplace stream.",
+        "operationId": "place.stream.multistream.createTarget",
+        "tags": ["place.stream.multistream"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/place.stream.multistream.defs_targetView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "InvalidTargetUrl"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "multistreamTarget": {
+                    "$ref": "#/components/schemas/place.stream.multistream.target"
+                  }
+                },
+                "required": ["multistreamTarget"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.multistream.deleteTarget": {
+      "post": {
+        "summary": "Delete a target for rebroadcasting a Streamplace stream.",
+        "operationId": "place.stream.multistream.deleteTarget",
+        "tags": ["place.stream.multistream"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rkey": {
+                    "type": "string",
+                    "description": "The Record Key of the target to delete.",
+                    "format": "record-key"
+                  }
+                },
+                "required": ["rkey"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.multistream.listTargets": {
+      "get": {
+        "summary": "List a range of targets for rebroadcasting a Streamplace stream.",
+        "operationId": "place.stream.multistream.listTargets",
+        "tags": ["place.stream.multistream"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "targets": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.multistream.defs_targetView"
+                      }
+                    },
+                    "cursor": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["targets"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "The number of targets to return.",
+            "schema": {
+              "type": "integer",
+              "description": "The number of targets to return.",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.multistream.putTarget": {
+      "post": {
+        "summary": "Update an existing target for rebroadcasting a Streamplace stream.",
+        "operationId": "place.stream.multistream.putTarget",
+        "tags": ["place.stream.multistream"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/place.stream.multistream.defs_targetView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "InvalidTargetUrl"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "multistreamTarget": {
+                    "$ref": "#/components/schemas/place.stream.multistream.target"
+                  },
+                  "rkey": {
+                    "type": "string",
+                    "description": "The Record Key.",
+                    "maxLength": 512,
+                    "format": "record-key"
+                  }
+                },
+                "required": ["multistreamTarget"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.moderation.createBlock": {
       "post": {
         "summary": "Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates an app.bsky.graph.block record in the streamer's repository.",
@@ -2565,6 +2781,44 @@
           }
         },
         "required": ["id", "url", "events", "active", "createdAt"]
+      },
+      "place.stream.multistream.target": {
+        "description": "Unknown type"
+      },
+      "place.stream.multistream.defs_targetView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "record": {},
+          "latestEvent": {
+            "$ref": "#/components/schemas/place.stream.multistream.defs_event"
+          }
+        },
+        "required": ["uri", "cid", "record"]
+      },
+      "place.stream.multistream.defs_event": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["inactive", "pending", "active", "error"]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["message", "status", "createdAt"]
       },
       "place.stream.livestream_livestreamView": {
         "type": "object",

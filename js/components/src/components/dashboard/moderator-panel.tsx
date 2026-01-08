@@ -334,6 +334,7 @@ function ModeratorCard({
       >
         <DialogFooter>
           <Button
+            width="min"
             variant="secondary"
             onPress={() => setShowConfirm(false)}
             disabled={isLoading}
@@ -341,6 +342,7 @@ function ModeratorCard({
             <Text>Cancel</Text>
           </Button>
           <Button
+            width="min"
             variant="destructive"
             onPress={handleRemove}
             disabled={isLoading}

@@ -262,6 +262,10 @@ func (s *Server) HandleComAtprotoSyncListRepos(c echo.Context) error {
 }
 
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
+	e.POST("/xrpc/place.stream.branding.deleteBlob", s.HandlePlaceStreamBrandingDeleteBlob)
+	e.GET("/xrpc/place.stream.branding.getBlob", s.HandlePlaceStreamBrandingGetBlob)
+	e.GET("/xrpc/place.stream.branding.getBranding", s.HandlePlaceStreamBrandingGetBranding)
+	e.POST("/xrpc/place.stream.branding.updateBlob", s.HandlePlaceStreamBrandingUpdateBlob)
 	e.GET("/xrpc/place.stream.broadcast.getBroadcaster", s.HandlePlaceStreamBroadcastGetBroadcaster)
 	e.GET("/xrpc/place.stream.graph.getFollowingUser", s.HandlePlaceStreamGraphGetFollowingUser)
 	e.GET("/xrpc/place.stream.live.getLiveUsers", s.HandlePlaceStreamLiveGetLiveUsers)
@@ -285,6 +289,71 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.server.listWebhooks", s.HandlePlaceStreamServerListWebhooks)
 	e.POST("/xrpc/place.stream.server.updateWebhook", s.HandlePlaceStreamServerUpdateWebhook)
 	return nil
+}
+
+func (s *Server) HandlePlaceStreamBrandingDeleteBlob(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingDeleteBlob")
+	defer span.End()
+
+	var body placestream.BrandingDeleteBlob_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.BrandingDeleteBlob_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context,body *placestream.BrandingDeleteBlob_Input) (*placestream.BrandingDeleteBlob_Output, error)
+	out, handleErr = s.handlePlaceStreamBrandingDeleteBlob(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamBrandingGetBlob(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingGetBlob")
+	defer span.End()
+	broadcaster := c.QueryParam("broadcaster")
+	key := c.QueryParam("key")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context,broadcaster string,key string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamBrandingGetBlob(ctx, broadcaster, key)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/octet-stream", out)
+}
+
+func (s *Server) HandlePlaceStreamBrandingGetBranding(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingGetBranding")
+	defer span.End()
+	broadcaster := c.QueryParam("broadcaster")
+	var out *placestream.BrandingGetBranding_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context,broadcaster string) (*placestream.BrandingGetBranding_Output, error)
+	out, handleErr = s.handlePlaceStreamBrandingGetBranding(ctx, broadcaster)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamBrandingUpdateBlob(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBrandingUpdateBlob")
+	defer span.End()
+
+	var body placestream.BrandingUpdateBlob_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.BrandingUpdateBlob_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context,body *placestream.BrandingUpdateBlob_Input) (*placestream.BrandingUpdateBlob_Output, error)
+	out, handleErr = s.handlePlaceStreamBrandingUpdateBlob(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandlePlaceStreamBroadcastGetBroadcaster(c echo.Context) error {

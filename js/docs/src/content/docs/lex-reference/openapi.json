@@ -1511,10 +1511,288 @@
                       "type": "string",
                       "description": "DID of this particular Streamplace server",
                       "format": "did"
+                    },
+                    "admins": {
+                      "type": "array",
+                      "description": "Array of DIDs authorized as admins",
+                      "items": {
+                        "type": "string",
+                        "format": "did"
+                      }
                     }
                   },
                   "required": ["broadcaster"]
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.branding.deleteBlob": {
+      "post": {
+        "summary": "Delete a branding asset blob. Requires admin authorization.",
+        "operationId": "place.stream.branding.deleteBlob",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["success"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "BrandingNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "description": "Branding asset key (mainLogo, favicon, siteTitle, etc.)"
+                  },
+                  "broadcaster": {
+                    "type": "string",
+                    "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+                    "format": "did"
+                  }
+                },
+                "required": ["key"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.branding.getBlob": {
+      "get": {
+        "summary": "Get a specific branding asset blob by key.",
+        "operationId": "place.stream.branding.getBlob",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Raw blob data with appropriate content-type",
+            "content": {
+              "*/*": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "BrandingNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "description": "Branding asset key (mainLogo, favicon, siteTitle, etc.)",
+            "schema": {
+              "type": "string",
+              "description": "Branding asset key (mainLogo, favicon, siteTitle, etc.)"
+            }
+          },
+          {
+            "name": "broadcaster",
+            "in": "query",
+            "required": false,
+            "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.branding.getBranding": {
+      "get": {
+        "summary": "Get all branding configuration for the broadcaster.",
+        "operationId": "place.stream.branding.getBranding",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "assets": {
+                      "type": "array",
+                      "description": "List of available branding assets",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.branding.getBranding_brandingAsset"
+                      }
+                    }
+                  },
+                  "required": ["assets"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "broadcaster",
+            "in": "query",
+            "required": false,
+            "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.branding.updateBlob": {
+      "post": {
+        "summary": "Update or create a branding asset blob. Requires admin authorization.",
+        "operationId": "place.stream.branding.updateBlob",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["success"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "BlobTooLarge"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "description": "Branding asset key (mainLogo, favicon, siteTitle, etc.)"
+                  },
+                  "broadcaster": {
+                    "type": "string",
+                    "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+                    "format": "did"
+                  },
+                  "data": {
+                    "type": "string",
+                    "description": "Base64-encoded blob data"
+                  },
+                  "mimeType": {
+                    "type": "string",
+                    "description": "MIME type of the blob (e.g., image/png, text/plain)"
+                  },
+                  "width": {
+                    "type": "integer",
+                    "description": "Image width in pixels (optional, for images only)"
+                  },
+                  "height": {
+                    "type": "integer",
+                    "description": "Image height in pixels (optional, for images only)"
+                  }
+                },
+                "required": ["key", "data", "mimeType"]
               }
             }
           }
@@ -2975,6 +3253,36 @@
           }
         },
         "required": ["uri", "cid"]
+      },
+      "place.stream.branding.getBranding_brandingAsset": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Asset key identifier"
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "MIME type of the asset"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to fetch the asset blob (for images)"
+          },
+          "data": {
+            "type": "string",
+            "description": "Inline data for text assets"
+          },
+          "width": {
+            "type": "integer",
+            "description": "Image width in pixels (optional, for images only)"
+          },
+          "height": {
+            "type": "integer",
+            "description": "Image height in pixels (optional, for images only)"
+          }
+        },
+        "required": ["key", "mimeType"]
       },
       "com.atproto.sync.listRepos_repo": {
         "type": "object",

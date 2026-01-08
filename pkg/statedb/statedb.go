@@ -51,6 +51,7 @@ var StatefulDBModels = []any{
 	Webhook{},
 	MultistreamTarget{},
 	MultistreamEvent{},
+	BrandingBlob{},
 	ModerationAuditLog{},
 }
 

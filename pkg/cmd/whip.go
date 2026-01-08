@@ -70,6 +70,7 @@ var failureStates = []webrtc.ICEConnectionState{
 	webrtc.ICEConnectionStateFailed,
 	webrtc.ICEConnectionStateDisconnected,
 	webrtc.ICEConnectionStateClosed,
+	webrtc.ICEConnectionStateCompleted,
 }
 
 type WHIPConnection struct {
@@ -352,14 +353,8 @@ func (w *WHIPClient) StartWHIPConnection(ctx context.Context, streamKey string, 
 	// Create HTTP client and prepare the request
 	client := &http.Client{}
 
-	// Send the WHIP request to the server.
-	// The Streamplace ingest endpoint is /api/ingest/webrtc. Allow callers to pass either
-	// a full URL (including path) or just the server base URL.
-	endpointURL := strings.TrimRight(w.Endpoint, "/")
-	if !strings.Contains(endpointURL, "/api/") {
-		endpointURL = endpointURL + "/api/ingest/webrtc"
-	}
-	req, err := http.NewRequest("POST", endpointURL, strings.NewReader(offer.SDP))
+	// Send the WHIP request to the server
+	req, err := http.NewRequest("POST", w.Endpoint, strings.NewReader(offer.SDP))
 	if err != nil {
 		return nil, err
 	}

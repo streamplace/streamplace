@@ -32,12 +32,6 @@ export interface PlayerState {
   protocol: PlayerProtocol;
   setProtocol: (protocol: PlayerProtocol) => void;
 
-  showSubtitles: boolean;
-  setShowSubtitles: (showSubtitles: boolean) => void;
-
-  subtitleOffsetMS: number;
-  setSubtitleOffsetMS: (subtitleOffsetMS: number) => void;
-
   /** Source */
   src: string;
 

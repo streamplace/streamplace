@@ -140,8 +140,6 @@ type CLI struct {
 	Syndicate                   []string
 	AIGatewayBaseURL           string
 	AIGatewayPipeline          string
-	AIGatewayRTMPHost          string
-	AIGatewayFFmpegBin         string
 }
 
 // ContentFilters represents the content filtering configuration
@@ -243,8 +241,6 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 
 	fs.StringVar(&cli.AIGatewayBaseURL, "ai-gateway-base-url", "", "base URL of the AI transcription gateway (e.g. http://localhost:5937)")
 	fs.StringVar(&cli.AIGatewayPipeline, "ai-gateway-pipeline", "transcription", "AI pipeline capability name")
-	fs.StringVar(&cli.AIGatewayRTMPHost, "ai-gateway-rtmp-host", "localhost:1937", "RTMP host:port for AI gateway media ingress")
-	fs.StringVar(&cli.AIGatewayFFmpegBin, "ai-gateway-ffmpeg-bin", "ffmpeg", "path to ffmpeg binary for AI gateway publisher")
 
 	fs.Bool("external-signing", true, "DEPRECATED, does nothing.")
 	fs.Bool("insecure", false, "DEPRECATED, does nothing.")

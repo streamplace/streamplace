@@ -25,7 +25,6 @@ const IndexM3U8 = "index.m3u8"
 type Segment struct {
 	MSN      uint64 // media sequence number
 	Duration time.Duration
-	StartMS  int64
 	Buf      *bytes.Buffer
 	Time     time.Time
 	Closed   bool
@@ -34,11 +33,10 @@ type Segment struct {
 }
 
 type M3U8 struct {
-	curSeg           uint64
-	pendingSegments  []*Segment
-	waits            []chan struct{}
-	renditions       []*M3U8Rendition
-	subtitlesEnabled bool
+	curSeg          uint64
+	pendingSegments []*Segment
+	waits           []chan struct{}
+	renditions      []*M3U8Rendition
 }
 
 type M3U8Rendition struct {
@@ -62,14 +60,11 @@ func NewM3U8(renditions renditions.Renditions) *M3U8 {
 	}
 }
 
-func (r *M3U8Rendition) GetMediaLine(session string, subtitlesEnabled bool) string {
+func (r *M3U8Rendition) GetMediaLine(session string) string {
 	// m.waitForStart()
 	lines := []string{}
-	if subtitlesEnabled {
-		lines = append(lines, fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d,SUBTITLES=\"subs\"", r.Rendition.Bitrate, r.Rendition.Width, r.Rendition.Height))
-	} else {
-		lines = append(lines, fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d", r.Rendition.Bitrate, r.Rendition.Width, r.Rendition.Height))
-	}
+	lines = append(lines, "#EXTM3U")
+	lines = append(lines, fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d", r.Rendition.Bitrate, r.Rendition.Width, r.Rendition.Height))
 	lines = append(lines, fmt.Sprintf("%s/%s?session=%s", r.Rendition.Name, IndexM3U8, session))
 	return strings.Join(lines, "\n")
 }
@@ -134,12 +129,9 @@ func (m *M3U8) GetMultivariantPlaylist(rendition string) []byte {
 	// m.waitForStart()
 	lines := []string{}
 	lines = append(lines, "#EXTM3U")
-	if m.subtitlesEnabled {
-		lines = append(lines, fmt.Sprintf(`#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",DEFAULT=YES,AUTOSELECT=YES,LANGUAGE="en",URI="subtitles/%s?session=%s"`, IndexM3U8, uu.String()))
-	}
 	for _, r := range m.renditions {
 		if rendition == "" || r.Rendition.Name == rendition {
-			lines = append(lines, r.GetMediaLine(uu.String(), m.subtitlesEnabled))
+			lines = append(lines, r.GetMediaLine(uu.String()))
 		}
 	}
 	return []byte(strings.Join(lines, "\n"))
@@ -178,15 +170,6 @@ func (m *M3U8) GetFile(str string, session string, rendition string) ([]byte, er
 func (r *M3U8Rendition) NewSegment(seg *Segment) error {
 	r.SegmentLock.Lock()
 	defer r.SegmentLock.Unlock()
-	if seg.StartTS != nil {
-		// StartTS is splitmuxsink running-time in nanoseconds.
-		seg.StartMS = int64(*seg.StartTS / 1_000_000)
-	} else if len(r.Segments) > 0 {
-		last := r.Segments[len(r.Segments)-1]
-		seg.StartMS = last.StartMS + last.Duration.Milliseconds()
-	} else {
-		seg.StartMS = 0
-	}
 	seg.MSN = r.MSN
 	r.MSN += 1
 	r.Segments = append(r.Segments, seg)
@@ -206,12 +189,4 @@ func (m *M3U8) GetRendition(rendition string) (*M3U8Rendition, error) {
 		}
 	}
 	return nil, fmt.Errorf("rendition not found")
-}
-
-func (m *M3U8) SetSubtitlesEnabled(enabled bool) {
-	m.subtitlesEnabled = enabled
-}
-
-func (m *M3U8) SubtitlesEnabled() bool {
-	return m.subtitlesEnabled
 }

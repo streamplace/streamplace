@@ -43,9 +43,6 @@ type Config struct {
 
 	// Pipeline is the AI pipeline capability name (e.g., "transcriber").
 	Pipeline string
-
-	// RTMPHost is the host:port for RTMP media ingress if not provided by gateway.
-	RTMPHost string
 }
 
 // Session represents an active AI gateway transcription session.
@@ -70,16 +67,12 @@ type Session struct {
 
 	// WhepURL is the WHEP endpoint for WebRTC media egress (if available).
 	WhepURL string
-
-	// RTMPURL is the RTMP endpoint for media ingress (if available).
-	RTMPURL string
 }
 
 type streamStartRequest struct {
 	StreamName string `json:"stream_name"`
 	Params     string `json:"params"`
 	StreamID   string `json:"stream_id"`
-	RTMPOutput string `json:"rtmp_output"`
 }
 
 type streamStartResponse struct {
@@ -88,7 +81,6 @@ type streamStartResponse struct {
 	UpdateURL string `json:"update_url"`
 	WhipURL   string `json:"whip_url"`
 	WhepURL   string `json:"whep_url"`
-	RTMPURL   string `json:"rtmp_url"`
 	StopURL   string `json:"stop_url"`
 	StreamID  string `json:"stream_id"`
 }
@@ -138,7 +130,6 @@ func StartStream(ctx context.Context, cfg Config, streamName string) (*Session, 
 		StreamName: streamName,
 		Params:     paramsJSON,
 		StreamID:   "",
-		RTMPOutput: "",
 	}
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
@@ -191,7 +182,6 @@ func StartStream(ctx context.Context, cfg Config, streamName string) (*Session, 
 			UpdateURL: sr.UpdateURL,
 			WhipURL:   sr.WhipURL,
 			WhepURL:   sr.WhepURL,
-			RTMPURL:   sr.RTMPURL,
 		}
 
 		normalizeBase := strings.TrimRight(cfg.BaseURL, "/")
@@ -201,7 +191,6 @@ func StartStream(ctx context.Context, cfg Config, streamName string) (*Session, 
 		session.UpdateURL = normalizeGatewayURL(normalizeBase, session.UpdateURL)
 		session.WhipURL = normalizeGatewayURL(normalizeBase, session.WhipURL)
 		session.WhepURL = normalizeGatewayURL(normalizeBase, session.WhepURL)
-		session.RTMPURL = normalizeGatewayURL(normalizeBase, session.RTMPURL)
 
 		return session, nil
 	}
@@ -277,11 +266,6 @@ func StopStream(ctx context.Context, cfg Config, streamID string) error {
 	return fmt.Errorf("stop stream failed: %s: %s", lastNotFoundStatus, lastNotFoundBody)
 }
 
-// ConstructRTMPURL builds an RTMP URL using the provided host and the session ID.
-func (s *Session) ConstructRTMPURL(rtmpHost string) string {
-	return fmt.Sprintf("rtmp://%s/%s", rtmpHost, s.ID)
-}
-
 func normalizeGatewayURL(base, raw string) string {
 	if raw == "" || base == "" {
 		return raw
@@ -348,10 +332,10 @@ type TranscriptEvent struct {
 func (e *TranscriptEvent) UnmarshalJSON(b []byte) error {
 	// Accept the SSE format (timestamp_utc RFC3339 string).
 	type rawEvent struct {
-		Type         string             `json:"type"`
-		TimestampUTC string             `json:"timestamp_utc"`
-		Timing       *Timing            `json:"timing"`
-		Stats        *Stats             `json:"stats"`
+		Type         string              `json:"type"`
+		TimestampUTC string              `json:"timestamp_utc"`
+		Timing       *Timing             `json:"timing"`
+		Stats        *Stats              `json:"stats"`
 		Segments     []TranscriptSegment `json:"segments"`
 	}
 
@@ -397,15 +381,14 @@ type WordTimestamp struct {
 }
 
 type Timing struct {
-	MediaWindowStartMS    int64 `json:"media_window_start_ms"`
-	MediaWindowEndMS      int64 `json:"media_window_end_ms"`
+	MediaWindowStartMS int64 `json:"media_window_start_ms"`
+	MediaWindowEndMS   int64 `json:"media_window_end_ms"`
 }
 
 // Stats contains performance statistics for a transcription event.
 type Stats struct {
 	AudioDurationMS int `json:"audio_duration_ms"`
 }
-
 
 // EventHandler is a callback function for processing transcript events.
 type EventHandler func(ctx context.Context, event TranscriptEvent)

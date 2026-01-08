@@ -122,9 +122,8 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 // If the gateway connection fails, it logs the error and returns the original input unchanged.
 func (mm *MediaManager) startAIGatewayTee(ctx context.Context, input io.Reader, streamer string) (io.Reader, func()) {
 	cfg := aigateway.Config{
-		BaseURL:       mm.cli.AIGatewayBaseURL,
-		Pipeline:      mm.cli.AIGatewayPipeline,
-		RTMPHost:      mm.cli.AIGatewayRTMPHost,
+		BaseURL:  mm.cli.AIGatewayBaseURL,
+		Pipeline: mm.cli.AIGatewayPipeline,
 	}
 
 	streamName := fmt.Sprintf("streamplace-%s-%d", streamer, time.Now().UnixMilli())
@@ -135,42 +134,19 @@ func (mm *MediaManager) startAIGatewayTee(ctx context.Context, input io.Reader, 
 		return input, func() {}
 	}
 
-	log.Log(ctx, "AI gateway session started",
+	log.Debug(ctx, "AI gateway session started",
 		"streamID", session.ID,
 		"dataURL", session.DataURL,
 		"streamer", streamer,
 	)
 
-	if session.WhipURL != "" {
-		return mm.startAIGatewayWHIP(ctx, input, streamer, cfg, session)
-	}
-
-	rtmpURL := session.RTMPURL
-	if cfg.RTMPHost != "" {
-		rtmpURL = session.ConstructRTMPURL(cfg.RTMPHost)
-	}
-	if rtmpURL == "" {
-		log.Error(ctx, "AI gateway did not provide rtmp_url and no --ai-gateway-rtmp-host set, continuing without transcription", "streamID", session.ID)
-		_ = aigateway.StopStream(context.Background(), cfg, session.ID)
-		return input, func() {}
-	}
-	publisher := aigateway.NewRTMPPublisher(ctx, mm.cli.AIGatewayFFmpegBin, rtmpURL)
-
-	stdin, err := publisher.Start()
-	if err != nil {
-		log.Error(ctx, "failed to start RTMP publisher, continuing without transcription", "error", err)
+	if session.WhipURL == "" {
+		log.Error(ctx, "AI gateway did not provide whip_url, continuing without transcription", "streamID", session.ID)
 		_ = aigateway.StopStream(context.Background(), cfg, session.ID)
 		return input, func() {}
 	}
 
-	asyncWriter := aigateway.NewAsyncWriter(ctx, stdin)
-	teedInput := io.TeeReader(input, asyncWriter)
-
-	mm.startSSEReader(ctx, session.DataURL, streamer)
-
-	cleanup := mm.makeAIGatewayCleanup(ctx, cfg, session.ID, streamer, asyncWriter, publisher.Stop)
-
-	return teedInput, cleanup
+	return mm.startAIGatewayWHIP(ctx, input, streamer, cfg, session)
 }
 
 // startAIGatewayWHIP sets up WHIP-based media publishing to the AI gateway.

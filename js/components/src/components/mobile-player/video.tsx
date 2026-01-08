@@ -1,12 +1,5 @@
 import Hls from "hls.js";
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import {
   IngestMediaSource,
   PlayerProtocol,
@@ -327,63 +320,21 @@ export function ProgressiveWebMPlayer(props: VideoProps) {
 
 export function HLSPlayer(props: VideoProps) {
   const localRef = useRef<HTMLVideoElement | null>(null);
-  const showSubtitles = usePlayerStore((x) => x.showSubtitles);
-  const subtitleOffsetMS = usePlayerStore((x) => x.subtitleOffsetMS);
-
-  const showSubtitlesRef = useRef(showSubtitles);
-  useEffect(() => {
-    showSubtitlesRef.current = showSubtitles;
-  }, [showSubtitles]);
-
-  const hlsRef = useRef<Hls | null>(null);
-
-  const urlWithSubOffset = useMemo(() => {
-    const off = subtitleOffsetMS || 0;
-    if (!off) {
-      return props.url;
-    }
-    const sep = props.url.includes("?") ? "&" : "?";
-    return `${props.url}${sep}sub_offset_ms=${off}`;
-  }, [props.url, subtitleOffsetMS]);
 
   useEffect(() => {
     if (!localRef.current) {
       return;
     }
     if (Hls.isSupported()) {
-      const mediaEl = localRef.current;
-      const hls = new Hls({
-        maxAudioFramesDrift: 20,
-        enableWebVTT: true,
-        renderTextTracksNatively: true,
-      });
-      hlsRef.current = hls;
-
-      hls.loadSource(urlWithSubOffset);
+      var hls = new Hls({ maxAudioFramesDrift: 20 });
+      hls.loadSource(props.url);
       try {
-        hls.attachMedia(mediaEl);
+        hls.attachMedia(localRef.current);
       } catch (e) {
         console.error("error on attachMedia");
         hls.stopLoad();
         return;
       }
-      hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_evt, data) => {
-        if (!data?.subtitleTracks?.length) {
-          return;
-        }
-
-        const enabled = showSubtitlesRef.current;
-        hls.subtitleTrack = enabled ? 0 : -1;
-        hls.subtitleDisplay = enabled;
-
-        try {
-          for (let i = 0; i < mediaEl.textTracks.length; i++) {
-            mediaEl.textTracks[i].mode = enabled ? "showing" : "disabled";
-          }
-        } catch (_e) {
-          // ignore
-        }
-      });
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         if (!localRef.current) {
           return;
@@ -391,11 +342,10 @@ export function HLSPlayer(props: VideoProps) {
         localRef.current.play();
       });
       return () => {
-        hlsRef.current = null;
-        hls.destroy();
+        hls.stopLoad();
       };
     } else if (localRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-      localRef.current.src = urlWithSubOffset;
+      localRef.current.src = props.url;
       localRef.current.addEventListener("canplay", () => {
         if (!localRef.current) {
           return;
@@ -403,28 +353,7 @@ export function HLSPlayer(props: VideoProps) {
         localRef.current.play();
       });
     }
-  }, [urlWithSubOffset]);
-
-  useEffect(() => {
-    const mediaEl = localRef.current;
-    if (!mediaEl) {
-      return;
-    }
-
-    const hls = hlsRef.current;
-    if (hls) {
-      hls.subtitleTrack = showSubtitles ? 0 : -1;
-      hls.subtitleDisplay = showSubtitles;
-    }
-
-    try {
-      for (let i = 0; i < mediaEl.textTracks.length; i++) {
-        mediaEl.textTracks[i].mode = showSubtitles ? "showing" : "disabled";
-      }
-    } catch (_e) {
-      // ignore
-    }
-  }, [showSubtitles]);
+  }, [props.url]);
 
   return <VideoElement {...props} ref={localRef} />;
 }

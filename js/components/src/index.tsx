@@ -38,6 +38,7 @@ export { default as VideoRetry } from "./components/mobile-player/video-retry";
 export * from "./lib/system-messages";
 
 export * from "./components/stream-notification";
+export * from "./lib/stream-notifications";
 
 export * from "./utils/format-handle";
 

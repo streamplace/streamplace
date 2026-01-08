@@ -39,4 +39,13 @@ export const StreamNotifications = {
       variant: "info",
     });
   },
+
+  activate: (message: string) => {
+    streamNotification.show({
+      id: "stream-activate",
+      message: message,
+      duration: 3,
+      variant: "info",
+    });
+  },
 };

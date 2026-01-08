@@ -4,6 +4,7 @@ import {
   Loader,
   Resizable,
   StreamNotificationProvider,
+  StreamNotifications,
   Text,
   useHandle,
   useLivestreamInfo,
@@ -172,6 +173,24 @@ function ChatPanel() {
         <Chat />
       </View>
       <View style={[layout.flex.column, gap.all[2]]}>
+        <Pressable
+          onPress={() =>
+            StreamNotifications.activate("Stream notification activated!")
+          }
+          style={[
+            layout.flex.row,
+            layout.flex.center,
+            {
+              padding: 12,
+              borderRadius: borderRadius.xl,
+              backgroundColor: "rgba(255, 255, 255, 0.05)",
+            },
+          ]}
+        >
+          <Text style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: 12 }}>
+            Activate Stream Notification
+          </Text>
+        </Pressable>
         {agent?.did ? (
           <ChatBox
             emojiData={emojiData}

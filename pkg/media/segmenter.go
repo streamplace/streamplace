@@ -125,6 +125,10 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 				if previousSegCh != nil {
 					<-previousSegCh
 				}
+				if len(bs) == 0 {
+					log.Error(ctx, "empty segment")
+					return
+				}
 				resetTimer <- struct{}{}
 				convergeAndSign := func() error {
 					convergedBs, err := ConvergeSegment(ctx, cli, bs, now, streamer, doH264Parse)
@@ -164,6 +168,7 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 				if err != nil {
 					log.Error(ctx, "error in segmenter", "error", err)
 					if FatalSegmentationErrors {
+						panic("not supposed to get here")
 						sink.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed, "error in segmenter", err.Error())
 						return
 					}

@@ -97,11 +97,7 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
 
   // Early return AFTER all hooks have been called
   if (!agent?.did) {
-    return (
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-        <Text>Log in to submit mod actions</Text>
-      </View>
-    );
+    return <></>;
   }
 
   // Can show moderation actions if user can hide, ban, or manage livestream

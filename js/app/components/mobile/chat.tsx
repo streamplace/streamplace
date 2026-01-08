@@ -97,12 +97,13 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
             style={[
               {
                 position: "absolute",
-                top: 0,
-                bottom: 0,
-                left: 0,
-                right: 0,
+                top: 1,
+                right: 1,
                 zIndex: 2,
+                width: "100%",
+                minWidth: 350,
                 pointerEvents: "none",
+                transformOrigin: "top right",
               },
               notificationOffsetStyle,
             ]}

@@ -195,7 +195,10 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
               ]}
             >
               <View
-                style={[borders.top.width.thin, borders.top.color.neutral[700]]}
+                style={[
+                  borders.bottom.width.thin,
+                  borders.bottom.color.neutral[700],
+                ]}
               >
                 <MultistreamStatus />
               </View>

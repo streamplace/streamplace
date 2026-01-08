@@ -26,6 +26,15 @@ interface MultistreamTargetViewHydrated
   record: PlaceStreamMultistreamTarget.Record;
 }
 
+const redactMultistreamTargetURL = (url: string) => {
+  try {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}/redacted`;
+  } catch (error) {
+    return "parsing failed";
+  }
+};
+
 const multistreamTitle = (
   target: MultistreamTargetViewHydrated | undefined,
   t: TFunction,
@@ -363,7 +372,7 @@ export function MultistreamRow({
   return (
     <SettingsListItem
       title={multistreamTitle(target, t)}
-      url={target.record.url}
+      url={redactMultistreamTargetURL(target.record.url)}
       active={target.record.active}
       isDeleting={isDeleting}
       isToggling={isToggling}
@@ -405,10 +414,12 @@ function MultistreamTargetForm({
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [changedTargetUrl, setChangedTargetUrl] = useState(false);
 
   // Update form data when webhook prop changes (for editing)
   useEffect(() => {
     setErrors({});
+    setChangedTargetUrl(false);
     if (target) {
       setFormData({
         $type: "place.stream.multistream.target",
@@ -448,6 +459,11 @@ function MultistreamTargetForm({
     }
   };
 
+  let displayUrl = formData.url;
+  if (target && !changedTargetUrl) {
+    displayUrl = "";
+  }
+
   return (
     <Dialog
       open={isVisible}
@@ -483,14 +499,19 @@ function MultistreamTargetForm({
             {t("rtmp-target-url")} *
           </Text>
           <Input
-            value={formData.url}
-            onChangeText={(text) =>
+            value={displayUrl}
+            onChangeText={(text) => {
+              setChangedTargetUrl(true);
               setFormData((prev) => ({
                 ...prev,
                 url: text.trim().replaceAll(/\n/g, ""),
-              }))
+              }));
+            }}
+            placeholder={
+              target
+                ? redactMultistreamTargetURL(target.record.url)
+                : "rtmps://example.com:443/live/foo"
             }
-            placeholder="rtmps://example.com:443/live/foo"
             multiline
           />
           <Text style={[text.red[600], mt[1], { fontSize: 12 }]}>

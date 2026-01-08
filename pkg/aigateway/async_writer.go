@@ -45,9 +45,9 @@ func NewAsyncWriter(ctx context.Context, dst io.WriteCloser) *AsyncWriter {
 }
 
 // Write queues data for asynchronous writing to the underlying writer.
-// It always returns len(p), nil to satisfy io.Writer - actual write errors
-// are logged but not returned to avoid blocking the caller.
+// It always returns len(p), nil to satisfy io.Writer and avoid blocking the caller.
 // If the buffer is full, data is dropped and tracked in the dropped counter.
+// Write errors to the destination are handled in the background drain goroutine.
 func (aw *AsyncWriter) Write(p []byte) (int, error) {
 	if aw.closed.Load() {
 		return len(p), nil

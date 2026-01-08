@@ -1,6 +1,6 @@
 // Package aigateway provides client functionality for communicating with
 // AI transcription gateways. It handles session management, media publishing
-// via RTMP or WHIP, and SSE-based transcript event streaming.
+// via WHIP, and SSE-based transcript event streaming.
 package aigateway
 
 import (
@@ -62,7 +62,7 @@ type Session struct {
 	// UpdateURL is the URL for sending session updates.
 	UpdateURL string
 
-	// WhipURL is the WHIP endpoint for WebRTC media ingress (if available).
+	// WhipURL is the WHIP endpoint for WebRTC media ingress.
 	WhipURL string
 
 	// WhepURL is the WHEP endpoint for WebRTC media egress (if available).
@@ -100,7 +100,7 @@ type envelope struct {
 }
 
 // StartStream initiates a new transcription session with the AI gateway.
-// It returns a Session containing the endpoints for media ingress and transcript output.
+// It returns a Session containing the endpoints for WHIP media ingress and transcript output.
 func StartStream(ctx context.Context, cfg Config, streamName string) (*Session, error) {
 	base := strings.TrimRight(cfg.BaseURL, "/")
 	startCandidates := []string{

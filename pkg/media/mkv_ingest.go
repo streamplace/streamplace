@@ -37,20 +37,7 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 	var aiCleanup func()
 	if mm.cli.AIGatewayBaseURL != "" {
 		onTranscript := func(ctx context.Context, event client.TranscriptEvent) {
-			mm.transcriptStore.AddEvent(ctx, ms.Streamer(), event)
-			if mm.bus != nil {
-				for _, seg := range event.Segments {
-					msg := map[string]any{
-						"$type":   "place.stream.ai#dataOutput",
-						"id":      seg.ID,
-						"text":    seg.Text,
-						"startMs": seg.StartMS,
-						"endMs":   seg.EndMS,
-						"words":   seg.Words,
-					}
-					mm.bus.Publish(ms.Streamer(), msg)
-				}
-			}
+			mm.PublishTranscriptToBus(ctx, ms.Streamer(), event)
 		}
 		var ok bool
 		input, aiCleanup, ok = mm.StartAISessionFromMKV(ctx, input, ms.Streamer(), onTranscript)

@@ -193,17 +193,7 @@ func (ss *StreamSession) stopAI() {
 
 func (ss *StreamSession) publishTranscript(repoDID string) func(context.Context, client.TranscriptEvent) {
 	return func(ctx context.Context, event client.TranscriptEvent) {
-		for _, seg := range event.Segments {
-			msg := map[string]any{
-				"$type":   "place.stream.ai#dataOutput",
-				"id":      seg.ID,
-				"text":    seg.Text,
-				"startMs": seg.StartMS,
-				"endMs":   seg.EndMS,
-				"words":   seg.Words,
-			}
-			ss.bus.Publish(repoDID, msg)
-		}
+		ss.mm.PublishTranscriptToBus(ctx, repoDID, event)
 	}
 }
 

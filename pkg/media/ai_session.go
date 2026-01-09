@@ -13,6 +13,17 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
+type AISample struct {
+	Data []byte
+	Dur  time.Duration
+}
+
+type AISessionResources struct {
+	VideoCh chan AISample
+	AudioCh chan AISample
+	Cleanup func()
+}
+
 func (mm *MediaManager) aiGatewayStreamConfig() client.StreamConfig {
 	enableVideoIngress := true
 	enableVideoEgress := false
@@ -27,17 +38,14 @@ func (mm *MediaManager) aiGatewayStreamConfig() client.StreamConfig {
 	}
 }
 
-// StartAISessionFromMKV mirrors the legacy RTMP ingest tee: it demuxes MKV
-// (H264+AAC) and forwards samples to the AI gateway via WHIP while streaming
-// transcript events through the provided callback.
-func (mm *MediaManager) StartAISessionFromMKV(
+// SetupAISession initializes an AI session, WHIP publisher, and handling channels.
+func (mm *MediaManager) SetupAISession(
 	ctx context.Context,
-	input io.Reader,
 	streamer string,
 	onTranscript func(context.Context, client.TranscriptEvent),
-) (io.Reader, func(), bool) {
+) (*AISessionResources, error) {
 	if mm.cli.AIGatewayBaseURL == "" {
-		return input, func() {}, false
+		return nil, fmt.Errorf("AI gateway not configured")
 	}
 
 	cfg := mm.aiGatewayStreamConfig()
@@ -47,8 +55,8 @@ func (mm *MediaManager) StartAISessionFromMKV(
 
 	session, err := client.StartSession(ctx, cfg, streamName)
 	if err != nil {
-		log.Error(ctx, "failed to start AI gateway session, continuing without transcription", "error", err)
-		return input, func() {}, false
+		log.Error(ctx, "failed to start AI gateway session", "error", err)
+		return nil, err
 	}
 
 	log.Debug(ctx, "AI gateway session started",
@@ -58,47 +66,29 @@ func (mm *MediaManager) StartAISessionFromMKV(
 	)
 
 	if session.WHIPURL == "" {
-		log.Error(ctx, "AI gateway did not provide whip_url, continuing without transcription", "streamID", session.ID)
+		log.Error(ctx, "AI gateway did not provide whip_url", "streamID", session.ID)
 		_ = client.StopSession(context.Background(), cfg, session.ID)
-		return input, func() {}, false
+		return nil, fmt.Errorf("no WHIP URL provided")
 	}
 
-	teedInput, cleanup := mm.startAIGatewayWHIPMKV(ctx, input, streamer, cfg, session, logger, onTranscript)
+	wrappedOnTranscript := func(ctx context.Context, event client.TranscriptEvent) {
+		mm.transcriptStore.AddEvent(ctx, streamer, event)
+		if onTranscript != nil {
+			onTranscript(ctx, event)
+		}
+	}
 
-	return teedInput, cleanup, true
-}
-
-// startAIGatewayWHIPMKV sets up WHIP publishing for MKV (H264+AAC) ingest,
-// mirroring the legacy RTMP path.
-func (mm *MediaManager) startAIGatewayWHIPMKV(
-	ctx context.Context,
-	input io.Reader,
-	streamer string,
-	cfg client.StreamConfig,
-	session *client.StreamSession,
-	logger client.Logger,
-	onTranscript func(context.Context, client.TranscriptEvent),
-) (io.Reader, func()) {
-	pr, pw := io.Pipe()
-	asyncWriter := client.NewAsyncWriter(ctx, pw, logger)
-	teedInput := io.TeeReader(input, asyncWriter)
+	mm.startTranscriptSSE(ctx, session.DataStreamURL, streamer, logger, wrappedOnTranscript)
 
 	publisher := client.NewWHIPPublisher(ctx, session.WHIPURL, logger)
 	if err := publisher.Start(); err != nil {
-		log.Error(ctx, "failed to start WHIP publisher, continuing without transcription", "error", err)
-		_ = asyncWriter.Close()
+		log.Error(ctx, "failed to start WHIP publisher", "error", err)
 		_ = client.StopSession(context.Background(), cfg, session.ID)
-		return input, func() {}
+		return nil, err
 	}
 
-	videoCh := make(chan struct {
-		data []byte
-		dur  time.Duration
-	}, 64)
-	audioCh := make(chan struct {
-		data []byte
-		dur  time.Duration
-	}, 64)
+	videoCh := make(chan AISample, 64)
+	audioCh := make(chan AISample, 64)
 
 	go func() {
 		for {
@@ -106,7 +96,7 @@ func (mm *MediaManager) startAIGatewayWHIPMKV(
 			case <-ctx.Done():
 				return
 			case s := <-videoCh:
-				if err := publisher.WriteVideoSample(s.data, s.dur); err != nil {
+				if err := publisher.WriteVideoSample(s.Data, s.Dur); err != nil {
 					log.Debug(ctx, "WHIP write video sample error", "error", err)
 				}
 			}
@@ -118,12 +108,119 @@ func (mm *MediaManager) startAIGatewayWHIPMKV(
 			case <-ctx.Done():
 				return
 			case s := <-audioCh:
-				if err := publisher.WriteAudioSample(s.data, s.dur); err != nil {
+				if err := publisher.WriteAudioSample(s.Data, s.Dur); err != nil {
 					log.Debug(ctx, "WHIP write audio sample error", "error", err)
 				}
 			}
 		}
 	}()
+
+	cleanup := func() {
+		publisher.Stop()
+		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := client.StopSession(stopCtx, cfg, session.ID); err != nil {
+			log.Error(ctx, "failed to stop AI gateway session", "error", err)
+		} else {
+			log.Log(ctx, "AI gateway session stopped", "streamID", session.ID)
+		}
+		mm.transcriptStore.Clear(streamer)
+	}
+
+	return &AISessionResources{
+		VideoCh: videoCh,
+		AudioCh: audioCh,
+		Cleanup: cleanup,
+	}, nil
+}
+
+// NewAISinkCallback creates a GStreamer AppSink callback that pushes samples to the provided channel.
+func (mm *MediaManager) NewAISinkCallback(ch chan<- AISample) *app.SinkCallbacks {
+	return &app.SinkCallbacks{NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
+		sample := sink.PullSample()
+		if sample == nil {
+			return gst.FlowEOS
+		}
+		buf := sample.GetBuffer()
+		if buf == nil {
+			return gst.FlowError
+		}
+		b := buf.Map(gst.MapRead).Bytes()
+		cpy := make([]byte, len(b))
+		copy(cpy, b)
+		buf.Unmap()
+		durPtr := buf.Duration().AsDuration()
+		dur := time.Duration(0)
+		if durPtr != nil {
+			dur = *durPtr
+		}
+		select {
+		case ch <- AISample{Data: cpy, Dur: dur}:
+		default:
+		}
+		return gst.FlowOK
+	}}
+}
+
+// PublishTranscriptToBus publishes a transcript event to the event bus.
+func (mm *MediaManager) PublishTranscriptToBus(ctx context.Context, streamer string, event client.TranscriptEvent) {
+	if mm.bus != nil {
+		for _, seg := range event.Segments {
+			msg := map[string]any{
+				"$type":   "place.stream.ai#dataOutput",
+				"id":      seg.ID,
+				"text":    seg.Text,
+				"startMs": seg.StartMS,
+				"endMs":   seg.EndMS,
+				"words":   seg.Words,
+			}
+			mm.bus.Publish(streamer, msg)
+		}
+	}
+}
+
+// StartAISessionFromMKV mirrors the legacy RTMP ingest tee: it demuxes MKV
+// (H264+AAC) and forwards samples to the AI gateway via WHIP while streaming
+// transcript events through the provided callback.
+func (mm *MediaManager) StartAISessionFromMKV(
+	ctx context.Context,
+	input io.Reader,
+	streamer string,
+	onTranscript func(context.Context, client.TranscriptEvent),
+) (io.Reader, func(), bool) {
+	resources, err := mm.SetupAISession(ctx, streamer, onTranscript)
+	if err != nil {
+		log.Log(ctx, "continuing without AI transcription", "reason", err)
+		return input, func() {}, false
+	}
+
+	// Helper to start the pipeline and connect it to channels
+	teedInput := mm.startAIGatewayPipelineMKV(ctx, input, resources)
+
+	return teedInput, resources.Cleanup, true
+}
+
+// startAIGatewayPipelineMKV sets up the GStreamer pipeline for MKV (H264+AAC) ingest
+// feeding into the provided AISessionResources channels.
+func (mm *MediaManager) startAIGatewayPipelineMKV(
+	ctx context.Context,
+	input io.Reader,
+	res *AISessionResources,
+) io.Reader {
+	pr, pw := io.Pipe()
+	asyncWriter := client.NewAsyncWriter(ctx, pw, newAIGatewayLogger())
+	teedInput := io.TeeReader(input, asyncWriter)
+
+	// Wrap cleanup to close asyncWriter
+	originalCleanup := res.Cleanup
+	res.Cleanup = func() {
+		if asyncWriter != nil {
+			written, dropped := asyncWriter.Stats()
+			log.Log(ctx, "AI gateway tee stats", "written", written, "dropped", dropped)
+			_ = asyncWriter.Close()
+		}
+		originalCleanup()
+	}
 
 	go func() {
 		pipelineSlice := []string{
@@ -162,61 +259,8 @@ func (mm *MediaManager) startAIGatewayWHIPMKV(
 		videoSink := app.SinkFromElement(videoEle)
 		audioSink := app.SinkFromElement(audioEle)
 
-		videoSink.SetCallbacks(&app.SinkCallbacks{NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-			sample := sink.PullSample()
-			if sample == nil {
-				return gst.FlowEOS
-			}
-			buf := sample.GetBuffer()
-			if buf == nil {
-				return gst.FlowError
-			}
-			b := buf.Map(gst.MapRead).Bytes()
-			cpy := make([]byte, len(b))
-			copy(cpy, b)
-			buf.Unmap()
-			durPtr := buf.Duration().AsDuration()
-			dur := time.Duration(0)
-			if durPtr != nil {
-				dur = *durPtr
-			}
-			select {
-			case videoCh <- struct {
-				data []byte
-				dur  time.Duration
-			}{data: cpy, dur: dur}:
-			default:
-			}
-			return gst.FlowOK
-		}})
-
-		audioSink.SetCallbacks(&app.SinkCallbacks{NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-			sample := sink.PullSample()
-			if sample == nil {
-				return gst.FlowEOS
-			}
-			buf := sample.GetBuffer()
-			if buf == nil {
-				return gst.FlowError
-			}
-			b := buf.Map(gst.MapRead).Bytes()
-			cpy := make([]byte, len(b))
-			copy(cpy, b)
-			buf.Unmap()
-			durPtr := buf.Duration().AsDuration()
-			dur := time.Duration(0)
-			if durPtr != nil {
-				dur = *durPtr
-			}
-			select {
-			case audioCh <- struct {
-				data []byte
-				dur  time.Duration
-			}{data: cpy, dur: dur}:
-			default:
-			}
-			return gst.FlowOK
-		}})
+		videoSink.SetCallbacks(mm.NewAISinkCallback(res.VideoCh))
+		audioSink.SetCallbacks(mm.NewAISinkCallback(res.AudioCh))
 
 		busErr := make(chan error, 1)
 		go func() {
@@ -242,105 +286,37 @@ func (mm *MediaManager) startAIGatewayWHIPMKV(
 		}
 	}()
 
-	mm.startTranscriptSSE(ctx, session.DataStreamURL, streamer, logger, onTranscript)
-
-	cleanup := mm.makeAIGatewayCleanup(ctx, cfg, session.ID, streamer, asyncWriter, publisher.Stop)
-
-	return teedInput, cleanup
+	return teedInput
 }
 
-// StartAISession sets up the AI gateway session for a stream and returns a reader
-// that tees media into the gateway along with a cleanup function.
+// StartAISession sets up the AI gateway session for a stream.
+// The input reader is consumed by a dedicated GStreamer pipeline that demuxes
+// and forwards samples to the AI gateway via WHIP. This is used when input
+// is a dedicated pipe (not shared with other consumers).
 func (mm *MediaManager) StartAISession(
 	ctx context.Context,
 	input io.Reader,
 	streamer string,
 	onTranscript func(context.Context, client.TranscriptEvent),
 ) (io.Reader, func(), bool) {
-	if mm.cli.AIGatewayBaseURL == "" {
-		return input, func() {}, false
-	}
-
-	cfg := mm.aiGatewayStreamConfig()
-	logger := newAIGatewayLogger()
-
-	streamName := fmt.Sprintf("streamplace-%s-%d", streamer, time.Now().UnixMilli())
-
-	session, err := client.StartSession(ctx, cfg, streamName)
+	resources, err := mm.SetupAISession(ctx, streamer, onTranscript)
 	if err != nil {
-		log.Error(ctx, "failed to start AI gateway session, continuing without transcription", "error", err)
+		log.Log(ctx, "continuing without AI transcription", "reason", err)
 		return input, func() {}, false
 	}
 
-	log.Debug(ctx, "AI gateway session started",
-		"streamID", session.ID,
-		"dataURL", session.DataStreamURL,
-		"streamer", streamer,
-	)
+	mm.startAIGatewayPipelineGeneric(ctx, input, resources)
 
-	if session.WHIPURL == "" {
-		log.Error(ctx, "AI gateway did not provide whip_url, continuing without transcription", "streamID", session.ID)
-		_ = client.StopSession(context.Background(), cfg, session.ID)
-		return input, func() {}, false
-	}
-
-	teedInput, cleanup := mm.startAIGatewayWHIP(ctx, input, streamer, cfg, session, logger, onTranscript)
-
-	return teedInput, cleanup, true
+	return input, resources.Cleanup, true
 }
 
-// startAIGatewayWHIP sets up WHIP-based media publishing to the AI gateway.
-// It demuxes MP4 stream fragments and sends H.264/Opus samples over WebRTC.
-func (mm *MediaManager) startAIGatewayWHIP(
+// startAIGatewayPipelineGeneric sets up a GStreamer pipeline for MP4/CMAF ingest.
+// The input is consumed directly (not teed) as it's typically a dedicated pipe.
+func (mm *MediaManager) startAIGatewayPipelineGeneric(
 	ctx context.Context,
 	input io.Reader,
-	streamer string,
-	cfg client.StreamConfig,
-	session *client.StreamSession,
-	logger client.Logger,
-	onTranscript func(context.Context, client.TranscriptEvent),
-) (io.Reader, func()) {
-	publisher := client.NewWHIPPublisher(ctx, session.WHIPURL, logger)
-	if err := publisher.Start(); err != nil {
-		log.Error(ctx, "failed to start WHIP publisher, continuing without transcription", "error", err)
-		_ = client.StopSession(context.Background(), cfg, session.ID)
-		return input, func() {}
-	}
-
-	videoCh := make(chan struct {
-		data []byte
-		dur  time.Duration
-	}, 64)
-	audioCh := make(chan struct {
-		data []byte
-		dur  time.Duration
-	}, 64)
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case s := <-videoCh:
-				if err := publisher.WriteVideoSample(s.data, s.dur); err != nil {
-					log.Debug(ctx, "WHIP write video sample error", "error", err)
-				}
-			}
-		}
-	}()
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case s := <-audioCh:
-				if err := publisher.WriteAudioSample(s.data, s.dur); err != nil {
-					log.Debug(ctx, "WHIP write audio sample error", "error", err)
-				}
-			}
-		}
-	}()
-
+	res *AISessionResources,
+) {
 	go func() {
 		pipelineSlice := []string{
 			"appsrc name=aisrc is-live=true format=time do-timestamp=true ! queue ! qtdemux name=demux",
@@ -378,61 +354,8 @@ func (mm *MediaManager) startAIGatewayWHIP(
 		videoSink := app.SinkFromElement(videoEle)
 		audioSink := app.SinkFromElement(audioEle)
 
-		videoSink.SetCallbacks(&app.SinkCallbacks{NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-			sample := sink.PullSample()
-			if sample == nil {
-				return gst.FlowEOS
-			}
-			buf := sample.GetBuffer()
-			if buf == nil {
-				return gst.FlowError
-			}
-			b := buf.Map(gst.MapRead).Bytes()
-			cpy := make([]byte, len(b))
-			copy(cpy, b)
-			buf.Unmap()
-			durPtr := buf.Duration().AsDuration()
-			dur := time.Duration(0)
-			if durPtr != nil {
-				dur = *durPtr
-			}
-			select {
-			case videoCh <- struct {
-				data []byte
-				dur  time.Duration
-			}{data: cpy, dur: dur}:
-			default:
-			}
-			return gst.FlowOK
-		}})
-
-		audioSink.SetCallbacks(&app.SinkCallbacks{NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-			sample := sink.PullSample()
-			if sample == nil {
-				return gst.FlowEOS
-			}
-			buf := sample.GetBuffer()
-			if buf == nil {
-				return gst.FlowError
-			}
-			b := buf.Map(gst.MapRead).Bytes()
-			cpy := make([]byte, len(b))
-			copy(cpy, b)
-			buf.Unmap()
-			durPtr := buf.Duration().AsDuration()
-			dur := time.Duration(0)
-			if durPtr != nil {
-				dur = *durPtr
-			}
-			select {
-			case audioCh <- struct {
-				data []byte
-				dur  time.Duration
-			}{data: cpy, dur: dur}:
-			default:
-			}
-			return gst.FlowOK
-		}})
+		videoSink.SetCallbacks(mm.NewAISinkCallback(res.VideoCh))
+		audioSink.SetCallbacks(mm.NewAISinkCallback(res.AudioCh))
 
 		busErr := make(chan error, 1)
 		go func() {
@@ -457,12 +380,6 @@ func (mm *MediaManager) startAIGatewayWHIP(
 			return
 		}
 	}()
-
-	mm.startTranscriptSSE(ctx, session.DataStreamURL, streamer, logger, onTranscript)
-
-	cleanup := mm.makeAIGatewayCleanup(ctx, cfg, session.ID, streamer, nil, publisher.Stop)
-
-	return input, cleanup
 }
 
 // startTranscriptSSE starts a goroutine to read transcript events from the AI gateway SSE endpoint.
@@ -484,7 +401,6 @@ func (mm *MediaManager) startTranscriptSSE(
 				"timestamp_utc", event.TimestampUTC,
 				"segments", len(event.Segments),
 			)
-			mm.transcriptStore.AddEvent(ctx, streamer, event)
 			if onTranscript != nil {
 				onTranscript(ctx, event)
 			}
@@ -493,33 +409,4 @@ func (mm *MediaManager) startTranscriptSSE(
 			log.Error(ctx, "SSE reader error", "error", err)
 		}
 	}()
-}
-
-// makeAIGatewayCleanup creates a cleanup function for AI gateway resources.
-func (mm *MediaManager) makeAIGatewayCleanup(
-	ctx context.Context,
-	cfg client.StreamConfig,
-	sessionID string,
-	streamer string,
-	asyncWriter *client.AsyncWriter,
-	stopPublisher func(),
-) func() {
-	return func() {
-		if asyncWriter != nil {
-			written, dropped := asyncWriter.Stats()
-			log.Log(ctx, "AI gateway tee stats", "written", written, "dropped", dropped, "streamer", streamer)
-			_ = asyncWriter.Close()
-		}
-		stopPublisher()
-
-		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := client.StopSession(stopCtx, cfg, sessionID); err != nil {
-			log.Error(ctx, "failed to stop AI gateway session", "error", err)
-		} else {
-			log.Log(ctx, "AI gateway session stopped", "streamID", sessionID)
-		}
-
-		mm.transcriptStore.Clear(streamer)
-	}
 }

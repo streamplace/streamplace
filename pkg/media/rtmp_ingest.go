@@ -33,109 +33,17 @@ type RTMPSession struct {
 
 func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner) error {
 	var aiCleanup func()
-	var videoCh chan struct {
-		data []byte
-		dur  time.Duration
-	}
-	var audioCh chan struct {
-		data []byte
-		dur  time.Duration
-	}
+	var aiResources *AISessionResources
 
 	if mm.cli.AIGatewayBaseURL != "" {
-		onTranscript := func(ctx context.Context, event client.TranscriptEvent) {
-			mm.transcriptStore.AddEvent(ctx, ms.Streamer(), event)
-			if mm.bus != nil {
-				for _, seg := range event.Segments {
-					msg := map[string]any{
-						"$type":   "place.stream.ai#dataOutput",
-						"id":      seg.ID,
-						"text":    seg.Text,
-						"startMs": seg.StartMS,
-						"endMs":   seg.EndMS,
-						"words":   seg.Words,
-					}
-					mm.bus.Publish(ms.Streamer(), msg)
-				}
-			}
-		}
-
-		cfg := client.StreamConfig{
-			BaseURL:  mm.cli.AIGatewayBaseURL,
-			Pipeline: mm.cli.AIGatewayPipeline,
-		}
-		logger := newAIGatewayLogger()
-
-		streamName := fmt.Sprintf("streamplace-%s-%d", ms.Streamer(), time.Now().UnixMilli())
-		session, err := client.StartSession(ctx, cfg, streamName)
+		var err error
+		aiResources, err = mm.SetupAISession(ctx, ms.Streamer(), func(ctx context.Context, event client.TranscriptEvent) {
+			mm.PublishTranscriptToBus(ctx, ms.Streamer(), event)
+		})
 		if err != nil {
-			log.Error(ctx, "failed to start AI gateway session, continuing without transcription", "error", err)
+			log.Log(ctx, "continuing without AI transcription", "reason", err)
 		} else {
-			log.Debug(ctx, "AI gateway session started",
-				"streamID", session.ID,
-				"dataURL", session.DataStreamURL,
-				"streamer", ms.Streamer(),
-			)
-
-			if session.WHIPURL == "" {
-				log.Error(ctx, "AI gateway did not provide whip_url, continuing without transcription", "streamID", session.ID)
-				_ = client.StopSession(context.Background(), cfg, session.ID)
-			} else {
-				aiCtx, aiCancel := context.WithCancel(context.Background())
-				mm.startTranscriptSSE(aiCtx, session.DataStreamURL, ms.Streamer(), logger, onTranscript)
-
-				publisher := client.NewWHIPPublisher(ctx, session.WHIPURL, logger)
-				if err := publisher.Start(); err != nil {
-					log.Error(ctx, "failed to start WHIP publisher, continuing without transcription", "error", err)
-					aiCancel()
-					_ = client.StopSession(context.Background(), cfg, session.ID)
-				} else {
-					videoCh = make(chan struct {
-						data []byte
-						dur  time.Duration
-					}, 1024)
-					audioCh = make(chan struct {
-						data []byte
-						dur  time.Duration
-					}, 1024)
-
-					go func() {
-						for {
-							select {
-							case <-aiCtx.Done():
-								return
-							case s := <-videoCh:
-								if err := publisher.WriteVideoSample(s.data, s.dur); err != nil {
-									log.Debug(aiCtx, "WHIP write video sample error", "error", err)
-								}
-							}
-						}
-					}()
-					go func() {
-						for {
-							select {
-							case <-aiCtx.Done():
-								return
-							case s := <-audioCh:
-								if err := publisher.WriteAudioSample(s.data, s.dur); err != nil {
-									log.Debug(aiCtx, "WHIP write audio sample error", "error", err)
-								}
-							}
-						}
-					}()
-
-					aiCleanup = func() {
-						aiCancel()
-						publisher.Stop()
-						stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-						defer cancel()
-						if err := client.StopSession(stopCtx, cfg, session.ID); err != nil {
-							log.Error(ctx, "failed to stop AI gateway session", "error", err)
-						}
-						mm.transcriptStore.Clear(ms.Streamer())
-					}
-				}
-			}
+			aiCleanup = aiResources.Cleanup
 		}
 	}
 
@@ -151,7 +59,7 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		fmt.Sprintf("rtmp2src location=%s ! flvdemux name=demux", rtmpURL),
 	}
 
-	if aiCleanup != nil {
+	if aiResources != nil {
 		pipelineSlice = append(pipelineSlice,
 			"demux.audio ! queue ! fdkaacdec ! audioresample ! opusenc ! tee name=audiotee",
 			"audiotee. ! queue ! appsink name=ai_audio_sink sync=false drop=true max-buffers=1",
@@ -172,7 +80,7 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		return fmt.Errorf("error creating RTMPIngest pipeline: %w", err)
 	}
 
-	if aiCleanup != nil {
+	if aiResources != nil {
 		videoEle, err := pipeline.GetElementByName("ai_video_sink")
 		if err != nil {
 			return fmt.Errorf("failed to get AI video appsink: %w", err)
@@ -184,61 +92,8 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		videoSink := app.SinkFromElement(videoEle)
 		audioSink := app.SinkFromElement(audioEle)
 
-		videoSink.SetCallbacks(&app.SinkCallbacks{NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-			sample := sink.PullSample()
-			if sample == nil {
-				return gst.FlowEOS
-			}
-			buf := sample.GetBuffer()
-			if buf == nil {
-				return gst.FlowError
-			}
-			b := buf.Map(gst.MapRead).Bytes()
-			cpy := make([]byte, len(b))
-			copy(cpy, b)
-			buf.Unmap()
-			durPtr := buf.Duration().AsDuration()
-			dur := time.Duration(0)
-			if durPtr != nil {
-				dur = *durPtr
-			}
-			select {
-			case videoCh <- struct {
-				data []byte
-				dur  time.Duration
-			}{data: cpy, dur: dur}:
-			default:
-			}
-			return gst.FlowOK
-		}})
-
-		audioSink.SetCallbacks(&app.SinkCallbacks{NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
-			sample := sink.PullSample()
-			if sample == nil {
-				return gst.FlowEOS
-			}
-			buf := sample.GetBuffer()
-			if buf == nil {
-				return gst.FlowError
-			}
-			b := buf.Map(gst.MapRead).Bytes()
-			cpy := make([]byte, len(b))
-			copy(cpy, b)
-			buf.Unmap()
-			durPtr := buf.Duration().AsDuration()
-			dur := time.Duration(0)
-			if durPtr != nil {
-				dur = *durPtr
-			}
-			select {
-			case audioCh <- struct {
-				data []byte
-				dur  time.Duration
-			}{data: cpy, dur: dur}:
-			default:
-			}
-			return gst.FlowOK
-		}})
+		videoSink.SetCallbacks(mm.NewAISinkCallback(aiResources.VideoCh))
+		audioSink.SetCallbacks(mm.NewAISinkCallback(aiResources.AudioCh))
 	}
 
 	signer, err := mm.SegmentAndSignElem(ctx, ms)

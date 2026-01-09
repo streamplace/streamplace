@@ -354,7 +354,7 @@ export function Chat({
           }}
         >
           <ChevronDown size={16} color="white" />
-          <Text style={{ color: "white", fontWeight: "600", fontSize: 13 }}>
+          <Text style={{ color: "white", fontSize: 13 }}>
             Scroll to bottom
           </Text>
         </Pressable>

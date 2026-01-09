@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/muxionlabs/ai-go-sdk/pkg/client"
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/intervalpli"
 	"github.com/pion/webrtc/v4"
@@ -31,7 +32,6 @@ import (
 	irohStreamplace "stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 
 	_ "stream.place/streamplace/pkg/streamplacedeps"
-	"stream.place/streamplace/pkg/transcripts"
 )
 
 const CertFile = "cert.pem"
@@ -52,7 +52,7 @@ type MediaManager struct {
 	atsync              *atproto.ATProtoSynchronizer
 	webrtcAPI           *webrtc.API
 	webrtcConfig        webrtc.Configuration
-	transcriptStore     *transcripts.TranscriptStore
+	transcriptStore     *client.TranscriptStore
 }
 
 type NewSegmentNotification struct {
@@ -129,11 +129,11 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		atsync:          atsync,
 		webrtcAPI:       api,
 		webrtcConfig:    config,
-		transcriptStore: transcripts.NewTranscriptStore(),
+		transcriptStore: client.NewTranscriptStore(client.WithStoreLogger(newAIGatewayLogger())),
 	}, nil
 }
 
-func (mm *MediaManager) GetTranscriptSegments(streamer string) []transcripts.TranscriptSegment {
+func (mm *MediaManager) GetTranscriptSegments(streamer string) []client.TranscriptSegment {
 	return mm.transcriptStore.GetSegments(streamer)
 }
 

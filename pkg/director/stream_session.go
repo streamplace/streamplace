@@ -3,9 +3,7 @@ package director
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"sync"
 	"time"
 
@@ -14,7 +12,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/muxionlabs/ai-go-sdk/pkg/client"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
@@ -54,9 +51,6 @@ type StreamSession struct {
 	packets        []bus.PacketizedSegment
 	statefulDB     *statedb.StatefulDB
 	replicator     replication.Replicator
-	aiWriter       io.WriteCloser
-	aiCleanup      func()
-	aiMutex        sync.Mutex
 }
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
@@ -115,11 +109,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 
 	close(ss.started)
 
-	if ss.cli.AIGatewayBaseURL != "" {
-		ss.startAI(ctx, spseg.Creator)
-		defer ss.stopAI()
-	}
-
 	for {
 		select {
 		case <-ss.segmentChan:
@@ -157,62 +146,6 @@ func (ss *StreamSession) Go(ctx context.Context, f func() error) {
 	})
 }
 
-func (ss *StreamSession) startAI(ctx context.Context, repoDID string) {
-	ss.aiMutex.Lock()
-	defer ss.aiMutex.Unlock()
-
-	if ss.cli.AIGatewayBaseURL == "" || ss.aiWriter != nil {
-		return
-	}
-
-	pr, pw := io.Pipe()
-	_, cleanup, ok := ss.mm.StartAISession(ctx, pr, repoDID, ss.publishTranscript(repoDID))
-	if !ok {
-		_ = pw.Close()
-		return
-	}
-	ss.aiWriter = pw
-	ss.aiCleanup = cleanup
-}
-
-func (ss *StreamSession) stopAI() {
-	ss.aiMutex.Lock()
-	writer := ss.aiWriter
-	cleanup := ss.aiCleanup
-	ss.aiWriter = nil
-	ss.aiCleanup = nil
-	ss.aiMutex.Unlock()
-
-	if writer != nil {
-		_ = writer.Close()
-	}
-	if cleanup != nil {
-		cleanup()
-	}
-}
-
-func (ss *StreamSession) publishTranscript(repoDID string) func(context.Context, client.TranscriptEvent) {
-	return func(ctx context.Context, event client.TranscriptEvent) {
-		ss.mm.PublishTranscriptToBus(ctx, repoDID, event)
-	}
-}
-
-func (ss *StreamSession) writeSegmentToAI(ctx context.Context, data []byte) {
-	ss.aiMutex.Lock()
-	writer := ss.aiWriter
-	ss.aiMutex.Unlock()
-
-	if writer == nil {
-		return
-	}
-
-	go func() {
-		if _, err := writer.Write(data); err != nil && !errors.Is(err, io.ErrClosedPipe) {
-			log.Error(ctx, "failed to write segment to AI gateway", "error", err)
-		}
-	}()
-}
-
 func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegmentNotification) error {
 	<-ss.started
 	go func() {
@@ -241,8 +174,6 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			Data:     notif.Data,
 		})
 	})
-
-	ss.writeSegmentToAI(ctx, notif.Data)
 
 	if ss.cli.Thumbnail {
 		ss.Go(ctx, func() error {

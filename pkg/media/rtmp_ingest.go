@@ -60,7 +60,10 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 			}
 		}
 
-		cfg := mm.aiGatewayStreamConfig()
+		cfg := client.StreamConfig{
+			BaseURL:  mm.cli.AIGatewayBaseURL,
+			Pipeline: mm.cli.AIGatewayPipeline,
+		}
 		logger := newAIGatewayLogger()
 
 		streamName := fmt.Sprintf("streamplace-%s-%d", ms.Streamer(), time.Now().UnixMilli())
@@ -78,21 +81,23 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 				log.Error(ctx, "AI gateway did not provide whip_url, continuing without transcription", "streamID", session.ID)
 				_ = client.StopSession(context.Background(), cfg, session.ID)
 			} else {
+				aiCtx, aiCancel := context.WithCancel(context.Background())
+				mm.startTranscriptSSE(aiCtx, session.DataStreamURL, ms.Streamer(), logger, onTranscript)
+
 				publisher := client.NewWHIPPublisher(ctx, session.WHIPURL, logger)
 				if err := publisher.Start(); err != nil {
 					log.Error(ctx, "failed to start WHIP publisher, continuing without transcription", "error", err)
+					aiCancel()
 					_ = client.StopSession(context.Background(), cfg, session.ID)
 				} else {
 					videoCh = make(chan struct {
 						data []byte
 						dur  time.Duration
-					}, 64)
+					}, 1024)
 					audioCh = make(chan struct {
 						data []byte
 						dur  time.Duration
-					}, 64)
-
-					aiCtx, aiCancel := context.WithCancel(context.Background())
+					}, 1024)
 
 					go func() {
 						for {
@@ -118,8 +123,6 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 							}
 						}
 					}()
-
-					mm.startTranscriptSSE(ctx, session.DataStreamURL, ms.Streamer(), logger, onTranscript)
 
 					aiCleanup = func() {
 						aiCancel()
@@ -153,9 +156,9 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 			"demux.audio ! queue ! fdkaacdec ! audioresample ! opusenc ! tee name=audiotee",
 			"audiotee. ! queue ! appsink name=ai_audio_sink sync=false drop=true max-buffers=1",
 			"audiotee. ! queue name=audioenc",
-			"demux.video ! queue ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream ! tee name=videotee",
-			"videotee. ! queue ! appsink name=ai_video_sink sync=false drop=true max-buffers=1",
-			"videotee. ! queue name=parse",
+			"demux.video ! queue ! tee name=videotee",
+			"videotee. ! queue ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream,alignment=au ! appsink name=ai_video_sink sync=false drop=true max-buffers=10",
+			"videotee. ! queue ! h264parse name=parse",
 		)
 	} else {
 		pipelineSlice = append(pipelineSlice,

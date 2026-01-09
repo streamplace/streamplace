@@ -59,14 +59,10 @@ func (ts *TranscriptStore) AddEvent(ctx context.Context, streamer string, event 
 	}
 	for _, seg := range event.Segments {
 		if strings.TrimSpace(seg.Text) == "" {
+			log.Debug(ctx, "skipping empty transcript segment", "id", seg.ID, "text", seg.Text, "startMs", seg.StartMS, "endMs", seg.EndMS)
 			continue
 		}
-		log.Warn(ctx, "transcript segment",
-			"streamer", streamer,
-			"text", seg.Text,
-			"start_ms", seg.StartMS,
-			"end_ms", seg.EndMS,
-		)
+		log.Debug(ctx, "adding transcript segment", "id", seg.ID, "text", seg.Text, "startMs", seg.StartMS, "endMs", seg.EndMS)
 		addSeg(seg)
 	}
 }

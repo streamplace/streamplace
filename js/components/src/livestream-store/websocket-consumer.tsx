@@ -11,10 +11,14 @@ import {
 } from "streamplace";
 import { SystemMessages } from "../lib/system-messages";
 import { reduceChat } from "./chat";
-import { LivestreamState } from "./livestream-state";
+import { LivestreamState, TranscriptSegment } from "./livestream-state";
 import { findProblems } from "./problems";
 
 const MAX_RECENT_SEGMENTS = 10;
+const MAX_TRANSCRIPTS = 500;
+
+const isTranscriptSegment = (message: any): message is TranscriptSegment =>
+  !!message && (message as any).$type === "place.stream.transcript#segment";
 
 export const handleWebSocketMessages = (
   state: LivestreamState,
@@ -65,6 +69,16 @@ export const handleWebSocketMessages = (
         state = {
           ...state,
           viewers: message.count,
+        };
+      } else if (isTranscriptSegment(message)) {
+        const transcript = message;
+        const nextTranscripts = [...state.transcripts, transcript];
+        if (nextTranscripts.length > MAX_TRANSCRIPTS) {
+          nextTranscripts.splice(0, nextTranscripts.length - MAX_TRANSCRIPTS);
+        }
+        state = {
+          ...state,
+          transcripts: nextTranscripts,
         };
       } else if (PlaceStreamChatDefs.isMessageView(message)) {
         message = message as PlaceStreamChatDefs.MessageView;
@@ -120,6 +134,9 @@ export const handleWebSocketMessages = (
           pendingHides: newPendingHides,
         };
         state = reduceChat(state, [], [], [hiddenMessageUri]);
+      } else if ((message as any)?.$type === "place.stream.ai#dataOutput") {
+        // Surface AI data output in the browser console for debugging.
+        console.log("Received AI data output:", message);
       }
     }
   }

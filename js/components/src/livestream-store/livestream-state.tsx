@@ -23,6 +23,7 @@ export interface LivestreamState {
   setStreamKey: (key: string | null) => void;
   websocketConnected: boolean;
   hasReceivedSegment: boolean;
+  transcripts: TranscriptSegment[];
 }
 
 export interface LivestreamProblem {
@@ -30,4 +31,16 @@ export interface LivestreamProblem {
   message: string;
   severity: "error" | "warning" | "info";
   link?: string;
+}
+
+export interface TranscriptSegment {
+  id: string;
+  text: string;
+  startMs: number;
+  endMs: number;
+  words?: {
+    text: string;
+    startMs: number;
+    endMs: number;
+  }[];
 }

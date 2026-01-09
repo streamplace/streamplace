@@ -138,8 +138,8 @@ type CLI struct {
 	BehindHTTPSProxy            bool
 	SegmentDebugDir             string
 	Syndicate                   []string
-	AIGatewayBaseURL           string
-	AIGatewayPipeline          string
+	AIGatewayBaseURL            string
+	AIGatewayPipeline           string
 }
 
 // ContentFilters represents the content filtering configuration

@@ -46,7 +46,7 @@ require (
 	github.com/lmittmann/tint v1.1.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multihash v0.2.3
-	github.com/muxionlabs/ai-go-sdk v0.1.0
+	github.com/muxionlabs/ai-go-sdk v0.1.1
 	github.com/orandin/slog-gorm v1.4.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/peterbourgon/ff/v3 v3.4.0

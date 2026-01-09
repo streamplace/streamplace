@@ -1,0 +1,30 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.transcript",
+  "defs": {
+    "segment": {
+      "type": "object",
+      "description": "Timed transcript segment produced by AI gateway",
+      "required": ["id", "text", "startMs", "endMs"],
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "startMs": { "type": "integer" },
+        "endMs": { "type": "integer" },
+        "words": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#word" }
+        }
+      }
+    },
+    "word": {
+      "type": "object",
+      "required": ["text", "startMs", "endMs"],
+      "properties": {
+        "text": { "type": "string" },
+        "startMs": { "type": "integer" },
+        "endMs": { "type": "integer" }
+      }
+    }
+  }
+}

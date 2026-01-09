@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
-	"stream.place/streamplace/pkg/aigateway"
+	"github.com/muxionlabs/ai-go-sdk/pkg/client"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
 )
@@ -121,14 +121,15 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 // It returns a wrapped reader and a cleanup function that must be called when done.
 // If the gateway connection fails, it logs the error and returns the original input unchanged.
 func (mm *MediaManager) startAIGatewayTee(ctx context.Context, input io.Reader, streamer string) (io.Reader, func()) {
-	cfg := aigateway.Config{
+	cfg := client.StreamConfig{
 		BaseURL:  mm.cli.AIGatewayBaseURL,
 		Pipeline: mm.cli.AIGatewayPipeline,
 	}
+	logger := newAIGatewayLogger()
 
 	streamName := fmt.Sprintf("streamplace-%s-%d", streamer, time.Now().UnixMilli())
 
-	session, err := aigateway.StartStream(ctx, cfg, streamName)
+	session, err := client.StartSession(ctx, cfg, streamName)
 	if err != nil {
 		log.Error(ctx, "failed to start AI gateway session, continuing without transcription", "error", err)
 		return input, func() {}
@@ -136,31 +137,31 @@ func (mm *MediaManager) startAIGatewayTee(ctx context.Context, input io.Reader, 
 
 	log.Debug(ctx, "AI gateway session started",
 		"streamID", session.ID,
-		"dataURL", session.DataURL,
+		"dataURL", session.DataStreamURL,
 		"streamer", streamer,
 	)
 
-	if session.WhipURL == "" {
+	if session.WHIPURL == "" {
 		log.Error(ctx, "AI gateway did not provide whip_url, continuing without transcription", "streamID", session.ID)
-		_ = aigateway.StopStream(context.Background(), cfg, session.ID)
+		_ = client.StopSession(context.Background(), cfg, session.ID)
 		return input, func() {}
 	}
 
-	return mm.startAIGatewayWHIP(ctx, input, streamer, cfg, session)
+	return mm.startAIGatewayWHIP(ctx, input, streamer, cfg, session, logger)
 }
 
 // startAIGatewayWHIP sets up WHIP-based media publishing to the AI gateway.
 // It demuxes the MKV stream and sends H.264/Opus samples over WebRTC.
-func (mm *MediaManager) startAIGatewayWHIP(ctx context.Context, input io.Reader, streamer string, cfg aigateway.Config, session *aigateway.Session) (io.Reader, func()) {
+func (mm *MediaManager) startAIGatewayWHIP(ctx context.Context, input io.Reader, streamer string, cfg client.StreamConfig, session *client.StreamSession, logger client.Logger) (io.Reader, func()) {
 	pr, pw := io.Pipe()
-	asyncWriter := aigateway.NewAsyncWriter(ctx, pw)
+	asyncWriter := client.NewAsyncWriter(ctx, pw, logger)
 	teedInput := io.TeeReader(input, asyncWriter)
 
-	publisher := aigateway.NewWHIPPublisher(ctx, session.WhipURL)
+	publisher := client.NewWHIPPublisher(ctx, session.WHIPURL, logger)
 	if err := publisher.Start(); err != nil {
 		log.Error(ctx, "failed to start WHIP publisher, continuing without transcription", "error", err)
 		_ = asyncWriter.Close()
-		_ = aigateway.StopStream(context.Background(), cfg, session.ID)
+		_ = client.StopSession(context.Background(), cfg, session.ID)
 		return input, func() {}
 	}
 
@@ -315,7 +316,7 @@ func (mm *MediaManager) startAIGatewayWHIP(ctx context.Context, input io.Reader,
 		}
 	}()
 
-	mm.startSSEReader(ctx, session.DataURL, streamer)
+	mm.startSSEReader(ctx, session.DataStreamURL, streamer, logger)
 
 	cleanup := mm.makeAIGatewayCleanup(ctx, cfg, session.ID, streamer, asyncWriter, publisher.Stop)
 
@@ -323,20 +324,20 @@ func (mm *MediaManager) startAIGatewayWHIP(ctx context.Context, input io.Reader,
 }
 
 // startSSEReader starts a goroutine to read transcript events from the AI gateway SSE endpoint.
-func (mm *MediaManager) startSSEReader(ctx context.Context, dataURL string, streamer string) {
+func (mm *MediaManager) startSSEReader(ctx context.Context, dataStreamURL string, streamer string, logger client.Logger) {
 	go func() {
-		if dataURL == "" {
+		if dataStreamURL == "" {
 			log.Warn(ctx, "no data_url returned from AI gateway, skipping SSE")
 			return
 		}
-		err := aigateway.ReadSSE(ctx, dataURL, func(ctx context.Context, event aigateway.TranscriptEvent) {
+		err := client.StreamTranscriptEvents(ctx, dataStreamURL, func(ctx context.Context, event client.TranscriptEvent) {
 			log.Debug(ctx, "received transcript event",
 				"type", event.Type,
 				"timestamp_utc", event.TimestampUTC,
 				"segments", len(event.Segments),
 			)
-			mm.transcriptStore.AddEvent(streamer, event)
-		})
+			mm.transcriptStore.AddEvent(ctx, streamer, event)
+		}, logger)
 		if err != nil && ctx.Err() == nil {
 			log.Error(ctx, "SSE reader error", "error", err)
 		}
@@ -346,10 +347,10 @@ func (mm *MediaManager) startSSEReader(ctx context.Context, dataURL string, stre
 // makeAIGatewayCleanup creates a cleanup function for AI gateway resources.
 func (mm *MediaManager) makeAIGatewayCleanup(
 	ctx context.Context,
-	cfg aigateway.Config,
+	cfg client.StreamConfig,
 	sessionID string,
 	streamer string,
-	asyncWriter *aigateway.AsyncWriter,
+	asyncWriter *client.AsyncWriter,
 	stopPublisher func(),
 ) func() {
 	return func() {
@@ -361,7 +362,7 @@ func (mm *MediaManager) makeAIGatewayCleanup(
 
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := aigateway.StopStream(stopCtx, cfg, sessionID); err != nil {
+		if err := client.StopSession(stopCtx, cfg, sessionID); err != nil {
 			log.Error(ctx, "failed to stop AI gateway session", "error", err)
 		} else {
 			log.Log(ctx, "AI gateway session stopped", "streamID", sessionID)

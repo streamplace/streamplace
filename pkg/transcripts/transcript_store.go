@@ -1,9 +1,16 @@
-package aigateway
+package transcripts
 
 import (
+	"context"
 	"strings"
 	"sync"
+
+	"github.com/muxionlabs/ai-go-sdk/pkg/client"
+	"stream.place/streamplace/pkg/log"
 )
+
+type TranscriptSegment = client.TranscriptSegment
+type TranscriptEvent = client.TranscriptEvent
 
 const (
 	// MaxTranscriptEvents is the maximum number of events to retain per streamer.
@@ -13,8 +20,8 @@ const (
 // TranscriptStore provides thread-safe storage for transcript segments (timed cues)
 // per streamer. Segments are limited to MaxTranscriptEvents per streamer.
 type TranscriptStore struct {
-	mu     sync.RWMutex
-	segs   map[string][]TranscriptSegment
+	mu   sync.RWMutex
+	segs map[string][]TranscriptSegment
 }
 
 // NewTranscriptStore creates a new empty TranscriptStore.
@@ -28,7 +35,7 @@ func NewTranscriptStore() *TranscriptStore {
 // If the event contains structured Segments, they are added as timed cues.
 // Otherwise, a legacy Text-only event is converted into a best-effort segment.
 // If the segment count exceeds MaxTranscriptEvents, older segments are discarded.
-func (ts *TranscriptStore) AddEvent(streamer string, event TranscriptEvent) {
+func (ts *TranscriptStore) AddEvent(ctx context.Context, streamer string, event TranscriptEvent) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
@@ -54,6 +61,12 @@ func (ts *TranscriptStore) AddEvent(streamer string, event TranscriptEvent) {
 		if strings.TrimSpace(seg.Text) == "" {
 			continue
 		}
+		log.Warn(ctx, "transcript segment",
+			"streamer", streamer,
+			"text", seg.Text,
+			"start_ms", seg.StartMS,
+			"end_ms", seg.EndMS,
+		)
 		addSeg(seg)
 	}
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/pion/interceptor/pkg/intervalpli"
 	"github.com/pion/webrtc/v4"
 	"go.opentelemetry.io/otel"
-	"stream.place/streamplace/pkg/aigateway"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
@@ -32,6 +31,7 @@ import (
 	irohStreamplace "stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 
 	_ "stream.place/streamplace/pkg/streamplacedeps"
+	"stream.place/streamplace/pkg/transcripts"
 )
 
 const CertFile = "cert.pem"
@@ -52,7 +52,7 @@ type MediaManager struct {
 	atsync              *atproto.ATProtoSynchronizer
 	webrtcAPI           *webrtc.API
 	webrtcConfig        webrtc.Configuration
-	transcriptStore     *aigateway.TranscriptStore
+	transcriptStore     *transcripts.TranscriptStore
 }
 
 type NewSegmentNotification struct {
@@ -129,11 +129,11 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		atsync:          atsync,
 		webrtcAPI:       api,
 		webrtcConfig:    config,
-		transcriptStore: aigateway.NewTranscriptStore(),
+		transcriptStore: transcripts.NewTranscriptStore(),
 	}, nil
 }
 
-func (mm *MediaManager) GetTranscriptSegments(streamer string) []aigateway.TranscriptSegment {
+func (mm *MediaManager) GetTranscriptSegments(streamer string) []transcripts.TranscriptSegment {
 	return mm.transcriptStore.GetSegments(streamer)
 }
 

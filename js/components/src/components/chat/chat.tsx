@@ -1,4 +1,4 @@
-import { Ellipsis, Reply } from "lucide-react-native";
+import { ChevronDown, Ellipsis, Reply } from "lucide-react-native";
 import { ComponentProps, memo, useEffect, useRef, useState } from "react";
 import { Keyboard, Platform, Pressable } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
@@ -8,6 +8,8 @@ import Swipeable, {
 import Reanimated, {
   SharedValue,
   useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
 import { ChatMessageViewHydrated } from "streamplace";
 import {
@@ -245,6 +247,27 @@ export function Chat({
 }) {
   const chat = useChat();
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
+
+  // Animation for scroll-to-bottom button
+  const buttonOpacity = useSharedValue(0);
+  const buttonTranslateY = useSharedValue(20);
+
+  useEffect(() => {
+    buttonOpacity.value = withTiming(isScrolledUp ? 1 : 0, { duration: 200 });
+    buttonTranslateY.value = withTiming(isScrolledUp ? 0 : 20, {
+      duration: 200,
+    });
+  }, [isScrolledUp]);
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: buttonOpacity.value,
+    transform: [{ translateY: buttonTranslateY.value }],
+  }));
+
+  const scrollToBottom = () => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
 
   const handleScroll = (event: any) => {
     const { contentOffset } = event.nativeEvent;
@@ -270,11 +293,18 @@ export function Chat({
 
   return (
     <View
-      style={[flex.shrink[1], { minWidth: 0, maxWidth: "100%" }].concat(
-        propsStyle || [],
-      )}
+      style={[
+        flex.shrink[1],
+        {
+          minWidth: 0,
+          maxWidth: "100%",
+          position: "relative",
+          overflow: "visible",
+        },
+      ].concat(propsStyle || [])}
     >
       <FlatList
+        ref={flatListRef}
         style={[
           flex.grow[1],
           flex.shrink[1],
@@ -292,6 +322,43 @@ export function Chat({
         scrollEventThrottle={16}
         nestedScrollEnabled={true}
       />
+      <Reanimated.View
+        style={[
+          {
+            position: "absolute",
+            bottom: 16,
+            left: 0,
+            right: 0,
+            alignItems: "center",
+            pointerEvents: isScrolledUp ? "box-none" : "none",
+          },
+          buttonAnimatedStyle,
+        ]}
+      >
+        <Pressable
+          onPress={scrollToBottom}
+          style={{
+            pointerEvents: "auto",
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: "rgba(59, 130, 246, 0.9)",
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 20,
+            gap: 6,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 4,
+            elevation: 5,
+          }}
+        >
+          <ChevronDown size={16} color="white" />
+          <Text style={{ color: "white", fontWeight: "600", fontSize: 13 }}>
+            Scroll to bottom
+          </Text>
+        </Pressable>
+      </Reanimated.View>
       <ModView />
     </View>
   );

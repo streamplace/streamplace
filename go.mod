@@ -46,7 +46,7 @@ require (
 	github.com/lmittmann/tint v1.1.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multihash v0.2.3
-	github.com/muxionlabs/ai-go-sdk v0.1.1
+	github.com/muxionlabs/ai-go-sdk v0.1.2
 	github.com/orandin/slog-gorm v1.4.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/peterbourgon/ff/v3 v3.4.0
@@ -511,7 +511,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/crypto v0.44.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/exp v0.0.0-20250813145105-42675adae3e6 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20250210185358-939b2ce775ac // indirect
 	golang.org/x/mod v0.29.0 // indirect

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortmplib"
-	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/gortmplib/pkg/codecs"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
@@ -66,33 +66,36 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 		return err
 	}
 
+	eventStream := make(chan any, 1024)
+	var audioCodec *codecs.MPEG4Audio
+
 	for _, track := range r.Tracks() {
 		log.Log(ctx, "get track", "track", track)
 
-		switch track := track.(type) {
-		case *format.H264:
+		switch codec := track.Codec.(type) {
+		case *codecs.H264:
 			session.VideoTrack = track
 			r.OnDataH264(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
 				// log.Log(ctx, "got H264", "len", len(au), "pts", pts, "dts", dts)
-				session.EventChan <- &media.RTMPH264Data{
+				eventStream <- &media.RTMPH264Data{
 					AU:  au,
 					PTS: pts,
 					DTS: dts,
 				}
 			})
 
-		case *format.MPEG4Audio:
-			session.AudioTrack = track
+		case *codecs.MPEG4Audio:
+			audioCodec = codec
 			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
 				// log.Log(ctx, "got MPEG4Au", "len", len(au), "pts", pts)
-				session.EventChan <- &media.RTMPAACData{
+				eventStream <- &media.RTMPAACData{
 					AU:  au,
 					PTS: pts,
 				}
 			})
 
 		default:
-			return fmt.Errorf("unsupported track type: %T", track)
+			return fmt.Errorf("unsupported track type: %T", codec)
 		}
 	}
 
@@ -114,7 +117,7 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	})
 
 	g.Go(func() error {
-		return a.MediaManager.RTMPIngest(ctx, fmt.Sprintf("rtmp://%s/live/%s", a.rtmpInternalPlaybackAddr, streamer), mediaSigner)
+		return a.MediaManager.RTMPIngest(ctx, eventStream, audioCodec, mediaSigner)
 	})
 
 	return g.Wait()
@@ -134,7 +137,7 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 
 	w := &gortmplib.Writer{
 		Conn:   sc,
-		Tracks: []format.Format{session.VideoTrack, session.AudioTrack},
+		Tracks: []*gortmplib.Track{session.VideoTrack, session.AudioTrack},
 	}
 	err := w.Initialize()
 	if err != nil {

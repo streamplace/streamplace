@@ -550,19 +550,27 @@ export function StreamplaceDrawer() {
           listeners={{
             drawerItemPress: (e) => {
               e.preventDefault();
-              navigation.dispatch(
-                CommonActions.reset({
-                  index: 0,
-                  routes: [
-                    {
-                      name: "Home",
-                      state: {
-                        routes: [{ name: "StreamList" }],
+              const currentState = navigation.getState();
+              if (!currentState) return navigation.navigate("Home" as any);
+              const currentRoute = currentState.routes[currentState.index];
+
+              if (currentRoute.name === "Home") {
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: 0,
+                    routes: [
+                      {
+                        name: "Home",
+                        state: {
+                          routes: [{ name: "StreamList" }],
+                        },
                       },
-                    },
-                  ],
-                }),
-              );
+                    ],
+                  }),
+                );
+              } else {
+                navigation.navigate("Home" as any);
+              }
             },
           }}
         />
@@ -601,16 +609,24 @@ export function StreamplaceDrawer() {
           listeners={{
             drawerItemPress: (e) => {
               e.preventDefault();
-              navigation.dispatch(
-                CommonActions.reset({
-                  index: 0,
-                  routes: [
-                    {
-                      name: "Settings",
-                    },
-                  ],
-                }),
-              );
+              const currentState = navigation.getState();
+              if (!currentState) return navigation.navigate("Settings" as any);
+              const currentRoute = currentState.routes[currentState.index];
+
+              if (currentRoute.name === "Settings") {
+                navigation.dispatch(
+                  CommonActions.reset({
+                    index: 0,
+                    routes: [
+                      {
+                        name: "Settings",
+                      },
+                    ],
+                  }),
+                );
+              } else {
+                navigation.navigate("Settings" as any);
+              }
             },
           }}
         />

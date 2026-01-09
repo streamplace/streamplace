@@ -1,7 +1,6 @@
 import { DrawerNavigationOptions } from "@react-navigation/drawer";
 import { DrawerDescriptorMap } from "@react-navigation/drawer/lib/typescript/src/types";
 import {
-  CommonActions,
   DrawerNavigationState,
   ParamListBase,
   useNavigation,
@@ -175,36 +174,7 @@ export default function Sidebar({
             route={route}
             onPress={(ev) => {
               ev.preventDefault();
-              // bleh
-              if (route.name === "Home") {
-                // reset the stack (b/c streamlist is in the same stack as home)
-                navigation.dispatch(
-                  CommonActions.reset({
-                    index: 0,
-                    routes: [
-                      {
-                        name: "Home",
-                        state: {
-                          routes: [{ name: "StreamList" }],
-                        },
-                      },
-                    ],
-                  }),
-                );
-              } else if (route.name === "Settings") {
-                navigation.dispatch(
-                  CommonActions.reset({
-                    index: 0,
-                    routes: [
-                      {
-                        name: "Settings",
-                      },
-                    ],
-                  }),
-                );
-              } else {
-                navigation.navigate(route.name as any);
-              }
+              navigation.navigate(route.name as any);
             }}
             style={options.drawerItemStyle}
             tint={options.drawerActiveTintColor as string}

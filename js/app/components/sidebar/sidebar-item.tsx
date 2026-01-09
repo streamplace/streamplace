@@ -37,7 +37,7 @@ export default function SidebarItem({
 }) {
   const [hover, setHover] = useState<boolean>(false);
   const theme = useTheme();
-  const { href } = useAQLinkHref({
+  let { href } = useAQLinkHref({
     screen: route?.name || "Home",
     params: route?.params as any,
   });
@@ -81,6 +81,12 @@ export default function SidebarItem({
 
     return <Text>📄</Text>;
   };
+
+  // override some common routes
+  if (route?.name === "Settings") {
+    href = "/settings";
+  }
+  console.log("route", label, href);
 
   return (
     <Pressable

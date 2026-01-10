@@ -52,22 +52,6 @@ type jobFunc func(ctx context.Context, cli *config.CLI) error
 
 // parse the CLI and fire up an streamplace node!
 func start(build *config.BuildFlags, platformJobs []jobFunc) error {
-	oauthString := strings.Join([]string{
-		"atproto",
-		// "rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app%23bsky_appview",
-		// "repo?collection=place.stream.broadcast.origin",
-		// "repo?collection=place.stream.broadcast.syndication",
-		// "repo?collection=place.stream.chat.gate",
-		// "repo?collection=place.stream.chat.message",
-		// "repo?collection=place.stream.chat.profile",
-		// "repo?collection=place.stream.key",
-		"repo?collection=place.stream.livestream",
-		// "repo?collection=place.stream.metadata.configuration",
-		// "repo?collection=place.stream.segment",
-		// "repo?collection=place.stream.server.settings",
-		"repo?collection=app.bsky.feed.post&action=create",
-		"repo?collection=app.bsky.actor.status",
-	}, " ")
 	iroh_streamplace.InitLogging()
 	selfTest := len(os.Args) > 1 && os.Args[1] == "self-test"
 	err := media.RunSelfTest(context.Background())
@@ -326,7 +310,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		}
 		host = u.Host
 		clientMetadata = &oatproxy.OAuthClientMetadata{
-			Scope:      oauthString,
+			Scope:      atproto.OAuthString,
 			ClientName: "Streamplace",
 			RedirectURIs: []string{
 				fmt.Sprintf("%s/login", cli.OwnPublicURL()),
@@ -336,7 +320,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	} else {
 		host = cli.BroadcasterHost
 		clientMetadata = &oatproxy.OAuthClientMetadata{
-			Scope:      oauthString,
+			Scope:      atproto.OAuthString,
 			ClientName: "Streamplace",
 			RedirectURIs: []string{
 				fmt.Sprintf("https://%s/login", cli.BroadcasterHost),
@@ -390,7 +374,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		UpdateOAuthSession: state.UpdateOAuthSession,
 		GetOAuthSession:    state.LoadOAuthSession,
 		Lock:               state.GetNamedLock,
-		Scope:              oauthString,
+		Scope:              atproto.OAuthString,
 		UpstreamJWK:        cli.JWK,
 		DownstreamJWK:      cli.AccessJWK,
 		ClientMetadata:     clientMetadata,

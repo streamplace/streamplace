@@ -36,6 +36,7 @@ import (
 
 var LexiconRepo *atrepo.Repo
 var LexiconPubMultibase string
+var OAuthString string
 var RepoUser models.Uid = models.Uid(1)
 var CarStore carstore.CarStore
 var ActionCreate = "create"
@@ -401,13 +402,23 @@ func populatePermissionSets(ctx context.Context, lexs []lexicon.SchemaFile) erro
 	}
 
 	allRecords := []string{}
-	allCollectionStrings := []string{}
+	allCollectionStrings := []string{
+		"atproto",
+		"blob:*/*",
+		"repo?collection=app.bsky.feed.post&action=create",
+		"repo?collection=app.bsky.actor.status",
+		"repo?collection=app.bsky.graph.block",
+		"repo?collection=app.bsky.graph.follow",
+		"rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app%23bsky_appview",
+		"rpc:app.bsky.actor.getProfiles?aud=did:web:api.bsky.app%23bsky_appview",
+		"include:place.stream.authFull",
+	}
 	for _, record := range recordLexicons {
 		allRecords = append(allRecords, record.ID)
-		allCollectionStrings = append(allCollectionStrings, fmt.Sprintf("collection=%s", record.ID))
+		allCollectionStrings = append(allCollectionStrings, fmt.Sprintf("repo?collection=%s", record.ID))
 	}
 
-	log.Warn(ctx, "oauth string", "string", fmt.Sprintf("repo?%s", strings.Join(allCollectionStrings, "&")))
+	OAuthString = strings.Join(allCollectionStrings, " ")
 
 	for _, permSetLex := range permissionSets {
 		permSet := permSetLex.Defs["main"].Inner.(lexicon.SchemaPermissionSet)

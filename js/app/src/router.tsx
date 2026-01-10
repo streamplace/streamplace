@@ -16,15 +16,16 @@ import {
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
+  Button,
   Text,
   useDefaultStreamer,
   useSiteTitle,
   useTheme,
   useToast,
+  zero,
 } from "@streamplace/components";
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
-import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
 import { AboutCategorySettings } from "components/settings/about-category-settings";
 import { AccountCategorySettings } from "components/settings/account-category-settings";
@@ -143,7 +144,6 @@ type RootStackParamList = {
   KeyManagement: undefined;
   GoLive: undefined;
   LiveDashboard: undefined;
-  Login: undefined;
   AVSync: undefined;
   AppReturn: { scheme: string };
   About: undefined;
@@ -197,7 +197,6 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       KeyManagement: "key-management",
       GoLive: "golive",
       LiveDashboard: "live",
-      Login: "login",
       AVSync: "sync-test",
       AppReturn: "app-return/:scheme",
       About: "about",
@@ -293,36 +292,111 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
 
 const AvatarButton = () => {
   const userProfile = useUserProfile();
+  const openLoginModal = useStore((state) => state.openLoginModal);
+  const loginAction = useStore((state) => state.login);
+  const openLoginLink = useStore((state) => state.openLoginLink);
+  const { theme } = useTheme();
   let source: ImageSourcePropType | undefined = undefined;
-  let opacity = 1;
-  const targetScreen: any = userProfile
-    ? { screen: "Settings", params: { screen: "AccountCategory" } }
-    : { screen: "Login", params: {} };
 
   if (userProfile) {
     source = { uri: userProfile.avatar };
-    opacity = 0;
-  }
-  return (
-    <AQLink to={targetScreen}>
-      <ImageBackground
-        // defeat cursed-ass caching on ios; image sticks around when source is undefined
-        key={source?.uri ?? "default"}
-        source={source}
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 24,
-          overflow: "hidden",
-          marginRight: 10,
-          backgroundColor: "black",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
+    return (
+      <AQLink
+        to={{ screen: "Settings", params: { screen: "AccountCategory" } }}
       >
-        <User size={24} color="white" style={{ zIndex: -2 }} />
-      </ImageBackground>
-    </AQLink>
+        <ImageBackground
+          key={source?.uri ?? "default"}
+          source={source}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 24,
+            overflow: "hidden",
+            marginRight: 10,
+            backgroundColor: "black",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <User size={24} color="white" style={{ zIndex: -2 }} />
+        </ImageBackground>
+      </AQLink>
+    );
+  }
+
+  const handleSignup = () => {
+    // TODO: remove requirement for oauth-protected-resource in oatproxy
+    loginAction("https://blewit.us-west.host.bsky.network", openLoginLink);
+  };
+
+  const [windowWidth, setWindowWidth] = React.useState(
+    Platform.OS === "web" && typeof window !== "undefined"
+      ? window.innerWidth
+      : 1000,
+  );
+
+  React.useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const isCompact = windowWidth <= 800;
+
+  if (isCompact) {
+    return (
+      <Button
+        onPress={() => openLoginModal()}
+        variant="ghost"
+        size="icon"
+        width="min"
+        style={{ marginRight: 10, marginLeft: "auto" }}
+      >
+        <LogIn size={20} color={theme.colors.text} />
+      </Button>
+    );
+  }
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginRight: 10,
+      }}
+    >
+      <Button
+        onPress={() => openLoginModal()}
+        variant="secondary"
+        width="min"
+        style={[zero.r.full]}
+      >
+        <Text style={{ color: theme.colors.text }}>Log In</Text>
+      </Button>
+      <Button
+        onPress={handleSignup}
+        variant="primary"
+        width="min"
+        style={[zero.r.full]}
+      >
+        <Text style={{ color: theme.colors.text }}>Sign Up</Text>
+      </Button>
+      <Button
+        width="min"
+        size="icon"
+        variant="secondary"
+        style={[zero.r.full]}
+        onPress={() => openLoginModal()}
+      >
+        <User size={24} color="white" />
+      </Button>
+    </View>
   );
 };
 
@@ -659,15 +733,7 @@ export function StreamplaceDrawer() {
             drawerItemStyle: { display: "none" },
           }}
         />
-        <Drawer.Screen
-          name="Login"
-          component={Login}
-          options={{
-            drawerIcon: () => <LogIn color={foregroundColor} size={24} />,
-            drawerLabel: () => <Text variant="h5">Login</Text>,
-            drawerItemStyle: { display: userProfile ? "none" : undefined },
-          }}
-        />
+
         <Drawer.Screen
           name="PopoutChat"
           component={PopoutChat}

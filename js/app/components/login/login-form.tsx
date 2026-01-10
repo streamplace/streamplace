@@ -74,7 +74,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   };
 
   const onSignup = () => {
-    loginAction("https://bsky.social", openLoginLink);
+    // TODO: remove requirement for oauth-protected-resource in oatproxy
+    loginAction("https://blewit.us-west.host.bsky.network", openLoginLink);
   };
 
   const isMobile = Platform.OS === "ios" || Platform.OS === "android";

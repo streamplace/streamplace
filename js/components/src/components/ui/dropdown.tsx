@@ -147,8 +147,26 @@ export const DropdownMenuContent = forwardRef<
   const { height } = useWindowDimensions();
   const maxHeight = height * 0.9;
 
+  const [portalContainer, setPortalContainer] =
+    React.useState<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    if (Platform.OS === "web" && portalHost) {
+      const element = document.querySelector<HTMLElement>(
+        `[data-portal-host="${portalHost}"]`,
+      );
+      setPortalContainer(element);
+      console.log("set portal container to", element);
+    }
+  }, [portalHost]);
+
   return (
-    <DropdownMenuPrimitive.Portal hostName={portalHost}>
+    <DropdownMenuPrimitive.Portal
+      hostName={portalHost}
+      {...(Platform.OS === "web" && portalContainer
+        ? { container: portalContainer }
+        : {})}
+    >
       <DropdownMenuPrimitive.Overlay
         style={[
           Platform.OS !== "web" ? StyleSheet.absoluteFill : undefined,

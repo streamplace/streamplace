@@ -18,6 +18,7 @@ import {
   useChat,
   usePlayerStore,
   useSetReplyToMessage,
+  useTheme,
   View,
 } from "../../";
 import { bg, flex, layout, mr, px, py } from "../../lib/theme/atoms";
@@ -245,6 +246,7 @@ export function Chat({
   shownMessages?: number;
   style?: ComponentProps<typeof View>["style"];
 }) {
+  const { theme } = useTheme();
   const chat = useChat();
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const flatListRef = useRef<FlatList>(null);
@@ -340,7 +342,8 @@ export function Chat({
           style={[
             {
               pointerEvents: "auto",
-              backgroundColor: "rgba(59, 130, 246, 0.9)",
+              backgroundColor: theme.colors.primary,
+              opacity: 0.9,
               borderRadius: 20,
               shadowColor: "#000",
               shadowOffset: { width: 0, height: 2 },
@@ -355,7 +358,7 @@ export function Chat({
             { gap: 6 },
           ]}
         >
-          <ChevronDown size={24} style={{ marginTop: 1 }} color="white" />
+          <ChevronDown size={24} style={{ marginTop: 2 }} color="white" />
           <Text style={[mr[1]]}>Scroll to bottom</Text>
         </Pressable>
       </Reanimated.View>

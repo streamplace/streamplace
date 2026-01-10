@@ -22,7 +22,6 @@ import {
   h,
   layout,
   mb,
-  mr,
   pl,
   pr,
   py,
@@ -269,12 +268,10 @@ export function ChatBox({
             layout.flex.alignCenter,
             layout.flex.spaceBetween,
             pl[2],
-            mr[6],
             pr[1],
             mb[2],
             py[1],
             r["2xl"],
-            { marginRight: -8 },
             zt.bg.card,
           ]}
         >

@@ -19,7 +19,7 @@ import {
 import { useLivestreamStore } from "../../../livestream-store";
 import { PlayerProtocol, usePlayerStore } from "../../../player-store/";
 import { useGraphManager } from "../../../streamplace-store/graph";
-import { gap, p, pt, px } from "../../../ui";
+import { gap, pt, px } from "../../../ui";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -41,7 +41,7 @@ import {
 export function ContextMenu({
   dropdownPortalContainer,
 }: {
-  dropdownPortalContainer?: any;
+  dropdownPortalContainer?: string;
 }) {
   const th = useTheme();
   const quality = usePlayerStore((x) => x.selectedRendition);
@@ -101,11 +101,15 @@ export function ContextMenu({
   return (
     <DropdownMenu onOpenChange={setIsOpen}>
       <DropdownMenuTrigger>
-        <Animated.View style={[p[2], iconRotate]}>
+        <Animated.View style={[iconRotate]}>
           <Cog color={th.theme.colors.foreground} />
         </Animated.View>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="end" portalHost="fullscreenepic">
+      <DropdownMenuContent
+        side="top"
+        align="end"
+        portalHost={dropdownPortalContainer}
+      >
         {Platform.OS !== "web" && (
           <DropdownMenuGroup title="Streamer">
             <View

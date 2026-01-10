@@ -60,6 +60,7 @@ export function DesktopUi({
   } = useLivestreamInfo();
   const { width, height } = usePlayerDimensions();
   const { shouldShowFloatingMetrics } = useResponsiveLayout();
+  const playerId = usePlayerStore((state) => state.id);
 
   const originalSafeAreaInsets = useSafeAreaInsets();
 
@@ -162,7 +163,7 @@ export function DesktopUi({
 
   const hover = Gesture.Hover().onChange((_) => runOnJS(onPlayerHover)());
 
-  const portalContainerID = "epicportal123";
+  const portalContainerID = "desktop-ui-dropdown-portal-" + playerId;
 
   return (
     <>
@@ -291,7 +292,7 @@ export function DesktopUi({
           )}
         </View>
       </GestureDetector>
-      <PortalHost name="fullscreenepic" />
+      <PortalHost name={portalContainerID} />
     </>
   );
 }

@@ -354,9 +354,7 @@ export function Chat({
           }}
         >
           <ChevronDown size={16} color="white" />
-          <Text style={{ color: "white", fontSize: 13 }}>
-            Scroll to bottom
-          </Text>
+          <Text style={{ color: "white", fontSize: 13 }}>Scroll to bottom</Text>
         </Pressable>
       </Reanimated.View>
       <ModView />

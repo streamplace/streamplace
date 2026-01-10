@@ -1,3 +1,4 @@
+import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as DropdownMenuPrimitive from "@rn-primitives/dropdown-menu";
 import {
   Check,
@@ -109,32 +110,83 @@ export const DropdownMenuSubTrigger = forwardRef<
 
 export const DropdownMenuSubContent = forwardRef<
   any,
-  DropdownMenuPrimitive.SubContentProps & { children?: ReactNode }
->(({ children, ...props }, ref) => {
-  const { zero: zt } = useTheme();
+  DropdownMenuPrimitive.SubContentProps & {
+    children?: ReactNode;
+    portalHost?: string;
+    sideOffset?: number;
+    alignOffset?: number;
+    avoidCollisions?: boolean;
+  }
+>(
+  (
+    {
+      children,
+      portalHost,
+      sideOffset,
+      alignOffset,
+      avoidCollisions = true,
+      ...props
+    },
+    ref,
+  ) => {
+    const { zero: zt } = useTheme();
 
-  return (
-    <DropdownMenuPrimitive.SubContent
-      ref={ref}
-      style={[
-        a.zIndex[50],
-        a.sizes.minWidth[64],
-        a.sizes.maxWidth[64],
-        a.overflow.hidden,
-        a.radius.all.md,
-        a.borders.width.thin,
-        zt.border.default,
-        mt[1],
-        zt.bg.popover,
-        p[1],
-        a.shadows.md,
-      ]}
-      {...props}
-    >
-      {children}
-    </DropdownMenuPrimitive.SubContent>
-  );
-});
+    const [portalContainer, setPortalContainer] =
+      React.useState<HTMLElement | null>(null);
+
+    React.useEffect(() => {
+      if (Platform.OS === "web" && portalHost) {
+        const element = document.querySelector<HTMLElement>(
+          `[data-portal-host="${portalHost}"]`,
+        );
+        setPortalContainer(element);
+      }
+    }, [portalHost]);
+
+    const styles = [
+      a.sizes.minWidth[64],
+      a.sizes.maxWidth[64],
+      a.overflow.hidden,
+      a.radius.all.md,
+      a.borders.width.thin,
+      zt.border.default,
+      mt[1],
+      zt.bg.popover,
+      p[1],
+      a.shadows.md,
+    ];
+
+    // On web, use Radix directly to support custom portal container
+    if (Platform.OS === "web") {
+      const { forceMount } = props;
+      // Flatten RN style array into a plain CSS object for DOM
+      const flattenedStyles = StyleSheet.flatten(styles);
+      return (
+        <RadixDropdownMenu.Portal
+          {...(portalContainer ? { container: portalContainer } : {})}
+        >
+          <RadixDropdownMenu.SubContent
+            ref={ref}
+            style={flattenedStyles as React.CSSProperties}
+            forceMount={forceMount}
+            sideOffset={sideOffset}
+            alignOffset={alignOffset}
+            avoidCollisions={avoidCollisions}
+          >
+            {children}
+          </RadixDropdownMenu.SubContent>
+        </RadixDropdownMenu.Portal>
+      );
+    }
+
+    // On native, use rn-primitives
+    return (
+      <DropdownMenuPrimitive.SubContent ref={ref} style={styles} {...props}>
+        {children}
+      </DropdownMenuPrimitive.SubContent>
+    );
+  },
+);
 
 export const DropdownMenuContent = forwardRef<
   any,

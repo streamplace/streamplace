@@ -26,6 +26,7 @@ import {
 } from "@streamplace/components";
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
+import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
 import { AboutCategorySettings } from "components/settings/about-category-settings";
 import { AccountCategorySettings } from "components/settings/account-category-settings";
@@ -144,6 +145,7 @@ type RootStackParamList = {
   KeyManagement: undefined;
   GoLive: undefined;
   LiveDashboard: undefined;
+  Login: undefined;
   AVSync: undefined;
   AppReturn: { scheme: string };
   About: undefined;
@@ -197,6 +199,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       KeyManagement: "key-management",
       GoLive: "golive",
       LiveDashboard: "live",
+      Login: "login",
       AVSync: "sync-test",
       AppReturn: "app-return/:scheme",
       About: "about",
@@ -733,7 +736,15 @@ export function StreamplaceDrawer() {
             drawerItemStyle: { display: "none" },
           }}
         />
-
+        <Drawer.Screen
+          name="Login"
+          component={Login}
+          options={{
+            drawerLabel: () => null,
+            drawerItemStyle: { display: "none" },
+            headerShown: false,
+          }}
+        />
         <Drawer.Screen
           name="PopoutChat"
           component={PopoutChat}

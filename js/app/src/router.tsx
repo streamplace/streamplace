@@ -330,7 +330,7 @@ const AvatarButton = () => {
 
   const handleSignup = () => {
     // TODO: remove requirement for oauth-protected-resource in oatproxy
-    loginAction("https://blewit.us-west.host.bsky.network", openLoginLink);
+    loginAction("https://bsky.social", openLoginLink);
   };
 
   const windowWidth = useWindowDimensions().width;

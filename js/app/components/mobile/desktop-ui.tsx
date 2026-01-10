@@ -70,6 +70,8 @@ export function DesktopUi({
   const videoRef = usePlayerStore((state) => state.videoRef);
   const embedded = usePlayerStore((state) => state.embedded);
 
+  const fullscreen = usePlayerStore((state) => state.fullscreen);
+
   const safeAreaInsets = embedded
     ? { ...originalSafeAreaInsets, top: 0 }
     : originalSafeAreaInsets;
@@ -240,7 +242,7 @@ export function DesktopUi({
               pipSupported={pipSupported}
               pipActive={pipActive}
               onHandlePip={handlePip}
-              dropdownPortalContainer={portalContainerID}
+              dropdownPortalContainer={fullscreen && portalContainerID}
               showChat={isChatOpen || false}
               setShowChat={setIsChatOpen || undefined}
             />
@@ -292,7 +294,7 @@ export function DesktopUi({
           )}
         </View>
       </GestureDetector>
-      <PortalHost name={portalContainerID} />
+      {fullscreen && <PortalHost name={portalContainerID} />}
     </>
   );
 }

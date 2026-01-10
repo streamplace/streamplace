@@ -98,8 +98,9 @@ export function ContextMenu({
     };
   });
 
+  // rerender when dropdown portal container changes so we swap portals 'seamlessly'
   return (
-    <DropdownMenu onOpenChange={setIsOpen}>
+    <DropdownMenu onOpenChange={setIsOpen} key={dropdownPortalContainer}>
       <DropdownMenuTrigger>
         <Animated.View style={[iconRotate]}>
           <Cog color={th.theme.colors.foreground} />
@@ -219,7 +220,7 @@ export function ContextMenu({
                 </Text>
               </View>
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
+            <DropdownMenuSubContent portalHost={dropdownPortalContainer}>
               <DropdownMenuGroup title="Resolution">
                 <DropdownMenuRadioGroup
                   value={quality}

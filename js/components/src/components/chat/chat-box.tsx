@@ -117,7 +117,7 @@ export function ChatBox({
     const colonIndex = text.lastIndexOf(":");
     if (colonIndex !== -1) {
       const searchText = text.slice(colonIndex + 1).toLowerCase();
-      if (searchText.length > 0) {
+      if (searchText.length >= 3) {
         if (!emojiData) return;
         const aliasMatches = Object.entries(emojiData.aliases)
           .map(([alias, emojiId]) => {
@@ -299,7 +299,17 @@ export function ChatBox({
         </View>
       )}
       {showEmojiSelector && (
-        <>
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 200,
+          }}
+          pointerEvents="box-none"
+        >
           {/* Overlay to catch outside clicks */}
           <Pressable
             style={{
@@ -308,7 +318,6 @@ export function ChatBox({
               left: 0,
               right: 0,
               bottom: 0,
-              zIndex: 200,
             }}
             onPress={() => setShowEmojiSelector(false)}
           />
@@ -319,13 +328,14 @@ export function ChatBox({
               left: 0,
               zIndex: 2001,
             }}
+            pointerEvents="auto"
           >
             <Picker
               data={emojiData}
               onEmojiSelect={(e) => setMessage(message + e.native)}
             />
           </View>
-        </>
+        </View>
       )}
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
         <Textarea

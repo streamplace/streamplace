@@ -20,7 +20,7 @@ import {
   useSetReplyToMessage,
   View,
 } from "../../";
-import { bg, flex, px, py } from "../../lib/theme/atoms";
+import { bg, flex, layout, mr, px, py } from "../../lib/theme/atoms";
 import { RenderChatMessage } from "./chat-message";
 import { ModView } from "./mod-view";
 
@@ -337,24 +337,26 @@ export function Chat({
       >
         <Pressable
           onPress={scrollToBottom}
-          style={{
-            pointerEvents: "auto",
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: "rgba(59, 130, 246, 0.9)",
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 20,
-            gap: 6,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.25,
-            shadowRadius: 4,
-            elevation: 5,
-          }}
+          style={[
+            {
+              pointerEvents: "auto",
+              backgroundColor: "rgba(59, 130, 246, 0.9)",
+              borderRadius: 20,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 4,
+              elevation: 5,
+            },
+            layout.flex.row,
+            layout.flex.center,
+            px[2],
+            py[1],
+            { gap: 6 },
+          ]}
         >
-          <ChevronDown size={16} color="white" />
-          <Text style={{ color: "white", fontSize: 13 }}>Scroll to bottom</Text>
+          <ChevronDown size={24} style={{ marginTop: 1 }} color="white" />
+          <Text style={[mr[1]]}>Scroll to bottom</Text>
         </Pressable>
       </Reanimated.View>
       <ModView />

@@ -16,7 +16,7 @@ import {
   View,
 } from "../../";
 import {
-  bg,
+  borders,
   flex,
   gap,
   h,
@@ -26,6 +26,7 @@ import {
   pl,
   pr,
   py,
+  r,
   w,
 } from "../../lib/theme/atoms";
 import { Textarea } from "../ui/textarea";
@@ -65,7 +66,7 @@ export function ChatBox({
 
   let linfo = useLivestream();
 
-  const { theme } = useTheme();
+  const { theme, zero: zt } = useTheme();
 
   const chat = useChat();
   const createChatMessage = useCreateChatMessage();
@@ -268,33 +269,37 @@ export function ChatBox({
             layout.flex.alignCenter,
             layout.flex.spaceBetween,
             pl[2],
-            pr[6],
             mr[6],
+            pr[1],
             mb[2],
             py[1],
-            bg.gray[800],
-            { borderRadius: 16 },
+            r["2xl"],
+            { marginRight: -8 },
+            zt.bg.card,
           ]}
         >
-          <RenderChatMessage
-            item={replyTo}
-            showReply={false}
-            userCache={authors || new Map()}
-          />
-          <Pressable onPress={() => setReplyToMessage(null)}>
-            <View
-              style={[
-                layout.flex.row,
-                layout.flex.alignCenter,
-                layout.flex.justifyCenter,
-                h[12],
-                w[12],
-                bg.gray[600],
-                { borderRadius: 999 },
-              ]}
-            >
-              <X size={24} />
-            </View>
+          <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+            <RenderChatMessage
+              item={replyTo}
+              showReply={false}
+              userCache={authors || new Map()}
+            />
+          </View>
+          <Pressable
+            onPress={() => setReplyToMessage(null)}
+            style={[
+              layout.flex.row,
+              layout.flex.alignCenter,
+              layout.flex.justifyCenter,
+              h[8],
+              w[8],
+              zt.bg.muted,
+              zt.border.border,
+              borders.width.thin,
+              { borderRadius: 999 },
+            ]}
+          >
+            <X size={24} style={[zt.text.primaryForeground]} />
           </Pressable>
         </View>
       )}

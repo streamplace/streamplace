@@ -63,6 +63,7 @@ import {
   Platform,
   Pressable,
   StatusBar,
+  useWindowDimensions,
   View,
 } from "react-native";
 import AboutScreen from "./screens/about";
@@ -332,22 +333,7 @@ const AvatarButton = () => {
     loginAction("https://blewit.us-west.host.bsky.network", openLoginLink);
   };
 
-  const [windowWidth, setWindowWidth] = React.useState(
-    Platform.OS === "web" && typeof window !== "undefined"
-      ? window.innerWidth
-      : 1000,
-  );
-
-  React.useEffect(() => {
-    if (Platform.OS !== "web") return;
-
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth);
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const windowWidth = useWindowDimensions().width;
 
   const isCompact = windowWidth <= 800;
 

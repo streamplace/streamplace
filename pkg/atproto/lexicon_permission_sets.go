@@ -8,28 +8,6 @@ import (
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 )
 
-// {
-//   "lexicon": 1,
-//   "id": "place.stream.authFull",
-//   "defs": {
-//     "main": {
-//       "type": "permission-set",
-//       "title": "Full Streamplace Access",
-//       "detail": "Full access to all Streamplace features and data.",
-//       "detail:lang": {
-//         "en": "Full access to all Streamplace features and data."
-//       },
-//       "permissions": [
-//         {
-//           "type": "permission",
-//           "resource": "repo",
-//           "collection": ["place.stream.*"]
-//         }
-//       ]
-//     }
-//   }
-// }
-
 func generatePermissionSets(ctx context.Context, lexs []*lexicon.SchemaFile) ([]*lexicon.SchemaFile, error) {
 	recordLexicons := []*lexicon.SchemaFile{}
 	for _, lex := range lexs {

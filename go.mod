@@ -19,7 +19,6 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/bluenviron/gortmplib v0.1.2
 	github.com/bluenviron/gortsplib/v5 v5.2.1
-	github.com/bluenviron/mediacommon/v2 v2.5.2
 	github.com/bluesky-social/indigo v0.0.0-20251206005924-d49b45419635
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v5 v5.0.2
@@ -61,7 +60,7 @@ require (
 	github.com/slok/go-http-metrics v0.13.0
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac
-	github.com/streamplace/oatproxy v0.0.0-20251207230012-236e9bd6dae6
+	github.com/streamplace/oatproxy v0.0.0-20260110230146-6f9cca4f21f4
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
 	github.com/whyrusleeping/cbor-gen v0.3.1
@@ -163,6 +162,7 @@ require (
 	github.com/bkielbasa/cyclop v1.2.3 // indirect
 	github.com/blizzy78/varnamelen v0.8.0 // indirect
 	github.com/bluenviron/gortsplib/v4 v4.12.3 // indirect
+	github.com/bluenviron/mediacommon/v2 v2.5.2 // indirect
 	github.com/bombsimon/wsl/v4 v4.7.0 // indirect
 	github.com/breml/bidichk v0.3.3 // indirect
 	github.com/breml/errchkjson v0.4.1 // indirect

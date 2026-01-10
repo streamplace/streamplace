@@ -83,6 +83,11 @@ export function BottomControlBar({
             />
           </Pressable>
         )}
+        {ingest === null && (
+          <PlayerUI.ContextMenu
+            dropdownPortalContainer={dropdownPortalContainer}
+          />
+        )}
         {Platform.OS === "web" && (
           <Pressable
             onPress={() => {
@@ -96,11 +101,6 @@ export function BottomControlBar({
               <Fullscreen color={theme.colors.text} />
             )}
           </Pressable>
-        )}
-        {ingest === null && (
-          <PlayerUI.ContextMenu
-            dropdownPortalContainer={dropdownPortalContainer}
-          />
         )}
         {/* if not web, then add the collapse chat controls here */}
         {Platform.OS !== "web" && setShowChat && (

@@ -27,6 +27,7 @@ export default defineConfig({
         src: "/src/assets/cube.png",
         alt: "Streamplace Logo",
       },
+      favicon: "/favicon.ico",
       plugins: [
         starlightOpenAPI([
           {

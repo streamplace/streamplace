@@ -34,18 +34,18 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 		log.Log(ctx, "not recording RTMP stream to file", "streamer", ms.Streamer())
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
 	var aiCleanup func()
 	if mm.cli.AIGatewayBaseURL != "" {
 		input, aiCleanup = mm.startAIGatewayTee(ctx, input, ms.Streamer())
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	defer func() {
 		if aiCleanup != nil {
 			aiCleanup()
 		}
 	}()
+	defer cancel()
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! matroskademux name=demux",
 		"demux. ! queue ! h264parse name=parse",

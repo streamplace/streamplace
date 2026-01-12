@@ -32,6 +32,7 @@ type RTMPSession struct {
 }
 
 func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner) error {
+	ctx, cancel := context.WithCancel(ctx)
 	var aiCleanup func()
 	var aiResources *AISessionResources
 
@@ -47,13 +48,12 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		}
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	defer func() {
 		if aiCleanup != nil {
 			aiCleanup()
 		}
 	}()
+	defer cancel()
 
 	pipelineSlice := []string{
 		fmt.Sprintf("rtmp2src location=%s ! flvdemux name=demux", rtmpURL),

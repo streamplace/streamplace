@@ -45,6 +45,7 @@ type StreamSession struct {
 	lp             *livepeer.LivepeerSession
 	streamUrls     *livepeer.StreamUrls
 	streamUrlsLock sync.Mutex
+	aiDataCancel   context.CancelFunc
 	repoDID        string
 	segmentChan    chan struct{}
 	lastStatus     time.Time
@@ -551,8 +552,19 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 
 		if urls.DataURL != "" {
 			log.Log(ctx, "✓ STARTING AI DATA OUTPUT CONSUMER", "data_url", urls.DataURL, "stream_id", urls.StreamID, "stop_url", urls.StopURL)
+			// Run AI consumer on a long-lived context so it can retry even if the session context is canceled.
+			aiCtx, cancel := context.WithCancel(context.Background())
+			aiCtx = log.WithLogValues(aiCtx, "streamer", spseg.Creator)
+			ss.streamUrlsLock.Lock()
+			// Cancel any previous AI consumer to avoid leaks.
+			if ss.aiDataCancel != nil {
+				ss.aiDataCancel()
+			}
+			ss.aiDataCancel = cancel
+			ss.streamUrlsLock.Unlock()
+
 			ss.Go(ctx, func() error {
-				return ss.ConsumeAIDataOutput(ctx, spseg.Creator, urls.DataURL)
+				return ss.ConsumeAIDataOutput(aiCtx, spseg.Creator, urls.DataURL)
 			})
 		} else {
 			log.Debug(ctx, "streamUrls returned but no data_url", "stream_id", urls.StreamID, "stop_url", urls.StopURL)
@@ -597,11 +609,9 @@ func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *streampl
 	ss.Go(ctx, func() error {
 		return ss.AddToHLS(ctx, spseg, rendition, seg.Data)
 	})
-	if rendition == "source" {
-		ss.Go(ctx, func() error {
-			return ss.AddToWebRTC(ctx, spseg, rendition, seg)
-		})
-	}
+	ss.Go(ctx, func() error {
+		return ss.AddToWebRTC(ctx, spseg, rendition, seg)
+	})
 	return nil
 }
 
@@ -619,6 +629,35 @@ func (ss *StreamSession) ConsumeAIDataOutput(ctx context.Context, repoDID string
 	ctx = log.WithLogValues(ctx, "func", "ConsumeAIDataOutput", "dataURL", dataURL)
 	log.Log(ctx, "starting AI data output consumer")
 
+	backoff := time.Second
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		err := ss.consumeAIDataOutputOnce(ctx, repoDID, dataURL)
+		if err == nil {
+			// Normal end of stream
+			return nil
+		}
+
+		log.Warn(ctx, "AI data output stream ended; will retry", "error", err, "backoff", backoff)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+			// exponential backoff up to 30s
+			backoff *= 2
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
+			}
+		}
+	}
+}
+
+// consumeAIDataOutputOnce connects to the AI data SSE stream and pumps events until EOF/error/context cancel.
+func (ss *StreamSession) consumeAIDataOutputOnce(ctx context.Context, repoDID string, dataURL string) error {
 	// Gateway returns https:// URLs but may actually serve HTTP on non-443 ports
 	// Rewrite https to http for non-standard ports
 	if strings.HasPrefix(dataURL, "https://") && strings.Contains(dataURL, ":") {
@@ -649,6 +688,10 @@ func (ss *StreamSession) ConsumeAIDataOutput(ctx context.Context, repoDID string
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
+	// AI SSE payloads (especially transcripts) can exceed bufio.Scanner's default 64K token limit,
+	// which would cause the scanner to stop and the consumer to silently end.
+	// Allow larger events.
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
 	var eventData strings.Builder
 
 	for scanner.Scan() {
@@ -660,7 +703,8 @@ func (ss *StreamSession) ConsumeAIDataOutput(ctx context.Context, repoDID string
 		} else if line == "" && eventData.Len() > 0 {
 			// End of event, publish to bus
 			dataStr := eventData.String()
-			log.Log(ctx, "received ai data event", "data", dataStr)
+			// Avoid logging huge transcript payloads.
+			log.Debug(ctx, "received ai data event", "length", len(dataStr))
 
 			// Try to parse as JSON and publish it
 			var msg map[string]any
@@ -787,6 +831,11 @@ func (ss *StreamSession) GetClientByDID(did string) (XRPCClient, error) {
 func (ss *StreamSession) sendStopRequest() {
 	ss.streamUrlsLock.Lock()
 	urls := ss.streamUrls
+	// cancel AI data consumer if running
+	if ss.aiDataCancel != nil {
+		ss.aiDataCancel()
+		ss.aiDataCancel = nil
+	}
 	ss.streamUrlsLock.Unlock()
 
 	if urls == nil {

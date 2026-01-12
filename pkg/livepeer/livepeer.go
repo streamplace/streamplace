@@ -265,19 +265,37 @@ func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byt
 				continue
 			}
 
+			partBytes, readErr := io.ReadAll(p)
+			if readErr != nil {
+				log.Error(ctx, "failed to read gateway multipart part", "error", readErr)
+				continue
+			}
+			if len(partBytes) == 0 {
+				log.Error(ctx, "empty gateway multipart part")
+				continue
+			}
+
 			mp4Bs := bytes.Buffer{}
 			if ls.CLI.LivepeerDebug {
 				debugFile := fmt.Sprintf("%s/livepeer-debug/%s-output-%s", ls.CLI.DataDir, sessionIDRen, p.FileName())
-				err = os.WriteFile(debugFile, tsBytes, 0644)
+				err = os.WriteFile(debugFile, partBytes, 0644)
 				if err != nil {
 					return nil, nil, fmt.Errorf("failed to write debug file: %w", err)
 				}
 				log.Log(ctx, "wrote debug file", "file", debugFile)
 			}
 
-			err = media.MPEGTSToMP4(ctx, p, &mp4Bs)
+			// The gateway may return either MPEG-TS or MP4 parts depending on config/version.
+			// Handle MP4 directly; only transmux when it's actually TS.
+			lcCT := strings.ToLower(contentType)
+			if strings.HasPrefix(lcCT, "video/mp4") || strings.HasPrefix(lcCT, "application/mp4") {
+				out = append(out, partBytes)
+				log.Debug(ctx, "got mp4 part back from livepeer gateway", "length", len(partBytes), "name", p.FileName())
+				continue
+			}
+
+			err = media.MPEGTSToMP4(ctx, bytes.NewReader(partBytes), &mp4Bs)
 			if err != nil {
-				// return nil, nil, fmt.Errorf("failed to convert ts to mp4: %w", err)
 				log.Error(ctx, "failed to convert ts to mp4", "error", err)
 				continue
 			}

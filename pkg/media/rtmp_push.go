@@ -11,20 +11,14 @@ import (
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
-	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
 func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition string, targetView *streamplace.MultistreamDefs_TargetView) error {
-	uu, err := uuid.NewV7()
-	if err != nil {
-		return err
-	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	ctx = log.WithLogValues(ctx, "pushID", uu.String())
 	ctx = log.WithLogValues(ctx, "mediafunc", "RTMPPush")
 	rec, ok := targetView.Record.Val.(*streamplace.MultistreamTarget)
 	if !ok {
@@ -199,6 +193,7 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	errCh := make(chan error)
 	go func() {
 		err := HandleBusMessages(ctx, pipeline)
+		log.Log(ctx, "RTMP push pipeline error", "error", err)
 		errCh <- err
 	}()
 
@@ -208,6 +203,7 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	}
 
 	defer func() {
+		log.Log(ctx, "shutting down RTMP push pipeline")
 		err = pipeline.SetState(gst.StateNull)
 		if err != nil {
 			log.Error(ctx, "failed to set pipeline state to null", "error", err)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/url"
 	"sync"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/google/uuid"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
@@ -686,7 +688,18 @@ func (ss *StreamSession) GetClientByDID(did string) (XRPCClient, error) {
 
 type runningMultistream struct {
 	cancel func()
-	uri    string
+	key    string
+	pushID string
+	url    string
+}
+
+func sanitizeMultistreamTargetURL(uri string) string {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return uri
+	}
+	u.Path = "/redacted"
+	return u.String()
 }
 
 // we're making an attempt here not to log (sensitive) stream keys, so we're
@@ -709,6 +722,11 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", targetView.Uri)
 				continue
 			}
+			uu, err := uuid.NewV7()
+			if err != nil {
+				return err
+			}
+			ctx := log.WithLogValues(ctx, "url", sanitizeMultistreamTargetURL(rec.Url), "pushID", uu.String())
 			key := fmt.Sprintf("%s:%s", targetView.Uri, rec.Url)
 			if running[key] == nil {
 				childCtx, childCancel := context.WithCancel(ctx)
@@ -722,14 +740,16 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 				})
 				running[key] = &runningMultistream{
 					cancel: childCancel,
-					uri:    key,
+					key:    key,
+					pushID: uu.String(),
+					url:    sanitizeMultistreamTargetURL(rec.Url),
 				}
 			}
 			currentRunning[key] = true
 		}
 		for key := range running {
 			if !currentRunning[key] {
-				log.Log(ctx, "stopping multistream target", "uri", running[key].uri)
+				log.Log(ctx, "stopping multistream target", "url", sanitizeMultistreamTargetURL(running[key].url), "pushID", running[key].pushID)
 				running[key].cancel()
 				delete(running, key)
 			}

@@ -540,8 +540,8 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 	urls, segs, err := ss.lp.PostAISegmentToGateway(ctx, data, spseg, rs)
 	if err != nil {
 		spmetrics.TranscodeErrorsTotal.Inc()
-		// return err
 		log.Error(ctx, "error posting segment to gateway", "error", err)
+		return err
 	}
 
 	if urls != nil {

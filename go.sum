@@ -1317,8 +1317,8 @@ github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac h
 github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac/go.mod h1:9LlKkqciiO5lRfbX0n4Wn5KNY9nvFb4R3by8FdW2TWc=
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4 h1:L1fS4HJSaAyNnkwfuZubgfeZy8rkWmA0cMtH5Z0HqNc=
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4/go.mod h1:bGUXY9Wd4mnd+XUrOYZr358J2f6z9QO/dLhL1SsiD+0=
-github.com/streamplace/oatproxy v0.0.0-20260110230146-6f9cca4f21f4 h1:R6GMiOxJcsP1uZpAzfOWyuFX/1/RKbDsYiMyv6lXRB0=
-github.com/streamplace/oatproxy v0.0.0-20260110230146-6f9cca4f21f4/go.mod h1:pXi24hA7xBHj8eEywX6wGqJOR9FaEYlGwQ/72rN6okw=
+github.com/streamplace/oatproxy v0.0.0-20260112011721-d74b4913c93f h1:hhbQ8CtcAZVlLit/r7b9QDK7qEgOth4hgE13xV6ViBI=
+github.com/streamplace/oatproxy v0.0.0-20260112011721-d74b4913c93f/go.mod h1:pXi24hA7xBHj8eEywX6wGqJOR9FaEYlGwQ/72rN6okw=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=

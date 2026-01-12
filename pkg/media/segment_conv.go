@@ -22,12 +22,27 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 		"appsrc name=appsrc ! qtdemux name=demux",
 		"mpegtsmux name=mux ! appsink name=appsink sync=false",
 		"demux.video_0 ! h264parse ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
-		"demux.audio_0 ! opusdec name=audioparse ! audioresample ! audiorate ! fdkaacenc name=audioenc ! queue name=audioqueue",
+		// Accept either Opus (WHIP source) or AAC (transcoded output) by decoding
+		// whatever arrives, then re-encoding to AAC for the gateway/HLS.
+		"demux.audio_0 ! decodebin name=adecode",
+		"audioconvert name=audioconvert ! audioresample ! audiorate ! fdkaacenc name=audioenc ! queue name=audioqueue",
 	}, " ")
 
 	pipeline, err := gst.NewPipelineFromString(pipelineStr)
 	if err != nil {
 		return 0, err
+	}
+	adecode, err := pipeline.GetElementByName("adecode")
+	if err != nil {
+		return 0, err
+	}
+	audioConvert, err := pipeline.GetElementByName("audioconvert")
+	if err != nil {
+		return 0, err
+	}
+	audioConvertSink := audioConvert.GetStaticPad("sink")
+	if audioConvertSink == nil {
+		return 0, fmt.Errorf("failed to get audioconvert sink pad")
 	}
 
 	mux, err := pipeline.GetElementByName("mux")
@@ -45,6 +60,18 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 	videoQueue, err := pipeline.GetElementByName("videoqueue")
 	if err != nil {
 		return 0, err
+	}
+
+	_, err = adecode.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
+		if audioConvertSink.IsLinked() {
+			return
+		}
+		if pad.Link(audioConvertSink) != gst.PadLinkOK {
+			log.Error(ctx, "failed to link decodebin to audioconvert", "pad", pad.GetName())
+		}
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to connect adecode pad-added: %w", err)
 	}
 	audioQueue, err := pipeline.GetElementByName("audioqueue")
 	if err != nil {

@@ -536,50 +536,29 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 	}
 	spmetrics.TranscodeAttemptsTotal.Inc()
 	var segs [][]byte
-
-	// Kick off AI processing concurrently; start the data consumer when URLs arrive.
-	if ss.cli.LivepeerAIProcessing {
-		ss.Go(ctx, func() error {
-			urls, err := ss.lp.PostAISegmentToGateway(ctx, data, spseg, rs)
-			if err != nil {
-				log.Error(ctx, "ai segment post failed", "error", err)
-				return nil
-			}
-			if urls != nil {
-				// Store the stream URLs for cleanup
-				ss.streamUrlsLock.Lock()
-				ss.streamUrls = urls
-				ss.streamUrlsLock.Unlock()
-
-				if urls.DataURL != "" {
-					log.Log(ctx, "✓ STARTING AI DATA OUTPUT CONSUMER", "data_url", urls.DataURL, "stream_id", urls.StreamID, "stop_url", urls.StopURL)
-					ss.Go(ctx, func() error {
-						return ss.ConsumeAIDataOutput(ctx, spseg.Creator, urls.DataURL)
-					})
-				} else {
-					log.Log(ctx, "streamUrls returned but no data_url", "stream_id", urls.StreamID, "stop_url", urls.StopURL)
-				}
-			} else {
-				log.Debug(ctx, "no streamUrls returned from PostAISegmentToGateway")
-			}
-			return nil
-		})
+	urls, segs, err := ss.lp.PostAISegmentToGateway(ctx, data, spseg, rs)
+	if err != nil {
+		spmetrics.TranscodeErrorsTotal.Inc()
+		// return err
+		log.Error(ctx, "error posting segment to gateway", "error", err)
 	}
 
-	// Transcode segment (critical path)
-	group, gctx := errgroup.WithContext(ctx)
-	group.Go(func() error {
-		out, err := ss.lp.PostSegmentToGateway(gctx, data, spseg, rs)
-		if err != nil {
-			return err
-		}
-		segs = out
-		return nil
-	})
+	if urls != nil {
+		// Store the stream URLs for cleanup
+		ss.streamUrlsLock.Lock()
+		ss.streamUrls = urls
+		ss.streamUrlsLock.Unlock()
 
-	if err := group.Wait(); err != nil {
-		spmetrics.TranscodeErrorsTotal.Inc()
-		return err
+		if urls.DataURL != "" {
+			log.Log(ctx, "✓ STARTING AI DATA OUTPUT CONSUMER", "data_url", urls.DataURL, "stream_id", urls.StreamID, "stop_url", urls.StopURL)
+			ss.Go(ctx, func() error {
+				return ss.ConsumeAIDataOutput(ctx, spseg.Creator, urls.DataURL)
+			})
+		} else {
+			log.Debug(ctx, "streamUrls returned but no data_url", "stream_id", urls.StreamID, "stop_url", urls.StopURL)
+		}
+	} else if ss.cli.LivepeerAIProcessing {
+		log.Debug(ctx, "no streamUrls returned from PostAISegmentToGateway")
 	}
 
 	if len(rs) != len(segs) {
@@ -618,9 +597,11 @@ func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *streampl
 	ss.Go(ctx, func() error {
 		return ss.AddToHLS(ctx, spseg, rendition, seg.Data)
 	})
-	ss.Go(ctx, func() error {
-		return ss.AddToWebRTC(ctx, spseg, rendition, seg)
-	})
+	if rendition == "source" {
+		ss.Go(ctx, func() error {
+			return ss.AddToWebRTC(ctx, spseg, rendition, seg)
+		})
+	}
 	return nil
 }
 
@@ -808,29 +789,38 @@ func (ss *StreamSession) sendStopRequest() {
 	urls := ss.streamUrls
 	ss.streamUrlsLock.Unlock()
 
-	if urls == nil || urls.StopURL == "" {
+	if urls == nil {
+		return
+	}
+
+	stopURL := urls.StopURL
+	if stopURL == "" && urls.StreamID != "" && ss.cli.LivepeerGatewayURL != "" {
+		gateway := strings.TrimSuffix(ss.cli.LivepeerGatewayURL, "/")
+		stopURL = fmt.Sprintf("%s/process/stream/%s/stop", gateway, urls.StreamID)
+	}
+	if stopURL == "" {
 		return
 	}
 
 	ctx := context.Background()
 	ctx = log.WithLogValues(ctx, "func", "sendStopRequest", "streamer", ss.repoDID)
-	log.Log(ctx, "sending POST stop request to gateway", "stop_url", urls.StopURL)
+	log.Log(ctx, "sending POST stop request to gateway", "stop_url", stopURL)
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "POST", urls.StopURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "POST", stopURL, nil)
 	if err != nil {
-		log.Error(ctx, "failed to create stop request", "error", err, "stop_url", urls.StopURL)
+		log.Error(ctx, "failed to create stop request", "error", err, "stop_url", stopURL)
 		return
 	}
 
 	resp, err := aqhttp.DoTrusted(ctx, req)
 	if err != nil {
-		log.Error(ctx, "failed to send POST stop request", "error", err, "stop_url", urls.StopURL)
+		log.Error(ctx, "failed to send POST stop request", "error", err, "stop_url", stopURL)
 		return
 	}
 	defer resp.Body.Close()
 
-	log.Log(ctx, "successfully sent POST stop request to gateway", "stop_url", urls.StopURL, "status", resp.StatusCode)
+	log.Log(ctx, "successfully sent POST stop request to gateway", "stop_url", stopURL, "status", resp.StatusCode)
 }

@@ -58,7 +58,13 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 			return fmt.Errorf("failed to set rtmp2sink location: %w", err)
 		}
 	} else if u.Scheme == "rtmp" {
-		err = rtmp2sink.SetProperty("location", targetURL)
+		localAddr, err := mm.RunTCPForwarder(ctx, targetURL)
+		if err != nil {
+			return fmt.Errorf("failed to run TCP forwarder: %w", err)
+		}
+		local := fmt.Sprintf("rtmp://%s%s", localAddr, u.Path)
+		log.Debug(ctx, "running TCP forwarder", "localAddr", local, "destination", targetURL)
+		err = rtmp2sink.SetProperty("location", local)
 		if err != nil {
 			return fmt.Errorf("failed to set rtmp2sink location: %w", err)
 		}
@@ -213,6 +219,24 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	return <-errCh
 }
 func (mm *MediaManager) RunTLSFForwarder(ctx context.Context, dest string) (string, error) {
+	destURL, err := url.Parse(dest)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse destination URL: %w", err)
+	}
+	return mm.runForwarder(ctx, dest, func(destHost string) (net.Conn, error) {
+		return tls.Dial("tcp", destHost, &tls.Config{
+			ServerName: destURL.Hostname(),
+		})
+	})
+}
+
+func (mm *MediaManager) RunTCPForwarder(ctx context.Context, dest string) (string, error) {
+	return mm.runForwarder(ctx, dest, func(destHost string) (net.Conn, error) {
+		return net.Dial("tcp", destHost)
+	})
+}
+
+func (mm *MediaManager) runForwarder(ctx context.Context, dest string, dial func(destHost string) (net.Conn, error)) (string, error) {
 	// Parse the destination URL to extract host and port
 	destURL, err := url.Parse(dest)
 	if err != nil {
@@ -231,7 +255,7 @@ func (mm *MediaManager) RunTLSFForwarder(ctx context.Context, dest string) (stri
 		return "", fmt.Errorf("failed to listen on random port: %w", err)
 	}
 
-	log.Debug(ctx, "RTMP to RTMPS forwarder listening", "localAddr", listener.Addr().String(), "destination", dest)
+	log.Debug(ctx, "RTMP forwarder listening", "localAddr", listener.Addr().String(), "destination", dest)
 
 	go func() {
 		<-ctx.Done()
@@ -250,31 +274,42 @@ func (mm *MediaManager) RunTLSFForwarder(ctx context.Context, dest string) (stri
 			return
 		}
 
-		// Only one connection so we don't need a goroutine
-		defer clientConn.Close()
+		closed := false
+		go func() {
+			<-ctx.Done()
+			if !closed {
+				closed = true
+				clientConn.Close()
+			}
+		}()
 
-		// Establish TLS connection to destination
-		tlsConn, err := tls.Dial("tcp", destHost, &tls.Config{
-			ServerName: destURL.Hostname(),
-		})
+		defer func() {
+			if !closed {
+				closed = true
+				clientConn.Close()
+			}
+		}()
+
+		// Establish connection to destination
+		serverConn, err := dial(destHost)
 		if err != nil {
-			log.Error(ctx, "failed to establish TLS connection to destination", "error", err)
+			log.Error(ctx, "failed to establish connection to destination", "error", err)
 			return
 		}
-		defer tlsConn.Close()
+		defer serverConn.Close()
 
 		// Proxy data bidirectionally
 		done := make(chan error, 2)
 
 		// Copy from client to server
 		go func() {
-			_, err := io.Copy(tlsConn, clientConn)
+			_, err := io.Copy(serverConn, clientConn)
 			done <- err
 		}()
 
 		// Copy from server to client
 		go func() {
-			_, err := io.Copy(clientConn, tlsConn)
+			_, err := io.Copy(clientConn, serverConn)
 			done <- err
 		}()
 

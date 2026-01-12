@@ -33,7 +33,7 @@
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "xvfb-run --auto-servernum pnpm run start"],
+      "runtimeArgs": ["-c", "pnpm run app start"],
       "cwd": "${workspaceFolder}",
       "env": {
         "ELECTRON_DISABLE_SANDBOX": "1"

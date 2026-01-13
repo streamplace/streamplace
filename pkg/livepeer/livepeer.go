@@ -151,6 +151,14 @@ func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byt
 		return nil, nil, fmt.Errorf("failed to marshal livepeer profile: %w", err)
 	}
 
+	// Enforce a cap on concurrent in-flight segment posts across the whole send path.
+	select {
+	case ls.Guard <- struct{}{}:
+		defer func() { <-ls.Guard }()
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	}
+
 	// Convert MP4 to muxed MPEG-TS (aligns with transcode ingest format expected by /process/transcode)
 	tsSeg := bytes.Buffer{}
 	_, err = media.MP4ToMPEGTS(ctx, bytes.NewReader(buf), &tsSeg)
@@ -187,14 +195,6 @@ func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byt
 	req_ai.Header.Set("Content-Duration", fmt.Sprintf("%d", durationMs))
 	req_ai.Header.Set("Content-Resolution", fmt.Sprintf("%dx%d", ingestWidth, ingestHeight))
 	req_ai.Header.Set("Livepeer-Transcode-Configuration", string(bs))
-
-	// Enforce a cap on concurrent in-flight segment posts.
-	select {
-	case ls.Guard <- struct{}{}:
-		defer func() { <-ls.Guard }()
-	case <-ctx.Done():
-		return nil, nil, ctx.Err()
-	}
 
 	resp_ai, err := ls.sendSegmentRequest(ctx, req_ai)
 	if err != nil {

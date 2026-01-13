@@ -70,7 +70,7 @@ export function TopControlBar({
                   navigation.goBack();
                 } else {
                   const params = convertNavigationParams({
-                    screen: "StreamList",
+                    screen: "HomeMain",
                   });
                   navigation.navigate(params.screen as any, params.params);
                 }

@@ -1,6 +1,5 @@
-import { DrawerNavigationState, ParamListBase } from "@react-navigation/native";
 import { Text, useTheme, zero } from "@streamplace/components";
-import { useAQLinkHref } from "components/aqlink";
+import { LinkParams, useAQLinkHref } from "components/aqlink";
 import React, { ReactNode, useState } from "react";
 import {
   GestureResponderEvent,
@@ -10,6 +9,8 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+
+const DEFAULT_ROUTE: LinkParams = { screen: "HomeMain", params: undefined };
 
 export default function SidebarItem({
   icon,
@@ -29,7 +30,7 @@ export default function SidebarItem({
   collapsed: boolean;
   active: boolean;
   onPress: (event: GestureResponderEvent) => void;
-  route?: DrawerNavigationState<ParamListBase>["routes"][number];
+  route?: LinkParams;
   style?:
     | StyleProp<ViewStyle>
     | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>);
@@ -37,10 +38,7 @@ export default function SidebarItem({
 }) {
   const [hover, setHover] = useState<boolean>(false);
   const theme = useTheme();
-  const { href } = useAQLinkHref({
-    screen: route?.name || "Home",
-    params: route?.params as any,
-  });
+  const { href } = useAQLinkHref(route || DEFAULT_ROUTE);
 
   // Handle different icon types - component, JSX element, or function returning JSX
   const renderIcon = () => {

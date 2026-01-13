@@ -1,6 +1,4 @@
 import {
-  Link,
-  useLinkBuilder,
   useNavigation,
   useNavigationState,
   useRoute,
@@ -8,11 +6,28 @@ import {
 import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
 import { Pressable, StyleProp, ViewStyle } from "react-native";
+import { interpolateParams, SCREEN_PATHS } from "src/linking-config";
 import { useStore } from "store";
 import { convertNavigationParams } from "../src/navigation-helper";
+import type {
+  HomeStackParamList,
+  RootStackParamList,
+  SettingsStackParamList,
+  TabParamList,
+} from "../src/navigation-types";
 import Loading from "./loading/loading";
 
-export type LinkParams = { screen: string; params?: Record<string, any> };
+// Union type of all screens across all navigators
+type AllScreens = RootStackParamList &
+  HomeStackParamList &
+  SettingsStackParamList &
+  TabParamList;
+
+// Type-safe link parameters - params can be any to handle NavigatorScreenParams flexibility
+export type LinkParams<T extends keyof AllScreens = keyof AllScreens> = {
+  screen: T;
+  params?: any;
+};
 
 // Web and native have some disagreements about link styling
 // so we have a custom component that handles that
@@ -29,6 +44,7 @@ export default function AQLink({
   const navigation = useNavigation();
   const route = useRoute();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const { href } = useAQLinkHref(to);
 
   // get the deepest active route for nested navigators
   const currentRoute = useNavigationState((state) => {
@@ -59,25 +75,14 @@ export default function AQLink({
     navigation.navigate(converted.screen, converted.params);
   };
 
-  if (isWeb) {
-    // on web, intercept login links with onClick handler
-    if (to.screen === "Login") {
-      return (
-        <Pressable style={[baseStyle, style]} onPress={handlePress}>
-          {children}
-        </Pressable>
-      );
-    }
-    return (
-      // @ts-expect-error - Link component types don't support our dynamic LinkParams
-      <Link style={[baseStyle, style]} to={to}>
-        {children}
-      </Link>
-    );
-  }
-
+  // use Pressable with href on web to render as <a> tag for copy/paste support
   return (
-    <Pressable style={[baseStyle, style]} onPress={handlePress}>
+    <Pressable
+      style={[baseStyle, style]}
+      onPress={handlePress}
+      // @ts-ignore - href prop makes this render as <a> on web
+      href={isWeb ? href : undefined}
+    >
       {children}
     </Pressable>
   );
@@ -97,18 +102,19 @@ export function Redirect({ to }: { to: LinkParams }) {
 // generates the proper href for a given LinkParams object, for better web support
 export function useAQLinkHref(to: LinkParams): { href?: string } {
   const { isWeb } = usePlatform();
-  const buildLink = useLinkBuilder();
 
   if (!isWeb) {
     return { href: undefined };
   }
 
-  try {
-    // @ts-expect-error - buildLink expects specific types but we're using dynamic LinkParams
-    const href = buildLink(to.screen, to.params);
-    return { href };
-  } catch (e) {
-    console.warn("Failed to build link for", to, e);
+  const screenPath = SCREEN_PATHS[to.screen as keyof typeof SCREEN_PATHS];
+  if (screenPath === undefined) {
     return { href: undefined };
   }
+
+  // add leading slash and interpolate params
+  const path = screenPath === "" ? "/" : `/${screenPath}`;
+  const href = interpolateParams(path, to.params);
+
+  return { href };
 }

@@ -44,17 +44,14 @@ export function convertNavigationParams(to: LinkParams): LinkParams {
     };
   }
 
-  // Handle screens that are in HomeTab (includes both current and legacy names)
-  // Legacy: StreamList → HomeMain
-  const homeScreen = to.screen === "StreamList" ? "HomeMain" : to.screen;
-
-  if (HOME_TAB_SCREENS.includes(homeScreen)) {
+  // Handle screens that are in HomeTab
+  if (HOME_TAB_SCREENS.includes(to.screen)) {
     return {
       screen: "MainTabs",
       params: {
         screen: "HomeTab",
         params: {
-          screen: homeScreen,
+          screen: to.screen,
           params: to.params,
         },
       },
@@ -62,7 +59,7 @@ export function convertNavigationParams(to: LinkParams): LinkParams {
   }
 
   // GoLiveTab
-  if (to.screen === "LaunchGoLive" || to.screen === "GoLiveTab") {
+  if (to.screen === "GoLiveTab") {
     return {
       screen: "MainTabs",
       params: {

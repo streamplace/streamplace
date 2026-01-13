@@ -323,7 +323,7 @@ function LeftControlsPanel({
               navigation.canGoBack()
                 ? navigation.goBack()
                 : navigation.navigate("Home", {
-                    screen: "StreamList",
+                    screen: "HomeMain",
                   });
             }}
           >

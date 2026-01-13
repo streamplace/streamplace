@@ -57,6 +57,7 @@ function HomeNavigator() {
       screenOptions={{
         headerShown: true,
         headerTransparent: Platform.OS === "ios",
+        headerBackButtonDisplayMode: "minimal",
       }}
     >
       <HomeStack.Screen
@@ -122,8 +123,7 @@ function SettingsNavigator() {
       screenOptions={{
         headerShown: true,
         headerTransparent: Platform.OS === "ios",
-        headerBackButtonDisplayMode:
-          Platform.OS === "ios" ? "minimal" : "default",
+        headerBackButtonDisplayMode: "minimal",
       }}
     >
       <SettingsStack.Screen
@@ -377,7 +377,10 @@ export default function Shell() {
           <RootStack.Screen
             name="Stream"
             component={MobileStream}
-            options={{ headerShown: false }}
+            options={{
+              headerShown: Platform.OS === "web",
+              headerTitle: "",
+            }}
           />
           <RootStack.Screen
             name="MobileGoLive"

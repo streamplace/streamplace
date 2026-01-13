@@ -302,6 +302,10 @@ const AvatarButton = () => {
   const { theme } = useTheme();
   let source: ImageSourcePropType | undefined = undefined;
 
+  const windowWidth = useWindowDimensions().width;
+
+  const isCompact = windowWidth <= 800;
+
   if (userProfile) {
     source = { uri: userProfile.avatar };
     return (
@@ -332,10 +336,6 @@ const AvatarButton = () => {
     // TODO: remove requirement for oauth-protected-resource in oatproxy
     loginAction("https://bsky.social", openLoginLink);
   };
-
-  const windowWidth = useWindowDimensions().width;
-
-  const isCompact = windowWidth <= 800;
 
   if (isCompact) {
     return (

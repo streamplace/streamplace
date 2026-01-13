@@ -139,7 +139,7 @@ export const UserOffline = memo(() => {
                     navigation.reset({
                       index: 0,
                       routes: [
-                        { name: "Home", params: { screen: "StreamList" } },
+                        { name: "MainTabs", params: { screen: "Home" } },
                       ],
                     });
                   }
@@ -271,9 +271,7 @@ export const UserOffline = memo(() => {
                 } else {
                   navigation.reset({
                     index: 0,
-                    routes: [
-                      { name: "Home", params: { screen: "StreamList" } },
-                    ],
+                    routes: [{ name: "MainTabs", params: { screen: "Home" } }],
                   });
                 }
               }}
@@ -418,7 +416,6 @@ const RecommendedSourceInfo = memo(() => {
   const { t } = useTranslation("common");
   const profile = useLivestreamStore((x) => x.profile);
   const viewers = useLivestreamStore((x) => x.viewers);
-  const lsInfo = useLivestreamStore((x) => x.livestream);
   const currentUserDID = useStore((state) => state.oauthSession?.did);
 
   const pfp = useAvatars(profile?.did ? [profile.did] : []);

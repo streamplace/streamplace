@@ -1,3 +1,3 @@
-import { initializeTimeSync } from "@streamplace/components/src/time-sync";
+// import { initializeTimeSync } from "@streamplace/components/src/time-sync";
 
-initializeTimeSync();
+// initializeTimeSync();

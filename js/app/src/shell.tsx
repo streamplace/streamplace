@@ -198,12 +198,7 @@ function TabNavigator() {
         component={HomeNavigator}
         options={{
           title: "Home",
-          ...(isNative && {
-            tabBarIcon: {
-              type: "sfSymbol",
-              name: "house",
-            },
-          }),
+          ...(isNative && {}),
         }}
       />
       <Tab.Screen
@@ -211,12 +206,7 @@ function TabNavigator() {
         component={LaunchGoLive}
         options={{
           title: "Go Live",
-          ...(isNative && {
-            tabBarIcon: {
-              type: "sfSymbol",
-              name: "video",
-            },
-          }),
+          ...(isNative && {}),
           headerShown: true,
           headerTransparent: true,
         }}
@@ -226,12 +216,7 @@ function TabNavigator() {
         component={SettingsNavigator}
         options={{
           title: "Settings",
-          ...(isNative && {
-            tabBarIcon: {
-              type: "sfSymbol",
-              name: "gearshape",
-            },
-          }),
+          ...(isNative && {}),
           headerShown: false,
         }}
       />

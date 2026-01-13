@@ -28,10 +28,17 @@ const nativeOverrides = {
 };
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName.includes("zustand")) {
-    const result = require.resolve(moduleName);
-    return context.resolveRequest(context, result, platform);
+  if (moduleName === "@react-navigation/elements/internal") {
+    return context.resolveRequest(
+      context,
+      "@react-navigation/elements/lib/module/internal",
+      platform,
+    );
   }
+  // if (moduleName.includes("zustand")) {
+  //   const result = require.resolve(moduleName);
+  //   return context.resolveRequest(context, result, platform);
+  // }
   if (platform !== "web") {
     for (const [key, value] of Object.entries(nativeOverrides)) {
       if (moduleName === key) {
@@ -57,7 +64,6 @@ config.resolver.unstable_conditionNames.push("@streamplace/dev", "browser");
 config.watchFolders = [path.resolve(__dirname, "../..")];
 config.transformer = {
   ...config.transformer,
-  babelTransformerPath: require.resolve("metro-react-native-babel-transformer"),
   getTransformOptions: async () => ({
     transform: {
       experimentalImportSupport: true,

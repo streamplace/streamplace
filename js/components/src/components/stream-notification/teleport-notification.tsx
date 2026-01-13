@@ -25,11 +25,28 @@ export function TeleportNotification({
   const { zero: z } = useTheme();
   const w = useWindowDimensions().width;
 
-  // calculate initial time left based on start time
-  const initialTimeLeft = startTime
-    ? Math.max(0, countdown - Math.floor((Date.now() - startTime) / 1000))
-    : countdown;
-  const [timeLeft, setTimeLeft] = useState(initialTimeLeft);
+  const [start, setStart] = useState(Date.now());
+  const [now, setNow] = useState(Date.now());
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  const timeLeft = Math.max(0, countdown - Math.floor((now - start) / 1000));
+
+  useEffect(() => {
+    if (dismissed) {
+      return;
+    }
+    if (timeLeft <= 0) {
+      setDismissed(true);
+      onDismiss("auto");
+    }
+  }, [dismissed, onDismiss, timeLeft]);
 
   // if we're past 5 seconds from start, stripes should already be hidden
   const elapsedTime = startTime ? (Date.now() - startTime) / 1000 : 0;
@@ -70,24 +87,6 @@ export function TeleportNotification({
 
     return () => clearTimeout(stripesTimer);
   }, []);
-
-  useEffect(() => {
-    if (showStripes) return;
-
-    // countdown timer
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          onDismiss("auto");
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [showStripes, onDismiss]);
 
   useEffect(() => {
     if (showStripes) return;

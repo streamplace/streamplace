@@ -21,11 +21,11 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 	pipelineStr := strings.Join([]string{
 		"appsrc name=appsrc ! qtdemux name=demux",
 		"mpegtsmux name=mux ! appsink name=appsink sync=false",
-		"demux.video_0 ! h264parse ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
+		"demux.video_0 ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
 		// Accept either Opus (WHIP source) or AAC (transcoded output) by decoding
-		// whatever arrives, then re-encoding to AAC for the gateway/HLS.
+		// whatever arrives, then re-encoding to AAC (ADTS) for the gateway/HLS.
 		"demux.audio_0 ! decodebin name=adecode",
-		"audioconvert name=audioconvert ! audioresample ! audiorate ! fdkaacenc name=audioenc ! queue name=audioqueue",
+		"audioconvert name=audioconvert ! audioresample ! audiorate ! fdkaacenc name=audioenc ! aacparse name=aacparse ! capsfilter caps=audio/mpeg,mpegversion=4,stream-format=adts ! queue name=audioqueue",
 	}, " ")
 
 	pipeline, err := gst.NewPipelineFromString(pipelineStr)
@@ -340,7 +340,7 @@ func MP4ToMPEGTSVideoMP4Audio(ctx context.Context, input io.Reader, videoOutput 
 		"appsrc name=appsrc ! qtdemux name=demux",
 		"mpegtsmux name=videomux ! appsink name=videoappsink sync=false",
 		"mp4mux name=audiomux ! appsink name=audioappsink sync=false",
-		"demux.video_0 ! h264parse ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
+		"demux.video_0 ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
 		"demux.audio_0 ! opusparse ! queue name=audioqueue",
 	}, " ")
 

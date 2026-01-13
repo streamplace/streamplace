@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"stream.place/streamplace/pkg/aqhttp"
@@ -40,12 +39,11 @@ type StreamUrls struct {
 }
 
 type LivepeerSession struct {
-	SessionID    string
-	Count        int
-	GatewayURL   string
-	Guard        chan struct{}
-	CLI          *config.CLI
-	aiURLsParsed atomic.Bool
+	SessionID  string
+	Count      int
+	GatewayURL string
+	Guard      chan struct{}
+	CLI        *config.CLI
 }
 
 // borrowed from catalyst-api
@@ -96,6 +94,9 @@ func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byt
 	vid := spseg.Video[0]
 	ingestWidth := int(vid.Width)
 	ingestHeight := int(vid.Height)
+	if ingestWidth == 0 || ingestHeight == 0 {
+		log.Debug(ctx, "video resolution not available in segment metadata", "width", ingestWidth, "height", ingestHeight, "creator", spseg.Creator)
+	}
 
 	if ls.CLI.LivepeerAIProcessing {
 		aiJobSettings := map[string]any{
@@ -307,9 +308,6 @@ func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byt
 
 	if streamUrls == nil {
 		log.Debug(ctx, "no AI stream URLs found in /process/transcode response body")
-	} else {
-		// Only parse stream URLs once to avoid repeated parsing overhead.
-		ls.aiURLsParsed.CompareAndSwap(false, true)
 	}
 
 	spmetrics.TranscodeDuration.WithLabelValues(spseg.Creator).Observe(float64(time.Since(start).Milliseconds()))

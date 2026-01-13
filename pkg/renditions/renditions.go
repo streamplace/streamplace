@@ -168,9 +168,11 @@ func GenerateRenditions(spseg *streamplace.Segment) (Renditions, error) {
 			vidWidth = int64(math.Round(float64(vidWidth) * scale))
 		}
 		outR := Rendition{
-			Name:    r.Name,
-			Parent:  &r,
-			Profile: r.Profile,
+			Name:      r.Name,
+			Parent:    &r,
+			Profile:   r.Profile,
+			Bitrate:   r.Bitrate,
+			Framerate: r.Framerate, // Default to desired rendition framerate
 		}
 		if vertical {
 			outR.Width = vidHeight
@@ -180,16 +182,8 @@ func GenerateRenditions(spseg *streamplace.Segment) (Renditions, error) {
 			outR.Height = vidHeight
 		}
 
-		// if vertical {
-		// 	ratio := float64(r.Height) / float64(vid.Height)
-		// 	outR.Height = int64(float64(vid.Width) * (16.0 / 9.0) * ratio)
-		// 	outR.Width = r.Height
-		// } else {
-		// 	ratio := float64(r.Width) / float64(vid.Width)
-		// 	outR.Width = r.Width
-		// 	outR.Height = int64(float64(vid.Width) * (9.0 / 16.0) * ratio)
-		// }
-		if vid.Framerate.Den > 0 {
+		// Adjust framerate if video has a detected framerate and we need to downsample
+		if vid.Framerate.Den > 0 && r.Framerate.Den > 0 {
 			vidFPS := float64(vid.Framerate.Num) / float64(vid.Framerate.Den)
 			rFPS := float64(r.Framerate.Num) / float64(r.Framerate.Den)
 			delta := rFPS / vidFPS
@@ -201,9 +195,6 @@ func GenerateRenditions(spseg *streamplace.Segment) (Renditions, error) {
 				}
 			}
 		}
-
-		outR.Bitrate = r.Bitrate
-		outR.Profile = r.Profile
 		rs = append(rs, outR)
 	}
 	return rs, nil

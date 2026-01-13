@@ -42,7 +42,7 @@
     },
     {
       "name": "Run Streamplace (darwin)",
-      "type": "node",
+      "type": "go",
       "request": "launch",
       "mode": "exec",
       "program": "${workspaceFolder}/build-darwin-arm64/libstreamplace"

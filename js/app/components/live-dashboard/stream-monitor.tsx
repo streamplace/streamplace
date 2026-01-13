@@ -98,6 +98,7 @@ export default function StreamMonitor({
         borders.width.thin,
         borders.color.neutral[700],
         layout.flex.column,
+        { overflow: "hidden" },
       ]}
     >
       <View style={[flex.values[1], layout.flex.center, bg.neutral[900]]}>

@@ -20,10 +20,10 @@ import Animated, {
 
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
-import emojiData from "assets/emoji-data.json";
 import { ArrowRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
+import { useEmojiData } from "utils/emoji";
 const { borderRadius, gap, layout, flex, px, position, bottom } = zero;
 
 export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
@@ -125,6 +125,7 @@ function ChatPanel() {
 
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const emojiData = useEmojiData();
 
   // get the deepest active route for nested navigators
   const currentRoute = useNavigationState((state) => {

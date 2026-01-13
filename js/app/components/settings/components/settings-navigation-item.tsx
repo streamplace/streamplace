@@ -50,12 +50,13 @@ interface SettingsRowItemProps {
 
 export function SettingsRowItem({ children, onPress }: SettingsRowItemProps) {
   return (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={onPress} style={{ width: "100%" }}>
       {({ pressed }) => (
         <View
           style={[
             zero.px[3],
             zero.py[2],
+            zero.w.percent[100],
             zero.layout.flex.row,
             zero.layout.flex.justify.between,
             zero.layout.flex.align.center,

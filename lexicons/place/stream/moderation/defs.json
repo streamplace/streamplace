@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.moderation.defs",
+  "defs": {
+    "permissionView": {
+      "type": "object",
+      "required": ["uri", "cid", "author", "record"],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "AT-URI of the permission record"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid",
+          "description": "Content identifier of the permission record"
+        },
+        "author": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic",
+          "description": "The streamer who granted these permissions"
+        },
+        "record": {
+          "type": "unknown",
+          "description": "The permission record itself"
+        }
+      }
+    }
+  }
+}

@@ -517,6 +517,636 @@
         }
       }
     },
+    "/xrpc/place.stream.multistream.createTarget": {
+      "post": {
+        "summary": "Create a new target for rebroadcasting a Streamplace stream.",
+        "operationId": "place.stream.multistream.createTarget",
+        "tags": ["place.stream.multistream"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/place.stream.multistream.defs_targetView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "InvalidTargetUrl"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "multistreamTarget": {
+                    "$ref": "#/components/schemas/place.stream.multistream.target"
+                  }
+                },
+                "required": ["multistreamTarget"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.multistream.deleteTarget": {
+      "post": {
+        "summary": "Delete a target for rebroadcasting a Streamplace stream.",
+        "operationId": "place.stream.multistream.deleteTarget",
+        "tags": ["place.stream.multistream"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rkey": {
+                    "type": "string",
+                    "description": "The Record Key of the target to delete.",
+                    "format": "record-key"
+                  }
+                },
+                "required": ["rkey"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.multistream.listTargets": {
+      "get": {
+        "summary": "List a range of targets for rebroadcasting a Streamplace stream.",
+        "operationId": "place.stream.multistream.listTargets",
+        "tags": ["place.stream.multistream"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "targets": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.multistream.defs_targetView"
+                      }
+                    },
+                    "cursor": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["targets"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "The number of targets to return.",
+            "schema": {
+              "type": "integer",
+              "description": "The number of targets to return.",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.multistream.putTarget": {
+      "post": {
+        "summary": "Update an existing target for rebroadcasting a Streamplace stream.",
+        "operationId": "place.stream.multistream.putTarget",
+        "tags": ["place.stream.multistream"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/place.stream.multistream.defs_targetView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "InvalidTargetUrl"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "multistreamTarget": {
+                    "$ref": "#/components/schemas/place.stream.multistream.target"
+                  },
+                  "rkey": {
+                    "type": "string",
+                    "description": "The Record Key.",
+                    "maxLength": 512,
+                    "format": "record-key"
+                  }
+                },
+                "required": ["multistreamTarget"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.createBlock": {
+      "post": {
+        "summary": "Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates an app.bsky.graph.block record in the streamer's repository.",
+        "operationId": "place.stream.moderation.createBlock",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "The AT-URI of the created block record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "The CID of the created block record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer whose chat this block applies to.",
+                    "format": "did"
+                  },
+                  "subject": {
+                    "type": "string",
+                    "description": "The DID of the user being blocked from chat.",
+                    "format": "did"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Optional reason for the block.",
+                    "maxLength": 300
+                  }
+                },
+                "required": ["streamer", "subject"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.createGate": {
+      "post": {
+        "summary": "Create a gate (hide message) on behalf of a streamer. Requires 'hide' permission. Creates a place.stream.chat.gate record in the streamer's repository.",
+        "operationId": "place.stream.moderation.createGate",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "The AT-URI of the created gate record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "The CID of the created gate record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "messageUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the chat message to hide.",
+                    "format": "uri"
+                  }
+                },
+                "required": ["streamer", "messageUri"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.deleteBlock": {
+      "post": {
+        "summary": "Delete a block (unban) on behalf of a streamer. Requires 'ban' permission. Deletes an app.bsky.graph.block record from the streamer's repository.",
+        "operationId": "place.stream.moderation.deleteBlock",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "blockUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the block record to delete.",
+                    "format": "uri"
+                  }
+                },
+                "required": ["streamer", "blockUri"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.deleteGate": {
+      "post": {
+        "summary": "Delete a gate (unhide message) on behalf of a streamer. Requires 'hide' permission. Deletes a place.stream.chat.gate record from the streamer's repository.",
+        "operationId": "place.stream.moderation.deleteGate",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "gateUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the gate record to delete.",
+                    "format": "uri"
+                  }
+                },
+                "required": ["streamer", "gateUri"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.updateLivestream": {
+      "post": {
+        "summary": "Update livestream metadata on behalf of a streamer. Requires 'livestream.manage' permission. Updates a place.stream.livestream record in the streamer's repository.",
+        "operationId": "place.stream.moderation.updateLivestream",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "The AT-URI of the updated livestream record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "The CID of the updated livestream record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        },
+                        {
+                          "const": "RecordNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "livestreamUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the livestream record to update.",
+                    "format": "uri"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "New title for the livestream.",
+                    "maxLength": 1400
+                  }
+                },
+                "required": ["streamer", "livestreamUri"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.live.getLiveUsers": {
       "get": {
         "summary": "Get a list of livestream segments for a user",
@@ -881,10 +1511,288 @@
                       "type": "string",
                       "description": "DID of this particular Streamplace server",
                       "format": "did"
+                    },
+                    "admins": {
+                      "type": "array",
+                      "description": "Array of DIDs authorized as admins",
+                      "items": {
+                        "type": "string",
+                        "format": "did"
+                      }
                     }
                   },
                   "required": ["broadcaster"]
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.branding.deleteBlob": {
+      "post": {
+        "summary": "Delete a branding asset blob. Requires admin authorization.",
+        "operationId": "place.stream.branding.deleteBlob",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["success"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "BrandingNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "description": "Branding asset key (mainLogo, favicon, siteTitle, etc.)"
+                  },
+                  "broadcaster": {
+                    "type": "string",
+                    "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+                    "format": "did"
+                  }
+                },
+                "required": ["key"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.branding.getBlob": {
+      "get": {
+        "summary": "Get a specific branding asset blob by key.",
+        "operationId": "place.stream.branding.getBlob",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Raw blob data with appropriate content-type",
+            "content": {
+              "*/*": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "BrandingNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "description": "Branding asset key (mainLogo, favicon, siteTitle, etc.)",
+            "schema": {
+              "type": "string",
+              "description": "Branding asset key (mainLogo, favicon, siteTitle, etc.)"
+            }
+          },
+          {
+            "name": "broadcaster",
+            "in": "query",
+            "required": false,
+            "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.branding.getBranding": {
+      "get": {
+        "summary": "Get all branding configuration for the broadcaster.",
+        "operationId": "place.stream.branding.getBranding",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "assets": {
+                      "type": "array",
+                      "description": "List of available branding assets",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.branding.getBranding_brandingAsset"
+                      }
+                    }
+                  },
+                  "required": ["assets"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "broadcaster",
+            "in": "query",
+            "required": false,
+            "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.branding.updateBlob": {
+      "post": {
+        "summary": "Update or create a branding asset blob. Requires admin authorization.",
+        "operationId": "place.stream.branding.updateBlob",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["success"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "BlobTooLarge"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "description": "Branding asset key (mainLogo, favicon, siteTitle, etc.)"
+                  },
+                  "broadcaster": {
+                    "type": "string",
+                    "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster.",
+                    "format": "did"
+                  },
+                  "data": {
+                    "type": "string",
+                    "description": "Base64-encoded blob data"
+                  },
+                  "mimeType": {
+                    "type": "string",
+                    "description": "MIME type of the blob (e.g., image/png, text/plain)"
+                  },
+                  "width": {
+                    "type": "integer",
+                    "description": "Image width in pixels (optional, for images only)"
+                  },
+                  "height": {
+                    "type": "integer",
+                    "description": "Image height in pixels (optional, for images only)"
+                  }
+                },
+                "required": ["key", "data", "mimeType"]
               }
             }
           }
@@ -1874,6 +2782,44 @@
         },
         "required": ["id", "url", "events", "active", "createdAt"]
       },
+      "place.stream.multistream.target": {
+        "description": "Unknown type"
+      },
+      "place.stream.multistream.defs_targetView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "record": {},
+          "latestEvent": {
+            "$ref": "#/components/schemas/place.stream.multistream.defs_event"
+          }
+        },
+        "required": ["uri", "cid", "record"]
+      },
+      "place.stream.multistream.defs_event": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["inactive", "pending", "active", "error"]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["message", "status", "createdAt"]
+      },
       "place.stream.livestream_livestreamView": {
         "type": "object",
         "properties": {
@@ -2307,6 +3253,36 @@
           }
         },
         "required": ["uri", "cid"]
+      },
+      "place.stream.branding.getBranding_brandingAsset": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Asset key identifier"
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "MIME type of the asset"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL to fetch the asset blob (for images)"
+          },
+          "data": {
+            "type": "string",
+            "description": "Inline data for text assets"
+          },
+          "width": {
+            "type": "integer",
+            "description": "Image width in pixels (optional, for images only)"
+          },
+          "height": {
+            "type": "integer",
+            "description": "Image height in pixels (optional, for images only)"
+          }
+        },
+        "required": ["key", "mimeType"]
       },
       "com.atproto.sync.listRepos_repo": {
         "type": "object",

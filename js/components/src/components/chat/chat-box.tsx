@@ -16,16 +16,16 @@ import {
   View,
 } from "../../";
 import {
-  bg,
+  borders,
   flex,
   gap,
   h,
   layout,
   mb,
-  mr,
   pl,
   pr,
   py,
+  r,
   w,
 } from "../../lib/theme/atoms";
 import { Textarea } from "../ui/textarea";
@@ -34,6 +34,7 @@ import { EmojiData, EmojiSuggestions } from "./emoji-suggestions";
 import { MentionSuggestions } from "./mention-suggestions";
 
 const COOL_EMOJI_LIST = [
+  // @ts-ignore we can iterate through this just fine it seems
   ..."😀🥸😍😘😁🥸😆🥸😜🥸😂😅🥸🙂🤫😱🥸🤣😗😄🥸😎🤓😲😯😰🥸😥🥸😣🥸😞😓🥸😩😩🥸😤🥱",
 ];
 
@@ -45,7 +46,7 @@ export function ChatBox({
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
-  emojiData: EmojiData;
+  emojiData: EmojiData | null;
   setIsChatVisible?: (visible: boolean) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
@@ -64,7 +65,7 @@ export function ChatBox({
 
   let linfo = useLivestream();
 
-  const { theme } = useTheme();
+  const { theme, zero: zt } = useTheme();
 
   const chat = useChat();
   const createChatMessage = useCreateChatMessage();
@@ -116,7 +117,8 @@ export function ChatBox({
     const colonIndex = text.lastIndexOf(":");
     if (colonIndex !== -1) {
       const searchText = text.slice(colonIndex + 1).toLowerCase();
-      if (searchText.length > 0) {
+      if (searchText.length >= 3) {
+        if (!emojiData) return;
         const aliasMatches = Object.entries(emojiData.aliases)
           .map(([alias, emojiId]) => {
             const aliasLower = alias.toLowerCase();
@@ -266,38 +268,50 @@ export function ChatBox({
             layout.flex.alignCenter,
             layout.flex.spaceBetween,
             pl[2],
-            pr[6],
-            mr[6],
+            pr[1],
             mb[2],
             py[1],
-            bg.gray[800],
-            { borderRadius: 16 },
+            r["2xl"],
+            zt.bg.card,
           ]}
         >
-          <RenderChatMessage
-            item={replyTo}
-            showReply={false}
-            userCache={authors || new Map()}
-          />
-          <Pressable onPress={() => setReplyToMessage(null)}>
-            <View
-              style={[
-                layout.flex.row,
-                layout.flex.alignCenter,
-                layout.flex.justifyCenter,
-                h[12],
-                w[12],
-                bg.gray[600],
-                { borderRadius: 999 },
-              ]}
-            >
-              <X size={24} />
-            </View>
+          <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+            <RenderChatMessage
+              item={replyTo}
+              showReply={false}
+              userCache={authors || new Map()}
+            />
+          </View>
+          <Pressable
+            onPress={() => setReplyToMessage(null)}
+            style={[
+              layout.flex.row,
+              layout.flex.alignCenter,
+              layout.flex.justifyCenter,
+              h[8],
+              w[8],
+              zt.bg.muted,
+              zt.border.border,
+              borders.width.thin,
+              { borderRadius: 999 },
+            ]}
+          >
+            <X size={24} style={[zt.text.primaryForeground]} />
           </Pressable>
         </View>
       )}
       {showEmojiSelector && (
-        <>
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 200,
+          }}
+          pointerEvents="box-none"
+        >
           {/* Overlay to catch outside clicks */}
           <Pressable
             style={{
@@ -306,7 +320,6 @@ export function ChatBox({
               left: 0,
               right: 0,
               bottom: 0,
-              zIndex: 200,
             }}
             onPress={() => setShowEmojiSelector(false)}
           />
@@ -317,13 +330,14 @@ export function ChatBox({
               left: 0,
               zIndex: 2001,
             }}
+            pointerEvents="auto"
           >
             <Picker
               data={emojiData}
               onEmojiSelect={(e) => setMessage(message + e.native)}
             />
           </View>
-        </>
+        </View>
       )}
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
         <Textarea

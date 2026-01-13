@@ -11,13 +11,13 @@ import {
   useSegment,
   zero,
 } from "@streamplace/components";
-import emojiData from "assets/emoji-data.json";
 import LiveDot from "components/home/live-dot";
 import { ArrowLeft } from "lucide-react-native";
 import { useCallback, useEffect, useRef } from "react";
 import { KeyboardAvoidingView, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUserProfile } from "store/hooks";
+import { useEmojiData } from "utils/emoji";
 
 export default function PopoutChat({ route }) {
   const user = route.params?.user;
@@ -51,6 +51,7 @@ export function PopoutChatInner({ user }: { user: string }) {
   const { ingest, profile: streamProfile } = useLivestreamInfo();
   const status = usePlayerStore((x) => x.status);
   const seg = useSegment();
+  const emojiData = useEmojiData();
 
   const segmentReceivedTimeRef = useRef<number | null>(null);
   const lastSegmentIdRef = useRef<string | null>(null);

@@ -67,6 +67,7 @@ type CLI struct {
 	HTTPSAddr                    string
 	RTMPAddr                     string
 	RTMPSAddr                    string
+	RTMPSAddonAddr              string
 	Secure                       bool
 	NoMist                       bool
 	MistAdminPort                int
@@ -137,6 +138,7 @@ type CLI struct {
 	WebsocketURL                 string
 	BehindHTTPSProxy             bool
 	SegmentDebugDir              string
+	AdminDIDs                   []string
 	Syndicate                    []string
 	LivepeerAIProcessing         bool
 	LivepeerAICapability         string
@@ -217,6 +219,7 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.IntVar(&cli.RateLimitBurst, "rate-limit-burst", 0, "rate limit burst for requests per ip")
 	fs.IntVar(&cli.RateLimitWebsocket, "rate-limit-websocket", 10, "number of concurrent websocket connections allowed per ip")
 	fs.StringVar(&cli.RTMPServerAddon, "rtmp-server-addon", "", "address of external RTMP server to forward streams to")
+	fs.StringVar(&cli.RTMPSAddonAddr, "rtmps-addon-addr", ":1936", "address to listen for RTMPS on the addon server")
 	fs.StringVar(&cli.RTMPSAddr, "rtmps-addr", ":1935", "address to listen for RTMPS connections (when --secure=true)")
 	fs.StringVar(&cli.RTMPAddr, "rtmp-addr", ":1935", "address to listen for RTMP connections (when --secure=false)")
 	cli.JSONFlag(fs, &cli.DiscordWebhooks, "discord-webhooks", "[]", "JSON array of Discord webhooks to send notifications to")
@@ -247,6 +250,7 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	cli.StringSliceFlag(fs, &cli.Replicators, "replicators", []string{ReplicatorWebsocket}, "list of replication protocols to use (http, iroh)")
 	fs.StringVar(&cli.WebsocketURL, "websocket-url", "", "override the websocket (ws:// or wss://) url to use for replication (normally not necessary, used for testing)")
 	fs.BoolVar(&cli.BehindHTTPSProxy, "behind-https-proxy", false, "set to true if this node is behind an https proxy and we should report https URLs even though the node isn't serving HTTPS")
+	cli.StringSliceFlag(fs, &cli.AdminDIDs, "admin-dids", []string{}, "comma-separated list of DIDs that are authorized to modify branding and other admin operations")
 	cli.StringSliceFlag(fs, &cli.Syndicate, "syndicate", []string{}, "list of DIDs that we should rebroadcast ('*' for everybody)")
 
 	fs.Bool("external-signing", true, "DEPRECATED, does nothing.")

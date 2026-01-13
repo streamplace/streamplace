@@ -1,9 +1,11 @@
 import {
   MenuContainer,
   MenuGroup,
+  MenuLabel,
   MenuSeparator,
   Text,
   useDanmuUnlocked,
+  useLegalLinks,
   useSetDanmuUnlocked,
   useTheme,
   useToast,
@@ -12,7 +14,7 @@ import {
 } from "@streamplace/components";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView } from "react-native";
+import { Platform, ScrollView } from "react-native";
 import {
   SettingsExternalItem,
   SettingsRowItem,
@@ -46,6 +48,19 @@ function cutVersionPrefix(version: string) {
 }
 
 const UNLOCK_TAP_COUNT = 5;
+
+// Check if the webapp is running on a streamplace domain
+function isStreamplaceDomain(): boolean {
+  if (Platform.OS !== "web") {
+    return true;
+  }
+  if (typeof window === "undefined" || !window.location) {
+    return false;
+  }
+  let host = window.location.hostname;
+  return host.endsWith("://stream.place") || host.endsWith(".stream.place");
+}
+
 export function AboutCategorySettings() {
   const { t } = useTranslation("settings");
   const theme = useTheme();
@@ -55,6 +70,8 @@ export function AboutCategorySettings() {
   const [tapCount, setTapCount] = useState(0);
   const danmuUnlocked = useDanmuUnlocked();
   const setDanmuUnlocked = useSetDanmuUnlocked();
+  const legalLinks = useLegalLinks();
+  const isStreamplace = isStreamplaceDomain();
 
   const handleVersionPress = () => {
     if (danmuUnlocked) {
@@ -134,17 +151,34 @@ export function AboutCategorySettings() {
               <StreamplaceUpdatesRow />
             </MenuGroup>
 
-            <MenuGroup>
-              <SettingsExternalItem
-                title="Terms of Service"
-                link="OpenSourceLicenses"
-              />
-              <MenuSeparator />
-              <SettingsExternalItem
-                title="Privacy Policy"
-                link="OpenSourceLicenses"
-              />
-            </MenuGroup>
+            {isStreamplace && (
+              <MenuGroup>
+                <SettingsExternalItem
+                  title="Privacy Policy"
+                  link="https://privacy.stream.place"
+                />
+              </MenuGroup>
+            )}
+
+            {!isStreamplace &&
+              Platform.OS === "web" &&
+              legalLinks.length > 0 && (
+                <>
+                  <MenuLabel>{t("node-legal-documents")}</MenuLabel>
+                  <MenuGroup>
+                    {legalLinks.map((link, index) => (
+                      <>
+                        {index > 0 && <MenuSeparator />}
+                        <SettingsExternalItem
+                          key={index}
+                          title={link.text}
+                          link={link.url}
+                        />
+                      </>
+                    ))}
+                  </MenuGroup>
+                </>
+              )}
           </MenuContainer>
         </View>
       </View>

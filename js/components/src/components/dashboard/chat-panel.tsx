@@ -1,5 +1,4 @@
 import { Text, View } from "react-native";
-import emojiData from "../../assets/emoji-data.json";
 import * as zero from "../../ui";
 import { Chat } from "../chat/chat";
 import { ChatBox } from "../chat/chat-box";
@@ -11,6 +10,7 @@ interface ChatPanelProps {
   isConnected: boolean;
   messagesPerMinute?: number;
   shownMessages?: number;
+  emojiData?: any;
 }
 
 export default function ChatPanel({
@@ -18,6 +18,7 @@ export default function ChatPanel({
   isConnected,
   messagesPerMinute = 0,
   shownMessages = 50,
+  emojiData = null,
 }: ChatPanelProps) {
   return (
     <View

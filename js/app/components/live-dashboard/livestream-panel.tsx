@@ -2,6 +2,7 @@ import {
   Button,
   Checkbox,
   ContentMetadataForm,
+  Dashboard,
   formatHandle,
   formatHandleWithAt,
   Input,
@@ -178,7 +179,9 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const [selectedImage, setSelectedImage] = useState<
     string | File | Blob | undefined
   >();
-  const [mode, setMode] = useState<"create" | "metadata">("create");
+  const [mode, setMode] = useState<"create" | "metadata" | "moderation">(
+    "create",
+  );
 
   const [createPost, setCreatePost] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
@@ -210,9 +213,12 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
     setCreatePost(typeof livestream.record.post !== "undefined");
   }, [livestream, defaultCanonicalUrl]);
 
-  const handleModeChange = useCallback((newMode: "create" | "metadata") => {
-    setMode(newMode);
-  }, []);
+  const handleModeChange = useCallback(
+    (newMode: "create" | "metadata" | "moderation") => {
+      setMode(newMode);
+    },
+    [],
+  );
 
   const handleSubmit = useCallback(async () => {
     if (!title.trim()) return;
@@ -370,6 +376,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
               values={[
                 { label: "Create", value: "create" },
                 { label: "Metadata", value: "metadata" },
+                { label: "Moderation", value: "moderation" },
               ]}
               style={[{ marginVertical: -2 }]}
               selectedValue={mode}
@@ -385,6 +392,11 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                 showUpdateButton={!userIsLive}
                 style={{ flex: 1, height: "100%" }}
               />
+            </View>
+          ) : mode === "moderation" ? (
+            // Moderation view
+            <View style={[flex.values[1], { minHeight: 400 }]}>
+              <Dashboard.ModeratorPanel isLive={userIsLive} embedded={true} />
             </View>
           ) : (
             // Create/Edit view

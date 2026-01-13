@@ -23,6 +23,7 @@ const buttonVariants = cva("", {
       lg: "lg",
       xl: "xl",
       pill: "pill",
+      icon: "icon",
     },
   },
   defaultVariants: {
@@ -142,6 +143,12 @@ export const Button = forwardRef<any, ButtonProps>(
             ],
             inner: { gap: 4 },
             text: zero.typography.universal.xs,
+          };
+        case "icon":
+          return {
+            button: [zero.p[2], { borderRadius: zero.borderRadius.md }],
+            inner: { gap: 0 },
+            text: zero.typography.universal.sm,
           };
         case "md":
         default:

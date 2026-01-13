@@ -15,6 +15,7 @@ export * from "./info-row";
 export * from "./input";
 export * from "./loader";
 export * from "./menu";
+export * from "./portal";
 export * from "./resizeable";
 export * from "./slider";
 export * from "./text";

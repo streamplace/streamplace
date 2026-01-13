@@ -45,6 +45,23 @@ export function Player(
     setFullscreen?: (fullscreen: boolean) => void;
   },
 ) {
+  return (
+    <RotationProvider enabled={Platform.OS !== "web"}>
+      <LivestreamProvider src={props.src ?? ""}>
+        <StatusBar hidden={true} />
+        <PlayerProvider defaultId={props.playerId || undefined}>
+          <PlayerWithProvider {...props} />
+        </PlayerProvider>
+      </LivestreamProvider>
+    </RotationProvider>
+  );
+}
+
+function PlayerWithProvider(
+  props: Partial<PlayerProps> & {
+    setFullscreen?: (fullscreen: boolean) => void;
+  },
+) {
   const [showChat, setShowChat] = useState(true);
   const { shouldShowChatSidePanel, chatPanelWidth } = useResponsiveLayout();
   const chatVisible = shouldShowChatSidePanel && showChat;
@@ -64,6 +81,12 @@ export function Player(
   }, []);
 
   useEffect(() => {
+    // don't show unavailable when in ingest mode (you're the one streaming)
+    if (props.ingest) {
+      setShowUnavailable(false);
+      return;
+    }
+
     if (!websocketConnected) {
       setShowUnavailable(false);
       return;
@@ -81,7 +104,7 @@ export function Player(
       setShowUnavailable(true);
     }, SEGMENT_TIMEOUT);
     return () => clearTimeout(timer);
-  }, [websocketConnected, hasReceivedSegment, segs, now]);
+  }, [websocketConnected, hasReceivedSegment, segs, now, props.ingest]);
 
   const [isStreamingElsewhere, setIsStreamingElsewhere] = useState<
     boolean | null
@@ -166,36 +189,29 @@ export function Player(
   }
 
   return (
-    <RotationProvider enabled={Platform.OS !== "web"}>
-      <LivestreamProvider src={props.src ?? ""}>
-        <StatusBar hidden={true} />
-        <PlayerProvider defaultId={props.playerId || undefined}>
-          <View
-            style={{
-              flexDirection: chatVisible ? "row" : "column",
-              flex: 1,
-              width: "100%",
-              height: "100%",
-            }}
-          >
-            <PlayerInner
-              {...props}
-              showChat={showChat}
-              setShowChat={setShowChat}
-              showUnavailable={showUnavailable}
-            />
-            {shouldShowChatSidePanel ? (
-              <DesktopChatPanel
-                chatVisible={chatVisible}
-                chatPanelWidth={chatPanelWidth}
-              />
-            ) : (
-              !showUnavailable && <MobileUi />
-            )}
-          </View>
-        </PlayerProvider>
-      </LivestreamProvider>
-    </RotationProvider>
+    <View
+      style={{
+        flexDirection: chatVisible ? "row" : "column",
+        flex: 1,
+        width: "100%",
+        height: "100%",
+      }}
+    >
+      <PlayerInner
+        {...props}
+        showChat={showChat}
+        setShowChat={setShowChat}
+        showUnavailable={showUnavailable}
+      />
+      {shouldShowChatSidePanel ? (
+        <DesktopChatPanel
+          chatVisible={chatVisible}
+          chatPanelWidth={chatPanelWidth}
+        />
+      ) : (
+        !showUnavailable && <MobileUi />
+      )}
+    </View>
   );
 }
 

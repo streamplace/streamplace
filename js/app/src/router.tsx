@@ -15,7 +15,15 @@ import {
   useRoute,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Text, useTheme, useToast } from "@streamplace/components";
+import {
+  Button,
+  Text,
+  useDefaultStreamer,
+  useSiteTitle,
+  useTheme,
+  useToast,
+  zero,
+} from "@streamplace/components";
 import { Provider, Settings } from "components";
 import AQLink from "components/aqlink";
 import Login from "components/login/login";
@@ -55,6 +63,7 @@ import {
   Platform,
   Pressable,
   StatusBar,
+  useWindowDimensions,
   View,
 } from "react-native";
 import AboutScreen from "./screens/about";
@@ -72,7 +81,9 @@ import KeyManager from "components/settings/key-manager";
 import HomeScreen from "./screens/home";
 
 import { useUrl } from "@streamplace/components";
+import { BrandingAdmin } from "components/settings/branding-admin";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
+import MultistreamManager from "components/settings/multistream-manager";
 import RecommendationsManager from "components/settings/recommendations-manager";
 import Constants from "expo-constants";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
@@ -123,6 +134,8 @@ type SettingsStackParamList = {
   LanguagesCategory: undefined;
   DeveloperSettings: undefined;
   KeyManagement: undefined;
+  MultistreamCategory: undefined;
+  BrandingAdmin: undefined;
 };
 
 type RootStackParamList = {
@@ -178,6 +191,10 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
           DanmuCategory: "settings/danmu",
           AdvancedCategory: "settings/advanced",
           DeveloperSettings: "settings/developer",
+          MultistreamCategory: "settings/streaming/multistream",
+          KeyManagement: "settings/streaming/key-management",
+          LanguagesCategory: "settings/languages",
+          BrandingAdmin: "settings/branding",
         },
       },
       KeyManagement: "key-management",
@@ -279,42 +296,108 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
 
 const AvatarButton = () => {
   const userProfile = useUserProfile();
+  const openLoginModal = useStore((state) => state.openLoginModal);
+  const loginAction = useStore((state) => state.login);
+  const openLoginLink = useStore((state) => state.openLoginLink);
+  const { theme } = useTheme();
   let source: ImageSourcePropType | undefined = undefined;
-  let opacity = 1;
-  const targetScreen: any = userProfile
-    ? { screen: "Settings", params: { screen: "AccountCategory" } }
-    : { screen: "Login", params: {} };
 
   if (userProfile) {
     source = { uri: userProfile.avatar };
-    opacity = 0;
-  }
-  return (
-    <AQLink to={targetScreen}>
-      <ImageBackground
-        // defeat cursed-ass caching on ios; image sticks around when source is undefined
-        key={source?.uri ?? "default"}
-        source={source}
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 24,
-          overflow: "hidden",
-          marginRight: 10,
-          backgroundColor: "black",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
+    return (
+      <AQLink
+        to={{ screen: "Settings", params: { screen: "AccountCategory" } }}
       >
-        <User size={24} color="white" style={{ zIndex: -2 }} />
-      </ImageBackground>
-    </AQLink>
+        <ImageBackground
+          key={source?.uri ?? "default"}
+          source={source}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 24,
+            overflow: "hidden",
+            marginRight: 10,
+            backgroundColor: "black",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <User size={24} color="white" style={{ zIndex: -2 }} />
+        </ImageBackground>
+      </AQLink>
+    );
+  }
+
+  const handleSignup = () => {
+    // TODO: remove requirement for oauth-protected-resource in oatproxy
+    loginAction("https://bsky.social", openLoginLink);
+  };
+
+  const windowWidth = useWindowDimensions().width;
+
+  const isCompact = windowWidth <= 800;
+
+  if (isCompact) {
+    return (
+      <Button
+        onPress={() => openLoginModal()}
+        variant="ghost"
+        size="icon"
+        width="min"
+        style={{ marginRight: 10, marginLeft: "auto" }}
+      >
+        <LogIn size={20} color={theme.colors.text} />
+      </Button>
+    );
+  }
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginRight: 10,
+      }}
+    >
+      <Button
+        onPress={() => openLoginModal()}
+        variant="secondary"
+        width="min"
+        style={[zero.r.full]}
+      >
+        <Text style={{ color: theme.colors.text }}>Log In</Text>
+      </Button>
+      <Button
+        onPress={handleSignup}
+        variant="primary"
+        width="min"
+        style={[zero.r.full]}
+      >
+        <Text style={{ color: theme.colors.text }}>Sign Up</Text>
+      </Button>
+      <Button
+        width="min"
+        size="icon"
+        variant="secondary"
+        style={[zero.r.full]}
+        onPress={() => openLoginModal()}
+      >
+        <User size={24} color="white" />
+      </Button>
+    </View>
   );
 };
 
 const useExternalItems = (): ExternalDrawerItem[] => {
   const streamplaceUrl = useUrl();
   const { theme } = useTheme();
+  const defaultStreamer = useDefaultStreamer();
+
+  if (defaultStreamer) {
+    return [];
+  }
+
   return [
     {
       item: React.memo(() => <Book size={24} color={theme.colors.text} />),
@@ -395,6 +478,8 @@ export function StreamplaceDrawer() {
   const showLoginModal = useStore((state) => state.showLoginModal);
   const closeLoginModal = useStore((state) => state.closeLoginModal);
   const [livePopup, setLivePopup] = useState(false);
+  const siteTitle = useSiteTitle();
+  const defaultStreamer = useDefaultStreamer();
 
   const sidebar = useSidebarControl();
 
@@ -410,6 +495,10 @@ export function StreamplaceDrawer() {
   const notificationToken = useNotificationToken();
   const userProfile = useUserProfile();
   const hydrated = useHydrated();
+
+  // check if current user is the default streamer
+  const isDefaultStreamer =
+    defaultStreamer && userProfile?.did === defaultStreamer;
   useEffect(() => {
     if (notificationToken) {
       registerNotificationToken();
@@ -517,9 +606,9 @@ export function StreamplaceDrawer() {
           options={{
             drawerIcon: () => <Home color={foregroundColor} size={24} />,
             drawerLabel: () => <Text variant="h5">Home</Text>,
-            headerTitle: isWeb ? "Home" : "Streamplace",
+            headerTitle: isWeb ? "Home" : siteTitle,
             headerShown: isWeb,
-            title: "Streamplace",
+            title: siteTitle,
           }}
           listeners={{
             drawerItemPress: (e) => {
@@ -548,7 +637,8 @@ export function StreamplaceDrawer() {
             drawerIcon: () => (
               <ShieldQuestion color={foregroundColor} size={24} />
             ),
-            drawerItemStyle: isNative ? { display: "none" } : undefined,
+            drawerItemStyle:
+              isNative || defaultStreamer ? { display: "none" } : undefined,
           }}
         />
         <Drawer.Screen
@@ -557,7 +647,8 @@ export function StreamplaceDrawer() {
           options={{
             drawerLabel: () => <Text variant="h5">Download</Text>,
             drawerIcon: () => <Download color={foregroundColor} size={24} />,
-            drawerItemStyle: isBrowser ? undefined : { display: "none" },
+            drawerItemStyle:
+              !isBrowser || defaultStreamer ? { display: "none" } : undefined,
           }}
         />
         <Drawer.Screen
@@ -586,7 +677,14 @@ export function StreamplaceDrawer() {
             },
           }}
         />
-
+        <Drawer.Screen
+          name="KeyManagement"
+          component={KeyManager}
+          options={{
+            drawerLabel: () => <Text variant="h5">Key Manager</Text>,
+            drawerItemStyle: { display: "none" },
+          }}
+        />
         <Drawer.Screen
           name="Support"
           component={SupportScreen}
@@ -601,7 +699,10 @@ export function StreamplaceDrawer() {
           options={{
             drawerLabel: () => <Text variant="h5">Live Dashboard</Text>,
             drawerIcon: () => <Video color={foregroundColor} size={24} />,
-            drawerItemStyle: isNative ? { display: "none" } : undefined,
+            drawerItemStyle:
+              isNative || (defaultStreamer && !isDefaultStreamer)
+                ? { display: "none" }
+                : undefined,
           }}
         />
         <Drawer.Screen
@@ -625,8 +726,9 @@ export function StreamplaceDrawer() {
           name="Login"
           component={Login}
           options={{
-            drawerIcon: () => <LogIn color={foregroundColor} size={24} />,
-            drawerLabel: () => <Text variant="h5">Login</Text>,
+            drawerLabel: () => null,
+            drawerItemStyle: { display: "none" },
+            headerShown: false,
           }}
         />
         <Drawer.Screen
@@ -671,7 +773,10 @@ export function StreamplaceDrawer() {
           component={MobileGoLive}
           options={{
             headerTitle: "Go Live",
-            drawerItemStyle: isNative ? undefined : { display: "none" },
+            drawerItemStyle:
+              !isNative || (defaultStreamer && !isDefaultStreamer)
+                ? { display: "none" }
+                : undefined,
             drawerLabel: () => <Text variant="h5">Go Live</Text>,
             title: "Go live",
             drawerIcon: () => <Video color={foregroundColor} size={24} />,
@@ -701,8 +806,10 @@ export const PopupChecker = ({
 };
 
 const MainTab = () => {
-  const theme = useTheme();
   const { isWeb } = usePlatform();
+  const siteTitle = useSiteTitle();
+  const defaultStreamer = useDefaultStreamer();
+
   return (
     <Stack.Navigator
       initialRouteName="StreamList"
@@ -716,8 +823,10 @@ const MainTab = () => {
     >
       <Stack.Screen
         name="StreamList"
-        component={HomeScreen}
-        options={{ headerTitle: "Streamplace", title: "Streamplace" }}
+        component={
+          defaultStreamer && defaultStreamer !== "" ? MobileStream : HomeScreen
+        }
+        options={{ headerTitle: siteTitle, title: siteTitle }}
       />
       <Stack.Screen
         name="Stream"
@@ -801,6 +910,19 @@ const SettingsStack = () => {
         name="KeyManagement"
         component={KeyManager}
         options={{ headerTitle: "Key Manager", title: "Key Manager" }}
+      />
+      <Stack.Screen
+        name="MultistreamCategory"
+        component={MultistreamManager}
+        options={{ headerTitle: "Multistream", title: "Multistream" }}
+      />
+      <Drawer.Screen
+        name="BrandingAdmin"
+        component={BrandingAdmin}
+        options={{
+          drawerLabel: () => <Text variant="h5">Branding Admin</Text>,
+          drawerItemStyle: { display: "none" },
+        }}
       />
     </Stack.Navigator>
   );

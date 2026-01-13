@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/bsky"
@@ -117,6 +118,19 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if rec.Reply != nil && rec.Reply.Parent != nil && rec.Reply.Root != nil {
 			mcm.ReplyToCID = &rec.Reply.Parent.Cid
 		}
+
+		// check if we have any link facets with 'javascript:' links
+		for _, facet := range rec.Facets {
+			for _, feature := range facet.Features {
+				if link := feature.RichtextFacet_Link; link != nil {
+					if link.Uri != "" && strings.HasPrefix(strings.ToLower(link.Uri), "javascript:") {
+						log.Warn(ctx, "excluding message with javascript: link", "uri", aturi.String(), "link", link.Uri)
+						return nil
+					}
+				}
+			}
+		}
+
 		err = atsync.Model.CreateChatMessage(ctx, mcm)
 		if err != nil {
 			log.Error(ctx, "failed to create chat message", "err", err)
@@ -423,6 +437,31 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			log.Error(ctx, "failed to create metadata configuration", "err", err)
 		}
+
+	case *streamplace.ModerationPermission:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		log.Debug(ctx, "creating moderation delegation", "streamerDID", userDID, "moderatorDID", rec.Moderator)
+
+		err = atsync.Model.CreateModerationDelegation(ctx, rec, aturi)
+		if err != nil {
+			return fmt.Errorf("failed to create moderation delegation: %w", err)
+		}
+
+		view := &streamplace.ModerationDefs_PermissionView{
+			Uri: aturi.String(),
+			Cid: cid,
+			Author: &bsky.ActorDefs_ProfileViewBasic{
+				Did:    userDID,
+				Handle: repo.Handle,
+			},
+			Record: &lexutil.LexiconTypeDecoder{Val: rec},
+		}
+		// Publish moderation permission view to WebSocket bus for real-time updates
+		// This allows moderators to see their permissions instantly without page refresh
+		go atsync.Bus.Publish(userDID, view)
 
 	case *streamplace.LiveRecommendations:
 		log.Debug(ctx, "creating recommendations", "userDID", userDID, "count", len(rec.Streamers))

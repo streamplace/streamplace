@@ -25,6 +25,14 @@
               "type": "string",
               "format": "did",
               "description": "DID of this particular Streamplace server"
+            },
+            "admins": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "did"
+              },
+              "description": "Array of DIDs authorized as admins"
             }
           }
         }

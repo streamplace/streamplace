@@ -21,6 +21,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
+	"github.com/labstack/echo/v4"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/time/rate"
@@ -61,6 +62,7 @@ type StreamplaceAPI struct {
 	FirebaseNotifier notifications.FirebaseNotifier
 	MediaManager     *media.MediaManager
 	MediaSigner      media.MediaSigner
+	XRPCServer       *spxrpc.Server
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus
@@ -154,6 +156,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
+	a.XRPCServer = xrpc.(*spxrpc.Server)
 	router := httprouter.New()
 
 	// Create our middleware factory with the default settings.
@@ -218,6 +221,15 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("PUT", "/xrpc/*resource", xrpcHandler)
 	router.Handler("PATCH", "/xrpc/*resource", xrpcHandler)
 	router.Handler("DELETE", "/xrpc/*resource", xrpcHandler)
+	// i wonder if there's a better way to do this?
+	router.GET("/favicon.ico", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		err := a.XRPCServer.HandleFaviconICO(echo.New().NewContext(r, w))
+		if err != nil {
+			log.Error(ctx, "error handling favicon.ico", "error", err)
+			w.WriteHeader(500)
+			return
+		}
+	})
 	router.GET("/.well-known/did.json", a.HandleDidJSON(ctx))
 	router.GET("/.well-known/atproto-did", a.HandleAtprotoDID(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))

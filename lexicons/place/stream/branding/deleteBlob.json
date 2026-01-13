@@ -1,0 +1,50 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.branding.deleteBlob",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Delete a branding asset blob. Requires admin authorization.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["key"],
+          "properties": {
+            "key": {
+              "type": "string",
+              "description": "Branding asset key (mainLogo, favicon, siteTitle, etc.)"
+            },
+            "broadcaster": {
+              "type": "string",
+              "format": "did",
+              "description": "DID of the broadcaster. If not provided, uses the server's default broadcaster."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["success"],
+          "properties": {
+            "success": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "Unauthorized",
+          "description": "The authenticated DID is not authorized to modify branding"
+        },
+        {
+          "name": "BrandingNotFound",
+          "description": "The requested branding asset does not exist"
+        }
+      ]
+    }
+  }
+}

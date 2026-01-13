@@ -34,6 +34,9 @@ SP_HTTP_ADDR=:80
 SP_HTTPS_ADDR=:443
 SP_SECURE=true
 
+# Set this variable to your did:plc or did:web to have admin access to the node
+SP_ADMIN_DIDS=did:web:example.com,did:plc:rbvrr34edl5ddpuwcubjiost
+
 # If you're running Streamplace behind an HTTPS proxy, you'll want
 # SP_SECURE=false
 # SP_BEHIND_HTTPS_PROXY=true

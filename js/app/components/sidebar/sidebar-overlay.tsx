@@ -15,6 +15,7 @@ import {
 import React from "react";
 import { Image, Linking, Platform, Pressable } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { convertNavigationParams } from "src/navigation-helper";
 import SidebarItem from "./sidebar-item";
 
 export interface SidebarNavItem {
@@ -62,41 +63,35 @@ export function SidebarOverlay() {
     {
       icon: () => <Home color={foregroundColor} size={24} />,
       label: <Text variant="h5">Home</Text>,
-      screen: "MainTabs",
-      params: { screen: "HomeTab", params: { screen: "HomeMain" } },
+      screen: "HomeMain",
     },
     {
       icon: () => <ShieldQuestion color={foregroundColor} size={24} />,
       label: <Text variant="h5">What's Streamplace?</Text>,
-      screen: "MainTabs",
-      params: { screen: "HomeTab", params: { screen: "About" } },
+      screen: "About",
       hidden: isNative,
     },
     {
       icon: () => <Download color={foregroundColor} size={24} />,
       label: <Text variant="h5">Download</Text>,
-      screen: "MainTabs",
-      params: { screen: "HomeTab", params: { screen: "Download" } },
+      screen: "Download",
       hidden: !isBrowser,
     },
     {
       icon: () => <SettingsIcon color={foregroundColor} size={24} />,
       label: <Text variant="h5">Settings</Text>,
-      screen: "MainTabs",
-      params: { screen: "SettingsTab" },
+      screen: "MainSettings",
     },
     {
       icon: () => <Video color={foregroundColor} size={24} />,
       label: <Text variant="h5">Live Dashboard</Text>,
-      screen: "MainTabs",
-      params: { screen: "HomeTab", params: { screen: "LiveDashboard" } },
+      screen: "LiveDashboard",
       hidden: isNative,
     },
     {
       icon: () => <LogIn color={foregroundColor} size={24} />,
       label: <Text variant="h5">Login</Text>,
-      screen: "MainTabs",
-      params: { screen: "HomeTab", params: { screen: "Login" } },
+      screen: "Login",
     },
   ];
 
@@ -170,6 +165,12 @@ export function SidebarOverlay() {
       {navItems.map((item, index) => {
         if (item.hidden) return null;
 
+        // todo: properly verify this navigation params conversion
+        const converted = convertNavigationParams({
+          screen: item.screen as any,
+          params: item.params,
+        });
+
         return (
           <SidebarItem
             key={index}
@@ -177,9 +178,10 @@ export function SidebarOverlay() {
             label={item.label}
             active={false} // We'll handle active state separately if needed
             collapsed={sidebar.isCollapsed}
+            route={{ screen: item.screen as any, params: item.params }}
             onPress={(e) => {
               e.preventDefault();
-              navigation.navigate(item.screen as any, item.params);
+              navigation.navigate(converted.screen as any, converted.params);
             }}
             tint="rgba(189, 110, 134)"
           />

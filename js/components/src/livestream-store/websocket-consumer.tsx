@@ -8,7 +8,6 @@ import {
   PlaceStreamDefs,
   PlaceStreamLivestream,
   PlaceStreamLiveTeleport,
-  PlaceStreamModerationPermission,
   PlaceStreamSegment,
 } from "streamplace";
 import { SystemMessages } from "../lib/system-messages";

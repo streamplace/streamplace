@@ -61,6 +61,7 @@ export function Player(
 function PlayerWithProvider(
   props: Partial<PlayerProps> & {
     setFullscreen?: (fullscreen: boolean) => void;
+    onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
   const [showChat, setShowChat] = useState(true);

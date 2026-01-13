@@ -6,9 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -550,13 +550,19 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 		return err
 	}
 
-	if urls != nil {
+	if urls == nil {
+		if ss.cli.LivepeerAIProcessing {
+			log.Debug(ctx, "no streamUrls returned from PostAISegmentToGateway")
+		}
+	} else {
 		// Store the stream URLs for cleanup
 		ss.streamUrlsLock.Lock()
 		ss.streamUrls = urls
 		ss.streamUrlsLock.Unlock()
 
-		if urls.DataURL != "" {
+		if urls.DataURL == "" {
+			log.Debug(ctx, "streamUrls returned but no data_url", "stream_id", urls.StreamID, "stop_url", urls.StopURL)
+		} else {
 			log.Log(ctx, "✓ STARTING AI DATA OUTPUT CONSUMER", "data_url", urls.DataURL, "stream_id", urls.StreamID, "stop_url", urls.StopURL)
 			// Run AI consumer on a long-lived context so it can retry even if the session context is canceled.
 			aiCtx, cancel := context.WithCancel(context.Background())
@@ -572,11 +578,7 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 			ss.Go(ctx, func() error {
 				return ss.ConsumeAIDataOutput(aiCtx, spseg.Creator, urls.DataURL)
 			})
-		} else {
-			log.Debug(ctx, "streamUrls returned but no data_url", "stream_id", urls.StreamID, "stop_url", urls.StopURL)
 		}
-	} else if ss.cli.LivepeerAIProcessing {
-		log.Debug(ctx, "no streamUrls returned from PostAISegmentToGateway")
 	}
 
 	if len(rs) != len(segs) {

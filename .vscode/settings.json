@@ -21,5 +21,6 @@
     "source.addMissingImports": "explicit",
     "source.organizeImports": "explicit"
   },
-  "editor.tabSize": 2
+  "editor.tabSize": 2,
+  "streamplace.buildPlatform": "linux-amd64"
 }

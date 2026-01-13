@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build-libstreamplace",
+      "type": "shell",
+      "command": "PLATFORM=${config:streamplace.buildPlatform}; PKG_CONFIG_PATH=$(pwd)/build-$PLATFORM/lib/pkgconfig:$(pwd)/build-$PLATFORM/lib/gstreamer-1.0/pkgconfig:$(pwd)/build-$PLATFORM/meson-uninstalled CGO_LDFLAGS='-Wl,--allow-shlib-undefined' LD_LIBRARY_PATH=build-$PLATFORM/lib go build -tags mainnet -o build-$PLATFORM/libstreamplace ./cmd/libstreamplace/...",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": ["$go"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      }
+    }
+  ]
+}

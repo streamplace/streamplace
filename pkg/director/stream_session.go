@@ -1,10 +1,15 @@
 package director
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -40,6 +45,9 @@ type StreamSession struct {
 	op             *oatproxy.OATProxy
 	hls            *media.M3U8
 	lp             *livepeer.LivepeerSession
+	streamUrls     *livepeer.StreamUrls
+	streamUrlsLock sync.Mutex
+	aiDataCancel   context.CancelFunc
 	repoDID        string
 	segmentChan    chan struct{}
 	lastStatus     time.Time
@@ -64,6 +72,7 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	ss.ctx = ctx
 	log.Log(ctx, "starting stream session")
 	defer cancel()
+	defer ss.sendStopRequest()
 	spseg, err := notif.Segment.ToStreamplaceSegment()
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
@@ -533,11 +542,50 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 
 	}
 	spmetrics.TranscodeAttemptsTotal.Inc()
-	segs, err := ss.lp.PostSegmentToGateway(ctx, data, spseg, rs)
+	aiCfg := &livepeer.AIConfig{
+		Enabled:    true,
+		Capability: "transcriber",
+	}
+
+	var segs [][]byte
+	urls, segs, err := ss.lp.PostAISegmentToGateway(ctx, data, spseg, rs, aiCfg)
 	if err != nil {
 		spmetrics.TranscodeErrorsTotal.Inc()
+		log.Error(ctx, "error posting segment to gateway", "error", err)
 		return err
 	}
+
+	if urls == nil {
+		if aiCfg != nil && aiCfg.Enabled {
+			log.Debug(ctx, "no streamUrls returned from PostAISegmentToGateway")
+		}
+	} else {
+		// Store the stream URLs for cleanup
+		ss.streamUrlsLock.Lock()
+		ss.streamUrls = urls
+		ss.streamUrlsLock.Unlock()
+
+		if urls.DataURL == "" {
+			log.Debug(ctx, "streamUrls returned but no data_url", "stream_id", urls.StreamID, "stop_url", urls.StopURL)
+		} else {
+			log.Log(ctx, "✓ STARTING AI DATA OUTPUT CONSUMER", "data_url", urls.DataURL, "stream_id", urls.StreamID, "stop_url", urls.StopURL)
+			// Run AI consumer on a long-lived context so it can retry even if the session context is canceled.
+			aiCtx, cancel := context.WithCancel(context.Background())
+			aiCtx = log.WithLogValues(aiCtx, "streamer", spseg.Creator)
+			ss.streamUrlsLock.Lock()
+			// Cancel any previous AI consumer to avoid leaks.
+			if ss.aiDataCancel != nil {
+				ss.aiDataCancel()
+			}
+			ss.aiDataCancel = cancel
+			ss.streamUrlsLock.Unlock()
+
+			ss.Go(ctx, func() error {
+				return ss.ConsumeAIDataOutput(aiCtx, spseg.Creator, urls.DataURL)
+			})
+		}
+	}
+
 	if len(rs) != len(segs) {
 		spmetrics.TranscodeErrorsTotal.Inc()
 		return fmt.Errorf("expected %d renditions, got %d", len(rs), len(segs))
@@ -587,6 +635,112 @@ func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *streamplace.Seg
 	}
 	seg.PacketizedData = packet
 	ss.bus.PublishSegment(ctx, spseg.Creator, rendition, seg)
+	return nil
+}
+
+func (ss *StreamSession) ConsumeAIDataOutput(ctx context.Context, repoDID string, dataURL string) error {
+	ctx = log.WithLogValues(ctx, "func", "ConsumeAIDataOutput", "dataURL", dataURL)
+	log.Log(ctx, "starting AI data output consumer")
+
+	backoff := time.Second
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		err := ss.consumeAIDataOutputOnce(ctx, repoDID, dataURL)
+		if err == nil {
+			// Normal end of stream
+			return nil
+		}
+
+		log.Warn(ctx, "AI data output stream ended; will retry", "error", err, "backoff", backoff)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+			// exponential backoff up to 30s
+			backoff *= 2
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
+			}
+		}
+	}
+}
+
+// consumeAIDataOutputOnce connects to the AI data SSE stream and pumps events until EOF/error/context cancel.
+func (ss *StreamSession) consumeAIDataOutputOnce(ctx context.Context, repoDID string, dataURL string) error {
+	// Use the protocol from LivepeerGatewayURL instead of the returned URL's protocol
+	if ss.cli.LivepeerGatewayURL != "" {
+		gatewayURL, err := url.Parse(ss.cli.LivepeerGatewayURL)
+		if err == nil && gatewayURL.Scheme != "" {
+			dataURLParsed, err := url.Parse(dataURL)
+			if err == nil {
+				dataURLParsed.Scheme = gatewayURL.Scheme
+				dataURL = dataURLParsed.String()
+			}
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", dataURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Accept", "text/event-stream")
+
+	resp, err := aqhttp.DoTrusted(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to connect to data URL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("data URL returned non-OK status: %d", resp.StatusCode)
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	// AI SSE payloads (especially transcripts) can exceed bufio.Scanner's default 64K token limit,
+	// which would cause the scanner to stop and the consumer to silently end.
+	// Allow larger events.
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	var eventData strings.Builder
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// SSE format: "data: {json}" or empty line to signal end of event
+		if strings.HasPrefix(line, "data: ") {
+			eventData.WriteString(strings.TrimPrefix(line, "data: "))
+		} else if line == "" && eventData.Len() > 0 {
+			// End of event, publish to bus
+			dataStr := eventData.String()
+			// Avoid logging huge transcript payloads.
+			log.Debug(ctx, "received ai data event", "length", len(dataStr))
+
+			// Try to parse as JSON and publish it
+			var msg map[string]any
+			if err := json.Unmarshal([]byte(dataStr), &msg); err == nil {
+				// Add a type identifier so the frontend can recognize it
+				msg["$type"] = "place.stream.ai#dataOutput"
+				ss.bus.Publish(repoDID, msg)
+			} else {
+				// If not JSON, publish as a plain text message
+				ss.bus.Publish(repoDID, map[string]any{
+					"$type": "place.stream.ai#dataOutput",
+					"text":  dataStr,
+				})
+			}
+
+			eventData.Reset()
+		}
+	}
+
+	if err := scanner.Err(); err != nil && err != io.EOF {
+		return fmt.Errorf("error reading data stream: %w", err)
+	}
+
+	log.Log(ctx, "AI data output consumer finished")
 	return nil
 }
 
@@ -780,4 +934,50 @@ func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView 
 			continue
 		}
 	}
+}
+
+func (ss *StreamSession) sendStopRequest() {
+	ss.streamUrlsLock.Lock()
+	urls := ss.streamUrls
+	// cancel AI data consumer if running
+	if ss.aiDataCancel != nil {
+		ss.aiDataCancel()
+		ss.aiDataCancel = nil
+	}
+	ss.streamUrlsLock.Unlock()
+
+	if urls == nil {
+		return
+	}
+
+	stopURL := urls.StopURL
+	if stopURL == "" && urls.StreamID != "" && ss.cli.LivepeerGatewayURL != "" {
+		gateway := strings.TrimSuffix(ss.cli.LivepeerGatewayURL, "/")
+		stopURL = fmt.Sprintf("%s/process/stream/%s/stop", gateway, urls.StreamID)
+	}
+	if stopURL == "" {
+		return
+	}
+
+	ctx := context.Background()
+	ctx = log.WithLogValues(ctx, "func", "sendStopRequest", "streamer", ss.repoDID)
+	log.Log(ctx, "sending POST stop request to gateway", "stop_url", stopURL)
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", stopURL, nil)
+	if err != nil {
+		log.Error(ctx, "failed to create stop request", "error", err, "stop_url", stopURL)
+		return
+	}
+
+	resp, err := aqhttp.DoTrusted(ctx, req)
+	if err != nil {
+		log.Error(ctx, "failed to send POST stop request", "error", err, "stop_url", stopURL)
+		return
+	}
+	defer resp.Body.Close()
+
+	log.Log(ctx, "successfully sent POST stop request to gateway", "stop_url", stopURL, "status", resp.StatusCode)
 }

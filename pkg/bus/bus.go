@@ -86,9 +86,12 @@ func (b *Bus) Publish(user string, msg Message) {
 		return
 	}
 	for _, sub := range subs {
-		go func(sub Subscription) {
-			sub <- msg
-		}(sub)
+		// Never block Publish() on a slow websocket consumer.
+		// Dropping messages is preferable to leaking goroutines indefinitely.
+		select {
+		case sub <- msg:
+		default:
+		}
 	}
 }
 

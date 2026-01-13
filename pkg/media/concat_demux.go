@@ -80,6 +80,56 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 	// 	return nil, fmt.Errorf("failed to set max-size-buffers: %w", err)
 	// }
 
+	// Decode whatever audio is present (Opus/AAC/etc) and always output Opus.
+	// WebRTC playback only negotiates Opus audio.
+	audecode, err := gst.NewElementWithProperties("decodebin", map[string]interface{}{
+		"name": "concat-demux-audecode",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create audio decodebin element: %w", err)
+	}
+	err = bin.Add(audecode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add audio decodebin to bin: %w", err)
+	}
+
+	audioconvert, err := gst.NewElementWithProperties("audioconvert", map[string]interface{}{
+		"name": "concat-demux-audioconvert",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create audioconvert element: %w", err)
+	}
+	err = bin.Add(audioconvert)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add audioconvert to bin: %w", err)
+	}
+	audioconvertSinkPad := audioconvert.GetStaticPad("sink")
+	if audioconvertSinkPad == nil {
+		return nil, fmt.Errorf("failed to get audioconvert sink pad")
+	}
+
+	audioresample, err := gst.NewElementWithProperties("audioresample", map[string]interface{}{
+		"name": "concat-demux-audioresample",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create audioresample element: %w", err)
+	}
+	err = bin.Add(audioresample)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add audioresample to bin: %w", err)
+	}
+
+	opusenc, err := gst.NewElementWithProperties("opusenc", map[string]interface{}{
+		"name": "concat-demux-opusenc",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create opusenc element: %w", err)
+	}
+	err = bin.Add(opusenc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add opusenc to bin: %w", err)
+	}
+
 	opusparse, err := gst.NewElementWithProperties("opusparse", map[string]interface{}{
 		"name":                "concat-demux-opusparse",
 		"disable-passthrough": true,
@@ -91,13 +141,20 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 	if err != nil {
 		return nil, fmt.Errorf("failed to add opusparse to bin: %w", err)
 	}
-	opusparseSinkPad := opusparse.GetStaticPad("sink")
-	if opusparseSinkPad == nil {
-		return nil, fmt.Errorf("failed to get opusparse sink pad")
-	}
 	opusparseSrcPad := opusparse.GetStaticPad("src")
 	if opusparseSrcPad == nil {
 		return nil, fmt.Errorf("failed to get opusparse source pad")
+	}
+
+	// Link fixed audio chain: audioconvert -> audioresample -> opusenc -> opusparse
+	if err := audioconvert.Link(audioresample); err != nil {
+		return nil, fmt.Errorf("failed to link audioconvert to audioresample: %w", err)
+	}
+	if err := audioresample.Link(opusenc); err != nil {
+		return nil, fmt.Errorf("failed to link audioresample to opusenc: %w", err)
+	}
+	if err := opusenc.Link(opusparse); err != nil {
+		return nil, fmt.Errorf("failed to link opusenc to opusparse: %w", err)
 	}
 
 	mqVideoSink := mq.GetRequestPad("sink_%u")
@@ -120,9 +177,25 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 		return nil, fmt.Errorf("audio source pad not found")
 	}
 
-	linked := mqAudioSrc.Link(opusparseSinkPad)
+	audecodeSinkPad := audecode.GetStaticPad("sink")
+	if audecodeSinkPad == nil {
+		return nil, fmt.Errorf("failed to get audio decodebin sink pad")
+	}
+	linked := mqAudioSrc.Link(audecodeSinkPad)
 	if linked != gst.PadLinkOK {
-		return nil, fmt.Errorf("failed to link opusparse sink pad to mq audio sink pad")
+		return nil, fmt.Errorf("failed to link decodebin sink pad to mq audio sink pad")
+	}
+
+	_, err = audecode.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
+		if audioconvertSinkPad.IsLinked() {
+			return
+		}
+		if pad.Link(audioconvertSinkPad) != gst.PadLinkOK {
+			log.Error(ctx, "failed to link decodebin to audioconvert", "pad", pad.GetName())
+		}
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect audio decodebin pad-added: %w", err)
 	}
 
 	var videoGhost *gst.GhostPad

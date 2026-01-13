@@ -666,15 +666,14 @@ func (ss *StreamSession) ConsumeAIDataOutput(ctx context.Context, repoDID string
 
 // consumeAIDataOutputOnce connects to the AI data SSE stream and pumps events until EOF/error/context cancel.
 func (ss *StreamSession) consumeAIDataOutputOnce(ctx context.Context, repoDID string, dataURL string) error {
-	// Gateway returns https:// URLs but may actually serve HTTP on non-443 ports
-	// Rewrite https to http for non-standard ports
-	if strings.HasPrefix(dataURL, "https://") && strings.Contains(dataURL, ":") {
-		parts := strings.SplitN(dataURL[8:], "/", 2)
-		if len(parts) >= 1 && strings.Contains(parts[0], ":") {
-			port := strings.Split(parts[0], ":")[1]
-			if port != "443" {
-				dataURL = strings.Replace(dataURL, "https://", "http://", 1)
-				log.Log(ctx, "rewrote https to http for non-443 port", "dataURL", dataURL)
+	// Use the protocol from LivepeerGatewayURL instead of the returned URL's protocol
+	if ss.cli.LivepeerGatewayURL != "" {
+		gatewayURL, err := url.Parse(ss.cli.LivepeerGatewayURL)
+		if err == nil && gatewayURL.Scheme != "" {
+			dataURLParsed, err := url.Parse(dataURL)
+			if err == nil {
+				dataURLParsed.Scheme = gatewayURL.Scheme
+				dataURL = dataURLParsed.String()
 			}
 		}
 	}

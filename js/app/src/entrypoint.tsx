@@ -5,5 +5,5 @@ import "@expo/metro-runtime";
 import { registerRootComponent } from "expo";
 import "./polyfills";
 import Router from "./router";
-
+console.log("started");
 registerRootComponent(Router);

@@ -268,7 +268,7 @@ export default function () {
         ...(enableSentry
           ? [
               [
-                "@sentry/react-native/expo",
+                "@sentry/react-native",
                 {
                   url: "https://sentry.io/",
                   project: process.env["SP_SENTRY_APP"] || "app",

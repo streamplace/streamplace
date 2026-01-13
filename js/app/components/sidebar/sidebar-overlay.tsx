@@ -1,5 +1,13 @@
 import { useNavigation } from "@react-navigation/native";
-import { Text, useTheme, useUrl, zero } from "@streamplace/components";
+import {
+  Text,
+  useMainLogo,
+  useSidebarBackgroundImage,
+  useSiteTitle,
+  useTheme,
+  useUrl,
+  zero,
+} from "@streamplace/components";
 import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import {
@@ -44,6 +52,9 @@ export function SidebarOverlay() {
   const { theme } = useTheme();
   const { isNative, isBrowser } = usePlatform();
   const streamplaceUrl = useUrl();
+  const nodeName = useSiteTitle() || "My Streamplace Station";
+  const mainLogo = useMainLogo();
+  const sidebarBackgroundImageAsset = useSidebarBackgroundImage();
 
   // Don't render if sidebar is not active (small screen) or hidden
   if (!sidebar.isActive || sidebar.isHidden) {
@@ -136,6 +147,26 @@ export function SidebarOverlay() {
         },
       ]}
     >
+      {sidebarBackgroundImageAsset?.data && (
+        <Image
+          source={{ uri: sidebarBackgroundImageAsset.data }}
+          style={{
+            //opacity: 0.3,
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            width: "100%",
+            height: "auto",
+            aspectRatio:
+              sidebarBackgroundImageAsset.width &&
+              sidebarBackgroundImageAsset.height
+                ? sidebarBackgroundImageAsset.width /
+                  sidebarBackgroundImageAsset.height
+                : undefined,
+            resizeMode: "contain",
+          }}
+        />
+      )}
       <Pressable
         // @ts-ignore renders as <a> on web
         href="/"
@@ -153,13 +184,22 @@ export function SidebarOverlay() {
           navigation.navigate("MainTabs" as any, { screen: "HomeTab" })
         }
       >
-        <Image
-          source={require("../../assets/images/cube.png")}
-          height={30}
-          width={28}
-          style={{ width: 28, height: 30, resizeMode: "contain" }}
-        />
-        {!sidebar.isCollapsed && <Text size="2xl">Streamplace</Text>}
+        {mainLogo ? (
+          <Image
+            source={{ uri: mainLogo }}
+            height={30}
+            width={28}
+            style={{ width: 28, height: 30, resizeMode: "contain" }}
+          />
+        ) : (
+          <Image
+            source={require("../../assets/images/cube.png")}
+            height={30}
+            width={28}
+            style={{ width: 28, height: 30, resizeMode: "contain" }}
+          />
+        )}
+        {!sidebar.isCollapsed && <Text size="2xl">{nodeName}</Text>}
       </Pressable>
 
       {navItems.map((item, index) => {

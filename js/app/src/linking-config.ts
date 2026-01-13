@@ -68,3 +68,12 @@ export function interpolateParams(
   }
   return result;
 }
+
+/**
+ * Check if a screen name is valid
+ */
+export function isValidScreenName(
+  name: string,
+): name is keyof typeof SCREEN_PATHS {
+  return name in SCREEN_PATHS;
+}

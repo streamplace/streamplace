@@ -57,6 +57,7 @@ config.resolver.unstable_conditionNames.push("@streamplace/dev", "browser");
 config.watchFolders = [path.resolve(__dirname, "../..")];
 config.transformer = {
   ...config.transformer,
+  babelTransformerPath: require.resolve("metro-react-native-babel-transformer"),
   getTransformOptions: async () => ({
     transform: {
       experimentalImportSupport: true,

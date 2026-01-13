@@ -7,6 +7,7 @@ import * as Sentry from "@sentry/react-native";
 import {
   BrandedThemeProvider,
   I18nProvider,
+  ThemeProvider,
   StreamplaceProvider as ZustandStreamplaceProvider,
 } from "@streamplace/components";
 import { useFonts } from "expo-font";
@@ -24,8 +25,7 @@ import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 import { Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import React from "react";
-import { FontProvider } from "./provider.shared_LOCAL_96695";
+
 Sentry.setExtras({
   manifest: Updates.manifest,
   linkingUri: Constants.linkingUri,

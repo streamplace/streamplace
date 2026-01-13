@@ -46,6 +46,11 @@ type LivepeerSession struct {
 	CLI        *config.CLI
 }
 
+type AIConfig struct {
+	Enabled    bool
+	Capability string
+}
+
 // borrowed from catalyst-api
 func RandomTrailer(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -81,7 +86,7 @@ func (ls *LivepeerSession) sendSegmentRequest(ctx context.Context, req *http.Req
 
 // PostAISegmentToGateway sends the segment to the unified transcode endpoint and returns both
 // AI stream URLs (from JSON body) and transcoded renditions (from multipart body).
-func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byte, spseg *streamplace.Segment, rs renditions.Renditions) (*StreamUrls, [][]byte, error) {
+func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byte, spseg *streamplace.Segment, rs renditions.Renditions, aiConfig *AIConfig) (*StreamUrls, [][]byte, error) {
 	ctx = log.WithLogValues(ctx, "func", "PostAISegmentToGateway")
 	start := time.Now()
 	lpProfiles := rs.ToLivepeerProfiles()
@@ -98,11 +103,11 @@ func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byt
 		log.Debug(ctx, "video resolution not available in segment metadata", "width", ingestWidth, "height", ingestHeight, "creator", spseg.Creator)
 	}
 
-	if ls.CLI.LivepeerAIProcessing {
+	if aiConfig != nil && aiConfig.Enabled {
 		aiJobSettings := map[string]any{
-			"enable_video_ingress": ls.CLI.LivepeerAIEnableVideoIngress,
-			"enable_video_egress":  ls.CLI.LivepeerAIEnableVideoEgress,
-			"enable_data_output":   ls.CLI.LivepeerAIEnableDataOutput,
+			"enable_video_ingress": true,
+			"enable_video_egress":  true,
+			"enable_data_output":   true,
 		}
 
 		aiJobSettingsJSON, err := json.Marshal(aiJobSettings)
@@ -130,16 +135,12 @@ func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byt
 		}
 
 		transcodingConfiguration["aiParams"] = map[string]any{
-			"capability":      ls.CLI.LivepeerAICapability,
+			"capability":      aiConfig.Capability,
 			"parameters":      string(aiJobSettingsStr),
 			"request":         string(requestJSON),
 			"timeout_seconds": 60,
 			"stream_id":       sessionIDRen,
 			"params":          string(aiJobParamsStr), //# TODO: add params here
-		}
-
-		if ls.CLI.LivepeerAIStreamKey != "" {
-			transcodingConfiguration["streamKey"] = ls.CLI.LivepeerAIStreamKey
 		}
 	}
 

@@ -542,8 +542,13 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 
 	}
 	spmetrics.TranscodeAttemptsTotal.Inc()
+	aiCfg := &livepeer.AIConfig{
+		Enabled:    true,
+		Capability: "transcriber",
+	}
+
 	var segs [][]byte
-	urls, segs, err := ss.lp.PostAISegmentToGateway(ctx, data, spseg, rs)
+	urls, segs, err := ss.lp.PostAISegmentToGateway(ctx, data, spseg, rs, aiCfg)
 	if err != nil {
 		spmetrics.TranscodeErrorsTotal.Inc()
 		log.Error(ctx, "error posting segment to gateway", "error", err)
@@ -551,7 +556,7 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 	}
 
 	if urls == nil {
-		if ss.cli.LivepeerAIProcessing {
+		if aiCfg != nil && aiCfg.Enabled {
 			log.Debug(ctx, "no streamUrls returned from PostAISegmentToGateway")
 		}
 	} else {

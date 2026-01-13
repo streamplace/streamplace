@@ -106,7 +106,7 @@ func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byt
 	if aiConfig != nil && aiConfig.Enabled {
 		aiJobSettings := map[string]any{
 			"enable_video_ingress": true,
-			"enable_video_egress":  true,
+			"enable_video_egress":  false,
 			"enable_data_output":   true,
 		}
 
@@ -235,96 +235,106 @@ func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byt
 		return nil, nil, fmt.Errorf("failed to parse media type: %w", err)
 	}
 
+	defer func() {
+		spmetrics.TranscodeDuration.WithLabelValues(spseg.Creator).Observe(float64(time.Since(start).Milliseconds()))
+	}()
+
 	if strings.HasPrefix(mediaType, "application/json") {
 		bodyBytes, err := io.ReadAll(resp_ai.Body)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to read ai response body: %w", err)
 		}
 		var urls StreamUrls
-		if err := json.Unmarshal(bodyBytes, &urls); err == nil {
-			streamUrls = &urls
-			log.Log(ctx, "✓ GOT AI STREAM URLS FROM /process/transcode BODY",
-				"data_url", urls.DataURL, "stream_id", urls.StreamID,
-				"whip_url", urls.WhipURL, "whep_url", urls.WhepURL,
-				"rtmp_url", urls.RtmpURL, "update_url", urls.UpdateURL)
-		} else {
+		if err := json.Unmarshal(bodyBytes, &urls); err != nil {
 			return nil, nil, fmt.Errorf("failed to parse ai response body as json: %w", err)
 		}
-	} else if strings.HasPrefix(mediaType, "multipart/") {
-		mr := multipart.NewReader(resp_ai.Body, params["boundary"])
-		for {
-			p, err := mr.NextPart()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to get next part: %w", err)
-			}
+		streamUrls = &urls
+		log.Log(ctx, "✓ GOT AI STREAM URLS FROM /process/transcode BODY",
+			"data_url", urls.DataURL, "stream_id", urls.StreamID,
+			"whip_url", urls.WhipURL, "whep_url", urls.WhepURL,
+			"rtmp_url", urls.RtmpURL, "update_url", urls.UpdateURL)
+		return streamUrls, out, nil
+	}
 
-			// Detect AI data/text outputs and attempt to parse stream URLs if present.
-			contentType := p.Header.Get("Content-Type")
-			if strings.HasPrefix(contentType, "application/json") || strings.HasPrefix(contentType, "text/") {
-				body, readErr := io.ReadAll(p)
-				if readErr != nil {
-					log.Error(ctx, "failed to read ai data output", "error", readErr)
-				} else {
-					log.Log(ctx, "received ai data output", "contentType", contentType, "length", len(body), "body", string(body))
-					var urls StreamUrls
-					if jsonErr := json.Unmarshal(body, &urls); jsonErr == nil && (urls.StreamID != "" || urls.DataURL != "") {
-						streamUrls = &urls
-						log.Log(ctx, "✓ GOT AI STREAM URLS FROM multipart BODY",
-							"data_url", urls.DataURL, "stream_id", urls.StreamID,
-							"whip_url", urls.WhipURL, "whep_url", urls.WhepURL,
-							"rtmp_url", urls.RtmpURL, "update_url", urls.UpdateURL)
-					}
-				}
-				continue
-			}
-
-			partBytes, readErr := io.ReadAll(p)
-			if readErr != nil {
-				log.Error(ctx, "failed to read gateway multipart part", "error", readErr)
-				continue
-			}
-			if len(partBytes) == 0 {
-				log.Error(ctx, "empty gateway multipart part")
-				continue
-			}
-
-			mp4Bs := bytes.Buffer{}
-			if ls.CLI.LivepeerDebug {
-				debugFile := fmt.Sprintf("%s/livepeer-debug/%s-output-%s", ls.CLI.DataDir, sessionIDRen, p.FileName())
-				err = os.WriteFile(debugFile, partBytes, 0644)
-				if err != nil {
-					return nil, nil, fmt.Errorf("failed to write debug file: %w", err)
-				}
-				log.Log(ctx, "wrote debug file", "file", debugFile)
-			}
-
-			// The gateway may return either MPEG-TS or MP4 parts depending on config/version.
-			// Handle MP4 directly; only transmux when it's actually TS.
-			lcCT := strings.ToLower(contentType)
-			if strings.HasPrefix(lcCT, "video/mp4") || strings.HasPrefix(lcCT, "application/mp4") {
-				out = append(out, partBytes)
-				log.Debug(ctx, "got mp4 part back from livepeer gateway", "length", len(partBytes), "name", p.FileName())
-				continue
-			}
-
-			err = media.MPEGTSToMP4(ctx, bytes.NewReader(partBytes), &mp4Bs)
-			if err != nil {
-				log.Error(ctx, "failed to convert ts to mp4", "error", err)
-				continue
-			}
-			bs := mp4Bs.Bytes()
-			log.Debug(ctx, "got part back from livepeer gateway", "length", len(bs), "name", p.FileName())
-			out = append(out, bs)
+	if !strings.HasPrefix(mediaType, "multipart/") {
+		if streamUrls == nil {
+			log.Debug(ctx, "no AI stream URLs found in /process/transcode response body")
 		}
+		return streamUrls, out, nil
+	}
+
+	mr := multipart.NewReader(resp_ai.Body, params["boundary"])
+	for {
+		p, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get next part: %w", err)
+		}
+
+		// Detect AI data/text outputs and attempt to parse stream URLs if present.
+		contentType := p.Header.Get("Content-Type")
+		if strings.HasPrefix(contentType, "application/json") || strings.HasPrefix(contentType, "text/") {
+			body, readErr := io.ReadAll(p)
+			if readErr != nil {
+				log.Error(ctx, "failed to read ai data output", "error", readErr)
+			} else {
+				log.Log(ctx, "received ai data output", "contentType", contentType, "length", len(body), "body", string(body))
+				var urls StreamUrls
+				if jsonErr := json.Unmarshal(body, &urls); jsonErr == nil && (urls.StreamID != "" || urls.DataURL != "") {
+					streamUrls = &urls
+					log.Log(ctx, "✓ GOT AI STREAM URLS FROM multipart BODY",
+						"data_url", urls.DataURL, "stream_id", urls.StreamID,
+						"whip_url", urls.WhipURL, "whep_url", urls.WhepURL,
+						"rtmp_url", urls.RtmpURL, "update_url", urls.UpdateURL)
+				}
+			}
+			continue
+		}
+
+		partBytes, readErr := io.ReadAll(p)
+		if readErr != nil {
+			log.Error(ctx, "failed to read gateway multipart part", "error", readErr)
+			continue
+		}
+		if len(partBytes) == 0 {
+			log.Error(ctx, "empty gateway multipart part")
+			continue
+		}
+
+		mp4Bs := bytes.Buffer{}
+		if ls.CLI.LivepeerDebug {
+			debugFile := fmt.Sprintf("%s/livepeer-debug/%s-output-%s", ls.CLI.DataDir, sessionIDRen, p.FileName())
+			err = os.WriteFile(debugFile, partBytes, 0644)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to write debug file: %w", err)
+			}
+			log.Log(ctx, "wrote debug file", "file", debugFile)
+		}
+
+		// The gateway may return either MPEG-TS or MP4 parts depending on config/version.
+		// Handle MP4 directly; only transmux when it's actually TS.
+		lcCT := strings.ToLower(contentType)
+		if strings.HasPrefix(lcCT, "video/mp4") || strings.HasPrefix(lcCT, "application/mp4") {
+			out = append(out, partBytes)
+			log.Debug(ctx, "got mp4 part back from livepeer gateway", "length", len(partBytes), "name", p.FileName())
+			continue
+		}
+
+		err = media.MPEGTSToMP4(ctx, bytes.NewReader(partBytes), &mp4Bs)
+		if err != nil {
+			log.Error(ctx, "failed to convert ts to mp4", "error", err)
+			continue
+		}
+		bs := mp4Bs.Bytes()
+		log.Debug(ctx, "got part back from livepeer gateway", "length", len(bs), "name", p.FileName())
+		out = append(out, bs)
 	}
 
 	if streamUrls == nil {
 		log.Debug(ctx, "no AI stream URLs found in /process/transcode response body")
 	}
 
-	spmetrics.TranscodeDuration.WithLabelValues(spseg.Creator).Observe(float64(time.Since(start).Milliseconds()))
 	return streamUrls, out, nil
 }

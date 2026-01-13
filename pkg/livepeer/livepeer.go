@@ -123,10 +123,16 @@ func (ls *LivepeerSession) PostAISegmentToGateway(ctx context.Context, buf []byt
 
 		log.Debug(ctx, "ai job params", "aiJobParams", aiJobParams)
 
+		requestMap := map[string]any{}
+		requestJSON, err := json.Marshal(requestMap)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to marshal request: %w", err)
+		}
+
 		transcodingConfiguration["aiParams"] = map[string]any{
 			"capability":      ls.CLI.LivepeerAICapability,
 			"parameters":      string(aiJobSettingsStr),
-			"request":         "{}",
+			"request":         string(requestJSON),
 			"timeout_seconds": 60,
 			"stream_id":       sessionIDRen,
 			"params":          string(aiJobParamsStr), //# TODO: add params here

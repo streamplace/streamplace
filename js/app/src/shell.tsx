@@ -1,7 +1,15 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useLinkTo, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Text, useSiteTitle, useToast, zero } from "@streamplace/components";
+import {
+  Text,
+  useAccentColor,
+  usePrimaryColor,
+  useSiteTitle,
+  useTheme,
+  useToast,
+  zero,
+} from "@streamplace/components";
 import { Settings } from "components";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
@@ -127,8 +135,9 @@ function HomeNavigator() {
   );
 }
 
-// Settings stack navigator (shared by all platforms)
+// Settings stack navigator
 function SettingsNavigator() {
+  const z = useTheme();
   return (
     <SettingsStack.Navigator
       initialRouteName="MainSettings"
@@ -136,6 +145,9 @@ function SettingsNavigator() {
         headerShown: true,
         headerTransparent: Platform.OS === "ios",
         headerBackButtonDisplayMode: "minimal",
+        headerTitleStyle: {
+          fontFamily: z.theme.typography.universal["2xl"].fontFamily,
+        },
       }}
     >
       <SettingsStack.Screen
@@ -202,9 +214,12 @@ function SettingsNavigator() {
   );
 }
 
-// Tab navigator (all platforms, tab bar hidden on web)
+// Tab navigator (main app sections, navigation on web is handled in sidebar)
 function TabNavigator() {
   const { isNative, isBrowser } = usePlatform();
+  const accentColor = useAccentColor();
+  const primaryColor = usePrimaryColor();
+  const z = useTheme();
 
   return (
     <Tab.Navigator
@@ -213,6 +228,12 @@ function TabNavigator() {
         headerShown: false,
         // Hide tab bar on web
         tabBarStyle: isNative ? undefined : { display: "none" },
+        // doesn't seem to work on iOS?
+        tabBarInactiveTintColor: primaryColor || accentColor || "#f0f",
+        tabBarActiveTintColor: accentColor || primaryColor || "#06f",
+        headerTitleStyle: {
+          fontFamily: z.theme.typography.universal["2xl"].fontFamily,
+        },
       }}
     >
       <Tab.Screen
@@ -277,6 +298,7 @@ export default function Shell() {
   const showLoginModal = useStore((state) => state.showLoginModal);
   const closeLoginModal = useStore((state) => state.closeLoginModal);
   const [livePopup, setLivePopup] = useState(false);
+  const z = useTheme();
 
   const toast = useToast();
 
@@ -386,6 +408,9 @@ export default function Shell() {
             ...(isNative && {
               headerTransparent: true,
             }),
+            headerTitleStyle: {
+              fontFamily: z.theme.typography.universal.base.fontFamily,
+            },
           }}
         >
           {/* Main tabs (initial screen for all platforms) */}
@@ -395,7 +420,7 @@ export default function Shell() {
             options={{ headerShown: false }}
           />
 
-          {/* Full-screen screens that should NOT have tab bar accessible */}
+          {/* Full-screen screens that should NOT have tab bar accessible on mobile */}
           <RootStack.Screen
             name="Stream"
             component={MobileStream}

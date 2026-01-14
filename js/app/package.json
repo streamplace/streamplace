@@ -102,7 +102,7 @@
     "react-native-quick-crypto": "^0.7.14",
     "react-native-reanimated": "~4.1.6",
     "react-native-safe-area-context": "5.6.2",
-    "react-native-screens": "4.16.0",
+    "react-native-screens": "4.20.0-nightly-20260112-3c8d8501e",
     "react-native-sortables": "^1.9.4",
     "react-native-svg": "15.12.1",
     "react-native-web": "^0.21.2",

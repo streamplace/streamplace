@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useLinkTo, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { useToast } from "@streamplace/components";
+import { Text, useSiteTitle, useToast, zero } from "@streamplace/components";
 import { Settings } from "components";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
@@ -11,7 +11,9 @@ import { AdvancedCategorySettings } from "components/settings/advanced-category-
 import { DanmuCategorySettings } from "components/settings/danmu-category-settings";
 import KeyManager from "components/settings/key-manager";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
+import MultistreamManager from "components/settings/multistream-manager";
 import { PrivacyCategorySettings } from "components/settings/privacy-category-settings";
+import RecommendationsManager from "components/settings/recommendations-manager";
 import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
 import WebhookManager from "components/settings/webhook-manager";
 import { SidebarOverlay } from "components/sidebar/sidebar-overlay";
@@ -52,6 +54,7 @@ const SettingsStack = createNativeStackNavigator();
 
 // Home navigator (contains home + all general navigation screens)
 function HomeNavigator() {
+  const title = useSiteTitle() || "Streamplace Station";
   return (
     <HomeStack.Navigator
       screenOptions={{
@@ -65,6 +68,15 @@ function HomeNavigator() {
         component={HomeScreen}
         options={{
           title: "Streamplace",
+          headerTitle: (props) => {
+            return (
+              <View style={{ flex: 1, alignItems: "flex-start" }}>
+                <Text size="3xl" style={[zero.ml[4]]}>
+                  {title}
+                </Text>
+              </View>
+            );
+          },
           headerLeft:
             Platform.OS !== "ios"
               ? ({ canGoBack }) => <NavigationButton canGoBack={canGoBack} />
@@ -152,6 +164,11 @@ function SettingsNavigator() {
         options={{ title: "Webhooks" }}
       />
       <SettingsStack.Screen
+        name="RecommendationsSettings"
+        component={RecommendationsManager}
+        options={{ title: "Recommendations" }}
+      />
+      <SettingsStack.Screen
         name="PrivacyCategory"
         component={PrivacyCategorySettings}
         options={{ title: "Privacy & Security" }}
@@ -165,6 +182,11 @@ function SettingsNavigator() {
         name="AdvancedCategory"
         component={AdvancedCategorySettings}
         options={{ title: "Advanced" }}
+      />
+      <SettingsStack.Screen
+        name="MultistreamCategory"
+        component={MultistreamManager}
+        options={{ title: "Multistream" }}
       />
       <SettingsStack.Screen
         name="LanguagesCategory"
@@ -198,7 +220,12 @@ function TabNavigator() {
         component={HomeNavigator}
         options={{
           title: "Home",
-          ...(isNative && {}),
+          ...(isNative && {
+            tabBarIcon: {
+              type: "sfSymbol",
+              name: "house.fill",
+            },
+          }),
         }}
       />
       <Tab.Screen
@@ -206,7 +233,12 @@ function TabNavigator() {
         component={LaunchGoLive}
         options={{
           title: "Go Live",
-          ...(isNative && {}),
+          ...(isNative && {
+            tabBarIcon: {
+              type: "sfSymbol",
+              name: "video.fill",
+            },
+          }),
           headerShown: true,
           headerTransparent: true,
         }}
@@ -216,7 +248,12 @@ function TabNavigator() {
         component={SettingsNavigator}
         options={{
           title: "Settings",
-          ...(isNative && {}),
+          ...(isNative && {
+            tabBarIcon: {
+              type: "sfSymbol",
+              name: "gearshape.fill",
+            },
+          }),
           headerShown: false,
         }}
       />

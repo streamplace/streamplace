@@ -358,7 +358,11 @@ export const DropdownMenuSubTrigger = forwardRef<
   const { icons } = useTheme();
 
   React.useEffect(() => {
-    if (subMenuContext && subMenuTitle) {
+    if (
+      subMenuContext &&
+      subMenuTitle &&
+      subMenuContext.title !== subMenuTitle
+    ) {
       subMenuContext.setTitle(subMenuTitle);
     }
   }, [subMenuContext, subMenuTitle]);

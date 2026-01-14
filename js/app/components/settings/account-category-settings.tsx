@@ -1,3 +1,4 @@
+import { LiquidGlassView } from "@callstack/liquid-glass";
 import { useNavigation } from "@react-navigation/native";
 import {
   Button,
@@ -79,15 +80,24 @@ export function AccountCategorySettings() {
         <View style={{ paddingTop: 24, maxWidth: 500, width: "100%" }}>
           <View style={[zero.layout.flex.align.center, zero.pt[4], zero.pb[2]]}>
             {userProfile.avatar && (
-              <Image
-                source={{ uri: userProfile.avatar }}
+              <LiquidGlassView
+                interactive
                 style={{
                   width: 80,
                   height: 80,
                   borderRadius: 40,
                   marginBottom: 12,
                 }}
-              />
+              >
+                <Image
+                  source={{ uri: userProfile.avatar }}
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                  }}
+                />
+              </LiquidGlassView>
             )}
             <Text size="3xl" style={{ textAlign: "center" }}>
               {(() => {

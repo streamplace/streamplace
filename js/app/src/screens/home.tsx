@@ -225,7 +225,7 @@ export default function HomeScreen({
   }
 
   return (
-    <>
+    <View style={[zero.mt[16]]}>
       {liveUsersError && (
         <View>
           <Container
@@ -258,7 +258,7 @@ export default function HomeScreen({
           minHeight: "80%",
           width: "100%",
           inset: "auto",
-          paddingTop: Platform.OS === "ios" ? 32 + safeAreaInsets.top : 0,
+          paddingTop: Platform.OS === "ios" ? safeAreaInsets.top / 2 : 0,
         }}
         contentContainerStyle={contentContainerStyle} // Apply passed contentContainerStyle
         refreshControl={
@@ -400,6 +400,6 @@ export default function HomeScreen({
           }}
         />
       </ScrollView>
-    </>
+    </View>
   );
 }

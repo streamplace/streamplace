@@ -47,7 +47,7 @@ export default defineConfig({
         ]),
       ],
       sidebar: [
-        { label: "← Back to Streamplace", link: "/../" },
+        { label: "← Back to Streamplace", link: "https://stream.place" },
         {
           label: "How Streamplace Works (Blog)",
           link: "https://blog.stream.place/",

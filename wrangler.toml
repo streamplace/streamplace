@@ -1,0 +1,14 @@
+name = "streamplace-docs"
+compatibility_date = "2025-04-01"
+
+[assets]
+directory = "./js/docs/dist/"
+not_found_handling = "404-page"
+
+[[redirects]]
+from = "/"
+to = "/docs"
+status = 301
+
+[build]
+command = "pnpm install --filter=streamplace-docs... && cd js/docs && astro build --outDir ./dist/docs"

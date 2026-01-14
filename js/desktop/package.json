@@ -11,7 +11,7 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "nolint": "eslint --ext .ts,.tsx .",
-    "prepare": "CGO_ENABLED=0 go run ../../pkg/config/git/git.go --js > src/version.ts"
+    "prepare": "if [ -z \"$CF_PAGES\" ]; then CGO_ENABLED=0 go run ../../pkg/config/git/git.go --js > src/version.ts; else echo 'export const version = \"unknown\"; export const buildTime = 0; export const uuid = \"00000000-0000-0000-0000-000000000000\";' > src/version.ts; fi"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.5.0",

@@ -41,6 +41,14 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageV
 	if err != nil {
 		return nil, fmt.Errorf("error decoding feed post: %w", err)
 	}
+	// Truncate message text if it is a ChatMessage
+	if msg, ok := rec.(*streamplace.ChatMessage); ok {
+		runes := []rune(msg.Text)
+		if len(runes) > 300 {
+			msg.Text = string(runes[:300])
+		}
+	}
+
 	message := &streamplace.ChatDefs_MessageView{
 		LexiconTypeID: "place.stream.chat.defs#messageView",
 	}

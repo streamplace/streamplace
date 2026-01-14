@@ -84,7 +84,21 @@ func makeGit() error {
 	flag.Parse()
 	r, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
-		return err
+		// fallback for CI environments without full git history
+		var out string
+		if *javascript {
+			out = fmt.Sprintf(tmplJS, "unknown", 0, "00000000-0000-0000-0000-000000000000")
+		} else {
+			out = fmt.Sprintf(tmpl, "unknown", 0, "00000000-0000-0000-0000-000000000000")
+		}
+		if *output != "" {
+			if err := os.WriteFile(*output, []byte(out), 0644); err != nil {
+				return err
+			}
+		} else {
+			fmt.Print(out)
+		}
+		return nil
 	}
 
 	// ... retrieving the HEAD reference

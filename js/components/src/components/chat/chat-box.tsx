@@ -7,6 +7,7 @@ import {
   Button,
   Loader,
   Text,
+  toast,
   useChat,
   useCreateChatMessage,
   useLivestream,
@@ -62,6 +63,7 @@ export function ChatBox({
     new Map(),
   );
   const [filteredEmojis, setFilteredEmojis] = useState<any[]>([]);
+  const isOverLimit = [...message].length > 300;
 
   let linfo = useLivestream();
 
@@ -234,6 +236,17 @@ export function ChatBox({
 
   const submit = () => {
     if (!message.trim()) return;
+    if ([...message].length > 300) {
+      toast.show(
+        "Message too long",
+        "Please limit your message to 300 characters.",
+        {
+          variant: "error",
+          duration: 3,
+        },
+      );
+      return;
+    }
     setMessage("");
     setReplyToMessage(null);
 
@@ -412,7 +425,14 @@ export function ChatBox({
               }
             }
           }}
-          style={[chatBoxStyle]}
+          style={[
+            chatBoxStyle,
+            isOverLimit && {
+              borderColor: "#ef4444",
+              borderWidth: 2,
+              outline: "none",
+            },
+          ]}
           // "submit" won't blur on enter
           submitBehavior="submit"
           placeholder="Type a message..."

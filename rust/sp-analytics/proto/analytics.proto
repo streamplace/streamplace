@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package analytics;
+
+option go_package = "streamplace/pkg/analytics/pb;pb";
+
+service Analytics {
+    rpc IngestEvents(IngestEventsRequest) returns (IngestEventsResponse);
+    rpc GetStreamerStats(StreamerStatsRequest) returns (StreamerStatsResponse);
+    rpc GetViewerHistory(ViewerHistoryRequest) returns (ViewerHistoryResponse);
+    rpc GetRealtimeStats(RealtimeStatsRequest) returns (RealtimeStatsResponse);
+    rpc DeleteUserData(DeleteUserDataRequest) returns (DeleteUserDataResponse);
+    rpc GetDeletionStatus(GetDeletionStatusRequest) returns (DeletionStatusResponse);
+}
+
+message IngestEventsRequest {
+    repeated Event events = 1;
+}
+
+message IngestEventsResponse {
+    uint32 accepted = 1;
+    uint32 rejected = 2;
+    repeated string errors = 3;
+}
+
+message Event {
+    string event_id = 1;
+    string event_type = 2;
+    string device_id = 3;
+    optional string did = 4;
+    string session_id = 5;
+    int64 timestamp_ms = 6;
+    string streamer_did = 7;
+    optional string stream_id = 8;
+    string properties_json = 9;
+    uint32 schema_version = 10;
+    string client_version = 11;
+    string platform = 12;
+}
+
+message StreamerStatsRequest {
+    string streamer_did = 1;
+    optional int64 start_time_ms = 2;
+    optional int64 end_time_ms = 3;
+}
+
+message StreamerStatsResponse {
+    string streamer_did = 1;
+    uint64 total_views = 2;
+    uint64 total_watch_time_ms = 3;
+    uint64 unique_viewers = 4;
+    repeated DailyStats daily_stats = 5;
+}
+
+message DailyStats {
+    string date = 1;
+    uint64 views = 2;
+    uint64 watch_time_ms = 3;
+    uint64 unique_viewers = 4;
+}
+
+message ViewerHistoryRequest {
+    string did = 1;
+    optional int64 start_time_ms = 2;
+    optional int64 end_time_ms = 3;
+    uint32 limit = 4;
+}
+
+message ViewerHistoryResponse {
+    repeated WatchSession sessions = 1;
+}
+
+message WatchSession {
+    string session_id = 1;
+    string streamer_did = 2;
+    optional string stream_id = 3;
+    int64 start_time_ms = 4;
+    int64 end_time_ms = 5;
+    uint64 duration_ms = 6;
+}
+
+message RealtimeStatsRequest {
+    optional string streamer_did = 1;
+    uint32 window_minutes = 2;
+}
+
+message RealtimeStatsResponse {
+    repeated StreamerRealtimeStats streamers = 1;
+}
+
+message StreamerRealtimeStats {
+    string streamer_did = 1;
+    uint64 current_viewers = 2;
+    uint64 total_watch_time_ms = 3;
+}
+
+message DeleteUserDataRequest {
+    string did = 1;
+}
+
+message DeleteUserDataResponse {
+    string request_id = 1;
+    string status = 2;
+}
+
+message GetDeletionStatusRequest {
+    string request_id = 1;
+}
+
+message DeletionStatusResponse {
+    string request_id = 1;
+    string did = 2;
+    string status = 3;
+    optional int64 requested_at_ms = 4;
+    optional int64 completed_at_ms = 5;
+}

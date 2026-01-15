@@ -1,0 +1,18 @@
+[server]
+grpc_port = 9090
+
+[clickhouse]
+url = "http://localhost:8123"
+database = "sp_analytics"
+username = ""
+password = ""
+
+[wal]
+path = "./data/analytics.wal"
+enabled = true
+
+[ingestion]
+batch_size = 1000
+flush_interval_ms = 5000
+max_retry_attempts = 10
+retry_backoff_base_ms = 1000

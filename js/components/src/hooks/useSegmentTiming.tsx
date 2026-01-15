@@ -22,7 +22,7 @@ function getLiveConnectionQuality(
 export function useSegmentTiming() {
   const latestSegment = useLivestreamStore((x) => x.segment);
   const [segmentDeltas, setSegmentDeltas] = useState<number[]>([]);
-  const prevSegmentRef = useRef<any>();
+  const prevSegmentRef = useRef<any>(null);
   const prevTimestampRef = useRef<number | null>(null);
 
   // Dummy state to force update every second

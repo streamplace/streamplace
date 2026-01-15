@@ -140,6 +140,7 @@ type CLI struct {
 	SegmentDebugDir             string
 	AdminDIDs                   []string
 	Syndicate                   []string
+	AnalyticsEndpoint           string
 }
 
 // ContentFilters represents the content filtering configuration
@@ -209,6 +210,7 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.BoolVar(&cli.SmearAudio, "smear-audio", false, "enable audio smearing to create 'perfect' segment timestamps")
 
 	fs.StringVar(&cli.TracingEndpoint, "tracing-endpoint", "", "gRPC endpoint to send traces to")
+	fs.StringVar(&cli.AnalyticsEndpoint, "analytics-endpoint", "", "gRPC endpoint for analytics service (optional)")
 	fs.IntVar(&cli.RateLimitPerSecond, "rate-limit-per-second", 0, "rate limit for requests per second per ip")
 	fs.IntVar(&cli.RateLimitBurst, "rate-limit-burst", 0, "rate limit burst for requests per ip")
 	fs.IntVar(&cli.RateLimitWebsocket, "rate-limit-websocket", 10, "number of concurrent websocket connections allowed per ip")

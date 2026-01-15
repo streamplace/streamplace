@@ -23,6 +23,7 @@ import (
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
 	"github.com/peterbourgon/ff/v3"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"stream.place/streamplace/pkg/analytics"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
@@ -249,6 +250,18 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		}
 	}
 
+	var analyticsClient analytics.Client
+	if cli.AnalyticsEndpoint != "" {
+		analyticsClient, err = analytics.NewClient(ctx, cli.AnalyticsEndpoint)
+		if err != nil {
+			log.Warn(ctx, "failed to connect to analytics service, continuing without analytics",
+				"endpoint", cli.AnalyticsEndpoint,
+				"error", err)
+		} else {
+			log.Log(ctx, "connected to analytics service", "endpoint", cli.AnalyticsEndpoint)
+		}
+	}
+
 	group, ctx := TimeoutGroupWithContext(ctx)
 
 	out := carstore.SQLiteStore{}
@@ -381,7 +394,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		Public:             cli.PublicOAuth,
 	})
 	d := director.NewDirector(mm, mod, &cli, b, op, state, replicator)
-	a, err := api.MakeStreamplaceAPI(&cli, mod, state, noter, mm, ms, b, atsync, d, op)
+	a, err := api.MakeStreamplaceAPI(&cli, mod, state, noter, analyticsClient, mm, ms, b, atsync, d, op)
 	if err != nil {
 		return err
 	}

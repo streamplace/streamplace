@@ -1,0 +1,39 @@
+[package]
+name = "sp-analytics"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tonic = "0.12"
+prost = "0.13"
+prost-types = "0.13"
+clickhouse = { version = "0.13", features = ["chrono", "uuid"] }
+redb = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
+figment = { version = "0.10", features = ["env", "toml"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+thiserror = "2"
+dotenvy = "0.15.7"
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[dev-dependencies]
+testcontainers = "0.23"
+tempfile = "3"
+
+[[bin]]
+name = "sp-analytics"
+path = "src/main.rs"
+
+[lib]
+name = "sp_analytics"
+path = "src/lib.rs"

@@ -2,6 +2,7 @@ import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useContext } from "react";
 import { PlaceStreamChatProfile, PlaceStreamLivestream } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
+import { uuidv4 } from "../lib/uuid";
 import storage from "../storage";
 import { StreamplaceContext } from "../streamplace-provider/context";
 import { BrandingAsset } from "./branding";
@@ -40,6 +41,8 @@ export interface StreamplaceState {
   oauthSession: SessionManager | null | undefined;
   handle: string | null;
   chatProfile: PlaceStreamChatProfile.Record | null;
+
+  sessionId: string | null;
 
   // Content metadata state
   contentMetadata: ContentMetadataResult | null;
@@ -113,6 +116,8 @@ export const makeStreamplaceStore = ({
     oauthSession: null,
     handle: null,
     chatProfile: null,
+
+    sessionId: uuidv4(),
 
     broadcasterDID: null,
     setBroadcasterDID: (broadcasterDID: string | null) =>

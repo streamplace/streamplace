@@ -28,6 +28,7 @@ import (
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
+	"stream.place/streamplace/pkg/analytics"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
@@ -60,6 +61,7 @@ type StreamplaceAPI struct {
 	Signer           *eip712.EIP712Signer
 	Mimes            map[string]string
 	FirebaseNotifier notifications.FirebaseNotifier
+	AnalyticsClient  analytics.Client
 	MediaManager     *media.MediaManager
 	MediaSigner      media.MediaSigner
 	XRPCServer       *spxrpc.Server
@@ -93,7 +95,7 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, analyticsClient analytics.Client, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -103,6 +105,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		StatefulDB:       statefulDB,
 		Updater:          updater,
 		FirebaseNotifier: noter,
+		AnalyticsClient:  analyticsClient,
 		MediaManager:     mm,
 		MediaSigner:      ms,
 		Aliases:          map[string]string{},
@@ -208,6 +211,17 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "GET", "/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	addHandle(apiRouter, "GET", "/api/view-count/:user", a.HandleViewCount(ctx))
 	addHandle(apiRouter, "GET", "/api/clip/:user/:file", a.HandleClip(ctx))
+
+	// Analytics routes (optional, only if analytics is configured)
+	if a.AnalyticsClient != nil {
+		addFunc(apiRouter, "GET", "/api/analytics/realtime", analytics.HandleRealtimeStats(a.AnalyticsClient))
+		addHandle(apiRouter, "GET", "/api/analytics/streamer/:did", analytics.HandleStreamerStats(a.AnalyticsClient))
+		addHandle(apiRouter, "GET", "/api/analytics/viewer/:did", analytics.HandleViewerHistory(a.AnalyticsClient))
+		log.Log(ctx, "registered analytics HTTP endpoints")
+	} else {
+		log.Debug(ctx, "analytics not configured, skipping analytics endpoints")
+	}
+
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	apiRouterHandler := a.RateLimitMiddleware(ctx)(apiRouter)
 	xrpcHandler := a.RateLimitMiddleware(ctx)(xrpc)
@@ -548,12 +562,69 @@ func (a *StreamplaceAPI) HandlePlayerEvent(ctx context.Context) httprouter.Handl
 			apierrors.WriteHTTPBadRequest(w, "could not decode JSON body", err)
 			return
 		}
-		err := a.Model.CreatePlayerEvent(event)
+
+		// Generate server-side ID
+		uu, err := uuid.NewV7()
+		if err != nil {
+			apierrors.WriteHTTPInternalServerError(w, "could not generate event ID", err)
+			return
+		}
+		event.ID = uu.String()
+
+		err = a.Model.CreatePlayerEvent(event)
 		if err != nil {
 			apierrors.WriteHTTPBadRequest(w, "could not create player event", err)
 			return
 		}
+
+		// Forward relevant events to analytics service if configured
+		if a.AnalyticsClient != nil {
+			go a.forwardPlayerEventToAnalytics(req.Context(), event)
+		} else {
+			log.Log(req.Context(), "no analytics client configured, skipping forwarding player event")
+		}
+
 		w.WriteHeader(201)
+	}
+}
+
+func (a *StreamplaceAPI) forwardPlayerEventToAnalytics(ctx context.Context, event model.PlayerEventAPI) {
+	// Only forward watch/playback events
+	if event.EventType != "aq-played" && event.EventType != "watch" {
+		return
+	}
+
+	// Parse metadata into typed struct
+	var meta model.PlayerEventMeta
+	metaBytes, _ := json.Marshal(event.Meta)
+	if err := json.Unmarshal(metaBytes, &meta); err != nil {
+		log.Log(ctx, "failed to parse event metadata", "error", err)
+		return
+	}
+
+	// Validate required fields
+	if err := meta.Validate(); err != nil {
+		log.Log(ctx, "invalid event metadata", "error", err)
+		return
+	}
+
+	analyticsEvent := &analytics.Event{
+		EventID:        event.ID,
+		EventType:      event.EventType,
+		DeviceID:       meta.DeviceID,
+		DID:            meta.DID,
+		SessionID:      meta.SessionID,
+		TimestampMs:    event.Time.UnixMilli(),
+		StreamerDID:    meta.StreamerDID,
+		StreamID:       meta.StreamID,
+		PropertiesJSON: string(metaBytes),
+		SchemaVersion:  1,
+		ClientVersion:  meta.ClientVersion,
+		Platform:       meta.Platform,
+	}
+
+	if err := a.AnalyticsClient.IngestEvents(ctx, []*analytics.Event{analyticsEvent}); err != nil {
+		log.Log(ctx, "failed to ingest analytics event", "error", err)
 	}
 }
 

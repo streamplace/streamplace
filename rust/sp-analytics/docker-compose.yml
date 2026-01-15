@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    environment:
+      CLICKHOUSE_DB: sp_analytics
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      CLICKHOUSE_PASSWORD: yourpassword
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  analytics:
+    build:
+      context: ../..
+      dockerfile: rust/sp-analytics/Dockerfile
+    ports:
+      - "9090:9090"
+      - "9091:9091"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      SP_ANALYTICS_CLICKHOUSE__URL: http://clickhouse:8123
+      SP_ANALYTICS_CLICKHOUSE__DATABASE: sp_analytics
+      SP_ANALYTICS_SERVER__GRPC_PORT: 9090
+      SP_ANALYTICS_WAL__PATH: /app/data/analytics.wal
+      SP_ANALYTICS_WAL__ENABLED: "true"
+      RUST_LOG: sp_analytics=info
+    volumes:
+      - analytics-data:/app/data
+
+volumes:
+  clickhouse-data:
+  analytics-data:

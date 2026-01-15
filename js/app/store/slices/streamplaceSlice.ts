@@ -1,4 +1,5 @@
 import { storage } from "@streamplace/components";
+import { uuidv4 } from "hooks/uuid";
 import { Platform } from "react-native";
 import type { PlaceStreamSegment } from "streamplace";
 import { StateCreator } from "zustand";
@@ -30,6 +31,7 @@ export interface StreamplaceSlice {
   initialized: boolean;
   userMuted: boolean | null;
   chatWarned: boolean;
+  sessionId: string;
   mySegments: PlaceStreamSegment.SegmentView[];
   // actions
   initialize: () => Promise<void>;
@@ -58,6 +60,7 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
   initialized: false,
   userMuted: null,
   chatWarned: false,
+  sessionId: uuidv4(),
   mySegments: [],
   initialize: async () => {
     let [url, userMutedStr, chatWarningStr] = await Promise.all([

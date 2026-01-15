@@ -7,9 +7,32 @@ import (
 	"math"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
+
+type PlayerEventMeta struct {
+	DeviceID      string                 `json:"deviceId"`
+	DID           *string                `json:"did,omitempty"`
+	SessionID     string                 `json:"sessionId"`
+	StreamerDID   string                 `json:"streamerDid"`
+	StreamID      *string                `json:"streamId,omitempty"`
+	ClientVersion string                 `json:"clientVersion"`
+	Platform      string                 `json:"platform"`
+	WhatHappened  map[string]interface{} `json:"whatHappened,omitempty"`
+}
+
+func (m *PlayerEventMeta) Validate() error {
+	if m.DeviceID == "" {
+		return fmt.Errorf("deviceId is required")
+	}
+	if m.SessionID == "" {
+		return fmt.Errorf("sessionId is required")
+	}
+	if m.StreamerDID == "" {
+		return fmt.Errorf("streamerDid is required")
+	}
+	return nil
+}
 
 type PlayerEventAPI struct {
 	ID        string         `json:"id"`
@@ -35,16 +58,12 @@ func MaybeNull(s string) sql.NullString {
 }
 
 func (m *DBModel) CreatePlayerEvent(event PlayerEventAPI) error {
-	uu, err := uuid.NewV7()
-	if err != nil {
-		return err
-	}
 	metaBs, err := json.Marshal(event.Meta)
 	if err != nil {
 		return err
 	}
 	err = m.DB.Model(PlayerEvent{}).Create(PlayerEvent{
-		ID:        uu.String(),
+		ID:        event.ID,
 		Time:      event.Time,
 		PlayerID:  event.PlayerID,
 		EventType: event.EventType,

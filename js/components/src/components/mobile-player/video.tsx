@@ -1,10 +1,20 @@
 import Hls from "hls.js";
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import {
+  createRef,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { Platform } from "react-native";
 import {
   IngestMediaSource,
   PlayerProtocol,
   PlayerStatus,
+  useDID,
   useEffectiveVolume,
+  useLivestreamStore,
   useMuted,
   usePlayerStore,
   useSetMuted,
@@ -36,12 +46,14 @@ function assignVideoRef(
 
 type VideoProps = {
   url: string;
-  videoRef?: React.RefObject<HTMLVideoElement>;
+  videoRef?: React.RefObject<HTMLVideoElement | null>;
   objectFit?: "contain" | "cover";
   pictureInPictureEnabled?: boolean;
 };
 
-function useVideoDimensions(videoRef: React.RefObject<HTMLVideoElement>) {
+function useVideoDimensions(
+  videoRef: React.RefObject<HTMLVideoElement | null>,
+) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
@@ -133,10 +145,12 @@ const updateEvents = {
 
 const VideoElement = forwardRef<
   HTMLVideoElement,
-  VideoProps & { videoRef?: React.RefObject<HTMLVideoElement> }
+  VideoProps & { videoRef?: React.RefObject<HTMLVideoElement | null> }
 >((props, ref) => {
   const x = usePlayerStore((x) => x);
   const url = useStreamplaceStore((x) => x.url);
+  const sessionId = useStreamplaceStore((x) => x.sessionId);
+  const did = useDID();
   const playerEvent = usePlayerStore((x) => x.playerEvent);
   const setMuteWasForced = usePlayerStore((x) => x.setMuteWasForced);
   const ingest = usePlayerStore((x) => x.ingestConnectionState !== null);
@@ -146,6 +160,9 @@ const VideoElement = forwardRef<
   const setStatus = usePlayerStore((x) => x.setStatus);
   const setUserInteraction = usePlayerStore((x) => x.setUserInteraction);
   const setVideoRef = usePlayerStore((x) => x.setVideoRef);
+  const streamerDid = useLivestreamStore((x) => x.profile?.did);
+  // for e.g.
+  const streamId = streamerDid;
 
   const event = (evType) => (e) => {
     console.log(evType);
@@ -154,7 +171,14 @@ const VideoElement = forwardRef<
       x.setStatus(evType);
     }
     console.log("Sending", evType, "status to", url);
-    playerEvent(url, now.toISOString(), evType, {});
+    playerEvent(url, now.toISOString(), evType, {
+      sessionId,
+      streamerDid,
+      ...(did && { did }),
+      ...(streamId && { streamId }),
+      clientVersion: "0.9.0",
+      platform: Platform.OS,
+    });
   };
   const [firstAttempt, setFirstAttempt] = useState(true);
   const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
@@ -359,12 +383,14 @@ export function HLSPlayer(props: VideoProps) {
 }
 
 export function WebRTCPlayer(
-  props: VideoProps & { videoRef?: React.RefObject<HTMLVideoElement> },
+  props: VideoProps & { videoRef?: React.RefObject<HTMLVideoElement | null> },
 ) {
   const [webrtcError, setWebrtcError] = useState<string | null>(null);
   const setStatus = usePlayerStore((x) => x.setStatus);
   const setProtocol = usePlayerStore((x) => x.setProtocol);
   const diagnostics = useWebRTCDiagnostics();
+  // if videoref is undefined set it to a null ref
+  if (props.videoRef === undefined) props.videoRef = createRef();
   // Check WebRTC compatibility on component mount
   useEffect(() => {
     try {
@@ -432,7 +458,7 @@ export function WebRTCPlayerInner({
   width,
   height,
 }: {
-  videoRef?: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   url: string;
   width?: string | number;
   height?: string | number;

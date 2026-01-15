@@ -121,12 +121,23 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
       meta: { [key: string]: any },
     ) =>
       set((x) => {
+        // Try to get device ID from localStorage
+        let deviceId = meta.deviceId;
+        if (!deviceId && typeof window !== "undefined") {
+          try {
+            deviceId = localStorage.getItem("deviceId");
+          } catch (e) {
+            // localStorage might not be available
+          }
+        }
+
         const data: PlayerEvent = {
           time: time,
           playerId: x.id,
           eventType: eventType,
           meta: {
             ...meta,
+            ...(deviceId && { deviceId }),
           },
         };
         try {

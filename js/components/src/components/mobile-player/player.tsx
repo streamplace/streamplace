@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import { flex, h, layout, w, zIndex } from "../../lib/theme/atoms";
+import { useLivestreamStore } from "../../livestream-store";
 import {
   PlayerStatus,
   PlayerStatusTracker,
   usePlayerStore,
 } from "../../player-store";
-import { useStreamplaceStore } from "../../streamplace-store";
+import { useDID, useStreamplaceStore } from "../../streamplace-store";
 import { Text, View } from "../ui";
 import { Fullscreen } from "./fullscreen";
 import { PlayerProps } from "./props";
@@ -90,7 +92,11 @@ const POLL_INTERVAL = 5000;
 export function usePlayerStatus(): [PlayerStatus] {
   const playerStatus = usePlayerStore((x) => x.status);
   const url = useStreamplaceStore((x) => x.url);
+  const sessionId = useStreamplaceStore((x) => x.sessionId);
+  const did = useDID();
   const playerEvent = usePlayerStore((x) => x.playerEvent);
+  const streamerDid = useLivestreamStore((x) => x.profile?.did);
+  const streamId = streamerDid;
   const [whatDoing, setWhatDoing] = useState<PlayerStatus>(PlayerStatus.START);
   const [whatDid, setWhatDid] = useState<PlayerStatusTracker>({});
   const [doingSince, setDoingSince] = useState(Date.now());
@@ -124,6 +130,12 @@ export function usePlayerStatus(): [PlayerStatus] {
     setDoingSince(now.getTime());
     playerEvent(url, now.toISOString(), "aq-played", {
       whatHappened: fullWhatDid,
+      sessionId,
+      streamerDid,
+      ...(did && { did }),
+      ...(streamId && { streamId }),
+      clientVersion: "0.9.0",
+      platform: Platform.OS,
     });
   }, [lastUpdated]);
 

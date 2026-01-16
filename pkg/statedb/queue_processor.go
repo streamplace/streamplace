@@ -113,6 +113,34 @@ func (state *StatefulDB) processRemoveRedCircleTask(ctx context.Context, task *A
 	if err := json.Unmarshal(task.Payload, &removeRedCircleTask); err != nil {
 		return err
 	}
+	userDID := removeRedCircleTask.UserDID
+	lastLivestream, err := state.model.GetLatestLivestreamForRepo(userDID)
+	if err != nil {
+		return fmt.Errorf("failed to get latest livestream for userDID: %w", err)
+	}
+	if lastLivestream == nil {
+		return fmt.Errorf("no livestream found for userDID: %s", userDID)
+	}
+	lastLivestreamView, err := lastLivestream.ToLivestreamView()
+	if err != nil {
+		return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
+	}
+	rec, ok := lastLivestreamView.Record.Val.(*streamplace.Livestream)
+	if !ok {
+		return fmt.Errorf("livestream is not a streamplace livestream")
+	}
+	if rec.LastSeenAt == nil {
+		return fmt.Errorf("livestream has no last seen at")
+	}
+	lastSeenTime, err := time.Parse(time.RFC3339, *rec.LastSeenAt)
+	if err != nil {
+		return fmt.Errorf("could not parse last seen at: %w", err)
+	}
+	if time.Since(lastSeenTime) < 60*time.Second {
+		log.Warn(ctx, "livestream is active, skipping removal of red circle", "lastSeenAt", lastSeenTime)
+		return nil
+	}
+	log.Warn(ctx, "removing red circle", "userDID", userDID, "lastSeenAt", lastSeenTime)
 	return nil
 }
 

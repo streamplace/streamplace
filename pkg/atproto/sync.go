@@ -12,6 +12,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/util"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
@@ -366,14 +367,34 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, lsv)
 
-		if !isUpdate && !isFirstSync {
-			if rec.IntegrationSettings != nil && rec.IntegrationSettings.UpdateBskyProfile != nil && *rec.IntegrationSettings.UpdateBskyProfile {
-				task := &statedb.AddRedCircleTask{
-					UserDID: userDID,
+		if !isFirstSync {
+			if !isUpdate {
+				if rec.IntegrationSettings != nil && rec.IntegrationSettings.UpdateBskyProfile != nil && *rec.IntegrationSettings.UpdateBskyProfile {
+					task := &statedb.AddRedCircleTask{
+						UserDID: userDID,
+					}
+					_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskAddRedCircle, task, statedb.WithTaskKey(fmt.Sprintf("add-red-circle::%s", aturi.String())))
+					if err != nil {
+						return fmt.Errorf("failed to enqueue add red circle task: %w", err)
+					}
 				}
-				_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskAddRedCircle, task, statedb.WithTaskKey(fmt.Sprintf("add-red-circle::%s", aturi.String())))
-				if err != nil {
-					return fmt.Errorf("failed to enqueue add red circle task: %w", err)
+			}
+			// queue a task to clean up the livestream if it's been inactive for too long
+			task := &statedb.RemoveRedCircleTask{
+				UserDID: userDID,
+			}
+			if rec.LastSeenAt != nil {
+				scheduledAt, err := time.Parse(time.RFC3339, *rec.LastSeenAt)
+				if err == nil {
+					scheduledAt = scheduledAt.Add(90 * time.Second).UTC()
+					taskKey := fmt.Sprintf("remove-red-circle::%s::%s", aturi.String(), scheduledAt.Format(util.ISO8601))
+					log.Warn(ctx, "queueing remove red circle task", "taskKey", taskKey, "scheduledAt", scheduledAt)
+					_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskRemoveRedCircle, task, statedb.WithTaskKey(taskKey), statedb.WithScheduledAt(scheduledAt))
+					if err != nil {
+						return fmt.Errorf("failed to enqueue remove red circle task: %w", err)
+					}
+				} else {
+					log.Error(ctx, "failed to parse last seen at", "err", err)
 				}
 			}
 		}

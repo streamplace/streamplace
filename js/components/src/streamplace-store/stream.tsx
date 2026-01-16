@@ -257,6 +257,7 @@ export function useCreateStreamRecord() {
       title: title,
       url: thisUrl,
       createdAt: new Date().toISOString(),
+      lastSeenAt: new Date().toISOString(),
       // would match up with e.g. https://stream.place/iame.li
       canonicalUrl: canonicalUrl,
       // user agent style string
@@ -265,6 +266,7 @@ export function useCreateStreamRecord() {
       post: newPost,
       thumb: thumbnail,
     };
+    console.log("record", record);
 
     if (notificationSettings) {
       record.notificationSettings = notificationSettings;

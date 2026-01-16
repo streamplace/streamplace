@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -59,6 +61,9 @@ type StreamSession struct {
 	statefulDB *statedb.StatefulDB
 	replicator replication.Replicator
 	atsync     *atproto.ATProtoSynchronizer
+
+	lastLivestreamLock sync.Mutex
+	lastLivestreamTime time.Time
 }
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
@@ -217,6 +222,9 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	if notif.Local {
 		ss.UpdateStatus(ctx, spseg.Creator)
 		ss.UpdateBroadcastOrigin(ctx)
+		ss.Go(ctx, func() error {
+			return ss.UpdateLivestream(ctx, spseg.Creator)
+		})
 	}
 
 	if ss.cli.LivepeerGatewayURL != "" {
@@ -461,6 +469,79 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 	log.Debug(ctx, "created status record", "out", out)
 
 	ss.lastStatus = time.Now()
+
+	return nil
+}
+
+var livestreamUpdateInterval = time.Second * 30
+
+func (ss *StreamSession) UpdateLivestream(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "UpdateLivestream")
+	ss.lastLivestreamLock.Lock()
+	defer ss.lastLivestreamLock.Unlock()
+	if time.Since(ss.lastLivestreamTime) < livestreamUpdateInterval {
+		log.Debug(ctx, "not updating livestream, last livestream was less than 30 seconds ago")
+		return nil
+	}
+
+	lastLivestream, err := ss.mod.GetLatestLivestreamForRepo(repoDID)
+	if err != nil {
+		return fmt.Errorf("could not get latest livestream for repoDID: %w", err)
+	}
+	if lastLivestream == nil {
+		log.Debug(ctx, "no livestream found, skipping livestream update")
+		return nil
+	}
+	lsv, err := lastLivestream.ToLivestreamView()
+	if err != nil {
+		return fmt.Errorf("could not convert livestream to streamplace livestream: %w", err)
+	}
+	lsvr, ok := lsv.Record.Val.(*streamplace.Livestream)
+	if !ok {
+		return fmt.Errorf("livestream is not a streamplace livestream")
+	}
+	if lsvr.LastSeenAt == nil {
+		log.Debug(ctx, "livestream has no last seen at, skipping update")
+		return nil
+	}
+	lastSeenTime, err := time.Parse(time.RFC3339, *lsvr.LastSeenAt)
+	if err != nil {
+		return fmt.Errorf("could not parse last seen at: %w", err)
+	}
+	if time.Since(lastSeenTime) > 5*time.Minute {
+		log.Debug(ctx, "livestream is inactive, skipping update", "lastSeenAt", lastSeenTime)
+		return nil
+	}
+
+	aturi, err := syntax.ParseATURI(lastLivestream.URI)
+	if err != nil {
+		return fmt.Errorf("could not parse livestream URI: %w", err)
+	}
+
+	now := time.Now().UTC().Format(util.ISO8601)
+	lsvr.LastSeenAt = &now
+
+	inp := comatproto.RepoPutRecord_Input{
+		Collection: "place.stream.livestream",
+		Record:     &lexutil.LexiconTypeDecoder{Val: lsvr},
+		Rkey:       aturi.RecordKey().String(),
+		Repo:       ss.repoDID,
+		SwapRecord: &lastLivestream.CID,
+	}
+	out := comatproto.RepoPutRecord_Output{}
+
+	client, err := ss.GetClientByDID(ss.repoDID)
+	if err != nil {
+		return fmt.Errorf("could not get xrpc client for repoDID: %w", err)
+	}
+
+	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out)
+	if err != nil {
+		return fmt.Errorf("could not update livestream record: %w", err)
+	}
+
+	log.Warn(ctx, "updated livestream record", "uri", lastLivestream.URI)
+	ss.lastLivestreamTime = time.Now()
 
 	return nil
 }

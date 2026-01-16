@@ -65,7 +65,7 @@ export function ChatBox({
     new Map(),
   );
   const [filteredEmojis, setFilteredEmojis] = useState<any[]>([]);
-  const isOverLimit = [...message].length > 300;
+  const isOverLimit = [...new Intl.Segmenter().segment(message)].length > 300;
 
   let linfo = useLivestream();
 
@@ -256,7 +256,7 @@ export function ChatBox({
 
   const submit = async () => {
     if (!message.trim()) return;
-    if ([...message].length > 300) {
+    if ([...new Intl.Segmenter().segment(message)].length > 300) {
       toast.show(
         "Message too long",
         "Please limit your message to 300 characters.",

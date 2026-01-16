@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/livepeer"
@@ -57,6 +58,7 @@ type StreamSession struct {
 	packets    []bus.PacketizedSegment
 	statefulDB *statedb.StatefulDB
 	replicator replication.Replicator
+	atsync     *atproto.ATProtoSynchronizer
 }
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
@@ -128,6 +130,15 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 			return ss.HandleMultistreamTargets(ctx)
 		})
 	}
+
+	ss.Go(ctx, func() error {
+		err := ss.UpdateProfilePicture(ctx, spseg.Creator)
+		if err != nil {
+			log.Error(ctx, "failed to update profile picture", "error", err)
+		}
+		<-ctx.Done()
+		return nil
+	})
 
 	for {
 		select {

@@ -108,7 +108,7 @@ function ReportStreamItem({
       }}
       disabled={!livestream}
     >
-      <Text>Report Stream...</Text>
+      <Text>Report Livestream...</Text>
     </DropdownMenuItem>
   );
 }

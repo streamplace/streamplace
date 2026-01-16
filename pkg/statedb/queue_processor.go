@@ -140,7 +140,22 @@ func (state *StatefulDB) processRemoveRedCircleTask(ctx context.Context, task *A
 		log.Warn(ctx, "livestream is active, skipping removal of red circle", "lastSeenAt", lastSeenTime)
 		return nil
 	}
-	log.Warn(ctx, "removing red circle", "userDID", userDID, "lastSeenAt", lastSeenTime)
+	session, err := state.GetSessionByDID(userDID)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+	session, err = state.OATProxy.RefreshIfNeeded(session)
+	if err != nil {
+		return fmt.Errorf("failed to refresh session: %w", err)
+	}
+	client, err := state.OATProxy.GetXrpcClient(session)
+	if err != nil {
+		return fmt.Errorf("failed to get xrpc client: %w", err)
+	}
+	err = redcircle.RestoreProfilePicture(ctx, userDID, client, state.model)
+	if err != nil {
+		return fmt.Errorf("failed to restore profile picture: %w", err)
+	}
 	return nil
 }
 

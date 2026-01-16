@@ -14,6 +14,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atdata"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 
 	"github.com/bluesky-social/indigo/xrpc"
@@ -140,6 +141,7 @@ func UpdateProfilePicture(ctx context.Context, repoDID string, client *oatproxy.
 	if err != nil {
 		return fmt.Errorf("failed to get profile record: %w", err)
 	}
+	oldAvatar := oldProfile.Avatar
 	oldProfile.Avatar = out.Blob
 	buf := bytes.Buffer{}
 	err = oldProfile.MarshalCBOR(&buf)
@@ -151,6 +153,7 @@ func UpdateProfilePicture(ctx context.Context, repoDID string, client *oatproxy.
 		return fmt.Errorf("failed to unmarhsal record CBOR: %w", err)
 	}
 	kv[constants.BlueskyProfileGoliveKey] = true
+	kv["place.stream.stashedAvatar"] = oldAvatar
 	inp := map[string]any{
 		"collection": "app.bsky.actor.profile",
 		"record":     kv,
@@ -164,5 +167,38 @@ func UpdateProfilePicture(ctx context.Context, repoDID string, client *oatproxy.
 		return fmt.Errorf("failed to put profile record: %w", err)
 	}
 	log.Log(ctx, "uploaded redcircle", "ref", out.Blob.Ref.String(), "size", out.Blob.Size)
+	return nil
+}
+
+func RestoreProfilePicture(ctx context.Context, repoDID string, client *oatproxy.XrpcClient, mod model.Model) error {
+	oldProfile, err := mod.GetBskyProfile(ctx, repoDID, false)
+	if err != nil {
+		return fmt.Errorf("failed to get old profile: %w", err)
+	}
+	if oldProfile == nil {
+		return fmt.Errorf("no old profile found for repoDID: %s", repoDID)
+	}
+	var getRecordOut comatproto.RepoGetRecord_Output
+	err = client.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.getRecord", map[string]any{
+		"repo":       repoDID,
+		"collection": "app.bsky.actor.profile",
+		"rkey":       "self",
+	}, nil, &getRecordOut)
+	if err != nil {
+		return fmt.Errorf("failed to get profile record: %w", err)
+	}
+	inp := comatproto.RepoPutRecord_Input{
+		Collection: "app.bsky.actor.profile",
+		Record:     &lexutil.LexiconTypeDecoder{Val: oldProfile},
+		Rkey:       "self",
+		Repo:       repoDID,
+		SwapRecord: getRecordOut.Cid,
+	}
+	putOutput := comatproto.RepoPutRecord_Output{}
+	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &putOutput)
+	if err != nil {
+		return fmt.Errorf("failed to put profile record: %w", err)
+	}
+	log.Log(ctx, "restored profile picture", "cid", putOutput.Cid)
 	return nil
 }

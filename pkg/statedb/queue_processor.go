@@ -12,11 +12,14 @@ import (
 	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/redcircle"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
 var TaskNotification = "notification"
 var TaskChat = "chat"
+var TaskAddRedCircle = "add_red_circle"
+var TaskRemoveRedCircle = "remove_red_circle"
 
 type NotificationTask struct {
 	Livestream  *streamplace.Livestream_LivestreamView
@@ -27,6 +30,14 @@ type NotificationTask struct {
 
 type ChatTask struct {
 	MessageView *streamplace.ChatDefs_MessageView
+}
+
+type AddRedCircleTask struct {
+	UserDID string
+}
+
+type RemoveRedCircleTask struct {
+	UserDID string
 }
 
 func (state *StatefulDB) ProcessQueue(ctx context.Context) error {
@@ -60,9 +71,49 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 		return state.processNotificationTask(ctx, task)
 	case TaskChat:
 		return state.processChatMessageTask(ctx, task)
+	case TaskAddRedCircle:
+		return state.processAddRedCircleTask(ctx, task)
+	case TaskRemoveRedCircle:
+		return state.processRemoveRedCircleTask(ctx, task)
 	default:
 		return fmt.Errorf("unknown task type: %s", task.Type)
 	}
+}
+
+func (state *StatefulDB) processAddRedCircleTask(ctx context.Context, task *AppTask) error {
+	var addRedCircleTask AddRedCircleTask
+	if err := json.Unmarshal(task.Payload, &addRedCircleTask); err != nil {
+		return err
+	}
+	repoDID := addRedCircleTask.UserDID
+	session, err := state.GetSessionByDID(repoDID)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+	if session == nil {
+		return fmt.Errorf("no session found for repoDID: %s", repoDID)
+	}
+	session, err = state.OATProxy.RefreshIfNeeded(session)
+	if err != nil {
+		return fmt.Errorf("failed to refresh session: %w", err)
+	}
+	client, err := state.OATProxy.GetXrpcClient(session)
+	if err != nil {
+		return fmt.Errorf("failed to get xrpc client: %w", err)
+	}
+	err = redcircle.UpdateProfilePicture(ctx, repoDID, client, state.model)
+	if err != nil {
+		return fmt.Errorf("failed to update profile picture: %w", err)
+	}
+	return nil
+}
+
+func (state *StatefulDB) processRemoveRedCircleTask(ctx context.Context, task *AppTask) error {
+	var removeRedCircleTask RemoveRedCircleTask
+	if err := json.Unmarshal(task.Payload, &removeRedCircleTask); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppTask) error {

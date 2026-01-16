@@ -1,4 +1,4 @@
-package atproto
+package redcircle
 
 import (
 	"bytes"
@@ -14,6 +14,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atdata"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/tdewolff/canvas"
@@ -21,6 +22,7 @@ import (
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 )
 
 const WIDTH = 1000.0
@@ -47,14 +49,7 @@ func GenerateRedCircle(ctx context.Context, profileJPEG []byte) ([]byte, error) 
 		return nil, fmt.Errorf("failed to decode image: %w", err)
 	}
 
-	// profileWidth := profileImg.Bounds().Max.X
-
 	scaleFactor := (float64(profileImg.Bounds().Max.X) / float64(WIDTH)) * BorderScaleFactor
-	// scaleFactor := 1.0
-
-	fmt.Println("scaleFactor", scaleFactor)
-
-	//
 
 	// Draw the decoded image onto the canvas
 	canvasCtx := canvas.NewContext(c)
@@ -97,24 +92,8 @@ func downloadImage(ctx context.Context, url string) ([]byte, error) {
 	return imageData, nil
 }
 
-func (atsync *ATProtoSynchronizer) UpdateProfilePicture(ctx context.Context, repoDID string) error {
-	session, err := atsync.StatefulDB.GetSessionByDID(repoDID)
-	if err != nil {
-		return fmt.Errorf("failed to get session: %w", err)
-	}
-	if session == nil {
-		return fmt.Errorf("no session found for repoDID: %s", repoDID)
-	}
-	session, err = atsync.OATProxy.RefreshIfNeeded(session)
-	if err != nil {
-		return fmt.Errorf("failed to refresh session: %w", err)
-	}
-	client, err := atsync.OATProxy.GetXrpcClient(session)
-	if err != nil {
-		return fmt.Errorf("failed to get xrpc client: %w", err)
-	}
-
-	oldProfile, err := atsync.Model.GetBskyProfile(ctx, repoDID, false)
+func UpdateProfilePicture(ctx context.Context, repoDID string, client *oatproxy.XrpcClient, mod model.Model) error {
+	oldProfile, err := mod.GetBskyProfile(ctx, repoDID, false)
 	if err != nil {
 		return fmt.Errorf("failed to get old profile: %w", err)
 	}
@@ -125,7 +104,7 @@ func (atsync *ATProtoSynchronizer) UpdateProfilePicture(ctx context.Context, rep
 		return fmt.Errorf("no avatar found for old profile")
 	}
 
-	repo, err := atsync.Model.GetRepo(repoDID)
+	repo, err := mod.GetRepo(repoDID)
 	if err != nil {
 		return fmt.Errorf("failed to get repo: %w", err)
 	}

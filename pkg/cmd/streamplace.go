@@ -278,6 +278,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		ClientMetadata:     clientMetadata,
 		Public:             cli.PublicOAuth,
 	})
+	state.OATProxy = op
 
 	err = atsync.Migrate(ctx)
 	if err != nil {

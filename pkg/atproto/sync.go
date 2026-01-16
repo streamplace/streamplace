@@ -366,39 +366,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, lsv)
 
-		var postView *bsky.FeedDefs_PostView
-		if lsHydrated.Post != nil {
-			postView, err = lsHydrated.Post.ToBskyPostView()
-			if err != nil {
-				return fmt.Errorf("failed to convert livestream post to bsky post view: %w", err)
-			}
-		}
-
 		if !isUpdate && !isFirstSync {
-			task := &statedb.NotificationTask{
-				Livestream: lsv,
-				FeedPost:   postView,
-				PDSURL:     r.PDS,
-			}
-
-			cp, err := atsync.Model.GetChatProfile(ctx, userDID)
-			if err != nil {
-				return fmt.Errorf("failed to get chat profile: %w", err)
-			}
-			if cp != nil {
-				spcp, err := cp.ToStreamplaceChatProfile()
-				if err != nil {
-					return fmt.Errorf("failed to convert chat profile to streamplace chat profile: %w", err)
-				}
-				task.ChatProfile = spcp
-			}
-
 			if rec.IntegrationSettings != nil && rec.IntegrationSettings.UpdateBskyProfile != nil && *rec.IntegrationSettings.UpdateBskyProfile {
-				// TODO DONTMERGE: move this to a background job
-				log.Warn(ctx, "updating bluesky profile picture", "userDID", userDID)
-				err = atsync.UpdateProfilePicture(ctx, userDID)
+				task := &statedb.AddRedCircleTask{
+					UserDID: userDID,
+				}
+				_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskAddRedCircle, task, statedb.WithTaskKey(fmt.Sprintf("add-red-circle::%s", aturi.String())))
 				if err != nil {
-					return fmt.Errorf("failed to update profile picture: %w", err)
+					return fmt.Errorf("failed to enqueue add red circle task: %w", err)
 				}
 			}
 		}

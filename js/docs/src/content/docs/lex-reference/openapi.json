@@ -1147,6 +1147,77 @@
         }
       }
     },
+    "/xrpc/place.stream.live.denyTeleport": {
+      "post": {
+        "summary": "Deny an incoming teleport request.",
+        "operationId": "place.stream.live.denyTeleport",
+        "tags": ["place.stream.live"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "Whether the teleport was successfully denied."
+                    }
+                  },
+                  "required": ["success"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "TeleportNotFound"
+                        },
+                        {
+                          "const": "Unauthorized"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "uri": {
+                    "type": "string",
+                    "description": "The URI of the teleport record to deny.",
+                    "format": "uri"
+                  }
+                },
+                "required": ["uri"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.live.getLiveUsers": {
       "get": {
         "summary": "Get a list of livestream segments for a user",

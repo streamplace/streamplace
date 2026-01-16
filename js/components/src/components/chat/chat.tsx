@@ -13,7 +13,9 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { ChatMessageViewHydrated } from "streamplace";
 import {
+  getSystemMessageType,
   SystemMessage,
+  SystemMessageType,
   Text,
   useChat,
   usePlayerStore,
@@ -171,8 +173,10 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
   if (item.author.did === "did:sys:system") {
     return (
       <SystemMessage
+        variant={getSystemMessageType(item) || SystemMessageType.notification}
         timestamp={new Date(item.record.createdAt)}
         title={item.record.text}
+        facets={item.record.facets}
       />
     );
   }

@@ -380,6 +380,83 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			task.ChatProfile = spcp
 		}
 
+	case *streamplace.LiveTeleport:
+		if r == nil {
+			return nil
+		}
+		startsAt, err := time.Parse(time.RFC3339, rec.StartsAt)
+		if err != nil {
+			log.Error(ctx, "failed to parse startsAt", "err", err)
+			return nil
+		}
+		viewerCount := atsync.Bus.GetViewerCount(userDID)
+		tp := &model.Teleport{
+			CID:             cid,
+			URI:             aturi.String(),
+			StartsAt:        startsAt,
+			DurationSeconds: rec.DurationSeconds,
+			ViewerCount:     int64(viewerCount),
+			Teleport:        recCBOR,
+			RepoDID:         userDID,
+			TargetDID:       rec.Streamer,
+		}
+		err = atsync.Model.CreateTeleport(ctx, tp)
+		if err != nil {
+			return fmt.Errorf("failed to create teleport: %w", err)
+		}
+		go atsync.Bus.Publish(userDID, rec)
+
+		// schedule arrival notification 10 seconds after startsAt
+		arrivalTime := startsAt.Add(10 * time.Second)
+		waitDuration := time.Until(arrivalTime)
+		if waitDuration < 0 {
+			waitDuration = 0
+		}
+
+		time.AfterFunc(waitDuration, func() {
+			// verify teleport still exists
+			existingTp, err := atsync.Model.GetTeleportByURI(aturi.String())
+			if err != nil {
+				log.Error(ctx, "failed to get teleport by uri", "err", err)
+				return
+			}
+			if existingTp == nil || existingTp.Denied {
+				log.Debug(ctx, "teleport no longer active, skipping arrival notification", "uri", aturi.String())
+				return
+			}
+
+			// get the source profile
+			sourceRepo, err := atsync.Model.GetRepo(userDID)
+			if err != nil {
+				log.Error(ctx, "failed to get source repo", "err", err)
+				return
+			}
+
+			viewerCount := existingTp.ViewerCount
+
+			arrivalMsg := &streamplace.Livestream_TeleportArrival{
+				LexiconTypeID: "place.stream.livestream#teleportArrival",
+				TeleportUri:   aturi.String(),
+				Source: &bsky.ActorDefs_ProfileViewBasic{
+					Did:    userDID,
+					Handle: sourceRepo.Handle,
+				},
+				ViewerCount: int64(viewerCount),
+				StartsAt:    rec.StartsAt,
+			}
+
+			// get the source chat profile
+			chatProfile, err := atsync.Model.GetChatProfile(ctx, userDID)
+			if err == nil && chatProfile != nil {
+				spcp, err := chatProfile.ToStreamplaceChatProfile()
+				if err == nil {
+					arrivalMsg.ChatProfile = spcp
+				}
+			}
+
+			atsync.Bus.Publish(rec.Streamer, arrivalMsg)
+		})
+
 	case *streamplace.Key:
 		log.Debug(ctx, "creating key", "key", rec)
 		time, err := aqtime.FromString(rec.CreatedAt)

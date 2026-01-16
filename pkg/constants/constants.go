@@ -5,6 +5,7 @@ var PLACE_STREAM_LIVESTREAM = "place.stream.livestream"                       //
 var PLACE_STREAM_CHAT_MESSAGE = "place.stream.chat.message"                   //nolint:all
 var PLACE_STREAM_CHAT_PROFILE = "place.stream.chat.profile"                   //nolint:all
 var PLACE_STREAM_SERVER_SETTINGS = "place.stream.server.settings"             //nolint:all
+var PLACE_STREAM_LIVE_TELEPORT = "place.stream.live.teleport"                 //nolint:all
 var PLACE_STREAM_MODERATION_PERMISSION = "place.stream.moderation.permission" //nolint:all
 var STREAMPLACE_SIGNING_KEY = "signingKey"                                    //nolint:all
 var APP_BSKY_GRAPH_FOLLOW = "app.bsky.graph.follow"                           //nolint:all

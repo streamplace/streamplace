@@ -7,10 +7,11 @@ import {
   PlaceStreamChatMessage,
   PlaceStreamDefs,
   PlaceStreamLivestream,
-  PlaceStreamModerationPermission,
+  PlaceStreamLiveTeleport,
   PlaceStreamSegment,
 } from "streamplace";
 import { SystemMessages } from "../lib/system-messages";
+import { formatHandleWithAt } from "../utils/format-handle";
 import { reduceChat } from "./chat";
 import { LivestreamState } from "./livestream-state";
 import { findProblems } from "./problems";
@@ -121,65 +122,45 @@ export const handleWebSocketMessages = (
           pendingHides: newPendingHides,
         };
         state = reduceChat(state, [], [], [hiddenMessageUri]);
-      } else if (
-        PlaceStreamModerationPermission.isRecord(message) ||
-        (message &&
-          typeof message === "object" &&
-          "$type" in message &&
-          (message as { $type?: string }).$type ===
-            "place.stream.moderation.permission")
-      ) {
-        // Handle moderation permission record updates
-        // This can be a new permission or a deletion marker
-        const permRecord = message as
-          | PlaceStreamModerationPermission.Record
-          | { deleted?: boolean; rkey?: string; streamer?: string };
+      } else if (PlaceStreamLiveTeleport.isRecord(message)) {
+        const teleportRecord = message as PlaceStreamLiveTeleport.Record;
+        state = {
+          ...state,
+          activeTeleport: teleportRecord,
+        };
+      } else if (PlaceStreamLivestream.isTeleportArrival(message)) {
+        // teleport has succeeded, we are now at the target stream
+        const arrival = message as PlaceStreamLivestream.TeleportArrival;
 
-        if ((permRecord as any).deleted) {
-          // Handle deletion: clear permissions to trigger refetch
-          // The useCanModerate hook will refetch and repopulate
+        // add the teleporter's chat profile to the authors cache FIRST so mention rendering works
+        if (arrival.chatProfile && arrival.source.did) {
           state = {
             ...state,
-            moderationPermissions: [],
-          };
-        } else {
-          // Handle new/updated permission: add or update in the list
-          // Use createdAt as a unique identifier since multiple records can exist for the same moderator
-          // (e.g., one record with "ban" permission, another with "hide" permission)
-          // Note: rkey would be ideal but isn't always present in the WebSocket message
-          const newPerm =
-            permRecord as PlaceStreamModerationPermission.Record & {
-              rkey?: string;
-            };
-          const existingIndex = state.moderationPermissions.findIndex((p) => {
-            const pWithRkey = p as PlaceStreamModerationPermission.Record & {
-              rkey?: string;
-            };
-            // Prefer matching by rkey if available, fall back to createdAt
-            if (newPerm.rkey && pWithRkey.rkey) {
-              return pWithRkey.rkey === newPerm.rkey;
-            }
-            return (
-              p.moderator === newPerm.moderator &&
-              p.createdAt === newPerm.createdAt
-            );
-          });
-
-          let newPermissions: PlaceStreamModerationPermission.Record[];
-          if (existingIndex >= 0) {
-            // Update existing record with same moderator AND createdAt
-            newPermissions = [...state.moderationPermissions];
-            newPermissions[existingIndex] = newPerm;
-          } else {
-            // Add new record (could be a new record for an existing moderator with different permissions)
-            newPermissions = [...state.moderationPermissions, newPerm];
-          }
-
-          state = {
-            ...state,
-            moderationPermissions: newPermissions,
+            authors: {
+              ...state.authors,
+              [arrival.source.did]: arrival.chatProfile,
+            },
           };
         }
+
+        const systemMessage = SystemMessages.teleportArrival(
+          formatHandleWithAt(arrival.source),
+          arrival.source.did,
+          arrival.viewerCount,
+          arrival.chatProfile,
+        );
+        // set proper times
+        systemMessage.indexedAt = arrival.startsAt;
+        systemMessage.record.createdAt = arrival.startsAt;
+
+        state = reduceChat(state, [systemMessage], []);
+      } else if (PlaceStreamLivestream.isTeleportCanceled(message)) {
+        // teleport was canceled (deleted or denied)
+        state = {
+          ...state,
+          activeTeleport: null,
+          activeTeleportUri: null,
+        };
       }
     }
   }

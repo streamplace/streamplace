@@ -368,7 +368,7 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 		},
 	}
 
-	duration := int64(120)
+	duration := int64(10)
 	status := bsky.ActorStatus{
 		Status:          "app.bsky.actor.status#live",
 		DurationMinutes: &duration,

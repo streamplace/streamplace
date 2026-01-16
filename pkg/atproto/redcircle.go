@@ -28,6 +28,8 @@ const HEIGHT = 1000.0
 
 const BORDER_SIZE = 62.0
 
+const BorderScaleFactor = WIDTH / (WIDTH - BORDER_SIZE*2)
+
 //go:embed redcircle.png
 var RedCirclePNG []byte
 
@@ -45,7 +47,14 @@ func GenerateRedCircle(ctx context.Context, profileJPEG []byte) ([]byte, error) 
 		return nil, fmt.Errorf("failed to decode image: %w", err)
 	}
 
-	scaleFactor := WIDTH / (WIDTH - BORDER_SIZE*2)
+	// profileWidth := profileImg.Bounds().Max.X
+
+	scaleFactor := (float64(profileImg.Bounds().Max.X) / float64(WIDTH)) * BorderScaleFactor
+	// scaleFactor := 1.0
+
+	fmt.Println("scaleFactor", scaleFactor)
+
+	//
 
 	// Draw the decoded image onto the canvas
 	canvasCtx := canvas.NewContext(c)

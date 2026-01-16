@@ -1,14 +1,24 @@
-import React, { useContext, useRef } from "react";
-import { LivestreamContext, makeLivestreamStore } from "../livestream-store";
+import React, { useContext, useEffect, useRef } from "react";
+import { useAvatars } from "../hooks";
+import { deleteTeleport } from "../lib/slash-commands/teleport";
+import { StreamNotifications } from "../lib/stream-notifications";
+import {
+  LivestreamContext,
+  makeLivestreamStore,
+  useLivestreamStore,
+} from "../livestream-store";
+import { useDID, usePDSAgent } from "../streamplace-store";
 import { useLivestreamWebsocket } from "./websocket";
 
 export function LivestreamProvider({
   children,
   src,
+  onTeleport,
   ignoreOuterContext = false,
 }: {
   children: React.ReactNode;
   src: string;
+  onTeleport?: (targetHandle: string, targetDID: string) => void;
   ignoreOuterContext?: boolean;
 }) {
   const context = useContext(LivestreamContext);
@@ -24,7 +34,9 @@ export function LivestreamProvider({
   (window as any).livestreamStore = store;
   return (
     <LivestreamContext.Provider value={{ store: store }}>
-      <LivestreamPoller src={src}>{children}</LivestreamPoller>
+      <LivestreamPoller src={src} onTeleport={onTeleport}>
+        {children}
+      </LivestreamPoller>
     </LivestreamContext.Provider>
   );
 }
@@ -34,18 +46,109 @@ export function WebsocketWatcher({ src }: { src: string }) {
   return <></>;
 }
 
+export function TeleportWatcher({
+  onTeleport,
+}: {
+  onTeleport?: (targetHandle: string, targetDID: string) => void;
+}) {
+  const activeTeleport = useLivestreamStore((state) => state.activeTeleport);
+  const activeTeleportUri = useLivestreamStore(
+    (state) => state.activeTeleportUri,
+  );
+  const profile = useAvatars(activeTeleport ? [activeTeleport.streamer] : []);
+  const livestreamProfile = useLivestreamStore((state) => state.profile);
+  const pdsAgent = usePDSAgent();
+  const userDID = useDID();
+  const prevActiveTeleportRef = useRef(activeTeleport);
+
+  useEffect(() => {
+    if (!activeTeleport || !profile[activeTeleport.streamer]) return;
+
+    const startsAt = new Date(activeTeleport.startsAt);
+    const now = new Date();
+    const countdown = Math.max(
+      0,
+      Math.floor((startsAt.getTime() - now.getTime()) / 1000),
+    );
+
+    // resolve the DID to a handle for display
+    const targetHandle =
+      profile[activeTeleport.streamer]?.handle || activeTeleport.streamer;
+
+    // check if the current user is the streamer of the current livestream
+    const canCancel = livestreamProfile?.did === userDID;
+
+    StreamNotifications.teleport({
+      targetHandle: targetHandle,
+      targetDID: activeTeleport.streamer,
+      countdown: countdown,
+      canCancel: canCancel,
+      onDismiss: async (reason) => {
+        console.log(
+          "🔍 StreamNotifications.onDismiss called with reason:",
+          reason,
+        );
+        if (reason === "user" && activeTeleportUri && pdsAgent && userDID) {
+          try {
+            await deleteTeleport(pdsAgent, userDID, activeTeleportUri);
+          } catch (err) {
+            console.error("Failed to delete teleport:", err);
+          }
+        }
+        if (reason === "auto" && onTeleport) {
+          console.log(
+            "🔍 Calling onTeleport with:",
+            targetHandle,
+            activeTeleport.streamer,
+          );
+          onTeleport(targetHandle, activeTeleport.streamer);
+        } else if (reason === "auto" && !onTeleport) {
+          console.log("🔍 onTeleport is not defined!");
+        } else if (reason === "auto") {
+          console.log(
+            "🔍 Reason is auto but teleport function not called for unknown reason",
+          );
+        }
+      },
+    });
+  }, [
+    activeTeleport,
+    activeTeleportUri,
+    profile,
+    onTeleport,
+    pdsAgent,
+    userDID,
+  ]);
+
+  useEffect(() => {
+    if (
+      prevActiveTeleportRef.current &&
+      !activeTeleport &&
+      !activeTeleportUri
+    ) {
+      StreamNotifications.teleportCancelled();
+    }
+    prevActiveTeleportRef.current = activeTeleport;
+  }, [activeTeleport, activeTeleportUri]);
+
+  return <></>;
+}
+
 export function LivestreamPoller({
   children,
   src,
+  onTeleport,
 }: {
   children: React.ReactNode;
   src: string;
+  onTeleport?: (targetHandle: string, targetDID: string) => void;
 }) {
   // Websocket watcher is a sibling instead of a parent to avoid
   // re-rendering when the websocket does stuff
   return (
     <>
       <WebsocketWatcher src={src} />
+      <TeleportWatcher onTeleport={onTeleport} />
       {children}
     </>
   );

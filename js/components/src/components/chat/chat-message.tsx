@@ -76,7 +76,7 @@ const segmentedObject = (
   }
 };
 
-const RichTextMessage = ({
+export const RichTextMessage = ({
   text,
   facets,
 }: {

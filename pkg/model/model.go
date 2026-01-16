@@ -74,6 +74,14 @@ type Model interface {
 	GetLivestreamByPostURI(postURI string) (*Livestream, error)
 	GetLatestLivestreams(limit int, before *time.Time) ([]Livestream, error)
 
+	CreateTeleport(ctx context.Context, tp *Teleport) error
+	GetLatestTeleportForRepo(repoDID string) (*Teleport, error)
+	GetActiveTeleportsForRepo(repoDID string) ([]Teleport, error)
+	GetActiveTeleportsToRepo(targetDID string) ([]Teleport, error)
+	GetTeleportByURI(uri string) (*Teleport, error)
+	DeleteTeleport(ctx context.Context, uri string) error
+	DenyTeleport(ctx context.Context, uri string) error
+
 	CreateBlock(ctx context.Context, block *Block) error
 	GetBlock(ctx context.Context, rkey string) (*Block, error)
 	GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error)
@@ -187,6 +195,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Label{},
 		BroadcastOrigin{},
 		MetadataConfiguration{},
+		Teleport{},
 		ModerationDelegation{},
 		Recommendation{},
 	} {

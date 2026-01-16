@@ -1,3 +1,4 @@
+import { useNavigation } from "@react-navigation/native";
 import {
   KeepAwake,
   LivestreamProvider,
@@ -33,10 +34,12 @@ function MobileStreamInner({
   user,
   src,
   extraProps,
+  onTeleport,
 }: {
   user: string;
   src: string;
   extraProps: Partial<PlayerProps>;
+  onTeleport?: (targetHandle: string, targetDID: string) => void;
 }) {
   const problems = useLivestreamStore((x) => x.problems);
 
@@ -52,7 +55,7 @@ function MobileStreamInner({
     <>
       <KeepAwake />
       <FullscreenProvider>
-        <Player src={src} {...extraProps} />
+        <Player key={src} src={src} {...extraProps} onTeleport={onTeleport} />
       </FullscreenProvider>
     </>
   );
@@ -60,6 +63,7 @@ function MobileStreamInner({
 
 export default function MobileStream({ route }) {
   const { user, protocol, url } = route?.params ?? {};
+  let navi = useNavigation();
   let extraProps: Partial<PlayerProps> = {};
   if (isWeb) {
     extraProps = queryToProps(new URLSearchParams(window.location.search));
@@ -69,10 +73,26 @@ export default function MobileStream({ route }) {
     src = url;
   }
 
+  const handleTeleport = (targetHandle: string, targetDID?: string) => {
+    if (!navi || (!targetHandle && !targetDID)) {
+      console.error("Navigation or target info missing for teleport");
+      return;
+    }
+    navi.navigate("Home", {
+      screen: "Stream",
+      params: { user: targetHandle },
+    });
+  };
+
   return (
-    <LivestreamProvider src={src}>
+    <LivestreamProvider key={src} src={src} onTeleport={handleTeleport}>
       <PlayerProvider>
-        <MobileStreamInner user={user} src={src} extraProps={extraProps} />
+        <MobileStreamInner
+          user={user}
+          src={src}
+          extraProps={extraProps}
+          onTeleport={handleTeleport}
+        />
       </PlayerProvider>
     </LivestreamProvider>
   );

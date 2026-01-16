@@ -34,6 +34,7 @@ func generatePermissionSets(ctx context.Context, lexs []*lexicon.SchemaFile) ([]
 		"rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app%23bsky_appview",
 		"rpc:app.bsky.actor.getProfiles?aud=did:web:api.bsky.app%23bsky_appview",
 		"include:place.stream.authFull",
+		"rpc:com.atproto.moderation.createReport?aud=*",
 	}
 	for _, record := range recordLexicons {
 		allRecords = append(allRecords, record.ID)

@@ -13,6 +13,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
@@ -82,6 +83,17 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to convert block to streamplace block: %w", err)
 		}
 		go atsync.Bus.Publish(userDID, streamplaceBlock)
+
+	case *bsky.ActorProfile:
+		if r == nil {
+			// someone we don't know about
+			return nil
+		}
+		wasStreamplace, _ := d[constants.BlueskyProfileGoliveKey].(bool)
+		err := atsync.Model.UpsertBskyProfile(ctx, aturi, *recCBOR, wasStreamplace)
+		if err != nil {
+			return fmt.Errorf("failed to upsert bsky profile: %w", err)
+		}
 
 	case *streamplace.ChatMessage:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
@@ -362,22 +374,33 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 		}
 
-		task := &statedb.NotificationTask{
-			Livestream: lsv,
-			FeedPost:   postView,
-			PDSURL:     r.PDS,
-		}
-
-		cp, err := atsync.Model.GetChatProfile(ctx, userDID)
-		if err != nil {
-			return fmt.Errorf("failed to get chat profile: %w", err)
-		}
-		if cp != nil {
-			spcp, err := cp.ToStreamplaceChatProfile()
-			if err != nil {
-				return fmt.Errorf("failed to convert chat profile to streamplace chat profile: %w", err)
+		if !isUpdate && !isFirstSync {
+			task := &statedb.NotificationTask{
+				Livestream: lsv,
+				FeedPost:   postView,
+				PDSURL:     r.PDS,
 			}
-			task.ChatProfile = spcp
+
+			cp, err := atsync.Model.GetChatProfile(ctx, userDID)
+			if err != nil {
+				return fmt.Errorf("failed to get chat profile: %w", err)
+			}
+			if cp != nil {
+				spcp, err := cp.ToStreamplaceChatProfile()
+				if err != nil {
+					return fmt.Errorf("failed to convert chat profile to streamplace chat profile: %w", err)
+				}
+				task.ChatProfile = spcp
+			}
+
+			if rec.IntegrationSettings != nil && rec.IntegrationSettings.UpdateBskyProfile != nil && *rec.IntegrationSettings.UpdateBskyProfile {
+				// TODO DONTMERGE: move this to a background job
+				log.Warn(ctx, "updating bluesky profile picture", "userDID", userDID)
+				err = atsync.UpdateProfilePicture(ctx, userDID)
+				if err != nil {
+					return fmt.Errorf("failed to update profile picture: %w", err)
+				}
+			}
 		}
 
 	case *streamplace.LiveTeleport:

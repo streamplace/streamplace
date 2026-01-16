@@ -1,4 +1,4 @@
-package redcircle
+package atproto
 
 import (
 	"context"

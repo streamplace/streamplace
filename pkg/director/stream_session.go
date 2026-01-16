@@ -131,14 +131,14 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 		})
 	}
 
-	ss.Go(ctx, func() error {
-		err := ss.UpdateProfilePicture(ctx, spseg.Creator)
-		if err != nil {
-			log.Error(ctx, "failed to update profile picture", "error", err)
-		}
-		<-ctx.Done()
-		return nil
-	})
+	// ss.Go(ctx, func() error {
+	// 	err := ss.UpdateProfilePicture(ctx, spseg.Creator)
+	// 	if err != nil {
+	// 		log.Error(ctx, "failed to update profile picture", "error", err)
+	// 	}
+	// 	<-ctx.Done()
+	// 	return nil
+	// })
 
 	for {
 		select {

@@ -114,6 +114,9 @@ type Model interface {
 
 	GetRecommendation(userDID string) (*Recommendation, error)
 	UpsertRecommendation(rec *Recommendation) error
+
+	UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, profileBs []byte, wasStreamplace bool) error
+	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*bsky.ActorProfile, error)
 }
 
 var DBRevision = 2
@@ -183,6 +186,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Teleport{},
 		ModerationDelegation{},
 		Recommendation{},
+		BskyProfile{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

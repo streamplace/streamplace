@@ -24,7 +24,10 @@ type Livestream struct {
 	// canonicalUrl: The primary URL where this livestream can be viewed, if available.
 	CanonicalUrl *string `json:"canonicalUrl,omitempty" cborgen:"canonicalUrl,omitempty"`
 	// createdAt: Client-declared timestamp when this livestream started.
-	CreatedAt            string                           `json:"createdAt" cborgen:"createdAt"`
+	CreatedAt           string                          `json:"createdAt" cborgen:"createdAt"`
+	IntegrationSettings *Livestream_IntegrationSettings `json:"integrationSettings,omitempty" cborgen:"integrationSettings,omitempty"`
+	// lastSeenAt: Client-declared timestamp when this livestream was last seen by the user.
+	LastSeenAt           *string                          `json:"lastSeenAt,omitempty" cborgen:"lastSeenAt,omitempty"`
 	NotificationSettings *Livestream_NotificationSettings `json:"notificationSettings,omitempty" cborgen:"notificationSettings,omitempty"`
 	// post: The post that announced this livestream.
 	Post  *comatproto.RepoStrongRef `json:"post,omitempty" cborgen:"post,omitempty"`
@@ -33,6 +36,12 @@ type Livestream struct {
 	Title string `json:"title" cborgen:"title"`
 	// url: The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.
 	Url *string `json:"url,omitempty" cborgen:"url,omitempty"`
+}
+
+// Livestream_IntegrationSettings is a "integrationSettings" in the place.stream.livestream schema.
+type Livestream_IntegrationSettings struct {
+	// updateBskyProfile: Whether this livestream should update the Bluesky profile picture & pinned post.
+	UpdateBskyProfile *bool `json:"updateBskyProfile,omitempty" cborgen:"updateBskyProfile,omitempty"`
 }
 
 // Livestream_LivestreamView is a "livestreamView" in the place.stream.livestream schema.

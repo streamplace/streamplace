@@ -19,6 +19,7 @@ import {
   useUrl,
   zero,
 } from "@streamplace/components";
+import { error } from "console";
 import { ArrowRight, ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -224,6 +225,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const [createPost, setCreatePost] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
   const [canonicalUrl, setCanonicalUrl] = useState<string>("");
+  const [updateBskyProfile, setUpdateBskyProfile] = useState(true);
   const defaultCanonicalUrl = useMemo(() => {
     return `${url}/${profile && formatHandle(profile)}`;
   }, [url, profile?.handle]);
@@ -256,7 +258,14 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
       );
     }
 
-    // Prefill post creation preference
+    if (
+      typeof livestream.record.integrationSettings?.updateBskyProfile ===
+      "boolean"
+    ) {
+      setUpdateBskyProfile(
+        livestream.record.integrationSettings.updateBskyProfile,
+      );
+    }
     setCreatePost(typeof livestream.record.post !== "undefined");
   }, [livestream, defaultCanonicalUrl]);
 
@@ -294,6 +303,9 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
           submitPost: createPost,
           notificationSettings: {
             pushNotification: sendPushNotification,
+          },
+          integrationSettings: {
+            updateBskyProfile: updateBskyProfile,
           },
           canonicalUrl: canonicalUrl || undefined,
         });
@@ -343,7 +355,6 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
     title,
     selectedImage,
     mode,
-    captureFrame,
     createStreamRecord,
     updateStreamRecord,
     livestream,
@@ -359,9 +370,12 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
       if (file) {
         setSelectedImage(file);
       }
+      console.error("Failed to fetch last image:", error);
+      toast.show("Error", "Failed to load previous thumbnail", {
+        duration: 3,
+      });
     };
-    input.click();
-  }, []);
+  }, [livestream, toast]);
 
   const handleImageRemove = useCallback(() => {
     setSelectedImage(undefined);
@@ -623,6 +637,18 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                       setSendPushNotification(checked)
                     }
                     label={"Send push notification"}
+                    style={[{ fontSize: 12 }]}
+                  />
+                </Tooltip>
+
+                <Tooltip
+                  content="Update your Bluesky profile picture & pinned post to show that you're live."
+                  position="top"
+                >
+                  <Checkbox
+                    checked={updateBskyProfile}
+                    onCheckedChange={(checked) => setUpdateBskyProfile(checked)}
+                    label={"Update Bluesky avatar"}
                     style={[{ fontSize: 12 }]}
                   />
                 </Tooltip>

@@ -26,6 +26,11 @@
             "format": "datetime",
             "description": "Client-declared timestamp when this livestream started."
           },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this livestream was last seen by the user."
+          },
           "post": {
             "type": "ref",
             "ref": "com.atproto.repo.strongRef",
@@ -48,6 +53,10 @@
           "notificationSettings": {
             "type": "ref",
             "ref": "place.stream.livestream#notificationSettings"
+          },
+          "integrationSettings": {
+            "type": "ref",
+            "ref": "place.stream.livestream#integrationSettings"
           }
         }
       }
@@ -59,6 +68,16 @@
         "pushNotification": {
           "type": "boolean",
           "description": "Whether this livestream should trigger a push notification to followers."
+        }
+      }
+    },
+    "integrationSettings": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "updateBskyProfile": {
+          "type": "boolean",
+          "description": "Whether this livestream should update the Bluesky profile picture & pinned post."
         }
       }
     },

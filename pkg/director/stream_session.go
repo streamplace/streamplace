@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -44,15 +43,19 @@ type StreamSession struct {
 	segmentChan    chan struct{}
 	lastStatus     time.Time
 	lastStatusCID  *string
-	lastStatusLock sync.Mutex
 	lastOriginTime time.Time
-	lastOriginLock sync.Mutex
-	g              *errgroup.Group
-	started        chan struct{}
-	ctx            context.Context
-	packets        []bus.PacketizedSegment
-	statefulDB     *statedb.StatefulDB
-	replicator     replication.Replicator
+
+	// Channels for background workers
+	statusUpdateChan chan struct{} // Signal to update status
+	originUpdateChan chan struct{} // Signal to update broadcast origin
+	shutdown         chan struct{}
+
+	g          *errgroup.Group
+	started    chan struct{}
+	ctx        context.Context
+	packets    []bus.PacketizedSegment
+	statefulDB *statedb.StatefulDB
+	replicator replication.Replicator
 }
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
@@ -111,6 +114,14 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 
 	close(ss.started)
 
+	// Start background workers for status and origin updates
+	ss.g.Go(func() error {
+		return ss.statusUpdateLoop(ctx, spseg.Creator)
+	})
+	ss.g.Go(func() error {
+		return ss.originUpdateLoop(ctx)
+	})
+
 	ss.Go(ctx, func() error {
 		return ss.HandleMultistreamTargets(ctx)
 	})
@@ -120,6 +131,8 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 		case <-ss.segmentChan:
 			// reset timer
 		case <-ctx.Done():
+			// Signal all background workers to stop
+			close(ss.shutdown)
 			return ss.g.Wait()
 		// case <-time.After(time.Minute * 1):
 		case <-time.After(ss.cli.StreamSessionTimeout):
@@ -128,6 +141,8 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 			for _, r := range allRenditions {
 				ss.bus.EndSession(ctx, spseg.Creator, r.Name)
 			}
+			// Signal background workers to stop
+			close(ss.shutdown)
 			if notif.Local {
 				ss.Go(ctx, func() error {
 					return ss.DeleteStatus(spseg.Creator)
@@ -188,13 +203,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	}
 
 	if notif.Local {
-		ss.Go(ctx, func() error {
-			return ss.UpdateStatus(ctx, spseg.Creator)
-		})
-
-		ss.Go(ctx, func() error {
-			return ss.UpdateBroadcastOrigin(ctx)
-		})
+		ss.UpdateStatus(ctx, spseg.Creator)
+		ss.UpdateBroadcastOrigin(ctx)
 	}
 
 	if ss.cli.LivepeerGatewayURL != "" {
@@ -312,14 +322,56 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 	return nil
 }
 
+// UpdateStatus signals the background worker to update status (non-blocking)
 func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error {
-	ctx = log.WithLogValues(ctx, "func", "UpdateStatus")
-	ss.lastStatusLock.Lock()
-	defer ss.lastStatusLock.Unlock()
-	if time.Since(ss.lastStatus) < time.Minute {
-		log.Debug(ctx, "not updating status, last status was less than 1 minute ago")
-		return nil
+	select {
+	case ss.statusUpdateChan <- struct{}{}:
+	default:
+		// Channel full, signal already pending
 	}
+	return nil
+}
+
+// statusUpdateLoop runs as a background goroutine for the session lifetime
+func (ss *StreamSession) statusUpdateLoop(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "statusUpdateLoop")
+	for {
+		select {
+		case <-ss.shutdown:
+			log.Debug(ctx, "statusUpdateLoop shutting down")
+			return nil
+		case <-ctx.Done():
+			return nil
+		case <-ss.statusUpdateChan:
+			// Drain any additional signals (coalesce)
+			drained := 0
+			for {
+				select {
+				case <-ss.statusUpdateChan:
+					drained++
+				default:
+					goto process
+				}
+			}
+		process:
+			if drained > 0 {
+				log.Debug(ctx, "coalesced status update signals", "drained", drained)
+			}
+			// Apply time-based throttling
+			if time.Since(ss.lastStatus) < time.Minute {
+				log.Debug(ctx, "not updating status, last status was less than 1 minute ago")
+				continue
+			}
+			if err := ss.doUpdateStatus(ctx, repoDID); err != nil {
+				log.Error(ctx, "failed to update status", "error", err)
+			}
+		}
+	}
+}
+
+// doUpdateStatus performs the actual status update work
+func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "doUpdateStatus")
 
 	client, err := ss.GetClientByDID(repoDID)
 	if err != nil {
@@ -421,9 +473,8 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 
 func (ss *StreamSession) DeleteStatus(repoDID string) error {
 	// need a special extra context because the stream session context is already cancelled
+	// No lock needed - this runs during teardown after the background worker has exited
 	ctx := log.WithLogValues(context.Background(), "func", "DeleteStatus", "repoDID", repoDID)
-	ss.lastStatusLock.Lock()
-	defer ss.lastStatusLock.Unlock()
 	if ss.lastStatusCID == nil {
 		log.Debug(ctx, "no status cid to delete")
 		return nil
@@ -452,14 +503,57 @@ func (ss *StreamSession) DeleteStatus(repoDID string) error {
 
 var originUpdateInterval = time.Second * 30
 
+// UpdateBroadcastOrigin signals the background worker to update origin (non-blocking)
 func (ss *StreamSession) UpdateBroadcastOrigin(ctx context.Context) error {
-	ctx = log.WithLogValues(ctx, "func", "UpdateStatus")
-	ss.lastOriginLock.Lock()
-	defer ss.lastOriginLock.Unlock()
-	if time.Since(ss.lastOriginTime) < originUpdateInterval {
-		log.Debug(ctx, "not updating origin, last origin was less than 30 seconds ago")
-		return nil
+	select {
+	case ss.originUpdateChan <- struct{}{}:
+	default:
+		// Channel full, signal already pending
 	}
+	return nil
+}
+
+// originUpdateLoop runs as a background goroutine for the session lifetime
+func (ss *StreamSession) originUpdateLoop(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "func", "originUpdateLoop")
+	for {
+		select {
+		case <-ss.shutdown:
+			log.Debug(ctx, "originUpdateLoop shutting down")
+			return nil
+		case <-ctx.Done():
+			return nil
+		case <-ss.originUpdateChan:
+			// Drain any additional signals (coalesce)
+			drained := 0
+			for {
+				select {
+				case <-ss.originUpdateChan:
+					drained++
+				default:
+					goto process
+				}
+			}
+		process:
+			if drained > 0 {
+				log.Debug(ctx, "coalesced origin update signals", "drained", drained)
+			}
+			// Apply time-based throttling
+			if time.Since(ss.lastOriginTime) < originUpdateInterval {
+				log.Debug(ctx, "not updating origin, last origin was less than 30 seconds ago")
+				continue
+			}
+			if err := ss.doUpdateBroadcastOrigin(ctx); err != nil {
+				log.Error(ctx, "failed to update broadcast origin", "error", err)
+			}
+		}
+	}
+}
+
+// doUpdateBroadcastOrigin performs the actual broadcast origin update work
+func (ss *StreamSession) doUpdateBroadcastOrigin(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "func", "doUpdateBroadcastOrigin")
+
 	broadcaster := fmt.Sprintf("did:web:%s", ss.cli.BroadcasterHost)
 	origin := streamplace.BroadcastOrigin{
 		Streamer:    ss.repoDID,

@@ -95,17 +95,6 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
     }
   }, [message]);
 
-  // Early return AFTER all hooks have been called
-  if (!agent?.did) {
-    return <></>;
-  }
-
-  // Can show moderation actions if user can hide, ban, or manage livestream
-  const canModerate =
-    modPermissions.canHide ||
-    modPermissions.canBan ||
-    modPermissions.canManageLivestream;
-
   // Check if any moderation actions are actually available for this message
   // This must match the individual action checks inside the DropdownMenuGroup
   const hasAvailableActions = !!(
@@ -328,14 +317,14 @@ function ModViewContent({
         >
           <Text color="primary">View user on {BSKY_FRONTEND_DOMAIN}</Text>
         </DropdownMenuItem>
-        {message.author.did === agent?.did && (
+        {agent?.did && message.author.did === agent.did && (
           <DeleteButton
             message={message}
             deleteChatMessage={deleteChatMessage}
             onOpenChange={onOpenChange}
           />
         )}
-        {message.author.did !== agent?.did && (
+        {(!agent?.did || message.author.did !== agent.did) && (
           <ReportButton
             message={message}
             setReportModalOpen={setReportModalOpen}

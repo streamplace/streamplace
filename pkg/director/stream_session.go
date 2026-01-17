@@ -343,21 +343,6 @@ func (ss *StreamSession) statusUpdateLoop(ctx context.Context, repoDID string) e
 		case <-ctx.Done():
 			return nil
 		case <-ss.statusUpdateChan:
-			// Drain any additional signals (coalesce)
-			drained := 0
-			for {
-				select {
-				case <-ss.statusUpdateChan:
-					drained++
-				default:
-					goto process
-				}
-			}
-		process:
-			if drained > 0 {
-				log.Debug(ctx, "coalesced status update signals", "drained", drained)
-			}
-			// Apply time-based throttling
 			if time.Since(ss.lastStatus) < time.Minute {
 				log.Debug(ctx, "not updating status, last status was less than 1 minute ago")
 				continue
@@ -524,21 +509,6 @@ func (ss *StreamSession) originUpdateLoop(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ss.originUpdateChan:
-			// Drain any additional signals (coalesce)
-			drained := 0
-			for {
-				select {
-				case <-ss.originUpdateChan:
-					drained++
-				default:
-					goto process
-				}
-			}
-		process:
-			if drained > 0 {
-				log.Debug(ctx, "coalesced origin update signals", "drained", drained)
-			}
-			// Apply time-based throttling
 			if time.Since(ss.lastOriginTime) < originUpdateInterval {
 				log.Debug(ctx, "not updating origin, last origin was less than 30 seconds ago")
 				continue

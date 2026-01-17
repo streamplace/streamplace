@@ -113,6 +113,12 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 }
 
 func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before string, limit int) (*placestreamtypes.LiveGetLiveUsers_Output, error) {
+	// Check cache first
+	cacheKey := fmt.Sprintf("live_users_%s_%d", before, limit)
+	if cached, found := s.LiveUsersCache.Get(cacheKey); found {
+		return cached.(*placestreamtypes.LiveGetLiveUsers_Output), nil
+	}
+
 	var beforeTime *time.Time
 	if before != "" {
 		parsedTime, err := time.Parse(time.RFC3339, before)
@@ -144,6 +150,9 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 	liveUsers := &placestreamtypes.LiveGetLiveUsers_Output{
 		Streams: streams,
 	}
+
+	// Cache the result
+	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
 
 	return liveUsers, nil
 }

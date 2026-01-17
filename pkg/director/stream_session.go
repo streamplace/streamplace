@@ -260,7 +260,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			if err != nil {
 				log.Error(ctx, "failed to enqueue notification task", "err", err)
 			}
-			return ss.UpdateStatus(ctx, spseg.Creator)
+			ss.UpdateStatus(ctx, spseg.Creator)
+			return nil
 		})
 	} else {
 		log.Warn(ctx, "no livestream detected in stream, skipping notification blast", "repoDID", spseg.Creator)
@@ -323,13 +324,12 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 }
 
 // UpdateStatus signals the background worker to update status (non-blocking)
-func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error {
+func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) {
 	select {
 	case ss.statusUpdateChan <- struct{}{}:
 	default:
 		// Channel full, signal already pending
 	}
-	return nil
 }
 
 // statusUpdateLoop runs as a background goroutine for the session lifetime
@@ -489,13 +489,12 @@ func (ss *StreamSession) DeleteStatus(repoDID string) error {
 var originUpdateInterval = time.Second * 30
 
 // UpdateBroadcastOrigin signals the background worker to update origin (non-blocking)
-func (ss *StreamSession) UpdateBroadcastOrigin(ctx context.Context) error {
+func (ss *StreamSession) UpdateBroadcastOrigin(ctx context.Context) {
 	select {
 	case ss.originUpdateChan <- struct{}{}:
 	default:
 		// Channel full, signal already pending
 	}
-	return nil
 }
 
 // originUpdateLoop runs as a background goroutine for the session lifetime

@@ -102,7 +102,15 @@ export function StreamKeyScreen() {
                   Keyframe Interval: <Code>1s</Code>
                 </Text>
                 <Text>
-                  x264 Options: <Code>bframes=0</Code>
+                  x264 Options:{" "}
+                  <Code
+                    style={{
+                      paddingHorizontal: 4,
+                      backgroundColor: "#648800",
+                    }}
+                  >
+                    bframes=0
+                  </Code>
                 </Text>
                 <Text
                   underline

@@ -1,6 +1,6 @@
 import { Button, storage, Text, useTheme, zero } from "@streamplace/components";
 import { ChevronDown } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
   Modal,
@@ -25,10 +25,10 @@ export default function StreamerAgreement({
   const dims = useWindowDimensions();
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [scrolledToBottom, setScrolledToBottom] = useState(dims.height > 650);
+  const [scrolledToBottom, setScrolledToBottom] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [scrollViewHeight, setScrollViewHeight] = useState(0);
-  const [contentHeight, setContentHeight] = useState(0);
+  const bottomMarkerRef = useRef<View>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
   const { theme, zero: z } = useTheme();
   const { t } = useTranslation("common");
 
@@ -125,43 +125,29 @@ export default function StreamerAgreement({
             </Text>
 
             <ScrollView
+              ref={scrollViewRef}
               onScroll={(e) => {
                 const { layoutMeasurement, contentOffset, contentSize } =
                   e.nativeEvent;
                 const isScrolledToBottom =
                   layoutMeasurement.height + contentOffset.y >=
-                  contentSize.height - 20;
+                  contentSize.height - 10;
                 if (isScrolledToBottom) {
                   setScrolledToBottom(true);
                 }
               }}
               onContentSizeChange={(width, height) => {
-                console.log("onContentSizeChange", {
-                  width,
-                  height,
-                  scrollViewHeight,
-                  fits: scrollViewHeight >= height - 1,
-                });
-                setContentHeight(height);
-                if (scrollViewHeight > 0 && scrollViewHeight >= height - 1) {
-                  setScrolledToBottom(true);
-                } else {
-                  setScrolledToBottom(scrollViewHeight >= height - 1);
+                if (scrollViewRef.current) {
+                  (scrollViewRef.current as any).measure(
+                    (x: number, y: number, w: number, h: number) => {
+                      if (h >= height - 10) {
+                        setScrolledToBottom(true);
+                      }
+                    },
+                  );
                 }
               }}
-              onLayout={(e) => {
-                const { height } = e.nativeEvent.layout;
-                console.log("onLayout", {
-                  height,
-                  contentHeight,
-                  fits: height >= contentHeight - 1,
-                });
-                setScrollViewHeight(height);
-                if (contentHeight > 0 && height >= contentHeight - 1) {
-                  setScrolledToBottom(true);
-                }
-              }}
-              scrollEventThrottle={16}
+              scrollEventThrottle={100}
               style={[zero.flex[1], zero.mb[2], { maxHeight: "60vh" }]}
               showsHorizontalScrollIndicator={true}
             >
@@ -279,6 +265,8 @@ export default function StreamerAgreement({
                     }}
                   />
                 </Text>
+
+                <View ref={bottomMarkerRef} style={{ height: 1, width: 1 }} />
               </View>
             </ScrollView>
 

@@ -21,6 +21,7 @@ import {
 } from "../../streamplace-store/streamplace-store";
 import { usePDSAgent } from "../../streamplace-store/xrpc";
 import * as zero from "../../ui";
+import { Admonition } from "../ui";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
@@ -93,6 +94,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const getContentMetadata = useGetContentMetadata();
     const saveContentMetadata = useSaveContentMetadata();
     const toast = useToast();
+    const th = zero.useTheme();
 
     // Local state for metadata
     const [contentWarnings, setContentWarnings] = useState<string[]>([]);
@@ -379,8 +381,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     gap.all[2],
                   ]}
                 >
-                  <Text>Content Warnings</Text>
-                  <Text muted>(optional)</Text>
+                  <Text size="lg">Content Warnings</Text>
                 </View>
                 <View style={[gap.all[2], w.percent[100]]}>
                   {CONTENT_WARNINGS.map((warning) => (
@@ -398,6 +399,15 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     </View>
                   ))}
                 </View>
+                <Admonition variant="warning" size="sm">
+                  <Text size="sm">
+                    You are required to disclose if your content is not suitable
+                    for certain viewers.{" "}
+                    {/*<Text size="sm" color={colors.blue[400]}>
+                      Learn more.
+                    </Text>*/}
+                  </Text>
+                </Admonition>
               </View>
             )}
 

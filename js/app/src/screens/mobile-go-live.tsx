@@ -2,8 +2,9 @@ import { useRoute } from "@react-navigation/native";
 import { KeepAwake } from "@streamplace/components";
 import Loading from "components/loading/loading";
 import { Player } from "components/mobile/player";
+import StreamerAgreement from "components/streamer-agreement";
 import { FullscreenProvider } from "contexts/FullscreenContext";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "store";
 import { useUserProfile } from "store/hooks";
 
@@ -11,6 +12,7 @@ export default function MobileGoLive() {
   const userProfile = useUserProfile();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const route = useRoute();
+  const [agreementAccepted, setAgreementAccepted] = useState(false);
 
   useEffect(() => {
     if (!userProfile) {
@@ -21,7 +23,11 @@ export default function MobileGoLive() {
   if (!userProfile) {
     return <Loading />;
   }
-  // get player
+
+  if (!agreementAccepted) {
+    return <StreamerAgreement onAccepted={() => setAgreementAccepted(true)} />;
+  }
+
   return (
     <>
       <KeepAwake />

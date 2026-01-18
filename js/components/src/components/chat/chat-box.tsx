@@ -1,4 +1,5 @@
 import Picker from "@emoji-mart/react";
+import Graphemer from "graphemer";
 import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
 import { env } from "process";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -41,6 +42,8 @@ const COOL_EMOJI_LIST = [
   ..."😀🥸😍😘😁🥸😆🥸😜🥸😂😅🥸🙂🤫😱🥸🤣😗😄🥸😎🤓😲😯😰🥸😥🥸😣🥸😞😓🥸😩😩🥸😤🥱",
 ];
 
+const graphemer = new Graphemer();
+
 export function ChatBox({
   isPopout,
   chatBoxStyle,
@@ -65,7 +68,7 @@ export function ChatBox({
     new Map(),
   );
   const [filteredEmojis, setFilteredEmojis] = useState<any[]>([]);
-  const isOverLimit = [...message].length > 300;
+  const isOverLimit = graphemer.countGraphemes(message) > 300;
 
   let linfo = useLivestream();
 
@@ -256,7 +259,7 @@ export function ChatBox({
 
   const submit = async () => {
     if (!message.trim()) return;
-    if ([...message].length > 300) {
+    if (graphemer.countGraphemes(message) > 300) {
       toast.show(
         "Message too long",
         "Please limit your message to 300 characters.",

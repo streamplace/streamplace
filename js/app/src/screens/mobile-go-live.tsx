@@ -1,4 +1,4 @@
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { KeepAwake } from "@streamplace/components";
 import Loading from "components/loading/loading";
 import { Player } from "components/mobile/player";
@@ -13,6 +13,7 @@ export default function MobileGoLive() {
   const openLoginModal = useStore((state) => state.openLoginModal);
   const route = useRoute();
   const [agreementAccepted, setAgreementAccepted] = useState(false);
+  const navigation = useNavigation();
 
   useEffect(() => {
     if (!userProfile) {
@@ -25,7 +26,16 @@ export default function MobileGoLive() {
   }
 
   if (!agreementAccepted) {
-    return <StreamerAgreement onAccepted={() => setAgreementAccepted(true)} />;
+    return (
+      <StreamerAgreement
+        onAccepted={() => setAgreementAccepted(true)}
+        onDeclined={() =>
+          navigation.canGoBack()
+            ? navigation.goBack()
+            : navigation.navigate("Home", { screen: "StreamList" })
+        }
+      />
+    );
   }
 
   return (

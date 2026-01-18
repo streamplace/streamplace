@@ -1,4 +1,4 @@
-import { useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { LivestreamProvider, PlayerProvider } from "@streamplace/components";
 import BentoGrid from "components/live-dashboard/bento-grid";
 import Loading from "components/loading/loading";
@@ -19,6 +19,7 @@ export default function LiveDashboard() {
     null,
   );
   const [agreementAccepted, setAgreementAccepted] = useState(false);
+  const navigation = useNavigation();
 
   const videoRef = useCallback((node: HTMLVideoElement | null) => {
     if (node !== null) {
@@ -50,7 +51,14 @@ export default function LiveDashboard() {
         </VideoElementProvider>
       </LivestreamProvider>
       {!agreementAccepted && (
-        <StreamerAgreement onAccepted={() => setAgreementAccepted(true)} />
+        <StreamerAgreement
+          onAccepted={() => setAgreementAccepted(true)}
+          onDeclined={() =>
+            navigation.canGoBack()
+              ? navigation.goBack()
+              : navigation.navigate("Home", { screen: "StreamList" })
+          }
+        />
       )}
     </>
   );

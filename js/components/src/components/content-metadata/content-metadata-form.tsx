@@ -42,7 +42,6 @@ export interface ContentMetadataFormProps {
   style?: any;
 }
 
-// ButtonSelector component (same as in livestream-panel)
 const ButtonSelector = ({
   values,
   selectedValue,
@@ -56,12 +55,13 @@ const ButtonSelector = ({
   disabledValues?: string[];
   style?: any[];
 }) => (
-  <View style={[layout.flex.row, gap.all[1], ...style]}>
+  <View style={[layout.flex.row, gap.all[1], layout.flex.wrap.wrap, ...style]}>
     {values.map(({ label, value }) => (
       <Button
         key={value}
         variant={selectedValue === value ? "primary" : "secondary"}
         size="pill"
+        width="min"
         disabled={disabledValues.includes(value)}
         onPress={() => setSelectedValue(value)}
         style={[
@@ -72,10 +72,8 @@ const ButtonSelector = ({
         ]}
       >
         <Text
-          style={[
-            selectedValue === value ? text.white : text.gray[300],
-            { fontSize: 14, fontWeight: "600" },
-          ]}
+          size="sm"
+          style={[selectedValue === value ? text.white : text.gray[300]]}
         >
           {label}
         </Text>
@@ -366,7 +364,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 ]}
                 selectedValue={activeSection}
                 setSelectedValue={setActiveSection}
-                style={[{ marginVertical: -2, flexDirection: "column" }]}
+                style={[{ marginVertical: -2 }]}
               />
             </View>
 
@@ -402,7 +400,16 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 <Admonition variant="warning" size="sm">
                   <Text size="sm">
                     You are required to disclose if your content is not suitable
-                    for certain viewers.{" "}
+                    for certain viewers.
+                    {/*<Text size="sm" color={colors.blue[400]}>
+                      Learn more.
+                    </Text>*/}
+                  </Text>
+                </Admonition>
+                <Admonition variant="warning" size="sm">
+                  <Text size="sm">
+                    Your node may prohibit some of this content. Read the
+                    community guidelines to make sure.
                     {/*<Text size="sm" color={colors.blue[400]}>
                       Learn more.
                     </Text>*/}

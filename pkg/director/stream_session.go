@@ -48,7 +48,6 @@ type StreamSession struct {
 	// Channels for background workers
 	statusUpdateChan chan struct{} // Signal to update status
 	originUpdateChan chan struct{} // Signal to update broadcast origin
-	shutdown         chan struct{}
 
 	g          *errgroup.Group
 	started    chan struct{}
@@ -132,7 +131,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 			// reset timer
 		case <-ctx.Done():
 			// Signal all background workers to stop
-			close(ss.shutdown)
 			return ss.g.Wait()
 		// case <-time.After(time.Minute * 1):
 		case <-time.After(ss.cli.StreamSessionTimeout):
@@ -142,7 +140,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 				ss.bus.EndSession(ctx, spseg.Creator, r.Name)
 			}
 			// Signal background workers to stop
-			close(ss.shutdown)
 			if notif.Local {
 				ss.Go(ctx, func() error {
 					return ss.DeleteStatus(spseg.Creator)
@@ -337,9 +334,6 @@ func (ss *StreamSession) statusUpdateLoop(ctx context.Context, repoDID string) e
 	ctx = log.WithLogValues(ctx, "func", "statusUpdateLoop")
 	for {
 		select {
-		case <-ss.shutdown:
-			log.Debug(ctx, "statusUpdateLoop shutting down")
-			return nil
 		case <-ctx.Done():
 			return nil
 		case <-ss.statusUpdateChan:
@@ -502,9 +496,6 @@ func (ss *StreamSession) originUpdateLoop(ctx context.Context) error {
 	ctx = log.WithLogValues(ctx, "func", "originUpdateLoop")
 	for {
 		select {
-		case <-ss.shutdown:
-			log.Debug(ctx, "originUpdateLoop shutting down")
-			return nil
 		case <-ctx.Done():
 			return nil
 		case <-ss.originUpdateChan:

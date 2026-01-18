@@ -79,7 +79,6 @@ func (d *Director) Start(ctx context.Context) error {
 					// Initialize notification channels (buffered size 1 for coalescing)
 					statusUpdateChan: make(chan struct{}, 1),
 					originUpdateChan: make(chan struct{}, 1),
-					shutdown:         make(chan struct{}),
 				}
 				d.streamSessions[not.Segment.RepoDID] = ss
 				g.Go(func() error {

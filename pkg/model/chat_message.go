@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/rivo/uniseg"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/streamplace"
 )
@@ -43,9 +45,14 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageV
 	}
 	// Truncate message text if it is a ChatMessage
 	if msg, ok := rec.(*streamplace.ChatMessage); ok {
-		runes := []rune(msg.Text)
-		if len(runes) > 300 {
-			msg.Text = string(runes[:300])
+		graphemeCount := uniseg.GraphemeClusterCount(msg.Text)
+		if graphemeCount > 300 {
+			gr := uniseg.NewGraphemes(msg.Text)
+			var result strings.Builder
+			for count := 0; count < 300 && gr.Next(); count++ {
+				result.WriteString(gr.Str())
+			}
+			msg.Text = result.String()
 		}
 	}
 

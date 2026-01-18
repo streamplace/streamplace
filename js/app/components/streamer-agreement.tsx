@@ -1,0 +1,269 @@
+import { Button, storage, Text, useTheme, zero } from "@streamplace/components";
+import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import {
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  useWindowDimensions,
+  View,
+} from "react-native";
+
+const STREAMER_AGREEMENT_KEY = "streamer_agreement_accepted";
+
+interface StreamerAgreementProps {
+  onAccepted: () => void;
+}
+
+export default function StreamerAgreement({
+  onAccepted,
+}: StreamerAgreementProps) {
+  const [visible, setVisible] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const { theme, zero: z } = useTheme();
+  const dims = useWindowDimensions();
+  const { t } = useTranslation("common");
+  const shouldShowScrollBar = dims.height < 720 || Platform.OS != "web";
+
+  useEffect(() => {
+    checkAgreement();
+  }, []);
+
+  const checkAgreement = async () => {
+    try {
+      const accepted = await storage.getItem(STREAMER_AGREEMENT_KEY);
+      if (!accepted) {
+        setVisible(true);
+      } else {
+        onAccepted();
+      }
+    } catch (error) {
+      console.error("Failed to check streamer agreement:", error);
+      setVisible(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAccept = async () => {
+    if (!scrolledToBottom && !confirming) {
+      setConfirming(true);
+      return;
+    }
+
+    try {
+      await storage.setItem(STREAMER_AGREEMENT_KEY, "true");
+      setVisible(false);
+      onAccepted();
+    } catch (error) {
+      console.error("Failed to save streamer agreement:", error);
+    }
+  };
+
+  if (loading) {
+    return null;
+  }
+
+  if (!visible) {
+    return null;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => {}}
+      style={{ cursor: "pointer" }}
+    >
+      <View
+        style={[
+          zero.layout.flex[1],
+          zero.layout.flex.center,
+          zero.layout.flex.alignCenter,
+          zero.layout.flex.justifyCenter,
+          {
+            backgroundColor: "rgba(0, 0, 0, 0.9)",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100%",
+            height: "100%",
+          },
+        ]}
+      >
+        <Pressable
+          style={[
+            z.bg.card,
+            zero.r.xl,
+            zero.p[6],
+            {
+              width: 600,
+              maxWidth: "95%",
+              maxHeight: "85%",
+              cursor: "auto",
+            },
+          ]}
+          onPress={(e) => e.stopPropagation()}
+        >
+          <View style={[zero.layout.flex[1]]}>
+            <Text size="4xl" leading="snug" style={[zero.mb[4]]}>
+              {t("streamer-agreement-title")}
+            </Text>
+
+            <ScrollView
+              onScroll={(e) => {
+                const { layoutMeasurement, contentOffset, contentSize } =
+                  e.nativeEvent;
+                const isScrolledToBottom =
+                  layoutMeasurement.height + contentOffset.y >=
+                  contentSize.height - 20;
+                if (isScrolledToBottom) {
+                  setScrolledToBottom(true);
+                }
+              }}
+              scrollEventThrottle={16}
+              style={[zero.layout.flex[1], zero.mb[2]]}
+              showsHorizontalScrollIndicator={false}
+            >
+              <Text size="base" leading="relaxed" style={[zero.mb[3]]}>
+                {t("streamer-agreement-intro")}
+              </Text>
+
+              <View style={[zero.mb[4], zero.gap.all[1]]}>
+                <View style={[zero.layout.flex.row]}>
+                  <Text size="base" leading="relaxed" style={[zero.mr[2]]}>
+                    1.
+                  </Text>
+                  <Text
+                    size="base"
+                    leading="relaxed"
+                    style={[zero.layout.flex[1]]}
+                  >
+                    {t("streamer-agreement-rule-1")}
+                  </Text>
+                </View>
+                <View style={[zero.layout.flex.row]}>
+                  <Text size="base" leading="relaxed" style={[zero.mr[2]]}>
+                    2.
+                  </Text>
+                  <Text
+                    size="base"
+                    leading="relaxed"
+                    style={[zero.layout.flex[1]]}
+                  >
+                    {t("streamer-agreement-rule-2")}
+                  </Text>
+                </View>
+                <View style={[zero.layout.flex.row]}>
+                  <Text size="base" leading="relaxed" style={[zero.mr[2]]}>
+                    3.
+                  </Text>
+                  <Text
+                    size="base"
+                    leading="relaxed"
+                    style={[zero.layout.flex[1]]}
+                  >
+                    {t("streamer-agreement-rule-3")}
+                  </Text>
+                </View>
+                <View style={[zero.layout.flex.row]}>
+                  <Text size="base" leading="relaxed" style={[zero.mr[2]]}>
+                    4.
+                  </Text>
+                  <Text
+                    size="base"
+                    leading="relaxed"
+                    style={[zero.layout.flex[1]]}
+                  >
+                    <Trans
+                      i18nKey="streamer-agreement-rule-4"
+                      default="Not stream content that is illegal, harmful, or violates our Terms of Service. <1>This may include graphic and certain sexual content.</1>"
+                      components={{
+                        1: (
+                          <Text
+                            size="base"
+                            style={[
+                              {
+                                fontWeight: 600,
+                                backgroundColor: "#ffea0066",
+                                marginHorizontal: -4,
+                                paddingHorizontal: 4,
+                              },
+                            ]}
+                          />
+                        ),
+                      }}
+                    />
+                  </Text>
+                </View>
+                <View style={[zero.layout.flex.row]}>
+                  <Text size="base" leading="relaxed" style={[zero.mr[2]]}>
+                    5.
+                  </Text>
+                  <Text
+                    size="base"
+                    leading="relaxed"
+                    style={[zero.layout.flex[1]]}
+                  >
+                    <Trans
+                      i18nKey="streamer-agreement-rule-5"
+                      default="Not violate our policies. Doing so may result in the <1>removal of features available to you (including your ability to stream), account suspension, and in some cases, account termination.</1>"
+                      components={{
+                        1: (
+                          <Text
+                            size="base"
+                            style={[
+                              {
+                                fontWeight: 600,
+                                backgroundColor: "#ffea0066",
+                                marginHorizontal: -4,
+                                paddingHorizontal: 4,
+                              },
+                            ]}
+                          />
+                        ),
+                      }}
+                    />
+                  </Text>
+                </View>
+              </View>
+
+              <Text size="base" leading="relaxed" style={[zero.mb[3]]}>
+                <Trans
+                  i18nKey="streamer-agreement-footer"
+                  default="For full details, please review our <1>Terms of Service</1> and <2>Community Guidelines</2>."
+                  components={{
+                    1: <Text size="base" weight="semibold" />,
+                    2: <Text size="base" weight="semibold" />,
+                  }}
+                />
+              </Text>
+            </ScrollView>
+
+            <Text
+              size="sm"
+              leading="relaxed"
+              style={[z.text.mutedForeground, zero.mb[4]]}
+            >
+              {t("streamer-agreement-disclaimer")}
+            </Text>
+
+            <View style={[zero.layout.flex.row, zero.layout.flex.justify.end]}>
+              <Button variant="primary" size="lg" onPress={handleAccept}>
+                {confirming
+                  ? "Are you sure you've read everything?"
+                  : t("streamer-agreement-accept")}
+              </Button>
+            </View>
+          </View>
+        </Pressable>
+      </View>
+    </Modal>
+  );
+}

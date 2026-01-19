@@ -397,7 +397,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     </View>
                   ))}
                 </View>
-                <Admonition variant="warning" size="sm">
+                <Admonition variant="info" size="sm">
                   <Text size="sm">
                     You are required to disclose if your content is not suitable
                     for certain viewers.

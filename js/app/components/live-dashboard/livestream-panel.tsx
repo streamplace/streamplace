@@ -160,6 +160,20 @@ const ImageUploadComponent = ({
           </Text>
         </TouchableOpacity>
       )}
+      <View style={{ marginTop: 8 }}>
+        <Admonition variant="info" size="sm">
+          <Text size="sm">
+            You are required to disclose if your content is not suitable for
+            certain viewers.
+          </Text>
+          <Pressable onPress={onGoToMetadata}>
+            <Text size="sm" color={zero.colors.blue[400]}>
+              Go to the metadata page{" "}
+              <ArrowRight size="14" style={{ marginVertical: -2 }} />
+            </Text>
+          </Pressable>
+        </Admonition>
+      </View>
     </View>
   );
 };

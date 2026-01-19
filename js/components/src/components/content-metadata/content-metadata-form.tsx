@@ -409,10 +409,22 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 <Admonition variant="warning" size="sm">
                   <Text size="sm">
                     Your node may prohibit some of this content. Read the
-                    community guidelines to make sure.
-                    {/*<Text size="sm" color={colors.blue[400]}>
-                      Learn more.
-                    </Text>*/}
+                    community guidelines to make sure.{" "}
+                    <Pressable
+                      onPress={() =>
+                        Linking.openURL(
+                          "https://blog.stream.place/3mcqwibo4ks2w",
+                        )
+                      }
+                    >
+                      <Text size="sm" color={zero.colors.blue[400]}>
+                        Learn more{" "}
+                        <ExternalLink
+                          size="14"
+                          style={{ marginVertical: -2 }}
+                        />
+                      </Text>
+                    </Pressable>
                   </Text>
                 </Admonition>
               </View>

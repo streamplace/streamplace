@@ -387,12 +387,13 @@ js-lexicons:
 		&& for x in $$(find ./js/streamplace/src/lexicons -type f -name '*.ts'); do \
 			echo 'import { AppBskyRichtextFacet, AppBskyGraphBlock, ComAtprotoRepoStrongRef, AppBskyActorDefs, ComAtprotoSyncListRepos, AppBskyActorGetProfile, AppBskyFeedGetFeedSkeleton, ComAtprotoIdentityResolveHandle, ComAtprotoModerationCreateReport, ComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoDescribeRepo, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoRepoPutRecord, ComAtprotoRepoUploadBlob, ComAtprotoServerDescribeServer, ComAtprotoSyncGetRecord, ComAtprotoSyncListReposComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoIdentityRefreshIdentity } from "@atproto/api"' >> $$x; \
 		done \
-		&& npx prettier --write $$(find ./js/streamplace/src/lexicons -type f -name '*.ts') \
+		&& npx prettier --ignore-unknown --write $$(find ./js/streamplace/src/lexicons -type f -name '*.ts') \
 		&& find . | grep bak$$ | xargs rm
 
 .PHONY: md-lexicons
 md-lexicons:
-	pnpm exec lexmd \
+	find "js/docs/src/content/docs/lex-reference" -type f -name '*.md' -delete \
+	&& pnpm exec lexmd \
 	    ./lexicons \
 		.build/temp \
 		subprojects/atproto/lexicons \

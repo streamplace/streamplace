@@ -79,6 +79,39 @@ Record announcing a livestream is happening
 
 ---
 
+<a name="teleportarrival"></a>
+
+### `teleportArrival`
+
+**Type:** `object`
+
+**Properties:**
+
+| Name          | Type                                                                                                                                             | Req'd | Description                                        | Constraints        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | -------------------------------------------------- | ------------------ |
+| `teleportUri` | `string`                                                                                                                                         | ✅    | The URI of the teleport record                     | Format: `at-uri`   |
+| `source`      | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    | The streamer who is teleporting their viewers here |                    |
+| `chatProfile` | [`place.stream.chat.profile`](/lex-reference/place-stream-chat-profile)                                                                          | ❌    | The chat profile of the source streamer            |                    |
+| `viewerCount` | `integer`                                                                                                                                        | ✅    | How many viewers are arriving from this teleport   |                    |
+| `startsAt`    | `string`                                                                                                                                         | ✅    | When this teleport started                         | Format: `datetime` |
+
+---
+
+<a name="teleportcanceled"></a>
+
+### `teleportCanceled`
+
+**Type:** `object`
+
+**Properties:**
+
+| Name          | Type     | Req'd | Description                                      | Constraints                          |
+| ------------- | -------- | ----- | ------------------------------------------------ | ------------------------------------ |
+| `teleportUri` | `string` | ✅    | The URI of the teleport record that was canceled | Format: `at-uri`                     |
+| `reason`      | `string` | ✅    | Why this teleport was canceled                   | Enum: `deleted`, `denied`, `expired` |
+
+---
+
 <a name="streamplaceanything"></a>
 
 ### `streamplaceAnything`
@@ -87,9 +120,9 @@ Record announcing a livestream is happening
 
 **Properties:**
 
-| Name         | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Req'd | Description | Constraints |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------- | ----------- |
-| `livestream` | Union of:<br/>&nbsp;&nbsp;[`#livestreamView`](#livestreamview)<br/>&nbsp;&nbsp;[`#viewerCount`](#viewercount)<br/>&nbsp;&nbsp;[`place.stream.defs#blockView`](/lex-reference/place-stream-defs#blockview)<br/>&nbsp;&nbsp;[`place.stream.defs#renditions`](/lex-reference/place-stream-defs#renditions)<br/>&nbsp;&nbsp;[`place.stream.defs#rendition`](/lex-reference/place-stream-defs#rendition)<br/>&nbsp;&nbsp;[`place.stream.chat.defs#messageView`](/lex-reference/place-stream-chat-defs#messageview) | ✅    |             |             |
+| Name         | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Req'd | Description | Constraints |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------- | ----------- |
+| `livestream` | Union of:<br/>&nbsp;&nbsp;[`#livestreamView`](#livestreamview)<br/>&nbsp;&nbsp;[`#viewerCount`](#viewercount)<br/>&nbsp;&nbsp;[`#teleportArrival`](#teleportarrival)<br/>&nbsp;&nbsp;[`#teleportCanceled`](#teleportcanceled)<br/>&nbsp;&nbsp;[`place.stream.defs#blockView`](/lex-reference/place-stream-defs#blockview)<br/>&nbsp;&nbsp;[`place.stream.defs#renditions`](/lex-reference/place-stream-defs#renditions)<br/>&nbsp;&nbsp;[`place.stream.defs#rendition`](/lex-reference/place-stream-defs#rendition)<br/>&nbsp;&nbsp;[`place.stream.chat.defs#messageView`](/lex-reference/place-stream-chat-defs#messageview) | ✅    |             |             |
 
 ---
 
@@ -199,6 +232,52 @@ Record announcing a livestream is happening
         }
       }
     },
+    "teleportArrival": {
+      "type": "object",
+      "required": ["teleportUri", "source", "viewerCount", "startsAt"],
+      "properties": {
+        "teleportUri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The URI of the teleport record"
+        },
+        "source": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic",
+          "description": "The streamer who is teleporting their viewers here"
+        },
+        "chatProfile": {
+          "type": "ref",
+          "ref": "place.stream.chat.profile",
+          "description": "The chat profile of the source streamer"
+        },
+        "viewerCount": {
+          "type": "integer",
+          "description": "How many viewers are arriving from this teleport"
+        },
+        "startsAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When this teleport started"
+        }
+      }
+    },
+    "teleportCanceled": {
+      "type": "object",
+      "required": ["teleportUri", "reason"],
+      "properties": {
+        "teleportUri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The URI of the teleport record that was canceled"
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["deleted", "denied", "expired"],
+          "description": "Why this teleport was canceled"
+        }
+      }
+    },
     "streamplaceAnything": {
       "type": "object",
       "required": ["livestream"],
@@ -208,6 +287,8 @@ Record announcing a livestream is happening
           "refs": [
             "#livestreamView",
             "#viewerCount",
+            "#teleportArrival",
+            "#teleportCanceled",
             "place.stream.defs#blockView",
             "place.stream.defs#renditions",
             "place.stream.defs#rendition",

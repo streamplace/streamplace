@@ -1,5 +1,5 @@
 import { ChevronUp } from "lucide-react-native";
-import { ComponentProps, useEffect } from "react";
+import { ComponentProps, useEffect, useState } from "react";
 import { Dimensions } from "react-native";
 import {
   Gesture,
@@ -9,6 +9,7 @@ import {
 import Animated, {
   Extrapolation,
   interpolate,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -27,6 +28,7 @@ type ResizableChatSheetProps = {
   isPlayerRatioGreater: boolean;
   style?: ComponentProps<typeof AnimatedView>["style"];
   children?: React.ReactNode;
+  renderAbove?: (isCollapsed: boolean) => React.ReactNode;
 };
 
 const SPRING_CONFIG = { damping: 20, stiffness: 100 };
@@ -36,6 +38,7 @@ export function Resizable({
   isPlayerRatioGreater,
   style = {},
   children,
+  renderAbove,
 }: ResizableChatSheetProps) {
   const { slideKeyboard } = useKeyboardSlide();
   const { bottom: safeBottom } = useSafeAreaInsets();
@@ -45,13 +48,16 @@ export function Resizable({
 
   const sheetHeight = useSharedValue(MIN_HEIGHT);
   const startHeight = useSharedValue(MIN_HEIGHT);
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const wasCollapsed = useSharedValue(true);
 
   useEffect(() => {
     setTimeout(() => {
-      sheetHeight.value = withSpring(
-        startingPercentage ? startingPercentage * SCREEN_HEIGHT : MIN_HEIGHT,
-        SPRING_CONFIG,
-      );
+      const targetHeight = startingPercentage
+        ? startingPercentage * SCREEN_HEIGHT
+        : MIN_HEIGHT;
+      sheetHeight.value = withSpring(targetHeight, SPRING_CONFIG);
+      setIsCollapsed(targetHeight < COLLAPSE_HEIGHT);
     }, 1000);
   }, []);
 
@@ -65,8 +71,14 @@ export function Resizable({
       if (newHeight < MIN_HEIGHT) newHeight = MIN_HEIGHT;
       sheetHeight.value = newHeight;
 
-      if (newHeight < COLLAPSE_HEIGHT) {
+      const nowCollapsed = newHeight < COLLAPSE_HEIGHT;
+      if (nowCollapsed && !wasCollapsed.value) {
         sheetHeight.value = withSpring(MIN_HEIGHT, SPRING_CONFIG);
+        wasCollapsed.value = true;
+        runOnJS(setIsCollapsed)(true);
+      } else if (!nowCollapsed && wasCollapsed.value) {
+        wasCollapsed.value = false;
+        runOnJS(setIsCollapsed)(false);
       }
     });
 
@@ -97,6 +109,19 @@ export function Resizable({
     ],
   }));
 
+  const aboveElementStyle = useAnimatedStyle(() => ({
+    // show inside area when not collapsed, and show outside area when collapsed
+    height: sheetHeight.value < COLLAPSE_HEIGHT ? 0 : sheetHeight.value,
+    transform: [
+      {
+        translateY:
+          sheetHeight.value < COLLAPSE_HEIGHT
+            ? withSpring(-120)
+            : withSpring(20),
+      },
+    ],
+  }));
+
   return (
     <>
       <Animated.View
@@ -111,10 +136,11 @@ export function Resizable({
       >
         <Pressable
           onPress={() => {
-            sheetHeight.value =
-              sheetHeight.value === MIN_HEIGHT
-                ? withSpring(MAX_HEIGHT, SPRING_CONFIG)
-                : withSpring(MIN_HEIGHT, SPRING_CONFIG);
+            const isCurrentlyCollapsed = sheetHeight.value === MIN_HEIGHT;
+            sheetHeight.value = isCurrentlyCollapsed
+              ? withSpring(MAX_HEIGHT, SPRING_CONFIG)
+              : withSpring(MIN_HEIGHT, SPRING_CONFIG);
+            setIsCollapsed(!isCurrentlyCollapsed);
           }}
         >
           <View
@@ -155,36 +181,64 @@ export function Resizable({
         ]}
       >
         <View style={[layout.flex.row, layout.flex.justifyCenter, h[2]]}>
-          <GestureDetector gesture={panGesture}>
-            <View
-              // Make the touch area much larger, but keep the visible handle small
-              style={{
-                height: 30, // Large touch area
-                width: 120, // Wide enough for thumbs
-                alignItems: "center",
-                justifyContent: "center",
-                //backgroundColor: "rgba(0,255,255,0.1)",
-                transform: [{ translateY: -30 }],
-              }}
-            >
+          <View style={{ alignItems: "center", width: "100%" }}>
+            <GestureDetector gesture={panGesture}>
               <View
-                style={[
-                  w[32],
-                  {
-                    height: 6,
-                    backgroundColor: "#eeeeee66",
-                    borderRadius: 999,
+                // Make the touch area much larger, but keep the visible handle small
+                style={{
+                  height: 30, // Large touch area
+                  width: 120, // Wide enough for thumbs
+                  alignItems: "center",
+                  justifyContent: "center",
+                  //backgroundColor: "rgba(0,255,255,0.1)",
+                  transform: [{ translateY: -30 }],
+                }}
+              >
+                <View
+                  style={[
+                    w[32],
+                    {
+                      height: 6,
+                      backgroundColor: "#eeeeee66",
+                      borderRadius: 999,
 
-                    transform: [{ translateY: 5 }],
-                  },
-                ]}
-              />
-            </View>
-          </GestureDetector>
+                      transform: [{ translateY: 5 }],
+                    },
+                  ]}
+                />
+              </View>
+            </GestureDetector>
+          </View>
         </View>
 
         {children}
       </AnimatedView>
+      <Animated.View
+        style={[
+          aboveElementStyle,
+          {
+            width: "100%",
+            pointerEvents: "none",
+            position: "absolute",
+            bottom: 0,
+          },
+        ]}
+      >
+        <View
+          style={{
+            pointerEvents: "auto",
+            width: "100%",
+            // hate doing it this way, but can't figure out
+            // how to make it size to content otherwise
+            minHeight: 50,
+            height: "100%",
+            maxHeight: 75,
+            flex: 0,
+          }}
+        >
+          {renderAbove?.(isCollapsed)}
+        </View>
+      </Animated.View>
     </>
   );
 }

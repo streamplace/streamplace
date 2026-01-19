@@ -74,6 +74,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   };
 
   const onSignup = () => {
+    // TODO: remove requirement for oauth-protected-resource in oatproxy
     loginAction("https://bsky.social", openLoginLink);
   };
 

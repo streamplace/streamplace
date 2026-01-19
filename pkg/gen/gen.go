@@ -26,6 +26,7 @@ func main() {
 		streamplace.ChatMessage_ReplyRef{},
 		streamplace.ServerSettings{},
 		streamplace.ChatGate{},
+		streamplace.MultistreamTarget{},
 		streamplace.BroadcastOrigin{},
 		streamplace.BroadcastPublisherKey{},
 		streamplace.BroadcastSyndication{},
@@ -34,6 +35,7 @@ func main() {
 		streamplace.MetadataContentRights{},
 		streamplace.MetadataContentWarnings{},
 		streamplace.ModerationPermission{},
+		streamplace.LiveTeleport{},
 		streamplace.LiveRecommendations{},
 	); err != nil {
 		panic(err)

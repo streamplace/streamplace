@@ -1,6 +1,7 @@
 // barrel file :)
 export * from "./useAvatars";
 export * from "./useCameraToggle";
+export * from "./useDocumentTitle";
 export * from "./useKeyboard";
 export * from "./useKeyboardSlide";
 export * from "./useLivestreamInfo";

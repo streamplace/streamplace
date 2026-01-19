@@ -224,7 +224,7 @@ export const MenuLabel = forwardRef<View, MenuLabelProps>(
         ref={ref as any}
         style={mergeStyles(
           px[4],
-          py[2],
+          pt[2],
           { color: theme.colors.textMuted },
           a.fontSize.base,
           style,
@@ -274,7 +274,6 @@ export const MenuInfo = forwardRef<View, MenuInfoProps>(
         style={mergeStyles(
           { color: theme.colors.textMuted, marginTop: -8 },
           pt[1],
-          pl[4],
           pb[2],
           fontSize.sm,
           style,

@@ -9,12 +9,57 @@ import (
 	"github.com/bluesky-social/indigo/lex/util"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
 
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
+
+func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *placestreamtypes.LiveDenyTeleport_Input) (*placestreamtypes.LiveDenyTeleport_Output, error) {
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
+	}
+
+	if input.Uri == "" {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "URI is required")
+	}
+
+	teleport, err := s.model.GetTeleportByURI(input.Uri)
+	if err != nil {
+		log.Error(ctx, "failed to get teleport", "err", err)
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to retrieve teleport")
+	}
+
+	if teleport == nil {
+		return nil, echo.NewHTTPError(http.StatusNotFound, "Teleport not found")
+	}
+
+	if teleport.TargetDID != session.DID {
+		return nil, echo.NewHTTPError(http.StatusForbidden, "You are not the target of this teleport")
+	}
+
+	err = s.model.DenyTeleport(ctx, input.Uri)
+	if err != nil {
+		log.Error(ctx, "failed to deny teleport", "err", err)
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to deny teleport")
+	}
+
+	cancelMsg := &placestreamtypes.Livestream_TeleportCanceled{
+		LexiconTypeID: "place.stream.livestream#teleportCanceled",
+		TeleportUri:   input.Uri,
+		Reason:        "denied",
+	}
+
+	s.bus.Publish(teleport.RepoDID, cancelMsg)
+	s.bus.Publish(teleport.TargetDID, cancelMsg)
+
+	return &placestreamtypes.LiveDenyTeleport_Output{
+		Success: true,
+	}, nil
+}
 
 var replicationUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -68,6 +113,12 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 }
 
 func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before string, limit int) (*placestreamtypes.LiveGetLiveUsers_Output, error) {
+	// Check cache first
+	cacheKey := fmt.Sprintf("live_users_%s_%d", before, limit)
+	if cached, found := s.LiveUsersCache.Get(cacheKey); found {
+		return cached.(*placestreamtypes.LiveGetLiveUsers_Output), nil
+	}
+
 	var beforeTime *time.Time
 	if before != "" {
 		parsedTime, err := time.Parse(time.RFC3339, before)
@@ -99,6 +150,9 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 	liveUsers := &placestreamtypes.LiveGetLiveUsers_Output{
 		Streams: streams,
 	}
+
+	// Cache the result
+	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
 
 	return liveUsers, nil
 }

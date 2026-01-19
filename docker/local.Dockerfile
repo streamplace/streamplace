@@ -5,5 +5,6 @@ RUN apt update && apt install -y ca-certificates
 COPY build-linux-amd64/streamplace /usr/local/bin/streamplace
 
 ENV PATH="/usr/local/bin:$PATH"
+ENV SP_DATA_DIR=/var/lib/streamplace
 
 CMD ["streamplace"]

@@ -1,0 +1,266 @@
+package spxrpc
+
+import (
+	"bytes"
+	"context"
+	_ "embed"
+	"encoding/base64"
+	"fmt"
+	"io"
+	"net/http"
+
+	"github.com/labstack/echo/v4"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"gorm.io/gorm"
+	"stream.place/streamplace/js/app"
+	"stream.place/streamplace/pkg/log"
+	placestreamtypes "stream.place/streamplace/pkg/streamplace"
+)
+
+var defaultBrandingAssets = map[string]struct {
+	data []byte
+	mime string
+}{
+	// "mainLogo":         {data: defaultLogoSVG, mime: "image/svg+xml"},
+	// "favicon":          {data: defaultFaviconSVG, mime: "image/svg+xml"},
+	"siteTitle":       {data: []byte(""), mime: "text/plain"},
+	"siteDescription": {data: []byte(""), mime: "text/plain"},
+	"primaryColor":    {data: []byte("#6366f1"), mime: "text/plain"},
+	"accentColor":     {data: []byte("#8b5cf6"), mime: "text/plain"},
+	"defaultStreamer": {data: []byte(""), mime: "text/plain"},
+}
+
+func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) string {
+	// if broadcaster param provided, use it; otherwise use server's default
+	if broadcasterDID != "" {
+		return broadcasterDID
+	}
+	return s.cli.BroadcasterHost
+}
+
+func (s *Server) getBrandingBlob(ctx context.Context, broadcasterID, key string) ([]byte, string, *int, *int, error) {
+	// cache miss - fetch from db
+	blob, err := s.statefulDB.GetBrandingBlob(broadcasterID, key)
+	if err == gorm.ErrRecordNotFound {
+		// not in db, use default
+		if def, ok := defaultBrandingAssets[key]; ok {
+			return def.data, def.mime, nil, nil, nil
+		}
+		return nil, "", nil, nil, fmt.Errorf("unknown branding key: %s", key)
+	}
+	if err != nil {
+		return nil, "", nil, nil, fmt.Errorf("error fetching branding blob: %w", err)
+	}
+	return blob.Data, blob.MimeType, blob.Width, blob.Height, nil
+}
+
+func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
+	return s.HandlePlaceStreamBrandingGetBlobDirect(ctx, broadcasterDID, key)
+}
+
+// HandlePlaceStreamBrandingGetBlobDirect is the exported version for direct calls
+func (s *Server) HandlePlaceStreamBrandingGetBlobDirect(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
+	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
+	data, _, _, _, err := s.getBrandingBlob(ctx, broadcasterID, key)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(data), nil
+}
+
+func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context, broadcasterDID string) (*placestreamtypes.BrandingGetBranding_Output, error) {
+	return s.HandlePlaceStreamBrandingGetBrandingDirect(ctx, broadcasterDID)
+}
+
+// HandlePlaceStreamBrandingGetBrandingDirect is the exported version for direct calls
+func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context, broadcasterDID string) (*placestreamtypes.BrandingGetBranding_Output, error) {
+	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
+
+	// get all keys from database
+	dbKeys, err := s.statefulDB.ListBrandingKeys(broadcasterID)
+	if err != nil {
+		return nil, fmt.Errorf("error listing branding keys: %w", err)
+	}
+
+	// build key set including defaults
+	allKeys := make(map[string]bool)
+	for _, key := range dbKeys {
+		allKeys[key] = true
+	}
+	for key := range defaultBrandingAssets {
+		allKeys[key] = true
+	}
+
+	// build output
+	assets := make([]*placestreamtypes.BrandingGetBranding_BrandingAsset, 0, len(allKeys))
+	for key := range allKeys {
+		data, mimeType, width, height, err := s.getBrandingBlob(ctx, broadcasterID, key)
+		if err != nil {
+			continue // skip if error
+		}
+
+		asset := &placestreamtypes.BrandingGetBranding_BrandingAsset{
+			Key:      key,
+			MimeType: mimeType,
+		}
+
+		// add dimensions if available
+		if width != nil {
+			w := int64(*width)
+			asset.Width = &w
+		}
+		if height != nil {
+			h := int64(*height)
+			asset.Height = &h
+		}
+
+		// for text assets, include data inline; for images, provide URL
+		if mimeType == "text/plain" {
+			str := string(data)
+			asset.Data = &str
+		} else {
+			url := fmt.Sprintf("/xrpc/place.stream.branding.getBlob?key=%s&broadcaster=%s", key, broadcasterID)
+			asset.Url = &url
+		}
+
+		assets = append(assets, asset)
+	}
+
+	return &placestreamtypes.BrandingGetBranding_Output{
+		Assets: assets,
+	}, nil
+}
+
+func (s *Server) isAdminDID(did string) bool {
+	for _, adminDID := range s.cli.AdminDIDs {
+		if adminDID == did {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input *placestreamtypes.BrandingUpdateBlob_Input) (*placestreamtypes.BrandingUpdateBlob_Output, error) {
+	// check authentication
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
+	}
+
+	// check admin authorization
+	if !s.isAdminDID(session.DID) {
+		log.Warn(ctx, "unauthorized branding update attempt", "did", session.DID)
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "not authorized to modify branding")
+	}
+
+	var broadcasterDID string
+	if input.Broadcaster != nil {
+		broadcasterDID = *input.Broadcaster
+	}
+	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
+
+	// decode base64 data
+	data, err := base64.StdEncoding.DecodeString(input.Data)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid base64 data")
+	}
+
+	// validate size based on key type
+	maxSize := 500 * 1024 // 500KB default for logos
+	if input.Key == "favicon" {
+		maxSize = 100 * 1024 // 100KB for favicons
+	} else if input.Key == "siteTitle" || input.Key == "siteDescription" || input.Key == "primaryColor" || input.Key == "accentColor" || input.Key == "defaultStreamer" {
+		maxSize = 1024 // 1KB for text values
+	}
+	// sidebarBackgroundImage uses default 500KB limit
+	if len(data) > maxSize {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("blob too large (max %d bytes)", maxSize))
+	}
+
+	// store in database
+	var width, height *int
+	if input.Width != nil {
+		w := int(*input.Width)
+		width = &w
+	}
+	if input.Height != nil {
+		h := int(*input.Height)
+		height = &h
+	}
+
+	err = s.statefulDB.PutBrandingBlob(broadcasterID, input.Key, input.MimeType, data, width, height)
+	if err != nil {
+		log.Error(ctx, "failed to store branding blob", "err", err)
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to store branding blob")
+	}
+
+	return &placestreamtypes.BrandingUpdateBlob_Output{
+		Success: true,
+	}, nil
+}
+
+func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input *placestreamtypes.BrandingDeleteBlob_Input) (*placestreamtypes.BrandingDeleteBlob_Output, error) {
+	// check authentication
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
+	}
+
+	// check admin authorization
+	if !s.isAdminDID(session.DID) {
+		log.Warn(ctx, "unauthorized branding delete attempt", "did", session.DID)
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "not authorized to modify branding")
+	}
+
+	var broadcasterDID string
+	if input.Broadcaster != nil {
+		broadcasterDID = *input.Broadcaster
+	}
+	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
+
+	err := s.statefulDB.DeleteBrandingBlob(broadcasterID, input.Key)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, echo.NewHTTPError(http.StatusNotFound, "branding asset not found")
+		}
+		log.Error(ctx, "failed to delete branding blob", "err", err)
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to delete branding blob")
+	}
+
+	return &placestreamtypes.BrandingDeleteBlob_Output{
+		Success: true,
+	}, nil
+}
+
+// HandleFaviconICO serves the favicon at /favicon.ico
+func (s *Server) HandleFaviconICO(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	broadcasterID := s.cli.BroadcasterHost
+	log.Log(ctx, "fetching favicon", "broadcasterID", broadcasterID)
+	data, mimeType, _, _, err := s.getBrandingBlob(ctx, "did:web:"+broadcasterID, "favicon")
+
+	if err != nil || data == nil {
+		log.Log(ctx, "using fallback favicon", "err", err, "data_nil", data == nil)
+		distFiles, fsErr := app.Files()
+		if fsErr != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch favicon")
+		}
+
+		faviconFile, fsErr := distFiles.Open("favicon.ico")
+		if fsErr != nil {
+			return echo.NewHTTPError(http.StatusNotFound, "favicon not found")
+		}
+		defer faviconFile.Close()
+
+		data, fsErr = io.ReadAll(faviconFile)
+		if fsErr != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "failed to read favicon")
+		}
+
+		// detect mime type based on file extension (ico)
+		mimeType = "image/x-icon"
+	}
+
+	return c.Blob(http.StatusOK, mimeType, data)
+}

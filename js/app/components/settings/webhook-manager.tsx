@@ -594,10 +594,15 @@ function WebhookForm({
       </View>
 
       <DialogFooter>
-        <Button variant="secondary" onPress={onClose} disabled={isLoading}>
+        <Button
+          width="min"
+          variant="secondary"
+          onPress={onClose}
+          disabled={isLoading}
+        >
           <Text>{t("cancel")}</Text>
         </Button>
-        <Button onPress={handleSubmit} disabled={isLoading}>
+        <Button width="min" onPress={handleSubmit} disabled={isLoading}>
           <Text>
             {isLoading ? t("saving") : webhook ? t("update") : t("create")}
           </Text>

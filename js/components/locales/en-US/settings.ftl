@@ -62,6 +62,7 @@ save-button = Save
 sign-in = Sign In
 update = Update
 log-out = Log out
+optional = optional
 
 ## Account Settings
 account-greeting = Hey, @{ $handle }.
@@ -117,6 +118,31 @@ events-livestream = Livestream Events
 events-chat = Chat Events
 untitled-webhook = Untitled Webhook
 inactive = Inactive
+active = Active
+
+## Multistreaming
+multistreaming = Multistreaming
+multistream-targets = Multistream Targets
+multistream-description = Automatically push your Streamplace livestreams to other streaming services like Twitch or YouTube.
+create-multistream-target = Create Multistream Target
+untitled-multistream-target = Untitled Target
+failed-load-multistream-targets = Failed to load multistream targets. Please try again.
+failed-toggle-multistream-target = Failed to toggle multistream target. Please try again.
+failed-delete-multistream-target = Failed to delete multistream target. Please try again.
+no-multistream-targets-yet = No targets yet!
+multistream-targets-count = { $count ->
+    [one] { $count } target
+   *[other] { $count } targets
+}
+multistream-delete-target-confirmation = Are you sure you want to delete "{ $target }"?
+this-action-cannot-be-undone = This action cannot be undone.
+rtmp-target-name = RTMP Target
+rtmp-target-url = RTMP URL
+rtmp-target-name-placeholder = My Multistream Target
+multistream-create-target = Create Target
+multistream-edit-target = Edit Target
+created = created
+status = status
 
 ## Debug Recording
 debug-recording = Debug Recording
@@ -140,3 +166,68 @@ saving = Saving...
 go-to-dashboard = Go to Dashboard
 need-setup-live-dashboard = Need to set up streaming first? Visit the live dashboard
 no-languages-found = No languages found
+
+## Branding Administration
+branding-admin = Branding Administration
+branding-admin-description = Customize your Streamplace instance. Note that settings may take a few hours to propagate.
+branding-login-required = Please log in to manage branding
+branding-configuration = Configuration
+branding-text-settings = Text Settings
+branding-colors = Colors
+branding-legal-links = Legal Links
+branding-images = Images
+
+## Branding Fields
+branding-broadcaster-did = Broadcaster DID
+branding-broadcaster-did-description = Leave empty to use server default
+branding-site-title = Site Title
+branding-site-title-placeholder = Enter new site title
+branding-site-description = Site Description
+branding-site-description-placeholder = Enter site description
+branding-default-streamer = Default Streamer
+branding-default-streamer-none = None
+branding-default-streamer-placeholder = did:plc:...
+branding-clear-default-streamer = Clear Default Streamer
+branding-primary-color = Primary Color
+branding-primary-color-placeholder = #6366f1
+branding-accent-color = Accent Color
+branding-accent-color-placeholder = #8b5cf6
+branding-main-logo = Main Logo
+branding-main-logo-description = SVG, PNG, or JPEG (max 500KB)
+branding-favicon = Favicon
+branding-favicon-description = SVG, PNG, or ICO (max 100KB)
+branding-sidebar-bg = Sidebar Background Image
+branding-sidebar-bg-description = SVG, PNG, or JPEG (max 500kb) - appears aligned to bottom of sidebar, full width. Upload an image with opacity for best results, as there is not currently a separate opacity option.
+branding-current = Current: { $value }
+branding-dimensions = { $height } x { $width }
+
+## Branding Actions
+branding-upload-logo = Upload Logo
+branding-delete-logo = Delete Logo
+branding-upload-favicon = Upload Favicon
+branding-delete-favicon = Delete Favicon
+branding-upload-background = Upload Background
+branding-delete-background = Delete Background
+branding-web-only = Image uploads are only available on web.
+
+## Branding Legal Links
+refresh-branding = Refresh branding assets
+branding-add-legal-link = Add Legal Link
+branding-edit-legal-link = Edit Legal Link
+branding-legal-link-text-placeholder = Link text (e.g., Privacy Policy)
+branding-legal-link-url-placeholder = URL (e.g., https://example.com/privacy)
+add = Add
+edit = Edit
+
+## Branding Toast Messages
+branding-not-authenticated = Please log in first
+branding-empty-value = Please enter a value
+branding-update-success = { $key } updated successfully
+branding-upload-success = { $key } uploaded successfully
+branding-delete-success = { $key } deleted successfully
+branding-upload-failed = Failed to upload
+branding-delete-failed = Failed to delete
+branding-not-available = File uploads are only available on web
+
+## Navigation Categories (About Page)
+node-legal-documents = Broadcaster-specific Documents

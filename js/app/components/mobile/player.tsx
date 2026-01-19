@@ -43,6 +43,7 @@ const SEGMENT_TIMEOUT = 500; // half a sec
 export function Player(
   props: Partial<PlayerProps> & {
     setFullscreen?: (fullscreen: boolean) => void;
+    onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
   return (
@@ -60,6 +61,7 @@ export function Player(
 function PlayerWithProvider(
   props: Partial<PlayerProps> & {
     setFullscreen?: (fullscreen: boolean) => void;
+    onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
   const [showChat, setShowChat] = useState(true);
@@ -188,30 +190,46 @@ function PlayerWithProvider(
     );
   }
 
+  const defaultHandleTeleport = (targetHandle: string, targetDID: string) => {
+    navigation.navigate("Home", {
+      screen: "Stream",
+      params: { user: targetHandle },
+    });
+  };
+
+  const handleTeleport = props.onTeleport || defaultHandleTeleport;
+
   return (
-    <View
-      style={{
-        flexDirection: chatVisible ? "row" : "column",
-        flex: 1,
-        width: "100%",
-        height: "100%",
-      }}
-    >
-      <PlayerInner
-        {...props}
-        showChat={showChat}
-        setShowChat={setShowChat}
-        showUnavailable={showUnavailable}
-      />
-      {shouldShowChatSidePanel ? (
-        <DesktopChatPanel
-          chatVisible={chatVisible}
-          chatPanelWidth={chatPanelWidth}
-        />
-      ) : (
-        !showUnavailable && <MobileUi />
-      )}
-    </View>
+    <RotationProvider enabled={Platform.OS !== "web"}>
+      <LivestreamProvider src={props.src ?? ""} onTeleport={handleTeleport}>
+        <StatusBar hidden={true} />
+        <PlayerProvider defaultId={props.playerId || undefined}>
+          <View
+            style={{
+              flexDirection: chatVisible ? "row" : "column",
+              flex: 1,
+              width: "100%",
+              height: "100%",
+            }}
+          >
+            <PlayerInner
+              {...props}
+              showChat={showChat}
+              setShowChat={setShowChat}
+              showUnavailable={showUnavailable}
+            />
+            {shouldShowChatSidePanel ? (
+              <DesktopChatPanel
+                chatVisible={chatVisible}
+                chatPanelWidth={chatPanelWidth}
+              />
+            ) : (
+              !showUnavailable && <MobileUi />
+            )}
+          </View>
+        </PlayerProvider>
+      </LivestreamProvider>
+    </RotationProvider>
   );
 }
 

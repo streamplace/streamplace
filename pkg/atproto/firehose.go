@@ -325,6 +325,13 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				atsync.Bus.Publish(msg.StreamerRepoDID, mv)
 			}
 
+			if collection.String() == constants.PLACE_STREAM_LIVE_TELEPORT {
+				err := atsync.Model.DeleteTeleport(ctx, uri)
+				if err != nil {
+					log.Error(ctx, "failed to delete teleport", "err", err)
+				}
+			}
+
 			if collection.String() == constants.PLACE_STREAM_MODERATION_PERMISSION {
 				log.Debug(ctx, "deleting moderation delegation", "userDID", evt.Repo, "rkey", rkey.String())
 				err := atsync.Model.DeleteModerationDelegation(ctx, rkey.String())

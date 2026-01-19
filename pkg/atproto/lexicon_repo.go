@@ -35,6 +35,7 @@ import (
 
 var LexiconRepo *atrepo.Repo
 var LexiconPubMultibase string
+var OAuthString string
 var RepoUser models.Uid = models.Uid(1)
 var CarStore carstore.CarStore
 var ActionCreate = "create"
@@ -237,6 +238,8 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 
 	ops := []*comatproto.SyncSubscribeRepos_RepoOp{}
 
+	lexSchemas := []*lexicon.SchemaFile{}
+
 	for _, lex := range lexs {
 		lexFile := lexicon.SchemaFile{}
 		err := json.Unmarshal(lex, &lexFile)
@@ -246,7 +249,18 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 		if !strings.HasPrefix(lexFile.ID, "place.stream") {
 			continue
 		}
-		sfw := &SchemaFileWrapper{SchemaFile: lexFile}
+		lexSchemas = append(lexSchemas, &lexFile)
+	}
+
+	permissionSchemas, err := generatePermissionSets(ctx, lexSchemas)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate permission sets: %w", err)
+	}
+
+	lexSchemas = append(lexSchemas, permissionSchemas...)
+
+	for _, lexFile := range lexSchemas {
+		sfw := &SchemaFileWrapper{SchemaFile: *lexFile}
 		rpath := fmt.Sprintf("com.atproto.lexicon.schema/%s", lexFile.ID)
 		newCid, err := spid.GetCID(sfw)
 		if err != nil {

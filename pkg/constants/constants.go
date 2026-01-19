@@ -14,6 +14,7 @@ var PLACE_STREAM_CHAT_GATE = "place.stream.chat.gate"                           
 var PLACE_STREAM_DEFAULT_METADATA = "place.stream.metadata.configuration"        //nolint:all
 var PLACE_STREAM_LIVE_RECOMMENDATIONS = "place.stream.live.recommendations"      //nolint:all
 var PLACE_STREAM_BROADCAST_PUBLISHER_KEY = "place.stream.broadcast.publisherKey" //nolint:all
+var PLACE_STREAM_LIVE_TELEPORT = "place.stream.live.teleport"                    //nolint:all
 
 const DID_KEY_PREFIX = "did:key" //nolint:all
 const ADDRESS_KEY_PREFIX = "0x"  //nolint:all

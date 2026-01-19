@@ -82,15 +82,10 @@ func makeGit() error {
 	homebrew := flag.Bool("homebrew", false, "print homebrew formula")
 
 	flag.Parse()
-	r, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true})
-	if err != nil {
-		// fallback for CI environments without full git history
-		var out string
-		if *javascript {
-			out = fmt.Sprintf(tmplJS, "unknown", 0, "00000000-0000-0000-0000-000000000000")
-		} else {
-			out = fmt.Sprintf(tmpl, "unknown", 0, "00000000-0000-0000-0000-000000000000")
-		}
+
+	// handle CF_PAGES environment fallback
+	if os.Getenv("CF_PAGES") != "" && *javascript {
+		out := `export const version = "unknown"; export const buildTime = 0; export const uuid = "00000000-0000-0000-0000-000000000000";`
 		if *output != "" {
 			if err := os.WriteFile(*output, []byte(out), 0644); err != nil {
 				return err
@@ -99,6 +94,10 @@ func makeGit() error {
 			fmt.Print(out)
 		}
 		return nil
+	}
+	r, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true})
+	if err != nil {
+		return err
 	}
 
 	// ... retrieving the HEAD reference

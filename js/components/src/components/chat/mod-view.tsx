@@ -5,7 +5,6 @@ import { usePlayerStore } from "../../player-store";
 import {
   useCreateBlockRecord,
   useCreateHideChatRecord,
-  useUpdateLivestreamRecord,
 } from "../../streamplace-store/block";
 import {
   ModerationPermissions,
@@ -17,24 +16,19 @@ import { Linking } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import {
   useDeleteChatMessage,
-  useLivestream,
   useLivestreamStore,
 } from "../../livestream-store";
 import { useStreamplaceStore } from "../../streamplace-store";
 import { formatHandle, formatHandleWithAt } from "../../utils/format-handle";
 import {
   atoms,
-  Button,
-  DialogFooter,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
   layout,
-  ResponsiveDialog,
   ResponsiveDropdownMenuContent,
   Text,
-  Textarea,
   useToast,
   View,
 } from "../ui";
@@ -61,10 +55,6 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
   let [messageRemoved, setMessageRemoved] = useState(false);
   let { createBlock, isLoading: isBlockLoading } = useCreateBlockRecord();
   let { createHideChat, isLoading: isHideLoading } = useCreateHideChatRecord();
-  let { updateLivestream, isLoading: isUpdateTitleLoading } =
-    useUpdateLivestreamRecord();
-  const livestream = useLivestream();
-  const [showUpdateTitleDialog, setShowUpdateTitleDialog] = useState(false);
 
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
   const setReportSubject = usePlayerStore((x) => x.setReportSubject);
@@ -135,9 +125,6 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
               createHideChat={createHideChat}
               createBlock={createBlock}
               toast={toast}
-              setShowUpdateTitleDialog={setShowUpdateTitleDialog}
-              isUpdateTitleLoading={isUpdateTitleLoading}
-              livestream={livestream}
               setReportModalOpen={setReportModalOpen}
               setReportSubject={setReportSubject}
               deleteChatMessage={deleteChatMessage}
@@ -145,17 +132,6 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
           )}
         </ResponsiveDropdownMenuContent>
       </DropdownMenu>
-
-      {/* Update Stream Title Dialog - rendered outside dropdown */}
-      {showUpdateTitleDialog && (
-        <UpdateStreamTitleDialog
-          livestream={livestream}
-          streamerDID={streamerDID}
-          updateLivestream={updateLivestream}
-          isLoading={isUpdateTitleLoading}
-          onClose={() => setShowUpdateTitleDialog(false)}
-        />
-      )}
     </>
   );
 });
@@ -173,9 +149,6 @@ interface ModViewContentProps {
   createHideChat: (uri: string, streamerDID?: string) => Promise<any>;
   createBlock: (did: string, streamerDID?: string) => Promise<any>;
   toast: ReturnType<typeof useToast>;
-  setShowUpdateTitleDialog: (show: boolean) => void;
-  isUpdateTitleLoading: boolean;
-  livestream: any;
   setReportModalOpen: (open: boolean) => void;
   setReportSubject: (subject: any) => void;
   deleteChatMessage: (uri: string) => Promise<any>;
@@ -194,9 +167,6 @@ function ModViewContent({
   createHideChat,
   createBlock,
   toast,
-  setShowUpdateTitleDialog,
-  isUpdateTitleLoading,
-  livestream,
   setReportModalOpen,
   setReportSubject,
   deleteChatMessage,
@@ -287,23 +257,6 @@ function ModViewContent({
                 </Text>
               </DropdownMenuItem>
             )}
-        </DropdownMenuGroup>
-      )}
-
-      {modPermissions.canManageLivestream && (
-        <DropdownMenuGroup key="stream-actions" title={`Stream actions`}>
-          <DropdownMenuItem
-            onPress={() => {
-              setShowUpdateTitleDialog(true);
-            }}
-            disabled={isUpdateTitleLoading || !livestream}
-          >
-            <Text
-              color={isUpdateTitleLoading || !livestream ? "muted" : "primary"}
-            >
-              {isUpdateTitleLoading ? "Updating..." : "Update stream title"}
-            </Text>
-          </DropdownMenuItem>
         </DropdownMenuGroup>
       )}
 
@@ -416,163 +369,5 @@ export function ReportButton({
     >
       <Text color="warning">Report chat...</Text>
     </DropdownMenuItem>
-  );
-}
-
-interface UpdateStreamTitleDialogProps {
-  livestream: any;
-  streamerDID?: string;
-  updateLivestream: (
-    livestreamUri: string,
-    title: string,
-    streamerDID?: string,
-  ) => Promise<any>;
-  isLoading: boolean;
-  onClose: () => void;
-}
-
-function UpdateStreamTitleDialog({
-  livestream,
-  streamerDID,
-  updateLivestream,
-  isLoading,
-  onClose,
-}: UpdateStreamTitleDialogProps) {
-  const [title, setTitle] = useState(livestream?.record?.title || "");
-  const [error, setError] = useState<string | null>(null);
-  const toast = useToast();
-
-  useEffect(() => {
-    if (livestream?.record?.title) {
-      setTitle(livestream.record.title);
-    }
-  }, [livestream?.record?.title]);
-
-  const handleUpdate = async () => {
-    setError(null);
-
-    if (!title.trim()) {
-      setError("Please enter a stream title");
-      return;
-    }
-
-    if (!livestream?.uri) {
-      setError("No livestream found");
-      return;
-    }
-
-    try {
-      await updateLivestream(livestream.uri, title.trim(), streamerDID);
-      toast.show(
-        "Stream title updated",
-        "The stream title has been successfully updated.",
-        { duration: 3 },
-      );
-      onClose();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to update stream title",
-      );
-    }
-  };
-
-  return (
-    <ResponsiveDialog
-      open={true}
-      onOpenChange={(open) => {
-        if (!open) {
-          onClose();
-          setError(null);
-          setTitle(livestream?.record?.title || "");
-        }
-      }}
-      title="Update Stream Title"
-      description="Update the title of the livestream."
-      size="md"
-      dismissible={false}
-    >
-      <View style={[{ padding: 16, paddingBottom: 0 }]}>
-        <View style={[{ marginBottom: 16 }]}>
-          <Text
-            style={[
-              { color: atoms.colors.gray[300], fontSize: 13, marginBottom: 8 },
-            ]}
-          >
-            Stream Title
-          </Text>
-          <Textarea
-            value={title}
-            onChangeText={(text) => {
-              setTitle(text);
-              setError(null);
-            }}
-            placeholder="Enter stream title..."
-            maxLength={140}
-            multiline
-            style={[
-              {
-                padding: 12,
-                borderRadius: 8,
-                backgroundColor: atoms.colors.neutral[800],
-                color: atoms.colors.white,
-                borderWidth: 1,
-                borderColor: atoms.colors.neutral[600],
-                minHeight: 100,
-                fontSize: 16,
-              },
-            ]}
-          />
-          <Text
-            style={[
-              { color: atoms.colors.gray[400], fontSize: 12, marginTop: 4 },
-            ]}
-          >
-            {title.length}/140 characters
-          </Text>
-        </View>
-
-        {error && (
-          <View
-            style={[
-              {
-                backgroundColor: atoms.colors.red[900],
-                padding: 12,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: atoms.colors.red[700],
-                marginBottom: 16,
-              },
-            ]}
-          >
-            <Text style={[{ color: atoms.colors.red[400], fontSize: 13 }]}>
-              {error}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <DialogFooter>
-        <Button
-          width="min"
-          variant="secondary"
-          onPress={() => {
-            onClose();
-            setError(null);
-            setTitle(livestream?.record?.title || "");
-          }}
-          disabled={isLoading}
-        >
-          <Text>Cancel</Text>
-        </Button>
-        <Button
-          variant="primary"
-          width="min"
-          onPress={handleUpdate}
-          disabled={isLoading || !title.trim()}
-        >
-          <Text>{isLoading ? "Updating..." : "Update Title"}</Text>
-        </Button>
-      </DialogFooter>
-    </ResponsiveDialog>
   );
 }

@@ -1,4 +1,5 @@
 import {
+  Admonition,
   Button,
   Checkbox,
   ContentMetadataForm,
@@ -6,6 +7,7 @@ import {
   formatHandle,
   formatHandleWithAt,
   Input,
+  Text,
   Textarea,
   Tooltip,
   useCreateStreamRecord,
@@ -15,13 +17,13 @@ import {
   useUrl,
   zero,
 } from "@streamplace/components";
-import { ImagePlus, X } from "lucide-react-native";
+import { ArrowRight, ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Platform,
+  Pressable,
   ScrollView,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -80,10 +82,12 @@ const ImageUploadComponent = ({
   selectedImage,
   onImageSelect,
   onImageRemove,
+  onGoToMetadata,
 }: {
   selectedImage?: string | File | Blob;
   onImageSelect?: () => void;
   onImageRemove?: () => void;
+  onGoToMetadata?: () => void;
 }) => {
   const imageUrl = useMemo(() => {
     if (!selectedImage) return undefined;
@@ -583,6 +587,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                   selectedImage={selectedImage}
                   onImageSelect={handleImageSelect}
                   onImageRemove={handleImageRemove}
+                  onGoToMetadata={() => handleModeChange("metadata")}
                 />
               )}
 

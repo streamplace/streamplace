@@ -1,10 +1,11 @@
 import { forwardRef, useCallback, useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Linking, Pressable, ScrollView, View } from "react-native";
 import {
   CONTENT_WARNINGS,
   LICENSE_OPTIONS,
 } from "../../lib/metadata-constants";
 
+import { ExternalLink } from "lucide-react-native";
 import {
   PlaceStreamMetadataConfiguration,
   PlaceStreamMetadataContentRights,
@@ -401,9 +402,6 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   <Text size="sm">
                     You are required to disclose if your content is not suitable
                     for certain viewers.
-                    {/*<Text size="sm" color={colors.blue[400]}>
-                      Learn more.
-                    </Text>*/}
                   </Text>
                 </Admonition>
                 <Admonition variant="warning" size="sm">

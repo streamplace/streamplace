@@ -5,9 +5,11 @@ import {
 import * as React from "react";
 import { Platform, TextInput, type TextInputProps } from "react-native";
 import { bg, borders, flex, p, text } from "../../lib/theme/atoms";
+import { useTheme } from "../../ui";
 
 const Textarea = React.forwardRef<TextInput, TextInputProps>(
   ({ style, multiline = true, numberOfLines = 4, ...props }, ref) => {
+    let th = useTheme();
     // Detect if we're inside a bottom sheet
     let isInBottomSheet = false;
     try {
@@ -41,6 +43,7 @@ const Textarea = React.forwardRef<TextInput, TextInputProps>(
         multiline={multiline}
         numberOfLines={numberOfLines}
         textAlignVertical="top"
+        placeholderTextColor={th.theme.colors.textMuted}
         {...props}
       />
     );

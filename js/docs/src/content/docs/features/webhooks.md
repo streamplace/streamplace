@@ -5,7 +5,7 @@ sidebar:
   order: 30
 ---
 
-Streamplace supports Discord webhook integration for receiving livestream
+Streamplace supports Discord webhooks for receiving livestream
 notifications and chat messages. You can create, manage, and configure webhooks
 to customize how events are delivered to your Discord channels.
 

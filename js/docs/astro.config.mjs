@@ -1,7 +1,10 @@
 // @ts-check
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import starlightLinksValidator from "starlight-links-validator";
 import starlightOpenAPI, { openAPISidebarGroups } from "starlight-openapi";
+import starlightSidebarSwipe from "starlight-sidebar-swipe";
+import starlightSidebarTopics from "starlight-sidebar-topics";
 
 // https://astro.build/config
 export default defineConfig({
@@ -29,6 +32,53 @@ export default defineConfig({
       },
       favicon: "/favicon.ico",
       plugins: [
+        starlightLinksValidator(),
+        starlightSidebarSwipe(),
+        starlightSidebarTopics([
+          {
+            label: "For Streamers & Viewers",
+            link: "/",
+            icon: "open-book",
+            items: [
+              {
+                label: "Start Streaming",
+                autogenerate: { directory: "guides/start-streaming" },
+              },
+              {
+                label: "Features",
+                autogenerate: { directory: "features" },
+              },
+            ],
+          },
+          {
+            label: "For Developers",
+            link: "/developers/",
+            icon: "seti:config",
+            items: [
+              {
+                label: "Start Contributing",
+                autogenerate: { directory: "guides/start-contributing" },
+              },
+              {
+                label: "Installing Streamplace",
+                autogenerate: { directory: "guides/installing" },
+              },
+              {
+                label: "Video Metadata",
+                autogenerate: { directory: "video-metadata" },
+              },
+              {
+                label: "Components",
+                autogenerate: { directory: "components" },
+              },
+              {
+                label: "Lexicon Reference",
+                autogenerate: { directory: "lex-reference" },
+              },
+              ...openAPISidebarGroups,
+            ],
+          },
+        ]),
         starlightOpenAPI([
           {
             base: "api",
@@ -42,48 +92,6 @@ export default defineConfig({
             },
           },
         ]),
-      ],
-      sidebar: [
-        { label: "← Back to Streamplace", link: "/../" },
-        {
-          label: "How Streamplace Works (Blog)",
-          link: "https://blog.stream.place/",
-          attrs: { target: "_blank" },
-        },
-        {
-          label: "Guides",
-          items: [
-            {
-              label: "Start Streaming",
-              autogenerate: { directory: "guides/start-streaming" },
-            },
-            {
-              label: "Installing Streamplace",
-              autogenerate: { directory: "guides/installing" },
-            },
-            {
-              label: "Start Contributing",
-              autogenerate: { directory: "guides/start-contributing" },
-            },
-          ],
-        },
-        {
-          label: "Features",
-          autogenerate: { directory: "features" },
-        },
-        {
-          label: "Video Metadata",
-          autogenerate: { directory: "video-metadata" },
-        },
-        {
-          label: "Components",
-          autogenerate: { directory: "components" },
-        },
-        {
-          label: "Lexicon Reference",
-          autogenerate: { directory: "lex-reference" },
-        },
-        ...openAPISidebarGroups,
       ],
     }),
   ],

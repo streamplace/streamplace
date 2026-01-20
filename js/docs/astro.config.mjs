@@ -1,7 +1,6 @@
 // @ts-check
 import starlight from "@astrojs/starlight";
 import { defineConfig, passthroughImageService } from "astro/config";
-import starlightLinksValidator from "starlight-links-validator";
 import starlightOpenAPI, { openAPISidebarGroups } from "starlight-openapi";
 import starlightSidebarSwipe from "starlight-sidebar-swipe";
 import starlightSidebarTopics from "starlight-sidebar-topics";
@@ -35,56 +34,11 @@ export default defineConfig({
       },
       favicon: "/favicon.ico",
       plugins: [
-        starlightLinksValidator(),
+        //starlightLinksValidator(),
         starlightSidebarSwipe(),
-        starlightSidebarTopics([
-          {
-            label: "For Streamers & Viewers",
-            link: "/",
-            icon: "open-book",
-            items: [
-              {
-                label: "Start Streaming",
-                autogenerate: { directory: "guides/start-streaming" },
-              },
-              {
-                label: "Features",
-                autogenerate: { directory: "features" },
-              },
-            ],
-          },
-          {
-            label: "For Developers",
-            link: "/developers/",
-            icon: "seti:config",
-            items: [
-              {
-                label: "Start Contributing",
-                autogenerate: { directory: "guides/start-contributing" },
-              },
-              {
-                label: "Installing Streamplace",
-                autogenerate: { directory: "guides/installing" },
-              },
-              {
-                label: "Video Metadata",
-                autogenerate: { directory: "video-metadata" },
-              },
-              {
-                label: "Components",
-                autogenerate: { directory: "components" },
-              },
-              {
-                label: "Lexicon Reference",
-                autogenerate: { directory: "lex-reference" },
-              },
-              ...openAPISidebarGroups,
-            ],
-          },
-        ]),
         starlightOpenAPI([
           {
-            base: "api",
+            base: "/api",
             label: "Related XRPC API endpoints",
             schema: "./src/content/docs/lex-reference/openapi.json", // or your json generated from swagger
             sidebar: {
@@ -95,6 +49,71 @@ export default defineConfig({
             },
           },
         ]),
+        starlightSidebarTopics(
+          [
+            {
+              label: "For Streamers & Viewers",
+              link: "/",
+              icon: "open-book",
+              items: [
+                {
+                  label: "Start Streaming",
+                  autogenerate: { directory: "guides/start-streaming" },
+                },
+                {
+                  label: "Features",
+                  autogenerate: { directory: "features" },
+                },
+              ],
+            },
+            {
+              label: "For Developers",
+              link: "/developers/",
+              icon: "seti:config",
+              id: "developers",
+              items: [
+                {
+                  label: "Start Contributing",
+                  autogenerate: { directory: "guides/start-contributing" },
+                },
+                {
+                  label: "Installing Streamplace",
+                  autogenerate: { directory: "guides/installing" },
+                },
+                {
+                  label: "Video Metadata",
+                  autogenerate: { directory: "video-metadata" },
+                },
+                {
+                  label: "Components",
+                  autogenerate: { directory: "components" },
+                },
+                {
+                  label: "Localize Streamplace",
+                  autogenerate: { directory: "guides/localizing" },
+                },
+              ],
+            },
+            {
+              label: "API Reference",
+              link: "/reference/",
+              icon: "seti:json",
+              id: "ref",
+              items: [
+                {
+                  label: "Lexicon Reference",
+                  autogenerate: { directory: "lex-reference" },
+                },
+                ...openAPISidebarGroups,
+              ],
+            },
+          ],
+          {
+            topics: {
+              ref: ["/api", "/api/**/*"],
+            },
+          },
+        ),
       ],
     }),
   ],

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/bsky"
@@ -117,6 +118,19 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if rec.Reply != nil && rec.Reply.Parent != nil && rec.Reply.Root != nil {
 			mcm.ReplyToCID = &rec.Reply.Parent.Cid
 		}
+
+		// check if we have any link facets with 'javascript:' links
+		for _, facet := range rec.Facets {
+			for _, feature := range facet.Features {
+				if link := feature.RichtextFacet_Link; link != nil {
+					if link.Uri != "" && strings.HasPrefix(strings.ToLower(link.Uri), "javascript:") {
+						log.Warn(ctx, "excluding message with javascript: link", "uri", aturi.String(), "link", link.Uri)
+						return nil
+					}
+				}
+			}
+		}
+
 		err = atsync.Model.CreateChatMessage(ctx, mcm)
 		if err != nil {
 			log.Error(ctx, "failed to create chat message", "err", err)
@@ -366,6 +380,83 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			task.ChatProfile = spcp
 		}
 
+	case *streamplace.LiveTeleport:
+		if r == nil {
+			return nil
+		}
+		startsAt, err := time.Parse(time.RFC3339, rec.StartsAt)
+		if err != nil {
+			log.Error(ctx, "failed to parse startsAt", "err", err)
+			return nil
+		}
+		viewerCount := atsync.Bus.GetViewerCount(userDID)
+		tp := &model.Teleport{
+			CID:             cid,
+			URI:             aturi.String(),
+			StartsAt:        startsAt,
+			DurationSeconds: rec.DurationSeconds,
+			ViewerCount:     int64(viewerCount),
+			Teleport:        recCBOR,
+			RepoDID:         userDID,
+			TargetDID:       rec.Streamer,
+		}
+		err = atsync.Model.CreateTeleport(ctx, tp)
+		if err != nil {
+			return fmt.Errorf("failed to create teleport: %w", err)
+		}
+		go atsync.Bus.Publish(userDID, rec)
+
+		// schedule arrival notification 10 seconds after startsAt
+		arrivalTime := startsAt.Add(10 * time.Second)
+		waitDuration := time.Until(arrivalTime)
+		if waitDuration < 0 {
+			waitDuration = 0
+		}
+
+		time.AfterFunc(waitDuration, func() {
+			// verify teleport still exists
+			existingTp, err := atsync.Model.GetTeleportByURI(aturi.String())
+			if err != nil {
+				log.Error(ctx, "failed to get teleport by uri", "err", err)
+				return
+			}
+			if existingTp == nil || existingTp.Denied {
+				log.Debug(ctx, "teleport no longer active, skipping arrival notification", "uri", aturi.String())
+				return
+			}
+
+			// get the source profile
+			sourceRepo, err := atsync.Model.GetRepo(userDID)
+			if err != nil {
+				log.Error(ctx, "failed to get source repo", "err", err)
+				return
+			}
+
+			viewerCount := existingTp.ViewerCount
+
+			arrivalMsg := &streamplace.Livestream_TeleportArrival{
+				LexiconTypeID: "place.stream.livestream#teleportArrival",
+				TeleportUri:   aturi.String(),
+				Source: &bsky.ActorDefs_ProfileViewBasic{
+					Did:    userDID,
+					Handle: sourceRepo.Handle,
+				},
+				ViewerCount: int64(viewerCount),
+				StartsAt:    rec.StartsAt,
+			}
+
+			// get the source chat profile
+			chatProfile, err := atsync.Model.GetChatProfile(ctx, userDID)
+			if err == nil && chatProfile != nil {
+				spcp, err := chatProfile.ToStreamplaceChatProfile()
+				if err == nil {
+					arrivalMsg.ChatProfile = spcp
+				}
+			}
+
+			atsync.Bus.Publish(rec.Streamer, arrivalMsg)
+		})
+
 	case *streamplace.Key:
 		log.Debug(ctx, "creating key", "key", rec)
 		time, err := aqtime.FromString(rec.CreatedAt)
@@ -423,6 +514,31 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			log.Error(ctx, "failed to create metadata configuration", "err", err)
 		}
+
+	case *streamplace.ModerationPermission:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		log.Debug(ctx, "creating moderation delegation", "streamerDID", userDID, "moderatorDID", rec.Moderator)
+
+		err = atsync.Model.CreateModerationDelegation(ctx, rec, aturi)
+		if err != nil {
+			return fmt.Errorf("failed to create moderation delegation: %w", err)
+		}
+
+		view := &streamplace.ModerationDefs_PermissionView{
+			Uri: aturi.String(),
+			Cid: cid,
+			Author: &bsky.ActorDefs_ProfileViewBasic{
+				Did:    userDID,
+				Handle: repo.Handle,
+			},
+			Record: &lexutil.LexiconTypeDecoder{Val: rec},
+		}
+		// Publish moderation permission view to WebSocket bus for real-time updates
+		// This allows moderators to see their permissions instantly without page refresh
+		go atsync.Bus.Publish(userDID, view)
 
 	case *streamplace.LiveRecommendations:
 		log.Debug(ctx, "creating recommendations", "userDID", userDID, "count", len(rec.Streamers))

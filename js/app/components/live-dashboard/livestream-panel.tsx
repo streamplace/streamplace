@@ -1,10 +1,13 @@
 import {
+  Admonition,
   Button,
   Checkbox,
   ContentMetadataForm,
+  Dashboard,
   formatHandle,
   formatHandleWithAt,
   Input,
+  Text,
   Textarea,
   Tooltip,
   useCreateStreamRecord,
@@ -14,13 +17,13 @@ import {
   useUrl,
   zero,
 } from "@streamplace/components";
-import { ImagePlus, X } from "lucide-react-native";
+import { ArrowRight, ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Platform,
+  Pressable,
   ScrollView,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -79,10 +82,12 @@ const ImageUploadComponent = ({
   selectedImage,
   onImageSelect,
   onImageRemove,
+  onGoToMetadata,
 }: {
   selectedImage?: string | File | Blob;
   onImageSelect?: () => void;
   onImageRemove?: () => void;
+  onGoToMetadata?: () => void;
 }) => {
   const imageUrl = useMemo(() => {
     if (!selectedImage) return undefined;
@@ -159,6 +164,20 @@ const ImageUploadComponent = ({
           </Text>
         </TouchableOpacity>
       )}
+      <View style={{ marginTop: 8 }}>
+        <Admonition variant="info" size="sm">
+          <Text size="sm">
+            You are required to disclose if your content is not suitable for
+            certain viewers.
+          </Text>
+          <Pressable onPress={onGoToMetadata}>
+            <Text size="sm" color={zero.colors.blue[400]}>
+              Go to the metadata page{" "}
+              <ArrowRight size="14" style={{ marginVertical: -2 }} />
+            </Text>
+          </Pressable>
+        </Admonition>
+      </View>
     </View>
   );
 };
@@ -178,7 +197,9 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const [selectedImage, setSelectedImage] = useState<
     string | File | Blob | undefined
   >();
-  const [mode, setMode] = useState<"create" | "metadata">("create");
+  const [mode, setMode] = useState<"create" | "metadata" | "moderation">(
+    "create",
+  );
 
   const [createPost, setCreatePost] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
@@ -210,9 +231,12 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
     setCreatePost(typeof livestream.record.post !== "undefined");
   }, [livestream, defaultCanonicalUrl]);
 
-  const handleModeChange = useCallback((newMode: "create" | "metadata") => {
-    setMode(newMode);
-  }, []);
+  const handleModeChange = useCallback(
+    (newMode: "create" | "metadata" | "moderation") => {
+      setMode(newMode);
+    },
+    [],
+  );
 
   const handleSubmit = useCallback(async () => {
     if (!title.trim()) return;
@@ -370,6 +394,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
               values={[
                 { label: "Create", value: "create" },
                 { label: "Metadata", value: "metadata" },
+                { label: "Moderation", value: "moderation" },
               ]}
               style={[{ marginVertical: -2 }]}
               selectedValue={mode}
@@ -385,6 +410,11 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                 showUpdateButton={!userIsLive}
                 style={{ flex: 1, height: "100%" }}
               />
+            </View>
+          ) : mode === "moderation" ? (
+            // Moderation view
+            <View style={[flex.values[1], { minHeight: 400 }]}>
+              <Dashboard.ModeratorPanel isLive={userIsLive} embedded={true} />
             </View>
           ) : (
             // Create/Edit view
@@ -557,6 +587,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                   selectedImage={selectedImage}
                   onImageSelect={handleImageSelect}
                   onImageRemove={handleImageRemove}
+                  onGoToMetadata={() => handleModeChange("metadata")}
                 />
               )}
 

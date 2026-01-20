@@ -74,6 +74,14 @@ type Model interface {
 	GetLivestreamByPostURI(postURI string) (*Livestream, error)
 	GetLatestLivestreams(limit int, before *time.Time) ([]Livestream, error)
 
+	CreateTeleport(ctx context.Context, tp *Teleport) error
+	GetLatestTeleportForRepo(repoDID string) (*Teleport, error)
+	GetActiveTeleportsForRepo(repoDID string) ([]Teleport, error)
+	GetActiveTeleportsToRepo(targetDID string) ([]Teleport, error)
+	GetTeleportByURI(uri string) (*Teleport, error)
+	DeleteTeleport(ctx context.Context, uri string) error
+	DenyTeleport(ctx context.Context, uri string) error
+
 	CreateBlock(ctx context.Context, block *Block) error
 	GetBlock(ctx context.Context, rkey string) (*Block, error)
 	GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error)
@@ -109,6 +117,13 @@ type Model interface {
 	CreateMetadataConfiguration(ctx context.Context, metadata *MetadataConfiguration) error
 	GetMetadataConfiguration(ctx context.Context, repoDID string) (*MetadataConfiguration, error)
 	DeleteMetadataConfiguration(ctx context.Context, repoDID string) error
+
+	CreateModerationDelegation(ctx context.Context, rec *streamplace.ModerationPermission, aturi syntax.ATURI) error
+	DeleteModerationDelegation(ctx context.Context, rkey string) error
+	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*streamplace.ModerationDefs_PermissionView, error)
+	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
+	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
+	GetStreamerModerators(ctx context.Context, streamerDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
 
 	GetRecommendation(userDID string) (*Recommendation, error)
 	UpsertRecommendation(rec *Recommendation) error
@@ -180,6 +195,8 @@ func MakeDB(dbURL string) (Model, error) {
 		Label{},
 		BroadcastOrigin{},
 		MetadataConfiguration{},
+		Teleport{},
+		ModerationDelegation{},
 		Recommendation{},
 	} {
 		err = db.AutoMigrate(model)

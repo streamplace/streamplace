@@ -1,39 +1,43 @@
 import Picker from "@emoji-mart/react";
 import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
+import { env } from "process";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, TextInput } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
+import { Button, Loader, Text, useTheme, View } from "../../";
+import { handleSlashCommand } from "../../lib/slash-commands";
+import { registerTeleportCommand } from "../../lib/slash-commands/teleport";
+import { StreamNotifications } from "../../lib/stream-notifications";
+import { SystemMessages } from "../../lib/system-messages";
 import {
-  Button,
-  Loader,
-  Text,
-  useChat,
-  useCreateChatMessage,
-  useLivestream,
-  useReplyToMessage,
-  useSetReplyToMessage,
-  useTheme,
-  View,
-} from "../../";
-import {
-  bg,
+  borders,
   flex,
   gap,
   h,
   layout,
   mb,
-  mr,
   pl,
   pr,
   py,
+  r,
   w,
 } from "../../lib/theme/atoms";
+import {
+  useChat,
+  useCreateChatMessage,
+  useLivestream,
+  useLivestreamStore,
+  useReplyToMessage,
+  useSetReplyToMessage,
+} from "../../livestream-store";
+import { useDID, usePDSAgent } from "../../streamplace-store";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
 import { EmojiData, EmojiSuggestions } from "./emoji-suggestions";
 import { MentionSuggestions } from "./mention-suggestions";
 
 const COOL_EMOJI_LIST = [
+  // @ts-ignore we can iterate through this just fine it seems
   ..."😀🥸😍😘😁🥸😆🥸😜🥸😂😅🥸🙂🤫😱🥸🤣😗😄🥸😎🤓😲😯😰🥸😥🥸😣🥸😞😓🥸😩😩🥸😤🥱",
 ];
 
@@ -45,7 +49,7 @@ export function ChatBox({
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
-  emojiData: EmojiData;
+  emojiData: EmojiData | null;
   setIsChatVisible?: (visible: boolean) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
@@ -64,13 +68,25 @@ export function ChatBox({
 
   let linfo = useLivestream();
 
-  const { theme } = useTheme();
+  const { theme, zero: zt } = useTheme();
 
   const chat = useChat();
   const createChatMessage = useCreateChatMessage();
   const replyTo = useReplyToMessage();
   const setReplyToMessage = useSetReplyToMessage();
   const textAreaRef = useRef<TextInput>(null);
+
+  const pdsAgent = usePDSAgent();
+  const userDID = useDID();
+  const setActiveTeleportUri = useLivestreamStore(
+    (state) => state.setActiveTeleportUri,
+  );
+
+  useEffect(() => {
+    if (pdsAgent && userDID) {
+      registerTeleportCommand(pdsAgent, userDID, setActiveTeleportUri);
+    }
+  }, [pdsAgent, userDID, setActiveTeleportUri]);
 
   const authors = useMemo(() => {
     if (!chat) return null;
@@ -82,6 +98,12 @@ export function ChatBox({
       return acc;
     }, new Map<string, ChatMessageViewHydrated["chatProfile"]>());
   }, [chat]);
+
+  useEffect(() => {
+    if (pdsAgent && linfo?.author?.did && pdsAgent.did === linfo.author.did) {
+      registerTeleportCommand(pdsAgent, pdsAgent.did, setActiveTeleportUri);
+    }
+  }, [pdsAgent, linfo?.author?.did, setActiveTeleportUri]);
 
   const handleMentionSelect = (handle: string) => {
     const beforeAt = message.slice(0, message.lastIndexOf("@"));
@@ -116,7 +138,8 @@ export function ChatBox({
     const colonIndex = text.lastIndexOf(":");
     if (colonIndex !== -1) {
       const searchText = text.slice(colonIndex + 1).toLowerCase();
-      if (searchText.length > 0) {
+      if (searchText.length >= 3) {
+        if (!emojiData) return;
         const aliasMatches = Object.entries(emojiData.aliases)
           .map(([alias, emojiId]) => {
             const aliasLower = alias.toLowerCase();
@@ -230,20 +253,44 @@ export function ChatBox({
     }
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!message.trim()) return;
+
+    const messageText = message;
     setMessage("");
     setReplyToMessage(null);
 
+    if (messageText.startsWith("/")) {
+      const result = await handleSlashCommand(messageText);
+      if (result.handled) {
+        if (result.error) {
+          console.error("Slash command error:", result.error);
+          SystemMessages.commandError(result.error);
+        }
+        return;
+      }
+    }
     setSubmitting(true);
-    createChatMessage({
-      text: message,
-      reply: replyTo || undefined,
-    });
-    setSubmitting(false);
 
-    // if we press "send" button, we want the same action as pressing "Enter"
-    // if we're already focused no need to do extra work
+    try {
+      const result = await handleSlashCommand(messageText);
+
+      if (result.handled) {
+        if (result.error) {
+          console.error("Slash command error:", result.error);
+        }
+      } else {
+        createChatMessage({
+          text: messageText,
+          reply: replyTo || undefined,
+        });
+      }
+    } catch (err) {
+      console.error("Error submitting message:", err);
+    } finally {
+      setSubmitting(false);
+    }
+
     if (textAreaRef.current && !textAreaRef.current.isFocused()) {
       textAreaRef.current.focus();
       requestAnimationFrame(() => {
@@ -266,38 +313,50 @@ export function ChatBox({
             layout.flex.alignCenter,
             layout.flex.spaceBetween,
             pl[2],
-            pr[6],
-            mr[6],
+            pr[1],
             mb[2],
             py[1],
-            bg.gray[800],
-            { borderRadius: 16 },
+            r["2xl"],
+            zt.bg.card,
           ]}
         >
-          <RenderChatMessage
-            item={replyTo}
-            showReply={false}
-            userCache={authors || new Map()}
-          />
-          <Pressable onPress={() => setReplyToMessage(null)}>
-            <View
-              style={[
-                layout.flex.row,
-                layout.flex.alignCenter,
-                layout.flex.justifyCenter,
-                h[12],
-                w[12],
-                bg.gray[600],
-                { borderRadius: 999 },
-              ]}
-            >
-              <X size={24} />
-            </View>
+          <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+            <RenderChatMessage
+              item={replyTo}
+              showReply={false}
+              userCache={authors || new Map()}
+            />
+          </View>
+          <Pressable
+            onPress={() => setReplyToMessage(null)}
+            style={[
+              layout.flex.row,
+              layout.flex.alignCenter,
+              layout.flex.justifyCenter,
+              h[8],
+              w[8],
+              zt.bg.muted,
+              zt.border.border,
+              borders.width.thin,
+              { borderRadius: 999 },
+            ]}
+          >
+            <X size={24} style={[zt.text.primaryForeground]} />
           </Pressable>
         </View>
       )}
       {showEmojiSelector && (
-        <>
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 200,
+          }}
+          pointerEvents="box-none"
+        >
           {/* Overlay to catch outside clicks */}
           <Pressable
             style={{
@@ -306,7 +365,6 @@ export function ChatBox({
               left: 0,
               right: 0,
               bottom: 0,
-              zIndex: 200,
             }}
             onPress={() => setShowEmojiSelector(false)}
           />
@@ -317,13 +375,14 @@ export function ChatBox({
               left: 0,
               zIndex: 2001,
             }}
+            pointerEvents="auto"
           >
             <Picker
               data={emojiData}
               onEmojiSelect={(e) => setMessage(message + e.native)}
             />
           </View>
-        </>
+        </View>
       )}
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
         <Textarea
@@ -438,19 +497,35 @@ export function ChatBox({
             { justifyContent: "flex-end" },
           ]}
         >
+          {env.NODE_ENV === "development" && (
+            <Button
+              variant="secondary"
+              style={{ borderRadius: 16 }}
+              width="min"
+              onPress={() => {
+                StreamNotifications.teleport({
+                  targetHandle: "test.bsky.social",
+                  targetDID: "did:plc:test",
+                  countdown: 30,
+                  canCancel: true,
+                  onDismiss: (reason) =>
+                    console.log("teleport dismissed:", reason),
+                });
+              }}
+            >
+              Test Notification
+            </Button>
+          )}
           <Button
             variant="secondary"
             style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
             aria-label="Insert Mention"
             onPress={() => {
-              // if the last character is not @, add it
               !message.endsWith("@") && setMessage(message + "@");
-              // get all the text after the last @
               const atIndex = message.lastIndexOf("@");
               const searchText = message.slice(atIndex + 1).toLowerCase();
               updateSuggestions(searchText);
               setShowSuggestions(true);
-              // focus the textarea
               textAreaRef.current?.focus();
             }}
           >

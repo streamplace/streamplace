@@ -1,5 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import {
+  borders,
   Button,
   Dashboard,
   useLivestreamStore,
@@ -18,7 +19,9 @@ import { ArrowRight } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useEmojiData } from "utils/emoji";
 import LivestreamPanel from "./livestream-panel";
+import MultistreamStatus from "./multistream-status";
 import StreamMonitor from "./stream-monitor";
 
 const { flex, p, gap, layout, bg } = zero;
@@ -77,6 +80,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
   const seg = useSegment();
   const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
   const ingestStarted = usePlayerStore((x) => x.ingestStarted);
+  const emojiData = useEmojiData();
 
   // Calculate derived values
   const isConnected = ingestConnectionState === "connected";
@@ -190,10 +194,19 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 { maxWidth: isWeb ? 600 : "100%" },
               ]}
             >
+              <View
+                style={[
+                  borders.bottom.width.thin,
+                  borders.bottom.color.neutral[700],
+                ]}
+              >
+                <MultistreamStatus />
+              </View>
               <Dashboard.ChatPanel
                 isLive={isLive}
                 isConnected={isConnected}
                 messagesPerMinute={messagesPerMinute}
+                emojiData={emojiData}
               />
             </View>
             <View

@@ -24,10 +24,11 @@ Get information about a Streamplace broadcaster.
 
 **Schema Type:** `object`
 
-| Name          | Type     | Req'd | Description                                                     | Constraints   |
-| ------------- | -------- | ----- | --------------------------------------------------------------- | ------------- |
-| `broadcaster` | `string` | ✅    | DID of the Streamplace broadcaster to which this server belongs | Format: `did` |
-| `server`      | `string` | ❌    | DID of this particular Streamplace server                       | Format: `did` |
+| Name          | Type              | Req'd | Description                                                     | Constraints   |
+| ------------- | ----------------- | ----- | --------------------------------------------------------------- | ------------- |
+| `broadcaster` | `string`          | ✅    | DID of the Streamplace broadcaster to which this server belongs | Format: `did` |
+| `server`      | `string`          | ❌    | DID of this particular Streamplace server                       | Format: `did` |
+| `admins`      | Array of `string` | ❌    | Array of DIDs authorized as admins                              |               |
 
 ---
 
@@ -61,6 +62,14 @@ Get information about a Streamplace broadcaster.
               "type": "string",
               "format": "did",
               "description": "DID of this particular Streamplace server"
+            },
+            "admins": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "did"
+              },
+              "description": "Array of DIDs authorized as admins"
             }
           }
         }

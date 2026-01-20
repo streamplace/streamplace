@@ -8,6 +8,7 @@ import {
   useTheme,
   useToast,
   View,
+  zero,
 } from "@streamplace/components";
 import Loading from "components/loading/loading";
 import { Clipboard, ClipboardCheck } from "lucide-react-native";
@@ -68,6 +69,7 @@ export function StreamKeyScreen() {
         <View fullWidth style={{ maxWidth: 600 }}>
           <FormRow>
             <Button
+              width="min"
               variant={protocol !== "rtmp" ? "secondary" : "primary"}
               onPress={() => setProtocol("rtmp")}
               style={{
@@ -78,6 +80,7 @@ export function StreamKeyScreen() {
               RTMP
             </Button>
             <Button
+              width="min"
               variant={protocol !== "whip" ? "secondary" : "primary"}
               onPress={() => setProtocol("whip")}
               style={{
@@ -93,13 +96,31 @@ export function StreamKeyScreen() {
           <FormRow>
             <Label>Output Settings</Label>
             <Content>
-              <Text>Output mode: Advanced</Text>
-              <Text>
-                Keyframe Interval: <Code>1s</Code>
-              </Text>
-              <Text>
-                x264 Options: <Code>bframes=0</Code>
-              </Text>
+              <View style={[zero.mt[2]]}>
+                <Text>Output mode: Advanced</Text>
+                <Text>
+                  Keyframe Interval: <Code>1s</Code>
+                </Text>
+                <Text>
+                  x264 Options:{" "}
+                  <Code
+                    style={{
+                      paddingHorizontal: 4,
+                      backgroundColor: "#648800",
+                    }}
+                  >
+                    bframes=0
+                  </Code>
+                </Text>
+                <Text
+                  underline
+                  style={{
+                    fontWeight: "bold",
+                  }}
+                >
+                  (Very important!)
+                </Text>
+              </View>
             </Content>
           </FormRow>
         </View>
@@ -269,6 +290,7 @@ export function StreamKey() {
           selectTextOnFocus={true}
         />
         <Button
+          width="min"
           onPress={handleCopy}
           style={[
             {

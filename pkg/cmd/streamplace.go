@@ -310,7 +310,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		}
 		host = u.Host
 		clientMetadata = &oatproxy.OAuthClientMetadata{
-			Scope:      "atproto transition:generic",
+			Scope:      atproto.OAuthString,
 			ClientName: "Streamplace",
 			RedirectURIs: []string{
 				fmt.Sprintf("%s/login", cli.OwnPublicURL()),
@@ -320,7 +320,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	} else {
 		host = cli.BroadcasterHost
 		clientMetadata = &oatproxy.OAuthClientMetadata{
-			Scope:      "atproto transition:generic",
+			Scope:      atproto.OAuthString,
 			ClientName: "Streamplace",
 			RedirectURIs: []string{
 				fmt.Sprintf("https://%s/login", cli.BroadcasterHost),
@@ -374,7 +374,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		UpdateOAuthSession: state.UpdateOAuthSession,
 		GetOAuthSession:    state.LoadOAuthSession,
 		Lock:               state.GetNamedLock,
-		Scope:              "atproto transition:generic",
+		Scope:              atproto.OAuthString,
 		UpstreamJWK:        cli.JWK,
 		DownstreamJWK:      cli.AccessJWK,
 		ClientMetadata:     clientMetadata,
@@ -413,11 +413,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 			group.Go(func() error {
 				return rtmps.ServeRTMPSAddon(ctx, &cli)
 			})
-		} else {
-			group.Go(func() error {
-				return a.ServeRTMPS(ctx, &cli)
-			})
 		}
+		group.Go(func() error {
+			return a.ServeRTMPS(ctx, &cli)
+		})
 	} else {
 		group.Go(func() error {
 			return a.ServeHTTP(ctx)

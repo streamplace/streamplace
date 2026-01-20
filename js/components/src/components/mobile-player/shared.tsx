@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { PlayerProtocol, useStreamplaceStore } from "../..";
+import { PlayerProtocol } from "../../player-store/player-state";
+import { useStreamplaceStore } from "../../streamplace-store";
 
 const protocolSuffixes = {
   m3u8: PlayerProtocol.HLS,

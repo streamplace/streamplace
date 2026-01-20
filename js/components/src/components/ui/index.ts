@@ -5,6 +5,7 @@ export * from "./primitives/modal";
 export * from "./primitives/text";
 
 // Export styled components
+export * from "./admonition";
 export * from "./button";
 export * from "./checkbox";
 export * from "./dialog";
@@ -15,6 +16,7 @@ export * from "./info-row";
 export * from "./input";
 export * from "./loader";
 export * from "./menu";
+export * from "./portal";
 export * from "./resizeable";
 export * from "./slider";
 export * from "./text";

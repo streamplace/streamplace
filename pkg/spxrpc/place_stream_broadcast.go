@@ -13,5 +13,6 @@ func (s *Server) handlePlaceStreamBroadcastGetBroadcaster(ctx context.Context) (
 	return &placestreamtypes.BroadcastGetBroadcaster_Output{
 		Broadcaster: broadcaster,
 		Server:      &server,
+		Admins:      s.cli.AdminDIDs,
 	}, nil
 }

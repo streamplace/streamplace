@@ -26,12 +26,15 @@ func main() {
 		streamplace.ChatMessage_ReplyRef{},
 		streamplace.ServerSettings{},
 		streamplace.ChatGate{},
+		streamplace.MultistreamTarget{},
 		streamplace.BroadcastOrigin{},
 		streamplace.BroadcastSyndication{},
 		streamplace.MetadataConfiguration{},
 		streamplace.MetadataDistributionPolicy{},
 		streamplace.MetadataContentRights{},
 		streamplace.MetadataContentWarnings{},
+		streamplace.ModerationPermission{},
+		streamplace.LiveTeleport{},
 		streamplace.LiveRecommendations{},
 	); err != nil {
 		panic(err)

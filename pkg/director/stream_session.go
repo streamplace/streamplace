@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"sync"
+	"net/url"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -12,6 +12,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/google/uuid"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
@@ -42,15 +43,18 @@ type StreamSession struct {
 	segmentChan    chan struct{}
 	lastStatus     time.Time
 	lastStatusCID  *string
-	lastStatusLock sync.Mutex
 	lastOriginTime time.Time
-	lastOriginLock sync.Mutex
-	g              *errgroup.Group
-	started        chan struct{}
-	ctx            context.Context
-	packets        []bus.PacketizedSegment
-	statefulDB     *statedb.StatefulDB
-	replicator     replication.Replicator
+
+	// Channels for background workers
+	statusUpdateChan chan struct{} // Signal to update status
+	originUpdateChan chan struct{} // Signal to update broadcast origin
+
+	g          *errgroup.Group
+	started    chan struct{}
+	ctx        context.Context
+	packets    []bus.PacketizedSegment
+	statefulDB *statedb.StatefulDB
+	replicator replication.Replicator
 }
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
@@ -109,11 +113,24 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 
 	close(ss.started)
 
+	// Start background workers for status and origin updates
+	ss.g.Go(func() error {
+		return ss.statusUpdateLoop(ctx, spseg.Creator)
+	})
+	ss.g.Go(func() error {
+		return ss.originUpdateLoop(ctx)
+	})
+
+	ss.Go(ctx, func() error {
+		return ss.HandleMultistreamTargets(ctx)
+	})
+
 	for {
 		select {
 		case <-ss.segmentChan:
 			// reset timer
 		case <-ctx.Done():
+			// Signal all background workers to stop
 			return ss.g.Wait()
 		// case <-time.After(time.Minute * 1):
 		case <-time.After(ss.cli.StreamSessionTimeout):
@@ -122,6 +139,7 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 			for _, r := range allRenditions {
 				ss.bus.EndSession(ctx, spseg.Creator, r.Name)
 			}
+			// Signal background workers to stop
 			if notif.Local {
 				ss.Go(ctx, func() error {
 					return ss.DeleteStatus(spseg.Creator)
@@ -182,13 +200,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	}
 
 	if notif.Local {
-		ss.Go(ctx, func() error {
-			return ss.UpdateStatus(ctx, spseg.Creator)
-		})
-
-		ss.Go(ctx, func() error {
-			return ss.UpdateBroadcastOrigin(ctx)
-		})
+		ss.UpdateStatus(ctx, spseg.Creator)
+		ss.UpdateBroadcastOrigin(ctx)
 	}
 
 	if ss.cli.LivepeerGatewayURL != "" {
@@ -244,7 +257,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			if err != nil {
 				log.Error(ctx, "failed to enqueue notification task", "err", err)
 			}
-			return ss.UpdateStatus(ctx, spseg.Creator)
+			ss.UpdateStatus(ctx, spseg.Creator)
+			return nil
 		})
 	} else {
 		log.Warn(ctx, "no livestream detected in stream, skipping notification blast", "repoDID", spseg.Creator)
@@ -306,14 +320,37 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 	return nil
 }
 
-func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error {
-	ctx = log.WithLogValues(ctx, "func", "UpdateStatus")
-	ss.lastStatusLock.Lock()
-	defer ss.lastStatusLock.Unlock()
-	if time.Since(ss.lastStatus) < time.Minute {
-		log.Debug(ctx, "not updating status, last status was less than 1 minute ago")
-		return nil
+// UpdateStatus signals the background worker to update status (non-blocking)
+func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) {
+	select {
+	case ss.statusUpdateChan <- struct{}{}:
+	default:
+		// Channel full, signal already pending
 	}
+}
+
+// statusUpdateLoop runs as a background goroutine for the session lifetime
+func (ss *StreamSession) statusUpdateLoop(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "statusUpdateLoop")
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ss.statusUpdateChan:
+			if time.Since(ss.lastStatus) < time.Minute {
+				log.Debug(ctx, "not updating status, last status was less than 1 minute ago")
+				continue
+			}
+			if err := ss.doUpdateStatus(ctx, repoDID); err != nil {
+				log.Error(ctx, "failed to update status", "error", err)
+			}
+		}
+	}
+}
+
+// doUpdateStatus performs the actual status update work
+func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "doUpdateStatus")
 
 	client, err := ss.GetClientByDID(repoDID)
 	if err != nil {
@@ -362,7 +399,7 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 		},
 	}
 
-	duration := int64(120)
+	duration := int64(10)
 	status := bsky.ActorStatus{
 		Status:          "app.bsky.actor.status#live",
 		DurationMinutes: &duration,
@@ -415,9 +452,8 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 
 func (ss *StreamSession) DeleteStatus(repoDID string) error {
 	// need a special extra context because the stream session context is already cancelled
+	// No lock needed - this runs during teardown after the background worker has exited
 	ctx := log.WithLogValues(context.Background(), "func", "DeleteStatus", "repoDID", repoDID)
-	ss.lastStatusLock.Lock()
-	defer ss.lastStatusLock.Unlock()
 	if ss.lastStatusCID == nil {
 		log.Debug(ctx, "no status cid to delete")
 		return nil
@@ -446,14 +482,38 @@ func (ss *StreamSession) DeleteStatus(repoDID string) error {
 
 var originUpdateInterval = time.Second * 30
 
-func (ss *StreamSession) UpdateBroadcastOrigin(ctx context.Context) error {
-	ctx = log.WithLogValues(ctx, "func", "UpdateStatus")
-	ss.lastOriginLock.Lock()
-	defer ss.lastOriginLock.Unlock()
-	if time.Since(ss.lastOriginTime) < originUpdateInterval {
-		log.Debug(ctx, "not updating origin, last origin was less than 30 seconds ago")
-		return nil
+// UpdateBroadcastOrigin signals the background worker to update origin (non-blocking)
+func (ss *StreamSession) UpdateBroadcastOrigin(ctx context.Context) {
+	select {
+	case ss.originUpdateChan <- struct{}{}:
+	default:
+		// Channel full, signal already pending
 	}
+}
+
+// originUpdateLoop runs as a background goroutine for the session lifetime
+func (ss *StreamSession) originUpdateLoop(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "func", "originUpdateLoop")
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ss.originUpdateChan:
+			if time.Since(ss.lastOriginTime) < originUpdateInterval {
+				log.Debug(ctx, "not updating origin, last origin was less than 30 seconds ago")
+				continue
+			}
+			if err := ss.doUpdateBroadcastOrigin(ctx); err != nil {
+				log.Error(ctx, "failed to update broadcast origin", "error", err)
+			}
+		}
+	}
+}
+
+// doUpdateBroadcastOrigin performs the actual broadcast origin update work
+func (ss *StreamSession) doUpdateBroadcastOrigin(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "func", "doUpdateBroadcastOrigin")
+
 	broadcaster := fmt.Sprintf("did:web:%s", ss.cli.BroadcasterHost)
 	origin := streamplace.BroadcastOrigin{
 		Streamer:    ss.repoDID,
@@ -678,4 +738,100 @@ func (ss *StreamSession) GetClientByDID(did string) (XRPCClient, error) {
 	}
 
 	return client, nil
+}
+
+type runningMultistream struct {
+	cancel func()
+	key    string
+	pushID string
+	url    string
+}
+
+func sanitizeMultistreamTargetURL(uri string) string {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return uri
+	}
+	u.Path = "/redacted"
+	return u.String()
+}
+
+// we're making an attempt here not to log (sensitive) stream keys, so we're
+// referencing by atproto URI
+func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "system", "multistreaming")
+	isTrue := true
+	// {target.Uri}:{rec.Url} -> runningMultistream
+	// no concurrency issues, it's only used from this one loop
+	running := map[string]*runningMultistream{}
+	for {
+		targets, err := ss.statefulDB.ListMultistreamTargets(ss.repoDID, 100, 0, &isTrue)
+		if err != nil {
+			return fmt.Errorf("failed to list multistream targets: %w", err)
+		}
+		currentRunning := map[string]bool{}
+		for _, targetView := range targets {
+			rec, ok := targetView.Record.Val.(*streamplace.MultistreamTarget)
+			if !ok {
+				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", targetView.Uri)
+				continue
+			}
+			uu, err := uuid.NewV7()
+			if err != nil {
+				return err
+			}
+			ctx := log.WithLogValues(ctx, "url", sanitizeMultistreamTargetURL(rec.Url), "pushID", uu.String())
+			key := fmt.Sprintf("%s:%s", targetView.Uri, rec.Url)
+			if running[key] == nil {
+				childCtx, childCancel := context.WithCancel(ctx)
+				ss.Go(ctx, func() error {
+					log.Log(ctx, "starting multistream target", "uri", targetView.Uri)
+					err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, "starting multistream target", "pending")
+					if err != nil {
+						log.Error(ctx, "failed to create multistream event", "error", err)
+					}
+					return ss.StartMultistreamTarget(childCtx, targetView)
+				})
+				running[key] = &runningMultistream{
+					cancel: childCancel,
+					key:    key,
+					pushID: uu.String(),
+					url:    sanitizeMultistreamTargetURL(rec.Url),
+				}
+			}
+			currentRunning[key] = true
+		}
+		for key := range running {
+			if !currentRunning[key] {
+				log.Log(ctx, "stopping multistream target", "url", sanitizeMultistreamTargetURL(running[key].url), "pushID", running[key].pushID)
+				running[key].cancel()
+				delete(running, key)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(time.Second * 5):
+			continue
+		}
+	}
+}
+
+func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView *streamplace.MultistreamDefs_TargetView) error {
+	for {
+		err := ss.mm.RTMPPush(ctx, ss.repoDID, "source", targetView)
+		if err != nil {
+			log.Error(ctx, "failed to push to RTMP server", "error", err)
+			err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, err.Error(), "error")
+			if err != nil {
+				log.Error(ctx, "failed to create multistream event", "error", err)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(time.Second * 5):
+			continue
+		}
+	}
 }

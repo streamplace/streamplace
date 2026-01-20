@@ -12,6 +12,8 @@ import (
 
 // BroadcastGetBroadcaster_Output is the output of a place.stream.broadcast.getBroadcaster call.
 type BroadcastGetBroadcaster_Output struct {
+	// admins: Array of DIDs authorized as admins
+	Admins []string `json:"admins,omitempty" cborgen:"admins,omitempty"`
 	// broadcaster: DID of the Streamplace broadcaster to which this server belongs
 	Broadcaster string `json:"broadcaster" cborgen:"broadcaster"`
 	// server: DID of this particular Streamplace server

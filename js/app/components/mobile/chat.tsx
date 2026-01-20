@@ -3,6 +3,7 @@ import {
   ChatBox,
   Loader,
   Resizable,
+  StreamNotificationProvider,
   Text,
   useHandle,
   useLivestreamInfo,
@@ -20,10 +21,10 @@ import Animated, {
 
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
-import emojiData from "assets/emoji-data.json";
 import { ArrowRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
+import { useEmojiData } from "utils/emoji";
 const { borderRadius, gap, layout, flex, px, position, bottom } = zero;
 
 export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
@@ -54,7 +55,10 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
       { translateX: sidebarOffset.value },
       { translateY: -kb.keyboardHeight },
     ],
-    opacity: sidebarOpacity.value,
+  }));
+
+  const notificationOffsetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -sidebarOffset.value }],
   }));
 
   return (
@@ -88,6 +92,23 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
         ]}
       >
         <View style={{ flex: 1, position: "relative" }}>
+          <Animated.View
+            style={[
+              {
+                position: "absolute",
+                top: 1,
+                right: 1,
+                zIndex: 2,
+                width: "100%",
+                minWidth: 350,
+                pointerEvents: "none",
+                transformOrigin: "top right",
+              },
+              notificationOffsetStyle,
+            ]}
+          >
+            <StreamNotificationProvider position="top" />
+          </Animated.View>
           <ChatPanel />
         </View>
       </Animated.View>
@@ -110,6 +131,9 @@ export function MobileChatPanel({ isPlayerRatioGreater }) {
       <Resizable
         isPlayerRatioGreater={isPlayerRatioGreater}
         startingPercentage={0.4}
+        renderAbove={(isCollapsed) => (
+          <StreamNotificationProvider position="bottom" />
+        )}
       >
         <ChatPanel />
       </Resizable>
@@ -125,6 +149,7 @@ function ChatPanel() {
 
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const emojiData = useEmojiData();
 
   // get the deepest active route for nested navigators
   const currentRoute = useNavigationState((state) => {
@@ -148,6 +173,27 @@ function ChatPanel() {
         <Chat />
       </View>
       <View style={[layout.flex.column, gap.all[2]]}>
+        {/*
+        // in case one needs this again
+
+          <Pressable
+          onPress={() =>
+            StreamNotifications.activate("Stream notification activated!")
+          }
+          style={[
+            layout.flex.row,
+            layout.flex.center,
+            {
+              padding: 12,
+              borderRadius: borderRadius.xl,
+              backgroundColor: "rgba(255, 255, 255, 0.05)",
+            },
+          ]}
+        >
+          <Text style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: 12 }}>
+            Activate Stream Notification
+          </Text>
+        </Pressable>*/}
         {agent?.did ? (
           <ChatBox
             emojiData={emojiData}

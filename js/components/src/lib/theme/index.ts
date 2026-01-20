@@ -12,6 +12,9 @@ export {
   type ThemeIcons,
 } from "./theme";
 
+// Branded theme provider
+export { BrandedThemeProvider } from "./branded-theme-provider";
+
 // Design tokens
 export {
   animations,

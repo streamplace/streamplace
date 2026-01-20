@@ -1,3 +1,6 @@
+// Just to be 100% sure it's imported successfully
+import "../crypto-polyfill";
+
 import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";

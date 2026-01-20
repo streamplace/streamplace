@@ -177,12 +177,13 @@ BASE_OPTS = \
 		-D "gst-plugins-good:videobox=enabled" \
 		-D "gst-plugins-good:jpeg=enabled" \
 		-D "gst-plugins-good:audioparsers=enabled" \
-		-D "gst-plugins-good:flv=enabled" \
 		-D "gst-plugins-bad:videoparsers=enabled" \
 		-D "gst-plugins-bad:mpegtsmux=enabled" \
 		-D "gst-plugins-bad:mpegtsdemux=enabled" \
 		-D "gst-plugins-bad:codectimestamper=enabled" \
 		-D "gst-plugins-bad:opus=enabled" \
+		-D "gst-plugins-bad:rtmp2=enabled" \
+		-D "gst-plugins-good:flv=enabled" \
 		-D "gst-plugins-ugly:x264=enabled" \
 		-D "gst-plugins-ugly:gpl=enabled" \
 		-D "x264:asm=enabled" \
@@ -310,7 +311,7 @@ dev-test:
 	&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
 	CGO_LDFLAGS="-lm" \
-	bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
+	bash -euo pipefail -c "go test -p 1 -timeout 30m ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
 .PHONY: iroh-test
 iroh-test:
@@ -381,16 +382,18 @@ js-lexicons:
 		&& sed -i.bak "s/^..port.*com\/atproto.*//g" $$(find ./js/streamplace/src/lexicons -type f) \
 		&& sed -i.bak "s/\(..port .*\)\.js\(.*\)/\1\2/g" $$(find ./js/streamplace/src/lexicons -type f) \
  		&& sed -i.bak 's/AppBskyGraphBlock\.Main/AppBskyGraphBlock\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
+ 		&& sed -i.bak 's/PlaceStreamMultistreamTarget\.Main/PlaceStreamMultistreamTarget\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
  		&& sed -i.bak 's/PlaceStreamChatProfile\.Main/PlaceStreamChatProfile\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
 		&& for x in $$(find ./js/streamplace/src/lexicons -type f -name '*.ts'); do \
 			echo 'import { AppBskyRichtextFacet, AppBskyGraphBlock, ComAtprotoRepoStrongRef, AppBskyActorDefs, ComAtprotoSyncListRepos, AppBskyActorGetProfile, AppBskyFeedGetFeedSkeleton, ComAtprotoIdentityResolveHandle, ComAtprotoModerationCreateReport, ComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoDescribeRepo, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoRepoPutRecord, ComAtprotoRepoUploadBlob, ComAtprotoServerDescribeServer, ComAtprotoSyncGetRecord, ComAtprotoSyncListReposComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoIdentityRefreshIdentity } from "@atproto/api"' >> $$x; \
 		done \
-		&& npx prettier --write $$(find ./js/streamplace/src/lexicons -type f -name '*.ts') \
+		&& npx prettier --ignore-unknown --write $$(find ./js/streamplace/src/lexicons -type f -name '*.ts') \
 		&& find . | grep bak$$ | xargs rm
 
 .PHONY: md-lexicons
 md-lexicons:
-	pnpm exec lexmd \
+	find "js/docs/src/content/docs/lex-reference" -type f -name '*.md' -delete \
+	&& pnpm exec lexmd \
 	    ./lexicons \
 		.build/temp \
 		subprojects/atproto/lexicons \

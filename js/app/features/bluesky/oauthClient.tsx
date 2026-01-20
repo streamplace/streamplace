@@ -23,10 +23,23 @@ export default async function createOAuthClient(
   let customResolver: StreamplaceOAuthResolver | null = null;
 
   let meta: ClientMetadata;
+
+  const redirectURI =
+    Platform.OS === "web"
+      ? `${streamplaceUrl}/login`
+      : `${streamplaceUrl}/api/app-return`;
+  const res = await fetch(
+    `${streamplaceUrl}/oauth/downstream/client-metadata.json?redirect_uri=${encodeURIComponent(redirectURI)}`,
+  );
+  meta = await res.json();
+
   if (
     streamplaceUrl.startsWith("http://localhost") ||
     streamplaceUrl.startsWith("http://127.0.0.1")
   ) {
+    if (!meta.scope) {
+      throw new Error("meta.scope is required");
+    }
     const isWeb = Platform.OS === "web";
     const u = new URL(streamplaceUrl);
     let hostname = u.hostname;
@@ -47,12 +60,12 @@ export default async function createOAuthClient(
       redirect = `${redirect}/app-return/${scheme}`;
     }
     const queryParams = new URLSearchParams();
-    queryParams.set("scope", "atproto transition:generic");
+    queryParams.set("scope", meta.scope);
     queryParams.set("redirect_uri", redirect);
     meta = {
       client_id: `http://localhost?${queryParams.toString()}`,
       redirect_uris: [redirect as any],
-      scope: "atproto transition:generic",
+      scope: meta.scope,
       token_endpoint_auth_method: "none",
       client_name: "Loopback client",
       response_types: ["code"],
@@ -64,15 +77,6 @@ export default async function createOAuthClient(
       subject_type: "public",
       authorization_signed_response_alg: "ES256",
     };
-  } else {
-    const redirectURI =
-      Platform.OS === "web"
-        ? `${streamplaceUrl}/login`
-        : `${streamplaceUrl}/api/app-return`;
-    const res = await fetch(
-      `${streamplaceUrl}/oauth/downstream/client-metadata.json?redirect_uri=${encodeURIComponent(redirectURI)}`,
-    );
-    meta = await res.json();
   }
   try {
     clientMetadataSchema.parse(meta);

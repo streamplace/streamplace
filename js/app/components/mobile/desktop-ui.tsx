@@ -1,5 +1,6 @@
 import {
   PlayerUI,
+  PortalHost,
   Toast,
   useLivestreamInfo,
   useOffline,
@@ -59,6 +60,7 @@ export function DesktopUi({
   } = useLivestreamInfo();
   const { width, height } = usePlayerDimensions();
   const { shouldShowFloatingMetrics } = useResponsiveLayout();
+  const playerId = usePlayerStore((state) => state.id);
 
   const originalSafeAreaInsets = useSafeAreaInsets();
 
@@ -67,6 +69,8 @@ export function DesktopUi({
   const pipAction = usePlayerStore((state) => state.pipAction);
   const videoRef = usePlayerStore((state) => state.videoRef);
   const embedded = usePlayerStore((state) => state.embedded);
+
+  const fullscreen = usePlayerStore((state) => state.fullscreen);
 
   const safeAreaInsets = embedded
     ? { ...originalSafeAreaInsets, top: 0 }
@@ -79,7 +83,7 @@ export function DesktopUi({
   const [pipActive, setPipActive] = useState(false);
   const fadeOpacity = useSharedValue(1);
   const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
-  const FADE_OUT_DELAY = 500;
+  const FADE_OUT_DELAY = 2500;
 
   const isSelfAndNotLive = ingest === "new";
   const isActivelyLive = ingest !== null && ingest !== "new";
@@ -161,131 +165,136 @@ export function DesktopUi({
 
   const hover = Gesture.Hover().onChange((_) => runOnJS(onPlayerHover)());
 
-  return (
-    <GestureDetector gesture={hover}>
-      <View
-        style={[layout.position.absolute, h.percent[100], w.percent[100]]}
-        collapsable={false}
-      >
-        <MuteOverlay />
-        <PlayerUI.AutoplayButton />
-        <PlayerUI.ViewerLoadingOverlay />
-        <Animated.View
-          style={[
-            layout.position.absolute,
-            w.percent[100],
-            {
-              top: safeAreaInsets.top,
-              paddingHorizontal: 16,
-              paddingVertical: 16,
-            },
-            animatedFadeStyle,
-          ]}
-        >
-          <TopControlBar
-            offline={offline}
-            isActivelyLive={isActivelyLive}
-            ingest={ingest}
-            isChatOpen={isChatOpen || false}
-            onToggleChat={toggleChat}
-            embedded={embedded}
-          />
-        </Animated.View>
+  const portalContainerID = "desktop-ui-dropdown-portal-" + playerId;
 
-        {isActivelyLive && isControlsVisible && (
-          <View
+  return (
+    <>
+      <GestureDetector gesture={hover}>
+        <View
+          style={[layout.position.absolute, h.percent[100], w.percent[100]]}
+          collapsable={false}
+        >
+          <MuteOverlay />
+          <PlayerUI.AutoplayButton />
+          <PlayerUI.ViewerLoadingOverlay />
+          <Animated.View
             style={[
               layout.position.absolute,
+              w.percent[100],
               {
-                transform: [{ translateX: -100 }, { translateY: -25 }],
+                top: safeAreaInsets.top,
+                paddingHorizontal: 16,
+                paddingVertical: 16,
               },
+              animatedFadeStyle,
             ]}
           >
-            <Animated.View
+            <TopControlBar
+              offline={offline}
+              isActivelyLive={isActivelyLive}
+              ingest={ingest}
+              isChatOpen={isChatOpen || false}
+              onToggleChat={toggleChat}
+              embedded={embedded}
+            />
+          </Animated.View>
+
+          {isActivelyLive && isControlsVisible && (
+            <View
               style={[
+                layout.position.absolute,
                 {
-                  padding: 12,
-                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  transform: [{ translateX: -100 }, { translateY: -25 }],
                 },
-                r[3],
-                animatedFadeStyle,
               ]}
             >
-              <PlayerUI.MetricsPanel showMetrics={isActivelyLive} />
-            </Animated.View>
-          </View>
-        )}
+              <Animated.View
+                style={[
+                  {
+                    padding: 12,
+                    backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  },
+                  r[3],
+                  animatedFadeStyle,
+                ]}
+              >
+                <PlayerUI.MetricsPanel showMetrics={isActivelyLive} />
+              </Animated.View>
+            </View>
+          )}
 
-        <Animated.View
-          style={[
-            layout.position.absolute,
-            position.bottom[0],
-            w.percent[100],
-            {
-              backgroundColor: "rgba(0, 0, 0, 0.6)",
-              paddingHorizontal: 16,
-              paddingVertical: 2,
-              paddingBottom: 2,
-            },
-            animatedFadeStyle,
-          ]}
-        >
-          <BottomControlBar
-            ingest={ingest}
-            pipSupported={pipSupported}
-            pipActive={pipActive}
-            onHandlePip={handlePip}
-            dropdownPortalContainer={dropdownPortalContainer}
-            showChat={isChatOpen || false}
-            setShowChat={setIsChatOpen || undefined}
-          />
-        </Animated.View>
-
-        {isSelfAndNotLive && (
-          <PlayerUI.InputPanel
-            title={title}
-            setTitle={setTitle}
-            ingestStarting={ingestStarting}
-            toggleGoLive={toggleGoLive}
-          />
-        )}
-
-        <PlayerUI.CountdownOverlay
-          visible={showCountdown}
-          width={width}
-          height={height}
-          onDone={() => {
-            setShowCountdown(false);
-          }}
-        />
-
-        <Toast
-          open={recordSubmitted}
-          onOpenChange={setRecordSubmitted}
-          title="You're live!"
-          description="We're notifying your followers that you just went live."
-          duration={5}
-        />
-        {showMetrics && (
-          <View
+          <Animated.View
             style={[
               layout.position.absolute,
-              position.top[20],
-              position.left[4],
-              px[4],
-              py[2],
+              position.bottom[0],
+              w.percent[100],
               {
-                backgroundColor: "rgba(0, 0, 0, 0.7)",
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: "#374151",
+                backgroundColor: "rgba(0, 0, 0, 0.6)",
+                paddingHorizontal: 16,
+                paddingVertical: 2,
+                paddingBottom: 2,
               },
+              animatedFadeStyle,
             ]}
           >
-            <PlayerUI.MetricsPanel showMetrics={showMetrics} />
-          </View>
-        )}
-      </View>
-    </GestureDetector>
+            <BottomControlBar
+              ingest={ingest}
+              pipSupported={pipSupported}
+              pipActive={pipActive}
+              onHandlePip={handlePip}
+              dropdownPortalContainer={fullscreen && portalContainerID}
+              showChat={isChatOpen || false}
+              setShowChat={setIsChatOpen || undefined}
+            />
+          </Animated.View>
+
+          {isSelfAndNotLive && (
+            <PlayerUI.InputPanel
+              title={title}
+              setTitle={setTitle}
+              ingestStarting={ingestStarting}
+              toggleGoLive={toggleGoLive}
+            />
+          )}
+
+          <PlayerUI.CountdownOverlay
+            visible={showCountdown}
+            width={width}
+            height={height}
+            onDone={() => {
+              setShowCountdown(false);
+            }}
+          />
+
+          <Toast
+            open={recordSubmitted}
+            onOpenChange={setRecordSubmitted}
+            title="You're live!"
+            description="We're notifying your followers that you just went live."
+            duration={5}
+          />
+          {showMetrics && (
+            <View
+              style={[
+                layout.position.absolute,
+                position.top[20],
+                position.left[4],
+                px[4],
+                py[2],
+                {
+                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: "#374151",
+                },
+              ]}
+            >
+              <PlayerUI.MetricsPanel showMetrics={showMetrics} />
+            </View>
+          )}
+        </View>
+      </GestureDetector>
+      {fullscreen && <PortalHost name={portalContainerID} />}
+    </>
   );
 }

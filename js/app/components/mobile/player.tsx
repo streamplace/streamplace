@@ -43,6 +43,25 @@ const SEGMENT_TIMEOUT = 500; // half a sec
 export function Player(
   props: Partial<PlayerProps> & {
     setFullscreen?: (fullscreen: boolean) => void;
+    onTeleport?: (targetHandle: string, targetDID: string) => void;
+  },
+) {
+  return (
+    <RotationProvider enabled={Platform.OS !== "web"}>
+      <LivestreamProvider src={props.src ?? ""}>
+        <StatusBar hidden={true} />
+        <PlayerProvider defaultId={props.playerId || undefined}>
+          <PlayerWithProvider {...props} />
+        </PlayerProvider>
+      </LivestreamProvider>
+    </RotationProvider>
+  );
+}
+
+function PlayerWithProvider(
+  props: Partial<PlayerProps> & {
+    setFullscreen?: (fullscreen: boolean) => void;
+    onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
   const [showChat, setShowChat] = useState(true);
@@ -64,6 +83,12 @@ export function Player(
   }, []);
 
   useEffect(() => {
+    // don't show unavailable when in ingest mode (you're the one streaming)
+    if (props.ingest) {
+      setShowUnavailable(false);
+      return;
+    }
+
     if (!websocketConnected) {
       setShowUnavailable(false);
       return;
@@ -81,7 +106,7 @@ export function Player(
       setShowUnavailable(true);
     }, SEGMENT_TIMEOUT);
     return () => clearTimeout(timer);
-  }, [websocketConnected, hasReceivedSegment, segs, now]);
+  }, [websocketConnected, hasReceivedSegment, segs, now, props.ingest]);
 
   const [isStreamingElsewhere, setIsStreamingElsewhere] = useState<
     boolean | null
@@ -165,9 +190,18 @@ export function Player(
     );
   }
 
+  const defaultHandleTeleport = (targetHandle: string, targetDID: string) => {
+    navigation.navigate("Home", {
+      screen: "Stream",
+      params: { user: targetHandle },
+    });
+  };
+
+  const handleTeleport = props.onTeleport || defaultHandleTeleport;
+
   return (
     <RotationProvider enabled={Platform.OS !== "web"}>
-      <LivestreamProvider src={props.src ?? ""}>
+      <LivestreamProvider src={props.src ?? ""} onTeleport={handleTeleport}>
         <StatusBar hidden={true} />
         <PlayerProvider defaultId={props.playerId || undefined}>
           <View

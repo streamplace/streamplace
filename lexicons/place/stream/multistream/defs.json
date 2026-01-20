@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.multistream.defs",
+  "defs": {
+    "targetView": {
+      "type": "object",
+      "required": ["uri", "cid", "record"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "record": { "type": "unknown" },
+        "latestEvent": {
+          "type": "ref",
+          "ref": "place.stream.multistream.defs#event"
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "required": ["message", "status", "createdAt"],
+      "properties": {
+        "message": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["inactive", "pending", "active", "error"]
+        },
+        "createdAt": { "type": "string", "format": "datetime" }
+      }
+    }
+  }
+}

@@ -3,6 +3,8 @@ import {
   ChatMessageViewHydrated,
   LivestreamViewHydrated,
   PlaceStreamDefs,
+  PlaceStreamLiveTeleport,
+  PlaceStreamModerationPermission,
   PlaceStreamSegment,
 } from "streamplace";
 
@@ -21,8 +23,15 @@ export interface LivestreamState {
   replyToMessage: ChatMessageViewHydrated | null;
   streamKey: string | null;
   setStreamKey: (key: string | null) => void;
+  activeTeleport: PlaceStreamLiveTeleport.Record | null;
+  activeTeleportUri: string | null;
+  setActiveTeleportUri: (uri: string | null) => void;
   websocketConnected: boolean;
   hasReceivedSegment: boolean;
+  moderationPermissions: PlaceStreamModerationPermission.Record[];
+  setModerationPermissions: (
+    permissions: PlaceStreamModerationPermission.Record[],
+  ) => void;
 }
 
 export interface LivestreamProblem {

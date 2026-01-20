@@ -1,0 +1,67 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.moderation.createBlock",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates an app.bsky.graph.block record in the streamer's repository.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["streamer", "subject"],
+          "properties": {
+            "streamer": {
+              "type": "string",
+              "format": "did",
+              "description": "The DID of the streamer whose chat this block applies to."
+            },
+            "subject": {
+              "type": "string",
+              "format": "did",
+              "description": "The DID of the user being blocked from chat."
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 300,
+              "description": "Optional reason for the block."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["uri", "cid"],
+          "properties": {
+            "uri": {
+              "type": "string",
+              "format": "at-uri",
+              "description": "The AT-URI of the created block record."
+            },
+            "cid": {
+              "type": "string",
+              "format": "cid",
+              "description": "The CID of the created block record."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "Unauthorized",
+          "description": "The request lacks valid authentication credentials."
+        },
+        {
+          "name": "Forbidden",
+          "description": "The caller does not have permission to create blocks for this streamer."
+        },
+        {
+          "name": "SessionNotFound",
+          "description": "The streamer's OAuth session could not be found or is invalid."
+        }
+      ]
+    }
+  }
+}

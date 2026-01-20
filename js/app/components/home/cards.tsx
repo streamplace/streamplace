@@ -49,17 +49,18 @@ const StreamCard = ({
       style={[
         zero.flex.values[1],
         {
+          borderCurve: "continuous",
           backgroundColor: theme.colors.muted,
           borderRadius,
           overflow: "hidden",
           borderColor: theme.colors.mutedForeground + 80,
-          borderWidth: 2,
+          borderWidth: isWeb ? 1 : 0,
           alignItems: layoutHorizontal ? "center" : "stretch",
           flexDirection: layoutHorizontal ? "row" : "column",
         },
       ]}
     >
-      {/* Thumbnail Section */}
+      {/* Thumbnail */}
       <View
         style={[
           {
@@ -67,8 +68,6 @@ const StreamCard = ({
             minWidth: layoutHorizontal ? "63%" : "100%",
             // native seems to be unable to adjust widths properly?
             maxHeight: !isWeb ? "76.5%" : "100%",
-            borderRadius,
-            overflow: "hidden",
             position: "relative",
             alignSelf: layoutHorizontal ? "auto" : "center",
             backgroundColor: theme.colors.card,
@@ -77,7 +76,11 @@ const StreamCard = ({
       >
         <Image
           source={{ uri: `${url}/${thumbnailUrl}`, width: 160, height: 90 }}
-          style={{ width: "100%", height: "100%", aspectRatio: 16 / 9 }}
+          style={{
+            width: "100%",
+            height: "100%",
+            aspectRatio: 16 / 9,
+          }}
           resizeMode="contain"
         />
         {isLive && (
@@ -193,6 +196,7 @@ const StreamCard = ({
               ]}
               numberOfLines={1}
               ellipsizeMode="tail"
+              leading="tight"
             >
               @{streamerName}
             </Text>

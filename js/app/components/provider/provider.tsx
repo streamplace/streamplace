@@ -1,5 +1,4 @@
 import { LinkingOptions } from "@react-navigation/native";
-import { ThemeProvider } from "@streamplace/components";
 import React, { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import SharedProvider from "./provider.shared";
@@ -21,9 +20,7 @@ export default function Provider({
   }, []);
   return (
     <SafeAreaProvider>
-      <ThemeProvider forcedTheme="dark">
-        <SharedProvider linking={linking}>{children}</SharedProvider>
-      </ThemeProvider>
+      <SharedProvider linking={linking}>{children}</SharedProvider>
     </SafeAreaProvider>
   );
 }

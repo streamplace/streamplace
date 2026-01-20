@@ -22,8 +22,13 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     authors: {},
     recentSegments: [],
     problems: [],
+    activeTeleport: null,
+    activeTeleportUri: null,
+    setActiveTeleportUri: (uri) => set({ activeTeleportUri: uri }),
     websocketConnected: false,
     hasReceivedSegment: false,
+    moderationPermissions: [],
+    setModerationPermissions: (perms) => set({ moderationPermissions: perms }),
   }));
 };
 

@@ -5,8 +5,8 @@ import {
 } from "@react-navigation/native";
 import * as Sentry from "@sentry/react-native";
 import {
+  BrandedThemeProvider,
   I18nProvider,
-  ThemeProvider,
   StreamplaceProvider as ZustandStreamplaceProvider,
 } from "@streamplace/components";
 import { useFonts } from "expo-font";
@@ -85,19 +85,19 @@ function ProviderInner({
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider forcedTheme="dark">
-        <I18nProvider i18n={i18n}>
-          <NavigationContainer theme={SPDarkTheme} linking={linking}>
-            <StreamplaceProvider>
-              <BlueskyProvider>
-                <NewStreamplaceProvider>
+      <I18nProvider i18n={i18n}>
+        <NavigationContainer theme={SPDarkTheme} linking={linking}>
+          <StreamplaceProvider>
+            <BlueskyProvider>
+              <NewStreamplaceProvider>
+                <BrandedThemeProvider forcedTheme="dark">
                   <FontProvider>{children}</FontProvider>
-                </NewStreamplaceProvider>
-              </BlueskyProvider>
-            </StreamplaceProvider>
-          </NavigationContainer>
-        </I18nProvider>
-      </ThemeProvider>
+                </BrandedThemeProvider>
+              </NewStreamplaceProvider>
+            </BlueskyProvider>
+          </StreamplaceProvider>
+        </NavigationContainer>
+      </I18nProvider>
     </SafeAreaProvider>
   );
 }

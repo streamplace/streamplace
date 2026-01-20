@@ -1,8 +1,16 @@
-import { Button, storage, Text, useTheme, zero } from "@streamplace/components";
+import {
+  Button,
+  storage,
+  Text,
+  tokens,
+  useTheme,
+  zero,
+} from "@streamplace/components";
 import { ChevronDown } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import {
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -261,7 +269,18 @@ export default function StreamerAgreement({
                     default="For full details, please review our <1>Terms of Service</1> and <2>Community Guidelines</2>."
                     components={{
                       1: <Text size="base" weight="semibold" />,
-                      2: <Text size="base" weight="semibold" />,
+                      2: (
+                        <Text
+                          size="base"
+                          weight="semibold"
+                          style={{ color: tokens.colors.blue[400] }}
+                          onPress={() =>
+                            Linking.openURL(
+                              "https://blog.stream.place/3mcqwibo4ks2w",
+                            )
+                          }
+                        />
+                      ),
                     }}
                   />
                 </Text>

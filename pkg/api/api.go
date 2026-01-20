@@ -543,6 +543,10 @@ func (a *StreamplaceAPI) HandleSegment(ctx context.Context) http.HandlerFunc {
 
 func (a *StreamplaceAPI) HandlePlayerEvent(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
+		if !a.CLI.PlayerTelemetry {
+			w.WriteHeader(200)
+			return
+		}
 		var event model.PlayerEventAPI
 		if err := json.NewDecoder(req.Body).Decode(&event); err != nil {
 			apierrors.WriteHTTPBadRequest(w, "could not decode JSON body", err)

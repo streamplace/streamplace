@@ -85,9 +85,11 @@ func (m *DBModel) GetLivestreamByPostURI(postURI string) (*Livestream, error) {
 
 // GetLatestLivestreams returns the most recent livestreams, given a limit and a cursor
 // Only gets livestreams with a valid segment no less than 30 seconds old
+// Filters out livestreams or users with the !hide label
 func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time) ([]Livestream, error) {
 	var recentLivestreams []Livestream
 	thirtySecondsAgo := time.Now().Add(-30 * time.Second)
+	now := time.Now().UTC()
 
 	// get latest segment for the repo DID
 	latestRecentSegmentsSubQuery := m.DB.Table("segments").
@@ -106,7 +108,25 @@ func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time) ([]Livestre
 	mainQuery := m.DB.Table("(?) as ranked_livestreams", rankedLivestreamsSubQuery).
 		Joins("JOIN (?) as latest_segments ON ranked_livestreams.repo_did = latest_segments.repo_did", latestRecentSegmentsSubQuery).
 		Select("ranked_livestreams.*, latest_segments.latest_segment_start_time").
-		Where("ranked_livestreams.rn = 1")
+		Where("ranked_livestreams.rn = 1").
+		// exclude livestreams with !hide label on the record
+		Where("NOT EXISTS (?)",
+			m.DB.Table("labels").
+				Select("1").
+				Where("labels.uri = ranked_livestreams.uri").
+				Where("labels.val = ?", "!hide").
+				Where("labels.neg = ?", false).
+				Where("(labels.exp IS NULL OR labels.exp > ?)", now),
+		).
+		// exclude livestreams with !hide label on the user
+		Where("NOT EXISTS (?)",
+			m.DB.Table("labels").
+				Select("1").
+				Where("labels.uri = ranked_livestreams.repo_did").
+				Where("labels.val = ?", "!hide").
+				Where("labels.neg = ?", false).
+				Where("(labels.exp IS NULL OR labels.exp > ?)", now),
+		)
 
 	if before != nil {
 		mainQuery = mainQuery.Where("livestreams.created_at < ?", *before)

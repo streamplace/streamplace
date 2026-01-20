@@ -121,7 +121,7 @@ inactive = Inactive
 active = Active
 
 ## Multistreaming
-multistreaming = Multistreaming
+multistream = Multistreaming
 multistream-targets = Multistream Targets
 multistream-description = Automatically push your Streamplace livestreams to other streaming services like Twitch or YouTube.
 create-multistream-target = Create Multistream Target
@@ -168,6 +168,7 @@ need-setup-live-dashboard = Need to set up streaming first? Visit the live dashb
 no-languages-found = No languages found
 
 ## Branding Administration
+branding = Branding
 branding-admin = Branding Administration
 branding-admin-description = Customize your Streamplace instance. Note that settings may take a few hours to propagate.
 branding-login-required = Please log in to manage branding

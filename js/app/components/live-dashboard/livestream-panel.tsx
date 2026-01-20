@@ -1,4 +1,5 @@
 import {
+  Admonition,
   Button,
   Checkbox,
   ContentMetadataForm,
@@ -6,6 +7,7 @@ import {
   formatHandle,
   formatHandleWithAt,
   Input,
+  Text,
   Textarea,
   Tooltip,
   useCreateStreamRecord,
@@ -15,13 +17,13 @@ import {
   useUrl,
   zero,
 } from "@streamplace/components";
-import { ImagePlus, X } from "lucide-react-native";
+import { ArrowRight, ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Platform,
+  Pressable,
   ScrollView,
-  Text,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -80,10 +82,12 @@ const ImageUploadComponent = ({
   selectedImage,
   onImageSelect,
   onImageRemove,
+  onGoToMetadata,
 }: {
   selectedImage?: string | File | Blob;
   onImageSelect?: () => void;
   onImageRemove?: () => void;
+  onGoToMetadata?: () => void;
 }) => {
   const imageUrl = useMemo(() => {
     if (!selectedImage) return undefined;
@@ -160,6 +164,20 @@ const ImageUploadComponent = ({
           </Text>
         </TouchableOpacity>
       )}
+      <View style={{ marginTop: 8 }}>
+        <Admonition variant="info" size="sm">
+          <Text size="sm">
+            You are required to disclose if your content is not suitable for
+            certain viewers.
+          </Text>
+          <Pressable onPress={onGoToMetadata}>
+            <Text size="sm" color={zero.colors.blue[400]}>
+              Go to the metadata page{" "}
+              <ArrowRight size="14" style={{ marginVertical: -2 }} />
+            </Text>
+          </Pressable>
+        </Admonition>
+      </View>
     </View>
   );
 };
@@ -569,6 +587,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                   selectedImage={selectedImage}
                   onImageSelect={handleImageSelect}
                   onImageRemove={handleImageRemove}
+                  onGoToMetadata={() => handleModeChange("metadata")}
                 />
               )}
 

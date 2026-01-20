@@ -62,7 +62,17 @@ const textVariants = cva("", {
 
 export interface TextProps
   extends Omit<TextPrimitiveProps, "variant" | "size" | "weight" | "color">,
-    VariantProps<typeof textVariants> {
+    Omit<VariantProps<typeof textVariants>, "color"> {
+  // Override color to accept hex values and custom strings
+  color?:
+    | "default"
+    | "muted"
+    | "primary"
+    | "secondary"
+    | "destructive"
+    | "success"
+    | "warning"
+    | (string & {});
   // Additional convenience props
   muted?: boolean;
   bold?: boolean;

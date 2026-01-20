@@ -58,14 +58,20 @@ sidebar:
 - Audio Encoder:
   - For `RTMP`, choose an appropriate AAC encoder.
   - For `WHIP`, use `ffmpeg_opus`.
+  - If you are using a server that supports the SRT protocol (e.g.
+    multistreaming via NGINX) please check below for an example config.
 - Video Encoder: _(Select appropriate encoder, e.g. libx264/nvenc_h264)_
 
 #### 2e. Suggested Video Encoder Settings
 
+- Video Encoder: x264/h264 (**must** be an x/h.264 encoder)
 - Rate Control: `CBR`
 - Keyframe Interval: `1s` (or anything less than once every ~7s)
+  - This is _one keyframe per second_
+  - In some situations (e.g. 'keyframe interval (**frames**)'), this should be
+    set to your FPS.
 - x264 Options: `bframes=0`
-  - If available, there also may be a 'no bframes' checkbox which should be
+  - If available, there also may be a 'bframes' checkbox which should **NOT** be
     checked
 
 :::caution
@@ -103,3 +109,9 @@ Alternatively, you can
 ## Additional Resources
 
 - [OBS Official Documentation](https://obsproject.com/docs/)
+
+### Example Settings
+
+![SRT settings in OBS.](srt.png "OBS SRT Settings")
+
+> Multistreaming via a server that supports the SRT protocol

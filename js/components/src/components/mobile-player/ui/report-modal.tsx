@@ -173,6 +173,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       </View>
       <DialogFooter>
         <Button
+          width="min"
           variant="secondary"
           onPress={handleCancel}
           disabled={isSubmitting}
@@ -180,6 +181,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           <Text>Cancel</Text>
         </Button>
         <Button
+          width="min"
           variant="primary"
           onPress={handleSubmit}
           disabled={!selectedReason || isSubmitting}

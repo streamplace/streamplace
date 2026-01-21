@@ -71,6 +71,7 @@ func (s *Server) RegisterHandlersComAtproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.repo.uploadBlob", s.HandleComAtprotoRepoUploadBlob)
 	e.GET("/xrpc/com.atproto.server.describeServer", s.HandleComAtprotoServerDescribeServer)
 	e.GET("/xrpc/com.atproto.sync.getRecord", s.HandleComAtprotoSyncGetRecord)
+	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
 	e.GET("/xrpc/com.atproto.sync.listRepos", s.HandleComAtprotoSyncListRepos)
 	return nil
 }
@@ -230,6 +231,21 @@ func (s *Server) HandleComAtprotoSyncGetRecord(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context,collection string,did string,rkey string) (io.Reader, error)
 	out, handleErr = s.handleComAtprotoSyncGetRecord(ctx, collection, did, rkey)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/vnd.ipld.car", out)
+}
+
+func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRepo")
+	defer span.End()
+	did := c.QueryParam("did")
+	since := c.QueryParam("since")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context,did string,since string) (io.Reader, error)
+	out, handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, since)
 	if handleErr != nil {
 		return handleErr
 	}

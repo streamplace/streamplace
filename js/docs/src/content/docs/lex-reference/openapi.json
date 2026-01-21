@@ -1956,6 +1956,80 @@
         ]
       }
     },
+    "/xrpc/com.atproto.sync.getRepo": {
+      "get": {
+        "summary": "Download a repository export as CAR file. Optionally only a 'diff' since a previous revision. Does not require auth; implemented by PDS.",
+        "operationId": "com.atproto.sync.getRepo",
+        "tags": ["com.atproto.sync"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/vnd.ipld.car": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "RepoNotFound"
+                        },
+                        {
+                          "const": "RepoTakendown"
+                        },
+                        {
+                          "const": "RepoSuspended"
+                        },
+                        {
+                          "const": "RepoDeactivated"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "did",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the repo.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "The revision ('rev') of the repo to create a diff from.",
+            "schema": {
+              "type": "string",
+              "description": "The revision ('rev') of the repo to create a diff from.",
+              "format": "tid"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/com.atproto.sync.listRepos": {
       "get": {
         "summary": "Enumerates all the DID, rev, and commit CID for all repos hosted by this service. Does not require auth; implemented by PDS and Relay.",

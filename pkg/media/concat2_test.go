@@ -214,8 +214,10 @@ func innerTestConcatBin(t *testing.T) error {
 	<-padIdleCh
 	<-padIdleCh
 
-	require.Equal(t, 4936455, videoBuf.Len(), fmt.Sprintf("uuid: %s", uuidStr))
-	require.Equal(t, 32200, audioBuf.Len(), fmt.Sprintf("uuid: %s", uuidStr))
+	require.Equal(t, 3750410, videoBuf.Len(), fmt.Sprintf("uuid: %s", uuidStr))
+	require.Equal(t, 77970, audioBuf.Len(), fmt.Sprintf("uuid: %s", uuidStr))
+	require.Equal(t, 3750410, videoBuf.Len(), fmt.Sprintf("uuid: %s", uuidStr))
+	require.Equal(t, 77970, audioBuf.Len(), fmt.Sprintf("uuid: %s", uuidStr))
 
 	return <-errCh
 }

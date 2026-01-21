@@ -1062,6 +1062,11 @@ RustBuffer uniffi_iroh_streamplace_fn_func_sign(RustBuffer manifest, void* data,
 void uniffi_iroh_streamplace_fn_func_sign_with_ingredients(RustBuffer manifest, void* data, RustBuffer certs_str, void* ingredients, void* gosigner, void* output, RustCallStatus *out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SIGN_WITH_PARENT
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SIGN_WITH_PARENT
+RustBuffer uniffi_iroh_streamplace_fn_func_sign_with_parent(RustBuffer manifest, void* data, RustBuffer certs_str, void* parent, void* gosigner, RustCallStatus *out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SUBSCRIBE_ITEM_DEBUG
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_FN_FUNC_SUBSCRIBE_ITEM_DEBUG
 RustBuffer uniffi_iroh_streamplace_fn_func_subscribe_item_debug(RustBuffer item, RustCallStatus *out_status
@@ -1392,6 +1397,12 @@ uint16_t uniffi_iroh_streamplace_checksum_func_sign(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_SIGN_WITH_INGREDIENTS
 #define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_SIGN_WITH_INGREDIENTS
 uint16_t uniffi_iroh_streamplace_checksum_func_sign_with_ingredients(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_SIGN_WITH_PARENT
+#define UNIFFI_FFIDEF_UNIFFI_IROH_STREAMPLACE_CHECKSUM_FUNC_SIGN_WITH_PARENT
+uint16_t uniffi_iroh_streamplace_checksum_func_sign_with_parent(void
     
 );
 #endif

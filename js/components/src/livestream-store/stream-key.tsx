@@ -9,6 +9,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { getBrowserName } from "../lib/browser";
 import { usePDSAgent } from "../streamplace-store/xrpc";
 import { useLivestreamStore } from "./livestream-store";
+import { usePublisherKey } from "./use-publisher-key";
 
 export const useStreamKey = (): {
   streamKey: {
@@ -23,9 +24,25 @@ export const useStreamKey = (): {
   const setStreamKey = useLivestreamStore((state) => state.setStreamKey);
   const [key, setKey] = useState<any>(streamKey ? JSON.parse(streamKey) : null);
   const [error, setError] = useState<string | null>(null);
+  const {
+    publisherKey,
+    error: publisherKeyError,
+    loading: publisherKeyLoading,
+  } = usePublisherKey();
 
   useEffect(() => {
-    if (key) return; // already have key
+    if (key) return;
+
+    if (publisherKeyLoading) return;
+
+    if (publisherKeyError) {
+      setError(
+        `Failed to fetch publisher key (required for stream key record): ${publisherKeyError}`,
+      );
+      return;
+    }
+
+    if (!publisherKey) return;
 
     const generateKey = async () => {
       if (!pdsAgent) {
@@ -82,6 +99,7 @@ export const useStreamKey = (): {
         signingKey: keypair.did(),
         createdAt: new Date().toISOString(),
         createdBy: "Streamplace on " + platform,
+        publisher: publisherKey,
       };
       await pdsAgent.com.atproto.repo.createRecord({
         repo: did,

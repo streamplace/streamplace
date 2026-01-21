@@ -157,8 +157,8 @@ func innerTestConcatDemuxBin(t *testing.T) error {
 		if err != nil {
 			t.Errorf("failed to set pipeline to null state: %v", err)
 		}
-		require.Equal(t, 987291, videoBuf.Len())
-		require.Equal(t, 6440, audioBuf.Len())
+		require.Equal(t, 750082, videoBuf.Len())
+		require.Equal(t, 15594, audioBuf.Len())
 	}()
 
 	return <-errCh

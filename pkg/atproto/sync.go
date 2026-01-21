@@ -464,14 +464,32 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to parse createdAt: %w", err)
 		}
 		key := model.SigningKey{
+			DID:          rec.SigningKey,
+			RKey:         rkey.String(),
+			CreatedAt:    time.Time(),
+			RepoDID:      userDID,
+			PublisherKey: rec.Publisher,
+		}
+		err = atsync.Model.UpdateSigningKey(&key)
+		if err != nil {
+			log.Error(ctx, "failed to create signing key", "err", err)
+		}
+
+	case *streamplace.BroadcastPublisherKey:
+		log.Debug(ctx, "creating publisher key", "key", rec)
+		time, err := aqtime.FromString(rec.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse createdAt: %w", err)
+		}
+		key := model.PublisherKey{
 			DID:       rec.SigningKey,
 			RKey:      rkey.String(),
 			CreatedAt: time.Time(),
 			RepoDID:   userDID,
 		}
-		err = atsync.Model.UpdateSigningKey(&key)
+		err = atsync.Model.UpdatePublisherKey(&key)
 		if err != nil {
-			log.Error(ctx, "failed to create signing key", "err", err)
+			log.Error(ctx, "failed to create publisher key", "err", err)
 		}
 
 	case *streamplace.BroadcastOrigin:

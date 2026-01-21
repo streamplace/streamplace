@@ -61,10 +61,6 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 							"action": "c2pa.created",
 							"when":   startTime,
 						},
-						{
-							"action": "c2pa.published",
-							"when":   startTime,
-						},
 					},
 				},
 			},

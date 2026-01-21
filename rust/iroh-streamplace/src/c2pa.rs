@@ -22,23 +22,34 @@ pub fn get_manifest_and_cert(data: &dyn Stream) -> Result<String, SPError> {
     let reader = Reader::from_stream("video/mp4", StreamAdapter::from(data))
         .map_err(|e| SPError::C2paError(e.to_string()))?;
 
-    if let Some(manifest) = reader.active_manifest() {
-        let cert_chain = if let Some(si) = manifest.signature_info() {
-            si.cert_chain()
-        } else {
-            return Err(SPError::NoCertificateChainFound);
-        };
+    let mut certs: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for (label, manifest) in reader.manifests() {
+        let cert_chain = manifest
+            .signature_info()
+            .ok_or(SPError::C2paError(format!(
+                "No signature info for manifest: {}",
+                label
+            )))?
+            .cert_chain();
+        certs.insert(label.clone(), cert_chain.to_string());
+    }
 
-        let result = serde_json::json!({
-            "manifest": manifest,
-            "cert": cert_chain,
-            "validation_results": reader.validation_results(),
-            "validation_state": reader.validation_state(),
+    let active_label = reader.active_manifest()
+        .and_then(|m| {
+            reader.manifests().iter().find(|(_, manifest)| {
+                std::ptr::eq(*manifest, m)
+            }).map(|(label, _)| label.clone())
         });
 
-        return Ok(result.to_string());
-    }
-    Err(SPError::NoCertificateChainFound)
+    let result = serde_json::json!({
+        "manifests": reader.manifests(),
+        "certs": certs,
+        "active_manifest_label": active_label,
+        "validation_results": reader.validation_results(),
+        "validation_state": reader.validation_state(),
+    });
+
+    Ok(result.to_string())
 }
 
 #[uniffi::export(with_foreign)]
@@ -165,6 +176,50 @@ pub fn get_manifests(data: &dyn Stream) -> Result<String, SPError> {
         "certs": certs
     });
     Ok(result.to_string())
+}
+
+#[uniffi::export]
+pub fn sign_with_parent(
+    manifest: String,
+    data: &dyn Stream,
+    certs_str: String,
+    parent: &dyn Stream,
+    gosigner: Arc<dyn GoSigner>,
+) -> Result<Vec<u8>, SPError> {
+    let certs = STANDARD
+        .decode(certs_str)
+        .map_err(|e| SPError::C2paError(e.to_string()))?;
+    Settings::from_toml(TOML_SETTINGS).map_err(|e| SPError::C2paError(e.to_string()))?;
+    let callback_signer = CallbackSigner::new(
+        move |_context: *const (), data: &[u8]| {
+            gosigner
+                .sign(data.to_vec())
+                .map_err(|e| c2pa::Error::BadParam(e.to_string()))
+        },
+        c2pa::SigningAlg::Es256K,
+        certs,
+    );
+    let mut builder =
+        Builder::from_json(&manifest).map_err(|e| SPError::C2paError(e.to_string()))?;
+
+    let mut parent_cursor = StreamAdapter::from(parent);
+    let mut parent_ingredient = Ingredient::from_stream("video/mp4", &mut parent_cursor)
+        .map_err(|e| SPError::C2paError(e.to_string()))?;
+    parent_ingredient.set_is_parent();
+    builder.add_ingredient(parent_ingredient);
+
+    let mut output = Vec::new();
+    let mut input_cursor = StreamAdapter::from(data);
+    let mut output_cursor = Cursor::new(&mut output);
+    builder
+        .sign(
+            &callback_signer,
+            "video/mp4",
+            &mut input_cursor,
+            &mut output_cursor,
+        )
+        .map_err(|e| SPError::C2paError(e.to_string()))?;
+    Ok(output)
 }
 
 #[uniffi::export(with_foreign)]

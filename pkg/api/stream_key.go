@@ -82,7 +82,11 @@ func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (me
 		return nil, err
 	}
 
-	mediaSigner, err := media.MakeMediaSigner(ctx, a.CLI, did, signer, a.Model)
+	publisherSigner, err := a.StatefulDB.GetPublisherKeySigner()
+	if err != nil {
+		return nil, err
+	}
+	mediaSigner, err := media.MakeMediaSigner(ctx, a.CLI, did, signer, publisherSigner, a.Model)
 	if err != nil {
 		return nil, fmt.Errorf("invalid authorization key (not valid secp256k1): %w", err)
 	}

@@ -1,14 +1,14 @@
 {
   "lexicon": 1,
-  "id": "place.stream.key",
+  "id": "place.stream.broadcast.publisherKey",
   "defs": {
     "main": {
       "type": "record",
-      "description": "Record linking an atproto identity with a stream signing key",
+      "description": "Record linking stream publisher with their signing key",
       "key": "tid",
       "record": {
         "type": "object",
-        "required": ["signingKey", "createdAt", "publisher"],
+        "required": ["signingKey", "createdAt"],
         "properties": {
           "signingKey": {
             "type": "string",
@@ -24,12 +24,6 @@
           "createdBy": {
             "type": "string",
             "description": "The name of the client that created this key."
-          },
-          "publisher": {
-            "type": "string",
-            "maxLength": 57,
-            "minLength": 57,
-            "description": "The did:key signing key for the publisher, also found in place.stream.broadcast.publisherKey."
           },
           "expiresAt": {
             "type": "string",

@@ -188,9 +188,15 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 			}
 			bs = smearedBuf.Bytes()
 		}
-		signedBs, err := ms.SignMP4(ctx, bytes.NewReader(bs), now)
+		// First sign by streamer with metadata
+		signedOnce, err := ms.SignMP4(ctx, bytes.NewReader(bs), now)
 		if err != nil {
 			return fmt.Errorf("error calling SignMP4: %w", err)
+		}
+		// Then sign by broadcaster/publisher
+		signedBs, err := ms.SignMP4Publisher(ctx, bytes.NewReader(signedOnce))
+		if err != nil {
+			return fmt.Errorf("error calling SignMP4Publisher: %w", err)
 		}
 		log.Debug(ctx, "signed segment", "size", len(signedBs))
 		err = mm.ValidateMP4(ctx, bytes.NewReader(signedBs), true)

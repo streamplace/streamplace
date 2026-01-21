@@ -279,6 +279,26 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				atsync.Bus.Publish(evt.Repo, key)
 			}
 
+			if collection.String() == constants.PLACE_STREAM_BROADCAST_PUBLISHER_KEY {
+				log.Warn(ctx, "revoking publisher key", "userDID", evt.Repo, "rkey", rkey.String())
+				key, err := atsync.Model.GetPublisherKeyByRKey(ctx, rkey.String())
+				if err != nil {
+					log.Error(ctx, "failed to get publisher key", "err", err)
+					continue
+				}
+				if key == nil {
+					log.Warn(ctx, "no publisher key found for publisher key", "userDID", evt.Repo, "rkey", rkey.String())
+					continue
+				}
+				now := time.Now()
+				key.RevokedAt = &now
+				err = atsync.Model.UpdatePublisherKey(key)
+				if err != nil {
+					log.Error(ctx, "failed to revoke publisher key", "err", err)
+				}
+				atsync.Bus.Publish(evt.Repo, key)
+			}
+
 			if collection.String() == constants.PLACE_STREAM_CHAT_MESSAGE {
 				msg, err := atsync.Model.GetChatMessage(uri)
 				if err != nil {

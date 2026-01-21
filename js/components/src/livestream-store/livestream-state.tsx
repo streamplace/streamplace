@@ -28,6 +28,8 @@ export interface LivestreamState {
   setActiveTeleportUri: (uri: string | null) => void;
   websocketConnected: boolean;
   hasReceivedSegment: boolean;
+  publisherKey: string | null;
+  setPublisherKey: (key: string | null) => void;
   moderationPermissions: PlaceStreamModerationPermission.Record[];
   setModerationPermissions: (
     permissions: PlaceStreamModerationPermission.Record[],

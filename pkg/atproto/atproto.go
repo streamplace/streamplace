@@ -231,10 +231,8 @@ func DIDDoc(host string) map[string]any {
 			"https://w3id.org/security/multikey/v1",
 			"https://w3id.org/security/suites/secp256k1-2019/v1",
 		},
-		"id": fmt.Sprintf("did:web:%s", host),
-		"alsoKnownAs": []string{
-			fmt.Sprintf("at://%s", host),
-		},
+		"id":          fmt.Sprintf("did:web:%s", host),
+		"alsoKnownAs": []string{},
 		"service": []map[string]any{
 			{
 				"id":              "#bsky_fg",

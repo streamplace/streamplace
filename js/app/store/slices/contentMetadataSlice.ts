@@ -1,3 +1,7 @@
+import {
+  getPDSServiceEndpoint,
+  resolveDIDDocument,
+} from "@streamplace/components";
 import { AppStore } from "store";
 import { StateCreator } from "zustand";
 import { BlueskySlice } from "./blueskySlice";
@@ -201,22 +205,14 @@ export const createContentMetadataSlice: StateCreator<
       });
 
       try {
-        let targetPDS = null;
+        let targetPDS: string | null = null;
         try {
-          const didResponse = await fetch(`https://plc.directory/${targetDid}`);
-          if (didResponse.ok) {
-            const didDoc = await didResponse.json();
-            const pdsService = didDoc.service?.find(
-              (s: any) => s.id === "#atproto_pds",
-            );
-            if (pdsService) {
-              targetPDS = pdsService.serviceEndpoint;
-              console.log(
-                `[getContentMetadata] Resolved PDS for ${targetDid}:`,
-                targetPDS,
-              );
-            }
-          }
+          const didDoc = await resolveDIDDocument(targetDid);
+          targetPDS = getPDSServiceEndpoint(didDoc);
+          console.log(
+            `[getContentMetadata] Resolved PDS for ${targetDid}:`,
+            targetPDS,
+          );
         } catch (pdsResolveError) {
           console.log(
             `[getContentMetadata] Failed to resolve PDS for ${targetDid}:`,

@@ -6,7 +6,9 @@ import {
   Dashboard,
   formatHandle,
   formatHandleWithAt,
+  getBlob,
   Input,
+  resolveDIDDocument,
   Text,
   Textarea,
   Tooltip,
@@ -372,46 +374,8 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
       const did = livestream.uri.split("/")[2];
       const cid = (livestream.record.thumb.ref as any).$link;
 
-      let didDoc;
-
-      // Resolve the DID document based on DID method
-      if (did.startsWith("did:web:")) {
-        // For did:web, construct the URL directly
-        const domain = did.replace("did:web:", "").replace(/:/g, "/");
-        const didDocUrl = `https://${domain}/.well-known/did.json`;
-        const didResponse = await fetch(didDocUrl);
-        if (!didResponse.ok) {
-          throw new Error("Failed to resolve did:web document");
-        }
-        didDoc = await didResponse.json();
-      } else if (did.startsWith("did:plc:")) {
-        // For did:plc, use plc.directory
-        const didResponse = await fetch(`https://plc.directory/${did}`);
-        if (!didResponse.ok) {
-          throw new Error("Failed to resolve DID document");
-        }
-        didDoc = await didResponse.json();
-      } else {
-        throw new Error(`Unsupported DID method: ${did}`);
-      }
-
-      const pdsService = didDoc.service?.find(
-        (s: any) => s.id === "#atproto_pds",
-      );
-
-      if (!pdsService?.serviceEndpoint) {
-        throw new Error("No PDS service endpoint found in DID document");
-      }
-
-      // Construct the blob URL using the PDS endpoint
-      const thumbnailUrl = `${pdsService.serviceEndpoint}/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${cid}`;
-
-      // Fetch the image and convert to blob
-      const response = await fetch(thumbnailUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch blob: ${response.status}`);
-      }
-      const blob = await response.blob();
+      const didDoc = await resolveDIDDocument(did);
+      const blob = await getBlob(did, cid, didDoc);
       setSelectedImage(blob);
     } catch (error) {
       console.error("Failed to fetch last image:", error);

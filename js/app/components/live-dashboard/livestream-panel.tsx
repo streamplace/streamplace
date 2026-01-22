@@ -6,7 +6,9 @@ import {
   Dashboard,
   formatHandle,
   formatHandleWithAt,
+  getBlob,
   Input,
+  resolveDIDDocument,
   Text,
   Textarea,
   Tooltip,
@@ -82,11 +84,15 @@ const ImageUploadComponent = ({
   selectedImage,
   onImageSelect,
   onImageRemove,
+  onUseLastImage,
+  hasLastImage,
   onGoToMetadata,
 }: {
   selectedImage?: string | File | Blob;
   onImageSelect?: () => void;
   onImageRemove?: () => void;
+  onUseLastImage?: () => void;
+  hasLastImage?: boolean;
   onGoToMetadata?: () => void;
 }) => {
   const imageUrl = useMemo(() => {
@@ -154,15 +160,29 @@ const ImageUploadComponent = ({
           </TouchableOpacity>
         </View>
       ) : (
-        <TouchableOpacity onPress={onImageSelect} style={containerStyle}>
-          <ImagePlus size={48} color="#6b7280" />
-          <Text style={[text.gray[400], { marginTop: 8, fontSize: 14 }]}>
-            Add thumbnail image
-          </Text>
-          <Text style={[text.gray[500], { fontSize: 12, marginTop: 4 }]}>
-            Optional • JPG, PNG up to 975KB
-          </Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity onPress={onImageSelect} style={containerStyle}>
+            <ImagePlus size={48} color="#6b7280" />
+            <Text style={[text.gray[400], { marginTop: 8, fontSize: 14 }]}>
+              Add thumbnail image
+            </Text>
+            <Text style={[text.gray[500], { fontSize: 12, marginTop: 4 }]}>
+              Optional • JPG, PNG up to 975KB
+            </Text>
+          </TouchableOpacity>
+          {hasLastImage && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onPress={onUseLastImage}
+              style={[{ marginTop: 8 }]}
+            >
+              <Text style={[text.gray[300], { fontSize: 14 }]}>
+                Use Last Image
+              </Text>
+            </Button>
+          )}
+        </>
       )}
       <View style={{ marginTop: 8 }}>
         <Admonition variant="info" size="sm">
@@ -203,9 +223,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
 
   const [createPost, setCreatePost] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
-  const [canonicalUrl, setCanonicalUrl] = useState<string>(
-    livestream?.record.canonicalUrl || "",
-  );
+  const [canonicalUrl, setCanonicalUrl] = useState<string>("");
   const defaultCanonicalUrl = useMemo(() => {
     return `${url}/${profile && formatHandle(profile)}`;
   }, [url, profile?.handle]);
@@ -214,12 +232,21 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
     if (!livestream) {
       return;
     }
+
+    // Prefill title with previous stream's title
+    if (livestream.record.title) {
+      setTitle(livestream.record.title);
+    }
+
+    // Prefill canonical URL
     if (
       livestream.record.canonicalUrl &&
       livestream.record.canonicalUrl !== defaultCanonicalUrl
     ) {
       setCanonicalUrl(livestream.record.canonicalUrl);
     }
+
+    // Prefill notification settings
     if (
       typeof livestream.record.notificationSettings?.pushNotification ===
       "boolean"
@@ -228,6 +255,8 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
         livestream.record.notificationSettings.pushNotification,
       );
     }
+
+    // Prefill post creation preference
     setCreatePost(typeof livestream.record.post !== "undefined");
   }, [livestream, defaultCanonicalUrl]);
 
@@ -337,6 +366,24 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const handleImageRemove = useCallback(() => {
     setSelectedImage(undefined);
   }, []);
+
+  const handleUseLastImage = useCallback(async () => {
+    if (!livestream?.record.thumb) return;
+
+    try {
+      const did = livestream.uri.split("/")[2];
+      const cid = (livestream.record.thumb.ref as any).$link;
+
+      const didDoc = await resolveDIDDocument(did);
+      const blob = await getBlob(did, cid, didDoc);
+      setSelectedImage(blob);
+    } catch (error) {
+      console.error("Failed to fetch last image:", error);
+      toast.show("Error", "Failed to load previous thumbnail", {
+        duration: 3,
+      });
+    }
+  }, [livestream, toast]);
 
   const disabled = useMemo(
     () => !userIsLive || loading || title.trim() === "",
@@ -587,6 +634,8 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                   selectedImage={selectedImage}
                   onImageSelect={handleImageSelect}
                   onImageRemove={handleImageRemove}
+                  onUseLastImage={handleUseLastImage}
+                  hasLastImage={!!livestream?.record.thumb}
                   onGoToMetadata={() => handleModeChange("metadata")}
                 />
               )}

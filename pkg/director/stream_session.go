@@ -121,9 +121,11 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 		return ss.originUpdateLoop(ctx)
 	})
 
-	ss.Go(ctx, func() error {
-		return ss.HandleMultistreamTargets(ctx)
-	})
+	if notif.Local {
+		ss.Go(ctx, func() error {
+			return ss.HandleMultistreamTargets(ctx)
+		})
+	}
 
 	for {
 		select {

@@ -29,7 +29,7 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	pipelineSlice := []string{
 		"flvmux name=muxer ! rtmp2sink name=rtmp2sink",
 		"h264parse name=videoparse ! muxer.video",
-		"opusparse name=audioparse ! opusdec ! fdkaacenc ! muxer.audio",
+		"opusparse name=audioparse ! opusdec ! audioresample ! fdkaacenc ! muxer.audio",
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -237,6 +237,7 @@ func (mm *MediaManager) RunTCPForwarder(ctx context.Context, dest string) (strin
 }
 
 func (mm *MediaManager) runForwarder(ctx context.Context, dest string, dial func(destHost string) (net.Conn, error)) (string, error) {
+	ctx = log.WithLogValues(ctx, "mediafunc", "runForwarder")
 	// Parse the destination URL to extract host and port
 	destURL, err := url.Parse(dest)
 	if err != nil {

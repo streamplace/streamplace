@@ -126,3 +126,15 @@ func LexiconRepoGetRecord(ctx context.Context, repo string, collection string, r
 		Value: &lexutil.LexiconTypeDecoder{Val: rec},
 	}, nil
 }
+
+func LexiconRepoGetRepo(ctx context.Context, since string) ([]byte, error) {
+	buf := bytes.Buffer{}
+
+	repoLock.Lock()
+	defer repoLock.Unlock()
+	err := CarStore.ReadUserCar(ctx, RepoUser, since, true, &buf)
+	if err != nil {
+		return nil, fmt.Errorf("LexiconRepoGetRepo: failed to read user car: %w", err)
+	}
+	return buf.Bytes(), nil
+}

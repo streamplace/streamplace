@@ -4,6 +4,7 @@ import Loading from "components/loading/loading";
 import { Player } from "components/mobile/player";
 import StreamerAgreement from "components/streamer-agreement";
 import { FullscreenProvider } from "contexts/FullscreenContext";
+import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { useEffect, useState } from "react";
 import { useStore } from "store";
 import { useUserProfile } from "store/hooks";
@@ -14,6 +15,10 @@ export default function MobileGoLive() {
   const route = useRoute();
   const [agreementAccepted, setAgreementAccepted] = useState(false);
   const navigation = useNavigation();
+  const nodeUrl = useStreamplaceNode();
+
+  const isOfficialNode =
+    nodeUrl ?? new URL(nodeUrl).hostname.endsWith("stream.place");
 
   useEffect(() => {
     if (!userProfile) {
@@ -25,7 +30,7 @@ export default function MobileGoLive() {
     return <Loading />;
   }
 
-  if (!agreementAccepted) {
+  if (!agreementAccepted && isOfficialNode) {
     return (
       <StreamerAgreement
         onAccepted={() => setAgreementAccepted(true)}

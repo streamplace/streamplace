@@ -32,6 +32,7 @@ import {
 import { useUserProfile } from "store/hooks";
 import { useCaptureVideoFrame } from "../../hooks/useCaptureVideoFrame";
 import { useLiveUser } from "../../hooks/useLiveUser";
+import { SmokesignalEventForm } from "./smokesignal-event-form";
 
 const { flex, p, px, py, gap, layout, bg, borders, text, r, w, typography } =
   zero;
@@ -227,6 +228,13 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const defaultCanonicalUrl = useMemo(() => {
     return `${url}/${profile && formatHandle(profile)}`;
   }, [url, profile?.handle]);
+  const streamUrl = useMemo(() => {
+    if (canonicalUrl) return canonicalUrl;
+    if (profile) {
+      return `${url}/${formatHandle(profile)}`;
+    }
+    return url;
+  }, [canonicalUrl, profile, url]);
 
   useEffect(() => {
     if (!livestream) {
@@ -639,6 +647,11 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                   onGoToMetadata={() => handleModeChange("metadata")}
                 />
               )}
+
+              <SmokesignalEventForm
+                defaultTitle={title}
+                streamUrl={streamUrl}
+              />
 
               <Button
                 disabled={disabled}

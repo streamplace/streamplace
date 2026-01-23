@@ -17,7 +17,6 @@ import { LivestreamState } from "./livestream-state";
 import { findProblems } from "./problems";
 
 const MAX_RECENT_SEGMENTS = 10;
-
 export const handleWebSocketMessages = (
   state: LivestreamState,
   messages: any[],
@@ -68,6 +67,9 @@ export const handleWebSocketMessages = (
           ...state,
           viewers: message.count,
         };
+      } else if ((message as any)?.$type === "place.stream.ai#dataOutput") {
+        // Surface AI data output in the browser console for debugging.
+        console.log("Received AI data output:", message);
       } else if (PlaceStreamChatDefs.isMessageView(message)) {
         message = message as PlaceStreamChatDefs.MessageView;
         // Explicitly map MessageView to MessageViewHydrated

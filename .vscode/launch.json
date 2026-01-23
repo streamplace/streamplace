@@ -3,17 +3,54 @@
   "configurations": [
     {
       "name": "Run Streamplace (linux)",
-      "type": "go",
+      "type": "node",
       "request": "launch",
-      "mode": "exec",
-      "program": "${workspaceFolder}/build-linux-amd64/libstreamplace"
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "./build-linux-amd64/streamplace --broadcaster-host=127.0.0.1:38080 --no-firehose --wide-open --ai-gateway-base-url=http://localhost:5937 --ai-gateway-pipeline=transcriber"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "GOTOOLCHAIN": "auto",
+        "LD_LIBRARY_PATH": "${workspaceFolder}/build-linux-amd64/lib",
+        "ELECTRON_DISABLE_SANDBOX": "1"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Run Streamplace App Dev Server",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "xvfb-run --auto-servernum pnpm run start"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "ELECTRON_DISABLE_SANDBOX": "1"
+      },
+      "console": "integratedTerminal"
     },
     {
       "name": "Run Streamplace (darwin)",
-      "type": "go",
+      "type": "node",
       "request": "launch",
-      "mode": "exec",
-      "program": "${workspaceFolder}/build-darwin-arm64/libstreamplace"
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "./build-darwin-arm64/streamplace --broadcaster-host=127.0.0.1:38080"
+      ],
+      "cwd": "${workspaceFolder}",
+      "args": ["--no-firehose", "--wide-open"],
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run Streamplace + App Dev Server",
+      "configurations": [
+        "Run Streamplace (linux)",
+        "Run Streamplace App Dev Server"
+      ]
     }
   ]
 }

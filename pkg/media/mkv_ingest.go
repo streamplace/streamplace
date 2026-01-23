@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"github.com/muxionlabs/ai-go-sdk/pkg/client"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
 )
@@ -32,7 +33,25 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 	} else {
 		log.Log(ctx, "not recording RTMP stream to file", "streamer", ms.Streamer())
 	}
+
 	ctx, cancel := context.WithCancel(ctx)
+	var aiCleanup func()
+	if mm.cli.AIGatewayBaseURL != "" {
+		onTranscript := func(ctx context.Context, event client.TranscriptEvent) {
+			mm.PublishTranscriptToBus(ctx, ms.Streamer(), event)
+		}
+		var ok bool
+		input, aiCleanup, ok = mm.StartAISessionFromMKV(ctx, input, ms.Streamer(), onTranscript)
+		if !ok {
+			aiCleanup = nil
+		}
+	}
+
+	defer func() {
+		if aiCleanup != nil {
+			aiCleanup()
+		}
+	}()
 	defer cancel()
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! matroskademux name=demux",
@@ -103,6 +122,7 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 	err = <-busErr
 
 	return err
+
 }
 
 func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, filesuffix string) error {

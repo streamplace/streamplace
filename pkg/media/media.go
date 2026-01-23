@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/muxionlabs/ai-go-sdk/pkg/client"
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/intervalpli"
 	"github.com/pion/webrtc/v4"
@@ -51,6 +52,7 @@ type MediaManager struct {
 	atsync              *atproto.ATProtoSynchronizer
 	webrtcAPI           *webrtc.API
 	webrtcConfig        webrtc.Configuration
+	transcriptStore     *client.TranscriptStore
 }
 
 type NewSegmentNotification struct {
@@ -119,15 +121,20 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		},
 	}
 	return &MediaManager{
-		cli:          cli,
-		hlsRunning:   map[string]*M3U8{},
-		httpPipes:    map[string]io.Writer{},
-		model:        mod,
-		bus:          bus,
-		atsync:       atsync,
-		webrtcAPI:    api,
-		webrtcConfig: config,
+		cli:             cli,
+		hlsRunning:      map[string]*M3U8{},
+		httpPipes:       map[string]io.Writer{},
+		model:           mod,
+		bus:             bus,
+		atsync:          atsync,
+		webrtcAPI:       api,
+		webrtcConfig:    config,
+		transcriptStore: client.NewTranscriptStore(client.WithStoreLogger(newAIGatewayLogger())),
 	}, nil
+}
+
+func (mm *MediaManager) GetTranscriptSegments(streamer string) []client.TranscriptSegment {
+	return mm.transcriptStore.GetSegments(streamer)
 }
 
 func (mm *MediaManager) HandleData(node *irohStreamplace.PublicKey, data []byte) {

@@ -140,6 +140,8 @@ type CLI struct {
 	SegmentDebugDir             string
 	AdminDIDs                   []string
 	Syndicate                   []string
+	AIGatewayBaseURL            string
+	AIGatewayPipeline           string
 	PlayerTelemetry             bool
 }
 
@@ -242,6 +244,9 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	cli.StringSliceFlag(fs, &cli.AdminDIDs, "admin-dids", []string{}, "comma-separated list of DIDs that are authorized to modify branding and other admin operations")
 	cli.StringSliceFlag(fs, &cli.Syndicate, "syndicate", []string{}, "list of DIDs that we should rebroadcast ('*' for everybody)")
 	fs.BoolVar(&cli.PlayerTelemetry, "player-telemetry", true, "enable player telemetry")
+
+	fs.StringVar(&cli.AIGatewayBaseURL, "ai-gateway-base-url", "", "base URL of the AI transcription gateway (e.g. http://localhost:5937)")
+	fs.StringVar(&cli.AIGatewayPipeline, "ai-gateway-pipeline", "transcription", "AI pipeline capability name")
 
 	fs.Bool("external-signing", true, "DEPRECATED, does nothing.")
 	fs.Bool("insecure", false, "DEPRECATED, does nothing.")

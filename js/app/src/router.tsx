@@ -2,65 +2,14 @@ import { LiquidGlassView } from "@callstack/liquid-glass";
 import "@expo/metro-runtime";
 import { getStateFromPath } from "@react-navigation/core";
 import { LinkingOptions, useNavigation } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import {
-  Text,
-  useDefaultStreamer,
-  useSiteTitle,
-  useTheme,
-  useToast,
-} from "@streamplace/components";
-import { Provider, Settings } from "components";
+import { Button, Text, useTheme, zero } from "@streamplace/components";
+import { Provider } from "components";
 import AQLink from "components/aqlink";
 import * as ExpoLinking from "expo-linking";
-import { useLiveUser } from "hooks/useLiveUser";
-import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import {
   ArrowLeft,
-  Book,
-  Download,
-  ExternalLink,
-  Home,
   LogIn,
-  Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Settings as SettingsIcon,
-  ShieldQuestion,
-  User,
-  Video,
-} from "lucide-react-native";
-import React, { Fragment, useEffect, useState } from "react";
-import {
-  ImageBackground,
-  ImageSourcePropType,
-  Linking,
-  Platform,
-  Pressable,
-  StatusBar,
-  View,
-} from "react-native";
-import AboutScreen from "./screens/about";
-import AppReturnScreen from "./screens/app-return";
-import PopoutChat from "./screens/chat-popout";
-import DownloadScreen from "./screens/download";
-import EmbedScreen from "./screens/embed";
-import InfoWidgetEmbed from "./screens/info-widget-embed";
-import LiveDashboard from "./screens/live-dashboard";
-import MultiScreen from "./screens/multi";
-import SupportScreen from "./screens/support";
-
-import KeyManager from "components/settings/key-manager";
-
-import HomeScreen from "./screens/home";
-
-import { useUrl } from "@streamplace/components";
-import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
-import Constants from "expo-constants";
-import { useSidebarControl } from "hooks/useSidebarControl";
-import {
-  ArrowLeft,
   PanelLeftClose,
   PanelLeftOpen,
   User,
@@ -70,10 +19,12 @@ import {
   ImageSourcePropType,
   Platform,
   Pressable,
+  useWindowDimensions,
   View,
 } from "react-native";
 
 import Constants from "expo-constants";
+
 import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
@@ -340,35 +291,95 @@ export const LGAvatarButton = () => {
 
 export const AvatarButton = () => {
   const userProfile = useUserProfile();
+  const openLoginModal = useStore((state) => state.openLoginModal);
+  const loginAction = useStore((state) => state.login);
+  const openLoginLink = useStore((state) => state.openLoginLink);
+  const { theme } = useTheme();
   let source: ImageSourcePropType | undefined = undefined;
-  let opacity = 1;
-  const targetScreen: any = userProfile
-    ? { screen: "AccountCategory", params: {} }
-    : { screen: "Login", params: {} };
+
+  const windowWidth = useWindowDimensions().width;
+
+  const isCompact = windowWidth <= 800;
 
   if (userProfile) {
     source = { uri: userProfile.avatar };
-    opacity = 0;
-  }
-  return (
-    <AQLink to={targetScreen}>
-      <ImageBackground
-        // defeat cursed-ass caching on ios; image sticks around when source is undefined
-        key={source?.uri ?? "default"}
-        source={source}
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 24,
-          overflow: "hidden",
-          marginRight: 10,
-          backgroundColor: "black",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
+    return (
+      <AQLink
+        to={{ screen: "SettingsTab", params: { screen: "AccountCategory" } }}
       >
-        <User size={24} color="white" style={{ zIndex: -2 }} />
-      </ImageBackground>
-    </AQLink>
+        <ImageBackground
+          key={source?.uri ?? "default"}
+          source={source}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 24,
+            overflow: "hidden",
+            marginRight: 10,
+            backgroundColor: "black",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <User size={24} color="white" style={{ zIndex: -2 }} />
+        </ImageBackground>
+      </AQLink>
+    );
+  }
+
+  const handleSignup = () => {
+    // TODO: remove requirement for oauth-protected-resource in oatproxy
+    loginAction("https://bsky.social", openLoginLink);
+  };
+
+  if (isCompact) {
+    return (
+      <Button
+        onPress={() => openLoginModal()}
+        variant="ghost"
+        size="icon"
+        width="min"
+        style={{ marginRight: 10, marginLeft: "auto" }}
+      >
+        <LogIn size={20} color={theme.colors.text} />
+      </Button>
+    );
+  }
+
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginRight: 10,
+      }}
+    >
+      <Button
+        onPress={() => openLoginModal()}
+        variant="secondary"
+        width="min"
+        style={[zero.r.full]}
+      >
+        <Text style={{ color: theme.colors.text }}>Log In</Text>
+      </Button>
+      <Button
+        onPress={handleSignup}
+        variant="primary"
+        width="min"
+        style={[zero.r.full]}
+      >
+        <Text style={{ color: theme.colors.text }}>Sign Up</Text>
+      </Button>
+      <Button
+        width="min"
+        size="icon"
+        variant="secondary"
+        style={[zero.r.full]}
+        onPress={() => openLoginModal()}
+      >
+        <User size={24} color="white" />
+      </Button>
+    </View>
   );
 };

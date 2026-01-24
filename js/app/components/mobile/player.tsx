@@ -196,9 +196,8 @@ function PlayerWithProvider(
   }
 
   const defaultHandleTeleport = (targetHandle: string, targetDID: string) => {
-    navigation.navigate("Home", {
-      screen: "Stream",
-      params: { user: targetHandle },
+    navigation.navigate("Stream", {
+      user: targetHandle,
     });
   };
 

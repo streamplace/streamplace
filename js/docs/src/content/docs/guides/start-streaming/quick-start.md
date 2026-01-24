@@ -70,4 +70,4 @@ These last two options are very important! Your viewers' experience may be chopp
 
 ### Credits
 
-A portion of this documentation was taken from [ndroo.dev](https://bsky.app/profile/ndroo.tv)'s excellent [guide on Streamplace](https://ndroo.tv/streamplace.html#2-configuring-your-account).
+A portion of this documentation was taken from [ndroo.tv](https://bsky.app/profile/ndroo.tv)'s excellent [guide on Streamplace](https://ndroo.tv/streamplace.html#2-configuring-your-account).

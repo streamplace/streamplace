@@ -49,4 +49,4 @@ You can toggle any target on or off with the switch next to its name. Changes ta
 
 ### Credits
 
-A portion of this documentation was taken from [ndroo.dev](https://bsky.app/profile/ndroo.tv)'s [guide on Streamplace](https://ndroo.tv/streamplace.html#2-configuring-your-account).
+A portion of this documentation was taken from [ndroo.tv](https://bsky.app/profile/ndroo.tv)'s [guide on Streamplace](https://ndroo.tv/streamplace.html#2-configuring-your-account).

@@ -59,7 +59,7 @@ type Model interface {
 	CreateLivestream(ctx context.Context, ls *Livestream) error
 	GetLatestLivestreamForRepo(repoDID string) (*Livestream, error)
 	GetLivestreamByPostURI(postURI string) (*Livestream, error)
-	GetLatestLivestreams(limit int, before *time.Time) ([]Livestream, error)
+	GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]Livestream, error)
 
 	CreateTeleport(ctx context.Context, tp *Teleport) error
 	GetLatestTeleportForRepo(repoDID string) (*Teleport, error)

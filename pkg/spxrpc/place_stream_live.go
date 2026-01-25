@@ -127,7 +127,15 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 		}
 		beforeTime = &parsedTime
 	}
-	ls, err := s.model.GetLatestLivestreams(limit, beforeTime)
+	segs, err := s.localDB.MostRecentSegments()
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch recent segments")
+	}
+	dids := make([]string, len(segs))
+	for i, seg := range segs {
+		dids[i] = seg.RepoDID
+	}
+	ls, err := s.model.GetLatestLivestreams(limit, beforeTime, dids)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
 	}

@@ -56,7 +56,7 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 			outCursor = fmt.Sprintf("%d::%s", ts, last.CID)
 		}
 	} else if name == FeedLiveStreams {
-		segs, err := s.model.MostRecentSegments()
+		segs, err := s.localDB.MostRecentSegments()
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get recent segments: %v", err))
 		}

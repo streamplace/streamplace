@@ -272,7 +272,7 @@ func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter
 			errors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
-		thumb, err := a.Model.LatestThumbnailForUser(user)
+		thumb, err := a.LocalDB.LatestThumbnailForUser(user)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "could not query thumbnail", err)
 			return

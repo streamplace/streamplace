@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
@@ -32,9 +33,10 @@ type Director struct {
 	op               *oatproxy.OATProxy
 	statefulDB       *statedb.StatefulDB
 	replicator       replication.Replicator
+	localDB          localdb.LocalDB
 }
 
-func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy, statefulDB *statedb.StatefulDB, replicator replication.Replicator) *Director {
+func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy, statefulDB *statedb.StatefulDB, replicator replication.Replicator, ldb localdb.LocalDB) *Director {
 	return &Director{
 		mm:               mm,
 		mod:              mod,
@@ -45,6 +47,7 @@ func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *
 		op:               op,
 		statefulDB:       statefulDB,
 		replicator:       replicator,
+		localDB:          ldb,
 	}
 }
 
@@ -79,6 +82,7 @@ func (d *Director) Start(ctx context.Context) error {
 					// Initialize notification channels (buffered size 1 for coalescing)
 					statusUpdateChan: make(chan struct{}, 1),
 					originUpdateChan: make(chan struct{}, 1),
+					localDB:          d.localDB,
 				}
 				d.streamSessions[not.Segment.RepoDID] = ss
 				g.Go(func() error {

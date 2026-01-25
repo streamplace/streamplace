@@ -18,6 +18,7 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
@@ -33,9 +34,10 @@ type Server struct {
 	statefulDB     *statedb.StatefulDB
 	bus            *bus.Bus
 	op             *oatproxy.OATProxy
+	localDB        localdb.LocalDB
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB) (*Server, error) {
 	e := echo.New()
 	s := &Server{
 		e:              e,
@@ -47,6 +49,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		statefulDB:     statefulDB,
 		bus:            bus,
 		op:             op,
+		localDB:        ldb,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())

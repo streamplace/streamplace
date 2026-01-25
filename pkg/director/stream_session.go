@@ -20,6 +20,7 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/livepeer"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
@@ -44,6 +45,7 @@ type StreamSession struct {
 	lastStatus     time.Time
 	lastStatusCID  *string
 	lastOriginTime time.Time
+	localDB        localdb.LocalDB
 
 	// Channels for background workers
 	statusUpdateChan chan struct{} // Signal to update status
@@ -178,7 +180,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	aqt := aqtime.FromTime(notif.Segment.StartTime)
 	ctx = log.WithLogValues(ctx, "segID", notif.Segment.ID, "repoDID", notif.Segment.RepoDID, "timestamp", aqt.FileSafeString())
 	notif.Segment.MediaData.Size = len(notif.Data)
-	err := ss.mod.CreateSegment(notif.Segment)
+	err := ss.localDB.CreateSegment(notif.Segment)
 	if err != nil {
 		return fmt.Errorf("could not add segment to database: %w", err)
 	}
@@ -292,7 +294,7 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 		return nil
 	}
 	defer lock.Unlock()
-	oldThumb, err := ss.mod.LatestThumbnailForUser(not.Segment.RepoDID)
+	oldThumb, err := ss.localDB.LatestThumbnailForUser(not.Segment.RepoDID)
 	if err != nil {
 		return err
 	}
@@ -311,11 +313,11 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 	if err != nil {
 		return err
 	}
-	thumb := &model.Thumbnail{
+	thumb := &localdb.Thumbnail{
 		Format:    "jpeg",
 		SegmentID: not.Segment.ID,
 	}
-	err = ss.mod.CreateThumbnail(thumb)
+	err = ss.localDB.CreateThumbnail(thumb)
 	if err != nil {
 		return err
 	}

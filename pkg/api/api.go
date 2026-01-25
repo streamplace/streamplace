@@ -35,6 +35,7 @@ import (
 	"stream.place/streamplace/pkg/director"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/linking"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/mist/mistconfig"
@@ -56,6 +57,7 @@ type StreamplaceAPI struct {
 	CLI              *config.CLI
 	Model            model.Model
 	StatefulDB       *statedb.StatefulDB
+	LocalDB          localdb.LocalDB
 	Updater          *Updater
 	Signer           *eip712.EIP712Signer
 	Mimes            map[string]string
@@ -93,7 +95,7 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -117,6 +119,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		sessionsLock:     sync.RWMutex{},
 		rtmpSessions:     make(map[string]*media.RTMPSession),
 		rtmpSessionsLock: sync.Mutex{},
+		LocalDB:          ldb,
 	}
 	a.Mimes, err = updater.GetMimes()
 	if err != nil {
@@ -152,7 +155,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		Recorder: metrics.NewRecorder(metrics.Config{}),
 	})
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync, a.Bus)
+	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync, a.Bus, a.LocalDB)
 	if err != nil {
 		return nil, err
 	}
@@ -203,8 +206,6 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "GET", "/api/chat/:repoDID", a.HandleChat(ctx))
 	addHandle(apiRouter, "GET", "/api/websocket/:repoDID", a.HandleWebsocket(ctx))
 	addHandle(apiRouter, "GET", "/api/livestream/:repoDID", a.HandleLivestream(ctx))
-	addHandle(apiRouter, "GET", "/api/segment/recent", a.HandleRecentSegments(ctx))
-	addHandle(apiRouter, "GET", "/api/segment/recent/:repoDID", a.HandleUserRecentSegments(ctx))
 	addHandle(apiRouter, "GET", "/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	addHandle(apiRouter, "GET", "/api/view-count/:user", a.HandleViewCount(ctx))
 	addHandle(apiRouter, "GET", "/api/clip/:user/:file", a.HandleClip(ctx))
@@ -558,59 +559,6 @@ func (a *StreamplaceAPI) HandlePlayerEvent(ctx context.Context) httprouter.Handl
 			return
 		}
 		w.WriteHeader(201)
-	}
-}
-
-func (a *StreamplaceAPI) HandleRecentSegments(ctx context.Context) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		segs, err := a.Model.MostRecentSegments()
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not get segments", err)
-			return
-		}
-		bs, err := json.Marshal(segs)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not marshal segments", err)
-			return
-		}
-		w.Header().Add("Content-Type", "application/json")
-		if _, err := w.Write(bs); err != nil {
-			log.Error(ctx, "error writing response", "error", err)
-		}
-	}
-}
-
-func (a *StreamplaceAPI) HandleUserRecentSegments(ctx context.Context) httprouter.Handle {
-	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
-		user := params.ByName("repoDID")
-		if user == "" {
-			apierrors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			apierrors.WriteHTTPNotFound(w, "user not found", err)
-			return
-		}
-		seg, err := a.Model.LatestSegmentForUser(user)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not get segments", err)
-			return
-		}
-		streamplaceSeg, err := seg.ToStreamplaceSegment()
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not convert segment to streamplace segment", err)
-			return
-		}
-		bs, err := json.Marshal(streamplaceSeg)
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not marshal segments", err)
-			return
-		}
-		w.Header().Add("Content-Type", "application/json")
-		if _, err := w.Write(bs); err != nil {
-			log.Error(ctx, "error writing response", "error", err)
-		}
 	}
 }
 

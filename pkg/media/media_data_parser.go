@@ -13,15 +13,15 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"go.opentelemetry.io/otel"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
 func padProbeEmpty(_ *gst.Pad, _ *gst.PadProbeInfo) gst.PadProbeReturn {
 	return gst.PadProbeOK
 }
 
-func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMediaData, error) {
+func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentMediaData, error) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "ParseSegmentMediaData")
 	defer span.End()
 	ctx = log.WithLogValues(ctx, "GStreamerFunc", "ParseSegmentMediaData")
@@ -40,8 +40,8 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMed
 		return nil, fmt.Errorf("error creating SegmentMetadata pipeline: %w", err)
 	}
 
-	var videoMetadata *model.SegmentMediadataVideo
-	var audioMetadata *model.SegmentMediadataAudio
+	var videoMetadata *localdb.SegmentMediadataVideo
+	var audioMetadata *localdb.SegmentMediadataAudio
 
 	appsrc, err := pipeline.GetElementByName("appsrc")
 	if err != nil {
@@ -118,7 +118,7 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMed
 		name := structure.Name()
 
 		if name[:5] == "video" {
-			videoMetadata = &model.SegmentMediadataVideo{}
+			videoMetadata = &localdb.SegmentMediadataVideo{}
 			// Get some common video properties
 			widthVal, _ := structure.GetValue("width")
 			heightVal, _ := structure.GetValue("height")
@@ -147,7 +147,7 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMed
 		}
 
 		if name[:5] == "audio" {
-			audioMetadata = &model.SegmentMediadataAudio{}
+			audioMetadata = &localdb.SegmentMediadataAudio{}
 			// Get some common audio properties
 			rateVal, _ := structure.GetValue("rate")
 			channelsVal, _ := structure.GetValue("channels")
@@ -275,9 +275,9 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*model.SegmentMed
 
 	videoMetadata.BFrames = hasBFrames
 
-	meta := &model.SegmentMediaData{
-		Video: []*model.SegmentMediadataVideo{videoMetadata},
-		Audio: []*model.SegmentMediadataAudio{audioMetadata},
+	meta := &localdb.SegmentMediaData{
+		Video: []*localdb.SegmentMediadataVideo{videoMetadata},
+		Audio: []*localdb.SegmentMediadataAudio{audioMetadata},
 	}
 
 	ok, dur := pipeline.QueryDuration(gst.FormatTime)

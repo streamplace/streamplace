@@ -10,11 +10,11 @@ import (
 
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/localdb"
 )
 
-func ClipUser(ctx context.Context, mod model.Model, cli *config.CLI, user string, writer io.Writer, before *time.Time, after *time.Time) error {
-	segments, err := mod.LatestSegmentsForUser(user, -1, before, after)
+func ClipUser(ctx context.Context, localDB localdb.LocalDB, cli *config.CLI, user string, writer io.Writer, before *time.Time, after *time.Time) error {
+	segments, err := localDB.LatestSegmentsForUser(user, -1, before, after)
 	if err != nil {
 		return fmt.Errorf("unable to get segments: %w", err)
 	}

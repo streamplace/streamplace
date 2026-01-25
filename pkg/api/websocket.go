@@ -181,7 +181,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		}()
 
 		go func() {
-			seg, err := a.Model.LatestSegmentForUser(repoDID)
+			seg, err := a.LocalDB.LatestSegmentForUser(repoDID)
 			if err != nil {
 				log.Error(ctx, "could not get replies", "error", err)
 				return

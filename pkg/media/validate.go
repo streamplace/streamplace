@@ -18,8 +18,8 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
 type ManifestAndCert struct {
@@ -47,7 +47,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 
 	label := manifest.Label
 	if label != nil && mm.model != nil {
-		oldSeg, err := mm.model.GetSegment(*label)
+		oldSeg, err := mm.localDB.GetSegment(*label)
 		if err != nil {
 			return fmt.Errorf("failed to get old segment: %w", err)
 		}
@@ -117,7 +117,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		expiryTime := meta.StartTime.Time().Add(time.Duration(*meta.DistributionPolicy.DeleteAfterSeconds) * time.Second)
 		deleteAfter = &expiryTime
 	}
-	seg := &model.Segment{
+	seg := &localdb.Segment{
 		ID:                 *label,
 		SigningKeyDID:      signingKeyDID,
 		RepoDID:            repoDID,
@@ -125,7 +125,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		Title:              meta.Title,
 		Size:               len(buf),
 		MediaData:          mediaData,
-		ContentWarnings:    model.ContentWarningsSlice(meta.ContentWarnings),
+		ContentWarnings:    localdb.ContentWarningsSlice(meta.ContentWarnings),
 		ContentRights:      meta.ContentRights,
 		DistributionPolicy: meta.DistributionPolicy,
 		DeleteAfter:        deleteAfter,
@@ -205,7 +205,7 @@ func (mm *MediaManager) isWarningBlocked(warning string) bool {
 type ValidationResult struct {
 	Pub       *atcrypto.PublicKeyK256
 	Meta      *SegmentMetadata
-	MediaData *model.SegmentMediaData
+	MediaData *localdb.SegmentMediaData
 	Manifest  *c2patypes.Manifest
 	Cert      string
 }

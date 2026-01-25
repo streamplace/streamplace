@@ -13,8 +13,7 @@ description: Reference for the place.stream.broadcast.origin lexicon
 
 **Type:** `record`
 
-Record indicating a livestream is published and available for replication at a
-given address. By convention, the record key is streamer::server
+Record indicating a livestream is published and available for replication at a given address. By convention, the record key is streamer::server
 
 **Record Key:** `any`
 

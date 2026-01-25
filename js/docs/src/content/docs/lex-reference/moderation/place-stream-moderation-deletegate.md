@@ -13,9 +13,7 @@ description: Reference for the place.stream.moderation.deleteGate lexicon
 
 **Type:** `procedure`
 
-Delete a gate (unhide message) on behalf of a streamer. Requires 'hide'
-permission. Deletes a place.stream.chat.gate record from the streamer's
-repository.
+Delete a gate (unhide message) on behalf of a streamer. Requires 'hide' permission. Deletes a place.stream.chat.gate record from the streamer's repository.
 
 **Parameters:** _(None defined)_
 
@@ -38,13 +36,12 @@ repository.
 
 **Schema Type:** `object`
 
-_(No properties defined)_ **Possible Errors:**
+_(No properties defined)_
+**Possible Errors:**
 
 - `Unauthorized`: The request lacks valid authentication credentials.
-- `Forbidden`: The caller does not have permission to unhide messages for this
-  streamer.
-- `SessionNotFound`: The streamer's OAuth session could not be found or is
-  invalid.
+- `Forbidden`: The caller does not have permission to unhide messages for this streamer.
+- `SessionNotFound`: The streamer's OAuth session could not be found or is invalid.
 
 ---
 

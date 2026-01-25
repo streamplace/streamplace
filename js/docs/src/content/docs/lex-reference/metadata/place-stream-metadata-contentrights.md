@@ -33,8 +33,7 @@ Content rights and attribution information.
 
 **Type:** `token`
 
-All rights reserved to the creator — others cannot use, modify, or share without
-explicit authorization.
+All rights reserved to the creator — others cannot use, modify, or share without explicit authorization.
 
 ---
 
@@ -44,9 +43,7 @@ explicit authorization.
 
 **Type:** `token`
 
-Public domain dedication. You waive all copyright and related rights where
-possible. Others may copy, modify, distribute, or perform your work for any
-purpose without attribution.
+Public domain dedication. You waive all copyright and related rights where possible. Others may copy, modify, distribute, or perform your work for any purpose without attribution.
 
 ---
 
@@ -56,8 +53,7 @@ purpose without attribution.
 
 **Type:** `token`
 
-Attribution required. Others may copy, distribute, remix, and build upon your
-work, even commercially, if they credit you.
+Attribution required. Others may copy, distribute, remix, and build upon your work, even commercially, if they credit you.
 
 ---
 
@@ -67,9 +63,7 @@ work, even commercially, if they credit you.
 
 **Type:** `token`
 
-Attribution + share-alike. Others may adapt and build upon your work, even
-commercially, if they credit you and license their new creations under identical
-terms.
+Attribution + share-alike. Others may adapt and build upon your work, even commercially, if they credit you and license their new creations under identical terms.
 
 ---
 
@@ -79,8 +73,7 @@ terms.
 
 **Type:** `token`
 
-Attribution + non-commercial. Others may adapt and build upon your work for
-non-commercial purposes only, and must credit you.
+Attribution + non-commercial. Others may adapt and build upon your work for non-commercial purposes only, and must credit you.
 
 ---
 
@@ -90,9 +83,7 @@ non-commercial purposes only, and must credit you.
 
 **Type:** `token`
 
-Attribution + non-commercial + share-alike. Others may adapt and build upon your
-work for non-commercial purposes only, must credit you, and must license their
-new creations under identical terms.
+Attribution + non-commercial + share-alike. Others may adapt and build upon your work for non-commercial purposes only, must credit you, and must license their new creations under identical terms.
 
 ---
 
@@ -102,8 +93,7 @@ new creations under identical terms.
 
 **Type:** `token`
 
-Attribution + no derivatives. Others may reuse your work, even commercially, but
-it must remain unchanged and you must be credited.
+Attribution + no derivatives. Others may reuse your work, even commercially, but it must remain unchanged and you must be credited.
 
 ---
 
@@ -113,8 +103,7 @@ it must remain unchanged and you must be credited.
 
 **Type:** `token`
 
-Attribution + non-commercial + no derivatives. Others may download and share
-your work with credit, but cannot change it or use it commercially.
+Attribution + non-commercial + no derivatives. Others may download and share your work with credit, but cannot change it or use it commercially.
 
 ---
 

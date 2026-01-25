@@ -13,8 +13,7 @@ description: Reference for the place.stream.moderation.deleteBlock lexicon
 
 **Type:** `procedure`
 
-Delete a block (unban) on behalf of a streamer. Requires 'ban' permission.
-Deletes an app.bsky.graph.block record from the streamer's repository.
+Delete a block (unban) on behalf of a streamer. Requires 'ban' permission. Deletes an app.bsky.graph.block record from the streamer's repository.
 
 **Parameters:** _(None defined)_
 
@@ -37,13 +36,12 @@ Deletes an app.bsky.graph.block record from the streamer's repository.
 
 **Schema Type:** `object`
 
-_(No properties defined)_ **Possible Errors:**
+_(No properties defined)_
+**Possible Errors:**
 
 - `Unauthorized`: The request lacks valid authentication credentials.
-- `Forbidden`: The caller does not have permission to delete blocks for this
-  streamer.
-- `SessionNotFound`: The streamer's OAuth session could not be found or is
-  invalid.
+- `Forbidden`: The caller does not have permission to delete blocks for this streamer.
+- `SessionNotFound`: The streamer's OAuth session could not be found or is invalid.
 
 ---
 

@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"strings"
 	"time"
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/rivo/uniseg"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/streamplace"
 )
@@ -41,6 +43,19 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageV
 	if err != nil {
 		return nil, fmt.Errorf("error decoding feed post: %w", err)
 	}
+	// Truncate message text if it is a ChatMessage
+	if msg, ok := rec.(*streamplace.ChatMessage); ok {
+		graphemeCount := uniseg.GraphemeClusterCount(msg.Text)
+		if graphemeCount > 300 {
+			gr := uniseg.NewGraphemes(msg.Text)
+			var result strings.Builder
+			for count := 0; count < 300 && gr.Next(); count++ {
+				result.WriteString(gr.Str())
+			}
+			msg.Text = result.String()
+		}
+	}
+
 	message := &streamplace.ChatDefs_MessageView{
 		LexiconTypeID: "place.stream.chat.defs#messageView",
 	}

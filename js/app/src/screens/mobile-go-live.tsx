@@ -18,7 +18,7 @@ export default function MobileGoLive() {
   const nodeUrl = useStreamplaceNode();
 
   const isOfficialNode =
-    nodeUrl ?? new URL(nodeUrl).hostname.endsWith("stream.place");
+    nodeUrl ?? new URL(nodeUrl).hostname.endsWith(".stream.place");
 
   useEffect(() => {
     if (!userProfile) {
@@ -33,6 +33,7 @@ export default function MobileGoLive() {
   if (!agreementAccepted && isOfficialNode) {
     return (
       <StreamerAgreement
+        nodeUrl={new URL(nodeUrl.url)}
         onAccepted={() => setAgreementAccepted(true)}
         onDeclined={() =>
           navigation.canGoBack()

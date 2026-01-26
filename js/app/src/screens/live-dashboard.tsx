@@ -45,7 +45,7 @@ export default function LiveDashboard() {
   }
 
   const isOfficialNode =
-    nodeUrl ?? new URL(nodeUrl).hostname.endsWith("stream.place");
+    nodeUrl ?? new URL(nodeUrl).hostname.endsWith(".stream.place");
 
   return (
     <>
@@ -58,6 +58,7 @@ export default function LiveDashboard() {
       </LivestreamProvider>
       {!agreementAccepted && isOfficialNode && (
         <StreamerAgreement
+          nodeUrl={new URL(nodeUrl.url)}
           onAccepted={() => setAgreementAccepted(true)}
           onDeclined={() =>
             navigation.canGoBack()

@@ -24,11 +24,13 @@ const STREAMER_AGREEMENT_KEY = "streamer_agreement_accepted_2";
 interface StreamerAgreementProps {
   onAccepted: () => void;
   onDeclined?: () => void;
+  nodeUrl?: URL;
 }
 
 export default function StreamerAgreement({
   onAccepted,
   onDeclined,
+  nodeUrl,
 }: StreamerAgreementProps) {
   const dims = useWindowDimensions();
   const [visible, setVisible] = useState(false);
@@ -46,7 +48,9 @@ export default function StreamerAgreement({
 
   const checkAgreement = async () => {
     try {
-      const accepted = await storage.getItem(STREAMER_AGREEMENT_KEY);
+      const accepted = await storage.getItem(
+        STREAMER_AGREEMENT_KEY + "-" + nodeUrl?.hostname,
+      );
       if (!accepted) {
         setVisible(true);
       } else {
@@ -67,7 +71,10 @@ export default function StreamerAgreement({
     }
 
     try {
-      await storage.setItem(STREAMER_AGREEMENT_KEY, "true");
+      await storage.setItem(
+        STREAMER_AGREEMENT_KEY + "-" + nodeUrl?.hostname,
+        "true",
+      );
       setVisible(false);
       onAccepted();
     } catch (error) {

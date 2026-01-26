@@ -21,6 +21,7 @@ import (
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/streamplace"
 
@@ -51,10 +52,11 @@ type MediaManager struct {
 	atsync              *atproto.ATProtoSynchronizer
 	webrtcAPI           *webrtc.API
 	webrtcConfig        webrtc.Configuration
+	localDB             localdb.LocalDB
 }
 
 type NewSegmentNotification struct {
-	Segment  *model.Segment
+	Segment  *localdb.Segment
 	Data     []byte
 	Metadata *SegmentMetadata
 	Local    bool
@@ -65,7 +67,7 @@ func RunSelfTest(ctx context.Context) error {
 	return SelfTest(ctx)
 }
 
-func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, mod model.Model, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer) (*MediaManager, error) {
+func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, mod model.Model, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, ldb localdb.LocalDB) (*MediaManager, error) {
 	gstinit.InitGST()
 	err := SelfTest(ctx)
 	if err != nil {
@@ -127,6 +129,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		atsync:       atsync,
 		webrtcAPI:    api,
 		webrtcConfig: config,
+		localDB:      ldb,
 	}, nil
 }
 
@@ -190,8 +193,8 @@ type SegmentMetadata struct {
 	Title                 string
 	Creator               string
 	ContentWarnings       []string
-	ContentRights         *model.ContentRights
-	DistributionPolicy    *model.DistributionPolicy
+	ContentRights         *localdb.ContentRights
+	DistributionPolicy    *localdb.DistributionPolicy
 	MetadataConfiguration *streamplace.MetadataConfiguration
 	Livestream            *streamplace.Livestream
 }
@@ -312,7 +315,7 @@ func extractContentWarnings(mani *c2patypes.Manifest) []string {
 }
 
 // extractContentRights extracts content rights from the C2PA manifest
-func extractContentRights(mani *c2patypes.Manifest) *model.ContentRights {
+func extractContentRights(mani *c2patypes.Manifest) *localdb.ContentRights {
 	ass := findAssertion(mani, StreamplaceMetadata)
 	if ass == nil {
 		return nil
@@ -323,7 +326,7 @@ func extractContentRights(mani *c2patypes.Manifest) *model.ContentRights {
 		return nil
 	}
 
-	rights := &model.ContentRights{}
+	rights := &localdb.ContentRights{}
 
 	// Extract copyright notice
 	if notice, ok := data["dc:rights"]; ok {
@@ -375,7 +378,7 @@ func extractContentRights(mani *c2patypes.Manifest) *model.ContentRights {
 }
 
 // extractDistributionPolicy extracts distribution policy from the C2PA manifest
-func extractDistributionPolicy(mani *c2patypes.Manifest, segmentStart aqtime.AQTime) *model.DistributionPolicy {
+func extractDistributionPolicy(mani *c2patypes.Manifest, segmentStart aqtime.AQTime) *localdb.DistributionPolicy {
 	metadataConfig := extractMetadataConfiguration(mani)
 	if metadataConfig == nil {
 		return nil
@@ -392,7 +395,7 @@ func extractDistributionPolicy(mani *c2patypes.Manifest, segmentStart aqtime.AQT
 	// deleteAfter contains an offset in seconds from creation time
 	deleteAfterSeconds := *metadataConfig.DistributionPolicy.DeleteAfter
 
-	return &model.DistributionPolicy{
+	return &localdb.DistributionPolicy{
 		DeleteAfterSeconds: &deleteAfterSeconds,
 	}
 }

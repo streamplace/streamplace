@@ -28,19 +28,6 @@ type Model interface {
 	PlayerReport(playerID string) (map[string]any, error)
 	ClearPlayerEvents() error
 
-	CreateSegment(segment *Segment) error
-	MostRecentSegments() ([]Segment, error)
-	LatestSegmentForUser(user string) (*Segment, error)
-	LatestSegmentsForUser(user string, limit int, before *time.Time, after *time.Time) ([]Segment, error)
-	FilterLiveRepoDIDs(repoDIDs []string) ([]string, error)
-	CreateThumbnail(thumb *Thumbnail) error
-	LatestThumbnailForUser(user string) (*Thumbnail, error)
-	GetSegment(id string) (*Segment, error)
-	GetExpiredSegments(ctx context.Context) ([]Segment, error)
-	DeleteSegment(ctx context.Context, id string) error
-	StartSegmentCleaner(ctx context.Context) error
-	SegmentCleaner(ctx context.Context) error
-
 	GetIdentity(id string) (*Identity, error)
 	UpdateIdentity(ident *Identity) error
 
@@ -72,7 +59,7 @@ type Model interface {
 	CreateLivestream(ctx context.Context, ls *Livestream) error
 	GetLatestLivestreamForRepo(repoDID string) (*Livestream, error)
 	GetLivestreamByPostURI(postURI string) (*Livestream, error)
-	GetLatestLivestreams(limit int, before *time.Time) ([]Livestream, error)
+	GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]Livestream, error)
 
 	CreateTeleport(ctx context.Context, tp *Teleport) error
 	GetLatestTeleportForRepo(repoDID string) (*Teleport, error)
@@ -178,8 +165,6 @@ func MakeDB(dbURL string) (Model, error) {
 	sqlDB.SetMaxOpenConns(1)
 	for _, model := range []any{
 		PlayerEvent{},
-		Segment{},
-		Thumbnail{},
 		Identity{},
 		Repo{},
 		SigningKey{},

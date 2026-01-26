@@ -11,6 +11,7 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	ct "stream.place/streamplace/pkg/config/configtesting"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -23,6 +24,8 @@ func getFixture(name string) string {
 
 func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
 	mod, err := model.MakeDB(":memory:")
+	require.NoError(t, err)
+	ldb, err := localdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	// signer, err := c2pa.MakeStaticSigner(eip712test.KeyBytes)
 	require.NoError(t, err)
@@ -42,7 +45,7 @@ func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
 		StatefulDB: statedb,
 		Bus:        bus.NewBus(),
 	}
-	mm, err := MakeMediaManager(context.Background(), cli, nil, mod, bus.NewBus(), atsync)
+	mm, err := MakeMediaManager(context.Background(), cli, nil, mod, bus.NewBus(), atsync, ldb)
 	require.NoError(t, err)
 	// ms, err := MakeMediaSigner(context.Background(), cli, "test-person", signer)
 	// require.NoError(t, err)

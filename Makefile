@@ -438,7 +438,7 @@ lexgen-server:
 .PHONY: ci-lexicons
 ci-lexicons:
 	$(MAKE) lexicons \
-	&& if ! git diff --exit-code >/dev/null; then echo "lexicons are out of date, run 'make lexicons' to fix"; exit 1; fi
+	&& if ! git diff --exit-code >/dev/null; then echo "lexicons are out of date, run 'make lexicons' to fix"; git diff; exit 1; fi
 
 #   _______ ______  _____ _______ _____ _   _  _____
 #  |__   __|  ____|/ ____|__   __|_   _| \ | |/ ____|

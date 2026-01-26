@@ -54,6 +54,7 @@ require (
 	github.com/pion/webrtc/v4 v4.0.11
 	github.com/piprate/json-gold v0.5.0
 	github.com/prometheus/client_golang v1.23.0
+	github.com/rivo/uniseg v0.4.7
 	github.com/rs/cors v1.11.1
 	github.com/samber/slog-http v1.4.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
@@ -425,7 +426,6 @@ require (
 	github.com/rabbitmq/amqp091-go v1.8.0 // indirect
 	github.com/rabbitmq/rabbitmq-stream-go-client v1.1.1 // indirect
 	github.com/raeperd/recvcheck v0.2.0 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

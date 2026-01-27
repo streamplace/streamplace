@@ -74,7 +74,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to create block: %w", err)
 		}
 		block, err = atsync.Model.GetBlock(ctx, rkey.String())
-		if err != nil {
+		if err != nil || block == nil {
 			return fmt.Errorf("failed to get block after we just saved it?!: %w", err)
 		}
 		streamplaceBlock, err := block.ToStreamplaceBlock()

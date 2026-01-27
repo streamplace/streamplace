@@ -23,6 +23,15 @@ type Block struct {
 }
 
 func (b *Block) ToStreamplaceBlock() (*streamplace.Defs_BlockView, error) {
+	if b == nil {
+		return nil, fmt.Errorf("block is nil")
+	}
+	if b.Repo == nil {
+		return nil, fmt.Errorf("block repo is nil")
+	}
+	if b.Record == nil {
+		return nil, fmt.Errorf("block record is nil")
+	}
 	rec, err := lexutil.CborDecodeValue(b.Record)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding feed post: %w", err)

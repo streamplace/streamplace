@@ -298,6 +298,7 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
 const AvatarButton = () => {
   const userProfile = useUserProfile();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const openPDSModal = useStore((state) => state.openPdsModal);
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
   const { theme } = useTheme();
@@ -333,11 +334,6 @@ const AvatarButton = () => {
     );
   }
 
-  const handleSignup = () => {
-    // TODO: remove requirement for oauth-protected-resource in oatproxy
-    loginAction("https://bsky.social", openLoginLink);
-  };
-
   if (isCompact) {
     return (
       <Button
@@ -370,7 +366,7 @@ const AvatarButton = () => {
         <Text style={{ color: theme.colors.text }}>Log In</Text>
       </Button>
       <Button
-        onPress={handleSignup}
+        onPress={() => openPDSModal()}
         variant="primary"
         width="min"
         style={[zero.r.full]}
@@ -799,6 +795,7 @@ export function StreamplaceDrawer() {
         open={showPdsModal}
         onOpenChange={closePdsModal}
         onSubmit={(pdsHost) => {
+          closePdsModal();
           loginAction(pdsHost, openLoginLink);
         }}
       />

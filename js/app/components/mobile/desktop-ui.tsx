@@ -254,6 +254,7 @@ export function DesktopUi({
               setTitle={setTitle}
               ingestStarting={ingestStarting}
               toggleGoLive={toggleGoLive}
+              isLive={isActivelyLive}
             />
           )}
 

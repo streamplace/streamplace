@@ -72,6 +72,7 @@ export function MobileUi({
     ingestStarting,
     setIngestStarting,
     toggleGoLive,
+    toggleStopStream,
   } = useLivestreamInfo();
   const { width, height } = usePlayerDimensions();
   const { isPlayerRatioGreater } = useSegmentDimensions();
@@ -102,6 +103,12 @@ export function MobileUi({
 
   const isSelfAndNotLive = ingest === "new";
   const isLive = ingest !== null && ingest !== "new";
+
+  useEffect(() => {
+    if (isLive && ingestStarting) {
+      setIngestStarting(false);
+    }
+  }, [isLive, ingestStarting, setIngestStarting]);
 
   const FADE_OUT_DELAY = 4000;
   const fadeOpacity = useSharedValue(1);
@@ -222,7 +229,7 @@ export function MobileUi({
                 <View
                   style={[
                     layout.position.absolute,
-                    position.top[28],
+                    position.top[32],
                     position.left[0],
                     position.right[0],
                     layout.flex.column,
@@ -230,7 +237,7 @@ export function MobileUi({
                   ]}
                 >
                   <PlayerUI.MetricsPanel
-                    showMetrics={isLive || isSelfAndNotLive}
+                    showMetrics={shouldShowFloatingMetrics}
                   />
                 </View>
               )}
@@ -241,6 +248,7 @@ export function MobileUi({
                 setTitle={setTitle}
                 ingestStarting={ingestStarting}
                 toggleGoLive={toggleGoLive}
+                isLive={isLive}
               />
             )}
 
@@ -468,6 +476,7 @@ function RightControlsPanel({
             <Pressable onPress={doSetIngestCamera}>
               <SwitchCamera color={theme.colors.foreground} size={20} />
             </Pressable>
+            {Platform.OS === "web" && <PlayerUI.StreamContextMenu />}
           </>
         )}
         {Platform.OS === "web" ? (
@@ -515,7 +524,11 @@ function RightControlsPanel({
                 )}
               </Pressable>
             )}
-            <PlayerUI.ContextMenu />
+            {ingest === null ? (
+              <PlayerUI.ContextMenu />
+            ) : (
+              <PlayerUI.StreamContextMenu />
+            )}
           </View>
         )}
         {shouldShowChatSidePanel && setShowChat && (

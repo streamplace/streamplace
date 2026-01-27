@@ -86,6 +86,9 @@ export interface BlueskySlice {
   showLoginModal: boolean;
   openLoginModal: (returnRoute?: { name: string; params?: any }) => void;
   closeLoginModal: () => void;
+  showPdsModal: boolean;
+  openPdsModal: () => void;
+  closePdsModal: () => void;
   golivePost: (
     text: string,
     now: Date,
@@ -210,6 +213,7 @@ export const createBlueskySlice: StateCreator<
   serverSettings: null,
   returnRoute: null,
   showLoginModal: false,
+  showPdsModal: false,
   notification: null,
 
   clearNotification: () => {
@@ -237,6 +241,14 @@ export const createBlueskySlice: StateCreator<
   closeLoginModal: () => {
     console.log("closeLoginModal");
     set({ showLoginModal: false });
+  },
+
+  openPdsModal: () => {
+    set({ showPdsModal: true });
+  },
+
+  closePdsModal: () => {
+    set({ showPdsModal: false });
   },
 
   loadOAuthClient: async () => {

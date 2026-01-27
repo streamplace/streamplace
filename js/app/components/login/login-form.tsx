@@ -20,9 +20,15 @@ import { useLogin } from "store/hooks";
 
 interface LoginFormProps {
   onSuccess?: () => void;
+  onCloseModal?: () => void;
+  onOpenPdsModal?: () => void;
 }
 
-export default function LoginForm({ onSuccess }: LoginFormProps) {
+export default function LoginForm({
+  onSuccess,
+  onCloseModal,
+  onOpenPdsModal,
+}: LoginFormProps) {
   const { theme } = useTheme();
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
@@ -74,8 +80,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   };
 
   const onSignup = () => {
-    // TODO: remove requirement for oauth-protected-resource in oatproxy
-    loginAction("https://bsky.social", openLoginLink);
+    onCloseModal?.();
+    onOpenPdsModal?.();
   };
 
   const isMobile = Platform.OS === "ios" || Platform.OS === "android";

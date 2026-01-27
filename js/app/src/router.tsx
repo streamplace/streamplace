@@ -81,6 +81,7 @@ import KeyManager from "components/settings/key-manager";
 import HomeScreen from "./screens/home";
 
 import { useUrl } from "@streamplace/components";
+import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
 import { BrandingAdmin } from "components/settings/branding-admin";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
 import MultistreamManager from "components/settings/multistream-manager";
@@ -477,7 +478,12 @@ export function StreamplaceDrawer() {
   const pollMySegments = useStore((state) => state.pollMySegments);
   const showLoginModal = useStore((state) => state.showLoginModal);
   const closeLoginModal = useStore((state) => state.closeLoginModal);
+  const showPdsModal = useStore((state) => state.showPdsModal);
+  const openPdsModal = useStore((state) => state.openPdsModal);
+  const closePdsModal = useStore((state) => state.closePdsModal);
   const [livePopup, setLivePopup] = useState(false);
+  const loginAction = useStore((state) => state.login);
+  const openLoginLink = useStore((state) => state.openLoginLink);
   const siteTitle = useSiteTitle();
   const defaultStreamer = useDefaultStreamer();
 
@@ -784,7 +790,18 @@ export function StreamplaceDrawer() {
           }}
         />
       </Drawer.Navigator>
-      <LoginModal visible={showLoginModal} onClose={closeLoginModal} />
+      <LoginModal
+        visible={showLoginModal}
+        onClose={closeLoginModal}
+        onOpenPdsModal={openPdsModal}
+      />
+      <PdsHostSelectorModal
+        open={showPdsModal}
+        onOpenChange={closePdsModal}
+        onSubmit={(pdsHost) => {
+          loginAction(pdsHost, openLoginLink);
+        }}
+      />
     </>
   );
 }

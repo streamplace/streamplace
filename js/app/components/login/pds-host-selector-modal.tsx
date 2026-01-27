@@ -55,6 +55,25 @@ const PDS_HOSTS = [
   },
 ];
 
+// Shuffle the hosts
+// items with handle policies should never be first !
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};
+
+const SHUFFLED_PDS_HOSTS = (() => {
+  const withPolicies = PDS_HOSTS.filter((h) => h.handlePolicyDocs);
+  const [first, ...withoutPolicies] = PDS_HOSTS.filter(
+    (h) => !h.handlePolicyDocs,
+  );
+  return [first, ...shuffleArray(withPolicies.concat(withoutPolicies))];
+})();
+
 interface PdsHostSelectorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -67,7 +86,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
   onSubmit,
 }) => {
   const [selectedHost, setSelectedHost] = useState<string | null>(
-    PDS_HOSTS[0].value,
+    SHUFFLED_PDS_HOSTS[0].value,
   );
   const [customHost, setCustomHost] = useState<string>("");
   const [useCustom, setUseCustom] = useState(false);
@@ -76,10 +95,11 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
   const { theme } = useTheme();
 
   const selectedHostObj =
-    PDS_HOSTS.find((host) => host.value === selectedHost) || PDS_HOSTS[0];
+    SHUFFLED_PDS_HOSTS.find((host) => host.value === selectedHost) ||
+    SHUFFLED_PDS_HOSTS[0];
 
   const handleCancel = () => {
-    setSelectedHost(PDS_HOSTS[0].value);
+    setSelectedHost(SHUFFLED_PDS_HOSTS[0].value);
     setCustomHost("");
     setUseCustom(false);
     onOpenChange(false);
@@ -133,7 +153,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
           </Text>
         </View>
         <View style={[zero.pb[2]]}>
-          {PDS_HOSTS.map((host, index) => (
+          {SHUFFLED_PDS_HOSTS.map((host, index) => (
             <Pressable
               key={host.value}
               onPress={() => handleSelectHost(host.value)}

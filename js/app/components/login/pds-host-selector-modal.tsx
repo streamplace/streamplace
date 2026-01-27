@@ -139,7 +139,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
       showCloseButton={false}
       variant="default"
       size="sm"
-      dismissible={true}
+      dismissible={false}
       position="center"
     >
       <View style={[{ maxWidth: 500 }]}>
@@ -226,7 +226,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
               ]}
             >
               <View style={[zero.flex[1]]}>
-                <Text>Custom PDS</Text>
+                <Text>Another PDS</Text>
                 <Text
                   style={[
                     zero.mt[1],
@@ -259,7 +259,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
           {useCustom && (
             <View style={[zero.mt[3]]}>
               <Text style={[zero.mb[2], { color: theme.colors.textMuted }]}>
-                Custom PDS URL
+                PDS URL
               </Text>
               <Input
                 value={customHost}
@@ -278,7 +278,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
               later.
             </Text>
             {!useCustom && (
-              <Text>
+              <Text style={[zero.mb[2]]}>
                 Read {selectedHostObj?.label}'s{" "}
                 <Text
                   onPress={handleTOS}
@@ -304,7 +304,8 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
                 zero.layout.flex.align.center,
                 zero.layout.flex.justify.start,
                 zero.gap.all[2],
-                zero.my[4],
+                zero.mb[4],
+                zero.mt[2],
               ]}
             >
               <Checkbox
@@ -319,7 +320,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
                   }
                   style={[{ color: theme.colors.ring }]}
                 >
-                  {selectedHostObj.label} handle policy
+                  {selectedHostObj.label} guidelines and handle policy
                 </Text>
               </Text>
             </View>

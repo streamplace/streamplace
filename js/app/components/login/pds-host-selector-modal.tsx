@@ -145,11 +145,11 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
       <View style={[{ maxWidth: 500 }]}>
         <View style={[zero.my[4]]}>
           <Text size="2xl" style={[zero.mb[2]]}>
-            Choose your PDS host
+            New to the Atmosphere?
           </Text>
           <Text style={[{ color: theme.colors.textMuted }]}>
-            Select a Personal Data Server (PDS) to access apps on the
-            Atmosphere.
+            You'll need to select a PDS (Personal Data Server) to access apps on
+            the Atmosphere, such as Bluesky, Tangled, and Spark.
           </Text>
         </View>
         <View style={[zero.pb[2]]}>

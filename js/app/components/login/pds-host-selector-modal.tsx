@@ -4,8 +4,10 @@ import {
   Checkbox,
   Input,
   ResponsiveDialog,
+  Trans as T,
   Text,
   useTheme,
+  useTranslation,
   zero,
 } from "@streamplace/components";
 import { Check, ExternalLink } from "lucide-react-native";
@@ -93,6 +95,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
   const [handlePolicyChecked, hasCheckedHandlePolicy] = useState(false);
 
   const { theme } = useTheme();
+  const { t } = useTranslation();
 
   const selectedHostObj =
     SHUFFLED_PDS_HOSTS.find((host) => host.value === selectedHost) ||
@@ -145,11 +148,10 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
       <View style={[{ maxWidth: 500 }]}>
         <View style={[zero.my[4]]}>
           <Text size="2xl" style={[zero.mb[2]]}>
-            New to the Atmosphere?
+            {t("pds-selector-title")}
           </Text>
           <Text style={[{ color: theme.colors.textMuted }]}>
-            You'll need to select a PDS (Personal Data Server) to access apps on
-            the Atmosphere, such as Bluesky, Tangled, and Spark.
+            {t("pds-selector-description")}
           </Text>
         </View>
         <View style={[zero.pb[2]]}>
@@ -226,14 +228,14 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
               ]}
             >
               <View style={[zero.flex[1]]}>
-                <Text>Another PDS</Text>
+                <Text>{t("pds-selector-custom-label")}</Text>
                 <Text
                   style={[
                     zero.mt[1],
                     { fontSize: 14, color: theme.colors.textMuted },
                   ]}
                 >
-                  Enter your own PDS host URL
+                  {t("pds-selector-custom-description")}
                 </Text>
               </View>
               {useCustom && <Check size={20} color={theme.colors.primary} />}
@@ -250,7 +252,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
               ]}
             >
               <Text style={[{ color: theme.colors.ring, fontSize: 14 }]}>
-                Learn more about self-hosting
+                {t("pds-selector-learn-more")}
               </Text>
               <ExternalLink size={16} color={theme.colors.ring} />
             </Pressable>
@@ -259,12 +261,12 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
           {useCustom && (
             <View style={[zero.mt[3]]}>
               <Text style={[zero.mb[2], { color: theme.colors.textMuted }]}>
-                PDS URL
+                {t("pds-selector-custom-url-label")}
               </Text>
               <Input
                 value={customHost}
                 onChangeText={setCustomHost}
-                placeholder="https://pds.example.com"
+                placeholder={t("pds-selector-custom-url-placeholder")}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
@@ -272,28 +274,27 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
             </View>
           )}
           <Admonition variant="info" style={[zero.my[4]] as any}>
-            <Text style={[zero.mb[2]]}>
-              Each host has their own policies and reliability standards. Your
-              ATProto data lives on the host you choose and you can migrate
-              later.
-            </Text>
+            <Text style={[zero.mb[2]]}>{t("pds-selector-info")}</Text>
             {!useCustom && (
               <Text style={[zero.mb[2]]}>
-                Read {selectedHostObj?.label}'s{" "}
-                <Text
-                  onPress={handleTOS}
-                  style={[{ color: theme.colors.ring }]}
-                >
-                  Terms of Service
-                </Text>{" "}
-                and{" "}
-                <Text
-                  onPress={handlePrivacy}
-                  style={[{ color: theme.colors.ring }]}
-                >
-                  Privacy Policy
-                </Text>{" "}
-                before continuing.
+                <T
+                  i18nKey="pds-selector-read-policies"
+                  values={{ label: selectedHostObj?.label }}
+                  components={{
+                    tosLink: (
+                      <Text
+                        onPress={handleTOS}
+                        style={[{ color: theme.colors.ring }]}
+                      />
+                    ),
+                    privacyLink: (
+                      <Text
+                        onPress={handlePrivacy}
+                        style={[{ color: theme.colors.ring }]}
+                      />
+                    ),
+                  }}
+                />
               </Text>
             )}
           </Admonition>
@@ -313,15 +314,21 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
                 onCheckedChange={hasCheckedHandlePolicy}
               />
               <Text style={[zero.flex[1]]}>
-                I have read and agree to the{" "}
-                <Text
-                  onPress={() =>
-                    Linking.openURL(selectedHostObj.handlePolicyDocs!)
-                  }
-                  style={[{ color: theme.colors.ring }]}
-                >
-                  {selectedHostObj.label} guidelines and handle policy
-                </Text>
+                <T
+                  i18nKey="pds-selector-handle-policy-checkbox"
+                  components={{
+                    policyLink: (
+                      <Text
+                        onPress={() =>
+                          Linking.openURL(selectedHostObj.handlePolicyDocs!)
+                        }
+                        style={[{ color: theme.colors.ring }]}
+                      >
+                        {selectedHostObj.label} guidelines and handle policy
+                      </Text>
+                    ),
+                  }}
+                />
               </Text>
             </View>
           )}
@@ -335,7 +342,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
           ]}
         >
           <Button width="min" variant="secondary" onPress={handleCancel}>
-            <Text>Cancel</Text>
+            <Text>{t("cancel")}</Text>
           </Button>
           <Button
             width="min"
@@ -346,7 +353,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
               (!handlePolicyChecked && !!selectedHostObj.handlePolicyDocs)
             }
           >
-            <Text>Continue</Text>
+            <Text>{t("continue")}</Text>
           </Button>
         </View>
       </View>

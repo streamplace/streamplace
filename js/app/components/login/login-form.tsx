@@ -290,7 +290,7 @@ export default function LoginForm({
         ]}
       >
         <Button width="min" onPress={() => onSignup()} variant="ghost">
-          <Text style={[{ color: "white" }]}>Sign Up on Bluesky</Text>
+          <Text style={[{ color: "white" }]}>Sign Up</Text>
         </Button>
         <Button
           onPress={submit}
@@ -299,7 +299,7 @@ export default function LoginForm({
           width="min"
           loading={loginState.loading}
         >
-          <Text style={[{ color: "white" }]}>Log in</Text>
+          <Text style={[{ color: "white" }]}>Log In</Text>
         </Button>
       </View>
     </>

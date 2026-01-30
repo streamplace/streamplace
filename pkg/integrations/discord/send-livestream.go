@@ -67,7 +67,7 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string,
 			log.Warn(ctx, "failed to parse URL", "err", err)
 		} else {
 			suffix = fmt.Sprintf(" on %s!", u.Host)
-			payload.Embeds[0].URL = fmt.Sprintf("%s/%s", *ls.Url, lsv.Author.Handle)
+			payload.Embeds[0].URL = *ls.Url
 		}
 	}
 

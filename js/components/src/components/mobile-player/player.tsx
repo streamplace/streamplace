@@ -5,7 +5,11 @@ import {
   PlayerStatusTracker,
   usePlayerStore,
 } from "../../player-store";
-import { useStreamplaceStore } from "../../streamplace-store";
+import {
+  useMuted,
+  useSetMuted,
+  useStreamplaceStore,
+} from "../../streamplace-store";
 import { Text, View } from "../ui";
 import { Fullscreen } from "./fullscreen";
 import { PlayerProps } from "./props";
@@ -28,6 +32,20 @@ export function Player(
   const reportModalOpen = usePlayerStore((x) => x.reportModalOpen);
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
   const reportSubject = usePlayerStore((x) => x.reportSubject);
+
+  const setMuted = useSetMuted();
+  const muted = useMuted();
+
+  // if we set muted, set it and restore after
+  useEffect(() => {
+    let wasMuted = muted;
+    if (props.muted) {
+      setMuted(props.muted);
+    }
+    return () => {
+      setMuted(wasMuted);
+    };
+  });
 
   useEffect(() => {
     setReportingURL(props.reportingURL ?? null);

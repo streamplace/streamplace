@@ -81,6 +81,7 @@ import KeyManager from "components/settings/key-manager";
 import HomeScreen from "./screens/home";
 
 import { useUrl } from "@streamplace/components";
+import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
 import { BrandingAdmin } from "components/settings/branding-admin";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
 import MultistreamManager from "components/settings/multistream-manager";
@@ -297,6 +298,7 @@ const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
 const AvatarButton = () => {
   const userProfile = useUserProfile();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const openPDSModal = useStore((state) => state.openPdsModal);
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
   const { theme } = useTheme();
@@ -332,11 +334,6 @@ const AvatarButton = () => {
     );
   }
 
-  const handleSignup = () => {
-    // TODO: remove requirement for oauth-protected-resource in oatproxy
-    loginAction("https://bsky.social", openLoginLink);
-  };
-
   if (isCompact) {
     return (
       <Button
@@ -369,7 +366,7 @@ const AvatarButton = () => {
         <Text style={{ color: theme.colors.text }}>Log In</Text>
       </Button>
       <Button
-        onPress={handleSignup}
+        onPress={() => openPDSModal()}
         variant="primary"
         width="min"
         style={[zero.r.full]}
@@ -477,7 +474,12 @@ export function StreamplaceDrawer() {
   const pollMySegments = useStore((state) => state.pollMySegments);
   const showLoginModal = useStore((state) => state.showLoginModal);
   const closeLoginModal = useStore((state) => state.closeLoginModal);
+  const showPdsModal = useStore((state) => state.showPdsModal);
+  const openPdsModal = useStore((state) => state.openPdsModal);
+  const closePdsModal = useStore((state) => state.closePdsModal);
   const [livePopup, setLivePopup] = useState(false);
+  const loginAction = useStore((state) => state.login);
+  const openLoginLink = useStore((state) => state.openLoginLink);
   const siteTitle = useSiteTitle();
   const defaultStreamer = useDefaultStreamer();
 
@@ -784,7 +786,19 @@ export function StreamplaceDrawer() {
           }}
         />
       </Drawer.Navigator>
-      <LoginModal visible={showLoginModal} onClose={closeLoginModal} />
+      <LoginModal
+        visible={showLoginModal}
+        onClose={closeLoginModal}
+        onOpenPdsModal={openPdsModal}
+      />
+      <PdsHostSelectorModal
+        open={showPdsModal}
+        onOpenChange={closePdsModal}
+        onSubmit={(pdsHost) => {
+          closePdsModal();
+          loginAction(pdsHost, openLoginLink);
+        }}
+      />
     </>
   );
 }

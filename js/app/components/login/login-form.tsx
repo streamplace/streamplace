@@ -20,9 +20,15 @@ import { useLogin } from "store/hooks";
 
 interface LoginFormProps {
   onSuccess?: () => void;
+  onCloseModal?: () => void;
+  onOpenPdsModal?: () => void;
 }
 
-export default function LoginForm({ onSuccess }: LoginFormProps) {
+export default function LoginForm({
+  onSuccess,
+  onCloseModal,
+  onOpenPdsModal,
+}: LoginFormProps) {
   const { theme } = useTheme();
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
@@ -74,8 +80,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   };
 
   const onSignup = () => {
-    // TODO: remove requirement for oauth-protected-resource in oatproxy
-    loginAction("https://bsky.social", openLoginLink);
+    onCloseModal?.();
+    onOpenPdsModal?.();
   };
 
   const isMobile = Platform.OS === "ios" || Platform.OS === "android";
@@ -284,7 +290,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         ]}
       >
         <Button width="min" onPress={() => onSignup()} variant="ghost">
-          <Text style={[{ color: "white" }]}>Sign Up on Bluesky</Text>
+          <Text style={[{ color: "white" }]}>Sign Up</Text>
         </Button>
         <Button
           onPress={submit}
@@ -293,7 +299,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           width="min"
           loading={loginState.loading}
         >
-          <Text style={[{ color: "white" }]}>Log in</Text>
+          <Text style={[{ color: "white" }]}>Log In</Text>
         </Button>
       </View>
     </>

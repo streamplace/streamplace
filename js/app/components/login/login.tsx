@@ -12,6 +12,7 @@ import LoginForm from "./login-form";
 export default function Login() {
   const { theme } = useTheme();
   const closeLoginModal = useStore((state) => state.closeLoginModal);
+  const openPdsModal = useStore((state) => state.openPdsModal);
   const userProfile = useUserProfile();
   const navigation = useNavigation();
   const isReady = useIsReady();
@@ -103,7 +104,7 @@ export default function Login() {
             <Text style={[{ fontSize: 36, fontWeight: "200", color: "white" }]}>
               Log in
             </Text>
-            <LoginForm />
+            <LoginForm onOpenPdsModal={openPdsModal} />
           </View>
         </View>
       </ScrollView>

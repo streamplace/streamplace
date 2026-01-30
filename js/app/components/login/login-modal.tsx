@@ -6,9 +6,14 @@ import LoginForm from "./login-form";
 interface LoginModalProps {
   visible: boolean;
   onClose: () => void;
+  onOpenPdsModal: () => void;
 }
 
-export default function LoginModal({ visible, onClose }: LoginModalProps) {
+export default function LoginModal({
+  visible,
+  onClose,
+  onOpenPdsModal,
+}: LoginModalProps) {
   const { theme, zero: z } = useTheme();
 
   return (
@@ -64,7 +69,11 @@ export default function LoginModal({ visible, onClose }: LoginModalProps) {
             </TouchableOpacity>
           </View>
 
-          <LoginForm onSuccess={onClose} />
+          <LoginForm
+            onSuccess={onClose}
+            onCloseModal={onClose}
+            onOpenPdsModal={onOpenPdsModal}
+          />
         </Pressable>
       </View>
     </Modal>

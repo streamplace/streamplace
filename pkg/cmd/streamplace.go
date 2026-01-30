@@ -385,6 +385,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		DownstreamJWK:      cli.AccessJWK,
 		ClientMetadata:     clientMetadata,
 		Public:             cli.PublicOAuth,
+		HTTPClient:         &aqhttp.Client,
 	})
 	d := director.NewDirector(mm, mod, &cli, b, op, state, replicator, ldb)
 	a, err := api.MakeStreamplaceAPI(&cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb)

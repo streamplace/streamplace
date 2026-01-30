@@ -12,6 +12,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { LayoutChangeEvent, Text, TouchableOpacity, View } from "react-native";
 import Svg, { Path, Line as SvgLine, Text as SvgText } from "react-native-svg";
+import { useAQState } from "../../hooks";
 import {
   useLivestreamStore,
   useSegment,
@@ -38,7 +39,7 @@ export default function InformationWidget({
   const [bitrateHistory, setBitrateHistory] = useState<number[]>(
     Array.from({ length: BITRATE_HISTORY_LENGTH }, () => 0),
   );
-  const [showViewers, setShowViewers] = useState(false);
+  const [showViewers, setShowViewers] = useAQState("showViewers", false);
   const [componentWidth, setComponentWidth] = useState<number>(220);
   const [componentHeight, setComponentHeight] = useState<number>(400);
   const [streamStartTime, setStreamStartTime] = useState<Date | null>(null);

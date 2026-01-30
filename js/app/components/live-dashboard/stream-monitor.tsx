@@ -104,7 +104,11 @@ export default function StreamMonitor({
       <View style={[flex.values[1], layout.flex.center, bg.neutral[900]]}>
         {isLive && userProfile ? (
           isStreamVisible ? (
-            <Player src={userProfile.did} name={userProfile.handle}>
+            <Player
+              src={userProfile.did}
+              name={userProfile.handle}
+              muted={true}
+            >
               <DesktopUi />
               <PlayerUI.ViewerLoadingOverlay />
               <OfflineCounter isMobile={true} />

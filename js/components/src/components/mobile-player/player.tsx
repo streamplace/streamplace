@@ -45,7 +45,7 @@ export function Player(
     return () => {
       setMuted(wasMuted);
     };
-  });
+  }, [props.muted]);
 
   useEffect(() => {
     setReportingURL(props.reportingURL ?? null);

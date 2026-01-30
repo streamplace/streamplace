@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"go.opentelemetry.io/otel"
+	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/log"
 )
@@ -23,13 +24,13 @@ func resolveRepoService(ctx context.Context, repo string) (string, string, strin
 	did := repo
 	var err error
 	if !strings.HasPrefix(repo, "did:") {
-		did, err = oatproxy.ResolveHandle(ctx, repo)
+		did, err = oatproxy.ResolveHandleWithClient(ctx, repo, &aqhttp.Client)
 		if err != nil {
 			return "", "", "", fmt.Errorf("failed to resolve handle %q: %w", repo, err)
 		}
 	}
 
-	service, handle, err := oatproxy.ResolveService(ctx, did)
+	service, handle, err := oatproxy.ResolveServiceWithClient(ctx, did, &aqhttp.Client)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to resolve service for did %q: %w", did, err)
 	}

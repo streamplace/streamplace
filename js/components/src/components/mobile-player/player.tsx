@@ -38,12 +38,15 @@ export function Player(
 
   // if we set muted, set it and restore after
   useEffect(() => {
-    let wasMuted = muted;
-    if (props.muted) {
-      setMuted(props.muted);
-    }
+    let wasMuted: null | boolean = null;
+    setTimeout(() => {
+      if (props.muted != undefined) {
+        wasMuted = muted;
+        setMuted(props.muted);
+      }
+    }, 200);
     return () => {
-      setMuted(wasMuted);
+      wasMuted !== null && setMuted(wasMuted);
     };
   }, [props.muted]);
 

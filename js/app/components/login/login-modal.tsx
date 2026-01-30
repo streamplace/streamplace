@@ -11,6 +11,10 @@ interface LoginModalProps {
 export default function LoginModal({ visible, onClose }: LoginModalProps) {
   const { theme, zero: z } = useTheme();
 
+  if (!visible) {
+    return null;
+  }
+
   return (
     <Modal
       visible={visible}

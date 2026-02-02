@@ -71,11 +71,13 @@ type Model interface {
 
 	CreateBlock(ctx context.Context, block *Block) error
 	GetBlock(ctx context.Context, rkey string) (*Block, error)
+	GetBlockedDIDs(ctx context.Context, blockerDID string) ([]string, error)
 	GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error)
 	DeleteBlock(ctx context.Context, rkey string) error
 
 	CreateChatMessage(ctx context.Context, message *ChatMessage) error
 	MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDefs_MessageView, error)
+	MostRecentChatMessagesForViewer(repoDID, viewerDID string) ([]*streamplace.ChatDefs_MessageView, error)
 	GetChatMessage(uri string) (*ChatMessage, error)
 	DeleteChatMessage(ctx context.Context, uri string, deletedAt *time.Time) error
 

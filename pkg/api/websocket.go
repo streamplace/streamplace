@@ -12,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
 
+	"stream.place/streamplace/pkg/bus"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/renditions"
@@ -65,6 +66,12 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			apierrors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
+		viewerDID := req.URL.Query().Get("viewer")
+		if viewerDID != "" {
+			if _, err := a.ATSync.SyncBlueskyRepoCached(ctx, viewerDID, a.Model); err != nil {
+				log.Error(ctx, "could not sync viewer repo", "error", err, "viewerDID", viewerDID)
+			}
+		}
 		conn, err := upgrader.Upgrade(w, req, nil)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not upgrade to websocket", err)
@@ -110,10 +117,26 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			return nil
 		})
 		go func() {
+			blockedDIDs := make(map[string]bool)
+			if viewerDID != "" {
+				dids, err := a.Model.GetBlockedDIDs(ctx, viewerDID)
+				if err != nil {
+					log.Error(ctx, "could not get blocked DIDs", "error", err)
+				}
+				for _, did := range dids {
+					blockedDIDs[did] = true
+				}
+			}
 
 			ch := a.Bus.Subscribe(repoDID)
 			defer a.Bus.Unsubscribe(repoDID, ch)
-			// Create a ticker that fires every 3 seconds
+
+			var viewerCh <-chan bus.Message
+			if viewerDID != "" {
+				viewerCh = a.Bus.Subscribe(viewerDID)
+				defer a.Bus.Unsubscribe(viewerDID, viewerCh)
+			}
+
 			ticker := time.NewTicker(3 * time.Second)
 			pingTicker := time.NewTicker(pingPeriod)
 			defer ticker.Stop()
@@ -133,10 +156,30 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				}
 			}
 
+			isBlockedChat := func(msg any) bool {
+				if len(blockedDIDs) == 0 {
+					return false
+				}
+				if chatMsg, ok := msg.(*streamplace.ChatDefs_MessageView); ok {
+					return chatMsg.Author != nil && blockedDIDs[chatMsg.Author.Did]
+				}
+				return false
+			}
+
 			for {
 				select {
 				case msg := <-ch:
+					if isBlockedChat(msg) {
+						continue
+					}
 					send(msg)
+				case msg := <-viewerCh:
+					if blockView, ok := msg.(*streamplace.Defs_BlockView); ok {
+						if blockView.Blocker != nil && blockView.Blocker.Did == viewerDID && blockView.Record != nil {
+							blockedDIDs[blockView.Record.Subject] = true
+							send(blockView)
+						}
+					}
 				case msg := <-initialBurst:
 					send(msg)
 				case <-ticker.C:
@@ -232,7 +275,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 		}()
 
 		go func() {
-			messages, err := a.Model.MostRecentChatMessages(repoDID)
+			messages, err := a.Model.MostRecentChatMessagesForViewer(repoDID, viewerDID)
 			if err != nil {
 				log.Error(ctx, "could not get chat messages", "error", err)
 				return

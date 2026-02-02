@@ -1,10 +1,12 @@
 import { useRef } from "react";
 import useWebSocket from "react-use-websocket";
 import { useHandleWebsocketMessages } from "../livestream-store";
-import { useUrl } from "../streamplace-store";
+import { useDID, useStreamplaceStore, useUrl } from "../streamplace-store";
 
 export function useLivestreamWebsocket(src: string) {
   const url = useUrl();
+  const did = useDID();
+  const oauthSession = useStreamplaceStore((state) => state.oauthSession);
   const handleWebSocketMessages = useHandleWebsocketMessages();
 
   let wsUrl = url.replace(/^http\:/, "ws:");
@@ -15,7 +17,14 @@ export function useLivestreamWebsocket(src: string) {
   const hasReceivedMessage = useRef(false);
   const hasErrored = useRef(false);
 
-  const { readyState } = useWebSocket(`${wsUrl}/api/websocket/${src}`, {
+  // Don't connect until auth state is resolved (undefined = still loading)
+  const authResolved = oauthSession !== undefined;
+
+  const wsUrlWithViewer = did
+    ? `${wsUrl}/api/websocket/${src}?viewer=${encodeURIComponent(did)}`
+    : `${wsUrl}/api/websocket/${src}`;
+
+  const { readyState } = useWebSocket(authResolved ? wsUrlWithViewer : null, {
     reconnectInterval: 1000,
     shouldReconnect: () => !hasErrored.current,
 

@@ -110,7 +110,7 @@ export const makeStreamplaceStore = ({
     liveUsersRefresh: 0,
     liveUsersLoading: true,
     liveUsersError: null,
-    oauthSession: null,
+    oauthSession: undefined,
     handle: null,
     chatProfile: null,
 

@@ -103,6 +103,7 @@ import {
 import DanmuOBSScreen from "./screens/danmu-obs";
 import MobileGoLive from "./screens/mobile-go-live";
 import MobileStream from "./screens/mobile-stream";
+import SmokesignalEvent from "./screens/smokesignal-event";
 
 // Initialize sidebar state on app load
 useStore.getState().loadStateFromStorage();
@@ -157,6 +158,7 @@ type RootStackParamList = {
   LegacyStream: { user: string };
   DanmuOBS: { user: string };
   MobileGoLive: undefined;
+  SmokesignalEvent: { defaultTitle?: string; streamUrl: string };
 };
 
 declare global {
@@ -211,6 +213,7 @@ const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       LegacyStream: "legacy/:user",
       DanmuOBS: "widgets/:user/danmu",
       MobileGoLive: "mobile-golive",
+      SmokesignalEvent: "smokesignal-event",
     },
   },
 };
@@ -781,6 +784,15 @@ export function StreamplaceDrawer() {
             title: "Go live",
             drawerIcon: () => <Video color={foregroundColor} size={24} />,
             headerShown: false,
+          }}
+        />
+        <Drawer.Screen
+          name="SmokesignalEvent"
+          component={SmokesignalEvent}
+          options={{
+            headerTitle: "Create Smoke Signal Event",
+            drawerItemStyle: { display: "none" },
+            title: "Create Smoke Signal Event",
           }}
         />
       </Drawer.Navigator>

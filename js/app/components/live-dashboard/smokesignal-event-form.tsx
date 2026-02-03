@@ -122,7 +122,7 @@ export function SmokesignalEventForm({
   const [eventDescription, setEventDescription] = useState("");
   const [descTouched, setDescTouched] = useState(false);
 
-  const defaultDescription = streamUrl ? `Live on Streamplace: ${streamUrl}` : "";
+  const defaultDescription = streamUrl ? "Live on Streamplace" : "";
 
   const handleTitleChange = useCallback((value: string) => {
     setTitleTouched(true);
@@ -202,9 +202,15 @@ export function SmokesignalEventForm({
     return undefined;
   }, [startsAt, endsAt]);
 
+  // Smokesignal stores OAuth destination in VARCHAR(255). Long URLs (e.g. Cloudflare tunnels)
+  // get truncated and break the redirect. Include link only when destination fits.
+  const DESTINATION_MAX_LENGTH = 250;
+
   const smokesignalIntentUrl = useMemo(() => {
     const eventName = effectiveTitle.trim() || "Livestream";
-    const description = effectiveDescription.trim() || "Live on Streamplace";
+    const description = streamUrl
+      ? "Live on Streamplace"
+      : effectiveDescription.trim() || "Live on Streamplace";
     const intentUrl = new URL("https://smokesignal.events/event");
     intentUrl.searchParams.set("name", eventName);
     intentUrl.searchParams.set("description", description);
@@ -214,9 +220,17 @@ export function SmokesignalEventForm({
     if (streamUrl) {
       intentUrl.searchParams.set("link", streamUrl);
       intentUrl.searchParams.set("link_name", "Watch on Streamplace");
+      const destination = intentUrl.pathname + intentUrl.search;
+      if (destination.length > DESTINATION_MAX_LENGTH) {
+        intentUrl.searchParams.delete("link");
+        intentUrl.searchParams.delete("link_name");
+      }
     }
     return intentUrl.toString();
   }, [effectiveTitle, effectiveDescription, streamUrl, startsAt, endsAt, endTimeError]);
+
+  const linkOmittedForLength =
+    !!streamUrl && !smokesignalIntentUrl.includes("link=");
 
   const handleOpenSmokesignal = useCallback(() => {
     if (!smokesignalIntentUrl) return;
@@ -322,6 +336,8 @@ export function SmokesignalEventForm({
       </Button>
       <Text style={[pb[4], { fontSize: 12, color: theme.colors.textMuted }]}>
         Opens Smoke Signal in a new tab.
+        {linkOmittedForLength &&
+          " Stream URL too long to pre-fill — add it in Smoke Signal after creating the event."}
       </Text>
     </View>
   );

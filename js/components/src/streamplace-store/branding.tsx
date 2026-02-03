@@ -25,10 +25,65 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   });
 };
 
+const PropsInHeader = [
+  "siteTitle",
+  "siteDescription",
+  "primaryColor",
+  "accentColor",
+  "defaultStreamer",
+  "mainLogo",
+  "favicon",
+  "sidebarBg",
+  "legalLinks",
+];
+
+function getMetaContent(key: string): BrandingAsset | null {
+  if (typeof window === "undefined" || !window.document) return null;
+  const meta = document.querySelector(`meta[name="internal-brand:${key}`);
+  if (meta && meta.getAttribute("content")) {
+    let content = meta.getAttribute("content");
+    if (content) return JSON.parse(content) as BrandingAsset;
+  }
+
+  return null;
+}
+
 // hook to fetch broadcaster DID (unauthenticated)
 export function useFetchBroadcasterDID() {
   const streamplaceAgent = usePossiblyUnauthedPDSAgent();
   const store = getStreamplaceStoreFromContext();
+
+  // prefetch from meta records, if on web
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.document) {
+      try {
+        const metaRecords = PropsInHeader.reduce(
+          (acc, key) => {
+            const meta = document.querySelector(
+              `meta[name="internal-brand:${key}`,
+            );
+            // hrmmmmmmmmmmmm
+            if (meta && meta.getAttribute("content")) {
+              let content = meta.getAttribute("content");
+              if (content) acc[key] = JSON.parse(content) as BrandingAsset;
+            }
+            return acc;
+          },
+          {} as Record<string, BrandingAsset>,
+        );
+
+        console.log("Found meta records for broadcaster DID:", metaRecords);
+        // filter out all non-text values, can get on second fetch?
+        for (const key of Object.keys(metaRecords)) {
+          if (metaRecords[key].mimeType != "text/plain") {
+            delete metaRecords[key];
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to parse broadcaster DID from meta tags", e);
+      }
+    }
+  }, []);
 
   return useCallback(async () => {
     try {
@@ -140,7 +195,11 @@ export function useFetchBranding() {
 
 // hook to get a specific branding asset by key
 export function useBrandingAsset(key: string): BrandingAsset | undefined {
-  return useStreamplaceStore((state) => state.branding?.[key]);
+  return (
+    useStreamplaceStore((state) => state.branding?.[key]) ||
+    getMetaContent(key) ||
+    undefined
+  );
 }
 
 // convenience hook for main logo

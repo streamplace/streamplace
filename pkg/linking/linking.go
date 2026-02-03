@@ -3,31 +3,38 @@ package linking
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 
 	"golang.org/x/net/html"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
 type Linker struct {
 	BaseHTML []byte
+	sdb      *statedb.StatefulDB
+	cli      *config.CLI
 }
 
-func NewLinker(ctx context.Context, baseHTML []byte) (*Linker, error) {
+func NewLinker(ctx context.Context, baseHTML []byte, sdb *statedb.StatefulDB, cli *config.CLI) (*Linker, error) {
 	_, err := html.Parse(bytes.NewReader(baseHTML))
 	if err != nil {
 		return nil, err
 	}
 
-	return &Linker{BaseHTML: baseHTML}, nil
+	return &Linker{BaseHTML: baseHTML, sdb: sdb, cli: cli}, nil
 }
 
 type PageConfig struct {
 	Title     string
 	Metas     []MetaTag
 	SentryDSN string
+	Branding  []string
 }
 
 // Define all meta tags in a structured way
@@ -35,6 +42,56 @@ type MetaTag struct {
 	Type    string // "name" or "property"
 	Key     string
 	Content string
+}
+
+var BrandingAssetList = [...]string{
+	"siteTitle",
+	"siteDescription",
+	"primaryColor",
+	"accentColor",
+	"defaultStreamer",
+	"mainLogo",
+	"favicon",
+	"sidebarBg",
+	"legalLinks",
+}
+
+// fetch branding assets for a given broadcaster DID
+func (l *Linker) getBrandingAssets(broadcasterDid string) ([]streamplace.BrandingGetBranding_BrandingAsset, error) {
+	ret := make([]streamplace.BrandingGetBranding_BrandingAsset, 0)
+	for _, asset := range BrandingAssetList {
+		blob, err := l.sdb.GetBrandingBlob(broadcasterDid, asset)
+		if err != nil {
+			// this can probably include a 'record not found' error, in which case we skip
+			log.Printf("error fetching branding asset %s for broadcaster %s: %v", asset, broadcasterDid, err)
+			continue
+		}
+		asset := streamplace.BrandingGetBranding_BrandingAsset{
+			Key:      blob.Key,
+			MimeType: blob.MimeType,
+		}
+
+		if blob.Width != nil {
+			w := int64(*blob.Width)
+			asset.Width = &w
+		}
+		if blob.Height != nil {
+			h := int64(*blob.Height)
+			asset.Height = &h
+		}
+
+		// process based on mime type
+		if blob.MimeType == "text/plain" {
+			str := string(blob.Data)
+			asset.Data = &str
+		} else {
+			url := fmt.Sprintf("/xrpc/place.stream.branding.getBlob?key=%s&broadcaster=%s", blob.Key, broadcasterDid)
+			asset.Url = &url
+		}
+		ret = append(ret, asset)
+	}
+
+	return ret, nil
 }
 
 func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *streamplace.Livestream_LivestreamView, sentryDSN string) ([]byte, error) {
@@ -199,6 +256,35 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 		})
 	}
 
+	if l.sdb != nil && l.cli != nil {
+
+		branding, err := l.getBrandingAssets("did:web:" + l.cli.BroadcasterHost)
+
+		if err == nil {
+
+			for i := range branding {
+				val := branding[i]
+				//
+				marshalledJson, err := json.Marshal(val)
+				if err != nil {
+					fmt.Printf("error marshalling branding asset %s: %v\n", val.Key, err)
+					continue
+				}
+				head.AppendChild(&html.Node{
+					Type: html.ElementNode,
+					Data: "meta",
+					Attr: []html.Attribute{
+						{Key: "name", Val: "internal-brand:" + val.Key},
+						{Key: "content", Val: string(marshalledJson)},
+					},
+				})
+
+			}
+		} else {
+			// log but we should not block rendering
+			fmt.Printf("error fetching branding assets: %v\n", err)
+		}
+	}
 	// Render the HTML to a string
 	var buf bytes.Buffer
 	if err := html.Render(&buf, root); err != nil {

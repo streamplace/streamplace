@@ -39,7 +39,7 @@ export default function InformationWidget({
   const [bitrateHistory, setBitrateHistory] = useState<number[]>(
     Array.from({ length: BITRATE_HISTORY_LENGTH }, () => 0),
   );
-  const [showViewers, setShowViewers] = useAQState("showViewers", false);
+  const [showViewers, setShowViewers] = useAQState("showViewers", true);
   const [componentWidth, setComponentWidth] = useState<number>(220);
   const [componentHeight, setComponentHeight] = useState<number>(400);
   const [streamStartTime, setStreamStartTime] = useState<Date | null>(null);

@@ -24,7 +24,33 @@
     "censor": {
       "type": "object",
       "description": "Indicates that the text in the given index has been censored.",
-      "properties": { "reason": { "type": "string" } }
+      "properties": {
+        "reason": { "type": "string" },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "knownValues": [
+              "place.stream.richtext.defs#discriminatory",
+              "place.stream.richtext.defs#sexually_explicit",
+              "place.stream.richtext.defs#profanity"
+            ]
+          },
+          "description": "Categories of censored content"
+        }
+      }
+    },
+    "discriminatory": {
+      "type": "token",
+      "description": "Indicates that the text has been censored due to discriminatory content."
+    },
+    "sexually_explicit": {
+      "type": "token",
+      "description": "Indicates that the text has been censored due to sexually explicit content."
+    },
+    "profanity": {
+      "type": "token",
+      "description": "Indicates that the text has been censored due to profanity."
     }
   }
 }

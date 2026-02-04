@@ -71,7 +71,14 @@ const segmentedObject = (
         </Text>
       );
     } else if (ftr.$type === "place.stream.richtext.defs#censor") {
-      return <CensoredText key={`censor-facet-${index}`} text={obj.text} />;
+      let censorFtr = ftr as any;
+      return (
+        <CensoredText
+          key={`censor-facet-${index}`}
+          text={obj.text}
+          reasoning={censorFtr.categories}
+        />
+      );
     } else {
       // render as normal text if we don't recognize the facet type
       return <Text key={`unknown-facet-${index}`}>{obj.text}</Text>;

@@ -418,7 +418,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to get chat posts", err)
 			return
 		}
-		spmsg, err := msg.ToStreamplaceMessageView()
+		spmsg, err := msg.ToStreamplaceMessageView(nil)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to convert chat message to streamplace message view", err)
 			return

@@ -15,11 +15,13 @@ import (
 	"gorm.io/plugin/prometheus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/stars"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
 type DBModel struct {
-	DB *gorm.DB
+	DB      *gorm.DB
+	starrer *stars.Starrer
 }
 
 type Model interface {
@@ -162,6 +164,11 @@ func MakeDB(dbURL string) (Model, error) {
 		return nil, fmt.Errorf("error using prometheus plugin: %w", err)
 	}
 
+	starrer, err := stars.NewDefaultStarrer()
+	if err != nil {
+		return nil, fmt.Errorf("error creating default starrer: %w", err)
+	}
+
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, fmt.Errorf("error getting database: %w", err)
@@ -194,5 +201,5 @@ func MakeDB(dbURL string) (Model, error) {
 			return nil, err
 		}
 	}
-	return &DBModel{DB: db}, nil
+	return &DBModel{DB: db, starrer: starrer}, nil
 }

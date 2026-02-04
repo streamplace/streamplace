@@ -158,7 +158,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to retrieve just-saved chat message", "err", err)
 			return nil
 		}
-		scm, err := mcm.ToStreamplaceMessageView()
+		scm, err := mcm.ToStreamplaceMessageView(nil)
 		if err != nil {
 			log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
 			return nil

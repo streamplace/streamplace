@@ -25,6 +25,7 @@ interface Facet {
 
 import { useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
+import { CensoredText } from "./censored-text";
 import { BadgeDisplayRow } from "./badge";
 import { UserProfileCard } from "./user-profile-card";
 
@@ -69,6 +70,12 @@ const segmentedObject = (
           {obj.text}
         </Text>
       );
+    } else if (ftr.$type === "place.stream.richtext.defs#censor") {
+      return (
+        <View>
+          <CensoredText text={obj.text} />
+        </View>
+      );
     } else {
       // render as normal text if we don't recognize the facet type
       return <Text key={`unknown-facet-${index}`}>{obj.text}</Text>;
@@ -92,6 +99,7 @@ export const RichTextMessage = ({
 
   return segs.map((seg, i) => segmentedObject(seg, i, userCache));
 };
+
 export const RenderChatMessage = memo(
   function RenderChatMessage({
     item,
@@ -148,7 +156,10 @@ export const RenderChatMessage = memo(
                   fontStyle: "italic",
                 }}
               >
-                {replyTo.record.text}
+                <RichTextMessage
+                  text={replyTo.record.text}
+                  facets={replyTo.record.facets || []}
+                />
               </Text>
             </Text>
           </View>

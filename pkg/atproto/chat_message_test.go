@@ -112,8 +112,8 @@ func TestChatMessage(t *testing.T) {
 	})
 	// Reverse the messages slice to match expected order (most recent first)
 	slices.SortFunc(messages, func(a, b *streamplace.ChatDefs_MessageView) int {
-		aTime := a.Record.Val.(*streamplace.ChatMessage).CreatedAt
-		bTime := b.Record.Val.(*streamplace.ChatMessage).CreatedAt
+		aTime := a.Record.ChatDefs_MessageRecordView.CreatedAt
+		bTime := b.Record.ChatDefs_MessageRecordView.CreatedAt
 		if aTime < bTime {
 			return -1
 		} else if aTime > bTime {
@@ -122,8 +122,8 @@ func TestChatMessage(t *testing.T) {
 		return 0
 	})
 	slices.SortFunc(busMessages, func(a, b bus.Message) int {
-		aTime := a.(*streamplace.ChatDefs_MessageView).Record.Val.(*streamplace.ChatMessage).CreatedAt
-		bTime := b.(*streamplace.ChatDefs_MessageView).Record.Val.(*streamplace.ChatMessage).CreatedAt
+		aTime := a.(*streamplace.ChatDefs_MessageView).Record.ChatDefs_MessageRecordView.CreatedAt
+		bTime := b.(*streamplace.ChatDefs_MessageView).Record.ChatDefs_MessageRecordView.CreatedAt
 		if aTime < bTime {
 			return -1
 		} else if aTime > bTime {
@@ -131,12 +131,12 @@ func TestChatMessage(t *testing.T) {
 		}
 		return 0
 	})
-	require.Equal(t, msg.Text, messages[0].Record.Val.(*streamplace.ChatMessage).Text)
-	require.Equal(t, msg2.Text, messages[1].Record.Val.(*streamplace.ChatMessage).Text)
+	require.Equal(t, msg.Text, messages[0].Record.ChatDefs_MessageRecordView.Text)
+	require.Equal(t, msg2.Text, messages[1].Record.ChatDefs_MessageRecordView.Text)
 	busMessage1 := busMessages[0].(*streamplace.ChatDefs_MessageView)
 	busMessage2 := busMessages[1].(*streamplace.ChatDefs_MessageView)
-	require.Equal(t, msg.Text, busMessage1.Record.Val.(*streamplace.ChatMessage).Text)
-	require.Equal(t, msg2.Text, busMessage2.Record.Val.(*streamplace.ChatMessage).Text)
+	require.Equal(t, msg.Text, busMessage1.Record.ChatDefs_MessageRecordView.Text)
+	require.Equal(t, msg2.Text, busMessage2.Record.ChatDefs_MessageRecordView.Text)
 
 	rkey := strings.TrimPrefix(rec1.Uri, fmt.Sprintf("at://%s/place.stream.chat.message/", user.DID))
 
@@ -162,7 +162,7 @@ func TestChatMessage(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-	require.Equal(t, msg2.Text, messages[0].Record.Val.(*streamplace.ChatMessage).Text)
+	require.Equal(t, msg2.Text, messages[0].Record.ChatDefs_MessageRecordView.Text)
 	busMessage3 := busMessages[2].(*streamplace.ChatDefs_MessageView)
 	require.Equal(t, true, *busMessage3.Deleted)
 

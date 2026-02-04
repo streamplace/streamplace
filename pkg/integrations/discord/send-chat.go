@@ -17,10 +17,7 @@ import (
 
 func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *streamplace.ChatDefs_MessageView) error {
 
-	msg, ok := scm.Record.Val.(*streamplace.ChatMessage)
-	if !ok {
-		return fmt.Errorf("failed to cast chat message to streamplace chat message")
-	}
+	msg := scm.Record.ChatDefs_MessageRecordView
 
 	avatarURL, err := GetAvatarURL(ctx, did)
 	if err != nil {

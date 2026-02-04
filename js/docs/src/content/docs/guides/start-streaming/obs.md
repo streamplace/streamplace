@@ -66,13 +66,17 @@ sidebar:
 
 - Video Encoder: x264/h264 (**must** be an x/h.264 encoder)
 - Rate Control: `CBR`
-- Keyframe Interval: `1s`
+- Keyframe Interval: `1s` (or anything less than once every ~7s)
   - This is _one keyframe per second_
   - In some situations (e.g. 'keyframe interval (**frames**)'), this should be
     set to your FPS.
 - x264 Options: `bframes=0`
   - If available, there also may be a 'bframes' checkbox which should **NOT** be
     checked
+
+:::caution
+These last two options are very important! Your viewers' experience may be choppy or otherwise subpar if you don't have them correct.
+:::
 
 ### 3. Announce your stream
 
@@ -90,6 +94,9 @@ OBS supports multi-streaming through two available OBS plugins:
    - [OBS Multistreaming Guide](guides/obs-multistreaming)
 
 2. [**Aitum Multistream Plugin**](https://aitum.tv/products/multi)
+
+Alternatively, you can
+[multistream through Streamplace itself.](/docs/features/multistreaming)
 
 ## Best Practices
 

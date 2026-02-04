@@ -26,7 +26,8 @@ Get an OG image associated with a given account.
 - **Encoding:** `*/*`
 - **Schema:**
 
-_Schema not defined._ **Possible Errors:**
+_Schema not defined._
+**Possible Errors:**
 
 - `RepoNotFound`
 

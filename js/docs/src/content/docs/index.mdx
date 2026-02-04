@@ -2,38 +2,8 @@
 title: Welcome to Streamplace!
 description: Begin your development journey with the Streamplace documentation.
 template: doc
-hero:
-  tagline: Solve live video for your project with Streamplace.
-  image:
-    file: ../../assets/cube.png
-    alt: Streamplace logo. A pink 3d box viewed from a top corner.
-  actions:
-    - text: Get Started
-      link: /docs/guides/start-streaming/obs
-      icon: right-arrow
-    - text: Visit Streamplace
-      link: /
-      icon: external
-      variant: minimal
 ---
 
-import { Card, CardGrid } from "@astrojs/starlight/components";
+import HelpDesk from "../../components/HelpDesk.astro";
 
-## Next Steps
-
-<CardGrid>
-  <Card title="Read the Docs" icon="open-book">
-    Learn how to start streaming with
-    [Streamplace](/docs/guides/start-streaming/obs).
-  </Card>
-  <Card title="Install Streamplace" icon="download">
-    [Run your own Streamplace
-    node](/docs/guides/installing/installing-streamplace).
-  </Card>
-  <Card title="API Reference" icon="document">
-    Explore the [Lexicon API reference](/docs/lex-reference/place-stream-defs).
-  </Card>
-  <Card title="Developer Setup" icon="setting">
-    Set up your [development environment](/docs/guides/streamplace-dev-setup).
-  </Card>
-</CardGrid>
+<HelpDesk />

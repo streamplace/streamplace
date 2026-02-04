@@ -13,8 +13,7 @@ description: Reference for the place.stream.live.searchActorsTypeahead lexicon
 
 **Type:** `query`
 
-Find actor suggestions for a prefix search term. Expected use is for
-auto-completion during text field entry.
+Find actor suggestions for a prefix search term. Expected use is for auto-completion during text field entry.
 
 **Parameters:**
 

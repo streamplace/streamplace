@@ -1,7 +1,6 @@
 ---
 title: ZeroCSS Quick Reference
-description:
-  Quick reference for Streamplace ZeroCSS - common patterns and utilities.
+description: Quick reference for Streamplace ZeroCSS - common patterns and utilities.
 sidebar:
   order: 31
 ---

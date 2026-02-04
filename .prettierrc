@@ -6,6 +6,12 @@
       "options": {
         "proseWrap": "preserve"
       }
+    },
+    {
+      "files": "*.md",
+      "options": {
+        "proseWrap": "preserve"
+      }
     }
   ],
   "plugins": ["prettier-plugin-organize-imports"]

@@ -29,8 +29,7 @@ Content warnings for a stream.
 
 **Type:** `token`
 
-The content could be perceived as offensive due to the discussion or display of
-death.
+The content could be perceived as offensive due to the discussion or display of death.
 
 ---
 
@@ -40,8 +39,7 @@ death.
 
 **Type:** `token`
 
-The content contains a portrayal of the use or abuse of mind altering
-substances.
+The content contains a portrayal of the use or abuse of mind altering substances.
 
 ---
 
@@ -51,8 +49,7 @@ substances.
 
 **Type:** `token`
 
-The content contains violent actions of a fantasy nature, involving human or
-non-human characters in situations easily distinguishable from real life.
+The content contains violent actions of a fantasy nature, involving human or non-human characters in situations easily distinguishable from real life.
 
 ---
 
@@ -62,8 +59,7 @@ non-human characters in situations easily distinguishable from real life.
 
 **Type:** `token`
 
-The content contains flashing lights that could be harmful to viewers with
-seizure disorders such as photosensitive epilepsy.
+The content contains flashing lights that could be harmful to viewers with seizure disorders such as photosensitive epilepsy.
 
 ---
 
@@ -93,9 +89,7 @@ The content could be perceived as offensive due to nudity.
 
 **Type:** `token`
 
-The content contains information that can be used to identify a particular
-individual, such as a name, phone number, email address, physical address, or IP
-address.
+The content contains information that can be used to identify a particular individual, such as a name, phone number, email address, physical address, or IP address.
 
 ---
 
@@ -105,8 +99,7 @@ address.
 
 **Type:** `token`
 
-The content could be perceived as offensive due to the discussion or display of
-sexuality.
+The content could be perceived as offensive due to the discussion or display of sexuality.
 
 ---
 
@@ -116,9 +109,7 @@ sexuality.
 
 **Type:** `token`
 
-The content could be perceived as distressing due to the discussion or display
-of suffering or triggering topics, including suicide, eating disorders or self
-harm.
+The content could be perceived as distressing due to the discussion or display of suffering or triggering topics, including suicide, eating disorders or self harm.
 
 ---
 
@@ -128,8 +119,7 @@ harm.
 
 **Type:** `token`
 
-The content could be perceived as offensive due to the discussion or display of
-violence.
+The content could be perceived as offensive due to the discussion or display of violence.
 
 ---
 

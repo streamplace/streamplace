@@ -87,10 +87,7 @@ This flow will work on the iOS simulator and on Android devices provided you've
 forwarded the port with `adb reverse`. For testing on iOS hardware, you'll
 instead need to set up TLS.
 
-[react-native-quick-crypto]:
-  https://github.com/margelo/react-native-quick-crypto
+[react-native-quick-crypto]: https://github.com/margelo/react-native-quick-crypto
 [expo-sqlite]: https://docs.expo.dev/versions/latest/sdk/sqlite/
-[README]:
-  https://github.com/bluesky-social/atproto/tree/main/packages/oauth/oauth-client-browser
-[example]:
-  https://github.com/bluesky-social/atproto/tree/main/packages/oauth/oauth-client-browser-example
+[README]: https://github.com/bluesky-social/atproto/tree/main/packages/oauth/oauth-client-browser
+[example]: https://github.com/bluesky-social/atproto/tree/main/packages/oauth/oauth-client-browser-example

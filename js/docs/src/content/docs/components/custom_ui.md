@@ -1,7 +1,6 @@
 ---
 title: Creating your own player UI
-description:
-  How to set up your player UI with components from @streamplace/components.
+description: How to set up your player UI with components from @streamplace/components.
 ---
 
 # Building a Custom Player UI

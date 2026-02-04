@@ -1,5 +1,10 @@
 ARG TARGETARCH
 FROM --platform=linux/$TARGETARCH ubuntu:24.04
+
+ADD docker/sources.list /etc/apt/sources.list
+ADD docker/winehq.key /etc/apt/keyrings/winehq-archive.key
+ADD docker/llvm-snapshot.key /etc/apt/keyrings/llvm-snapshot.key
+
 RUN apt update && apt install -y curl
 ARG STREAMPLACE_URL
 ENV STREAMPLACE_URL $STREAMPLACE_URL

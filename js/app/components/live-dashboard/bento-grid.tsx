@@ -155,7 +155,6 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
               streamTitle={
                 profile?.displayName || profile?.handle || "Live Stream"
               }
-              viewers={viewers || 0}
               uptime={getUptime()}
               bitrate={getBitrate()}
               timeBetweenSegments={segmentTiming.timeBetweenSegments || 0}
@@ -235,7 +234,6 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
             streamTitle={
               profile?.displayName || profile?.handle || "Live Stream"
             }
-            viewers={viewers || 0}
             uptime={getUptime()}
             bitrate={getBitrate()}
             timeBetweenSegments={segmentTiming.timeBetweenSegments || 0}

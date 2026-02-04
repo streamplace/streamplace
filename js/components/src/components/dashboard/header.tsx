@@ -1,4 +1,4 @@
-import { AlertCircle, Car, Radio, Users } from "lucide-react-native";
+import { AlertCircle, Radio } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
 import * as zero from "../../ui";
 
@@ -98,7 +98,6 @@ function StatusIndicator({ status, isLive }: StatusIndicatorProps) {
 interface HeaderProps {
   isLive: boolean;
   streamTitle?: string;
-  viewers?: number;
   uptime?: string;
   bitrate?: string;
   timeBetweenSegments?: number;
@@ -110,7 +109,6 @@ interface HeaderProps {
 export default function Header({
   isLive,
   streamTitle = "Live Stream",
-  viewers = 0,
   uptime = "00:00:00",
   bitrate = "0 mbps",
   timeBetweenSegments = 0,
@@ -179,17 +177,6 @@ export default function Header({
 
       {/* Right side - Stream metrics */}
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[6]]}>
-        {isLive && (
-          <>
-            <MetricItem
-              icon={Users}
-              label="Viewers"
-              value={viewers.toLocaleString()}
-            />
-            <MetricItem icon={Car} label="Bitrate" value={bitrate} />
-          </>
-        )}
-
         {!isLive && (
           <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
             <Radio size={16} color="#6b7280" />

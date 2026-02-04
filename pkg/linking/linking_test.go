@@ -29,14 +29,14 @@ func IndexHTML(t *testing.T) []byte {
 
 func TestNewLinker(t *testing.T) {
 	index := IndexHTML(t)
-	linker, err := NewLinker(context.Background(), index)
+	linker, err := NewLinker(context.Background(), index, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, linker)
 }
 
 func TestGenerateLinkCard(t *testing.T) {
 	index := IndexHTML(t)
-	linker, err := NewLinker(context.Background(), index)
+	linker, err := NewLinker(context.Background(), index, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, linker)
 

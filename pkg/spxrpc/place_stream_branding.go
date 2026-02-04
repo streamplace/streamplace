@@ -38,7 +38,7 @@ func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) st
 	return s.cli.BroadcasterHost
 }
 
-func (s *Server) getBrandingBlob(ctx context.Context, broadcasterID, key string) ([]byte, string, *int, *int, error) {
+func (s *Server) GetBrandingBlob(ctx context.Context, broadcasterID, key string) ([]byte, string, *int, *int, error) {
 	// cache miss - fetch from db
 	blob, err := s.statefulDB.GetBrandingBlob(broadcasterID, key)
 	if err == gorm.ErrRecordNotFound {
@@ -61,7 +61,7 @@ func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, broadcast
 // HandlePlaceStreamBrandingGetBlobDirect is the exported version for direct calls
 func (s *Server) HandlePlaceStreamBrandingGetBlobDirect(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
 	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
-	data, _, _, _, err := s.getBrandingBlob(ctx, broadcasterID, key)
+	data, _, _, _, err := s.GetBrandingBlob(ctx, broadcasterID, key)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 	// build output
 	assets := make([]*placestreamtypes.BrandingGetBranding_BrandingAsset, 0, len(allKeys))
 	for key := range allKeys {
-		data, mimeType, width, height, err := s.getBrandingBlob(ctx, broadcasterID, key)
+		data, mimeType, width, height, err := s.GetBrandingBlob(ctx, broadcasterID, key)
 		if err != nil {
 			continue // skip if error
 		}
@@ -238,7 +238,7 @@ func (s *Server) HandleFaviconICO(c echo.Context) error {
 
 	broadcasterID := s.cli.BroadcasterHost
 	log.Log(ctx, "fetching favicon", "broadcasterID", broadcasterID)
-	data, mimeType, _, _, err := s.getBrandingBlob(ctx, "did:web:"+broadcasterID, "favicon")
+	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, "did:web:"+broadcasterID, "favicon")
 
 	if err != nil || data == nil {
 		log.Log(ctx, "using fallback favicon", "err", err, "data_nil", data == nil)

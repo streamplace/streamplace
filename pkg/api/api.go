@@ -272,7 +272,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		if err != nil {
 			return nil, err
 		}
-		linker, err := linking.NewLinker(ctx, bs)
+		linker, err := linking.NewLinker(ctx, bs, a.StatefulDB, a.CLI)
 		if err != nil {
 			return nil, err
 		}

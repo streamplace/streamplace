@@ -63,6 +63,9 @@ export interface PlayerState {
   ingestAutoStart?: boolean;
   setIngestAutoStart?: (autoStart: boolean) => void;
 
+  /**  stop ingest process, again with a slight delay to allow UI to update */
+  stopIngest: () => void;
+
   /** Timestamp (number) when ingest started, or null if not started */
   ingestStarted: number | null;
 

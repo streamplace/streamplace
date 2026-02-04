@@ -16,6 +16,10 @@ export default function LoginModal({
 }: LoginModalProps) {
   const { theme, zero: z } = useTheme();
 
+  if (!visible) {
+    return null;
+  }
+
   return (
     <Modal
       visible={visible}

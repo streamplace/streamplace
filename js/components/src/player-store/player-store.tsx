@@ -53,6 +53,23 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     setIngestStarted: (timestamp: number | null) =>
       set(() => ({ ingestStarted: timestamp })),
 
+    stopIngest: () => {
+      set(() => ({
+        ingestLive: false,
+        ingestConnectionState: "new",
+        ingestStarted: null,
+      })),
+        setTimeout(
+          () =>
+            set(() => ({
+              ingestLive: false,
+              ingestConnectionState: "new",
+              ingestStarted: null,
+            })),
+          200,
+        );
+    },
+
     fullscreen: false,
     setFullscreen: (isFullscreen: boolean) =>
       set(() => ({ fullscreen: isFullscreen })),

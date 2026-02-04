@@ -9,6 +9,7 @@ export function useLivestreamInfo(url?: string) {
   const ingestStarting = usePlayerStore((x) => x.ingestStarting);
   const setIngestStarting = usePlayerStore((x) => x.setIngestStarting);
   const setIngestLive = usePlayerStore((x) => x.setIngestLive);
+  const stopIngest = usePlayerStore((x) => x.stopIngest);
 
   const createStreamRecord = useCreateStreamRecord();
 
@@ -54,6 +55,12 @@ export function useLivestreamInfo(url?: string) {
     }
   };
 
+  // Stop the current broadcast
+  const toggleStopStream = () => {
+    console.log("Stopping stream...");
+    stopIngest();
+  };
+
   return {
     ingest,
     profile,
@@ -67,5 +74,6 @@ export function useLivestreamInfo(url?: string) {
     setIngestStarting,
     handleSubmit,
     toggleGoLive,
+    toggleStopStream,
   };
 }

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -21,6 +20,7 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/livepeer"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
@@ -44,15 +44,19 @@ type StreamSession struct {
 	segmentChan    chan struct{}
 	lastStatus     time.Time
 	lastStatusCID  *string
-	lastStatusLock sync.Mutex
 	lastOriginTime time.Time
-	lastOriginLock sync.Mutex
-	g              *errgroup.Group
-	started        chan struct{}
-	ctx            context.Context
-	packets        []bus.PacketizedSegment
-	statefulDB     *statedb.StatefulDB
-	replicator     replication.Replicator
+	localDB        localdb.LocalDB
+
+	// Channels for background workers
+	statusUpdateChan chan struct{} // Signal to update status
+	originUpdateChan chan struct{} // Signal to update broadcast origin
+
+	g          *errgroup.Group
+	started    chan struct{}
+	ctx        context.Context
+	packets    []bus.PacketizedSegment
+	statefulDB *statedb.StatefulDB
+	replicator replication.Replicator
 }
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
@@ -111,15 +115,26 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 
 	close(ss.started)
 
-	ss.Go(ctx, func() error {
-		return ss.HandleMultistreamTargets(ctx)
+	// Start background workers for status and origin updates
+	ss.g.Go(func() error {
+		return ss.statusUpdateLoop(ctx, spseg.Creator)
 	})
+	ss.g.Go(func() error {
+		return ss.originUpdateLoop(ctx)
+	})
+
+	if notif.Local {
+		ss.Go(ctx, func() error {
+			return ss.HandleMultistreamTargets(ctx)
+		})
+	}
 
 	for {
 		select {
 		case <-ss.segmentChan:
 			// reset timer
 		case <-ctx.Done():
+			// Signal all background workers to stop
 			return ss.g.Wait()
 		// case <-time.After(time.Minute * 1):
 		case <-time.After(ss.cli.StreamSessionTimeout):
@@ -128,6 +143,7 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 			for _, r := range allRenditions {
 				ss.bus.EndSession(ctx, spseg.Creator, r.Name)
 			}
+			// Signal background workers to stop
 			if notif.Local {
 				ss.Go(ctx, func() error {
 					return ss.DeleteStatus(spseg.Creator)
@@ -164,7 +180,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	aqt := aqtime.FromTime(notif.Segment.StartTime)
 	ctx = log.WithLogValues(ctx, "segID", notif.Segment.ID, "repoDID", notif.Segment.RepoDID, "timestamp", aqt.FileSafeString())
 	notif.Segment.MediaData.Size = len(notif.Data)
-	err := ss.mod.CreateSegment(notif.Segment)
+	err := ss.localDB.CreateSegment(notif.Segment)
 	if err != nil {
 		return fmt.Errorf("could not add segment to database: %w", err)
 	}
@@ -188,13 +204,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	}
 
 	if notif.Local {
-		ss.Go(ctx, func() error {
-			return ss.UpdateStatus(ctx, spseg.Creator)
-		})
-
-		ss.Go(ctx, func() error {
-			return ss.UpdateBroadcastOrigin(ctx)
-		})
+		ss.UpdateStatus(ctx, spseg.Creator)
+		ss.UpdateBroadcastOrigin(ctx)
 	}
 
 	if ss.cli.LivepeerGatewayURL != "" {
@@ -250,7 +261,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			if err != nil {
 				log.Error(ctx, "failed to enqueue notification task", "err", err)
 			}
-			return ss.UpdateStatus(ctx, spseg.Creator)
+			ss.UpdateStatus(ctx, spseg.Creator)
+			return nil
 		})
 	} else {
 		log.Warn(ctx, "no livestream detected in stream, skipping notification blast", "repoDID", spseg.Creator)
@@ -282,7 +294,7 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 		return nil
 	}
 	defer lock.Unlock()
-	oldThumb, err := ss.mod.LatestThumbnailForUser(not.Segment.RepoDID)
+	oldThumb, err := ss.localDB.LatestThumbnailForUser(not.Segment.RepoDID)
 	if err != nil {
 		return err
 	}
@@ -301,25 +313,48 @@ func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *med
 	if err != nil {
 		return err
 	}
-	thumb := &model.Thumbnail{
+	thumb := &localdb.Thumbnail{
 		Format:    "jpeg",
 		SegmentID: not.Segment.ID,
 	}
-	err = ss.mod.CreateThumbnail(thumb)
+	err = ss.localDB.CreateThumbnail(thumb)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error {
-	ctx = log.WithLogValues(ctx, "func", "UpdateStatus")
-	ss.lastStatusLock.Lock()
-	defer ss.lastStatusLock.Unlock()
-	if time.Since(ss.lastStatus) < time.Minute {
-		log.Debug(ctx, "not updating status, last status was less than 1 minute ago")
-		return nil
+// UpdateStatus signals the background worker to update status (non-blocking)
+func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) {
+	select {
+	case ss.statusUpdateChan <- struct{}{}:
+	default:
+		// Channel full, signal already pending
 	}
+}
+
+// statusUpdateLoop runs as a background goroutine for the session lifetime
+func (ss *StreamSession) statusUpdateLoop(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "statusUpdateLoop")
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ss.statusUpdateChan:
+			if time.Since(ss.lastStatus) < time.Minute {
+				log.Debug(ctx, "not updating status, last status was less than 1 minute ago")
+				continue
+			}
+			if err := ss.doUpdateStatus(ctx, repoDID); err != nil {
+				log.Error(ctx, "failed to update status", "error", err)
+			}
+		}
+	}
+}
+
+// doUpdateStatus performs the actual status update work
+func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "doUpdateStatus")
 
 	client, err := ss.GetClientByDID(repoDID)
 	if err != nil {
@@ -421,9 +456,8 @@ func (ss *StreamSession) UpdateStatus(ctx context.Context, repoDID string) error
 
 func (ss *StreamSession) DeleteStatus(repoDID string) error {
 	// need a special extra context because the stream session context is already cancelled
+	// No lock needed - this runs during teardown after the background worker has exited
 	ctx := log.WithLogValues(context.Background(), "func", "DeleteStatus", "repoDID", repoDID)
-	ss.lastStatusLock.Lock()
-	defer ss.lastStatusLock.Unlock()
 	if ss.lastStatusCID == nil {
 		log.Debug(ctx, "no status cid to delete")
 		return nil
@@ -452,14 +486,38 @@ func (ss *StreamSession) DeleteStatus(repoDID string) error {
 
 var originUpdateInterval = time.Second * 30
 
-func (ss *StreamSession) UpdateBroadcastOrigin(ctx context.Context) error {
-	ctx = log.WithLogValues(ctx, "func", "UpdateStatus")
-	ss.lastOriginLock.Lock()
-	defer ss.lastOriginLock.Unlock()
-	if time.Since(ss.lastOriginTime) < originUpdateInterval {
-		log.Debug(ctx, "not updating origin, last origin was less than 30 seconds ago")
-		return nil
+// UpdateBroadcastOrigin signals the background worker to update origin (non-blocking)
+func (ss *StreamSession) UpdateBroadcastOrigin(ctx context.Context) {
+	select {
+	case ss.originUpdateChan <- struct{}{}:
+	default:
+		// Channel full, signal already pending
 	}
+}
+
+// originUpdateLoop runs as a background goroutine for the session lifetime
+func (ss *StreamSession) originUpdateLoop(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "func", "originUpdateLoop")
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ss.originUpdateChan:
+			if time.Since(ss.lastOriginTime) < originUpdateInterval {
+				log.Debug(ctx, "not updating origin, last origin was less than 30 seconds ago")
+				continue
+			}
+			if err := ss.doUpdateBroadcastOrigin(ctx); err != nil {
+				log.Error(ctx, "failed to update broadcast origin", "error", err)
+			}
+		}
+	}
+}
+
+// doUpdateBroadcastOrigin performs the actual broadcast origin update work
+func (ss *StreamSession) doUpdateBroadcastOrigin(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "func", "doUpdateBroadcastOrigin")
+
 	broadcaster := fmt.Sprintf("did:web:%s", ss.cli.BroadcasterHost)
 	origin := streamplace.BroadcastOrigin{
 		Streamer:    ss.repoDID,

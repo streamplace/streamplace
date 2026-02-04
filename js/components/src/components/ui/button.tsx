@@ -41,6 +41,7 @@ export interface ButtonProps
   loading?: boolean;
   loadingText?: string;
   width?: "full" | "min" | number;
+  hoverStyle?: ButtonPrimitiveProps["hoverStyle"];
 }
 
 export const Button = forwardRef<any, ButtonProps>(
@@ -56,6 +57,7 @@ export const Button = forwardRef<any, ButtonProps>(
       disabled,
       style,
       width = "full",
+      hoverStyle,
       ...props
     },
     ref,
@@ -222,6 +224,7 @@ export const Button = forwardRef<any, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         style={[buttonStyle, sizeStyles.button, widthStyle, style]}
+        hoverStyle={hoverStyle}
         {...props}
       >
         <ButtonPrimitive.Content style={sizeStyles.inner}>

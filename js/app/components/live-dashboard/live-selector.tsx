@@ -57,14 +57,18 @@ export default function StreamScreen({ route }) {
   if (selectedMode === "streamkey") {
     return (
       <View flex={1} style={[flex.grow[1], { width: "100%" }]}>
-        <View padding="md" direction="row" justify="between" align="end">
-          <Button variant="ghost" onPress={() => setSelectedMode(null)}>
+        <View padding="md" direction="row" justify="around" align="start">
+          <Button
+            variant="ghost"
+            width="min"
+            onPress={() => setSelectedMode(null)}
+          >
             ← Back
           </Button>
           <Text variant="h4" weight="bold">
             Stream from OBS
           </Text>
-          <Button variant="ghost" style={{ opacity: 0 }}>
+          <Button variant="ghost" width="min" style={{ opacity: 0 }}>
             ← Back
           </Button>
         </View>

@@ -385,14 +385,15 @@ js-lexicons:
  		&& sed -i.bak 's/PlaceStreamMultistreamTarget\.Main/PlaceStreamMultistreamTarget\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
  		&& sed -i.bak 's/PlaceStreamChatProfile\.Main/PlaceStreamChatProfile\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
 		&& for x in $$(find ./js/streamplace/src/lexicons -type f -name '*.ts'); do \
-			echo 'import { AppBskyRichtextFacet, AppBskyGraphBlock, ComAtprotoRepoStrongRef, AppBskyActorDefs, ComAtprotoSyncListRepos, AppBskyActorGetProfile, AppBskyFeedGetFeedSkeleton, ComAtprotoIdentityResolveHandle, ComAtprotoModerationCreateReport, ComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoDescribeRepo, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoRepoPutRecord, ComAtprotoRepoUploadBlob, ComAtprotoServerDescribeServer, ComAtprotoSyncGetRecord, ComAtprotoSyncListReposComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoIdentityRefreshIdentity } from "@atproto/api"' >> $$x; \
+			echo 'import { ComAtprotoSyncGetRepo, AppBskyRichtextFacet, AppBskyGraphBlock, ComAtprotoRepoStrongRef, AppBskyActorDefs, ComAtprotoSyncListRepos, AppBskyActorGetProfile, AppBskyFeedGetFeedSkeleton, ComAtprotoIdentityResolveHandle, ComAtprotoModerationCreateReport, ComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoDescribeRepo, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoRepoPutRecord, ComAtprotoRepoUploadBlob, ComAtprotoServerDescribeServer, ComAtprotoSyncGetRecord, ComAtprotoSyncListReposComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoIdentityRefreshIdentity } from "@atproto/api"' >> $$x; \
 		done \
-		&& npx prettier --write $$(find ./js/streamplace/src/lexicons -type f -name '*.ts') \
+		&& npx prettier --ignore-unknown --write $$(find ./js/streamplace/src/lexicons -type f -name '*.ts') \
 		&& find . | grep bak$$ | xargs rm
 
 .PHONY: md-lexicons
 md-lexicons:
-	pnpm exec lexmd \
+	find "js/docs/src/content/docs/lex-reference" -type f -name '*.md' -delete \
+	&& pnpm exec lexmd \
 	    ./lexicons \
 		.build/temp \
 		subprojects/atproto/lexicons \
@@ -437,7 +438,7 @@ lexgen-server:
 .PHONY: ci-lexicons
 ci-lexicons:
 	$(MAKE) lexicons \
-	&& if ! git diff --exit-code >/dev/null; then echo "lexicons are out of date, run 'make lexicons' to fix"; exit 1; fi
+	&& if ! git diff --exit-code >/dev/null; then echo "lexicons are out of date, run 'make lexicons' to fix"; git diff; exit 1; fi
 
 #   _______ ______  _____ _______ _____ _   _  _____
 #  |__   __|  ____|/ ____|__   __|_   _| \ | |/ ____|

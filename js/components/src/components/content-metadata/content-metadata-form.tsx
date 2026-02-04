@@ -1,10 +1,11 @@
 import { forwardRef, useCallback, useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Linking, Pressable, ScrollView, View } from "react-native";
 import {
   CONTENT_WARNINGS,
   LICENSE_OPTIONS,
 } from "../../lib/metadata-constants";
 
+import { ExternalLink } from "lucide-react-native";
 import {
   PlaceStreamMetadataConfiguration,
   PlaceStreamMetadataContentRights,
@@ -21,6 +22,7 @@ import {
 } from "../../streamplace-store/streamplace-store";
 import { usePDSAgent } from "../../streamplace-store/xrpc";
 import * as zero from "../../ui";
+import { Admonition } from "../ui";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
@@ -41,7 +43,6 @@ export interface ContentMetadataFormProps {
   style?: any;
 }
 
-// ButtonSelector component (same as in livestream-panel)
 const ButtonSelector = ({
   values,
   selectedValue,
@@ -55,12 +56,13 @@ const ButtonSelector = ({
   disabledValues?: string[];
   style?: any[];
 }) => (
-  <View style={[layout.flex.row, gap.all[1], ...style]}>
+  <View style={[layout.flex.row, gap.all[1], layout.flex.wrap.wrap, ...style]}>
     {values.map(({ label, value }) => (
       <Button
         key={value}
         variant={selectedValue === value ? "primary" : "secondary"}
         size="pill"
+        width="min"
         disabled={disabledValues.includes(value)}
         onPress={() => setSelectedValue(value)}
         style={[
@@ -71,10 +73,8 @@ const ButtonSelector = ({
         ]}
       >
         <Text
-          style={[
-            selectedValue === value ? text.white : text.gray[300],
-            { fontSize: 14, fontWeight: "600" },
-          ]}
+          size="sm"
+          style={[selectedValue === value ? text.white : text.gray[300]]}
         >
           {label}
         </Text>
@@ -93,6 +93,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     const getContentMetadata = useGetContentMetadata();
     const saveContentMetadata = useSaveContentMetadata();
     const toast = useToast();
+    const th = zero.useTheme();
 
     // Local state for metadata
     const [contentWarnings, setContentWarnings] = useState<string[]>([]);
@@ -364,7 +365,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 ]}
                 selectedValue={activeSection}
                 setSelectedValue={setActiveSection}
-                style={[{ marginVertical: -2, flexDirection: "column" }]}
+                style={[{ marginVertical: -2 }]}
               />
             </View>
 
@@ -379,8 +380,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     gap.all[2],
                   ]}
                 >
-                  <Text>Content Warnings</Text>
-                  <Text muted>(optional)</Text>
+                  <Text size="lg">Content Warnings</Text>
                 </View>
                 <View style={[gap.all[2], w.percent[100]]}>
                   {CONTENT_WARNINGS.map((warning) => (
@@ -398,6 +398,33 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     </View>
                   ))}
                 </View>
+                <Admonition variant="info" size="sm">
+                  <Text size="sm">
+                    You are required to disclose if your content is not suitable
+                    for certain viewers.
+                  </Text>
+                </Admonition>
+                <Admonition variant="warning" size="sm">
+                  <Text size="sm">
+                    Your node may prohibit some of this content. Read the
+                    community guidelines to make sure.{" "}
+                    <Pressable
+                      onPress={() =>
+                        Linking.openURL(
+                          "https://blog.stream.place/3mcqwibo4ks2w",
+                        )
+                      }
+                    >
+                      <Text size="sm" color={zero.colors.blue[400]}>
+                        Learn more{" "}
+                        <ExternalLink
+                          size="14"
+                          style={{ marginVertical: -2 }}
+                        />
+                      </Text>
+                    </Pressable>
+                  </Text>
+                </Admonition>
               </View>
             )}
 

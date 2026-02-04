@@ -298,7 +298,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPBadRequest(w, "id required", nil)
 			return
 		}
-		segment, err := a.Model.GetSegment(id)
+		segment, err := a.LocalDB.GetSegment(id)
 		if err != nil {
 			errors.WriteHTTPBadRequest(w, err.Error(), err)
 			return
@@ -553,7 +553,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 		after := time.Now().Add(-time.Duration(secs) * time.Second)
 		w.Header().Set("Content-Type", "video/mp4")
-		err = media.ClipUser(ctx, a.Model, a.CLI, user, w, nil, &after)
+		err = media.ClipUser(ctx, a.LocalDB, a.CLI, user, w, nil, &after)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to clip user", err)
 			return

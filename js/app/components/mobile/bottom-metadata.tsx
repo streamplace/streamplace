@@ -17,6 +17,7 @@ import {
 import FollowButton from "components/follow-button";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { Image, Linking, Pressable, View } from "react-native";
+import { KebabMenu } from "./desktop-ui/kebab";
 const { gap, px, py, colors } = zero;
 
 export function BottomMetadata({
@@ -119,6 +120,7 @@ export function BottomMetadata({
         <View style={[layout.flex.row, layout.flex.align.center, gap.all[4]]}>
           <PlayerUI.Viewers />
           <ShareSheet />
+          <KebabMenu />
           <View>
             <Button
               variant="outline"

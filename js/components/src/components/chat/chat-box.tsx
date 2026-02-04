@@ -1,10 +1,11 @@
 import Picker from "@emoji-mart/react";
+import Graphemer from "graphemer";
 import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
 import { env } from "process";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, TextInput } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
-import { Button, Loader, Text, useTheme, View } from "../../";
+import { Button, Loader, Text, toast, useTheme, View } from "../../";
 import { handleSlashCommand } from "../../lib/slash-commands";
 import { registerTeleportCommand } from "../../lib/slash-commands/teleport";
 import { StreamNotifications } from "../../lib/stream-notifications";
@@ -41,6 +42,8 @@ const COOL_EMOJI_LIST = [
   ..."😀🥸😍😘😁🥸😆🥸😜🥸😂😅🥸🙂🤫😱🥸🤣😗😄🥸😎🤓😲😯😰🥸😥🥸😣🥸😞😓🥸😩😩🥸😤🥱",
 ];
 
+const graphemer = new Graphemer();
+
 export function ChatBox({
   isPopout,
   chatBoxStyle,
@@ -65,6 +68,7 @@ export function ChatBox({
     new Map(),
   );
   const [filteredEmojis, setFilteredEmojis] = useState<any[]>([]);
+  const isOverLimit = graphemer.countGraphemes(message) > 300;
 
   let linfo = useLivestream();
 
@@ -255,6 +259,17 @@ export function ChatBox({
 
   const submit = async () => {
     if (!message.trim()) return;
+    if (graphemer.countGraphemes(message) > 300) {
+      toast.show(
+        "Message too long",
+        "Please limit your message to 300 characters.",
+        {
+          variant: "error",
+          duration: 3,
+        },
+      );
+      return;
+    }
 
     const messageText = message;
     setMessage("");
@@ -457,7 +472,14 @@ export function ChatBox({
               }
             }
           }}
-          style={[chatBoxStyle]}
+          style={[
+            chatBoxStyle,
+            isOverLimit && {
+              borderColor: "#ef4444",
+              borderWidth: 2,
+              outline: "none",
+            },
+          ]}
           // "submit" won't blur on enter
           submitBehavior="submit"
           placeholder="Type a message..."

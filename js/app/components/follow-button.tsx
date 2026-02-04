@@ -123,11 +123,12 @@ const FollowButton: React.FC<FollowButtonProps> = ({
         disabled={isFollowing === null}
         loading={isFollowing === null}
         leftIcon={!isFollowing && <Icon icon={Plus} size="sm" />}
+        hoverStyle={isFollowing ? { backgroundColor: "#dc2626" } : undefined}
       >
         {isFollowing === null
           ? "Loading..."
           : isFollowing
-            ? "Unfollow"
+            ? "Following"
             : "Follow"}
       </Button>
       {error && <Text style={[{ color: "#c00" }, zero.ml[2]]}>{error}</Text>}

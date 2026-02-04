@@ -1,19 +1,21 @@
-import React, { forwardRef } from "react";
+import React, { forwardRef, useState } from "react";
 import {
   AccessibilityRole,
   GestureResponderEvent,
+  Platform,
+  Pressable,
+  PressableProps,
+  StyleProp,
   StyleSheet,
   Text,
   TextProps,
-  TouchableOpacity,
-  TouchableOpacityProps,
   View,
   ViewProps,
+  ViewStyle,
 } from "react-native";
 
 // Base button primitive interface
-export interface ButtonPrimitiveProps
-  extends Omit<TouchableOpacityProps, "onPress"> {
+export interface ButtonPrimitiveProps extends Omit<PressableProps, "onPress"> {
   onPress?: (event: GestureResponderEvent) => void;
   disabled?: boolean;
   loading?: boolean;
@@ -21,11 +23,12 @@ export interface ButtonPrimitiveProps
   accessibilityLabel?: string;
   accessibilityHint?: string;
   testID?: string;
+  hoverStyle?: StyleProp<ViewStyle>;
 }
 
 // Button root primitive - handles all touch interactions
 export const ButtonRoot = forwardRef<
-  React.ComponentRef<typeof TouchableOpacity>,
+  React.ComponentRef<typeof Pressable>,
   ButtonPrimitiveProps
 >(
   (
@@ -43,11 +46,13 @@ export const ButtonRoot = forwardRef<
       accessibilityState,
       testID,
       style,
-      activeOpacity = 0.7,
+      hoverStyle,
       ...props
     },
     ref,
   ) => {
+    const [isHovered, setIsHovered] = useState(false);
+
     const handlePress = React.useCallback(
       (event: GestureResponderEvent) => {
         if (!disabled && !loading && onPress) {
@@ -84,15 +89,26 @@ export const ButtonRoot = forwardRef<
       [disabled, loading, onLongPress],
     );
 
+    const handleHoverIn = React.useCallback(() => {
+      if (!disabled && !loading) {
+        setIsHovered(true);
+      }
+    }, [disabled, loading]);
+
+    const handleHoverOut = React.useCallback(() => {
+      setIsHovered(false);
+    }, []);
+
     return (
-      <TouchableOpacity
+      <Pressable
         ref={ref}
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         onLongPress={handleLongPress}
+        onHoverIn={handleHoverIn}
+        onHoverOut={handleHoverOut}
         disabled={disabled || loading}
-        activeOpacity={disabled || loading ? 1 : activeOpacity}
         accessibilityRole={accessibilityRole}
         accessibilityLabel={accessibilityLabel}
         accessibilityHint={accessibilityHint}
@@ -104,13 +120,15 @@ export const ButtonRoot = forwardRef<
         testID={testID}
         style={[
           primitiveStyles.button,
+          primitiveStyles.transition,
           (disabled || loading) && primitiveStyles.disabled,
-          style,
+          style as any,
+          isHovered && hoverStyle,
         ]}
         {...props}
       >
         {children}
-      </TouchableOpacity>
+      </Pressable>
     );
   },
 );
@@ -245,6 +263,14 @@ const primitiveStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  transition:
+    Platform.OS === "web"
+      ? // probably fine if web-only
+        ({
+          transitionDuration: "150ms",
+          transitionProperty: "background-color, border-color, color",
+        } as any)
+      : undefined,
   disabled: {
     opacity: 0.5,
   },

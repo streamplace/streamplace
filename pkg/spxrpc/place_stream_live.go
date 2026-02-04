@@ -82,7 +82,7 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 		beforeTime = &parsedTime
 	}
 
-	segments, err := s.model.LatestSegmentsForUser(userDID, limit, beforeTime, nil)
+	segments, err := s.localDB.LatestSegmentsForUser(userDID, limit, beforeTime, nil)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch segments")
 	}
@@ -113,6 +113,12 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 }
 
 func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before string, limit int) (*placestreamtypes.LiveGetLiveUsers_Output, error) {
+	// Check cache first
+	cacheKey := fmt.Sprintf("live_users_%s_%d", before, limit)
+	if cached, found := s.LiveUsersCache.Get(cacheKey); found {
+		return cached.(*placestreamtypes.LiveGetLiveUsers_Output), nil
+	}
+
 	var beforeTime *time.Time
 	if before != "" {
 		parsedTime, err := time.Parse(time.RFC3339, before)
@@ -121,7 +127,15 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 		}
 		beforeTime = &parsedTime
 	}
-	ls, err := s.model.GetLatestLivestreams(limit, beforeTime)
+	segs, err := s.localDB.MostRecentSegments()
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch recent segments")
+	}
+	dids := make([]string, len(segs))
+	for i, seg := range segs {
+		dids[i] = seg.RepoDID
+	}
+	ls, err := s.model.GetLatestLivestreams(limit, beforeTime, dids)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
 	}
@@ -144,6 +158,9 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 	liveUsers := &placestreamtypes.LiveGetLiveUsers_Output{
 		Streams: streams,
 	}
+
+	// Cache the result
+	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
 
 	return liveUsers, nil
 }
@@ -214,7 +231,7 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 		}
 
 		// Filter for only live streamers
-		liveStreamers, err := s.model.FilterLiveRepoDIDs(streamers)
+		liveStreamers, err := s.localDB.FilterLiveRepoDIDs(streamers)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to filter live streamers")
 		}
@@ -247,7 +264,7 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 			followDIDs[i] = follow.SubjectDID
 		}
 
-		liveFollows, err := s.model.FilterLiveRepoDIDs(followDIDs)
+		liveFollows, err := s.localDB.FilterLiveRepoDIDs(followDIDs)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to filter live follows")
 		}
@@ -272,7 +289,7 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 	// Final fallback: use host's default recommendations
 	defaultStreamers := s.cli.DefaultRecommendedStreamers
 	if len(defaultStreamers) > 0 {
-		liveDefaults, err := s.model.FilterLiveRepoDIDs(defaultStreamers)
+		liveDefaults, err := s.localDB.FilterLiveRepoDIDs(defaultStreamers)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to filter default streamers")
 		}

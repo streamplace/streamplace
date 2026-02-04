@@ -54,13 +54,14 @@ require (
 	github.com/pion/webrtc/v4 v4.0.11
 	github.com/piprate/json-gold v0.5.0
 	github.com/prometheus/client_golang v1.23.0
+	github.com/rivo/uniseg v0.4.7
 	github.com/rs/cors v1.11.1
 	github.com/samber/slog-http v1.4.0
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/slok/go-http-metrics v0.13.0
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac
-	github.com/streamplace/oatproxy v0.0.0-20260112011721-d74b4913c93f
+	github.com/streamplace/oatproxy v0.0.0-20260130124113-420429019d3b
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
 	github.com/whyrusleeping/cbor-gen v0.3.1
@@ -425,7 +426,6 @@ require (
 	github.com/rabbitmq/amqp091-go v1.8.0 // indirect
 	github.com/rabbitmq/rabbitmq-stream-go-client v1.1.1 // indirect
 	github.com/raeperd/recvcheck v0.2.0 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

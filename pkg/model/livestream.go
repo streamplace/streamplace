@@ -83,36 +83,52 @@ func (m *DBModel) GetLivestreamByPostURI(postURI string) (*Livestream, error) {
 	return &livestream, nil
 }
 
-// GetLatestLivestreams returns the most recent livestreams, given a limit and a cursor
-// Only gets livestreams with a valid segment no less than 30 seconds old
-func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time) ([]Livestream, error) {
+// Get the latest livestreams for a given list of repo DIDs
+func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]Livestream, error) {
 	var recentLivestreams []Livestream
-	thirtySecondsAgo := time.Now().Add(-30 * time.Second)
+	now := time.Now().UTC()
 
-	// get latest segment for the repo DID
-	latestRecentSegmentsSubQuery := m.DB.Table("segments").
-		Select("repo_did, MAX(start_time) as latest_segment_start_time").
-		Where("(repo_did, start_time) IN (?)",
-			m.DB.Table("segments").
-				Select("repo_did, MAX(start_time)").
-				Group("repo_did")).
-		Where("start_time > ?", thirtySecondsAgo.UTC()).
+	if len(dids) == 0 {
+		return []Livestream{}, nil
+	}
+
+	// Subquery to get the most recent livestream for each repo_did
+	subQuery := m.DB.
+		Table("livestreams").
+		Select("MAX(created_at) as max_created_at, repo_did").
+		Where("repo_did IN ?", dids).
 		Group("repo_did")
 
-	rankedLivestreamsSubQuery := m.DB.Table("livestreams").
-		Select("livestreams.*, ROW_NUMBER() OVER(PARTITION BY livestreams.repo_did ORDER BY livestreams.created_at DESC) as rn").
-		Joins("JOIN repos ON livestreams.repo_did = repos.did")
-
-	mainQuery := m.DB.Table("(?) as ranked_livestreams", rankedLivestreamsSubQuery).
-		Joins("JOIN (?) as latest_segments ON ranked_livestreams.repo_did = latest_segments.repo_did", latestRecentSegmentsSubQuery).
-		Select("ranked_livestreams.*, latest_segments.latest_segment_start_time").
-		Where("ranked_livestreams.rn = 1")
+	mainQuery := m.DB.
+		Table("livestreams").
+		Select("livestreams.*").
+		Joins("JOIN (?) as sq ON livestreams.repo_did = sq.repo_did AND livestreams.created_at = sq.max_created_at", subQuery).
+		Where("livestreams.repo_did IN ?", dids).
+		// exclude livestreams with !hide label on the record
+		Where("NOT EXISTS (?)",
+			m.DB.Table("labels").
+				Select("1").
+				Where("labels.uri = livestreams.uri").
+				Where("labels.val = ?", "!hide").
+				Where("labels.neg = ?", false).
+				Where("(labels.exp IS NULL OR labels.exp > ?)", now),
+		).
+		// exclude livestreams with !hide label on the user
+		Where("NOT EXISTS (?)",
+			m.DB.Table("labels").
+				Select("1").
+				Where("labels.uri = livestreams.repo_did").
+				Where("labels.val = ?", "!hide").
+				Where("labels.neg = ?", false).
+				Where("(labels.exp IS NULL OR labels.exp > ?)", now),
+		)
 
 	if before != nil {
 		mainQuery = mainQuery.Where("livestreams.created_at < ?", *before)
 	}
 
-	mainQuery = mainQuery.Order("ranked_livestreams.created_at DESC").
+	mainQuery = mainQuery.
+		Order("livestreams.created_at DESC").
 		Limit(limit).
 		Preload("Repo")
 

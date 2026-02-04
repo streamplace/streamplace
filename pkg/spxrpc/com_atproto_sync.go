@@ -46,6 +46,17 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since string) (io.Reader, error) {
+	if did != atproto.LexiconRepo.RepoDid() {
+		return nil, echo.NewHTTPError(http.StatusNotFound, "RepoNotFound")
+	}
+	bs, err := atproto.LexiconRepoGetRepo(ctx, since)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(bs), nil
+}
+
 func (s *Server) handleComAtprotoSyncSubscribeRepos(c echo.Context) error {
 	ctx := log.WithLogValues(c.Request().Context(), "client_ip", c.RealIP(), "user_agent", c.Request().UserAgent())
 	cursor := c.QueryParam("cursor")

@@ -56,6 +56,7 @@ type CLI struct {
 	Build                       *BuildFlags
 	DataDir                     string
 	DBURL                       string
+	LocalDBURL                  string
 	EthAccountAddr              string
 	EthKeystorePath             string
 	EthPassword                 string
@@ -140,6 +141,7 @@ type CLI struct {
 	SegmentDebugDir             string
 	AdminDIDs                   []string
 	Syndicate                   []string
+	PlayerTelemetry             bool
 }
 
 // ContentFilters represents the content filtering configuration
@@ -240,6 +242,9 @@ func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
 	fs.BoolVar(&cli.BehindHTTPSProxy, "behind-https-proxy", false, "set to true if this node is behind an https proxy and we should report https URLs even though the node isn't serving HTTPS")
 	cli.StringSliceFlag(fs, &cli.AdminDIDs, "admin-dids", []string{}, "comma-separated list of DIDs that are authorized to modify branding and other admin operations")
 	cli.StringSliceFlag(fs, &cli.Syndicate, "syndicate", []string{}, "list of DIDs that we should rebroadcast ('*' for everybody)")
+	fs.BoolVar(&cli.PlayerTelemetry, "player-telemetry", true, "enable player telemetry")
+	fs.StringVar(&cli.LocalDBURL, "local-db-url", "sqlite://$SP_DATA_DIR/localdb.sqlite", "URL of the local database to use for storing local data")
+	cli.dataDirFlags = append(cli.dataDirFlags, &cli.LocalDBURL)
 
 	fs.Bool("external-signing", true, "DEPRECATED, does nothing.")
 	fs.Bool("insecure", false, "DEPRECATED, does nothing.")

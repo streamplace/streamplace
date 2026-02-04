@@ -95,7 +95,8 @@ export function Resizable({
         translateY:
           slideKeyboard +
           Math.max(0, -sheetHeight.value) +
-          (slideKeyboard < 0 ? 0 : -safeBottom),
+          (slideKeyboard < 0 ? 0 : -safeBottom) -
+          (Math.abs(slideKeyboard) > 1 ? 32 : 16),
       },
     ],
   }));

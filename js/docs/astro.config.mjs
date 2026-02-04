@@ -1,11 +1,14 @@
 // @ts-check
 import starlight from "@astrojs/starlight";
-import { defineConfig } from "astro/config";
+import { defineConfig, passthroughImageService } from "astro/config";
 import starlightOpenAPI, { openAPISidebarGroups } from "starlight-openapi";
 
 // https://astro.build/config
 export default defineConfig({
   base: "/docs",
+  image: {
+    service: passthroughImageService(),
+  },
   integrations: [
     starlight({
       title: "Streamplace Docs",
@@ -44,7 +47,7 @@ export default defineConfig({
         ]),
       ],
       sidebar: [
-        { label: "← Back to Streamplace", link: "/../" },
+        { label: "← Back to Streamplace", link: "/back-to-home" },
         {
           label: "How Streamplace Works (Blog)",
           link: "https://blog.stream.place/",

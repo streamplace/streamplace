@@ -82,6 +82,19 @@ func makeGit() error {
 	homebrew := flag.Bool("homebrew", false, "print homebrew formula")
 
 	flag.Parse()
+
+	// handle CF_PAGES environment fallback
+	if os.Getenv("CF_PAGES") != "" && *javascript {
+		out := `export const version = "unknown"; export const buildTime = 0; export const uuid = "00000000-0000-0000-0000-000000000000";`
+		if *output != "" {
+			if err := os.WriteFile(*output, []byte(out), 0644); err != nil {
+				return err
+			}
+		} else {
+			fmt.Print(out)
+		}
+		return nil
+	}
 	r, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
 		return err

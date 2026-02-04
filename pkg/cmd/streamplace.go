@@ -29,6 +29,7 @@ import (
 	"stream.place/streamplace/pkg/director"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
+	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/notifications"
@@ -237,6 +238,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return fmt.Errorf("error creating streamplace dir at %s:%w", cli.DataDir, err)
 	}
 
+	ldb, err := localdb.MakeDB(cli.LocalDBURL)
+	if err != nil {
+		return err
+	}
+
 	mod, err := model.MakeDB(cli.DataFilePath([]string{"index"}))
 	if err != nil {
 		return err
@@ -291,7 +297,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		return fmt.Errorf("failed to migrate: %w", err)
 	}
 
-	mm, err := media.MakeMediaManager(ctx, &cli, signer, mod, b, atsync)
+	mm, err := media.MakeMediaManager(ctx, &cli, signer, mod, b, atsync, ldb)
 	if err != nil {
 		return err
 	}
@@ -379,9 +385,10 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		DownstreamJWK:      cli.AccessJWK,
 		ClientMetadata:     clientMetadata,
 		Public:             cli.PublicOAuth,
+		HTTPClient:         &aqhttp.Client,
 	})
-	d := director.NewDirector(mm, mod, &cli, b, op, state, replicator)
-	a, err := api.MakeStreamplaceAPI(&cli, mod, state, noter, mm, ms, b, atsync, d, op)
+	d := director.NewDirector(mm, mod, &cli, b, op, state, replicator, ldb)
+	a, err := api.MakeStreamplaceAPI(&cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb)
 	if err != nil {
 		return err
 	}
@@ -446,11 +453,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	})
 
 	group.Go(func() error {
-		return storage.StartSegmentCleaner(ctx, mod, &cli)
+		return storage.StartSegmentCleaner(ctx, ldb, &cli)
 	})
 
 	group.Go(func() error {
-		return mod.StartSegmentCleaner(ctx)
+		return ldb.StartSegmentCleaner(ctx)
 	})
 
 	group.Go(func() error {

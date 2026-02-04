@@ -106,10 +106,8 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *stre
 		return nil, errors.New("livestream view is not a livestream")
 	}
 
-	titleStr := fmt.Sprintf("@%s's livestream on %s", lsv.Author.Handle, u.Host)
+	titleStr := fmt.Sprintf("@%s's livestream on ", lsv.Author.Handle)
 	outURL := u.String()
-
-	pageTitle := fmt.Sprintf("@%s | %s", lsv.Author.Handle, u.Host)
 
 	thumbURL, _ := url.Parse(u.String())
 	thumbURL.Path = "/xrpc/place.stream.live.getProfileCard"
@@ -123,7 +121,6 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *stre
 		// Facebook Meta Tags
 		{Type: "property", Key: "og:url", Content: u.String()},
 		{Type: "property", Key: "og:type", Content: "website"},
-		{Type: "property", Key: "og:title", Content: titleStr},
 		{Type: "property", Key: "og:description", Content: ls.Title},
 		{Type: "property", Key: "og:image", Content: thumbURL.String()},
 
@@ -131,13 +128,49 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *stre
 		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
 		{Type: "property", Key: "twitter:domain", Content: u.Host},
 		{Type: "property", Key: "twitter:url", Content: outURL},
-		{Type: "name", Key: "twitter:title", Content: titleStr},
 		{Type: "name", Key: "twitter:description", Content: ls.Title},
 		{Type: "name", Key: "twitter:image", Content: thumbURL.String()},
 	}
+	brandingTitle := "streamplace node"
+	if l.sdb != nil && l.cli != nil {
+		branding, err := l.getBrandingAssets("did:web:" + l.cli.BroadcasterHost)
+		if err == nil {
+			for i := range branding {
+				val := branding[i]
+				if val.Key == "siteTitle" && val.Data != nil {
+					brandingTitle = *val.Data
+				}
+				marshalledJson, err := json.Marshal(val)
+				if err != nil {
+					fmt.Printf("error marshalling branding asset %s: %v\n", val.Key, err)
+					continue
+				}
+				metaTags = append(metaTags, MetaTag{
+					Type:    "name",
+					Key:     "internal-brand:" + val.Key,
+					Content: string(marshalledJson),
+				})
+			}
+		} else {
+			// log but we should not block rendering
+			fmt.Printf("error fetching branding assets: %v\n", err)
+		}
+	}
+
+	// do twitter/og title after
+	metaTags = append(metaTags, MetaTag{
+		Type:    "property",
+		Key:     "og:title",
+		Content: fmt.Sprintf("%s%s", titleStr, brandingTitle),
+	})
+	metaTags = append(metaTags, MetaTag{
+		Type:    "name",
+		Key:     "twitter:title",
+		Content: fmt.Sprintf("%s%s", titleStr, brandingTitle),
+	})
 
 	return l.GenerateHTML(ctx, &PageConfig{
-		Title:     pageTitle,
+		Title:     fmt.Sprintf("%s%s", titleStr, brandingTitle),
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
 	})
@@ -160,7 +193,7 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 		{Type: "property", Key: "og:url", Content: u.String()},
 		{Type: "property", Key: "og:type", Content: "website"},
 		{Type: "property", Key: "og:title", Content: "Stream.place"},
-		{Type: "property", Key: "og:description", Content: "Stream.place is open-source livestreaming on the AT Protocol."},
+		{Type: "property", Key: "og:description", Content: "Open-source livestreaming on the AT Protocol."},
 		{Type: "property", Key: "og:image", Content: thumbURL.String()},
 
 		// Twitter Meta Tags
@@ -168,12 +201,50 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 		{Type: "property", Key: "twitter:domain", Content: u.Host},
 		{Type: "property", Key: "twitter:url", Content: u.String()},
 		{Type: "name", Key: "twitter:title", Content: "Stream.place"},
-		{Type: "name", Key: "twitter:description", Content: "Stream.place is open-source livestreaming on the AT Protocol."},
+		{Type: "name", Key: "twitter:description", Content: "Open-source livestreaming on the AT Protocol."},
 		{Type: "name", Key: "twitter:image", Content: thumbURL.String()},
 	}
 
+	brandingTitle := "streamplace node"
+	if l.sdb != nil && l.cli != nil {
+		branding, err := l.getBrandingAssets("did:web:" + l.cli.BroadcasterHost)
+		if err == nil {
+			for i := range branding {
+				val := branding[i]
+				if val.Key == "siteTitle" && val.Data != nil {
+					brandingTitle = *val.Data
+				}
+				marshalledJson, err := json.Marshal(val)
+				if err != nil {
+					fmt.Printf("error marshalling branding asset %s: %v\n", val.Key, err)
+					continue
+				}
+				metaTags = append(metaTags, MetaTag{
+					Type:    "name",
+					Key:     "internal-brand:" + val.Key,
+					Content: string(marshalledJson),
+				})
+			}
+		} else {
+			// log but we should not block rendering
+			fmt.Printf("error fetching branding assets: %v\n", err)
+		}
+	}
+
+	// do twitter/og title after
+	metaTags = append(metaTags, MetaTag{
+		Type:    "property",
+		Key:     "og:title",
+		Content: brandingTitle,
+	})
+	metaTags = append(metaTags, MetaTag{
+		Type:    "name",
+		Key:     "twitter:title",
+		Content: brandingTitle,
+	})
+
 	return l.GenerateHTML(ctx, &PageConfig{
-		Title:     "Stream.place",
+		Title:     brandingTitle,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
 	})
@@ -256,35 +327,6 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 		})
 	}
 
-	if l.sdb != nil && l.cli != nil {
-
-		branding, err := l.getBrandingAssets("did:web:" + l.cli.BroadcasterHost)
-
-		if err == nil {
-
-			for i := range branding {
-				val := branding[i]
-				//
-				marshalledJson, err := json.Marshal(val)
-				if err != nil {
-					fmt.Printf("error marshalling branding asset %s: %v\n", val.Key, err)
-					continue
-				}
-				head.AppendChild(&html.Node{
-					Type: html.ElementNode,
-					Data: "meta",
-					Attr: []html.Attribute{
-						{Key: "name", Val: "internal-brand:" + val.Key},
-						{Key: "content", Val: string(marshalledJson)},
-					},
-				})
-
-			}
-		} else {
-			// log but we should not block rendering
-			fmt.Printf("error fetching branding assets: %v\n", err)
-		}
-	}
 	// Render the HTML to a string
 	var buf bytes.Buffer
 	if err := html.Render(&buf, root); err != nil {

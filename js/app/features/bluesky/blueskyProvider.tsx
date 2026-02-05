@@ -2,6 +2,7 @@ import { useNavigation } from "@react-navigation/native";
 import { storage } from "@streamplace/components";
 import { useURL } from "expo-linking";
 import { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useOAuthSession, useUserProfile } from "store/hooks";
 import { navigateToRoute } from "utils/navigation";
@@ -23,6 +24,7 @@ export default function BlueskyProvider({
     loadOAuthClient();
 
     // load return route from storage on mount
+    if (Platform.OS !== "web") return;
     storage.getItem("returnRoute").then((stored) => {
       if (stored) {
         try {
@@ -82,7 +84,8 @@ export default function BlueskyProvider({
     if (
       lastAuthStatus !== "loggedIn" &&
       authStatus === "loggedIn" &&
-      returnRoute
+      returnRoute &&
+      Platform.OS === "web"
     ) {
       console.log(
         "Login successful, navigating back to returnRoute:",

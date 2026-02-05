@@ -37,6 +37,7 @@ import {
 import { useDID, usePDSAgent } from "../../streamplace-store";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
+import { ChatSettings } from "./chat-settings";
 import {
   EmojiData,
   EmojiSuggestions,
@@ -617,6 +618,7 @@ export function ChatBox({
               <ExternalLink color={theme.colors.primaryForeground} size={16} />
             </Button>
           )}
+          <ChatSettings />
         </View>
       )}
     </View>

@@ -29,6 +29,8 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     hasReceivedSegment: false,
     moderationPermissions: [],
     setModerationPermissions: (perms) => set({ moderationPermissions: perms }),
+    chatFilters: new Set(),
+    setChatFilters: (filters) => set({ chatFilters: filters }),
     localLivestreamURI: null,
     setLocalLivestreamURI: (uri) => set({ localLivestreamURI: uri }),
   }));

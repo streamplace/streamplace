@@ -1,5 +1,12 @@
 import { ChevronDown, Ellipsis, Reply } from "lucide-react-native";
-import { ComponentProps, memo, useEffect, useRef, useState } from "react";
+import {
+  ComponentProps,
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Keyboard, Platform, Pressable } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
 import Swipeable, {
@@ -19,6 +26,7 @@ import {
   SystemMessageType,
   Text,
   useChat,
+  useLivestreamStore,
   usePlayerStore,
   useSetReplyToMessage,
   useTheme,
@@ -258,9 +266,39 @@ export function Chat({
 }) {
   const { theme } = useTheme();
   const chat = useChat();
+  const chatFilters = useLivestreamStore((x) => x.chatFilters);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+
+  // Filter chat messages based on active filters
+  const filteredChat = useMemo(() => {
+    if (!chat || chatFilters.size === 0) return chat;
+
+    return chat.filter((message) => {
+      // Don't filter system messages
+      if (message.author.did === "did:sys:system") return true;
+
+      // Check if message has censor facets
+      const facets = message.record.facets;
+      if (!facets || facets.length === 0) return true;
+
+      // Check if any facet is a censor facet with filtered categories
+      const hasCensoredContent = facets.some((facet) => {
+        return facet.features.some((feature: any) => {
+          if (feature.$type === "place.stream.richtext.defs#censor") {
+            const categories = feature.categories || [];
+            return categories.some((cat: string) =>
+              chatFilters.has(cat as any),
+            );
+          }
+          return false;
+        });
+      });
+
+      return !hasCensoredContent;
+    });
+  }, [chat, chatFilters]);
 
   // Animation for scroll-to-bottom button
   const buttonOpacity = useSharedValue(0);

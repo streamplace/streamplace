@@ -537,17 +537,19 @@ export const DropdownMenuInfo = forwardRef<any, any>(
   ({ description, ...props }, ref) => {
     const { theme } = useTheme();
     return (
-      <Text
-        style={[
-          { color: theme.colors.textMuted },
-          pt[1],
-          pl[2],
-          pb[2],
-          fontSize.sm,
-        ]}
-      >
-        {description}
-      </Text>
+      <View ref={ref} {...props}>
+        <Text
+          style={[
+            { color: theme.colors.textMuted },
+            pt[1],
+            pl[2],
+            pb[2],
+            fontSize.sm,
+          ]}
+        >
+          {description}
+        </Text>
+      </View>
     );
   },
 );

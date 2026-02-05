@@ -1,7 +1,8 @@
-import { Settings } from "lucide-react-native";
+import { EllipsisVertical } from "lucide-react-native";
 import { useState } from "react";
-import { Pressable, View } from "react-native";
-import { a, layout, p } from "../../lib/theme/atoms";
+import { Platform, Pressable, View } from "react-native";
+import { Button, zero } from "../..";
+import { ChatFilterCategory } from "../../livestream-store/livestream-state";
 import { useTheme } from "../../ui";
 import {
   DropdownMenu,
@@ -9,17 +10,16 @@ import {
   DropdownMenuGroup,
   DropdownMenuInfo,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   ResponsiveDropdownMenuContent,
 } from "../ui/dropdown";
 import { Text } from "../ui/text";
 
-export type ChatFilterCategory =
-  | "place.stream.richtext.defs#discriminatory"
-  | "place.stream.richtext.defs#sexually_explicit"
-  | "place.stream.richtext.defs#profanity";
+export type { ChatFilterCategory };
 
 interface ChatSettingsProps {
   onFiltersChange?: (filters: Set<ChatFilterCategory>) => void;
@@ -40,6 +40,8 @@ const ALL_CATEGORIES: ChatFilterCategory[] = [
 export function ChatSettings({ onFiltersChange }: ChatSettingsProps) {
   const { icons } = useTheme();
   const [filters, setFilters] = useState<Set<ChatFilterCategory>>(new Set());
+
+  const isMobile = Platform.OS === "ios" || Platform.OS === "android";
 
   const toggleFilter = (category: ChatFilterCategory) => {
     const newFilters = new Set(filters);
@@ -67,40 +69,63 @@ export function ChatSettings({ onFiltersChange }: ChatSettingsProps) {
       <DropdownMenuTrigger>
         <Pressable>
           {({ pressed }) => (
-            <View
-              style={[
-                p[2],
-                a.radius.all.sm,
-                pressed && a.opacity[70],
-                layout.flex.row,
-                layout.flex.alignCenter,
-              ]}
+            <Button
+              variant="ghost"
+              aria-label="Popout Chat"
+              style={{ borderRadius: 16, maxHeight: 44, aspectRatio: 0.5 }}
             >
-              <Settings size={20} color={icons.color.muted} />
-            </View>
+              <EllipsisVertical size={20} color={icons.color.muted} />
+            </Button>
           )}
         </Pressable>
       </DropdownMenuTrigger>
       <ResponsiveDropdownMenuContent align="end">
-        <DropdownMenuLabel>Chat Settings</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup title="Chat Filters">
-          <DropdownMenuItem onPress={toggleAllFilters}>
-            <Text>{allFiltersEnabled ? "Disable All" : "Enable All"}</Text>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {(
-            Object.entries(CATEGORY_LABELS) as [ChatFilterCategory, string][]
-          ).map(([category, label]) => (
-            <DropdownMenuCheckboxItem
-              key={category}
-              checked={filters.has(category)}
-              onCheckedChange={() => toggleFilter(category)}
-            >
-              <Text>{label}</Text>
-            </DropdownMenuCheckboxItem>
-          ))}
-          <DropdownMenuInfo description="Hide messages containing content that may be inappropriate or offensive by category." />
+        <DropdownMenuGroup title="Chat Settings">
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger subMenuTitle="Chat Filters">
+              <View
+                style={[
+                  zero.flex.values[1],
+                  isMobile ? zero.layout.flex.row : zero.layout.flex.column,
+                  zero.layout.flex.spaceBetween,
+                  zero.pr[4],
+                ]}
+              >
+                <Text>Chat Filters</Text>
+              </View>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuGroup title="Content Filters">
+                <DropdownMenuItem onPress={toggleAllFilters}>
+                  <Text>
+                    {allFiltersEnabled ? "Disable All" : "Enable All"}
+                  </Text>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuGroup>
+                {(
+                  Object.entries(CATEGORY_LABELS) as [
+                    ChatFilterCategory,
+                    string,
+                  ][]
+                ).map(([category, label], i) => (
+                  <>
+                    <DropdownMenuCheckboxItem
+                      key={category}
+                      checked={filters.has(category)}
+                      onCheckedChange={() => toggleFilter(category)}
+                    >
+                      <Text>{label}</Text>
+                    </DropdownMenuCheckboxItem>
+                    {i < Object.entries(CATEGORY_LABELS).length - 1 && (
+                      <DropdownMenuSeparator />
+                    )}
+                  </>
+                ))}
+              </DropdownMenuGroup>
+              <DropdownMenuInfo description="Hide messages containing content that may be inappropriate or offensive by category." />
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         </DropdownMenuGroup>
       </ResponsiveDropdownMenuContent>
     </DropdownMenu>

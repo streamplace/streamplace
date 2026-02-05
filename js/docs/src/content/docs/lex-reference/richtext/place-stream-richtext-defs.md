@@ -34,9 +34,40 @@ Indicates that the text in the given index has been censored.
 
 **Properties:**
 
-| Name     | Type     | Req'd | Description | Constraints |
-| -------- | -------- | ----- | ----------- | ----------- |
-| `reason` | `string` | ❌    |             |             |
+| Name         | Type              | Req'd | Description                    | Constraints |
+| ------------ | ----------------- | ----- | ------------------------------ | ----------- |
+| `reason`     | `string`          | ❌    |                                |             |
+| `categories` | Array of `string` | ❌    | Categories of censored content |             |
+
+---
+
+<a name="discriminatory"></a>
+
+### `discriminatory`
+
+**Type:** `token`
+
+Indicates that the text has been censored due to discriminatory content.
+
+---
+
+<a name="sexuallyexplicit"></a>
+
+### `sexually_explicit`
+
+**Type:** `token`
+
+Indicates that the text has been censored due to sexually explicit content.
+
+---
+
+<a name="profanity"></a>
+
+### `profanity`
+
+**Type:** `token`
+
+Indicates that the text has been censored due to profanity.
 
 ---
 
@@ -75,8 +106,32 @@ Indicates that the text in the given index has been censored.
       "properties": {
         "reason": {
           "type": "string"
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "knownValues": [
+              "place.stream.richtext.defs#discriminatory",
+              "place.stream.richtext.defs#sexually_explicit",
+              "place.stream.richtext.defs#profanity"
+            ]
+          },
+          "description": "Categories of censored content"
         }
       }
+    },
+    "discriminatory": {
+      "type": "token",
+      "description": "Indicates that the text has been censored due to discriminatory content."
+    },
+    "sexually_explicit": {
+      "type": "token",
+      "description": "Indicates that the text has been censored due to sexually explicit content."
+    },
+    "profanity": {
+      "type": "token",
+      "description": "Indicates that the text has been censored due to profanity."
     }
   }
 }

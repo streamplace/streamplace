@@ -17,7 +17,7 @@ import (
 // Indicates that the text in the given index has been censored.
 type RichtextDefs_Censor struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.richtext.defs#censor"`
-	// categories: Categories of censored content (e.g., 'discriminatory', 'sexually_explicit', 'profanity')
+	// categories: Categories of censored content
 	Categories []string `json:"categories,omitempty" cborgen:"categories,omitempty"`
 	Reason     *string  `json:"reason,omitempty" cborgen:"reason,omitempty"`
 }

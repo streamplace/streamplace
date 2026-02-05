@@ -83,7 +83,16 @@ export interface StreamplaceState {
   setDanmuSpeed: (speed: number) => void;
   setDanmuLaneCount: (laneCount: number) => void;
   setDanmuMaxMessages: (maxMessages: number) => void;
+
+  // Chat filter settings
+  chatFilters: Set<ChatFilterCategory>;
+  setChatFilters: (filters: Set<ChatFilterCategory>) => void;
 }
+
+export type ChatFilterCategory =
+  | "place.stream.richtext.defs#discriminatory"
+  | "place.stream.richtext.defs#sexually_explicit"
+  | "place.stream.richtext.defs#profanity";
 
 export type StreamplaceStore = StoreApi<StreamplaceState>;
 
@@ -100,6 +109,7 @@ export const makeStreamplaceStore = ({
   const DANMU_SPEED_KEY = "danmuSpeed";
   const DANMU_LANE_COUNT_KEY = "danmuLaneCount";
   const DANMU_MAX_MESSAGES_KEY = "danmuMaxMessages";
+  const CHAT_FILTERS_KEY = "chatFilters";
 
   const store = createStore<StreamplaceState>()((set) => ({
     url,
@@ -221,6 +231,16 @@ export const makeStreamplaceStore = ({
         .setItem(DANMU_MAX_MESSAGES_KEY, clamped.toString())
         .catch(console.error);
     },
+
+    // Chat filter settings - start with defaults
+    chatFilters: new Set(),
+
+    setChatFilters: (filters: Set<ChatFilterCategory>) => {
+      set({ chatFilters: filters });
+      storage
+        .setItem(CHAT_FILTERS_KEY, JSON.stringify(Array.from(filters)))
+        .catch(console.error);
+    },
   }));
 
   // Load initial volume and danmu state from storage asynchronously
@@ -236,6 +256,7 @@ export const makeStreamplaceStore = ({
       const storedDanmuMaxMessages = await storage.getItem(
         DANMU_MAX_MESSAGES_KEY,
       );
+      const storedChatFilters = await storage.getItem(CHAT_FILTERS_KEY);
 
       let initialVolume = 1.0;
       let initialMuted = false;
@@ -245,6 +266,7 @@ export const makeStreamplaceStore = ({
       let initialDanmuSpeed = 1;
       let initialDanmuLaneCount = 12;
       let initialDanmuMaxMessages = 50;
+      let initialChatFilters = new Set<ChatFilterCategory>();
 
       if (storedVolume) {
         const parsedVolume = parseFloat(storedVolume);
@@ -297,6 +319,17 @@ export const makeStreamplaceStore = ({
         }
       }
 
+      if (storedChatFilters) {
+        try {
+          const parsed = JSON.parse(storedChatFilters);
+          if (Array.isArray(parsed)) {
+            initialChatFilters = new Set(parsed);
+          }
+        } catch (error) {
+          console.error("Failed to parse stored chat filters:", error);
+        }
+      }
+
       store.setState({
         volume: initialVolume,
         muted: initialMuted,
@@ -306,6 +339,7 @@ export const makeStreamplaceStore = ({
         danmuSpeed: initialDanmuSpeed,
         danmuLaneCount: initialDanmuLaneCount,
         danmuMaxMessages: initialDanmuMaxMessages,
+        chatFilters: initialChatFilters,
       });
     } catch (error) {
       console.error("Failed to load state from storage:", error);
@@ -418,3 +452,10 @@ export const useDanmuSettings = () => {
     setDanmuMaxMessages,
   };
 };
+
+// Chat filter convenience hooks
+export const useChatFilters = () => useStreamplaceStore((x) => x.chatFilters);
+export const useSetChatFilters = () =>
+  useStreamplaceStore((x) => x.setChatFilters);
+
+export { useCreateStreamRecord, useUpdateStreamRecord } from "./stream";

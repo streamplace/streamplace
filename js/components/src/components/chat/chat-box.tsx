@@ -42,7 +42,11 @@ import {
   useReplyToMessage,
   useSetReplyToMessage,
 } from "../../livestream-store";
-import { useDID, usePDSAgent } from "../../streamplace-store";
+import {
+  useDID,
+  usePDSAgent,
+  useSetChatFilters,
+} from "../../streamplace-store";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
 import {
@@ -100,7 +104,7 @@ export function ChatBox({
   const isOverLimit = graphemer.countGraphemes(message) > 300;
 
   let linfo = useLivestream();
-  const setChatFilters = useLivestreamStore((x) => x.setChatFilters);
+  const setChatFilters = useSetChatFilters();
 
   const { theme, zero: zt } = useTheme();
 

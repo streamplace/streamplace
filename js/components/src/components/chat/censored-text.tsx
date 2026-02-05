@@ -1,6 +1,7 @@
 import { TriggerRef } from "@rn-primitives/dropdown-menu";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useChatFilters } from "../../streamplace-store";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -10,6 +11,7 @@ import {
   ResponsiveDropdownMenuContent,
 } from "../ui/dropdown";
 import { Text } from "../ui/text";
+import { ChatFilterCategory } from "./chat-settings";
 
 function getCategoryKey(category: string): string {
   const categoryMap: Record<string, string> = {
@@ -28,14 +30,28 @@ export function CensoredText({
   text: string;
   reasoning?: string[];
 }) {
+  const filters = useChatFilters();
   const { t } = useTranslation("chat");
-  const [revealed, setRevealed] = useState(false);
+  const hasFilterMatch = reasoning?.some((r) =>
+    filters.has(r as ChatFilterCategory),
+  );
+  const [revealed, setRevealed] = useState(!hasFilterMatch);
   const dropdownRef = useRef<TriggerRef>(null);
   const handleOpenDropdown = () => {
     dropdownRef.current?.open();
   };
 
   const translatedReasons = reasoning?.map((r) => t(getCategoryKey(r)));
+
+  // update when filters change
+  useEffect(() => {
+    const match = reasoning?.some((r) => filters.has(r as ChatFilterCategory));
+    if (match) {
+      setRevealed(false);
+    } else {
+      setRevealed(true);
+    }
+  }, [filters]);
 
   return (
     <>

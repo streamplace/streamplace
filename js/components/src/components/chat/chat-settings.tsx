@@ -1,8 +1,12 @@
 import { EllipsisVertical } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { Button, zero } from "../..";
-import { ChatFilterCategory } from "../../livestream-store/livestream-state";
+import {
+  ChatFilterCategory,
+  useChatFilters,
+  useSetChatFilters,
+} from "../../streamplace-store";
 import { useTheme } from "../../ui";
 import {
   DropdownMenu,
@@ -39,9 +43,17 @@ const ALL_CATEGORIES: ChatFilterCategory[] = [
 
 export function ChatSettings({ onFiltersChange }: ChatSettingsProps) {
   const { icons } = useTheme();
-  const [filters, setFilters] = useState<Set<ChatFilterCategory>>(new Set());
+  const storedFilters = useChatFilters();
+  const setStoredFilters = useSetChatFilters();
+  const [filters, setFilters] =
+    useState<Set<ChatFilterCategory>>(storedFilters);
 
   const isMobile = Platform.OS === "ios" || Platform.OS === "android";
+
+  // Sync local state with stored filters on mount and when stored filters change
+  useEffect(() => {
+    setFilters(storedFilters);
+  }, [storedFilters]);
 
   const toggleFilter = (category: ChatFilterCategory) => {
     const newFilters = new Set(filters);
@@ -51,6 +63,7 @@ export function ChatSettings({ onFiltersChange }: ChatSettingsProps) {
       newFilters.add(category);
     }
     setFilters(newFilters);
+    setStoredFilters(newFilters);
     onFiltersChange?.(newFilters);
   };
 
@@ -61,6 +74,7 @@ export function ChatSettings({ onFiltersChange }: ChatSettingsProps) {
       ? new Set<ChatFilterCategory>()
       : new Set(ALL_CATEGORIES);
     setFilters(newFilters);
+    setStoredFilters(newFilters);
     onFiltersChange?.(newFilters);
   };
 

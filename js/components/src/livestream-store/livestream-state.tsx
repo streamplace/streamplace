@@ -8,11 +8,6 @@ import {
   PlaceStreamSegment,
 } from "streamplace";
 
-export type ChatFilterCategory =
-  | "place.stream.richtext.defs#discriminatory"
-  | "place.stream.richtext.defs#sexually_explicit"
-  | "place.stream.richtext.defs#profanity";
-
 export interface LivestreamState {
   profile: AppBskyActorDefs.ProfileViewBasic | null;
   chatIndex: { [key: string]: ChatMessageViewHydrated };

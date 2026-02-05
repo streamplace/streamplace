@@ -1,6 +1,8 @@
 import { useToast } from "@streamplace/components";
 import { CircleX } from "lucide-react-native";
 import { useEffect } from "react";
+import { Platform } from "react-native";
+import clearQueryParams from "utils/clear-query-params";
 import { useStore } from "../store";
 
 function titleCase(str: string) {
@@ -18,6 +20,9 @@ export function useBlueskyNotifications() {
   let toast = useToast();
   const notification = useStore((state) => state.notification);
   const clearNotification = useStore((state) => state.clearNotification);
+
+  // we've already saved the notif to the store
+  clearQueryParams(["error", "error_description"]);
 
   useEffect(() => {
     if (notification) {
@@ -41,7 +46,7 @@ export function useBlueskyNotifications() {
             {
               duration: 100,
               variant: notification.type,
-              actionLabel: "Copy message",
+              actionLabel: Platform.OS === "web" ? "Copy message" : undefined,
               iconLeft: CircleX,
               onAction: () => {
                 navigator.clipboard.writeText(
@@ -59,7 +64,7 @@ export function useBlueskyNotifications() {
             notification.message,
             {
               variant: notification.type,
-              actionLabel: "Copy message",
+              actionLabel: Platform.OS === "web" ? "Copy message" : undefined,
               onAction: () => {
                 navigator.clipboard.writeText(notification.message);
               },
@@ -74,7 +79,7 @@ export function useBlueskyNotifications() {
           notification.message,
           {
             variant: notification.type,
-            actionLabel: "Copy message",
+            actionLabel: Platform.OS === "web" ? "Copy message" : undefined,
             onAction: () => {
               navigator.clipboard.writeText(notification.message);
             },

@@ -202,7 +202,6 @@ export const createBlueskySlice: StateCreator<
   notification: null,
 
   clearNotification: () => {
-    console.log("clear notif");
     clearQueryParams();
     set({ notification: null });
   },

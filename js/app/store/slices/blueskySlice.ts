@@ -19,6 +19,7 @@ import {
   PlaceStreamServerSettings,
   StreamplaceAgent,
 } from "streamplace";
+import clearQueryParams from "utils/clear-query-params";
 import { privateKeyToAccount } from "viem/accounts";
 import { StateCreator } from "zustand";
 import createOAuthClient, {
@@ -117,22 +118,6 @@ export interface BlueskySlice {
   createServerSettingsRecord: (debugRecording: boolean) => Promise<void>;
 }
 
-const clearQueryParams = () => {
-  if (Platform.OS !== "web") {
-    return;
-  }
-  const u = new URL(document.location.href);
-  const params = new URLSearchParams(u.search);
-  if (u.search === "") {
-    return;
-  }
-  params.delete("iss");
-  params.delete("state");
-  params.delete("code");
-  u.search = params.toString();
-  window.history.replaceState(null, "", u.toString());
-};
-
 const uploadThumbnail = async (
   handle: string,
   u: URL,
@@ -217,6 +202,7 @@ export const createBlueskySlice: StateCreator<
   notification: null,
 
   clearNotification: () => {
+    clearQueryParams();
     set({ notification: null });
   },
 

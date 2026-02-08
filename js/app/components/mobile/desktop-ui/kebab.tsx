@@ -131,7 +131,9 @@ function ReportStreamItem({
   return (
     <DropdownMenuItem
       onPress={() => {
-        if (!livestream) return;
+        if (!livestream) {
+          return;
+        }
         onOpenChange?.(false);
         setReportModalOpen(true);
         setReportSubject({
@@ -161,7 +163,9 @@ function ReportUserItem({
   return (
     <DropdownMenuItem
       onPress={() => {
-        if (!profile?.did) return;
+        if (!profile?.did) {
+          return;
+        }
         onOpenChange?.(false);
         setReportModalOpen(true);
         setReportSubject({

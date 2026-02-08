@@ -81,11 +81,15 @@ export function DanmuOverlay({
   );
 
   useEffect(() => {
-    if (!enabled || !chat || containerWidth === 0) return;
+    if (!enabled || !chat || containerWidth === 0) {
+      return;
+    }
 
     // only check new messages since last render (chat is sorted newest first)
     const newMessageCount = chat.length - lastChatLength.current;
-    if (newMessageCount <= 0) return;
+    if (newMessageCount <= 0) {
+      return;
+    }
 
     const messagesToCheck = chat.slice(0, newMessageCount);
     lastChatLength.current = chat.length;
@@ -99,7 +103,9 @@ export function DanmuOverlay({
       return !hasProcessed && !isSystem && isAfterMount;
     });
 
-    if (newMessages.length === 0) return;
+    if (newMessages.length === 0) {
+      return;
+    }
 
     const messagesToAdd: ActiveDanmuMessage[] = [];
 
@@ -119,11 +125,12 @@ export function DanmuOverlay({
       }
 
       const duration = baseDuration(message, MAX_DURATION, MIN_DURATION);
-      if (__DEV__)
+      if (__DEV__) {
         console.log("[danmu] message", message.record.text, {
           duration,
           speed,
         });
+      }
       const lane = assignLane(message.uri, duration);
 
       if (lane !== null) {

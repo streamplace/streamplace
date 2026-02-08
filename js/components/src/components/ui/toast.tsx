@@ -400,7 +400,9 @@ function ToastContainer({
               key={toastState.id}
               {...toastState}
               onOpenChange={(open) => {
-                if (!open) toastManager.hide(toastState.id);
+                if (!open) {
+                  toastManager.hide(toastState.id);
+                }
               }}
               index={index}
               isLatest={index === 0}

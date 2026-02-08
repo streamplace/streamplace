@@ -15,7 +15,9 @@ export function MuteOverlay() {
   const setMuted = useSetMuted();
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
 
-  if (!muteWasForced) return null;
+  if (!muteWasForced) {
+    return null;
+  }
 
   return (
     <View

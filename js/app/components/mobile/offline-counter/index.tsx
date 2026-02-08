@@ -49,7 +49,9 @@ export function OfflineCounter({ isMobile = false }: OfflineCounterProps) {
     return () => clearInterval(interval);
   }, [offline, segment?.startTime]);
 
-  if (!offline) return null;
+  if (!offline) {
+    return null;
+  }
 
   const titleFontSize = isMobile ? 24 : 32;
   const subtitleFontSize = isMobile ? 16 : 18;

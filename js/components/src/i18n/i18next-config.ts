@@ -94,7 +94,9 @@ export function getCurrentLocaleSync(): string {
 function getFallbackChain(code: string): string[] {
   const fallbacks: string[] = [];
 
-  if (!code) return manifest.fallbackChain;
+  if (!code) {
+    return manifest.fallbackChain;
+  }
 
   // Regional fallbacks
   if (code.match(/^es-/)) {

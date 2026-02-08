@@ -137,7 +137,9 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       }
 
       const loadMetadata = async () => {
-        if (!pdsAgent || !did) return;
+        if (!pdsAgent || !did) {
+          return;
+        }
 
         try {
           const metadata = await getContentMetadata();

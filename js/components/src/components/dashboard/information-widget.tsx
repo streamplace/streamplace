@@ -54,7 +54,9 @@ export default function InformationWidget({
   const viewers = useViewers();
 
   const getBitrate = useCallback((): number => {
-    if (!seg?.size || !seg?.duration) return 0;
+    if (!seg?.size || !seg?.duration) {
+      return 0;
+    }
     const kbps =
       (seg.size * 8) / ((seg.duration || 1000000000) / 1000000000) / 1000;
     return kbps;
@@ -92,16 +94,28 @@ export default function InformationWidget({
   }, [seg?.startTime, streamStartTime]);
 
   const getBitrateStatus = (): "good" | "warning" | "error" | "neutral" => {
-    if (currentBitrate > 2000) return "good";
-    if (currentBitrate > 1000) return "warning";
-    if (currentBitrate > 0) return "error";
+    if (currentBitrate > 2000) {
+      return "good";
+    }
+    if (currentBitrate > 1000) {
+      return "warning";
+    }
+    if (currentBitrate > 0) {
+      return "error";
+    }
     return "neutral";
   };
 
   const getConnectionStatus = (): "good" | "warning" | "error" | "neutral" => {
-    if (!seg) return "error";
-    if (currentBitrate > 1500) return "good";
-    if (currentBitrate > 500) return "warning";
+    if (!seg) {
+      return "error";
+    }
+    if (currentBitrate > 1500) {
+      return "good";
+    }
+    if (currentBitrate > 500) {
+      return "warning";
+    }
     return "error";
   };
 
@@ -440,10 +454,18 @@ function BitrateChart({
   const maxDataValue = Math.max(...data, 1);
   const minDataValue = Math.min(...data);
   const getSmartRange = (max: number) => {
-    if (max <= 1000) return { min: 0, max: 1000, step: 500 };
-    if (max <= 2000) return { min: 1000, max: 2000, step: 1000 };
-    if (max <= 7000) return { min: 4000, max: 7000, step: 1500 };
-    if (max <= 10000) return { min: 4000, max: 10000, step: 5000 };
+    if (max <= 1000) {
+      return { min: 0, max: 1000, step: 500 };
+    }
+    if (max <= 2000) {
+      return { min: 1000, max: 2000, step: 1000 };
+    }
+    if (max <= 7000) {
+      return { min: 4000, max: 7000, step: 1500 };
+    }
+    if (max <= 10000) {
+      return { min: 4000, max: 10000, step: 5000 };
+    }
 
     const roundedMax = Math.ceil(max / 5000) * 5000;
     return { min: 0, max: roundedMax, step: roundedMax / 2 };

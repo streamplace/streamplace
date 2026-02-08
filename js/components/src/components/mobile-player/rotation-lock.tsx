@@ -59,7 +59,9 @@ export const RotationProvider: React.FC<RotationProviderProps> = ({
 
   // Manual rotation functions
   const rotateToLandscape = async () => {
-    if (!enabled || !canRotate || !ScreenOrientation) return;
+    if (!enabled || !canRotate || !ScreenOrientation) {
+      return;
+    }
 
     try {
       await ScreenOrientation.unlockAsync();
@@ -80,7 +82,9 @@ export const RotationProvider: React.FC<RotationProviderProps> = ({
   };
 
   const rotateToPortrait = async () => {
-    if (!enabled || !canRotate || !ScreenOrientation) return;
+    if (!enabled || !canRotate || !ScreenOrientation) {
+      return;
+    }
 
     try {
       await ScreenOrientation.unlockAsync();
@@ -100,7 +104,9 @@ export const RotationProvider: React.FC<RotationProviderProps> = ({
   };
 
   const toggleRotation = async () => {
-    if (!ScreenOrientation) return;
+    if (!ScreenOrientation) {
+      return;
+    }
 
     const isLandscape =
       currentOrientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
@@ -121,10 +127,14 @@ export const RotationProvider: React.FC<RotationProviderProps> = ({
 
   // Track orientation changes
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      return;
+    }
 
     const getCurrentOrientation = async () => {
-      if (!ScreenOrientation) return;
+      if (!ScreenOrientation) {
+        return;
+      }
       try {
         const orient = await ScreenOrientation.getOrientationAsync();
         setCurrentOrientation(orient);
@@ -139,7 +149,9 @@ export const RotationProvider: React.FC<RotationProviderProps> = ({
 
     getCurrentOrientation();
 
-    if (!ScreenOrientation) return;
+    if (!ScreenOrientation) {
+      return;
+    }
 
     const subscription = ScreenOrientation.addOrientationChangeListener(
       (event) => {

@@ -631,7 +631,9 @@ export default function WebhookManager() {
   const { t } = useTranslation("settings");
 
   const loadWebhooks = async () => {
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
 
     try {
       setLoading(true);
@@ -657,7 +659,9 @@ export default function WebhookManager() {
   };
 
   const createWebhook = async (data: WebhookFormData) => {
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
 
     try {
       setFormLoading(true);
@@ -693,7 +697,9 @@ export default function WebhookManager() {
   };
 
   const updateWebhook = async (data: WebhookFormData) => {
-    if (!agent || !editingWebhook) return;
+    if (!agent || !editingWebhook) {
+      return;
+    }
 
     try {
       setFormLoading(true);
@@ -731,13 +737,17 @@ export default function WebhookManager() {
 
   const deleteWebhook = async (id: string) => {
     const webhook = webhooks?.find((w) => w.id === id);
-    if (!webhook) return;
+    if (!webhook) {
+      return;
+    }
 
     setDeleteDialog({ isVisible: true, webhook });
   };
 
   const confirmDelete = async () => {
-    if (!agent || !deleteDialog.webhook) return;
+    if (!agent || !deleteDialog.webhook) {
+      return;
+    }
 
     const id = deleteDialog.webhook.id;
 
@@ -780,7 +790,9 @@ export default function WebhookManager() {
   };
 
   useEffect(() => {
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
     loadWebhooks();
   }, [agent]);
 

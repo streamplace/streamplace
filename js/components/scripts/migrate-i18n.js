@@ -353,7 +353,9 @@ function migrateKeysToFtl() {
         allNewKeys.push(...namespacesForLocale[namespace]);
       }
 
-      if (allNewKeys.length === 0) continue;
+      if (allNewKeys.length === 0) {
+        continue;
+      }
 
       // Add all keys to the specified namespace
       const targetFile = addKeysToFtlFile(

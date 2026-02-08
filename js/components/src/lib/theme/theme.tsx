@@ -397,11 +397,21 @@ export function ThemeProvider({
 
   // Determine if dark mode should be active
   const isDark = useMemo(() => {
-    if (forcedTheme === "light") return false;
-    if (forcedTheme === "dark") return true;
-    if (currentTheme === "light") return false;
-    if (currentTheme === "dark") return true;
-    if (currentTheme === "system") return systemColorScheme === "dark";
+    if (forcedTheme === "light") {
+      return false;
+    }
+    if (forcedTheme === "dark") {
+      return true;
+    }
+    if (currentTheme === "light") {
+      return false;
+    }
+    if (currentTheme === "dark") {
+      return true;
+    }
+    if (currentTheme === "system") {
+      return systemColorScheme === "dark";
+    }
     return systemColorScheme === "dark";
   }, [forcedTheme, currentTheme, systemColorScheme]);
 
@@ -444,8 +454,12 @@ export function ThemeProvider({
   const toggleTheme = () => {
     if (!forcedTheme) {
       setCurrentTheme((prev) => {
-        if (prev === "light") return "dark";
-        if (prev === "dark") return "system";
+        if (prev === "light") {
+          return "dark";
+        }
+        if (prev === "dark") {
+          return "system";
+        }
         return "light";
       });
     }

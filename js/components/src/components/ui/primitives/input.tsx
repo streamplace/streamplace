@@ -230,7 +230,9 @@ export interface InputErrorProps extends TextProps {
 
 export const InputError = forwardRef<Text, InputErrorProps>(
   ({ children, visible = true, style, ...props }, ref) => {
-    if (!visible || !children) return null;
+    if (!visible || !children) {
+      return null;
+    }
 
     return (
       <Text ref={ref} style={[primitiveStyles.error, style]} {...props}>

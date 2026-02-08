@@ -62,7 +62,9 @@ export function TeleportWatcher({
   const prevActiveTeleportRef = useRef(activeTeleport);
 
   useEffect(() => {
-    if (!activeTeleport || !profile[activeTeleport.streamer]) return;
+    if (!activeTeleport || !profile[activeTeleport.streamer]) {
+      return;
+    }
 
     const startsAt = new Date(activeTeleport.startsAt);
     const now = new Date();

@@ -29,9 +29,14 @@ function assignVideoRef(
     | undefined,
   instance: HTMLVideoElement | null,
 ) {
-  if (!ref) return;
-  if (typeof ref === "function") ref(instance);
-  else ref.current = instance;
+  if (!ref) {
+    return;
+  }
+  if (typeof ref === "function") {
+    ref(instance);
+  } else {
+    ref.current = instance;
+  }
 }
 
 type VideoProps = {
@@ -45,7 +50,9 @@ function useVideoDimensions(videoRef: React.RefObject<HTMLVideoElement>) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!videoRef.current) {
+      return;
+    }
 
     function updateSize() {
       setDimensions({
@@ -386,7 +393,9 @@ export function WebRTCPlayer(
     }
   }, [diagnostics]);
 
-  if (!diagnostics.done) return <></>;
+  if (!diagnostics.done) {
+    return <></>;
+  }
 
   if (webrtcError) {
     setProtocol(PlayerProtocol.HLS);

@@ -32,14 +32,18 @@ const FollowButton: React.FC<FollowButtonProps> = ({
   const unfollowUser = useStore((state) => state.unfollowUser);
 
   // Hide button if not logged in or viewing own stream
-  if (!currentUserDID || currentUserDID === streamerDID) return null;
+  if (!currentUserDID || currentUserDID === streamerDID) {
+    return null;
+  }
 
   // Fetch initial follow state using xrpc
   useEffect(() => {
     let cancelled = false;
 
     const fetchFollowStatus = async () => {
-      if (!currentUserDID || !streamerDID) return;
+      if (!currentUserDID || !streamerDID) {
+        return;
+      }
 
       setError(null);
       try {
@@ -56,7 +60,9 @@ const FollowButton: React.FC<FollowButtonProps> = ({
         }
 
         const data = await res.json();
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
 
         if (data.follow) {
           setIsFollowing(true);
@@ -66,7 +72,9 @@ const FollowButton: React.FC<FollowButtonProps> = ({
           setFollowUri(null);
         }
       } catch (err) {
-        if (!cancelled) setError("Could not determine follow state");
+        if (!cancelled) {
+          setError("Could not determine follow state");
+        }
       }
     };
 

@@ -388,7 +388,9 @@ function AddModeratorDialog({
   // Clear error when user starts typing
   const handleDIDChange = (text: string) => {
     setModeratorDID(text);
-    if (error) setError(null);
+    if (error) {
+      setError(null);
+    }
   };
 
   const handleAdd = async () => {
@@ -428,7 +430,9 @@ function AddModeratorDialog({
     <ResponsiveDialog
       open={visible}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) {
+          onClose();
+        }
       }}
       title="Add Moderator"
       description="Enter the DID or handle of the user you want to add as a moderator and select their permissions."

@@ -87,7 +87,9 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
 
   // Calculate uptime
   const getUptime = useCallback((): string => {
-    if (!ingestStarted || !isLive) return "00:00:00";
+    if (!ingestStarted || !isLive) {
+      return "00:00:00";
+    }
     const uptimeMs = Date.now() - ingestStarted;
     const seconds = Math.floor(uptimeMs / 1000);
     const hours = Math.floor(seconds / 3600);
@@ -98,7 +100,9 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
 
   // Calculate bitrate
   const getBitrate = useCallback((): string => {
-    if (!seg?.size || !seg?.duration) return "0 kbps";
+    if (!seg?.size || !seg?.duration) {
+      return "0 kbps";
+    }
     const kbps =
       (seg.size * 8) /
       ((seg.duration || 1000000000) / 1000000000) /
@@ -113,7 +117,9 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
     | "good"
     | "poor"
     | "offline" => {
-    if (!isLive) return "offline";
+    if (!isLive) {
+      return "offline";
+    }
     switch (segmentTiming.connectionQuality) {
       case "good":
         return "excellent";

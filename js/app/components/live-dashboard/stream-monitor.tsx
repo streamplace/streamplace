@@ -60,7 +60,9 @@ export default function StreamMonitor({
 
   // Connection quality indicator
   const getConnectionIcon = () => {
-    if (!isLive) return null;
+    if (!isLive) {
+      return null;
+    }
 
     switch (segmentTiming.connectionQuality) {
       case "good":
@@ -75,7 +77,9 @@ export default function StreamMonitor({
   };
 
   const getConnectionColor = () => {
-    if (!isLive) return "red";
+    if (!isLive) {
+      return "red";
+    }
 
     switch (segmentTiming.connectionQuality) {
       case "good":

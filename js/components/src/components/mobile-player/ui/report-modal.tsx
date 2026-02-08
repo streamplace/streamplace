@@ -84,7 +84,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!selectedReason) return;
+    if (!selectedReason) {
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmitError(null);

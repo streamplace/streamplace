@@ -83,7 +83,9 @@ export default function MultistreamManager() {
   const [formError, setFormError] = useState<string>("");
 
   const loadMultistreamTargets = async () => {
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
 
     try {
       setLoading(true);
@@ -102,7 +104,9 @@ export default function MultistreamManager() {
   const createMultistreamTarget = async (
     record: PlaceStreamMultistreamTarget.Record,
   ) => {
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
     try {
       setFormError("");
       setFormLoading(true);
@@ -126,7 +130,9 @@ export default function MultistreamManager() {
     uri: string,
     record: PlaceStreamMultistreamTarget.Record,
   ) => {
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
     try {
       setFormError("");
       setFormLoading(true);
@@ -149,7 +155,9 @@ export default function MultistreamManager() {
     target: MultistreamTargetViewHydrated,
     newActiveState: boolean,
   ) => {
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
     try {
       setTogglingTargets((prev) => new Set(prev).add(target.uri));
       await agent.place.stream.multistream.putTarget({
@@ -173,7 +181,9 @@ export default function MultistreamManager() {
   };
 
   const deleteMultistreamTarget = async (uri: string) => {
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
     try {
       setFormError("");
       setDeletingTargets((prev) => new Set(prev).add(uri));

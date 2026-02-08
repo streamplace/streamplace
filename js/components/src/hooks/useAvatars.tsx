@@ -18,7 +18,9 @@ export function useAvatars(
   );
 
   useEffect(() => {
-    if (missingDids.length === 0 || !agent) return;
+    if (missingDids.length === 0 || !agent) {
+      return;
+    }
     const toFetch = missingDids.slice(0, 25);
     toFetch.forEach((did) => inFlight.current.add(did));
 

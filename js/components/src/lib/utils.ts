@@ -48,10 +48,18 @@ export function responsiveValue<T>(
   },
   screenWidth: number,
 ): T {
-  if (screenWidth >= 1280 && values.xl !== undefined) return values.xl;
-  if (screenWidth >= 1024 && values.lg !== undefined) return values.lg;
-  if (screenWidth >= 768 && values.md !== undefined) return values.md;
-  if (screenWidth >= 640 && values.sm !== undefined) return values.sm;
+  if (screenWidth >= 1280 && values.xl !== undefined) {
+    return values.xl;
+  }
+  if (screenWidth >= 1024 && values.lg !== undefined) {
+    return values.lg;
+  }
+  if (screenWidth >= 768 && values.md !== undefined) {
+    return values.md;
+  }
+  if (screenWidth >= 640 && values.sm !== undefined) {
+    return values.sm;
+  }
   return values.default;
 }
 
@@ -66,9 +74,15 @@ export function platformStyle(styles: {
 }): Style {
   const Platform = require("react-native").Platform;
 
-  if (Platform.OS === "ios" && styles.ios) return styles.ios;
-  if (Platform.OS === "android" && styles.android) return styles.android;
-  if (Platform.OS === "web" && styles.web) return styles.web;
+  if (Platform.OS === "ios" && styles.ios) {
+    return styles.ios;
+  }
+  if (Platform.OS === "android" && styles.android) {
+    return styles.android;
+  }
+  if (Platform.OS === "web" && styles.web) {
+    return styles.web;
+  }
   return styles.default || {};
 }
 
@@ -77,7 +91,9 @@ export function platformStyle(styles: {
  */
 export function hexToRgba(hex: string, alpha: number = 1): string {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!result) return hex;
+  if (!result) {
+    return hex;
+  }
 
   const r = parseInt(result[1], 16);
   const g = parseInt(result[2], 16);

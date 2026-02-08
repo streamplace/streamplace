@@ -38,11 +38,15 @@ const PropsInHeader = [
 ];
 
 function getMetaContent(key: string): BrandingAsset | null {
-  if (typeof window === "undefined" || !window.document) return null;
+  if (typeof window === "undefined" || !window.document) {
+    return null;
+  }
   const meta = document.querySelector(`meta[name="internal-brand:${key}`);
   if (meta && meta.getAttribute("content")) {
     let content = meta.getAttribute("content");
-    if (content) return JSON.parse(content) as BrandingAsset;
+    if (content) {
+      return JSON.parse(content) as BrandingAsset;
+    }
   }
 
   return null;
@@ -65,7 +69,9 @@ export function useFetchBroadcasterDID() {
             // hrmmmmmmmmmmmm
             if (meta && meta.getAttribute("content")) {
               let content = meta.getAttribute("content");
-              if (content) acc[key] = JSON.parse(content) as BrandingAsset;
+              if (content) {
+                acc[key] = JSON.parse(content) as BrandingAsset;
+              }
             }
             return acc;
           },
@@ -114,7 +120,9 @@ export function useFetchBranding() {
 
   return useCallback(
     async ({ force = true } = {}) => {
-      if (!broadcasterDID) return;
+      if (!broadcasterDID) {
+        return;
+      }
 
       try {
         store.setState({ brandingLoading: true });

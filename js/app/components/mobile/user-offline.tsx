@@ -56,7 +56,9 @@ export const UserOffline = memo(() => {
   const detailedProfile = profile ? pfp[profile?.did] : null;
 
   useEffect(() => {
-    if (!profile?.did) return;
+    if (!profile?.did) {
+      return;
+    }
 
     let mounted = true;
 
@@ -65,7 +67,9 @@ export const UserOffline = memo(() => {
       try {
         console.log("fetching recommendations for", profile.did);
         const result = await getRecommendations(profile.did);
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         if (result.recommendations && result.recommendations.length > 0) {
           // Get the first livestream recommendation
           const firstLivestream = result.recommendations.find(
@@ -83,7 +87,9 @@ export const UserOffline = memo(() => {
       } catch (err) {
         console.error("failed to get recommendations", err);
       } finally {
-        if (mounted) setIsLoadingRecommendation(false);
+        if (mounted) {
+          setIsLoadingRecommendation(false);
+        }
       }
     };
 

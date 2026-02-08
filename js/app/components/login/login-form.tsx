@@ -69,7 +69,9 @@ export default function LoginForm({
       return;
     }
     let clean = handle;
-    if (handle.startsWith("@")) clean = handle.slice(1);
+    if (handle.startsWith("@")) {
+      clean = handle.slice(1);
+    }
     loginAction(clean, openLoginLink);
   };
 

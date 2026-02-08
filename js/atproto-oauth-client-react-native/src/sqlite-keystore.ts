@@ -22,7 +22,9 @@ export class JoseKeyStore<T extends HasDPoPKey> {
 
   async get(key: string): Promise<T | undefined> {
     const itemStr = await this.store.get(key);
-    if (!itemStr) return undefined;
+    if (!itemStr) {
+      return undefined;
+    }
     const item = JSON.parse(itemStr) as T;
     if (item.dpopKey) {
       item.dpopKey = new JoseKey(item.dpopKey as unknown as Jwk);

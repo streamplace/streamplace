@@ -190,8 +190,9 @@ export const DropdownMenuBottomSheet = forwardRef<
 
   const push = (item: NavigationStackItem) => {
     setStack((prev) => {
-      if (!Array.isArray(prev))
+      if (!Array.isArray(prev)) {
         return [{ key: "root", content: children }, item];
+      }
       return [...prev, item];
     });
 
@@ -220,7 +221,9 @@ export const DropdownMenuBottomSheet = forwardRef<
   };
 
   const pop = () => {
-    if (stack.length <= 1) return;
+    if (stack.length <= 1) {
+      return;
+    }
 
     slideAnim.value = withTiming(40, { duration: 150 });
     fadeAnim.value = withTiming(0, { duration: 150 }, (finished) => {
@@ -244,7 +247,9 @@ export const DropdownMenuBottomSheet = forwardRef<
   const isNested = stack.length > 1;
 
   const onBackgroundTap = () => {
-    if (sheetRef.current) sheetRef.current?.close();
+    if (sheetRef.current) {
+      sheetRef.current?.close();
+    }
 
     setTimeout(() => {
       onOpenChange?.(false);

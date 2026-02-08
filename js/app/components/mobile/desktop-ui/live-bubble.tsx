@@ -15,7 +15,7 @@ export function LiveBubble() {
     return segDate && Date.now() - segDate.getTime() <= 10 * 1000;
   }, [segDate]);
 
-  if (!isLive)
+  if (!isLive) {
     return (
       <View style={[{ flexDirection: "row" }]}>
         <View
@@ -43,6 +43,7 @@ export function LiveBubble() {
         </View>
       </View>
     );
+  }
 
   return (
     <View style={[{ flexDirection: "row" }]}>

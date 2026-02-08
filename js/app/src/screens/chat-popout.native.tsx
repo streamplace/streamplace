@@ -65,7 +65,9 @@ export function PopoutChatInner({ user }: { user: string }) {
   }, [seg?.id]);
 
   const getLatency = useCallback((): string => {
-    if (!segmentReceivedTimeRef.current) return "";
+    if (!segmentReceivedTimeRef.current) {
+      return "";
+    }
     const secondsAgo = Math.floor(Date.now() - segmentReceivedTimeRef.current);
     const isThreeDigits = secondsAgo >= 100 && secondsAgo < 1000;
     if (isThreeDigits) {

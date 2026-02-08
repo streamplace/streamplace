@@ -8,7 +8,9 @@ function getLiveConnectionQuality(
   range: number | null,
   numOfSegments: number = 1,
 ): ConnectionQuality {
-  if (timeBetweenSegments === null || range === null) return "poor";
+  if (timeBetweenSegments === null || range === null) {
+    return "poor";
+  }
 
   if (timeBetweenSegments <= 1500 && range <= (1500 * 60) / numOfSegments) {
     return "good";

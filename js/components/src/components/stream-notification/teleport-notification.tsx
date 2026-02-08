@@ -89,7 +89,9 @@ export function TeleportNotification({
   }, []);
 
   useEffect(() => {
-    if (showStripes) return;
+    if (showStripes) {
+      return;
+    }
 
     // animate progress bar
     const percentage = (timeLeft / countdown) * 100;

@@ -110,7 +110,9 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
 
   const handleSubmit = () => {
     const hostToUse = useCustom ? customHost : selectedHost;
-    if (!hostToUse) return;
+    if (!hostToUse) {
+      return;
+    }
 
     onSubmit(hostToUse);
     handleCancel();

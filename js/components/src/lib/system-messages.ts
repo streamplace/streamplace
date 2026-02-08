@@ -162,7 +162,9 @@ export const parseSystemMessageMetadata = (
   const type = getSystemMessageType(message);
   const text = message.record.text;
 
-  if (!type) return metadata;
+  if (!type) {
+    return metadata;
+  }
 
   switch (type) {
     case "stream_end": {

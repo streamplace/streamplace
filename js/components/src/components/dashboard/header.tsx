@@ -42,7 +42,9 @@ interface StatusIndicatorProps {
 
 function StatusIndicator({ status, isLive }: StatusIndicatorProps) {
   const getStatusColor = () => {
-    if (!isLive) return bg.gray[500];
+    if (!isLive) {
+      return bg.gray[500];
+    }
     switch (status) {
       case "excellent":
         return bg.green[500];
@@ -58,7 +60,9 @@ function StatusIndicator({ status, isLive }: StatusIndicatorProps) {
   };
 
   const getStatusText = () => {
-    if (!isLive) return "OFFLINE";
+    if (!isLive) {
+      return "OFFLINE";
+    }
     switch (status) {
       case "excellent":
         return "EXCELLENT";
@@ -117,8 +121,12 @@ export default function Header({
   onProblemsPress,
 }: HeaderProps) {
   const getConnectionQuality = (): "good" | "warning" | "error" => {
-    if (timeBetweenSegments <= 1500) return "good";
-    if (timeBetweenSegments <= 3000) return "warning";
+    if (timeBetweenSegments <= 1500) {
+      return "good";
+    }
+    if (timeBetweenSegments <= 3000) {
+      return "warning";
+    }
     return "error";
   };
 

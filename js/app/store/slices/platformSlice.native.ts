@@ -38,8 +38,12 @@ export const createPlatformSlice: StateCreator<
   notificationToken: null,
   notificationDestination: null,
   handleNotification: (payload) => {
-    if (!payload) return;
-    if (typeof payload.path !== "string") return;
+    if (!payload) {
+      return;
+    }
+    if (typeof payload.path !== "string") {
+      return;
+    }
     set({ notificationDestination: payload.path });
   },
   clearNotification: () => {

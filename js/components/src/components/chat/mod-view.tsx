@@ -206,7 +206,9 @@ function ModViewContent({
             <DropdownMenuItem
               disabled={isHideLoading || messageRemoved}
               onPress={() => {
-                if (isHideLoading || messageRemoved) return;
+                if (isHideLoading || messageRemoved) {
+                  return;
+                }
                 createHideChat(message.uri, streamerDID ?? undefined)
                   .then((r) => setMessageRemoved(true))
                   .catch((e) => console.error(e));
@@ -230,7 +232,9 @@ function ModViewContent({
               <DropdownMenuItem
                 disabled={isBlockLoading}
                 onPress={() => {
-                  if (isBlockLoading) return;
+                  if (isBlockLoading) {
+                    return;
+                  }
                   createBlock(message.author.did, streamerDID ?? undefined)
                     .then((r) => {
                       toast.show(
@@ -311,7 +315,9 @@ export function DeleteButton({
     <DropdownMenuItem
       closeOnPress={false}
       onPress={() => {
-        if (!message) return;
+        if (!message) {
+          return;
+        }
         if (!confirming) {
           setConfirming(DeleteState.Confirmed);
           return;
@@ -356,7 +362,9 @@ export function ReportButton({
   return (
     <DropdownMenuItem
       onPress={() => {
-        if (!message) return;
+        if (!message) {
+          return;
+        }
         onOpenChange?.(false);
         setReportModalOpen(true);
         setReportSubject({

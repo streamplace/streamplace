@@ -350,7 +350,9 @@ export const DialogTitle = forwardRef<any, DialogTitleProps>(
     const { theme } = useTheme();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
 
-    if (!children) return null;
+    if (!children) {
+      return null;
+    }
 
     return (
       <Text ref={ref} style={[styles.title, style]} {...props}>
@@ -373,7 +375,9 @@ export const DialogDescription = forwardRef<any, DialogDescriptionProps>(
     const { theme } = useTheme();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
 
-    if (!children) return null;
+    if (!children) {
+      return null;
+    }
 
     return (
       <Text ref={ref} style={[styles.description, style]} {...props}>
@@ -414,7 +418,9 @@ export const DialogFooter = forwardRef<any, DialogFooterProps>(
     const { theme } = useTheme();
     const styles = React.useMemo(() => createStyles(theme), [theme]);
 
-    if (!children) return null;
+    if (!children) {
+      return null;
+    }
 
     return (
       <ModalPrimitive.Footer

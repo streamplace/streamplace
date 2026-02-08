@@ -41,7 +41,9 @@ export function useLivestreamInfo(url?: string) {
   ) => {
     if (!ingestStarting) {
       // Optionally close keyboard if provided
-      if (closeKeyboard) closeKeyboard();
+      if (closeKeyboard) {
+        closeKeyboard();
+      }
       setShowCountdown(true);
       setIngestStarting(true);
       setIngestLive(true);

@@ -26,7 +26,9 @@ const useUploadThumbnail = () => {
     pdsAgent: StreamplaceAgent,
     customThumbnail?: Blob,
   ) => {
-    if (!customThumbnail) return undefined;
+    if (!customThumbnail) {
+      return undefined;
+    }
 
     abortRef.current = new AbortController();
     const { signal } = abortRef.current;

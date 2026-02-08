@@ -18,11 +18,21 @@ interface ContainerProps {
 }
 
 function getMaxWidth(width: number): number {
-  if (width >= 1660) return maxContainerWidths.threeXl;
-  if (width >= 1260) return maxContainerWidths.twoXl;
-  if (width >= 800) return maxContainerWidths.xl;
-  if (width >= 740) return maxContainerWidths.lg;
-  if (width >= 660) return maxContainerWidths.md;
+  if (width >= 1660) {
+    return maxContainerWidths.threeXl;
+  }
+  if (width >= 1260) {
+    return maxContainerWidths.twoXl;
+  }
+  if (width >= 800) {
+    return maxContainerWidths.xl;
+  }
+  if (width >= 740) {
+    return maxContainerWidths.lg;
+  }
+  if (width >= 660) {
+    return maxContainerWidths.md;
+  }
   return maxContainerWidths.sm;
 }
 

@@ -22,19 +22,29 @@ const parseDanmuParams = (query: URLSearchParams): DanmuParams => {
   const params: DanmuParams = {};
 
   const opacity = query.get("opacity");
-  if (opacity) params.opacity = parseInt(opacity);
+  if (opacity) {
+    params.opacity = parseInt(opacity);
+  }
 
   const speed = query.get("speed");
-  if (speed) params.speed = parseFloat(speed);
+  if (speed) {
+    params.speed = parseFloat(speed);
+  }
 
   const laneCount = query.get("laneCount");
-  if (laneCount) params.laneCount = parseInt(laneCount);
+  if (laneCount) {
+    params.laneCount = parseInt(laneCount);
+  }
 
   const maxMessages = query.get("maxMessages");
-  if (maxMessages) params.maxMessages = parseInt(maxMessages);
+  if (maxMessages) {
+    params.maxMessages = parseInt(maxMessages);
+  }
 
   const enabled = query.get("enabled");
-  if (enabled !== null) params.enabled = enabled !== "false";
+  if (enabled !== null) {
+    params.enabled = enabled !== "false";
+  }
 
   return params;
 };

@@ -90,7 +90,9 @@ export function DesktopUi({
 
   const resetFadeTimer = useCallback(() => {
     fadeOpacity.value = withTiming(1, { duration: 200 });
-    if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+    if (fadeTimeout.current) {
+      clearTimeout(fadeTimeout.current);
+    }
     setIsControlsVisible(true);
 
     fadeTimeout.current = setTimeout(() => {
@@ -104,14 +106,18 @@ export function DesktopUi({
   }, [resetFadeTimer]);
 
   const toggleChat = useCallback(() => {
-    if (setIsChatOpen) setIsChatOpen(!isChatOpen);
+    if (setIsChatOpen) {
+      setIsChatOpen(!isChatOpen);
+    }
   }, []);
 
   useEffect(() => {
     resetFadeTimer();
 
     return () => {
-      if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+      if (fadeTimeout.current) {
+        clearTimeout(fadeTimeout.current);
+      }
       if (ingestStarting) {
         setIngestStarting(false);
       }
@@ -133,13 +139,17 @@ export function DesktopUi({
 
   // Picture-in-Picture event listeners
   useEffect(() => {
-    if (Platform.OS !== "web") return;
+    if (Platform.OS !== "web") {
+      return;
+    }
 
     let video: HTMLVideoElement | null = null;
     if (isRefObject(videoRef)) {
       video = videoRef.current;
     }
-    if (!video) return;
+    if (!video) {
+      return;
+    }
 
     function onEnter() {
       setPipActive(true);
@@ -160,7 +170,9 @@ export function DesktopUi({
   }, [videoRef]);
 
   const handlePip = useCallback(() => {
-    if (pipAction) pipAction();
+    if (pipAction) {
+      pipAction();
+    }
   }, [pipAction]);
 
   const hover = Gesture.Hover().onChange((_) => runOnJS(onPlayerHover)());

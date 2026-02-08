@@ -6,7 +6,9 @@ let loadRequested = false;
 
 export function usePreloadEmoji({ immediate }: { immediate?: boolean } = {}) {
   const preload = React.useCallback(async () => {
-    if (loadRequested) return;
+    if (loadRequested) {
+      return;
+    }
     loadRequested = true;
     let data;
     if (Platform.OS === "web") {
@@ -17,6 +19,8 @@ export function usePreloadEmoji({ immediate }: { immediate?: boolean } = {}) {
     init({ data });
   }, []);
 
-  if (immediate) preload();
+  if (immediate) {
+    preload();
+  }
   return preload;
 }

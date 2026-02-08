@@ -71,7 +71,9 @@ export const DanmuMessage = memo(
     };
 
     useEffect(() => {
-      if (messageWidth === 0) return; // Wait for layout measurement
+      if (messageWidth === 0) {
+        return;
+      } // Wait for layout measurement
 
       const duration = baseDuration(message, MAX_DURATION, MIN_DURATION);
 
@@ -90,10 +92,11 @@ export const DanmuMessage = memo(
         setTotalDuration(duration);
       }
 
-      if (__DEV__)
+      if (__DEV__) {
         console.log(
           `[danmu] animation started: "${message.record.text}" (duration: ${duration.toFixed(0)}ms, remaining: ${remainingDuration.toFixed(0)}ms, speed: ${speed}x)`,
         );
+      }
 
       translateX.value = startPosition;
 

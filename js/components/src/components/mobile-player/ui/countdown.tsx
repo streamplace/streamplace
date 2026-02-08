@@ -36,12 +36,16 @@ export function CountdownOverlay({
   };
 
   const handleDone = () => {
-    if (onDone) onDone();
+    if (onDone) {
+      onDone();
+    }
   };
 
   // Accurate countdown using useFrameCallback
   useFrameCallback(({ timestamp }) => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
     // Set start timestamp on first frame
     if (startTimestamp.value === null) {
@@ -86,7 +90,9 @@ export function CountdownOverlay({
     opacity: opacity.value,
   }));
 
-  if (!visible || countdown === 0) return null;
+  if (!visible || countdown === 0) {
+    return null;
+  }
 
   return (
     <Animated.View

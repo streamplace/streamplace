@@ -47,7 +47,9 @@ export default function MultistreamStatus() {
   }, [targets, opacity]);
 
   const loadTargets = useCallback(async () => {
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
 
     try {
       setLoading(true);
@@ -65,7 +67,9 @@ export default function MultistreamStatus() {
 
   const toggleTarget = useCallback(
     async (target: MultistreamTargetViewHydrated, newActiveState: boolean) => {
-      if (!agent) return;
+      if (!agent) {
+        return;
+      }
       try {
         setTogglingTargets((prev) => new Set(prev).add(target.uri));
         await agent.place.stream.multistream.putTarget({
@@ -97,7 +101,9 @@ export default function MultistreamStatus() {
   const inactiveTargets = targets.filter((t) => !t.record.active);
 
   const getTargetName = (target: MultistreamTargetViewHydrated) => {
-    if (target.record.name) return target.record.name;
+    if (target.record.name) {
+      return target.record.name;
+    }
     if (target.record.url) {
       try {
         const u = new URL(target.record.url);
@@ -110,7 +116,9 @@ export default function MultistreamStatus() {
   };
 
   const getTargetHostname = (target: MultistreamTargetViewHydrated) => {
-    if (!target.record.url) return null;
+    if (!target.record.url) {
+      return null;
+    }
     try {
       const u = new URL(target.record.url);
       return u.host.split(":")[0];
@@ -120,7 +128,9 @@ export default function MultistreamStatus() {
   };
 
   const getStatusColor = (target: MultistreamTargetViewHydrated) => {
-    if (!target.record.active) return text.gray[500];
+    if (!target.record.active) {
+      return text.gray[500];
+    }
 
     switch (target.latestEvent?.status) {
       case "active":

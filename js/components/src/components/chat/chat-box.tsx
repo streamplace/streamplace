@@ -93,11 +93,17 @@ export function ChatBox({
   }, [pdsAgent, userDID, setActiveTeleportUri]);
 
   const authors = useMemo(() => {
-    if (!chat) return null;
+    if (!chat) {
+      return null;
+    }
     return chat.reduce((acc, msg) => {
       // our fake system user "did"
-      if (msg.author.did === "did:sys:system") return acc;
-      if (acc.has(msg.author.handle)) return acc;
+      if (msg.author.did === "did:sys:system") {
+        return acc;
+      }
+      if (acc.has(msg.author.handle)) {
+        return acc;
+      }
       acc.set(msg.author.handle, msg.chatProfile);
       return acc;
     }, new Map<string, ChatMessageViewHydrated["chatProfile"]>());
@@ -143,7 +149,9 @@ export function ChatBox({
     if (colonIndex !== -1) {
       const searchText = text.slice(colonIndex + 1).toLowerCase();
       if (searchText.length >= 3) {
-        if (!emojiData) return;
+        if (!emojiData) {
+          return;
+        }
         const aliasMatches = Object.entries(emojiData.aliases)
           .map(([alias, emojiId]) => {
             const aliasLower = alias.toLowerCase();
@@ -169,7 +177,9 @@ export function ChatBox({
           { matchType: number; index: number; alias: string }
         > = {};
         for (const match of aliasMatches) {
-          if (!match) continue;
+          if (!match) {
+            continue;
+          }
           const prev = bestAliasMatch[match.emojiId];
           if (
             !prev ||
@@ -232,7 +242,9 @@ export function ChatBox({
           // Sort by alias match type, then position, then fallback
           .sort((a, b) => {
             for (let i = 0; i < a.sort.length; ++i) {
-              if (a.sort[i] !== b.sort[i]) return a.sort[i] - b.sort[i];
+              if (a.sort[i] !== b.sort[i]) {
+                return a.sort[i] - b.sort[i];
+              }
             }
             return 0;
           })
@@ -258,7 +270,9 @@ export function ChatBox({
   };
 
   const submit = async () => {
-    if (!message.trim()) return;
+    if (!message.trim()) {
+      return;
+    }
     if (graphemer.countGraphemes(message) > 300) {
       toast.show(
         "Message too long",
@@ -575,7 +589,9 @@ export function ChatBox({
               aria-label="Popout Chat"
               style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
               onPress={() => {
-                if (!linfo) return;
+                if (!linfo) {
+                  return;
+                }
                 const u = new URL(window.location.href);
                 u.pathname = `/chat-popout/${linfo?.author?.did}`;
                 window.open(u.toString(), "_blank", "popup=true");

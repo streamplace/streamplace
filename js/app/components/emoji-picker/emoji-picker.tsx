@@ -12,7 +12,9 @@ interface EmojiPickerProps {
 }
 
 export function EmojiPicker({ isOpen, onClose }: EmojiPickerProps) {
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   const isWeb = Platform.OS === "web";
 

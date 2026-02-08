@@ -83,7 +83,9 @@ export const RichTextMessage = ({
   text: string;
   facets: ChatMessageViewHydrated["record"]["facets"];
 }) => {
-  if (!facets?.length) return <Text>{text}</Text>;
+  if (!facets?.length) {
+    return <Text>{text}</Text>;
+  }
 
   const userCache = useLivestreamStore((state) => state.authors);
 

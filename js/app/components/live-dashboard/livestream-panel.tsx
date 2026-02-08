@@ -96,7 +96,9 @@ const ImageUploadComponent = ({
   onGoToMetadata?: () => void;
 }) => {
   const imageUrl = useMemo(() => {
-    if (!selectedImage) return undefined;
+    if (!selectedImage) {
+      return undefined;
+    }
     if (selectedImage instanceof File || selectedImage instanceof Blob) {
       return URL.createObjectURL(selectedImage);
     }
@@ -268,7 +270,9 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   );
 
   const handleSubmit = useCallback(async () => {
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      return;
+    }
 
     setLoading(true);
 
@@ -368,7 +372,9 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   }, []);
 
   const handleUseLastImage = useCallback(async () => {
-    if (!livestream?.record.thumb) return;
+    if (!livestream?.record.thumb) {
+      return;
+    }
 
     try {
       const did = livestream.uri.split("/")[2];
@@ -391,7 +397,9 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   );
 
   const buttonText = useMemo(() => {
-    if (loading) return "Loading...";
+    if (loading) {
+      return "Loading...";
+    }
     if (!userIsLive) {
       return mode === "create"
         ? "Waiting for stream to start..."

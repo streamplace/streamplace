@@ -64,24 +64,42 @@ function generateMockSegments(count: number): {
 }
 
 function getHomeScreenItemSize(width: number): StreamCardSize {
-  if (width >= 1536) return "md"; // xxl
-  if (width >= 1280) return "sm"; // xl
-  if (width >= 1024) return "sm"; // lg
-  if (width >= 768) return "sm"; // md
+  if (width >= 1536) {
+    return "md";
+  } // xxl
+  if (width >= 1280) {
+    return "sm";
+  } // xl
+  if (width >= 1024) {
+    return "sm";
+  } // lg
+  if (width >= 768) {
+    return "sm";
+  } // md
   return "xs"; // sm and below
 }
 
 function getHomeScreenCols(width: number): number {
-  if (width >= 1550) return 4;
-  if (width >= 1280) return 3;
-  if (width >= 1024) return 2;
-  if (width >= 768) return 2;
+  if (width >= 1550) {
+    return 4;
+  }
+  if (width >= 1280) {
+    return 3;
+  }
+  if (width >= 1024) {
+    return 2;
+  }
+  if (width >= 768) {
+    return 2;
+  }
   return 1;
 }
 
 // Get the ratio for the first card based on column count
 function getPadPercentage(cols: number): number {
-  if (cols >= 3) return 2.07;
+  if (cols >= 3) {
+    return 2.07;
+  }
   return 1;
 }
 

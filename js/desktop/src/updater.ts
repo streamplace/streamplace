@@ -110,7 +110,9 @@ export function initElectronUpdater(opts: IUpdateElectronAppOptions) {
         };
 
         dialog.showMessageBox(dialogOpts).then(({ response }) => {
-          if (response === 0) autoUpdater.quitAndInstall();
+          if (response === 0) {
+            autoUpdater.quitAndInstall();
+          }
         });
       },
     );

@@ -26,7 +26,9 @@ export function Admonition({
   const { theme, icons } = useTheme();
 
   const defaultIconLeft = (() => {
-    if (iconLeft) return iconLeft;
+    if (iconLeft) {
+      return iconLeft;
+    }
     switch (variant) {
       case "success":
         return CheckCircle;

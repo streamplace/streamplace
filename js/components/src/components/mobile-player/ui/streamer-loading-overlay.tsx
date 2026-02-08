@@ -80,7 +80,9 @@ export function LoadingOverlay({
 
   // Trigger animation on each message change
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
 
     const fadeDuration = Math.min(interval / 2, 250); // Simplified fade duration
 
@@ -115,7 +117,9 @@ export function LoadingOverlay({
     opacity: wholeOpacity.value,
   }));
 
-  if (!shouldRender) return null;
+  if (!shouldRender) {
+    return null;
+  }
 
   return (
     <Animated.View

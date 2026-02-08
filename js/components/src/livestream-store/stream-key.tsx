@@ -25,7 +25,9 @@ export const useStreamKey = (): {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (key) return; // already have key
+    if (key) {
+      return;
+    } // already have key
 
     const generateKey = async () => {
       if (!pdsAgent) {

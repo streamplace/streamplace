@@ -63,7 +63,9 @@ export default function RecommendationsManager() {
   const { t } = useTranslation("settings");
 
   const loadRecommendations = async () => {
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
 
     try {
       setLoading(true);
@@ -111,7 +113,9 @@ export default function RecommendationsManager() {
   };
 
   const saveRecommendations = async (newStreamers: string[]) => {
-    if (!agent || saving) return;
+    if (!agent || saving) {
+      return;
+    }
 
     try {
       if (!agent.did) {
@@ -249,7 +253,9 @@ export default function RecommendationsManager() {
   };
 
   const handleSaveEdit = async () => {
-    if (editingIndex === null) return;
+    if (editingIndex === null) {
+      return;
+    }
 
     const trimmed = editValue.trim();
     if (!trimmed) {
@@ -285,7 +291,9 @@ export default function RecommendationsManager() {
   };
 
   const confirmDelete = async () => {
-    if (deleteDialog.index === null) return;
+    if (deleteDialog.index === null) {
+      return;
+    }
 
     const newStreamers = streamers.filter((_, i) => i !== deleteDialog.index);
     await saveRecommendations(newStreamers);
@@ -293,7 +301,9 @@ export default function RecommendationsManager() {
   };
 
   useEffect(() => {
-    if (!agent) return;
+    if (!agent) {
+      return;
+    }
     loadRecommendations();
   }, [agent]);
 

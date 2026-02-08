@@ -294,7 +294,9 @@ export function ReportButton({
   return (
     <DropdownMenuItem
       onPress={() => {
-        if (!livestream) return;
+        if (!livestream) {
+          return;
+        }
         onOpenChange?.(false);
         setReportModalOpen(true);
         setReportSubject({

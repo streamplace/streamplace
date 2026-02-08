@@ -40,7 +40,9 @@ export function AutoplayButton() {
     }
   };
 
-  if (!autoplayFailed) return null;
+  if (!autoplayFailed) {
+    return null;
+  }
 
   return (
     <View

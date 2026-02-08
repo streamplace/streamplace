@@ -34,7 +34,9 @@ export const useDanmuLanes = (laneCount: number, containerWidth: number) => {
         (d) => d.lane === laneIndex && d.endTime > now,
       );
 
-      if (danmuInLane.length === 0) return true;
+      if (danmuInLane.length === 0) {
+        return true;
+      }
 
       // check the most recent danmu in this lane
       const mostRecent = danmuInLane.reduce((latest, current) =>

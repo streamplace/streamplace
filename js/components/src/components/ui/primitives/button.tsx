@@ -198,7 +198,9 @@ export interface ButtonLoadingProps extends ViewProps {
 
 export const ButtonLoading = forwardRef<View, ButtonLoadingProps>(
   ({ children, visible = false, style, ...props }, ref) => {
-    if (!visible) return null;
+    if (!visible) {
+      return null;
+    }
 
     return (
       <View ref={ref} style={[primitiveStyles.loading, style]} {...props}>

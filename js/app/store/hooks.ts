@@ -25,7 +25,9 @@ export const useUserProfile = () => {
   const oauthSession = useOAuthSession();
   const profiles = useProfiles();
   const did = oauthSession?.did;
-  if (!did) return null;
+  if (!did) {
+    return null;
+  }
   return profiles[did];
 };
 export const useIsReady = () => {

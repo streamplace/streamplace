@@ -67,8 +67,12 @@ export function Resizable({
     })
     .onUpdate((event) => {
       let newHeight = startHeight.value - event.translationY;
-      if (newHeight > MAX_HEIGHT) newHeight = MAX_HEIGHT;
-      if (newHeight < MIN_HEIGHT) newHeight = MIN_HEIGHT;
+      if (newHeight > MAX_HEIGHT) {
+        newHeight = MAX_HEIGHT;
+      }
+      if (newHeight < MIN_HEIGHT) {
+        newHeight = MIN_HEIGHT;
+      }
       sheetHeight.value = newHeight;
 
       const nowCollapsed = newHeight < COLLAPSE_HEIGHT;

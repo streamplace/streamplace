@@ -98,7 +98,9 @@ export default function KeyManager() {
 
   const [deletingKeys, setDeletingKeys] = useState<Set<string>>(new Set());
   const deleteKeyRecord = (rkey: string) => {
-    if (deletingKeys.has(rkey)) return; // Prevent double deletes
+    if (deletingKeys.has(rkey)) {
+      return;
+    } // Prevent double deletes
     setDeletingKeys((prev) => new Set(prev).add(rkey));
     deleteStreamKeyRecord(rkey).finally(() => {
       setDeletingKeys((prev) => {

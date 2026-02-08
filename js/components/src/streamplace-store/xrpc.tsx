@@ -10,7 +10,9 @@ export function usePDSAgent(): StreamplaceAgent | null {
   // - SessionManager when logged in
   return useMemo(() => {
     if (!oauthSession) {
-      if (oauthSession === undefined) return null;
+      if (oauthSession === undefined) {
+        return null;
+      }
       // TODO: change once we allow unauthed requests + profile indexing
       // it's bluesky's AppView b/c otherwise we'd have goosewithpipe.jpg
       // showing up everywhere

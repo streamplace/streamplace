@@ -77,7 +77,9 @@ const ActionsBar = memo(
     const setReply = useSetReplyToMessage();
     const setModMsg = usePlayerStore((state) => state.setModMessage);
 
-    if (!visible) return null;
+    if (!visible) {
+      return null;
+    }
 
     return (
       <View
@@ -290,12 +292,13 @@ export function Chat({
     }
   };
 
-  if (!chat)
+  if (!chat) {
     return (
       <View style={[flex.shrink[1], { minWidth: 0, maxWidth: "100%" }]}>
         <Text>Loading chat...</Text>
       </View>
     );
+  }
 
   return (
     <View

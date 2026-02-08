@@ -98,7 +98,9 @@ export function MobileUi({
   }, [ingestStarting, setIngestStarting]);
 
   useEffect(() => {
-    if (recordSubmitted) setShowLoading(false);
+    if (recordSubmitted) {
+      setShowLoading(false);
+    }
   }, [recordSubmitted]);
 
   const isSelfAndNotLive = ingest === "new";
@@ -116,7 +118,9 @@ export function MobileUi({
 
   const resetFadeTimer = () => {
     fadeOpacity.value = withTiming(1, { duration: 200 });
-    if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+    if (fadeTimeout.current) {
+      clearTimeout(fadeTimeout.current);
+    }
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(0, { duration: 400 });
     }, FADE_OUT_DELAY);
@@ -125,7 +129,9 @@ export function MobileUi({
   useEffect(() => {
     resetFadeTimer();
     return () => {
-      if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+      if (fadeTimeout.current) {
+        clearTimeout(fadeTimeout.current);
+      }
     };
   }, []);
 

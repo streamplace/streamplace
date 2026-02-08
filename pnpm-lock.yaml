@@ -42,6 +42,9 @@ importers:
       prettier:
         specifier: 3.4.2
         version: 3.4.2
+      prettier-plugin-curly:
+        specifier: ^0.4.1
+        version: 0.4.1(prettier@3.4.2)
       typescript:
         specifier: ^5.8.3
         version: 5.8.3
@@ -7819,11 +7822,12 @@ packages:
   glob@8.1.0:
     resolution: {integrity: sha512-r8hpEjiQEYlF2QU0df3dS+nxxSIreXQS1qRhMJM0Q5NDdR386C7jb7Hwwod8Fgiuex+k0GFjgft18yvxm5XoCQ==}
     engines: {node: '>=12'}
-    deprecated: Glob versions prior to v9 are no longer supported
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   glob@9.3.5:
     resolution: {integrity: sha512-e1LleDykUz2Iu+MTYdkSsuWX8lvAjAcs0Xef0lNIu0S2wOAzuTxCJtcd9S3cijlwYF18EsU3rzb8jPVobxDh9Q==}
     engines: {node: '>=16 || 14 >=14.17'}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   global-agent@3.0.0:
     resolution: {integrity: sha512-PT6XReJ+D07JvGoxQMkT6qji/jVNfX/h364XHZOWeRzy64sSFr+xJ5OX7LI3b4MPQzdL4H8Y8M0xzPpsVMwA8Q==}
@@ -10641,6 +10645,12 @@ packages:
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
+
+  prettier-plugin-curly@0.4.1:
+    resolution: {integrity: sha512-Xc7zatoD0/08zYFv+hwnlqT5ekM81DCbBr73CWAsr1Fmx7qLQT/M0wfPx6w/+zfnmXH009xYvjzLUPcwzq7Fbw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      prettier: ^3
 
   prettier-plugin-organize-imports@4.1.0:
     resolution: {integrity: sha512-5aWRdCgv645xaa58X8lOxzZoiHAldAPChljr/MT0crXVOWTZ+Svl4hIWlz+niYSlO6ikE5UXkN1JrRvIP2ut0A==}
@@ -26933,6 +26943,10 @@ snapshots:
       tunnel-agent: 0.6.0
 
   prelude-ls@1.2.1: {}
+
+  prettier-plugin-curly@0.4.1(prettier@3.4.2):
+    dependencies:
+      prettier: 3.4.2
 
   prettier-plugin-organize-imports@4.1.0(prettier@3.4.2)(typescript@5.8.3):
     dependencies:

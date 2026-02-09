@@ -24,7 +24,9 @@ export default function BlueskyProvider({
     loadOAuthClient();
 
     // load return route from storage on mount
-    if (Platform.OS !== "web") return;
+    if (Platform.OS !== "web") {
+      return;
+    }
     storage.getItem("returnRoute").then((stored) => {
       if (stored) {
         try {

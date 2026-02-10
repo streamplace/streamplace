@@ -336,6 +336,14 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "(FOR DEVELOPMENT ONLY) proxy frontend requests to this address instead of using the bundled frontend",
 				Destination: &cli.FrontendProxy,
 				Sources:     urfavecli.EnvVars("SP_DEV_FRONTEND_PROXY"),
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "false" {
+						cli.FrontendProxy = ""
+						return nil
+					}
+					cli.FrontendProxy = s
+					return nil
+				},
 			},
 			&urfavecli.BoolFlag{
 				Name:        "dev-public-oauth",

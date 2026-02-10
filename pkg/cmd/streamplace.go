@@ -72,11 +72,11 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeMigrateCommand(build),
 	}
 	// Add the verbosity flag
-	app.Flags = append(app.Flags, &urfavecli.StringFlag{
-		Name:  "v",
-		Usage: "log verbosity level",
-		Value: "3",
-	})
+	// app.Flags = append(app.Flags, &urfavecli.StringFlag{
+	// 	Name:  "v",
+	// 	Usage: "log verbosity level",
+	// 	Value: "3",
+	// })
 	app.Before = func(ctx context.Context, cmd *urfavecli.Command) (context.Context, error) {
 		// Run self-test before starting
 		selfTest := cmd.Name == "self-test"
@@ -406,14 +406,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			return err
 		}
 		group.Go(func() error {
-			lpfs := flag.NewFlagSet("livepeer", flag.ExitOnError)
-			_ = starter.NewLivepeerConfig(lpfs)
-			// Parse livepeer flags from mainCmd
-			err := lpfs.Parse([]string{})
-			if err != nil {
-				return err
-			}
-			err = GoLivepeer(ctx, lpfs)
+			err = GoLivepeer(ctx, config.LivepeerFlagSet)
 			if err != nil {
 				return err
 			}
@@ -647,18 +640,10 @@ func makeSplitCommand(build *config.BuildFlags) *urfavecli.Command {
 
 func makeLivepeerCommand(build *config.BuildFlags) *urfavecli.Command {
 	return &urfavecli.Command{
-		Name:            "livepeer",
-		Usage:           "run livepeer gateway",
-		SkipFlagParsing: true,
+		Name:  "livepeer",
+		Usage: "run livepeer gateway",
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
-			args := cmd.Args().Slice()
-			lpfs := flag.NewFlagSet("livepeer", flag.ExitOnError)
-			_ = starter.NewLivepeerConfig(lpfs)
-			err := lpfs.Parse(args)
-			if err != nil {
-				return err
-			}
-			return GoLivepeer(ctx, lpfs)
+			return GoLivepeer(ctx, config.LivepeerFlagSet)
 		},
 	}
 }

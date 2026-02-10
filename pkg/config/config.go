@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net"
@@ -21,6 +22,7 @@ import (
 	"math/rand/v2"
 
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
 	"github.com/lmittmann/tint"
 	slogGorm "github.com/orandin/slog-gorm"
 	urfavecli "github.com/urfave/cli/v3"
@@ -158,6 +160,9 @@ const (
 	ReplicatorWebsocket string = "websocket"
 	ReplicatorIroh      string = "iroh"
 )
+
+var LivepeerFlagSet *flag.FlagSet
+var LivepeerConfig starter.LivepeerConfig
 
 func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 	cmd := &urfavecli.Command{
@@ -845,6 +850,20 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			Sources:     urfavecli.EnvVars("SP_MIST_HTTP_PORT"),
 		})
 	}
+
+	LivepeerFlagSet = flag.NewFlagSet("livepeer", flag.ContinueOnError)
+	LivepeerConfig = starter.NewLivepeerConfig(LivepeerFlagSet)
+	LivepeerFlagSet.VisitAll(func(f *flag.Flag) {
+		adapted := LivepeerFlags.CamelToSnake[f.Name]
+		cmd.Flags = append(cmd.Flags, &urfavecli.StringFlag{
+			Name:    fmt.Sprintf("livepeer.%s", adapted),
+			Usage:   f.Usage,
+			Sources: urfavecli.EnvVars(fmt.Sprintf("SP_LIVEPEER_%s", adapted)),
+			Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+				return LivepeerFlagSet.Set(f.Name, s)
+			},
+		})
+	})
 
 	return cmd
 }

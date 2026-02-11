@@ -21,16 +21,84 @@ export async function deleteTeleport(
   });
 }
 
+export async function createTeleport(
+  pdsAgent: StreamplaceAgent,
+  userDID: string,
+  targetHandle: string,
+  countdownSeconds: number,
+  setActiveTeleportUri?: (uri: string | null) => void,
+): Promise<{ success: boolean; error?: string }> {
+  if (countdownSeconds < 5 || countdownSeconds > 300) {
+    return {
+      success: false,
+      error: "Countdown must be between 5 seconds and 5 minutes",
+    };
+  }
+
+  let targetDID: string;
+  try {
+    const resolution = await pdsAgent.resolveHandle({
+      handle: targetHandle,
+    });
+    targetDID = resolution.data.did;
+  } catch (err) {
+    return {
+      success: false,
+      error: `Could not resolve handle: ${targetHandle}`,
+    };
+  }
+
+  if (targetDID === userDID) {
+    return {
+      success: false,
+      error: "You cannot teleport to yourself",
+    };
+  }
+
+  const startsAt = new Date(Date.now() + countdownSeconds * 1000).toISOString();
+
+  const record: PlaceStreamLiveTeleport.Record = {
+    $type: "place.stream.live.teleport",
+    streamer: targetDID,
+    startsAt,
+    countdownSeconds,
+  };
+
+  try {
+    const result = await pdsAgent.com.atproto.repo.createRecord({
+      repo: userDID,
+      collection: "place.stream.live.teleport",
+      record,
+    });
+
+    if (setActiveTeleportUri) {
+      setActiveTeleportUri(result.data.uri);
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to create teleport",
+    };
+  }
+}
+
 export function registerTeleportCommand(
   pdsAgent: StreamplaceAgent,
   userDID: string,
   setActiveTeleportUri?: (uri: string | null) => void,
+  onOpenModal?: () => void,
 ) {
   const teleportHandler: SlashCommandHandler = async (
     args,
     rawInput,
   ): Promise<SlashCommandResult> => {
     if (args.length === 0) {
+      if (onOpenModal) {
+        onOpenModal();
+        return { handled: true };
+      }
       return {
         handled: true,
         error: "Usage: /teleport @handle.bsky.social [duration_seconds]",

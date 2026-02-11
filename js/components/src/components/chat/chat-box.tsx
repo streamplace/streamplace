@@ -7,7 +7,10 @@ import { Platform, Pressable, TextInput } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Button, Loader, Text, toast, useTheme, View } from "../../";
 import { handleSlashCommand } from "../../lib/slash-commands";
-import { registerTeleportCommand } from "../../lib/slash-commands/teleport";
+import {
+  createTeleport,
+  registerTeleportCommand,
+} from "../../lib/slash-commands/teleport";
 import { StreamNotifications } from "../../lib/stream-notifications";
 import { SystemMessages } from "../../lib/system-messages";
 import {
@@ -36,6 +39,7 @@ import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
 import { EmojiData, EmojiSuggestions } from "./emoji-suggestions";
 import { MentionSuggestions } from "./mention-suggestions";
+import { TeleportModal } from "./teleport-modal";
 
 const COOL_EMOJI_LIST = [
   // @ts-ignore we can iterate through this just fine it seems
@@ -68,6 +72,7 @@ export function ChatBox({
     new Map(),
   );
   const [filteredEmojis, setFilteredEmojis] = useState<any[]>([]);
+  const [showTeleportModal, setShowTeleportModal] = useState(false);
   const isOverLimit = graphemer.countGraphemes(message) > 300;
 
   let linfo = useLivestream();
@@ -88,7 +93,9 @@ export function ChatBox({
 
   useEffect(() => {
     if (pdsAgent && userDID) {
-      registerTeleportCommand(pdsAgent, userDID, setActiveTeleportUri);
+      registerTeleportCommand(pdsAgent, userDID, setActiveTeleportUri, () =>
+        setShowTeleportModal(true),
+      );
     }
   }, [pdsAgent, userDID, setActiveTeleportUri]);
 
@@ -105,7 +112,12 @@ export function ChatBox({
 
   useEffect(() => {
     if (pdsAgent && linfo?.author?.did && pdsAgent.did === linfo.author.did) {
-      registerTeleportCommand(pdsAgent, pdsAgent.did, setActiveTeleportUri);
+      registerTeleportCommand(
+        pdsAgent,
+        pdsAgent.did,
+        setActiveTeleportUri,
+        () => setShowTeleportModal(true),
+      );
     }
   }, [pdsAgent, linfo?.author?.did, setActiveTeleportUri]);
 
@@ -119,6 +131,25 @@ export function ChatBox({
     const beforeColon = message.slice(0, message.lastIndexOf(":"));
     setMessage(`${beforeColon}${emoji.skins[0]?.native} `);
     setShowEmojiSuggestions(false);
+  };
+
+  const handleTeleportSubmit = async (
+    targetHandle: string,
+    countdownSeconds: number,
+  ) => {
+    if (!pdsAgent || !userDID) return;
+
+    const result = await createTeleport(
+      pdsAgent,
+      userDID,
+      targetHandle,
+      countdownSeconds,
+      setActiveTeleportUri,
+    );
+
+    if (!result.success && result.error) {
+      SystemMessages.commandError(result.error);
+    }
   };
 
   const updateSuggestions = (text: string) => {
@@ -321,6 +352,11 @@ export function ChatBox({
 
   return (
     <View style={[layout.flex.column, flex.shrink[1], gap.all[2]]}>
+      <TeleportModal
+        open={showTeleportModal}
+        onOpenChange={setShowTeleportModal}
+        onSubmit={handleTeleportSubmit}
+      />
       {replyTo && (
         <View
           style={[

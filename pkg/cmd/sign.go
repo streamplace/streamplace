@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -16,29 +15,18 @@ import (
 	"stream.place/streamplace/pkg/media"
 )
 
-func Sign(ctx context.Context) error {
-	fs := flag.NewFlagSet("streamplace", flag.ExitOnError)
-	certPath := fs.String("cert", "", "path to the certificate file")
-	key := fs.String("key", "", "base58-encoded secp256k1 private key")
-	streamerName := fs.String("streamer", "", "streamer name")
-	taURL := fs.String("ta-url", "http://timestamp.digicert.com", "timestamp authority server for signing")
-	startTime := fs.Int64("start-time", 0, "start time of the stream")
-	manifestJSON := fs.String("manifest", "", "JSON manifest to use for signing")
-	if err := fs.Parse(os.Args[2:]); err != nil {
-		return err
-	}
-
+func Sign(ctx context.Context, certPath string, key string, streamerName string, taURL string, startTime int64, manifestJSON string) error {
 	log.Debug(ctx, "Sign command: starting",
-		"streamer", *streamerName,
-		"startTime", *startTime,
-		"hasManifest", len(*manifestJSON) > 0)
+		"streamer", streamerName,
+		"startTime", startTime,
+		"hasManifest", len(manifestJSON) > 0)
 
-	keyBs, err := base58.Decode(*key)
+	keyBs, err := base58.Decode(key)
 	if err != nil {
 		return err
 	}
 
-	if *streamerName == "" {
+	if streamerName == "" {
 		return fmt.Errorf("streamer name is required")
 	}
 
@@ -48,7 +36,7 @@ func Sign(ctx context.Context) error {
 	}
 	signer := secpSigner.ToECDSA()
 
-	certBs, err := os.ReadFile(*certPath)
+	certBs, err := os.ReadFile(certPath)
 	if err != nil {
 		return err
 	}
@@ -61,14 +49,14 @@ func Sign(ctx context.Context) error {
 	ms := &media.MediaSignerLocal{
 		Signer:           signer,
 		Cert:             certBs,
-		StreamerName:     *streamerName,
-		TAURL:            *taURL,
+		StreamerName:     streamerName,
+		TAURL:            taURL,
 		AQPub:            pub,
-		PrebuiltManifest: []byte(*manifestJSON), // Pass the manifest from parent process
+		PrebuiltManifest: []byte(manifestJSON), // Pass the manifest from parent process
 	}
 
-	if len(*manifestJSON) > 0 {
-		log.Debug(ctx, "Sign command: using provided manifest", "manifestLength", len(*manifestJSON))
+	if len(manifestJSON) > 0 {
+		log.Debug(ctx, "Sign command: using provided manifest", "manifestLength", len(manifestJSON))
 	}
 
 	inputBs, err := io.ReadAll(os.Stdin)
@@ -76,7 +64,7 @@ func Sign(ctx context.Context) error {
 		return err
 	}
 
-	mp4, err := ms.SignMP4(ctx, bytes.NewReader(inputBs), *startTime)
+	mp4, err := ms.SignMP4(ctx, bytes.NewReader(inputBs), startTime)
 	if err != nil {
 		return err
 	}

@@ -498,7 +498,10 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 
 	if cli.WHIPTest != "" {
 		group.Go(func() error {
-			err := WHIP(strings.Split(cli.WHIPTest, " "))
+			// Parse WHIPTest string using the whip command's flag parser
+			whipCmd := makeWhipCommand(build)
+			args := strings.Split(cli.WHIPTest, " ")
+			err := whipCmd.Run(ctx, append([]string{"streamplace", "whip"}, args...))
 			log.Warn(ctx, "WHIP test complete, sleeping for 3 seconds and shutting down gstreamer")
 			time.Sleep(time.Second * 3)
 			// gst.Deinit()
@@ -595,8 +598,28 @@ func makeWhepCommand(build *config.BuildFlags) *urfavecli.Command {
 	return &urfavecli.Command{
 		Name:  "whep",
 		Usage: "WHEP client",
+		Flags: []urfavecli.Flag{
+			&urfavecli.IntFlag{
+				Name:  "count",
+				Usage: "number of concurrent streams (for load testing)",
+				Value: 1,
+			},
+			&urfavecli.DurationFlag{
+				Name:  "duration",
+				Usage: "stop after this long",
+			},
+			&urfavecli.StringFlag{
+				Name:  "endpoint",
+				Usage: "endpoint to send the WHEP request to",
+			},
+		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
-			return WHEP(cmd.Args().Slice())
+			return WHEP(
+				ctx,
+				cmd.Int("count"),
+				cmd.Duration("duration"),
+				cmd.String("endpoint"),
+			)
 		},
 	}
 }
@@ -605,8 +628,50 @@ func makeWhipCommand(build *config.BuildFlags) *urfavecli.Command {
 	return &urfavecli.Command{
 		Name:  "whip",
 		Usage: "WHIP client",
+		Flags: []urfavecli.Flag{
+			&urfavecli.StringFlag{
+				Name:  "stream-key",
+				Usage: "stream key",
+			},
+			&urfavecli.IntFlag{
+				Name:  "count",
+				Usage: "number of concurrent streams (for load testing)",
+				Value: 1,
+			},
+			&urfavecli.IntFlag{
+				Name:  "viewers",
+				Usage: "number of viewers to simulate per stream",
+			},
+			&urfavecli.DurationFlag{
+				Name:  "duration",
+				Usage: "duration of the stream",
+			},
+			&urfavecli.StringFlag{
+				Name:     "file",
+				Usage:    "file to stream (needs to be an MP4 containing H264 video and Opus audio)",
+				Required: true,
+			},
+			&urfavecli.StringFlag{
+				Name:  "endpoint",
+				Usage: "endpoint to send the WHIP request to",
+				Value: "http://127.0.0.1:38080",
+			},
+			&urfavecli.DurationFlag{
+				Name:  "freeze-after",
+				Usage: "freeze the stream after the given duration",
+			},
+		},
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
-			return WHIP(cmd.Args().Slice())
+			return WHIP(
+				ctx,
+				cmd.String("stream-key"),
+				cmd.Int("count"),
+				cmd.Int("viewers"),
+				cmd.Duration("duration"),
+				cmd.String("file"),
+				cmd.String("endpoint"),
+				cmd.Duration("freeze-after"),
+			)
 		},
 	}
 }

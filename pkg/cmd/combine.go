@@ -14,21 +14,8 @@ import (
 	"stream.place/streamplace/pkg/media"
 )
 
-func Combine(ctx context.Context, build *config.BuildFlags, allArgs []string) error {
+func Combine(ctx context.Context, cli *config.CLI, debugDir string, outFile string, inputs []string) error {
 	gstinit.InitGST()
-	cli := &config.CLI{Build: build}
-
-	var debugDir string
-	// Simple flag parsing for debug-dir
-	args := allArgs
-	for i, arg := range allArgs {
-		if arg == "--debug-dir" && i+1 < len(allArgs) {
-			debugDir = allArgs[i+1]
-			// Remove the flag from args
-			args = append(allArgs[:i], allArgs[i+2:]...)
-			break
-		}
-	}
 
 	if debugDir != "" {
 		err := os.MkdirAll(debugDir, 0755)
@@ -36,7 +23,7 @@ func Combine(ctx context.Context, build *config.BuildFlags, allArgs []string) er
 			return fmt.Errorf("failed to create debug directory: %w", err)
 		}
 	}
-	log.Debug(context.Background(), "combine command: starting", "args", args)
+	log.Debug(context.Background(), "combine command: starting", "outFile", outFile, "inputs", inputs)
 	ctx = log.WithDebugValue(ctx, cli.Debug)
 	cryptoSigner, err := createSigner(ctx, cli)
 	if err != nil {
@@ -47,11 +34,6 @@ func Combine(ctx context.Context, build *config.BuildFlags, allArgs []string) er
 		return err
 	}
 
-	if len(args) < 2 {
-		return fmt.Errorf("usage: streamplace combine [--debug-dir dir] <output> <input1> [input2...]")
-	}
-	outFile := args[0]
-	inputs := args[1:]
 	log.Log(ctx, "combining segments", "outFile", outFile, "inputs", inputs)
 	outFd, err := os.Create(outFile)
 	if err != nil {

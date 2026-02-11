@@ -712,13 +712,31 @@ func makeWhipCommand(build *config.BuildFlags) *urfavecli.Command {
 }
 
 func makeCombineCommand(build *config.BuildFlags) *urfavecli.Command {
-	return &urfavecli.Command{
-		Name:  "combine",
-		Usage: "combine segments",
-		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
-			return Combine(ctx, build, cmd.Args().Slice())
+	cli := config.CLI{Build: build}
+	combineCmd := cli.NewCommand("combine")
+	combineCmd.Usage = "combine segments"
+	combineCmd.ArgsUsage = "[output] [input1] [input2...]"
+	combineCmd.Flags = []urfavecli.Flag{
+		&urfavecli.StringFlag{
+			Name:  "debug-dir",
+			Usage: "directory to write debug output",
 		},
 	}
+	combineCmd.Action = func(ctx context.Context, cmd *urfavecli.Command) error {
+		args := cmd.Args()
+		if args.Len() < 2 {
+			return fmt.Errorf("usage: streamplace combine [--debug-dir dir] [output] [input1] [input2...]")
+		}
+		ctx = log.WithDebugValue(ctx, cli.Debug)
+		return Combine(
+			ctx,
+			&cli,
+			cmd.String("debug-dir"),
+			args.Get(0),
+			args.Slice()[1:],
+		)
+	}
+	return combineCmd
 }
 
 func makeSplitCommand(build *config.BuildFlags) *urfavecli.Command {

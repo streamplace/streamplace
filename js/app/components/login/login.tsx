@@ -27,6 +27,7 @@ export default function Login() {
 
   // check for stored return route on mount
   useEffect(() => {
+    if (Platform.OS !== "web") return;
     storage.getItem("returnRoute").then((stored) => {
       if (stored) {
         try {

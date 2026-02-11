@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { Main } from "streamplace/src/lexicons/types/place/stream/richtext/facet";
 import { SystemMessageType } from "../../lib/system-messages";
-import { colors, flex, gap, layout, ml, pb, pl, px, w } from "../../ui";
+import { bg, colors, flex, gap, layout, ml, pb, pl, px, r, w } from "../../ui";
 import { Code, Text } from "../ui/text";
 import { RichTextMessage } from "./chat-message";
 
@@ -18,8 +18,18 @@ export function SystemMessage({
   timestamp,
   facets,
 }: SystemMessageProps) {
+  const isError = variant === SystemMessageType.command_error;
+
   return (
-    <View style={[w.percent[100], px[2], pb[2]]}>
+    <View
+      style={[
+        w.percent[100],
+        px[2],
+        pb[2],
+        isError && bg.red[950],
+        isError && r.md,
+      ]}
+    >
       <Code color="muted" tracking="widest" style={[pl[12], ml[1]]}>
         SYSTEM MESSAGE
       </Code>

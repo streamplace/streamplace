@@ -1,17 +1,10 @@
-import { Check } from "lucide-react-native";
+import { Check, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, View } from "react-native";
 import { PlaceStreamLivestream } from "streamplace";
 import { useAvatars, zero } from "../..";
 import { useStreamplaceStore } from "../../streamplace-store";
-import {
-  Button,
-  DialogFooter,
-  Input,
-  ResponsiveDialog,
-  Text,
-  useTheme,
-} from "../ui";
+import { Button, Input, ResponsiveDialog, Text, useTheme } from "../ui";
 
 interface TeleportModalProps {
   open: boolean;
@@ -49,10 +42,11 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
     if (!searchQuery.trim()) return liveUsers;
 
     const query = searchQuery.toLowerCase();
+    // filter by handle or stream title
     return liveUsers.filter(
       (stream) =>
         stream.author?.handle?.toLowerCase().includes(query) ||
-        stream.author?.displayName?.toLowerCase().includes(query),
+        stream.record.title?.toString().toLowerCase().includes(query),
     );
   }, [liveUsers, searchQuery]);
 
@@ -79,13 +73,23 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
     <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Teleport to Streamer"
-      showCloseButton
+      showCloseButton={false}
       variant="default"
       size="xl"
       dismissible={false}
     >
       <View style={[zero.py[2]]}>
+        <View style={[zero.layout.flex.row, zero.layout.flex.justify.between]}>
+          <View style={[zero.mb[4], zero.gap.all[1], zero.layout.flex.column]}>
+            <Text size="2xl">Teleport to another live streamer</Text>
+            <Text color="muted">
+              Select a streamer to teleport your viewers to their stream.
+            </Text>
+          </View>
+          <Pressable onPress={handleCancel} style={[{ padding: 8 }]}>
+            <X color={theme.colors.mutedForeground} />
+          </Pressable>
+        </View>
         <View style={[zero.mb[4]]}>
           <Input
             value={searchQuery}
@@ -98,13 +102,11 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
 
         {liveUsersLoading && !liveUsers ? (
           <View style={[zero.py[8], { alignItems: "center" }]}>
-            <Text style={[{ color: theme.colors.textMuted }]}>
-              Loading live users...
-            </Text>
+            <Text color="muted">Loading live users...</Text>
           </View>
         ) : filteredStreams.length === 0 ? (
           <View style={[zero.py[8], { alignItems: "center" }]}>
-            <Text style={[{ color: theme.colors.textMuted }]}>
+            <Text color="muted">
               {searchQuery
                 ? "No matching live users found"
                 : "No live users found"}
@@ -131,7 +133,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
                     onPress={() => setSelectedStream(stream)}
                     style={[
                       {
-                        width: "48%",
+                        width: "49.2%",
                         minWidth: 200,
                       },
                     ]}
@@ -256,11 +258,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
 
                         {/* Text */}
                         <View style={[{ flex: 1, minWidth: 0 }]}>
-                          <Text
-                            numberOfLines={1}
-                            ellipsizeMode="tail"
-                            style={[{ fontWeight: "600" }]}
-                          >
+                          <Text numberOfLines={1} ellipsizeMode="tail">
                             {stream.author?.handle}
                           </Text>
                           {stream.record.title ? (
@@ -287,7 +285,14 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
           </ScrollView>
         )}
       </View>
-      <DialogFooter>
+      <View
+        style={[
+          zero.mt[8],
+          zero.layout.flex.row,
+          zero.layout.flex.justify.end,
+          zero.gap.all[2],
+        ]}
+      >
         <Button width="min" variant="secondary" onPress={handleCancel}>
           <Text>Cancel</Text>
         </Button>
@@ -299,7 +304,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
         >
           <Text>Teleport</Text>
         </Button>
-      </DialogFooter>
+      </View>
     </ResponsiveDialog>
   );
 };

@@ -1,3 +1,4 @@
+import { Check } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, View } from "react-native";
 import { PlaceStreamLivestream } from "streamplace";
@@ -7,8 +8,6 @@ import {
   Button,
   DialogFooter,
   Input,
-  MenuGroup,
-  MenuItem,
   ResponsiveDialog,
   Text,
   useTheme,
@@ -83,7 +82,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
       title="Teleport to Streamer"
       showCloseButton
       variant="default"
-      size="md"
+      size="xl"
       dismissible={false}
     >
       <View style={[zero.py[2]]}>
@@ -113,72 +112,178 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
           </View>
         ) : (
           <ScrollView style={[{ maxHeight: 400 }]}>
-            <MenuGroup>
-              {filteredStreams.map((stream) => (
-                <Pressable
-                  key={stream.uri}
-                  onPress={() => setSelectedStream(stream)}
-                >
-                  <MenuItem
-                    style={
-                      [
-                        selectedStream?.uri === stream.uri && {
-                          backgroundColor: "rgba(0, 122, 255, 0.1)",
-                        },
-                        zero.layout.flex.spaceBetween,
-                        zero.r.md,
-                        zero.flex[1],
-                        zero.gap.all[2],
-                        { width: "100%" },
-                      ] as any
-                    }
+            <View
+              style={[
+                {
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: 12,
+                },
+              ]}
+            >
+              {filteredStreams.map((stream) => {
+                const isSelected = selectedStream?.uri === stream.uri;
+                const profile = profiles[stream.author?.did];
+
+                return (
+                  <Pressable
+                    key={stream.uri}
+                    onPress={() => setSelectedStream(stream)}
+                    style={[
+                      {
+                        width: "48%",
+                        minWidth: 200,
+                      },
+                    ]}
                   >
-                    <Image
-                      source={{
-                        uri: profiles[stream.author.did]?.avatar,
-                        width: 50,
-                        height: 50,
-                      }}
-                      style={[zero.r.full]}
-                    />
                     <View
                       style={[
-                        zero.layout.flex.row,
-                        zero.gap.all[2],
-                        zero.layout.flex.alignCenter,
-                        { flex: 1, minWidth: 0, width: "100%" },
+                        {
+                          backgroundColor: theme.colors.muted,
+                          borderRadius: 12,
+                          overflow: "hidden",
+                          borderWidth: 2,
+                          borderColor: isSelected
+                            ? theme.colors.primary
+                            : "transparent",
+                        },
                       ]}
                     >
                       <View
                         style={[
-                          zero.layout.flex.column,
-                          { flex: 1, minWidth: 0 },
+                          {
+                            width: "100%",
+                            aspectRatio: 16 / 9,
+                            backgroundColor: theme.colors.card,
+                            position: "relative",
+                          },
                         ]}
                       >
-                        <Text numberOfLines={1} ellipsizeMode="tail">
-                          {stream.author?.handle}
-                        </Text>
-                        {stream.record.title ? (
-                          <Text
-                            color="muted"
-                            ellipsizeMode="tail"
-                            numberOfLines={1}
+                        <Image
+                          source={{
+                            uri:
+                              "/api/playback/" +
+                              stream.author.did +
+                              "/stream.jpg",
+                          }}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                          }}
+                          resizeMode="cover"
+                        />
+                        {isSelected && (
+                          <View
+                            style={[
+                              {
+                                position: "absolute",
+                                top: 8,
+                                right: 8,
+                                backgroundColor: theme.colors.primary,
+                                borderRadius: 999,
+                                width: 24,
+                                height: 24,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.6)",
+                              },
+                            ]}
                           >
-                            {(stream.record.title as any) || ""}
-                          </Text>
-                        ) : null}
+                            <Check size={16} color="white" />
+                          </View>
+                        )}
                         {stream.viewerCount && (
-                          <Text color="muted">
-                            {stream.viewerCount.count} viewer
-                            {stream.viewerCount.count !== 1 ? "s" : ""}
-                          </Text>
+                          <View
+                            style={[
+                              {
+                                position: "absolute",
+                                top: 8,
+                                left: 8,
+                                backgroundColor: "rgba(0, 0, 0, 0.75)",
+                                borderRadius: 999,
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                              },
+                            ]}
+                          >
+                            <Text style={[{ fontSize: 12, color: "white" }]}>
+                              {stream.viewerCount.count} viewer
+                              {stream.viewerCount.count !== 1 ? "s" : ""}
+                            </Text>
+                          </View>
                         )}
                       </View>
+                      <View
+                        style={[
+                          {
+                            padding: 12,
+                            flexDirection: "row",
+                            gap: 8,
+                            alignItems: "center",
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            {
+                              width: 40,
+                              height: 40,
+                              borderRadius: 20,
+                              overflow: "hidden",
+                              backgroundColor: theme.colors.card,
+                              flexShrink: 0,
+                            },
+                          ]}
+                        >
+                          {profile?.avatar ? (
+                            <Image
+                              source={{
+                                uri: profile.avatar,
+                              }}
+                              style={{ width: "100%", height: "100%" }}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                backgroundColor: theme.colors.muted,
+                              }}
+                            />
+                          )}
+                        </View>
+
+                        {/* Text */}
+                        <View style={[{ flex: 1, minWidth: 0 }]}>
+                          <Text
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                            style={[{ fontWeight: "600" }]}
+                          >
+                            {stream.author?.handle}
+                          </Text>
+                          {stream.record.title ? (
+                            <Text
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                              style={[
+                                {
+                                  fontSize: 12,
+                                  color: theme.colors.textMuted,
+                                },
+                              ]}
+                            >
+                              {stream.record.title as any}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
                     </View>
-                  </MenuItem>
-                </Pressable>
-              ))}
-            </MenuGroup>
+                  </Pressable>
+                );
+              })}
+            </View>
           </ScrollView>
         )}
       </View>

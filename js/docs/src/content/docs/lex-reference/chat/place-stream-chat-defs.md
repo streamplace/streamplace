@@ -15,16 +15,17 @@ description: Reference for the place.stream.chat.defs lexicon
 
 **Properties:**
 
-| Name          | Type                                                                                                                                             | Req'd | Description                                                                            | Constraints        |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | -------------------------------------------------------------------------------------- | ------------------ |
-| `uri`         | `string`                                                                                                                                         | ✅    |                                                                                        | Format: `at-uri`   |
-| `cid`         | `string`                                                                                                                                         | ✅    |                                                                                        | Format: `cid`      |
-| `author`      | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |                                                                                        |                    |
-| `record`      | `unknown`                                                                                                                                        | ✅    |                                                                                        |                    |
-| `indexedAt`   | `string`                                                                                                                                         | ✅    |                                                                                        | Format: `datetime` |
-| `chatProfile` | [`place.stream.chat.profile`](/lex-reference/place-stream-chat-profile)                                                                          | ❌    |                                                                                        |                    |
-| `replyTo`     | Union of:<br/>&nbsp;&nbsp;[`#messageView`](#messageview)                                                                                         | ❌    |                                                                                        |                    |
-| `deleted`     | `boolean`                                                                                                                                        | ❌    | If true, this message has been deleted or labeled and should be cleared from the cache |                    |
+| Name          | Type                                                                                                                                             | Req'd | Description                                                                                                                                                                   | Constraints        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `uri`         | `string`                                                                                                                                         | ✅    |                                                                                                                                                                               | Format: `at-uri`   |
+| `cid`         | `string`                                                                                                                                         | ✅    |                                                                                                                                                                               | Format: `cid`      |
+| `author`      | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |                                                                                                                                                                               |                    |
+| `record`      | `unknown`                                                                                                                                        | ✅    |                                                                                                                                                                               |                    |
+| `indexedAt`   | `string`                                                                                                                                         | ✅    |                                                                                                                                                                               | Format: `datetime` |
+| `chatProfile` | [`place.stream.chat.profile`](/lex-reference/place-stream-chat-profile)                                                                          | ❌    |                                                                                                                                                                               |                    |
+| `replyTo`     | Union of:<br/>&nbsp;&nbsp;[`#messageView`](#messageview)                                                                                         | ❌    |                                                                                                                                                                               |                    |
+| `deleted`     | `boolean`                                                                                                                                        | ❌    | If true, this message has been deleted or labeled and should be cleared from the cache                                                                                        |                    |
+| `badges`      | Array of [`place.stream.badge.defs#badgeView`](/lex-reference/place-stream-badge-defs#badgeview)                                                 | ❌    | Up to 3 badge tokens to display with the message. First badge is server-controlled, remaining badges are user-settable. Tokens are looked up in badges.json for display info. | Max Items: 3       |
 
 ---
 
@@ -69,6 +70,15 @@ description: Reference for the place.stream.chat.defs lexicon
         "deleted": {
           "type": "boolean",
           "description": "If true, this message has been deleted or labeled and should be cleared from the cache"
+        },
+        "badges": {
+          "type": "array",
+          "description": "Up to 3 badge tokens to display with the message. First badge is server-controlled, remaining badges are user-settable. Tokens are looked up in badges.json for display info.",
+          "maxLength": 3,
+          "items": {
+            "type": "ref",
+            "ref": "place.stream.badge.defs#badgeView"
+          }
         }
       }
     }

@@ -15,6 +15,12 @@ var PLACE_STREAM_CHAT_GATE = "place.stream.chat.gate"                         //
 var PLACE_STREAM_DEFAULT_METADATA = "place.stream.metadata.configuration"     //nolint:all
 var PLACE_STREAM_LIVE_RECOMMENDATIONS = "place.stream.live.recommendations"   //nolint:all
 
+// Streamplace badge types
+const (
+	BadgeTypeMod      = "place.stream.badge.defs#mod"
+	BadgeTypeStreamer = "place.stream.badge.defs#streamer"
+)
+
 const DID_KEY_PREFIX = "did:key" //nolint:all
 const ADDRESS_KEY_PREFIX = "0x"  //nolint:all
 

@@ -4,7 +4,7 @@ import {
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { memo, useCallback } from "react";
-import { Linking, View } from "react-native";
+import { Image, Linking, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { RichtextSegment, segmentize } from "../../lib/facet";
 import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
@@ -23,6 +23,7 @@ interface Facet {
   }>;
 }
 
+import { zero } from "../..";
 import { useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
 
@@ -164,11 +165,33 @@ export const RenderChatMessage = memo(
               style={{
                 fontVariant: ["tabular-nums"],
                 color: colors.gray[400],
+                width: 44,
               }}
             >
               {formatTime(item.record.createdAt)}
             </Text>
           )}
+          {item.badges?.length ? (
+            <View style={[zero.layout.flex.align.end]}>
+              {item.badges.map((badge, index) => (
+                <View style={{ height: 3 }} key={`badge-${index}`}>
+                  {badge.badgeType === "place.stream.badge.defs#mod" ? (
+                    <Image
+                      source={require("../../../assets/badges/mod.png")}
+                      height={16}
+                    />
+                  ) : badge.badgeType === "place.stream.badge.defs#streamer" ? (
+                    <Image
+                      source={require("../../../assets/badges/live.png")}
+                      style={{ height: 20, width: 20, marginTop: 3 }}
+                    />
+                  ) : (
+                    <Image source={require("../../../assets/badges/vip.png")} />
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : null}
           <Text
             weight="bold"
             color="default"

@@ -82,7 +82,7 @@ export default defineConfig({
                 },
                 {
                   label: "Features (Dev)",
-                  autogenerate: { directory: "guides/features-dev" },
+                  autogenerate: { directory: "features-dev" },
                 },
                 {
                   label: "Video Metadata",

@@ -178,7 +178,7 @@ export const RenderChatMessage = memo(
                   {badge.badgeType === "place.stream.badge.defs#mod" ? (
                     <Image
                       source={require("../../../assets/badges/mod.png")}
-                      height={16}
+                      style={{ height: 20, width: 20, marginTop: 3 }}
                     />
                   ) : badge.badgeType === "place.stream.badge.defs#streamer" ? (
                     <Image
@@ -186,7 +186,10 @@ export const RenderChatMessage = memo(
                       style={{ height: 20, width: 20, marginTop: 3 }}
                     />
                   ) : (
-                    <Image source={require("../../../assets/badges/vip.png")} />
+                    <Image
+                      source={require("../../../assets/badges/vip.png")}
+                      style={{ height: 20, width: 20, marginTop: 3 }}
+                    />
                   )}
                 </View>
               ))}

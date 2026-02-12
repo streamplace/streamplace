@@ -81,6 +81,10 @@ export default defineConfig({
                   autogenerate: { directory: "guides/installing" },
                 },
                 {
+                  label: "Features (Dev)",
+                  autogenerate: { directory: "guides/features-dev" },
+                },
+                {
                   label: "Video Metadata",
                   autogenerate: { directory: "video-metadata" },
                 },

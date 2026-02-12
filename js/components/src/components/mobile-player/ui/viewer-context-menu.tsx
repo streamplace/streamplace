@@ -58,6 +58,32 @@ export function ContextMenu({
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
   const setReportSubject = usePlayerStore((x) => x.setReportSubject);
 
+  const latestSegment = useLivestreamStore((x) => x.segment);
+  // get highest height x width rendition for video
+  const videoRendition = latestSegment?.video?.reduce((prev, current) => {
+    const prevPixels = prev.width * prev.height;
+    const currentPixels = current.width * current.height;
+    return currentPixels > prevPixels ? current : prev;
+  }, latestSegment?.video?.[0]);
+  const highestLength = videoRendition
+    ? videoRendition.height < videoRendition.width
+      ? videoRendition.height
+      : videoRendition?.width
+    : 0;
+
+  // ugh i hate this
+  const frames = videoRendition?.framerate as
+    | { num: number; den: number }
+    | undefined;
+  const fps =
+    frames?.num && frames?.den
+      ? Math.round((frames.num / frames.den) * 100) / 100
+      : 0;
+
+  const resolutionDisplay = highestLength
+    ? `(${highestLength}p${fps > 0 ? fps : ""})`
+    : "(Original Quality)";
+
   const { profile } = useLivestreamInfo();
 
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
@@ -215,7 +241,9 @@ export function ContextMenu({
               >
                 <Text>Quality</Text>
                 <Text muted size={isMobile ? "base" : "sm"}>
-                  {quality === "source" ? "Source" : quality},{" "}
+                  {quality === "source"
+                    ? `Source${resolutionDisplay ? " " + resolutionDisplay + "\n" : ", "}`
+                    : quality}
                   {lowLatency ? "Low Latency" : ""}
                 </Text>
               </View>
@@ -227,7 +255,7 @@ export function ContextMenu({
                   onValueChange={setQuality}
                 >
                   <DropdownMenuRadioItem value="source">
-                    <Text>Source (Original Quality)</Text>
+                    <Text>Source {resolutionDisplay}</Text>
                   </DropdownMenuRadioItem>
                   {qualities.map((r) => (
                     <DropdownMenuRadioItem key={r.name} value={r.name}>

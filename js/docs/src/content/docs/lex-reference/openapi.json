@@ -1870,6 +1870,47 @@
         }
       }
     },
+    "/xrpc/place.stream.badge.getValidBadges": {
+      "get": {
+        "summary": "Get valid badges for the authenticated user, optionally in the context of a specific streamer's chat",
+        "operationId": "place.stream.badge.getValidBadges",
+        "tags": ["place.stream.badge"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "badges": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.badge.defs_badgeView"
+                      }
+                    }
+                  },
+                  "required": ["badges"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "streamer",
+            "in": "query",
+            "required": false,
+            "description": "Optional DID of the streamer for context-specific badges (mod, vip, etc)",
+            "schema": {
+              "type": "string",
+              "description": "Optional DID of the streamer for context-specific badges (mod, vip, etc)",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/com.atproto.sync.getRecord": {
       "get": {
         "summary": "Get data blocks needed to prove the existence or non-existence of record in the current version of repo. Does not require auth.",
@@ -3428,6 +3469,30 @@
           }
         },
         "required": ["key", "mimeType"]
+      },
+      "place.stream.badge.defs_badgeView": {
+        "type": "object",
+        "description": "View of a badge record, with fields resolved for display. If the DID in issuer is not the current streamplace node, the signature field shall be required.",
+        "properties": {
+          "badgeType": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string",
+            "description": "DID of the badge issuer.",
+            "format": "did"
+          },
+          "recipient": {
+            "type": "string",
+            "description": "DID of the badge recipient.",
+            "format": "did"
+          },
+          "signature": {
+            "type": "string",
+            "description": "TODO: Cryptographic signature of the badge (of a place.stream.key)."
+          }
+        },
+        "required": ["badgeType", "issuer", "recipient"]
       },
       "com.atproto.sync.listRepos_repo": {
         "type": "object",

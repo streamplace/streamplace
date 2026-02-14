@@ -32,6 +32,7 @@ import {
   p,
 } from "../../lib/theme/atoms";
 import { srcToUrl } from "./shared";
+import { useMediaButton } from "./use-media-button";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
 import { mediaDevices, WebRTCMediaStream } from "./webrtc-primitives.native";
 
@@ -116,6 +117,16 @@ export function NativeVideo(props?: {
     player.play();
   });
 
+  useMediaButton(
+    useCallback(() => {
+      if (player.playing) {
+        player.pause();
+      } else {
+        player.play();
+      }
+    }, [player]),
+  );
+
   useEffect(() => {
     player.muted = muted;
   }, [muted, player]);
@@ -161,7 +172,6 @@ export function NativeVideo(props?: {
   }, [player, playerEvent, setStatus, spurl]);
 
   return (
-    <>
       <VideoView
         ref={videoRef}
         player={player}
@@ -176,7 +186,6 @@ export function NativeVideo(props?: {
         allowsPictureInPicture={props?.pictureInPictureEnabled !== false}
         onLayout={handleLayout}
       />
-    </>
   );
 }
 
@@ -228,6 +237,18 @@ export function NativeWHEP(props?: {
   }, [stuck, status]);
 
   const mediaStream = stream as unknown as MediaStream;
+  const [paused, setPaused] = useState(false);
+
+  useMediaButton(
+    useCallback(() => {
+      if (!mediaStream) return;
+      const next = !paused;
+      setPaused(next);
+      mediaStream.getTracks().forEach((track) => {
+        track.enabled = !next;
+      });
+    }, [mediaStream, paused]),
+  );
 
   // useEffect(() => {
   //   if (!mediaStream) {
@@ -260,7 +281,6 @@ export function NativeWHEP(props?: {
   }
 
   return (
-    <>
       <RTCView
         mirror={false}
         objectFit={props?.objectFit || "contain"}
@@ -278,7 +298,6 @@ export function NativeWHEP(props?: {
           flex: 1,
         }}
       />
-    </>
   );
 }
 

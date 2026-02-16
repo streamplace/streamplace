@@ -141,77 +141,65 @@ const ActionsBar = memo(
   },
 );
 
-const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
-  const setReply = useSetReplyToMessage();
-  const setModMsg = usePlayerStore((state) => state.setModMessage);
-  const swipeableRef = useRef<SwipeableMethods | null>(null);
-  const [isHovered, setIsHovered] = useState(false);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+const ChatLine = memo(
+  ({
+    item,
+    isHovered,
+    onHoverIn,
+    onHoverOut,
+    hoverTimeoutRef,
+  }: {
+    item: ChatMessageViewHydrated;
+    isHovered?: boolean;
+    onHoverIn?: () => void;
+    onHoverOut?: () => void;
+    hoverTimeoutRef?: React.MutableRefObject<NodeJS.Timeout | null>;
+  }) => {
+    const setReply = useSetReplyToMessage();
+    const setModMsg = usePlayerStore((state) => state.setModMessage);
+    const swipeableRef = useRef<SwipeableMethods | null>(null);
 
-  const handleHoverIn = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-    setIsHovered(true);
-  };
-
-  const handleHoverOut = () => {
-    hoverTimeoutRef.current = setTimeout(() => {
-      setIsHovered(false);
-    }, 50);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  if (item.author.did === "did:sys:system") {
-    return (
-      <SystemMessage
-        variant={getSystemMessageType(item) || SystemMessageType.notification}
-        timestamp={new Date(item.record.createdAt)}
-        title={item.record.text}
-        facets={item.record.facets}
-      />
-    );
-  }
-
-  if (Platform.OS === "web") {
-    return (
-      <View
-        style={[
-          py[1],
-          px[2],
-          {
-            position: "relative",
-            borderRadius: 8,
-            minWidth: 0,
-            maxWidth: "100%",
-          },
-          isHovered && bg.gray[950],
-        ]}
-        onPointerEnter={handleHoverIn}
-        onPointerLeave={handleHoverOut}
-      >
-        <Pressable style={[{ minWidth: 0, maxWidth: "100%" }]}>
-          <RenderChatMessage item={item} />
-        </Pressable>
-        <ActionsBar
-          item={item}
-          visible={isHovered}
-          hoverTimeoutRef={hoverTimeoutRef}
+    if (item.author.did === "did:sys:system") {
+      return (
+        <SystemMessage
+          variant={getSystemMessageType(item) || SystemMessageType.notification}
+          timestamp={new Date(item.record.createdAt)}
+          title={item.record.text}
+          facets={item.record.facets}
         />
-      </View>
-    );
-  }
+      );
+    }
 
-  return (
-    <>
+    if (Platform.OS === "web") {
+      return (
+        <View
+          style={[
+            py[1],
+            px[2],
+            {
+              position: "relative",
+              borderRadius: 8,
+              minWidth: 0,
+              maxWidth: "100%",
+            },
+            isHovered && bg.gray[950],
+          ]}
+          onPointerEnter={onHoverIn}
+          onPointerLeave={onHoverOut}
+        >
+          <Pressable style={[{ minWidth: 0, maxWidth: "100%" }]}>
+            <RenderChatMessage item={item} />
+          </Pressable>
+          <ActionsBar
+            item={item}
+            visible={!!isHovered}
+            hoverTimeoutRef={hoverTimeoutRef!}
+          />
+        </View>
+      );
+    }
+
+    return (
       <Swipeable
         containerStyle={[py[1]]}
         friction={2}
@@ -238,9 +226,9 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
       >
         <RenderChatMessage item={item} />
       </Swipeable>
-    </>
-  );
-});
+    );
+  },
+);
 
 export function Chat({
   shownMessages = SHOWN_MSGS,
@@ -254,6 +242,24 @@ export function Chat({
   const chat = useChat();
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const [hoveredMessageUri, setHoveredMessageUri] = useState<string | null>(
+    null,
+  );
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleHoverIn = (uri: string) => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setHoveredMessageUri(uri);
+  };
+
+  const handleHoverOut = () => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredMessageUri(null);
+    }, 50);
+  };
 
   // Animation for scroll-to-bottom button
   const buttonOpacity = useSharedValue(0);
@@ -319,7 +325,15 @@ export function Chat({
         data={chat.slice(0, shownMessages)}
         inverted={true}
         keyExtractor={keyExtractor}
-        renderItem={({ item, index }) => <ChatLine item={item} />}
+        renderItem={({ item }) => (
+          <ChatLine
+            item={item}
+            isHovered={hoveredMessageUri === item.uri}
+            onHoverIn={() => handleHoverIn(item.uri)}
+            onHoverOut={handleHoverOut}
+            hoverTimeoutRef={hoverTimeoutRef}
+          />
+        )}
         removeClippedSubviews={true}
         maxToRenderPerBatch={10}
         initialNumToRender={10}

@@ -1,5 +1,12 @@
 {
-  "supportedLocales": ["en-US", "pt-BR", "es-ES", "zh-Hant", "fr-FR", "zh-Hans"],
+  "supportedLocales": [
+    "en-US",
+    "pt-BR",
+    "es-ES",
+    "zh-Hant",
+    "fr-FR",
+    "zh-Hans"
+  ],
   "fallbackChain": ["en-US"],
   "languages": {
     "en-US": {

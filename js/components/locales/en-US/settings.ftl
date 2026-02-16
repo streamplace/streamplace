@@ -103,7 +103,7 @@ backup-testing-connection = Testing connection...
 backup-connection-successful = Connection successful
 backup-connection-failed = Failed to connect
 show-password-in-url = Show password in URL
-show-password-in-url-description = Display the secret key in the connection URL
+show-password-in-url-description = Display the secret key in the connection URL (if input)
 requested-seconds-per-segment = Seconds per segment
 requested-seconds-per-segment-description = Set the seconds per segment you wish to request the server use
 
@@ -259,6 +259,7 @@ branding-not-available = File uploads are only available on web
 
 ## Navigation Categories (About Page)
 node-legal-documents = Broadcaster-specific Documents
+
 backup-save = Save backup settings
 backup-saving = Saving backup settings...
 backup-secret-key-set-placeholder = (Password already set)
@@ -270,3 +271,4 @@ backup-error-update-failed = Failed to update backup status
 backup-error-save-failed = Failed to save storage settings
 backup-error-missing-secret = Cannot update S3 settings without the secret key. Please re-enter it.
 backup-segment-duration-placeholder = 6
+backup-connection-url-placeholder = Must be a valid S3 URL in the format s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket

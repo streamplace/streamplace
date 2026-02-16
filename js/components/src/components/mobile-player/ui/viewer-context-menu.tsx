@@ -14,6 +14,7 @@ import {
   formatHandleWithAt,
   useAvatars,
   useLivestreamInfo,
+  useStreamplaceStore,
   zero,
 } from "../../..";
 import { useLivestreamStore } from "../../../livestream-store";
@@ -58,6 +59,8 @@ export function ContextMenu({
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
   const setReportSubject = usePlayerStore((x) => x.setReportSubject);
 
+  const isDevModeOn = useStreamplaceStore((x) => x.danmuUnlocked);
+
   const latestSegment = useLivestreamStore((x) => x.segment);
   // get highest height x width rendition for video
   const videoRendition = latestSegment?.video?.reduce((prev, current) => {
@@ -75,10 +78,14 @@ export function ContextMenu({
   const frames = videoRendition?.framerate as
     | { num: number; den: number }
     | undefined;
-  const fps =
+  let fps =
     frames?.num && frames?.den
       ? Math.round((frames.num / frames.den) * 100) / 100
       : 0;
+
+  if (!isDevModeOn && latestSegment?.video?.length) {
+    fps = Math.round(fps);
+  }
 
   const resolutionDisplay = highestLength
     ? `(${highestLength}p${fps > 0 ? fps : ""})`

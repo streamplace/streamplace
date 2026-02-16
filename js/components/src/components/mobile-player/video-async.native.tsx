@@ -172,20 +172,20 @@ export function NativeVideo(props?: {
   }, [player, playerEvent, setStatus, spurl]);
 
   return (
-      <VideoView
-        ref={videoRef}
-        player={player}
-        allowsFullscreen
-        nativeControls={fullscreen}
-        onFullscreenEnter={() => {
-          setFullscreen(true);
-        }}
-        onFullscreenExit={() => {
-          setFullscreen(false);
-        }}
-        allowsPictureInPicture={props?.pictureInPictureEnabled !== false}
-        onLayout={handleLayout}
-      />
+    <VideoView
+      ref={videoRef}
+      player={player}
+      allowsFullscreen
+      nativeControls={fullscreen}
+      onFullscreenEnter={() => {
+        setFullscreen(true);
+      }}
+      onFullscreenExit={() => {
+        setFullscreen(false);
+      }}
+      allowsPictureInPicture={props?.pictureInPictureEnabled !== false}
+      onLayout={handleLayout}
+    />
   );
 }
 
@@ -281,23 +281,23 @@ export function NativeWHEP(props?: {
   }
 
   return (
-      <RTCView
-        mirror={false}
-        objectFit={props?.objectFit || "contain"}
-        streamURL={mediaStream.toURL()}
-        onLayout={handleLayout}
-        pictureInPictureEnabled={props?.pictureInPictureEnabled !== false}
-        autoStartPictureInPicture={true}
-        pictureInPicturePreferredSize={{
-          width: 160,
-          height: 90,
-        }}
-        style={{
-          minWidth: "100%",
-          minHeight: "100%",
-          flex: 1,
-        }}
-      />
+    <RTCView
+      mirror={false}
+      objectFit={props?.objectFit || "contain"}
+      streamURL={mediaStream.toURL()}
+      onLayout={handleLayout}
+      pictureInPictureEnabled={props?.pictureInPictureEnabled !== false}
+      autoStartPictureInPicture={true}
+      pictureInPicturePreferredSize={{
+        width: 160,
+        height: 90,
+      }}
+      style={{
+        minWidth: "100%",
+        minHeight: "100%",
+        flex: 1,
+      }}
+    />
   );
 }
 

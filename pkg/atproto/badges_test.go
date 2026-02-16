@@ -9,6 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/streamplace"
 )
@@ -51,7 +52,7 @@ func TestAddModBadge(t *testing.T) {
 		err := AddModBadgeIfApplicable(ctx, &msg, streamerDID, issuerDID, mod)
 		require.NoError(t, err)
 		require.Len(t, msg.Badges, 1, "should have 1 badge when user is the streamer")
-		require.Equal(t, "place.stream.badge.defs#streamer", msg.Badges[0].BadgeType)
+		require.Equal(t, constants.BadgeTypeStreamer, msg.Badges[0].BadgeType)
 		require.Equal(t, issuerDID, msg.Badges[0].Issuer)
 		require.Equal(t, streamerDID, msg.Badges[0].Recipient)
 	})
@@ -75,7 +76,7 @@ func TestAddModBadge(t *testing.T) {
 		err = AddModBadgeIfApplicable(ctx, &msg, streamerDID, issuerDID, mod)
 		require.NoError(t, err)
 		require.Len(t, msg.Badges, 1, "should have 1 badge when user is a moderator")
-		require.Equal(t, "place.stream.badges.badge#mod", msg.Badges[0].BadgeType)
+		require.Equal(t, constants.BadgeTypeMod, msg.Badges[0].BadgeType)
 		require.Equal(t, issuerDID, msg.Badges[0].Issuer)
 		require.Equal(t, moderatorDID, msg.Badges[0].Recipient)
 	})
@@ -85,7 +86,7 @@ func TestAddModBadge(t *testing.T) {
 		msg := *message // copy
 		msg.Badges = []*streamplace.BadgeDefs_BadgeView{
 			{
-				BadgeType: "place.stream.badges.badge#vip",
+				BadgeType: constants.BadgeTypeVIP,
 				Issuer:    "did:web:other.com",
 				Recipient: moderatorDID,
 			},
@@ -94,7 +95,7 @@ func TestAddModBadge(t *testing.T) {
 		err = AddModBadgeIfApplicable(ctx, &msg, streamerDID, issuerDID, mod)
 		require.NoError(t, err)
 		require.Len(t, msg.Badges, 2, "should have 2 badges")
-		require.Equal(t, "place.stream.badges.badge#mod", msg.Badges[0].BadgeType, "mod badge should be first")
-		require.Equal(t, "place.stream.badges.badge#vip", msg.Badges[1].BadgeType, "vip badge should be second")
+		require.Equal(t, constants.BadgeTypeMod, msg.Badges[0].BadgeType, "mod badge should be first")
+		require.Equal(t, constants.BadgeTypeVIP, msg.Badges[1].BadgeType, "vip badge should be second")
 	})
 }

@@ -19,6 +19,7 @@ var PLACE_STREAM_LIVE_RECOMMENDATIONS = "place.stream.live.recommendations"   //
 const (
 	BadgeTypeMod      = "place.stream.badge.defs#mod"
 	BadgeTypeStreamer = "place.stream.badge.defs#streamer"
+	BadgeTypeVIP      = "place.stream.badge.defs#vip"
 )
 
 const DID_KEY_PREFIX = "did:key" //nolint:all

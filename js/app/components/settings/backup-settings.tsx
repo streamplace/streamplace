@@ -7,6 +7,7 @@ import {
   MenuLabel,
   MenuSeparator,
   Text,
+  useTheme,
   useToast,
   View,
   zero,
@@ -80,6 +81,7 @@ function buildS3Url(config: S3Config, showPassword: boolean): string {
 
 export function BackupSettings() {
   const { t } = useTranslation(["settings", "common"]);
+  const { theme, zero: z } = useTheme();
   const toast = useToast();
   const agent = usePDSAgent();
   const [enabled, setEnabled] = useState(false);
@@ -165,6 +167,9 @@ export function BackupSettings() {
     if (parsed) {
       if (parsed.secretKey === "[hidden]") {
         parsed.secretKey = config.secretKey;
+      } else {
+        // toggle "show password" on if user manually edits the URL to include the password
+        setShowPassword(true);
       }
       setConfig(parsed);
     }
@@ -271,12 +276,7 @@ export function BackupSettings() {
                       value={fullUrl}
                       onChangeText={handleFullUrlChange}
                       placeholder={buildS3Url(
-                        parseS3Url(
-                          t("backup-connection-url-placeholder", {
-                            context:
-                              "Must be a valid S3 URL in the format s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket",
-                          }),
-                        ) ?? {
+                        parseS3Url(t("backup-connection-url-placeholder")) ?? {
                           endpoint: "s3.us-east-1.example.com",
                           bucket: "my-bucket",
                           accessKey: "ACCESS_KEY",
@@ -286,7 +286,15 @@ export function BackupSettings() {
                       )}
                       autoCapitalize="none"
                       autoCorrect={false}
-                      containerStyle={{ width: "100%" }}
+                      containerStyle={[
+                        {
+                          width: "100%",
+                          backgroundColor: theme.colors.muted,
+                        },
+                        zero.r.md,
+                        zero.borders.width.thin,
+                        z.border.border,
+                      ]}
                     />
                   </View>
                   <MenuSeparator />

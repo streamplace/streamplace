@@ -27,6 +27,7 @@ import {
   w,
 } from "../../lib/theme/atoms";
 import {
+  useAddSystemMessage,
   useChat,
   useCreateChatMessage,
   useLivestream,
@@ -81,6 +82,7 @@ export function ChatBox({
 
   const chat = useChat();
   const createChatMessage = useCreateChatMessage();
+  const addSystemMessage = useAddSystemMessage();
   const replyTo = useReplyToMessage();
   const setReplyToMessage = useSetReplyToMessage();
   const textAreaRef = useRef<TextInput>(null);
@@ -311,7 +313,7 @@ export function ChatBox({
       if (result.handled) {
         if (result.error) {
           console.error("Slash command error:", result.error);
-          SystemMessages.commandError(result.error);
+          addSystemMessage(SystemMessages.commandError(result.error));
         }
         return;
       }

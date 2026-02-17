@@ -155,6 +155,18 @@ export const useDeleteChatMessage = () => {
   };
 };
 
+export const useAddSystemMessage = () => {
+  const store = getStoreFromContext();
+  return useCallback(
+    (message: ChatMessageViewHydrated) => {
+      const state = store.getState();
+      const newState = reduceChat(state, [message], []);
+      store.setState(newState);
+    },
+    [store],
+  );
+};
+
 const buildSortedChatList = (
   chatIndex: { [key: string]: ChatMessageViewHydrated },
   existingChatList: ChatMessageViewHydrated[],

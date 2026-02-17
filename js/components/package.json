@@ -52,7 +52,7 @@
     "intl-pluralrules": "^2.0.1",
     "lucide-react-native": "^0.562.0",
     "react-i18next": "^15.7.3",
-    "react-native": "^0.81.0",
+    "react-native": "npm:react-native-tvos@0.81.5-2",
     "react-native-edge-to-edge": "^1.6.2",
     "react-native-gesture-handler": "^2.20.0",
     "react-native-reanimated": "~4.1.6",

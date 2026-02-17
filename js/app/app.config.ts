@@ -194,6 +194,7 @@ export default function () {
         favicon: "./assets/images/favicon.png",
       },
       plugins: [
+        "@react-native-tvos/config-tv",
         withAndroidProfileable,
         "expo-video",
         "expo-web-browser",

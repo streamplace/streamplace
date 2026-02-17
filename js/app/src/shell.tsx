@@ -30,7 +30,7 @@ import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Platform, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import "src/navigation-types";
@@ -303,7 +303,7 @@ export default function Shell() {
   const closePdsModal = useStore((state) => state.closePdsModal);
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
-  const [livePopup, setLivePopup] = useState(false);
+  const livePopupShown = useRef(false);
   const z = useTheme();
 
   const toast = useToast();
@@ -363,12 +363,19 @@ export default function Shell() {
     return unsubscribe;
   }, [navigation]);
 
-  const isLiveDashboard = currentRouteName === "LiveDashboard";
+  const noLivePopupRoutes =
+    currentRouteName === "LiveDashboard" ||
+    currentRouteName === "GoLiveTab" ||
+    currentRouteName === "MobileGoLive";
 
-  // Show "You are live!" toast
+  // Show "You are live!" toast once per live session
   useEffect(() => {
-    if (!isLiveDashboard && userIsLive && !livePopup) {
-      setLivePopup(true);
+    if (!userIsLive) {
+      livePopupShown.current = false;
+      return;
+    }
+    if (!noLivePopupRoutes && !livePopupShown.current) {
+      livePopupShown.current = true;
       toast.show("You are live!", "Do you want to go to your Live Dashboard?", {
         actionLabel: "Go",
         onAction: () => {
@@ -376,14 +383,12 @@ export default function Shell() {
             screen: "HomeTab",
             params: { screen: "LiveDashboard" },
           });
-          setLivePopup(false);
         },
-        onClose: () => setLivePopup(false),
         variant: "error",
         duration: 8,
       });
     }
-  }, [userIsLive, isLiveDashboard, livePopup]);
+  }, [userIsLive, noLivePopupRoutes]);
 
   // Animate content margin when sidebar is active (web only)
   const animatedContentStyle = useAnimatedStyle(() => {

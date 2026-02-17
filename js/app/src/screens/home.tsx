@@ -7,8 +7,10 @@ import LiveDot from "components/home/live-dot";
 import Loading from "components/loading/loading";
 import Title from "components/title";
 import useAvatars from "hooks/useAvatars";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
+  Easing,
   Image,
   Platform,
   RefreshControl,
@@ -128,6 +130,75 @@ function HomeScreenItem({
   );
 }
 
+function CustomRefreshIndicator({
+  refreshing,
+  top,
+}: {
+  refreshing: boolean;
+  top: number;
+}) {
+  const rotation = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (refreshing) {
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+      Animated.loop(
+        Animated.timing(rotation, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      ).start();
+    } else {
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        rotation.setValue(0);
+      });
+    }
+  }, [refreshing]);
+
+  const spin = rotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top,
+        left: 0,
+        right: 0,
+        alignItems: "center",
+        zIndex: 100,
+        opacity,
+      }}
+    >
+      <Animated.View
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          borderWidth: 2.5,
+          borderColor: "rgba(255,255,255,0.15)",
+          borderTopColor: "rgba(255,255,255,0.85)",
+          transform: [{ rotate: spin }],
+        }}
+      />
+    </Animated.View>
+  );
+}
+
 function PlaceholderItem() {
   return (
     <View style={[{ flex: 1 }, { opacity: 0, pointerEvents: "none" }]}>
@@ -224,8 +295,13 @@ export default function HomeScreen({
     rows.push(row);
   }
 
+  const indicatorTop = safeAreaInsets.top + 56;
+
   return (
-    <>
+    <View style={{ flex: 1, position: "relative" }}>
+      {Platform.OS !== "web" && (
+        <CustomRefreshIndicator refreshing={manualRefresh} top={indicatorTop} />
+      )}
       {liveUsersError && (
         <View>
           <Container
@@ -269,6 +345,8 @@ export default function HomeScreen({
               refreshLiveUsers();
               setManualRefresh(true);
             }}
+            tintColor="transparent"
+            colors={["transparent"]}
           />
         }
       >
@@ -401,6 +479,6 @@ export default function HomeScreen({
           }}
         />
       </ScrollView>
-    </>
+    </View>
   );
 }

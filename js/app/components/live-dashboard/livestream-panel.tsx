@@ -225,7 +225,6 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const [createPost, setCreatePost] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
   const [canonicalUrl, setCanonicalUrl] = useState<string>("");
-  const [updateBskyProfile, setUpdateBskyProfile] = useState(true);
   const defaultCanonicalUrl = useMemo(() => {
     return `${url}/${profile && formatHandle(profile)}`;
   }, [url, profile?.handle]);
@@ -258,14 +257,6 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
       );
     }
 
-    if (
-      typeof livestream.record.integrationSettings?.updateBskyProfile ===
-      "boolean"
-    ) {
-      setUpdateBskyProfile(
-        livestream.record.integrationSettings.updateBskyProfile,
-      );
-    }
     setCreatePost(typeof livestream.record.post !== "undefined");
   }, [livestream, defaultCanonicalUrl]);
 
@@ -303,9 +294,6 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
           submitPost: createPost,
           notificationSettings: {
             pushNotification: sendPushNotification,
-          },
-          integrationSettings: {
-            updateBskyProfile: updateBskyProfile,
           },
           canonicalUrl: canonicalUrl || undefined,
         });
@@ -637,18 +625,6 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                       setSendPushNotification(checked)
                     }
                     label={"Send push notification"}
-                    style={[{ fontSize: 12 }]}
-                  />
-                </Tooltip>
-
-                <Tooltip
-                  content="Update your Bluesky profile picture & pinned post to show that you're live."
-                  position="top"
-                >
-                  <Checkbox
-                    checked={updateBskyProfile}
-                    onCheckedChange={(checked) => setUpdateBskyProfile(checked)}
-                    label={"Update Bluesky avatar"}
                     style={[{ fontSize: 12 }]}
                   />
                 </Tooltip>

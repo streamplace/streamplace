@@ -52,6 +52,22 @@ func (m *DBModel) CreateLivestream(ctx context.Context, ls *Livestream) error {
 	}).Create(ls).Error
 }
 
+func (m *DBModel) GetLivestream(uri string) (*Livestream, error) {
+	var livestream Livestream
+	err := m.DB.
+		Preload("Repo").
+		Preload("Post").
+		Where("uri = ?", uri).
+		First(&livestream).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving livestream by uri: %w", err)
+	}
+	return &livestream, nil
+}
+
 // GetLatestLivestreamForRepo returns the most recent livestream for a given repo DID
 func (m *DBModel) GetLatestLivestreamForRepo(repoDID string) (*Livestream, error) {
 	var livestream Livestream

@@ -134,14 +134,12 @@ export function useCreateStreamRecord() {
     submitPost,
     canonicalUrl,
     notificationSettings,
-    integrationSettings,
   }: {
     title: string;
     customThumbnail?: Blob;
     submitPost?: boolean;
     canonicalUrl?: string;
     notificationSettings?: PlaceStreamLivestream.NotificationSettings;
-    integrationSettings?: PlaceStreamLivestream.IntegrationSettings;
   }) => {
     if (typeof submitPost !== "boolean") {
       submitPost = true;
@@ -270,10 +268,6 @@ export function useCreateStreamRecord() {
 
     if (notificationSettings) {
       record.notificationSettings = notificationSettings;
-    }
-
-    if (integrationSettings) {
-      record.integrationSettings = integrationSettings;
     }
 
     await agent.com.atproto.repo.createRecord({

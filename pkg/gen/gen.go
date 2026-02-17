@@ -15,7 +15,6 @@ func main() {
 		streamplace.Key{},
 		streamplace.Livestream{},
 		streamplace.Livestream_NotificationSettings{},
-		streamplace.Livestream_IntegrationSettings{},
 		streamplace.Segment{},
 		streamplace.Segment_Audio{},
 		streamplace.Segment_Video{},

@@ -9,17 +9,16 @@ import (
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/redcircle"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
 var TaskNotification = "notification"
 var TaskChat = "chat"
-var TaskAddRedCircle = "add_red_circle"
-var TaskRemoveRedCircle = "remove_red_circle"
+var TaskFinalizeLivestream = "finalize_livestream"
 
 type NotificationTask struct {
 	Livestream  *streamplace.Livestream_LivestreamView
@@ -32,12 +31,8 @@ type ChatTask struct {
 	MessageView *streamplace.ChatDefs_MessageView
 }
 
-type AddRedCircleTask struct {
-	UserDID string
-}
-
-type RemoveRedCircleTask struct {
-	UserDID string
+type FinalizeLivestreamTask struct {
+	LivestreamURI string `json:"livestreamURI"`
 }
 
 func (state *StatefulDB) ProcessQueue(ctx context.Context) error {
@@ -71,57 +66,26 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 		return state.processNotificationTask(ctx, task)
 	case TaskChat:
 		return state.processChatMessageTask(ctx, task)
-	case TaskAddRedCircle:
-		return state.processAddRedCircleTask(ctx, task)
-	case TaskRemoveRedCircle:
-		return state.processRemoveRedCircleTask(ctx, task)
+	case TaskFinalizeLivestream:
+		return state.processFinalizeLivestreamTask(ctx, task)
 	default:
 		return fmt.Errorf("unknown task type: %s", task.Type)
 	}
 }
 
-func (state *StatefulDB) processAddRedCircleTask(ctx context.Context, task *AppTask) error {
-	var addRedCircleTask AddRedCircleTask
-	if err := json.Unmarshal(task.Payload, &addRedCircleTask); err != nil {
+func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task *AppTask) error {
+	var finalizeLivestreamTask FinalizeLivestreamTask
+	if err := json.Unmarshal(task.Payload, &finalizeLivestreamTask); err != nil {
 		return err
 	}
-	repoDID := addRedCircleTask.UserDID
-	session, err := state.GetSessionByDID(repoDID)
-	if err != nil {
-		return fmt.Errorf("failed to get session: %w", err)
-	}
-	if session == nil {
-		return fmt.Errorf("no session found for repoDID: %s", repoDID)
-	}
-	session, err = state.OATProxy.RefreshIfNeeded(session)
-	if err != nil {
-		return fmt.Errorf("failed to refresh session: %w", err)
-	}
-	client, err := state.OATProxy.GetXrpcClient(session)
-	if err != nil {
-		return fmt.Errorf("failed to get xrpc client: %w", err)
-	}
-	err = redcircle.UpdateProfilePicture(ctx, repoDID, client, state.model)
-	if err != nil {
-		return fmt.Errorf("failed to update profile picture: %w", err)
-	}
-	return nil
-}
-
-func (state *StatefulDB) processRemoveRedCircleTask(ctx context.Context, task *AppTask) error {
-	var removeRedCircleTask RemoveRedCircleTask
-	if err := json.Unmarshal(task.Payload, &removeRedCircleTask); err != nil {
-		return err
-	}
-	userDID := removeRedCircleTask.UserDID
-	lastLivestream, err := state.model.GetLatestLivestreamForRepo(userDID)
+	livestream, err := state.model.GetLivestream(finalizeLivestreamTask.LivestreamURI)
 	if err != nil {
 		return fmt.Errorf("failed to get latest livestream for userDID: %w", err)
 	}
-	if lastLivestream == nil {
-		return fmt.Errorf("no livestream found for userDID: %s", userDID)
+	if livestream == nil {
+		return fmt.Errorf("no livestream found for URI: %s", finalizeLivestreamTask.LivestreamURI)
 	}
-	lastLivestreamView, err := lastLivestream.ToLivestreamView()
+	lastLivestreamView, err := livestream.ToLivestreamView()
 	if err != nil {
 		return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
 	}
@@ -136,11 +100,11 @@ func (state *StatefulDB) processRemoveRedCircleTask(ctx context.Context, task *A
 	if err != nil {
 		return fmt.Errorf("could not parse last seen at: %w", err)
 	}
-	if time.Since(lastSeenTime) < 60*time.Second {
+	if time.Since(lastSeenTime) < constants.LivestreamConsideredInactiveAfter {
 		log.Warn(ctx, "livestream is active, skipping removal of red circle", "lastSeenAt", lastSeenTime)
 		return nil
 	}
-	session, err := state.GetSessionByDID(userDID)
+	session, err := state.GetSessionByDID(livestream.RepoDID)
 	if err != nil {
 		return fmt.Errorf("failed to get session: %w", err)
 	}
@@ -148,14 +112,11 @@ func (state *StatefulDB) processRemoveRedCircleTask(ctx context.Context, task *A
 	if err != nil {
 		return fmt.Errorf("failed to refresh session: %w", err)
 	}
-	client, err := state.OATProxy.GetXrpcClient(session)
+	_, err = state.OATProxy.GetXrpcClient(session)
 	if err != nil {
 		return fmt.Errorf("failed to get xrpc client: %w", err)
 	}
-	err = redcircle.RestoreProfilePicture(ctx, userDID, client, state.model)
-	if err != nil {
-		return fmt.Errorf("failed to restore profile picture: %w", err)
-	}
+	log.Warn(ctx, "livestream is inactive, finalizing", "uri", livestream.URI, "lastSeenAt", lastSeenTime)
 	return nil
 }
 

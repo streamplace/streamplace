@@ -368,28 +368,17 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		go atsync.Bus.Publish(userDID, lsv)
 
 		if !isFirstSync {
-			if !isUpdate {
-				if rec.IntegrationSettings != nil && rec.IntegrationSettings.UpdateBskyProfile != nil && *rec.IntegrationSettings.UpdateBskyProfile {
-					task := &statedb.AddRedCircleTask{
-						UserDID: userDID,
-					}
-					_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskAddRedCircle, task, statedb.WithTaskKey(fmt.Sprintf("add-red-circle::%s", aturi.String())))
-					if err != nil {
-						return fmt.Errorf("failed to enqueue add red circle task: %w", err)
-					}
-				}
-			}
 			// queue a task to clean up the livestream if it's been inactive for too long
-			task := &statedb.RemoveRedCircleTask{
-				UserDID: userDID,
+			task := &statedb.FinalizeLivestreamTask{
+				LivestreamURI: aturi.String(),
 			}
 			if rec.LastSeenAt != nil {
 				scheduledAt, err := time.Parse(time.RFC3339, *rec.LastSeenAt)
 				if err == nil {
-					scheduledAt = scheduledAt.Add(90 * time.Second).UTC()
-					taskKey := fmt.Sprintf("remove-red-circle::%s::%s", aturi.String(), scheduledAt.Format(util.ISO8601))
+					scheduledAt = scheduledAt.Add(constants.LivestreamInactiveCheckInterval).UTC()
+					taskKey := fmt.Sprintf("finalize-livestream::%s::%s", aturi.String(), scheduledAt.Format(util.ISO8601))
 					log.Warn(ctx, "queueing remove red circle task", "taskKey", taskKey, "scheduledAt", scheduledAt)
-					_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskRemoveRedCircle, task, statedb.WithTaskKey(taskKey), statedb.WithScheduledAt(scheduledAt))
+					_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskFinalizeLivestream, task, statedb.WithTaskKey(taskKey), statedb.WithScheduledAt(scheduledAt))
 					if err != nil {
 						return fmt.Errorf("failed to enqueue remove red circle task: %w", err)
 					}

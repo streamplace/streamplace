@@ -53,10 +53,6 @@
           "notificationSettings": {
             "type": "ref",
             "ref": "place.stream.livestream#notificationSettings"
-          },
-          "integrationSettings": {
-            "type": "ref",
-            "ref": "place.stream.livestream#integrationSettings"
           }
         }
       }
@@ -68,16 +64,6 @@
         "pushNotification": {
           "type": "boolean",
           "description": "Whether this livestream should trigger a push notification to followers."
-        }
-      }
-    },
-    "integrationSettings": {
-      "type": "object",
-      "required": [],
-      "properties": {
-        "updateBskyProfile": {
-          "type": "boolean",
-          "description": "Whether this livestream should update the Bluesky profile picture & pinned post."
         }
       }
     },

@@ -30,7 +30,6 @@ Record announcing a livestream is happening
 | `canonicalUrl`         | `string`                                                                                                                               | ❌    | The primary URL where this livestream can be viewed, if available.                                                                       | Format: `uri`                                 |
 | `thumb`                | `blob`                                                                                                                                 | ❌    |                                                                                                                                          | Accept: `image/*`<br/>Max Size: 1000000 bytes |
 | `notificationSettings` | [`place.stream.livestream#notificationSettings`](/lex-reference/place-stream-livestream#notificationsettings)                          | ❌    |                                                                                                                                          |                                               |
-| `integrationSettings`  | [`place.stream.livestream#integrationSettings`](/lex-reference/place-stream-livestream#integrationsettings)                            | ❌    |                                                                                                                                          |                                               |
 
 ---
 
@@ -45,20 +44,6 @@ Record announcing a livestream is happening
 | Name               | Type      | Req'd | Description                                                              | Constraints |
 | ------------------ | --------- | ----- | ------------------------------------------------------------------------ | ----------- |
 | `pushNotification` | `boolean` | ❌    | Whether this livestream should trigger a push notification to followers. |             |
-
----
-
-<a name="integrationsettings"></a>
-
-### `integrationSettings`
-
-**Type:** `object`
-
-**Properties:**
-
-| Name                | Type      | Req'd | Description                                                                      | Constraints |
-| ------------------- | --------- | ----- | -------------------------------------------------------------------------------- | ----------- |
-| `updateBskyProfile` | `boolean` | ❌    | Whether this livestream should update the Bluesky profile picture & pinned post. |             |
 
 ---
 
@@ -200,10 +185,6 @@ Record announcing a livestream is happening
           "notificationSettings": {
             "type": "ref",
             "ref": "place.stream.livestream#notificationSettings"
-          },
-          "integrationSettings": {
-            "type": "ref",
-            "ref": "place.stream.livestream#integrationSettings"
           }
         }
       }
@@ -215,16 +196,6 @@ Record announcing a livestream is happening
         "pushNotification": {
           "type": "boolean",
           "description": "Whether this livestream should trigger a push notification to followers."
-        }
-      }
-    },
-    "integrationSettings": {
-      "type": "object",
-      "required": [],
-      "properties": {
-        "updateBskyProfile": {
-          "type": "boolean",
-          "description": "Whether this livestream should update the Bluesky profile picture & pinned post."
         }
       }
     },

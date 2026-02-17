@@ -250,17 +250,13 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 11
+	fieldCount := 10
 
 	if t.Agent == nil {
 		fieldCount--
 	}
 
 	if t.CanonicalUrl == nil {
-		fieldCount--
-	}
-
-	if t.IntegrationSettings == nil {
 		fieldCount--
 	}
 
@@ -519,25 +515,6 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.IntegrationSettings (streamplace.Livestream_IntegrationSettings) (struct)
-	if t.IntegrationSettings != nil {
-
-		if len("integrationSettings") > 1000000 {
-			return xerrors.Errorf("Value in field \"integrationSettings\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("integrationSettings"))); err != nil {
-			return err
-		}
-		if _, err := cw.WriteString(string("integrationSettings")); err != nil {
-			return err
-		}
-
-		if err := t.IntegrationSettings.MarshalCBOR(cw); err != nil {
-			return err
-		}
-	}
-
 	// t.NotificationSettings (streamplace.Livestream_NotificationSettings) (struct)
 	if t.NotificationSettings != nil {
 
@@ -757,26 +734,6 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 					t.CanonicalUrl = (*string)(&sval)
 				}
 			}
-			// t.IntegrationSettings (streamplace.Livestream_IntegrationSettings) (struct)
-		case "integrationSettings":
-
-			{
-
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-					t.IntegrationSettings = new(Livestream_IntegrationSettings)
-					if err := t.IntegrationSettings.UnmarshalCBOR(cr); err != nil {
-						return xerrors.Errorf("unmarshaling t.IntegrationSettings pointer: %w", err)
-					}
-				}
-
-			}
 			// t.NotificationSettings (streamplace.Livestream_NotificationSettings) (struct)
 		case "notificationSettings":
 
@@ -924,135 +881,6 @@ func (t *Livestream_NotificationSettings) UnmarshalCBOR(r io.Reader) (err error)
 						return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 					}
 					t.PushNotification = &val
-				}
-			}
-
-		default:
-			// Field doesn't exist on this type, so ignore it
-			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-func (t *Livestream_IntegrationSettings) MarshalCBOR(w io.Writer) error {
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
-
-	cw := cbg.NewCborWriter(w)
-	fieldCount := 1
-
-	if t.UpdateBskyProfile == nil {
-		fieldCount--
-	}
-
-	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
-		return err
-	}
-
-	// t.UpdateBskyProfile (bool) (bool)
-	if t.UpdateBskyProfile != nil {
-
-		if len("updateBskyProfile") > 1000000 {
-			return xerrors.Errorf("Value in field \"updateBskyProfile\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("updateBskyProfile"))); err != nil {
-			return err
-		}
-		if _, err := cw.WriteString(string("updateBskyProfile")); err != nil {
-			return err
-		}
-
-		if t.UpdateBskyProfile == nil {
-			if _, err := cw.Write(cbg.CborNull); err != nil {
-				return err
-			}
-		} else {
-			if err := cbg.WriteBool(w, *t.UpdateBskyProfile); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (t *Livestream_IntegrationSettings) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = Livestream_IntegrationSettings{}
-
-	cr := cbg.NewCborReader(r)
-
-	maj, extra, err := cr.ReadHeader()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err == io.EOF {
-			err = io.ErrUnexpectedEOF
-		}
-	}()
-
-	if maj != cbg.MajMap {
-		return fmt.Errorf("cbor input should be of type map")
-	}
-
-	if extra > cbg.MaxLength {
-		return fmt.Errorf("Livestream_IntegrationSettings: map struct too large (%d)", extra)
-	}
-
-	n := extra
-
-	nameBuf := make([]byte, 17)
-	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
-		if err != nil {
-			return err
-		}
-
-		if !ok {
-			// Field doesn't exist on this type, so ignore it
-			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
-				return err
-			}
-			continue
-		}
-
-		switch string(nameBuf[:nameLen]) {
-		// t.UpdateBskyProfile (bool) (bool)
-		case "updateBskyProfile":
-
-			{
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-
-					maj, extra, err = cr.ReadHeader()
-					if err != nil {
-						return err
-					}
-					if maj != cbg.MajOther {
-						return fmt.Errorf("booleans must be major type 7")
-					}
-
-					var val bool
-					switch extra {
-					case 20:
-						val = false
-					case 21:
-						val = true
-					default:
-						return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
-					}
-					t.UpdateBskyProfile = &val
 				}
 			}
 

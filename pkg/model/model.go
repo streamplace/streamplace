@@ -57,6 +57,7 @@ type Model interface {
 	GetReplies(repoDID string) ([]*bsky.FeedDefs_PostView, error)
 
 	CreateLivestream(ctx context.Context, ls *Livestream) error
+	GetLivestream(uri string) (*Livestream, error)
 	GetLatestLivestreamForRepo(repoDID string) (*Livestream, error)
 	GetLivestreamByPostURI(postURI string) (*Livestream, error)
 	GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]Livestream, error)

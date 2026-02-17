@@ -110,7 +110,7 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 				})
 			}
 		} else {
-			log.Warn(ctx, "ManifestBuilder: no metadata configuration found for streamer", "did", streamerName)
+			log.Debug(ctx, "ManifestBuilder: no metadata configuration found for streamer", "did", streamerName)
 		}
 	}
 

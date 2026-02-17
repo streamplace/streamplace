@@ -55,6 +55,7 @@ function RefreshIndicator({
         rotation.setValue(0);
         fadeOut.setValue(1);
         Animated.sequence([
+          Animated.delay(300),
           Animated.timing(checkOpacity, {
             toValue: 1,
             duration: 300,

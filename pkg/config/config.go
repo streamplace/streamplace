@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +25,7 @@ import (
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
 	"github.com/lmittmann/tint"
 	slogGorm "github.com/orandin/slog-gorm"
-	"github.com/peterbourgon/ff/v3"
+	urfavecli "github.com/urfave/cli/v3"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/aqpub"
@@ -160,109 +161,711 @@ const (
 	ReplicatorIroh      string = "iroh"
 )
 
-func (cli *CLI) NewFlagSet(name string) *flag.FlagSet {
-	fs := flag.NewFlagSet("streamplace", flag.ExitOnError)
-	fs.StringVar(&cli.DataDir, "data-dir", DefaultDataDir(), "directory for keeping all streamplace data")
-	fs.StringVar(&cli.HTTPAddr, "http-addr", ":38080", "Public HTTP address")
-	fs.StringVar(&cli.HTTPInternalAddr, "http-internal-addr", "127.0.0.1:39090", "Private, admin-only HTTP address")
-	fs.StringVar(&cli.HTTPSAddr, "https-addr", ":38443", "Public HTTPS address")
-	fs.BoolVar(&cli.Secure, "secure", false, "Run with HTTPS. Required for WebRTC output")
-	cli.DataDirFlag(fs, &cli.TLSCertPath, "tls-cert", filepath.Join("tls", "tls.crt"), "Path to TLS certificate")
-	cli.DataDirFlag(fs, &cli.TLSKeyPath, "tls-key", filepath.Join("tls", "tls.key"), "Path to TLS key")
-	fs.StringVar(&cli.SigningKeyPath, "signing-key", "", "Path to signing key for pushing OTA updates to the app")
-	fs.StringVar(&cli.DBURL, "db-url", "sqlite://$SP_DATA_DIR/state.sqlite", "URL of the database to use for storing private streamplace state")
+var LivepeerFlagSet *flag.FlagSet
+var LivepeerConfig starter.LivepeerConfig
+
+func (cli *CLI) NewCommand(name string) *urfavecli.Command {
+	cmd := &urfavecli.Command{
+		Name:  name,
+		Usage: "streamplace server",
+		Flags: []urfavecli.Flag{
+			&urfavecli.StringFlag{
+				Name:        "data-dir",
+				Usage:       "directory for keeping all streamplace data",
+				Value:       DefaultDataDir(),
+				Destination: &cli.DataDir,
+				Sources:     urfavecli.EnvVars("SP_DATA_DIR"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "http-addr",
+				Usage:       "Public HTTP address",
+				Value:       ":38080",
+				Destination: &cli.HTTPAddr,
+				Sources:     urfavecli.EnvVars("SP_HTTP_ADDR"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "http-internal-addr",
+				Usage:       "Private, admin-only HTTP address",
+				Value:       "127.0.0.1:39090",
+				Destination: &cli.HTTPInternalAddr,
+				Sources:     urfavecli.EnvVars("SP_HTTP_INTERNAL_ADDR"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "https-addr",
+				Usage:       "Public HTTPS address",
+				Value:       ":38443",
+				Destination: &cli.HTTPSAddr,
+				Sources:     urfavecli.EnvVars("SP_HTTPS_ADDR"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "secure",
+				Usage:       "Run with HTTPS. Required for WebRTC output",
+				Value:       false,
+				Destination: &cli.Secure,
+				Sources:     urfavecli.EnvVars("SP_SECURE"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "tls-cert",
+				Usage:       fmt.Sprintf(`Path to TLS certificate (default: "%s")`, filepath.Join(SPDataDir, "tls", "tls.crt")),
+				Destination: &cli.TLSCertPath,
+				Value:       filepath.Join(SPDataDir, "tls", "tls.crt"),
+				Sources:     urfavecli.EnvVars("SP_TLS_CERT"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "tls-key",
+				Usage:       fmt.Sprintf(`Path to TLS key (default: "%s")`, filepath.Join(SPDataDir, "tls", "tls.key")),
+				Destination: &cli.TLSKeyPath,
+				Value:       filepath.Join(SPDataDir, "tls", "tls.key"),
+				Sources:     urfavecli.EnvVars("SP_TLS_KEY"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "signing-key",
+				Usage:       "Path to signing key for pushing OTA updates to the app",
+				Destination: &cli.SigningKeyPath,
+				Sources:     urfavecli.EnvVars("SP_SIGNING_KEY"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "db-url",
+				Usage:       "URL of the database to use for storing private streamplace state",
+				Value:       "sqlite://$SP_DATA_DIR/state.sqlite",
+				Destination: &cli.DBURL,
+				Sources:     urfavecli.EnvVars("SP_DB_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "admin-account",
+				Usage:       "ethereum account that administrates this streamplace node",
+				Destination: &cli.AdminAccount,
+				Sources:     urfavecli.EnvVars("SP_ADMIN_ACCOUNT"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "firebase-service-account",
+				Usage:       "Base64-encoded JSON string of a firebase service account key",
+				Destination: &cli.FirebaseServiceAccount,
+				Sources:     urfavecli.EnvVars("SP_FIREBASE_SERVICE_ACCOUNT"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "firebase-service-account-file",
+				Usage:       "Path to a JSON file containing a firebase service account key",
+				Destination: &cli.FirebaseServiceAccountFile,
+				Sources:     urfavecli.EnvVars("SP_FIREBASE_SERVICE_ACCOUNT_FILE"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "gitlab-url",
+				Usage:       "gitlab url for generating download links",
+				Value:       "https://git.stream.place/api/v4/projects/1",
+				Destination: &cli.GitLabURL,
+				Sources:     urfavecli.EnvVars("SP_GITLAB_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "eth-keystore-path",
+				Usage:       fmt.Sprintf(`path to ethereum keystore (default: "%s")`, filepath.Join(SPDataDir, "keystore")),
+				Destination: &cli.EthKeystorePath,
+				Value:       filepath.Join(SPDataDir, "keystore"),
+				Sources:     urfavecli.EnvVars("SP_ETH_KEYSTORE_PATH"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "eth-account-addr",
+				Usage:       "ethereum account address to use (if keystore contains more than one)",
+				Destination: &cli.EthAccountAddr,
+				Sources:     urfavecli.EnvVars("SP_ETH_ACCOUNT_ADDR"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "eth-password",
+				Usage:       "password for encrypting keystore",
+				Destination: &cli.EthPassword,
+				Sources:     urfavecli.EnvVars("SP_ETH_PASSWORD"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "ta-url",
+				Usage:       "timestamp authority server for signing",
+				Value:       "http://timestamp.digicert.com",
+				Destination: &cli.TAURL,
+				Sources:     urfavecli.EnvVars("SP_TA_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "pkcs11-module-path",
+				Usage:       "path to a PKCS11 module for HSM signing, for example /usr/lib/x86_64-linux-gnu/opensc-pkcs11.so",
+				Destination: &cli.PKCS11ModulePath,
+				Sources:     urfavecli.EnvVars("SP_PKCS11_MODULE_PATH"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "pkcs11-pin",
+				Usage:       "PIN for logging into PKCS11 token. if not provided, will be prompted interactively",
+				Destination: &cli.PKCS11Pin,
+				Sources:     urfavecli.EnvVars("SP_PKCS11_PIN"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "pkcs11-token-slot",
+				Usage:       "slot number of PKCS11 token (only use one of slot, label, or serial)",
+				Destination: &cli.PKCS11TokenSlot,
+				Sources:     urfavecli.EnvVars("SP_PKCS11_TOKEN_SLOT"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "pkcs11-token-label",
+				Usage:       "label of PKCS11 token (only use one of slot, label, or serial)",
+				Destination: &cli.PKCS11TokenLabel,
+				Sources:     urfavecli.EnvVars("SP_PKCS11_TOKEN_LABEL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "pkcs11-token-serial",
+				Usage:       "serial number of PKCS11 token (only use one of slot, label, or serial)",
+				Destination: &cli.PKCS11TokenSerial,
+				Sources:     urfavecli.EnvVars("SP_PKCS11_TOKEN_SERIAL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "pkcs11-keypair-label",
+				Usage:       "label of signing keypair on PKCS11 token",
+				Destination: &cli.PKCS11KeypairLabel,
+				Sources:     urfavecli.EnvVars("SP_PKCS11_KEYPAIR_LABEL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "pkcs11-keypair-id",
+				Usage:       "id of signing keypair on PKCS11 token",
+				Destination: &cli.PKCS11KeypairID,
+				Sources:     urfavecli.EnvVars("SP_PKCS11_KEYPAIR_ID"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "app-bundle-id",
+				Usage:       "bundle id of an app that we facilitate oauth login for",
+				Destination: &cli.AppBundleID,
+				Sources:     urfavecli.EnvVars("SP_APP_BUNDLE_ID"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "streamer-name",
+				Usage:       "name of the person streaming from this streamplace node",
+				Destination: &cli.StreamerName,
+				Sources:     urfavecli.EnvVars("SP_STREAMER_NAME"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "dev-frontend-proxy",
+				Usage:       "(FOR DEVELOPMENT ONLY) proxy frontend requests to this address instead of using the bundled frontend",
+				Destination: &cli.FrontendProxy,
+				Sources:     urfavecli.EnvVars("SP_DEV_FRONTEND_PROXY"),
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "false" {
+						cli.FrontendProxy = ""
+						return nil
+					}
+					cli.FrontendProxy = s
+					return nil
+				},
+			},
+			&urfavecli.BoolFlag{
+				Name:        "dev-public-oauth",
+				Usage:       "(FOR DEVELOPMENT ONLY) enable public oauth login for http://127.0.0.1 development",
+				Value:       false,
+				Destination: &cli.PublicOAuth,
+				Sources:     urfavecli.EnvVars("SP_DEV_PUBLIC_OAUTH"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "livepeer-gateway-url",
+				Usage:       "URL of the Livepeer Gateway to use for transcoding",
+				Destination: &cli.LivepeerGatewayURL,
+				Sources:     urfavecli.EnvVars("SP_LIVEPEER_GATEWAY_URL"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "livepeer-gateway",
+				Usage:       "enable embedded Livepeer Gateway",
+				Value:       false,
+				Destination: &cli.LivepeerGateway,
+				Sources:     urfavecli.EnvVars("SP_LIVEPEER_GATEWAY"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "wide-open",
+				Usage:       "allow ALL streams to be uploaded to this node (not recommended for production)",
+				Value:       false,
+				Destination: &cli.WideOpen,
+				Sources:     urfavecli.EnvVars("SP_WIDE_OPEN"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "allowed-streams",
+				Usage: `if set, only allow these addresses or atproto DIDs to upload to this node (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.AllowedStreams = strings.Split(s, ",")
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_ALLOWED_STREAMS"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "peers",
+				Usage: `other streamplace nodes to replicate to (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.Peers = strings.Split(s, ",")
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_PEERS"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "redirects",
+				Usage: `http 302s /path/one:/path/two,/path/three:/path/four (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.Redirects = strings.Split(s, ",")
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_REDIRECTS"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "debug",
+				Usage: "modified log verbosity for specific functions or files in form func=ToHLS:3,file=gstreamer.go:4",
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.Debug = map[string]map[string]int{}
+					pairs := strings.SplitSeq(s, ",")
+					for pair := range pairs {
+						scoreSplit := strings.Split(pair, ":")
+						if len(scoreSplit) != 2 {
+							return fmt.Errorf("invalid debug flag: %s", pair)
+						}
+						score, err := strconv.Atoi(scoreSplit[1])
+						if err != nil {
+							return fmt.Errorf("invalid debug flag: %s", pair)
+						}
+						selectorSplit := strings.Split(scoreSplit[0], "=")
+						if len(selectorSplit) != 2 {
+							return fmt.Errorf("invalid debug flag: %s", pair)
+						}
+						_, ok := cli.Debug[selectorSplit[0]]
+						if !ok {
+							cli.Debug[selectorSplit[0]] = map[string]int{}
+						}
+						cli.Debug[selectorSplit[0]][selectorSplit[1]] = score
+					}
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_DEBUG"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "test-stream",
+				Usage:       "run a built-in test stream on boot",
+				Value:       false,
+				Destination: &cli.TestStream,
+				Sources:     urfavecli.EnvVars("SP_TEST_STREAM"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "no-firehose",
+				Usage:       "disable the bluesky firehose",
+				Value:       false,
+				Destination: &cli.NoFirehose,
+				Sources:     urfavecli.EnvVars("SP_NO_FIREHOSE"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "print-chat",
+				Usage:       "print chat messages to stdout",
+				Value:       false,
+				Destination: &cli.PrintChat,
+				Sources:     urfavecli.EnvVars("SP_PRINT_CHAT"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "whip-test",
+				Usage:       "run a WHIP self-test with the given parameters",
+				Destination: &cli.WHIPTest,
+				Sources:     urfavecli.EnvVars("SP_WHIP_TEST"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "relay-host",
+				Usage:       "websocket url for relay firehose",
+				Value:       "wss://bsky.network",
+				Destination: &cli.RelayHost,
+				Sources:     urfavecli.EnvVars("SP_RELAY_HOST"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "color",
+				Usage:       "'true' to enable colorized logging, 'false' to disable",
+				Destination: &cli.Color,
+				Sources:     urfavecli.EnvVars("SP_COLOR"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "broadcaster-host",
+				Usage:       "public host for the broadcaster group that this node is a part of (excluding https:// e.g. stream.place)",
+				Destination: &cli.BroadcasterHost,
+				Sources:     urfavecli.EnvVars("SP_BROADCASTER_HOST"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "public-host",
+				Usage:       "deprecated, use broadcaster-host or server-host instead as appropriate",
+				Destination: &cli.XXDeprecatedPublicHost,
+				Sources:     urfavecli.EnvVars("SP_PUBLIC_HOST"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "server-host",
+				Usage:       "public host for this particular physical streamplace node. defaults to broadcaster-host and only must be set for multi-node broadcasters",
+				Destination: &cli.ServerHost,
+				Sources:     urfavecli.EnvVars("SP_SERVER_HOST"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "thumbnail",
+				Usage:       "enable thumbnail generation",
+				Value:       true,
+				Destination: &cli.Thumbnail,
+				Sources:     urfavecli.EnvVars("SP_THUMBNAIL"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "smear-audio",
+				Usage:       "enable audio smearing to create 'perfect' segment timestamps",
+				Value:       false,
+				Destination: &cli.SmearAudio,
+				Sources:     urfavecli.EnvVars("SP_SMEAR_AUDIO"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "tracing-endpoint",
+				Usage:       "gRPC endpoint to send traces to",
+				Destination: &cli.TracingEndpoint,
+				Sources:     urfavecli.EnvVars("SP_TRACING_ENDPOINT"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "rate-limit-per-second",
+				Usage:       "rate limit for requests per second per ip",
+				Value:       0,
+				Destination: &cli.RateLimitPerSecond,
+				Sources:     urfavecli.EnvVars("SP_RATE_LIMIT_PER_SECOND"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "rate-limit-burst",
+				Usage:       "rate limit burst for requests per ip",
+				Value:       0,
+				Destination: &cli.RateLimitBurst,
+				Sources:     urfavecli.EnvVars("SP_RATE_LIMIT_BURST"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "rate-limit-websocket",
+				Usage:       "number of concurrent websocket connections allowed per ip",
+				Value:       10,
+				Destination: &cli.RateLimitWebsocket,
+				Sources:     urfavecli.EnvVars("SP_RATE_LIMIT_WEBSOCKET"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "rtmp-server-addon",
+				Usage:       "address of external RTMP server to forward streams to",
+				Destination: &cli.RTMPServerAddon,
+				Sources:     urfavecli.EnvVars("SP_RTMP_SERVER_ADDON"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "rtmps-addon-addr",
+				Usage:       "address to listen for RTMPS on the addon server",
+				Value:       ":1936",
+				Destination: &cli.RTMPSAddonAddr,
+				Sources:     urfavecli.EnvVars("SP_RTMPS_ADDON_ADDR"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "rtmps-addr",
+				Usage:       "address to listen for RTMPS connections (when --secure=true)",
+				Value:       ":1935",
+				Destination: &cli.RTMPSAddr,
+				Sources:     urfavecli.EnvVars("SP_RTMPS_ADDR"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "rtmp-addr",
+				Usage:       "address to listen for RTMP connections (when --secure=false)",
+				Value:       ":1935",
+				Destination: &cli.RTMPAddr,
+				Sources:     urfavecli.EnvVars("SP_RTMP_ADDR"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "discord-webhooks",
+				Usage: `JSON array of Discord webhooks to send notifications to (default: "[]")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					return json.Unmarshal([]byte(s), &cli.DiscordWebhooks)
+				},
+				Sources: urfavecli.EnvVars("SP_DISCORD_WEBHOOKS"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "new-webrtc-playback",
+				Usage:       "enable new webrtc playback",
+				Value:       true,
+				Destination: &cli.NewWebRTCPlayback,
+				Sources:     urfavecli.EnvVars("SP_NEW_WEBRTC_PLAYBACK"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "apple-team-id",
+				Usage:       "apple team id for deep linking",
+				Destination: &cli.AppleTeamID,
+				Sources:     urfavecli.EnvVars("SP_APPLE_TEAM_ID"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "android-cert-fingerprint",
+				Usage:       "android cert fingerprint for deep linking",
+				Destination: &cli.AndroidCertFingerprint,
+				Sources:     urfavecli.EnvVars("SP_ANDROID_CERT_FINGERPRINT"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "labelers",
+				Usage: `did of labelers that this instance should subscribe to (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.Labelers = strings.Split(s, ",")
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_LABELERS"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "atproto-did",
+				Usage:       "atproto did to respond to on /.well-known/atproto-did (default did:web:PUBLIC_HOST)",
+				Destination: &cli.AtprotoDID,
+				Sources:     urfavecli.EnvVars("SP_ATPROTO_DID"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "content-filters",
+				Usage: `JSON content filtering rules (default: "{}")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					return json.Unmarshal([]byte(s), &cli.ContentFilters)
+				},
+				Sources: urfavecli.EnvVars("SP_CONTENT_FILTERS"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "default-recommended-streamers",
+				Usage: `comma-separated list of streamer DIDs to recommend by default when no other recommendations are available (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.DefaultRecommendedStreamers = strings.Split(s, ",")
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_DEFAULT_RECOMMENDED_STREAMERS"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "livepeer-help",
+				Usage:       "print help for livepeer flags and exit",
+				Value:       false,
+				Destination: &cli.LivepeerHelp,
+				Sources:     urfavecli.EnvVars("SP_LIVEPEER_HELP"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "plc-url",
+				Usage:       "url of the plc directory",
+				Value:       "https://plc.directory",
+				Destination: &cli.PLCURL,
+				Sources:     urfavecli.EnvVars("SP_PLC_URL"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "sql-logging",
+				Usage:       "enable sql logging",
+				Value:       false,
+				Destination: &cli.SQLLogging,
+				Sources:     urfavecli.EnvVars("SP_SQL_LOGGING"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "sentry-dsn",
+				Usage:       "sentry dsn for error reporting",
+				Destination: &cli.SentryDSN,
+				Sources:     urfavecli.EnvVars("SP_SENTRY_DSN"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "livepeer-debug",
+				Usage:       "log livepeer segments to $SP_DATA_DIR/livepeer-debug",
+				Value:       false,
+				Destination: &cli.LivepeerDebug,
+				Sources:     urfavecli.EnvVars("SP_LIVEPEER_DEBUG"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "segment-debug-dir",
+				Usage:       "directory to log segment validation to",
+				Destination: &cli.SegmentDebugDir,
+				Sources:     urfavecli.EnvVars("SP_SEGMENT_DEBUG_DIR"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "tickets",
+				Usage: `tickets to join the swarm with (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.Tickets = strings.Split(s, ",")
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_TICKETS"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "iroh-topic",
+				Usage:       "topic to use for the iroh swarm (must be 32 bytes in hex)",
+				Destination: &cli.IrohTopic,
+				Sources:     urfavecli.EnvVars("SP_IROH_TOPIC"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "disable-iroh-relay",
+				Usage:       "disable the iroh relay",
+				Value:       false,
+				Destination: &cli.DisableIrohRelay,
+				Sources:     urfavecli.EnvVars("SP_DISABLE_IROH_RELAY"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "dev-account-creds",
+				Usage: `(FOR DEVELOPMENT ONLY) did=password pairs for logging into test accounts without oauth (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.DevAccountCreds = map[string]string{}
+					pairs := strings.Split(s, ",")
+					for _, pair := range pairs {
+						parts := strings.Split(pair, "=")
+						if len(parts) != 2 {
+							return fmt.Errorf("invalid kv flag: %s", pair)
+						}
+						cli.DevAccountCreds[parts[0]] = parts[1]
+					}
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_DEV_ACCOUNT_CREDS"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "stream-session-timeout",
+				Usage:       "how long to wait before considering a stream inactive on this node?",
+				Value:       60 * time.Second,
+				Destination: &cli.StreamSessionTimeout,
+				Sources:     urfavecli.EnvVars("SP_STREAM_SESSION_TIMEOUT"),
+			},
+			&urfavecli.StringFlag{
+				Name:    "replicators",
+				Usage:   "comma-separated list of replication protocols to use (websocket, iroh)",
+				Value:   ReplicatorWebsocket,
+				Sources: urfavecli.EnvVars("SP_REPLICATORS"),
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s != "" {
+						cli.Replicators = strings.Split(s, ",")
+					}
+					return nil
+				},
+			},
+			&urfavecli.StringFlag{
+				Name:        "websocket-url",
+				Usage:       "override the websocket (ws:// or wss://) url to use for replication (normally not necessary, used for testing)",
+				Destination: &cli.WebsocketURL,
+				Sources:     urfavecli.EnvVars("SP_WEBSOCKET_URL"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "behind-https-proxy",
+				Usage:       "set to true if this node is behind an https proxy and we should report https URLs even though the node isn't serving HTTPS",
+				Value:       false,
+				Destination: &cli.BehindHTTPSProxy,
+				Sources:     urfavecli.EnvVars("SP_BEHIND_HTTPS_PROXY"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "admin-dids",
+				Usage: `comma-separated list of DIDs that are authorized to modify branding and other admin operations (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.AdminDIDs = strings.Split(s, ",")
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_ADMIN_DIDS"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "syndicate",
+				Usage: `list of DIDs that we should rebroadcast ('*' for everybody) (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.Syndicate = strings.Split(s, ",")
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_SYNDICATE"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "player-telemetry",
+				Usage:       "enable player telemetry",
+				Value:       true,
+				Destination: &cli.PlayerTelemetry,
+				Sources:     urfavecli.EnvVars("SP_PLAYER_TELEMETRY"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "local-db-url",
+				Usage:       "URL of the local database to use for storing local data",
+				Value:       "sqlite://$SP_DATA_DIR/localdb.sqlite",
+				Destination: &cli.LocalDBURL,
+				Sources:     urfavecli.EnvVars("SP_LOCAL_DB_URL"),
+			},
+			&urfavecli.BoolFlag{
+				Name:  "external-signing",
+				Usage: "DEPRECATED, does nothing.",
+				Value: true,
+			},
+			&urfavecli.BoolFlag{
+				Name:  "insecure",
+				Usage: "DEPRECATED, does nothing.",
+				Value: false,
+			},
+		},
+		Before: func(ctx context.Context, cmd *urfavecli.Command) (context.Context, error) {
+			return ctx, cli.Validate(cmd)
+		},
+	}
+
+	// Add data dir flags
 	cli.dataDirFlags = append(cli.dataDirFlags, &cli.DBURL)
-	fs.StringVar(&cli.AdminAccount, "admin-account", "", "ethereum account that administrates this streamplace node")
-	fs.StringVar(&cli.FirebaseServiceAccount, "firebase-service-account", "", "Base64-encoded JSON string of a firebase service account key")
-	fs.StringVar(&cli.FirebaseServiceAccountFile, "firebase-service-account-file", "", "Path to a JSON file containing a firebase service account key")
-	fs.StringVar(&cli.GitLabURL, "gitlab-url", "https://git.stream.place/api/v4/projects/1", "gitlab url for generating download links")
-	cli.DataDirFlag(fs, &cli.EthKeystorePath, "eth-keystore-path", "keystore", "path to ethereum keystore")
-	fs.StringVar(&cli.EthAccountAddr, "eth-account-addr", "", "ethereum account address to use (if keystore contains more than one)")
-	fs.StringVar(&cli.EthPassword, "eth-password", "", "password for encrypting keystore")
-	fs.StringVar(&cli.TAURL, "ta-url", "http://timestamp.digicert.com", "timestamp authority server for signing")
-	fs.StringVar(&cli.PKCS11ModulePath, "pkcs11-module-path", "", "path to a PKCS11 module for HSM signing, for example /usr/lib/x86_64-linux-gnu/opensc-pkcs11.so")
-	fs.StringVar(&cli.PKCS11Pin, "pkcs11-pin", "", "PIN for logging into PKCS11 token. if not provided, will be prompted interactively")
-	fs.StringVar(&cli.PKCS11TokenSlot, "pkcs11-token-slot", "", "slot number of PKCS11 token (only use one of slot, label, or serial)")
-	fs.StringVar(&cli.PKCS11TokenLabel, "pkcs11-token-label", "", "label of PKCS11 token (only use one of slot, label, or serial)")
-	fs.StringVar(&cli.PKCS11TokenSerial, "pkcs11-token-serial", "", "serial number of PKCS11 token (only use one of slot, label, or serial)")
-	fs.StringVar(&cli.PKCS11KeypairLabel, "pkcs11-keypair-label", "", "label of signing keypair on PKCS11 token")
-	fs.StringVar(&cli.PKCS11KeypairID, "pkcs11-keypair-id", "", "id of signing keypair on PKCS11 token")
-	fs.StringVar(&cli.AppBundleID, "app-bundle-id", "", "bundle id of an app that we facilitate oauth login for")
-	fs.StringVar(&cli.StreamerName, "streamer-name", "", "name of the person streaming from this streamplace node")
-	fs.StringVar(&cli.FrontendProxy, "dev-frontend-proxy", "", "(FOR DEVELOPMENT ONLY) proxy frontend requests to this address instead of using the bundled frontend")
-	fs.BoolVar(&cli.PublicOAuth, "dev-public-oauth", false, "(FOR DEVELOPMENT ONLY) enable public oauth login for http://127.0.0.1 development")
-	fs.StringVar(&cli.LivepeerGatewayURL, "livepeer-gateway-url", "", "URL of the Livepeer Gateway to use for transcoding")
-	fs.BoolVar(&cli.LivepeerGateway, "livepeer-gateway", false, "enable embedded Livepeer Gateway")
-	fs.BoolVar(&cli.WideOpen, "wide-open", false, "allow ALL streams to be uploaded to this node (not recommended for production)")
-	cli.StringSliceFlag(fs, &cli.AllowedStreams, "allowed-streams", []string{}, "if set, only allow these addresses or atproto DIDs to upload to this node")
-	cli.StringSliceFlag(fs, &cli.Peers, "peers", []string{}, "other streamplace nodes to replicate to")
-	cli.StringSliceFlag(fs, &cli.Redirects, "redirects", []string{}, "http 302s /path/one:/path/two,/path/three:/path/four")
-	cli.DebugFlag(fs, &cli.Debug, "debug", "", "modified log verbosity for specific functions or files in form func=ToHLS:3,file=gstreamer.go:4")
-	fs.BoolVar(&cli.TestStream, "test-stream", false, "run a built-in test stream on boot")
-	fs.BoolVar(&cli.NoFirehose, "no-firehose", false, "disable the bluesky firehose")
-	fs.BoolVar(&cli.PrintChat, "print-chat", false, "print chat messages to stdout")
-	fs.StringVar(&cli.WHIPTest, "whip-test", "", "run a WHIP self-test with the given parameters")
-	fs.StringVar(&cli.RelayHost, "relay-host", "wss://bsky.network", "websocket url for relay firehose")
-	fs.StringVar(&cli.Color, "color", "", "'true' to enable colorized logging, 'false' to disable")
-	fs.StringVar(&cli.BroadcasterHost, "broadcaster-host", "", "public host for the broadcaster group that this node is a part of (excluding https:// e.g. stream.place)")
-	fs.StringVar(&cli.XXDeprecatedPublicHost, "public-host", "", "deprecated, use broadcaster-host or server-host instead as appropriate")
-	fs.StringVar(&cli.ServerHost, "server-host", "", "public host for this particular physical streamplace node. defaults to broadcaster-host and only must be set for multi-node broadcasters")
-	fs.BoolVar(&cli.Thumbnail, "thumbnail", true, "enable thumbnail generation")
-	fs.BoolVar(&cli.SmearAudio, "smear-audio", false, "enable audio smearing to create 'perfect' segment timestamps")
-
-	fs.StringVar(&cli.TracingEndpoint, "tracing-endpoint", "", "gRPC endpoint to send traces to")
-	fs.IntVar(&cli.RateLimitPerSecond, "rate-limit-per-second", 0, "rate limit for requests per second per ip")
-	fs.IntVar(&cli.RateLimitBurst, "rate-limit-burst", 0, "rate limit burst for requests per ip")
-	fs.IntVar(&cli.RateLimitWebsocket, "rate-limit-websocket", 10, "number of concurrent websocket connections allowed per ip")
-	fs.StringVar(&cli.RTMPServerAddon, "rtmp-server-addon", "", "address of external RTMP server to forward streams to")
-	fs.StringVar(&cli.RTMPSAddonAddr, "rtmps-addon-addr", ":1936", "address to listen for RTMPS on the addon server")
-	fs.StringVar(&cli.RTMPSAddr, "rtmps-addr", ":1935", "address to listen for RTMPS connections (when --secure=true)")
-	fs.StringVar(&cli.RTMPAddr, "rtmp-addr", ":1935", "address to listen for RTMP connections (when --secure=false)")
-	cli.JSONFlag(fs, &cli.DiscordWebhooks, "discord-webhooks", "[]", "JSON array of Discord webhooks to send notifications to")
-	fs.BoolVar(&cli.NewWebRTCPlayback, "new-webrtc-playback", true, "enable new webrtc playback")
-	fs.StringVar(&cli.AppleTeamID, "apple-team-id", "", "apple team id for deep linking")
-	fs.StringVar(&cli.AndroidCertFingerprint, "android-cert-fingerprint", "", "android cert fingerprint for deep linking")
-	cli.StringSliceFlag(fs, &cli.Labelers, "labelers", []string{}, "did of labelers that this instance should subscribe to")
-	fs.StringVar(&cli.AtprotoDID, "atproto-did", "", "atproto did to respond to on /.well-known/atproto-did (default did:web:PUBLIC_HOST)")
-	cli.JSONFlag(fs, &cli.ContentFilters, "content-filters", "{}", "JSON content filtering rules")
-	cli.StringSliceFlag(fs, &cli.DefaultRecommendedStreamers, "default-recommended-streamers", []string{}, "comma-separated list of streamer DIDs to recommend by default when no other recommendations are available")
-	fs.BoolVar(&cli.LivepeerHelp, "livepeer-help", false, "print help for livepeer flags and exit")
-	fs.StringVar(&cli.PLCURL, "plc-url", "https://plc.directory", "url of the plc directory")
-	fs.BoolVar(&cli.SQLLogging, "sql-logging", false, "enable sql logging")
-	fs.StringVar(&cli.SentryDSN, "sentry-dsn", "", "sentry dsn for error reporting")
-	fs.BoolVar(&cli.LivepeerDebug, "livepeer-debug", false, "log livepeer segments to $SP_DATA_DIR/livepeer-debug")
-	fs.StringVar(&cli.SegmentDebugDir, "segment-debug-dir", "", "directory to log segment validation to")
-	cli.StringSliceFlag(fs, &cli.Tickets, "tickets", []string{}, "tickets to join the swarm with")
-	fs.StringVar(&cli.IrohTopic, "iroh-topic", "", "topic to use for the iroh swarm (must be 32 bytes in hex)")
-	fs.BoolVar(&cli.DisableIrohRelay, "disable-iroh-relay", false, "disable the iroh relay")
-	cli.KVSliceFlag(fs, &cli.DevAccountCreds, "dev-account-creds", "", "(FOR DEVELOPMENT ONLY) did=password pairs for logging into test accounts without oauth")
-	fs.DurationVar(&cli.StreamSessionTimeout, "stream-session-timeout", 60*time.Second, "how long to wait before considering a stream inactive on this node?")
-	cli.StringSliceFlag(fs, &cli.Replicators, "replicators", []string{ReplicatorWebsocket}, "list of replication protocols to use (http, iroh)")
-	fs.StringVar(&cli.WebsocketURL, "websocket-url", "", "override the websocket (ws:// or wss://) url to use for replication (normally not necessary, used for testing)")
-	fs.BoolVar(&cli.BehindHTTPSProxy, "behind-https-proxy", false, "set to true if this node is behind an https proxy and we should report https URLs even though the node isn't serving HTTPS")
-	cli.StringSliceFlag(fs, &cli.AdminDIDs, "admin-dids", []string{}, "comma-separated list of DIDs that are authorized to modify branding and other admin operations")
-	cli.StringSliceFlag(fs, &cli.Syndicate, "syndicate", []string{}, "list of DIDs that we should rebroadcast ('*' for everybody)")
-	fs.BoolVar(&cli.PlayerTelemetry, "player-telemetry", true, "enable player telemetry")
-	fs.StringVar(&cli.LocalDBURL, "local-db-url", "sqlite://$SP_DATA_DIR/localdb.sqlite", "URL of the local database to use for storing local data")
 	cli.dataDirFlags = append(cli.dataDirFlags, &cli.LocalDBURL)
-
-	fs.Bool("external-signing", true, "DEPRECATED, does nothing.")
-	fs.Bool("insecure", false, "DEPRECATED, does nothing.")
-
-	lpFlags := flag.NewFlagSet("livepeer", flag.ContinueOnError)
-	_ = starter.NewLivepeerConfig(lpFlags)
-	lpFlags.VisitAll(func(f *flag.Flag) {
-		adapted := LivepeerFlags.CamelToSnake[f.Name]
-		fs.Var(f.Value, fmt.Sprintf("livepeer.%s", adapted), f.Usage)
-	})
+	cli.dataDirFlags = append(cli.dataDirFlags, &cli.TLSCertPath)
+	cli.dataDirFlags = append(cli.dataDirFlags, &cli.TLSKeyPath)
+	cli.dataDirFlags = append(cli.dataDirFlags, &cli.EthKeystorePath)
 
 	if runtime.GOOS == "linux" {
-		fs.BoolVar(&cli.NoMist, "no-mist", true, "Disable MistServer")
-		fs.IntVar(&cli.MistAdminPort, "mist-admin-port", 14242, "MistServer admin port (internal use only)")
-		fs.IntVar(&cli.MistRTMPPort, "mist-rtmp-port", 11935, "MistServer RTMP port (internal use only)")
-		fs.IntVar(&cli.MistHTTPPort, "mist-http-port", 18080, "MistServer HTTP port (internal use only)")
+		cmd.Flags = append(cmd.Flags, &urfavecli.BoolFlag{
+			Name:        "no-mist",
+			Usage:       "Disable MistServer",
+			Value:       true,
+			Destination: &cli.NoMist,
+			Sources:     urfavecli.EnvVars("SP_NO_MIST"),
+		})
+		cmd.Flags = append(cmd.Flags, &urfavecli.IntFlag{
+			Name:        "mist-admin-port",
+			Usage:       "MistServer admin port (internal use only)",
+			Value:       14242,
+			Destination: &cli.MistAdminPort,
+			Sources:     urfavecli.EnvVars("SP_MIST_ADMIN_PORT"),
+		})
+		cmd.Flags = append(cmd.Flags, &urfavecli.IntFlag{
+			Name:        "mist-rtmp-port",
+			Usage:       "MistServer RTMP port (internal use only)",
+			Value:       11935,
+			Destination: &cli.MistRTMPPort,
+			Sources:     urfavecli.EnvVars("SP_MIST_RTMP_PORT"),
+		})
+		cmd.Flags = append(cmd.Flags, &urfavecli.IntFlag{
+			Name:        "mist-http-port",
+			Usage:       "MistServer HTTP port (internal use only)",
+			Value:       18080,
+			Destination: &cli.MistHTTPPort,
+			Sources:     urfavecli.EnvVars("SP_MIST_HTTP_PORT"),
+		})
 	}
-	return fs
+
+	LivepeerFlagSet = flag.NewFlagSet("livepeer", flag.ContinueOnError)
+	LivepeerConfig = starter.NewLivepeerConfig(LivepeerFlagSet)
+	LivepeerFlagSet.VisitAll(func(f *flag.Flag) {
+		adapted := LivepeerFlags.CamelToSnake[f.Name]
+		cmd.Flags = append(cmd.Flags, &urfavecli.StringFlag{
+			Name:    fmt.Sprintf("livepeer.%s", adapted),
+			Usage:   f.Usage,
+			Sources: urfavecli.EnvVars(fmt.Sprintf("SP_LIVEPEER_%s", adapted)),
+			Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+				return LivepeerFlagSet.Set(f.Name, s)
+			},
+		})
+	})
+
+	return cmd
 }
 
 var StreamplaceSchemePrefix = "streamplace://"
@@ -350,14 +953,7 @@ func EnableSQLLogging() {
 	)
 }
 
-func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
-	err := ff.Parse(
-		fs, args,
-		ff.WithEnvVarPrefix("SP"),
-	)
-	if err != nil {
-		return err
-	}
+func (cli *CLI) Validate(cmd *urfavecli.Command) error {
 	if cli.DataDir == "" {
 		return fmt.Errorf("could not determine default data dir (no $HOME) and none provided, please set --data-dir")
 	}
@@ -366,32 +962,8 @@ func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 	}
 	if cli.LivepeerGateway {
 		log.MonkeypatchStderr()
-		gatewayPath := cli.DataFilePath([]string{"livepeer", "gateway"})
-		err = fs.Set("livepeer.rtmp-addr", "127.0.0.1:0")
-		if err != nil {
-			return err
-		}
-		err = fs.Set("livepeer.data-dir", gatewayPath)
-		if err != nil {
-			return err
-		}
-		err = fs.Set("livepeer.gateway", "true")
-		if err != nil {
-			return err
-		}
-		httpAddrFlag := fs.Lookup("livepeer.http-addr")
-		if httpAddrFlag == nil {
-			return fmt.Errorf("livepeer.http-addr not found")
-		}
-		httpAddr := httpAddrFlag.Value.String()
-		if httpAddr == "" {
-			httpAddr = "127.0.0.1:8935"
-			err = fs.Set("livepeer.http-addr", httpAddr)
-			if err != nil {
-				return err
-			}
-		}
-		cli.LivepeerGatewayURL = fmt.Sprintf("http://%s", httpAddr)
+		// Livepeer gateway configuration will be handled in the caller
+		cli.LivepeerGatewayURL = "http://127.0.0.1:8935"
 	}
 	for _, dest := range cli.dataDirFlags {
 		*dest = strings.Replace(*dest, SPDataDir, cli.DataDir, 1)
@@ -420,6 +992,10 @@ func (cli *CLI) Parse(fs *flag.FlagSet, args []string) error {
 			return err
 		}
 		cli.FirebaseServiceAccount = string(bs)
+	}
+	// Set default replicator if none specified
+	if len(cli.Replicators) == 0 {
+		cli.Replicators = []string{ReplicatorWebsocket}
 	}
 	return nil
 }
@@ -529,112 +1105,34 @@ func (cli *CLI) DataFileRead(fpath []string, w io.Writer) error {
 	return nil
 }
 
-func (cli *CLI) DataDirFlag(fs *flag.FlagSet, dest *string, name, defaultValue, usage string) {
-	cli.dataDirFlags = append(cli.dataDirFlags, dest)
-	*dest = filepath.Join(SPDataDir, defaultValue)
-	usage = fmt.Sprintf(`%s (default: "%s")`, usage, *dest)
-	fs.Func(name, usage, func(s string) error {
-		*dest = s
-		return nil
-	})
-}
-
 func (cli *CLI) HasMist() bool {
 	return runtime.GOOS == "linux"
 }
 
 // type for comma-separated ethereum addresses
-func (cli *CLI) AddressSliceFlag(fs *flag.FlagSet, dest *[]aqpub.Pub, name, defaultValue, usage string) {
+func (cli *CLI) AddressSliceFlag(name, defaultValue, usage string, dest *[]aqpub.Pub) urfavecli.Flag {
 	*dest = []aqpub.Pub{}
-	usage = fmt.Sprintf(`%s (default: "%s")`, usage, *dest)
-	fs.Func(name, usage, func(s string) error {
-		if s == "" {
-			return nil
-		}
-		strs := strings.Split(s, ",")
-		for _, str := range strs {
-			pub, err := aqpub.FromHexString(str)
-			if err != nil {
-				return err
-			}
-			*dest = append(*dest, pub)
-		}
-		return nil
-	})
-}
-
-func (cli *CLI) StringSliceFlag(fs *flag.FlagSet, dest *[]string, name string, defaultValue []string, usage string) {
-	*dest = defaultValue
-	usage = fmt.Sprintf(`%s (default: "%s")`, usage, *dest)
-	fs.Func(name, usage, func(s string) error {
-		if s == "" {
-			return nil
-		}
-		strs := strings.Split(s, ",")
-		*dest = append([]string{}, strs...)
-		return nil
-	})
-}
-
-func (cli *CLI) KVSliceFlag(fs *flag.FlagSet, dest *map[string]string, name, defaultValue, usage string) {
-	*dest = map[string]string{}
-	usage = fmt.Sprintf(`%s (default: "%s")`, usage, *dest)
-	fs.Func(name, usage, func(s string) error {
-		if s == "" {
-			return nil
-		}
-		pairs := strings.Split(s, ",")
-		for _, pair := range pairs {
-			parts := strings.Split(pair, "=")
-			if len(parts) != 2 {
-				return fmt.Errorf("invalid kv flag: %s", pair)
-			}
-			(*dest)[parts[0]] = parts[1]
-		}
-		return nil
-	})
-}
-
-func (cli *CLI) JSONFlag(fs *flag.FlagSet, dest any, name, defaultValue, usage string) {
 	usage = fmt.Sprintf(`%s (default: "%s")`, usage, defaultValue)
-	fs.Func(name, usage, func(s string) error {
-		if s == "" {
-			return nil
-		}
-		return json.Unmarshal([]byte(s), dest)
-	})
-}
 
-// debug flag for turning func=ToHLS:3,file=gstreamer.go:4 into {"func": {"ToHLS": 3}, "file": {"gstreamer.go": 4}}
-func (cli *CLI) DebugFlag(fs *flag.FlagSet, dest *map[string]map[string]int, name, defaultValue, usage string) {
-	*dest = map[string]map[string]int{}
-	fs.Func(name, usage, func(s string) error {
-		if s == "" {
+	return &urfavecli.StringFlag{
+		Name:  name,
+		Usage: usage,
+		Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+			if s == "" {
+				return nil
+			}
+			strs := strings.Split(s, ",")
+			for _, str := range strs {
+				pub, err := aqpub.FromHexString(str)
+				if err != nil {
+					return err
+				}
+				*dest = append(*dest, pub)
+			}
 			return nil
-		}
-		pairs := strings.Split(s, ",")
-		for _, pair := range pairs {
-			scoreSplit := strings.Split(pair, ":")
-			if len(scoreSplit) != 2 {
-				return fmt.Errorf("invalid debug flag: %s", pair)
-			}
-			score, err := strconv.Atoi(scoreSplit[1])
-			if err != nil {
-				return fmt.Errorf("invalid debug flag: %s", pair)
-			}
-			selectorSplit := strings.Split(scoreSplit[0], "=")
-			if len(selectorSplit) != 2 {
-				return fmt.Errorf("invalid debug flag: %s", pair)
-			}
-			_, ok := (*dest)[selectorSplit[0]]
-			if !ok {
-				(*dest)[selectorSplit[0]] = map[string]int{}
-			}
-			(*dest)[selectorSplit[0]][selectorSplit[1]] = score
-		}
-
-		return nil
-	})
+		},
+		Sources: urfavecli.EnvVars(fmt.Sprintf("SP_%s", strings.ToUpper(strings.ReplaceAll(name, "-", "_")))),
+	}
 }
 
 func (cli *CLI) StreamIsAllowed(did string) error {
@@ -648,10 +1146,8 @@ func (cli *CLI) StreamIsAllowed(did string) error {
 	if openServer && !isDIDKey {
 		return nil
 	}
-	for _, a := range cli.AllowedStreams {
-		if a == did {
-			return nil
-		}
+	if slices.Contains(cli.AllowedStreams, did) {
+		return nil
 	}
 	return fmt.Errorf("user is not allowed to stream")
 }

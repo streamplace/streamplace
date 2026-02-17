@@ -152,6 +152,7 @@ export default function PullToRefreshScrollView({
   const triggered = useRef(false);
   const scrollRef = useRef<ScrollView>(null);
   const isDragging = useRef(false);
+  const currentY = useRef(0);
   const [contentInset, setContentInset] = useState(0);
   const prevRefreshing = useRef(refreshing);
 
@@ -196,6 +197,7 @@ export default function PullToRefreshScrollView({
             useNativeDriver: true,
             listener: (e: NativeSyntheticEvent<NativeScrollEvent>) => {
               const y = e.nativeEvent.contentOffset.y;
+              currentY.current = y;
               if (y < -PULL_THRESHOLD && !refreshing && !triggered.current) {
                 triggered.current = true;
                 onRefresh();
@@ -213,7 +215,7 @@ export default function PullToRefreshScrollView({
         onScrollEndDrag={(e) => {
           isDragging.current = false;
           if (refreshing) snapToRefreshing();
-          else snapBack();
+          else if (currentY.current < 0) snapBack();
           scrollViewProps.onScrollEndDrag?.(e);
         }}
       >

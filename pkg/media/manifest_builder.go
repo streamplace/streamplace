@@ -45,10 +45,58 @@ func toObj(record any) (obj, error) {
 	return o, nil
 }
 
+func (mb *ManifestBuilder) getLivestream(ctx context.Context, streamerName string) (*streamplace.Livestream, error) {
+	if mb.model == nil {
+		return nil, fmt.Errorf("model is nil")
+	}
+	livestream, err := mb.model.GetLatestLivestreamForRepo(streamerName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve livestream: %w", err)
+	}
+	if livestream == nil {
+		return nil, nil
+	}
+	livestreamRecord, err := livestream.ToLivestreamView()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert livestream to view: %w", err)
+	}
+	ls, ok := livestreamRecord.Record.Val.(*streamplace.Livestream)
+	if !ok {
+		return nil, fmt.Errorf("livestream is not a streamplace livestream")
+	}
+	return ls, nil
+}
+
 func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName string, start int64) ([]byte, error) {
 	log.Debug(ctx, "🔍 BuildManifest ENTRY", "streamer", streamerName, "start", start)
+
+	shouldPublish := false
+
+	// Add livestream title if available
+	livestreamTitle := "unpublished livestream" // default fallback
+	ls, err := mb.getLivestream(ctx, streamerName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get livestream: %w", err)
+	}
+	if ls != nil {
+		livestreamTitle = ls.Title
+		shouldPublish = ls.EndedAt == nil
+	}
+
 	// Start with base manifest
 	startTime := aqtime.FromMillis(start).String()
+	actions := []obj{
+		{
+			"action": "c2pa.created",
+			"when":   startTime,
+		},
+	}
+	if shouldPublish {
+		actions = append(actions, obj{
+			"action": "c2pa.published",
+			"when":   startTime,
+		})
+	}
 	mani := obj{
 		"title": fmt.Sprintf("Livestream Segment at %s", startTime),
 		"assertions": []obj{
@@ -56,16 +104,7 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 			{
 				"label": "c2pa.actions",
 				"data": obj{
-					"actions": []obj{
-						{
-							"action": "c2pa.created",
-							"when":   startTime,
-						},
-						{
-							"action": "c2pa.published",
-							"when":   startTime,
-						},
-					},
+					"actions": actions,
 				},
 			},
 			// Content metadata, with extra custom fields added later
@@ -111,33 +150,6 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 			}
 		} else {
 			log.Debug(ctx, "ManifestBuilder: no metadata configuration found for streamer", "did", streamerName)
-		}
-	}
-
-	// Add livestream title if available
-	livestreamTitle := "livestream" // default fallback
-	if mb.model != nil {
-		livestream, err := mb.model.GetLatestLivestreamForRepo(streamerName)
-		if err != nil {
-			log.Warn(ctx, "ManifestBuilder: failed to retrieve livestream, using default title", "error", err, "did", streamerName)
-		} else if livestream != nil {
-			// Extract title from livestream record
-			livestreamRecord, err := livestream.ToLivestreamView()
-			if err != nil {
-				log.Warn(ctx, "ManifestBuilder: failed to convert livestream to view, using default title", "error", err, "did", streamerName)
-			} else {
-				if ls, ok := livestreamRecord.Record.Val.(*streamplace.Livestream); ok {
-					livestreamTitle = ls.Title
-					livestreamObj, err := toObj(ls)
-					if err != nil {
-						return nil, fmt.Errorf("failed to marshal livestream: %w", err)
-					}
-					mani["assertions"] = append(mani["assertions"].([]obj), obj{
-						"label": "place.stream.livestream",
-						"data":  livestreamObj,
-					})
-				}
-			}
 		}
 	}
 

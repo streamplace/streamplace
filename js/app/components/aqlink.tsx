@@ -8,7 +8,10 @@ import { useEffect } from "react";
 import { Pressable, StyleProp, ViewStyle } from "react-native";
 import { interpolateParams, SCREEN_PATHS } from "src/linking-config";
 import { useStore } from "store";
-import { convertNavigationParams } from "../src/navigation-helper";
+import {
+  convertNavigationParams,
+  ROOT_SCREENS,
+} from "../src/navigation-helper";
 import type {
   HomeStackParamList,
   RootStackParamList,
@@ -59,7 +62,11 @@ export default function AQLink({
     display: "flex",
   };
 
-  const handlePress = () => {
+  const handlePress = (e: any) => {
+    // Prevent default browser navigation on web (href is for a11y only)
+    if (isWeb && e?.preventDefault) {
+      e.preventDefault();
+    }
     // intercept login navigation and show modal instead
     if (to.screen === "Login") {
       console.log(
@@ -69,7 +76,14 @@ export default function AQLink({
       openLoginModal(currentRoute as any);
       return;
     }
-    // Convert to platform-specific navigation params
+    // For root-level screens, use CommonActions to navigate from root
+    if (ROOT_SCREENS.includes(to.screen)) {
+      const rootNav = navigation.getParent()?.getParent() || navigation;
+      // @ts-expect-error - dynamic navigation
+      rootNav.navigate(to.screen, to.params);
+      return;
+    }
+    // Convert to platform-specific navigation params for nested screens
     const converted = convertNavigationParams(to);
     // @ts-expect-error - dynamic navigation with LinkParams
     navigation.navigate(converted.screen, converted.params);
@@ -92,6 +106,13 @@ export function Redirect({ to }: { to: LinkParams }) {
   const navigation = useNavigation();
   useEffect(() => {
     console.log("redirecting to", to);
+    // For root-level screens, use root navigator
+    if (ROOT_SCREENS.includes(to.screen)) {
+      const rootNav = navigation.getParent()?.getParent() || navigation;
+      // @ts-expect-error - dynamic navigation
+      rootNav.navigate(to.screen, to.params);
+      return;
+    }
     const converted = convertNavigationParams(to);
     // @ts-expect-error - dynamic navigation with LinkParams
     navigation.navigate(converted.screen, converted.params);

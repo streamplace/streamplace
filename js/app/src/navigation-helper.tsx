@@ -24,6 +24,19 @@ const HOME_TAB_SCREENS = [
   "Support",
 ];
 
+// Screens at root stack level (need special navigation from nested navigators)
+export const ROOT_SCREENS = [
+  "Stream",
+  "MobileGoLive",
+  "AppReturn",
+  "PopoutChat",
+  "Embed",
+  "InfoWidgetEmbed",
+  "DanmuOBS",
+  "AVSync",
+  "LegacyStream",
+];
+
 /**
  * Converts navigation params to nested tab structure.
  * Most screens are inside HomeTab or SettingsTab, only full-screen experiences like

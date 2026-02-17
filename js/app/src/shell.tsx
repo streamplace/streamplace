@@ -13,6 +13,7 @@ import {
 import { Settings } from "components";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
+import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
 import { AboutCategorySettings } from "components/settings/about-category-settings";
 import { AccountCategorySettings } from "components/settings/account-category-settings";
 import { AdvancedCategorySettings } from "components/settings/advanced-category-settings";
@@ -297,6 +298,11 @@ export default function Shell() {
   const pollMySegments = useStore((state) => state.pollMySegments);
   const showLoginModal = useStore((state) => state.showLoginModal);
   const closeLoginModal = useStore((state) => state.closeLoginModal);
+  const showPdsModal = useStore((state) => state.showPdsModal);
+  const openPdsModal = useStore((state) => state.openPdsModal);
+  const closePdsModal = useStore((state) => state.closePdsModal);
+  const loginAction = useStore((state) => state.login);
+  const openLoginLink = useStore((state) => state.openLoginLink);
   const [livePopup, setLivePopup] = useState(false);
   const z = useTheme();
 
@@ -463,7 +469,19 @@ export default function Shell() {
           />
         </RootStack.Navigator>
       </Animated.View>
-      <LoginModal visible={showLoginModal} onClose={closeLoginModal} />
+      <LoginModal
+        visible={showLoginModal}
+        onClose={closeLoginModal}
+        onOpenPdsModal={openPdsModal}
+      />
+      <PdsHostSelectorModal
+        open={showPdsModal}
+        onOpenChange={closePdsModal}
+        onSubmit={(pdsHost) => {
+          closePdsModal();
+          loginAction(pdsHost, openLoginLink);
+        }}
+      />
     </>
   );
 }

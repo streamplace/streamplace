@@ -43,11 +43,8 @@ Create or update S3 storage configuration for backups.
 **Possible Errors:**
 
 - `InvalidUrl`: The provided S3 URL is invalid or malformed.
-- `ConnectionFailed`: Could not connect to the S3 endpoint with the provided
-  credentials.
-- `MaskedCredentialsModified`: Cannot modify URL while keeping masked
-  credentials. Provide full credentials or omit URL to keep existing
-  configuration.
+- `ConnectionFailed`: Could not connect to the S3 endpoint with the provided credentials.
+- `MaskedCredentialsModified`: Cannot modify URL while keeping masked credentials. Provide full credentials or omit URL to keep existing configuration.
 
 ---
 

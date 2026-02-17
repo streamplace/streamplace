@@ -250,13 +250,17 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 10
+	fieldCount := 11
 
 	if t.Agent == nil {
 		fieldCount--
 	}
 
 	if t.CanonicalUrl == nil {
+		fieldCount--
+	}
+
+	if t.EndedAt == nil {
 		fieldCount--
 	}
 
@@ -426,6 +430,38 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.Title)); err != nil {
 		return err
+	}
+
+	// t.EndedAt (string) (string)
+	if t.EndedAt != nil {
+
+		if len("endedAt") > 1000000 {
+			return xerrors.Errorf("Value in field \"endedAt\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("endedAt"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("endedAt")); err != nil {
+			return err
+		}
+
+		if t.EndedAt == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.EndedAt) > 1000000 {
+				return xerrors.Errorf("Value in field t.EndedAt was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.EndedAt))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.EndedAt)); err != nil {
+				return err
+			}
+		}
 	}
 
 	// t.CreatedAt (string) (string)
@@ -680,6 +716,27 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Title = string(sval)
+			}
+			// t.EndedAt (string) (string)
+		case "endedAt":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.EndedAt = (*string)(&sval)
+				}
 			}
 			// t.CreatedAt (string) (string)
 		case "createdAt":

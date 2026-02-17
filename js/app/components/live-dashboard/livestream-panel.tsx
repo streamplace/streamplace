@@ -13,6 +13,7 @@ import {
   Textarea,
   Tooltip,
   useCreateStreamRecord,
+  useEndLivestream,
   useLivestream,
   useToast,
   useUpdateStreamRecord,
@@ -211,6 +212,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const livestream = useLivestream();
   const createStreamRecord = useCreateStreamRecord();
   const updateStreamRecord = useUpdateStreamRecord();
+  const endLivestream = useEndLivestream();
   const url = useUrl();
 
   const [title, setTitle] = useState("");
@@ -347,6 +349,11 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
     updateStreamRecord,
     livestream,
   ]);
+
+  const handleEndLivestream = useCallback(async () => {
+    if (!livestream) return;
+    await endLivestream(livestream);
+  }, [livestream, endLivestream]);
 
   const handleImageSelect = useCallback(() => {
     // Default web file picker behavior
@@ -658,6 +665,23 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                   style={[text.white, { fontSize: 16, fontWeight: "bold" }]}
                 >
                   {buttonText}
+                </Text>
+              </Button>
+              <Button
+                variant="destructive"
+                onPress={handleEndLivestream}
+                style={[
+                  r.md,
+                  py[3],
+                  w.percent[100],
+                  layout.flex.center,
+                  { opacity: disabled ? 0.5 : 1 },
+                ]}
+              >
+                <Text
+                  style={[text.white, { fontSize: 16, fontWeight: "bold" }]}
+                >
+                  End Livestream
                 </Text>
               </Button>
             </View>

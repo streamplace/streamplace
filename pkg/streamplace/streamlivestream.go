@@ -25,7 +25,9 @@ type Livestream struct {
 	CanonicalUrl *string `json:"canonicalUrl,omitempty" cborgen:"canonicalUrl,omitempty"`
 	// createdAt: Client-declared timestamp when this livestream started.
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
-	// lastSeenAt: Client-declared timestamp when this livestream was last seen by the user.
+	// endedAt: Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again.
+	EndedAt *string `json:"endedAt,omitempty" cborgen:"endedAt,omitempty"`
+	// lastSeenAt: Client-declared timestamp when this livestream was last seen by the Streamplace station.
 	LastSeenAt           *string                          `json:"lastSeenAt,omitempty" cborgen:"lastSeenAt,omitempty"`
 	NotificationSettings *Livestream_NotificationSettings `json:"notificationSettings,omitempty" cborgen:"notificationSettings,omitempty"`
 	// post: The post that announced this livestream.

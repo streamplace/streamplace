@@ -29,7 +29,12 @@
           "lastSeenAt": {
             "type": "string",
             "format": "datetime",
-            "description": "Client-declared timestamp when this livestream was last seen by the user."
+            "description": "Client-declared timestamp when this livestream was last seen by the Streamplace station."
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again."
           },
           "post": {
             "type": "ref",

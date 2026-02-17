@@ -341,3 +341,42 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
     return record;
   };
 }
+
+export function useEndLivestream() {
+  let agent = usePDSAgent();
+  return async (livestream: LivestreamViewHydrated | null) => {
+    if (!agent) {
+      throw new Error("No PDS agent found");
+    }
+
+    if (!agent.did) {
+      throw new Error("No user DID found, assuming not logged in");
+    }
+
+    if (!livestream) {
+      throw new Error("No latest record");
+    }
+
+    let rkey = livestream.uri.split("/").pop();
+    if (!rkey) {
+      throw new Error("No rkey?");
+    }
+
+    if (livestream.record.endedAt) {
+      throw new Error("Livestream already ended");
+    }
+
+    let record: PlaceStreamLivestream.Record = {
+      ...livestream.record,
+      endedAt: new Date().toISOString(),
+    };
+
+    await agent.com.atproto.repo.putRecord({
+      repo: agent.did,
+      collection: "place.stream.livestream",
+      rkey,
+      record,
+    });
+    return record;
+  };
+}

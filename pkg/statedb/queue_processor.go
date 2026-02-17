@@ -8,12 +8,17 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/xrpc"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/streamplace"
+
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 )
 
 var TaskNotification = "notification"
@@ -112,11 +117,38 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 	if err != nil {
 		return fmt.Errorf("failed to refresh session: %w", err)
 	}
-	_, err = state.OATProxy.GetXrpcClient(session)
+	client, err := state.OATProxy.GetXrpcClient(session)
 	if err != nil {
 		return fmt.Errorf("failed to get xrpc client: %w", err)
 	}
-	log.Warn(ctx, "livestream is inactive, finalizing", "uri", livestream.URI, "lastSeenAt", lastSeenTime)
+	if rec.EndedAt != nil {
+		log.Warn(ctx, "livestream has already ended, skipping", "uri", livestream.URI, "endedAt", *rec.EndedAt)
+		return nil
+	}
+
+	uri, err := syntax.ParseATURI(livestream.URI)
+	if err != nil {
+		return fmt.Errorf("failed to parse ATURI: %w", err)
+	}
+
+	rec.EndedAt = rec.LastSeenAt
+
+	inp := comatproto.RepoPutRecord_Input{
+		Collection: "place.stream.livestream",
+		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
+		Rkey:       uri.RecordKey().String(),
+		Repo:       livestream.RepoDID,
+		SwapRecord: &livestream.CID,
+	}
+	out := comatproto.RepoPutRecord_Output{}
+
+	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out)
+	if err != nil {
+		return fmt.Errorf("failed to update livestream record: %w", err)
+	}
+
+	log.Log(ctx, "livestream finalized", "uri", livestream.URI, "endedAt", *rec.EndedAt)
+
 	return nil
 }
 

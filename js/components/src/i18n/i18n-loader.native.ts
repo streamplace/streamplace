@@ -10,6 +10,8 @@ import frFRCommon from "../../public/locales/fr-FR/common.json";
 import frFRSettings from "../../public/locales/fr-FR/settings.json";
 import ptBRCommon from "../../public/locales/pt-BR/common.json";
 import ptBRSettings from "../../public/locales/pt-BR/settings.json";
+import zhHansCommon from "../../public/locales/zh-Hans/common.json";
+import zhHansSettings from "../../public/locales/zh-Hans/settings.json";
 import zhHantCommon from "../../public/locales/zh-Hant/common.json";
 import zhHantSettings from "../../public/locales/zh-Hant/settings.json";
 
@@ -20,6 +22,8 @@ const translationMap: Record<string, any> = {
   "pt-BR/settings": ptBRSettings,
   "es-ES/common": esESCommon,
   "es-ES/settings": esESSettings,
+  "zh-Hans/common": zhHansCommon,
+  "zh-Hans/settings": zhHansSettings,
   "zh-Hant/common": zhHantCommon,
   "zh-Hant/settings": zhHantSettings,
   "fr-FR/common": frFRCommon,

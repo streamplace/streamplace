@@ -294,6 +294,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.moderation.createGate", s.HandlePlaceStreamModerationCreateGate)
 	e.POST("/xrpc/place.stream.moderation.deleteBlock", s.HandlePlaceStreamModerationDeleteBlock)
 	e.POST("/xrpc/place.stream.moderation.deleteGate", s.HandlePlaceStreamModerationDeleteGate)
+	e.GET("/xrpc/place.stream.moderation.getAuditLog", s.HandlePlaceStreamModerationGetAuditLog)
 	e.POST("/xrpc/place.stream.moderation.updateLivestream", s.HandlePlaceStreamModerationUpdateLivestream)
 	e.POST("/xrpc/place.stream.multistream.createTarget", s.HandlePlaceStreamMultistreamCreateTarget)
 	e.POST("/xrpc/place.stream.multistream.deleteTarget", s.HandlePlaceStreamMultistreamDeleteTarget)
@@ -589,6 +590,33 @@ func (s *Server) HandlePlaceStreamModerationDeleteGate(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamModerationDeleteGate(ctx context.Context,body *placestream.ModerationDeleteGate_Input) (*placestream.ModerationDeleteGate_Output, error)
 	out, handleErr = s.handlePlaceStreamModerationDeleteGate(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamModerationGetAuditLog(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationGetAuditLog")
+	defer span.End()
+	action := c.QueryParam("action")
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	moderator := c.QueryParam("moderator")
+	var out *placestream.ModerationGetAuditLog_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationGetAuditLog(ctx context.Context,action string,cursor string,limit int,moderator string) (*placestream.ModerationGetAuditLog_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationGetAuditLog(ctx, action, cursor, limit, moderator)
 	if handleErr != nil {
 		return handleErr
 	}

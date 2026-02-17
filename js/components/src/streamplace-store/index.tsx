@@ -1,3 +1,4 @@
+export * from "./audit-log";
 export * from "./block";
 export * from "./branding";
 export * from "./moderation";

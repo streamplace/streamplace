@@ -84,3 +84,13 @@ func (m *DBModel) GetUserBlock(ctx context.Context, userDID, subjectDID string) 
 	}
 	return &block, nil
 }
+
+// GetBlocksForRepo returns all blocks created by a given repo DID
+func (m *DBModel) GetBlocksForRepo(ctx context.Context, repoDID string) ([]*Block, error) {
+	var blocks []*Block
+	err := m.DB.Where("repo_did = ?", repoDID).Find(&blocks).Error
+	if err != nil {
+		return nil, err
+	}
+	return blocks, nil
+}

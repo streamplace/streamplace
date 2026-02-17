@@ -72,6 +72,7 @@ type Model interface {
 	CreateBlock(ctx context.Context, block *Block) error
 	GetBlock(ctx context.Context, rkey string) (*Block, error)
 	GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error)
+	GetBlocksForRepo(ctx context.Context, repoDID string) ([]*Block, error)
 	DeleteBlock(ctx context.Context, rkey string) error
 
 	CreateChatMessage(ctx context.Context, message *ChatMessage) error

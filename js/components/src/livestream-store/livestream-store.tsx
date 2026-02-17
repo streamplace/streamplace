@@ -29,6 +29,7 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     hasReceivedSegment: false,
     moderationPermissions: [],
     setModerationPermissions: (perms) => set({ moderationPermissions: perms }),
+    auditLogEvents: [],
   }));
 };
 
@@ -70,3 +71,6 @@ export const useRecentSegments = () =>
   useLivestreamStore((x) => x.recentSegments);
 
 export const useRenditions = () => useLivestreamStore((x) => x.renditions);
+
+export const useAuditLogEvents = () =>
+  useLivestreamStore((x) => x.auditLogEvents);

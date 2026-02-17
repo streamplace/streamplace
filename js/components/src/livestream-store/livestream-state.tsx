@@ -4,6 +4,7 @@ import {
   LivestreamViewHydrated,
   PlaceStreamDefs,
   PlaceStreamLiveTeleport,
+  PlaceStreamModerationGetAuditLog,
   PlaceStreamModerationPermission,
   PlaceStreamSegment,
 } from "streamplace";
@@ -32,6 +33,8 @@ export interface LivestreamState {
   setModerationPermissions: (
     permissions: PlaceStreamModerationPermission.Record[],
   ) => void;
+  // Audit log events received via WebSocket
+  auditLogEvents: PlaceStreamModerationGetAuditLog.AuditLogEvent[];
 }
 
 export interface LivestreamProblem {

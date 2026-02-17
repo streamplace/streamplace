@@ -8,6 +8,7 @@ import {
   PlaceStreamDefs,
   PlaceStreamLivestream,
   PlaceStreamLiveTeleport,
+  PlaceStreamModerationGetAuditLog,
   PlaceStreamSegment,
 } from "streamplace";
 import { SystemMessages } from "../lib/system-messages";
@@ -160,6 +161,13 @@ export const handleWebSocketMessages = (
           ...state,
           activeTeleport: null,
           activeTeleportUri: null,
+        };
+      } else if (PlaceStreamModerationGetAuditLog.isAuditLogEvent(message)) {
+        // Real-time audit log event from moderation actions
+        const event = message as PlaceStreamModerationGetAuditLog.AuditLogEvent;
+        state = {
+          ...state,
+          auditLogEvents: [event, ...state.auditLogEvents],
         };
       }
     }

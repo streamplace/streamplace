@@ -224,6 +224,9 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const [createPost, setCreatePost] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
   const [canonicalUrl, setCanonicalUrl] = useState<string>("");
+  const [moderationSubMode, setModerationSubMode] = useState<
+    "moderators" | "auditLog"
+  >("moderators");
   const defaultCanonicalUrl = useMemo(() => {
     return `${url}/${profile && formatHandle(profile)}`;
   }, [url, profile?.handle]);
@@ -461,7 +464,30 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
           ) : mode === "moderation" ? (
             // Moderation view
             <View style={[flex.values[1], { minHeight: 400 }]}>
-              <Dashboard.ModeratorPanel isLive={userIsLive} embedded={true} />
+              <View
+                style={[
+                  layout.flex.row,
+                  gap.all[2],
+                  px[4],
+                  py[2],
+                  borders.bottom.width.thin,
+                  borders.bottom.color.neutral[700],
+                ]}
+              >
+                <ButtonSelector
+                  values={[
+                    { label: "Moderators", value: "moderators" },
+                    { label: "Audit Log", value: "auditLog" },
+                  ]}
+                  selectedValue={moderationSubMode}
+                  setSelectedValue={setModerationSubMode as any}
+                />
+              </View>
+              {moderationSubMode === "moderators" ? (
+                <Dashboard.ModeratorPanel isLive={userIsLive} embedded={true} />
+              ) : (
+                <Dashboard.AuditLogPanel embedded={true} />
+              )}
             </View>
           ) : (
             // Create/Edit view

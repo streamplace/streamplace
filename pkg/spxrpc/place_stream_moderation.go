@@ -92,6 +92,22 @@ func (s *Server) handlePlaceStreamModerationDeleteBlock(ctx context.Context, inp
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid blockUri format")
 	}
 
+	// Fetch block record first to get the subject DID for audit log
+	blockedUserDID := ""
+	getInput := map[string]any{
+		"repo":       input.Streamer,
+		"collection": constants.APP_BSKY_GRAPH_BLOCK,
+		"rkey":       rkey,
+	}
+	getOutput := comatproto.RepoGetRecord_Output{}
+	if getErr := modCtx.StreamerClient.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.getRecord", getInput, nil, &getOutput); getErr == nil {
+		if getOutput.Value != nil && getOutput.Value.Val != nil {
+			if blockRecord, ok := getOutput.Value.Val.(*bsky.GraphBlock); ok {
+				blockedUserDID = blockRecord.Subject
+			}
+		}
+	}
+
 	// Delete block record from streamer's repo
 	deleteInput := comatproto.RepoDeleteRecord_Input{
 		Collection: constants.APP_BSKY_GRAPH_BLOCK,
@@ -103,14 +119,14 @@ func (s *Server) handlePlaceStreamModerationDeleteBlock(ctx context.Context, inp
 	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", map[string]any{}, deleteInput, &deleteOutput)
 	if err != nil {
 		log.Error(ctx, "failed to delete block record", "err", err)
-		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteBlock", input.BlockUri, "", "", false, err.Error()); auditErr != nil {
+		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteBlock", input.BlockUri, blockedUserDID, "", false, err.Error()); auditErr != nil {
 			log.Error(ctx, "failed to create audit log", "error", auditErr)
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to delete block: %v", err))
 	}
 
 	// Log successful audit entry
-	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteBlock", input.BlockUri, "", "", true, ""); err != nil {
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteBlock", input.BlockUri, blockedUserDID, "", true, ""); err != nil {
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
@@ -146,16 +162,23 @@ func (s *Server) handlePlaceStreamModerationCreateGate(ctx context.Context, inpu
 	createOutput := comatproto.RepoCreateRecord_Output{}
 
 	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, createInput, &createOutput)
+
+	// Extract message author DID from message URI for audit log
+	messageAuthorDID := ""
+	if msgUri, parseErr := syntax.ParseATURI(input.MessageUri); parseErr == nil {
+		messageAuthorDID = msgUri.Authority().String()
+	}
+
 	if err != nil {
 		log.Error(ctx, "failed to create gate record", "err", err)
-		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createGate", input.MessageUri, "", "", false, err.Error()); auditErr != nil {
+		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createGate", input.MessageUri, messageAuthorDID, "", false, err.Error()); auditErr != nil {
 			log.Error(ctx, "failed to create audit log", "error", auditErr)
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create gate: %v", err))
 	}
 
 	// Log successful audit entry
-	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createGate", input.MessageUri, "", createOutput.Uri, true, ""); err != nil {
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createGate", input.MessageUri, messageAuthorDID, createOutput.Uri, true, ""); err != nil {
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
@@ -188,6 +211,28 @@ func (s *Server) handlePlaceStreamModerationDeleteGate(ctx context.Context, inpu
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid gateUri format")
 	}
 
+	// Fetch gate record first to get the message author DID for audit log
+	messageAuthorDID := ""
+	getInput := map[string]any{
+		"repo":       input.Streamer,
+		"collection": constants.PLACE_STREAM_CHAT_GATE,
+		"rkey":       rkey,
+	}
+	getOutput := comatproto.RepoGetRecord_Output{}
+	if getErr := modCtx.StreamerClient.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.getRecord", getInput, nil, &getOutput); getErr == nil {
+		if getOutput.Value != nil && getOutput.Value.Val != nil {
+			// Extract hiddenMessage from gate record
+			if recordBytes, marshalErr := json.Marshal(getOutput.Value.Val); marshalErr == nil {
+				var gateRecord streamplace.ChatGate
+				if unmarshalErr := json.Unmarshal(recordBytes, &gateRecord); unmarshalErr == nil {
+					if msgUri, parseErr := syntax.ParseATURI(gateRecord.HiddenMessage); parseErr == nil {
+						messageAuthorDID = msgUri.Authority().String()
+					}
+				}
+			}
+		}
+	}
+
 	// Delete gate record from streamer's repo
 	deleteInput := comatproto.RepoDeleteRecord_Input{
 		Collection: constants.PLACE_STREAM_CHAT_GATE,
@@ -199,14 +244,16 @@ func (s *Server) handlePlaceStreamModerationDeleteGate(ctx context.Context, inpu
 	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", map[string]any{}, deleteInput, &deleteOutput)
 	if err != nil {
 		log.Error(ctx, "failed to delete gate record", "err", err)
-		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteGate", input.GateUri, "", "", false, err.Error()); auditErr != nil {
+		// Use input.GateUri as target_uri so it matches createGate's result_uri for undo tracking
+		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteGate", input.GateUri, messageAuthorDID, "", false, err.Error()); auditErr != nil {
 			log.Error(ctx, "failed to create audit log", "error", auditErr)
 		}
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to delete gate: %v", err))
 	}
 
 	// Log successful audit entry
-	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteGate", input.GateUri, "", "", true, ""); err != nil {
+	// Use input.GateUri as target_uri so it matches createGate's result_uri for undo tracking
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteGate", input.GateUri, messageAuthorDID, "", true, ""); err != nil {
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
@@ -344,8 +391,20 @@ func validateATURI(uri string) error {
 	return nil
 }
 
-// logAudit logs a moderation action to the audit log
+// AuditLogOptions contains optional data for hydrating audit log events
+type AuditLogOptions struct {
+	ModeratorProfile *bsky.ActorDefs_ProfileViewBasic
+	TargetProfile    *bsky.ActorDefs_ProfileViewBasic
+}
+
+// logAudit logs a moderation action to the audit log and publishes a WebSocket event
 func (s *Server) logAudit(ctx context.Context, streamerDID, moderatorDID, action, targetURI, targetDID, resultURI string, success bool, errorMsg string) error {
+	return s.logAuditWithOptions(ctx, streamerDID, moderatorDID, action, targetURI, targetDID, resultURI, success, errorMsg, nil)
+}
+
+// logAuditWithOptions logs a moderation action and publishes a WebSocket event with optional profile data
+func (s *Server) logAuditWithOptions(ctx context.Context, streamerDID, moderatorDID, action, targetURI, targetDID, resultURI string, success bool, errorMsg string, opts *AuditLogOptions) error {
+	now := time.Now()
 	auditLog := &statedb.ModerationAuditLog{
 		StreamerDID:  streamerDID,
 		ModeratorDID: moderatorDID,
@@ -355,8 +414,56 @@ func (s *Server) logAudit(ctx context.Context, streamerDID, moderatorDID, action
 		ResultURI:    resultURI,
 		Success:      success,
 		ErrorMsg:     errorMsg,
-		CreatedAt:    time.Now(),
+		CreatedAt:    now,
 	}
 
-	return s.statefulDB.CreateAuditLog(ctx, auditLog)
+	if err := s.statefulDB.CreateAuditLog(ctx, auditLog); err != nil {
+		return err
+	}
+
+	// Build hydrated audit log entry for WebSocket event
+	entry := &streamplace.ModerationGetAuditLog_AuditLogEntry{
+		Id:        int64(auditLog.ID),
+		Action:    action,
+		Success:   success,
+		CreatedAt: now.Format(time.RFC3339),
+	}
+
+	// Set moderator profile
+	if opts != nil && opts.ModeratorProfile != nil {
+		entry.Moderator = opts.ModeratorProfile
+	} else {
+		// Fallback to just DID
+		entry.Moderator = &bsky.ActorDefs_ProfileViewBasic{
+			Did:    moderatorDID,
+			Handle: moderatorDID,
+		}
+	}
+
+	// Set optional fields
+	if targetURI != "" {
+		entry.TargetUri = &targetURI
+	}
+	if targetDID != "" {
+		entry.TargetDid = &targetDID
+		if opts != nil && opts.TargetProfile != nil {
+			entry.TargetProfile = opts.TargetProfile
+		}
+	}
+	if resultURI != "" {
+		entry.ResultUri = &resultURI
+	}
+	if errorMsg != "" {
+		entry.ErrorMsg = &errorMsg
+	}
+
+	// Determine canUndo
+	canUndo := success && (action == "createBlock" || action == "createGate") && resultURI != ""
+	entry.CanUndo = &canUndo
+
+	// Build and publish the WebSocket event
+	event := &streamplace.ModerationGetAuditLog_AuditLogEvent{Entry: entry}
+	s.bus.Publish(streamerDID, event)
+
+	return nil
 }

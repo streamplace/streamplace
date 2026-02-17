@@ -1,0 +1,139 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.moderation.getAuditLog",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get audit log of moderation actions for the authenticated streamer's channel.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "The number of audit log entries to return."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Pagination cursor (RFC3339 timestamp)."
+          },
+          "action": {
+            "type": "string",
+            "knownValues": [
+              "createBlock",
+              "deleteBlock",
+              "createGate",
+              "deleteGate"
+            ],
+            "description": "Filter by action type."
+          },
+          "moderator": {
+            "type": "string",
+            "format": "did",
+            "description": "Filter by moderator DID."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["logs"],
+          "properties": {
+            "logs": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "#auditLogEntry"
+              }
+            },
+            "cursor": {
+              "type": "string",
+              "description": "A cursor for pagination, if there are more results."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "Unauthorized",
+          "description": "The request lacks valid authentication credentials."
+        },
+        {
+          "name": "InvalidCursor",
+          "description": "The provided cursor is invalid or expired."
+        }
+      ]
+    },
+    "auditLogEvent": {
+      "type": "object",
+      "description": "WebSocket event for real-time audit log updates.",
+      "required": ["entry"],
+      "properties": {
+        "entry": {
+          "type": "ref",
+          "ref": "#auditLogEntry",
+          "description": "The audit log entry that was created."
+        }
+      }
+    },
+    "auditLogEntry": {
+      "type": "object",
+      "required": ["id", "action", "moderator", "success", "createdAt"],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Unique identifier for the audit log entry."
+        },
+        "action": {
+          "type": "string",
+          "description": "The action that was performed."
+        },
+        "moderator": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic",
+          "description": "The moderator who performed the action."
+        },
+        "targetUri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "URI of affected resource."
+        },
+        "targetDid": {
+          "type": "string",
+          "format": "did",
+          "description": "DID of affected user (for blocks/gates)."
+        },
+        "targetProfile": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic",
+          "description": "Profile of the affected user (if applicable)."
+        },
+        "resultUri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "URI of created/deleted record."
+        },
+        "success": {
+          "type": "boolean",
+          "description": "Whether the action succeeded."
+        },
+        "errorMsg": {
+          "type": "string",
+          "description": "Error message if the action failed."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When the action was performed."
+        },
+        "canUndo": {
+          "type": "boolean",
+          "description": "Whether this action can be undone."
+        }
+      }
+    }
+  }
+}

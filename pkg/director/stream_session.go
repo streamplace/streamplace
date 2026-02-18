@@ -208,10 +208,16 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	ss.bus.Publish(spseg.Creator, spseg)
 	ss.Go(ctx, func() error {
 		return ss.AddPlaybackSegment(ctx, spseg, "source", &bus.Seg{
-			Filepath: notif.Segment.ID,
-			Data:     notif.Data,
+			Filepath:  notif.Segment.ID,
+			Data:      notif.Data,
+			Published: notif.Metadata.Published,
 		})
 	})
+
+	// everything else is for published segments
+	if !notif.Metadata.Published {
+		return nil
+	}
 
 	if ss.cli.Thumbnail {
 		ss.Go(ctx, func() error {
@@ -721,9 +727,11 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 }
 
 func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *streamplace.Segment, rendition string, seg *bus.Seg) error {
-	ss.Go(ctx, func() error {
-		return ss.AddToHLS(ctx, spseg, rendition, seg.Data)
-	})
+	if seg.Published {
+		ss.Go(ctx, func() error {
+			return ss.AddToHLS(ctx, spseg, rendition, seg.Data)
+		})
+	}
 	ss.Go(ctx, func() error {
 		return ss.AddToWebRTC(ctx, spseg, rendition, seg)
 	})

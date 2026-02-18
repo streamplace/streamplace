@@ -28,7 +28,7 @@ func (a *StreamplaceAPI) NormalizeUser(ctx context.Context, user string) (string
 		return user, nil
 	}
 	// only other allowed case is a bluesky handle
-	repo, err := a.ATSync.SyncBlueskyRepoCached(ctx, user, a.Model)
+	repo, err := a.ATSync.SyncBlueskyRepoCached(ctx, user)
 	if err != nil {
 		return "", err
 	}

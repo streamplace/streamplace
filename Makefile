@@ -410,7 +410,7 @@ lexgen:
 
 .PHONY: lexgen-types
 lexgen-types:
-	go run github.com/bluesky-social/indigo/cmd/lexgen \
+	go tool github.com/bluesky-social/indigo/cmd/lexgen \
 		-outdir ./pkg/spxrpc \
 		--build-file util/lexgen-types.json \
 		--external-lexicons subprojects/atproto/lexicons \
@@ -420,7 +420,7 @@ lexgen-types:
 .PHONY: lexgen-server
 lexgen-server:
 	mkdir -p ./pkg/spxrpc \
-	&& go run github.com/bluesky-social/indigo/cmd/lexgen \
+	&& go tool github.com/bluesky-social/indigo/cmd/lexgen \
 		--gen-server \
 		--types-import place.stream:stream.place/streamplace/pkg/streamplace \
 		--types-import app.bsky:github.com/bluesky-social/indigo/api/bsky \

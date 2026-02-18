@@ -60,7 +60,7 @@ func (atsync *ATProtoSynchronizer) Migrate(ctx context.Context) error {
 		currentDID := did
 		g.Go(func() error {
 			log.Debug(ctx, "syncing repo", "did", currentDID, "progress", currentIndex+1, "total", len(allDIDs))
-			_, err := atsync.SyncBlueskyRepoCached(ctx, currentDID, atsync.Model)
+			_, err := atsync.SyncBlueskyRepoCached(ctx, currentDID)
 			if err != nil {
 				log.Error(ctx, "failed to sync repo", "did", currentDID, "err", err)
 				syncErrorMu.Lock()

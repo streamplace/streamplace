@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as sdpTransform from "sdp-transform";
-import { PlayerStatus, usePlayerStore, useStreamKey } from "../..";
+import { StreamplaceAgent } from "streamplace";
+import { PlayerStatus, usePDSAgent, usePlayerStore, useStreamKey } from "../..";
 import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
 
 export default function useWebRTC(
@@ -9,10 +10,14 @@ export default function useWebRTC(
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [stuck, setStuck] = useState<boolean>(false);
   const setStatus = usePlayerStore((x) => x.setStatus);
+  let agent = usePDSAgent();
 
   const lastChange = useRef<number>(0);
 
   useEffect(() => {
+    if (!agent) {
+      return;
+    }
     const peerConnection = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
     });
@@ -44,7 +49,12 @@ export default function useWebRTC(
       }
     });
     peerConnection.addEventListener("negotiationneeded", () => {
-      negotiateConnectionWithClientOffer(peerConnection, endpoint);
+      negotiateConnectionWithClientOffer(
+        peerConnection,
+        endpoint,
+        undefined,
+        agent,
+      );
     });
 
     let lastFramesReceived = 0;
@@ -82,7 +92,7 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [endpoint]);
+  }, [endpoint, agent]);
   return [mediaStream, stuck];
 }
 
@@ -102,6 +112,7 @@ export async function negotiateConnectionWithClientOffer(
   peerConnection: RTCPeerConnection,
   endpoint: string,
   bearerToken?: string,
+  agent?: StreamplaceAgent,
 ) {
   /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createOffer */
   const offer = await peerConnection.createOffer({
@@ -134,23 +145,23 @@ export async function negotiateConnectionWithClientOffer(
        * This specifies how the client should communicate,
        * and what kind of media client and server have negotiated to exchange.
        */
-      let response = await postSDPOffer(`${endpoint}`, ofr.sdp, bearerToken);
-      if (response.status === 201) {
-        let answerSDP = await response.text();
+      let response = await postSDPOffer(
+        `${endpoint}`,
+        ofr.sdp,
+        bearerToken,
+        agent,
+      );
+      let text = new TextDecoder().decode(response.data);
+      if (response.success) {
         if ((peerConnection.connectionState as string) === "closed") {
           return;
         }
         await peerConnection.setRemoteDescription(
-          new RTCSessionDescription({ type: "answer", sdp: answerSDP }),
+          new RTCSessionDescription({ type: "answer", sdp: text }),
         );
-        return response.headers.get("Location");
-      } else if (response.status === 405) {
-        console.log(
-          "Remember to update the URL passed into the WHIP or WHEP client",
-        );
+        return "https://stream.place/example";
       } else {
-        const errorMessage = await response.text();
-        console.error(errorMessage);
+        console.error(text);
       }
     } catch (e) {
       console.error(`posting sdp offer failed: ${e}`);
@@ -165,16 +176,26 @@ async function postSDPOffer(
   endpoint: string,
   data: string,
   bearerToken?: string,
+  agent?: StreamplaceAgent,
 ) {
-  return await fetch(endpoint, {
-    method: "POST",
-    mode: "cors",
-    headers: {
-      "content-type": "application/sdp",
-      ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
+  if (!agent) {
+    throw new Error("No agent found");
+  }
+  return await agent.place.stream.playback.whep(data, {
+    qp: {
+      rendition: "source",
+      streamer: agent.did!,
     },
-    body: data,
   });
+  // return await fetch(endpoint, {
+  //   method: "POST",
+  //   mode: "cors",
+  //   headers: {
+  //     "content-type": "application/sdp",
+  //     ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
+  //   },
+  //   body: data,
+  // });
 }
 
 /**

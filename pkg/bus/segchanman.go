@@ -16,6 +16,7 @@ type Seg struct {
 	Filepath       string
 	Data           []byte
 	PacketizedData *PacketizedSegment
+	Published      bool
 }
 
 type PacketizedSegment struct {

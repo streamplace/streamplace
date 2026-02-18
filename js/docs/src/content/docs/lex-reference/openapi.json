@@ -517,6 +517,77 @@
         }
       }
     },
+    "/xrpc/place.stream.playback.whep": {
+      "post": {
+        "summary": "Play a stream over WebRTC using WHEP.",
+        "operationId": "place.stream.playback.whep",
+        "tags": ["place.stream.playback"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "*/*": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "streamer",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the streamer to play.",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the streamer to play."
+            }
+          },
+          {
+            "name": "rendition",
+            "in": "query",
+            "required": true,
+            "description": "The rendition of the stream to play.",
+            "schema": {
+              "type": "string",
+              "description": "The rendition of the stream to play."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "*/*": {
+              "schema": {}
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.multistream.createTarget": {
       "post": {
         "summary": "Create a new target for rebroadcasting a Streamplace stream.",

@@ -22,10 +22,10 @@ import (
 
 var SyncGetRepo = comatproto.SyncGetRepo
 
-func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
+func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string) (*model.Repo, error) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "SyncBlueskyRepoCached")
 	defer span.End()
-	repo, err := mod.GetRepoByHandleOrDID(handle)
+	repo, err := atsync.Model.GetRepoByHandleOrDID(handle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo for %s: %w", handle, err)
 	}
@@ -33,7 +33,7 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, ha
 		return repo, nil
 	}
 
-	return atsync.SyncBlueskyRepo(ctx, handle, mod)
+	return atsync.SyncBlueskyRepo(ctx, handle, atsync.Model)
 }
 
 type mstNode struct {

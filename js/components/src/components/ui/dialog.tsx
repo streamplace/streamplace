@@ -477,22 +477,30 @@ function createStyles(theme: any) {
 
     // Size styles
     smContent: {
+      width: 400,
       minWidth: 300,
+      maxWidth: 500,
       minHeight: 200,
     },
 
     mdContent: {
+      width: 500,
       minWidth: 400,
+      maxWidth: 600,
       minHeight: 300,
     },
 
     lgContent: {
+      width: 600,
       minWidth: 500,
+      maxWidth: 800,
       minHeight: 400,
     },
 
     xlContent: {
+      width: 800,
       minWidth: 600,
+      maxWidth: 1000,
       minHeight: 500,
     },
 

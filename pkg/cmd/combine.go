@@ -14,23 +14,16 @@ import (
 	"stream.place/streamplace/pkg/media"
 )
 
-func Combine(ctx context.Context, build *config.BuildFlags, allArgs []string) error {
+func Combine(ctx context.Context, cli *config.CLI, debugDir string, outFile string, inputs []string) error {
 	gstinit.InitGST()
-	cli := &config.CLI{Build: build}
-	fs := cli.NewFlagSet("streamplace combine")
-	debugDir := fs.String("debug-dir", "", "directory to write debug files to")
 
-	err := cli.Parse(fs, allArgs)
-	if err != nil {
-		return err
-	}
-	if *debugDir != "" {
-		err := os.MkdirAll(*debugDir, 0755)
+	if debugDir != "" {
+		err := os.MkdirAll(debugDir, 0755)
 		if err != nil {
 			return fmt.Errorf("failed to create debug directory: %w", err)
 		}
 	}
-	log.Debug(context.Background(), "combine command: starting", "args", fs.Args())
+	log.Debug(context.Background(), "combine command: starting", "outFile", outFile, "inputs", inputs)
 	ctx = log.WithDebugValue(ctx, cli.Debug)
 	cryptoSigner, err := createSigner(ctx, cli)
 	if err != nil {
@@ -40,9 +33,7 @@ func Combine(ctx context.Context, build *config.BuildFlags, allArgs []string) er
 	if err != nil {
 		return err
 	}
-	args := fs.Args()
-	outFile := args[0]
-	inputs := args[1:]
+
 	log.Log(ctx, "combining segments", "outFile", outFile, "inputs", inputs)
 	outFd, err := os.Create(outFile)
 	if err != nil {
@@ -62,7 +53,7 @@ func Combine(ctx context.Context, build *config.BuildFlags, allArgs []string) er
 	if err != nil {
 		return err
 	}
-	err = CheckCombined(ctx, cli, outFd, *debugDir)
+	err = CheckCombined(ctx, cli, outFd, debugDir)
 	if err != nil {
 		return err
 	}

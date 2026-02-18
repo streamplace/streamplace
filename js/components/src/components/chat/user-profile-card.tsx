@@ -27,7 +27,7 @@ import { Badge } from "./badge";
 interface BadgeMeta {
   label: string;
   description: string;
-  issuedBy?: string; // Optional template for issuer display
+  issuedBy?: string;
 }
 
 const BADGE_META: Record<string, BadgeMeta> = {
@@ -76,7 +76,6 @@ const BadgeRow = ({
   badge: NonNullable<ChatMessageViewHydrated["badges"]>[number];
   serviceDid: string;
 }) => {
-  const { theme } = useTheme();
   const streamer = useLivestreamStore((x) => x.livestream?.author);
   const isServiceIssued = badge.issuer === serviceDid;
   const issuerDids = useMemo(
@@ -93,9 +92,7 @@ const BadgeRow = ({
     : issuerProfiles[badge.issuer]?.handle
       ? `@${issuerProfiles[badge.issuer].handle}`
       : badge.issuer;
-  console.log("meta", meta);
   if (meta.issuedBy) {
-    console.log("issued by");
     issuerLabel = meta.issuedBy
       .replace("{issuer}", issuerLabel)
       .replace(
@@ -179,27 +176,17 @@ export const UserProfileCard = ({
                 onHoverOut: () => setHovered(false),
               }
             : {})}
-          style={
-            Platform.OS === "web" && hovered
-              ? {
-                  backgroundColor: "rgba(255,255,255,0.15)",
-                  borderRadius: 6,
-                  paddingHorizontal: 3,
-                  flexDirection: "row",
-                  gap: 4,
-                  marginLeft: -3,
-                  paddingLeft: 3,
-                  marginRight: -2,
-                }
-              : {
-                  paddingHorizontal: 3,
-                  flexDirection: "row",
-                  gap: 4,
-                  marginLeft: -3,
-                  paddingLeft: 3,
-                  marginRight: -2,
-                }
-          }
+          style={{
+            paddingHorizontal: 3,
+            flexDirection: "row",
+            gap: 4,
+            marginLeft: -3,
+            paddingLeft: 3,
+            marginRight: -2,
+            ...(Platform.OS === "web" && hovered
+              ? { backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 6 }
+              : {}),
+          }}
         >
           {children}
         </Pressable>

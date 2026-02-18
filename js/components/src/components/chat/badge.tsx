@@ -14,8 +14,8 @@ export const Badge = ({
   badgeType: string;
   size?: number;
 }) => {
-  const source =
-    BADGE_IMAGES[badgeType] ?? BADGE_IMAGES["place.stream.badge.defs#vip"];
+  const source = BADGE_IMAGES[badgeType];
+  if (!source) return null;
   return (
     <Image
       source={source}
@@ -38,7 +38,7 @@ export const BadgeDisplayRow = ({
   return (
     <>
       {badges.map((badge, index) => (
-        <Badge key={`badge-${index}`} badgeType={badge.badgeType} />
+        <Badge key={index} badgeType={badge.badgeType} />
       ))}
     </>
   );

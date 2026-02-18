@@ -4,7 +4,7 @@ import {
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { memo, useCallback } from "react";
-import { Image, Linking, View } from "react-native";
+import { Linking, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { RichtextSegment, segmentize } from "../../lib/facet";
 import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
@@ -23,9 +23,10 @@ interface Facet {
   }>;
 }
 
-import { zero } from "../..";
 import { useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
+import { BadgeDisplayRow } from "./badge";
+import { UserProfileCard } from "./user-profile-card";
 
 const getRgbColor = (color?: { red: number; green: number; blue: number }) =>
   color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : colors.gray[500];
@@ -171,45 +172,28 @@ export const RenderChatMessage = memo(
               {formatTime(item.record.createdAt)}
             </Text>
           )}
-          {item.badges?.length ? (
-            <View style={[zero.layout.flex.align.end]}>
-              {item.badges.map((badge, index) => (
-                <View style={{ height: 3 }} key={`badge-${index}`}>
-                  {badge.badgeType === "place.stream.badge.defs#mod" ? (
-                    <Image
-                      source={require("../../../assets/badges/mod.png")}
-                      style={{ height: 20, width: 20, marginTop: 3 }}
-                    />
-                  ) : badge.badgeType === "place.stream.badge.defs#streamer" ? (
-                    <Image
-                      source={require("../../../assets/badges/live.png")}
-                      style={{ height: 20, width: 20, marginTop: 3 }}
-                    />
-                  ) : (
-                    <Image
-                      source={require("../../../assets/badges/vip.png")}
-                      style={{ height: 20, width: 20, marginTop: 3 }}
-                    />
-                  )}
-                </View>
-              ))}
-            </View>
-          ) : null}
+          <BadgeDisplayRow badges={item.badges} />
           <Text
             weight="bold"
             color="default"
             style={[flex.shrink[1], { minWidth: 0, overflow: "hidden" }]}
           >
-            <Text
-              style={[
-                {
-                  cursor: "pointer",
-                  color: getRgbColor(item.chatProfile?.color),
-                },
-              ]}
+            <UserProfileCard
+              uri={item.uri}
+              author={item.author}
+              badges={item.badges}
             >
-              {formatHandleWithAt(item.author)}
-            </Text>
+              <Text
+                style={[
+                  {
+                    cursor: "pointer",
+                    color: getRgbColor(item.chatProfile?.color),
+                  },
+                ]}
+              >
+                {formatHandleWithAt(item.author)}
+              </Text>
+            </UserProfileCard>
             :{" "}
             <RichTextMessage
               text={item.record.text}

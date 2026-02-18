@@ -26,6 +26,7 @@ import {
 import { bg, flex, layout, mr, px, py } from "../../lib/theme/atoms";
 import { RenderChatMessage } from "./chat-message";
 import { ModView } from "./mod-view";
+import { ProfileCardProvider } from "./user-profile-card";
 
 function RightAction(prog: SharedValue<number>, drag: SharedValue<number>) {
   const styleAnimation = useAnimatedStyle(() => {
@@ -309,25 +310,27 @@ export function Chat({
         },
       ].concat(propsStyle || [])}
     >
-      <FlatList
-        ref={flatListRef}
-        style={[
-          flex.grow[1],
-          flex.shrink[1],
-          { minWidth: 0, maxWidth: "100%" },
-        ]}
-        data={chat.slice(0, shownMessages)}
-        inverted={true}
-        keyExtractor={keyExtractor}
-        renderItem={({ item, index }) => <ChatLine item={item} />}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        initialNumToRender={10}
-        updateCellsBatchingPeriod={50}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        nestedScrollEnabled={true}
-      />
+      <ProfileCardProvider>
+        <FlatList
+          ref={flatListRef}
+          style={[
+            flex.grow[1],
+            flex.shrink[1],
+            { minWidth: 0, maxWidth: "100%" },
+          ]}
+          data={chat.slice(0, shownMessages)}
+          inverted={true}
+          keyExtractor={keyExtractor}
+          renderItem={({ item, index }) => <ChatLine item={item} />}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          initialNumToRender={10}
+          updateCellsBatchingPeriod={50}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          nestedScrollEnabled={true}
+        />
+      </ProfileCardProvider>
       <Reanimated.View
         style={[
           {

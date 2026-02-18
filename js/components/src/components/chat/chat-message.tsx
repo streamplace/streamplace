@@ -154,47 +154,41 @@ export const RenderChatMessage = memo(
             </Text>
           </View>
         )}
-        <View
-          style={[
-            gap.all[2],
-            layout.flex.row,
-            { minWidth: 0, maxWidth: "100%" },
-          ]}
-        >
+        <View style={[layout.flex.row, { minWidth: 0, maxWidth: "100%" }]}>
           {showTime && (
             <Text
               style={{
                 fontVariant: ["tabular-nums"],
                 color: colors.gray[400],
                 width: 44,
+                marginRight: 8,
               }}
             >
               {formatTime(item.record.createdAt)}
             </Text>
           )}
-          <BadgeDisplayRow badges={item.badges} />
-          <Text
-            weight="bold"
-            color="default"
-            style={[flex.shrink[1], { minWidth: 0, overflow: "hidden" }]}
-          >
+          <Text style={[flex.shrink[1], { minWidth: 0 }]}>
             <UserProfileCard
               uri={item.uri}
               author={item.author}
               badges={item.badges}
             >
-              <Text
-                style={[
-                  {
+              <Text>
+                <BadgeDisplayRow badges={item.badges} />
+                <Text
+                  weight="bold"
+                  style={{
                     cursor: "pointer",
                     color: getRgbColor(item.chatProfile?.color),
-                  },
-                ]}
-              >
-                {formatHandleWithAt(item.author)}
+                  }}
+                >
+                  {formatHandleWithAt(item.author)}
+                </Text>
               </Text>
             </UserProfileCard>
-            :{" "}
+            <Text weight="bold" color="default">
+              {": "}
+            </Text>
             <RichTextMessage
               text={item.record.text}
               facets={item.record.facets || []}

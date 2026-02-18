@@ -1,6 +1,5 @@
-import { Image, View } from "react-native";
+import { Image } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
-import { zero } from "../..";
 
 export const BADGE_IMAGES: Record<string, ReturnType<typeof require>> = {
   "place.stream.badge.defs#mod": require("../../../assets/badges/mod.png"),
@@ -10,7 +9,7 @@ export const BADGE_IMAGES: Record<string, ReturnType<typeof require>> = {
 
 export const Badge = ({
   badgeType,
-  size = 20,
+  size = 18,
 }: {
   badgeType: string;
   size?: number;
@@ -20,7 +19,12 @@ export const Badge = ({
   return (
     <Image
       source={source}
-      style={{ height: size, width: size, marginTop: 3 }}
+      style={{
+        height: size,
+        width: size,
+        marginBottom: -size / 5,
+        marginRight: 2,
+      }}
     />
   );
 };
@@ -32,12 +36,10 @@ export const BadgeDisplayRow = ({
 }) => {
   if (!badges?.length) return null;
   return (
-    <View style={[zero.layout.flex.align.end]}>
+    <>
       {badges.map((badge, index) => (
-        <View style={{ height: 3 }} key={`badge-${index}`}>
-          <Badge badgeType={badge.badgeType} />
-        </View>
+        <Badge key={`badge-${index}`} badgeType={badge.badgeType} />
       ))}
-    </View>
+    </>
   );
 };

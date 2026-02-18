@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Image, View } from "react-native";
+import { Image, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { useAvatars } from "../../hooks/useAvatars";
 import { useLivestreamStore } from "../../livestream-store";
@@ -147,6 +147,7 @@ export const UserProfileCard = ({
   const { openUri, setOpenUri } = useContext(OpenCardContext);
   const isOpen = openUri === uri;
   const thisRef = useRef<TriggerRef>(null);
+  const [hovered, setHovered] = useState(false);
 
   const profiles = useAvatars(author.did ? [author.did] : []);
   const profile = profiles[author.did];
@@ -170,7 +171,38 @@ export const UserProfileCard = ({
   return (
     <DropdownMenu onOpenChange={onOpenChange}>
       <DropdownMenuTrigger ref={thisRef} asChild>
-        {children}
+        <Pressable
+          onPress={() => {}}
+          {...(Platform.OS === "web"
+            ? {
+                onHoverIn: () => setHovered(true),
+                onHoverOut: () => setHovered(false),
+              }
+            : {})}
+          style={
+            Platform.OS === "web" && hovered
+              ? {
+                  backgroundColor: "rgba(255,255,255,0.15)",
+                  borderRadius: 6,
+                  paddingHorizontal: 3,
+                  flexDirection: "row",
+                  gap: 4,
+                  marginLeft: -3,
+                  paddingLeft: 3,
+                  marginRight: -2,
+                }
+              : {
+                  paddingHorizontal: 3,
+                  flexDirection: "row",
+                  gap: 4,
+                  marginLeft: -3,
+                  paddingLeft: 3,
+                  marginRight: -2,
+                }
+          }
+        >
+          {children}
+        </Pressable>
       </DropdownMenuTrigger>
       <DropdownMenuContent style={{ minWidth: 280, maxWidth: 320 }}>
         <View>

@@ -10,7 +10,7 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition string, streamer string, r io.Reader, contentType string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition string, streamer string, r io.Reader, _contentType string) (io.Reader, error) {
 	if streamer == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "streamer is required")
 	}

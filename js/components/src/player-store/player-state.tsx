@@ -32,7 +32,7 @@ export interface PlayerState {
   protocol: PlayerProtocol;
   setProtocol: (protocol: PlayerProtocol) => void;
 
-  /** Source */
+  /** Source (streamer did) */
   src: string;
 
   /** Function to set the source URL */

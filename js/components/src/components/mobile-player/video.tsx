@@ -442,11 +442,12 @@ export function WebRTCPlayerInner({
 
   const status = usePlayerStore((x) => x.status);
   const setStatus = usePlayerStore((x) => x.setStatus);
+  const src = usePlayerStore((x) => x.src);
 
   const playerEvent = usePlayerStore((x) => x.playerEvent);
   const spurl = useStreamplaceStore((x) => x.url);
 
-  const [mediaStream, stuck] = useWebRTC(url);
+  const [mediaStream, stuck] = useWebRTC(src);
 
   useEffect(() => {
     if (stuck) {

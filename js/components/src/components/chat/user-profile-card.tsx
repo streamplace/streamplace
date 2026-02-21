@@ -34,7 +34,7 @@ const BADGE_META: Record<string, BadgeMeta> = {
   "place.stream.badge.defs#mod": {
     label: "Moderator",
     description: "This user is a moderator.",
-    issuedBy: "{issuer} p.p. {streamer}",
+    issuedBy: "{issuer} for {streamer}",
   },
   "place.stream.badge.defs#streamer": {
     label: "Streamer",

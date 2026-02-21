@@ -36,9 +36,6 @@ func main() {
 		streamplace.ModerationPermission{},
 		streamplace.LiveTeleport{},
 		streamplace.LiveRecommendations{},
-		streamplace.BadgeIssuance{},
-		streamplace.BadgeDisplay{},
-		streamplace.BadgeDisplay_BadgeSelection{},
 	); err != nil {
 		panic(err)
 	}

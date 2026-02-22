@@ -12,7 +12,6 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
@@ -105,8 +104,12 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 	if err != nil {
 		return fmt.Errorf("could not parse last seen at: %w", err)
 	}
-	if time.Since(lastSeenTime) < constants.LivestreamConsideredInactiveAfter {
-		log.Warn(ctx, "livestream is active, skipping removal of red circle", "lastSeenAt", lastSeenTime)
+	if rec.IdleTimeoutSeconds == nil || *rec.IdleTimeoutSeconds == 0 {
+		log.Warn(ctx, "livestream has no idle timeout, skipping finalization", "uri", livestream.URI)
+		return nil
+	}
+	if time.Since(lastSeenTime) < (time.Duration(*rec.IdleTimeoutSeconds) * time.Second) {
+		log.Warn(ctx, "livestream is active, skipping finalization", "lastSeenAt", lastSeenTime)
 		return nil
 	}
 	session, err := state.GetSessionByDID(livestream.RepoDID)

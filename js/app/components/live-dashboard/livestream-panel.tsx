@@ -1,11 +1,9 @@
 import {
-  Admonition,
   Button,
   Checkbox,
   ContentMetadataForm,
   Dashboard,
   formatHandle,
-  formatHandleWithAt,
   getBlob,
   Input,
   resolveDIDDocument,
@@ -21,12 +19,11 @@ import {
   zero,
 } from "@streamplace/components";
 import { error } from "console";
-import { ArrowRight, ImagePlus, X } from "lucide-react-native";
+import { ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Platform,
-  Pressable,
   ScrollView,
   TouchableOpacity,
   View,
@@ -113,7 +110,7 @@ const ImageUploadComponent = ({
       r.md,
       layout.flex.center,
       {
-        height: 200,
+        height: 100,
         borderStyle: "dashed",
       },
     ],
@@ -186,7 +183,7 @@ const ImageUploadComponent = ({
           )}
         </>
       )}
-      <View style={{ marginTop: 8 }}>
+      {/* <View style={{ marginTop: 8 }}>
         <Admonition variant="info" size="sm">
           <Text size="sm">
             You are required to disclose if your content is not suitable for
@@ -199,7 +196,7 @@ const ImageUploadComponent = ({
             </Text>
           </Pressable>
         </Admonition>
-      </View>
+      </View> */}
     </View>
   );
 };
@@ -226,6 +223,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   );
 
   const [createPost, setCreatePost] = useState(true);
+  const [idleTimeout, setIdleTimeout] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
   const [canonicalUrl, setCanonicalUrl] = useState<string>("");
   const defaultCanonicalUrl = useMemo(() => {
@@ -299,6 +297,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
             pushNotification: sendPushNotification,
           },
           canonicalUrl: canonicalUrl || undefined,
+          idleTimeoutSeconds: idleTimeout ? 300 : 0,
         });
       } else {
         await updateStreamRecord(
@@ -421,8 +420,11 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
         ? "Waiting for stream to start..."
         : "Waiting for stream to start...";
     }
-    return mode === "create" ? "Announce Livestream!" : "Update Livestream!";
-  }, [loading, userIsLive, mode]);
+    if (!livestream || livestream.record.endedAt !== undefined) {
+      return "Start Livestream!";
+    }
+    return "Update Livestream!";
+  }, [loading, userIsLive, mode, livestream]);
 
   const Wrapper = scrollable ? ScrollView : View;
   const wrapperProps = scrollable
@@ -503,30 +505,6 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
               ]}
             >
               <View style={[gap.all[3], w.percent[100]]}>
-                <View
-                  style={[
-                    layout.flex.row,
-                    layout.flex.alignCenter,
-                    w.percent[100],
-                  ]}
-                >
-                  <Text
-                    style={[
-                      text.neutral[300],
-                      { minWidth: 100, textAlign: "left", paddingBottom: 8 },
-                    ]}
-                  >
-                    Streamer
-                  </Text>
-                  <Text
-                    style={[
-                      text.white,
-                      { fontWeight: "bold", paddingBottom: 8 },
-                    ]}
-                  >
-                    {profile && formatHandleWithAt(profile)}
-                  </Text>
-                </View>
                 <View
                   style={[
                     layout.flex.row,
@@ -650,6 +628,18 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                       setSendPushNotification(checked)
                     }
                     label={"Send push notification"}
+                    style={[{ fontSize: 12 }]}
+                  />
+                </Tooltip>
+
+                <Tooltip
+                  content="Enabling this setting will turn your livestream off after 5 minutes of inactivity, and you'll need to press the 'Start Livestream' button again to start it again next time you stream."
+                  position="top"
+                >
+                  <Checkbox
+                    checked={idleTimeout}
+                    onCheckedChange={(checked) => setIdleTimeout(checked)}
+                    label={"End livestream automatically"}
                     style={[{ fontSize: 12 }]}
                   />
                 </Tooltip>

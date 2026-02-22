@@ -12,6 +12,7 @@ import { OfflineCounter } from "components/mobile/offline-counter";
 import { Eye, EyeOff, Signal, Wifi, WifiOff } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Image, TouchableOpacity, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { useLiveUser } from "../../hooks/useLiveUser";
 import { useSegmentTiming } from "../../hooks/useSegmentTiming";
 import StreamScreen from "./live-selector";
@@ -22,6 +23,52 @@ interface StreamMonitorProps {
   userProfile?: any;
   isLive?: boolean;
   videoRef?: any;
+}
+
+function PreviewOverlay() {
+  // const opacity = useSharedValue(1);
+
+  // useEffect(() => {
+  //   opacity.value = withRepeat(withTiming(0.8, { duration: 1500 }), -1, true);
+  // }, [opacity]);
+
+  // const animatedStyle = useAnimatedStyle(() => ({
+  //   opacity: opacity.value,
+  // }));
+
+  return (
+    <View
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: "flex-start",
+        alignItems: "flex-start",
+        pointerEvents: "none",
+      }}
+    >
+      <Animated.Text
+        style={[
+          // animatedStyle,
+          {
+            paddingLeft: 16,
+            paddingTop: 16,
+            fontSize: 32,
+            fontWeight: "800",
+            color: "white",
+            letterSpacing: 4,
+            textShadowColor: "rgba(0, 0, 0, 0.9)",
+            textShadowOffset: { width: 0, height: 2 },
+            textShadowRadius: 8,
+          },
+        ]}
+      >
+        PREVIEW (NOT LIVE)
+      </Animated.Text>
+    </View>
+  );
 }
 
 export default function StreamMonitor({
@@ -139,15 +186,20 @@ export default function StreamMonitor({
       <View style={[flex.values[1], layout.flex.center, bg.neutral[900]]}>
         {isLive && userProfile ? (
           isStreamVisible ? (
-            <Player
-              src={userProfile.did}
-              name={userProfile.handle}
-              muted={true}
+            <View
+              style={{ position: "relative", width: "100%", height: "100%" }}
             >
-              <DesktopUi />
-              <PlayerUI.ViewerLoadingOverlay />
-              <OfflineCounter isMobile={true} />
-            </Player>
+              <Player
+                src={userProfile.did}
+                name={userProfile.handle}
+                muted={true}
+              >
+                <DesktopUi />
+                <PlayerUI.ViewerLoadingOverlay />
+                <OfflineCounter isMobile={true} />
+              </Player>
+              {!ls && <PreviewOverlay />}
+            </View>
           ) : (
             <View
               style={[

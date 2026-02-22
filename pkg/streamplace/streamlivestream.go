@@ -27,6 +27,8 @@ type Livestream struct {
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	// endedAt: Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again.
 	EndedAt *string `json:"endedAt,omitempty" cborgen:"endedAt,omitempty"`
+	// idleTimeoutSeconds: Time in seconds after which this livestream should be automatically ended if idle. Zero means no timeout.
+	IdleTimeoutSeconds *int64 `json:"idleTimeoutSeconds,omitempty" cborgen:"idleTimeoutSeconds,omitempty"`
 	// lastSeenAt: Client-declared timestamp when this livestream was last seen by the Streamplace station.
 	LastSeenAt           *string                          `json:"lastSeenAt,omitempty" cborgen:"lastSeenAt,omitempty"`
 	NotificationSettings *Livestream_NotificationSettings `json:"notificationSettings,omitempty" cborgen:"notificationSettings,omitempty"`

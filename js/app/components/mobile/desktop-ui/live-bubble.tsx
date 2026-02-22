@@ -1,4 +1,10 @@
-import { Code, useSegment, View, zero } from "@streamplace/components";
+import {
+  Code,
+  useLivestream,
+  useSegment,
+  View,
+  zero,
+} from "@streamplace/components";
 import { useMemo } from "react";
 
 const { borders, gap, h, w, px, bg, text } = zero;
@@ -6,6 +12,8 @@ const { borders, gap, h, w, px, bg, text } = zero;
 export function LiveBubble() {
   // are we actually live? (is the most recent segment <= 10 seconds old?)
   let seg = useSegment();
+
+  const livestream = useLivestream();
 
   let segDate = useMemo(() => {
     return seg?.startTime ? new Date(seg.startTime) : undefined;
@@ -51,7 +59,7 @@ export function LiveBubble() {
           { flexDirection: "row", alignItems: "center" },
           gap.all[1],
           px[2],
-          bg.destructive[500],
+          livestream ? bg.destructive[500] : bg.gray[500],
           borders.color.gray[800],
           { paddingVertical: 3 },
         ]}
@@ -67,7 +75,7 @@ export function LiveBubble() {
             },
           ]}
         >
-          LIVE
+          {livestream ? "LIVE" : "NOT LIVE"}
         </Code>
       </View>
     </View>

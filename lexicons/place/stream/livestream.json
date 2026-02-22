@@ -36,6 +36,10 @@
             "format": "datetime",
             "description": "Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again."
           },
+          "idleTimeoutSeconds": {
+            "type": "integer",
+            "description": "Time in seconds after which this livestream should be automatically ended if idle. Zero means no timeout."
+          },
           "post": {
             "type": "ref",
             "ref": "com.atproto.repo.strongRef",

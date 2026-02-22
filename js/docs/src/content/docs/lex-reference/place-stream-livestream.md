@@ -26,6 +26,7 @@ Record announcing a livestream is happening
 | `createdAt`            | `string`                                                                                                                               | ✅    | Client-declared timestamp when this livestream started.                                                                                  | Format: `datetime`                            |
 | `lastSeenAt`           | `string`                                                                                                                               | ❌    | Client-declared timestamp when this livestream was last seen by the Streamplace station.                                                 | Format: `datetime`                            |
 | `endedAt`              | `string`                                                                                                                               | ❌    | Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again.                              | Format: `datetime`                            |
+| `idleTimeoutSeconds`   | `integer`                                                                                                                              | ❌    | Time in seconds after which this livestream should be automatically ended if idle. Zero means no timeout.                                |                                               |
 | `post`                 | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | The post that announced this livestream.                                                                                                 |                                               |
 | `agent`                | `string`                                                                                                                               | ❌    | The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS |                                               |
 | `canonicalUrl`         | `string`                                                                                                                               | ❌    | The primary URL where this livestream can be viewed, if available.                                                                       | Format: `uri`                                 |
@@ -168,6 +169,10 @@ Record announcing a livestream is happening
             "type": "string",
             "format": "datetime",
             "description": "Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again."
+          },
+          "idleTimeoutSeconds": {
+            "type": "integer",
+            "description": "Time in seconds after which this livestream should be automatically ended if idle. Zero means no timeout."
           },
           "post": {
             "type": "ref",

@@ -134,12 +134,14 @@ export function useCreateStreamRecord() {
     submitPost,
     canonicalUrl,
     notificationSettings,
+    idleTimeoutSeconds,
   }: {
     title: string;
     customThumbnail?: Blob;
     submitPost?: boolean;
     canonicalUrl?: string;
     notificationSettings?: PlaceStreamLivestream.NotificationSettings;
+    idleTimeoutSeconds?: number;
   }) => {
     if (typeof submitPost !== "boolean") {
       submitPost = true;
@@ -263,6 +265,7 @@ export function useCreateStreamRecord() {
       agent: `@streamplace/components/${PackageJson.version} (${platform}, ${platVersion})`,
       post: newPost,
       thumb: thumbnail,
+      idleTimeoutSeconds: idleTimeoutSeconds,
     };
     console.log("record", record);
 

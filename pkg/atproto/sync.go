@@ -372,20 +372,24 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			task := &statedb.FinalizeLivestreamTask{
 				LivestreamURI: aturi.String(),
 			}
-			if rec.LastSeenAt != nil {
-				scheduledAt, err := time.Parse(time.RFC3339, *rec.LastSeenAt)
-				if err == nil {
-					scheduledAt = scheduledAt.Add(constants.LivestreamInactiveCheckInterval).UTC()
-					taskKey := fmt.Sprintf("finalize-livestream::%s::%s", aturi.String(), scheduledAt.Format(util.ISO8601))
-					log.Warn(ctx, "queueing remove red circle task", "taskKey", taskKey, "scheduledAt", scheduledAt)
-					_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskFinalizeLivestream, task, statedb.WithTaskKey(taskKey), statedb.WithScheduledAt(scheduledAt))
-					if err != nil {
-						return fmt.Errorf("failed to enqueue remove red circle task: %w", err)
-					}
-				} else {
-					log.Error(ctx, "failed to parse last seen at", "err", err)
-				}
+			if rec.LastSeenAt == nil || rec.IdleTimeoutSeconds == nil || *rec.IdleTimeoutSeconds == 0 || rec.EndedAt != nil {
+				return nil
 			}
+			scheduledAt, err := time.Parse(time.RFC3339, *rec.LastSeenAt)
+			if err != nil {
+				log.Error(ctx, "failed to parse last seen at", "err", err)
+				return nil
+			}
+
+			// if we check after exactly rec.IdleTimeoutSeconds we might miss the finalization by a few seconds
+			scheduledAt = scheduledAt.Add((time.Duration(*rec.IdleTimeoutSeconds) * time.Second) + (10 * time.Second)).UTC()
+			taskKey := fmt.Sprintf("finalize-livestream::%s::%s", aturi.String(), scheduledAt.Format(util.ISO8601))
+			log.Warn(ctx, "queueing stream finalization task", "taskKey", taskKey, "scheduledAt", scheduledAt)
+			_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskFinalizeLivestream, task, statedb.WithTaskKey(taskKey), statedb.WithScheduledAt(scheduledAt))
+			if err != nil {
+				return fmt.Errorf("failed to enqueue remove red circle task: %w", err)
+			}
+
 		}
 
 	case *streamplace.LiveTeleport:

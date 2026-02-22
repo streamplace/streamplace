@@ -2,9 +2,9 @@ import { Image } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 
 export const BADGE_IMAGES: Record<string, ReturnType<typeof require>> = {
-  "place.stream.badge.defs#mod": require("../../../assets/badges/mod.png"),
-  "place.stream.badge.defs#streamer": require("../../../assets/badges/live.png"),
-  "place.stream.badge.defs#vip": require("../../../assets/badges/vip.png"),
+  "place.stream.badge.defs#mod": require("../../../assets/badges/mod_2x.png"),
+  "place.stream.badge.defs#streamer": require("../../../assets/badges/live_2x.png"),
+  "place.stream.badge.defs#vip": require("../../../assets/badges/vip_2x.png"),
 };
 
 export const Badge = ({

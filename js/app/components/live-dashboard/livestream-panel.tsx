@@ -209,11 +209,12 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const userIsLive = useLiveUser();
   const captureFrame = useCaptureVideoFrame();
   const profile = useUserProfile();
-  const livestream = useLivestream();
+  const livestream = useLivestream(true);
   const createStreamRecord = useCreateStreamRecord();
   const updateStreamRecord = useUpdateStreamRecord();
   const endLivestream = useEndLivestream();
   const url = useUrl();
+  const [endingLivestream, setEndingLivestream] = useState(false);
 
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
@@ -352,8 +353,22 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
 
   const handleEndLivestream = useCallback(async () => {
     if (!livestream) return;
-    await endLivestream(livestream);
+    setEndingLivestream(true);
+    try {
+      await endLivestream(livestream);
+    } catch (error) {
+      console.error("Error ending livestream:", error);
+      toast.show("Error", "Failed to end livestream", {
+        duration: 3,
+      });
+    }
   }, [livestream, endLivestream]);
+
+  useEffect(() => {
+    if (livestream && livestream.record.endedAt !== undefined) {
+      setEndingLivestream(false);
+    }
+  }, [livestream]);
 
   const handleImageSelect = useCallback(() => {
     // Default web file picker behavior
@@ -418,6 +433,9 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
         showsVerticalScrollIndicator: false,
       }
     : {};
+
+  const canEndLivestream =
+    livestream && livestream.record.endedAt === undefined;
 
   return (
     <>
@@ -668,20 +686,24 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                 </Text>
               </Button>
               <Button
-                variant="destructive"
+                variant={canEndLivestream ? "destructive" : "secondary"}
                 onPress={handleEndLivestream}
                 style={[
                   r.md,
                   py[3],
                   w.percent[100],
                   layout.flex.center,
-                  { opacity: disabled ? 0.5 : 1 },
+                  {
+                    opacity: !canEndLivestream ? 0.5 : 1,
+                    cursor: canEndLivestream ? "pointer" : "not-allowed",
+                  },
                 ]}
+                disabled={!canEndLivestream || endingLivestream}
               >
                 <Text
                   style={[text.white, { fontSize: 16, fontWeight: "bold" }]}
                 >
-                  End Livestream
+                  {endingLivestream ? "Ending Livestream..." : "End Livestream"}
                 </Text>
               </Button>
             </View>

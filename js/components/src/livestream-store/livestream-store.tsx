@@ -62,7 +62,13 @@ export const useProfile = () => useLivestreamStore((x) => x.profile);
 
 export const useViewers = () => useLivestreamStore((x) => x.viewers);
 
-export const useLivestream = () => useLivestreamStore((x) => x.livestream);
+export const useLivestream = (includeEnded: boolean = false) =>
+  useLivestreamStore((x) => {
+    const ls = x.livestream;
+    if (!ls) return null;
+    if (!includeEnded && ls.record.endedAt !== undefined) return null;
+    return ls;
+  });
 
 export const useSegment = () => useLivestreamStore((x) => x.segment);
 

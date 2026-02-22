@@ -8,14 +8,21 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/pion/webrtc/v4"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 )
 
 func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition string, streamer string, r io.Reader, _contentType string) (io.Reader, error) {
+
 	if streamer == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "streamer is required")
 	}
 	if rendition == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "rendition is required")
+	}
+	viewer := ""
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session != nil {
+		viewer = session.DID
 	}
 	repo, err := s.ATSync.SyncBlueskyRepoCached(ctx, streamer)
 	if err != nil {
@@ -26,7 +33,7 @@ func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition st
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "error reading body", err)
 	}
 	offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
-	answer, err := s.mm.WebRTCPlayback2(ctx, repo.DID, rendition, &offer)
+	answer, err := s.mm.WebRTCPlayback2(ctx, repo.DID, rendition, &offer, viewer)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error playing back", err)
 	}

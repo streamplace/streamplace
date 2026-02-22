@@ -33,7 +33,7 @@ export default function StreamMonitor({
   const isUserLive = useLiveUser();
   const profile = useLivestreamStore((x) => x.profile);
   const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
-  const ls = useLivestream();
+  let ls = useLivestream();
   const segmentTiming = useSegmentTiming();
 
   // Use hook data primarily, fallback to props
@@ -88,6 +88,39 @@ export default function StreamMonitor({
         return "red";
     }
   };
+
+  const getStreamStatus = () => {
+    if (!isLive) return "OFFLINE";
+    if (!ls) return "NOT LIVE";
+    return "LIVE";
+  };
+
+  const getStreamTitle = () => {
+    if (!ls) {
+      return (
+        <Text
+          style={[
+            text.white,
+            { fontSize: 14, fontWeight: "400", fontStyle: "italic" },
+          ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          Stream not live yet. Press "Announce Livestream" to start!
+        </Text>
+      );
+    }
+    return (
+      <Text
+        style={[text.white, { fontSize: 18, fontWeight: "600" }]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {ls?.record.title || "Stream Title"}
+      </Text>
+    );
+  };
+
   return (
     <View
       style={[
@@ -166,15 +199,7 @@ export default function StreamMonitor({
             { flex: 1, minWidth: 0, gap: 12 },
           ]}
         >
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text
-              style={[text.white, { fontSize: 18, fontWeight: "600" }]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {ls?.record.title || "Stream Title"}
-            </Text>
-          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>{getStreamTitle()}</View>
           <View
             style={[
               layout.flex.row,
@@ -209,7 +234,7 @@ export default function StreamMonitor({
               ]}
             />
             <Text style={[text.gray[400], { fontSize: 14 }]}>
-              {isLive ? "LIVE" : "OFFLINE"}
+              {getStreamStatus()}
             </Text>
           </View>
         </View>

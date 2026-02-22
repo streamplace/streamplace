@@ -17,7 +17,7 @@ func TestWebRTCPlayback2(t *testing.T) {
 		Type: webrtc.SDPTypeOffer,
 		SDP:  firefoxNoH264SDP,
 	}
-	answer, err := mm.WebRTCPlayback2(context.Background(), "test-user", "test-rendition", offer)
+	answer, err := mm.WebRTCPlayback2(context.Background(), "test-user", "test-rendition", offer, "")
 	require.ErrorContains(t, err, "RTPSender created with no codecs")
 	require.Nil(t, answer)
 }

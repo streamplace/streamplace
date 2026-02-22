@@ -3,6 +3,7 @@ import {
   borders,
   Button,
   Dashboard,
+  useLivestream,
   useLivestreamStore,
   usePlayerStore,
   useProfile,
@@ -81,6 +82,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
   const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
   const ingestStarted = usePlayerStore((x) => x.ingestStarted);
   const emojiData = useEmojiData();
+  const livestream = useLivestream();
 
   // Calculate derived values
   const isConnected = ingestConnectionState === "connected";
@@ -112,8 +114,10 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
     | "excellent"
     | "good"
     | "poor"
-    | "offline" => {
+    | "offline"
+    | "pre-live" => {
     if (!isLive) return "offline";
+    if (!livestream) return "pre-live";
     switch (segmentTiming.connectionQuality) {
       case "good":
         return "excellent";
@@ -124,7 +128,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
       default:
         return "offline";
     }
-  }, [isLive, segmentTiming.connectionQuality]);
+  }, [isLive, livestream, segmentTiming.connectionQuality]);
 
   // Calculate messages per minute
   const messagesPerMinute = useMemo((): number => {

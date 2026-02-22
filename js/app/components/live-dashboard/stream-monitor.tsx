@@ -61,6 +61,7 @@ export default function StreamMonitor({
   // Connection quality indicator
   const getConnectionIcon = () => {
     if (!isLive) return null;
+    if (!ls) return <Wifi size={16} color="#3b82f6" />;
 
     switch (segmentTiming.connectionQuality) {
       case "good":
@@ -76,6 +77,7 @@ export default function StreamMonitor({
 
   const getConnectionColor = () => {
     if (!isLive) return "red";
+    if (!ls) return "blue";
 
     switch (segmentTiming.connectionQuality) {
       case "good":

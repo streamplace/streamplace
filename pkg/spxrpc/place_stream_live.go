@@ -82,7 +82,10 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 		beforeTime = &parsedTime
 	}
 
-	segments, err := s.localDB.LatestSegmentsForUser(userDID, limit, beforeTime, nil)
+	sess, _ := oatproxy.GetOAuthSession(ctx)
+	includeUnpublished := sess != nil && sess.DID == userDID
+
+	segments, err := s.localDB.LatestSegmentsForUser(userDID, limit, includeUnpublished, beforeTime, nil)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch segments")
 	}

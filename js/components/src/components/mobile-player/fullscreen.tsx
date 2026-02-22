@@ -11,6 +11,7 @@ import {
   usePlayerStore,
 } from "../..";
 import { View } from "../../components/ui";
+import { AudioOnlyOverlay } from "./ui/audio-only-overlay";
 import Video from "./video";
 import VideoRetry from "./video-retry";
 
@@ -105,6 +106,7 @@ export function Fullscreen(props: {
           pictureInPictureEnabled={props.pictureInPictureEnabled}
         />
       </VideoRetry>
+      <AudioOnlyOverlay />
       <DanmuOverlay
         enabled={danmuEnabled}
         opacity={danmuOpacity}

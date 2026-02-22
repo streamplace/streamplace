@@ -113,10 +113,12 @@ export function MobileUi({
   const FADE_OUT_DELAY = 4000;
   const fadeOpacity = useSharedValue(1);
   const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
+  const selectedRendition = usePlayerStore((state) => state.selectedRendition);
 
   const resetFadeTimer = () => {
     fadeOpacity.value = withTiming(1, { duration: 200 });
     if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+    if (selectedRendition === "audio") return;
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(0, { duration: 400 });
     }, FADE_OUT_DELAY);

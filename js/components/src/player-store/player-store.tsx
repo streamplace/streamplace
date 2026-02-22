@@ -20,7 +20,18 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     id: id || Math.random().toString(36).slice(8),
     selectedRendition: "source",
     setSelectedRendition: (rendition: string) =>
-      set((state) => ({ ...state, selectedRendition: rendition })),
+      set((state) => {
+        if (rendition === "audio" && state.controlsTimeout) {
+          clearTimeout(state.controlsTimeout);
+          return {
+            ...state,
+            selectedRendition: rendition,
+            showControls: true,
+            controlsTimeout: undefined,
+          };
+        }
+        return { ...state, selectedRendition: rendition };
+      }),
     protocol: PlayerProtocol.WEBRTC,
     setProtocol: (protocol: PlayerProtocol) =>
       set((state) => ({ ...state, protocol: protocol })),
@@ -171,9 +182,11 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
 
     setUserInteraction: () =>
       set((p) => {
-        // controls timeout
         if (p.controlsTimeout) {
           clearTimeout(p.controlsTimeout);
+        }
+        if (p.selectedRendition === "audio") {
+          return { showControls: true, controlsTimeout: undefined };
         }
         let controlsTimeout = setTimeout(() => p.setShowControls(false), 1000);
         return { showControls: true, controlsTimeout };

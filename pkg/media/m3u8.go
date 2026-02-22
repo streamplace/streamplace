@@ -61,10 +61,13 @@ func NewM3U8(renditions renditions.Renditions) *M3U8 {
 }
 
 func (r *M3U8Rendition) GetMediaLine(session string) string {
-	// m.waitForStart()
 	lines := []string{}
 	lines = append(lines, "#EXTM3U")
-	lines = append(lines, fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d", r.Rendition.Bitrate, r.Rendition.Width, r.Rendition.Height))
+	if r.Rendition.AudioOnly {
+		lines = append(lines, fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d", r.Rendition.Bitrate))
+	} else {
+		lines = append(lines, fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d", r.Rendition.Bitrate, r.Rendition.Width, r.Rendition.Height))
+	}
 	lines = append(lines, fmt.Sprintf("%s/%s?session=%s", r.Rendition.Name, IndexM3U8, session))
 	return strings.Join(lines, "\n")
 }

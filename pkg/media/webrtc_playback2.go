@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/renditions"
 )
 
 // This function remains in scope for the duration of a single users' playback
@@ -28,13 +29,19 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		return nil, fmt.Errorf("failed to create WebRTC peer connection: %w", err)
 	}
 
-	videoTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264}, "video", "pion")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create video track: %w", err)
-	}
-	videoRTPSender, err := peerConnection.AddTrack(videoTrack)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add video track to peer connection: %w", err)
+	audioOnly := rendition == renditions.AudioRendition.Name
+
+	var videoTrack *webrtc.TrackLocalStaticSample
+	var videoRTPSender *webrtc.RTPSender
+	if !audioOnly {
+		videoTrack, err = webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264}, "video", "pion")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create video track: %w", err)
+		}
+		videoRTPSender, err = peerConnection.AddTrack(videoTrack)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add video track to peer connection: %w", err)
+		}
 	}
 
 	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "audio", "pion")
@@ -84,8 +91,12 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 
 		packetQueue := make(chan *bus.PacketizedSegment, 1024)
 		go func() {
-			segChan := mm.bus.SubscribeSegmentBuf(ctx, user, rendition, 2)
-			defer mm.bus.UnsubscribeSegment(ctx, user, rendition, segChan)
+			busRendition := rendition
+			if audioOnly {
+				busRendition = "source"
+			}
+			segChan := mm.bus.SubscribeSegmentBuf(ctx, user, busRendition, 2)
+			defer mm.bus.UnsubscribeSegment(ctx, user, busRendition, segChan)
 			for {
 				select {
 				case <-ctx.Done():
@@ -127,12 +138,11 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					}
 					g, _ := errgroup.WithContext(ctx)
 
-					if videoDur > 0 {
+					if !audioOnly && videoDur > 0 {
 						g.Go(func() error {
 							ticker := time.NewTicker(time.Duration(float64(videoDur) * (1 / scalar)))
 							defer ticker.Stop()
 							for _, video := range packet.Video {
-								// log.Log(ctx, "writing video sample", "duration", videoDur)
 								err := videoTrack.WriteSample(media.Sample{Data: video, Duration: videoDur})
 								if err != nil {
 									return fmt.Errorf("failed to write video sample: %w", err)
@@ -147,7 +157,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 							}
 							return nil
 						})
-					} else {
+					} else if !audioOnly {
 						log.Warn(ctx, "no video samples to write")
 					}
 					if audioDur > 0 {
@@ -183,14 +193,16 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		mm.IncrementViewerCount(user, "webrtc")
 		defer mm.DecrementViewerCount(user, "webrtc")
 
-		go func() {
-			rtcpBuf := make([]byte, 1500)
-			for {
-				if _, _, rtcpErr := videoRTPSender.Read(rtcpBuf); rtcpErr != nil {
-					return
+		if !audioOnly {
+			go func() {
+				rtcpBuf := make([]byte, 1500)
+				for {
+					if _, _, rtcpErr := videoRTPSender.Read(rtcpBuf); rtcpErr != nil {
+						return
+					}
 				}
-			}
-		}()
+			}()
+		}
 
 		go func() {
 			rtcpBuf := make([]byte, 1500)

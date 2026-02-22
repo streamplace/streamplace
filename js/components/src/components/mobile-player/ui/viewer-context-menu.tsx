@@ -250,7 +250,9 @@ export function ContextMenu({
                 <Text muted size={isMobile ? "base" : "sm"}>
                   {quality === "source"
                     ? `Source${resolutionDisplay ? " " + resolutionDisplay + "\n" : ", "}`
-                    : quality}
+                    : quality === "audio"
+                      ? `Audio Only\n`
+                      : quality}
                   {lowLatency ? "Low Latency" : ""}
                 </Text>
               </View>
@@ -266,7 +268,7 @@ export function ContextMenu({
                   </DropdownMenuRadioItem>
                   {qualities.map((r) => (
                     <DropdownMenuRadioItem key={r.name} value={r.name}>
-                      <Text>{r.name}</Text>
+                      <Text>{r.name === "audio" ? "Audio Only" : r.name}</Text>
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>

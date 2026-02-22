@@ -150,6 +150,116 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 	return dur, busErr
 }
 
+// MP4ToMPEGTSAudioOnly converts an MP4 file to an audio-only MPEG-TS file, discarding video.
+func MP4ToMPEGTSAudioOnly(ctx context.Context, input io.Reader, output io.Writer) (int64, error) {
+	ctx = log.WithLogValues(ctx, "func", "MP4ToMPEGTSAudioOnly")
+	pipelineStr := strings.Join([]string{
+		"appsrc name=appsrc ! qtdemux name=demux",
+		"mpegtsmux name=mux ! appsink name=appsink sync=false",
+		"demux.audio_0 ! opusdec name=audioparse ! audioresample ! audiorate ! fdkaacenc name=audioenc ! queue name=audioqueue",
+	}, " ")
+
+	pipeline, err := gst.NewPipelineFromString(pipelineStr)
+	if err != nil {
+		return 0, err
+	}
+
+	mux, err := pipeline.GetElementByName("mux")
+	if err != nil {
+		return 0, err
+	}
+	muxAudioSinkPad := mux.GetRequestPad("sink_%d")
+	if muxAudioSinkPad == nil {
+		return 0, fmt.Errorf("failed to get audio sink pad")
+	}
+	audioQueue, err := pipeline.GetElementByName("audioqueue")
+	if err != nil {
+		return 0, err
+	}
+	audioQueueSrcPad := audioQueue.GetStaticPad("src")
+	if audioQueueSrcPad == nil {
+		return 0, fmt.Errorf("failed to get audio queue source pad")
+	}
+	ok := audioQueueSrcPad.Link(muxAudioSinkPad)
+	if ok != gst.PadLinkOK {
+		return 0, fmt.Errorf("failed to link audio queue source pad to mux audio sink pad: %v", ok)
+	}
+
+	appsrc, err := pipeline.GetElementByName("appsrc")
+	if err != nil {
+		return 0, err
+	}
+	appsink, err := pipeline.GetElementByName("appsink")
+	if err != nil {
+		return 0, err
+	}
+
+	source := app.SrcFromElement(appsrc)
+	sink := app.SinkFromElement(appsink)
+
+	source.SetCallbacks(&app.SourceCallbacks{
+		NeedDataFunc: ReaderNeedDataIncremental(ctx, input),
+		EnoughDataFunc: func(self *app.Source) {
+		},
+		SeekDataFunc: func(self *app.Source, offset uint64) bool {
+			return false
+		},
+	})
+
+	sink.SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: WriterNewSample(ctx, output),
+		NewPrerollFunc: func(self *app.Sink) gst.FlowReturn {
+			return gst.FlowOK
+		},
+	})
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		cancel()
+		err = pipeline.SetState(gst.StateNull)
+		if err != nil {
+			log.Error(ctx, "failed to set pipeline state to null", "error", err)
+		}
+	}()
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second * 10):
+			log.Debug(ctx, "pipeline is taking too long to start, cancelling")
+			err := fmt.Errorf("pipeline is taking too long to start, cancelling")
+			pipeline.Error(err.Error(), err)
+		}
+	}()
+
+	errCh := make(chan error)
+	go func() {
+		err := HandleBusMessages(ctx, pipeline)
+		cancel()
+		errCh <- err
+		close(errCh)
+	}()
+
+	err = pipeline.SetState(gst.StatePlaying)
+	if err != nil {
+		return 0, fmt.Errorf("failed to set pipeline state to playing: %w", err)
+	}
+
+	var durOk bool
+	var dur int64
+	busErr := <-errCh
+
+	if busErr == nil {
+		durOk, dur = pipeline.QueryDuration(gst.FormatTime)
+		if !durOk {
+			return 0, fmt.Errorf("failed to query duration")
+		}
+	}
+
+	return dur, busErr
+}
+
 // MPEGTSToMP4 converts an MPEG-TS file with H264 video and Opus audio to an MP4 file.
 // It reads from the provided reader and writes the converted MP4 to the writer.
 func MPEGTSToMP4(ctx context.Context, input io.Reader, output io.Writer) error {

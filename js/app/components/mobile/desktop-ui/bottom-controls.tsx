@@ -17,6 +17,7 @@ import {
   PictureInPicture2,
 } from "lucide-react-native";
 import { Platform, Pressable } from "react-native";
+import { useIsSidebarCollapsed } from "store/hooks";
 import { VolumeSlider } from "./volume-slider";
 
 import { Mu } from "./mu";
@@ -48,6 +49,7 @@ export function BottomControlBar({
   const danmuUnlocked = useDanmuUnlocked();
   const danmuEnabled = useDanmuEnabled();
   const setDanmuEnabled = useSetDanmuEnabled();
+  const sidebarCollapsed = useIsSidebarCollapsed();
 
   return (
     <View
@@ -58,7 +60,7 @@ export function BottomControlBar({
       ]}
     >
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[4]]}>
-        <VolumeSlider />
+        <VolumeSlider key={String(sidebarCollapsed)} />
       </View>
 
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>

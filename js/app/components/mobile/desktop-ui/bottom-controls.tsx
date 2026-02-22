@@ -17,6 +17,7 @@ import {
   PictureInPicture2,
 } from "lucide-react-native";
 import { Platform, Pressable } from "react-native";
+import { useIsSidebarCollapsed } from "store/hooks";
 import { Mu } from "./mu";
 import { VolumeSlider } from "./volume-slider";
 
@@ -124,6 +125,14 @@ export function BottomControlBar({
   showChat,
   setShowChat,
 }: BottomControlBarProps) {
+  let { theme } = useTheme();
+  const fullscreen = usePlayerStore((state) => state.fullscreen);
+  const setFullscreen = usePlayerStore((state) => state.setFullscreen);
+  const danmuUnlocked = useDanmuUnlocked();
+  const danmuEnabled = useDanmuEnabled();
+  const setDanmuEnabled = useSetDanmuEnabled();
+  const sidebarCollapsed = useIsSidebarCollapsed();
+
   return (
     <View
       style={[
@@ -134,7 +143,7 @@ export function BottomControlBar({
       ]}
     >
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[4]]}>
-        <VolumeSlider />
+        <VolumeSlider key={String(sidebarCollapsed)} />
       </View>
 
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>

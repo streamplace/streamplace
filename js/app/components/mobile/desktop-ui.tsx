@@ -10,6 +10,7 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import { AnimatedGradient } from "components/ui/gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -228,24 +229,24 @@ export function DesktopUi({
               layout.position.absolute,
               position.bottom[0],
               w.percent[100],
-              {
-                backgroundColor: "rgba(0, 0, 0, 0.6)",
-                paddingHorizontal: 16,
-                paddingVertical: 2,
-                paddingBottom: 2,
-              },
               animatedFadeStyle,
             ]}
           >
-            <BottomControlBar
-              ingest={ingest}
-              pipSupported={pipSupported}
-              pipActive={pipActive}
-              onHandlePip={handlePip}
-              dropdownPortalContainer={fullscreen && portalContainerID}
-              showChat={isChatOpen || false}
-              setShowChat={setIsChatOpen || undefined}
-            />
+            <AnimatedGradient
+              fromColor="#00000080"
+              toColor="#000000"
+              opacityColor1={0}
+            >
+              <BottomControlBar
+                ingest={ingest}
+                pipSupported={pipSupported}
+                pipActive={pipActive}
+                onHandlePip={handlePip}
+                dropdownPortalContainer={fullscreen && portalContainerID}
+                showChat={isChatOpen || false}
+                setShowChat={setIsChatOpen || undefined}
+              />
+            </AnimatedGradient>
           </Animated.View>
 
           {isSelfAndNotLive && (

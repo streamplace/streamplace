@@ -15,6 +15,7 @@ import {
   ProblemsWrapper,
   ProblemsWrapperRef,
 } from "@streamplace/components/src/components/dashboard/problems";
+import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { ArrowRight } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Platform, ScrollView, View } from "react-native";
@@ -206,6 +207,13 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 isConnected={isConnected}
                 messagesPerMinute={messagesPerMinute}
                 emojiData={emojiData}
+                emojiPicker={(isOpen, onClose) => (
+                  <EmojiPicker
+                    isOpen={isOpen}
+                    onClose={onClose}
+                    customEmoji={[]}
+                  />
+                )}
               />
             </View>
             <View

@@ -1,8 +1,7 @@
-import Picker from "@emoji-mart/react";
 import Graphemer from "graphemer";
 import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
 import { env } from "process";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, TextInput } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Button, Loader, Text, toast, useTheme, View } from "../../";
@@ -54,11 +53,15 @@ export function ChatBox({
   chatBoxStyle,
   emojiData,
   setIsChatVisible,
+  onEmojiPickerToggle,
+  emojiPicker,
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
   emojiData: EmojiData | null;
   setIsChatVisible?: (visible: boolean) => void;
+  onEmojiPickerToggle?: () => void;
+  emojiPicker?: (isOpen: boolean, onClose: () => void) => React.ReactNode;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -130,8 +133,14 @@ export function ChatBox({
   };
 
   const handleEmojiSelect = (emoji: any) => {
-    const beforeColon = message.slice(0, message.lastIndexOf(":"));
-    setMessage(`${beforeColon}${emoji.skins[0]?.native} `);
+    if (emoji.skins) {
+      const beforeColon = message.slice(0, message.lastIndexOf(":"));
+      setMessage(`${beforeColon}${emoji.skins[0]?.native} `);
+    } else if (emoji.type === "standard") {
+      setMessage(message + emoji.native);
+    } else if (emoji.type === "custom") {
+      setMessage(message + `:${emoji.name}: `);
+    }
     setShowEmojiSuggestions(false);
   };
 
@@ -398,45 +407,6 @@ export function ChatBox({
           </Pressable>
         </View>
       )}
-      {showEmojiSelector && (
-        <View
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 200,
-          }}
-          pointerEvents="box-none"
-        >
-          {/* Overlay to catch outside clicks */}
-          <Pressable
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-            }}
-            onPress={() => setShowEmojiSelector(false)}
-          />
-          <View
-            style={{
-              position: "absolute",
-              bottom: "100%",
-              left: 0,
-              zIndex: 2001,
-            }}
-            pointerEvents="auto"
-          >
-            <Picker
-              data={emojiData}
-              onEmojiSelect={(e) => setMessage(message + e.native)}
-            />
-          </View>
-        </View>
-      )}
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
         <Textarea
           ref={textAreaRef}
@@ -554,9 +524,10 @@ export function ChatBox({
             layout.flex.row,
             mb[2],
             gap.all[2],
-            { justifyContent: "flex-end" },
+            { justifyContent: "flex-end", position: "relative" },
           ]}
         >
+          {emojiPicker?.(showEmojiSelector, () => setShowEmojiSelector(false))}
           {env.NODE_ENV === "development" && (
             <Button
               variant="secondary"
@@ -602,7 +573,11 @@ export function ChatBox({
               variant="secondary"
               aria-label="Insert Emoji"
               style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
-              onPress={() => setShowEmojiSelector(!showEmojiSelector)}
+              onPress={() =>
+                onEmojiPickerToggle
+                  ? onEmojiPickerToggle()
+                  : setShowEmojiSelector(!showEmojiSelector)
+              }
             >
               <Text>{COOL_EMOJI_LIST[emojiIconIndex]}</Text>
             </Button>

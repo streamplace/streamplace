@@ -6,6 +6,7 @@ import {
   usePlayerStore,
   zero,
 } from "@streamplace/components";
+import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { useEffect } from "react";
 import { View } from "react-native";
 import { useUserProfile } from "store/hooks";
@@ -43,7 +44,15 @@ export function PopoutChatInner({ user }: { user: string }) {
         ]}
       >
         <Chat />
-        {profile && <ChatBox emojiData={emojiData} isPopout={true} />}
+        {profile && (
+          <ChatBox
+            emojiData={emojiData}
+            isPopout={true}
+            emojiPicker={(isOpen, onClose) => (
+              <EmojiPicker isOpen={isOpen} onClose={onClose} customEmoji={[]} />
+            )}
+          />
+        )}
       </View>
     </View>
   );

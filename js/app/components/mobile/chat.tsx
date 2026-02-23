@@ -11,7 +11,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { useKeyboard } from "hooks/useKeyboard";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -21,6 +21,7 @@ import Animated, {
 
 import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { ArrowRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
@@ -150,6 +151,9 @@ function ChatPanel() {
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+
+  const customEmoji: any[] = [];
 
   // get the deepest active route for nested navigators
   const currentRoute = useNavigationState((state) => {
@@ -165,39 +169,28 @@ function ChatPanel() {
       style={[
         layout.flex.column,
         flex.values[1],
-        { width: "100%", maxWidth: "100%" },
+        { width: "100%", maxWidth: "100%", position: "relative" },
         px[2],
       ]}
     >
+      <EmojiPicker
+        isOpen={emojiPickerOpen}
+        onClose={() => setEmojiPickerOpen(false)}
+        customEmoji={customEmoji}
+      />
       <View style={[flex.values[1]]}>
         <Chat />
       </View>
       <View style={[layout.flex.column, gap.all[2]]}>
-        {/*
-        // in case one needs this again
-
-          <Pressable
-          onPress={() =>
-            StreamNotifications.activate("Stream notification activated!")
-          }
-          style={[
-            layout.flex.row,
-            layout.flex.center,
-            {
-              padding: 12,
-              borderRadius: borderRadius.xl,
-              backgroundColor: "rgba(255, 255, 255, 0.05)",
-            },
-          ]}
-        >
-          <Text style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: 12 }}>
-            Activate Stream Notification
-          </Text>
-        </Pressable>*/}
         {agent?.did ? (
           <ChatBox
             emojiData={emojiData}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
+            onEmojiPickerToggle={
+              customEmoji.length > 0
+                ? () => setEmojiPickerOpen((v) => !v)
+                : undefined
+            }
           />
         ) : !agent ? (
           <View

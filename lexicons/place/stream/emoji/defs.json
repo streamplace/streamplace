@@ -1,0 +1,54 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.emoji.defs",
+  "defs": {
+    "emojiView": {
+      "type": "object",
+      "required": ["name", "image"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Short name used to reference this emoji in chat, e.g. 'pepega'."
+        },
+        "image": {
+          "type": "blob",
+          "accept": [
+            "image/png",
+            "image/gif",
+            "image/webp",
+            "image/avif",
+            "image/jxl"
+          ],
+          "maxSize": 512000,
+          "description": "The emoji image."
+        },
+        "alt": {
+          "type": "string",
+          "description": "Alt text for the emoji image."
+        },
+        "pack": {
+          "type": "ref",
+          "ref": "#packView",
+          "description": "The pack this emoji belongs to."
+        }
+      }
+    },
+    "packView": {
+      "type": "object",
+      "required": ["uri", "cid", "author", "record", "indexedAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "author": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic"
+        },
+        "record": {
+          "type": "ref",
+          "ref": "place.stream.emoji.defs#emojiView"
+        },
+        "indexedAt": { "type": "string", "format": "datetime" }
+      }
+    }
+  }
+}

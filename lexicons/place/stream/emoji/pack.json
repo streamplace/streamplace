@@ -1,0 +1,78 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.emoji.pack",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A named collection of custom emoji available for use in chat.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["name", "createdAt"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 640,
+            "maxGraphemes": 64,
+            "description": "Display name of the emoji pack."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 3200,
+            "maxGraphemes": 320,
+            "description": "Optional description of this emoji pack."
+          },
+          "emoji": {
+            "type": "array",
+            "maxLength": 256,
+            "items": {
+              "type": "ref",
+              "ref": "#emojiDef"
+            },
+            "description": "The emoji contained in this pack."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this pack was created."
+          }
+        }
+      }
+    },
+    "emojiDef": {
+      "type": "object",
+      "required": ["name", "image"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 100,
+          "maxGraphemes": 50,
+          "description": "Short name used to reference this emoji in chat. Should be alphanumeric with underscores only."
+        },
+        "image": {
+          "type": "blob",
+          "accept": [
+            "image/png",
+            "image/gif",
+            "image/webp",
+            "image/avif",
+            "image/jxl"
+          ],
+          "maxSize": 512000,
+          "description": "The emoji image. Square images recommended."
+        },
+        "alt": {
+          "type": "string",
+          "maxLength": 2000,
+          "maxGraphemes": 200,
+          "description": "Alt text for the emoji image."
+        },
+        "creator": {
+          "type": "string",
+          "format": "did",
+          "description": "The creator/artist of this emoji."
+        }
+      }
+    }
+  }
+}

@@ -26,7 +26,6 @@ func main() {
 		streamplace.ChatMessage_ReplyRef{},
 		streamplace.ServerSettings{},
 		streamplace.ChatGate{},
-		streamplace.ChatPinnedRecord{},
 		streamplace.MultistreamTarget{},
 		streamplace.BroadcastOrigin{},
 		streamplace.BroadcastSyndication{},
@@ -37,7 +36,8 @@ func main() {
 		streamplace.ModerationPermission{},
 		streamplace.LiveTeleport{},
 		streamplace.LiveRecommendations{},
-		streamplace.LiveViewerCount{},
+		streamplace.EmojiPack{},
+		streamplace.EmojiPack_EmojiDef{},
 	); err != nil {
 		panic(err)
 	}

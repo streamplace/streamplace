@@ -11,8 +11,9 @@ import (
 
 // BroadcastDefs_BroadcastOriginView is a "broadcastOriginView" in the place.stream.broadcast.defs schema.
 type BroadcastDefs_BroadcastOriginView struct {
-	Author *appbsky.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
-	Cid    string                              `json:"cid" cborgen:"cid"`
-	Record *lexutil.LexiconTypeDecoder         `json:"record" cborgen:"record"`
-	Uri    string                              `json:"uri" cborgen:"uri"`
+	LexiconTypeID string                              `json:"$type" cborgen:"$type,const=place.stream.broadcast.defs#broadcastOriginView"`
+	Author        *appbsky.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
+	Cid           string                              `json:"cid" cborgen:"cid"`
+	Record        *lexutil.LexiconTypeDecoder         `json:"record" cborgen:"record"`
+	Uri           string                              `json:"uri" cborgen:"uri"`
 }

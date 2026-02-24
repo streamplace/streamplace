@@ -1,4 +1,5 @@
 import { useContext } from "react";
+import { PlaceStreamBroadcastOrigin } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import { LivestreamContext } from "./context";
 import { LivestreamState } from "./livestream-state";
@@ -29,6 +30,19 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     hasReceivedSegment: false,
     moderationPermissions: [],
     setModerationPermissions: (perms) => set({ moderationPermissions: perms }),
+    broadcastOrigin: null,
+    setBroadcastOrigin: (origin) => {
+      if (!origin) {
+        set({ originUpdatedAt: null });
+        return;
+      }
+      if (PlaceStreamBroadcastOrigin.isRecord(origin)) {
+        const record = origin as PlaceStreamBroadcastOrigin.Record;
+        set({ originUpdatedAt: new Date(record.updatedAt).getTime() });
+      }
+      set({ broadcastOrigin: origin });
+    },
+    originUpdatedAt: null,
   }));
 };
 

@@ -2,6 +2,7 @@ import { AppBskyActorDefs } from "@atproto/api";
 import {
   ChatMessageViewHydrated,
   LivestreamViewHydrated,
+  PlaceStreamBroadcastDefs,
   PlaceStreamDefs,
   PlaceStreamLiveTeleport,
   PlaceStreamModerationPermission,
@@ -32,6 +33,11 @@ export interface LivestreamState {
   setModerationPermissions: (
     permissions: PlaceStreamModerationPermission.Record[],
   ) => void;
+  broadcastOrigin: PlaceStreamBroadcastDefs.BroadcastOriginView | null;
+  setBroadcastOrigin: (
+    origin: PlaceStreamBroadcastDefs.BroadcastOriginView | null,
+  ) => void;
+  originUpdatedAt: number | null;
 }
 
 export interface LivestreamProblem {

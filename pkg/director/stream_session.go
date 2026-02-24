@@ -214,9 +214,13 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		})
 	})
 
-	ss.Go(ctx, func() error {
-		return ss.statefulDB.UpsertBroadcastOrigin(spseg.Creator, ss.cli.BroadcasterDID(), time.Now())
-	})
+	if notif.Local {
+		ss.Go(ctx, func() error {
+			return ss.statefulDB.UpsertBroadcastOrigin(spseg.Creator, ss.cli.BroadcasterDID(), time.Now())
+		})
+
+		ss.UpdateBroadcastOrigin(ctx)
+	}
 
 	// everything else is for published segments
 	if !notif.Metadata.Published {
@@ -231,7 +235,6 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 
 	if notif.Local {
 		ss.UpdateStatus(ctx, spseg.Creator)
-		ss.UpdateBroadcastOrigin(ctx)
 		ss.Go(ctx, func() error {
 			return ss.UpdateLivestream(ctx, spseg.Creator)
 		})

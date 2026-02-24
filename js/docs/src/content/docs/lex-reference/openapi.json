@@ -1553,6 +1553,36 @@
         ]
       }
     },
+    "/xrpc/place.stream.live.subscribeMetadata": {
+      "get": {
+        "summary": "Subscribe to a stream's metadata: new chat messages, new livestream records, etc.",
+        "operationId": "place.stream.live.subscribeMetadata",
+        "tags": ["place.stream.live"],
+        "x-websocket": true,
+        "responses": {},
+        "parameters": [
+          {
+            "name": "streamer",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the streamer to subscribe to",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the streamer to subscribe to"
+            }
+          }
+        ],
+        "x-websocket-message": {
+          "schema": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/place.stream.live.subscribeMetadata_segment"
+              }
+            ]
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.live.subscribeSegments": {
       "get": {
         "summary": "Subscribe to a stream's new segments as they come in!",
@@ -3450,6 +3480,11 @@
           }
         },
         "required": ["did", "handle"]
+      },
+      "place.stream.live.subscribeMetadata_segment": {
+        "type": "string",
+        "format": "byte",
+        "description": "MP4 file of a user's signed livestream segment"
       },
       "place.stream.live.subscribeSegments_segment": {
         "type": "string",

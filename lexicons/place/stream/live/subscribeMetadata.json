@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.live.subscribeMetadata",
+  "defs": {
+    "main": {
+      "type": "subscription",
+      "description": "Subscribe to a stream's metadata: new chat messages, new livestream records, etc.",
+      "parameters": {
+        "type": "params",
+        "required": ["streamer"],
+        "properties": {
+          "streamer": {
+            "type": "string",
+            "description": "The DID of the streamer to subscribe to"
+          }
+        }
+      },
+      "message": {
+        "schema": {
+          "type": "union",
+          "refs": ["#segment"]
+        }
+      },
+      "errors": []
+    },
+    "segment": {
+      "type": "bytes",
+      "description": "MP4 file of a user's signed livestream segment"
+    }
+  }
+}

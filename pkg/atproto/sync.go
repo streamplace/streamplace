@@ -500,8 +500,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to update broadcast origin", "err", err)
 		}
 		view := &streamplace.BroadcastDefs_BroadcastOriginView{
-			Uri: aturi.String(),
-			Cid: cid,
+			LexiconTypeID: "place.stream.broadcast.defs#broadcastOriginView",
+			Uri:           aturi.String(),
+			Cid:           cid,
 			Author: &bsky.ActorDefs_ProfileViewBasic{
 				Did:    userDID,
 				Handle: repo.Handle,
@@ -510,6 +511,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		// publishes with an empty string because we're discovering the stream
 		go atsync.Bus.Publish("", view)
+		go atsync.Bus.Publish(rec.Streamer, view)
 
 	case *streamplace.MetadataConfiguration:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)

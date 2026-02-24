@@ -2,6 +2,7 @@ import { AppBskyActorDefs } from "@atproto/api";
 import {
   ChatMessageViewHydrated,
   LivestreamViewHydrated,
+  PlaceStreamBroadcastDefs,
   PlaceStreamChatDefs,
   PlaceStreamChatGate,
   PlaceStreamChatMessage,
@@ -160,6 +161,13 @@ export const handleWebSocketMessages = (
           ...state,
           activeTeleport: null,
           activeTeleportUri: null,
+        };
+      } else if (PlaceStreamBroadcastDefs.isBroadcastOriginView(message)) {
+        const broadcastOrigin =
+          message as PlaceStreamBroadcastDefs.BroadcastOriginView;
+        state = {
+          ...state,
+          broadcastOrigin: broadcastOrigin,
         };
       }
     }

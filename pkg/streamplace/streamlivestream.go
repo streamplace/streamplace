@@ -65,14 +65,15 @@ type Livestream_StreamplaceAnything struct {
 }
 
 type Livestream_StreamplaceAnything_Livestream struct {
-	Livestream_LivestreamView   *Livestream_LivestreamView
-	Livestream_ViewerCount      *Livestream_ViewerCount
-	Livestream_TeleportArrival  *Livestream_TeleportArrival
-	Livestream_TeleportCanceled *Livestream_TeleportCanceled
-	Defs_BlockView              *Defs_BlockView
-	Defs_Renditions             *Defs_Renditions
-	Defs_Rendition              *Defs_Rendition
-	ChatDefs_MessageView        *ChatDefs_MessageView
+	Livestream_LivestreamView         *Livestream_LivestreamView
+	Livestream_ViewerCount            *Livestream_ViewerCount
+	Livestream_TeleportArrival        *Livestream_TeleportArrival
+	Livestream_TeleportCanceled       *Livestream_TeleportCanceled
+	Defs_BlockView                    *Defs_BlockView
+	Defs_Renditions                   *Defs_Renditions
+	Defs_Rendition                    *Defs_Rendition
+	ChatDefs_MessageView              *ChatDefs_MessageView
+	BroadcastDefs_BroadcastOriginView *BroadcastDefs_BroadcastOriginView
 }
 
 func (t *Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error) {
@@ -108,6 +109,10 @@ func (t *Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error
 		t.ChatDefs_MessageView.LexiconTypeID = "place.stream.chat.defs#messageView"
 		return json.Marshal(t.ChatDefs_MessageView)
 	}
+	if t.BroadcastDefs_BroadcastOriginView != nil {
+		t.BroadcastDefs_BroadcastOriginView.LexiconTypeID = "place.stream.broadcast.defs#broadcastOriginView"
+		return json.Marshal(t.BroadcastDefs_BroadcastOriginView)
+	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
 
@@ -142,6 +147,9 @@ func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalJSON(b []byte) erro
 	case "place.stream.chat.defs#messageView":
 		t.ChatDefs_MessageView = new(ChatDefs_MessageView)
 		return json.Unmarshal(b, t.ChatDefs_MessageView)
+	case "place.stream.broadcast.defs#broadcastOriginView":
+		t.BroadcastDefs_BroadcastOriginView = new(BroadcastDefs_BroadcastOriginView)
+		return json.Unmarshal(b, t.BroadcastDefs_BroadcastOriginView)
 	default:
 		return nil
 	}

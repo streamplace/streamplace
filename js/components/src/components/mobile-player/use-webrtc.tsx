@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import * as sdpTransform from "sdp-transform";
-import { text } from "stream/consumers";
 import { StreamplaceAgent } from "streamplace";
 import {
   PlayerStatus,
@@ -223,7 +222,7 @@ export async function negotiateIngestConnectionWithClientOffer(
         );
         return "https://stream.place/example";
       } else {
-        console.error(text);
+        console.error(await response.text());
       }
     } catch (e) {
       console.error(`posting sdp offer failed: ${e}`);

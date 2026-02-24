@@ -18,7 +18,6 @@ import {
   useUrl,
   zero,
 } from "@streamplace/components";
-import { error } from "console";
 import { ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -379,12 +378,9 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
       if (file) {
         setSelectedImage(file);
       }
-      console.error("Failed to fetch last image:", error);
-      toast.show("Error", "Failed to load previous thumbnail", {
-        duration: 3,
-      });
     };
-  }, [livestream, toast]);
+    input.click();
+  }, []);
 
   const handleImageRemove = useCallback(() => {
     setSelectedImage(undefined);

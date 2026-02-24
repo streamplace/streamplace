@@ -4,10 +4,40 @@ import {
   SkinTone,
   useSkinTone,
 } from "frimousse";
-import { ChevronUp } from "lucide-react-native";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChevronUp,
+  Flag,
+  Hash,
+  Lightbulb,
+  LucideIcon,
+  PawPrint,
+  PersonStanding,
+  Pizza,
+  Plane,
+  Smile,
+  Volleyball,
+} from "lucide-react-native";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { View } from "react-native";
 import { useEmojiData } from "utils/emoji";
+
+const CATEGORY_ICONS: { label: string; Icon: LucideIcon }[] = [
+  { label: "Smileys & Emotion", Icon: Smile },
+  { label: "People & Body", Icon: PersonStanding },
+  { label: "Animals & Nature", Icon: PawPrint },
+  { label: "Food & Drink", Icon: Pizza },
+  { label: "Travel & Places", Icon: Plane },
+  { label: "Activities", Icon: Volleyball },
+  { label: "Objects", Icon: Lightbulb },
+  { label: "Symbols", Icon: Hash },
+  { label: "Flags", Icon: Flag },
+];
 
 export type SelectedEmoji =
   | { type: "standard"; native: string }
@@ -139,6 +169,8 @@ export function EmojiPicker({
   const { theme } = useTheme();
   const emojiData = useEmojiData();
   const [skinToneOpen, setSkinToneOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState(0);
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   const nativeToId = useMemo(() => {
     if (!emojiData) return null;
@@ -168,6 +200,50 @@ export function EmojiPicker({
       document.removeEventListener("pointerdown", handlePointerDown);
     };
   }, [isOpen, onClose]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const handleScroll = () => {
+      const sizer = viewport.querySelector<HTMLElement>(
+        "[frimousse-list-sizer]",
+      );
+      // Skip index 0 — it's the hidden measurement element frimousse renders
+      const categories = Array.from(
+        viewport.querySelectorAll<HTMLElement>("[frimousse-category]"),
+      ).slice(1);
+      const sizerOffset = sizer?.offsetTop ?? 0;
+      const scrollTop = viewport.scrollTop;
+      let active = 0;
+      for (let i = 0; i < categories.length; i++) {
+        if (sizerOffset + categories[i].offsetTop <= scrollTop + 8) active = i;
+      }
+      setActiveCategory(active);
+    };
+
+    viewport.addEventListener("scroll", handleScroll, { passive: true });
+    return () => viewport.removeEventListener("scroll", handleScroll);
+  }, [isOpen]);
+
+  const scrollToCategory = useCallback((index: number) => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const sizer = viewport.querySelector<HTMLElement>("[frimousse-list-sizer]");
+    // Skip index 0 — it's the hidden measurement element frimousse renders
+    const categories = Array.from(
+      viewport.querySelectorAll<HTMLElement>("[frimousse-category]"),
+    ).slice(1);
+    const category = categories[index];
+    const sizerOffset = sizer?.offsetTop ?? 0;
+    if (category) {
+      viewport.scrollTo({
+        top: sizerOffset + category.offsetTop,
+        behavior: "smooth",
+      });
+      setActiveCategory(index);
+    }
+  }, []);
 
   if (!isOpen) return null;
   const handleStandardSelect = (arg: any) => {
@@ -288,7 +364,45 @@ export function EmojiPicker({
           placeholder="Search emoji…"
           autoFocus
         />
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-around",
+            padding: "4px 14px",
+            borderBottom: `1px solid ${theme.colors.border}`,
+          }}
+        >
+          {CATEGORY_ICONS.map(({ label, Icon }, i) => (
+            <button
+              key={label}
+              title={label}
+              onClick={() => scrollToCategory(i)}
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 6,
+                border: "none",
+                background:
+                  activeCategory === i
+                    ? "rgba(255,255,255,0.12)"
+                    : "transparent",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color:
+                  activeCategory === i
+                    ? "rgba(255,255,255,0.9)"
+                    : "rgba(255,255,255,0.4)",
+                transition: "color 0.15s ease, background 0.15s ease",
+              }}
+            >
+              <Icon size={16} />
+            </button>
+          ))}
+        </div>
         <FrimousseEmojiPicker.Viewport
+          ref={viewportRef}
           style={{ flex: 1, position: "relative" }}
         >
           <FrimousseEmojiPicker.Loading

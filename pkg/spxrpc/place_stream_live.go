@@ -193,6 +193,9 @@ func (s *Server) handlePlaceStreamLiveSubscribeSegments(c echo.Context) error {
 				log.Debug(ctx, "exiting segment reader")
 				return
 			case file := <-segChan.C:
+				if !file.Published {
+					continue
+				}
 				log.Debug(ctx, "got segment", "file", file.Filepath)
 				err := ws.WriteMessage(websocket.BinaryMessage, file.Data)
 				if err != nil {

@@ -3,12 +3,17 @@ package spxrpc
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -97,4 +102,51 @@ func CreateServiceToken(key jwk.Key, serverDID string) (string, error) {
 	}
 
 	return string(signed), nil
+}
+
+// DIDWebToHost extracts the hostname from a did:web DID.
+func DIDWebToHost(did string) string {
+	return strings.TrimPrefix(did, "did:web:")
+}
+
+// ProxyServiceRequest proxies an XRPC request to a peer node, authenticating
+// with a service token. Returns the response body bytes or an echo.HTTPError.
+func (s *Server) ProxyServiceRequest(ctx context.Context, targetDID, httpMethod, xrpcMethod string, query url.Values, body io.Reader, contentType string) ([]byte, error) {
+	token, err := CreateServiceToken(s.cli.ServiceAuthKey, s.cli.ServerDID())
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error creating service token: "+err.Error())
+	}
+
+	u := url.URL{
+		Scheme:   "https",
+		Host:     DIDWebToHost(targetDID),
+		Path:     "/xrpc/" + xrpcMethod,
+		RawQuery: query.Encode(),
+	}
+
+	log.Warn(ctx, "proxying service request", "target", targetDID, "method", xrpcMethod)
+
+	req, err := http.NewRequestWithContext(ctx, httpMethod, u.String(), body)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to construct proxy request: "+err.Error())
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	req.Header.Set(serviceAuthHeader, token)
+
+	resp, err := aqhttp.Client.Do(req)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadGateway, "error proxying to peer: "+err.Error())
+	}
+	defer resp.Body.Close()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error reading peer response: "+err.Error())
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, echo.NewHTTPError(resp.StatusCode, "peer error: "+string(data))
+	}
+	return data, nil
 }

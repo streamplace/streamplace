@@ -5,11 +5,11 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/labstack/echo/v4"
 	"github.com/pion/webrtc/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
-	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -52,34 +52,11 @@ func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition st
 		log.Warn(ctx, "origin", "origin", origin)
 		myDID := s.cli.ServerDID()
 		if origin != nil && origin.ServerDID != myDID {
-			log.Warn(ctx, "proxying to origin", "origin", origin.ServerDID, "myDID", myDID)
-			token, err := CreateServiceToken(s.cli.ServiceAuthKey, s.cli.ServerDID())
+			data, err := s.ProxyServiceRequest(ctx, origin.ServerDID, "POST", "place.stream.playback.whep",
+				url.Values{"rendition": {rendition}, "streamer": {streamer}},
+				bytes.NewReader([]byte(offer.SDP)), _contentType)
 			if err != nil {
-				return nil, echo.NewHTTPError(http.StatusInternalServerError, "error creating service token", err)
-			}
-			parsedOrigin := origin.ServerDID
-			if len(parsedOrigin) > len("did:web:") && parsedOrigin[:len("did:web:")] == "did:web:" {
-				parsedOrigin = parsedOrigin[len("did:web:"):]
-			}
-			url := "https://" + parsedOrigin + "/xrpc/place.stream.playback.whep?rendition=" + rendition + "&streamer=" + streamer
-			req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader([]byte(offer.SDP)))
-			if err != nil {
-				return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to construct origin request", err)
-			}
-			req.Header.Set("Content-Type", _contentType)
-			req.Header.Set("X-Streamplace-Service-Auth", token)
-			resp, err := aqhttp.Client.Do(req)
-			if err != nil {
-				return nil, echo.NewHTTPError(http.StatusBadGateway, "error proxying to origin", err)
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				body, _ := io.ReadAll(resp.Body)
-				return nil, echo.NewHTTPError(resp.StatusCode, "origin error: "+string(body))
-			}
-			data, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return nil, echo.NewHTTPError(http.StatusInternalServerError, "error reading origin response", err)
+				return nil, err
 			}
 			return bytes.NewReader(data), nil
 		}

@@ -1,6 +1,11 @@
-import { Text, useTheme } from "@streamplace/components";
-import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
-import { useEffect, useMemo, useRef } from "react";
+import { Text, useAQState, useTheme } from "@streamplace/components";
+import {
+  EmojiPicker as FrimousseEmojiPicker,
+  SkinTone,
+  useSkinTone,
+} from "frimousse";
+import { ChevronUp } from "lucide-react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { useEmojiData } from "utils/emoji";
 
@@ -21,6 +26,110 @@ export interface CustomEmojiEntry {
   alt?: string;
 }
 
+interface SkinTonePickerOpen {
+  open: boolean;
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export function SkinToneTray({ open, setOpen }: SkinTonePickerOpen) {
+  const [aqSkinTone, setAQSkinTone] = useAQState(
+    "emoji-picker-tone",
+    "none" as SkinTone,
+  );
+  const [skinTone, setSkinTone, skinToneVariations] = useSkinTone("👋");
+
+  useEffect(() => {
+    setSkinTone(aqSkinTone);
+  }, [aqSkinTone, setSkinTone]);
+
+  const handleSelect = (tone: SkinTone) => {
+    setAQSkinTone(tone);
+    setOpen(false);
+  };
+
+  return (
+    <div
+      style={{
+        overflow: "hidden",
+        maxHeight: open ? 48 : 0,
+        opacity: open ? 1 : 0,
+        transition: "max-height 0.2s ease, opacity 0.15s ease",
+        display: "flex",
+        gap: 4,
+        padding: open ? "6px 8px" : "0 8px",
+        borderTop: open ? "1px solid rgba(255,255,255,0.07)" : "none",
+      }}
+    >
+      {skinToneVariations.map((variation) => (
+        <button
+          key={variation.skinTone}
+          onClick={() => handleSelect(variation.skinTone)}
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 6,
+            border:
+              skinTone === variation.skinTone
+                ? "1px solid rgba(255,255,255,0.35)"
+                : "1px solid rgba(255,255,255,0.08)",
+            background:
+              skinTone === variation.skinTone
+                ? "rgba(255,255,255,0.15)"
+                : "transparent",
+            cursor: "pointer",
+            fontSize: 18,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {variation.emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function SkinToneTrigger({ open, setOpen }: SkinTonePickerOpen) {
+  const [aqSkinTone] = useAQState("emoji-picker-tone", "none" as SkinTone);
+  const [, , skinToneVariations] = useSkinTone("👋");
+  const current =
+    skinToneVariations.find((v) => v.skinTone === aqSkinTone) ??
+    skinToneVariations[0];
+
+  return (
+    <button
+      onClick={() => setOpen((o) => !o)}
+      title="Skin tone"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "2px 4px",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 6,
+        background: open ? "rgba(255,255,255,0.1)" : "transparent",
+        cursor: "pointer",
+        fontSize: 18,
+        flexShrink: 0,
+      }}
+    >
+      <span>{current?.emoji}</span>
+      <span
+        style={{
+          fontSize: 9,
+          transform: open ? "rotate(180deg)" : "rotate(0deg)",
+          display: "inline-block",
+          transition: "transform 0.2s ease",
+          color: "grey",
+        }}
+      >
+        <ChevronUp />
+      </span>
+    </button>
+  );
+}
+
 export function EmojiPicker({
   isOpen,
   onClose,
@@ -29,6 +138,7 @@ export function EmojiPicker({
 }: EmojiPickerProps) {
   const { theme } = useTheme();
   const emojiData = useEmojiData();
+  const [skinToneOpen, setSkinToneOpen] = useState(false);
 
   const nativeToId = useMemo(() => {
     if (!emojiData) return null;
@@ -47,7 +157,6 @@ export function EmojiPicker({
       if (e.key === "Escape") onClose();
     };
     const handlePointerDown = (e: PointerEvent) => {
-      console.log("got click");
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         onClose();
       }
@@ -61,21 +170,7 @@ export function EmojiPicker({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
-
-  console.log(
-    "[EmojiPicker.web] rendering, onSelect:",
-    !!onSelect,
-    "customEmoji:",
-    customEmoji.length,
-  );
-
   const handleStandardSelect = (arg: any) => {
-    console.log(
-      "[EmojiPicker.web] handleStandardSelect raw arg:",
-      arg,
-      "onSelect:",
-      !!onSelect,
-    );
     onSelect?.({ type: "standard", native: arg.emoji ?? arg });
   };
 
@@ -293,53 +388,49 @@ export function EmojiPicker({
         <FrimousseEmojiPicker.ActiveEmoji>
           {({ emoji }) => {
             return (
-              <div
-                style={{
-                  padding: "6px 20px",
-                  borderTop: `1px solid ${theme.colors.border}`,
-                }}
-              >
-                {emoji ? (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 8,
-                      height: 46,
-                    }}
-                  >
-                    <Text size="4xl">{emoji.emoji}</Text>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: -2,
-                      }}
-                    >
-                      <Text size="sm">{emoji.label}</Text>
-                      {nativeToId?.get(emoji.emoji) && (
-                        <Text color="muted" size="xs">
-                          :{nativeToId.get(emoji.emoji)}:
-                        </Text>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 8,
-                      height: 46,
-                    }}
-                  >
-                    <Text color="muted" size="sm">
+              <div>
+                <SkinToneTray open={skinToneOpen} setOpen={setSkinToneOpen} />
+                <div
+                  style={{
+                    padding: "6px 10px 6px 20px",
+                    borderTop: `1px solid ${theme.colors.border}`,
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    height: 46,
+                  }}
+                >
+                  {emoji ? (
+                    <>
+                      <Text size="4xl">{emoji.emoji}</Text>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: -2,
+                          flex: 1,
+                          minWidth: 0,
+                        }}
+                      >
+                        <Text size="sm">{emoji.label}</Text>
+                        {nativeToId?.get(emoji.emoji) && (
+                          <Text color="muted" size="xs">
+                            :{nativeToId.get(emoji.emoji)}:
+                          </Text>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <Text color="muted" size="sm" style={{ flex: 1 }}>
                       Select an emoji...
                     </Text>
-                  </div>
-                )}
+                  )}
+                  <SkinToneTrigger
+                    open={skinToneOpen}
+                    setOpen={setSkinToneOpen}
+                  />
+                </div>
               </div>
             );
           }}

@@ -1,7 +1,7 @@
 import Graphemer from "graphemer";
-import { AtSignIcon, ExternalLink, SmilePlus, X } from "lucide-react-native";
+import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
 import { env } from "process";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, TextInput } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Button, Loader, Text, toast, useTheme, View } from "../../";
@@ -70,7 +70,7 @@ export function ChatBox({
     isOpen: boolean,
     onClose: () => void,
     onSelect: (emoji: any) => void,
-  ) => React.ReactNode;
+  ) => ReactNode;
   skinTone?: number;
 }) {
   const [submitting, setSubmitting] = useState(false);
@@ -503,16 +503,6 @@ export function ChatBox({
           submitBehavior="submit"
           placeholder="Type a message..."
         />
-        {Platform.OS !== "web" && emojiPicker && (
-          <Button
-            variant="secondary"
-            width="min"
-            style={{ borderRadius: 16, height: 43, aspectRatio: 1 }}
-            onPress={() => setShowEmojiSelector(!showEmojiSelector)}
-          >
-            <SmilePlus size={20} color="white" />
-          </Button>
-        )}
         <View>
           <Button
             disabled={submitting}
@@ -525,12 +515,6 @@ export function ChatBox({
           </Button>
         </View>
       </View>
-      {Platform.OS !== "web" &&
-        emojiPicker?.(
-          showEmojiSelector,
-          () => setShowEmojiSelector(false),
-          handleEmojiSelect,
-        )}
       {showSuggestions && (
         <MentionSuggestions
           authors={filteredAuthors || new Map()}
@@ -555,17 +539,11 @@ export function ChatBox({
             { justifyContent: "flex-end", position: "relative" },
           ]}
         >
-          {
-            (console.log("[ChatBox] emojiPicker render", {
-              hasEmojiPicker: !!emojiPicker,
-              showEmojiSelector,
-            }),
-            emojiPicker?.(
-              showEmojiSelector,
-              () => setShowEmojiSelector(false),
-              handleEmojiSelect,
-            ))
-          }
+          {emojiPicker?.(
+            showEmojiSelector,
+            () => setShowEmojiSelector(false),
+            handleEmojiSelect,
+          )}
           {env.NODE_ENV === "development" && (
             <Button
               variant="secondary"

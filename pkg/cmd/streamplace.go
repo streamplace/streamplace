@@ -215,6 +215,12 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 	cli.AccessJWK = accessJWK
 
+	serviceAuthKey, err := state.EnsureServiceAuthKey(ctx)
+	if err != nil {
+		return err
+	}
+	cli.ServiceAuthKey = serviceAuthKey
+
 	b := bus.NewBus()
 	atsync := &atproto.ATProtoSynchronizer{
 		CLI:        cli,

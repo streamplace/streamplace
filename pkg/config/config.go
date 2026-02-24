@@ -116,6 +116,7 @@ type CLI struct {
 	RateLimitWebsocket          int
 	JWK                         jwk.Key
 	AccessJWK                   jwk.Key
+	ServiceAuthKey              jwk.Key
 	dataDirFlags                []*string
 	DiscordWebhooks             []*discordtypes.Webhook
 	NewWebRTCPlayback           bool

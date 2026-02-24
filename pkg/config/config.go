@@ -1152,8 +1152,12 @@ func (cli *CLI) StreamIsAllowed(did string) error {
 	return fmt.Errorf("user is not allowed to stream")
 }
 
-func (cli *CLI) MyDID() string {
+func (cli *CLI) BroadcasterDID() string {
 	return fmt.Sprintf("did:web:%s", cli.BroadcasterHost)
+}
+
+func (cli *CLI) ServerDID() string {
+	return fmt.Sprintf("did:web:%s", cli.ServerHost)
 }
 
 func (cli *CLI) HasHTTPS() bool {

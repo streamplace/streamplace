@@ -53,6 +53,7 @@ var StatefulDBModels = []any{
 	MultistreamEvent{},
 	BrandingBlob{},
 	ModerationAuditLog{},
+	BroadcastOrigin{},
 }
 
 var NoPostgresDatabaseCode = "3D000"

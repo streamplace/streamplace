@@ -156,6 +156,15 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 	// Update the manifest title with the retrieved livestream title
 	mani["assertions"].([]obj)[1]["data"].(obj)["dc:title"] = livestreamTitle
 
+	if ls != nil {
+		mani["assertions"] = append(mani["assertions"].([]obj), obj{
+			"label": "place.stream.livestream",
+			"data":  ls,
+		})
+	} else {
+		log.Warn(ctx, "ManifestBuilder: no livestream found for streamer", "did", streamerName)
+	}
+
 	// Convert manifest to JSON bytes for use with Rust c2pa library
 	manifestBs, err := json.Marshal(mani)
 	if err != nil {

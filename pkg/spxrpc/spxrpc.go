@@ -85,7 +85,7 @@ func (s *Server) isLocalPDS(ctx context.Context, repo string) (bool, string, err
 	if err != nil {
 		return false, "", fmt.Errorf("resolveRepoService: %w", err)
 	}
-	if did == s.cli.MyDID() {
+	if did == s.cli.BroadcasterDID() {
 		return true, svc, nil
 	}
 	return false, svc, nil
@@ -106,7 +106,7 @@ func makeUnauthenticatedRequest(ctx context.Context, service, method string, par
 	}
 	u.RawQuery = query.Encode()
 
-	log.Error(ctx, "making unauthenticated request", "url", u.String())
+	log.Debug(ctx, "making unauthenticated request", "url", u.String())
 
 	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {

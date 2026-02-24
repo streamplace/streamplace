@@ -123,7 +123,7 @@ func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *streampla
 	}
 	conn, _, err := websocket.DefaultDialer.Dial(*origin.WebsocketURL, nil)
 	if err != nil {
-		return fmt.Errorf("could not dial websocket: %w", err)
+		return fmt.Errorf("could not dial websocket (%s): %w", *origin.WebsocketURL, err)
 	}
 	defer conn.Close()
 	for {

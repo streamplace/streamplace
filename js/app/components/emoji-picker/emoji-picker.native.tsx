@@ -1,11 +1,14 @@
-import { useEffect } from "react";
-import { FlatList, Image, Pressable, Text, View } from "react-native";
+import { Text, useTheme, zero } from "@streamplace/components";
+import { useKeyboard } from "hooks/useKeyboard";
+import { useEffect, useRef } from "react";
+import { FlatList, Image, Keyboard, Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { emojiEmitter } from "./emoji-emitter";
+
+const { bg, borders, gap, layout, p, py, r, text } = zero;
 
 export type SelectedEmoji =
   | { type: "standard"; native: string }
@@ -20,91 +23,81 @@ export interface CustomEmojiEntry {
 interface EmojiPickerProps {
   isOpen: boolean;
   onClose: () => void;
+  onSelect?: (emoji: SelectedEmoji) => void;
   customEmoji?: CustomEmojiEntry[];
 }
 
-const PANEL_HEIGHT = 260;
+const PANEL_HEIGHT = 265;
 
 export function EmojiPicker({
   isOpen,
   onClose,
+  onSelect,
   customEmoji = [],
 }: EmojiPickerProps) {
-  const translateY = useSharedValue(PANEL_HEIGHT);
+  const { theme, zero: z } = useTheme();
+  const height = useSharedValue(0);
+  const kb = useKeyboard();
+  const hasOpened = useRef(false);
 
   useEffect(() => {
-    translateY.value = withSpring(isOpen ? 0 : PANEL_HEIGHT, {
+    // if keyboard unexpectedly appears while emoji picker is open, close the picker
+    if (kb.isKeyboardVisible && hasOpened.current === true) {
+      hasOpened.current = false;
+      onClose();
+      return;
+    }
+    hasOpened.current = isOpen;
+    // ensure the keyboard is dismissed when the emoji picker is opened
+    kb.isKeyboardVisible && isOpen && Keyboard.dismiss();
+    height.value = withSpring(isOpen ? PANEL_HEIGHT : 0, {
       damping: 30,
       stiffness: 300,
     });
-  }, [isOpen]);
+  }, [isOpen, kb.isKeyboardVisible]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    height: height.value,
+    overflow: "hidden",
   }));
 
-  if (!isOpen && translateY.value === PANEL_HEIGHT) return null;
-
   const handleSelect = (name: string) => {
-    emojiEmitter.emit("emoji-selected", {
-      type: "custom",
-      name,
-    } satisfies SelectedEmoji);
+    onSelect?.({ type: "custom", name });
     onClose();
   };
 
   return (
-    <>
-      <Pressable
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 100,
-        }}
-        onPress={onClose}
-      />
+    <Animated.View style={animatedStyle}>
       <Animated.View
         style={[
-          {
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: PANEL_HEIGHT,
-            backgroundColor: "#1f2937",
-            borderTopWidth: 1,
-            borderTopColor: "rgba(255,255,255,0.1)",
-            zIndex: 101,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            padding: 12,
-          },
-          animatedStyle,
+          z.bg.background,
+          z.border.border,
+          zero.borders.width.thin,
+          r.xl,
+          p[3],
+          { height: PANEL_HEIGHT },
         ]}
       >
         <Text
-          style={{
-            fontSize: 11,
-            fontWeight: "600",
-            color: "rgba(255,255,255,0.4)",
-            textTransform: "uppercase",
-            letterSpacing: 0.8,
-            marginBottom: 8,
-          }}
+          style={[
+            text.gray[500],
+            {
+              fontSize: 10,
+              fontWeight: "600",
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              marginBottom: 8,
+            },
+          ]}
         >
           Custom Emoji
         </Text>
         {customEmoji.length === 0 ? (
-          <View
-            style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
+          <Animated.View
+            style={[layout.flex.column, layout.flex.center, { flex: 1 }]}
           >
-            <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>
-              No custom emoji available
-            </Text>
-          </View>
+            <Text style={[text.gray[600]]}>No custom emoji available</Text>
+          </Animated.View>
         ) : (
           <FlatList
             data={customEmoji}
@@ -114,21 +107,19 @@ export function EmojiPicker({
               <Pressable
                 onPress={() => handleSelect(item.name)}
                 style={({ pressed }) => ({
-                  width: 40,
-                  height: 40,
+                  width: 36,
+                  height: 36,
                   margin: 2,
                   borderRadius: 6,
-                  padding: 4,
-                  backgroundColor: pressed
-                    ? "rgba(255,255,255,0.15)"
-                    : "transparent",
+                  padding: 3,
+                  backgroundColor: pressed ? theme.colors.muted : "transparent",
                   alignItems: "center",
                   justifyContent: "center",
                 })}
               >
                 <Image
                   source={{ uri: item.imageUrl }}
-                  style={{ width: 32, height: 32 }}
+                  style={{ width: 28, height: 28 }}
                   resizeMode="contain"
                   accessibilityLabel={item.alt ?? item.name}
                 />
@@ -137,6 +128,6 @@ export function EmojiPicker({
           />
         )}
       </Animated.View>
-    </>
+    </Animated.View>
   );
 }

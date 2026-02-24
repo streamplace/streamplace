@@ -12,7 +12,11 @@ interface ChatPanelProps {
   messagesPerMinute?: number;
   shownMessages?: number;
   emojiData?: any;
-  emojiPicker?: (isOpen: boolean, onClose: () => void) => React.ReactNode;
+  emojiPicker?: (
+    isOpen: boolean,
+    onClose: () => void,
+    onSelect: (emoji: any) => void,
+  ) => React.ReactNode;
 }
 
 export default function ChatPanel({

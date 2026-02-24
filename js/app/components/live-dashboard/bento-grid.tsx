@@ -207,10 +207,11 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 isConnected={isConnected}
                 messagesPerMinute={messagesPerMinute}
                 emojiData={emojiData}
-                emojiPicker={(isOpen, onClose) => (
+                emojiPicker={(isOpen, onClose, onSelect) => (
                   <EmojiPicker
                     isOpen={isOpen}
                     onClose={onClose}
+                    onSelect={onSelect}
                     customEmoji={[]}
                   />
                 )}

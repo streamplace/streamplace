@@ -48,8 +48,13 @@ export function PopoutChatInner({ user }: { user: string }) {
           <ChatBox
             emojiData={emojiData}
             isPopout={true}
-            emojiPicker={(isOpen, onClose) => (
-              <EmojiPicker isOpen={isOpen} onClose={onClose} customEmoji={[]} />
+            emojiPicker={(isOpen, onClose, onSelect) => (
+              <EmojiPicker
+                isOpen={isOpen}
+                onClose={onClose}
+                onSelect={onSelect}
+                customEmoji={[]}
+              />
             )}
           />
         )}

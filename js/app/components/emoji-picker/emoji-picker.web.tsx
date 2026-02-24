@@ -1,6 +1,8 @@
+import { Text, useTheme } from "@streamplace/components";
 import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
+import { useEffect, useMemo, useRef } from "react";
 import { View } from "react-native";
-import { emojiEmitter } from "./emoji-emitter";
+import { useEmojiData } from "utils/emoji";
 
 export type SelectedEmoji =
   | { type: "standard"; native: string }
@@ -9,6 +11,7 @@ export type SelectedEmoji =
 interface EmojiPickerProps {
   isOpen: boolean;
   onClose: () => void;
+  onSelect?: (emoji: SelectedEmoji) => void;
   customEmoji?: CustomEmojiEntry[];
 }
 
@@ -21,38 +24,78 @@ export interface CustomEmojiEntry {
 export function EmojiPicker({
   isOpen,
   onClose,
+  onSelect,
   customEmoji = [],
 }: EmojiPickerProps) {
+  const { theme } = useTheme();
+  const emojiData = useEmojiData();
+
+  const nativeToId = useMemo(() => {
+    if (!emojiData) return null;
+    const map = new Map<string, string>();
+    for (const [id, emoji] of Object.entries(emojiData.emojis)) {
+      if (emoji.s[0]?.n) map.set(emoji.s[0].n, id);
+    }
+    return map;
+  }, [emojiData]);
+
+  const containerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    const handlePointerDown = (e: PointerEvent) => {
+      console.log("got click");
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  const handleStandardSelect = (emoji: { emoji: string }) => {
-    emojiEmitter.emit("emoji-selected", {
-      type: "standard",
-      native: emoji.emoji,
-    } satisfies SelectedEmoji);
-    onClose();
+  console.log(
+    "[EmojiPicker.web] rendering, onSelect:",
+    !!onSelect,
+    "customEmoji:",
+    customEmoji.length,
+  );
+
+  const handleStandardSelect = (arg: any) => {
+    console.log(
+      "[EmojiPicker.web] handleStandardSelect raw arg:",
+      arg,
+      "onSelect:",
+      !!onSelect,
+    );
+    onSelect?.({ type: "standard", native: arg.emoji ?? arg });
   };
 
   const handleCustomSelect = (name: string) => {
-    emojiEmitter.emit("emoji-selected", {
-      type: "custom",
-      name,
-    } satisfies SelectedEmoji);
-    onClose();
+    onSelect?.({ type: "custom", name });
   };
 
   return (
     <View
+      ref={containerRef}
       style={{
         position: "absolute",
-        bottom: "100%",
-        left: -115,
+        bottom: 92,
+        left: 0,
         width: 352,
         marginBottom: 8,
         zIndex: 1000,
         borderRadius: 12,
         overflow: "hidden",
-        backgroundColor: "#1f2937",
+        backgroundColor: theme.colors.background,
         boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
       }}
     >
@@ -60,7 +103,7 @@ export function EmojiPicker({
         <View
           style={{
             borderBottomWidth: 1,
-            borderBottomColor: "rgba(255,255,255,0.1)",
+            borderBottomColor: theme.colors.border,
             padding: 8,
           }}
         >
@@ -128,7 +171,7 @@ export function EmojiPicker({
         onEmojiSelect={handleStandardSelect}
         style={{
           width: "100%",
-          height: 320,
+          maxHeight: 420,
           display: "flex",
           flexDirection: "column",
           background: "transparent",
@@ -164,7 +207,7 @@ export function EmojiPicker({
               fontSize: 13,
             }}
           >
-            Loading…
+            <Text>Loading...</Text>
           </FrimousseEmojiPicker.Loading>
           <FrimousseEmojiPicker.Empty
             style={{
@@ -177,63 +220,130 @@ export function EmojiPicker({
               fontSize: 13,
             }}
           >
-            No emoji found.
+            <Text>No emoji found.</Text>
           </FrimousseEmojiPicker.Empty>
           <FrimousseEmojiPicker.List
-            style={{ paddingBottom: 6, userSelect: "none" }}
+            style={{
+              paddingBottom: 6,
+              paddingLeft: 10,
+              userSelect: "none",
+            }}
             components={{
-              CategoryHeader: ({ category, ...props }) => (
-                <div
-                  style={{
-                    padding: "8px 12px 4px",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "rgba(255,255,255,0.4)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    background: "#1f2937",
-                  }}
-                  {...props}
-                >
-                  {category.label}
-                </div>
-              ),
+              CategoryHeader: ({ category, ...props }) => {
+                let propsStyle = props.style || {};
+                // override default styles!
+                delete props.style;
+                return (
+                  <div
+                    style={{
+                      background: `linear-gradient(${theme.colors.background}, ${theme.colors.background}d0, transparent)`,
+                      height: "120%",
+                      margin: "0 -10px 16px",
+                      padding: "4px 16px",
+                      ...propsStyle,
+                    }}
+                    {...(props as any)}
+                  >
+                    <Text {...(props as any)}>{category.label}</Text>
+                  </div>
+                );
+              },
               Row: ({ children, ...props }) => (
                 <div style={{ padding: "0 6px" }} {...props}>
                   {children}
                 </div>
               ),
-              Emoji: ({ emoji, ...props }) => (
-                <button
-                  style={{
-                    width: 36,
-                    height: 36,
-                    fontSize: 22,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 6,
-                    border: "none",
-                    background: "transparent",
-                    cursor: "pointer",
-                    color: "inherit",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background =
-                      "rgba(255,255,255,0.1)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background =
-                      "transparent";
-                  }}
-                  {...props}
-                >
-                  {emoji.emoji}
-                </button>
-              ),
+              Emoji: ({ emoji, ...props }) => {
+                let propsStyle = props.style || {};
+                // override default styles!
+                delete props.style;
+                return (
+                  <button
+                    style={{
+                      width: 36,
+                      height: 36,
+                      fontSize: 22,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: 6,
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      color: "inherit",
+                      ...propsStyle,
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background =
+                        theme.colors.secondary + "90";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background =
+                        "transparent";
+                    }}
+                    {...props}
+                  >
+                    {emoji.emoji}
+                  </button>
+                );
+              },
             }}
           />
         </FrimousseEmojiPicker.Viewport>
+        <FrimousseEmojiPicker.ActiveEmoji>
+          {({ emoji }) => {
+            return (
+              <div
+                style={{
+                  padding: "6px 20px",
+                  borderTop: `1px solid ${theme.colors.border}`,
+                }}
+              >
+                {emoji ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      height: 46,
+                    }}
+                  >
+                    <Text size="4xl">{emoji.emoji}</Text>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: -2,
+                      }}
+                    >
+                      <Text size="sm">{emoji.label}</Text>
+                      {nativeToId?.get(emoji.emoji) && (
+                        <Text color="muted" size="xs">
+                          :{nativeToId.get(emoji.emoji)}:
+                        </Text>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                      height: 46,
+                    }}
+                  >
+                    <Text color="muted" size="sm">
+                      Select an emoji...
+                    </Text>
+                  </div>
+                )}
+              </div>
+            );
+          }}
+        </FrimousseEmojiPicker.ActiveEmoji>
       </FrimousseEmojiPicker.Root>
     </View>
   );

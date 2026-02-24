@@ -1,5 +1,5 @@
 import Graphemer from "graphemer";
-import { AtSignIcon, ExternalLink, X } from "lucide-react-native";
+import { AtSignIcon, ExternalLink, SmilePlus, X } from "lucide-react-native";
 import { env } from "process";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, TextInput } from "react-native";
@@ -37,7 +37,11 @@ import {
 import { useDID, usePDSAgent } from "../../streamplace-store";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
-import { EmojiData, EmojiSuggestions } from "./emoji-suggestions";
+import {
+  EmojiData,
+  EmojiSuggestions,
+  getSkinNative,
+} from "./emoji-suggestions";
 import { MentionSuggestions } from "./mention-suggestions";
 import { TeleportModal } from "./teleport-modal";
 
@@ -55,13 +59,19 @@ export function ChatBox({
   setIsChatVisible,
   onEmojiPickerToggle,
   emojiPicker,
+  skinTone = 0,
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
   emojiData: EmojiData | null;
   setIsChatVisible?: (visible: boolean) => void;
   onEmojiPickerToggle?: () => void;
-  emojiPicker?: (isOpen: boolean, onClose: () => void) => React.ReactNode;
+  emojiPicker?: (
+    isOpen: boolean,
+    onClose: () => void,
+    onSelect: (emoji: any) => void,
+  ) => React.ReactNode;
+  skinTone?: number;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -133,9 +143,10 @@ export function ChatBox({
   };
 
   const handleEmojiSelect = (emoji: any) => {
-    if (emoji.skins) {
+    console.log("[ChatBox] handleEmojiSelect", emoji);
+    if (emoji.s) {
       const beforeColon = message.slice(0, message.lastIndexOf(":"));
-      setMessage(`${beforeColon}${emoji.skins[0]?.native} `);
+      setMessage(`${beforeColon}${getSkinNative(emoji, skinTone)} `);
     } else if (emoji.type === "standard") {
       setMessage(message + emoji.native);
     } else if (emoji.type === "custom") {
@@ -247,15 +258,15 @@ export function ChatBox({
                 sort: [5, emoji.id.toLowerCase().indexOf(searchText), 0],
               }; // includes id
             }
-            if (emoji.name.toLowerCase().includes(searchText)) {
+            if (emoji.m.toLowerCase().includes(searchText)) {
               return {
                 emoji,
-                sort: [6, emoji.name.toLowerCase().indexOf(searchText), 0],
+                sort: [6, emoji.m.toLowerCase().indexOf(searchText), 0],
               };
             }
             if (
-              emoji.keywords &&
-              emoji.keywords.some((keyword: string) =>
+              emoji.k &&
+              emoji.k.some((keyword: string) =>
                 keyword.toLowerCase().includes(searchText),
               )
             ) {
@@ -492,6 +503,16 @@ export function ChatBox({
           submitBehavior="submit"
           placeholder="Type a message..."
         />
+        {Platform.OS !== "web" && emojiPicker && (
+          <Button
+            variant="secondary"
+            width="min"
+            style={{ borderRadius: 16, height: 43, aspectRatio: 1 }}
+            onPress={() => setShowEmojiSelector(!showEmojiSelector)}
+          >
+            <SmilePlus size={20} color="white" />
+          </Button>
+        )}
         <View>
           <Button
             disabled={submitting}
@@ -504,6 +525,12 @@ export function ChatBox({
           </Button>
         </View>
       </View>
+      {Platform.OS !== "web" &&
+        emojiPicker?.(
+          showEmojiSelector,
+          () => setShowEmojiSelector(false),
+          handleEmojiSelect,
+        )}
       {showSuggestions && (
         <MentionSuggestions
           authors={filteredAuthors || new Map()}
@@ -516,6 +543,7 @@ export function ChatBox({
           emojis={filteredEmojis}
           highlightedIndex={highlightedIndex}
           onSelect={handleEmojiSelect}
+          skinTone={skinTone}
         />
       )}
       {Platform.OS === "web" && (
@@ -527,7 +555,17 @@ export function ChatBox({
             { justifyContent: "flex-end", position: "relative" },
           ]}
         >
-          {emojiPicker?.(showEmojiSelector, () => setShowEmojiSelector(false))}
+          {
+            (console.log("[ChatBox] emojiPicker render", {
+              hasEmojiPicker: !!emojiPicker,
+              showEmojiSelector,
+            }),
+            emojiPicker?.(
+              showEmojiSelector,
+              () => setShowEmojiSelector(false),
+              handleEmojiSelect,
+            ))
+          }
           {env.NODE_ENV === "development" && (
             <Button
               variant="secondary"
@@ -573,11 +611,16 @@ export function ChatBox({
               variant="secondary"
               aria-label="Insert Emoji"
               style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
-              onPress={() =>
+              onPress={() => {
+                console.log("[ChatBox] emoji button pressed", {
+                  onEmojiPickerToggle: !!onEmojiPickerToggle,
+                  emojiPicker: !!emojiPicker,
+                  showEmojiSelector,
+                });
                 onEmojiPickerToggle
                   ? onEmojiPickerToggle()
-                  : setShowEmojiSelector(!showEmojiSelector)
-              }
+                  : setShowEmojiSelector(!showEmojiSelector);
+              }}
             >
               <Text>{COOL_EMOJI_LIST[emojiIconIndex]}</Text>
             </Button>

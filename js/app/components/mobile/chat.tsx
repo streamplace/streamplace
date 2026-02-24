@@ -11,7 +11,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { useKeyboard } from "hooks/useKeyboard";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -151,8 +151,6 @@ function ChatPanel() {
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
-  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-
   const customEmoji: any[] = [];
 
   // get the deepest active route for nested navigators
@@ -173,11 +171,6 @@ function ChatPanel() {
         px[2],
       ]}
     >
-      <EmojiPicker
-        isOpen={emojiPickerOpen}
-        onClose={() => setEmojiPickerOpen(false)}
-        customEmoji={customEmoji}
-      />
       <View style={[flex.values[1]]}>
         <Chat />
       </View>
@@ -186,11 +179,14 @@ function ChatPanel() {
           <ChatBox
             emojiData={emojiData}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
-            onEmojiPickerToggle={
-              customEmoji.length > 0
-                ? () => setEmojiPickerOpen((v) => !v)
-                : undefined
-            }
+            emojiPicker={(isOpen, onClose, onSelect) => (
+              <EmojiPicker
+                isOpen={isOpen}
+                onClose={onClose}
+                onSelect={onSelect}
+                customEmoji={customEmoji}
+              />
+            )}
           />
         ) : !agent ? (
           <View

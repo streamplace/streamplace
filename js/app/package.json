@@ -22,7 +22,8 @@
     "i18n:copy": "mkdir -p public/locales && cp -r src/i18n/locales/data/* public/locales/",
     "i18n:build": "npm run i18n:compile && npm run i18n:copy",
     "i18n:watch": "nodemon --exec \"npm run i18n:build\" --watch src/i18n/locales/data/**/*.ftl",
-    "i18n:extract": "node scripts/extract-i18n.js && node scripts/migrate-keys-to-ftl.js"
+    "i18n:extract": "node scripts/extract-i18n.js && node scripts/migrate-keys-to-ftl.js",
+    "gen:emoji": "node scripts/gen-emoji-data.js"
   },
   "jest": {
     "preset": "jest-expo"
@@ -132,6 +133,7 @@
     "@types/react": "~18.3.12",
     "@types/sdp-transform": "^2.15.0",
     "@types/uuid": "^10.0.0",
+    "emojibase-data": "^17.0.0",
     "i18next-parser": "^9.0.1",
     "typescript": "~5.3.3"
   },

@@ -10,7 +10,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/pion/webrtc/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
-	"stream.place/streamplace/pkg/log"
 )
 
 func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition string, streamer string, r io.Reader, _contentType string) (io.Reader, error) {
@@ -33,7 +32,6 @@ func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition st
 	} else {
 		svc := GetServiceAuth(ctx)
 		if svc != nil {
-			log.Warn(ctx, "service auth present", "service_did", svc.DID)
 			// this is a signed request from a peer node, allow them to see unpublished streams
 			viewer = streamer
 		}
@@ -49,7 +47,6 @@ func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition st
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting broadcast origin", err)
 		}
-		log.Warn(ctx, "origin", "origin", origin)
 		myDID := s.cli.ServerDID()
 		if origin != nil && origin.ServerDID != myDID {
 			data, err := s.ProxyServiceRequest(ctx, origin.ServerDID, "POST", "place.stream.playback.whep",

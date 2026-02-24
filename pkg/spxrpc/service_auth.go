@@ -77,7 +77,7 @@ func (s *Server) ServiceAuthMiddleware() echo.MiddlewareFunc {
 			identity := &ServiceIdentity{DID: issuer}
 			ctx = context.WithValue(ctx, serviceAuthContextKey, identity)
 			c.SetRequest(c.Request().WithContext(ctx))
-			log.Warn(ctx, "authenticated service request", "service_did", issuer)
+			log.Log(ctx, "got authenticated service request", "service_did", issuer)
 			return next(c)
 		}
 	}
@@ -124,7 +124,7 @@ func (s *Server) ProxyServiceRequest(ctx context.Context, targetDID, httpMethod,
 		RawQuery: query.Encode(),
 	}
 
-	log.Warn(ctx, "proxying service request", "target", targetDID, "method", xrpcMethod)
+	log.Log(ctx, "proxying service request", "target", targetDID, "method", xrpcMethod)
 
 	req, err := http.NewRequestWithContext(ctx, httpMethod, u.String(), body)
 	if err != nil {

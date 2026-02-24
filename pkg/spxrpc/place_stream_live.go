@@ -87,16 +87,15 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 
 	includeUnpublished := false
 	sess, _ := oatproxy.GetOAuthSession(ctx)
-	if sess != nil {
-		includeUnpublished = sess.DID == userDID
-		log.Warn(ctx, "oauth session present", "session_did", sess.DID, "user_did", userDID, "include_unpublished", includeUnpublished)
+	if sess != nil && sess.DID == userDID {
+		includeUnpublished = true
 		// this user gets sent right to the origin in case we're unpublished
 		origin, err := s.statefulDB.GetLatestBroadcastOriginForStreamer(sess.DID)
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting broadcast origin", err)
 		}
-		myDID := s.cli.ServerDID()
-		if origin != nil && origin.ServerDID != myDID {
+		myServerDID := s.cli.ServerDID()
+		if origin != nil && origin.ServerDID != myServerDID {
 			data, err := s.ProxyServiceRequest(ctx, origin.ServerDID, "GET", "place.stream.live.getSegments",
 				url.Values{"userDID": {userDID}, "limit": {strconv.Itoa(limit)}, "before": {before}},
 				nil, "application/json")
@@ -109,14 +108,10 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 				return nil, fmt.Errorf("error unmarshalling response: %w", err)
 			}
 			return &output, nil
-		} else {
-			log.Warn(ctx, "origin is local", "origin", origin)
 		}
 	} else {
-		log.Warn(ctx, "no oauth session")
 		svc := GetServiceAuth(ctx)
 		if svc != nil {
-			log.Warn(ctx, "service auth present", "service_did", svc.DID)
 			// this is a signed request from a peer node, allow them to see unpublished streams
 			includeUnpublished = true
 		}

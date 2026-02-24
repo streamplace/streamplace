@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"sync"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -51,8 +50,9 @@ type StreamSession struct {
 	localDB        localdb.LocalDB
 
 	// Channels for background workers
-	statusUpdateChan chan struct{} // Signal to update status
-	originUpdateChan chan struct{} // Signal to update broadcast origin
+	statusUpdateChan    chan struct{} // Signal to update status
+	originUpdateChan    chan struct{} // Signal to update broadcast origin
+	livestreamUpdateChan chan struct{} // Signal to update livestream
 
 	g          *errgroup.Group
 	started    chan struct{}
@@ -62,7 +62,6 @@ type StreamSession struct {
 	replicator replication.Replicator
 	atsync     *atproto.ATProtoSynchronizer
 
-	lastLivestreamLock sync.Mutex
 	lastLivestreamTime time.Time
 }
 
@@ -104,30 +103,17 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
 	ss.hls = media.NewM3U8(allRenditions)
 
-	// for _, r := range allRenditions {
-	// 	g.Go(func() error {
-	// 		for {
-	// 			if ctx.Err() != nil {
-	// 				return nil
-	// 			}
-	// 			err := ss.mm.ToHLS(ctx, spseg.Creator, r.Name, ss.hls)
-	// 			if ctx.Err() != nil {
-	// 				return nil
-	// 			}
-	// 			log.Warn(ctx, "hls failed, retrying in 5 seconds", "error", err)
-	// 			time.Sleep(time.Second * 5)
-	// 		}
-	// 	})
-	// }
-
 	close(ss.started)
 
-	// Start background workers for status and origin updates
+	// Start background workers for status, origin, and livestream updates
 	ss.g.Go(func() error {
 		return ss.statusUpdateLoop(ctx, spseg.Creator)
 	})
 	ss.g.Go(func() error {
 		return ss.originUpdateLoop(ctx)
+	})
+	ss.g.Go(func() error {
+		return ss.livestreamUpdateLoop(ctx, spseg.Creator)
 	})
 
 	if notif.Local {
@@ -135,15 +121,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 			return ss.HandleMultistreamTargets(ctx)
 		})
 	}
-
-	// ss.Go(ctx, func() error {
-	// 	err := ss.UpdateProfilePicture(ctx, spseg.Creator)
-	// 	if err != nil {
-	// 		log.Error(ctx, "failed to update profile picture", "error", err)
-	// 	}
-	// 	<-ctx.Done()
-	// 	return nil
-	// })
 
 	for {
 		select {
@@ -232,9 +209,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	if notif.Local {
 		ss.UpdateStatus(ctx, spseg.Creator)
 		ss.UpdateBroadcastOrigin(ctx)
-		ss.Go(ctx, func() error {
-			return ss.UpdateLivestream(ctx, spseg.Creator)
-		})
+		ss.UpdateLivestream(ctx, spseg.Creator)
 	}
 
 	if ss.cli.LivepeerGatewayURL != "" {
@@ -485,14 +460,37 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 
 var livestreamUpdateInterval = time.Second * 30
 
-func (ss *StreamSession) UpdateLivestream(ctx context.Context, repoDID string) error {
-	ctx = log.WithLogValues(ctx, "func", "UpdateLivestream")
-	ss.lastLivestreamLock.Lock()
-	defer ss.lastLivestreamLock.Unlock()
-	if time.Since(ss.lastLivestreamTime) < livestreamUpdateInterval {
-		log.Debug(ctx, "not updating livestream, last livestream was less than 30 seconds ago")
-		return nil
+// UpdateLivestream signals the background worker to update the livestream record (non-blocking)
+func (ss *StreamSession) UpdateLivestream(ctx context.Context, repoDID string) {
+	select {
+	case ss.livestreamUpdateChan <- struct{}{}:
+	default:
+		// Channel full, signal already pending
 	}
+}
+
+// livestreamUpdateLoop runs as a background goroutine for the session lifetime
+func (ss *StreamSession) livestreamUpdateLoop(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "livestreamUpdateLoop")
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ss.livestreamUpdateChan:
+			if time.Since(ss.lastLivestreamTime) < livestreamUpdateInterval {
+				log.Debug(ctx, "not updating livestream, last livestream was less than 30 seconds ago")
+				continue
+			}
+			if err := ss.doUpdateLivestream(ctx, repoDID); err != nil {
+				log.Error(ctx, "failed to update livestream", "error", err)
+			}
+		}
+	}
+}
+
+// doUpdateLivestream performs the actual livestream record update work
+func (ss *StreamSession) doUpdateLivestream(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "doUpdateLivestream")
 
 	lastLivestream, err := ss.mod.GetLatestLivestreamForRepo(repoDID)
 	if err != nil {

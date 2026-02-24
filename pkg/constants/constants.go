@@ -1,7 +1,5 @@
 package constants
 
-import "time"
-
 var PLACE_STREAM_KEY = "place.stream.key"                                     //nolint:all
 var PLACE_STREAM_LIVESTREAM = "place.stream.livestream"                       //nolint:all
 var PLACE_STREAM_CHAT_MESSAGE = "place.stream.chat.message"                   //nolint:all
@@ -73,6 +71,3 @@ const (
 )
 
 const BlueskyProfileGoliveKey = "place.stream.live.golive"
-
-const LivestreamInactiveCheckInterval = 90 * time.Second
-const LivestreamConsideredInactiveAfter = 60 * time.Second

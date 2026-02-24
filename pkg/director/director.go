@@ -83,10 +83,11 @@ func (d *Director) Start(ctx context.Context) error {
 					statefulDB:  d.statefulDB,
 					replicator:  d.replicator,
 					// Initialize notification channels (buffered size 1 for coalescing)
-					statusUpdateChan: make(chan struct{}, 1),
-					originUpdateChan: make(chan struct{}, 1),
-					localDB:          d.localDB,
-					atsync:           d.atsync,
+					statusUpdateChan:     make(chan struct{}, 1),
+					originUpdateChan:     make(chan struct{}, 1),
+					livestreamUpdateChan: make(chan struct{}, 1),
+					localDB:              d.localDB,
+					atsync:               d.atsync,
 				}
 				d.streamSessions[not.Segment.RepoDID] = ss
 				g.Go(func() error {

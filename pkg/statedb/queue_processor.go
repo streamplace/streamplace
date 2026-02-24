@@ -105,11 +105,11 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 		return fmt.Errorf("could not parse last seen at: %w", err)
 	}
 	if rec.IdleTimeoutSeconds == nil || *rec.IdleTimeoutSeconds == 0 {
-		log.Warn(ctx, "livestream has no idle timeout, skipping finalization", "uri", livestream.URI)
+		log.Debug(ctx, "livestream has no idle timeout, skipping finalization", "uri", livestream.URI)
 		return nil
 	}
 	if time.Since(lastSeenTime) < (time.Duration(*rec.IdleTimeoutSeconds) * time.Second) {
-		log.Warn(ctx, "livestream is active, skipping finalization", "lastSeenAt", lastSeenTime)
+		log.Debug(ctx, "livestream is active, skipping finalization", "lastSeenAt", lastSeenTime)
 		return nil
 	}
 	session, err := state.GetSessionByDID(livestream.RepoDID)
@@ -125,7 +125,7 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 		return fmt.Errorf("failed to get xrpc client: %w", err)
 	}
 	if rec.EndedAt != nil {
-		log.Warn(ctx, "livestream has already ended, skipping", "uri", livestream.URI, "endedAt", *rec.EndedAt)
+		log.Debug(ctx, "livestream has already ended, skipping", "uri", livestream.URI, "endedAt", *rec.EndedAt)
 		return nil
 	}
 

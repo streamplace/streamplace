@@ -253,6 +253,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				tp := teleports[0]
 				if tp.Repo == nil {
 					log.Error(ctx, "teleportee repo is nil", "uri", tp.URI)
+					return
 				}
 				viewerCount := a.Bus.GetViewerCount(tp.RepoDID)
 				arrivalMsg := streamplace.Livestream_TeleportArrival{

@@ -343,6 +343,7 @@ export function EmojiPicker({
         style={{
           width: "100%",
           maxHeight: 420,
+          height: "80vh",
           display: "flex",
           flexDirection: "column",
           background: "transparent",
@@ -350,7 +351,7 @@ export function EmojiPicker({
       >
         <FrimousseEmojiPicker.Search
           style={{
-            margin: "8px 8px 4px",
+            margin: "10px 10px 4px 10px",
             padding: "6px 10px",
             borderRadius: 8,
             border: "1px solid rgba(255,255,255,0.1)",
@@ -358,7 +359,7 @@ export function EmojiPicker({
             color: "white",
             fontSize: 13,
             outline: "none",
-            width: "calc(100% - 16px)",
+            width: "calc(100% - 16px - 10px)",
             boxSizing: "border-box",
           }}
           placeholder="Search emoji…"

@@ -62,7 +62,7 @@ viewer-count = { $count ->
 }
 
 ## PDS Host Selector
-pds-selector-title = Nou în Atmosferă?
+pds-selector-title = Nou pe Atmosphere?
 pds-selector-description = Va trebui să selectați un PDS (Personal Data Server) pentru a accesa aplicațiile de pe Atmosphere, cum ar fi Bluesky, Tangled și Spark.
 pds-selector-custom-label = Alt PDS
 pds-selector-custom-description = Introduceți adresa URL a propriei gazde PDS

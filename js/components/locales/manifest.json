@@ -5,7 +5,8 @@
     "es-ES",
     "zh-Hant",
     "fr-FR",
-    "zh-Hans"
+    "zh-Hans",
+    "ro-RO"
   ],
   "fallbackChain": ["en-US"],
   "languages": {
@@ -44,6 +45,12 @@
       "name": "Chinese (Simplified)",
       "nativeName": "简体中文",
       "flag": "汉"
+    },
+    "ro-RO": {
+      "code": "ro-RO",
+      "name": "Romanian",
+      "nativeName": "Română",
+      "flag": "🇷🇴"
     }
   }
 }

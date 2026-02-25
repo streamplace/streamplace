@@ -8,7 +8,7 @@ interface MetricItemProps {
   icon: any;
   label: string;
   value: string;
-  status?: "good" | "warning" | "error";
+  status?: "good" | "warning" | "error" | "pre-live";
 }
 
 function MetricItem({ icon: Icon, label, value, status }: MetricItemProps) {

@@ -156,50 +156,50 @@ export function useCreateStreamRecord() {
 
     const u = new URL(url);
 
-    let thumbnail: BlobRef | undefined = undefined;
+    // let thumbnail: BlobRef | undefined = undefined;
 
-    if (customThumbnail) {
-      try {
-        thumbnail = await uploadThumbnail(agent, customThumbnail);
-      } catch (e) {
-        throw new Error(`Custom thumbnail upload failed ${e}`);
-      }
-    } else {
-      // No custom thumbnail: fetch the server-side image and upload it
-      // try thrice lel
-      let tries = 0;
-      try {
-        for (; tries < 3; tries++) {
-          try {
-            console.log(
-              `Fetching thumbnail from ${u.protocol}//${u.host}/api/playback/${agent.did}/stream.png`,
-            );
-            const thumbnailRes = await fetch(
-              `${u.protocol}//${u.host}/api/playback/${agent.did}/stream.png`,
-            );
-            if (!thumbnailRes.ok) {
-              throw new Error(
-                `Failed to fetch thumbnail: ${thumbnailRes.status})`,
-              );
-            }
-            const thumbnailBlob = await thumbnailRes.blob();
-            console.log(thumbnailBlob);
-            thumbnail = await uploadThumbnail(agent, thumbnailBlob);
-          } catch (e) {
-            console.warn(
-              `Failed to fetch thumbnail, retrying (${tries + 1}/3): ${e}`,
-            );
-            // Wait 1 second before retrying
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-            if (tries === 2) {
-              throw new Error(`Failed to fetch thumbnail after 3 tries: ${e}`);
-            }
-          }
-        }
-      } catch (e) {
-        throw new Error(`Thumbnail upload failed ${e}`);
-      }
-    }
+    // if (customThumbnail) {
+    //   try {
+    //     thumbnail = await uploadThumbnail(agent, customThumbnail);
+    //   } catch (e) {
+    //     throw new Error(`Custom thumbnail upload failed ${e}`);
+    //   }
+    // } else {
+    //   // No custom thumbnail: fetch the server-side image and upload it
+    //   // try thrice lel
+    //   let tries = 0;
+    //   try {
+    //     for (; tries < 3; tries++) {
+    //       try {
+    //         console.log(
+    //           `Fetching thumbnail from ${u.protocol}//${u.host}/api/playback/${agent.did}/stream.png`,
+    //         );
+    //         const thumbnailRes = await fetch(
+    //           `${u.protocol}//${u.host}/api/playback/${agent.did}/stream.png`,
+    //         );
+    //         if (!thumbnailRes.ok) {
+    //           throw new Error(
+    //             `Failed to fetch thumbnail: ${thumbnailRes.status})`,
+    //           );
+    //         }
+    //         const thumbnailBlob = await thumbnailRes.blob();
+    //         console.log(thumbnailBlob);
+    //         thumbnail = await uploadThumbnail(agent, thumbnailBlob);
+    //       } catch (e) {
+    //         console.warn(
+    //           `Failed to fetch thumbnail, retrying (${tries + 1}/3): ${e}`,
+    //         );
+    //         // Wait 1 second before retrying
+    //         await new Promise((resolve) => setTimeout(resolve, 2000));
+    //         if (tries === 2) {
+    //           throw new Error(`Failed to fetch thumbnail after 3 tries: ${e}`);
+    //         }
+    //       }
+    //     }
+    //   } catch (e) {
+    //     throw new Error(`Thumbnail upload failed ${e}`);
+    //   }
+    // }
 
     let newPost: undefined | { uri: string; cid: string } = undefined;
 
@@ -221,7 +221,7 @@ export function useCreateStreamRecord() {
         u,
         profile.data,
         params,
-        thumbnail,
+        undefined,
         agent,
       );
 
@@ -264,7 +264,7 @@ export function useCreateStreamRecord() {
       // e.g. `@streamplace/components/0.1.0 (ios, 32.0)`
       agent: `@streamplace/components/${PackageJson.version} (${platform}, ${platVersion})`,
       post: newPost,
-      thumb: thumbnail,
+      // thumb: thumbnail,
       idleTimeoutSeconds: idleTimeoutSeconds,
     };
     console.log("record", record);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useLivestreamStore } from "../livestream-store";
+import { useLivestream, useLivestreamStore } from "../livestream-store";
 
-export type ConnectionQuality = "good" | "degraded" | "poor";
+export type ConnectionQuality = "good" | "degraded" | "poor" | "pre-live";
 
 function getLiveConnectionQuality(
   timeBetweenSegments: number | null,
@@ -24,6 +24,7 @@ export function useSegmentTiming() {
   const [segmentDeltas, setSegmentDeltas] = useState<number[]>([]);
   const prevSegmentRef = useRef<any>();
   const prevTimestampRef = useRef<number | null>(null);
+  const ls = useLivestream();
 
   // Dummy state to force update every second
   const [, setNow] = useState(Date.now());
@@ -83,6 +84,10 @@ export function useSegmentTiming() {
     range,
     segmentDeltas.length,
   );
+
+  if (!ls) {
+    to_ret.connectionQuality = "pre-live";
+  }
 
   return to_ret;
 }

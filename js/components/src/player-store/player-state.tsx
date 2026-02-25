@@ -38,12 +38,6 @@ export interface PlayerState {
   /** Function to set the source URL */
   setSrc: (src: string) => void;
 
-  /** Flag indicating if ingest (stream input) is currently starting */
-  ingestStarting: boolean;
-
-  /** Function to set the ingestStarting flag */
-  setIngestStarting: (ingestStarting: boolean) => void;
-
   /** Flag indicating if ingest is live */
   ingestLive: boolean;
   setIngestLive: (ingestLive: boolean) => void;

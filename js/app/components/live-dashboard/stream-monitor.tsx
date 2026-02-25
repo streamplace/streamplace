@@ -5,6 +5,7 @@ import {
   useLivestream,
   useLivestreamStore,
   usePlayerStore,
+  useSegmentTiming,
   zero,
 } from "@streamplace/components";
 import { DesktopUi } from "components/mobile/desktop-ui";
@@ -14,7 +15,6 @@ import { useEffect, useState } from "react";
 import { Image, TouchableOpacity, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { useLiveUser } from "../../hooks/useLiveUser";
-import { useSegmentTiming } from "../../hooks/useSegmentTiming";
 import StreamScreen from "./live-selector";
 
 const { flex, bg, r, borders, layout, p, text, w, h, mt } = zero;

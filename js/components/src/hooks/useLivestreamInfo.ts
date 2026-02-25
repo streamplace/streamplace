@@ -6,8 +6,6 @@ import { useCreateStreamRecord } from "../streamplace-store";
 export function useLivestreamInfo(url?: string) {
   const ingest = usePlayerStore((x) => x.ingestConnectionState);
   const profile = useLivestreamStore((x) => x.profile);
-  const ingestStarting = usePlayerStore((x) => x.ingestStarting);
-  const setIngestStarting = usePlayerStore((x) => x.setIngestStarting);
   const setIngestLive = usePlayerStore((x) => x.setIngestLive);
   const stopIngest = usePlayerStore((x) => x.stopIngest);
 
@@ -39,20 +37,13 @@ export function useLivestreamInfo(url?: string) {
     keyboardHeight?: number,
     closeKeyboard?: () => void,
   ) => {
-    if (!ingestStarting) {
-      // Optionally close keyboard if provided
-      if (closeKeyboard) closeKeyboard();
-      setShowCountdown(true);
-      setIngestStarting(true);
-      setIngestLive(true);
-      // wait ~3 seconds before announcing
-      setTimeout(() => {
-        handleSubmit();
-      }, 3000);
-    } else {
-      setIngestStarting(false);
-      setIngestLive(false);
-    }
+    // Optionally close keyboard if provided
+    if (closeKeyboard) closeKeyboard();
+    setShowCountdown(true);
+    // wait ~3 seconds before announcing
+    setTimeout(() => {
+      handleSubmit();
+    }, 3000);
   };
 
   // Stop the current broadcast
@@ -70,8 +61,6 @@ export function useLivestreamInfo(url?: string) {
     setShowCountdown,
     recordSubmitted,
     setRecordSubmitted,
-    ingestStarting,
-    setIngestStarting,
     handleSubmit,
     toggleGoLive,
     toggleStopStream,

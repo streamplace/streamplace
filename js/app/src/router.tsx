@@ -542,7 +542,7 @@ export function StreamplaceDrawer() {
   // are we in the live dashboard?
   const [isLiveDashboard, setIsLiveDashboard] = useState(false);
   useEffect(() => {
-    if (!isLiveDashboard && userIsLive) {
+    if (!isLiveDashboard && userIsLive && isWeb) {
       toast.show(
         "You are streaming!",
         "Do you want to go to your Live Dashboard?",

@@ -37,9 +37,10 @@ type Server struct {
 	op             *oatproxy.OATProxy
 	localDB        localdb.LocalDB
 	mm             *media.MediaManager
+	aliases        map[string]string
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, aliases map[string]string) (*Server, error) {
 	e := echo.New()
 	s := &Server{
 		e:              e,
@@ -53,6 +54,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		op:             op,
 		localDB:        ldb,
 		mm:             mm,
+		aliases:        aliases,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())

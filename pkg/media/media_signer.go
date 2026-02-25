@@ -78,7 +78,7 @@ func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, sign
 		TAURL:           cli.TAURL,
 		AQPub:           pub,
 		did:             did.DIDKey(),
-		manifestBuilder: NewManifestBuilder(model),
+		manifestBuilder: NewManifestBuilder(model, cli),
 	}, nil
 }
 

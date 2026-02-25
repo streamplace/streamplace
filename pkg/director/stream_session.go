@@ -50,8 +50,8 @@ type StreamSession struct {
 	localDB        localdb.LocalDB
 
 	// Channels for background workers
-	statusUpdateChan    chan struct{} // Signal to update status
-	originUpdateChan    chan struct{} // Signal to update broadcast origin
+	statusUpdateChan     chan struct{} // Signal to update status
+	originUpdateChan     chan struct{} // Signal to update broadcast origin
 	livestreamUpdateChan chan struct{} // Signal to update livestream
 
 	g          *errgroup.Group
@@ -368,6 +368,10 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 	ls, err := ss.mod.GetLatestLivestreamForRepo(repoDID)
 	if err != nil {
 		return fmt.Errorf("could not get latest livestream for repoDID: %w", err)
+	}
+	if ls == nil {
+		log.Debug(ctx, "no livestream found, skipping status update", "repoDID", repoDID)
+		return nil
 	}
 	lsv, err := ls.ToLivestreamView()
 	if err != nil {

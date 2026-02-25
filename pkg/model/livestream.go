@@ -77,6 +77,9 @@ func (m *DBModel) GetLatestLivestreamForRepo(repoDID string) (*Livestream, error
 		Where("repo_did = ?", repoDID).
 		Order("created_at DESC").
 		First(&livestream).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving latest livestream: %w", err)
 	}

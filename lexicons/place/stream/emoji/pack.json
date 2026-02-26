@@ -27,7 +27,7 @@
             "maxLength": 256,
             "items": {
               "type": "ref",
-              "ref": "#emojiDef"
+              "ref": "#emoji"
             },
             "description": "The emoji contained in this pack."
           },
@@ -39,7 +39,7 @@
         }
       }
     },
-    "emojiDef": {
+    "emoji": {
       "type": "object",
       "required": ["name", "image"],
       "properties": {

@@ -39,7 +39,7 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -58,7 +58,7 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if len("createdAt") > 1000000 {
+	if len("createdAt") > 100000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -69,7 +69,7 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.CreatedAt) > 1000000 {
+	if len(t.CreatedAt) > 100000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -83,7 +83,7 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 	// t.CreatedBy (string) (string)
 	if t.CreatedBy != nil {
 
-		if len("createdBy") > 1000000 {
+		if len("createdBy") > 100000000 {
 			return xerrors.Errorf("Value in field \"createdBy\" was too long")
 		}
 
@@ -99,7 +99,7 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.CreatedBy) > 1000000 {
+			if len(*t.CreatedBy) > 100000000 {
 				return xerrors.Errorf("Value in field t.CreatedBy was too long")
 			}
 
@@ -113,7 +113,7 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.SigningKey (string) (string)
-	if len("signingKey") > 1000000 {
+	if len("signingKey") > 100000000 {
 		return xerrors.Errorf("Value in field \"signingKey\" was too long")
 	}
 
@@ -124,7 +124,7 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.SigningKey) > 1000000 {
+	if len(t.SigningKey) > 100000000 {
 		return xerrors.Errorf("Value in field t.SigningKey was too long")
 	}
 
@@ -164,7 +164,7 @@ func (t *Key) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 10)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -182,7 +182,7 @@ func (t *Key) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -193,7 +193,7 @@ func (t *Key) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -213,7 +213,7 @@ func (t *Key) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -225,7 +225,7 @@ func (t *Key) UnmarshalCBOR(r io.Reader) (err error) {
 		case "signingKey":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -295,7 +295,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	// t.Url (string) (string)
 	if t.Url != nil {
 
-		if len("url") > 1000000 {
+		if len("url") > 100000000 {
 			return xerrors.Errorf("Value in field \"url\" was too long")
 		}
 
@@ -311,7 +311,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.Url) > 1000000 {
+			if len(*t.Url) > 100000000 {
 				return xerrors.Errorf("Value in field t.Url was too long")
 			}
 
@@ -327,7 +327,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	// t.Post (atproto.RepoStrongRef) (struct)
 	if t.Post != nil {
 
-		if len("post") > 1000000 {
+		if len("post") > 100000000 {
 			return xerrors.Errorf("Value in field \"post\" was too long")
 		}
 
@@ -344,7 +344,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -365,7 +365,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	// t.Agent (string) (string)
 	if t.Agent != nil {
 
-		if len("agent") > 1000000 {
+		if len("agent") > 100000000 {
 			return xerrors.Errorf("Value in field \"agent\" was too long")
 		}
 
@@ -381,7 +381,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.Agent) > 1000000 {
+			if len(*t.Agent) > 100000000 {
 				return xerrors.Errorf("Value in field t.Agent was too long")
 			}
 
@@ -397,7 +397,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	// t.Thumb (util.LexBlob) (struct)
 	if t.Thumb != nil {
 
-		if len("thumb") > 1000000 {
+		if len("thumb") > 100000000 {
 			return xerrors.Errorf("Value in field \"thumb\" was too long")
 		}
 
@@ -414,7 +414,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Title (string) (string)
-	if len("title") > 1000000 {
+	if len("title") > 100000000 {
 		return xerrors.Errorf("Value in field \"title\" was too long")
 	}
 
@@ -425,7 +425,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Title) > 1000000 {
+	if len(t.Title) > 100000000 {
 		return xerrors.Errorf("Value in field t.Title was too long")
 	}
 
@@ -469,7 +469,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if len("createdAt") > 1000000 {
+	if len("createdAt") > 100000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -480,7 +480,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.CreatedAt) > 1000000 {
+	if len(t.CreatedAt) > 100000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -526,7 +526,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	// t.CanonicalUrl (string) (string)
 	if t.CanonicalUrl != nil {
 
-		if len("canonicalUrl") > 1000000 {
+		if len("canonicalUrl") > 100000000 {
 			return xerrors.Errorf("Value in field \"canonicalUrl\" was too long")
 		}
 
@@ -542,7 +542,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.CanonicalUrl) > 1000000 {
+			if len(*t.CanonicalUrl) > 100000000 {
 				return xerrors.Errorf("Value in field t.CanonicalUrl was too long")
 			}
 
@@ -590,7 +590,7 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	// t.NotificationSettings (streamplace.Livestream_NotificationSettings) (struct)
 	if t.NotificationSettings != nil {
 
-		if len("notificationSettings") > 1000000 {
+		if len("notificationSettings") > 100000000 {
 			return xerrors.Errorf("Value in field \"notificationSettings\" was too long")
 		}
 
@@ -635,7 +635,7 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 20)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -662,7 +662,7 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -694,7 +694,7 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -714,7 +714,7 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -746,7 +746,7 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 		case "title":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -778,7 +778,7 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -819,7 +819,7 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -914,7 +914,7 @@ func (t *Livestream_NotificationSettings) MarshalCBOR(w io.Writer) error {
 	// t.PushNotification (bool) (bool)
 	if t.PushNotification != nil {
 
-		if len("pushNotification") > 1000000 {
+		if len("pushNotification") > 100000000 {
 			return xerrors.Errorf("Value in field \"pushNotification\" was too long")
 		}
 
@@ -965,7 +965,7 @@ func (t *Livestream_NotificationSettings) UnmarshalCBOR(r io.Reader) (err error)
 
 	nameBuf := make([]byte, 16)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -1065,7 +1065,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Id (string) (string)
-	if len("id") > 1000000 {
+	if len("id") > 100000000 {
 		return xerrors.Errorf("Value in field \"id\" was too long")
 	}
 
@@ -1076,7 +1076,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Id) > 1000000 {
+	if len(t.Id) > 100000000 {
 		return xerrors.Errorf("Value in field t.Id was too long")
 	}
 
@@ -1090,7 +1090,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	// t.Size (int64) (int64)
 	if t.Size != nil {
 
-		if len("size") > 1000000 {
+		if len("size") > 100000000 {
 			return xerrors.Errorf("Value in field \"size\" was too long")
 		}
 
@@ -1120,7 +1120,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -1141,7 +1141,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	// t.Audio ([]*streamplace.Segment_Audio) (slice)
 	if t.Audio != nil {
 
-		if len("audio") > 1000000 {
+		if len("audio") > 100000000 {
 			return xerrors.Errorf("Value in field \"audio\" was too long")
 		}
 
@@ -1170,7 +1170,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	// t.Video ([]*streamplace.Segment_Video) (slice)
 	if t.Video != nil {
 
-		if len("video") > 1000000 {
+		if len("video") > 100000000 {
 			return xerrors.Errorf("Value in field \"video\" was too long")
 		}
 
@@ -1197,7 +1197,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Creator (string) (string)
-	if len("creator") > 1000000 {
+	if len("creator") > 100000000 {
 		return xerrors.Errorf("Value in field \"creator\" was too long")
 	}
 
@@ -1208,7 +1208,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Creator) > 1000000 {
+	if len(t.Creator) > 100000000 {
 		return xerrors.Errorf("Value in field t.Creator was too long")
 	}
 
@@ -1222,7 +1222,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	// t.Duration (int64) (int64)
 	if t.Duration != nil {
 
-		if len("duration") > 1000000 {
+		if len("duration") > 100000000 {
 			return xerrors.Errorf("Value in field \"duration\" was too long")
 		}
 
@@ -1252,7 +1252,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.StartTime (string) (string)
-	if len("startTime") > 1000000 {
+	if len("startTime") > 100000000 {
 		return xerrors.Errorf("Value in field \"startTime\" was too long")
 	}
 
@@ -1263,7 +1263,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.StartTime) > 1000000 {
+	if len(t.StartTime) > 100000000 {
 		return xerrors.Errorf("Value in field t.StartTime was too long")
 	}
 
@@ -1275,7 +1275,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.SigningKey (string) (string)
-	if len("signingKey") > 1000000 {
+	if len("signingKey") > 100000000 {
 		return xerrors.Errorf("Value in field \"signingKey\" was too long")
 	}
 
@@ -1286,7 +1286,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.SigningKey) > 1000000 {
+	if len(t.SigningKey) > 100000000 {
 		return xerrors.Errorf("Value in field t.SigningKey was too long")
 	}
 
@@ -1300,7 +1300,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	// t.ContentRights (streamplace.MetadataContentRights) (struct)
 	if t.ContentRights != nil {
 
-		if len("contentRights") > 1000000 {
+		if len("contentRights") > 100000000 {
 			return xerrors.Errorf("Value in field \"contentRights\" was too long")
 		}
 
@@ -1319,7 +1319,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	// t.ContentWarnings (streamplace.MetadataContentWarnings) (struct)
 	if t.ContentWarnings != nil {
 
-		if len("contentWarnings") > 1000000 {
+		if len("contentWarnings") > 100000000 {
 			return xerrors.Errorf("Value in field \"contentWarnings\" was too long")
 		}
 
@@ -1338,7 +1338,7 @@ func (t *Segment) MarshalCBOR(w io.Writer) error {
 	// t.DistributionPolicy (streamplace.MetadataDistributionPolicy) (struct)
 	if t.DistributionPolicy != nil {
 
-		if len("distributionPolicy") > 1000000 {
+		if len("distributionPolicy") > 100000000 {
 			return xerrors.Errorf("Value in field \"distributionPolicy\" was too long")
 		}
 
@@ -1383,7 +1383,7 @@ func (t *Segment) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 18)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -1401,7 +1401,7 @@ func (t *Segment) UnmarshalCBOR(r io.Reader) (err error) {
 		case "id":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -1448,7 +1448,7 @@ func (t *Segment) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -1557,7 +1557,7 @@ func (t *Segment) UnmarshalCBOR(r io.Reader) (err error) {
 		case "creator":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -1604,7 +1604,7 @@ func (t *Segment) UnmarshalCBOR(r io.Reader) (err error) {
 		case "startTime":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -1615,7 +1615,7 @@ func (t *Segment) UnmarshalCBOR(r io.Reader) (err error) {
 		case "signingKey":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -1706,7 +1706,7 @@ func (t *Segment_Audio) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Rate (int64) (int64)
-	if len("rate") > 1000000 {
+	if len("rate") > 100000000 {
 		return xerrors.Errorf("Value in field \"rate\" was too long")
 	}
 
@@ -1728,7 +1728,7 @@ func (t *Segment_Audio) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Codec (string) (string)
-	if len("codec") > 1000000 {
+	if len("codec") > 100000000 {
 		return xerrors.Errorf("Value in field \"codec\" was too long")
 	}
 
@@ -1739,7 +1739,7 @@ func (t *Segment_Audio) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Codec) > 1000000 {
+	if len(t.Codec) > 100000000 {
 		return xerrors.Errorf("Value in field t.Codec was too long")
 	}
 
@@ -1751,7 +1751,7 @@ func (t *Segment_Audio) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Channels (int64) (int64)
-	if len("channels") > 1000000 {
+	if len("channels") > 100000000 {
 		return xerrors.Errorf("Value in field \"channels\" was too long")
 	}
 
@@ -1802,7 +1802,7 @@ func (t *Segment_Audio) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 8)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -1846,7 +1846,7 @@ func (t *Segment_Audio) UnmarshalCBOR(r io.Reader) (err error) {
 		case "codec":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -1912,7 +1912,7 @@ func (t *Segment_Video) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Codec (string) (string)
-	if len("codec") > 1000000 {
+	if len("codec") > 100000000 {
 		return xerrors.Errorf("Value in field \"codec\" was too long")
 	}
 
@@ -1923,7 +1923,7 @@ func (t *Segment_Video) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Codec) > 1000000 {
+	if len(t.Codec) > 100000000 {
 		return xerrors.Errorf("Value in field t.Codec was too long")
 	}
 
@@ -1935,7 +1935,7 @@ func (t *Segment_Video) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Width (int64) (int64)
-	if len("width") > 1000000 {
+	if len("width") > 100000000 {
 		return xerrors.Errorf("Value in field \"width\" was too long")
 	}
 
@@ -1957,7 +1957,7 @@ func (t *Segment_Video) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Height (int64) (int64)
-	if len("height") > 1000000 {
+	if len("height") > 100000000 {
 		return xerrors.Errorf("Value in field \"height\" was too long")
 	}
 
@@ -1981,7 +1981,7 @@ func (t *Segment_Video) MarshalCBOR(w io.Writer) error {
 	// t.Bframes (bool) (bool)
 	if t.Bframes != nil {
 
-		if len("bframes") > 1000000 {
+		if len("bframes") > 100000000 {
 			return xerrors.Errorf("Value in field \"bframes\" was too long")
 		}
 
@@ -2006,7 +2006,7 @@ func (t *Segment_Video) MarshalCBOR(w io.Writer) error {
 	// t.Framerate (streamplace.Segment_Framerate) (struct)
 	if t.Framerate != nil {
 
-		if len("framerate") > 1000000 {
+		if len("framerate") > 100000000 {
 			return xerrors.Errorf("Value in field \"framerate\" was too long")
 		}
 
@@ -2051,7 +2051,7 @@ func (t *Segment_Video) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 9)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -2069,7 +2069,7 @@ func (t *Segment_Video) UnmarshalCBOR(r io.Reader) (err error) {
 		case "codec":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -2205,7 +2205,7 @@ func (t *Segment_Framerate) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Den (int64) (int64)
-	if len("den") > 1000000 {
+	if len("den") > 100000000 {
 		return xerrors.Errorf("Value in field \"den\" was too long")
 	}
 
@@ -2227,7 +2227,7 @@ func (t *Segment_Framerate) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Num (int64) (int64)
-	if len("num") > 1000000 {
+	if len("num") > 100000000 {
 		return xerrors.Errorf("Value in field \"num\" was too long")
 	}
 
@@ -2278,7 +2278,7 @@ func (t *Segment_Framerate) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 3)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -2377,7 +2377,7 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Text (string) (string)
-	if len("text") > 1000000 {
+	if len("text") > 100000000 {
 		return xerrors.Errorf("Value in field \"text\" was too long")
 	}
 
@@ -2388,7 +2388,7 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Text) > 1000000 {
+	if len(t.Text) > 100000000 {
 		return xerrors.Errorf("Value in field t.Text was too long")
 	}
 
@@ -2400,7 +2400,7 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -2421,7 +2421,7 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 	// t.Reply (streamplace.ChatMessage_ReplyRef) (struct)
 	if t.Reply != nil {
 
-		if len("reply") > 1000000 {
+		if len("reply") > 100000000 {
 			return xerrors.Errorf("Value in field \"reply\" was too long")
 		}
 
@@ -2440,7 +2440,7 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 	// t.Facets ([]*streamplace.RichtextFacet) (slice)
 	if t.Facets != nil {
 
-		if len("facets") > 1000000 {
+		if len("facets") > 100000000 {
 			return xerrors.Errorf("Value in field \"facets\" was too long")
 		}
 
@@ -2467,7 +2467,7 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Streamer (string) (string)
-	if len("streamer") > 1000000 {
+	if len("streamer") > 100000000 {
 		return xerrors.Errorf("Value in field \"streamer\" was too long")
 	}
 
@@ -2478,7 +2478,7 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Streamer) > 1000000 {
+	if len(t.Streamer) > 100000000 {
 		return xerrors.Errorf("Value in field t.Streamer was too long")
 	}
 
@@ -2490,7 +2490,7 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if len("createdAt") > 1000000 {
+	if len("createdAt") > 100000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -2501,7 +2501,7 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.CreatedAt) > 1000000 {
+	if len(t.CreatedAt) > 100000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -2541,7 +2541,7 @@ func (t *ChatMessage) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 9)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -2559,7 +2559,7 @@ func (t *ChatMessage) UnmarshalCBOR(r io.Reader) (err error) {
 		case "text":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -2570,7 +2570,7 @@ func (t *ChatMessage) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -2650,7 +2650,7 @@ func (t *ChatMessage) UnmarshalCBOR(r io.Reader) (err error) {
 		case "streamer":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -2661,12 +2661,146 @@ func (t *ChatMessage) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
 
 				t.CreatedAt = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *RichtextFacet_Emoji) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.Url (string) (string)
+	if len("url") > 100000000 {
+		return xerrors.Errorf("Value in field \"url\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("url"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("url")); err != nil {
+		return err
+	}
+
+	if len(t.Url) > 100000000 {
+		return xerrors.Errorf("Value in field t.Url was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Url))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Url)); err != nil {
+		return err
+	}
+
+	// t.Name (string) (string)
+	if len("name") > 100000000 {
+		return xerrors.Errorf("Value in field \"name\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("name"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("name")); err != nil {
+		return err
+	}
+
+	if len(t.Name) > 100000000 {
+		return xerrors.Errorf("Value in field t.Name was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Name))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Name)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *RichtextFacet_Emoji) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = RichtextFacet_Emoji{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("RichtextFacet_Emoji: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 4)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Url (string) (string)
+		case "url":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
+				if err != nil {
+					return err
+				}
+
+				t.Url = string(sval)
+			}
+			// t.Name (string) (string)
+		case "name":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
+				if err != nil {
+					return err
+				}
+
+				t.Name = string(sval)
 			}
 
 		default:
@@ -2692,7 +2826,7 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Index (bsky.RichtextFacet_ByteSlice) (struct)
-	if len("index") > 1000000 {
+	if len("index") > 100000000 {
 		return xerrors.Errorf("Value in field \"index\" was too long")
 	}
 
@@ -2708,7 +2842,7 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Features ([]*streamplace.RichtextFacet_Features_Elem) (slice)
-	if len("features") > 1000000 {
+	if len("features") > 100000000 {
 		return xerrors.Errorf("Value in field \"features\" was too long")
 	}
 
@@ -2762,7 +2896,7 @@ func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 8)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -2874,7 +3008,7 @@ func (t *ChatProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -2895,7 +3029,7 @@ func (t *ChatProfile) MarshalCBOR(w io.Writer) error {
 	// t.Color (streamplace.ChatProfile_Color) (struct)
 	if t.Color != nil {
 
-		if len("color") > 1000000 {
+		if len("color") > 100000000 {
 			return xerrors.Errorf("Value in field \"color\" was too long")
 		}
 
@@ -2940,7 +3074,7 @@ func (t *ChatProfile) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 5)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -2958,7 +3092,7 @@ func (t *ChatProfile) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -3009,7 +3143,7 @@ func (t *ChatProfile_Color) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Red (int64) (int64)
-	if len("red") > 1000000 {
+	if len("red") > 100000000 {
 		return xerrors.Errorf("Value in field \"red\" was too long")
 	}
 
@@ -3031,7 +3165,7 @@ func (t *ChatProfile_Color) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Blue (int64) (int64)
-	if len("blue") > 1000000 {
+	if len("blue") > 100000000 {
 		return xerrors.Errorf("Value in field \"blue\" was too long")
 	}
 
@@ -3053,7 +3187,7 @@ func (t *ChatProfile_Color) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Green (int64) (int64)
-	if len("green") > 1000000 {
+	if len("green") > 100000000 {
 		return xerrors.Errorf("Value in field \"green\" was too long")
 	}
 
@@ -3104,7 +3238,7 @@ func (t *ChatProfile_Color) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 5)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -3220,7 +3354,7 @@ func (t *ChatMessage_ReplyRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Root (atproto.RepoStrongRef) (struct)
-	if len("root") > 1000000 {
+	if len("root") > 100000000 {
 		return xerrors.Errorf("Value in field \"root\" was too long")
 	}
 
@@ -3236,7 +3370,7 @@ func (t *ChatMessage_ReplyRef) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Parent (atproto.RepoStrongRef) (struct)
-	if len("parent") > 1000000 {
+	if len("parent") > 100000000 {
 		return xerrors.Errorf("Value in field \"parent\" was too long")
 	}
 
@@ -3280,7 +3414,7 @@ func (t *ChatMessage_ReplyRef) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 6)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -3363,7 +3497,7 @@ func (t *ServerSettings) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -3384,7 +3518,7 @@ func (t *ServerSettings) MarshalCBOR(w io.Writer) error {
 	// t.DebugRecording (bool) (bool)
 	if t.DebugRecording != nil {
 
-		if len("debugRecording") > 1000000 {
+		if len("debugRecording") > 100000000 {
 			return xerrors.Errorf("Value in field \"debugRecording\" was too long")
 		}
 
@@ -3435,7 +3569,7 @@ func (t *ServerSettings) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 14)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -3453,7 +3587,7 @@ func (t *ServerSettings) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -3517,7 +3651,7 @@ func (t *ChatGate) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -3536,7 +3670,7 @@ func (t *ChatGate) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.HiddenMessage (string) (string)
-	if len("hiddenMessage") > 1000000 {
+	if len("hiddenMessage") > 100000000 {
 		return xerrors.Errorf("Value in field \"hiddenMessage\" was too long")
 	}
 
@@ -3547,7 +3681,7 @@ func (t *ChatGate) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.HiddenMessage) > 1000000 {
+	if len(t.HiddenMessage) > 100000000 {
 		return xerrors.Errorf("Value in field t.HiddenMessage was too long")
 	}
 
@@ -3587,7 +3721,7 @@ func (t *ChatGate) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 13)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -3605,7 +3739,7 @@ func (t *ChatGate) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -3616,7 +3750,7 @@ func (t *ChatGate) UnmarshalCBOR(r io.Reader) (err error) {
 		case "hiddenMessage":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -3652,7 +3786,7 @@ func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Url (string) (string)
-	if len("url") > 1000000 {
+	if len("url") > 100000000 {
 		return xerrors.Errorf("Value in field \"url\" was too long")
 	}
 
@@ -3663,7 +3797,7 @@ func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Url) > 1000000 {
+	if len(t.Url) > 100000000 {
 		return xerrors.Errorf("Value in field t.Url was too long")
 	}
 
@@ -3677,7 +3811,7 @@ func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 	// t.Name (string) (string)
 	if t.Name != nil {
 
-		if len("name") > 1000000 {
+		if len("name") > 100000000 {
 			return xerrors.Errorf("Value in field \"name\" was too long")
 		}
 
@@ -3693,7 +3827,7 @@ func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.Name) > 1000000 {
+			if len(*t.Name) > 100000000 {
 				return xerrors.Errorf("Value in field t.Name was too long")
 			}
 
@@ -3707,7 +3841,7 @@ func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -3726,7 +3860,7 @@ func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Active (bool) (bool)
-	if len("active") > 1000000 {
+	if len("active") > 100000000 {
 		return xerrors.Errorf("Value in field \"active\" was too long")
 	}
 
@@ -3742,7 +3876,7 @@ func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if len("createdAt") > 1000000 {
+	if len("createdAt") > 100000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -3753,7 +3887,7 @@ func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.CreatedAt) > 1000000 {
+	if len(t.CreatedAt) > 100000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -3793,7 +3927,7 @@ func (t *MultistreamTarget) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 9)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -3811,7 +3945,7 @@ func (t *MultistreamTarget) UnmarshalCBOR(r io.Reader) (err error) {
 		case "url":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -3831,7 +3965,7 @@ func (t *MultistreamTarget) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -3843,7 +3977,7 @@ func (t *MultistreamTarget) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -3872,7 +4006,7 @@ func (t *MultistreamTarget) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -3916,7 +4050,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -3935,7 +4069,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Server (string) (string)
-	if len("server") > 1000000 {
+	if len("server") > 100000000 {
 		return xerrors.Errorf("Value in field \"server\" was too long")
 	}
 
@@ -3946,7 +4080,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Server) > 1000000 {
+	if len(t.Server) > 100000000 {
 		return xerrors.Errorf("Value in field t.Server was too long")
 	}
 
@@ -3958,7 +4092,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Streamer (string) (string)
-	if len("streamer") > 1000000 {
+	if len("streamer") > 100000000 {
 		return xerrors.Errorf("Value in field \"streamer\" was too long")
 	}
 
@@ -3969,7 +4103,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Streamer) > 1000000 {
+	if len(t.Streamer) > 100000000 {
 		return xerrors.Errorf("Value in field t.Streamer was too long")
 	}
 
@@ -3981,7 +4115,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.UpdatedAt (string) (string)
-	if len("updatedAt") > 1000000 {
+	if len("updatedAt") > 100000000 {
 		return xerrors.Errorf("Value in field \"updatedAt\" was too long")
 	}
 
@@ -3992,7 +4126,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.UpdatedAt) > 1000000 {
+	if len(t.UpdatedAt) > 100000000 {
 		return xerrors.Errorf("Value in field t.UpdatedAt was too long")
 	}
 
@@ -4006,7 +4140,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 	// t.IrohTicket (string) (string)
 	if t.IrohTicket != nil {
 
-		if len("irohTicket") > 1000000 {
+		if len("irohTicket") > 100000000 {
 			return xerrors.Errorf("Value in field \"irohTicket\" was too long")
 		}
 
@@ -4022,7 +4156,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.IrohTicket) > 1000000 {
+			if len(*t.IrohTicket) > 100000000 {
 				return xerrors.Errorf("Value in field t.IrohTicket was too long")
 			}
 
@@ -4038,7 +4172,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 	// t.Broadcaster (string) (string)
 	if t.Broadcaster != nil {
 
-		if len("broadcaster") > 1000000 {
+		if len("broadcaster") > 100000000 {
 			return xerrors.Errorf("Value in field \"broadcaster\" was too long")
 		}
 
@@ -4054,7 +4188,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.Broadcaster) > 1000000 {
+			if len(*t.Broadcaster) > 100000000 {
 				return xerrors.Errorf("Value in field t.Broadcaster was too long")
 			}
 
@@ -4070,7 +4204,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 	// t.WebsocketURL (string) (string)
 	if t.WebsocketURL != nil {
 
-		if len("websocketURL") > 1000000 {
+		if len("websocketURL") > 100000000 {
 			return xerrors.Errorf("Value in field \"websocketURL\" was too long")
 		}
 
@@ -4086,7 +4220,7 @@ func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.WebsocketURL) > 1000000 {
+			if len(*t.WebsocketURL) > 100000000 {
 				return xerrors.Errorf("Value in field t.WebsocketURL was too long")
 			}
 
@@ -4128,7 +4262,7 @@ func (t *BroadcastOrigin) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 12)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -4146,7 +4280,7 @@ func (t *BroadcastOrigin) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -4157,7 +4291,7 @@ func (t *BroadcastOrigin) UnmarshalCBOR(r io.Reader) (err error) {
 		case "server":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -4168,7 +4302,7 @@ func (t *BroadcastOrigin) UnmarshalCBOR(r io.Reader) (err error) {
 		case "streamer":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -4179,7 +4313,7 @@ func (t *BroadcastOrigin) UnmarshalCBOR(r io.Reader) (err error) {
 		case "updatedAt":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -4199,7 +4333,7 @@ func (t *BroadcastOrigin) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -4220,7 +4354,7 @@ func (t *BroadcastOrigin) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -4241,7 +4375,7 @@ func (t *BroadcastOrigin) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -4273,7 +4407,7 @@ func (t *BroadcastSyndication) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -4292,7 +4426,7 @@ func (t *BroadcastSyndication) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Streamer (string) (string)
-	if len("streamer") > 1000000 {
+	if len("streamer") > 100000000 {
 		return xerrors.Errorf("Value in field \"streamer\" was too long")
 	}
 
@@ -4303,7 +4437,7 @@ func (t *BroadcastSyndication) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Streamer) > 1000000 {
+	if len(t.Streamer) > 100000000 {
 		return xerrors.Errorf("Value in field t.Streamer was too long")
 	}
 
@@ -4315,7 +4449,7 @@ func (t *BroadcastSyndication) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if len("createdAt") > 1000000 {
+	if len("createdAt") > 100000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -4326,7 +4460,7 @@ func (t *BroadcastSyndication) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.CreatedAt) > 1000000 {
+	if len(t.CreatedAt) > 100000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -4338,7 +4472,7 @@ func (t *BroadcastSyndication) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Broadcaster (string) (string)
-	if len("broadcaster") > 1000000 {
+	if len("broadcaster") > 100000000 {
 		return xerrors.Errorf("Value in field \"broadcaster\" was too long")
 	}
 
@@ -4349,7 +4483,7 @@ func (t *BroadcastSyndication) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Broadcaster) > 1000000 {
+	if len(t.Broadcaster) > 100000000 {
 		return xerrors.Errorf("Value in field t.Broadcaster was too long")
 	}
 
@@ -4389,7 +4523,7 @@ func (t *BroadcastSyndication) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 11)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -4407,7 +4541,7 @@ func (t *BroadcastSyndication) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -4418,7 +4552,7 @@ func (t *BroadcastSyndication) UnmarshalCBOR(r io.Reader) (err error) {
 		case "streamer":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -4429,7 +4563,7 @@ func (t *BroadcastSyndication) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -4440,7 +4574,7 @@ func (t *BroadcastSyndication) UnmarshalCBOR(r io.Reader) (err error) {
 		case "broadcaster":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -4484,7 +4618,7 @@ func (t *MetadataConfiguration) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -4505,7 +4639,7 @@ func (t *MetadataConfiguration) MarshalCBOR(w io.Writer) error {
 	// t.ContentRights (streamplace.MetadataContentRights) (struct)
 	if t.ContentRights != nil {
 
-		if len("contentRights") > 1000000 {
+		if len("contentRights") > 100000000 {
 			return xerrors.Errorf("Value in field \"contentRights\" was too long")
 		}
 
@@ -4524,7 +4658,7 @@ func (t *MetadataConfiguration) MarshalCBOR(w io.Writer) error {
 	// t.ContentWarnings (streamplace.MetadataContentWarnings) (struct)
 	if t.ContentWarnings != nil {
 
-		if len("contentWarnings") > 1000000 {
+		if len("contentWarnings") > 100000000 {
 			return xerrors.Errorf("Value in field \"contentWarnings\" was too long")
 		}
 
@@ -4543,7 +4677,7 @@ func (t *MetadataConfiguration) MarshalCBOR(w io.Writer) error {
 	// t.DistributionPolicy (streamplace.MetadataDistributionPolicy) (struct)
 	if t.DistributionPolicy != nil {
 
-		if len("distributionPolicy") > 1000000 {
+		if len("distributionPolicy") > 100000000 {
 			return xerrors.Errorf("Value in field \"distributionPolicy\" was too long")
 		}
 
@@ -4588,7 +4722,7 @@ func (t *MetadataConfiguration) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 18)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -4606,7 +4740,7 @@ func (t *MetadataConfiguration) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -4708,7 +4842,7 @@ func (t *MetadataDistributionPolicy) MarshalCBOR(w io.Writer) error {
 	// t.DeleteAfter (int64) (int64)
 	if t.DeleteAfter != nil {
 
-		if len("deleteAfter") > 1000000 {
+		if len("deleteAfter") > 100000000 {
 			return xerrors.Errorf("Value in field \"deleteAfter\" was too long")
 		}
 
@@ -4740,7 +4874,7 @@ func (t *MetadataDistributionPolicy) MarshalCBOR(w io.Writer) error {
 	// t.AllowedBroadcasters ([]string) (slice)
 	if t.AllowedBroadcasters != nil {
 
-		if len("allowedBroadcasters") > 1000000 {
+		if len("allowedBroadcasters") > 100000000 {
 			return xerrors.Errorf("Value in field \"allowedBroadcasters\" was too long")
 		}
 
@@ -4759,7 +4893,7 @@ func (t *MetadataDistributionPolicy) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 		for _, v := range t.AllowedBroadcasters {
-			if len(v) > 1000000 {
+			if len(v) > 100000000 {
 				return xerrors.Errorf("Value in field v was too long")
 			}
 
@@ -4802,7 +4936,7 @@ func (t *MetadataDistributionPolicy) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 19)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -4882,7 +5016,7 @@ func (t *MetadataDistributionPolicy) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadStringWithMax(cr, 1000000)
+						sval, err := cbg.ReadStringWithMax(cr, 100000000)
 						if err != nil {
 							return err
 						}
@@ -4939,7 +5073,7 @@ func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 	// t.Creator (string) (string)
 	if t.Creator != nil {
 
-		if len("creator") > 1000000 {
+		if len("creator") > 100000000 {
 			return xerrors.Errorf("Value in field \"creator\" was too long")
 		}
 
@@ -4955,7 +5089,7 @@ func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.Creator) > 1000000 {
+			if len(*t.Creator) > 100000000 {
 				return xerrors.Errorf("Value in field t.Creator was too long")
 			}
 
@@ -4971,7 +5105,7 @@ func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 	// t.License (string) (string)
 	if t.License != nil {
 
-		if len("license") > 1000000 {
+		if len("license") > 100000000 {
 			return xerrors.Errorf("Value in field \"license\" was too long")
 		}
 
@@ -4987,7 +5121,7 @@ func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.License) > 1000000 {
+			if len(*t.License) > 100000000 {
 				return xerrors.Errorf("Value in field t.License was too long")
 			}
 
@@ -5003,7 +5137,7 @@ func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 	// t.CreditLine (string) (string)
 	if t.CreditLine != nil {
 
-		if len("creditLine") > 1000000 {
+		if len("creditLine") > 100000000 {
 			return xerrors.Errorf("Value in field \"creditLine\" was too long")
 		}
 
@@ -5019,7 +5153,7 @@ func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.CreditLine) > 1000000 {
+			if len(*t.CreditLine) > 100000000 {
 				return xerrors.Errorf("Value in field t.CreditLine was too long")
 			}
 
@@ -5035,7 +5169,7 @@ func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 	// t.CopyrightYear (int64) (int64)
 	if t.CopyrightYear != nil {
 
-		if len("copyrightYear") > 1000000 {
+		if len("copyrightYear") > 100000000 {
 			return xerrors.Errorf("Value in field \"copyrightYear\" was too long")
 		}
 
@@ -5067,7 +5201,7 @@ func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 	// t.CopyrightNotice (string) (string)
 	if t.CopyrightNotice != nil {
 
-		if len("copyrightNotice") > 1000000 {
+		if len("copyrightNotice") > 100000000 {
 			return xerrors.Errorf("Value in field \"copyrightNotice\" was too long")
 		}
 
@@ -5083,7 +5217,7 @@ func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.CopyrightNotice) > 1000000 {
+			if len(*t.CopyrightNotice) > 100000000 {
 				return xerrors.Errorf("Value in field t.CopyrightNotice was too long")
 			}
 
@@ -5125,7 +5259,7 @@ func (t *MetadataContentRights) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 15)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -5152,7 +5286,7 @@ func (t *MetadataContentRights) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -5173,7 +5307,7 @@ func (t *MetadataContentRights) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -5194,7 +5328,7 @@ func (t *MetadataContentRights) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -5251,7 +5385,7 @@ func (t *MetadataContentRights) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -5290,7 +5424,7 @@ func (t *MetadataContentWarnings) MarshalCBOR(w io.Writer) error {
 	// t.Warnings ([]string) (slice)
 	if t.Warnings != nil {
 
-		if len("warnings") > 1000000 {
+		if len("warnings") > 100000000 {
 			return xerrors.Errorf("Value in field \"warnings\" was too long")
 		}
 
@@ -5309,7 +5443,7 @@ func (t *MetadataContentWarnings) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 		for _, v := range t.Warnings {
-			if len(v) > 1000000 {
+			if len(v) > 100000000 {
 				return xerrors.Errorf("Value in field v was too long")
 			}
 
@@ -5352,7 +5486,7 @@ func (t *MetadataContentWarnings) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 8)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -5396,7 +5530,7 @@ func (t *MetadataContentWarnings) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadStringWithMax(cr, 1000000)
+						sval, err := cbg.ReadStringWithMax(cr, 100000000)
 						if err != nil {
 							return err
 						}
@@ -5435,7 +5569,7 @@ func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -5454,7 +5588,7 @@ func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if len("createdAt") > 1000000 {
+	if len("createdAt") > 100000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -5465,7 +5599,7 @@ func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.CreatedAt) > 1000000 {
+	if len(t.CreatedAt) > 100000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -5477,7 +5611,7 @@ func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Moderator (string) (string)
-	if len("moderator") > 1000000 {
+	if len("moderator") > 100000000 {
 		return xerrors.Errorf("Value in field \"moderator\" was too long")
 	}
 
@@ -5488,7 +5622,7 @@ func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Moderator) > 1000000 {
+	if len(t.Moderator) > 100000000 {
 		return xerrors.Errorf("Value in field t.Moderator was too long")
 	}
 
@@ -5500,7 +5634,7 @@ func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Permissions ([]string) (slice)
-	if len("permissions") > 1000000 {
+	if len("permissions") > 100000000 {
 		return xerrors.Errorf("Value in field \"permissions\" was too long")
 	}
 
@@ -5519,7 +5653,7 @@ func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	for _, v := range t.Permissions {
-		if len(v) > 1000000 {
+		if len(v) > 100000000 {
 			return xerrors.Errorf("Value in field v was too long")
 		}
 
@@ -5535,7 +5669,7 @@ func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
 	// t.ExpirationTime (string) (string)
 	if t.ExpirationTime != nil {
 
-		if len("expirationTime") > 1000000 {
+		if len("expirationTime") > 100000000 {
 			return xerrors.Errorf("Value in field \"expirationTime\" was too long")
 		}
 
@@ -5551,7 +5685,7 @@ func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.ExpirationTime) > 1000000 {
+			if len(*t.ExpirationTime) > 100000000 {
 				return xerrors.Errorf("Value in field t.ExpirationTime was too long")
 			}
 
@@ -5593,7 +5727,7 @@ func (t *ModerationPermission) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 14)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -5611,7 +5745,7 @@ func (t *ModerationPermission) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -5622,7 +5756,7 @@ func (t *ModerationPermission) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -5633,7 +5767,7 @@ func (t *ModerationPermission) UnmarshalCBOR(r io.Reader) (err error) {
 		case "moderator":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -5670,7 +5804,7 @@ func (t *ModerationPermission) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadStringWithMax(cr, 1000000)
+						sval, err := cbg.ReadStringWithMax(cr, 100000000)
 						if err != nil {
 							return err
 						}
@@ -5693,7 +5827,7 @@ func (t *ModerationPermission) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -5730,7 +5864,7 @@ func (t *LiveTeleport) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -5749,7 +5883,7 @@ func (t *LiveTeleport) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.StartsAt (string) (string)
-	if len("startsAt") > 1000000 {
+	if len("startsAt") > 100000000 {
 		return xerrors.Errorf("Value in field \"startsAt\" was too long")
 	}
 
@@ -5760,7 +5894,7 @@ func (t *LiveTeleport) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.StartsAt) > 1000000 {
+	if len(t.StartsAt) > 100000000 {
 		return xerrors.Errorf("Value in field t.StartsAt was too long")
 	}
 
@@ -5772,7 +5906,7 @@ func (t *LiveTeleport) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Streamer (string) (string)
-	if len("streamer") > 1000000 {
+	if len("streamer") > 100000000 {
 		return xerrors.Errorf("Value in field \"streamer\" was too long")
 	}
 
@@ -5783,7 +5917,7 @@ func (t *LiveTeleport) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Streamer) > 1000000 {
+	if len(t.Streamer) > 100000000 {
 		return xerrors.Errorf("Value in field t.Streamer was too long")
 	}
 
@@ -5797,7 +5931,7 @@ func (t *LiveTeleport) MarshalCBOR(w io.Writer) error {
 	// t.DurationSeconds (int64) (int64)
 	if t.DurationSeconds != nil {
 
-		if len("durationSeconds") > 1000000 {
+		if len("durationSeconds") > 100000000 {
 			return xerrors.Errorf("Value in field \"durationSeconds\" was too long")
 		}
 
@@ -5855,7 +5989,7 @@ func (t *LiveTeleport) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 15)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -5873,7 +6007,7 @@ func (t *LiveTeleport) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -5884,7 +6018,7 @@ func (t *LiveTeleport) UnmarshalCBOR(r io.Reader) (err error) {
 		case "startsAt":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -5895,7 +6029,7 @@ func (t *LiveTeleport) UnmarshalCBOR(r io.Reader) (err error) {
 		case "streamer":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -5962,7 +6096,7 @@ func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -5981,7 +6115,7 @@ func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if len("createdAt") > 1000000 {
+	if len("createdAt") > 100000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -5992,7 +6126,7 @@ func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.CreatedAt) > 1000000 {
+	if len(t.CreatedAt) > 100000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -6004,7 +6138,7 @@ func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Streamers ([]string) (slice)
-	if len("streamers") > 1000000 {
+	if len("streamers") > 100000000 {
 		return xerrors.Errorf("Value in field \"streamers\" was too long")
 	}
 
@@ -6023,7 +6157,7 @@ func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	for _, v := range t.Streamers {
-		if len(v) > 1000000 {
+		if len(v) > 100000000 {
 			return xerrors.Errorf("Value in field v was too long")
 		}
 
@@ -6065,7 +6199,7 @@ func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 9)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -6083,7 +6217,7 @@ func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -6094,7 +6228,7 @@ func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -6131,7 +6265,7 @@ func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) (err error) {
 					_ = err
 
 					{
-						sval, err := cbg.ReadStringWithMax(cr, 1000000)
+						sval, err := cbg.ReadStringWithMax(cr, 100000000)
 						if err != nil {
 							return err
 						}
@@ -6174,7 +6308,7 @@ func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Name (string) (string)
-	if len("name") > 1000000 {
+	if len("name") > 100000000 {
 		return xerrors.Errorf("Value in field \"name\" was too long")
 	}
 
@@ -6185,7 +6319,7 @@ func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Name) > 1000000 {
+	if len(t.Name) > 100000000 {
 		return xerrors.Errorf("Value in field t.Name was too long")
 	}
 
@@ -6197,7 +6331,7 @@ func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.LexiconTypeID (string) (string)
-	if len("$type") > 1000000 {
+	if len("$type") > 100000000 {
 		return xerrors.Errorf("Value in field \"$type\" was too long")
 	}
 
@@ -6215,10 +6349,10 @@ func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Emoji ([]*streamplace.EmojiPack_EmojiDef) (slice)
+	// t.Emoji ([]*streamplace.EmojiPack_Emoji) (slice)
 	if t.Emoji != nil {
 
-		if len("emoji") > 1000000 {
+		if len("emoji") > 100000000 {
 			return xerrors.Errorf("Value in field \"emoji\" was too long")
 		}
 
@@ -6245,7 +6379,7 @@ func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.CreatedAt (string) (string)
-	if len("createdAt") > 1000000 {
+	if len("createdAt") > 100000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
 	}
 
@@ -6256,7 +6390,7 @@ func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.CreatedAt) > 1000000 {
+	if len(t.CreatedAt) > 100000000 {
 		return xerrors.Errorf("Value in field t.CreatedAt was too long")
 	}
 
@@ -6270,7 +6404,7 @@ func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
 	// t.Description (string) (string)
 	if t.Description != nil {
 
-		if len("description") > 1000000 {
+		if len("description") > 100000000 {
 			return xerrors.Errorf("Value in field \"description\" was too long")
 		}
 
@@ -6286,7 +6420,7 @@ func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.Description) > 1000000 {
+			if len(*t.Description) > 100000000 {
 				return xerrors.Errorf("Value in field t.Description was too long")
 			}
 
@@ -6328,7 +6462,7 @@ func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
 
 	nameBuf := make([]byte, 11)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -6346,7 +6480,7 @@ func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
 		case "name":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -6357,14 +6491,14 @@ func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
 		case "$type":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
 
 				t.LexiconTypeID = string(sval)
 			}
-			// t.Emoji ([]*streamplace.EmojiPack_EmojiDef) (slice)
+			// t.Emoji ([]*streamplace.EmojiPack_Emoji) (slice)
 		case "emoji":
 
 			maj, extra, err = cr.ReadHeader()
@@ -6381,7 +6515,7 @@ func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			if extra > 0 {
-				t.Emoji = make([]*EmojiPack_EmojiDef, extra)
+				t.Emoji = make([]*EmojiPack_Emoji, extra)
 			}
 
 			for i := 0; i < int(extra); i++ {
@@ -6403,7 +6537,7 @@ func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
 							if err := cr.UnreadByte(); err != nil {
 								return err
 							}
-							t.Emoji[i] = new(EmojiPack_EmojiDef)
+							t.Emoji[i] = new(EmojiPack_Emoji)
 							if err := t.Emoji[i].UnmarshalCBOR(cr); err != nil {
 								return xerrors.Errorf("unmarshaling t.Emoji[i] pointer: %w", err)
 							}
@@ -6417,7 +6551,7 @@ func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
 		case "createdAt":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -6437,7 +6571,7 @@ func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -6456,7 +6590,7 @@ func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *EmojiPack_EmojiDef) MarshalCBOR(w io.Writer) error {
+func (t *EmojiPack_Emoji) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -6480,7 +6614,7 @@ func (t *EmojiPack_EmojiDef) MarshalCBOR(w io.Writer) error {
 	// t.Alt (string) (string)
 	if t.Alt != nil {
 
-		if len("alt") > 1000000 {
+		if len("alt") > 100000000 {
 			return xerrors.Errorf("Value in field \"alt\" was too long")
 		}
 
@@ -6496,7 +6630,7 @@ func (t *EmojiPack_EmojiDef) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.Alt) > 1000000 {
+			if len(*t.Alt) > 100000000 {
 				return xerrors.Errorf("Value in field t.Alt was too long")
 			}
 
@@ -6510,7 +6644,7 @@ func (t *EmojiPack_EmojiDef) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Name (string) (string)
-	if len("name") > 1000000 {
+	if len("name") > 100000000 {
 		return xerrors.Errorf("Value in field \"name\" was too long")
 	}
 
@@ -6521,7 +6655,7 @@ func (t *EmojiPack_EmojiDef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if len(t.Name) > 1000000 {
+	if len(t.Name) > 100000000 {
 		return xerrors.Errorf("Value in field t.Name was too long")
 	}
 
@@ -6533,7 +6667,7 @@ func (t *EmojiPack_EmojiDef) MarshalCBOR(w io.Writer) error {
 	}
 
 	// t.Image (util.LexBlob) (struct)
-	if len("image") > 1000000 {
+	if len("image") > 100000000 {
 		return xerrors.Errorf("Value in field \"image\" was too long")
 	}
 
@@ -6551,7 +6685,7 @@ func (t *EmojiPack_EmojiDef) MarshalCBOR(w io.Writer) error {
 	// t.Creator (string) (string)
 	if t.Creator != nil {
 
-		if len("creator") > 1000000 {
+		if len("creator") > 100000000 {
 			return xerrors.Errorf("Value in field \"creator\" was too long")
 		}
 
@@ -6567,7 +6701,7 @@ func (t *EmojiPack_EmojiDef) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		} else {
-			if len(*t.Creator) > 1000000 {
+			if len(*t.Creator) > 100000000 {
 				return xerrors.Errorf("Value in field t.Creator was too long")
 			}
 
@@ -6582,8 +6716,8 @@ func (t *EmojiPack_EmojiDef) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *EmojiPack_EmojiDef) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = EmojiPack_EmojiDef{}
+func (t *EmojiPack_Emoji) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = EmojiPack_Emoji{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -6602,14 +6736,14 @@ func (t *EmojiPack_EmojiDef) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("EmojiPack_EmojiDef: map struct too large (%d)", extra)
+		return fmt.Errorf("EmojiPack_Emoji: map struct too large (%d)", extra)
 	}
 
 	n := extra
 
 	nameBuf := make([]byte, 7)
 	for i := uint64(0); i < n; i++ {
-		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
 			return err
 		}
@@ -6636,7 +6770,7 @@ func (t *EmojiPack_EmojiDef) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}
@@ -6648,7 +6782,7 @@ func (t *EmojiPack_EmojiDef) UnmarshalCBOR(r io.Reader) (err error) {
 		case "name":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
 				if err != nil {
 					return err
 				}
@@ -6688,7 +6822,7 @@ func (t *EmojiPack_EmojiDef) UnmarshalCBOR(r io.Reader) (err error) {
 						return err
 					}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					sval, err := cbg.ReadStringWithMax(cr, 100000000)
 					if err != nil {
 						return err
 					}

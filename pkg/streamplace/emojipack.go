@@ -19,13 +19,13 @@ type EmojiPack struct {
 	// description: Optional description of this emoji pack.
 	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
 	// emoji: The emoji contained in this pack.
-	Emoji []*EmojiPack_EmojiDef `json:"emoji,omitempty" cborgen:"emoji,omitempty"`
+	Emoji []*EmojiPack_Emoji `json:"emoji,omitempty" cborgen:"emoji,omitempty"`
 	// name: Display name of the emoji pack.
 	Name string `json:"name" cborgen:"name"`
 }
 
-// EmojiPack_EmojiDef is a "emojiDef" in the place.stream.emoji.pack schema.
-type EmojiPack_EmojiDef struct {
+// EmojiPack_Emoji is a "emoji" in the place.stream.emoji.pack schema.
+type EmojiPack_Emoji struct {
 	// alt: Alt text for the emoji image.
 	Alt *string `json:"alt,omitempty" cborgen:"alt,omitempty"`
 	// creator: The creator/artist of this emoji.

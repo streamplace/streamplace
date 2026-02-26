@@ -24,6 +24,20 @@ Annotation of a sub-string within rich text.
 
 ---
 
+<a name="emoji"></a>
+
+### `emoji`
+
+**Type:** `object`
+
+**Properties:**
+
+| Name   | Type     | Req'd | Description                                                                                    | Constraints |
+| ------ | -------- | ----- | ---------------------------------------------------------------------------------------------- | ----------- |
+| `name` | `string` | ❌    | Short name used to reference this emoji in chat. Should be alphanumeric with underscores only. |             |
+
+---
+
 ## Lexicon Source
 
 ```json
@@ -49,6 +63,15 @@ Annotation of a sub-string within rich text.
               "app.bsky.richtext.facet#link"
             ]
           }
+        }
+      }
+    },
+    "emoji": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Short name used to reference this emoji in chat. Should be alphanumeric with underscores only."
         }
       }
     }

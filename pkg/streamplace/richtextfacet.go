@@ -23,6 +23,14 @@ type RichtextFacet struct {
 	Index    *appbsky.RichtextFacet_ByteSlice `json:"index" cborgen:"index"`
 }
 
+// RichtextFacet_Emoji is a "emoji" in the place.stream.richtext.facet schema.
+type RichtextFacet_Emoji struct {
+	// name: Short name used to reference this emoji in chat. Should be alphanumeric with underscores only.
+	Name string `json:"name" cborgen:"name"`
+	// url: URL where the image for this emoji can be retrieved.
+	Url string `json:"url" cborgen:"url"`
+}
+
 type RichtextFacet_Features_Elem struct {
 	RichtextFacet_Mention *appbsky.RichtextFacet_Mention
 	RichtextFacet_Link    *appbsky.RichtextFacet_Link

@@ -19,18 +19,18 @@ A named collection of custom emoji available for use in chat.
 
 **Record Properties:**
 
-| Name          | Type                              | Req'd | Description                                           | Constraints                             |
-| ------------- | --------------------------------- | ----- | ----------------------------------------------------- | --------------------------------------- |
-| `name`        | `string`                          | ✅    | Display name of the emoji pack.                       | Max Length: 640<br/>Max Graphemes: 64   |
-| `description` | `string`                          | ❌    | Optional description of this emoji pack.              | Max Length: 3200<br/>Max Graphemes: 320 |
-| `emoji`       | Array of [`#emojiDef`](#emojidef) | ❌    | The emoji contained in this pack.                     | Max Items: 256                          |
-| `createdAt`   | `string`                          | ✅    | Client-declared timestamp when this pack was created. | Format: `datetime`                      |
+| Name          | Type                        | Req'd | Description                                           | Constraints                             |
+| ------------- | --------------------------- | ----- | ----------------------------------------------------- | --------------------------------------- |
+| `name`        | `string`                    | ✅    | Display name of the emoji pack.                       | Max Length: 640<br/>Max Graphemes: 64   |
+| `description` | `string`                    | ❌    | Optional description of this emoji pack.              | Max Length: 3200<br/>Max Graphemes: 320 |
+| `emoji`       | Array of [`#emoji`](#emoji) | ❌    | The emoji contained in this pack.                     | Max Items: 256                          |
+| `createdAt`   | `string`                    | ✅    | Client-declared timestamp when this pack was created. | Format: `datetime`                      |
 
 ---
 
-<a name="emojidef"></a>
+<a name="emoji"></a>
 
-### `emojiDef`
+### `emoji`
 
 **Type:** `object`
 
@@ -77,7 +77,7 @@ A named collection of custom emoji available for use in chat.
             "maxLength": 256,
             "items": {
               "type": "ref",
-              "ref": "#emojiDef"
+              "ref": "#emoji"
             },
             "description": "The emoji contained in this pack."
           },
@@ -89,7 +89,7 @@ A named collection of custom emoji available for use in chat.
         }
       }
     },
-    "emojiDef": {
+    "emoji": {
       "type": "object",
       "required": ["name", "image"],
       "properties": {

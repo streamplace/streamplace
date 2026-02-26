@@ -19,6 +19,23 @@
           }
         }
       }
+    },
+    "emoji": {
+      "type": "object",
+      "required": ["name", "url"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 100,
+          "maxGraphemes": 50,
+          "description": "Short name used to reference this emoji in chat. Should be alphanumeric with underscores only."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL where the image for this emoji can be retrieved."
+        }
+      }
     }
   }
 }

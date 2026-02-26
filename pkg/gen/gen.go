@@ -8,7 +8,7 @@ import (
 
 func main() {
 	genCfg := cbg.Gen{
-		MaxStringLength: 1_000_000,
+		MaxStringLength: 100_000_000,
 	}
 
 	if err := genCfg.WriteMapEncodersToFile("pkg/streamplace/cbor_gen.go", "streamplace",
@@ -20,6 +20,7 @@ func main() {
 		streamplace.Segment_Video{},
 		streamplace.Segment_Framerate{},
 		streamplace.ChatMessage{},
+		streamplace.RichtextFacet_Emoji{},
 		streamplace.RichtextFacet{},
 		streamplace.ChatProfile{},
 		streamplace.ChatProfile_Color{},
@@ -37,7 +38,7 @@ func main() {
 		streamplace.LiveTeleport{},
 		streamplace.LiveRecommendations{},
 		streamplace.EmojiPack{},
-		streamplace.EmojiPack_EmojiDef{},
+		streamplace.EmojiPack_Emoji{},
 	); err != nil {
 		panic(err)
 	}

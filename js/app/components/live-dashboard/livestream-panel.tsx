@@ -1,3 +1,4 @@
+import { useNavigation } from "@react-navigation/native";
 import {
   Admonition,
   Button,
@@ -19,7 +20,7 @@ import {
   useUrl,
   zero,
 } from "@streamplace/components";
-import { ArrowRight, ImagePlus, X } from "lucide-react-native";
+import { ArrowRight, ChevronRight, ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
@@ -211,6 +212,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const createStreamRecord = useCreateStreamRecord();
   const updateStreamRecord = useUpdateStreamRecord();
   const url = useUrl();
+  const navigation = useNavigation();
 
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
@@ -227,6 +229,13 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const defaultCanonicalUrl = useMemo(() => {
     return `${url}/${profile && formatHandle(profile)}`;
   }, [url, profile?.handle]);
+  const streamUrl = useMemo(() => {
+    if (canonicalUrl) return canonicalUrl;
+    if (profile) {
+      return `${url}/${formatHandle(profile)}`;
+    }
+    return url;
+  }, [canonicalUrl, profile, url]);
 
   useEffect(() => {
     if (!livestream) {
@@ -639,6 +648,29 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                   onGoToMetadata={() => handleModeChange("metadata")}
                 />
               )}
+
+              <Button
+                onPress={() =>
+                  navigation.navigate("SmokesignalEvent", {
+                    defaultTitle: title,
+                    streamUrl,
+                  })
+                }
+                style={[
+                  bg.neutral[800],
+                  r.md,
+                  py[3],
+                  w.percent[100],
+                  layout.flex.row,
+                  layout.flex.center,
+                  gap.all[2],
+                ]}
+              >
+                <Text style={[text.white, { fontSize: 14 }]}>
+                  Create Smoke Signal Event
+                </Text>
+                <ChevronRight size={18} color="white" />
+              </Button>
 
               <Button
                 disabled={disabled}

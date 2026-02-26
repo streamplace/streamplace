@@ -132,8 +132,12 @@ func (m *DBModel) GetChatMessage(uri string) (*ChatMessage, error) {
 }
 
 func (m *DBModel) MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDefs_MessageView, error) {
+	return m.MostRecentChatMessagesForViewer(repoDID, "")
+}
+
+func (m *DBModel) MostRecentChatMessagesForViewer(repoDID, viewerDID string) ([]*streamplace.ChatDefs_MessageView, error) {
 	dbmessages := []ChatMessage{}
-	err := m.DB.
+	q := m.DB.
 		Preload("Repo").
 		Preload("ChatProfile").
 		Preload("ReplyTo").
@@ -150,8 +154,14 @@ func (m *DBModel) MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDef
 		Joins("LEFT JOIN labels ON labels.uri = chat_messages.uri").
 		Where("labels.uri IS NULL"). // Only include messages where no label exists
 		// Exclude deleted messages
-		Where("chat_messages.deleted_at IS NULL").
-		Limit(100).
+		Where("chat_messages.deleted_at IS NULL")
+
+	if viewerDID != "" {
+		q = q.Joins("LEFT JOIN blocks AS viewer_blocks ON viewer_blocks.repo_did = ? AND viewer_blocks.subject_did = chat_messages.repo_did", viewerDID).
+			Where("viewer_blocks.rkey IS NULL")
+	}
+
+	err := q.Limit(100).
 		Order("chat_messages.created_at DESC").
 		Find(&dbmessages).Error
 	if err != nil {

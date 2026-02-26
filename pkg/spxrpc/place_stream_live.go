@@ -113,10 +113,21 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 }
 
 func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before string, limit int) (*placestreamtypes.LiveGetLiveUsers_Output, error) {
-	// Check cache first
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	var viewerDID string
+	if session != nil {
+		viewerDID = session.DID
+		if _, err := s.ATSync.SyncBlueskyRepoCached(ctx, viewerDID, s.model); err != nil {
+			log.Error(ctx, "could not sync viewer repo", "error", err, "viewerDID", viewerDID)
+		}
+	}
+
+	// Check cache first (only for anonymous requests)
 	cacheKey := fmt.Sprintf("live_users_%s_%d", before, limit)
-	if cached, found := s.LiveUsersCache.Get(cacheKey); found {
-		return cached.(*placestreamtypes.LiveGetLiveUsers_Output), nil
+	if viewerDID == "" {
+		if cached, found := s.LiveUsersCache.Get(cacheKey); found {
+			return cached.(*placestreamtypes.LiveGetLiveUsers_Output), nil
+		}
 	}
 
 	var beforeTime *time.Time
@@ -140,27 +151,44 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
 	}
 
-	streams := make([]*placestreamtypes.Livestream_LivestreamView, len(ls))
+	var blockedDIDs map[string]bool
+	if viewerDID != "" {
+		dids, err := s.model.GetBlockedDIDs(ctx, viewerDID)
+		if err != nil {
+			log.Error(ctx, "could not get blocked DIDs for viewer", "error", err)
+		} else {
+			blockedDIDs = make(map[string]bool, len(dids))
+			for _, did := range dids {
+				blockedDIDs[did] = true
+			}
+		}
+	}
 
-	for i, l := range ls {
+	streams := make([]*placestreamtypes.Livestream_LivestreamView, 0, len(ls))
+
+	for _, l := range ls {
 		stream, err := l.ToLivestreamView()
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert livestream to streamplace livestream: %s", err))
+		}
+		if blockedDIDs[stream.Author.Did] {
+			continue
 		}
 		viewers := spmetrics.GetViewCount(stream.Author.Did)
 		stream.ViewerCount = &placestreamtypes.Livestream_ViewerCount{
 			LexiconTypeID: "place.stream.livestream#viewerCount",
 			Count:         int64(viewers),
 		}
-		streams[i] = stream
+		streams = append(streams, stream)
 	}
 
 	liveUsers := &placestreamtypes.LiveGetLiveUsers_Output{
 		Streams: streams,
 	}
 
-	// Cache the result
-	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
+	if viewerDID == "" {
+		s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
+	}
 
 	return liveUsers, nil
 }

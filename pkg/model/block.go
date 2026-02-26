@@ -73,6 +73,15 @@ func (m *DBModel) GetBlock(ctx context.Context, rkey string) (*Block, error) {
 	return &block, nil
 }
 
+func (m *DBModel) GetBlockedDIDs(ctx context.Context, blockerDID string) ([]string, error) {
+	var dids []string
+	err := m.DB.Model(&Block{}).Where("repo_did = ?", blockerDID).Pluck("subject_did", &dids).Error
+	if err != nil {
+		return nil, err
+	}
+	return dids, nil
+}
+
 func (m *DBModel) GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error) {
 	var block Block
 	err := m.DB.Where("repo_did = ? AND subject_did = ?", userDID, subjectDID).First(&block).Error

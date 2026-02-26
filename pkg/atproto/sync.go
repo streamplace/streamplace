@@ -150,6 +150,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
 			return nil
 		}
+
+		// Add mod badge if the author is a moderator
+		issuerDID := fmt.Sprintf("did:web:%s", atsync.CLI.BroadcasterHost)
+		err = AddModBadgeIfApplicable(ctx, scm, rec.Streamer, issuerDID, atsync.Model)
+		if err != nil {
+			log.Error(ctx, "failed to add mod badge", "err", err)
+		}
+
 		go atsync.Bus.Publish(rec.Streamer, scm)
 
 		if !isUpdate && !isFirstSync {

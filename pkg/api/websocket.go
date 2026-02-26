@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
 
+	"stream.place/streamplace/pkg/atproto"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/renditions"
@@ -237,7 +239,14 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				log.Error(ctx, "could not get chat messages", "error", err)
 				return
 			}
+
+			// Add mod badges to messages
+			issuerDID := fmt.Sprintf("did:web:%s", a.CLI.BroadcasterHost)
 			for _, message := range messages {
+				err := atproto.AddModBadgeIfApplicable(ctx, message, repoDID, issuerDID, a.Model)
+				if err != nil {
+					log.Error(ctx, "failed to add mod badge to message", "error", err)
+				}
 				initialBurst <- message
 			}
 		}()

@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.badge.getValidBadges",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get valid badges for the authenticated user, optionally in the context of a specific streamer's chat",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "streamer": {
+            "type": "string",
+            "format": "did",
+            "description": "Optional DID of the streamer for context-specific badges (mod, vip, etc)"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["badges"],
+          "properties": {
+            "badges": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.badge.defs#badgeView"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

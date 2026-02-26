@@ -80,6 +80,7 @@ export const handleWebSocketMessages = (
           chatProfile: (message as any).chatProfile,
           replyTo: (message as any).replyTo,
           deleted: message.deleted,
+          badges: message.badges,
         };
         state = reduceChat(state, [hydrated], [], []);
       } else if (PlaceStreamSegment.isRecord(message)) {

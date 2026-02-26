@@ -7,7 +7,9 @@ export function useLivestreamInfo(url?: string) {
   const ingest = usePlayerStore((x) => x.ingestConnectionState);
   const profile = useLivestreamStore((x) => x.profile);
   const endLivestream = useEndLivestream();
-
+  const setLocalLivestreamURI = useLivestreamStore(
+    (x) => x.setLocalLivestreamURI,
+  );
   const createStreamRecord = useCreateStreamRecord();
 
   const [title, setTitle] = useState<string>("");
@@ -19,10 +21,11 @@ export function useLivestreamInfo(url?: string) {
       if (title !== "") {
         setRecordSubmitted(true);
         // Create the livestream record with title and custom url if available
-        await createStreamRecord({
+        const { uri } = await createStreamRecord({
           title,
           canonicalUrl: url || undefined,
         });
+        setLocalLivestreamURI(uri);
       }
     } catch (error) {
       console.error("Error creating livestream:", error);

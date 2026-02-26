@@ -197,7 +197,11 @@ export function useCreateStreamRecord() {
       createBlueskyPost: submitPost,
     });
 
-    return output;
+    if (!output.success) {
+      throw new Error("Failed to start livestream");
+    }
+
+    return output.data;
   };
 }
 

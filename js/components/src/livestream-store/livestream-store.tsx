@@ -29,6 +29,8 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     hasReceivedSegment: false,
     moderationPermissions: [],
     setModerationPermissions: (perms) => set({ moderationPermissions: perms }),
+    localLivestreamURI: null,
+    setLocalLivestreamURI: (uri) => set({ localLivestreamURI: uri }),
   }));
 };
 

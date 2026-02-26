@@ -468,7 +468,9 @@ var livestreamUpdateInterval = time.Second * 30
 func (ss *StreamSession) UpdateLivestream(ctx context.Context, repoDID string) {
 	select {
 	case ss.livestreamUpdateChan <- struct{}{}:
+		log.Warn(ctx, "livestream update signal sent")
 	default:
+		log.Warn(ctx, "livestream update channel full, signal already pending")
 		// Channel full, signal already pending
 	}
 }
@@ -482,7 +484,7 @@ func (ss *StreamSession) livestreamUpdateLoop(ctx context.Context, repoDID strin
 			return nil
 		case <-ss.livestreamUpdateChan:
 			if time.Since(ss.lastLivestreamTime) < livestreamUpdateInterval {
-				log.Debug(ctx, "not updating livestream, last livestream was less than 30 seconds ago")
+				log.Warn(ctx, "not updating livestream, last livestream was less than 30 seconds ago")
 				continue
 			}
 			if err := ss.doUpdateLivestream(ctx, repoDID); err != nil {
@@ -511,18 +513,6 @@ func (ss *StreamSession) doUpdateLivestream(ctx context.Context, repoDID string)
 	lsvr, ok := lsv.Record.Val.(*streamplace.Livestream)
 	if !ok {
 		return fmt.Errorf("livestream is not a streamplace livestream")
-	}
-	if lsvr.LastSeenAt == nil {
-		log.Debug(ctx, "livestream has no last seen at, skipping update")
-		return nil
-	}
-	lastSeenTime, err := time.Parse(time.RFC3339, *lsvr.LastSeenAt)
-	if err != nil {
-		return fmt.Errorf("could not parse last seen at: %w", err)
-	}
-	if time.Since(lastSeenTime) > 5*time.Minute {
-		log.Debug(ctx, "livestream is inactive, skipping update", "lastSeenAt", lastSeenTime)
-		return nil
 	}
 
 	aturi, err := syntax.ParseATURI(lastLivestream.URI)

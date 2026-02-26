@@ -43,17 +43,22 @@ export type SelectedEmoji =
   | { type: "standard"; native: string }
   | { type: "custom"; name: string };
 
-interface EmojiPickerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSelect?: (emoji: SelectedEmoji) => void;
-  customEmoji?: CustomEmojiEntry[];
-}
-
 export interface CustomEmojiEntry {
   name: string;
   imageUrl: string;
   alt?: string;
+}
+
+export interface EmojiPack {
+  name: string;
+  emoji: CustomEmojiEntry[];
+}
+
+interface EmojiPickerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelect?: (emoji: SelectedEmoji) => void;
+  emojiPacks?: EmojiPack[];
 }
 
 interface SkinTonePickerOpen {
@@ -164,7 +169,7 @@ export function EmojiPicker({
   isOpen,
   onClose,
   onSelect,
-  customEmoji = [],
+  emojiPacks = [],
 }: EmojiPickerProps) {
   const { theme } = useTheme();
   const emojiData = useEmojiData();
@@ -277,74 +282,6 @@ export function EmojiPicker({
         boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
       }}
     >
-      {customEmoji.length > 0 && (
-        <View
-          style={{
-            borderBottomWidth: 1,
-            borderBottomColor: theme.colors.border,
-            padding: 8,
-          }}
-        >
-          <span
-            style={{
-              display: "block",
-              fontSize: 11,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.4)",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              padding: "4px 4px 8px",
-            }}
-          >
-            Custom
-          </span>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 2,
-            }}
-          >
-            {customEmoji.map((entry) => (
-              <button
-                key={entry.name}
-                title={`:${entry.name}:`}
-                onClick={() => handleCustomSelect(entry.name)}
-                style={{
-                  width: 36,
-                  height: 36,
-                  padding: 3,
-                  borderRadius: 6,
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    "rgba(255,255,255,0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    "transparent";
-                }}
-              >
-                <img
-                  src={entry.imageUrl}
-                  alt={entry.alt ?? entry.name}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                  }}
-                />
-              </button>
-            ))}
-          </div>
-        </View>
-      )}
       <FrimousseEmojiPicker.Root
         onEmojiSelect={handleStandardSelect}
         style={{
@@ -439,6 +376,72 @@ export function EmojiPicker({
           >
             <Text>No emoji found.</Text>
           </FrimousseEmojiPicker.Empty>
+          {emojiPacks.map((pack) => (
+            <div
+              key={pack.name}
+              style={{ paddingBottom: 6, paddingLeft: 10, maxWidth: "94%" }}
+            >
+              <div
+                style={{
+                  background: `linear-gradient(${theme.colors.background}, ${theme.colors.background}d0, transparent)`,
+                  height: "120%",
+                  margin: "0px -10px 0px",
+                  padding: "4px 16px",
+                  top: 0,
+                  position: "sticky",
+                  contain: "layout paint",
+                }}
+              >
+                <Text>{pack.name}</Text>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 2,
+                  padding: "0 6px",
+                }}
+              >
+                {pack.emoji.map((entry) => (
+                  <button
+                    key={entry.name}
+                    title={`:${entry.name}:`}
+                    onClick={() => handleCustomSelect(entry.name)}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      padding: 3,
+                      borderRadius: 6,
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background =
+                        "rgba(255,255,255,0.1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background =
+                        "transparent";
+                    }}
+                  >
+                    <img
+                      src={entry.imageUrl}
+                      alt={entry.alt ?? entry.name}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
           <FrimousseEmojiPicker.List
             style={{
               paddingBottom: 6,

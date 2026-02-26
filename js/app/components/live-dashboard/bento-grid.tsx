@@ -17,6 +17,7 @@ import {
   ProblemsWrapperRef,
 } from "@streamplace/components/src/components/dashboard/problems";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import { DAN_PACK } from "components/emoji-picker/presets";
 import { ArrowRight } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Platform, ScrollView, View } from "react-native";
@@ -216,7 +217,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                     isOpen={isOpen}
                     onClose={onClose}
                     onSelect={onSelect}
-                    customEmoji={[]}
+                    emojiPacks={[DAN_PACK]}
                   />
                 )}
               />

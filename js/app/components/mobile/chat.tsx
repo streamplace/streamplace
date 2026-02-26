@@ -21,6 +21,7 @@ import Animated, {
 import { useNavigation } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import { DAN_PACK } from "components/emoji-picker/presets";
 import { ArrowRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
@@ -247,7 +248,6 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
-  const customEmoji: any[] = [];
 
   return (
     <View
@@ -272,7 +272,7 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
                 isOpen={isOpen}
                 onClose={onClose}
                 onSelect={onSelect}
-                customEmoji={customEmoji}
+                emojiPacks={[DAN_PACK]}
               />
             )}
           />

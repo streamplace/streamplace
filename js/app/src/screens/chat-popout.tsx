@@ -10,6 +10,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import { DAN_PACK } from "components/emoji-picker/presets";
 import { ArrowRight } from "lucide-react-native";
 import { useEffect } from "react";
 import { Pressable, View } from "react-native";
@@ -105,7 +106,7 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
                 isOpen={isOpen}
                 onClose={onClose}
                 onSelect={onSelect}
-                customEmoji={[]}
+                emojiPacks={[DAN_PACK]}
               />
             )}
           />

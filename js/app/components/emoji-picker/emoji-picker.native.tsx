@@ -2,7 +2,7 @@ import { Text, useTheme, zero } from "@streamplace/components";
 import { Image } from "expo-image";
 import { useKeyboard } from "hooks/useKeyboard";
 import { useEffect, useRef } from "react";
-import { FlatList, Keyboard, Pressable } from "react-native";
+import { FlatList, Image, Keyboard, Pressable, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -21,11 +21,16 @@ export interface CustomEmojiEntry {
   alt?: string;
 }
 
+export interface EmojiPack {
+  name: string;
+  emoji: CustomEmojiEntry[];
+}
+
 interface EmojiPickerProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect?: (emoji: SelectedEmoji) => void;
-  customEmoji?: CustomEmojiEntry[];
+  emojiPacks?: EmojiPack[];
 }
 
 const PANEL_HEIGHT = 265;
@@ -34,7 +39,7 @@ export function EmojiPicker({
   isOpen,
   onClose,
   onSelect,
-  customEmoji = [],
+  emojiPacks = [],
 }: EmojiPickerProps) {
   const { theme, zero: z } = useTheme();
   const height = useSharedValue(0);
@@ -79,54 +84,47 @@ export function EmojiPicker({
           { height: PANEL_HEIGHT },
         ]}
       >
-        <Text
-          style={[
-            text.gray[500],
-            {
-              fontSize: 10,
-              fontWeight: "600",
-              textTransform: "uppercase",
-              letterSpacing: 0.8,
-              marginBottom: 8,
-            },
-          ]}
-        >
-          Custom Emoji
-        </Text>
-        {customEmoji.length === 0 ? (
+        {emojiPacks.length === 0 ? (
           <Animated.View
             style={[layout.flex.column, layout.flex.center, { flex: 1 }]}
           >
             <Text style={[text.gray[600]]}>No custom emoji available</Text>
           </Animated.View>
         ) : (
-          <FlatList
-            data={customEmoji}
-            keyExtractor={(item) => item.name}
-            numColumns={8}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => handleSelect(item.name)}
-                style={({ pressed }) => ({
-                  width: 36,
-                  height: 36,
-                  margin: 2,
-                  borderRadius: 6,
-                  padding: 3,
-                  backgroundColor: pressed ? theme.colors.muted : "transparent",
-                  alignItems: "center",
-                  justifyContent: "center",
-                })}
-              >
-                <Image
-                  source={{ uri: item.imageUrl }}
-                  style={{ width: 28, height: 28 }}
-                  contentFit="contain"
-                  accessibilityLabel={item.alt ?? item.name}
-                />
-              </Pressable>
-            )}
-          />
+          emojiPacks.map((pack) => (
+            <View key={pack.name}>
+              <Text>{pack.name}</Text>
+              <FlatList
+                data={pack.emoji}
+                keyExtractor={(item) => item.name}
+                numColumns={8}
+                renderItem={({ item }) => (
+                  <Pressable
+                    onPress={() => handleSelect(item.name)}
+                    style={({ pressed }) => ({
+                      width: 36,
+                      height: 36,
+                      margin: 2,
+                      borderRadius: 6,
+                      padding: 3,
+                      backgroundColor: pressed
+                        ? theme.colors.muted
+                        : "transparent",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    })}
+                  >
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={{ width: 28, height: 28 }}
+                      resizeMode="contain"
+                      accessibilityLabel={item.alt ?? item.name}
+                    />
+                  </Pressable>
+                )}
+              />
+            </View>
+          ))
         )}
       </Animated.View>
     </Animated.View>

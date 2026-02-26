@@ -1,5 +1,5 @@
 import { Volume2 } from "lucide-react-native";
-import { StyleSheet } from "react-native";
+import { zero } from "../../..";
 import { usePlayerStore } from "../../../player-store";
 import { Text, View } from "../../ui";
 
@@ -12,16 +12,32 @@ export function AudioOnlyOverlay() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
+    <View
+      style={[
+        zero.layout.position.absolute,
+        zero.position.top[0],
+        zero.position.left[0],
+        zero.position.right[0],
+        zero.position.bottom[0],
+        zero.layout.flex.center,
+      ]}
+    >
+      <View
+        style={[
+          zero.layout.flex.column,
+          zero.layout.flex.alignCenter,
+          zero.gap.all[3],
+          zero.px[6],
+        ]}
+      >
         <Volume2 color="#fff" size={48} />
-        <Text size="lg" weight="semibold" style={styles.text}>
+        <Text size="lg" weight="semibold" center>
           Audio Only mode
         </Text>
         <Text
           size="sm"
           color="muted"
-          style={styles.text}
+          center
           onPress={() => setSelectedRendition("source")}
         >
           Go to Settings &gt; Quality to switch back to video.
@@ -30,23 +46,3 @@ export function AudioOnlyOverlay() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  content: {
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 24,
-  },
-  text: {
-    textAlign: "center",
-  },
-});

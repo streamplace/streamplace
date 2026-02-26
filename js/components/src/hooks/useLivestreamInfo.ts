@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useLivestreamStore } from "../livestream-store";
 import { usePlayerStore } from "../player-store";
-import { useCreateStreamRecord } from "../streamplace-store";
+import { useCreateStreamRecord, useEndLivestream } from "../streamplace-store";
 
 export function useLivestreamInfo(url?: string) {
   const ingest = usePlayerStore((x) => x.ingestConnectionState);
   const profile = useLivestreamStore((x) => x.profile);
-  const setIngestLive = usePlayerStore((x) => x.setIngestLive);
-  const stopIngest = usePlayerStore((x) => x.stopIngest);
+  const endLivestream = useEndLivestream();
 
   const createStreamRecord = useCreateStreamRecord();
 
@@ -49,7 +48,7 @@ export function useLivestreamInfo(url?: string) {
   // Stop the current broadcast
   const toggleStopStream = () => {
     console.log("Stopping stream...");
-    stopIngest();
+    endLivestream();
   };
 
   return {

@@ -1553,6 +1553,106 @@
         ]
       }
     },
+    "/xrpc/place.stream.live.startLivestream": {
+      "post": {
+        "summary": "Create a new place.stream.livestream record, automatically populating a thumbnail and creating a Bluesky post and whatnot. You can do this manually by creating a record but this method can work better for mobile livestreaming and such.",
+        "operationId": "place.stream.live.startLivestream",
+        "tags": ["place.stream.live"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "The URI of the livestream record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "The CID of the livestream record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "livestream": {
+                    "$ref": "#/components/schemas/place.stream.livestream"
+                  },
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "createBlueskyPost": {
+                    "type": "boolean",
+                    "description": "Whether to create a Bluesky post announcing the livestream."
+                  }
+                },
+                "required": ["streamer", "livestream"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.live.stopLivestream": {
+      "post": {
+        "summary": "Stop your current livestream, updating your current place.stream.livestream record and ceasing the flow of video.",
+        "operationId": "place.stream.live.stopLivestream",
+        "tags": ["place.stream.live"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "The URI of the stopped livestream record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "The new CID of the stopped livestream record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.live.subscribeSegments": {
       "get": {
         "summary": "Subscribe to a stream's new segments as they come in!",
@@ -3450,6 +3550,9 @@
           }
         },
         "required": ["did", "handle"]
+      },
+      "place.stream.livestream": {
+        "description": "Unknown type"
       },
       "place.stream.live.subscribeSegments_segment": {
         "type": "string",

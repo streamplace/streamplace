@@ -1,26 +1,34 @@
 package spxrpc
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
 
-	"github.com/bluesky-social/indigo/lex/util"
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/util"
+	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
 
-	placestreamtypes "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/streamplace"
 )
 
-func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *placestreamtypes.LiveDenyTeleport_Input) (*placestreamtypes.LiveDenyTeleport_Output, error) {
+func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *placestream.LiveDenyTeleport_Input) (*placestream.LiveDenyTeleport_Output, error) {
 	session, _ := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
@@ -50,7 +58,7 @@ func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *p
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to deny teleport")
 	}
 
-	cancelMsg := &placestreamtypes.Livestream_TeleportCanceled{
+	cancelMsg := &placestream.Livestream_TeleportCanceled{
 		LexiconTypeID: "place.stream.livestream#teleportCanceled",
 		TeleportUri:   input.Uri,
 		Reason:        "denied",
@@ -59,7 +67,7 @@ func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *p
 	s.bus.Publish(teleport.RepoDID, cancelMsg)
 	s.bus.Publish(teleport.TargetDID, cancelMsg)
 
-	return &placestreamtypes.LiveDenyTeleport_Output{
+	return &placestream.LiveDenyTeleport_Output{
 		Success: true,
 	}, nil
 }
@@ -72,7 +80,7 @@ var replicationUpgrader = websocket.Upgrader{
 	},
 }
 
-func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before string, limit int, userDID string) (*placestreamtypes.LiveGetSegments_Output, error) {
+func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before string, limit int, userDID string) (*placestream.LiveGetSegments_Output, error) {
 	if userDID == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "User DID is required")
 	}
@@ -102,7 +110,7 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 			if err != nil {
 				return nil, fmt.Errorf("error proxying to peer: %w", err)
 			}
-			var output placestreamtypes.LiveGetSegments_Output
+			var output placestream.LiveGetSegments_Output
 			err = json.Unmarshal(data, &output)
 			if err != nil {
 				return nil, fmt.Errorf("error unmarshalling response: %w", err)
@@ -123,8 +131,8 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 	}
 
 	// Convert segments to the expected output format
-	output := &placestreamtypes.LiveGetSegments_Output{
-		Segments: make([]*placestreamtypes.Segment_SegmentView, len(segments)),
+	output := &placestream.LiveGetSegments_Output{
+		Segments: make([]*placestream.Segment_SegmentView, len(segments)),
 	}
 
 	for i, segment := range segments {
@@ -136,9 +144,9 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to get CID: %s", err))
 		}
-		ltd := &util.LexiconTypeDecoder{Val: record}
+		ltd := &lexutil.LexiconTypeDecoder{Val: record}
 
-		output.Segments[i] = &placestreamtypes.Segment_SegmentView{
+		output.Segments[i] = &placestream.Segment_SegmentView{
 			Record: ltd,
 			Cid:    c.String(),
 		}
@@ -147,11 +155,11 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 	return output, nil
 }
 
-func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before string, limit int) (*placestreamtypes.LiveGetLiveUsers_Output, error) {
+func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before string, limit int) (*placestream.LiveGetLiveUsers_Output, error) {
 	// Check cache first
 	cacheKey := fmt.Sprintf("live_users_%s_%d", before, limit)
 	if cached, found := s.LiveUsersCache.Get(cacheKey); found {
-		return cached.(*placestreamtypes.LiveGetLiveUsers_Output), nil
+		return cached.(*placestream.LiveGetLiveUsers_Output), nil
 	}
 
 	var beforeTime *time.Time
@@ -175,7 +183,7 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
 	}
 
-	streams := make([]*placestreamtypes.Livestream_LivestreamView, len(ls))
+	streams := make([]*placestream.Livestream_LivestreamView, len(ls))
 
 	for i, l := range ls {
 		stream, err := l.ToLivestreamView()
@@ -183,14 +191,14 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert livestream to streamplace livestream: %s", err))
 		}
 		viewers := spmetrics.GetViewCount(stream.Author.Did)
-		stream.ViewerCount = &placestreamtypes.Livestream_ViewerCount{
+		stream.ViewerCount = &placestream.Livestream_ViewerCount{
 			LexiconTypeID: "place.stream.livestream#viewerCount",
 			Count:         int64(viewers),
 		}
 		streams[i] = stream
 	}
 
-	liveUsers := &placestreamtypes.LiveGetLiveUsers_Output{
+	liveUsers := &placestream.LiveGetLiveUsers_Output{
 		Streams: streams,
 	}
 
@@ -254,7 +262,7 @@ func (s *Server) handlePlaceStreamLiveSubscribeSegments(c echo.Context) error {
 	}
 }
 
-func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, userDID string) (*placestreamtypes.LiveGetRecommendations_Output, error) {
+func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, userDID string) (*placestream.LiveGetRecommendations_Output, error) {
 	if userDID == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "userDID is required")
 	}
@@ -275,16 +283,16 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 		}
 
 		if len(liveStreamers) > 0 {
-			var recommendations []*placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem
+			var recommendations []*placestream.LiveGetRecommendations_Output_Recommendations_Elem
 			for _, did := range liveStreamers {
-				recommendations = append(recommendations, &placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem{
-					LiveGetRecommendations_LivestreamRecommendation: &placestreamtypes.LiveGetRecommendations_LivestreamRecommendation{
+				recommendations = append(recommendations, &placestream.LiveGetRecommendations_Output_Recommendations_Elem{
+					LiveGetRecommendations_LivestreamRecommendation: &placestream.LiveGetRecommendations_LivestreamRecommendation{
 						Did:    did,
 						Source: "streamer",
 					},
 				})
 			}
-			return &placestreamtypes.LiveGetRecommendations_Output{
+			return &placestream.LiveGetRecommendations_Output{
 				Recommendations: recommendations,
 				UserDID:         &userDID,
 			}, nil
@@ -308,16 +316,16 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 		}
 
 		if len(liveFollows) > 0 {
-			var recommendations []*placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem
+			var recommendations []*placestream.LiveGetRecommendations_Output_Recommendations_Elem
 			for _, did := range liveFollows {
-				recommendations = append(recommendations, &placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem{
-					LiveGetRecommendations_LivestreamRecommendation: &placestreamtypes.LiveGetRecommendations_LivestreamRecommendation{
+				recommendations = append(recommendations, &placestream.LiveGetRecommendations_Output_Recommendations_Elem{
+					LiveGetRecommendations_LivestreamRecommendation: &placestream.LiveGetRecommendations_LivestreamRecommendation{
 						Did:    did,
 						Source: "follows",
 					},
 				})
 			}
-			return &placestreamtypes.LiveGetRecommendations_Output{
+			return &placestream.LiveGetRecommendations_Output{
 				Recommendations: recommendations,
 				UserDID:         &userDID,
 			}, nil
@@ -331,24 +339,276 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to filter default streamers")
 		}
-		var recommendations []*placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem
+		var recommendations []*placestream.LiveGetRecommendations_Output_Recommendations_Elem
 		for _, did := range liveDefaults {
-			recommendations = append(recommendations, &placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem{
-				LiveGetRecommendations_LivestreamRecommendation: &placestreamtypes.LiveGetRecommendations_LivestreamRecommendation{
+			recommendations = append(recommendations, &placestream.LiveGetRecommendations_Output_Recommendations_Elem{
+				LiveGetRecommendations_LivestreamRecommendation: &placestream.LiveGetRecommendations_LivestreamRecommendation{
 					Did:    did,
 					Source: "host",
 				},
 			})
 		}
-		return &placestreamtypes.LiveGetRecommendations_Output{
+		return &placestream.LiveGetRecommendations_Output{
 			Recommendations: recommendations,
 			UserDID:         &userDID,
 		}, nil
 	}
 
 	// No recommendations available
-	return &placestreamtypes.LiveGetRecommendations_Output{
-		Recommendations: []*placestreamtypes.LiveGetRecommendations_Output_Recommendations_Elem{},
+	return &placestream.LiveGetRecommendations_Output{
+		Recommendations: []*placestream.LiveGetRecommendations_Output_Recommendations_Elem{},
 		UserDID:         &userDID,
+	}, nil
+}
+
+func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body *placestream.LiveStartLivestream_Input) (*placestream.LiveStartLivestream_Output, error) {
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session != nil {
+		if session.DID != body.Streamer {
+			return nil, echo.NewHTTPError(http.StatusForbidden, "you are not the streamer")
+		}
+	} else {
+		svc := GetServiceAuth(ctx)
+		if svc != nil {
+			streamerSession, err := s.statefulDB.GetSessionByDID(body.Streamer)
+			if err != nil {
+				return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting streamer session", err)
+			}
+			if streamerSession == nil {
+				return nil, echo.NewHTTPError(http.StatusNotFound, "streamer session not found")
+			}
+			session = streamerSession
+		} else {
+			return nil, echo.NewHTTPError(http.StatusUnauthorized, "you are not authorized")
+		}
+	}
+
+	// proxy to the origin node if the streamer is broadcasting elsewhere
+	origin, err := s.statefulDB.GetLatestBroadcastOriginForStreamer(session.DID)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting broadcast origin", err)
+	}
+	myDID := s.cli.ServerDID()
+	if origin != nil && origin.ServerDID != myDID {
+		bs, err := json.Marshal(body)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "error marshalling body", err)
+		}
+		data, err := s.ProxyServiceRequest(ctx, origin.ServerDID, "POST", "place.stream.live.startLivestream",
+			url.Values{},
+			bytes.NewReader(bs), "application/json")
+		if err != nil {
+			return nil, err
+		}
+		var output placestream.LiveStartLivestream_Output
+		err = json.Unmarshal(data, &output)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "error unmarshalling response", err)
+		}
+		return &output, nil
+	}
+
+	_, client := oatproxy.GetOAuthSession(ctx)
+	if client == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required to start livestream")
+	}
+
+	livestream := body.Livestream
+	now := time.Now().UTC().Format(time.RFC3339)
+	livestream.LexiconTypeID = "place.stream.livestream"
+	livestream.CreatedAt = now
+	livestream.LastSeenAt = &now
+
+	if livestream.Thumb == nil {
+		// Step 1: get latest thumbnail from localDB and upload to user's PDS
+		var thumb *lexutil.LexBlob
+		dbThumb, err := s.localDB.LatestThumbnailForUser(session.DID)
+		if err != nil {
+			log.Error(ctx, "failed to get latest thumbnail", "err", err)
+		}
+		if dbThumb != nil {
+			aqt := aqtime.FromTime(dbThumb.Segment.StartTime)
+			fpath, err := s.cli.SegmentFilePath(session.DID, fmt.Sprintf("%s.%s", aqt.String(), dbThumb.Format))
+			if err != nil {
+				log.Error(ctx, "failed to get thumbnail file path", "err", err)
+			} else {
+				thumbData, err := os.ReadFile(fpath)
+				if err != nil {
+					log.Error(ctx, "failed to read thumbnail file", "err", err)
+				} else {
+					mimeType := "image/jpeg"
+					if dbThumb.Format == "png" {
+						mimeType = "image/png"
+					}
+
+					// Step 2: upload to user's PDS
+					var uploadOut comatproto.RepoUploadBlob_Output
+					err = client.Do(ctx, xrpc.Procedure, mimeType, "com.atproto.repo.uploadBlob", nil, bytes.NewReader(thumbData), &uploadOut)
+					if err != nil {
+						log.Error(ctx, "failed to upload thumbnail to PDS", "err", err)
+					} else {
+						thumb = uploadOut.Blob
+					}
+				}
+			}
+		}
+		livestream.Thumb = thumb
+	}
+
+	// Step 3: create a Bluesky post announcing the livestream
+	repo, err := s.model.GetRepo(session.DID)
+	if err != nil {
+		log.Error(ctx, "failed to get repo", "err", err)
+	}
+
+	handle := session.DID
+	if repo != nil && repo.Handle != "" {
+		handle = repo.Handle
+	}
+
+	canonicalUrl := fmt.Sprintf("https://%s/%s", s.cli.BroadcasterHost, handle)
+	if livestream.CanonicalUrl != nil && *livestream.CanonicalUrl != "" {
+		canonicalUrl = *livestream.CanonicalUrl
+	}
+
+	if body.CreateBlueskyPost == nil || *body.CreateBlueskyPost {
+		prefix := "🔴 LIVE "
+		suffix := " " + livestream.Title
+		postText := prefix + canonicalUrl + suffix
+
+		linkStart := int64(len(prefix))
+		linkEnd := linkStart + int64(len(canonicalUrl))
+
+		postRecord := &bsky.FeedPost{
+			LexiconTypeID: "app.bsky.feed.post",
+			Text:          postText,
+			CreatedAt:     now,
+			Langs:         []string{"en"},
+			Facets: []*bsky.RichtextFacet{
+				{
+					Index: &bsky.RichtextFacet_ByteSlice{
+						ByteStart: linkStart,
+						ByteEnd:   linkEnd,
+					},
+					Features: []*bsky.RichtextFacet_Features_Elem{
+						{
+							RichtextFacet_Link: &bsky.RichtextFacet_Link{
+								LexiconTypeID: "app.bsky.richtext.facet#link",
+								Uri:           canonicalUrl,
+							},
+						},
+					},
+				},
+			},
+			Embed: &bsky.FeedPost_Embed{
+				EmbedExternal: &bsky.EmbedExternal{
+					External: &bsky.EmbedExternal_External{
+						Title:       fmt.Sprintf("@%s is 🔴LIVE on %s!", handle, s.cli.BroadcasterHost),
+						Uri:         canonicalUrl,
+						Description: livestream.Title,
+						Thumb:       livestream.Thumb,
+					},
+				},
+			},
+		}
+
+		postInput := comatproto.RepoCreateRecord_Input{
+			Collection: "app.bsky.feed.post",
+			Record:     &lexutil.LexiconTypeDecoder{Val: postRecord},
+			Repo:       session.DID,
+		}
+		var postOutput comatproto.RepoCreateRecord_Output
+		err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, postInput, &postOutput)
+		if err != nil {
+			log.Error(ctx, "failed to create bluesky post", "err", err)
+		} else {
+			livestream.Post = &comatproto.RepoStrongRef{
+				Uri: postOutput.Uri,
+				Cid: postOutput.Cid,
+			}
+		}
+	}
+
+	// Step 4: create the place.stream.livestream record
+	lsInput := comatproto.RepoCreateRecord_Input{
+		Collection: "place.stream.livestream",
+		Record:     &lexutil.LexiconTypeDecoder{Val: livestream},
+		Repo:       session.DID,
+	}
+	var lsOutput comatproto.RepoCreateRecord_Output
+	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, lsInput, &lsOutput)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create livestream record: %v", err))
+	}
+
+	return &placestream.LiveStartLivestream_Output{
+		Uri: lsOutput.Uri,
+		Cid: lsOutput.Cid,
+	}, nil
+}
+
+func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context, body *placestream.LiveStopLivestream_Input) (*placestream.LiveStopLivestream_Output, error) {
+	now := time.Now().UTC().Format(util.ISO8601)
+	session, _ := oatproxy.GetOAuthSession(ctx)
+
+	_, client := oatproxy.GetOAuthSession(ctx)
+	if client == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required to stop livestream")
+	}
+
+	livestream, err := s.model.GetLatestLivestreamForRepo(session.DID)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting livestream", err)
+	}
+
+	livestreamView, err := livestream.ToLivestreamView()
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error converting livestream to view", err)
+	}
+
+	livestreamRecord, ok := livestreamView.Record.Val.(*placestream.Livestream)
+	if !ok {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "livestream is not a streamplace livestream")
+	}
+
+	if livestreamRecord.EndedAt != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "livestream has already ended")
+	}
+
+	livestreamRecord.EndedAt = &now
+
+	aturi, err := syntax.ParseATURI(livestreamView.Uri)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error parsing ATURI", err)
+	}
+
+	var swapRecord *string
+	getOutput := comatproto.RepoGetRecord_Output{}
+	err = client.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.getRecord", map[string]any{
+		"repo":       session.DID,
+		"collection": "place.stream.livestream",
+		"rkey":       aturi.RecordKey().String(),
+	}, nil, &getOutput)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting livestream record", err)
+	}
+	swapRecord = getOutput.Cid
+
+	lsInput := comatproto.RepoPutRecord_Input{
+		Collection: "place.stream.livestream",
+		Record:     &lexutil.LexiconTypeDecoder{Val: livestreamRecord},
+		Rkey:       aturi.RecordKey().String(),
+		Repo:       session.DID,
+		SwapRecord: swapRecord,
+	}
+	var lsOutput comatproto.RepoPutRecord_Output
+	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, lsInput, &lsOutput)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error updating livestream record", err)
+	}
+
+	return &placestream.LiveStopLivestream_Output{
+		Uri: lsOutput.Uri,
+		Cid: lsOutput.Cid,
 	}, nil
 }

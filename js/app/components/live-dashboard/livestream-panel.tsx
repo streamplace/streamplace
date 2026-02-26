@@ -353,7 +353,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
     if (!livestream) return;
     setEndingLivestream(true);
     try {
-      await endLivestream(livestream);
+      await endLivestream();
     } catch (error) {
       console.error("Error ending livestream:", error);
       toast.show("Error", "Failed to end livestream", {

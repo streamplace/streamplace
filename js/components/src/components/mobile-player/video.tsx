@@ -544,6 +544,7 @@ export function WebRTCPlayerInner({
 export function WebcamIngestPlayer(props: VideoProps) {
   const ingestMediaSource = usePlayerStore((x) => x.ingestMediaSource);
   const ingestAutoStart = usePlayerStore((x) => x.ingestAutoStart);
+  const setIngestLive = usePlayerStore((x) => x.setIngestLive);
 
   const [error, setError] = useState<Error | null>(null);
 
@@ -606,15 +607,17 @@ export function WebcamIngestPlayer(props: VideoProps) {
   }, [ingestMediaSource]);
 
   useEffect(() => {
-    if (!ingestAutoStart) {
-      setRemoteMediaStream(null);
-      return;
-    }
+    // if (!ingestAutoStart) {
+    //   setRemoteMediaStream(null);
+    //   return;
+    // }
     if (!localMediaStream) {
       return;
     }
+    console.log("setting remote media stream", localMediaStream);
+    setIngestLive(true);
     setRemoteMediaStream(localMediaStream);
-  }, [localMediaStream, ingestAutoStart]);
+  }, [localMediaStream, setIngestLive, setRemoteMediaStream]);
 
   useEffect(() => {
     if (!videoElement) {

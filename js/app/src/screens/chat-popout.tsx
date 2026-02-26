@@ -9,6 +9,7 @@ import {
   usePlayerStore,
   zero,
 } from "@streamplace/components";
+import { renderChatInput } from "components/chat-input";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { DAN_PACK } from "components/emoji-picker/presets";
 import { ArrowRight } from "lucide-react-native";
@@ -109,6 +110,7 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
                 emojiPacks={[DAN_PACK]}
               />
             )}
+            renderInput={renderChatInput}
           />
         ) : (
           <Pressable

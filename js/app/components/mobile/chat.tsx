@@ -20,6 +20,7 @@ import Animated, {
 
 import { useNavigation } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { renderChatInput } from "components/chat-input";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { DAN_PACK } from "components/emoji-picker/presets";
 import { ArrowRight } from "lucide-react-native";
@@ -267,6 +268,7 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
             emojiData={emojiData}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
             setIsChatVisible={setShowChat ? (v) => setShowChat(v) : undefined}
+            emojiPacks={[DAN_PACK]}
             emojiPicker={(isOpen, onClose, onSelect) => (
               <EmojiPicker
                 isOpen={isOpen}
@@ -275,6 +277,7 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
                 emojiPacks={[DAN_PACK]}
               />
             )}
+            renderInput={renderChatInput}
           />
         ) : !agent ? (
           <View

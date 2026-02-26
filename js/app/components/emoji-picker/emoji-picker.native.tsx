@@ -13,7 +13,7 @@ const { bg, borders, gap, layout, p, py, r, text } = zero;
 
 export type SelectedEmoji =
   | { type: "standard"; native: string }
-  | { type: "custom"; name: string };
+  | { type: "custom"; name: string; imageUrl: string };
 
 export interface CustomEmojiEntry {
   name: string;
@@ -67,8 +67,8 @@ export function EmojiPicker({
     overflow: "hidden",
   }));
 
-  const handleSelect = (name: string) => {
-    onSelect?.({ type: "custom", name });
+  const handleSelect = (item: CustomEmojiEntry) => {
+    onSelect?.({ type: "custom", name: item.name, imageUrl: item.imageUrl });
     onClose();
   };
 
@@ -100,7 +100,7 @@ export function EmojiPicker({
                 numColumns={8}
                 renderItem={({ item }) => (
                   <Pressable
-                    onPress={() => handleSelect(item.name)}
+                    onPress={() => handleSelect(item)}
                     style={({ pressed }) => ({
                       width: 36,
                       height: 36,

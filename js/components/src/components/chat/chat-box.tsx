@@ -26,6 +26,7 @@ import {
   w,
 } from "../../lib/theme/atoms";
 import {
+  ChatFacet,
   useAddSystemMessage,
   useChat,
   useCreateChatMessage,
@@ -53,6 +54,36 @@ const COOL_EMOJI_LIST = [
 
 const graphemer = new Graphemer();
 
+export interface RenderInputProps {
+  onSubmit: (msg: { text: string; facets?: ChatFacet[] }) => void;
+  authors: {
+    handle: string;
+    did?: string;
+    color?: { red: number; green: number; blue: number };
+  }[];
+  emojiData: EmojiData | null;
+  skinTone: number;
+  emojiPacks?: {
+    name: string;
+    emoji: { name: string; imageUrl: string; alt?: string }[];
+  }[];
+  insertElement?:
+    | {
+        type: "emoji";
+        emojiId: string;
+        native: string | null;
+        imageUrl?: string | null;
+        text: string;
+        seq: number;
+      }
+    | { type: "mention"; handle: string; did: string | null; seq: number }
+    | { type: "text"; text: string; seq: number }
+    | { type: "clear"; seq: number };
+  onMentionQuery?: (query: string | null) => void;
+  onEmojiQuery?: (query: string | null) => void;
+  onEnter?: (msg: { text: string; facets?: ChatFacet[] }) => void;
+}
+
 export function ChatBox({
   isPopout,
   chatBoxStyle,
@@ -60,7 +91,9 @@ export function ChatBox({
   setIsChatVisible,
   onEmojiPickerToggle,
   emojiPicker,
+  emojiPacks,
   skinTone = 0,
+  renderInput,
   hideLogin = false,
 }: {
   isPopout?: boolean;
@@ -73,7 +106,9 @@ export function ChatBox({
     onClose: () => void,
     onSelect: (emoji: any) => void,
   ) => ReactNode;
+  emojiPacks?: RenderInputProps["emojiPacks"];
   skinTone?: number;
+  renderInput?: (props: RenderInputProps) => ReactNode;
   hideLogin?: boolean;
 }) {
   const [submitting, setSubmitting] = useState(false);
@@ -90,6 +125,9 @@ export function ChatBox({
   );
   const [filteredEmojis, setFilteredEmojis] = useState<any[]>([]);
   const [showTeleportModal, setShowTeleportModal] = useState(false);
+  const [insertElement, setInsertElement] =
+    useState<RenderInputProps["insertElement"]>(undefined);
+  const insertSeqRef = useRef(0);
   const isOverLimit = graphemer.countGraphemes(message) > 300;
 
   let linfo = useLivestream();
@@ -124,10 +162,22 @@ export function ChatBox({
       // our fake system user "did"
       if (msg.author.did === "did:sys:system") return acc;
       if (acc.has(msg.author.handle)) return acc;
-      acc.set(msg.author.handle, msg.chatProfile);
+      acc.set(msg.author.handle, {
+        profile: msg.chatProfile,
+        did: msg.author.did,
+      });
       return acc;
-    }, new Map<string, ChatMessageViewHydrated["chatProfile"]>());
+    }, new Map<string, { profile: ChatMessageViewHydrated["chatProfile"]; did: string }>());
   }, [chat]);
+
+  const authorsArray = useMemo(() => {
+    if (!authors) return [];
+    return Array.from(authors.entries()).map(([handle, { profile, did }]) => ({
+      handle,
+      did,
+      color: profile?.color,
+    }));
+  }, [authors]);
 
   useEffect(() => {
     if (pdsAgent && linfo?.author?.did && pdsAgent.did === linfo.author.did) {
@@ -147,14 +197,48 @@ export function ChatBox({
   };
 
   const handleEmojiSelect = (emoji: any) => {
-    console.log("[ChatBox] handleEmojiSelect", emoji);
+    const seq = ++insertSeqRef.current;
     if (emoji.s) {
-      const beforeColon = message.slice(0, message.lastIndexOf(":"));
-      setMessage(`${beforeColon}${getSkinNative(emoji, skinTone)} `);
+      const native = getSkinNative(emoji, skinTone);
+      if (renderInput) {
+        setInsertElement({
+          type: "emoji",
+          emojiId: emoji.id,
+          native,
+          text: native,
+          seq,
+        });
+      } else {
+        const beforeColon = message.slice(0, message.lastIndexOf(":"));
+        setMessage(`${beforeColon}${native} `);
+      }
     } else if (emoji.type === "standard") {
-      setMessage(message + emoji.native);
+      if (renderInput) {
+        setInsertElement({
+          type: "emoji",
+          emojiId: emoji.id ?? emoji.native,
+          native: emoji.native,
+          text: emoji.native,
+          seq,
+        });
+      } else {
+        setMessage(message + emoji.native);
+      }
     } else if (emoji.type === "custom") {
-      setMessage(message + `:${emoji.name}: `);
+      if (renderInput) {
+        setInsertElement({
+          type: "emoji",
+          emojiId: emoji.name,
+          native: null,
+          imageUrl: emoji.imageUrl ?? null,
+          text: `:${emoji.name}:`,
+          seq,
+        });
+      } else {
+        setMessage(message + `:${emoji.name}: `);
+      }
+    } else {
+      return;
     }
     setShowEmojiSuggestions(false);
   };
@@ -314,9 +398,10 @@ export function ChatBox({
     }
   };
 
-  const submit = async () => {
-    if (!message.trim()) return;
-    if (graphemer.countGraphemes(message) > 300) {
+  const submitText = async (msg: { text: string; facets?: ChatFacet[] }) => {
+    const messageText = msg.text;
+    if (!messageText.trim()) return;
+    if (graphemer.countGraphemes(messageText) > 300) {
       toast.show(
         "Message too long",
         "Please limit your message to 300 characters.",
@@ -328,8 +413,6 @@ export function ChatBox({
       return;
     }
 
-    const messageText = message;
-    setMessage("");
     setReplyToMessage(null);
 
     if (messageText.startsWith("/")) {
@@ -354,6 +437,7 @@ export function ChatBox({
       } else {
         createChatMessage({
           text: messageText,
+          facets: msg.facets,
           reply: replyTo || undefined,
         });
       }
@@ -362,6 +446,12 @@ export function ChatBox({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const submit = async () => {
+    const messageText = message;
+    setMessage("");
+    await submitText({ text: messageText });
 
     if (textAreaRef.current && !textAreaRef.current.isFocused()) {
       textAreaRef.current.focus();
@@ -422,117 +512,129 @@ export function ChatBox({
           </Pressable>
         </View>
       )}
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-        <Textarea
-          ref={textAreaRef}
-          numberOfLines={1}
-          value={message}
-          enterKeyHint="send"
-          onSubmitEditing={(e) => {
-            e.preventDefault();
-            submit();
-          }}
-          multiline={false}
-          onChangeText={(text) => {
-            setMessage(text);
-            updateSuggestions(text);
-          }}
-          onKeyPress={(k) => {
-            if (k.nativeEvent.key === "Enter") {
-              if (showSuggestions) {
-                k.preventDefault();
-                const handles = Array.from(filteredAuthors.keys());
-                if (handles.length > 0) {
-                  handleMentionSelect(handles[highlightedIndex]);
-                }
-              } else if (showEmojiSuggestions) {
-                k.preventDefault();
-                if (filteredEmojis.length > 0) {
-                  handleEmojiSelect(filteredEmojis[highlightedIndex]);
-                }
-              } else {
-                k.preventDefault();
+      {renderInput ? (
+        renderInput({
+          onSubmit: submitText,
+          authors: authorsArray,
+          emojiData,
+          skinTone,
+          emojiPacks,
+          insertElement,
+        })
+      ) : (
+        <>
+          <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
+            <Textarea
+              ref={textAreaRef}
+              numberOfLines={1}
+              value={message}
+              enterKeyHint="send"
+              onSubmitEditing={(e) => {
+                e.preventDefault();
                 submit();
-              }
-            } else if (k.nativeEvent.key === "Tab") {
-              if (showSuggestions) {
-                k.preventDefault();
-                const handles = Array.from(filteredAuthors.keys());
-                if (handles.length > 0) {
-                  handleMentionSelect(handles[highlightedIndex]);
+              }}
+              multiline={false}
+              onChangeText={(text) => {
+                setMessage(text);
+                updateSuggestions(text);
+              }}
+              onKeyPress={(k) => {
+                if (k.nativeEvent.key === "Enter") {
+                  if (showSuggestions) {
+                    k.preventDefault();
+                    const handles = Array.from(filteredAuthors.keys());
+                    if (handles.length > 0) {
+                      handleMentionSelect(handles[highlightedIndex]);
+                    }
+                  } else if (showEmojiSuggestions) {
+                    k.preventDefault();
+                    if (filteredEmojis.length > 0) {
+                      handleEmojiSelect(filteredEmojis[highlightedIndex]);
+                    }
+                  } else {
+                    k.preventDefault();
+                    submit();
+                  }
+                } else if (k.nativeEvent.key === "Tab") {
+                  if (showSuggestions) {
+                    k.preventDefault();
+                    const handles = Array.from(filteredAuthors.keys());
+                    if (handles.length > 0) {
+                      handleMentionSelect(handles[highlightedIndex]);
+                    }
+                  } else if (showEmojiSuggestions) {
+                    k.preventDefault();
+                    if (filteredEmojis.length > 0) {
+                      handleEmojiSelect(filteredEmojis[highlightedIndex]);
+                    }
+                  }
+                } else if (k.nativeEvent.key === "ArrowUp") {
+                  if (showSuggestions || showEmojiSuggestions) {
+                    k.preventDefault();
+                    setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                  }
+                } else if (k.nativeEvent.key === "ArrowDown") {
+                  if (showSuggestions) {
+                    k.preventDefault();
+                    setHighlightedIndex((prev) =>
+                      Math.min(
+                        prev + 1,
+                        Array.from(filteredAuthors.keys()).length - 1,
+                      ),
+                    );
+                  } else if (showEmojiSuggestions) {
+                    k.preventDefault();
+                    setHighlightedIndex((prev) =>
+                      Math.min(prev + 1, filteredEmojis.length - 1),
+                    );
+                  }
+                } else if (k.nativeEvent.key === "Escape") {
+                  if (showSuggestions || showEmojiSuggestions) {
+                    k.preventDefault();
+                    setShowSuggestions(false);
+                    setShowEmojiSuggestions(false);
+                  }
                 }
-              } else if (showEmojiSuggestions) {
-                k.preventDefault();
-                if (filteredEmojis.length > 0) {
-                  handleEmojiSelect(filteredEmojis[highlightedIndex]);
-                }
-              }
-            } else if (k.nativeEvent.key === "ArrowUp") {
-              if (showSuggestions || showEmojiSuggestions) {
-                k.preventDefault();
-                setHighlightedIndex((prev) => Math.max(prev - 1, 0));
-              }
-            } else if (k.nativeEvent.key === "ArrowDown") {
-              if (showSuggestions) {
-                k.preventDefault();
-                setHighlightedIndex((prev) =>
-                  Math.min(
-                    prev + 1,
-                    Array.from(filteredAuthors.keys()).length - 1,
-                  ),
-                );
-              } else if (showEmojiSuggestions) {
-                k.preventDefault();
-                setHighlightedIndex((prev) =>
-                  Math.min(prev + 1, filteredEmojis.length - 1),
-                );
-              }
-            } else if (k.nativeEvent.key === "Escape") {
-              if (showSuggestions || showEmojiSuggestions) {
-                k.preventDefault();
-                setShowSuggestions(false);
-                setShowEmojiSuggestions(false);
-              }
-            }
-          }}
-          style={[
-            chatBoxStyle,
-            isOverLimit && {
-              borderColor: "#ef4444",
-              borderWidth: 2,
-              outline: "none",
-            },
-          ]}
-          // "submit" won't blur on enter
-          submitBehavior="submit"
-          placeholder="Type a message..."
-        />
-        <View>
-          <Button
-            disabled={submitting}
-            variant="secondary"
-            width="min"
-            style={{ borderRadius: 16, height: 43 }}
-            onPress={submit}
-          >
-            {submitting ? <Loader /> : "Send"}
-          </Button>
-        </View>
-      </View>
-      {showSuggestions && (
-        <MentionSuggestions
-          authors={filteredAuthors || new Map()}
-          highlightedIndex={highlightedIndex}
-          onSelect={handleMentionSelect}
-        />
-      )}
-      {showEmojiSuggestions && (
-        <EmojiSuggestions
-          emojis={filteredEmojis}
-          highlightedIndex={highlightedIndex}
-          onSelect={handleEmojiSelect}
-          skinTone={skinTone}
-        />
+              }}
+              style={[
+                chatBoxStyle,
+                isOverLimit && {
+                  borderColor: "#ef4444",
+                  borderWidth: 2,
+                  outline: "none",
+                },
+              ]}
+              submitBehavior="submit"
+              placeholder="Type a message..."
+            />
+            <View>
+              <Button
+                disabled={submitting}
+                variant="secondary"
+                width="min"
+                style={{ borderRadius: 16, height: 43 }}
+                onPress={submit}
+              >
+                {submitting ? <Loader /> : "Send"}
+              </Button>
+            </View>
+          </View>
+          {showSuggestions && (
+            <MentionSuggestions
+              authors={filteredAuthors || new Map()}
+              highlightedIndex={highlightedIndex}
+              onSelect={handleMentionSelect}
+            />
+          )}
+          {showEmojiSuggestions && (
+            <EmojiSuggestions
+              emojis={filteredEmojis}
+              highlightedIndex={highlightedIndex}
+              onSelect={handleEmojiSelect}
+              skinTone={skinTone}
+            />
+          )}
+        </>
       )}
       {Platform.OS === "web" && (
         <View

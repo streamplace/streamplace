@@ -35,6 +35,8 @@ export * from "./lib/theme";
 
 export * from "./components/chat/chat";
 export * from "./components/chat/chat-box";
+export * from "./components/chat/emoji-suggestions";
+export * from "./components/chat/mention-suggestions";
 export * from "./components/chat/system-message";
 export * from "./components/chat/update-stream-title-dialog";
 export { default as VideoRetry } from "./components/mobile-player/video-retry";

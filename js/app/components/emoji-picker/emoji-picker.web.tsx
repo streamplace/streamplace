@@ -41,7 +41,7 @@ const CATEGORY_ICONS: { label: string; Icon: LucideIcon }[] = [
 
 export type SelectedEmoji =
   | { type: "standard"; native: string }
-  | { type: "custom"; name: string };
+  | { type: "custom"; name: string; imageUrl: string };
 
 export interface CustomEmojiEntry {
   name: string;
@@ -262,8 +262,8 @@ export function EmojiPicker({
     onSelect?.({ type: "standard", native: arg.emoji ?? arg });
   };
 
-  const handleCustomSelect = (name: string) => {
-    onSelect?.({ type: "custom", name });
+  const handleCustomSelect = (entry: CustomEmojiEntry) => {
+    onSelect?.({ type: "custom", name: entry.name, imageUrl: entry.imageUrl });
   };
 
   return (
@@ -406,7 +406,7 @@ export function EmojiPicker({
                   <button
                     key={entry.name}
                     title={`:${entry.name}:`}
-                    onClick={() => handleCustomSelect(entry.name)}
+                    onClick={() => handleCustomSelect(entry)}
                     style={{
                       width: 36,
                       height: 36,

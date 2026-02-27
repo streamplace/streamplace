@@ -190,6 +190,13 @@ export function EmojiPicker({
     };
     const handlePointerDown = (e: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
+        // ignore the trigger button itself as it'll close the picker anyways
+        if (
+          e.target instanceof HTMLElement &&
+          e.target.closest("#web-emoji-picker-btn")
+        ) {
+          return;
+        }
         onClose();
       }
     };

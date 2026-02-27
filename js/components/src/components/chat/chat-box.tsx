@@ -587,14 +587,10 @@ export function ChatBox({
           >
             <Button
               variant="secondary"
+              id="web-emoji-picker-btn"
               aria-label="Insert Emoji"
               style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
               onPress={() => {
-                console.log("[ChatBox] emoji button pressed", {
-                  onEmojiPickerToggle: !!onEmojiPickerToggle,
-                  emojiPicker: !!emojiPicker,
-                  showEmojiSelector,
-                });
                 onEmojiPickerToggle
                   ? onEmojiPickerToggle()
                   : setShowEmojiSelector(!showEmojiSelector);

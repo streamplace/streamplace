@@ -20,7 +20,7 @@ func main() {
 		streamplace.Segment_Video{},
 		streamplace.Segment_Framerate{},
 		streamplace.ChatMessage{},
-		streamplace.RichtextFacet_Emoji{},
+		streamplace.RichtextFacet_Emote{},
 		streamplace.RichtextFacet{},
 		streamplace.ChatProfile{},
 		streamplace.ChatProfile_Color{},
@@ -37,8 +37,8 @@ func main() {
 		streamplace.ModerationPermission{},
 		streamplace.LiveTeleport{},
 		streamplace.LiveRecommendations{},
-		streamplace.EmojiPack{},
-		streamplace.EmojiPack_Emoji{},
+		streamplace.EmotePack{},
+		streamplace.EmoteItem{},
 	); err != nil {
 		panic(err)
 	}

@@ -20,22 +20,22 @@ Annotation of a sub-string within rich text.
 | Name       | Type                                                                                                                                                                                                                                                                                                                                                          | Req'd | Description | Constraints |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------- | ----------- |
 | `index`    | [`app.bsky.richtext.facet#byteSlice`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/richtext/facet.json#byteSlice)                                                                                                                                                                                                                    | ✅    |             |             |
-| `features` | Array of Union of:<br/>&nbsp;&nbsp;[`app.bsky.richtext.facet#mention`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/richtext/facet.json#mention)<br/>&nbsp;&nbsp;[`app.bsky.richtext.facet#link`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/richtext/facet.json#link)<br/>&nbsp;&nbsp;[`#emoji`](#emoji) | ✅    |             |             |
+| `features` | Array of Union of:<br/>&nbsp;&nbsp;[`app.bsky.richtext.facet#mention`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/richtext/facet.json#mention)<br/>&nbsp;&nbsp;[`app.bsky.richtext.facet#link`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/richtext/facet.json#link)<br/>&nbsp;&nbsp;[`#emote`](#emote) | ✅    |             |             |
 
 ---
 
-<a name="emoji"></a>
+<a name="emote"></a>
 
-### `emoji`
+### `emote`
 
 **Type:** `object`
 
 **Properties:**
 
-| Name   | Type     | Req'd | Description                                                                                    | Constraints                           |
-| ------ | -------- | ----- | ---------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `name` | `string` | ✅    | Short name used to reference this emoji in chat. Should be alphanumeric with underscores only. | Max Length: 100<br/>Max Graphemes: 50 |
-| `url`  | `string` | ✅    | URL where the image for this emoji can be retrieved.                                           | Format: `uri`                         |
+| Name   | Type                                                                                                                                   | Req'd | Description                                                                                         | Constraints                           |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `name` | `string`                                                                                                                               | ✅    | Short name of the emote, e.g. 'dan'. Used as fallback text and for display before the ref resolves. | Max Length: 100<br/>Max Graphemes: 50 |
+| `ref`  | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ✅    | Strong reference to the place.stream.emote.item record.                                             |                                       |
 
 ---
 
@@ -62,26 +62,26 @@ Annotation of a sub-string within rich text.
             "refs": [
               "app.bsky.richtext.facet#mention",
               "app.bsky.richtext.facet#link",
-              "#emoji"
+              "#emote"
             ]
           }
         }
       }
     },
-    "emoji": {
+    "emote": {
       "type": "object",
-      "required": ["name", "url"],
+      "required": ["name", "ref"],
       "properties": {
         "name": {
           "type": "string",
           "maxLength": 100,
           "maxGraphemes": 50,
-          "description": "Short name used to reference this emoji in chat. Should be alphanumeric with underscores only."
+          "description": "Short name of the emote, e.g. 'dan'. Used as fallback text and for display before the ref resolves."
         },
-        "url": {
-          "type": "string",
-          "format": "uri",
-          "description": "URL where the image for this emoji can be retrieved."
+        "ref": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef",
+          "description": "Strong reference to the place.stream.emote.item record."
         }
       }
     }

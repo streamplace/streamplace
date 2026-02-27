@@ -15,26 +15,26 @@
             "refs": [
               "app.bsky.richtext.facet#mention",
               "app.bsky.richtext.facet#link",
-              "#emoji"
+              "#emote"
             ]
           }
         }
       }
     },
-    "emoji": {
+    "emote": {
       "type": "object",
-      "required": ["name", "url"],
+      "required": ["name", "ref"],
       "properties": {
         "name": {
           "type": "string",
           "maxLength": 100,
           "maxGraphemes": 50,
-          "description": "Short name used to reference this emoji in chat. Should be alphanumeric with underscores only."
+          "description": "Short name of the emote, e.g. 'dan'. Used as fallback text and for display before the ref resolves."
         },
-        "url": {
-          "type": "string",
-          "format": "uri",
-          "description": "URL where the image for this emoji can be retrieved."
+        "ref": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef",
+          "description": "Strong reference to the place.stream.emote.item record."
         }
       }
     }

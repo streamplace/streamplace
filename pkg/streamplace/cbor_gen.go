@@ -2679,7 +2679,7 @@ func (t *ChatMessage) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *RichtextFacet_Emoji) MarshalCBOR(w io.Writer) error {
+func (t *RichtextFacet_Emote) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -2691,26 +2691,19 @@ func (t *RichtextFacet_Emoji) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Url (string) (string)
-	if len("url") > 100000000 {
-		return xerrors.Errorf("Value in field \"url\" was too long")
+	// t.Ref (atproto.RepoStrongRef) (struct)
+	if len("ref") > 100000000 {
+		return xerrors.Errorf("Value in field \"ref\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("url"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("ref"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("url")); err != nil {
+	if _, err := cw.WriteString(string("ref")); err != nil {
 		return err
 	}
 
-	if len(t.Url) > 100000000 {
-		return xerrors.Errorf("Value in field t.Url was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Url))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string(t.Url)); err != nil {
+	if err := t.Ref.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -2749,17 +2742,17 @@ func (t *RichtextFacet_Emoji) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.richtext.facet#emoji"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.richtext.facet#emote"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("place.stream.richtext.facet#emoji")); err != nil {
+	if _, err := cw.WriteString(string("place.stream.richtext.facet#emote")); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *RichtextFacet_Emoji) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = RichtextFacet_Emoji{}
+func (t *RichtextFacet_Emote) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = RichtextFacet_Emote{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -2778,7 +2771,7 @@ func (t *RichtextFacet_Emoji) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("RichtextFacet_Emoji: map struct too large (%d)", extra)
+		return fmt.Errorf("RichtextFacet_Emote: map struct too large (%d)", extra)
 	}
 
 	n := extra
@@ -2799,16 +2792,25 @@ func (t *RichtextFacet_Emoji) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch string(nameBuf[:nameLen]) {
-		// t.Url (string) (string)
-		case "url":
+		// t.Ref (atproto.RepoStrongRef) (struct)
+		case "ref":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 100000000)
+
+				b, err := cr.ReadByte()
 				if err != nil {
 					return err
 				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Ref = new(atproto.RepoStrongRef)
+					if err := t.Ref.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Ref pointer: %w", err)
+					}
+				}
 
-				t.Url = string(sval)
 			}
 			// t.Name (string) (string)
 		case "name":
@@ -6316,7 +6318,7 @@ func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
+func (t *EmotePack) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -6325,11 +6327,11 @@ func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
 	cw := cbg.NewCborWriter(w)
 	fieldCount := 5
 
-	if t.Description == nil {
+	if t.Avatar == nil {
 		fieldCount--
 	}
 
-	if t.Emoji == nil {
+	if t.Description == nil {
 		fieldCount--
 	}
 
@@ -6372,39 +6374,29 @@ func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.emoji.pack"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.emote.pack"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("place.stream.emoji.pack")); err != nil {
+	if _, err := cw.WriteString(string("place.stream.emote.pack")); err != nil {
 		return err
 	}
 
-	// t.Emoji ([]*streamplace.EmojiPack_Emoji) (slice)
-	if t.Emoji != nil {
+	// t.Avatar (util.LexBlob) (struct)
+	if t.Avatar != nil {
 
-		if len("emoji") > 100000000 {
-			return xerrors.Errorf("Value in field \"emoji\" was too long")
+		if len("avatar") > 100000000 {
+			return xerrors.Errorf("Value in field \"avatar\" was too long")
 		}
 
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("emoji"))); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("avatar"))); err != nil {
 			return err
 		}
-		if _, err := cw.WriteString(string("emoji")); err != nil {
+		if _, err := cw.WriteString(string("avatar")); err != nil {
 			return err
 		}
 
-		if len(t.Emoji) > 8192 {
-			return xerrors.Errorf("Slice value in field t.Emoji was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Emoji))); err != nil {
+		if err := t.Avatar.MarshalCBOR(cw); err != nil {
 			return err
-		}
-		for _, v := range t.Emoji {
-			if err := v.MarshalCBOR(cw); err != nil {
-				return err
-			}
-
 		}
 	}
 
@@ -6465,8 +6457,8 @@ func (t *EmojiPack) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = EmojiPack{}
+func (t *EmotePack) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = EmotePack{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -6485,7 +6477,7 @@ func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("EmojiPack: map struct too large (%d)", extra)
+		return fmt.Errorf("EmotePack: map struct too large (%d)", extra)
 	}
 
 	n := extra
@@ -6528,54 +6520,25 @@ func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.LexiconTypeID = string(sval)
 			}
-			// t.Emoji ([]*streamplace.EmojiPack_Emoji) (slice)
-		case "emoji":
+			// t.Avatar (util.LexBlob) (struct)
+		case "avatar":
 
-			maj, extra, err = cr.ReadHeader()
-			if err != nil {
-				return err
-			}
+			{
 
-			if extra > 8192 {
-				return fmt.Errorf("t.Emoji: array too large (%d)", extra)
-			}
-
-			if maj != cbg.MajArray {
-				return fmt.Errorf("expected cbor array")
-			}
-
-			if extra > 0 {
-				t.Emoji = make([]*EmojiPack_Emoji, extra)
-			}
-
-			for i := 0; i < int(extra); i++ {
-				{
-					var maj byte
-					var extra uint64
-					var err error
-					_ = maj
-					_ = extra
-					_ = err
-
-					{
-
-						b, err := cr.ReadByte()
-						if err != nil {
-							return err
-						}
-						if b != cbg.CborNull[0] {
-							if err := cr.UnreadByte(); err != nil {
-								return err
-							}
-							t.Emoji[i] = new(EmojiPack_Emoji)
-							if err := t.Emoji[i].UnmarshalCBOR(cr); err != nil {
-								return xerrors.Errorf("unmarshaling t.Emoji[i] pointer: %w", err)
-							}
-						}
-
-					}
-
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
 				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Avatar = new(util.LexBlob)
+					if err := t.Avatar.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Avatar pointer: %w", err)
+					}
+				}
+
 			}
 			// t.CreatedAt (string) (string)
 		case "createdAt":
@@ -6620,14 +6583,14 @@ func (t *EmojiPack) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *EmojiPack_Emoji) MarshalCBOR(w io.Writer) error {
+func (t *EmoteItem) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 4
+	fieldCount := 7
 
 	if t.Alt == nil {
 		fieldCount--
@@ -6696,6 +6659,48 @@ func (t *EmojiPack_Emoji) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.Pack (string) (string)
+	if len("pack") > 100000000 {
+		return xerrors.Errorf("Value in field \"pack\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("pack"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("pack")); err != nil {
+		return err
+	}
+
+	if len(t.Pack) > 100000000 {
+		return xerrors.Errorf("Value in field t.Pack was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Pack))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Pack)); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 100000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.emote.item"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("place.stream.emote.item")); err != nil {
+		return err
+	}
+
 	// t.Image (util.LexBlob) (struct)
 	if len("image") > 100000000 {
 		return xerrors.Errorf("Value in field \"image\" was too long")
@@ -6743,11 +6748,34 @@ func (t *EmojiPack_Emoji) MarshalCBOR(w io.Writer) error {
 			}
 		}
 	}
+
+	// t.CreatedAt (string) (string)
+	if len("createdAt") > 100000000 {
+		return xerrors.Errorf("Value in field \"createdAt\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
+		return err
+	}
+
+	if len(t.CreatedAt) > 100000000 {
+		return xerrors.Errorf("Value in field t.CreatedAt was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (t *EmojiPack_Emoji) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = EmojiPack_Emoji{}
+func (t *EmoteItem) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = EmoteItem{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -6766,12 +6794,12 @@ func (t *EmojiPack_Emoji) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("EmojiPack_Emoji: map struct too large (%d)", extra)
+		return fmt.Errorf("EmoteItem: map struct too large (%d)", extra)
 	}
 
 	n := extra
 
-	nameBuf := make([]byte, 7)
+	nameBuf := make([]byte, 9)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
@@ -6819,6 +6847,28 @@ func (t *EmojiPack_Emoji) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Name = string(sval)
 			}
+			// t.Pack (string) (string)
+		case "pack":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
+				if err != nil {
+					return err
+				}
+
+				t.Pack = string(sval)
+			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
 			// t.Image (util.LexBlob) (struct)
 		case "image":
 
@@ -6859,6 +6909,17 @@ func (t *EmojiPack_Emoji) UnmarshalCBOR(r io.Reader) (err error) {
 
 					t.Creator = (*string)(&sval)
 				}
+			}
+			// t.CreatedAt (string) (string)
+		case "createdAt":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
+				if err != nil {
+					return err
+				}
+
+				t.CreatedAt = string(sval)
 			}
 
 		default:

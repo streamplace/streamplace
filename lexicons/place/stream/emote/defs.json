@@ -1,14 +1,14 @@
 {
   "lexicon": 1,
-  "id": "place.stream.emoji.defs",
+  "id": "place.stream.emote.defs",
   "defs": {
-    "emojiView": {
+    "emoteView": {
       "type": "object",
       "required": ["name", "image"],
       "properties": {
         "name": {
           "type": "string",
-          "description": "Short name used to reference this emoji in chat, e.g. 'pepega'."
+          "description": "Short name used to reference this emote in chat, e.g. 'pepega'."
         },
         "image": {
           "type": "blob",
@@ -20,16 +20,16 @@
             "image/jxl"
           ],
           "maxSize": 512000,
-          "description": "The emoji image."
+          "description": "The emote image."
         },
         "alt": {
           "type": "string",
-          "description": "Alt text for the emoji image."
+          "description": "Alt text for the emote image."
         },
         "pack": {
           "type": "ref",
           "ref": "#packView",
-          "description": "The pack this emoji belongs to."
+          "description": "The pack this emote belongs to."
         }
       }
     },
@@ -45,7 +45,7 @@
         },
         "record": {
           "type": "ref",
-          "ref": "place.stream.emoji.defs#emojiView"
+          "ref": "place.stream.emote.defs#emoteView"
         },
         "indexedAt": { "type": "string", "format": "datetime" }
       }

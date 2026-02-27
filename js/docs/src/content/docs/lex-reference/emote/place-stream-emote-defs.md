@@ -1,15 +1,15 @@
 ---
-title: place.stream.emoji.defs
-description: Reference for the place.stream.emoji.defs lexicon
+title: place.stream.emote.defs
+description: Reference for the place.stream.emote.defs lexicon
 ---
 
 **Lexicon Version:** 1
 
 ## Definitions
 
-<a name="emojiview"></a>
+<a name="emoteview"></a>
 
-### `emojiView`
+### `emoteView`
 
 **Type:** `object`
 
@@ -17,10 +17,10 @@ description: Reference for the place.stream.emoji.defs lexicon
 
 | Name    | Type                     | Req'd | Description                                                     | Constraints                                                                                          |
 | ------- | ------------------------ | ----- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `name`  | `string`                 | ✅    | Short name used to reference this emoji in chat, e.g. 'pepega'. |                                                                                                      |
-| `image` | `blob`                   | ✅    | The emoji image.                                                | Accept: `image/png`, `image/gif`, `image/webp`, `image/avif`, `image/jxl`<br/>Max Size: 512000 bytes |
-| `alt`   | `string`                 | ❌    | Alt text for the emoji image.                                   |                                                                                                      |
-| `pack`  | [`#packView`](#packview) | ❌    | The pack this emoji belongs to.                                 |                                                                                                      |
+| `name`  | `string`                 | ✅    | Short name used to reference this emote in chat, e.g. 'pepega'. |                                                                                                      |
+| `image` | `blob`                   | ✅    | The emote image.                                                | Accept: `image/png`, `image/gif`, `image/webp`, `image/avif`, `image/jxl`<br/>Max Size: 512000 bytes |
+| `alt`   | `string`                 | ❌    | Alt text for the emote image.                                   |                                                                                                      |
+| `pack`  | [`#packView`](#packview) | ❌    | The pack this emote belongs to.                                 |                                                                                                      |
 
 ---
 
@@ -37,7 +37,7 @@ description: Reference for the place.stream.emoji.defs lexicon
 | `uri`       | `string`                                                                                                                                         | ✅    |             | Format: `at-uri`   |
 | `cid`       | `string`                                                                                                                                         | ✅    |             | Format: `cid`      |
 | `author`    | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |             |                    |
-| `record`    | [`place.stream.emoji.defs#emojiView`](/lex-reference/place-stream-emoji-defs#emojiview)                                                          | ✅    |             |                    |
+| `record`    | [`place.stream.emote.defs#emoteView`](/lex-reference/place-stream-emote-defs#emoteview)                                                          | ✅    |             |                    |
 | `indexedAt` | `string`                                                                                                                                         | ✅    |             | Format: `datetime` |
 
 ---
@@ -47,15 +47,15 @@ description: Reference for the place.stream.emoji.defs lexicon
 ```json
 {
   "lexicon": 1,
-  "id": "place.stream.emoji.defs",
+  "id": "place.stream.emote.defs",
   "defs": {
-    "emojiView": {
+    "emoteView": {
       "type": "object",
       "required": ["name", "image"],
       "properties": {
         "name": {
           "type": "string",
-          "description": "Short name used to reference this emoji in chat, e.g. 'pepega'."
+          "description": "Short name used to reference this emote in chat, e.g. 'pepega'."
         },
         "image": {
           "type": "blob",
@@ -67,16 +67,16 @@ description: Reference for the place.stream.emoji.defs lexicon
             "image/jxl"
           ],
           "maxSize": 512000,
-          "description": "The emoji image."
+          "description": "The emote image."
         },
         "alt": {
           "type": "string",
-          "description": "Alt text for the emoji image."
+          "description": "Alt text for the emote image."
         },
         "pack": {
           "type": "ref",
           "ref": "#packView",
-          "description": "The pack this emoji belongs to."
+          "description": "The pack this emote belongs to."
         }
       }
     },
@@ -98,7 +98,7 @@ description: Reference for the place.stream.emoji.defs lexicon
         },
         "record": {
           "type": "ref",
-          "ref": "place.stream.emoji.defs#emojiView"
+          "ref": "place.stream.emote.defs#emoteView"
         },
         "indexedAt": {
           "type": "string",

@@ -17,10 +17,10 @@ Annotation of a sub-string within rich text.
 
 **Properties:**
 
-| Name       | Type                                                                                                                                                                                                                                                                                                                       | Req'd | Description | Constraints |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------- | ----------- |
-| `index`    | [`app.bsky.richtext.facet#byteSlice`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/richtext/facet.json#byteSlice)                                                                                                                                                                                 | ✅    |             |             |
-| `features` | Array of Union of:<br/>&nbsp;&nbsp;[`app.bsky.richtext.facet#mention`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/richtext/facet.json#mention)<br/>&nbsp;&nbsp;[`app.bsky.richtext.facet#link`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/richtext/facet.json#link) | ✅    |             |             |
+| Name       | Type                                                                                                                                                                                                                                                                                                                                                          | Req'd | Description | Constraints |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------- | ----------- |
+| `index`    | [`app.bsky.richtext.facet#byteSlice`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/richtext/facet.json#byteSlice)                                                                                                                                                                                                                    | ✅    |             |             |
+| `features` | Array of Union of:<br/>&nbsp;&nbsp;[`app.bsky.richtext.facet#mention`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/richtext/facet.json#mention)<br/>&nbsp;&nbsp;[`app.bsky.richtext.facet#link`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/richtext/facet.json#link)<br/>&nbsp;&nbsp;[`#emoji`](#emoji) | ✅    |             |             |
 
 ---
 
@@ -61,7 +61,8 @@ Annotation of a sub-string within rich text.
             "type": "union",
             "refs": [
               "app.bsky.richtext.facet#mention",
-              "app.bsky.richtext.facet#link"
+              "app.bsky.richtext.facet#link",
+              "#emoji"
             ]
           }
         }

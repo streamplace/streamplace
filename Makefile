@@ -368,11 +368,8 @@ go-lexicons:
 	&& rm -rf ./pkg/streamplace/cbor_gen.go \
 	&& $(MAKE) lexgen \
 	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace -type f) \
-	&& echo 'package streamplace' >> pkg/streamplace/cbor_gen.go \
-	&& echo 'func (t *RichtextFacet_Emoji) MarshalCBOR(w io.Writer) error {return nil}' >> pkg/streamplace/cbor_gen.go \
-	&& echo 'func (t *RichtextFacet_Emoji) UnmarshalCBOR(r io.Reader) error {return nil}' >> pkg/streamplace/cbor_gen.go \
+	&& go run ./pkg/gen/stub \
 	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace -type f) \
-	&& echo "running gen.go" \
 	&& go run ./pkg/gen/gen.go \
 	&& $(MAKE) lexgen \
 	&& find . | grep bak$$ | xargs rm \

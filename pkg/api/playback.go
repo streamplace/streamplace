@@ -273,28 +273,30 @@ func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter
 			errors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
-		ls, err := a.Model.GetLatestLivestreamForRepo(user)
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "could not get livestream", err)
-			return
-		}
-		if ls == nil {
-			errors.WriteHTTPNotFound(w, "livestream not found", err)
-			return
-		}
-		lsrv, err := ls.ToLivestreamView()
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "could not marshal livestream", err)
-			return
-		}
-		lsr, ok := lsrv.Record.Val.(*streamplace.Livestream)
-		if !ok {
-			errors.WriteHTTPInternalServerError(w, "livestream is not a streamplace livestream", nil)
-			return
-		}
-		if lsr.EndedAt != nil {
-			errors.WriteHTTPNotFound(w, "livestream has ended", nil)
-			return
+		if !a.CLI.WideOpen {
+			ls, err := a.Model.GetLatestLivestreamForRepo(user)
+			if err != nil {
+				errors.WriteHTTPInternalServerError(w, "could not get livestream", err)
+				return
+			}
+			if ls == nil {
+				errors.WriteHTTPNotFound(w, "livestream not found", err)
+				return
+			}
+			lsrv, err := ls.ToLivestreamView()
+			if err != nil {
+				errors.WriteHTTPInternalServerError(w, "could not marshal livestream", err)
+				return
+			}
+			lsr, ok := lsrv.Record.Val.(*streamplace.Livestream)
+			if !ok {
+				errors.WriteHTTPInternalServerError(w, "livestream is not a streamplace livestream", nil)
+				return
+			}
+			if lsr.EndedAt != nil {
+				errors.WriteHTTPNotFound(w, "livestream has ended", nil)
+				return
+			}
 		}
 		thumb, err := a.LocalDB.LatestThumbnailForUser(user)
 		if err != nil {

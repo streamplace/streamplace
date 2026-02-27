@@ -93,7 +93,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					return
 				case file := <-segChan.C:
 					log.Debug(ctx, "got segment", "file", file.Filepath)
-					if !file.Published && viewer != user {
+					if !file.Published && viewer != user && !mm.cli.WideOpen {
 						log.Warn(ctx, "segment is not published and viewer is not the user", "viewer", viewer, "user", user)
 						continue
 					}

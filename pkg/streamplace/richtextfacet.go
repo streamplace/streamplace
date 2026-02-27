@@ -25,6 +25,7 @@ type RichtextFacet struct {
 
 // RichtextFacet_Emoji is a "emoji" in the place.stream.richtext.facet schema.
 type RichtextFacet_Emoji struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.richtext.facet#emoji"`
 	// name: Short name used to reference this emoji in chat. Should be alphanumeric with underscores only.
 	Name string `json:"name" cborgen:"name"`
 	// url: URL where the image for this emoji can be retrieved.
@@ -34,6 +35,7 @@ type RichtextFacet_Emoji struct {
 type RichtextFacet_Features_Elem struct {
 	RichtextFacet_Mention *appbsky.RichtextFacet_Mention
 	RichtextFacet_Link    *appbsky.RichtextFacet_Link
+	RichtextFacet_Emoji   *RichtextFacet_Emoji
 }
 
 func (t *RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
@@ -44,6 +46,10 @@ func (t *RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
 	if t.RichtextFacet_Link != nil {
 		t.RichtextFacet_Link.LexiconTypeID = "app.bsky.richtext.facet#link"
 		return json.Marshal(t.RichtextFacet_Link)
+	}
+	if t.RichtextFacet_Emoji != nil {
+		t.RichtextFacet_Emoji.LexiconTypeID = "place.stream.richtext.facet#emoji"
+		return json.Marshal(t.RichtextFacet_Emoji)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -61,6 +67,9 @@ func (t *RichtextFacet_Features_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.richtext.facet#link":
 		t.RichtextFacet_Link = new(appbsky.RichtextFacet_Link)
 		return json.Unmarshal(b, t.RichtextFacet_Link)
+	case "place.stream.richtext.facet#emoji":
+		t.RichtextFacet_Emoji = new(RichtextFacet_Emoji)
+		return json.Unmarshal(b, t.RichtextFacet_Emoji)
 	default:
 		return nil
 	}
@@ -78,6 +87,9 @@ func (t *RichtextFacet_Features_Elem) MarshalCBOR(w io.Writer) error {
 	if t.RichtextFacet_Link != nil {
 		return t.RichtextFacet_Link.MarshalCBOR(w)
 	}
+	if t.RichtextFacet_Emoji != nil {
+		return t.RichtextFacet_Emoji.MarshalCBOR(w)
+	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
 
@@ -94,6 +106,9 @@ func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.richtext.facet#link":
 		t.RichtextFacet_Link = new(appbsky.RichtextFacet_Link)
 		return t.RichtextFacet_Link.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.richtext.facet#emoji":
+		t.RichtextFacet_Emoji = new(RichtextFacet_Emoji)
+		return t.RichtextFacet_Emoji.UnmarshalCBOR(bytes.NewReader(b))
 	default:
 		return nil
 	}

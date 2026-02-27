@@ -32,9 +32,10 @@ Annotation of a sub-string within rich text.
 
 **Properties:**
 
-| Name   | Type     | Req'd | Description                                                                                    | Constraints |
-| ------ | -------- | ----- | ---------------------------------------------------------------------------------------------- | ----------- |
-| `name` | `string` | ❌    | Short name used to reference this emoji in chat. Should be alphanumeric with underscores only. |             |
+| Name   | Type     | Req'd | Description                                                                                    | Constraints                           |
+| ------ | -------- | ----- | ---------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `name` | `string` | ✅    | Short name used to reference this emoji in chat. Should be alphanumeric with underscores only. | Max Length: 100<br/>Max Graphemes: 50 |
+| `url`  | `string` | ✅    | URL where the image for this emoji can be retrieved.                                           | Format: `uri`                         |
 
 ---
 
@@ -68,10 +69,18 @@ Annotation of a sub-string within rich text.
     },
     "emoji": {
       "type": "object",
+      "required": ["name", "url"],
       "properties": {
         "name": {
           "type": "string",
+          "maxLength": 100,
+          "maxGraphemes": 50,
           "description": "Short name used to reference this emoji in chat. Should be alphanumeric with underscores only."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL where the image for this emoji can be retrieved."
         }
       }
     }

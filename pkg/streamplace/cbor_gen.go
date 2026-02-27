@@ -2687,7 +2687,7 @@ func (t *RichtextFacet_Emoji) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{162}); err != nil {
+	if _, err := cw.Write([]byte{163}); err != nil {
 		return err
 	}
 
@@ -2736,6 +2736,25 @@ func (t *RichtextFacet_Emoji) MarshalCBOR(w io.Writer) error {
 	if _, err := cw.WriteString(string(t.Name)); err != nil {
 		return err
 	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 100000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.richtext.facet#emoji"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("place.stream.richtext.facet#emoji")); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -2764,7 +2783,7 @@ func (t *RichtextFacet_Emoji) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 4)
+	nameBuf := make([]byte, 5)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 100000000)
 		if err != nil {
@@ -2801,6 +2820,17 @@ func (t *RichtextFacet_Emoji) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Name = string(sval)
+			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 100000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
 			}
 
 		default:

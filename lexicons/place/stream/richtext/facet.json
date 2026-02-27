@@ -14,7 +14,8 @@
             "type": "union",
             "refs": [
               "app.bsky.richtext.facet#mention",
-              "app.bsky.richtext.facet#link"
+              "app.bsky.richtext.facet#link",
+              "#emoji"
             ]
           }
         }

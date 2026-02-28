@@ -70,13 +70,14 @@ export const ProfileCardProvider = ({
 };
 
 const BadgeRow = ({
+  streamer,
   badge,
   serviceDid,
 }: {
   badge: NonNullable<ChatMessageViewHydrated["badges"]>[number];
   serviceDid: string;
+  streamer?: ProfileViewBasic;
 }) => {
-  const streamer = useLivestreamStore((x) => x.livestream?.author);
   const isServiceIssued = badge.issuer === serviceDid;
   const issuerDids = useMemo(
     () => (isServiceIssued ? [] : [badge.issuer]),
@@ -140,6 +141,8 @@ export const UserProfileCard = ({
   const serviceDid = nodeUrl
     ? `did:web:${nodeUrl.replace(/^https?:\/\//, "")}`
     : null;
+
+  const streamer = useLivestreamStore((x) => x.livestream?.author);
 
   const { openUri, setOpenUri } = useContext(OpenCardContext);
   const isOpen = openUri === uri;
@@ -264,7 +267,12 @@ export const UserProfileCard = ({
               }}
             >
               {serviceBadges.map((badge, i) => (
-                <BadgeRow key={i} badge={badge} serviceDid={serviceDid} />
+                <BadgeRow
+                  key={i}
+                  badge={badge}
+                  serviceDid={serviceDid}
+                  streamer={streamer}
+                />
               ))}
             </View>
           ) : null}

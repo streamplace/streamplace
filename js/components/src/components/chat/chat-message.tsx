@@ -173,7 +173,18 @@ export const RenderChatMessage = memo(
               author={item.author}
               badges={item.badges}
             >
-              <Text>
+              <View
+                style={
+                  {
+                    // display: inline is a no-op on mobile
+                    display: "inline",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    flexDirection: "row",
+                    marginBottom: -6.25,
+                  } as any
+                }
+              >
                 <BadgeDisplayRow badges={item.badges} />
                 <Text
                   weight="bold"
@@ -184,7 +195,7 @@ export const RenderChatMessage = memo(
                 >
                   {formatHandleWithAt(item.author)}
                 </Text>
-              </Text>
+              </View>
             </UserProfileCard>
             <Text weight="bold" color="default">
               {": "}

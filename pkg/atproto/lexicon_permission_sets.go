@@ -31,6 +31,7 @@ func generatePermissionSets(ctx context.Context, lexs []*lexicon.SchemaFile) ([]
 		"repo?collection=app.bsky.actor.status",
 		"repo?collection=app.bsky.graph.block",
 		"repo?collection=app.bsky.graph.follow",
+		"repo?collection=app.bsky.actor.profile",
 		"rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app%23bsky_appview",
 		"rpc:app.bsky.actor.getProfiles?aud=did:web:api.bsky.app%23bsky_appview",
 		"include:place.stream.authFull",

@@ -7,7 +7,6 @@ const { gap, h, layout, mt, p, position, px, py, sizes, w } = atoms;
 type InputPanelProps = {
   title: string | undefined;
   setTitle: (title: string) => void;
-  ingestStarting: boolean;
   toggleGoLive: () => void;
   isLive: boolean;
   toggleStopStream?: () => void;
@@ -16,7 +15,6 @@ type InputPanelProps = {
 export function InputPanel({
   title,
   setTitle,
-  ingestStarting,
   toggleGoLive,
   isLive,
   toggleStopStream,
@@ -51,9 +49,7 @@ export function InputPanel({
             />
           </View>
         )}
-        {ingestStarting ? (
-          <Text>Starting your stream...</Text>
-        ) : isLive ? (
+        {isLive ? (
           <View style={[layout.flex.center]}>
             <Pressable
               onPress={toggleStopStream}

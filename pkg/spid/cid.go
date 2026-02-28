@@ -9,13 +9,17 @@ import (
 )
 
 func GetCID(record repo.CborMarshaler) (*cid.Cid, error) {
-	builder := cid.NewPrefixV1(cid.DagCBOR, multihash.SHA2_256)
 	buf := bytes.NewBuffer(nil)
 	err := record.MarshalCBOR(buf)
 	if err != nil {
 		return nil, err
 	}
-	c, err := builder.Sum(buf.Bytes())
+	return GetCIDFromBytes(buf.Bytes())
+}
+
+func GetCIDFromBytes(bs []byte) (*cid.Cid, error) {
+	builder := cid.NewPrefixV1(cid.DagCBOR, multihash.SHA2_256)
+	c, err := builder.Sum(bs)
 	if err != nil {
 		return nil, err
 	}

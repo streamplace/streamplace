@@ -105,8 +105,8 @@ func (state *StatefulDB) DequeueTask(ctx context.Context, workerID string, taskT
 	err := state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		query := tx.Where("status = ?", TaskStatusPending).
 			Where("try_count < max_tries").
-			Where("(lock_expires IS NULL OR lock_expires < ?)", time.Now()).
-			Where("(scheduled_at IS NULL OR scheduled_at <= ?)", time.Now())
+			Where("(lock_expires IS NULL OR lock_expires < ?)", time.Now().UTC()).
+			Where("(scheduled_at IS NULL OR scheduled_at <= ?)", time.Now().UTC())
 
 		if len(taskTypes) > 0 {
 			query = query.Where("type IN ?", taskTypes)

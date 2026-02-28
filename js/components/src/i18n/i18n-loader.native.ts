@@ -10,6 +10,8 @@ import frFRCommon from "../../public/locales/fr-FR/common.json";
 import frFRSettings from "../../public/locales/fr-FR/settings.json";
 import ptBRCommon from "../../public/locales/pt-BR/common.json";
 import ptBRSettings from "../../public/locales/pt-BR/settings.json";
+import roROCommon from "../../public/locales/ro-RO/common.json";
+import roROSettings from "../../public/locales/ro-RO/settings.json";
 import zhHansCommon from "../../public/locales/zh-Hans/common.json";
 import zhHansSettings from "../../public/locales/zh-Hans/settings.json";
 import zhHantCommon from "../../public/locales/zh-Hant/common.json";
@@ -28,6 +30,8 @@ const translationMap: Record<string, any> = {
   "zh-Hant/settings": zhHantSettings,
   "fr-FR/common": frFRCommon,
   "fr-FR/settings": frFRSettings,
+  "ro-RO/common": roROCommon,
+  "ro-RO/settings": roROSettings,
 };
 
 export async function loadTranslationData(
@@ -43,6 +47,7 @@ export async function loadTranslationData(
         es: "es-ES",
         zh: "zh-Hant",
         fr: "fr-FR",
+        ro: "ro-RO",
       }[locale] || locale;
 
   const localeNamespaceKey = `${fullLocale}/${namespace}`;

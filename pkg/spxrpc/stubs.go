@@ -278,6 +278,7 @@ func (s *Server) HandleComAtprotoSyncListRepos(c echo.Context) error {
 }
 
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
+	e.GET("/xrpc/place.stream.badge.getValidBadges", s.HandlePlaceStreamBadgeGetValidBadges)
 	e.POST("/xrpc/place.stream.branding.deleteBlob", s.HandlePlaceStreamBrandingDeleteBlob)
 	e.GET("/xrpc/place.stream.branding.getBlob", s.HandlePlaceStreamBrandingGetBlob)
 	e.GET("/xrpc/place.stream.branding.getBranding", s.HandlePlaceStreamBrandingGetBranding)
@@ -290,6 +291,8 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.live.getRecommendations", s.HandlePlaceStreamLiveGetRecommendations)
 	e.GET("/xrpc/place.stream.live.getSegments", s.HandlePlaceStreamLiveGetSegments)
 	e.GET("/xrpc/place.stream.live.searchActorsTypeahead", s.HandlePlaceStreamLiveSearchActorsTypeahead)
+	e.POST("/xrpc/place.stream.live.startLivestream", s.HandlePlaceStreamLiveStartLivestream)
+	e.POST("/xrpc/place.stream.live.stopLivestream", s.HandlePlaceStreamLiveStopLivestream)
 	e.POST("/xrpc/place.stream.moderation.createBlock", s.HandlePlaceStreamModerationCreateBlock)
 	e.POST("/xrpc/place.stream.moderation.createGate", s.HandlePlaceStreamModerationCreateGate)
 	e.POST("/xrpc/place.stream.moderation.deleteBlock", s.HandlePlaceStreamModerationDeleteBlock)
@@ -299,6 +302,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.multistream.deleteTarget", s.HandlePlaceStreamMultistreamDeleteTarget)
 	e.GET("/xrpc/place.stream.multistream.listTargets", s.HandlePlaceStreamMultistreamListTargets)
 	e.POST("/xrpc/place.stream.multistream.putTarget", s.HandlePlaceStreamMultistreamPutTarget)
+	e.POST("/xrpc/place.stream.playback.whep", s.HandlePlaceStreamPlaybackWhep)
 	e.POST("/xrpc/place.stream.server.createWebhook", s.HandlePlaceStreamServerCreateWebhook)
 	e.POST("/xrpc/place.stream.server.deleteWebhook", s.HandlePlaceStreamServerDeleteWebhook)
 	e.GET("/xrpc/place.stream.server.getServerTime", s.HandlePlaceStreamServerGetServerTime)
@@ -306,6 +310,20 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.server.listWebhooks", s.HandlePlaceStreamServerListWebhooks)
 	e.POST("/xrpc/place.stream.server.updateWebhook", s.HandlePlaceStreamServerUpdateWebhook)
 	return nil
+}
+
+func (s *Server) HandlePlaceStreamBadgeGetValidBadges(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBadgeGetValidBadges")
+	defer span.End()
+	streamer := c.QueryParam("streamer")
+	var out *placestream.BadgeGetValidBadges_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBadgeGetValidBadges(ctx context.Context,streamer string) (*placestream.BadgeGetValidBadges_Output, error)
+	out, handleErr = s.handlePlaceStreamBadgeGetValidBadges(ctx, streamer)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandlePlaceStreamBrandingDeleteBlob(c echo.Context) error {
@@ -523,6 +541,42 @@ func (s *Server) HandlePlaceStreamLiveSearchActorsTypeahead(c echo.Context) erro
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamLiveStartLivestream(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveStartLivestream")
+	defer span.End()
+
+	var body placestream.LiveStartLivestream_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.LiveStartLivestream_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context,body *placestream.LiveStartLivestream_Input) (*placestream.LiveStartLivestream_Output, error)
+	out, handleErr = s.handlePlaceStreamLiveStartLivestream(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamLiveStopLivestream(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveStopLivestream")
+	defer span.End()
+
+	var body placestream.LiveStopLivestream_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.LiveStopLivestream_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context,body *placestream.LiveStopLivestream_Input) (*placestream.LiveStopLivestream_Output, error)
+	out, handleErr = s.handlePlaceStreamLiveStopLivestream(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamModerationCreateBlock(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationCreateBlock")
 	defer span.End()
@@ -690,6 +744,23 @@ func (s *Server) HandlePlaceStreamMultistreamPutTarget(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamPlaybackWhep(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackWhep")
+	defer span.End()
+	rendition := c.QueryParam("rendition")
+	streamer := c.QueryParam("streamer")
+	body := c.Request().Body
+	contentType := c.Request().Header.Get("Content-Type")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context,rendition string,streamer string,r io.Reader,contentType string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackWhep(ctx, rendition, streamer, body, contentType)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/octet-stream", out)
 }
 
 func (s *Server) HandlePlaceStreamServerCreateWebhook(c echo.Context) error {

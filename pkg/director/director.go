@@ -7,6 +7,7 @@ import (
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/localdb"
@@ -34,9 +35,10 @@ type Director struct {
 	statefulDB       *statedb.StatefulDB
 	replicator       replication.Replicator
 	localDB          localdb.LocalDB
+	atsync           *atproto.ATProtoSynchronizer
 }
 
-func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy, statefulDB *statedb.StatefulDB, replicator replication.Replicator, ldb localdb.LocalDB) *Director {
+func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy, statefulDB *statedb.StatefulDB, replicator replication.Replicator, ldb localdb.LocalDB, atsync *atproto.ATProtoSynchronizer) *Director {
 	return &Director{
 		mm:               mm,
 		mod:              mod,
@@ -48,6 +50,7 @@ func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *
 		statefulDB:       statefulDB,
 		replicator:       replicator,
 		localDB:          ldb,
+		atsync:           atsync,
 	}
 }
 
@@ -80,9 +83,11 @@ func (d *Director) Start(ctx context.Context) error {
 					statefulDB:  d.statefulDB,
 					replicator:  d.replicator,
 					// Initialize notification channels (buffered size 1 for coalescing)
-					statusUpdateChan: make(chan struct{}, 1),
-					originUpdateChan: make(chan struct{}, 1),
-					localDB:          d.localDB,
+					statusUpdateChan:     make(chan struct{}, 1),
+					originUpdateChan:     make(chan struct{}, 1),
+					livestreamUpdateChan: make(chan struct{}, 1),
+					localDB:              d.localDB,
+					atsync:               d.atsync,
 				}
 				d.streamSessions[not.Segment.RepoDID] = ss
 				g.Go(func() error {

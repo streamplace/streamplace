@@ -285,9 +285,9 @@ export function NativeWHEP(props?: {
 export function NativeIngestPlayer(props?: {
   objectFit?: "contain" | "cover";
 }) {
-  const ingestStarting = useIngestPlayerStore((x) => x.ingestStarting);
   const ingestMediaSource = useIngestPlayerStore((x) => x.ingestMediaSource);
   const ingestAutoStart = useIngestPlayerStore((x) => x.ingestAutoStart);
+  const setIngestLive = useIngestPlayerStore((x) => x.setIngestLive);
   const setStatus = useIngestPlayerStore((x) => x.setStatus);
   const setVideoRef = usePlayerStore((x) => x.setVideoRef);
 
@@ -377,17 +377,19 @@ export function NativeIngestPlayer(props?: {
   }, [ingestMediaSource, ingestCamera]);
 
   useEffect(() => {
-    if (!ingestStarting && !ingestAutoStart) {
-      setRemoteMediaStream(null);
-      return;
+    if (localMediaStream) {
+      setIngestLive(true);
     }
+  }, [localMediaStream]);
+
+  useEffect(() => {
     if (!localMediaStream) {
       return;
     }
     console.log("setting remote media stream", localMediaStream);
     // @ts-expect-error: WebRTCMediaStream may not have all MediaStream properties, but is compatible for our use
     setRemoteMediaStream(localMediaStream);
-  }, [localMediaStream, ingestStarting, ingestAutoStart, setRemoteMediaStream]);
+  }, [localMediaStream, ingestAutoStart, setRemoteMediaStream]);
 
   if (!localMediaStream) {
     return null;

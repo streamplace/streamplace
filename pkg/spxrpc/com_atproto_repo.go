@@ -92,8 +92,8 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 	}
 
 	return &comatproto.RepoDescribeRepo_Output{
-		Handle: s.cli.MyDID(),
-		Did:    s.cli.MyDID(),
+		Handle: s.cli.BroadcasterDID(),
+		Did:    s.cli.BroadcasterDID(),
 		DidDoc: atproto.DIDDoc(s.cli.BroadcasterHost),
 		Collections: []string{
 			"com.atproto.lexicon.schema",

@@ -127,109 +127,23 @@ export function useCreateStreamRecord() {
   let agent = usePDSAgent();
   let url = useUrl();
   const uploadThumbnail = useUploadThumbnail();
-
   return async ({
     title,
     customThumbnail,
     submitPost,
     canonicalUrl,
     notificationSettings,
+    idleTimeoutSeconds,
   }: {
     title: string;
     customThumbnail?: Blob;
     submitPost?: boolean;
     canonicalUrl?: string;
     notificationSettings?: PlaceStreamLivestream.NotificationSettings;
+    idleTimeoutSeconds?: number;
   }) => {
-    if (typeof submitPost !== "boolean") {
-      submitPost = true;
-    }
     if (!agent) {
       throw new Error("No PDS agent found");
-    }
-
-    if (!agent.did) {
-      throw new Error("No user DID found, assuming not logged in");
-    }
-
-    const u = new URL(url);
-
-    let thumbnail: BlobRef | undefined = undefined;
-
-    if (customThumbnail) {
-      try {
-        thumbnail = await uploadThumbnail(agent, customThumbnail);
-      } catch (e) {
-        throw new Error(`Custom thumbnail upload failed ${e}`);
-      }
-    } else {
-      // No custom thumbnail: fetch the server-side image and upload it
-      // try thrice lel
-      let tries = 0;
-      try {
-        for (; tries < 3; tries++) {
-          try {
-            console.log(
-              `Fetching thumbnail from ${u.protocol}//${u.host}/api/playback/${agent.did}/stream.png`,
-            );
-            const thumbnailRes = await fetch(
-              `${u.protocol}//${u.host}/api/playback/${agent.did}/stream.png`,
-            );
-            if (!thumbnailRes.ok) {
-              throw new Error(
-                `Failed to fetch thumbnail: ${thumbnailRes.status})`,
-              );
-            }
-            const thumbnailBlob = await thumbnailRes.blob();
-            console.log(thumbnailBlob);
-            thumbnail = await uploadThumbnail(agent, thumbnailBlob);
-          } catch (e) {
-            console.warn(
-              `Failed to fetch thumbnail, retrying (${tries + 1}/3): ${e}`,
-            );
-            // Wait 1 second before retrying
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-            if (tries === 2) {
-              throw new Error(`Failed to fetch thumbnail after 3 tries: ${e}`);
-            }
-          }
-        }
-      } catch (e) {
-        throw new Error(`Thumbnail upload failed ${e}`);
-      }
-    }
-
-    let newPost: undefined | { uri: string; cid: string } = undefined;
-
-    const did = agent.did;
-    const profile = await agent.getProfile({ actor: did });
-
-    if (submitPost) {
-      if (!profile) {
-        throw new Error("No profile found for the user DID");
-      }
-
-      const params = new URLSearchParams({
-        did: did,
-        time: new Date().toISOString(),
-      });
-
-      let post = await buildGoLivePost(
-        title,
-        u,
-        profile.data,
-        params,
-        thumbnail,
-        agent,
-      );
-
-      newPost = await createNewPost(agent, post);
-
-      if (!newPost.uri || !newPost.cid) {
-        throw new Error(
-          "Cannot read properties of undefined (reading 'uri' or 'cid')",
-        );
-      }
     }
 
     let platform: string = Platform.OS;
@@ -244,36 +158,50 @@ export function useCreateStreamRecord() {
     ) {
       platVersion = getBrowserName(window.navigator.userAgent);
     }
-
-    const thisUrl = `${url}/${profile.data.handle}`;
-    if (!canonicalUrl) {
-      canonicalUrl = thisUrl;
+    if (!agent.did) {
+      throw new Error("No user DID found, assuming not logged in");
     }
+
+    const thisUrl = `${url}/${agent.did}`;
 
     const record: PlaceStreamLivestream.Record = {
       $type: "place.stream.livestream",
       title: title,
       url: thisUrl,
       createdAt: new Date().toISOString(),
+      lastSeenAt: new Date().toISOString(),
       // would match up with e.g. https://stream.place/iame.li
       canonicalUrl: canonicalUrl,
       // user agent style string
       // e.g. `@streamplace/components/0.1.0 (ios, 32.0)`
       agent: `@streamplace/components/${PackageJson.version} (${platform}, ${platVersion})`,
-      post: newPost,
-      thumb: thumbnail,
+      idleTimeoutSeconds: idleTimeoutSeconds,
     };
 
     if (notificationSettings) {
       record.notificationSettings = notificationSettings;
     }
 
-    await agent.com.atproto.repo.createRecord({
-      repo: agent.did,
-      collection: "place.stream.livestream",
-      record,
+    if (customThumbnail) {
+      try {
+        const thumbnail = await uploadThumbnail(agent, customThumbnail);
+        record.thumb = thumbnail;
+      } catch (e) {
+        throw new Error(`Custom thumbnail upload failed ${e}`);
+      }
+    }
+
+    const output = await agent.place.stream.live.startLivestream({
+      livestream: record,
+      streamer: agent.did,
+      createBlueskyPost: submitPost,
     });
-    return record;
+
+    if (!output.success) {
+      throw new Error("Failed to start livestream");
+    }
+
+    return output.data;
   };
 }
 
@@ -337,5 +265,20 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
     });
 
     return record;
+  };
+}
+
+export function useEndLivestream() {
+  let agent = usePDSAgent();
+  return async () => {
+    if (!agent) {
+      throw new Error("No PDS agent found");
+    }
+
+    if (!agent.did) {
+      throw new Error("No user DID found, assuming not logged in");
+    }
+
+    return await agent.place.stream.live.stopLivestream({});
   };
 }

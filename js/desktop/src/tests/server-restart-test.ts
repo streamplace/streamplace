@@ -29,8 +29,11 @@ export const serverRestartTest: E2ETest = {
     const env = {
       SP_HTTP_ADDR: `127.0.0.1:${randomPort()}`,
       SP_HTTP_INTERNAL_ADDR: `127.0.0.1:${randomPort()}`,
+      SP_RTMP_ADDR: `127.0.0.1:${randomPort()}`,
       SP_DATA_DIR: tmpDir,
       SP_TEST_STREAM: "true",
+      SP_NO_FIREHOSE: "true",
+      SP_WIDE_OPEN: "true",
     };
     let { proc } = await makeNode({
       env: env,

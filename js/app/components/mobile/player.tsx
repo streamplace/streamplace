@@ -9,6 +9,8 @@ import {
   PlayerUI,
   RotationProvider,
   Text,
+  useLivestream,
+  useLivestreamInfo,
   useLivestreamStore,
   usePlayerDimensions,
   usePlayerStore,
@@ -131,6 +133,9 @@ function PlayerWithProvider(
     };
   }, []);
 
+  const livestream = useLivestream();
+  const localLivestreamURI = useLivestreamStore((x) => x.localLivestreamURI);
+
   if (isStreamingElsewhere) {
     return (
       <View style={[layout.flex.center, h.percent[100], gap.all[4]]}>
@@ -188,6 +193,10 @@ function PlayerWithProvider(
         </View>
       </View>
     );
+  }
+
+  if (props.ingest && livestream && livestream.uri !== localLivestreamURI) {
+    return <LivestreamWarning />;
   }
 
   const defaultHandleTeleport = (targetHandle: string, targetDID: string) => {
@@ -411,4 +420,74 @@ export function PlayerInner(
       )}
     </ScrollView>
   );
+}
+
+export function LivestreamWarning() {
+  const livestream = useLivestream();
+  const localLivestreamURI = useLivestreamStore((x) => x.localLivestreamURI);
+  const { toggleStopStream } = useLivestreamInfo();
+  const navigation = useNavigation();
+  const setLocalLivestreamURI = useLivestreamStore(
+    (x) => x.setLocalLivestreamURI,
+  );
+
+  const [loading, setLoading] = useState(false);
+
+  if (livestream && livestream.uri !== localLivestreamURI) {
+    return (
+      <View style={[layout.flex.center, h.percent[100], gap.all[4]]}>
+        <Text size="xl">You have an active livestream!</Text>
+        <Text>"{livestream.record.title}"</Text>
+        <Button
+          style={[w.percent[60]]}
+          onPress={() => {
+            setLoading(true);
+            setLocalLivestreamURI(livestream.uri);
+          }}
+          disabled={loading}
+        >
+          <View
+            centered
+            style={[layout.flex.center, layout.flex.row, gap.all[1]]}
+          >
+            <Text center>Resume that stream from here</Text>
+          </View>
+        </Button>
+        <Button
+          style={[w.percent[60]]}
+          onPress={async () => {
+            setLoading(true);
+            try {
+              await toggleStopStream();
+            } catch (error) {
+              console.error(error);
+            } finally {
+              // we want to keep loading until the firehose tells us the stream is stopped
+            }
+          }}
+          variant="destructive"
+          disabled={loading}
+        >
+          <View
+            centered
+            style={[layout.flex.center, layout.flex.row, gap.all[1]]}
+          >
+            <Text center>End that stream and start a new one</Text>
+          </View>
+        </Button>
+        <Button
+          variant="secondary"
+          style={[w.percent[60]]}
+          onPress={() => navigation.navigate("Home", { screen: "StreamList" })}
+        >
+          <View
+            centered
+            style={[layout.flex.center, layout.flex.row, gap.all[1]]}
+          >
+            <Text>Back</Text>
+          </View>
+        </Button>
+      </View>
+    );
+  }
 }

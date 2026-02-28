@@ -66,6 +66,10 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 				log.Error(ctx, "failed to get latest livestream, skipping", "repoDID", seg.RepoDID, "error", err)
 				continue
 			}
+			if ls == nil {
+				log.Error(ctx, "no livestream found, skipping", "repoDID", seg.RepoDID)
+				continue
+			}
 			if ls.PostURI != "" {
 				posts = append(posts, model.FeedPost{
 					URI: ls.PostURI,

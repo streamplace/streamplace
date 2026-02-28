@@ -1,0 +1,46 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.badge.defs",
+  "defs": {
+    "badgeView": {
+      "type": "object",
+      "required": ["badgeType", "issuer", "recipient"],
+      "description": "View of a badge record, with fields resolved for display. If the DID in issuer is not the current streamplace node, the signature field shall be required.",
+      "properties": {
+        "badgeType": {
+          "type": "string",
+          "knownValues": [
+            "place.stream.badge.defs#mod",
+            "place.stream.badge.defs#streamer"
+          ]
+        },
+        "issuer": {
+          "type": "string",
+          "format": "did",
+          "description": "DID of the badge issuer."
+        },
+        "recipient": {
+          "type": "string",
+          "format": "did",
+          "description": "DID of the badge recipient."
+        },
+        "signature": {
+          "type": "string",
+          "description": "TODO: Cryptographic signature of the badge (of a place.stream.key)."
+        }
+      }
+    },
+    "mod": {
+      "type": "token",
+      "description": "This user is a moderator. Displayed with a sword icon."
+    },
+    "streamer": {
+      "type": "token",
+      "description": "This user is the streamer. Displayed with a star icon."
+    },
+    "vip": {
+      "type": "token",
+      "description": "This user is a very important person."
+    }
+  }
+}

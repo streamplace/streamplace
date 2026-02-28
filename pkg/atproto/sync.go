@@ -12,7 +12,9 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/bluesky-social/indigo/util"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
@@ -83,14 +85,25 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, streamplaceBlock)
 
+	case *bsky.ActorProfile:
+		if r == nil {
+			// someone we don't know about
+			return nil
+		}
+		wasStreamplace, _ := d[constants.BlueskyProfileGoliveKey].(bool)
+		err := atsync.Model.UpsertBskyProfile(ctx, aturi, *recCBOR, wasStreamplace)
+		if err != nil {
+			return fmt.Errorf("failed to upsert bsky profile: %w", err)
+		}
+
 	case *streamplace.ChatMessage:
-		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
 
 		go func() {
-			_, err = atsync.SyncBlueskyRepoCached(ctx, rec.Streamer, atsync.Model)
+			_, err = atsync.SyncBlueskyRepoCached(ctx, rec.Streamer)
 			if err != nil {
 				log.Error(ctx, "failed to sync bluesky repo", "err", err)
 			}
@@ -150,6 +163,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
 			return nil
 		}
+
+		// Add mod badge if the author is a moderator
+		issuerDID := fmt.Sprintf("did:web:%s", atsync.CLI.BroadcasterHost)
+		err = AddModBadgeIfApplicable(ctx, scm, rec.Streamer, issuerDID, atsync.Model)
+		if err != nil {
+			log.Error(ctx, "failed to add mod badge", "err", err)
+		}
+
 		go atsync.Bus.Publish(rec.Streamer, scm)
 
 		if !isUpdate && !isFirstSync {
@@ -165,7 +186,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 	case *streamplace.ChatGate:
-		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
@@ -197,7 +218,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		go atsync.Bus.Publish(userDID, streamplaceGate)
 
 	case *streamplace.ChatProfile:
-		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
@@ -212,7 +233,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 	case *streamplace.ServerSettings:
-		_, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		_, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
@@ -240,7 +261,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 		if livestream, ok := d["place.stream.livestream"]; ok {
-			repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+			repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 			if err != nil {
 				return fmt.Errorf("failed to sync bluesky repo: %w", err)
 			}
@@ -279,7 +300,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			// log.Warn(ctx, "chat message detected", "uri", livestream.URI)
 			// if this post is a reply to someone's livestream post
 			// log.Warn(ctx, "chat message detected", "message", rec.Text)
-			repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+			repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 			if err != nil {
 				return fmt.Errorf("failed to sync bluesky repo: %w", err)
 			}
@@ -354,30 +375,29 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, lsv)
 
-		var postView *bsky.FeedDefs_PostView
-		if lsHydrated.Post != nil {
-			postView, err = lsHydrated.Post.ToBskyPostView()
-			if err != nil {
-				return fmt.Errorf("failed to convert livestream post to bsky post view: %w", err)
+		if !isFirstSync {
+			// queue a task to clean up the livestream if it's been inactive for too long
+			task := &statedb.FinalizeLivestreamTask{
+				LivestreamURI: aturi.String(),
 			}
-		}
-
-		task := &statedb.NotificationTask{
-			Livestream: lsv,
-			FeedPost:   postView,
-			PDSURL:     r.PDS,
-		}
-
-		cp, err := atsync.Model.GetChatProfile(ctx, userDID)
-		if err != nil {
-			return fmt.Errorf("failed to get chat profile: %w", err)
-		}
-		if cp != nil {
-			spcp, err := cp.ToStreamplaceChatProfile()
-			if err != nil {
-				return fmt.Errorf("failed to convert chat profile to streamplace chat profile: %w", err)
+			if rec.LastSeenAt == nil || rec.IdleTimeoutSeconds == nil || *rec.IdleTimeoutSeconds == 0 || rec.EndedAt != nil {
+				return nil
 			}
-			task.ChatProfile = spcp
+			scheduledAt, err := time.Parse(time.RFC3339, *rec.LastSeenAt)
+			if err != nil {
+				log.Error(ctx, "failed to parse last seen at", "err", err)
+				return nil
+			}
+
+			// if we check after exactly rec.IdleTimeoutSeconds we might miss the finalization by a few seconds
+			scheduledAt = scheduledAt.Add((time.Duration(*rec.IdleTimeoutSeconds) * time.Second) + (10 * time.Second)).UTC()
+			taskKey := fmt.Sprintf("finalize-livestream::%s::%s", aturi.String(), scheduledAt.Format(util.ISO8601))
+			log.Warn(ctx, "queueing stream finalization task", "taskKey", taskKey, "scheduledAt", scheduledAt)
+			_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskFinalizeLivestream, task, statedb.WithTaskKey(taskKey), statedb.WithScheduledAt(scheduledAt))
+			if err != nil {
+				return fmt.Errorf("failed to enqueue remove red circle task: %w", err)
+			}
+
 		}
 
 	case *streamplace.LiveTeleport:
@@ -475,11 +495,11 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 	case *streamplace.BroadcastOrigin:
-		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync broadcast origin creator bluesky repo: %w", err)
 		}
-		_, err = atsync.SyncBlueskyRepoCached(ctx, rec.Streamer, atsync.Model)
+		_, err = atsync.SyncBlueskyRepoCached(ctx, rec.Streamer)
 		if err != nil {
 			return fmt.Errorf("failed to sync broadcast origin streamer bluesky repo: %w", err)
 		}
@@ -500,7 +520,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		go atsync.Bus.Publish("", view)
 
 	case *streamplace.MetadataConfiguration:
-		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
@@ -516,7 +536,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 	case *streamplace.ModerationPermission:
-		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID, atsync.Model)
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}

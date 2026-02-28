@@ -8,15 +8,21 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/xrpc"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/streamplace"
+
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 )
 
 var TaskNotification = "notification"
 var TaskChat = "chat"
+var TaskFinalizeLivestream = "finalize_livestream"
 
 type NotificationTask struct {
 	Livestream  *streamplace.Livestream_LivestreamView
@@ -27,6 +33,10 @@ type NotificationTask struct {
 
 type ChatTask struct {
 	MessageView *streamplace.ChatDefs_MessageView
+}
+
+type FinalizeLivestreamTask struct {
+	LivestreamURI string `json:"livestreamURI"`
 }
 
 func (state *StatefulDB) ProcessQueue(ctx context.Context) error {
@@ -60,9 +70,92 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 		return state.processNotificationTask(ctx, task)
 	case TaskChat:
 		return state.processChatMessageTask(ctx, task)
+	case TaskFinalizeLivestream:
+		return state.processFinalizeLivestreamTask(ctx, task)
 	default:
 		return fmt.Errorf("unknown task type: %s", task.Type)
 	}
+}
+
+func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task *AppTask) error {
+	ctx = log.WithLogValues(ctx, "func", "processFinalizeLivestreamTask")
+	log.Debug(ctx, "processing finalize livestream task")
+	log.Warn(ctx, "processing finalize livestream task")
+	var finalizeLivestreamTask FinalizeLivestreamTask
+	if err := json.Unmarshal(task.Payload, &finalizeLivestreamTask); err != nil {
+		return err
+	}
+	livestream, err := state.model.GetLivestream(finalizeLivestreamTask.LivestreamURI)
+	if err != nil {
+		return fmt.Errorf("failed to get latest livestream for userDID: %w", err)
+	}
+	if livestream == nil {
+		return fmt.Errorf("no livestream found for URI: %s", finalizeLivestreamTask.LivestreamURI)
+	}
+	lastLivestreamView, err := livestream.ToLivestreamView()
+	if err != nil {
+		return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
+	}
+	rec, ok := lastLivestreamView.Record.Val.(*streamplace.Livestream)
+	if !ok {
+		return fmt.Errorf("livestream is not a streamplace livestream")
+	}
+	if rec.LastSeenAt == nil {
+		return fmt.Errorf("livestream has no last seen at")
+	}
+	lastSeenTime, err := time.Parse(time.RFC3339, *rec.LastSeenAt)
+	if err != nil {
+		return fmt.Errorf("could not parse last seen at: %w", err)
+	}
+	if rec.IdleTimeoutSeconds == nil || *rec.IdleTimeoutSeconds == 0 {
+		log.Debug(ctx, "livestream has no idle timeout, skipping finalization", "uri", livestream.URI)
+		return nil
+	}
+	if time.Since(lastSeenTime) < (time.Duration(*rec.IdleTimeoutSeconds) * time.Second) {
+		log.Debug(ctx, "livestream is active, skipping finalization", "lastSeenAt", lastSeenTime)
+		return nil
+	}
+	session, err := state.GetSessionByDID(livestream.RepoDID)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+	session, err = state.OATProxy.RefreshIfNeeded(session)
+	if err != nil {
+		return fmt.Errorf("failed to refresh session: %w", err)
+	}
+	client, err := state.OATProxy.GetXrpcClient(session)
+	if err != nil {
+		return fmt.Errorf("failed to get xrpc client: %w", err)
+	}
+	if rec.EndedAt != nil {
+		log.Debug(ctx, "livestream has already ended, skipping", "uri", livestream.URI, "endedAt", *rec.EndedAt)
+		return nil
+	}
+
+	uri, err := syntax.ParseATURI(livestream.URI)
+	if err != nil {
+		return fmt.Errorf("failed to parse ATURI: %w", err)
+	}
+
+	rec.EndedAt = rec.LastSeenAt
+
+	inp := comatproto.RepoPutRecord_Input{
+		Collection: "place.stream.livestream",
+		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
+		Rkey:       uri.RecordKey().String(),
+		Repo:       livestream.RepoDID,
+		SwapRecord: &livestream.CID,
+	}
+	out := comatproto.RepoPutRecord_Output{}
+
+	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out)
+	if err != nil {
+		return fmt.Errorf("failed to update livestream record: %w", err)
+	}
+
+	log.Log(ctx, "livestream finalized", "uri", livestream.URI, "endedAt", *rec.EndedAt)
+
+	return nil
 }
 
 func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppTask) error {

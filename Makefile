@@ -384,6 +384,7 @@ js-lexicons:
  		&& sed -i.bak 's/AppBskyGraphBlock\.Main/AppBskyGraphBlock\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
  		&& sed -i.bak 's/PlaceStreamMultistreamTarget\.Main/PlaceStreamMultistreamTarget\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
  		&& sed -i.bak 's/PlaceStreamChatProfile\.Main/PlaceStreamChatProfile\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
+ 		&& sed -i.bak 's/PlaceStreamLivestream\.Main/PlaceStreamLivestream\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream/live -type f) \
 		&& for x in $$(find ./js/streamplace/src/lexicons -type f -name '*.ts'); do \
 			echo 'import { ComAtprotoSyncGetRepo, AppBskyRichtextFacet, AppBskyGraphBlock, ComAtprotoRepoStrongRef, AppBskyActorDefs, ComAtprotoSyncListRepos, AppBskyActorGetProfile, AppBskyFeedGetFeedSkeleton, ComAtprotoIdentityResolveHandle, ComAtprotoModerationCreateReport, ComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoDescribeRepo, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoRepoPutRecord, ComAtprotoRepoUploadBlob, ComAtprotoServerDescribeServer, ComAtprotoSyncGetRecord, ComAtprotoSyncListReposComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoIdentityRefreshIdentity } from "@atproto/api"' >> $$x; \
 		done \
@@ -410,7 +411,7 @@ lexgen:
 
 .PHONY: lexgen-types
 lexgen-types:
-	go run github.com/bluesky-social/indigo/cmd/lexgen \
+	go tool github.com/bluesky-social/indigo/cmd/lexgen \
 		-outdir ./pkg/spxrpc \
 		--build-file util/lexgen-types.json \
 		--external-lexicons subprojects/atproto/lexicons \
@@ -420,7 +421,7 @@ lexgen-types:
 .PHONY: lexgen-server
 lexgen-server:
 	mkdir -p ./pkg/spxrpc \
-	&& go run github.com/bluesky-social/indigo/cmd/lexgen \
+	&& go tool github.com/bluesky-social/indigo/cmd/lexgen \
 		--gen-server \
 		--types-import place.stream:stream.place/streamplace/pkg/streamplace \
 		--types-import app.bsky:github.com/bluesky-social/indigo/api/bsky \

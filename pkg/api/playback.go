@@ -16,6 +16,7 @@ import (
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
 func (a *StreamplaceAPI) NormalizeUser(ctx context.Context, user string) (string, error) {
@@ -28,7 +29,7 @@ func (a *StreamplaceAPI) NormalizeUser(ctx context.Context, user string) (string
 		return user, nil
 	}
 	// only other allowed case is a bluesky handle
-	repo, err := a.ATSync.SyncBlueskyRepoCached(ctx, user, a.Model)
+	repo, err := a.ATSync.SyncBlueskyRepoCached(ctx, user)
 	if err != nil {
 		return "", err
 	}
@@ -56,7 +57,7 @@ func (a *StreamplaceAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Ha
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
 		var answer *webrtc.SessionDescription
 		if a.CLI.NewWebRTCPlayback {
-			answer, err = a.MediaManager.WebRTCPlayback2(ctx, user, rendition, &offer)
+			answer, err = a.MediaManager.WebRTCPlayback2(ctx, user, rendition, &offer, "")
 		} else {
 			answer, err = a.MediaManager.WebRTCPlayback(ctx, user, rendition, &offer)
 		}
@@ -271,6 +272,31 @@ func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter
 		if err != nil {
 			errors.WriteHTTPNotFound(w, "user not found", err)
 			return
+		}
+		if !a.CLI.WideOpen {
+			ls, err := a.Model.GetLatestLivestreamForRepo(user)
+			if err != nil {
+				errors.WriteHTTPInternalServerError(w, "could not get livestream", err)
+				return
+			}
+			if ls == nil {
+				errors.WriteHTTPNotFound(w, "livestream not found", err)
+				return
+			}
+			lsrv, err := ls.ToLivestreamView()
+			if err != nil {
+				errors.WriteHTTPInternalServerError(w, "could not marshal livestream", err)
+				return
+			}
+			lsr, ok := lsrv.Record.Val.(*streamplace.Livestream)
+			if !ok {
+				errors.WriteHTTPInternalServerError(w, "livestream is not a streamplace livestream", nil)
+				return
+			}
+			if lsr.EndedAt != nil {
+				errors.WriteHTTPNotFound(w, "livestream has ended", nil)
+				return
+			}
 		}
 		thumb, err := a.LocalDB.LatestThumbnailForUser(user)
 		if err != nil {

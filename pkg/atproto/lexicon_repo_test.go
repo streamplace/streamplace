@@ -40,10 +40,10 @@ func TestLexiconRepo(t *testing.T) {
 	require.NotNil(t, rec)
 	handle.Close()
 
-	evts, err := state.GetCommitEventsSinceSeq(cli.MyDID(), 0)
+	evts, err := state.GetCommitEventsSinceSeq(cli.BroadcasterDID(), 0)
 	require.NoError(t, err)
 	require.Len(t, evts, 1)
-	require.Equal(t, evts[0].RepoDID, cli.MyDID())
+	require.Equal(t, evts[0].RepoDID, cli.BroadcasterDID())
 
 	// opening an existing repo
 	handle, err = MakeLexiconRepo(context.Background(), &cli, mod, state)
@@ -100,11 +100,11 @@ func TestLexiconRepo(t *testing.T) {
 	require.NoError(t, err)
 	handle.Close()
 
-	evts, err = state.GetCommitEventsSinceSeq(cli.MyDID(), 0)
+	evts, err = state.GetCommitEventsSinceSeq(cli.BroadcasterDID(), 0)
 	require.NoError(t, err)
 	require.Len(t, evts, 2)
-	require.Equal(t, evts[0].RepoDID, cli.MyDID())
-	require.Equal(t, evts[1].RepoDID, cli.MyDID())
+	require.Equal(t, evts[0].RepoDID, cli.BroadcasterDID())
+	require.Equal(t, evts[1].RepoDID, cli.BroadcasterDID())
 	oldCommit, err := evts[0].ToCommitEvent()
 	require.NoError(t, err)
 	newCommit, err := evts[1].ToCommitEvent()

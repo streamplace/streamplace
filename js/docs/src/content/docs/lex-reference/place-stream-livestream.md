@@ -24,6 +24,9 @@ Record announcing a livestream is happening
 | `title`                | `string`                                                                                                                               | ✅    | The title of the livestream, as it will be announced to followers.                                                                       | Max Length: 1400<br/>Max Graphemes: 140       |
 | `url`                  | `string`                                                                                                                               | ❌    | The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.         | Format: `uri`                                 |
 | `createdAt`            | `string`                                                                                                                               | ✅    | Client-declared timestamp when this livestream started.                                                                                  | Format: `datetime`                            |
+| `lastSeenAt`           | `string`                                                                                                                               | ❌    | Client-declared timestamp when this livestream was last seen by the Streamplace station.                                                 | Format: `datetime`                            |
+| `endedAt`              | `string`                                                                                                                               | ❌    | Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again.                              | Format: `datetime`                            |
+| `idleTimeoutSeconds`   | `integer`                                                                                                                              | ❌    | Time in seconds after which this livestream should be automatically ended if idle. Zero means no timeout.                                |                                               |
 | `post`                 | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | The post that announced this livestream.                                                                                                 |                                               |
 | `agent`                | `string`                                                                                                                               | ❌    | The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS |                                               |
 | `canonicalUrl`         | `string`                                                                                                                               | ❌    | The primary URL where this livestream can be viewed, if available.                                                                       | Format: `uri`                                 |
@@ -156,6 +159,20 @@ Record announcing a livestream is happening
             "type": "string",
             "format": "datetime",
             "description": "Client-declared timestamp when this livestream started."
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this livestream was last seen by the Streamplace station."
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again."
+          },
+          "idleTimeoutSeconds": {
+            "type": "integer",
+            "description": "Time in seconds after which this livestream should be automatically ended if idle. Zero means no timeout."
           },
           "post": {
             "type": "ref",

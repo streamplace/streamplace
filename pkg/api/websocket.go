@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
 
+	"stream.place/streamplace/pkg/atproto"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/renditions"
@@ -222,6 +224,10 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				log.Error(ctx, "could not get latest livestream", "error", err)
 				return
 			}
+			if ls == nil {
+				log.Error(ctx, "no livestream found", "repoDID", repoDID)
+				return
+			}
 			lsv, err := ls.ToLivestreamView()
 			if err != nil {
 				log.Error(ctx, "could not marshal livestream", "error", err)
@@ -241,7 +247,14 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				log.Error(ctx, "could not get chat messages", "error", err)
 				return
 			}
+
+			// Add mod badges to messages
+			issuerDID := fmt.Sprintf("did:web:%s", a.CLI.BroadcasterHost)
 			for _, message := range messages {
+				err := atproto.AddModBadgeIfApplicable(ctx, message, repoDID, issuerDID, a.Model)
+				if err != nil {
+					log.Error(ctx, "failed to add mod badge to message", "error", err)
+				}
 				initialBurst <- message
 			}
 		}()
@@ -257,6 +270,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				tp := teleports[0]
 				if tp.Repo == nil {
 					log.Error(ctx, "teleportee repo is nil", "uri", tp.URI)
+					return
 				}
 				viewerCount := a.Bus.GetViewerCount(tp.RepoDID)
 				arrivalMsg := streamplace.Livestream_TeleportArrival{

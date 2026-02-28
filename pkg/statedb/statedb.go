@@ -37,7 +37,7 @@ type StatefulDB struct {
 	// pgLockConn is used to hold a connection to the database for locking
 	pgLockConn   *gorm.DB
 	pgLockConnMu sync.Mutex
-	op           *oatproxy.OATProxy
+	OATProxy     *oatproxy.OATProxy
 }
 
 // list tables here so we can migrate them
@@ -53,6 +53,7 @@ var StatefulDBModels = []any{
 	MultistreamEvent{},
 	BrandingBlob{},
 	ModerationAuditLog{},
+	BroadcastOrigin{},
 }
 
 var NoPostgresDatabaseCode = "3D000"

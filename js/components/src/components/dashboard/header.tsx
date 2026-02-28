@@ -8,7 +8,7 @@ interface MetricItemProps {
   icon: any;
   label: string;
   value: string;
-  status?: "good" | "warning" | "error";
+  status?: "good" | "warning" | "error" | "pre-live";
 }
 
 function MetricItem({ icon: Icon, label, value, status }: MetricItemProps) {
@@ -36,7 +36,7 @@ function MetricItem({ icon: Icon, label, value, status }: MetricItemProps) {
 }
 
 interface StatusIndicatorProps {
-  status: "excellent" | "good" | "poor" | "offline";
+  status: "excellent" | "good" | "poor" | "offline" | "pre-live";
   isLive: boolean;
 }
 
@@ -44,6 +44,8 @@ function StatusIndicator({ status, isLive }: StatusIndicatorProps) {
   const getStatusColor = () => {
     if (!isLive) return bg.gray[500];
     switch (status) {
+      case "pre-live":
+        return bg.blue[500];
       case "excellent":
         return bg.green[500];
       case "good":
@@ -60,6 +62,8 @@ function StatusIndicator({ status, isLive }: StatusIndicatorProps) {
   const getStatusText = () => {
     if (!isLive) return "OFFLINE";
     switch (status) {
+      case "pre-live":
+        return "NOT LIVE";
       case "excellent":
         return "EXCELLENT";
       case "good":
@@ -101,7 +105,7 @@ interface HeaderProps {
   uptime?: string;
   bitrate?: string;
   timeBetweenSegments?: number;
-  connectionStatus?: "excellent" | "good" | "poor" | "offline";
+  connectionStatus?: "excellent" | "good" | "poor" | "offline" | "pre-live";
   problemsCount?: number;
   onProblemsPress?: () => void;
 }

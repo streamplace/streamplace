@@ -25,6 +25,8 @@ interface Facet {
 
 import { useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
+import { BadgeDisplayRow } from "./badge";
+import { UserProfileCard } from "./user-profile-card";
 
 const getRgbColor = (color?: { red: number; green: number; blue: number }) =>
   color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : colors.gray[500];
@@ -152,39 +154,41 @@ export const RenderChatMessage = memo(
             </Text>
           </View>
         )}
-        <View
-          style={[
-            gap.all[2],
-            layout.flex.row,
-            { minWidth: 0, maxWidth: "100%" },
-          ]}
-        >
+        <View style={[layout.flex.row, { minWidth: 0, maxWidth: "100%" }]}>
           {showTime && (
             <Text
               style={{
                 fontVariant: ["tabular-nums"],
                 color: colors.gray[400],
+                width: 44,
+                marginRight: 8,
               }}
             >
               {formatTime(item.record.createdAt)}
             </Text>
           )}
-          <Text
-            weight="bold"
-            color="default"
-            style={[flex.shrink[1], { minWidth: 0, overflow: "hidden" }]}
-          >
-            <Text
-              style={[
-                {
-                  cursor: "pointer",
-                  color: getRgbColor(item.chatProfile?.color),
-                },
-              ]}
+          <Text style={[flex.shrink[1], { minWidth: 0 }]}>
+            <UserProfileCard
+              uri={item.uri}
+              author={item.author}
+              badges={item.badges}
             >
-              {formatHandleWithAt(item.author)}
+              <Text>
+                <BadgeDisplayRow badges={item.badges} />
+                <Text
+                  weight="bold"
+                  style={{
+                    cursor: "pointer",
+                    color: getRgbColor(item.chatProfile?.color),
+                  }}
+                >
+                  {formatHandleWithAt(item.author)}
+                </Text>
+              </Text>
+            </UserProfileCard>
+            <Text weight="bold" color="default">
+              {": "}
             </Text>
-            :{" "}
             <RichTextMessage
               text={item.record.text}
               facets={item.record.facets || []}

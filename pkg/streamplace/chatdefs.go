@@ -16,8 +16,10 @@ import (
 type ChatDefs_MessageView struct {
 	LexiconTypeID string                              `json:"$type" cborgen:"$type,const=place.stream.chat.defs#messageView"`
 	Author        *appbsky.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
-	ChatProfile   *ChatProfile                        `json:"chatProfile,omitempty" cborgen:"chatProfile,omitempty"`
-	Cid           string                              `json:"cid" cborgen:"cid"`
+	// badges: Up to 3 badge tokens to display with the message. First badge is server-controlled, remaining badges are user-settable. Tokens are looked up in badges.json for display info.
+	Badges      []*BadgeDefs_BadgeView `json:"badges,omitempty" cborgen:"badges,omitempty"`
+	ChatProfile *ChatProfile           `json:"chatProfile,omitempty" cborgen:"chatProfile,omitempty"`
+	Cid         string                 `json:"cid" cborgen:"cid"`
 	// deleted: If true, this message has been deleted or labeled and should be cleared from the cache
 	Deleted   *bool                         `json:"deleted,omitempty" cborgen:"deleted,omitempty"`
 	IndexedAt string                        `json:"indexedAt" cborgen:"indexedAt"`

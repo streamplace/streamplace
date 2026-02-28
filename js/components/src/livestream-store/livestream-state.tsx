@@ -32,6 +32,8 @@ export interface LivestreamState {
   setModerationPermissions: (
     permissions: PlaceStreamModerationPermission.Record[],
   ) => void;
+  localLivestreamURI: string | null;
+  setLocalLivestreamURI: (uri: string | null) => void;
 }
 
 export interface LivestreamProblem {

@@ -197,24 +197,52 @@ type SegmentMetadata struct {
 	DistributionPolicy    *localdb.DistributionPolicy
 	MetadataConfiguration *streamplace.MetadataConfiguration
 	Livestream            *streamplace.Livestream
+	Published             bool
 }
 
 var ErrMissingMetadata = errors.New("missing segment metadata")
 var ErrInvalidMetadata = errors.New("invalid segment metadata")
+var C2PAActionsV2Label = "c2pa.actions.v2"
+var C2PAPublishedAction = "c2pa.published"
 
 func ParseSegmentAssertions(ctx context.Context, mani *c2patypes.Manifest) (*SegmentMetadata, error) {
 	_, span := otel.Tracer("signer").Start(ctx, "ParseSegmentAssertions")
 	defer span.End()
 	var ass *c2patypes.ManifestAssertion
+	isPublished := false
 	for _, a := range mani.Assertions {
 		if a.Label == StreamplaceMetadata {
 			ass = &a
-			break
+			continue
 		}
 		if a.Label == "place.stream.metadata" {
 			// backwards compatibility for old manifests
 			ass = &a
-			break
+			continue
+		}
+		if a.Label == C2PAActionsV2Label {
+			data, ok := a.Data.(map[string]any)
+			if !ok {
+				return nil, ErrInvalidMetadata
+			}
+			actions, ok := data["actions"].([]any)
+			if !ok {
+				return nil, ErrInvalidMetadata
+			}
+			for _, action := range actions {
+				actionMap, ok := action.(map[string]any)
+				if !ok {
+					return nil, ErrInvalidMetadata
+				}
+				actionType, ok := actionMap["action"].(string)
+				if !ok {
+					return nil, ErrInvalidMetadata
+				}
+				if actionType == C2PAPublishedAction {
+					isPublished = true
+					break
+				}
+			}
 		}
 	}
 	if ass == nil {
@@ -268,6 +296,7 @@ func ParseSegmentAssertions(ctx context.Context, mani *c2patypes.Manifest) (*Seg
 		DistributionPolicy:    distributionPolicy,
 		MetadataConfiguration: metadataConfiguration,
 		Livestream:            livestream,
+		Published:             isPublished,
 	}
 	return &out, nil
 }

@@ -75,7 +75,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		signingKeyDID = meta.Creator
 		repoDID = meta.Creator
 	} else {
-		repo, err := mm.atsync.SyncBlueskyRepoCached(ctx, meta.Creator, mm.model)
+		repo, err := mm.atsync.SyncBlueskyRepoCached(ctx, meta.Creator)
 		if err != nil {
 			return err
 		}
@@ -129,6 +129,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		ContentRights:      meta.ContentRights,
 		DistributionPolicy: meta.DistributionPolicy,
 		DeleteAfter:        deleteAfter,
+		Published:          meta.Published,
 	}
 	mm.newSegmentSubsMutex.RLock()
 	defer mm.newSegmentSubsMutex.RUnlock()

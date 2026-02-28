@@ -8,7 +8,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { Volume2, VolumeX } from "lucide-react-native";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -26,8 +26,20 @@ export function VolumeSlider() {
 
   const fadeAnim = useSharedValue(0);
   const widthAnim = useSharedValue(0);
+  const fadeOutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fadeOut = useCallback(() => {
+    fadeAnim.value = withTiming(0, { duration: 400 });
+    widthAnim.value = withTiming(0, { duration: 400 });
+  }, [fadeAnim, widthAnim]);
+
+  const scheduleFadeOut = useCallback(() => {
+    if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
+    fadeOutTimer.current = setTimeout(fadeOut, 1500);
+  }, [fadeOut]);
 
   const onVolumeHover = useCallback(() => {
+    if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
     fadeAnim.value = withTiming(1, { duration: 200 });
     widthAnim.value = withTiming(200, { duration: 200 });
   }, [fadeAnim, widthAnim]);
@@ -49,6 +61,7 @@ export function VolumeSlider() {
   return (
     <View
       onPointerEnter={onVolumeHover}
+      onPointerLeave={fadeOut}
       style={[layout.flex.row, layout.flex.alignCenter, { height: 50 }]}
     >
       <Pressable onPress={handleMuteToggle} style={[p[2], r[1]]}>
@@ -76,6 +89,7 @@ export function VolumeSlider() {
             } else {
               setMuted(false);
             }
+            scheduleFadeOut();
           }}
           asChild
         >

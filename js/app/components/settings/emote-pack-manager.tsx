@@ -1,0 +1,733 @@
+import {
+  Button,
+  Dialog,
+  DialogFooter,
+  Input,
+  MenuContainer,
+  MenuGroup,
+  MenuSeparator,
+  ResponsiveDialog,
+  Text,
+  zero,
+} from "@streamplace/components";
+import { Select } from "@streamplace/components/src/components/ui/select";
+import Loading from "components/loading/loading";
+import { Plus, Trash2 } from "lucide-react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
+import { useStore } from "store";
+import { useOAuthSession } from "store/hooks";
+import { PlaceStreamEmoteItem, PlaceStreamEmotePack } from "streamplace";
+import { SettingsRowItem } from "./components/settings-navigation-item";
+
+const { text, mb, mt, gap, layout, w } = zero;
+
+interface PackRecord {
+  uri: string;
+  cid: string;
+  value: PlaceStreamEmotePack.Record;
+}
+
+interface EmoteRecord {
+  uri: string;
+  cid: string;
+  value: PlaceStreamEmoteItem.Record;
+}
+
+function emoteImageUrl(did: string, item: PlaceStreamEmoteItem.Record): string {
+  const cid = item.image.toJSON().ref.$link ?? "";
+  return `https://cdn.bsky.app/img/feed_fullsize/plain/${did}/${cid}@png`;
+}
+
+function CreatePackDialog({
+  isVisible,
+  onClose,
+  onSubmit,
+  isLoading,
+}: {
+  isVisible: boolean;
+  onClose: () => void;
+  onSubmit: (name: string, description: string) => void;
+  isLoading: boolean;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  const handleSubmit = () => {
+    if (!name.trim()) return;
+    onSubmit(name.trim(), description.trim());
+  };
+
+  const handleClose = () => {
+    setName("");
+    setDescription("");
+    onClose();
+  };
+
+  return (
+    <ResponsiveDialog
+      open={isVisible}
+      onOpenChange={(open) => !open && handleClose()}
+      title="Create Emote Pack"
+      dismissible={false}
+    >
+      <View style={[w.percent[100]]}>
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            Name *
+          </Text>
+          <Input
+            value={name}
+            onChangeText={setName}
+            placeholder="My Emote Pack"
+          />
+        </View>
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            Description (optional)
+          </Text>
+          <Input
+            value={description}
+            onChangeText={setDescription}
+            placeholder="A collection of custom emotes"
+          />
+        </View>
+      </View>
+      <DialogFooter>
+        <Button
+          width="min"
+          variant="secondary"
+          onPress={handleClose}
+          disabled={isLoading}
+        >
+          <Text>Cancel</Text>
+        </Button>
+        <Button
+          width="min"
+          onPress={handleSubmit}
+          disabled={isLoading || !name.trim()}
+        >
+          <Text>{isLoading ? "Creating..." : "Create"}</Text>
+        </Button>
+      </DialogFooter>
+    </ResponsiveDialog>
+  );
+}
+
+function CreateEmoteDialog({
+  isVisible,
+  onClose,
+  onSubmit,
+  isLoading,
+}: {
+  isVisible: boolean;
+  onClose: () => void;
+  onSubmit: (name: string, imageBlob: Blob, alt: string) => void;
+  isLoading: boolean;
+}) {
+  const [name, setName] = useState("");
+  const [alt, setAlt] = useState("");
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const blob = new Blob([file], { type: file.type });
+      setImageBlob(blob);
+      setImagePreview(URL.createObjectURL(blob));
+      event.target.value = "";
+    },
+    [],
+  );
+
+  const handleSubmit = () => {
+    if (!name.trim() || !imageBlob) return;
+    onSubmit(name.trim(), imageBlob, alt.trim());
+  };
+
+  const handleClose = () => {
+    setName("");
+    setAlt("");
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImageBlob(null);
+    setImagePreview(null);
+    onClose();
+  };
+
+  const isWeb = Platform.OS === "web";
+
+  return (
+    <Dialog
+      open={isVisible}
+      onOpenChange={(open) => !open && handleClose()}
+      title="Add Emote"
+      dismissible={false}
+    >
+      <View style={[w.percent[100]]}>
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            Name *
+          </Text>
+          <Input
+            value={name}
+            onChangeText={setName}
+            placeholder="my_emote"
+            autoCapitalize="none"
+          />
+          <Text size="sm" muted style={[mt[1]]}>
+            Alphanumeric and underscores only
+          </Text>
+        </View>
+
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            Image *
+          </Text>
+          {isWeb ? (
+            <View>
+              {imagePreview ? (
+                <View style={[mb[2]]}>
+                  <Image
+                    source={{ uri: imagePreview }}
+                    style={{ width: 64, height: 64, borderRadius: 6 }}
+                    resizeMode="contain"
+                  />
+                </View>
+              ) : null}
+              <Button
+                width="min"
+                variant="secondary"
+                onPress={() => fileInputRef.current?.click()}
+              >
+                <Text>{imagePreview ? "Change Image" : "Choose Image"}</Text>
+              </Button>
+              <input
+                type="file"
+                accept="image/png,image/gif,image/webp,image/avif"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                style={{ display: "none" }}
+              />
+            </View>
+          ) : (
+            <Text size="sm" muted>
+              Image upload is only available on web.
+            </Text>
+          )}
+        </View>
+
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            Alt text (optional)
+          </Text>
+          <Input
+            value={alt}
+            onChangeText={setAlt}
+            placeholder="Description of the emote"
+          />
+        </View>
+      </View>
+
+      <DialogFooter>
+        <Button
+          width="min"
+          variant="secondary"
+          onPress={handleClose}
+          disabled={isLoading}
+        >
+          <Text>Cancel</Text>
+        </Button>
+        <Button
+          width="min"
+          onPress={handleSubmit}
+          disabled={isLoading || !name.trim() || !imageBlob}
+        >
+          <Text>{isLoading ? "Adding..." : "Add Emote"}</Text>
+        </Button>
+      </DialogFooter>
+    </Dialog>
+  );
+}
+
+export default function EmotePackManager() {
+  const pdsAgent = useStore((state) => state.pdsAgent);
+  const session = useOAuthSession();
+  const { theme } = zero.useTheme();
+
+  const [packs, setPacks] = useState<PackRecord[] | null>(null);
+  const [selectedPackUri, setSelectedPackUri] = useState<string | null>(null);
+  const [emotes, setEmotes] = useState<EmoteRecord[] | null>(null);
+  const [loadingPacks, setLoadingPacks] = useState(true);
+  const [loadingEmotes, setLoadingEmotes] = useState(false);
+  const [showCreatePack, setShowCreatePack] = useState(false);
+  const [creatingPack, setCreatingPack] = useState(false);
+  const [showCreateEmote, setShowCreateEmote] = useState(false);
+  const [creatingEmote, setCreatingEmote] = useState(false);
+  const [deletingEmotes, setDeletingEmotes] = useState<Set<string>>(new Set());
+  const [deletePackDialog, setDeletePackDialog] = useState<{
+    isVisible: boolean;
+    pack: PackRecord | null;
+  }>({ isVisible: false, pack: null });
+  const [deleteEmoteDialog, setDeleteEmoteDialog] = useState<{
+    isVisible: boolean;
+    emote: EmoteRecord | null;
+  }>({ isVisible: false, emote: null });
+
+  const loadPacks = async () => {
+    if (!pdsAgent || !session?.did) return;
+    try {
+      setLoadingPacks(true);
+      const result = await pdsAgent.com.atproto.repo.listRecords({
+        repo: session.did,
+        collection: "place.stream.emote.pack",
+        limit: 100,
+      });
+      const loaded = (result.data.records as PackRecord[]).map((r) => ({
+        uri: r.uri,
+        cid: r.cid,
+        value: r.value as PlaceStreamEmotePack.Record,
+      }));
+      setPacks(loaded);
+      if (loaded.length > 0 && !selectedPackUri) {
+        setSelectedPackUri(loaded[0].uri);
+      }
+    } catch (err) {
+      console.error("Failed to load emote packs", err);
+      Alert.alert("Error", "Failed to load emote packs.");
+    } finally {
+      setLoadingPacks(false);
+    }
+  };
+
+  const loadEmotes = async (packUri: string) => {
+    if (!pdsAgent || !session?.did) return;
+    try {
+      setLoadingEmotes(true);
+      const result = await pdsAgent.com.atproto.repo.listRecords({
+        repo: session.did,
+        collection: "place.stream.emote.item",
+        limit: 100,
+      });
+      const all = (result.data.records as EmoteRecord[]).map((r) => ({
+        uri: r.uri,
+        cid: r.cid,
+        value: r.value as PlaceStreamEmoteItem.Record,
+      }));
+      setEmotes(all.filter((e) => e.value.pack === packUri));
+    } catch (err) {
+      console.error("Failed to load emotes", err);
+      Alert.alert("Error", "Failed to load emotes.");
+    } finally {
+      setLoadingEmotes(false);
+    }
+  };
+
+  const createPack = async (name: string, description: string) => {
+    if (!pdsAgent || !session?.did) return;
+    try {
+      setCreatingPack(true);
+      const result = await pdsAgent.com.atproto.repo.createRecord({
+        repo: session.did,
+        collection: "place.stream.emote.pack",
+        record: {
+          $type: "place.stream.emote.pack",
+          name,
+          ...(description ? { description } : {}),
+          createdAt: new Date().toISOString(),
+        },
+      });
+      setShowCreatePack(false);
+      await loadPacks();
+      setSelectedPackUri(result.data.uri);
+    } catch (err: any) {
+      console.error("Failed to create emote pack", err);
+      Alert.alert("Error", err.message ?? "Failed to create emote pack.");
+    } finally {
+      setCreatingPack(false);
+    }
+  };
+
+  const createEmote = async (name: string, imageBlob: Blob, alt: string) => {
+    if (!pdsAgent || !session?.did || !selectedPackUri) return;
+    try {
+      setCreatingEmote(true);
+      const uploadResult = await (pdsAgent as any).uploadBlob(imageBlob, {
+        headers: { "Content-Type": imageBlob.type },
+      });
+      await pdsAgent.com.atproto.repo.createRecord({
+        repo: session.did,
+        collection: "place.stream.emote.item",
+        record: {
+          $type: "place.stream.emote.item",
+          name,
+          image: uploadResult.data.blob,
+          pack: selectedPackUri,
+          ...(alt ? { alt } : {}),
+          createdAt: new Date().toISOString(),
+        },
+      });
+      setShowCreateEmote(false);
+      await loadEmotes(selectedPackUri);
+    } catch (err: any) {
+      console.error("Failed to create emote", err);
+      Alert.alert("Error", err.message ?? "Failed to create emote.");
+    } finally {
+      setCreatingEmote(false);
+    }
+  };
+
+  const confirmDeletePack = async () => {
+    if (!pdsAgent || !session?.did || !deletePackDialog.pack) return;
+    const rkey = deletePackDialog.pack.uri.split("/").pop() ?? "";
+    try {
+      await pdsAgent.com.atproto.repo.deleteRecord({
+        repo: session.did,
+        collection: "place.stream.emote.pack",
+        rkey,
+      });
+      setDeletePackDialog({ isVisible: false, pack: null });
+      setSelectedPackUri(null);
+      setEmotes(null);
+      await loadPacks();
+    } catch (err: any) {
+      console.error("Failed to delete emote pack", err);
+      Alert.alert("Error", err.message ?? "Failed to delete emote pack.");
+    }
+  };
+
+  const requestDeleteEmote = (rkey: string) => {
+    const emote = emotes?.find((e) => e.uri.endsWith(`/${rkey}`));
+    if (emote) setDeleteEmoteDialog({ isVisible: true, emote });
+  };
+
+  const confirmDeleteEmote = async () => {
+    if (!pdsAgent || !session?.did || !deleteEmoteDialog.emote) return;
+    const rkey = deleteEmoteDialog.emote.uri.split("/").pop() ?? "";
+    try {
+      setDeletingEmotes((prev) => new Set(prev).add(rkey));
+      await pdsAgent.com.atproto.repo.deleteRecord({
+        repo: session.did,
+        collection: "place.stream.emote.item",
+        rkey,
+      });
+      setDeleteEmoteDialog({ isVisible: false, emote: null });
+      if (selectedPackUri) await loadEmotes(selectedPackUri);
+    } catch (err: any) {
+      console.error("Failed to delete emote", err);
+      Alert.alert("Error", err.message ?? "Failed to delete emote.");
+    } finally {
+      setDeletingEmotes((prev) => {
+        const next = new Set(prev);
+        next.delete(rkey);
+        return next;
+      });
+    }
+  };
+
+  useEffect(() => {
+    loadPacks();
+  }, [pdsAgent, session?.did]);
+
+  useEffect(() => {
+    if (selectedPackUri) {
+      loadEmotes(selectedPackUri);
+    } else {
+      setEmotes(null);
+    }
+  }, [selectedPackUri]);
+
+  if (!pdsAgent || !session) {
+    return <Loading />;
+  }
+
+  const selectedPack = packs?.find((p) => p.uri === selectedPackUri) ?? null;
+
+  return (
+    <>
+      <ScrollView>
+        <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
+          <View style={{ maxWidth: 800, width: "100%" }}>
+            <MenuContainer>
+              <View>
+                <Text size="xl">My Emote Packs</Text>
+                <Text size="lg" style={[text.gray[400], { marginTop: 4 }]}>
+                  Create and manage custom emote packs for your chat.
+                </Text>
+
+                {loadingPacks ? (
+                  <View style={[mt[4]]}>
+                    <Loading />
+                  </View>
+                ) : packs && packs.length > 0 ? (
+                  <View
+                    style={[
+                      layout.flex.row,
+                      gap.all[3],
+                      mt[4],
+                      { alignItems: "center" },
+                    ]}
+                  >
+                    <View style={[zero.flex.values[1]]}>
+                      <Select
+                        value={selectedPackUri ?? undefined}
+                        onValueChange={setSelectedPackUri}
+                        items={packs.map((p) => ({
+                          label: p.value.name,
+                          value: p.uri,
+                        }))}
+                        placeholder="Select a pack..."
+                      />
+                    </View>
+                    <Button
+                      variant="destructive"
+                      width="min"
+                      size="pill"
+                      onPress={() =>
+                        selectedPack &&
+                        setDeletePackDialog({
+                          isVisible: true,
+                          pack: selectedPack,
+                        })
+                      }
+                      disabled={!selectedPack}
+                    >
+                      <Text>Delete Pack</Text>
+                    </Button>
+                  </View>
+                ) : (
+                  <View style={[layout.flex.row, gap.all[3], mt[2]]}>
+                    <Button
+                      onPress={() => setShowCreatePack(true)}
+                      size="pill"
+                      width="min"
+                      leftIcon={<Plus color={theme.colors.text} />}
+                    >
+                      <Text>New Pack</Text>
+                    </Button>
+                  </View>
+                )}
+              </View>
+            </MenuContainer>
+
+            {selectedPack && (
+              <MenuContainer>
+                <View>
+                  <View
+                    style={[
+                      layout.flex.row,
+                      { justifyContent: "space-between", alignItems: "center" },
+                    ]}
+                  >
+                    <View>
+                      <Text size="lg">Emotes</Text>
+                      {selectedPack.value.description && (
+                        <Text size="sm" muted style={[mt[1]]}>
+                          {selectedPack.value.description}
+                        </Text>
+                      )}
+                    </View>
+                    <Button
+                      onPress={() => setShowCreateEmote(true)}
+                      size="pill"
+                      width="min"
+                      leftIcon={<Plus color={theme.colors.text} />}
+                    >
+                      <Text>Add Emote</Text>
+                    </Button>
+                  </View>
+                </View>
+
+                {loadingEmotes ? (
+                  <View style={[mt[4]]}>
+                    <Loading />
+                  </View>
+                ) : !emotes || emotes.length === 0 ? (
+                  <View style={[layout.flex.center, mt[4], mb[2]]}>
+                    <Text style={[text.gray[600], { fontSize: 16 }]}>
+                      No emotes yet.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={[mt[4]]}>
+                    <MenuGroup>
+                      {emotes.map((emote, i) => {
+                        const rkey = emote.uri.split("/").pop() ?? "";
+                        const imageUrl = emoteImageUrl(
+                          session.did,
+                          emote.value,
+                        );
+                        return (
+                          <View key={emote.uri}>
+                            {i > 0 && <MenuSeparator />}
+                            <SettingsRowItem>
+                              <Image
+                                source={{ uri: imageUrl }}
+                                style={{
+                                  width: 36,
+                                  height: 36,
+                                  borderRadius: 4,
+                                }}
+                                resizeMode="contain"
+                              />
+                              <View
+                                style={[
+                                  zero.flex.values[1],
+                                  { marginLeft: 12 },
+                                ]}
+                              >
+                                <Text size="lg">:{emote.value.name}:</Text>
+                                {emote.value.alt && (
+                                  <Text size="sm" muted>
+                                    {emote.value.alt}
+                                  </Text>
+                                )}
+                              </View>
+                              <Pressable
+                                onPress={() => requestDeleteEmote(rkey)}
+                                disabled={deletingEmotes.has(rkey)}
+                                style={({ pressed }) => ({
+                                  padding: 8,
+                                  borderRadius: 6,
+                                  backgroundColor: pressed
+                                    ? "#ffffff08"
+                                    : "transparent",
+                                  opacity: deletingEmotes.has(rkey) ? 0.5 : 1,
+                                })}
+                              >
+                                <Trash2
+                                  size={18}
+                                  color={theme.colors.destructive}
+                                />
+                              </Pressable>
+                            </SettingsRowItem>
+                          </View>
+                        );
+                      })}
+                    </MenuGroup>
+                  </View>
+                )}
+              </MenuContainer>
+            )}
+          </View>
+        </View>
+      </ScrollView>
+
+      <CreatePackDialog
+        isVisible={showCreatePack}
+        onClose={() => setShowCreatePack(false)}
+        onSubmit={createPack}
+        isLoading={creatingPack}
+      />
+
+      <CreateEmoteDialog
+        isVisible={showCreateEmote}
+        onClose={() => setShowCreateEmote(false)}
+        onSubmit={createEmote}
+        isLoading={creatingEmote}
+      />
+
+      <Dialog
+        open={deletePackDialog.isVisible}
+        onOpenChange={(open) =>
+          !open && setDeletePackDialog({ isVisible: false, pack: null })
+        }
+        title="Delete Emote Pack"
+        dismissible={false}
+      >
+        <View style={[w.percent[100], mb[8], mt[2]]}>
+          <Text style={[{ fontSize: 24 }]}>
+            Delete "{deletePackDialog.pack?.value.name}"?
+          </Text>
+          <Text
+            style={[text.gray[400], mt[4], { fontSize: 18, fontWeight: "700" }]}
+          >
+            This cannot be undone.
+          </Text>
+        </View>
+        <View style={[layout.flex.row, layout.flex.justify.end, gap.all[3]]}>
+          <Button
+            variant="secondary"
+            width="full"
+            onPress={() =>
+              setDeletePackDialog({ isVisible: false, pack: null })
+            }
+          >
+            <Text>Cancel</Text>
+          </Button>
+          <Button
+            variant="destructive"
+            width="full"
+            onPress={confirmDeletePack}
+          >
+            <Text style={[text.white]}>Delete</Text>
+          </Button>
+        </View>
+      </Dialog>
+
+      <Dialog
+        open={deleteEmoteDialog.isVisible}
+        onOpenChange={(open) =>
+          !open && setDeleteEmoteDialog({ isVisible: false, emote: null })
+        }
+        title="Delete Emote"
+        dismissible={false}
+      >
+        <View style={[w.percent[100], mb[8], mt[2]]}>
+          <Text style={[{ fontSize: 24 }]}>
+            Delete ":{deleteEmoteDialog.emote?.value.name}:"?
+          </Text>
+          <Text
+            style={[text.gray[400], mt[4], { fontSize: 18, fontWeight: "700" }]}
+          >
+            This cannot be undone.
+          </Text>
+        </View>
+        <View style={[layout.flex.row, layout.flex.justify.end, gap.all[3]]}>
+          <Button
+            variant="secondary"
+            width="full"
+            onPress={() =>
+              setDeleteEmoteDialog({ isVisible: false, emote: null })
+            }
+          >
+            <Text>Cancel</Text>
+          </Button>
+          <Button
+            variant="destructive"
+            width="full"
+            onPress={confirmDeleteEmote}
+            disabled={
+              deleteEmoteDialog.emote
+                ? deletingEmotes.has(
+                    deleteEmoteDialog.emote.uri.split("/").pop() ?? "",
+                  )
+                : false
+            }
+          >
+            <Text style={[text.white]}>Delete</Text>
+          </Button>
+        </View>
+      </Dialog>
+    </>
+  );
+}

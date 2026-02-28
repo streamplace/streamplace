@@ -298,7 +298,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 					log.Error(ctx, "failed to delete chat message", "err", err)
 					continue
 				}
-				mv, err := msg.ToStreamplaceMessageView()
+				mv, err := msg.ToStreamplaceMessageView(ctx, atsync.Model)
 				if err != nil {
 					log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
 					continue
@@ -337,6 +337,22 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				err := atsync.Model.DeleteGate(ctx, rkey.String())
 				if err != nil {
 					log.Error(ctx, "failed to delete gate", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_EMOTE_ITEM {
+				log.Debug(ctx, "deleting emote item", "uri", uri)
+				err := atsync.Model.DeleteEmoteItem(ctx, uri)
+				if err != nil {
+					log.Error(ctx, "failed to delete emote item", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_EMOTE_PACK {
+				log.Debug(ctx, "deleting emote pack", "uri", uri)
+				err := atsync.Model.DeleteEmotePack(ctx, uri)
+				if err != nil {
+					log.Error(ctx, "failed to delete emote pack", "err", err)
 				}
 			}
 

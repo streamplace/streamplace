@@ -128,8 +128,12 @@ type Model interface {
 	UpsertEmotePack(ctx context.Context, pack *EmotePack) error
 	GetEmotePackByURI(ctx context.Context, uri string) (*EmotePack, error)
 	GetEmotePacksByDID(ctx context.Context, did string) ([]*EmotePack, error)
+	GetAllEmotePacks(ctx context.Context) ([]*EmotePack, error)
 	UpsertEmoteItem(ctx context.Context, item *EmoteItem) error
 	GetEmoteItemsByPack(ctx context.Context, packURI string) ([]*EmoteItem, error)
+	GetEmoteItemByURI(ctx context.Context, uri string) (*EmoteItem, error)
+	DeleteEmoteItem(ctx context.Context, uri string) error
+	DeleteEmotePack(ctx context.Context, uri string) error
 }
 
 var DBRevision = 2

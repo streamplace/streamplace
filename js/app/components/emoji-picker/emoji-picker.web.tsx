@@ -41,11 +41,19 @@ const CATEGORY_ICONS: { label: string; Icon: LucideIcon }[] = [
 
 export type SelectedEmoji =
   | { type: "standard"; native: string }
-  | { type: "custom"; name: string; imageUrl: string };
+  | {
+      type: "custom";
+      name: string;
+      aturi: string;
+      cid: string;
+      imageUrl: string;
+    };
 
 export interface CustomEmojiEntry {
   name: string;
   imageUrl: string;
+  aturi: string;
+  cid: string;
   alt?: string;
 }
 
@@ -263,7 +271,13 @@ export function EmojiPicker({
   };
 
   const handleCustomSelect = (entry: CustomEmojiEntry) => {
-    onSelect?.({ type: "custom", name: entry.name, imageUrl: entry.imageUrl });
+    onSelect?.({
+      type: "custom",
+      name: entry.name,
+      aturi: entry.aturi,
+      cid: entry.cid,
+      imageUrl: entry.imageUrl,
+    });
   };
 
   return (

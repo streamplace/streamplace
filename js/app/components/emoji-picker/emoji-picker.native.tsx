@@ -13,11 +13,13 @@ const { bg, borders, gap, layout, p, py, r, text } = zero;
 
 export type SelectedEmoji =
   | { type: "standard"; native: string }
-  | { type: "custom"; name: string; imageUrl: string };
+  | { type: "custom"; name: string; aturi: string; cid: string };
 
 export interface CustomEmojiEntry {
   name: string;
   imageUrl: string;
+  aturi: string;
+  cid: string;
   alt?: string;
 }
 
@@ -68,7 +70,12 @@ export function EmojiPicker({
   }));
 
   const handleSelect = (item: CustomEmojiEntry) => {
-    onSelect?.({ type: "custom", name: item.name, imageUrl: item.imageUrl });
+    onSelect?.({
+      type: "custom",
+      name: item.name,
+      aturi: item.aturi,
+      cid: item.cid,
+    });
     onClose();
   };
 

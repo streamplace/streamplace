@@ -169,24 +169,32 @@ interface SerializedEmojiNode extends SerializedTextNode {
   type: "emoji";
   emojiId: string;
   native: string | null;
+  aturi: string | null;
+  cid: string | null;
   imageUrl: string | null;
 }
 
 class EmojiNode extends TextNode {
   __emojiId: string;
   __native: string | null;
+  __aturi: string | null;
+  __cid: string | null;
   __imageUrl: string | null;
 
   constructor(
     text: string,
     emojiId: string,
     native: string | null,
-    imageUrl: string | null,
+    aturi: string | null,
+    cid: string | null,
+    imageUrl: string | null = null,
     key?: NodeKey,
   ) {
     super(text, key);
     this.__emojiId = emojiId;
     this.__native = native;
+    this.__aturi = aturi;
+    this.__cid = cid;
     this.__imageUrl = imageUrl;
   }
 
@@ -199,6 +207,8 @@ class EmojiNode extends TextNode {
       node.__text,
       node.__emojiId,
       node.__native,
+      node.__aturi,
+      node.__cid,
       node.__imageUrl,
       node.__key,
     );
@@ -209,9 +219,10 @@ class EmojiNode extends TextNode {
     el.className = "emoji-node";
     el.style.cssText =
       "white-space: nowrap; display: inline-flex; align-items: center; vertical-align: middle";
-    if (this.__imageUrl) {
+    const src = this.__imageUrl;
+    if (src) {
       const img = document.createElement("img");
-      img.src = this.__imageUrl;
+      img.src = src;
       img.alt = this.__text;
       img.title = this.__text;
       img.style.cssText =
@@ -224,14 +235,13 @@ class EmojiNode extends TextNode {
   }
 
   updateDOM(prevNode: EmojiNode, dom: HTMLElement): boolean {
-    if (
-      prevNode.__imageUrl !== this.__imageUrl ||
-      prevNode.__text !== this.__text
-    ) {
+    const src = this.__imageUrl;
+    const prevSrc = prevNode.__imageUrl;
+    if (prevSrc !== src || prevNode.__text !== this.__text) {
       dom.innerHTML = "";
-      if (this.__imageUrl) {
+      if (src) {
         const img = document.createElement("img");
-        img.src = this.__imageUrl;
+        img.src = src;
         img.alt = this.__text;
         img.title = this.__text;
         img.style.cssText =
@@ -254,6 +264,8 @@ class EmojiNode extends TextNode {
       type: "emoji",
       emojiId: this.__emojiId,
       native: this.__native,
+      aturi: this.__aturi,
+      cid: this.__cid,
       imageUrl: this.__imageUrl,
     };
   }
@@ -263,6 +275,8 @@ class EmojiNode extends TextNode {
       json.text,
       json.emojiId,
       json.native,
+      json.aturi ?? null,
+      json.cid ?? null,
       json.imageUrl ?? null,
     );
   }
@@ -272,9 +286,11 @@ function $createEmojiNode(
   text: string,
   emojiId: string,
   native: string | null,
+  aturi: string | null = null,
+  cid: string | null = null,
   imageUrl: string | null = null,
 ): EmojiNode {
-  return new EmojiNode(text, emojiId, native, imageUrl);
+  return new EmojiNode(text, emojiId, native, aturi, cid, imageUrl);
 }
 
 // ── Rich text extraction ─────────────────────────────────────────────────────
@@ -331,7 +347,9 @@ function extractRichText(editor: LexicalEditor): RichTextResult {
                 {
                   $type: "place.stream.richtext.facet#emote",
                   name: node.__emojiId,
-                  ...(node.__imageUrl ? { imageUrl: node.__imageUrl } : {}),
+                  ...(node.__aturi && node.__cid
+                    ? { ref: { uri: node.__aturi, cid: node.__cid } }
+                    : {}),
                 },
               ],
             });
@@ -498,6 +516,8 @@ export type InsertElement =
       type: "emoji";
       emojiId: string;
       native: string | null;
+      aturi?: string | null;
+      cid?: string | null;
       imageUrl?: string | null;
       text: string;
       seq: number;
@@ -670,6 +690,8 @@ function Plugins({
           insertElement.text,
           insertElement.emojiId,
           insertElement.native,
+          insertElement.aturi ?? null,
+          insertElement.cid ?? null,
           insertElement.imageUrl ?? null,
         );
         const spaceNode = new TextNode(" ");

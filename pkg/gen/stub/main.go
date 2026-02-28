@@ -10,6 +10,8 @@ import (
 // If you need to gen any CBOR stubs, put the type names here and in gen.go.
 var types = []string{
 	"RichtextFacet_Emote",
+	"RichtextFacet_EmoteView",
+	"EmoteDefs_EmoteView",
 }
 
 func main() {

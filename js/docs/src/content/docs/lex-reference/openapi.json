@@ -1769,6 +1769,34 @@
         ]
       }
     },
+    "/xrpc/place.stream.emote.getEmotePacks": {
+      "get": {
+        "summary": "Get all emote packs available on this server.",
+        "operationId": "place.stream.emote.getEmotePacks",
+        "tags": ["place.stream.emote"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "packs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.emote.defs_packView"
+                      }
+                    }
+                  },
+                  "required": ["packs"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.broadcast.getBroadcaster": {
       "get": {
         "summary": "Get information about a Streamplace broadcaster.",

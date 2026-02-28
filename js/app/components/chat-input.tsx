@@ -145,6 +145,8 @@ function ChatNativeInput(props: RenderInputProps) {
         type: "emoji",
         emojiId: emoji.name,
         native: null,
+        aturi: emoji.aturi,
+        cid: emoji.cid,
         imageUrl: emoji.imageUrl,
         text: `:${emoji.name}:`,
         seq,

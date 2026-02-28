@@ -52,11 +52,11 @@ function searchEmojis(query: string, emojiData: EmojiData) {
 
 function buildEmoteMap(
   emojiPacks: RenderInputProps["emojiPacks"],
-): Map<string, string> {
-  const map = new Map<string, string>();
+): Map<string, { aturi: string; cid: string }> {
+  const map = new Map<string, { aturi: string; cid: string }>();
   for (const pack of emojiPacks ?? []) {
     for (const emote of pack.emoji) {
-      map.set(emote.name, emote.imageUrl);
+      map.set(emote.name, { aturi: emote.aturi, cid: emote.cid });
     }
   }
   return map;
@@ -65,7 +65,7 @@ function buildEmoteMap(
 function extractFacets(
   text: string,
   authors: RenderInputProps["authors"],
-  emoteMap: Map<string, string>,
+  emoteMap: Map<string, { aturi: string; cid: string }>,
 ): ChatFacet[] {
   const enc = new TextEncoder();
   const facets: ChatFacet[] = [];
@@ -89,15 +89,15 @@ function extractFacets(
       }
     } else {
       const name = token.slice(1, -1);
-      const imageUrl = emoteMap.get(name);
-      if (imageUrl) {
+      const emoteData = emoteMap.get(name);
+      if (emoteData) {
         facets.push({
           index: { byteStart, byteEnd },
           features: [
             {
               $type: "place.stream.richtext.facet#emote",
               name,
-              imageUrl,
+              ref: { uri: emoteData.aturi, cid: emoteData.cid },
             },
           ],
         } as unknown as ChatFacet);

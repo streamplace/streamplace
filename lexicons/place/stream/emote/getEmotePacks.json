@@ -1,0 +1,26 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.emote.getEmotePacks",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get all emote packs available on this server.",
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["packs"],
+          "properties": {
+            "packs": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.emote.defs#packView"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

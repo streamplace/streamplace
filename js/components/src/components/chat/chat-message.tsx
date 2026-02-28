@@ -5,9 +5,10 @@ import {
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { memo, useCallback } from "react";
 import { Image, Linking, Platform, Pressable, View } from "react-native";
-import { ChatMessageViewHydrated } from "streamplace";
+import { ChatMessageViewHydrated, PlaceStreamRichtextFacet } from "streamplace";
 import { RichtextSegment, segmentize } from "../../lib/facet";
 import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
+import { emoteImageUrl } from "../../utils/did";
 import { formatHandleWithAt } from "../../utils/format-handle";
 import { atoms, colors, layout } from "../ui";
 
@@ -23,7 +24,7 @@ interface Facet {
   }>;
 }
 
-import { useLivestreamStore } from "../../livestream-store";
+import { useEmotes, useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
 import { BadgeDisplayRow } from "./badge";
 import { UserProfileCard } from "./user-profile-card";
@@ -35,6 +36,7 @@ const segmentedObject = (
   obj: RichtextSegment,
   index: number,
   userCache?: { [key: string]: ChatMessageViewHydrated["chatProfile"] },
+  emoteCache?: { [aturi: string]: { name: string; imageUrl: string } },
 ) => {
   if (obj.features && obj.features.length > 0) {
     let ftr = obj.features[0];
@@ -93,22 +95,49 @@ const segmentedObject = (
         </Pressable>
       );
     } else if (ftr.$type === "place.stream.richtext.facet#emote") {
-      const emote = ftr as { $type: string; name: string; imageUrl?: string };
-      if (emote.imageUrl) {
+      const emote = ftr as {
+        $type: string;
+        name: string;
+        ref?: { uri: string; cid: string };
+      };
+      if (emote.ref) {
+        const cached = emoteCache?.[emote.ref.uri];
+        const imageUrl =
+          cached?.imageUrl || emoteImageUrl(emote.ref.uri, emote.ref.cid);
         return (
-          <View key={`emote-${index}`}>
-            <Image
-              source={{ uri: emote.imageUrl }}
-              accessibilityLabel={emote.name}
-              style={{
+          <Image
+            key={`emote-${index}`}
+            source={{ uri: imageUrl }}
+            accessibilityLabel={cached?.name || emote.name}
+            style={
+              {
                 height: 22,
                 width: 22,
-                marginBottom: -22 / 5,
                 marginRight: 2,
-                alignSelf: "center",
-              }}
-            />
-          </View>
+                verticalAlign: "middle",
+              } as any
+            }
+          />
+        );
+      }
+      return <Text key={`emote-${index}`}>:{emote.name}:</Text>;
+    } else if (ftr.$type === "place.stream.richtext.facet#emoteView") {
+      const emote = ftr as PlaceStreamRichtextFacet.EmoteView;
+      if (emote.record) {
+        const imageUrl = emote.record.imageUrl;
+        return (
+          <Image
+            key={`emote-${index}`}
+            source={{ uri: imageUrl }}
+            accessibilityLabel={emote.name}
+            style={
+              {
+                height: 32,
+                width: 32,
+                verticalAlign: "middle",
+              } as any
+            }
+          />
         );
       }
       return <Text key={`emote-${index}`}>:{emote.name}:</Text>;
@@ -129,11 +158,12 @@ export const RichTextMessage = ({
   facets: ChatMessageViewHydrated["record"]["facets"];
 }) => {
   const userCache = useLivestreamStore((state) => state.authors);
+  const emoteCache = useEmotes();
   if (!facets?.length) return <Text>{text}</Text>;
 
   let segs = segmentize(text, facets as Facet[]);
 
-  return segs.map((seg, i) => segmentedObject(seg, i, userCache));
+  return segs.map((seg, i) => segmentedObject(seg, i, userCache, emoteCache));
 };
 export const RenderChatMessage = memo(
   function RenderChatMessage({

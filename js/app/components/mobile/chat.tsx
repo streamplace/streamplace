@@ -22,7 +22,7 @@ import { useNavigation } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { renderChatInput } from "components/chat-input";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
-import { DAN_PACK } from "components/emoji-picker/presets";
+import { useEmotePacks } from "hooks/useEmotePacks";
 import { ArrowRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
@@ -249,6 +249,7 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
+  const emotePacks = useEmotePacks();
 
   return (
     <View
@@ -267,6 +268,7 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
           <ChatBox
             emojiData={emojiData}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
+            emojiPacks={emotePacks}
             setIsChatVisible={setShowChat ? (v) => setShowChat(v) : undefined}
             emojiPacks={[DAN_PACK]}
             emojiPicker={(isOpen, onClose, onSelect) => (
@@ -274,7 +276,7 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
                 isOpen={isOpen}
                 onClose={onClose}
                 onSelect={onSelect}
-                emojiPacks={[DAN_PACK]}
+                emojiPacks={emotePacks}
               />
             )}
             renderInput={renderChatInput}

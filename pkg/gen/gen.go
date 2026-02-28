@@ -21,6 +21,7 @@ func main() {
 		streamplace.Segment_Framerate{},
 		streamplace.ChatMessage{},
 		streamplace.RichtextFacet_Emote{},
+		streamplace.RichtextFacet_EmoteView{},
 		streamplace.RichtextFacet{},
 		streamplace.ChatProfile{},
 		streamplace.ChatProfile_Color{},
@@ -39,6 +40,7 @@ func main() {
 		streamplace.LiveRecommendations{},
 		streamplace.EmotePack{},
 		streamplace.EmoteItem{},
+		streamplace.EmoteDefs_EmoteView{},
 	); err != nil {
 		panic(err)
 	}

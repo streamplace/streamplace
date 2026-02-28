@@ -32,6 +32,15 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     setModerationPermissions: (perms) => set({ moderationPermissions: perms }),
     localLivestreamURI: null,
     setLocalLivestreamURI: (uri) => set({ localLivestreamURI: uri }),
+    emotes: {},
+    addEmotes: (newEmotes) =>
+      set((state) => ({
+        ...state,
+        emotes: {
+          ...state.emotes,
+          ...Object.fromEntries(newEmotes.map((e) => [e.aturi, e])),
+        },
+      })),
   }));
 };
 
@@ -82,3 +91,7 @@ export const useRecentSegments = () =>
   useLivestreamStore((x) => x.recentSegments);
 
 export const useRenditions = () => useLivestreamStore((x) => x.renditions);
+
+export const useEmotes = () => useLivestreamStore((x) => x.emotes);
+
+export const useEmotesCache = () => useLivestreamStore((x) => x.emotes);

@@ -65,13 +65,21 @@ export interface RenderInputProps {
   skinTone: number;
   emojiPacks?: {
     name: string;
-    emoji: { name: string; imageUrl: string; alt?: string }[];
+    emoji: {
+      name: string;
+      imageUrl: string;
+      aturi: string;
+      cid: string;
+      alt?: string;
+    }[];
   }[];
   insertElement?:
     | {
         type: "emoji";
         emojiId: string;
         native: string | null;
+        aturi?: string | null;
+        cid?: string | null;
         imageUrl?: string | null;
         text: string;
         seq: number;
@@ -230,6 +238,8 @@ export function ChatBox({
           type: "emoji",
           emojiId: emoji.name,
           native: null,
+          aturi: emoji.aturi ?? null,
+          cid: emoji.cid ?? null,
           imageUrl: emoji.imageUrl ?? null,
           text: `:${emoji.name}:`,
           seq,

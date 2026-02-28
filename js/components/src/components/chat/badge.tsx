@@ -1,4 +1,4 @@
-import { Image } from "react-native";
+import { Image, Platform } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 
 export const BADGE_IMAGES: Record<string, ReturnType<typeof require>> = {
@@ -22,7 +22,7 @@ export const Badge = ({
       style={{
         height: size,
         width: size,
-        marginBottom: -size / 5,
+        marginBottom: Platform.OS === "web" ? -size / 4 : 0,
         marginRight: 2,
       }}
     />

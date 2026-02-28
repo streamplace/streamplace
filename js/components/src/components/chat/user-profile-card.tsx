@@ -70,13 +70,14 @@ export const ProfileCardProvider = ({
 };
 
 const BadgeRow = ({
+  streamer,
   badge,
   serviceDid,
 }: {
   badge: NonNullable<ChatMessageViewHydrated["badges"]>[number];
   serviceDid: string;
+  streamer?: ProfileViewBasic;
 }) => {
-  const streamer = useLivestreamStore((x) => x.livestream?.author);
   const isServiceIssued = badge.issuer === serviceDid;
   const issuerDids = useMemo(
     () => (isServiceIssued ? [] : [badge.issuer]),
@@ -141,6 +142,8 @@ export const UserProfileCard = ({
     ? `did:web:${nodeUrl.replace(/^https?:\/\//, "")}`
     : null;
 
+  const streamer = useLivestreamStore((x) => x.livestream?.author);
+
   const { openUri, setOpenUri } = useContext(OpenCardContext);
   const isOpen = openUri === uri;
   const thisRef = useRef<TriggerRef>(null);
@@ -183,6 +186,7 @@ export const UserProfileCard = ({
             marginLeft: -3,
             paddingLeft: 3,
             marginRight: -2,
+            ...(Platform.OS === "web" && { paddingBottom: 4 }),
             ...(Platform.OS === "web" && hovered
               ? { backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 6 }
               : {}),
@@ -264,7 +268,12 @@ export const UserProfileCard = ({
               }}
             >
               {serviceBadges.map((badge, i) => (
-                <BadgeRow key={i} badge={badge} serviceDid={serviceDid} />
+                <BadgeRow
+                  key={i}
+                  badge={badge}
+                  serviceDid={serviceDid}
+                  streamer={streamer}
+                />
               ))}
             </View>
           ) : null}

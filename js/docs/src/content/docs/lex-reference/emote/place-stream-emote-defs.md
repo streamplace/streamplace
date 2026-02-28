@@ -15,12 +15,14 @@ description: Reference for the place.stream.emote.defs lexicon
 
 **Properties:**
 
-| Name    | Type                     | Req'd | Description                                                     | Constraints                                                                                          |
-| ------- | ------------------------ | ----- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `name`  | `string`                 | ✅    | Short name used to reference this emote in chat, e.g. 'pepega'. |                                                                                                      |
-| `image` | `blob`                   | ✅    | The emote image.                                                | Accept: `image/png`, `image/gif`, `image/webp`, `image/avif`, `image/jxl`<br/>Max Size: 512000 bytes |
-| `alt`   | `string`                 | ❌    | Alt text for the emote image.                                   |                                                                                                      |
-| `pack`  | [`#packView`](#packview) | ❌    | The pack this emote belongs to.                                 |                                                                                                      |
+| Name        | Type     | Req'd | Description                                      | Constraints        |
+| ----------- | -------- | ----- | ------------------------------------------------ | ------------------ |
+| `uri`       | `string` | ✅    | AT-URI of the place.stream.emote.item record.    | Format: `at-uri`   |
+| `cid`       | `string` | ✅    |                                                  | Format: `cid`      |
+| `name`      | `string` | ✅    | Short name used to reference this emote in chat. |                    |
+| `imageUrl`  | `string` | ✅    | Resolved URL for the emote image.                | Format: `uri`      |
+| `alt`       | `string` | ❌    | Alt text for the emote image.                    |                    |
+| `indexedAt` | `string` | ✅    |                                                  | Format: `datetime` |
 
 ---
 
@@ -32,13 +34,15 @@ description: Reference for the place.stream.emote.defs lexicon
 
 **Properties:**
 
-| Name        | Type                                                                                                                                             | Req'd | Description | Constraints        |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ----------- | ------------------ |
-| `uri`       | `string`                                                                                                                                         | ✅    |             | Format: `at-uri`   |
-| `cid`       | `string`                                                                                                                                         | ✅    |             | Format: `cid`      |
-| `author`    | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |             |                    |
-| `record`    | [`place.stream.emote.defs#emoteView`](/lex-reference/place-stream-emote-defs#emoteview)                                                          | ✅    |             |                    |
-| `indexedAt` | `string`                                                                                                                                         | ✅    |             | Format: `datetime` |
+| Name          | Type                                                                                                                                             | Req'd | Description | Constraints        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ----------- | ------------------ |
+| `uri`         | `string`                                                                                                                                         | ✅    |             | Format: `at-uri`   |
+| `cid`         | `string`                                                                                                                                         | ✅    |             | Format: `cid`      |
+| `author`      | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |             |                    |
+| `name`        | `string`                                                                                                                                         | ✅    |             |                    |
+| `description` | `string`                                                                                                                                         | ❌    |             |                    |
+| `emotes`      | Array of [`#emoteView`](#emoteview)                                                                                                              | ✅    |             |                    |
+| `indexedAt`   | `string`                                                                                                                                         | ✅    |             | Format: `datetime` |
 
 ---
 
@@ -51,38 +55,39 @@ description: Reference for the place.stream.emote.defs lexicon
   "defs": {
     "emoteView": {
       "type": "object",
-      "required": ["name", "image"],
+      "required": ["uri", "cid", "name", "imageUrl", "indexedAt"],
       "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "AT-URI of the place.stream.emote.item record."
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
         "name": {
           "type": "string",
-          "description": "Short name used to reference this emote in chat, e.g. 'pepega'."
+          "description": "Short name used to reference this emote in chat."
         },
-        "image": {
-          "type": "blob",
-          "accept": [
-            "image/png",
-            "image/gif",
-            "image/webp",
-            "image/avif",
-            "image/jxl"
-          ],
-          "maxSize": 512000,
-          "description": "The emote image."
+        "imageUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Resolved URL for the emote image."
         },
         "alt": {
           "type": "string",
           "description": "Alt text for the emote image."
         },
-        "pack": {
-          "type": "ref",
-          "ref": "#packView",
-          "description": "The pack this emote belongs to."
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
         }
       }
     },
     "packView": {
       "type": "object",
-      "required": ["uri", "cid", "author", "record", "indexedAt"],
+      "required": ["uri", "cid", "author", "name", "emotes", "indexedAt"],
       "properties": {
         "uri": {
           "type": "string",
@@ -96,9 +101,18 @@ description: Reference for the place.stream.emote.defs lexicon
           "type": "ref",
           "ref": "app.bsky.actor.defs#profileViewBasic"
         },
-        "record": {
-          "type": "ref",
-          "ref": "place.stream.emote.defs#emoteView"
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "emotes": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#emoteView"
+          }
         },
         "indexedAt": {
           "type": "string",

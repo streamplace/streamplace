@@ -6,26 +6,29 @@ package streamplace
 
 import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
 // EmoteDefs_EmoteView is a "emoteView" in the place.stream.emote.defs schema.
 type EmoteDefs_EmoteView struct {
 	// alt: Alt text for the emote image.
 	Alt *string `json:"alt,omitempty" cborgen:"alt,omitempty"`
-	// image: The emote image.
-	Image *lexutil.LexBlob `json:"image" cborgen:"image"`
-	// name: Short name used to reference this emote in chat, e.g. 'pepega'.
+	Cid string  `json:"cid" cborgen:"cid"`
+	// imageUrl: Resolved URL for the emote image.
+	ImageUrl  string `json:"imageUrl" cborgen:"imageUrl"`
+	IndexedAt string `json:"indexedAt" cborgen:"indexedAt"`
+	// name: Short name used to reference this emote in chat.
 	Name string `json:"name" cborgen:"name"`
-	// pack: The pack this emote belongs to.
-	Pack *EmoteDefs_PackView `json:"pack,omitempty" cborgen:"pack,omitempty"`
+	// uri: AT-URI of the place.stream.emote.item record.
+	Uri string `json:"uri" cborgen:"uri"`
 }
 
 // EmoteDefs_PackView is a "packView" in the place.stream.emote.defs schema.
 type EmoteDefs_PackView struct {
-	Author    *appbsky.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
-	Cid       string                              `json:"cid" cborgen:"cid"`
-	IndexedAt string                              `json:"indexedAt" cborgen:"indexedAt"`
-	Record    *EmoteDefs_EmoteView                `json:"record" cborgen:"record"`
-	Uri       string                              `json:"uri" cborgen:"uri"`
+	Author      *appbsky.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
+	Cid         string                              `json:"cid" cborgen:"cid"`
+	Description *string                             `json:"description,omitempty" cborgen:"description,omitempty"`
+	Emotes      []*EmoteDefs_EmoteView              `json:"emotes" cborgen:"emotes"`
+	IndexedAt   string                              `json:"indexedAt" cborgen:"indexedAt"`
+	Name        string                              `json:"name" cborgen:"name"`
+	Uri         string                              `json:"uri" cborgen:"uri"`
 }

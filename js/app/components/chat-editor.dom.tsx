@@ -284,9 +284,10 @@ export interface RichTextFacet {
   features: (
     | { $type: "app.bsky.richtext.facet#mention"; did: string }
     | {
-        $type: "place.stream.richtext.facet#customEmoji";
-        emojiId: string;
-        native: string | null;
+        $type: "place.stream.richtext.facet#emote";
+        name: string;
+        ref?: { uri: string; cid: string };
+        imageUrl?: string;
       }
   )[];
 }
@@ -328,9 +329,9 @@ function extractRichText(editor: LexicalEditor): RichTextResult {
               index: { byteStart, byteEnd },
               features: [
                 {
-                  $type: "place.stream.richtext.facet#customEmoji",
-                  emojiId: node.__emojiId,
-                  native: node.__native,
+                  $type: "place.stream.richtext.facet#emote",
+                  name: node.__emojiId,
+                  ...(node.__imageUrl ? { imageUrl: node.__imageUrl } : {}),
                 },
               ],
             });

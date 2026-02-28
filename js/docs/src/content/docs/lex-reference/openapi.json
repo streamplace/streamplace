@@ -517,47 +517,6 @@
         }
       }
     },
-    "/xrpc/place.stream.playback.getPlaybackServer": {
-      "get": {
-        "summary": "Get available playback servers for a livestream.",
-        "operationId": "place.stream.playback.getPlaybackServer",
-        "tags": ["place.stream.playback"],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "servers": {
-                      "type": "array",
-                      "description": "List of available playback server addresses",
-                      "items": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "required": ["servers"]
-                }
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "stream",
-            "in": "query",
-            "required": true,
-            "description": "Identifier of the stream to get playback servers for",
-            "schema": {
-              "type": "string",
-              "description": "Identifier of the stream to get playback servers for"
-            }
-          }
-        ]
-      }
-    },
     "/xrpc/place.stream.playback.whep": {
       "post": {
         "summary": "Play a stream over WebRTC using WHEP.",
@@ -1020,96 +979,6 @@
         }
       }
     },
-    "/xrpc/place.stream.moderation.createPin": {
-      "post": {
-        "summary": "Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. Creates a place.stream.chat.pinnedRecord in the streamer's repo, replacing any existing pin.",
-        "operationId": "place.stream.moderation.createPin",
-        "tags": ["place.stream.moderation"],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "uri": {
-                      "type": "string",
-                      "description": "The AT-URI of the created pinned record.",
-                      "format": "uri"
-                    },
-                    "cid": {
-                      "type": "string",
-                      "description": "The CID of the created pinned record.",
-                      "format": "cid"
-                    }
-                  },
-                  "required": ["uri", "cid"]
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["error", "message"],
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "oneOf": [
-                        {
-                          "const": "Unauthorized"
-                        },
-                        {
-                          "const": "Forbidden"
-                        },
-                        {
-                          "const": "SessionNotFound"
-                        }
-                      ]
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "streamer": {
-                    "type": "string",
-                    "description": "The DID of the streamer.",
-                    "format": "did"
-                  },
-                  "messageUri": {
-                    "type": "string",
-                    "description": "The AT-URI of the chat message to pin.",
-                    "format": "uri"
-                  },
-                  "expiresAt": {
-                    "type": "string",
-                    "description": "Optional expiration time for this pin.",
-                    "format": "date-time"
-                  }
-                },
-                "required": ["streamer", "messageUri"]
-              }
-            }
-          }
-        }
-      }
-    },
     "/xrpc/place.stream.moderation.deleteBlock": {
       "post": {
         "summary": "Delete a block (unban) on behalf of a streamer. Requires 'ban' permission. Deletes an app.bsky.graph.block record from the streamer's repository.",
@@ -1250,79 +1119,6 @@
                   }
                 },
                 "required": ["streamer", "gateUri"]
-              }
-            }
-          }
-        }
-      }
-    },
-    "/xrpc/place.stream.moderation.deletePin": {
-      "post": {
-        "summary": "Unpin a pinned chat message on behalf of a streamer. Requires 'message.pin' permission. Deletes the place.stream.chat.pinnedRecord from the streamer's repo.",
-        "operationId": "place.stream.moderation.deletePin",
-        "tags": ["place.stream.moderation"],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {}
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["error", "message"],
-                  "properties": {
-                    "error": {
-                      "type": "string",
-                      "oneOf": [
-                        {
-                          "const": "Unauthorized"
-                        },
-                        {
-                          "const": "Forbidden"
-                        },
-                        {
-                          "const": "SessionNotFound"
-                        }
-                      ]
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "streamer": {
-                    "type": "string",
-                    "description": "The DID of the streamer.",
-                    "format": "did"
-                  },
-                  "pinUri": {
-                    "type": "string",
-                    "description": "The AT-URI of the pinned record to delete.",
-                    "format": "uri"
-                  }
-                },
-                "required": ["streamer", "pinUri"]
               }
             }
           }
@@ -1887,38 +1683,6 @@
         }
       }
     },
-    "/xrpc/place.stream.ingest.getIngestUrls": {
-      "get": {
-        "summary": "Get ingest URLs for a Streamplace station.",
-        "operationId": "place.stream.ingest.getIngestUrls",
-        "tags": ["place.stream.ingest"],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ingests": {
-                      "type": "array",
-                      "items": {
-                        "oneOf": [
-                          {
-                            "$ref": "#/components/schemas/place.stream.ingest.defs_ingest"
-                          }
-                        ]
-                      }
-                    }
-                  },
-                  "required": ["ingests"]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/xrpc/place.stream.graph.getFollowingUser": {
       "get": {
         "summary": "Get whether or not user A is following user B.",
@@ -1967,11 +1731,11 @@
         ]
       }
     },
-    "/xrpc/place.stream.config.getEnv": {
+    "/xrpc/place.stream.emote.getEmotePack": {
       "get": {
-        "summary": "Get client-facing environment configuration from the server.",
-        "operationId": "place.stream.config.getEnv",
-        "tags": ["place.stream.config"],
+        "summary": "Get an emote pack and its items.",
+        "operationId": "place.stream.emote.getEmotePack",
+        "tags": ["place.stream.emote"],
         "responses": {
           "200": {
             "description": "Success",
@@ -1980,16 +1744,29 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "playbackWorkerUrl": {
-                      "type": "string",
-                      "description": "URL of the Cloudflare playback router worker"
+                    "pack": {
+                      "$ref": "#/components/schemas/place.stream.emote.defs_packView"
                     }
-                  }
+                  },
+                  "required": ["pack"]
                 }
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "uri",
+            "in": "query",
+            "required": true,
+            "description": "AT-URI of the place.stream.emote.pack record.",
+            "schema": {
+              "type": "string",
+              "description": "AT-URI of the place.stream.emote.pack record.",
+              "format": "uri"
+            }
+          }
+        ]
       }
     },
     "/xrpc/place.stream.broadcast.getBroadcaster": {
@@ -3861,22 +3638,6 @@
         "format": "byte",
         "description": "MP4 file of a user's signed livestream segment"
       },
-      "place.stream.ingest.defs_ingest": {
-        "type": "object",
-        "description": "An ingest URL for a Streamplace station.",
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "The type of ingest endpoint, currently 'rtmp' and 'whip' are supported."
-          },
-          "url": {
-            "type": "string",
-            "description": "The URL of the ingest endpoint.",
-            "format": "uri"
-          }
-        },
-        "required": ["type", "url"]
-      },
       "com.atproto.repo.strongRef": {
         "type": "object",
         "properties": {
@@ -3890,6 +3651,71 @@
           }
         },
         "required": ["uri", "cid"]
+      },
+      "place.stream.emote.defs_packView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "author": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewBasic"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "emotes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/place.stream.emote.defs_emoteView"
+            }
+          },
+          "indexedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["uri", "cid", "author", "name", "emotes", "indexedAt"]
+      },
+      "place.stream.emote.defs_emoteView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "description": "AT-URI of the place.stream.emote.item record.",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Short name used to reference this emote in chat."
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Resolved URL for the emote image.",
+            "format": "uri"
+          },
+          "alt": {
+            "type": "string",
+            "description": "Alt text for the emote image."
+          },
+          "indexedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["uri", "cid", "name", "imageUrl", "indexedAt"]
       },
       "place.stream.branding.getBranding_brandingAsset": {
         "type": "object",

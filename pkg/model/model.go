@@ -124,6 +124,12 @@ type Model interface {
 
 	UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, profileBs []byte, wasStreamplace bool) error
 	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*bsky.ActorProfile, error)
+
+	UpsertEmotePack(ctx context.Context, pack *EmotePack) error
+	GetEmotePackByURI(ctx context.Context, uri string) (*EmotePack, error)
+	GetEmotePacksByDID(ctx context.Context, did string) ([]*EmotePack, error)
+	UpsertEmoteItem(ctx context.Context, item *EmoteItem) error
+	GetEmoteItemsByPack(ctx context.Context, packURI string) ([]*EmoteItem, error)
 }
 
 var DBRevision = 2
@@ -194,7 +200,6 @@ func MakeDB(dbURL string) (Model, error) {
 		Teleport{},
 		ModerationDelegation{},
 		Recommendation{},
-		BskyProfile{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

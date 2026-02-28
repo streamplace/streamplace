@@ -4,7 +4,7 @@ import {
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { memo, useCallback } from "react";
-import { Linking, Platform, Pressable, View } from "react-native";
+import { Image, Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { RichtextSegment, segmentize } from "../../lib/facet";
 import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
@@ -92,6 +92,26 @@ const segmentedObject = (
           </Text>
         </Pressable>
       );
+    } else if (ftr.$type === "place.stream.richtext.facet#emote") {
+      const emote = ftr as { $type: string; name: string; imageUrl?: string };
+      if (emote.imageUrl) {
+        return (
+          <View key={`emote-${index}`}>
+            <Image
+              source={{ uri: emote.imageUrl }}
+              accessibilityLabel={emote.name}
+              style={{
+                height: 22,
+                width: 22,
+                marginBottom: -22 / 5,
+                marginRight: 2,
+                alignSelf: "center",
+              }}
+            />
+          </View>
+        );
+      }
+      return <Text key={`emote-${index}`}>:{emote.name}:</Text>;
     } else {
       // render as normal text if we don't recognize the facet type
       return <Text key={`unknown-facet-${index}`}>{obj.text}</Text>;

@@ -4,50 +4,69 @@
   "defs": {
     "emoteView": {
       "type": "object",
-      "required": ["name", "image"],
+      "required": ["uri", "cid", "name", "imageUrl", "indexedAt"],
       "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "AT-URI of the place.stream.emote.item record."
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
         "name": {
           "type": "string",
-          "description": "Short name used to reference this emote in chat, e.g. 'pepega'."
+          "description": "Short name used to reference this emote in chat."
         },
-        "image": {
-          "type": "blob",
-          "accept": [
-            "image/png",
-            "image/gif",
-            "image/webp",
-            "image/avif",
-            "image/jxl"
-          ],
-          "maxSize": 512000,
-          "description": "The emote image."
+        "imageUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Resolved URL for the emote image."
         },
         "alt": {
           "type": "string",
           "description": "Alt text for the emote image."
         },
-        "pack": {
-          "type": "ref",
-          "ref": "#packView",
-          "description": "The pack this emote belongs to."
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
         }
       }
     },
     "packView": {
       "type": "object",
-      "required": ["uri", "cid", "author", "record", "indexedAt"],
+      "required": ["uri", "cid", "author", "name", "emotes", "indexedAt"],
       "properties": {
-        "uri": { "type": "string", "format": "at-uri" },
-        "cid": { "type": "string", "format": "cid" },
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
         "author": {
           "type": "ref",
           "ref": "app.bsky.actor.defs#profileViewBasic"
         },
-        "record": {
-          "type": "ref",
-          "ref": "place.stream.emote.defs#emoteView"
+        "name": {
+          "type": "string"
         },
-        "indexedAt": { "type": "string", "format": "datetime" }
+        "description": {
+          "type": "string"
+        },
+        "emotes": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#emoteView"
+          }
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
       }
     }
   }

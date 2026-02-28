@@ -1,4 +1,5 @@
 import {
+  ChatFacet,
   EmojiData,
   EmojiSuggestions,
   getSkinNative,
@@ -10,8 +11,7 @@ import {
   SelectedEmoji,
 } from "components/emoji-picker/emoji-picker";
 import { useCallback, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import ChatEditor, { RichTextResult } from "./chat-editor.dom";
+import { Pressable, Text, TextInput, View } from "react-native";
 
 function searchEmojis(query: string, emojiData: EmojiData) {
   const aliasMatches: Record<string, { matchType: number; index: number }> = {};
@@ -50,26 +50,74 @@ function searchEmojis(query: string, emojiData: EmojiData) {
     .map((x) => x.emoji);
 }
 
+function buildEmoteMap(
+  emojiPacks: RenderInputProps["emojiPacks"],
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const pack of emojiPacks ?? []) {
+    for (const emote of pack.emoji) {
+      map.set(emote.name, emote.imageUrl);
+    }
+  }
+  return map;
+}
+
+function extractFacets(
+  text: string,
+  authors: RenderInputProps["authors"],
+  emoteMap: Map<string, string>,
+): ChatFacet[] {
+  const enc = new TextEncoder();
+  const facets: ChatFacet[] = [];
+  const authorMap = new Map(authors.map((a) => [a.handle.toLowerCase(), a]));
+  const tokenRe = /(@\S+|:[a-zA-Z0-9_]+:)/g;
+  let match: RegExpExecArray | null;
+  while ((match = tokenRe.exec(text)) !== null) {
+    const token = match[0];
+    const byteStart = enc.encode(text.slice(0, match.index)).byteLength;
+    const byteEnd = byteStart + enc.encode(token).byteLength;
+    if (token.startsWith("@")) {
+      const handle = token.slice(1).toLowerCase();
+      const author = authorMap.get(handle);
+      if (author?.did) {
+        facets.push({
+          index: { byteStart, byteEnd },
+          features: [
+            { $type: "app.bsky.richtext.facet#mention", did: author.did },
+          ],
+        } as unknown as ChatFacet);
+      }
+    } else {
+      const name = token.slice(1, -1);
+      const imageUrl = emoteMap.get(name);
+      if (imageUrl) {
+        facets.push({
+          index: { byteStart, byteEnd },
+          features: [
+            {
+              $type: "place.stream.richtext.facet#emote",
+              name,
+              imageUrl,
+            },
+          ],
+        } as unknown as ChatFacet);
+      }
+    }
+  }
+  return facets;
+}
+
 function ChatNativeInput(props: RenderInputProps) {
+  const [text, setText] = useState("");
   const [height, setHeight] = useState(43);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [emojiQuery, setEmojiQuery] = useState<string | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const highlightedIndexRef = useRef(0);
-  const insertSeqRef = useRef(0);
-  const [internalInsert, setInternalInsert] =
-    useState<RenderInputProps["insertElement"]>(undefined);
+  const textRef = useRef("");
 
-  // Keep refs so onEnter closure always sees current suggestion state
-  const filteredAuthorsRef = useRef<
-    Map<string, (typeof props.authors)[number] | undefined>
-  >(new Map());
-  const filteredEmojisRef = useRef<
-    typeof props.emojiData extends null
-      ? never
-      : ReturnType<typeof searchEmojis>
-  >([]);
+  const emoteMap = buildEmoteMap(props.emojiPacks);
 
   const filteredAuthors: Map<
     string,
@@ -88,8 +136,10 @@ function ChatNativeInput(props: RenderInputProps) {
       ? searchEmojis(emojiQuery, props.emojiData)
       : [];
 
+  const filteredAuthorsRef = useRef(filteredAuthors);
   filteredAuthorsRef.current = filteredAuthors;
-  filteredEmojisRef.current = filteredEmojis as any;
+  const filteredEmojisRef = useRef(filteredEmojis);
+  filteredEmojisRef.current = filteredEmojis;
 
   const hasAnySuggestions =
     filteredAuthors.size > 0 || filteredEmojis.length > 0;
@@ -101,16 +151,49 @@ function ChatNativeInput(props: RenderInputProps) {
     highlightedIndexRef.current = 0;
   }, []);
 
+  const handleTextChange = useCallback(
+    (val: string) => {
+      setText(val);
+      textRef.current = val;
+
+      const atIdx = val.lastIndexOf("@");
+      const colonIdx = val.lastIndexOf(":");
+
+      if (atIdx !== -1 && (colonIdx === -1 || atIdx > colonIdx)) {
+        const query = val.slice(atIdx + 1).toLowerCase();
+        if (!query.includes(" ")) {
+          setMentionQuery(query);
+          setEmojiQuery(null);
+          setHighlightedIndex(0);
+          highlightedIndexRef.current = 0;
+          return;
+        }
+      }
+
+      if (colonIdx !== -1) {
+        const query = val.slice(colonIdx + 1).toLowerCase();
+        if (query.length >= 2 && !query.includes(" ") && !query.includes(":")) {
+          setEmojiQuery(query);
+          setMentionQuery(null);
+          setHighlightedIndex(0);
+          highlightedIndexRef.current = 0;
+          return;
+        }
+      }
+
+      clearSuggestions();
+    },
+    [clearSuggestions],
+  );
+
   const handleMentionSelect = useCallback(
     (handle: string) => {
-      const author = filteredAuthorsRef.current.get(handle);
-      const seq = ++insertSeqRef.current;
-      setInternalInsert({
-        type: "mention",
-        handle,
-        did: author?.did ?? null,
-        seq,
-      });
+      const current = textRef.current;
+      const atIdx = current.lastIndexOf("@");
+      const newText =
+        (atIdx !== -1 ? current.slice(0, atIdx) : current) + `@${handle} `;
+      setText(newText);
+      textRef.current = newText;
       clearSuggestions();
     },
     [clearSuggestions],
@@ -119,67 +202,61 @@ function ChatNativeInput(props: RenderInputProps) {
   const handleEmojiSelect = useCallback(
     (emoji: ReturnType<typeof searchEmojis>[number]) => {
       const native = getSkinNative(emoji, props.skinTone);
-      const seq = ++insertSeqRef.current;
-      setInternalInsert({
-        type: "emoji",
-        emojiId: emoji.id,
-        native,
-        text: native,
-        seq,
-      });
+      const current = textRef.current;
+      const colonIdx = current.lastIndexOf(":");
+      const newText =
+        (colonIdx !== -1 ? current.slice(0, colonIdx) : current) + native + " ";
+      setText(newText);
+      textRef.current = newText;
       clearSuggestions();
     },
     [props.skinTone, clearSuggestions],
   );
 
   const handlePickerSelect = useCallback((emoji: SelectedEmoji) => {
-    const seq = ++insertSeqRef.current;
-    if (emoji.type === "standard") {
-      setInternalInsert({
-        type: "emoji",
-        emojiId: emoji.native,
-        native: emoji.native,
-        text: emoji.native,
-        seq,
-      });
-    } else {
-      setInternalInsert({
-        type: "emoji",
-        emojiId: emoji.name,
-        native: null,
-        imageUrl: emoji.imageUrl,
-        text: `:${emoji.name}:`,
-        seq,
-      });
-    }
+    const current = textRef.current;
+    const insertion =
+      emoji.type === "standard" ? emoji.native + " " : `:${emoji.name}: `;
+    const newText = current + insertion;
+    setText(newText);
+    textRef.current = newText;
     setIsEmojiPickerOpen(false);
   }, []);
 
-  // Called by the editor when Enter is pressed with no internal (webview) suggestions active.
-  // If native suggestions are showing, confirm the highlighted one; otherwise submit.
-  const handleEnter = useCallback(
-    (msg: RichTextResult) => {
-      const authors = filteredAuthorsRef.current;
-      const emojis = filteredEmojisRef.current;
-      if (authors.size > 0) {
-        const handles = Array.from(authors.keys());
-        const handle = handles[highlightedIndexRef.current] ?? handles[0];
-        if (handle) handleMentionSelect(handle);
-      } else if (emojis.length > 0) {
-        const emoji = emojis[highlightedIndexRef.current] ?? emojis[0];
-        if (emoji) handleEmojiSelect(emoji);
-      } else if (msg.text) {
-        // Submit — tell the editor to clear via insertElement
-        const seq = ++insertSeqRef.current;
-        setInternalInsert({ type: "clear", seq });
-        props.onSubmit(msg as Parameters<typeof props.onSubmit>[0]);
+  const handleSubmit = useCallback(() => {
+    const current = textRef.current.trim();
+    if (!current) return;
+    const facets = extractFacets(current, props.authors, emoteMap);
+    props.onSubmit({
+      text: current,
+      ...(facets.length > 0 ? { facets } : {}),
+    });
+    setText("");
+    textRef.current = "";
+    clearSuggestions();
+  }, [props.authors, props.onSubmit, emoteMap, clearSuggestions]);
+
+  const handleKeyPress = useCallback(
+    (e: { nativeEvent: { key: string } }) => {
+      if (e.nativeEvent.key === "Enter") {
+        if (filteredAuthorsRef.current.size > 0) {
+          const handles = Array.from(filteredAuthorsRef.current.keys());
+          const handle = handles[highlightedIndexRef.current] ?? handles[0];
+          if (handle) handleMentionSelect(handle);
+          return;
+        }
+        if (filteredEmojisRef.current.length > 0) {
+          const emoji =
+            filteredEmojisRef.current[highlightedIndexRef.current] ??
+            filteredEmojisRef.current[0];
+          if (emoji) handleEmojiSelect(emoji);
+          return;
+        }
+        handleSubmit();
       }
     },
-    [handleMentionSelect, handleEmojiSelect, props.onSubmit],
+    [handleMentionSelect, handleEmojiSelect, handleSubmit],
   );
-
-  // Prefer external insertElement (emoji picker) when seq changes, otherwise use internal
-  const activeInsert = props.insertElement ?? internalInsert;
 
   const hasEmojiPacks = (props.emojiPacks?.length ?? 0) > 0;
 
@@ -212,27 +289,31 @@ function ChatNativeInput(props: RenderInputProps) {
         </View>
       )}
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
-        <View style={{ flex: 1, height }}>
-          <ChatEditor
-            authors={props.authors}
-            emojiData={props.emojiData}
-            skinTone={props.skinTone}
-            onSubmit={handleEnter}
-            insertElement={activeInsert}
-            onDOMLayout={({ height: h }) => setHeight(h)}
-            onMentionQuery={(q) => {
-              setMentionQuery(q);
-              setHighlightedIndex(0);
-              highlightedIndexRef.current = 0;
-            }}
-            onEmojiQuery={(q) => {
-              setEmojiQuery(q);
-              setHighlightedIndex(0);
-              highlightedIndexRef.current = 0;
-            }}
-            onEnter={handleEnter}
-          />
-        </View>
+        <TextInput
+          style={{
+            flex: 1,
+            minHeight: 43,
+            backgroundColor: "#111827",
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: "#374151",
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            color: "white",
+            fontSize: 14,
+            lineHeight: 21,
+          }}
+          value={text}
+          onChangeText={handleTextChange}
+          onKeyPress={handleKeyPress}
+          onContentSizeChange={(e) =>
+            setHeight(Math.max(43, e.nativeEvent.contentSize.height))
+          }
+          multiline
+          placeholder="Type a message..."
+          placeholderTextColor="#6b7280"
+          blurOnSubmit={false}
+        />
         {hasEmojiPacks && (
           <Pressable
             onPress={() => setIsEmojiPickerOpen((v) => !v)}
@@ -248,7 +329,7 @@ function ChatNativeInput(props: RenderInputProps) {
               alignItems: "center",
               justifyContent: "center",
             })}
-            accessibilityLabel="Open emoji picker"
+            accessibilityLabel="Open emote picker"
           >
             <Text style={{ fontSize: 20 }}>😀</Text>
           </Pressable>

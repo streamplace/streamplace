@@ -685,6 +685,44 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to upsert recommendation: %w", err)
 		}
 
+	case *streamplace.EmotePack:
+		pack := &model.EmotePack{
+			URI:       aturi.String(),
+			CID:       cid,
+			RepoDID:   userDID,
+			RKey:      rkey.String(),
+			Name:      rec.Name,
+			Record:    *recCBOR,
+			IndexedAt: now,
+		}
+		if err := atsync.Model.UpsertEmotePack(ctx, pack); err != nil {
+			return fmt.Errorf("failed to upsert emote pack: %w", err)
+		}
+		log.Debug(ctx, "indexed emote pack", "uri", aturi.String(), "name", rec.Name)
+
+	case *streamplace.EmoteItem:
+		item := &model.EmoteItem{
+			URI:       aturi.String(),
+			CID:       cid,
+			RepoDID:   userDID,
+			RKey:      rkey.String(),
+			PackURI:   rec.Pack,
+			Name:      rec.Name,
+			Record:    *recCBOR,
+			IndexedAt: now,
+		}
+		if rec.Image != nil {
+			item.ImageCID = rec.Image.Ref.String()
+			item.ImageMimeType = rec.Image.MimeType
+		}
+		if rec.Alt != nil {
+			item.Alt = *rec.Alt
+		}
+		if err := atsync.Model.UpsertEmoteItem(ctx, item); err != nil {
+			return fmt.Errorf("failed to upsert emote item: %w", err)
+		}
+		log.Debug(ctx, "indexed emote item", "uri", aturi.String(), "name", rec.Name)
+
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 	}

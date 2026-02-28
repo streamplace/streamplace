@@ -24,7 +24,13 @@ type Livestream struct {
 	// canonicalUrl: The primary URL where this livestream can be viewed, if available.
 	CanonicalUrl *string `json:"canonicalUrl,omitempty" cborgen:"canonicalUrl,omitempty"`
 	// createdAt: Client-declared timestamp when this livestream started.
-	CreatedAt            string                           `json:"createdAt" cborgen:"createdAt"`
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// endedAt: Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again.
+	EndedAt *string `json:"endedAt,omitempty" cborgen:"endedAt,omitempty"`
+	// idleTimeoutSeconds: Time in seconds after which this livestream should be automatically ended if idle. Zero means no timeout.
+	IdleTimeoutSeconds *int64 `json:"idleTimeoutSeconds,omitempty" cborgen:"idleTimeoutSeconds,omitempty"`
+	// lastSeenAt: Client-declared timestamp when this livestream was last seen by the Streamplace station.
+	LastSeenAt           *string                          `json:"lastSeenAt,omitempty" cborgen:"lastSeenAt,omitempty"`
 	NotificationSettings *Livestream_NotificationSettings `json:"notificationSettings,omitempty" cborgen:"notificationSettings,omitempty"`
 	// post: The post that announced this livestream.
 	Post  *comatproto.RepoStrongRef `json:"post,omitempty" cborgen:"post,omitempty"`

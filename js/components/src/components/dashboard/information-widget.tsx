@@ -13,11 +13,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { LayoutChangeEvent, Text, TouchableOpacity, View } from "react-native";
 import Svg, { Path, Line as SvgLine, Text as SvgText } from "react-native-svg";
 import { useAQState } from "../../hooks";
-import {
-  useLivestreamStore,
-  useSegment,
-  useViewers,
-} from "../../livestream-store";
+import { useLivestream, useSegment, useViewers } from "../../livestream-store";
 import * as zero from "../../ui";
 import { InfoBox, InfoRow } from "../ui";
 
@@ -50,7 +46,7 @@ export default function InformationWidget({
   const isCompactHeight = layoutMeasured && componentHeight < 350;
 
   const seg = useSegment();
-  const livestream = useLivestreamStore((x) => x.livestream);
+  const livestream = useLivestream();
   const viewers = useViewers();
 
   const getBitrate = useCallback((): number => {
@@ -173,8 +169,9 @@ export default function InformationWidget({
                 width: 8,
                 height: 8,
                 borderRadius: 4,
-                backgroundColor:
-                  getConnectionStatus() === "good"
+                backgroundColor: !livestream
+                  ? "#3b82f6"
+                  : getConnectionStatus() === "good"
                     ? "#22c55e"
                     : getConnectionStatus() === "warning"
                       ? "#f59e0b"
@@ -182,6 +179,11 @@ export default function InformationWidget({
               },
             ]}
           />
+          {!livestream && (
+            <Text style={[text.blue[400], { fontSize: 13, fontWeight: "600" }]}>
+              (not live)
+            </Text>
+          )}
         </View>
         <TouchableOpacity
           onPress={() => setShowViewers(!showViewers)}
@@ -315,6 +317,7 @@ export default function InformationWidget({
                 data={bitrateHistory}
                 width={componentWidth - 40}
                 height={120}
+                color={livestream ? "#22c55e" : "#3b82f6"}
               />
             </View>
           )}
@@ -395,6 +398,7 @@ export default function InformationWidget({
                 data={bitrateHistory}
                 width={componentWidth - 40}
                 height={isCompactHeight ? 80 : 120}
+                color={livestream ? "#22c55e" : "#3b82f6"}
               />
             </View>
           )}
@@ -432,10 +436,12 @@ function BitrateChart({
   data,
   width,
   height,
+  color = "#22c55e",
 }: {
   data: number[];
   width: number;
   height: number;
+  color?: string;
 }) {
   const maxDataValue = Math.max(...data, 1);
   const minDataValue = Math.min(...data);
@@ -515,7 +521,7 @@ function BitrateChart({
         </SvgText>
         <Path
           d={pathData}
-          stroke="#22c55e"
+          stroke={color}
           strokeWidth="2"
           fill="none"
           strokeLinecap="round"

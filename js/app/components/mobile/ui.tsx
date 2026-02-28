@@ -7,6 +7,7 @@ import {
   Toast,
   useAvatars,
   useCameraToggle,
+  useLivestream,
   useLivestreamInfo,
   useLivestreamStore,
   useMuted,
@@ -69,8 +70,6 @@ export function MobileUi({
     setShowCountdown,
     recordSubmitted,
     setRecordSubmitted,
-    ingestStarting,
-    setIngestStarting,
     toggleGoLive,
     toggleStopStream,
   } = useLivestreamInfo();
@@ -83,6 +82,7 @@ export function MobileUi({
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
   const muted = useMuted();
   const setMuted = useSetMuted();
+  const ls = useLivestream();
 
   const { shouldShowFloatingMetrics, shouldShowChatSidePanel, chatPanelWidth } =
     useResponsiveLayout();
@@ -90,25 +90,11 @@ export function MobileUi({
   const [showLoading, setShowLoading] = useState(false);
 
   useEffect(() => {
-    return () => {
-      if (ingestStarting) {
-        setIngestStarting(false);
-      }
-    };
-  }, [ingestStarting, setIngestStarting]);
-
-  useEffect(() => {
     if (recordSubmitted) setShowLoading(false);
   }, [recordSubmitted]);
 
-  const isSelfAndNotLive = ingest === "new";
-  const isLive = ingest !== null && ingest !== "new";
-
-  useEffect(() => {
-    if (isLive && ingestStarting) {
-      setIngestStarting(false);
-    }
-  }, [isLive, ingestStarting, setIngestStarting]);
+  const isSelfAndNotLive = ingest !== null && ls === null;
+  const isSelfAndLive = ingest !== null && ls !== null;
 
   const FADE_OUT_DELAY = 4000;
   const fadeOpacity = useSharedValue(1);
@@ -225,7 +211,7 @@ export function MobileUi({
                 </View>
               </SafeAreaView>
 
-              {shouldShowFloatingMetrics && isLive && (
+              {shouldShowFloatingMetrics && isSelfAndLive && (
                 <View
                   style={[
                     layout.position.absolute,
@@ -246,9 +232,8 @@ export function MobileUi({
               <PlayerUI.InputPanel
                 title={title}
                 setTitle={setTitle}
-                ingestStarting={ingestStarting}
                 toggleGoLive={toggleGoLive}
-                isLive={isLive}
+                isLive={isSelfAndLive}
               />
             )}
 
@@ -281,7 +266,7 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
-      {showChat === undefined && ingest !== "new" && (
+      {showChat === undefined && !isSelfAndNotLive && (
         <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
       )}
     </>

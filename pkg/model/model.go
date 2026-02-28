@@ -57,6 +57,7 @@ type Model interface {
 	GetReplies(repoDID string) ([]*bsky.FeedDefs_PostView, error)
 
 	CreateLivestream(ctx context.Context, ls *Livestream) error
+	GetLivestream(uri string) (*Livestream, error)
 	GetLatestLivestreamForRepo(repoDID string) (*Livestream, error)
 	GetLivestreamByPostURI(postURI string) (*Livestream, error)
 	GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]Livestream, error)
@@ -114,6 +115,9 @@ type Model interface {
 
 	GetRecommendation(userDID string) (*Recommendation, error)
 	UpsertRecommendation(rec *Recommendation) error
+
+	UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, profileBs []byte, wasStreamplace bool) error
+	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*bsky.ActorProfile, error)
 }
 
 var DBRevision = 2
@@ -183,6 +187,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Teleport{},
 		ModerationDelegation{},
 		Recommendation{},
+		BskyProfile{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

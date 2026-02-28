@@ -442,11 +442,12 @@ export function WebRTCPlayerInner({
 
   const status = usePlayerStore((x) => x.status);
   const setStatus = usePlayerStore((x) => x.setStatus);
+  const src = usePlayerStore((x) => x.src);
 
   const playerEvent = usePlayerStore((x) => x.playerEvent);
   const spurl = useStreamplaceStore((x) => x.url);
 
-  const [mediaStream, stuck] = useWebRTC(url);
+  const [mediaStream, stuck] = useWebRTC(src);
 
   useEffect(() => {
     if (stuck) {
@@ -541,9 +542,9 @@ export function WebRTCPlayerInner({
 }
 
 export function WebcamIngestPlayer(props: VideoProps) {
-  const ingestStarting = usePlayerStore((x) => x.ingestStarting);
   const ingestMediaSource = usePlayerStore((x) => x.ingestMediaSource);
   const ingestAutoStart = usePlayerStore((x) => x.ingestAutoStart);
+  const setIngestLive = usePlayerStore((x) => x.setIngestLive);
 
   const [error, setError] = useState<Error | null>(null);
 
@@ -606,15 +607,17 @@ export function WebcamIngestPlayer(props: VideoProps) {
   }, [ingestMediaSource]);
 
   useEffect(() => {
-    if (!ingestStarting && !ingestAutoStart) {
-      setRemoteMediaStream(null);
-      return;
-    }
+    // if (!ingestAutoStart) {
+    //   setRemoteMediaStream(null);
+    //   return;
+    // }
     if (!localMediaStream) {
       return;
     }
+    console.log("setting remote media stream", localMediaStream);
+    setIngestLive(true);
     setRemoteMediaStream(localMediaStream);
-  }, [localMediaStream, ingestStarting, ingestAutoStart]);
+  }, [localMediaStream, setIngestLive, setRemoteMediaStream]);
 
   useEffect(() => {
     if (!videoElement) {

@@ -55,8 +55,6 @@ export function DesktopUi({
     setShowCountdown,
     recordSubmitted,
     setRecordSubmitted,
-    ingestStarting,
-    setIngestStarting,
     toggleGoLive,
   } = useLivestreamInfo();
   const { width, height } = usePlayerDimensions();
@@ -113,11 +111,8 @@ export function DesktopUi({
 
     return () => {
       if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
-      if (ingestStarting) {
-        setIngestStarting(false);
-      }
     };
-  }, [ingestStarting, setIngestStarting, resetFadeTimer]);
+  }, [resetFadeTimer]);
 
   const animatedFadeStyle = useAnimatedStyle(() => ({
     opacity: shouldShowFloatingMetrics ? 1 : fadeOpacity.value,
@@ -253,7 +248,6 @@ export function DesktopUi({
             <PlayerUI.InputPanel
               title={title}
               setTitle={setTitle}
-              ingestStarting={ingestStarting}
               toggleGoLive={toggleGoLive}
               isLive={isActivelyLive}
             />

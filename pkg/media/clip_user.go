@@ -14,7 +14,7 @@ import (
 )
 
 func ClipUser(ctx context.Context, localDB localdb.LocalDB, cli *config.CLI, user string, writer io.Writer, before *time.Time, after *time.Time) error {
-	segments, err := localDB.LatestSegmentsForUser(user, -1, before, after)
+	segments, err := localDB.LatestSegmentsForUser(user, -1, false, before, after)
 	if err != nil {
 		return fmt.Errorf("unable to get segments: %w", err)
 	}

@@ -250,13 +250,25 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 9
+	fieldCount := 12
 
 	if t.Agent == nil {
 		fieldCount--
 	}
 
 	if t.CanonicalUrl == nil {
+		fieldCount--
+	}
+
+	if t.EndedAt == nil {
+		fieldCount--
+	}
+
+	if t.IdleTimeoutSeconds == nil {
+		fieldCount--
+	}
+
+	if t.LastSeenAt == nil {
 		fieldCount--
 	}
 
@@ -424,6 +436,38 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
+	// t.EndedAt (string) (string)
+	if t.EndedAt != nil {
+
+		if len("endedAt") > 1000000 {
+			return xerrors.Errorf("Value in field \"endedAt\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("endedAt"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("endedAt")); err != nil {
+			return err
+		}
+
+		if t.EndedAt == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.EndedAt) > 1000000 {
+				return xerrors.Errorf("Value in field t.EndedAt was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.EndedAt))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.EndedAt)); err != nil {
+				return err
+			}
+		}
+	}
+
 	// t.CreatedAt (string) (string)
 	if len("createdAt") > 1000000 {
 		return xerrors.Errorf("Value in field \"createdAt\" was too long")
@@ -445,6 +489,38 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
 		return err
+	}
+
+	// t.LastSeenAt (string) (string)
+	if t.LastSeenAt != nil {
+
+		if len("lastSeenAt") > 1000000 {
+			return xerrors.Errorf("Value in field \"lastSeenAt\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("lastSeenAt"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("lastSeenAt")); err != nil {
+			return err
+		}
+
+		if t.LastSeenAt == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.LastSeenAt) > 1000000 {
+				return xerrors.Errorf("Value in field t.LastSeenAt was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.LastSeenAt))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.LastSeenAt)); err != nil {
+				return err
+			}
+		}
 	}
 
 	// t.CanonicalUrl (string) (string)
@@ -477,6 +553,38 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 				return err
 			}
 		}
+	}
+
+	// t.IdleTimeoutSeconds (int64) (int64)
+	if t.IdleTimeoutSeconds != nil {
+
+		if len("idleTimeoutSeconds") > 1000000 {
+			return xerrors.Errorf("Value in field \"idleTimeoutSeconds\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("idleTimeoutSeconds"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("idleTimeoutSeconds")); err != nil {
+			return err
+		}
+
+		if t.IdleTimeoutSeconds == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if *t.IdleTimeoutSeconds >= 0 {
+				if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(*t.IdleTimeoutSeconds)); err != nil {
+					return err
+				}
+			} else {
+				if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-*t.IdleTimeoutSeconds-1)); err != nil {
+					return err
+				}
+			}
+		}
+
 	}
 
 	// t.NotificationSettings (streamplace.Livestream_NotificationSettings) (struct)
@@ -645,6 +753,27 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Title = string(sval)
 			}
+			// t.EndedAt (string) (string)
+		case "endedAt":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.EndedAt = (*string)(&sval)
+				}
+			}
 			// t.CreatedAt (string) (string)
 		case "createdAt":
 
@@ -655,6 +784,27 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.CreatedAt = string(sval)
+			}
+			// t.LastSeenAt (string) (string)
+		case "lastSeenAt":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.LastSeenAt = (*string)(&sval)
+				}
 			}
 			// t.CanonicalUrl (string) (string)
 		case "canonicalUrl":
@@ -675,6 +825,42 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 
 					t.CanonicalUrl = (*string)(&sval)
+				}
+			}
+			// t.IdleTimeoutSeconds (int64) (int64)
+		case "idleTimeoutSeconds":
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					maj, extra, err := cr.ReadHeader()
+					if err != nil {
+						return err
+					}
+					var extraI int64
+					switch maj {
+					case cbg.MajUnsignedInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 positive overflow")
+						}
+					case cbg.MajNegativeInt:
+						extraI = int64(extra)
+						if extraI < 0 {
+							return fmt.Errorf("int64 negative overflow")
+						}
+						extraI = -1 - extraI
+					default:
+						return fmt.Errorf("wrong type for int64 field: %d", maj)
+					}
+
+					t.IdleTimeoutSeconds = (*int64)(&extraI)
 				}
 			}
 			// t.NotificationSettings (streamplace.Livestream_NotificationSettings) (struct)

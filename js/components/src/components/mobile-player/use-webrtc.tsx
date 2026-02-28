@@ -1,18 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import * as sdpTransform from "sdp-transform";
-import { PlayerStatus, usePlayerStore, useStreamKey } from "../..";
+import { StreamplaceAgent } from "streamplace";
+import {
+  PlayerStatus,
+  usePlayerStore,
+  usePossiblyUnauthedPDSAgent,
+  useStreamKey,
+} from "../..";
 import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
 
 export default function useWebRTC(
-  endpoint: string,
+  streamer: string,
 ): [MediaStream | null, boolean] {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [stuck, setStuck] = useState<boolean>(false);
   const setStatus = usePlayerStore((x) => x.setStatus);
+  let agent = usePossiblyUnauthedPDSAgent();
 
   const lastChange = useRef<number>(0);
 
   useEffect(() => {
+    if (!agent) {
+      return;
+    }
     const peerConnection = new RTCPeerConnection({
       bundlePolicy: "max-bundle",
     });
@@ -44,7 +54,12 @@ export default function useWebRTC(
       }
     });
     peerConnection.addEventListener("negotiationneeded", () => {
-      negotiateConnectionWithClientOffer(peerConnection, endpoint);
+      negotiateConnectionWithClientOffer(
+        peerConnection,
+        streamer,
+        undefined,
+        agent,
+      );
     });
 
     let lastFramesReceived = 0;
@@ -82,7 +97,7 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [endpoint]);
+  }, [streamer, agent]);
   return [mediaStream, stuck];
 }
 
@@ -100,8 +115,9 @@ export default function useWebRTC(
  */
 export async function negotiateConnectionWithClientOffer(
   peerConnection: RTCPeerConnection,
-  endpoint: string,
+  streamer: string,
   bearerToken?: string,
+  agent?: StreamplaceAgent,
 ) {
   /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createOffer */
   const offer = await peerConnection.createOffer({
@@ -134,23 +150,79 @@ export async function negotiateConnectionWithClientOffer(
        * This specifies how the client should communicate,
        * and what kind of media client and server have negotiated to exchange.
        */
-      let response = await postSDPOffer(`${endpoint}`, ofr.sdp, bearerToken);
-      if (response.status === 201) {
-        let answerSDP = await response.text();
+      let response = await postSDPOffer(streamer, ofr.sdp, bearerToken, agent);
+      let text = new TextDecoder().decode(response.data);
+      if (response.success) {
         if ((peerConnection.connectionState as string) === "closed") {
           return;
         }
         await peerConnection.setRemoteDescription(
-          new RTCSessionDescription({ type: "answer", sdp: answerSDP }),
+          new RTCSessionDescription({ type: "answer", sdp: text }),
         );
-        return response.headers.get("Location");
-      } else if (response.status === 405) {
-        console.log(
-          "Remember to update the URL passed into the WHIP or WHEP client",
-        );
+        return "https://stream.place/example";
       } else {
-        const errorMessage = await response.text();
-        console.error(errorMessage);
+        console.error(text);
+      }
+    } catch (e) {
+      console.error(`posting sdp offer failed: ${e}`);
+    }
+
+    /** Limit reconnection attempts to at-most once every 5 seconds */
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+}
+
+export async function negotiateIngestConnectionWithClientOffer(
+  peerConnection: RTCPeerConnection,
+  endpoint: string,
+  bearerToken: string,
+) {
+  /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createOffer */
+  const offer = await peerConnection.createOffer({
+    offerToReceiveAudio: true,
+    offerToReceiveVideo: true,
+  });
+  if (!offer.sdp) {
+    throw Error("no SDP in offer");
+  }
+
+  const newSDP = forceStereoAudio(offer.sdp);
+
+  offer.sdp = newSDP;
+  /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/setLocalDescription */
+  await peerConnection.setLocalDescription(offer);
+
+  /** Wait for ICE gathering to complete */
+  let ofr = await waitToCompleteICEGathering(peerConnection);
+  if (!ofr) {
+    throw Error("failed to gather ICE candidates for offer");
+  }
+
+  /**
+   * As long as the connection is open, attempt to...
+   */
+  while (peerConnection.connectionState !== "closed") {
+    try {
+      /**
+       * This response contains the server's SDP offer.
+       * This specifies how the client should communicate,
+       * and what kind of media client and server have negotiated to exchange.
+       */
+      let response = await postSDPIngestOffer(endpoint, ofr.sdp, bearerToken);
+
+      if (response.status === 201) {
+        if ((peerConnection.connectionState as string) === "closed") {
+          return;
+        }
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription({
+            type: "answer",
+            sdp: await response.text(),
+          }),
+        );
+        return "https://stream.place/example";
+      } else {
+        console.error(await response.text());
       }
     } catch (e) {
       console.error(`posting sdp offer failed: ${e}`);
@@ -162,9 +234,35 @@ export async function negotiateConnectionWithClientOffer(
 }
 
 async function postSDPOffer(
-  endpoint: string,
+  streamer: string,
   data: string,
   bearerToken?: string,
+  agent?: StreamplaceAgent,
+) {
+  if (!agent) {
+    throw new Error("No agent found");
+  }
+  return await agent.place.stream.playback.whep(data, {
+    qp: {
+      rendition: "source",
+      streamer: streamer,
+    },
+  });
+  // return await fetch(endpoint, {
+  //   method: "POST",
+  //   mode: "cors",
+  //   headers: {
+  //     "content-type": "application/sdp",
+  //     ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
+  //   },
+  //   body: data,
+  // });
+}
+
+async function postSDPIngestOffer(
+  endpoint: string,
+  data: string,
+  bearerToken: string,
 ) {
   return await fetch(endpoint, {
     method: "POST",
@@ -254,7 +352,10 @@ export function useWebRTCIngest({
       }
     });
     peerConnection.addEventListener("negotiationneeded", (ev) => {
-      negotiateConnectionWithClientOffer(
+      if (!storedKey?.streamKey?.privateKey) {
+        throw new Error("no private key found");
+      }
+      negotiateIngestConnectionWithClientOffer(
         peerConnection,
         endpoint,
         storedKey.streamKey?.privateKey,

@@ -20,6 +20,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -35,9 +36,11 @@ type Server struct {
 	bus            *bus.Bus
 	op             *oatproxy.OATProxy
 	localDB        localdb.LocalDB
+	mm             *media.MediaManager
+	aliases        map[string]string
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, aliases map[string]string) (*Server, error) {
 	e := echo.New()
 	s := &Server{
 		e:              e,
@@ -50,10 +53,13 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		bus:            bus,
 		op:             op,
 		localDB:        ldb,
+		mm:             mm,
+		aliases:        aliases,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())
 	e.Use(echomiddleware.Handler("", mdlw))
+	e.Use(s.ServiceAuthMiddleware())
 	e.Use(op.OAuthMiddleware)
 	err := s.RegisterHandlersPlaceStream(e)
 	if err != nil {
@@ -82,7 +88,7 @@ func (s *Server) isLocalPDS(ctx context.Context, repo string) (bool, string, err
 	if err != nil {
 		return false, "", fmt.Errorf("resolveRepoService: %w", err)
 	}
-	if did == s.cli.MyDID() {
+	if did == s.cli.BroadcasterDID() {
 		return true, svc, nil
 	}
 	return false, svc, nil
@@ -103,7 +109,7 @@ func makeUnauthenticatedRequest(ctx context.Context, service, method string, par
 	}
 	u.RawQuery = query.Encode()
 
-	log.Error(ctx, "making unauthenticated request", "url", u.String())
+	log.Debug(ctx, "making unauthenticated request", "url", u.String())
 
 	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {

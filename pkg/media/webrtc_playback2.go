@@ -14,7 +14,7 @@ import (
 )
 
 // This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendition string, offer *webrtc.SessionDescription) (*webrtc.SessionDescription, error) {
+func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendition string, offer *webrtc.SessionDescription, viewer string) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
@@ -93,6 +93,10 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					return
 				case file := <-segChan.C:
 					log.Debug(ctx, "got segment", "file", file.Filepath)
+					if !file.Published && viewer != user && !mm.cli.WideOpen {
+						log.Warn(ctx, "segment is not published and viewer is not the user", "viewer", viewer, "user", user)
+						continue
+					}
 					latency += file.PacketizedData.Duration
 					packetQueue <- file.PacketizedData
 				}

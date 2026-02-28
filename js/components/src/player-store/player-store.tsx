@@ -28,10 +28,6 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     src: "",
     setSrc: (src: string) => set(() => ({ src })),
 
-    ingestStarting: false,
-    setIngestStarting: (ingestStarting: boolean) =>
-      set(() => ({ ingestStarting })),
-
     ingestMediaSource: undefined,
     setIngestMediaSource: (ingestMediaSource: IngestMediaSource | undefined) =>
       set(() => ({ ingestMediaSource })),
@@ -45,7 +41,7 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
       ingestConnectionState: RTCPeerConnectionState | null,
     ) => set(() => ({ ingestConnectionState })),
 
-    ingestAutoStart: false,
+    ingestAutoStart: true,
     setIngestAutoStart: (ingestAutoStart: boolean) =>
       set(() => ({ ingestAutoStart })),
 

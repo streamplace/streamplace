@@ -195,7 +195,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 		return priv.HashAndSign(sb)
 	}
 
-	events, err := state.GetCommitEventsSince(cli.MyDID(), time.Time{})
+	events, err := state.GetCommitEventsSince(cli.BroadcasterDID(), time.Time{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get commit events: %w", err)
 	}
@@ -222,7 +222,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 		if err != nil {
 			return nil, fmt.Errorf("failed to create delta session: %w", err)
 		}
-		LexiconRepo = atrepo.NewRepo(ctx, cli.MyDID(), ses)
+		LexiconRepo = atrepo.NewRepo(ctx, cli.BroadcasterDID(), ses)
 	} else {
 		LexiconRepo, err = atrepo.OpenRepo(ctx, ses, currentRoot)
 		if err != nil {
@@ -316,7 +316,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 	if len(ops) > 0 {
 		log.Log(ctx, "created new lexicon commit for changes", "did", signed.Did, "data", signed.Data, "prev", signed.Prev, "rev", signed.Rev)
 		commit := &comatproto.SyncSubscribeRepos_Commit{
-			Repo:   cli.MyDID(),
+			Repo:   cli.BroadcasterDID(),
 			Blocks: blocks,
 			Rev:    currentRev,
 			Commit: lexutil.LexLink(currentRoot),

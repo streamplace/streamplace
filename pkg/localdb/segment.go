@@ -138,8 +138,8 @@ func (c ContentWarningsSlice) Value() (driver.Value, error) {
 type Segment struct {
 	ID                 string               `json:"id"                   gorm:"primaryKey"`
 	SigningKeyDID      string               `json:"signingKeyDID"        gorm:"column:signing_key_did"`
-	StartTime          time.Time            `json:"startTime"            gorm:"index:latest_segments,priority:2;index:start_time"`
-	RepoDID            string               `json:"repoDID"              gorm:"index:latest_segments,priority:1;column:repo_did"`
+	StartTime          time.Time            `json:"startTime"            gorm:"index:latest_segments,priority:2;index:start_time;index:latest_segments_published,priority:2"`
+	RepoDID            string               `json:"repoDID"              gorm:"index:latest_segments,priority:1;column:repo_did;index:latest_segments_published,priority:1"`
 	Title              string               `json:"title"`
 	Size               int                  `json:"size"                gorm:"column:size"`
 	MediaData          *SegmentMediaData    `json:"mediaData,omitempty"`
@@ -147,6 +147,7 @@ type Segment struct {
 	ContentRights      *ContentRights       `json:"contentRights,omitempty"`
 	DistributionPolicy *DistributionPolicy  `json:"distributionPolicy,omitempty"`
 	DeleteAfter        *time.Time           `json:"deleteAfter,omitempty" gorm:"column:delete_after;index:delete_after"`
+	Published          bool                 `json:"published"            gorm:"column:published;index:latest_segments_published,priority:3"`
 }
 
 func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
@@ -238,7 +239,7 @@ func (m *LocalDatabase) MostRecentSegments() ([]Segment, error) {
 
 	err := m.DB.Table("segments").
 		Select("segments.*").
-		Where("start_time > ?", thirtySecondsAgo.UTC()).
+		Where("start_time > ? AND published = ?", thirtySecondsAgo.UTC(), true).
 		Order("start_time DESC").
 		Find(&segments).Error
 	if err != nil {
@@ -270,7 +271,7 @@ func (m *LocalDatabase) MostRecentSegments() ([]Segment, error) {
 
 func (m *LocalDatabase) LatestSegmentForUser(user string) (*Segment, error) {
 	var seg Segment
-	err := m.DB.Model(Segment{}).Where("repo_did = ?", user).Order("start_time DESC").First(&seg).Error
+	err := m.DB.Model(Segment{}).Where("repo_did = ? AND published = ?", user, true).Order("start_time DESC").First(&seg).Error
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +289,7 @@ func (m *LocalDatabase) FilterLiveRepoDIDs(repoDIDs []string) ([]string, error) 
 
 	err := m.DB.Table("segments").
 		Select("DISTINCT repo_did").
-		Where("repo_did IN ? AND start_time > ?", repoDIDs, thirtySecondsAgo.UTC()).
+		Where("repo_did IN ? AND start_time > ? AND published = ?", repoDIDs, thirtySecondsAgo.UTC(), true).
 		Pluck("repo_did", &liveDIDs).Error
 
 	if err != nil {
@@ -298,7 +299,7 @@ func (m *LocalDatabase) FilterLiveRepoDIDs(repoDIDs []string) ([]string, error) 
 	return liveDIDs, nil
 }
 
-func (m *LocalDatabase) LatestSegmentsForUser(user string, limit int, before *time.Time, after *time.Time) ([]Segment, error) {
+func (m *LocalDatabase) LatestSegmentsForUser(user string, limit int, includeUnpublished bool, before *time.Time, after *time.Time) ([]Segment, error) {
 	var segs []Segment
 	if before == nil {
 		later := time.Now().Add(1000 * time.Hour)
@@ -308,7 +309,11 @@ func (m *LocalDatabase) LatestSegmentsForUser(user string, limit int, before *ti
 		earlier := time.Time{}
 		after = &earlier
 	}
-	err := m.DB.Model(Segment{}).Where("repo_did = ? AND start_time < ? AND start_time > ?", user, before.UTC(), after.UTC()).Order("start_time DESC").Limit(limit).Find(&segs).Error
+	query := m.DB.Model(Segment{}).Where("repo_did = ? AND start_time < ? AND start_time > ?", user, before.UTC(), after.UTC())
+	if !includeUnpublished {
+		query = query.Where("published = ?", true)
+	}
+	err := query.Order("start_time DESC").Limit(limit).Find(&segs).Error
 	if err != nil {
 		return nil, err
 	}

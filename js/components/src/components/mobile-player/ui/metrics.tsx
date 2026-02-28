@@ -12,7 +12,10 @@ export function MetricsPanel({ showMetrics }: MetricsPanelProps) {
 
   let icon = <CircleX color="#d44" />;
   let color = "#d44";
-  if (connectionQuality === "good") {
+  if (connectionQuality === "pre-live") {
+    icon = <CircleCheck color={atoms.colors.blue[500]} />;
+    color = atoms.colors.blue[500];
+  } else if (connectionQuality === "good") {
     icon = <CircleCheck color="#4d4" />;
     color = "#4d4";
   } else if (connectionQuality === "degraded") {
@@ -22,6 +25,18 @@ export function MetricsPanel({ showMetrics }: MetricsPanelProps) {
     icon = <CircleX color="#d44" />;
     color = "#d44";
   }
+
+  const connectionText = () => {
+    if (connectionQuality === "pre-live") {
+      return "READY TO STREAM";
+    } else if (connectionQuality === "good") {
+      return "GOOD";
+    } else if (connectionQuality === "degraded") {
+      return "DEGRADED";
+    } else {
+      return "POOR";
+    }
+  };
 
   return (
     <View
@@ -49,7 +64,7 @@ export function MetricsPanel({ showMetrics }: MetricsPanelProps) {
             },
           ]}
         >
-          {connectionQuality.toUpperCase()}
+          {connectionText()}
         </Text>
       </View>
       {showMetrics && (

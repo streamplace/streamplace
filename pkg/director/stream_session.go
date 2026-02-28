@@ -9,6 +9,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/api/bsky"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -17,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/livepeer"
@@ -48,8 +50,9 @@ type StreamSession struct {
 	localDB        localdb.LocalDB
 
 	// Channels for background workers
-	statusUpdateChan chan struct{} // Signal to update status
-	originUpdateChan chan struct{} // Signal to update broadcast origin
+	statusUpdateChan     chan struct{} // Signal to update status
+	originUpdateChan     chan struct{} // Signal to update broadcast origin
+	livestreamUpdateChan chan struct{} // Signal to update livestream
 
 	g          *errgroup.Group
 	started    chan struct{}
@@ -57,6 +60,9 @@ type StreamSession struct {
 	packets    []bus.PacketizedSegment
 	statefulDB *statedb.StatefulDB
 	replicator replication.Replicator
+	atsync     *atproto.ATProtoSynchronizer
+
+	lastLivestreamTime time.Time
 }
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
@@ -97,30 +103,17 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
 	ss.hls = media.NewM3U8(allRenditions)
 
-	// for _, r := range allRenditions {
-	// 	g.Go(func() error {
-	// 		for {
-	// 			if ctx.Err() != nil {
-	// 				return nil
-	// 			}
-	// 			err := ss.mm.ToHLS(ctx, spseg.Creator, r.Name, ss.hls)
-	// 			if ctx.Err() != nil {
-	// 				return nil
-	// 			}
-	// 			log.Warn(ctx, "hls failed, retrying in 5 seconds", "error", err)
-	// 			time.Sleep(time.Second * 5)
-	// 		}
-	// 	})
-	// }
-
 	close(ss.started)
 
-	// Start background workers for status and origin updates
+	// Start background workers for status, origin, and livestream updates
 	ss.g.Go(func() error {
 		return ss.statusUpdateLoop(ctx, spseg.Creator)
 	})
 	ss.g.Go(func() error {
 		return ss.originUpdateLoop(ctx)
+	})
+	ss.g.Go(func() error {
+		return ss.livestreamUpdateLoop(ctx, spseg.Creator)
 	})
 
 	if notif.Local {
@@ -192,9 +185,14 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	ss.bus.Publish(spseg.Creator, spseg)
 	ss.Go(ctx, func() error {
 		return ss.AddPlaybackSegment(ctx, spseg, "source", &bus.Seg{
-			Filepath: notif.Segment.ID,
-			Data:     notif.Data,
+			Filepath:  notif.Segment.ID,
+			Data:      notif.Data,
+			Published: notif.Metadata.Published,
 		})
+	})
+
+	ss.Go(ctx, func() error {
+		return ss.statefulDB.UpsertBroadcastOrigin(spseg.Creator, ss.cli.BroadcasterDID(), time.Now())
 	})
 
 	if ss.cli.Thumbnail {
@@ -203,9 +201,15 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		})
 	}
 
+	// everything else is for published segments
+	if !notif.Metadata.Published {
+		return nil
+	}
+
 	if notif.Local {
 		ss.UpdateStatus(ctx, spseg.Creator)
 		ss.UpdateBroadcastOrigin(ctx)
+		ss.UpdateLivestream(ctx, spseg.Creator)
 	}
 
 	if ss.cli.LivepeerGatewayURL != "" {
@@ -365,6 +369,10 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 	if err != nil {
 		return fmt.Errorf("could not get latest livestream for repoDID: %w", err)
 	}
+	if ls == nil {
+		log.Debug(ctx, "no livestream found, skipping status update", "repoDID", repoDID)
+		return nil
+	}
 	lsv, err := ls.ToLivestreamView()
 	if err != nil {
 		return fmt.Errorf("could not convert livestream to streamplace livestream: %w", err)
@@ -450,6 +458,92 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 	log.Debug(ctx, "created status record", "out", out)
 
 	ss.lastStatus = time.Now()
+
+	return nil
+}
+
+var livestreamUpdateInterval = time.Second * 30
+
+// UpdateLivestream signals the background worker to update the livestream record (non-blocking)
+func (ss *StreamSession) UpdateLivestream(ctx context.Context, repoDID string) {
+	select {
+	case ss.livestreamUpdateChan <- struct{}{}:
+		log.Warn(ctx, "livestream update signal sent")
+	default:
+		log.Warn(ctx, "livestream update channel full, signal already pending")
+		// Channel full, signal already pending
+	}
+}
+
+// livestreamUpdateLoop runs as a background goroutine for the session lifetime
+func (ss *StreamSession) livestreamUpdateLoop(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "livestreamUpdateLoop")
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ss.livestreamUpdateChan:
+			if time.Since(ss.lastLivestreamTime) < livestreamUpdateInterval {
+				log.Warn(ctx, "not updating livestream, last livestream was less than 30 seconds ago")
+				continue
+			}
+			if err := ss.doUpdateLivestream(ctx, repoDID); err != nil {
+				log.Error(ctx, "failed to update livestream", "error", err)
+			}
+		}
+	}
+}
+
+// doUpdateLivestream performs the actual livestream record update work
+func (ss *StreamSession) doUpdateLivestream(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "doUpdateLivestream")
+
+	lastLivestream, err := ss.mod.GetLatestLivestreamForRepo(repoDID)
+	if err != nil {
+		return fmt.Errorf("could not get latest livestream for repoDID: %w", err)
+	}
+	if lastLivestream == nil {
+		log.Debug(ctx, "no livestream found, skipping livestream update")
+		return nil
+	}
+	lsv, err := lastLivestream.ToLivestreamView()
+	if err != nil {
+		return fmt.Errorf("could not convert livestream to streamplace livestream: %w", err)
+	}
+	lsvr, ok := lsv.Record.Val.(*streamplace.Livestream)
+	if !ok {
+		return fmt.Errorf("livestream is not a streamplace livestream")
+	}
+
+	aturi, err := syntax.ParseATURI(lastLivestream.URI)
+	if err != nil {
+		return fmt.Errorf("could not parse livestream URI: %w", err)
+	}
+
+	now := time.Now().UTC().Format(util.ISO8601)
+	lsvr.LastSeenAt = &now
+
+	inp := comatproto.RepoPutRecord_Input{
+		Collection: "place.stream.livestream",
+		Record:     &lexutil.LexiconTypeDecoder{Val: lsvr},
+		Rkey:       aturi.RecordKey().String(),
+		Repo:       ss.repoDID,
+		SwapRecord: &lastLivestream.CID,
+	}
+	out := comatproto.RepoPutRecord_Output{}
+
+	client, err := ss.GetClientByDID(ss.repoDID)
+	if err != nil {
+		return fmt.Errorf("could not get xrpc client for repoDID: %w", err)
+	}
+
+	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out)
+	if err != nil {
+		return fmt.Errorf("could not update livestream record: %w", err)
+	}
+
+	log.Warn(ctx, "updated livestream record", "uri", lastLivestream.URI)
+	ss.lastLivestreamTime = time.Now()
 
 	return nil
 }
@@ -629,9 +723,11 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 }
 
 func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *streamplace.Segment, rendition string, seg *bus.Seg) error {
-	ss.Go(ctx, func() error {
-		return ss.AddToHLS(ctx, spseg, rendition, seg.Data)
-	})
+	if seg.Published {
+		ss.Go(ctx, func() error {
+			return ss.AddToHLS(ctx, spseg, rendition, seg.Data)
+		})
+	}
 	ss.Go(ctx, func() error {
 		return ss.AddToWebRTC(ctx, spseg, rendition, seg)
 	})

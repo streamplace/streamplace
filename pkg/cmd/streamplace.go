@@ -215,6 +215,12 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 	cli.AccessJWK = accessJWK
 
+	serviceAuthKey, err := state.EnsureServiceAuthKey(ctx)
+	if err != nil {
+		return err
+	}
+	cli.ServiceAuthKey = serviceAuthKey
+
 	b := bus.NewBus()
 	atsync := &atproto.ATProtoSynchronizer{
 		CLI:        cli,
@@ -266,6 +272,25 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		}
 	}
 
+	op := oatproxy.New(&oatproxy.Config{
+		Host:               host,
+		CreateOAuthSession: state.CreateOAuthSession,
+		UpdateOAuthSession: state.UpdateOAuthSession,
+		GetOAuthSession:    state.LoadOAuthSession,
+		Lock:               state.GetNamedLock,
+		Scope:              atproto.OAuthString,
+		UpstreamJWK:        cli.JWK,
+		DownstreamJWK:      cli.AccessJWK,
+		ClientMetadata:     clientMetadata,
+		Public:             cli.PublicOAuth,
+	})
+	state.OATProxy = op
+
+	err = atsync.Migrate(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to migrate: %w", err)
+	}
+
 	var replicator replication.Replicator = nil
 	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {
 		exists, err := cli.DataFileExists([]string{"iroh-kv-secret"})
@@ -305,20 +330,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		replicator = websocketrep.NewWebsocketReplicator(b, mod, mm)
 	}
 
-	op := oatproxy.New(&oatproxy.Config{
-		Host:               host,
-		CreateOAuthSession: state.CreateOAuthSession,
-		UpdateOAuthSession: state.UpdateOAuthSession,
-		GetOAuthSession:    state.LoadOAuthSession,
-		Lock:               state.GetNamedLock,
-		Scope:              atproto.OAuthString,
-		UpstreamJWK:        cli.JWK,
-		DownstreamJWK:      cli.AccessJWK,
-		ClientMetadata:     clientMetadata,
-		Public:             cli.PublicOAuth,
-		HTTPClient:         &aqhttp.Client,
-	})
-	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb)
+	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
 	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb)
 	if err != nil {
 		return err

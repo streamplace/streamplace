@@ -542,17 +542,21 @@ export function StreamplaceDrawer() {
   // are we in the live dashboard?
   const [isLiveDashboard, setIsLiveDashboard] = useState(false);
   useEffect(() => {
-    if (!isLiveDashboard && userIsLive) {
-      toast.show("You are live!", "Do you want to go to your Live Dashboard?", {
-        actionLabel: "Go",
-        onAction: () => {
-          navigation.navigate("LiveDashboard");
-          setLivePopup(false);
+    if (!isLiveDashboard && userIsLive && isWeb) {
+      toast.show(
+        "You are streaming!",
+        "Do you want to go to your Live Dashboard?",
+        {
+          actionLabel: "Go",
+          onAction: () => {
+            navigation.navigate("LiveDashboard");
+            setLivePopup(false);
+          },
+          onClose: () => setLivePopup(false),
+          variant: "error",
+          duration: 8,
         },
-        onClose: () => setLivePopup(false),
-        variant: "error",
-        duration: 8,
-      });
+      );
     }
   }, [userIsLive]);
   const externalItems = useExternalItems();

@@ -220,6 +220,10 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				log.Error(ctx, "could not get latest livestream", "error", err)
 				return
 			}
+			if ls == nil {
+				log.Error(ctx, "no livestream found", "repoDID", repoDID)
+				return
+			}
 			lsv, err := ls.ToLivestreamView()
 			if err != nil {
 				log.Error(ctx, "could not marshal livestream", "error", err)
@@ -262,6 +266,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				tp := teleports[0]
 				if tp.Repo == nil {
 					log.Error(ctx, "teleportee repo is nil", "uri", tp.URI)
+					return
 				}
 				viewerCount := a.Bus.GetViewerCount(tp.RepoDID)
 				arrivalMsg := streamplace.Livestream_TeleportArrival{

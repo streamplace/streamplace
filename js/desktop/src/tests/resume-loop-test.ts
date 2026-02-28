@@ -19,6 +19,7 @@ export const resumeLoopTest: E2ETest = {
       env: {
         ...testEnv.env,
         SP_TEST_STREAM: "true",
+        SP_WIDE_OPEN: "true",
       },
     };
   },

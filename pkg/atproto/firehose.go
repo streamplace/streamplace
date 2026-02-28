@@ -18,6 +18,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/aqtime"
@@ -44,6 +45,7 @@ type ATProtoSynchronizer struct {
 	Bus                *bus.Bus
 	PLCDirectory       identity.Directory
 	CachedPLCDirectory identity.Directory
+	OATProxy           *oatproxy.OATProxy
 }
 
 func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
@@ -161,6 +163,7 @@ var CollectionFilter = []string{
 	constants.APP_BSKY_GRAPH_FOLLOW,
 	constants.APP_BSKY_FEED_POST,
 	constants.APP_BSKY_GRAPH_BLOCK,
+	constants.APP_BSKY_ACTOR_PROFILE,
 	constants.PLACE_STREAM_LIVE_RECOMMENDATIONS,
 }
 

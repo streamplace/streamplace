@@ -132,9 +132,11 @@ const segmentedObject = (
             accessibilityLabel={emote.name}
             style={
               {
-                height: 32,
-                width: 32,
+                height: 28,
+                width: 28,
+                marginVertical: -4,
                 verticalAlign: "middle",
+                aspectRatio: "square",
               } as any
             }
           />
@@ -238,7 +240,7 @@ export const RenderChatMessage = memo(
               {formatTime(item.record.createdAt)}
             </Text>
           )}
-          <Text style={[flex.shrink[1], { minWidth: 0 }]}>
+          <Text style={[flex.shrink[1], { minWidth: 0, overflow: "visible" }]}>
             <UserProfileCard
               uri={item.uri}
               author={item.author}

@@ -47,7 +47,11 @@ export function SystemMessage({
           })}
         </Text>
         <Text weight="bold" color="default" style={[flex.shrink[1]]}>
-          <RichTextMessage facets={facets} text={title} />
+          <RichTextMessage
+            facets={facets}
+            text={title}
+            uri={variant + timestamp}
+          />
         </Text>
       </View>
     </View>

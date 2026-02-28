@@ -27,6 +27,7 @@ interface Facet {
 import { useEmotes, useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
 import { BadgeDisplayRow } from "./badge";
+import { EmojiCard } from "./emoji-card";
 import { UserProfileCard } from "./user-profile-card";
 
 const getRgbColor = (color?: { red: number; green: number; blue: number }) =>
@@ -37,6 +38,7 @@ const segmentedObject = (
   index: number,
   userCache?: { [key: string]: ChatMessageViewHydrated["chatProfile"] },
   emoteCache?: { [aturi: string]: { name: string; imageUrl: string } },
+  messageUri?: string,
 ) => {
   if (obj.features && obj.features.length > 0) {
     let ftr = obj.features[0];
@@ -113,7 +115,6 @@ const segmentedObject = (
               {
                 height: 22,
                 width: 22,
-                marginRight: 2,
                 verticalAlign: "middle",
               } as any
             }
@@ -126,19 +127,10 @@ const segmentedObject = (
       if (emote.record) {
         const imageUrl = emote.record.imageUrl;
         return (
-          <Image
+          <EmojiCard
             key={`emote-${index}`}
-            source={{ uri: imageUrl }}
-            accessibilityLabel={emote.name}
-            style={
-              {
-                height: 28,
-                width: 28,
-                marginVertical: -4,
-                verticalAlign: "middle",
-                aspectRatio: "square",
-              } as any
-            }
+            cardKey={`${messageUri}-${emote.record.uri}-${index}`}
+            emote={emote}
           />
         );
       }
@@ -155,9 +147,11 @@ const segmentedObject = (
 export const RichTextMessage = ({
   text,
   facets,
+  uri,
 }: {
   text: string;
   facets: ChatMessageViewHydrated["record"]["facets"];
+  uri: string;
 }) => {
   const userCache = useLivestreamStore((state) => state.authors);
   const emoteCache = useEmotes();
@@ -165,7 +159,9 @@ export const RichTextMessage = ({
 
   let segs = segmentize(text, facets as Facet[]);
 
-  return segs.map((seg, i) => segmentedObject(seg, i, userCache, emoteCache));
+  return segs.map((seg, i) =>
+    segmentedObject(seg, i, userCache, emoteCache, uri),
+  );
 };
 export const RenderChatMessage = memo(
   function RenderChatMessage({
@@ -276,6 +272,7 @@ export const RenderChatMessage = memo(
             <RichTextMessage
               text={item.record.text}
               facets={item.record.facets || []}
+              uri={item.uri}
             />
           </Text>
         </View>

@@ -315,10 +315,13 @@ export function NativeIngestPlayer(props?: {
   const localMediaStream = lms;
 
   useEffect(() => {
+    let acquiredStream: WebRTCMediaStream | null = null;
+
     if (ingestMediaSource === IngestMediaSource.DISPLAY) {
       mediaDevices
         .getDisplayMedia()
         .then((stream: WebRTCMediaStream) => {
+          acquiredStream = stream;
           console.log("display media", stream);
           setLocalMediaStream(stream);
         })
@@ -344,6 +347,7 @@ export function NativeIngestPlayer(props?: {
           },
         })
         .then((stream: WebRTCMediaStream) => {
+          acquiredStream = stream;
           setLocalMediaStream(stream);
 
           let errs: string[] = [];
@@ -374,6 +378,13 @@ export function NativeIngestPlayer(props?: {
           );
         });
     }
+
+    return () => {
+      if (acquiredStream) {
+        acquiredStream.getTracks().forEach((track) => track.stop());
+      }
+      setLocalMediaStream(null);
+    };
   }, [ingestMediaSource, ingestCamera]);
 
   useEffect(() => {

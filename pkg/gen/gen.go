@@ -8,7 +8,7 @@ import (
 
 func main() {
 	genCfg := cbg.Gen{
-		MaxStringLength: 100_000_000,
+		MaxStringLength: 1_000_000,
 	}
 
 	if err := genCfg.WriteMapEncodersToFile("pkg/streamplace/cbor_gen.go", "streamplace",

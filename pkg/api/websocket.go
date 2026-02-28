@@ -194,24 +194,28 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				return
 			}
 			initialBurst <- spSeg
+			outRs := streamplace.Defs_Renditions{
+				LexiconTypeID: "place.stream.defs#renditions",
+				Renditions:    []*streamplace.Defs_Rendition{},
+			}
 			if a.CLI.LivepeerGatewayURL != "" {
-				renditions, err := renditions.GenerateRenditions(spSeg)
+				videoRenditions, err := renditions.GenerateRenditions(spSeg)
 				if err != nil {
 					log.Error(ctx, "could not generate renditions", "error", err)
 					return
 				}
-				outRs := streamplace.Defs_Renditions{
-					LexiconTypeID: "place.stream.defs#renditions",
-				}
-				outRs.Renditions = []*streamplace.Defs_Rendition{}
-				for _, r := range renditions {
+				for _, r := range videoRenditions {
 					outRs.Renditions = append(outRs.Renditions, &streamplace.Defs_Rendition{
 						LexiconTypeID: "place.stream.defs#rendition",
 						Name:          r.Name,
 					})
 				}
-				initialBurst <- outRs
 			}
+			outRs.Renditions = append(outRs.Renditions, &streamplace.Defs_Rendition{
+				LexiconTypeID: "place.stream.defs#rendition",
+				Name:          renditions.AudioRendition.Name,
+			})
+			initialBurst <- outRs
 		}()
 
 		go func() {

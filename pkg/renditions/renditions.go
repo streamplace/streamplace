@@ -21,6 +21,13 @@ type Rendition struct {
 	Profile   string
 	Name      string
 	Parent    *Rendition
+	AudioOnly bool
+}
+
+var AudioRendition = Rendition{
+	Name:      "audio",
+	Bitrate:   128_000,
+	AudioOnly: true,
 }
 
 type JSONProfile struct {

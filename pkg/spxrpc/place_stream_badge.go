@@ -18,7 +18,7 @@ func (s *Server) handlePlaceStreamBadgeGetValidBadges(ctx context.Context, strea
 	}
 
 	// Get valid badges using shared badge logic
-	badgeList, err := badges.GetValidBadges(ctx, session.DID, streamer, s.cli.MyDID(), s.model)
+	badgeList, err := badges.GetValidBadges(ctx, session.DID, streamer, s.cli.BroadcasterDID(), s.model)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to get valid badges")
 	}

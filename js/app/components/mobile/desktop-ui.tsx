@@ -70,6 +70,7 @@ export function DesktopUi({
   const embedded = usePlayerStore((state) => state.embedded);
 
   const fullscreen = usePlayerStore((state) => state.fullscreen);
+  const selectedRendition = usePlayerStore((state) => state.selectedRendition);
 
   const safeAreaInsets = embedded
     ? { ...originalSafeAreaInsets, top: 0 }
@@ -92,11 +93,13 @@ export function DesktopUi({
     if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
     setIsControlsVisible(true);
 
+    if (selectedRendition === "audio") return;
+
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(0, { duration: 400 });
       setIsControlsVisible(false);
     }, FADE_OUT_DELAY);
-  }, [fadeOpacity]);
+  }, [fadeOpacity, selectedRendition]);
 
   const onPlayerHover = useCallback(() => {
     resetFadeTimer();

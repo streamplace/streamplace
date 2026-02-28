@@ -4,46 +4,37 @@ import { Code, Text, View } from "../..";
 import { bg, layout, left, right, zIndex } from "../../lib/theme/atoms";
 
 export interface EmojiData {
-  categories: Category[];
   emojis: { [key: string]: Emoji };
   aliases: { [key: string]: string };
-  sheet: Sheet;
-}
-
-export interface Category {
-  id: string;
-  emojis: string[];
 }
 
 export interface Emoji {
   id: string;
-  name: string;
-  keywords: string[];
-  skins: Skin[];
-  version: number;
-  emoticons?: string[];
+  m: string;
+  k: string[];
+  s: Skin[];
 }
 
 export interface Skin {
-  unified: string;
-  native: string;
-}
-
-export interface Sheet {
-  cols: number;
-  rows: number;
+  n: string;
 }
 
 interface EmojiSuggestionsProps {
   emojis: Emoji[];
   onSelect: (emoji: Emoji) => void;
   highlightedIndex: number;
+  skinTone?: number;
+}
+
+export function getSkinNative(emoji: Emoji, skinTone: number = 0): string {
+  return (emoji.s[skinTone] ?? emoji.s[0]).n;
 }
 
 export function EmojiSuggestions({
   emojis,
   onSelect,
   highlightedIndex,
+  skinTone = 0,
 }: EmojiSuggestionsProps) {
   if (!emojis || emojis.length === 0) {
     return null;
@@ -83,10 +74,10 @@ export function EmojiSuggestions({
             ]}
           >
             <Text style={{ fontSize: 16, marginRight: 8 }}>
-              {emoji.skins[0]?.native}
+              {getSkinNative(emoji, skinTone)}
             </Text>
             <Text style={{ color: "white", fontSize: 14 }}>
-              <Code style={[bg.gray[950]]}>:{emoji.id}:</Code> {emoji.name}
+              <Code style={[bg.gray[950]]}>:{emoji.id}:</Code> {emoji.m}
             </Text>
           </Pressable>
         ))}

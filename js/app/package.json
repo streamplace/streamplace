@@ -22,7 +22,8 @@
     "i18n:copy": "mkdir -p public/locales && cp -r src/i18n/locales/data/* public/locales/",
     "i18n:build": "npm run i18n:compile && npm run i18n:copy",
     "i18n:watch": "nodemon --exec \"npm run i18n:build\" --watch src/i18n/locales/data/**/*.ftl",
-    "i18n:extract": "node scripts/extract-i18n.js && node scripts/migrate-keys-to-ftl.js"
+    "i18n:extract": "node scripts/extract-i18n.js && node scripts/migrate-keys-to-ftl.js",
+    "gen:emoji": "node scripts/gen-emoji-data.js"
   },
   "jest": {
     "preset": "jest-expo"
@@ -36,7 +37,6 @@
     "@atproto/oauth-client": "^0.5.5",
     "@atproto/oauth-client-browser": "^0.3.31",
     "@bacons/text-decoder": "^0.0.0",
-    "@emoji-mart/react": "^1.1.1",
     "@fluent/bundle": "^0.19.1",
     "@fluent/langneg": "^0.7.0",
     "@fluent/react": "^0.15.2",
@@ -58,7 +58,6 @@
     "burnt": "^0.12.2",
     "chrono-node": "2.7.7",
     "color-contrast-checker": "^2.1.0",
-    "emoji-mart": "^5.6.0",
     "event-target-shim": "^6.0.2",
     "expo": "~53.0.11",
     "expo-build-properties": "~0.14.6",
@@ -76,6 +75,7 @@
     "expo-updates": "~0.28.14",
     "expo-video": "~2.2.1",
     "expo-web-browser": "^14.1.6",
+    "frimousse": "^0.3.0",
     "hls.js": "^1.5.17",
     "i18next": "^25.4.2",
     "i18next-browser-languagedetector": "^8.2.0",
@@ -133,6 +133,7 @@
     "@types/react": "~18.3.12",
     "@types/sdp-transform": "^2.15.0",
     "@types/uuid": "^10.0.0",
+    "emojibase-data": "^17.0.0",
     "i18next-parser": "^9.0.1",
     "typescript": "~5.3.3"
   },

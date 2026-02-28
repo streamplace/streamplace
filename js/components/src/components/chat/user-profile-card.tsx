@@ -186,6 +186,7 @@ export const UserProfileCard = ({
             marginLeft: -3,
             paddingLeft: 3,
             marginRight: -2,
+            ...(Platform.OS === "web" && { paddingBottom: 4 }),
             ...(Platform.OS === "web" && hovered
               ? { backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 6 }
               : {}),

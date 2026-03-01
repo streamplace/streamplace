@@ -186,11 +186,7 @@ export function NativeWHEP(props?: {
 }) {
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const src = usePlayerStore((x) => x.src);
-  const { url } = srcToUrl(
-    { src: src, selectedRendition },
-    PlayerProtocol.WEBRTC,
-  );
-  const [stream, stuck] = useWebRTC(url);
+  const [stream, stuck] = useWebRTC(src);
   const status = usePlayerStore((x) => x.status);
 
   const setPlayerWidth = usePlayerStore((x) => x.setPlayerWidth);

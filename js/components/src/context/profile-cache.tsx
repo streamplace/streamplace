@@ -1,10 +1,16 @@
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import { createContext, useContext, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from "react";
+import { useUnauthenticatedBlueskyAppViewAgent } from "../streamplace-store";
 
 interface ProfileCacheContextValue {
   profiles: Record<string, ProfileViewDetailed>;
-  inFlight: React.MutableRefObject<Set<string>>;
-  addProfiles: (profiles: Record<string, ProfileViewDetailed>) => void;
+  requestProfiles: (dids: string[]) => void;
 }
 
 export const ProfileCacheContext =
@@ -15,16 +21,69 @@ export function ProfileCacheProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const agent = useUnauthenticatedBlueskyAppViewAgent();
   const [profiles, setProfiles] = useState<Record<string, ProfileViewDetailed>>(
     {},
   );
+  const agentRef = useRef(agent);
+  agentRef.current = agent;
+  const profilesRef = useRef(profiles);
+  profilesRef.current = profiles;
   const inFlight = useRef<Set<string>>(new Set());
+  const pending = useRef<Set<string>>(new Set());
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const addProfiles = (newProfiles: Record<string, ProfileViewDetailed>) =>
-    setProfiles((prev) => ({ ...prev, ...newProfiles }));
+  const flush = useCallback(() => {
+    timer.current = null;
+    if (!agentRef.current) return;
+
+    const toFetch = [...pending.current]
+      .filter((d) => !(d in profilesRef.current) && !inFlight.current.has(d))
+      .slice(0, 25);
+    toFetch.forEach((d) => pending.current.delete(d));
+
+    if (toFetch.length === 0) return;
+
+    // If there are more beyond the batch limit, schedule the remainder
+    if (pending.current.size > 0) {
+      timer.current = setTimeout(flush, 0);
+    }
+
+    toFetch.forEach((d) => inFlight.current.add(d));
+
+    agentRef.current
+      .getProfiles({ actors: toFetch })
+      .then((result) => {
+        const newProfiles: Record<string, ProfileViewDetailed> = {};
+        result.data.profiles.forEach((p) => {
+          newProfiles[p.did] = p;
+        });
+        setProfiles((prev) => ({ ...prev, ...newProfiles }));
+      })
+      .catch((e) => {
+        console.error("Failed to fetch profiles", e);
+      })
+      .finally(() => {
+        toFetch.forEach((d) => inFlight.current.delete(d));
+      });
+  }, []);
+
+  const requestProfiles = useCallback(
+    (dids: string[]) => {
+      const toQueue = dids.filter(
+        (d) => !(d in profilesRef.current) && !inFlight.current.has(d),
+      );
+      if (toQueue.length === 0) return;
+      toQueue.forEach((d) => pending.current.add(d));
+      if (!timer.current) {
+        timer.current = setTimeout(flush, 50);
+      }
+    },
+    [flush],
+  );
 
   return (
-    <ProfileCacheContext.Provider value={{ profiles, inFlight, addProfiles }}>
+    <ProfileCacheContext.Provider value={{ profiles, requestProfiles }}>
       {children}
     </ProfileCacheContext.Provider>
   );

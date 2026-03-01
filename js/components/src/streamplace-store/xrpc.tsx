@@ -37,3 +37,11 @@ export function usePossiblyUnauthedPDSAgent(): StreamplaceAgent | null {
     return new StreamplaceAgent(oauthSession);
   }, [oauthSession]);
 }
+
+// always returns an unauthenticated agent pointed at the public bluesky API
+// probably should not be used in most places, but in case we have a bug it may be useful
+export function useUnauthenticatedBlueskyAppViewAgent(): StreamplaceAgent {
+  return useMemo(() => {
+    return new StreamplaceAgent("https://public.api.bsky.app");
+  }, []);
+}

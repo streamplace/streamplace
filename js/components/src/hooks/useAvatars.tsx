@@ -1,10 +1,10 @@
-import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import { AppBskyActorDefs } from "@atproto/api";
 import { useEffect, useMemo } from "react";
 import { useProfileCache } from "../context/profile-cache";
 
 export function useAvatars(
   dids: string[],
-): Record<string, ProfileViewDetailed> {
+): Record<string, AppBskyActorDefs.ProfileViewDetailed> {
   const { profiles, requestProfiles } = useProfileCache();
 
   useEffect(() => {

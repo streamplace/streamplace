@@ -1,4 +1,4 @@
-import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import { AppBskyActorDefs } from "@atproto/api";
 import {
   createContext,
   useCallback,
@@ -9,7 +9,7 @@ import {
 import { useUnauthenticatedBlueskyAppViewAgent } from "../streamplace-store";
 
 interface ProfileCacheContextValue {
-  profiles: Record<string, ProfileViewDetailed>;
+  profiles: Record<string, AppBskyActorDefs.ProfileViewDetailed>;
   requestProfiles: (dids: string[]) => void;
 }
 
@@ -22,9 +22,9 @@ export function ProfileCacheProvider({
   children: React.ReactNode;
 }) {
   const agent = useUnauthenticatedBlueskyAppViewAgent();
-  const [profiles, setProfiles] = useState<Record<string, ProfileViewDetailed>>(
-    {},
-  );
+  const [profiles, setProfiles] = useState<
+    Record<string, AppBskyActorDefs.ProfileViewDetailed>
+  >({});
   const agentRef = useRef(agent);
   agentRef.current = agent;
   const profilesRef = useRef(profiles);
@@ -54,7 +54,10 @@ export function ProfileCacheProvider({
     agentRef.current
       .getProfiles({ actors: toFetch })
       .then((result) => {
-        const newProfiles: Record<string, ProfileViewDetailed> = {};
+        const newProfiles: Record<
+          string,
+          AppBskyActorDefs.ProfileViewDetailed
+        > = {};
         result.data.profiles.forEach((p) => {
           newProfiles[p.did] = p;
         });

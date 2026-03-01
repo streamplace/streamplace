@@ -473,9 +473,9 @@ var livestreamUpdateInterval = time.Second * 30
 func (ss *StreamSession) UpdateLivestream(ctx context.Context, repoDID string) {
 	select {
 	case ss.livestreamUpdateChan <- struct{}{}:
-		log.Warn(ctx, "livestream update signal sent")
+		log.Debug(ctx, "livestream update signal sent")
 	default:
-		log.Warn(ctx, "livestream update channel full, signal already pending")
+		log.Debug(ctx, "livestream update channel full, signal already pending")
 		// Channel full, signal already pending
 	}
 }
@@ -489,7 +489,7 @@ func (ss *StreamSession) livestreamUpdateLoop(ctx context.Context, repoDID strin
 			return nil
 		case <-ss.livestreamUpdateChan:
 			if time.Since(ss.lastLivestreamTime) < livestreamUpdateInterval {
-				log.Warn(ctx, "not updating livestream, last livestream was less than 30 seconds ago")
+				log.Debug(ctx, "not updating livestream, last livestream was less than 30 seconds ago")
 				continue
 			}
 			if err := ss.doUpdateLivestream(ctx, repoDID); err != nil {
@@ -547,7 +547,7 @@ func (ss *StreamSession) doUpdateLivestream(ctx context.Context, repoDID string)
 		return fmt.Errorf("could not update livestream record: %w", err)
 	}
 
-	log.Warn(ctx, "updated livestream record", "uri", lastLivestream.URI)
+	log.Debug(ctx, "updated livestream record", "uri", lastLivestream.URI)
 	ss.lastLivestreamTime = time.Now()
 
 	return nil

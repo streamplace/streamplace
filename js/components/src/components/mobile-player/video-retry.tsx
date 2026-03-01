@@ -8,7 +8,7 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!playing) {
-      const jitter = 500 + Math.random() * 1500;
+      const jitter = 2000 + Math.random() * 1500;
       retryTimeoutRef.current = setTimeout(() => {
         console.log("Retrying video playback...");
         setRetries((prevRetries) => prevRetries + 1);

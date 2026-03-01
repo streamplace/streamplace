@@ -1,6 +1,7 @@
 import { useNavigation } from "@react-navigation/native";
 import {
   ContentWarningBadge,
+  PlayerStatus,
   PlayerUI,
   Slider,
   Text,
@@ -80,6 +81,21 @@ export function MobileUi({
 
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
+  const [playerIsReady, setPlayerIsReady] = useState(false);
+  const playerStatusReady = usePlayerStore(
+    (state) => state.status === PlayerStatus.PLAYING,
+  );
+  useEffect(() => {
+    if (playerIsReady) return;
+    if (playerStatusReady) {
+      setPlayerIsReady(true);
+    } else {
+      const handle = setTimeout(() => {
+        setPlayerIsReady(true);
+      }, 5000);
+      return () => clearTimeout(handle);
+    }
+  }, [playerStatusReady]);
   const muted = useMuted();
   const setMuted = useSetMuted();
   const ls = useLivestream();
@@ -268,7 +284,7 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
-      {showChat === undefined && !isSelfAndNotLive && (
+      {showChat === undefined && !isSelfAndNotLive && playerIsReady && (
         <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
       )}
     </>

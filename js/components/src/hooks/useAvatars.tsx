@@ -1,20 +1,18 @@
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { useProfileCache } from "../context/profile-cache";
 import { usePDSAgent } from "../streamplace-store/xrpc";
 
 export function useAvatars(
   dids: string[],
 ): Record<string, ProfileViewDetailed> {
-  let agent = usePDSAgent();
-  const [profiles, setProfiles] = useState<Record<string, ProfileViewDetailed>>(
-    {},
-  );
-  const inFlight = useRef<Set<string>>(new Set());
+  const agent = usePDSAgent();
+  const { profiles, inFlight, addProfiles } = useProfileCache();
 
   const missingDids = useMemo(
     () =>
       dids.filter((did) => !(did in profiles) && !inFlight.current.has(did)),
-    [dids, profiles],
+    [dids, profiles, inFlight],
   );
 
   useEffect(() => {
@@ -29,7 +27,7 @@ export function useAvatars(
         result.data.profiles.forEach((p) => {
           newProfiles[p.did] = p;
         });
-        setProfiles((prev) => ({ ...prev, ...newProfiles }));
+        addProfiles(newProfiles);
       } catch (e) {
         console.error("Failed to fetch profiles", e);
       } finally {
@@ -40,5 +38,11 @@ export function useAvatars(
     fetchProfiles();
   }, [missingDids, agent]);
 
-  return profiles;
+  return useMemo(
+    () =>
+      Object.fromEntries(
+        dids.filter((d) => d in profiles).map((d) => [d, profiles[d]]),
+      ),
+    [dids, profiles],
+  );
 }

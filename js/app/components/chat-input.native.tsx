@@ -234,6 +234,10 @@ function ChatNativeInput(props: RenderInputProps) {
     setText("");
     textRef.current = "";
     clearSuggestions();
+    setTimeout(() => {
+      setText("");
+      textRef.current = "";
+    }, 100);
   }, [props.authors, props.onSubmit, emoteMap, clearSuggestions]);
 
   const handleKeyPress = useCallback(
@@ -310,9 +314,10 @@ function ChatNativeInput(props: RenderInputProps) {
             setHeight(Math.max(43, e.nativeEvent.contentSize.height))
           }
           multiline
+          submitBehavior="submit"
+          onSubmitEditing={handleSubmit}
           placeholder="Type a message..."
           placeholderTextColor="#6b7280"
-          blurOnSubmit={false}
         />
         {hasEmojiPacks && (
           <Pressable

@@ -125,7 +125,6 @@ const segmentedObject = (
     } else if (ftr.$type === "place.stream.richtext.facet#emoteView") {
       const emote = ftr as PlaceStreamRichtextFacet.EmoteView;
       if (emote.record) {
-        const imageUrl = emote.record.imageUrl;
         return (
           <EmojiCard
             key={`emote-${index}`}

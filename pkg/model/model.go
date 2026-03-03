@@ -136,7 +136,7 @@ type Model interface {
 	DeleteEmotePack(ctx context.Context, uri string) error
 }
 
-var DBRevision = 2
+var DBRevision = 3
 
 func MakeDB(dbURL string) (Model, error) {
 	sqliteSuffix := dbURL
@@ -204,6 +204,8 @@ func MakeDB(dbURL string) (Model, error) {
 		Teleport{},
 		ModerationDelegation{},
 		Recommendation{},
+		EmotePack{},
+		EmoteItem{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

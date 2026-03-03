@@ -13,6 +13,8 @@ type EmoteDefs_EmoteView struct {
 	// alt: Alt text for the emote image.
 	Alt *string `json:"alt,omitempty" cborgen:"alt,omitempty"`
 	Cid string  `json:"cid" cborgen:"cid"`
+	// creator: DID of the creator/artist of this emote, if different from the pack author.
+	Creator *string `json:"creator,omitempty" cborgen:"creator,omitempty"`
 	// imageUrl: Resolved URL for the emote image.
 	ImageUrl  string `json:"imageUrl" cborgen:"imageUrl"`
 	IndexedAt string `json:"indexedAt" cborgen:"indexedAt"`

@@ -7105,9 +7105,13 @@ func (t *EmoteDefs_EmoteView) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 6
+	fieldCount := 7
 
 	if t.Alt == nil {
+		fieldCount--
+	}
+
+	if t.Creator == nil {
 		fieldCount--
 	}
 
@@ -7214,6 +7218,38 @@ func (t *EmoteDefs_EmoteView) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.Name)); err != nil {
 		return err
+	}
+
+	// t.Creator (string) (string)
+	if t.Creator != nil {
+
+		if len("creator") > 1000000 {
+			return xerrors.Errorf("Value in field \"creator\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("creator"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("creator")); err != nil {
+			return err
+		}
+
+		if t.Creator == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Creator) > 1000000 {
+				return xerrors.Errorf("Value in field t.Creator was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Creator))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.Creator)); err != nil {
+				return err
+			}
+		}
 	}
 
 	// t.ImageUrl (string) (string)
@@ -7358,6 +7394,27 @@ func (t *EmoteDefs_EmoteView) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Name = string(sval)
+			}
+			// t.Creator (string) (string)
+		case "creator":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.Creator = (*string)(&sval)
+				}
 			}
 			// t.ImageUrl (string) (string)
 		case "imageUrl":

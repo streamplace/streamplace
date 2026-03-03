@@ -36,6 +36,10 @@ func (s *Server) buildPackView(ctx context.Context, pack *model.EmotePack) (*pla
 		if item.ImageCID != "" {
 			emoteView.ImageUrl = fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@png", item.RepoDID, item.ImageCID)
 		}
+		if item.CreatorDID != "" {
+			did := item.CreatorDID
+			emoteView.Creator = &did
+		}
 		emotes = append(emotes, emoteView)
 	}
 

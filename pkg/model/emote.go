@@ -29,6 +29,7 @@ type EmoteItem struct {
 	ImageCID      string    `gorm:"column:image_cid"`
 	ImageMimeType string    `gorm:"column:image_mime_type"`
 	Alt           string    `gorm:"column:alt"`
+	CreatorDID    string    `gorm:"column:creator_did"`
 	Record        []byte    `gorm:"column:record"`
 	IndexedAt     time.Time `gorm:"column:indexed_at"`
 }

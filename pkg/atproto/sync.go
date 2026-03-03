@@ -718,6 +718,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if rec.Alt != nil {
 			item.Alt = *rec.Alt
 		}
+		if rec.Creator != nil {
+			item.CreatorDID = *rec.Creator
+		}
 		if err := atsync.Model.UpsertEmoteItem(ctx, item); err != nil {
 			return fmt.Errorf("failed to upsert emote item: %w", err)
 		}

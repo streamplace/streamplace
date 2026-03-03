@@ -28,6 +28,11 @@
           "type": "string",
           "description": "Alt text for the emote image."
         },
+        "creator": {
+          "type": "string",
+          "format": "did",
+          "description": "DID of the creator/artist of this emote, if different from the pack author."
+        },
         "indexedAt": {
           "type": "string",
           "format": "datetime"

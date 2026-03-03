@@ -15,14 +15,15 @@ description: Reference for the place.stream.emote.defs lexicon
 
 **Properties:**
 
-| Name        | Type     | Req'd | Description                                      | Constraints        |
-| ----------- | -------- | ----- | ------------------------------------------------ | ------------------ |
-| `uri`       | `string` | ✅    | AT-URI of the place.stream.emote.item record.    | Format: `at-uri`   |
-| `cid`       | `string` | ✅    |                                                  | Format: `cid`      |
-| `name`      | `string` | ✅    | Short name used to reference this emote in chat. |                    |
-| `imageUrl`  | `string` | ✅    | Resolved URL for the emote image.                | Format: `uri`      |
-| `alt`       | `string` | ❌    | Alt text for the emote image.                    |                    |
-| `indexedAt` | `string` | ✅    |                                                  | Format: `datetime` |
+| Name        | Type     | Req'd | Description                                                                 | Constraints        |
+| ----------- | -------- | ----- | --------------------------------------------------------------------------- | ------------------ |
+| `uri`       | `string` | ✅    | AT-URI of the place.stream.emote.item record.                               | Format: `at-uri`   |
+| `cid`       | `string` | ✅    |                                                                             | Format: `cid`      |
+| `name`      | `string` | ✅    | Short name used to reference this emote in chat.                            |                    |
+| `imageUrl`  | `string` | ✅    | Resolved URL for the emote image.                                           | Format: `uri`      |
+| `alt`       | `string` | ❌    | Alt text for the emote image.                                               |                    |
+| `creator`   | `string` | ❌    | DID of the creator/artist of this emote, if different from the pack author. | Format: `did`      |
+| `indexedAt` | `string` | ✅    |                                                                             | Format: `datetime` |
 
 ---
 
@@ -78,6 +79,11 @@ description: Reference for the place.stream.emote.defs lexicon
         "alt": {
           "type": "string",
           "description": "Alt text for the emote image."
+        },
+        "creator": {
+          "type": "string",
+          "format": "did",
+          "description": "DID of the creator/artist of this emote, if different from the pack author."
         },
         "indexedAt": {
           "type": "string",

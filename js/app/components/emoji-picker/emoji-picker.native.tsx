@@ -7,6 +7,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 
 const { bg, borders, gap, layout, p, py, r, text } = zero;
@@ -58,10 +59,9 @@ export function EmojiPicker({
     hasOpened.current = isOpen;
     // ensure the keyboard is dismissed when the emoji picker is opened
     kb.isKeyboardVisible && isOpen && Keyboard.dismiss();
-    height.value = withSpring(isOpen ? PANEL_HEIGHT : 0, {
-      damping: 30,
-      stiffness: 300,
-    });
+    height.value = isOpen
+      ? withSpring(PANEL_HEIGHT, { damping: 30, stiffness: 300 })
+      : withTiming(0, { duration: 200 });
   }, [isOpen, kb.isKeyboardVisible]);
 
   const animatedStyle = useAnimatedStyle(() => ({

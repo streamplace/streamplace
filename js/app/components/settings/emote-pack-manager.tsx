@@ -11,8 +11,9 @@ import {
   zero,
 } from "@streamplace/components";
 import { Select } from "@streamplace/components/src/components/ui/select";
+import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import Loading from "components/loading/loading";
-import { Plus, Trash2 } from "lucide-react-native";
+import { Pencil, Plus, Search, Trash2, X } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -39,6 +40,11 @@ interface EmoteRecord {
   uri: string;
   cid: string;
   value: PlaceStreamEmoteItem.Record;
+}
+
+interface ActorSearchResult {
+  did: string;
+  handle: string;
 }
 
 function emoteImageUrl(did: string, item: PlaceStreamEmoteItem.Record): string {
@@ -125,6 +131,87 @@ function CreatePackDialog({
   );
 }
 
+function EditPackDialog({
+  isVisible,
+  onClose,
+  onSubmit,
+  isLoading,
+  pack,
+}: {
+  isVisible: boolean;
+  onClose: () => void;
+  onSubmit: (name: string, description: string) => void;
+  isLoading: boolean;
+  pack: PackRecord | null;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    if (!pack) return;
+    setName(pack.value.name);
+    setDescription(pack.value.description ?? "");
+  }, [pack]);
+
+  const handleSubmit = () => {
+    if (!name.trim()) return;
+    onSubmit(name.trim(), description.trim());
+  };
+
+  return (
+    <ResponsiveDialog
+      open={isVisible}
+      onOpenChange={(open) => !open && onClose()}
+      title="Edit Emote Pack"
+      dismissible={false}
+    >
+      <View style={[w.percent[100]]}>
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            Name *
+          </Text>
+          <Input
+            value={name}
+            onChangeText={setName}
+            placeholder="My Emote Pack"
+          />
+        </View>
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            Description (optional)
+          </Text>
+          <Input
+            value={description}
+            onChangeText={setDescription}
+            placeholder="A collection of custom emotes"
+          />
+        </View>
+      </View>
+      <DialogFooter>
+        <Button
+          width="min"
+          variant="secondary"
+          onPress={onClose}
+          disabled={isLoading}
+        >
+          <Text>Cancel</Text>
+        </Button>
+        <Button
+          width="min"
+          onPress={handleSubmit}
+          disabled={isLoading || !name.trim()}
+        >
+          <Text>{isLoading ? "Saving..." : "Save"}</Text>
+        </Button>
+      </DialogFooter>
+    </ResponsiveDialog>
+  );
+}
+
 function CreateEmoteDialog({
   isVisible,
   onClose,
@@ -133,14 +220,27 @@ function CreateEmoteDialog({
 }: {
   isVisible: boolean;
   onClose: () => void;
-  onSubmit: (name: string, imageBlob: Blob, alt: string) => void;
+  onSubmit: (
+    name: string,
+    imageBlob: Blob,
+    alt: string,
+    creator?: string,
+  ) => void;
   isLoading: boolean;
 }) {
+  const agent = usePDSAgent();
+  const { theme } = zero.useTheme();
   const [name, setName] = useState("");
   const [alt, setAlt] = useState("");
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [creator, setCreator] = useState<string | null>(null);
+  const [creatorHandle, setCreatorHandle] = useState<string | null>(null);
+  const [creatorSearch, setCreatorSearch] = useState("");
+  const [creatorResults, setCreatorResults] = useState<ActorSearchResult[]>([]);
+  const [creatorSearching, setCreatorSearching] = useState(false);
+  const creatorDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleFileChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,9 +254,52 @@ function CreateEmoteDialog({
     [],
   );
 
+  const handleCreatorSearchChange = (query: string) => {
+    setCreatorSearch(query);
+    if (creatorDebounceRef.current) clearTimeout(creatorDebounceRef.current);
+    if (!query.trim()) {
+      setCreatorResults([]);
+      return;
+    }
+    creatorDebounceRef.current = setTimeout(async () => {
+      if (!agent) return;
+      try {
+        setCreatorSearching(true);
+        const response = await agent.place.stream.live.searchActorsTypeahead({
+          q: query,
+          limit: 5,
+        });
+        setCreatorResults(
+          response.data.actors.map((a: any) => ({
+            did: a.did,
+            handle: a.handle,
+          })),
+        );
+      } catch {
+        setCreatorResults([]);
+      } finally {
+        setCreatorSearching(false);
+      }
+    }, 300);
+  };
+
+  const selectCreator = (actor: ActorSearchResult) => {
+    setCreator(actor.did);
+    setCreatorHandle(actor.handle);
+    setCreatorSearch("");
+    setCreatorResults([]);
+  };
+
+  const clearCreator = () => {
+    setCreator(null);
+    setCreatorHandle(null);
+    setCreatorSearch("");
+    setCreatorResults([]);
+  };
+
   const handleSubmit = () => {
     if (!name.trim() || !imageBlob) return;
-    onSubmit(name.trim(), imageBlob, alt.trim());
+    onSubmit(name.trim(), imageBlob, alt.trim(), creator ?? undefined);
   };
 
   const handleClose = () => {
@@ -165,6 +308,10 @@ function CreateEmoteDialog({
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImageBlob(null);
     setImagePreview(null);
+    setCreator(null);
+    setCreatorHandle(null);
+    setCreatorSearch("");
+    setCreatorResults([]);
     onClose();
   };
 
@@ -246,6 +393,83 @@ function CreateEmoteDialog({
             placeholder="Description of the emote"
           />
         </View>
+
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            Creator (optional)
+          </Text>
+          {creator ? (
+            <View
+              style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text>@{creatorHandle ?? creator}</Text>
+              </View>
+              <Button
+                width="min"
+                variant="secondary"
+                size="pill"
+                onPress={clearCreator}
+                leftIcon={<X size={14} color={theme.colors.text} />}
+              >
+                <Text>Clear</Text>
+              </Button>
+            </View>
+          ) : (
+            <View>
+              <View
+                style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+              >
+                <Search size={16} color={theme.colors.textMuted} />
+                <Input
+                  value={creatorSearch}
+                  onChangeText={handleCreatorSearchChange}
+                  placeholder="Search by handle..."
+                />
+              </View>
+              {creatorSearching && (
+                <Text size="sm" muted style={[mt[1]]}>
+                  Searching...
+                </Text>
+              )}
+              {!creatorSearching && creatorResults.length > 0 && (
+                <View style={[mt[1], { borderRadius: 6, overflow: "hidden" }]}>
+                  {creatorResults.map((actor) => (
+                    <Pressable
+                      key={actor.did}
+                      onPress={() => selectCreator(actor)}
+                    >
+                      {({ pressed }) => (
+                        <View
+                          style={[
+                            zero.px[3],
+                            zero.py[2],
+                            {
+                              backgroundColor: pressed
+                                ? "#ffffff10"
+                                : "#ffffff08",
+                            },
+                          ]}
+                        >
+                          <Text>@{actor.handle}</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+              {!creatorSearching &&
+                creatorSearch.trim() &&
+                creatorResults.length === 0 && (
+                  <Text size="sm" muted style={[mt[1]]}>
+                    No results found
+                  </Text>
+                )}
+            </View>
+          )}
+        </View>
       </View>
 
       <DialogFooter>
@@ -269,6 +493,235 @@ function CreateEmoteDialog({
   );
 }
 
+function EditEmoteDialog({
+  isVisible,
+  onClose,
+  onSubmit,
+  isLoading,
+  emote,
+}: {
+  isVisible: boolean;
+  onClose: () => void;
+  onSubmit: (name: string, alt: string, creator?: string) => void;
+  isLoading: boolean;
+  emote: EmoteRecord | null;
+}) {
+  const agent = usePDSAgent();
+  const { theme } = zero.useTheme();
+  const [name, setName] = useState("");
+  const [alt, setAlt] = useState("");
+  const [creator, setCreator] = useState<string | null>(null);
+  const [creatorHandle, setCreatorHandle] = useState<string | null>(null);
+  const [creatorSearch, setCreatorSearch] = useState("");
+  const [creatorResults, setCreatorResults] = useState<ActorSearchResult[]>([]);
+  const [creatorSearching, setCreatorSearching] = useState(false);
+  const creatorDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!emote) return;
+    setName(emote.value.name);
+    setAlt(emote.value.alt ?? "");
+    setCreatorSearch("");
+    setCreatorResults([]);
+    const creatorDid = emote.value.creator ?? null;
+    setCreator(creatorDid);
+    setCreatorHandle(null);
+    if (creatorDid && agent) {
+      agent.app.bsky.actor
+        .getProfile({ actor: creatorDid })
+        .then((res) => setCreatorHandle(res.data.handle ?? null))
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emote]);
+
+  const handleCreatorSearchChange = (query: string) => {
+    setCreatorSearch(query);
+    if (creatorDebounceRef.current) clearTimeout(creatorDebounceRef.current);
+    if (!query.trim()) {
+      setCreatorResults([]);
+      return;
+    }
+    creatorDebounceRef.current = setTimeout(async () => {
+      if (!agent) return;
+      try {
+        setCreatorSearching(true);
+        const response = await agent.place.stream.live.searchActorsTypeahead({
+          q: query,
+          limit: 5,
+        });
+        setCreatorResults(
+          response.data.actors.map((a: any) => ({
+            did: a.did,
+            handle: a.handle,
+          })),
+        );
+      } catch {
+        setCreatorResults([]);
+      } finally {
+        setCreatorSearching(false);
+      }
+    }, 300);
+  };
+
+  const selectCreator = (actor: ActorSearchResult) => {
+    setCreator(actor.did);
+    setCreatorHandle(actor.handle);
+    setCreatorSearch("");
+    setCreatorResults([]);
+  };
+
+  const clearCreator = () => {
+    setCreator(null);
+    setCreatorHandle(null);
+    setCreatorSearch("");
+    setCreatorResults([]);
+  };
+
+  const handleSubmit = () => {
+    if (!name.trim()) return;
+    onSubmit(name.trim(), alt.trim(), creator ?? undefined);
+  };
+
+  return (
+    <Dialog
+      open={isVisible}
+      onOpenChange={(open) => !open && onClose()}
+      title="Edit Emote"
+      dismissible={false}
+    >
+      <View style={[w.percent[100]]}>
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            Name *
+          </Text>
+          <Input
+            value={name}
+            onChangeText={setName}
+            placeholder="my_emote"
+            autoCapitalize="none"
+          />
+          <Text size="sm" muted style={[mt[1]]}>
+            Alphanumeric and underscores only
+          </Text>
+        </View>
+
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            Alt text (optional)
+          </Text>
+          <Input
+            value={alt}
+            onChangeText={setAlt}
+            placeholder="Description of the emote"
+          />
+        </View>
+
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            Creator (optional)
+          </Text>
+          {creator ? (
+            <View
+              style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text numberOfLines={1} ellipsizeMode="middle">
+                  @{creatorHandle ?? creator}
+                </Text>
+              </View>
+              <Button
+                width="min"
+                variant="secondary"
+                size="pill"
+                onPress={clearCreator}
+                leftIcon={<X size={14} color={theme.colors.text} />}
+              >
+                <Text>Clear</Text>
+              </Button>
+            </View>
+          ) : (
+            <View>
+              <View
+                style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+              >
+                <Search size={16} color={theme.colors.textMuted} />
+                <Input
+                  value={creatorSearch}
+                  onChangeText={handleCreatorSearchChange}
+                  placeholder="Search by handle..."
+                />
+              </View>
+              {creatorSearching && (
+                <Text size="sm" muted style={[mt[1]]}>
+                  Searching...
+                </Text>
+              )}
+              {!creatorSearching && creatorResults.length > 0 && (
+                <View style={[mt[1], { borderRadius: 6, overflow: "hidden" }]}>
+                  {creatorResults.map((actor) => (
+                    <Pressable
+                      key={actor.did}
+                      onPress={() => selectCreator(actor)}
+                    >
+                      {({ pressed }) => (
+                        <View
+                          style={[
+                            zero.px[3],
+                            zero.py[2],
+                            {
+                              backgroundColor: pressed
+                                ? "#ffffff10"
+                                : "#ffffff08",
+                            },
+                          ]}
+                        >
+                          <Text>@{actor.handle}</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+              {!creatorSearching &&
+                creatorSearch.trim() &&
+                creatorResults.length === 0 && (
+                  <Text size="sm" muted style={[mt[1]]}>
+                    No results found
+                  </Text>
+                )}
+            </View>
+          )}
+        </View>
+      </View>
+
+      <DialogFooter>
+        <Button
+          width="min"
+          variant="secondary"
+          onPress={onClose}
+          disabled={isLoading}
+        >
+          <Text>Cancel</Text>
+        </Button>
+        <Button
+          width="min"
+          onPress={handleSubmit}
+          disabled={isLoading || !name.trim()}
+        >
+          <Text>{isLoading ? "Saving..." : "Save"}</Text>
+        </Button>
+      </DialogFooter>
+    </Dialog>
+  );
+}
+
 export default function EmotePackManager() {
   const pdsAgent = useStore((state) => state.pdsAgent);
   const session = useOAuthSession();
@@ -283,6 +736,16 @@ export default function EmotePackManager() {
   const [creatingPack, setCreatingPack] = useState(false);
   const [showCreateEmote, setShowCreateEmote] = useState(false);
   const [creatingEmote, setCreatingEmote] = useState(false);
+  const [editingPack, setEditingPack] = useState(false);
+  const [editPackDialog, setEditPackDialog] = useState<{
+    isVisible: boolean;
+    pack: PackRecord | null;
+  }>({ isVisible: false, pack: null });
+  const [editingEmote, setEditingEmote] = useState(false);
+  const [editEmoteDialog, setEditEmoteDialog] = useState<{
+    isVisible: boolean;
+    emote: EmoteRecord | null;
+  }>({ isVisible: false, emote: null });
   const [deletingEmotes, setDeletingEmotes] = useState<Set<string>>(new Set());
   const [deletePackDialog, setDeletePackDialog] = useState<{
     isVisible: boolean;
@@ -367,7 +830,39 @@ export default function EmotePackManager() {
     }
   };
 
-  const createEmote = async (name: string, imageBlob: Blob, alt: string) => {
+  const editPack = async (name: string, description: string) => {
+    if (!pdsAgent || !session?.did || !editPackDialog.pack) return;
+    const pack = editPackDialog.pack;
+    const rkey = pack.uri.split("/").pop() ?? "";
+    try {
+      setEditingPack(true);
+      await pdsAgent.com.atproto.repo.putRecord({
+        repo: session.did,
+        collection: "place.stream.emote.pack",
+        rkey,
+        record: {
+          $type: "place.stream.emote.pack",
+          name,
+          ...(description ? { description } : {}),
+          createdAt: pack.value.createdAt,
+        },
+      });
+      setEditPackDialog({ isVisible: false, pack: null });
+      await loadPacks();
+    } catch (err: any) {
+      console.error("Failed to edit emote pack", err);
+      Alert.alert("Error", err.message ?? "Failed to edit emote pack.");
+    } finally {
+      setEditingPack(false);
+    }
+  };
+
+  const createEmote = async (
+    name: string,
+    imageBlob: Blob,
+    alt: string,
+    creator?: string,
+  ) => {
     if (!pdsAgent || !session?.did || !selectedPackUri) return;
     try {
       setCreatingEmote(true);
@@ -383,6 +878,7 @@ export default function EmotePackManager() {
           image: uploadResult.data.blob,
           pack: selectedPackUri,
           ...(alt ? { alt } : {}),
+          ...(creator ? { creator } : {}),
           createdAt: new Date().toISOString(),
         },
       });
@@ -393,6 +889,36 @@ export default function EmotePackManager() {
       Alert.alert("Error", err.message ?? "Failed to create emote.");
     } finally {
       setCreatingEmote(false);
+    }
+  };
+
+  const editEmote = async (name: string, alt: string, creator?: string) => {
+    if (!pdsAgent || !session?.did || !editEmoteDialog.emote) return;
+    const emote = editEmoteDialog.emote;
+    const rkey = emote.uri.split("/").pop() ?? "";
+    try {
+      setEditingEmote(true);
+      await pdsAgent.com.atproto.repo.putRecord({
+        repo: session.did,
+        collection: "place.stream.emote.item",
+        rkey,
+        record: {
+          $type: "place.stream.emote.item",
+          name,
+          image: emote.value.image,
+          pack: emote.value.pack,
+          ...(alt ? { alt } : {}),
+          ...(creator ? { creator } : {}),
+          createdAt: emote.value.createdAt,
+        },
+      });
+      setEditEmoteDialog({ isVisible: false, emote: null });
+      if (selectedPackUri) await loadEmotes(selectedPackUri);
+    } catch (err: any) {
+      console.error("Failed to edit emote", err);
+      Alert.alert("Error", err.message ?? "Failed to edit emote.");
+    } finally {
+      setEditingEmote(false);
     }
   };
 
@@ -499,6 +1025,22 @@ export default function EmotePackManager() {
                       />
                     </View>
                     <Button
+                      variant="secondary"
+                      width="min"
+                      size="pill"
+                      onPress={() =>
+                        selectedPack &&
+                        setEditPackDialog({
+                          isVisible: true,
+                          pack: selectedPack,
+                        })
+                      }
+                      disabled={!selectedPack}
+                      leftIcon={<Pencil size={14} color={theme.colors.text} />}
+                    >
+                      <Text>Edit</Text>
+                    </Button>
+                    <Button
                       variant="destructive"
                       width="min"
                       size="pill"
@@ -603,6 +1145,26 @@ export default function EmotePackManager() {
                                 )}
                               </View>
                               <Pressable
+                                onPress={() =>
+                                  setEditEmoteDialog({
+                                    isVisible: true,
+                                    emote,
+                                  })
+                                }
+                                style={({ pressed }) => ({
+                                  padding: 8,
+                                  borderRadius: 6,
+                                  backgroundColor: pressed
+                                    ? "#ffffff08"
+                                    : "transparent",
+                                })}
+                              >
+                                <Pencil
+                                  size={18}
+                                  color={theme.colors.textMuted}
+                                />
+                              </Pressable>
+                              <Pressable
                                 onPress={() => requestDeleteEmote(rkey)}
                                 disabled={deletingEmotes.has(rkey)}
                                 style={({ pressed }) => ({
@@ -644,6 +1206,22 @@ export default function EmotePackManager() {
         onClose={() => setShowCreateEmote(false)}
         onSubmit={createEmote}
         isLoading={creatingEmote}
+      />
+
+      <EditPackDialog
+        isVisible={editPackDialog.isVisible}
+        onClose={() => setEditPackDialog({ isVisible: false, pack: null })}
+        onSubmit={editPack}
+        isLoading={editingPack}
+        pack={editPackDialog.pack}
+      />
+
+      <EditEmoteDialog
+        isVisible={editEmoteDialog.isVisible}
+        onClose={() => setEditEmoteDialog({ isVisible: false, emote: null })}
+        onSubmit={editEmote}
+        isLoading={editingEmote}
+        emote={editEmoteDialog.emote}
       />
 
       <Dialog

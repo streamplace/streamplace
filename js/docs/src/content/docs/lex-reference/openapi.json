@@ -3709,6 +3709,10 @@
           "indexedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "relationship": {
+            "type": "string",
+            "description": "Why this pack is available to the requesting user."
           }
         },
         "required": ["uri", "cid", "author", "name", "emotes", "indexedAt"]

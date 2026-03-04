@@ -32,5 +32,7 @@ type EmoteDefs_PackView struct {
 	Emotes      []*EmoteDefs_EmoteView              `json:"emotes" cborgen:"emotes"`
 	IndexedAt   string                              `json:"indexedAt" cborgen:"indexedAt"`
 	Name        string                              `json:"name" cborgen:"name"`
-	Uri         string                              `json:"uri" cborgen:"uri"`
+	// relationship: Why this pack is available to the requesting user.
+	Relationship *string `json:"relationship,omitempty" cborgen:"relationship,omitempty"`
+	Uri          string  `json:"uri" cborgen:"uri"`
 }

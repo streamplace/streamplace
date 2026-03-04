@@ -25,7 +25,11 @@ import {
 } from "react-native";
 import { useStore } from "store";
 import { useOAuthSession } from "store/hooks";
-import { PlaceStreamEmoteItem, PlaceStreamEmotePack } from "streamplace";
+import {
+  PlaceStreamEmoteDefs,
+  PlaceStreamEmoteItem,
+  PlaceStreamEmotePack,
+} from "streamplace";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 
 const { text, mb, mt, gap, layout, w } = zero;
@@ -728,6 +732,9 @@ export default function EmotePackManager() {
   const { theme } = zero.useTheme();
 
   const [packs, setPacks] = useState<PackRecord[] | null>(null);
+  const [followedPacks, setFollowedPacks] = useState<
+    PlaceStreamEmoteDefs.PackView[] | null
+  >(null);
   const [selectedPackUri, setSelectedPackUri] = useState<string | null>(null);
   const [emotes, setEmotes] = useState<EmoteRecord[] | null>(null);
   const [loadingPacks, setLoadingPacks] = useState(true);
@@ -802,6 +809,18 @@ export default function EmotePackManager() {
       Alert.alert("Error", "Failed to load emotes.");
     } finally {
       setLoadingEmotes(false);
+    }
+  };
+
+  const loadFollowedPacks = async () => {
+    if (!pdsAgent) return;
+    try {
+      const result = await pdsAgent.place.stream.emote.getEmotePacks({});
+      setFollowedPacks(
+        result.data.packs.filter((p) => p.relationship === "follow"),
+      );
+    } catch (err) {
+      console.error("Failed to load followed emote packs", err);
     }
   };
 
@@ -972,6 +991,7 @@ export default function EmotePackManager() {
 
   useEffect(() => {
     loadPacks();
+    loadFollowedPacks();
   }, [pdsAgent, session?.did]);
 
   useEffect(() => {
@@ -995,9 +1015,9 @@ export default function EmotePackManager() {
           <View style={{ maxWidth: 800, width: "100%" }}>
             <MenuContainer>
               <View>
-                <Text size="xl">My Emote Packs</Text>
+                <Text size="xl">Emote Packs</Text>
                 <Text size="lg" style={[text.gray[400], { marginTop: 4 }]}>
-                  Create and manage custom emote packs for your chat.
+                  Manage custom emote packs for yourself or your chat.
                 </Text>
 
                 {loadingPacks ? (
@@ -1077,7 +1097,10 @@ export default function EmotePackManager() {
                   <View
                     style={[
                       layout.flex.row,
-                      { justifyContent: "space-between", alignItems: "center" },
+                      {
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      },
                     ]}
                   >
                     <View>
@@ -1100,7 +1123,7 @@ export default function EmotePackManager() {
                 </View>
 
                 {loadingEmotes ? (
-                  <View style={[mt[4]]}>
+                  <View>
                     <Loading />
                   </View>
                 ) : !emotes || emotes.length === 0 ? (
@@ -1110,7 +1133,7 @@ export default function EmotePackManager() {
                     </Text>
                   </View>
                 ) : (
-                  <View style={[mt[4]]}>
+                  <View style={[mb[4]]}>
                     <MenuGroup>
                       {emotes.map((emote, i) => {
                         const rkey = emote.uri.split("/").pop() ?? "";
@@ -1188,6 +1211,57 @@ export default function EmotePackManager() {
                     </MenuGroup>
                   </View>
                 )}
+              </MenuContainer>
+            )}
+
+            {followedPacks !== null && followedPacks.length > 0 && (
+              <MenuContainer>
+                <View>
+                  <Text size="xl">From People You Follow</Text>
+                </View>
+                {followedPacks.map((pack) => (
+                  <View key={pack.uri}>
+                    <View style={[mb[2]]}>
+                      <Text size="lg">{pack.name}</Text>
+                      <Text size="sm" muted>
+                        You follow @{pack.author.handle}
+                      </Text>
+                    </View>
+                    {pack.emotes.length > 0 && (
+                      <MenuGroup>
+                        {pack.emotes.map((emote, i) => (
+                          <View key={emote.uri}>
+                            {i > 0 && <MenuSeparator />}
+                            <SettingsRowItem>
+                              <Image
+                                source={{ uri: emote.imageUrl }}
+                                style={{
+                                  width: 36,
+                                  height: 36,
+                                  borderRadius: 4,
+                                }}
+                                resizeMode="contain"
+                              />
+                              <View
+                                style={[
+                                  zero.flex.values[1],
+                                  { marginLeft: 12 },
+                                ]}
+                              >
+                                <Text size="lg">:{emote.name}:</Text>
+                                {emote.alt && (
+                                  <Text size="sm" muted>
+                                    {emote.alt}
+                                  </Text>
+                                )}
+                              </View>
+                            </SettingsRowItem>
+                          </View>
+                        ))}
+                      </MenuGroup>
+                    )}
+                  </View>
+                ))}
               </MenuContainer>
             )}
           </View>

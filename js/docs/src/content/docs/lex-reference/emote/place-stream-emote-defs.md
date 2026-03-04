@@ -35,15 +35,16 @@ description: Reference for the place.stream.emote.defs lexicon
 
 **Properties:**
 
-| Name          | Type                                                                                                                                             | Req'd | Description | Constraints        |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ----------- | ------------------ |
-| `uri`         | `string`                                                                                                                                         | ✅    |             | Format: `at-uri`   |
-| `cid`         | `string`                                                                                                                                         | ✅    |             | Format: `cid`      |
-| `author`      | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |             |                    |
-| `name`        | `string`                                                                                                                                         | ✅    |             |                    |
-| `description` | `string`                                                                                                                                         | ❌    |             |                    |
-| `emotes`      | Array of [`#emoteView`](#emoteview)                                                                                                              | ✅    |             |                    |
-| `indexedAt`   | `string`                                                                                                                                         | ✅    |             | Format: `datetime` |
+| Name           | Type                                                                                                                                             | Req'd | Description                                        | Constraints            |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | -------------------------------------------------- | ---------------------- |
+| `uri`          | `string`                                                                                                                                         | ✅    |                                                    | Format: `at-uri`       |
+| `cid`          | `string`                                                                                                                                         | ✅    |                                                    | Format: `cid`          |
+| `author`       | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |                                                    |                        |
+| `name`         | `string`                                                                                                                                         | ✅    |                                                    |                        |
+| `description`  | `string`                                                                                                                                         | ❌    |                                                    |                        |
+| `emotes`       | Array of [`#emoteView`](#emoteview)                                                                                                              | ✅    |                                                    |                        |
+| `indexedAt`    | `string`                                                                                                                                         | ✅    |                                                    | Format: `datetime`     |
+| `relationship` | `string`                                                                                                                                         | ❌    | Why this pack is available to the requesting user. | Known Values: `follow` |
 
 ---
 
@@ -123,6 +124,11 @@ description: Reference for the place.stream.emote.defs lexicon
         "indexedAt": {
           "type": "string",
           "format": "datetime"
+        },
+        "relationship": {
+          "type": "string",
+          "description": "Why this pack is available to the requesting user.",
+          "knownValues": ["follow"]
         }
       }
     }

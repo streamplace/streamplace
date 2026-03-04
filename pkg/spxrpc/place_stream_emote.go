@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/labstack/echo/v4"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/model"
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
@@ -71,12 +72,29 @@ func (s *Server) handlePlaceStreamEmoteGetEmotePacks(ctx context.Context) (*plac
 		return nil, fmt.Errorf("failed to get emote packs: %w", err)
 	}
 
+	followedDIDs := map[string]bool{}
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session != nil {
+		follows, err := s.model.GetUserFollowing(ctx, session.DID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get user follows: %w", err)
+		}
+		for _, f := range follows {
+			followedDIDs[f.SubjectDID] = true
+		}
+	}
+
 	packViews := make([]*placestreamtypes.EmoteDefs_PackView, 0, len(packs))
 	for _, pack := range packs {
 		view, err := s.buildPackView(ctx, pack)
 		if err != nil {
 			return nil, err
 		}
+		if !followedDIDs[pack.RepoDID] {
+			continue
+		}
+		rel := "follow"
+		view.Relationship = &rel
 		packViews = append(packViews, view)
 	}
 

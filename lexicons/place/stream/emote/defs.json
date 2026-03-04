@@ -71,6 +71,11 @@
         "indexedAt": {
           "type": "string",
           "format": "datetime"
+        },
+        "relationship": {
+          "type": "string",
+          "description": "Why this pack is available to the requesting user.",
+          "knownValues": ["follow"]
         }
       }
     }

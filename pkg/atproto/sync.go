@@ -392,7 +392,6 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			// if we check after exactly rec.IdleTimeoutSeconds we might miss the finalization by a few seconds
 			scheduledAt = scheduledAt.Add((time.Duration(*rec.IdleTimeoutSeconds) * time.Second) + (10 * time.Second)).UTC()
 			taskKey := fmt.Sprintf("finalize-livestream::%s::%s", aturi.String(), scheduledAt.Format(util.ISO8601))
-			log.Warn(ctx, "queueing stream finalization task", "taskKey", taskKey, "scheduledAt", scheduledAt)
 			_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskFinalizeLivestream, task, statedb.WithTaskKey(taskKey), statedb.WithScheduledAt(scheduledAt))
 			if err != nil {
 				return fmt.Errorf("failed to enqueue remove red circle task: %w", err)

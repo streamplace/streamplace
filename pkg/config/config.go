@@ -31,6 +31,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
+	placestream "stream.place/streamplace/pkg/streamplace"
 )
 
 const SPDataDir = "$SP_DATA_DIR"
@@ -144,6 +145,7 @@ type CLI struct {
 	AdminDIDs                   []string
 	Syndicate                   []string
 	PlayerTelemetry             bool
+	Ingests                     *placestream.IngestGetIngestUrls_Output
 }
 
 // ContentFilters represents the content filtering configuration
@@ -797,6 +799,17 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       "sqlite://$SP_DATA_DIR/localdb.sqlite",
 				Destination: &cli.LocalDBURL,
 				Sources:     urfavecli.EnvVars("SP_LOCAL_DB_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "ingests",
+				Usage: `JSON array of ingests to return from place.stream.ingest.getIngestUrls. Default is auto-generated ingests for RTMP and WHIP`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					return json.Unmarshal([]byte(s), &cli.Ingests)
+				},
+				Sources: urfavecli.EnvVars("SP_INGESTS"),
 			},
 			&urfavecli.BoolFlag{
 				Name:  "external-signing",

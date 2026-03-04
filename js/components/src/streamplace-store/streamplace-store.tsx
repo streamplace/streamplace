@@ -1,6 +1,10 @@
 import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useContext } from "react";
-import { PlaceStreamChatProfile, PlaceStreamLivestream } from "streamplace";
+import {
+  PlaceStreamChatProfile,
+  PlaceStreamIngestDefs,
+  PlaceStreamLivestream,
+} from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import storage from "../storage";
 import { StreamplaceContext } from "../streamplace-provider/context";
@@ -40,6 +44,9 @@ export interface StreamplaceState {
   oauthSession: SessionManager | null | undefined;
   handle: string | null;
   chatProfile: PlaceStreamChatProfile.Record | null;
+
+  ingests: PlaceStreamIngestDefs.Ingest[] | null;
+  setIngests: (ingests: PlaceStreamIngestDefs.Ingest[] | null) => void;
 
   // Content metadata state
   contentMetadata: ContentMetadataResult | null;
@@ -113,7 +120,9 @@ export const makeStreamplaceStore = ({
     oauthSession: null,
     handle: null,
     chatProfile: null,
-
+    ingests: null,
+    setIngests: (ingests: PlaceStreamIngestDefs.Ingest[] | null) =>
+      set({ ingests: ingests }),
     broadcasterDID: null,
     setBroadcasterDID: (broadcasterDID: string | null) =>
       set({ broadcasterDID }),

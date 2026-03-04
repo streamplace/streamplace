@@ -80,7 +80,6 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task *AppTask) error {
 	ctx = log.WithLogValues(ctx, "func", "processFinalizeLivestreamTask")
 	log.Debug(ctx, "processing finalize livestream task")
-	log.Warn(ctx, "processing finalize livestream task")
 	var finalizeLivestreamTask FinalizeLivestreamTask
 	if err := json.Unmarshal(task.Payload, &finalizeLivestreamTask); err != nil {
 		return err

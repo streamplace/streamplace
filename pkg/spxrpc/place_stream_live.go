@@ -362,24 +362,27 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 }
 
 func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body *placestream.LiveStartLivestream_Input) (*placestream.LiveStartLivestream_Output, error) {
-	session, _ := oatproxy.GetOAuthSession(ctx)
+	session, client := oatproxy.GetOAuthSession(ctx)
 	if session != nil {
 		if session.DID != body.Streamer {
 			return nil, echo.NewHTTPError(http.StatusForbidden, "you are not the streamer")
 		}
 	} else {
 		svc := GetServiceAuth(ctx)
-		if svc != nil {
-			streamerSession, err := s.statefulDB.GetSessionByDID(body.Streamer)
-			if err != nil {
-				return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting streamer session", err)
-			}
-			if streamerSession == nil {
-				return nil, echo.NewHTTPError(http.StatusNotFound, "streamer session not found")
-			}
-			session = streamerSession
-		} else {
+		if svc == nil {
 			return nil, echo.NewHTTPError(http.StatusUnauthorized, "you are not authorized")
+		}
+		streamerSession, err := s.statefulDB.GetSessionByDID(body.Streamer)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting streamer session", err)
+		}
+		if streamerSession == nil {
+			return nil, echo.NewHTTPError(http.StatusNotFound, "streamer session not found")
+		}
+		session = streamerSession
+		client, err = s.op.GetXrpcClient(streamerSession)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting streamer client", err)
 		}
 	}
 
@@ -406,11 +409,6 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, "error unmarshalling response", err)
 		}
 		return &output, nil
-	}
-
-	_, client := oatproxy.GetOAuthSession(ctx)
-	if client == nil {
-		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required to start livestream")
 	}
 
 	livestream := body.Livestream

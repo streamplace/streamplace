@@ -61,6 +61,27 @@ func (m *DBModel) GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, er
 	return lexs, nil
 }
 
+func (m *DBModel) GetActiveLabelsBatch(uris []string) (map[string][]*comatproto.LabelDefs_Label, error) {
+	if len(uris) == 0 {
+		return map[string][]*comatproto.LabelDefs_Label{}, nil
+	}
+	now := time.Now().UTC()
+	var labels []Label
+	err := m.DB.Where("uri IN ? AND (exp IS NULL OR exp < ?) AND neg = ?", uris, now, false).Find(&labels).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string][]*comatproto.LabelDefs_Label, len(uris))
+	for _, l := range labels {
+		lex, err := l.ToLexicon()
+		if err != nil {
+			return nil, err
+		}
+		result[l.Uri] = append(result[l.Uri], lex)
+	}
+	return result, nil
+}
+
 func (l Label) ToLexicon() (*comatproto.LabelDefs_Label, error) {
 	r := bytes.NewReader(l.Record)
 	var lex comatproto.LabelDefs_Label

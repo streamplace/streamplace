@@ -23,8 +23,21 @@ func (s *Server) buildPackView(ctx context.Context, pack *model.EmotePack) (*pla
 		return nil, fmt.Errorf("failed to get emote items: %w", err)
 	}
 
+	uris := make([]string, len(items))
+	for i, item := range items {
+		uris[i] = item.URI
+	}
+	labelsByURI, err := s.model.GetActiveLabelsBatch(uris)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get labels for pack %s: %w", pack.URI, err)
+	}
+
 	emotes := make([]*placestreamtypes.EmoteDefs_EmoteView, 0, len(items))
 	for _, item := range items {
+		// if we have any labels, skip this emote
+		if labelsByURI[item.URI] != nil {
+			continue
+		}
 		emoteView := &placestreamtypes.EmoteDefs_EmoteView{
 			Uri:       item.URI,
 			Cid:       item.CID,
@@ -35,6 +48,7 @@ func (s *Server) buildPackView(ctx context.Context, pack *model.EmotePack) (*pla
 			emoteView.Alt = &item.Alt
 		}
 		if item.ImageCID != "" {
+			// TODO: flag for CDN
 			emoteView.ImageUrl = fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@png", item.RepoDID, item.ImageCID)
 		}
 		if item.CreatorDID != "" {

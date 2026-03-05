@@ -192,9 +192,11 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		})
 	})
 
-	ss.Go(ctx, func() error {
-		return ss.statefulDB.UpsertBroadcastOrigin(spseg.Creator, ss.cli.ServerDID(), time.Now())
-	})
+	if notif.Local {
+		ss.Go(ctx, func() error {
+			return ss.statefulDB.UpsertBroadcastOrigin(spseg.Creator, ss.cli.ServerDID(), time.Now())
+		})
+	}
 
 	ss.Go(ctx, func() error {
 		return ss.AddAudioOnlyHLSSegment(ctx, spseg, notif.Data)

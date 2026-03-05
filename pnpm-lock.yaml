@@ -91,16 +91,16 @@ importers:
         specifier: ^23.7.0
         version: 23.8.6(@react-native-firebase/app@23.8.6(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(expo@55.0.5)
       '@react-navigation/bottom-tabs':
-        specifier: 8.0.0-alpha.13
-        version: 8.0.0-alpha.13(@callstack/liquid-glass@0.7.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(@react-navigation/native@8.0.0-alpha.14(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-screens@4.23.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)
+        specifier: 8.0.0-alpha.16
+        version: 8.0.0-alpha.16(@callstack/liquid-glass@0.7.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(@react-navigation/native@8.0.0-alpha.14(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-screens@4.23.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)
       '@react-navigation/drawer':
-        specifier: ^8.0.0-alpha.13
+        specifier: ^8.0.0-alpha.16
         version: 8.0.0-alpha.16(9c961edb95470aa759f06bb16b697063)
       '@react-navigation/native':
-        specifier: ^8.0.0-alpha.11
+        specifier: ^8.0.0-alpha.14
         version: 8.0.0-alpha.14(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)
       '@react-navigation/native-stack':
-        specifier: ^8.0.0-alpha.13
+        specifier: ^8.0.0-alpha.16
         version: 8.0.0-alpha.16(@callstack/liquid-glass@0.7.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(@react-navigation/native@8.0.0-alpha.14(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-screens@4.23.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)
       '@sentry/react-native':
         specifier: ^7.11.0
@@ -4038,10 +4038,10 @@ packages:
       '@types/react':
         optional: true
 
-  '@react-navigation/bottom-tabs@8.0.0-alpha.13':
-    resolution: {integrity: sha512-Vkd/0kAwECUYBG/ijtIwE58J8CWJRbxcxhArEA00xUZJTxAdhv3C/RecotDLEpihQnJz7HWIrbE7lhq+GfK/LA==}
+  '@react-navigation/bottom-tabs@8.0.0-alpha.16':
+    resolution: {integrity: sha512-1GCHZPdC4V6+UJc9zQTtRz7UTFDjW95tSeMdyBvK3OzOeTWAbmEs5BqRu70HNC4o3nQ577h3/T39ayS03KxD7A==}
     peerDependencies:
-      '@react-navigation/native': ^8.0.0-alpha.11
+      '@react-navigation/native': ^8.0.0-alpha.14
       react: '>= 19.0.0'
       react-native: '*'
       react-native-safe-area-context: '>= 5.5.0'
@@ -18580,7 +18580,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.14
 
-  '@react-navigation/bottom-tabs@8.0.0-alpha.13(@callstack/liquid-glass@0.7.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(@react-navigation/native@8.0.0-alpha.14(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-screens@4.23.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)':
+  '@react-navigation/bottom-tabs@8.0.0-alpha.16(@callstack/liquid-glass@0.7.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(@react-navigation/native@8.0.0-alpha.14(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-screens@4.23.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)':
     dependencies:
       '@react-navigation/elements': 3.0.0-alpha.15(@callstack/liquid-glass@0.7.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(@react-navigation/native@8.0.0-alpha.14(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native-screens@4.23.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)
       '@react-navigation/native': 8.0.0-alpha.14(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)

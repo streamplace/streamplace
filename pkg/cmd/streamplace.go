@@ -399,9 +399,11 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return storage.StartSegmentCleaner(ctx, ldb, cli)
 	})
 
-	group.Go(func() error {
-		return ldb.StartSegmentCleaner(ctx)
-	})
+	if cli.LegacySegmentCleaner {
+		group.Go(func() error {
+			return ldb.StartSegmentCleaner(ctx)
+		})
+	}
 
 	group.Go(func() error {
 		return replicator.Start(ctx, cli)

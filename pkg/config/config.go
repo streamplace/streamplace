@@ -137,6 +137,8 @@ type CLI struct {
 	DisableIrohRelay            bool
 	DevAccountCreds             map[string]string
 	StreamSessionTimeout        time.Duration
+	LegacySegmentCleaner        bool
+	SegmentArchiveRetention     time.Duration
 	Replicators                 []string
 	WebsocketURL                string
 	BehindHTTPSProxy            bool
@@ -735,6 +737,20 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Destination: &cli.StreamSessionTimeout,
 				Sources:     urfavecli.EnvVars("SP_STREAM_SESSION_TIMEOUT"),
 			},
+			&urfavecli.BoolFlag{
+				Name:        "legacy-segment-cleaner",
+				Usage:       "re-enable the legacy segment cleaner. shouldn't be needed but can be useful in cases where localdb is too big.",
+				Value:       false,
+				Destination: &cli.LegacySegmentCleaner,
+				Sources:     urfavecli.EnvVars("SP_LEGACY_SEGMENT_CLEANER"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "segment-archive-retention",
+				Usage:       "for users who don't specify a distribution policy, how long to keep segments around?",
+				Value:       24 * time.Hour,
+				Destination: &cli.SegmentArchiveRetention,
+				Sources:     urfavecli.EnvVars("SP_SEGMENT_ARCHIVE_RETENTION"),
+			},
 			&urfavecli.StringFlag{
 				Name:    "replicators",
 				Usage:   "comma-separated list of replication protocols to use (websocket, iroh)",
@@ -850,6 +866,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			Destination: &cli.MistHTTPPort,
 			Sources:     urfavecli.EnvVars("SP_MIST_HTTP_PORT"),
 		})
+
 	}
 
 	LivepeerFlagSet = flag.NewFlagSet("livepeer", flag.ContinueOnError)

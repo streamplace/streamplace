@@ -114,8 +114,18 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	}
 	var deleteAfter *time.Time
 	if meta.DistributionPolicy != nil && meta.DistributionPolicy.DeleteAfterSeconds != nil {
-		expiryTime := meta.StartTime.Time().Add(time.Duration(*meta.DistributionPolicy.DeleteAfterSeconds) * time.Second)
-		deleteAfter = &expiryTime
+		secs := *meta.DistributionPolicy.DeleteAfterSeconds
+		if secs == -1 {
+			deleteAfter = nil
+		} else {
+			expiryTime := meta.StartTime.Time().Add(time.Duration(secs) * time.Second)
+			deleteAfter = &expiryTime
+		}
+	} else {
+		if mm.cli.SegmentArchiveRetention.Seconds() != 0 {
+			tomorrow := time.Now().Add(mm.cli.SegmentArchiveRetention).UTC()
+			deleteAfter = &tomorrow
+		}
 	}
 	seg := &localdb.Segment{
 		ID:                 *label,

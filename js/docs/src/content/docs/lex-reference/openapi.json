@@ -1683,6 +1683,38 @@
         }
       }
     },
+    "/xrpc/place.stream.ingest.getIngestUrls": {
+      "get": {
+        "summary": "Get ingest URLs for a Streamplace station.",
+        "operationId": "place.stream.ingest.getIngestUrls",
+        "tags": ["place.stream.ingest"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ingests": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/place.stream.ingest.defs_ingest"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["ingests"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.graph.getFollowingUser": {
       "get": {
         "summary": "Get whether or not user A is following user B.",
@@ -3599,6 +3631,22 @@
         "type": "string",
         "format": "byte",
         "description": "MP4 file of a user's signed livestream segment"
+      },
+      "place.stream.ingest.defs_ingest": {
+        "type": "object",
+        "description": "An ingest URL for a Streamplace station.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The type of ingest endpoint, currently 'rtmp' and 'whip' are supported."
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL of the ingest endpoint.",
+            "format": "uri"
+          }
+        },
+        "required": ["type", "url"]
       },
       "com.atproto.repo.strongRef": {
         "type": "object",

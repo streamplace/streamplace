@@ -482,7 +482,9 @@ export function LivestreamWarning() {
         <Button
           variant="secondary"
           style={[w.percent[60]]}
-          onPress={() => navigation.navigate("Home", { screen: "StreamList" })}
+          onPress={() =>
+            navigation.navigate("MainTabs" as any, { screen: "HomeTab" })
+          }
         >
           <View
             centered

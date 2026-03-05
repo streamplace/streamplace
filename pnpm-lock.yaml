@@ -462,23 +462,23 @@ importers:
         specifier: ^0.6.1
         version: 0.6.1
       expo-keep-awake:
-        specifier: ^15.0.8
-        version: 15.0.8(expo@55.0.5)(react@19.2.0)
+        specifier: ^55.0.4
+        version: 55.0.4(expo@55.0.5)(react@19.2.0)
       expo-localization:
         specifier: '*'
         version: 55.0.8(expo@55.0.5)(react@19.2.0)
       expo-screen-orientation:
-        specifier: ^9.0.8
-        version: 9.0.8(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))
+        specifier: ^55.0.8
+        version: 55.0.8(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))
       expo-sensors:
-        specifier: ^15.0.0
-        version: 15.0.7(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))
+        specifier: ^55.0.8
+        version: 55.0.8(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))
       expo-sqlite:
-        specifier: ^16.0.0
-        version: 16.0.10(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)
+        specifier: ^55.0.10
+        version: 55.0.10(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)
       expo-video:
-        specifier: ^3.0.0
-        version: 3.0.16(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)
+        specifier: ^55.0.10
+        version: 55.0.10(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)
       graphemer:
         specifier: ^1.4.0
         version: 1.4.0
@@ -7389,12 +7389,6 @@ packages:
   expo-json-utils@55.0.0:
     resolution: {integrity: sha512-aupt/o5PDAb8dXDCb0JcRdkqnTLxe/F+La7jrnyd/sXlYFfRgBJLFOa1SqVFXm1E/Xam1SE/yw6eAb+DGY7Arg==}
 
-  expo-keep-awake@15.0.8:
-    resolution: {integrity: sha512-YK9M1VrnoH1vLJiQzChZgzDvVimVoriibiDIFLbQMpjYBnvyfUeHJcin/Gx1a+XgupNXy92EQJLgI/9ZuXajYQ==}
-    peerDependencies:
-      expo: '*'
-      react: '*'
-
   expo-keep-awake@55.0.4:
     resolution: {integrity: sha512-vwfdMtMS5Fxaon8gC0AiE70SpxTsHJ+rjeoVJl8kdfdbxczF7OIaVmfjFJ5Gfigd/WZiLqxhfZk34VAkXF4PNg==}
     peerDependencies:
@@ -7441,14 +7435,8 @@ packages:
       expo: '*'
       react-native: '*'
 
-  expo-screen-orientation@9.0.8:
-    resolution: {integrity: sha512-qRoPi3E893o3vQHT4h1NKo51+7g2hjRSbDeg1fsSo/u2pOW5s6FCeoacLvD+xofOP33cH2MkE4ua54aWWO7Icw==}
-    peerDependencies:
-      expo: '*'
-      react-native: '*'
-
-  expo-sensors@15.0.7:
-    resolution: {integrity: sha512-TGUxRx/Ss7KGgfWo453YF64ENucw6oYryPiu/8I3ZZuf114xQPRxAbsZohPLaVUUGuaUyWbDsb0eRsmuKUzBnQ==}
+  expo-sensors@55.0.8:
+    resolution: {integrity: sha512-aYDw/IBqJtWQgCIJh12oyj5N4ldT88Aa0V/Vag88xG8K2hOQuM2SLGeNlxGRFRtgLJ4m7pzXhQW7CJRj6p1uHQ==}
     peerDependencies:
       expo: '*'
       react-native: '*'
@@ -7497,13 +7485,6 @@ packages:
   expo-updates@55.0.12:
     resolution: {integrity: sha512-20YTlmivT7pU8+jYMQHqHQmFTdNHHfIMXXVuFjQA31qCyAOwR32AvDn30IBpgn1Z7XJTX+Sr6cEoMhqz5IJfww==}
     hasBin: true
-    peerDependencies:
-      expo: '*'
-      react: '*'
-      react-native: '*'
-
-  expo-video@3.0.16:
-    resolution: {integrity: sha512-H1HlxcHGomZItqisGfW3YL/G9BHtNBfVSimDJcLuyxyU87wFnV8loO9tCjuhufkfh/aTa2sW5BYAjLjg9DvnBQ==}
     peerDependencies:
       expo: '*'
       react: '*'
@@ -22663,11 +22644,6 @@ snapshots:
 
   expo-json-utils@55.0.0: {}
 
-  expo-keep-awake@15.0.8(expo@55.0.5)(react@19.2.0):
-    dependencies:
-      expo: 55.0.5(@babel/core@7.26.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(bufferutil@4.0.8)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
-      react: 19.2.0
-
   expo-keep-awake@55.0.4(expo@55.0.5)(react@19.2.0):
     dependencies:
       expo: 55.0.5(@babel/core@7.26.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(bufferutil@4.0.8)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
@@ -22734,12 +22710,7 @@ snapshots:
       expo: 55.0.5(@babel/core@7.26.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(bufferutil@4.0.8)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
       react-native: 0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10)
 
-  expo-screen-orientation@9.0.8(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10)):
-    dependencies:
-      expo: 55.0.5(@babel/core@7.26.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(bufferutil@4.0.8)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
-      react-native: 0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10)
-
-  expo-sensors@15.0.7(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10)):
+  expo-sensors@55.0.8(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10)):
     dependencies:
       expo: 55.0.5(@babel/core@7.26.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(bufferutil@4.0.8)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
       invariant: 2.2.4
@@ -22808,12 +22779,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
       - typescript
-
-  expo-video@3.0.16(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0):
-    dependencies:
-      expo: 55.0.5(@babel/core@7.26.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(bufferutil@4.0.8)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)(typescript@5.9.3)(utf-8-validate@5.0.10)
-      react: 19.2.0
-      react-native: 0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10)
 
   expo-video@55.0.10(expo@55.0.5)(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0):
     dependencies:

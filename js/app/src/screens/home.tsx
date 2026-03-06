@@ -390,7 +390,10 @@ export default function HomeScreen({
         </Container>
         <View
           style={{
-            height: Platform.OS === "ios" ? 48 + safeAreaInsets.bottom : 0,
+            height:
+              Platform.OS !== "web"
+                ? 64 + safeAreaInsets.bottom
+                : safeAreaInsets.bottom,
           }}
         />
       </PullToRefreshScrollView>

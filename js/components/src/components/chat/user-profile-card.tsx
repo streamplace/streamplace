@@ -73,17 +73,14 @@ const BadgeRow = ({
   streamer,
   badge,
   serviceDid,
+  issuerProfiles,
 }: {
   badge: NonNullable<ChatMessageViewHydrated["badges"]>[number];
   serviceDid: string;
   streamer?: ProfileViewBasic;
+  issuerProfiles: ReturnType<typeof useAvatars>;
 }) => {
   const isServiceIssued = badge.issuer === serviceDid;
-  const issuerDids = useMemo(
-    () => (isServiceIssued ? [] : [badge.issuer]),
-    [isServiceIssued, badge.issuer],
-  );
-  const issuerProfiles = useAvatars(issuerDids);
   const meta = BADGE_META[badge.badgeType];
 
   if (!meta) return null;
@@ -149,7 +146,19 @@ export const UserProfileCard = ({
   const thisRef = useRef<TriggerRef>(null);
   const [hovered, setHovered] = useState(false);
 
-  const profiles = useAvatars(author.did ? [author.did] : []);
+  const issuerDids = useMemo(
+    () =>
+      badges?.map((b) => b.issuer).filter((did) => did && did !== serviceDid) ??
+      [],
+    [badges, serviceDid],
+  );
+
+  const allDids = useMemo(
+    () => (author.did ? [author.did, ...issuerDids] : issuerDids),
+    [author.did, issuerDids],
+  );
+
+  const profiles = useAvatars(allDids);
   const profile = profiles[author.did];
 
   useEffect(() => {
@@ -273,6 +282,7 @@ export const UserProfileCard = ({
                   badge={badge}
                   serviceDid={serviceDid}
                   streamer={streamer}
+                  issuerProfiles={profiles}
                 />
               ))}
             </View>

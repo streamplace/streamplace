@@ -255,7 +255,7 @@ export default function HomeScreen({
             minHeight: "100%",
             width: "100%",
           },
-          Platform.OS === "ios" ? zero.pt[24] : zero.pt[4],
+          Platform.OS === "ios" ? zero.pt[24] : zero.pt[0],
         ]}
         contentContainerStyle={contentContainerStyle}
         refreshing={manualRefresh}

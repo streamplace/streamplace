@@ -81,15 +81,16 @@ function HomeNavigator() {
         component={HomeScreen}
         options={{
           title: "Streamplace",
-          headerTitle: (props) => {
-            return Platform.OS === "ios" ? (
-              <View style={{ flex: 1, alignItems: "flex-start" }}>
-                <Text size="3xl" style={[zero.ml[4]]}>
-                  {title}
-                </Text>
-              </View>
-            ) : undefined;
-          },
+          headerTitle:
+            Platform.OS === "ios"
+              ? (props) => (
+                  <View style={{ flex: 1, alignItems: "flex-start" }}>
+                    <Text size="3xl" style={[zero.ml[4]]}>
+                      {title}
+                    </Text>
+                  </View>
+                )
+              : undefined,
           headerLeft:
             Platform.OS !== "ios"
               ? ({ canGoBack }) => <NavigationButton canGoBack={canGoBack} />

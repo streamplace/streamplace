@@ -1,4 +1,7 @@
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import {
+  BottomTabIcon,
+  createBottomTabNavigator,
+} from "@react-navigation/bottom-tabs";
 import { useLinkTo, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import {
@@ -33,6 +36,7 @@ import { useSidebarControl } from "hooks/useSidebarControl";
 import { useEffect, useRef, useState } from "react";
 import { Platform, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { SFSymbols7_0 } from "sf-symbols-typescript";
 import "src/navigation-types";
 import AboutScreen from "src/screens/about";
 import AppReturnScreen from "src/screens/app-return";
@@ -215,13 +219,37 @@ function SettingsNavigator() {
   );
 }
 
+const IOS_ICONS: Record<string, SFSymbols7_0> = {
+  Home: "house.fill",
+  GoLive: "video.fill",
+  Settings: "gearshape.fill",
+};
+const ANDROID_ICONS = {
+  Home: "home",
+  GoLive: "videocam",
+  Settings: "settings",
+};
+
+const getIcon = (
+  name: keyof typeof IOS_ICONS | keyof typeof ANDROID_ICONS,
+): BottomTabIcon => {
+  if (Platform.OS === "ios") {
+    return {
+      type: "sfSymbol",
+      name: IOS_ICONS[name],
+    };
+  }
+  return {
+    type: "materialSymbol",
+    name: ANDROID_ICONS[name],
+  };
+};
+
 // Tab navigator (main app sections, navigation on web is handled in sidebar)
 function TabNavigator() {
   const { isNative, isBrowser } = usePlatform();
   const accentColor = useAccentColor();
   const primaryColor = usePrimaryColor();
-  console.log("primaryColor", primaryColor);
-  console.log("accentColor", accentColor);
   const z = useTheme();
 
   return (
@@ -232,8 +260,8 @@ function TabNavigator() {
         // Hide tab bar on web
         tabBarStyle: isNative ? undefined : { display: "none" },
         // doesn't seem to work on iOS?
-        tabBarInactiveTintColor: primaryColor || accentColor || "#f0f",
-        tabBarActiveTintColor: accentColor || primaryColor || "#06f",
+        // tabBarInactiveTintColor: primaryColor || accentColor || "#f0f",
+        // tabBarActiveTintColor: accentColor || primaryColor || "#06f",
         headerTitleStyle: {
           fontFamily: z.theme.typography.universal["2xl"].fontFamily,
         },
@@ -245,10 +273,7 @@ function TabNavigator() {
         options={{
           title: "Home",
           ...(isNative && {
-            tabBarIcon: {
-              type: "sfSymbol",
-              name: "house.fill",
-            },
+            tabBarIcon: getIcon("Home"),
           }),
         }}
       />
@@ -258,10 +283,7 @@ function TabNavigator() {
         options={{
           title: "Go Live",
           ...(isNative && {
-            tabBarIcon: {
-              type: "sfSymbol",
-              name: "video.fill",
-            },
+            tabBarIcon: getIcon("GoLive"),
           }),
           headerShown: true,
           headerTransparent: true,
@@ -273,10 +295,7 @@ function TabNavigator() {
         options={{
           title: "Settings",
           ...(isNative && {
-            tabBarIcon: {
-              type: "sfSymbol",
-              name: "gearshape.fill",
-            },
+            tabBarIcon: getIcon("Settings"),
           }),
           headerShown: false,
         }}

@@ -196,6 +196,7 @@ export default function () {
       plugins: [
         withAndroidProfileable,
         "expo-video",
+        "expo-image",
         "expo-web-browser",
         "expo-screen-orientation",
         streamplaceReactNativeWebRTC,

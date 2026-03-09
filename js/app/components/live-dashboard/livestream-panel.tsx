@@ -18,15 +18,10 @@ import {
   useUrl,
   zero,
 } from "@streamplace/components";
+import { Image } from "expo-image";
 import { ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Image,
-  Platform,
-  ScrollView,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Platform, ScrollView, TouchableOpacity, View } from "react-native";
 import { useUserProfile } from "store/hooks";
 import { useCaptureVideoFrame } from "../../hooks/useCaptureVideoFrame";
 import { useLiveUser } from "../../hooks/useLiveUser";
@@ -122,7 +117,6 @@ const ImageUploadComponent = ({
       {
         width: "100%",
         height: 200,
-        resizeMode: "cover" as const,
       },
     ],
     [],
@@ -152,7 +146,11 @@ const ImageUploadComponent = ({
 
       {selectedImage ? (
         <View style={[{ position: "relative" }]}>
-          <Image source={{ uri: imageUrl }} style={imageStyle} />
+          <Image
+            source={{ uri: imageUrl }}
+            style={imageStyle}
+            contentFit="cover"
+          />
           <TouchableOpacity onPress={onImageRemove} style={removeButtonStyle}>
             <X size={16} color="white" />
           </TouchableOpacity>

@@ -1,6 +1,7 @@
+import { Image } from "expo-image";
 import { Check, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { PlaceStreamLivestream } from "streamplace";
 import { useAvatars, zero } from "../..";
 import { useStreamplaceStore } from "../../streamplace-store";
@@ -172,7 +173,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
                             width: "100%",
                             height: "100%",
                           }}
-                          resizeMode="cover"
+                          contentFit="cover"
                         />
                         {isSelected && (
                           <View
@@ -243,7 +244,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
                                 uri: profile.avatar,
                               }}
                               style={{ width: "100%", height: "100%" }}
-                              resizeMode="cover"
+                              contentFit="cover"
                             />
                           ) : (
                             <View

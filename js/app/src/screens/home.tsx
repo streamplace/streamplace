@@ -7,9 +7,10 @@ import LiveDot from "components/home/live-dot";
 import Loading from "components/loading/loading";
 import PullToRefreshScrollView from "components/pull-to-refresh";
 import Title from "components/title";
+import { Image } from "expo-image";
 import useAvatars from "hooks/useAvatars";
 import { useEffect, useState } from "react";
-import { Image, Platform, View, useWindowDimensions } from "react-native";
+import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PlaceStreamLivestream } from "streamplace";
 

@@ -15,6 +15,7 @@ import {
   SettingsNavigationItem,
   SettingsRowItem,
 } from "components/settings/components/settings-navigation-item";
+import { ImageBackground } from "expo-image";
 import {
   Brush,
   Globe,
@@ -25,7 +26,7 @@ import {
   User2,
   Video,
 } from "lucide-react-native";
-import { ImageBackground, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 
 import { LiquidGlassView } from "@callstack/liquid-glass";
 import { useNavigationState } from "@react-navigation/native";

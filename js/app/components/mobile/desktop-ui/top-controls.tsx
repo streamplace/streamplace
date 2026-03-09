@@ -10,9 +10,9 @@ import {
   useLivestreamStore,
   zero,
 } from "@streamplace/components";
+import { Image } from "expo-image";
 import { ChevronLeft, MessageSquare, SwitchCamera } from "lucide-react-native";
 import {
-  Image,
   Linking,
   Platform,
   Pressable,

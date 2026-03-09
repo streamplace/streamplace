@@ -1,4 +1,5 @@
-import { Image, Platform } from "react-native";
+import { Image } from "expo-image";
+import { Platform } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 
 export const BADGE_IMAGES: Record<string, ReturnType<typeof require>> = {

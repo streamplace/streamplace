@@ -12,9 +12,10 @@ import {
   zero,
 } from "@streamplace/components";
 import { overflow } from "@streamplace/components/src/lib/theme/atoms";
+import { Image } from "expo-image";
 import { ChevronLeft } from "lucide-react-native";
 import { memo, useEffect, useMemo, useState } from "react";
-import { Image, Platform, Pressable, useWindowDimensions } from "react-native";
+import { Platform, Pressable, useWindowDimensions } from "react-native";
 import { useStore } from "../../store";
 import FollowButton from "../follow-button";
 import { DesktopUi } from "./desktop-ui";

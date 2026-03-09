@@ -8,6 +8,7 @@ import {
   useUrl,
   zero,
 } from "@streamplace/components";
+import { Image } from "expo-image";
 import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import {
@@ -21,7 +22,7 @@ import {
   Video,
 } from "lucide-react-native";
 import React from "react";
-import { Image, Linking, Platform, Pressable } from "react-native";
+import { Linking, Platform, Pressable } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { convertNavigationParams } from "src/navigation-helper";
 import SidebarItem from "./sidebar-item";
@@ -150,6 +151,7 @@ export function SidebarOverlay() {
       {sidebarBackgroundImageAsset?.data && (
         <Image
           source={{ uri: sidebarBackgroundImageAsset.data }}
+          contentFit="contain"
           style={{
             //opacity: 0.3,
             position: "absolute",
@@ -163,7 +165,6 @@ export function SidebarOverlay() {
                 ? sidebarBackgroundImageAsset.width /
                   sidebarBackgroundImageAsset.height
                 : undefined,
-            resizeMode: "contain",
           }}
         />
       )}
@@ -187,16 +188,14 @@ export function SidebarOverlay() {
         {mainLogo ? (
           <Image
             source={{ uri: mainLogo }}
-            height={30}
-            width={28}
-            style={{ width: 28, height: 30, resizeMode: "contain" }}
+            contentFit="contain"
+            style={{ width: 28, height: 30 }}
           />
         ) : (
           <Image
             source={require("../../assets/images/cube.png")}
-            height={30}
-            width={28}
-            style={{ width: 28, height: 30, resizeMode: "contain" }}
+            contentFit="contain"
+            style={{ width: 28, height: 30 }}
           />
         )}
         {!sidebar.isCollapsed && <Text size="2xl">{nodeName}</Text>}

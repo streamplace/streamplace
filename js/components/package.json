@@ -38,6 +38,7 @@
     "@rn-primitives/portal": "^1.3.0",
     "@rn-primitives/slider": "^1.2.0",
     "class-variance-authority": "^0.6.1",
+    "expo-image": "^55.0.6",
     "expo-keep-awake": "^55.0.4",
     "expo-screen-orientation": "^55.0.8",
     "expo-sensors": "^55.0.8",

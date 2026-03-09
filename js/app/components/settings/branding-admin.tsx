@@ -20,8 +20,9 @@ import {
   useSidebarBackgroundImage,
 } from "@streamplace/components/src/streamplace-store/branding";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { Image } from "expo-image";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, Platform, ScrollView } from "react-native";
+import { ActivityIndicator, Platform, ScrollView } from "react-native";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 
 export function BrandingAdmin() {
@@ -676,10 +677,10 @@ export function BrandingAdmin() {
                     {currentLogo?.data && (
                       <Image
                         source={{ uri: currentLogo.data }}
+                        contentFit="contain"
                         style={{
                           width: 200,
                           height: 100,
-                          resizeMode: "contain",
                         }}
                       />
                     )}
@@ -723,7 +724,8 @@ export function BrandingAdmin() {
                     {currentFavicon?.data && (
                       <Image
                         source={{ uri: currentFavicon.data }}
-                        style={{ width: 64, height: 64, resizeMode: "contain" }}
+                        contentFit="contain"
+                        style={{ width: 64, height: 64 }}
                       />
                     )}
                     <View
@@ -768,10 +770,10 @@ export function BrandingAdmin() {
                     <>
                       <Image
                         source={{ uri: currentSidebarBg.data }}
+                        contentFit="contain"
                         style={{
                           width: 200,
                           height: 200,
-                          resizeMode: "contain",
                         }}
                       />
                       <Text size="xs" color="muted">

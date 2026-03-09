@@ -12,8 +12,9 @@ import {
   zero,
 } from "@streamplace/components";
 import { useNameColorPicker } from "components/name-color-picker/name-color-picker";
+import { Image } from "expo-image";
 import { Edit3, LogOut, Palette, X } from "lucide-react-native";
-import { Image, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 import { useStore } from "store";
 import { useChatProfile, useUserProfile } from "store/hooks";
 import { convertNavigationParams } from "../../src/navigation-helper";

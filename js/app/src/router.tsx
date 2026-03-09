@@ -4,6 +4,7 @@ import { getStateFromPath } from "@react-navigation/core";
 import { LinkingOptions, useNavigation } from "@react-navigation/native";
 import { Button, Text, useTheme, zero } from "@streamplace/components";
 import { Provider } from "components";
+import { ImageBackground } from "expo-image";
 import * as ExpoLinking from "expo-linking";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import {
@@ -14,7 +15,6 @@ import {
   User,
 } from "lucide-react-native";
 import {
-  ImageBackground,
   ImageSourcePropType,
   Platform,
   Pressable,

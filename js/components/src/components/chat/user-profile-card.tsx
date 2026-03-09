@@ -1,5 +1,6 @@
 import { ProfileViewBasic } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { TriggerRef } from "@rn-primitives/dropdown-menu";
+import { Image } from "expo-image";
 import {
   createContext,
   useCallback,
@@ -9,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Image, Platform, Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { useAvatars } from "../../hooks/useAvatars";
 import { useLivestreamStore } from "../../livestream-store";

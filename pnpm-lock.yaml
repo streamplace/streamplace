@@ -464,6 +464,9 @@ importers:
       class-variance-authority:
         specifier: ^0.6.1
         version: 0.6.1
+      expo-image:
+        specifier: ^55.0.6
+        version: 55.0.6(expo@55.0.5)(react-native-web@0.21.2(encoding@0.1.13)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.26.0)(@types/react@19.2.14)(bufferutil@4.0.8)(react@19.2.0)(utf-8-validate@5.0.10))(react@19.2.0)
       expo-keep-awake:
         specifier: ^55.0.4
         version: 55.0.4(expo@55.0.5)(react@19.2.0)

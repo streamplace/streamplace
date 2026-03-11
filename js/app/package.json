@@ -47,6 +47,7 @@
     "@react-navigation/drawer": "^8.0.0-alpha.16",
     "@react-navigation/native": "^8.0.0-alpha.14",
     "@react-navigation/native-stack": "^8.0.0-alpha.16",
+    "@sentry/cli": "^3.3.3",
     "@sentry/react-native": "^7.11.0",
     "@streamplace/atproto-oauth-client-react-native": "workspace:*",
     "@streamplace/components": "workspace:*",

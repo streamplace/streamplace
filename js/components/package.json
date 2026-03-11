@@ -41,7 +41,6 @@
     "expo-image": "^55.0.6",
     "expo-keep-awake": "^55.0.4",
     "expo-screen-orientation": "^55.0.8",
-    "expo-sensors": "^55.0.8",
     "expo-sqlite": "^55.0.10",
     "expo-video": "^55.0.10",
     "graphemer": "^1.4.0",

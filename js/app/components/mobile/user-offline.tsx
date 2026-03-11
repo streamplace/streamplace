@@ -12,9 +12,10 @@ import {
   zero,
 } from "@streamplace/components";
 import { overflow } from "@streamplace/components/src/lib/theme/atoms";
+import { Image } from "expo-image";
 import { ChevronLeft } from "lucide-react-native";
 import { memo, useEffect, useMemo, useState } from "react";
-import { Image, Platform, Pressable, useWindowDimensions } from "react-native";
+import { Platform, Pressable, useWindowDimensions } from "react-native";
 import { useStore } from "../../store";
 import FollowButton from "../follow-button";
 import { DesktopUi } from "./desktop-ui";
@@ -139,7 +140,7 @@ export const UserOffline = memo(() => {
                     navigation.reset({
                       index: 0,
                       routes: [
-                        { name: "Home", params: { screen: "StreamList" } },
+                        { name: "MainTabs", params: { screen: "Home" } },
                       ],
                     });
                   }
@@ -271,9 +272,7 @@ export const UserOffline = memo(() => {
                 } else {
                   navigation.reset({
                     index: 0,
-                    routes: [
-                      { name: "Home", params: { screen: "StreamList" } },
-                    ],
+                    routes: [{ name: "MainTabs", params: { screen: "Home" } }],
                   });
                 }
               }}
@@ -418,7 +417,6 @@ const RecommendedSourceInfo = memo(() => {
   const { t } = useTranslation("common");
   const profile = useLivestreamStore((x) => x.profile);
   const viewers = useLivestreamStore((x) => x.viewers);
-  const lsInfo = useLivestreamStore((x) => x.livestream);
   const currentUserDID = useStore((state) => state.oauthSession?.did);
 
   const pfp = useAvatars(profile?.did ? [profile.did] : []);

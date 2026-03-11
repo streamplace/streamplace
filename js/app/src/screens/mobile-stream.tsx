@@ -78,9 +78,8 @@ export default function MobileStream({ route }) {
       console.error("Navigation or target info missing for teleport");
       return;
     }
-    navi.navigate("Home", {
-      screen: "Stream",
-      params: { user: targetHandle },
+    navi.navigate("Stream", {
+      user: targetHandle,
     });
   };
 

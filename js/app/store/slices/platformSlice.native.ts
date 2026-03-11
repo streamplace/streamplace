@@ -139,7 +139,7 @@ export const createPlatformSlice: StateCreator<
 
       return;
     } catch (e) {
-      console.error("initPushNotifications error", e);
+      console.log("initPushNotifications error", e);
     }
   },
   registerNotificationToken: async () => {

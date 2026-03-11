@@ -1,7 +1,8 @@
 import { useRootContext } from "@rn-primitives/dropdown-menu";
+import { Image } from "expo-image";
 import { Cog } from "lucide-react-native";
 import { useState } from "react";
-import { Image, Linking, Platform, Pressable, View } from "react-native";
+import { Linking, Platform, Pressable, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -161,7 +162,7 @@ export function ContextMenu({
                     uri: avatars[profile?.did]?.avatar,
                   }}
                   style={{ width: 42, height: 42, borderRadius: 999 }}
-                  resizeMode="cover"
+                  contentFit="cover"
                 />
               )}
               <View style={{ flex: 1, minWidth: 0 }}>

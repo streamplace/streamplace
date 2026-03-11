@@ -16,14 +16,7 @@ import Loading from "components/loading/loading";
 import { Edit2, Plus, RefreshCw, Trash2, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  Switch,
-  View,
-  VirtualizedList,
-} from "react-native";
+import { Alert, Pressable, ScrollView, Switch, View } from "react-native";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 
 const {
@@ -865,24 +858,17 @@ export default function WebhookManager() {
             ) : (
               <MenuContainer>
                 <MenuGroup>
-                  <VirtualizedList
-                    data={webhooks}
-                    getItemCount={(data) => data.length}
-                    getItem={(data, index) => data[index]}
-                    keyExtractor={(item) => item.id}
-                    ItemSeparatorComponent={MenuSeparator}
-                    renderItem={(ri) => {
-                      let webhook = ri.item;
-                      return (
-                        <WebhookRow
-                          webhook={webhook}
-                          onEdit={handleEdit}
-                          onDelete={deleteWebhook}
-                          isDeleting={deletingWebhooks.has(webhook.id)}
-                        />
-                      );
-                    }}
-                  />
+                  {webhooks.map((webhook, index) => (
+                    <View key={webhook.id}>
+                      {index > 0 && <MenuSeparator />}
+                      <WebhookRow
+                        webhook={webhook}
+                        onEdit={handleEdit}
+                        onDelete={deleteWebhook}
+                        isDeleting={deletingWebhooks.has(webhook.id)}
+                      />
+                    </View>
+                  ))}
                 </MenuGroup>
               </MenuContainer>
             )}

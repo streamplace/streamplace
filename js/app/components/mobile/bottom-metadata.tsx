@@ -15,8 +15,9 @@ import {
   zero,
 } from "@streamplace/components";
 import FollowButton from "components/follow-button";
+import { Image } from "expo-image";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
-import { Image, Linking, Pressable, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 import { KebabMenu } from "./desktop-ui/kebab";
 const { gap, px, py, colors } = zero;
 
@@ -75,7 +76,7 @@ export function BottomMetadata({
                 uri: avatars[profile?.did]?.avatar,
               }}
               style={{ width: 42, height: 42, borderRadius: 999 }}
-              resizeMode="cover"
+              contentFit="cover"
             />
           )}
           {!(profile?.did && avatars[profile?.did]?.avatar) && (
@@ -83,7 +84,7 @@ export function BottomMetadata({
               key="avatar"
               source={require("./../../assets/images/goose.png")}
               style={{ width: 42, height: 42, borderRadius: 999 }}
-              resizeMode="cover"
+              contentFit="cover"
             />
           )}
           <View style={{ flex: 1, minWidth: 0 }}>

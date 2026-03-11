@@ -1,7 +1,8 @@
 import { Text, useTheme, zero } from "@streamplace/components";
+import { Image } from "expo-image";
 import { useKeyboard } from "hooks/useKeyboard";
 import { useEffect, useRef } from "react";
-import { FlatList, Image, Keyboard, Pressable } from "react-native";
+import { FlatList, Keyboard, Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -120,7 +121,7 @@ export function EmojiPicker({
                 <Image
                   source={{ uri: item.imageUrl }}
                   style={{ width: 28, height: 28 }}
-                  resizeMode="contain"
+                  contentFit="contain"
                   accessibilityLabel={item.alt ?? item.name}
                 />
               </Pressable>

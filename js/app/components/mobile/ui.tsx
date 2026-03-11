@@ -24,6 +24,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { px, py } from "@streamplace/components/src/ui";
+import { Image } from "expo-image";
 import {
   ChevronLeft,
   ChevronRight,
@@ -35,7 +36,7 @@ import {
   VolumeX,
 } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Image, Platform, Pressable } from "react-native";
+import { Platform, Pressable } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
@@ -334,7 +335,7 @@ function LeftControlsPanel({
               navigation.canGoBack()
                 ? navigation.goBack()
                 : navigation.navigate("Home", {
-                    screen: "StreamList",
+                    screen: "HomeMain",
                   });
             }}
           >
@@ -346,8 +347,6 @@ function LeftControlsPanel({
                 ? { url: avatars[profile?.did]?.avatar }
                 : require("assets/images/goose.png")
             }
-            width={32}
-            height={32}
             style={[
               {
                 width: 36,

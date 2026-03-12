@@ -379,6 +379,7 @@ export default function Shell() {
       const state = navigation.getState();
       if (state?.routes) {
         const currentRoute = state.routes[state.index];
+        console.log("setCurrentRouteName", currentRoute?.name);
         setCurrentRouteName(currentRoute?.name);
       }
     });

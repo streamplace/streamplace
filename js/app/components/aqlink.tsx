@@ -74,6 +74,10 @@ export default function AQLink({
         currentRoute,
       );
       openLoginModal(currentRoute as any);
+      console.log(
+        "AQLink login navigation intercepted, current route:",
+        currentRoute,
+      );
       return;
     }
     // For root-level screens, use CommonActions to navigate from root
@@ -81,12 +85,17 @@ export default function AQLink({
       const rootNav = navigation.getParent()?.getParent() || navigation;
       // @ts-expect-error - dynamic navigation
       rootNav.navigate(to.screen, to.params);
+      console.log(
+        "AQLink root navigation intercepted, current route:",
+        currentRoute,
+      );
       return;
     }
     // Convert to platform-specific navigation params for nested screens
     const converted = convertNavigationParams(to);
     // @ts-expect-error - dynamic navigation with LinkParams
     navigation.navigate(converted.screen, converted.params);
+    console.log("AQLink navigation intercepted, current route:", currentRoute);
   };
 
   // use Pressable with href on web to render as <a> tag for copy/paste support

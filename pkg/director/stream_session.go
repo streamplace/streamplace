@@ -527,6 +527,24 @@ func (ss *StreamSession) doUpdateLivestream(ctx context.Context, repoDID string)
 		return fmt.Errorf("could not parse livestream URI: %w", err)
 	}
 
+	client, err := ss.GetClientByDID(ss.repoDID)
+	if err != nil {
+		return fmt.Errorf("could not get xrpc client for repoDID: %w", err)
+	}
+
+	var swapRecord *string
+	getOutput := comatproto.RepoGetRecord_Output{}
+	err = client.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.getRecord", map[string]any{
+		"repo":       repoDID,
+		"collection": "place.stream.livestream",
+		"rkey":       aturi.RecordKey().String(),
+	}, nil, &getOutput)
+	if err != nil {
+		return fmt.Errorf("could not get record: %w", err)
+	}
+	log.Debug(ctx, "got record", "record", getOutput)
+	swapRecord = getOutput.Cid
+
 	now := time.Now().UTC().Format(util.ISO8601)
 	lsvr.LastSeenAt = &now
 
@@ -535,14 +553,9 @@ func (ss *StreamSession) doUpdateLivestream(ctx context.Context, repoDID string)
 		Record:     &lexutil.LexiconTypeDecoder{Val: lsvr},
 		Rkey:       aturi.RecordKey().String(),
 		Repo:       ss.repoDID,
-		SwapRecord: &lastLivestream.CID,
+		SwapRecord: swapRecord,
 	}
 	out := comatproto.RepoPutRecord_Output{}
-
-	client, err := ss.GetClientByDID(ss.repoDID)
-	if err != nil {
-		return fmt.Errorf("could not get xrpc client for repoDID: %w", err)
-	}
 
 	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out)
 	if err != nil {

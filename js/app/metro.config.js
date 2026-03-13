@@ -17,8 +17,6 @@ config.cacheStores = [
 const overrides = {};
 
 const nativeOverrides = {
-  crypto: "react-native-quick-crypto",
-  // "node:crypto": "react-native-quick-crypto",
   stream: "readable-stream",
   // "node:buffer": "buffer",
   // "node:util": "util",

@@ -12,28 +12,47 @@ import { View } from "react-native";
 import { useUserProfile } from "store/hooks";
 import { useEmojiData } from "utils/emoji";
 
+interface ChatPopoutParams {
+  user: string;
+  reverse?: string;
+  hideAfter?: string;
+  hideChatBox?: string;
+}
+
 export default function PopoutChat({ route }) {
   const user = route.params?.user;
   if (typeof user !== "string") {
     return <View />;
   }
 
+  const params: ChatPopoutParams = {
+    user,
+    ...(route.params || {}),
+  };
+
   return (
     <LivestreamProvider src={user}>
       <PlayerProvider>
-        <PopoutChatInner user={user} />
+        <PopoutChatInner params={params} />
       </PlayerProvider>
     </LivestreamProvider>
   );
 }
 
-export function PopoutChatInner({ user }: { user: string }) {
+export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
   const setSrc = usePlayerStore((x) => x.setSrc);
   const profile = useUserProfile();
   const emojiData = useEmojiData();
+
+  const reverseChat = params.reverse === "true";
+  const hideAfter = params.hideAfter
+    ? parseInt(params.hideAfter, 10)
+    : undefined;
+  const hideChatBox = params.hideChatBox === "true";
+
   useEffect(() => {
-    setSrc(user);
-  }, [user]);
+    setSrc(params.user);
+  }, [params.user, setSrc]);
 
   return (
     <View style={[{ position: "relative" }, zero.flex.values[1], zero.m[2]]}>
@@ -43,8 +62,15 @@ export function PopoutChatInner({ user }: { user: string }) {
           { position: "absolute", width: "100%", minHeight: "100%", bottom: 0 },
         ]}
       >
-        <Chat />
-        {profile && (
+        <Chat
+          {...(reverseChat || hideAfter
+            ? ({
+                ...(reverseChat ? { reverse: true } : {}),
+                ...(hideAfter ? { hideAfter } : {}),
+              } as any)
+            : {})}
+        />
+        {profile && !hideChatBox && (
           <ChatBox
             emojiData={emojiData}
             isPopout={true}

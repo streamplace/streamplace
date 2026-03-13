@@ -246,14 +246,19 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
 export function Chat({
   shownMessages = SHOWN_MSGS,
   style: propsStyle,
+  reverse = false,
+  hideAfter,
   ...props
 }: ComponentProps<typeof View> & {
   shownMessages?: number;
   style?: ComponentProps<typeof View>["style"];
+  reverse?: boolean;
+  hideAfter?: number;
 }) {
   const { theme } = useTheme();
   const chat = useChat();
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
 
   // Animation for scroll-to-bottom button
@@ -276,6 +281,10 @@ export function Chat({
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
+  const scrollToTop = () => {
+    flatListRef.current?.scrollToEnd({ animated: true });
+  };
+
   const handleScroll = (event: any) => {
     const { contentOffset } = event.nativeEvent;
 
@@ -290,6 +299,17 @@ export function Chat({
       }
     }
   };
+
+  useEffect(() => {
+    if (hideAfter && hideAfter > 0) {
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+      }, hideAfter * 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [hideAfter]);
+
+  if (!isVisible) return null;
 
   if (!chat)
     return (
@@ -319,7 +339,7 @@ export function Chat({
             { minWidth: 0, maxWidth: "100%" },
           ]}
           data={chat.slice(0, shownMessages)}
-          inverted={true}
+          inverted={!reverse}
           keyExtractor={keyExtractor}
           renderItem={({ item, index }) => <ChatLine item={item} />}
           removeClippedSubviews={true}
@@ -345,7 +365,7 @@ export function Chat({
         ]}
       >
         <Pressable
-          onPress={scrollToBottom}
+          onPress={reverse ? scrollToTop : scrollToBottom}
           style={[
             {
               pointerEvents: isScrolledUp ? "auto" : "none",
@@ -366,7 +386,9 @@ export function Chat({
           ]}
         >
           <ChevronDown size={24} style={{ marginTop: 2 }} color="white" />
-          <Text style={[mr[1]]}>Scroll to bottom</Text>
+          <Text style={[mr[1]]}>
+            {reverse ? "Scroll to top" : "Scroll to bottom"}
+          </Text>
         </Pressable>
       </Reanimated.View>
       <ModView />

@@ -60,6 +60,7 @@ export function ChatBox({
   onEmojiPickerToggle,
   emojiPicker,
   skinTone = 0,
+  hideLogin = false,
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
@@ -72,6 +73,7 @@ export function ChatBox({
     onSelect: (emoji: any) => void,
   ) => ReactNode;
   skinTone?: number;
+  hideLogin?: boolean;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");

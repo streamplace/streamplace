@@ -7,6 +7,8 @@ export * from "./player-store";
 export * from "./streamplace-provider";
 export * from "./streamplace-store";
 
+export { ErrorBoundary } from "./components/error-boundary";
+
 export {
   PlayerProvider,
   withPlayerProvider,

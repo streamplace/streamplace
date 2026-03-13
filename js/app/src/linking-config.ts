@@ -83,76 +83,7 @@ export function isValidScreenName(
 
 export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParamList> =
   {
-    // getPathFromState(state, options): string {
-    //   const routes = state.routes;
-    //   console.log("getPathFromState", JSON.stringify({ routes }, null, 2));
-    //   // if (!route.path) {
-    //   //   return "";
-    //   // }
-    //   return "";
-    // },
     prefixes: [ExpoLinking.createURL("")],
-    getStateFromPath: (path, config) => {
-      console.log("getStateFromPath", JSON.stringify({ path, config }));
-      // Use default parsing
-      const state = getStateFromPath(path, config);
-      console.log("getStateFromPath returning", state);
-
-      // if (state) {
-      //   // Check if we're navigating to a settings detail screen
-      //   const routes = state.routes;
-      //   const mainTabsRoute = routes.find((r: any) => r.name === "MainTabs");
-
-      //   if (mainTabsRoute?.state) {
-      //     const settingsTabRoute = mainTabsRoute.state.routes?.find(
-      //       (r: any) => r.name === "SettingsTab",
-      //     );
-
-      //     // if we're going to a settings detail screen, but MainSettings is not in the stack,
-      //     // we need to insert it at the bottom of the stack so we can escape to MainSettings
-      //     if (settingsTabRoute?.state) {
-      //       const settingsStack = settingsTabRoute.state.routes;
-      //       const firstRoute = settingsStack?.[0];
-      //       if (
-      //         firstRoute?.name !== "MainSettings" &&
-      //         settingsStack?.length === 1
-      //       ) {
-      //         return {
-      //           ...state,
-      //           routes: state.routes.map((r: any) => {
-      //             if (r.name === "MainTabs" && r.state) {
-      //               return {
-      //                 ...r,
-      //                 state: {
-      //                   ...r.state,
-      //                   routes: r.state.routes.map((tabRoute: any) => {
-      //                     if (tabRoute.name === "SettingsTab" && tabRoute.state) {
-      //                       return {
-      //                         ...tabRoute,
-      //                         state: {
-      //                           ...tabRoute.state,
-      //                           routes: [
-      //                             { name: "MainSettings" },
-      //                             ...tabRoute.state.routes,
-      //                           ],
-      //                         },
-      //                       };
-      //                     }
-      //                     return tabRoute;
-      //                   }),
-      //                 },
-      //               };
-      //             }
-      //             return r;
-      //           }),
-      //         };
-      //       }
-      //     }
-      //   }
-      // }
-
-      return state;
-    },
     config: {
       screens: {
         // Main tabs (used on all platforms, tab bar hidden on web)

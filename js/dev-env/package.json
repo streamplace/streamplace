@@ -4,9 +4,9 @@
   "name": "@atcute/internal-dev-env",
   "version": "0.10.0",
   "dependencies": {
-    "@atproto/crypto": "^0.4.4",
-    "@atproto/identity": "^0.4.8",
-    "@atproto/pds": "^0.4.176",
+    "@atproto/crypto": "^0.4.5",
+    "@atproto/identity": "^0.4.12",
+    "@atproto/pds": "^0.4.214",
     "@did-plc/server": "^0.0.1",
     "axios": "^1.7.9",
     "better-sqlite3": "10.1.0",

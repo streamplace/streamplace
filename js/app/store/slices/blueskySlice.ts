@@ -22,9 +22,8 @@ import {
 import clearQueryParams from "utils/clear-query-params";
 import { privateKeyToAccount } from "viem/accounts";
 import { StateCreator } from "zustand";
-import createOAuthClient, {
-  StreamplaceOAuthClient,
-} from "../../features/bluesky/oauthClient";
+import createOAuthClient from "../../features/bluesky/oauthClient";
+import { OAuthClient } from "../../features/bluesky/oauthClientImport";
 import { DID_KEY, STORED_KEY_KEY, StreamKey } from "./baseSlice";
 
 type NewLivestream = {
@@ -41,7 +40,7 @@ export interface BlueskySlice {
   anonPDSAgent: null | StreamplaceAgent;
   profiles: { [key: string]: ProfileViewDetailed };
   profileCache: { [key: string]: ProfileViewDetailed };
-  client: null | StreamplaceOAuthClient;
+  client: null | OAuthClient;
   loginState: {
     loading: boolean;
     error: null | string;
@@ -240,6 +239,7 @@ export const createBlueskySlice: StateCreator<
   loadOAuthClient: async () => {
     set({ authStatus: "start" });
     try {
+      console.log("loadOAuthClient");
       const streamplaceUrl = get().url;
       const client = await createOAuthClient(streamplaceUrl);
       const anonPDSAgent = new StreamplaceAgent(streamplaceUrl);

@@ -95,7 +95,7 @@ export const segmentize = (
     const { byteStart, byteEnd } = facet.index;
     const features = facet.features;
 
-    if (byteStart > byteEnd || features.length === 0) {
+    if (byteStart > byteEnd || !features || features.length === 0) {
       continue;
     }
 

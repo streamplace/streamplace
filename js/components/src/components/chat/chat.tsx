@@ -13,6 +13,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { ChatMessageViewHydrated } from "streamplace";
 import {
+  ErrorBoundary,
   getSystemMessageType,
   SystemMessage,
   SystemMessageType,
@@ -321,7 +322,11 @@ export function Chat({
           data={chat.slice(0, shownMessages)}
           inverted={true}
           keyExtractor={keyExtractor}
-          renderItem={({ item, index }) => <ChatLine item={item} />}
+          renderItem={({ item, index }) => (
+            <ErrorBoundary>
+              <ChatLine item={item} />
+            </ErrorBoundary>
+          )}
           removeClippedSubviews={true}
           maxToRenderPerBatch={10}
           initialNumToRender={10}

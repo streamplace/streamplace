@@ -169,6 +169,14 @@ export function DesktopUi({
 
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "f" || e.key === "F") {
+        // are we in an input/textarea or contenteditable element?
+        const activeEl = document.activeElement;
+        const isInput =
+          activeEl &&
+          (activeEl.tagName === "input" ||
+            activeEl.tagName === "textarea" ||
+            (activeEl as HTMLElement).isContentEditable);
+        if (isInput) return;
         e.preventDefault();
         toggleFullscreen();
       }

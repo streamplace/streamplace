@@ -70,6 +70,7 @@ export function DesktopUi({
   const embedded = usePlayerStore((state) => state.embedded);
 
   const fullscreen = usePlayerStore((state) => state.fullscreen);
+  const setFullscreen = usePlayerStore((state) => state.setFullscreen);
   const selectedRendition = usePlayerStore((state) => state.selectedRendition);
 
   const safeAreaInsets = embedded
@@ -108,6 +109,10 @@ export function DesktopUi({
   const toggleChat = useCallback(() => {
     if (setIsChatOpen) setIsChatOpen(!isChatOpen);
   }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    setFullscreen(!fullscreen);
+  }, [fullscreen, setFullscreen]);
 
   useEffect(() => {
     resetFadeTimer();
@@ -158,17 +163,45 @@ export function DesktopUi({
     };
   }, [videoRef]);
 
+  // Keyboard shortcuts (F for fullscreen)
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [toggleFullscreen]);
+
   const handlePip = useCallback(() => {
     if (pipAction) pipAction();
   }, [pipAction]);
 
   const hover = Gesture.Hover().onChange((_) => runOnJS(onPlayerHover)());
 
+  const handleDoubleClick = useCallback(() => {
+    toggleFullscreen();
+  }, [toggleFullscreen]);
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => runOnJS(handleDoubleClick)());
+
+  const hoverAndTap = Gesture.Race(hover, doubleTap);
+
   const portalContainerID = "desktop-ui-dropdown-portal-" + playerId;
 
   return (
     <>
-      <GestureDetector gesture={hover}>
+      <GestureDetector gesture={hoverAndTap}>
         <View
           style={[layout.position.absolute, h.percent[100], w.percent[100]]}
           collapsable={false}

@@ -1,3 +1,4 @@
+import { LiquidGlassView } from "@callstack/liquid-glass";
 import { useNavigation } from "@react-navigation/native";
 import {
   Button,
@@ -11,10 +12,12 @@ import {
   zero,
 } from "@streamplace/components";
 import { useNameColorPicker } from "components/name-color-picker/name-color-picker";
+import { Image } from "expo-image";
 import { Edit3, LogOut, Palette, X } from "lucide-react-native";
-import { Image, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 import { useStore } from "store";
 import { useChatProfile, useUserProfile } from "store/hooks";
+import { convertNavigationParams } from "../../src/navigation-helper";
 import {
   SettingsExternalItem,
   SettingsRowItem,
@@ -50,11 +53,16 @@ export function AccountCategorySettings() {
           <Button
             width="min"
             variant="secondary"
-            onPress={() =>
-              navigation.canGoBack()
-                ? navigation.goBack()
-                : navigation.navigate("Settings", { screen: "MainSettings" })
-            }
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                const params = convertNavigationParams({
+                  screen: "MainSettings",
+                });
+                navigation.navigate(params.screen as any, params.params);
+              }
+            }}
           >
             {tn("go-back")}
           </Button>
@@ -73,15 +81,24 @@ export function AccountCategorySettings() {
         <View style={{ paddingTop: 24, maxWidth: 500, width: "100%" }}>
           <View style={[zero.layout.flex.align.center, zero.pt[4], zero.pb[2]]}>
             {userProfile.avatar && (
-              <Image
-                source={{ uri: userProfile.avatar }}
+              <LiquidGlassView
+                interactive
                 style={{
                   width: 80,
                   height: 80,
                   borderRadius: 40,
                   marginBottom: 12,
                 }}
-              />
+              >
+                <Image
+                  source={{ uri: userProfile.avatar }}
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                  }}
+                />
+              </LiquidGlassView>
             )}
             <Text size="3xl" style={{ textAlign: "center" }}>
               {(() => {
@@ -131,7 +148,10 @@ export function AccountCategorySettings() {
                   logout();
                   // wait a bit to debounce
                   setTimeout(() => {
-                    navigation.navigate("Settings", { screen: "MainSettings" });
+                    const params = convertNavigationParams({
+                      screen: "MainSettings",
+                    });
+                    navigation.navigate(params.screen as any, params.params);
                   }, 100);
                 }}
               >

@@ -17,8 +17,6 @@ config.cacheStores = [
 const overrides = {};
 
 const nativeOverrides = {
-  crypto: "react-native-quick-crypto",
-  // "node:crypto": "react-native-quick-crypto",
   stream: "readable-stream",
   // "node:buffer": "buffer",
   // "node:util": "util",
@@ -28,10 +26,17 @@ const nativeOverrides = {
 };
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName.includes("zustand")) {
-    const result = require.resolve(moduleName);
-    return context.resolveRequest(context, result, platform);
+  if (moduleName === "@react-navigation/elements/internal") {
+    return context.resolveRequest(
+      context,
+      "@react-navigation/elements/lib/module/internal",
+      platform,
+    );
   }
+  // if (moduleName.includes("zustand")) {
+  //   const result = require.resolve(moduleName);
+  //   return context.resolveRequest(context, result, platform);
+  // }
   if (platform !== "web") {
     for (const [key, value] of Object.entries(nativeOverrides)) {
       if (moduleName === key) {
@@ -52,5 +57,25 @@ config.resolver.sourceExts.push("mjs");
 config.resolver.assetExts.push("md");
 
 config.resolver.unstable_conditionNames.push("@streamplace/dev", "browser");
+
+// Ensure workspace packages get transformed by babel
+config.watchFolders = [path.resolve(__dirname, "../..")];
+config.transformer = {
+  ...config.transformer,
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: true,
+      inlineRequires: true,
+    },
+  }),
+};
+
+// Transform @streamplace/components workspace package
+const { getDefaultConfig } = require("expo/metro-config");
+const defaultConfig = getDefaultConfig(__dirname);
+config.resolver.nodeModulesPaths = [
+  ...defaultConfig.resolver.nodeModulesPaths,
+  path.resolve(__dirname, "../components"),
+];
 
 module.exports = config;

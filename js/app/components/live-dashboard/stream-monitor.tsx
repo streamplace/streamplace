@@ -10,9 +10,10 @@ import {
 } from "@streamplace/components";
 import { DesktopUi } from "components/mobile/desktop-ui";
 import { OfflineCounter } from "components/mobile/offline-counter";
+import { Image } from "expo-image";
 import { Eye, EyeOff, Signal, Wifi, WifiOff } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Image, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { useLiveUser } from "../../hooks/useLiveUser";
 import StreamScreen from "./live-selector";
@@ -209,10 +210,10 @@ export default function StreamMonitor({
             >
               <Image
                 source={{ uri: currentThumbnail || thumbnails }}
+                contentFit="contain"
                 style={{
                   width: "100%",
                   height: "100%",
-                  resizeMode: "contain",
                 }}
               />
               <View

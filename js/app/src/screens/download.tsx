@@ -37,7 +37,7 @@ const Anchor = ({
   );
 };
 
-export default function AboutScreen() {
+export default function DownloadScreen() {
   return (
     <View
       style={[

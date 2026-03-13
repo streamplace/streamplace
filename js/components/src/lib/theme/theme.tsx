@@ -18,7 +18,7 @@ import {
 } from "./tokens";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { ToastProvider } from "../../components/ui";
+import { ToastProvider } from "../../components/ui/toast";
 
 // Import pairify function for generating theme tokens
 function pairify<T extends Record<string, any>>(

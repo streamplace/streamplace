@@ -10,14 +10,15 @@ import {
   useLivestreamStore,
   zero,
 } from "@streamplace/components";
+import { Image } from "expo-image";
 import { ChevronLeft, MessageSquare, SwitchCamera } from "lucide-react-native";
 import {
-  Image,
   Linking,
   Platform,
   Pressable,
   useWindowDimensions,
 } from "react-native";
+import { convertNavigationParams } from "../../../src/navigation-helper";
 import { LiveBubble } from "./live-bubble";
 
 const { borders, colors, gap, layout, p, px, py, r, text } = zero;
@@ -65,9 +66,14 @@ export function TopControlBar({
           {Platform.OS !== "web" && !embedded && (
             <Pressable
               onPress={() => {
-                navigation.canGoBack()
-                  ? navigation.goBack()
-                  : navigation.navigate("Home", { screen: "StreamList" });
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  const params = convertNavigationParams({
+                    screen: "HomeMain",
+                  });
+                  navigation.navigate(params.screen as any, params.params);
+                }
               }}
               style={[p[2], r[1]]}
             >

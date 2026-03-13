@@ -281,7 +281,7 @@ build-android-release:
 .build-on-mac:
   stage: build
   interruptible: true
-  image: macos-sonoma-xcode-big
+  image: ghcr.io/cirruslabs/macos-tahoe-xcode:26.3
   tags:
     - tart-installed
   variables:

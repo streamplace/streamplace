@@ -6,6 +6,7 @@ import {
   useTheme,
   zero,
 } from "@streamplace/components";
+import { Image } from "expo-image";
 import useActorTypeahead from "hooks/useActorTypeahead";
 import {
   ArrowRightToLine,
@@ -14,7 +15,7 @@ import {
   Info,
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Image, Linking, Platform, Pressable, View } from "react-native";
+import { Alert, Linking, Platform, Pressable, View } from "react-native";
 import { useStore } from "store";
 import { useLogin } from "store/hooks";
 

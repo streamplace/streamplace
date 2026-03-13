@@ -1,4 +1,5 @@
-import { Image, Linking, TouchableOpacity, View } from "react-native";
+import { Image } from "expo-image";
+import { Linking, TouchableOpacity, View } from "react-native";
 
 const RATIO = 3.39741547176;
 const WIDTH = 200;

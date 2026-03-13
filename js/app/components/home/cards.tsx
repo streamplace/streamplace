@@ -1,6 +1,8 @@
+import { LiquidGlassView } from "@callstack/liquid-glass";
 import { PlayerUI, Text, useTheme, zero } from "@streamplace/components";
+import { Image } from "expo-image";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
-import { Image, Platform, View } from "react-native";
+import { Platform, View } from "react-native";
 
 export type StreamCardSize = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -45,7 +47,8 @@ const StreamCard = ({
   const horizontalContentSectionWidth = avatarSize * 2 + contentPadding;
 
   return (
-    <View
+    <LiquidGlassView
+      interactive
       style={[
         zero.flex.values[1],
         {
@@ -75,13 +78,13 @@ const StreamCard = ({
         ]}
       >
         <Image
-          source={{ uri: `${url}/${thumbnailUrl}`, width: 160, height: 90 }}
+          source={{ uri: `${url}/${thumbnailUrl}` }}
           style={{
             width: "100%",
             height: "100%",
             aspectRatio: 16 / 9,
           }}
-          resizeMode="contain"
+          contentFit="contain"
         />
         {isLive && (
           <View
@@ -108,7 +111,7 @@ const StreamCard = ({
         )}
       </View>
 
-      {/* Content Section */}
+      {/* Content */}
       <View
         style={[
           {
@@ -143,7 +146,7 @@ const StreamCard = ({
                   uri: avatarUrl,
                 }}
                 style={{ width: "100%", height: "100%" }}
-                resizeMode="cover"
+                contentFit="cover"
               />
             </View>
           )}
@@ -153,13 +156,13 @@ const StreamCard = ({
                 key="avatar"
                 source={require("./../../assets/images/goose.png")}
                 style={{ width: "100%", height: "100%" }}
-                resizeMode="cover"
+                contentFit="cover"
               />
             </View>
           )}
         </View>
 
-        {/* Text Content */}
+        {/* Text content */}
         <View
           style={[
             zero.flex.values[1],
@@ -246,7 +249,7 @@ const StreamCard = ({
           )}
         </View>
       </View>
-    </View>
+    </LiquidGlassView>
   );
 };
 

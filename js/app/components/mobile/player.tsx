@@ -29,6 +29,7 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 import { useUserProfile } from "store/hooks";
+import { convertNavigationParams } from "../../src/navigation-helper";
 import { BottomMetadata } from "./bottom-metadata";
 import { DesktopChatPanel } from "./chat";
 import { DesktopUi } from "./desktop-ui";
@@ -157,11 +158,16 @@ function PlayerWithProvider(
           <Button
             variant="secondary"
             style={[w.percent[40]]}
-            onPress={() =>
-              navigation.canGoBack()
-                ? navigation.goBack()
-                : navigation.navigate("Home", { screen: "StreamList" })
-            }
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                const params = convertNavigationParams({
+                  screen: "HomeMain",
+                });
+                navigation.navigate(params.screen as any, params.params);
+              }
+            }}
           >
             <View
               centered
@@ -175,9 +181,8 @@ function PlayerWithProvider(
             <Button
               style={[w.percent[40]]}
               onPress={() =>
-                navigation.navigate("Home", {
-                  screen: "Stream",
-                  params: { user: userProfile?.did },
+                navigation.navigate("Stream", {
+                  user: userProfile?.did,
                 })
               }
             >
@@ -200,9 +205,8 @@ function PlayerWithProvider(
   }
 
   const defaultHandleTeleport = (targetHandle: string, targetDID: string) => {
-    navigation.navigate("Home", {
-      screen: "Stream",
-      params: { user: targetHandle },
+    navigation.navigate("Stream", {
+      user: targetHandle,
     });
   };
 
@@ -478,7 +482,9 @@ export function LivestreamWarning() {
         <Button
           variant="secondary"
           style={[w.percent[60]]}
-          onPress={() => navigation.navigate("Home", { screen: "StreamList" })}
+          onPress={() =>
+            navigation.navigate("MainTabs" as any, { screen: "HomeTab" })
+          }
         >
           <View
             centered

@@ -1,8 +1,4 @@
 import {
-  Link,
-  NavigationProp,
-  ParamListBase,
-  useLinkBuilder,
   useNavigation,
   useNavigationState,
   useRoute,
@@ -10,10 +6,31 @@ import {
 import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
 import { Pressable, StyleProp, ViewStyle } from "react-native";
+import { interpolateParams, SCREEN_PATHS } from "src/linking-config";
 import { useStore } from "store";
+import {
+  convertNavigationParams,
+  ROOT_SCREENS,
+} from "../src/navigation-helper";
+import type {
+  HomeStackParamList,
+  RootStackParamList,
+  SettingsStackParamList,
+  TabParamList,
+} from "../src/navigation-types";
 import Loading from "./loading/loading";
 
-export type LinkParams = { screen: string; params?: Record<string, string> };
+// Union type of all screens across all navigators
+type AllScreens = RootStackParamList &
+  HomeStackParamList &
+  SettingsStackParamList &
+  TabParamList;
+
+// Type-safe link parameters - params can be any to handle NavigatorScreenParams flexibility
+export type LinkParams<T extends keyof AllScreens = keyof AllScreens> = {
+  screen: T;
+  params?: any;
+};
 
 // Web and native have some disagreements about link styling
 // so we have a custom component that handles that
@@ -27,9 +44,10 @@ export default function AQLink({
   style?: StyleProp<ViewStyle>;
 }) {
   const { isWeb } = usePlatform();
-  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const navigation = useNavigation();
   const route = useRoute();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const { href } = useAQLinkHref(to);
 
   // get the deepest active route for nested navigators
   const currentRoute = useNavigationState((state) => {
@@ -44,7 +62,11 @@ export default function AQLink({
     display: "flex",
   };
 
-  const handlePress = () => {
+  const handlePress = (e: any) => {
+    // Prevent default browser navigation on web (href is for a11y only)
+    if (isWeb && e?.preventDefault) {
+      e.preventDefault();
+    }
     // intercept login navigation and show modal instead
     if (to.screen === "Login") {
       console.log(
@@ -52,39 +74,57 @@ export default function AQLink({
         currentRoute,
       );
       openLoginModal(currentRoute as any);
+      console.log(
+        "AQLink login navigation intercepted, current route:",
+        currentRoute,
+      );
       return;
     }
-    navigation.navigate(to.screen, to.params);
+    // For root-level screens, use CommonActions to navigate from root
+    if (ROOT_SCREENS.includes(to.screen)) {
+      const rootNav = navigation.getParent()?.getParent() || navigation;
+      // @ts-expect-error - dynamic navigation
+      rootNav.navigate(to.screen, to.params);
+      console.log(
+        "AQLink root navigation intercepted, current route:",
+        currentRoute,
+      );
+      return;
+    }
+    // Convert to platform-specific navigation params for nested screens
+    const converted = convertNavigationParams(to);
+    // @ts-expect-error - dynamic navigation with LinkParams
+    navigation.navigate(converted.screen, converted.params);
+    console.log("AQLink navigation intercepted, current route:", currentRoute);
   };
 
-  if (isWeb) {
-    // on web, intercept login links with onClick handler
-    if (to.screen === "Login") {
-      return (
-        <Pressable style={[baseStyle, style]} onPress={handlePress}>
-          {children}
-        </Pressable>
-      );
-    }
-    return (
-      <Link style={[baseStyle, style]} to={to as any}>
-        {children}
-      </Link>
-    );
-  }
-
+  // use Pressable with href on web to render as <a> tag for copy/paste support
   return (
-    <Pressable style={[baseStyle, style]} onPress={handlePress}>
+    <Pressable
+      style={[baseStyle, style]}
+      onPress={handlePress}
+      // @ts-ignore - href prop makes this render as <a> on web
+      href={isWeb ? href : undefined}
+    >
       {children}
     </Pressable>
   );
 }
 
 export function Redirect({ to }: { to: LinkParams }) {
-  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const navigation = useNavigation();
   useEffect(() => {
     console.log("redirecting to", to);
-    navigation.navigate(to.screen, to.params);
+    // For root-level screens, use root navigator
+    if (ROOT_SCREENS.includes(to.screen)) {
+      const rootNav = navigation.getParent()?.getParent() || navigation;
+      // @ts-expect-error - dynamic navigation
+      rootNav.navigate(to.screen, to.params);
+      return;
+    }
+    const converted = convertNavigationParams(to);
+    // @ts-expect-error - dynamic navigation with LinkParams
+    navigation.navigate(converted.screen, converted.params);
   }, []);
   return <Loading />;
 }
@@ -92,17 +132,19 @@ export function Redirect({ to }: { to: LinkParams }) {
 // generates the proper href for a given LinkParams object, for better web support
 export function useAQLinkHref(to: LinkParams): { href?: string } {
   const { isWeb } = usePlatform();
-  const buildLink = useLinkBuilder();
 
   if (!isWeb) {
     return { href: undefined };
   }
 
-  try {
-    const href = buildLink(to.screen, to.params);
-    return { href };
-  } catch (e) {
-    console.warn("Failed to build link for", to, e);
+  const screenPath = SCREEN_PATHS[to.screen as keyof typeof SCREEN_PATHS];
+  if (screenPath === undefined) {
     return { href: undefined };
   }
+
+  // add leading slash and interpolate params
+  const path = screenPath === "" ? "/" : `/${screenPath}`;
+  const href = interpolateParams(path, to.params);
+
+  return { href };
 }

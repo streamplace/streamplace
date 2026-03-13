@@ -57,17 +57,17 @@ export function SidebarOverlay() {
   const mainLogo = useMainLogo();
   const sidebarBackgroundImageAsset = useSidebarBackgroundImage();
 
-  // Don't render if sidebar is not active (small screen) or hidden
-  if (!sidebar.isActive || sidebar.isHidden) {
-    return null;
-  }
-
   const animatedSidebarStyle = useAnimatedStyle(() => {
     return {
       minWidth: sidebar.animatedWidth.value,
       maxWidth: sidebar.animatedWidth.value,
     };
   });
+
+  // Don't render if sidebar is not active (small screen) or hidden
+  if (!sidebar.isActive || sidebar.isHidden) {
+    return null;
+  }
 
   const foregroundColor = theme.colors.text || "#fff";
 

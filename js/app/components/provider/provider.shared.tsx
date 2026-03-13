@@ -3,6 +3,7 @@ import {
   LinkingOptions,
   NavigationContainer,
 } from "@react-navigation/native";
+import * as Sentry from "@sentry/react-native";
 import {
   BrandedThemeProvider,
   I18nProvider,
@@ -16,22 +17,35 @@ import useStreamplaceNode from "hooks/useStreamplaceNode";
 import React from "react";
 import { useOAuthSession } from "store/hooks";
 
-// export default Sentry.wrap(ProviderInner);
-
 import { i18n } from "@streamplace/components";
+import * as Application from "expo-application";
+import Constants from "expo-constants";
+import * as Updates from "expo-updates";
 import { Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-// Sentry.setExtras({
-//   manifest: Updates.manifest,
-//   linkingUri: Constants.linkingUri,
-// });
-// Sentry.setTag("expoChannel", Updates.channel);
-// Sentry.setTag("appVersion", Application.nativeApplicationVersion);
-// Sentry.setTag("deviceId", Constants.sessionId);
-// Sentry.setTag("executionEnvironment", Constants.executionEnvironment);
-// Sentry.setTag("expoGoVersion", Constants.expoVersion);
-// Sentry.setTag("expoRuntimeVersion", Constants.expoRuntimeVersion);
+// get proper DSN for environment
+// on ios/android it's process.env.EXPO_PUBLIC_SENTRY_DSN
+// on web it will be injected at runtime
+let dsn = undefined;
+if (Platform.OS === "web") {
+  dsn = (window as any).SENTRY_DSN;
+} else {
+  dsn = process.env.EXPO_PUBLIC_SENTRY_DSN || undefined;
+}
+
+if (dsn) {
+  Sentry.setExtras({
+    manifest: Updates.manifest,
+    linkingUri: Constants.linkingUri,
+  });
+  Sentry.setTag("expoChannel", Updates.channel);
+  Sentry.setTag("appVersion", Application.nativeApplicationVersion);
+  Sentry.setTag("deviceId", Constants.sessionId);
+  Sentry.setTag("executionEnvironment", Constants.executionEnvironment);
+  Sentry.setTag("expoGoVersion", Constants.expoVersion);
+  Sentry.setTag("expoRuntimeVersion", Constants.expoRuntimeVersion);
+}
 
 const isWeb = Platform.OS === "web";
 
@@ -46,40 +60,32 @@ const SPDarkTheme = {
   },
 };
 
-export default function ProviderInner({
+function ProviderInner({
   children,
   linking,
 }: {
   children: React.ReactNode;
   linking: LinkingOptions<ReactNavigation.RootParamList>;
 }) {
-  // // get proper DSN for environment
-  // // on ios/android it's process.env.EXPO_PUBLIC_SENTRY_DSN
-  // // on web it will be injected at runtime
-  // let dsn = undefined;
-  // if (Platform.OS === "web") {
-  //   dsn = (window as any).SENTRY_DSN;
-  // } else {
-  //   dsn = process.env.EXPO_PUBLIC_SENTRY_DSN || undefined;
-  // }
+  if (dsn) {
+    Sentry.init({
+      dsn,
+      // Adds more context data to events (IP address, cookies, user, etc.)
+      // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+      sendDefaultPii: true,
 
-  // Sentry.init({
-  //   dsn,
-  //   // Adds more context data to events (IP address, cookies, user, etc.)
-  //   // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
-  //   sendDefaultPii: true,
+      // Configure Session Replay
+      replaysSessionSampleRate: 0.1,
+      replaysOnErrorSampleRate: 1,
+      integrations: [
+        Sentry.mobileReplayIntegration(),
+        Sentry.feedbackIntegration(),
+      ],
 
-  //   // Configure Session Replay
-  //   replaysSessionSampleRate: 0.1,
-  //   replaysOnErrorSampleRate: 1,
-  //   integrations: [
-  //     Sentry.mobileReplayIntegration(),
-  //     Sentry.feedbackIntegration(),
-  //   ],
-
-  //   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  //   spotlight: __DEV__,
-  // });
+      // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+      spotlight: __DEV__,
+    });
+  }
 
   return (
     <SafeAreaProvider>
@@ -140,3 +146,10 @@ export const FontProvider = ({ children }: { children: React.ReactNode }) => {
 
   return <>{children}</>;
 };
+
+let wrappedProvider = ProviderInner;
+if (dsn) {
+  wrappedProvider = Sentry.wrap(ProviderInner) as any;
+}
+
+export default wrappedProvider;

@@ -16,3 +16,5 @@ onlyBuiltDependencies:
   - quietjs-bundle
   - sharp
   - utf-8-validate
+patchedDependencies:
+  core-js: patches/core-js.patch

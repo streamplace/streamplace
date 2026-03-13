@@ -3,6 +3,9 @@
  * Used both for URL parsing (inbound) and URL generation (outbound)
  */
 
+import { LinkingOptions, getStateFromPath } from "@react-navigation/native";
+import * as ExpoLinking from "expo-linking";
+
 export const SCREEN_PATHS = {
   // HomeTab screens
   HomeMain: "",
@@ -76,4 +79,68 @@ export function isValidScreenName(
   name: string,
 ): name is keyof typeof SCREEN_PATHS {
   return name in SCREEN_PATHS;
+}
+
+export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParamList> =
+  {
+    prefixes: [ExpoLinking.createURL("")],
+    config: {
+      screens: {
+        // Main tabs (used on all platforms, tab bar hidden on web)
+        MainTabs: {
+          screens: {
+            HomeTab: {
+              screens: {
+                HomeMain: SCREEN_PATHS.HomeMain,
+                About: SCREEN_PATHS.About,
+                Download: SCREEN_PATHS.Download,
+                LiveDashboard: SCREEN_PATHS.LiveDashboard,
+                Login: SCREEN_PATHS.Login,
+                Multi: SCREEN_PATHS.Multi,
+                Support: SCREEN_PATHS.Support,
+              },
+            },
+            GoLiveTab: SCREEN_PATHS.GoLiveTab,
+            SettingsTab: {
+              screens: {
+                MainSettings: SCREEN_PATHS.MainSettings,
+                AboutCategory: SCREEN_PATHS.AboutCategory,
+                AccountCategory: SCREEN_PATHS.AccountCategory,
+                StreamingCategory: SCREEN_PATHS.StreamingCategory,
+                WebhooksSettings: SCREEN_PATHS.WebhooksSettings,
+                RecommendationsSettings: SCREEN_PATHS.RecommendationsSettings,
+                PrivacyCategory: SCREEN_PATHS.PrivacyCategory,
+                DanmuCategory: SCREEN_PATHS.DanmuCategory,
+                AdvancedCategory: SCREEN_PATHS.AdvancedCategory,
+                DeveloperSettings: SCREEN_PATHS.DeveloperSettings,
+                MultistreamCategory: SCREEN_PATHS.MultistreamCategory,
+                KeyManagement: SCREEN_PATHS.KeyManagement,
+                LanguagesCategory: SCREEN_PATHS.LanguagesCategory,
+                BrandingAdmin: SCREEN_PATHS.BrandingAdmin,
+              },
+            },
+          },
+        },
+        // Root stack screens (outside tabs - full-screen experiences)
+        Stream: {
+          path: SCREEN_PATHS.Stream,
+        },
+        MobileGoLive: SCREEN_PATHS.MobileGoLive,
+        AVSync: SCREEN_PATHS.AVSync,
+        AppReturn: SCREEN_PATHS.AppReturn,
+        PopoutChat: SCREEN_PATHS.PopoutChat,
+        Embed: SCREEN_PATHS.Embed,
+        InfoWidgetEmbed: SCREEN_PATHS.InfoWidgetEmbed,
+        LegacyStream: SCREEN_PATHS.LegacyStream,
+        DanmuOBS: SCREEN_PATHS.DanmuOBS,
+      },
+    },
+  };
+
+export function getStreamplaceStateFromPath(path: string) {
+  const ret = getStateFromPath(path, streamplaceLinkingOptions.config);
+  if (!ret) {
+    throw new Error(`Invalid path: ${path}`);
+  }
+  return ret;
 }

@@ -1,4 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import {
   Text,
   useMainLogo,
@@ -24,7 +24,7 @@ import {
 import React from "react";
 import { Linking, Platform, Pressable } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
-import { convertNavigationParams } from "src/navigation-helper";
+import { getStreamplaceStateFromPath } from "src/linking-config";
 import SidebarItem from "./sidebar-item";
 
 export interface SidebarNavItem {
@@ -33,8 +33,7 @@ export interface SidebarNavItem {
     | React.ReactElement
     | (() => React.ReactElement);
   label: React.ReactNode;
-  screen: string;
-  params?: any;
+  href: string;
   hidden?: boolean;
 }
 
@@ -45,6 +44,7 @@ export interface ExternalSidebarItem {
     | (() => React.ReactElement);
   label: React.ReactNode;
   onPress: () => void;
+  href: string;
 }
 
 export function SidebarOverlay() {
@@ -57,11 +57,6 @@ export function SidebarOverlay() {
   const mainLogo = useMainLogo();
   const sidebarBackgroundImageAsset = useSidebarBackgroundImage();
 
-  // Don't render if sidebar is not active (small screen) or hidden
-  if (!sidebar.isActive || sidebar.isHidden) {
-    return null;
-  }
-
   const animatedSidebarStyle = useAnimatedStyle(() => {
     return {
       minWidth: sidebar.animatedWidth.value,
@@ -69,43 +64,51 @@ export function SidebarOverlay() {
     };
   });
 
+  // Don't render if sidebar is not active (small screen) or hidden
+  if (!sidebar.isActive || sidebar.isHidden) {
+    return null;
+  }
+
   const foregroundColor = theme.colors.text || "#fff";
 
   const navItems: SidebarNavItem[] = [
     {
       icon: () => <Home color={foregroundColor} size={24} />,
       label: <Text variant="h5">Home</Text>,
-      screen: "HomeMain",
+      href: "/",
     },
     {
       icon: () => <ShieldQuestion color={foregroundColor} size={24} />,
       label: <Text variant="h5">What's Streamplace?</Text>,
-      screen: "About",
+      href: "/about",
       hidden: isNative,
     },
     {
       icon: () => <Download color={foregroundColor} size={24} />,
       label: <Text variant="h5">Download</Text>,
-      screen: "Download",
+      href: "/download",
       hidden: !isBrowser,
     },
     {
       icon: () => <SettingsIcon color={foregroundColor} size={24} />,
       label: <Text variant="h5">Settings</Text>,
-      screen: "MainSettings",
+      href: "/settings",
     },
     {
       icon: () => <Video color={foregroundColor} size={24} />,
       label: <Text variant="h5">Live Dashboard</Text>,
-      screen: "LiveDashboard",
+      href: "/live",
       hidden: isNative,
     },
     {
       icon: () => <LogIn color={foregroundColor} size={24} />,
       label: <Text variant="h5">Login</Text>,
-      screen: "Login",
+      href: "/login",
     },
   ];
+
+  const u = new URL(streamplaceUrl);
+  u.pathname = "/docs";
 
   const externalItems: ExternalSidebarItem[] = [
     {
@@ -124,10 +127,9 @@ export function SidebarOverlay() {
         </Text>
       ),
       onPress: () => {
-        const u = new URL(streamplaceUrl);
-        u.pathname = "/docs";
         Linking.openURL(u.toString());
       },
+      href: u.toString(),
     },
   ];
 
@@ -203,24 +205,23 @@ export function SidebarOverlay() {
 
       {navItems.map((item, index) => {
         if (item.hidden) return null;
-
-        // todo: properly verify this navigation params conversion
-        const converted = convertNavigationParams({
-          screen: item.screen as any,
-          params: item.params,
-        });
-
         return (
           <SidebarItem
             key={index}
             icon={item.icon}
+            href={item.href}
             label={item.label}
             active={false} // We'll handle active state separately if needed
             collapsed={sidebar.isCollapsed}
-            route={{ screen: item.screen as any, params: item.params }}
             onPress={(e) => {
               e.preventDefault();
-              navigation.navigate(converted.screen as any, converted.params);
+              const state = getStreamplaceStateFromPath(item.href);
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: state.routes,
+                }),
+              );
             }}
             tint="rgba(189, 110, 134)"
           />
@@ -232,6 +233,7 @@ export function SidebarOverlay() {
           key={`external-${index}`}
           icon={item.icon}
           label={item.label}
+          href={item.href}
           active={false}
           collapsed={sidebar.isCollapsed}
           onPress={() => item.onPress()}

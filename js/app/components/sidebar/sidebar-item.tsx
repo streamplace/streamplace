@@ -1,5 +1,5 @@
 import { Text, useTheme, zero } from "@streamplace/components";
-import { LinkParams, useAQLinkHref } from "components/aqlink";
+import { LinkParams } from "components/aqlink";
 import React, { ReactNode, useState } from "react";
 import {
   GestureResponderEvent,
@@ -21,6 +21,7 @@ export default function SidebarItem({
   route,
   style = null,
   tint = "rgba(189, 110, 134)",
+  href,
 }: {
   icon:
     | React.ComponentType<any>
@@ -35,10 +36,10 @@ export default function SidebarItem({
     | StyleProp<ViewStyle>
     | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>);
   tint: string;
+  href: string;
 }) {
   const [hover, setHover] = useState<boolean>(false);
   const theme = useTheme();
-  const { href } = useAQLinkHref(route || DEFAULT_ROUTE);
 
   // Handle different icon types - component, JSX element, or function returning JSX
   const renderIcon = () => {

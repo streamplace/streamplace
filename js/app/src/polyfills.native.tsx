@@ -1,3 +1,5 @@
+import "expo-crypto";
+import Storage from "expo-sqlite/kv-store";
 global.AbortSignal.timeout = function (ms) {
   const controller = new AbortController();
 
@@ -12,3 +14,6 @@ global.AbortSignal.prototype.throwIfAborted = function () {
   if (!aborted) return;
   throw reason;
 };
+Storage.getAllKeysSync().forEach((key) => {
+  console.log("key", key);
+});

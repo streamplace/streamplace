@@ -22,7 +22,7 @@ export default function LaunchGoLive() {
           zero.layout.flex.alignCenter,
         ]}
       >
-        <View style={[zero.r.full, zero.bg.primary]}>
+        <View style={[zero.r.full]}>
           <Video size={48} color="white" />
         </View>
         <Text size="3xl" weight="bold" center>

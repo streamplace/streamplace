@@ -32,7 +32,8 @@ import { SidebarOverlay } from "components/sidebar/sidebar-overlay";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
-import { useSidebarControl } from "hooks/useSidebarControl";
+import { useIsLargeScreen, useSidebarControl } from "hooks/useSidebarControl";
+import { Cog, Home, Video } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Platform, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
@@ -239,11 +240,12 @@ const getIcon = (
       type: "sfSymbol",
       name: IOS_ICONS[name],
     };
+  } else {
+    return {
+      type: "materialSymbol",
+      name: ANDROID_ICONS[name],
+    };
   }
-  return {
-    type: "materialSymbol",
-    name: ANDROID_ICONS[name],
-  };
 };
 
 // Tab navigator (main app sections, navigation on web is handled in sidebar)
@@ -251,6 +253,7 @@ function TabNavigator() {
   const { isNative, isBrowser } = usePlatform();
   const accentColor = useAccentColor();
   const primaryColor = usePrimaryColor();
+  const isLargeScreen = useIsLargeScreen();
   const z = useTheme();
 
   return (
@@ -258,8 +261,12 @@ function TabNavigator() {
       screenOptions={{
         lazy: true,
         headerShown: false,
-        // Hide tab bar on web
-        tabBarStyle: isNative ? undefined : { display: "none" },
+        // Hide tab bar on web and < 800px
+        tabBarStyle: isNative
+          ? undefined
+          : !isLargeScreen
+            ? undefined
+            : { display: "none" },
         // doesn't seem to work on iOS?
         // tabBarInactiveTintColor: primaryColor || accentColor || "#f0f",
         // tabBarActiveTintColor: accentColor || primaryColor || "#06f",
@@ -273,9 +280,15 @@ function TabNavigator() {
         component={HomeNavigator}
         options={{
           title: "Home",
-          ...(isNative && {
-            tabBarIcon: getIcon("Home"),
-          }),
+          ...(isNative
+            ? {
+                tabBarIcon: getIcon("Home"),
+              }
+            : {
+                tabBarIcon: ({ color, size }) => (
+                  <Home size={size} color={color} />
+                ),
+              }),
         }}
       />
       <Tab.Screen
@@ -283,9 +296,15 @@ function TabNavigator() {
         component={LaunchGoLive}
         options={{
           title: "Go Live",
-          ...(isNative && {
-            tabBarIcon: getIcon("GoLive"),
-          }),
+          ...(isNative
+            ? {
+                tabBarIcon: getIcon("GoLive"),
+              }
+            : {
+                tabBarIcon: ({ color, size }) => (
+                  <Video size={size} color={color} />
+                ),
+              }),
           headerShown: true,
           headerTransparent: true,
         }}
@@ -295,9 +314,15 @@ function TabNavigator() {
         component={SettingsNavigator}
         options={{
           title: "Settings",
-          ...(isNative && {
-            tabBarIcon: getIcon("Settings"),
-          }),
+          ...(isNative
+            ? {
+                tabBarIcon: getIcon("Settings"),
+              }
+            : {
+                tabBarIcon: ({ color, size }) => (
+                  <Cog size={size} color={color} />
+                ),
+              }),
           headerShown: false,
         }}
       />

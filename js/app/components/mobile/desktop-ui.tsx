@@ -173,8 +173,8 @@ export function DesktopUi({
         const activeEl = document.activeElement;
         const isInput =
           activeEl &&
-          (activeEl.tagName === "input" ||
-            activeEl.tagName === "textarea" ||
+          (activeEl.tagName === "INPUT" ||
+            activeEl.tagName === "TEXTAREA" ||
             (activeEl as HTMLElement).isContentEditable);
         if (isInput) return;
         e.preventDefault();

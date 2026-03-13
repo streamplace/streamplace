@@ -62,7 +62,7 @@ func (a *StreamplaceAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Ha
 			answer, err = a.MediaManager.WebRTCPlayback(ctx, user, rendition, &offer)
 		}
 		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "error playing back", err)
+			errors.WriteHTTPInternalServerError(w, fmt.Sprintf("error playing back: %s", err.Error()), err)
 			return
 		}
 		w.WriteHeader(201)
@@ -121,7 +121,7 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 		}
 		answer, err := a.MediaManager.WebRTCIngest(ctx, &offer, mediaSigner, pc, make(chan error, 1))
 		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "error playing back", err)
+			errors.WriteHTTPInternalServerError(w, fmt.Sprintf("error ingesting: %s", err.Error()), err)
 			return
 		}
 		host := r.Host

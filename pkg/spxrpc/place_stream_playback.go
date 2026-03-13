@@ -3,6 +3,7 @@ package spxrpc
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -67,7 +68,7 @@ func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition st
 	}
 	answer, err := s.mm.WebRTCPlayback2(ctx, streamer, rendition, &offer, viewer)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error playing back", err)
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("error playing back: %s", err.Error()), err)
 	}
 	return bytes.NewReader([]byte(answer.SDP)), nil
 }

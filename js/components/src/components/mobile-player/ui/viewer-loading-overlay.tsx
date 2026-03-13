@@ -55,6 +55,7 @@ export function ViewerLoadingOverlay() {
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: "rgba(0,0,0,0.3)",
+          pointerEvents: "none",
         },
         animatedStyle,
       ]}

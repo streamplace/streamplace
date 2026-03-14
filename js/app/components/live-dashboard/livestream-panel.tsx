@@ -20,7 +20,7 @@ import {
 } from "@streamplace/components";
 import { Image } from "expo-image";
 import { ImagePlus, X } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, ScrollView, TouchableOpacity, View } from "react-native";
 import { useUserProfile } from "store/hooks";
 import { useCaptureVideoFrame } from "../../hooks/useCaptureVideoFrame";
@@ -210,6 +210,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const url = useUrl();
   const [endingLivestream, setEndingLivestream] = useState(false);
 
+  const initializedRef = useRef(false);
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<
@@ -232,30 +233,31 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
       return;
     }
 
-    // Prefill title with previous stream's title
-    if (livestream.record.title) {
-      setTitle(livestream.record.title);
-    }
+    if (!initializedRef.current) {
+      initializedRef.current = true;
 
-    // Prefill canonical URL
-    if (
-      livestream.record.canonicalUrl &&
-      livestream.record.canonicalUrl !== defaultCanonicalUrl
-    ) {
-      setCanonicalUrl(livestream.record.canonicalUrl);
-    }
+      if (livestream.record.title) {
+        setTitle(livestream.record.title);
+      }
 
-    // Prefill notification settings
-    if (
-      typeof livestream.record.notificationSettings?.pushNotification ===
-      "boolean"
-    ) {
-      setSendPushNotification(
-        livestream.record.notificationSettings.pushNotification,
-      );
-    }
+      if (
+        livestream.record.canonicalUrl &&
+        livestream.record.canonicalUrl !== defaultCanonicalUrl
+      ) {
+        setCanonicalUrl(livestream.record.canonicalUrl);
+      }
 
-    setCreatePost(typeof livestream.record.post !== "undefined");
+      if (
+        typeof livestream.record.notificationSettings?.pushNotification ===
+        "boolean"
+      ) {
+        setSendPushNotification(
+          livestream.record.notificationSettings.pushNotification,
+        );
+      }
+
+      setCreatePost(typeof livestream.record.post !== "undefined");
+    }
   }, [livestream, defaultCanonicalUrl]);
 
   const handleModeChange = useCallback(

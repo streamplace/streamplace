@@ -148,6 +148,8 @@ type CLI struct {
 	Syndicate                   []string
 	PlayerTelemetry             bool
 	Ingests                     *placestream.IngestGetIngestUrls_Output
+	InternalAPIToken            string
+	EnablePprof                 bool
 }
 
 // ContentFilters represents the content filtering configuration
@@ -826,6 +828,19 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 					return json.Unmarshal([]byte(s), &cli.Ingests)
 				},
 				Sources: urfavecli.EnvVars("SP_INGESTS"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "internal-api-token",
+				Usage:       "Bearer token for authenticating sensitive internal API endpoints. If empty, sensitive endpoints (oauth-sessions, settings, notification-blast) are disabled.",
+				Destination: &cli.InternalAPIToken,
+				Sources:     urfavecli.EnvVars("SP_INTERNAL_API_TOKEN"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "enable-pprof",
+				Usage:       "Enable pprof debug endpoints on the internal API",
+				Value:       false,
+				Destination: &cli.EnablePprof,
+				Sources:     urfavecli.EnvVars("SP_ENABLE_PPROF"),
 			},
 			&urfavecli.BoolFlag{
 				Name:  "external-signing",

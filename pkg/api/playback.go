@@ -49,7 +49,7 @@ func (a *StreamplaceAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Ha
 			errors.WriteHTTPBadRequest(w, "invalid user", err)
 			return
 		}
-		body, err := io.ReadAll(r.Body)
+		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 		if err != nil {
 			errors.WriteHTTPBadRequest(w, "error reading body", err)
 			return
@@ -108,7 +108,7 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 			return
 		}
 
-		body, err := io.ReadAll(r.Body)
+		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 		if err != nil {
 			errors.WriteHTTPBadRequest(w, "error reading body", err)
 			return

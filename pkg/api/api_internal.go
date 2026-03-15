@@ -84,18 +84,20 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	router.POST("/mist-trigger", triggerCollection.Trigger())
 	router.HandlerFunc("GET", "/healthz", a.HandleHealthz(ctx))
 
-	// Add pprof handlers
-	router.HandlerFunc("GET", "/debug/pprof/", pprof.Index)
-	router.HandlerFunc("GET", "/debug/pprof/cmdline", pprof.Cmdline)
-	router.HandlerFunc("GET", "/debug/pprof/profile", pprof.Profile)
-	router.HandlerFunc("GET", "/debug/pprof/symbol", pprof.Symbol)
-	router.HandlerFunc("GET", "/debug/pprof/trace", pprof.Trace)
-	router.Handler("GET", "/debug/pprof/goroutine", pprof.Handler("goroutine"))
-	router.Handler("GET", "/debug/pprof/heap", pprof.Handler("heap"))
-	router.Handler("GET", "/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
-	router.Handler("GET", "/debug/pprof/block", pprof.Handler("block"))
-	router.Handler("GET", "/debug/pprof/allocs", pprof.Handler("allocs"))
-	router.Handler("GET", "/debug/pprof/mutex", pprof.Handler("mutex"))
+	// Add pprof handlers (only when explicitly enabled)
+	if a.CLI.EnablePprof {
+		router.HandlerFunc("GET", "/debug/pprof/", pprof.Index)
+		router.HandlerFunc("GET", "/debug/pprof/cmdline", pprof.Cmdline)
+		router.HandlerFunc("GET", "/debug/pprof/profile", pprof.Profile)
+		router.HandlerFunc("GET", "/debug/pprof/symbol", pprof.Symbol)
+		router.HandlerFunc("GET", "/debug/pprof/trace", pprof.Trace)
+		router.Handler("GET", "/debug/pprof/goroutine", pprof.Handler("goroutine"))
+		router.Handler("GET", "/debug/pprof/heap", pprof.Handler("heap"))
+		router.Handler("GET", "/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+		router.Handler("GET", "/debug/pprof/block", pprof.Handler("block"))
+		router.Handler("GET", "/debug/pprof/allocs", pprof.Handler("allocs"))
+		router.Handler("GET", "/debug/pprof/mutex", pprof.Handler("mutex"))
+	}
 
 	router.POST("/gc", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		runtime.GC()
@@ -204,13 +206,20 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	// self-destruct code, useful for dumping goroutines on windows
-	router.POST("/abort", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		if err := rtpprof.Lookup("goroutine").WriteTo(os.Stderr, 2); err != nil {
-			log.Log(ctx, "error writing rtpprof", "error", err)
-		}
-		log.Log(ctx, "got POST /abort, self-destructing")
-		os.Exit(1)
-	})
+	// Protected: requires SP_INTERNAL_API_TOKEN to be set
+	if a.CLI.InternalAPIToken != "" {
+		router.POST("/abort", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+			if !a.checkInternalToken(r) {
+				errors.WriteHTTPUnauthorized(w, "unauthorized", nil)
+				return
+			}
+			if err := rtpprof.Lookup("goroutine").WriteTo(os.Stderr, 2); err != nil {
+				log.Log(ctx, "error writing rtpprof", "error", err)
+			}
+			log.Log(ctx, "got POST /abort, self-destructing")
+			os.Exit(1)
+		})
+	}
 
 	handleIncomingStream := func(w http.ResponseWriter, httpReq *http.Request, p httprouter.Params) {
 		var r io.Reader = httpReq.Body
@@ -434,6 +443,10 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	router.GET("/oauth-sessions", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		if !a.checkInternalToken(r) {
+			errors.WriteHTTPUnauthorized(w, "unauthorized", nil)
+			return
+		}
 		sessions, err := a.StatefulDB.ListOAuthSessions()
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to get oauth sessions", err)
@@ -450,6 +463,10 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	router.POST("/notification-blast", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		if !a.checkInternalToken(r) {
+			errors.WriteHTTPUnauthorized(w, "unauthorized", nil)
+			return
+		}
 		var payload notificationpkg.NotificationBlast
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			errors.WriteHTTPBadRequest(w, "invalid request body", err)
@@ -477,6 +494,10 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	router.PUT("/settings/:id", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		if !a.checkInternalToken(r) {
+			errors.WriteHTTPUnauthorized(w, "unauthorized", nil)
+			return
+		}
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "PUT")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
@@ -581,4 +602,15 @@ func (a *StreamplaceAPI) keyToUser(ctx context.Context, key string) (string, err
 		return "", fmt.Errorf("got signed data but it wasn't a stream key")
 	}
 	return strings.ToLower(signed.Signer()), nil
+}
+
+// checkInternalToken validates a bearer token on sensitive internal API endpoints.
+// If no token is configured (InternalAPIToken is empty), all requests are allowed
+// for backwards compatibility (the internal API is localhost-only by default).
+func (a *StreamplaceAPI) checkInternalToken(r *http.Request) bool {
+	if a.CLI.InternalAPIToken == "" {
+		return true
+	}
+	auth := r.Header.Get("Authorization")
+	return auth == "Bearer "+a.CLI.InternalAPIToken
 }

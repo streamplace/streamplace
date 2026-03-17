@@ -127,6 +127,31 @@
         }
       }
     },
+    "/xrpc/place.stream.server.deleteStorage": {
+      "post": {
+        "summary": "Delete S3 storage configuration.",
+        "operationId": "place.stream.server.deleteStorage",
+        "tags": ["place.stream.server"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["success"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.server.deleteWebhook": {
       "post": {
         "summary": "Delete an existing webhook.",
@@ -217,6 +242,30 @@
                     }
                   },
                   "required": ["serverTime"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.server.getStorage": {
+      "get": {
+        "summary": "Get S3 storage configuration (with masked secret key).",
+        "operationId": "place.stream.server.getStorage",
+        "tags": ["place.stream.server"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "storage": {
+                      "$ref": "#/components/schemas/place.stream.server.defs_storage"
+                    }
+                  }
                 }
               }
             }
@@ -511,6 +560,81 @@
                   }
                 },
                 "required": ["id"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.server.upsertStorage": {
+      "post": {
+        "summary": "Create or update S3 storage configuration for backups.",
+        "operationId": "place.stream.server.upsertStorage",
+        "tags": ["place.stream.server"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "storage": {
+                      "$ref": "#/components/schemas/place.stream.server.defs_storage"
+                    }
+                  },
+                  "required": ["storage"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "InvalidUrl"
+                        },
+                        {
+                          "const": "ConnectionFailed"
+                        },
+                        {
+                          "const": "MaskedCredentialsModified"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "description": "S3 storage URL in format: s3+https://ACCESS_KEY:SECRET_KEY@endpoint/bucket"
+                  },
+                  "isActive": {
+                    "type": "boolean",
+                    "description": "Whether backup storage is currently active."
+                  }
+                }
               }
             }
           }
@@ -3170,6 +3294,21 @@
           }
         },
         "required": ["id", "url", "events", "active", "createdAt"]
+      },
+      "place.stream.server.defs_storage": {
+        "type": "object",
+        "description": "S3 storage configuration for backups.",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "S3 storage URL with masked secret key in format: s3+https://ACCESS_KEY:***@endpoint/bucket"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether backup storage is currently active."
+          }
+        },
+        "required": ["url", "isActive"]
       },
       "place.stream.multistream.target": {
         "description": "Unknown type"

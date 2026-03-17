@@ -7,6 +7,7 @@ export type SettingsStackParamList = {
   AccountCategory: undefined;
   StreamingCategory: undefined;
   WebhooksSettings: undefined;
+  BackupSettings: undefined;
   PrivacyCategory: undefined;
   DanmuCategory: undefined;
   AdvancedCategory: undefined;

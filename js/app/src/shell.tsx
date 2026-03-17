@@ -20,6 +20,7 @@ import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
 import { AboutCategorySettings } from "components/settings/about-category-settings";
 import { AccountCategorySettings } from "components/settings/account-category-settings";
 import { AdvancedCategorySettings } from "components/settings/advanced-category-settings";
+import { BackupSettings } from "components/settings/backup-settings";
 import { DanmuCategorySettings } from "components/settings/danmu-category-settings";
 import KeyManager from "components/settings/key-manager";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
@@ -180,6 +181,11 @@ function SettingsNavigator() {
         name="WebhooksSettings"
         component={WebhookManager}
         options={{ title: "Webhooks" }}
+      />
+      <SettingsStack.Screen
+        name="BackupSettings"
+        component={BackupSettings}
+        options={{ title: "Backup" }}
       />
       <SettingsStack.Screen
         name="RecommendationsSettings"

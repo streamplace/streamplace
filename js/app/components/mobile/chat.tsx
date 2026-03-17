@@ -17,6 +17,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 
 import { useNavigation, useNavigationState } from "@react-navigation/native";
@@ -117,8 +118,67 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
   );
 }
 
+function FixedChatPanel() {
+  const kb = useKeyboard();
+
+  const animatedSidebarStyle = useAnimatedStyle(() => ({
+    backgroundColor: withTiming(
+      `rgba(0, 0, 0, ${kb.keyboardHeight > 0 ? 0.5 : 0})`,
+    ),
+
+    transform: [
+      {
+        translateY: withSpring(-kb.keyboardHeight, {
+          duration: 25,
+          mass: 10,
+        }),
+      },
+    ],
+  }));
+
+  return (
+    <Animated.View style={[{ height: "100%" }, animatedSidebarStyle]}>
+      <ChatPanel />
+    </Animated.View>
+  );
+}
+
 // MobileChatPanel.tsx
-export function MobileChatPanel({ isPlayerRatioGreater }) {
+export function MobileChatPanel({
+  isPlayerRatioGreater,
+  fixed = false,
+}: {
+  isPlayerRatioGreater: boolean;
+  fixed?: boolean;
+}) {
+  const insets = useSafeAreaInsets();
+
+  if (fixed) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          width: "100%",
+          paddingBottom: insets.bottom,
+          position: "relative",
+        }}
+      >
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            pointerEvents: "none",
+          }}
+        >
+          <StreamNotificationProvider position="bottom" />
+        </View>
+        <FixedChatPanel />
+      </View>
+    );
+  }
+
   return (
     <View
       style={[

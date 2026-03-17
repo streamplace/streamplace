@@ -285,9 +285,10 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
-      {showChat === undefined && !isSelfAndNotLive && playerIsReady && (
-        <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
-      )}
+      {hideMobileChat ||
+        (showChat === undefined && !isSelfAndNotLive && playerIsReady && (
+          <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
+        ))}
     </>
   );
 }

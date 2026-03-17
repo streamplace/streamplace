@@ -511,7 +511,17 @@ export function PlayerInner(
               )
             )}
             <PlayerUI.ViewerLoadingOverlay />
-            {!props.showUnavailable && <OfflineCounter isMobile={true} />}
+            {props.mode !== "vod" && !props.showUnavailable && (
+              <OfflineCounter isMobile={true} />
+            )}
+            {props.mode === "vod" && (
+              <View
+                style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}
+              >
+                <PlayerUI.VodControls />
+                <PlayerUI.SeekBar />
+              </View>
+            )}
             <View
               ref={dropdownPortalRef}
               style={{

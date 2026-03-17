@@ -5,8 +5,10 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [retries, setRetries] = useState(0);
   const playing = usePlayerStore((x) => x.status === PlayerStatus.PLAYING);
+  const mode = usePlayerStore((x) => x.mode);
 
   useEffect(() => {
+    if (mode === "vod") return;
     if (!playing) {
       const jitter = 2000 + Math.random() * 1500;
       retryTimeoutRef.current = setTimeout(() => {
@@ -22,7 +24,7 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
         retryTimeoutRef.current = null;
       }
     };
-  }, [!playing]);
+  }, [!playing, mode]);
 
   return <React.Fragment key={retries}>{props.children}</React.Fragment>;
 }

@@ -8,6 +8,8 @@ export enum PlayerProtocol {
   PROGRESSIVE_WEBM = "progressive-webm",
 }
 
+export type PlayerMode = "live" | "vod";
+
 export enum PlayerStatus {
   START = "start",
   PLAYING = "playing",
@@ -27,8 +29,18 @@ export enum IngestMediaSource {
 
 export interface PlayerState {
   id: string;
+  mode: PlayerMode;
+  setMode: (mode: PlayerMode) => void;
+  duration: number;
+  setDuration: (duration: number) => void;
+  bufferedEnd: number;
+  setBufferedEnd: (bufferedEnd: number) => void;
   selectedRendition: string;
   setSelectedRendition: (rendition: string) => void;
+
+  /** Quality levels parsed from HLS manifest (VOD only) */
+  vodLevels: Array<{ name: string }>;
+  setVodLevels: (levels: Array<{ name: string }>) => void;
   protocol: PlayerProtocol;
   setProtocol: (protocol: PlayerProtocol) => void;
 
@@ -84,7 +96,9 @@ export interface PlayerState {
   /** Function to set the current playback time */
   setPlayTime: (playTime: number) => void;
 
-  /** Flag indicating if player is in offline state */
+  /** Seek the video element to a specific time */
+  seekTo: (time: number) => void;
+
   /** Reference to the video element for direct manipulation (used for PiP) */
   videoRef:
     | React.MutableRefObject<HTMLVideoElement | null>

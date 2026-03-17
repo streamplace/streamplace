@@ -53,6 +53,7 @@ import MobileGoLive from "src/screens/mobile-go-live";
 import MobileStream from "src/screens/mobile-stream";
 import MultiScreen from "src/screens/multi";
 import SupportScreen from "src/screens/support";
+import VideoScreen from "src/screens/video";
 import { useStore } from "store";
 import {
   useHydrated,
@@ -518,6 +519,11 @@ export default function Shell() {
           <RootStack.Screen
             name="DanmuOBS"
             component={DanmuOBSScreen}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="Video"
+            component={VideoScreen}
             options={{ headerShown: false }}
           />
         </RootStack.Navigator>

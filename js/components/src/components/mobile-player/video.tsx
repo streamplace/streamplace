@@ -148,6 +148,9 @@ const VideoElement = forwardRef<
   const setStatus = usePlayerStore((x) => x.setStatus);
   const setUserInteraction = usePlayerStore((x) => x.setUserInteraction);
   const setVideoRef = usePlayerStore((x) => x.setVideoRef);
+  const setPlayTime = usePlayerStore((x) => x.setPlayTime);
+  const setDuration = usePlayerStore((x) => x.setDuration);
+  const setBufferedEnd = usePlayerStore((x) => x.setBufferedEnd);
 
   const event = (evType) => (e) => {
     console.log(evType);
@@ -296,6 +299,19 @@ const VideoElement = forwardRef<
       onSeeking={event("seeking")}
       onStalled={event("stalled")}
       onSuspend={event("suspend")}
+      onTimeUpdate={(e) => {
+        setPlayTime((e.target as HTMLVideoElement).currentTime);
+      }}
+      onDurationChange={(e) => {
+        const d = (e.target as HTMLVideoElement).duration;
+        if (isFinite(d)) setDuration(d);
+      }}
+      onProgress={(e) => {
+        const el = e.target as HTMLVideoElement;
+        if (el.buffered.length > 0) {
+          setBufferedEnd(el.buffered.end(el.buffered.length - 1));
+        }
+      }}
       onVolumeChange={event("volumechange")}
       onWaiting={event("waiting")}
       style={{
@@ -322,6 +338,10 @@ export function ProgressiveWebMPlayer(props: VideoProps) {
 
 export function HLSPlayer(props: VideoProps) {
   const localRef = useRef<HTMLVideoElement | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const setVodLevels = usePlayerStore((x) => x.setVodLevels);
+  const selectedRendition = usePlayerStore((x) => x.selectedRendition);
+  const mode = usePlayerStore((x) => x.mode);
 
   useEffect(() => {
     if (!localRef.current) {
@@ -329,6 +349,7 @@ export function HLSPlayer(props: VideoProps) {
     }
     if (Hls.isSupported()) {
       var hls = new Hls({ maxAudioFramesDrift: 20 });
+      hlsRef.current = hls;
       hls.loadSource(props.url);
       try {
         hls.attachMedia(localRef.current);
@@ -342,9 +363,21 @@ export function HLSPlayer(props: VideoProps) {
           return;
         }
         localRef.current.play();
+        if (mode === "vod" && hls.levels.length > 1) {
+          setVodLevels(
+            hls.levels.map((l) => ({
+              name:
+                l.height > 0
+                  ? `${l.height}p`
+                  : `${Math.round(l.bitrate / 1000)}k`,
+            })),
+          );
+        }
       });
       return () => {
         hls.stopLoad();
+        hlsRef.current = null;
+        setVodLevels([]);
       };
     } else if (localRef.current.canPlayType("application/vnd.apple.mpegurl")) {
       localRef.current.src = props.url;
@@ -356,6 +389,21 @@ export function HLSPlayer(props: VideoProps) {
       });
     }
   }, [props.url]);
+
+  useEffect(() => {
+    const hls = hlsRef.current;
+    if (!hls || mode !== "vod") return;
+    if (selectedRendition === "source" || selectedRendition === "auto") {
+      hls.currentLevel = -1;
+      return;
+    }
+    const idx = hls.levels.findIndex((l) => {
+      const name =
+        l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`;
+      return name === selectedRendition;
+    });
+    if (idx !== -1) hls.currentLevel = idx;
+  }, [selectedRendition, mode]);
 
   return <VideoElement {...props} ref={localRef} />;
 }

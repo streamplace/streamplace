@@ -46,6 +46,7 @@ export type RootStackParamList = {
   DanmuOBS: { user: string };
   AVSync: undefined;
   LegacyStream: { user: string };
+  Video: { src?: string } | undefined;
 };
 
 // Helper type for screen props

@@ -302,7 +302,7 @@ export function Chat({
   return (
     <View
       style={[
-        flex.shrink[1],
+        flex.values[1],
         {
           minWidth: 0,
           maxWidth: "100%",

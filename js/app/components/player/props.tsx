@@ -1,7 +1,10 @@
+import { PlayerMode } from "@streamplace/components";
+
 export type PlayerProps = {
   name: string;
   playerId?: string;
   src: string;
+  mode?: PlayerMode;
   muted: boolean;
   telemetry: boolean;
   fullscreen: boolean;

@@ -42,6 +42,7 @@ export const SCREEN_PATHS = {
   InfoWidgetEmbed: "info-widget",
   LegacyStream: "legacy/:user",
   DanmuOBS: "widgets/:user/danmu",
+  Video: "video",
 } as const;
 
 /**
@@ -133,6 +134,7 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
         InfoWidgetEmbed: SCREEN_PATHS.InfoWidgetEmbed,
         LegacyStream: SCREEN_PATHS.LegacyStream,
         DanmuOBS: SCREEN_PATHS.DanmuOBS,
+        Video: SCREEN_PATHS.Video,
       },
     },
   };

@@ -11,13 +11,12 @@ import {
   zero,
 } from "@streamplace/components";
 import { useKeyboard } from "hooks/useKeyboard";
-import { useEffect } from "react";
-import { Pressable } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, useWindowDimensions } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
 
 import { useNavigation, useNavigationState } from "@react-navigation/native";
@@ -120,26 +119,55 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
 
 function FixedChatPanel() {
   const kb = useKeyboard();
+  const [containerHeight, setContainerHeight] = useState(0);
+  const sa = useSafeAreaInsets();
+  const dims = useWindowDimensions();
+
+  console.log("container height", containerHeight);
+
+  const SpringSettings = {
+    duration: 25,
+    mass: 10,
+  };
+
+  // calculate top bar + safe area height
+  const videoHeight = dims.height - sa.top - 88 - containerHeight;
+  const calculatedHeight =
+    containerHeight + (kb.keyboardHeight > 0 ? videoHeight : 0);
 
   const animatedSidebarStyle = useAnimatedStyle(() => ({
-    backgroundColor: withTiming(
-      `rgba(0, 0, 0, ${kb.keyboardHeight > 0 ? 0.5 : 0})`,
+    height: withSpring(
+      containerHeight > 0
+        ? Math.max(0, calculatedHeight - kb.keyboardHeight)
+        : containerHeight,
+      SpringSettings,
     ),
-
+    backgroundColor: withSpring(
+      `rgba(0, 0, 0, ${kb.keyboardHeight > 0 ? 0.5 : 0})`,
+      SpringSettings,
+    ),
+    borderRadius: withSpring(containerHeight > 0 ? 18 : 0, SpringSettings),
     transform: [
       {
-        translateY: withSpring(-kb.keyboardHeight, {
-          duration: 25,
-          mass: 10,
-        }),
+        translateY: withSpring(-kb.keyboardHeight, SpringSettings),
       },
     ],
   }));
 
   return (
-    <Animated.View style={[{ height: "100%" }, animatedSidebarStyle]}>
-      <ChatPanel />
-    </Animated.View>
+    <View
+      style={{ position: "relative", flex: 1 }}
+      onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+    >
+      <Animated.View
+        style={[
+          { position: "absolute", bottom: 0, left: 0, right: 0 },
+          animatedSidebarStyle,
+        ]}
+      >
+        <ChatPanel />
+      </Animated.View>
+    </View>
   );
 }
 

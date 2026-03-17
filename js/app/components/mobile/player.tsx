@@ -30,6 +30,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import Reanimated, {
+  useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
@@ -286,53 +287,6 @@ function PlayerWithProvider(
   );
 }
 
-function MobileUiOverlay({
-  showChat,
-  setShowChat,
-  isPortraitLandscapeCase,
-  mode,
-}: {
-  showChat: boolean;
-  setShowChat: (show: boolean) => void;
-  isPortraitLandscapeCase: boolean;
-  mode?: string;
-}) {
-  const { width, height } = usePlayerDimensions();
-  const aspectRatio = width > 0 && height > 0 ? width / height : 16 / 9;
-  const isLandscape = aspectRatio > 1;
-  const showFullDesktopMode = aspectRatio > 1 && width > 1200;
-  const fullscreen = usePlayerStore((x) => x.fullscreen);
-  const { isPlayerRatioGreater: segIsLandscape } = useSegmentDimensions();
-
-  if (
-    isPortraitLandscapeCase ||
-    mode === "vod" ||
-    showFullDesktopMode ||
-    fullscreen ||
-    (!isLandscape && !segIsLandscape)
-  ) {
-    return null;
-  }
-
-  return (
-    <View
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-      }}
-    >
-      <MobileUi
-        showChat={showChat}
-        setShowChat={setShowChat}
-        hideMobileChat={!isLandscape && segIsLandscape}
-      />
-    </View>
-  );
-}
-
 export function PlayerInner(
   props: Partial<PlayerProps> & {
     showChat: boolean;
@@ -424,6 +378,15 @@ export function PlayerInner(
 
   const isPlayerRatioGreater = aspectRatio >= 16 / 9;
 
+  // animated style for offline height transition
+  const animatedHeightStyle = useAnimatedStyle(() => {
+    return {
+      height: showFullDesktopMode
+        ? calculatedHeight * heightMultiplier.value
+        : undefined,
+    };
+  });
+
   return (
     <ScrollView
       style={{
@@ -461,6 +424,7 @@ export function PlayerInner(
                 ? safeAreaInsets.top
                 : 0,
           },
+          animatedHeightStyle,
         ]}
       >
         {props.showUnavailable ? (
@@ -470,7 +434,7 @@ export function PlayerInner(
             {showFullDesktopMode || fullscreen ? (
               <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
             ) : (
-              isLandscape && (
+              (isLandscape || props.mode === "vod") && (
                 <MobileUi
                   setShowChat={props.setShowChat}
                   showChat={props.showChat}
@@ -480,14 +444,6 @@ export function PlayerInner(
             <PlayerUI.ViewerLoadingOverlay />
             {props.mode !== "vod" && !props.showUnavailable && (
               <OfflineCounter isMobile={true} />
-            )}
-            {props.mode === "vod" && (
-              <View
-                style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}
-              >
-                <PlayerUI.VodControls />
-                <PlayerUI.SeekBar />
-              </View>
             )}
             <View
               ref={dropdownPortalRef}

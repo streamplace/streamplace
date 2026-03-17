@@ -340,6 +340,9 @@ export function HLSPlayer(props: VideoProps) {
   const localRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const setVodLevels = usePlayerStore((x) => x.setVodLevels);
+  const setPlayingVODRendition = usePlayerStore(
+    (x) => x.setPlayingVODRendition,
+  );
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const mode = usePlayerStore((x) => x.mode);
 
@@ -374,10 +377,18 @@ export function HLSPlayer(props: VideoProps) {
           );
         }
       });
+      hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+        const l = hls.levels[data.level];
+        if (!l) return;
+        const name =
+          l.height > 0 ? `${l.height}p` : `${Math.round(l.bitrate / 1000)}k`;
+        setPlayingVODRendition(name);
+      });
       return () => {
         hls.stopLoad();
         hlsRef.current = null;
         setVodLevels([]);
+        setPlayingVODRendition(null);
       };
     } else if (localRef.current.canPlayType("application/vnd.apple.mpegurl")) {
       localRef.current.src = props.url;

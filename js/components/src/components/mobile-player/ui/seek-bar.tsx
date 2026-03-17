@@ -6,17 +6,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { usePlayerStore } from "../../../player-store";
 import { Slider } from "../../ui";
-import { Text, View } from "../../ui/index";
-
-function formatTime(seconds: number): string {
-  const s = Math.floor(seconds);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  if (h > 0) return `${h}:${pad(m)}:${pad(sec)}`;
-  return `${m}:${pad(sec)}`;
-}
+import { View } from "../../ui/index";
 
 export function SeekBar() {
   const mode = usePlayerStore((x) => x.mode);
@@ -30,11 +20,9 @@ export function SeekBar() {
 
   const thumbHovered = useSharedValue(0);
   const thumbAnimStyle = useAnimatedStyle(() => ({
-    boxShadow: `0 2px 10px rgba(0, 0, 0, ${withSpring(thumbHovered.value === 1 ? 1 : 0.18)})`,
     transform: [
-      { scaleY: withSpring(thumbHovered.value === 1 ? 1 : 0.18) },
       {
-        scaleX: withSpring(thumbHovered.value === 1 ? 1 : 0.35),
+        scale: withSpring(thumbHovered.value === 1 ? 1 : 0.18),
       },
     ],
   }));
@@ -69,7 +57,7 @@ export function SeekBar() {
         style={{
           flex: 1,
           height: 90,
-          paddingBottom: 24,
+          paddingBottom: 10,
         }}
       >
         <Slider.Root
@@ -173,19 +161,6 @@ export function SeekBar() {
             </Slider.Thumb>
           </Slider.Track>
         </Slider.Root>
-      </View>
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-        }}
-      >
-        <Text size="xs" style={{ color: "#ccc" }}>
-          {formatTime(displayTime)}
-        </Text>
-        <Text size="xs" style={{ color: "#ccc" }}>
-          {formatTime(duration)}
-        </Text>
       </View>
     </View>
   );

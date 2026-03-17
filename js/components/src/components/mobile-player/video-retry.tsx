@@ -13,7 +13,10 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
     setLastChange(Date.now());
   }, [status]);
 
+  const mode = usePlayerStore((x) => x.mode);
+
   useEffect(() => {
+    if (mode === "vod") return;
     if (!playing) {
       const handle = setInterval(() => {
         setTick(Date.now());
@@ -41,7 +44,7 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
         retryTimeoutRef.current = null;
       }
     };
-  }, [!playing]);
+  }, [!playing, mode]);
 
   useEffect(() => {
     if (stalledFor5sec) {

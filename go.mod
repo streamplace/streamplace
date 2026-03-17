@@ -65,6 +65,7 @@ require (
 	github.com/streamplace/oatproxy v0.0.0-20260318210219-4567e0e7926a
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
+	github.com/tetratelabs/wazero v1.11.0
 	github.com/urfave/cli/v3 v3.6.2
 	github.com/whyrusleeping/cbor-gen v0.3.1
 	github.com/whyrusleeping/go-did v0.0.0-20230824162731-404d1707d5d6

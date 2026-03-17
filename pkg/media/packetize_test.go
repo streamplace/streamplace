@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/test/remote"
 )
 
 func TestPacketize(t *testing.T) {
@@ -18,7 +19,7 @@ func TestPacketize(t *testing.T) {
 		g, _ := errgroup.WithContext(context.Background())
 		for range streamplaceTestCount {
 			g.Go(func() error {
-				innerTestPacketize(t)
+				innerTestPacketize(t, getFixture("sample-segment.mp4"))
 				return nil
 			})
 		}
@@ -27,8 +28,14 @@ func TestPacketize(t *testing.T) {
 	})
 }
 
-func innerTestPacketize(t *testing.T) {
-	filename := getFixture("sample-segment.mp4")
+func TestPacketizeMuxl(t *testing.T) {
+	withNoGSTLeaks(t, func() {
+		filename := remote.RemoteFixture("c6b57a53fc5a2234dbdd388922f0e293d8063d2b30620321e974b7c85640f228/2026-03-17T19-02-08-607Z-muxl_segment_input.fmp4")
+		innerTestPacketize(t, filename)
+	})
+}
+
+func innerTestPacketize(t *testing.T, filename string) {
 	inputFile, err := os.Open(filename)
 	require.NoError(t, err)
 	defer inputFile.Close()

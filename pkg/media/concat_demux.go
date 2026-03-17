@@ -173,7 +173,6 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 	var padAdded func(self *gst.Element, pad *gst.Pad)
 	// the defer funcs are needed to avoid leaking pads for some reason
 	padAdded = func(self *gst.Element, pad *gst.Pad) {
-		log.Debug(ctx, "demux pad-added", "name", pad.GetName(), "direction", pad.GetDirection())
 		var downstreamPad *gst.Pad
 		if strings.HasPrefix(pad.GetName(), "video_") {
 			downstreamPad = mqVideoSink
@@ -224,7 +223,7 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 
 	src := app.SrcFromElement(appSrc)
 	src.SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedData(ctx, bytes.NewReader(seg.Data)),
+		NeedDataFunc: ReaderNeedDataIncremental(ctx, bytes.NewReader(seg.Data)),
 	})
 
 	return bin, nil

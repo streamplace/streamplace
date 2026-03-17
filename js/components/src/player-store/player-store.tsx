@@ -29,6 +29,9 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     setBufferedEnd: (bufferedEnd) => set(() => ({ bufferedEnd })),
     vodLevels: [],
     setVodLevels: (vodLevels) => set(() => ({ vodLevels })),
+    playingVODRendition: null,
+    setPlayingVODRendition: (playingVODRendition) =>
+      set(() => ({ playingVODRendition })),
 
     selectedRendition: "source",
     setSelectedRendition: (rendition: string) =>
@@ -125,6 +128,20 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     pipAction: undefined,
     setPipAction: (action: (() => void) | undefined) =>
       set(() => ({ pipAction: action })),
+
+    togglePlayPause: () =>
+      set((state) => {
+        const ref = state.videoRef;
+        if (ref && typeof ref === "object" && "current" in ref && ref.current) {
+          if (ref.current.paused) {
+            ref.current.play();
+          } else {
+            ref.current.pause();
+          }
+        }
+        return {};
+      }),
+    setTogglePlayPause: (fn) => set(() => ({ togglePlayPause: fn })),
 
     // Player element width/height setters for global sync
     playerWidth: undefined,

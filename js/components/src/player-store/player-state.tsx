@@ -41,6 +41,10 @@ export interface PlayerState {
   /** Quality levels parsed from HLS manifest (VOD only) */
   vodLevels: Array<{ name: string }>;
   setVodLevels: (levels: Array<{ name: string }>) => void;
+
+  /** Actual rendition name currently playing when in auto/source mode (web HLS only) */
+  playingVODRendition: string | null;
+  setPlayingVODRendition: (name: string | null) => void;
   protocol: PlayerProtocol;
   setProtocol: (protocol: PlayerProtocol) => void;
 
@@ -118,6 +122,9 @@ export interface PlayerState {
   pipAction: (() => void) | undefined;
   /** Function to set the Picture-in-Picture action */
   setPipAction: (action: (() => void) | undefined) => void;
+
+  togglePlayPause: () => void;
+  setTogglePlayPause: (fn: () => void) => void;
 
   /** Player element width (CSS value or number) */
   playerWidth?: string | number;

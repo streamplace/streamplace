@@ -18,7 +18,7 @@ import {
 export function VodControls() {
   const mode = usePlayerStore((x) => x.mode);
   const status = usePlayerStore((x) => x.status);
-  const videoRef = usePlayerStore((x) => x.videoRef);
+  const togglePlayPause = usePlayerStore((x) => x.togglePlayPause);
   const quality = usePlayerStore((x) => x.selectedRendition);
   const setQuality = usePlayerStore((x) => x.setSelectedRendition);
   const liveRenditions = useLivestreamStore((x) => x.renditions);
@@ -29,21 +29,6 @@ export function VodControls() {
   if (mode !== "vod") return null;
 
   const isPlaying = status === PlayerStatus.PLAYING;
-
-  const togglePlayPause = () => {
-    if (
-      videoRef &&
-      typeof videoRef === "object" &&
-      "current" in videoRef &&
-      videoRef.current
-    ) {
-      if (videoRef.current.paused) {
-        videoRef.current.play();
-      } else {
-        videoRef.current.pause();
-      }
-    }
-  };
 
   return (
     <View

@@ -40,8 +40,11 @@ export default function VideoNative(props?: {
   objectFit?: "contain" | "cover";
   pictureInPictureEnabled?: boolean;
 }) {
-  const protocol = usePlayerStore((x) => x.protocol);
+  const inProto = usePlayerStore((x) => x.protocol);
+  const selectedRendition = usePlayerStore((x) => x.selectedRendition);
+  const src = usePlayerStore((x) => x.src);
   const ingest = usePlayerStore((x) => x.ingestConnectionState) != null;
+  const { protocol } = srcToUrl({ src, selectedRendition }, inProto);
 
   return (
     <View>
@@ -68,6 +71,7 @@ export function NativeVideo(props?: {
 }) {
   const videoRef = useRef<VideoView | null>(null);
   const protocol = usePlayerStore((x) => x.protocol);
+  const mode = usePlayerStore((x) => x.mode);
 
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const src = usePlayerStore((x) => x.src);
@@ -82,6 +86,14 @@ export function NativeVideo(props?: {
 
   const setPlayerWidth = usePlayerStore((x) => x.setPlayerWidth);
   const setPlayerHeight = usePlayerStore((x) => x.setPlayerHeight);
+  const setPlayTime = usePlayerStore((x) => x.setPlayTime);
+  const setDuration = usePlayerStore((x) => x.setDuration);
+  const setBufferedEnd = usePlayerStore((x) => x.setBufferedEnd);
+  const playTime = usePlayerStore((x) => x.playTime);
+  const setTogglePlayPause = usePlayerStore((x) => x.setTogglePlayPause);
+  const status = usePlayerStore((x) => x.status);
+  const statusRef = useRef(status);
+  const lastReportedTimeRef = useRef(0);
 
   // State for live dimensions
   const [dimensions, setDimensions] = useState<{
@@ -106,15 +118,14 @@ export function NativeVideo(props?: {
   }, [setStatus]);
 
   const player = useVideoPlayer(url, (player) => {
-    player.addListener("playingChange", (newIsPlaying) => {
-      console.log("playingChange", newIsPlaying);
-      if (newIsPlaying) {
+    player.addListener("playingChange", ({ isPlaying }) => {
+      if (isPlaying) {
         setStatus(PlayerStatus.PLAYING);
       } else {
         setStatus(PlayerStatus.WAITING);
       }
     });
-    player.loop = true;
+    player.loop = mode !== "vod";
     player.muted = muted;
     player.play();
   });
@@ -126,6 +137,51 @@ export function NativeVideo(props?: {
   useEffect(() => {
     player.volume = volume;
   }, [volume, player]);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  useEffect(() => {
+    player.loop = mode !== "vod";
+  }, [player, mode]);
+
+  useEffect(() => {
+    setTogglePlayPause(() => {
+      if (statusRef.current === PlayerStatus.PLAYING) {
+        player.pause();
+      } else {
+        player.play();
+      }
+    });
+    return () => setTogglePlayPause(() => {});
+  }, [player, setTogglePlayPause]);
+
+  useEffect(() => {
+    if (mode !== "vod") return;
+    const interval = setInterval(() => {
+      const currentTime = player.currentTime;
+      const duration = player.duration;
+      lastReportedTimeRef.current = currentTime;
+      setPlayTime(currentTime);
+      if (isFinite(duration) && duration > 0) {
+        setDuration(duration);
+      }
+      const buffered = (player as any).bufferedPosition;
+      if (typeof buffered === "number" && buffered > 0) {
+        setBufferedEnd(buffered);
+      }
+    }, 250);
+    return () => clearInterval(interval);
+  }, [mode, player, setPlayTime, setDuration, setBufferedEnd]);
+
+  useEffect(() => {
+    if (mode !== "vod") return;
+    const diff = Math.abs(playTime - lastReportedTimeRef.current);
+    if (diff > 1.0) {
+      player.seekBy(playTime - player.currentTime);
+    }
+  }, [playTime, mode, player]);
 
   useEffect(() => {
     const subs = (
@@ -146,9 +202,8 @@ export function NativeVideo(props?: {
     });
 
     subs.push(
-      player.addListener("playingChange", (newIsPlaying) => {
-        console.log("playingChange", newIsPlaying);
-        if (newIsPlaying) {
+      player.addListener("playingChange", ({ isPlaying }) => {
+        if (isPlaying) {
           setStatus(PlayerStatus.PLAYING);
         } else {
           setStatus(PlayerStatus.WAITING);

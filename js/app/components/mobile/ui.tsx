@@ -83,6 +83,7 @@ export function MobileUi({
   const { doSetIngestCamera } = useCameraToggle();
   const avatars = useAvatars(profile?.did ? [profile?.did] : []);
 
+  const mode = usePlayerStore((state) => state.mode);
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
   const [playerIsReady, setPlayerIsReady] = useState(false);
@@ -257,6 +258,20 @@ export function MobileUi({
                 toggleGoLive={toggleGoLive}
                 isLive={isSelfAndLive}
               />
+            )}
+
+            {mode === "vod" && (
+              <View
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                }}
+              >
+                <PlayerUI.VodControls />
+                <PlayerUI.SeekBar />
+              </View>
             )}
 
             <PlayerUI.CountdownOverlay

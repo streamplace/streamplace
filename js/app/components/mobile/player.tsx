@@ -31,7 +31,6 @@ import {
 } from "react-native";
 import Reanimated, {
   useAnimatedStyle,
-  useDerivedValue,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
@@ -81,14 +80,8 @@ function PlayerWithProvider(
   const { top: safeTop } = useSafeAreaInsets();
   const segDims = useSegmentDimensions();
   const isPortrait = screenHeight > screenWidth;
-  const portraitFadeOpacity = useSharedValue(1);
-  const portraitVideoTranslateY = useDerivedValue(
-    () => (portraitFadeOpacity.value - 1) * 20,
-  );
-  const portraitVideoStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: (portraitFadeOpacity.value - 1) * 20 }],
-  }));
   const isPortraitLandscapeCase =
+    Platform.OS !== "web" &&
     isPortrait &&
     segDims.width > segDims.height &&
     !shouldShowChatSidePanel &&
@@ -251,25 +244,19 @@ function PlayerWithProvider(
                 flex: 1,
                 width: "100%",
                 height: "100%",
-                paddingTop:
-                  isPortraitLandscapeCase && Platform.OS !== "web"
-                    ? 54
-                    : undefined,
+                paddingTop: isPortraitLandscapeCase ? 54 : undefined,
               },
             ]}
           >
-            <Reanimated.View
-              style={[
+            <View
+              style={
                 isPortraitLandscapeCase
                   ? {
                       height: (videoBoxHeight ?? 0) + safeTop,
                       paddingTop: safeTop,
                     }
-                  : { flex: 1 },
-                isPortrait && Platform.OS !== "web"
-                  ? portraitVideoStyle
-                  : undefined,
-              ]}
+                  : { flex: 1 }
+              }
             >
               <PlayerInner
                 {...props}
@@ -277,27 +264,18 @@ function PlayerWithProvider(
                 setShowChat={setShowChat}
                 showUnavailable={showUnavailable}
               />
-            </Reanimated.View>
+            </View>
             {isPortraitLandscapeCase ? (
               <>
-                <MobileUi
-                  hideMobileChat={true}
-                  showChat
-                  sharedFadeOpacity={portraitFadeOpacity}
-                />
+                <MobileUi hideMobileChat={true} showChat />
                 {!showUnavailable && (
-                  <MobileChatPanel
-                    isPlayerRatioGreater={true}
-                    fixed={true}
-                    portraitVideoTranslateY={portraitVideoTranslateY}
-                  />
+                  <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
                 )}
               </>
             ) : shouldShowChatSidePanel ? (
               <DesktopChatPanel
                 chatVisible={chatVisible}
                 chatPanelWidth={chatPanelWidth}
-                setShowChat={setShowChat}
               />
             ) : (
               !showUnavailable && <View />
@@ -306,53 +284,6 @@ function PlayerWithProvider(
         </PlayerProvider>
       </LivestreamProvider>
     </RotationProvider>
-  );
-}
-
-function MobileUiOverlay({
-  showChat,
-  setShowChat,
-  isPortraitLandscapeCase,
-  mode,
-}: {
-  showChat: boolean;
-  setShowChat: (show: boolean) => void;
-  isPortraitLandscapeCase: boolean;
-  mode?: string;
-}) {
-  const { width, height } = usePlayerDimensions();
-  const aspectRatio = width > 0 && height > 0 ? width / height : 16 / 9;
-  const isLandscape = aspectRatio > 1;
-  const showFullDesktopMode = aspectRatio > 1 && width > 1200;
-  const fullscreen = usePlayerStore((x) => x.fullscreen);
-  const { isPlayerRatioGreater: segIsLandscape } = useSegmentDimensions();
-
-  if (
-    isPortraitLandscapeCase ||
-    mode === "vod" ||
-    showFullDesktopMode ||
-    fullscreen ||
-    (!isLandscape && !segIsLandscape)
-  ) {
-    return null;
-  }
-
-  return (
-    <View
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-      }}
-    >
-      <MobileUi
-        showChat={showChat}
-        setShowChat={setShowChat}
-        hideMobileChat={!isLandscape && segIsLandscape}
-      />
-    </View>
   );
 }
 
@@ -503,7 +434,7 @@ export function PlayerInner(
             {showFullDesktopMode || fullscreen ? (
               <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
             ) : (
-              (isLandscape || !!props.ingest) && (
+              (isLandscape || props.mode === "vod") && (
                 <MobileUi
                   setShowChat={props.setShowChat}
                   showChat={props.showChat}
@@ -513,14 +444,6 @@ export function PlayerInner(
             <PlayerUI.ViewerLoadingOverlay />
             {props.mode !== "vod" && !props.showUnavailable && (
               <OfflineCounter isMobile={true} />
-            )}
-            {props.mode === "vod" && (
-              <View
-                style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}
-              >
-                <PlayerUI.VodControls />
-                <PlayerUI.SeekBar />
-              </View>
             )}
             <View
               ref={dropdownPortalRef}

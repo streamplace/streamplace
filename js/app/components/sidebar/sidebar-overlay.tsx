@@ -147,6 +147,8 @@ export function SidebarOverlay() {
           bottom: 0,
           zIndex: 128000,
           backgroundColor: theme.colors.background,
+          borderRightColor: theme.colors.border,
+          borderRightWidth: 1,
         },
       ]}
     >

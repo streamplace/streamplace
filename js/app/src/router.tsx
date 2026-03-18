@@ -126,6 +126,9 @@ export const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
 
 export const LGAvatarButton = () => {
   const userProfile = useUserProfile();
+
+  if (Platform.OS !== "ios") return <AvatarButton />;
+
   let source: ImageSourcePropType | undefined = undefined;
   let opacity = 1;
   const targetScreen: any = userProfile

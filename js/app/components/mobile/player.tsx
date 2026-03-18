@@ -30,6 +30,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import Reanimated, {
+  useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
@@ -424,6 +425,15 @@ export function PlayerInner(
 
   const isPlayerRatioGreater = aspectRatio >= 16 / 9;
 
+  // animated style for offline height transition
+  const animatedHeightStyle = useAnimatedStyle(() => {
+    return {
+      height: showFullDesktopMode
+        ? calculatedHeight * heightMultiplier.value
+        : undefined,
+    };
+  });
+
   return (
     <ScrollView
       style={{
@@ -461,6 +471,7 @@ export function PlayerInner(
                 ? safeAreaInsets.top
                 : 0,
           },
+          animatedHeightStyle,
         ]}
       >
         {props.showUnavailable ? (

@@ -181,7 +181,7 @@ export const RenderChatMessage = memo(
                     alignItems: "center",
                     justifyContent: "flex-end",
                     flexDirection: "row",
-                    marginBottom: -6.25,
+                    marginBottom: -4,
                   } as any
                 }
               >

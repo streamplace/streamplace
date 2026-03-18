@@ -23,7 +23,8 @@ export const Badge = ({
       style={{
         height: size,
         width: size,
-        marginBottom: Platform.OS === "web" ? -size / 4 : 0,
+        marginBottom: Platform.OS === "web" ? -size : 0,
+        transform: Platform.OS === "web" ? [{ translateY: -size / 1.3 }] : [],
         marginRight: 2,
       }}
     />

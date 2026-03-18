@@ -243,7 +243,10 @@ function PlayerWithProvider(
                 flex: 1,
                 width: "100%",
                 height: "100%",
-                paddingTop: isPortraitLandscapeCase ? 54 : undefined,
+                paddingTop:
+                  isPortraitLandscapeCase && Platform.OS !== "web"
+                    ? 54
+                    : undefined,
               },
             ]}
           >

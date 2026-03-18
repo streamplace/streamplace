@@ -4,6 +4,7 @@ const SETTINGS_SCREENS = [
   "MainSettings",
   "AboutCategory",
   "AccountCategory",
+  "BackupSettings",
   "StreamingCategory",
   "WebhooksSettings",
   "PrivacyCategory",

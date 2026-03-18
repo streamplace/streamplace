@@ -81,7 +81,6 @@ function PlayerWithProvider(
   const segDims = useSegmentDimensions();
   const isPortrait = screenHeight > screenWidth;
   const isPortraitLandscapeCase =
-    Platform.OS !== "web" &&
     isPortrait &&
     segDims.width > segDims.height &&
     !shouldShowChatSidePanel &&

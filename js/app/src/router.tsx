@@ -175,8 +175,6 @@ export const AvatarButton = () => {
   const userProfile = useUserProfile();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const openPDSModal = useStore((state) => state.openPdsModal);
-  const loginAction = useStore((state) => state.login);
-  const openLoginLink = useStore((state) => state.openLoginLink);
   const { theme } = useTheme();
   let source: ImageSourcePropType | undefined = undefined;
 

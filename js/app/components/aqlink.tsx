@@ -1,8 +1,4 @@
-import {
-  useNavigation,
-  useNavigationState,
-  useRoute,
-} from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
 import { Pressable, StyleProp, ViewStyle } from "react-native";
@@ -45,18 +41,18 @@ export default function AQLink({
 }) {
   const { isWeb } = usePlatform();
   const navigation = useNavigation();
-  const route = useRoute();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const { href } = useAQLinkHref(to);
 
-  // get the deepest active route for nested navigators
-  const currentRoute = useNavigationState((state) => {
+  const getCurrentRoute = () => {
+    const state = navigation.getState();
+    if (!state) return { name: undefined, params: undefined };
     let route: any = state.routes[state.index];
     while (route.state?.index !== undefined) {
       route = route.state.routes[route.state.index];
     }
     return { name: route.name, params: route.params };
-  });
+  };
 
   const baseStyle: StyleProp<ViewStyle> = {
     display: "flex",
@@ -71,12 +67,12 @@ export default function AQLink({
     if (to.screen === "Login") {
       console.log(
         "AQLink intercepting login navigation, current route:",
-        currentRoute,
+        getCurrentRoute(),
       );
-      openLoginModal(currentRoute as any);
+      openLoginModal(getCurrentRoute() as any);
       console.log(
         "AQLink login navigation intercepted, current route:",
-        currentRoute,
+        getCurrentRoute(),
       );
       return;
     }
@@ -87,7 +83,7 @@ export default function AQLink({
       rootNav.navigate(to.screen, to.params);
       console.log(
         "AQLink root navigation intercepted, current route:",
-        currentRoute,
+        getCurrentRoute(),
       );
       return;
     }
@@ -95,7 +91,10 @@ export default function AQLink({
     const converted = convertNavigationParams(to);
     // @ts-expect-error - dynamic navigation with LinkParams
     navigation.navigate(converted.screen, converted.params);
-    console.log("AQLink navigation intercepted, current route:", currentRoute);
+    console.log(
+      "AQLink navigation intercepted, current route:",
+      getCurrentRoute(),
+    );
   };
 
   // use Pressable with href on web to render as <a> tag for copy/paste support

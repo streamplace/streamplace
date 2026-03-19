@@ -5,8 +5,6 @@ import {
   Resizable,
   StreamNotificationProvider,
   Text,
-  useHandle,
-  useLivestreamInfo,
   View,
   zero,
 } from "@streamplace/components";
@@ -143,9 +141,6 @@ export function MobileChatPanel({ isPlayerRatioGreater }) {
 }
 
 function ChatPanel() {
-  const { profile } = useLivestreamInfo();
-  const handle = useHandle();
-
   let agent = usePDSAgent();
 
   const navigation = useNavigation();

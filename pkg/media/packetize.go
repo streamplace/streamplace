@@ -103,7 +103,6 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 
 			samples := buffer.Bytes()
 
-
 			videoOutput = append(videoOutput, samples)
 
 			// clockTime := buffer.Duration()

@@ -3,6 +3,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -85,8 +86,13 @@ export function ProfileCacheProvider({
     [flush],
   );
 
+  const value = useMemo(
+    () => ({ profiles, requestProfiles }),
+    [profiles, requestProfiles],
+  );
+
   return (
-    <ProfileCacheContext.Provider value={{ profiles, requestProfiles }}>
+    <ProfileCacheContext.Provider value={value}>
       {children}
     </ProfileCacheContext.Provider>
   );

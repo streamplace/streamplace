@@ -4,7 +4,7 @@ import {
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { memo, useCallback } from "react";
-import { Linking, View } from "react-native";
+import { Linking, Platform, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { RichtextSegment, segmentize } from "../../lib/facet";
 import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
@@ -85,9 +85,8 @@ export const RichTextMessage = ({
   text: string;
   facets: ChatMessageViewHydrated["record"]["facets"];
 }) => {
-  if (!facets?.length) return <Text>{text}</Text>;
-
   const userCache = useLivestreamStore((state) => state.authors);
+  if (!facets?.length) return <Text>{text}</Text>;
 
   let segs = segmentize(text, facets as Facet[]);
 
@@ -177,7 +176,7 @@ export const RenderChatMessage = memo(
                 style={
                   {
                     // display: inline is a no-op on mobile
-                    display: "inline",
+                    display: Platform.OS === "web" ? "inline" : undefined,
                     alignItems: "center",
                     justifyContent: "flex-end",
                     flexDirection: "row",

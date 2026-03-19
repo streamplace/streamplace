@@ -63,8 +63,9 @@ export const ProfileCardProvider = ({
   children: React.ReactNode;
 }) => {
   const [openUri, setOpenUri] = useState<string | null>(null);
+  const value = useMemo(() => ({ openUri, setOpenUri }), [openUri]);
   return (
-    <OpenCardContext.Provider value={{ openUri, setOpenUri }}>
+    <OpenCardContext.Provider value={value}>
       {children}
     </OpenCardContext.Provider>
   );

@@ -7,6 +7,7 @@ import {
   Pressable,
 } from "react-native-gesture-handler";
 import Animated, {
+  Easing,
   Extrapolation,
   interpolate,
   runOnJS,
@@ -77,7 +78,7 @@ export function Resizable({
 
       const nowCollapsed = newHeight < COLLAPSE_HEIGHT;
       if (nowCollapsed && !wasCollapsed.value) {
-        sheetHeight.value = withTiming(MIN_HEIGHT, SPRING_CONFIG);
+        sheetHeight.value = withTiming(MIN_HEIGHT, TIMING_CONFIG);
         wasCollapsed.value = true;
         runOnJS(setIsCollapsed)(true);
       } else if (!nowCollapsed && wasCollapsed.value) {
@@ -143,8 +144,8 @@ export function Resizable({
           onPress={() => {
             const isCurrentlyCollapsed = sheetHeight.value === MIN_HEIGHT;
             sheetHeight.value = isCurrentlyCollapsed
-              ? withTiming(MAX_HEIGHT, SPRING_CONFIG)
-              : withTiming(MIN_HEIGHT, SPRING_CONFIG);
+              ? withTiming(MAX_HEIGHT, TIMING_CONFIG)
+              : withTiming(MIN_HEIGHT, TIMING_CONFIG);
             setIsCollapsed(!isCurrentlyCollapsed);
           }}
         >

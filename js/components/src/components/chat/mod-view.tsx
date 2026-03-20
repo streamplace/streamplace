@@ -26,6 +26,9 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   layout,
   ResponsiveDropdownMenuContent,
@@ -234,25 +237,53 @@ function ModViewContent({
             </DropdownMenuItem>
           )}
           {modPermissions.canPin && message.author.did !== streamerDID && (
-            <DropdownMenuItem
-              onPress={() => {
-                if (!streamerDID) return;
-                pinChatMessage(message.uri, streamerDID)
-                  .then(() => {
-                    toast.show("Comment pinned", "", { duration: 3 });
-                    onOpenChange?.(false);
-                  })
-                  .catch((e) => {
-                    toast.show(
-                      "Error pinning comment",
-                      e instanceof Error ? e.message : "Failed to pin",
-                      { duration: 5 },
-                    );
-                  });
-              }}
-            >
-              <Text color="primary">Pin this message</Text>
-            </DropdownMenuItem>
+            <DropdownMenuSub trigger="hover">
+              <DropdownMenuSubTrigger>
+                <Text color="primary">Pin this message</Text>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent style={{ minWidth: 200 }}>
+                <DropdownMenuItem
+                  onPress={() => {
+                    if (!streamerDID) return;
+                    pinChatMessage(message.uri, streamerDID)
+                      .then(() => {
+                        toast.show("Comment pinned", "", { duration: 3 });
+                        onOpenChange?.(false);
+                      })
+                      .catch((e) => {
+                        toast.show(
+                          "Error pinning comment",
+                          e instanceof Error ? e.message : "Failed to pin",
+                          { duration: 5 },
+                        );
+                      });
+                  }}
+                >
+                  <Text color="primary">Pin indefinitely</Text>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onPress={() => {
+                    if (!streamerDID) return;
+                    const expiresAt = new Date();
+                    expiresAt.setHours(expiresAt.getHours() + 1); // Set expiration to 1 hour from now
+                    pinChatMessage(message.uri, streamerDID, expiresAt)
+                      .then(() => {
+                        toast.show("Comment pinned", "", { duration: 3 });
+                        onOpenChange?.(false);
+                      })
+                      .catch((e) => {
+                        toast.show(
+                          "Error pinning comment",
+                          e instanceof Error ? e.message : "Failed to pin",
+                          { duration: 5 },
+                        );
+                      });
+                  }}
+                >
+                  <Text color="primary">Pin for 1 hour</Text>
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
           )}
           {modPermissions.canBan &&
             agent?.did &&

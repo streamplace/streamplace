@@ -360,3 +360,127 @@ func (s *Server) logAudit(ctx context.Context, streamerDID, moderatorDID, action
 
 	return s.statefulDB.CreateAuditLog(ctx, auditLog)
 }
+
+func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input *streamplace.ModerationCreatePin_Input) (*streamplace.ModerationCreatePin_Output, error) {
+	// Validate input
+	if err := validateDID(input.Streamer); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
+	}
+	if err := validateATURI(input.MessageUri); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid messageUri: %v", err))
+	}
+
+	// Get delegated moderation context (validates OAuth, permission, and returns client)
+	modCtx, err := s.GetDelegatedModerationContext(ctx, input.Streamer, "createPin")
+	if err != nil {
+		return nil, err
+	}
+
+	// Delete existing pinned records for this streamer (single-pin semantics)
+	var listOutput comatproto.RepoListRecords_Output
+	err = modCtx.StreamerClient.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.listRecords",
+		map[string]any{
+			"repo":       input.Streamer,
+			"collection": constants.PLACE_STREAM_CHAT_PINNED_RECORD,
+		}, nil, &listOutput)
+	if err != nil {
+		log.Error(ctx, "failed to list existing pinned records", "err", err)
+	} else {
+		for _, rec := range listOutput.Records {
+			rkey, delErr := extractRKey(rec.Uri)
+			if delErr != nil {
+				continue
+			}
+			deleteInput := comatproto.RepoDeleteRecord_Input{
+				Collection: constants.PLACE_STREAM_CHAT_PINNED_RECORD,
+				Rkey:       rkey,
+				Repo:       input.Streamer,
+			}
+			deleteOutput := comatproto.RepoDeleteRecord_Output{}
+			if err := modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", map[string]any{}, deleteInput, &deleteOutput); err != nil {
+				log.Error(ctx, "failed to delete existing pinned record", "rkey", rkey, "err", err)
+			}
+		}
+	}
+
+	// Create the pinned record
+	pinnedRecord := &streamplace.ChatPinnedRecord{
+		LexiconTypeID: "place.stream.chat.pinnedRecord",
+		PinnedMessage: input.MessageUri,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		ExpiresAt:     input.ExpiresAt,
+	}
+
+	createInput := comatproto.RepoCreateRecord_Input{
+		Collection: constants.PLACE_STREAM_CHAT_PINNED_RECORD,
+		Record:     &lexutil.LexiconTypeDecoder{Val: pinnedRecord},
+		Repo:       input.Streamer,
+	}
+	createOutput := comatproto.RepoCreateRecord_Output{}
+
+	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, createInput, &createOutput)
+	if err != nil {
+		log.Error(ctx, "failed to create pinned record", "err", err)
+		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createPin", input.MessageUri, "", "", false, err.Error()); auditErr != nil {
+			log.Error(ctx, "failed to create audit log", "error", auditErr)
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create pinned record: %v", err))
+	}
+
+	// Log successful audit entry
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createPin", input.MessageUri, "", createOutput.Uri, true, ""); err != nil {
+		log.Error(ctx, "failed to create audit log", "error", err)
+	}
+
+	return &streamplace.ModerationCreatePin_Output{
+		Uri: createOutput.Uri,
+		Cid: createOutput.Cid,
+	}, nil
+}
+
+func (s *Server) handlePlaceStreamModerationDeletePin(ctx context.Context, input *streamplace.ModerationDeletePin_Input) (*streamplace.ModerationDeletePin_Output, error) {
+	// Validate input
+	if err := validateDID(input.Streamer); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
+	}
+	if err := validateATURI(input.PinUri); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid pinUri: %v", err))
+	}
+
+	// Get delegated moderation context (validates OAuth, permission, and returns client)
+	modCtx, err := s.GetDelegatedModerationContext(ctx, input.Streamer, "deletePin")
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse pinUri to extract rkey
+	rkey, err := extractRKey(input.PinUri)
+	if err != nil {
+		log.Error(ctx, "failed to extract rkey from pinUri", "uri", input.PinUri, "err", err)
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid pinUri format")
+	}
+
+	// Delete pinned record from streamer's repo
+	deleteInput := comatproto.RepoDeleteRecord_Input{
+		Collection: constants.PLACE_STREAM_CHAT_PINNED_RECORD,
+		Rkey:       rkey,
+		Repo:       input.Streamer,
+	}
+	deleteOutput := comatproto.RepoDeleteRecord_Output{}
+
+	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", map[string]any{}, deleteInput, &deleteOutput)
+	if err != nil {
+		log.Error(ctx, "failed to delete pinned record", "err", err)
+		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deletePin", input.PinUri, "", "", false, err.Error()); auditErr != nil {
+			log.Error(ctx, "failed to create audit log", "error", auditErr)
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to delete pinned record: %v", err))
+	}
+
+	// Log successful audit entry
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deletePin", input.PinUri, "", "", true, ""); err != nil {
+		log.Error(ctx, "failed to create audit log", "error", err)
+	}
+
+	return &streamplace.ModerationDeletePin_Output{}, nil
+}

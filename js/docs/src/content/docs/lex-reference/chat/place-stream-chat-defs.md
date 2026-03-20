@@ -29,6 +29,27 @@ description: Reference for the place.stream.chat.defs lexicon
 
 ---
 
+<a name="pinnedrecordview"></a>
+
+### `pinnedRecordView`
+
+**Type:** `object`
+
+View of a pinned chat record with hydrated message data.
+
+**Properties:**
+
+| Name        | Type                                                                                                                                             | Req'd | Description | Constraints        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ----------- | ------------------ |
+| `uri`       | `string`                                                                                                                                         | ✅    |             | Format: `at-uri`   |
+| `cid`       | `string`                                                                                                                                         | ✅    |             | Format: `cid`      |
+| `record`    | [`place.stream.chat.pinnedRecord`](/lex-reference/place-stream-chat-pinnedrecord)                                                                | ✅    |             |                    |
+| `indexedAt` | `string`                                                                                                                                         | ✅    |             | Format: `datetime` |
+| `pinnedBy`  | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ❌    |             |                    |
+| `message`   | [`#messageView`](#messageview)                                                                                                                   | ❌    |             |                    |
+
+---
+
 ## Lexicon Source
 
 ```json
@@ -79,6 +100,37 @@ description: Reference for the place.stream.chat.defs lexicon
             "type": "ref",
             "ref": "place.stream.badge.defs#badgeView"
           }
+        }
+      }
+    },
+    "pinnedRecordView": {
+      "type": "object",
+      "description": "View of a pinned chat record with hydrated message data.",
+      "required": ["uri", "cid", "record", "indexedAt"],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "record": {
+          "type": "ref",
+          "ref": "place.stream.chat.pinnedRecord"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "pinnedBy": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic"
+        },
+        "message": {
+          "type": "ref",
+          "ref": "#messageView"
         }
       }
     }

@@ -1,0 +1,73 @@
+package model
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/streamplace"
+)
+
+type PinnedRecord struct {
+	RKey          string     `gorm:"primaryKey;column:rkey"`
+	CID           string     `gorm:"column:cid"`
+	RepoDID       string     `json:"repoDID"              gorm:"column:repo_did"`
+	Repo          *Repo      `json:"repo,omitempty"       gorm:"foreignKey:DID;references:RepoDID"`
+	PinnedMessage string     `gorm:"column:pinned_message" json:"pinnedMessage"`
+	ExpiresAt     *time.Time `gorm:"column:expires_at"    json:"expiresAt"`
+	CreatedAt     time.Time  `gorm:"column:created_at"    json:"createdAt"`
+}
+
+func (p *PinnedRecord) ToStreamplacePinnedRecord() (*streamplace.ChatPinnedRecord, error) {
+	rec := &streamplace.ChatPinnedRecord{
+		LexiconTypeID: "place.stream.chat.pinnedRecord",
+		PinnedMessage: p.PinnedMessage,
+		CreatedAt:     p.CreatedAt.UTC().Format(time.RFC3339),
+	}
+	if p.ExpiresAt != nil {
+		s := p.ExpiresAt.UTC().Format(time.RFC3339)
+		rec.ExpiresAt = &s
+	}
+	return rec, nil
+}
+
+func (m *DBModel) CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) error {
+	return m.DB.Create(pin).Error
+}
+
+func (m *DBModel) GetPinnedRecord(ctx context.Context, rkey string) (*PinnedRecord, error) {
+	var pin PinnedRecord
+	err := m.DB.Preload("Repo").Where("rkey = ?", rkey).First(&pin).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &pin, nil
+}
+
+func (m *DBModel) DeletePinnedRecord(ctx context.Context, rkey string) error {
+	return m.DB.Where("rkey = ?", rkey).Delete(&PinnedRecord{}).Error
+}
+
+func (m *DBModel) DeleteAllPinnedRecords(ctx context.Context, streamerDID string) error {
+	return m.DB.Where("repo_did = ?", streamerDID).Delete(&PinnedRecord{}).Error
+}
+
+func (m *DBModel) GetActivePinnedRecord(ctx context.Context, streamerDID string) (*PinnedRecord, error) {
+	var pin PinnedRecord
+	now := time.Now()
+	err := m.DB.Preload("Repo").
+		Where("repo_did = ? AND (expires_at IS NULL OR expires_at > ?)", streamerDID, now).
+		Order("created_at DESC").
+		First(&pin).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &pin, nil
+}

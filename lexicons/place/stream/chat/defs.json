@@ -36,6 +36,25 @@
           }
         }
       }
+    },
+    "pinnedRecordView": {
+      "type": "object",
+      "description": "View of a pinned chat record with hydrated message data.",
+      "required": ["uri", "cid", "record", "indexedAt"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "record": { "type": "ref", "ref": "place.stream.chat.pinnedRecord" },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "pinnedBy": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic"
+        },
+        "message": {
+          "type": "ref",
+          "ref": "#messageView"
+        }
+      }
     }
   }
 }

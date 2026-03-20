@@ -85,6 +85,12 @@ type Model interface {
 	GetGate(ctx context.Context, rkey string) (*Gate, error)
 	GetUserGates(ctx context.Context, userDID string) ([]*Gate, error)
 
+	CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) error
+	DeletePinnedRecord(ctx context.Context, rkey string) error
+	DeleteAllPinnedRecords(ctx context.Context, streamerDID string) error
+	GetPinnedRecord(ctx context.Context, rkey string) (*PinnedRecord, error)
+	GetActivePinnedRecord(ctx context.Context, streamerDID string) (*PinnedRecord, error)
+
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
 	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
 
@@ -179,6 +185,7 @@ func MakeDB(dbURL string) (Model, error) {
 		ChatMessage{},
 		ChatProfile{},
 		Gate{},
+		PinnedRecord{},
 		ServerSettings{},
 		Labeler{},
 		Label{},

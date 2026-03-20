@@ -217,6 +217,51 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, streamplaceGate)
 
+	case *streamplace.ChatPinnedRecord:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		if r == nil {
+			return nil
+		}
+		log.Debug(ctx, "creating pinned record", "userDID", userDID, "pinnedMessage", rec.PinnedMessage)
+		// Delete existing pinned records for this streamer (single-pin semantics)
+		err = atsync.Model.DeleteAllPinnedRecords(ctx, userDID)
+		if err != nil {
+			log.Error(ctx, "failed to delete existing pinned records", "err", err)
+		}
+		// Parse optional expiresAt
+		var expiresAt *time.Time
+		if rec.ExpiresAt != nil {
+			t, err := time.Parse(time.RFC3339, *rec.ExpiresAt)
+			if err == nil {
+				expiresAt = &t
+			}
+		}
+		pin := &model.PinnedRecord{
+			RKey:          rkey.String(),
+			RepoDID:       userDID,
+			PinnedMessage: rec.PinnedMessage,
+			CID:           cid,
+			CreatedAt:     now,
+			Repo:          repo,
+			ExpiresAt:     expiresAt,
+		}
+		err = atsync.Model.CreatePinnedRecord(ctx, pin)
+		if err != nil {
+			return fmt.Errorf("failed to create pinned record: %w", err)
+		}
+		pin, err = atsync.Model.GetPinnedRecord(ctx, rkey.String())
+		if err != nil {
+			return fmt.Errorf("failed to get pinned record after we just saved it: %w", err)
+		}
+		pinnedView, err := pin.ToStreamplacePinnedRecord()
+		if err != nil {
+			return fmt.Errorf("failed to convert pinned record: %w", err)
+		}
+		go atsync.Bus.Publish(userDID, pinnedView)
+
 	case *streamplace.ChatProfile:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {

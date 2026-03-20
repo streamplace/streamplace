@@ -296,8 +296,10 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.live.stopLivestream", s.HandlePlaceStreamLiveStopLivestream)
 	e.POST("/xrpc/place.stream.moderation.createBlock", s.HandlePlaceStreamModerationCreateBlock)
 	e.POST("/xrpc/place.stream.moderation.createGate", s.HandlePlaceStreamModerationCreateGate)
+	e.POST("/xrpc/place.stream.moderation.createPin", s.HandlePlaceStreamModerationCreatePin)
 	e.POST("/xrpc/place.stream.moderation.deleteBlock", s.HandlePlaceStreamModerationDeleteBlock)
 	e.POST("/xrpc/place.stream.moderation.deleteGate", s.HandlePlaceStreamModerationDeleteGate)
+	e.POST("/xrpc/place.stream.moderation.deletePin", s.HandlePlaceStreamModerationDeletePin)
 	e.POST("/xrpc/place.stream.moderation.updateLivestream", s.HandlePlaceStreamModerationUpdateLivestream)
 	e.POST("/xrpc/place.stream.multistream.createTarget", s.HandlePlaceStreamMultistreamCreateTarget)
 	e.POST("/xrpc/place.stream.multistream.deleteTarget", s.HandlePlaceStreamMultistreamDeleteTarget)
@@ -627,6 +629,24 @@ func (s *Server) HandlePlaceStreamModerationCreateGate(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamModerationCreatePin(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationCreatePin")
+	defer span.End()
+
+	var body placestream.ModerationCreatePin_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationCreatePin_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context,body *placestream.ModerationCreatePin_Input) (*placestream.ModerationCreatePin_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationCreatePin(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamModerationDeleteBlock(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationDeleteBlock")
 	defer span.End()
@@ -657,6 +677,24 @@ func (s *Server) HandlePlaceStreamModerationDeleteGate(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamModerationDeleteGate(ctx context.Context,body *placestream.ModerationDeleteGate_Input) (*placestream.ModerationDeleteGate_Output, error)
 	out, handleErr = s.handlePlaceStreamModerationDeleteGate(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamModerationDeletePin(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationDeletePin")
+	defer span.End()
+
+	var body placestream.ModerationDeletePin_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationDeletePin_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationDeletePin(ctx context.Context,body *placestream.ModerationDeletePin_Input) (*placestream.ModerationDeletePin_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationDeletePin(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

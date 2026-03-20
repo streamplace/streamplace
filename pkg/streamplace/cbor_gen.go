@@ -3634,6 +3634,228 @@ func (t *ChatGate) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
+func (t *ChatPinnedRecord) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+	fieldCount := 4
+
+	if t.ExpiresAt == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 1000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.chat.pinnedRecord"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("place.stream.chat.pinnedRecord")); err != nil {
+		return err
+	}
+
+	// t.CreatedAt (string) (string)
+	if len("createdAt") > 1000000 {
+		return xerrors.Errorf("Value in field \"createdAt\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
+		return err
+	}
+
+	if len(t.CreatedAt) > 1000000 {
+		return xerrors.Errorf("Value in field t.CreatedAt was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
+		return err
+	}
+
+	// t.ExpiresAt (string) (string)
+	if t.ExpiresAt != nil {
+
+		if len("expiresAt") > 1000000 {
+			return xerrors.Errorf("Value in field \"expiresAt\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("expiresAt"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("expiresAt")); err != nil {
+			return err
+		}
+
+		if t.ExpiresAt == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.ExpiresAt) > 1000000 {
+				return xerrors.Errorf("Value in field t.ExpiresAt was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.ExpiresAt))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.ExpiresAt)); err != nil {
+				return err
+			}
+		}
+	}
+
+	// t.PinnedMessage (string) (string)
+	if len("pinnedMessage") > 1000000 {
+		return xerrors.Errorf("Value in field \"pinnedMessage\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("pinnedMessage"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("pinnedMessage")); err != nil {
+		return err
+	}
+
+	if len(t.PinnedMessage) > 1000000 {
+		return xerrors.Errorf("Value in field t.PinnedMessage was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.PinnedMessage))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.PinnedMessage)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *ChatPinnedRecord) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = ChatPinnedRecord{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("ChatPinnedRecord: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 13)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.CreatedAt (string) (string)
+		case "createdAt":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.CreatedAt = string(sval)
+			}
+			// t.ExpiresAt (string) (string)
+		case "expiresAt":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.ExpiresAt = (*string)(&sval)
+				}
+			}
+			// t.PinnedMessage (string) (string)
+		case "pinnedMessage":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.PinnedMessage = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
 func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)

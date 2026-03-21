@@ -704,6 +704,13 @@ link-ffmpeg:
 	rm -rf subprojects/FFmpeg
 	ln -s $$(realpath ../ffmpeg) ./subprojects/FFmpeg
 
+.PHONY: build-muxl
+build-muxl:
+	cd ../s2pa-muxl \
+	&& cargo build --target wasm32-wasip1 --release \
+	&& cd - \
+	&& cp ../s2pa-muxl/target/wasm32-wasip1/release/muxl.wasm pkg/muxl/muxl.wasm
+
 #   _____   ____   _____ _  ________ _____
 #  |  __ \ / __ \ / ____| |/ /  ____|  __ \
 #  | |  | | |  | | |    | ' /| |__  | |__) |

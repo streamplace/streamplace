@@ -123,7 +123,6 @@ function FixedChatPanel() {
   const sa = useSafeAreaInsets();
   const dims = useWindowDimensions();
 
-
   const SpringSettings = {
     duration: 25,
     mass: 10,

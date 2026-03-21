@@ -39,14 +39,14 @@ View of a pinned chat record with hydrated message data.
 
 **Properties:**
 
-| Name        | Type                                                                                                                                             | Req'd | Description | Constraints        |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ----------- | ------------------ |
-| `uri`       | `string`                                                                                                                                         | ✅    |             | Format: `at-uri`   |
-| `cid`       | `string`                                                                                                                                         | ✅    |             | Format: `cid`      |
-| `record`    | [`place.stream.chat.pinnedRecord`](/lex-reference/place-stream-chat-pinnedrecord)                                                                | ✅    |             |                    |
-| `indexedAt` | `string`                                                                                                                                         | ✅    |             | Format: `datetime` |
-| `pinnedBy`  | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ❌    |             |                    |
-| `message`   | [`#messageView`](#messageview)                                                                                                                   | ❌    |             |                    |
+| Name        | Type                                                                              | Req'd | Description | Constraints        |
+| ----------- | --------------------------------------------------------------------------------- | ----- | ----------- | ------------------ |
+| `uri`       | `string`                                                                          | ✅    |             | Format: `at-uri`   |
+| `cid`       | `string`                                                                          | ✅    |             | Format: `cid`      |
+| `record`    | [`place.stream.chat.pinnedRecord`](/lex-reference/place-stream-chat-pinnedrecord) | ✅    |             |                    |
+| `indexedAt` | `string`                                                                          | ✅    |             | Format: `datetime` |
+| `pinnedBy`  | [`place.stream.chat.profile`](/lex-reference/place-stream-chat-profile)           | ❌    |             |                    |
+| `message`   | [`#messageView`](#messageview)                                                    | ❌    |             |                    |
 
 ---
 
@@ -126,7 +126,7 @@ View of a pinned chat record with hydrated message data.
         },
         "pinnedBy": {
           "type": "ref",
-          "ref": "app.bsky.actor.defs#profileViewBasic"
+          "ref": "place.stream.chat.profile"
         },
         "message": {
           "type": "ref",

@@ -3641,9 +3641,13 @@ func (t *ChatPinnedRecord) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 4
+	fieldCount := 5
 
 	if t.ExpiresAt == nil {
+		fieldCount--
+	}
+
+	if t.PinnedBy == nil {
 		fieldCount--
 	}
 
@@ -3668,6 +3672,38 @@ func (t *ChatPinnedRecord) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string("place.stream.chat.pinnedRecord")); err != nil {
 		return err
+	}
+
+	// t.PinnedBy (string) (string)
+	if t.PinnedBy != nil {
+
+		if len("pinnedBy") > 1000000 {
+			return xerrors.Errorf("Value in field \"pinnedBy\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("pinnedBy"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("pinnedBy")); err != nil {
+			return err
+		}
+
+		if t.PinnedBy == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.PinnedBy) > 1000000 {
+				return xerrors.Errorf("Value in field t.PinnedBy was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.PinnedBy))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.PinnedBy)); err != nil {
+				return err
+			}
+		}
 	}
 
 	// t.CreatedAt (string) (string)
@@ -3801,6 +3837,27 @@ func (t *ChatPinnedRecord) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.LexiconTypeID = string(sval)
+			}
+			// t.PinnedBy (string) (string)
+		case "pinnedBy":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.PinnedBy = (*string)(&sval)
+				}
 			}
 			// t.CreatedAt (string) (string)
 		case "createdAt":

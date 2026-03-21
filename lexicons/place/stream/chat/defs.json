@@ -48,7 +48,7 @@
         "indexedAt": { "type": "string", "format": "datetime" },
         "pinnedBy": {
           "type": "ref",
-          "ref": "app.bsky.actor.defs#profileViewBasic"
+          "ref": "place.stream.chat.profile"
         },
         "message": {
           "type": "ref",

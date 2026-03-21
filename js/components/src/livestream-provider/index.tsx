@@ -6,6 +6,8 @@ import {
   LivestreamContext,
   makeLivestreamStore,
   useLivestreamStore,
+  usePinnedComment,
+  useUnpinChatMessage,
 } from "../livestream-store";
 import { useDID, usePDSAgent } from "../streamplace-store";
 import { useLivestreamWebsocket } from "./websocket";
@@ -134,6 +136,39 @@ export function TeleportWatcher({
   return <></>;
 }
 
+export function PinnedCommentWatcher() {
+  const pinnedComment = usePinnedComment();
+  const streamerDID = useLivestreamStore((state) => state.profile?.did);
+  const unpinChatMessage = useUnpinChatMessage();
+  const prevPinnedRef = useRef<string | null>(null);
+
+  // Show/hide notification when pinned comment changes
+  useEffect(() => {
+    const currentUri = pinnedComment?.uri ?? null;
+    if (currentUri === prevPinnedRef.current) return;
+    prevPinnedRef.current = currentUri;
+
+    if (pinnedComment) {
+      StreamNotifications.pinnedComment({
+        pinnedComment,
+        onDismiss: () => {
+          // local dismiss
+        },
+        onUnpin: () => {
+          if (!streamerDID) return;
+          unpinChatMessage(pinnedComment.uri, streamerDID).catch((e) => {
+            console.error("Failed to unpin:", e);
+          });
+        },
+      });
+    } else {
+      StreamNotifications.pinnedCommentDismiss();
+    }
+  }, [pinnedComment, streamerDID, unpinChatMessage]);
+
+  return <></>;
+}
+
 export function LivestreamPoller({
   children,
   src,
@@ -143,12 +178,11 @@ export function LivestreamPoller({
   src: string;
   onTeleport?: (targetHandle: string, targetDID: string) => void;
 }) {
-  // Websocket watcher is a sibling instead of a parent to avoid
-  // re-rendering when the websocket does stuff
   return (
     <>
       <WebsocketWatcher src={src} />
       <TeleportWatcher onTeleport={onTeleport} />
+      <PinnedCommentWatcher />
       {children}
     </>
   );

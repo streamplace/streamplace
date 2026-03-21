@@ -226,11 +226,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating pinned record", "userDID", userDID, "pinnedMessage", rec.PinnedMessage)
-		// Delete existing pinned records for this streamer (single-pin semantics)
-		err = atsync.Model.DeleteAllPinnedRecords(ctx, userDID)
-		if err != nil {
-			log.Error(ctx, "failed to delete existing pinned records", "err", err)
-		}
+		// err = atsync.Model.DeleteAllPinnedRecords(ctx, userDID)
+		// if err != nil {
+		// 	log.Error(ctx, "failed to delete existing pinned records", "err", err)
+		// }
 		// Parse optional expiresAt
 		var expiresAt *time.Time
 		if rec.ExpiresAt != nil {
@@ -239,12 +238,27 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				expiresAt = &t
 			}
 		}
+		// serialise createdAt
+		createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse createdAt: %w", err)
+		}
+
+		var pinnedBy string
+		if rec.PinnedBy == nil {
+			pinnedBy = userDID
+		} else {
+			pinnedBy = *rec.PinnedBy
+		}
+
 		pin := &model.PinnedRecord{
 			RKey:          rkey.String(),
 			RepoDID:       userDID,
 			PinnedMessage: rec.PinnedMessage,
+			PinnedBy:      pinnedBy,
+			IndexedAt:     &now,
 			CID:           cid,
-			CreatedAt:     now,
+			CreatedAt:     createdAt,
 			Repo:          repo,
 			ExpiresAt:     expiresAt,
 		}
@@ -256,9 +270,32 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to get pinned record after we just saved it: %w", err)
 		}
-		pinnedView, err := pin.ToStreamplacePinnedRecord()
+		pinnedView, err := pin.ToStreamplacePinnedRecordView()
 		if err != nil {
 			return fmt.Errorf("failed to convert pinned record: %w", err)
+		}
+		// look up the original message, pinner
+		msg, err := atsync.Model.GetChatMessage(pinnedView.Record.PinnedMessage)
+		if err != nil {
+			return fmt.Errorf("failed to get chat message: %w", err)
+		}
+		profile, err := atsync.Model.GetChatProfile(ctx, pinnedBy)
+		if err != nil {
+			return fmt.Errorf("failed to get chat profile: %w", err)
+		}
+		if msg != nil {
+			msgView, err := msg.ToStreamplaceMessageView()
+			if err != nil {
+				return fmt.Errorf("failed to convert chat message: %w", err)
+			}
+			pinnedView.Message = msgView
+		}
+		if profile != nil {
+			profileView, err := profile.ToStreamplaceChatProfile()
+			if err != nil {
+				return fmt.Errorf("failed to convert chat profile: %w", err)
+			}
+			pinnedView.PinnedBy = profileView
 		}
 		go atsync.Bus.Publish(userDID, pinnedView)
 

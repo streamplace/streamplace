@@ -22,6 +22,7 @@ Record pinning a chat message for prominent display.
 | Name            | Type     | Req'd | Description                                                                       | Constraints        |
 | --------------- | -------- | ----- | --------------------------------------------------------------------------------- | ------------------ |
 | `pinnedMessage` | `string` | ✅    | AT-URI of the pinned chat message.                                                | Format: `at-uri`   |
+| `pinnedBy`      | `string` | ❌    | DID of the user who pinned the message.                                           | Format: `did`      |
 | `createdAt`     | `string` | ✅    | When this pin was created.                                                        | Format: `datetime` |
 | `expiresAt`     | `string` | ❌    | Optional expiration time. If set, the pin is considered inactive after this time. | Format: `datetime` |
 
@@ -46,6 +47,11 @@ Record pinning a chat message for prominent display.
             "type": "string",
             "format": "at-uri",
             "description": "AT-URI of the pinned chat message."
+          },
+          "pinnedBy": {
+            "type": "string",
+            "format": "did",
+            "description": "DID of the user who pinned the message."
           },
           "createdAt": {
             "type": "string",

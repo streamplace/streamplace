@@ -18,6 +18,8 @@ type ChatPinnedRecord struct {
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	// expiresAt: Optional expiration time. If set, the pin is considered inactive after this time.
 	ExpiresAt *string `json:"expiresAt,omitempty" cborgen:"expiresAt,omitempty"`
+	// pinnedBy: DID of the user who pinned the message.
+	PinnedBy *string `json:"pinnedBy,omitempty" cborgen:"pinnedBy,omitempty"`
 	// pinnedMessage: AT-URI of the pinned chat message.
 	PinnedMessage string `json:"pinnedMessage" cborgen:"pinnedMessage"`
 }

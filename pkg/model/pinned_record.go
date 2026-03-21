@@ -15,6 +15,8 @@ type PinnedRecord struct {
 	RepoDID       string     `json:"repoDID"              gorm:"column:repo_did"`
 	Repo          *Repo      `json:"repo,omitempty"       gorm:"foreignKey:DID;references:RepoDID"`
 	PinnedMessage string     `gorm:"column:pinned_message" json:"pinnedMessage"`
+	PinnedBy      string     `gorm:"column:pinned_by"      json:"pinnedBy"`
+	IndexedAt     *time.Time `gorm:"column:indexed_at"    json:"indexedAt"`
 	ExpiresAt     *time.Time `gorm:"column:expires_at"    json:"expiresAt"`
 	CreatedAt     time.Time  `gorm:"column:created_at"    json:"createdAt"`
 }
@@ -32,6 +34,26 @@ func (p *PinnedRecord) ToStreamplacePinnedRecord() (*streamplace.ChatPinnedRecor
 	return rec, nil
 }
 
+func (p *PinnedRecord) ToStreamplacePinnedRecordView() (*streamplace.ChatDefs_PinnedRecordView, error) {
+	pr := &streamplace.ChatPinnedRecord{
+		LexiconTypeID: "place.stream.chat.pinnedRecord",
+		PinnedMessage: p.PinnedMessage,
+		CreatedAt:     p.CreatedAt.UTC().Format(time.RFC3339),
+	}
+	if p.ExpiresAt != nil {
+		s := p.ExpiresAt.UTC().Format(time.RFC3339)
+		pr.ExpiresAt = &s
+	}
+	rec := &streamplace.ChatDefs_PinnedRecordView{
+		LexiconTypeID: "place.stream.chat.defs#pinnedRecordView",
+		Record:        pr,
+		Cid:           p.CID,
+		IndexedAt:     p.CreatedAt.UTC().Format(time.RFC3339Nano),
+		// message, pinnedby not included, will fill in later
+		Uri: "at://" + p.RepoDID + "/place.stream.chat.pinnedRecord/" + p.RKey,
+	}
+	return rec, nil
+}
 func (m *DBModel) CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) error {
 	return m.DB.Create(pin).Error
 }

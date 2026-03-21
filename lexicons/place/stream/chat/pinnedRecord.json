@@ -15,6 +15,11 @@
             "format": "at-uri",
             "description": "AT-URI of the pinned chat message."
           },
+          "pinnedBy": {
+            "type": "string",
+            "format": "did",
+            "description": "DID of the user who pinned the message."
+          },
           "createdAt": {
             "type": "string",
             "format": "datetime",

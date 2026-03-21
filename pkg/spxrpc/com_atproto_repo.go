@@ -88,11 +88,9 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 			return nil, err
 		}
 		return &out, nil
-
 	}
 
-	did, _, _, _ := resolveRepoService(ctx, repo)
-	if atproto.ServerRepo != nil && did == s.cli.ServerDID() {
+	if s.isServerPDS(ctx) {
 		return &comatproto.RepoDescribeRepo_Output{
 			Handle: s.cli.ServerDID(),
 			Did:    s.cli.ServerDID(),
@@ -143,8 +141,7 @@ func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection
 		return &out, nil
 	}
 
-	did, _, _, _ := resolveRepoService(ctx, repo)
-	if atproto.ServerRepo != nil && did == s.cli.ServerDID() {
+	if s.isServerPDS(ctx) {
 		return atproto.ServerRepoListRecords(ctx, collection, cursor, limit, repo, reverse)
 	}
 	return atproto.LexiconRepoListRecords(ctx, collection, cursor, limit, repo, reverse)
@@ -173,8 +170,7 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 		return &out, nil
 	}
 
-	did, _, _, _ := resolveRepoService(ctx, repo)
-	if atproto.ServerRepo != nil && did == s.cli.ServerDID() {
+	if s.isServerPDS(ctx) {
 		return atproto.ServerRepoGetRecord(ctx, repo, collection, rkey)
 	}
 	return atproto.LexiconRepoGetRecord(ctx, repo, collection, rkey)

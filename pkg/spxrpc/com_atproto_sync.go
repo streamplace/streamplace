@@ -18,19 +18,35 @@ import (
 
 func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
 	active := true
-	return &comatprototypes.SyncListRepos_Output{
-		Repos: []*comatprototypes.SyncListRepos_Repo{
-			{
-				Did:    atproto.LexiconRepo.RepoDid(),
-				Head:   atproto.LexiconRepo.SignedCommit().Data.String(),
-				Rev:    atproto.LexiconRepo.SignedCommit().Rev,
-				Active: &active,
-			},
+	repos := []*comatprototypes.SyncListRepos_Repo{
+		{
+			Did:    atproto.LexiconRepo.RepoDid(),
+			Head:   atproto.LexiconRepo.SignedCommit().Data.String(),
+			Rev:    atproto.LexiconRepo.SignedCommit().Rev,
+			Active: &active,
 		},
+	}
+	if atproto.ServerRepo != nil {
+		repos = append(repos, &comatprototypes.SyncListRepos_Repo{
+			Did:    atproto.ServerRepo.RepoDid(),
+			Head:   atproto.ServerRepo.SignedCommit().Data.String(),
+			Rev:    atproto.ServerRepo.SignedCommit().Rev,
+			Active: &active,
+		})
+	}
+	return &comatprototypes.SyncListRepos_Output{
+		Repos: repos,
 	}, nil
 }
 
 func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection string, did string, rkey string) (io.Reader, error) {
+	if atproto.ServerRepo != nil && did == atproto.ServerRepo.RepoDid() {
+		bs, err := atproto.ServerRepoMerkleProof(ctx, collection, rkey)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(bs), nil
+	}
 	bs, err := atproto.LexiconRepoMerkleProof(ctx, collection, rkey)
 	if err != nil {
 		return nil, err
@@ -47,6 +63,13 @@ var upgrader = websocket.Upgrader{
 }
 
 func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, since string) (io.Reader, error) {
+	if atproto.ServerRepo != nil && did == atproto.ServerRepo.RepoDid() {
+		bs, err := atproto.ServerRepoGetRepo(ctx, since)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(bs), nil
+	}
 	if did != atproto.LexiconRepo.RepoDid() {
 		return nil, echo.NewHTTPError(http.StatusNotFound, "RepoNotFound")
 	}
@@ -105,6 +128,38 @@ func (s *Server) handleComAtprotoSyncSubscribeRepos(c echo.Context) error {
 
 		if err := wc.Close(); err != nil {
 			return fmt.Errorf("failed to flush-close our event write: %w", err)
+		}
+	}
+
+	// Also stream server repo events if available
+	if atproto.ServerRepo != nil {
+		serverEvts, err := atproto.GetServerCommitEventsSinceSeq(atproto.ServerRepo.RepoDid(), int64(seq))
+		if err != nil {
+			return err
+		}
+		for _, evt := range serverEvts {
+			commit, err := evt.ToCommitEvent()
+			if err != nil {
+				return err
+			}
+
+			wc, err := conn.NextWriter(websocket.BinaryMessage)
+			if err != nil {
+				return err
+			}
+			header.MsgType = "#commit"
+
+			if err := header.MarshalCBOR(wc); err != nil {
+				return fmt.Errorf("failed to write header: %w", err)
+			}
+
+			if err := commit.MarshalCBOR(wc); err != nil {
+				return fmt.Errorf("failed to write event: %w", err)
+			}
+
+			if err := wc.Close(); err != nil {
+				return fmt.Errorf("failed to flush-close our event write: %w", err)
+			}
 		}
 	}
 

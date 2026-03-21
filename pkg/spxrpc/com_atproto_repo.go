@@ -91,10 +91,23 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 
 	}
 
+	did, _, _, _ := resolveRepoService(ctx, repo)
+	if atproto.ServerRepo != nil && did == s.cli.ServerDID() {
+		return &comatproto.RepoDescribeRepo_Output{
+			Handle: s.cli.ServerDID(),
+			Did:    s.cli.ServerDID(),
+			DidDoc: atproto.DIDDoc(s.cli.ServerHost, atproto.ServerPubMultibase),
+			Collections: []string{
+				"place.stream.live.viewCount",
+			},
+			HandleIsCorrect: true,
+		}, nil
+	}
+
 	return &comatproto.RepoDescribeRepo_Output{
 		Handle: s.cli.BroadcasterDID(),
 		Did:    s.cli.BroadcasterDID(),
-		DidDoc: atproto.DIDDoc(s.cli.BroadcasterHost),
+		DidDoc: atproto.DIDDoc(s.cli.BroadcasterHost, atproto.LexiconPubMultibase),
 		Collections: []string{
 			"com.atproto.lexicon.schema",
 		},
@@ -130,6 +143,10 @@ func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection
 		return &out, nil
 	}
 
+	did, _, _, _ := resolveRepoService(ctx, repo)
+	if atproto.ServerRepo != nil && did == s.cli.ServerDID() {
+		return atproto.ServerRepoListRecords(ctx, collection, cursor, limit, repo, reverse)
+	}
 	return atproto.LexiconRepoListRecords(ctx, collection, cursor, limit, repo, reverse)
 }
 
@@ -156,5 +173,9 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 		return &out, nil
 	}
 
+	did, _, _, _ := resolveRepoService(ctx, repo)
+	if atproto.ServerRepo != nil && did == s.cli.ServerDID() {
+		return atproto.ServerRepoGetRecord(ctx, repo, collection, rkey)
+	}
 	return atproto.LexiconRepoGetRecord(ctx, repo, collection, rkey)
 }

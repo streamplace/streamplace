@@ -88,7 +88,7 @@ func (s *Server) isLocalPDS(ctx context.Context, repo string) (bool, string, err
 	if err != nil {
 		return false, "", fmt.Errorf("resolveRepoService: %w", err)
 	}
-	if did == s.cli.BroadcasterDID() {
+	if did == s.cli.BroadcasterDID() || did == s.cli.ServerDID() {
 		return true, svc, nil
 	}
 	return false, svc, nil

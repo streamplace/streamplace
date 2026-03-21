@@ -14,7 +14,12 @@ import (
 func (a *StreamplaceAPI) HandleDidJSON(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		host := a.CLI.BroadcasterHost
-		didJSON := atproto.DIDDoc(host)
+		pubKey := atproto.LexiconPubMultibase
+		if a.CLI.ServerHost != a.CLI.BroadcasterHost && req.Host == a.CLI.ServerHost {
+			host = a.CLI.ServerHost
+			pubKey = atproto.ServerPubMultibase
+		}
+		didJSON := atproto.DIDDoc(host, pubKey)
 		w.WriteHeader(200)
 		w.Header().Set("Content-Type", "application/json")
 		bs, err := json.Marshal(didJSON)
@@ -33,6 +38,9 @@ func (a *StreamplaceAPI) HandleAtprotoDID(ctx context.Context) httprouter.Handle
 		did := a.CLI.AtprotoDID
 		if did == "" {
 			did = fmt.Sprintf("did:web:%s", a.CLI.BroadcasterHost)
+		}
+		if a.CLI.ServerHost != a.CLI.BroadcasterHost && req.Host == a.CLI.ServerHost {
+			did = fmt.Sprintf("did:web:%s", a.CLI.ServerHost)
 		}
 		_, err := fmt.Fprintf(w, "%s", did)
 		if err != nil {

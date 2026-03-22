@@ -1,6 +1,6 @@
 ---
-title: place.stream.live.viewCount
-description: Reference for the place.stream.live.viewCount lexicon
+title: place.stream.live.viewerCount
+description: Reference for the place.stream.live.viewerCount lexicon
 ---
 
 **Lexicon Version:** 1
@@ -13,7 +13,7 @@ description: Reference for the place.stream.live.viewCount lexicon
 
 **Type:** `record`
 
-Current view count for a livestream on a particular server.
+Current viewer count for a livestream on a particular server. Record keys are streamer_did::server_did by convention.
 
 **Record Key:** `any`
 
@@ -33,12 +33,12 @@ Current view count for a livestream on a particular server.
 ```json
 {
   "lexicon": 1,
-  "id": "place.stream.live.viewCount",
+  "id": "place.stream.live.viewerCount",
   "defs": {
     "main": {
       "type": "record",
       "key": "any",
-      "description": "Current view count for a livestream on a particular server.",
+      "description": "Current viewer count for a livestream on a particular server. Record keys are streamer_did::server_did by convention.",
       "record": {
         "type": "object",
         "required": ["streamer", "server", "count"],

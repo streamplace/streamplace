@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -96,7 +97,7 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 			Did:    s.cli.ServerDID(),
 			DidDoc: atproto.DIDDoc(s.cli.ServerHost, atproto.ServerPubMultibase),
 			Collections: []string{
-				"place.stream.live.viewCount",
+				constants.PLACE_STREAM_LIVE_VIEWERCOUNT,
 			},
 			HandleIsCorrect: true,
 		}, nil

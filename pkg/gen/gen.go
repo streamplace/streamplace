@@ -36,7 +36,7 @@ func main() {
 		streamplace.ModerationPermission{},
 		streamplace.LiveTeleport{},
 		streamplace.LiveRecommendations{},
-		streamplace.LiveViewCount{},
+		streamplace.LiveViewerCount{},
 	); err != nil {
 		panic(err)
 	}

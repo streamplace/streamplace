@@ -21,6 +21,7 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/livepeer"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
@@ -734,15 +735,15 @@ func (ss *StreamSession) doUpdateViewCount(ctx context.Context, repoDID string) 
 	now := time.Now().UTC().Format(util.ISO8601)
 	rkey := fmt.Sprintf("%s::%s", repoDID, ss.cli.ServerDID())
 
-	vc := &streamplace.LiveViewCount{
-		LexiconTypeID: "place.stream.live.viewCount",
+	vc := &streamplace.LiveViewerCount{
+		LexiconTypeID: constants.PLACE_STREAM_LIVE_VIEWERCOUNT,
 		Count:         int64(count),
 		Server:        ss.cli.ServerDID(),
 		Streamer:      repoDID,
 		UpdatedAt:     &now,
 	}
 
-	err := atproto.CommitServerRepoRecord(ctx, ss.cli, "place.stream.live.viewCount", rkey, vc)
+	err := atproto.CommitServerRepoRecord(ctx, ss.cli, constants.PLACE_STREAM_LIVE_VIEWERCOUNT, rkey, vc)
 	if err != nil {
 		return fmt.Errorf("could not commit view count record: %w", err)
 	}

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
@@ -44,29 +45,29 @@ func TestServerRepo(t *testing.T) {
 
 	// Put a LiveViewCount record
 	updatedAt := "2026-03-21T00:00:00Z"
-	vc := &streamplace.LiveViewCount{
-		LexiconTypeID: "place.stream.live.viewCount",
+	vc := &streamplace.LiveViewerCount{
+		LexiconTypeID: constants.PLACE_STREAM_LIVE_VIEWERCOUNT,
 		Count:         42,
 		Server:        "did:web:server1.example.com",
 		Streamer:      "did:plc:abc123",
 		UpdatedAt:     &updatedAt,
 	}
-	err = CommitServerRepoRecord(context.Background(), &cli, "place.stream.live.viewCount", "did:plc:abc123", vc)
+	err = CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "did:plc:abc123", vc)
 	require.NoError(t, err)
 
 	// Read it back
-	out, err := ServerRepoGetRecord(context.Background(), "did:web:server1.example.com", "place.stream.live.viewCount", "did:plc:abc123")
+	out, err := ServerRepoGetRecord(context.Background(), "did:web:server1.example.com", constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "did:plc:abc123")
 	require.NoError(t, err)
 	require.NotNil(t, out)
-	require.Contains(t, out.Uri, "place.stream.live.viewCount")
+	require.Contains(t, out.Uri, constants.PLACE_STREAM_LIVE_VIEWERCOUNT)
 
 	// List records
-	listOut, err := ServerRepoListRecords(context.Background(), "place.stream.live.viewCount", "", 100, "did:web:server1.example.com", nil)
+	listOut, err := ServerRepoListRecords(context.Background(), constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "", 100, "did:web:server1.example.com", nil)
 	require.NoError(t, err)
 	require.Len(t, listOut.Records, 1)
 
 	// Merkle proof
-	proof, err := ServerRepoMerkleProof(context.Background(), "place.stream.live.viewCount", "did:plc:abc123")
+	proof, err := ServerRepoMerkleProof(context.Background(), constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "did:plc:abc123")
 	require.NoError(t, err)
 	require.NotEmpty(t, proof)
 
@@ -88,7 +89,7 @@ func TestServerRepo(t *testing.T) {
 	require.NotNil(t, ServerRepo)
 
 	// The record should still be there (file-backed carstore)
-	out, err = ServerRepoGetRecord(context.Background(), "did:web:server1.example.com", "place.stream.live.viewCount", "did:plc:abc123")
+	out, err = ServerRepoGetRecord(context.Background(), "did:web:server1.example.com", constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "did:plc:abc123")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 

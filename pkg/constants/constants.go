@@ -15,7 +15,7 @@ var APP_BSKY_ACTOR_PROFILE = "app.bsky.actor.profile"                         //
 var PLACE_STREAM_CHAT_GATE = "place.stream.chat.gate"                         //nolint:all
 var PLACE_STREAM_DEFAULT_METADATA = "place.stream.metadata.configuration"     //nolint:all
 var PLACE_STREAM_LIVE_RECOMMENDATIONS = "place.stream.live.recommendations"   //nolint:all
-var PLACE_STREAM_LIVE_VIEWCOUNT = "place.stream.live.viewCount"               //nolint:all
+var PLACE_STREAM_LIVE_VIEWERCOUNT = "place.stream.live.viewerCount"           //nolint:all
 
 // Streamplace badge types
 const (

@@ -6152,7 +6152,7 @@ func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *LiveViewCount) MarshalCBOR(w io.Writer) error {
+func (t *LiveViewerCount) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -6181,10 +6181,10 @@ func (t *LiveViewCount) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.live.viewCount"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.live.viewerCount"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("place.stream.live.viewCount")); err != nil {
+	if _, err := cw.WriteString(string("place.stream.live.viewerCount")); err != nil {
 		return err
 	}
 
@@ -6290,8 +6290,8 @@ func (t *LiveViewCount) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *LiveViewCount) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = LiveViewCount{}
+func (t *LiveViewerCount) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = LiveViewerCount{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -6310,7 +6310,7 @@ func (t *LiveViewCount) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("LiveViewCount: map struct too large (%d)", extra)
+		return fmt.Errorf("LiveViewerCount: map struct too large (%d)", extra)
 	}
 
 	n := extra

@@ -91,7 +91,7 @@ export const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
         { flexDirection: "row" },
         {
           marginLeft: Platform.OS === "android" ? 0 : 12,
-          marginRight: Platform.OS === "android" ? 12 : 0,
+          marginRight: 12,
         },
       ]}
     >

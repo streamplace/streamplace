@@ -418,7 +418,11 @@ func ServerRepoListRecords(ctx context.Context, collection string, cursor string
 		Records: []*comatproto.RepoListRecords_Record{},
 	}
 	err = r.ForEach(ctx, "", func(rkey string, c cid.Cid) error {
-		val, err := lexutil.CborDecodeValue(mustGetBlock(ctx, ses, c))
+		raw, err := getBlock(ctx, ses, c)
+		if err != nil {
+			return fmt.Errorf("ServerRepoListRecords: %w", err)
+		}
+		val, err := lexutil.CborDecodeValue(raw)
 		if err != nil {
 			return fmt.Errorf("ServerRepoListRecords: failed to decode record for rkey %q: %w", rkey, err)
 		}
@@ -447,7 +451,11 @@ func ServerRepoGetRecord(ctx context.Context, repo string, collection string, rk
 	if err != nil {
 		return nil, err
 	}
-	rec, err := lexutil.CborDecodeValue(mustGetBlock(ctx, ses, outCID))
+	raw, err := getBlock(ctx, ses, outCID)
+	if err != nil {
+		return nil, fmt.Errorf("ServerRepoGetRecord: %w", err)
+	}
+	rec, err := lexutil.CborDecodeValue(raw)
 	if err != nil {
 		return nil, fmt.Errorf("ServerRepoGetRecord: failed to decode record: %w", err)
 	}
@@ -471,10 +479,10 @@ func ServerRepoGetRepo(ctx context.Context, since string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func mustGetBlock(ctx context.Context, ses *carstore.DeltaSession, c cid.Cid) []byte {
+func getBlock(ctx context.Context, ses *carstore.DeltaSession, c cid.Cid) ([]byte, error) {
 	b, err := ses.Get(ctx, c)
 	if err != nil {
-		panic(fmt.Sprintf("mustGetBlock: failed to get block %s: %v", c.String(), err))
+		return nil, fmt.Errorf("failed to get block %s: %w", c.String(), err)
 	}
-	return b.RawData()
+	return b.RawData(), nil
 }

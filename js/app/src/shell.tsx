@@ -3,7 +3,10 @@ import {
   createBottomTabNavigator,
 } from "@react-navigation/bottom-tabs";
 import { useLinkTo, useNavigation } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import {
+  createNativeStackNavigator,
+  NativeStackHeaderBackProps,
+} from "@react-navigation/native-stack";
 import {
   Text,
   useAccentColor,
@@ -87,6 +90,25 @@ function useBaseScreenOptions() {
 function HomeNavigator() {
   const title = useSiteTitle() || "Streamplace Station";
   const baseScreenOptions = useBaseScreenOptions();
+  const isNative = Platform.OS !== "web";
+  const z = useTheme();
+
+  const headerScreenOptions = {
+    headerShown: !isNative,
+    headerLeft: isNative
+      ? undefined
+      : ({ canGoBack }: NativeStackHeaderBackProps) => (
+          <NavigationButton canGoBack={canGoBack} />
+        ),
+    headerRight: () => <LGAvatarButton />,
+    ...(isNative && {
+      headerTransparent: true,
+    }),
+    headerTitleStyle: {
+      fontFamily: z.theme.typography.universal.base.fontFamily,
+    },
+  };
+
   return (
     <HomeStack.Navigator screenOptions={baseScreenOptions}>
       <HomeStack.Screen
@@ -123,32 +145,35 @@ function HomeNavigator() {
       <HomeStack.Screen
         name="About"
         component={AboutScreen}
-        options={{ title: "What's Streamplace?" }}
+        options={{
+          title: "What's Streamplace?",
+          ...headerScreenOptions,
+        }}
       />
       <HomeStack.Screen
         name="Download"
         component={DownloadScreen}
-        options={{ title: "Download" }}
+        options={{ title: "Download", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="LiveDashboard"
         component={LiveDashboard}
-        options={{ title: "Live Dashboard" }}
+        options={{ title: "Live Dashboard", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="Login"
         component={Login}
-        options={{ title: "Login" }}
+        options={{ title: "Login", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="Multi"
         component={MultiScreen}
-        options={{ title: "Multi-stream" }}
+        options={{ title: "Multi-stream", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="Support"
         component={SupportScreen}
-        options={{ title: "Support" }}
+        options={{ title: "Support", ...headerScreenOptions }}
       />
     </HomeStack.Navigator>
   );
@@ -157,10 +182,31 @@ function HomeNavigator() {
 // Settings stack navigator
 function SettingsNavigator() {
   const baseScreenOptions = useBaseScreenOptions();
+  const z = useTheme();
+  const isNative = Platform.OS !== "web";
+  const headerScreenOptions = {
+    headerShown: true,
+    headerLeft: isNative
+      ? undefined
+      : ({ canGoBack }: NativeStackHeaderBackProps) => (
+          <NavigationButton canGoBack={canGoBack} />
+        ),
+    headerRight: () => <LGAvatarButton />,
+    ...(isNative && {
+      headerTransparent: true,
+    }),
+    headerTitleStyle: {
+      fontFamily: z.theme.typography.universal.base.fontFamily,
+    },
+  };
   return (
     <SettingsStack.Navigator
       initialRouteName="MainSettings"
-      screenOptions={baseScreenOptions}
+      screenOptions={{
+        headerTransparent: Platform.OS === "ios",
+        headerBackButtonDisplayMode: "minimal",
+        ...headerScreenOptions,
+      }}
     >
       <SettingsStack.Screen
         name="MainSettings"

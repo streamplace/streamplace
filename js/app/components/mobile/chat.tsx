@@ -5,8 +5,6 @@ import {
   Resizable,
   StreamNotificationProvider,
   Text,
-  useHandle,
-  useLivestreamInfo,
   View,
   zero,
 } from "@streamplace/components";
@@ -19,7 +17,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
-import { useNavigation, useNavigationState } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { ArrowRight } from "lucide-react-native";
@@ -229,24 +227,12 @@ export function MobileChatPanel({
 }
 
 function ChatPanel() {
-  const { profile } = useLivestreamInfo();
-  const handle = useHandle();
-
   let agent = usePDSAgent();
 
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
   const customEmoji: any[] = [];
-
-  // get the deepest active route for nested navigators
-  const currentRoute = useNavigationState((state) => {
-    let route: any = state.routes[state.index];
-    while (route.state?.index !== undefined) {
-      route = route.state.routes[route.state.index];
-    }
-    return { name: route.name, params: route.params };
-  });
 
   return (
     <View
@@ -291,7 +277,18 @@ function ChatPanel() {
           </View>
         ) : (
           <Pressable
-            onPress={() => openLoginModal(currentRoute as any)}
+            onPress={() => {
+              const state = navigation.getState();
+              if (!state) {
+                openLoginModal();
+                return;
+              }
+              let route: any = state.routes[state.index];
+              while (route.state?.index !== undefined) {
+                route = route.state.routes[route.state.index];
+              }
+              openLoginModal({ name: route.name, params: route.params } as any);
+            }}
             style={[
               layout.flex.row,
               layout.flex.center,

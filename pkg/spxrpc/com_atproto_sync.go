@@ -91,6 +91,25 @@ func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, si
 	return bytes.NewReader(bs), nil
 }
 
+// writeCommitToWS writes a single commit event to a websocket connection.
+func writeCommitToWS(conn *websocket.Conn, header *events.EventHeader, commit *comatprototypes.SyncSubscribeRepos_Commit) error {
+	wc, err := conn.NextWriter(websocket.BinaryMessage)
+	if err != nil {
+		return err
+	}
+	header.MsgType = "#commit"
+	if err := header.MarshalCBOR(wc); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
+	if err := commit.MarshalCBOR(wc); err != nil {
+		return fmt.Errorf("failed to write event: %w", err)
+	}
+	if err := wc.Close(); err != nil {
+		return fmt.Errorf("failed to flush-close our event write: %w", err)
+	}
+	return nil
+}
+
 func (s *Server) handleComAtprotoSyncSubscribeRepos(c echo.Context) error {
 	ctx := log.WithLogValues(c.Request().Context(), "client_ip", c.RealIP(), "user_agent", c.Request().UserAgent())
 	cursor := c.QueryParam("cursor")
@@ -112,66 +131,92 @@ func (s *Server) handleComAtprotoSyncSubscribeRepos(c echo.Context) error {
 	header := events.EventHeader{Op: events.EvtKindMessage}
 
 	if s.isServerPDS(ctx) {
-		// Server PDS: stream server repo events
+		// Server PDS: replay historical events then stream live
+		sub := atproto.SubscribeServerCommits()
+		defer atproto.UnsubscribeServerCommits(sub)
+
+		// Replay historical events
 		serverEvts, err := atproto.GetServerCommitEventsSinceSeq(atproto.ServerRepo.RepoDid(), int64(seq))
 		if err != nil {
 			return err
 		}
-		log.Log(ctx, "got com.atproto.sync.subscribeRepos (server PDS)", "cursor", c.QueryParam("cursor"), "eventCount", len(serverEvts))
+		log.Log(ctx, "com.atproto.sync.subscribeRepos (server PDS)", "cursor", cursor, "historical", len(serverEvts))
+
+		lastSeq := int64(seq)
 		for _, evt := range serverEvts {
 			commit, err := evt.ToCommitEvent()
 			if err != nil {
 				return err
 			}
-			wc, err := conn.NextWriter(websocket.BinaryMessage)
-			if err != nil {
+			if err := writeCommitToWS(conn, &header, commit); err != nil {
 				return err
 			}
-			header.MsgType = "#commit"
-			if err := header.MarshalCBOR(wc); err != nil {
-				return fmt.Errorf("failed to write header: %w", err)
-			}
-			if err := commit.MarshalCBOR(wc); err != nil {
-				return fmt.Errorf("failed to write event: %w", err)
-			}
-			if err := wc.Close(); err != nil {
-				return fmt.Errorf("failed to flush-close our event write: %w", err)
-			}
+			lastSeq = evt.Seq
 		}
-	} else {
-		// Broadcaster PDS: stream lexicon repo events
-		evts, err := s.statefulDB.GetCommitEventsSinceSeq(atproto.LexiconRepo.RepoDid(), int64(seq))
-		if err != nil {
-			return err
-		}
-		log.Log(ctx, "got com.atproto.sync.subscribeRepos (broadcaster PDS)", "cursor", c.QueryParam("cursor"), "eventCount", len(evts))
-		for _, evt := range evts {
-			commit, err := evt.ToCommitEvent()
-			if err != nil {
-				return err
+
+		// Read pump: detect client disconnect
+		disconnected := make(chan struct{})
+		go func() {
+			for {
+				_, _, err := conn.ReadMessage()
+				if err != nil {
+					close(disconnected)
+					return
+				}
 			}
-			wc, err := conn.NextWriter(websocket.BinaryMessage)
-			if err != nil {
-				return err
-			}
-			header.MsgType = "#commit"
-			if err := header.MarshalCBOR(wc); err != nil {
-				return fmt.Errorf("failed to write header: %w", err)
-			}
-			if err := commit.MarshalCBOR(wc); err != nil {
-				return fmt.Errorf("failed to write event: %w", err)
-			}
-			if err := wc.Close(); err != nil {
-				return fmt.Errorf("failed to flush-close our event write: %w", err)
+		}()
+
+		// Stream live events
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-disconnected:
+				log.Log(ctx, "client disconnected from subscribeRepos")
+				return nil
+			case evt, ok := <-sub:
+				if !ok {
+					return nil
+				}
+				// Skip events we already sent during replay
+				if evt.Seq <= lastSeq {
+					continue
+				}
+				commit, err := evt.ToCommitEvent()
+				if err != nil {
+					log.Error(ctx, "failed to decode live commit event", "error", err)
+					continue
+				}
+				if err := writeCommitToWS(conn, &header, commit); err != nil {
+					log.Log(ctx, "failed to write live event, client likely disconnected", "error", err)
+					return nil
+				}
+				lastSeq = evt.Seq
 			}
 		}
 	}
 
-	// We don't have anything else to do but we'll keep the socket open until the client disconnects
+	// Broadcaster PDS: stream lexicon repo events (rarely changes, keep old behavior)
+	evts, err := s.statefulDB.GetCommitEventsSinceSeq(atproto.LexiconRepo.RepoDid(), int64(seq))
+	if err != nil {
+		return err
+	}
+	log.Log(ctx, "com.atproto.sync.subscribeRepos (broadcaster PDS)", "cursor", cursor, "eventCount", len(evts))
+	for _, evt := range evts {
+		commit, err := evt.ToCommitEvent()
+		if err != nil {
+			return err
+		}
+		if err := writeCommitToWS(conn, &header, commit); err != nil {
+			return err
+		}
+	}
+
+	// Broadcaster repo rarely changes — just hold the connection open
 	for {
 		_, _, err = conn.ReadMessage()
 		if err != nil {
-			log.Log(c.Request().Context(), "client disconnected", "error", err)
+			log.Log(ctx, "client disconnected", "error", err)
 			return nil
 		}
 	}

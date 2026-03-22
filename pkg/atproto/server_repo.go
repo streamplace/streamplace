@@ -37,6 +37,45 @@ var serverRepoLock sync.Mutex
 var serverCommitDB *gorm.DB
 var serverRepoSigner func(ctx context.Context, did string, sb []byte) ([]byte, error)
 
+// serverCommitSubscribers is notified when new commit events are created.
+var serverCommitSubscribers []chan *ServerCommitEvent
+var serverCommitSubLock sync.Mutex
+
+// SubscribeServerCommits returns a channel that receives new commit events.
+// Call UnsubscribeServerCommits to clean up.
+func SubscribeServerCommits() chan *ServerCommitEvent {
+	serverCommitSubLock.Lock()
+	defer serverCommitSubLock.Unlock()
+	ch := make(chan *ServerCommitEvent, 64)
+	serverCommitSubscribers = append(serverCommitSubscribers, ch)
+	return ch
+}
+
+// UnsubscribeServerCommits removes a subscriber channel.
+func UnsubscribeServerCommits(ch chan *ServerCommitEvent) {
+	serverCommitSubLock.Lock()
+	defer serverCommitSubLock.Unlock()
+	for i, sub := range serverCommitSubscribers {
+		if sub == ch {
+			serverCommitSubscribers = append(serverCommitSubscribers[:i], serverCommitSubscribers[i+1:]...)
+			close(ch)
+			return
+		}
+	}
+}
+
+func notifyServerCommitSubscribers(event *ServerCommitEvent) {
+	serverCommitSubLock.Lock()
+	defer serverCommitSubLock.Unlock()
+	for _, ch := range serverCommitSubscribers {
+		select {
+		case ch <- event:
+		default:
+			// Subscriber is slow, drop the event
+		}
+	}
+}
+
 // ServerCommitEvent stores commit events in local SQLite for relay replay (~72h TTL).
 type ServerCommitEvent struct {
 	Seq       int64     `gorm:"primaryKey;autoIncrement"`
@@ -211,8 +250,11 @@ func CreateServerCommitEvent(commit *comatproto.SyncSubscribeRepos_Commit, signe
 		Data:      buf.Bytes(),
 		CID:       commit.Commit.String(),
 	}
-	log.Warn(context.Background(), "created server commit event", "event", event)
-	return serverCommitDB.Create(event).Error
+	if err := serverCommitDB.Create(event).Error; err != nil {
+		return err
+	}
+	notifyServerCommitSubscribers(event)
+	return nil
 }
 
 // GetServerCommitEventsSinceSeq returns commit events after the given seq for relay replay.

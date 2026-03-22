@@ -277,7 +277,7 @@ dev-setup:
 dev: app-cached
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
-	$(MAKE) dev-rust
+	$(MAKE) -j 2 dev-rust muxl-wasm
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
 	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
@@ -592,7 +592,7 @@ desktop-windows-amd64:
 	&& mv "js/desktop/out/make/squirrel.windows/x64/Streamplace-$(VERSION_ELECTRON) Setup.exe" ./bin/streamplace-desktop-$(VERSION)-windows-amd64.exe
 
 .PHONY: streamplace
-streamplace: app-cached meson-setup-static
+streamplace: app-cached meson-setup-static muxl-wasm
 	meson compile -C $(BUILDDIR) streamplace | grep -v drectve
 
 .PHONY: archive

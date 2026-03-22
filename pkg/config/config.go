@@ -153,6 +153,7 @@ type CLI struct {
 	S3AccessKeyID               string
 	S3SecretAccessKey           string
 	S3Region                    string
+	DisableSyndication          bool
 }
 
 // ContentFilters represents the content filtering configuration
@@ -808,6 +809,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Sources: urfavecli.EnvVars("SP_SYNDICATE"),
 			},
 			&urfavecli.BoolFlag{
+				Name:        "disable-syndication",
+				Usage:       `entirely disable syndication in both directions. useful for local development.`,
+				Value:       false,
+				Destination: &cli.DisableSyndication,
+				Sources:     urfavecli.EnvVars("SP_DISABLE_SYNDICATION"),
+			},
+			&urfavecli.BoolFlag{
 				Name:        "player-telemetry",
 				Usage:       "enable player telemetry",
 				Value:       true,
@@ -1263,6 +1271,9 @@ func (cli *CLI) S3Configured() bool {
 }
 
 func (cli *CLI) ShouldSyndicate(did string) bool {
+	if cli.DisableSyndication {
+		return false
+	}
 	for _, d := range cli.Syndicate {
 		if d == "*" {
 			return true

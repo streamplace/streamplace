@@ -209,6 +209,9 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 }
 
 func (s *Server) handlePlaceStreamLiveSubscribeSegments(c echo.Context) error {
+	if s.cli.DisableSyndication {
+		return echo.NewHTTPError(http.StatusNotImplemented, "Syndication is disabled")
+	}
 	user := c.QueryParam("streamer")
 	if user == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "User DID is required")

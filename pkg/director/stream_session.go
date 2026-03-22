@@ -53,6 +53,7 @@ type StreamSession struct {
 	statusUpdateChan     chan struct{} // Signal to update status
 	originUpdateChan     chan struct{} // Signal to update broadcast origin
 	livestreamUpdateChan chan struct{} // Signal to update livestream
+	viewCountUpdateChan  chan struct{} // Signal to update view count in server repo
 
 	g          *errgroup.Group
 	started    chan struct{}
@@ -63,6 +64,7 @@ type StreamSession struct {
 	atsync     *atproto.ATProtoSynchronizer
 
 	lastLivestreamTime time.Time
+	lastViewCountTime  time.Time
 }
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
@@ -115,6 +117,9 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	})
 	ss.g.Go(func() error {
 		return ss.livestreamUpdateLoop(ctx, spseg.Creator)
+	})
+	ss.g.Go(func() error {
+		return ss.viewCountUpdateLoop(ctx, spseg.Creator)
 	})
 
 	if notif.Local {
@@ -217,6 +222,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		ss.UpdateStatus(ctx, spseg.Creator)
 		ss.UpdateBroadcastOrigin(ctx)
 		ss.UpdateLivestream(ctx, spseg.Creator)
+		ss.UpdateViewCount(ctx)
 	}
 
 	if ss.cli.LivepeerGatewayURL != "" {
@@ -687,6 +693,62 @@ func (ss *StreamSession) doUpdateBroadcastOrigin(ctx context.Context) error {
 	}
 
 	ss.lastOriginTime = time.Now()
+	return nil
+}
+
+var viewCountUpdateInterval = time.Second * 30
+
+// UpdateViewCount signals the background worker to update the view count in the server repo (non-blocking)
+func (ss *StreamSession) UpdateViewCount(ctx context.Context) {
+	select {
+	case ss.viewCountUpdateChan <- struct{}{}:
+	default:
+		// Channel full, signal already pending
+	}
+}
+
+// viewCountUpdateLoop runs as a background goroutine for the session lifetime
+func (ss *StreamSession) viewCountUpdateLoop(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "viewCountUpdateLoop")
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ss.viewCountUpdateChan:
+			if time.Since(ss.lastViewCountTime) < viewCountUpdateInterval {
+				log.Debug(ctx, "not updating view count, last update was less than 30 seconds ago")
+				continue
+			}
+			if err := ss.doUpdateViewCount(ctx, repoDID); err != nil {
+				log.Error(ctx, "failed to update view count", "error", err)
+			}
+		}
+	}
+}
+
+// doUpdateViewCount writes the current view count to the server's atproto repo
+func (ss *StreamSession) doUpdateViewCount(ctx context.Context, repoDID string) error {
+	ctx = log.WithLogValues(ctx, "func", "doUpdateViewCount")
+
+	count := spmetrics.GetViewCount(repoDID)
+	now := time.Now().UTC().Format(util.ISO8601)
+	rkey := fmt.Sprintf("%s::%s", repoDID, ss.cli.ServerDID())
+
+	vc := &streamplace.LiveViewCount{
+		LexiconTypeID: "place.stream.live.viewCount",
+		Count:         int64(count),
+		Server:        ss.cli.ServerDID(),
+		Streamer:      repoDID,
+		UpdatedAt:     &now,
+	}
+
+	err := atproto.CommitServerRepoRecord(ctx, ss.cli, "place.stream.live.viewCount", rkey, vc)
+	if err != nil {
+		return fmt.Errorf("could not commit view count record: %w", err)
+	}
+
+	log.Debug(ctx, "updated view count", "streamer", repoDID, "count", count, "rkey", rkey)
+	ss.lastViewCountTime = time.Now()
 	return nil
 }
 

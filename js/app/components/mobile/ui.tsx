@@ -203,22 +203,20 @@ export function MobileUi({
                 <View
                   style={[layout.flex.row, gap.all[2], layout.flex.align.start]}
                 >
-                  {shouldShowFloatingMetrics && (
-                    <View>
-                      <View
-                        style={[
-                          {
-                            padding: 9,
-                            backgroundColor: "rgba(90,90,90, 0.3)",
-                            borderRadius: 12,
-                          },
-                          r[2],
-                        ]}
-                      >
-                        <PlayerUI.Viewers />
-                      </View>
+                  <View>
+                    <View
+                      style={[
+                        {
+                          padding: 9,
+                          backgroundColor: "rgba(90,90,90, 0.3)",
+                          borderRadius: 12,
+                        },
+                        r[2],
+                      ]}
+                    >
+                      <PlayerUI.Viewers />
                     </View>
-                  )}
+                  </View>
 
                   <RightControlsPanel
                     ingest={ingest}
@@ -285,9 +283,10 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
-      {showChat === undefined && !isSelfAndNotLive && playerIsReady && (
-        <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
-      )}
+      {hideMobileChat ||
+        (showChat === undefined && !isSelfAndNotLive && playerIsReady && (
+          <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
+        ))}
     </>
   );
 }

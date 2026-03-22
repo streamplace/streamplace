@@ -9,8 +9,8 @@ import {
   zero,
 } from "@streamplace/components";
 import { useKeyboard } from "hooks/useKeyboard";
-import { useEffect } from "react";
-import { Pressable } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, useWindowDimensions } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -115,8 +115,96 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
   );
 }
 
+function FixedChatPanel() {
+  const kb = useKeyboard();
+  const [containerHeight, setContainerHeight] = useState(0);
+  const sa = useSafeAreaInsets();
+  const dims = useWindowDimensions();
+
+  console.log("container height", containerHeight);
+
+  const SpringSettings = {
+    duration: 25,
+    mass: 10,
+  };
+
+  // calculate top bar + safe area height
+  const videoHeight = dims.height - sa.top - 88 - containerHeight;
+  const calculatedHeight =
+    containerHeight + (kb.keyboardHeight > 0 ? videoHeight : 0);
+
+  const animatedSidebarStyle = useAnimatedStyle(() => ({
+    height: withSpring(
+      containerHeight > 0
+        ? Math.max(0, calculatedHeight - kb.keyboardHeight)
+        : containerHeight,
+      SpringSettings,
+    ),
+    backgroundColor: withSpring(
+      `rgba(0, 0, 0, ${kb.keyboardHeight > 0 ? 0.5 : 0})`,
+      SpringSettings,
+    ),
+    borderRadius: withSpring(containerHeight > 0 ? 18 : 0, SpringSettings),
+    transform: [
+      {
+        translateY: withSpring(-kb.keyboardHeight, SpringSettings),
+      },
+    ],
+  }));
+
+  return (
+    <View
+      style={{ position: "relative", flex: 1 }}
+      onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+    >
+      <Animated.View
+        style={[
+          { position: "absolute", bottom: 0, left: 0, right: 0 },
+          animatedSidebarStyle,
+        ]}
+      >
+        <ChatPanel />
+      </Animated.View>
+    </View>
+  );
+}
+
 // MobileChatPanel.tsx
-export function MobileChatPanel({ isPlayerRatioGreater }) {
+export function MobileChatPanel({
+  isPlayerRatioGreater,
+  fixed = false,
+}: {
+  isPlayerRatioGreater: boolean;
+  fixed?: boolean;
+}) {
+  const insets = useSafeAreaInsets();
+
+  if (fixed) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          width: "100%",
+          paddingBottom: insets.bottom,
+          position: "relative",
+        }}
+      >
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            pointerEvents: "none",
+          }}
+        >
+          <StreamNotificationProvider position="bottom" />
+        </View>
+        <FixedChatPanel />
+      </View>
+    );
+  }
+
   return (
     <View
       style={[

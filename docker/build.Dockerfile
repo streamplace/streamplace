@@ -74,6 +74,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh \
   && rustup target add x86_64-pc-windows-gnu \
   && rustup target add x86_64-apple-darwin \
   && rustup target add aarch64-apple-darwin \
+  && rustup target add wasm32-wasip1 \
+  && rustup target add wasm32-unknown-unknown \
   && rm rustup.sh
 
 RUN go env -w GOTOOLCHAIN=go$GO_VERSION

@@ -222,8 +222,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		ss.UpdateStatus(ctx, spseg.Creator)
 		ss.UpdateBroadcastOrigin(ctx)
 		ss.UpdateLivestream(ctx, spseg.Creator)
-		ss.UpdateViewCount(ctx)
 	}
+	ss.UpdateViewCount(ctx)
 
 	if ss.cli.LivepeerGatewayURL != "" {
 		ss.Go(ctx, func() error {

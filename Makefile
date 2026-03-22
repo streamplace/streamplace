@@ -292,6 +292,11 @@ dev-setup-meson-configure:
 	meson setup --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson configure --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 
+.PHONY: muxl-wasm
+muxl-wasm:
+	cargo build -p muxl-wasm --target wasm32-wasip1 --release
+	cp target/wasm32-wasip1/release/muxl-wasm.wasm pkg/muxl/muxl.wasm
+
 .PHONY: dev-rust
 dev-rust: .build/bin/uniffi-bindgen-go-forked
 	cargo build

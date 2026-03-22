@@ -190,7 +190,7 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert livestream to streamplace livestream: %s", err))
 		}
-		viewers := spmetrics.GetViewCount(stream.Author.Did)
+		viewers := s.bus.GetViewerCount(stream.Author.Did)
 		stream.ViewerCount = &placestream.Livestream_ViewerCount{
 			LexiconTypeID: "place.stream.livestream#viewerCount",
 			Count:         int64(viewers),

@@ -559,6 +559,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// This allows moderators to see their permissions instantly without page refresh
 		go atsync.Bus.Publish(userDID, view)
 
+	case *streamplace.LiveViewCount:
+		log.Debug(ctx, "indexing view count", "streamer", rec.Streamer, "server", rec.Server, "count", rec.Count)
+		atsync.Bus.SetFederatedViewCount(rec.Streamer, rec.Server, int(rec.Count))
+
 	case *streamplace.LiveRecommendations:
 		log.Debug(ctx, "creating recommendations", "userDID", userDID, "count", len(rec.Streamers))
 

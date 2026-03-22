@@ -211,6 +211,7 @@ func CreateServerCommitEvent(commit *comatproto.SyncSubscribeRepos_Commit, signe
 		Data:      buf.Bytes(),
 		CID:       commit.Commit.String(),
 	}
+	log.Warn(context.Background(), "created server commit event", "event", event)
 	return serverCommitDB.Create(event).Error
 }
 
@@ -256,19 +257,23 @@ func CommitServerRepoRecord(ctx context.Context, cli *config.CLI, collection str
 	}
 
 	rpath := fmt.Sprintf("%s/%s", collection, rkey)
+	var recordCid cid.Cid
+	var action string
 	_, _, err = r.GetRecord(ctx, rpath)
 	if err != nil {
 		// Record doesn't exist, create it
-		_, err = r.PutRecord(ctx, rpath, value)
+		recordCid, err = r.PutRecord(ctx, rpath, value)
 		if err != nil {
 			return fmt.Errorf("CommitServerRepoRecord: failed to put record: %w", err)
 		}
+		action = ActionCreate
 	} else {
 		// Record exists, update it
-		_, err = r.UpdateRecord(ctx, rpath, value)
+		recordCid, err = r.UpdateRecord(ctx, rpath, value)
 		if err != nil {
 			return fmt.Errorf("CommitServerRepoRecord: failed to update record: %w", err)
 		}
+		action = ActionUpdate
 	}
 
 	root, rev, err := r.Commit(ctx, serverRepoSigner)
@@ -283,6 +288,7 @@ func CommitServerRepoRecord(ctx context.Context, cli *config.CLI, collection str
 
 	ServerRepo = r
 
+	cidLink := lexutil.LexLink(recordCid)
 	signed := r.SignedCommit()
 	commit := &comatproto.SyncSubscribeRepos_Commit{
 		Repo:   cli.ServerDID(),
@@ -292,8 +298,9 @@ func CommitServerRepoRecord(ctx context.Context, cli *config.CLI, collection str
 		Time:   time.Now().Format(util.ISO8601),
 		Ops: []*comatproto.SyncSubscribeRepos_RepoOp{
 			{
-				Action: ActionCreate,
+				Action: action,
 				Path:   rpath,
+				Cid:    &cidLink,
 			},
 		},
 		TooBig: false,

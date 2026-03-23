@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/bluesky-social/indigo/util"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/streamplace"
 )
@@ -25,10 +26,10 @@ func (p *PinnedRecord) ToStreamplacePinnedRecord() (*streamplace.ChatPinnedRecor
 	rec := &streamplace.ChatPinnedRecord{
 		LexiconTypeID: "place.stream.chat.pinnedRecord",
 		PinnedMessage: p.PinnedMessage,
-		CreatedAt:     p.CreatedAt.UTC().Format(time.RFC3339),
+		CreatedAt:     p.CreatedAt.UTC().Format(util.ISO8601),
 	}
 	if p.ExpiresAt != nil {
-		s := p.ExpiresAt.UTC().Format(time.RFC3339)
+		s := p.ExpiresAt.UTC().Format(util.ISO8601)
 		rec.ExpiresAt = &s
 	}
 	return rec, nil
@@ -38,10 +39,10 @@ func (p *PinnedRecord) ToStreamplacePinnedRecordView() (*streamplace.ChatDefs_Pi
 	pr := &streamplace.ChatPinnedRecord{
 		LexiconTypeID: "place.stream.chat.pinnedRecord",
 		PinnedMessage: p.PinnedMessage,
-		CreatedAt:     p.CreatedAt.UTC().Format(time.RFC3339),
+		CreatedAt:     p.CreatedAt.UTC().Format(util.ISO8601),
 	}
 	if p.ExpiresAt != nil {
-		s := p.ExpiresAt.UTC().Format(time.RFC3339)
+		s := p.ExpiresAt.UTC().Format(util.ISO8601)
 		pr.ExpiresAt = &s
 	}
 	rec := &streamplace.ChatDefs_PinnedRecordView{

@@ -3,6 +3,7 @@ import {
   ChatBox,
   LivestreamProvider,
   PlayerProvider,
+  StreamNotificationProvider,
   Text,
   tokens,
   usePlayerStore,
@@ -21,6 +22,7 @@ interface ChatPopoutParams {
   reverse?: string;
   hideAfter?: string;
   hideChatBox?: string;
+  showNotifications?: string;
 }
 
 export default function PopoutChat({ route }) {
@@ -63,54 +65,69 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
     ? parseInt(params.hideAfter, 10)
     : undefined;
   const hideChatBox = params.hideChatBox === "true";
+  const showNotifications = params.showNotifications === "true";
 
   useEffect(() => {
     setSrc(params.user);
   }, [params.user, setSrc]);
 
+  const chat = (
+    <Chat
+      reverse={reverseChat}
+      hideAfter={hideAfter}
+      style={[zero.flex.values[1]]}
+    />
+  );
+
   return (
-    <View style={[{ position: "relative" }, zero.flex.values[1], zero.m[2]]}>
-      <View
-        style={[
-          zero.flex.values[1],
-          { position: "absolute", width: "100%", minHeight: "100%", bottom: 0 },
-        ]}
-      >
-        <Chat reverse={reverseChat} hideAfter={hideAfter} />
-        {!hideChatBox &&
-          (profile ? (
-            <ChatBox
-              emojiData={emojiData}
-              isPopout={true}
-              emojiPicker={(isOpen, onClose, onSelect) => (
-                <EmojiPicker
-                  isOpen={isOpen}
-                  onClose={onClose}
-                  onSelect={onSelect}
-                  customEmoji={[]}
-                />
-              )}
-            />
-          ) : (
-            <Pressable
-              onPress={() => openLoginModal({ name: "ChatPopout" })}
-              style={[
-                zero.layout.flex.row,
-                zero.layout.flex.center,
-                zero.gap.all[4],
-                zero.r.xl,
-                {
-                  padding: 18,
-                  backgroundColor: "rgba(255, 255, 255, 0.1)",
-                  maxWidth: tokens.breakpoints.sm,
-                },
-              ]}
-            >
-              <Text>Log in or sign up to chat</Text>
-              <ArrowRight />
-            </Pressable>
-          ))}
-      </View>
+    <View
+      style={[
+        zero.flex.values[1],
+        zero.layout.flex.column,
+        zero.m[2],
+        { maxHeight: "100vh" },
+      ]}
+    >
+      {showNotifications ? (
+        <StreamNotificationProvider position="top">
+          {chat}
+        </StreamNotificationProvider>
+      ) : (
+        chat
+      )}
+      {!hideChatBox &&
+        (profile ? (
+          <ChatBox
+            emojiData={emojiData}
+            isPopout={true}
+            emojiPicker={(isOpen, onClose, onSelect) => (
+              <EmojiPicker
+                isOpen={isOpen}
+                onClose={onClose}
+                onSelect={onSelect}
+                customEmoji={[]}
+              />
+            )}
+          />
+        ) : (
+          <Pressable
+            onPress={() => openLoginModal({ name: "ChatPopout" })}
+            style={[
+              zero.layout.flex.row,
+              zero.layout.flex.center,
+              zero.gap.all[4],
+              zero.r.xl,
+              {
+                padding: 18,
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                maxWidth: tokens.breakpoints.sm,
+              },
+            ]}
+          >
+            <Text>Log in or sign up to chat</Text>
+            <ArrowRight />
+          </Pressable>
+        ))}
     </View>
   );
 }

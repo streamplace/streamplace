@@ -116,7 +116,7 @@ const LOCALE = getCurrentLocaleSync();
 
 export const I18NEXT_CONFIG = {
   lng: LOCALE,
-  ns: ["common", "settings"], // Common should be first as it's most frequently used
+  ns: ["common", "settings", "chat"], // Common should be first as it's most frequently used
   defaultNS: "common",
   interpolation: {
     escapeValue: false, // React already safes from XSS

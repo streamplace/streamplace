@@ -243,10 +243,7 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 		return err
 	}
 	scm := chatTask.MessageView
-	rec, ok := scm.Record.Val.(*streamplace.ChatMessage)
-	if !ok {
-		return fmt.Errorf("invalid chat message record")
-	}
+	rec := scm.Record.ChatDefs_MessageRecordView
 
 	// Send to webhooks using webhook manager
 	webhooks, err := state.GetActiveWebhooksForUser(rec.Streamer, "chat")

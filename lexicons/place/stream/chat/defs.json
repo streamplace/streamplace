@@ -12,7 +12,10 @@
           "type": "ref",
           "ref": "app.bsky.actor.defs#profileViewBasic"
         },
-        "record": { "type": "unknown" },
+        "record": {
+          "type": "union",
+          "refs": ["#messageRecordView"]
+        },
         "indexedAt": { "type": "string", "format": "datetime" },
         "chatProfile": {
           "type": "ref",
@@ -34,6 +37,41 @@
             "type": "ref",
             "ref": "place.stream.badge.defs#badgeView"
           }
+        }
+      }
+    },
+    "messageRecordView": {
+      "type": "object",
+      "description": "The content of a chat message.",
+      "required": ["text", "createdAt", "streamer"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "maxLength": 3000,
+          "maxGraphemes": 300,
+          "description": "The primary message content. May be an empty string, if there are embeds."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Client-declared timestamp when this message was originally created."
+        },
+        "facets": {
+          "type": "array",
+          "description": "Annotations of text (mentions, URLs, etc)",
+          "items": {
+            "type": "ref",
+            "ref": "place.stream.richtext.defs#facetView"
+          }
+        },
+        "streamer": {
+          "type": "string",
+          "format": "did",
+          "description": "The DID of the streamer whose chat this is."
+        },
+        "reply": {
+          "type": "ref",
+          "ref": "place.stream.chat.message#replyRef"
         }
       }
     }

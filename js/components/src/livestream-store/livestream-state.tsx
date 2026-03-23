@@ -7,6 +7,7 @@ import {
   PlaceStreamModerationPermission,
   PlaceStreamSegment,
 } from "streamplace";
+import { ChatFilterCategory } from "../streamplace-store";
 
 export interface LivestreamState {
   profile: AppBskyActorDefs.ProfileViewBasic | null;
@@ -32,6 +33,8 @@ export interface LivestreamState {
   setModerationPermissions: (
     permissions: PlaceStreamModerationPermission.Record[],
   ) => void;
+  chatFilters: Set<ChatFilterCategory>;
+  setChatFilters: (filters: Set<ChatFilterCategory>) => void;
   localLivestreamURI: string | null;
   setLocalLivestreamURI: (uri: string | null) => void;
 }

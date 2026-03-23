@@ -2,32 +2,42 @@
 // Metro will use this file for React Native builds
 
 // Import all translations directly so they're bundled into the app
+import enUSChat from "../../public/locales/en-US/chat.json";
 import enUSCommon from "../../public/locales/en-US/common.json";
 import enUSSettings from "../../public/locales/en-US/settings.json";
+import esESChat from "../../public/locales/es-ES/chat.json";
 import esESCommon from "../../public/locales/es-ES/common.json";
 import esESSettings from "../../public/locales/es-ES/settings.json";
+import frFRChat from "../../public/locales/fr-FR/chat.json";
 import frFRCommon from "../../public/locales/fr-FR/common.json";
 import frFRSettings from "../../public/locales/fr-FR/settings.json";
+import ptBRChat from "../../public/locales/pt-BR/chat.json";
 import ptBRCommon from "../../public/locales/pt-BR/common.json";
 import ptBRSettings from "../../public/locales/pt-BR/settings.json";
 import roROCommon from "../../public/locales/ro-RO/common.json";
 import roROSettings from "../../public/locales/ro-RO/settings.json";
 import zhHansCommon from "../../public/locales/zh-Hans/common.json";
 import zhHansSettings from "../../public/locales/zh-Hans/settings.json";
+import zhHantChat from "../../public/locales/zh-Hant/chat.json";
 import zhHantCommon from "../../public/locales/zh-Hant/common.json";
 import zhHantSettings from "../../public/locales/zh-Hant/settings.json";
 
 const translationMap: Record<string, any> = {
+  "en-US/chat": enUSChat,
   "en-US/common": enUSCommon,
   "en-US/settings": enUSSettings,
+  "pt-BR/chat": ptBRChat,
   "pt-BR/common": ptBRCommon,
   "pt-BR/settings": ptBRSettings,
+  "es-ES/chat": esESChat,
   "es-ES/common": esESCommon,
   "es-ES/settings": esESSettings,
+  "zh-Hant/chat": zhHantChat,
   "zh-Hans/common": zhHansCommon,
   "zh-Hans/settings": zhHansSettings,
   "zh-Hant/common": zhHantCommon,
   "zh-Hant/settings": zhHantSettings,
+  "fr-FR/chat": frFRChat,
   "fr-FR/common": frFRCommon,
   "fr-FR/settings": frFRSettings,
   "ro-RO/common": roROCommon,

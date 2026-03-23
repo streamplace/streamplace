@@ -4,7 +4,15 @@ import { env } from "process";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, TextInput } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
-import { Button, Loader, Text, toast, useTheme, View } from "../../";
+import {
+  Button,
+  ChatSettings,
+  Loader,
+  Text,
+  toast,
+  useTheme,
+  View,
+} from "../../";
 import { handleSlashCommand } from "../../lib/slash-commands";
 import {
   createTeleport,
@@ -34,7 +42,11 @@ import {
   useReplyToMessage,
   useSetReplyToMessage,
 } from "../../livestream-store";
-import { useDID, usePDSAgent } from "../../streamplace-store";
+import {
+  useDID,
+  usePDSAgent,
+  useSetChatFilters,
+} from "../../streamplace-store";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
 import {
@@ -92,6 +104,7 @@ export function ChatBox({
   const isOverLimit = graphemer.countGraphemes(message) > 300;
 
   let linfo = useLivestream();
+  const setChatFilters = useSetChatFilters();
 
   const { theme, zero: zt } = useTheme();
 
@@ -516,6 +529,9 @@ export function ChatBox({
             {submitting ? <Loader /> : "Send"}
           </Button>
         </View>
+        {Platform.OS !== "web" && (
+          <ChatSettings onFiltersChange={setChatFilters} />
+        )}
       </View>
       {showSuggestions && (
         <MentionSuggestions
@@ -616,6 +632,9 @@ export function ChatBox({
             >
               <ExternalLink color={theme.colors.primaryForeground} size={16} />
             </Button>
+          )}
+          {Platform.OS === "web" && (
+            <ChatSettings onFiltersChange={setChatFilters} />
           )}
         </View>
       )}

@@ -12,6 +12,22 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
+// ChatDefs_MessageRecordView is a "messageRecordView" in the place.stream.chat.defs schema.
+//
+// The content of a chat message.
+type ChatDefs_MessageRecordView struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.chat.defs#messageRecordView"`
+	// createdAt: Client-declared timestamp when this message was originally created.
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
+	// facets: Annotations of text (mentions, URLs, etc)
+	Facets []*RichtextDefs_FacetView `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	Reply  *ChatMessage_ReplyRef     `json:"reply,omitempty" cborgen:"reply,omitempty"`
+	// streamer: The DID of the streamer whose chat this is.
+	Streamer string `json:"streamer" cborgen:"streamer"`
+	// text: The primary message content. May be an empty string, if there are embeds.
+	Text string `json:"text" cborgen:"text"`
+}
+
 // ChatDefs_MessageView is a "messageView" in the place.stream.chat.defs schema.
 type ChatDefs_MessageView struct {
 	LexiconTypeID string                              `json:"$type" cborgen:"$type,const=place.stream.chat.defs#messageView"`
@@ -23,9 +39,36 @@ type ChatDefs_MessageView struct {
 	// deleted: If true, this message has been deleted or labeled and should be cleared from the cache
 	Deleted   *bool                         `json:"deleted,omitempty" cborgen:"deleted,omitempty"`
 	IndexedAt string                        `json:"indexedAt" cborgen:"indexedAt"`
-	Record    *lexutil.LexiconTypeDecoder   `json:"record" cborgen:"record"`
+	Record    *ChatDefs_MessageView_Record  `json:"record" cborgen:"record"`
 	ReplyTo   *ChatDefs_MessageView_ReplyTo `json:"replyTo,omitempty" cborgen:"replyTo,omitempty"`
 	Uri       string                        `json:"uri" cborgen:"uri"`
+}
+
+type ChatDefs_MessageView_Record struct {
+	ChatDefs_MessageRecordView *ChatDefs_MessageRecordView
+}
+
+func (t *ChatDefs_MessageView_Record) MarshalJSON() ([]byte, error) {
+	if t.ChatDefs_MessageRecordView != nil {
+		t.ChatDefs_MessageRecordView.LexiconTypeID = "place.stream.chat.defs#messageRecordView"
+		return json.Marshal(t.ChatDefs_MessageRecordView)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *ChatDefs_MessageView_Record) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.chat.defs#messageRecordView":
+		t.ChatDefs_MessageRecordView = new(ChatDefs_MessageRecordView)
+		return json.Unmarshal(b, t.ChatDefs_MessageRecordView)
+	default:
+		return nil
+	}
 }
 
 type ChatDefs_MessageView_ReplyTo struct {

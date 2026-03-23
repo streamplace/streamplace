@@ -12,6 +12,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/rivo/uniseg"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/stars"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -38,22 +39,54 @@ func hashString(s string) int {
 	return int(h.Sum32())
 }
 
-func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageView, error) {
+func (m *ChatMessage) ToStreamplaceMessageView(starrer *stars.Starrer) (*streamplace.ChatDefs_MessageView, error) {
 	rec, err := lexutil.CborDecodeValue(*m.ChatMessage)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding feed post: %w", err)
 	}
-	// Truncate message text if it is a ChatMessage
-	if msg, ok := rec.(*streamplace.ChatMessage); ok {
-		graphemeCount := uniseg.GraphemeClusterCount(msg.Text)
-		if graphemeCount > 300 {
-			gr := uniseg.NewGraphemes(msg.Text)
-			var result strings.Builder
-			for count := 0; count < 300 && gr.Next(); count++ {
-				result.WriteString(gr.Str())
-			}
-			msg.Text = result.String()
+
+	msg, ok := rec.(*streamplace.ChatMessage)
+	if !ok {
+		return nil, fmt.Errorf("expected *streamplace.ChatMessage, got %T", rec)
+	}
+
+	// Truncate message text if needed
+	text := msg.Text
+	graphemeCount := uniseg.GraphemeClusterCount(text)
+	if graphemeCount > 300 {
+		gr := uniseg.NewGraphemes(text)
+		var result strings.Builder
+		for count := 0; count < 300 && gr.Next(); count++ {
+			result.WriteString(gr.Str())
 		}
+		text = result.String()
+	}
+
+	// Convert facets to facet views if needed
+	var facetViews []*streamplace.RichtextDefs_FacetView
+	for _, facet := range msg.Facets {
+		var features []*streamplace.RichtextDefs_FacetView_Features_Elem
+		for _, feature := range facet.Features {
+			viewFeature := &streamplace.RichtextDefs_FacetView_Features_Elem{
+				RichtextFacet_Mention: feature.RichtextFacet_Mention,
+				RichtextFacet_Link:    feature.RichtextFacet_Link,
+			}
+			features = append(features, viewFeature)
+		}
+		facetViews = append(facetViews, &streamplace.RichtextDefs_FacetView{
+			Index:    facet.Index,
+			Features: features,
+		})
+	}
+
+	// Create the message record view
+	recordView := &streamplace.ChatDefs_MessageRecordView{
+		LexiconTypeID: "place.stream.chat.defs#messageRecordView",
+		Text:          text,
+		CreatedAt:     msg.CreatedAt,
+		Streamer:      msg.Streamer,
+		Facets:        facetViews,
+		Reply:         msg.Reply,
 	}
 
 	message := &streamplace.ChatDefs_MessageView{
@@ -67,7 +100,9 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageV
 	if m.Repo != nil {
 		message.Author.Handle = m.Repo.Handle
 	}
-	message.Record = &lexutil.LexiconTypeDecoder{Val: rec}
+	message.Record = &streamplace.ChatDefs_MessageView_Record{
+		ChatDefs_MessageRecordView: recordView,
+	}
 	message.IndexedAt = m.IndexedAt.UTC().Format(time.RFC3339Nano)
 	if m.ChatProfile != nil {
 		scp, err := m.ChatProfile.ToStreamplaceChatProfile()
@@ -84,7 +119,7 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageV
 
 	}
 	if m.ReplyTo != nil {
-		replyTo, err := m.ReplyTo.ToStreamplaceMessageView()
+		replyTo, err := m.ReplyTo.ToStreamplaceMessageView(starrer)
 		if err != nil {
 			return nil, fmt.Errorf("error converting reply to to streamplace message view: %w", err)
 		}
@@ -92,6 +127,15 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageV
 			ChatDefs_MessageView: replyTo,
 		}
 	}
+
+	if starrer != nil {
+		censoredMsg, err := starrer.CensorMessageView(message)
+		if err != nil {
+			return nil, fmt.Errorf("error censoring message: %w", err)
+		}
+		return censoredMsg, nil
+	}
+
 	return message, nil
 }
 
@@ -158,8 +202,8 @@ func (m *DBModel) MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDef
 		return nil, fmt.Errorf("error retrieving replies: %w", err)
 	}
 	spmessages := []*streamplace.ChatDefs_MessageView{}
-	for _, m := range dbmessages {
-		spmessage, err := m.ToStreamplaceMessageView()
+	for _, msg := range dbmessages {
+		spmessage, err := msg.ToStreamplaceMessageView(m.starrer)
 		if err != nil {
 			return nil, fmt.Errorf("error converting feed post to bsky post view: %w", err)
 		}

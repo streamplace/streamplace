@@ -271,13 +271,13 @@ static-test:
 
 .PHONY: dev-setup
 dev-setup:
-	$(MAKE) -j16 app-cached dev-setup-meson
+	$(MAKE) -j16 app-cached dev-setup-meson muxl-wasm
 
 .PHONY: dev
 dev: app-cached
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
-	$(MAKE) -j 2 dev-rust muxl-wasm
+	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
 	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...

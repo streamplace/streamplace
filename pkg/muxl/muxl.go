@@ -21,6 +21,7 @@ var moduleCounter atomic.Uint64
 type MuxlEvent struct {
 	Type   string // "INIT" or "SEGM"
 	Number uint32 // segment number (only for SEGM)
+	Tracks map[string][]byte
 	Data   []byte
 }
 
@@ -201,7 +202,11 @@ func ParseMuxlEvents(r io.Reader, initCh chan []byte, segCh chan []byte) error {
 		if ev.Type == "init" {
 			initCh <- ev.Data
 		} else if ev.Type == "segment" {
-			segCh <- ev.Data
+			combined := []byte{}
+			for _, data := range ev.Tracks {
+				combined = append(combined, data...)
+			}
+			segCh <- combined
 		} else {
 			return fmt.Errorf("unknown event type: %s", ev.Type)
 		}

@@ -1,0 +1,41 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.graph.setNotificationPreference",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Set whether a user wants notifications when a streamer goes live.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["userDID", "streamerDID", "enabled"],
+          "properties": {
+            "userDID": {
+              "type": "string",
+              "format": "did",
+              "description": "The DID of the follower."
+            },
+            "streamerDID": {
+              "type": "string",
+              "format": "did",
+              "description": "The DID of the streamer."
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "True to enable notifications, false to disable."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [],
+          "properties": {}
+        }
+      }
+    }
+  }
+}

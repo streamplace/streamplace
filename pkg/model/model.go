@@ -50,6 +50,10 @@ type Model interface {
 	GetUserFollowingUser(ctx context.Context, userDID, subjectDID string) (*Follow, error)
 	DeleteFollow(ctx context.Context, userDID, rev string) error
 
+	GetNotificationPreference(ctx context.Context, userDID, streamerDID string) (*NotificationPreference, error)
+	SetNotificationPreference(ctx context.Context, userDID, streamerDID string, enabled bool) error
+	GetOptedOutFollowerDIDs(ctx context.Context, streamerDID string, followerDIDs []string) ([]string, error)
+
 	CreateFeedPost(ctx context.Context, post *FeedPost) error
 	ListFeedPosts() ([]FeedPost, error)
 	ListFeedPostsByType(feedType string, limit int, after int64) ([]FeedPost, error)
@@ -199,6 +203,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Label{},
 		BroadcastOrigin{},
 		MetadataConfiguration{},
+		NotificationPreference{},
 		Teleport{},
 		ModerationDelegation{},
 		Recommendation{},

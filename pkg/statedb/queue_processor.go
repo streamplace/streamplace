@@ -279,3 +279,21 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 	}
 	return nil
 }
+
+func (state *StatefulDB) filterNotificationRecipients(ctx context.Context, streamerDID string, dids []string) ([]string, error) {
+	optedOut, err := state.model.GetOptedOutFollowerDIDs(ctx, streamerDID, dids)
+	if err != nil {
+		return nil, err
+	}
+	optedOutSet := make(map[string]bool, len(optedOut))
+	for _, did := range optedOut {
+		optedOutSet[did] = true
+	}
+	filtered := make([]string, 0, len(dids))
+	for _, did := range dids {
+		if !optedOutSet[did] {
+			filtered = append(filtered, did)
+		}
+	}
+	return filtered, nil
+}

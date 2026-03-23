@@ -596,7 +596,7 @@ streamplace: app-cached meson-setup-static muxl-wasm
 	meson compile -C $(BUILDDIR) streamplace | grep -v drectve
 
 .PHONY: archive
-archive: app-cached meson-setup-static godeps
+archive: app-cached meson-setup-static godeps muxl-wasm
 	meson compile -C $(BUILDDIR) archive | grep -v drectve
 
 .PHONY: linux-amd64

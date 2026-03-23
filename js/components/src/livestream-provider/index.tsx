@@ -4,6 +4,7 @@ import { deleteTeleport } from "../lib/slash-commands/teleport";
 import { StreamNotifications } from "../lib/stream-notifications";
 import {
   LivestreamContext,
+  getStoreFromContext,
   makeLivestreamStore,
   useLivestreamStore,
   usePinnedComment,
@@ -140,6 +141,7 @@ export function PinnedCommentWatcher() {
   const pinnedComment = usePinnedComment();
   const streamerDID = useLivestreamStore((state) => state.profile?.did);
   const unpinChatMessage = useUnpinChatMessage();
+  const store = getStoreFromContext();
   const prevPinnedRef = useRef<string | null>(null);
 
   // Show/hide notification when pinned comment changes
@@ -152,7 +154,7 @@ export function PinnedCommentWatcher() {
       StreamNotifications.pinnedComment({
         pinnedComment,
         onDismiss: () => {
-          // local dismiss
+          store.setState({ pinnedComment: null });
         },
         onUnpin: () => {
           if (!streamerDID) return;

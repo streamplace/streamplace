@@ -17,14 +17,6 @@ import (
 
 var moduleCounter atomic.Uint64
 
-// MuxlEvent represents an event from the muxl segmenter.
-type MuxlEvent struct {
-	Type   string // "INIT" or "SEGM"
-	Number uint32 // segment number (only for SEGM)
-	Tracks map[string][]byte
-	Data   []byte
-}
-
 //go:embed muxl.wasm
 var wasmBytes []byte
 
@@ -191,6 +183,7 @@ func runMuxl(ctx context.Context, args []string, input io.Reader, initCh chan []
 }
 
 func ParseMuxlEvents(r io.Reader, initCh chan []byte, segCh chan []byte) error {
+	playlistGenerator := NewPlaylistGenerator()
 	decoder := drisl.NewDecoder(r)
 
 	for {
@@ -198,6 +191,18 @@ func ParseMuxlEvents(r io.Reader, initCh chan []byte, segCh chan []byte) error {
 		err := decoder.Decode(&ev)
 		if errors.Is(err, io.EOF) {
 			break
+		}
+		err = playlistGenerator.HandleEvent(ev)
+		if err != nil {
+			return fmt.Errorf("handling event: %w", err)
+		}
+		fmt.Println(playlistGenerator.MasterPlaylist())
+		for _, x := range []string{"1", "2"} {
+			mediaPlaylist, err := playlistGenerator.MediaPlaylist(x)
+			if err != nil {
+				log.Error(context.Background(), "error generating media playlist", "error", err)
+			}
+			fmt.Println(mediaPlaylist)
 		}
 		if ev.Type == "init" {
 			initCh <- ev.Data

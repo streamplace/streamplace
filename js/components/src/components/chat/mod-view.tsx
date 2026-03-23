@@ -97,9 +97,7 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
     agent?.did &&
     ((modPermissions.canHide && message.author.did !== streamerDID) ||
       (modPermissions.canPin && message.author.did !== streamerDID) ||
-      (modPermissions.canBan &&
-        message.author.did !== agent.did &&
-        message.author.did !== streamerDID))
+      modPermissions.canBan)
   );
 
   return (
@@ -236,10 +234,13 @@ function ModViewContent({
               </Text>
             </DropdownMenuItem>
           )}
-          {modPermissions.canPin && message.author.did !== streamerDID && (
+          {modPermissions.canPin && (
             <DropdownMenuGroup key="pin-actions">
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger subMenuTitle="Pin message">
+                <DropdownMenuSubTrigger
+                  subMenuTitle="Pin message"
+                  style={{ padding: 0, margin: 0 }}
+                >
                   <Text color="primary">Pin this message</Text>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>

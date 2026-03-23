@@ -252,7 +252,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 		pin := &model.PinnedRecord{
-			RKey:          rkey.String(),
+			Uri:           aturi.String(),
 			RepoDID:       userDID,
 			PinnedMessage: rec.PinnedMessage,
 			PinnedBy:      pinnedBy,
@@ -266,7 +266,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to create pinned record: %w", err)
 		}
-		pin, err = atsync.Model.GetPinnedRecord(ctx, rkey.String())
+		pin, err = atsync.Model.GetPinnedRecord(ctx, pin.Uri)
 		if err != nil {
 			return fmt.Errorf("failed to get pinned record after we just saved it: %w", err)
 		}

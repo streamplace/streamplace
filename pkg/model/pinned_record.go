@@ -10,7 +10,7 @@ import (
 )
 
 type PinnedRecord struct {
-	RKey          string     `gorm:"primaryKey;column:rkey"`
+	Uri           string     `gorm:"primaryKey;column:uri"`
 	CID           string     `gorm:"column:cid"`
 	RepoDID       string     `json:"repoDID"              gorm:"column:repo_did"`
 	Repo          *Repo      `json:"repo,omitempty"       gorm:"foreignKey:DID;references:RepoDID"`
@@ -50,7 +50,7 @@ func (p *PinnedRecord) ToStreamplacePinnedRecordView() (*streamplace.ChatDefs_Pi
 		Cid:           p.CID,
 		IndexedAt:     p.CreatedAt.UTC().Format(time.RFC3339Nano),
 		// message, pinnedby not included, will fill in later
-		Uri: "at://" + p.RepoDID + "/place.stream.chat.pinnedRecord/" + p.RKey,
+		Uri: p.Uri,
 	}
 	return rec, nil
 }
@@ -58,9 +58,9 @@ func (m *DBModel) CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) err
 	return m.DB.Create(pin).Error
 }
 
-func (m *DBModel) GetPinnedRecord(ctx context.Context, rkey string) (*PinnedRecord, error) {
+func (m *DBModel) GetPinnedRecord(ctx context.Context, uri string) (*PinnedRecord, error) {
 	var pin PinnedRecord
-	err := m.DB.Preload("Repo").Where("rkey = ?", rkey).First(&pin).Error
+	err := m.DB.Preload("Repo").Where("uri = ?", uri).First(&pin).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -70,8 +70,8 @@ func (m *DBModel) GetPinnedRecord(ctx context.Context, rkey string) (*PinnedReco
 	return &pin, nil
 }
 
-func (m *DBModel) DeletePinnedRecord(ctx context.Context, rkey string) error {
-	return m.DB.Where("rkey = ?", rkey).Delete(&PinnedRecord{}).Error
+func (m *DBModel) DeletePinnedRecord(ctx context.Context, uri string) error {
+	return m.DB.Where("uri = ?", uri).Delete(&PinnedRecord{}).Error
 }
 
 func (m *DBModel) DeleteAllPinnedRecords(ctx context.Context, streamerDID string) error {

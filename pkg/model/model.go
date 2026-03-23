@@ -86,9 +86,9 @@ type Model interface {
 	GetUserGates(ctx context.Context, userDID string) ([]*Gate, error)
 
 	CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) error
-	DeletePinnedRecord(ctx context.Context, rkey string) error
+	DeletePinnedRecord(ctx context.Context, uri string) error
 	DeleteAllPinnedRecords(ctx context.Context, streamerDID string) error
-	GetPinnedRecord(ctx context.Context, rkey string) (*PinnedRecord, error)
+	GetPinnedRecord(ctx context.Context, uri string) (*PinnedRecord, error)
 	GetActivePinnedRecord(ctx context.Context, streamerDID string) (*PinnedRecord, error)
 
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error

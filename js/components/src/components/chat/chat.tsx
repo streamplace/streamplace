@@ -269,7 +269,6 @@ export function Chat({
   useEffect(() => {
     buttonOpacity.value = withTiming(isScrolledUp ? 1 : 0, { duration: 200 });
     buttonTranslateY.value = withTiming(isScrolledUp ? 0 : 50, {
-    buttonTranslateY.value = withTiming(isScrolledUp ? 0 : 50, {
       duration: 200,
     });
   }, [isScrolledUp]);

@@ -7,6 +7,7 @@ import {
   PlaceStreamModerationPermission,
   PlaceStreamSegment,
 } from "streamplace";
+import { ChatFilterCategory } from "../streamplace-store";
 
 export interface LivestreamState {
   profile: AppBskyActorDefs.ProfileViewBasic | null;

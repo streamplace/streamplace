@@ -25,8 +25,8 @@ interface Facet {
 
 import { useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
-import { CensoredText } from "./censored-text";
 import { BadgeDisplayRow } from "./badge";
+import { CensoredText } from "./censored-text";
 import { UserProfileCard } from "./user-profile-card";
 
 const getRgbColor = (color?: { red: number; green: number; blue: number }) =>

@@ -14,11 +14,11 @@ import frFRSettings from "../../public/locales/fr-FR/settings.json";
 import ptBRChat from "../../public/locales/pt-BR/chat.json";
 import ptBRCommon from "../../public/locales/pt-BR/common.json";
 import ptBRSettings from "../../public/locales/pt-BR/settings.json";
-import zhHantChat from "../../public/locales/zh-Hant/chat.json";
 import roROCommon from "../../public/locales/ro-RO/common.json";
 import roROSettings from "../../public/locales/ro-RO/settings.json";
 import zhHansCommon from "../../public/locales/zh-Hans/common.json";
 import zhHansSettings from "../../public/locales/zh-Hans/settings.json";
+import zhHantChat from "../../public/locales/zh-Hant/chat.json";
 import zhHantCommon from "../../public/locales/zh-Hant/common.json";
 import zhHantSettings from "../../public/locales/zh-Hant/settings.json";
 

@@ -559,6 +559,18 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// This allows moderators to see their permissions instantly without page refresh
 		go atsync.Bus.Publish(userDID, view)
 
+	case *streamplace.LiveViewerCount:
+		log.Debug(ctx, "indexing view count", "streamer", rec.Streamer, "server", rec.Server, "count", rec.Count)
+		// Check if the reporting server's DID is labeled as banned or !no-viewers
+		serverLabels, err := atsync.Model.GetActiveLabels(rec.Server)
+		if err != nil {
+			log.Error(ctx, "failed to get labels for server", "server", rec.Server, "error", err)
+		} else if IsViewerBanned(serverLabels...) {
+			log.Warn(ctx, "discarding view count from labeled server", "server", rec.Server)
+			break
+		}
+		atsync.Bus.SetFederatedViewCount(rec.Streamer, rec.Server, int(rec.Count))
+
 	case *streamplace.LiveRecommendations:
 		log.Debug(ctx, "creating recommendations", "userDID", userDID, "count", len(rec.Streamers))
 

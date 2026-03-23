@@ -203,6 +203,12 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 	defer handle.Close()
 
+	serverHandle, err := atproto.MakeServerRepo(ctx, cli, state)
+	if err != nil {
+		return err
+	}
+	defer serverHandle.Close()
+
 	jwk, err := state.EnsureJWK(ctx, "jwk")
 	if err != nil {
 		return err

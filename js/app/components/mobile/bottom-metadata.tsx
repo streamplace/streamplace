@@ -12,14 +12,51 @@ import {
   useDID,
   useLivestreamInfo,
   useLivestreamStore,
+  useTheme,
   zero,
 } from "@streamplace/components";
+import AQLink from "components/aqlink";
 import FollowButton from "components/follow-button";
 import { Image } from "expo-image";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { Linking, Pressable, View } from "react-native";
 import { KebabMenu } from "./desktop-ui/kebab";
 const { gap, px, py, colors } = zero;
+
+const ATMOCO_STREAMS = [
+  { handle: "stream1.atmosphereconf.org", label: "Great Hall" },
+  { handle: "stream2.atmosphereconf.org", label: "Performance Theatre" },
+  { handle: "stream3.atmosphereconf.org", label: "Room 2301" },
+];
+
+function AtMoCoNav({ currentHandle }: { currentHandle: string }) {
+  const z = useTheme();
+  return (
+    <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2], py[2]]}>
+      <Text>Switch streams:</Text>
+      {ATMOCO_STREAMS.map((stream) => {
+        const isActive = currentHandle === stream.handle;
+        return (
+          <AQLink
+            key={stream.handle}
+            to={{ screen: "Stream", params: { user: stream.handle } }}
+            style={[
+              zero.px[3],
+              isActive
+                ? { backgroundColor: z.theme.colors.accent }
+                : zero.borders.width.thin,
+              ,
+              zero.borders.color.gray[500],
+              zero.r.full,
+            ]}
+          >
+            <Text>{stream.label}</Text>
+          </AQLink>
+        );
+      })}
+    </View>
+  );
+}
 
 export function BottomMetadata({
   setShowChat,
@@ -152,6 +189,12 @@ export function BottomMetadata({
           )}
         </View>
       )}
+
+      {/* Atmosphere Conference inter-stream navigation. TODO: remove after conf haha */}
+      {profile?.handle &&
+        ATMOCO_STREAMS.some((s) => s.handle === profile.handle) && (
+          <AtMoCoNav currentHandle={profile.handle} />
+        )}
     </View>
   );
 }

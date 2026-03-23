@@ -8,4 +8,4 @@ license = "Apache-2.0"
 # For local development, use the path dependency:
 # muxl = { path = "../../../s2pa-muxl" }
 # To use the published git version instead, comment the line above and uncomment:
-muxl = { git = "https://github.com/streamplace/s2pa-muxl.git", rev = "5608e2d34a7fb1ef5791010330230c6899d66bb1" }
+muxl = { git = "https://github.com/streamplace/s2pa-muxl.git", rev = "5456732ab7844c7ffcba148583a08f4bf0b50dcd" }

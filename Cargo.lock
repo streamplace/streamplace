@@ -3109,7 +3109,7 @@ dependencies = [
 [[package]]
 name = "muxl"
 version = "0.1.0"
-source = "git+https://github.com/streamplace/s2pa-muxl.git?rev=5608e2d34a7fb1ef5791010330230c6899d66bb1#5608e2d34a7fb1ef5791010330230c6899d66bb1"
+source = "git+https://github.com/streamplace/s2pa-muxl.git?rev=5456732ab7844c7ffcba148583a08f4bf0b50dcd#5456732ab7844c7ffcba148583a08f4bf0b50dcd"
 dependencies = [
  "dasl",
  "mp4-atom",

@@ -64,6 +64,19 @@ func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context, cid 
 	return bytes.NewReader(data), nil
 }
 
+func (s *Server) handlePlaceStreamPlaybackGetInitSegment(ctx context.Context, did string, rkey string, track string) (io.Reader, error) {
+	mp := s.mempools.Get(did)
+	if mp == nil {
+		return nil, fmt.Errorf("no active stream for %s", did)
+	}
+
+	data := mp.TrackInitData(track)
+	if data == nil {
+		return nil, fmt.Errorf("no init segment for track %s", track)
+	}
+	return bytes.NewReader(data), nil
+}
+
 // parseSegmentCID parses a segment reference like "1/0.m4s" into trackID and segment number.
 func parseSegmentCID(ref string) (string, int, error) {
 	// Strip .m4s suffix if present

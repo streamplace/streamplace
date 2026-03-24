@@ -517,6 +517,83 @@
         }
       }
     },
+    "/xrpc/place.stream.playback.getInitSegment": {
+      "get": {
+        "summary": "Get the HLS CMAF init segment (ftyp+moov) for a specific track of a video. Returns a single-track init segment suitable for use as an EXT-X-MAP in HLS media playlists.",
+        "operationId": "place.stream.playback.getInitSegment",
+        "tags": ["place.stream.playback"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "*/*": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "VideoNotFound"
+                        },
+                        {
+                          "const": "TrackNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "did",
+            "in": "query",
+            "required": true,
+            "description": "DID of the video creator.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the video creator.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "rkey",
+            "in": "query",
+            "required": true,
+            "description": "Record key of the place.stream.video record.",
+            "schema": {
+              "type": "string",
+              "description": "Record key of the place.stream.video record."
+            }
+          },
+          {
+            "name": "track",
+            "in": "query",
+            "required": true,
+            "description": "Track ID to get the init segment for.",
+            "schema": {
+              "type": "string",
+              "description": "Track ID to get the init segment for."
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.playback.getVideoBlob": {
       "get": {
         "summary": "Fetch bytes from a video's MUXL archive. Supports HTTP Range headers for byte range requests. The node resolves byte ranges against the virtual archive file, serving data from mempool or archival storage as appropriate.",

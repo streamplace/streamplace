@@ -27,6 +27,7 @@ type Mempool struct {
 
 	catalog        *muxl.Catalog
 	initData       []byte
+	trackInits     map[string][]byte
 	tracks         map[string]*trackState
 	sortedTrackIDs []string
 	done           bool
@@ -46,7 +47,8 @@ type segment struct {
 // New creates a Mempool ready to receive events.
 func New() *Mempool {
 	return &Mempool{
-		tracks: map[string]*trackState{},
+		trackInits: map[string][]byte{},
+		tracks:     map[string]*trackState{},
 	}
 }
 
@@ -64,6 +66,9 @@ func (m *Mempool) HandleEvent(ev muxl.MuxlEvent) error {
 		}
 		m.catalog = ev.Catalog
 		m.initData = ev.Data
+		for tid, data := range ev.TrackInits {
+			m.trackInits[tid] = data
+		}
 
 		ids := []string{}
 		for _, v := range m.catalog.Video {
@@ -124,6 +129,14 @@ func (m *Mempool) InitData() []byte {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.initData
+}
+
+// TrackInitData returns the single-track init segment (ftyp+moov) for the
+// given track ID, suitable for HLS CMAF EXT-X-MAP. Returns nil if not available.
+func (m *Mempool) TrackInitData(trackID string) []byte {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.trackInits[trackID]
 }
 
 // TrackSegmentData returns the raw moof+mdat bytes for a track and segment
@@ -290,7 +303,8 @@ func (m *Mempool) MediaPlaylist(trackID string, startMs, endMs int64, did, rkey 
 	fmt.Fprintln(&b, "#EXT-X-INDEPENDENT-SEGMENTS")
 	fmt.Fprintf(&b, "#EXT-X-TARGETDURATION:%d\n", targetDuration)
 	fmt.Fprintln(&b, "#EXT-X-MEDIA-SEQUENCE:0")
-	initURI := blobBaseURL(did, rkey)
+	initURI := fmt.Sprintf("place.stream.playback.getInitSegment?did=%s&rkey=%s&track=%s",
+		url.QueryEscape(did), url.QueryEscape(rkey), url.QueryEscape(trackID))
 	fmt.Fprintf(&b, "#EXT-X-MAP:URI=%q\n", initURI)
 	fmt.Fprintln(&b)
 

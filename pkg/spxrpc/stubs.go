@@ -303,6 +303,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.multistream.deleteTarget", s.HandlePlaceStreamMultistreamDeleteTarget)
 	e.GET("/xrpc/place.stream.multistream.listTargets", s.HandlePlaceStreamMultistreamListTargets)
 	e.POST("/xrpc/place.stream.multistream.putTarget", s.HandlePlaceStreamMultistreamPutTarget)
+	e.GET("/xrpc/place.stream.playback.getInitSegment", s.HandlePlaceStreamPlaybackGetInitSegment)
 	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandlePlaceStreamPlaybackGetVideoBlob)
 	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandlePlaceStreamPlaybackGetVideoPlaylist)
 	e.POST("/xrpc/place.stream.playback.whep", s.HandlePlaceStreamPlaybackWhep)
@@ -760,6 +761,22 @@ func (s *Server) HandlePlaceStreamMultistreamPutTarget(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamPlaybackGetInitSegment(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetInitSegment")
+	defer span.End()
+	did := c.QueryParam("did")
+	rkey := c.QueryParam("rkey")
+	track := c.QueryParam("track")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handlePlaceStreamPlaybackGetInitSegment(ctx context.Context,did string,rkey string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetInitSegment(ctx, did, rkey, track)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/octet-stream", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {

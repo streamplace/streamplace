@@ -19,6 +19,7 @@ type MuxlEvent struct {
 	Type         string            `cbor:"type"`
 	Data         []byte            `cbor:"data,omitempty"`
 	Catalog      *Catalog          `cbor:"catalog,omitempty"`
+	TrackInits   map[string][]byte `cbor:"track_inits,omitempty"`
 	Tracks       map[string][]byte `cbor:"tracks,omitempty"`
 	Durations    map[string]uint64 `cbor:"durations,omitempty"`
 	SampleCounts map[string]uint32 `cbor:"sample_counts,omitempty"`

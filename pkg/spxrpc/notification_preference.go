@@ -3,8 +3,11 @@ package spxrpc
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/labstack/echo/v4"
+	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"go.opentelemetry.io/otel"
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
@@ -16,6 +19,14 @@ func (s *Server) handlePlaceStreamGraphGetNotificationPreference(ctx context.Con
 	if _, err := syntax.ParseDID(userDID); userDID == "" || err != nil {
 		return nil, fmt.Errorf("missing or invalid user DID")
 	}
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "authentication required")
+	}
+	if session.DID != userDID {
+		return nil, echo.NewHTTPError(http.StatusForbidden, "cannot access another user's notification preferences")
+	}
+
 	if _, err := syntax.ParseDID(streamerDID); streamerDID == "" || err != nil {
 		return nil, fmt.Errorf("missing or invalid streamer DID")
 	}
@@ -40,6 +51,14 @@ func (s *Server) handlePlaceStreamGraphSetNotificationPreference(ctx context.Con
 	if _, err := syntax.ParseDID(body.UserDID); body.UserDID == "" || err != nil {
 		return nil, fmt.Errorf("missing or invalid user DID")
 	}
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "authentication required")
+	}
+	if session.DID != body.UserDID {
+		return nil, echo.NewHTTPError(http.StatusForbidden, "cannot access another user's notification preferences")
+	}
+
 	if _, err := syntax.ParseDID(body.StreamerDID); body.StreamerDID == "" || err != nil {
 		return nil, fmt.Errorf("missing or invalid streamer DID")
 	}

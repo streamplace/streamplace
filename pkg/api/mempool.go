@@ -29,6 +29,9 @@ func (a *StreamplaceAPI) StartMempoolSubscriber(ctx context.Context) {
 				}
 				return
 			case notif := <-segCh:
+				if !notif.Segment.Published {
+					continue
+				}
 				streamer := notif.Segment.RepoDID
 				mp := a.MempoolManager.GetOrCreate(streamer)
 

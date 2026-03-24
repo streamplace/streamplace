@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 
+	"stream.place/streamplace/pkg/bdasl"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
@@ -29,6 +30,7 @@ type Mempool struct {
 	initData       []byte
 	trackInits     map[string][]byte
 	tracks         map[string]*trackState
+	cidIndex       map[string][]byte // CID → segment data for fast lookup
 	sortedTrackIDs []string
 	done           bool
 }
@@ -39,6 +41,7 @@ type trackState struct {
 
 type segment struct {
 	data         []byte
+	cid          string
 	durationSecs float64
 	sampleCount  uint32
 	byteLength   int
@@ -49,6 +52,7 @@ func New() *Mempool {
 	return &Mempool{
 		trackInits: map[string][]byte{},
 		tracks:     map[string]*trackState{},
+		cidIndex:   map[string][]byte{},
 	}
 }
 
@@ -99,8 +103,11 @@ func (m *Mempool) HandleEvent(ev muxl.MuxlEvent) error {
 			}
 			timescale := m.findTimescale(tid)
 			dur := float64(ev.Durations[tid]) / float64(timescale)
+			cid := bdasl.CID(data)
+			m.cidIndex[cid] = data
 			ts.segments = append(ts.segments, segment{
 				data:         data,
+				cid:          cid,
 				durationSecs: dur,
 				sampleCount:  ev.SampleCounts[tid],
 				byteLength:   len(data),
@@ -129,6 +136,13 @@ func (m *Mempool) InitData() []byte {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.initData
+}
+
+// GetByCID returns the segment data for the given BDASL CID, or nil if not found.
+func (m *Mempool) GetByCID(cid string) []byte {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.cidIndex[cid]
 }
 
 // TrackInitData returns the single-track init segment (ftyp+moov) for the
@@ -319,7 +333,7 @@ func (m *Mempool) MediaPlaylist(trackID string, startMs, endMs int64, did, rkey 
 
 	for _, s := range selected {
 		fmt.Fprintf(&b, "#EXTINF:%.6f,\n", s.seg.durationSecs)
-		fmt.Fprintf(&b, "%s\n", xrpcURL("place.stream.playback.getVideoBlob", "did", did, "rkey", rkey, "cid", fmt.Sprintf("%s/%d.m4s", trackID, s.index)))
+		fmt.Fprintf(&b, "%s\n", xrpcURL("place.stream.playback.getVideoBlob", "did", did, "rkey", rkey, "cid", s.seg.cid))
 	}
 
 	if isDone {

@@ -342,6 +342,8 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return err
 	}
 
+	a.StartMempoolSubscriber(ctx)
+
 	ctx = log.WithLogValues(ctx, "version", build.Version)
 
 	group.Go(func() error {

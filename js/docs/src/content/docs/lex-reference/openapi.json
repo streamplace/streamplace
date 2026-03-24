@@ -517,6 +517,178 @@
         }
       }
     },
+    "/xrpc/place.stream.playback.getVideoBlob": {
+      "get": {
+        "summary": "Fetch bytes from a video's MUXL archive. Supports HTTP Range headers for byte range requests. The node resolves byte ranges against the virtual archive file, serving data from mempool or archival storage as appropriate.",
+        "operationId": "place.stream.playback.getVideoBlob",
+        "tags": ["place.stream.playback"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "*/*": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "VideoNotFound"
+                        },
+                        {
+                          "const": "BlobNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "did",
+            "in": "query",
+            "required": true,
+            "description": "DID of the video creator.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the video creator.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "rkey",
+            "in": "query",
+            "required": true,
+            "description": "Record key of the place.stream.video record.",
+            "schema": {
+              "type": "string",
+              "description": "Record key of the place.stream.video record."
+            }
+          },
+          {
+            "name": "cid",
+            "in": "query",
+            "required": false,
+            "description": "Optional CID of a specific segment blob. If provided, returns the segment data directly instead of resolving from the virtual archive.",
+            "schema": {
+              "type": "string",
+              "description": "Optional CID of a specific segment blob. If provided, returns the segment data directly instead of resolving from the virtual archive.",
+              "format": "cid"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.playback.getVideoPlaylist": {
+      "get": {
+        "summary": "Get an HLS CMAF playlist for a video. Returns a master playlist if no track is specified, or a media playlist for the given track. Supports arbitrary time range queries for DVR and VOD.",
+        "operationId": "place.stream.playback.getVideoPlaylist",
+        "tags": ["place.stream.playback"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "*/*": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "VideoNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "did",
+            "in": "query",
+            "required": true,
+            "description": "DID of the video creator.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the video creator.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "rkey",
+            "in": "query",
+            "required": true,
+            "description": "Record key of the place.stream.video record.",
+            "schema": {
+              "type": "string",
+              "description": "Record key of the place.stream.video record."
+            }
+          },
+          {
+            "name": "track",
+            "in": "query",
+            "required": false,
+            "description": "Track ID for a media playlist. Omit for the master playlist.",
+            "schema": {
+              "type": "string",
+              "description": "Track ID for a media playlist. Omit for the master playlist."
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "description": "Start time in milliseconds from the beginning of the video. Defaults to 0.",
+            "schema": {
+              "type": "integer",
+              "description": "Start time in milliseconds from the beginning of the video. Defaults to 0."
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "description": "End time in milliseconds. Omit for a live EVENT playlist that extends to the present.",
+            "schema": {
+              "type": "integer",
+              "description": "End time in milliseconds. Omit for a live EVENT playlist that extends to the present."
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.playback.whep": {
       "post": {
         "summary": "Play a stream over WebRTC using WHEP.",

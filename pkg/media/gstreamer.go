@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/mempool"
 	"stream.place/streamplace/test"
 )
 
@@ -167,7 +168,7 @@ type QRData struct {
 	Now int64 `json:"now"`
 }
 
-func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
+func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner, mpm *mempool.Manager) error {
 	mainLoop := glib.NewMainLoop(glib.MainContextDefault(), false)
 
 	pipelineSlice := []string{
@@ -195,7 +196,7 @@ func (mm *MediaManager) TestSource(ctx context.Context, ms MediaSigner) error {
 		return err
 	}
 
-	signer, err := mm.SegmentAndSignElem(ctx, ms)
+	signer, err := mm.SegmentAndSignElem(ctx, ms, mpm)
 	if err != nil {
 		return err
 	}

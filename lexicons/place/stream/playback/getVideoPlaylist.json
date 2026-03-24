@@ -1,0 +1,46 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.playback.getVideoPlaylist",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get an HLS CMAF playlist for a video. Returns a master playlist if no track is specified, or a media playlist for the given track. Supports arbitrary time range queries for DVR and VOD.",
+      "parameters": {
+        "type": "params",
+        "required": ["did", "rkey"],
+        "properties": {
+          "did": {
+            "type": "string",
+            "format": "did",
+            "description": "DID of the video creator."
+          },
+          "rkey": {
+            "type": "string",
+            "description": "Record key of the place.stream.video record."
+          },
+          "track": {
+            "type": "string",
+            "description": "Track ID for a media playlist. Omit for the master playlist."
+          },
+          "start": {
+            "type": "integer",
+            "description": "Start time in milliseconds from the beginning of the video. Defaults to 0."
+          },
+          "end": {
+            "type": "integer",
+            "description": "End time in milliseconds. Omit for a live EVENT playlist that extends to the present."
+          }
+        }
+      },
+      "output": {
+        "encoding": "*/*"
+      },
+      "errors": [
+        {
+          "name": "VideoNotFound",
+          "description": "No video record found for this DID and rkey."
+        }
+      ]
+    }
+  }
+}

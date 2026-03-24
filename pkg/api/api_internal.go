@@ -257,7 +257,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			return
 		}
 
-		err = a.MediaManager.MKVIngest(context.Background(), r, mediaSigner)
+		err = a.MediaManager.MKVIngest(context.Background(), r, mediaSigner, a.MempoolManager)
 
 		if err != nil {
 			log.Log(ctx, "stream error", "error", err)
@@ -518,7 +518,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to create replay peer connection", err)
 			return
 		}
-		answer, err := a.MediaManager.WebRTCIngest(ctx, &webrtc.SessionDescription{SDP: "placeholder"}, mediaSigner, pc, make(chan error, 1))
+		answer, err := a.MediaManager.WebRTCIngest(ctx, &webrtc.SessionDescription{SDP: "placeholder"}, mediaSigner, pc, make(chan error, 1), a.MempoolManager)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to ingest web rtc", err)
 			return

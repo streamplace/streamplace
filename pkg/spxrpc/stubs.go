@@ -303,6 +303,8 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.multistream.deleteTarget", s.HandlePlaceStreamMultistreamDeleteTarget)
 	e.GET("/xrpc/place.stream.multistream.listTargets", s.HandlePlaceStreamMultistreamListTargets)
 	e.POST("/xrpc/place.stream.multistream.putTarget", s.HandlePlaceStreamMultistreamPutTarget)
+	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandlePlaceStreamPlaybackGetVideoBlob)
+	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandlePlaceStreamPlaybackGetVideoPlaylist)
 	e.POST("/xrpc/place.stream.playback.whep", s.HandlePlaceStreamPlaybackWhep)
 	e.POST("/xrpc/place.stream.server.createWebhook", s.HandlePlaceStreamServerCreateWebhook)
 	e.POST("/xrpc/place.stream.server.deleteWebhook", s.HandlePlaceStreamServerDeleteWebhook)
@@ -758,6 +760,56 @@ func (s *Server) HandlePlaceStreamMultistreamPutTarget(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetVideoBlob")
+	defer span.End()
+	cid := c.QueryParam("cid")
+	did := c.QueryParam("did")
+	rkey := c.QueryParam("rkey")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context,cid string,did string,rkey string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetVideoBlob(ctx, cid, did, rkey)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/octet-stream", out)
+}
+
+func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetVideoPlaylist")
+	defer span.End()
+	did := c.QueryParam("did")
+
+	var end *int
+	if p := c.QueryParam("end"); p != "" {
+		end_val, err := strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+		end = &end_val
+	}
+	rkey := c.QueryParam("rkey")
+
+	var start *int
+	if p := c.QueryParam("start"); p != "" {
+		start_val, err := strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+		start = &start_val
+	}
+	track := c.QueryParam("track")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context,did string,end *int,rkey string,start *int,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetVideoPlaylist(ctx, did, end, rkey, start, track)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/octet-stream", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackWhep(c echo.Context) error {

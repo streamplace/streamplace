@@ -105,6 +105,96 @@ func (c *Concatenator) Close() error {
 	return <-c.done
 }
 
+// ConcatenatorEvents is like Concatenator but delivers structured MuxlEvents
+// via a callback instead of flattened init/seg channels. This preserves the
+// catalog, per-track data, durations, and sample counts from the CBOR stream.
+type ConcatenatorEvents struct {
+	stdinWriter *io.PipeWriter
+	done        chan error
+}
+
+// NewConcatenatorEvents starts the WASM concat process in the background.
+// Write full fMP4 archives via Write(). The onEvent callback is called for
+// each structured MuxlEvent (init or segment) as they are produced.
+// Call Close() when done writing; it blocks until the WASM process finishes.
+func NewConcatenatorEvents(ctx context.Context, onEvent func(MuxlEvent) error) *ConcatenatorEvents {
+	stdinReader, stdinWriter := io.Pipe()
+	done := make(chan error, 1)
+
+	c := &ConcatenatorEvents{
+		stdinWriter: stdinWriter,
+		done:        done,
+	}
+
+	go func() {
+		err := runMuxlEvents(ctx, []string{"muxl", "concat"}, stdinReader, onEvent)
+		done <- err
+	}()
+
+	return c
+}
+
+// Write feeds a full fMP4 archive (init+segments) to the concatenator.
+func (c *ConcatenatorEvents) Write(data []byte) error {
+	_, err := c.stdinWriter.Write(data)
+	return err
+}
+
+// Close signals that no more data will be written. Blocks until the WASM
+// process finishes and all events have been delivered.
+func (c *ConcatenatorEvents) Close() error {
+	c.stdinWriter.Close()
+	return <-c.done
+}
+
+// runMuxlEvents is like runMuxl but uses ParseMuxlEventsFunc for structured output.
+func runMuxlEvents(ctx context.Context, args []string, input io.Reader, onEvent func(MuxlEvent) error) error {
+	compiledModule, err := getCompiledModule(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting compiled module: %w", err)
+	}
+
+	stdinReader, stdinWriter := io.Pipe()
+	stdoutReader, stdoutWriter := io.Pipe()
+
+	instanceID := moduleCounter.Add(1)
+	config := wazero.NewModuleConfig().
+		WithName(fmt.Sprintf("muxl-%d", instanceID)).
+		WithStdin(stdinReader).
+		WithStdout(stdoutWriter).
+		WithStderr(&logWriter{ctx: ctx, instanceID: instanceID}).
+		WithArgs(args...)
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := wasmRuntime.InstantiateModule(ctx, compiledModule, config)
+		if err != nil {
+			log.Error(ctx, "error instantiating module", "error", err)
+		}
+		stdoutWriter.Close()
+		errCh <- err
+	}()
+
+	go func() {
+		_, err := io.Copy(stdinWriter, input)
+		if err != nil {
+			log.Error(ctx, "error copying input to stdin", "error", err)
+		}
+		stdinWriter.Close()
+	}()
+
+	err = ParseMuxlEventsFunc(stdoutReader, onEvent)
+	if err != nil {
+		return fmt.Errorf("parsing events: %w", err)
+	}
+
+	if wasmErr := <-errCh; wasmErr != nil {
+		return fmt.Errorf("wasm execution: %w", wasmErr)
+	}
+
+	return nil
+}
+
 // logWriter adapts WASM stderr output to log.Debug calls, emitting one
 // log message per line.
 type logWriter struct {
@@ -182,28 +272,10 @@ func runMuxl(ctx context.Context, args []string, input io.Reader, initCh chan []
 	return nil
 }
 
+// ParseMuxlEvents decodes CBOR events and sends flattened init/segment bytes
+// on the provided channels. This is the legacy interface used by the signing pipeline.
 func ParseMuxlEvents(r io.Reader, initCh chan []byte, segCh chan []byte) error {
-	playlistGenerator := NewPlaylistGenerator()
-	decoder := drisl.NewDecoder(r)
-
-	for {
-		var ev MuxlEvent
-		err := decoder.Decode(&ev)
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		err = playlistGenerator.HandleEvent(ev)
-		if err != nil {
-			return fmt.Errorf("handling event: %w", err)
-		}
-		fmt.Println(playlistGenerator.MasterPlaylist())
-		for _, x := range []string{"1", "2"} {
-			mediaPlaylist, err := playlistGenerator.MediaPlaylist(x)
-			if err != nil {
-				log.Error(context.Background(), "error generating media playlist", "error", err)
-			}
-			fmt.Println(mediaPlaylist)
-		}
+	return ParseMuxlEventsFunc(r, func(ev MuxlEvent) error {
 		if ev.Type == "init" {
 			initCh <- ev.Data
 		} else if ev.Type == "segment" {
@@ -215,7 +287,34 @@ func ParseMuxlEvents(r io.Reader, initCh chan []byte, segCh chan []byte) error {
 		} else {
 			return fmt.Errorf("unknown event type: %s", ev.Type)
 		}
-	}
+		return nil
+	})
+}
 
+// ParseMuxlEventsFunc decodes CBOR events and calls the provided function for each one.
+// This gives the caller access to the full structured MuxlEvent including catalog,
+// per-track data, durations, and sample counts.
+func ParseMuxlEventsFunc(r io.Reader, onEvent func(MuxlEvent) error) error {
+	decoder := drisl.NewDecoder(r)
+	for {
+		var ev MuxlEvent
+		err := decoder.Decode(&ev)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("decoding event: %w", err)
+		}
+		if err := onEvent(ev); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// RunMuxlSegmenterEvents runs the MUXL segmenter and calls onEvent for each
+// structured CBOR event. Unlike RunMuxlSegmenter, this preserves the full
+// MuxlEvent including catalog, per-track data, durations, and sample counts.
+func RunMuxlSegmenterEvents(ctx context.Context, input io.Reader, onEvent func(MuxlEvent) error) error {
+	return runMuxlEvents(ctx, []string{"muxl", "segment", "-", "--stdout"}, input, onEvent)
 }

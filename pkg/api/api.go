@@ -38,6 +38,7 @@ import (
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/mempool"
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
@@ -63,6 +64,7 @@ type StreamplaceAPI struct {
 	FirebaseNotifier notifications.FirebaseNotifier
 	MediaManager     *media.MediaManager
 	MediaSigner      media.MediaSigner
+	MempoolManager   *mempool.Manager
 	XRPCServer       *spxrpc.Server
 	// not thread-safe yet
 	Aliases  map[string]string
@@ -106,6 +108,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		FirebaseNotifier: noter,
 		MediaManager:     mm,
 		MediaSigner:      ms,
+		MempoolManager:   mempool.NewManager(),
 		Aliases:          map[string]string{},
 		Bus:              bus,
 		ATSync:           atsync,

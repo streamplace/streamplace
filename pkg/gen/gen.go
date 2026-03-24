@@ -37,6 +37,10 @@ func main() {
 		streamplace.LiveTeleport{},
 		streamplace.LiveRecommendations{},
 		streamplace.LiveViewerCount{},
+		streamplace.Video{},
+		streamplace.Video_Catalog{},
+		streamplace.Video_VideoTrack{},
+		streamplace.Video_AudioTrack{},
 	); err != nil {
 		panic(err)
 	}

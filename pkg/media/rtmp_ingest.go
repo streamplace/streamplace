@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/mempool"
 )
 
 type RTMPH264Data struct {
@@ -29,7 +30,7 @@ type RTMPSession struct {
 	MediaSigner MediaSigner
 }
 
-func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner) error {
+func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner, mpm *mempool.Manager) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	pipelineSlice := []string{
@@ -42,7 +43,7 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		return fmt.Errorf("error creating RTMPIngest pipeline: %w", err)
 	}
 
-	signer, err := mm.SegmentAndSignElem(ctx, ms)
+	signer, err := mm.SegmentAndSignElem(ctx, ms, mpm)
 	if err != nil {
 		return err
 	}

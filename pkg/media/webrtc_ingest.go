@@ -12,11 +12,12 @@ import (
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/mempool"
 	"stream.place/streamplace/pkg/rtcrec"
 )
 
 // This function remains in scope for the duration of a single users' playback
-func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionDescription, signer MediaSigner, peerConnection rtcrec.PeerConnection, done chan error) (*webrtc.SessionDescription, error) {
+func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionDescription, signer MediaSigner, peerConnection rtcrec.PeerConnection, done chan error, mpm *mempool.Manager) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
@@ -93,7 +94,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	gatherComplete := rtcrec.GatheringCompletePromise(peerConnection)
 
 	ctx, cancel := context.WithCancel(ctx)
-	signerElem, err := mm.SegmentAndSignElem(ctx, signer)
+	signerElem, err := mm.SegmentAndSignElem(ctx, signer, mpm)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed create signer element: %w", err)

@@ -168,13 +168,23 @@ func (m *Mempool) SegmentCount(trackID string) int {
 	return 0
 }
 
-// xrpcURL builds an XRPC URL with properly encoded query parameters.
+// xrpcURL builds an XRPC URL with query parameters.
+// Parameters are appended in order (not sorted) so the last param
+// controls the URL "extension" visible to HLS players.
 func xrpcURL(method string, params ...string) string {
-	v := url.Values{}
+	var b strings.Builder
+	b.WriteString(method)
 	for i := 0; i+1 < len(params); i += 2 {
-		v.Set(params[i], params[i+1])
+		if i == 0 {
+			b.WriteByte('?')
+		} else {
+			b.WriteByte('&')
+		}
+		b.WriteString(url.PathEscape(params[i]))
+		b.WriteByte('=')
+		b.WriteString(params[i+1])
 	}
-	return method + "?" + v.Encode()
+	return b.String()
 }
 
 // MasterPlaylist returns the HLS master playlist with URIs expressed as

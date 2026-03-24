@@ -23,14 +23,13 @@ func (a *StreamplaceAPI) StartMempoolSubscriber(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
-				// Clean up all concatenators
-				for _, c := range concats {
-					c.Close()
-				}
 				return
 			case notif := <-segCh:
 				if !notif.Segment.Published {
 					continue
+				}
+				if ctx.Err() != nil {
+					return
 				}
 				streamer := notif.Segment.RepoDID
 				mp := a.MempoolManager.GetOrCreate(streamer)
@@ -46,6 +45,9 @@ func (a *StreamplaceAPI) StartMempoolSubscriber(ctx context.Context) {
 
 				// Feed the signed segment (full fMP4 with init+data) to the concatenator
 				if err := concat.Write(notif.Data); err != nil {
+					if ctx.Err() != nil {
+						return
+					}
 					log.Error(ctx, "mempool: error writing to concatenator", "error", err, "streamer", streamer)
 				}
 			}

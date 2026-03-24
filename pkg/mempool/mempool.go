@@ -333,7 +333,7 @@ func (m *Mempool) MediaPlaylist(trackID string, startMs, endMs int64, did, rkey 
 
 	for _, s := range selected {
 		fmt.Fprintf(&b, "#EXTINF:%.6f,\n", s.seg.durationSecs)
-		fmt.Fprintf(&b, "%s\n", xrpcURL("place.stream.playback.getVideoBlob", "did", did, "rkey", rkey, "cid", s.seg.cid))
+		fmt.Fprintf(&b, "%s.m4s\n", xrpcURL("place.stream.playback.getVideoBlob", "did", did, "rkey", rkey, "cid", s.seg.cid))
 	}
 
 	if isDone {

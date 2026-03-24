@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 )
 
 func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, did string, end *int, rkey string, start *int, track string) (io.Reader, error) {
@@ -43,6 +44,9 @@ func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context, cid 
 	if cid == "" {
 		return nil, fmt.Errorf("cid parameter required")
 	}
+
+	// Strip .m4s suffix appended for HLS player file extension sniffing
+	cid = strings.TrimSuffix(cid, ".m4s")
 
 	// Look up segment by BDASL CID
 	data := mp.GetByCID(cid)

@@ -7,12 +7,15 @@
 package mempool
 
 import (
+	"context"
 	"fmt"
 	"math"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
 
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
 
@@ -55,6 +58,7 @@ func (m *Mempool) HandleEvent(ev muxl.MuxlEvent) error {
 
 	switch ev.Type {
 	case "init":
+		log.Warn(context.Background(), "init event")
 		if ev.Catalog == nil {
 			return fmt.Errorf("init event missing catalog")
 		}
@@ -78,6 +82,7 @@ func (m *Mempool) HandleEvent(ev muxl.MuxlEvent) error {
 		}
 
 	case "segment":
+		log.Warn(context.Background(), "segment event")
 		if m.catalog == nil {
 			return fmt.Errorf("segment event before init")
 		}
@@ -150,8 +155,18 @@ func (m *Mempool) SegmentCount(trackID string) int {
 	return 0
 }
 
-// MasterPlaylist returns the HLS master playlist.
-func (m *Mempool) MasterPlaylist() string {
+// playlistBaseURL returns the XRPC base path for playlist and blob requests.
+func playlistBaseURL(did, rkey string) string {
+	return fmt.Sprintf("place.stream.playback.getVideoPlaylist?did=%s&rkey=%s", url.QueryEscape(did), url.QueryEscape(rkey))
+}
+
+func blobBaseURL(did, rkey string) string {
+	return fmt.Sprintf("place.stream.playback.getVideoBlob?did=%s&rkey=%s", url.QueryEscape(did), url.QueryEscape(rkey))
+}
+
+// MasterPlaylist returns the HLS master playlist with URIs expressed as
+// XRPC calls to getVideoPlaylist and getVideoBlob.
+func (m *Mempool) MasterPlaylist(did, rkey string) string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -166,8 +181,9 @@ func (m *Mempool) MasterPlaylist() string {
 
 	for rendName, audio := range m.catalog.Audio {
 		tid := fmt.Sprintf("%d", audio.TrackID)
+		uri := fmt.Sprintf("%s&track=%s", playlistBaseURL(did, rkey), tid)
 		fmt.Fprintf(&b, "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=%q,DEFAULT=YES,AUTOSELECT=YES,CHANNELS=%q,URI=%q\n",
-			rendName, fmt.Sprintf("%d", audio.NumberOfChannels), fmt.Sprintf("audio-%s.m3u8", tid))
+			rendName, fmt.Sprintf("%d", audio.NumberOfChannels), uri)
 	}
 	fmt.Fprintln(&b)
 
@@ -198,7 +214,7 @@ func (m *Mempool) MasterPlaylist() string {
 
 		fmt.Fprintf(&b, "#EXT-X-STREAM-INF:AUDIO=\"audio\",AVERAGE-BANDWIDTH=%d,CODECS=%q,RESOLUTION=%dx%d,FRAME-RATE=%.3f\n",
 			avgBandwidth, codecs, video.CodedWidth, video.CodedHeight, frameRate)
-		fmt.Fprintf(&b, "video-%s.m3u8\n", tid)
+		fmt.Fprintf(&b, "%s&track=%s\n", playlistBaseURL(did, rkey), tid)
 	}
 
 	return b.String()
@@ -207,7 +223,7 @@ func (m *Mempool) MasterPlaylist() string {
 // MediaPlaylist returns an HLS media playlist for a track. If endMs <= 0,
 // produces an EVENT playlist (live DVR). Otherwise produces a VOD playlist
 // covering the requested time range.
-func (m *Mempool) MediaPlaylist(trackID string, startMs, endMs int64) (string, error) {
+func (m *Mempool) MediaPlaylist(trackID string, startMs, endMs int64, did, rkey string) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -274,12 +290,13 @@ func (m *Mempool) MediaPlaylist(trackID string, startMs, endMs int64) (string, e
 	fmt.Fprintln(&b, "#EXT-X-INDEPENDENT-SEGMENTS")
 	fmt.Fprintf(&b, "#EXT-X-TARGETDURATION:%d\n", targetDuration)
 	fmt.Fprintln(&b, "#EXT-X-MEDIA-SEQUENCE:0")
-	fmt.Fprintf(&b, "#EXT-X-MAP:URI=%q\n", "init.mp4")
+	initURI := blobBaseURL(did, rkey)
+	fmt.Fprintf(&b, "#EXT-X-MAP:URI=%q\n", initURI)
 	fmt.Fprintln(&b)
 
 	for _, s := range selected {
 		fmt.Fprintf(&b, "#EXTINF:%.6f,\n", s.seg.durationSecs)
-		fmt.Fprintf(&b, "%s/%d.m4s\n", trackID, s.index)
+		fmt.Fprintf(&b, "%s&cid=%s/%d.m4s\n", blobBaseURL(did, rkey), trackID, s.index)
 	}
 
 	if isDone {

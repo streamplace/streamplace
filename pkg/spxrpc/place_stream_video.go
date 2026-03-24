@@ -16,7 +16,7 @@ func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, 
 
 	// Master playlist if no track specified
 	if track == "" {
-		return bytes.NewReader([]byte(mp.MasterPlaylist())), nil
+		return bytes.NewReader([]byte(mp.MasterPlaylist(did, rkey))), nil
 	}
 
 	// Media playlist for a specific track
@@ -28,7 +28,7 @@ func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, 
 		endMs = int64(*end)
 	}
 
-	playlist, err := mp.MediaPlaylist(track, startMs, endMs)
+	playlist, err := mp.MediaPlaylist(track, startMs, endMs, did, rkey)
 	if err != nil {
 		return nil, err
 	}

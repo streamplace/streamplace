@@ -463,7 +463,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		cli.AllowedStreams = append(cli.AllowedStreams, did)
 		a.Aliases["self-test"] = did
 		group.Go(func() error {
-			return mm.TestSource(ctx, testMediaSigner, a.MempoolManager)
+			return mm.TestSource(ctx, testMediaSigner)
 		})
 
 		// Start a test stream that will run intermittently
@@ -496,7 +496,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 				intermittentCtx, cancel := context.WithCancel(ctx)
 				done := make(chan struct{})
 				go func() {
-					_ = mm.TestSource(intermittentCtx, intermittentMediaSigner, a.MempoolManager)
+					_ = mm.TestSource(intermittentCtx, intermittentMediaSigner)
 					close(done)
 				}()
 				// Stream ON for 15 seconds

@@ -11,11 +11,10 @@ import (
 	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/mempool"
 )
 
 // ingest a H264+AAC MKV stream (prolly from an RTMP server)
-func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms MediaSigner, mpm *mempool.Manager) error {
+func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms MediaSigner) error {
 	shouldRecord, err := mm.shouldRecord(ctx, ms.Streamer())
 	if err != nil {
 		return err
@@ -59,7 +58,7 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 		return err
 	}
 
-	signer, err := mm.SegmentAndSignElem(ctx, ms, mpm)
+	signer, err := mm.SegmentAndSignElem(ctx, ms)
 	if err != nil {
 		return err
 	}

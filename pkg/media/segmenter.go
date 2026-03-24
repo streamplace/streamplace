@@ -13,7 +13,6 @@ import (
 	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/mempool"
 )
 
 // For testing. Normally,  We don't want to stop the pipeline upon a
@@ -179,28 +178,27 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 	return elem, nil
 }
 
-func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner, mpm *mempool.Manager) (*gst.Element, error) {
-	mp := mpm.GetOrCreate(ms.Streamer())
-	return MuxlSegmentElem(ctx, mm.cli, ms.Streamer(), false, mp, func(ctx context.Context, bs []byte, now int64) ([]byte, error) {
+func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) (*gst.Element, error) {
+	return MuxlSegmentElem(ctx, mm.cli, ms.Streamer(), false, func(ctx context.Context, bs []byte, now int64) error {
 		if mm.cli.SmearAudio {
 			smearedBuf := &bytes.Buffer{}
 			err := RewriteAudioTimestamps(ctx, mm.cli, bytes.NewReader(bs), smearedBuf, true)
 			if err != nil {
-				return nil, fmt.Errorf("error smearing audio timestamps: %w", err)
+				return fmt.Errorf("error smearing audio timestamps: %w", err)
 			}
 			bs = smearedBuf.Bytes()
 		}
 		signedBs, err := ms.SignMP4(ctx, bytes.NewReader(bs), now)
 		if err != nil {
-			return nil, fmt.Errorf("error calling SignMP4: %w", err)
+			return fmt.Errorf("error calling SignMP4: %w", err)
 		}
 		log.Debug(ctx, "signed segment", "size", len(signedBs))
 		err = mm.ValidateMP4(ctx, bytes.NewReader(signedBs), true)
 		if err != nil {
 			mm.cli.DumpDebugSegment(ctx, "just-signed-segment.mp4", bytes.NewReader(signedBs))
-			return nil, fmt.Errorf("error validating just-signed segment: %w", err)
+			return fmt.Errorf("error validating just-signed segment: %w", err)
 		}
-		return signedBs, nil
+		return nil
 	})
 }
 

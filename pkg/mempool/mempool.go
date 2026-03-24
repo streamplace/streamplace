@@ -60,7 +60,7 @@ func (m *Mempool) HandleEvent(ev muxl.MuxlEvent) error {
 
 	switch ev.Type {
 	case "init":
-		log.Warn(context.Background(), "init event")
+		log.Debug(context.Background(), "init event")
 		if ev.Catalog == nil {
 			return fmt.Errorf("init event missing catalog")
 		}
@@ -87,7 +87,7 @@ func (m *Mempool) HandleEvent(ev muxl.MuxlEvent) error {
 		}
 
 	case "segment":
-		log.Warn(context.Background(), "segment event")
+		log.Debug(context.Background(), "segment event")
 		if m.catalog == nil {
 			return fmt.Errorf("segment event before init")
 		}

@@ -27,7 +27,7 @@ Get an HLS CMAF playlist for a video. Returns a master playlist if no track is s
 
 **Output:**
 
-- **Encoding:** `*/*`
+- **Encoding:** `application/vnd.apple.mpegurl`
 - **Schema:**
 
 _Schema not defined._
@@ -75,7 +75,7 @@ _Schema not defined._
         }
       },
       "output": {
-        "encoding": "*/*"
+        "encoding": "application/vnd.apple.mpegurl"
       },
       "errors": [
         {

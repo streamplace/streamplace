@@ -25,7 +25,7 @@ Get the HLS CMAF init segment (ftyp+moov) for a specific track of a video. Retur
 
 **Output:**
 
-- **Encoding:** `*/*`
+- **Encoding:** `video/mp4`
 - **Schema:**
 
 _Schema not defined._
@@ -66,7 +66,7 @@ _Schema not defined._
         }
       },
       "output": {
-        "encoding": "*/*"
+        "encoding": "video/mp4"
       },
       "errors": [
         {

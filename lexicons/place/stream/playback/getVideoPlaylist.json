@@ -33,7 +33,7 @@
         }
       },
       "output": {
-        "encoding": "*/*"
+        "encoding": "application/vnd.apple.mpegurl"
       },
       "errors": [
         {

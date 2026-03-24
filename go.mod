@@ -8,7 +8,7 @@ replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.4
 
 replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4
 
-replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507
+replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0-20260324203207-e91fb00c33c9
 
 tool github.com/bluesky-social/indigo/cmd/lexgen
 

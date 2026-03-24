@@ -776,7 +776,7 @@ func (s *Server) HandlePlaceStreamPlaybackGetInitSegment(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "video/mp4", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
@@ -792,7 +792,7 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "video/mp4", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error {
@@ -826,7 +826,7 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "application/vnd.apple.mpegurl", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackWhep(c echo.Context) error {

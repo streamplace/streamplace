@@ -526,7 +526,7 @@
           "200": {
             "description": "Success",
             "content": {
-              "*/*": {
+              "video/mp4": {
                 "schema": {}
               }
             }
@@ -603,7 +603,7 @@
           "200": {
             "description": "Success",
             "content": {
-              "*/*": {
+              "video/mp4": {
                 "schema": {}
               }
             }
@@ -681,7 +681,7 @@
           "200": {
             "description": "Success",
             "content": {
-              "*/*": {
+              "application/vnd.apple.mpegurl": {
                 "schema": {}
               }
             }

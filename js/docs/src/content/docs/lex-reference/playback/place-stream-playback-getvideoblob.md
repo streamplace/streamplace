@@ -25,7 +25,7 @@ Fetch bytes from a video's MUXL archive. Supports HTTP Range headers for byte ra
 
 **Output:**
 
-- **Encoding:** `*/*`
+- **Encoding:** `video/mp4`
 - **Schema:**
 
 _Schema not defined._
@@ -67,7 +67,7 @@ _Schema not defined._
         }
       },
       "output": {
-        "encoding": "*/*"
+        "encoding": "video/mp4"
       },
       "errors": [
         {

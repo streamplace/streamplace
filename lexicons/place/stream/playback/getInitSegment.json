@@ -25,7 +25,7 @@
         }
       },
       "output": {
-        "encoding": "*/*"
+        "encoding": "video/mp4"
       },
       "errors": [
         {

@@ -168,13 +168,13 @@ func (m *Mempool) SegmentCount(trackID string) int {
 	return 0
 }
 
-// playlistBaseURL returns the XRPC base path for playlist and blob requests.
-func playlistBaseURL(did, rkey string) string {
-	return fmt.Sprintf("place.stream.playback.getVideoPlaylist?did=%s&rkey=%s", url.QueryEscape(did), url.QueryEscape(rkey))
-}
-
-func blobBaseURL(did, rkey string) string {
-	return fmt.Sprintf("place.stream.playback.getVideoBlob?did=%s&rkey=%s", url.QueryEscape(did), url.QueryEscape(rkey))
+// xrpcURL builds an XRPC URL with properly encoded query parameters.
+func xrpcURL(method string, params ...string) string {
+	v := url.Values{}
+	for i := 0; i+1 < len(params); i += 2 {
+		v.Set(params[i], params[i+1])
+	}
+	return method + "?" + v.Encode()
 }
 
 // MasterPlaylist returns the HLS master playlist with URIs expressed as
@@ -194,7 +194,7 @@ func (m *Mempool) MasterPlaylist(did, rkey string) string {
 
 	for rendName, audio := range m.catalog.Audio {
 		tid := fmt.Sprintf("%d", audio.TrackID)
-		uri := fmt.Sprintf("%s&track=%s", playlistBaseURL(did, rkey), tid)
+		uri := xrpcURL("place.stream.playback.getVideoPlaylist", "did", did, "rkey", rkey, "track", tid)
 		fmt.Fprintf(&b, "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=%q,DEFAULT=YES,AUTOSELECT=YES,CHANNELS=%q,URI=%q\n",
 			rendName, fmt.Sprintf("%d", audio.NumberOfChannels), uri)
 	}
@@ -225,9 +225,9 @@ func (m *Mempool) MasterPlaylist(did, rkey string) string {
 			codecs += "," + audio.Codec
 		}
 
-		fmt.Fprintf(&b, "#EXT-X-STREAM-INF:AUDIO=\"audio\",AVERAGE-BANDWIDTH=%d,CODECS=%q,RESOLUTION=%dx%d,FRAME-RATE=%.3f\n",
-			avgBandwidth, codecs, video.CodedWidth, video.CodedHeight, frameRate)
-		fmt.Fprintf(&b, "%s&track=%s\n", playlistBaseURL(did, rkey), tid)
+		fmt.Fprintf(&b, "#EXT-X-STREAM-INF:AUDIO=\"audio\",BANDWIDTH=%d,AVERAGE-BANDWIDTH=%d,CODECS=%q,RESOLUTION=%dx%d,FRAME-RATE=%.3f\n",
+			avgBandwidth, avgBandwidth, codecs, video.CodedWidth, video.CodedHeight, frameRate)
+		fmt.Fprintf(&b, "%s\n", xrpcURL("place.stream.playback.getVideoPlaylist", "did", did, "rkey", rkey, "track", tid))
 	}
 
 	return b.String()
@@ -303,14 +303,13 @@ func (m *Mempool) MediaPlaylist(trackID string, startMs, endMs int64, did, rkey 
 	fmt.Fprintln(&b, "#EXT-X-INDEPENDENT-SEGMENTS")
 	fmt.Fprintf(&b, "#EXT-X-TARGETDURATION:%d\n", targetDuration)
 	fmt.Fprintln(&b, "#EXT-X-MEDIA-SEQUENCE:0")
-	initURI := fmt.Sprintf("place.stream.playback.getInitSegment?did=%s&rkey=%s&track=%s",
-		url.QueryEscape(did), url.QueryEscape(rkey), url.QueryEscape(trackID))
+	initURI := xrpcURL("place.stream.playback.getInitSegment", "did", did, "rkey", rkey, "track", trackID)
 	fmt.Fprintf(&b, "#EXT-X-MAP:URI=%q\n", initURI)
 	fmt.Fprintln(&b)
 
 	for _, s := range selected {
 		fmt.Fprintf(&b, "#EXTINF:%.6f,\n", s.seg.durationSecs)
-		fmt.Fprintf(&b, "%s&cid=%s/%d.m4s\n", blobBaseURL(did, rkey), trackID, s.index)
+		fmt.Fprintf(&b, "%s\n", xrpcURL("place.stream.playback.getVideoBlob", "did", did, "rkey", rkey, "cid", fmt.Sprintf("%s/%d.m4s", trackID, s.index)))
 	}
 
 	if isDone {

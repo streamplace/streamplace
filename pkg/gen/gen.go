@@ -41,6 +41,10 @@ func main() {
 		streamplace.Video_Catalog{},
 		streamplace.Video_VideoTrack{},
 		streamplace.Video_AudioTrack{},
+		streamplace.MuxlCatalog{},
+		streamplace.MuxlCatalog_TrackInit{},
+		streamplace.MuxlSegment{},
+		streamplace.MuxlSegment_TrackSegment{},
 	); err != nil {
 		panic(err)
 	}

@@ -7705,3 +7705,935 @@ func (t *Video_AudioTrack) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
+func (t *MuxlCatalog) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{165}); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 1000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.muxl.catalog"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("place.stream.muxl.catalog")); err != nil {
+		return err
+	}
+
+	// t.Video (atproto.RepoStrongRef) (struct)
+	if len("video") > 1000000 {
+		return xerrors.Errorf("Value in field \"video\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("video"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("video")); err != nil {
+		return err
+	}
+
+	if err := t.Video.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.Catalog (streamplace.Video_Catalog) (struct)
+	if len("catalog") > 1000000 {
+		return xerrors.Errorf("Value in field \"catalog\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("catalog"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("catalog")); err != nil {
+		return err
+	}
+
+	if err := t.Catalog.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.TrackInits ([]*streamplace.MuxlCatalog_TrackInit) (slice)
+	if len("trackInits") > 1000000 {
+		return xerrors.Errorf("Value in field \"trackInits\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("trackInits"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("trackInits")); err != nil {
+		return err
+	}
+
+	if len(t.TrackInits) > 8192 {
+		return xerrors.Errorf("Slice value in field t.TrackInits was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.TrackInits))); err != nil {
+		return err
+	}
+	for _, v := range t.TrackInits {
+		if err := v.MarshalCBOR(cw); err != nil {
+			return err
+		}
+
+	}
+
+	// t.InitSegment (util.LexBlob) (struct)
+	if len("initSegment") > 1000000 {
+		return xerrors.Errorf("Value in field \"initSegment\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("initSegment"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("initSegment")); err != nil {
+		return err
+	}
+
+	if err := t.InitSegment.MarshalCBOR(cw); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *MuxlCatalog) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = MuxlCatalog{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("MuxlCatalog: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 11)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Video (atproto.RepoStrongRef) (struct)
+		case "video":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Video = new(atproto.RepoStrongRef)
+					if err := t.Video.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Video pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Catalog (streamplace.Video_Catalog) (struct)
+		case "catalog":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Catalog = new(Video_Catalog)
+					if err := t.Catalog.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Catalog pointer: %w", err)
+					}
+				}
+
+			}
+			// t.TrackInits ([]*streamplace.MuxlCatalog_TrackInit) (slice)
+		case "trackInits":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.TrackInits: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.TrackInits = make([]*MuxlCatalog_TrackInit, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.TrackInits[i] = new(MuxlCatalog_TrackInit)
+							if err := t.TrackInits[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.TrackInits[i] pointer: %w", err)
+							}
+						}
+
+					}
+
+				}
+			}
+			// t.InitSegment (util.LexBlob) (struct)
+		case "initSegment":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.InitSegment = new(util.LexBlob)
+					if err := t.InitSegment.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.InitSegment pointer: %w", err)
+					}
+				}
+
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *MuxlCatalog_TrackInit) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.Data (util.LexBlob) (struct)
+	if len("data") > 1000000 {
+		return xerrors.Errorf("Value in field \"data\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("data"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("data")); err != nil {
+		return err
+	}
+
+	if err := t.Data.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.TrackId (int64) (int64)
+	if len("trackId") > 1000000 {
+		return xerrors.Errorf("Value in field \"trackId\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("trackId"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("trackId")); err != nil {
+		return err
+	}
+
+	if t.TrackId >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.TrackId)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.TrackId-1)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *MuxlCatalog_TrackInit) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = MuxlCatalog_TrackInit{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("MuxlCatalog_TrackInit: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 7)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Data (util.LexBlob) (struct)
+		case "data":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Data = new(util.LexBlob)
+					if err := t.Data.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Data pointer: %w", err)
+					}
+				}
+
+			}
+			// t.TrackId (int64) (int64)
+		case "trackId":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.TrackId = int64(extraI)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *MuxlSegment) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 1000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.muxl.segment"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("place.stream.muxl.segment")); err != nil {
+		return err
+	}
+
+	// t.Tracks ([]*streamplace.MuxlSegment_TrackSegment) (slice)
+	if len("tracks") > 1000000 {
+		return xerrors.Errorf("Value in field \"tracks\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("tracks"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("tracks")); err != nil {
+		return err
+	}
+
+	if len(t.Tracks) > 8192 {
+		return xerrors.Errorf("Slice value in field t.Tracks was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Tracks))); err != nil {
+		return err
+	}
+	for _, v := range t.Tracks {
+		if err := v.MarshalCBOR(cw); err != nil {
+			return err
+		}
+
+	}
+
+	// t.Catalog (atproto.RepoStrongRef) (struct)
+	if len("catalog") > 1000000 {
+		return xerrors.Errorf("Value in field \"catalog\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("catalog"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("catalog")); err != nil {
+		return err
+	}
+
+	if err := t.Catalog.MarshalCBOR(cw); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *MuxlSegment) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = MuxlSegment{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("MuxlSegment: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 7)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Tracks ([]*streamplace.MuxlSegment_TrackSegment) (slice)
+		case "tracks":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.Tracks: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Tracks = make([]*MuxlSegment_TrackSegment, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Tracks[i] = new(MuxlSegment_TrackSegment)
+							if err := t.Tracks[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Tracks[i] pointer: %w", err)
+							}
+						}
+
+					}
+
+				}
+			}
+			// t.Catalog (atproto.RepoStrongRef) (struct)
+		case "catalog":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Catalog = new(atproto.RepoStrongRef)
+					if err := t.Catalog.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Catalog pointer: %w", err)
+					}
+				}
+
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *MuxlSegment_TrackSegment) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{165}); err != nil {
+		return err
+	}
+
+	// t.Data (util.LexBlob) (struct)
+	if len("data") > 1000000 {
+		return xerrors.Errorf("Value in field \"data\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("data"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("data")); err != nil {
+		return err
+	}
+
+	if err := t.Data.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.TrackId (int64) (int64)
+	if len("trackId") > 1000000 {
+		return xerrors.Errorf("Value in field \"trackId\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("trackId"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("trackId")); err != nil {
+		return err
+	}
+
+	if t.TrackId >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.TrackId)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.TrackId-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.SampleCount (int64) (int64)
+	if len("sampleCount") > 1000000 {
+		return xerrors.Errorf("Value in field \"sampleCount\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("sampleCount"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("sampleCount")); err != nil {
+		return err
+	}
+
+	if t.SampleCount >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.SampleCount)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.SampleCount-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.DurationTicks (int64) (int64)
+	if len("durationTicks") > 1000000 {
+		return xerrors.Errorf("Value in field \"durationTicks\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("durationTicks"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("durationTicks")); err != nil {
+		return err
+	}
+
+	if t.DurationTicks >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.DurationTicks)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.DurationTicks-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.SequenceNumber (int64) (int64)
+	if len("sequenceNumber") > 1000000 {
+		return xerrors.Errorf("Value in field \"sequenceNumber\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("sequenceNumber"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("sequenceNumber")); err != nil {
+		return err
+	}
+
+	if t.SequenceNumber >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.SequenceNumber)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.SequenceNumber-1)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *MuxlSegment_TrackSegment) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = MuxlSegment_TrackSegment{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("MuxlSegment_TrackSegment: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 14)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Data (util.LexBlob) (struct)
+		case "data":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Data = new(util.LexBlob)
+					if err := t.Data.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Data pointer: %w", err)
+					}
+				}
+
+			}
+			// t.TrackId (int64) (int64)
+		case "trackId":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.TrackId = int64(extraI)
+			}
+			// t.SampleCount (int64) (int64)
+		case "sampleCount":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.SampleCount = int64(extraI)
+			}
+			// t.DurationTicks (int64) (int64)
+		case "durationTicks":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.DurationTicks = int64(extraI)
+			}
+			// t.SequenceNumber (int64) (int64)
+		case "sequenceNumber":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.SequenceNumber = int64(extraI)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}

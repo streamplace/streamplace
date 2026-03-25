@@ -68,4 +68,3 @@ func (s *Server) handlePlaceStreamPlaybackGetInitSegment(ctx context.Context, di
 	}
 	return bytes.NewReader(data), nil
 }
-

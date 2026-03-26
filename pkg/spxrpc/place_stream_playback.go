@@ -10,10 +10,18 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	placestream "stream.place/streamplace/pkg/streamplace"
 	"github.com/pion/webrtc/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/constants"
 )
+
+func (s *Server) handlePlaceStreamPlaybackGetPlaybackServer(ctx context.Context, stream string) (*placestream.PlaybackGetPlaybackServer_Output, error) {
+	addr := strings.TrimPrefix(s.cli.ServerDID(), "did:web:")
+	return &placestream.PlaybackGetPlaybackServer_Output{
+		Servers: []string{addr},
+	}, nil
+}
 
 func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition string, streamer string, r io.Reader, _contentType string) (io.Reader, error) {
 	if alias, ok := s.aliases[streamer]; ok {

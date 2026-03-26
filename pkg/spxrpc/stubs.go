@@ -305,6 +305,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.multistream.deleteTarget", s.HandlePlaceStreamMultistreamDeleteTarget)
 	e.GET("/xrpc/place.stream.multistream.listTargets", s.HandlePlaceStreamMultistreamListTargets)
 	e.POST("/xrpc/place.stream.multistream.putTarget", s.HandlePlaceStreamMultistreamPutTarget)
+	e.GET("/xrpc/place.stream.playback.getPlaybackServer", s.HandlePlaceStreamPlaybackGetPlaybackServer)
 	e.POST("/xrpc/place.stream.playback.whep", s.HandlePlaceStreamPlaybackWhep)
 	e.POST("/xrpc/place.stream.server.createWebhook", s.HandlePlaceStreamServerCreateWebhook)
 	e.POST("/xrpc/place.stream.server.deleteWebhook", s.HandlePlaceStreamServerDeleteWebhook)
@@ -792,6 +793,20 @@ func (s *Server) HandlePlaceStreamMultistreamPutTarget(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamMultistreamPutTarget(ctx context.Context,body *placestream.MultistreamPutTarget_Input) (*placestream.MultistreamDefs_TargetView, error)
 	out, handleErr = s.handlePlaceStreamMultistreamPutTarget(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamPlaybackGetPlaybackServer(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetPlaybackServer")
+	defer span.End()
+	stream := c.QueryParam("stream")
+	var out *placestream.PlaybackGetPlaybackServer_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamPlaybackGetPlaybackServer(ctx context.Context,stream string) (*placestream.PlaybackGetPlaybackServer_Output, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetPlaybackServer(ctx, stream)
 	if handleErr != nil {
 		return handleErr
 	}

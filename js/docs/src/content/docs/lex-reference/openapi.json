@@ -979,6 +979,96 @@
         }
       }
     },
+    "/xrpc/place.stream.moderation.createPin": {
+      "post": {
+        "summary": "Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. Creates a place.stream.chat.pinnedRecord in the streamer's repo, replacing any existing pin.",
+        "operationId": "place.stream.moderation.createPin",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "The AT-URI of the created pinned record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "The CID of the created pinned record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "messageUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the chat message to pin.",
+                    "format": "uri"
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "description": "Optional expiration time for this pin.",
+                    "format": "date-time"
+                  }
+                },
+                "required": ["streamer", "messageUri"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.moderation.deleteBlock": {
       "post": {
         "summary": "Delete a block (unban) on behalf of a streamer. Requires 'ban' permission. Deletes an app.bsky.graph.block record from the streamer's repository.",
@@ -1119,6 +1209,79 @@
                   }
                 },
                 "required": ["streamer", "gateUri"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.deletePin": {
+      "post": {
+        "summary": "Unpin a pinned chat message on behalf of a streamer. Requires 'message.pin' permission. Deletes the place.stream.chat.pinnedRecord from the streamer's repo.",
+        "operationId": "place.stream.moderation.deletePin",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "pinUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the pinned record to delete.",
+                    "format": "uri"
+                  }
+                },
+                "required": ["streamer", "pinUri"]
               }
             }
           }

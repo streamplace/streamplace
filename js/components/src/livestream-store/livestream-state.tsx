@@ -2,6 +2,7 @@ import { AppBskyActorDefs } from "@atproto/api";
 import {
   ChatMessageViewHydrated,
   LivestreamViewHydrated,
+  PinnedRecordViewHydrated,
   PlaceStreamDefs,
   PlaceStreamLiveTeleport,
   PlaceStreamModerationPermission,
@@ -28,6 +29,7 @@ export interface LivestreamState {
   setActiveTeleportUri: (uri: string | null) => void;
   websocketConnected: boolean;
   hasReceivedSegment: boolean;
+  pinnedComment: PinnedRecordViewHydrated | null;
   moderationPermissions: PlaceStreamModerationPermission.Record[];
   setModerationPermissions: (
     permissions: PlaceStreamModerationPermission.Record[],

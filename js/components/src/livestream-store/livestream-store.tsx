@@ -27,6 +27,7 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     setActiveTeleportUri: (uri) => set({ activeTeleportUri: uri }),
     websocketConnected: false,
     hasReceivedSegment: false,
+    pinnedComment: null,
     moderationPermissions: [],
     setModerationPermissions: (perms) => set({ moderationPermissions: perms }),
     localLivestreamURI: null,
@@ -59,6 +60,9 @@ export const useHandleWebsocketMessages = () => {
 };
 
 export const useChat = () => useLivestreamStore((x) => x.chat);
+
+export const usePinnedComment = () =>
+  useLivestreamStore((x) => x.pinnedComment);
 
 export const useProfile = () => useLivestreamStore((x) => x.profile);
 

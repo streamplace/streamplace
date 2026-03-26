@@ -340,6 +340,20 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				}
 			}
 
+			if collection.String() == constants.PLACE_STREAM_CHAT_PINNED_RECORD {
+				log.Debug(ctx, "deleting pinned record", "userDID", evt.Repo, "rkey", rkey.String())
+				err := atsync.Model.DeletePinnedRecord(ctx, rkey.String())
+				if err != nil {
+					log.Error(ctx, "failed to delete pinned record", "err", err)
+				}
+				deletedPin := map[string]any{
+					"$type":   constants.PLACE_STREAM_CHAT_PINNED_RECORD,
+					"rkey":    rkey.String(),
+					"deleted": true,
+				}
+				go atsync.Bus.Publish(evt.Repo, deletedPin)
+			}
+
 		default:
 			log.Error(ctx, "unexpected record op kind")
 		}

@@ -26,6 +26,7 @@ func main() {
 		streamplace.ChatMessage_ReplyRef{},
 		streamplace.ServerSettings{},
 		streamplace.ChatGate{},
+		streamplace.ChatPinnedRecord{},
 		streamplace.MultistreamTarget{},
 		streamplace.BroadcastOrigin{},
 		streamplace.BroadcastSyndication{},

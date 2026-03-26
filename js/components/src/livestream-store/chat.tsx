@@ -437,3 +437,95 @@ export const useReportChatMessage = () => {
 };
 
 export const reduceChat = reduceChatIncremental;
+
+export const usePinChatMessage = () => {
+  const agent = usePDSAgent();
+  const store = getStoreFromContext();
+
+  return async (
+    messageUri: string,
+    streamerDID: string,
+    expiresAt?: string,
+  ) => {
+    if (!agent || !agent.did) {
+      throw new Error("No PDS agent or user DID found");
+    }
+
+    // If streamer, create directly
+    if (agent.did === streamerDID) {
+      // First delete any existing pinned records
+      const listResult = await agent.com.atproto.repo.listRecords({
+        repo: streamerDID,
+        collection: "place.stream.chat.pinnedRecord",
+      });
+      for (const rec of listResult.data.records) {
+        const rkey = rec.uri.split("/").pop();
+        if (rkey) {
+          await agent.com.atproto.repo.deleteRecord({
+            repo: streamerDID,
+            collection: "place.stream.chat.pinnedRecord",
+            rkey,
+          });
+        }
+      }
+
+      const record = {
+        $type: "place.stream.chat.pinnedRecord",
+        pinnedMessage: messageUri,
+        createdAt: new Date().toISOString(),
+        ...(expiresAt ? { expiresAt } : {}),
+      };
+
+      const result = await agent.com.atproto.repo.createRecord({
+        repo: streamerDID,
+        collection: "place.stream.chat.pinnedRecord",
+        record,
+      });
+      return result;
+    }
+
+    // Otherwise, use delegated moderation endpoint
+    const result = await agent.place.stream.moderation.createPin({
+      streamer: streamerDID,
+      messageUri,
+      ...(expiresAt ? { expiresAt } : {}),
+    });
+    return result;
+  };
+};
+
+export const useUnpinChatMessage = () => {
+  const agent = usePDSAgent();
+  const store = getStoreFromContext();
+
+  return async (pinUri: string, streamerDID: string) => {
+    if (!agent || !agent.did) {
+      throw new Error("No PDS agent or user DID found");
+    }
+
+    // If streamer, delete directly
+    if (agent.did === streamerDID) {
+      const rkey = pinUri.split("/").pop();
+      if (!rkey) {
+        throw new Error("Invalid pin URI");
+      }
+
+      await agent.com.atproto.repo.deleteRecord({
+        repo: streamerDID,
+        collection: "place.stream.chat.pinnedRecord",
+        rkey,
+      });
+      // Optimistically clear the pinned comment
+      store.setState({ pinnedComment: null });
+      return;
+    }
+
+    // Otherwise, use delegated moderation endpoint
+    await agent.place.stream.moderation.deletePin({
+      streamer: streamerDID,
+      pinUri,
+    });
+    // Optimistically clear the pinned comment
+    store.setState({ pinnedComment: null });
+  };
+};

@@ -74,7 +74,7 @@ export const DropdownMenuSubTrigger = forwardRef<
     inset?: boolean;
     children?: React.ReactNode;
   }
->(({ inset, children, subMenuTitle, ...props }, ref) => {
+>(({ inset, children, subMenuTitle, style, ...props }, ref) => {
   const { icons } = useTheme();
   const { open } = DropdownMenuPrimitive.useSubContext();
   const Icon =
@@ -96,6 +96,7 @@ export const DropdownMenuSubTrigger = forwardRef<
             layout.flex.alignCenter,
             p[2],
             pr[8],
+            style,
           ]}
         >
           {children}
@@ -513,7 +514,7 @@ export const DropdownMenuGroup = forwardRef<
   const { theme } = useTheme();
   const { inset, title, children, ...rest } = props;
   return (
-    <View style={[pt[2], inset && gap[2]]} ref={ref} {...rest}>
+    <View style={[inset && gap[2]]} ref={ref} {...rest}>
       {title && (
         <Text style={[{ color: theme.colors.textMuted }, pb[1], pl[2]]}>
           {title}

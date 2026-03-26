@@ -217,6 +217,88 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, streamplaceGate)
 
+	case *streamplace.ChatPinnedRecord:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		if r == nil {
+			return nil
+		}
+		log.Debug(ctx, "creating pinned record", "userDID", userDID, "pinnedMessage", rec.PinnedMessage)
+		// err = atsync.Model.DeleteAllPinnedRecords(ctx, userDID)
+		// if err != nil {
+		// 	log.Error(ctx, "failed to delete existing pinned records", "err", err)
+		// }
+		// Parse optional expiresAt
+		var expiresAt *time.Time
+		if rec.ExpiresAt != nil {
+			t, err := time.Parse(time.RFC3339, *rec.ExpiresAt)
+			if err == nil {
+				expiresAt = &t
+			}
+		}
+		// serialise createdAt
+		createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse createdAt: %w", err)
+		}
+
+		var pinnedBy string
+		if rec.PinnedBy == nil {
+			pinnedBy = userDID
+		} else {
+			pinnedBy = *rec.PinnedBy
+		}
+
+		pin := &model.PinnedRecord{
+			Uri:           aturi.String(),
+			RepoDID:       userDID,
+			PinnedMessage: rec.PinnedMessage,
+			PinnedBy:      pinnedBy,
+			IndexedAt:     &now,
+			CID:           cid,
+			CreatedAt:     createdAt,
+			Repo:          repo,
+			ExpiresAt:     expiresAt,
+		}
+		err = atsync.Model.CreatePinnedRecord(ctx, pin)
+		if err != nil {
+			return fmt.Errorf("failed to create pinned record: %w", err)
+		}
+		pin, err = atsync.Model.GetPinnedRecord(ctx, pin.Uri)
+		if err != nil {
+			return fmt.Errorf("failed to get pinned record after we just saved it: %w", err)
+		}
+		pinnedView, err := pin.ToStreamplacePinnedRecordView()
+		if err != nil {
+			return fmt.Errorf("failed to convert pinned record: %w", err)
+		}
+		// look up the original message, pinner
+		msg, err := atsync.Model.GetChatMessage(pinnedView.Record.PinnedMessage)
+		if err != nil {
+			return fmt.Errorf("failed to get chat message: %w", err)
+		}
+		profile, err := atsync.Model.GetChatProfile(ctx, pinnedBy)
+		if err != nil {
+			return fmt.Errorf("failed to get chat profile: %w", err)
+		}
+		if msg != nil {
+			msgView, err := msg.ToStreamplaceMessageView()
+			if err != nil {
+				return fmt.Errorf("failed to convert chat message: %w", err)
+			}
+			pinnedView.Message = msgView
+		}
+		if profile != nil {
+			profileView, err := profile.ToStreamplaceChatProfile()
+			if err != nil {
+				return fmt.Errorf("failed to convert chat profile: %w", err)
+			}
+			pinnedView.PinnedBy = profileView
+		}
+		go atsync.Bus.Publish(userDID, pinnedView)
+
 	case *streamplace.ChatProfile:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
@@ -558,6 +640,18 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// Publish moderation permission view to WebSocket bus for real-time updates
 		// This allows moderators to see their permissions instantly without page refresh
 		go atsync.Bus.Publish(userDID, view)
+
+	case *streamplace.LiveViewerCount:
+		log.Debug(ctx, "indexing view count", "streamer", rec.Streamer, "server", rec.Server, "count", rec.Count)
+		// Check if the reporting server's DID is labeled as banned or !no-viewers
+		serverLabels, err := atsync.Model.GetActiveLabels(rec.Server)
+		if err != nil {
+			log.Error(ctx, "failed to get labels for server", "server", rec.Server, "error", err)
+		} else if IsViewerBanned(serverLabels...) {
+			log.Warn(ctx, "discarding view count from labeled server", "server", rec.Server)
+			break
+		}
+		atsync.Bus.SetFederatedViewCount(rec.Streamer, rec.Server, int(rec.Count))
 
 	case *streamplace.LiveRecommendations:
 		log.Debug(ctx, "creating recommendations", "userDID", userDID, "count", len(rec.Streamers))

@@ -17,6 +17,7 @@ const (
 	PermissionBan              = "ban"
 	PermissionHide             = "hide"
 	PermissionLivestreamManage = "livestream.manage"
+	PermissionMessagePin       = "message.pin"
 )
 
 // ActionPermissions maps moderation actions to required permissions
@@ -26,6 +27,8 @@ var ActionPermissions = map[string]string{
 	"createGate":       PermissionHide,
 	"deleteGate":       PermissionHide,
 	"updateLivestream": PermissionLivestreamManage,
+	"createPin":        PermissionMessagePin,
+	"deletePin":        PermissionMessagePin,
 }
 
 // PermissionChecker validates moderation permissions

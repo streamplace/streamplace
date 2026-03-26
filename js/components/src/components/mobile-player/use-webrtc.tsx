@@ -1,11 +1,14 @@
+import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useEffect, useRef, useState } from "react";
 import * as sdpTransform from "sdp-transform";
 import { StreamplaceAgent } from "streamplace";
 import {
+  createAgentForServer,
   PlayerStatus,
   usePlayerStore,
   usePossiblyUnauthedPDSAgent,
   useStreamKey,
+  useStreamplaceStore,
 } from "../..";
 import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
 
@@ -16,6 +19,7 @@ export default function useWebRTC(
   const [stuck, setStuck] = useState<boolean>(false);
   const setStatus = usePlayerStore((x) => x.setStatus);
   let agent = usePossiblyUnauthedPDSAgent();
+  const oauthSession = useStreamplaceStore((state) => state.oauthSession);
 
   const lastChange = useRef<number>(0);
 
@@ -59,6 +63,7 @@ export default function useWebRTC(
         streamer,
         undefined,
         agent,
+        oauthSession,
       );
     });
 
@@ -97,7 +102,7 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [streamer, agent]);
+  }, [streamer, agent, oauthSession]);
   return [mediaStream, stuck];
 }
 
@@ -118,6 +123,7 @@ export async function negotiateConnectionWithClientOffer(
   streamer: string,
   bearerToken?: string,
   agent?: StreamplaceAgent,
+  oauthSession?: SessionManager | null,
 ) {
   /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createOffer */
   const offer = await peerConnection.createOffer({
@@ -150,7 +156,13 @@ export async function negotiateConnectionWithClientOffer(
        * This specifies how the client should communicate,
        * and what kind of media client and server have negotiated to exchange.
        */
-      let response = await postSDPOffer(streamer, ofr.sdp, bearerToken, agent);
+      let response = await postSDPOffer(
+        streamer,
+        ofr.sdp,
+        bearerToken,
+        agent,
+        oauthSession,
+      );
       let text = new TextDecoder().decode(response.data);
       if (response.success) {
         if ((peerConnection.connectionState as string) === "closed") {
@@ -233,30 +245,53 @@ export async function negotiateIngestConnectionWithClientOffer(
   }
 }
 
+async function getPlaybackServerAgent(
+  agent: StreamplaceAgent,
+  oauthSession: SessionManager | null | undefined,
+  streamer: string,
+): Promise<StreamplaceAgent> {
+  const workerUrl = (window as any).PLAYBACK_WORKER_URL as string | undefined;
+  if (!workerUrl) {
+    return agent;
+  }
+
+  try {
+    const lookupAgent = new StreamplaceAgent(workerUrl);
+    const res = await lookupAgent.place.stream.playback.getPlaybackServer({
+      stream: streamer,
+    });
+    if (res.data.servers.length > 0) {
+      const serverUrl = res.data.servers[0];
+      console.log(`Using playback server: ${serverUrl}`);
+      return createAgentForServer(oauthSession, serverUrl);
+    }
+  } catch (e) {
+    console.error("getPlaybackServer failed, using default agent:", e);
+  }
+  return agent;
+}
+
 async function postSDPOffer(
   streamer: string,
   data: string,
   bearerToken?: string,
   agent?: StreamplaceAgent,
+  oauthSession?: SessionManager | null,
 ) {
   if (!agent) {
     throw new Error("No agent found");
   }
-  return await agent.place.stream.playback.whep(data, {
+  const playbackAgent = await getPlaybackServerAgent(
+    agent,
+    oauthSession,
+    streamer,
+  );
+  return await playbackAgent.place.stream.playback.whep(data, {
     qp: {
       rendition: "source",
       streamer: streamer,
     },
   });
-  // return await fetch(endpoint, {
-  //   method: "POST",
-  //   mode: "cors",
-  //   headers: {
-  //     "content-type": "application/sdp",
-  //     ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
-  //   },
-  //   body: data,
-  // });
 }
 
 async function postSDPIngestOffer(

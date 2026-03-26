@@ -26,8 +26,8 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const TIMING_CONFIG = {
-  duration: 300,
-  easing: Easing.inOut(Easing.quad),
+  duration: 400,
+  easing: Easing.out(Easing.quad),
 };
 
 type ResizableChatSheetProps = {

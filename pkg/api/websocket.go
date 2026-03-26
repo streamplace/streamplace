@@ -259,6 +259,59 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			}
 		}()
 
+		// get the latest active pinned message for the repo
+		go func() {
+			pin, err := a.Model.GetActivePinnedRecord(ctx, repoDID)
+			if err != nil {
+				log.Error(ctx, "could not get pinned record", "error", err)
+				return
+			}
+			if pin != nil {
+				prv, err := pin.ToStreamplacePinnedRecordView()
+				if err != nil {
+					log.Error(ctx, "could not convert pinned record to streamplace view", "error", err)
+					return
+				}
+				// look up the original message, pinner
+				msg, err := a.Model.GetChatMessage(prv.Record.PinnedMessage)
+				if err != nil {
+					log.Error(ctx, "failed to get pinned message", err)
+					return
+				}
+				// if the message was deleted, treat as no pinned message
+				if msg != nil && msg.DeletedAt != nil {
+					log.Log(ctx, "pinned message was deleted, skipping", "uri", msg.URI)
+					return
+				}
+				// if no pinned by, use the repo owner as the pinner
+				if prv.Record.PinnedBy == nil {
+					prv.Record.PinnedBy = &repoDID
+				}
+				profile, err := a.Model.GetChatProfile(ctx, *prv.Record.PinnedBy)
+				if err != nil {
+					log.Error(ctx, "failed to get chat profile", err)
+					return
+				}
+				if msg != nil {
+					msgView, err := msg.ToStreamplaceMessageView()
+					if err != nil {
+						log.Error(ctx, "failed to convert chat message: %w", err)
+						return
+					}
+					prv.Message = msgView
+				}
+				if profile != nil {
+					profileView, err := profile.ToStreamplaceChatProfile()
+					if err != nil {
+						log.Error(ctx, "failed to convert chat profile: %w", err)
+						return
+					}
+					prv.PinnedBy = profileView
+				}
+				initialBurst <- prv
+			}
+		}()
+
 		go func() {
 			teleports, err := a.Model.GetActiveTeleportsToRepo(repoDID)
 			if err != nil {

@@ -6,6 +6,7 @@ import { usePDSAgent } from "./xrpc";
 export interface ModerationPermissions {
   canBan: boolean;
   canHide: boolean;
+  canPin: boolean;
   canManageLivestream: boolean;
   isOwner: boolean;
   isLoading: boolean;
@@ -177,6 +178,7 @@ export function useCanModerate(
   return {
     canBan: isOwner || permissions.includes("ban"),
     canHide: isOwner || permissions.includes("hide"),
+    canPin: isOwner || permissions.includes("message.pin"),
     canManageLivestream: isOwner || permissions.includes("livestream.manage"),
     isOwner,
     isLoading,

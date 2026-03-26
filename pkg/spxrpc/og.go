@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	_ "golang.org/x/image/webp"
 	"hash/fnv"
 	"image"
 	"image/color"

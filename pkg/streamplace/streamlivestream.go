@@ -73,6 +73,7 @@ type Livestream_StreamplaceAnything_Livestream struct {
 	Defs_Renditions             *Defs_Renditions
 	Defs_Rendition              *Defs_Rendition
 	ChatDefs_MessageView        *ChatDefs_MessageView
+	ChatDefs_PinnedRecordView   *ChatDefs_PinnedRecordView
 }
 
 func (t *Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error) {
@@ -108,6 +109,10 @@ func (t *Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error
 		t.ChatDefs_MessageView.LexiconTypeID = "place.stream.chat.defs#messageView"
 		return json.Marshal(t.ChatDefs_MessageView)
 	}
+	if t.ChatDefs_PinnedRecordView != nil {
+		t.ChatDefs_PinnedRecordView.LexiconTypeID = "place.stream.chat.defs#pinnedRecordView"
+		return json.Marshal(t.ChatDefs_PinnedRecordView)
+	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
 
@@ -142,6 +147,9 @@ func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalJSON(b []byte) erro
 	case "place.stream.chat.defs#messageView":
 		t.ChatDefs_MessageView = new(ChatDefs_MessageView)
 		return json.Unmarshal(b, t.ChatDefs_MessageView)
+	case "place.stream.chat.defs#pinnedRecordView":
+		t.ChatDefs_PinnedRecordView = new(ChatDefs_PinnedRecordView)
+		return json.Unmarshal(b, t.ChatDefs_PinnedRecordView)
 	default:
 		return nil
 	}

@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	placestream "stream.place/streamplace/pkg/streamplace"
 	"github.com/pion/webrtc/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/constants"
+	placestream "stream.place/streamplace/pkg/streamplace"
 )
 
 func (s *Server) handlePlaceStreamPlaybackGetPlaybackServer(ctx context.Context, stream string) (*placestream.PlaybackGetPlaybackServer_Output, error) {

@@ -251,9 +251,12 @@ async function getPlaybackServerAgent(
   streamer: string,
 ): Promise<StreamplaceAgent> {
   const workerUrl = (window as any).PLAYBACK_WORKER_URL as string | undefined;
-  const lookupAgent = workerUrl ? new StreamplaceAgent(workerUrl) : agent;
+  if (!workerUrl) {
+    return agent;
+  }
 
   try {
+    const lookupAgent = new StreamplaceAgent(workerUrl);
     const res = await lookupAgent.place.stream.playback.getPlaybackServer({
       stream: streamer,
     });

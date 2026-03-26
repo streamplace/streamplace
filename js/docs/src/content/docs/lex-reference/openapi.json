@@ -1967,6 +1967,31 @@
         ]
       }
     },
+    "/xrpc/place.stream.config.getEnv": {
+      "get": {
+        "summary": "Get client-facing environment configuration from the server.",
+        "operationId": "place.stream.config.getEnv",
+        "tags": ["place.stream.config"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "playbackWorkerUrl": {
+                      "type": "string",
+                      "description": "URL of the Cloudflare playback router worker"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.broadcast.getBroadcaster": {
       "get": {
         "summary": "Get information about a Streamplace broadcaster.",

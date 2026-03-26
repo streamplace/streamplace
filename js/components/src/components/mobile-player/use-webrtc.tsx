@@ -1,10 +1,10 @@
-import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useEffect, useRef, useState } from "react";
 import * as sdpTransform from "sdp-transform";
 import { StreamplaceAgent } from "streamplace";
 import {
-  createAgentForServer,
   PlayerStatus,
+  useDID,
+  useHandle,
   usePlayerStore,
   usePossiblyUnauthedPDSAgent,
   useStreamKey,
@@ -19,7 +19,15 @@ export default function useWebRTC(
   const [stuck, setStuck] = useState<boolean>(false);
   const setStatus = usePlayerStore((x) => x.setStatus);
   let agent = usePossiblyUnauthedPDSAgent();
-  const oauthSession = useStreamplaceStore((state) => state.oauthSession);
+  const myDID = useDID();
+  const myHandle = useHandle();
+  const playbackWorkerUrl = useStreamplaceStore(
+    (state) => state.playbackWorkerUrl,
+  );
+  const isOwnStream = !!(
+    myDID &&
+    (streamer === myDID || streamer === myHandle)
+  );
 
   const lastChange = useRef<number>(0);
 
@@ -63,7 +71,8 @@ export default function useWebRTC(
         streamer,
         undefined,
         agent,
-        oauthSession,
+        isOwnStream,
+        playbackWorkerUrl,
       );
     });
 
@@ -102,7 +111,7 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [streamer, agent, oauthSession]);
+  }, [streamer, agent, isOwnStream, playbackWorkerUrl]);
   return [mediaStream, stuck];
 }
 
@@ -123,7 +132,8 @@ export async function negotiateConnectionWithClientOffer(
   streamer: string,
   bearerToken?: string,
   agent?: StreamplaceAgent,
-  oauthSession?: SessionManager | null,
+  isOwnStream?: boolean,
+  playbackWorkerUrl?: string | null,
 ) {
   /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createOffer */
   const offer = await peerConnection.createOffer({
@@ -161,7 +171,8 @@ export async function negotiateConnectionWithClientOffer(
         ofr.sdp,
         bearerToken,
         agent,
-        oauthSession,
+        isOwnStream,
+        playbackWorkerUrl,
       );
       let text = new TextDecoder().decode(response.data);
       if (response.success) {
@@ -247,23 +258,22 @@ export async function negotiateIngestConnectionWithClientOffer(
 
 async function getPlaybackServerAgent(
   agent: StreamplaceAgent,
-  oauthSession: SessionManager | null | undefined,
   streamer: string,
+  playbackWorkerUrl?: string | null,
 ): Promise<StreamplaceAgent> {
-  const workerUrl = (window as any).PLAYBACK_WORKER_URL as string | undefined;
-  if (!workerUrl) {
+  if (!playbackWorkerUrl) {
     return agent;
   }
 
   try {
-    const lookupAgent = new StreamplaceAgent(workerUrl);
+    const lookupAgent = new StreamplaceAgent(playbackWorkerUrl);
     const res = await lookupAgent.place.stream.playback.getPlaybackServer({
       stream: streamer,
     });
     if (res.data.servers.length > 0) {
       const serverUrl = res.data.servers[0];
       console.log(`Using playback server: ${serverUrl}`);
-      return createAgentForServer(oauthSession, serverUrl);
+      return new StreamplaceAgent(serverUrl);
     }
   } catch (e) {
     console.error("getPlaybackServer failed, using default agent:", e);
@@ -276,16 +286,18 @@ async function postSDPOffer(
   data: string,
   bearerToken?: string,
   agent?: StreamplaceAgent,
-  oauthSession?: SessionManager | null,
+  isOwnStream?: boolean,
+  playbackWorkerUrl?: string | null,
 ) {
   if (!agent) {
     throw new Error("No agent found");
   }
-  const playbackAgent = await getPlaybackServerAgent(
-    agent,
-    oauthSession,
-    streamer,
-  );
+  // Own stream: use the authenticated PDS agent directly (needed for
+  // unpublished stream preview). Otherwise, look up a playback server
+  // and use an anonymous agent for it.
+  const playbackAgent = isOwnStream
+    ? agent
+    : await getPlaybackServerAgent(agent, streamer, playbackWorkerUrl);
   return await playbackAgent.place.stream.playback.whep(data, {
     qp: {
       rendition: "source",

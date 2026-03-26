@@ -31,11 +31,10 @@ func NewLinker(ctx context.Context, baseHTML []byte, sdb *statedb.StatefulDB, cl
 }
 
 type PageConfig struct {
-	Title             string
-	Metas             []MetaTag
-	SentryDSN         string
-	PlaybackWorkerURL string
-	Branding          []string
+	Title     string
+	Metas     []MetaTag
+	SentryDSN string
+	Branding  []string
 }
 
 // Define all meta tags in a structured way
@@ -170,15 +169,11 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *stre
 		Content: fmt.Sprintf("%s%s", titleStr, brandingTitle),
 	})
 
-	pc := &PageConfig{
+	return l.GenerateHTML(ctx, &PageConfig{
 		Title:     fmt.Sprintf("%s%s", titleStr, brandingTitle),
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
-	}
-	if l.cli != nil {
-		pc.PlaybackWorkerURL = l.cli.PlaybackWorkerURL
-	}
-	return l.GenerateHTML(ctx, pc)
+	})
 }
 
 func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN string) ([]byte, error) {
@@ -248,15 +243,11 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 		Content: brandingTitle,
 	})
 
-	pc := &PageConfig{
+	return l.GenerateHTML(ctx, &PageConfig{
 		Title:     brandingTitle,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
-	}
-	if l.cli != nil {
-		pc.PlaybackWorkerURL = l.cli.PlaybackWorkerURL
-	}
-	return l.GenerateHTML(ctx, pc)
+	})
 }
 
 func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, error) {
@@ -323,15 +314,8 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 		})
 	}
 
-	// Add injected config script
-	var configScript string
+	// Add Sentry DSN script if configured
 	if pc.SentryDSN != "" {
-		configScript += `window.SENTRY_DSN = "` + pc.SentryDSN + `";`
-	}
-	if pc.PlaybackWorkerURL != "" {
-		configScript += `window.PLAYBACK_WORKER_URL = "` + pc.PlaybackWorkerURL + `";`
-	}
-	if configScript != "" {
 		script := &html.Node{
 			Type: html.ElementNode,
 			Data: "script",
@@ -339,7 +323,7 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 		head.AppendChild(script)
 		script.AppendChild(&html.Node{
 			Type: html.TextNode,
-			Data: configScript,
+			Data: `window.SENTRY_DSN = "` + pc.SentryDSN + `";`,
 		})
 	}
 

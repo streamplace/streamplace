@@ -19,7 +19,7 @@ import (
 func (s *Server) handlePlaceStreamPlaybackGetPlaybackServer(ctx context.Context, stream string) (*placestream.PlaybackGetPlaybackServer_Output, error) {
 	addr := strings.TrimPrefix(s.cli.ServerDID(), "did:web:")
 	return &placestream.PlaybackGetPlaybackServer_Output{
-		Servers: []string{addr},
+		Servers: []string{fmt.Sprintf("https://%s", addr)},
 	}, nil
 }
 

@@ -147,6 +147,7 @@ type CLI struct {
 	AdminDIDs                   []string
 	Syndicate                   []string
 	PlayerTelemetry             bool
+	PlaybackWorkerURL           string
 	Ingests                     *placestream.IngestGetIngestUrls_Output
 }
 
@@ -673,6 +674,12 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "sentry dsn for error reporting",
 				Destination: &cli.SentryDSN,
 				Sources:     urfavecli.EnvVars("SP_SENTRY_DSN"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "playback-worker-url",
+				Usage:       "URL of the Cloudflare playback router worker",
+				Destination: &cli.PlaybackWorkerURL,
+				Sources:     urfavecli.EnvVars("SP_PLAYBACK_WORKER_URL"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "livepeer-debug",

@@ -20,6 +20,9 @@ export default function useWebRTC(
   const setStatus = usePlayerStore((x) => x.setStatus);
   let agent = usePossiblyUnauthedPDSAgent();
   const oauthSession = useStreamplaceStore((state) => state.oauthSession);
+  const playbackWorkerUrl = useStreamplaceStore(
+    (state) => state.playbackWorkerUrl,
+  );
 
   const lastChange = useRef<number>(0);
 
@@ -64,6 +67,7 @@ export default function useWebRTC(
         undefined,
         agent,
         oauthSession,
+        playbackWorkerUrl,
       );
     });
 
@@ -102,7 +106,7 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [streamer, agent, oauthSession]);
+  }, [streamer, agent, oauthSession, playbackWorkerUrl]);
   return [mediaStream, stuck];
 }
 
@@ -124,6 +128,7 @@ export async function negotiateConnectionWithClientOffer(
   bearerToken?: string,
   agent?: StreamplaceAgent,
   oauthSession?: SessionManager | null,
+  playbackWorkerUrl?: string | null,
 ) {
   /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createOffer */
   const offer = await peerConnection.createOffer({
@@ -162,6 +167,7 @@ export async function negotiateConnectionWithClientOffer(
         bearerToken,
         agent,
         oauthSession,
+        playbackWorkerUrl,
       );
       let text = new TextDecoder().decode(response.data);
       if (response.success) {
@@ -249,14 +255,14 @@ async function getPlaybackServerAgent(
   agent: StreamplaceAgent,
   oauthSession: SessionManager | null | undefined,
   streamer: string,
+  playbackWorkerUrl?: string | null,
 ): Promise<StreamplaceAgent> {
-  const workerUrl = (window as any).PLAYBACK_WORKER_URL as string | undefined;
-  if (!workerUrl) {
+  if (!playbackWorkerUrl) {
     return agent;
   }
 
   try {
-    const lookupAgent = new StreamplaceAgent(workerUrl);
+    const lookupAgent = new StreamplaceAgent(playbackWorkerUrl);
     const res = await lookupAgent.place.stream.playback.getPlaybackServer({
       stream: streamer,
     });
@@ -277,6 +283,7 @@ async function postSDPOffer(
   bearerToken?: string,
   agent?: StreamplaceAgent,
   oauthSession?: SessionManager | null,
+  playbackWorkerUrl?: string | null,
 ) {
   if (!agent) {
     throw new Error("No agent found");
@@ -285,6 +292,7 @@ async function postSDPOffer(
     agent,
     oauthSession,
     streamer,
+    playbackWorkerUrl,
   );
   return await playbackAgent.place.stream.playback.whep(data, {
     qp: {

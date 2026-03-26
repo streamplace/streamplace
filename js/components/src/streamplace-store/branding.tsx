@@ -105,6 +105,26 @@ export function useFetchBroadcasterDID() {
   }, [streamplaceAgent, store]);
 }
 
+// hook to fetch client-facing env config from the server
+export function useFetchEnvConfig() {
+  const streamplaceAgent = usePossiblyUnauthedPDSAgent();
+  const store = getStreamplaceStoreFromContext();
+
+  return useCallback(async () => {
+    try {
+      if (!streamplaceAgent) {
+        throw new Error("Streamplace agent not available");
+      }
+      const result = await streamplaceAgent.place.stream.config.getEnv();
+      if (result.data.playbackWorkerUrl) {
+        store.setState({ playbackWorkerUrl: result.data.playbackWorkerUrl });
+      }
+    } catch (err) {
+      console.error("Failed to fetch env config:", err);
+    }
+  }, [streamplaceAgent, store]);
+}
+
 // hook to fetch branding data from the server
 export function useFetchBranding() {
   const streamplaceAgent = usePossiblyUnauthedPDSAgent();

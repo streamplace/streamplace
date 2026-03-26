@@ -59,6 +59,9 @@ export interface StreamplaceState {
   adminDIDs: string[];
   setAdminDIDs: (adminDIDs: string[]) => void;
 
+  playbackWorkerUrl: string | null;
+  setPlaybackWorkerUrl: (url: string | null) => void;
+
   // Branding state
   branding: Record<string, BrandingAsset> | null;
   brandingLoading: boolean;
@@ -130,6 +133,10 @@ export const makeStreamplaceStore = ({
     setServerDID: (serverDID: string | null) => set({ serverDID }),
     adminDIDs: [],
     setAdminDIDs: (adminDIDs: string[]) => set({ adminDIDs }),
+
+    playbackWorkerUrl: null,
+    setPlaybackWorkerUrl: (playbackWorkerUrl: string | null) =>
+      set({ playbackWorkerUrl }),
 
     // Content metadata
     contentMetadata: null,

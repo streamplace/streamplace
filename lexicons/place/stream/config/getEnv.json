@@ -1,0 +1,29 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.config.getEnv",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get client-facing environment configuration from the server.",
+      "parameters": {
+        "type": "params",
+        "required": [],
+        "properties": {}
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [],
+          "properties": {
+            "playbackWorkerUrl": {
+              "type": "string",
+              "description": "URL of the Cloudflare playback router worker"
+            }
+          }
+        }
+      },
+      "errors": []
+    }
+  }
+}

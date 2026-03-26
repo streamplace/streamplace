@@ -5,6 +5,7 @@ import { useDocumentTitle } from "../hooks";
 import {
   useBrandingAutoFetch,
   useFetchBroadcasterDID,
+  useFetchEnvConfig,
   useGetChatProfile,
 } from "../streamplace-store";
 import { makeStreamplaceStore } from "../streamplace-store/streamplace-store";
@@ -46,12 +47,14 @@ export function StreamplaceProvider({
 
 export function BrandingFetcher({ children }: { children: React.ReactNode }) {
   const fetchBroadcasterDID = useFetchBroadcasterDID();
+  const fetchEnvConfig = useFetchEnvConfig();
   useBrandingAutoFetch();
   useDocumentTitle();
 
   useEffect(() => {
     fetchBroadcasterDID();
-  }, [fetchBroadcasterDID]);
+    fetchEnvConfig();
+  }, [fetchBroadcasterDID, fetchEnvConfig]);
 
   return <>{children}</>;
 }

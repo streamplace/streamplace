@@ -279,7 +279,6 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			if err != nil {
 				log.Error(ctx, "failed to enqueue notification task", "err", err)
 			}
-			ss.UpdateStatus(ctx, spseg.Creator)
 			return nil
 		})
 	} else {

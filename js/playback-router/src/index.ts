@@ -21,8 +21,18 @@ function shuffle<T>(arr: T[]): T[] {
   return result;
 }
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "*",
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
     const url = new URL(request.url);
 
     if (
@@ -36,7 +46,7 @@ export default {
     if (!stream) {
       return new Response(JSON.stringify({ error: "missing stream param" }), {
         status: 400,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       });
     }
 
@@ -49,7 +59,10 @@ export default {
     if (upstreamServers.length === 0) {
       return new Response(
         JSON.stringify({ error: "no upstream servers configured" }),
-        { status: 500, headers: { "Content-Type": "application/json" } },
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        },
       );
     }
 
@@ -82,13 +95,19 @@ export default {
     if (available.length === 0) {
       return new Response(
         JSON.stringify({ error: "no servers available for this stream" }),
-        { status: 404, headers: { "Content-Type": "application/json" } },
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        },
       );
     }
 
     return new Response(
       JSON.stringify({ servers: shuffle(available.slice(0, needed)) }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      },
     );
   },
 };

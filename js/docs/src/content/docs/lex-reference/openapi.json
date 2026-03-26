@@ -517,6 +517,47 @@
         }
       }
     },
+    "/xrpc/place.stream.playback.getPlaybackServer": {
+      "get": {
+        "summary": "Get available playback servers for a livestream.",
+        "operationId": "place.stream.playback.getPlaybackServer",
+        "tags": ["place.stream.playback"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "servers": {
+                      "type": "array",
+                      "description": "List of available playback server addresses",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": ["servers"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "stream",
+            "in": "query",
+            "required": true,
+            "description": "Identifier of the stream to get playback servers for",
+            "schema": {
+              "type": "string",
+              "description": "Identifier of the stream to get playback servers for"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.playback.whep": {
       "post": {
         "summary": "Play a stream over WebRTC using WHEP.",

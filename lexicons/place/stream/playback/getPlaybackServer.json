@@ -1,0 +1,37 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.playback.getPlaybackServer",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get available playback servers for a livestream.",
+      "parameters": {
+        "type": "params",
+        "required": ["stream"],
+        "properties": {
+          "stream": {
+            "type": "string",
+            "description": "Identifier of the stream to get playback servers for"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["servers"],
+          "properties": {
+            "servers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "List of available playback server addresses"
+            }
+          }
+        }
+      },
+      "errors": []
+    }
+  }
+}

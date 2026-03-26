@@ -13,7 +13,15 @@ import (
 	"github.com/pion/webrtc/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/constants"
+	placestream "stream.place/streamplace/pkg/streamplace"
 )
+
+func (s *Server) handlePlaceStreamPlaybackGetPlaybackServer(ctx context.Context, stream string) (*placestream.PlaybackGetPlaybackServer_Output, error) {
+	addr := strings.TrimPrefix(s.cli.ServerDID(), "did:web:")
+	return &placestream.PlaybackGetPlaybackServer_Output{
+		Servers: []string{fmt.Sprintf("https://%s", addr)},
+	}, nil
+}
 
 func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context, rendition string, streamer string, r io.Reader, _contentType string) (io.Reader, error) {
 	if alias, ok := s.aliases[streamer]; ok {

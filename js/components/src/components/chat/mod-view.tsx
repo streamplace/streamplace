@@ -262,7 +262,7 @@ function ModViewContent({
                           });
                       }}
                     >
-                      <Text color="primary">Until stream end</Text>
+                      <Text color="primary">Until next pinned message</Text>
                     </DropdownMenuItem>
                     {[5, 10, 15, 30, 60].map((minutes) => (
                       <DropdownMenuItem

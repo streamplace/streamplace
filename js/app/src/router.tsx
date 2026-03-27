@@ -126,6 +126,9 @@ export const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
 
 export const LGAvatarButton = () => {
   const userProfile = useUserProfile();
+
+  if (Platform.OS !== "ios") return <AvatarButton />;
+
   let source: ImageSourcePropType | undefined = undefined;
   let opacity = 1;
   const targetScreen: any = userProfile
@@ -172,8 +175,6 @@ export const AvatarButton = () => {
   const userProfile = useUserProfile();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const openPDSModal = useStore((state) => state.openPdsModal);
-  const loginAction = useStore((state) => state.login);
-  const openLoginLink = useStore((state) => state.openLoginLink);
   const { theme } = useTheme();
   let source: ImageSourcePropType | undefined = undefined;
 

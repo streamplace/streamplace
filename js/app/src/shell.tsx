@@ -69,9 +69,27 @@ const RootStack = createNativeStackNavigator();
 const HomeStack = createNativeStackNavigator();
 const SettingsStack = createNativeStackNavigator();
 
+function useBaseScreenOptions() {
+  const z = useTheme();
+  return {
+    headerShown: true,
+    headerTransparent: Platform.OS === "ios",
+    headerBackButtonDisplayMode: "minimal" as const,
+    headerTitleStyle: {
+      fontFamily: z.theme.typography.universal["2xl"].fontFamily,
+    },
+    headerStyle: {
+      backgroundColor: z.theme.colors.background,
+      borderBottomColor: z.theme.colors.border,
+      borderBottomWidth: 1,
+    },
+  };
+}
+
 // Home navigator (contains home + all general navigation screens)
 function HomeNavigator() {
   const title = useSiteTitle() || "Streamplace Station";
+  const baseScreenOptions = useBaseScreenOptions();
   const isNative = Platform.OS !== "web";
   const z = useTheme();
 
@@ -92,13 +110,7 @@ function HomeNavigator() {
   };
 
   return (
-    <HomeStack.Navigator
-      screenOptions={{
-        headerShown: true,
-        headerTransparent: Platform.OS === "ios",
-        headerBackButtonDisplayMode: "minimal",
-      }}
-    >
+    <HomeStack.Navigator screenOptions={baseScreenOptions}>
       <HomeStack.Screen
         name="HomeMain"
         component={HomeScreen}
@@ -169,6 +181,7 @@ function HomeNavigator() {
 
 // Settings stack navigator
 function SettingsNavigator() {
+  const baseScreenOptions = useBaseScreenOptions();
   const z = useTheme();
   const isNative = Platform.OS !== "web";
   const headerScreenOptions = {
@@ -305,11 +318,12 @@ function TabNavigator() {
           : !isLargeScreen
             ? undefined
             : { display: "none" },
-        // doesn't seem to work on iOS?
-        // tabBarInactiveTintColor: primaryColor || accentColor || "#f0f",
-        // tabBarActiveTintColor: accentColor || primaryColor || "#06f",
+        tabBarActiveTintColor: accentColor || primaryColor || "#06f",
         headerTitleStyle: {
           fontFamily: z.theme.typography.universal["2xl"].fontFamily,
+        },
+        headerStyle: {
+          backgroundColor: z.theme.colors.background,
         },
       }}
     >

@@ -333,9 +333,7 @@ function LeftControlsPanel({
             onPress={() => {
               navigation.canGoBack()
                 ? navigation.goBack()
-                : navigation.navigate("Home", {
-                    screen: "HomeMain",
-                  });
+                : navigation.navigate("MainTabs" as any, { screen: "HomeTab" });
             }}
           >
             <ChevronLeft color="white" />

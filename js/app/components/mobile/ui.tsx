@@ -344,15 +344,15 @@ function LeftControlsPanel({
           </Pressable>
           <Image
             source={
-              profile?.did
-                ? { url: avatars[profile?.did]?.avatar }
+              avatars[profile?.did]
+                ? avatars[profile?.did]?.avatar
                 : require("assets/images/goose.png")
             }
+            key={profile?.did}
             style={[
               {
                 width: 36,
                 height: 36,
-                backgroundColor: "green",
               },
               { borderRadius: 999 },
               borders.width.thin,

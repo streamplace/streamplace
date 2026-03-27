@@ -80,6 +80,10 @@ function PlayerWithProvider(
   const { top: safeTop } = useSafeAreaInsets();
   const segDims = useSegmentDimensions();
   const isPortrait = screenHeight > screenWidth;
+  const portraitFadeOpacity = useSharedValue(1);
+  const portraitVideoStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: (portraitFadeOpacity.value - 1) * 20 }],
+  }));
   const isPortraitLandscapeCase =
     isPortrait &&
     segDims.width > segDims.height &&
@@ -250,15 +254,16 @@ function PlayerWithProvider(
               },
             ]}
           >
-            <View
-              style={
+            <Reanimated.View
+              style={[
                 isPortraitLandscapeCase
                   ? {
                       height: (videoBoxHeight ?? 0) + safeTop,
                       paddingTop: safeTop,
                     }
-                  : { flex: 1 }
-              }
+                  : { flex: 1 },
+                isPortrait ? portraitVideoStyle : undefined,
+              ]}
             >
               <PlayerInner
                 {...props}
@@ -266,10 +271,14 @@ function PlayerWithProvider(
                 setShowChat={setShowChat}
                 showUnavailable={showUnavailable}
               />
-            </View>
+            </Reanimated.View>
             {isPortraitLandscapeCase ? (
               <>
-                <MobileUi hideMobileChat={true} showChat />
+                <MobileUi
+                  hideMobileChat={true}
+                  showChat
+                  sharedFadeOpacity={portraitFadeOpacity}
+                />
                 {!showUnavailable && (
                   <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
                 )}

@@ -16,11 +16,21 @@ func ReaderNeedData(ctx context.Context, input io.Reader) func(self *app.Source,
 	if err != nil {
 		log.Error(ctx, "error reading from input", "error", err)
 	}
+	wrote := false
 	return func(self *app.Source, length uint) {
 		if ctx.Err() != nil {
 			self.EndStream()
 			return
 		}
+		if wrote {
+			log.Error(ctx, "ReaderNeedData: called after already wrote")
+			ret := self.EndStream()
+			if ret != gst.FlowOK {
+				log.Error(ctx, "failed to end stream after already wrote", "error", ret.String())
+			}
+			return
+		}
+		wrote = true
 		buffer := gst.NewBufferWithSize(int64(len(bsCopy)))
 		buffer.Map(gst.MapWrite).WriteData(bsCopy)
 		defer buffer.Unmap()
@@ -29,6 +39,10 @@ func ReaderNeedData(ctx context.Context, input io.Reader) func(self *app.Source,
 			log.Error(ctx, "failed to push buffer", "error", ret.String())
 		} else {
 			log.Debug(ctx, "pushed buffer", "length", len(bsCopy))
+		}
+		ret = self.EndStream()
+		if ret != gst.FlowOK {
+			log.Error(ctx, "failed to end stream", "error", ret.String())
 		}
 	}
 }

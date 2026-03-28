@@ -29,7 +29,6 @@ import (
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/replication"
-	"stream.place/streamplace/pkg/s3"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
@@ -67,7 +66,6 @@ type StreamSession struct {
 
 	lastLivestreamTime time.Time
 	lastViewCountTime  time.Time
-	s3Uploader         *s3.S3Uploader
 }
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
@@ -109,8 +107,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	allRenditions = append(allRenditions, renditions.AudioRendition)
 	ss.hls = media.NewM3U8(allRenditions)
 
-	ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
-
 	close(ss.started)
 
 	// Start background workers for status, origin, and livestream updates
@@ -139,7 +135,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 			// reset timer
 		case <-ctx.Done():
 			// Signal all background workers to stop
-			ss.s3Close(ctx)
 			return ss.g.Wait()
 		// case <-time.After(time.Minute * 1):
 		case <-time.After(ss.cli.StreamSessionTimeout):
@@ -193,8 +188,6 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
 	}
-
-	ss.s3Upload(ctx, notif)
 
 	ss.bus.Publish(spseg.Creator, spseg)
 	ss.Go(ctx, func() error {

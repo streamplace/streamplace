@@ -17,7 +17,7 @@
           },
           "catalog": {
             "type": "ref",
-            "ref": "place.stream.video#catalog",
+            "ref": "place.stream.muxl.defs#catalog",
             "description": "Track configuration metadata."
           },
           "initSegment": {

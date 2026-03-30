@@ -5,9 +5,15 @@
 package streamplace
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
@@ -16,57 +22,72 @@ func init() {
 
 type Video struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.video"`
-	// archive: Blob ref to the MUXL archive fMP4. CID is the BLAKE-3 hash of the virtual archive file.
-	Archive *lexutil.LexBlob `json:"archive" cborgen:"archive"`
-	// catalog: Track configuration metadata (codecs, resolution, channels, timescales).
-	Catalog *Video_Catalog `json:"catalog" cborgen:"catalog"`
 	// createdAt: When this video started recording.
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	// creator: The DID of the creator of this video.
 	Creator string `json:"creator" cborgen:"creator"`
-	// duration: Total duration of the video in nanoseconds. Updated as the stream grows.
+	// duration: Total duration of the video in nanoseconds.
 	Duration *int64 `json:"duration,omitempty" cborgen:"duration,omitempty"`
-	// endedAt: When recording ended. Absent while live.
-	EndedAt *string `json:"endedAt,omitempty" cborgen:"endedAt,omitempty"`
 	// livestream: Back-reference to the place.stream.livestream record, if this video originated from a live stream.
 	Livestream *comatproto.RepoStrongRef `json:"livestream,omitempty" cborgen:"livestream,omitempty"`
-	Title      *string                   `json:"title,omitempty" cborgen:"title,omitempty"`
+	// source: The source media for this video.
+	Source *Video_Source `json:"source" cborgen:"source"`
+	Title  *string       `json:"title,omitempty" cborgen:"title,omitempty"`
 }
 
-// Video_AudioTrack is a "audioTrack" in the place.stream.video schema.
-type Video_AudioTrack struct {
-	// channels: Number of audio channels.
-	Channels int64 `json:"channels" cborgen:"channels"`
-	// codec: WebCodecs codec string, e.g. 'opus', 'mp4a.40.2'.
-	Codec string `json:"codec" cborgen:"codec"`
-	// sampleRate: Sample rate in Hz.
-	SampleRate int64 `json:"sampleRate" cborgen:"sampleRate"`
-	// timescale: Media timescale (ticks per second).
-	Timescale int64 `json:"timescale" cborgen:"timescale"`
-	// trackId: MP4 track ID.
-	TrackId int64 `json:"trackId" cborgen:"trackId"`
+// The source media for this video.
+type Video_Source struct {
+	MuxlDefs_Archive *MuxlDefs_Archive
 }
 
-// Video_Catalog is a "catalog" in the place.stream.video schema.
-//
-// Track configuration describing all media tracks in the video.
-type Video_Catalog struct {
-	Audio []*Video_AudioTrack `json:"audio,omitempty" cborgen:"audio,omitempty"`
-	Video []*Video_VideoTrack `json:"video,omitempty" cborgen:"video,omitempty"`
+func (t *Video_Source) MarshalJSON() ([]byte, error) {
+	if t.MuxlDefs_Archive != nil {
+		t.MuxlDefs_Archive.LexiconTypeID = "place.stream.muxl.defs#archive"
+		return json.Marshal(t.MuxlDefs_Archive)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
 
-// Video_VideoTrack is a "videoTrack" in the place.stream.video schema.
-type Video_VideoTrack struct {
-	// codec: WebCodecs codec string, e.g. 'avc1.64002A'.
-	Codec string `json:"codec" cborgen:"codec"`
-	// height: Coded pixel height.
-	Height int64 `json:"height" cborgen:"height"`
-	// timescale: Media timescale (ticks per second).
-	Timescale int64 `json:"timescale" cborgen:"timescale"`
-	// trackId: MP4 track ID.
-	TrackId int64 `json:"trackId" cborgen:"trackId"`
-	// width: Coded pixel width.
-	Width int64 `json:"width" cborgen:"width"`
+func (t *Video_Source) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.muxl.defs#archive":
+		t.MuxlDefs_Archive = new(MuxlDefs_Archive)
+		return json.Unmarshal(b, t.MuxlDefs_Archive)
+	default:
+		return nil
+	}
+}
+
+func (t *Video_Source) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.MuxlDefs_Archive != nil {
+		return t.MuxlDefs_Archive.MarshalCBOR(w)
+	}
+	return fmt.Errorf("can not marshal empty union as CBOR")
+}
+
+func (t *Video_Source) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := lexutil.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.muxl.defs#archive":
+		t.MuxlDefs_Archive = new(MuxlDefs_Archive)
+		return t.MuxlDefs_Archive.UnmarshalCBOR(bytes.NewReader(b))
+	default:
+		return nil
+	}
 }
 
 // Video_VideoView is a "videoView" in the place.stream.video schema.

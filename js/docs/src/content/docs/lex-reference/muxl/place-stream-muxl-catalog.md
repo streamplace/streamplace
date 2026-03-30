@@ -22,7 +22,7 @@ Track configuration for a MUXL stream. Contains the catalog (codecs, dimensions,
 | Name          | Type                                                                                                                                   | Req'd | Description                                           | Constraints         |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------------------------------------------------- | ------------------- |
 | `video`       | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ✅    | The place.stream.video this catalog belongs to.       |                     |
-| `catalog`     | [`place.stream.video#catalog`](/lex-reference/place-stream-video#catalog)                                                              | ✅    | Track configuration metadata.                         |                     |
+| `catalog`     | [`place.stream.muxl.defs#catalog`](/lex-reference/place-stream-muxl-defs#catalog)                                                      | ✅    | Track configuration metadata.                         |                     |
 | `initSegment` | `blob`                                                                                                                                 | ✅    | The multi-track ftyp+moov init segment.               | Accept: `video/mp4` |
 | `trackInits`  | Array of [`#trackInit`](#trackinit)                                                                                                    | ✅    | Per-track init segments for HLS CMAF media playlists. |                     |
 
@@ -65,7 +65,7 @@ Track configuration for a MUXL stream. Contains the catalog (codecs, dimensions,
           },
           "catalog": {
             "type": "ref",
-            "ref": "place.stream.video#catalog",
+            "ref": "place.stream.muxl.defs#catalog",
             "description": "Track configuration metadata."
           },
           "initSegment": {

@@ -6429,13 +6429,9 @@ func (t *Video) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 9
+	fieldCount := 7
 
 	if t.Duration == nil {
-		fieldCount--
-	}
-
-	if t.EndedAt == nil {
 		fieldCount--
 	}
 
@@ -6502,35 +6498,19 @@ func (t *Video) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.Archive (util.LexBlob) (struct)
-	if len("archive") > 1000000 {
-		return xerrors.Errorf("Value in field \"archive\" was too long")
+	// t.Source (streamplace.Video_Source) (struct)
+	if len("source") > 1000000 {
+		return xerrors.Errorf("Value in field \"source\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("archive"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("source"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("archive")); err != nil {
-		return err
-	}
-
-	if err := t.Archive.MarshalCBOR(cw); err != nil {
+	if _, err := cw.WriteString(string("source")); err != nil {
 		return err
 	}
 
-	// t.Catalog (streamplace.Video_Catalog) (struct)
-	if len("catalog") > 1000000 {
-		return xerrors.Errorf("Value in field \"catalog\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("catalog"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("catalog")); err != nil {
-		return err
-	}
-
-	if err := t.Catalog.MarshalCBOR(cw); err != nil {
+	if err := t.Source.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -6555,38 +6535,6 @@ func (t *Video) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.Creator)); err != nil {
 		return err
-	}
-
-	// t.EndedAt (string) (string)
-	if t.EndedAt != nil {
-
-		if len("endedAt") > 1000000 {
-			return xerrors.Errorf("Value in field \"endedAt\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("endedAt"))); err != nil {
-			return err
-		}
-		if _, err := cw.WriteString(string("endedAt")); err != nil {
-			return err
-		}
-
-		if t.EndedAt == nil {
-			if _, err := cw.Write(cbg.CborNull); err != nil {
-				return err
-			}
-		} else {
-			if len(*t.EndedAt) > 1000000 {
-				return xerrors.Errorf("Value in field t.EndedAt was too long")
-			}
-
-			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.EndedAt))); err != nil {
-				return err
-			}
-			if _, err := cw.WriteString(string(*t.EndedAt)); err != nil {
-				return err
-			}
-		}
 	}
 
 	// t.Duration (int64) (int64)
@@ -6738,8 +6686,8 @@ func (t *Video) UnmarshalCBOR(r io.Reader) (err error) {
 					t.Title = (*string)(&sval)
 				}
 			}
-			// t.Archive (util.LexBlob) (struct)
-		case "archive":
+			// t.Source (streamplace.Video_Source) (struct)
+		case "source":
 
 			{
 
@@ -6751,29 +6699,9 @@ func (t *Video) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					t.Archive = new(util.LexBlob)
-					if err := t.Archive.UnmarshalCBOR(cr); err != nil {
-						return xerrors.Errorf("unmarshaling t.Archive pointer: %w", err)
-					}
-				}
-
-			}
-			// t.Catalog (streamplace.Video_Catalog) (struct)
-		case "catalog":
-
-			{
-
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-					t.Catalog = new(Video_Catalog)
-					if err := t.Catalog.UnmarshalCBOR(cr); err != nil {
-						return xerrors.Errorf("unmarshaling t.Catalog pointer: %w", err)
+					t.Source = new(Video_Source)
+					if err := t.Source.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Source pointer: %w", err)
 					}
 				}
 
@@ -6788,27 +6716,6 @@ func (t *Video) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Creator = string(sval)
-			}
-			// t.EndedAt (string) (string)
-		case "endedAt":
-
-			{
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
-					if err != nil {
-						return err
-					}
-
-					t.EndedAt = (*string)(&sval)
-				}
 			}
 			// t.Duration (int64) (int64)
 		case "duration":
@@ -6888,7 +6795,139 @@ func (t *Video) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *Video_Catalog) MarshalCBOR(w io.Writer) error {
+func (t *MuxlDefs_Archive) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.Data (util.LexBlob) (struct)
+	if len("data") > 1000000 {
+		return xerrors.Errorf("Value in field \"data\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("data"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("data")); err != nil {
+		return err
+	}
+
+	if err := t.Data.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 1000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.muxl.defs#archive"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("place.stream.muxl.defs#archive")); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *MuxlDefs_Archive) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = MuxlDefs_Archive{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("MuxlDefs_Archive: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 5)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Data (util.LexBlob) (struct)
+		case "data":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Data = new(util.LexBlob)
+					if err := t.Data.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Data pointer: %w", err)
+					}
+				}
+
+			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *MuxlDefs_Catalog) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -6909,7 +6948,7 @@ func (t *Video_Catalog) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Audio ([]*streamplace.Video_AudioTrack) (slice)
+	// t.Audio ([]*streamplace.MuxlDefs_AudioTrack) (slice)
 	if t.Audio != nil {
 
 		if len("audio") > 1000000 {
@@ -6938,7 +6977,7 @@ func (t *Video_Catalog) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.Video ([]*streamplace.Video_VideoTrack) (slice)
+	// t.Video ([]*streamplace.MuxlDefs_VideoTrack) (slice)
 	if t.Video != nil {
 
 		if len("video") > 1000000 {
@@ -6969,8 +7008,8 @@ func (t *Video_Catalog) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *Video_Catalog) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = Video_Catalog{}
+func (t *MuxlDefs_Catalog) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = MuxlDefs_Catalog{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -6989,7 +7028,7 @@ func (t *Video_Catalog) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("Video_Catalog: map struct too large (%d)", extra)
+		return fmt.Errorf("MuxlDefs_Catalog: map struct too large (%d)", extra)
 	}
 
 	n := extra
@@ -7010,7 +7049,7 @@ func (t *Video_Catalog) UnmarshalCBOR(r io.Reader) (err error) {
 		}
 
 		switch string(nameBuf[:nameLen]) {
-		// t.Audio ([]*streamplace.Video_AudioTrack) (slice)
+		// t.Audio ([]*streamplace.MuxlDefs_AudioTrack) (slice)
 		case "audio":
 
 			maj, extra, err = cr.ReadHeader()
@@ -7027,7 +7066,7 @@ func (t *Video_Catalog) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			if extra > 0 {
-				t.Audio = make([]*Video_AudioTrack, extra)
+				t.Audio = make([]*MuxlDefs_AudioTrack, extra)
 			}
 
 			for i := 0; i < int(extra); i++ {
@@ -7049,7 +7088,7 @@ func (t *Video_Catalog) UnmarshalCBOR(r io.Reader) (err error) {
 							if err := cr.UnreadByte(); err != nil {
 								return err
 							}
-							t.Audio[i] = new(Video_AudioTrack)
+							t.Audio[i] = new(MuxlDefs_AudioTrack)
 							if err := t.Audio[i].UnmarshalCBOR(cr); err != nil {
 								return xerrors.Errorf("unmarshaling t.Audio[i] pointer: %w", err)
 							}
@@ -7059,7 +7098,7 @@ func (t *Video_Catalog) UnmarshalCBOR(r io.Reader) (err error) {
 
 				}
 			}
-			// t.Video ([]*streamplace.Video_VideoTrack) (slice)
+			// t.Video ([]*streamplace.MuxlDefs_VideoTrack) (slice)
 		case "video":
 
 			maj, extra, err = cr.ReadHeader()
@@ -7076,7 +7115,7 @@ func (t *Video_Catalog) UnmarshalCBOR(r io.Reader) (err error) {
 			}
 
 			if extra > 0 {
-				t.Video = make([]*Video_VideoTrack, extra)
+				t.Video = make([]*MuxlDefs_VideoTrack, extra)
 			}
 
 			for i := 0; i < int(extra); i++ {
@@ -7098,7 +7137,7 @@ func (t *Video_Catalog) UnmarshalCBOR(r io.Reader) (err error) {
 							if err := cr.UnreadByte(); err != nil {
 								return err
 							}
-							t.Video[i] = new(Video_VideoTrack)
+							t.Video[i] = new(MuxlDefs_VideoTrack)
 							if err := t.Video[i].UnmarshalCBOR(cr); err != nil {
 								return xerrors.Errorf("unmarshaling t.Video[i] pointer: %w", err)
 							}
@@ -7119,7 +7158,7 @@ func (t *Video_Catalog) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *Video_VideoTrack) MarshalCBOR(w io.Writer) error {
+func (t *MuxlDefs_VideoTrack) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -7245,8 +7284,8 @@ func (t *Video_VideoTrack) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *Video_VideoTrack) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = Video_VideoTrack{}
+func (t *MuxlDefs_VideoTrack) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = MuxlDefs_VideoTrack{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -7265,7 +7304,7 @@ func (t *Video_VideoTrack) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("Video_VideoTrack: map struct too large (%d)", extra)
+		return fmt.Errorf("MuxlDefs_VideoTrack: map struct too large (%d)", extra)
 	}
 
 	n := extra
@@ -7412,7 +7451,7 @@ func (t *Video_VideoTrack) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
-func (t *Video_AudioTrack) MarshalCBOR(w io.Writer) error {
+func (t *MuxlDefs_AudioTrack) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
@@ -7538,8 +7577,8 @@ func (t *Video_AudioTrack) MarshalCBOR(w io.Writer) error {
 	return nil
 }
 
-func (t *Video_AudioTrack) UnmarshalCBOR(r io.Reader) (err error) {
-	*t = Video_AudioTrack{}
+func (t *MuxlDefs_AudioTrack) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = MuxlDefs_AudioTrack{}
 
 	cr := cbg.NewCborReader(r)
 
@@ -7558,7 +7597,7 @@ func (t *Video_AudioTrack) UnmarshalCBOR(r io.Reader) (err error) {
 	}
 
 	if extra > cbg.MaxLength {
-		return fmt.Errorf("Video_AudioTrack: map struct too large (%d)", extra)
+		return fmt.Errorf("MuxlDefs_AudioTrack: map struct too large (%d)", extra)
 	}
 
 	n := extra
@@ -7752,7 +7791,7 @@ func (t *MuxlCatalog) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Catalog (streamplace.Video_Catalog) (struct)
+	// t.Catalog (streamplace.MuxlDefs_Catalog) (struct)
 	if len("catalog") > 1000000 {
 		return xerrors.Errorf("Value in field \"catalog\" was too long")
 	}
@@ -7884,7 +7923,7 @@ func (t *MuxlCatalog) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
-			// t.Catalog (streamplace.Video_Catalog) (struct)
+			// t.Catalog (streamplace.MuxlDefs_Catalog) (struct)
 		case "catalog":
 
 			{
@@ -7897,7 +7936,7 @@ func (t *MuxlCatalog) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-					t.Catalog = new(Video_Catalog)
+					t.Catalog = new(MuxlDefs_Catalog)
 					if err := t.Catalog.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Catalog pointer: %w", err)
 					}

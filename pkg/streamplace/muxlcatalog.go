@@ -16,7 +16,7 @@ func init() {
 type MuxlCatalog struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.muxl.catalog"`
 	// catalog: Track configuration metadata.
-	Catalog *Video_Catalog `json:"catalog" cborgen:"catalog"`
+	Catalog *MuxlDefs_Catalog `json:"catalog" cborgen:"catalog"`
 	// initSegment: The multi-track ftyp+moov init segment.
 	InitSegment *lexutil.LexBlob `json:"initSegment" cborgen:"initSegment"`
 	// trackInits: Per-track init segments for HLS CMAF media playlists.

@@ -372,6 +372,16 @@ go-lexicons:
 	&& mkdir -p ./pkg/streamplace \
 	&& rm -rf ./pkg/streamplace/cbor_gen.go \
 	&& $(MAKE) lexgen \
+	&& echo 'package streamplace' > pkg/streamplace/cbor_gen.go \
+  && echo 'import "io"' >> pkg/streamplace/cbor_gen.go \
+  && echo 'func (t *MuxlDefs_Archive) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+  && echo 'func (t *MuxlDefs_Archive) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+  && echo 'func (t *MuxlDefs_Catalog) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+  && echo 'func (t *MuxlDefs_Catalog) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+  && echo 'func (t *MuxlDefs_VideoTrack) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+  && echo 'func (t *MuxlDefs_VideoTrack) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+  && echo 'func (t *MuxlDefs_AudioTrack) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+  && echo 'func (t *MuxlDefs_AudioTrack) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
 	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace -type f) \
 	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace -type f) \
 	&& go run ./pkg/gen/gen.go \

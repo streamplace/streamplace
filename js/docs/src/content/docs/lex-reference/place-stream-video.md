@@ -13,7 +13,7 @@ description: Reference for the place.stream.video lexicon
 
 **Type:** `record`
 
-Some audiovisual content. Continuously updated during a live stream; becomes a static VOD when the stream ends.
+Some audiovisual content.
 
 **Record Key:** `tid`
 
@@ -23,65 +23,10 @@ Some audiovisual content. Continuously updated during a live stream; becomes a s
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | `creator`    | `string`                                                                                                                               | ✅    | The DID of the creator of this video.                                                              | Format: `did`                           |
 | `createdAt`  | `string`                                                                                                                               | ✅    | When this video started recording.                                                                 | Format: `datetime`                      |
-| `endedAt`    | `string`                                                                                                                               | ❌    | When recording ended. Absent while live.                                                           | Format: `datetime`                      |
 | `title`      | `string`                                                                                                                               | ❌    |                                                                                                    | Max Length: 1400<br/>Max Graphemes: 140 |
-| `catalog`    | [`#catalog`](#catalog)                                                                                                                 | ✅    | Track configuration metadata (codecs, resolution, channels, timescales).                           |                                         |
-| `archive`    | `blob`                                                                                                                                 | ✅    | Blob ref to the MUXL archive fMP4. CID is the BLAKE-3 hash of the virtual archive file.            | Accept: `video/mp4`                     |
-| `duration`   | `integer`                                                                                                                              | ❌    | Total duration of the video in nanoseconds. Updated as the stream grows.                           |                                         |
+| `source`     | Union of:<br/>&nbsp;&nbsp;[`place.stream.muxl.defs#archive`](/lex-reference/place-stream-muxl-defs#archive)                            | ✅    | The source media for this video.                                                                   |                                         |
+| `duration`   | `integer`                                                                                                                              | ❌    | Total duration of the video in nanoseconds.                                                        |                                         |
 | `livestream` | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | Back-reference to the place.stream.livestream record, if this video originated from a live stream. |                                         |
-
----
-
-<a name="catalog"></a>
-
-### `catalog`
-
-**Type:** `object`
-
-Track configuration describing all media tracks in the video.
-
-**Properties:**
-
-| Name    | Type                                  | Req'd | Description | Constraints |
-| ------- | ------------------------------------- | ----- | ----------- | ----------- |
-| `video` | Array of [`#videoTrack`](#videotrack) | ❌    |             |             |
-| `audio` | Array of [`#audioTrack`](#audiotrack) | ❌    |             |             |
-
----
-
-<a name="videotrack"></a>
-
-### `videoTrack`
-
-**Type:** `object`
-
-**Properties:**
-
-| Name        | Type      | Req'd | Description                                 | Constraints |
-| ----------- | --------- | ----- | ------------------------------------------- | ----------- |
-| `codec`     | `string`  | ✅    | WebCodecs codec string, e.g. 'avc1.64002A'. |             |
-| `width`     | `integer` | ✅    | Coded pixel width.                          |             |
-| `height`    | `integer` | ✅    | Coded pixel height.                         |             |
-| `trackId`   | `integer` | ✅    | MP4 track ID.                               |             |
-| `timescale` | `integer` | ✅    | Media timescale (ticks per second).         |             |
-
----
-
-<a name="audiotrack"></a>
-
-### `audioTrack`
-
-**Type:** `object`
-
-**Properties:**
-
-| Name         | Type      | Req'd | Description                                       | Constraints |
-| ------------ | --------- | ----- | ------------------------------------------------- | ----------- |
-| `codec`      | `string`  | ✅    | WebCodecs codec string, e.g. 'opus', 'mp4a.40.2'. |             |
-| `channels`   | `integer` | ✅    | Number of audio channels.                         |             |
-| `sampleRate` | `integer` | ✅    | Sample rate in Hz.                                |             |
-| `trackId`    | `integer` | ✅    | MP4 track ID.                                     |             |
-| `timescale`  | `integer` | ✅    | Media timescale (ticks per second).               |             |
 
 ---
 
@@ -112,11 +57,11 @@ Track configuration describing all media tracks in the video.
   "defs": {
     "main": {
       "type": "record",
-      "description": "Some audiovisual content. Continuously updated during a live stream; becomes a static VOD when the stream ends.",
+      "description": "Some audiovisual content.",
       "key": "tid",
       "record": {
         "type": "object",
-        "required": ["creator", "createdAt", "catalog", "archive"],
+        "required": ["creator", "createdAt", "source"],
         "properties": {
           "creator": {
             "type": "string",
@@ -128,108 +73,25 @@ Track configuration describing all media tracks in the video.
             "format": "datetime",
             "description": "When this video started recording."
           },
-          "endedAt": {
-            "type": "string",
-            "format": "datetime",
-            "description": "When recording ended. Absent while live."
-          },
           "title": {
             "type": "string",
             "maxLength": 1400,
             "maxGraphemes": 140
           },
-          "catalog": {
-            "type": "ref",
-            "ref": "#catalog",
-            "description": "Track configuration metadata (codecs, resolution, channels, timescales)."
-          },
-          "archive": {
-            "type": "blob",
-            "accept": ["video/mp4"],
-            "description": "Blob ref to the MUXL archive fMP4. CID is the BLAKE-3 hash of the virtual archive file."
+          "source": {
+            "type": "union",
+            "refs": ["place.stream.muxl.defs#archive"],
+            "description": "The source media for this video."
           },
           "duration": {
             "type": "integer",
-            "description": "Total duration of the video in nanoseconds. Updated as the stream grows."
+            "description": "Total duration of the video in nanoseconds."
           },
           "livestream": {
             "type": "ref",
             "ref": "com.atproto.repo.strongRef",
             "description": "Back-reference to the place.stream.livestream record, if this video originated from a live stream."
           }
-        }
-      }
-    },
-    "catalog": {
-      "type": "object",
-      "description": "Track configuration describing all media tracks in the video.",
-      "required": [],
-      "properties": {
-        "video": {
-          "type": "array",
-          "items": {
-            "type": "ref",
-            "ref": "#videoTrack"
-          }
-        },
-        "audio": {
-          "type": "array",
-          "items": {
-            "type": "ref",
-            "ref": "#audioTrack"
-          }
-        }
-      }
-    },
-    "videoTrack": {
-      "type": "object",
-      "required": ["codec", "width", "height", "trackId", "timescale"],
-      "properties": {
-        "codec": {
-          "type": "string",
-          "description": "WebCodecs codec string, e.g. 'avc1.64002A'."
-        },
-        "width": {
-          "type": "integer",
-          "description": "Coded pixel width."
-        },
-        "height": {
-          "type": "integer",
-          "description": "Coded pixel height."
-        },
-        "trackId": {
-          "type": "integer",
-          "description": "MP4 track ID."
-        },
-        "timescale": {
-          "type": "integer",
-          "description": "Media timescale (ticks per second)."
-        }
-      }
-    },
-    "audioTrack": {
-      "type": "object",
-      "required": ["codec", "channels", "sampleRate", "trackId", "timescale"],
-      "properties": {
-        "codec": {
-          "type": "string",
-          "description": "WebCodecs codec string, e.g. 'opus', 'mp4a.40.2'."
-        },
-        "channels": {
-          "type": "integer",
-          "description": "Number of audio channels."
-        },
-        "sampleRate": {
-          "type": "integer",
-          "description": "Sample rate in Hz."
-        },
-        "trackId": {
-          "type": "integer",
-          "description": "MP4 track ID."
-        },
-        "timescale": {
-          "type": "integer",
-          "description": "Media timescale (ticks per second)."
         }
       }
     },

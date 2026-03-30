@@ -1,0 +1,6 @@
+name = "vod-playback"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[vars]
+S3_BUCKET_URL = "https://your-bucket.s3.us-east-1.amazonaws.com"

@@ -19,14 +19,14 @@ Some audiovisual content.
 
 **Record Properties:**
 
-| Name         | Type                                                                                                                                   | Req'd | Description                                                                                        | Constraints                             |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `creator`    | `string`                                                                                                                               | ✅    | The DID of the creator of this video.                                                              | Format: `did`                           |
-| `createdAt`  | `string`                                                                                                                               | ✅    | When this video started recording.                                                                 | Format: `datetime`                      |
-| `title`      | `string`                                                                                                                               | ❌    |                                                                                                    | Max Length: 1400<br/>Max Graphemes: 140 |
-| `source`     | Union of:<br/>&nbsp;&nbsp;[`place.stream.muxl.defs#archive`](/lex-reference/place-stream-muxl-defs#archive)                            | ✅    | The source media for this video.                                                                   |                                         |
-| `duration`   | `integer`                                                                                                                              | ❌    | Total duration of the video in nanoseconds.                                                        |                                         |
-| `livestream` | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | Back-reference to the place.stream.livestream record, if this video originated from a live stream. |                                         |
+| Name         | Type                                                                                                                                                                                                                  | Req'd | Description                                                                                        | Constraints                             |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `creator`    | `string`                                                                                                                                                                                                              | ✅    | The DID of the creator of this video.                                                              | Format: `did`                           |
+| `createdAt`  | `string`                                                                                                                                                                                                              | ✅    | When this video started recording.                                                                 | Format: `datetime`                      |
+| `title`      | `string`                                                                                                                                                                                                              | ❌    |                                                                                                    | Max Length: 1400<br/>Max Graphemes: 140 |
+| `source`     | Union of:<br/>&nbsp;&nbsp;[`place.stream.muxl.defs#archive`](/lex-reference/place-stream-muxl-defs#archive)<br/>&nbsp;&nbsp;[`place.stream.muxl.defs#archiveBlob`](/lex-reference/place-stream-muxl-defs#archiveblob) | ✅    | The source media for this video.                                                                   |                                         |
+| `duration`   | `integer`                                                                                                                                                                                                             | ❌    | Total duration of the video in nanoseconds.                                                        |                                         |
+| `livestream` | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined)                                                                                | ❌    | Back-reference to the place.stream.livestream record, if this video originated from a live stream. |                                         |
 
 ---
 
@@ -80,7 +80,10 @@ Some audiovisual content.
           },
           "source": {
             "type": "union",
-            "refs": ["place.stream.muxl.defs#archive"],
+            "refs": [
+              "place.stream.muxl.defs#archive",
+              "place.stream.muxl.defs#archiveBlob"
+            ],
             "description": "The source media for this video."
           },
           "duration": {

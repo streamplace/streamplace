@@ -39,6 +39,7 @@ func main() {
 		streamplace.LiveViewerCount{},
 		streamplace.Video{},
 		streamplace.MuxlDefs_Archive{},
+		streamplace.MuxlDefs_ArchiveBlob{},
 		streamplace.MuxlDefs_Catalog{},
 		streamplace.MuxlDefs_VideoTrack{},
 		streamplace.MuxlDefs_AudioTrack{},

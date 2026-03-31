@@ -2,11 +2,13 @@
 title: place.stream.muxl.defs
 description: Reference for the place.stream.muxl.defs lexicon
 ---
+
 **Lexicon Version:** 1
 
 ## Definitions
 
 <a name="archive"></a>
+
 ### `archive`
 
 **Type:** `object`
@@ -15,13 +17,32 @@ A MUXL archive fMP4 file, identified by its BLAKE-3 content hash.
 
 **Properties:**
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `data` | `blob` | ✅  | Blob ref to the MUXL archive fMP4. The CID is the BLAKE-3 hash of the file. | Accept: `video/mp4` |
+| Name   | Type   | Req'd | Description                                                                 | Constraints         |
+| ------ | ------ | ----- | --------------------------------------------------------------------------- | ------------------- |
+| `data` | `blob` | ✅    | Blob ref to the MUXL archive fMP4. The CID is the BLAKE-3 hash of the file. | Accept: `video/mp4` |
+
+---
+
+<a name="archiveblob"></a>
+
+### `archiveBlob`
+
+**Type:** `object`
+
+A MUXL archive fMP4 file referenced by CID without requiring the blob on the PDS.
+
+**Properties:**
+
+| Name       | Type      | Req'd | Description                                | Constraints |
+| ---------- | --------- | ----- | ------------------------------------------ | ----------- |
+| `ref`      | `string`  | ✅    | BLAKE-3 content hash (CID) of the archive. |             |
+| `mimeType` | `string`  | ✅    | MIME type of the archive (video/mp4).      |             |
+| `size`     | `integer` | ✅    | Size of the archive in bytes.              |             |
 
 ---
 
 <a name="catalog"></a>
+
 ### `catalog`
 
 **Type:** `object`
@@ -30,48 +51,51 @@ Track configuration describing all media tracks.
 
 **Properties:**
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `video` | Array of [`#videoTrack`](#videotrack) | ❌  |  |  |
-| `audio` | Array of [`#audioTrack`](#audiotrack) | ❌  |  |  |
+| Name    | Type                                  | Req'd | Description | Constraints |
+| ------- | ------------------------------------- | ----- | ----------- | ----------- |
+| `video` | Array of [`#videoTrack`](#videotrack) | ❌    |             |             |
+| `audio` | Array of [`#audioTrack`](#audiotrack) | ❌    |             |             |
 
 ---
 
 <a name="videotrack"></a>
+
 ### `videoTrack`
 
 **Type:** `object`
 
 **Properties:**
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `codec` | `string` | ✅  | WebCodecs codec string, e.g. 'avc1.64002A'. |  |
-| `width` | `integer` | ✅  | Coded pixel width. |  |
-| `height` | `integer` | ✅  | Coded pixel height. |  |
-| `trackId` | `integer` | ✅  | MP4 track ID. |  |
-| `timescale` | `integer` | ✅  | Media timescale (ticks per second). |  |
+| Name        | Type      | Req'd | Description                                 | Constraints |
+| ----------- | --------- | ----- | ------------------------------------------- | ----------- |
+| `codec`     | `string`  | ✅    | WebCodecs codec string, e.g. 'avc1.64002A'. |             |
+| `width`     | `integer` | ✅    | Coded pixel width.                          |             |
+| `height`    | `integer` | ✅    | Coded pixel height.                         |             |
+| `trackId`   | `integer` | ✅    | MP4 track ID.                               |             |
+| `timescale` | `integer` | ✅    | Media timescale (ticks per second).         |             |
 
 ---
 
 <a name="audiotrack"></a>
+
 ### `audioTrack`
 
 **Type:** `object`
 
 **Properties:**
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `codec` | `string` | ✅  | WebCodecs codec string, e.g. 'opus', 'mp4a.40.2'. |  |
-| `channels` | `integer` | ✅  | Number of audio channels. |  |
-| `sampleRate` | `integer` | ✅  | Sample rate in Hz. |  |
-| `trackId` | `integer` | ✅  | MP4 track ID. |  |
-| `timescale` | `integer` | ✅  | Media timescale (ticks per second). |  |
+| Name         | Type      | Req'd | Description                                       | Constraints |
+| ------------ | --------- | ----- | ------------------------------------------------- | ----------- |
+| `codec`      | `string`  | ✅    | WebCodecs codec string, e.g. 'opus', 'mp4a.40.2'. |             |
+| `channels`   | `integer` | ✅    | Number of audio channels.                         |             |
+| `sampleRate` | `integer` | ✅    | Sample rate in Hz.                                |             |
+| `trackId`    | `integer` | ✅    | MP4 track ID.                                     |             |
+| `timescale`  | `integer` | ✅    | Media timescale (ticks per second).               |             |
 
 ---
 
 ## Lexicon Source
+
 ```json
 {
   "lexicon": 1,
@@ -80,16 +104,31 @@ Track configuration describing all media tracks.
     "archive": {
       "type": "object",
       "description": "A MUXL archive fMP4 file, identified by its BLAKE-3 content hash.",
-      "required": [
-        "data"
-      ],
+      "required": ["data"],
       "properties": {
         "data": {
           "type": "blob",
-          "accept": [
-            "video/mp4"
-          ],
+          "accept": ["video/mp4"],
           "description": "Blob ref to the MUXL archive fMP4. The CID is the BLAKE-3 hash of the file."
+        }
+      }
+    },
+    "archiveBlob": {
+      "type": "object",
+      "description": "A MUXL archive fMP4 file referenced by CID without requiring the blob on the PDS.",
+      "required": ["ref", "mimeType", "size"],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "description": "BLAKE-3 content hash (CID) of the archive."
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type of the archive (video/mp4)."
+        },
+        "size": {
+          "type": "integer",
+          "description": "Size of the archive in bytes."
         }
       }
     },
@@ -116,13 +155,7 @@ Track configuration describing all media tracks.
     },
     "videoTrack": {
       "type": "object",
-      "required": [
-        "codec",
-        "width",
-        "height",
-        "trackId",
-        "timescale"
-      ],
+      "required": ["codec", "width", "height", "trackId", "timescale"],
       "properties": {
         "codec": {
           "type": "string",
@@ -148,13 +181,7 @@ Track configuration describing all media tracks.
     },
     "audioTrack": {
       "type": "object",
-      "required": [
-        "codec",
-        "channels",
-        "sampleRate",
-        "trackId",
-        "timescale"
-      ],
+      "required": ["codec", "channels", "sampleRate", "trackId", "timescale"],
       "properties": {
         "codec": {
           "type": "string",

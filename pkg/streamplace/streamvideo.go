@@ -37,13 +37,18 @@ type Video struct {
 
 // The source media for this video.
 type Video_Source struct {
-	MuxlDefs_Archive *MuxlDefs_Archive
+	MuxlDefs_Archive     *MuxlDefs_Archive
+	MuxlDefs_ArchiveBlob *MuxlDefs_ArchiveBlob
 }
 
 func (t *Video_Source) MarshalJSON() ([]byte, error) {
 	if t.MuxlDefs_Archive != nil {
 		t.MuxlDefs_Archive.LexiconTypeID = "place.stream.muxl.defs#archive"
 		return json.Marshal(t.MuxlDefs_Archive)
+	}
+	if t.MuxlDefs_ArchiveBlob != nil {
+		t.MuxlDefs_ArchiveBlob.LexiconTypeID = "place.stream.muxl.defs#archiveBlob"
+		return json.Marshal(t.MuxlDefs_ArchiveBlob)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -58,6 +63,9 @@ func (t *Video_Source) UnmarshalJSON(b []byte) error {
 	case "place.stream.muxl.defs#archive":
 		t.MuxlDefs_Archive = new(MuxlDefs_Archive)
 		return json.Unmarshal(b, t.MuxlDefs_Archive)
+	case "place.stream.muxl.defs#archiveBlob":
+		t.MuxlDefs_ArchiveBlob = new(MuxlDefs_ArchiveBlob)
+		return json.Unmarshal(b, t.MuxlDefs_ArchiveBlob)
 	default:
 		return nil
 	}
@@ -72,6 +80,9 @@ func (t *Video_Source) MarshalCBOR(w io.Writer) error {
 	if t.MuxlDefs_Archive != nil {
 		return t.MuxlDefs_Archive.MarshalCBOR(w)
 	}
+	if t.MuxlDefs_ArchiveBlob != nil {
+		return t.MuxlDefs_ArchiveBlob.MarshalCBOR(w)
+	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
 
@@ -85,6 +96,9 @@ func (t *Video_Source) UnmarshalCBOR(r io.Reader) error {
 	case "place.stream.muxl.defs#archive":
 		t.MuxlDefs_Archive = new(MuxlDefs_Archive)
 		return t.MuxlDefs_Archive.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.muxl.defs#archiveBlob":
+		t.MuxlDefs_ArchiveBlob = new(MuxlDefs_ArchiveBlob)
+		return t.MuxlDefs_ArchiveBlob.UnmarshalCBOR(bytes.NewReader(b))
 	default:
 		return nil
 	}

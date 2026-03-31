@@ -105,7 +105,7 @@ function requireURI(url: URL): ParsedURI {
     throw new XRPCError(
       400,
       "InvalidRequest",
-      `Unsupported collection: ${parsed.collection}`
+      `Unsupported collection: ${parsed.collection}`,
     );
   }
   return parsed;
@@ -131,7 +131,7 @@ class XRPCError extends Error {
   constructor(
     public status: number,
     public override name: string,
-    message: string
+    message: string,
   ) {
     super(message);
   }
@@ -173,10 +173,7 @@ async function fetchMeta(parsed: ParsedURI, env: Env): Promise<VideoMeta> {
 // place.stream.playback.getVideoPlaylist
 // ---------------------------------------------------------------------------
 
-async function handleGetVideoPlaylist(
-  url: URL,
-  env: Env
-): Promise<Response> {
+async function handleGetVideoPlaylist(url: URL, env: Env): Promise<Response> {
   const parsed = requireURI(url);
   const track = url.searchParams.get("track");
   const meta = await fetchMeta(parsed, env);
@@ -209,14 +206,14 @@ function masterPlaylist(meta: VideoMeta, parsed: ParsedURI): string {
       });
       lines.push(
         `#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="audio${tid}",` +
-          `DEFAULT=YES,AUTOSELECT=YES,CHANNELS="${t.channels ?? 2}",URI="${trackUri}"`
+          `DEFAULT=YES,AUTOSELECT=YES,CHANNELS="${t.channels ?? 2}",URI="${trackUri}"`,
       );
     }
   }
   lines.push("");
 
   const audioCodec = Object.values(meta.tracks).find(
-    (t) => t.type === "audio"
+    (t) => t.type === "audio",
   )?.codec;
 
   for (const [tid, t] of Object.entries(meta.tracks)) {
@@ -224,11 +221,11 @@ function masterPlaylist(meta: VideoMeta, parsed: ParsedURI): string {
       const totalBytes = t.segments.reduce((s, seg) => s + seg.size, 0);
       const totalTicks = t.segments.reduce(
         (s, seg) => s + seg.durationTicks,
-        0
+        0,
       );
       const totalSamples = t.segments.reduce(
         (s, seg) => s + seg.sampleCount,
-        0
+        0,
       );
       const totalDur = totalTicks / t.timescale;
       const bandwidth =
@@ -243,7 +240,7 @@ function masterPlaylist(meta: VideoMeta, parsed: ParsedURI): string {
       lines.push(
         `#EXT-X-STREAM-INF:AUDIO="audio",BANDWIDTH=${bandwidth},` +
           `CODECS="${codecs}",RESOLUTION=${t.width}x${t.height},` +
-          `FRAME-RATE=${frameRate.toFixed(3)}`
+          `FRAME-RATE=${frameRate.toFixed(3)}`,
       );
       lines.push(trackUri);
     }
@@ -255,7 +252,7 @@ function masterPlaylist(meta: VideoMeta, parsed: ParsedURI): string {
 function mediaPlaylist(
   meta: VideoMeta,
   trackId: string,
-  parsed: ParsedURI
+  parsed: ParsedURI,
 ): string {
   const t = meta.tracks[trackId];
   if (!t) {
@@ -266,7 +263,7 @@ function mediaPlaylist(
 
   const maxDurSec = t.segments.reduce(
     (m, seg) => Math.max(m, seg.durationTicks / t.timescale),
-    0
+    0,
   );
   const targetDuration = Math.max(1, Math.ceil(maxDurSec));
 
@@ -307,10 +304,7 @@ function mediaPlaylist(
 // place.stream.playback.getInitSegment
 // ---------------------------------------------------------------------------
 
-async function handleGetInitSegment(
-  url: URL,
-  env: Env
-): Promise<Response> {
+async function handleGetInitSegment(url: URL, env: Env): Promise<Response> {
   const parsed = requireURI(url);
   const track = url.searchParams.get("track");
   if (!track) {
@@ -346,7 +340,7 @@ async function handleGetInitSegment(
 async function handleGetVideoBlob(
   url: URL,
   request: Request,
-  env: Env
+  env: Env,
 ): Promise<Response> {
   const parsed = requireURI(url);
 

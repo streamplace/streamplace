@@ -382,6 +382,8 @@ go-lexicons:
   && echo 'func (t *MuxlDefs_VideoTrack) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
   && echo 'func (t *MuxlDefs_AudioTrack) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
   && echo 'func (t *MuxlDefs_AudioTrack) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+  && echo 'func (t *MuxlDefs_ArchiveBlob) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+  && echo 'func (t *MuxlDefs_ArchiveBlob) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
 	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace -type f) \
 	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace -type f) \
 	&& go run ./pkg/gen/gen.go \

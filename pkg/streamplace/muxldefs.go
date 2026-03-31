@@ -17,6 +17,19 @@ type MuxlDefs_Archive struct {
 	Data *lexutil.LexBlob `json:"data" cborgen:"data"`
 }
 
+// MuxlDefs_ArchiveBlob is a "archiveBlob" in the place.stream.muxl.defs schema.
+//
+// A MUXL archive fMP4 file referenced by CID without requiring the blob on the PDS.
+type MuxlDefs_ArchiveBlob struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.muxl.defs#archiveBlob"`
+	// mimeType: MIME type of the archive (video/mp4).
+	MimeType string `json:"mimeType" cborgen:"mimeType"`
+	// ref: BLAKE-3 content hash (CID) of the archive.
+	Ref string `json:"ref" cborgen:"ref"`
+	// size: Size of the archive in bytes.
+	Size int64 `json:"size" cborgen:"size"`
+}
+
 // MuxlDefs_AudioTrack is a "audioTrack" in the place.stream.muxl.defs schema.
 type MuxlDefs_AudioTrack struct {
 	// channels: Number of audio channels.

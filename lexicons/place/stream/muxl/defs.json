@@ -14,6 +14,25 @@
         }
       }
     },
+    "archiveBlob": {
+      "type": "object",
+      "description": "A MUXL archive fMP4 file referenced by CID without requiring the blob on the PDS.",
+      "required": ["ref", "mimeType", "size"],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "description": "BLAKE-3 content hash (CID) of the archive."
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type of the archive (video/mp4)."
+        },
+        "size": {
+          "type": "integer",
+          "description": "Size of the archive in bytes."
+        }
+      }
+    },
     "catalog": {
       "type": "object",
       "description": "Track configuration describing all media tracks.",
@@ -33,22 +52,40 @@
       "type": "object",
       "required": ["codec", "width", "height", "trackId", "timescale"],
       "properties": {
-        "codec": { "type": "string", "description": "WebCodecs codec string, e.g. 'avc1.64002A'." },
+        "codec": {
+          "type": "string",
+          "description": "WebCodecs codec string, e.g. 'avc1.64002A'."
+        },
         "width": { "type": "integer", "description": "Coded pixel width." },
         "height": { "type": "integer", "description": "Coded pixel height." },
         "trackId": { "type": "integer", "description": "MP4 track ID." },
-        "timescale": { "type": "integer", "description": "Media timescale (ticks per second)." }
+        "timescale": {
+          "type": "integer",
+          "description": "Media timescale (ticks per second)."
+        }
       }
     },
     "audioTrack": {
       "type": "object",
       "required": ["codec", "channels", "sampleRate", "trackId", "timescale"],
       "properties": {
-        "codec": { "type": "string", "description": "WebCodecs codec string, e.g. 'opus', 'mp4a.40.2'." },
-        "channels": { "type": "integer", "description": "Number of audio channels." },
-        "sampleRate": { "type": "integer", "description": "Sample rate in Hz." },
+        "codec": {
+          "type": "string",
+          "description": "WebCodecs codec string, e.g. 'opus', 'mp4a.40.2'."
+        },
+        "channels": {
+          "type": "integer",
+          "description": "Number of audio channels."
+        },
+        "sampleRate": {
+          "type": "integer",
+          "description": "Sample rate in Hz."
+        },
         "trackId": { "type": "integer", "description": "MP4 track ID." },
-        "timescale": { "type": "integer", "description": "Media timescale (ticks per second)." }
+        "timescale": {
+          "type": "integer",
+          "description": "Media timescale (ticks per second)."
+        }
       }
     }
   }

@@ -27,7 +27,10 @@
           },
           "source": {
             "type": "union",
-            "refs": ["place.stream.muxl.defs#archive"],
+            "refs": [
+              "place.stream.muxl.defs#archive",
+              "place.stream.muxl.defs#archiveBlob"
+            ],
             "description": "The source media for this video."
           },
           "duration": {

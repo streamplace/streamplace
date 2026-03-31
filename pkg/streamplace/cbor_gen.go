@@ -6927,6 +6927,218 @@ func (t *MuxlDefs_Archive) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
+func (t *MuxlDefs_ArchiveBlob) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{164}); err != nil {
+		return err
+	}
+
+	// t.Ref (string) (string)
+	if len("ref") > 1000000 {
+		return xerrors.Errorf("Value in field \"ref\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("ref"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("ref")); err != nil {
+		return err
+	}
+
+	if len(t.Ref) > 1000000 {
+		return xerrors.Errorf("Value in field t.Ref was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Ref))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Ref)); err != nil {
+		return err
+	}
+
+	// t.Size (int64) (int64)
+	if len("size") > 1000000 {
+		return xerrors.Errorf("Value in field \"size\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("size"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("size")); err != nil {
+		return err
+	}
+
+	if t.Size >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Size)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Size-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 1000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.muxl.defs#archiveBlob"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("place.stream.muxl.defs#archiveBlob")); err != nil {
+		return err
+	}
+
+	// t.MimeType (string) (string)
+	if len("mimeType") > 1000000 {
+		return xerrors.Errorf("Value in field \"mimeType\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("mimeType"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("mimeType")); err != nil {
+		return err
+	}
+
+	if len(t.MimeType) > 1000000 {
+		return xerrors.Errorf("Value in field t.MimeType was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.MimeType))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.MimeType)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *MuxlDefs_ArchiveBlob) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = MuxlDefs_ArchiveBlob{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("MuxlDefs_ArchiveBlob: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 8)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Ref (string) (string)
+		case "ref":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.Ref = string(sval)
+			}
+			// t.Size (int64) (int64)
+		case "size":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Size = int64(extraI)
+			}
+			// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.MimeType (string) (string)
+		case "mimeType":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.MimeType = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
 func (t *MuxlDefs_Catalog) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)

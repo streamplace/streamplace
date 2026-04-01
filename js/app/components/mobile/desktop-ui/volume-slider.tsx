@@ -56,8 +56,9 @@ export function VolumeSlider() {
     width: widthAnim.value,
   }));
 
-  // Convert volume (0-1) to percentage (0-100) for slider
-  const sliderValue = (muted ? 0 : volume) * 100;
+  // Convert logarithmic volume (0-1) to linear slider value (0-100)
+  const sliderValue = muted ? 0 : Math.round(Math.pow(volume, 0.5) * 100);
+
   return (
     <View
       onPointerEnter={onVolumeHover}
@@ -82,7 +83,8 @@ export function VolumeSlider() {
           min={0}
           max={100} // Slider max value is 100 for percentage
           onValueChange={(vals) => {
-            const newVolume = vals[0] / 100; // Convert back to 0-1 range
+            // Convert back to logarithmic volume
+            const newVolume = Math.pow(vals[0] / 100, 2);
             setVolume(newVolume);
             if (newVolume === 0) {
               setMuted(true);

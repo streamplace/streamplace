@@ -31,6 +31,7 @@ import {
 } from "react-native";
 import Reanimated, {
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
@@ -81,6 +82,9 @@ function PlayerWithProvider(
   const segDims = useSegmentDimensions();
   const isPortrait = screenHeight > screenWidth;
   const portraitFadeOpacity = useSharedValue(1);
+  const portraitVideoTranslateY = useDerivedValue(
+    () => (portraitFadeOpacity.value - 1) * 20,
+  );
   const portraitVideoStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: (portraitFadeOpacity.value - 1) * 20 }],
   }));
@@ -282,7 +286,11 @@ function PlayerWithProvider(
                   sharedFadeOpacity={portraitFadeOpacity}
                 />
                 {!showUnavailable && (
-                  <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
+                  <MobileChatPanel
+                    isPlayerRatioGreater={true}
+                    fixed={true}
+                    portraitVideoTranslateY={portraitVideoTranslateY}
+                  />
                 )}
               </>
             ) : shouldShowChatSidePanel ? (

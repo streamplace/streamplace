@@ -262,7 +262,9 @@ function PlayerWithProvider(
                       paddingTop: safeTop,
                     }
                   : { flex: 1 },
-                isPortrait ? portraitVideoStyle : undefined,
+                isPortrait && Platform.OS !== "web"
+                  ? portraitVideoStyle
+                  : undefined,
               ]}
             >
               <PlayerInner

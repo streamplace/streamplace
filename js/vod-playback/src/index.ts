@@ -25,6 +25,8 @@ interface TrackMeta {
   codec: string;
   timescale: number;
   initCid: string;
+  blobCid?: string;
+  blobSize?: number;
   segments: TrackSegment[];
   width?: number;
   height?: number;
@@ -198,23 +200,32 @@ function masterPlaylist(meta: VideoMeta, parsed: ParsedURI): string {
   const uri = atURI(parsed);
   const lines: string[] = ["#EXTM3U", "#EXT-X-VERSION:6", ""];
 
-  for (const [tid, t] of Object.entries(meta.tracks)) {
-    if (t.type === "audio") {
-      const trackUri = xrpcURL("place.stream.playback.getVideoPlaylist", {
-        uri,
-        track: tid,
-      });
-      lines.push(
-        `#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="audio${tid}",` +
-          `DEFAULT=YES,AUTOSELECT=YES,CHANNELS="${t.channels ?? 2}",URI="${trackUri}"`,
-      );
-    }
+  // Prefer AAC as default audio for Safari compatibility
+  const audioEntries = Object.entries(meta.tracks).filter(([, t]) => t.type === "audio");
+  const defaultTid =
+    audioEntries.find(([, t]) => t.codec.startsWith("mp4a"))?.[0] ??
+    audioEntries[0]?.[0];
+
+  for (const [tid, t] of audioEntries) {
+    const trackUri = xrpcURL("place.stream.playback.getVideoPlaylist", {
+      uri,
+      track: tid,
+    });
+    const isDefault = tid === defaultTid;
+    lines.push(
+      `#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="${t.codec}",` +
+        `DEFAULT=${isDefault ? "YES" : "NO"},AUTOSELECT=YES,` +
+        `CHANNELS="${t.channels ?? 2}",URI="${trackUri}"`,
+    );
   }
   lines.push("");
 
-  const audioCodec = Object.values(meta.tracks).find(
-    (t) => t.type === "audio",
-  )?.codec;
+  // Prefer AAC for CODECS string (Safari compatibility)
+  const audioTracks = Object.values(meta.tracks).filter((t) => t.type === "audio");
+  const audioCodec =
+    audioTracks.find((t) => t.codec.startsWith("mp4a"))?.codec ??
+    audioTracks[0]?.codec ??
+    "mp4a.40.2";
 
   for (const [tid, t] of Object.entries(meta.tracks)) {
     if (t.type === "video") {
@@ -272,10 +283,11 @@ function mediaPlaylist(
     track: trackId,
   });
 
+  const trackBlobCid = t.blobCid ?? meta.blobCid;
   const blobURI =
     xrpcURL("place.stream.playback.getVideoBlob", {
       uri,
-      cid: meta.blobCid,
+      cid: trackBlobCid,
     }) + ".mp4";
 
   const lines: string[] = [

@@ -93,7 +93,7 @@ type CLI struct {
 	AllowedStreams              []string
 	WideOpen                    bool
 	Peers                       []string
-	Redirects                   []string
+	Redirects                   map[string]string
 	TestStream                  bool
 	FrontendProxy               string
 	PublicOAuth                 bool
@@ -414,8 +414,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 					if s == "" {
 						return nil
 					}
-					cli.Redirects = strings.Split(s, ",")
-					return nil
+					return json.Unmarshal([]byte(s), &cli.Redirects)
 				},
 				Sources: urfavecli.EnvVars("SP_REDIRECTS"),
 			},

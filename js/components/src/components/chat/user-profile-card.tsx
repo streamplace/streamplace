@@ -178,8 +178,6 @@ const BadgeRow = ({
   );
 };
 
-// Pure UI — no hooks. All data is passed in so this can safely render inside a
-// React Native Modal (which creates a new React root and loses context).
 const ProfileCardContent = ({
   data,
   theme,
@@ -269,8 +267,7 @@ const ProfileCardContent = ({
   );
 };
 
-// Web only: renders into document.body via a portal so FlatList re-renders and
-// ancestor transforms/overflow can't affect it.
+// Web only overlay rendered in a React portal
 const ProfileCardOverlay = ({
   card,
   onClose,
@@ -411,9 +408,8 @@ export const UserProfileCard = ({
     }
   }, [uri, author, badges, setOpenCard]);
 
-  // Native: self-contained DropdownMenu; rn-primitives renders it as a bottom sheet.
-  // All hook data is resolved here (in the regular tree) and passed as plain props
-  // so ProfileCardContent has no hooks to lose when inside the Modal.
+  // Native: use DropdownMenu for built-in positioning and interactions.
+  // * important ! all data must be computed outside the dropdown and passed in!
   if (Platform.OS !== "web") {
     return (
       <DropdownMenu>

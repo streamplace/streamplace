@@ -10,6 +10,7 @@ import {
 import {
   Text,
   useAccentColor,
+  useDID,
   usePrimaryColor,
   useSiteTitle,
   useTheme,
@@ -92,6 +93,7 @@ function HomeNavigator() {
   const baseScreenOptions = useBaseScreenOptions();
   const isNative = Platform.OS !== "web";
   const z = useTheme();
+  const did = useDID();
 
   const headerScreenOptions = {
     headerShown: !isNative,
@@ -163,7 +165,7 @@ function HomeNavigator() {
       <HomeStack.Screen
         name="Login"
         component={Login}
-        options={{ title: "Login", ...headerScreenOptions }}
+        options={{ title: did ? "Account" : "Login", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="Multi"

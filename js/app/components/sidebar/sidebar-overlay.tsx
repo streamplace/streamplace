@@ -1,6 +1,7 @@
 import { CommonActions, useNavigation } from "@react-navigation/native";
 import {
   Text,
+  useDID,
   useMainLogo,
   useSidebarBackgroundImage,
   useSiteTitle,
@@ -56,6 +57,7 @@ export function SidebarOverlay() {
   const nodeName = useSiteTitle() || "My Streamplace Station";
   const mainLogo = useMainLogo();
   const sidebarBackgroundImageAsset = useSidebarBackgroundImage();
+  const did = useDID();
 
   const animatedSidebarStyle = useAnimatedStyle(() => {
     return {
@@ -102,7 +104,7 @@ export function SidebarOverlay() {
     },
     {
       icon: () => <LogIn color={foregroundColor} size={24} />,
-      label: <Text variant="h5">Login</Text>,
+      label: <Text variant="h5">{did ? "Account" : "Login"}</Text>,
       href: "/login",
     },
   ];

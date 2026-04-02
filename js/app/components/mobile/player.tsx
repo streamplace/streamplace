@@ -287,6 +287,7 @@ function PlayerWithProvider(
               <DesktopChatPanel
                 chatVisible={chatVisible}
                 chatPanelWidth={chatPanelWidth}
+                setShowChat={setShowChat}
               />
             ) : (
               !showUnavailable && <View />

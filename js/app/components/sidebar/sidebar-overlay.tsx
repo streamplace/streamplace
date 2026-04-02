@@ -187,9 +187,14 @@ export function SidebarOverlay() {
             paddingLeft: 11,
           },
         ]}
-        onPress={() =>
-          navigation.navigate("MainTabs" as any, { screen: "HomeTab" })
-        }
+        onPress={(e) => {
+          e.preventDefault();
+          navigation.navigate("MainTabs", {
+            screen: "HomeTab",
+            params: { screen: "HomeMain" },
+          });
+          return;
+        }}
       >
         {mainLogo ? (
           <Image

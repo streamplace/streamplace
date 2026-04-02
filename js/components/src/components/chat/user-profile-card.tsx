@@ -255,11 +255,12 @@ const ProfileCardContent = ({
               <Button
                 size="pill"
                 variant="secondary"
+                style={{ aspectRatio: 1 }}
                 onPress={() => {
                   Linking.openURL(`https://bsky.app/profile/${author.handle}`);
                 }}
               >
-                <IconBsky size={20} />
+                <IconBsky size={18} />
               </Button>
             </View>
           )}

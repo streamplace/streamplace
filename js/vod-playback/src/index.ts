@@ -93,6 +93,7 @@ function parseATURI(uri: string): ParsedURI {
   // at://did:plc:abc123/place.stream.video/3mi2ikg6gij26
   const match = uri.match(/^at:\/\/(did:[^/]+)\/([^/]+)\/([^/]+)$/);
   if (!match) {
+    console.error(`[parseATURI] Invalid AT-URI: ${uri}`);
     throw new XRPCError(400, "InvalidRequest", `Invalid AT-URI: ${uri}`);
   }
   return { did: match[1], collection: match[2], rkey: match[3] };
@@ -101,10 +102,12 @@ function parseATURI(uri: string): ParsedURI {
 function requireURI(url: URL): ParsedURI {
   const uri = url.searchParams.get("uri");
   if (!uri) {
+    console.error(`[requireURI] uri parameter is required`);
     throw new XRPCError(400, "InvalidRequest", "uri parameter is required");
   }
   const parsed = parseATURI(uri);
   if (parsed.collection !== "place.stream.video") {
+    console.error(`[requireURI] Unsupported collection: ${parsed.collection}`);
     throw new XRPCError(
       400,
       "InvalidRequest",
@@ -165,6 +168,7 @@ async function fetchMeta(parsed: ParsedURI, env: Env): Promise<VideoMeta> {
   const resp = await fetch(metaUrl);
   if (!resp.ok) {
     console.log(`[fetchMeta] ${resp.status} ${resp.statusText}`);
+    console.error(`[fetchMeta] No video found for ${key}`);
     throw new XRPCError(404, "VideoNotFound", `No video found for ${key}`);
   }
   const meta: VideoMeta = await resp.json();
@@ -251,6 +255,9 @@ function masterPlaylist(
       ...timeParams,
     });
     const isDefault = tid === defaultTid;
+    if (!isDefault) {
+      continue;
+    }
     lines.push(
       `#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="${t.codec}",` +
         `DEFAULT=${isDefault ? "YES" : "NO"},AUTOSELECT=YES,` +
@@ -312,6 +319,7 @@ function mediaPlaylist(
 ): string {
   const t = meta.tracks[trackId];
   if (!t) {
+    console.error(`[mediaPlaylist] Track ${trackId} not found`);
     throw new XRPCError(404, "TrackNotFound", `Track ${trackId} not found`);
   }
 
@@ -405,12 +413,14 @@ async function handleGetInitSegment(url: URL, env: Env): Promise<Response> {
   const parsed = requireURI(url);
   const track = url.searchParams.get("track");
   if (!track) {
+    console.error(`[handleGetInitSegment] track parameter is required`);
     throw new XRPCError(400, "InvalidRequest", "track parameter is required");
   }
 
   const meta = await fetchMeta(parsed, env);
   const t = meta.tracks[track];
   if (!t) {
+    console.error(`[handleGetInitSegment] Track ${track} not found`);
     throw new XRPCError(404, "TrackNotFound", `Track ${track} not found`);
   }
 
@@ -418,6 +428,7 @@ async function handleGetInitSegment(url: URL, env: Env): Promise<Response> {
   console.log(`[getInitSegment] ${initUrl}`);
   const resp = await fetch(initUrl);
   if (!resp.ok) {
+    console.error(`[handleGetInitSegment] Init segment not available`);
     throw new XRPCError(404, "TrackNotFound", "Init segment not available");
   }
 
@@ -460,6 +471,7 @@ async function handleGetVideoBlob(
   });
 
   if (!resp.ok && resp.status !== 206) {
+    console.error(`[handleGetVideoBlob] Blob not available for cid ${cid}`);
     throw new XRPCError(404, "BlobNotFound", "Blob not available");
   }
 

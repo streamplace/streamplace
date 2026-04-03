@@ -33,6 +33,7 @@ const FollowButton: React.FC<FollowButtonProps> = ({
   const streamplaceUrl = useStreamplaceUrl();
   const followUser = useStore((state) => state.followUser);
   const unfollowUser = useStore((state) => state.unfollowUser);
+  const pdsAgent = useStore((state) => state.pdsAgent);
 
   // Hide button if not logged in or viewing own stream
   if (!currentUserDID || currentUserDID === streamerDID) return null;
@@ -88,14 +89,13 @@ const FollowButton: React.FC<FollowButtonProps> = ({
     let cancelled = false;
 
     const fetchNotificationPreference = async () => {
+      if (!pdsAgent) return;
       try {
-        const res = await fetch(
-          `${streamplaceUrl}/xrpc/place.stream.graph.getNotificationPreference?userDID=${encodeURIComponent(currentUserDID)}&streamerDID=${encodeURIComponent(streamerDID)}`,
-          { credentials: "include" },
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled) setNotificationsEnabled(data.enabled);
+        const result =
+          await pdsAgent.place.stream.graph.getNotificationPreference({
+            repoDID: streamerDID,
+          });
+        if (!cancelled) setNotificationsEnabled(result.data.enabled);
       } catch {
         // non-fatal
       }
@@ -142,20 +142,12 @@ const FollowButton: React.FC<FollowButtonProps> = ({
     if (notificationsEnabled === null) return;
     const next = !notificationsEnabled;
     setNotificationsEnabled(next); // Optimistic
+    if (!pdsAgent) return;
     try {
-      await fetch(
-        `${streamplaceUrl}/xrpc/place.stream.graph.setNotificationPreference`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userDID: currentUserDID,
-            streamerDID,
-            enabled: next,
-          }),
-        },
-      );
+      await pdsAgent.place.stream.graph.setNotificationPreference({
+        repoDID: streamerDID,
+        enabled: next,
+      });
     } catch {
       setNotificationsEnabled(!next); // Revert on failure
     }

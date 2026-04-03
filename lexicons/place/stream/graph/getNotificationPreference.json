@@ -7,17 +7,12 @@
       "description": "Get whether a user has notifications enabled for a streamer.",
       "parameters": {
         "type": "params",
-        "required": ["userDID", "streamerDID"],
+        "required": ["repoDID"],
         "properties": {
-          "userDID": {
+          "repoDID": {
             "type": "string",
             "format": "did",
-            "description": "The DID of the follower."
-          },
-          "streamerDID": {
-            "type": "string",
-            "format": "did",
-            "description": "The DID of the streamer."
+            "description": "The DID of the streamer's repo."
           }
         }
       },

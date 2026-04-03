@@ -55,6 +55,7 @@ var StatefulDBModels = []any{
 	ModerationAuditLog{},
 	Storage{},
 	BroadcastOrigin{},
+	NotificationPreference{},
 }
 
 var NoPostgresDatabaseCode = "3D000"

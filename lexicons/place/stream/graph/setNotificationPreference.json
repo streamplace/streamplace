@@ -9,17 +9,12 @@
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["userDID", "streamerDID", "enabled"],
+          "required": ["repoDID", "enabled"],
           "properties": {
-            "userDID": {
+            "repoDID": {
               "type": "string",
               "format": "did",
-              "description": "The DID of the follower."
-            },
-            "streamerDID": {
-              "type": "string",
-              "format": "did",
-              "description": "The DID of the streamer."
+              "description": "The DID of the streamer's repo."
             },
             "enabled": {
               "type": "boolean",

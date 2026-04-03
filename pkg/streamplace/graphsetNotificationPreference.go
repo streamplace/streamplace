@@ -14,10 +14,8 @@ import (
 type GraphSetNotificationPreference_Input struct {
 	// enabled: True to enable notifications, false to disable.
 	Enabled bool `json:"enabled" cborgen:"enabled"`
-	// streamerDID: The DID of the streamer.
-	StreamerDID string `json:"streamerDID" cborgen:"streamerDID"`
-	// userDID: The DID of the follower.
-	UserDID string `json:"userDID" cborgen:"userDID"`
+	// repoDID: The DID of the streamer's repo.
+	RepoDID string `json:"repoDID" cborgen:"repoDID"`
 }
 
 // GraphSetNotificationPreference_Output is the output of a place.stream.graph.setNotificationPreference call.

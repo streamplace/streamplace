@@ -281,7 +281,7 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 }
 
 func (state *StatefulDB) filterNotificationRecipients(ctx context.Context, streamerDID string, dids []string) ([]string, error) {
-	optedOut, err := state.model.GetOptedOutFollowerDIDs(ctx, streamerDID, dids)
+	optedOut, err := state.GetOptedOutFollowerDIDs(ctx, streamerDID, dids)
 	if err != nil {
 		return nil, err
 	}

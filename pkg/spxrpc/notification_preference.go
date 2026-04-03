@@ -12,35 +12,25 @@ import (
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
 
-func (s *Server) handlePlaceStreamGraphGetNotificationPreference(ctx context.Context, streamerDID string, userDID string) (*placestreamtypes.GraphGetNotificationPreference_Output, error) {
+func (s *Server) handlePlaceStreamGraphGetNotificationPreference(ctx context.Context, repoDID string) (*placestreamtypes.GraphGetNotificationPreference_Output, error) {
 	ctx, span := otel.Tracer("server").Start(ctx, "handlePlaceStreamGraphGetNotificationPreference")
 	defer span.End()
 
-	if _, err := syntax.ParseDID(userDID); userDID == "" || err != nil {
-		return nil, fmt.Errorf("missing or invalid user DID")
-	}
 	session, _ := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "authentication required")
 	}
-	if session.DID != userDID {
-		return nil, echo.NewHTTPError(http.StatusForbidden, "cannot access another user's notification preferences")
+	if _, err := syntax.ParseDID(repoDID); repoDID == "" || err != nil {
+		return nil, fmt.Errorf("missing or invalid repo DID")
 	}
-
-	if _, err := syntax.ParseDID(streamerDID); streamerDID == "" || err != nil {
-		return nil, fmt.Errorf("missing or invalid streamer DID")
-	}
-
-	pref, err := s.model.GetNotificationPreference(ctx, userDID, streamerDID)
+	pref, err := s.statefulDB.GetNotificationPreference(ctx, session.DID, repoDID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get notification preference: %w", err)
 	}
-
 	enabled := true
 	if pref != nil {
 		enabled = pref.Enabled
 	}
-
 	return &placestreamtypes.GraphGetNotificationPreference_Output{Enabled: enabled}, nil
 }
 
@@ -48,24 +38,18 @@ func (s *Server) handlePlaceStreamGraphSetNotificationPreference(ctx context.Con
 	ctx, span := otel.Tracer("server").Start(ctx, "handlePlaceStreamGraphSetNotificationPreference")
 	defer span.End()
 
-	if _, err := syntax.ParseDID(body.UserDID); body.UserDID == "" || err != nil {
-		return nil, fmt.Errorf("missing or invalid user DID")
-	}
 	session, _ := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "authentication required")
 	}
-	if session.DID != body.UserDID {
-		return nil, echo.NewHTTPError(http.StatusForbidden, "cannot access another user's notification preferences")
+	if _, err := syntax.ParseDID(body.RepoDID); body.RepoDID == "" || err != nil {
+		return nil, fmt.Errorf("missing or invalid repo DID")
 	}
-
-	if _, err := syntax.ParseDID(body.StreamerDID); body.StreamerDID == "" || err != nil {
-		return nil, fmt.Errorf("missing or invalid streamer DID")
-	}
-
-	if err := s.model.SetNotificationPreference(ctx, body.UserDID, body.StreamerDID, body.Enabled); err != nil {
+	if err := s.statefulDB.SetNotificationPreference(ctx, session.DID, &placestreamtypes.GraphNotificationPreference{
+		RepoDID: body.RepoDID,
+		Enabled: body.Enabled,
+	}); err != nil {
 		return nil, fmt.Errorf("failed to set notification preference: %w", err)
 	}
-
 	return &placestreamtypes.GraphSetNotificationPreference_Output{}, nil
 }

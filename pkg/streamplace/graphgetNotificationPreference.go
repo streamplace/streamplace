@@ -18,14 +18,12 @@ type GraphGetNotificationPreference_Output struct {
 
 // GraphGetNotificationPreference calls the XRPC method "place.stream.graph.getNotificationPreference".
 //
-// streamerDID: The DID of the streamer.
-// userDID: The DID of the follower.
-func GraphGetNotificationPreference(ctx context.Context, c lexutil.LexClient, streamerDID string, userDID string) (*GraphGetNotificationPreference_Output, error) {
+// repoDID: The DID of the streamer's repo.
+func GraphGetNotificationPreference(ctx context.Context, c lexutil.LexClient, repoDID string) (*GraphGetNotificationPreference_Output, error) {
 	var out GraphGetNotificationPreference_Output
 
 	params := map[string]interface{}{}
-	params["streamerDID"] = streamerDID
-	params["userDID"] = userDID
+	params["repoDID"] = repoDID
 	if err := c.LexDo(ctx, lexutil.Query, "", "place.stream.graph.getNotificationPreference", params, nil, &out); err != nil {
 		return nil, err
 	}

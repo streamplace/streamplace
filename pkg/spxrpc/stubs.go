@@ -460,12 +460,11 @@ func (s *Server) HandlePlaceStreamGraphGetFollowingUser(c echo.Context) error {
 func (s *Server) HandlePlaceStreamGraphGetNotificationPreference(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamGraphGetNotificationPreference")
 	defer span.End()
-	streamerDID := c.QueryParam("streamerDID")
-	userDID := c.QueryParam("userDID")
+	repoDID := c.QueryParam("repoDID")
 	var out *placestream.GraphGetNotificationPreference_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamGraphGetNotificationPreference(ctx context.Context,streamerDID string,userDID string) (*placestream.GraphGetNotificationPreference_Output, error)
-	out, handleErr = s.handlePlaceStreamGraphGetNotificationPreference(ctx, streamerDID, userDID)
+	// func (s *Server) handlePlaceStreamGraphGetNotificationPreference(ctx context.Context,repoDID string) (*placestream.GraphGetNotificationPreference_Output, error)
+	out, handleErr = s.handlePlaceStreamGraphGetNotificationPreference(ctx, repoDID)
 	if handleErr != nil {
 		return handleErr
 	}

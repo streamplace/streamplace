@@ -11,6 +11,7 @@
 
 interface Env {
   S3_BUCKET_URL: string;
+  BLOB_CDN_URL?: string;
 }
 
 interface TrackSegment {
@@ -181,7 +182,7 @@ async function handleGetVideoPlaylist(url: URL, env: Env): Promise<Response> {
   const meta = await fetchMeta(parsed, env);
 
   const playlist = track
-    ? mediaPlaylist(meta, track, parsed)
+    ? mediaPlaylist(meta, track, parsed, env)
     : masterPlaylist(meta, parsed);
 
   return new Response(playlist, {
@@ -201,7 +202,9 @@ function masterPlaylist(meta: VideoMeta, parsed: ParsedURI): string {
   const lines: string[] = ["#EXTM3U", "#EXT-X-VERSION:6", ""];
 
   // Prefer AAC as default audio for Safari compatibility
-  const audioEntries = Object.entries(meta.tracks).filter(([, t]) => t.type === "audio");
+  const audioEntries = Object.entries(meta.tracks).filter(
+    ([, t]) => t.type === "audio",
+  );
   const defaultTid =
     audioEntries.find(([, t]) => t.codec.startsWith("mp4a"))?.[0] ??
     audioEntries[0]?.[0];
@@ -221,7 +224,9 @@ function masterPlaylist(meta: VideoMeta, parsed: ParsedURI): string {
   lines.push("");
 
   // Prefer AAC for CODECS string (Safari compatibility)
-  const audioTracks = Object.values(meta.tracks).filter((t) => t.type === "audio");
+  const audioTracks = Object.values(meta.tracks).filter(
+    (t) => t.type === "audio",
+  );
   const audioCodec =
     audioTracks.find((t) => t.codec.startsWith("mp4a"))?.codec ??
     audioTracks[0]?.codec ??
@@ -264,6 +269,7 @@ function mediaPlaylist(
   meta: VideoMeta,
   trackId: string,
   parsed: ParsedURI,
+  env: Env,
 ): string {
   const t = meta.tracks[trackId];
   if (!t) {
@@ -284,11 +290,12 @@ function mediaPlaylist(
   });
 
   const trackBlobCid = t.blobCid ?? meta.blobCid;
-  const blobURI =
-    xrpcURL("place.stream.playback.getVideoBlob", {
-      uri,
-      cid: trackBlobCid,
-    }) + ".mp4";
+  const blobURI = env.BLOB_CDN_URL
+    ? `${env.BLOB_CDN_URL}/blobs/${trackBlobCid}.mp4`
+    : xrpcURL("place.stream.playback.getVideoBlob", {
+        uri,
+        cid: trackBlobCid,
+      }) + ".mp4";
 
   const lines: string[] = [
     "#EXTM3U",
@@ -368,7 +375,11 @@ async function handleGetVideoBlob(
 
   const blobUrl = `${env.S3_BUCKET_URL}/blobs/${cid}.mp4`;
   console.log(`[getVideoBlob] ${blobUrl}`, headers);
-  const resp = await fetch(blobUrl, { headers });
+  const resp = await fetch(blobUrl, {
+    headers,
+    // @ts-ignore — CF-specific: bypass cache so Range headers are honored
+    cf: { cacheTtl: 0, cacheEverything: false },
+  });
 
   if (!resp.ok && resp.status !== 206) {
     throw new XRPCError(404, "BlobNotFound", "Blob not available");

@@ -181,9 +181,34 @@ async function handleGetVideoPlaylist(url: URL, env: Env): Promise<Response> {
   const track = url.searchParams.get("track");
   const meta = await fetchMeta(parsed, env);
 
+  const startMs = url.searchParams.has("start")
+    ? parseInt(url.searchParams.get("start")!, 10)
+    : undefined;
+  const endMs = url.searchParams.has("end")
+    ? parseInt(url.searchParams.get("end")!, 10)
+    : undefined;
+
+  if (startMs !== undefined && isNaN(startMs)) {
+    throw new XRPCError(400, "InvalidRequest", "start must be an integer");
+  }
+  if (endMs !== undefined && isNaN(endMs)) {
+    throw new XRPCError(400, "InvalidRequest", "end must be an integer");
+  }
+  if (
+    startMs !== undefined &&
+    endMs !== undefined &&
+    startMs >= endMs
+  ) {
+    throw new XRPCError(
+      400,
+      "InvalidRequest",
+      "start must be less than end",
+    );
+  }
+
   const playlist = track
-    ? mediaPlaylist(meta, track, parsed, env)
-    : masterPlaylist(meta, parsed);
+    ? mediaPlaylist(meta, track, parsed, env, startMs, endMs)
+    : masterPlaylist(meta, parsed, startMs, endMs);
 
   return new Response(playlist, {
     headers: {
@@ -197,9 +222,19 @@ function atURI(parsed: ParsedURI): string {
   return `at://${parsed.did}/${parsed.collection}/${parsed.rkey}`;
 }
 
-function masterPlaylist(meta: VideoMeta, parsed: ParsedURI): string {
+function masterPlaylist(
+  meta: VideoMeta,
+  parsed: ParsedURI,
+  startMs?: number,
+  endMs?: number,
+): string {
   const uri = atURI(parsed);
   const lines: string[] = ["#EXTM3U", "#EXT-X-VERSION:6", ""];
+
+  // Build optional time-range params to forward to media playlists
+  const timeParams: Record<string, string> = {};
+  if (startMs !== undefined) timeParams.start = String(startMs);
+  if (endMs !== undefined) timeParams.end = String(endMs);
 
   // Prefer AAC as default audio for Safari compatibility
   const audioEntries = Object.entries(meta.tracks).filter(
@@ -213,6 +248,7 @@ function masterPlaylist(meta: VideoMeta, parsed: ParsedURI): string {
     const trackUri = xrpcURL("place.stream.playback.getVideoPlaylist", {
       uri,
       track: tid,
+      ...timeParams,
     });
     const isDefault = tid === defaultTid;
     lines.push(
@@ -252,6 +288,7 @@ function masterPlaylist(meta: VideoMeta, parsed: ParsedURI): string {
       const trackUri = xrpcURL("place.stream.playback.getVideoPlaylist", {
         uri,
         track: tid,
+        ...timeParams,
       });
       lines.push(
         `#EXT-X-STREAM-INF:AUDIO="audio",BANDWIDTH=${bandwidth},` +
@@ -270,6 +307,8 @@ function mediaPlaylist(
   trackId: string,
   parsed: ParsedURI,
   env: Env,
+  startMs?: number,
+  endMs?: number,
 ): string {
   const t = meta.tracks[trackId];
   if (!t) {
@@ -278,7 +317,11 @@ function mediaPlaylist(
 
   const uri = atURI(parsed);
 
-  const maxDurSec = t.segments.reduce(
+  // Filter segments to the requested time range. Each segment that overlaps
+  // [startMs, endMs) is included in full (we can't split mid-GOP).
+  const segments = filterSegments(t.segments, t.timescale, startMs, endMs);
+
+  const maxDurSec = segments.reduce(
     (m, seg) => Math.max(m, seg.durationTicks / t.timescale),
     0,
   );
@@ -308,7 +351,7 @@ function mediaPlaylist(
     "",
   ];
 
-  for (const seg of t.segments) {
+  for (const seg of segments) {
     const durSec = seg.durationTicks / t.timescale;
     lines.push(`#EXTINF:${durSec.toFixed(6)},`);
     lines.push(`#EXT-X-BYTERANGE:${seg.size}@${seg.offset}`);
@@ -317,6 +360,41 @@ function mediaPlaylist(
 
   lines.push("#EXT-X-ENDLIST");
   return lines.join("\n") + "\n";
+}
+
+/**
+ * Return the subset of segments that overlap the [startMs, endMs) window.
+ * Segments are GOP-aligned so we include any segment whose time span
+ * intersects the requested range — no sub-segment splitting.
+ */
+function filterSegments(
+  segments: TrackSegment[],
+  timescale: number,
+  startMs?: number,
+  endMs?: number,
+): TrackSegment[] {
+  if (startMs === undefined && endMs === undefined) {
+    return segments;
+  }
+
+  const startTicks =
+    startMs !== undefined ? (startMs / 1000) * timescale : 0;
+  const endTicks =
+    endMs !== undefined ? (endMs / 1000) * timescale : Infinity;
+
+  const result: TrackSegment[] = [];
+  let cursor = 0; // running position in ticks
+
+  for (const seg of segments) {
+    const segEnd = cursor + seg.durationTicks;
+    // Include segment if it overlaps [startTicks, endTicks)
+    if (segEnd > startTicks && cursor < endTicks) {
+      result.push(seg);
+    }
+    cursor = segEnd;
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------

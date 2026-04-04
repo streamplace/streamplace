@@ -19,9 +19,22 @@ Record containing customizations for a user's chat profile.
 
 **Record Properties:**
 
-| Name    | Type               | Req'd | Description | Constraints |
-| ------- | ------------------ | ----- | ----------- | ----------- |
-| `color` | [`#color`](#color) | ❌    |             |             |
+| Name         | Type                                | Req'd | Description                                       | Constraints   |
+| ------------ | ----------------------------------- | ----- | ------------------------------------------------- | ------------- |
+| `color`      | [`#color`](#color)                  | ❌    |                                                   |               |
+| `selfLabels` | Array of [`#selfLabel`](#selflabel) | ❌    | Self-applied labels for this profile, e.g. 'bot'. | Max Items: 10 |
+
+---
+
+<a name="selflabel"></a>
+
+### `selfLabel`
+
+**Type:** `string`
+
+Label that a user can apply to their own profile.
+
+**Constraints:**<br/>Known Values: `bot`
 
 ---
 
@@ -61,9 +74,23 @@ Customizations for the color of a user's name in chat
           "color": {
             "type": "ref",
             "ref": "#color"
+          },
+          "selfLabels": {
+            "type": "array",
+            "description": "Self-applied labels for this profile, e.g. 'bot'.",
+            "maxLength": 10,
+            "items": {
+              "type": "ref",
+              "ref": "#selfLabel"
+            }
           }
         }
       }
+    },
+    "selfLabel": {
+      "type": "string",
+      "description": "Label that a user can apply to their own profile.",
+      "knownValues": ["bot"]
     },
     "color": {
       "type": "object",

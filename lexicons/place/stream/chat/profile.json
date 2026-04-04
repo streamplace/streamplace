@@ -13,9 +13,23 @@
           "color": {
             "type": "ref",
             "ref": "#color"
+          },
+          "selfLabels": {
+            "type": "array",
+            "description": "Self-applied labels for this profile, e.g. 'bot'.",
+            "maxLength": 10,
+            "items": {
+              "type": "ref",
+              "ref": "#selfLabel"
+            }
           }
         }
       }
+    },
+    "selfLabel": {
+      "type": "string",
+      "description": "Label that a user can apply to their own profile.",
+      "knownValues": ["bot"]
     },
     "color": {
       "type": "object",

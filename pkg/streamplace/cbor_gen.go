@@ -2863,9 +2863,13 @@ func (t *ChatProfile) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 2
+	fieldCount := 3
 
 	if t.Color == nil {
+		fieldCount--
+	}
+
+	if t.SelfLabels == nil {
 		fieldCount--
 	}
 
@@ -2910,6 +2914,48 @@ func (t *ChatProfile) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 	}
+
+	// t.SelfLabels ([]*string) (slice)
+	if t.SelfLabels != nil {
+
+		if len("selfLabels") > 1000000 {
+			return xerrors.Errorf("Value in field \"selfLabels\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("selfLabels"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("selfLabels")); err != nil {
+			return err
+		}
+
+		if len(t.SelfLabels) > 8192 {
+			return xerrors.Errorf("Slice value in field t.SelfLabels was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.SelfLabels))); err != nil {
+			return err
+		}
+		for _, v := range t.SelfLabels {
+			if v == nil {
+				if _, err := cw.Write(cbg.CborNull); err != nil {
+					return err
+				}
+			} else {
+				if len(*v) > 1000000 {
+					return xerrors.Errorf("Value in field v was too long")
+				}
+
+				if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*v))); err != nil {
+					return err
+				}
+				if _, err := cw.WriteString(string(*v)); err != nil {
+					return err
+				}
+			}
+
+		}
+	}
 	return nil
 }
 
@@ -2938,7 +2984,7 @@ func (t *ChatProfile) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 5)
+	nameBuf := make([]byte, 10)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -2984,6 +3030,56 @@ func (t *ChatProfile) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 				}
 
+			}
+			// t.SelfLabels ([]*string) (slice)
+		case "selfLabels":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.SelfLabels: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.SelfLabels = make([]*string, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+
+							sval, err := cbg.ReadStringWithMax(cr, 1000000)
+							if err != nil {
+								return err
+							}
+
+							t.SelfLabels[i] = (*string)(&sval)
+						}
+					}
+
+				}
 			}
 
 		default:

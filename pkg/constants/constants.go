@@ -21,9 +21,12 @@ var PLACE_STREAM_LIVE_VIEWERCOUNT = "place.stream.live.viewerCount"           //
 // Streamplace badge types
 const (
 	BadgeTypeMod      = "place.stream.badge.defs#mod"
+	BadgeTypeBot      = "place.stream.badge.defs#bot"
 	BadgeTypeStreamer = "place.stream.badge.defs#streamer"
 	BadgeTypeVIP      = "place.stream.badge.defs#vip"
 )
+
+const SelfLabelBot = "bot" //nolint:all
 
 const DID_KEY_PREFIX = "did:key" //nolint:all
 const ADDRESS_KEY_PREFIX = "0x"  //nolint:all

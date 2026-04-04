@@ -37,6 +37,10 @@ const BADGE_META: Record<string, BadgeMeta> = {
     description: "This user is a moderator.",
     issuedBy: "{issuer} for {streamer}",
   },
+  "place.stream.badge.defs#bot": {
+    label: "Bot",
+    description: "This account has been marked as automated by its owner.",
+  },
   "place.stream.badge.defs#streamer": {
     label: "Streamer",
     description: "This user is the streamer.",

@@ -154,9 +154,9 @@ async function runConversion(file: File, client: S3Client, bucket: string) {
     type: "module",
   });
 
-  // Wait for worker to initialize WASM and send buffer offsets
-  const { memory, readBufOffset, writeBufOffset } = await new Promise<{
-    memory: WebAssembly.Memory;
+  // Wait for worker to initialize WASM and send the SharedArrayBuffer
+  const { buffer, readBufOffset, writeBufOffset } = await new Promise<{
+    buffer: SharedArrayBuffer;
     readBufOffset: number;
     writeBufOffset: number;
   }>((resolve, reject) => {
@@ -166,6 +166,9 @@ async function runConversion(file: File, client: S3Client, bucket: string) {
     };
     worker.postMessage({ type: "start", fileSize: file.size });
   });
+
+  // Wrap the SharedArrayBuffer in a Memory-like object for sab-io
+  const memory = { buffer } as unknown as WebAssembly.Memory;
 
   // Set up the temp upload key
   const tempKey = `_tmp/${crypto.randomUUID()}.mp4`;

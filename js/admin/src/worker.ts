@@ -3,7 +3,7 @@
  *
  * Communication:
  *   Main → Worker: { type: "start", fileSize: number }
- *   Worker → Main: { type: "ready", memory: WebAssembly.Memory, readBufOffset, writeBufOffset }
+ *   Worker → Main: { type: "ready", buffer: SharedArrayBuffer, readBufOffset, writeBufOffset }
  *   Worker → Main: { type: "done", tracksJson: string }
  *   Worker → Main: { type: "error", message: string }
  */
@@ -31,11 +31,21 @@ self.onmessage = async (e: MessageEvent) => {
     const dv = new DataView(memory.buffer);
     dv.setBigUint64(readOff + 16, BigInt(fileSize), true);
 
-    // Tell main thread we're ready — it needs to start serving reads
-    // and draining writes before we call convert_flat_mp4 (which blocks)
+    // Verify WASM memory is shared (required for atomics)
+    const buffer = memory.buffer;
+    if (!(buffer instanceof SharedArrayBuffer)) {
+      throw new Error(
+        "WASM memory is not shared. The WASM binary may not have been compiled " +
+        "with +atomics, or the page is not cross-origin isolated."
+      );
+    }
+
+    // Tell main thread we're ready — send the SharedArrayBuffer (not the
+    // Memory object, which can't be cloned). Main thread creates typed
+    // views directly on this buffer.
     (self as unknown as Worker).postMessage({
       type: "ready",
-      memory,
+      buffer,
       readBufOffset: readOff,
       writeBufOffset: writeOff,
     });

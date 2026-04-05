@@ -30,6 +30,14 @@
         "size": {
           "type": "integer",
           "description": "Size of the archive in bytes."
+        },
+        "start": {
+          "type": "integer",
+          "description": "Start time in nanoseconds from the beginning of the archive. Used for clips."
+        },
+        "end": {
+          "type": "integer",
+          "description": "End time in nanoseconds from the beginning of the archive. Used for clips."
         }
       }
     },

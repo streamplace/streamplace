@@ -1,12 +1,13 @@
 /**
  * VOD Playback Worker
  *
- * Generic AT Protocol data proxy. Resolves AT-URIs to content stored in S3.
- * Currently supports place.stream.video playback via HLS.
+ * Resolves AT Protocol place.stream.video records to HLS playlists.
+ * Fetches the record from the AppView to find the source blob CID,
+ * then looks up blob-level metadata from S3.
  *
  * S3 bucket layout:
- *   {did}/{collection}/{rkey}/metadata.json
- *   blobs/{cid}.mp4
+ *   blobs/{cid}.mp4          — archive / sidecar data
+ *   blobs/{cid}.json         — per-blob playback metadata (tracks, segments)
  */
 
 interface Env {
@@ -118,18 +119,6 @@ function requireURI(url: URL): ParsedURI {
 }
 
 // ---------------------------------------------------------------------------
-// S3 path helpers
-// ---------------------------------------------------------------------------
-
-function didToDir(did: string): string {
-  return did.replace(/:/g, "-");
-}
-
-function s3MetaPath(parsed: ParsedURI): string {
-  return `${didToDir(parsed.did)}/${parsed.collection}/${parsed.rkey}/metadata.json`;
-}
-
-// ---------------------------------------------------------------------------
 // Errors & helpers
 // ---------------------------------------------------------------------------
 
@@ -151,29 +140,178 @@ function jsonResponse(data: any, status = 200): Response {
 }
 
 // ---------------------------------------------------------------------------
-// Metadata cache
+// Record resolution — fetch the place.stream.video record from the AppView
+// ---------------------------------------------------------------------------
+
+interface VideoRecord {
+  source:
+    | {
+        $type: "place.stream.muxl.defs#archive";
+        data: { ref: { $link: string }; size: number };
+      }
+    | {
+        $type: "place.stream.muxl.defs#archiveBlob";
+        ref: string;
+        size: number;
+        start?: number;
+        end?: number;
+      };
+}
+
+interface ResolvedVideo {
+  meta: VideoMeta;
+  /** Clip bounds from the record's source (nanoseconds), if present. */
+  recordStartNs?: number;
+  recordEndNs?: number;
+}
+
+// ---------------------------------------------------------------------------
+// DID resolution — resolve DID to PDS service endpoint
+// ---------------------------------------------------------------------------
+
+interface DIDDocument {
+  service?: { id: string; type: string; serviceEndpoint: string }[];
+}
+
+const pdsCache = new Map<string, { pdsUrl: string; expires: number }>();
+
+async function resolvePDS(did: string): Promise<string> {
+  const cached = pdsCache.get(did);
+  if (cached && cached.expires > Date.now()) {
+    return cached.pdsUrl;
+  }
+
+  let didDocUrl: string;
+  if (did.startsWith("did:plc:")) {
+    didDocUrl = `https://plc.directory/${did}`;
+  } else if (did.startsWith("did:web:")) {
+    const domain = did.slice("did:web:".length);
+    didDocUrl = `https://${domain}/.well-known/did.json`;
+  } else {
+    throw new XRPCError(
+      400,
+      "InvalidRequest",
+      `Unsupported DID method: ${did}`,
+    );
+  }
+
+  console.log(`[resolvePDS] ${didDocUrl}`);
+  const resp = await fetch(didDocUrl);
+  if (!resp.ok) {
+    throw new XRPCError(404, "VideoNotFound", `Could not resolve DID: ${did}`);
+  }
+
+  const doc: DIDDocument = await resp.json();
+  const pds = doc.service?.find((s) => s.id === "#atproto_pds");
+  if (!pds) {
+    throw new XRPCError(
+      404,
+      "VideoNotFound",
+      `No PDS service found for ${did}`,
+    );
+  }
+
+  pdsCache.set(did, {
+    pdsUrl: pds.serviceEndpoint,
+    expires: Date.now() + 300_000,
+  });
+  return pds.serviceEndpoint;
+}
+
+// ---------------------------------------------------------------------------
+// Record fetching — resolve DID → PDS → getRecord
+// ---------------------------------------------------------------------------
+
+const recordCache = new Map<string, { record: VideoRecord; expires: number }>();
+
+async function fetchRecord(parsed: ParsedURI): Promise<VideoRecord> {
+  const key = `${parsed.did}/${parsed.rkey}`;
+  const cached = recordCache.get(key);
+  if (cached && cached.expires > Date.now()) {
+    return cached.record;
+  }
+
+  const pdsUrl = await resolvePDS(parsed.did);
+  const url =
+    `${pdsUrl}/xrpc/com.atproto.repo.getRecord` +
+    `?repo=${encodeURIComponent(parsed.did)}` +
+    `&collection=${encodeURIComponent(parsed.collection)}` +
+    `&rkey=${encodeURIComponent(parsed.rkey)}`;
+  console.log(`[fetchRecord] ${url}`);
+
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    console.log(`[fetchRecord] ${resp.status} ${resp.statusText}`);
+    throw new XRPCError(404, "VideoNotFound", `Record not found: ${key}`);
+  }
+  const body: any = await resp.json();
+  const record = body.value as VideoRecord;
+
+  recordCache.set(key, { record, expires: Date.now() + 60_000 });
+  return record;
+}
+
+function blobCidFromRecord(record: VideoRecord): string {
+  const src = record.source;
+  if (src.$type === "place.stream.muxl.defs#archive") {
+    return src.data.ref.$link;
+  }
+  if (src.$type === "place.stream.muxl.defs#archiveBlob") {
+    return src.ref;
+  }
+  throw new XRPCError(
+    400,
+    "InvalidRecord",
+    "Unsupported source type on record",
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Blob metadata — keyed by blob CID in S3
 // ---------------------------------------------------------------------------
 
 const metaCache = new Map<string, { meta: VideoMeta; expires: number }>();
 
-async function fetchMeta(parsed: ParsedURI, env: Env): Promise<VideoMeta> {
-  const key = `${parsed.did}/${parsed.rkey}`;
-  const cached = metaCache.get(key);
+async function fetchBlobMeta(blobCid: string, env: Env): Promise<VideoMeta> {
+  const cached = metaCache.get(blobCid);
   if (cached && cached.expires > Date.now()) {
     return cached.meta;
   }
 
-  const metaUrl = `${env.S3_BUCKET_URL}/${s3MetaPath(parsed)}`;
-  console.log(`[fetchMeta] ${metaUrl}`);
+  const metaUrl = `${env.S3_BUCKET_URL}/blobs/${blobCid}.json`;
+  console.log(`[fetchBlobMeta] ${metaUrl}`);
   const resp = await fetch(metaUrl);
   if (!resp.ok) {
-    console.log(`[fetchMeta] ${resp.status} ${resp.statusText}`);
-    console.error(`[fetchMeta] No video found for ${key}`);
-    throw new XRPCError(404, "VideoNotFound", `No video found for ${key}`);
+    console.log(`[fetchBlobMeta] ${resp.status} ${resp.statusText}`);
+    throw new XRPCError(
+      404,
+      "VideoNotFound",
+      `No blob metadata for ${blobCid}`,
+    );
   }
   const meta: VideoMeta = await resp.json();
-  metaCache.set(key, { meta, expires: Date.now() + 60_000 });
+  metaCache.set(blobCid, { meta, expires: Date.now() + 60_000 });
   return meta;
+}
+
+/**
+ * Resolve a video AT-URI to its blob metadata and any record-level clip bounds.
+ */
+async function resolveVideo(
+  parsed: ParsedURI,
+  env: Env,
+): Promise<ResolvedVideo> {
+  const record = await fetchRecord(parsed);
+  const blobCid = blobCidFromRecord(record);
+  const meta = await fetchBlobMeta(blobCid, env);
+
+  const src = record.source;
+  const recordStartNs =
+    src.$type === "place.stream.muxl.defs#archiveBlob" ? src.start : undefined;
+  const recordEndNs =
+    src.$type === "place.stream.muxl.defs#archiveBlob" ? src.end : undefined;
+
+  return { meta, recordStartNs, recordEndNs };
 }
 
 // ---------------------------------------------------------------------------
@@ -183,36 +321,29 @@ async function fetchMeta(parsed: ParsedURI, env: Env): Promise<VideoMeta> {
 async function handleGetVideoPlaylist(url: URL, env: Env): Promise<Response> {
   const parsed = requireURI(url);
   const track = url.searchParams.get("track");
-  const meta = await fetchMeta(parsed, env);
+  const { meta, recordStartNs, recordEndNs } = await resolveVideo(parsed, env);
 
-  const startMs = url.searchParams.has("start")
+  // Query-param start/end (nanoseconds) override or further narrow the record's clip bounds.
+  let startNs = url.searchParams.has("start")
     ? parseInt(url.searchParams.get("start")!, 10)
-    : undefined;
-  const endMs = url.searchParams.has("end")
+    : recordStartNs;
+  let endNs = url.searchParams.has("end")
     ? parseInt(url.searchParams.get("end")!, 10)
-    : undefined;
+    : recordEndNs;
 
-  if (startMs !== undefined && isNaN(startMs)) {
+  if (startNs !== undefined && isNaN(startNs)) {
     throw new XRPCError(400, "InvalidRequest", "start must be an integer");
   }
-  if (endMs !== undefined && isNaN(endMs)) {
+  if (endNs !== undefined && isNaN(endNs)) {
     throw new XRPCError(400, "InvalidRequest", "end must be an integer");
   }
-  if (
-    startMs !== undefined &&
-    endMs !== undefined &&
-    startMs >= endMs
-  ) {
-    throw new XRPCError(
-      400,
-      "InvalidRequest",
-      "start must be less than end",
-    );
+  if (startNs !== undefined && endNs !== undefined && startNs >= endNs) {
+    throw new XRPCError(400, "InvalidRequest", "start must be less than end");
   }
 
   const playlist = track
-    ? mediaPlaylist(meta, track, parsed, env, startMs, endMs)
-    : masterPlaylist(meta, parsed, startMs, endMs);
+    ? mediaPlaylist(meta, track, parsed, env, startNs, endNs)
+    : masterPlaylist(meta, parsed, startNs, endNs);
 
   return new Response(playlist, {
     headers: {
@@ -229,16 +360,16 @@ function atURI(parsed: ParsedURI): string {
 function masterPlaylist(
   meta: VideoMeta,
   parsed: ParsedURI,
-  startMs?: number,
-  endMs?: number,
+  startNs?: number,
+  endNs?: number,
 ): string {
   const uri = atURI(parsed);
   const lines: string[] = ["#EXTM3U", "#EXT-X-VERSION:6", ""];
 
   // Build optional time-range params to forward to media playlists
   const timeParams: Record<string, string> = {};
-  if (startMs !== undefined) timeParams.start = String(startMs);
-  if (endMs !== undefined) timeParams.end = String(endMs);
+  if (startNs !== undefined) timeParams.start = String(startNs);
+  if (endNs !== undefined) timeParams.end = String(endNs);
 
   // Prefer AAC as default audio for Safari compatibility
   const audioEntries = Object.entries(meta.tracks).filter(
@@ -314,8 +445,8 @@ function mediaPlaylist(
   trackId: string,
   parsed: ParsedURI,
   env: Env,
-  startMs?: number,
-  endMs?: number,
+  startNs?: number,
+  endNs?: number,
 ): string {
   const t = meta.tracks[trackId];
   if (!t) {
@@ -326,8 +457,8 @@ function mediaPlaylist(
   const uri = atURI(parsed);
 
   // Filter segments to the requested time range. Each segment that overlaps
-  // [startMs, endMs) is included in full (we can't split mid-GOP).
-  const segments = filterSegments(t.segments, t.timescale, startMs, endMs);
+  // [startNs, endNs) is included in full (we can't split mid-GOP).
+  const segments = filterSegments(t.segments, t.timescale, startNs, endNs);
 
   const maxDurSec = segments.reduce(
     (m, seg) => Math.max(m, seg.durationTicks / t.timescale),
@@ -371,24 +502,23 @@ function mediaPlaylist(
 }
 
 /**
- * Return the subset of segments that overlap the [startMs, endMs) window.
+ * Return the subset of segments that overlap the [startNs, endNs) window.
  * Segments are GOP-aligned so we include any segment whose time span
  * intersects the requested range — no sub-segment splitting.
  */
 function filterSegments(
   segments: TrackSegment[],
   timescale: number,
-  startMs?: number,
-  endMs?: number,
+  startNs?: number,
+  endNs?: number,
 ): TrackSegment[] {
-  if (startMs === undefined && endMs === undefined) {
+  if (startNs === undefined && endNs === undefined) {
     return segments;
   }
 
-  const startTicks =
-    startMs !== undefined ? (startMs / 1000) * timescale : 0;
-  const endTicks =
-    endMs !== undefined ? (endMs / 1000) * timescale : Infinity;
+  // Convert nanoseconds to timescale ticks: ticks = ns * timescale / 1e9
+  const startTicks = startNs !== undefined ? (startNs / 1e9) * timescale : 0;
+  const endTicks = endNs !== undefined ? (endNs / 1e9) * timescale : Infinity;
 
   const result: TrackSegment[] = [];
   let cursor = 0; // running position in ticks
@@ -417,7 +547,7 @@ async function handleGetInitSegment(url: URL, env: Env): Promise<Response> {
     throw new XRPCError(400, "InvalidRequest", "track parameter is required");
   }
 
-  const meta = await fetchMeta(parsed, env);
+  const { meta } = await resolveVideo(parsed, env);
   const t = meta.tracks[track];
   if (!t) {
     console.error(`[handleGetInitSegment] Track ${track} not found`);

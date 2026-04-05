@@ -24,11 +24,11 @@
           },
           "start": {
             "type": "integer",
-            "description": "Start time in milliseconds from the beginning of the video. Defaults to 0."
+            "description": "Start time in nanoseconds from the beginning of the video. Defaults to 0."
           },
           "end": {
             "type": "integer",
-            "description": "End time in milliseconds. Omit for a live EVENT playlist that extends to the present."
+            "description": "End time in nanoseconds. Omit for a live EVENT playlist that extends to the present."
           }
         }
       },

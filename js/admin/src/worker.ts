@@ -8,11 +8,15 @@
  *   Worker → Main: { type: "error", message: string }
  */
 
-import init, {
+// Load WASM from public/ so Vite serves it as a static asset
+// (not transformed through the JS bundler)
+const wasmUrl = new URL("/wasm/muxl.js", self.location.origin);
+const {
+  default: init,
   convert_flat_mp4,
   read_buf_offset,
   write_buf_offset,
-} from "./wasm/muxl.js";
+} = await import(/* @vite-ignore */ wasmUrl.href);
 
 self.onmessage = async (e: MessageEvent) => {
   if (e.data.type !== "start") return;

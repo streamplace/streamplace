@@ -43,20 +43,15 @@ export async function serveReads(
   const statusIdx = (bufOffset + 0) >> 2; // i32 index for status
   let totalRead = 0;
 
-  console.log("[serveReads] Starting, bufOffset=%d statusIdx=%d, initial status=%d", bufOffset, statusIdx, Atomics.load(i32, statusIdx));
-
   while (true) {
     // Wait for WASM to post a request
     const current = Atomics.load(i32, statusIdx);
     if (current === STATUS_IDLE) {
-      console.log("[serveReads] Status is IDLE, waiting...");
       const result = Atomics.waitAsync(i32, statusIdx, STATUS_IDLE);
       if (result.async) await result.value;
-      console.log("[serveReads] Woke up from waitAsync");
     }
 
     const status = Atomics.load(i32, statusIdx);
-    console.log("[serveReads] Status after wait: %d", status);
     if (status !== STATUS_REQUEST) break; // done or error
 
     // Read the request: offset (u64 LE at +4) and size (u32 LE at +12)

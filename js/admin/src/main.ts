@@ -231,7 +231,7 @@ async function runConversion(file: File, client: S3Client, bucket: string) {
 
   // Copy to final key
   setProgress("Copying to final key...", 96);
-  await multipartCopy(client, bucket, tempKey, `${archiveCid}.mp4`, totalSize);
+  await multipartCopy(client, bucket, tempKey, `blobs/${archiveCid}.mp4`, totalSize);
 
   // Delete temp
   await deleteObject(client, bucket, tempKey);
@@ -273,7 +273,7 @@ async function runConversion(file: File, client: S3Client, bucket: string) {
   await putObject(
     client,
     bucket,
-    `${archiveCid}.json`,
+    `blobs/${archiveCid}.json`,
     JSON.stringify(metadata, null, 2),
     "application/json",
   );

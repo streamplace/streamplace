@@ -80,9 +80,13 @@ export async function serveReads(
       throw e;
     }
 
-    // Signal response
+    // Signal response and wait for WASM to acknowledge (set back to IDLE)
     Atomics.store(i32, statusIdx, STATUS_RESPONSE);
     Atomics.notify(i32, statusIdx);
+
+    // Wait for WASM to consume the response before looping
+    const ack = Atomics.waitAsync(i32, statusIdx, STATUS_RESPONSE);
+    if (ack.async) await ack.value;
   }
 }
 
@@ -136,9 +140,12 @@ export async function drainWrites(
       }
     }
 
-    // Signal consumed
+    // Signal consumed and wait for WASM to acknowledge
     Atomics.store(i32, statusIdx, STATUS_RESPONSE);
     Atomics.notify(i32, statusIdx);
+
+    const ack = Atomics.waitAsync(i32, statusIdx, STATUS_RESPONSE);
+    if (ack.async) await ack.value;
   }
 
   return totalWritten;

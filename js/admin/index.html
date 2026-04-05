@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MUXL Admin</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        max-width: 640px;
+        margin: 40px auto;
+        padding: 0 20px;
+        color: #1a1a1a;
+        line-height: 1.5;
+      }
+      h1 {
+        font-size: 1.4em;
+        margin-bottom: 24px;
+      }
+      h2 {
+        font-size: 1.1em;
+        margin-bottom: 12px;
+        color: #444;
+      }
+      label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 0.85em;
+        color: #666;
+      }
+      input[type="text"],
+      input[type="password"] {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 0.95em;
+        margin-bottom: 12px;
+      }
+      input[type="file"] {
+        margin-bottom: 16px;
+      }
+      button {
+        padding: 8px 20px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.95em;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #1d4ed8;
+      }
+      button:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+      }
+      .section {
+        margin-bottom: 24px;
+      }
+      .hidden {
+        display: none;
+      }
+      .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 4px;
+        overflow: hidden;
+        margin: 8px 0;
+      }
+      .progress-bar-fill {
+        height: 100%;
+        background: #2563eb;
+        transition: width 0.2s;
+      }
+      .status {
+        font-size: 0.85em;
+        color: #666;
+        margin-bottom: 4px;
+      }
+      .error {
+        color: #dc2626;
+        font-size: 0.85em;
+      }
+      .result {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 4px;
+        padding: 12px;
+      }
+      .result code {
+        font-size: 0.8em;
+        word-break: break-all;
+      }
+      .track-info {
+        font-size: 0.85em;
+        color: #444;
+        margin: 4px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>MUXL Admin</h1>
+
+    <div id="compat-warning" class="error section hidden">
+      SharedArrayBuffer not available. This app requires Cross-Origin Isolation
+      (COOP/COEP headers). Make sure you're accessing this via the Vite dev
+      server.
+    </div>
+
+    <div id="config-section" class="section">
+      <h2>S3 Configuration</h2>
+      <label for="s3-endpoint">Endpoint URL</label>
+      <input
+        type="text"
+        id="s3-endpoint"
+        placeholder="https://s3.us-east-1.amazonaws.com"
+      />
+      <label for="s3-bucket">Bucket</label>
+      <input type="text" id="s3-bucket" placeholder="my-bucket" />
+      <label for="s3-access-key">Access Key ID</label>
+      <input type="text" id="s3-access-key" />
+      <label for="s3-secret-key">Secret Access Key</label>
+      <input type="password" id="s3-secret-key" />
+    </div>
+
+    <div id="upload-section" class="section">
+      <h2>Upload Video</h2>
+      <input type="file" id="file-input" accept=".mp4,.mov,.m4v" />
+      <div id="file-info" class="status"></div>
+      <button id="upload-btn" disabled>Convert & Upload</button>
+    </div>
+
+    <div id="progress-section" class="section hidden">
+      <div id="progress-status" class="status">Initializing...</div>
+      <div class="progress-bar">
+        <div
+          id="progress-fill"
+          class="progress-bar-fill"
+          style="width: 0%"
+        ></div>
+      </div>
+    </div>
+
+    <div id="error-section" class="section hidden">
+      <div id="error-msg" class="error"></div>
+    </div>
+
+    <div id="result-section" class="section hidden">
+      <div class="result">
+        <h2>Upload Complete</h2>
+        <div id="result-cid"></div>
+        <div id="result-tracks"></div>
+      </div>
+      <br />
+      <button id="another-btn">Upload Another</button>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -178,11 +178,10 @@ async function runConversion(file: File, client: S3Client, bucket: string) {
   const upload = new MultipartUpload(client, bucket, tempKey);
   await upload.start();
 
-  // BLAKE3 hasher for CID computation
-  // loadBlake3's type signature requires a module arg but it's optional at runtime
-  const blake3 = (await (loadBlake3 as unknown as () => Promise<{
+  // BLAKE3 hasher for CID computation — pass explicit WASM URL to avoid Vite transforming it
+  const blake3 = await (loadBlake3 as unknown as (url: string) => Promise<{
     createHash: () => { update(data: Uint8Array): void; digest(): Uint8Array };
-  }>)());
+  }>)("/wasm/blake3_js_bg.wasm");
   const hasher = blake3.createHash();
 
   setProgress("Converting & uploading...", 0);

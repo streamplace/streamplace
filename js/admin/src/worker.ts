@@ -63,6 +63,13 @@ self.onmessage = async (e: MessageEvent) => {
     const tracksJson: string = convert_flat_mp4();
     console.log("[worker] Conversion complete");
 
+    // Signal the read loop to stop (it's waiting on IDLE — set to DONE)
+    const STATUS_DONE = 4;
+    const i32 = new Int32Array(buffer);
+    const readStatusIdx = readOff >> 2;
+    Atomics.store(i32, readStatusIdx, STATUS_DONE);
+    Atomics.notify(i32, readStatusIdx);
+
     post({ type: "done", tracksJson });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);

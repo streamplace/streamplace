@@ -1,5 +1,5 @@
 import type { S3Client } from "@aws-sdk/client-s3";
-import { createHash } from "blake3";
+import loadBlake3 from "blake3/browser-async";
 import { bdaslCidFromDigest } from "./cid.js";
 import {
   checkConnection,
@@ -176,7 +176,11 @@ async function runConversion(file: File, client: S3Client, bucket: string) {
   await upload.start();
 
   // BLAKE3 hasher for CID computation
-  const hasher = createHash();
+  // loadBlake3's type signature requires a module arg but it's optional at runtime
+  const blake3 = (await (loadBlake3 as unknown as () => Promise<{
+    createHash: () => { update(data: Uint8Array): void; digest(): Uint8Array };
+  }>)());
+  const hasher = blake3.createHash();
 
   setProgress("Converting & uploading...", 0);
 

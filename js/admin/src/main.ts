@@ -164,6 +164,9 @@ async function runConversion(file: File, client: S3Client, bucket: string) {
       if (e.data.type === "ready") resolve(e.data);
       else if (e.data.type === "error") reject(new Error(e.data.message));
     };
+    worker.onerror = (e) => {
+      reject(new Error(`Worker error: ${e.message}`));
+    };
     worker.postMessage({ type: "start", fileSize: file.size });
   });
 

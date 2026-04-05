@@ -238,7 +238,6 @@ async function runConversion(file: File, client: S3Client, bucket: string) {
 
   // Parse tracks and upload init segments + metadata
   setProgress("Uploading metadata...", 98);
-  console.log("[main] tracksJson from WASM:", tracksJson);
   const tracks = JSON.parse(tracksJson) as Array<{
     trackId: number;
     trackType: string;

@@ -13,7 +13,7 @@ description: Reference for the place.stream.chat.gate lexicon
 
 **Type:** `record`
 
-Record defining a single gated chat message.
+Record defining a single gated chat message!
 
 **Record Key:** `tid`
 
@@ -35,7 +35,7 @@ Record defining a single gated chat message.
     "main": {
       "type": "record",
       "key": "tid",
-      "description": "Record defining a single gated chat message.",
+      "description": "Record defining a single gated chat message!",
       "record": {
         "type": "object",
         "required": ["hiddenMessage"],

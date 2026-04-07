@@ -25,6 +25,18 @@ endif
 BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
 PKG_CONFIG_PATH=$(shell pwd)/$(BUILDDIR)/lib/pkgconfig:$(shell pwd)/$(BUILDDIR)/lib/gstreamer-1.0/pkgconfig:$(shell pwd)/$(BUILDDIR)/meson-uninstalled
 
+# Sentinel file that records when lexicons were last built
+LEXICON_STAMP := .build/lexicon-stamp
+
+# Find all files in the lexicons/ directory
+LEXICON_SOURCES := $(shell find lexicons -type f)
+
+# The stamp file depends on all lexicon sources.
+# It only rebuilds when any source is newer than the stamp.
+$(LEXICON_STAMP): $(LEXICON_SOURCES)
+	$(MAKE) lexicons
+	touch $(LEXICON_STAMP)
+
 .PHONY: version
 version:
 	@go run ./pkg/config/git/git.go -v \
@@ -274,7 +286,7 @@ dev-setup:
 	$(MAKE) -j16 app-cached dev-setup-meson
 
 .PHONY: dev
-dev: app-cached
+dev: app-cached $(LEXICON_STAMP)
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust

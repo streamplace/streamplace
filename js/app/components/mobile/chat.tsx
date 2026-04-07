@@ -12,6 +12,7 @@ import { useKeyboard } from "hooks/useKeyboard";
 import { useEffect, useState } from "react";
 import { Pressable, useWindowDimensions } from "react-native";
 import Animated, {
+  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -170,22 +171,33 @@ function FixedChatPanel() {
 // MobileChatPanel.tsx
 export function MobileChatPanel({
   isPlayerRatioGreater,
+  portraitVideoTranslateY,
   fixed = false,
 }: {
   isPlayerRatioGreater: boolean;
+  portraitVideoTranslateY?: SharedValue<number>;
   fixed?: boolean;
 }) {
   const insets = useSafeAreaInsets();
 
+  console.log("porteaitVideoTranslateY", portraitVideoTranslateY);
+  // create fixed style
+  const fixedStyle = useAnimatedStyle(() => ({
+    marginTop: portraitVideoTranslateY ? portraitVideoTranslateY.value : 0,
+  }));
+
   if (fixed) {
     return (
-      <View
-        style={{
-          flex: 1,
-          width: "100%",
-          paddingBottom: insets.bottom,
-          position: "relative",
-        }}
+      <Animated.View
+        style={[
+          {
+            flex: 1,
+            width: "100%",
+            paddingBottom: insets.bottom,
+            position: "relative",
+          },
+          fixedStyle,
+        ]}
       >
         <View
           style={{
@@ -199,7 +211,7 @@ export function MobileChatPanel({
           <StreamNotificationProvider position="bottom" />
         </View>
         <FixedChatPanel />
-      </View>
+      </Animated.View>
     );
   }
 

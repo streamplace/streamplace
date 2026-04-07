@@ -1,3 +1,4 @@
+import { Response } from "@atproto/api/dist/client/types/com/atproto/repo/getRecord";
 import { PlaceStreamChatProfile } from "streamplace";
 import {
   getStreamplaceStoreFromContext,
@@ -16,7 +17,8 @@ export function useGetChatProfile() {
     if (!did || !pdsAgent) {
       throw new Error("No DID or PDS agent");
     }
-    let res;
+    let res: Response | undefined;
+    let notFound = false;
     try {
       res = await pdsAgent.com.atproto.repo.getRecord({
         repo: did,
@@ -24,12 +26,17 @@ export function useGetChatProfile() {
         rkey: "self",
       });
     } catch (e) {
-      console.error(
-        "Failed to get chat profile record, attempting creation",
-        e,
-      );
+      // if the record is a 400 with "Record not found", then we want to create an empty chat profile
+      if (
+        e.error.status === 400 &&
+        e.error.data?.error.includes("Record not found")
+      ) {
+        notFound = true;
+      } else {
+        console.error("Failed to get chat profile record", e);
+      }
     }
-    if (!res || !res.success) {
+    if (notFound || (res && !res.success)) {
       try {
         await createEmptyChatProfile();
         res = await pdsAgent.com.atproto.repo.getRecord({
@@ -40,6 +47,12 @@ export function useGetChatProfile() {
       } catch (e) {
         console.error("Failed to create empty chat profile record", e);
       }
+    }
+
+    // if no response, assume some fluke happened and just return without setting state
+    if (res === undefined) {
+      console.error("No response from get or create chat profile");
+      return;
     }
 
     if (PlaceStreamChatProfile.isRecord(res.data.value)) {

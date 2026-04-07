@@ -11,22 +11,28 @@ export const BADGE_IMAGES: Record<string, ReturnType<typeof require>> = {
 export const Badge = ({
   badgeType,
   size = 18,
+  isInChat = false,
 }: {
   badgeType: string;
   size?: number;
+  isInChat?: boolean;
 }) => {
   const source = BADGE_IMAGES[badgeType];
   if (!source) return null;
   return (
     <Image
       source={source}
-      style={{
-        height: size,
-        width: size,
-        marginBottom: Platform.OS === "web" ? -size : 0,
-        transform: Platform.OS === "web" ? [{ translateY: -size / 1.3 }] : [],
-        marginRight: 2,
-      }}
+      style={[
+        {
+          height: size,
+          width: size,
+          marginRight: 2,
+        },
+        isInChat && {
+          marginBottom: Platform.OS === "web" ? -size : 0,
+          transform: Platform.OS === "web" ? [{ translateY: -size / 1.3 }] : [],
+        },
+      ]}
     />
   );
 };
@@ -40,7 +46,7 @@ export const BadgeDisplayRow = ({
   return (
     <>
       {badges.map((badge, index) => (
-        <Badge key={index} badgeType={badge.badgeType} />
+        <Badge key={index} badgeType={badge.badgeType} isInChat />
       ))}
     </>
   );

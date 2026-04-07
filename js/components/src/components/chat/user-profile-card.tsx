@@ -10,9 +10,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
+import { zero } from "../..";
 import { useAvatars } from "../../hooks/useAvatars";
+import IconBsky from "../../icons/icon-bsky";
 import {
   borders,
   gap,
@@ -29,6 +31,7 @@ import { useLivestreamStore } from "../../livestream-store";
 import { useUrl } from "../../streamplace-store";
 import { useTheme } from "../../ui";
 import { formatHandleWithAt } from "../../utils/format-handle";
+import { Button, MenuGroup } from "../ui";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,23 +42,21 @@ import { Badge } from "./badge";
 
 interface BadgeMeta {
   label: string;
-  description: string;
+  description?: string;
   issuedBy?: string;
 }
 
 const BADGE_META: Record<string, BadgeMeta> = {
   "place.stream.badge.defs#mod": {
     label: "Moderator",
-    description: "This user is a moderator.",
     issuedBy: "{issuer} for {streamer}",
   },
   "place.stream.badge.defs#streamer": {
     label: "Streamer",
-    description: "This user is the streamer.",
   },
   "place.stream.badge.defs#vip": {
     label: "VIP",
-    description: "This user is a very important person.",
+    description: "This user is clearly a very important person.",
   },
 };
 
@@ -70,13 +71,11 @@ interface OpenCardData {
 interface OpenCardContextValue {
   openCard: OpenCardData | null;
   setOpenCard: (card: OpenCardData | null) => void;
-  closeTimeoutRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
 }
 
 const OpenCardContext = createContext<OpenCardContextValue>({
   openCard: null,
   setOpenCard: () => {},
-  closeTimeoutRef: { current: null },
 });
 
 // All hook-derived data needed to render the card — computed outside any Modal boundary.
@@ -165,21 +164,21 @@ const BadgeRow = ({
       ]}
     >
       <Badge badgeType={badge.badgeType} size={32} />
-      <View style={[gap.all[1], { flex: 1 }]}>
+      <View style={[{ flex: 1 }]}>
         <Text size="xs">{meta.label}</Text>
         <Text size="xs" color="muted">
           Issued by {issuerLabel}
         </Text>
-        <Text size="xs" color="muted">
-          {meta.description}
-        </Text>
+        {meta.description && (
+          <Text size="xs" color="muted">
+            {meta.description}
+          </Text>
+        )}
       </View>
     </View>
   );
 };
 
-// Pure UI — no hooks. All data is passed in so this can safely render inside a
-// React Native Modal (which creates a new React root and loses context).
 const ProfileCardContent = ({
   data,
   theme,
@@ -191,11 +190,11 @@ const ProfileCardContent = ({
     data;
 
   return (
-    <>
+    <View style={[zero.pb[1]]}>
       {profile?.banner ? (
         <Image
           source={{ uri: profile.banner }}
-          style={[h[20], { width: "100%" }]}
+          style={[h[20], { width: "100%" }, Platform.OS != "web" && zero.r.md]}
         />
       ) : (
         <View
@@ -208,7 +207,12 @@ const ProfileCardContent = ({
       <View
         style={[
           px[3],
-          { flexDirection: "row", alignItems: "flex-end", marginTop: -24 },
+          {
+            flexDirection: "row",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            marginTop: -24,
+          },
         ]}
       >
         {profile?.avatar ? (
@@ -236,63 +240,83 @@ const ProfileCardContent = ({
           />
         )}
       </View>
-      <View style={[px[3], pb[3]]}>
-        <Text>@{author.handle}</Text>
-        {profile?.description ? (
-          <Text size="sm" color="muted" numberOfLines={4}>
-            {profile.description}
-          </Text>
-        ) : null}
-      </View>
-      {serviceBadges.length > 0 && serviceDid ? (
+      <View style={[px[3]]}>
         <View
           style={[
-            px[3],
-            pt[2],
-            pb[2],
-            borders.top.width.thin,
-            { borderTopColor: theme.colors.border },
+            zero.layout.flex.row,
+            zero.layout.flex.alignCenter,
+            zero.layout.flex.justify.between,
+            gap.all[2],
           ]}
         >
-          {serviceBadges.map((badge, i) => (
-            <BadgeRow
-              key={i}
-              badge={badge}
-              serviceDid={serviceDid}
-              streamer={streamer}
-              issuerProfiles={profiles}
-            />
-          ))}
+          <Text>@{author.handle}</Text>
+          {Platform.OS === "web" && (
+            <View style={{ position: "absolute", right: 2, bottom: 7 }}>
+              <Button
+                size="pill"
+                variant="secondary"
+                style={{ aspectRatio: 1 }}
+                onPress={() => {
+                  Linking.openURL(`https://bsky.app/profile/${author.handle}`);
+                }}
+              >
+                <IconBsky size={18} />
+              </Button>
+            </View>
+          )}
         </View>
-      ) : null}
-    </>
+        {serviceBadges.length > 0 && serviceDid ? (
+          <View style={[zero.py[2]]}>
+            <MenuGroup>
+              {serviceBadges.map((badge, i) => (
+                <BadgeRow
+                  key={i}
+                  badge={badge}
+                  serviceDid={serviceDid}
+                  streamer={streamer}
+                  issuerProfiles={profiles}
+                />
+              ))}
+            </MenuGroup>
+          </View>
+        ) : null}
+      </View>
+      {Platform.OS !== "web" && (
+        <View style={[px[3], pt[2]]}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onPress={() => {
+              Linking.openURL(`https://bsky.app/profile/${author.handle}`);
+            }}
+          >
+            <View
+              style={[
+                zero.gap.all[2],
+                zero.layout.flex.row,
+                zero.layout.flex.alignCenter,
+              ]}
+            >
+              <IconBsky size={20} />
+              <Text>View Profile</Text>
+            </View>
+          </Button>
+        </View>
+      )}
+    </View>
   );
 };
 
-// Web only: renders into document.body via a portal so FlatList re-renders and
-// ancestor transforms/overflow can't affect it.
+// Web only overlay rendered in a React portal
 const ProfileCardOverlay = ({
   card,
   onClose,
-  closeTimeoutRef,
 }: {
   card: OpenCardData;
   onClose: () => void;
-  closeTimeoutRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
 }) => {
   const { theme } = useTheme();
   const data = useProfileCardData(card.author, card.badges);
-
-  const cancelClose = useCallback(() => {
-    if (closeTimeoutRef.current) {
-      clearTimeout(closeTimeoutRef.current);
-      closeTimeoutRef.current = null;
-    }
-  }, [closeTimeoutRef]);
-
-  const scheduleClose = useCallback(() => {
-    closeTimeoutRef.current = setTimeout(onClose, 150);
-  }, [closeTimeoutRef, onClose]);
 
   const [portalContainer, setPortalContainer] = useState<Element | null>(null);
   useEffect(() => {
@@ -333,8 +357,6 @@ const ProfileCardOverlay = ({
         }}
       />
       <Pressable
-        onHoverIn={cancelClose}
-        onHoverOut={scheduleClose}
         style={[
           r.md,
           borders.width.thin,
@@ -364,20 +386,12 @@ export const ProfileCardProvider = ({
   children: React.ReactNode;
 }) => {
   const [openCard, setOpenCard] = useState<OpenCardData | null>(null);
-  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const value = useMemo(
-    () => ({ openCard, setOpenCard, closeTimeoutRef }),
-    [openCard],
-  );
+  const value = useMemo(() => ({ openCard, setOpenCard }), [openCard]);
   return (
     <OpenCardContext.Provider value={value}>
       {children}
       {openCard && Platform.OS === "web" && (
-        <ProfileCardOverlay
-          card={openCard}
-          onClose={() => setOpenCard(null)}
-          closeTimeoutRef={closeTimeoutRef}
-        />
+        <ProfileCardOverlay card={openCard} onClose={() => setOpenCard(null)} />
       )}
     </OpenCardContext.Provider>
   );
@@ -411,9 +425,8 @@ export const UserProfileCard = ({
     }
   }, [uri, author, badges, setOpenCard]);
 
-  // Native: self-contained DropdownMenu; rn-primitives renders it as a bottom sheet.
-  // All hook data is resolved here (in the regular tree) and passed as plain props
-  // so ProfileCardContent has no hooks to lose when inside the Modal.
+  // Native: use DropdownMenu for built-in positioning and interactions.
+  // * important ! all data must be computed outside the dropdown and passed in!
   if (Platform.OS !== "web") {
     return (
       <DropdownMenu>

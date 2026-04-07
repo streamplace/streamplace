@@ -17,6 +17,9 @@ type ChatProfile struct {
 }
 
 func (m *ChatProfile) ToStreamplaceChatProfile() (*streamplace.ChatProfile, error) {
+	if m == nil || m.Record == nil {
+		return nil, fmt.Errorf("chat profile is nil")
+	}
 	rec, err := lexutil.CborDecodeValue(*m.Record)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding feed post: %w", err)

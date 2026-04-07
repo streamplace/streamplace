@@ -48,17 +48,17 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 
 	// if user "self-labels" as a bot (in chat profile), add bot badge
 	chatProfile, err := m.GetChatProfile(ctx, userDID)
-	if err != nil {
-		log.Error(ctx, "failed to get chat profile", "err", err, "userDID", userDID)
+	if err != nil || chatProfile == nil {
+		return badges, nil
 	}
 	spChatProfile, err := chatProfile.ToStreamplaceChatProfile()
 
-	if err != nil {
-		log.Error(ctx, "failed to convert chat profile to streamplace format", "err", err, "userDID", userDID)
+	if err != nil || spChatProfile == nil {
+		return badges, nil
 	}
 
 	botLabel := constants.SelfLabelBot
-	if spChatProfile != nil && slices.Contains(spChatProfile.SelfLabels, &botLabel) {
+	if slices.Contains(spChatProfile.SelfLabels, &botLabel) {
 		badges = append(badges, &streamplace.BadgeDefs_BadgeView{
 			BadgeType: constants.BadgeTypeBot,
 			Issuer:    issuerDID,

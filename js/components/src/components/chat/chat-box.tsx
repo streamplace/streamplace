@@ -603,6 +603,7 @@ export function ChatBox({
           </Pressable>
           {!isPopout && (
             <Button
+              href={`/chat-popout/${linfo?.author?.did}`}
               variant="secondary"
               aria-label="Popout Chat"
               style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
@@ -610,7 +611,11 @@ export function ChatBox({
                 if (!linfo) return;
                 const u = new URL(window.location.href);
                 u.pathname = `/chat-popout/${linfo?.author?.did}`;
-                window.open(u.toString(), "_blank", "popup=true");
+                window.open(
+                  u.toString(),
+                  "_blank",
+                  "popup=true,width=480,height=600",
+                );
                 setIsChatVisible?.(false);
               }}
             >

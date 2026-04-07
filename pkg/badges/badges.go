@@ -2,6 +2,7 @@ package badges
 
 import (
 	"context"
+	"slices"
 
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
@@ -40,6 +41,26 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 	if len(delegations) > 0 {
 		badges = append(badges, &streamplace.BadgeDefs_BadgeView{
 			BadgeType: constants.BadgeTypeMod,
+			Issuer:    issuerDID,
+			Recipient: userDID,
+		})
+	}
+
+	// if user "self-labels" as a bot (in chat profile), add bot badge
+	chatProfile, err := m.GetChatProfile(ctx, userDID)
+	if err != nil {
+		log.Error(ctx, "failed to get chat profile", "err", err, "userDID", userDID)
+	}
+	spChatProfile, err := chatProfile.ToStreamplaceChatProfile()
+
+	if err != nil {
+		log.Error(ctx, "failed to convert chat profile to streamplace format", "err", err, "userDID", userDID)
+	}
+
+	botLabel := constants.SelfLabelBot
+	if spChatProfile != nil && slices.Contains(spChatProfile.SelfLabels, &botLabel) {
+		badges = append(badges, &streamplace.BadgeDefs_BadgeView{
+			BadgeType: constants.BadgeTypeBot,
 			Issuer:    issuerDID,
 			Recipient: userDID,
 		})

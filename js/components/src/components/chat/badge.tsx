@@ -6,6 +6,7 @@ export const BADGE_IMAGES: Record<string, ReturnType<typeof require>> = {
   "place.stream.badge.defs#mod": require("../../../assets/badges/mod_2x.png"),
   "place.stream.badge.defs#streamer": require("../../../assets/badges/live_2x.png"),
   "place.stream.badge.defs#vip": require("../../../assets/badges/vip_2x.png"),
+  "place.stream.badge.defs#bot": require("../../../assets/badges/robot_2x.png"),
 };
 
 export const Badge = ({

@@ -15,6 +15,8 @@ func init() {
 type ChatProfile struct {
 	LexiconTypeID string             `json:"$type" cborgen:"$type,const=place.stream.chat.profile"`
 	Color         *ChatProfile_Color `json:"color,omitempty" cborgen:"color,omitempty"`
+	// selfLabels: Self-applied labels for this profile, e.g. 'bot'.
+	SelfLabels []*string `json:"selfLabels,omitempty" cborgen:"selfLabels,omitempty"`
 }
 
 // ChatProfile_Color is a "color" in the place.stream.chat.profile schema.

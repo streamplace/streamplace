@@ -2,7 +2,6 @@ package badges
 
 import (
 	"context"
-	"slices"
 
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
@@ -57,13 +56,15 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 		return badges, nil
 	}
 
-	botLabel := constants.SelfLabelBot
-	if slices.Contains(spChatProfile.SelfLabels, &botLabel) {
-		badges = append(badges, &streamplace.BadgeDefs_BadgeView{
-			BadgeType: constants.BadgeTypeBot,
-			Issuer:    issuerDID,
-			Recipient: userDID,
-		})
+	for _, label := range spChatProfile.SelfLabels {
+		if *label == constants.SelfLabelBot {
+			log.Warn(ctx, "user self-labels as bot", "userDID", userDID)
+			badges = append(badges, &streamplace.BadgeDefs_BadgeView{
+				BadgeType: constants.BadgeTypeBot,
+				Issuer:    issuerDID,
+				Recipient: userDID,
+			})
+		}
 	}
 
 	// TODO: Add badge issuance records when implemented

@@ -27,7 +27,7 @@ import { useStore } from "store";
 import { useEmojiData } from "utils/emoji";
 const { borderRadius, gap, layout, flex, px, position, bottom } = zero;
 
-export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
+export function DesktopChatPanel({ chatVisible, chatPanelWidth, setShowChat }) {
   let insets = useSafeAreaInsets();
   let panelWidthWithInsets = chatPanelWidth;
   const sidebarOffset = useSharedValue(chatVisible ? 0 : panelWidthWithInsets);
@@ -109,7 +109,7 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
           >
             <StreamNotificationProvider position="top" />
           </Animated.View>
-          <ChatPanel />
+          <ChatPanel setShowChat={setShowChat} />
         </View>
       </Animated.View>
     </>
@@ -238,7 +238,7 @@ export function MobileChatPanel({
   );
 }
 
-function ChatPanel() {
+function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
   let agent = usePDSAgent();
 
   const navigation = useNavigation();
@@ -263,6 +263,7 @@ function ChatPanel() {
           <ChatBox
             emojiData={emojiData}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
+            setIsChatVisible={setShowChat ? (v) => setShowChat(v) : undefined}
             emojiPicker={(isOpen, onClose, onSelect) => (
               <EmojiPicker
                 isOpen={isOpen}

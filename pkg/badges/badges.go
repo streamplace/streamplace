@@ -45,6 +45,28 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 		})
 	}
 
+	// if user "self-labels" as a bot (in chat profile), add bot badge
+	chatProfile, err := m.GetChatProfile(ctx, userDID)
+	if err != nil || chatProfile == nil {
+		return badges, nil
+	}
+	spChatProfile, err := chatProfile.ToStreamplaceChatProfile()
+
+	if err != nil || spChatProfile == nil {
+		return badges, nil
+	}
+
+	for _, label := range spChatProfile.SelfLabels {
+		if *label == constants.SelfLabelBot {
+			log.Warn(ctx, "user self-labels as bot", "userDID", userDID)
+			badges = append(badges, &streamplace.BadgeDefs_BadgeView{
+				BadgeType: constants.BadgeTypeBot,
+				Issuer:    issuerDID,
+				Recipient: userDID,
+			})
+		}
+	}
+
 	// TODO: Add badge issuance records when implemented
 	// - Query place.stream.badge.issuance records for this user
 	// - Verify signatures if issuer is not the current node

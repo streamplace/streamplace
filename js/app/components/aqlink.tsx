@@ -1,4 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
+import { useDID } from "@streamplace/components";
 import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
 import { Pressable, StyleProp, ViewStyle } from "react-native";
@@ -42,6 +43,7 @@ export default function AQLink({
   const { isWeb } = usePlatform();
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const did = useDID();
   const { href } = useAQLinkHref(to);
 
   const getCurrentRoute = () => {
@@ -65,10 +67,22 @@ export default function AQLink({
     }
     // intercept login navigation and show modal instead
     if (to.screen === "Login") {
+      // if we're logged in, navigate to the settings page instead of showing the login modal
+      if (useDID()) {
+        navigation.navigate("MainTabs", {
+          screen: "SettingsTab",
+          params: { screen: "AccountCategory" },
+        });
+        return;
+      }
       console.log(
         "AQLink intercepting login navigation, current route:",
         getCurrentRoute(),
       );
+      if (openLoginModal === null) {
+        console.warn("openLoginModal is null, cannot open login modal");
+        return;
+      }
       openLoginModal(getCurrentRoute() as any);
       console.log(
         "AQLink login navigation intercepted, current route:",

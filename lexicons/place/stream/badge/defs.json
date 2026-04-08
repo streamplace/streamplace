@@ -11,7 +11,8 @@
           "type": "string",
           "knownValues": [
             "place.stream.badge.defs#mod",
-            "place.stream.badge.defs#streamer"
+            "place.stream.badge.defs#streamer",
+            "place.stream.badge.defs#bot"
           ]
         },
         "issuer": {
@@ -41,6 +42,10 @@
     "vip": {
       "type": "token",
       "description": "This user is a very important person."
+    },
+    "bot": {
+      "type": "token",
+      "description": "This user is a bot. Self-applied via place.stream.chat.profile selfLabels."
     }
   }
 }

@@ -12,6 +12,7 @@ import { useKeyboard } from "hooks/useKeyboard";
 import { useEffect, useState } from "react";
 import { Pressable, useWindowDimensions } from "react-native";
 import Animated, {
+  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -26,7 +27,7 @@ import { useStore } from "store";
 import { useEmojiData } from "utils/emoji";
 const { borderRadius, gap, layout, flex, px, position, bottom } = zero;
 
-export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
+export function DesktopChatPanel({ chatVisible, chatPanelWidth, setShowChat }) {
   let insets = useSafeAreaInsets();
   let panelWidthWithInsets = chatPanelWidth;
   const sidebarOffset = useSharedValue(chatVisible ? 0 : panelWidthWithInsets);
@@ -108,7 +109,7 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
           >
             <StreamNotificationProvider position="top" />
           </Animated.View>
-          <ChatPanel />
+          <ChatPanel setShowChat={setShowChat} />
         </View>
       </Animated.View>
     </>
@@ -170,22 +171,33 @@ function FixedChatPanel() {
 // MobileChatPanel.tsx
 export function MobileChatPanel({
   isPlayerRatioGreater,
+  portraitVideoTranslateY,
   fixed = false,
 }: {
   isPlayerRatioGreater: boolean;
+  portraitVideoTranslateY?: SharedValue<number>;
   fixed?: boolean;
 }) {
   const insets = useSafeAreaInsets();
 
+  console.log("porteaitVideoTranslateY", portraitVideoTranslateY);
+  // create fixed style
+  const fixedStyle = useAnimatedStyle(() => ({
+    marginTop: portraitVideoTranslateY ? portraitVideoTranslateY.value : 0,
+  }));
+
   if (fixed) {
     return (
-      <View
-        style={{
-          flex: 1,
-          width: "100%",
-          paddingBottom: insets.bottom,
-          position: "relative",
-        }}
+      <Animated.View
+        style={[
+          {
+            flex: 1,
+            width: "100%",
+            paddingBottom: insets.bottom,
+            position: "relative",
+          },
+          fixedStyle,
+        ]}
       >
         <View
           style={{
@@ -199,7 +211,7 @@ export function MobileChatPanel({
           <StreamNotificationProvider position="bottom" />
         </View>
         <FixedChatPanel />
-      </View>
+      </Animated.View>
     );
   }
 
@@ -226,7 +238,7 @@ export function MobileChatPanel({
   );
 }
 
-function ChatPanel() {
+function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
   let agent = usePDSAgent();
 
   const navigation = useNavigation();
@@ -251,6 +263,7 @@ function ChatPanel() {
           <ChatBox
             emojiData={emojiData}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
+            setIsChatVisible={setShowChat ? (v) => setShowChat(v) : undefined}
             emojiPicker={(isOpen, onClose, onSelect) => (
               <EmojiPicker
                 isOpen={isOpen}

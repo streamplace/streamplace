@@ -31,6 +31,7 @@ import {
   useCreateChatMessage,
   useLivestream,
   useLivestreamStore,
+  useProfile,
   useReplyToMessage,
   useSetReplyToMessage,
 } from "../../livestream-store";
@@ -92,6 +93,7 @@ export function ChatBox({
   const isOverLimit = graphemer.countGraphemes(message) > 300;
 
   let linfo = useLivestream();
+  const profile = useProfile();
 
   const { theme, zero: zt } = useTheme();
 
@@ -603,14 +605,21 @@ export function ChatBox({
           </Pressable>
           {!isPopout && (
             <Button
+              href={`/chat-popout/${linfo?.author?.did}`}
               variant="secondary"
               aria-label="Popout Chat"
               style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
               onPress={() => {
-                if (!linfo) return;
-                const u = new URL(window.location.href);
-                u.pathname = `/chat-popout/${linfo?.author?.did}`;
-                window.open(u.toString(), "_blank", "popup=true");
+                const did = linfo?.author?.did ?? profile?.did;
+                if (did) {
+                  const u = new URL(window.location.href);
+                  u.pathname = `/chat-popout/${did}`;
+                  window.open(
+                    u.toString(),
+                    "_blank",
+                    "popup=true,width=480,height=600",
+                  );
+                }
                 setIsChatVisible?.(false);
               }}
             >

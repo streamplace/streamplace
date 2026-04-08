@@ -17,12 +17,12 @@ View of a badge record, with fields resolved for display. If the DID in issuer i
 
 **Properties:**
 
-| Name        | Type     | Req'd | Description                                                         | Constraints                                                                     |
-| ----------- | -------- | ----- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `badgeType` | `string` | ✅    |                                                                     | Known Values: `place.stream.badge.defs#mod`, `place.stream.badge.defs#streamer` |
-| `issuer`    | `string` | ✅    | DID of the badge issuer.                                            | Format: `did`                                                                   |
-| `recipient` | `string` | ✅    | DID of the badge recipient.                                         | Format: `did`                                                                   |
-| `signature` | `string` | ❌    | TODO: Cryptographic signature of the badge (of a place.stream.key). |                                                                                 |
+| Name        | Type     | Req'd | Description                                                         | Constraints                                                                                                    |
+| ----------- | -------- | ----- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `badgeType` | `string` | ✅    |                                                                     | Known Values: `place.stream.badge.defs#mod`, `place.stream.badge.defs#streamer`, `place.stream.badge.defs#bot` |
+| `issuer`    | `string` | ✅    | DID of the badge issuer.                                            | Format: `did`                                                                                                  |
+| `recipient` | `string` | ✅    | DID of the badge recipient.                                         | Format: `did`                                                                                                  |
+| `signature` | `string` | ❌    | TODO: Cryptographic signature of the badge (of a place.stream.key). |                                                                                                                |
 
 ---
 
@@ -56,6 +56,16 @@ This user is a very important person.
 
 ---
 
+<a name="bot"></a>
+
+### `bot`
+
+**Type:** `token`
+
+This user is a bot. Self-applied via place.stream.chat.profile selfLabels.
+
+---
+
 ## Lexicon Source
 
 ```json
@@ -72,7 +82,8 @@ This user is a very important person.
           "type": "string",
           "knownValues": [
             "place.stream.badge.defs#mod",
-            "place.stream.badge.defs#streamer"
+            "place.stream.badge.defs#streamer",
+            "place.stream.badge.defs#bot"
           ]
         },
         "issuer": {
@@ -102,6 +113,10 @@ This user is a very important person.
     "vip": {
       "type": "token",
       "description": "This user is a very important person."
+    },
+    "bot": {
+      "type": "token",
+      "description": "This user is a bot. Self-applied via place.stream.chat.profile selfLabels."
     }
   }
 }

@@ -10,7 +10,7 @@ import {
 } from "@streamplace/components";
 import { useKeyboard } from "hooks/useKeyboard";
 import { useEffect, useState } from "react";
-import { Pressable, useWindowDimensions } from "react-native";
+import { Platform, Pressable, useWindowDimensions } from "react-native";
 import Animated, {
   SharedValue,
   useAnimatedStyle,
@@ -146,7 +146,10 @@ function FixedChatPanel() {
     borderRadius: withSpring(containerHeight > 0 ? 18 : 0, SpringSettings),
     transform: [
       {
-        translateY: withSpring(-kb.keyboardHeight, SpringSettings),
+        translateY:
+          Platform.OS === "web"
+            ? 0
+            : withSpring(-kb.keyboardHeight, SpringSettings),
       },
     ],
   }));
@@ -163,6 +166,17 @@ function FixedChatPanel() {
         ]}
       >
         <ChatPanel />
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 2,
+          }}
+        >
+          <StreamNotificationProvider position="top" />
+        </View>
       </Animated.View>
     </View>
   );
@@ -199,17 +213,6 @@ export function MobileChatPanel({
           fixedStyle,
         ]}
       >
-        <View
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            pointerEvents: "none",
-          }}
-        >
-          <StreamNotificationProvider position="bottom" />
-        </View>
         <FixedChatPanel />
       </Animated.View>
     );

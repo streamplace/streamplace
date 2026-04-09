@@ -21,6 +21,7 @@ import { Settings } from "components";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
 import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
+import { MobileAppBanner } from "components/mobile-app-banner";
 import { AboutCategorySettings } from "components/settings/about-category-settings";
 import { AccountCategorySettings } from "components/settings/account-category-settings";
 import { AdvancedCategorySettings } from "components/settings/advanced-category-settings";
@@ -507,9 +508,10 @@ export default function Shell() {
   }
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <StatusBar barStyle="light-content" />
       {!isNative && <SidebarOverlay />}
+      {!isNative && <MobileAppBanner />}
       <Animated.View style={[{ flex: 1 }, animatedContentStyle]}>
         <RootStack.Navigator
           screenOptions={{
@@ -589,6 +591,6 @@ export default function Shell() {
           loginAction(pdsHost, openLoginLink);
         }}
       />
-    </>
+    </View>
   );
 }

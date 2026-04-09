@@ -1,6 +1,6 @@
 import { responsiveValue } from "@streamplace/components/src/lib/utils";
 import { useMemo } from "react";
-import { useWindowDimensions } from "react-native";
+import { Platform, useWindowDimensions } from "react-native";
 import { SharedValue } from "react-native-reanimated";
 
 export interface ResponsiveLayoutConfig {
@@ -37,7 +37,12 @@ export function useResponsiveLayout({
     showChatSidePanelOnLandscape,
   ]);
 
-  const isLandscape = screenWidth > screenHeight;
+  const isLandscape = useMemo(() => {
+    if (Platform.OS === "web" && typeof screen !== "undefined") {
+      return screen.width > screen.height;
+    }
+    return screenWidth > screenHeight;
+  }, [screenWidth, screenHeight]);
   const shouldShowChatSidePanel =
     isLandscape && screenWidth >= 768 && showChatSidePanelOnLandscape;
 

@@ -37,7 +37,10 @@ export const UserOffline = memo(() => {
 
   const { isSmallScreen, isLandscape, useCompactLayout } = useMemo(() => {
     const isSmall = width < 1250;
-    const isLand = width > height;
+    const isLand =
+      Platform.OS === "web" && typeof screen !== "undefined"
+        ? screen.width > screen.height
+        : width > height;
     return {
       isSmallScreen: isSmall,
       isLandscape: isLand,

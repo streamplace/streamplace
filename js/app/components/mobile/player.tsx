@@ -22,7 +22,7 @@ import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import { ArrowLeft, ArrowRight } from "lucide-react-native";
-import { ComponentRef, useEffect, useRef, useState } from "react";
+import { ComponentRef, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
   ScrollView,
@@ -80,7 +80,12 @@ function PlayerWithProvider(
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const { top: safeTop } = useSafeAreaInsets();
   const segDims = useSegmentDimensions();
-  const isPortrait = screenHeight > screenWidth;
+  const isPortrait = useMemo(() => {
+    if (Platform.OS === "web" && typeof screen !== "undefined") {
+      return screen.height > screen.width;
+    }
+    return screenHeight > screenWidth;
+  }, [screenWidth, screenHeight]);
   const portraitFadeOpacity = useSharedValue(1);
   const portraitVideoTranslateY = useDerivedValue(
     () => (portraitFadeOpacity.value - 1) * 20,

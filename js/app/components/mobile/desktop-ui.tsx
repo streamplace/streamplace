@@ -95,12 +95,13 @@ export function DesktopUi({
     setIsControlsVisible(true);
 
     if (selectedRendition === "audio") return;
+    if (ingest !== null) return;
 
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(0, { duration: 400 });
       setIsControlsVisible(false);
     }, FADE_OUT_DELAY);
-  }, [fadeOpacity, selectedRendition]);
+  }, [fadeOpacity, selectedRendition, ingest]);
 
   const onPlayerHover = useCallback(() => {
     resetFadeTimer();

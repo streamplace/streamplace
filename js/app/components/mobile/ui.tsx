@@ -127,6 +127,7 @@ export function MobileUi({
     fadeOpacity.value = withTiming(1, { duration: 200 });
     if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
     if (selectedRendition === "audio") return;
+    if (ingest !== null) return;
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(0, { duration: 400 });
     }, FADE_OUT_DELAY);

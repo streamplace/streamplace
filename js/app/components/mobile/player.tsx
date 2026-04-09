@@ -503,7 +503,7 @@ export function PlayerInner(
             {showFullDesktopMode || fullscreen ? (
               <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
             ) : (
-              isLandscape && (
+              (isLandscape || !!props.ingest) && (
                 <MobileUi
                   setShowChat={props.setShowChat}
                   showChat={props.showChat}

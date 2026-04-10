@@ -70,8 +70,6 @@ const segmentedObject = (
       const profile = userCache?.[mtnftr.did];
       return (
         <Pressable
-          // @ts-ignore renders as <a> on web
-          href={linkftr.uri}
           key={`mention-${index}`}
           style={[{ cursor: "pointer" }]}
           onPress={() =>
